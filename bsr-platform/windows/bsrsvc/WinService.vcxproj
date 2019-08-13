@@ -14,7 +14,7 @@
     <SccProjectName />
     <SccLocalPath />
     <ProjectGuid>{B1745FFC-7872-4E53-ABCB-67B2B24056C6}</ProjectGuid>
-    <ProjectName>wdrbd_service</ProjectName>
+    <ProjectName>bsrsvc</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

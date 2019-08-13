@@ -90,6 +90,7 @@
     <Configuration>Win8.1 Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
     <RootNamespace>wdrbd9</RootNamespace>
+    <ProjectName>bsrvflt</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'" Label="Configuration">
@@ -862,37 +863,35 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\drbd-headers\drbd_strings.c" />
-    <ClCompile Include="..\drbd\drbd_actlog.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server2008 Debug|x64'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\drbd\drbd_bitmap.c" />
-    <ClCompile Include="..\drbd\drbd_buildtag.c" />
-    <ClCompile Include="..\drbd\drbd_debugfs.c" />
-    <ClCompile Include="..\drbd\drbd_interval.c" />
-    <ClCompile Include="..\drbd\drbd_kref_debug.c" />
-    <ClCompile Include="..\drbd\drbd_main.c" />
-    <ClCompile Include="..\drbd\drbd_nl.c" />
-    <ClCompile Include="..\drbd\drbd_nla.c" />
-    <ClCompile Include="..\drbd\drbd_proc.c" />
-    <ClCompile Include="..\drbd\drbd_receiver.c" />
-    <ClCompile Include="..\drbd\drbd_req.c" />
-    <ClCompile Include="..\drbd\drbd_sender.c" />
-    <ClCompile Include="..\drbd\drbd_state.c" />
-    <ClCompile Include="..\drbd\drbd_transport.c" />
-    <ClCompile Include="..\drbd\drbd_transport_tcp.c" />
-    <ClCompile Include="..\drbd\kref_debug.c" />
-    <ClCompile Include="..\drbd\lru_cache.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\Attr.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\hweight.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\idr.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\netlink.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.c" />
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_actlog.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_bitmap.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_buildtag.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_debugfs.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_interval.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_kref_debug.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_main.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_nl.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_nla.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_proc.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_receiver.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_req.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_sender.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_state.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_strings.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_transport.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c" />
+    <ClCompile Include="..\..\..\bsr\drbd_transport_template.c" />
+    <ClCompile Include="..\..\..\bsr\kref_debug.c" />
+    <ClCompile Include="..\..\..\bsr\lru_cache.c" />
     <ClCompile Include="data.c" />
     <ClCompile Include="disp.c" />
     <ClCompile Include="drbd_windows.c" />
-    <ClCompile Include="linux-compat\Attr.c" />
-    <ClCompile Include="linux-compat\hweight.c" />
-    <ClCompile Include="linux-compat\idr.c" />
-    <ClCompile Include="linux-compat\netlink.c" />
-    <ClCompile Include="linux-compat\rbtree.c" />
-    <ClCompile Include="linux-compat\seq_file.c" />
     <ClCompile Include="ops.c" />
     <ClCompile Include="send_buf.c" />
     <ClCompile Include="sub.c" />
@@ -901,37 +900,43 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <ClCompile Include="wsk2.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\drbd\drbd_debugfs.h" />
-    <ClInclude Include="..\drbd\drbd_int.h" />
-    <ClInclude Include="..\drbd\drbd_interval.h" />
-    <ClInclude Include="..\drbd\drbd_kref_debug.h" />
-    <ClInclude Include="..\drbd\drbd_nla.h" />
-    <ClInclude Include="..\drbd\drbd_req.h" />
-    <ClInclude Include="..\drbd\drbd_state.h" />
-    <ClInclude Include="..\drbd\drbd_state_change.h" />
-    <ClInclude Include="..\drbd\drbd_vli.h" />
-    <ClInclude Include="..\drbd\kref_debug.h" />
-    <ClInclude Include="..\drbd\linux\drbd_config.h" />
-    <ClInclude Include="..\drbd\linux\genl_magic_func-genl_register_family_with_ops_groups.h" />
-    <ClInclude Include="..\drbd\linux\genl_magic_func-genl_register_mc_group.h" />
-    <ClInclude Include="..\drbd\linux\lru_cache.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Backing-dev.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Bitops.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_endian.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\hweight.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\idr.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\jiffies.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Kernel.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\list.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\sched.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\spinlock.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Wait.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\drbd_config.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\dynamic_debug.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_family_with_ops_groups.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_mc_group.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\hardirq.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\lru_cache.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\memcontrol.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\mutex.h" />
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\tracepoint.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_debugfs.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_int.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_interval.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_kref_debug.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_nla.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_req.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_state.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_state_change.h" />
+    <ClInclude Include="..\..\..\bsr\drbd_vli.h" />
+    <ClInclude Include="..\..\..\bsr\kref_debug.h" />
     <ClInclude Include="comm.h" />
     <ClInclude Include="disp.h" />
     <ClInclude Include="drbd_windows.h" />
     <ClInclude Include="drbd_wingenl.h" />
-    <ClInclude Include="linux-compat\Backing-dev.h" />
-    <ClInclude Include="linux-compat\Bitops.h" />
-    <ClInclude Include="linux-compat\drbd_endian.h" />
-    <ClInclude Include="linux-compat\hweight.h" />
-    <ClInclude Include="linux-compat\idr.h" />
-    <ClInclude Include="linux-compat\jiffies.h" />
-    <ClInclude Include="linux-compat\Kernel.h" />
-    <ClInclude Include="linux-compat\list.h" />
-    <ClInclude Include="linux-compat\rbtree.h" />
-    <ClInclude Include="linux-compat\sched.h" />
-    <ClInclude Include="linux-compat\seq_file.h" />
-    <ClInclude Include="linux-compat\spinlock.h" />
-    <ClInclude Include="linux-compat\Wait.h" />
     <ClInclude Include="mvolmsg.h" />
     <ClInclude Include="mvolse.h" />
     <ClInclude Include="proto.h" />

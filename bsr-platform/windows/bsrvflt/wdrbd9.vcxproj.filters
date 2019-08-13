@@ -17,20 +17,20 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
-    <Filter Include="Source Files\drbd">
-      <UniqueIdentifier>{d27a75d4-d629-4ec7-90df-c531c6ef64a0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\drbd">
-      <UniqueIdentifier>{fedb00aa-357f-477d-afbc-937e6f2defb8}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\linux-compat">
       <UniqueIdentifier>{3b44d30e-dca5-4d94-861e-9531ea01d734}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\linux-compat">
       <UniqueIdentifier>{debe8a57-48bc-4e63-8e07-5c7da3ec1f2a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\drbd\linux">
+    <Filter Include="Header Files\bsr">
+      <UniqueIdentifier>{fedb00aa-357f-477d-afbc-937e6f2defb8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\bsr\linux">
       <UniqueIdentifier>{74500581-b928-4cda-9506-9f823cdf48d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\bsr">
+      <UniqueIdentifier>{d27a75d4-d629-4ec7-90df-c531c6ef64a0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -61,80 +61,83 @@
     <ClCompile Include="drbd_windows.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_actlog.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_actlog.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_bitmap.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_bitmap.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_debugfs.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_buildtag.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_interval.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_debugfs.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_kref_debug.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_interval.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_main.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_kref_debug.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_nl.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_main.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_nla.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_nl.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_proc.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_nla.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_receiver.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_proc.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_req.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_receiver.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_sender.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_req.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_state.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_sender.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_transport.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_state.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\drbd_transport_tcp.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_strings.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\kref_debug.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_transport.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\drbd\lru_cache.c">
-      <Filter>Source Files\drbd</Filter>
+    <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c">
+      <Filter>Source Files\bsr</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\seq_file.c">
+    <ClCompile Include="..\..\..\bsr\drbd_transport_template.c">
+      <Filter>Source Files\bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\kref_debug.c">
+      <Filter>Source Files\bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\lru_cache.c">
+      <Filter>Source Files\bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\Attr.c">
       <Filter>Source Files\linux-compat</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\rbtree.c">
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\hweight.c">
       <Filter>Source Files\linux-compat</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\idr.c">
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\idr.c">
       <Filter>Source Files\linux-compat</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\netlink.c">
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\netlink.c">
       <Filter>Source Files\linux-compat</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\Attr.c">
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.c">
       <Filter>Source Files\linux-compat</Filter>
     </ClCompile>
-    <ClCompile Include="linux-compat\hweight.c">
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.c">
       <Filter>Source Files\linux-compat</Filter>
-    </ClCompile>
-    <ClCompile Include="..\drbd\drbd_buildtag.c">
-      <Filter>Source Files\drbd</Filter>
-    </ClCompile>
-    <ClCompile Include="..\drbd-headers\drbd_strings.c">
-      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -143,54 +146,6 @@
     </ClInclude>
     <ClInclude Include="drbd_wingenl.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_debugfs.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_interval.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_kref_debug.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_nla.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_int.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_req.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_state.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_state_change.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\drbd_vli.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\kref_debug.h">
-      <Filter>Header Files\drbd</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\seq_file.h">
-      <Filter>Header Files\linux-compat</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\idr.h">
-      <Filter>Header Files\linux-compat</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\jiffies.h">
-      <Filter>Header Files\linux-compat</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\rbtree.h">
-      <Filter>Header Files\linux-compat</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\sched.h">
-      <Filter>Header Files\linux-compat</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\list.h">
-      <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="proto.h">
       <Filter>Header Files</Filter>
@@ -213,37 +168,103 @@
     <ClInclude Include="wsk2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\Kernel.h">
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\drbd_config.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\dynamic_debug.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_family_with_ops_groups.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_mc_group.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\hardirq.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\lru_cache.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\memcontrol.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\mutex.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\tracepoint.h">
+      <Filter>Header Files\bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_debugfs.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_int.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_interval.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_kref_debug.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_nla.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_req.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_state.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_state_change.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\drbd_vli.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\kref_debug.h">
+      <Filter>Header Files\bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Backing-dev.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="..\drbd\linux\drbd_config.h">
-      <Filter>Header Files\drbd\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\linux\genl_magic_func-genl_register_family_with_ops_groups.h">
-      <Filter>Header Files\drbd\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\linux\genl_magic_func-genl_register_mc_group.h">
-      <Filter>Header Files\drbd\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\drbd\linux\lru_cache.h">
-      <Filter>Header Files\drbd\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="linux-compat\hweight.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Bitops.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\Backing-dev.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_endian.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\Wait.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\hweight.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\spinlock.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\idr.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\drbd_endian.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\jiffies.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
-    <ClInclude Include="linux-compat\Bitops.h">
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Kernel.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\list.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\sched.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\spinlock.h">
+      <Filter>Header Files\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Wait.h">
       <Filter>Header Files\linux-compat</Filter>
     </ClInclude>
   </ItemGroup>
