@@ -1,9 +1,9 @@
 ﻿#ifndef DRBD_TRANSPORT_H
 #define DRBD_TRANSPORT_H
 #ifdef _WIN32
-#include "linux-compat/list.h"
-#include "linux-compat/wait.h"
-#include "drbd_windows.h"
+#include "./windows/linux-compat/list.h"
+#include "./windows/linux-compat/wait.h"
+#include "./windows/linux-compat/drbd_windows.h"
 #else
 #include <linux/kref.h>
 #include <linux/list.h>

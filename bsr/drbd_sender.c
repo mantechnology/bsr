@@ -23,10 +23,10 @@
 
 */
 #ifdef _WIN32
-#include "windows/drbd.h"
-#include <linux-compat/sched.h>
-#include <linux-compat/wait.h>
-#include <drbd_windows.h>
+#include "../bsr-headers/windows/drbd.h"
+#include "../bsr-headers/windows/linux-compat/sched.h"
+#include "../bsr-headers/windows/linux-compat/wait.h"
+#include "../bsr-headers/windows/linux-compat/drbd_windows.h"
 #else
 #include <linux/module.h>
 #include <linux/drbd.h>
@@ -40,7 +40,7 @@
 #include <linux/scatterlist.h>
 #endif
 #include "drbd_int.h"
-#include "drbd_protocol.h"
+#include "../bsr-headers/drbd_protocol.h"
 #include "drbd_req.h"
 
 #ifdef _WIN32

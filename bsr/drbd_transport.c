@@ -1,13 +1,13 @@
 ﻿#define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #ifdef _WIN32
-#include "linux-compat/spinlock.h"
+#include "../bsr-headers/windows/linux-compat/spinlock.h"
 #else
 #include <linux/spinlock.h>
 #include <linux/module.h>
 #include <net/ipv6.h>
 #endif
-#include <drbd_transport.h>
-#include <drbd_int.h>
+#include "../bsr-headers/drbd_transport.h"
+#include "drbd_int.h"
 
 #ifdef _WIN32
 /* DW-1587

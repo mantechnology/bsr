@@ -14,7 +14,7 @@
 #endif
 
 #ifdef _WIN32
-#include "windows/types.h"
+#include "../windows/types.h"
 #ifndef inline
 #define inline __inline
 #endif

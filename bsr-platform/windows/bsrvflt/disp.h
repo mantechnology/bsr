@@ -22,8 +22,8 @@
 
 #include <mountdev.h>
 #include "mvolse.h"
-#include "windows/ioctl.h"
-#include "windows/drbd.h"
+#include "../../../bsr-headers/windows/ioctl.h"
+#include "../../../bsr-headers/windows/drbd.h"
 
 #define	MVOL_IOCOMPLETE_REQ(Irp, status, size)		\
 {							\

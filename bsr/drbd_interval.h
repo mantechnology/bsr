@@ -3,8 +3,8 @@
 
 #ifdef _WIN32
 //#pragma warning (disable : 4067)
-#include "windows/types.h"
-#include "linux-compat/rbtree.h"
+#include "../bsr-headers/windows/types.h"
+#include "../bsr-headers/windows/linux-compat/rbtree.h"
 #define inline __inline
 #else
 #include <linux/version.h>

@@ -25,9 +25,9 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
 #ifdef _WIN32
-#include "linux-compat/bitops.h"
-#include "windows/drbd.h"
-#include "linux-compat/drbd_endian.h"
+#include "../../../bsr-headers/windows/linux-compat/bitops.h"
+#include "../../../bsr-headers/windows/drbd.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
 #else
 #include <linux/bitops.h>
 #include <linux/vmalloc.h>
@@ -42,7 +42,7 @@
 
 /* See the ifdefs and comments inside that header file.
  * On recent kernels this is not needed. */
-#include "drbd-kernel-compat/bitops.h"
+#include "bsr-kernel-compat/bitops.h"
 
 #ifndef BITS_PER_PAGE
 #define BITS_PER_PAGE		(1UL << (PAGE_SHIFT + 3))

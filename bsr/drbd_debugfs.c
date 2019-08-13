@@ -1,7 +1,7 @@
 ﻿#define pr_fmt(fmt)	KBUILD_MODNAME " debugfs: " fmt
 #ifdef _WIN32
-#include "linux-compat/seq_file.h"
-#include "linux-compat/jiffies.h"
+#include "../bsr-headers/windows/linux-compat/seq_file.h"
+#include "../bsr-headers/windows/linux-compat/jiffies.h"
 #else
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,7 +14,7 @@
 #include "drbd_int.h"
 #include "drbd_req.h"
 #include "drbd_debugfs.h"
-#include "drbd_transport.h"
+#include "../bsr-headers/drbd_transport.h"
 
 
 /**********************************************************************

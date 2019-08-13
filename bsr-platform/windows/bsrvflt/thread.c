@@ -19,7 +19,7 @@
 
 #include <Ntifs.h>
 #include <wdm.h>
-#include "drbd_windows.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
 #include "proto.h"
 
 

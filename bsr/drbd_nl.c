@@ -25,15 +25,15 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "../bsr-headers/windows/drbd.h"
 #define		ERR_LOCAL_AND_PEER_ADDR 173	
 #include "drbd_int.h"
-#include "drbd_protocol.h"
+#include "../bsr-headers/drbd_protocol.h"
 #include "drbd_req.h"
 #include "drbd_state_change.h"
 #include "drbd_debugfs.h"
-#include "drbd_transport.h"
-#include "linux/drbd_limits.h"
+#include "../bsr-headers/drbd_transport.h"
+#include "../bsr-headers/linux/drbd_limits.h"
 #include "Proto.h"
 #else
 #include <linux/module.h>
@@ -128,9 +128,9 @@ int drbd_adm_get_initial_state_done(struct netlink_callback *cb);
 KSTART_ROUTINE _try_outdate_peer_async;
 #endif
 
-#include <linux/drbd_genl_api.h>
+#include "../bsr-headers/linux/drbd_genl_api.h"
 #include "drbd_nla.h"
-#include <linux/genl_magic_func.h>
+#include "../bsr-headers/linux/genl_magic_func.h"
 
 atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
 

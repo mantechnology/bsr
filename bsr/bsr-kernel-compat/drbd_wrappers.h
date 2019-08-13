@@ -2,12 +2,12 @@
 #define _DRBD_WRAPPERS_H
 
 #ifdef _WIN32
-#include "linux-compat/rbtree.h"
-#include "linux-compat/idr.h"
-#include "drbd_wingenl.h"
-#include "drbd_windows.h"
+#include "../../bsr-headers/windows/linux-compat/rbtree.h"
+#include "../../bsr-headers/windows/linux-compat/idr.h"
+#include "../../bsr-headers/windows/linux-compat/drbd_wingenl.h"
+#include "../../bsr-headers/windows/linux-compat/drbd_windows.h"
 
-#include "linux-compat/Backing-dev.h"
+#include "../../bsr-headers/windows/linux-compat/Backing-dev.h"
 #include "wsk2.h"
 #else
 #include <linux/version.h>

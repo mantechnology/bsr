@@ -1,9 +1,9 @@
 ﻿#include "drbd_windows.h"
 #include "wsk2.h"
 #include "drbd_wingenl.h"
-#include "linux-compat/idr.h"
-#include "Drbd_int.h"
-#include "../../drbd/drbd_nla.h"
+#include "idr.h"
+#include "../../../bsr/drbd_int.h"
+#include "../../../bsr/drbd_nla.h"
 
 #ifdef _WIN32
 /* DW-1587

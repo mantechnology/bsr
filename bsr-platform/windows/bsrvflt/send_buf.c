@@ -17,15 +17,15 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include "drbd_windows.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
 #include "wsk2.h"
-#include "drbd_wingenl.h"
-#include "linux-compat/drbd_endian.h"
-#include "linux-compat/idr.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_wingenl.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "../../../bsr-headers/windows/linux-compat/idr.h"
 #include "disp.h" 
-#include "drbd_int.h"
+#include "../../../bsr/drbd_int.h"
 #include "send_buf.h"	
-#include <linux/drbd_limits.h>
+#include "../../../bsr-headers/linux/drbd_limits.h"
 
 #ifdef _WIN32
 /* DW-1587

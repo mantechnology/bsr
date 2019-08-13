@@ -1,8 +1,8 @@
 ﻿#ifndef __WAIT_H__
 #define __WAIT_H__
 #include <wdm.h>
-#include "linux-compat/list.h"
-#include "linux-compat/spinlock.h"
+#include "../../../bsr-headers/windows/linux-compat/list.h"
+#include "../../../bsr-headers/windows/linux-compat/spinlock.h"
 
 typedef struct _wait_queue
 {

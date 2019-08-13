@@ -24,12 +24,12 @@
 #include <stdint.h>
 #include <ntstrsafe.h>
 #include <stdbool.h>
-#include "linux-compat/list.h"
-#include "linux-compat/Wait.h"
-#include "linux-compat/drbd_endian.h"
-#include "windows/types.h"
+#include "../../../bsr-headers/windows/linux-compat/list.h"
+#include "../../../bsr-headers/windows/linux-compat/Wait.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "../../../bsr-headers/windows/types.h"
 #include "mvolmsg.h"
-#include "../drbdlock/drbdlock_comm.h"
+#include "../bsrfsflt/drbdlock_comm.h"
 
 #include "disp.h"
 

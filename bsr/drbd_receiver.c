@@ -23,14 +23,14 @@
  */
 
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "../bsr-headers/windows/drbd.h"
 #include "drbd_int.h"
-#include "drbd_protocol.h"
+#include "../bsr-headers/drbd_protocol.h"
 #include "drbd_req.h"
 #include "drbd_vli.h"
-#include <linux-compat/list.h>
-#include <drbd_transport.h>
-#include <drbd_windows.h>
+#include "../bsr-headers/windows/linux-compat/list.h"
+#include "../bsr-headers/drbd_transport.h"
+#include "../bsr-headers/windows/linux-compat/drbd_windows.h"
 #else
 #include <linux/module.h>
 
@@ -11105,7 +11105,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 {
 	struct drbd_connection *connection = thi->connection;
 	struct meta_sock_cmd *cmd = NULL;
-	struct packet_info pi;
+	struct packet_info pi = { 0, };
 #ifdef _WIN32
     ULONG_PTR pre_recv_jif;
 #else

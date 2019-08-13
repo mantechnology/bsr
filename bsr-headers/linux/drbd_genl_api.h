@@ -1,7 +1,7 @@
 ﻿#ifndef DRBD_GENL_STRUCT_H
 #define DRBD_GENL_STRUCT_H
 #ifdef _WIN32
-#include "windows/types.h"
+#include "../windows/types.h"
 #endif
 
 /**
@@ -33,15 +33,22 @@ enum {
 /* hack around predefined gcc/cpp "linux=1",
  * we cannot possibly include <1/drbd_genl.h> */
 #undef linux
+
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "../windows/drbd.h"
 #else
 #include <linux/drbd.h>
 #endif
+
 #define GENL_MAGIC_VERSION	2
 #define GENL_MAGIC_FAMILY	drbd
 #define GENL_MAGIC_FAMILY_HDRSZ	sizeof(struct drbd_genlmsghdr)
+#ifdef _WIN32
+#define GENL_MAGIC_INCLUDE_FILE "drbd_genl.h" // TODO: linux 경로 인식 문제로 컴파일을 위해 임시 경로로 대치: linux/drbd_genl.h -> drbd_genl.h
+#include "genl_magic_struct.h"
+#else
 #define GENL_MAGIC_INCLUDE_FILE <linux/drbd_genl.h>
 #include <linux/genl_magic_struct.h>
+#endif
 
 #endif

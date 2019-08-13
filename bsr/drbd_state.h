@@ -1,7 +1,7 @@
 ﻿#ifndef DRBD_STATE_H
 #define DRBD_STATE_H
 
-#include "drbd_protocol.h"
+#include "../bsr-headers/drbd_protocol.h"
 
 struct drbd_resource;
 struct drbd_device;

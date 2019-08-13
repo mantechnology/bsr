@@ -24,8 +24,8 @@
 #include "drbd_windows.h"
 #include "wsk2.h"
 #include "drbd_wingenl.h"
-#include "linux-compat/idr.h"
-#include "../drbd/drbd-kernel-compat/drbd_wrappers.h"
+#include "../../../bsr-headers/windows/linux-compat/idr.h"
+#include "../../../bsr/bsr-kernel-compat/drbd_wrappers.h"
 #include "disp.h"
 #include "proto.h"
 
@@ -818,7 +818,7 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 	return len;
 }
 
-#include "drbd_int.h"
+#include "../../../bsr/drbd_int.h"
 
 long IS_ERR_OR_NULL(const void *ptr)
 {

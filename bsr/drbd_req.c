@@ -23,7 +23,7 @@
 
  */
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "../bsr-headers/windows/drbd.h"
 #include "drbd_int.h"
 #include "drbd_req.h"
 #else

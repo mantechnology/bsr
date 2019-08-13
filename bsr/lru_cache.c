@@ -23,9 +23,9 @@
 
  */
 #ifdef _WIN32
-#include "linux-compat/bitops.h"
-#include "linux-compat/seq_file.h" /* for seq_printf */
-#include "linux/lru_cache.h"
+#include "../bsr-headers/windows/linux-compat/bitops.h"
+#include "../bsr-headers/windows/linux-compat/seq_file.h" /* for seq_printf */
+#include "./bsr-kernel-compat/linux/lru_cache.h"
 #else
 #include <linux/module.h>
 #include <linux/bitops.h>
@@ -34,7 +34,7 @@
 #include <linux/seq_file.h> /* for seq_printf */
 #include <linux/lru_cache.h>
 #endif
-#include "./drbd-kernel-compat/drbd_wrappers.h"
+#include "./bsr-kernel-compat/drbd_wrappers.h"
 
 #pragma warning (disable: 6053 28719)
 // MODIFIED_BY_MANTECH DW-1513 : Output LRU status like lc_seq_printf_stats function

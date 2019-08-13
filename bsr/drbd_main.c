@@ -35,9 +35,9 @@
  */
 #pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
-#include "windows/drbd.h"
-#include "linux-compat/drbd_endian.h"
-#include <linux-compat/Kernel.h>
+#include "../bsr-headers/windows/drbd.h"
+#include "../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "../bsr-headers/windows/linux-compat/kernel.h"
 #else
 #include <linux/module.h>
 #include <linux/jiffies.h>
@@ -65,16 +65,18 @@
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 #endif
-#include <linux/drbd_limits.h>
+
+#include "../bsr-headers/linux/drbd_limits.h"
 #include "drbd_int.h"
-#include "drbd_protocol.h"
+#include "../bsr-headers/drbd_protocol.h"
 #include "drbd_req.h" /* only for _req_mod in tl_release and tl_clear */
 #include "drbd_vli.h"
+
 #ifdef _WIN32_SEND_BUFFING
 #include "send_buf.h"		
 #endif
 #include "drbd_debugfs.h"
-#include "drbd_meta_data.h"
+#include "../bsr-headers/drbd_meta_data.h"
 #ifndef _WIN32 
 #ifdef COMPAT_HAVE_LINUX_BYTEORDER_SWABB_H
 #include <linux/byteorder/swabb.h>

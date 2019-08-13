@@ -1,7 +1,7 @@
 ﻿#ifndef GENL_MAGIC_FUNC_H
 #define GENL_MAGIC_FUNC_H
 
-#include <linux/genl_magic_struct.h>
+#include "genl_magic_struct.h"
 
 /*
  * Magic: declare tla policy						{{{1
@@ -305,7 +305,8 @@ static struct genl_family ZZZ_genl_family;
     defined(COMPAT_HAVE_GENL_FAMILY_IN_GENLMSG_MULTICAST)
 #include <linux/genl_magic_func-genl_register_family_with_ops_groups.h>
 #else
-#include <linux/genl_magic_func-genl_register_mc_group.h>
+//#include <linux/genl_magic_func-genl_register_mc_group.h>
+#include "../../bsr/bsr-kernel-compat/linux/genl_magic_func-genl_register_mc_group.h"
 #endif
 
 static struct genl_family ZZZ_genl_family __read_mostly = {

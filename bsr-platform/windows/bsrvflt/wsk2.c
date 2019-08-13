@@ -1,5 +1,5 @@
 ﻿
-#include "drbd_windows.h"
+#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
 #include "wsk2.h"
 
 /* DW-1587 

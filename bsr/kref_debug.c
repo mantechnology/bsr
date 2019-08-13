@@ -1,14 +1,14 @@
 ﻿
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #ifdef _WIN32
-#include "linux-compat/spinlock.h"
-#include "linux-compat/seq_file.h"
+#include "../bsr-headers/windows/linux-compat/spinlock.h"
+#include "../bsr-headers/windows/linux-compat/seq_file.h"
 #else
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>
 #include <linux/kref.h>
 #endif
-#include "./drbd-kernel-compat/drbd_wrappers.h"
+#include "./bsr-kernel-compat/drbd_wrappers.h"
 #include "kref_debug.h"
 
 #ifdef _WIN32

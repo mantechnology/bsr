@@ -1,18 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="bsr">
       <UniqueIdentifier>{fedb00aa-357f-477d-afbc-937e6f2defb8}</UniqueIdentifier>
     </Filter>
@@ -28,35 +16,21 @@
     <Filter Include="bsr-headers\windows\linux-compat">
       <UniqueIdentifier>{3b44d30e-dca5-4d94-861e-9531ea01d734}</UniqueIdentifier>
     </Filter>
+    <Filter Include="bsr-platform">
+      <UniqueIdentifier>{b1005db4-ca99-457c-b380-136ea4d73c97}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr-platform\windows">
+      <UniqueIdentifier>{90437f43-4dc6-4ce2-9f76-e4535b42b157}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr-platform\windows\bsrvflt">
+      <UniqueIdentifier>{cd29a65f-e402-401d-b6bd-ed6f06c0aebf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr-platform\windows\bsrvflt\Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="data.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="disp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ops.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="send_buf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="sub.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="thread.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="util.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wsk2.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="drbd_windows.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_actlog.c">
       <Filter>bsr</Filter>
     </ClCompile>
@@ -105,9 +79,6 @@
     <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c">
       <Filter>bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_transport_template.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\bsr\kref_debug.c">
       <Filter>bsr</Filter>
     </ClCompile>
@@ -135,35 +106,35 @@
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.c">
       <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
+    <ClCompile Include="data.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="disp.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="ops.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="send_buf.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="sub.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="thread.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="util.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="wsk2.c">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\drbd_windows.c">
+      <Filter>bsr-headers\windows\linux-compat</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="drbd_windows.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="drbd_wingenl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="proto.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="comm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="disp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="mvolmsg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="mvolse.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="send_buf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="wsk2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h">
       <Filter>bsr\linux</Filter>
     </ClInclude>
@@ -287,23 +258,52 @@
     <ClInclude Include="..\..\..\bsr-headers\drbd_transport.h">
       <Filter>bsr-headers</Filter>
     </ClInclude>
+    <ClInclude Include="comm.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="disp.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="mvolmsg.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="mvolse.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="proto.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="send_buf.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="wsk2.h">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_windows.h">
+      <Filter>bsr-headers\windows\linux-compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_wingenl.h">
+      <Filter>bsr-headers\windows\linux-compat</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="MSG00001.bin">
-      <Filter>Resource Files</Filter>
+      <Filter>bsr-platform\windows\bsrvflt\Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="mvolmsg.rc">
-      <Filter>Resource Files</Filter>
+      <Filter>bsr-platform\windows\bsrvflt\Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <MessageCompile Include="mvolmsg.mc">
-      <Filter>Resource Files</Filter>
+      <Filter>bsr-platform\windows\bsrvflt\Resource Files</Filter>
     </MessageCompile>
   </ItemGroup>
   <ItemGroup>
-    <Inf Include="drbd.inf" />
+    <Inf Include="drbd.inf">
+      <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </Inf>
   </ItemGroup>
 </Project>

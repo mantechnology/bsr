@@ -1,6 +1,6 @@
 ﻿#ifndef __NETLINK_H__
 #define __NETLINK_H__
-#include "windows/types.h"
+#include "../../../bsr-headers/windows/types.h"
 #ifdef __KERNEL__
 #include "linux-compat/jiffies.h"
 #endif

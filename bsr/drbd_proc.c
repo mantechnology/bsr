@@ -23,8 +23,8 @@
 
  */
 #ifdef _WIN32
-#include "linux-compat/seq_file.h"
-#include "windows/drbd.h"
+#include "../bsr-headers/windows/linux-compat/seq_file.h"
+#include "../bsr-headers/windows/drbd.h"
 #else
 #include <linux/module.h>
 
@@ -36,7 +36,7 @@
 #include <linux/drbd.h>
 #endif
 #include "drbd_int.h"
-#include <drbd_transport.h>
+#include "../bsr-headers/drbd_transport.h"
 #ifdef _WIN32
 	// replaced with MVF ioctl
 #else

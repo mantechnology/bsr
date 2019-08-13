@@ -1,6 +1,6 @@
 ﻿#ifdef _WIN32
 
-#include <drbd_transport.h>
+#include "../bsr-headers/drbd_transport.h"
 #include "drbd_int.h"
 
 #else
