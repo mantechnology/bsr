@@ -13,24 +13,20 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Driver Files">
-      <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
-      <Extensions>inf;inv;inx;mof;mc;</Extensions>
-    </Filter>
-    <Filter Include="Header Files\linux-compat">
-      <UniqueIdentifier>{3b44d30e-dca5-4d94-861e-9531ea01d734}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\linux-compat">
-      <UniqueIdentifier>{debe8a57-48bc-4e63-8e07-5c7da3ec1f2a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\bsr">
+    <Filter Include="bsr">
       <UniqueIdentifier>{fedb00aa-357f-477d-afbc-937e6f2defb8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\bsr\linux">
+    <Filter Include="bsr\linux">
       <UniqueIdentifier>{74500581-b928-4cda-9506-9f823cdf48d1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\bsr">
-      <UniqueIdentifier>{d27a75d4-d629-4ec7-90df-c531c6ef64a0}</UniqueIdentifier>
+    <Filter Include="bsr-headers">
+      <UniqueIdentifier>{be4097c4-775b-4e06-bbc9-ecd37394ecd9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr-headers\windows">
+      <UniqueIdentifier>{7624d038-06ff-4388-8fc5-f2e5395b665f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr-headers\windows\linux-compat">
+      <UniqueIdentifier>{3b44d30e-dca5-4d94-861e-9531ea01d734}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -62,82 +58,82 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_actlog.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_bitmap.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_buildtag.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_debugfs.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_interval.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_kref_debug.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_main.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_nl.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_nla.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_proc.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_receiver.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_req.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_sender.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_state.c">
-      <Filter>Source Files\bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_strings.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_transport.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\drbd_transport_template.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\kref_debug.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\lru_cache.c">
-      <Filter>Source Files\bsr</Filter>
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr-headers\drbd_strings.c">
+      <Filter>bsr-headers</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\Attr.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\hweight.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\idr.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\netlink.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.c">
-      <Filter>Source Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -169,109 +165,128 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\drbd_config.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\dynamic_debug.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_family_with_ops_groups.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_mc_group.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\hardirq.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\lru_cache.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\memcontrol.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\mutex.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\tracepoint.h">
-      <Filter>Header Files\bsr\linux</Filter>
+      <Filter>bsr\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_debugfs.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_int.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_interval.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_kref_debug.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_nla.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_req.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_state.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_state_change.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\drbd_vli.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\kref_debug.h">
-      <Filter>Header Files\bsr</Filter>
+      <Filter>bsr</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Backing-dev.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Bitops.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_endian.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\hweight.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\idr.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\jiffies.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Kernel.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\list.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\rbtree.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\sched.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\spinlock.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Wait.h">
-      <Filter>Header Files\linux-compat</Filter>
+      <Filter>bsr-headers\windows\linux-compat</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Inf Include="drbd.inf">
-      <Filter>Driver Files</Filter>
-    </Inf>
+    <ClInclude Include="..\..\..\bsr-headers\windows\drbd.h">
+      <Filter>bsr-headers\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\ioctl.h">
+      <Filter>bsr-headers\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\types.h">
+      <Filter>bsr-headers\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\wingenl.h">
+      <Filter>bsr-headers\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\drbd_meta_data.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\drbd_protocol.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\drbd_strings.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\drbd_transport.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="MSG00001.bin">
@@ -287,5 +302,8 @@
     <MessageCompile Include="mvolmsg.mc">
       <Filter>Resource Files</Filter>
     </MessageCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Inf Include="drbd.inf" />
   </ItemGroup>
 </Project>

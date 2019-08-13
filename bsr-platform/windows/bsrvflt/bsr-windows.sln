@@ -3,33 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bsr-headers", "bsr-headers", "{A28F3892-083A-4E86-8175-ADE77023671B}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\bsr-headers\drbd_meta_data.h = ..\..\..\bsr-headers\drbd_meta_data.h
-		..\..\..\bsr-headers\drbd_protocol.h = ..\..\..\bsr-headers\drbd_protocol.h
-		..\..\..\bsr-headers\drbd_strings.c = ..\..\..\bsr-headers\drbd_strings.c
-		..\..\..\bsr-headers\drbd_strings.h = ..\..\..\bsr-headers\drbd_strings.h
-		..\..\..\bsr-headers\drbd_transport.h = ..\..\..\bsr-headers\drbd_transport.h
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "windows", "windows", "{BA66DA84-532C-47FB-8BEB-9E7BD40A464C}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\bsr-headers\windows\drbd.h = ..\..\..\bsr-headers\windows\drbd.h
-		..\..\..\bsr-headers\windows\ioctl.h = ..\..\..\bsr-headers\windows\ioctl.h
-		..\..\..\bsr-headers\windows\types.h = ..\..\..\bsr-headers\windows\types.h
-		..\..\..\bsr-headers\windows\wingenl.h = ..\..\..\bsr-headers\windows\wingenl.h
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "linux", "linux", "{5C0D1E4A-5996-4145-A53E-13744259BF5C}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\bsr-headers\linux\drbd.h = ..\..\..\bsr-headers\linux\drbd.h
-		..\..\..\bsr-headers\linux\drbd_genl.h = ..\..\..\bsr-headers\linux\drbd_genl.h
-		..\..\..\bsr-headers\linux\drbd_genl_api.h = ..\..\..\bsr-headers\linux\drbd_genl_api.h
-		..\..\..\bsr-headers\linux\drbd_limits.h = ..\..\..\bsr-headers\linux\drbd_limits.h
-		..\..\..\bsr-headers\linux\genl_magic_func.h = ..\..\..\bsr-headers\linux\genl_magic_func.h
-		..\..\..\bsr-headers\linux\genl_magic_struct.h = ..\..\..\bsr-headers\linux\genl_magic_struct.h
-	EndProjectSection
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bsrfsflt", "..\bsrfsflt\drbdlock.vcxproj", "{22B0622A-0A02-43D9-A5E6-9CEC7A7E0E7E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bsr-utils", "..\..\..\bsr-utils\drbd-utils.vcxproj", "{37AC4F5A-1EDB-42AD-9DD8-D139D01F5062}"
@@ -333,9 +306,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{BA66DA84-532C-47FB-8BEB-9E7BD40A464C} = {A28F3892-083A-4E86-8175-ADE77023671B}
-		{5C0D1E4A-5996-4145-A53E-13744259BF5C} = {A28F3892-083A-4E86-8175-ADE77023671B}
 	EndGlobalSection
 EndGlobal

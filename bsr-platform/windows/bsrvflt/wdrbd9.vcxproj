@@ -863,6 +863,7 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\bsr-headers\drbd_strings.c" />
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\Attr.c" />
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\hweight.c" />
     <ClCompile Include="..\..\..\bsr-headers\windows\linux-compat\idr.c" />
@@ -883,7 +884,6 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\drbd_req.c" />
     <ClCompile Include="..\..\..\bsr\drbd_sender.c" />
     <ClCompile Include="..\..\..\bsr\drbd_state.c" />
-    <ClCompile Include="..\..\..\bsr\drbd_strings.c" />
     <ClCompile Include="..\..\..\bsr\drbd_transport.c" />
     <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c" />
     <ClCompile Include="..\..\..\bsr\drbd_transport_template.c" />
@@ -900,6 +900,12 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <ClCompile Include="wsk2.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\bsr-headers\drbd_meta_data.h" />
+    <ClInclude Include="..\..\..\bsr-headers\drbd_protocol.h" />
+    <ClInclude Include="..\..\..\bsr-headers\drbd_strings.h" />
+    <ClInclude Include="..\..\..\bsr-headers\drbd_transport.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\drbd.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\ioctl.h" />
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Backing-dev.h" />
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Bitops.h" />
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\drbd_endian.h" />
@@ -913,6 +919,8 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\seq_file.h" />
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\spinlock.h" />
     <ClInclude Include="..\..\..\bsr-headers\windows\linux-compat\Wait.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\types.h" />
+    <ClInclude Include="..\..\..\bsr-headers\windows\wingenl.h" />
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h" />
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\drbd_config.h" />
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\dynamic_debug.h" />
