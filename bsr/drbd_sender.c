@@ -24,9 +24,9 @@
 */
 #ifdef _WIN32
 #include "../bsr-headers/windows/drbd.h"
-#include "../bsr-headers/windows/linux-compat/sched.h"
-#include "../bsr-headers/windows/linux-compat/wait.h"
-#include "../bsr-headers/windows/linux-compat/drbd_windows.h"
+#include "./bsr-kernel-compat/windows/sched.h"
+#include "./bsr-kernel-compat/windows/wait.h"
+#include "./bsr-kernel-compat/windows/drbd_windows.h"
 #else
 #include <linux/module.h>
 #include <linux/drbd.h>

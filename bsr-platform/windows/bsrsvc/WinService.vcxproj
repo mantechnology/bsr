@@ -139,8 +139,8 @@ copy /Y "$(TargetPath)" "$(SolutionDir)\build\drbd\bin\"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="loglink.cpp" />
-    <ClCompile Include="RegistryHandler.cpp" />
-    <ClCompile Include="Service.cpp" />
+    <ClCompile Include="registryhandler.cpp" />
+    <ClCompile Include="service.cpp" />
     <ClCompile Include="sockshell.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>

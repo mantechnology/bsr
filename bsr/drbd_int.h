@@ -30,13 +30,13 @@
 //#pragma warning (disable : 4221 4706)
 #include "stddef.h"
 #include "../bsr-headers/windows/types.h"
-#include "../bsr-headers/windows/linux-compat/list.h"
-#include "../bsr-headers/windows/linux-compat/sched.h"
-#include "../bsr-headers/windows/linux-compat/bitops.h"
-#include "bsr-kernel-compat/linux/lru_cache.h"
+#include "./bsr-kernel-compat/windows/list.h"
+#include "./bsr-kernel-compat/windows/sched.h"
+#include "./bsr-kernel-compat/windows/bitops.h"
+#include "./bsr-kernel-compat/linux/lru_cache.h"
 #include "../bsr-headers/linux/drbd_genl_api.h"
 #include "../bsr-headers/windows/drbd.h"
-#include "bsr-kernel-compat/linux/drbd_config.h"
+#include "./bsr-kernel-compat/linux/drbd_config.h"
 #include "../bsr-headers/linux/drbd_limits.h"
 #else
 #include <linux/compiler.h>

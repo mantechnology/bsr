@@ -25,9 +25,9 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
 #ifdef _WIN32
-#include "../../../bsr-headers/windows/linux-compat/bitops.h"
-#include "../../../bsr-headers/windows/drbd.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/bitops.h"
+#include "../bsr-headers/windows/drbd.h"
+#include "./bsr-kernel-compat/windows/drbd_endian.h"
 #else
 #include <linux/bitops.h>
 #include <linux/vmalloc.h>

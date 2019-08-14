@@ -1,6 +1,6 @@
 ﻿#include "./bsr-kernel-compat/drbd_wrappers.h"
 #ifdef _WIN32
-#include "../bsr-headers/windows/linux-compat/kernel.h"
+#include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/kernel.h>
 #include <net/netlink.h>

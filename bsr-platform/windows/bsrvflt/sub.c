@@ -19,11 +19,11 @@
 
 #include <ntifs.h>
 #include <wdm.h>
-#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_wingenl.h"	
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"	
 #include "proto.h"
 
-#include "../../../bsr-headers/windows/linux-compat/idr.h"
+#include "../../../bsr/bsr-kernel-compat/windows/idr.h"
 #include "../../../bsr/drbd_int.h"
 #include "../../../bsr/bsr-kernel-compat/drbd_wrappers.h"
 

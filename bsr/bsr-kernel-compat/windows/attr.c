@@ -1,4 +1,4 @@
-﻿#include "../types.h"
+﻿#include "../../../bsr-headers/windows/types.h"
 #include "drbd_wingenl.h"
 #include "drbd_windows.h"
 

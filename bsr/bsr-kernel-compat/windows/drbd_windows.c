@@ -24,8 +24,8 @@
 #include "drbd_windows.h"
 #include "wsk2.h"
 #include "drbd_wingenl.h"
-#include "../../../bsr-headers/windows/linux-compat/idr.h"
-#include "../../../bsr/bsr-kernel-compat/drbd_wrappers.h"
+#include "idr.h"
+#include "../drbd_wrappers.h"
 #include "disp.h"
 #include "proto.h"
 

@@ -24,11 +24,11 @@
  */
 
 #ifdef _WIN32
-#include "../bsr-headers/windows/linux-compat/drbd_windows.h"
-#include "../bsr-headers/windows/linux-compat/drbd_wingenl.h"
+#include "./bsr-kernel-compat/windows/drbd_windows.h"
+#include "./bsr-kernel-compat/windows/drbd_wingenl.h"
 #include "../bsr-headers/windows/drbd.h"
-#include "../bsr-headers/windows/linux-compat/drbd_endian.h"
-#include "../bsr-headers/windows/linux-compat/idr.h"
+#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/idr.h"
 #else
 #include <linux/slab.h>
 #include <linux/crc32c.h>

@@ -20,8 +20,8 @@
 #include <wdm.h>
 #include <ntstrsafe.h>
 #include <ntddk.h>
-#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_wingenl.h"	
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"	
 #include "disp.h"
 #include "mvolmsg.h"
 #include "proto.h"

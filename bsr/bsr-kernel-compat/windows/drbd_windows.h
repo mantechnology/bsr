@@ -24,9 +24,9 @@
 #include <stdint.h>
 #include <ntstrsafe.h>
 #include <stdbool.h>
-#include "../../../bsr-headers/windows/linux-compat/list.h"
-#include "../../../bsr-headers/windows/linux-compat/Wait.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "list.h"
+#include "Wait.h"
+#include "drbd_endian.h"
 #include "../../../bsr-headers/windows/types.h"
 #include "mvolmsg.h"
 #include "../bsrfsflt/drbdlock_comm.h"

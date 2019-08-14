@@ -23,8 +23,8 @@
 
  */
 #ifdef _WIN32
-#include "../bsr-headers/windows/linux-compat/bitops.h"
-#include "../bsr-headers/windows/linux-compat/seq_file.h" /* for seq_printf */
+#include "./bsr-kernel-compat/windows/bitops.h"
+#include "./bsr-kernel-compat/windows/seq_file.h" /* for seq_printf */
 #include "./bsr-kernel-compat/linux/lru_cache.h"
 #else
 #include <linux/module.h>

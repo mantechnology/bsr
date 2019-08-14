@@ -28,7 +28,7 @@
 
 #ifdef _WIN32
 #include <stdbool.h>
-#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
+#include "../windows/drbd_windows.h"
 #define COMPAT_HAVE_BOOL_TYPE
 #else
 #include <linux/list.h>

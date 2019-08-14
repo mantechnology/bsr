@@ -36,8 +36,8 @@
 #pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
 #include "../bsr-headers/windows/drbd.h"
-#include "../bsr-headers/windows/linux-compat/drbd_endian.h"
-#include "../bsr-headers/windows/linux-compat/kernel.h"
+#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/module.h>
 #include <linux/jiffies.h>

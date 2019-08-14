@@ -17,11 +17,11 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include "../../../bsr-headers/windows/linux-compat/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
 #include "wsk2.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_wingenl.h"
-#include "../../../bsr-headers/windows/linux-compat/drbd_endian.h"
-#include "../../../bsr-headers/windows/linux-compat/idr.h"
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"
+#include "../../../bsr/bsr-kernel-compat/windows/drbd_endian.h"
+#include "../../../bsr/bsr-kernel-compat/windows/idr.h"
 #include "disp.h" 
 #include "../../../bsr/drbd_int.h"
 #include "send_buf.h"	

@@ -23,7 +23,7 @@
 
  */
 #ifdef _WIN32
-#include "../bsr-headers/windows/linux-compat/seq_file.h"
+#include "./bsr-kernel-compat/windows/seq_file.h"
 #include "../bsr-headers/windows/drbd.h"
 #else
 #include <linux/module.h>

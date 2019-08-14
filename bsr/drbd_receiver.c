@@ -28,9 +28,9 @@
 #include "../bsr-headers/drbd_protocol.h"
 #include "drbd_req.h"
 #include "drbd_vli.h"
-#include "../bsr-headers/windows/linux-compat/list.h"
+#include "./bsr-kernel-compat/windows/list.h"
 #include "../bsr-headers/drbd_transport.h"
-#include "../bsr-headers/windows/linux-compat/drbd_windows.h"
+#include "./bsr-kernel-compat/windows/drbd_windows.h"
 #else
 #include <linux/module.h>
 

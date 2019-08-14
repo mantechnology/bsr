@@ -2,7 +2,7 @@
 #define __NETLINK_H__
 #include "../../../bsr-headers/windows/types.h"
 #ifdef __KERNEL__
-#include "linux-compat/jiffies.h"
+#include "../../bsr/bsr-kernel-compat/windows/jiffies.h"
 #endif
 #define AF_NETLINK	16
 #define NETLINK_PORT			5678

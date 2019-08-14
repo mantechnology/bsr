@@ -4,7 +4,7 @@
 #ifdef _WIN32
 //#pragma warning (disable : 4067)
 #include "../bsr-headers/windows/types.h"
-#include "../bsr-headers/windows/linux-compat/rbtree.h"
+#include "./bsr-kernel-compat/windows/rbtree.h"
 #define inline __inline
 #else
 #include <linux/version.h>

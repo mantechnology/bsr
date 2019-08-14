@@ -30,7 +30,7 @@
 #include <linux/random.h>
 #include <linux/jiffies.h>
 #else
-#include "../bsr-headers/windows/linux-compat/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/drbd_endian.h"
 #endif
 #include "drbd_int.h"
 #include "../bsr-headers/drbd_protocol.h"

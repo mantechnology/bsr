@@ -1,5 +1,5 @@
 ﻿#ifdef _WIN32
-#include "../bsr-headers/windows/linux-compat/kernel.h"
+#include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/kernel.h>
 #include <linux/module.h>
