@@ -22,7 +22,7 @@
 #include <intrin.h>
 #include <ntifs.h>
 #include "drbd_windows.h"
-#include "wsk2.h"
+#include "wsk_wrapper.h"
 #include "drbd_wingenl.h"
 #include "idr.h"
 #include "../drbd_wrappers.h"

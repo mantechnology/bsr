@@ -8,7 +8,7 @@
 #include "./windows/drbd_windows.h"
 
 #include "./windows/backing-dev.h"
-#include "wsk2.h"
+#include "wsk_wrapper.h"
 #else
 #include <linux/version.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)

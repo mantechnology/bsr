@@ -21,7 +21,7 @@
 #define MVF_DISP_H
 
 #include <mountdev.h>
-#include "mvolse.h"
+#include "bsrvfltse.h"
 #include "../../../bsr-headers/windows/ioctl.h"
 #include "../../../bsr-headers/windows/drbd.h"
 

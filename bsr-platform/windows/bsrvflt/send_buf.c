@@ -18,7 +18,7 @@
 */
 
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
-#include "wsk2.h"
+#include "wsk_wrapper.h"
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_endian.h"
 #include "../../../bsr/bsr-kernel-compat/windows/idr.h"

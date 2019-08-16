@@ -23,7 +23,7 @@
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"	
 #include "disp.h"
-#include "mvolmsg.h"
+#include "bsrvfltmsg.h"
 #include "proto.h"
 
 #include "../../../bsr/drbd_int.h"

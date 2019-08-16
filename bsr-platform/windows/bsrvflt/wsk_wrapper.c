@@ -1,6 +1,6 @@
 ﻿
 #include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
-#include "wsk2.h"
+#include "wsk_wrapper.h"
 
 /* DW-1587 
  * Turns off the C6102 warning.

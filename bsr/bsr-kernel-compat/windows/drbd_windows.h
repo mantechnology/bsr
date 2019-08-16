@@ -28,7 +28,7 @@
 #include "Wait.h"
 #include "drbd_endian.h"
 #include "../../../bsr-headers/windows/types.h"
-#include "mvolmsg.h"
+#include "bsrvfltmsg.h"
 #include "../bsrfsflt/drbdlock_comm.h"
 
 #include "disp.h"

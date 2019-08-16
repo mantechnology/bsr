@@ -25,7 +25,7 @@
 #include "../bsr-headers/drbd_protocol.h"
 #include "../bsr-headers/drbd_transport.h"
 #include "./bsr-kernel-compat/drbd_wrappers.h"
-#include <wsk2.h>
+#include <wsk_wrapper.h>
 #include "./bsr-kernel-compat/windows/drbd_endian.h"
 #include "drbd_int.h"
 #include "../bsr-headers/linux/drbd_limits.h"
