@@ -1,36 +1,12 @@
-﻿## Windows DRBD (WDRBD)
+﻿# BSR
                            
 ## Synopsis
-WDRBD is a software-based, shared-nothing, replicated storage solution mirroring the content of block devices (hard disks, partitions, logical volumes etc.) between hosts by network transport(TCP/IP). 
+Block Sync & Replication (BSR) is an open source project that implements software-based block replication over the network. It is based on a kernel-level replication engine and supports Windows and Linux cross-platform environments. BSR originally started out as a WDRBD project and only supported the Windows environment, but now extends to the Linux environment to support cross-platforms.
 
 ## Motivation
-DRBD has been developed and maintained by Linbit(http://www.drbd.org/), currently can be only used in linux platform, included in Linux kernel and then we have ported DRBD to Windows DRBD. Most of DRBD's functionalities are implemented to WDRBD, except for OS dependent things
+We have ported the source code of Linux DRBD 9.0 to Windows via WDRBD and have done it successfully. At present, the customer HA mirror built with WDRBD has already reached 1000 sets, proving its performance and stability. But in the process, we had to endure too much pain. The original DRBD9 suffered from all sorts of bugs, including unclear synchronization logic, OOS retirement problems, and synchronization interruptions due to instability of 1: N replication and hasn't solved these problems for years. Based on the DRBD9 engine, we had to analyze the DRBD engine itself, fix it to our taste, and fix various bugs ourselves. It's almost impossible to do this now, but as we solved these problems ourselves, we can now do the Linux platform ourselves and implement it under the name BSR.
 
-## Build
-- Environment : Windows 7 or higher
-- tools : Visual Studio 2013 with update 5, Windows Driver Kit 6.3, Cygwin version 2.10.0, 
-goto wdrbd9 directory and open wdrbd9.sln, config 32 or 64 properly, finally build drbd.sys
-
-## Packaging
-- WDRBD include install4j script source code. and then you can build WDRBD package individually.
-- Alternatively you can download WDRBD builded-package from github's download link
-
-## Installation
-- select target platform. WDRBD packages(install4j) is composed of 32/64 bit environment. 
-- install package (windows service(drbdService daemon) will be installed automatically)
-- reboot required.
-
-## Download & Documentations
-- https://github.com/mantechnology/wdrbd/wiki
-
-## Debug & Tests 
-- setup WinDbg debugging environment
-- copy drbd.sys to "install forder"/drbd/bin on target host.
-- goto target host
-- open cmd.exe window with administrator privilege
-- chdir "install folder"/bin
-- wdrbdInstall.bat
-- reboot
+BSR will become a block replication cross-platform open source project supporting Windows and Linux based on the BSR engine.
 
 ## Contributors
 Man Technology Inc.(http://www.mantech.co.kr/)
