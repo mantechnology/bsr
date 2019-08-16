@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="user">
+      <UniqueIdentifier>{095b50d9-f3eb-489c-b352-bcc605c6f573}</UniqueIdentifier>
+      <ParseFiles>true</ParseFiles>
+    </Filter>
+    <Filter Include="user\shared">
+      <UniqueIdentifier>{be160261-21aa-4796-93e9-00465139d187}</UniqueIdentifier>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="user\linux">
+      <UniqueIdentifier>{7bfd3d8d-9f57-47b2-8e98-992c0468e7fc}</UniqueIdentifier>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="bsrcon">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="bsrcon\Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="user\v9\config_flags.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\registry.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\libgenl.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\shared_main.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\shared_parser.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\shared_tool.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\wrap_printf.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="bsrcon\main.cpp">
+      <Filter>bsrcon</Filter>
+    </ClCompile>
+    <ClCompile Include="bsrcon\ops.cpp">
+      <Filter>bsrcon</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsr_nla.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_adjust.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_dump.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_main.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_parser.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_postparse.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsradm_usage_cnt.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsrsetup.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsrsetup_colors.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\v9\bsrtool_common.c">
+      <Filter>user</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\bsr_buildtag.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="user\shared\bsrmeta.c">
+      <Filter>user\shared</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="user\v9\config_flags.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\registry.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\sys_queue.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\config.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\libgenl.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\shared_main.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\shared_parser.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\shared_tool.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\wrap_printf.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\LogManager.h">
+      <Filter>bsrcon</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\mvol.h">
+      <Filter>bsrcon</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\OosTrace.h">
+      <Filter>bsrcon</Filter>
+    </ClInclude>
+    <ClInclude Include="user\linux\bsr_config.h">
+      <Filter>user\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsr_nla.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsradm.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsradm_dump.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsradm_parser.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsrsetup_colors.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\v9\bsrtool_common.h">
+      <Filter>user</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\bsr_endian.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="user\shared\bsrmeta_parser.h">
+      <Filter>user\shared</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="user\shared_prereqs.mk">
+      <Filter>user</Filter>
+    </None>
+    <None Include="user\shared\config.h.in">
+      <Filter>user\shared</Filter>
+    </None>
+    <None Include="user\v9\bsradm_scanner.fl">
+      <Filter>user</Filter>
+    </None>
+  </ItemGroup>
+</Project>
