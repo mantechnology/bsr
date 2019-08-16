@@ -9,10 +9,10 @@
 #include <ntstrsafe.h>
 #include <dontuse.h>
 #include <suppress.h>
-#include "drbdlock.h"
-#include "drbdlock_struct.h"
-#include "drbdlock_comm.h"
-#include "drbdlock_proc.h"
+#include "bsrfsflt.h"
+#include "bsrfsflt_struct.h"
+#include "bsrfsflt_comm.h"
+#include "bsrfsflt_proc.h"
 #include "volBlock.h"
 
 #endif

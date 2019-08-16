@@ -16,43 +16,43 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="drbdlock.c">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClCompile>
-    <ClCompile Include="drbdlock_ops.c">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClCompile>
     <ClCompile Include="volBlock.c">
       <Filter>bsr-platform\windows\bsrfsflt</Filter>
     </ClCompile>
+    <ClCompile Include="bsrfsflt.c">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClCompile>
+    <ClCompile Include="bsrfsflt_ops.c">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="drbdlock.rc">
-      <Filter>bsr-platform\windows\bsrfsflt\Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="drbdlock.h">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClInclude>
-    <ClInclude Include="drbdlock_comm.h">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClInclude>
-    <ClInclude Include="drbdlock_proc.h">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClInclude>
-    <ClInclude Include="drbdlock_struct.h">
-      <Filter>bsr-platform\windows\bsrfsflt</Filter>
-    </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>bsr-platform\windows\bsrfsflt</Filter>
     </ClInclude>
     <ClInclude Include="volBlock.h">
       <Filter>bsr-platform\windows\bsrfsflt</Filter>
     </ClInclude>
+    <ClInclude Include="bsrfsflt.h">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrfsflt_comm.h">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrfsflt_proc.h">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrfsflt_struct.h">
+      <Filter>bsr-platform\windows\bsrfsflt</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Inf Include="drbdlock.inf">
+    <ResourceCompile Include="bsrfsflt.rc">
+      <Filter>bsr-platform\windows\bsrfsflt\Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Inf Include="bsrfsflt.inf">
       <Filter>bsr-platform\windows\bsrfsflt</Filter>
     </Inf>
   </ItemGroup>

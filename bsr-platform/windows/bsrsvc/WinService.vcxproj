@@ -45,7 +45,7 @@
     <OutDir>$(ProjectDir)$(Configuration)</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>drbdService</TargetName>
+    <TargetName>bsrservice</TargetName>
     <TargetExt>.exe</TargetExt>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
@@ -54,7 +54,7 @@
     <OutDir>$(ProjectDir)$(Configuration)</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)</IntDir>
     <LinkIncremental>true</LinkIncremental>
-    <TargetName>drbdService</TargetName>
+    <TargetName>bsrservice</TargetName>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
   </PropertyGroup>
@@ -145,15 +145,15 @@ copy /Y "$(TargetPath)" "$(SolutionDir)\build\drbd\bin\"</Command>
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="drbdService.h" />
+    <ClInclude Include="bsrservice.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="drbdService.mc" />
+    <None Include="bsrservice.mc" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="drbdService.rc" />
+    <ResourceCompile Include="bsrservice.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

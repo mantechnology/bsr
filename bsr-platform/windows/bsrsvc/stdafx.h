@@ -7,7 +7,7 @@
 #include <winsock2.h>
 #include <tchar.h>
 #include <stdio.h>
-#include "drbdService.h"
+#include "bsrservice.h"
 
 DWORD RunProcess(
 	__in WORD wExecMode,

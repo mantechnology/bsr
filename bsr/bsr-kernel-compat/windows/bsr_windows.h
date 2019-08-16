@@ -29,7 +29,7 @@
 #include "bsr_endian.h"
 #include "../../../bsr-headers/windows/types.h"
 #include "bsrvfltmsg.h"
-#include "../bsrfsflt/drbdlock_comm.h"
+#include "../bsrfsflt/bsrfsflt_comm.h"
 
 #include "disp.h"
 
