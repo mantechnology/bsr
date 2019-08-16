@@ -11,10 +11,10 @@
 #include <linux/jiffies.h>
 #include <linux/list.h>
 #endif
-#include "drbd_int.h"
-#include "drbd_req.h"
-#include "drbd_debugfs.h"
-#include "../bsr-headers/drbd_transport.h"
+#include "bsr_int.h"
+#include "bsr_req.h"
+#include "bsr_debugfs.h"
+#include "../bsr-headers/bsr_transport.h"
 
 
 /**********************************************************************

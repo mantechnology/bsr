@@ -37,62 +37,11 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\bsr\drbd_actlog.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_bitmap.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_buildtag.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_debugfs.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_interval.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_kref_debug.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_main.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_nl.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_nla.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_proc.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_receiver.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_req.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_sender.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_state.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_transport.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr\drbd_transport_tcp.c">
-      <Filter>bsr</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\bsr\kref_debug.c">
       <Filter>bsr</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\lru_cache.c">
       <Filter>bsr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\bsr-headers\drbd_strings.c">
-      <Filter>bsr-headers</Filter>
     </ClCompile>
     <ClCompile Include="data.c">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
@@ -115,9 +64,6 @@
     <ClCompile Include="util.c">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\drbd_windows.c">
-      <Filter>bsr\bsr-kernel-compat\windows</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\hweight.c">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
     </ClCompile>
@@ -139,12 +85,63 @@
     <ClCompile Include="wsk_wrapper.c">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_windows.c">
+      <Filter>bsr\bsr-kernel-compat\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_actlog.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_bitmap.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_buildtag.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_debugfs.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_interval.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_main.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_nl.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_nla.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_proc.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_receiver.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_req.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_sender.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_state.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_transport.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_transport_tcp.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr-headers\bsr_strings.c">
+      <Filter>bsr-headers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\autoconf.h">
-      <Filter>bsr\bsr-kernel-compat\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\drbd_config.h">
       <Filter>bsr\bsr-kernel-compat\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\dynamic_debug.h">
@@ -171,38 +168,8 @@
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\tracepoint.h">
       <Filter>bsr\bsr-kernel-compat\linux</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_debugfs.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_int.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_interval.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_kref_debug.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_nla.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_req.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_state.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_state_change.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\drbd_vli.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr\kref_debug.h">
       <Filter>bsr</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\windows\drbd.h">
-      <Filter>bsr-headers\windows</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\ioctl.h">
       <Filter>bsr-headers\windows</Filter>
@@ -212,18 +179,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\windows\wingenl.h">
       <Filter>bsr-headers\windows</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\drbd_meta_data.h">
-      <Filter>bsr-headers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\drbd_protocol.h">
-      <Filter>bsr-headers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\drbd_strings.h">
-      <Filter>bsr-headers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\drbd_transport.h">
-      <Filter>bsr-headers</Filter>
     </ClInclude>
     <ClInclude Include="comm.h">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
@@ -236,15 +191,6 @@
     </ClInclude>
     <ClInclude Include="send_buf.h">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\drbd_endian.h">
-      <Filter>bsr\bsr-kernel-compat\windows</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\drbd_windows.h">
-      <Filter>bsr\bsr-kernel-compat\windows</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\drbd_wingenl.h">
-      <Filter>bsr\bsr-kernel-compat\windows</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\hweight.h">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
@@ -269,18 +215,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\spinlock.h">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\linux\drbd.h">
-      <Filter>bsr-headers\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\linux\drbd_genl.h">
-      <Filter>bsr-headers\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\linux\drbd_genl_api.h">
-      <Filter>bsr-headers\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr-headers\linux\drbd_limits.h">
-      <Filter>bsr-headers\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func.h">
       <Filter>bsr-headers\linux</Filter>
@@ -308,6 +242,75 @@
     </ClInclude>
     <ClInclude Include="bsrvfltse.h">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\bsr_config.h">
+      <Filter>bsr\bsr-kernel-compat\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_endian.h">
+      <Filter>bsr\bsr-kernel-compat\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_windows.h">
+      <Filter>bsr\bsr-kernel-compat\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_wingenl.h">
+      <Filter>bsr\bsr-kernel-compat\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_debugfs.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_int.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_interval.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_kref_debug.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_nla.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_req.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_state.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_state_change.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_vli.h">
+      <Filter>bsr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr_meta_data.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr_protocol.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr_strings.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr_transport.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr_genl.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr_genl_api.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr_limits.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\windows\bsr.h">
+      <Filter>bsr-headers\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\bsr_wrappers.h">
+      <Filter>bsr\bsr-kernel-compat</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

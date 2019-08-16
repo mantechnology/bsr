@@ -34,7 +34,7 @@
 #include <linux/seq_file.h> /* for seq_printf */
 #include <linux/lru_cache.h>
 #endif
-#include "./bsr-kernel-compat/drbd_wrappers.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
 
 #pragma warning (disable: 6053 28719)
 // MODIFIED_BY_MANTECH DW-1513 : Output LRU status like lc_seq_printf_stats function

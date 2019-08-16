@@ -23,9 +23,9 @@
 
  */
 #ifdef _WIN32
-#include "../bsr-headers/windows/drbd.h"
-#include "drbd_int.h"
-#include "drbd_req.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "bsr_int.h"
+#include "bsr_req.h"
 #else
 #include <linux/module.h>
 

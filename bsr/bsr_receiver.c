@@ -23,14 +23,14 @@
  */
 
 #ifdef _WIN32
-#include "../bsr-headers/windows/drbd.h"
-#include "drbd_int.h"
-#include "../bsr-headers/drbd_protocol.h"
-#include "drbd_req.h"
-#include "drbd_vli.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "bsr_int.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "bsr_req.h"
+#include "bsr_vli.h"
 #include "./bsr-kernel-compat/windows/list.h"
-#include "../bsr-headers/drbd_transport.h"
-#include "./bsr-kernel-compat/windows/drbd_windows.h"
+#include "../bsr-headers/bsr_transport.h"
+#include "./bsr-kernel-compat/windows/bsr_windows.h"
 #else
 #include <linux/module.h>
 

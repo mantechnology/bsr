@@ -26,8 +26,8 @@
 
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/bitops.h"
-#include "../bsr-headers/windows/drbd.h"
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
 #else
 #include <linux/bitops.h>
 #include <linux/vmalloc.h>
@@ -38,7 +38,7 @@
 #include <asm/kmap_types.h>
 #endif
 
-#include "drbd_int.h"
+#include "bsr_int.h"
 
 /* See the ifdefs and comments inside that header file.
  * On recent kernels this is not needed. */

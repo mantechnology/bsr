@@ -20,15 +20,15 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 #ifdef _WIN32
-#include "../bsr-headers/windows/drbd.h"
-#include "../bsr-headers/linux/drbd_genl_api.h"
-#include "../bsr-headers/drbd_protocol.h"
-#include "../bsr-headers/drbd_transport.h"
-#include "./bsr-kernel-compat/drbd_wrappers.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/linux/bsr_genl_api.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "../bsr-headers/bsr_transport.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
 #include <wsk_wrapper.h>
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
-#include "drbd_int.h"
-#include "../bsr-headers/linux/drbd_limits.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
+#include "bsr_int.h"
+#include "../bsr-headers/linux/bsr_limits.h"
 #else
 #include <linux/module.h>
 #include <linux/errno.h>

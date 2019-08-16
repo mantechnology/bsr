@@ -1,7 +1,7 @@
 ﻿#ifndef __DRBD_NLA_H
 #define __DRBD_NLA_H
 #ifdef _WIN32
-#include "./bsr-kernel-compat/windows/drbd_wingenl.h"
+#include "./bsr-kernel-compat/windows/bsr_wingenl.h"
 #endif
 
 extern int drbd_nla_parse_nested(struct nlattr *tb[], int maxtype, struct nlattr *nla,

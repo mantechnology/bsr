@@ -20,14 +20,14 @@
 #include <wdm.h>
 #include <ntstrsafe.h>
 #include <ntddk.h>
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"	
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"	
 #include "disp.h"
 #include "bsrvfltmsg.h"
 #include "proto.h"
 
-#include "../../../bsr/drbd_int.h"
-#include "../../../bsr/bsr-kernel-compat/drbd_wrappers.h"
+#include "../../../bsr/bsr_int.h"
+#include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
 #ifdef _WIN32_WPP
 #include "disp.tmh"

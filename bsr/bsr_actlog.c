@@ -24,10 +24,10 @@
  */
 
 #ifdef _WIN32
-#include "./bsr-kernel-compat/windows/drbd_windows.h"
-#include "./bsr-kernel-compat/windows/drbd_wingenl.h"
-#include "../bsr-headers/windows/drbd.h"
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/bsr_windows.h"
+#include "./bsr-kernel-compat/windows/bsr_wingenl.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/idr.h"
 #else
 #include <linux/slab.h>
@@ -36,8 +36,8 @@
 #include <linux/drbd_limits.h>
 #include <linux/dynamic_debug.h>
 #endif
-#include "drbd_int.h"
-#include "./bsr-kernel-compat/drbd_wrappers.h"
+#include "bsr_int.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
 
 enum al_transaction_types {
 	AL_TR_UPDATE = 0,

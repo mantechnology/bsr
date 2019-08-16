@@ -35,7 +35,7 @@ enum {
 #undef linux
 
 #ifdef _WIN32
-#include "../windows/drbd.h"
+#include "../windows/bsr.h"
 #else
 #include <linux/drbd.h>
 #endif
@@ -44,7 +44,7 @@ enum {
 #define GENL_MAGIC_FAMILY	drbd
 #define GENL_MAGIC_FAMILY_HDRSZ	sizeof(struct drbd_genlmsghdr)
 #ifdef _WIN32
-#define GENL_MAGIC_INCLUDE_FILE "drbd_genl.h" // TODO: linux 경로 인식 문제로 컴파일을 위해 임시 경로로 대치: linux/drbd_genl.h -> drbd_genl.h
+#define GENL_MAGIC_INCLUDE_FILE "bsr_genl.h" // TODO: linux 경로 인식 문제로 컴파일을 위해 임시 경로로 대치: linux/drbd_genl.h -> drbd_genl.h
 #include "genl_magic_struct.h"
 #else
 #define GENL_MAGIC_INCLUDE_FILE <linux/drbd_genl.h>

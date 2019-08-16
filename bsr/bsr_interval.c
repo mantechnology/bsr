@@ -1,5 +1,5 @@
-﻿#include "drbd_interval.h"
-#include "./bsr-kernel-compat/drbd_wrappers.h"
+﻿#include "bsr_interval.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
 
 /**
  * interval_end  -  return end of @node

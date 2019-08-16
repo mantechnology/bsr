@@ -21,11 +21,11 @@
 #include <stdarg.h>
 #include <intrin.h>
 #include <ntifs.h>
-#include "drbd_windows.h"
+#include "bsr_windows.h"
 #include "wsk_wrapper.h"
-#include "drbd_wingenl.h"
+#include "bsr_wingenl.h"
 #include "idr.h"
-#include "../drbd_wrappers.h"
+#include "../bsr_wrappers.h"
 #include "disp.h"
 #include "proto.h"
 
@@ -818,7 +818,7 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 	return len;
 }
 
-#include "../../../bsr/drbd_int.h"
+#include "../../../bsr/bsr_int.h"
 
 long IS_ERR_OR_NULL(const void *ptr)
 {

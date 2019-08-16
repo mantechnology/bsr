@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include "list.h"
 #include "Wait.h"
-#include "drbd_endian.h"
+#include "bsr_endian.h"
 #include "../../../bsr-headers/windows/types.h"
 #include "bsrvfltmsg.h"
 #include "../bsrfsflt/drbdlock_comm.h"

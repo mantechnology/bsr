@@ -24,7 +24,7 @@
  */
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/seq_file.h"
-#include "../bsr-headers/windows/drbd.h"
+#include "../bsr-headers/windows/bsr.h"
 #else
 #include <linux/module.h>
 
@@ -35,8 +35,8 @@
 #include <linux/seq_file.h>
 #include <linux/drbd.h>
 #endif
-#include "drbd_int.h"
-#include "../bsr-headers/drbd_transport.h"
+#include "bsr_int.h"
+#include "../bsr-headers/bsr_transport.h"
 #ifdef _WIN32
 	// replaced with MVF ioctl
 #else

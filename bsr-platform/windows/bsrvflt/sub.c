@@ -19,13 +19,13 @@
 
 #include <ntifs.h>
 #include <wdm.h>
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"	
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"	
 #include "proto.h"
 
 #include "../../../bsr/bsr-kernel-compat/windows/idr.h"
-#include "../../../bsr/drbd_int.h"
-#include "../../../bsr/bsr-kernel-compat/drbd_wrappers.h"
+#include "../../../bsr/bsr_int.h"
+#include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
 #ifdef _WIN32
 #include <ntdddisk.h>

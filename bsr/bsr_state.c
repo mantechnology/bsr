@@ -30,12 +30,12 @@
 #include <linux/random.h>
 #include <linux/jiffies.h>
 #else
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
 #endif
-#include "drbd_int.h"
-#include "../bsr-headers/drbd_protocol.h"
-#include "drbd_req.h"
-#include "drbd_state_change.h"
+#include "bsr_int.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "bsr_req.h"
+#include "bsr_state_change.h"
 
 /* in drbd_main.c */
 extern void tl_abort_disk_io(struct drbd_device *device);

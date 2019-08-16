@@ -26,7 +26,7 @@
 #define _DRBD_VLI_H
 
 #ifdef _WIN32
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
 #endif
 /*
  * At a granularity of 4KiB storage represented per bit,

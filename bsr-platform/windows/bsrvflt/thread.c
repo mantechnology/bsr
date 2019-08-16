@@ -19,7 +19,7 @@
 
 #include <Ntifs.h>
 #include <wdm.h>
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "proto.h"
 
 

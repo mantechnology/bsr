@@ -18,10 +18,10 @@
 */
 
 #include <wdm.h>
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "disp.h"
 #include "proto.h"
-#include "../../../bsr/drbd_int.h"
+#include "../../../bsr/bsr_int.h"
 #pragma warning (disable: 6053 28719)
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 

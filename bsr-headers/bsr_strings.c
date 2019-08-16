@@ -23,12 +23,12 @@
 
 */
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "windows/bsr.h"
 #else
 #include <linux/drbd.h>
 #endif
-#include "drbd_strings.h"
-#include "drbd_protocol.h"
+#include "bsr_strings.h"
+#include "bsr_protocol.h"
 
 static const char * const __conn_state_names[] = {
 	[C_STANDALONE]       = "StandAlone",

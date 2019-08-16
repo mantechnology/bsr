@@ -1,5 +1,5 @@
 ﻿
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "wsk_wrapper.h"
 
 /* DW-1587 

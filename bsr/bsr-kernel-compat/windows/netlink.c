@@ -1,9 +1,9 @@
-﻿#include "drbd_windows.h"
+﻿#include "bsr_windows.h"
 #include "wsk_wrapper.h"
-#include "drbd_wingenl.h"
+#include "bsr_wingenl.h"
 #include "idr.h"
-#include "../../../bsr/drbd_int.h"
-#include "../../../bsr/drbd_nla.h"
+#include "../../../bsr/bsr_int.h"
+#include "../../../bsr/bsr_nla.h"
 
 #ifdef _WIN32
 /* DW-1587

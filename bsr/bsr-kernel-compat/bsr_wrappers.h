@@ -4,8 +4,8 @@
 #ifdef _WIN32
 #include "./windows/rbtree.h"
 #include "./windows/idr.h"
-#include "./windows/drbd_wingenl.h"
-#include "./windows/drbd_windows.h"
+#include "./windows/bsr_wingenl.h"
+#include "./windows/bsr_windows.h"
 
 #include "./windows/backing-dev.h"
 #include "wsk_wrapper.h"

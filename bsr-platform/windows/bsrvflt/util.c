@@ -25,10 +25,10 @@
 #include <ntdddisk.h>
 #include <ntstrsafe.h>
 
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_windows.h"
-#include "../../../bsr/bsr-kernel-compat/windows/drbd_wingenl.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
+#include "../../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
 #include "proto.h"
-#include "../../../bsr/drbd_int.h"
+#include "../../../bsr/bsr_int.h"
 
 #ifdef _WIN32
 /* DW-1587

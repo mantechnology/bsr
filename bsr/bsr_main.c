@@ -35,8 +35,8 @@
  */
 #pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
-#include "../bsr-headers/windows/drbd.h"
-#include "./bsr-kernel-compat/windows/drbd_endian.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/module.h>
@@ -66,17 +66,17 @@
 #include <linux/dynamic_debug.h>
 #endif
 
-#include "../bsr-headers/linux/drbd_limits.h"
-#include "drbd_int.h"
-#include "../bsr-headers/drbd_protocol.h"
-#include "drbd_req.h" /* only for _req_mod in tl_release and tl_clear */
-#include "drbd_vli.h"
+#include "../bsr-headers/linux/bsr_limits.h"
+#include "bsr_int.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "bsr_req.h" /* only for _req_mod in tl_release and tl_clear */
+#include "bsr_vli.h"
 
 #ifdef _WIN32_SEND_BUFFING
 #include "send_buf.h"		
 #endif
-#include "drbd_debugfs.h"
-#include "../bsr-headers/drbd_meta_data.h"
+#include "bsr_debugfs.h"
+#include "../bsr-headers/bsr_meta_data.h"
 #ifndef _WIN32 
 #ifdef COMPAT_HAVE_LINUX_BYTEORDER_SWABB_H
 #include <linux/byteorder/swabb.h>

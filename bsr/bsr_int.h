@@ -34,10 +34,10 @@
 #include "./bsr-kernel-compat/windows/sched.h"
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./bsr-kernel-compat/linux/lru_cache.h"
-#include "../bsr-headers/linux/drbd_genl_api.h"
-#include "../bsr-headers/windows/drbd.h"
-#include "./bsr-kernel-compat/linux/drbd_config.h"
-#include "../bsr-headers/linux/drbd_limits.h"
+#include "../bsr-headers/linux/bsr_genl_api.h"
+#include "../bsr-headers/windows/bsr.h"
+#include "./bsr-kernel-compat/linux/bsr_config.h"
+#include "../bsr-headers/linux/bsr_limits.h"
 #else
 #include <linux/compiler.h>
 #include <linux/types.h>
@@ -60,18 +60,18 @@
 #include <linux/drbd.h>
 #include <linux/drbd_config.h>
 #endif
-#include "./bsr-kernel-compat/drbd_wrappers.h"
-#include "../bsr-headers/drbd_strings.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
+#include "../bsr-headers/bsr_strings.h"
 #ifdef _WIN32_SEND_BUFFING
 #include "send_buf.h"
 #endif
 #ifndef _WIN32
 #include "compat.h"
 #endif
-#include "drbd_state.h"
-#include "../bsr-headers/drbd_protocol.h"
-#include "drbd_kref_debug.h"
-#include "../bsr-headers/drbd_transport.h"
+#include "bsr_state.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "bsr_kref_debug.h"
+#include "../bsr-headers/bsr_transport.h"
 
 #ifdef __CHECKER__
 # define __protected_by(x)       __attribute__((require_context(x,1,999,"rdwr")))
@@ -545,7 +545,7 @@ struct drbd_peer_device_work {
 
 enum drbd_stream;
 
-#include "drbd_interval.h"
+#include "bsr_interval.h"
 
 extern int drbd_wait_misc(struct drbd_device *, struct drbd_peer_device *, struct drbd_interval *);
 

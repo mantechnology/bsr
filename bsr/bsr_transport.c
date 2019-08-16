@@ -6,8 +6,8 @@
 #include <linux/module.h>
 #include <net/ipv6.h>
 #endif
-#include "../bsr-headers/drbd_transport.h"
-#include "drbd_int.h"
+#include "../bsr-headers/bsr_transport.h"
+#include "bsr_int.h"
 
 #ifdef _WIN32
 /* DW-1587

@@ -3,7 +3,7 @@
 #ifdef _WIN32
 #include "../bsr/bsr-kernel-compat/windows/list.h"
 #include "../bsr/bsr-kernel-compat/windows/wait.h"
-#include "../bsr/bsr-kernel-compat/windows/drbd_windows.h"
+#include "../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #else
 #include <linux/kref.h>
 #include <linux/list.h>

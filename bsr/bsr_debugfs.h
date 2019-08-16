@@ -5,7 +5,7 @@
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #endif
-#include "drbd_int.h"
+#include "bsr_int.h"
 
 #ifdef CONFIG_DEBUG_FS
 int __init drbd_debugfs_init(void);
