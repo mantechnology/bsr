@@ -39,10 +39,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "drbdadm.h"
-#include "drbdtool_common.h"
-#include "drbd_endian.h"
-#include "linux/drbd.h"		/* only use DRBD_MAGIC from here! */
+#include "bsradm.h"
+#include "bsrtool_common.h"
+#include "bsr_endian.h"
+#include "linux/bsr.h"		/* only use DRBD_MAGIC from here! */
 #include "config_flags.h"
 
 #define HTTP_PORT 80

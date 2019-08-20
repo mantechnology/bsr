@@ -29,8 +29,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "drbdtool_common.h"
-#include "drbdadm.h"
+#include "bsrtool_common.h"
+#include "bsradm.h"
 #include "config_flags.h"
 #include <search.h>
 

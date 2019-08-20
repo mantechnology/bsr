@@ -17,7 +17,7 @@
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 
-VPATH = ../../../drbd-headers:../shared
+VPATH = ../../../bsr-headers:../shared
 
 # variables set by configure
 DISTRO = redhat
@@ -31,16 +31,16 @@ sysconfdir = /etc
 BASH_COMPLETION_SUFFIX = 
 UDEV_RULE_SUFFIX = 
 INITDIR = /etc/rc.d/init.d
-LIBDIR = /usr/lib/drbd
+LIBDIR = /usr/lib/bsr
 CC = gcc
 CFLAGS = -g -O2
 LDFLAGS = 
 LN_S = ln -s
 
-DRBD_LIB_DIR = /var/lib/drbd
-DRBD_RUN_DIR = /var/run/drbd
-DRBD_LOCK_DIR = /var/lock
-DRBD_CONFIG_DIR = /etc
+BSR_LIB_DIR = /var/lib/bsr
+BSR_RUN_DIR = /var/run/bsr
+BSR_LOCK_DIR = /var/lock
+BSR_CONFIG_DIR = /etc
 
 # features enabled or disabled by configure
 WITH_83_SUPPORT = yes
@@ -58,7 +58,6 @@ SHELL=/bin/bash
 # variables meant to be overridden from the make command line
 DESTDIR ?= /
 
-CFLAGS += -Wall -I../../../drbd-headers -I.. -I. -I../shared -I../../../wdrbd9
 
 # DW-1719: Detect os
 is_win32 =
@@ -75,6 +74,7 @@ else
 endif
 
 ifdef is_win32
+	CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared -I../../../bsr-platform/windows/bsrvflt
 	# _WIN32
 	# _WIN32_V9 for 9.0.0 porting.
 	# _WIN32_CLI_UPDATE for updated cygwin version (2.10.0)
@@ -83,48 +83,51 @@ ifdef is_win32
 	else
 		CFLAGS += -gdwarf-2 -g3 -D_WIN32  -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE
 	endif
+else
+	# _LIN
+	CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared
 endif
 
 #ifndef _WIN32
 #GENETLINK_H := /usr/include/linux/genetlink.h
 #libgenl.o: CFLAGS += $(shell for w in CTRL_ATTR_VERSION CTRL_ATTR_HDRSIZE CTRL_ATTR_MCAST_GROUPS; do grep -qw $$w $(GENETLINK_H) && echo -DHAVE_$$w; done)
 
-drbdadm-obj = drbdadm_scanner.o drbdadm_parser.o drbdadm_postparse.o \
-	      drbdadm_main.o drbdadm_adjust.o drbdadm_dump.o drbdtool_common.o \
-	      drbdadm_usage_cnt.o drbd_buildtag.o registry.o config_flags.o \
-	      libgenl.o drbd_nla.o shared_tool.o shared_main.o shared_parser.o
+bsradm-obj = bsradm_scanner.o bsradm_parser.o bsradm_postparse.o \
+	      bsradm_main.o bsradm_adjust.o bsradm_dump.o bsrtool_common.o \
+	      bsradm_usage_cnt.o bsr_buildtag.o registry.o config_flags.o \
+	      libgenl.o bsr_nla.o shared_tool.o shared_main.o shared_parser.o
 
-drbdsetup-obj = libgenl.o registry.o drbdsetup.o drbdtool_common.o \
-		drbd_buildtag.o drbd_strings.o config_flags.o drbd_nla.o \
-		wrap_printf.o drbdsetup_colors.o shared_tool.o
+bsrsetup-obj = libgenl.o registry.o bsrsetup.o bsrtool_common.o \
+		bsr_buildtag.o bsr_strings.o config_flags.o bsr_nla.o \
+		wrap_printf.o bsrsetup_colors.o shared_tool.o
 
-drbdmeta-obj = drbdmeta.o drbdmeta_scanner.o drbdtool_common.o drbd_buildtag.o \
-	       drbd_strings.o shared_tool.o
+bsrmeta-obj = bsrmeta.o bsrmeta_scanner.o bsrtool_common.o bsr_buildtag.o \
+	       bsr_strings.o shared_tool.o
 
-all-obj := $(drbdadm-obj) $(drbdsetup-obj) $(drbdmeta-obj)
+all-obj := $(bsradm-obj) $(bsrsetup-obj) $(bsrmeta-obj)
 
 all: tools
 
 include ../shared_prereqs.mk
 
-tools: drbdadm drbdmeta drbdsetup
+tools: bsradm bsrmeta bsrsetup
 
-drbdadm: $(drbdadm-obj)
+bsradm: $(bsradm-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
 
-drbdadm_scanner.c: drbdadm_scanner.fl drbdadm_parser.h
-	flex -s -odrbdadm_scanner.c drbdadm_scanner.fl
+bsradm_scanner.c: bsradm_scanner.fl bsradm_parser.h
+	flex -s -obsradm_scanner.c bsradm_scanner.fl
 
-drbdsetup: $(drbdsetup-obj)
+bsrsetup: $(bsrsetup-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
 
-drbdmeta: $(drbdmeta-obj)
+bsrmeta: $(bsrmeta-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
 
 clean:
-	rm -f drbdadm_scanner.c
-	rm -f drbdsetup drbdadm drbdmeta $(all-obj)
-	rm -f drbd_strings.c drbd_strings.h
+	rm -f bsradm_scanner.c
+	rm -f bsrsetup bsradm bsrmeta $(all-obj)
+	rm -f bsr_strings.c bsr_strings.h
 	rm -f *~
 
 distclean: clean
@@ -132,30 +135,30 @@ distclean: clean
 
 install:
 	install -d $(DESTDIR)$(sbindir)
-	install -d $(DESTDIR)$(localstatedir)/lib/drbd
+	install -d $(DESTDIR)$(localstatedir)/lib/bsr
 	install -d $(DESTDIR)$(localstatedir)/lock
 	if getent group haclient > /dev/null 2> /dev/null ; then	\
-		install -g haclient -m 4750 drbdsetup $(DESTDIR)$(sbindir) ;	\
-		install -g haclient -m 4750 drbdmeta $(DESTDIR)$(sbindir) ;	\
-		install -m 755 drbdadm $(DESTDIR)$(sbindir) ;		\
+		install -g haclient -m 4750 bsrsetup $(DESTDIR)$(sbindir) ;	\
+		install -g haclient -m 4750 bsrmeta $(DESTDIR)$(sbindir) ;	\
+		install -m 755 bsradm $(DESTDIR)$(sbindir) ;		\
 	else								\
-		install -m 755 drbdsetup $(DESTDIR)$(sbindir) ;		\
-		install -m 755 drbdmeta $(DESTDIR)$(sbindir) ;		\
-		install -m 755 drbdadm $(DESTDIR)$(sbindir) ;		\
+		install -m 755 bsrsetup $(DESTDIR)$(sbindir) ;		\
+		install -m 755 bsrmeta $(DESTDIR)$(sbindir) ;		\
+		install -m 755 bsradm $(DESTDIR)$(sbindir) ;		\
 	fi
 	if test -d $(DESTDIR)/sbin && \
 	 ! test $(DESTDIR)/sbin -ef $(DESTDIR)$(sbindir) ; then		\
-		ln -sf $(sbindir)/drbdsetup $(DESTDIR)/sbin ;		\
-		ln -sf $(sbindir)/drbdmeta $(DESTDIR)/sbin ;		\
-		ln -sf $(sbindir)/drbdadm $(DESTDIR)/sbin ;		\
+		ln -sf $(sbindir)/bsrsetup $(DESTDIR)/sbin ;		\
+		ln -sf $(sbindir)/bsrmeta $(DESTDIR)/sbin ;		\
+		ln -sf $(sbindir)/bsradm $(DESTDIR)/sbin ;		\
 	fi
-	install -d $(DESTDIR)$(DRBD_LIB_DIR)
+	install -d $(DESTDIR)$(BSR_LIB_DIR)
 
 uninstall:
-	rm -f $(DESTDIR)$(sbindir)/{drbdsetup,drbdadm,drbdmeta}
-	rm -f $(DESTDIR)/sbin/{drbdsetup,drbdadm,drbdmeta}
+	rm -f $(DESTDIR)$(sbindir)/{bsrsetup,bsradm,bsrmeta}
+	rm -f $(DESTDIR)/sbin/{bsrsetup,bsradm,bsrmeta}
 
 spell:
-	for f in drbdadm_adjust.c drbdadm_main.c drbdadm_parser.c drbdadm_usage_cnt.c drbdmeta.c drbdsetup.c drbdtool_common.c; do \
+	for f in bsradm_adjust.c bsradm_main.c bsradm_parser.c bsradm_usage_cnt.c bsrmeta.c bsrsetup.c bsrtool_common.c; do \
 	 	aspell --save-repl --dont-backup --personal=./../documentation/aspell.en.per check $$f; \
 	done

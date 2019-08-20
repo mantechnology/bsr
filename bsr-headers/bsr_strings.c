@@ -25,7 +25,7 @@
 #ifdef _WIN32
 #include "windows/bsr.h"
 #else
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #endif
 #include "bsr_strings.h"
 #include "bsr_protocol.h"
@@ -262,6 +262,7 @@ const char *drbd_packet_name(enum drbd_packet cmd)
 	       "?" : __packet_names[cmd];
 }
 
+#ifdef _WIN32
 const char *drbd_disk_type_name(unsigned char type) {
 	switch (type) {
 	case VOLUME_TYPE_REPL:
@@ -281,3 +282,4 @@ const char *drbd_io_type_name(unsigned char type) {
 	}
 	return "unknown";
 }
+#endif

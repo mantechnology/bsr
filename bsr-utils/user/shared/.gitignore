@@ -1,3 +1,3 @@
-/drbdadm_scanner.c
-/drbd_buildtag.c
-/drbdmeta_scanner.c
+/bsradm_scanner.c
+/bsr_buildtag.c
+/bsrmeta_scanner.c

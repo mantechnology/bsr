@@ -2,7 +2,7 @@
 
 ../shared/%:
 	$(MAKE) -C $(@D) $(@F)
-drbd_buildtag.o: ../shared/drbd_buildtag.c
+bsr_buildtag.o: ../shared/bsr_buildtag.c
 
 # from make documentation, automatic prerequisites
 .%.d: %.c
@@ -11,8 +11,8 @@ drbd_buildtag.o: ../shared/drbd_buildtag.c
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
-.drbdmeta_scanner.d: ../shared/drbdmeta_scanner.c
-all-dep = $($(filter-out drbd_buildtag.o,$(all-obj)):%.o=.%.d)
+.bsrmeta_scanner.d: ../shared/bsrmeta_scanner.c
+all-dep = $($(filter-out bsr_buildtag.o,$(all-obj)):%.o=.%.d)
 
 ifneq (,$(filter-out clean distclean,$(MAKECMDGOALS)))
 include $(all-dep)

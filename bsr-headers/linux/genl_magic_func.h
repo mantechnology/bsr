@@ -37,11 +37,18 @@ static struct nla_policy s_name ## _nl_policy[] __read_mostly =		\
 	[attr_nr] = { .type = nla_type },
 
 #undef __array
+#ifdef _WIN32
 #define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
 		__get, __put, __is_signed)				\
 	[attr_nr] = { .type = nla_type,					\
 		      .len = (u16)(maxlen - (nla_type == NLA_NUL_STRING)) },
+#else
+#define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
+		__get, __put, __is_signed)				\
+	[attr_nr] = { .type = nla_type,					\
+		      .len = (maxlen - (nla_type == NLA_NUL_STRING)) },
 
+#endif
 #include GENL_MAGIC_INCLUDE_FILE
 
 #ifdef _WIN32

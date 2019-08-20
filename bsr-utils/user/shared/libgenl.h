@@ -36,6 +36,7 @@ do {							\
 				lvl , ##arg);		\
 } while (false)
 
+#ifdef _WIN32
 #define BUG_ON(cond)						\
 	do {							\
 		int __cond = (cond);				\
@@ -45,8 +46,19 @@ do {							\
 				__FILE__, __LINE__,		\
 				#cond, __cond);			\
 		abort();				\
-		} while (false)
-
+	} while (false)
+#else
+#define BUG_ON(cond)						\
+	do {							\
+		int __cond = (cond);				\
+		if (!__cond)					\
+			break;					\
+		fprintf(stderr, "BUG: %s:%d: %s == %u\n",	\
+				__FILE__, __LINE__,		\
+				#cond, __cond);			\
+		abort();				\
+	} while (0)
+#endif
 #define min_t(type, x, y) ({                    \
         type __min1 = (x);                      \
         type __min2 = (y);                      \

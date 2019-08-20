@@ -26,8 +26,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "drbdadm.h"
-#include "drbdtool_common.h"
+#include "bsradm.h"
+#include "bsrtool_common.h"
 
 static int indent = 0;
 #define INDENT_WIDTH 4

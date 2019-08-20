@@ -27,11 +27,11 @@
 #include <features.h>
 
 #include "config.h"
-#include "drbdadm.h"
-#include "drbd_endian.h"
-#include "linux/drbd.h"
+#include "bsradm.h"
+#include "bsr_endian.h"
+#include "linux/bsr.h"
 
-#include "drbdtool_common.h"
+#include "bsrtool_common.h"
 #include "shared_tool.h"
 #include "shared_main.h"
 
@@ -550,7 +550,8 @@ bool random_by_dev_urandom(void *buffer, size_t len)
 	uint8_t *r;
 
 	srand(time(NULL));
-	for (int i = 0; i < len; i++) {
+	int i;
+	for (i = 0; i < len; i++) {
 		r = buffer + i;
 		*r = rand() % 256;
 	}

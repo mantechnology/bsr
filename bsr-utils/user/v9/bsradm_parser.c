@@ -37,11 +37,11 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include "drbdadm.h"
-#include "linux/drbd.h"
-#include "linux/drbd_limits.h"
-#include "drbdtool_common.h"
-#include "drbdadm_parser.h"
+#include "bsradm.h"
+#include "linux/bsr.h"
+#include "linux/bsr_limits.h"
+#include "bsrtool_common.h"
+#include "bsradm_parser.h"
 #include "shared_parser.h"
 #include <config_flags.h>
 

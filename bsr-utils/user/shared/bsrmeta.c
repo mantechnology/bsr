@@ -46,21 +46,21 @@
 #include <fcntl.h>
 #include <time.h>
 #ifdef _WIN32
-#include "windows/drbd.h"		/* only use DRBD_MAGIC from here! */
+#include "windows/bsr.h"		/* only use DRBD_MAGIC from here! */
 #include <windows.h>
 #else
 #include <linux/major.h>
 #include <linux/kdev_t.h>
-#include <linux/drbd.h>		/* only use DRBD_MAGIC from here! */
+#include <linux/bsr.h>		/* only use DRBD_MAGIC from here! */
 #include <linux/fs.h>           /* for BLKFLSBUF */
 #endif
 
-#include "drbd_endian.h"
-#include "drbdtool_common.h"
-#include "drbd_strings.h"
-#include "drbd_meta_data.h"
+#include "bsr_endian.h"
+#include "bsrtool_common.h"
+#include "bsr_strings.h"
+#include "bsr_meta_data.h"
 
-#include "drbdmeta_parser.h"
+#include "bsrmeta_parser.h"
 
 #include "config.h"
 

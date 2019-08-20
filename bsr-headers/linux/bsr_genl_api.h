@@ -37,7 +37,7 @@ enum {
 #ifdef _WIN32
 #include "../windows/bsr.h"
 #else
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #endif
 
 #define GENL_MAGIC_VERSION	2
@@ -47,7 +47,7 @@ enum {
 #define GENL_MAGIC_INCLUDE_FILE "bsr_genl.h" // TODO: linux 경로 인식 문제로 컴파일을 위해 임시 경로로 대치: linux/drbd_genl.h -> drbd_genl.h
 #include "genl_magic_struct.h"
 #else
-#define GENL_MAGIC_INCLUDE_FILE <linux/drbd_genl.h>
+#define GENL_MAGIC_INCLUDE_FILE <linux/bsr_genl.h>
 #include <linux/genl_magic_struct.h>
 #endif
 

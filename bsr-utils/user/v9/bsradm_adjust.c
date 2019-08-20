@@ -40,9 +40,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#include "drbdadm.h"
-#include "drbdtool_common.h"
-#include "drbdadm_parser.h"
+#include "bsradm.h"
+#include "bsrtool_common.h"
+#include "bsradm_parser.h"
 #include "config_flags.h"
 
 /* drbdsetup show might complain that the device minor does

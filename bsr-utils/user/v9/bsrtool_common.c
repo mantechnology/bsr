@@ -14,7 +14,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <netdb.h>
 
-#include "linux/drbd_config.h"
-#include "drbdtool_common.h"
+#include "linux/bsr_config.h"
+#include "bsrtool_common.h"
 #include "config.h"
 
 static struct version __drbd_driver_version = {};

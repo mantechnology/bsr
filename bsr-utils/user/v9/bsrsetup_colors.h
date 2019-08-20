@@ -1,7 +1,7 @@
 ﻿#ifndef DRBDSETUP_COLORS_H
 #define DRBDSETUP_COLORS_H
 
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 
 enum when_color { NEVER_COLOR = -1, AUTO_COLOR = 0, ALWAYS_COLOR = 1 };
 extern enum when_color opt_color;

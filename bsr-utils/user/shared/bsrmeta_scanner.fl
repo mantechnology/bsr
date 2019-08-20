@@ -1,8 +1,8 @@
 %{
 
-#include "drbd_endian.h"
-#include "drbdmeta_parser.h"
-#include "drbdtool_common.h"
+#include "bsr_endian.h"
+#include "bsrmeta_parser.h"
+#include "bsrtool_common.h"
 
 static void bad_token(char*);
 

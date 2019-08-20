@@ -13,7 +13,7 @@ else
 	make
 fi
 
-mkdir -p ../../../build/drbd/$arch/bin/
-cp -uv *.exe ../../../build/drbd/$arch/bin/
+mkdir -p ../../../build/windows/$arch/bin/
+cp -uv *.exe ../../../build/windows/$arch/bin/
 
 exit $?

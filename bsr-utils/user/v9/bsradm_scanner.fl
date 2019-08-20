@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "drbdadm_parser.h"
-#include "drbdadm.h"
-#include "drbdtool_common.h"
+#include "bsradm_parser.h"
+#include "bsradm.h"
+#include "bsrtool_common.h"
 
 void long_string(char* text);
 void long_dqstring(char* text);

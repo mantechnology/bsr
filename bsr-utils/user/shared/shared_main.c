@@ -56,7 +56,7 @@
 #include <signal.h>
 #include <time.h>
 
-#include "drbd_endian.h"
+#include "bsr_endian.h"
 #include "shared_main.h"
 #include "shared_tool.h"
 

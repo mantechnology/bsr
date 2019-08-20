@@ -74,18 +74,18 @@
  */
 
 #include "libgenl.h"
-#include "drbd_nla.h"
-#include <linux/drbd_config.h>
-#include <linux/drbd_genl_api.h>
-#include <linux/drbd_limits.h>
-#include "drbdtool_common.h"
+#include "bsr_nla.h"
+#include <linux/bsr_config.h>
+#include <linux/bsr_genl_api.h>
+#include <linux/bsr_limits.h>
+#include "bsrtool_common.h"
 #include <linux/genl_magic_func.h>
-#include "drbd_strings.h"
+#include "bsr_strings.h"
 #include "registry.h"
 #include "config.h"
 #include "config_flags.h"
 #include "wrap_printf.h"
-#include "drbdsetup_colors.h"
+#include "bsrsetup_colors.h"
 
 char *progname;
 
@@ -3921,7 +3921,9 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 			if (io_error.is_cleared)
 				printf(" cleared%s", key ? key : "-");
 			else {
+#ifdef _WIN32
 				printf("%s disk:%s io:%s", key ? key : "-", drbd_disk_type_name(io_error.disk_type), drbd_io_type_name(io_error.io_type));
+#endif
 				printf(" error-code:0x%08X sector:%llus size:%u", io_error.error_code, io_error.sector, io_error.size);
 			}
 		}

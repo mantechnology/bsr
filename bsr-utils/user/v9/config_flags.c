@@ -11,12 +11,12 @@
 #endif
 
 #include "libgenl.h"
-#include <linux/drbd.h>
-#include <linux/drbd_config.h>
-#include <linux/drbd_genl_api.h>
-#include <linux/drbd_limits.h>
-#include "drbd_nla.h"
-#include "drbdtool_common.h"
+#include <linux/bsr.h>
+#include <linux/bsr_config.h>
+#include <linux/bsr_genl_api.h>
+#include <linux/bsr_limits.h>
+#include "bsr_nla.h"
+#include "bsrtool_common.h"
 #include <linux/genl_magic_func.h>
 #include "config_flags.h"
 
@@ -854,7 +854,7 @@ const struct en_map quorum_map[] = {
 	/*{ "disk-barrier", BOOLEAN(disk_barrier, DISK_BARRIER) }, */			\
 	{ "disk-flushes", BOOLEAN(disk_flushes, DISK_FLUSHES) }, 			\
 	/*{ "disk-drain", BOOLEAN(disk_drain, DISK_DRAIN) }, */				\
-	/*{ "md-flushes", BOOLEAN(md_flushes, MD_FLUSHES) }, */				\ 
+	/*{ "md-flushes", BOOLEAN(md_flushes, MD_FLUSHES) }, */				\
 	{ "resync-after", NUMERIC(resync_after, MINOR_NUMBER), .checked_in_postparse = true}, \
 	{ "al-extents", NUMERIC(al_extents, AL_EXTENTS), .implicit_clamp = true, },	\
 	{ "al-updates", BOOLEAN(al_updates, AL_UPDATES) },				\
@@ -901,7 +901,7 @@ const struct en_map quorum_map[] = {
 	{ "ping-int", NUMERIC(ping_int, PING_INT),					\
           .unit = "seconds" },								\
 	{ "sndbuf-size", NUMERIC(sndbuf_size, SNDBUF_SIZE),				\
-	/* DW-1421 : set implicit_clamp to true to avoid numeric_check */				\ 
+	/* DW-1421 : set implicit_clamp to true to avoid numeric_check */				\
           .unit = "bytes", .implicit_clamp = true },								\
 	{ "rcvbuf-size", NUMERIC(rcvbuf_size, RCVBUF_SIZE),				\
           .unit = "bytes" },								\

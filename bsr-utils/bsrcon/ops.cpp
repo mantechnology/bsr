@@ -27,8 +27,8 @@
 #include "OosTrace.h"
 #endif
 #include "LogManager.h"
-#include "../../wdrbd_service/drbdService.h"
-#include "../../drbdlock/drbdlock_comm.h"
+#include "../../bsr-platform/windows/bsrsvc/bsrService.h"
+#include "../../bsr-platform/windows/bsrfsflt/bsrfsflt_comm.h"
 
 
 HANDLE

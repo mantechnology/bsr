@@ -1,7 +1,7 @@
 ﻿#ifndef DRBDADM_DUMP_H
 #define DRBDADM_DUMP_H
 
-#include "drbdadm.h"
+#include "bsradm.h"
 
 extern void print_dump_xml_header(void);
 extern void print_dump_header(void);

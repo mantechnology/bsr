@@ -50,18 +50,18 @@
 #include <signal.h>
 #include <time.h>
 #ifndef _WIN32
-#include "linux/drbd.h"
+#include "linux/bsr.h"
 #endif
-#include "linux/drbd_limits.h"
-#include "drbdtool_common.h"
-#include "drbdadm.h"
+#include "linux/bsr_limits.h"
+#include "bsrtool_common.h"
+#include "bsradm.h"
 #include "registry.h"
 #include "config_flags.h"
-#include "drbdadm_dump.h"
+#include "bsradm_dump.h"
 #include "shared_main.h"
-#include "drbdadm_parser.h"
+#include "bsradm_parser.h"
 #ifdef _WIN32
-#include "windows/drbd.h"
+#include "windows/bsr.h"
 #include <windows.h>
 #endif
 

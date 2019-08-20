@@ -1,7 +1,7 @@
 ﻿#include <stdbool.h>
 #include "libgenl.h"
-#include <linux/drbd_genl_api.h>
-#include "drbd_nla.h"
+#include <linux/bsr_genl_api.h>
+#include "bsr_nla.h"
 
 static int drbd_nla_check_mandatory(int maxtype, struct nlattr *nla)
 {

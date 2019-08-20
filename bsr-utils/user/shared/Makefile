@@ -1,6 +1,6 @@
 # Makefile for drbd.o
 #
-# This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+# This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 #
 # drbd is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,16 +29,16 @@ sysconfdir = /etc
 BASH_COMPLETION_SUFFIX = 
 UDEV_RULE_SUFFIX = 
 INITDIR = /etc/rc.d/init.d
-LIBDIR = /usr/lib/drbd
+LIBDIR = /usr/lib/bsr
 CC = gcc
 CFLAGS = -g -O2
 LDFLAGS = 
 LN_S = ln -s
 
-DRBD_LIB_DIR = /var/lib/drbd
-DRBD_RUN_DIR = /var/run/drbd
-DRBD_LOCK_DIR = /var/lock
-DRBD_CONFIG_DIR = /etc
+BSR_LIB_DIR = /var/lib/bsr
+BSR_RUN_DIR = /var/run/bsr
+BSR_LOCK_DIR = /var/lock
+BSR_CONFIG_DIR = /etc
 
 # features enabled or disabled by configure
 WITH_83_SUPPORT = yes
@@ -56,17 +56,17 @@ SHELL=/bin/bash
 # variables meant to be overridden from the make command line
 DESTDIR ?= /
 
-CFLAGS += -Wall -I../../drbd-headers -I.. -I.
+CFLAGS += -Wall -I../../bsr-headers -I.. -I.
 
-.PHONY: drbd_buildtag.c
+.PHONY: bsr_buildtag.c
 
-all: drbdmeta_scanner.c drbd_buildtag.c
+all: bsrmeta_scanner.c bsr_buildtag.c
 
-drbd_buildtag.c:
+bsr_buildtag.c:
 	@set -e; exec > $@.new;							\
 	echo -e "/* automatically generated. DO NOT EDIT. */";			\
-	echo -e "#include <linux/drbd.h>";					\
-	echo -e "const char *drbd_buildtag(void)\n{";				\
+	echo -e "#include <linux/bsr.h>";					\
+	echo -e "const char *bsr_buildtag(void)\n{";				\
 	if test -e ../../.git && GITHEAD=$$(git rev-parse HEAD); then		\
 		GITDIFF=$$(cd .. && git diff --name-only HEAD |			\
 			tr -s '\t\n' '  ' |					\
@@ -78,7 +78,7 @@ drbd_buildtag.c:
 		>&2 printf "%s\n"						\
 			"git did not work, but this looks like a git checkout?"	\
 			"Install git and try again." ||				\
-		echo >&2 "Your DRBD source tree is broken. Unpack again.";	\
+		echo >&2 "Your BSR source tree is broken. Unpack again.";	\
 		exit 1;								\
 	else									\
 		grep return $@ ;						\
@@ -86,15 +86,15 @@ drbd_buildtag.c:
 	echo -e "\t\t\" build by $$USER@$$HOSTNAME, `date "+%F %T"`\";\n}";	\
 	mv --force $@.new $@
 
-drbdmeta_scanner.c: drbdmeta_scanner.fl drbdmeta_parser.h
-	flex -s -odrbdmeta_scanner.c drbdmeta_scanner.fl
+bsrmeta_scanner.c: bsrmeta_scanner.fl bsrmeta_parser.h
+	flex -s -obsrmeta_scanner.c bsrmeta_scanner.fl
 
-# drbdmeta is in this directory; but some header files it depends on are in 
+# bsrmeta is in this directory; but some header files it depends on are in 
 # v9, so that's where it gets built and installed.
 
 clean:
-	rm -f drbdmeta_scanner.c
-	! test -e ../../.git || rm -f drbd_buildtag.c
+	rm -f bsrmeta_scanner.c
+	! test -e ../../.git || rm -f bsr_buildtag.c
 
 distclean: clean
 

@@ -34,8 +34,8 @@
 #include <unistd.h>
 
 #include "shared_parser.h"
-#include "drbdadm.h"
-#include "drbdadm_parser.h"
+#include "bsradm.h"
+#include "bsradm_parser.h"
 
 extern void my_parse(void);
 

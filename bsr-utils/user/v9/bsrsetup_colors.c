@@ -1,6 +1,6 @@
 ﻿#include <stdbool.h>
-#include "drbdtool_common.h"
-#include "drbdsetup_colors.h"
+#include "bsrtool_common.h"
+#include "bsrsetup_colors.h"
 
 enum when_color opt_color;
 
