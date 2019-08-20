@@ -51,7 +51,7 @@ ifneq ($(PATCHLEVEL),)
   endif
  endif
 
-  CONFIG_BLK_DEV_DRBD := m
+  CONFIG_BLK_DEV_BSR := m
 
   include $(src)/Kbuild
 
@@ -62,7 +62,7 @@ else
   # and not in e.g. dash. I'm too lazy to fix it to be compatible.
   SHELL=/bin/bash
 
-  DRBDSRC := $(shell pwd)
+  BSRSRC := $(shell pwd)
 
   # to be overridden on command line:
   PREFIX := /
@@ -83,11 +83,11 @@ else
     endif
   endif
 
-  .PHONY: drbd.o default all greeting clean kbuild install dep tags
+  .PHONY: bsr.o default all greeting clean kbuild install dep tags
 
-  drbd.o: greeting kbuild
-  default: drbd.o
-  all:     drbd.o
+  bsr.o: greeting kbuild
+  default: bsr.o
+  all:     bsr.o
 
   greeting:
 	@echo "" ;\
@@ -100,19 +100,19 @@ else
 	fi
 
   kbuild:
-	@rm -f .drbd_kernelrelease*
+	@rm -f .bsr_kernelrelease*
     # previous to 2.6.6 (suse: 2.6.5-dunno), this should be:
-	$(MAKE) -C $(KDIR)  $(if $(O),O=$(O),) SUBDIRS=$(DRBDSRC) $(ARCH_UM) modules
-# $(MAKE) -C $(KDIR) M=$(DRBDSRC) $(ARCH_UM) modules
-	-mv .drbd_kernelrelease.new .drbd_kernelrelease
+	$(MAKE) -C $(KDIR)  $(if $(O),O=$(O),) SUBDIRS=$(BSRSRC) $(ARCH_UM) modules
+# $(MAKE) -C $(KDIR) M=$(BSRSRC) $(ARCH_UM) modules
+	-mv .bsr_kernelrelease.new .bsr_kernelrelease
 	@echo -n "Memorizing module configuration ... "
 	@config=$$( (for x in $(KDIR)/.config $(O)/.config ; do \
 	       if test -e $$x ; then echo $$x ; exit 0; fi ; \
 	       done; echo $(KDIR)/.config) | sed -e 's,//,/,g') ; \
-	{ echo -e "#\n# drbd.o was compiled with"          ; \
+	{ echo -e "#\n# bsr.o was compiled with"          ; \
 	  echo "#  `gcc -v 2>&1 | tail -1`"                 ; \
 	  echo "# against this kernelrelease:"              ; \
-	  sed 's/^/#  /' .drbd_kernelrelease                ; \
+	  sed 's/^/#  /' .bsr_kernelrelease                ; \
 	  echo    "# kernel .config from"                   ; \
 	  echo -n "#  $$config"                      ; \
 	  test -L "$${config%/.config}" && echo "	alias"   &&           \
@@ -124,16 +124,16 @@ else
   clean:
 	rm -rf .tmp_versions Module.markers Module.symvers modules.order
 	rm -f *.[oas] *.ko .*.cmd .*.d .*.tmp *.mod.c .*.flags .depend .kernel*
-	rm -f drbd-kernel-compat/*.[oas] drbd-kernel-compat/.*.cmd
+	rm -f bsr-kernel-compat/*.[oas] bsr-kernel-compat/.*.cmd
 
   distclean: clean
-	@if git show HEAD:drbd/linux/drbd_config.h > linux/drbd_config.h.tmp \
-	&& ! diff -s -U0 linux/drbd_config.h.tmp linux/drbd_config.h ; then \
-		mv linux/drbd_config.h.tmp linux/drbd_config.h ; \
+	@if git show HEAD:bsr/linux/bsr_config.h > linux/bsr_config.h.tmp \
+	&& ! diff -s -U0 linux/bsr_config.h.tmp linux/bsr_config.h ; then \
+		mv linux/bsr_config.h.tmp linux/bsr_config.h ; \
 	else \
-		rm -f linux/drbd_config.h.tmp ; \
+		rm -f linux/bsr_config.h.tmp ; \
 	fi
-	rm -f drbd_buildtag.c compat.h
+	rm -f bsr_buildtag.c compat.h
 
   tags:
 	( git ls-files ;						\
@@ -144,10 +144,10 @@ else
 		-I __must_hold,__protected_by,__protected_read_by	\
 		-I __protected_write_by,BIO_ENDIO_ARGS
 
-  ifneq ($(wildcard .drbd_kernelrelease),)
+  ifneq ($(wildcard .bsr_kernelrelease),)
     # for VERSION, PATCHLEVEL, SUBLEVEL, EXTRAVERSION, KERNELRELEASE
-    include .drbd_kernelrelease
-    MODOBJS := drbd.ko drbd_transport_tcp.ko
+    include .bsr_kernelrelease
+    MODOBJS := bsr.ko # bsr_transport_tcp.ko
     MODSUBDIR := updates
     LINUX := $(wildcard /lib/modules/$(KERNELRELEASE)/build)
 
@@ -168,7 +168,7 @@ else
     endif
   else
     install:
-	@echo "No .drbd_kernelrelease found. Do you need to 'make' the module first?"
+	@echo "No .bsr_kernelrelease found. Do you need to 'make' the module first?"
 	@false
   endif
 endif
