@@ -1,4 +1,4 @@
-﻿#include <linux/bio.h>
+#include <linux/bio.h>
 
 /*
  * Note that up until 2.6.21 inclusive, it was

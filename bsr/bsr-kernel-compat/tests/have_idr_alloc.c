@@ -1,4 +1,4 @@
-﻿#include <linux/spinlock.h>
+#include <linux/spinlock.h>
 #include <linux/gfp.h>
 #include <linux/idr.h>
 

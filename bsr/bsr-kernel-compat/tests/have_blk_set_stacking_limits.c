@@ -1,4 +1,4 @@
-﻿#include <linux/blkdev.h>
+#include <linux/blkdev.h>
 
 void foo(void)
 {

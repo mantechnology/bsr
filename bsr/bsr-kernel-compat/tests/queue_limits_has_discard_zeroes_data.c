@@ -1,4 +1,4 @@
-﻿#include <linux/blkdev.h>
+#include <linux/blkdev.h>
 
 struct queue_limits *foo(void)
 {

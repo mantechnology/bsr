@@ -1,4 +1,4 @@
-﻿#include <linux/bio.h>
+#include <linux/bio.h>
 
 /*
  * upstream commit (included in 2.6.29)

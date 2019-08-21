@@ -1,4 +1,4 @@
-﻿#include <linux/kref.h>
+#include <linux/kref.h>
 
 void test(void)
 {

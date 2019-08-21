@@ -1,4 +1,4 @@
-﻿#include <linux/rbtree.h>
+#include <linux/rbtree.h>
 
 /* introduced with commit b945d6b2, Linux 2.6.35-rc5 */
 

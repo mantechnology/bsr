@@ -1,4 +1,4 @@
-﻿#include <linux/security.h>
+#include <linux/security.h>
 
 /*
 int f(void)

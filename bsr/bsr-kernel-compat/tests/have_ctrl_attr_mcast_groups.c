@@ -1,4 +1,4 @@
-﻿#include <linux/genetlink.h>
+#include <linux/genetlink.h>
 
 void f(void)
 {

@@ -1,4 +1,4 @@
-﻿#include <linux/kernel.h>
+#include <linux/kernel.h>
 #include <linux/list.h>
 
 struct s {

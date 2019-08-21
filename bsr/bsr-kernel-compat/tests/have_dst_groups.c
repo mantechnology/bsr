@@ -1,4 +1,4 @@
-﻿#include <linux/skbuff.h>
+#include <linux/skbuff.h>
 #include <linux/netlink.h>
 
 void dummy(void)

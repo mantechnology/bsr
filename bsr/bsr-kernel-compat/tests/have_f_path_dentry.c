@@ -1,4 +1,4 @@
-﻿#include <linux/fs.h>
+#include <linux/fs.h>
 
 struct dentry *foo(struct file *f)
 {

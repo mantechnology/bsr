@@ -1,4 +1,4 @@
-﻿#include <linux/stddef.h>
+#include <linux/stddef.h>
 #include <linux/bitops.h>
 
 unsigned long func(void)

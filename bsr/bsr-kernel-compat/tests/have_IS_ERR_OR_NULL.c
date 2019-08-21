@@ -1,4 +1,4 @@
-﻿#include <linux/err.h>
+#include <linux/err.h>
 
 int foo(void)
 {

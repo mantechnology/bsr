@@ -1,4 +1,4 @@
-﻿#include <linux/fs.h>
+#include <linux/fs.h>
 
 /*
  * In kernel version 2.6.38-rc1, open_bdev_exclusive() was replaced by
