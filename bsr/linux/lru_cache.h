@@ -28,7 +28,7 @@
 
 #ifdef _WIN32
 #include <stdbool.h>
-#include "../windows/bsr_windows.h"
+#include "../bsr-kernel-compat/windows/bsr_windows.h"
 #define COMPAT_HAVE_BOOL_TYPE
 #else
 #include <linux/list.h>

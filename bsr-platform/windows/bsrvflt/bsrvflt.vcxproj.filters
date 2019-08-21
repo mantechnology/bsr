@@ -117,9 +117,6 @@
     <ClInclude Include="..\..\..\bsr-headers\linux\bsr.h">
       <Filter>bsr\bsr-kernel-compat\linux</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\bsr_config.h">
-      <Filter>bsr\bsr-kernel-compat\linux</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr_debugfs.h">
       <Filter>bsr</Filter>
     </ClInclude>
@@ -231,9 +228,6 @@
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\list.h">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\lru_cache.h">
-      <Filter>bsr\bsr-kernel-compat\linux</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\memcontrol.h">
       <Filter>bsr\bsr-kernel-compat\linux</Filter>
     </ClInclude>
@@ -273,6 +267,12 @@
     <ClInclude Include="wsk_wrapper.h">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\bsr\linux\bsr_config.h">
+      <Filter>bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\linux\lru_cache.h">
+      <Filter>bsr\linux</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bsr">
@@ -304,6 +304,9 @@
     </Filter>
     <Filter Include="bsr-platform\windows\bsrvflt">
       <UniqueIdentifier>{47db6491-8b16-49b8-abee-d4334c2c98a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="bsr\linux">
+      <UniqueIdentifier>{0626e9c9-08d8-4688-8444-3635c817cb8d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

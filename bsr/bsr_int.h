@@ -33,10 +33,10 @@
 #include "./bsr-kernel-compat/windows/list.h"
 #include "./bsr-kernel-compat/windows/sched.h"
 #include "./bsr-kernel-compat/windows/bitops.h"
-#include "./bsr-kernel-compat/linux/lru_cache.h"
+#include "./linux/lru_cache.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"
 #include "../bsr-headers/windows/bsr.h"
-#include "./bsr-kernel-compat/linux/bsr_config.h"
+#include "./linux/bsr_config.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 #else
 #include <linux/compiler.h>
