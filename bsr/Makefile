@@ -51,7 +51,7 @@ ifneq ($(PATCHLEVEL),)
   endif
  endif
 
-  CONFIG_BLK_DEV_BSR := m
+  CONFIG_BLK_DEV_DRBD := m
 
   include $(src)/Kbuild
 
@@ -125,6 +125,7 @@ else
 	rm -rf .tmp_versions Module.markers Module.symvers modules.order
 	rm -f *.[oas] *.ko .*.cmd .*.d .*.tmp *.mod.c .*.flags .depend .kernel*
 	rm -f bsr-kernel-compat/*.[oas] bsr-kernel-compat/.*.cmd
+	rm -f .compat_test.*
 
   distclean: clean
 	@if git show HEAD:bsr/linux/bsr_config.h > linux/bsr_config.h.tmp \
@@ -147,7 +148,7 @@ else
   ifneq ($(wildcard .bsr_kernelrelease),)
     # for VERSION, PATCHLEVEL, SUBLEVEL, EXTRAVERSION, KERNELRELEASE
     include .bsr_kernelrelease
-    MODOBJS := bsr.ko # bsr_transport_tcp.ko
+    MODOBJS := bsr.ko # drbd_transport_tcp.ko
     MODSUBDIR := updates
     LINUX := $(wildcard /lib/modules/$(KERNELRELEASE)/build)
 

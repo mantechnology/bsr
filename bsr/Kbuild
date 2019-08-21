@@ -46,15 +46,15 @@ endif
 #bsr-y += bsr_nla.o bsr_transport.o
 bsr-y += ../bsr-platform/linux/bsrhk/bsrhk_init.o
 
-ifdef ENABLE_KREF_DEBUGGING_HERE
-      override EXTRA_CFLAGS += -DCONFIG_KREF_DEBUG
-      bsr-y += kref_debug.o bsr_kref_debug.o
-endif
+#ifndef DISABLE_KREF_DEBUGGING_HERE
+#      override EXTRA_CFLAGS += -DCONFIG_KREF_DEBUG
+#      bsr-y += kref_debug.o bsr_kref_debug.o
+#endif
 
 $(patsubst %,$(obj)/%,$(bsr-y)): $(obj)/compat.h
 $(patsubst %,$(obj)/%,bsr_transport_tcp.o): $(obj)/compat.h
 
-obj-$(CONFIG_BLK_DEV_BSR)     += bsr.o
+obj-$(CONFIG_BLK_DEV_DRBD)     += bsr.o
 
 # ======================================================================
 
@@ -71,9 +71,27 @@ COMPAT_FORCE := FORCE
 endif
 
 ifneq ($(KBUILD_STAGE),modpost)
-$(obj)/compat.h: $(wildcard $(src)/bsr-kernel-compat/tests/*.c) $(COMPAT_FORCE)
+TEST_C := $(wildcard $(src)/bsr-kernel-compat/tests/*.c)
+TEST_R := $(TEST_C:$(src)/bsr-kernel-compat/tests/%.c=$(obj)/.compat_test.%.result)
+$(obj)/.compat_test.%.result: $(src)/bsr-kernel-compat/tests/%.c $(COMPAT_FORCE)
+	$(call cmd,compat_test_result)
+
+quiet_cmd_compat_test_result = COMPAT  $*
+      cmd_compat_test_result = \
+	var=`echo COMPAT_$* | tr -- -a-z _A-Z | tr -dc A-Z0-9_` ;		\
+	if $(CC) $(c_flags) $(COMPAT_CFLAGS) -c -o $(@D)/.compat_test.$*.o $<	\
+		-D"KBUILD_MODNAME=\"compat_dummy\""				\
+		> $(@D)/.compat_test.$*.stdout 2> $(@D)/.compat_test.$*.stderr; \
+	then									\
+		echo "\#define $$var" ;						\
+	else									\
+		echo "/* \#undef $$var */" ;					\
+	fi > $@
+
+filechk_compat.h = cat $(TEST_R)
+
+$(obj)/compat.h: $(TEST_R) $(COMPAT_FORCE)
 	$(call filechk,compat.h)
-	$(Q)touch $@
 	$(Q)touch -r $(objtree)/.config $(obj)/.config.timestamp
 else
 # remember KERNELRELEASE for install target
@@ -91,20 +109,6 @@ $(shell printf "%s\n"				\
 )
 endif
 
-filechk_compat.h = \
-	for cfg in $(sort $(filter-out FORCE,$^)); do \
-	    var=`echo $$cfg | \
-		 sed -e "s,.*/,COMPAT_," -e "s,\.c,," | \
-		 tr -- -a-z _A-Z | \
-		 tr -dc A-Z0-9_`; \
-	    if $(CC) $(c_flags) $(COMPAT_CFLAGS) -c -o $(obj)/dummy.o $$cfg \
-		    > /dev/null $(if $(quiet),2>&1); then \
-		echo "\#define $$var"; \
-		rm -f $(obj)/dummy.{o,gcda,gcno}; \
-	    else \
-		echo "/* \#undef $$var */"; \
-	    fi; \
-	done
 
 # for some reason some of the commands below only work correctly in bash,
 # and not in e.g. dash. I'm too lazy to fix it to be compatible.
@@ -132,4 +136,4 @@ $(obj)/bsr_buildtag.c: $(filter-out bsr_buildtag.o,$(bsr-y))
 		exit 1;								\
 	fi ;									\
 	echo -e "\t\t\" build by $$USER@$$HOSTNAME, `date "+%F %T"`\";\n}";	\
-	mv --force $@.new $@
+	mv -f $@.new $@
