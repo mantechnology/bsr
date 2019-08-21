@@ -2,6 +2,7 @@
 #define _DRBD_WRAPPERS_H
 
 #ifdef _WIN32
+
 #include "./windows/rbtree.h"
 #include "./windows/idr.h"
 #include "./windows/bsr_wingenl.h"
@@ -9,15 +10,19 @@
 
 #include "./windows/backing-dev.h"
 #include "wsk_wrapper.h"
+
 #else
+
 #include <linux/version.h>
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 # error "At least kernel version 2.6.18 (with patches) required"
 #endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 # warning "Kernels <2.6.32 likely have compat issues we did not cover here"
 #endif
-#include "compat.h"
+#include "../compat.h"
 #include <linux/ctype.h>
 #include <linux/net.h>
 #include <linux/version.h>
@@ -98,6 +103,7 @@
 # error "At least kernel version 2.6.18 (with patches) required"
 #endif
 
+
 /* The history of blkdev_issue_flush()
 
    It had 2 arguments before fbd9b09a177a481eda256447c881f014f29034fe,
@@ -149,6 +155,8 @@ static inline void blk_queue_logical_block_size(struct request_queue *q, unsigne
 }
 #endif
 
+
+
 #ifdef _WIN32
 static inline unsigned int queue_logical_block_size(struct request_queue *q)
 {
@@ -188,6 +196,7 @@ static inline unsigned int queue_discard_zeroes_data(struct request_queue *q)
 }
 #endif
 
+
 #ifndef COMPAT_HAVE_BDEV_DISCARD_ALIGNMENT
 static inline int bdev_discard_alignment(struct block_device *bdev)
 {
@@ -209,6 +218,8 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #endif
 }
 #endif
+
+
 
 #ifdef COMPAT_HAVE_VOID_MAKE_REQUEST
 /* in Commit 5a7bbad27a410350e64a2d7f5ec18fc73836c14f (between Linux-3.1 and 3.2)
@@ -270,9 +281,8 @@ static inline struct block_device *blkdev_get_by_path(const char *path,
 #endif
 static inline int drbd_blkdev_put(struct block_device *bdev, fmode_t mode)
 {
-	UNREFERENCED_PARAMETER(mode);
-
 #ifdef _WIN32
+	UNREFERENCED_PARAMETER(mode);	
 	// DW-1109: put ref count and delete bdev if ref gets 0
 	struct block_device *b = bdev->bd_parent?bdev->bd_parent:bdev;
 	kref_put(&b->kref, delete_drbd_block_device);
@@ -290,6 +300,7 @@ static inline int drbd_blkdev_put(struct block_device *bdev, fmode_t mode)
 }
 #define blkdev_put(b, m)	drbd_blkdev_put(b, m)
 #endif
+
 
 #define drbd_bio_uptodate(bio) bio_flagged(bio, BIO_UPTODATE)
 
@@ -415,6 +426,9 @@ enum sock_shutdown_cmd {
 	SHUT_WR = 1,
 	SHUT_RDWR = 2,
 };
+
+
+
 static inline int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
 {
 #ifdef _WIN32
@@ -1116,7 +1130,10 @@ static inline int op_from_rq_bits(u64 flags)
 #ifdef LINBIT_PATCH
 #define submit_bio(__bio)	submit_bio(__bio->bi_rw, __bio)
 #endif
+
 #endif
+
+
 /* }}}1 bio -> bi_rw/bi_opf REQ_* and BIO_RW_* REQ_OP_* compat stuff */
 
 
@@ -1416,6 +1433,7 @@ static inline int genlmsg_total_size(int payload)
  */
 
 #ifndef COMPAT_HAVE_GENLMSG_NEW
+#ifdef _WIN32
 extern struct sk_buff *genlmsg_new(size_t payload, gfp_t flags);
 #else
 #include <net/genetlink.h>
@@ -1425,6 +1443,8 @@ static inline struct sk_buff *genlmsg_new(size_t payload, gfp_t flags)
 	return nlmsg_new(genlmsg_total_size(payload), flags);
 }
 #endif
+#endif
+
 
 /*
  * genlmsg_put() was introduced in mainline commit 482a8524 (v2.6.15-rc1) and
@@ -1846,9 +1866,6 @@ typedef struct hd_struct  hd_struct;
 static inline void generic_start_io_acct(int rw, unsigned long sectors,
 					 struct hd_struct *part)
 {
-	UNREFERENCED_PARAMETER(sectors);
-	UNREFERENCED_PARAMETER(rw);
-	UNREFERENCED_PARAMETER(part);
 #ifndef _WIN32
 	int cpu;
 	BUILD_BUG_ON(sizeof(atomic_t) != sizeof(part->in_flight[0]));
@@ -1863,16 +1880,21 @@ static inline void generic_start_io_acct(int rw, unsigned long sectors,
 	atomic_inc((atomic_t*)&part->in_flight[rw]);
 	part_stat_unlock();
 #else
+	UNREFERENCED_PARAMETER(sectors);
+	UNREFERENCED_PARAMETER(rw);
+	UNREFERENCED_PARAMETER(part);
 	// DbgPrint("generic_start_io_acct\n");
 #endif
 }
 
+#ifdef _WIN32
 static inline void generic_end_io_acct(int rw, struct hd_struct *part,
 				  ULONG_PTR start_time)
+#else
+static inline void generic_end_io_acct(int rw, struct hd_struct *part,
+				  unsigned long start_time)
+#endif
 {
-	UNREFERENCED_PARAMETER(start_time);
-	UNREFERENCED_PARAMETER(rw);
-	UNREFERENCED_PARAMETER(part);
 #ifndef _WIN32
 	unsigned long duration = jiffies - start_time;
 	int cpu;
@@ -1884,6 +1906,9 @@ static inline void generic_end_io_acct(int rw, struct hd_struct *part,
 	atomic_dec((atomic_t*)&part->in_flight[rw]);
 	part_stat_unlock();
 #else
+	UNREFERENCED_PARAMETER(start_time);
+	UNREFERENCED_PARAMETER(rw);
+	UNREFERENCED_PARAMETER(part);
 	// DbgPrint("generic_end_io_acct\n");
 #endif
 }
@@ -1931,9 +1956,11 @@ static inline int atomic_dec_if_positive(atomic_t *v)
 #ifndef COMPAT_HAVE_IDR_IS_EMPTY
 static int idr_has_entry(int id, void *p, void *data)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(id);
 	UNREFERENCED_PARAMETER(p);
 	UNREFERENCED_PARAMETER(data);
+#endif
 	return 1;
 }
 
@@ -1968,4 +1995,6 @@ drbd_ib_create_cq(struct ib_device *device,
 	drbd_ib_create_cq(DEV, COMP_H, EVENT_H, CTX, ATTR)
 #endif
 #endif
+
 #endif
+
