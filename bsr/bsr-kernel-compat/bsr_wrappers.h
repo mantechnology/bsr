@@ -1935,6 +1935,27 @@ static inline int simple_positive(struct dentry *dentry)
 #endif
 #endif
 
+//TODO: 9.0.6-1 drbd_wrppers.h, more define required. 
+
+#ifndef _WIN32
+#ifdef blk_queue_plugged
+/* pre 7eaceac block: remove per-queue plugging
+ * Code has been converted over to the new explicit on-stack plugging ...
+ *
+ * provide dummy struct blk_plug and blk_start_plug/blk_finish_plug,
+ * so the main code won't be cluttered with ifdef.
+ */
+struct blk_plug { };
+#if 0
+static void blk_start_plug(struct blk_plug *plug) {};
+static void blk_finish_plug(struct blk_plug *plug) {};
+#else
+#define blk_start_plug(plug) do { } while (0)
+#define blk_finish_plug(plug) do { } while (0)
+#endif
+#endif
+#endif
+
 #ifndef COMPAT_HAVE_ATOMIC_DEC_IF_POSITIVE
 static inline int atomic_dec_if_positive(atomic_t *v)
 {
