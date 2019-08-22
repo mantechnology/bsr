@@ -51,32 +51,44 @@ static inline void initialize_kref_debugging(void)
 #define kref_debug_init(D, K, C) __kref_debug_init(D, K)
 static inline void __kref_debug_init(struct kref_debug_info *debug_info, struct kref *kref)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(debug_info);
 	UNREFERENCED_PARAMETER(kref);
+#endif
 }
 static inline void kref_debug_destroy(struct kref_debug_info *debug_info)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(debug_info);
+#endif
 }
 static inline void kref_debug_get(struct kref_debug_info *debug_info, int holder_nr)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(debug_info);
 	UNREFERENCED_PARAMETER(holder_nr);
+#endif
 }
 static inline void kref_debug_sub(struct kref_debug_info *debug_info, int refs, int holder_nr)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(debug_info);
 	UNREFERENCED_PARAMETER(refs);
 	UNREFERENCED_PARAMETER(holder_nr);
+#endif
 }
 static inline void kref_debug_put(struct kref_debug_info *debug_info, int holder_nr)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(debug_info);
 	UNREFERENCED_PARAMETER(holder_nr);
+#endif
 }
 static inline void print_kref_debug_info(struct seq_file *seq)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(seq);
+#endif
 }
 #endif
 
