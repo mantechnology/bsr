@@ -38,13 +38,18 @@ else
 compat_objs += bsr-kernel-compat/blkdev_issue_zeroout.o
 endif
 
-#bsr-$(CONFIG_DEBUG_FS) += bsr_debugfs.o
-#bsr-y += bsr_buildtag.o bsr_bitmap.o bsr_proc.o
-#bsr-y += bsr_sender.o bsr_receiver.o bsr_req.o bsr_actlog.o
-#bsr-y += lru_cache.o bsr_main.o bsr_strings.o bsr_nl.o
-#bsr-y += bsr_interval.o bsr_state.o $(compat_objs)
-#bsr-y += bsr_nla.o bsr_transport.o
+bsr-$(CONFIG_DEBUG_FS) += bsr_debugfs.o
 bsr-y += ../bsr-platform/linux/bsrhk/bsrhk_init.o
+#bsr-y += lru_cache.o bsr_strings.o bsr_nl.o bsr_nla.o
+#bsr-y += bsr_interval.o bsr_state.o $(compat_objs)
+#bsr-y += bsr_req.o bsr_actlog.o bsr_main.o
+#bsr-y += bsr_buildtag.o bsr_bitmap.o bsr_proc.o
+#bsr-y += bsr_transport.o
+#bsr-y += bsr_sender.o bsr_receiver.o 
+
+
+
+
 
 #ifndef DISABLE_KREF_DEBUGGING_HERE
 #      override EXTRA_CFLAGS += -DCONFIG_KREF_DEBUG
