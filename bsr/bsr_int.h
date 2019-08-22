@@ -56,11 +56,13 @@
 #include <linux/idr.h>
 #include <linux/lru_cache.h>
 #include <linux/prefetch.h>
-#include <linux/drbd_genl_api.h>
-#include <linux/drbd.h>
-#include <linux/drbd_config.h>
+#include <linux/bsr_genl_api.h>
+#include <linux/bsr.h>
+#include <linux/bsr_config.h>
 #endif
+
 #include "./bsr-kernel-compat/bsr_wrappers.h"
+
 #include "../bsr-headers/bsr_strings.h"
 #ifdef _WIN32_SEND_BUFFING
 #include "send_buf.h"
@@ -68,7 +70,10 @@
 #ifndef _WIN32
 #include "compat.h"
 #endif
+
+
 #include "bsr_state.h"
+
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_kref_debug.h"
 #include "../bsr-headers/bsr_transport.h"
@@ -710,6 +715,7 @@ struct drbd_request {
 	unsigned rq_state[1 + DRBD_NODE_ID_MAX];
 };
 
+
 #ifdef _WIN32
 // MODIFIED_BY_MANTECH DW-1191: out-of-sync information that doesn't rely on drbd request.
 struct drbd_oos_no_req{
@@ -805,6 +811,7 @@ struct drbd_peer_request {
 #endif
 };
 
+#ifdef _WIN32
 // DW-1755 passthrough policy
 // disk error structure to pass to events2
 struct drbd_io_error {
@@ -815,6 +822,7 @@ struct drbd_io_error {
 	unsigned int	size;
 	bool			is_cleared;
 };
+#endif
 
 /* ee flag bits.
  * While corresponding bios are in flight, the only modification will be
@@ -1254,6 +1262,7 @@ struct disconnect_work {
 };
 #endif
 
+#ifdef _WIN32
 struct flush_context_sync {
 	atomic_t primary_node_id;
 	atomic_t64 barrier_nr;
@@ -1270,6 +1279,7 @@ struct one_flush_context {
 	struct issue_flush_context *ctx;
 	struct flush_context_sync ctx_sync;
 };
+#endif
 
 struct drbd_resource {
 	char *name;
@@ -1374,7 +1384,9 @@ struct drbd_resource {
 #ifdef _WIN32_MULTIVOL_THREAD
 	MVOL_THREAD			WorkThreadInfo;
 #endif
+#ifdef _WIN32
 	struct issue_flush_context ctx_flush; // DW-1895
+#endif
 };
 
 struct drbd_connection {
@@ -1412,8 +1424,14 @@ struct drbd_connection {
 #else
 	unsigned long last_received;	/* in jiffies, either socket */
 #endif
+
+#ifdef _WIN32
 	atomic_t64 ap_in_flight; /* App bytes in flight (waiting for ack) */
 	atomic_t64 rs_in_flight; /* resync-data bytes in flight*/
+#else
+	atomic64_t ap_in_flight; /* App bytes in flight (waiting for ack) */
+	atomic64_t rs_in_flight; /* resync-data bytes in flight*/
+#endif
 	struct drbd_work connect_timer_work;
 	struct timer_list connect_timer;
 
@@ -1542,9 +1560,9 @@ struct drbd_connection {
 		/* position in change stream */
 		u64 current_dagtag_sector;
 	} send;
-
+#ifdef _WIN32
 	ring_buffer* ptxbab[2];
-	
+#endif	
 	unsigned int peer_node_id;
 	struct list_head twopc_parent_list;
 	struct drbd_transport transport; /* The transport needs to be the last member. The acutal
@@ -1593,9 +1611,10 @@ struct drbd_peer_device {
 #else
 	unsigned long flags;
 #endif
+#ifdef _WIN32
 	//DW-1806 set after initial send.
 	KEVENT state_initial_send_event;
-	
+#endif	
 
 	enum drbd_repl_state start_resync_side;
 	enum drbd_repl_state last_repl_state; /* What we received from the peer */
@@ -1810,6 +1829,7 @@ struct drbd_device {
 	unsigned long bm_resync_fo; /* bit offset for drbd_bm_find_next */
 #endif
 	struct mutex bm_resync_fo_mutex;
+#ifdef _WIN32
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	//DW-1601 garbage bit list, used for resync
 
@@ -1829,7 +1849,7 @@ struct drbd_device {
 	ULONG_PTR h_gbb;	
 	ULONG_PTR h_isbb;
 #endif
-
+#endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
@@ -2277,10 +2297,10 @@ __drbd_next_peer_device_ref(u64 *, struct drbd_peer_device *, struct drbd_device
 #ifdef _WIN32 // DW-1335 
 #define DRBD_MAX_SECTORS_FIXED_BM \
 	  (((256 << 20 >> 9) - (32768 >> 9) - (4096 >> 9)) * (1LL<<(BM_EXT_SHIFT-9))) 
-#else \
+#else
 #define DRBD_MAX_SECTORS_FIXED_BM \
 	  (((128 << 20 >> 9) - (32768 >> 9) - (4096 >> 9)) * (1LL<<(BM_EXT_SHIFT-9)))
-#endif \
+#endif
 	  
 #if !defined(CONFIG_LBDAF) && !defined(CONFIG_LBD) && BITS_PER_LONG == 32
 #define DRBD_MAX_SECTORS      DRBD_MAX_SECTORS_32
@@ -2800,9 +2820,8 @@ static inline void drbd_set_my_capacity(struct drbd_device *device,
 
 static inline void drbd_kobject_uevent(struct drbd_device *device)
 {
-	UNREFERENCED_PARAMETER(device);
-
 #ifdef _WIN32
+	UNREFERENCED_PARAMETER(device);
 	// required refactring for debugfs
 #else
 	kobject_uevent(disk_to_kobj(device->vdisk), KOBJ_CHANGE);
@@ -2939,8 +2958,8 @@ extern int drbd_open_ro_count(struct drbd_resource *resource);
 
 static inline int drbd_peer_req_has_active_page(struct drbd_peer_request *peer_req)
 {
-	UNREFERENCED_PARAMETER(peer_req);
 #ifdef _WIN32
+	UNREFERENCED_PARAMETER(peer_req);
 	// not support.
 #else	
 	struct page *page = peer_req->page_chain.head;
@@ -2988,7 +3007,7 @@ static inline void __drbd_chk_io_error_(struct drbd_device *device,
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == DRBD_READ_ERROR ||  df == DRBD_WRITE_ERROR) {
 			if (drbd_ratelimit())
-				WDRBD_ERROR("Local IO failed in %s.\n", where);
+				drbd_err(device, "Local IO failed in %s.\n", where);
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -3157,7 +3176,7 @@ static inline sector_t drbd_get_max_capacity(struct drbd_backing_dev *bdev)
 				drbd_get_capacity(bdev->backing_bdev->bd_contains));
 #else
 		s = min_t(sector_t, DRBD_MAX_SECTORS_FLEX,
-				//drbd_get_capacity(bdev->backing_bdev));
+				drbd_get_capacity(bdev->backing_bdev));
 #endif
 		/* clip at maximum size the meta device can support */
 		s = min_t(sector_t, s,
@@ -3246,7 +3265,7 @@ drbd_post_work(struct drbd_resource *resource, int work_bit)
 	}
 }
 
-
+#ifdef _WIN32
 /* DW-1755 passthrough policy
  * Synchronization objects used in the process of forwarding events to events2 
  * only work when irql is less than APC_LEVEL. 
@@ -3290,7 +3309,7 @@ drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, 
 		}
 	}
 }
-
+#endif
 
 
 #ifdef _WIN32
@@ -3742,7 +3761,9 @@ static inline u64 drbd_history_uuid(struct drbd_device *device, int i)
 
 static inline int drbd_queue_order_type(struct drbd_device *device)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
+#endif
 
 	/* sorry, we currently have no working implementation
 	 * of distributed TCQ stuff */
@@ -3842,3 +3863,4 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 #define NODE_MASK(id) ((u64)1 << (id))
 
 #endif
+
