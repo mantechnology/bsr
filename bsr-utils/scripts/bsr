@@ -159,19 +159,26 @@ case "$1" in
 	    exit 6 # LSB for "not configured"
 	fi
 
-	$BSRADM adjust-with-progress all
-	[[ $? -gt 1 ]] && exit 20
+	# TODO
+	# $BSRADM adjust-with-progress all
+	# [[ $? -gt 1 ]] && exit 20
 
 	# make sure udev has time to create the device files
 	# FIXME this probably should, on platforms that have it,
 	# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
-	for DEVICE in `$BSRADM sh-dev all`; do
-	    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
-	    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
-		sleep 1
-		UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
-	    done
-	done
+
+	# TODO
+	#for DEVICE in `$BSRADM sh-dev all`; do
+	#    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
+	#	echo "UDEV_TIMEOUT_LOCAL $UDEV_TIMEOUT_LOCAL"
+	#	echo "DEVICE $DEVICE"
+	#    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
+	#	sleep 1
+	#	echo [! -e $DEVICE]
+	#	UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
+	#    done
+	#done
+
 
 	[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
 	run_hook start_before-wait
@@ -234,9 +241,10 @@ case "$1" in
 			*) echo "$M" >&2 ;;
 			esac
 		done
-		for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
-			$BSRSETUP down "$res"
-		done
+		# TODO
+		#for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
+		#	$BSRSETUP down "$res"
+		#done
 		_udev_settle &> /dev/null
 		if [ -d /sys/module/bsr/holders ]; then
 			(cd /sys/module/bsr/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
@@ -264,7 +272,9 @@ case "$1" in
 	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
 	log_daemon_msg  "Reloading BSR configuration"
-	$BSRADM adjust all
+	
+	# TODO
+	# $BSRADM adjust all
 	run_hook reload
 	log_end_msg 0
 	;;
