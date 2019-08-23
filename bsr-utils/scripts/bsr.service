@@ -1,5 +1,5 @@
 [Unit]
-Description=DRBD -- please disable. Unless you are NOT using a cluster manager.
+Description=BSR -- please disable. Unless you are NOT using a cluster manager.
 Wants=network.target sshd.service
 After=network.target sshd.service
 
@@ -7,11 +7,11 @@ After=network.target sshd.service
 Type=oneshot
 RemainAfterExit=yes
 
-ExecStart=/lib/drbd/drbd start
-ExecStop=/lib/drbd/drbd stop
+ExecStart=/lib/bsr/bsr start
+ExecStop=/lib/bsr/bsr stop
 
 # Re-adjust everything on reload
-ExecReload=/lib/drbd/drbd reload
+ExecReload=/lib/bsr/bsr reload
 
 [Install]
 WantedBy=multi-user.target

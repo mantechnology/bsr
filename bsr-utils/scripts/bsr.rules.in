@@ -1,24 +1,24 @@
 # This file contains the rules to create named DRBD devices.
 
-SUBSYSTEM!="block", GOTO="drbd_end"
-KERNEL!="drbd*", GOTO="drbd_end"
+SUBSYSTEM!="block", GOTO="bsr_end"
+KERNEL!="bsr*", GOTO="bsr_end"
 
-IMPORT{program}="@sbindir@/drbdadm sh-udev minor-%m"
+IMPORT{program}="@sbindir@/bsradm sh-udev minor-%m"
 
 # Use symlink from the environment if available
 # some udev version thought it was a good idea to change a long established
 # default of string_escape=none to string_escape=replace :-/
-# therefore, recent enough drbdadm will no longer export space separated lists.
+# therefore, recent enough bsradm will no longer export space separated lists.
 ENV{SYMLINK_BY_DISK}!="", SYMLINK+="$env{SYMLINK_BY_DISK}"
 ENV{SYMLINK_BY_RES}!="", SYMLINK+="$env{SYMLINK_BY_RES}", GOTO="have_symlink"
 ENV{SYMLINK}!="", OPTIONS+="string_escape=none", SYMLINK="$env{SYMLINK}", GOTO="have_symlink"
 
-# Legacy rules for older DRBD 8.3 & 8.4 when drbdadm sh-udev did not yet export SYMLINK
-ENV{DISK}!="", SYMLINK+="drbd/by-disk/$env{DISK}"
-ENV{RESOURCE}!="", SYMLINK+="drbd/by-res/$env{RESOURCE}"
+# Legacy rules for older DRBD 8.3 & 8.4 when bsradm sh-udev did not yet export SYMLINK
+ENV{DISK}!="", SYMLINK+="bsr/by-disk/$env{DISK}"
+ENV{RESOURCE}!="", SYMLINK+="bsr/by-res/$env{RESOURCE}"
 
 LABEL="have_symlink"
 
-ENV{DEVICE}=="drbd_?*", SYMLINK+="$env{DEVICE}"
+ENV{DEVICE}=="bsr_?*", SYMLINK+="$env{DEVICE}"
 
-LABEL="drbd_end"
+LABEL="bsr_end"
