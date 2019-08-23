@@ -373,7 +373,7 @@ const struct version *drbd_utils_version(void)
 {
 	if (!__drbd_utils_version.version_code) {
 		version_from_str(&__drbd_utils_version, PACKAGE_VERSION);
-		parse_version(&__drbd_utils_version, drbd_buildtag());
+		parse_version(&__drbd_utils_version, bsr_buildtag());
 	}
 
 	return &__drbd_utils_version;

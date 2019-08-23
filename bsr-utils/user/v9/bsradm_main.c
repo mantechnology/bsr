@@ -2921,7 +2921,7 @@ void print_usage_and_exit(struct adm_cmd *cmd, const char *addinfo, int status)
 	}
 
 	printf("\nVersion: " PACKAGE_VERSION " (api:%d)\n%s\n",
-	       API_VERSION, drbd_buildtag());
+	       API_VERSION, bsr_buildtag());
 
 	if (addinfo)
 		printf("\n%s\n", addinfo);
@@ -2963,12 +2963,12 @@ void verify_ips(struct d_resource *res)
 }
 
 static char *conf_file[] = {
-	DRBD_CONFIG_DIR "/drbd-90.conf",
-	DRBD_CONFIG_DIR "/drbd-84.conf",
-	DRBD_CONFIG_DIR "/drbd-83.conf",
-	DRBD_CONFIG_DIR "/drbd-82.conf",
-	DRBD_CONFIG_DIR "/drbd-08.conf",
-	DRBD_CONFIG_DIR "/drbd.conf",
+	BSR_CONFIG_DIR "/bsr-90.conf",
+	BSR_CONFIG_DIR "/bsr-84.conf",
+	BSR_CONFIG_DIR "/bsr-83.conf",
+	BSR_CONFIG_DIR "/bsr-82.conf",
+	BSR_CONFIG_DIR "/bsr-08.conf",
+	BSR_CONFIG_DIR "/bsr.conf",
 	0
 };
 
@@ -3262,7 +3262,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			}
 			break;
 		case 'V':
-			printf("DRBDADM_BUILDTAG=%s\n", shell_escape(drbd_buildtag()));
+			printf("DRBDADM_BUILDTAG=%s\n", shell_escape(bsr_buildtag()));
 			printf("DRBDADM_API_VERSION=%u\n", API_VERSION);
 			printf("DRBD_KERNEL_VERSION_CODE=0x%06x\n", version_code_kernel());
 			printf("DRBD_KERNEL_VERSION=%s\n", escaped_version_code_kernel());

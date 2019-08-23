@@ -46,7 +46,7 @@
 
 static void linkname_from_minor(char *linkname, int minor)
 {
-	sprintf(linkname, "%s/drbd-minor-%d.conf", DRBD_RUN_DIR, minor);
+	sprintf(linkname, "%s/drbd-minor-%d.conf", BSR_RUN_DIR, minor);
 }
 
 int unregister_minor(int minor)
@@ -88,8 +88,8 @@ static int register_path(const char *linkname, const char *path)
 			path);
 		return -1;
 	}
-	/* safeguard against symlink loops in DRBD_RUN_DIR */
-	if (!strncmp(path, DRBD_RUN_DIR "/", strlen(DRBD_RUN_DIR "/")))
+	/* safeguard against symlink loops in BSR_RUN_DIR */
+	if (!strncmp(path, BSR_RUN_DIR "/", strlen(BSR_RUN_DIR "/")))
 		return -1;
 	if (__readlink(linkname, target, sizeof(target)) >= 0 &&
 	    !strcmp(target, path))
@@ -98,11 +98,11 @@ static int register_path(const char *linkname, const char *path)
 		perror(linkname);
 		return -1;
 	}
-	if (mkdir(DRBD_RUN_DIR, S_IRWXU) != 0 && errno != EEXIST) {
+	if (mkdir(BSR_RUN_DIR, S_IRWXU) != 0 && errno != EEXIST) {
 #ifdef _WIN32
 		// ignore
 #else
-		perror(DRBD_RUN_DIR);
+		perror(BSR_RUN_DIR);
 #endif
 		return -1;
 	}
@@ -146,7 +146,7 @@ char *lookup_minor(int minor)
 
 static void linkname_from_resource_name(char *linkname, const char *name)
 {
-	sprintf(linkname, "%s/drbd-resource-%s.conf", DRBD_RUN_DIR, name);
+	sprintf(linkname, "%s/drbd-resource-%s.conf", BSR_RUN_DIR, name);
 }
 
 int unregister_resource(const char *name)
