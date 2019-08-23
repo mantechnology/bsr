@@ -21,10 +21,10 @@
 # Short-Description:    Control drbd resources.
 ### END INIT INFO
 
-DEFAULTFILE="/etc/default/drbd"
-DRBDADM="drbdadm"
-DRBDSETUP="drbdsetup"
-PROC_DRBD="/proc/drbd"
+DEFAULTFILE="/etc/default/bsr"
+BSRADM="bsradm"
+BSRSETUP="bsrsetup"
+PROC_BSR="/proc/bsr"
 MODPROBE="/sbin/modprobe"
 RMMOD="/sbin/rmmod"
 UDEV_TIMEOUT=10
@@ -46,19 +46,19 @@ fi
 
 assure_module_is_loaded()
 {
-    [ -e "$PROC_DRBD" ] && return
+    [ -e "$PROC_BSR" ] && return
 
-    $MODPROBE -s drbd $ADD_MOD_PARAM || {
-	echo "Can not load the drbd module."$'\n'
+    $MODPROBE -s bsr $ADD_MOD_PARAM || {
+	echo "Can not load the bsr module."$'\n'
 	exit 5 # LSB for "not installed"
     }
     # tell klogd to reload module symbol information ...
     [ -e /var/run/klogd.pid ] && [ -x /sbin/klogd ] && /sbin/klogd -i
 }
 
-drbd_pretty_status()
+bsr_pretty_status()
 {
-	local proc_drbd=$1
+	local proc_bsr=$1
 	# add resource names
 	if ! type column &> /dev/null ||
 	   ! type paste &> /dev/null ||
@@ -66,10 +66,10 @@ drbd_pretty_status()
 	   ! type sed &> /dev/null ||
 	   ! type tr &> /dev/null
 	then
-		cat "$proc_drbd"
+		cat "$proc_bsr"
 		return
 	fi
-	sed -e '2q' < "$proc_drbd"
+	sed -e '2q' < "$proc_bsr"
 	sed_script=$(
 		i=0;
 		_sh_status_process() {
@@ -79,7 +79,7 @@ drbd_pretty_status()
 				$_minor $i \
 				"${_res_name//[!a-zA-Z0-9_ -]/_}" "$stacked"
 		};
-		eval "$(drbdadm sh-status)" )
+		eval "$(bsradm sh-status)" )
 
 	p() {
 		sed -e "1,2d" \
@@ -93,11 +93,11 @@ drbd_pretty_status()
 		      -e '/^$/d;/ns:.*nr:.*dw:/d;/resync:/d;/act_log:/d;' \
 		      -e 's/^\(.\[.*\)\(sync.ed:\)/... ... \2/;/^.finish:/d;' \
 		      -e 's/^\(.[0-9 %]*oos:\)/... ... \1/' \
-		      < "$proc_drbd" | tr -s '\t ' '  ' 
+		      < "$proc_bsr" | tr -s '\t ' '  ' 
 	}
 	m() {
 		join -1 2 -2 1 -o 1.1,2.2,2.3 \
-			<( ( drbdadm sh-dev all ; drbdadm -S sh-dev all ) | cat -n | sort -k2,2) \
+			<( ( bsradm sh-dev all ; bsradm -S sh-dev all ) | cat -n | sort -k2,2) \
 			<(sort < /proc/mounts ) |
 			sort -n | tr -s '\t ' '  ' | sed -e 's/^ *//'
 	}
@@ -141,7 +141,7 @@ run_hook()
 
 case "$1" in
     start)
-	# no module, no DRBD.
+	# no module, no BSR.
 	assure_module_is_loaded
 
 	# Just in case drbdadm want to display any errors in the configuration
@@ -150,53 +150,60 @@ case "$1" in
 	# redirection.
 	# If "no op" has a non-zero exit code, the config is unusable,
 	# and every other command will fail.
-	out=$($DRBDADM sh-nop 2>&1); ex=$?
+	out=$($BSRADM sh-nop 2>&1); ex=$?
 	[[ $ex = 127 ]] && exit 5 # LSB for "not installed"
-	log_daemon_msg "Starting DRBD resources"
+	log_daemon_msg "Starting BSR resources"
 	if [[ $ex != 0 ]] ; then
 	    printf "\n%s\n" "$out" >&2
 	    log_end_msg 1
 	    exit 6 # LSB for "not configured"
 	fi
 
-	$DRBDADM adjust-with-progress all
-	[[ $? -gt 1 ]] && exit 20
+	# TODO
+	# $BSRADM adjust-with-progress all
+	# [[ $? -gt 1 ]] && exit 20
 
 	# make sure udev has time to create the device files
 	# FIXME this probably should, on platforms that have it,
 	# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
-	for DEVICE in `$DRBDADM sh-dev all`; do
-	    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
-	    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
-		sleep 1
-		UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
-	    done
-	done
 
-	[ -d /var/lock/subsys ] && touch /var/lock/subsys/drbd	# for RedHat
+	# TODO
+	#for DEVICE in `$BSRADM sh-dev all`; do
+	#    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
+	#	echo "UDEV_TIMEOUT_LOCAL $UDEV_TIMEOUT_LOCAL"
+	#	echo "DEVICE $DEVICE"
+	#    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
+	#	sleep 1
+	#	echo [! -e $DEVICE]
+	#	UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
+	#    done
+	#done
+
+
+	[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
 	run_hook start_before-wait
-	$DRBDADM wait-con-int # User interruptible version of wait-connect all
+	$BSRADM wait-con-int # User interruptible version of wait-connect all
 	run_hook start
 
 	# Become primary if configured
 	# Currently, this is necessary for drbd8
 	# drbd9 supports automatic promote and removes the "sh-b-pri" command.
-	$DRBDADM sh-b-pri all || true
+	$BSRADM sh-b-pri all || true
 	log_end_msg 0
 
 	# Now handle stacked devices, if any
 	STACKED_RESOURCES=""
 	# no point trying stacking, if we don't have at least one primary.
-	if grep -w Primary /proc/drbd &> /dev/null; then
+	if grep -w Primary /proc/bsr &> /dev/null; then
 	    # heuristic: don't mess with dinosaurs # :-(
-	    if ! grep -Ee '\<drbddisk|drbdupper\>' /etc/ha.d/haresources &> /dev/null; then
-		STACKED_RESOURCES=`$DRBDADM -S sh-resources`
+	    if ! grep -Ee '\<bsrdisk|bsrupper\>' /etc/ha.d/haresources &> /dev/null; then
+		STACKED_RESOURCES=`$BSRADM -S sh-resources`
 	    fi
 	fi
 	if [[ $STACKED_RESOURCES ]] ; then
-	    log_daemon_msg "Starting stacked DRBD resources"
-	    DEVICES=`$DRBDADM -S sh-dev all`
-	    $DRBDADM -S adjust-with-progress all
+	    log_daemon_msg "Starting stacked BSR resources"
+	    DEVICES=`$BSRADM -S sh-dev all`
+	    $BSRADM -S adjust-with-progress all
 	    if [[ $? -gt 1 ]] ; then
 		log_end_msg 1
 	    else
@@ -207,25 +214,25 @@ case "$1" in
 			UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
 		    done
 		done
-		$DRBDADM -S wait-con-int # User interruptible version of wait-connect all
-		$DRBDADM -S sh-b-pri all || true
+		$BSRADM -S wait-con-int # User interruptible version of wait-connect all
+		$BSRADM -S sh-b-pri all || true
 		log_end_msg 0
 	    fi
 	fi
 
 	;;
     stop)
-	$DRBDADM sh-nop
+	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
-	log_daemon_msg "Stopping all DRBD resources"
+	log_daemon_msg "Stopping all BSR resources"
 	for try in 1 2; do
-	    if [ -e $PROC_DRBD ] ; then
+	    # if [ -e $PROC_BSR ] ; then //TODO
 		[[ $try = 2 ]] && echo "Retrying once..."
 		# bypass drbdadm and drbd config file and everything,
 		# to avoid leaving devices around that are not referenced by
 		# the current config file, or in case the current config file
 		# does not parse for some reason.
-		for d in /dev/drbd* ; do
+		for d in /dev/bsr* ; do
 			[ -L "$d" ] && continue
 			[ -b "$d" ] || continue
 			M=$(umount "$d" 2>&1)
@@ -234,37 +241,40 @@ case "$1" in
 			*) echo "$M" >&2 ;;
 			esac
 		done
-		for res in $($DRBDADM --stacked sh-resources) $($DRBDADM sh-resources); do
-			$DRBDSETUP down "$res"
-		done
+		# TODO
+		#for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
+		#	$BSRSETUP down "$res"
+		#done
 		_udev_settle &> /dev/null
-		if [ -d /sys/module/drbd/holders ]; then
-			(cd /sys/module/drbd/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
+		if [ -d /sys/module/bsr/holders ]; then
+			(cd /sys/module/bsr/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
 		fi
-		$RMMOD drbd && break
-	    fi
+		$RMMOD bsr && break
+	    # fi
 	done
 	run_hook stop
-	[ -f /var/lock/subsys/drbd ] && rm /var/lock/subsys/drbd
+	[ -f /var/lock/subsys/bsr ] && rm /var/lock/subsys/bsr
 	log_end_msg 0
 	;;
     status)
 	# NEEDS to be heartbeat friendly...
 	# so: put some "OK" in the output.
-	if [ -e $PROC_DRBD ]; then
-	    echo "drbd driver loaded OK; device status:"
-	    drbd_pretty_status $PROC_DRBD 2>/dev/null
+	if [ -e $PROC_BSR ]; then
+	    echo "bsr driver loaded OK; device status:"
+	    bsr_pretty_status $PROC_BSR 2>/dev/null
 	    exit 0
 	else
-	    echo >&2 "drbd not loaded"
+	    echo >&2 "bsr not loaded"
 	    exit 3
 	fi
 	;;
     reload)
-	$DRBDADM sh-nop
+	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
-	log_daemon_msg  "Reloading DRBD configuration"
-	$DRBDADM adjust all
+	log_daemon_msg  "Reloading BSR configuration"
+	
+	# TODO
+	# $BSRADM adjust all
 	run_hook reload
 	log_end_msg 0
 	;;
@@ -273,7 +283,7 @@ case "$1" in
 	( . $0 start )
 	;;
     *)
-	echo "Usage: /etc/init.d/drbd {start|stop|status|reload|restart|force-reload}"
+	echo "Usage: /etc/init.d/bsr {start|stop|status|reload|restart|force-reload}"
 	exit 1
 	;;
 esac

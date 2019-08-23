@@ -413,7 +413,7 @@ uint64_t bdev_size(int fd)
 char *lk_bdev_path(unsigned minor)
 {
 	char *path;
-	m_asprintf(&path, "%s/drbd-minor-%d.lkbd", DRBD_LIB_DIR, minor);
+	m_asprintf(&path, "%s/drbd-minor-%d.lkbd", BSR_LIB_DIR, minor);
 	return path;
 }
 
@@ -876,7 +876,7 @@ int dt_lock_drbd(int minor)
 	 * and make sure that /var/lock/drbd is drwx.-..-. root:root  ...
 	 */
 
-	sz = asprintf(&lfname, DRBD_LOCK_DIR "/drbd-%d-%d",
+	sz = asprintf(&lfname, BSR_LOCK_DIR "/drbd-%d-%d",
 		      LANANA_DRBD_MAJOR, minor);
 	if (sz < 0) {
 		perror("");

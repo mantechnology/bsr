@@ -1,0 +1,262 @@
+# Makefile for drbd
+#
+# This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+#
+# Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+# Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+# Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+#
+# drbd is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# drbd is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with drbd
+# the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+# TODO move some of the more cryptic bash scriptlets here into scripts/*
+# and call those from here.	-- lge
+
+# variables set by configure
+GIT = @GIT@
+LN_S = @LN_S@
+PREFIX = @prefix@
+RPMBUILD = @RPMBUILD@
+SED = @SED@
+
+# features enabled or disabled by configure
+WITH_UDEV = @WITH_UDEV@
+WITH_XEN = @WITH_XEN@
+WITH_BASHCOMPLETION = @WITH_BASHCOMPLETION@
+WITH_MANUAL = @WITH_MANUAL@
+WITH_BSRMON = @WITH_BSRMON@
+
+# for some reason some of the commands below only work correctly in bash,
+# and not in e.g. dash. I'm too lazy to fix it to be compatible.
+SHELL=/bin/bash
+
+TOOLS_DIRS  = user/shared user/v9 scripts 
+ifeq ($(WITH_BSRMON),yes)
+	TOOLS_DIRS  += user/bsrdmon
+endif
+DOC_DIRS    = documentation/v9
+
+SUBDIRS     = $(TOOLS_DIRS) 
+ifeq ($(WITH_MANUAL),yes)
+	SUBDIRS  += $(DOC_DIRS)
+endif
+
+
+REL_VERSION := $(shell $(SED) -ne '/^AC_INIT/{s/^[^,]*, *\([^,]*\) *,.*/\1/;p;q}' configure.ac)
+ifdef FORCE
+#
+# NOTE to generate a tgz even if too lazy to update the changelogs,
+# or to forcefully include the FIXME to be done: latest change date;
+# for now, include the git hash of the latest commit
+# in the tgz name:
+#   make distclean doc tgz FORCE=1
+#
+REL_VERSION := $(REL_VERSION)-$(shell $(GIT) rev-parse HEAD)
+endif
+
+DIST_VERSION := $(REL_VERSION)
+FDIST_VERSION := $(shell test -e .filelist && sed -ne 's,^bsr-utils-\([^/]*\)/.*,\1,p;q' < .filelist)
+ifeq ($(FDIST_VERSION),)
+FDIST_VERSION := $(DIST_VERSION)
+endif
+
+all-yes := check-submods configure tools
+all-$(WITH_MANUAL) += doc
+all: $(all-yes)
+
+.PHONY: all tools doc
+tools:
+	@ set -e; for i in $(TOOLS_DIRS); do $(MAKE) -C $$i ; done
+	@ echo -e "\n\tUserland tools build was successful."
+
+doc:
+	$(MAKE) -C documentation/v9 doc
+
+# we cannot use 'git submodule foreach':
+# foreach only works if submodule already checked out
+.PHONY: check-submods
+check-submods:
+	@if test -d .git && test -s .gitmodules; then \
+		for d in `grep "^\[submodule" .gitmodules | cut -f2 -d'"'`; do \
+			if [ ! "`ls -A $$d`" ]; then \
+				git submodule init; \
+				git submodule update; \
+				break; \
+			fi; \
+		done; \
+	fi
+
+.PHONY:	doc-clean install install-tools clean distclean extra-clean uninstall
+doc-clean:
+	$(MAKE) -C documentation/v9 doc-clean
+
+install-yes := install-tools
+install-$(WITH_MANUAL) += install-doc
+install: $(install-yes)
+
+install-tools:
+	@ set -e; for i in $(patsubst bsr,,$(TOOLS_DIRS)); do $(MAKE) -C $$i install; done
+
+install-doc:
+	@ set -e; for i in $(patsubst bsr,,$(DOC_DIRS)); do $(MAKE) -C $$i install; done
+
+.NOTPARALLEL clean:
+	@ set -e; for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	rm -f *~
+	rm -rf dist
+
+
+distclean:
+	@ set -e; for i in $(SUBDIRS); do $(MAKE) -C $$i distclean; done
+	rm -f *~ .filelist
+	rm -rf dist
+	rm -rf autom4te.cache
+	rm -f config.log
+
+EXTRA_CLEAN += Makefile user/Makefile user/v9/Makefile scripts/Makefile 
+ifeq ($(WITH_BSRMON),yes)
+	EXTRA_CLEAN += user/bsrmon/Makefile
+endif
+
+ifeq ($(WITH_MANUAL),yes)
+	EXTRA_CLEAN += documentation/Makefile documentation/v9/Makefile
+endif
+
+EXTRA_CLEAN += user/shared/config.h bsr.spec
+EXTRA_CLEAN += configure config.status
+extra-clean: distclean
+	rm -f $(EXTRA_CLEAN)
+
+uninstall:
+	@ set -e; for i in $(SUBDIRS); do $(MAKE) -C $$i uninstall; done
+
+.PHONY: check_changelogs_up2date
+check_changelogs_up2date:
+	@ up2date=true; dver_re=$(DIST_VERSION); dver_re=$${dver_re//./\\.}; \
+	echo "checking for presence of $$dver_re in various changelog files"; \
+	in_changelog=$$(sed -n -e '0,/^%changelog/d' \
+	                     -e '/- '"$$dver_re"'-/p' < bsr.spec.in) ; \
+	if test -z "$$in_changelog" ; \
+	then \
+	   echo -e "\n\t%changelog in bsr.spec.in needs update"; \
+	   up2date=false; fi; \
+	if ! grep "^$$dver_re\>" >/dev/null 2>&1 ChangeLog; \
+	then \
+	   echo -e "\n\tChangeLog needs update"; \
+	   up2date=false; fi ; \
+	if ! grep "^AC_INIT(BSR, $$dver_re" >/dev/null 2>&1 configure.ac; \
+	then \
+	   echo -e "\n\tconfigure.ac needs update"; \
+	   up2date=false; fi ; \
+	if ! grep "^bsr-utils ($$dver_re+linbit" >/dev/null 2>&1 debian/changelog; \
+	then \
+	   echo -e "\n\tdebian/changelog needs update [ignored]\n"; \
+	   : do not fail the build because of outdated debian/changelog ; fi ; \
+	$$up2date
+
+PNAME	:= bsr-utils
+.PHONY: .filelist
+.filelist:
+	@set -e ; submodules=`$(GIT) submodule foreach --quiet 'echo $$path'`; \
+	$(GIT) ls-files | \
+		grep -vxF -e "$$submodules" | \
+		sed '$(if $(PRESERVE_DEBIAN),,/^debian/d);s#^#$(PNAME)-$(DIST_VERSION)/#' | \
+		grep -v "gitignore\|gitmodules" > .filelist
+	@$(GIT) submodule foreach --quiet 'git ls-files | sed -e "s,^,$(PNAME)-$(DIST_VERSION)/$$path/,"' | \
+		grep -v "gitignore\|gitmodules" >> .filelist
+	@[ -s .filelist ] # assert there is something in .filelist now
+	@find documentation -name "[^.]*.[58]" -o -name "*.html" | \
+	sed "s/^/$(PNAME)-$(DIST_VERSION)\//"              >> .filelist ; \
+	echo $(PNAME)-$(DIST_VERSION)/user/shared/bsr_buildtag.c >> .filelist ; \
+	echo $(PNAME)-$(DIST_VERSION)/user/shared/config.h.in  >> .filelist ; \
+	echo $(PNAME)-$(DIST_VERSION)/.filelist            >> .filelist ; \
+	echo $(PNAME)-$(DIST_VERSION)/configure            >> .filelist ; \
+	echo "./.filelist updated."
+
+# tgz will no longer automatically update .filelist,
+# so the tgz and therefore rpm target will work within
+# an extracted tarball, too.
+# to generate a distribution tarball, use make tarball,
+# which will regenerate .filelist
+.PHONY: tgz
+tgz:
+	test -e .filelist
+	rm -f bsr-utils-$(FDIST_VERSION)
+	$(LN_S) . bsr-utils-$(FDIST_VERSION)
+	for f in $$(<.filelist) ; do [ -e $$f ] && continue ; echo missing: $$f ; exit 1; done
+	grep debian .filelist >/dev/null 2>&1 && _DEB=-debian || _DEB="" ; \
+	test -n "$$KEEPNAME" && _DEB="" || :; \
+	tar --owner=0 --group=0 -czf - -T .filelist > bsr-utils-$(FDIST_VERSION)$$_DEB.tar.gz
+	rm bsr-utils-$(FDIST_VERSION)
+
+ifeq ($(FORCE),)
+tgz: check_changelogs_up2date doc
+endif
+
+tools doc tgz: check-submods
+
+.PHONY: check_all_committed prepare_release tarball
+check_all_committed:
+	@$(if $(FORCE),-,)modified=`$(GIT) ls-files -m -t`; 		\
+	if test -n "$$modified" ; then	\
+		echo "$$modified";	\
+	       	false;			\
+	fi
+
+prepare_release:
+	$(MAKE) tarball
+	$(MAKE) tarball PRESERVE_DEBIAN=1
+
+debrelease:
+	$(MAKE) tarball PRESERVE_DEBIAN=1 KEEPNAME=1
+
+configure.ac: ;
+configure: configure.ac
+	aclocal
+	autoheader
+	autoconf
+
+config.status: configure
+	@printf "\nYou need to call ./configure with appropriate arguments (again).\n\n"; exit 1
+
+tarball: check-submods check_all_committed distclean doc configure .filelist
+	$(MAKE) tgz
+
+ifdef RPMBUILD
+bsr.spec: bsr.spec.in configure
+	./configure --enable-spec
+
+.PHONY: rpmprep
+rpmprep: tgz bsr.spec
+	cp bsr-utils-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
+
+.PHONY: rpm
+rpm: rpmprep
+	$(RPMBUILD) -bb \
+	    $(RPMOPT) \
+	    bsr.spec
+	@echo "You have now:" ; find `rpm -E "%_rpmdir"` -name *.rpm
+
+.PHONY: srpm
+srpm: rpmprep
+	$(RPMBUILD) -bs \
+		$(RPMOPT) \
+		bsr.spec
+	@echo "You have now:" ; find `rpm -E "%_srcrpmdir"` -name *.src.rpm
+endif
+
+Makefile.in: ;
+Makefile: Makefile.in config.status
+	./config.status Makefile

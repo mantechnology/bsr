@@ -1,4 +1,4 @@
-﻿#ifdef _WIN32
+#ifdef _WIN32
  // 
 #include <string.h>
 #else
@@ -13,7 +13,7 @@
 #define BUILD_USER ""
 #define BUILD_HOST ""
 
-const char *drbd_buildtag(void)
+const char *bsr_buildtag(void)
 {
 	if (strcmp(BUILD_VERSION, "") == 0)
 	{

@@ -22,12 +22,8 @@ datarootdir = @datarootdir@
 XSLTPROC = @XSLTPROC@
 
 # features enabled or disabled by configure
-WITH_83_SUPPORT = @WITH_83_SUPPORT@
-WITH_84_SUPPORT = @WITH_84_SUPPORT@
 WITH_UDEV = @WITH_UDEV@
 WITH_XEN = @WITH_XEN@
-WITH_PACEMAKER = @WITH_PACEMAKER@
-WITH_RGMANAGER = @WITH_RGMANAGER@
 WITH_BASHCOMPLETION = @WITH_BASHCOMPLETION@
 
 # variables meant to be overridden from the make command line
@@ -78,12 +74,7 @@ clean:
 .PHONY: all clean doc man doc-clean distclean
 .PHONY: install uninstall html pdf ps
 doc:	man
-ifeq ($(WITH_84_SUPPORT),yes)
-MAN_LINK=8.4
-else
 MAN_LINK=9.0
-endif
-
 
 doc-clean: distclean
 

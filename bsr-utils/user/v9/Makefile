@@ -16,7 +16,6 @@
 # along with drbd; see the file COPYING.  If not, write to
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-
 VPATH = ../../../bsr-headers:../shared
 
 # variables set by configure
@@ -43,12 +42,8 @@ BSR_LOCK_DIR = /var/lock
 BSR_CONFIG_DIR = /etc
 
 # features enabled or disabled by configure
-WITH_83_SUPPORT = yes
-WITH_84_SUPPORT = yes
 WITH_UDEV = yes
-WITH_XEN = yes
-WITH_PACEMAKER = yes
-WITH_RGMANAGER = no
+WITH_XEN = no
 WITH_BASHCOMPLETION = yes
 
 # for some reason some of the commands below only work correctly in bash,
@@ -58,9 +53,9 @@ SHELL=/bin/bash
 # variables meant to be overridden from the make command line
 DESTDIR ?= /
 
-
 # DW-1719: Detect os
 is_win32 =
+
 
 ifeq '$(findstring ;,$(PATH))' ';'
 	is_win32 = yes
@@ -83,14 +78,16 @@ ifdef is_win32
 	else
 		CFLAGS += -gdwarf-2 -g3 -D_WIN32  -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE
 	endif
-else
-	# _LIN
-	CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared
-endif
+	CFLAGS += $(EXTRA_CFLAGS)
 
-#ifndef _WIN32
-#GENETLINK_H := /usr/include/linux/genetlink.h
-#libgenl.o: CFLAGS += $(shell for w in CTRL_ATTR_VERSION CTRL_ATTR_HDRSIZE CTRL_ATTR_MCAST_GROUPS; do grep -qw $$w $(GENETLINK_H) && echo -DHAVE_$$w; done)
+else
+# _LIN
+CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared
+CFLAGS += $(EXTRA_CFLAGS)
+
+GENETLINK_H := /usr/include/linux/genetlink.h
+libgenl.o: CFLAGS += $(shell for w in CTRL_ATTR_VERSION CTRL_ATTR_HDRSIZE CTRL_ATTR_MCAST_GROUPS; do grep -qw $$w $(GENETLINK_H) && echo -DHAVE_$$w; done)
+endif
 
 bsradm-obj = bsradm_scanner.o bsradm_parser.o bsradm_postparse.o \
 	      bsradm_main.o bsradm_adjust.o bsradm_dump.o bsrtool_common.o \
@@ -108,6 +105,7 @@ all-obj := $(bsradm-obj) $(bsrsetup-obj) $(bsrmeta-obj)
 
 all: tools
 
+../shared_prereqs.mk: ;
 include ../shared_prereqs.mk
 
 tools: bsradm bsrmeta bsrsetup
@@ -162,3 +160,13 @@ spell:
 	for f in bsradm_adjust.c bsradm_main.c bsradm_parser.c bsradm_usage_cnt.c bsrmeta.c bsrsetup.c bsrtool_common.c; do \
 	 	aspell --save-repl --dont-backup --personal=./../documentation/aspell.en.per check $$f; \
 	done
+
+.PHONY: install uninstall clean distclean spell
+../../configure:
+	@echo "please (re-)run ./autogen.sh with appropriate arguments"; exit 1
+../../config.status: ../../configure
+	@echo "please (re-)run ./configure with appropriate arguments"; exit 1
+Makefile.in: ;
+Makefile: Makefile.in ../../config.status
+	cd ../.. && ./config.status user/v9/Makefile
+
