@@ -1,6 +1,6 @@
 # Makefile for drbd.o
 #
-# This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+# This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
 #
 # drbd is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,12 +41,8 @@ BSR_LOCK_DIR = /var/lock
 BSR_CONFIG_DIR = /etc
 
 # features enabled or disabled by configure
-WITH_83_SUPPORT = yes
-WITH_84_SUPPORT = yes
 WITH_UDEV = yes
-WITH_XEN = yes
-WITH_PACEMAKER = yes
-WITH_RGMANAGER = no
+WITH_XEN = no
 WITH_BASHCOMPLETION = yes
 
 # for some reason some of the commands below only work correctly in bash,
@@ -57,10 +53,11 @@ SHELL=/bin/bash
 DESTDIR ?= /
 
 CFLAGS += -Wall -I../../bsr-headers -I.. -I.
+CFLAGS += $(EXTRA_CFLAGS)
 
 .PHONY: bsr_buildtag.c
 
-all: bsrmeta_scanner.c bsr_buildtag.c
+all: bsrmeta_scanner.c # bsr_buildtag.c
 
 bsr_buildtag.c:
 	@set -e; exec > $@.new;							\
@@ -84,7 +81,7 @@ bsr_buildtag.c:
 		grep return $@ ;						\
 	fi ;									\
 	echo -e "\t\t\" build by $$USER@$$HOSTNAME, `date "+%F %T"`\";\n}";	\
-	mv --force $@.new $@
+	mv -f $@.new $@
 
 bsrmeta_scanner.c: bsrmeta_scanner.fl bsrmeta_parser.h
 	flex -s -obsrmeta_scanner.c bsrmeta_scanner.fl
@@ -98,8 +95,16 @@ clean:
 
 distclean: clean
 
-install:
-	true
+install: ; @true
 
-uninstall:
-	true
+uninstall: ; @true
+
+.PHONY: install uninstall clean distclean
+../../configure:
+	@echo "please (re-)run ./autogen.sh with appropriate arguments"; exit 1
+../../config.status: ../../configure
+	@echo "please (re-)run ./configure with appropriate arguments"; exit 1
+Makefile.in: ;
+Makefile: Makefile.in ../../config.status
+	cd ../.. && ./config.status user/shared/Makefile
+

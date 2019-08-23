@@ -44,9 +44,6 @@ LN_S = @LN_S@
 # features enabled or disabled by configure
 WITH_UDEV = @WITH_UDEV@
 WITH_XEN = @WITH_XEN@
-WITH_PACEMAKER = @WITH_PACEMAKER@
-WITH_HEARTBEAT = @WITH_HEARTBEAT@
-WITH_RGMANAGER = @WITH_RGMANAGER@
 WITH_BASHCOMPLETION = @WITH_BASHCOMPLETION@
 
 # variables meant to be overridden from the make command line
@@ -54,28 +51,28 @@ DESTDIR ?= /
 
 all:
 
-install: install-utils install-udev install-xen install-heartbeat install-pacemaker install-rgmanager install-bashcompletion
+install: install-utils install-udev install-xen install-bashcompletion
 
 install-utils:
 	install -d $(DESTDIR)$(LIBDIR)
 ifneq ($(initscripttype),systemd)	# "sysv" or "both"
 	install -d $(DESTDIR)$(INITDIR)
-	install -m 755 drbd $(DESTDIR)$(INITDIR)/
+	install -m 755 bsr $(DESTDIR)$(INITDIR)/
 endif
 # yes, debian apparently allows installing both types from the same package
 ifneq ($(initscripttype),sysv)		# "systemd" or "both"
 	install -d $(DESTDIR)$(systemdunitdir)
-	install -m 755 drbd.service $(DESTDIR)$(systemdunitdir)/
-	install -d $(DESTDIR)/lib/drbd/
-	install -m 755 drbd $(DESTDIR)/lib/drbd/
+	install -m 644 bsr.service $(DESTDIR)$(systemdunitdir)/
+	install -d $(DESTDIR)/lib/bsr/
+	install -m 755 bsr $(DESTDIR)/lib/bsr/
 	install -d $(DESTDIR)$(tmpfilesdir)/
-	install -m 444 drbd.tmpfiles.conf $(DESTDIR)$(tmpfilesdir)/drbd.conf
+	install -m 444 bsr.tmpfiles.conf $(DESTDIR)$(tmpfilesdir)/bsr.conf
 endif
-	@ if [ ! -e $(DESTDIR)$(sysconfdir)/drbd.conf ]; then \
+	@ if [ ! -e $(DESTDIR)$(sysconfdir)/bsr.conf ]; then \
 		install -d $(DESTDIR)$(sysconfdir)/; \
-		install -m 644 drbd.conf $(DESTDIR)$(sysconfdir)/; \
-		install -d $(DESTDIR)$(sysconfdir)/drbd.d; \
-		install -m 644 global_common.conf $(DESTDIR)$(sysconfdir)/drbd.d; \
+		install -m 644 bsr.conf $(DESTDIR)$(sysconfdir)/; \
+		install -d $(DESTDIR)$(sysconfdir)/bsr.d; \
+		install -m 644 global_common.conf $(DESTDIR)$(sysconfdir)/bsr.d; \
 	fi
 	install -m 755 outdate-peer.sh $(DESTDIR)$(LIBDIR)
 	install -m 755 snapshot-resync-target-lvm.sh $(DESTDIR)$(LIBDIR)
@@ -92,58 +89,29 @@ endif
 	  $(LN_S) -f notify.sh notify-emergency-shutdown.sh ;\
 	  $(LN_S) -f notify.sh notify-out-of-sync.sh; )
 	install -d $(DESTDIR)$(sbindir)
-	install -m 755 drbd-overview.pl $(DESTDIR)$(sbindir)/drbd-overview
+	install -m 755 bsr-overview.pl $(DESTDIR)$(sbindir)/bsr-overview
 ifeq ($(DISTRO),debian)
 	@ echo "Don't forget to run update-rc.d"
 else
 	@ echo "Don't forget to run chkconfig"
 endif
 
-install-heartbeat:
-ifeq ($(WITH_HEARTBEAT),yes)
-	mkdir -p $(DESTDIR)$(sysconfdir)/ha.d/resource.d
-	install -m 755 drbddisk $(DESTDIR)$(sysconfdir)/ha.d/resource.d
-	install -m 755 drbdupper $(DESTDIR)$(sysconfdir)/ha.d/resource.d
-endif
-
-# Do not use $(prefix) for the resource agent. The OCF standard
-# explicitly mandates where resource agents must live,
-# no matter what prefix is configured to.
-install-pacemaker:
-ifeq ($(WITH_PACEMAKER),yes)
-	install -d $(DESTDIR)$(LIBDIR)
-	install -m 755 crm-fence-peer.sh $(DESTDIR)$(LIBDIR)
-	( set -e ; cd $(DESTDIR)$(LIBDIR) ;\
-	  $(LN_S) -f crm-fence-peer.sh crm-unfence-peer.sh ; )
-	mkdir -p $(DESTDIR)/usr/lib/ocf/resource.d/linbit
-	install -m 755 drbd.ocf $(DESTDIR)/usr/lib/ocf/resource.d/linbit/drbd
-endif
-
-install-rgmanager:
-ifeq ($(WITH_RGMANAGER),yes)
-	mkdir -p $(DESTDIR)$(datadir)/cluster
-	install -m 755 drbd.sh.rhcs $(DESTDIR)$(datadir)/cluster/drbd.sh
-	install -m 644 drbd.metadata.rhcs $(DESTDIR)$(datadir)/cluster/drbd.metadata
-	install -d $(DESTDIR)$(LIBDIR)
-	install -m 755 rhcs_fence $(DESTDIR)$(LIBDIR)
-endif
-
 install-xen:
 ifeq ($(WITH_XEN),yes)
 	mkdir -p $(DESTDIR)$(sysconfdir)/xen/scripts
-	install -m 755 block-drbd $(DESTDIR)$(sysconfdir)/xen/scripts
+	install -m 755 block-bsr $(DESTDIR)$(sysconfdir)/xen/scripts
 endif
 
 install-udev:
 ifeq ($(WITH_UDEV),yes)
 	mkdir -p $(DESTDIR)$(udevrulesdir)
-	install -m 644 drbd.rules $(DESTDIR)$(udevrulesdir)/65-drbd.rules$(UDEV_RULE_SUFFIX)
+	install -m 644 bsr.rules $(DESTDIR)$(udevrulesdir)/65-bsr.rules$(UDEV_RULE_SUFFIX)
 endif
 
 install-bashcompletion:
 ifeq ($(WITH_BASHCOMPLETION),yes)
 	mkdir -p $(DESTDIR)$(sysconfdir)/bash_completion.d
-	install -m 644 drbdadm.bash_completion $(DESTDIR)$(sysconfdir)/bash_completion.d/drbdadm$(BASH_COMPLETION_SUFFIX)
+	install -m 644 bsradm.bash_completion $(DESTDIR)$(sysconfdir)/bash_completion.d/bsradm$(BASH_COMPLETION_SUFFIX)
 endif
 
 clean:
@@ -154,17 +122,14 @@ distclean: clean
 
 uninstall:
 ifneq ($(initscripttype),systemd)	# "sysv" or "both"
-	rm -f $(DESTDIR)$(INITDIR)/drbd
+	rm -f $(DESTDIR)$(INITDIR)/bsr
 endif
 ifneq ($(initscripttype),sysv)		# "systemd" or "both"
-	rm -f $(DESTDIR)$(systemdunitdir)/drbd.service
+	rm -f $(DESTDIR)$(systemdunitdir)/bsr.service
 endif
-	rm -f $(DESTDIR)$(sysconfdir)/ha.d/resource.d/drbddisk
-	rm -f $(DESTDIR)$(sysconfdir)/ha.d/resource.d/drbdupper
-	rm -f $(DESTDIR)$(sysconfdir)/xen/scripts/block-drbd
-	rm -f $(DESTDIR)$(sysconfdir)/bash_completion.d/drbdadm$(BASH_COMPLETION_SUFFIX)
-	rm -f $(DESTDIR)$(sbindir)/drbd-overview
-	! test -L $(DESTDIR)/sbin/rcdrbd || rm $(DESTDIR)/sbin/rcdrbd
+	rm -f $(DESTDIR)$(sysconfdir)/xen/scripts/block-bsr
+	rm -f $(DESTDIR)$(sysconfdir)/bash_completion.d/bsradm$(BASH_COMPLETION_SUFFIX)
+	rm -f $(DESTDIR)$(sbindir)/bsr-overview
 
 .PHONY: install uninstall clean distclean
 ../../configure:
