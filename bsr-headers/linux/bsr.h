@@ -464,8 +464,14 @@ enum drbd_peer_state {
 #define QOU_MAJORITY 1024
 #define QOU_ALL 1025
 
+// TODO: data type define 
 #ifndef ULONG_PTR
 #define ULONG_PTR unsigned long
 #endif
+
+
+#define UINT32_MAX 	UINT_MAX
+
+
 
 #endif

@@ -99,6 +99,17 @@
 #define REQ_FLUSH		(1ULL << __REQ_FLUSH)
 #endif
 
+#ifndef U32_MAX
+#define U32_MAX ((u32)~0U)
+#endif
+#ifndef S32_MAX
+#define S32_MAX ((s32)(U32_MAX>>1))
+#endif
+
+#ifndef __GFP_RECLAIM
+#define __GFP_RECLAIM __GFP_WAIT
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 # error "At least kernel version 2.6.18 (with patches) required"
 #endif
@@ -335,7 +346,6 @@ extern IO_COMPLETION_ROUTINE drbd_bm_endio;
 extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
 extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
 extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-extern BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
 #endif
 
 #ifdef COMPAT_HAVE_BIO_BI_ERROR
@@ -1127,9 +1137,7 @@ static inline int op_from_rq_bits(u64 flags)
 		return REQ_OP_READ;
 }
 
-#ifdef LINBIT_PATCH
 #define submit_bio(__bio)	submit_bio(__bio->bi_rw, __bio)
-#endif
 
 #endif
 
@@ -1935,7 +1943,29 @@ static inline int simple_positive(struct dentry *dentry)
 #endif
 #endif
 
-//TODO: 9.0.6-1 drbd_wrppers.h, more define required. 
+#ifndef COMPAT_HAVE_IS_VMALLOC_ADDR
+static inline int is_vmalloc_addr(const void *x)
+{
+#ifdef CONFIG_MMU
+	unsigned long addr = (unsigned long)x;
+	return addr >= VMALLOC_START && addr < VMALLOC_END;
+#else
+	return 0;
+#endif
+}
+#endif
+
+#ifndef COMPAT_HAVE_KVFREE
+#include <linux/mm.h>
+static inline void kvfree(void /* intentionally discarded const */ *addr)
+{
+	if (is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
+}
+#endif
+
 
 #ifndef _WIN32
 #ifdef blk_queue_plugged
