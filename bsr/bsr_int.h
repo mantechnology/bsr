@@ -2879,6 +2879,7 @@ extern const struct file_operations drbd_proc_fops;
 
 typedef enum { RECORD_RS_FAILED, SET_OUT_OF_SYNC, SET_IN_SYNC } update_sync_bits_mode;
 
+
 /* drbd_actlog.c */
 extern bool drbd_al_try_lock(struct drbd_device *device);
 extern bool drbd_al_try_lock_for_transaction(struct drbd_device *device);
@@ -2887,7 +2888,7 @@ extern void drbd_al_begin_io_commit(struct drbd_device *device);
 extern bool drbd_al_begin_io_fastpath(struct drbd_device *device, struct drbd_interval *i);
 extern int drbd_al_begin_io_for_peer(struct drbd_peer_device *peer_device, struct drbd_interval *i);
 extern bool drbd_al_complete_io(struct drbd_device *device, struct drbd_interval *i);
-extern void drbd_rs_complete_io(struct drbd_peer_device *, sector_t, char *);
+extern void drbd_rs_complete_io(struct drbd_peer_device *, sector_t, const char *);
 extern int drbd_rs_begin_io(struct drbd_peer_device *, sector_t);
 extern int drbd_try_rs_begin_io(struct drbd_peer_device *, sector_t, bool);
 extern void drbd_rs_cancel_all(struct drbd_peer_device *);
@@ -2906,6 +2907,7 @@ extern int update_sync_bits(struct drbd_peer_device *peer_device,
 #else
 extern bool drbd_set_sync(struct drbd_device *, sector_t, int, unsigned long, unsigned long);
 #endif
+
 extern int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, int size,
 		update_sync_bits_mode mode);
 #define drbd_set_in_sync(peer_device, sector, size) \

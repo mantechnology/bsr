@@ -471,7 +471,7 @@ enum drbd_peer_state {
 
 
 #define UINT32_MAX 	UINT_MAX
-
+#define UINT16_MAX	USHRT_MAX
 
 
 #endif

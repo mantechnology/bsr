@@ -32,8 +32,8 @@
 #else
 #include <linux/slab.h>
 #include <linux/crc32c.h>
-#include <linux/drbd.h>
-#include <linux/drbd_limits.h>
+#include <linux/bsr.h>
+#include <linux/bsr_limits.h>
 #include <linux/dynamic_debug.h>
 #endif
 #include "bsr_int.h"
@@ -216,7 +216,9 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 		goto out;
 	bio->bi_private = device;
 	bio->bi_end_io = drbd_md_endio;
+#ifdef _WIN32
 	bio->io_retry = device->resource->res_opts.io_error_retry_count;
+#endif
 	bio_set_op_attrs(bio, op, op_flags);
 
 	if (op != REQ_OP_WRITE && device->disk_state[NOW] == D_DISKLESS && device->ldev == NULL)
@@ -345,8 +347,9 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 				struct bm_extent  *bm_ext = lc_entry(tmp, struct bm_extent, lce);
 				if (test_bit(BME_NO_WRITES, &bm_ext->flags)) {
 					if (peer_device->resync_wenr == tmp->lc_number) {
+						int lc_put_result;						
 						peer_device->resync_wenr = LC_FREE;
-						int lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+						lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
 						if (lc_put_result == 0) {
 							bm_ext->flags = 0;
 							al_ctx->wake_up = true;
@@ -354,12 +357,14 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 							continue;
 						}
 						else if (lc_put_result < 0) {
-							WDRBD_ERROR("lc_put return error.\n");
+							drbd_err(peer_device, "lc_put return error.\n");
 							continue;
 						}
 					}
 					rcu_read_unlock();
+#ifdef _WIN32
 					WDRBD_TRACE_AL("return bm_ext, bm_ext->lce.lc_number = %lu, bm_ext->lce.refcnt = %lu\n", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
+#endif
 					return bm_ext;
 				}
 			}
@@ -367,7 +372,9 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 	}
 out:
 	rcu_read_unlock();
+#ifdef _WIN32
 	WDRBD_TRACE_AL("return NULL\n");
+#endif
 	return NULL;
 }
 
@@ -521,9 +528,10 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 			i++;
 			break;
 		}
+#ifdef _WIN32
 		BUG_ON_UINT16_OVER(e->lc_index);
 		BUG_ON_UINT16_OVER(e->lc_new_number);
-
+#endif
 		buffer->update_slot_nr[i] = cpu_to_be16((u16)e->lc_index);
 		buffer->update_extent_nr[i] = cpu_to_be32((u32)e->lc_new_number);
 		if (e->lc_number != LC_FREE) {
@@ -543,10 +551,10 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 		buffer->update_slot_nr[i] = cpu_to_be16(UINT16_MAX);
 		buffer->update_extent_nr[i] = cpu_to_be32(LC_FREE);
 	}
-
+#ifdef _WIN32
 	BUG_ON_UINT16_OVER(device->act_log->nr_elements);
 	BUG_ON_UINT16_OVER(device->al_tr_cycle);
-
+#endif
 	buffer->context_size = cpu_to_be16((u16)device->act_log->nr_elements);
 	buffer->context_start_slot_nr = cpu_to_be16((u16)device->al_tr_cycle);
 
@@ -696,13 +704,16 @@ bool put_actlog(struct drbd_device *device, unsigned int first, unsigned int las
 	D_ASSERT(device, first <= last);
 	spin_lock_irqsave(&device->al_lock, flags);
 	for (enr = first; enr <= last; enr++) {
+		int lc_put_result;		
 		extent = lc_find(device->act_log, enr);
 		if (!extent || extent->refcnt <= 0) {
 			drbd_err(device, "al_complete_io() called on inactive extent %u\n", enr);
 			continue;
 		}
+#ifdef _WIN32
 		WDRBD_TRACE_AL("called lc_put extent->lc_number= %lu, extent->refcnt = %lu\n", extent->lc_number, extent->refcnt); 
-		int lc_put_result = lc_put(device->act_log, extent);
+#endif
+		lc_put_result = lc_put(device->act_log, extent);
 		if (lc_put_result == 0)
 			wake = true;
 	}
@@ -766,7 +777,7 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 	ULONG_PTR first = (ULONG_PTR)i->sector >> (AL_EXTENT_SHIFT - 9);
 	ULONG_PTR last = i->size == 0 ? first : (ULONG_PTR)(i->sector + (i->size >> 9) - 1) >> (AL_EXTENT_SHIFT - 9);
 	ULONG_PTR nr_al_extents;
-	unsigned available_update_slots;
+	unsigned int available_update_slots;
 	struct get_activity_log_ref_ctx al_ctx = { .device = device, };
 	ULONG_PTR enr;
 
@@ -808,7 +819,7 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 		if (!al->pending_changes)
 			set_bit(__LC_STARVING, &device->act_log->flags);
 
-		drbd_info(device, "insufficient al_extent slots. nr_al_extents : %lu, available_update_slots : %lu\n", nr_al_extents, available_update_slots);
+		drbd_info(device, "insufficient al_extent slots. nr_al_extents : %lu, available_update_slots : %u\n", nr_al_extents, available_update_slots);
 		return -ENOBUFS;
 	}
 
@@ -851,7 +862,7 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 						!list_empty(&device->act_log->lru)
 			);
 #else
-			drbd_err(device, "LOGIC BUG for enr=%u\n", enr);
+			drbd_err(device, "LOGIC BUG for enr=%lu\n", enr);
 #endif
 	}
 	return 0;
@@ -869,8 +880,9 @@ bool drbd_al_complete_io(struct drbd_device *device, struct drbd_interval *i)
 	BUG_ON_UINT32_OVER(first);
 	BUG_ON_UINT32_OVER(last);
 #endif
+#ifdef _WIN32
 	WDRBD_TRACE_AL("first = %lu last = %lu i->size = %lu\n", first, last, i->size);
-
+#endif
 	return put_actlog(device, (unsigned int)first, (unsigned int)last);
 }
 
@@ -1000,23 +1012,25 @@ int drbd_al_initialize(struct drbd_device *device, void *buffer)
 
 static int w_update_peers(struct drbd_work *w, int unused)
 {
-		UNREFERENCED_PARAMETER(unused);
-       struct update_peers_work *upw = container_of(w, struct update_peers_work, w);
-       struct drbd_peer_device *peer_device = upw->peer_device;
-       struct drbd_device *device = peer_device->device;
-       struct drbd_connection *connection = peer_device->connection;
+#ifdef _WIN32
+	UNREFERENCED_PARAMETER(unused);
+#endif
+	struct update_peers_work *upw = container_of(w, struct update_peers_work, w);
+	struct drbd_peer_device *peer_device = upw->peer_device;
+	struct drbd_device *device = peer_device->device;
+	struct drbd_connection *connection = peer_device->connection;
+	
+	consider_sending_peers_in_sync(peer_device, upw->enr);
 
-       consider_sending_peers_in_sync(peer_device, upw->enr);
+	kfree(upw);
 
-       kfree(upw);
+	kref_debug_put(&device->kref_debug, 5);
+	kref_put(&device->kref, drbd_destroy_device);
 
-       kref_debug_put(&device->kref_debug, 5);
-       kref_put(&device->kref, drbd_destroy_device);
+	kref_debug_put(&connection->kref_debug, 14);
+	kref_put(&connection->kref, drbd_destroy_connection);
 
-       kref_debug_put(&connection->kref_debug, 14);
-       kref_put(&connection->kref, drbd_destroy_connection);
-
-       return 0;
+	return 0;
 }
 
 /* inherently racy...
@@ -1174,8 +1188,8 @@ static bool update_rs_extent(struct drbd_peer_device *peer_device,
 
 				ext->rs_failed = 0;
 				return true;
-			}
 #ifdef _WIN32 // DW-1640
+			}
 			else {
 				return true;
 			}
@@ -1254,7 +1268,7 @@ int update_sync_bits(struct drbd_peer_device *peer_device,
 #else
 static int update_sync_bits(struct drbd_peer_device *peer_device,
 		unsigned long sbnr, unsigned long ebnr,
-		enum update_sync_bits_mode mode)
+		update_sync_bits_mode mode)
 #endif
 {
 	/*
@@ -1298,11 +1312,12 @@ static int update_sync_bits(struct drbd_peer_device *peer_device,
 	if (count) {
 		//DW-1775 If not SET_OUT_OF_SYNC, check resync completion.
 		if (mode != SET_OUT_OF_SYNC) {
+			ULONG_PTR still_to_go; bool rs_is_done;
 			if (mode == RECORD_RS_FAILED)
 				peer_device->rs_failed += count;
 
-			ULONG_PTR still_to_go = drbd_bm_total_weight(peer_device);
-			bool rs_is_done = (still_to_go <= peer_device->rs_failed);
+			still_to_go = drbd_bm_total_weight(peer_device);
+			rs_is_done = (still_to_go <= peer_device->rs_failed);
 
 			if (mode == SET_IN_SYNC) 
 				drbd_advance_rs_marks(peer_device, still_to_go);
@@ -1418,9 +1433,11 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		ebnr = BM_SECT_TO_BIT(esector);
 	}
 
+#ifdef _WIN32
 #ifndef _WIN64
 	BUG_ON_UINT32_OVER(sbnr);
 	BUG_ON_UINT32_OVER(ebnr);
+#endif
 #endif
 
 	count = update_sync_bits(peer_device, (unsigned long)sbnr, (unsigned long)ebnr, mode);
@@ -1639,9 +1656,12 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 	struct bm_extent *bm_ext;
 	int i, sig;
 	bool sa;
+#ifdef _WIN32
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER((enr * AL_EXT_PER_BM_SECT + AL_EXT_PER_BM_SECT));
 #endif
+#endif
+
 retry:
 #ifdef _WIN32
     wait_event_interruptible(sig, device->al_wait,
@@ -1670,15 +1690,16 @@ retry:
 					       (sa && test_bit(BME_PRIORITY, &bm_ext->flags)));
 #endif
 		if (sig || (sa && test_bit(BME_PRIORITY, &bm_ext->flags))) {
+			int lc_put_result;			
 			spin_lock_irq(&device->al_lock);
-			int lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0; /* clears BME_NO_WRITES and eventually BME_PRIORITY */
 				peer_device->resync_locked--;
 				wake_up(&device->al_wait);
 			}
 			else if (lc_put_result < 0) {
-				WDRBD_ERROR("lc_put return error.\n");
+				drbd_err(device, "lc_put return error.\n");
 				spin_unlock_irq(&device->al_lock);
 				return -EINTR;
 			}
@@ -1720,10 +1741,11 @@ int drbd_try_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector, 
 
 	if (throttle && peer_device->resync_wenr != enr)
 		return -EAGAIN;
-
+#ifdef _WIN32
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(enr);
 	BUG_ON_UINT32_OVER(al_enr);
+#endif
 #endif
 
 	spin_lock_irq(&device->al_lock);
@@ -1745,17 +1767,18 @@ int drbd_try_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector, 
 		e = lc_find(peer_device->resync_lru, peer_device->resync_wenr);
 		bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 		if (bm_ext) {
+			int lc_put_result;
 			D_ASSERT(device, !test_bit(BME_LOCKED, &bm_ext->flags));
 			D_ASSERT(device, test_bit(BME_NO_WRITES, &bm_ext->flags));
 			clear_bit(BME_NO_WRITES, &bm_ext->flags);
 			peer_device->resync_wenr = LC_FREE;
-			int lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0;
 				peer_device->resync_locked--;
 			}
 			else if (lc_put_result < 0) {
-				WDRBD_ERROR("lc_put return error.\n");
+				drbd_err(device,"lc_put return error.\n");
 				goto out;
 			}
 			 
@@ -1816,14 +1839,18 @@ check_al:
 	{
 		for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
 			if (lc_is_used(device->act_log, (unsigned int)(al_enr + i))){
+#ifdef _WIN32
 				WDRBD_TRACE_AL("check_al sector = %lu, enr = %lu, al_enr + 1 = %lu and goto try_again\n", sector, enr, al_enr + i);
+#endif
 				goto try_again;
 			}
 		}
 	}
 	set_bit(BME_LOCKED, &bm_ext->flags);
 proceed:
+#ifdef _WIN32
 	WDRBD_TRACE_AL("proceed sector = %lu, enr = %lu\n", sector, enr);
+#endif
 	peer_device->resync_wenr = LC_FREE;
 	spin_unlock_irq(&device->al_lock);
 	return 0;
@@ -1832,12 +1859,13 @@ try_again:
 	if (bm_ext) {
 		if (throttle ||
 		    (test_bit(BME_PRIORITY, &bm_ext->flags) && bm_ext->lce.refcnt == 1)) {
+			int lc_put_result;
 			D_ASSERT(peer_device, !test_bit(BME_LOCKED, &bm_ext->flags));
 			D_ASSERT(peer_device, test_bit(BME_NO_WRITES, &bm_ext->flags));
 			clear_bit(BME_NO_WRITES, &bm_ext->flags);
 			clear_bit(BME_PRIORITY, &bm_ext->flags);
 			peer_device->resync_wenr = LC_FREE;
-			int lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0;
 				peer_device->resync_locked--;
@@ -1855,7 +1883,7 @@ out:
 	return -EAGAIN;
 }
 
-void drbd_rs_complete_io(struct drbd_peer_device *peer_device, sector_t sector, char *caller)
+void drbd_rs_complete_io(struct drbd_peer_device *peer_device, sector_t sector, const char *caller)
 {
 	struct drbd_device *device = peer_device->device;
 	ULONG_PTR enr = (ULONG_PTR)BM_SECT_TO_EXT(sector);
@@ -1880,7 +1908,7 @@ void drbd_rs_complete_io(struct drbd_peer_device *peer_device, sector_t sector, 
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		drbd_err(device, "%s => drbd_rs_complete_io(,%llu [=%u], %llu) called, "
 		    "but refcnt is 0!?\n", 
-			caller, (unsigned long long)sector, (unsigned int)enr, (ULONG_PTR)BM_SECT_TO_BIT(sector));
+			caller, (unsigned long long)sector, (unsigned int)enr, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
 	}
 

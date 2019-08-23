@@ -92,7 +92,7 @@
  /* timeout for the ping packets.*/
 #define DRBD_PING_TIMEO_MIN  1
 #define DRBD_PING_TIMEO_MAX  300
-#if _WIN32
+#ifdef _WIN32
 //DW-763
 #define DRBD_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #else
@@ -111,8 +111,7 @@
 #define DRBD_MAX_EPOCH_SIZE_SCALE '1'
 
 
-#if _WIN32
-
+#ifdef _WIN32
 #ifdef _WIN64 
 // DW-1422 set limit send buffer max size to be within 32-bit variable, since config treats it as 32-bit var also.
 // to have this over 32-bit, re-define this as '((unsigned long long)64 << 30) and modify all arguments(include read data from config) to 64-bit var. 
