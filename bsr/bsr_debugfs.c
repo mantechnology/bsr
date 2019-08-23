@@ -17,9 +17,6 @@
 
 #include "../bsr-headers/bsr_transport.h"
 
-#ifndef ULONG_PTR //TODO
-#define ULONG_PTR unsigned long
-#endif
 
 /**********************************************************************
  * Whenever you change the file format, remember to bump the version. *

@@ -23,6 +23,7 @@
 
  */
 #ifdef _WIN32
+#pragma warning (disable: 6053 28719)
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./bsr-kernel-compat/windows/seq_file.h" /* for seq_printf */
 #include "./linux/lru_cache.h"
@@ -36,7 +37,7 @@
 #endif
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 
-#pragma warning (disable: 6053 28719)
+
 // MODIFIED_BY_MANTECH DW-1513 : Output LRU status like lc_seq_printf_stats function
 #ifdef WIN_AL_BUG_ON
 void private_strcat(char* buf, size_t buf_len, char* string, ULONG_PTR string_value){

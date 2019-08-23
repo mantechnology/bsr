@@ -464,4 +464,8 @@ enum drbd_peer_state {
 #define QOU_MAJORITY 1024
 #define QOU_ALL 1025
 
+#ifndef ULONG_PTR
+#define ULONG_PTR unsigned long
+#endif
+
 #endif
