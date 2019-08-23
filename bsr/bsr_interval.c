@@ -21,7 +21,9 @@ sector_t interval_end(struct rb_node *node)
 static void
 update_interval_end(struct rb_node *node, void *__unused)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(__unused);
+#endif
 	struct drbd_interval *this = rb_entry(node, struct drbd_interval, rb);
 	sector_t end;
 
