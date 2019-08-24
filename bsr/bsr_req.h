@@ -30,7 +30,7 @@
 #include <linux/module.h>
 
 #include <linux/slab.h>
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #endif
 #include "bsr_int.h"
 #ifdef _WIN32

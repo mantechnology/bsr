@@ -33,7 +33,7 @@
 #include <linux/file.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #endif
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_transport.h"
