@@ -25,13 +25,18 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef _WIN32
-#include <linux/drbd_limits.h>
+#ifdef _WIN32
+
+#include "./bsr-kernel-compat/windows/bsr_endian.h"
+
+#else
+
+#include <linux/bsr_limits.h>
 #include <linux/random.h>
 #include <linux/jiffies.h>
-#else
-#include "./bsr-kernel-compat/windows/bsr_endian.h"
+
 #endif
+
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
@@ -74,7 +79,13 @@ static bool lost_contact_to_peer_data(enum drbd_disk_state *peer_disk_state);
 static bool got_contact_to_peer_data(enum drbd_disk_state *peer_disk_state);
 static bool peer_returns_diskless(struct drbd_peer_device *peer_device,
 enum drbd_disk_state os, enum drbd_disk_state ns);
+
+#ifdef _WIN32_RCU_LOCKED
 static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller);
+#else
+static void print_state_change(struct drbd_resource *resource, const char *prefix);
+#endif
+
 #ifdef _WIN32_RCU_LOCKED
 static void finish_state_change(struct drbd_resource *, struct completion *, bool locked, const char *caller);
 #else
@@ -216,7 +227,6 @@ bool is_suspended_quorum(struct drbd_resource *resource, enum which_state which)
 	bool rv = false;
 	int vnr;
 
-#ifdef LINBIT_PATCH
 	rcu_read_lock();
 #ifdef _WIN32
 	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr) {
@@ -229,14 +239,7 @@ bool is_suspended_quorum(struct drbd_resource *resource, enum which_state which)
 		}
 	}
 	rcu_read_unlock();
-#else 
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr) {
-		if (device->susp_quorum[which]) {
-			rv = true;
-			break;
-		}
-	}
-#endif
+
 	return rv;
 }
 
@@ -640,7 +643,11 @@ static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, st
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
 			drbd_err(resource, "State change failed: %s\n", drbd_set_st_err_str(rv));
-			print_state_change(resource, "Failed: ", caller);
+#ifdef _WIN32_RCU_LOCKED
+			print_state_change(resource, "Failed: caller:%s\n", caller);
+#else
+			print_state_change(resource, "Failed: ");
+#endif
 		}
 		goto out;
 	}
@@ -1181,7 +1188,11 @@ static int scnprintf_io_suspend_flags(char *buffer, size_t size,
 	return (int)(b - buffer);
 }
 
+#ifdef _WIN32_RCU_LOCKED
 static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller)
+#else
+static void print_state_change(struct drbd_resource *resource, const char *prefix)
+#endif
 {
 	char buffer[150], *b, *end = buffer + sizeof(buffer);
 	struct drbd_connection *connection;
@@ -1203,7 +1214,11 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 	}
 	if (b != buffer) {
 		*(b-1) = 0;
+#ifdef _WIN32_RCU_LOCKED
 		drbd_info(resource, "%s, %s%s\n", caller, prefix, buffer);
+#else
+		drbd_info(resource, "%s%s\n", prefix, buffer);
+#endif
 	}
 
 	for_each_connection(connection, resource) {
@@ -1222,7 +1237,11 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 
 		if (b != buffer) {
 			*(b-1) = 0;
+#ifdef _WIN32_RCU_LOCKED
 			drbd_info(connection, "%s, %s%s\n", caller, prefix, buffer);
+#else
+			drbd_info(connection, "%s%s\n", prefix, buffer);
+#endif
 		}
 	}
 
@@ -1235,12 +1254,18 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 		enum drbd_disk_state *disk_state = device->disk_state;
 
 		if (disk_state[OLD] != disk_state[NEW])
+#ifdef _WIN32_RCU_LOCKED
 			drbd_info(device, "%s, %sdisk( %s -> %s )\n",
 				  caller,
 				  prefix,
 				  drbd_disk_str(disk_state[OLD]),
 				  drbd_disk_str(disk_state[NEW]));
-
+#else
+			drbd_info(device, "%sdisk( %s -> %s )\n",
+				  prefix,
+				  drbd_disk_str(disk_state[OLD]),
+				  drbd_disk_str(disk_state[NEW]));
+#endif
 		for_each_peer_device(peer_device, device) {
 			enum drbd_disk_state *peer_disk_state = peer_device->disk_state;
 			enum drbd_repl_state *repl_state = peer_device->repl_state;
@@ -1266,7 +1291,11 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 
 			if (b != buffer) {
 				*(b-1) = 0;
+#ifdef _WIN32_RCU_LOCKED
 				drbd_info(peer_device, "%s, %s%s\n", caller, prefix, buffer);
+#else
+				drbd_info(peer_device, "%s%s\n", prefix, buffer);
+#endif
 			}
 		}
 	}
@@ -2162,7 +2191,7 @@ static void sanitize_state(struct drbd_resource *resource)
 				// We should always notify state change, or possibly brought unpaired sync target up.
 				set_resync_susp_other_c(peer_device, true, false, __FUNCTION__);
 #else
-				set_resync_susp_other_c(peer_device, true, true);
+				set_resync_susp_other_c(peer_device, true, true, __FUNCTION__);
 #endif
 
 #ifdef _WIN32 // MODIFIED_BY_MANTECH DW-885, DW-897, DW-907: Clear resync_susp_other_c when state change is aborted, to get resynced from other node.
@@ -2375,7 +2404,11 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 	bool lost_a_primary_peer = false;
 	int vnr;
 
+#ifdef _WIN32_RCU_LOCKED
 	print_state_change(resource, "", caller);
+#else
+	print_state_change(resource, "");
+#endif
 
 #ifdef _WIN32
     idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr) {
@@ -2729,8 +2762,10 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 #endif
 				clear_bit(INITIAL_STATE_SENT, &peer_device->flags);
 				clear_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
+#ifdef _WIN32 // TODO: for cross-platfom
 				//DW-1799
 				clear_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags);
+#endif
 			}
 		}
 
@@ -3411,7 +3446,9 @@ static void check_may_resume_io_after_fencing(struct drbd_state_change *state_ch
  */
 static int w_after_state_change(struct drbd_work *w, int unused)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
+#endif
 
 	struct after_state_change_work *work =
 		container_of(w, struct after_state_change_work, w);
@@ -3514,9 +3551,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				state_change_word(state_change, n_device, n_connection, NEW);
 			bool send_state = false;
 
-#ifdef _WIN32 // DW-1447
+#ifdef _WIN32 //TODO: for cross-platform
+			// DW-1447 
 			bool send_bitmap = false;
-#endif
+
 			//DW-1806 If the initial state is not sent, wait for it to be sent.(Maximum 3 seconds)
 			if (!test_bit(INITIAL_STATE_SENT, &peer_device->flags)) {
 				LARGE_INTEGER		timeout;
@@ -3529,6 +3567,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					drbd_err(peer_device, "state initial send timeout!\n");
 				}
 			}
+#endif
 
 			/* In case we finished a resync as resync-target update all neighbors
 			   about having a bitmap_uuid of 0 towards the previous sync-source.
@@ -3543,12 +3582,21 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 
 			if ((disk_state[OLD] != D_UP_TO_DATE || peer_disk_state[OLD] != D_UP_TO_DATE) &&
 			    (disk_state[NEW] == D_UP_TO_DATE && peer_disk_state[NEW] == D_UP_TO_DATE)) {
-#ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
+#ifdef _WIN32 // TODO
+
+#ifdef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
+				clear_bit(CRASHED_PRIMARY, &device->flags);
+#else
 				// MODIFIED_BY_MANTECH DW-1357: clear CRASHED_PRIMARY flag if I've done resync as a sync target from one of peer or as a sync source for all peers.
 				if (test_bit(CRASHED_PRIMARY, &device->flags))
 					consider_finish_crashed_primary(peer_device, repl_state[NOW] == L_SYNC_TARGET && repl_state[NEW] == L_ESTABLISHED);
+#endif
+
 #else
 				clear_bit(CRASHED_PRIMARY, &device->flags);
+				// TODO
+				//if (peer_device->uuids_received)
+				//	peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
 #endif
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
@@ -5190,7 +5238,9 @@ static void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cm
 
 int nested_twopc_work(struct drbd_work *work, int cancel)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
+#endif
 
 	struct drbd_resource *resource =
 		container_of(work, struct drbd_resource, twopc_work);
@@ -5892,7 +5942,7 @@ enum drbd_state_rv stable_change_repl_state(struct drbd_peer_device *peer_device
 					    enum drbd_repl_state repl_state,
 					    enum chg_state_flags flags)
 {
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 	enum drbd_state_rv rv = SS_SUCCESS;
 	stable_state_change(rv, peer_device->device->resource,
 		change_repl_state(peer_device, repl_state, flags));
