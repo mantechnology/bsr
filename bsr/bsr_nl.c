@@ -24,7 +24,9 @@
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+
 #ifdef _WIN32
+
 #include "../bsr-headers/windows/bsr.h"
 #define		ERR_LOCAL_AND_PEER_ADDR 173	
 #include "bsr_int.h"
@@ -35,9 +37,11 @@
 #include "../bsr-headers/bsr_transport.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 #include "proto.h"
+
 #else
+
 #include <linux/module.h>
-#include <linux/drbd.h>
+#include <linux/bsr.h>
 #include <linux/in.h>
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -45,17 +49,18 @@
 #include <linux/blkpg.h>
 #include <linux/cpumask.h>
 #include <linux/random.h>
-#include "drbd_int.h"
-#include "drbd_protocol.h"
-#include "drbd_req.h"
-#include "drbd_state_change.h"
-#include "drbd_debugfs.h"
-#include "drbd_transport.h"
+#include "bsr_int.h"
+#include "bsr_protocol.h"
+#include "bsr_req.h"
+#include "bsr_state_change.h"
+#include "bsr_debugfs.h"
+#include "bsr_transport.h"
 #include <asm/unaligned.h>
-#include <linux/drbd_limits.h>
+#include <linux/bsr_limits.h>
 #include <linux/kthread.h>
 #include <linux/security.h>
 #include <net/genetlink.h>
+
 #endif
 
 #ifdef _WIN32
@@ -128,10 +133,12 @@ int drbd_adm_get_initial_state_done(struct netlink_callback *cb);
 KSTART_ROUTINE _try_outdate_peer_async;
 #endif
 
-#include "../bsr-headers/linux/bsr_genl_api.h"
-#include "bsr_nla.h"
-#include "../bsr-headers/linux/genl_magic_func.h"
 
+#include <linux/bsr_genl_api.h>
+#include "bsr_nla.h"
+#include <linux/genl_magic_func.h>
+
+#if 0 //TODO
 atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
 
 #ifdef _WIN32 
@@ -7960,4 +7967,6 @@ struct genl_ops * get_drbd_genl_ops(u8 cmd)
 
     return NULL;
 }
+#endif
+
 #endif

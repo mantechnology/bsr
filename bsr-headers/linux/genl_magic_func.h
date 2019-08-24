@@ -3,6 +3,7 @@
 
 #include "genl_magic_struct.h"
 
+
 /*
  * Magic: declare tla policy						{{{1
  * Magic: declare nested policies
@@ -26,6 +27,8 @@ static struct nla_policy CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy)[]	\
 #include GENL_MAGIC_INCLUDE_FILE
 };
 
+
+
 #undef GENL_struct
 #define GENL_struct(tag_name, tag_number, s_name, s_fields)		\
 static struct nla_policy s_name ## _nl_policy[] __read_mostly =		\
@@ -46,9 +49,10 @@ static struct nla_policy s_name ## _nl_policy[] __read_mostly =		\
 #define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
 		__get, __put, __is_signed)				\
 	[attr_nr] = { .type = nla_type,					\
-		      .len = (maxlen - (nla_type == NLA_NUL_STRING)) },
+		      .len = maxlen - (nla_type == NLA_NUL_STRING) },
 
 #endif
+
 #include GENL_MAGIC_INCLUDE_FILE
 
 #ifdef _WIN32
@@ -131,9 +135,9 @@ static void dprint_array(const char *dir, int nla_type,
 					nla_data(nla), nla_len(nla));	\
 	} while (0)
 #else
-#define DPRINT_TLA(a, op, b) do {} while (false,false)
-#define DPRINT_FIELD(dir, nla_type, name, s, nla) do {} while (false,false)
-#define	DPRINT_ARRAY(dir, nla_type, name, s, nla) do {} while (false,false)
+#define DPRINT_TLA(a, op, b) do {} while (0)
+#define DPRINT_FIELD(dir, nla_type, name, s, nla) do {} while (0)
+#define	DPRINT_ARRAY(dir, nla_type, name, s, nla) do {} while (0)
 #endif
 
 /*
@@ -178,7 +182,7 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 	return __ ## s_name ## _from_attrs(s, info, true);		\
 }					__attribute__((unused))		\
 
-#ifndef __KERNEL__
+// TODO, required to compare original
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
@@ -194,23 +198,7 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 			pr_info("<< missing attr: %s\n", #name);	\
 			return -ENOMSG;					\
 		}
-#else
-#define __assign(attr_nr, attr_flag, name, nla_type, type, assignment, ...)	\
-		nla = ntb[attr_nr];						\
-		if (nla) {						\
-			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
-				pr_info("<< must not change invariant attr: %s\n", #name);	\
-				return -EEXIST;				\
-			}						\
-			assignment;					\
-		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
-			/* attribute missing from payload, */		\
-			/* which was expected */			\
-		} else if (((attr_flag) & DRBD_F_REQUIRED, (attr_flag) & DRBD_F_REQUIRED)) {		\
-			pr_info("<< missing attr: %s\n", #name);	\
-			return -ENOMSG;					\
-		}
-#endif
+
 
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
@@ -271,7 +259,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
 	.policy	= CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy),	\
     .str = #op_name, \
 },
-#else
+#else //_LIN TODO
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\
@@ -294,7 +282,23 @@ static struct genl_ops ZZZ_genl_ops[] __read_mostly = {
  *									{{{2
  */
 #define ZZZ_genl_family		CONCAT_(GENL_MAGIC_FAMILY, _genl_family)
+#ifdef _WIN32 // TODO
 static struct genl_family ZZZ_genl_family;
+#endif
+
+static struct genl_family ZZZ_genl_family __read_mostly = {
+	.id = GENL_ID_GENERATE,
+	.name = __stringify(GENL_MAGIC_FAMILY),
+	.version = GENL_MAGIC_VERSION,
+#ifdef GENL_MAGIC_FAMILY_HDRSZ
+	.hdrsize = NLA_ALIGN(GENL_MAGIC_FAMILY_HDRSZ),
+#endif
+	.maxattr = ARRAY_SIZE(drbd_tla_nl_policy)-1,
+#ifdef COMPAT_HAVE_GENL_FAMILY_PARALLEL_OPS
+	.parallel_ops = true,
+#endif
+};
+
 
 /*
  * Magic: define multicast groups
@@ -308,38 +312,12 @@ static struct genl_family ZZZ_genl_family;
  * genetlink: only pass array to genl_register_family_with_ops()
  * which are commits c53ed742..2a94fe48
  */
-#if defined(genl_register_family_with_ops_groups) || \
-    defined(COMPAT_HAVE_GENL_FAMILY_IN_GENLMSG_MULTICAST)
+#ifdef genl_register_family_with_ops_groups
 #include <linux/genl_magic_func-genl_register_family_with_ops_groups.h>
-#else
-//#include <linux/genl_magic_func-genl_register_mc_group.h>
-#include "../../bsr/bsr-kernel-compat/linux/genl_magic_func-genl_register_mc_group.h"
+#else // TODO: for cross-platform code
+#include <linux/genl_magic_func-genl_register_mc_group.h>
+//#include "../../bsr/bsr-kernel-compat/linux/genl_magic_func-genl_register_mc_group.h" // TODO for windows?
 #endif
-
-static struct genl_family ZZZ_genl_family __read_mostly = {
-#ifdef HAVE_GENL_ID_GENERATE
-	.id = GENL_ID_GENERATE,
-#endif
-	.name = __stringify(GENL_MAGIC_FAMILY),
-	.version = GENL_MAGIC_VERSION,
-#ifdef GENL_MAGIC_FAMILY_HDRSZ
-	.hdrsize = NLA_ALIGN(GENL_MAGIC_FAMILY_HDRSZ),
-#endif
-	.maxattr = ARRAY_SIZE(drbd_tla_nl_policy) - 1,
-
-#if (!_WIN32) && !defined(COMPAT_HAVE_GENL_REGISTER_FAMILY_WITH_OPS) && !defined(COMPAT_HAVE_GENL_REGISTER_FAMILY_WITH_OPS3)
-	/* removed in 489111e5c25b93, relevant for v4.10,  now set directly */
-	.ops = ZZZ_genl_ops,
-	.n_ops = ARRAY_SIZE(ZZZ_genl_ops),
-	.mcgrps = ZZZ_genl_mcgrps,
-	.n_mcgrps = ARRAY_SIZE(ZZZ_genl_mcgrps),
-	.module = THIS_MODULE,
-#endif
-
-#ifdef COMPAT_HAVE_GENL_FAMILY_PARALLEL_OPS
-	.parallel_ops = true,
-#endif
-};
 
 /*
  * Magic: provide conversion functions					{{{1
@@ -405,6 +383,8 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 
 /* Functions for initializing structs to default values.  */
 
+#ifdef _WIN32
+
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
 		__is_signed)													\
@@ -413,6 +393,17 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 #define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
 		__get, __put, __is_signed)									\
 		UNREFERENCED_PARAMETER(x);
+
+#else // _LIN
+
+#undef __field
+#define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
+		__is_signed)
+#undef __array
+#define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
+		__get, __put, __is_signed)
+#endif
+
 #undef __u32_field_def
 #define __u32_field_def(attr_nr, attr_flag, name, default)		\
 	x->name = default;

@@ -144,14 +144,15 @@ GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u32_field_def(10,    0 /* OPTIONAL */,    nr_requests, DRBD_NR_REQUESTS_DEF)
 	__s32_field_def(11, 0 /* OPTIONAL */, quorum, DRBD_QUORUM_DEF)
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, DRBD_ON_NO_QUORUM_DEF)
+#ifdef _WIN32
 	__u32_field_def(13, 0 /* OPTIONAL */, req_buf_size, DRBD_REQ_BUF_SIZE_DEF)        /* MODIFIED_BY_MANTECH DW-1200: request buffer maximum size */
 	__flg_field_def(14, 0 /* OPTIONAL */, svc_autostart, DRBD_SVC_AUTOSTART_DEF)	  /* DW-1249: auto-start by svc*/
 	__u32_field_def(15, 0 /* OPTIONAL */, io_error_retry_count, DRBD_IO_ERROR_RETRY_COUNT_DEF)        /* DW-1716: retry count for I/O error*/
+#endif
 )
 
 GENL_struct(DRBD_NLA_NET_CONF, 5, net_conf,
-	__str_field_def(1,	DRBD_GENLA_F_MANDATORY | DRBD_F_SENSITIVE,
-						shared_secret,	SHARED_SECRET_MAX)
+	__str_field_def(1,	DRBD_GENLA_F_MANDATORY | DRBD_F_SENSITIVE, shared_secret,	SHARED_SECRET_MAX)
 	__str_field_def(2,	DRBD_GENLA_F_MANDATORY,	cram_hmac_alg,	SHARED_SECRET_MAX)
 	__str_field_def(3,	DRBD_GENLA_F_MANDATORY,	integrity_alg,	SHARED_SECRET_MAX)
 	__str_field_def(4,	DRBD_GENLA_F_MANDATORY,	verify_alg,     SHARED_SECRET_MAX)
@@ -346,7 +347,7 @@ GENL_struct(DRBD_NLA_IO_ERROR, 31, drbd_io_error_info,
 #ifdef _WIN32 
 	// skip compile error!
 #else
-GENL_mc_group(events)
+//GENL_mc_group(events) //TODO: ??? for removing a compile warning 
 #endif
 
 	/* add DRBD minor devices as volumes to resources */
