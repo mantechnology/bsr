@@ -2047,5 +2047,27 @@ drbd_ib_create_cq(struct ib_device *device,
 #endif
 #endif
 
+// TODO: data type define 
+#ifndef ULONG_PTR
+#define ULONG_PTR unsigned long
+#endif
+
+#define INT16_MAX	SHRT_MAX
+#define INT32_MAX	INT_MAX
+
+#define UINT16_MAX	USHRT_MAX
+#define UINT32_MAX 	UINT_MAX
+
+
+#ifdef _WIN32
+
+#else //_LIN
+
+#define atomic_add64			atomic64_add
+#define atomic_sub_return64		atomic64_sub_return
+#define atomic_set64			atomic64_set
+#define atomic_read64			atomic64_read
+#endif
+
 #endif
 

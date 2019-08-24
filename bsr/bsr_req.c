@@ -30,9 +30,9 @@
 #include <linux/module.h>
 
 #include <linux/slab.h>
-#include <linux/drbd.h>
-#include "drbd_int.h"
-#include "drbd_req.h"
+#include <linux/bsr.h>
+#include "bsr_int.h"
+#include "bsr_req.h"
 #endif
 
 #ifdef _WIN32
@@ -98,10 +98,12 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	if (!req)
 		return NULL;
 
+#ifdef _WIN32
 	// MODIFIED_BY_MANTECH DW-1200: add allocated request buffer size.
 	// DW-1539 change g_total_req_buf_bytes's usage to drbd_req's allocated size
 	atomic_add64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
-	
+#endif	
+
 	memset(req, 0, sizeof(*req));
 #ifdef _WIN32
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
@@ -516,7 +518,9 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
+#endif
 	int ret = 0;
 	
 	struct drbd_io_error_work *dw =
@@ -539,10 +543,10 @@ void complete_master_bio(struct drbd_device *device,
 		struct bio_and_error *m)
 #endif
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(func);
 	UNREFERENCED_PARAMETER(line);
 
-#ifdef _WIN32
 	struct bio* master_bio = NULL;
 #endif
 
@@ -1023,8 +1027,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_SENT) && (set & RQ_NET_SENT)) {
 		/* potentially already completed in the ack_receiver thread */
 		if (!(old_net & RQ_NET_DONE)) {
-			//atomic_add(req->i.size >> 9, &peer_device->connection->ap_in_flight);
-			atomic_add64(req->i.size, &peer_device->connection->ap_in_flight);
+			atomic64_add(req->i.size, &peer_device->connection->ap_in_flight);
 			set_if_null_req_not_net_done(peer_device, req);
 		}
 		if (req->rq_state[idx] & RQ_NET_PENDING)
@@ -1091,7 +1094,6 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
 		if (old_net & RQ_NET_SENT) {
-			//atomic_sub(req->i.size >> 9, &peer_device->connection->ap_in_flight);
 			if (atomic_sub_return64(req->i.size, &peer_device->connection->ap_in_flight) < 0)
 				atomic_set64(&peer_device->connection->ap_in_flight, 0);
 		}
@@ -1145,16 +1147,18 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 static void drbd_report_io_error(struct drbd_device *device, struct drbd_request *req)
 {
 #ifndef _WIN32
-        char b[BDEVNAME_SIZE];
+	char b[BDEVNAME_SIZE];
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
 	// Only the first error is logged.
+
 	bool write_log = true;
+#ifdef _WIN32 //TODO: for cross-platform
 	if (atomic_read(&device->io_error_count) < INT32_MAX) {
 		if (atomic_inc(&device->io_error_count) > 1)
 			write_log = true;
 	}
-
+#endif
 	if (!drbd_ratelimit())
 		write_log = false;
 
@@ -1834,8 +1838,10 @@ static int drbd_process_write_request(struct drbd_request *req)
 
 		if (remote) {
 			++count;
+#ifdef _WIN32 //TODO: for cross-platform
 			// MODIFIED_BY_MANTECH DW-1237: get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
+#endif
 			_req_mod(req, TO_BE_SENT, peer_device);
 			if (!in_tree) {
 				/* Corresponding drbd_remove_request_interval is in
@@ -2297,11 +2303,11 @@ static void wfa_init(struct waiting_for_act_log *wfa)
 #define wfa_splice_init(_wfa, from, to) do { \
 	list_splice_init(&(_wfa)->requests.from, &(_wfa)->requests.to); \
 	list_splice_init(&(_wfa)->peer_requests.from, &(_wfa)->peer_requests.to); \
-	} while (false,false)
+	} while (false)
 #define wfa_splice_tail_init(_wfa, from, to) do { \
 	list_splice_tail_init(&(_wfa)->requests.from, &(_wfa)->requests.to); \
 	list_splice_tail_init(&(_wfa)->peer_requests.from, &(_wfa)->peer_requests.to); \
-	} while (false,false)
+	} while (false)
 
 static void __drbd_submit_peer_request(struct drbd_peer_request *peer_req)
 {
@@ -2327,13 +2333,13 @@ static void __drbd_submit_peer_request(struct drbd_peer_request *peer_req)
 static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_log *wfa)
 {
 #ifndef _WIN32
-	struct blk_plug plug;
+	//struct blk_plug plug;
 #endif
 	struct drbd_request *req, *tmp;
 	struct drbd_peer_request *pr, *pr_tmp;
 
 #ifndef _WIN32
-	blk_start_plug(&plug);
+	//blk_start_plug(&plug);
 #endif
 
 #ifdef _WIN32
@@ -2368,7 +2374,7 @@ static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_
 		drbd_send_and_submit(device, req);
 	}
 #ifndef _WIN32
-	blk_finish_plug(&plug);
+	//blk_finish_plug(&plug);
 #endif
 }
 
@@ -2442,13 +2448,13 @@ out:
 static void send_and_submit_pending(struct drbd_device *device, struct waiting_for_act_log *wfa)
 {
 #ifndef _WIN32
-	struct blk_plug plug;
+	//struct blk_plug plug;
 #endif
 	struct drbd_request *req, *tmp;
 	struct drbd_peer_request *pr, *pr_tmp;
 
 #ifndef _WIN32
-	blk_start_plug(&plug);
+	//blk_start_plug(&plug);
 #endif
 #ifdef _WIN32
 	list_for_each_entry_safe(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.pending, wait_for_actlog) {
@@ -2470,7 +2476,7 @@ static void send_and_submit_pending(struct drbd_device *device, struct waiting_f
 		drbd_send_and_submit(device, req);
 	}
 #ifndef _WIN32
-	blk_finish_plug(&plug);
+	//blk_finish_plug(&plug);
 #endif
 }
 
@@ -2823,12 +2829,10 @@ void request_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID System
 void request_timer_fn(unsigned long data)
 #endif
 {
-	if (data == NULL)
-		return;
-
 	struct drbd_device *device = (struct drbd_device *) data;
 	struct drbd_connection *connection;
 	struct drbd_request *req_read, *req_write;
+	
 #ifdef _WIN32
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(SystemArgument1);
@@ -2847,6 +2851,9 @@ void request_timer_fn(unsigned long data)
 	unsigned long next_trigger_time = now;
 #endif
 	bool restart_timer = false;
+
+	if (device == NULL)
+		return;
 
 	rcu_read_lock();
 	if (get_ldev(device)) { /* implicit state.disk >= D_INCONSISTENT */
