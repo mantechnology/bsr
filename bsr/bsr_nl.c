@@ -138,7 +138,7 @@ KSTART_ROUTINE _try_outdate_peer_async;
 #include "bsr_nla.h"
 #include <linux/genl_magic_func.h>
 
-#if 0 //TODO
+
 atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
 
 #ifdef _WIN32 
@@ -175,10 +175,14 @@ static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
 #endif
 	if (genlmsg_reply(skb, info)) {
 		pr_err("error sending genl reply\n");
+#ifdef _WIN32
 		return -1;
+#endif
 	} 
 
+#ifdef _WIN32
 	return 0;
+#endif
 	
 }
 
@@ -248,7 +252,9 @@ static struct drbd_path *first_path(struct drbd_connection *connection)
 static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(skb);
+#endif
 
 	struct drbd_genlmsghdr *d_in = info->userhdr;
 	const u8 cmd = info->genlhdr->cmd;
@@ -462,8 +468,7 @@ finish:
 static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
 #ifdef _WIN32
-	if (retcode < SS_SUCCESS)
-	{
+	if (retcode < SS_SUCCESS) {
 		struct drbd_resource *resource = adm_ctx->resource;		
 		drbd_err(resource, "cmd(%u) error: %s\n", info->genlhdr->cmd, drbd_set_st_err_str(retcode));
 	}
@@ -496,6 +501,7 @@ static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info
 	adm_ctx->reply_skb = NULL;
 	return 0;
 }
+
 #ifdef _WIN32
 struct drbd_resource* get_resource_from_genl_info(struct genl_info* info)
 {
@@ -775,7 +781,7 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 	if (strstr(cmd, "fence") && connection) {
 		bool op_is_fence = strcmp(cmd, "fence-peer") == 0;
 		struct drbd_peer_device *peer_device;
-		u64 mask = UINT64_MAX;
+		u64 mask = -1ULL;
 		int vnr;
 #ifdef _WIN32
 		idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -1047,6 +1053,9 @@ static int _try_outdate_peer_async(void *data)
 
 void conn_try_outdate_peer_async(struct drbd_connection *connection)
 {
+#ifndef _WIN32
+	struct task_struct *opa;
+#endif
 	kref_get(&connection->kref);
 	kref_debug_get(&connection->kref_debug, 4);
 #ifdef _WIN32
@@ -1054,10 +1063,8 @@ void conn_try_outdate_peer_async(struct drbd_connection *connection)
 	NTSTATUS	Status = STATUS_UNSUCCESSFUL;
 
 	Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, _try_outdate_peer_async, (void *)connection);
-	if (!NT_SUCCESS(Status))
-	{
+	if (!NT_SUCCESS(Status)) {
 		WDRBD_ERROR("PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X\n", Status);
-
         kref_put(&connection->kref, drbd_destroy_connection);
 	}
 	else
@@ -1170,7 +1177,11 @@ restart:
 }
 
 enum drbd_state_rv
+#ifdef _WIN32
 drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force, struct sk_buff *reply_skb)
+#else
+drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force)
+#endif
 {
 	struct drbd_device *device;
 	int vnr;
@@ -1251,7 +1262,7 @@ retry:
 			kfree(err_str);
 			err_str = NULL;
 		}
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 		stable_state_change(rv, resource,
 			change_role(resource, role, flags, with_force, &err_str));
 #else
@@ -1503,11 +1514,14 @@ retry:
 
 out:
 	up(&resource->state_sem);
+
+#ifdef _WIN32 // TODO
 	if (err_str) {
 		if (reply_skb)
 			drbd_msg_put_info(reply_skb, err_str);
 		kfree(err_str);
 	}
+#endif
 	return rv;
 }
 
@@ -1707,11 +1721,18 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			}
 		}
 #endif
+
+#ifdef _WIN32
 		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
 			adm_ctx.reply_skb);
+#else
+		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate);
+#endif
 		if (retcode >= SS_SUCCESS) {
 			set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+#ifdef _WIN32
 			adm_ctx.resource->bPreSecondaryLock = FALSE;
+#endif
 		}
 #ifdef _WIN32
         else if (retcode == SS_TARGET_DISK_TOO_SMALL)
@@ -1851,6 +1872,7 @@ out:
 	return 0;
 }
 
+
 u64 drbd_capacity_to_on_disk_bm_sect(u64 capacity_sect, unsigned int max_peers)
 {
 	u64 bits, bytes;
@@ -1959,9 +1981,12 @@ char *ppsize(char *buf, size_t len, unsigned long long size)
 		size = (size >> 10) + !!(size & (1<<9));
 		base++;
 	}
-
+#ifdef _WIN32
 	_snprintf(buf, len-1, "%u %cB", (unsigned)size, units[base]);
-
+#else
+	sprintf(buf, "%u %cB", (unsigned)size, units[base]);
+#endif
+	
 	return buf;
 }
 
@@ -2200,7 +2225,7 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 		rv = DS_SHRUNK;
 
 
-	if (false,false) {
+	if (0) {
 	err_out:
 		/* restore previous offset and sizes */
 		md->effective_size = prev.effective_size;
@@ -2258,10 +2283,12 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 			/* Note: in receive_sizes during connection handshake,
 			 * repl_state may still be L_OFF;
 			 * double check on cstate ... */
-			if ((peer_device->repl_state[NOW] >= L_ESTABLISHED ||
-				peer_device->connection->cstate[NOW] >= C_CONNECTED) &&
-				//DW-1799
-				test_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags)) {
+			if (
+				(peer_device->repl_state[NOW] >= L_ESTABLISHED || peer_device->connection->cstate[NOW] >= C_CONNECTED)
+#ifdef _WIN32
+				&& test_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags) //DW-1799
+#endif
+			) {
 				/* If we still can see it, consider its last
 				 * known size, even if it may have meanwhile
 				 * detached from its disk.
@@ -2310,7 +2337,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 #if 0
 #define DDUMP_LLU(d, x) do { drbd_info(d, "%u: " #x ": %llu\n", __LINE__, (unsigned long long)x); } while (0)
 #else
-#define DDUMP_LLU(d, x) do { } while (false,false)
+#define DDUMP_LLU(d, x) do { } while (0)
 #endif
 
 /* MUST hold a reference on ldev. */
@@ -2599,7 +2626,9 @@ static void decide_on_write_same_support(struct drbd_device *device,
 static void drbd_setup_queue_param(struct drbd_device *device, struct drbd_backing_dev *bdev,
 				   unsigned int max_bio_size, struct o_qlim *o)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(o);
+#endif
 	struct request_queue * const q = device->rq_queue;
 	unsigned int max_hw_sectors = max_bio_size >> 9;
 	struct request_queue *b = NULL;
@@ -2985,17 +3014,21 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 	struct block_device *bdev;
 	int err = 0;
 
-	bdev = blkdev_get_by_path(bdev_path,
-				  FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, FALSE);
+#ifdef _WIN32
+	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, false);
+#else
+	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
+#endif
 	if (IS_ERR(bdev)) {
 		drbd_err(device, "open(\"%s\") failed with %ld\n",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
 
+#ifdef _WIN32 //TODO
 	// DW-1109: inc ref when open it.
 	kref_get(&bdev->kref);
-
+#endif
 	if (!do_bd_link)
 		return bdev;
 
@@ -3022,8 +3055,11 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 
 bool want_bitmap(struct drbd_peer_device *peer_device)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#ifndef _WIN32 
+#endif
+#ifndef _WIN32
+	struct peer_device_conf *pdc; 
 	bool want_bitmap = false;
 
 	rcu_read_lock();
@@ -3083,7 +3119,9 @@ static int open_backing_devices(struct drbd_device *device,
 static void close_backing_dev(struct drbd_device *device, struct block_device *bdev,
 	bool do_bd_unlink)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
+#endif
 
 	if (!bdev)
 		return;
@@ -3313,7 +3351,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	drbd_flush_workqueue(&resource->work);
 #endif
 
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 	stable_state_change(rv, resource,
 		change_disk_state(device, D_ATTACHING, CS_VERBOSE | CS_SERIALIZE, NULL));
 #else
@@ -3542,13 +3580,14 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	if (drbd_md_test_flag(device, MDF_PRIMARY_IND) &&
 	    !(resource->role[NOW] == R_PRIMARY && resource->susp_nod[NOW]) &&
 	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags))
+#ifdef _WIN32
+
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 	// MODIFIED_BY_MANTECH DW-1357: this is initialzing crashed primary. set crashed primary flag and clear all peer's ignoring flags.
 	{
-		set_bit(CRASHED_PRIMARY, &device->flags);
-
-		struct drbd_md *md = &device->ldev->md;
 		int node_id = 0;
+		set_bit(CRASHED_PRIMARY, &device->flags);
+		struct drbd_md *md = &device->ldev->md;
 
 		for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++)
 			md->peers[node_id].flags &= ~MDF_PEER_IGNORE_CRASHED_PRIMARY;
@@ -3559,6 +3598,10 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		drbd_md_mark_dirty(device);
 	}
 #else
+		set_bit(CRASHED_PRIMARY, &device->flags);
+#endif
+
+#else //_LIN : TODO
 		set_bit(CRASHED_PRIMARY, &device->flags);
 #endif
 
@@ -3641,7 +3684,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* change_disk_state uses disk_state_from_md(device); in case D_NEGOTIATING not
 	   necessary, and falls back to a local state change */
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 	stable_state_change(rv, resource,
 		change_disk_state(device, D_NEGOTIATING, CS_VERBOSE | CS_SERIALIZE, NULL));
 #else
@@ -3711,7 +3754,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	}
 
 	drbd_suspend_io(device, READ_AND_WRITE); /* so no-one is stuck in drbd_al_begin_io */
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 	stable_state_change(retcode, device->resource,
 		change_disk_state(device, D_DETACHING,
 			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE, &err_str));
@@ -3960,8 +4003,11 @@ alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 	if (rv != NO_ERROR)
 		return rv;
 	if (new_net_conf->cram_hmac_alg[0] != 0) {
-		_snprintf(hmac_name, CRYPTO_MAX_ALG_NAME-1, "hmac(%s)",
-			 new_net_conf->cram_hmac_alg);
+#ifdef _WIN32
+		_snprintf(hmac_name, CRYPTO_MAX_ALG_NAME-1, "hmac(%s)", new_net_conf->cram_hmac_alg);
+#else
+		snprintf(hmac_name, CRYPTO_MAX_ALG_NAME-1, "hmac(%s)", new_net_conf->cram_hmac_alg);
+#endif
 
 		rv = alloc_hash(&crypto->cram_hmac_tfm, hmac_name,
 			       ERR_AUTH_ALG);
@@ -4218,7 +4264,7 @@ int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	kfree(old_peer_device_conf);
 	kfree(old_plan);
 
-	if (false,false) {
+	if (0) {
 fail:
 		retcode = ERR_NOMEM;
 fail_ret_set:
@@ -4479,13 +4525,14 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	}
 	mutex_unlock(&adm_ctx->resource->conf_update);
 
+#ifdef _WIN32 //TODO Send buffering
 	// 
 	// alloc_bab
 	//
 	if(alloc_bab(connection, connection->transport.net_conf)) {
 	} else {
 	}
-	
+#endif	
 	drbd_debugfs_connection_add(connection); /* after ->net_conf was assigned */
 	drbd_thread_start(&connection->sender);
 	*ret_conn = connection;
@@ -5138,12 +5185,12 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-#ifdef _WIN32
+//#ifdef _WIN32 //TODO: porting required for Linux 
 	// DW-1469 disable drbd_adm_resize
 	drbd_msg_put_info(adm_ctx.reply_skb, "cmd(drbd_adm_resize) error: not support.\n");
 	drbd_adm_finish(&adm_ctx, info, ERR_INVALID_REQUEST);
 	return 0;
-#endif
+//#endif
 	
 	//mutex_lock(&adm_ctx.resource->adm_mutex);
 	//device = adm_ctx.device;
@@ -5730,12 +5777,12 @@ int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 		return retcode;
 	resource = adm_ctx.device->resource;
 
-#ifdef _WIN32
+//#ifdef _WIN32 //TODO: support for suspendio on linux?
 	// DW-1361 disable drbd_adm_suspend_io
 	drbd_err(resource, "cmd(%u) error: drbd_adm_suspend_io not support.\n", info->genlhdr->cmd);
 	drbd_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
-#endif
+//#endif
 	
 //	mutex_lock(&resource->adm_mutex);
 //#if _WIN32 // DW-1605
@@ -5756,7 +5803,6 @@ int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 {
 	struct drbd_config_context adm_ctx;
-//	struct drbd_connection *connection;
 	struct drbd_resource *resource;
 //	struct drbd_device *device;
 //	unsigned long irq_flags;
@@ -5766,13 +5812,13 @@ int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-#ifdef _WIN32
+//#ifdef _WIN32 //TODO: support for resumio on linux?
 	// DW-1361 disable drbd_adm_resume_io
 	resource = adm_ctx.device->resource;
 	drbd_err(resource, "cmd(%u) error: drbd_adm_resume_io not support.\n", info->genlhdr->cmd);
 	drbd_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
-#endif
+//#endif
 
 //	mutex_lock(&adm_ctx.resource->adm_mutex);
 //	device = adm_ctx.device;
@@ -5817,7 +5863,7 @@ int drbd_adm_outdate(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 	stable_state_change(retcode, adm_ctx.device->resource,
 		change_disk_state(adm_ctx.device, D_OUTDATED,
 			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE, NULL));
@@ -7225,7 +7271,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 			del_connection(connection);
 			mutex_unlock(&resource->conf_update);
 		} else {
-			drbd_info(connection, "conn_try_disconnect retcode : %d, connection ref : %d\n", retcode, connection->kref);
+			drbd_info(connection, "conn_try_disconnect retcode : %d\n", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
 			kref_put(&connection->kref, drbd_destroy_connection);
 			goto out;
@@ -7342,10 +7388,12 @@ void notify_resource_state(struct sk_buff *skb,
 		goto nla_put_failure;
 	genlmsg_end(skb, dh);
 	if (multicast) {
+#if 0 // TODO: drbd_genl_multicast_events ??? 
 		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
+#endif
 	}
 	return;
 
@@ -7396,10 +7444,12 @@ void notify_device_state(struct sk_buff *skb,
 	device_statistics_to_skb(skb, &device_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
+#if 0 //TODO
 		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
+#endif
 	}
 	return;
 
@@ -7452,10 +7502,12 @@ void notify_connection_state(struct sk_buff *skb,
 	connection_statistics_to_skb(skb, &connection_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
+#if 0 // TODO
 		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
+#endif
 	}
 	return;
 
@@ -7507,10 +7559,12 @@ void notify_peer_device_state(struct sk_buff *skb,
 	peer_device_statistics_to_skb(skb, &peer_device_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
+#if 0 //TODO
 		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
+#endif
 	}
 	return;
 
@@ -7520,7 +7574,8 @@ failed:
 	drbd_err(peer_device, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
-				  
+
+#ifdef _WIN32				  
 void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 {
 	struct drbd_io_error_info io_error_info;
@@ -7578,6 +7633,7 @@ fail:
 	nlmsg_free(skb);
 #endif
 }
+#endif
 
 void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 		 enum drbd_notification_type type)
@@ -7615,11 +7671,13 @@ void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
+#if 0 // TODO
 	err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 	skb = NULL;
 	/* skb has been consumed or freed in netlink_broadcast() */
 	if (err && err != -ESRCH)
 		goto unlock_fail;
+#endif
 	mutex_unlock(&notification_mutex);
 	return;
 
@@ -7678,11 +7736,13 @@ void notify_helper(enum drbd_notification_type type,
 	    drbd_helper_info_to_skb(skb, &helper_info, true))
 		goto unlock_fail;
 	genlmsg_end(skb, dh);
+#if 0 //TODO
 	err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
 	skb = NULL;
 	/* skb has been consumed or freed in netlink_broadcast() */
 	if (err && err != -ESRCH)
 		goto unlock_fail;
+#endif
 	mutex_unlock(&notification_mutex);
 	return;
 
@@ -7967,6 +8027,4 @@ struct genl_ops * get_drbd_genl_ops(u8 cmd)
 
     return NULL;
 }
-#endif
-
 #endif

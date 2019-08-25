@@ -2058,7 +2058,6 @@ drbd_ib_create_cq(struct ib_device *device,
 #define UINT16_MAX	USHRT_MAX
 #define UINT32_MAX 	UINT_MAX
 
-
 #ifdef _WIN32
 
 #else //_LIN
