@@ -247,7 +247,7 @@ int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
 	struct drbd_listener *listener, *new_listener = NULL;
 	int err, tries = 0;
 
-	while (true, true) {
+	while (1) {
 		spin_lock_bh(&resource->listeners_lock);
 		listener = find_listener(connection, (struct sockaddr_storage *)addr);
 		if (!listener && new_listener) {
@@ -325,10 +325,11 @@ extern char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
 extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN32 // TODO: Check again that drbd_find_waiter_by_addr is not needed.
 struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct sockaddr_storage_win *addr)
 #else
-struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, struct sockaddr_storage *addr)
+//struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, struct sockaddr_storage *addr)
+struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct sockaddr_storage *addr)
 #endif
 {
 	struct drbd_path *path;
@@ -340,22 +341,22 @@ struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, str
 	}
 	list_for_each_entry(struct drbd_path, path, &listener->waiters, listener_link) {
 		//WDRBD_TRACE_CO("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
+		char sbuf[128], dbuf[128];
+		if (path->peer_addr.ss_family == AF_INET6) {
+			WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
+		} else {
+			WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
+		}
+		if (addr_equal(&path->peer_addr, addr))
+			return path;
+	}
 #else
 	list_for_each_entry(path, &listener->waiters, listener_link) {
-#endif
-
-#ifdef _WIN32
-			char sbuf[128], dbuf[128];
-			if (path->peer_addr.ss_family == AF_INET6) {
-				WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
-			} else {
-				WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
-			}
-#endif
-			if (addr_equal(&path->peer_addr, addr))
-				return path;
+		if (addr_equal(&path->peer_addr, addr))
+			return path;
 	}
-
+#endif
+	
 	return NULL;
 }
 
@@ -420,14 +421,14 @@ void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path)
 	notify_path(connection, path, NOTIFY_CHANGE);
 }
 
-#ifndef _WIN32
-/* Network transport abstractions */
-EXPORT_SYMBOL_GPL(drbd_register_transport_class);
-EXPORT_SYMBOL_GPL(drbd_unregister_transport_class);
-EXPORT_SYMBOL_GPL(drbd_get_listener);
-EXPORT_SYMBOL_GPL(drbd_put_listener);
-EXPORT_SYMBOL_GPL(drbd_find_path_by_addr);
-EXPORT_SYMBOL_GPL(drbd_stream_send_timed_out);
-EXPORT_SYMBOL_GPL(drbd_should_abort_listening);
-EXPORT_SYMBOL_GPL(drbd_path_event);
-#endif
+// TODO: check again
+//#ifndef _WIN32
+//EXPORT_SYMBOL_GPL(drbd_register_transport_class);
+//EXPORT_SYMBOL_GPL(drbd_unregister_transport_class);
+//EXPORT_SYMBOL_GPL(drbd_get_listener);
+//EXPORT_SYMBOL_GPL(drbd_put_listener);
+//EXPORT_SYMBOL_GPL(drbd_find_path_by_addr);
+//EXPORT_SYMBOL_GPL(drbd_stream_send_timed_out);
+//EXPORT_SYMBOL_GPL(drbd_should_abort_listening);
+//EXPORT_SYMBOL_GPL(drbd_path_event);
+//#endif
