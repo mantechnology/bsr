@@ -46,11 +46,12 @@ static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, 
 /* Update disk stats at start of I/O request */
 static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
+	struct request_queue *q = device->rq_queue;
 #ifdef _WIN32
-	generic_start_io_acct(bio_data_dir(req->master_bio), req->i.size >> 9,
+	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		(struct hd_struct*)&device->vdisk->part0);
 #else
-	generic_start_io_acct(bio_data_dir(req->master_bio), req->i.size >> 9,
+	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		&device->vdisk->part0);
 #endif
 }
@@ -58,11 +59,12 @@ static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request 
 /* Update disk stats when completing request upwards */
 static void _drbd_end_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
+	struct request_queue *q = device->rq_queue;
 #ifdef _WIN32
-	generic_end_io_acct(bio_data_dir(req->master_bio),
+	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
 #else
-	generic_end_io_acct(bio_data_dir(req->master_bio),
+	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		&device->vdisk->part0, req->start_jif);
 #endif
 }
