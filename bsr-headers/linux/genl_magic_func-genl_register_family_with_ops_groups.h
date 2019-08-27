@@ -1,4 +1,4 @@
-﻿#define ZZZ_genl_mcgrps		CONCAT_(GENL_MAGIC_FAMILY, _genl_mcgrps)
+#define ZZZ_genl_mcgrps		CONCAT_(GENL_MAGIC_FAMILY, _genl_mcgrps)
 static const struct genl_multicast_group ZZZ_genl_mcgrps[] = {
 #undef GENL_mc_group
 #define GENL_mc_group(group) { .name = #group, },
@@ -27,14 +27,17 @@ static int CONCAT_(GENL_MAGIC_FAMILY, _genl_multicast_ ## group)(	\
 #undef GENL_mc_group
 #define GENL_mc_group(group)
 
-
 int CONCAT_(GENL_MAGIC_FAMILY, _genl_register)(void)
 {
-#if defined(COMPAT_HAVE_GENL_REGISTER_FAMILY_WITH_OPS) || defined(COMPAT_HAVE_GENL_REGISTER_FAMILY_WITH_OPS3)
-	return genl_register_family_with_ops_groups(&ZZZ_genl_family, \
-		ZZZ_genl_ops, \
-		ZZZ_genl_mcgrps);
-#else
+#ifdef genl_register_family_with_ops_groups
+	return genl_register_family_with_ops_groups(&ZZZ_genl_family,	\
+						    ZZZ_genl_ops,	\
+						    ZZZ_genl_mcgrps);
+#else /* no more GENL_ID_GENERATE, no more register with groups */
+	/* v4.10,
+	 * 489111e5 genetlink: statically initialize families
+	 * a07ea4d genetlink: no longer support using static family IDs
+	 */
 	return genl_register_family(&ZZZ_genl_family);
 #endif
 }

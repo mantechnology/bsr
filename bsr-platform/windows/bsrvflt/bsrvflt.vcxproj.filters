@@ -195,12 +195,6 @@
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func.h">
       <Filter>bsr-headers\linux</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_family_with_ops_groups.h">
-      <Filter>bsr\bsr-kernel-compat\linux</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\linux\genl_magic_func-genl_register_mc_group.h">
-      <Filter>bsr\bsr-kernel-compat\linux</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_struct.h">
       <Filter>bsr-headers\linux</Filter>
     </ClInclude>
@@ -272,6 +266,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\linux\lru_cache.h">
       <Filter>bsr\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func-genl_register_family_with_ops_groups.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func-genl_register_mc_group.h">
+      <Filter>bsr-headers\linux</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
