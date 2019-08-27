@@ -3801,11 +3801,15 @@ static inline void drbd_kick_lo(struct drbd_device *device)
 #else
 static inline void drbd_blk_run_queue(struct request_queue *q)
 {
+#ifdef _WIN32	
 	UNREFERENCED_PARAMETER(q);
+#endif
 }
 static inline void drbd_kick_lo(struct drbd_device *device)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
+#endif
 }
 #endif
 

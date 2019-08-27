@@ -1029,7 +1029,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_SENT) && (set & RQ_NET_SENT)) {
 		/* potentially already completed in the ack_receiver thread */
 		if (!(old_net & RQ_NET_DONE)) {
-			atomic64_add(req->i.size, &peer_device->connection->ap_in_flight);
+			atomic_add64(req->i.size, &peer_device->connection->ap_in_flight);
 			set_if_null_req_not_net_done(peer_device, req);
 		}
 		if (req->rq_state[idx] & RQ_NET_PENDING)
@@ -2016,10 +2016,10 @@ struct drbd_plug_cb {
 #endif
 static void drbd_unplug(struct blk_plug_cb *cb, bool from_schedule)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cb);
 	UNREFERENCED_PARAMETER(from_schedule);
-
-#ifndef _WIN32
+#else
 	struct drbd_plug_cb *plug = container_of(cb, struct drbd_plug_cb, cb);
 	struct drbd_resource *resource = plug->cb.data;
 	struct drbd_request *req = plug->most_recent_req;
@@ -2041,8 +2041,9 @@ static void drbd_unplug(struct blk_plug_cb *cb, bool from_schedule)
 
 static struct drbd_plug_cb* drbd_check_plugged(struct drbd_resource *resource)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(resource);
-#ifndef _WIN32
+#else
 	/* A lot of text to say
 	 * return (struct drbd_plug_cb*)blk_check_plugged(); */
 	struct drbd_plug_cb *plug;
@@ -2058,10 +2059,10 @@ static struct drbd_plug_cb* drbd_check_plugged(struct drbd_resource *resource)
 
 static void drbd_update_plug(struct drbd_plug_cb *plug, struct drbd_request *req)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(req);
 	UNREFERENCED_PARAMETER(plug);
-
-#ifndef _WIN32
+#else
 	struct drbd_request *tmp = plug->most_recent_req;
 	/* Will be sent to some peer.
 	 * Remember to tag it with UNPLUG_REMOTE on unplug */

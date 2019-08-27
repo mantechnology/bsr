@@ -133,10 +133,15 @@ int drbd_adm_get_initial_state_done(struct netlink_callback *cb);
 KSTART_ROUTINE _try_outdate_peer_async;
 #endif
 
-
+#ifdef _WIN32
+#include "../bsr-headers/linux/bsr_genl_api.h" // TODO : 헤더 정리 필요
+#include "bsr_nla.h"
+#include "../bsr-headers/linux/genl_magic_func.h"
+#else
 #include <linux/bsr_genl_api.h>
 #include "bsr_nla.h"
 #include <linux/genl_magic_func.h>
+#endif
 
 
 atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */

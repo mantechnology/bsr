@@ -420,12 +420,17 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Debug|x64'">
@@ -445,12 +450,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|x64'">
@@ -468,12 +478,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <DriverSign />
   </ItemDefinitionGroup>
@@ -496,12 +511,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <DriverSign />
   </ItemDefinitionGroup>
@@ -518,12 +538,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|Win32'">
@@ -538,12 +563,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Debug|Win32'">
@@ -561,12 +591,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|Win32'">
@@ -584,12 +619,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Release|Win32'">
@@ -610,12 +650,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">
@@ -630,12 +675,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Debug|Win32'">
@@ -650,12 +700,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Release|Win32'">
@@ -673,12 +728,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|Win32'">
@@ -696,12 +756,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Release|Win32'">
@@ -719,12 +784,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|x64'">
@@ -738,12 +808,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|x64'">
@@ -758,12 +833,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Debug|x64'">
@@ -778,12 +858,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Release|x64'">
@@ -801,12 +886,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|x64'">
@@ -824,12 +914,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Release|x64'">
@@ -847,12 +942,17 @@ copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+      <Command>cd $(SolutionDir)
+
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
+
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbd.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbd.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbd.pdb" %25destdir%25</Command>
+
+copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
+
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

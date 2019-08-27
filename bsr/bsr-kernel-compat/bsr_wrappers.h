@@ -1981,6 +1981,8 @@ static inline int is_vmalloc_addr(const void *x)
 #endif
 
 #ifndef COMPAT_HAVE_KVFREE
+#ifdef _WIN32
+#else
 #include <linux/mm.h>
 static inline void kvfree(void /* intentionally discarded const */ *addr)
 {
@@ -1989,6 +1991,7 @@ static inline void kvfree(void /* intentionally discarded const */ *addr)
 	else
 		kfree(addr);
 }
+#endif
 #endif
 
 
@@ -2072,6 +2075,12 @@ drbd_ib_create_cq(struct ib_device *device,
 #endif
 #endif
 
+
+
+#ifdef _WIN32
+
+#else //_LIN
+
 // TODO: data type define 
 #ifndef ULONG_PTR
 #define ULONG_PTR unsigned long
@@ -2082,10 +2091,6 @@ drbd_ib_create_cq(struct ib_device *device,
 
 #define UINT16_MAX	USHRT_MAX
 #define UINT32_MAX 	UINT_MAX
-
-#ifdef _WIN32
-
-#else //_LIN
 
 #define atomic_add64			atomic64_add
 #define atomic_sub_return64		atomic64_sub_return

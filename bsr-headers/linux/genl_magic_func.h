@@ -183,22 +183,39 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 }					__attribute__((unused))		\
 
 // TODO, required to compare original
+#ifdef _WIN32
+#define __assign(attr_nr, attr_flag, name, nla_type, type, assignment, ...)	\
+		nla = ntb[attr_nr];						\
+		if (nla) {						\
+			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+				pr_info("<< must not change invariant attr: %s\n", #name);	\
+				return -EEXIST;				\
+			}						\
+			assignment;					\
+		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+			/* attribute missing from payload, */		\
+			/* which was expected */			\
+		} else if (((attr_flag) & DRBD_F_REQUIRED, (attr_flag) & DRBD_F_REQUIRED)) {		\
+			pr_info("<< missing attr: %s\n", #name);	\
+			return -ENOMSG;					\
+		}
+#else
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
 			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
 				pr_info("<< must not change invariant attr: %s\n", #name);	\
 				return -EEXIST;				\
-						}						\
+			}						\
 			assignment;					\
-				} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
 			/* attribute missing from payload, */		\
 			/* which was expected */			\
 		} else if ((attr_flag) & DRBD_F_REQUIRED) {		\
 			pr_info("<< missing attr: %s\n", #name);	\
 			return -ENOMSG;					\
 		}
-
+#endif
 
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
@@ -315,8 +332,11 @@ static struct genl_family ZZZ_genl_family __read_mostly = {
 #ifdef genl_register_family_with_ops_groups
 #include <linux/genl_magic_func-genl_register_family_with_ops_groups.h>
 #else // TODO: for cross-platform code
+#ifdef _WIN32
+#include "../../bsr/bsr-kernel-compat/linux/genl_magic_func-genl_register_mc_group.h" // TODO for windows?
+#else
 #include <linux/genl_magic_func-genl_register_mc_group.h>
-//#include "../../bsr/bsr-kernel-compat/linux/genl_magic_func-genl_register_mc_group.h" // TODO for windows?
+#endif
 #endif
 
 /*
