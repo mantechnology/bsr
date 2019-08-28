@@ -38,7 +38,7 @@ int CONCAT_(GENL_MAGIC_FAMILY, _genl_register)(void)
 #undef GENL_mc_group
 #define GENL_mc_group(group)
 	return 0;
-//fail: // TODO
+fail: // TODO
 	genl_unregister_family(&ZZZ_genl_family);
 	return err;
 }
