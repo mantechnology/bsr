@@ -35,7 +35,7 @@ static int bsr_mount(struct block_device *bdev, fmode_t mode);
 static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode);
 
 
-static const struct block_device_operations bsr_ops = {
+extern const struct block_device_operations bsr_ops = {
 	.owner =   THIS_MODULE,
 	.open =    bsr_mount,
 	.release = bsr_umount,

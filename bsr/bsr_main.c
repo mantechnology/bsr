@@ -4599,6 +4599,10 @@ static int init_submitter(struct drbd_device *device)
 	return 0;
 }
 
+#ifndef _WIN32
+extern const struct block_device_operations bsr_ops;
+#endif
+
 enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsigned int minor,
 				      struct device_conf *device_conf, struct drbd_device **p_device)
 {
@@ -4735,7 +4739,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	disk->major = DRBD_MAJOR;
 	disk->first_minor = minor;
 #endif
-	disk->fops = &drbd_ops;
+	disk->fops = &bsr_ops;
 #ifdef _WIN32
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
 #else //_LIN	
