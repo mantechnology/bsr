@@ -255,7 +255,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -263,7 +263,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -271,7 +271,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -279,7 +279,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -287,7 +287,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -295,7 +295,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -303,7 +303,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -311,7 +311,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(ProjectDir);$(WindowsSdkDir_80)\Include\km\crt;$(WindowsSdkDir_80)\Include\km;$(WindowsSdkDir_80)\Include\shared;$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(VC_IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -320,7 +320,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(WDM_INC_PATH);$(VC_IncludePath);$(IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
@@ -328,7 +328,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(ProjectDir);$(WindowsSdkDir_80)\Include\km\crt;$(WindowsSdkDir_80)\Include\km;$(WindowsSdkDir_80)\Include\shared;$(SolutionDir)\drbd;$(SolutionDir)\drbd-headers;$(VC_IncludePath)</IncludePath>
-    <TargetName>drbd</TargetName>
+    <TargetName>bsrvflt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(Platform)\$(ConfigurationName)\</IntDir>
     <DiagnosticMode>true</DiagnosticMode>
