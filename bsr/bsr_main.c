@@ -3789,7 +3789,7 @@ void drbd_restart_request(struct drbd_request *req)
 }
 
 
-static void drbd_cleanup(void)
+void bsr_cleanup(void)
 {
 	/* first remove proc,
 	 * drbdsetup uses it's presence to detect
@@ -5042,7 +5042,7 @@ void drbd_put_connection(struct drbd_connection *connection)
 #ifdef _WIN32
 int __init drbd_init(void)
 #else
-static int __init drbd_init(void)
+int bsr_init(void)
 #endif
 {
 	int err;
@@ -5141,8 +5141,8 @@ static int __init drbd_init(void)
 	}
 #endif
 #ifndef _WIN32
-	if (drbd_debugfs_init())
-		pr_notice("failed to initialize debugfs -- will not be available\n");
+//	if (drbd_debugfs_init())
+//		pr_notice("failed to initialize debugfs -- will not be available\n");
 #endif
 	pr_info("initialized. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)\n",
@@ -5152,7 +5152,7 @@ static int __init drbd_init(void)
 	return 0; /* Success! */
 
 fail:
-	drbd_cleanup();
+	bsr_cleanup();
 	if (err == -ENOMEM)
 		pr_err("ran out of memory\n");
 	else
