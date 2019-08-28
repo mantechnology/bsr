@@ -2572,7 +2572,7 @@ static void decide_on_write_same_support(struct drbd_device *device,
 
 	if (can_do && disable_write_same) {
 		can_do = false;
-		drbd_info(peer_device, "WRITE_SAME disabled by config\n");
+		drbd_info(device, "WRITE_SAME disabled by config\n");
 	}
 
 	if (can_do && !(common_connection_features(device->resource) & DRBD_FF_WSAME)) {

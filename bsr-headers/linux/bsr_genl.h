@@ -357,11 +357,11 @@ GENL_struct(DRBD_NLA_IO_ERROR, 31, drbd_io_error_info,
 /*
  * Notifications and commands (genlmsghdr->cmd)
  */
- // 
 #ifdef _WIN32 
 	// skip compile error!
 #else
-//GENL_mc_group(events) //TODO: ??? for removing a compile warning 
+//TODO: ??? for removing a compile warning
+GENL_mc_group(events)
 #endif
 
 	/* add DRBD minor devices as volumes to resources */

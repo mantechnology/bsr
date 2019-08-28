@@ -1,11 +1,13 @@
-﻿#include "./bsr-kernel-compat/bsr_wrappers.h"
-#ifdef _WIN32
+﻿#ifdef _WIN32
+#include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
+#include "../bsr-headers/linux/bsr_genl_api.h"
 #else
+#include "bsr_wrappers.h"
 #include <linux/kernel.h>
 #include <net/netlink.h>
+#include <linux/bsr_genl_api.h>
 #endif
-#include "../bsr-headers/linux/bsr_genl_api.h"
 #include "bsr_nla.h"
 
 static int drbd_nla_check_mandatory(int maxtype, struct nlattr *nla)

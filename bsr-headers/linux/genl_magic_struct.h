@@ -28,6 +28,7 @@
 #define skb msg
 #endif
 #include <linux/types.h>
+#include "compat.h"
 #endif
 
 #ifdef _WIN32
