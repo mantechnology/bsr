@@ -102,6 +102,7 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 		// request_module is not support
 		dtt_initialize();
 #else
+		// TODO: required to port on linux
 		request_module("drbd_transport_%s", name);
 #endif
 		tc = get_transport_class(name);
@@ -110,7 +111,7 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 	return tc;
 }
 
-#ifndef _WIN32
+#ifndef _WIN32 // TODO: required to port on linux
 void drbd_put_transport_class(struct drbd_transport_class *tc)
 {
 	/* convenient in the error cleanup path */
