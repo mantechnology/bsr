@@ -129,6 +129,7 @@ prefix    data bits                                    max val  Nº data bits
  * The rest of the code table is calculated at compiletime from this. */
 
 /* fibonacci data 1, 1, ... */
+#ifdef _WIN32
 #define VLI_L_1_1() do { \
 	LEVEL( 2, 1, 0x00); \
 	LEVEL( 3, 2, 0x01); \
@@ -140,8 +141,21 @@ prefix    data bits                                    max val  Nº data bits
 	LEVEL(29, 8, 0x7f); \
 	LEVEL(42, 8, 0xbf); \
 	LEVEL(64, 8, 0xff); \
-	} while(false,false)
-
+	} while (false,false)
+#else
+#define VLI_L_1_1() do { \
+	LEVEL( 2, 1, 0x00); \
+	LEVEL( 3, 2, 0x01); \
+	LEVEL( 5, 3, 0x03); \
+	LEVEL( 7, 4, 0x07); \
+	LEVEL(10, 5, 0x0f); \
+	LEVEL(14, 6, 0x1f); \
+	LEVEL(21, 8, 0x3f); \
+	LEVEL(29, 8, 0x7f); \
+	LEVEL(42, 8, 0xbf); \
+	LEVEL(64, 8, 0xff); \
+	} while (0)
+#endif
 /* finds a suitable level to decode the least significant part of in.
  * returns number of bits consumed.
  *
@@ -150,6 +164,7 @@ static inline int vli_decode_bits(u64 *out, const u64 in)
 {
 	u64 adj = 1;
 
+#ifdef _WIN32
 #define LEVEL(t,b,v)					\
 	do {						\
 		if ((in & ((1 << b) -1)) == v) {	\
@@ -158,7 +173,16 @@ static inline int vli_decode_bits(u64 *out, const u64 in)
 		}					\
 		adj += 1ULL << (t - b);			\
 	} while(false,false)
-
+#else
+#define LEVEL(t,b,v)					\
+	do {						\
+		if ((in & ((1 << b) -1)) == v) {	\
+			*out = ((in & ((~0ULL) >> (64-t))) >> b) + adj;	\
+			return t;			\
+		}					\
+		adj += 1ULL << (t - b);			\
+	} while (0)
+#endif
 	VLI_L_1_1();
 
 	/* NOT REACHED, if VLI_LEVELS code table is defined properly */
@@ -178,7 +202,7 @@ static inline int __vli_encode_bits(u64 *out, const u64 in)
 
 	if (in == 0)
 		return -EINVAL;
-
+#ifdef _WIN32
 #define LEVEL(t,b,v) do {		\
 		max += 1ULL << (t - b);	\
 		if (in <= max) {	\
@@ -188,7 +212,17 @@ static inline int __vli_encode_bits(u64 *out, const u64 in)
 		}			\
 		adj = max + 1;		\
 	} while (false, false)
-
+#else
+#define LEVEL(t,b,v) do {		\
+		max += 1ULL << (t - b);	\
+		if (in <= max) {	\
+			if (out)	\
+				*out = ((in - adj) << b) | v;	\
+			return t;	\
+		}			\
+		adj = max + 1;		\
+	} while (0)
+#endif
 	VLI_L_1_1();
 
 	return -EOVERFLOW;
@@ -284,8 +318,11 @@ static inline int bitstream_put_bits(struct bitstream *bs, u64 val, const unsign
 
 	/* paranoia: strip off hi bits; they should not be set anyways. */
 	if (bits < 64)
+#ifdef _WIN32	
 		val &= UINT64_MAX >> (64 - bits);
-
+#else
+		val &= ~0ULL >> (64 - bits);
+#endif
 	*b++ |= (val & 0xff) << bs->cur.bit;
 
 	for (tmp = 8 - bs->cur.bit; tmp < bits; tmp += 8)
@@ -338,8 +375,11 @@ static inline int bitstream_get_bits(struct bitstream *bs, u64 *out, int bits)
 	val |= bs->cur.b[0] >> bs->cur.bit;
 
 	/* and mask out bits we don't want */
+#ifdef _WIN32	
 	val &= UINT64_MAX >> (64 - bits);
-
+#else
+	val &= ~0ULL >> (64 - bits);
+#endif
 	bitstream_cursor_advance(&bs->cur, bits);
 	*out = val;
 

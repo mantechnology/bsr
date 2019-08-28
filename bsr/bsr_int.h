@@ -139,7 +139,11 @@ extern char usermode_helper[];
 
 #define ID_IN_SYNC      (4711ULL)
 #define ID_OUT_OF_SYNC  (4712ULL)
+#ifdef _WIN32
 #define ID_SYNCER (UINT64_MAX)
+#else
+#define ID_SYNCER (-1ULL)
+#endif
 //DW-1601 Add define values for split peer request processing and already sync processing
 #define ID_SYNCER_SPLIT_DONE ID_SYNCER
 #define ID_SYNCER_SPLIT (ID_SYNCER - 1)
