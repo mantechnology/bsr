@@ -64,12 +64,22 @@
 #define tr_info(transport, fmt, args...) \
 	tr_printk(KERN_INFO, transport, fmt, ## args)
 #endif
+
+#ifdef _WIN32 //TODO
 #define TR_ASSERT(x, exp)							\
 	do {									\
 		if (!(exp))							\
 			tr_err(x, "ASSERTION %s FAILED in %s\n", 		\
 				 #exp, __func__);				\
 	} while (false,false)
+#else
+#define TR_ASSERT(x, exp)							\
+	do {									\
+		if (!(exp))							\
+			tr_err(x, "ASSERTION %s FAILED in %s\n", 		\
+				 #exp, __func__);				\
+	} while (0)
+#endif
 
 struct drbd_resource;
 struct drbd_connection;
@@ -290,7 +300,8 @@ extern void drbd_put_listener(struct drbd_path *path);
 #ifdef _WIN32
 extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage_win *);
 #else
-extern struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *, struct sockaddr_storage *);
+//extern struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *, struct sockaddr_storage *);
+extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage *);
 #endif
 extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
 extern bool drbd_should_abort_listening(struct drbd_transport *transport);

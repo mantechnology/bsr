@@ -38,6 +38,7 @@ else
 compat_objs += bsr-kernel-compat/blkdev_issue_zeroout.o
 endif
 
+
 bsr-$(CONFIG_DEBUG_FS) += bsr_debugfs.o
 bsr-y += ../bsr-platform/linux/bsrhk/bsrhk_init.o
 bsr-y += ../bsr-headers/bsr_strings.o
@@ -45,7 +46,7 @@ bsr-y += lru_cache.o bsr_interval.o bsr_nla.o bsr_buildtag.o
 bsr-y += bsr_proc.o bsr_bitmap.o bsr_actlog.o
 bsr-y += bsr_req.o bsr_state.o
 bsr-y += bsr_nl.o #bsr_main.o $(compat_objs)
-bsr-y += bsr_transport.o
+bsr-y += bsr_transport.o bsr_transport_tcp.o
 #bsr-y += bsr_sender.o bsr_receiver.o 
 
 ifndef DISABLE_KREF_DEBUGGING_HERE
@@ -54,7 +55,7 @@ ifndef DISABLE_KREF_DEBUGGING_HERE
 endif
 
 $(patsubst %,$(obj)/%,$(bsr-y)): $(obj)/compat.h
-$(patsubst %,$(obj)/%,bsr_transport_tcp.o): $(obj)/compat.h
+#$(patsubst %,$(obj)/%,bsr_transport_tcp.o): $(obj)/compat.h
 
 obj-$(CONFIG_BLK_DEV_DRBD)     += bsr.o
 
