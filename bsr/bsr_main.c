@@ -104,8 +104,14 @@
 #define DRBD_RELEASE_RETURN int
 #endif
 
+#ifdef _WIN32
 static int drbd_open(struct block_device *bdev, fmode_t mode);
 static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode);
+#else
+static int bsr_open(struct block_device *bdev, fmode_t mode);
+static DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
+#endif
+
 #ifdef _WIN32
 static KDEFERRED_ROUTINE md_sync_timer_fn;
 static KDEFERRED_ROUTINE peer_ack_timer_fn;
@@ -266,13 +272,18 @@ struct mutex g_genl_mutex;
 // DW-1495: change att_mod_mutex(DW-1293) to global mutex because it can be a problem if IO also occurs on othere resouces on the same disk. 
 struct mutex att_mod_mutex; 
 #endif
+
+#ifdef _WIN32
 static const struct block_device_operations drbd_ops = {
-#ifndef _WIN32
-	.owner =   THIS_MODULE,
-#endif
 	.open =    drbd_open,
 	.release = drbd_release,
 };
+#else
+// no define
+#endif
+
+
+
 
 #ifdef COMPAT_HAVE_BIO_FREE
 static void bio_destructor_drbd(struct bio *bio)
@@ -3163,7 +3174,11 @@ static int ro_open_cond(struct drbd_device *device)
 		return -EAGAIN;
 }
 
+#ifdef _WIN32
 static int drbd_open(struct block_device *bdev, fmode_t mode)
+#else
+int bsr_open(struct block_device *bdev, fmode_t mode)
+#endif
 {
 	struct drbd_device *device = bdev->bd_disk->private_data;
 	struct drbd_resource *resource = device->resource;
