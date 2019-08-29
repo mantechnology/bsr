@@ -4239,14 +4239,14 @@ static int modprobe_drbd(void)
 				.tv_nsec = 1000000,
 			};
 
-			ret = stat("/proc/drbd", &sb);
+			ret = stat("/proc/bsr", &sb);
 			if (!ret || retries-- == 0)
 				break;
 			nanosleep(&ts, NULL);
 		}
 	}
 	if (ret) {
-		fprintf(stderr, "Could not stat /proc/drbd: %m\n");
+		fprintf(stderr, "Could not stat /proc/bsr: %m\n");
 		fprintf(stderr, "Make sure that the DRBD kernel module is installed "
 				"and can be loaded!\n");
 	}
