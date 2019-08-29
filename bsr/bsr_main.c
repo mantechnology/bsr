@@ -4738,8 +4738,9 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 #ifndef _WIN32
 	disk->major = DRBD_MAJOR;
 	disk->first_minor = minor;
-#endif
+
 	disk->fops = &bsr_ops;
+#endif
 #ifdef _WIN32
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
 #else //_LIN	

@@ -801,7 +801,7 @@ struct drbd_peer_request {
 			u64 send_oos_in_sync;
 		};
 	};
-#ifdef _WIN32
+//#ifdef _WIN32 //TODO : 관련 로직 리눅스에서 검증 필요
 	void* peer_req_databuf;
 
 	struct {
@@ -812,7 +812,7 @@ struct drbd_peer_request {
 		ULONG_PTR e_gbb;	/* DW-1902 end garbage bit */
 		bool is_gbb;		/* DW-1902 find garbage bit */
 	};
-#endif
+//#endif
 };
 
 #ifdef _WIN32
@@ -1833,7 +1833,7 @@ struct drbd_device {
 	unsigned long bm_resync_fo; /* bit offset for drbd_bm_find_next */
 #endif
 	struct mutex bm_resync_fo_mutex;
-#ifdef _WIN32
+// #ifdef _WIN32	// TODO : 관련 로직 리눅스에서 검증 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	//DW-1601 garbage bit list, used for resync
 
@@ -1853,7 +1853,7 @@ struct drbd_device {
 	ULONG_PTR h_gbb;	
 	ULONG_PTR h_isbb;
 #endif
-#endif
+//#endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
