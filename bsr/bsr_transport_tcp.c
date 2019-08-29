@@ -2608,11 +2608,12 @@ int dtt_initialize(void)
 					     DRBD_TRANSPORT_API_VERSION,
 					     sizeof(struct drbd_transport));
 }
-
+#if 0 // disable. Not used in bsr.
 static void __exit dtt_cleanup(void)
 {
 	drbd_unregister_transport_class(&tcp_transport_class);
 }
+#endif
 
 #ifdef _WIN32_SEND_BUFFING
 
