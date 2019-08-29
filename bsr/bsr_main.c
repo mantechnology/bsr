@@ -108,8 +108,8 @@
 static int drbd_open(struct block_device *bdev, fmode_t mode);
 static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode);
 #else
-static int bsr_open(struct block_device *bdev, fmode_t mode);
-static DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
+int bsr_open(struct block_device *bdev, fmode_t mode);
+DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 #endif
 
 #ifdef _WIN32
@@ -3274,7 +3274,7 @@ static void open_counts(struct drbd_resource *resource, int *rw_count_ptr, int *
 	*ro_count_ptr = ro_count;
 }
 
-static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode)
+DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 {
 	struct drbd_device *device = gd->private_data;
 	struct drbd_resource *resource = device->resource;
