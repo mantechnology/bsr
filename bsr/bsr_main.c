@@ -3274,7 +3274,11 @@ static void open_counts(struct drbd_resource *resource, int *rw_count_ptr, int *
 	*ro_count_ptr = ro_count;
 }
 
+#ifdef _WIN32
+static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode)
+#else
 DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
+#endif
 {
 	struct drbd_device *device = gd->private_data;
 	struct drbd_resource *resource = device->resource;
