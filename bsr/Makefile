@@ -123,8 +123,8 @@ else
 
   clean:
 	rm -rf .tmp_versions Module.markers Module.symvers modules.order
-	rm -f *.[oas] *.ko .*.cmd .*.d .*.tmp *.mod.c .*.flags .depend .kernel*
-	rm -f bsr-kernel-compat/*.[oas] bsr-kernel-compat/.*.cmd
+	rm -f *.[oas] *.ko *.ko.unsigned .*.cmd .*.d .*.tmp *.mod.c .*.flags .depend .kernel*
+	rm -f bsr-kernel-compat/*.[oas] bsr-kernel-compat/.*.cmd ../bsr-platform/linux/bsrhk/*.[oas] ../bsr-headers/*.[oas]
 	rm -f .compat_test.*
 
   distclean: clean
