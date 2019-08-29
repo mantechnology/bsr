@@ -23,6 +23,7 @@ static LIST_HEAD(transport_classes);
 extern int __init dtt_initialize(void);
 KSPIN_LOCK	transport_classes_lock;
 #else
+extern int dtt_initialize(void);
 static DECLARE_RWSEM(transport_classes_lock);
 #endif
 
@@ -103,7 +104,8 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 		dtt_initialize();
 #else
 		// TODO: required to port on linux
-		request_module("drbd_transport_%s", name);
+		//request_module("drbd_transport_%s", name);
+		dtt_initialize();
 #endif
 		tc = get_transport_class(name);
 	}

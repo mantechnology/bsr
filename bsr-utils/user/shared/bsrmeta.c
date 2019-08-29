@@ -1,5 +1,5 @@
 ﻿/*
-   drbdmeta.c
+   bsrmeta.c
 
    This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
 
@@ -5280,7 +5280,7 @@ static enum drbd_disk_state drbd_str_disk(const char *str)
 	if (!strcmp(str, "Unconfigured"))
 		return D_DISKLESS;
 
-	fprintf(stderr, "Unexpected output from drbdsetup >%s<\n", str);
+	fprintf(stderr, "Unexpected output from bsrsetup >%s<\n", str);
 	exit(20);
 }
 
@@ -5288,13 +5288,13 @@ static enum drbd_disk_state drbd_str_disk(const char *str)
 int is_attached(int minor)
 {
     char minor_string[7], result[40];
-	char *argv[] = { "drbdsetup", minor_string, "dstate", NULL };
+	char *argv[] = { "bsrsetup", minor_string, "dstate", NULL };
 	int pipes[2];
 	pid_t pid;
 	int rr, exitcode;
 
 	if (pipe(pipes)) {
-		perror("drbdsetup pipe");
+		perror("bsrsetup pipe");
 		exit(20);
 	}
 
@@ -5302,7 +5302,7 @@ int is_attached(int minor)
 
 	pid = fork();
 	if (pid == -1) {
-		perror("fork for drbdsetup");
+		perror("fork for bsrsetup");
 		exit(20);
 	}
 	if (pid == 0) {
@@ -5315,7 +5315,7 @@ int is_attached(int minor)
 		dup2(pipes[1], 1);
 
 		execvp(argv[0], argv);
-		fprintf(stderr, "Can not exec drbdsetup\n");
+		fprintf(stderr, "Can not exec bsrsetup\n");
 		exit(20);
 	}
 	close(pipes[1]);
@@ -5327,7 +5327,7 @@ int is_attached(int minor)
 		return 0; /* 20 == no module; 10 == no minor */
 
 	if (rr < 1) {
-		perror("read from drbdsetup\n");
+		perror("read from bsrsetup\n");
 		exit(20);
 	}
 	result[rr-1] = 0;

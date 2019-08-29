@@ -1328,7 +1328,7 @@ static int sanity_check_abs_cmd(char *cmd_name)
 			err("WARN:\n"
 			    "  You are using the 'drbd-peer-outdater' as fence-peer program.\n"
 			    "  If you use that mechanism the dopd heartbeat plugin program needs\n"
-			    "  to be able to call drbdsetup and drbdmeta with root privileges.\n\n"
+			    "  to be able to call bsrsetup and bsrmeta with root privileges.\n\n"
 			    "  You need to fix this with these commands:\n");
 		did_header = 1;
 		err("  chgrp haclient %s\n"

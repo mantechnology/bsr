@@ -76,7 +76,7 @@ void maybe_exec_legacy_drbdadm(char **argv)
 		execvp(drbdadm_83, argv);
 		err("execvp() failed to exec %s: %m\n", drbdadm_83);
 #else
-		config_help_legacy("drbdadm", driver_version);
+		config_help_legacy("bsradm", driver_version);
 #endif
 		exit(E_EXEC_ERROR);
 	}
@@ -89,7 +89,7 @@ void maybe_exec_legacy_drbdadm(char **argv)
 		execvp(drbdadm_84, argv);
 		err("execvp() failed to exec %s: %m\n", drbdadm_84);
 #else
-		config_help_legacy("drbdadm", driver_version);
+		config_help_legacy("bsradm", driver_version);
 #endif
 		exit(E_EXEC_ERROR);
 	}
@@ -307,7 +307,7 @@ static int make_get_request(char *uri) {
 	uname(&nodeinfo);
 	req_buf = ssprintf("GET %s HTTP/1.0\r\n"
 			   "Host: "HTTP_HOST"\r\n"
-			   "User-Agent: drbdadm/"PACKAGE_VERSION" (%s; %s; %s; %s)\r\n"
+			   "User-Agent: bsradm/"PACKAGE_VERSION" (%s; %s; %s; %s)\r\n"
 			   "\r\n",
 			   uri,
 			   nodeinfo.sysname, nodeinfo.release,
@@ -475,8 +475,8 @@ void uc_node(enum usage_count_type type)
 		make_get_request(uri);
 		if (type == UC_ASK) {
 			err("\n"
-			    "From now on, drbdadm will contact "HTTP_HOST" only when you update\n"
-			    "DRBD or when you use 'drbdadm create-md'. Of course it will continue\n"
+			    "From now on, bsradm will contact "HTTP_HOST" only when you update\n"
+			    "DRBD or when you use 'bsradm create-md'. Of course it will continue\n"
 			    "to ask you for confirmation as long as 'usage-count' is at its default\n"
 			    "value of 'ask'.\n\n"
 			    "Just press [RETURN] to continue: ");

@@ -190,7 +190,7 @@ bool allow_oos;
 #ifdef _WIN32
 char usermode_helper[80] = "drbdadm.exe";
 #else
-char usermode_helper[80] = "/sbin/drbdadm";
+char usermode_helper[80] = "/sbin/bsradm";
 #endif
 #ifndef _WIN32
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);
@@ -5137,7 +5137,7 @@ int bsr_init(void)
 #ifdef _WIN32
 	// not supported
 #else
-	drbd_proc = proc_create_data("drbd", S_IFREG | S_IRUGO , NULL, &drbd_proc_fops, NULL);
+	drbd_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &drbd_proc_fops, NULL);
 	if (!drbd_proc)	{
 		pr_err("unable to register proc file\n");
 		goto fail;
@@ -5470,7 +5470,7 @@ int drbd_md_read(struct drbd_device *device, struct drbd_backing_dev *bdev)
 	flags = be32_to_cpu(buffer->flags);
 	if (magic == DRBD_MD_MAGIC_09 && !(flags & MDF_AL_CLEAN)) {
 			/* btw: that's Activity Log clean, not "all" clean. */
-		drbd_err(device, "Found unclean meta data. Did you \"drbdadm apply-al\"?\n");
+		drbd_err(device, "Found unclean meta data. Did you \"bsradm apply-al\"?\n");
 		rv = ERR_MD_UNCLEAN;
 		goto err;
 	}
@@ -5479,9 +5479,9 @@ int drbd_md_read(struct drbd_device *device, struct drbd_backing_dev *bdev)
 		if (magic == DRBD_MD_MAGIC_07 ||
 		    magic == DRBD_MD_MAGIC_08 ||
 		    magic == DRBD_MD_MAGIC_84_UNCLEAN)
-			drbd_err(device, "Found old meta data magic. Did you \"drbdadm create-md\"?\n");
+			drbd_err(device, "Found old meta data magic. Did you \"bsradm create-md\"?\n");
 		else
-			drbd_err(device, "Meta data magic not found. Did you \"drbdadm create-md\"?\n");
+			drbd_err(device, "Meta data magic not found. Did you \"bsradm create-md\"?\n");
 		goto err;
 	}
 

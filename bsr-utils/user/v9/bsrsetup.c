@@ -603,9 +603,9 @@ static const char *error_messages[] = {
 	"(up to 2TB in case you do not have CONFIG_LBD set)\n"
 	"Contact office@linbit.com, if you need more.",
 	EM(ERR_IO_MD_DISK) = "IO error(s) occurred during initial access to meta-data.\n",
-	EM(ERR_MD_UNCLEAN) = "Unclean meta-data found.\nYou need to 'drbdadm apply-al res'\n",
+	EM(ERR_MD_UNCLEAN) = "Unclean meta-data found.\nYou need to 'bsrdadm apply-al res'\n",
 	EM(ERR_MD_INVALID) = "No valid meta-data signature found.\n\n"
-	"\t==> Use 'drbdadm create-md res' to initialize meta-data area. <==\n",
+	"\t==> Use 'bsradm create-md res' to initialize meta-data area. <==\n",
 	EM(ERR_AUTH_ALG) = "The 'cram-hmac-alg' you specified is not known in "
 	"the kernel. (Maybe you need to modprobe it, or modprobe hmac?)",
 	EM(ERR_AUTH_ALG_ND) = "The 'cram-hmac-alg' you specified is not a digest.",
@@ -3372,7 +3372,7 @@ static int check_resize_cmd(struct drbd_cmd *cm, int argc, char **argv)
 		found = true;
 
 		if (!device->disk_conf.backing_dev) {
-			fprintf(stderr, "Has no disk config, try with drbdmeta.\n");
+			fprintf(stderr, "Has no disk config, try with bsrmeta.\n");
 			ret = 1;
 			break;
 		}
@@ -4206,7 +4206,7 @@ static void print_usage_and_exit(const char *addinfo)
 {
 	size_t i;
 
-	printf("drbdsetup - Configure the DRBD kernel module.\n\n"
+	printf("bsrsetup - Configure the DRBD kernel module.\n\n"
 	       "USAGE: %s command {arguments} [options]\n"
 	       "\nCommands:\n",cmdname);
 
@@ -4214,7 +4214,7 @@ static void print_usage_and_exit(const char *addinfo)
 	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		print_command_usage(&commands[i], BRIEF);
 
-	printf("\nUse 'drbdsetup help command' for command-specific help.\n\n");
+	printf("\nUse 'bsrsetup help command' for command-specific help.\n\n");
 	if (addinfo)  /* FIXME: ?! */
 		printf("\n%s\n", addinfo);
 
@@ -4227,11 +4227,11 @@ static int modprobe_drbd(void)
 	struct stat sb;
 	int ret, retries = 10;
 
-	ret = stat("/proc/drbd", &sb);
+	ret = stat("/proc/bsr", &sb);
 	if (ret && errno == ENOENT) {
-		ret = system("/sbin/modprobe drbd");
+		ret = system("/sbin/modprobe bsr");
 		if (ret != 0) {
-			fprintf(stderr, "Failed to modprobe drbd (%m)\n");
+			fprintf(stderr, "Failed to modprobe bsr (%m)\n");
 			return 0;
 		}
 		for(;;) {
@@ -4269,7 +4269,7 @@ static void maybe_exec_legacy_drbdsetup(char **argv)
 		execvp(drbdsetup_83, argv);
 		fprintf(stderr, "execvp() failed to exec %s: %m\n", drbdsetup_83);
 #else
-		config_help_legacy("drbdsetup", driver_version);
+		config_help_legacy("bsrsetup", driver_version);
 
 #endif
 		exit(20);
@@ -4283,7 +4283,7 @@ static void maybe_exec_legacy_drbdsetup(char **argv)
 		execvp(drbdsetup_84, argv);
 		fprintf(stderr, "execvp() failed to exec %s: %m\n", drbdsetup_84);
 #else
-		config_help_legacy("drbdsetup", driver_version);
+		config_help_legacy("bsrsetup", driver_version);
 #endif
 		exit(20);
 	}
@@ -4390,8 +4390,8 @@ int main(int argc, char **argv)
 	if (drbd_genl_family.version != GENL_MAGIC_VERSION ||
 	    drbd_genl_family.hdrsize != sizeof(struct drbd_genlmsghdr)) {
 		fprintf(stderr, "API mismatch!\n\t"
-			"API version drbdsetup: %u kernel: %u\n\t"
-			"header size drbdsetup: %u kernel: %u\n",
+			"API version bsrsetup: %u kernel: %u\n\t"
+			"header size bsrsetup: %u kernel: %u\n",
 			GENL_MAGIC_VERSION, drbd_genl_family.version,
 			(unsigned)sizeof(struct drbd_genlmsghdr),
 			drbd_genl_family.hdrsize);

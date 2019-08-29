@@ -211,7 +211,7 @@ static char *slurp_proc_drbd()
 	char *buffer;
 	int rr, fd;
 
-	fd = open("/proc/drbd",O_RDONLY);
+	fd = open("/proc/bsr",O_RDONLY);
 	if (fd == -1)
 		return NULL;
 
@@ -351,7 +351,7 @@ const struct version *drbd_driver_version(enum driver_version_policy fallback)
 		free(version_txt);
 		return &__drbd_driver_version;
 	} else {
-		FILE *in = popen("modinfo -F version drbd", "r");
+		FILE *in = popen("modinfo -F version bsr", "r");
 		if (in) {
 			char buf[32];
 			int c = fscanf(in, "%30s", buf);

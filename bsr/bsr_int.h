@@ -2249,7 +2249,7 @@ __drbd_next_peer_device_ref(u64 *, struct drbd_peer_device *, struct drbd_device
 #define BM_EXT_SIZE	 (1<<BM_EXT_SHIFT)
 
 #if (BM_BLOCK_SHIFT != 12)
-#error "HAVE YOU FIXED drbdmeta AS WELL??"
+#error "HAVE YOU FIXED bsrmeta AS WELL??"
 #endif
 
 /* thus many _storage_ sectors are described by one bit */

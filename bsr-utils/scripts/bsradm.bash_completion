@@ -66,7 +66,7 @@ __drbdadm_options() {
 
 __drbdadm_subcmd_options() {
 	local subcmd="$1"
-	local options=($(drbdadm help $subcmd | sed -e '1,/OPTIONS FOR/ d;/^$/,$ d;s/  \(--[a-z-]*\).*/\1/'))
+	local options=($(bsradm help $subcmd | sed -e '1,/OPTIONS FOR/ d;/^$/,$ d;s/  \(--[a-z-]*\).*/\1/'))
 	local filtered
 	local o have
 	for o in ${options[@]}; do
@@ -97,7 +97,7 @@ _drbdadm() {
 	previous=${COMP_WORDS[COMP_CWORD-1]}
 
 	case "$previous" in
-		drbdadm)
+		bsradm)
 			case "$current" in
 				-*)
 					__drbdadm_options
@@ -156,4 +156,4 @@ _drbdadm() {
 	esac
 }
 
-complete -o default -F _drbdadm drbdadm
+complete -o default -F _bsradm bsradm

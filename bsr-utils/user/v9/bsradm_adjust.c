@@ -832,7 +832,7 @@ static void adjust_disk(const struct cfg_ctx *ctx, struct d_resource* running)
 	}
 }
 
-char config_file_drbdsetup_show[] = "drbdsetup show";
+char config_file_drbdsetup_show[] = "bsrsetup show";
 struct resources running_config = STAILQ_HEAD_INITIALIZER(running_config);
 
 struct d_resource *parse_drbdsetup_show(const char *name)

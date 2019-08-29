@@ -83,8 +83,8 @@ struct option general_admopt[] = {
 	{"config-file", required_argument, 0, 'c'},
 	{"config-to-test", required_argument, 0, 't'},
 	{"config-to-exclude", required_argument, 0, 'E'},
-	{"drbdsetup", required_argument, 0, 's'},
-	{"drbdmeta", required_argument, 0, 'm'},
+	{"bsrsetup", required_argument, 0, 's'},
+	{"bsrmeta", required_argument, 0, 'm'},
 	{"drbd-proxy-ctl", required_argument, 0, 'p'},
 	{"sh-varname", required_argument, 0, 'n'},
 	{"peer", required_argument, 0, 'P'},
@@ -1128,7 +1128,7 @@ static void find_drbdcmd(char **cmd, char **pathes)
 		path++;
 	}
 
-	err("Can not find command (drbdsetup/drbdmeta)\n");
+	err("Can not find command (bsrsetup/bsrmeta)\n");
 	exit(E_EXEC_ERROR);
 }
 #ifdef _WIN32_MVFL
@@ -2845,7 +2845,7 @@ static void print_cmds(int level)
 static int hidden_cmds(const struct cfg_ctx *ignored __attribute((unused)))
 {
 	printf("\nThese additional commands might be useful for writing\n"
-	       "nifty shell scripts around drbdadm:\n\n");
+	       "nifty shell scripts around bsradm:\n\n");
 
 	print_cmds(2);
 
@@ -3057,8 +3057,8 @@ void assign_command_names_from_argv0(char **argv)
 		char **var;
 	};
 	static struct cmd_helper helpers[] = {
-		{"drbdsetup", &drbdsetup},
-		{"drbdmeta", &drbdmeta},
+		{"bsrsetup", &drbdsetup},
+		{"bsrmeta", &drbdmeta},
 		{"drbd-proxy-ctl", &drbd_proxy_ctl},
 		{"drbdadm-83", &drbdadm_83},
 		{"drbdadm-84", &drbdadm_84},
@@ -3116,7 +3116,7 @@ static void recognize_all_drbdsetup_options(void)
 					if (admopt[n].val == 257)
 						assert (admopt[n].has_arg == opt.has_arg);
 					else {
-						err("Warning: drbdsetup %s option --%s "
+						err("Warning: bsrsetup %s option --%s "
 						    "can only be passed as -W--%s\n",
                                                     cmd->name, admopt[n].name, admopt[n].name);
 						goto skip;
@@ -3514,7 +3514,7 @@ int main(int argc, char **argv)
 
 	assign_command_names_from_argv0(argv);
 
-	TRACE_PRINT("check deferred cmd drbdsetup(%s), drbdmeta(%s), drbd_proxy_ctl(%s)\n", 
+	TRACE_PRINT("check deferred cmd bsrsetup(%s), bsrmeta(%s), drbd_proxy_ctl(%s)\n", 
 					drbdsetup != NULL ? "true" : "false",
 					drbdmeta != NULL ? "true" : "false",
 					drbd_proxy_ctl != NULL ? "true" : "false");
