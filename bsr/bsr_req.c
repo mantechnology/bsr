@@ -518,6 +518,7 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 	return true;
 }
 
+#ifdef _WIN32
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
 #ifdef _WIN32
@@ -536,6 +537,7 @@ int w_notify_io_error(struct drbd_work *w, int cancel)
 
 	return ret;
 }
+#endif
 
 #ifdef _WIN32
 void complete_master_bio(struct drbd_device *device,

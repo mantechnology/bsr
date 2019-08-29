@@ -123,7 +123,7 @@ $(obj)/bsr_buildtag.c: $(filter-out bsr_buildtag.o,$(bsr-y))
 	echo -e "/* automatically generated. DO NOT EDIT. */";			\
 	echo -e "#include <linux/bsr.h>";					\
 	echo -e "#include <linux/bsr_config.h>";				\
-	echo -e "const char *bsr_buildtag(void)\n{";				\
+	echo -e "const char *drbd_buildtag(void)\n{";				\
 	if test -e $(src)/../.git &&						\
 	   GITHEAD=$$(cd $(src) && git rev-parse HEAD); then			\
 		GITDIFF=$$(cd $(src)/.. && git diff --name-only HEAD |		\
