@@ -1055,6 +1055,7 @@ start:
 	connection->ack_sender =
 		create_singlethread_workqueue("drbd_ack_sender");
 #else
+	connection->ack_sender =
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 		alloc_ordered_workqueue("drbd_as_%s", WQ_MEM_RECLAIM, connection->resource->name);
 #else
