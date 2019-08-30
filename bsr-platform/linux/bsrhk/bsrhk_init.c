@@ -44,6 +44,7 @@ const struct block_device_operations bsr_ops = {
 static int __init bsr_load(void)
 {
 	printk("bsr kernel driver load\n");	
+	initialize_kref_debugging();
 	if (drbd_debugfs_init())
 		pr_notice("failed to initialize debugfs -- will not be available\n");
 	return bsr_init();	
@@ -52,6 +53,8 @@ static int __init bsr_load(void)
 static void bsr_unload(void)
 {	
 	bsr_cleanup();	
+	//  _WIN32_V9_DEBUGFS: minord is cleanup at this point, required to analyze it.
+	drbd_debugfs_cleanup();
 	printk("bsr kernel driver unload done\n");
 	return;
 }

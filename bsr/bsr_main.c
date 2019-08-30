@@ -3425,7 +3425,12 @@ static void drbd_destroy_mempools(void)
 		kmem_cache_destroy(drbd_al_ext_cache);
 #endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+	ExDeleteNPagedLookasideList(&drbd_bm_ext_cache);
+	ExDeleteNPagedLookasideList(&drbd_al_ext_cache);
+	ExDeleteNPagedLookasideList(&drbd_request_mempool);
+	ExDeleteNPagedLookasideList(&drbd_ee_mempool);
+#else
 	drbd_md_io_bio_set   = NULL;
 	drbd_md_io_page_pool = NULL;
 	drbd_ee_mempool      = NULL;
@@ -3433,12 +3438,7 @@ static void drbd_destroy_mempools(void)
 	drbd_ee_cache        = NULL;
 	drbd_request_cache   = NULL;
 	drbd_bm_ext_cache    = NULL;
-	drbd_al_ext_cache    = NULL;
-#else
-	ExDeleteNPagedLookasideList(&drbd_bm_ext_cache);
-	ExDeleteNPagedLookasideList(&drbd_al_ext_cache);
-	ExDeleteNPagedLookasideList(&drbd_request_mempool);
-	ExDeleteNPagedLookasideList(&drbd_ee_mempool);
+	drbd_al_ext_cache    = NULL;	
 #endif
 
 	return;
@@ -3446,28 +3446,11 @@ static void drbd_destroy_mempools(void)
 
 static int drbd_create_mempools(void)
 {
-#ifndef _WIN32
-	struct page *page;
-#endif
+#ifdef _WIN32
 	const int number = (DRBD_MAX_BIO_SIZE/PAGE_SIZE) * minor_count;
-#ifndef _WIN32
-	int i;
-#endif
-
-	/* prepare our caches and mempools */
-#ifndef _WIN32
-	drbd_request_mempool = NULL;
-	drbd_ee_cache        = NULL;
-	drbd_request_cache   = NULL;
-	drbd_bm_ext_cache    = NULL;
-	drbd_al_ext_cache    = NULL;
-	drbd_pp_pool         = NULL;
-#endif
 	drbd_md_io_page_pool = NULL;
 	drbd_md_io_bio_set   = NULL;
 
-	/* caches */
-#ifdef _WIN32
 	ExInitializeNPagedLookasideList(&drbd_bm_ext_cache, NULL, NULL,
 		0, sizeof(struct bm_extent), '28DW', 0);
 	ExInitializeNPagedLookasideList(&drbd_al_ext_cache, NULL, NULL,
@@ -3476,7 +3459,26 @@ static int drbd_create_mempools(void)
 		0, sizeof(struct drbd_request), '48DW', 0);
 	ExInitializeNPagedLookasideList(&drbd_ee_mempool, NULL, NULL,
 		0, sizeof(struct drbd_peer_request), '58DW', 0);
-#else
+
+	drbd_md_io_page_pool = mempool_create_page_pool(DRBD_MIN_POOL_PAGES, 0);
+	if (drbd_md_io_page_pool == NULL)
+		goto Enomem;
+	spin_lock_init(&drbd_pp_lock);
+
+#else // _LIN
+	struct page *page;
+	const int number = (DRBD_MAX_BIO_SIZE/PAGE_SIZE) * minor_count;
+	int i;
+	/* prepare our caches and mempools */
+	drbd_request_mempool = NULL;
+	drbd_ee_cache        = NULL;
+	drbd_request_cache   = NULL;
+	drbd_bm_ext_cache    = NULL;
+	drbd_al_ext_cache    = NULL;
+	drbd_pp_pool         = NULL;
+	drbd_md_io_page_pool = NULL;
+	drbd_md_io_bio_set   = NULL;
+	/* caches */
 	drbd_request_cache = kmem_cache_create(
 		"drbd_req", sizeof(struct drbd_request), 0, 0, NULL);
 	if (drbd_request_cache == NULL)
@@ -3496,20 +3498,15 @@ static int drbd_create_mempools(void)
 		"drbd_al", sizeof(struct lc_element), 0, 0, NULL);
 	if (drbd_al_ext_cache == NULL)
 		goto Enomem;
-#endif
-
 	/* mempools */
-#ifndef _WIN32
 	drbd_md_io_bio_set = bioset_create(DRBD_MIN_POOL_PAGES, 0);
 	if (drbd_md_io_bio_set == NULL)
 		goto Enomem;
-#endif
+
 	drbd_md_io_page_pool = mempool_create_page_pool(DRBD_MIN_POOL_PAGES, 0);
 	if (drbd_md_io_page_pool == NULL)
 		goto Enomem;
-
-
-#ifndef _WIN32
+	
 	drbd_request_mempool = mempool_create_slab_pool(number, drbd_request_cache);
 	if (drbd_request_mempool == NULL)
 		goto Enomem;
@@ -3517,12 +3514,9 @@ static int drbd_create_mempools(void)
 	drbd_ee_mempool = mempool_create_slab_pool(number, drbd_ee_cache);
 	if (drbd_ee_mempool == NULL)
 		goto Enomem;
-#endif
-
 	/* drbd's page pool */
 	spin_lock_init(&drbd_pp_lock);
 
-#ifndef _WIN32
 	for (i = 0; i < number; i++) {
 		page = alloc_page(GFP_HIGHUSER);
 		if (!page)
@@ -3530,7 +3524,9 @@ static int drbd_create_mempools(void)
 		set_page_chain_next_offset_size(page, drbd_pp_pool, 0, 0);
 		drbd_pp_pool = page;
 	}
+
 #endif
+
 	drbd_pp_vacant = number;
 
 	return 0;
@@ -3805,42 +3801,6 @@ void drbd_restart_request(struct drbd_request *req)
 	dec_ap_bio(req->device, bio_data_dir(req->master_bio));
 
 	queue_work(retry.wq, &retry.worker);
-}
-
-
-void bsr_cleanup(void)
-{
-	/* first remove proc,
-	 * drbdsetup uses it's presence to detect
-	 * whether DRBD is loaded.
-	 * If we would get stuck in proc removal,
-	 * but have netlink already deregistered,
-	 * some drbdsetup commands may wait forever
-	 * for an answer.
-	 */
-#ifdef _WIN32
-	// not support
-#else
-	if (drbd_proc)
-		remove_proc_entry("drbd", NULL);
-#endif
-
-	if (retry.wq)
-		destroy_workqueue(retry.wq);
-
-#ifndef _WIN32
-	drbd_genl_unregister();
-#endif
-//  _WIN32_V9_DEBUGFS: minord is cleanup at this point, required to analyze it.
-	drbd_debugfs_cleanup();
-
-	drbd_destroy_mempools();
-#ifndef _WIN32
-	drbd_unregister_blkdev(DRBD_MAJOR, "drbd");
-#endif
-	idr_destroy(&drbd_devices);
-
-	pr_info("module cleanup done.\n");
 }
 
 #ifdef _WIN32
@@ -5063,13 +5023,49 @@ void drbd_put_connection(struct drbd_connection *connection)
 	kref_sub(&connection->kref, refs, drbd_destroy_connection);
 }
 
+void bsr_cleanup(void)
+{
+	/* first remove proc,
+	 * drbdsetup uses it's presence to detect
+	 * whether DRBD is loaded.
+	 * If we would get stuck in proc removal,
+	 * but have netlink already deregistered,
+	 * some drbdsetup commands may wait forever
+	 * for an answer.
+	 */
+#ifdef _WIN32
+	if (retry.wq)
+		destroy_workqueue(retry.wq);
+	drbd_debugfs_cleanup();
+	drbd_destroy_mempools();
+
+#else //_LIN
+
+	if (drbd_proc)
+		remove_proc_entry("bsr", NULL);
+
+	if (retry.wq)
+		destroy_workqueue(retry.wq);
+
+	drbd_genl_unregister();
+
+	drbd_unregister_blkdev(DRBD_MAJOR, "bsr");
+	drbd_destroy_mempools();
+
+#endif
+
+	idr_destroy(&drbd_devices);
+
+	pr_info("module cleanup done.\n");
+
+}
+
 #ifdef _WIN32
 int __init drbd_init(void)
 #else
 int bsr_init(void)
 #endif
 {
-	int err;
 #ifdef _WIN32
 	nl_policy_init_by_manual();
 	g_rcuLock = 0; // init RCU lock
@@ -5077,17 +5073,10 @@ int bsr_init(void)
 	mutex_init(&g_genl_mutex);
 	mutex_init(&notification_mutex);
 	mutex_init(&att_mod_mutex); 
-#endif
 
-#ifdef _WIN32
 	ratelimit_state_init(&drbd_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
-#endif
 
-#ifdef _WIN32
 	ct_init_thread_list();
-#endif
-
-	initialize_kref_debugging();
 
 	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
 		pr_err("invalid minor_count (%d)\n", minor_count);
@@ -5097,56 +5086,18 @@ int bsr_init(void)
 		minor_count = DRBD_MINOR_COUNT_DEF;
 #endif
 	}
-#ifdef _WIN32
-    // not supported
-#else
-	err = register_blkdev(DRBD_MAJOR, "drbd");
-	if (err) {
-		pr_err("unable to register block device major %d\n",
-		       DRBD_MAJOR);
-		return err;
-	}
-#endif
-	/*
-	 * allocate all necessary structs
-	 */
-#ifdef _WIN32 
 	strncpy(drbd_pp_wait.eventName, "drbd_pp_wait", sizeof(drbd_pp_wait.eventName) - 1);
-#endif
 	init_waitqueue_head(&drbd_pp_wait);
-#ifdef _WIN32
-	// not support
-#else
-	drbd_proc = NULL; /* play safe for drbd_cleanup */
-#endif
 	idr_init(&drbd_devices);
-
 	mutex_init(&resources_mutex);
 	INIT_LIST_HEAD(&drbd_resources);
-#ifdef _WIN32
-	// not supported
-#else
-	err = drbd_genl_register();
-	if (err) {
-		pr_err("unable to register generic netlink family\n");
-		goto fail;
-	}
-#endif
 
 	err = drbd_create_mempools();
 	if (err)
 		goto fail;
 
 	err = -ENOMEM;
-#ifdef _WIN32
-	// not supported
-#else
-	drbd_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &drbd_proc_fops, NULL);
-	if (!drbd_proc)	{
-		pr_err("unable to register proc file\n");
-		goto fail;
-	}
-#endif
+
 	retry.wq = create_singlethread_workqueue("drbd-reissue");
 	if (!retry.wq) {
 		pr_err("unable to create retry workqueue\n");
@@ -5155,24 +5106,78 @@ int bsr_init(void)
 	INIT_WORK(&retry.worker, do_retry);
 	spin_lock_init(&retry.lock);
 	INIT_LIST_HEAD(&retry.writes);
-
-#ifdef _WIN32
 	// DW-1105: need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
-	if (!NT_SUCCESS(start_mnt_monitor()))
-	{
-		WDRBD_ERROR("could not start mount monitor\n");
+	if (!NT_SUCCESS(start_mnt_monitor())) {
+		_ERROR("could not start mount monitor\n");
 		goto fail;
 	}
+
+#else //_LIN
+	int err;
+	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
+		pr_err("invalid minor_count (%d)\n", minor_count);
+#ifdef MODULE
+		return -EINVAL;
+#else
+		minor_count = DRBD_MINOR_COUNT_DEF;
 #endif
-#ifndef _WIN32
+	}
+
+	err = drbd_create_mempools();
+	if (err)
+		goto fail;
+
+	//err = -ENOMEM; // TODO need to check for right error code
+
+	err = register_blkdev(DRBD_MAJOR, "bsr");
+	if (err) {
+		pr_err("unable to register block device major %d\n", DRBD_MAJOR);
+		return err;
+	}
+
+	/*
+	* allocate all necessary structs
+	*/
+	init_waitqueue_head(&drbd_pp_wait);
+
+	drbd_proc = NULL; /* play safe for drbd_cleanup */
+	idr_init(&drbd_devices);
+
+	mutex_init(&resources_mutex);
+	INIT_LIST_HEAD(&drbd_resources);
+
+
+	err = drbd_genl_register();
+	if (err) {
+		pr_err("unable to register generic netlink family\n");
+		goto fail;
+	}
+	
+	drbd_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &drbd_proc_fops, NULL);
+	if (!drbd_proc)	{
+		pr_err("unable to register proc file\n");
+		goto fail;
+	}
+	retry.wq = create_singlethread_workqueue("drbd-reissue");
+	if (!retry.wq) {
+		pr_err("unable to create retry workqueue\n");
+		goto fail;
+	}
+	INIT_WORK(&retry.worker, do_retry);
+	spin_lock_init(&retry.lock);
+	INIT_LIST_HEAD(&retry.writes);
 //	if (drbd_debugfs_init())
 //		pr_notice("failed to initialize debugfs -- will not be available\n");
-#endif
+
+#endif //_LIN END
+
 	pr_info("initialized. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)\n",
 	       GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
 	pr_info("%s\n", drbd_buildtag());
 	pr_info("registered as block device major %d\n", DRBD_MAJOR);
+
+
 	return 0; /* Success! */
 
 fail:
@@ -5182,7 +5187,10 @@ fail:
 	else
 		pr_err("initialization failure\n");
 	return err;
+
 }
+
+
 
 /* meta data management */
 
