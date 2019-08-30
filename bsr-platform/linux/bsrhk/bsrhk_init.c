@@ -20,7 +20,8 @@
 
 MODULE_LICENSE("GPL");
 
-#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
+//#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
+#ifdef COMPAT_DRBD_RELEASE_RETURNS_VOID
 #define BSR_RELEASE_RETURN void
 #else
 #define BSR_RELEASE_RETURN int
@@ -68,7 +69,11 @@ static int bsr_mount(struct block_device *bdev, fmode_t mode)
 static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 {
 	printk("bsr_umount gendisk:%p, mode:%d\n",gd, mode);
+#ifdef COMPAT_DRBD_RELEASE_RETURNS_VOID
+	bsr_release(gd, mode);
+#else
 	return bsr_release(gd, mode);
+#endif
 }
 
 module_init(bsr_load)
