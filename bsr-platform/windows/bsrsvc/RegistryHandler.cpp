@@ -413,7 +413,7 @@ DWORD StartRegistryCleaner()
 
     WCHAR conf_path[MAX_PATH] = {0, };
     wcsncpy_s(conf_path, g_szEnvPath, wcslen(g_szEnvPath) - strlen("bin"));
-    wcscat_s(conf_path, L"etc\\drbd.d");
+    wcscat_s(conf_path, L"etc\\bsr.d");
     
     // kick watchdog
     DWORD dwThreadID;
