@@ -944,24 +944,24 @@ static int sh_udev(const struct cfg_ctx *ctx)
 	* populate plain "SYMLINK" with just the "by-res" one. */
 	printf("SYMLINK=");
 	if (vol->implicit && !global_options.udev_always_symlink_vnr)
-		printf("drbd/by-res/%s\n", res->name);
+		printf("bsr/by-res/%s\n", res->name);
 	else
-		printf("drbd/by-res/%s/%u\n", res->name, vol->vnr);
+		printf("bsr/by-res/%s/%u\n", res->name, vol->vnr);
 
 	/* repeat, with _BY_RES */
 	printf("SYMLINK_BY_RES=");
 	if (vol->implicit && !global_options.udev_always_symlink_vnr)
-		printf("drbd/by-res/%s\n", res->name);
+		printf("bsr/by-res/%s\n", res->name);
 	else
-		printf("drbd/by-res/%s/%u\n", res->name, vol->vnr);
+		printf("bsr/by-res/%s/%u\n", res->name, vol->vnr);
 
 	/* and add the _BY_DISK one explicitly */
 	if (vol->disk) {
 		printf("SYMLINK_BY_DISK=");
 		if (!strncmp(vol->disk, "/dev/", 5))
-			printf("drbd/by-disk/%s\n", vol->disk + 5);
+			printf("bsr/by-disk/%s\n", vol->disk + 5);
 		else
-			printf("drbd/by-disk/%s\n", vol->disk);
+			printf("bsr/by-disk/%s\n", vol->disk);
 	}
 
 	return 0;

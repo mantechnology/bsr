@@ -498,9 +498,9 @@ int need_trigger_kobj_change(struct d_resource *res)
 	char *link_name;
 	int err;
 
-	m_asprintf(&link_name, "/dev/drbd/by-res/%s", res->name);
+	m_asprintf(&link_name, "/dev/bsr/by-res/%s", res->name);
 
-	err = stat("/dev/drbd/by-res", &sbuf);
+	err = stat("/dev/bsr/by-res", &sbuf);
 	if (err)	/* probably no udev rules in use */
 		return 0;
 

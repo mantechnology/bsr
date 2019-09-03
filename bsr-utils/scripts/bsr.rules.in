@@ -1,7 +1,7 @@
 # This file contains the rules to create named DRBD devices.
 
 SUBSYSTEM!="block", GOTO="bsr_end"
-KERNEL!="bsr*", GOTO="bsr_end"
+KERNEL!="drbd*", GOTO="bsr_end"
 
 IMPORT{program}="@sbindir@/bsradm sh-udev minor-%m"
 

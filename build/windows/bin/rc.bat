@@ -1,7 +1,7 @@
 @echo off
 
 REM 
-REM drbd rc batch file
+REM bsr rc batch file
 REM 
 
 IF "%1" == "start" GOTO start
@@ -20,21 +20,21 @@ echo [%date%_%time%] rc.bat start. > %log%
 :wdrbd_attach_vhd
 
 
-for /f "usebackq tokens=*" %%a in (`drbdadm sh-md-idx all ^| findstr /C:".vhd"`) do (
+for /f "usebackq tokens=*" %%a in (`bsradm sh-md-idx all ^| findstr /C:".vhd"`) do (
 	if %errorlevel% == 0 (
 		call :sub_attach_vhd "%%a"
 	)
 )
 
-REM for /f "usebackq tokens=*" %%a in (`drbdadm sh-resources-list`) do (
-REM	drbdadm sh-dev %%a > tmp_vol.txt
-REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do drbdcon /letter %%b /init_thread
-REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do drbdcon /letter %%b /start_volume
+REM for /f "usebackq tokens=*" %%a in (`bsradm sh-resources-list`) do (
+REM	bsradm sh-dev %%a > tmp_vol.txt
+REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do bsrcon /letter %%b /init_thread
+REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do bsrcon /letter %%b /start_volume
 REM	del tmp_vol.txt
 REM )
 
 REM linux! 
-REM drbdadm -c /etc/drbd.conf adjust-with-progress all
+REM bsradm -c /etc/bsr.conf adjust-with-progress all
 :wdrbd_start
 ::echo WDRBD Starting ...
 
@@ -42,10 +42,10 @@ setlocal EnableDelayedExpansion
 
 set /a adj_retry=0
 :adjust_retry
-for /f "usebackq tokens=*" %%a in (`drbdadm sh-resource all`) do (
+for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set ADJUST=0
 
-	for /f "usebackq tokens=*" %%c in (`drbdadm sh-resource-option -n svc_autostart %%a`) do (
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_autostart %%a`) do (
 
 		if /i "%%c" == "yes" (
 			@(set ADJUST=1)
@@ -56,20 +56,20 @@ for /f "usebackq tokens=*" %%a in (`drbdadm sh-resource all`) do (
 		)		
 	)
 	if !ADJUST! == 1 (
-		echo [!date!_!time!] drbdadm adjust %%a >> %log%
-		drbdadm -c /etc/drbd.conf adjust %%a
+		echo [!date!_!time!] bsradm adjust %%a >> %log%
+		bsradm -c /etc/bsr.conf adjust %%a
 		if !errorlevel! gtr 0 (
-			echo [!date!_!time!] Failed to drbdadm adjust %%a. >> %log%
+			echo [!date!_!time!] Failed to bsradm adjust %%a. >> %log%
 			set /a adj_retry=adj_retry+1
 			REM Retry 10 times. If it fails more than 10 times, it may adjust fail.
 			if %adj_retry% gtr 10 (
-				echo [!date!_!time!] drbdadm adjust %%a finally failed.>> %log%
+				echo [!date!_!time!] bsradm adjust %%a finally failed.>> %log%
 			) else (
 				timeout /t 3 /NOBREAK > nul
 				goto adjust_retry
 			)	
 		) else (
-			echo [!date!_!time!] drbdadm adjust %%a success.>> %log%	
+			echo [!date!_!time!] bsradm adjust %%a success.>> %log%	
 		)
 		
 		timeout /t 3 /NOBREAK > nul
@@ -79,18 +79,18 @@ endlocal
 
 
 REM User interruptible version of wait-connect all
-::drbdadm -c /etc/drbd.conf  wait-con-int 
+::bsradm -c /etc/bsr.conf  wait-con-int 
 ::echo return code %errorlevel%
 
 REM Become primary if configured
-::drbdadm -c /etc/drbd.conf  sh-b-pri all 
+::bsradm -c /etc/bsr.conf  sh-b-pri all 
 ::echo return code %errorlevel%
 
-::for /f "usebackq tokens=*" %%a in (`drbdadm sh-resources-list`) do (
+::for /f "usebackq tokens=*" %%a in (`bsradm sh-resources-list`) do (
 	REM MVL: check registered first!
 	REM MVL: unlock volume 
 
-	::drbdadm sh-dev %%a > tmp_vol.txt
+	::bsradm sh-dev %%a > tmp_vol.txt
 
 	REM : Edit mvl script please!!!
 	REM for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do ..\mvl\vollock /u %%b:	
@@ -109,29 +109,29 @@ REM ------------------------------------------------------------------------
 
 if "%2" == "force" (
 	echo Force Stopping all DRBD resources
-	drbdadm disconnect --force all
+	bsradm disconnect --force all
 	timeout /t 3 /NOBREAK > nul
 ) else (
 	echo Stopping all DRBD resources
 )
 
-drbdadm down all
+bsradm down all
 timeout /t 3 /NOBREAK > nul
 
 REM linux
-REM for res in $(drbdsetup all show | sed -ne 's/^resource \(.*\) {$/\1/p'); do
-REM	  drbdsetup "$res" down
+REM for res in $(bsrsetup all show | sed -ne 's/^resource \(.*\) {$/\1/p'); do
+REM	  bsrsetup "$res" down
 REM done
 
 REM @echo on
 
-REM for /f "usebackq tokens=*" %%a in (`drbdadm sh-resource all`) do (
-REM	drbdadm sh-dev %%a > tmp_vol.txt
+REM for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
+REM	bsradm sh-dev %%a > tmp_vol.txt
 REM MVL
 REM for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do ..\mvl\vollock /l %%b:
-REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do drbdcon /df %%b
+REM	for /f "usebackq tokens=*"  %%b in (tmp_vol.txt) do bsrcon /df %%b
 REM	del tmp_vol.txt
-REM	drbdadm down %%a
+REM	bsradm down %%a
 REM	timeout /t 3 /NOBREAK > nul
 REM )
 

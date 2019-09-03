@@ -1,0 +1,4 @@
+# %DRBD_PATH%/etc/bsr.d/bsr.conf
+
+include "bsr.d/global_common.conf";
+include "bsr.d/*.res";
