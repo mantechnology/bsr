@@ -4004,11 +4004,12 @@ static void drbd_put_send_buffers(struct drbd_connection *connection)
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		if (connection->send_buffer[i].page) {
-#ifndef _WIN32
-			put_page(connection->send_buffer[i].page);
-#endif
+#ifdef _WIN32
 			//DW-1791 fix memory leak 
 			__free_page(connection->send_buffer[i].page);
+#else
+			put_page(connection->send_buffer[i].page);
+#endif
 			connection->send_buffer[i].page = NULL;
 		}
 	}
@@ -4409,7 +4410,9 @@ void drbd_destroy_connection(struct kref *kref)
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_peer_device *peer_device;
 	int vnr;
+#ifdef _WIN32
 	struct drbd_peer_request *peer_req, *t;
+#endif
 
 	drbd_info(connection, "%s\n", __FUNCTION__);
 
@@ -4417,6 +4420,7 @@ void drbd_destroy_connection(struct kref *kref)
 		drbd_err(connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
 
+#ifdef _WIN32 // TODO
 	//DW-1829 : inactive_ee must be free before peer_device.
 	//DW-1696 : If the connecting object is destroyed, it also destroys the inactive_ee.
 	spin_lock(&resource->req_lock);
@@ -4431,6 +4435,7 @@ void drbd_destroy_connection(struct kref *kref)
 		}
 	}
 	spin_unlock(&resource->req_lock);
+#endif
 
 #ifdef _WIN32
     idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -4444,11 +4449,12 @@ void drbd_destroy_connection(struct kref *kref)
 #endif
 		kref_put(&peer_device->device->kref, drbd_destroy_device);
 		free_peer_device(peer_device);
-
+#ifdef _WIN32 //TODO
 		//DW-1791 fix memory leak
 		spin_lock_irq(&resource->req_lock);
 		idr_remove(&connection->peer_devices, vnr);
 		spin_unlock_irq(&resource->req_lock);
+#endif
 	}
 
 
