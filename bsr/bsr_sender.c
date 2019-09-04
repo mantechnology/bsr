@@ -1771,9 +1771,11 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		goto out_unlock;
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 #ifdef _WIN32 //TODO temporarily disable on linux
+#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec), hit bit (in sync %llu; garbage %llu)\n",
 	     verify_done ? "Online verify" : "Resync",
 		 dt + peer_device->rs_paused, peer_device->rs_paused, dbdt, device->h_isbb, device->h_gbb);
+#endif
 #endif
 	n_oos = drbd_bm_total_weight(peer_device);
 

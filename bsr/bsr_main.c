@@ -5072,6 +5072,9 @@ int __init drbd_init(void)
 int bsr_init(void)
 #endif
 {
+
+	int err;
+
 #ifdef _WIN32
 	nl_policy_init_by_manual();
 	g_rcuLock = 0; // init RCU lock
@@ -5114,12 +5117,11 @@ int bsr_init(void)
 	INIT_LIST_HEAD(&retry.writes);
 	// DW-1105: need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
 	if (!NT_SUCCESS(start_mnt_monitor())) {
-		_ERROR("could not start mount monitor\n");
+		WDRBD_ERROR("could not start mount monitor\n");
 		goto fail;
 	}
 
 #else //_LIN
-	int err;
 	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
 		pr_err("invalid minor_count (%d)\n", minor_count);
 #ifdef MODULE
