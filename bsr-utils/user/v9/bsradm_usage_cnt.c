@@ -634,7 +634,9 @@ int adm_create_md(const struct cfg_ctx *ctx)
 	if( read_node_id(&ni) && device_size && !device_uuid) {
 		get_random_bytes(&device_uuid, sizeof(uint64_t));
 
+#if 0 // TODO : usage count 기능 정리 필요
 		if( global_options.usage_count == UC_YES ) send = 1;
+#endif
 		if( global_options.usage_count == UC_ASK ) {
 			err("\n"
 			    "\t\t--== Creating metadata ==--\n"

@@ -3635,8 +3635,10 @@ int main(int argc, char **argv)
 
 	count_resources();
 
+#if 0 // TODO : usage count 기능 정리 필요
 	if (cmd->uc_dialog)
 		uc_node(global_options.usage_count);
+#endif
 
 	ctx.cmd = cmd;
 	if (cmd->res_name_required || resource_names[0]) {
