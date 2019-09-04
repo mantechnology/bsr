@@ -3680,7 +3680,7 @@ int main(int argc, char **argv)
 				}
 				ctx.res = res;
 				ctx.vol = NULL;
-				TRACE_PRINT("call cmd resource(%s), command(%s)\n", resource_names[i], cmd->name);
+				TRACE_PRINT("call cmd resource(%s), command(%s)\n", ctx.res->name, cmd->name);
 				r = call_cmd(cmd, &ctx, EXIT_ON_FAIL);	/* does exit for r >= 20! */
 				/* this super positioning of return values is soo ugly
 				 * anyone any better idea? */

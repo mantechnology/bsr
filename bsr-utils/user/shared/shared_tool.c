@@ -529,19 +529,7 @@ out:
 
 bool random_by_dev_urandom(void *buffer, size_t len)
 {
-	//int fd;
-	//bool ok = true;
-	//
-	//fd = open("/dev/urandom", O_RDONLY);
-	//if (fd == -1) {
-	//	perror("Open of /dev/urandom failed");
-	//	return false;
-	//}
-	//if (read(fd, buffer, len) != len) {
-	//	ok = false;
-	//	fprintf(stderr, "Reading from /dev/urandom failed\n");
-	//}
-	//close(fd);
+#ifdef _WIN32	
 
 	if (len == 0)
 		return false;
@@ -555,8 +543,26 @@ bool random_by_dev_urandom(void *buffer, size_t len)
 		r = buffer + i;
 		*r = rand() % 256;
 	}
-
+	
 	return true;
+#else // _LIN
+	int fd;
+	bool ok = true;
+	
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd == -1) {
+		perror("Open of /dev/urandom failed");
+		return false;
+	}
+	if (read(fd, buffer, len) != len) {
+		ok = false;
+		fprintf(stderr, "Reading from /dev/urandom failed\n");
+	}
+	close(fd);
+
+	
+	return ok;
+#endif
 }
 
 void get_random_bytes(void *buffer, size_t len)

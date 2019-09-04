@@ -3908,22 +3908,22 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 			printf(" helper:%s", helper_info.helper_name);
 			if (action == NOTIFY_RESPONSE)
 				printf(" status:%u", helper_info.helper_status);
-		}
-		else {
+		} else {
 			dbg(1, "helper info missing\n");
 			goto nl_out;
 		}
 	}
 		break;
+#ifdef _WIN32 // TODO : DRBD_IO_ERROR
 	case DRBD_IO_ERROR: {
 		struct drbd_io_error_info io_error;
 		if (!drbd_io_error_info_from_attrs(&io_error, info)) {
 			if (io_error.is_cleared)
 				printf(" cleared%s", key ? key : "-");
 			else {
-#ifdef _WIN32
+
 				printf("%s disk:%s io:%s", key ? key : "-", drbd_disk_type_name(io_error.disk_type), drbd_io_type_name(io_error.io_type));
-#endif
+
 				printf(" error-code:0x%08X sector:%llus size:%u", io_error.error_code, io_error.sector, io_error.size);
 			}
 		}
@@ -3933,6 +3933,7 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		}
 	}
 		break;
+#endif
 	case DRBD_INITIAL_STATE_DONE:
 		break;
 	}

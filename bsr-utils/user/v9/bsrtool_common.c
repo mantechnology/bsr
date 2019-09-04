@@ -92,7 +92,8 @@ void dt_print_v9_uuids(const uint64_t* uuid, unsigned int mdf_flags, unsigned in
 		mdf_peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
 		mdf_peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
 		mdf_peer_flags & MDF_PEER_FENCING ? 1 : 0,
-		mdf_peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
+		mdf_peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0,
+		mdf_peer_flags & MDF_PEER_DEVICE_SEEN ? 1 : 0);
 #endif
 }
 

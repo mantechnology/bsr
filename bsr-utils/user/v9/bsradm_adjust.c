@@ -742,7 +742,7 @@ adjust_net(const struct cfg_ctx *ctx, struct d_resource* running, int can_do_pro
 	}
 		for_each_connection(conn, &ctx->res->connections) {
 		struct connection *running_conn = NULL;
-		struct path *path;
+		//struct path *path;
 		const struct cfg_ctx tmp_ctx = { .res = ctx->res, .conn = conn };
 		
 			if (conn->ignore)
