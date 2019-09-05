@@ -5170,205 +5170,205 @@ sector_t drbd_local_max_size(struct drbd_device *device) __must_hold(local)
 
 int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 {
+#ifdef _WIN32
 	struct drbd_config_context adm_ctx;
-////	struct disk_conf *old_disk_conf, *new_disk_conf = NULL;
-//	struct resize_parms rs;
-//	struct drbd_device *device;
 	enum drbd_ret_code retcode;
-//	enum determine_dev_size dd;
-//	bool change_al_layout = false;
-//	enum dds_flags ddsf;
-//	sector_t u_size;
-//	int err;
-//	struct drbd_peer_device *peer_device;
-//	bool resolve_by_node_id = true;
-//	bool has_up_to_date_primary;
-//	bool traditional_resize = false;
-//	sector_t local_max_size;
 
 	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-//#ifdef _WIN32 //TODO: porting required for Linux 
 	// DW-1469 disable drbd_adm_resize
 	drbd_msg_put_info(adm_ctx.reply_skb, "cmd(drbd_adm_resize) error: not support.\n");
 	drbd_adm_finish(&adm_ctx, info, ERR_INVALID_REQUEST);
 	return 0;
-//#endif
-	
-	//mutex_lock(&adm_ctx.resource->adm_mutex);
-	//device = adm_ctx.device;
-	//if (!get_ldev(device)) {
-	//	retcode = ERR_NO_DISK;
-	//	goto fail;
-	//}
-	//
-	//memset(&rs, 0, sizeof(struct resize_parms));
-	//rs.al_stripes = device->ldev->md.al_stripes;
-	//rs.al_stripe_size = device->ldev->md.al_stripe_size_4k * 4;
-	//if (info->attrs[DRBD_NLA_RESIZE_PARMS]) {
-	//	err = resize_parms_from_attrs(&rs, info);
-	//	if (err) {
-	//		retcode = ERR_MANDATORY_TAG;
-	//		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
-	//		goto fail_ldev;
-	//	}
-	//}
-	//
-	//device = adm_ctx.device;
-	//for_each_peer_device(peer_device, device) {
-	//	if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
-	//		retcode = ERR_RESIZE_RESYNC;
-	//		goto fail_ldev;
-	//	}
-	//}
-	//
-	//local_max_size = drbd_local_max_size(device);
-	//if (rs.resize_size && local_max_size < (sector_t)rs.resize_size) {
-	//	drbd_err(device, "requested %llu sectors, backend seems only able to support %llu\n",
-	//		(unsigned long long)(sector_t)rs.resize_size,
-	//		(unsigned long long)local_max_size);
-	//	retcode = ERR_DISK_TOO_SMALL;
-	//	goto fail_ldev;
-	//}
-	//
-	///* Maybe I could serve as sync source myself? */
-	//has_up_to_date_primary =
-	//	device->resource->role[NOW] == R_PRIMARY &&
-	//	device->disk_state[NOW] == D_UP_TO_DATE;
-	//
-	//if (!has_up_to_date_primary) {
-	//	for_each_peer_device(peer_device, device) {
-	//		/* ignore unless connection is fully established */
-	//		if (peer_device->repl_state[NOW] < L_ESTABLISHED)
-	//			continue;
-	//		if (peer_device->connection->agreed_pro_version < 111) {
-	//			resolve_by_node_id = false;
-	//			if (peer_device->connection->peer_role[NOW] == R_PRIMARY                
-	//			&&  peer_device->disk_state[NOW] == D_UP_TO_DATE) {
-	//				has_up_to_date_primary = true;
-	//				break;
-	//			}
-	//		}
-	//	}
-	//}
-	//if (!has_up_to_date_primary && !resolve_by_node_id) {
-	//	retcode = ERR_NO_PRIMARY;
-	//	goto fail_ldev;
-	//}
-	//
-	//for_each_peer_device(peer_device, device) {
-	//	struct drbd_connection *connection = peer_device->connection;
-	//	if (rs.no_resync &&
-	//		connection->cstate[NOW] == C_CONNECTED &&
-	//		connection->agreed_pro_version < 93) {
-	//		retcode = ERR_NEED_APV_93;
-	//		goto fail_ldev;
-	//	}
-	//}
-	//
-	//rcu_read_lock();
-	//u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
-	//rcu_read_unlock();
-	//if (u_size != (sector_t)rs.resize_size) {
-//#ifdef _WIN32
-    //    new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, 'C1DW');
-//#else
-	//	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL);
-//#endif
-	//	if (!new_disk_conf) {
-	//		retcode = ERR_NOMEM;
-	//		goto fail_ldev;
-	//	}
-	//}
-	//
-	//if (device->ldev->md.al_stripes != rs.al_stripes ||
-	//    device->ldev->md.al_stripe_size_4k != rs.al_stripe_size / 4) {
-	//	u32 al_size_k = rs.al_stripes * rs.al_stripe_size;
-	//
-	//	if (al_size_k > (16 * 1024 * 1024)) {
-	//		retcode = ERR_MD_LAYOUT_TOO_BIG;
-	//		goto fail_ldev;
-	//	}
-	//
-	//	if (al_size_k < (32768 >> 10)) {
-	//		retcode = ERR_MD_LAYOUT_TOO_SMALL;
-	//		goto fail_ldev;
-	//	}
-	//
-	//	/* Removed this pre-condition while merging from 8.4 to 9.0
-	//	if (device->state.conn != C_CONNECTED && !rs.resize_force) {
-	//		retcode = ERR_MD_LAYOUT_CONNECTED;
-	//		goto fail_ldev;
-	//	} */
-	//
-	//	change_al_layout = true;
-	//}
-	//
-	//device->ldev->known_size = drbd_get_capacity(device->ldev->backing_bdev);
-	//
-	//if (new_disk_conf) {
-	//	mutex_lock(&device->resource->conf_update);
-	//	old_disk_conf = device->ldev->disk_conf;
-	//	*new_disk_conf = *old_disk_conf;
-	//	new_disk_conf->disk_size = (sector_t)rs.resize_size;
-//#ifdef _WIN32
-	//	synchronize_rcu_w32_wlock();
-//#endif
-	//	rcu_assign_pointer(device->ldev->disk_conf, new_disk_conf);
-	//	mutex_unlock(&device->resource->conf_update);
-	//	synchronize_rcu();
-	//	kfree(old_disk_conf);
-	//	new_disk_conf = NULL;
-	//}
-	//
-	//ddsf = (rs.resize_force ? DDSF_ASSUME_UNCONNECTED_PEER_HAS_SPACE : 0)
-	//	| (rs.no_resync ? DDSF_NO_RESYNC : 0);
-	//
-	//dd = change_cluster_wide_device_size(device, local_max_size, rs.resize_size, ddsf,
-	//			change_al_layout ? &rs : NULL);
-	//if (dd == DS_2PC_NOT_SUPPORTED) {
-	//	traditional_resize = true;
-	//	dd = drbd_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
-	//}
-	//
-	//drbd_md_sync_if_dirty(device);
-	//put_ldev(device);
-	//if (dd == DS_ERROR) {
-	//	retcode = ERR_NOMEM_BITMAP;
-	//	goto fail;
-	//} else if (dd == DS_ERROR_SPACE_MD) {
-	//	retcode = ERR_MD_LAYOUT_NO_FIT;
-	//	goto fail;
-	//} else if (dd == DS_ERROR_SHRINK) {
-	//	retcode = ERR_IMPLICIT_SHRINK;
-	//	goto fail;
-	//} else if (dd == DS_2PC_ERR) {
-	//	retcode = SS_INTERRUPTED;
-	//	goto fail;
-	//}
-	//
-	//if (traditional_resize) {
-	//	for_each_peer_device(peer_device, device) {
-	//		if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
-	//			if (dd == DS_GREW)
-	//				set_bit(RESIZE_PENDING, &peer_device->flags);
-	//			drbd_send_uuids(peer_device, 0, 0);
-	//			drbd_send_sizes(peer_device, rs.resize_size, ddsf);
-	//		}
-	//	}
-	//}
-	//
- //fail:
-	//mutex_unlock(&adm_ctx.resource->adm_mutex);
-	//drbd_adm_finish(&adm_ctx, info, retcode);
-	//return 0;
+#else // _LIN
+	struct drbd_config_context adm_ctx;
+	struct disk_conf *old_disk_conf, *new_disk_conf = NULL;
+	struct resize_parms rs;
+	struct drbd_device *device;
+	enum drbd_ret_code retcode;
+	enum determine_dev_size dd;
+	bool change_al_layout = false;
+	enum dds_flags ddsf;
+	sector_t u_size;
+	int err;
+	struct drbd_peer_device *peer_device;
+	bool resolve_by_node_id = true;
+	bool has_up_to_date_primary;
+	bool traditional_resize = false;
+	sector_t local_max_size;
 
- //fail_ldev:
-	//put_ldev(device);
-	//kfree(new_disk_conf);
-	//goto fail;
+	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	if (!adm_ctx.reply_skb)
+		return retcode;
+
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+	device = adm_ctx.device;
+	if (!get_ldev(device)) {
+		retcode = ERR_NO_DISK;
+		goto fail;
+	}
+	
+	memset(&rs, 0, sizeof(struct resize_parms));
+	rs.al_stripes = device->ldev->md.al_stripes;
+	rs.al_stripe_size = device->ldev->md.al_stripe_size_4k * 4;
+	if (info->attrs[DRBD_NLA_RESIZE_PARMS]) {
+		err = resize_parms_from_attrs(&rs, info);
+		if (err) {
+			retcode = ERR_MANDATORY_TAG;
+			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			goto fail_ldev;
+		}
+	}
+	
+	device = adm_ctx.device;
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
+			retcode = ERR_RESIZE_RESYNC;
+			goto fail_ldev;
+		}
+	}
+	
+	local_max_size = drbd_local_max_size(device);
+	if (rs.resize_size && local_max_size < (sector_t)rs.resize_size) {
+		drbd_err(device, "requested %llu sectors, backend seems only able to support %llu\n",
+			(unsigned long long)(sector_t)rs.resize_size,
+			(unsigned long long)local_max_size);
+		retcode = ERR_DISK_TOO_SMALL;
+		goto fail_ldev;
+	}
+	
+	/* Maybe I could serve as sync source myself? */
+	has_up_to_date_primary =
+		device->resource->role[NOW] == R_PRIMARY &&
+		device->disk_state[NOW] == D_UP_TO_DATE;
+	
+	if (!has_up_to_date_primary) {
+		for_each_peer_device(peer_device, device) {
+			/* ignore unless connection is fully established */
+			if (peer_device->repl_state[NOW] < L_ESTABLISHED)
+				continue;
+			if (peer_device->connection->agreed_pro_version < 111) {
+				resolve_by_node_id = false;
+				if (peer_device->connection->peer_role[NOW] == R_PRIMARY                
+				&&  peer_device->disk_state[NOW] == D_UP_TO_DATE) {
+					has_up_to_date_primary = true;
+					break;
+				}
+			}
+		}
+	}
+	if (!has_up_to_date_primary && !resolve_by_node_id) {
+		retcode = ERR_NO_PRIMARY;
+		goto fail_ldev;
+	}
+	
+	for_each_peer_device(peer_device, device) {
+		struct drbd_connection *connection = peer_device->connection;
+		if (rs.no_resync &&
+			connection->cstate[NOW] == C_CONNECTED &&
+			connection->agreed_pro_version < 93) {
+			retcode = ERR_NEED_APV_93;
+			goto fail_ldev;
+		}
+	}
+	
+	rcu_read_lock();
+	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
+	rcu_read_unlock();
+	if (u_size != (sector_t)rs.resize_size) {
+		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL);
+		if (!new_disk_conf) {
+			retcode = ERR_NOMEM;
+			goto fail_ldev;
+		}
+	}
+	
+	if (device->ldev->md.al_stripes != rs.al_stripes ||
+	    device->ldev->md.al_stripe_size_4k != rs.al_stripe_size / 4) {
+		u32 al_size_k = rs.al_stripes * rs.al_stripe_size;
+	
+		if (al_size_k > (16 * 1024 * 1024)) {
+			retcode = ERR_MD_LAYOUT_TOO_BIG;
+			goto fail_ldev;
+		}
+	
+		if (al_size_k < (32768 >> 10)) {
+			retcode = ERR_MD_LAYOUT_TOO_SMALL;
+			goto fail_ldev;
+		}
+	
+		/* Removed this pre-condition while merging from 8.4 to 9.0
+		if (device->state.conn != C_CONNECTED && !rs.resize_force) {
+			retcode = ERR_MD_LAYOUT_CONNECTED;
+			goto fail_ldev;
+		} */
+	
+		change_al_layout = true;
+	}
+	
+	device->ldev->known_size = drbd_get_capacity(device->ldev->backing_bdev);
+	
+	if (new_disk_conf) {
+		mutex_lock(&device->resource->conf_update);
+		old_disk_conf = device->ldev->disk_conf;
+		*new_disk_conf = *old_disk_conf;
+		new_disk_conf->disk_size = (sector_t)rs.resize_size;
+		rcu_assign_pointer(device->ldev->disk_conf, new_disk_conf);
+		mutex_unlock(&device->resource->conf_update);
+		synchronize_rcu();
+		kfree(old_disk_conf);
+		new_disk_conf = NULL;
+	}
+	
+	ddsf = (rs.resize_force ? DDSF_ASSUME_UNCONNECTED_PEER_HAS_SPACE : 0)
+		| (rs.no_resync ? DDSF_NO_RESYNC : 0);
+	
+	dd = change_cluster_wide_device_size(device, local_max_size, rs.resize_size, ddsf,
+				change_al_layout ? &rs : NULL);
+	if (dd == DS_2PC_NOT_SUPPORTED) {
+		traditional_resize = true;
+		dd = drbd_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
+	}
+	
+	drbd_md_sync_if_dirty(device);
+	put_ldev(device);
+	if (dd == DS_ERROR) {
+		retcode = ERR_NOMEM_BITMAP;
+		goto fail;
+	} else if (dd == DS_ERROR_SPACE_MD) {
+		retcode = ERR_MD_LAYOUT_NO_FIT;
+		goto fail;
+	} else if (dd == DS_ERROR_SHRINK) {
+		retcode = ERR_IMPLICIT_SHRINK;
+		goto fail;
+	} else if (dd == DS_2PC_ERR) {
+		retcode = SS_INTERRUPTED;
+		goto fail;
+	}
+	
+	if (traditional_resize) {
+		for_each_peer_device(peer_device, device) {
+			if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
+				if (dd == DS_GREW)
+					set_bit(RESIZE_PENDING, &peer_device->flags);
+				drbd_send_uuids(peer_device, 0, 0);
+				drbd_send_sizes(peer_device, rs.resize_size, ddsf);
+			}
+		}
+	}
+	
+ fail:
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
+	drbd_adm_finish(&adm_ctx, info, retcode);
+	return 0;
+
+ fail_ldev:
+	put_ldev(device);
+	kfree(new_disk_conf);
+	goto fail;
+#endif	
 }
 
 int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info)
