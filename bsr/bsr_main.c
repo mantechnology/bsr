@@ -4749,9 +4749,8 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	init_bdev_info(q->backing_dev_info, drbd_congested, device);
 	
 	blk_queue_make_request(q, drbd_make_request);
-#ifdef REQ_FLUSH
-	blk_queue_flush(q, REQ_FLUSH | REQ_FUA);
-#endif
+	blk_queue_write_cache(q, true, true);
+	
 #ifndef _WIN32
 	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
