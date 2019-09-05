@@ -3559,17 +3559,11 @@ void drbd_destroy_device(struct kref *kref)
 
 #ifdef _WIN32 // TODO : ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 리눅스 포팅작업 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-	//DW-1601 remove garbage list
-	if (!list_empty(&device->gbb_list)) {
-		struct drbd_garbage_bit *gbb, *tmp;
-#ifdef _WIN32		
-		list_for_each_entry_safe(struct drbd_garbage_bit, gbb, tmp, &device->gbb_list, garbage_list) {
-#else
-		list_for_each_entry_safe(gbb, tmp, &device->gbb_list, garbage_list) {
-#endif
-			list_del(&gbb->garbage_list);
-			kfree2(gbb);
-		}
+	//DW-1911
+	struct drbd_marked_replicate *marked_rl, *t;
+	list_for_each_entry_safe(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+		list_del(&marked_rl->marked_rl_list);
+		kfree(marked_rl);
 	}
 #endif
 #endif
@@ -4653,8 +4647,12 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 #ifdef _WIN32 // TODO : ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 리눅스 포팅작업 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	//DW-1901
-	INIT_LIST_HEAD(&device->gbb_list);
-	device->s_rl_bb = UINT64_MAX;
+	INIT_LIST_HEAD(&device->marked_rl_list);
+#ifdef _WIN32
+	device->s_rl_bb = UINTPTR_MAX;
+#else
+	device->s_rl_bb = ULONG_MAX;
+#endif
 	device->e_rl_bb = 0;
 	device->e_resync_bb = 0;
 #endif
