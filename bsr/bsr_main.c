@@ -4738,7 +4738,6 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	device->this_bdev = bdget(MKDEV(DRBD_MAJOR, minor));
 	/* we have no partitions. we contain only ourselves. */
 	device->this_bdev->bd_contains = device->this_bdev;
-	init_bdev_info(q->backing_dev_info, drbd_congested, device);
 #endif
 #ifdef _WIN32
 	kref_get(&pvext->dev->kref);
@@ -4749,9 +4748,8 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
 	WDRBD_INFO("device:%p q->max_hw_sectors: %x sectors, device->this_bdev->d_size: %lld bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
-	q->backing_dev_info.congested_fn = drbd_congested;
-	q->backing_dev_info.congested_data = device;
-
+	init_bdev_info(q->backing_dev_info, drbd_congested, device);
+	
 	blk_queue_make_request(q, drbd_make_request);
 #ifdef REQ_FLUSH
 	blk_queue_flush(q, REQ_FLUSH | REQ_FUA);
