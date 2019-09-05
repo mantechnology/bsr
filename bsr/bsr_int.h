@@ -2059,8 +2059,7 @@ extern int  drbd_thread_start(struct drbd_thread *thi);
 extern void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait);
 
 #ifdef _WIN32
-#define drbd_thread_current_set_cpu(A) 
-#define drbd_calc_cpu_mask(A)
+#define drbd_thread_current_set_cpu(A)
 #else
 #ifdef CONFIG_SMP
 extern void drbd_thread_current_set_cpu(struct drbd_thread *thi);
