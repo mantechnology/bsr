@@ -1546,14 +1546,14 @@ struct drbd_connection {
 #else
 		unsigned long last_sent_barrier_jif;
 #endif
-		int last_sent_epoch_nr;
+		unsigned int last_sent_epoch_nr;
 
 		/* whether this sender thread
 		 * has processed a single write yet. */
 		bool seen_any_write_yet;
 
 		/* Which barrier number to send with the next P_BARRIER */
-		int current_epoch_nr;
+		unsigned int current_epoch_nr;
 
 		/* how many write requests have been sent
 		 * with req->epoch == current_epoch_nr.
@@ -1858,7 +1858,7 @@ struct drbd_device {
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
 
-	int next_barrier_nr;
+	unsigned int next_barrier_nr;
 	struct drbd_md_io md_io;
 	spinlock_t al_lock;
 	wait_queue_head_t al_wait;

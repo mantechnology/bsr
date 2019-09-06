@@ -3731,7 +3731,7 @@ static void maybe_send_barrier(struct drbd_connection *connection, unsigned int 
 	/* re-init if first write on this connection */
 	if (!connection->send.seen_any_write_yet)
 		return;
-	if (connection->send.current_epoch_nr != (int)epoch) {
+	if (connection->send.current_epoch_nr != epoch) {
 		if (connection->send.current_epoch_writes)
 			drbd_send_barrier(connection);
 		connection->send.current_epoch_nr = epoch;
