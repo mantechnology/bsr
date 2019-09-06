@@ -1541,14 +1541,13 @@ static enum drbd_state_rv __is_valid_soft_transition(struct drbd_resource *resou
 				enum drbd_repl_state *repl_state = peer_device->repl_state;
 				if (repl_state[OLD] == L_SYNC_TARGET && repl_state[NEW] == L_ESTABLISHED)
 					goto allow;
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-891
+				// DW-891
 				if (test_bit(RECONCILIATION_RESYNC, &peer_device->flags) && repl_state[NEW] == L_WF_BITMAP_S)
 				{
 					/* If it fails to change the repl_state, reconciliation resync does not do. 
 					So clear the RECONCILIATION_RESYNC bit. */
 					clear_bit(RECONCILIATION_RESYNC, &peer_device->flags);
 				}
-#endif
 			}
 			return SS_LOWER_THAN_OUTDATED;
 		}
@@ -4145,11 +4144,8 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 #ifndef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
 		// MODIFIED_BY_MANTECH DW-1142: disable reconciliation resync.
 		if (peer_role[OLD] == R_PRIMARY &&
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-891
+			// DW-891
 			cstate[OLD] == C_CONNECTED && cstate[NEW] >= C_TIMEOUT && cstate[NEW] <= C_PROTOCOL_ERROR) {
-#else
-		    cstate[OLD] == C_CONNECTED && cstate[NEW] < C_CONNECTED) {
-#endif
 			/* A connection to a primary went down, notify other peers about that */
 			notify_peers_lost_primary(connection);
 		}

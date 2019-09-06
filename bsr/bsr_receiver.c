@@ -6941,10 +6941,11 @@ static int receive_uuids110(struct drbd_connection *connection, struct packet_in
 #ifdef _WIN32 
 	// MODIFIED_BY_MANTECH DW-1306: to avoid race with removing flag in sanitize_state(Linux drbd commit:7d60f61). with got stable flag, need resync after unstable to be triggered.
 	if (be64_to_cpu(p->uuid_flags) & UUID_FLAG_GOT_STABLE &&
-		!test_bit(RECONCILIATION_RESYNC, &peer_device->flags)) {	// MODIFIED_BY_MANTECH DW-891
 #else
-	if (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE) { 
+	if (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE && 
 #endif
+		// DW-891
+		!test_bit(RECONCILIATION_RESYNC, &peer_device->flags)) {	
 		struct drbd_device *device = peer_device->device;
 		
 		if (peer_device->repl_state[NOW] == L_ESTABLISHED &&
@@ -6959,7 +6960,7 @@ static int receive_uuids110(struct drbd_connection *connection, struct packet_in
 		}
 	}
 	
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-891
+#ifdef _WIN32 
 	if (peer_device->uuid_flags & UUID_FLAG_RESYNC &&
 #ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
 		// MODIFIED_BY_MANTECH DW-1148: added checking flag to segregate resync reason.
@@ -6969,10 +6970,11 @@ static int receive_uuids110(struct drbd_connection *connection, struct packet_in
 		// DW-1315: UUID_FLAG_RESYNC is also used to start resync when authoritative node is changed, do not trigger resync here.
 		!(peer_device->uuid_flags & UUID_FLAG_AUTHORITATIVE) &&
 #endif
-		!test_bit(RECONCILIATION_RESYNC, &peer_device->flags)) {
 #else
-	if (peer_device->uuid_flags & UUID_FLAG_RESYNC) { 
+	if (peer_device->uuid_flags & UUID_FLAG_RESYNC && 
 #endif
+		// DW-891
+		!test_bit(RECONCILIATION_RESYNC, &peer_device->flags)) {
 		if (get_ldev(device)) {
 			bool dp = peer_device->uuid_flags & UUID_FLAG_DISKLESS_PRIMARY;
 			drbd_resync(peer_device, dp ? DISKLESS_PRIMARY : AFTER_UNSTABLE);
@@ -9468,16 +9470,18 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 	if (new_repl_state != L_ESTABLISHED) {
 		unsigned long irq_flags;
 
-
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-891
+		// DW-891
 		/* If cannot change the state of peer node to L_WF_BITMAP_S, do not change the local node's repl_state to L_WF_BITMAP_T. */
+#ifdef _WIN32
 		idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+#else
+		idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
+#endif
 			if ((new_repl_state == L_WF_BITMAP_T) && (peer_device->disk_state[NOW] <= D_INCONSISTENT))
 			{
 				goto out;
 			}
-		}
-#endif		
+		}	
 
 #ifdef _WIN32_TRACE_PEER_DAGTAG
 		drbd_info(connection, "Reconciliation resync because \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
