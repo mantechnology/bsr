@@ -5893,10 +5893,9 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 #endif
 			got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
 		__drbd_uuid_set_current(device, val);
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-837: Apply updated current uuid to meta disk.
+
+		// DW-837: Apply updated current uuid to meta disk.
 		drbd_md_mark_dirty(device);
-#endif
 	}
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
