@@ -887,19 +887,13 @@ struct d_resource *parse_drbdsetup_show(const char *name)
 	return res;
 }
 
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-889
+// DW-889
 struct d_resource *running_res_by_name(const char *name, bool parse)
-#else
-struct d_resource *running_res_by_name(const char *name)
-#endif
 {
 	static bool drbdsetup_show_parsed = false;
 	struct d_resource *res;
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-889
+	// DW-889
 	if (parse && adjust_more_than_one_resource && !drbdsetup_show_parsed) {
-#else
-	if (adjust_more_than_one_resource && !drbdsetup_show_parsed) {
-#endif
 		parse_drbdsetup_show(NULL); /* all in one go */
 		drbdsetup_show_parsed = true;
 	}
@@ -909,11 +903,8 @@ struct d_resource *running_res_by_name(const char *name)
 			return res;
 	}
 
-#ifdef _WIN32 // DW-889
+	// DW-889
 	if (parse && !adjust_more_than_one_resource)
-#else
-	if (!adjust_more_than_one_resource)
-#endif
 	{
 		return parse_drbdsetup_show(name);
 	}
@@ -943,11 +934,8 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	set_me_in_resource(ctx->res, true);
 	set_peer_in_resource(ctx->res, true);
 
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-889
+	// DW-889
 	running = running_res_by_name(ctx->res->name, true);
-#else
-	running = running_res_by_name(ctx->res->name);
-#endif
 	
 	if (running) {
 		set_me_in_resource(running, DRBDSETUP_SHOW);

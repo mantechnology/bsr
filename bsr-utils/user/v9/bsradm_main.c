@@ -3606,8 +3606,7 @@ int main(int argc, char **argv)
 		exit(E_CONFIG_INVALID);
 	}
 
-#ifdef _WIN32 
-	// MODIFIED_BY_MANTECH DW-889: parsing running_config before post_parse().
+	// DW-889: parsing running_config before post_parse().
 	if (cmd != &connect_cmd && cmd != &adjust_cmd)
 	{
 		char *temp_file = config_file;
@@ -3624,7 +3623,7 @@ int main(int argc, char **argv)
 		config_file = temp_file;
 		config_valid = temp_config_valid;
 	}
-#endif
+
 	post_parse(&config, cmd->is_proxy_cmd ? MATCH_ON_PROXY : 0);
 	TRACE_PRINT("post_parse called : cmd->is_proxy_cmd(%s)\n", cmd->is_proxy_cmd ? "true" : "false");
 
@@ -3733,7 +3732,7 @@ int main(int argc, char **argv)
 					r = 0;
 				}
 				if (!ctx.res) {
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-889
+					// DW-889
 					ctx.res = res_by_name(resource_names[i]);
 					if(ctx.res && ctx.res->ignore)
 					{
@@ -3743,9 +3742,6 @@ int main(int argc, char **argv)
 					{
 						err("'%s' not defined in your config (for this host).\n", resource_names[i]);
 					}
-#else
-					err("'%s' not defined in your config (for this host).\n", resource_names[i]);
-#endif
 					exit(E_USAGE);
 				}
 				if (r)
