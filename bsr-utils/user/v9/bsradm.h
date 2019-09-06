@@ -315,9 +315,8 @@ enum {
 extern int _adm_adjust(const struct cfg_ctx *ctx, int flags);
 extern int is_equal(struct context_def *ctx, struct d_option *a, struct d_option *b);
 
-#ifdef _WIN32
+// DW-889
 extern struct d_resource *running_res_by_name(const char *name, bool parse);
-#endif
 
 extern struct adm_cmd new_minor_cmd;
 extern struct adm_cmd new_resource_cmd;
