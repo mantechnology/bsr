@@ -6157,13 +6157,10 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 			int from_node_id;
 
 			if (peer_current_uuid == (drbd_current_uuid(device) & ~UUID_PRIMARY)) {
-
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-978, DW-979, DW-980
+				// DW-978, DW-979, DW-980
 				// bitmap_uuid was already '0', just clear_flag and drbd_propagate_uuids().
 				if((peer_md[node_id].bitmap_uuid == 0) && (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))
 					goto clear_flag;
-#endif
 				_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
 				peer_md[node_id].bitmap_uuid = 0;
 				if (node_id == peer_device->node_id)
@@ -6195,6 +6192,7 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 					drbd_info(device, "Clearing bitmap UUID for node %d\n",
 						  node_id);
 				drbd_md_mark_dirty(device);
+// DW-979, DW-980
 clear_flag:
 				// DW-978: Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
