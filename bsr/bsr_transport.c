@@ -84,9 +84,7 @@ static struct drbd_transport_class *get_transport_class(const char *name)
 
 	down_read(&transport_classes_lock);
 	tc = __find_transport_class(name);
-#ifdef _WIN32
-    // try_module_get() not support!
-#else
+#ifndef _WIN32
 	if (tc && !try_module_get(tc->module))
 		tc = NULL;
 #endif
@@ -99,14 +97,7 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 	struct drbd_transport_class *tc = get_transport_class(name);
 
 	if (!tc) {
-#ifdef _WIN32
-		// request_module is not support
 		dtt_initialize();
-#else
-		// TODO: required to port on linux
-		//request_module("drbd_transport_%s", name);
-		dtt_initialize();
-#endif
 		tc = get_transport_class(name);
 	}
 
@@ -214,25 +205,10 @@ static struct drbd_listener *find_listener(struct drbd_connection *connection,
 #ifdef _WIN32
 	list_for_each_entry(struct drbd_listener, listener, &resource->listeners, list) {
 		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)addr)) {
-#if 0 // reference V8.x org 
-	struct drbd_path *path;
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_listener, listener, &resource->listeners, list) {
-		list_for_each_entry(struct drbd_path, path, &connection->transport.paths, list) {
-#else
-	list_for_each_entry(listener, &resource->listeners, list) {
-		list_for_each_entry(path, &connection->transport.paths, list) {
-#endif
-			if (addr_and_port_equal(&listener->listen_addr, &path->my_addr)) {
-				kref_get(&listener->kref);
-				return listener;
-			}
-#endif // V8 org
 #else
 	list_for_each_entry(listener, &resource->listeners, list) {
 		if (addr_and_port_equal(&listener->listen_addr, addr)) {
 #endif
-		
 			kref_get(&listener->kref);
 			return listener;
 		}
@@ -424,7 +400,7 @@ void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path)
 	notify_path(connection, path, NOTIFY_CHANGE);
 }
 
-// TODO: check again
+
 //#ifndef _WIN32
 //EXPORT_SYMBOL_GPL(drbd_register_transport_class);
 //EXPORT_SYMBOL_GPL(drbd_unregister_transport_class);
