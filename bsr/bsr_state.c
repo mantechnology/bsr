@@ -5912,11 +5912,9 @@ enum drbd_state_rv change_repl_state(struct drbd_peer_device *peer_device,
 			.vnr = peer_device->device->vnr,
 			.mask = { { .conn = conn_MASK } },
 			.val = { { .conn = new_repl_state } },
-			.target_node_id = peer_device->node_id,			
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-954 
-			/* send TWOPC_COMMIT packets to other nodes before updating the local state */
+			.target_node_id = peer_device->node_id,
+			// DW-954 : send TWOPC_COMMIT packets to other nodes before updating the local state
 			.change_local_state_last = true,
-#endif
 			.flags = flags
 		},
 		.peer_device = peer_device

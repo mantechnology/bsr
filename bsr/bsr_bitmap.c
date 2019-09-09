@@ -52,10 +52,9 @@
 # endif
 #endif
 
-#ifdef _WIN32
+// DW-917
 #define BYTES_PER_BM_WORD	(sizeof(u32))
 #define BITS_PER_BM_WORD	(BYTES_PER_BM_WORD << 3)
-#endif
 
 #ifdef _WIN32
 IO_COMPLETION_ROUTINE drbd_bm_endio;
@@ -1058,12 +1057,9 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		goto out;
 	}
 	bits  = BM_SECT_TO_BIT(ALIGN(capacity, BM_SECT_PER_BIT));
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-917: The calculation of counting words should be divided by the bit count of 'int' since the accessing unit of data word for bitmap is 'int'.
+
+	// DW-917: The calculation of counting words should be divided by the bit count of 'int' since the accessing unit of data word for bitmap is 'int'.
 	words = (ALIGN(bits, 64) * b->bm_max_peers) / BITS_PER_BM_WORD;
-#else
-	words = (ALIGN(bits, 64) * b->bm_max_peers) / BITS_PER_LONG;
-#endif
 
 	if (get_ldev(device)) {
 		u64 bits_on_disk = drbd_md_on_disk_bits(device);
@@ -1080,12 +1076,10 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 			goto out;
 		}
 	}
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-917: Need to multiply the bytes of each word.
+
+	// DW-917: Need to multiply the bytes of each word.
     want = ALIGN(words*BYTES_PER_BM_WORD, PAGE_SIZE) >> PAGE_SHIFT;
-#else
-	want = ALIGN(words*sizeof(long), PAGE_SIZE) >> PAGE_SHIFT;
-#endif
+
 	have = b->bm_number_of_pages;
 	if (want == have) {
 		D_ASSERT(device, b->bm_pages != NULL);
