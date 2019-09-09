@@ -3407,9 +3407,9 @@ static int e_end_block(struct drbd_work *w, int cancel)
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
 	struct drbd_device *device = peer_device->device;
-#ifndef _WIN32
-	sector_t sector = peer_req->i.sector;
-#endif
+
+	//sector_t sector = peer_req->i.sector;
+
 	struct drbd_epoch *epoch;
 	int err = 0, pcmd;
 
@@ -3422,20 +3422,10 @@ static int e_end_block(struct drbd_work *w, int cancel)
 	if (peer_req->flags & EE_SEND_WRITE_ACK) {
 		if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1012: Existing out of sync means that the data for current req is outdated.
+			// DW-1012: Existing out of sync means that the data for current req is outdated.
 			// Sending 'P_RS_WRITE_ACK' for replication data could break consistency since it removes newly set out of sync.
 			pcmd = P_WRITE_ACK;
 			err = drbd_send_ack(peer_device, pcmd, peer_req);
-#else
-			pcmd = (peer_device->repl_state[NOW] >= L_SYNC_SOURCE &&
-				peer_device->repl_state[NOW] <= L_PAUSED_SYNC_T &&
-				peer_req->flags & EE_MAY_SET_IN_SYNC) ?
-				P_RS_WRITE_ACK : P_WRITE_ACK;
-			err = drbd_send_ack(peer_device, pcmd, peer_req);
-			if (pcmd == P_RS_WRITE_ACK)
-				drbd_set_in_sync(peer_device, sector, peer_req->i.size);
-#endif
 		} else {
 			err = drbd_send_ack(peer_device, P_NEG_ACK, peer_req);
 			/* DW-1810
@@ -3868,10 +3858,10 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 
 		err = wait_for_and_update_peer_seq(peer_device, d.peer_seq);
 		drbd_send_ack_dp(peer_device, P_NEG_ACK, &d);
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1012: Set out-of-sync when replication data hasn't been written on my disk, source node does same once it receives negative ack.
+
+		// DW-1012: Set out-of-sync when replication data hasn't been written on my disk, source node does same once it receives negative ack.
 		drbd_set_out_of_sync(peer_device, d.sector, d.bi_size);
-#endif
+
 		atomic_inc(&connection->current_epoch->epoch_size);
 		err2 = ignore_remaining_packet(connection, pi->size);
 		if (!err)
@@ -4068,10 +4058,8 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 
 	err = drbd_submit_peer_request(device, peer_req, op, op_flags,
 		DRBD_FAULT_DT_WR);
-	if (!err)
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1012: The data just received is the newest, ignore previously received out-of-sync.
-	{
+	if (!err) {	// DW-1012: The data just received is the newest, ignore previously received out-of-sync.
+	
 		int in_sync = 0;
 		//DW-1904        
 		in_sync = drbd_set_in_sync(peer_device, peer_req->i.sector, peer_req->i.size);
@@ -4206,9 +4194,6 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 #endif
 		return 0;
 	}
-#else
-		return 0;
-#endif
 
 	/* don't care for the reason here */
 	drbd_err(peer_device, "submit failed, triggering re-connect\n");

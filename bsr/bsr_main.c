@@ -2973,11 +2973,9 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 			err = _drbd_send_zc_bio(peer_device, req->master_bio);
 #endif
 
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1012: Remove out of sync when data is sent, this is the newest one.
+		// DW-1012: Remove out of sync when data is sent, this is the newest one.
 		if (!err)
 			drbd_set_in_sync(peer_device, req->i.sector, req->i.size);
-#endif
 
 		/* double check digest, sometimes buffers have been modified in flight. */
 		if (digest_size > 0 && digest_size <= 64) {
