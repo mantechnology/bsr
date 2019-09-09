@@ -5862,10 +5862,8 @@ static void drbd_propagate_uuids(struct drbd_device *device, u64 nodes)
 void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 val, u64 weak_nodes) __must_hold(local)
 {
 	struct drbd_device *device = peer_device->device;
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-977
+	// DW-977
 	struct drbd_peer_device *peer_uuid_sent = peer_device;
-#endif
 	u64 dagtag = peer_device->connection->last_dagtag_sector;
 	u64 got_new_bitmap_uuid = 0;
 	bool set_current = true;
@@ -5898,12 +5896,10 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 	}
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
-#ifdef _WIN32
 	if(set_current) {
-		// MODIFIED_BY_MANTECH DW-977: Send current uuid as soon as set it to let the node which created uuid update mine.
+		// DW-977: Send current uuid as soon as set it to let the node which created uuid update mine.
 		drbd_send_current_uuid(peer_uuid_sent, val, drbd_weak_nodes_device(device));
 	}
-#endif
 	drbd_propagate_uuids(device, got_new_bitmap_uuid);
 }
 

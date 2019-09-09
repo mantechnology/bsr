@@ -9564,20 +9564,17 @@ static int receive_current_uuid(struct drbd_connection *connection, struct packe
 
 	current_uuid = be64_to_cpu(p->uuid);
 	weak_nodes = be64_to_cpu(p->weak_nodes);
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-977: Newly created uuid hasn't been updated for peer device, do it as soon as peer sends its uuid which means it was adopted for peer's current uuid.
+	// DW-977: Newly created uuid hasn't been updated for peer device, do it as soon as peer sends its uuid which means it was adopted for peer's current uuid.
 	peer_device->current_uuid = current_uuid;
-#endif
 
 	if (connection->peer_role[NOW] == R_UNKNOWN)
 		return 0;
 
 	if (current_uuid == drbd_current_uuid(device))
 		return 0;
-#ifndef _WIN32
-	// MODIFIED_BY_MANTECH DW-977
-	peer_device->current_uuid = current_uuid;
-#endif
+
+	// DW-977
+	// peer_device->current_uuid = current_uuid;
 
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
 		if (connection->peer_role[NOW] == R_PRIMARY) {
