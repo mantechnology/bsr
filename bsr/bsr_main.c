@@ -1772,18 +1772,22 @@ static u64 __bitmap_uuid(struct drbd_device *device, int node_id) __must_hold(lo
 		peer_device->current_uuid != 0 &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) !=
 		(drbd_current_uuid(device) & ~UUID_PRIMARY))
-#ifdef _WIN32
+
 	{
-		// MODIFIED_BY_MANTECH DW-978: Set MDF_PEER_DIFF_CUR_UUID flag so that we're able to recognize -1 is sent.
+		// DW-978: Set MDF_PEER_DIFF_CUR_UUID flag so that we're able to recognize -1 is sent.
+#ifdef _WIN32
 		// MODIFIED_BY_MANTECH DW-1415 Set MDF_PEER_DIFF_CUR_UUID flag when only peer is in connected state to avoid exchanging uuid unlimitedly on the ring topology with flawed connection.
 		if (peer_device->connection->cstate[NOW] == C_CONNECTED)
+#endif
 			peer_md[node_id].flags |= MDF_PEER_DIFF_CUR_UUID;
 
+#ifdef _WIN32
 		bitmap_uuid = UINT64_MAX;
-	}
-#else
+#else	// _LIN
 		bitmap_uuid = -1;
 #endif
+	}
+
 
 	rcu_read_unlock();
 
@@ -6147,14 +6151,10 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 		if (peer_md[node_id].bitmap_index == -1 && !(peer_md[node_id].flags & MDF_NODE_EXISTS))
 			continue;
 
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-978: Need to check if uuid has to be propagated even if bitmap_uuid is 0, it could be set -1 during sent, check the flag 'MDF_PEER_DIFF_CUR_UUID'.
+		// DW-978: Need to check if uuid has to be propagated even if bitmap_uuid is 0, it could be set -1 during sent, check the flag 'MDF_PEER_DIFF_CUR_UUID'.
 		if (peer_device->bitmap_uuids[node_id] == 0 && (peer_md[node_id].bitmap_uuid != 0 || (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))) {
-#else
-		if (peer_device->bitmap_uuids[node_id] == 0 && peer_md[node_id].bitmap_uuid != 0) {
-			int from_node_id;
-#endif
 			u64 peer_current_uuid = peer_device->current_uuid & ~UUID_PRIMARY;
+			int from_node_id;
 
 			if (peer_current_uuid == (drbd_current_uuid(device) & ~UUID_PRIMARY)) {
 
@@ -6163,9 +6163,7 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 				// bitmap_uuid was already '0', just clear_flag and drbd_propagate_uuids().
 				if((peer_md[node_id].bitmap_uuid == 0) && (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))
 					goto clear_flag;
-
 #endif
-				
 				_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
 				peer_md[node_id].bitmap_uuid = 0;
 				if (node_id == peer_device->node_id)
@@ -6197,11 +6195,9 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 					drbd_info(device, "Clearing bitmap UUID for node %d\n",
 						  node_id);
 				drbd_md_mark_dirty(device);
-#ifdef _WIN32
 clear_flag:
-				// MODIFIED_BY_MANTECH DW-978: Clear the flag once we determine that uuid will be propagated.
+				// DW-978: Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
-#endif
 				write_bm = true;
 			}
 
@@ -6209,10 +6205,8 @@ clear_flag:
 			// MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
 			from_node_id = find_node_id_by_bitmap_uuid(device, peer_current_uuid);
 			if (from_node_id != -1 && node_id != from_node_id &&
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-978: Copying bitmap here assumed that bitmap uuid wasn't 0, check bitmap uuid again since flag 'MDF_PEER_DIFF_CUR_UUID' is added.
+				// DW-978: Copying bitmap here assumed that bitmap uuid wasn't 0, check bitmap uuid again since flag 'MDF_PEER_DIFF_CUR_UUID' is added.
 				peer_md[node_id].bitmap_uuid != 0 &&
-#endif
 			    dagtag_newer(peer_md[from_node_id].bitmap_dagtag,
 					 peer_md[node_id].bitmap_dagtag)) {
 				_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
@@ -6225,10 +6219,9 @@ clear_flag:
 					drbd_info(device, "Node %d synced up to node %d.\n",
 						  node_id, from_node_id);
 				drbd_md_mark_dirty(device);
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-978: Clear the flag once we determine that uuid will be propagated.
+
+				// DW-978: Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
-#endif
 				filled = true;
 			}
 #endif

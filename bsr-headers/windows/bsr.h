@@ -426,11 +426,11 @@ enum mdf_peer_flag {
 	MDF_PEER_FENCING =		1 << 2,
 	MDF_PEER_FULL_SYNC =	1 << 3,
 	MDF_PEER_DEVICE_SEEN =	1 << 4,
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-978: Bitmap uuid is set as -1 and sent to peers when it's 0 and current uuid doesn't match.
+	// DW-978: Bitmap uuid is set as -1 and sent to peers when it's 0 and current uuid doesn't match.
 	// It needs to be cleared when resync's done and gets matched current uuid.
 	// This flag indicates that above situation so that uuid will be propagated once resync is finished.
 	MDF_PEER_DIFF_CUR_UUID = 1 << 5,
+#ifdef _WIN32
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		/* MODIFIED_BY_MANTECH DW-1357: no need to get synced from this peer, ignore crashed primary */
 #endif
