@@ -5383,6 +5383,7 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 	return rv;
 }
 
+#ifdef _WIN32
 static void disk_states_to_goodness(struct drbd_device *device,
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 // MODIFIED_BY_MANTECH DW-1357: need to see peer device md flags.
@@ -5390,6 +5391,11 @@ static void disk_states_to_goodness(struct drbd_device *device,
 #endif
 				    enum drbd_disk_state peer_disk_state,
 				    int *hg, int rule_nr)
+#else
+static void disk_states_to_goodness(struct drbd_device *device,
+				    enum drbd_disk_state peer_disk_state,
+				    int *hg, int rule_nr)
+#endif
 {
 	enum drbd_disk_state disk_state = device->disk_state[NOW];
 	bool p = false;
@@ -5529,12 +5535,15 @@ static enum drbd_repl_state drbd_attach_handshake(struct drbd_peer_device *peer_
 		return -1;
 
 	bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
+#ifdef _WIN32
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 	disk_states_to_goodness(peer_device->device, peer_device, peer_disk_state, &hg, rule_nr);
 #else
 	disk_states_to_goodness(peer_device->device, peer_disk_state, &hg, rule_nr);
 #endif
-
+#else
+	disk_states_to_goodness(peer_device->device, peer_disk_state, &hg, rule_nr);
+#endif
 	return goodness_to_repl_state(peer_device, peer_device->connection->peer_role[NOW], hg);
 }
 
@@ -5566,8 +5575,12 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 		return -1;
 	}
 
+#ifdef _WIN32
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 	disk_states_to_goodness(device, peer_device, peer_disk_state, &hg, rule_nr);
+#else
+	disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
+#endif
 #else
 	disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
 #endif

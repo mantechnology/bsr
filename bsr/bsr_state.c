@@ -3502,9 +3502,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				peer_disk_state[OLD] == D_INCONSISTENT && peer_disk_state[NEW] == D_UP_TO_DATE)	
 				send_state_others = peer_device;
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-998: Disk state is adopted by peer disk and it could have any syncable state, so is local disk state.
+
+			// DW-998: Disk state is adopted by peer disk and it could have any syncable state, so is local disk state.
 			if (resync_finished && disk_state[NEW] >= D_OUTDATED && disk_state[NEW] == peer_disk_state[NOW]){
+#ifdef _WIN32
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 				// MODIFIED_BY_MANTECH DW-1357: clear CRASHED_PRIMARY flag if I've done resync as a sync target from one of peer or as a sync source for all peers.
 				if (test_bit(CRASHED_PRIMARY, &device->flags))
@@ -3512,11 +3513,13 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 #else
 				clear_bit(CRASHED_PRIMARY, &device->flags);
 #endif
+#else
+				clear_bit(CRASHED_PRIMARY, &device->flags);
+#endif
 
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
 			}
-#endif
 		}
 
 		for (n_connection = 0; n_connection < state_change->n_connections; n_connection++) {
