@@ -2570,6 +2570,19 @@ static bool drbd_send_ack_and_rs_failed(struct drbd_peer_device *peer_device, se
 #endif
 
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+static int bit_count(unsigned int val)
+{
+	int count = 0;
+
+	while (val != 0) {
+		if ((val & 0x1) == 0x1) 
+			count++;
+		val >>= 1;
+	}
+
+	return count;
+}
+
 static int split_e_end_resync_block(struct drbd_work *w, int unused)
 {
 #ifdef _WIN32
@@ -2782,11 +2795,7 @@ static bool prepare_split_peer_request(struct drbd_peer_device *peer_device, ULO
 	list_for_each_entry_safe(marked_rl, tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
 #endif
 		//DW-1911 set in sync if all the sector are marked.
-#ifdef _WIN32
-		if (__popcnt(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
-#else
-		if (__builtin_popcount(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
-#endif
+		if (bit_count(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
 			drbd_set_in_sync(peer_device, BM_BIT_TO_SECT(marked_rl->bb), BM_SECT_PER_BIT << 9);
 			list_del(&(marked_rl->marked_rl_list));
 			kfree(marked_rl);
@@ -3069,11 +3078,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 						}
 
 						//DW-1911 unmakred sector counting
-#ifdef _WIN32
-						atomic_set(unmarked_count, (sizeof(marked_rl->marked_rl) * 8) - __popcnt(marked_rl->marked_rl));
-#else
-						atomic_set(unmarked_count, (sizeof(marked_rl->marked_rl) * 8) - __builtin_popcount(marked_rl->marked_rl));
-#endif
+						atomic_set(unmarked_count, (sizeof(marked_rl->marked_rl) * 8) - bit_count(marked_rl->marked_rl));
 						atomic_set(failed_unmarked, 0);
 
 						for (i = 0; i < sizeof(marked_rl->marked_rl) * 8; i++) {
