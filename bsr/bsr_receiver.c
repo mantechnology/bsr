@@ -5475,7 +5475,7 @@ static void various_states_to_goodness(struct drbd_device *device,
 	}
 
 	// 2. compare disk state.
-#ifdef _WIN32 // DW-1633: no resync. D_CONSISTENT is temporary state.
+#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-1633: no resync. D_CONSISTENT is temporary state.
 	if (peer_disk_state == D_CONSISTENT || disk_state == D_CONSISTENT)
 	{
 		return;
@@ -5492,7 +5492,7 @@ static void various_states_to_goodness(struct drbd_device *device,
 		goto out;
 	}
 	
-	// MODIFIED_BY_MANTECH DW-955: no chance to in-sync consistent sector since peer_in_sync has been left out of receiving while disconnected.
+	// DW-955: no chance to in-sync consistent sector since peer_in_sync has been left out of receiving while disconnected.
 	// 3. get rid of unnecessary out-of-sync.
 	if (device->disk_state[NOW] == D_UP_TO_DATE &&
 		peer_disk_state == D_UP_TO_DATE &&
@@ -5510,7 +5510,12 @@ static void various_states_to_goodness(struct drbd_device *device,
 
 		if (peer_bm_uuid)
 			_drbd_uuid_push_history(device, peer_bm_uuid);
-		if (peer_md[peer_node_id].bitmap_index != -1 && !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
+		if (peer_md[peer_node_id].bitmap_index != -1
+#ifdef _WIN32
+			&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
+#endif
+		)
+		
 		{
 			drbd_info(peer_device, "bitmap will be cleared due to inconsistent out-of-sync\n");
 			forget_bitmap(device, peer_node_id);

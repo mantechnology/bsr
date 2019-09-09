@@ -948,13 +948,11 @@ static bool extent_in_sync(struct drbd_peer_device *peer_device, unsigned int rs
 
 		return rv;
 	}
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-955: Need to send peer_in_sync to PausedSyncTarget and UpToDate node.
-		else if (peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
-			if (peer_device->disk_state[NOW] == D_UP_TO_DATE)
-				return true;
-		}
-#endif
+	// DW-955: Need to send peer_in_sync to PausedSyncTarget and UpToDate node.
+	else if (peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
+		if (peer_device->disk_state[NOW] == D_UP_TO_DATE)
+			return true;
+	}
 
 	return false;
 }

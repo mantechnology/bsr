@@ -1589,8 +1589,7 @@ static bool was_resync_stable(struct drbd_peer_device *peer_device)
 	return true;
 }
 
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-955: need to upgrade disk state after unstable resync.
+// DW-955: need to upgrade disk state after unstable resync.
 static void sanitize_state_after_unstable_resync(struct drbd_peer_device *peer_device)
 {
 	struct drbd_device *device = peer_device->device;
@@ -1614,7 +1613,6 @@ static void sanitize_state_after_unstable_resync(struct drbd_peer_device *peer_d
 		peer_device->disk_state[NOW] >= D_OUTDATED)
 		__change_disk_state(device, D_OUTDATED, __FUNCTION__);
 }
-#endif
 
 static void __cancel_other_resyncs(struct drbd_device *device)
 {
@@ -1622,9 +1620,8 @@ static void __cancel_other_resyncs(struct drbd_device *device)
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NEW] == L_PAUSED_SYNC_T)
-#ifdef _WIN32
 		{
-			// MODIFIED_BY_MANTECH DW-955: canceling other resync may causes out-oof-sync remained, clear the bitmap since no need.
+			// DW-955: canceling other resync may causes out-oof-sync remained, clear the bitmap since no need.
 			struct drbd_peer_md *peer_md = device->ldev->md.peers;
 			int peer_node_id = 0;
 			u64 peer_bm_uuid = 0;
@@ -1635,7 +1632,11 @@ static void __cancel_other_resyncs(struct drbd_device *device)
 
 			if (peer_bm_uuid)
 				_drbd_uuid_push_history(device, peer_bm_uuid);
-			if (peer_md[peer_node_id].bitmap_index != -1 && !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
+			if (peer_md[peer_node_id].bitmap_index != -1
+#ifdef _WIN32
+			 && !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
+#endif
+			)
 			{
 				drbd_info(peer_device, "bitmap will be cleared due to resync cancelation\n");
 				forget_bitmap(device, peer_node_id);
@@ -1645,9 +1646,6 @@ static void __cancel_other_resyncs(struct drbd_device *device)
 
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 		}
-#else	// TODO
-			__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
-#endif
 	}
 }
 
@@ -1835,11 +1833,9 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 			bool stable_resync = was_resync_stable(peer_device);
 			if (stable_resync)
 				__change_disk_state(device, peer_device->disk_state[NOW], __FUNCTION__);
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-955: need to upgrade disk state after unstable resync.
+			// DW-955: need to upgrade disk state after unstable resync.
 			else
 				sanitize_state_after_unstable_resync(peer_device);
-#endif
 
 			if (device->disk_state[NEW] == D_UP_TO_DATE)
 				__cancel_other_resyncs(device);
@@ -1895,10 +1891,8 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		}
 	}
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-955: clear resync aborted flag when just resync is done.
+	// DW-955: clear resync aborted flag when just resync is done.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
-#endif
 
 out_unlock:
 #ifdef _WIN32_RCU_LOCKED
@@ -2897,10 +2891,8 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 	}
 #endif
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-955: clear resync aborted flag when just starting resync.
+	// DW-955: clear resync aborted flag when just starting resync.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
-#endif
 
 	if (!test_bit(B_RS_H_DONE, &peer_device->flags)) {
 		if (side == L_SYNC_TARGET) {

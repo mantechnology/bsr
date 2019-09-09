@@ -2016,14 +2016,11 @@ static void sanitize_state(struct drbd_resource *resource)
 				((repl_state[NEW] == L_SYNC_SOURCE || repl_state[NEW] == L_PAUSED_SYNC_S ) && disk_state[NEW] <= D_INCONSISTENT))
 			{
 				__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-955: need to set flag to resume aborted resync when it goes syncable.
+				// DW-955: need to set flag to resume aborted resync when it goes syncable.
 				set_bit(RESYNC_ABORTED, &peer_device->flags);
-#endif
 			}
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-955: (peer)disk state is going syncable, resume aborted resync.
+			// DW-955: (peer)disk state is going syncable, resume aborted resync.
 			if ((disk_state[OLD] <= D_INCONSISTENT && peer_disk_state[OLD] <= D_INCONSISTENT) &&
 				(disk_state[NEW] <= D_INCONSISTENT || peer_disk_state[NEW] <= D_INCONSISTENT) &&
 				test_bit(RESYNC_ABORTED, &peer_device->flags))
@@ -2059,7 +2056,6 @@ static void sanitize_state(struct drbd_resource *resource)
 					clear_bit(RESYNC_ABORTED, &peer_device->flags);
 				}				
 			}
-#endif
 
 			/* D_CONSISTENT vanish when we get connected (pre 9.0) */
 			if (connection->agreed_pro_version < 110 &&

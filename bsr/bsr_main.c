@@ -248,23 +248,23 @@ static inline void ratelimit_state_init(struct ratelimit_state *state, int inter
 DEFINE_RATELIMIT_STATE(drbd_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 #endif
 
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1130: check if peer's replication state is ok to forget it's bitmap.
+// DW-1130: check if peer's replication state is ok to forget it's bitmap.
 static inline bool isForgettableReplState(enum drbd_repl_state repl_state)
 {
 	if (repl_state < L_ESTABLISHED ||
 		repl_state == L_SYNC_SOURCE ||
 		repl_state == L_AHEAD ||
-		repl_state == L_WF_BITMAP_S ||
-		// DW-1369 do not clear bitmap when STARTING_SYNC_X state.
-		repl_state == L_STARTING_SYNC_S ||
+		repl_state == L_WF_BITMAP_S 
+#ifdef _WIN32
+		// MODIFIED_BY_MANTECH DW-1369 do not clear bitmap when STARTING_SYNC_X state.
+		|| repl_state == L_STARTING_SYNC_S ||
 		repl_state == L_STARTING_SYNC_T
+#endif
 		)
 		return false;
 
 	return true;
 }
-#endif
 
 #ifdef _WIN32
 EX_SPIN_LOCK g_rcuLock; //rcu lock is ported with spinlock
@@ -5980,11 +5980,7 @@ static const char* name_of_node_id(struct drbd_resource *resource, int node_id)
 	return connection ? rcu_dereference(connection->transport.net_conf)->name : "";
 }
 
-#ifdef _WIN32
-void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local)
-#else
-static void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local)
-#endif
+void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local) // DW-955
 {
 	int bitmap_index = device->ldev->md.peers[node_id].bitmap_index;
 	const char* name;
@@ -6179,23 +6175,28 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 				if (node_id == peer_device->node_id)
 					drbd_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
 				else if (peer_md[node_id].bitmap_index != -1)
-#ifdef _WIN32				
 				{
-					// MODIFIED_BY_MANTECH DW-955, DW-1116, DW-1131: do not forget bitmap if peer is not forgettable state.
+					// DW-955, DW-1116, DW-1131: do not forget bitmap if peer is not forgettable state.
 					struct drbd_peer_device *found_peer = peer_device_by_node_id(device, node_id);
 					
 					if (found_peer &&
-						isForgettableReplState(found_peer->repl_state[NOW]) && !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
+						isForgettableReplState(found_peer->repl_state[NOW])
+#ifdef _WIN32 
+						&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
+#endif
+					)
 					{
-						// MODIFIED_BY_MANTECH DW-955: print log to recognize where forget_bitmap is called.
-						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n", 
+						// DW-955: print log to recognize where forget_bitmap is called.
+#ifdef _WIN32
+						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n",
 							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (ULONG)found_peer->flags);
+#else
+						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n", 
+							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned)found_peer->flags);
+#endif
 						forget_bitmap(device, node_id);
 					}					
 				}
-#else
-					forget_bitmap(device, node_id);
-#endif
 				else
 					drbd_info(device, "Clearing bitmap UUID for node %d\n",
 						  node_id);
@@ -6238,15 +6239,17 @@ clear_flag:
 		}
 	}
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-955: peer has already cleared my bitmap, or receiving peer_in_sync has been left out. no resync is needed.
+
+	// DW-955: peer has already cleared my bitmap, or receiving peer_in_sync has been left out. no resync is needed.
 	if (drbd_bm_total_weight(peer_device) &&
 		peer_device->dirty_bits == 0 &&
 		isForgettableReplState(peer_device->repl_state[NOW]) &&
 		device->disk_state[NOW] > D_OUTDATED && // DW-1656 : no clearing bitmap when disk is Outdated.
-		// DW-1633 : if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
+#ifdef _WIN32
+		// MODIFIED_BY_MANTECH DW-1633 : if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
 		// at this time, the reconciliation resync may work, so do not clear the bitmap.
 		!((peer_device->disk_state[NOW] == D_CONSISTENT) && (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE)) &&
+#endif
 		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644, DW-1357 : clear bitmap when the disk state is same.
 		!(peer_device->uuid_authoritative_nodes & NODE_MASK(device->resource->res_opts.node_id)) &&
 #ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
@@ -6260,7 +6263,11 @@ clear_flag:
 		u64 peer_bm_uuid = peer_md[peer_node_id].bitmap_uuid;
 		if (peer_bm_uuid)
 			_drbd_uuid_push_history(device, peer_bm_uuid);
-		if (peer_md[peer_node_id].bitmap_index != -1 && !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
+		if (peer_md[peer_node_id].bitmap_index != -1
+#ifdef _WIN32
+			&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
+#endif
+		)
 		{
 			drbd_info(peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%d)\n", device->disk_state[NOW]);
 			forget_bitmap(device, peer_node_id);
@@ -6268,6 +6275,7 @@ clear_flag:
 		drbd_md_mark_dirty(device);
 	}
 
+#ifdef _WIN32
 	// MODIFIED_BY_MANTECH DW-1145: clear bitmap if peer has consistent disk with primary's, peer will also clear bitmap.
 	if (drbd_bm_total_weight(peer_device) &&
 		peer_device->uuid_flags & UUID_FLAG_CONSISTENT_WITH_PRI &&
@@ -6289,11 +6297,8 @@ clear_flag:
 		if (peer_device->dirty_bits)
 			filled = true;
 	}
-
-#else
-	// MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
-	write_bm |= detect_copy_ops_on_peer(peer_device);
 #endif
+
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
 	if (write_bm || filled) {
