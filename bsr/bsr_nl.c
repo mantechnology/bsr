@@ -5412,12 +5412,6 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 	struct drbd_resource *resource = peer_device->connection->resource;
 	enum drbd_state_rv rv;
 
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-	// MODIFIED_BY_MANTECH DW-1142: don't start 'invalidate' if peer is not primary.
-	if (peer_device->connection->peer_role[NOW] != R_PRIMARY)
-		return SS_RESYNC_FROM_SECONDARY;
-#endif
-
 #ifdef _WIN32
 	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
 #else
@@ -5620,14 +5614,6 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	device = peer_device->device;
 	resource = device->resource;
 
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-	// MODIFIED_BY_MANTECH DW-1142: don't start 'invalidate peer' if I'm not primary.
-	if (resource->role[NOW] != R_PRIMARY)
-	{
-		retcode = SS_RESYNC_FROM_SECONDARY;
-		goto out;
-	}
-#endif
 #ifdef _WIN32_STABLE_SYNCSOURCE
 	struct drbd_peer_device *temp_peer_device;
 	for_each_peer_device(temp_peer_device, device) {

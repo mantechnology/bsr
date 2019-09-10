@@ -1935,10 +1935,6 @@ static void sanitize_state(struct drbd_resource *resource)
 			enum drbd_conn_state *cstate = connection->cstate;
 			enum drbd_disk_state min_disk_state, max_disk_state;
 			enum drbd_disk_state min_peer_disk_state, max_peer_disk_state;
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-			// MODIFIED_BY_MANTECH DW-1142
-			enum drbd_role *peer_role = connection->peer_role;
-#endif
 
 			if (repl_state[NEW] < L_ESTABLISHED) {
 				__change_resync_susp_peer(peer_device, false, __FUNCTION__);
@@ -1986,36 +1982,6 @@ static void sanitize_state(struct drbd_resource *resource)
 				}
 			}
 #endif
-
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-			// MODIFIED_BY_MANTECH DW-1142: Abort resync since SyncSource goes secondary.
-			// DW-1159: aboring resync on behind is necessary, behind need to receive primary's state transition to go synctarget.
-			if ((peer_role[NEW] != R_PRIMARY && (repl_state[NEW] == L_SYNC_TARGET || repl_state[NEW] == L_BEHIND)) ||
-				(role[NEW] != R_PRIMARY && repl_state[NEW] == L_SYNC_SOURCE))
-			{	
-
-				// DW-1163 : clear Primary's bitmap UUID, update Secondary's current UUID when aborting resync.
-				if (repl_state[NEW] == L_SYNC_SOURCE && drbd_bitmap_uuid(peer_device))
-				{
-					_drbd_uuid_set_bitmap(peer_device, 0);
-					drbd_print_uuids(peer_device, "cleared bitmap UUID");
-				}
-				else if ((repl_state[NEW] == L_SYNC_TARGET || repl_state[NEW] == L_BEHIND) &&
-					// MODIFIED_BY_MANTECH DW-1248: need to initial sync when I've never updated uuid and resync aborted. no update uuid here.
-					((drbd_current_uuid(device) & ~UUID_PRIMARY) != UUID_JUST_CREATED) &&
-					((drbd_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) && peer_device->uuids_received)				
-				{
-					_drbd_uuid_set_current(device, peer_device->current_uuid);
-					_drbd_uuid_set_bitmap(peer_device, 0);
-					drbd_print_uuids(peer_device, "updated UUIDs");
-				}
-
-				drbd_info(peer_device, "Abort resync since SyncSource goes secondary\n");	
-				__change_repl_state(peer_device, L_ESTABLISHED);			
-				set_bit(RESYNC_ABORTED, &peer_device->flags);
-			}
-#endif
-
 			// DW-885, DW-897, DW-907: Abort resync if disk state goes unsyncable.
 			if (((repl_state[NEW] == L_SYNC_TARGET || repl_state[NEW] == L_PAUSED_SYNC_T ) && peer_disk_state[NEW] <= D_INCONSISTENT) ||
 				((repl_state[NEW] == L_SYNC_SOURCE || repl_state[NEW] == L_PAUSED_SYNC_S ) && disk_state[NEW] <= D_INCONSISTENT))
@@ -2029,33 +1995,17 @@ static void sanitize_state(struct drbd_resource *resource)
 			if ((disk_state[OLD] <= D_INCONSISTENT && peer_disk_state[OLD] <= D_INCONSISTENT) &&
 				(disk_state[NEW] <= D_INCONSISTENT || peer_disk_state[NEW] <= D_INCONSISTENT) &&
 				test_bit(RESYNC_ABORTED, &peer_device->flags))
-			{
-#ifndef _WIN32_DISABLE_RESYNC_FROM_SECONDARY				
+			{		
 				if (disk_state[NEW] == D_OUTDATED ||
 					disk_state[NEW] == D_CONSISTENT ||
 					disk_state[NEW] == D_UP_TO_DATE)
-#else
-				// MODIFIED_BY_MANTECH DW-1148: the only role can be sync source is primary, checking role must be added when determine syncable state.
-				if ((disk_state[NEW] == D_OUTDATED ||
-					disk_state[NEW] == D_CONSISTENT ||
-					disk_state[NEW] == D_UP_TO_DATE) &&
-					role[NEW] == R_PRIMARY)
-#endif
 				{
 					__change_repl_state(peer_device, L_SYNC_SOURCE, __FUNCTION__);
 					clear_bit(RESYNC_ABORTED, &peer_device->flags);
-				}
-#ifndef _WIN32_DISABLE_RESYNC_FROM_SECONDARY				
+				}		
 				else if (peer_disk_state[NEW] == D_OUTDATED ||
 					peer_disk_state[NEW] == D_CONSISTENT ||
 					peer_disk_state[NEW] == D_UP_TO_DATE)
-#else
-				// MODIFIED_BY_MANTECH DW-1148: the only role can be sync source is primary, checking role must be added when determine syncable state.
-				else if ((peer_disk_state[NEW] == D_OUTDATED ||
-					peer_disk_state[NEW] == D_CONSISTENT ||
-					peer_disk_state[NEW] == D_UP_TO_DATE) &&
-					peer_role[NEW] == R_PRIMARY)
-#endif
 				{
 					__change_repl_state(peer_device, L_SYNC_TARGET, __FUNCTION__);
 					clear_bit(RESYNC_ABORTED, &peer_device->flags);
@@ -2217,16 +2167,7 @@ static void sanitize_state(struct drbd_resource *resource)
 				(repl_state[OLD] < L_ESTABLISHED ||
 				peer_device->uuid_flags & UUID_FLAG_GOT_STABLE ||
 				peer_disk_state[OLD] == D_OUTDATED))
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-				 // MODIFIED_BY_MANTECH DW-1142: don't upgrade my disk if need sync.
-			{
-				if (!drbd_bm_total_weight(peer_device) &&
-					!peer_device->dirty_bits)
-					__change_disk_state(disk_state, D_UP_TO_DATE);
-			}
-#else
 				__change_disk_state(device, peer_disk_state[NEW], __FUNCTION__);
-#endif
 			/* clause intentional here, the D_CONSISTENT form above might trigger this */
 			if (repl_state[OLD] < L_ESTABLISHED && repl_state[NEW] >= L_ESTABLISHED &&
 				disk_state[NEW] == D_CONSISTENT && may_be_up_to_date(device))
@@ -2632,18 +2573,6 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 					}
 				}
 
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-				// MODIFIED_BY_MANTECH DW-1225: if my disk goes uptodate from inconsistent and pdisk is inconsistent, initial sync will be started. Otherwise, start resync after promotion.
-				if (role[OLD] != R_PRIMARY && role[NEW] == R_PRIMARY &&
-					cstate[NOW] >= C_CONNECTED &&					
-					device->disk_state[NEW] >= D_OUTDATED)
-				{
-					if (disk_state[OLD] != D_INCONSISTENT ||
-						disk_state[NEW] != D_UP_TO_DATE ||
-						peer_disk_state[OLD] != D_INCONSISTENT)
-						set_bit(PROMOTED_RESYNC, &peer_device->flags);
-				}
-#endif
 				/* Peer was forced D_UP_TO_DATE & R_PRIMARY, consider to resync */
 				if (disk_state[OLD] == D_INCONSISTENT &&
 				    peer_disk_state[OLD] == D_INCONSISTENT && peer_disk_state[NEW] == D_UP_TO_DATE &&
@@ -3924,8 +3853,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			if (send_state) 
 				drbd_send_state(peer_device, new_state);
 
-#ifndef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-			// MODIFIED_BY_MANTECH DW-1142: disable resync after unstable.
 			if (!device_stable[OLD] && device_stable[NEW] &&
 			    !(repl_state[OLD] == L_SYNC_TARGET || repl_state[OLD] == L_PAUSED_SYNC_T) &&
 			    !(peer_role[OLD] == R_PRIMARY) && disk_state[NEW] >= D_OUTDATED &&
@@ -3973,16 +3900,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 					end_state_change(device->resource, &irq_flags, __FUNCTION__);
 				}
-			}
-#endif
-
-#endif
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-			// MODIFIED_BY_MANTECH DW-1225: I am promoted, and there will be no initial sync. start resync after promotion.
-			if (test_bit(PROMOTED_RESYNC, &peer_device->flags))
-			{
-				clear_bit(PROMOTED_RESYNC, &peer_device->flags);
-				drbd_send_uuids(peer_device, UUID_FLAG_PROMOTED, 0);				
 			}
 #endif
 
@@ -4146,15 +4063,12 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 		if (susp_fen[NEW])
 			check_may_resume_io_after_fencing(state_change, n_connection);
 
-#ifndef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-		// MODIFIED_BY_MANTECH DW-1142: disable reconciliation resync.
 		if (peer_role[OLD] == R_PRIMARY &&
 			// DW-891
 			cstate[OLD] == C_CONNECTED && cstate[NEW] >= C_TIMEOUT && cstate[NEW] <= C_PROTOCOL_ERROR) {
 			/* A connection to a primary went down, notify other peers about that */
 			notify_peers_lost_primary(connection);
 		}
-#endif
 	}
 
 	for (n_connection = 0; n_connection < state_change->n_connections; n_connection++) {

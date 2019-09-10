@@ -1882,10 +1882,6 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 				// MODIFIED_BY_MANTECH DW-1216: no downgrade if uuid flags contains belows because
 				// 1. receiver updates newly created uuid unless it is being gotten sync, downgrading shouldn't(or might not) affect.
 				if (peer_device->uuid_flags & UUID_FLAG_NEW_DATAGEN
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-				// 2. one node goes primary and resync will be started for all secondaries. no downgrading is necessary.
-					|| peer_device->uuid_flags & UUID_FLAG_PROMOTED
-#endif
 					)
 					newer = 0;
 #endif
@@ -2904,22 +2900,6 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		drbd_err(peer_device, "Resync already running!\n");
 		return;
 	}
-
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-	// MODIFIED_BY_MANTECH DW-1142: don't start resync if resync source side node is not primary.
-	if ((side == L_SYNC_TARGET && peer_device->connection->peer_role[NOW] != R_PRIMARY) ||
-		(side == L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY))
-	{
-		drbd_info(peer_device, "Unable to start resync since SyncSource node is NOT primary\n");
-
-		unsigned long irq_flags;
-
-		begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
-		__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED);
-		end_state_change(device->resource, &irq_flags);
-		return;
-	}
-#endif
 
 	// DW-955: clear resync aborted flag when just starting resync.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);

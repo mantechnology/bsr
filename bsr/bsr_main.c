@@ -6225,10 +6225,6 @@ clear_flag:
 #endif
 		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644, DW-1357 : clear bitmap when the disk state is same.
 		!(peer_device->uuid_authoritative_nodes & NODE_MASK(device->resource->res_opts.node_id)) &&
-#ifdef _WIN32_DISABLE_RESYNC_FROM_SECONDARY
-		// MODIFIED_BY_MANTECH DW-1162: clear bitmap only when peer stays secondary.
-		peer_device->connection->peer_role[NEW] == R_SECONDARY &&
-#endif
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==
 		(drbd_current_uuid(device) & ~UUID_PRIMARY))
 	{
