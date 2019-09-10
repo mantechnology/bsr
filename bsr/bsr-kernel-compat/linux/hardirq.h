@@ -1,1 +1,1 @@
-﻿/* Just an empty file. */
+/* Just an empty file. */

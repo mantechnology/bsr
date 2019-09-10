@@ -1,4 +1,4 @@
-﻿#ifndef DRBDADM_H
+#ifndef DRBDADM_H
 #define DRBDADM_H
 
 #include <stdbool.h>

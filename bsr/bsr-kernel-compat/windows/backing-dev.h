@@ -1,4 +1,4 @@
-﻿#ifndef __BACKING_DEV_H__
+#ifndef __BACKING_DEV_H__
 #define __BACKING_DEV_H__
 
 /*

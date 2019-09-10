@@ -1,4 +1,4 @@
-﻿#include <stdbool.h>
+#include <stdbool.h>
 #include "libgenl.h"
 #include <linux/bsr_genl_api.h>
 #include "bsr_nla.h"

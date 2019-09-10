@@ -1,4 +1,4 @@
-﻿#define pr_fmt(fmt)	KBUILD_MODNAME " debugfs: " fmt
+#define pr_fmt(fmt)	KBUILD_MODNAME " debugfs: " fmt
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/seq_file.h"
 #include "./bsr-kernel-compat/windows/jiffies.h"

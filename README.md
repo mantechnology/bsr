@@ -1,4 +1,4 @@
-﻿﻿﻿﻿# BSR
+﻿﻿﻿# BSR
                            
 ## Synopsis
 Block Sync & Replication (BSR) is an open source project that implements software-based block replication over the network. It is based on a kernel-level replication engine and supports Windows and Linux cross-platform environments. BSR originally started out as a WDRBD project and only supported the Windows environment, but now extends to the Linux environment to support cross-platforms.

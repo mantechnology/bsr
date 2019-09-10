@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_CONFIG_FLAGS_H
+#ifndef __DRBD_CONFIG_FLAGS_H
 #define __DRBD_CONFIG_FLAGS_H
 
 struct msg_buff;

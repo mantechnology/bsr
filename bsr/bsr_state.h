@@ -1,4 +1,4 @@
-﻿#ifndef DRBD_STATE_H
+#ifndef DRBD_STATE_H
 #define DRBD_STATE_H
 
 #include "../bsr-headers/bsr_protocol.h"

@@ -1,4 +1,4 @@
-﻿#ifndef __HWEIGHT_H__
+#ifndef __HWEIGHT_H__
 #define __HWEIGHT_H__
 #include "bitops.h"
 #include "../../../bsr-headers/windows/types.h"

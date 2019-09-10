@@ -1,4 +1,4 @@
-﻿#ifndef __NETLINK_H__
+#ifndef __NETLINK_H__
 #define __NETLINK_H__
 #include "../../../bsr-headers/windows/types.h"
 #ifdef __KERNEL__

@@ -1,4 +1,4 @@
-﻿#ifdef _WIN32
+#ifdef _WIN32
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"

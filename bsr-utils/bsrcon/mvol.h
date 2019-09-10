@@ -1,4 +1,4 @@
-﻿#ifndef __MVOL_H__
+#ifndef __MVOL_H__
 #define __MVOL_H__
 
 #include "ioctl.h"

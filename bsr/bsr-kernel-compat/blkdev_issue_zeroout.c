@@ -1,4 +1,4 @@
-﻿//#include <linux/kernel.h>
+//#include <linux/kernel.h>
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/scatterlist.h>

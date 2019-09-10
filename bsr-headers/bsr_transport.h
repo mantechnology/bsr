@@ -1,4 +1,4 @@
-﻿#ifndef DRBD_TRANSPORT_H
+#ifndef DRBD_TRANSPORT_H
 #define DRBD_TRANSPORT_H
 #ifdef _WIN32
 #include "../bsr/bsr-kernel-compat/windows/list.h"

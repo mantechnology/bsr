@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_ENDIAN_H__
+#ifndef __DRBD_ENDIAN_H__
 #define __DRBD_ENDIAN_H__
 
 /*

@@ -1,4 +1,4 @@
-﻿#ifdef _WIN32
+#ifdef _WIN32
 
 #include "../bsr-headers/drbd_transport.h"
 #include "drbd_int.h"

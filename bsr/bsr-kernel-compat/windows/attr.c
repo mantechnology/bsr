@@ -1,4 +1,4 @@
-﻿#include "../../../bsr-headers/windows/types.h"
+#include "../../../bsr-headers/windows/types.h"
 #include "bsr_wingenl.h"
 #include "bsr_windows.h"
 

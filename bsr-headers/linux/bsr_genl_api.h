@@ -1,4 +1,4 @@
-﻿#ifndef DRBD_GENL_STRUCT_H
+#ifndef DRBD_GENL_STRUCT_H
 #define DRBD_GENL_STRUCT_H
 #ifdef _WIN32
 #include "../windows/types.h"

@@ -1,4 +1,4 @@
-﻿#include <stdbool.h>
+#include <stdbool.h>
 #include "bsrtool_common.h"
 #include "bsrsetup_colors.h"
 

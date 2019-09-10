@@ -1,4 +1,4 @@
-﻿#ifndef __SEQ_FILE_H__
+#ifndef __SEQ_FILE_H__
 #define __SEQ_FILE_H__
 #include "bsr_windows.h"
 struct seq_file

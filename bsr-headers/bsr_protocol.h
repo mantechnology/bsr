@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_PROTOCOL_H
+#ifndef __DRBD_PROTOCOL_H
 #define __DRBD_PROTOCOL_H
 
 #ifdef __KERNEL__

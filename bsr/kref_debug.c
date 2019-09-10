@@ -1,4 +1,4 @@
-﻿
+
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/spinlock.h"

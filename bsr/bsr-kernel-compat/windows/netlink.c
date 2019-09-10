@@ -1,4 +1,4 @@
-﻿#include "bsr_windows.h"
+#include "bsr_windows.h"
 #include "wsk_wrapper.h"
 #include "bsr_wingenl.h"
 #include "idr.h"

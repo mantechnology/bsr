@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_WINGENL_H__
+#ifndef __DRBD_WINGENL_H__
 #define __DRBD_WINGENL_H__
 #include <wdm.h>
 #include <wsk.h>

@@ -1,4 +1,4 @@
-﻿#ifndef GENL_MAGIC_FUNC_H
+#ifndef GENL_MAGIC_FUNC_H
 #define GENL_MAGIC_FUNC_H
 #ifdef _WIN32
 #include "genl_magic_struct.h"

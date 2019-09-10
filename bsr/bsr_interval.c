@@ -1,4 +1,4 @@
-﻿#include "bsr_interval.h"
+#include "bsr_interval.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 
 /**

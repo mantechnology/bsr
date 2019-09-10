@@ -1,4 +1,4 @@
-﻿#ifndef __WAIT_H__
+#ifndef __WAIT_H__
 #define __WAIT_H__
 #include <wdm.h>
 #include "list.h"

@@ -1,4 +1,4 @@
-﻿#ifndef __JIFFIES_H__
+#ifndef __JIFFIES_H__
 #define __JIFFIES_H__
 
 __inline unsigned int jiffies_to_msecs(const ULONG_PTR j)

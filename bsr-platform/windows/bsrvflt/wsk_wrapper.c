@@ -1,4 +1,4 @@
-﻿
+
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "wsk_wrapper.h"
 

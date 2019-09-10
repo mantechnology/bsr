@@ -1,4 +1,4 @@
-﻿#ifndef MVF_MVOLSE_H
+#ifndef MVF_MVOLSE_H
 #define MVF_MVOLSE_H
 
 #define	MVOL_TOKEN_SOURCE_LENGTH		8

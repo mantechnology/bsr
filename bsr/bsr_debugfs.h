@@ -1,4 +1,4 @@
-﻿#ifdef _WIN32
+#ifdef _WIN32
 #include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/kernel.h>

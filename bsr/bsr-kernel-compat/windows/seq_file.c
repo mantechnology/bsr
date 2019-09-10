@@ -1,4 +1,4 @@
-﻿#include "seq_file.h"
+#include "seq_file.h"
 
 #pragma warning (disable: 6053 28719)
 

@@ -1,4 +1,4 @@
-﻿#ifndef __SPINLOCK_H__
+#ifndef __SPINLOCK_H__
 #define __SPINLOCK_H__
 #include <wdm.h>
 

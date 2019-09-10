@@ -1,4 +1,4 @@
-﻿#include <linux/err.h>
+#include <linux/err.h>
 #include <linux/string.h>
 #include <linux/spinlock.h>
 #include <linux/idr.h>

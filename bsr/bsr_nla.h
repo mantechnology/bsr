@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_NLA_H
+#ifndef __DRBD_NLA_H
 #define __DRBD_NLA_H
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"

@@ -1,4 +1,4 @@
-﻿#ifndef DRBD_META_DATA_H
+#ifndef DRBD_META_DATA_H
 #define DRBD_META_DATA_H
 
 #ifdef __KERNEL__

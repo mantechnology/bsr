@@ -1,4 +1,4 @@
-﻿#ifndef __DRBD_WINLIST_H__
+#ifndef __DRBD_WINLIST_H__
 #define __DRBD_WINLIST_H__
 
 #ifdef CONFIG_ILLEGAL_POINTER_VALUE
