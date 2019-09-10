@@ -1583,7 +1583,7 @@ retry:
 	// step 5 : change role with timeout , just retry 1 time.
 	while (try_val++ < max_tries) {
 		// step 5-1 : change role with timeout
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 		stable_state_change(rv, resource,
 			change_role_timeout(resource, R_SECONDARY,
 				CS_ALREADY_SERIALIZED | CS_DONT_RETRY | CS_WAIT_COMPLETE,
@@ -1619,7 +1619,7 @@ retry:
 			goto out;
 		
 		if (rv < SS_SUCCESS) {
-#if _WIN32 // DW-1605
+#ifdef _WIN32 // DW-1605
 			stable_state_change(rv, resource,
 				change_role_timeout(resource, R_SECONDARY,
 					CS_VERBOSE | CS_ALREADY_SERIALIZED |
@@ -5783,7 +5783,7 @@ int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 //#endif
 	
 //	mutex_lock(&resource->adm_mutex);
-//#if _WIN32 // DW-1605
+//#ifdef _WIN32 // DW-1605
 //	stable_state_change(retcode, resource,
 //		change_io_susp_user(resource, true,
 //			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE));
