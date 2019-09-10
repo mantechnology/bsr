@@ -1462,7 +1462,7 @@ retry:
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
 			
-			// MODIFIED_BY_MANTECH DW-1154 : set UUID_PRIMARY when promote a resource to primary role.
+			// DW-1154 : set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
@@ -1474,6 +1474,11 @@ retry:
 				drbd_uuid_new_current(device, true);
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
+			// DW-1154 : set UUID_PRIMARY when promote a resource to primary role.
+			if (get_ldev(device)) {
+				device->ldev->md.current_uuid |= UUID_PRIMARY;
+				put_ldev(device);
+			}
 		}
 #endif 
 	}
@@ -1506,12 +1511,8 @@ retry:
 #else
 	idr_for_each_entry(&resource->devices, device, vnr) {
 #endif
-#ifdef _WIN32 
-		// MODIFIED_BY_MANTECH DW-1154 : After changing role, writes the meta data.
+		// DW-1154 : After changing role, writes the meta data.
 		drbd_md_sync(device);
-#else
-		drbd_md_sync_if_dirty(device);
-#endif
 		set_disk_ro(device->vdisk, role == R_SECONDARY);
 		if (!resource->res_opts.auto_promote && role == R_PRIMARY)
 			drbd_kobject_uevent(device);
