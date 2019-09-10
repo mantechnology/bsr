@@ -1938,14 +1938,9 @@ static void sanitize_state(struct drbd_resource *resource)
 
 			if (repl_state[NEW] < L_ESTABLISHED) {
 				__change_resync_susp_peer(peer_device, false, __FUNCTION__);
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-1031: Changes the peer disk state to D_UNKNOWN when peer is disconnected, even if it is D_INCONSISTENT.
+				// DW-1031: Changes the peer disk state to D_UNKNOWN when peer is disconnected, even if it is D_INCONSISTENT.
 				if (peer_disk_state[NEW] > D_UNKNOWN ||
 					peer_disk_state[NEW] < D_OUTDATED)
-#else
-				if (peer_disk_state[NEW] > D_UNKNOWN ||
-					peer_disk_state[NEW] < D_INCONSISTENT)
-#endif
 					__change_peer_disk_state(peer_device, D_UNKNOWN, __FUNCTION__);
 			}
 			if (repl_state[OLD] >= L_ESTABLISHED && repl_state[NEW] < L_ESTABLISHED)
