@@ -394,12 +394,13 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	spin_unlock_irqrestore(&device->resource->req_lock, flags);
 	
 	//DW-1601 calls drbd_rs_complete_io() after all data is complete.
-#ifdef _WIN32 //TODO
-	if (block_id == ID_SYNCER && !(flags & EE_SPLIT_REQUEST))
-#else
-	if (block_id == ID_SYNCER)
-#endif
-		drbd_rs_complete_io(peer_device, sector, __FUNCTION__);
+	//DW-1886
+	if (block_id == ID_SYNCER) {
+		if (!(flags & EE_SPLIT_REQUEST))
+			drbd_rs_complete_io(peer_device, sector, __FUNCTION__);
+		atomic_add64(peer_req->i.size, &peer_device->rs_written);
+
+	}
 
 	if (do_wake) 
 		wake_up(&connection->ee_wait);
@@ -1394,7 +1395,9 @@ next_sector:
 				dec_rs_pending(peer_device);
 				put_ldev(device);
 				return err;
-			}
+			}			
+			//DW-1886
+			peer_device->rs_send_req += size;
 		}
 	}
 

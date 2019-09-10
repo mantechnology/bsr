@@ -1656,7 +1656,10 @@ struct drbd_peer_device {
     /* cumulated time in PausedSyncX state [unit jiffies] */
     ULONG_PTR rs_paused;
     /* skipped because csum was equal [unit BM_BLOCK_SIZE] */
-    ULONG_PTR rs_same_csum;
+	ULONG_PTR rs_same_csum;
+	//DW-1886
+	/* write completed size (failed and success) */
+	atomic_t64 rs_written;
 #else
 	/* blocks to resync in this run [unit BM_BLOCK_SIZE] */
 	unsigned long rs_total;
@@ -1668,7 +1671,17 @@ struct drbd_peer_device {
 	unsigned long rs_paused;
 	/* skipped because csum was equal [unit BM_BLOCK_SIZE] */
 	unsigned long rs_same_csum;
+	//DW-1886
+	/* write completed size (failed and success) */
+	atomic64_t rs_written;
 #endif
+	//DW-1886 add a log for resync to check the data flow.
+	/* size of send resync data request */
+	ULONG_PTR rs_send_req;
+	/* size of receive resync data */
+	ULONG_PTR rs_recv_res;
+
+
 #define DRBD_SYNC_MARKS 8
 #define DRBD_SYNC_MARK_STEP (3*HZ)
 #ifdef _WIN32

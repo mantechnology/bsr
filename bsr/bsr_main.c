@@ -6043,89 +6043,89 @@ static int find_node_id_by_bitmap_uuid(struct drbd_device *device, u64 bm_uuid) 
 	return -1;
 }
 
-static bool node_connected(struct drbd_resource *resource, int node_id)
-{
-	struct drbd_connection *connection;
-	bool r = false;
+//static bool node_connected(struct drbd_resource *resource, int node_id)
+//{
+//	struct drbd_connection *connection;
+//	bool r = false;
+//
+//	rcu_read_lock();
+//	connection = drbd_connection_by_node_id(resource, node_id);
+//	if (connection)
+//		r = connection->cstate[NOW] == C_CONNECTED;
+//	rcu_read_unlock();
+//
+//	return r;
+//}
 
-	rcu_read_lock();
-	connection = drbd_connection_by_node_id(resource, node_id);
-	if (connection)
-		r = connection->cstate[NOW] == C_CONNECTED;
-	rcu_read_unlock();
-
-	return r;
-}
-
-static bool detect_copy_ops_on_peer(struct drbd_peer_device *peer_device) __must_hold(local)
-{
-	struct drbd_device *device = peer_device->device;
-	struct drbd_peer_md *peer_md = device->ldev->md.peers;
-	struct drbd_resource *resource = device->resource;
-	int node_id1, node_id2, from_id;
-	u64 peer_bm_uuid;
-	bool modified = false;
-
-	for (node_id1 = 0; node_id1 < DRBD_NODE_ID_MAX; node_id1++) {
-		if (device->ldev->md.peers[node_id1].bitmap_index == -1)
-			continue;
-
-		if (node_connected(resource, node_id1))
-			continue;
-
-		peer_bm_uuid = peer_device->bitmap_uuids[node_id1] & ~UUID_PRIMARY;
-		if (!peer_bm_uuid)
-			continue;
-
-		for (node_id2 = node_id1 + 1; node_id2 < DRBD_NODE_ID_MAX; node_id2++) {
-			if (device->ldev->md.peers[node_id2].bitmap_index == -1)
-				continue;
-
-			if (node_connected(resource, node_id2))
-				continue;
-
-			if (peer_bm_uuid == (peer_device->bitmap_uuids[node_id2] & ~UUID_PRIMARY))
-				goto found;
-		}
-	}
-	return false;
-
-found:
-	from_id = find_node_id_by_bitmap_uuid(device, peer_bm_uuid);
-	if (from_id == -1) {
-		if (peer_md[node_id1].bitmap_uuid == 0 && peer_md[node_id2].bitmap_uuid == 0)
-			return false;
-		drbd_err(peer_device, "unexpected\n");
-		drbd_err(peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
-			 peer_device->node_id, peer_bm_uuid, node_id1, node_id2);
-		drbd_err(peer_device, "I have %llX for node_id=%d\n",
-			 peer_md[node_id1].bitmap_uuid, node_id1);
-		drbd_err(peer_device, "I have %llX for node_id=%d\n",
-			 peer_md[node_id2].bitmap_uuid, node_id2);
-		return false;
-	}
-
-	if (peer_md[from_id].bitmap_index == -1)
-		return false;
-
-	if (from_id != node_id1 &&
-	    peer_md[node_id1].bitmap_uuid != peer_bm_uuid) {
-		peer_md[node_id1].bitmap_uuid = peer_bm_uuid;
-		peer_md[node_id1].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
-		copy_bitmap(device, from_id, node_id1);
-		modified = true;
-
-	}
-	if (from_id != node_id2 &&
-	    peer_md[node_id2].bitmap_uuid != peer_bm_uuid) {
-		peer_md[node_id2].bitmap_uuid = peer_bm_uuid;
-		peer_md[node_id2].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
-		copy_bitmap(device, from_id, node_id2);
-		modified = true;
-	}
-
-	return modified;
-}
+//static bool detect_copy_ops_on_peer(struct drbd_peer_device *peer_device) __must_hold(local)
+//{
+//	struct drbd_device *device = peer_device->device;
+//	struct drbd_peer_md *peer_md = device->ldev->md.peers;
+//	struct drbd_resource *resource = device->resource;
+//	int node_id1, node_id2, from_id;
+//	u64 peer_bm_uuid;
+//	bool modified = false;
+//
+//	for (node_id1 = 0; node_id1 < DRBD_NODE_ID_MAX; node_id1++) {
+//		if (device->ldev->md.peers[node_id1].bitmap_index == -1)
+//			continue;
+//
+//		if (node_connected(resource, node_id1))
+//			continue;
+//
+//		peer_bm_uuid = peer_device->bitmap_uuids[node_id1] & ~UUID_PRIMARY;
+//		if (!peer_bm_uuid)
+//			continue;
+//
+//		for (node_id2 = node_id1 + 1; node_id2 < DRBD_NODE_ID_MAX; node_id2++) {
+//			if (device->ldev->md.peers[node_id2].bitmap_index == -1)
+//				continue;
+//
+//			if (node_connected(resource, node_id2))
+//				continue;
+//
+//			if (peer_bm_uuid == (peer_device->bitmap_uuids[node_id2] & ~UUID_PRIMARY))
+//				goto found;
+//		}
+//	}
+//	return false;
+//
+//found:
+//	from_id = find_node_id_by_bitmap_uuid(device, peer_bm_uuid);
+//	if (from_id == -1) {
+//		if (peer_md[node_id1].bitmap_uuid == 0 && peer_md[node_id2].bitmap_uuid == 0)
+//			return false;
+//		drbd_err(peer_device, "unexpected\n");
+//		drbd_err(peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
+//			 peer_device->node_id, peer_bm_uuid, node_id1, node_id2);
+//		drbd_err(peer_device, "I have %llX for node_id=%d\n",
+//			 peer_md[node_id1].bitmap_uuid, node_id1);
+//		drbd_err(peer_device, "I have %llX for node_id=%d\n",
+//			 peer_md[node_id2].bitmap_uuid, node_id2);
+//		return false;
+//	}
+//
+//	if (peer_md[from_id].bitmap_index == -1)
+//		return false;
+//
+//	if (from_id != node_id1 &&
+//	    peer_md[node_id1].bitmap_uuid != peer_bm_uuid) {
+//		peer_md[node_id1].bitmap_uuid = peer_bm_uuid;
+//		peer_md[node_id1].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
+//		copy_bitmap(device, from_id, node_id1);
+//		modified = true;
+//
+//	}
+//	if (from_id != node_id2 &&
+//	    peer_md[node_id2].bitmap_uuid != peer_bm_uuid) {
+//		peer_md[node_id2].bitmap_uuid = peer_bm_uuid;
+//		peer_md[node_id2].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
+//		copy_bitmap(device, from_id, node_id2);
+//		modified = true;
+//	}
+//
+//	return modified;
+//}
 
 void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __must_hold(local)
 {
