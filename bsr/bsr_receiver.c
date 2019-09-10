@@ -5491,8 +5491,7 @@ static void disk_states_to_goodness(struct drbd_device *device,
 			  *hg > 0 ? "source" : "target");
 }
 
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1014: if we determined not to do sync in spite of existing out-of-sync, check couple of more states.
+// DW-1014: if we determined not to do sync in spite of existing out-of-sync, check couple of more states.
 static void various_states_to_goodness(struct drbd_device *device,
 						struct drbd_peer_device *peer_device,
 						enum drbd_disk_state peer_disk_state,
@@ -5571,7 +5570,7 @@ out:
 		*hg > 0 ? "source" : "target",
 		syncReason == 1 ? "role" : syncReason == 2 ? "disk states" : "unknown reason");
 }
-#endif
+
 
 static enum drbd_repl_state drbd_attach_handshake(struct drbd_peer_device *peer_device,
 						  enum drbd_disk_state peer_disk_state) __must_hold(local)
@@ -5634,10 +5633,9 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 	disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
 #endif
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1014: to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
+
+	// DW-1014: to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
 	various_states_to_goodness(device, peer_device, peer_disk_state, peer_role, &hg);	
-#endif
 	
 #ifdef LINBIT_PATCH // It will not be used for a while because DW-1195 reproduced. 
 	if (hg == 100 && (!drbd_device_stable(device, NULL) || !(peer_device->uuid_flags & UUID_FLAG_STABLE))) {
