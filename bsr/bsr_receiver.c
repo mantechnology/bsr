@@ -10060,29 +10060,63 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	//DW-1696 : Add the incomplete active_ee, sync_ee
 	spin_lock(&resource->req_lock);	
-	//DW-1732 : Initialization active_ee(bitmap, al) 	
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_peer_request, peer_req, &connection->active_ee, w.list) {
-#else
-	list_for_each_entry(peer_req, &connection->active_ee, w.list) {
-#endif
-		struct drbd_peer_device *peer_device = peer_req->peer_device;
-		struct drbd_device *device = peer_device->device;
+	//DW-1732 : Initialization active_ee(bitmap, al) 
 
-		if (get_ldev(device)) {
+	//DW-1920
+	if (!list_empty(&connection->active_ee)) {
+#ifdef _WIN32
+		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->active_ee, w.list) {
+#else
+		list_for_each_entry(peer_req, &connection->active_ee, w.list) {
+#endif
+			struct drbd_peer_device *peer_device = peer_req->peer_device;
+			struct drbd_device *device = peer_device->device;
+
 			//DW-1812 set inactive_ee to out of sync.
 			drbd_set_out_of_sync(peer_device, peer_req->i.sector, peer_req->i.size);
-			drbd_al_complete_io(device, &peer_req->i);
-			put_ldev(device);
+			list_del(&peer_req->recv_order);
+#ifdef _WIN32
+			drbd_info(device, "add, active_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
+#else
+			drbd_info(device, "add, active_ee => inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
+#endif
 		}
-		list_del(&peer_req->recv_order);
-		drbd_info(connection, "add, inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+		list_splice_init(&connection->active_ee, &connection->inactive_ee);
 	}
-	
-	list_splice_init(&connection->active_ee, &connection->inactive_ee);
-	list_splice_init(&connection->sync_ee, &connection->inactive_ee);
-	//DW-1735 : If the list is not empty because it has been moved to inactive_ee, it as a bug
-	list_splice_init(&connection->read_ee, &connection->inactive_ee);
+
+	//DW-1920 
+	if (!list_empty(&connection->sync_ee)) {
+#ifdef _WIN32
+		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->sync_ee, w.list) {
+#else
+		list_for_each_entry(peer_req, &connection->sync_ee, w.list) {
+#endif
+			struct drbd_device *device = peer_req->peer_device->device; 
+#ifdef _WIN32
+			drbd_info(device, "add, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size); 
+#else
+			drbd_info(device, "add, sync_ee => inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
+#endif
+		}
+		list_splice_init(&connection->sync_ee, &connection->inactive_ee);
+	}
+
+	if (!list_empty(&connection->read_ee)) {
+#ifdef _WIN32
+		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->read_ee, w.list) {
+#else
+		list_for_each_entry(peer_req, &connection->read_ee, w.list) {
+#endif
+			struct drbd_device *device = peer_req->peer_device->device;
+#ifdef _WIN32
+			drbd_info(device, "add, read_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size); 
+#else
+			drbd_info(device, "add, read_ee => inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
+#endif
+		}
+		//DW-1735 : If the list is not empty because it has been moved to inactive_ee, it as a bug
+		list_splice_init(&connection->read_ee, &connection->inactive_ee);
+	}
 	spin_unlock(&resource->req_lock);
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
