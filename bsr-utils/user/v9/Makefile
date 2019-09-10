@@ -110,6 +110,15 @@ include ../shared_prereqs.mk
 
 tools: bsradm bsrmeta bsrsetup
 
+ifdef is_win32
+bsradm: $(bsradm-obj)
+	$(LINK.c) $(LDFLAGS) -o $@ $^ -liphlpapi
+else
+bsradm: $(bsradm-obj)
+	$(LINK.c) $(LDFLAGS) -o $@ $^
+endif    
+
+
 bsradm: $(bsradm-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
 
