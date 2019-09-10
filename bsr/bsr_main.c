@@ -2420,9 +2420,7 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 			DRBD_SOCKET_BUFFER_SIZE - header_size - sizeof(*pc), c);
 	if (len < 0)
 	{
-#ifdef _WIN32
 		drbd_err(peer_device, "unexpected len : %d \n", len);
-#endif
 		return -EIO;
 	}
 
@@ -2431,13 +2429,12 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 		resize_prepared_command(peer_device->connection, DATA_STREAM, sizeof(*pc) + len);
 		err = __send_command(peer_device->connection, device->vnr,
 				     P_COMPRESSED_BITMAP, DATA_STREAM);
-#ifdef _WIN32
+
 		if (err)
 		{
 			drbd_err(peer_device, "error sending P_COMPRESSED_BITMAP, e: %d \n", err);
 		}
 		
-#endif
 		c->packets[0]++;
 		c->bytes[0] += header_size + sizeof(*pc) + len;
 
@@ -2463,12 +2460,11 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 
 		resize_prepared_command(peer_device->connection, DATA_STREAM, len);
 		err = __send_command(peer_device->connection, device->vnr, P_BITMAP, DATA_STREAM);
-#ifdef _WIN32
+
 		if (err)
 		{
 			drbd_err(peer_device, "error sending P_BITMAP, e: %d \n", err);
 		}		
-#endif
 
 		c->word_offset += num_words;
 		c->bit_offset = c->word_offset * BITS_PER_LONG;
@@ -2498,9 +2494,7 @@ static int _drbd_send_bitmap(struct drbd_device *device,
 
 	if (!expect(device, device->bitmap))
 	{
-#ifdef _WIN32
 		drbd_err(peer_device, "bitmap is NULL!\n");
-#endif
 		return false;
 	}
 
@@ -6708,6 +6702,7 @@ void drbd_queue_bitmap_io(struct drbd_device *device,
 #else
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO);
 	if (!bm_io_work) {
+		drbd_err(peer_device, "Could not allocate bm io work.\n");
 		done(device, peer_device, -ENOMEM);
 		return;
 	}
