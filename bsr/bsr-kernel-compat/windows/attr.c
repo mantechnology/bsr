@@ -1,6 +1,6 @@
 #include "../../../bsr-headers/windows/types.h"
-#include "bsr_wingenl.h"
 #include "bsr_windows.h"
+#include "bsr_wingenl.h"
 
 static u16 nla_attr_minlen[NLA_TYPE_MAX + 1] __read_mostly = {
     [NLA_U8] = sizeof(u8),
