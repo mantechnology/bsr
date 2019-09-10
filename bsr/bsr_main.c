@@ -4646,7 +4646,6 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);
-#ifdef _WIN32 // TODO : ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 리눅스 포팅작업 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	//DW-1901
 	INIT_LIST_HEAD(&device->marked_rl_list);
@@ -4657,7 +4656,6 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 #endif
 	device->e_rl_bb = 0;
 	device->e_resync_bb = 0;
-#endif
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);

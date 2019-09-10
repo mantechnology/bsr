@@ -2671,7 +2671,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 #ifdef _WIN32
 						drbd_info(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %lu, size %llu\n", peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9));
 #else
-						//drbd_info(peer_device, "--set in sync, bitmap bit start : %lu, range : %lu ~ %lu, size %llu\n", peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9));
+						drbd_info(peer_device, "--set in sync, bitmap bit start : %lu, range : %lu ~ %lu, size %lu\n", peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9));
 #endif
 						if (i_bb == e_next_bb)
 							peer_req->block_id = ID_SYNCER_SPLIT_DONE;
@@ -4069,8 +4069,10 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		if (peer_device->connection->agreed_pro_version >= 113 && peer_device->repl_state[NOW] == L_SYNC_TARGET) {
 			sector_t ssector, esector;            
 			ULONG_PTR s_bb, e_bb;
+			ULONG_PTR n_resync_bb;
 			u16 i;
 			u16 offset = 0;
+			struct drbd_marked_replicate *marked_rl = NULL, *s_marked_rl = NULL, *e_marked_rl = NULL;
 
 			ssector = peer_req->i.sector;
 			esector = peer_req->i.sector + (peer_req->i.size >> 9);
@@ -4083,13 +4085,16 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 				e_bb -= 1;
 
 			//DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
-			ULONG_PTR n_resync_bb = device->e_resync_bb + BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), DRBD_MAX_BIO_SIZE)) >> 9);
-			struct drbd_marked_replicate *marked_rl = NULL, *s_marked_rl = NULL, *e_marked_rl = NULL;
+			n_resync_bb = device->e_resync_bb + BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), DRBD_MAX_BIO_SIZE)) >> 9);
 
 			if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
 				(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {
 				//DW-1911 check if marked already exists.
+#ifdef _WIN32
 				list_for_each_entry(struct drbd_marked_replicate, marked_rl, &(device->marked_rl_list), marked_rl_list) {
+#else
+				list_for_each_entry(marked_rl, &(device->marked_rl_list), marked_rl_list) {
+#endif
 					if (marked_rl->bb == s_bb) 
 						s_marked_rl = marked_rl;
 					if (marked_rl->bb == e_bb) 
@@ -4133,7 +4138,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 #ifdef _WIN32
 					drbd_info(peer_device, "sbb marking bb(%llu), ssector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
 #else
-					drbd_info(peer_device, "sbb marking bb(%lu), ssector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
+					drbd_info(peer_device, "sbb marking bb(%llu), ssector(%lu), sector(%lu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
 #endif
 				}
 
@@ -4166,9 +4171,9 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 						e_marked_rl->marked_rl |= 1 << i;
 					}
 #ifdef _WIN32
-					drbd_info(peer_device, "marking bb(%llu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl, 0);
+					drbd_info(peer_device, "marking bb(%llu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(0)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl);
 #else
-					drbd_info(peer_device, "marking bb(%lu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl, 0);
+					drbd_info(peer_device, "marking bb(%llu), esector(%lu), sector(%lu), size(%u), marked(%u), offset(0)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl);
 #endif
 				}
 			}

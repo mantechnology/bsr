@@ -37,7 +37,7 @@ extern const char *drbd_buildtag(void);
 // DW-1293: protocol version 112 starts to support fast invalidate(remote)
 // DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
-//#define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
+#define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 
 // DW-1601: protocol version 113 remove association to act_log and resync_lru
 // PRO_VERSION_MAX is the maximum version allowed. If the protocol is changed or the feature is incompatible with the sub-version, you must increase that version.
