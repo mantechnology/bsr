@@ -5873,11 +5873,9 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 #endif
 
 	if (set_current) {
-#ifndef _WIN32
-		// MODIFIED_BY_MANTECH DW-1034: split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
-		if (device->disk_state[NOW] == D_UP_TO_DATE)
-#endif
-			got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
+
+		// DW-1034: split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
+		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
 		__drbd_uuid_set_current(device, val);
 		// DW-837: Apply updated current uuid to meta disk.
 		drbd_md_mark_dirty(device);
