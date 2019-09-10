@@ -307,11 +307,10 @@ struct p_protocol {
 #define UUID_FLAG_RESYNC 				(1 << 7)    /* compare UUIDs and eventually start resync */
 #define UUID_FLAG_RECONNECT 			(1 << 8)
 #define UUID_FLAG_DISKLESS_PRIMARY 		(1 << 9) /* Use with UUID_FLAG_RESYNC if a diskless primary is the reason */
-
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1145
+// DW-1145
 #define UUID_FLAG_CONSISTENT_WITH_PRI 	(1 << 10)    /* this flag indicates that my disk is consistent with primary's */
 
+#ifdef _WIN32
 #ifdef _WIN32_STABLE_SYNCSOURCE
 // DW-1315
 #define UUID_FLAG_AUTHORITATIVE			(1 << 11)	/* the authoritative node is changed while I am unstable, this flag is for resuming resync */

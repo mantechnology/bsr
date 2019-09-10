@@ -3929,13 +3929,11 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				put_ldev(device);
 			}
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1145: propagate uuid when I got connected with primary and established state.
+			// DW-1145: propagate uuid when I got connected with primary and established state.
 			if (repl_state[OLD] < L_ESTABLISHED &&
 				repl_state[NEW] >= L_ESTABLISHED &&
 				peer_role[NEW] == R_PRIMARY)
 				drbd_propagate_uuids(device, ~NODE_MASK(peer_device->node_id));
-#endif
 		}
 
 
