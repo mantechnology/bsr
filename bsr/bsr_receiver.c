@@ -2941,9 +2941,8 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 	dec_rs_pending(peer_device);
 	inc_unacked(peer_device);
 
-
-	s_bb = BM_SECT_TO_BIT(d->sector);
-	e_next_bb = d->bi_size == 0 ? s_bb : BM_SECT_TO_BIT(d->sector + (d->bi_size >> 9));
+	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(d->sector);
+	e_next_bb = d->bi_size == 0 ? s_bb : (ULONG_PTR)BM_SECT_TO_BIT(d->sector + (d->bi_size >> 9));
 	e_oos = 0;
 
 	//DW-1904 set e_resync_bb
@@ -4146,8 +4145,8 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 			ssector = peer_req->i.sector;
 			esector = peer_req->i.sector + (peer_req->i.size >> 9);
 
-			s_bb = BM_SECT_TO_BIT(ssector);            
-			e_bb = BM_SECT_TO_BIT(esector);
+			s_bb = (ULONG_PTR)BM_SECT_TO_BIT(ssector);
+			e_bb = (ULONG_PTR)BM_SECT_TO_BIT(esector);
 
 			//DW-1911 use e_bb instead of e_next_b for replication.
 			if (BM_BIT_TO_SECT(e_bb) == esector)
@@ -4207,7 +4206,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 #ifdef _WIN32
 					drbd_info(peer_device, "sbb marking bb(%llu), ssector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
 #else
-					drbd_info(peer_device, "sbb marking bb(%llu), ssector(%lu), sector(%lu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
+					drbd_info(peer_device, "sbb marking bb(%lu), ssector(%lu), sector(%lu), size(%u), marked(%u), offset(%u)\n", s_marked_rl->bb, ssector, BM_BIT_TO_SECT(s_marked_rl->bb), (peer_req->i.size >> 9), s_marked_rl->marked_rl, offset);
 #endif
 				}
 
@@ -4242,7 +4241,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 #ifdef _WIN32
 					drbd_info(peer_device, "marking bb(%llu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(0)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl);
 #else
-					drbd_info(peer_device, "marking bb(%llu), esector(%lu), sector(%lu), size(%u), marked(%u), offset(0)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl);
+					drbd_info(peer_device, "marking bb(%lu), esector(%lu), sector(%lu), size(%u), marked(%u), offset(0)\n", e_marked_rl->bb, esector, BM_BIT_TO_SECT(e_marked_rl->bb), (peer_req->i.size >> 9), e_marked_rl->marked_rl);
 #endif
 				}
 			}
