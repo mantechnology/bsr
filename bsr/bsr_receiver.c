@@ -7597,6 +7597,8 @@ enum csc_rv {
 	CSC_QUEUE,
 	CSC_TID_MISS,
 	CSC_MATCH,
+	//DW-1894
+	CSC_UPDATE = CSC_MATCH,
 };
 
 static enum csc_rv
@@ -7625,6 +7627,14 @@ check_concurrent_transactions(struct drbd_resource *resource, struct twopc_reply
 			return CSC_QUEUE;
 		}
 	} else if (new_r->initiator_node_id > ongoing->initiator_node_id) {
+		//DW-1894 if the old request is disconnected, remove it and process the new request.
+		if (ongoing->is_disconnect && new_r->tid != ongoing->tid) {
+			drbd_info(resource, "[TWOPC] CSC_UPDATE! new_r->initiator_node_id (%d), new_r->tid (%u)\n",
+				new_r->initiator_node_id, new_r->tid);
+			del_timer(&resource->twopc_timer);
+			clear_remote_state_change_without_lock(resource);
+			return CSC_UPDATE;
+		}
 #ifdef _WIN32_TWOPC
 		drbd_info(resource, "[TWOPC] CSC_REJECT! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
@@ -10034,6 +10044,12 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	drbd_transport_shutdown(connection, CLOSE_CONNECTION);
 	drbd_drop_unsent(connection);
+
+	//DW-1894 remove incomplete requests.
+	if (resource->twopc_reply.initiator_node_id == (int)connection->peer_node_id) {
+		del_timer(&resource->twopc_timer);
+		clear_remote_state_change(resource);
+	}
 
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
