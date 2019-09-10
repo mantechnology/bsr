@@ -96,7 +96,7 @@
     <MinimumVisualStudioVersion>11.0</MinimumVisualStudioVersion>
     <Configuration>Win8.1 Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
-    <RootNamespace>drbdlock</RootNamespace>
+    <RootNamespace>bsrfsflt</RootNamespace>
     <ProjectName>bsrfsflt</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -322,11 +322,11 @@
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -339,11 +339,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -360,11 +360,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Release|Win32'">
@@ -377,11 +377,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|Win32'">
@@ -394,11 +394,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Release|Win32'">
@@ -411,11 +411,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Debug|Win32'">
@@ -431,11 +431,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server2008 Release|Win32'">
@@ -451,11 +451,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|Win32'">
@@ -467,11 +467,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|Win32'">
@@ -483,11 +483,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </ClCompile>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|x64'">
@@ -496,11 +496,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -513,11 +513,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -530,11 +530,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -547,11 +547,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -564,11 +564,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -581,11 +581,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -601,11 +601,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(WindowsSdkDir_80)lib\wlh\km\x64\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -621,11 +621,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(WindowsSdkDir_80)lib\wlh\km\x64\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -638,11 +638,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -654,11 +654,11 @@ copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(ProjectDir)..\
-set destdir="build\drbd\$(PlatformTarget)\$(ConfigurationName)\bin"
+set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.sys" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.inf" %25destdir%25
-copy /Y "$(OutputPath)\drbdlock.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
