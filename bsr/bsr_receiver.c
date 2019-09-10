@@ -2925,6 +2925,8 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 	ULONG_PTR offset;
 
 	int submit_count = 0;
+	//DW-1916
+	ULONG_PTR bits, mask;
 	int i;
 
 	peer_req = read_in_block(peer_device, d);
@@ -3046,12 +3048,22 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 
 						atomic_add(split_peer_req->i.size << 9, &device->rs_sect_ev);
 
-						/* Seting all peer out of sync here. Sync source peer will be set
-						in sync when the write completes. Other peers will be set in
-						sync by the sync source with a P_PEERS_IN_SYNC packet soon. */
-						//DW-1601, DW-1846 do not set out of sync unless it is a sync target.
-						if (is_sync_target(peer_device))
-							drbd_set_all_out_of_sync(device, split_peer_req->i.sector, split_peer_req->i.size);
+						//DW-1916 if you receive resync data from peer_device other than syncsource, set out of sync for peer_device except for the current syncsource.
+						mask = bits = DRBD_END_OF_BITMAP;
+
+						if (!is_sync_target(peer_device)) {
+							struct drbd_peer_device* pd;
+							for_each_peer_device(pd, device) {
+								if (pd != peer_device && is_sync_target(pd)) {
+									drbd_info(peer_device, "resync with other nodes in progress\n");
+									clear_bit(pd->bitmap_index, &bits);
+									clear_bit(pd->bitmap_index, &mask);
+									break;
+								}
+							}
+						}
+
+						drbd_set_sync(device, peer_req->i.sector, peer_req->i.size, bits, mask);
 
 						if (!drbd_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, DRBD_FAULT_RS_WR) == 0) {
 							drbd_err(device, "submit failed, triggering re-connect\n");
@@ -3203,8 +3215,22 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 		in sync when the write completes. Other peers will be set in
 		sync by the sync source with a P_PEERS_IN_SYNC packet soon. */
 		//DW-1601, /DW-1846 do not set out of sync unless it is a sync target.
-		if (is_sync_target(peer_device)) 
-			drbd_set_all_out_of_sync(device, peer_req->i.sector, peer_req->i.size);
+		//DW-1916 if you receive resync data from peer_device other than syncsource, set out of sync for peer_device except for the current syncsource.
+		mask = bits = DRBD_END_OF_BITMAP;
+
+		if (!is_sync_target(peer_device)) {
+			struct drbd_peer_device* pd;
+			for_each_peer_device(pd, device) {
+				if (pd != peer_device && is_sync_target(pd)) {
+					drbd_info(peer_device, "resync with other nodes in progress\n");
+					clear_bit(pd->bitmap_index, &bits);
+					clear_bit(pd->bitmap_index, &mask);
+					break;
+				}
+			}
+		}
+
+		drbd_set_sync(device, peer_req->i.sector, peer_req->i.size, bits, mask);
 
 		if (drbd_submit_peer_request(device, peer_req, REQ_OP_WRITE, 0,
 			DRBD_FAULT_RS_WR) == 0)
