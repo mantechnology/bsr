@@ -20,6 +20,7 @@
 #include <wdm.h>
 #include <ntstrsafe.h>
 #include <ntddk.h>
+#include <ntddvol.h>
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"	
 #include "disp.h"
@@ -773,6 +774,8 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     NTSTATUS		status;
     PIO_STACK_LOCATION	irpSp = NULL;
     PVOLUME_EXTENSION	VolumeExtension = DeviceObject->DeviceExtension;
+	//DW-1700
+	struct block_device *bdev = VolumeExtension->dev;
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode)
@@ -874,6 +877,18 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		{
 			status = IOCTL_SetHandlerUse(DeviceObject, Irp); // Set handler_use value.
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}		
+		case IOCTL_VOLUME_ONLINE:
+		{
+			//DW-1700
+			//Update the volume size when the disk is online.
+			//After the IOCTL_VOLUME_ONLINE command completes, you can get the size of the volume.
+			status = mvolRunIrpSynchronous(DeviceObject, Irp);
+			if (bdev->bd_contains)
+				bdev->bd_contains->d_size = get_targetdev_volsize(VolumeExtension);
+			Irp->IoStatus.Status = status;
+			IoCompleteRequest(Irp, IO_NO_INCREMENT);
+			return status;
 		}
     }
 
