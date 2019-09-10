@@ -1827,7 +1827,7 @@ int generic_make_request(struct bio *bio)
 	NTSTATUS status = STATUS_SUCCESS;
 
 	PIRP newIrp = NULL;
-	PVOID buffer = NULL;;
+	PVOID buffer = NULL;
 	LARGE_INTEGER offset = {0,};
 	ULONG io = 0;
 	PIO_STACK_LOCATION	pIoNextStackLocation = NULL;
@@ -3080,7 +3080,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
-		goto error;;
+		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
 		WDRBD_INFO("Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
 		goto error;

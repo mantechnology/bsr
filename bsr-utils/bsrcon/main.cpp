@@ -4,6 +4,11 @@
 #include "mvol.h"
 #include "LogManager.h"
 
+//DW-1921
+#define LOG_LV_MASK					0x7
+#define LOG_LV_DEFAULT_EVENTLOG		3
+#define LOG_LV_DEFAULT_DBG			6
+
 void
 disk_error_usage()
 {
@@ -52,6 +57,7 @@ usage()
 		"	/drbdlock_status\n"
 		"   /info\n"
 		"   /status : drbd version\n"
+		"	/get_log_lv\n"
 
 		"\n\n"
 
@@ -70,7 +76,8 @@ usage()
 		"drbdcon /get_log drbdService r0\n"
 		"drbdcon /minlog_lv dbg 6 \n"
 		"drbdcon /write_log drbdService \"Logging start\" \n"
-		"drbdcon /handler_use 1 \n"
+		"drbdcon /handler_use 1 \n"		
+		"drbdcon /get_log_lv \n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -128,6 +135,47 @@ DWORD DeleteVolumeReg(TCHAR letter)
 	return lResult;
 }
 
+//DW-1921
+
+//Print log_level through the current registry value.
+BOOL GetLogLevel(int &sys_evtlog_lv, int &dbglog_lv, int &oos_trace_lv)
+{
+	HKEY hKey = NULL;
+	LONG lResult = ERROR_SUCCESS;
+	const TCHAR drbdRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\drbd");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD logLevel = 0;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, drbdRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("log_level"), NULL, &type, (LPBYTE)&logLevel, &size);
+	RegCloseKey(hKey);
+
+	if (ERROR_SUCCESS != lResult) {
+		if (lResult == ERROR_FILE_NOT_FOUND) {
+			// DW-1921
+			//It is not an error that no key exists.Just set it to the default value.
+			sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
+			dbglog_lv = LOG_LV_DEFAULT_DBG;
+			oos_trace_lv = 0;
+
+			return TRUE;
+		}
+		else
+			return TRUE;
+	}
+
+	sys_evtlog_lv = (logLevel >> 0) & LOG_LV_MASK;
+	dbglog_lv = (logLevel >> 3) & LOG_LV_MASK;
+	oos_trace_lv = (logLevel >> 6) & 0x01;
+
+	return TRUE;
+}
+
 DWORD
 main(int argc, char* argv [])
 {
@@ -159,8 +207,9 @@ main(int argc, char* argv [])
 	char	Drbdlock_status = 0;
 	char	Verbose = 0;
 	char	*resourceName = NULL;
-
-    int     Force = 0;
+	int     Force = 0;
+	//DW-1921
+	char	GetLogLv = 0;
 
 	LARGE_INTEGER Offset = {0,};
 	ULONG	BlockSize = 0;
@@ -415,6 +464,10 @@ main(int argc, char* argv [])
 		{
 			Verbose++;
 		}
+		else if (!strcmp(argv[argIndex], "/get_log_lv"))
+		{
+			GetLogLv++;
+		}
 		else
 		{
 			printf("Please check undefined arg[%d]=(%s)\n", argIndex, argv[argIndex]);
@@ -598,6 +651,19 @@ main(int argc, char* argv [])
 	if (HandlerUseFlag)
 	{
 		res = MVOL_SetHandlerUse(&hInfo);
+	}
+
+	//DW-1921
+	if (GetLogLv)
+	{
+		int sys_evt_lv = 0;
+		int dbglog_lv = 0;
+		int oos_trace_lv = 0;
+
+		if (GetLogLevel(sys_evt_lv, dbglog_lv, oos_trace_lv))
+			printf("system-log :%d\ndebug-log :%d\noos-trace :%d\n", sys_evt_lv, dbglog_lv, oos_trace_lv);
+		else
+			printf("Failed to get log level.\n");
 	}
 
 	return res;

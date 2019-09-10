@@ -4197,7 +4197,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 					}
 
 					//DW-1911 set the bit to match the sector.
-					offset = (u16)(ssector - BM_BIT_TO_SECT(s_bb));;
+					offset = (u16)(ssector - BM_BIT_TO_SECT(s_bb));
 					for (i = offset; i < (offset + (peer_req->i.size >> 9)); i++) {
 						if (BM_SECT_TO_BIT(BM_BIT_TO_SECT(s_bb) + i) != s_bb)
 							break;

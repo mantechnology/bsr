@@ -118,10 +118,6 @@ bsradm: $(bsradm-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
 endif    
 
-
-bsradm: $(bsradm-obj)
-	$(LINK.c) $(LDFLAGS) -o $@ $^
-
 bsradm_scanner.c: bsradm_scanner.fl bsradm_parser.h
 	flex -s -obsradm_scanner.c bsradm_scanner.fl
 
