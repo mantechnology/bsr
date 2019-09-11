@@ -5465,11 +5465,9 @@ static void disk_states_to_goodness(struct drbd_device *device,
 	if (*hg != 0 && rule_nr != 40)
 		return;
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1127: no resync if pdisk is D_UNKNOWN.
+	// DW-1127: no resync if pdisk is D_UNKNOWN.
 	if (peer_disk_state == D_UNKNOWN)
 		return;
-#endif
 
 	/* rule_nr 40 means that the current UUIDs are equal. The decision
 	   was found by looking at the crashed_primary bits.
