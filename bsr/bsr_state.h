@@ -73,12 +73,12 @@ extern enum drbd_state_rv end_state_change_locked(struct drbd_resource *);
 
 extern void abort_prepared_state_change(struct drbd_resource *);
 extern void clear_remote_state_change(struct drbd_resource *resource);
-//DW-1894
+// DW-1894
 extern void clear_remote_state_change_without_lock(struct drbd_resource *resource);
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1073, DW-1257
-static void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work);
-#endif
+
+// DW-1073, DW-1257
+void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work);
+
 
 enum which_state;
 extern union drbd_state drbd_get_device_state(struct drbd_device *, enum which_state);

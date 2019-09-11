@@ -4150,19 +4150,16 @@ static void complete_remote_state_change(struct drbd_resource *resource,
 			t = wait_event_timeout(resource->twopc_wait,
 				   when_done_lock(resource, irq_flags), t);
 #endif
-			if (t)
+			if (t) {
 				break;
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1073: The condition evaluated to false after the timeout elapsed, stop waiting for remote state change.
-			else
-			{
-				// MODIFIED_BY_MANTECH DW-1414: need to acquire req_lock while accessing twopc_parents list.
+			} else { // DW-1073: The condition evaluated to false after the timeout elapsed, stop waiting for remote state change.
+				// DW-1414: need to acquire req_lock while accessing twopc_parents list.
 				spin_lock_irq(&resource->req_lock);
 				__clear_remote_state_change(resource);
 				spin_unlock_irq(&resource->req_lock);
 				twopc_end_nested(resource, P_TWOPC_NO, true);
 			}
-#endif			
+
 			if (when_done_lock(resource, irq_flags)) {
 				drbd_info(resource, "Two-phase commit: "
 					  "not woken up in time\n");
@@ -5036,7 +5033,7 @@ retry:
 	return dd;
 }
 
-static void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work)
+void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work)
 {
 	struct drbd_connection *twopc_parent, *tmp;
 	struct twopc_reply twopc_reply;
