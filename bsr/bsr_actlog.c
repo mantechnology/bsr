@@ -1259,16 +1259,10 @@ static void maybe_schedule_on_disk_bitmap_update(struct drbd_peer_device *peer_d
 }
 
 
-#ifdef _WIN32
 // DW-844
 int update_sync_bits(struct drbd_peer_device *peer_device,
 		unsigned long sbnr, unsigned long ebnr,
 		update_sync_bits_mode mode)
-#else
-static int update_sync_bits(struct drbd_peer_device *peer_device,
-		unsigned long sbnr, unsigned long ebnr,
-		update_sync_bits_mode mode)
-#endif
 {
 	/*
 	 * We keep a count of set bits per resync-extent in the ->rs_left

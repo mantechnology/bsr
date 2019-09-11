@@ -2118,6 +2118,11 @@ drbd_ib_create_cq(struct ib_device *device,
 #define atomic_sub_return64		atomic64_sub_return
 #define atomic_set64			atomic64_set
 #define atomic_read64			atomic64_read
+
+#ifndef UNREFERENCED_PARAMETER 
+#define UNREFERENCED_PARAMETER(x)
+#endif
+
 #endif
 
 #endif

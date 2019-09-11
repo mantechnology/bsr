@@ -2916,10 +2916,9 @@ extern bool drbd_set_all_out_of_sync(struct drbd_device *, sector_t, int);
 // DW-1191
 extern unsigned long drbd_set_sync(struct drbd_device *, sector_t, int, ULONG_PTR, ULONG_PTR);
 
-#ifdef _WIN32
+
 extern int update_sync_bits(struct drbd_peer_device *peer_device,
 	unsigned long sbnr, unsigned long ebnr, update_sync_bits_mode mode);
-#endif
 
 extern int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, int size,
 		update_sync_bits_mode mode);

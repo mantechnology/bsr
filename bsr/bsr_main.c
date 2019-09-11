@@ -6335,20 +6335,17 @@ int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_devic
 int drbd_bmio_set_all_n_write(struct drbd_device *device,
 			      struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
-	UNREFERENCED_PARAMETER(peer_device);
-	// MODIFIED_BY_MANTECH DW-1333: set whole bits and update resync extent.
 	struct drbd_peer_device *p;
+	
+	UNREFERENCED_PARAMETER(peer_device);
+	// DW-1333: set whole bits and update resync extent.
+	
 	for_each_peer_device_rcu(p, device) {
-		if (!update_sync_bits(p, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC))
-		{
+		if (!update_sync_bits(p, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC)) {
 			drbd_err(device, "no sync bit has been set for peer(%d), set whole bits without updating resync extent instead.\n", p->node_id);
 			drbd_bm_set_many_bits(p, 0, DRBD_END_OF_BITMAP);
 		}
 	}
-#else
-	drbd_bm_set_all(device);
-#endif
 	return drbd_bm_write(device, NULL);
 }
 
@@ -6365,16 +6362,11 @@ int drbd_bmio_set_n_write(struct drbd_device *device,
 
 	drbd_md_set_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 	drbd_md_sync(device);
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1333: set whole bits and update resync extent.
-	if (!update_sync_bits(peer_device, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC))
-	{
+	// DW-1333: set whole bits and update resync extent.
+	if (!update_sync_bits(peer_device, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC)) {
 		drbd_err(peer_device, "no sync bit has been set, set whole bits without updating resync extent instead.\n");
 		drbd_bm_set_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
 	}
-#else
-	drbd_bm_set_many_bits(peer_device, 0, -1UL);
-#endif
 
 	rv = drbd_bm_write(device, NULL);
 
