@@ -11701,15 +11701,12 @@ void drbd_send_peer_ack_wf(struct work_struct *ws)
 		container_of(ws, struct drbd_connection, peer_ack_work);
 
 	if (process_peer_ack_list(connection)){
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-1301: avoid a connection to go Standalone.  	
-		//DW-1785 If it is not already in C_DISCONNECTING state, change it.
+		// DW-1301: avoid a connection to go Standalone.  	
+		// DW-1785 If it is not already in C_DISCONNECTING state, change it.
 		if (connection->cstate[NOW] != C_DISCONNECTING) {
 			drbd_debug(connection, "change the connection state to C_UNCONNECTED\n");
 			__change_cstate(connection, C_UNCONNECTED);
 		}
-#else 
-		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-#endif 
 	}
 }
 
