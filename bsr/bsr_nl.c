@@ -2301,20 +2301,14 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 				 * If we no longer see it, we may want to
 				 * ignore the size we last knew, and
 				 * "assume_peer_has_space".  */
-#ifdef _WIN32
-				if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size)
-				{
-					// MODIFIED_BY_MANTECH DW-1337: peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
+
+				if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size) {
+					// DW-1337: peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
 					// DW-1469 : only for initial sync
 					*max = min_not_zero(*max, peer_device->c_size);
-				}
-				else 
-				{
+				} else {
 					*max = min_not_zero(*max, peer_device->max_size);
 				}
-#else
-				*max = min_not_zero(*max, peer_device->max_size);
-#endif				
 				continue;
 			}
 		} else {
