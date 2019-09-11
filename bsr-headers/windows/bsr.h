@@ -94,10 +94,6 @@
 
 #endif
 
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1307
-#define _WIN32_STABLE_SYNCSOURCE
-#endif
 
 enum drbd_io_error_p {
 	EP_PASS_ON, /* FIXME should the better be named "Ignore"? */

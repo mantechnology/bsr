@@ -1954,7 +1954,6 @@ static void sanitize_state(struct drbd_resource *resource)
 				peer_disk_state[NEW] <= D_FAILED))
 				__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 			// DW-1314: restrict to be sync side when it is not able to.
 			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_SYNC_TARGET) ||
 				(repl_state[NEW] >= L_PAUSED_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T))
@@ -1972,7 +1971,7 @@ static void sanitize_state(struct drbd_resource *resource)
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
 				}
 			}
-#endif
+
 			// DW-885, DW-897, DW-907: Abort resync if disk state goes unsyncable.
 			if (((repl_state[NEW] == L_SYNC_TARGET || repl_state[NEW] == L_PAUSED_SYNC_T ) && peer_disk_state[NEW] <= D_INCONSISTENT) ||
 				((repl_state[NEW] == L_SYNC_SOURCE || repl_state[NEW] == L_PAUSED_SYNC_S ) && disk_state[NEW] <= D_INCONSISTENT))
@@ -2441,7 +2440,6 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 			if (repl_state[OLD] <= L_ESTABLISHED && repl_state[NEW] == L_WF_BITMAP_S)
 				starting_resync = true;
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 			// DW-1315: check resync availability as state changes, set RESYNC_ABORTED flag by going unsyncable, actual aborting will be occured in w_after_state_change().
 			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_WF_BITMAP_T) ||
 				(repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T))
@@ -2454,7 +2452,6 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 #endif
 					set_bit(RESYNC_ABORTED, &peer_device->flags);
 			}
-#endif
 
 			/* Aborted verify run, or we reached the stop sector.
 			 * Log the last position, unless end-of-device. */
@@ -3122,6 +3119,7 @@ static void notify_peers_lost_primary(struct drbd_connection *lost_peer)
    A primary is stable since it is authoritative.
    Unstable are neighbors of a primary and resync target nodes.
    Nodes further away from a primary are stable! Do no confuse with "weak".*/
+#if 0 // deprecated. use calc_device_stable_ex
 static bool calc_device_stable(struct drbd_state_change *state_change, int n_device, enum which_state which)
 {
 	unsigned int n_connection;
@@ -3152,8 +3150,8 @@ static bool calc_device_stable(struct drbd_state_change *state_change, int n_dev
 
 	return true;
 }
+#endif
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 /* DW-1315: This function is supposed to have the same semantics as calc_device_stable which doesn't return authoritative node.
    We need to notify peer when keeping unstable device and authoritative node's changed as long as it is the criterion of operating resync. */
 static bool calc_device_stable_ex(struct drbd_state_change *state_change, int n_device, enum which_state which, u64* authoritative)
@@ -3204,7 +3202,6 @@ static bool calc_device_stable_ex(struct drbd_state_change *state_change, int n_
 
 	return true;
 }
-#endif
 
 /* takes old and new peer disk state */
 static bool lost_contact_to_peer_data(enum drbd_disk_state *peer_disk_state)
@@ -3393,18 +3390,12 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 #endif
 		bool device_stable[2];
 		enum which_state which;
-#ifdef _WIN32_STABLE_SYNCSOURCE
 		// DW-1315
 		u64 authoritative[2] = { 0, };
-#endif
 
 		for (which = OLD; which <= NEW; which++)
-#ifdef _WIN32_STABLE_SYNCSOURCE
 			// DW-1315: need changes of authoritative node to notify peers.
 			device_stable[which] = calc_device_stable_ex(state_change, n_device, which, &authoritative[which]);
-#else
-			device_stable[which] = calc_device_stable(state_change, n_device, which);
-#endif
 
 		if (disk_state[NEW] == D_UP_TO_DATE)
 			effective_disk_size_determined = true;
@@ -3815,7 +3806,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				/* Inform peers about being unstable...
 				   Maybe it would be a better idea to have the stable bit as
 				   part of the state (and being sent with the state) */
-#ifdef _WIN32_STABLE_SYNCSOURCE
 				// DW-1359: I got unstable since one of my peer goes primary, start resync if need.
 				bool bConsiderResync = false;
 
@@ -3831,9 +3821,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				}
 				
 				drbd_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0);
-#else
-				drbd_send_uuids(peer_device, 0, 0);
-#endif
+
 				put_ldev(device);
 			}
 
@@ -3853,7 +3841,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				drbd_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0);
 				put_ldev(device);
 			}
-#ifdef _WIN32_STABLE_SYNCSOURCE
 			// DW-1315: notify peer that I got stable, no resync available in this case.
 			else if (!device_stable[OLD] && device_stable[NEW] &&
 				repl_state[NEW] >= L_ESTABLISHED &&
@@ -3862,13 +3849,11 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 				drbd_send_uuids(peer_device, 0, 0);
 				put_ldev(device);
 			}
-#endif
-#ifdef _WIN32_STABLE_SYNCSOURCE
+
 			// DW-1315: I am still unstable but authoritative node's changed, need to notify peers.
 			if(!device_stable[OLD] && !device_stable[NEW] &&
 				authoritative[OLD] != authoritative[NEW] &&
-				get_ldev(device))
-			{	
+				get_ldev(device)) {	
 				/* DW-1315: peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE,
 							and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC */
 				drbd_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0);
@@ -3876,8 +3861,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			}
 
 			// DW-1315: resync availability has been checked in finish_state_change(), abort resync here by changing replication state to L_ESTABLISHED.
-			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags))
-			{
+			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags)) {
 				drbd_info(peer_device, "Resync will be aborted due to change of state.\n");
 
 				if (repl_state[NOW] > L_ESTABLISHED)
@@ -3888,7 +3872,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					end_state_change(device->resource, &irq_flags, __FUNCTION__);
 				}
 			}
-#endif
 
 			if (peer_disk_state[OLD] == D_UP_TO_DATE &&
 			    (peer_disk_state[NEW] == D_FAILED || peer_disk_state[NEW] == D_INCONSISTENT) &&

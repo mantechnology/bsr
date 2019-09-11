@@ -2775,7 +2775,6 @@ static bool use_checksum_based_resync(struct drbd_connection *connection, struct
 		 || test_bit(CRASHED_PRIMARY, &device->flags));	/* or only after Primary crash? */
 }
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 /**	DW-1314
 * drbd_inspect_resync_side() - Check stability if resync can be started.
 * rule for resync - Sync source must be stable and authoritative of sync target if sync target is unstable.
@@ -2864,7 +2863,6 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 
 	return true;
 }
-#endif
 
 /**
  * drbd_start_resync() - Start the resync process
@@ -2956,7 +2954,6 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		goto out;
 	}
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 	// DW-1314: check stable sync source rules.
 #ifdef _WIN32_RCU_LOCKED
 	if (!drbd_inspect_resync_side(peer_device, side, NOW, false))
@@ -2980,7 +2977,6 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		unlock_all_resources();
 		goto out;
 	}
-#endif
 
 	begin_state_change_locked(device->resource, CS_VERBOSE);
 #ifdef _WIN32 // DW-900 to avoid the recursive lock

@@ -1083,7 +1083,7 @@ out:
 	return device_stable;
 }
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
+
 // DW-1315: check if I have primary neighbor, it has same semantics as drbd_all_neighbor_secondary and is also able to check the role to be changed.
 #ifdef _WIN32_RCU_LOCKED
 static bool drbd_all_neighbor_secondary_ex(struct drbd_resource *resource, u64 *authoritative, enum which_state which, bool locked)
@@ -1173,7 +1173,7 @@ out:
 #endif
 	return device_stable;
 }
-#endif
+
 
 // DW-1145: it returns true if my disk is consistent with primary's
 bool is_consistent_with_primary(struct drbd_device *device)
@@ -6469,7 +6469,6 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	// DW-1317: prevent from writing smt on volume, such as being primary and getting resync data, it doesn't allow to dismount volume also.
 	mutex_lock(&device->resource->vol_ctl_mutex);
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
 	// DW-1317: inspect resync side first, before get the allocated bitmap.
 #ifdef _WIN32_RCU_LOCKED	
 	if (!drbd_inspect_resync_side(peer_device, side, NOW, false))
@@ -6480,7 +6479,6 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		drbd_warn(peer_device, "can't be %s\n", drbd_repl_str(side));
 		goto out;
 	}
-#endif
 
 	// clear all bits before start initial sync. (clear bits only for this peer device)	
 	if (bitmap_lock)

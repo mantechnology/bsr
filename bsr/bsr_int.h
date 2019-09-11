@@ -978,13 +978,9 @@ enum {
 	// DW-955: add resync aborted flag to resume it later.
 	RESYNC_ABORTED,			/* Resync has been aborted due to unsyncable (peer)disk state, need to resume it when it goes syncable. */
 
-#ifdef _WIN32
-#ifdef _WIN32_STABLE_SYNCSOURCE
 	UNSTABLE_TRIGGER_CP,	/* MODIFIED_BY_MANTECH DW-1341: Do Trigger when my stability is unstable for Crashed Primay wiered case*/
-#endif
-	SEND_BITMAP_WORK_PENDING, /* DW-1447 : Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT.
-										Used when invalidate-remote/invalidate.*/
-#endif
+	SEND_BITMAP_WORK_PENDING, /* DW-1447 : Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.*/
+
 #ifdef _WIN32 //DW-1598 
 	CONNECTION_ALREADY_FREED,
 	//DW-1799 use for disk size comparison and setup.
@@ -2181,14 +2177,15 @@ extern int drbd_bmio_set_all_n_write(struct drbd_device *device, struct drbd_pee
 extern int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local);
 #endif
 extern bool drbd_device_stable(struct drbd_device *device, u64 *authoritative);
-#ifdef _WIN32_STABLE_SYNCSOURCE
+
+
 // DW-1315
 #ifdef _WIN32_RCU_LOCKED
 extern bool drbd_device_stable_ex(struct drbd_device *device, u64 *authoritative, enum which_state which, bool locked);
 #else
 extern bool drbd_device_stable_ex(struct drbd_device *device, u64 *authoritative, enum which_state which);
 #endif
-#endif
+
 extern void drbd_flush_peer_acks(struct drbd_resource *resource);
 extern void drbd_drop_unsent(struct drbd_connection* connection);
 extern void drbd_cork(struct drbd_connection *connection, enum drbd_stream stream);
@@ -2588,14 +2585,14 @@ enum drbd_ret_code drbd_resync_after_valid(struct drbd_device *device, int o_min
 void drbd_resync_after_changed(struct drbd_device *device);
 extern bool drbd_stable_sync_source_present(struct drbd_peer_device *, enum which_state);
 extern void drbd_start_resync(struct drbd_peer_device *, enum drbd_repl_state);
-#ifdef _WIN32_STABLE_SYNCSOURCE
+
 // DW-1314, DW-1315
 #ifdef _WIN32_RCU_LOCKED
 extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which, bool locked);
 #else
 extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which);
 #endif
-#endif
+
 extern void resume_next_sg(struct drbd_device *device);
 extern void suspend_other_sg(struct drbd_device *device);
 extern int drbd_resync_finished(struct drbd_peer_device *, enum drbd_disk_state);

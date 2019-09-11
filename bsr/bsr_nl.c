@@ -5471,6 +5471,7 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	struct drbd_config_context adm_ctx;
 	struct drbd_peer_device *sync_from_peer_device = NULL;
 	struct drbd_resource *resource;
+	struct drbd_peer_device *peer_device;
 	struct drbd_device *device;
 	int retcode = 0; /* enum drbd_ret_code rsp. enum drbd_state_rv */
 
@@ -5485,8 +5486,6 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 		goto out_no_ldev;
 	}
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
-	struct drbd_peer_device *peer_device;
 	for_each_peer_device(peer_device, device) {
 		enum drbd_repl_state *repl_state = peer_device->repl_state;
 		if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_WF_BITMAP_T) ||
@@ -5501,7 +5500,6 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				goto out_no_ldev;
 		}
 	}
-#endif
 
 	resource = device->resource;
 
@@ -5601,6 +5599,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	struct drbd_peer_device *peer_device;
 	struct drbd_resource *resource;
 	struct drbd_device *device;
+	struct drbd_peer_device *temp_peer_device;
 	int retcode; /* enum drbd_ret_code rsp. enum drbd_state_rv */
 #ifdef _WIN32
 	// DW-1391
@@ -5615,20 +5614,22 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	device = peer_device->device;
 	resource = device->resource;
 
-#ifdef _WIN32_STABLE_SYNCSOURCE
-	struct drbd_peer_device *temp_peer_device;
 	for_each_peer_device(temp_peer_device, device) {
 		enum drbd_role *role = resource->role;
 		enum drbd_repl_state *repl_state = temp_peer_device->repl_state;
 
-		if (role[NOW] == R_SECONDARY && (repl_state[NOW] == L_STARTING_SYNC_T || repl_state[NOW] == L_WF_BITMAP_T) ||
-			(repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T || repl_state[NOW] == L_VERIFY_T))
+		if ( (role[NOW] == R_SECONDARY)
+			&& ( repl_state[NOW] == L_STARTING_SYNC_T 
+				|| repl_state[NOW] == L_WF_BITMAP_T 
+				|| repl_state[NOW] == L_SYNC_TARGET 
+				|| repl_state[NOW] == L_PAUSED_SYNC_T 
+				|| repl_state[NOW] == L_VERIFY_T ) )
 		{
 			retcode = ERR_CODE_BASE;
 			goto out;
 		}
 	}
-#endif
+
 	if (!get_ldev(device)) {
 		retcode = ERR_NO_DISK;
 		goto out;
