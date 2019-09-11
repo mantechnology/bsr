@@ -341,6 +341,8 @@ void drbd_req_destroy(struct kref *kref)
 			unsigned long bits = -1, mask = -1;
 #endif
 			int node_id, max_node_id = device->resource->max_node_id;
+			//DW-1191
+			ULONG_PTR set_bits = 0;
 
 			for (node_id = 0; node_id <= max_node_id; node_id++) {
 				unsigned int rq_state;
@@ -358,10 +360,8 @@ void drbd_req_destroy(struct kref *kref)
 						clear_bit(bitmap_index, &mask);
 				}
 			}
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1191: this req needs to go into bitmap, and notify peer if possible.
-			ULONG_PTR set_bits = 0;
-			
+
+			// DW-1191: this req needs to go into bitmap, and notify peer if possible.
 			set_bits = drbd_set_sync(device, req->i.sector, req->i.size, bits, mask);			
 			if (set_bits)
 			{
@@ -377,7 +377,11 @@ void drbd_req_destroy(struct kref *kref)
 
 						drbd_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
 
+#ifdef _WIN32
 						send_oos = kmalloc(sizeof(struct drbd_oos_no_req), 0, 'OSDW');
+#else
+						send_oos = kmalloc(sizeof(struct drbd_oos_no_req), 0);
+#endif
 						if (send_oos)
 						{
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
@@ -391,15 +395,17 @@ void drbd_req_destroy(struct kref *kref)
 						}
 						else
 						{
+#ifdef _WIN32
 							drbd_err(peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n", req->i.sector, req->i.size);
+#else
+							drbd_err(peer_device, "could not allocate send_oos for sector(%lu), size(%u), dropping connection\n", req->i.sector, req->i.size);
+#endif
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
 					}
 				}
 			}
-#else
-			drbd_set_sync(device, req->i.sector, req->i.size, bits, mask);
-#endif
+
 			put_ldev(device);
 		}
 

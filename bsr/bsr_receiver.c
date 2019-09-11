@@ -11723,8 +11723,7 @@ void drbd_send_peer_ack_wf(struct work_struct *ws)
 	}
 }
 
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1191: send queued out-of-syncs, it doesn't rely on drbd request.
+// DW-1191: send queued out-of-syncs, it doesn't rely on drbd request.
 void drbd_send_out_of_sync_wf(struct work_struct *ws)
 {
 	struct drbd_peer_device *peer_device =
@@ -11745,9 +11744,12 @@ void drbd_send_out_of_sync_wf(struct work_struct *ws)
 		drbd_send_out_of_sync(peer_device, &interval);
 
 		spin_lock_irq(&peer_device->send_oos_lock);
-		
-		tmp = list_next_entry(struct drbd_oos_no_req, send_oos, oos_list_head);
 
+#ifdef _WIN32		
+		tmp = list_next_entry(struct drbd_oos_no_req, send_oos, oos_list_head);
+#else
+		tmp = list_next_entry(send_oos, oos_list_head);
+#endif
 		list_del(&send_oos->oos_list_head);
 		kfree(send_oos);
 
@@ -11755,7 +11757,7 @@ void drbd_send_out_of_sync_wf(struct work_struct *ws)
 	}
 	spin_unlock_irq(&peer_device->send_oos_lock);
 }
-#endif
+
 
 #ifndef _WIN32
 EXPORT_SYMBOL(drbd_alloc_pages); /* for transports */

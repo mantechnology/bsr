@@ -1458,22 +1458,16 @@ bool drbd_set_all_out_of_sync(struct drbd_device *device, sector_t sector, int s
  * @bits:	bit values to use by bitmap index
  * @mask:	bitmap indexes to modify (mask set)
  */
-#ifdef _WIN32
-// MODIFIED_BY_MANTECH DW-1191: caller needs to determine the peers that oos has been set.
+// DW-1191: caller needs to determine the peers that oos has been set.
 unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int size,
 		   ULONG_PTR bits, ULONG_PTR mask)
-#else
-bool drbd_set_sync(struct drbd_device *device, sector_t sector, int size,
-		   unsigned long bits, unsigned long mask)
-#endif
 {
 	ULONG_PTR set_start, set_end, clear_start, clear_end;
 	sector_t esector, nr_sectors;
-#ifdef _WIN32
+
+	// DW-1191
 	unsigned long set_bits = 0;
-#else
-	bool set = false;
-#endif
+
 	struct drbd_peer_device *peer_device;
 	//DW-1871
 	bool skip_clear = false;
@@ -1546,15 +1540,12 @@ bool drbd_set_sync(struct drbd_device *device, sector_t sector, int size,
 			continue;
 
 		if (test_bit(bitmap_index, &bits))
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1191: caller needs to know if the bits has been set at least.
 		{
+			// DW-1191: caller needs to know if the bits has been set at least.
 			if (update_sync_bits(peer_device, (unsigned long)set_start, (unsigned long)set_end, SET_OUT_OF_SYNC) > 0)
 				set_bits |= (1 << bitmap_index);
 		}
-#else
-			update_sync_bits(peer_device, set_start, set_end, SET_OUT_OF_SYNC);
-#endif
+
 		//DW-1871
 		else if (clear_start <= clear_end && !skip_clear)
 			update_sync_bits(peer_device, (unsigned long)clear_start, (unsigned long)clear_end, SET_IN_SYNC);
@@ -1583,11 +1574,8 @@ bool drbd_set_sync(struct drbd_device *device, sector_t sector, int size,
 out:
 	put_ldev(device);
 
-#ifdef _WIN32
+	// DW-1191
 	return set_bits;
-#else
-	return set;
-#endif
 }
 
 static
