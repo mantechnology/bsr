@@ -5288,8 +5288,7 @@ static int bitmap_mod_after_handshake(struct drbd_peer_device *peer_device, int 
 	struct drbd_device *device = peer_device->device;
 
 	if (hg == 4) {
-#ifndef _WIN32
-		// MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
+#if 0 // DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
 		int from = device->ldev->md.peers[peer_node_id].bitmap_index;
 
 		if (from == -1 || peer_device->bitmap_index == -1)
@@ -5304,8 +5303,8 @@ static int bitmap_mod_after_handshake(struct drbd_peer_device *peer_device, int 
 		drbd_resume_io(device);
 #endif
 	} else if (hg == -4) {
-#ifndef _WIN32
-		// MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
+
+#if 0 // MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
 		drbd_info(peer_device, "synced up with node %d in the mean time\n", peer_node_id);
 		drbd_suspend_io(device, WRITE_ONLY);
 		drbd_bm_slot_lock(peer_device, "bm_clear_many_bits from sync_handshake", BM_LOCK_BULK);
@@ -5314,6 +5313,7 @@ static int bitmap_mod_after_handshake(struct drbd_peer_device *peer_device, int 
 		drbd_bm_slot_unlock(peer_device);
 		drbd_resume_io(device);
 #endif
+
 	} else if (abs(hg) >= 3) {
 		if (hg == -3 &&
 		    drbd_current_uuid(device) == UUID_JUST_CREATED &&
@@ -11269,27 +11269,20 @@ found:
 		ULONG_PTR in_sync_b;
 		//DW-1872 you must set the device that matches the peer_request.
 		struct drbd_device *device = peer_req->peer_device->device;
-#ifdef _WIN32
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		// MODIFIED_BY_MANTECH DW-1099: Do not set or clear sender's out-of-sync, it's only for managing neighbor's out-of-sync.
-		ULONG_PTR set_sync_mask = INTPTR_MAX;
-#endif    
+		ULONG_PTR set_sync_mask = UINTPTR_MAX;
 
 		if (get_ldev(device)) {
 			in_sync_b = node_ids_to_bitmap(device, in_sync);
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1099: Do not set or clear sender's out-of-sync, it's only for managing neighbor's out-of-sync.
+
+			// DW-1099: Do not set or clear sender's out-of-sync, it's only for managing neighbor's out-of-sync.
 			clear_bit(peer_device->bitmap_index, &set_sync_mask);
 			drbd_set_sync(device, peer_req->i.sector,
 				peer_req->i.size, ~in_sync_b, (ULONG_PTR)set_sync_mask);
 #ifdef _WIN32_TRACE_PEER_DAGTAG			
 			WDRBD_INFO("got_peer_ack drbd_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
 				device, peer_req->i.sector, peer_req->i.size, in_sync_b, set_sync_mask);
-#endif
-
-#else
-			drbd_set_sync(device, peer_req->i.sector,
-				      peer_req->i.size, ~in_sync_b, -1);
 #endif
 			drbd_al_complete_io(device, &peer_req->i);
 			put_ldev(device);

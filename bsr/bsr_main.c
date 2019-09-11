@@ -1548,8 +1548,8 @@ int drbd_send_peer_ack(struct drbd_connection *connection,
 	struct p_peer_ack *p;
 	u64 mask = 0;
 
-#ifndef _WIN32
-	// MODIFIED_BY_MANTECH DW-1099: masking my node id causes peers to improper in-sync.
+
+#if 0 // DW-1099: masking my node id causes peers to improper in-sync.
 	if (req->rq_state[0] & RQ_LOCAL_OK)
 		mask |= NODE_MASK(resource->res_opts.node_id);
 #endif
@@ -5981,6 +5981,7 @@ void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local) /
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 }
 
+#if 0 // not used
 static void copy_bitmap(struct drbd_device *device, int from_id, int to_id) __must_hold(local)
 {
 	int from_index = device->ldev->md.peers[from_id].bitmap_index;
@@ -6002,7 +6003,9 @@ static void copy_bitmap(struct drbd_device *device, int from_id, int to_id) __mu
 	drbd_md_mark_dirty(device);
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 }
+#endif
 
+#if 0 // not used.
 static int find_node_id_by_bitmap_uuid(struct drbd_device *device, u64 bm_uuid) __must_hold(local)
 {
 	struct drbd_peer_md *peer_md = device->ldev->md.peers;
@@ -6023,6 +6026,7 @@ static int find_node_id_by_bitmap_uuid(struct drbd_device *device, u64 bm_uuid) 
 
 	return -1;
 }
+#endif
 
 //static bool node_connected(struct drbd_resource *resource, int node_id)
 //{
@@ -6127,7 +6131,7 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 		// DW-978: Need to check if uuid has to be propagated even if bitmap_uuid is 0, it could be set -1 during sent, check the flag 'MDF_PEER_DIFF_CUR_UUID'.
 		if (peer_device->bitmap_uuids[node_id] == 0 && (peer_md[node_id].bitmap_uuid != 0 || (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))) {
 			u64 peer_current_uuid = peer_device->current_uuid & ~UUID_PRIMARY;
-			int from_node_id;
+			//int from_node_id;
 
 			if (peer_current_uuid == (drbd_current_uuid(device) & ~UUID_PRIMARY)) {
 				// DW-978, DW-979, DW-980
@@ -6172,8 +6176,7 @@ clear_flag:
 				write_bm = true;
 			}
 
-#ifndef _WIN32
-			// MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
+#if 0 // DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
 			from_node_id = find_node_id_by_bitmap_uuid(device, peer_current_uuid);
 			if (from_node_id != -1 && node_id != from_node_id &&
 				// DW-978: Copying bitmap here assumed that bitmap uuid wasn't 0, check bitmap uuid again since flag 'MDF_PEER_DIFF_CUR_UUID' is added.
