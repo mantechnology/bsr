@@ -262,13 +262,6 @@
 #define DRBD_C_MIN_RATE_MIN     0
 #define DRBD_C_MIN_RATE_MAX     (4 << 20)
 
-#if 0 // DW-1543 rollback c-min-rate default vaule
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-1041 
-#define DRBD_C_MIN_RATE_DEF     0
-#else
-#define DRBD_C_MIN_RATE_DEF     250
-#endif
-#endif
 #define DRBD_C_MIN_RATE_DEF     250
 #define DRBD_C_MIN_RATE_SCALE	'k'  /* kilobytes */
 
