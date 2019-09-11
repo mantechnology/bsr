@@ -1126,7 +1126,7 @@ static void set_resync_susp_other_c(struct drbd_peer_device *peer_device, bool v
 				}
 
 				if (peer_device->repl_state[NEW] == L_BEHIND) {
-					// MODIFIED_BY_MANTECH DW-1085 fix resync stop in the state of 'PausedSyncS/SyncTarget'.
+					// DW-1085 fix resync stop in the state of 'PausedSyncS/SyncTarget'.
 					// Set resync_susp_other_c when repl_state is L_BEHIND. L_BEHIND will transition to L_PAUSED_SYNC_T.
 					__change_resync_susp_other_c(peer_device, true, NULL);
 				}
