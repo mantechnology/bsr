@@ -8722,13 +8722,13 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 				    (peer_state.conn == L_STARTING_SYNC_S ||
 				     peer_state.conn == L_STARTING_SYNC_T));
 
-#ifdef _WIN32 // DW-1093 MODIFIED_BY_MANTECH detour 2-primary SB
+		// DW-1093 detour 2-primary SB
 		if( (peer_state.role == R_PRIMARY) && (device->resource->role[NOW] == R_PRIMARY) ) {
 			drbd_err(device, "2 primary is not allowed.\n");
 			put_ldev(device);
 			goto fail;
 		}
-#endif
+
 		if (consider_resync) {
 			new_repl_state = drbd_sync_handshake(peer_device, peer_state.role, peer_disk_state);
 		} else if (old_peer_state.conn == L_ESTABLISHED &&
