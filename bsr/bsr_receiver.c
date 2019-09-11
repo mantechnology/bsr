@@ -5164,12 +5164,12 @@ static int drbd_uuid_compare(struct drbd_peer_device *peer_device,
 			continue;
 		if (i == device->ldev->md.node_id)
 			continue;
-#ifndef _WIN32
-		// MODIFIED_BY_MANTECH DW-1360: need to see bitmap uuid of node which are not assigned to a peer, some of those peers drive me to create new uuid while rotating uuid into their bitmap uuid.
+
+		// DW-1360: need to see bitmap uuid of node which are not assigned to a peer, some of those peers drive me to create new uuid while rotating uuid into their bitmap uuid.
 		/* Skip bitmap indexes which are not assigned to a peer. */
-		if (device->ldev->md.peers[i].bitmap_index == -1)
-			continue;
-#endif
+		//if (device->ldev->md.peers[i].bitmap_index == -1)
+		//	continue;
+
 		self = device->ldev->md.peers[i].bitmap_uuid & ~UUID_PRIMARY;
 		if (self == peer) {
 			*peer_node_id = i;
@@ -6600,10 +6600,8 @@ static void drbd_resync(struct drbd_peer_device *peer_device,
 
 	if (new_repl_state == -1) {
 		drbd_info(peer_device, "Unexpected result of handshake() %d!\n", new_repl_state);
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1360: destroy connection for conflicted data.
+		// DW-1360: destroy connection for conflicted data.
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
-#endif
 		return;
 	} else if (new_repl_state != L_ESTABLISHED) {
 		bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
@@ -6643,28 +6641,24 @@ static void drbd_resync_authoritative(struct drbd_peer_device *peer_device, enum
 
 	new_repl_state = side == L_SYNC_SOURCE ? L_WF_BITMAP_S : side == L_SYNC_TARGET ? L_WF_BITMAP_T : -1;
 
-	if (new_repl_state == -1)
-	{
+	if (new_repl_state == -1) {
 		drbd_info(peer_device, "Invalid resync side %s\n", drbd_repl_str(side));
 		return;
 	}
 
 	hg = drbd_handshake(peer_device, &rule_nr, &peer_node_id, false);
 
-	if (abs(hg) >= 100)
-	{
+	if (abs(hg) >= 100)	{
 		drbd_err(peer_device, "Can not start resync due to unexpected handshake result(%d)\n", hg);
-		// MODIFIED_BY_MANTECH DW-1360: destroy connection for conflicted data.
+		// DW-1360: destroy connection for conflicted data.
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 		return;
 	}
 
 	drbd_info(peer_device, "Becoming %s due to authoritative node changed\n", drbd_repl_str(new_repl_state));
 
-	if (new_repl_state == L_WF_BITMAP_S)
-	{
-		if (abs(hg) == 3)
-		{
+	if (new_repl_state == L_WF_BITMAP_S) {
+		if (abs(hg) == 3) {
 			hg = 3;
 			bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
 		}
