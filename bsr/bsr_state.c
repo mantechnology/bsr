@@ -2582,12 +2582,8 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 				wake_up(&connection->sender_work.q_wait);
 			}
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1195 : bump current uuid when disconnecting with inconsistent peer.
+			// DW-1195 : bump current uuid when disconnecting with inconsistent peer.
 			if (lost_contact_to_peer_data(peer_disk_state) || (peer_disk_state[NEW] == D_INCONSISTENT)) {
-#else
-			if (lost_contact_to_peer_data(peer_disk_state)) {
-#endif
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
 					// DW-892: Bumping uuid during starting resync seems to be inadequate, this is a stopgap work as long as the purpose of 'lost_contact_to_peer_data' is unclear.
 					(repl_state[NEW] != L_AHEAD && cstate[NEW] < C_CONNECTED) &&

@@ -5635,12 +5635,14 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 	// DW-1014: to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
 	various_states_to_goodness(device, peer_device, peer_disk_state, peer_role, &hg);	
 	
-#ifdef LINBIT_PATCH // It will not be used for a while because DW-1195 reproduced. 
+	// It will not be used for a while because DW-1195 reproduced.
+	/*
 	if (hg == 100 && (!drbd_device_stable(device, NULL) || !(peer_device->uuid_flags & UUID_FLAG_STABLE))) {
 		drbd_warn(device, "Ignore Split-Brain, for now, at least one side unstable\n");
 		hg = 0;
 	}
-#endif 
+	*/
+	
 
 	if (abs(hg) == 100)
 		drbd_khelper(device, connection, "initial-split-brain");
