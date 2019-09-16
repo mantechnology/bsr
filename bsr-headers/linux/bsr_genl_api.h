@@ -35,9 +35,9 @@ enum {
 #undef linux
 
 #ifdef _WIN32
-#include "../windows/bsr.h"
+#include "../bsr.h"
 #else
-#include <linux/bsr.h>
+#include <bsr.h>
 #endif
 
 #define GENL_MAGIC_VERSION	2

@@ -23,13 +23,13 @@
 
 */
 #ifdef _WIN32
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/sched.h"
 #include "./bsr-kernel-compat/windows/wait.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #else
 #include <linux/module.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/mm.h>

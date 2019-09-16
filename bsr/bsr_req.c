@@ -23,14 +23,14 @@
 
  */
 #ifdef _WIN32
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "bsr_int.h"
 #include "bsr_req.h"
 #else
 #include <linux/module.h>
 
 #include <linux/slab.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include "bsr_int.h"
 #include "bsr_req.h"
 #endif

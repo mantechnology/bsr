@@ -35,7 +35,7 @@
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./linux/lru_cache.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "./linux/bsr_config.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 #else
@@ -57,7 +57,7 @@
 #include <linux/lru_cache.h>
 #include <linux/prefetch.h>
 #include <linux/bsr_genl_api.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/bsr_config.h>
 #endif
 

@@ -23,7 +23,7 @@
 #include <mountdev.h>
 #include "bsrvfltse.h"
 #include "../../../bsr-headers/windows/ioctl.h"
-#include "../../../bsr-headers/windows/bsr.h"
+#include "../../../bsr-headers/bsr.h"
 
 #define	MVOL_IOCOMPLETE_REQ(Irp, status, size)		\
 {							\

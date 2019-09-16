@@ -26,13 +26,13 @@
 
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/bitops.h"
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #else
 #include <linux/bitops.h>
 #include <linux/vmalloc.h>
 #include <linux/string.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/slab.h>
 #include <linux/dynamic_debug.h>
 #include <asm/kmap_types.h>

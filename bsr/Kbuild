@@ -121,7 +121,7 @@ $(obj)/bsr_buildtag.c: $(filter-out bsr_buildtag.o,$(bsr-y))
 	@$(kecho) '  GEN     $@ $(echo-why)'
 	@set -e; exec > $@.new;							\
 	echo -e "/* automatically generated. DO NOT EDIT. */";			\
-	echo -e "#include <linux/bsr.h>";					\
+	echo -e "#include <bsr.h>";					\
 	echo -e "#include <linux/bsr_config.h>";				\
 	echo -e "const char *drbd_buildtag(void)\n{";				\
 	if test -e $(src)/../.git &&						\

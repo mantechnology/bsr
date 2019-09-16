@@ -20,7 +20,7 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 #ifdef _WIN32
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "../bsr-headers/bsr_transport.h"

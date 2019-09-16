@@ -46,12 +46,12 @@
 #include <fcntl.h>
 #include <time.h>
 #ifdef _WIN32
-#include "windows/bsr.h"		/* only use DRBD_MAGIC from here! */
+#include "bsr.h"		/* only use DRBD_MAGIC from here! */
 #include <windows.h>
 #else
 #include <linux/major.h>
 #include <linux/kdev_t.h>
-#include <linux/bsr.h>		/* only use DRBD_MAGIC from here! */
+#include <bsr.h>		/* only use DRBD_MAGIC from here! */
 #include <linux/fs.h>           /* for BLKFLSBUF */
 #endif
 

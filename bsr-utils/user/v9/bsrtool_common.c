@@ -14,7 +14,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #ifdef _WIN32
 #include <windows.h>
 #else

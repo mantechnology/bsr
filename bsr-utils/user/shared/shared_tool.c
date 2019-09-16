@@ -29,7 +29,7 @@
 #include "config.h"
 #include "bsradm.h"
 #include "bsr_endian.h"
-#include "linux/bsr.h"
+#include "bsr.h"
 
 #include "bsrtool_common.h"
 #include "shared_tool.h"

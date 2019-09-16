@@ -26,53 +26,48 @@
 #ifndef DRBD_H
 #define DRBD_H
 
+#ifndef _WIN32 // _LIN
+#include <asm/types.h>
+
+#ifdef __KERNEL__
+#include <linux/types.h>
+#include <asm/byteorder.h>
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <limits.h>
+
+/* Although the Linux source code makes a difference between
+   generic endianness and the bitfields' endianness, there is no
+   architecture as of Linux-2.6.24-rc4 where the bitfields' endianness
+   does not match the generic endianness. */
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN_BITFIELD
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define __BIG_ENDIAN_BITFIELD
+#else
+# error "sorry, weird endianness on this box"
+#endif
+
+#endif
+
+
+#else // _WIN32
 #define __BYTE_ORDER __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN_BITFIELD
 
-//#ifdef WINNT
-#ifdef _WIN32 //DW-1507 remove unmeaning build warnings(2008 platform)
-//#pragma warning (disable : 4005 4018 4101 4115 4121 4127 4131 4152 4189 4200 4201 4204 4212 4218 4242 4244 4245 4267 4307 4389 4702 4706)
+//DW-1507 remove unmeaning build warnings(2008 platform) and more warnings disable.
 #pragma warning (disable : 4121 4152 4200 4201 4204 4100 4819)
-
 /* warning disable list
-// drbd.h
-4005: macro redefinition
-4018: signed/unsigned mismatch
-4067: unexpected tokens following preprocessor directive - expected a newline
-4101: unreferenced local variable
-4115: named type definition in parentheses
+4100: 
 4121: alignment of a member was sensitive to packing
-4127: conditional expression is constant
-4131: uses old-style declarator
-4189: local variable is initialized but not referenced
 4152: nonstandard extension, function/data pointer conversion in expression
 4200: nonstandard extension used : zero-sized array in struct/union
 4201: nonstandard extension used : nameless struct/union
 4204: nonstandard extension used : non-constant aggregate initializer
-4212: nonstandard extension used : function declaration used ellipsis
-4218: nonstandard extension used : must specify at least a storage class or a type
-4242: '=' : conversion from 'sector_t' to 'long', possible loss of data
-4244: '=' : conversion from 'int' to 'uint8_t', possible loss of data
-4245: 'function' : conversion from 'int' to 'unsigned short', signed/unsigned mismatch
-4267: conversion from 'size_t' to '__u32', possible loss of data
-4307: integral constant overflow warning disable (about DRBD_SNDBUF_SIZE_MAX define)
-4389: '!=' : signed/unsigned mismatch
-4702: unreachable code
-4706: assignment within conditional expression
-
-//drbd_int.h
-4221: cannot be initialized using address of automatic variable
-4706: assignment within conditional expression
-
-//drbd_interval.h
-4067: unexpected tokens following preprocessor directive - expected a newline
-
-//drbd_windows.h
-4100: unreferenced formal parameter
-4146: unary minus operator applied to unsigned type, result still unsigned
+4819:
 */
-#endif
-
 #include "../../../bsr-headers/windows/types.h"
 #ifndef __KERNEL__
 #include <sys/types.h>
@@ -93,6 +88,8 @@
 #endif
 
 #endif
+
+#endif //_WIN32 END
 
 
 enum drbd_io_error_p {
@@ -512,6 +509,7 @@ enum drbd_peer_state {
 #define QOU_MAJORITY 1024
 #define QOU_ALL 1025
 
+#ifdef _WIN32 // TODO
 /* flag bits per volume extension
 DW-1277: volume type is marked when drbd attaches */
 enum {
@@ -531,4 +529,6 @@ enum {
 #define _WIN32_NOWAIT_COMPLETION // DW-1479 : Do not wait for WskCloseSocket to complete.
 #define _WIN32_NETQUEUED_LOG // DW-1521 : Improve I/O response time at low bandwidth.
 #define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 : crashed_primary node to be SyncSource.
+#endif
+
 #endif

@@ -35,7 +35,7 @@
  */
 #pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
 
@@ -48,7 +48,7 @@
 #else
 #include <linux/module.h>
 #include <linux/jiffies.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/uaccess.h>
 #include <asm/types.h>
 #include <net/sock.h>

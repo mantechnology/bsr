@@ -4,7 +4,7 @@
 #else
 //#define _WIN32_APP
 //#define _WIN32
-#include <linux/bsr.h>
+#include <bsr.h>
 #endif
 
 /* automatically generated. DO NOT EDIT. */

@@ -24,7 +24,7 @@
  */
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/seq_file.h"
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #else
 #include <linux/module.h>
 
@@ -33,7 +33,7 @@
 #include <linux/file.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #endif
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_transport.h"

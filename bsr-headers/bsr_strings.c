@@ -23,9 +23,9 @@
 
 */
 #ifdef _WIN32
-#include "windows/bsr.h"
+#include "bsr.h"
 #else
-#include <linux/bsr.h>
+#include <bsr.h>
 #endif
 #include "bsr_strings.h"
 #include "bsr_protocol.h"

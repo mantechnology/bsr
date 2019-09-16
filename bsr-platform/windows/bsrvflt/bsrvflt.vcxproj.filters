@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\attr.c">
@@ -272,6 +272,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func-genl_register_mc_group.h">
       <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr.h">
+      <Filter>bsr-headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

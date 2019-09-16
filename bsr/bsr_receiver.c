@@ -23,7 +23,7 @@
  */
 
 #ifdef _WIN32
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
@@ -37,7 +37,7 @@
 #include <linux/uaccess.h>
 #include <net/sock.h>
 
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/in.h>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Server2008 Debug|Win32">
@@ -999,6 +999,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="wsk_wrapper.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\bsr-headers\bsr.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_meta_data.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_protocol.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_strings.h" />

@@ -50,7 +50,7 @@
 #include <signal.h>
 #include <time.h>
 #ifndef _WIN32
-#include "linux/bsr.h"
+#include "bsr.h"
 #endif
 #include "linux/bsr_limits.h"
 #include "bsrtool_common.h"
@@ -61,7 +61,7 @@
 #include "shared_main.h"
 #include "bsradm_parser.h"
 #ifdef _WIN32
-#include "windows/bsr.h"
+#include "bsr.h"
 #include <windows.h>
 #endif
 

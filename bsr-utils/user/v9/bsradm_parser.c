@@ -38,7 +38,7 @@
 #include <assert.h>
 
 #include "bsradm.h"
-#include "linux/bsr.h"
+#include "bsr.h"
 #include "linux/bsr_limits.h"
 #include "bsrtool_common.h"
 #include "bsradm_parser.h"

@@ -27,7 +27,7 @@
 
 #ifdef _WIN32
 
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #define		ERR_LOCAL_AND_PEER_ADDR 173	
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
@@ -41,7 +41,7 @@
 #else
 
 #include <linux/module.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/in.h>
 #include <linux/fs.h>
 #include <linux/file.h>

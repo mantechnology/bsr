@@ -25,12 +25,12 @@
 #ifndef _DRBD_REQ_H
 #define _DRBD_REQ_H
 #ifdef _WIN32
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #else
 #include <linux/module.h>
 
 #include <linux/slab.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #endif
 #include "bsr_int.h"
 #ifdef _WIN32

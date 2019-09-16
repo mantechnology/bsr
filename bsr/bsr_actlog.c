@@ -26,13 +26,13 @@
 #ifdef _WIN32
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"
-#include "../bsr-headers/windows/bsr.h"
+#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/idr.h"
 #else
 #include <linux/slab.h>
 #include <linux/crc32c.h>
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/bsr_limits.h>
 #include <linux/dynamic_debug.h>
 #endif

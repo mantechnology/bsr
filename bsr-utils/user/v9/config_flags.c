@@ -11,7 +11,7 @@
 #endif
 
 #include "libgenl.h"
-#include <linux/bsr.h>
+#include <bsr.h>
 #include <linux/bsr_config.h>
 #include <linux/bsr_genl_api.h>
 #include <linux/bsr_limits.h>
