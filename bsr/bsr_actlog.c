@@ -24,9 +24,9 @@
  */
 
 #ifdef _WIN32
+#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"
-#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/idr.h"
 #else

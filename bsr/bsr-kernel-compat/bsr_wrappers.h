@@ -2,7 +2,7 @@
 #define _DRBD_WRAPPERS_H
 
 #ifdef _WIN32
-
+#include "../../../bsr-headers/bsr.h"
 #include "./windows/rbtree.h"
 #include "./windows/idr.h"
 #include "./windows/bsr_wingenl.h"
