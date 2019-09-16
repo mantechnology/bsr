@@ -415,6 +415,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -442,6 +443,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\BufferOverflowK.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\ntoskrnl.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\hal.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wmilib.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\netio.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wdm.lib;$(SDK_LIB_PATH)\uuid.lib</AdditionalDependencies>
@@ -473,6 +475,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -502,6 +505,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\BufferOverflowK.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\ntoskrnl.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\hal.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wmilib.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\netio.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wdm.lib;$(SDK_LIB_PATH)\uuid.lib</AdditionalDependencies>
@@ -532,6 +536,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -558,6 +563,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -583,6 +589,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\memcmp.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\BufferOverflowK.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\ntoskrnl.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\hal.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wmilib.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\netio.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wdm.lib;$(SDK_LIB_PATH)\uuid.lib</AdditionalDependencies>
@@ -614,6 +621,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -642,6 +650,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\memcmp.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\BufferOverflowK.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\ntoskrnl.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\hal.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wmilib.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\netio.lib;$(WindowsSdkDir_80)\Lib\wlh\km\$(DDKPlatform)\wdm.lib;$(SDK_LIB_PATH)\uuid.lib</AdditionalDependencies>
@@ -670,6 +679,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -695,6 +705,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -723,6 +734,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -751,6 +763,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -779,6 +792,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -803,6 +817,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions);__KERNEL__;POOL_NX_OPTIN_AUTO=1</PreprocessorDefinitions>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -828,6 +843,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -853,6 +869,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -881,6 +898,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -909,6 +927,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -937,6 +956,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WppEnabled>true</WppEnabled>
       <WppKernelMode>true</WppKernelMode>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\netio.lib;$(SDK_LIB_PATH)\uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
