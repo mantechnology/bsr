@@ -320,7 +320,7 @@ int HandleTCPClient(int clntSocket)
 	DWORD dwExitCode = 0;
 
 	extern TCHAR gServicePath[];
-	char *usermode_helper = "drbdadm.exe";
+	char *usermode_helper = "bsradm.exe";
 
 	wsprintf(dest, L"\"%ws\\%S\" %S", gServicePath, usermode_helper, rxcmdbuf);
 	WriteLog(dest);

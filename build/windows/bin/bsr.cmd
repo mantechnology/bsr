@@ -3,13 +3,13 @@
 setlocal
 
 set PWD=%cd%
-set DIR=%DRBD_PATH%
-set PROVIDERNAME=drbdService
+set DIR=%BSR_PATH%
+set PROVIDERNAME=bsrService
 set EXT=log
 cd "%DIR%"
 
 :CREATE_LOG
-drbdcon.exe /get_log ../log/%PROVIDERNAME%.%EXT% %1 %2
+bsrcon.exe /get_log ../log/%PROVIDERNAME%.%EXT% %1 %2
 if %errorlevel% NEQ 0 (
 	echo ERROR: Cannot create log file, error : %errorlevel%
 	goto END

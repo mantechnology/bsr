@@ -122,14 +122,14 @@ DWORD GetDiskLetterList(__inout list<WCHAR> & letter_list)
 
     GetSystemDirectory(systemDirPath, sizeof(systemDirPath) / sizeof(WCHAR));
 
-    sprintf_s(cmd,"%ws\\cmd.exe /c \"%ws\\drbdadm.exe\" sh-dev all",systemDirPath, g_szEnvPath);
+    sprintf_s(cmd,"%ws\\cmd.exe /c \"%ws\\bsradm.exe\" sh-dev all",systemDirPath, g_szEnvPath);
 
     pPipe = _popen(cmd, "r");
 
     if (!pPipe)
     {
         result = GetLastError();
-        Log(L"drbdadm sh-dev all failed.\n");
+        Log(L"bsradm sh-dev all failed.\n");
         return result;
     }
 
@@ -177,7 +177,7 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
     WCHAR szRegLetter[MAX_PATH] = {0, };
     UCHAR volGuid[MAX_PATH] = {0, };
     DWORD cbRegLetter = MAX_PATH, cbVolGuid = MAX_PATH;
-    const WCHAR * szRegistryPath = L"System\\CurrentControlSet\\Services\\drbd\\volumes";
+    const WCHAR * szRegistryPath = L"System\\CurrentControlSet\\Services\\bsr\\volumes";
 
     status = RegOpenKeyExW(HKEY_LOCAL_MACHINE, szRegistryPath, 0, KEY_ALL_ACCESS, &hKey);
     if (ERROR_SUCCESS != status)
@@ -399,14 +399,14 @@ DWORD StartRegistryCleaner()
 {
     // get wdrbd's path in environment variables
     size_t path_size;
-    errno_t result = _wgetenv_s(&path_size, g_szEnvPath, MAX_PATH, L"DRBD_PATH");
+    errno_t result = _wgetenv_s(&path_size, g_szEnvPath, MAX_PATH, L"BSR_PATH");
     if (result)
     {
-        wcscpy_s(g_szEnvPath, L"c:\\Program Files\\drbd\\bin");
+        wcscpy_s(g_szEnvPath, L"c:\\Program Files\\bsr\\bin");
     }
 
     g_strLogPath = g_szEnvPath;
-    g_strLogPath.append(L"\\drbdService.log");
+    g_strLogPath.append(L"\\bsrService.log");
 
     // get host name 
     GetHostName();

@@ -26,7 +26,7 @@
 HANDLE g_LogLinkThread = NULL;
 int g_loglink_usage;
 int g_loglink_port;
-TCHAR *new_logname = L"NEW_DRBD_LOG"; // TEST!!!
+TCHAR *new_logname = L"NEW_BSR_LOG"; // TEST!!!
 
 extern VOID WriteLog(TCHAR* pLogName, TCHAR* pMsg, WORD wType);
 extern VOID AddEventSource(TCHAR * caPath, TCHAR * csApp);
@@ -70,7 +70,7 @@ void get_linklog_reg()
 	DWORD status;
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
-	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\drbd";
+	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
 
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS == status)

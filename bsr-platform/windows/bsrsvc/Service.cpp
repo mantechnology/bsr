@@ -41,12 +41,12 @@ DWORD RcDrbdStop(bool force);
 
 BOOL g_bProcessStarted = TRUE;
 
-TCHAR * ServiceName = _T("drbdService");
-TCHAR * ServiceDisplayName = _T("DRBD for Windows");
+TCHAR * ServiceName = _T("bsrService");
+TCHAR * ServiceDisplayName = _T("BSR for Windows");
 //DW-1741 ko
-TCHAR * DescriptionKO = _T("DRBD의 Windows 버전으로 실시간 블럭레벨 복제를 제공합니다. 이 서비스를 중지하면 복제 서비스에 문제가 발생할 수 있습니다.");
+TCHAR * DescriptionKO = _T("BSR의 Windows 버전으로 실시간 블럭레벨 복제를 제공합니다. 이 서비스를 중지하면 복제 서비스에 문제가 발생할 수 있습니다.");
 //DW-1741 en
-TCHAR * DescriptionEN = _T("Provides real-time block-level replication with a Windows version of the DRBD. Stopping this service can cause problems with the replication service.");
+TCHAR * DescriptionEN = _T("Provides real-time block-level replication with a Windows version of the BSR. Stopping this service can cause problems with the replication service.");
 
 SERVICE_TABLE_ENTRY		g_lpServiceStartTable[] =
 {
@@ -164,15 +164,15 @@ int _tmain(int argc, _TCHAR* argv[])
     {
         DWORD dwPID;
         WCHAR *szServicePath;
-        WCHAR *cmd = L"drbdadm.exe initial-split-brain minor-6";
+        WCHAR *cmd = L"bsradm.exe initial-split-brain minor-6";
         WCHAR fullName[MAX_PATH] = {0};
 
         size_t len;
-        errno_t err = _wdupenv_s(&szServicePath, &len, L"DRBD_PATH");
+        errno_t err = _wdupenv_s(&szServicePath, &len, L"BSR_PATH");
         if (err)
         {
             // default
-            szServicePath = L"C:\\Program Files\\drbd\\bin";
+            szServicePath = L"C:\\Program Files\\bsr\\bin";
         }
         if ((wcslen(szServicePath) + wcslen(cmd) + 4) > MAX_PATH)
         {
@@ -213,7 +213,7 @@ int _tmain(int argc, _TCHAR* argv[])
     else
     {
         TCHAR msg[256];
-        _stprintf_s(msg, _T("Usage: drbdService.exe [/i|/k|/u|/s]\n"));
+        _stprintf_s(msg, _T("Usage: bsrService.exe [/i|/k|/u|/s]\n"));
         WriteLog(msg);
         return ERROR_INVALID_PARAMETER;
     }
@@ -558,7 +558,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
     RcDrbdStart();
 
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
-	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("drbdcon"), _T("/get_log"), _T("..\\log\\ServiceStart.log"));
+	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStart.log"));
 	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	if (ret) {
 		_stprintf_s(tmp, _T("service start drbdlog fail:%d\n"), ret);
@@ -580,10 +580,10 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 	// DW-1505 : Keep only NUMOFLOGS(10) Preshutdown logs 
 	size_t path_size; WCHAR DrbdPath[MAX_PATH] = { 0, }; WCHAR DrbdLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
-	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"DRBD_PATH");
+	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"BSR_PATH");
 	if (result)
 	{
-		wcscpy_s(DrbdPath, L"c:\\Program Files\\drbd\\bin");
+		wcscpy_s(DrbdPath, L"c:\\Program Files\\bsr\\bin");
 	}
 	wcsncpy_s(DrbdLogPath, DrbdPath, wcslen(DrbdPath) - strlen("bin"));
 	wcscat_s(DrbdLogPath, L"log\\");
@@ -604,7 +604,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; DWORD dwPID;
 
-	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("drbdcon"), _T("/get_log"), _T("..\\log\\"));
+	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\"));
 	// Change Preshutdown log name to date(eg. Preshutdown-YEAR-MONTH-DAY-HOUR-MINUTE.log)
 	_tcscat(szFullPath, PreShutdownTime);
 
@@ -697,7 +697,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 				RcDrbdStop(false);
 
 				TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
-				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("drbdcon"), _T("/get_log"), _T("..\\log\\ServiceStop.log"));
+				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStop.log"));
 				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 				if (ret) {
 					_stprintf_s(tmp, _T("service stop drbdlog fail:%d\n"), ret);
