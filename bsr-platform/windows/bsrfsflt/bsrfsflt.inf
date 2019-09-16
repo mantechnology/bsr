@@ -1,5 +1,5 @@
 ;;;
-;;; drbdlock
+;;; bsrfsflt
 ;;;
 
 [Version]
@@ -11,7 +11,7 @@ Class = "ActivityMonitor"
 ClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
 Provider    = %ManufacturerName%
 DriverVer   = 
-CatalogFile = drbdlock.cat
+CatalogFile = bsrfsflt.cat
 
 [DestinationDirs]
 DefaultDestDir          = 12
@@ -74,7 +74,7 @@ HKR,"Instances\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%
 %DriverName%.sys
 
 [SourceDisksFiles]
-drbdlock.sys = 1,,
+bsrfsflt.sys = 1,,
 
 [SourceDisksNames]
 1 = %DiskId1%,,,
@@ -86,14 +86,14 @@ drbdlock.sys = 1,,
 [Strings]
 ; TODO - Add your manufacturer
 ManufacturerName        = "Template"
-ServiceDescription      = "drbdlock Mini-Filter Driver"
-ServiceName             = "drbdlock"
-DriverName              = "drbdlock"
-DiskId1                 = "drbdlock Device Installation Disk"
+ServiceDescription      = "bsrfsflt Mini-Filter Driver"
+ServiceName             = "bsrfsflt"
+DriverName              = "bsrfsflt"
+DiskId1                 = "bsrfsflt Device Installation Disk"
 
 ;Instances specific information.
-DefaultInstance         = "drbdlock Instance"
-Instance1.Name          = "drbdlock Instance"
+DefaultInstance         = "bsrfsflt Instance"
+Instance1.Name          = "bsrfsflt Instance"
 Instance1.Altitude      = "389090"
 Instance.Altitude       = "_TODO_Change_Altitude_appropriately_"
 Instance1.Flags         = 0x0              ; Allow all attachments

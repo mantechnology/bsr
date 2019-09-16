@@ -1,5 +1,5 @@
 ;;;
-;;; install/uninstall drbd engine driver
+;;; install/uninstall bsrvflt engine driver
 ;;;
 
 [Version]
@@ -8,13 +8,13 @@ Class       =   "Volume"                       		;This is determined by the work
 ClassGuid   =   {71A27CDD-812A-11D0-BEC7-08002BE2092F}  ;This value is determined by the Class
 Provider    =   %Msft%
 DriverVer   =   12/01/2013,0.2.0.0
-CatalogFile = drbd.cat
+CatalogFile = bsrvflt.cat
 
 
 [DestinationDirs]
 DefaultDestDir       = 12
-DRBD.DriverFiles     = 12           ;%windir%\system32\drivers
-;;DRBD.UserFiles       = 10,drbdcon   ;%windir%\drbdcon
+BSR.DriverFiles     = 12           ;%windir%\system32\drivers
+;;BSR.UserFiles       = 10,bsrcon   ;%windir%\bsrcon
 
 ;;
 ;; Default install sections
@@ -22,44 +22,44 @@ DRBD.DriverFiles     = 12           ;%windir%\system32\drivers
 
 [DefaultInstall]
 OptionDesc          = %ServiceDesc%
-CopyFiles           = DRBD.DriverFiles
-;;CopyFiles           = DRBD.DriverFiles, DRBD.UserFiles
+CopyFiles           = BSR.DriverFiles
+;;CopyFiles           = BSR.DriverFiles, BSR.UserFiles
 
 [DefaultInstall.Services]
-AddService          = %ServiceName%,,DRBD.Service
+AddService          = %ServiceName%,,BSR.Service
 
 ;;
 ;; Default uninstall sections
 ;;
 
 [DefaultUninstall]
-DelFiles            = DRBD.DriverFiles
-;;DelFiles            = DRBD.DriverFiles, DRBD.UserFiles
-DelReg              = DRBD.DelRegistry
+DelFiles            = BSR.DriverFiles
+;;DelFiles            = BSR.DriverFiles, BSR.UserFiles
+DelReg              = BSR.DelRegistry
 
 [DefaultUninstall.Services]
-DelService = drbd,0x200      ; Flags note to stop service first
+DelService = bsr,0x200      ; Flags note to stop service first
 
 ;
 ; Services Section
 ;
 
-[DRBD.Service]
+[BSR.Service]
 DisplayName      = %ServiceName%
 Description      = %ServiceDesc%
-ServiceBinary    = %12%\drbd.sys     	;%windir%\system32\drivers\drbd.sys
+ServiceBinary    = %12%\bsrvflt.sys     	;%windir%\system32\drivers\bsrvflt.sys
 ServiceType      = 1                    ;SERVICE_FILE_SYSTEM_DRIVER
 StartType        = 0                    ;SERVICE_DEMAND_START
 ErrorControl     = 1                    ;SERVICE_ERROR_NORMAL
 LoadOrderGroup   = "PnP Filter"  	
-AddReg           = DRBD.AddRegistry
+AddReg           = BSR.AddRegistry
 
 ;
 ; Registry Modifications
 ;
 
-[DRBD.AddRegistry]
-HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00010008, drbd
+[BSR.AddRegistry]
+HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00010008, bsr
 HKR,,"proc_details",0x00010001,0
 HKR,,"debug_level",0x00010001,0
 HKR,,"bypass_level",0x00010001,0
@@ -77,8 +77,8 @@ HKR,,"handler_timeout",0x00010001,1
 HKR,,"handler_retry",0x00010001,0
 HKR,,"ver",0x00000000, "1.5"
 
-[DRBD.DelRegistry]
-HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00018002, drbd
+[BSR.DelRegistry]
+HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00018002, bsr
 HKR,,"proc_details"
 HKR,,"debug_level"
 HKR,,"bypass_level"
@@ -94,15 +94,15 @@ HKR,,"ver"
 ; Copy Files
 ;
 
-[DRBD.DriverFiles]
-drbd.sys
+[BSR.DriverFiles]
+bsrvflt.sys
 
-[DRBD.UserFiles]
-drbdcon.exe
+[BSR.UserFiles]
+bsrcon.exe
 
 [SourceDisksFiles]
-drbd.sys = 1,,
-;;drbdcon.exe = 1,,
+bsrvflt.sys = 1,,
+;;bsrcon.exe = 1,,
 
 [SourceDisksNames]
 1 = %DiskId1%,,,
@@ -112,8 +112,8 @@ drbd.sys = 1,,
 ;;
 
 [Strings]
-Msft                = "drbd"
-ServiceDesc         = "drbd engine"
-ServiceName         = "drbd"
-DiskId1             = "drbd Installation Disk"
+Msft                = "bsr"
+ServiceDesc         = "bsr engine"
+ServiceName         = "bsr"
+DiskId1             = "bsr Installation Disk"
 
