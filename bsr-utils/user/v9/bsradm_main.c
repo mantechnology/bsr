@@ -1986,13 +1986,11 @@ int _proxy_connect_name_len(const struct d_resource *res, const struct connectio
 {
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1426: avoid crash when no proxy exists.
+	// DW-1426: avoid crash when no proxy exists.
 	if (!path ||
 		!path->peer_proxy ||
 		!path->my_proxy)
 		return 0;
-#endif
 
 	return (conn->name ? strlen(conn->name) : strlen(res->name)) +
 		strlen(names_to_str_c(&path->peer_proxy->on_hosts, '_')) +
@@ -2004,13 +2002,11 @@ char *_proxy_connection_name(char *conn_name, const struct d_resource *res, cons
 {
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1426: avoid crash when no proxy exists.
+	// DW-1426: avoid crash when no proxy exists.
 	if (!path ||
 		!path->peer_proxy ||
 		!path->my_proxy)
 		return (char*)0;
-#endif
 
 	sprintf(conn_name, "%s-%s-%s",
 		conn->name ?: res->name,
@@ -2039,11 +2035,10 @@ int do_proxy_conn_up(const struct cfg_ctx *ctx)
 			continue;
 
 		conn_name = proxy_connection_name(ctx->res, conn);
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1426: avoid crash when no proxy exists.
+
+		// DW-1426: avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
-#endif
 
 		argv[2] = ssprintf(
 				"add connection %s %s:%s %s:%s %s:%s %s:%s",
@@ -2088,11 +2083,9 @@ int do_proxy_conn_plugins(const struct cfg_ctx *ctx)
 
 		conn_name = proxy_connection_name(ctx->res, conn);
 
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1426: avoid crash when no proxy exists.
+		// DW-1426: avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
-#endif
 
 		argc = 0;
 		argv[NA(argc)] = drbd_proxy_ctl;
@@ -2146,11 +2139,10 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx)
 			continue;
 
 		conn_name = proxy_connection_name(ctx->res, conn);
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1426: avoid crash when no proxy exists.
+
+		// DW-1426: avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
-#endif
 
 		argv[2] = ssprintf("del connection %s", conn_name);
 
