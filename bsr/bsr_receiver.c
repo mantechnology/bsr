@@ -5660,15 +5660,14 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 	}
 
 	if (hg == -100) {
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1221 : If DISCARD_MY_DATA bit is set on both nodes, dropping connection.
+		// DW-1221 : If DISCARD_MY_DATA bit is set on both nodes, dropping connection.
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 			(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
 			drbd_err(connection, "incompatible %s settings\n", "discard-my-data");
 			rcu_read_unlock();
 			return -1;
 		}
-#endif
+
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 		    !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA))
 			hg = -2;
@@ -5681,14 +5680,14 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 			     "Sync from %s node\n",
 			     (hg < 0) ? "peer" : "this");
 	}
-#ifdef _WIN32 
-	//MODIFIED_BY_MANTECH DW-1221 : If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
+
+	// DW-1221 : If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
 	else
 	{
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
-#endif
+
 	rr_conflict = nc->rr_conflict;
 	rcu_read_unlock();
 
@@ -5821,8 +5820,8 @@ static int receive_protocol(struct drbd_connection *connection, struct packet_in
 			goto disconnect_rcu_unlock;
 		}
 
-#ifndef _WIN32
-		// MODIFIED_BY_MANTECH DW-1221 : move to drbd_sync_handshake()
+#if 0
+		// DW-1221 : move to drbd_sync_handshake()
 		if (p_discard_my_data && test_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
 			drbd_err(connection, "incompatible %s settings\n", "discard-my-data");
 			goto disconnect_rcu_unlock;
