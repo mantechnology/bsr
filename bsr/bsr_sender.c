@@ -1876,13 +1876,12 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 
 			    peer_device->uuids_received) {
 				u64 newer = drbd_uuid_resync_finished(peer_device);
-#ifdef _WIN32
-				// MODIFIED_BY_MANTECH DW-1216: no downgrade if uuid flags contains belows because
+
+				// DW-1216: no downgrade if uuid flags contains belows because
 				// 1. receiver updates newly created uuid unless it is being gotten sync, downgrading shouldn't(or might not) affect.
-				if (peer_device->uuid_flags & UUID_FLAG_NEW_DATAGEN
-					)
+				if (peer_device->uuid_flags & UUID_FLAG_NEW_DATAGEN)
 					newer = 0;
-#endif
+
 				__outdate_peer_disk_by_mask(device, newer);
 			} else {
 				if (!peer_device->uuids_received)
