@@ -1,11 +1,4 @@
-﻿#ifdef _WIN32
- // 
 #include <string.h>
-#else
-//#define _WIN32_APP
-#define _WIN32
-#include <linux/drbd.h>
-#endif
 
 /* automatically generated. DO NOT EDIT. */
 #define BUILD_VERSION ""

@@ -993,7 +993,6 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\seq_file.c" />
     <ClCompile Include="..\..\..\bsr\bsr_actlog.c" />
     <ClCompile Include="..\..\..\bsr\bsr_bitmap.c" />
-    <ClCompile Include="..\..\..\bsr\bsr_buildtag.c" />
     <ClCompile Include="..\..\..\bsr\bsr_debugfs.c" />
     <ClCompile Include="..\..\..\bsr\bsr_interval.c" />
     <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c" />
@@ -1009,6 +1008,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\bsr_transport_tcp.c" />
     <ClCompile Include="..\..\..\bsr\kref_debug.c" />
     <ClCompile Include="..\..\..\bsr\lru_cache.c" />
+    <ClCompile Include="bsr_windows_buildtag.c" />
     <ClCompile Include="data.c" />
     <ClCompile Include="disp.c" />
     <ClCompile Include="ops.c" />
