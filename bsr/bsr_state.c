@@ -4996,6 +4996,10 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 {
 	struct drbd_connection *twopc_parent, *tmp;
 	struct twopc_reply twopc_reply;
+	struct drbd_connection **connections = NULL;
+	unsigned int connectionCount = 0;
+	unsigned int i = 0;
+
 	LIST_HEAD(parents);
 
 	spin_lock_irq(&resource->req_lock);
@@ -5007,29 +5011,28 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 	}
 	if (as_work)
 		resource->twopc_work.cb = NULL;
-#ifndef _WIN32
-	// MODIFIED_BY_MANTECH DW-1414: postpone releasing req_lock until get all connections to send twopc reply.
-	spin_unlock_irq(&resource->req_lock);
-#endif
+
+	// DW-1414: postpone releasing req_lock until get all connections to send twopc reply.
+	//spin_unlock_irq(&resource->req_lock);
 
 	if (!twopc_reply.tid){
 #ifdef _WIN32_TWOPC
-		drbd_info(resource, "!twopc_reply.tid = %u result: %s\n",
-			twopc_reply.tid, drbd_packet_name(cmd));
-		// MODIFIED_BY_MANTECH DW-1414
-		spin_unlock_irq(&resource->req_lock);
+		drbd_info(resource, "!twopc_reply.tid = %u result: %s\n", twopc_reply.tid, drbd_packet_name(cmd));
 #endif
+		// DW-1414
+		spin_unlock_irq(&resource->req_lock);
+
 		return;
 	}
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1414: postpone releasing req_lock until get all connections to send twopc reply.
-	struct drbd_connection **connections = NULL;
-	int connectionCount = 0;
 
+	// DW-1414: postpone releasing req_lock until get all connections to send twopc reply.
 	// get connection count from twopc_parent_list.
+#ifdef _WIN32	
 	list_for_each_entry_safe(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
-		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next)
-		{
+#else
+	list_for_each_entry_safe( twopc_parent, tmp, &parents, twopc_parent_list) {
+#endif	
+		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next) {
 			drbd_err(resource, "twopc_parent_list is invalid\n");
 #ifdef _WIN32	// DW-1480
 			list_del(&twopc_parent->twopc_parent_list);
@@ -5047,32 +5050,35 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 	}
 
 	// allocate memory for connection pointers.
-	connections = (struct drbd_connection**)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct drbd_connection*) * connectionCount, 'D8DW');
+#ifdef _WIN32
+	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_KERNEL, 'D8DW');
+#else
+	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_KERNEL);
+#endif
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		drbd_err(resource, "failed to allocate memory for connections, size : %u\n", sizeof(struct drbd_connection*) * connectionCount);
+		drbd_err(resource, "failed to allocate memory for connections\n");
 		return;
 	}
 
 	// store connection object address.
 	connectionCount = 0;
+#ifdef _WIN32
 	list_for_each_entry_safe(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
+#else
+	list_for_each_entry_safe(twopc_parent, tmp, &parents, twopc_parent_list) {
+#endif
 		connections[connectionCount++] = twopc_parent;
 	}
 	
 	// release req_lock.
 	spin_unlock_irq(&resource->req_lock);
 
-    drbd_debug(resource, "Nested state change %u result: %s\n",
-        twopc_reply.tid, drbd_packet_name(cmd));
+    drbd_debug(resource, "Nested state change %u result: %s\n", twopc_reply.tid, drbd_packet_name(cmd));
 
-	for (int i = 0; i < connectionCount; i++) {
+	for (i = 0; i < connectionCount; i++) {
 		twopc_parent = connections[i];	
-#else
-	drbd_debug(twopc_parent, "Nested state change %u result: %s\n",
-		   twopc_reply.tid, drbd_packet_name(cmd));
-	list_for_each_entry_safe(twopc_parent, tmp, &parents, twopc_parent_list) {
-#endif
+
 		if (twopc_reply.is_disconnect)
 			set_bit(DISCONNECT_EXPECTED, &twopc_parent->flags);
 		drbd_send_twopc_reply(twopc_parent, cmd, &twopc_reply);
@@ -5083,12 +5089,11 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 		kref_put(&twopc_parent->kref, drbd_destroy_connection);
 	}
 
-#ifdef _WIN32
 	if (connections) {
-		ExFreePool(connections);
+		kfree(connections);
 		connections = NULL;
 	}
-#endif
+
 	wake_up(&resource->twopc_wait);
 }
 
