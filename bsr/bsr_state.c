@@ -4678,8 +4678,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				(context->mask.conn == conn_MASK && context->val.conn == C_CONNECTED))
 				rv = check_primaries_distances(resource);
 
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1231 : not allowed multiple primaries.
+			// DW-1231 : not allowed multiple primaries.
 			if (reply->primary_nodes & NODE_MASK(context->target_node_id))
 			{			
 				rcu_read_lock();
@@ -4694,7 +4693,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				}
 				rcu_read_unlock();
 			}
-#endif
+
 			if (!(context->mask.conn == conn_MASK && context->val.conn == C_DISCONNECTING) ||
 			    (reply->reachable_nodes & reply->target_reachable_nodes)) {
 				/* The cluster is still connected after this
