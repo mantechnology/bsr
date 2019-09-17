@@ -14,10 +14,10 @@ goto :eof
 REM ------------------------------------------------------------------------
 :start
 
-set log="%DRBD_PATH%\..\log\rc_start.log"
+set log="%BSR_PATH%\..\log\rc_start.log"
 echo [%date%_%time%] rc.bat start. > %log%
 
-:wdrbd_attach_vhd
+:bsr_attach_vhd
 
 
 for /f "usebackq tokens=*" %%a in (`bsradm sh-md-idx all ^| findstr /C:".vhd"`) do (
@@ -35,8 +35,8 @@ REM )
 
 REM linux! 
 REM bsradm -c /etc/bsr.conf adjust-with-progress all
-:wdrbd_start
-::echo WDRBD Starting ...
+:bsr_start
+::echo BSR Starting ...
 
 setlocal EnableDelayedExpansion
 
@@ -108,11 +108,11 @@ REM ------------------------------------------------------------------------
 @echo off
 
 if "%2" == "force" (
-	echo Force Stopping all DRBD resources
+	echo Force Stopping all BSR resources
 	bsradm disconnect --force all
 	timeout /t 3 /NOBREAK > nul
 ) else (
-	echo Stopping all DRBD resources
+	echo Stopping all BSR resources
 )
 
 bsradm down all
