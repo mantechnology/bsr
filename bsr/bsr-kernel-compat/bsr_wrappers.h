@@ -2113,11 +2113,14 @@ drbd_ib_create_cq(struct ib_device *device,
 //#else // required to re-define for 32bit
 //#endif
 
+#define LONGLONG		long long int
 
+#define atomic_t64				atomic64_t
 #define atomic_add64			atomic64_add
 #define atomic_sub_return64		atomic64_sub_return
 #define atomic_set64			atomic64_set
 #define atomic_read64			atomic64_read
+#define atomic_sub64			atomic64_sub
 
 #ifndef UNREFERENCED_PARAMETER 
 #define UNREFERENCED_PARAMETER(x)
