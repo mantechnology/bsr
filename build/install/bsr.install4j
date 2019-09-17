@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <install4j version="5.1.15" transformSequenceNumber="4">
-  <directoryPresets config="I:/wdrbd9/build/drbd" />
+  <directoryPresets config="I:/bsr/build/windows" />
   <application name="${compiler:productName}" distributionSourceDir="" applicationId="1928-3996-4668-9110" mediaDir="${compiler:target}" mediaFilePattern="${compiler:sys.shortName}_${compiler:sys.platform}_${compiler:sys.version}" compression="6" lzmaCompression="false" pack200Compression="false" excludeSignedFromPacking="true" commonExternalFiles="false" createMd5Sums="true" shrinkRuntime="true" shortName="${compiler:shartName}" publisher="Man Technology Inc." publisherWeb="http://www.mantech.co.kr" version="${compiler:productVersion}" allPathsRelative="false" backupOnSave="false" autoSave="false" convertDotsToUnderscores="true" macSignature="????" installerName="" javaMinVersion="1.5" javaMaxVersion="" allowBetaVM="false" jdkMode="runtimeJre" jdkName="">
     <languages skipLanguageSelection="false" languageSelectionInPrincipalLanguage="false">
-      <principalLanguage id="en" customLocalizationFile="wdrbd_install_messages_en.utf8" />
+      <principalLanguage id="en" customLocalizationFile="bsr_install_messages_en.utf8" />
       <additionalLanguages>
-        <language id="en" customLocalizationFile="wdrbd_install_messages_en.utf8" />
-        <language id="ko" customLocalizationFile="wdrbd_install_messages_ko.utf8" />
+        <language id="en" customLocalizationFile="bsr_install_messages_en.utf8" />
+        <language id="ko" customLocalizationFile="bsr_install_messages_ko.utf8" />
       </additionalLanguages>
     </languages>
     <searchSequence>
@@ -15,8 +15,8 @@
       <envVar name="JDK_HOME" />
     </searchSequence>
     <variables>
-      <variable name="productName" value="Windows DRBD" description="" category="" />
-      <variable name="shartName" value="drbd" description="" category="" />
+      <variable name="productName" value="Windows BSR" description="" category="" />
+      <variable name="shartName" value="BSR" description="" category="" />
       <variable name="productVersion" value="" description="" category="" />
       <variable name="target" value="installer" description="" category="" />
     </variables>
@@ -70,55 +70,55 @@
       <mountPoint id="2576" root="2574" location="" mode="755" />
     </mountPoints>
     <entries>
-      <dirEntry mountPoint="865" file="drbd/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="865" file="../windows/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="866" file="drbd/etc" overwriteMode="4" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="false" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="866" file="../windows/etc" overwriteMode="4" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="false" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="867" file="drbd/x86/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="867" file="../windows/x86/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="868" file="drbd/x64/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="868" file="../windows/x64/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="613" file="drbd/x86/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="613" file="../windows/x86/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="561" file="drbd/x64/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="561" file="../windows/x64/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="626" file="drbd/x86/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="626" file="../windows/x86/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="562" file="drbd/x64/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="562" file="../windows/x64/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="1500" file="drbd/x86/Win8.1Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8.1Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="1500" file="../windows/x86/Win8.1Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8.1Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="1501" file="drbd/x64/Win8.1Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8.1Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="1501" file="../windows/x64/Win8.1Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8.1Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="2245" file="drbd/x86/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="2245" file="../windows/x86/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="2246" file="drbd/x64/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="2246" file="../windows/x64/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="2575" file="drbd/x86/Win10Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win10Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="2575" file="../windows/x86/Win10Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win10Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="2576" file="drbd/x64/Win10Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win10Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+      <dirEntry mountPoint="2576" file="../windows/x64/Win10Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win10Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
     </entries>
     <components />
   </files>
   <launchers>
-    <launcher name="drbdService" id="88" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\drbdService.exe" />
-    <launcher name="engine install" id="91" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\wdrbdInstall.bat" />
-    <launcher name="engine uninstall" id="119" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\wdrbdUninstall.bat" />
+    <launcher name="bsrService" id="88" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\bsrService.exe" />
+    <launcher name="engine install" id="91" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\bsrInstall.bat" />
+    <launcher name="engine uninstall" id="119" customizedId="" external="true" excludeFromMenu="true" unixMode="755" menuName="" externalFile="bin\bsrUninstall.bat" />
   </launchers>
   <installerGui installerType="1" addOnAppId="" suggestPreviousLocations="true" autoUpdateDescriptorUrl="" useAutoUpdateBaseUrl="false" autoUpdateBaseUrl="">
     <customCode />
@@ -234,7 +234,7 @@
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Check bit" id="573" customizedId="" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" enabled="true" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Cannot install 32bit Windows DRBD on the 64 bit OS.">
+              <action name="Check bit" id="573" customizedId="" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" enabled="true" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Cannot install 32bit Windows BSR on the 64 bit OS.">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.control.RunScriptAction">
@@ -271,7 +271,7 @@ return false;
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Check OS" id="1425" customizedId="" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" enabled="true" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Cannot install Windows DRBD. Not supported ${installer:os.fullName}.">
+              <action name="Check OS" id="1425" customizedId="" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" enabled="true" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Cannot install Windows BSR. Not supported ${installer:os.fullName}.">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.control.RunScriptAction">
@@ -453,98 +453,6 @@ ${i18n:ClickNext}</string>
             <actions />
             <formComponents />
           </screen>
-          <screen name="send information" id="1149" customizedId="" beanClass="com.install4j.runtime.beans.screens.FormScreen" enabled="false" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="false" backButton="2" finishScreen="false" wizardIndexChangeType="unchanged" wizardIndexKey="">
-            <serializedBean>
-              <java class="java.beans.XMLDecoder">
-                <object class="com.install4j.runtime.beans.screens.FormScreen">
-                  <void property="subTitle">
-                    <string>${i18n:SendInformationSubTitle}</string>
-                  </void>
-                  <void property="title">
-                    <string>${i18n:SendInformationTitle}</string>
-                  </void>
-                </object>
-              </java>
-            </serializedBean>
-            <condition />
-            <validation />
-            <preActivation />
-            <postActivation />
-            <actions />
-            <formComponents>
-              <formComponent name="sendInfo" id="1150" customizedId="" beanClass="com.install4j.runtime.beans.formcomponents.CheckboxComponent" enabled="true" commentSet="false" comment="" insetTop="" insetLeft="" insetBottom="" insetRight="" resetInitOnPrevious="false">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.formcomponents.CheckboxComponent">
-                      <void property="checkboxText">
-                        <string>${i18n:SendInformationNotify}</string>
-                      </void>
-                      <void property="initiallySelected">
-                        <boolean>true</boolean>
-                      </void>
-                      <void property="variableName">
-                        <string>checkSendInfo</string>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <initScript />
-                <visibilityScript />
-              </formComponent>
-              <formComponent name="" id="1213" customizedId="" beanClass="com.install4j.runtime.beans.formcomponents.MultilineLabelComponent" enabled="true" commentSet="false" comment="" insetTop="" insetLeft="20" insetBottom="" insetRight="" resetInitOnPrevious="false">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.formcomponents.MultilineLabelComponent">
-                      <void property="labelText">
-                        <string>${i18n:SendTextLabel1}</string>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <initScript />
-                <visibilityScript />
-              </formComponent>
-              <formComponent name="" id="1276" customizedId="" beanClass="com.install4j.runtime.beans.formcomponents.LabelComponent" enabled="true" commentSet="false" comment="" insetTop="" insetLeft="40" insetBottom="" insetRight="" resetInitOnPrevious="false">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.formcomponents.LabelComponent">
-                      <void property="labelText">
-                        <string>${i18n:SendTextContent1}</string>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <initScript />
-                <visibilityScript />
-              </formComponent>
-              <formComponent name="" id="1277" customizedId="" beanClass="com.install4j.runtime.beans.formcomponents.LabelComponent" enabled="true" commentSet="false" comment="" insetTop="" insetLeft="40" insetBottom="" insetRight="" resetInitOnPrevious="false">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.formcomponents.LabelComponent">
-                      <void property="labelText">
-                        <string>${i18n:SnedTextContent2}</string>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <initScript />
-                <visibilityScript />
-              </formComponent>
-              <formComponent name="" id="1278" customizedId="" beanClass="com.install4j.runtime.beans.formcomponents.MultilineLabelComponent" enabled="true" commentSet="false" comment="" insetTop="" insetLeft="20" insetBottom="" insetRight="" resetInitOnPrevious="false">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.formcomponents.MultilineLabelComponent">
-                      <void property="labelText">
-                        <string>${i18n:SendTextLabel2}</string>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <initScript />
-                <visibilityScript />
-              </formComponent>
-            </formComponents>
-          </screen>
           <screen name="" id="8" customizedId="" beanClass="com.install4j.runtime.beans.screens.InstallationScreen" enabled="true" commentSet="false" comment="" actionElevationType="inherit" rollbackBarrier="true" backButton="2" finishScreen="false" wizardIndexChangeType="unchanged" wizardIndexKey="">
             <serializedBean>
               <java class="java.beans.XMLDecoder">
@@ -575,27 +483,27 @@ ${i18n:ClickNext}</string>
                 <condition>context.isUpdateInstallation()
 </condition>
               </action>
-              <action name="Stop a DRBD daemon service if it is running." id="713" customizedId="" beanClass="com.install4j.runtime.beans.actions.services.StopServiceAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="Stop a BSR daemon service if it is running." id="713" customizedId="" beanClass="com.install4j.runtime.beans.actions.services.StopServiceAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.services.StopServiceAction">
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="launcherId">
                         <null />
                       </void>
                       <void property="serviceName">
-                        <string>drbdService</string>
+                        <string>bsrService</string>
                       </void>
                     </object>
                   </java>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="uninstall a DRBD daemon service if it is running." id="631" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="uninstall a BSR daemon service if it is running." id="631" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
@@ -608,7 +516,7 @@ ${i18n:ClickNext}</string>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -683,38 +591,6 @@ else
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Send drbd usage info to Google Spreadsheet" id="946" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="false" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
-                <serializedBean>
-                  <java class="java.beans.XMLDecoder">
-                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
-                      <void property="arguments">
-                        <array class="java.lang.String" length="3">
-                          <void index="0">
-                            <string>-jar</string>
-                          </void>
-                          <void index="1">
-                            <string>drbdusage\drbdusage.jar</string>
-                          </void>
-                          <void index="2">
-                            <string>${compiler:productVersion}</string>
-                          </void>
-                        </array>
-                      </void>
-                      <void property="executable">
-                        <object class="java.io.File">
-                          <string>${installer:sys.installationDir}/jre/bin/java.exe</string>
-                        </object>
-                      </void>
-                      <void property="workingDirectory">
-                        <object class="java.io.File">
-                          <string>${installer:sys.installationDir}</string>
-                        </object>
-                      </void>
-                    </object>
-                  </java>
-                </serializedBean>
-                <condition>return context.getBooleanVariable("checkSendInfo");</condition>
-              </action>
               <action name="" id="10" customizedId="" beanClass="com.install4j.runtime.beans.actions.desktop.CreateProgramGroupAction" enabled="false" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
@@ -726,14 +602,14 @@ else
                               <string>/i</string>
                             </void>
                             <void property="name">
-                              <string>service/drbd service install</string>
+                              <string>service/bsr service install</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/drbdService.exe</string>
+                                <string>bin/bsrService.exe</string>
                               </object>
                             </void>
                           </object>
@@ -744,14 +620,14 @@ else
                               <string>/k</string>
                             </void>
                             <void property="name">
-                              <string>service/drbd service stop</string>
+                              <string>service/bsr service stop</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/drbdService.exe</string>
+                                <string>bin/bsrService.exe</string>
                               </object>
                             </void>
                           </object>
@@ -762,14 +638,14 @@ else
                               <string>/s</string>
                             </void>
                             <void property="name">
-                              <string>service/drbd service start</string>
+                              <string>service/bsr service start</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/drbdService.exe</string>
+                                <string>bin/bsrService.exe</string>
                               </object>
                             </void>
                           </object>
@@ -780,14 +656,14 @@ else
                               <string>/u</string>
                             </void>
                             <void property="name">
-                              <string>service/drbd service uninstall</string>
+                              <string>service/bsr service uninstall</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/drbdService.exe</string>
+                                <string>bin/bsrService.exe</string>
                               </object>
                             </void>
                           </object>
@@ -798,14 +674,14 @@ else
                               <string>${installer:sys.installationDir}\bin</string>
                             </void>
                             <void property="name">
-                              <string>engine/drbd engine install</string>
+                              <string>engine/bsr engine install</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/wdrbdInstall.bat</string>
+                                <string>bin/bsrInstall.bat</string>
                               </object>
                             </void>
                           </object>
@@ -816,14 +692,14 @@ else
                               <string>${installer:sys.installationDir}\bin</string>
                             </void>
                             <void property="name">
-                              <string>engine/drbd engine uninstall</string>
+                              <string>engine/bsr engine uninstall</string>
                             </void>
                             <void property="runAsAdministrator">
                               <boolean>true</boolean>
                             </void>
                             <void property="target">
                               <object class="java.io.File">
-                                <string>bin/wdrbdUninstall.bat</string>
+                                <string>bin/bsrUninstall.bat</string>
                               </object>
                             </void>
                           </object>
@@ -855,7 +731,7 @@ return !context.getBooleanVariable("sys.programGroupDisabled");</condition>
                       <void property="script">
                         <object class="com.install4j.api.beans.ScriptProperty">
                           <void property="value">
-                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\drbd";
+                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -865,7 +741,7 @@ if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryVie
     }
 }
 
-WinRegistry.ExpandString value = new WinRegistry.ExpandString("%SystemRoot%\\System32\\drivers\\drbd.sys");
+WinRegistry.ExpandString value = new WinRegistry.ExpandString("%SystemRoot%\\System32\\drivers\\bsrvflt.sys");
 
 return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
     , keyName, "EventMessageFile", value, RegistryView.BIT32);</string>
@@ -884,7 +760,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                       <void property="script">
                         <object class="com.install4j.api.beans.ScriptProperty">
                           <void property="value">
-                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\drbd";
+                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -904,7 +780,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                 </serializedBean>
                 <condition />
               </action>
-              <action name="DRBD_PATH" id="346" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="BSR_PATH" id="346" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction">
@@ -915,7 +791,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                         <string>${installer:sys.installationDir}\bin</string>
                       </void>
                       <void property="variableName">
-                        <string>DRBD_PATH</string>
+                        <string>BSR_PATH</string>
                       </void>
                     </object>
                   </java>
@@ -973,7 +849,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Install drbdService" id="2016" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
+              <action name="Install bsrService" id="2016" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
@@ -986,7 +862,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -1016,7 +892,7 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Update drbdService Description" id="2471" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
+              <action name="Update bsrService Description" id="2471" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
@@ -1032,7 +908,7 @@ return true;</string>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -1050,7 +926,7 @@ return true;</string>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction">
                       <void property="keyName">
-                        <string>SYSTEM\CurrentControlSet\Services\drbdService</string>
+                        <string>SYSTEM\CurrentControlSet\Services\bsrService</string>
                       </void>
                       <void property="registryRoot">
                         <object class="com.install4j.api.windows.RegistryRoot" field="HKEY_LOCAL_MACHINE" />
@@ -1193,7 +1069,7 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="Start drbdService" id="2356" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
+              <action name="Start bsrService" id="2356" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="Failed to install service">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
@@ -1206,7 +1082,7 @@ return true;</string>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -1255,7 +1131,7 @@ return true;</string>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/wdrbdInstall.bat</string>
+                          <string>bin/bsrInstall.bat</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -1365,21 +1241,21 @@ return true;</string>
                     <object class="com.install4j.runtime.beans.actions.services.StopServiceAction">
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="launcherId">
                         <null />
                       </void>
                       <void property="serviceName">
-                        <string>drbdService</string>
+                        <string>bsrService</string>
                       </void>
                     </object>
                   </java>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="uninstall drbdService" id="636" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="uninstall bsrService" id="636" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
@@ -1392,7 +1268,7 @@ return true;</string>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/drbdService.exe</string>
+                          <string>bin/bsrService.exe</string>
                         </object>
                       </void>
                       <void property="wait">
@@ -1413,7 +1289,7 @@ return true;</string>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.registry.DeleteRegistryItemAction">
                       <void property="keyName">
-                        <string>SYSTEM\CurrentControlSet\Services\drbdService</string>
+                        <string>SYSTEM\CurrentControlSet\Services\bsrService</string>
                       </void>
                       <void property="onlyIfEmpty">
                         <boolean>false</boolean>
@@ -1433,7 +1309,7 @@ return true;</string>
                       <void property="script">
                         <object class="com.install4j.api.beans.ScriptProperty">
                           <void property="value">
-                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\Application\\drbdService";
+                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\Application\\bsrService";
 
 if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -1449,13 +1325,13 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="uninstall drbd engine" id="131" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="uninstall bsr engine" id="131" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/wdrbdUninstall.bat</string>
+                          <string>bin/bsrUninstall.bat</string>
                         </object>
                       </void>
                       <void property="wait">
@@ -1478,7 +1354,7 @@ return true;</string>
                       <void property="script">
                         <object class="com.install4j.api.beans.ScriptProperty">
                           <void property="value">
-                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\drbd";
+                            <string>final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
 
 if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -1553,7 +1429,7 @@ return true;</string>
     </applications>
   </installerGui>
   <mediaSets>
-    <windows name="Windows 32bit" id="194" customizedId="" mediaFileName="" installDir="drbd" overridePrincipalLanguage="false" jreBitType="32" runPostProcessor="false" postProcessor="" failOnPostProcessorError="false" useLegacyMediaFileIds="false" legacyMediaFileIds="" includedJRE="windows-x86-1.8.0_72" manualJREEntry="false" bundleType="1" jreURL="" jreShared="false" directDownload="false" installOnlyIfNecessary="true" customInstallBaseDir="" contentFilesType="1" downloadURL="" verifyIntegrity="true">
+    <windows name="Windows 32bit" id="194" customizedId="" mediaFileName="" installDir="bsr" overridePrincipalLanguage="false" jreBitType="32" runPostProcessor="false" postProcessor="" failOnPostProcessorError="false" useLegacyMediaFileIds="false" legacyMediaFileIds="" includedJRE="windows-x86-1.8.0_72" manualJREEntry="false" bundleType="1" jreURL="" jreShared="false" directDownload="false" installOnlyIfNecessary="true" customInstallBaseDir="" contentFilesType="1" downloadURL="" verifyIntegrity="true">
       <excludedLaunchers />
       <excludedBeans />
       <overriddenPrincipalLanguage id="en" customLocalizationFile="" />
@@ -1573,7 +1449,7 @@ return true;</string>
       <excludedComponents />
       <includedDownloadableComponents />
     </windows>
-    <windows name="Windows 64bit" id="572" customizedId="" mediaFileName="" installDir="drbd" overridePrincipalLanguage="false" jreBitType="64" runPostProcessor="false" postProcessor="" failOnPostProcessorError="false" useLegacyMediaFileIds="false" legacyMediaFileIds="" includedJRE="windows-amd64-1.8.0_72" manualJREEntry="false" bundleType="1" jreURL="" jreShared="false" directDownload="false" installOnlyIfNecessary="false" customInstallBaseDir="" contentFilesType="1" downloadURL="" verifyIntegrity="true">
+    <windows name="Windows 64bit" id="572" customizedId="" mediaFileName="" installDir="bsr" overridePrincipalLanguage="false" jreBitType="64" runPostProcessor="false" postProcessor="" failOnPostProcessorError="false" useLegacyMediaFileIds="false" legacyMediaFileIds="" includedJRE="windows-amd64-1.8.0_72" manualJREEntry="false" bundleType="1" jreURL="" jreShared="false" directDownload="false" installOnlyIfNecessary="false" customInstallBaseDir="" contentFilesType="1" downloadURL="" verifyIntegrity="true">
       <excludedLaunchers />
       <excludedBeans />
       <overriddenPrincipalLanguage id="en" customLocalizationFile="" />
