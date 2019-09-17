@@ -189,11 +189,9 @@
    * If you use >= 292 kB on-disk ring buffer,
    * this is the maximum you can use: */
 #define DRBD_AL_EXTENTS_MAX  0xfffe
-#ifdef _WIN32 // DW-1513
+// DW-1513
 #define DRBD_AL_EXTENTS_DEF  6001
-#else
-#define DRBD_AL_EXTENTS_DEF  1237
-#endif
+
 #define DRBD_AL_EXTENTS_SCALE '1'
 
 #define DRBD_MINOR_NUMBER_MIN  -1
@@ -402,5 +400,7 @@
 
 /* By default freeze IO, if set error all IOs as quick as possible */
 #define DRBD_ON_NO_QUORUM_DEF ONQ_SUSPEND_IO
+
+#define AL_WAIT_TIMEOUT			10 * HZ // DW-1513 // DW-1761
 
 #endif

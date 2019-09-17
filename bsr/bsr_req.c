@@ -2581,22 +2581,21 @@ void do_submit(struct work_struct *ws)
 #ifndef _WIN32	// Skipped 3d552f8 commit(linux drbd)
 			drbd_kick_lo(device);
 #endif
-#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 : If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
-			if(!schedule(&device->al_wait, AL_WAIT_TIMEOUT, __FUNCTION__, __LINE__))
-			{
-				drbd_err(device, "al_wait timeout... disconnect, retry %lu\n", al_wait_count);
 
+#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 : If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
+			if(!schedule(&device->al_wait, AL_WAIT_TIMEOUT, __FUNCTION__, __LINE__)) {
+#else
+			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
+#endif
 				struct drbd_peer_device *peer_device;
+				drbd_err(device, "al_wait timeout... disconnect, retry %lu\n", al_wait_count);
 				for_each_peer_device_rcu(peer_device, device) {
 					change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 				}
 				
 				continue;
-				
 			}
-#else
-			schedule();
-#endif
+
 			/* If all currently "hot" activity log extents are kept busy by
 			 * incoming requests, we still must not totally starve new
 			 * requests to "cold" extents.

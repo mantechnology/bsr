@@ -789,21 +789,14 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 #endif
 	nr_al_extents = 1 + last - first; /* worst case: all touched extends are cold. */
 
-#ifdef _WIN32 // DW-1513 : If the used value is greater than nr_elements, set available_update_slots to 0.
-	if (al->nr_elements < al->used)
-	{
+	// DW-1513 : If the used value is greater than nr_elements, set available_update_slots to 0.
+	if (al->nr_elements < al->used)	{
 		available_update_slots = 0;
-		WDRBD_WARN("al->used is greater than nr_elements, set available_update_slots to 0.\n");
-	}
-	else
-	{
+		drbd_warn(device, "al->used is greater than nr_elements, set available_update_slots to 0.\n");
+	} else {
 		available_update_slots = min(al->nr_elements - al->used,
 					al->max_pending_changes - al->pending_changes);
 	}
-#else
-	available_update_slots = min(al->nr_elements - al->used,
-				al->max_pending_changes - al->pending_changes);
-#endif
 
 	/* We want all necessary updates for a given request within the same transaction
 	 * We could first check how many updates are *actually* needed,
@@ -838,12 +831,10 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 	}
 
 
-#ifdef _WIN32 // DW-1513 : At this point, LC_STARVING flag should be cleared. Otherwise, LOGIC BUG occurs.
-	if (test_bit(__LC_STARVING, &device->act_log->flags))
-	{
+	// DW-1513 : At this point, LC_STARVING flag should be cleared. Otherwise, LOGIC BUG occurs.
+	if (test_bit(__LC_STARVING, &device->act_log->flags)) {
 		clear_bit(__LC_STARVING, &device->act_log->flags);
 	}
-#endif
 
 	/* Checkout the refcounts.
 	 * Given that we checked for available elements and update slots above,
@@ -852,7 +843,6 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 		struct lc_element *al_ext;
 		al_ext = lc_get_cumulative(device->act_log, (unsigned int)enr);
 		if (!al_ext)
-#ifdef _WIN32
 			drbd_err(device, "LOGIC BUG for enr=%lu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)\n", 
 						enr, 
 						test_bit(__LC_STARVING, &device->act_log->flags),
@@ -862,9 +852,6 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 						!list_empty(&device->act_log->free),
 						!list_empty(&device->act_log->lru)
 			);
-#else
-			drbd_err(device, "LOGIC BUG for enr=%lu\n", enr);
-#endif
 	}
 	return 0;
 }
