@@ -115,7 +115,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
 		return NULL;
 	}
-	// MODIFIED_BY_MANTECH DW-1237: set request data buffer ref to 1 for local I/O.
+	// DW-1237: set request data buffer ref to 1 for local I/O.
 	atomic_set(&req->req_databuf_ref, 1);
 	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
 #endif
@@ -1075,7 +1075,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	}
 
 #ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1237: Local I/O has been completed, put request databuf ref. 
+	// DW-1237: Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED))
 	{
 		if (0 == atomic_dec(&req->req_databuf_ref))
@@ -1849,7 +1849,7 @@ static int drbd_process_write_request(struct drbd_request *req)
 		if (remote) {
 			++count;
 #ifdef _WIN32 //TODO: for cross-platform
-			// MODIFIED_BY_MANTECH DW-1237: get request databuf ref to send data block.
+			// DW-1237: get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
 #endif
 			_req_mod(req, TO_BE_SENT, peer_device);

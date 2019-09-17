@@ -3773,7 +3773,7 @@ static int process_one_request(struct drbd_connection *connection)
 			what = err ? SEND_FAILED : HANDED_OVER_TO_NETWORK;
 
 #ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1237: data block has been sent(or failed), put request databuf ref.
+			// DW-1237: data block has been sent(or failed), put request databuf ref.
 			if (0 == atomic_dec(&req->req_databuf_ref) &&
 				(req->rq_state[0] & RQ_LOCAL_COMPLETED))
 			{
