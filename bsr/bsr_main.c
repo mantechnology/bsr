@@ -1820,14 +1820,13 @@ static int _drbd_send_uuids110(struct drbd_peer_device *peer_device, u64 uuid_fl
 			bitmap_uuids_mask |= NODE_MASK(i);
 	}
 
+	// DW-1253: sizeof(bitmap_uuids_mask) is 8, it cannot be found all nodes. so, change it to DRBD_NODE_ID_MAX. 
+	for_each_set_bit(i, (ULONG_PTR *)&bitmap_uuids_mask, DRBD_NODE_ID_MAX)
 #ifdef _WIN32
-	// MODIFIED_BY_MANTECH DW-1253: sizeof(bitmap_uuids_mask) is 8, it cannot be found all nodes. so, change it to DRBD_NODE_ID_MAX. 
-	for_each_set_bit(i, (ULONG_PTR*)&bitmap_uuids_mask, DRBD_NODE_ID_MAX) {
+	{
 #ifdef _WIN64
 		BUG_ON_INT32_OVER(i);
 #endif
-#else
-	for_each_set_bit(i, (unsigned long *)&bitmap_uuids_mask, sizeof(bitmap_uuids_mask))
 #endif
 		p->other_uuids[pos++] = cpu_to_be64(__bitmap_uuid(device, (int)i));
 #ifdef _WIN32
