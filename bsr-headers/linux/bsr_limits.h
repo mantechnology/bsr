@@ -355,11 +355,8 @@
 /* Two-phase commit timeout (1/10 seconds). */
 #define DRBD_TWOPC_TIMEOUT_MIN	50
 #define DRBD_TWOPC_TIMEOUT_MAX	600
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-1204 adjust 2pc timout default value
+// DW-1204 adjust 2pc timout default value
 #define DRBD_TWOPC_TIMEOUT_DEF	50
-#else
-#define DRBD_TWOPC_TIMEOUT_DEF	300
-#endif
 #define DRBD_TWOPC_TIMEOUT_SCALE '1'
 
 #define DRBD_TWOPC_RETRY_TIMEOUT_MIN 1
