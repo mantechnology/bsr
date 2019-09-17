@@ -5306,7 +5306,7 @@ static int bitmap_mod_after_handshake(struct drbd_peer_device *peer_device, int 
 #endif
 	} else if (hg == -4) {
 
-#if 0 // MODIFIED_BY_MANTECH DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
+#if 0 // DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
 		drbd_info(peer_device, "synced up with node %d in the mean time\n", peer_node_id);
 		drbd_suspend_io(device, WRITE_ONLY);
 		drbd_bm_slot_lock(peer_device, "bm_clear_many_bits from sync_handshake", BM_LOCK_BULK);
@@ -5440,7 +5440,7 @@ static void disk_states_to_goodness(struct drbd_device *device,
 	bool p = false;
 
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	/* MODIFIED_BY_MANTECH DW-1357: one of node is crashed primary, but need to ignore if..
+	/* DW-1357: one of node is crashed primary, but need to ignore if..
 		1. crashed primary's disk state is higher than peer's, crashed primary will be sync source.
 		2. we've already done resync(by #1).
 	*/
@@ -10889,10 +10889,9 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 	err = validate_req_change_req_state(peer_device, p->block_id, sector,
 					    &device->write_requests, __func__,
 					    NEG_ACKED, true);
-#ifdef _WIN32
-	// MODIFIED_BY_MANTECH: Set out-of-sync if peer sent negative ack for this request, doesn't matter req exists or not.
+	// Set out-of-sync if peer sent negative ack for this request, doesn't matter req exists or not.
 	drbd_set_out_of_sync(peer_device, sector, size);
-#else
+#if 0
 	if (err) {
 		/* Protocol A has no P_WRITE_ACKs, but has P_NEG_ACKs.
 		   The master bio might already be completed, therefore the
@@ -11211,7 +11210,7 @@ found:
 		//DW-1872 you must set the device that matches the peer_request.
 		struct drbd_device *device = peer_req->peer_device->device;
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
-		// MODIFIED_BY_MANTECH DW-1099: Do not set or clear sender's out-of-sync, it's only for managing neighbor's out-of-sync.
+		// DW-1099: Do not set or clear sender's out-of-sync, it's only for managing neighbor's out-of-sync.
 		ULONG_PTR set_sync_mask = UINTPTR_MAX;
 
 		if (get_ldev(device)) {

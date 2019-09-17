@@ -1361,7 +1361,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 
 	if (!get_ldev(device))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
@@ -1375,7 +1375,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 
 	if (!expect(peer_device, sector < nr_sectors))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(peer_device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 		goto out;
@@ -1393,7 +1393,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		 * we only clear full, aligned, BM_BLOCK_SIZE blocks. */
 		if (unlikely(esector < BM_SECT_PER_BIT-1))
 #ifdef _WIN32_DEBUG_OOS
-			// MODIFIED_BY_MANTECH DW-1153: add error log
+			// DW-1153: add error log
 		{
 			drbd_err(peer_device, "unexpected error, sector(%llu), esector(%llu)\n", sector, esector);
 			goto out;
@@ -1463,7 +1463,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 
 	if (!get_ldev(device))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 		return false; /* no disk, no metadata, no bitmap to set bits in */
@@ -1479,7 +1479,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 
 	if (!expect(device, sector < nr_sectors))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 		goto out;

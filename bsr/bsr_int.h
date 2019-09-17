@@ -977,7 +977,7 @@ enum {
 	// DW-955: add resync aborted flag to resume it later.
 	RESYNC_ABORTED,			/* Resync has been aborted due to unsyncable (peer)disk state, need to resume it when it goes syncable. */
 
-	UNSTABLE_TRIGGER_CP,	/* MODIFIED_BY_MANTECH DW-1341: Do Trigger when my stability is unstable for Crashed Primay wiered case*/
+	UNSTABLE_TRIGGER_CP,	/* DW-1341: Do Trigger when my stability is unstable for Crashed Primay wiered case*/
 	SEND_BITMAP_WORK_PENDING, /* DW-1447 : Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.*/
 
 #ifdef _WIN32 //DW-1598 

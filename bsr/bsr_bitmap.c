@@ -849,7 +849,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 
 	if (!expect(device, bitmap))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "unexpected error, could not get bitmap, start(%lu)\n", start);
 		return 1;
@@ -859,7 +859,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 #endif
 	if (!expect(device, bitmap->bm_pages))
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%lu)\n", start);
 		return 0;
@@ -870,7 +870,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 
 	if (!bitmap->bm_bits)
 #ifdef _WIN32_DEBUG_OOS
-		// MODIFIED_BY_MANTECH DW-1153: add error log
+		// DW-1153: add error log
 	{
 		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%lu)\n", start);
 		return 0;
