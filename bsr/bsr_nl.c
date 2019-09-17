@@ -4689,12 +4689,11 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 #ifndef _WIN32	// MODIFIED_BY_MANTECH DW-1292 : skip if cstate is not StandAlone
 		retcode = ERR_NET_CONFIGURED;
 #endif
-#ifdef _WIN32 /* MODIFIED_BY_MANTECH DW-1574 : Returns an error message to the user in the disconnecting status */
-			  /* Disconnecting status will soon change the standalone status */
+		// DW-1574 : Returns an error message to the user in the disconnecting status
+		// Disconnecting status will soon change the standalone status
 		if (cstate == C_DISCONNECTING){
 			retcode = ERR_NET_CONFIGURED;
 		}
-#endif
 		goto out;
 	}
 
@@ -4966,20 +4965,20 @@ repeat:
 		/* no special handling necessary */
 	}
 
-	if (rv >= SS_SUCCESS)
+	if (rv >= SS_SUCCESS) {
 #ifdef _WIN32
-	{
 		long timeo;
 		// DW-1574: Increase the wait time from 1 second to 3 seconds.
 		wait_event_interruptible_timeout(timeo, resource->state_wait,
 						 connection->cstate[NOW] == C_STANDALONE,
-						 3*HZ);
-	}
+						 3*HZ);	
 #else
 		wait_event_interruptible_timeout(resource->state_wait,
 						 connection->cstate[NOW] == C_STANDALONE,
-						 HZ);
+						 3*HZ);
 #endif
+	}
+	
 	if (err_str) {
 		drbd_msg_put_info(reply_skb, err_str);
 		kfree(err_str);
