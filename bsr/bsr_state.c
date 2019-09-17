@@ -5216,10 +5216,8 @@ enum drbd_state_rv change_role_timeout(struct drbd_resource *resource,
 			.val = { { .role = role } },
 			.target_node_id = -1,
 			.flags = flags | CS_SERIALIZE | CS_DONT_RETRY,
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1233: send TWOPC packets to other nodes before updating the local state 
+			// DW-1233: send TWOPC packets to other nodes before updating the local state 
 			.change_local_state_last = true,
-#endif
 		},
 		.force = force,
 	};
@@ -5267,10 +5265,8 @@ enum drbd_state_rv change_role(struct drbd_resource *resource,
 			.val = { { .role = role } },
 			.target_node_id = -1,
 			.flags = flags | CS_SERIALIZE,
-#ifdef _WIN32
-			// MODIFIED_BY_MANTECH DW-1233: send TWOPC packets to other nodes before updating the local state
+			// DW-1233: send TWOPC packets to other nodes before updating the local state
 			.change_local_state_last = true,
-#endif
 			.err_str = err_str,
 		},
 		.force = force,
