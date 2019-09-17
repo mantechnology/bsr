@@ -6200,11 +6200,11 @@ clear_flag:
 		peer_device->dirty_bits == 0 &&
 		isForgettableReplState(peer_device->repl_state[NOW]) &&
 		device->disk_state[NOW] > D_OUTDATED && // DW-1656 : no clearing bitmap when disk is Outdated.
-#ifdef _WIN32
-		// MODIFIED_BY_MANTECH DW-1633 : if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
+
+		// DW-1633 : if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
 		// at this time, the reconciliation resync may work, so do not clear the bitmap.
 		!((peer_device->disk_state[NOW] == D_CONSISTENT) && (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE)) &&
-#endif
+
 		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644, DW-1357 : clear bitmap when the disk state is same.
 		!(peer_device->uuid_authoritative_nodes & NODE_MASK(device->resource->res_opts.node_id)) &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==

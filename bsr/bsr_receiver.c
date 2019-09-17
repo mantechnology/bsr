@@ -5502,12 +5502,10 @@ static void various_states_to_goodness(struct drbd_device *device,
 	}
 
 	// 2. compare disk state.
-#ifdef _WIN32 // MODIFIED_BY_MANTECH DW-1633: no resync. D_CONSISTENT is temporary state.
-	if (peer_disk_state == D_CONSISTENT || disk_state == D_CONSISTENT)
-	{
+	// DW-1633: no resync. D_CONSISTENT is temporary state.
+	if (peer_disk_state == D_CONSISTENT || disk_state == D_CONSISTENT) {
 		return;
 	}
-#endif
 	
 	// DW-1127: no resync if pdisk is D_UNKNOWN.	
 	if (peer_disk_state != D_UNKNOWN &&
