@@ -4686,7 +4686,7 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	connection = adm_ctx.connection;
 	cstate = connection->cstate[NOW];
 	if (cstate != C_STANDALONE) {
-#ifndef _WIN32	// MODIFIED_BY_MANTECH DW-1292 : skip if cstate is not StandAlone
+#if 0	// DW-1292 : skip if cstate is not StandAlone
 		retcode = ERR_NET_CONFIGURED;
 #endif
 		// DW-1574 : Returns an error message to the user in the disconnecting status
