@@ -2798,7 +2798,7 @@ static bool prepare_split_peer_request(struct drbd_peer_device *peer_device, ULO
 	bool find_isb = false;
 	bool split_request = true;
 	struct drbd_marked_replicate *marked_rl, *tmp;
-	ULONG_PTR i;
+	u16 i; ULONG_PTR ii;
 
 	//DW-1911 
 #ifdef _WIN32
@@ -2836,19 +2836,19 @@ static bool prepare_split_peer_request(struct drbd_peer_device *peer_device, ULO
 	}
 
 	//DW-1601 the last out of sync and split_cnt information are obtained before the resync write request.
-	for (i = s_bb; i < e_next_bb; i++) {
-		if (drbd_bm_test_bit(peer_device, i) == 1) {
+	for (ii = s_bb; ii < e_next_bb; ii++) {
+		if (drbd_bm_test_bit(peer_device, ii) == 1) {
 			if (split_request) {
 				atomic_inc(split_count);
 				split_request = false;
 			}
-			*e_oos = i;
+			*e_oos = ii;
 		}
 		else {
 #ifdef _WIN32
-			drbd_debug(peer_device, "##find in sync bitmap bit : %lu, start (%llu) ~ end (%llu)\n", i, s_bb, (e_next_bb - 1));
+			drbd_debug(peer_device, "##find in sync bitmap bit : %lu, start (%llu) ~ end (%llu)\n", ii, s_bb, (e_next_bb - 1));
 #else
-			drbd_debug(peer_device, "##find in sync bitmap bit : %lu, start (%lu) ~ end (%lu)\n", i, s_bb, (e_next_bb - 1));
+			drbd_debug(peer_device, "##find in sync bitmap bit : %lu, start (%lu) ~ end (%lu)\n", ii, s_bb, (e_next_bb - 1));
 #endif
 			split_request = true;
 			find_isb = true;

@@ -786,7 +786,7 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 	if (strstr(cmd, "fence") && connection) {
 		bool op_is_fence = strcmp(cmd, "fence-peer") == 0;
 		struct drbd_peer_device *peer_device;
-		u64 mask = -1ULL;
+		u64 mask = ULLONG_MAX;
 		int vnr;
 #ifdef _WIN32
 		idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {

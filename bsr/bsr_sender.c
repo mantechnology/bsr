@@ -3667,7 +3667,7 @@ static void wait_for_sender_todo(struct drbd_connection *connection)
 		 */
 		send_barrier =
 			atomic_read(&connection->resource->current_tle_nr) !=
-			connection->send.current_epoch_nr;
+			(int)connection->send.current_epoch_nr;
 		spin_unlock_irq(&connection->resource->req_lock);
 
 		if (send_barrier)
