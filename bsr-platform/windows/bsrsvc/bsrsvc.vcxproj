@@ -93,7 +93,7 @@
     </Link>
     <PostBuildEvent>
       <Command>signtool sign /v /ac ..\..\..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll $(TargetPath)
-copy /Y "$(TargetPath)" "$(SolutionDir)build\windows\bin\"</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -134,7 +134,7 @@ copy /Y "$(TargetPath)" "$(SolutionDir)build\windows\bin\"</Command>
     </Link>
     <PostBuildEvent>
       <Command>signtool sign /v /ac ..\..\..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll $(TargetPath)
-copy /Y "$(TargetPath)" "$(SolutionDir)build\windows\bin\"</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
