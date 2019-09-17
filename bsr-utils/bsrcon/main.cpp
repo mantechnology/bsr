@@ -13,7 +13,7 @@ void
 disk_error_usage()
 {
 	printf("disk error simulation. Absolutely only for testing purposes!\n"
-		"usage: drbdcon /disk_error <errorflag> <errortype> <errorcount>\n\n"
+		"usage: bsrcon /disk_error <errorflag> <errortype> <errorcount>\n\n"
 		"errorflag:\n"
 		"   0: no disk error, disable error simulation\n"
         "   1: continuous disk error\n"
@@ -39,7 +39,7 @@ disk_error_usage()
 void
 usage()
 {
-	printf("usage: drbdcon cmds options \n\n"
+	printf("usage: bsrcon cmds options \n\n"
 		"cmds:\n"
 /*		"   /proc/drbd \n"*/
 /*		"   /get_volume_size \n"*/
@@ -66,24 +66,24 @@ usage()
 		"\n\n"
 
 		"examples:\n"
-/*		"drbdcon /proc/drbd\n"*/
-/*		"drbdcon /status\n"*/
-/*		"drbdcon /s\n"*/
-        "drbdcon /nodelayedack 10.10.0.1 \n"
-        /*"drbdcon /d F \n"*/
-        "drbdcon /m F \n"
-		"drbdcon /get_log drbdService \n"
-		"drbdcon /get_log drbdService r0\n"
-		"drbdcon /minlog_lv dbg 6 \n"
-		"drbdcon /write_log drbdService \"Logging start\" \n"
-		"drbdcon /handler_use 1 \n"		
-		"drbdcon /get_log_lv \n"
+/*		"bsrcon /proc/drbd\n"*/
+/*		"bsrcon /status\n"*/
+/*		"bsrcon /s\n"*/
+        "bsrcon /nodelayedack 10.10.0.1 \n"
+        /*"bsrcon /d F \n"*/
+        "bsrcon /m F \n"
+		"bsrcon /get_log bsrService \n"
+		"bsrcon /get_log bsrService r0\n"
+		"bsrcon /minlog_lv dbg 6 \n"
+		"bsrcon /write_log bsrService \"Logging start\" \n"
+		"bsrcon /handler_use 1 \n"		
+		"bsrcon /get_log_lv \n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
 }
 
-const TCHAR gDrbdRegistryPath[] = _T("System\\CurrentControlSet\\Services\\drbd\\volumes");
+const TCHAR gDrbdRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsr\\volumes");
 
 static
 DWORD DeleteVolumeReg(TCHAR letter)
@@ -142,7 +142,7 @@ BOOL GetLogLevel(int &sys_evtlog_lv, int &dbglog_lv, int &oos_trace_lv)
 {
 	HKEY hKey = NULL;
 	LONG lResult = ERROR_SUCCESS;
-	const TCHAR drbdRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\drbd");
+	const TCHAR drbdRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD logLevel = 0;

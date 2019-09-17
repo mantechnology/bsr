@@ -120,7 +120,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	}
 
 	if (!Irp->AssociatedIrp.SystemBuffer) {
-		WDRBD_WARN("SystemBuffer is NULL. Maybe older drbdcon was used or other access was tried\n");
+		WDRBD_WARN("SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried\n");
 		return STATUS_INVALID_PARAMETER;
 	}
 

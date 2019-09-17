@@ -1147,7 +1147,7 @@ static void find_drbdcmd(char **cmd, char **pathes)
 	exit(E_EXEC_ERROR);
 }
 #ifdef _WIN32_MVFL
-const PCHAR gRegistryPath = "System\\CurrentControlSet\\Services\\drbd\\volumes";
+const PCHAR gRegistryPath = "System\\CurrentControlSet\\Services\\bsr\\volumes";
 
 DWORD add_registry_volume(char * letter)
 {

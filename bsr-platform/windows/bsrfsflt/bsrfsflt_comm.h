@@ -1,12 +1,12 @@
 #include "bsrfsflt_struct.h"
 
-#define DRBDLOCK_DEVICE_OBJECT_NAME	L"\\Device\\DrbdLock"
-#define DRBDLOCK_SYMLINK_NAME		L"\\DosDevices\\DrbdLock"
-#define DRBDLOCK_CALLBACK_NAME		L"\\Callback\\DrbdLock"
+#define DRBDLOCK_DEVICE_OBJECT_NAME	L"\\Device\\bsrfsflt"
+#define DRBDLOCK_SYMLINK_NAME		L"\\DosDevices\\bsrfsflt"
+#define DRBDLOCK_CALLBACK_NAME		L"\\Callback\\bsrfsflt"
 
-#define DRBD_CALLBACK_NAME		L"\\Callback\\Drbd"
+#define DRBD_CALLBACK_NAME		L"\\Callback\\bsr"
 
-#define DRBDLOCK_DEVICE_NAME_USER	"\\\\.\\DrbdLock"
+#define DRBDLOCK_DEVICE_NAME_USER	"\\\\.\\bsrfsflt"
 
 #define	DRBDLOCK_TYPE		0x9801
 
