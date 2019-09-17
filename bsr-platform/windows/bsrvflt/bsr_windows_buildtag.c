@@ -1,4 +1,4 @@
-﻿#include <string.h>
+#include <string.h>
 
 /* automatically generated. DO NOT EDIT. */
 #define BUILD_VERSION ""
