@@ -1191,19 +1191,11 @@ static bool update_rs_extent(struct drbd_peer_device *peer_device,
 	return false;
 }
 
-#ifdef _WIN32
 void drbd_advance_rs_marks(struct drbd_peer_device *peer_device, ULONG_PTR still_to_go)
-#else
-void drbd_advance_rs_marks(struct drbd_peer_device *peer_device, unsigned long still_to_go)
-#endif
 {
-#ifdef _WIN32
     ULONG_PTR now = jiffies;
     ULONG_PTR last = peer_device->rs_mark_time[peer_device->rs_last_mark];
-#else
-	unsigned long now = jiffies;
-	unsigned long last = peer_device->rs_mark_time[peer_device->rs_last_mark];
-#endif
+
 	int next = (peer_device->rs_last_mark + 1) % DRBD_SYNC_MARKS;
 	if (time_after_eq(now, last + DRBD_SYNC_MARK_STEP)) {
 		if (peer_device->rs_mark_left[peer_device->rs_last_mark] != still_to_go &&

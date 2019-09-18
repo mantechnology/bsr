@@ -276,7 +276,12 @@ static int is_failed_barrier(int ee_flags)
  * "submitted" by the receiver, final stage.  */
 void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local)
 {
+#ifdef _WIN32
+	long flags = 0;
+#else
 	ULONG_PTR flags = 0;
+#endif
+	ULONG_PTR peer_flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
 	struct drbd_device *device = peer_device->device;
 	struct drbd_connection *connection = peer_device->connection;
@@ -352,9 +357,9 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 #endif
 
 	block_id = peer_req->block_id;
-	flags = peer_req->flags;
+	peer_flags = peer_req->flags;
 
-	if (flags & EE_WAS_ERROR) {
+	if (peer_flags & EE_WAS_ERROR) {
 #ifdef _WIN32 // TODO
 		//DW-1842 __EE_SEND_WRITE_ACK should be used only for replication.
 		if (block_id != ID_SYNCER) {
@@ -406,7 +411,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 	/* FIXME do we want to detach for failed REQ_DISCARD?
 	* ((peer_req->flags & (EE_WAS_ERROR|EE_IS_TRIM)) == EE_WAS_ERROR) */
-	if (flags & EE_WAS_ERROR)
+	if (peer_flags & EE_WAS_ERROR)
 		__drbd_chk_io_error(device, DRBD_WRITE_ERROR);
 
 	if (connection->cstate[NOW] == C_CONNECTED)
@@ -417,7 +422,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	//DW-1601 calls drbd_rs_complete_io() after all data is complete.
 	//DW-1886
 	if (block_id == ID_SYNCER) {
-		if (!(flags & EE_SPLIT_REQUEST))
+		if (!(peer_flags & EE_SPLIT_REQUEST))
 			drbd_rs_complete_io(peer_device, sector, __FUNCTION__);
 		atomic_add64(peer_req->i.size, &peer_device->rs_written);
 
@@ -428,7 +433,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 	//DW-1903 EE_SPLIT_REQUEST is a duplicate request and does not call put_ldev().
 #ifdef _WIN32 //TODO
-	if (!(flags & EE_SPLIT_REQUEST))
+	if (!(peer_flags & EE_SPLIT_REQUEST))
 		put_ldev(device);
 #else
 	put_ldev(device);
@@ -1241,11 +1246,7 @@ static int make_resync_request(struct drbd_peer_device *peer_device, int cancel)
 {
 	struct drbd_device *device = peer_device->device;
 	struct drbd_transport *transport = &peer_device->connection->transport;
-#ifdef _WIN32
 	ULONG_PTR bit;
-#else
-	unsigned long bit;
-#endif
 	sector_t sector;
 	const sector_t capacity = drbd_get_capacity(device->this_bdev);
 	unsigned int max_bio_size, size;
@@ -1697,13 +1698,8 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	struct drbd_connection *connection = peer_device->connection;
 	enum drbd_repl_state *repl_state = peer_device->repl_state;
 	enum drbd_repl_state old_repl_state = L_ESTABLISHED;
-#ifdef _WIN32
 	ULONG_PTR db, dt, dbdt;
 	ULONG_PTR n_oos;
-#else
-	unsigned long db, dt, dbdt;
-	unsigned long n_oos;
-#endif
 	char *khelper_cmd = NULL;
 	int verify_done = 0;
 
@@ -1825,13 +1821,8 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 			khelper_cmd = "after-resync-target";
 
 		if (peer_device->use_csums && peer_device->rs_total) {
-#ifdef _WIN32
 			const ULONG_PTR s = peer_device->rs_same_csum;
 			const ULONG_PTR t = peer_device->rs_total;
-#else
-			const unsigned long s = peer_device->rs_same_csum;
-			const unsigned long t = peer_device->rs_total;
-#endif
 			const ULONG_PTR ratio =
 				(t == 0)     ? 0 :
 			(t < 100000) ? ((s*100)/t) : (s/(t/100));
@@ -3351,11 +3342,7 @@ static void __do_unqueued_peer_device_work(struct drbd_connection *connection)
 	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
 #endif
 		struct drbd_device *device = peer_device->device;
-#ifdef _WIN32
 		ULONG_PTR todo = get_work_bits(DRBD_PEER_DEVICE_WORK_MASK, &peer_device->flags);
-#else
-		unsigned long todo = get_work_bits(DRBD_PEER_DEVICE_WORK_MASK, &peer_device->flags);
-#endif
 		
 		if (!todo)
 			continue;
@@ -3389,13 +3376,8 @@ static void do_unqueued_device_work(struct drbd_resource *resource)
 #else
 	idr_for_each_entry(&resource->devices, device, vnr) {
 #endif
-
-#ifdef _WIN32
 		ULONG_PTR todo = get_work_bits(DRBD_DEVICE_WORK_MASK, &device->flags);
-#else
-		unsigned long todo = get_work_bits(DRBD_DEVICE_WORK_MASK, &device->flags);
-#endif
-		
+
 		if (!todo)
 			continue;
 
@@ -3410,13 +3392,8 @@ static void do_unqueued_device_work(struct drbd_resource *resource)
 
 static void do_unqueued_resource_work(struct drbd_resource *resource)
 {
-#ifdef _WIN32
 	ULONG_PTR todo = get_work_bits(DRBD_RESOURCE_WORK_MASK, &resource->flags);
-#else
-	unsigned long todo = get_work_bits(DRBD_RESOURCE_WORK_MASK, &resource->flags);
-#endif
 	
-
 	if (test_bit(TRY_BECOME_UP_TO_DATE, &todo))
 		try_become_up_to_date(resource);
 }
@@ -3793,13 +3770,8 @@ static int process_one_request(struct drbd_connection *connection)
 		}
 	} else {
 		maybe_send_barrier(connection, req->epoch);
-#ifdef _WIN32
         err = drbd_send_drequest(peer_device, P_DATA_REQUEST,
             req->i.sector, req->i.size, (ULONG_PTR)req);
-#else
-		err = drbd_send_drequest(peer_device, P_DATA_REQUEST,
-				req->i.sector, req->i.size, (unsigned long)req);
-#endif
 		what = err ? SEND_FAILED : HANDED_OVER_TO_NETWORK;
 	}
 

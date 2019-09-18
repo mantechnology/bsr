@@ -46,11 +46,7 @@
 #define IDR_FREE_MAX MAX_LEVEL + MAX_LEVEL
 
 struct idr_layer {
-#ifdef _WIN32
 	ULONG_PTR			bitmap; /* A zero bit means "space here" */
-#else
-	unsigned long		bitmap; /* A zero bit means "space here" */
-#endif
 	struct idr_layer	*ary[1 << IDR_BITS];
 	int			 count;	 /* When zero, we can release it */
 	int			 layer;	 /* distance from leaf */

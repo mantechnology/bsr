@@ -2277,13 +2277,8 @@ static void queue_after_state_change_work(struct drbd_resource *resource,
 
 static void initialize_resync(struct drbd_peer_device *peer_device)
 {
-#ifdef _WIN32
     ULONG_PTR tw = drbd_bm_total_weight(peer_device);
     ULONG_PTR now = jiffies;
-#else
-	unsigned long tw = drbd_bm_total_weight(peer_device);
-	unsigned long now = jiffies;
-#endif
 	int i;
 
 	peer_device->rs_failed = 0;
@@ -2500,11 +2495,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 
 			if (repl_state[OLD] == L_ESTABLISHED &&
 			    (repl_state[NEW] == L_VERIFY_S || repl_state[NEW] == L_VERIFY_T)) {
-#ifdef _WIN32
                 ULONG_PTR now = jiffies;
-#else
-				unsigned long now = jiffies;
-#endif
 				int i;
 
 				set_ov_position(peer_device, repl_state[NEW]);

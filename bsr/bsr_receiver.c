@@ -9053,20 +9053,11 @@ void INFO_bm_xfer_stats(struct drbd_peer_device *peer_device,
 	/* what would it take to transfer it "plaintext" */
 	unsigned int header_size = drbd_header_size(peer_device->connection);
 	unsigned int data_size = DRBD_SOCKET_BUFFER_SIZE - header_size;
-#ifdef _WIN32
 	unsigned long long plain =
 		header_size * (DIV_ROUND_UP(c->bm_words, data_size) + 1) + c->bm_words * sizeof(ULONG_PTR);
 
 	unsigned long long total = c->bytes[0] + c->bytes[1];
 	unsigned long long r;
-#else
-	unsigned int plain =
-		header_size * (DIV_ROUND_UP(c->bm_words, data_size) + 1) +
-		c->bm_words * sizeof(unsigned long);
-	
-	unsigned int total = c->bytes[0] + c->bytes[1];
-	unsigned int r;
-#endif
 
 	/* total can not be zero. but just in case: */
 	if (total == 0)
@@ -9085,7 +9076,7 @@ void INFO_bm_xfer_stats(struct drbd_peer_device *peer_device,
 
 	r = 1000 - r;
 	drbd_info(peer_device, "%s bitmap stats [Bytes(packets)]: plain %u(%u), RLE %u(%u), "
-	     "total %u; compression: %u.%u%%\n",
+		"total %llu; compression: %llu.%llu%%\n",
 			direction,
 			c->bytes[1], c->packets[1],
 			c->bytes[0], c->packets[0],
@@ -11088,11 +11079,7 @@ static u64 node_ids_to_bitmap(struct drbd_device *device, u64 node_ids) __must_h
 	ULONG_PTR bitmap_bits = 0;
 	ULONG_PTR node_id;
 
-#ifdef _WIN32
 	for_each_set_bit(node_id, (ULONG_PTR *)&node_ids, DRBD_NODE_ID_MAX) {
-#else
-	for_each_set_bit(node_id, (unsigned long *)&node_ids, DRBD_NODE_ID_MAX) {
-#endif
 		int bitmap_bit = peer_md[node_id].bitmap_index;
 		if (bitmap_bit >= 0)
 			bitmap_bits |= NODE_MASK(bitmap_bit);
@@ -11385,11 +11372,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 	struct drbd_connection *connection = thi->connection;
 	struct meta_sock_cmd *cmd = NULL;
 	struct packet_info pi = { 0, };
-#ifdef _WIN32
     ULONG_PTR pre_recv_jif;
-#else
-	unsigned long pre_recv_jif;
-#endif
 	int rv;
 	void *buffer;
 	int received = 0, rflags = 0;
