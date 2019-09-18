@@ -2996,11 +2996,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 				list_del(&marked_rl->marked_rl_list);
 				kfree2(marked_rl);
 			}
-#ifdef _WIN32
 			device->s_rl_bb = UINTPTR_MAX;
-#else
-			device->s_rl_bb = ULONG_MAX;
-#endif
 			device->e_rl_bb = 0;
 			//DW-1908 set start out of sync bit
 			device->e_resync_bb = drbd_bm_find_next(peer_device, 0);

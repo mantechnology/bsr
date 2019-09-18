@@ -2107,11 +2107,8 @@ drbd_ib_create_cq(struct ib_device *device,
 #define UINT16_MAX		USHRT_MAX
 #define UINT32_MAX 		UINT_MAX
 
-//#if _X64 // TODO x64 dedicated, 
-#define INTPTR_MAX		LLONG_MAX
-#define UINTPTR_MAX		ULLONG_MAX
-//#else // required to re-define for 32bit
-//#endif
+#define INTPTR_MAX		LONG_MAX
+#define UINTPTR_MAX		ULONG_MAX
 
 #define LONGLONG		long long int
 
