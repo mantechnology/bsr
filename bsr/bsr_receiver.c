@@ -2899,11 +2899,7 @@ bool is_set_area_replicate_out_of_sync(struct drbd_device *device, ULONG_PTR s_b
 		}
 
 		if ((device->s_rl_bb >= s_bb && device->e_rl_bb <= (e_next_bb - 1))) {
-#ifdef _WIN32
 			device->s_rl_bb = UINTPTR_MAX;
-#else
-			device->s_rl_bb = ULONG_MAX;
-#endif
 			device->e_rl_bb = 0;
 			return true;
 		}
@@ -8000,7 +7996,7 @@ static int process_twopc(struct drbd_connection *connection,
 	csc_rv = check_concurrent_transactions(resource, reply);
 
 #ifdef _WIN32_TWOPC
-	drbd_info(resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%d) pi->cmd (%s)\n", 
+	drbd_info(resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
 					reply->tid, reply->target_node_id, csc_rv, reply->primary_nodes, drbd_packet_name(pi->cmd));
 #endif
 	if (csc_rv == CSC_CLEAR && pi->cmd != P_TWOPC_ABORT) {
