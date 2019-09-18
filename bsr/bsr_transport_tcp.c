@@ -193,11 +193,7 @@ struct drbd_transport *transport)
 			if (list_is_last(&drbd_path->list, &transport->paths))
 				drbd_path = NULL;
 			else{
-#ifdef _WIN32
 				drbd_path = list_next_entry(struct drbd_path, drbd_path, list);
-#else
-				drbd_path = list_next_entry(drbd_path, list);
-#endif
 			}
 		}
 		else {
@@ -1850,11 +1846,7 @@ static struct dtt_path *dtt_next_path(struct drbd_tcp_transport *tcp_transport, 
 	if (list_is_last(&path->path.list, &transport->paths))
 		drbd_path = list_first_entry(&transport->paths, struct drbd_path, list);
 	else
-#ifdef _WIN32
 		drbd_path = list_next_entry(struct drbd_path, &path->path, list);
-#else
-		drbd_path = list_next_entry(&path->path, list);
-#endif
 	spin_unlock(&tcp_transport->paths_lock);
 
 	return container_of(drbd_path, struct dtt_path, path);

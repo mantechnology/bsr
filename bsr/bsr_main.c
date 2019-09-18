@@ -464,11 +464,7 @@ static struct drbd_request *__tl_first_req_ref(struct drbd_request **pnext,
 					       struct list_head *transfer_log)
 {
 	if (req) {
-#ifdef _WIN32
 		struct drbd_request *next = list_next_entry(struct drbd_request, req, tl_requests);
-#else
-		struct drbd_request *next = list_next_entry(req, tl_requests);
-#endif
 		
 		if (&next->tl_requests != transfer_log)
 			kref_get(&next->kref);
@@ -488,11 +484,7 @@ static struct drbd_request *__tl_next_req_ref(struct drbd_request **pnext,
 		if (next_is_head)
 			return NULL;
 		req = next;
-#ifdef _WIN32
 		next = list_next_entry(struct drbd_request, req, tl_requests);
-#else
-		next = list_next_entry(req, tl_requests);
-#endif
 		
 		next_is_head = (&next->tl_requests == transfer_log);
 		if (!next_is_head)
