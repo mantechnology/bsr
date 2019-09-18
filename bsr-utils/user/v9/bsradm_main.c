@@ -63,6 +63,8 @@
 #ifdef _WIN32
 #include "bsr.h"
 #include <windows.h>
+#undef BSR_CONFIG_DIR
+#define BSR_CONFIG_DIR "/etc"
 #endif
 
 #define MAX_ARGS 40
