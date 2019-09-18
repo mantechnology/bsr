@@ -4,7 +4,7 @@ arch=$1
 #cd ../../..
 #cd drbdpkg/user
 sed -i 's/^M//g' ./autogen.sh
-./autogen
+./autogen.sh
 ./configure
 cd user/v9
 pwd
