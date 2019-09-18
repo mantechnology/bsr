@@ -1934,13 +1934,8 @@ static inline void generic_start_io_acct(struct request_queue *q, int rw, unsign
 #endif
 }
 
-#ifdef _WIN32
 static inline void generic_end_io_acct(struct request_queue *q, int rw, struct hd_struct *part,
 				  ULONG_PTR start_time)
-#else
-static inline void generic_end_io_acct(struct request_queue *q, int rw, struct hd_struct *part,
-				  unsigned long start_time)
-#endif
 {
 #ifndef _WIN32
 	unsigned long duration = jiffies - start_time;

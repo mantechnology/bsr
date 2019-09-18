@@ -128,11 +128,9 @@ static inline unsigned int generic_hweight32(unsigned int w)
     res = (res & 0x00FF00FF) + ((res >> 8) & 0x00FF00FF);
     return (res & 0x0000FFFF) + ((res >> 16) & 0x0000FFFF);
 }
-#ifdef _WIN32
-static inline ULONG_PTR generic_hweight64(uint64_t w)
-#else
-static inline unsigned long generic_hweight64(uint64_t w)
-#endif
+
+
+static inline uint64_t generic_hweight64(uint64_t w)
 {
 #if BITS_PER_LONG < 64
     return generic_hweight32((unsigned int)(w >> 32)) +

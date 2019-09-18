@@ -39,6 +39,7 @@
 
 /* Compatibility code */
 #include "compat.h"
+#include "../bsr-kernel-compat/bsr_wrappers.h"
 #endif
 #ifndef COMPAT_HAVE_CLEAR_BIT_UNLOCK
 //static inline void clear_bit_unlock(unsigned nr, volatile ULONG_PTR *addr)
@@ -259,18 +260,10 @@ struct lru_cache {
 
 	/* statistics */
 	unsigned used; /* number of elements currently on in_use list */
-#ifdef _WIN32
 	ULONG_PTR hits, misses, starving, locked, changed;
 
 	/* see below: flag-bits for lru_cache */
 	ULONG_PTR flags;
-#else
-	unsigned long hits, misses, starving, locked, changed;
-
-	/* see below: flag-bits for lru_cache */
-	unsigned long flags;
-#endif
-
 	void  *lc_private;
 	const char *name;
 

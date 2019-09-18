@@ -2906,11 +2906,7 @@ extern int drbd_try_rs_begin_io(struct drbd_peer_device *, sector_t, bool);
 extern void drbd_rs_cancel_all(struct drbd_peer_device *);
 extern int drbd_rs_del_all(struct drbd_peer_device *);
 extern void drbd_rs_failed_io(struct drbd_peer_device *, sector_t, int);
-#ifdef _WIN32
 extern void drbd_advance_rs_marks(struct drbd_peer_device *, ULONG_PTR);
-#else
-extern void drbd_advance_rs_marks(struct drbd_peer_device *, unsigned long);
-#endif
 extern bool drbd_set_all_out_of_sync(struct drbd_device *, sector_t, int);
 // DW-1191
 extern unsigned long drbd_set_sync(struct drbd_device *, sector_t, int, ULONG_PTR, ULONG_PTR);

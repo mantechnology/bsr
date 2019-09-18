@@ -339,11 +339,7 @@ void drbd_req_destroy(struct kref *kref)
 		if ((s & (RQ_POSTPONED|RQ_LOCAL_MASK|RQ_NET_MASK)) != RQ_POSTPONED &&
 		    req->i.size && get_ldev_if_state(device, D_DETACHING)) {
 			struct drbd_peer_md *peer_md = device->ldev->md.peers;
-#ifdef _WIN32
-			ULONG_PTR bits = UINT64_MAX, mask = UINT64_MAX;
-#else
-			unsigned long bits = -1, mask = -1;
-#endif
+			ULONG_PTR bits = UINTPTR_MAX, mask = UINTPTR_MAX;
 			int node_id, max_node_id = device->resource->max_node_id;
 			//DW-1191
 			ULONG_PTR set_bits = 0;
@@ -1552,11 +1548,7 @@ static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, 
 {
 	struct drbd_md *md = &device->ldev->md;
 	unsigned int node_id;
-#ifdef _WIN32
     ULONG_PTR sbnr, ebnr;
-#else
-	unsigned long sbnr, ebnr;
-#endif
 	sector_t esector, nr_sectors;
 
 	if (device->disk_state[NOW] == D_UP_TO_DATE)
@@ -1935,11 +1927,7 @@ static void drbd_queue_write(struct drbd_device *device, struct drbd_request *re
  * Returns ERR_PTR(-ENOMEM) if we cannot allocate a drbd_request.
  */
 static struct drbd_request *
-#ifdef _WIN32
 drbd_request_prepare(struct drbd_device *device, struct bio *bio, ULONG_PTR start_jif)
-#else
-drbd_request_prepare(struct drbd_device *device, struct bio *bio, unsigned long start_jif)
-#endif
 {
 	const int rw = bio_data_dir(bio);
 	struct drbd_request *req;
@@ -2743,13 +2731,8 @@ int drbd_merge_bvec(struct request_queue *q,
 }
 #endif
 
-#ifdef _WIN32
 static ULONG_PTR time_min_in_future(ULONG_PTR now,
 		ULONG_PTR t1, ULONG_PTR t2)
-#else
-static unsigned long time_min_in_future(unsigned long now,
-		unsigned long t1, unsigned long t2)
-#endif
 {
 	t1 = time_after(now, t1) ? now : t1;
 	t2 = time_after(now, t2) ? now : t2;
@@ -2758,11 +2741,7 @@ static unsigned long time_min_in_future(unsigned long now,
 
 static bool net_timeout_reached(struct drbd_request *net_req,
 		struct drbd_connection *connection,
-#ifdef _WIN32
 		ULONG_PTR now, ULONG_PTR ent,
-#else
-		unsigned long now, unsigned long ent,
-#endif
 		unsigned int ko_count, unsigned int timeout)
 {
 	struct drbd_device *device = net_req->device;
@@ -2847,19 +2826,12 @@ void request_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
-
+#endif
 	ULONG_PTR oldest_submit_jif;
 	ULONG_PTR dt = 0;
 	ULONG_PTR et = 0;
 	ULONG_PTR now = jiffies;
 	ULONG_PTR next_trigger_time = now;
-#else
-	unsigned long oldest_submit_jif;
-	unsigned long dt = 0;
-	unsigned long et = 0;
-	unsigned long now = jiffies;
-	unsigned long next_trigger_time = now;
-#endif
 	bool restart_timer = false;
 
 	if (device == NULL)
@@ -2906,13 +2878,8 @@ void request_timer_fn(unsigned long data)
 	for_each_connection(connection, device->resource) {
 		struct net_conf *nc;
 		struct drbd_request *req;
-#ifdef _WIN32
         ULONG_PTR ent = 0;
         ULONG_PTR pre_send_jif = 0;
-#else
-		unsigned long ent = 0;
-		unsigned long pre_send_jif = 0;
-#endif
 		unsigned int ko_count = 0, timeout = 0;
 
 		/* maybe the oldest request waiting for the peer is in fact still
