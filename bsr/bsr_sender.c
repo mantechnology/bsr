@@ -276,6 +276,7 @@ static int is_failed_barrier(int ee_flags)
  * "submitted" by the receiver, final stage.  */
 void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local)
 {
+	ULONG_PTR lock_flags = 0;
 	ULONG_PTR flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
 	struct drbd_device *device = peer_device->device;
@@ -286,7 +287,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	struct drbd_peer_request *p_req, *t_inative;
 
 	//DW-1696 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
-	spin_lock_irqsave(&device->resource->req_lock, flags);
+	spin_lock_irqsave(&device->resource->req_lock, lock_flags);
 #ifdef _WIN32
 	list_for_each_entry_safe(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 #else
@@ -311,12 +312,12 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			}
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
-			spin_unlock_irqrestore(&device->resource->req_lock, flags);
+			spin_unlock_irqrestore(&device->resource->req_lock, lock_flags);
 			put_ldev(device);
 			return;
 		}
 	}
-	spin_unlock_irqrestore(&device->resource->req_lock, flags);
+	spin_unlock_irqrestore(&device->resource->req_lock, lock_flags);
 
 	/* if this is a failed barrier request, disable use of barriers,
 	 * and schedule for resubmission */
@@ -325,13 +326,13 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 #endif
 	if (is_failed_barrier((int)peer_req->flags)) {
 		drbd_bump_write_ordering(device->resource, device->ldev, WO_BDEV_FLUSH);
-		spin_lock_irqsave(&device->resource->req_lock, flags);
+		spin_lock_irqsave(&device->resource->req_lock, lock_flags);
 		list_del(&peer_req->w.list);
 		peer_req->flags = (peer_req->flags & ~EE_WAS_ERROR) | EE_RESUBMITTED;
 		peer_req->w.cb = w_e_reissue;
 		/* put_ldev actually happens below, once we come here again. */
 		__release(local);
-		spin_unlock_irqrestore(&device->resource->req_lock, flags);
+		spin_unlock_irqrestore(&device->resource->req_lock, lock_flags);
 		drbd_queue_work(&connection->sender_work, &peer_req->w);
 		return;
 	}
@@ -385,7 +386,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	check_and_clear_io_error_in_secondary(peer_device);
 #endif
 
-	spin_lock_irqsave(&device->resource->req_lock, flags);
+	spin_lock_irqsave(&device->resource->req_lock, lock_flags);
 
 	device->writ_cnt += peer_req->i.size >> 9;
 	atomic_inc(&connection->done_ee_cnt);
@@ -412,7 +413,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	if (connection->cstate[NOW] == C_CONNECTED)
 		queue_work(connection->ack_sender, &connection->send_acks_work);
 
-	spin_unlock_irqrestore(&device->resource->req_lock, flags);
+	spin_unlock_irqrestore(&device->resource->req_lock, lock_flags);
 	
 	//DW-1601 calls drbd_rs_complete_io() after all data is complete.
 	//DW-1886
