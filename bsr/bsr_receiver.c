@@ -4160,7 +4160,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 				e_bb -= 1;
 
 			//DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
-			n_resync_bb = device->e_resync_bb + BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), DRBD_MAX_BIO_SIZE)) >> 9);
+			n_resync_bb = device->e_resync_bb + (ULONG_PTR)BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), DRBD_MAX_BIO_SIZE)) >> 9);
 
 			if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
 				(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {

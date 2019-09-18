@@ -3,9 +3,9 @@ arch=$1
 #cd -P "$( dirname "$0" )"
 #cd ../../..
 #cd drbdpkg/user
-aclocal
-autoheader
-autoconf
+tr -d '\015' < autogen.sh > autogen_windows.sh
+chmod +x autogen_windows.sh
+./autogen_windows.sh
 ./configure
 cd user/v9
 pwd
