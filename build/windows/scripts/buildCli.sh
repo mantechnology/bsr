@@ -3,8 +3,9 @@ arch=$1
 #cd -P "$( dirname "$0" )"
 #cd ../../..
 #cd drbdpkg/user
-sed -i 's/^M//g' ./autogen.sh
-./autogen.sh
+aclocal
+autoheader
+autoconf
 ./configure
 cd user/v9
 pwd
