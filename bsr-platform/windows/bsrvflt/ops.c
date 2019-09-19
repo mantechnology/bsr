@@ -22,7 +22,6 @@
 #include "disp.h"
 #include "proto.h"
 #include "../../../bsr/bsr_int.h"
-#pragma warning (disable: 6053 28719)
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
 CALLBACK_FUNCTION drbdCallbackFunc;

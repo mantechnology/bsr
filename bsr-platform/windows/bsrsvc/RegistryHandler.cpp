@@ -267,12 +267,10 @@ DWORD WINAPI RefreshDirectory(LPVOID lpDir)
     DWORD dwWaitResult;
     Log(L"Thread %d waiting for clean event...\n", GetCurrentThreadId());
 
-    while (TRUE)
-    {
+    while (TRUE) {
         dwWaitResult = WaitForSingleObject(g_hCleanEvent, INFINITE);
 
-        switch (dwWaitResult)
-        {
+        switch (dwWaitResult) {
             // Event object was signaled
             case WAIT_OBJECT_0:
                 Log(L"\nDirectory (%s) changed.\n", lpDir);
@@ -354,13 +352,11 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
     // Change notification is set. Now wait on both notification
     // handles and refresh accordingly.
 
-    while (TRUE)
-    {
+    while (TRUE) {
         // Wait for notification.
         dwWaitStatus = WaitForSingleObject(g_hChangeHandle, INFINITE);
 
-        switch (dwWaitStatus)
-        {
+        switch (dwWaitStatus) {
             case WAIT_OBJECT_0:
 
                 // A file was created, renamed, or deleted in the directory.

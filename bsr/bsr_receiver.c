@@ -58,18 +58,6 @@
 #include <linux/scatterlist.h>
 #endif
 
-#ifdef _WIN32
-/* DW-1587
-* Turns off the C6319 warning.
-* The use of comma does not cause any performance problems or bugs,
-* but keep the code as it is written.
-*
-* Turns off the C6387 warning.
-* Even though pointer parameters need to contain NULLs, 
-* they are treated as warnings.
-*/
-#pragma warning (disable: 6053 6319 6387 28719)
-#endif
 
 #define PRO_FEATURES (DRBD_FF_TRIM|DRBD_FF_THIN_RESYNC|DRBD_FF_WSAME)
 
@@ -1631,11 +1619,8 @@ static enum finish_epoch drbd_may_finish_epoch(struct drbd_connection *connectio
 			break;
 
 		epoch = next_epoch;
-#ifdef _WIN32
-	} while (true,true);
-#else
 	} while (1);
-#endif
+
 	spin_unlock(&connection->epoch_lock);
 
 	if (schedule_flush) {
@@ -7619,11 +7604,7 @@ static int queued_twopc_work(struct drbd_work *w, int cancel)
 	}
 	spin_unlock_irq(&resource->queued_twopc_lock); 
 
-#ifdef _WIN32
-	while (true, true){
-#else
 	while (true) {
-#endif
 		if (jiffies - q->start_jif >= t || cancel) {
 			if (!cancel)
 				drbd_info(connection, "Rejecting concurrent "
@@ -8590,7 +8571,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 
 							bm_resync_fo = bit + 1;
 
-						} while (true, true);
+						} while (true);
 					}
 				}
 #else

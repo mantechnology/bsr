@@ -35,7 +35,6 @@
 #include "sub.tmh" 
 #endif
 
-#pragma warning (disable: 6053 28719)
 
 NTSTATUS
 mvolIrpCompletion(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp, IN PVOID Context)

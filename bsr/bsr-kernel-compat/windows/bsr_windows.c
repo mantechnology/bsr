@@ -29,22 +29,6 @@
 #include "disp.h"
 #include "proto.h"
 
-#ifdef _WIN32
-/* DW-1587
-* Turns off the C6319 warning.
-* The use of comma does not cause any performance problems or bugs,
-* but keep the code as it is written.
-* 
-* Turns off the C6102 warning.
-* this warning warns to access uninitialized variable,
-* but disables warnig because there is no problem in code
-*
-* Turns off the C6387 warning.
-* Even though pointer parameters need to contain NULLs,
-* they are treated as warnings.
-*/
-#pragma warning (disable: 6053 6102 6319 6387 28719)
-#endif
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)
 #endif
@@ -901,24 +885,21 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 	expire = timeout + jiffies;
 	nWaitTime.QuadPart = 0;
 
-	if(timeout != MAX_SCHEDULE_TIMEOUT)
-	{
+	if(timeout != MAX_SCHEDULE_TIMEOUT) {
 		nWaitTime = RtlConvertLongToLargeInteger((timeout) * (-1 * 1000 * 10));
-	}
-	else
-	{
+	} else {
 		nWaitTime = RtlConvertLongToLargeInteger((60) * (-1 * 10000000));
 	}
+
 	pTime = &nWaitTime;
-	if ((q == NULL) || (q == (wait_queue_head_t *)SCHED_Q_INTERRUPTIBLE))
-	{
+	if ((q == NULL) || (q == (wait_queue_head_t *)SCHED_Q_INTERRUPTIBLE)) {
 		KTIMER ktimer;
 		KeInitializeTimer(&ktimer);
 		KeSetTimerEx(&ktimer, nWaitTime, 0, NULL);
 		KeWaitForSingleObject(&ktimer, Executive, KernelMode, FALSE, NULL);
-	}
-	else
-	{
+
+	} else {
+	
 		NTSTATUS status;
 		PVOID waitObjects[2];
 		struct task_struct *thread = current;
@@ -926,14 +907,12 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
         int wObjCount = 1;
 
         waitObjects[0] = (PVOID) &q->wqh_event;
-        if (thread->has_sig_event)
-        {
+        if (thread->has_sig_event) {
             waitObjects[1] = (PVOID) &thread->sig_event;
             wObjCount = 2;
         }
 
-        while (true, true)
-        {
+        while (true) {
             status = KeWaitForMultipleObjects(wObjCount, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, pTime, NULL);
 
             switch (status) {
@@ -945,15 +924,13 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
                 break;
 
             case STATUS_WAIT_1:
-                if (thread->sig == DRBD_SIGKILL)
-                {
+                if (thread->sig == DRBD_SIGKILL) {
                     return -DRBD_SIGKILL;
                 }
                 break;
 
             case STATUS_TIMEOUT:
-                if (timeout == MAX_SCHEDULE_TIMEOUT)
-                {
+                if (timeout == MAX_SCHEDULE_TIMEOUT) {
                      continue;
                 }
                 break;
@@ -1221,12 +1198,7 @@ void downup_rwlock_init(KSPIN_LOCK* lock)
 {
 	KeInitializeSpinLock(lock);
 }
-/* DW-1587 disable C28167 warning
- * We've just called KeAcquireSpinLock and KeReleaseSpinLock in separate functions. 
- * The lock and unlock code do not exist together in one stack, so they are recognized as an error.
- * But there's nothing wrong with the code.
- */ 
-#pragma warning (disable: 28167 26110)
+
 KIRQL down_write(KSPIN_LOCK* lock)
 {
 	return KeAcquireSpinLock(lock, &du_OldIrql);
@@ -1354,7 +1326,7 @@ void spin_unlock_bh(spinlock_t *lock)
 		KeReleaseSpinLock(&lock->spinLock, lock->saved_oldIrql);
 	}
 }
-#pragma warning (default: 28167 26110)
+
 spinlock_t g_irqLock;
 void local_irq_disable()
 {	
@@ -2495,7 +2467,7 @@ void monitor_mnt_change(PVOID pParam)
 			mcni1.EpicNumber = mcni2.EpicNumber;
 		}
 
-	} while (false, false);
+	} while (0);
 
 	atomic_set(&g_monitor_mnt_working, FALSE);
 
@@ -3343,7 +3315,7 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 			break;
 		}
 
-	} while (false,false);
+	} while (false);
 
 	if (NULL != hKey)
 	{

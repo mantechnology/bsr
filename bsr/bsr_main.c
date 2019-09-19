@@ -33,7 +33,6 @@
  * The use of comma does not cause any performance problems or bugs, 
  * but keep the code as it is written.
  */
-#pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
 #include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
@@ -1259,11 +1258,8 @@ static void prepare_header(struct drbd_connection *connection, int vnr,
 
 static void new_or_recycle_send_buffer_page(struct drbd_send_buffer *sbuf)
 {
-#ifdef _WIN32
-	while (true, true) {
-#else
 	while (1) {
-#endif		
+
 		struct page *page;
 		int count = page_count(sbuf->page);
 
