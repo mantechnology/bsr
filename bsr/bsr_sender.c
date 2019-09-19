@@ -226,11 +226,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 	//DW-1735 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
-#else
-	list_for_each_entry_safe( p_req, t_inative, &connection->inactive_ee, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
 #ifdef _WIN32
 			drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
@@ -292,11 +288,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 	//DW-1696 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	spin_lock_irqsave(&device->resource->req_lock, flags);
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
-#else
-	list_for_each_entry_safe(p_req, t_inative, &connection->inactive_ee, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
 			if (peer_req->block_id != ID_SYNCER) {
 				//DW-1920 in inactive_ee, the replication data calls drbd_al_complete_io() upon completion of the write.
@@ -2983,7 +2975,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			//DW-1911
 			struct drbd_marked_replicate *marked_rl, *t;
-			list_for_each_entry_safe(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+			list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 				list_del(&marked_rl->marked_rl_list);
 				kfree2(marked_rl);
 			}
@@ -3415,14 +3407,10 @@ static struct drbd_request *__next_request_for_connection(
 	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
 #endif
 
-#ifdef _WIN32 
 #ifdef _WIN32_NETQUEUED_LOG
-	list_for_each_entry_continue(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests) {
+	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests) {
 #else
-	list_for_each_entry_continue(struct drbd_request, r, &connection->resource->transfer_log, tl_requests) {
-#endif
-#else
-	list_for_each_entry_continue(r, &connection->resource->transfer_log, tl_requests) {
+	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests) {
 #endif
 		int vnr = r->device->vnr;
 		struct drbd_peer_device *peer_device = conn_peer_device(connection, vnr);
@@ -3460,11 +3448,7 @@ static struct drbd_request *tl_mark_for_resend_by_connection(struct drbd_connect
 restart:
 	req = list_prepare_entry_ex(struct drbd_request, tmp, &connection->resource->transfer_log, tl_requests);
 
-#ifdef _WIN32
-	list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry_continue(req, &connection->resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_continue_ex(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
 		/* potentially needed in complete_master_bio below */
 		device = req->device;
 		peer_device = conn_peer_device(connection, device->vnr);

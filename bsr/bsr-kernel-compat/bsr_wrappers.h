@@ -1394,6 +1394,15 @@ extern void *idr_get_next(struct idr *idp, int *nextidp);
 #define list_prepare_entry_ex(type, pos, head, member) \
 		list_prepare_entry(pos, head, member)
 #endif
+#ifndef list_for_each_entry_continue_ex
+#define list_for_each_entry_continue_ex(type, pos, head, member) \
+		list_for_each_entry_continue(pos, head, member)
+#endif
+#ifndef list_for_each_entry_safe_ex
+#define list_for_each_entry_safe_ex(type, pos, n, head, member) \
+		list_for_each_entry_safe(pos, n, head, member)
+#endif
+
 /*
  * Introduced in 930631ed (v2.6.19-rc1).
  */

@@ -326,11 +326,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 			tcp_transport->rbuf[i].base = NULL;
 		}
 		spin_lock(&tcp_transport->paths_lock);
-#ifdef _WIN32
-		list_for_each_entry_safe(struct drbd_path, drbd_path, tmp, &transport->paths, list) {
-#else
-		list_for_each_entry_safe(drbd_path, tmp, &transport->paths, list) {
-#endif
+		list_for_each_entry_safe_ex(struct drbd_path, drbd_path, tmp, &transport->paths, list) {
 			list_del_init(&drbd_path->list);
 			kref_put(&drbd_path->kref, drbd_destroy_path);
 		}

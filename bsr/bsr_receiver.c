@@ -315,11 +315,7 @@ static void reclaim_finished_net_peer_reqs(struct drbd_connection *connection,
 	   they are sent in order over the wire, they have to finish
 	   in order. As soon as we see the first not finished we can
 	   stop to examine the list... */
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, tmp, &connection->net_ee, w.list) {
-#else 
-	list_for_each_entry_safe(peer_req, tmp, &connection->net_ee, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, tmp, &connection->net_ee, w.list) {
 		if (drbd_peer_req_has_active_page(peer_req))
 			break;
 		list_move(&peer_req->w.list, to_be_freed);
@@ -623,11 +619,7 @@ int drbd_free_peer_reqs(struct drbd_resource *resource, struct list_head *list, 
 	spin_lock_irq(&resource->req_lock);
 	list_splice_init(list, &work_list);
 	spin_unlock_irq(&resource->req_lock);
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, t, &work_list, w.list) {
-#else
-	list_for_each_entry_safe(peer_req, t, &work_list, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &work_list, w.list) {
 		__drbd_free_peer_req(peer_req, is_net_ee);
 		count++;
 	}
@@ -650,23 +642,14 @@ static int drbd_finish_peer_reqs(struct drbd_connection *connection)
 	list_splice_init(&connection->done_ee, &work_list);
 	spin_unlock_irq(&connection->resource->req_lock);
 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, t, &reclaimed, w.list)
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &reclaimed, w.list)
 		drbd_free_net_peer_req(peer_req);
-#else 
-	list_for_each_entry_safe(peer_req, t, &reclaimed, w.list)
-		drbd_free_net_peer_req(peer_req);
-#endif
 
 	/* possible callbacks here:
 	 * e_end_block, and e_end_resync_block, e_send_discard_write.
 	 * all ignore the last argument.
 	 */
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, t, &work_list, w.list) {
-#else 
-	list_for_each_entry_safe(peer_req, t, &work_list, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &work_list, w.list) {
 		int err2;
 		// DW-1665: check callback function(e_end_block)
 		bool epoch_put = (peer_req->w.cb == e_end_block) ? true : false;
@@ -2799,11 +2782,7 @@ static bool prepare_split_peer_request(struct drbd_peer_device *peer_device, ULO
 	u16 i; ULONG_PTR ii;
 
 	//DW-1911 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_marked_replicate, marked_rl, tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
-#else
-	list_for_each_entry_safe(marked_rl, tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
 		//DW-1911 set in sync if all the sector are marked.
 		if (bit_count(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
 			drbd_set_in_sync(peer_device, BM_BIT_TO_SECT(marked_rl->bb), BM_SECT_PER_BIT << 9);
@@ -2860,11 +2839,7 @@ static bool is_marked_rl_bb(struct drbd_peer_device *peer_device, struct drbd_ma
 {
 	struct drbd_marked_replicate *tmp;
 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_marked_replicate, (*marked_rl), tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
-#else
-	list_for_each_entry_safe((*marked_rl), tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
-#endif 
+	list_for_each_entry_safe_ex(struct drbd_marked_replicate, (*marked_rl), tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
 		if (drbd_bm_test_bit(peer_device, (*marked_rl)->bb) == 0) {
 			list_del(&(*marked_rl)->marked_rl_list);
 			kfree((*marked_rl));
@@ -7290,12 +7265,7 @@ int abort_nested_twopc_work(struct drbd_work *work, int cancel)
 		struct drbd_connection *connection, *tmp;
 		resource->remote_state_change = false;
 		resource->twopc_reply.initiator_node_id = -1;
-#ifdef _WIN32
-		list_for_each_entry_safe(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#else
-		list_for_each_entry_safe(connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#endif
-
+		list_for_each_entry_safe_ex(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
 #ifdef _WIN32 //DW-1480
 			list_del(&connection->twopc_parent_list);
 #endif
@@ -7596,11 +7566,7 @@ static int queued_twopc_work(struct drbd_work *w, int cancel)
 
 	/* Look for more for the same TID... */
 	spin_lock_irq(&resource->queued_twopc_lock); 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct queued_twopc, q2, tmp, &resource->queued_twopc, w.list){
-#else
-	list_for_each_entry_safe(q2, tmp, &resource->queued_twopc, w.list){
-#endif 
+	list_for_each_entry_safe_ex(struct queued_twopc, q2, tmp, &resource->queued_twopc, w.list){
 		if (q2->reply.tid == q->reply.tid &&
 			q2->reply.initiator_node_id == q->reply.initiator_node_id)
 			list_move_tail(&q2->w.list, &work_list); 
@@ -11138,11 +11104,7 @@ found:
 	list_cut_position(&work_list, &connection->peer_requests, &peer_req->recv_order);
 	spin_unlock_irq(&resource->req_lock);
 
-#ifdef _WIN32	
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, tmp, &work_list, recv_order) {
-#else
-	list_for_each_entry_safe(peer_req, tmp, &work_list, recv_order) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, tmp, &work_list, recv_order) {
 		ULONG_PTR in_sync_b;
 		//DW-1872 you must set the device that matches the peer_request.
 		struct drbd_device *device = peer_req->peer_device->device;
@@ -11196,11 +11158,7 @@ static void cleanup_unacked_peer_requests(struct drbd_connection *connection)
 	spin_lock_irq(&resource->req_lock);
 	list_splice_init(&connection->peer_requests, &work_list);
 	spin_unlock_irq(&resource->req_lock);
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, peer_req, tmp, &work_list, recv_order) {
-#else
-	list_for_each_entry_safe(peer_req, tmp, &work_list, recv_order) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, tmp, &work_list, recv_order) {
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		struct drbd_device *device = peer_device->device;
 		int bitmap_index = peer_device->bitmap_index;
@@ -11246,11 +11204,7 @@ static void cleanup_peer_ack_list(struct drbd_connection *connection)
 
 	spin_lock_irq(&resource->req_lock);
 	idx = 1 + connection->peer_node_id;
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_request, req, tmp, &resource->peer_ack_list, tl_requests) {
-#else
-	list_for_each_entry_safe(req, tmp, &resource->peer_ack_list, tl_requests) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_request, req, tmp, &resource->peer_ack_list, tl_requests) {
 		if (!(req->rq_state[idx] & RQ_PEER_ACK))
 			continue;
 		req->rq_state[idx] &= ~RQ_PEER_ACK;

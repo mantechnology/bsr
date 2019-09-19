@@ -607,12 +607,7 @@ static void __clear_remote_state_change(struct drbd_resource *resource) {
 	resource->remote_state_change = false;
 	resource->twopc_reply.initiator_node_id = -1;
 	resource->twopc_reply.tid = 0;
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#else
-	list_for_each_entry_safe(connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#endif
-
+	list_for_each_entry_safe_ex(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
 #ifdef _WIN32	// DW-1480
 		list_del(&connection->twopc_parent_list);
 #endif
@@ -5014,11 +5009,7 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 
 	// DW-1414: postpone releasing req_lock until get all connections to send twopc reply.
 	// get connection count from twopc_parent_list.
-#ifdef _WIN32	
-	list_for_each_entry_safe(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
-#else
-	list_for_each_entry_safe( twopc_parent, tmp, &parents, twopc_parent_list) {
-#endif	
+	list_for_each_entry_safe_ex(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
 		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next) {
 			drbd_err(resource, "twopc_parent_list is invalid\n");
 #ifdef _WIN32	// DW-1480
@@ -5050,11 +5041,7 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 
 	// store connection object address.
 	connectionCount = 0;
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
-#else
-	list_for_each_entry_safe(twopc_parent, tmp, &parents, twopc_parent_list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
 		connections[connectionCount++] = twopc_parent;
 	}
 	

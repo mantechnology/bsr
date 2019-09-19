@@ -728,11 +728,8 @@ void lc_committed(struct lru_cache *lc)
 	if (lc == NULL)
 		return;
 	PARANOIA_ENTRY();
-#ifndef _WIN32
-	list_for_each_entry_safe(e, tmp, &lc->to_be_changed, list) {
-#else
-	list_for_each_entry_safe(struct lc_element, e, tmp, &lc->to_be_changed, list) {
-#endif
+
+	list_for_each_entry_safe_ex(struct lc_element, e, tmp, &lc->to_be_changed, list) {
 		/* count number of changes, not number of transactions */
 		++lc->changed;
 		e->lc_number = e->lc_new_number;
