@@ -3770,9 +3770,7 @@ static inline u64 drbd_history_uuid(struct drbd_device *device, int i)
 
 static inline int drbd_queue_order_type(struct drbd_device *device)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
-#endif
 
 	/* sorry, we currently have no working implementation
 	 * of distributed TCQ stuff */
@@ -3803,9 +3801,7 @@ static inline void drbd_kick_lo(struct drbd_device *device)
 #else
 static inline void drbd_blk_run_queue(struct request_queue *q)
 {
-#ifdef _WIN32	
 	UNREFERENCED_PARAMETER(q);
-#endif
 }
 static inline void drbd_kick_lo(struct drbd_device *device)
 {

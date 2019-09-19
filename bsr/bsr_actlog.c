@@ -998,9 +998,7 @@ int drbd_al_initialize(struct drbd_device *device, void *buffer)
 
 static int w_update_peers(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct update_peers_work *upw = container_of(w, struct update_peers_work, w);
 	struct drbd_peer_device *peer_device = upw->peer_device;
 	struct drbd_device *device = peer_device->device;
