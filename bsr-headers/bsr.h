@@ -58,17 +58,18 @@
 #define __LITTLE_ENDIAN_BITFIELD
 
 //DW-1507 remove unmeaning build warnings(2008 platform) and more warnings disable.
-#pragma warning (disable : 4100 4121 4127 4152 4200 4201 4204 4819)
-/* warning disable list
-4100: 
-4121: alignment of a member was sensitive to packing
-4127: conditional expression is constant
-4152: nonstandard extension, function/data pointer conversion in expression
-4200: nonstandard extension used : zero-sized array in struct/union
-4201: nonstandard extension used : nameless struct/union
-4204: nonstandard extension used : non-constant aggregate initializer
-4819:
-*/
+#pragma warning (disable : 4100 4121 4127 4152 4200 4201 4204 4221 )
+
+// BSR-238 warning disable list
+// 4100: unreferenced formal parameter
+// 4121: alignment of a member was sensitive to packing
+// 4127: conditional expression is constant
+// 4152: nonstandard extension, function/data pointer conversion in expression
+// 4200: nonstandard extension used : zero-sized array in struct/union
+// 4201: nonstandard extension used : nameless struct/union
+// 4204: nonstandard extension used : non-constant aggregate initializer
+// 4221: nonstandard extension used 
+
 #include "../../../bsr-headers/windows/types.h"
 #ifndef __KERNEL__
 #include <sys/types.h>

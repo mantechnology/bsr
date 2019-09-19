@@ -27,18 +27,6 @@
 #include "send_buf.h"	
 #include "../../../bsr-headers/linux/bsr_limits.h"
 
-#ifdef _WIN32
-/* DW-1587
-* Turns off the C6319 warning.
-* The use of comma does not cause any performance problems or bugs,
-* but keep the code as it is written.
-*
-* Turns off the C6387 warning.
-* Even though pointer parameters need to contain NULLs,
-* they are treated as warnings.
-*/
-#pragma warning (disable: 6319 6387)
-#endif
 #ifdef _WIN32_SEND_BUFFING
 #define EnterCriticalSection mutex_lock
 #define LeaveCriticalSection mutex_unlock
@@ -93,7 +81,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 		
 		connection->ptxbab[CONTROL_STREAM] = ring;
 		
-	} while (false, false);
+	} while (false);
 	
 	WDRBD_INFO("alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 	return TRUE;
@@ -339,7 +327,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 		return 0;
 	}
 
-	while (true, true) {
+	while (true) {
 		long long tx_sz = 0;
 
 		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
@@ -394,7 +382,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 	waitObjects[0] = &buffering_attr->send_buf_kill_event;
 	waitObjects[1] = &buffering_attr->ring_buf_event;
 
-	while (true, true) {
+	while (true) {
 		status = KeWaitForMultipleObjects(MAX_EVT, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, pTime, NULL);
 		switch (status) {
 		case STATUS_TIMEOUT:

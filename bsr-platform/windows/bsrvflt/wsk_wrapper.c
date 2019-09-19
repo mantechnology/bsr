@@ -2,18 +2,6 @@
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "wsk_wrapper.h"
 
-/* DW-1587 
- * Turns off the C6102 warning.
- * this warning warns to access uninitialized variable, 
- * but disables warnig because there is no problem in code
- *
- * Turns off the C6387 warning.
- * Even though pointer parameters need to contain NULLs,
- * they are treated as warnings.
- *
- * C6101, C28252, C28253 warnings is not a problem in wsk2.c.
- */
-#pragma warning (disable: 6053 6101 6102 6387 28252 28253 28719)
 extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
 IO_COMPLETION_ROUTINE CompletionRoutine;
 IO_COMPLETION_ROUTINE SendCompletionRoutine;

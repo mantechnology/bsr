@@ -56,8 +56,6 @@ _Dispatch_type_(IRP_MJ_PNP) DRIVER_DISPATCH mvolDispatchPnp;
 #pragma alloc_text(PAGE, _QueryVolumeNameRegistry)
 #endif
 
-// DW-1587 disables warnig because there is no problem in code
-#pragma warning (disable: 6101 6102)
 
 NTSTATUS
 mvolRunIrpSynchronous(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);

@@ -42,6 +42,40 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #endif
 
+// TODO: data type define 
+
+#ifdef _WIN32
+
+#else //_LIN
+
+#ifndef ULONG_PTR
+#define ULONG_PTR unsigned long
+#endif
+
+#define INT16_MAX		SHRT_MAX
+#define INT32_MAX		INT_MAX
+
+#define UINT16_MAX		USHRT_MAX
+#define UINT32_MAX 		UINT_MAX
+
+#define INTPTR_MAX		LONG_MAX
+#define UINTPTR_MAX		ULONG_MAX
+
+#define LONGLONG		long long int
+
+#define atomic_t64				atomic64_t
+#define atomic_add64			atomic64_add
+#define atomic_sub_return64		atomic64_sub_return
+#define atomic_set64			atomic64_set
+#define atomic_read64			atomic64_read
+#define atomic_sub64			atomic64_sub
+
+#ifndef UNREFERENCED_PARAMETER 
+#define UNREFERENCED_PARAMETER(x)
+#endif
+
+#endif
+
 /* {{{ pr_* macros */
 /* some very old kernels don't have them, or at least not all of them */
 #ifndef pr_emerg
@@ -1898,7 +1932,7 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
             conn = list_entry_rcu(__next, type, member);   \
         else   \
            conn = NULL;    \
-	    } while(false,false)
+	    } while(false)
 #endif
 #endif
 
@@ -2087,38 +2121,5 @@ drbd_ib_create_cq(struct ib_device *device,
 
 
 
-#ifdef _WIN32
-
-#else //_LIN
-
-// TODO: data type define 
-#ifndef ULONG_PTR
-#define ULONG_PTR unsigned long
-#endif
-
-#define INT16_MAX		SHRT_MAX
-#define INT32_MAX		INT_MAX
-
-#define UINT16_MAX		USHRT_MAX
-#define UINT32_MAX 		UINT_MAX
-
-#define INTPTR_MAX		LONG_MAX
-#define UINTPTR_MAX		ULONG_MAX
-
-#define LONGLONG		long long int
-
-#define atomic_t64				atomic64_t
-#define atomic_add64			atomic64_add
-#define atomic_sub_return64		atomic64_sub_return
-#define atomic_set64			atomic64_set
-#define atomic_read64			atomic64_read
-#define atomic_sub64			atomic64_sub
-
-#ifndef UNREFERENCED_PARAMETER 
-#define UNREFERENCED_PARAMETER(x)
-#endif
 
 #endif
-
-#endif
-

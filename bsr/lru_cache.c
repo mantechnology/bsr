@@ -23,7 +23,6 @@
 
  */
 #ifdef _WIN32
-#pragma warning (disable: 6053 28719)
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./bsr-kernel-compat/windows/seq_file.h" /* for seq_printf */
 #include "./linux/lru_cache.h"
@@ -97,7 +96,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 	if(lc == NULL) break;	\
 	AL_BUG_ON(!lc->nr_elements, "!lc->nr_elements", lc,  (false,false));	\
 	AL_BUG_ON(test_and_set_bit(__LC_PARANOIA, &lc->flags), "test_and_set_bit(__LC_PARANOIA, &lc->flags)", lc,  (false,false)); \
-	} while (false,false)
+	} while (0)
 #else 
 #define PARANOIA_ENTRY() do {		\
 	BUG_ON(!lc);			\
@@ -111,7 +110,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 #ifdef _WIN32
 #define RETURN_VOID()     do { \
 	clear_bit_unlock(__LC_PARANOIA, &lc->flags); \
-	return; } while (false,false)
+	return; } while (false)
 #endif
 
 #ifdef _WIN32
@@ -123,6 +122,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 	clear_bit_unlock(__LC_PARANOIA, &lc->flags); \
 	return x ; } while (0)
 #endif
+
 /* BUG() if e is not one of the elements tracked by lc */
 #ifdef WIN_AL_BUG_ON
 #define PARANOIA_LC_ELEMENT(lc, e) do {	\
@@ -131,7 +131,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 	struct lc_element *e_ = (e);	\
 	unsigned i = e_->lc_index;	\
 	AL_BUG_ON(i >= lc_->nr_elements, "i >= lc_->nr_elements", lc, e);	\
-	AL_BUG_ON(lc_->lc_element[i] != e_, "lc_->lc_element[i] != e_", lc, e); } while (false,false)
+	AL_BUG_ON(lc_->lc_element[i] != e_, "lc_->lc_element[i] != e_", lc, e); } while (0)
 #else 
 #define PARANOIA_LC_ELEMENT(lc, e) do {	\
 	struct lru_cache *lc_ = (lc);	\

@@ -30,17 +30,6 @@
 #include "proto.h"
 #include "../../../bsr/bsr_int.h"
 
-#ifdef _WIN32
-/* DW-1587
-* Turns off the C6319 warning caused by code analysis.
-* The use of comma does not cause any performance problems or bugs,
-* but keep the code as it is written.
-*
-* C6101 C6102 warning warns accessing and returning uninitialized variable,
-* but disables warnig because there is no problem in code
-*/
-#pragma warning (disable: 6053 6101 6319 6102 28719)
-#endif
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, QueryMountDUID)
 #pragma alloc_text(PAGE, DeleteRegistryValueKey)
@@ -495,7 +484,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 			return NULL;
 		}
 		
-	} while (false, false);
+	} while (false);
 			
 	return hVolume;
 }
@@ -615,7 +604,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 
 		bRet = TRUE;
 
-	} while (false, false);
+	} while (false);
 
 	if (bRet)
 	{
@@ -743,7 +732,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		
 		bRet = true;
 
-	} while (false, false);
+	} while (false);
 	
 	if (hVolume != NULL)
 	{
@@ -811,7 +800,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 				
 		bRet = TRUE;
 
-	} while (false, false);
+	} while (false);
 
 	if (NULL != hVolume)
 	{
@@ -939,7 +928,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 			}
 		}
 
-	} while (false, false);
+	} while (false);
 
 	if (NULL != pVbb)
 	{
