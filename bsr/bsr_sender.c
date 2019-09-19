@@ -276,11 +276,7 @@ static int is_failed_barrier(int ee_flags)
  * "submitted" by the receiver, final stage.  */
 void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local)
 {
-#ifdef _WIN32
-	long flags = 0;
-#else
 	ULONG_PTR flags = 0;
-#endif
 	ULONG_PTR peer_flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
 	struct drbd_device *device = peer_device->device;
@@ -596,8 +592,8 @@ NTSTATUS drbd_request_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context
 BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 {
-#ifdef _WIN32
 	unsigned long flags;
+#ifdef _WIN32
 	struct drbd_request *req = NULL;
 	struct drbd_device *device = NULL;
 	struct bio_and_error m;
@@ -757,8 +753,6 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	BIO_ENDIO_FN_RETURN;
 
 #else //_LIN TODO: for cross-platform code
-
-	unsigned long flags;
 	struct drbd_request *req = bio->bi_private;
 	struct drbd_device *device = req->device;
 	struct bio_and_error m;

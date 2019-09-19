@@ -1269,7 +1269,7 @@ void releaseSpinLock(KSPIN_LOCK *lock, KIRQL flags)
 // DW-903 protect lock recursion
 // if current thread equal lock owner thread, just increase refcnt
 
-long _spin_lock_irqsave(spinlock_t *lock)
+unsigned long _spin_lock_irqsave(spinlock_t *lock)
 {
 	KIRQL	oldIrql = 0;
 	PKTHREAD curthread = KeGetCurrentThread();
@@ -1280,7 +1280,7 @@ long _spin_lock_irqsave(spinlock_t *lock)
 		lock->OwnerThread = curthread;
 	}
 	InterlockedIncrement(&lock->Refcnt);
-	return (long)oldIrql;
+	return (unsigned long)oldIrql;
 }
 
 void spin_lock(spinlock_t *lock)
