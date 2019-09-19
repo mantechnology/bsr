@@ -5795,7 +5795,7 @@ int drbd_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb)
 
 found_resource:
 #ifdef _WIN32
-    //list_for_each_entry_continue_rcu(struct drbd_resource, resource, &drbd_resources, resources) {
+    //list_for_each_entry_continue_rcu_ex(struct drbd_resource, resource, &drbd_resources, resources) {
     //    goto put_result;
     //}
 	resource = list_entry_rcu(resource->resources.next, struct drbd_resource, resources); 
@@ -5962,11 +5962,8 @@ int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 		err = 0;
 		goto out;
 	}
-//#ifdef _WIN32
-//    idr_for_each_entry_continue(struct drbd_device *, idr_to_search, device, minor) {
-//#else
-//	idr_for_each_entry_continue(idr_to_search, device, minor) {
-//#endif
+
+//	idr_for_each_entry_continue_ex(struct drbd_device *, idr_to_search, device, minor) {
 //		retcode = NO_ERROR;
 //		goto put_result;  /* only one iteration */
 //	}
@@ -6141,7 +6138,7 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 
 found_connection:
 #ifdef _WIN32
-    //list_for_each_entry_continue_rcu(struct drbd_connection, connection, &resource->connections, connections) {
+    //list_for_each_entry_continue_rcu_ex(struct drbd_connection, connection, &resource->connections, connections) {
     //    retcode = NO_ERROR;
     //    goto put_result;  /* only one iteration */
     //}
@@ -6170,11 +6167,7 @@ no_more_connections:
 	goto out;
 
 found_resource:
-//#ifdef _WIN32
-//    list_for_each_entry_continue_rcu(struct drbd_resource, next_resource, &drbd_resources, resources) {
-//#else
-//	list_for_each_entry_continue_rcu(next_resource, &drbd_resources, resources) {
-//#endif
+//	list_for_each_entry_continue_rcu_ex(struct drbd_resource, next_resource, &drbd_resources, resources) {
 //		mutex_unlock(&resource->conf_update);
 //		kref_debug_put(&resource->kref_debug, 6);
 //		kref_put(&resource->kref, drbd_destroy_resource);
@@ -6380,7 +6373,7 @@ next_device:
 
 found_peer_device:
 #ifdef _WIN32
-    //list_for_each_entry_continue_rcu(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices) {
+    //list_for_each_entry_continue_rcu_ex(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices) {
     //    retcode = NO_ERROR;
     //    goto put_result;  /* only one iteration */
     //}

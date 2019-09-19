@@ -415,11 +415,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	BUG_ON(!lc->nr_elements);
 #endif
 
-#ifndef _WIN32
-	hlist_for_each_entry(e, lc_hash_slot(lc, enr), colision) {
-#else
-	hlist_for_each_entry(struct lc_element, e, lc_hash_slot(lc, enr), colision) {
-#endif
+	hlist_for_each_entry_ex(struct lc_element, e, lc_hash_slot(lc, enr), colision) {
 		/* "about to be changed" elements, pending transaction commit,
 		 * are hashed by their "new number". "Normal" elements have
 		 * lc_number == lc_new_number. */
