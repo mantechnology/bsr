@@ -1033,11 +1033,7 @@ static struct dtt_path *dtt_wait_connect_cond(struct drbd_transport *transport)
 	bool rv = false;
 
 	spin_lock(&tcp_transport->paths_lock);
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_path, drbd_path, &transport->paths, list) {
-#else
-	list_for_each_entry(drbd_path, &transport->paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
 		path = container_of(drbd_path, struct dtt_path, path);
 		listener = drbd_path->listener;
 #if 0
@@ -1426,7 +1422,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	spin_lock_bh(&resource->listeners_lock);	
 
 	// DW-1498 : Find the listener that matches the LocalAddress in resource-> listeners.
-	list_for_each_entry(struct drbd_listener, listener, &resource->listeners, list) {
+	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
 		WDRBD_CONN_TRACE("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
 		
 		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)LocalAddress)) {
@@ -1901,11 +1897,7 @@ static int dtt_connect(struct drbd_transport *transport)
 		goto out;
 	}
 
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_path, drbd_path, &transport->paths, list) {
-#else
-	list_for_each_entry(drbd_path, &transport->paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
 		if (!drbd_path->listener) {
 			kref_get(&drbd_path->kref);
 			spin_unlock(&tcp_transport->paths_lock);

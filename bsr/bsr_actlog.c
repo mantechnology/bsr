@@ -519,11 +519,8 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 	 * lc_try_lock_for_transaction() --, someone may still
 	 * be in the process of changing it. */
 	spin_lock_irq(&device->al_lock);
-#ifdef _WIN32
-    list_for_each_entry(struct lc_element, e, &device->act_log->to_be_changed, list) {
-#else
-	list_for_each_entry(e, &device->act_log->to_be_changed, list) {
-#endif
+
+	list_for_each_entry_ex(struct lc_element, e, &device->act_log->to_be_changed, list) {
 		if (i == AL_UPDATES_PER_TRANSACTION) {
 			i++;
 			break;

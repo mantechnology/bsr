@@ -4596,11 +4596,7 @@ check_path_usable(const struct drbd_config_context *adm_ctx,
 	for_each_resource(resource, &drbd_resources) {
 		for_each_connection(connection, resource) {
 			struct drbd_path *path;
-#ifdef _WIN32
-            list_for_each_entry(struct drbd_path, path, &connection->transport.paths, list) {
-#else
-			list_for_each_entry(path, &connection->transport.paths, list) {
-#endif
+			list_for_each_entry_ex(struct drbd_path, path, &connection->transport.paths, list) {
 				retcode = check_path_against_nla(path, my_addr, peer_addr);
 				if (retcode == NO_ERROR)
 					continue;
@@ -4819,11 +4815,7 @@ adm_del_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
 	}
 	my_addr = nested_attr_tb[__nla_type(T_my_addr)];
 	peer_addr = nested_attr_tb[__nla_type(T_peer_addr)];
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_path, path, &transport->paths, list)
-#else
-	list_for_each_entry(path, &transport->paths, list)
-#endif
+	list_for_each_entry_ex(struct drbd_path, path, &transport->paths, list)
 		nr_paths++;
 
 	if (nr_paths == 1 && connection->cstate[NOW] >= C_CONNECTING) {
@@ -4833,11 +4825,7 @@ adm_del_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
 	}
 	
 	err = -ENOENT;
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_path, path, &transport->paths, list) {
-#else
-	list_for_each_entry(path, &transport->paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, path, &transport->paths, list) {
 		if (!addr_eq_nla(&path->my_addr, path->my_addr_len, my_addr))
 			continue;
 		if (!addr_eq_nla(&path->peer_addr, path->peer_addr_len, peer_addr))
@@ -6183,11 +6171,7 @@ int connection_paths_to_skb(struct sk_buff *skb, struct drbd_connection *connect
 		goto nla_put_failure;
 
 	/* array of such paths. */
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_path, path, &connection->transport.paths, list) {
-#else
-	list_for_each_entry(path, &connection->transport.paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, path, &connection->transport.paths, list) {
 		if (nla_put(skb, T_my_addr, path->my_addr_len, &path->my_addr))
 			goto nla_put_failure;
 		if (nla_put(skb, T_peer_addr, path->peer_addr_len, &path->peer_addr))

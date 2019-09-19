@@ -1969,9 +1969,15 @@ static inline unsigned drbd_req_state_by_peer_device(struct drbd_request *req,
 	return req->rq_state[1 + idx];
 }
 
-#ifdef _WIN32
 #define for_each_resource(resource, _resources) \
-	list_for_each_entry(struct drbd_resource, resource, _resources, resources)
+	list_for_each_entry_ex(struct drbd_resource, resource, _resources, resources)
+
+/* Each caller of for_each_connect() must hold req_lock or adm_mutex or conf_update.
+   The update locations hold all three! */
+#define for_each_connection(connection, resource) \
+	list_for_each_entry_ex(struct drbd_connection, connection, &resource->connections, connections)
+
+#ifdef _WIN32
 
 #define for_each_resource_rcu(resource, _resources) \
 	list_for_each_entry_rcu(struct drbd_resource, resource, _resources, resources)
@@ -1979,10 +1985,7 @@ static inline unsigned drbd_req_state_by_peer_device(struct drbd_request *req,
 #define for_each_resource_safe(resource, tmp, _resources) \
 	list_for_each_entry_safe(struct drbd_resource, resource, tmp, _resources, resources)
 
-/* Each caller of for_each_connect() must hold req_lock or adm_mutex or conf_update.
-   The update locations hold all three! */
-#define for_each_connection(connection, resource) \
-    list_for_each_entry(struct drbd_connection, connection, &resource->connections, connections)
+
 
 #define for_each_connection_rcu(connection, resource) \
 	list_for_each_entry_rcu(struct drbd_connection, connection, &resource->connections, connections)
@@ -1990,19 +1993,12 @@ static inline unsigned drbd_req_state_by_peer_device(struct drbd_request *req,
 #define for_each_connection_safe(connection, tmp, resource) \
 	list_for_each_entry_safe(struct drbd_connection, connection, tmp, &resource->connections, connections)
 #else
-#define for_each_resource(resource, _resources) \
-	list_for_each_entry(resource, _resources, resources)
 
 #define for_each_resource_rcu(resource, _resources) \
 	list_for_each_entry_rcu(resource, _resources, resources)
 
 #define for_each_resource_safe(resource, tmp, _resources) \
 	list_for_each_entry_safe(resource, tmp, _resources, resources)
-
-/* Each caller of for_each_connect() must hold req_lock or adm_mutex or conf_update.
-   The update locations hold all three! */
-#define for_each_connection(connection, resource) \
-	list_for_each_entry(connection, &resource->connections, connections)
 
 #define for_each_connection_rcu(connection, resource) \
 	list_for_each_entry_rcu(connection, &resource->connections, connections)
@@ -2017,19 +2013,16 @@ static inline unsigned drbd_req_state_by_peer_device(struct drbd_request *req,
 
 /* Each caller of for_each_peer_device() must hold req_lock or adm_mutex or conf_update.
    The update locations hold all three! */
-#ifdef _WIN32
 #define for_each_peer_device(peer_device, device) \
-    list_for_each_entry(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices)
+	list_for_each_entry_ex(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices)
 
+#ifdef _WIN32
 #define for_each_peer_device_rcu(peer_device, device) \
  	list_for_each_entry_rcu(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices)
 
 #define for_each_peer_device_safe(peer_device, tmp, device) \
 	list_for_each_entry_safe(struct drbd_peer_device, peer_device, tmp, &device->peer_devices, peer_devices)
 #else
-#define for_each_peer_device(peer_device, device) \
-	list_for_each_entry(peer_device, &device->peer_devices, peer_devices)
-
 #define for_each_peer_device_rcu(peer_device, device) \
 	list_for_each_entry_rcu(peer_device, &device->peer_devices, peer_devices)
 

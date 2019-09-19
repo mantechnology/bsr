@@ -325,12 +325,7 @@ static void seq_print_peer_request(struct seq_file *m,
 
 	bool reported_preparing = false;
 	struct drbd_peer_request *peer_req;
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_peer_request, peer_req, lh, w.list)
-    {
-#else
-	list_for_each_entry(peer_req, lh, w.list) {
-#endif
+	list_for_each_entry_ex(struct drbd_peer_request, peer_req, lh, w.list) {
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		struct drbd_device *device = peer_device ? peer_device->device : NULL;
 
@@ -416,11 +411,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 
 	seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
 	spin_lock_irq(&resource->req_lock);
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, req, &resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry(req, &resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_ex(struct drbd_request, req, &resource->transfer_log, tl_requests) {
 		struct drbd_device *device = req->device;
 		struct drbd_peer_device *peer_device;
 		unsigned int tmp = 0;
@@ -600,11 +591,7 @@ static int resource_state_twopc_show(struct seq_file *m, void *pos)
 		return 0;
 	}
 	seq_puts(m, "\n Queued for later execution:\n");
-#ifdef _WIN32
-    list_for_each_entry(struct queued_twopc, q, &resource->queued_twopc, w.list) {
-#else
-	list_for_each_entry(q, &resource->queued_twopc, w.list) {
-#endif
+	list_for_each_entry_ex(struct queued_twopc, q, &resource->queued_twopc, w.list) {
 		jif = jiffies - q->start_jif;
 		seq_printf(m, "  tid: %u, initiator_node_id: %d, since: %d ms\n",
 			   q->reply.tid, q->reply.initiator_node_id, jiffies_to_msecs(jif));

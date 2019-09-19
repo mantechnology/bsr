@@ -3601,11 +3601,7 @@ static bool overlapping_resync_write(struct drbd_connection *connection, struct 
 	* device->act_log and peer_device->resync_lru.
 	*/
 	spin_lock_irq(&connection->resource->req_lock);
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_peer_request, rs_req, &connection->sync_ee, w.list) {
-#else
-	list_for_each_entry(rs_req, &connection->sync_ee, w.list) {
-#endif
+	list_for_each_entry_ex(struct drbd_peer_request, rs_req, &connection->sync_ee, w.list) {
 		if (rs_req->peer_device != peer_req->peer_device)
 			continue;
 		if (overlaps(peer_req->i.sector, peer_req->i.size,
@@ -4161,11 +4157,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 			if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
 				(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {
 				//DW-1911 check if marked already exists.
-#ifdef _WIN32
-				list_for_each_entry(struct drbd_marked_replicate, marked_rl, &(device->marked_rl_list), marked_rl_list) {
-#else
-				list_for_each_entry(marked_rl, &(device->marked_rl_list), marked_rl_list) {
-#endif
+				list_for_each_entry_ex(struct drbd_marked_replicate, marked_rl, &(device->marked_rl_list), marked_rl_list) {
 					if (marked_rl->bb == s_bb) 
 						s_marked_rl = marked_rl;
 					if (marked_rl->bb == e_bb) 
@@ -7557,11 +7549,7 @@ static int queue_twopc(struct drbd_connection *connection, struct twopc_reply *t
 	bool was_empty, already_queued = false;
 
 	spin_lock_irq(&resource->queued_twopc_lock);
-#ifdef _WIN32
-	list_for_each_entry(struct queued_twopc, q, &resource->queued_twopc, w.list) {
-#else
-	list_for_each_entry(q, &resource->queued_twopc, w.list) {
-#endif
+	list_for_each_entry_ex(struct queued_twopc, q, &resource->queued_twopc, w.list) {
 		if (q->reply.tid == twopc->tid &&
 		    q->reply.initiator_node_id == twopc->initiator_node_id &&
 			q->connection == connection)
@@ -7744,11 +7732,7 @@ static int abort_queued_twopc(struct drbd_resource *resource, struct twopc_reply
 	unsigned long irq_flags;
 
 	spin_lock_irqsave(&resource->queued_twopc_lock, irq_flags);
-#ifdef _WIN32
-	list_for_each_entry(struct queued_twopc, q, &resource->queued_twopc, w.list) {
-#else
-	list_for_each_entry(q, &resource->queued_twopc, w.list) {
-#endif
+	list_for_each_entry_ex(struct queued_twopc, q, &resource->queued_twopc, w.list) {
 		if (q->reply.tid == twopc->tid) {
 			list_del(&q->w.list);
 			goto found;
@@ -9885,11 +9869,7 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	//DW-1920
 	if (!list_empty(&connection->active_ee)) {
-#ifdef _WIN32
-		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->active_ee, w.list) {
-#else
-		list_for_each_entry(peer_req, &connection->active_ee, w.list) {
-#endif
+		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->active_ee, w.list) {
 			struct drbd_peer_device *peer_device = peer_req->peer_device;
 			struct drbd_device *device = peer_device->device;
 
@@ -9907,11 +9887,7 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	//DW-1920 
 	if (!list_empty(&connection->sync_ee)) {
-#ifdef _WIN32
-		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->sync_ee, w.list) {
-#else
-		list_for_each_entry(peer_req, &connection->sync_ee, w.list) {
-#endif
+		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->sync_ee, w.list) {
 			struct drbd_device *device = peer_req->peer_device->device; 
 #ifdef _WIN32
 			drbd_info(device, "add, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size); 
@@ -9923,11 +9899,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	}
 
 	if (!list_empty(&connection->read_ee)) {
-#ifdef _WIN32
-		list_for_each_entry(struct drbd_peer_request, peer_req, &connection->read_ee, w.list) {
-#else
-		list_for_each_entry(peer_req, &connection->read_ee, w.list) {
-#endif
+		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->read_ee, w.list) {
 			struct drbd_device *device = peer_req->peer_device->device;
 #ifdef _WIN32
 			drbd_info(device, "add, read_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size); 
@@ -10007,11 +9979,7 @@ void conn_disconnect(struct drbd_connection *connection)
 		drbd_err(connection, "ASSERTION FAILED: connection->current_epoch->list not empty\n");
 
 		//DW-1812 if the epoch list is not empty, remove it.
-#ifdef _WIN32
-		list_for_each_entry(struct drbd_epoch, epoch, &connection->current_epoch->list, list) {
-#else		
-		list_for_each_entry(epoch, &connection->current_epoch->list, list) {
-#endif
+		list_for_each_entry_ex(struct drbd_epoch, epoch, &connection->current_epoch->list, list) {
 			drbd_info(connection, "ASSERTION FAILED: remove epoch barrier_nr : %u, epochs:%u\n", epoch->barrier_nr, connection->epochs);
 			list_del(&epoch->list);
 			kfree(epoch);
@@ -11157,11 +11125,7 @@ static int got_peer_ack(struct drbd_connection *connection, struct packet_info *
 #endif
 	
 	spin_lock_irq(&resource->req_lock);
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_peer_request, peer_req, &connection->peer_requests, recv_order) {
-#else
-	list_for_each_entry(peer_req, &connection->peer_requests, recv_order) {
-#endif
+	list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->peer_requests, recv_order) {
 		if (dagtag == peer_req->dagtag_sector)
 			goto found;
 	}
@@ -11211,11 +11175,7 @@ found:
 void apply_unacked_peer_requests(struct drbd_connection *connection)
 {
 	struct drbd_peer_request *peer_req;
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_peer_request, peer_req, &connection->peer_requests, recv_order) {
-#else
-	list_for_each_entry(peer_req, &connection->peer_requests, recv_order) {
-#endif
+	list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->peer_requests, recv_order) {
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		struct drbd_device *device = peer_device->device;
 		int bitmap_index = peer_device->bitmap_index;

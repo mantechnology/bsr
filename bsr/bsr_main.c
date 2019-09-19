@@ -523,11 +523,7 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 
 	/* find oldest not yet barrier-acked write request,
 	 * count writes in its epoch. */
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, r, &resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry(r, &resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_ex(struct drbd_request, r, &resource->transfer_log, tl_requests) {
 		struct drbd_peer_device *peer_device;
 		int idx;
 		peer_device = conn_peer_device(connection, r->device->vnr);
@@ -581,12 +577,8 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 	/* this extra list walk restart is paranoia,
 	 * to catch requests being barrier-acked "unexpectedly".
 	 * It usually should find the same req again, or some READ preceding it. */
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, req, &resource->transfer_log, tl_requests)
-#else
-	list_for_each_entry(req, &resource->transfer_log, tl_requests)
-#endif
-	if (req->epoch == expect_epoch)
+	list_for_each_entry_ex(struct drbd_request, req, &resource->transfer_log, tl_requests)
+		if (req->epoch == expect_epoch)
 			break;
 	tl_for_each_req_ref_from(req, r, &resource->transfer_log) {
 		struct drbd_peer_device *peer_device;
@@ -4950,11 +4942,7 @@ void drbd_unregister_connection(struct drbd_connection *connection)
 	}
 	list_del_rcu(&connection->connections);
 	spin_unlock_irq(&resource->req_lock);
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_peer_device, peer_device, &work_list, peer_devices)
-#else
-	list_for_each_entry(peer_device, &work_list, peer_devices)
-#endif
+	list_for_each_entry_ex(struct drbd_peer_device, peer_device, &work_list, peer_devices)
 		drbd_debugfs_peer_device_cleanup(peer_device);
 	drbd_debugfs_connection_cleanup(connection);
 }

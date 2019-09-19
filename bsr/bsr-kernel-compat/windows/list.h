@@ -252,7 +252,7 @@ static __inline int list_is_last(const struct list_head *list, const struct list
 */
 #ifdef _WIN32
 #define list_for_each_entry_rcu(type, pos, head, member) \
-    list_for_each_entry(type, pos, head, member)
+    list_for_each_entry_ex(type, pos, head, member)
 #else
 #define list_for_each_entry_rcu(pos, head, member) \
 	for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
@@ -270,18 +270,12 @@ static __inline int list_is_last(const struct list_head *list, const struct list
  * @head:	the head for your list.
  * @member:	the name of the list_struct within the struct.
  */
-#ifdef _WIN32 // DW-987 fix NULL reference by container_of
-#define list_for_each_entry(type, pos, head, member) \
+// DW-987 fix NULL reference by container_of
+#define list_for_each_entry_ex(type, pos, head, member) \
 	if((head)->next != NULL )	\
 		for (pos = list_entry((head)->next, type, member);	\
 				&pos->member != (head); 	\
 				pos = list_entry(pos->member.next, type, member))
-#else
-#define list_for_each_entry(pos, head, member)				\
-		for (pos = list_entry((head)->next, typeof(*pos), member);	\
-			 &pos->member != (head); 	\
-			 pos = list_entry(pos->member.next, typeof(*pos), member))
-#endif
 
 /**
  * list_for_each_entry_reverse - iterate backwards over list of given type.

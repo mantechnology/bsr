@@ -31,11 +31,7 @@ static struct drbd_transport_class *__find_transport_class(const char *transport
 {
 	struct drbd_transport_class *transport_class;
 
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_transport_class, transport_class, &transport_classes, list)
-#else
-	list_for_each_entry(transport_class, &transport_classes, list)
-#endif
+	list_for_each_entry_ex(struct drbd_transport_class, transport_class, &transport_classes, list)
 		if (!strcmp(transport_class->name, transport_name))
 			return transport_class;
 
@@ -123,11 +119,7 @@ void drbd_print_transports_loaded(struct seq_file *seq)
 	down_read(&transport_classes_lock);
 
 	seq_puts(seq, "Transports (api:" __stringify(DRBD_TRANSPORT_API_VERSION) "):");
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_transport_class, tc, &transport_classes, list) {
-#else
-	list_for_each_entry(tc, &transport_classes, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_transport_class, tc, &transport_classes, list) {
 #ifdef _WIN32
 		seq_printf(seq, " %s ", tc->name);
 #else
@@ -202,11 +194,10 @@ static struct drbd_listener *find_listener(struct drbd_connection *connection,
 {
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_listener *listener;
+	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
 #ifdef _WIN32
-	list_for_each_entry(struct drbd_listener, listener, &resource->listeners, list) {
 		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)addr)) {
 #else
-	list_for_each_entry(listener, &resource->listeners, list) {
 		if (addr_and_port_equal(&listener->listen_addr, addr)) {
 #endif
 			kref_get(&listener->kref);
@@ -318,7 +309,7 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 	if(!addr || !listener || (listener->list.next == NULL) ) {
 		return NULL;
 	}
-	list_for_each_entry(struct drbd_path, path, &listener->waiters, listener_link) {
+	list_for_each_entry_ex(struct drbd_path, path, &listener->waiters, listener_link) {
 		//WDRBD_TRACE_CO("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
