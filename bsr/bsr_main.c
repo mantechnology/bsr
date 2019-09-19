@@ -3232,11 +3232,7 @@ static void open_counts(struct drbd_resource *resource, int *rw_count_ptr, int *
 	struct drbd_device *device;
 	int vnr, rw_count = 0, ro_count = 0;
 
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr){
-#else
-	idr_for_each_entry(&resource->devices, device, vnr){
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		rw_count += device->open_rw_cnt;
 		ro_count += device->open_ro_cnt;
 	}
@@ -4034,11 +4030,7 @@ void wake_all_device_misc(struct drbd_resource *resource)
 	struct drbd_device *device;
 	int vnr;
 	rcu_read_lock();
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr)
-#else
-	idr_for_each_entry(&resource->devices, device, vnr)
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr)
 		wake_up(&device->misc_wait);
 	rcu_read_unlock();
 }
@@ -4382,11 +4374,7 @@ void drbd_destroy_connection(struct kref *kref)
 	spin_unlock(&resource->req_lock);
 #endif
 
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+    idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
 
 #ifdef _WIN32 // DW-1598 : set CONNECTION_ALREADY_FREED flags 
@@ -4901,11 +4889,8 @@ void drbd_unregister_connection(struct drbd_connection *connection)
 	spin_lock_irq(&resource->req_lock);
 	set_bit(C_UNREGISTERED, &connection->flags);
 	smp_wmb();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		list_del_rcu(&peer_device->peer_devices);
 		list_add(&peer_device->peer_devices, &work_list);
 	}
@@ -4930,11 +4915,7 @@ void drbd_put_connection(struct drbd_connection *connection)
 	int vnr, rr, refs = 1;
 
 	del_connect_timer(connection);
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr)
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
 		refs++;
 
 	rr = drbd_free_peer_reqs(connection->resource, &connection->done_ee, false);

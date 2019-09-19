@@ -3809,31 +3809,23 @@ struct bm_extent {
  * @id:      id entry's key
  */
 #ifndef idr_for_each_entry
-#ifdef _WIN32
-#define idr_for_each_entry(type, idp, entry, id)				\
+#define idr_for_each_entry_ex(type, idp, entry, id)				\
 	for (id = 0, entry = (type)idr_get_next((idp), &(id)); \
 	     entry != NULL;						\
 	     ++id, entry = (type)idr_get_next((idp), &(id))) 
 #else
-#define idr_for_each_entry(idp, entry, id)				\
-	for (id = 0, entry = (typeof(entry))idr_get_next((idp), &(id)); \
-	     entry != NULL;						\
-	     ++id, entry = (typeof(entry))idr_get_next((idp), &(id)))
-#endif
+#define idr_for_each_entry_ex(type, idp, entry, id)				\
+		idr_for_each_entry(idp, entry, id)
 #endif
 
 #ifndef idr_for_each_entry_continue
-#ifdef _WIN32
-#define idr_for_each_entry_continue(type, idp, entry, id)			\
+#define idr_for_each_entry_continue_ex(type, idp, entry, id)			\
 	for (entry = (type)idr_get_next((idp), &(id));		\
 	     entry;							\
 	     ++id, entry = (type)idr_get_next((idp), &(id)))
 #else
-#define idr_for_each_entry_continue(idp, entry, id)			\
-	for (entry = (typeof(entry))idr_get_next((idp), &(id));		\
-	     entry;							\
-	     ++id, entry = (typeof(entry))idr_get_next((idp), &(id)))
-#endif
+#define idr_for_each_entry_continue_ex(type, idp, entry, id)			\
+		idr_for_each_entry_continue(idp, entry, id)
 #endif
 
 static inline struct drbd_connection *first_connection(struct drbd_resource *resource)

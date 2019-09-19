@@ -1955,11 +1955,7 @@ out:
 		if (fencing_policy != FP_DONT_CARE) {
 			struct drbd_peer_device *peer_device;
 			int vnr;
-#ifdef _WIN32
-			idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-			idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+			idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 				struct drbd_device *device = peer_device->device;
 				disk_state = min_t(enum drbd_disk_state, disk_state, device->disk_state[NOW]);
 				pdsk_state = min_t(enum drbd_disk_state, pdsk_state, peer_device->disk_state[NOW]);
@@ -2477,11 +2473,7 @@ static bool drbd_pause_after(struct drbd_device *device)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &drbd_devices, other_device, vnr) {
-#else
-	idr_for_each_entry(&drbd_devices, other_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {
 		struct drbd_peer_device *other_peer_device;
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
@@ -2526,11 +2518,7 @@ static bool drbd_resume_next(struct drbd_device *device)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &drbd_devices, other_device, vnr) {
-#else
-	idr_for_each_entry(&drbd_devices, other_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {
 		struct drbd_peer_device *other_peer_device;
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
@@ -3328,11 +3316,7 @@ static void __do_unqueued_peer_device_work(struct drbd_connection *connection)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		struct drbd_device *device = peer_device->device;
 		ULONG_PTR todo = get_work_bits(DRBD_PEER_DEVICE_WORK_MASK, &peer_device->flags);
 		
@@ -3363,11 +3347,7 @@ static void do_unqueued_device_work(struct drbd_resource *resource)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr) {
-#else
-	idr_for_each_entry(&resource->devices, device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		ULONG_PTR todo = get_work_bits(DRBD_DEVICE_WORK_MASK, &device->flags);
 
 		if (!todo)
@@ -3529,11 +3509,7 @@ static void maybe_send_state_afer_ahead(struct drbd_connection *connection)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else 
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (test_and_clear_bit(SEND_STATE_AFTER_AHEAD, &peer_device->flags)) {
 			peer_device->todo.was_ahead = false;
 			rcu_read_unlock();
@@ -3836,11 +3812,7 @@ int drbd_sender(struct drbd_thread *thi)
 
 	/* Should we drop this? Or reset even more stuff? */
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		peer_device->send_cnt = 0;
 		peer_device->recv_cnt = 0;
 	}
