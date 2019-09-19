@@ -5870,17 +5870,22 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 	drbd_propagate_uuids(device, got_new_bitmap_uuid);
 }
 
-static u64 __set_bitmap_slots(struct drbd_device *device, u64 bitmap_uuid, u64 do_nodes) __must_hold(local)
+static u64 __set_bitmap_slots(struct drbd_device *device, struct drbd_peer_device *peer_device, u64 do_nodes) __must_hold(local)
 {
 	struct drbd_peer_md *peer_md = device->ldev->md.peers;
 	u64 modified = 0;
 	int node_id;
+	u64 bitmap_uuid = 0;
 
 	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
 		if (node_id == device->ldev->md.node_id)
 			continue;
 		if (!(do_nodes & NODE_MASK(node_id)))
 			continue;
+
+		// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+		if (peer_device)
+			bitmap_uuid = peer_device->bitmap_uuids[node_id];
 
 		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
 			_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
@@ -5922,8 +5927,9 @@ u64 drbd_uuid_resync_finished(struct drbd_peer_device *peer_device) __must_hold(
 
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 	set_bitmap_slots = __test_bitmap_slots_of_peer(peer_device);
-	newer = __set_bitmap_slots(device, drbd_current_uuid(device), set_bitmap_slots);
-	equal = __set_bitmap_slots(device, 0, ~set_bitmap_slots);
+	// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+	newer = __set_bitmap_slots(device, peer_device, set_bitmap_slots);
+	equal = __set_bitmap_slots(device, NULL, ~set_bitmap_slots);
 	_drbd_uuid_push_history(device, drbd_current_uuid(device));
 	__drbd_uuid_set_current(device, peer_device->current_uuid);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
