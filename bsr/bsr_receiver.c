@@ -10451,7 +10451,7 @@ static int process_peer_ack_list(struct drbd_connection *connection)
 	req = list_first_entry(&resource->peer_ack_list, struct drbd_request, tl_requests);
 	while (&req->tl_requests != &resource->peer_ack_list) {
 		if (!(req->rq_state[idx] & RQ_PEER_ACK)) {
-            req = list_next_entry(struct drbd_request, req, tl_requests);
+            req = list_next_entry_ex(struct drbd_request, req, tl_requests);
 			continue;
 		}
 		req->rq_state[idx] &= ~RQ_PEER_ACK;
@@ -10460,7 +10460,7 @@ static int process_peer_ack_list(struct drbd_connection *connection)
 		err = drbd_send_peer_ack(connection, req);
 
 		spin_lock_irq(&resource->req_lock);
-        tmp = list_next_entry(struct drbd_request, req, tl_requests);
+        tmp = list_next_entry_ex(struct drbd_request, req, tl_requests);
 		kref_put(&req->kref, req_destroy_after_send_peer_ack);
 		if (err)
 			break;
@@ -11641,7 +11641,7 @@ void drbd_send_out_of_sync_wf(struct work_struct *ws)
 
 		spin_lock_irq(&peer_device->send_oos_lock);
 
-		tmp = list_next_entry(struct drbd_oos_no_req, send_oos, oos_list_head);
+		tmp = list_next_entry_ex(struct drbd_oos_no_req, send_oos, oos_list_head);
 		list_del(&send_oos->oos_list_head);
 		kfree(send_oos);
 

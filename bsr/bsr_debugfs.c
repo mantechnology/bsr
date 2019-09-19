@@ -434,7 +434,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 			spin_unlock_irq(&resource->req_lock);
 			cond_resched();
 			spin_lock_irq(&resource->req_lock);
-            req_next = list_next_entry(struct drbd_request, req, tl_requests);
+            req_next = list_next_entry_ex(struct drbd_request, req, tl_requests);
 			if (kref_put(&req->kref, drbd_req_destroy))
 				req = req_next;
 			if (&req->tl_requests == &resource->transfer_log)
