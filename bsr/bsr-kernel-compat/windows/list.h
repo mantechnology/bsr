@@ -250,15 +250,8 @@ static __inline int list_is_last(const struct list_head *list, const struct list
 * the _rcu list-mutation primitives such as list_add_rcu()
 * as long as the traversal is guarded by rcu_read_lock().
 */
-#ifdef _WIN32
-#define list_for_each_entry_rcu(type, pos, head, member) \
+#define list_for_each_entry_rcu_ex(type, pos, head, member) \
     list_for_each_entry_ex(type, pos, head, member)
-#else
-#define list_for_each_entry_rcu(pos, head, member) \
-	for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
-		prefetch(pos->member.next), &pos->member != (head); \
-		pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
-#endif
 
 #define list_for_each_safe(pos, n, head) \
 	for (pos = (head)->next, n = pos->next; pos != (head); \
@@ -283,23 +276,16 @@ static __inline int list_is_last(const struct list_head *list, const struct list
  * @head:	the head for your list.
  * @member:	the name of the list_struct within the struct.
  */
-#ifdef _WIN32 // DW-987 fix NULL reference by container_of
-#define list_for_each_entry_reverse(type, pos, head, member)			\
+// DW-987 fix NULL reference by container_of
+#define list_for_each_entry_reverse_ex(type, pos, head, member)			\
 	if((head)->prev != NULL )	\
 		for (pos = list_entry((head)->prev, type, member);	\
 		     prefetch(pos->member.prev), &pos->member != (head); 	\
 		     pos = list_entry(pos->member.prev, type, member))
-#else
-#define list_for_each_entry_reverse(pos, head, member)			\
-	for (pos = list_entry((head)->prev, typeof(*pos), member);	\
-	     prefetch(pos->member.prev), &pos->member != (head); 	\
-	     pos = list_entry(pos->member.prev, typeof(*pos), member))
-#endif
 
-#ifdef _WIN32 // V9
-#define list_prepare_entry(type, pos, head, member) \
+
+#define list_prepare_entry_ex(type, pos, head, member) \
          ((pos) ? pos : list_entry(head, type, member))
-#endif
 
 /**
  * list_for_each_entry_continue - continue iteration over list of given type

@@ -2130,11 +2130,7 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 			struct drbd_request *req2;
 
 			resource->current_tle_writes++;
-#ifdef _WIN32
-            list_for_each_entry_reverse(struct drbd_request, req2, &resource->transfer_log, tl_requests) {
-#else
-			list_for_each_entry_reverse(req2, &resource->transfer_log, tl_requests) {
-#endif
+			list_for_each_entry_reverse_ex(struct drbd_request, req2, &resource->transfer_log, tl_requests) {
 				if (req2->rq_state[0] & RQ_WRITE) {
 					/* Make the new write request depend on
 					 * the previous one. */

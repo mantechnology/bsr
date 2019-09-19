@@ -3409,14 +3409,10 @@ static bool dequeue_work_batch(struct drbd_work_queue *queue, struct list_head *
 static struct drbd_request *__next_request_for_connection(
 		struct drbd_connection *connection, struct drbd_request *r)
 {
-#ifdef _WIN32    
 #ifdef _WIN32_NETQUEUED_LOG
-    r = list_prepare_entry(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests);
+	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests);
 #else
-    r = list_prepare_entry(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
-#endif
-#else
-	r = list_prepare_entry(r, &connection->resource->transfer_log, tl_requests);
+	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
 #endif
 
 #ifdef _WIN32 
@@ -3462,11 +3458,7 @@ static struct drbd_request *tl_mark_for_resend_by_connection(struct drbd_connect
 	 * without it disappearing.
 	 */
 restart:
-#ifdef _WIN32
-    req = list_prepare_entry(struct drbd_request, tmp, &connection->resource->transfer_log, tl_requests);
-#else
-	req = list_prepare_entry(tmp, &connection->resource->transfer_log, tl_requests);
-#endif
+	req = list_prepare_entry_ex(struct drbd_request, tmp, &connection->resource->transfer_log, tl_requests);
 
 #ifdef _WIN32
 	list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {

@@ -1377,12 +1377,23 @@ extern void *idr_get_next(struct idr *idp, int *nextidp);
 		list_next_entry(pos, member)
 #endif
 
+/* for linux */
 #ifndef list_for_each_entry_ex
 #define list_for_each_entry_ex(type, pos, head, member) \
 		list_for_each_entry(pos, head, member)
 #endif
-
-
+#ifndef list_for_each_entry_rcu_ex
+#define list_for_each_entry_rcu_ex(type, pos, head, member) \
+		list_for_each_entry_rcu(pos, head, member)
+#endif
+#ifndef list_for_each_entry_reverse_ex
+#define list_for_each_entry_reverse_ex(type, pos, head, member) \
+		list_for_each_entry_reverse(pos, head, member)
+#endif
+#ifndef list_prepare_entry_ex
+#define list_prepare_entry_ex(type, pos, head, member) \
+		list_prepare_entry(pos, head, member)
+#endif
 /*
  * Introduced in 930631ed (v2.6.19-rc1).
  */
