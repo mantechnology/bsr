@@ -3892,9 +3892,7 @@ struct completion_work {
 
 static int w_complete(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32	
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct completion_work *completion_work =
 		container_of(w, struct completion_work, w);
 
@@ -6579,9 +6577,7 @@ out:
 int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 			    struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	drbd_resume_al(device);
 	drbd_bm_clear_all(device);
 	return drbd_bm_write(device, NULL);
@@ -6589,9 +6585,7 @@ int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 
 static int w_bitmap_io(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct bm_io_work *work =
 		container_of(w, struct bm_io_work, w);
 	struct drbd_device *device = work->device;

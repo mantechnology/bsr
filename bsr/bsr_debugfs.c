@@ -319,9 +319,7 @@ static void seq_print_peer_request(struct seq_file *m,
 	struct drbd_connection *connection, struct list_head *lh,
 	ULONG_PTR now)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(connection);
-#endif
 
 	bool reported_preparing = false;
 	struct drbd_peer_request *peer_req;
@@ -406,9 +404,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 	struct drbd_connection *connection,
 	ULONG_PTR now)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(connection);
-#endif
 
 	struct drbd_request *req;
 	unsigned int count = 0;
@@ -481,9 +477,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 /* TODO: transfer_log and friends should be moved to resource */
 static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pos);
-#endif
 
 	struct drbd_resource *resource = m->private;
 	struct drbd_connection *connection;
@@ -543,9 +537,7 @@ static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 
 static int resource_state_twopc_show(struct seq_file *m, void *pos)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pos);
-#endif
 
 	struct drbd_resource *resource = m->private;
 	struct twopc_reply twopc = {0,};

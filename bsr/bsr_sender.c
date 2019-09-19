@@ -1050,9 +1050,7 @@ int w_resync_timer(struct drbd_work *w, int cancel)
 
 int w_send_uuids(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_peer_device *peer_device =
 		container_of(w, struct drbd_peer_device, propagate_uuids_work);
 
@@ -1495,9 +1493,7 @@ static int make_ov_request(struct drbd_peer_device *peer_device, int cancel)
 
 int w_ov_finished(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_peer_device_work *dw =
 		container_of(w, struct drbd_peer_device_work, w);
 	struct drbd_peer_device *peer_device = dw->peer_device;
@@ -1515,9 +1511,7 @@ struct resync_finished_work {
 
 static int w_resync_finished(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 
 	struct resync_finished_work *rfw = container_of(
 		container_of(w, struct drbd_peer_device_work, w),
@@ -2467,10 +2461,7 @@ static bool __drbd_may_sync_now(struct drbd_peer_device *peer_device)
 
 static bool drbd_pause_after(struct drbd_device *device)
 {
-
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
-#endif
 	struct drbd_device *other_device;
 	bool changed = false;
 	int vnr;
@@ -2517,9 +2508,7 @@ static bool drbd_pause_after(struct drbd_device *device)
  */
 static bool drbd_resume_next(struct drbd_device *device)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
-#endif
 	struct drbd_device *other_device;
 	bool changed = false;
 	int vnr;

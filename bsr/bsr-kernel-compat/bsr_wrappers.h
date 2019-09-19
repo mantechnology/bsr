@@ -444,9 +444,7 @@ static inline void drbd_plug_device(struct request_queue *q)
 #else
 static inline void drbd_plug_device(struct request_queue *q)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(q);
-#endif
 }
 #endif
 
@@ -2079,11 +2077,9 @@ static inline int atomic_dec_if_positive(atomic_t *v)
 #ifndef COMPAT_HAVE_IDR_IS_EMPTY
 static int idr_has_entry(int id, void *p, void *data)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(id);
 	UNREFERENCED_PARAMETER(p);
 	UNREFERENCED_PARAMETER(data);
-#endif
 	return 1;
 }
 

@@ -249,9 +249,7 @@ static struct drbd_path *first_path(struct drbd_connection *connection)
 static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(skb);
-#endif
 
 	struct drbd_genlmsghdr *d_in = info->userhdr;
 	const u8 cmd = info->genlhdr->cmd;
@@ -2618,9 +2616,7 @@ static void decide_on_write_same_support(struct drbd_device *device,
 static void drbd_setup_queue_param(struct drbd_device *device, struct drbd_backing_dev *bdev,
 				   unsigned int max_bio_size, struct o_qlim *o)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(o);
-#endif
 	struct request_queue * const q = device->rq_queue;
 	unsigned int max_hw_sectors = max_bio_size >> 9;
 	struct request_queue *b = NULL;
@@ -3047,9 +3043,7 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 
 bool want_bitmap(struct drbd_peer_device *peer_device)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 #ifndef _WIN32
 	struct peer_device_conf *pdc; 
 	bool want_bitmap = false;
