@@ -366,7 +366,7 @@ static inline int _req_mod(struct drbd_request *req, enum drbd_req_event what,
 
 	/* __req_mod possibly frees req, do not touch req after that! */
 #ifdef DRBD_TRACE
-	WDRBD_TRACE("(%s) _req_mod: call __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(,"(%s) _req_mod: call __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	if (m.bio)
@@ -392,12 +392,12 @@ static inline int req_mod(struct drbd_request *req,
 
 	spin_lock_irq(&device->resource->req_lock);
 #ifdef DRBD_TRACE	
-	WDRBD_TRACE("(%s) req_mod: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(,"(%s) req_mod: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	spin_unlock_irq(&device->resource->req_lock);
 #ifdef DRBD_TRACE	
-	WDRBD_TRACE("(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(,"(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	if (m.bio)
 #ifdef _WIN32

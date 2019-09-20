@@ -111,7 +111,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
 	if (!req->req_databuf)
 	{
-		WDRBD_ERROR("req->req_databuf failed\n");
+		drbd_err(,"req->req_databuf failed\n");
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
 		return NULL;
 	}
@@ -600,7 +600,7 @@ void complete_master_bio(struct drbd_device *device,
 
 		if (!master_bio->splitInfo) {
 	        if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024) ) {
-	            WDRBD_ERROR("size 0x%x ERROR!\n", master_bio->bi_size);
+	            drbd_err(,"size 0x%x ERROR!\n", master_bio->bi_size);
 	            BUG();
 	        }
 			
@@ -618,7 +618,7 @@ void complete_master_bio(struct drbd_device *device,
 	            PVOID	buffer = NULL;
 	            buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-	                WDRBD_ERROR("MmGetSystemAddressForMdlSafe ERROR!\n");
+	                drbd_err(,"MmGetSystemAddressForMdlSafe ERROR!\n");
 	                BUG();
 	            }
 	            if (buffer) {
@@ -639,7 +639,7 @@ void complete_master_bio(struct drbd_device *device,
 	            PVOID	buffer = NULL;
 	            buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 	            if (buffer == NULL) {
-	                WDRBD_ERROR("splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
+	                drbd_err(,"splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
 	                BUG();
 	            }
 				else {
@@ -843,13 +843,13 @@ static int drbd_req_put_completion_ref(struct drbd_request *req, struct bio_and_
 #ifdef DRBD_TRACE
 	if (put > 1)
 	{
-        WDRBD_TRACE("(%s) completion_ref: put=%d !!!\n", current->comm, put);
+        drbd_debug(,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
 	}
 #endif
 	if (!atomic_sub_and_test(put, &req->completion_ref))
 #ifdef DRBD_TRACE
 	{
-        WDRBD_TRACE("(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
+        drbd_debug(,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
 		return 0;
 	}
 #else
@@ -864,7 +864,7 @@ static int drbd_req_put_completion_ref(struct drbd_request *req, struct bio_and_
 		return 0;
 	}
 #ifdef DRBD_TRACE
-	WDRBD_TRACE("sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
+	drbd_debug(,"sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
 #endif
 	return 1;
 }

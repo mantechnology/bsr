@@ -528,14 +528,8 @@ static __inline int nla_put_u64(struct sk_buff *msg, int attrtype, __u64 value)
 * @attrtype: attribute type
 * @str: NUL terminated string
 */
-static __inline int nla_put_string(struct sk_buff *msg, int attrtype,
-    const char *str)
-{
-#ifdef _WIN64
-	BUG_ON_INT32_OVER(strlen(str)); 
-#endif
-    return nla_put(msg, attrtype, (int)(strlen(str) + 1), str);
-}
+extern __inline int nla_put_string(struct sk_buff *msg, int attrtype,
+	const char *str);
 
 /**
 * nla_put_flag - Add a flag netlink attribute to a message buffer
@@ -711,12 +705,7 @@ static __inline struct nlattr *nla_nest_start(struct sk_buff *msg, int attrtype)
  *
  * Returns the total data length of the msg.
  */
-static __inline int nla_nest_end(struct sk_buff *msg, struct nlattr *start)
-{
-	BUG_ON_UINT16_OVER(skb_tail_pointer(msg) - (unsigned char *)start);
-	start->nla_len = (u16)(skb_tail_pointer(msg) - (unsigned char *)start);
-	return msg->len;
-}
+extern __inline int nla_nest_end(struct sk_buff *msg, struct nlattr *start);
 
 /**
  * nla_validate_nested - Validate a stream of nested attributes
@@ -787,13 +776,7 @@ static __inline struct nlmsghdr *nlmsg_put(struct msg_buff *skb, u32 portid, u32
 	return __nlmsg_put((void *)skb, portid, seq, type, payload, flags);
 }
 
-static __inline int nlmsg_end(struct sk_buff *skb, struct nlmsghdr *nlh)
-{
-	BUG_ON_UINT32_OVER(skb_tail_pointer(skb) - (unsigned char *)nlh);
-
-    nlh->nlmsg_len = (u32)(skb_tail_pointer(skb) - (unsigned char *)nlh);
-    return skb->len;
-}
+extern __inline int nlmsg_end(struct sk_buff *skb, struct nlmsghdr *nlh);
 
 static __inline int genlmsg_end(struct sk_buff *skb, void *hdr)
 {

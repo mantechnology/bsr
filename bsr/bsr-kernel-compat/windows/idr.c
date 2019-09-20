@@ -39,6 +39,7 @@
 #include <linux/string.h>
 #include <linux/idr.h>
 #endif
+#include "../../../bsr/bsr_int.h"
 
 static kmem_cache_t *idr_layer_cache;
 

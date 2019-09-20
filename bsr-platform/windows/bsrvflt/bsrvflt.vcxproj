@@ -984,8 +984,10 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\bsr-headers\bsr_strings.c" />
+    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\bsr_wrappers.c" />
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\attr.c" />
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_windows.c" />
+    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_wingenl.c" />
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\hweight.c" />
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\idr.c" />
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\netlink.c" />

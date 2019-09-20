@@ -21,7 +21,7 @@
 #include <wdm.h>
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "proto.h"
-
+#include "../../../bsr/bsr_int.h"
 
 #ifdef _WIN32_MULTIVOL_THREAD
 NTSTATUS
@@ -58,7 +58,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 		FALSE, (PSECURITY_CLIENT_CONTEXT)&pThreadInfo->se_client_context);
 	if( !NT_SUCCESS(status) )
 	{
-		WDRBD_ERROR("cannot create client security, err=0x%x\n", status);
+		drbd_err(,"cannot create client security, err=0x%x\n", status);
 		return status;
 	}
 
@@ -71,7 +71,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 		(PKSTART_ROUTINE)ThreadRoutine, (PVOID)pThreadInfo );
 	if( !NT_SUCCESS(status) )
 	{
-		WDRBD_ERROR("cannot create Thread, err=0x%x\n", status);
+		drbd_err(,"cannot create Thread, err=0x%x\n", status);
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
 		return status;
 	}
@@ -135,7 +135,7 @@ mvolWorkThread(PVOID arg)
 	DeviceObject = pThreadInfo->DeviceObject;
 	VolumeExtension = DeviceObject->DeviceExtension;
 	
-    WDRBD_TRACE("WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
+    drbd_debug(,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
 #endif
 
 	for (;;)
@@ -146,9 +146,9 @@ mvolWorkThread(PVOID arg)
 		if (pThreadInfo->exit_thread)
 		{
 #ifdef _WIN32_MULTIVOL_THREAD
-			WDRBD_INFO("Terminating mvolWorkThread\n");
+			drbd_info(,"Terminating mvolWorkThread\n");
 #else
-			WDRBD_TRACE("WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
+			drbd_debug(,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
 #endif
 			PsTerminateSystemThread(STATUS_SUCCESS);
 		}
@@ -168,7 +168,7 @@ mvolWorkThread(PVOID arg)
 
 #ifdef DRBD_TRACE	
 			DbgPrint("\n");
-			WDRBD_TRACE("I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
+			drbd_debug(,"I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
 				KeGetCurrentIrql(), (irpSp->MajorFunction == IRP_MJ_WRITE)? "Write" : "Read", loop);
 #endif
 
@@ -203,7 +203,7 @@ mvolWorkThread(PVOID arg)
 				mvolSendToNextDriver(VolumeExtension->DeviceObject, irp);
 				break;
 			default:
-				WDRBD_ERROR("WorkThread: invalid IRP MJ=0x%x\n", irpSp->MajorFunction);
+				drbd_err(,"WorkThread: invalid IRP MJ=0x%x\n", irpSp->MajorFunction);
 				irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 				IoCompleteRequest(irp, (CCHAR)(NT_SUCCESS(irp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
 				break;
@@ -219,7 +219,7 @@ mvolWorkThread(PVOID arg)
 			if (high < loop)
 			{
 				high = loop;
-				WDRBD_INFO("hooker[%ws]: irp processing peek(%d)\n",
+				drbd_info(,"hooker[%ws]: irp processing peek(%d)\n",
 					VolumeExtension->PhysicalDeviceName, high);
 			}
 		}		
@@ -235,7 +235,7 @@ VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP 
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76DW');
 
     if(!wr) {
-        WDRBD_ERROR("Could not allocate mvol work.\n");
+        drbd_err(,"Could not allocate mvol work.\n");
         return;
     }
     

@@ -62,7 +62,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	status = ObQueryNameString( DeviceObject, nameInfo, MAXDEVICENAME, &size );
 	if( !NT_SUCCESS(status) )
 	{
-		WDRBD_ERROR("cannot get device name, err=0x%x\n", status);
+		drbd_err(,"cannot get device name, err=0x%x\n", status);
 		ExFreePool( nameInfo );
 		return status;
 	}
@@ -118,7 +118,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 	// DW-1303 No dismount for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			WDRBD_INFO("no dismount. volume(%wZ) already dismounted\n", &device_name);
+			drbd_info(,"no dismount. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_SUCCESS;
 		}
 	}
@@ -146,7 +146,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 0);
             if (!NT_SUCCESS(status))
             {
-                WDRBD_INFO("ZwCreateFile Failed. status(0x%x)\n", status);
+                drbd_info(,"ZwCreateFile Failed. status(0x%x)\n", status);
                 __leave;
             }
         }
@@ -164,7 +164,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
             NULL);
         if (!NT_SUCCESS(status))
         {
-            WDRBD_ERROR("ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
+            drbd_err(,"ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
             __leave;
         }
 #endif
@@ -172,16 +172,16 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 		{
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
-				WDRBD_INFO("ZwFlushBuffersFile Failed. status(0x%x)\n", status);
+				drbd_info(,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
 			}
 		}
 		
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            WDRBD_INFO("ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
+            drbd_info(,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
             __leave;
         }
-        WDRBD_INFO("volume(%wZ) dismounted\n", &device_name);
+        drbd_info(,"volume(%wZ) dismounted\n", &device_name);
     }
     __finally
     {
@@ -231,7 +231,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 	// DW-1303 No lock for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			WDRBD_INFO("no lock. volume(%wZ) already dismounted\n", &device_name);
+			drbd_info(,"no lock. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}
@@ -257,7 +257,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
             0);
         if (!NT_SUCCESS(status))
         {
-            WDRBD_INFO("ZwCreateFile Failed. status(0x%x)\n", status);
+            drbd_info(,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -271,14 +271,14 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
         if (!NT_SUCCESS(status))
         {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            WDRBD_INFO("ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
+            drbd_info(,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
             __leave;
         }
         
         pvext->LockHandle = hFile;
         hFile = NULL;
 
-        WDRBD_INFO("volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
+        drbd_info(,"volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
 
     }
     __finally
@@ -307,7 +307,7 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
 
     if (!pvext->LockHandle)
     {
-        WDRBD_INFO("volume(%ws) not locked\n", pvext->PhysicalDeviceName);
+        drbd_info(,"volume(%ws) not locked\n", pvext->PhysicalDeviceName);
         return STATUS_NOT_LOCKED;
     }
 
@@ -319,11 +319,11 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
         status = ZwFsControlFile(pvext->LockHandle, 0, 0, 0, &StatusBlock, FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status))
         {
-            WDRBD_INFO("ZwFsControlFile Failed. status(0x%x)\n", status);
+            drbd_info(,"ZwFsControlFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
-        WDRBD_INFO("volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
+        drbd_info(,"volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
     }
     __finally
     {
@@ -376,7 +376,7 @@ NTSTATUS FsctlFlushVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status))
         {
-            WDRBD_INFO("ZwCreateFile Failed. status(0x%x)\n", status);
+            drbd_info(,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -432,7 +432,7 @@ NTSTATUS FsctlCreateVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            WDRBD_ERROR("ZwCreateFile Failed. status(0x%x)\n", status);
+            drbd_err(,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
     }
@@ -449,7 +449,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 {
 	PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, FALSE);
 	if (!pvext) {
-		WDRBD_ERROR("could not get volume extension from device minor(%u)\n", minor);
+		drbd_err(,"could not get volume extension from device minor(%u)\n", minor);
 		return NULL;
 	}
 
@@ -480,7 +480,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			WDRBD_ERROR("ZwCreateFile Failed. status(0x%x)\n", status);
+			drbd_err(,"ZwCreateFile Failed. status(0x%x)\n", status);
 			return NULL;
 		}
 		
@@ -498,7 +498,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume)
 	
 	if (NULL == hVolume)
 	{
-		WDRBD_ERROR("Invalid parameter\n");
+		drbd_err(,"Invalid parameter\n");
 		return 0;
 	}
 	
@@ -507,7 +507,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume)
 	if (fss.FileSystemType == 0 &&
 		!NT_SUCCESS(status))
 	{
-		WDRBD_ERROR("ZwFsControlFile with FSCTL_FILESYSTEM_GET_STATISTICS failed, status(0x%x)\n", status);
+		drbd_err(,"ZwFsControlFile with FSCTL_FILESYSTEM_GET_STATISTICS failed, status(0x%x)\n", status);
 		return 0;
 	}
 	else
@@ -529,7 +529,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		WDRBD_ERROR("Invalid parameter, hVolume(%p), pullTotalCluster(%p), pulBytesPerCluster(%p)\n", hVolume, pullTotalCluster, pulBytesPerCluster);
+		drbd_err(,"Invalid parameter, hVolume(%p), pullTotalCluster(%p), pulBytesPerCluster(%p)\n", hVolume, pullTotalCluster, pulBytesPerCluster);
 		return FALSE;
 	}
 
@@ -538,7 +538,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		usFileSystemType = GetFileSystemTypeWithHandle(hVolume);
 		if (usFileSystemType == 0)
 		{
-			WDRBD_ERROR("GetFileSystemTypeWithHandle returned invalid file system type\n");
+			drbd_err(,"GetFileSystemTypeWithHandle returned invalid file system type\n");
 			break;		
 		}
 
@@ -546,7 +546,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
 		if (!NT_SUCCESS(status))
 		{
-			WDRBD_ERROR("ZwCreateEvent failed, status : 0x%x\n", status);
+			drbd_err(,"ZwCreateEvent failed, status : 0x%x\n", status);
 			break;
 		}
 		
@@ -562,7 +562,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0, &nvdb, sizeof(nvdb));
 			if (!NT_SUCCESS(status))
 			{
-				WDRBD_ERROR("ZwFsControlFile with FSCTL_GET_NTFS_VOLUME_DATA failed, status(%0x%x)\n", status);
+				drbd_err(,"ZwFsControlFile with FSCTL_GET_NTFS_VOLUME_DATA failed, status(%0x%x)\n", status);
 				break;
 			}
 
@@ -580,7 +580,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_REFS_VOLUME_DATA, NULL, 0, &rvdb, sizeof(rvdb));
 			if (!NT_SUCCESS(status))
 			{
-				WDRBD_ERROR("ZwFsControlFile with FSCTL_GET_REFS_VOLUME_DATA failed, status(%0x%x)\n", status);
+				drbd_err(,"ZwFsControlFile with FSCTL_GET_REFS_VOLUME_DATA failed, status(%0x%x)\n", status);
 				break;
 			}
 
@@ -591,14 +591,14 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		}
 #endif
 		default:
-			WDRBD_WARN("The file system %hu is not supported\n", usFileSystemType);
+			drbd_warn(,"The file system %hu is not supported\n", usFileSystemType);
 			break;
 		}
 
 		if (0 == ullTotalCluster ||
 			0 == ulBytesPerCluster)
 		{
-			WDRBD_ERROR("Cluster information is invalid, ullTotalCluster(%llu), ulBytesPerCluster(%u)\n", ullTotalCluster, ulBytesPerCluster);
+			drbd_err(,"Cluster information is invalid, ullTotalCluster(%llu), ulBytesPerCluster(%u)\n", ullTotalCluster, ulBytesPerCluster);
 			break;
 		}
 
@@ -639,7 +639,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume)
 		{
-			WDRBD_ERROR("Could not get volume handle from minor(%u)\n", minor);
+			drbd_err(,"Could not get volume handle from minor(%u)\n", minor);
 			break;
 		}
 		
@@ -649,7 +649,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_GET_GPT_ATTRIBUTES, NULL, 0, &vggai, sizeof(vggai));
 		if (status != STATUS_SUCCESS)
 		{
-			WDRBD_ERROR("ZwDeviceIoControlFile with IOCTL_VOLUME_GET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
+			drbd_err(,"ZwDeviceIoControlFile with IOCTL_VOLUME_GET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
 			break;
 		}
 
@@ -658,7 +658,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			if (set)
 			{
 				// No additional setting attribute is required.
-				WDRBD_INFO("specified volume is read-only already.\n");				
+				drbd_info(,"specified volume is read-only already.\n");				
 				bRet = true;
 				break;
 			}
@@ -673,7 +673,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			if (!set)
 			{
 				// No additional setting attribute is required.
-				WDRBD_INFO("specified volume is writable already\n");
+				drbd_info(,"specified volume is writable already\n");
 				bRet = true;
 				break;
 			}
@@ -696,12 +696,12 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_DISK_GET_PARTITION_INFO_EX, NULL, 0, &partInfoEx, sizeof(partInfoEx));
 		if (status != STATUS_SUCCESS)
 		{
-			WDRBD_ERROR("ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)\n", status);
+			drbd_err(,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)\n", status);
 			break;
 		}
 		else
 		{
-			WDRBD_TRACE("success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
+			drbd_debug(,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
 		}
 		
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -713,7 +713,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			vsgai.ApplyToAllConnectedVolumes = FALSE; 
 		} 
 		else {
-			WDRBD_ERROR("This PartitionStyle is Raw (minor: %d)\n", minor);
+			drbd_err(,"This PartitionStyle is Raw (minor: %d)\n", minor);
 		}
 #else
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -722,12 +722,12 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_SET_GPT_ATTRIBUTES, &vsgai, sizeof(vsgai), NULL, 0);
 		if (status != STATUS_SUCCESS)
 		{
-			WDRBD_ERROR("ZwDeviceIoControlFile with IOCTL_VOLUME_SET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
+			drbd_err(,"ZwDeviceIoControlFile with IOCTL_VOLUME_SET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
 			break;
 		}
 		else
 		{
-			WDRBD_INFO("Read-only attribute for volume(minor: %d) has been %s\n", minor, set ? "set" : "cleared");
+			drbd_info(,"Read-only attribute for volume(minor: %d) has been %s\n", minor, set ? "set" : "cleared");
 		}
 		
 		bRet = true;
@@ -756,13 +756,13 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 	if (NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		WDRBD_ERROR("Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
+		drbd_err(,"Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
 		return NULL;
 	}
 
 	if (KeGetCurrentIrql() > PASSIVE_LEVEL)
 	{
-		WDRBD_ERROR("Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
+		drbd_err(,"Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
 		return NULL;
 	}
 
@@ -771,13 +771,13 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume)
 		{
-			WDRBD_ERROR("Could not get volume handle from minor(%u)\n", minor);
+			drbd_err(,"Could not get volume handle from minor(%u)\n", minor);
 			break;
 		}
 				
 		if (FALSE == GetClusterInfoWithVolumeHandle(hVolume, pullTotalCluster, pulBytesPerCluster))
 		{
-			WDRBD_ERROR("Could not get cluster information\n");
+			drbd_err(,"Could not get cluster information\n");
 			break;
 		}
 
@@ -786,7 +786,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16DW');
 		if (NULL == pVbb)
 		{
-			WDRBD_ERROR("pVbb allocation failed\n");
+			drbd_err(,"pVbb allocation failed\n");
 			break;
 		}
 				
@@ -794,7 +794,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		status = ZwFsControlFile(hVolume, NULL, NULL, NULL, &ioStatus, FSCTL_GET_VOLUME_BITMAP, &slib, sizeof(slib), pVbb, ulBitmapSize);
 		if (!NT_SUCCESS(status))
 		{
-			WDRBD_ERROR("ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
+			drbd_err(,"ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
 			break;
 		}
 				
@@ -840,7 +840,7 @@ BOOLEAN ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG 
 		NULL == pVbb->Buffer ||
 		NULL == pConverted)
 	{
-		WDRBD_ERROR("Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
+		drbd_err(,"Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
 		return FALSE;
 	}
 
@@ -890,7 +890,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 		pVbb = GetVolumeBitmap(minor, &ullTotalCluster, &ulBytesPerCluster);
 		if (NULL == pVbb)
 		{
-			WDRBD_ERROR("Could not get volume bitmap, minor(%u)\n", minor);
+			drbd_err(,"Could not get volume bitmap, minor(%u)\n", minor);
 			break;
 		}
 
@@ -911,7 +911,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 			pDrbdBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56DW');
 			if (NULL == pDrbdBitmap)
 			{
-				WDRBD_ERROR("pConvertedBitmap allocation failed\n");
+				drbd_err(,"pConvertedBitmap allocation failed\n");
 				break;
 			}
 
@@ -921,7 +921,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 			RtlZeroMemory(pDrbdBitmap->Buffer, (size_t)(pDrbdBitmap->BitmapSize.QuadPart));
 			if (FALSE == ConvertVolumeBitmap(pVbb, (PCHAR)pDrbdBitmap->Buffer, ulBytesPerCluster, ulDrbdBitmapUnit))
 			{
-				WDRBD_ERROR("Could not convert bitmap, ulBytesPerCluster(%u), ulDrbdBitmapUnit(%u)\n", ulBytesPerCluster, ulDrbdBitmapUnit);
+				drbd_err(,"Could not convert bitmap, ulBytesPerCluster(%u), ulDrbdBitmapUnit(%u)\n", ulBytesPerCluster, ulDrbdBitmapUnit);
 				ExFreePool(pDrbdBitmap);
 				pDrbdBitmap = NULL;
 				break;
@@ -1048,7 +1048,7 @@ mvolGetDeviceCount()
 		VolumeExtension = VolumeExtension->Next;
 	}
 
-	WDRBD_TRACE("DeviceCount=%d\n", count);
+	drbd_debug(,"DeviceCount=%d\n", count);
 
 	return count;
 }
@@ -1061,7 +1061,7 @@ MVOL_LOCK()
 	status = KeWaitForMutexObject( &mvolMutex, Executive, KernelMode, FALSE, NULL );
 	if( !NT_SUCCESS(status) )
 	{
-		WDRBD_ERROR("cannot wait\n");
+		drbd_err(,"cannot wait\n");
 	}
 }
 
@@ -1079,7 +1079,7 @@ COUNT_LOCK( PVOLUME_EXTENSION VolumeExtension )
 	status = KeWaitForMutexObject( &VolumeExtension->CountMutex, Executive, KernelMode, FALSE, NULL );
 	if( !NT_SUCCESS(status) )
 	{
-		WDRBD_ERROR("cannot wait\n");
+		drbd_err(,"cannot wait\n");
 	}
 }
 
@@ -1165,7 +1165,7 @@ NTSTATUS QueryMountPoint(
 		0); // no EA buffer size...
 	if (!NT_SUCCESS(status) ||
 		!NT_SUCCESS(iosb.Status)) {
-		WDRBD_WARN("Unable to open %wZ, error = 0x%x\n", &mmgrObjectName, status);
+		drbd_warn(,"Unable to open %wZ, error = 0x%x\n", &mmgrObjectName, status);
 		return status;
 	}
 
@@ -1179,7 +1179,7 @@ NTSTATUS QueryMountPoint(
 		NotificationEvent,
 		FALSE);
 	if (!NT_SUCCESS(status)) {
-		WDRBD_WARN("Cannot create event (0x%x)\n", status);
+		drbd_warn(,"Cannot create event (0x%x)\n", status);
 		return status;
 	}
 
@@ -1248,7 +1248,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
         guid = (PMOUNTDEV_UNIQUE_ID)ExAllocatePoolWithTag(PagedPool, cbBuf, '08DW');
         if (NULL == guid)
         {
-            WDRBD_TRACE("Out of memory.\n");
+            drbd_debug(,"Out of memory.\n");
             return NULL;
         }
 
@@ -1292,7 +1292,7 @@ Finally:
     {
         if (!NT_SUCCESS(result))
         {
-            WDRBD_TRACE("Failed to retrieve a GUID: 0x%lx", result);
+            drbd_debug(,"Failed to retrieve a GUID: 0x%lx", result);
             ExFreePool(guid);
             guid = NULL;
         }
@@ -1310,7 +1310,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 
     if (NULL == guid)
     {
-        WDRBD_WARN("Volume GUID: NULL\n", 0);
+        drbd_warn(,"Volume GUID: NULL\n", 0);
         return;
     }
 
@@ -1325,7 +1325,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 		strncat(pguid_text, " ", sizeof(pguid_text) - strlen(pguid_text) - 1);
     }
 
-    WDRBD_TRACE("device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
+    drbd_debug(,"device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
 
     ExFreePool(guid);
 }
@@ -1368,14 +1368,14 @@ GetDriverLetterByDeviceName(IN PUNICODE_STRING pDeviceName, OUT PUNICODE_STRING 
 	if (Status != STATUS_SUCCESS)
 	{
 		ZwClose(FileHandle);
-		WDRBD_ERROR("ObReferenceObjectByHandle: %d\n", Status);
+		drbd_err(,"ObReferenceObjectByHandle: %d\n", Status);
 		return Status;
 	}
 
 	Status = IoVolumeDeviceToDosName(pVolumeFileObject->DeviceObject, pDriveLetter);
 	if (Status != STATUS_SUCCESS)
 	{
-		WDRBD_ERROR("IoVolumeDeviceToDosName: %d\n", Status);
+		drbd_err(,"IoVolumeDeviceToDosName: %d\n", Status);
 		// return Status;
 	}
 	ObDereferenceObject(pVolumeFileObject);
@@ -1410,14 +1410,14 @@ NTSTATUS DeleteRegistryValueKey(__in PUNICODE_STRING preg_path, __in PUNICODE_ST
     status = ZwOpenKey(&hKey, DELETE, &attributes);
     if (!NT_SUCCESS(status))
     {
-        WDRBD_WARN("Failed to ZwOpenKey(). status(0x%x)\n", status);
+        drbd_warn(,"Failed to ZwOpenKey(). status(0x%x)\n", status);
         goto cleanup;
     }
 
     status = ZwDeleteValueKey(hKey, pvalue_name);
     if (!NT_SUCCESS(status))
     {
-        WDRBD_WARN("Failed to ZwDeleteValueKey(). status(0x%x)\n", status);
+        drbd_warn(,"Failed to ZwDeleteValueKey(). status(0x%x)\n", status);
         goto cleanup;
     }
 
@@ -1607,7 +1607,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		RtlCopyMemory(g_ver, L"DRBD", 4 * 2); 
 	}
 	// _WIN32_V9: proc_details is removed. 
-	WDRBD_INFO("registry_path[%wZ]\n"
+	drbd_info(,"registry_path[%wZ]\n"
 		"bypass_level=%d, read_filter=%d, use_volume_lock=%d, "
 		"netlink_tcp_port=%d, daemon_tcp_port=%d, ver=%ws\n",
 		RegPath_unicode,
@@ -1639,7 +1639,7 @@ BOOLEAN isFastInitialSync()
 			bRet = (nTemp ? TRUE : FALSE);
 	}
 
-	WDRBD_INFO("Fast sync %s\n", bRet ? "enabled" : "disabled");
+	drbd_info(,"Fast sync %s\n", bRet ? "enabled" : "disabled");
 	
 	return bRet;
 }
@@ -1668,7 +1668,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 		ObDereferenceObject(pCallbackObj);
 	}
 	else
-		WDRBD_ERROR("Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
+		drbd_err(,"Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
 
 	return status;
 }

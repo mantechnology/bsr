@@ -1378,7 +1378,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE4) {
 			if(IsDiskError()) {
-				WDRBD_ERROR("SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				drbd_err(,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -1479,7 +1479,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #ifdef DRBD_TRACE	
 	{
 		static int cnt = 0;
-		WDRBD_TRACE("bm_async_io_complete done.(%d).................!!!\n", cnt++);
+		drbd_debug(,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
 	}
 #endif
 
@@ -1579,7 +1579,7 @@ static void bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_ho
     return 0;
 
 no_memory :
-    WDRBD_ERROR("Unexpected logic: No memory!\n");
+    drbd_err(,"Unexpected logic: No memory!\n");
     return -ENOMEM;
 #endif
 }

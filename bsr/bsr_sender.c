@@ -85,7 +85,7 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
     int error = 0;
 	static int md_endio_cnt = 0;
     
-	WDRBD_TRACE("BIO_ENDIO_FN_START:Thread(%s) drbd_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
+	drbd_debug(,"BIO_ENDIO_FN_START:Thread(%s) drbd_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
         error = Irp->IoStatus.Status;
@@ -95,7 +95,7 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE3) {
 			if(IsDiskError()) {
-				WDRBD_ERROR("SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				drbd_err(,"SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -172,11 +172,11 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	 */
 	drbd_md_put_buffer(device);
 
-    WDRBD_TRACE("drbd_md_io_complete: md_io->done(%d) bio se:0x%llx sz:%d\n", device->md_io.done, bio->bi_sector, bio->bi_size);
+    drbd_debug(,"drbd_md_io_complete: md_io->done(%d) bio se:0x%llx sz:%d\n", device->md_io.done, bio->bi_sector, bio->bi_size);
 	device->md_io.done = 1;
 	wake_up(&device->misc_wait);
 
-	WDRBD_TRACE("drbd_md_endio done.(%d)................!!!\n", md_endio_cnt++);
+	drbd_debug(,"drbd_md_endio done.(%d)................!!!\n", md_endio_cnt++);
 
 	BIO_ENDIO_FN_RETURN;
 
@@ -273,7 +273,7 @@ static int is_failed_barrier(int ee_flags)
  * "submitted" by the receiver, final stage.  */
 void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local)
 {
-	ULONG_PTR flags = 0;
+	unsigned long flags = 0;
 	ULONG_PTR peer_flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
 	struct drbd_device *device = peer_device->device;
@@ -446,7 +446,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 	struct bio *bio = NULL;
 	int error = 0;
 	static int peer_request_endio_cnt = 0;
-	WDRBD_TRACE("BIO_ENDIO_FN_START:Thread(%s) drbd_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
+	drbd_debug(,"BIO_ENDIO_FN_START:Thread(%s) drbd_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		error = Irp->IoStatus.Status;
@@ -456,7 +456,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE2) {
 			if(IsDiskError()) {
-				WDRBD_ERROR("SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				drbd_err(,"SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -540,7 +540,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 		else
 			drbd_endio_read_sec_final(peer_req);
 	}
-	WDRBD_TRACE("drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+	drbd_debug(,"drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
 	BIO_ENDIO_FN_RETURN;
 #else //_LIN //TODO for cross-platform code
 	struct drbd_peer_request *peer_req = bio->bi_private;
@@ -572,7 +572,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 void drbd_panic_after_delayed_completion_of_aborted_request(struct drbd_device *device)
 {
 #ifdef _WIN32
-	WDRBD_ERROR("drbd%u %s / %u", device->minor, device->resource->name, device->vnr);
+	drbd_err(,"drbd%u %s / %u", device->minor, device->resource->name, device->vnr);
 	panic("potential random memory corruption caused by delayed completion of aborted local request\n");
 #else
 	panic("drbd%u %s/%u potential random memory corruption caused by delayed completion of aborted local request\n",
@@ -599,7 +599,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	struct bio *bio = NULL;
 	int error = 0;
 
-	//WDRBD_TRACE("BIO_ENDIO_FN_START:Thread(%s) drbd_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
+	//drbd_debug(,"BIO_ENDIO_FN_START:Thread(%s) drbd_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		bio = (struct bio *)Context;
@@ -609,7 +609,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE1) {
 			if(IsDiskError()) {
-				WDRBD_ERROR("SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
+				drbd_err(,"SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -732,7 +732,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	/* not req_mod(), we need irqsave here! */
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 #ifdef DRBD_TRACE	
-	WDRBD_TRACE("(%s) drbd_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(,"(%s) drbd_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	__req_mod(req, what, NULL, &m);
 	spin_unlock_irqrestore(&device->resource->req_lock, flags);
@@ -744,7 +744,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #ifdef DRBD_TRACE	
 	{
 		static int cnt = 0;
-		WDRBD_TRACE("drbd_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
+		drbd_debug(,"drbd_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
 	}
 #endif
 	BIO_ENDIO_FN_RETURN;
@@ -1185,7 +1185,7 @@ static int drbd_rs_controller(struct drbd_peer_device *peer_device, unsigned int
 	if (req_sect > max_sect)
 		req_sect = max_sect;
 #ifdef _WIN32
-    WDRBD_TRACE_TR("sect_in=%5u, %5d, corr(%d) cps(%d) curr_c(%d) rs(%d)\n",
+    drbd_debug_tr("sect_in=%5u, %5d, corr(%d) cps(%d) curr_c(%d) rs(%d)\n",
          sect_in, peer_device->rs_in_flight, correction, cps, curr_corr, req_sect);
 #endif
 	/*
@@ -1246,7 +1246,7 @@ static int make_resync_request(struct drbd_peer_device *peer_device, int cancel)
 	int i = 0;
 	int discard_granularity = 0;
 #ifdef _WIN32
-	WDRBD_TRACE_TM("timer callback jiffies(%llu)\n", jiffies);
+	drbd_debug_tm("timer callback jiffies(%llu)\n", jiffies);
 #endif
 
 	if (unlikely(cancel)) {
@@ -1279,7 +1279,7 @@ static int make_resync_request(struct drbd_peer_device *peer_device, int cancel)
 	max_bio_size = (unsigned int)(min((queue_max_hw_sectors(device->rq_queue) << 9), DRBD_MAX_BIO_SIZE));
 	number = drbd_rs_number_requests(peer_device);
 #ifdef _WIN32
-    WDRBD_TRACE_TR("number(%d)\n", number);
+    drbd_debug_tr("number(%d)\n", number);
 #endif
 	if (number <= 0)
 		goto requeue;
@@ -1298,7 +1298,7 @@ static int make_resync_request(struct drbd_peer_device *peer_device, int cancel)
 			queued = transport_stats.send_buffer_used;
 			sndbuf = transport_stats.send_buffer_size;
 #ifdef _WIN32
-			WDRBD_TRACE_TR("make_resync_request: %d/%d: queued=%lld sndbuf=%lld\n", i, number, queued, sndbuf);
+			drbd_debug_tr("make_resync_request: %d/%d: queued=%lld sndbuf=%lld\n", i, number, queued, sndbuf);
 #endif
 			if (queued > sndbuf / 2) {
 				requeue = 1;

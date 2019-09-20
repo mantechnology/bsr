@@ -386,65 +386,6 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 #define printk(format, ...)
 #endif
 
-#if defined (WDRBD_THREAD_POINTER)
-#define WDRBD_FATAL(_m_, ...)   printk(KERN_CRIT "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_FATAL(_m_, ...)   printk(KERN_CRIT ##_m_, __VA_ARGS__)
-#endif
-
-#if defined (WDRBD_THREAD_POINTER)
-#define WDRBD_ERROR(_m_, ...)   printk(KERN_ERR "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_ERROR(_m_, ...)   printk(KERN_ERR ##_m_, __VA_ARGS__)
-#endif
-
-#if defined(WDRBD_THREAD_POINTER)
-#define WDRBD_WARN(_m_, ...)    printk(KERN_WARNING "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_WARN(_m_, ...)    printk(KERN_WARNING ##_m_, __VA_ARGS__)
-#endif
-
-#if defined (WDRBD_THREAD_POINTER)
-#define WDRBD_TRACE(_m_, ...)   printk(KERN_DEBUG "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_TRACE(_m_, ...)   printk(KERN_DEBUG ##_m_, __VA_ARGS__)
-#endif
-
-#if defined (WDRBD_THREAD_POINTER)
-#define WDRBD_INFO(_m_, ...)    printk(KERN_INFO "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_INFO(_m_, ...)    printk(KERN_INFO ##_m_, __VA_ARGS__)
-#endif
-
-#if defined (WDRBD_THREAD_POINTER) 
-// DW-1432: Set to output information. It is not recommended for general use.
-#define WDRBD_ALL(_m_, ...)    printk(KERN_EMERG "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else
-#define WDRBD_ALL(_m_, ...)    printk(KERN_EMERG ##_m_, __VA_ARGS__)
-#endif
-
-#define WDRBD_TRACE_NETLINK
-#define WDRBD_TRACE_TM					// about timer
-#define WDRBD_TRACE_RCU					// about rcu
-#define WDRBD_TRACE_REQ_LOCK			// for lock_all_resources(), unlock_all_resources()
-#define WDRBD_TRACE_TR		
-#define WDRBD_TRACE_WQ
-#define WDRBD_TRACE_RS
-#define WDRBD_TRACE_SK					// about socket
-#define WDRBD_TRACE_SEM
-#define WDRBD_TRACE_IP4					
-#define WDRBD_TRACE_SB
-#define WDRBD_TRACE_CO		
-#define WDRBD_CONN_TRACE	
-#define WDRBD_TRACE_AL	
-
-#ifndef FEATURE_WDRBD_PRINT
-#define WDRBD_ERROR     __noop
-#define WDRBD_WARN      __noop
-#define WDRBD_TRACE     __noop
-#define WDRBD_INFO      __noop
-#endif
-
 #define ARRAY_SIZE(_x)				(sizeof(_x) / sizeof((_x)[0]))
 
 #define BIT_MASK(_nr)				(1ULL << ((_nr) % BITS_PER_LONG))
@@ -997,51 +938,6 @@ struct scatterlist {
 
 #define MINORMASK	0xff
 
-#ifdef _WIN32
-#define BUG()   WDRBD_FATAL("warning: failure\n")
-#else
-#define BUG()   WDRBD_FATAL("BUG: failure\n")
-#endif
-
-#define BUG_ON(_condition)	\
-	do {		\
-		if (_condition) {	\
-			\
-				WDRBD_FATAL("BUG: failure [ %s ]\n", #_condition); \
-		}	\
-	} while (false)
-
-#ifdef WIN_AL_BUG_ON
-#define AL_BUG_ON(_condition, str_condition, lc, e)	\
-    do {	\
-        if(_condition) { \
-            WDRBD_FATAL("BUG: failure [ %s ]\n", str_condition); \
-			if(lc || e){	\
-				lc_printf_stats(lc, e);	\
-							}\
-			}\
-	} while (false)
-#endif
-
-//DW-1918 add output at debug level
-#define DEBUG_BUG_ON(_condition)	\
-do {	\
-		if (_condition) {\
-				\
-				WDRBD_TRACE("BUG: failure [ %s ]\n", #_condition); \
-		}	\
-} while (false)
-
-
-#define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
-#define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
-
-#define BUG_ON_INT32_OVER(_value) DEBUG_BUG_ON(INT32_MAX < _value)
-#define BUG_ON_UINT32_OVER(_value) DEBUG_BUG_ON(UINT32_MAX < _value)
-
-#define BUG_ON_INT64_OVER(_value) DEBUG_BUG_ON(INT64_MAX < _value)
-#define BUG_ON_UINT64_OVER(_value) DEBUG_BUG_ON(UINT64_MAX < _value)
-
 extern struct workqueue_struct *create_singlethread_workqueue(void * name);
 #ifdef _WIN32
 extern int queue_work(struct workqueue_struct* queue, struct work_struct* work);
@@ -1469,38 +1365,38 @@ extern EX_SPIN_LOCK g_rcuLock;
 
 #define rcu_read_lock() \
     unsigned char oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    WDRBD_TRACE_RCU("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    drbd_debug_rcu("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_unlock() \
     ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    WDRBD_TRACE_RCU("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    drbd_debug_rcu("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_lock_w32_inner() \
 	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    WDRBD_TRACE_RCU("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    drbd_debug_rcu("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define synchronize_rcu_w32_wlock() \
 	unsigned char  oldIrql_wLock; \
 	oldIrql_wLock = ExAcquireSpinLockExclusive(&g_rcuLock);\
-    WDRBD_TRACE_RCU("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    drbd_debug_rcu("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define synchronize_rcu() \
 	ExReleaseSpinLockExclusive(&g_rcuLock, oldIrql_wLock);\
-    WDRBD_TRACE_RCU("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    drbd_debug_rcu("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define rcu_read_lock_check(locked) \
     unsigned char oldIrql_rLock = 0;\
     if (locked) {\
-		WDRBD_TRACE_RCU("rcu_read_lock_check : already locked. currentIrql(%d)\n", KeGetCurrentIrql());\
+		drbd_debug_rcu("rcu_read_lock_check : already locked. currentIrql(%d)\n", KeGetCurrentIrql());\
     } else {\
     	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    	WDRBD_TRACE_RCU("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	drbd_debug_rcu("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
     }\
     
 #define rcu_read_unlock_check(locked) \
 	if (!locked) {\
     	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    	WDRBD_TRACE_RCU("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	drbd_debug_rcu("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
 	}\
 	
 extern void local_irq_disable();

@@ -190,6 +190,9 @@ struct drbd_connection;
         /*rcu_read_unlock(); _WIN32 // DW- */ \
 	    } while (0)
 
+#define __drbd_printk_(level, obj, fmt, ...) \
+	printk(level "[0x%p] " fmt, KeGetCurrentThread(), __VA_ARGS__)
+
 void drbd_printk_with_wrong_object_type(void);
  
 #define __drbd_printk_if_same_type(obj, type, func, level, fmt, ...) 
@@ -220,6 +223,30 @@ void drbd_printk_with_wrong_object_type(void);
 #define dynamic_drbd_dbg(device, fmt, ...)
 #endif
 
+#define drbd_debug_netlink
+#define drbd_debug_tm					// about timer
+#define drbd_debug_rcu					// about rcu
+#define drbd_debug_req_lock			// for lock_all_resources(), unlock_all_resources()
+#define drbd_debug_tr		
+#define drbd_debug_wq
+#define drbd_debug_rs
+#define drbd_debug_sk					// about socket
+#define drbd_debug_sem
+#define drbd_debug_ip4					
+#define drbd_debug_sb
+#define drbd_debug_co		
+#define drbd_debug_conn	
+#define drbd_debug_al
+
+#ifndef FEATURE_WDRBD_PRINT
+#define WDRBD_ERROR     __noop
+#define WDRBD_WARN      __noop
+#define WDRBD_TRACE     __noop
+#define WDRBD_INFO      __noop
+#endif
+
+#define drbd_crit(device, fmt, ...) \
+	drbd_printk(KERN_CRIT, device, fmt, __VA_ARGS__)
 #define drbd_emerg(device, fmt, ...) \
 	drbd_printk(KERN_EMERG, device, fmt, __VA_ARGS__)
 #define drbd_alert(device, fmt, ...) \
@@ -332,6 +359,52 @@ void drbd_printk_with_wrong_object_type(void);
 #endif
 #endif
 
+
+#ifdef _WIN32
+#define BUG()   drbd_crit(,"warning: failure\n")
+#else
+#define BUG()   drbd_crit(,"BUG: failure\n")
+#endif
+
+#define BUG_ON(_condition)	\
+	do {		\
+		if (_condition) {	\
+			\
+				drbd_crit(,"BUG: failure [ %s ]\n", #_condition); \
+						}	\
+			} while (false)
+
+#ifdef WIN_AL_BUG_ON
+#define AL_BUG_ON(_condition, str_condition, lc, e)	\
+    do {	\
+        if(_condition) { \
+            drbd_crit(,"BUG: failure [ %s ]\n", str_condition); \
+			if(lc || e){	\
+				lc_printf_stats(lc, e);	\
+										}\
+					}\
+		} while (false)
+#endif
+
+//DW-1918 add output at debug level
+#define DEBUG_BUG_ON(_condition)	\
+do {	\
+		if (_condition) {\
+				\
+				drbd_debug(,"BUG: failure [ %s ]\n", #_condition); \
+				}	\
+} while (false)
+
+#define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
+#define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
+
+#define BUG_ON_INT32_OVER(_value) DEBUG_BUG_ON(INT32_MAX < _value)
+#define BUG_ON_UINT32_OVER(_value) DEBUG_BUG_ON(UINT32_MAX < _value)
+
+#define BUG_ON_INT64_OVER(_value) DEBUG_BUG_ON(INT64_MAX < _value)
+#define BUG_ON_UINT64_OVER(_value) DEBUG_BUG_ON(UINT64_MAX < _value)
+
+
 #ifdef _WIN32
 #define DEFAULT_RATELIMIT_INTERVAL      (5 * HZ)
 #define DEFAULT_RATELIMIT_BURST         10
@@ -422,7 +495,7 @@ drbd_insert_fault(struct drbd_device *device, unsigned int type) {
 
     if (ret)
     {
-        WDRBD_INFO("FALUT_TEST: type=0x%x fault=%d\n", type, ret);
+        drbd_info(,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
 #else
@@ -2761,7 +2834,7 @@ drbd_commit_size_change(struct drbd_device *device, struct resize_parms *rs, u64
 static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		WDRBD_ERROR("md block_device is null.\n");
+		drbd_err(,"md block_device is null.\n");
 		return 0;
 	}
 
@@ -2772,7 +2845,7 @@ static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 	}
 	else
 	{
-		WDRBD_ERROR("bd_disk is null.\n");
+		drbd_err(,"bd_disk is null.\n");
 		return 0;
 	}
 }
@@ -2782,7 +2855,7 @@ static __inline sector_t drbd_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN32
 	if (!bdev) {
-		WDRBD_WARN("Null argument\n");
+		drbd_warn(,"Null argument\n");
 		return 0;
 	}
 	

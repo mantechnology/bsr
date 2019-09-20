@@ -160,12 +160,12 @@ static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
         struct nlmsghdr * pnlh = (struct nlmsghdr *)skb->data;
         struct genlmsghdr * pgenlh = nlmsg_data(pnlh);
 
-        WDRBD_TRACE("len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
+        drbd_debug(,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
             pnlh->nlmsg_len, pnlh->nlmsg_type, pnlh->nlmsg_flags, pnlh->nlmsg_seq, pnlh->nlmsg_pid, pgenlh->cmd, pgenlh->version);
 
         if (pnlh->nlmsg_flags & NLM_F_ECHO)
         {
-            WDRBD_TRACE("done\n", 0);
+            drbd_debug(,"done\n", 0);
             return 0;
         }
     }
@@ -1061,7 +1061,7 @@ void conn_try_outdate_peer_async(struct drbd_connection *connection)
 
 	Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, _try_outdate_peer_async, (void *)connection);
 	if (!NT_SUCCESS(Status)) {
-		WDRBD_ERROR("PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X\n", Status);
+		drbd_err(,"PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X\n", Status);
         kref_put(&connection->kref, drbd_destroy_connection);
 	}
 	else
@@ -1220,7 +1220,7 @@ retry:
 		wait_event_timeout(timeout, resource->barrier_wait, !barrier_pending(resource), timeout);
 
 		if (!timeout){
-			WDRBD_WARN("Failed to set secondary role due to barrier ack pending timeout(10s).\n");
+			drbd_warn(,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
 			rv = SS_BARRIER_ACK_PENDING_TIMEOUT;
 			goto out;
 		}
@@ -1550,14 +1550,14 @@ retry:
 	// step 2 : wait barrier pending with timeout
 	wait_event_timeout(time_out, resource->barrier_wait, !barrier_pending(resource), time_out);
 	if(!time_out) {
-		WDRBD_INFO("drbd_set_secondary_from_shutdown wait_event_timeout\n ");
+		drbd_info(,"drbd_set_secondary_from_shutdown wait_event_timeout\n ");
 		goto out;
 	}
 	/* After waiting for pending barriers, we got any possible NEG_ACKs,
 	   and see them in wait_for_peer_disk_updates() */
 	// step 3 : wait for updating peer disk with timeout   
 	if(!wait_for_peer_disk_updates_timeout(resource)) {
-		WDRBD_INFO("drbd_set_secondary_from_shutdown wait_for_peer_disk_updates_timeout\n ");
+		drbd_info(,"drbd_set_secondary_from_shutdown wait_for_peer_disk_updates_timeout\n ");
 		goto out;
 	}
 	
@@ -1633,7 +1633,7 @@ retry:
 	}
 
 	if (rv < SS_SUCCESS) {
-		WDRBD_ERROR("drbd_set_secondary_from_shutdown change_role_timeout fail\n ");
+		drbd_err(,"drbd_set_secondary_from_shutdown change_role_timeout fail\n ");
 		goto out;
 	}
 
@@ -3407,7 +3407,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 			else {
-				WDRBD_WARN("Failed to initialize WorkThread. status(0x%x)\n", status);
+				drbd_warn(,"Failed to initialize WorkThread. status(0x%x)\n", status);
 			}
 #endif
 		}
@@ -3757,7 +3757,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	wait_event_interruptible_timeout(timeo, device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo);
-	WDRBD_INFO("wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
+	drbd_info(,"wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
 #else
 	ret = wait_event_interruptible(device->misc_wait,
 			get_disk_state(device) != D_DETACHING);
@@ -6856,7 +6856,7 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 		NTSTATUS status;
 		status = mvolInitializeThread(&resource->WorkThreadInfo, mvolWorkThread);
 		if (!NT_SUCCESS(status)) {
-			WDRBD_WARN("Failed to initialize WorkThread. status(0x%x)\n", status);
+			drbd_warn(,"Failed to initialize WorkThread. status(0x%x)\n", status);
 		}
 #endif
 		

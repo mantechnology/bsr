@@ -581,7 +581,7 @@ static void __begin_state_change(struct drbd_resource *resource)
 {
 #ifdef _WIN32 
 	// _WIN32_V9_RCU //(4) required to refactoring because lock, unlock position is diffrent, maybe global scope lock is needed 
-    WDRBD_TRACE_RCU("rcu_read_lock()\n");
+    drbd_debug_rcu("rcu_read_lock()\n");
 #else
 	rcu_read_lock();
 #endif
@@ -726,7 +726,7 @@ out:
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(5) temporary dummy.
-    WDRBD_TRACE_RCU("rcu_read_unlock()\n");
+    drbd_debug_rcu("rcu_read_unlock()\n");
 #else
 	rcu_read_unlock();
 #endif
@@ -742,7 +742,7 @@ void state_change_lock(struct drbd_resource *resource, unsigned long *irq_flags,
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
 #ifdef _WIN32
-		WDRBD_WARN("worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current , resource->worker.task);
+		drbd_warn(,"worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current , resource->worker.task);
 #else
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE\n");
@@ -763,7 +763,7 @@ static void __state_change_unlock(struct drbd_resource *resource, unsigned long 
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN32 
 	        while (wait_for_completion(done) == -DRBD_SIGKILL){
-	            WDRBD_INFO("DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+	            drbd_info(,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	        }
 #else
 			wait_for_completion(done);
@@ -890,7 +890,7 @@ static void begin_remote_state_change(struct drbd_resource *resource, unsigned l
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(6) temporary dummy.
-    WDRBD_TRACE_RCU("rcu_read_unlock()");
+    drbd_debug_rcu("rcu_read_unlock()");
 #else
 	rcu_read_unlock();
 #endif
@@ -903,7 +903,7 @@ static void __end_remote_state_change(struct drbd_resource *resource, enum chg_s
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(7) temporary dummy.
-    WDRBD_TRACE_RCU("rcu_read_lock()");
+    drbd_debug_rcu("rcu_read_lock()");
 #else
 	rcu_read_lock();
 #endif

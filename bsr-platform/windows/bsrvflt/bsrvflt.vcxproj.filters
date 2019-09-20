@@ -103,6 +103,12 @@
     <ClCompile Include="bsr_windows_buildtag.c">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\bsr_wingenl.c">
+      <Filter>bsr\bsr-kernel-compat\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\bsr_wrappers.c">
+      <Filter>bsr\bsr-kernel-compat</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\backing-dev.h">
