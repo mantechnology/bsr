@@ -3866,23 +3866,14 @@ int drbd_worker(struct drbd_thread *thi)
 			bool w, r, d, p;
 
 			update_worker_timing_details(resource, dequeue_work_batch);
-#ifdef _WIN32
-            int sig;
-			wait_event_interruptible(sig, resource->work.q_wait,
-				(w = dequeue_work_batch(&resource->work, &work_list),
-				r = test_and_clear_bit(RESOURCE_WORK_PENDING, &resource->flags),
-				d = test_and_clear_bit(DEVICE_WORK_PENDING, &resource->flags),
-				p = test_and_clear_bit(PEER_DEVICE_WORK_PENDING, &resource->flags),
-				w || r || d || p));
-#else
-			wait_event_interruptible(resource->work.q_wait,
+
+			wait_event_interruptible_ex(&resource->work.q_wait,
 				(w = dequeue_work_batch(&resource->work, &work_list),
 				 r = test_and_clear_bit(RESOURCE_WORK_PENDING, &resource->flags),
 				 d = test_and_clear_bit(DEVICE_WORK_PENDING, &resource->flags),
 				 p = test_and_clear_bit(PEER_DEVICE_WORK_PENDING, &resource->flags),
 				 w || r || d || p));
 
-#endif
 			if (p) {
 				update_worker_timing_details(resource, do_unqueued_peer_device_work);
 				do_unqueued_peer_device_work(resource);

@@ -5222,16 +5222,10 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 	if (rv < SS_SUCCESS && rv != SS_NEED_CONNECTION)
 		rv = stable_change_repl_state(peer_device, L_STARTING_SYNC_T,
 			CS_VERBOSE | CS_SERIALIZE);
-#ifdef _WIN32
-	int t;
-    wait_event_interruptible(t, resource->state_wait,
-        peer_device->repl_state[NOW] != L_STARTING_SYNC_T);
 
-	UNREFERENCED_PARAMETER(t);
-#else
-	wait_event_interruptible(resource->state_wait,
+	wait_event_interruptible_ex(&resource->state_wait,
 				 peer_device->repl_state[NOW] != L_STARTING_SYNC_T);
-#endif
+
 	return rv;
 }
 

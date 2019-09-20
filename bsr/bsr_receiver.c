@@ -8935,14 +8935,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
 #endif
 	/* Final repl_states become visible when the disk leaves NEGOTIATING state */
-#ifdef _WIN32
-    int ret;
-	wait_event_interruptible(ret, device->resource->state_wait,
-		read_disk_state(device) != D_NEGOTIATING);
-#else
-	wait_event_interruptible(device->resource->state_wait,
+	wait_event_interruptible_ex(&device->resource->state_wait,
 				 read_disk_state(device) != D_NEGOTIATING);
-#endif
 	
 	drbd_bm_slot_lock(peer_device, "receive bitmap", BM_LOCK_CLEAR | BM_LOCK_BULK);
 	/* you are supposed to send additional out-of-sync information

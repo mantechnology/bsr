@@ -98,7 +98,7 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 #define stable_state_change(resource, change_state) ({				\
 		enum drbd_state_rv rv;						\
 		int err;							\
-		err = wait_event_interruptible((resource)->state_wait,		\
+		err = wait_event_interruptible_ex(&(resource)->state_wait,		\
 			(rv = (change_state)) != SS_IN_TRANSIENT_STATE);	\
 		if (err)							\
 			err = -SS_UNKNOWN_ERROR;				\

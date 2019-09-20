@@ -3928,5 +3928,15 @@ static inline int wait_event_interruptible_timeout_ex(wait_queue_head_t *wq, boo
 }
 
 
+static inline int wait_event_interruptible_ex(wait_queue_head_t *wq, bool condition)
+{
+	int r;
+#ifdef _WIN32
+	wait_event_interruptible(r, wq, condition);
+#else
+	r = wait_event_interruptible(*wq, condition);
+#endif
+	return r;
+}
 #endif
 

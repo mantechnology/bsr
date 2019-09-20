@@ -1606,13 +1606,9 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 #endif
 
 retry:
-#ifdef _WIN32
-    wait_event_interruptible(sig, device->al_wait,
-        (bm_ext = _bme_get(peer_device, (unsigned int)enr)));
-#else
-	sig = wait_event_interruptible(device->al_wait,
+	sig = wait_event_interruptible_ex(&device->al_wait,
 			(bm_ext = _bme_get(peer_device, enr)));
-#endif
+
 	if (sig)
 		return -EINTR;
 
@@ -1623,15 +1619,10 @@ retry:
 	sa = drbd_rs_c_min_rate_throttle(peer_device);
 
 	for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
-#ifdef _WIN32
-        wait_event_interruptible(sig, device->al_wait,
-            !_is_in_al(device, (unsigned int)(enr * AL_EXT_PER_BM_SECT + i)) ||
-            (sa && test_bit(BME_PRIORITY, &bm_ext->flags)));
-#else
-		sig = wait_event_interruptible(device->al_wait,
+		sig = wait_event_interruptible_ex(&device->al_wait,
 					       !_is_in_al(device, enr * AL_EXT_PER_BM_SECT + i) ||
 					       (sa && test_bit(BME_PRIORITY, &bm_ext->flags)));
-#endif
+
 		if (sig || (sa && test_bit(BME_PRIORITY, &bm_ext->flags))) {
 			int lc_put_result;			
 			spin_lock_irq(&device->al_lock);
