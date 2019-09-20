@@ -223,11 +223,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 	//DW-1735 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
-#else
-	list_for_each_entry_safe( p_req, t_inative, &connection->inactive_ee, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
 #ifdef _WIN32
 			drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
@@ -285,11 +281,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 	//DW-1696 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	spin_lock_irqsave(&device->resource->req_lock, flags);
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
-#else
-	list_for_each_entry_safe(p_req, t_inative, &connection->inactive_ee, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
 			if (peer_req->block_id != ID_SYNCER) {
 				//DW-1920 in inactive_ee, the replication data calls drbd_al_complete_io() upon completion of the write.
@@ -1948,11 +1940,7 @@ out:
 		if (fencing_policy != FP_DONT_CARE) {
 			struct drbd_peer_device *peer_device;
 			int vnr;
-#ifdef _WIN32
-			idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-			idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+			idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 				struct drbd_device *device = peer_device->device;
 				disk_state = min_t(enum drbd_disk_state, disk_state, device->disk_state[NOW]);
 				pdsk_state = min_t(enum drbd_disk_state, pdsk_state, peer_device->disk_state[NOW]);
@@ -2467,11 +2455,7 @@ static bool drbd_pause_after(struct drbd_device *device)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &drbd_devices, other_device, vnr) {
-#else
-	idr_for_each_entry(&drbd_devices, other_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {
 		struct drbd_peer_device *other_peer_device;
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
@@ -2514,11 +2498,7 @@ static bool drbd_resume_next(struct drbd_device *device)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &drbd_devices, other_device, vnr) {
-#else
-	idr_for_each_entry(&drbd_devices, other_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {
 		struct drbd_peer_device *other_peer_device;
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
@@ -2963,7 +2943,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			//DW-1911
 			struct drbd_marked_replicate *marked_rl, *t;
-			list_for_each_entry_safe(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+			list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 				list_del(&marked_rl->marked_rl_list);
 				kfree2(marked_rl);
 			}
@@ -3316,11 +3296,7 @@ static void __do_unqueued_peer_device_work(struct drbd_connection *connection)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		struct drbd_device *device = peer_device->device;
 		ULONG_PTR todo = get_work_bits(DRBD_PEER_DEVICE_WORK_MASK, &peer_device->flags);
 		
@@ -3351,11 +3327,7 @@ static void do_unqueued_device_work(struct drbd_resource *resource)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr) {
-#else
-	idr_for_each_entry(&resource->devices, device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		ULONG_PTR todo = get_work_bits(DRBD_DEVICE_WORK_MASK, &device->flags);
 
 		if (!todo)
@@ -3389,24 +3361,16 @@ static bool dequeue_work_batch(struct drbd_work_queue *queue, struct list_head *
 static struct drbd_request *__next_request_for_connection(
 		struct drbd_connection *connection, struct drbd_request *r)
 {
-#ifdef _WIN32    
 #ifdef _WIN32_NETQUEUED_LOG
-    r = list_prepare_entry(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests);
+	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests);
 #else
-    r = list_prepare_entry(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
-#endif
-#else
-	r = list_prepare_entry(r, &connection->resource->transfer_log, tl_requests);
+	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
 #endif
 
-#ifdef _WIN32 
 #ifdef _WIN32_NETQUEUED_LOG
-	list_for_each_entry_continue(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests) {
+	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests) {
 #else
-	list_for_each_entry_continue(struct drbd_request, r, &connection->resource->transfer_log, tl_requests) {
-#endif
-#else
-	list_for_each_entry_continue(r, &connection->resource->transfer_log, tl_requests) {
+	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests) {
 #endif
 		int vnr = r->device->vnr;
 		struct drbd_peer_device *peer_device = conn_peer_device(connection, vnr);
@@ -3442,17 +3406,9 @@ static struct drbd_request *tl_mark_for_resend_by_connection(struct drbd_connect
 	 * without it disappearing.
 	 */
 restart:
-#ifdef _WIN32
-    req = list_prepare_entry(struct drbd_request, tmp, &connection->resource->transfer_log, tl_requests);
-#else
-	req = list_prepare_entry(tmp, &connection->resource->transfer_log, tl_requests);
-#endif
+	req = list_prepare_entry_ex(struct drbd_request, tmp, &connection->resource->transfer_log, tl_requests);
 
-#ifdef _WIN32
-	list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry_continue(req, &connection->resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_continue_ex(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
 		/* potentially needed in complete_master_bio below */
 		device = req->device;
 		peer_device = conn_peer_device(connection, device->vnr);
@@ -3533,11 +3489,7 @@ static void maybe_send_state_afer_ahead(struct drbd_connection *connection)
 	int vnr;
 
 	rcu_read_lock();
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else 
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (test_and_clear_bit(SEND_STATE_AFTER_AHEAD, &peer_device->flags)) {
 			peer_device->todo.was_ahead = false;
 			rcu_read_unlock();
@@ -3840,11 +3792,7 @@ int drbd_sender(struct drbd_thread *thi)
 
 	/* Should we drop this? Or reset even more stuff? */
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		peer_device->send_cnt = 0;
 		peer_device->recv_cnt = 0;
 	}

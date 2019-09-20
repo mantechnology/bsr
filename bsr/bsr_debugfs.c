@@ -173,11 +173,7 @@ static void seq_print_resource_pending_meta_io(struct seq_file *m, struct drbd_r
 
 	seq_puts(m, "minor\tvnr\tstart\tsubmit\tintent\n");
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &resource->devices, device, i) {
-#else
-	idr_for_each_entry(&resource->devices, device, i) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
 		struct drbd_md_io tmp;
 		/* In theory this is racy,
 		 * in the sense that there could have been a
@@ -214,11 +210,7 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct drbd_resource *r
 	
 	seq_puts(m, "minor\tvnr\tage\t#waiting\n");
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &resource->devices, device, i) {
-#else
-	idr_for_each_entry(&resource->devices, device, i) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
 		ULONG_PTR jif;
 		struct drbd_request *req;
 		int n = atomic_read(&device->ap_actlog_cnt);
@@ -286,11 +278,7 @@ static void seq_print_resource_pending_bitmap_io(struct seq_file *m, struct drbd
 
 	seq_puts(m, "minor\tvnr\trw\tage\t#in-flight\n");
 	rcu_read_lock();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_device *, &resource->devices, device, i) {
-#else
-	idr_for_each_entry(&resource->devices, device, i) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
 		seq_print_device_bitmap_io(m, device, now);
 	}
 	rcu_read_unlock();
@@ -323,12 +311,7 @@ static void seq_print_peer_request(struct seq_file *m,
 
 	bool reported_preparing = false;
 	struct drbd_peer_request *peer_req;
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_peer_request, peer_req, lh, w.list)
-    {
-#else
-	list_for_each_entry(peer_req, lh, w.list) {
-#endif
+	list_for_each_entry_ex(struct drbd_peer_request, peer_req, lh, w.list) {
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		struct drbd_device *device = peer_device ? peer_device->device : NULL;
 
@@ -389,11 +372,7 @@ static void seq_print_resource_pending_peer_requests(struct seq_file *m,
 	for_each_connection_rcu(connection, resource) {
 		seq_print_connection_peer_requests(m, connection, now);
 	}
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, i) {
-#else
-	idr_for_each_entry(&resource->devices, device, i) {
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
 		seq_print_device_peer_flushes(m, device, now);
 	}
 	rcu_read_unlock();
@@ -412,11 +391,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 
 	seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
 	spin_lock_irq(&resource->req_lock);
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, req, &resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry(req, &resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_ex(struct drbd_request, req, &resource->transfer_log, tl_requests) {
 		struct drbd_device *device = req->device;
 		struct drbd_peer_device *peer_device;
 		unsigned int tmp = 0;
@@ -430,11 +405,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 			spin_unlock_irq(&resource->req_lock);
 			cond_resched();
 			spin_lock_irq(&resource->req_lock);
-#ifdef _WIN32
-            req_next = list_next_entry(struct drbd_request, req, tl_requests);
-#else
-			req_next = list_next_entry(req, tl_requests);
-#endif
+            req_next = list_next_entry_ex(struct drbd_request, req, tl_requests);
 			if (kref_put(&req->kref, drbd_req_destroy))
 				req = req_next;
 			if (&req->tl_requests == &resource->transfer_log)
@@ -596,11 +567,7 @@ static int resource_state_twopc_show(struct seq_file *m, void *pos)
 		return 0;
 	}
 	seq_puts(m, "\n Queued for later execution:\n");
-#ifdef _WIN32
-    list_for_each_entry(struct queued_twopc, q, &resource->queued_twopc, w.list) {
-#else
-	list_for_each_entry(q, &resource->queued_twopc, w.list) {
-#endif
+	list_for_each_entry_ex(struct queued_twopc, q, &resource->queued_twopc, w.list) {
 		jif = jiffies - q->start_jif;
 		seq_printf(m, "  tid: %u, initiator_node_id: %d, since: %d ms\n",
 			   q->reply.tid, q->reply.initiator_node_id, jiffies_to_msecs(jif));
