@@ -125,18 +125,12 @@ void *drbd_md_get_buffer(struct drbd_device *device, const char *intent)
 {
 	int r;
 	long t;
-	
-#ifdef _WIN32
-    wait_event_timeout(t, device->misc_wait,
-        (r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
-        device->disk_state[NOW] <= D_FAILED,
-        HZ * 10);
-#else
-	t = wait_event_timeout(device->misc_wait,
-			(r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
-			device->disk_state[NOW] <= D_FAILED,
-			HZ * 10);
-#endif
+
+	t = wait_event_timeout_ex(&device->misc_wait,
+											(r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
+											device->disk_state[NOW] <= D_FAILED,
+											HZ * 10);
+
 	if (t == 0)
 		drbd_err(device, "Waited 10 Seconds for md_buffer! BUG?, %s\n", intent);
 
@@ -167,13 +161,8 @@ void wait_until_done_or_force_detached(struct drbd_device *device, struct drbd_b
 	if (dt == 0)
 		dt = MAX_SCHEDULE_TIMEOUT;
 
-#ifdef _WIN32
-    wait_event_timeout(dt, device->misc_wait,
-        *done || test_bit(FORCE_DETACH, &device->flags), dt);
-#else
-	dt = wait_event_timeout(device->misc_wait,
-			*done || test_bit(FORCE_DETACH, &device->flags), dt);
-#endif
+	dt = wait_event_timeout_ex(&device->misc_wait, 
+								*done || test_bit(FORCE_DETACH, &device->flags), dt);
 
 	if (dt == 0) {
 		drbd_err(device, "meta-data IO operation timed out\n");

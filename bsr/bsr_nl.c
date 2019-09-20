@@ -1097,7 +1097,7 @@ restart:
 			if (test_bit(GOT_NEG_ACK, &peer_device->flags)) {
 				clear_bit(GOT_NEG_ACK, &peer_device->flags);
 				ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
-				wait_event_timeout(time_out, resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out);
+				time_out = wait_event_timeout_ex(&resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out);
 				retry_count++;
 				goto restart;
 			}
@@ -1191,7 +1191,8 @@ retry:
 				drbd_flush_workqueue(resource, &connection->sender_work);
 		}
 		// DW-1626 : A long wait occurs when the barrier is delayed. Wait 10 seconds.
-		wait_event_timeout(timeout, resource->barrier_wait, !barrier_pending(resource), timeout);
+
+		timeout = wait_event_timeout_ex(&resource->barrier_wait, !barrier_pending(resource), timeout);
 
 		if (!timeout){
 			drbd_warn(NO_OBJECT,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
@@ -1500,7 +1501,8 @@ retry:
 			drbd_flush_workqueue_timeout(resource, &connection->sender_work);
 	}
 	// step 2 : wait barrier pending with timeout
-	wait_event_timeout(time_out, resource->barrier_wait, !barrier_pending(resource), time_out);
+	time_out = wait_event_timeout_ex(&resource->barrier_wait, !barrier_pending(resource), time_out);
+
 	if(!time_out) {
 		drbd_info(NO_OBJECT,"drbd_set_secondary_from_shutdown wait_event_timeout\n ");
 		goto out;

@@ -3971,13 +3971,9 @@ static void complete_remote_state_change(struct drbd_resource *resource,
 		begin_remote_state_change(resource, irq_flags);
 		for(;;) {
 			long t = twopc_timeout(resource);
-#ifdef _WIN32
-			wait_event_timeout(t, resource->twopc_wait,
-				   when_done_lock(resource, irq_flags), t);
-#else
-			t = wait_event_timeout(resource->twopc_wait,
-				   when_done_lock(resource, irq_flags), t);
-#endif
+
+			t = wait_event_timeout_ex(&resource->twopc_wait, when_done_lock(resource, irq_flags), t);
+
 			if (t) {
 				break;
 			} else { // DW-1073: The condition evaluated to false after the timeout elapsed, stop waiting for remote state change.
@@ -4498,17 +4494,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				    &request, reach_immediately);
 	have_peers = rv == SS_CW_SUCCESS;
 	if (have_peers) {
-#ifdef _WIN32
-        long t;
-        wait_event_timeout(t, resource->state_wait,
-            cluster_wide_reply_ready(resource),
-            twopc_timeout(resource));
+		long t;
+		t = wait_event_timeout_ex(&resource->state_wait,
+								cluster_wide_reply_ready(resource),
+								twopc_timeout(resource));
         if (t)
-#else
-		if (wait_event_timeout(resource->state_wait,
-				       cluster_wide_reply_ready(resource),
-				       twopc_timeout(resource)))
-#endif
 		{
 			rv = get_cluster_wide_reply(resource, context);
 #ifdef _WIN32_TWOPC
@@ -4777,17 +4767,11 @@ retry:
 
 	have_peers = rv == SS_CW_SUCCESS;
 	if (have_peers) {
-#ifdef _WIN32
 		long t;
-		wait_event_timeout(t, resource->state_wait,
-			cluster_wide_reply_ready(resource),
-			twopc_timeout(resource));
+		t = wait_event_timeout_ex(&resource->state_wait,
+									cluster_wide_reply_ready(resource),
+									twopc_timeout(resource));
 		if (t)
-#else
-		if (wait_event_timeout(resource->state_wait,
-			cluster_wide_reply_ready(resource),
-			twopc_timeout(resource)))
-#endif
 			rv = get_cluster_wide_reply(resource, NULL);
 		else
 			rv = SS_TIMEOUT;
@@ -5087,7 +5071,7 @@ enum drbd_state_rv change_role_timeout(struct drbd_resource *resource,
 
         idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 			long t = 100;
-			wait_event_timeout(t, device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]), t);
+			t = wait_event_timeout_ex(&device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]), t);
 			if(!t) {
 				if(got_state_sem)
 					up(&resource->state_sem);

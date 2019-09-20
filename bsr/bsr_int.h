@@ -3904,5 +3904,16 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #define NODE_MASK(id) ((u64)1 << (id))
 
+static inline long wait_event_timeout_ex(wait_queue_head_t *wq, bool condition, long timeout)
+{
+	long t = timeout;
+#ifdef _WIN32
+	wait_event_timeout(t, wq, condition, timeout);
+#else
+	t = wait_event_timeout(*wq, condition, timeout);
+#endif
+	return t;
+}
+
 #endif
 

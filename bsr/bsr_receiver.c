@@ -688,11 +688,9 @@ static int drbd_recv(struct drbd_connection *connection, void **buf, size_t size
 			rcu_read_lock();
 			t = rcu_dereference(connection->transport.net_conf)->ping_timeo * HZ/10;
 			rcu_read_unlock();
-#ifdef _WIN32
-			wait_event_timeout(t, connection->ping_wait, connection->cstate[NOW] < C_CONNECTED, t);
-#else
-			t = wait_event_timeout(connection->ping_wait, connection->cstate[NOW] < C_CONNECTED, t);
-#endif
+
+			t = wait_event_timeout_ex(&connection->ping_wait, connection->cstate[NOW] < C_CONNECTED, t);
+
 			if (t)
 				goto out;
 		}
@@ -1828,11 +1826,7 @@ static void conn_wait_ee_empty_timeout(struct drbd_connection *connection, struc
 {
 	long t, timeout;
 	t = timeout = 3 * HZ; // 3 sec
-#ifdef _WIN32
-	wait_event_timeout(t, connection->ee_wait, conn_wait_ee_cond(connection, head), timeout);
-#else
-	wait_event_timeout(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout);
-#endif
+	t = wait_event_timeout_ex(&connection->ee_wait, conn_wait_ee_cond(connection, head), timeout);
 }
 
 static void conn_wait_ee_empty(struct drbd_connection *connection, struct list_head *head)
@@ -7383,13 +7377,8 @@ static enum alt_rv abort_local_transaction(struct drbd_resource *resource, unsig
 	set_bit(TWOPC_ABORT_LOCAL, &resource->flags);
 	spin_unlock_irq(&resource->req_lock);
 	wake_up(&resource->state_wait);
-#ifdef _WIN32
-	wait_event_timeout(t, resource->twopc_wait, 
-		(rv = when_done_lock(resource, for_tid)) != ALT_TIMEOUT, t);
-#else
-	wait_event_timeout(resource->twopc_wait,
-			   (rv = when_done_lock(resource, for_tid)) != ALT_TIMEOUT, t);
-#endif
+
+	t = wait_event_timeout_ex(&resource->twopc_wait, (rv = when_done_lock(resource, for_tid)) != ALT_TIMEOUT, t);
 	clear_bit(TWOPC_ABORT_LOCAL, &resource->flags);
 	return rv;
 }
@@ -11177,15 +11166,10 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 				rcu_read_lock();
 				t = rcu_dereference(connection->transport.net_conf)->ping_timeo * HZ/10;
 				rcu_read_unlock();
-#ifdef _WIN32
-				wait_event_timeout(t, connection->ping_wait, 
-				               connection->cstate[NOW] < C_CONNECTED, 
-							   t);
-#else
-				t = wait_event_timeout(connection->ping_wait,
-						       connection->cstate[NOW] < C_CONNECTED,
-						       t);
-#endif
+
+				t = wait_event_timeout_ex(&connection->ping_wait,
+											connection->cstate[NOW] < C_CONNECTED,
+											t);
 				if (t)
 					break;
 			}
