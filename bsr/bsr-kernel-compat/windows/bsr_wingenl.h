@@ -528,7 +528,7 @@ static __inline int nla_put_u64(struct sk_buff *msg, int attrtype, __u64 value)
 * @attrtype: attribute type
 * @str: NUL terminated string
 */
-extern __inline int nla_put_string(struct sk_buff *msg, int attrtype,
+extern int nla_put_string(struct sk_buff *msg, int attrtype,
 	const char *str);
 
 /**
@@ -705,7 +705,7 @@ static __inline struct nlattr *nla_nest_start(struct sk_buff *msg, int attrtype)
  *
  * Returns the total data length of the msg.
  */
-extern __inline int nla_nest_end(struct sk_buff *msg, struct nlattr *start);
+extern int nla_nest_end(struct sk_buff *msg, struct nlattr *start);
 
 /**
  * nla_validate_nested - Validate a stream of nested attributes
@@ -776,7 +776,7 @@ static __inline struct nlmsghdr *nlmsg_put(struct msg_buff *skb, u32 portid, u32
 	return __nlmsg_put((void *)skb, portid, seq, type, payload, flags);
 }
 
-extern __inline int nlmsg_end(struct sk_buff *skb, struct nlmsghdr *nlh);
+extern int nlmsg_end(struct sk_buff *skb, struct nlmsghdr *nlh);
 
 static __inline int genlmsg_end(struct sk_buff *skb, void *hdr)
 {
