@@ -1176,7 +1176,9 @@ enum req_op {
 };
 #define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
 
+#ifndef bio_set_op_attrs
 extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
+#endif
 
 static inline int op_from_rq_bits(u64 flags)
 {
