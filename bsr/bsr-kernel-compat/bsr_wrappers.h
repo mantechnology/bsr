@@ -1942,10 +1942,10 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
 	    } while(false)
 #else // _LIN
 #define list_first_or_null_rcu_ex(conn, ptr, type, member) \
-(conn = { \
+({ \
 	struct list_head *__ptr = (ptr); \
 	struct list_head *__next = ACCESS_ONCE(__ptr->next); \
-	likely(__ptr != __next) ? list_entry_rcu(__next, type, member) : NULL; \
+	conn = likely(__ptr != __next) ? list_entry_rcu(__next, type, member) : NULL; \
 })
 #endif
 #else
