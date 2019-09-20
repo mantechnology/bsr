@@ -1745,7 +1745,7 @@ static __inline int kref_get_unless_zero(struct kref *kref)
 #endif
 
 #ifndef COMPAT_HAVE_THREE_PARAMATER_HLIST_FOR_EACH_ENTRY
-#undef hlist_for_each_entry
+#undef hlist_for_each_entry_ex
 #define hlist_for_each_entry_ex(type, pos, head, member)				\
 	for (pos = hlist_entry((head)->first, type, member);	\
 	     pos;							\
