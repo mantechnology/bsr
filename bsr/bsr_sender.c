@@ -1112,11 +1112,7 @@ struct fifo_buffer *fifo_alloc(int fifo_size)
 #endif
 {
 	struct fifo_buffer *fb;
-#ifdef _WIN32
-    fb = kzalloc(sizeof(struct fifo_buffer) + sizeof(int) * fifo_size, GFP_NOIO, Tag);
-#else
-	fb = kzalloc(sizeof(struct fifo_buffer) + sizeof(int) * fifo_size, GFP_NOIO);
-#endif
+	fb = kzalloc(sizeof(struct fifo_buffer) + sizeof(int) * fifo_size, GFP_NOIO, Tag);
 	if (!fb)
 		return NULL;
 
@@ -1712,11 +1708,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		drbd_kick_lo(device);
 		schedule_timeout_interruptible(HZ / 10);
 	queue_on_sender_workq:
-#ifdef _WIN32
-        rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC, '13DW');
-#else
-		rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC);
-#endif
+		rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC, '13DW');
 		if (rfw) {
 			rfw->pdw.w.cb = w_resync_finished;
 			rfw->pdw.peer_device = peer_device;
@@ -2152,11 +2144,8 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 		if (peer_device->connection->csums_tfm) {
 			digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
 			D_ASSERT(device, digest_size == di->digest_size);
-#ifdef _WIN32
-            digest = kmalloc(digest_size, GFP_NOIO, '23DW');
-#else
-			digest = kmalloc(digest_size, GFP_NOIO);
-#endif
+
+			digest = kmalloc(digest_size, GFP_NOIO, '23DW');
 			if (digest) {
 #ifdef _WIN32
 				drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
@@ -2283,11 +2272,7 @@ int w_e_end_ov_reply(struct drbd_work *w, int cancel)
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 		digest_size = crypto_hash_digestsize(peer_device->connection->verify_tfm);
-#ifdef _WIN32
-        digest = kmalloc(digest_size, GFP_NOIO, '33DW');
-#else
-		digest = kmalloc(digest_size, GFP_NOIO);
-#endif
+		digest = kmalloc(digest_size, GFP_NOIO, '33DW');
 		if (digest) {
 #ifdef _WIN32
             drbd_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);

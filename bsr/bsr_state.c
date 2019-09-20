@@ -276,11 +276,8 @@ static struct drbd_state_change *alloc_state_change(unsigned int n_devices, unsi
 	       n_devices * sizeof(struct drbd_device_state_change) +
 	       n_connections * sizeof(struct drbd_connection_state_change) +
 	       n_devices * n_connections * sizeof(struct drbd_peer_device_state_change);
-#ifdef _WIN32
-    state_change = kmalloc(size, flags, '73DW');
-#else
-	state_change = kmalloc(size, flags);
-#endif
+
+	state_change = kmalloc(size, flags, '73DW');
 	if (!state_change)
 		return NULL;
 	state_change->n_devices = n_devices;
@@ -2161,11 +2158,7 @@ static void queue_after_state_change_work(struct drbd_resource *resource,
 	struct drbd_device *device;
 	int vnr;
 
-#ifdef _WIN32
 	work = kmalloc(sizeof(*work), gfp, '83DW');
-#else
-	work = kmalloc(sizeof(*work), gfp);
-#endif
 	if (work)
 		work->state_change = remember_state_change(resource, gfp);
 
@@ -4918,11 +4911,7 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 	}
 
 	// allocate memory for connection pointers.
-#ifdef _WIN32
 	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_KERNEL, 'D8DW');
-#else
-	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_KERNEL);
-#endif
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
 		drbd_err(resource, "failed to allocate memory for connections\n");

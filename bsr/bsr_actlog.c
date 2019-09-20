@@ -1144,12 +1144,10 @@ static bool update_rs_extent(struct drbd_peer_device *peer_device,
 			if (device->resource->role[NOW] == R_PRIMARY ||
 				// DW-1873 change P_PEERS_IN_SYNC send conditions
 				is_sync_source(peer_device)) { //peer_device->repl_state[NOW] == L_SYNC_SOURCE){	
+#endif
 				struct update_peers_work *upw;
 				upw = kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN, '40DW');
-#else
-			struct update_peers_work *upw;
-			upw = kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN);
-#endif
+
 				if (upw) {
 					upw->enr = ext->lce.lc_number;
 					upw->w.cb = w_update_peers;

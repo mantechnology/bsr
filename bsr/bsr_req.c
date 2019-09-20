@@ -377,11 +377,7 @@ void drbd_req_destroy(struct kref *kref)
 
 						drbd_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
 
-#ifdef _WIN32
 						send_oos = kmalloc(sizeof(struct drbd_oos_no_req), 0, 'OSDW');
-#else
-						send_oos = kmalloc(sizeof(struct drbd_oos_no_req), 0);
-#endif
 						if (send_oos)
 						{
 							INIT_LIST_HEAD(&send_oos->oos_list_head);

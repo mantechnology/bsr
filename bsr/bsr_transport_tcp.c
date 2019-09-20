@@ -1307,7 +1307,7 @@ retry:
 			struct dtt_path *path2 =
 				container_of(drbd_path2, struct dtt_path, path);
 
-			socket_c = kmalloc(sizeof(*socket_c), GFP_ATOMIC);
+			socket_c = kmalloc(sizeof(*socket_c), GFP_ATOMIC, '');
 			if (!socket_c) {
 				tr_info(transport, /* path2->transport, */
 					"No mem, dropped an incoming connection\n");
@@ -1724,7 +1724,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 
 	what = "kmalloc";
 #ifndef _WIN32
-	listener = kmalloc(sizeof(*listener), GFP_KERNEL);
+	listener = kmalloc(sizeof(*listener), GFP_KERNEL, '');
 	if (!listener) {
 		err = -ENOMEM;
 		goto out;

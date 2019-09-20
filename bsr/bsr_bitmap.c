@@ -416,11 +416,8 @@ static struct page **bm_realloc_pages(struct drbd_bitmap *b, unsigned long want)
 	 * we must not block on IO to ourselves.
 	 * Context is receiver thread or dmsetup. */
 	bytes = (unsigned int)(sizeof(struct page *)*want);
-#ifdef _WIN32
-    	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60DW');
-#else
-	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN);
-#endif
+	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60DW');
+
 	if (!new_pages) {
 #ifndef _WIN32
 		new_pages = __vmalloc(bytes,
@@ -459,11 +456,8 @@ static struct page **bm_realloc_pages(struct drbd_bitmap *b, unsigned long want)
 struct drbd_bitmap *drbd_bm_alloc(void)
 {
 	struct drbd_bitmap *b;
-#ifdef _WIN32
-    b = kzalloc(sizeof(struct drbd_bitmap), GFP_KERNEL, '70DW');
-#else
-	b = kzalloc(sizeof(struct drbd_bitmap), GFP_KERNEL);
-#endif
+	b = kzalloc(sizeof(struct drbd_bitmap), GFP_KERNEL, '70DW');
+	
 	if (!b)
 		return NULL;
 
@@ -1620,11 +1614,8 @@ static int bm_rw_range(struct drbd_device *device,
 	/* if we reach this, we should have at least *some* bitmap pages. */
 	if (!expect(device, b->bm_number_of_pages))
 		return -ENODEV;
-#ifdef _WIN32
-    ctx = kmalloc(sizeof(struct drbd_bm_aio_ctx), GFP_NOIO, '80DW');
-#else
-	ctx = kmalloc(sizeof(struct drbd_bm_aio_ctx), GFP_NOIO);
-#endif
+
+	ctx = kmalloc(sizeof(struct drbd_bm_aio_ctx), GFP_NOIO, '80DW');
 	if (!ctx)
 		return -ENOMEM;
 

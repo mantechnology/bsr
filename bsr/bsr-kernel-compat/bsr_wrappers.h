@@ -73,6 +73,13 @@
 #define UNREFERENCED_PARAMETER(x)
 #endif
 
+#ifndef kzalloc
+#define kzalloc(size, flags, tag) kzalloc(size, flags)
+#endif
+#ifndef kmalloc
+#define kmalloc(size, flags, tag) kmalloc(size, flags)
+#endif
+
 #endif
 
 /* {{{ pr_* macros */
@@ -531,11 +538,7 @@ crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
 	/* "hmac(xxx)" is in alg_name we need that xxx. */
 	closing_bracket = strchr(alg_name, ')');
 	if (!closing_bracket) {
-#ifdef _WIN32
 		ch = kmalloc(sizeof(struct crypto_hash), GFP_KERNEL, Tag);
-#else
-		ch = kmalloc(sizeof(struct crypto_hash), GFP_KERNEL);
-#endif
 		if (!ch)
 			return ERR_PTR(-ENOMEM);
 		ch->base = crypto_alloc_tfm(alg_name, 0);
@@ -548,11 +551,7 @@ crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
 	if (closing_bracket-alg_name < 6)
 		return ERR_PTR(-ENOENT);
 
-#ifdef _WIN32
 	ch = kmalloc(sizeof(struct crypto_hash), GFP_KERNEL, Tag);
-#else
-	ch = kmalloc(sizeof(struct crypto_hash), GFP_KERNEL);
-#endif
 	if (!ch)
 		return ERR_PTR(-ENOMEM);
 
