@@ -915,7 +915,7 @@ void drbd_debugfs_connection_add(struct drbd_connection *connection)
 	conn_dcf(transport);
 	conn_dcf(debug);
 
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
 			drbd_debugfs_peer_device_add(peer_device);
 	}

@@ -1121,7 +1121,7 @@ static void drbd_unplug_all_devices(struct drbd_connection *connection)
 	int vnr;
 
 	rcu_read_lock();
-	idr_for_each_entry(&resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		kref_get(&device->kref);
 		rcu_read_unlock();
 		drbd_kick_lo(device);
