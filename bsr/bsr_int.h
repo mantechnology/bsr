@@ -3258,17 +3258,9 @@ static inline void
 drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, unsigned char io_type, NTSTATUS error_code, sector_t sector, unsigned int size, bool is_cleared)
 {
 	struct drbd_io_error_work *w;
-#ifdef _WIN32 
 	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
-#else
-	w = kmalloc(sizeof(*w), GFP_ATOMIC);
-#endif
 	if (w) {
-#ifdef _WIN32
 		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2DW');
-#else
-		w = kmalloc(sizeof(*w), GFP_ATOMIC);
-#endif
 		if (w->io_error) {
 			w->device = device;
 			w->w.cb = w_notify_io_error;

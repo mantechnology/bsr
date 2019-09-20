@@ -2739,11 +2739,8 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		retcode = ERR_NO_DISK;
 		goto out;
 	}
-#ifdef _WIN32
-    new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51DW');
-#else
-	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL);
-#endif
+
+	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51DW');
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
 		goto fail;
@@ -3107,22 +3104,16 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&resource->adm_mutex);
 
 	/* allocation not in the IO path, drbdsetup context */
-#ifdef _WIN32
-    nbc = kzalloc(sizeof(struct drbd_backing_dev), GFP_KERNEL, '61DW');
-#else
-	nbc = kzalloc(sizeof(struct drbd_backing_dev), GFP_KERNEL);
-#endif
+	nbc = kzalloc(sizeof(struct drbd_backing_dev), GFP_KERNEL, '61DW');
+
 	if (!nbc) {
 		retcode = ERR_NOMEM;
 		goto fail;
 	}
 	spin_lock_init(&nbc->md.uuid_lock);
 
-#ifdef _WIN32
-    new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71DW');
-#else
-	new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL);
-#endif
+	new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71DW');
+
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
 		goto fail;
@@ -3943,11 +3934,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	connection = adm_ctx.connection;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	
-#ifdef _WIN32
-    new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1DW');
-#else
-	new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL);
-#endif
+	new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1DW');
 	if (!new_net_conf) {
 		retcode = ERR_NOMEM;
 		goto out;
@@ -4116,11 +4103,7 @@ int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	mutex_lock(&adm_ctx.resource->conf_update);
 
-#ifdef _WIN32
-    new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91DW');
-#else
-	new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL);
-#endif
+	new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91DW');
 	if (!new_peer_device_conf)
 		goto fail;
 
@@ -4177,11 +4160,7 @@ int drbd_create_peer_device_default_config(struct drbd_peer_device *peer_device)
 	struct peer_device_conf *conf;
 	int err;
 
-#ifdef _WIN32
-    conf = kzalloc(sizeof(*conf), GFP_KERNEL, 'B1DW');
-#else
-	conf = kzalloc(sizeof(*conf), GFP_KERNEL);
-#endif
+	conf = kzalloc(sizeof(*conf), GFP_KERNEL, 'B1DW');
 	if (!conf)
 		return -ENOMEM;
 
@@ -4263,11 +4242,7 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	}
 
 	/* allocation not in the IO path, drbdsetup / netlink process context */
-#ifdef _WIN32
-    new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1DW');
-#else
-	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL);
-#endif
+	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1DW');
 	if (!new_net_conf)
 		return ERR_NOMEM;
 
@@ -4513,11 +4488,7 @@ adm_add_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
 	if (retcode != NO_ERROR)
 		return retcode;
 
-#ifdef _WIN32
-    path = kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57DW');
-#else
-	path = kzalloc(transport->class->path_instance_size, GFP_KERNEL);
-#endif
+	path = kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57DW');
 	if (!path)
 		return ERR_NOMEM;
 
@@ -4995,12 +4966,8 @@ sector_t drbd_local_max_size(struct drbd_device *device) __must_hold(local)
 {
 	struct drbd_backing_dev *tmp_bdev;
 	sector_t s;
-#ifdef _WIN32
-	tmp_bdev = kmalloc(sizeof(struct drbd_backing_dev), GFP_ATOMIC, '97DW');
-#else
-	tmp_bdev = kmalloc(sizeof(struct drbd_backing_dev), GFP_ATOMIC);
 
-#endif
+	tmp_bdev = kmalloc(sizeof(struct drbd_backing_dev), GFP_ATOMIC, '97DW');
 	if (!tmp_bdev)
 		return 0;
 
@@ -5122,7 +5089,7 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 	rcu_read_unlock();
 	if (u_size != (sector_t)rs.resize_size) {
-		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL);
+		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '');
 		if (!new_disk_conf) {
 			retcode = ERR_NOMEM;
 			goto fail_ldev;
