@@ -302,12 +302,12 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 		return NULL;
 	}
 	list_for_each_entry_ex(struct drbd_path, path, &listener->waiters, listener_link) {
-		//WDRBD_TRACE_CO("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
+		//drbd_debug_co("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
-			WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
+			drbd_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
 		} else {
-			WDRBD_TRACE_CO("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
+			drbd_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
 		if (addr_equal(&path->peer_addr, addr))
 			return path;

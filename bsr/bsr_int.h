@@ -151,6 +151,12 @@ extern char usermode_helper[];
 struct drbd_device;
 struct drbd_connection;
 
+// BSR-237
+#ifdef _WIN32
+#define NO_OBJECT
+#else
+#define NO_OBJECT NULL
+#endif
 /* I want to be able to grep for "drbd $resource_name"
  * and get all relevant log lines. */
 #ifdef _WIN32
@@ -190,6 +196,10 @@ struct drbd_connection;
         /*rcu_read_unlock(); _WIN32 // DW- */ \
 	    } while (0)
 
+// BSR-237 if object is empty (NO_OBJECT)
+#define __drbd_printk_(level, obj, fmt, ...) \
+	printk(level "[0x%p] " fmt, KeGetCurrentThread(), __VA_ARGS__)
+
 void drbd_printk_with_wrong_object_type(void);
  
 #define __drbd_printk_if_same_type(obj, type, func, level, fmt, ...) 
@@ -200,36 +210,60 @@ void drbd_printk_with_wrong_object_type(void);
     } while(0)
 
 #if defined(disk_to_dev)
-#define drbd_dbg(device, fmt, args...) \
-	dev_dbg(disk_to_dev(device->vdisk), fmt, ## args)
+#define drbd_dbg(obj, fmt, args...) \
+	dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
 #elif defined(DBG)
-#define drbd_dbg(device, fmt, ...) \
-	drbd_printk(KERN_DEBUG, device, fmt, __VA_ARGS__)
+#define drbd_dbg(obj, fmt, ...) \
+	drbd_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
 #else
-#define drbd_dbg(device, fmt, ...) \
-	do { if (false,false) drbd_printk(KERN_DEBUG, device, fmt, __VA_ARGS__); } while(false)
+#define drbd_dbg(obj, fmt, ...) \
+	do { if (false,false) drbd_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__); } while(false)
 #endif
 
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
-#define dynamic_drbd_dbg(device, fmt, args...) \
-	dynamic_dev_dbg(disk_to_dev(device->vdisk), fmt, ## args)
+#define dynamic_drbd_dbg(obj, fmt, args...) \
+	dynamic_dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
 #elif defined(_WIN32) && defined(DBG)
-#define dynamic_drbd_dbg(device, fmt, ...) \
-	drbd_dbg(device, fmt, __VA_ARGS__)
+#define dynamic_drbd_dbg(obj, fmt, ...) \
+	drbd_dbg(obj, fmt, __VA_ARGS__)
 #else
-#define dynamic_drbd_dbg(device, fmt, ...)
+#define dynamic_drbd_dbg(obj, fmt, ...)
 #endif
 
-#define drbd_emerg(device, fmt, ...) \
-	drbd_printk(KERN_EMERG, device, fmt, __VA_ARGS__)
-#define drbd_alert(device, fmt, ...) \
-	drbd_printk(KERN_ALERT, device, fmt, __VA_ARGS__)
-#define drbd_err(device, fmt, ...) \
-	drbd_printk(KERN_ERR, device, fmt, __VA_ARGS__)
-#define drbd_warn(device, fmt, ...) \
-	drbd_printk(KERN_WARNING, device, fmt, __VA_ARGS__)
-#define drbd_info(device, fmt, ...) \
-	drbd_printk(KERN_INFO, device, fmt, __VA_ARGS__)
+#define drbd_debug_netlink
+#define drbd_debug_tm					// about timer
+#define drbd_debug_rcu					// about rcu
+#define drbd_debug_req_lock			// for lock_all_resources(), unlock_all_resources()
+#define drbd_debug_tr		
+#define drbd_debug_wq
+#define drbd_debug_rs
+#define drbd_debug_sk					// about socket
+#define drbd_debug_sem
+#define drbd_debug_ip4					
+#define drbd_debug_sb
+#define drbd_debug_co		
+#define drbd_debug_conn	
+#define drbd_debug_al
+
+#ifndef FEATURE_WDRBD_PRINT
+#define drbd_err     __noop
+#define drbd_warn      __noop
+#define drbd_debug     __noop
+#define drbd_info      __noop
+#endif
+
+#define drbd_crit(obj, fmt, ...) \
+	drbd_printk(KERN_CRIT, obj, fmt, __VA_ARGS__)
+#define drbd_emerg(obj, fmt, ...) \
+	drbd_printk(KERN_EMERG, obj, fmt, __VA_ARGS__)
+#define drbd_alert(obj, fmt, ...) \
+	drbd_printk(KERN_ALERT, obj, fmt, __VA_ARGS__)
+#define drbd_err(obj, fmt, ...) \
+	drbd_printk(KERN_ERR, obj, fmt, __VA_ARGS__)
+#define drbd_warn(obj, fmt, ...) \
+	drbd_printk(KERN_WARNING, obj, fmt, __VA_ARGS__)
+#define drbd_info(obj, fmt, ...) \
+	drbd_printk(KERN_INFO, obj, fmt, __VA_ARGS__)
 
 #if defined(DBG)
 #define drbd_debug(obj, fmt, ...) \
@@ -274,6 +308,10 @@ void drbd_printk_with_wrong_object_type(void);
 
 void drbd_printk_with_wrong_object_type(void);
 
+// BSR-237 if object is empty or undefined (NO_OBJECT)
+#define __drbd_printk(level, fmt, args...) \
+	printk(level fmt, ## args)
+
 #define __drbd_printk_if_same_type(obj, type, func, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \
 	 __builtin_types_compatible_p(typeof(obj), const type)), \
@@ -292,37 +330,37 @@ void drbd_printk_with_wrong_object_type(void);
 	      __builtin_choose_expr( \
 		__drbd_printk_if_same_type(obj, struct drbd_peer_device *, \
 				 __drbd_printk_peer_device, level, fmt, ## args), \
-	        drbd_printk_with_wrong_object_type()))))
+	        __drbd_printk(level, fmt, ## args))))) 
 
 #if defined(disk_to_dev)
-#define drbd_dbg(device, fmt, args...) \
-	dev_dbg(disk_to_dev(device->vdisk), fmt, ## args)
+#define drbd_dbg(obj, fmt, args...) \
+	dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
 #elif defined(DEBUG)
-#define drbd_dbg(device, fmt, args...) \
-	drbd_printk(KERN_DEBUG, device, fmt, ## args)
+#define drbd_dbg(obj, fmt, args...) \
+	drbd_printk(KERN_DEBUG, obj, fmt, ## args)
 #else
-#define drbd_dbg(device, fmt, args...) \
-	do { if (0) drbd_printk(KERN_DEBUG, device, fmt, ## args); } while (0)
+#define drbd_dbg(obj, fmt, args...) \
+	do { if (0) drbd_printk(KERN_DEBUG, obj, fmt, ## args); } while (0)
 #endif
 
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
-#define dynamic_drbd_dbg(device, fmt, args...) \
-	dynamic_dev_dbg(disk_to_dev(device->vdisk), fmt, ## args)
+#define dynamic_drbd_dbg(obj, fmt, args...) \
+	dynamic_dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
 #else
-#define dynamic_drbd_dbg(device, fmt, args...) \
-	drbd_dbg(device, fmt, ## args)
+#define dynamic_drbd_dbg(obj, fmt, args...) \
+	drbd_dbg(obj, fmt, ## args)
 #endif
 
-#define drbd_emerg(device, fmt, args...) \
-	drbd_printk(KERN_EMERG, device, fmt, ## args)
-#define drbd_alert(device, fmt, args...) \
-	drbd_printk(KERN_ALERT, device, fmt, ## args)
-#define drbd_err(device, fmt, args...) \
-	drbd_printk(KERN_ERR, device, fmt, ## args)
-#define drbd_warn(device, fmt, args...) \
-	drbd_printk(KERN_WARNING, device, fmt, ## args)
-#define drbd_info(device, fmt, args...) \
-	drbd_printk(KERN_INFO, device, fmt, ## args)
+#define drbd_emerg(obj, fmt, args...) \
+	drbd_printk(KERN_EMERG, obj, fmt, ## args)
+#define drbd_alert(obj, fmt, args...) \
+	drbd_printk(KERN_ALERT, obj, fmt, ## args)
+#define drbd_err(obj, fmt, args...) \
+	drbd_printk(KERN_ERR, obj, fmt, ## args)
+#define drbd_warn(obj, fmt, args...) \
+	drbd_printk(KERN_WARNING, obj, fmt, ## args)
+#define drbd_info(obj, fmt, args...) \
+	drbd_printk(KERN_INFO, obj, fmt, ## args)
 
 #if defined(DEBUG)
 #define drbd_debug(obj, fmt, args...) \
@@ -331,6 +369,49 @@ void drbd_printk_with_wrong_object_type(void);
 #define drbd_debug(obj, fmt, args...)
 #endif
 #endif
+
+
+#ifdef _WIN32
+#define BUG()   drbd_crit(NO_OBJECT,"warning: failure\n")
+#define BUG_ON(_condition)	\
+	do {		\
+		if (_condition) {	\
+			\
+				drbd_crit(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+						}	\
+			} while (false)
+
+#endif
+#ifdef WIN_AL_BUG_ON
+#define AL_BUG_ON(_condition, str_condition, lc, e)	\
+    do {	\
+        if(_condition) { \
+            drbd_crit(NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
+			if(lc || e){	\
+				lc_printf_stats(lc, e);	\
+										}\
+					}\
+		} while (false)
+#endif
+
+//DW-1918 add output at debug level
+#define DEBUG_BUG_ON(_condition)	\
+do {	\
+		if (_condition) {\
+				\
+				drbd_debug(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				}	\
+} while (false)
+
+#define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
+#define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
+
+#define BUG_ON_INT32_OVER(_value) DEBUG_BUG_ON(INT32_MAX < _value)
+#define BUG_ON_UINT32_OVER(_value) DEBUG_BUG_ON(UINT32_MAX < _value)
+
+#define BUG_ON_INT64_OVER(_value) DEBUG_BUG_ON(INT64_MAX < _value)
+#define BUG_ON_UINT64_OVER(_value) DEBUG_BUG_ON(UINT64_MAX < _value)
+
 
 #ifdef _WIN32
 #define DEFAULT_RATELIMIT_INTERVAL      (5 * HZ)
@@ -422,7 +503,7 @@ drbd_insert_fault(struct drbd_device *device, unsigned int type) {
 
     if (ret)
     {
-        WDRBD_INFO("FALUT_TEST: type=0x%x fault=%d\n", type, ret);
+        drbd_info(NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
 #else
@@ -2729,7 +2810,7 @@ drbd_commit_size_change(struct drbd_device *device, struct resize_parms *rs, u64
 static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		WDRBD_ERROR("md block_device is null.\n");
+		drbd_err(NO_OBJECT,"md block_device is null.\n");
 		return 0;
 	}
 
@@ -2740,7 +2821,7 @@ static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 	}
 	else
 	{
-		WDRBD_ERROR("bd_disk is null.\n");
+		drbd_err(NO_OBJECT,"bd_disk is null.\n");
 		return 0;
 	}
 }
@@ -2750,7 +2831,7 @@ static __inline sector_t drbd_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN32
 	if (!bdev) {
-		WDRBD_WARN("Null argument\n");
+		drbd_warn(NO_OBJECT,"Null argument\n");
 		return 0;
 	}
 	

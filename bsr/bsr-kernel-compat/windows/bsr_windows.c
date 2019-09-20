@@ -28,6 +28,7 @@
 #include "../bsr_wrappers.h"
 #include "disp.h"
 #include "proto.h"
+#include "../../../bsr/bsr_int.h"
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)
@@ -483,7 +484,7 @@ struct page  *alloc_page(int flag)
 
 	struct page *p = kmalloc(sizeof(struct page),0, 'D3DW'); 
 	if (!p)	{
-		WDRBD_INFO("alloc_page struct page failed\n");
+		drbd_info(NO_OBJECT,"alloc_page struct page failed\n");
 		return NULL;
 	}	
 	RtlZeroMemory(p, sizeof(struct page));
@@ -491,7 +492,7 @@ struct page  *alloc_page(int flag)
 	p->addr = kzalloc(PAGE_SIZE, 0, 'E3DW');
 	if (!p->addr)	{
 		kfree(p); 
-		WDRBD_INFO("alloc_page PAGE_SIZE failed\n");
+		drbd_info(NO_OBJECT,"alloc_page PAGE_SIZE failed\n");
 		return NULL;
 	}
 	RtlZeroMemory(p->addr, PAGE_SIZE);
@@ -519,7 +520,7 @@ void kmem_cache_free(struct kmem_cache *cache, void * x)
 
 void drbd_bp(char *msg)
 {
-    WDRBD_ERROR("breakpoint: msg(%s)\n", msg);
+    drbd_err(NO_OBJECT,"breakpoint: msg(%s)\n", msg);
 }
 
 __inline void kfree(void * x)
@@ -608,7 +609,7 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 	}
 
 	if (!p) {
-		WDRBD_ERROR("mempool_alloc failed");
+		drbd_err(NO_OBJECT,"mempool_alloc failed");
 	}
 
 	return p;
@@ -651,7 +652,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
 	if (!p)
 	{
-		WDRBD_ERROR("kzalloc failed\n");
+		drbd_err(NO_OBJECT,"kzalloc failed\n");
 		return 0;
 	}
 #ifdef _WIN64
@@ -724,7 +725,7 @@ struct bio *bio_alloc(gfp_t gfp_mask, int nr_iovecs, ULONG Tag)
 	bio->bi_vcnt = 0;
 
 	if (nr_iovecs > 256) {
-		WDRBD_ERROR("DRBD_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
+		drbd_err(NO_OBJECT,"DRBD_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
 		BUG();
 	}
 	return bio;
@@ -754,10 +755,10 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			WDRBD_INFO("thread(%s) bio_endio error with err=%d.\n", current->comm, error);
+			drbd_info(NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
-			//WDRBD_INFO("thread(%s) bio_endio with err=%d.\n", current->comm, error);
+			//drbd_info(NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
 			bio->bi_bdev = NULL;
         	bio->bi_end_io((void*)error, (void*) bio, (void*) error);
 		}
@@ -790,7 +791,7 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 	struct bio_vec *bvec = &bio->bi_io_vec[bio->bi_vcnt++];
 		
 	if (bio->bi_vcnt > 1) {
-		WDRBD_ERROR("DRBD_PANIC: bio->bi_vcn=%d. multi page occured!\n", bio->bi_vcnt);
+		drbd_err(NO_OBJECT,"DRBD_PANIC: bio->bi_vcn=%d. multi page occured!\n", bio->bi_vcnt);
         BUG();
 	}
 
@@ -936,7 +937,7 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
                 break;
 
             default:
-                WDRBD_ERROR("DRBD_PANIC: KeWaitForMultipleObjects done! default status=0x%x\n", status);
+                drbd_err(NO_OBJECT,"DRBD_PANIC: KeWaitForMultipleObjects done! default status=0x%x\n", status);
                 BUG();
                 break;
             }
@@ -1023,7 +1024,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
     NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
     if (!NT_SUCCESS(status))
     {
-        WDRBD_ERROR("PsCreateSystemThread failed with status 0x%08X\n", status);
+        drbd_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
         kfree(wq);
         return NULL;
     }
@@ -1032,7 +1033,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
     ZwClose(hThread);
     if (!NT_SUCCESS(status))
     {
-        WDRBD_ERROR("ObReferenceObjectByHandle failed with status 0x%08X\n", status);
+        drbd_err(NO_OBJECT,"ObReferenceObjectByHandle failed with status 0x%08X\n", status);
         kfree(wq);
         return NULL;
     }
@@ -1104,7 +1105,7 @@ int mutex_lock_interruptible(struct mutex *m)
 		break;
 	default:
 		err = -EIO;
-		WDRBD_ERROR("KeWaitForMultipleObjects returned unexpected status(0x%x)", status);
+		drbd_err(NO_OBJECT,"KeWaitForMultipleObjects returned unexpected status(0x%x)", status);
 		break;
 	}
 
@@ -1142,14 +1143,14 @@ void mutex_unlock(struct mutex *m)
 void sema_init(struct semaphore *s, int limit)
 {
     KeInitializeSemaphore(&s->sem, limit, limit);    
-    WDRBD_TRACE_SEM("KeInitializeSemaphore!  KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    drbd_debug_sem("KeInitializeSemaphore!  KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
 }
 
 void down(struct semaphore *s)
 {
-    WDRBD_TRACE_SEM("KeWaitForSingleObject before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    drbd_debug_sem("KeWaitForSingleObject before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
     KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, NULL);
-    WDRBD_TRACE_SEM("KeWaitForSingleObject after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    drbd_debug_sem("KeWaitForSingleObject after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
 }
 
 /**
@@ -1167,12 +1168,12 @@ int down_trylock(struct semaphore *s)
 
     if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS)
     {
-        WDRBD_TRACE_SEM("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        drbd_debug_sem("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 0;
     }
     else
     {
-        WDRBD_TRACE_SEM("fail! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        drbd_debug_sem("fail! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 1;
     }
 }
@@ -1181,14 +1182,14 @@ void up(struct semaphore *s)
 {
     if (KeReadStateSemaphore(&s->sem) < s->sem.Limit)
     {
-        WDRBD_TRACE_SEM("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        drbd_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
 		// DW-1496 : KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
 		try{
 			KeReleaseSemaphore(&s->sem, IO_NO_INCREMENT, 1, FALSE);
 		} except(EXCEPTION_EXECUTE_HANDLER){
-			WDRBD_TRACE_SEM("KeReleaseSemaphore Exception occured!(ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED)) \n");
+			drbd_debug_sem("KeReleaseSemaphore Exception occured!(ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED)) \n");
 		}
-		WDRBD_TRACE_SEM("KeReleaseSemaphore after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+		drbd_debug_sem("KeReleaseSemaphore after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
     }
 }
 
@@ -1246,7 +1247,7 @@ unsigned long _spin_lock_irqsave(spinlock_t *lock)
 	KIRQL	oldIrql = 0;
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) { 
-		WDRBD_WARN("thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		drbd_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &oldIrql);
 		lock->OwnerThread = curthread;
@@ -1272,7 +1273,7 @@ void spin_lock_irq(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {//DW-903 protect lock recursion
-		WDRBD_WARN("thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		drbd_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1309,7 +1310,7 @@ void spin_lock_bh(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {
-		WDRBD_WARN("thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		drbd_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		KeAcquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1482,7 +1483,7 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 	}
 
 #ifdef DBG
-    WDRBD_TRACE_TM("%s timer(0x%p) current(%d) expires(%d) gap(%d)\n",
+    drbd_debug_tm("%s timer(0x%p) current(%d) expires(%d) gap(%d)\n",
         timer->name, timer, current_milisec, timer->expires, timer->expires - current_milisec);
 #endif
     KeSetTimer(&timer->ktimer, nWaitTime, &timer->dpc);
@@ -1540,7 +1541,7 @@ void kobject_put(struct kobject *kobj)
     {
         if (kobj->name == NULL)
         {
-            //WDRBD_WARN("%p name is null.\n", kobj);
+            //drbd_warn(NO_OBJECT,"%p name is null.\n", kobj);
             return;
         }
 
@@ -1557,7 +1558,7 @@ void kobject_put(struct kobject *kobj)
     }
     else
     {
-        //WDRBD_WARN("kobj is null.\n");
+        //drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
 }
@@ -1566,7 +1567,7 @@ void kobject_del(struct kobject *kobj)
 {
     if (!kobj)
     {
-        WDRBD_WARN("kobj is null.\n");
+        drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1580,7 +1581,7 @@ void kobject_get(struct kobject *kobj)
     }
     else
     {
-        WDRBD_INFO("kobj is null.\n");
+        drbd_info(NO_OBJECT,"kobj is null.\n");
         return;
     }
 }
@@ -1611,7 +1612,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		WDRBD_INFO("socket is null.\n");
+		drbd_info(NO_OBJECT,"socket is null.\n");
 		return;
 	}
 
@@ -1620,7 +1621,7 @@ void del_gendisk(struct gendisk *disk)
 	status = CloseSocket(sock->sk); 
 	if (!NT_SUCCESS(status)) 
 	{
-		WDRBD_ERROR("error=0x%x\n", status);
+		drbd_err(NO_OBJECT,"error=0x%x\n", status);
 		return;
 	}
 #endif
@@ -1628,9 +1629,9 @@ void del_gendisk(struct gendisk *disk)
 	// DW-1493 : WSK_EVENT_DISCONNECT disable
 	if (sock->sk){
 		status = SetEventCallbacks(sock, WSK_EVENT_DISCONNECT | WSK_EVENT_DISABLE);
-		WDRBD_TRACE("WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
+		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
 		if (!NT_SUCCESS(status)) {
-			WDRBD_TRACE("WSK_EVENT_DISABLE failed (sock = 0x%p)\n", sock);
+			drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (sock = 0x%p)\n", sock);
 		}
 	}
 
@@ -1650,11 +1651,11 @@ void del_gendisk(struct gendisk *disk)
 		//kfree2(bab);
 	}
 	
-	WDRBD_CONN_TRACE("sock_relese: called CloseSocket(%p)\n", sock->sk);
+	drbd_debug_conn("sock_relese: called CloseSocket(%p)\n", sock->sk);
 	status = CloseSocket(sock);
-	WDRBD_CONN_TRACE("CloseSocket error(%p)\n", status);
+	drbd_debug_conn("CloseSocket error(%p)\n", status);
 	if (!NT_SUCCESS(status)) {
-		WDRBD_CONN_TRACE("CloseSocket failed \n");
+		drbd_debug_conn("CloseSocket failed \n");
 		return;
 	}
 #endif
@@ -1702,7 +1703,7 @@ static void __delete_thread(struct task_struct *t)
     // logic check
     if (ct_thread_num < 0)
     {
-        WDRBD_ERROR("DRBD_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
+        drbd_err(NO_OBJECT,"DRBD_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
         BUG();
     }
 }
@@ -1726,7 +1727,7 @@ struct task_struct * ct_add_thread(PKTHREAD id, const char *name, BOOLEAN event,
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
 	list_add(&t->list, &ct_thread_list);
 	if (++ct_thread_num > CT_MAX_THREAD_LIST) {
-		WDRBD_WARN("ct_thread too big(%s, %d)\n", name, ct_thread_num);
+		drbd_warn(NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
     }
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
     return t;
@@ -1790,7 +1791,7 @@ void *crypto_alloc_tfm(char *name, u32 mask)
 {
 	UNREFERENCED_PARAMETER(mask);
 
-	WDRBD_INFO("request crypto name(%s) --> supported crc32c only.\n", name);
+	drbd_info(NO_OBJECT,"request crypto name(%s) --> supported crc32c only.\n", name);
 	return (void *)1;
 }
 
@@ -1816,17 +1817,17 @@ int generic_make_request(struct bio *bio)
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension) {
 			status = IoAcquireRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 			if (!NT_SUCCESS(status)) {
-				WDRBD_ERROR("IoAcquireRemoveLock bio->bi_bdev->bd_disk->pDeviceExtension:%p fail. status(0x%x)\n", bio->bi_bdev->bd_disk->pDeviceExtension, status);
+				drbd_err(NO_OBJECT,"IoAcquireRemoveLock bio->bi_bdev->bd_disk->pDeviceExtension:%p fail. status(0x%x)\n", bio->bi_bdev->bd_disk->pDeviceExtension, status);
 				return -EIO;
 			}
 		}
 		else {
-			WDRBD_WARN("IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
+			drbd_warn(NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
 	else {
-		WDRBD_WARN("IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
+		drbd_warn(NO_OBJECT,"IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
 		return -EIO;
 	}
 
@@ -1853,7 +1854,7 @@ int generic_make_request(struct bio *bio)
 	}
 
 #ifdef DRBD_TRACE
-    WDRBD_TRACE("(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:\n", 
+    drbd_debug(NO_OBJECT,"(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:\n", 
 		current->comm, (io == IRP_MJ_READ) ? "READ" : "WRITE", 
 		offset.QuadPart / 512, bio->bi_size, KeGetCurrentIrql(), &offset, buffer, q->backing_dev_info.pDeviceExtension->Letter);
 #endif
@@ -1868,7 +1869,7 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		WDRBD_ERROR("IoBuildAsynchronousFsdRequest: cannot alloc new IRP\n");
+		drbd_err(NO_OBJECT,"IoBuildAsynchronousFsdRequest: cannot alloc new IRP\n");
 		//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -1897,7 +1898,7 @@ int generic_make_request(struct bio *bio)
 	//
 	if (gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE0) {
 		if (IsDiskError()) {
-			WDRBD_ERROR("SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+			drbd_err(NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 			//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 			if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 				IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -2139,7 +2140,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 #ifndef _WIN32
 		// skb_over_panic(skb, len, __builtin_return_address(0));
 #else
-		WDRBD_ERROR("drbd:skb_put: skb_over_panic\n");
+		drbd_err(NO_OBJECT,"drbd:skb_put: skb_over_panic\n");
 #endif
 	}
 
@@ -2205,7 +2206,7 @@ int _DRBD_ratelimit(struct ratelimit_state *rs, const char * func, const char * 
 
 	if (time_is_before_jiffies(rs->begin + rs->interval)){
 		if (rs->missed)
-			WDRBD_WARN("%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
+			drbd_warn(NO_OBJECT,"%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
 		rs->begin = jiffies;
 		rs->printed = 0;
 		rs->missed = 0;
@@ -2258,7 +2259,7 @@ bool _expect(long exp, struct drbd_conf *mdev, char *file, int line)
 {
 	if (!exp)
 	{
-		WDRBD_ERROR("minor(%d) ASSERTION FAILED in file:%s line:%d\n", mdev->minor, file, line);
+		drbd_err(NO_OBJECT,"minor(%d) ASSERTION FAILED in file:%s line:%d\n", mdev->minor, file, line);
         BUG();
 	}
 	return exp;
@@ -2331,7 +2332,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 	NTSTATUS 			status;
 	bool				bWasExist = FALSE;	
 	if (!pvext) {
-		WDRBD_WARN("update_targetdev fail pvext is NULL\n");
+		drbd_warn(NO_OBJECT,"update_targetdev fail pvext is NULL\n");
 		return;
 	}
 
@@ -2342,14 +2343,14 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 			bWasExist = TRUE;
 
 			if (!IsEmptyUnicodeString(&old_mount_point))
-				WDRBD_TRACE("old_mount_point:%wZ\n", &old_mount_point);
+				drbd_debug(NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
 		}
 		
 		status = mvolUpdateMountPointInfoByExtension(pvext);
 		if(NT_SUCCESS(status)) {
 
 			if (!IsEmptyUnicodeString(&pvext->MountPoint))
-				WDRBD_TRACE("new mount point:%wZ\n", &pvext->MountPoint);
+				drbd_debug(NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
 
 			// DW-1105: detach volume when replicating volume letter is changed.
 			if (pvext->Active && bWasExist) {
@@ -2359,7 +2360,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 					// DW-1300: get device and get reference.
 					struct drbd_device *device = get_device_with_vol_ext(pvext, TRUE);
 					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
-						WDRBD_WARN("replicating volume letter is changed, detaching\n");
+						drbd_warn(NO_OBJECT,"replicating volume letter is changed, detaching\n");
 						set_bit(FORCE_DETACH, &device->flags);
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
 						put_ldev(device);
@@ -2384,7 +2385,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 		pvext->dev->bd_contains->d_size = d_size;
 		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : DRBD_MAX_BIO_SIZE;
 	}
-	WDRBD_TRACE("d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
+	drbd_debug(NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
 }
 
 // DW-1105: refresh all volumes and handle changes.
@@ -2423,13 +2424,13 @@ void monitor_mnt_change(PVOID pParam)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			WDRBD_ERROR("could not open mount manager, status : 0x%x\n", status);
+			drbd_err(NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
 			break;
 		}
 
 		status = ZwCreateEvent(&hEvent, GENERIC_ALL, 0, NotificationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			WDRBD_ERROR("could not create event, status : 0x%x\n", status);
+			drbd_err(NO_OBJECT,"could not create event, status : 0x%x\n", status);
 			break;
 		}
 
@@ -2444,7 +2445,7 @@ void monitor_mnt_change(PVOID pParam)
 				&mcni1, sizeof(mcni1), &mcni2, sizeof(mcni2));
 
 			if (!NT_SUCCESS(status)) {
-				WDRBD_ERROR("ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
+				drbd_err(NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
 				break;
 			} else if (STATUS_PENDING == status) {
 				status = ZwWaitForSingleObject(hEvent, TRUE, NULL);
@@ -2454,7 +2455,7 @@ void monitor_mnt_change(PVOID pParam)
 			HANDLE hVolRefresher = NULL;
 			status = PsCreateSystemThread(&hVolRefresher, THREAD_ALL_ACCESS, NULL, NULL, NULL, adjust_changes_to_volume, NULL);
 			if (!NT_SUCCESS(status)) {
-				WDRBD_ERROR("PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
+				drbd_err(NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
 				break;
 			}
 
@@ -2485,7 +2486,7 @@ NTSTATUS start_mnt_monitor()
 
 	status = PsCreateSystemThread(&hVolMonitor, THREAD_ALL_ACCESS, NULL, NULL, NULL, monitor_mnt_change, NULL);
 	if (!NT_SUCCESS(status)) {
-		WDRBD_ERROR("PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
+		drbd_err(NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
 		return status;
 	}
 
@@ -2542,12 +2543,12 @@ LONGLONG get_targetdev_volsize(PVOLUME_EXTENSION VolumeExtension)
 	NTSTATUS		status;
 
 	if (VolumeExtension->TargetDeviceObject == NULL) {
-		WDRBD_ERROR("TargetDeviceObject is null!\n");
+		drbd_err(NO_OBJECT,"TargetDeviceObject is null!\n");
 		return (LONGLONG)0;
 	}
 	status = mvolGetVolumeSize(VolumeExtension->TargetDeviceObject, &volumeSize);
 	if (!NT_SUCCESS(status)) {
-		WDRBD_WARN("get volume size error = 0x%x\n", status);
+		drbd_warn(NO_OBJECT,"get volume size error = 0x%x\n", status);
 		volumeSize.QuadPart = 0;
 	}
 	return volumeSize.QuadPart;
@@ -2568,27 +2569,27 @@ struct block_device * create_drbd_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
     if (!dev) {
-        WDRBD_ERROR("Failed to allocate block_device NonPagedMemory\n");
+        drbd_err(NO_OBJECT,"Failed to allocate block_device NonPagedMemory\n");
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5DW');
 	if (!dev->bd_contains) {
-        WDRBD_ERROR("Failed to allocate block_device NonPagedMemory\n");
+        drbd_err(NO_OBJECT,"Failed to allocate block_device NonPagedMemory\n");
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk)
 	{
-		WDRBD_ERROR("Failed to allocate gendisk NonPagedMemory\n");
+		drbd_err(NO_OBJECT,"Failed to allocate gendisk NonPagedMemory\n");
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue)
 	{
-		WDRBD_ERROR("Failed to allocate request_queue NonPagedMemory\n");
+		drbd_err(NO_OBJECT,"Failed to allocate request_queue NonPagedMemory\n");
 		goto request_queue_failed;
 	}
 		
@@ -2645,7 +2646,7 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 	// DW-1381: dev is set as NULL when block device is destroyed.
 	if (!pvext->dev)
 	{
-		WDRBD_ERROR("failed to get drbd device since pvext->dev is NULL\n");
+		drbd_err(NO_OBJECT,"failed to get drbd device since pvext->dev is NULL\n");
 		return NULL;		
 	}
 
@@ -2655,7 +2656,7 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
 		if (!NT_SUCCESS(status))
 		{
-			WDRBD_INFO("failed to acquire remove lock with status:0x%x, return NULL\n", status);
+			drbd_info(NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
 			return NULL;
 		}
 	}
@@ -2700,7 +2701,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93DW');
     if (!new_reg_buf) {
-        WDRBD_ERROR("Failed to ExAllocatePoolWithTag new_reg_buf\n", 0);
+        drbd_err(NO_OBJECT,"Failed to ExAllocatePoolWithTag new_reg_buf\n", 0);
         return FALSE;
     }
 
@@ -2731,7 +2732,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3DW');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-        WDRBD_ERROR("Failed to ExAllocatePoolWithTag() size(%d)\n", size);
+        drbd_err(NO_OBJECT,"Failed to ExAllocatePoolWithTag() size(%d)\n", size);
         goto cleanup;
     }
 
@@ -2745,7 +2746,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-        WDRBD_ERROR("Failed to ExAllocatePoolWithTag() valueInfoSize(%d)\n", valueInfoSize);
+        drbd_err(NO_OBJECT,"Failed to ExAllocatePoolWithTag() valueInfoSize(%d)\n", valueInfoSize);
         goto cleanup;
     }
 
@@ -2908,7 +2909,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlInitAnsiString(&apath, cpath);
 	NTSTATUS status = RtlAnsiStringToUnicodeString(&upath, &apath, TRUE);
 	if (!NT_SUCCESS(status)) {
-		WDRBD_WARN("Wrong path = %s\n", path);
+		drbd_warn(NO_OBJECT,"Wrong path = %s\n", path);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -2947,13 +2948,13 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
 	if (!sLine)
 	{
-		WDRBD_ERROR("sLine:kzalloc failed\n");
+		drbd_err(NO_OBJECT,"sLine:kzalloc failed\n");
 		return;
 	}
 
 	*(sLine + sLineSize - 1) = '\0';
 
-	WDRBD_INFO("DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
+	drbd_info(NO_OBJECT,"DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
 
 	while (sPos < aBufferSize)
 	{
@@ -2982,7 +2983,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 			*(sLine + sCharAreaStartPos + i) = (sByte < 127 && sByte >= 0x20) ? (char) sByte : '.';
 		}
 		sPos += aWidth;
-		WDRBD_INFO("%s\n", sLine);
+		drbd_info(NO_OBJECT,"%s\n", sLine);
 	}
 	kfree(sLine);
 }
@@ -3005,7 +3006,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW');
 	if (!pSock) {
-		WDRBD_ERROR("call_usermodehelper kzalloc failed\n");
+		drbd_err(NO_OBJECT,"call_usermodehelper kzalloc failed\n");
 		return -1;
 	}
 #ifdef _WIN64
@@ -3014,7 +3015,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64DW');
 	if (!cmd_line) {
-		WDRBD_ERROR("malloc(%d) failed\n", leng);
+		drbd_err(NO_OBJECT,"malloc(%d) failed\n", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -3022,11 +3023,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	}
 
 	_snprintf(cmd_line, leng - 1, "%s %s\0", argv[1], argv[2]); // except "drbdadm.exe" string
-    WDRBD_INFO("malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
+    drbd_info(NO_OBJECT,"malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		WDRBD_ERROR("CreateSocket() returned NULL\n");
+		drbd_err(NO_OBJECT,"CreateSocket() returned NULL\n");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -3054,11 +3055,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		WDRBD_INFO("Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
+		drbd_info(NO_OBJECT,"Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
 		goto error;
 	}
 
-	WDRBD_INFO("Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n", 
+	drbd_info(NO_OBJECT,"Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n", 
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b1,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b2,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b3,
@@ -3070,14 +3071,14 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		LONG readcount;
 		char hello[2];
 		memset(hello, 0, sizeof(hello));
-		WDRBD_TRACE("Wait Hi\n");
+		drbd_debug(NO_OBJECT,"Wait Hi\n");
 		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout)) == 2) {
-			WDRBD_TRACE("recv HI!!! \n");
+			drbd_debug(NO_OBJECT,"recv HI!!! \n");
 		} else {
 			if (readcount == -EAGAIN) {
-				WDRBD_INFO("error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
+				drbd_info(NO_OBJECT,"error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
 			} else {
-				WDRBD_INFO("error recv status=0x%x\n", readcount);
+				drbd_info(NO_OBJECT,"error recv status=0x%x\n", readcount);
 			}
 			ret = -1;
 
@@ -3087,18 +3088,18 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			WDRBD_ERROR("send command fail stat=0x%x\n", Status);
+			drbd_err(NO_OBJECT,"send command fail stat=0x%x\n", Status);
 			ret = -1;
 			goto error;
 		}
 
 		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout)) > 0) {
-			WDRBD_TRACE("recv val=0x%x\n", ret);
+			drbd_debug(NO_OBJECT,"recv val=0x%x\n", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				WDRBD_INFO("recv retval timeout(%d)!\n", g_handler_timeout);
+				drbd_info(NO_OBJECT,"recv retval timeout(%d)!\n", g_handler_timeout);
 			} else {
-				WDRBD_INFO("recv status=0x%x\n", readcount);
+				drbd_info(NO_OBJECT,"recv status=0x%x\n", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3106,17 +3107,17 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			WDRBD_ERROR("send bye fail stat=0x%x\n", Status); // ignore!
+			drbd_err(NO_OBJECT,"send bye fail stat=0x%x\n", Status); // ignore!
 		}
 
-		WDRBD_TRACE("Disconnect:shutdown...\n", Status);
+		drbd_debug(NO_OBJECT,"Disconnect:shutdown...\n", Status);
 		Disconnect(pSock);
 
 #if 0
 		if ((readcount = Receive(Socket, &ret, 1, 0, 0)) > 0) {
-			WDRBD_INFO("recv dummy  val=0x%x\n", ret);// ignore!
+			drbd_info(NO_OBJECT,"recv dummy  val=0x%x\n", ret);// ignore!
 		} else {
-			WDRBD_INFO("recv dummy  status=%d\n", readcount);// ignore!
+			drbd_info(NO_OBJECT,"recv dummy  status=%d\n", readcount);// ignore!
 		}
 #endif
 	}
@@ -3132,7 +3133,7 @@ error:
 
 void panic(char *msg)
 {
-    WDRBD_ERROR("%s\n", msg);
+    drbd_err(NO_OBJECT,"%s\n", msg);
 #ifdef _WIN32_EVENTLOG
 	WriteEventLogEntryData((ULONG) DEV_ERR_3003, 0, 0, 1, L"%S", msg);
 #endif
@@ -3194,10 +3195,10 @@ int drbd_backing_bdev_events(struct drbd_device *device)
 	status = mvolGetDiskPerf(mdev->ldev->backing_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, &diskPerf);
 	if (!NT_SUCCESS(status))
 	{
-		WDRBD_ERROR("mvolGetDiskPerf status=0x%x\n", status);
+		drbd_err(NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
 		return mdev->writ_cnt + mdev->read_cnt;
 	}
-	// WDRBD_INFO("mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld\n",
+	// drbd_info(NO_OBJECT,"mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld\n",
 	//		mdev->read_cnt, mdev->writ_cnt, mdev->writ_cnt + mdev->read_cnt,
 	//		diskPerf.BytesRead.QuadPart/512, diskPerf.BytesWritten.QuadPart/512,
 	//		diskPerf.BytesRead.QuadPart/512 + diskPerf.BytesWritten.QuadPart/512);
@@ -3469,7 +3470,7 @@ VOID RetryAsyncWriteRequest(struct bio* bio, PIRP Irp, NTSTATUS error, char* ctx
 		write_log = false;
 
 	if (write_log)
-		WDRBD_WARN("ctx:%s error:%x bio->io_retry:%d\n", ctx, error, bio->io_retry);
+		drbd_warn(NO_OBJECT,"ctx:%s error:%x bio->io_retry:%d\n", ctx, error, bio->io_retry);
 
 	atomic_dec(&bio->io_retry);
 	pIrpStack = IoGetNextIrpStackLocation (Irp);

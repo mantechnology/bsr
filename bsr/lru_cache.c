@@ -35,6 +35,7 @@
 #include <linux/lru_cache.h>
 #endif
 #include "./bsr-kernel-compat/bsr_wrappers.h"
+#include "../bsr/bsr_int.h"
 
 
 // DW-1513 : Output LRU status like lc_seq_printf_stats function
@@ -69,7 +70,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		}
 		if (lc->flags)
 			private_strcat(print_lru, sizeof(print_lru), " flags= ", lc->flags);
-		WDRBD_FATAL("lru : %s\n", print_lru);
+		drbd_crit(NO_OBJECT,"lru : %s\n", print_lru);
 	}
 
 	if (e){
@@ -82,7 +83,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		if (e->lc_new_number)
 			private_strcat(print_ele, sizeof(print_ele), " lc_new_number= ", e->lc_new_number);
 
-		WDRBD_FATAL("element : %s\n", print_ele);
+		drbd_crit(NO_OBJECT,"element : %s\n", print_ele);
 	}
 }
 #endif 
@@ -407,7 +408,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		WDRBD_ERROR("al is inaccessible, it could be not initialized or destroyed.\n");
+		drbd_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
 		return NULL;
 	}
 #else
