@@ -3845,10 +3845,10 @@ struct completion_work {
 
 static int w_complete(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct completion_work *completion_work =
 		container_of(w, struct completion_work, w);
 
+	UNREFERENCED_PARAMETER(cancel);
 	complete(&completion_work->done);
 	return 0;
 }
@@ -6509,11 +6509,12 @@ int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 
 static int w_bitmap_io(struct drbd_work *w, int unused)
 {
-	UNREFERENCED_PARAMETER(unused);
 	struct bm_io_work *work =
 		container_of(w, struct bm_io_work, w);
 	struct drbd_device *device = work->device;
 	int rv = -EIO;
+
+	UNREFERENCED_PARAMETER(unused);
 
 	if (get_ldev(device)) {
 		if (work->flags & BM_LOCK_SINGLE_SLOT)

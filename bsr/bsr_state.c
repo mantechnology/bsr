@@ -3232,8 +3232,6 @@ static void check_may_resume_io_after_fencing(struct drbd_state_change *state_ch
  */
 static int w_after_state_change(struct drbd_work *w, int unused)
 {
-	UNREFERENCED_PARAMETER(unused);
-
 	struct after_state_change_work *work =
 		container_of(w, struct after_state_change_work, w);
 	struct drbd_state_change *state_change = work->state_change;
@@ -3246,6 +3244,8 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 	bool still_connected = false;
 	bool try_become_up_to_date = false;
 	bool resync_finished = false;
+
+	UNREFERENCED_PARAMETER(unused);
 
 	notify_state_change(state_change);
 
@@ -4963,12 +4963,12 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 
 int nested_twopc_work(struct drbd_work *work, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
-
 	struct drbd_resource *resource =
 		container_of(work, struct drbd_resource, twopc_work);
 	enum drbd_state_rv rv;
 	enum drbd_packet cmd;
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	rv = get_cluster_wide_reply(resource, NULL);
 	if (rv >= SS_SUCCESS)

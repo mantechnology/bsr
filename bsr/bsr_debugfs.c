@@ -307,10 +307,11 @@ static void seq_print_peer_request(struct seq_file *m,
 	struct drbd_connection *connection, struct list_head *lh,
 	ULONG_PTR now)
 {
-	UNREFERENCED_PARAMETER(connection);
-
 	bool reported_preparing = false;
 	struct drbd_peer_request *peer_req;
+
+	UNREFERENCED_PARAMETER(connection);
+
 	list_for_each_entry_ex(struct drbd_peer_request, peer_req, lh, w.list) {
 		struct drbd_peer_device *peer_device = peer_req->peer_device;
 		struct drbd_device *device = peer_device ? peer_device->device : NULL;
@@ -383,11 +384,11 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 	struct drbd_connection *connection,
 	ULONG_PTR now)
 {
-	UNREFERENCED_PARAMETER(connection);
-
 	struct drbd_request *req;
 	unsigned int count = 0;
 	unsigned int show_state = 0;
+
+	UNREFERENCED_PARAMETER(connection);
 
 	seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
 	spin_lock_irq(&resource->req_lock);
@@ -448,14 +449,13 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 /* TODO: transfer_log and friends should be moved to resource */
 static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 {
-	UNREFERENCED_PARAMETER(pos);
-
 	struct drbd_resource *resource = m->private;
 	struct drbd_connection *connection;
 	struct drbd_transport *transport;
 	struct drbd_transport_stats transport_stats;
-	ULONG_PTR jif = jiffies;
 
+	ULONG_PTR jif = jiffies;
+	UNREFERENCED_PARAMETER(pos);
 	connection = first_connection(resource);
 	transport = &connection->transport;
 	/* This does not happen, actually.
@@ -508,13 +508,13 @@ static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 
 static int resource_state_twopc_show(struct seq_file *m, void *pos)
 {
-	UNREFERENCED_PARAMETER(pos);
-
 	struct drbd_resource *resource = m->private;
 	struct twopc_reply twopc = {0,};
 	bool active = false;
 	ULONG_PTR jif;
 	struct queued_twopc *q;
+
+	UNREFERENCED_PARAMETER(pos);
 
 	spin_lock_irq(&resource->req_lock);
 	if (resource->remote_state_change) {
