@@ -1607,7 +1607,7 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 
 retry:
 	sig = wait_event_interruptible_ex(&device->al_wait,
-			(bm_ext = _bme_get(peer_device, enr)));
+		(bm_ext = _bme_get(peer_device, (unsigned int)enr)));
 
 	if (sig)
 		return -EINTR;
@@ -1620,7 +1620,7 @@ retry:
 
 	for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
 		sig = wait_event_interruptible_ex(&device->al_wait,
-					       !_is_in_al(device, enr * AL_EXT_PER_BM_SECT + i) ||
+							(unsigned int)!_is_in_al(device, enr * AL_EXT_PER_BM_SECT + i) ||
 					       (sa && test_bit(BME_PRIORITY, &bm_ext->flags)));
 
 		if (sig || (sa && test_bit(BME_PRIORITY, &bm_ext->flags))) {
