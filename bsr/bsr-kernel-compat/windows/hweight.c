@@ -35,7 +35,7 @@ unsigned int hweight8(unsigned int w)
     return (res + (res >> 4)) & 0x0F;
 }
 
-__u64 hweight64(__u64 w)
+ULONG_PTR hweight64(__u64 w)
 {
 #if BITS_PER_LONG == 32
     return hweight32((unsigned int)(w >> 32)) + hweight32((unsigned int)w);

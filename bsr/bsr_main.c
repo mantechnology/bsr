@@ -33,7 +33,6 @@
  * The use of comma does not cause any performance problems or bugs, 
  * but keep the code as it is written.
  */
-#pragma warning (disable: 6053 6319 28719)
 #include <ntifs.h>
 #include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
@@ -1231,11 +1230,8 @@ static void prepare_header(struct drbd_connection *connection, int vnr,
 
 static void new_or_recycle_send_buffer_page(struct drbd_send_buffer *sbuf)
 {
-#ifdef _WIN32
-	while (true, true) {
-#else
 	while (1) {
-#endif		
+
 		struct page *page;
 		int count = page_count(sbuf->page);
 
@@ -3849,9 +3845,7 @@ struct completion_work {
 
 static int w_complete(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32	
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct completion_work *completion_work =
 		container_of(w, struct completion_work, w);
 
@@ -5762,7 +5756,10 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] == L_SYNC_TARGET ||
-		    peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
+			peer_device->repl_state[NOW] == L_PAUSED_SYNC_T ||
+			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
+			peer_device->repl_state[NOW] == L_BEHIND ||
+			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
 			peer_device->current_uuid = val;
 			set_current = false;
 		}
@@ -5789,17 +5786,22 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 	drbd_propagate_uuids(device, got_new_bitmap_uuid);
 }
 
-static u64 __set_bitmap_slots(struct drbd_device *device, u64 bitmap_uuid, u64 do_nodes) __must_hold(local)
+static u64 __set_bitmap_slots(struct drbd_device *device, struct drbd_peer_device *peer_device, u64 do_nodes) __must_hold(local)
 {
 	struct drbd_peer_md *peer_md = device->ldev->md.peers;
 	u64 modified = 0;
 	int node_id;
+	u64 bitmap_uuid = 0;
 
 	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
 		if (node_id == device->ldev->md.node_id)
 			continue;
 		if (!(do_nodes & NODE_MASK(node_id)))
 			continue;
+
+		// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+		if (peer_device)
+			bitmap_uuid = peer_device->bitmap_uuids[node_id];
 
 		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
 			_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
@@ -5841,8 +5843,9 @@ u64 drbd_uuid_resync_finished(struct drbd_peer_device *peer_device) __must_hold(
 
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 	set_bitmap_slots = __test_bitmap_slots_of_peer(peer_device);
-	newer = __set_bitmap_slots(device, drbd_current_uuid(device), set_bitmap_slots);
-	equal = __set_bitmap_slots(device, 0, ~set_bitmap_slots);
+	// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+	newer = __set_bitmap_slots(device, peer_device, set_bitmap_slots);
+	equal = __set_bitmap_slots(device, NULL, ~set_bitmap_slots);
 	_drbd_uuid_push_history(device, drbd_current_uuid(device));
 	__drbd_uuid_set_current(device, peer_device->current_uuid);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
@@ -6498,9 +6501,7 @@ out:
 int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 			    struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	drbd_resume_al(device);
 	drbd_bm_clear_all(device);
 	return drbd_bm_write(device, NULL);
@@ -6508,9 +6509,7 @@ int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 
 static int w_bitmap_io(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct bm_io_work *work =
 		container_of(w, struct bm_io_work, w);
 	struct drbd_device *device = work->device;

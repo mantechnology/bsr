@@ -27,7 +27,6 @@
 #define _DRBD_INT_H
 
 #ifdef _WIN32
-//#pragma warning (disable : 4221 4706)
 #include "stddef.h"
 #include "../bsr-headers/windows/types.h"
 #include "./bsr-kernel-compat/windows/list.h"
@@ -161,7 +160,7 @@ struct drbd_connection;
         const struct drbd_resource *__r = __d->resource;	\
         printk(level "drbd %s/%u minor %u, ds(%s), dvflag(0x%x): " fmt,			\
             __r->name, __d->vnr, __d->minor, drbd_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
-    } while (0,0)
+    } while (0)
 
 // DW-1494 : (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
 #define __drbd_printk_peer_device(level, peer_device, fmt, ...)	\
@@ -178,7 +177,7 @@ struct drbd_connection;
         printk(level "drbd %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
             __r->name, __d->vnr, __d->minor, __cn, drbd_disk_str((peer_device)->disk_state[NOW]), drbd_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
         /*rcu_read_unlock();	_WIN32 // DW-	*/		\
-	    } while (0,0)
+	    } while (0)
 
 #define __drbd_printk_resource(level, resource, fmt, ...) \
 	printk(level "drbd %s, r(%s), f(0x%x), scf(0x%x): " fmt, (resource)->name, drbd_role_str((resource)->role[NOW]), (resource)->flags,(resource)->state_change_flags, __VA_ARGS__)
@@ -189,7 +188,7 @@ struct drbd_connection;
         printk(level "drbd %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, (connection)->resource->name,  \
         (connection)->peer_node_id, drbd_conn_str((connection)->cstate[NOW]), drbd_role_str((connection)->peer_role[NOW]), (connection)->flags,(connection)->resource->state_change_flags, __VA_ARGS__); \
         /*rcu_read_unlock(); _WIN32 // DW- */ \
-	    } while (0,0)
+	    } while (0)
 
 void drbd_printk_with_wrong_object_type(void);
  
@@ -198,7 +197,7 @@ void drbd_printk_with_wrong_object_type(void);
 #define drbd_printk(level, obj, fmt, ...)   \
     do {    \
         __drbd_printk_##obj(level, obj, fmt, __VA_ARGS__);  \
-    } while(0,0)
+    } while(0)
 
 #if defined(disk_to_dev)
 #define drbd_dbg(device, fmt, args...) \
@@ -208,7 +207,7 @@ void drbd_printk_with_wrong_object_type(void);
 	drbd_printk(KERN_DEBUG, device, fmt, __VA_ARGS__)
 #else
 #define drbd_dbg(device, fmt, ...) \
-	do { if (false,false) drbd_printk(KERN_DEBUG, device, fmt, __VA_ARGS__); } while(false,false)
+	do { if (false,false) drbd_printk(KERN_DEBUG, device, fmt, __VA_ARGS__); } while(false)
 #endif
 
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
@@ -3739,9 +3738,7 @@ static inline u64 drbd_history_uuid(struct drbd_device *device, int i)
 
 static inline int drbd_queue_order_type(struct drbd_device *device)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
-#endif
 
 	/* sorry, we currently have no working implementation
 	 * of distributed TCQ stuff */
@@ -3772,9 +3769,7 @@ static inline void drbd_kick_lo(struct drbd_device *device)
 #else
 static inline void drbd_blk_run_queue(struct request_queue *q)
 {
-#ifdef _WIN32	
 	UNREFERENCED_PARAMETER(q);
-#endif
 }
 static inline void drbd_kick_lo(struct drbd_device *device)
 {

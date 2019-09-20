@@ -1,7 +1,5 @@
 #include "seq_file.h"
 
-#pragma warning (disable: 6053 28719)
-
 int seq_putc(struct seq_file *m, char c)
 {
 	UNREFERENCED_PARAMETER(m);

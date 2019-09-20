@@ -581,9 +581,6 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long s
 	 enum bitmap_operations op, __le32 *buffer, enum km_type km_type)
 #endif
 {
-#ifdef _WIN32
-	UNREFERENCED_PARAMETER(km_type);
-#endif
 	struct drbd_bitmap *bitmap = device->bitmap;
 	unsigned int word32_skip = 32 * bitmap->bm_max_peers;
 #ifdef _WIN32
@@ -913,13 +910,9 @@ bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long start
 #endif
 {
 	struct drbd_bitmap *bitmap = device->bitmap;
-#ifdef _WIN32
-    long irq_flags;
-    ULONG_PTR count;
-#else
 	unsigned long irq_flags;
-	unsigned long count;
-#endif
+	ULONG_PTR count;
+
 	spin_lock_irqsave(&bitmap->bm_lock, irq_flags);
 	count = __bm_op(device, bitmap_index, start, end, op, buffer);
 	spin_unlock_irqrestore(&bitmap->bm_lock, irq_flags);
@@ -1155,13 +1148,9 @@ unsigned long _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index
 #endif
 {
 	struct drbd_bitmap *b = device->bitmap;
-#ifdef _WIN32
-    ULONG_PTR s;
-    long flags;
-#else
-	unsigned long s;
+	ULONG_PTR s;
 	unsigned long flags;
-#endif
+
 	if (!expect(device, b))
 		return 0;
 	if (!expect(device, b->bm_pages))
@@ -1201,7 +1190,7 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 {
 	struct drbd_peer_device *peer_device;
 	ULONG_PTR total_count = 0;
-	long flags;
+	unsigned long flags;
 	bool all_disconnected = true;
 
 	if (!device || !device->bitmap || !device->bitmap->bm_pages)
@@ -1253,7 +1242,7 @@ void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
 	struct drbd_bitmap *b;
 	struct drbd_device *device;
 	ULONG_PTR count;
-	long flags;
+	unsigned long flags;
 
 	if (!peer_device || !peer_device->device || !peer_device->device->bitmap)
 		return;
@@ -1358,11 +1347,7 @@ void drbd_bm_get_lel(struct drbd_peer_device *peer_device, size_t offset, size_t
 static void drbd_bm_aio_ctx_destroy(struct kref *kref)
 {
 	struct drbd_bm_aio_ctx *ctx = container_of(kref, struct drbd_bm_aio_ctx, kref);
-#ifdef _WIN32
-    long flags;
-#else
 	unsigned long flags;
-#endif
 
 	spin_lock_irqsave(&ctx->device->resource->req_lock, flags);
 	list_del(&ctx->list);
@@ -1810,9 +1795,7 @@ static int bm_rw(struct drbd_device *device, unsigned flags)
 int drbd_bm_read(struct drbd_device *device,
 		 struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	return bm_rw(device, BM_AIO_READ);
 }
 
@@ -1865,9 +1848,7 @@ void drbd_bm_mark_range_for_writeout(struct drbd_device *device, unsigned long s
 int drbd_bm_write(struct drbd_device *device,
 		  struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	return bm_rw(device, 0);
 }
 
@@ -1880,9 +1861,7 @@ int drbd_bm_write(struct drbd_device *device,
 int drbd_bm_write_all(struct drbd_device *device,
 		      struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	return bm_rw(device, BM_AIO_WRITE_ALL_PAGES);
 }
 
@@ -1910,9 +1889,7 @@ int drbd_bm_write_lazy(struct drbd_device *device, unsigned upper_idx) __must_ho
 int drbd_bm_write_copy_pages(struct drbd_device *device,
 			     struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	return bm_rw(device, BM_AIO_COPY_PAGES);
 }
 
@@ -2095,11 +2072,7 @@ int drbd_bm_test_bit(struct drbd_peer_device *peer_device, const unsigned long b
 #endif
 {
 	struct drbd_bitmap *bitmap = peer_device->device->bitmap;
-#ifdef _WIN32
-    long irq_flags;
-#else
 	unsigned long irq_flags;
-#endif
 	ULONG_PTR ret;
 
 	spin_lock_irqsave(&bitmap->bm_lock, irq_flags);

@@ -3232,9 +3232,7 @@ static void check_may_resume_io_after_fencing(struct drbd_state_change *state_ch
  */
 static int w_after_state_change(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 
 	struct after_state_change_work *work =
 		container_of(w, struct after_state_change_work, w);
@@ -4965,9 +4963,7 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 
 int nested_twopc_work(struct drbd_work *work, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 
 	struct drbd_resource *resource =
 		container_of(work, struct drbd_resource, twopc_work);

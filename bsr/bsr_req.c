@@ -525,9 +525,7 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 #ifdef _WIN32
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	int ret = 0;
 	
 	struct drbd_io_error_work *dw =

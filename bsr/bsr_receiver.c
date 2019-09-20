@@ -58,18 +58,6 @@
 #include <linux/scatterlist.h>
 #endif
 
-#ifdef _WIN32
-/* DW-1587
-* Turns off the C6319 warning.
-* The use of comma does not cause any performance problems or bugs,
-* but keep the code as it is written.
-*
-* Turns off the C6387 warning.
-* Even though pointer parameters need to contain NULLs, 
-* they are treated as warnings.
-*/
-#pragma warning (disable: 6053 6319 6387 28719)
-#endif
 
 #define PRO_FEATURES (DRBD_FF_TRIM|DRBD_FF_THIN_RESYNC|DRBD_FF_WSAME)
 
@@ -844,9 +832,7 @@ void conn_disconnect(struct drbd_connection *connection);
 
 int connect_work(struct drbd_work *work, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_connection *connection =
 		container_of(work, struct drbd_connection, connect_timer_work);
 	enum drbd_state_rv rv;
@@ -1480,9 +1466,7 @@ static enum finish_epoch drbd_flush_after_epoch(struct drbd_connection *connecti
 
 static int w_flush(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct flush_work *fw = container_of(w, struct flush_work, w);
 	struct drbd_epoch *epoch = fw->epoch;
 	struct drbd_connection *connection = epoch->connection;
@@ -1596,11 +1580,8 @@ static enum finish_epoch drbd_may_finish_epoch(struct drbd_connection *connectio
 			break;
 
 		epoch = next_epoch;
-#ifdef _WIN32
-	} while (true,true);
-#else
 	} while (1);
-#endif
+
 	spin_unlock(&connection->epoch_lock);
 
 	if (schedule_flush) {
@@ -2081,9 +2062,7 @@ struct drbd_peer_request *peer_req)
  */
 int w_e_reissue(struct drbd_work *w, int cancel) __releases(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -2545,9 +2524,7 @@ static int bit_count(unsigned int val)
 
 static int split_e_end_resync_block(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -3485,17 +3462,13 @@ static int e_send_ack(struct drbd_work *w, enum drbd_packet ack)
 
 static int e_send_discard_write(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	return e_send_ack(w, P_SUPERSEDED); 
 }
 
 static int e_send_retry_write(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct drbd_peer_request *peer_request =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_connection *connection = peer_request->peer_device->connection;
@@ -6164,10 +6137,8 @@ disconnect:
 
 static void drbd_setup_order_type(struct drbd_device *device, int peer)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(device);
 	UNREFERENCED_PARAMETER(peer);
-#endif
 	/* sorry, we currently have no working implementation
 	 * of distributed TCQ */
 }
@@ -6958,9 +6929,7 @@ __change_connection_state(struct drbd_connection *connection,
 			  union drbd_state mask, union drbd_state val,
 			  enum chg_state_flags flags)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(flags);
-#endif
 	struct drbd_resource *resource = connection->resource;
 
 	if (mask.role) {
@@ -7229,9 +7198,7 @@ static int receive_req_state(struct drbd_connection *connection, struct packet_i
 
 int abort_nested_twopc_work(struct drbd_work *work, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_resource *resource =
 		container_of(work, struct drbd_resource, twopc_work);
 	bool prepared = false;
@@ -7545,11 +7512,7 @@ static int queued_twopc_work(struct drbd_work *w, int cancel)
 	}
 	spin_unlock_irq(&resource->queued_twopc_lock); 
 
-#ifdef _WIN32
-	while (true, true){
-#else
 	while (true) {
-#endif
 		if (jiffies - q->start_jif >= t || cancel) {
 			if (!cancel)
 				drbd_info(connection, "Rejecting concurrent "
@@ -8508,7 +8471,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 
 							bm_resync_fo = bit + 1;
 
-						} while (true, true);
+						} while (true);
 					}
 				}
 #else
@@ -9189,9 +9152,7 @@ static int receive_skip(struct drbd_connection *connection, struct packet_info *
 
 static int receive_UnplugRemote(struct drbd_connection *connection, struct packet_info *pi)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pi);
-#endif
 	struct drbd_transport *transport = &connection->transport;
 
 	/* Make sure we've acked all the data associated
@@ -10500,18 +10461,14 @@ void twopc_connection_down(struct drbd_connection *connection)
 
 static int got_Ping(struct drbd_connection *connection, struct packet_info *pi)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pi);
-#endif
 	return drbd_send_ping_ack(connection);
 
 }
 
 static int got_PingAck(struct drbd_connection *connection, struct packet_info *pi)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pi);
-#endif
 	if (!test_and_set_bit(GOT_PING_ACK, &connection->flags))
 		wake_up(&connection->ping_wait);
 
@@ -10923,10 +10880,8 @@ static int got_OVResult(struct drbd_connection *connection, struct packet_info *
 
 static int got_skip(struct drbd_connection *connection, struct packet_info *pi)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(pi);
 	UNREFERENCED_PARAMETER(connection);
-#endif
 	return 0;
 }
 
@@ -10952,9 +10907,7 @@ static u64 node_ids_to_bitmap(struct drbd_device *device, u64 node_ids) __must_h
 
 static int w_send_out_of_sync(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->send_oos_peer_device;

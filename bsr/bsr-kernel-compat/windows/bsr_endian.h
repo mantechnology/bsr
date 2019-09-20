@@ -130,7 +130,7 @@ static inline unsigned int generic_hweight32(unsigned int w)
 }
 
 
-static inline uint64_t generic_hweight64(uint64_t w)
+static inline ULONG_PTR generic_hweight64(uint64_t w)
 {
 #if BITS_PER_LONG < 64
     return generic_hweight32((unsigned int)(w >> 32)) +

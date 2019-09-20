@@ -42,6 +42,40 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #endif
 
+// TODO: data type define 
+
+#ifdef _WIN32
+
+#else //_LIN
+
+#ifndef ULONG_PTR
+#define ULONG_PTR unsigned long
+#endif
+
+#define INT16_MAX		SHRT_MAX
+#define INT32_MAX		INT_MAX
+
+#define UINT16_MAX		USHRT_MAX
+#define UINT32_MAX 		UINT_MAX
+
+#define INTPTR_MAX		LONG_MAX
+#define UINTPTR_MAX		ULONG_MAX
+
+#define LONGLONG		long long int
+
+#define atomic_t64				atomic64_t
+#define atomic_add64			atomic64_add
+#define atomic_sub_return64		atomic64_sub_return
+#define atomic_set64			atomic64_set
+#define atomic_read64			atomic64_read
+#define atomic_sub64			atomic64_sub
+
+#ifndef UNREFERENCED_PARAMETER 
+#define UNREFERENCED_PARAMETER(x)
+#endif
+
+#endif
+
 /* {{{ pr_* macros */
 /* some very old kernels don't have them, or at least not all of them */
 #ifndef pr_emerg
@@ -410,9 +444,7 @@ static inline void drbd_plug_device(struct request_queue *q)
 #else
 static inline void drbd_plug_device(struct request_queue *q)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(q);
-#endif
 }
 #endif
 
@@ -1907,7 +1939,7 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
             conn = list_entry_rcu(__next, type, member);   \
         else   \
            conn = NULL;    \
-	    } while(false,false)
+	    } while(false)
 #else // _LIN
 #define list_first_or_null_rcu_ex(conn, ptr, type, member) \
 (conn = { \
@@ -2066,11 +2098,9 @@ static inline int atomic_dec_if_positive(atomic_t *v)
 #ifndef COMPAT_HAVE_IDR_IS_EMPTY
 static int idr_has_entry(int id, void *p, void *data)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(id);
 	UNREFERENCED_PARAMETER(p);
 	UNREFERENCED_PARAMETER(data);
-#endif
 	return 1;
 }
 
@@ -2108,38 +2138,5 @@ drbd_ib_create_cq(struct ib_device *device,
 
 
 
-#ifdef _WIN32
-
-#else //_LIN
-
-// TODO: data type define 
-#ifndef ULONG_PTR
-#define ULONG_PTR unsigned long
-#endif
-
-#define INT16_MAX		SHRT_MAX
-#define INT32_MAX		INT_MAX
-
-#define UINT16_MAX		USHRT_MAX
-#define UINT32_MAX 		UINT_MAX
-
-#define INTPTR_MAX		LONG_MAX
-#define UINTPTR_MAX		ULONG_MAX
-
-#define LONGLONG		long long int
-
-#define atomic_t64				atomic64_t
-#define atomic_add64			atomic64_add
-#define atomic_sub_return64		atomic64_sub_return
-#define atomic_set64			atomic64_set
-#define atomic_read64			atomic64_read
-#define atomic_sub64			atomic64_sub
-
-#ifndef UNREFERENCED_PARAMETER 
-#define UNREFERENCED_PARAMETER(x)
-#endif
 
 #endif
-
-#endif
-
