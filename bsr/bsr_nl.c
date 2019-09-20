@@ -1386,9 +1386,10 @@ retry:
 			clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
 		rcu_read_unlock();
 
+
+		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 #ifdef _WIN32
 		// DW-1609 : It has been modified to function similar to 8.4.x for younger primary 
-		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 			struct drbd_peer_device *peer_device;
 			u64 im;
 			bool younger_primary = false; // Add a younger_primary variable to create a new UUID if the condition is met.
@@ -1422,7 +1423,6 @@ retry:
 			}
 		}
 #else
-		idr_for_each_entry(&resource->devices, device, vnr) {
 			if (forced)
 				drbd_uuid_new_current(device, true);
 			else
@@ -1432,8 +1432,8 @@ retry:
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
 			}
-		}
-#endif 
+#endif
+		} 
 	}
 
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
