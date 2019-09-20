@@ -7017,15 +7017,10 @@ out:
 #endif
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
-#ifdef _WIN32
-		wait_event_interruptible_timeout(t, resource->state_wait,
+		t = wait_event_interruptible_timeout_ex(&resource->state_wait,
 			drbd_open_ro_count(resource) == 0,
 			HZ);
-#else
-		t = wait_event_interruptible_timeout(resource->state_wait,
-			drbd_open_ro_count(resource) == 0,
-			HZ);
-#endif
+
 		if (t > 0)
 			goto retry;
 	}

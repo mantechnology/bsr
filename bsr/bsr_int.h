@@ -3915,5 +3915,18 @@ static inline long wait_event_timeout_ex(wait_queue_head_t *wq, bool condition, 
 	return t;
 }
 
+
+static inline int wait_event_interruptible_timeout_ex(wait_queue_head_t *wq, bool condition, long timeout)
+{
+	int r = timeout;
+#ifdef _WIN32
+	wait_event_interruptible_timeout(r, wq, condition, timeout);
+#else
+	r = wait_event_interruptible_timeout(*wq, condition, timeout);
+#endif
+	return r;
+}
+
+
 #endif
 

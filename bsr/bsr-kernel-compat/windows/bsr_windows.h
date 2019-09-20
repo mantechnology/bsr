@@ -1078,7 +1078,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		        ret = -ETIMEDOUT;\
 		        break;\
             }\
-	        ret = schedule(&wq, 100, __FUNCTION__, __LINE__);  /* real_timeout = 0.1 sec*/ \
+	        ret = schedule(wq, 100, __FUNCTION__, __LINE__);  /* real_timeout = 0.1 sec*/ \
             if (-DRBD_SIGKILL == ret) { break; } \
         }\
 	    } while(false)

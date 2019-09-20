@@ -1097,7 +1097,7 @@ static int dtt_wait_for_connect(struct drbd_transport *transport,
 	timeo += (prandom_u32() & 1) ? timeo / 7 : -timeo / 7; /* 28.5% random jitter */
 
 retry:
-	wait_event_interruptible_timeout(timeo, listener->wait,
+	timeo = wait_event_interruptible_timeout_ex(&listener->wait,
 		(path = dtt_wait_connect_cond(transport)),
 		timeo);
 

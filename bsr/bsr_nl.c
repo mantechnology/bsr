@@ -1502,7 +1502,6 @@ retry:
 	}
 	// step 2 : wait barrier pending with timeout
 	time_out = wait_event_timeout_ex(&resource->barrier_wait, !barrier_pending(resource), time_out);
-
 	if(!time_out) {
 		drbd_info(NO_OBJECT,"drbd_set_secondary_from_shutdown wait_event_timeout\n ");
 		goto out;
@@ -3669,7 +3668,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	/* D_DETACHING will transition to DISKLESS. */
 	drbd_resume_io(device);
 #ifdef _WIN32 // DW-1046 detour adm_detach hang
-	wait_event_interruptible_timeout(timeo, device->misc_wait,
+	timeo = wait_event_interruptible_timeout_ex(&device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo);
 	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
@@ -4767,15 +4766,10 @@ repeat:
 			break;
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
-#ifdef _WIN32
-		wait_event_interruptible_timeout(t, resource->state_wait,
+		t = wait_event_interruptible_timeout_ex(&resource->state_wait,
 			drbd_open_ro_count(resource) == 0,
 			HZ);
-#else
-		t = wait_event_interruptible_timeout(resource->state_wait,
-			drbd_open_ro_count(resource) == 0,
-			HZ);
-#endif
+
 		if (t <= 0)
 			break;
 		goto repeat;
@@ -4797,17 +4791,10 @@ repeat:
 	}
 
 	if (rv >= SS_SUCCESS) {
-#ifdef _WIN32
-		long timeo;
 		// DW-1574: Increase the wait time from 1 second to 3 seconds.
-		wait_event_interruptible_timeout(timeo, resource->state_wait,
+		wait_event_interruptible_timeout_ex(&resource->state_wait,
 						 connection->cstate[NOW] == C_STANDALONE,
 						 3*HZ);	
-#else
-		wait_event_interruptible_timeout(resource->state_wait,
-						 connection->cstate[NOW] == C_STANDALONE,
-						 3*HZ);
-#endif
 	}
 	
 	if (err_str) {
@@ -5480,7 +5467,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	if (retcode >= SS_SUCCESS)
 	{
 		// DW-1391 : wait for bm_io_work to complete, then run the next invalidate peer. 
-		wait_event_interruptible_timeout(retcode, resource->state_wait, 
+		retcode = wait_event_interruptible_timeout_ex(&resource->state_wait,
 				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
 				timeo);
 		if (-DRBD_SIGKILL == retcode)
