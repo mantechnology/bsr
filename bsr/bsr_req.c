@@ -525,9 +525,7 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 #ifdef _WIN32
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
-#endif
 	int ret = 0;
 	
 	struct drbd_io_error_work *dw =
@@ -885,11 +883,7 @@ static void advance_conn_req_next(struct drbd_peer_device *peer_device, struct d
 		return;
 	if (connection->todo.req_next != req)
 		return;
-#ifdef _WIN32
-    list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry_continue(req, &connection->resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_continue_ex(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
 		const unsigned s = drbd_req_state_by_peer_device(req, peer_device);
 		if (s & RQ_NET_QUEUED)
 			break;
@@ -915,11 +909,7 @@ static void advance_conn_req_ack_pending(struct drbd_peer_device *peer_device, s
 		return;
 	if (connection->req_ack_pending != req)
 		return;
-#ifdef _WIN32
-    list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry_continue(req, &connection->resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_continue_ex(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
 		const unsigned s = drbd_req_state_by_peer_device(req, peer_device);
 		if ((s & RQ_NET_SENT) && (s & RQ_NET_PENDING))
 			break;
@@ -945,11 +935,7 @@ static void advance_conn_req_not_net_done(struct drbd_peer_device *peer_device, 
 		return;
 	if (connection->req_not_net_done != req)
 		return;
-#ifdef _WIN32
-    list_for_each_entry_continue(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry_continue(req, &connection->resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_continue_ex(struct drbd_request, req, &connection->resource->transfer_log, tl_requests) {
 		const unsigned s = drbd_req_state_by_peer_device(req, peer_device);
 		if ((s & RQ_NET_SENT) && !(s & RQ_NET_DONE))
 			break;
@@ -2130,11 +2116,7 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 			struct drbd_request *req2;
 
 			resource->current_tle_writes++;
-#ifdef _WIN32
-            list_for_each_entry_reverse(struct drbd_request, req2, &resource->transfer_log, tl_requests) {
-#else
-			list_for_each_entry_reverse(req2, &resource->transfer_log, tl_requests) {
-#endif
+			list_for_each_entry_reverse_ex(struct drbd_request, req2, &resource->transfer_log, tl_requests) {
 				if (req2->rq_state[0] & RQ_WRITE) {
 					/* Make the new write request depend on
 					 * the previous one. */
@@ -2341,22 +2323,14 @@ static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_
 	//blk_start_plug(&plug);
 #endif
 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.incoming, wait_for_actlog) {
-#else
-	list_for_each_entry_safe(pr, pr_tmp, &wfa->peer_requests.incoming, wait_for_actlog) {
-#endif 
+	list_for_each_entry_safe_ex(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.incoming, wait_for_actlog) {
 		if (!drbd_al_begin_io_fastpath(pr->peer_device->device, &pr->i))
 			continue;
 
 		__drbd_submit_peer_request(pr);
 	}
 
-#ifdef _WIN32
-    list_for_each_entry_safe(struct drbd_request, req, tmp, &wfa->requests.incoming, tl_requests) {
-#else
-	list_for_each_entry_safe(req, tmp, &wfa->requests.incoming, tl_requests) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_request, req, tmp, &wfa->requests.incoming, tl_requests) {
 		const int rw = bio_data_dir(req->master_bio);
 
 		if (rw == WRITE && req->private_bio && req->i.size
@@ -2455,19 +2429,11 @@ static void send_and_submit_pending(struct drbd_device *device, struct waiting_f
 #ifndef _WIN32
 	//blk_start_plug(&plug);
 #endif
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.pending, wait_for_actlog) {
-#else
-	list_for_each_entry_safe(pr, pr_tmp, &wfa->peer_requests.pending, wait_for_actlog) {
-#endif 
+	list_for_each_entry_safe_ex(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.pending, wait_for_actlog) {
 		__drbd_submit_peer_request(pr);
 	}
 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_request, req, tmp, &wfa->requests.pending, tl_requests) {
-#else 
-	list_for_each_entry_safe(req, tmp, &wfa->requests.pending, tl_requests) {
-#endif 
+	list_for_each_entry_safe_ex(struct drbd_request, req, tmp, &wfa->requests.pending, tl_requests) {
 		req->rq_state[0] |= RQ_IN_ACT_LOG;
 		req->in_actlog_jif = jiffies;
 		atomic_dec(&device->ap_actlog_cnt);

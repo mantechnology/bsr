@@ -65,21 +65,17 @@ enum {
 #ifndef COMPAT_HLIST_FOR_EACH_ENTRY_HAS_THREE_PARAMETERS
 #define hlist_entry_safe(ptr, type, member) \
 	(ptr) ? hlist_entry(ptr, type, member) : NULL
-#ifdef hlist_for_each_entry
-#undef hlist_for_each_entry
+#ifdef hlist_for_each_entry_ex
+#undef hlist_for_each_entry_ex
 #endif
-#ifdef _WIN32
-#define hlist_for_each_entry(type, pos, head, member)				\
+#define hlist_for_each_entry_ex(type, pos, head, member)				\
 	for (pos = hlist_entry_safe((head)->first, type, member);\
 	     pos;							\
 	     pos = hlist_entry_safe((pos)->member.next, type, member))
-#else
-#define hlist_for_each_entry(pos, head, member)				\
-	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);\
-	     pos;							\
-	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
-#endif
 #define COMPAT_HLIST_FOR_EACH_ENTRY_HAS_THREE_PARAMETERS
+#else
+#define hlist_for_each_entry_ex(type, pos, head, member)				\
+		hlist_for_each_entry(pos, head, member)
 #endif
 /* End of Compatibility code */
 

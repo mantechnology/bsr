@@ -443,9 +443,7 @@ static inline void drbd_plug_device(struct request_queue *q)
 #else
 static inline void drbd_plug_device(struct request_queue *q)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(q);
-#endif
 }
 #endif
 
@@ -1394,13 +1392,37 @@ extern void *idr_get_next(struct idr *idp, int *nextidp);
 
 #ifndef list_next_entry
 /* introduced in 008208c (v3.13-rc1) */
-#ifdef _WIN32
-#define list_next_entry(type, pos, member) \
+#define list_next_entry_ex(type, pos, member) \
         list_entry((pos)->member.next, type, member)
 #else
-#define list_next_entry(pos, member) \
-        list_entry((pos)->member.next, typeof(*(pos)), member)
+#define list_next_entry_ex(type, pos, member) \
+		list_next_entry(pos, member)
 #endif
+
+/* for linux */
+#ifndef list_for_each_entry_ex
+#define list_for_each_entry_ex(type, pos, head, member) \
+		list_for_each_entry(pos, head, member)
+#endif
+#ifndef list_for_each_entry_rcu_ex
+#define list_for_each_entry_rcu_ex(type, pos, head, member) \
+		list_for_each_entry_rcu(pos, head, member)
+#endif
+#ifndef list_for_each_entry_reverse_ex
+#define list_for_each_entry_reverse_ex(type, pos, head, member) \
+		list_for_each_entry_reverse(pos, head, member)
+#endif
+#ifndef list_prepare_entry_ex
+#define list_prepare_entry_ex(type, pos, head, member) \
+		list_prepare_entry(pos, head, member)
+#endif
+#ifndef list_for_each_entry_continue_ex
+#define list_for_each_entry_continue_ex(type, pos, head, member) \
+		list_for_each_entry_continue(pos, head, member)
+#endif
+#ifndef list_for_each_entry_safe_ex
+#define list_for_each_entry_safe_ex(type, pos, n, head, member) \
+		list_for_each_entry_safe(pos, n, head, member)
 #endif
 
 /*
@@ -1635,17 +1657,13 @@ static inline void kref_sub(struct kref *kref, unsigned int count,
  * 254245d2 (v2.6.33-rc1).
  */
 #ifndef list_for_each_entry_continue_rcu
-#ifdef _WIN32
-#define list_for_each_entry_continue_rcu(type, pos, head, member)             \
+#define list_for_each_entry_continue_rcu_ex(type, pos, head, member)             \
 	for (pos = list_entry_rcu(pos->member.next, type, member); \
 	     &pos->member != (head);    \
 	     pos = list_entry_rcu(pos->member.next, type, member))
 #else
-#define list_for_each_entry_continue_rcu(pos, head, member)             \
-	for (pos = list_entry_rcu(pos->member.next, typeof(*pos), member); \
-	     &pos->member != (head);    \
-	     pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
-#endif
+#define list_for_each_entry_continue_rcu_ex(type, pos, head, member)             \
+		list_for_each_entry_continue_rcu(pos, head, member) 
 #endif
 
 #ifndef COMPAT_HAVE_IS_ERR_OR_NULL
@@ -1717,18 +1735,14 @@ static __inline int kref_get_unless_zero(struct kref *kref)
 #endif
 
 #ifndef COMPAT_HAVE_THREE_PARAMATER_HLIST_FOR_EACH_ENTRY
-#undef hlist_for_each_entry
-#ifdef _WIN32
-#define hlist_for_each_entry(type, pos, head, member)				\
+#undef hlist_for_each_entry_ex
+#define hlist_for_each_entry_ex(type, pos, head, member)				\
 	for (pos = hlist_entry((head)->first, type, member);	\
 	     pos;							\
 	     pos = hlist_entry((pos)->member.next, type, member))
 #else
-#define hlist_for_each_entry(pos, head, member)				\
-	for (pos = hlist_entry((head)->first, typeof(*(pos)), member);	\
-	     pos;							\
-	     pos = hlist_entry((pos)->member.next, typeof(*(pos)), member))
-#endif
+#define hlist_for_each_entry_ex(type, pos, head, member)				\
+		hlist_for_each_entry(pos, head, member)
 #endif
 
 #ifndef COMPAT_HAVE_PRANDOM_U32
@@ -1906,15 +1920,8 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
 #endif
 
 #ifndef list_first_or_null_rcu
-#ifndef _WIN32
-#define list_first_or_null_rcu(ptr, type, member) \
-({ \
-	struct list_head *__ptr = (ptr); \
-	struct list_head *__next = ACCESS_ONCE(__ptr->next); \
-	likely(__ptr != __next) ? list_entry_rcu(__next, type, member) : NULL; \
-})
-#else
-#define list_first_or_null_rcu(conn, ptr, type, member) \
+#ifdef _WIN32
+#define list_first_or_null_rcu_ex(conn, ptr, type, member) \
     do {    \
         struct list_head *__ptr = (ptr);    \
         struct list_head *__next = (__ptr->next);    \
@@ -1923,8 +1930,20 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
         else   \
            conn = NULL;    \
 	    } while(false)
+#else // _LIN
+#define list_first_or_null_rcu_ex(conn, ptr, type, member) \
+({ \
+	struct list_head *__ptr = (ptr); \
+	struct list_head *__next = ACCESS_ONCE(__ptr->next); \
+	conn = likely(__ptr != __next) ? list_entry_rcu(__next, type, member) : NULL; \
+})
 #endif
+#else
+#define list_first_or_null_rcu_ex(conn, ptr, type, member) \
+		conn = list_first_or_null_rcu(ptr, type, member)
 #endif
+
+
 
 typedef struct hd_struct  hd_struct;
 
@@ -2069,11 +2088,9 @@ static inline int atomic_dec_if_positive(atomic_t *v)
 #ifndef COMPAT_HAVE_IDR_IS_EMPTY
 static int idr_has_entry(int id, void *p, void *data)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(id);
 	UNREFERENCED_PARAMETER(p);
 	UNREFERENCED_PARAMETER(data);
-#endif
 	return 1;
 }
 

@@ -340,13 +340,7 @@ struct drbd_connection *__drbd_next_connection_ref(u64 *visited,
 
 	rcu_read_lock();
 	if (!connection) {
-#ifdef _WIN32
-        list_first_or_null_rcu(connection, &resource->connections, struct drbd_connection, connections);
-#else
-		connection = list_first_or_null_rcu(&resource->connections,
-						    struct drbd_connection,
-						    connections);
-#endif
+        list_first_or_null_rcu_ex(connection, &resource->connections, struct drbd_connection, connections);
 		*visited = 0;
 	} else {
 		struct list_head *pos;
@@ -395,13 +389,7 @@ struct drbd_peer_device *__drbd_next_peer_device_ref(u64 *visited,
 {
 	rcu_read_lock();
 	if (!peer_device) {
-#ifdef _WIN32
-        list_first_or_null_rcu(peer_device, &device->peer_devices, struct drbd_peer_device, peer_devices);
-#else
-		peer_device = list_first_or_null_rcu(&device->peer_devices,
-						    struct drbd_peer_device,
-						    peer_devices);
-#endif
+        list_first_or_null_rcu_ex(peer_device, &device->peer_devices, struct drbd_peer_device, peer_devices);
 		*visited = 0;
 	} else {
 		struct list_head *pos;
@@ -463,11 +451,7 @@ static struct drbd_request *__tl_first_req_ref(struct drbd_request **pnext,
 					       struct list_head *transfer_log)
 {
 	if (req) {
-#ifdef _WIN32
-		struct drbd_request *next = list_next_entry(struct drbd_request, req, tl_requests);
-#else
-		struct drbd_request *next = list_next_entry(req, tl_requests);
-#endif
+		struct drbd_request *next = list_next_entry_ex(struct drbd_request, req, tl_requests);
 		
 		if (&next->tl_requests != transfer_log)
 			kref_get(&next->kref);
@@ -487,11 +471,7 @@ static struct drbd_request *__tl_next_req_ref(struct drbd_request **pnext,
 		if (next_is_head)
 			return NULL;
 		req = next;
-#ifdef _WIN32
-		next = list_next_entry(struct drbd_request, req, tl_requests);
-#else
-		next = list_next_entry(req, tl_requests);
-#endif
+		next = list_next_entry_ex(struct drbd_request, req, tl_requests);
 		
 		next_is_head = (&next->tl_requests == transfer_log);
 		if (!next_is_head)
@@ -530,11 +510,7 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 
 	/* find oldest not yet barrier-acked write request,
 	 * count writes in its epoch. */
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, r, &resource->transfer_log, tl_requests) {
-#else
-	list_for_each_entry(r, &resource->transfer_log, tl_requests) {
-#endif
+	list_for_each_entry_ex(struct drbd_request, r, &resource->transfer_log, tl_requests) {
 		struct drbd_peer_device *peer_device;
 		int idx;
 		peer_device = conn_peer_device(connection, r->device->vnr);
@@ -588,12 +564,8 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 	/* this extra list walk restart is paranoia,
 	 * to catch requests being barrier-acked "unexpectedly".
 	 * It usually should find the same req again, or some READ preceding it. */
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_request, req, &resource->transfer_log, tl_requests)
-#else
-	list_for_each_entry(req, &resource->transfer_log, tl_requests)
-#endif
-	if (req->epoch == expect_epoch)
+	list_for_each_entry_ex(struct drbd_request, req, &resource->transfer_log, tl_requests)
+		if (req->epoch == expect_epoch)
 			break;
 	tl_for_each_req_ref_from(req, r, &resource->transfer_log) {
 		struct drbd_peer_device *peer_device;
@@ -3244,11 +3216,7 @@ static void open_counts(struct drbd_resource *resource, int *rw_count_ptr, int *
 	struct drbd_device *device;
 	int vnr, rw_count = 0, ro_count = 0;
 
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr){
-#else
-	idr_for_each_entry(&resource->devices, device, vnr){
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		rw_count += device->open_rw_cnt;
 		ro_count += device->open_ro_cnt;
 	}
@@ -3537,15 +3505,13 @@ void drbd_destroy_device(struct kref *kref)
 	drbd_debug(NO_DEVICE,"%s\n", __FUNCTION__);
 #endif
 
-#ifdef _WIN32 // TODO : ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 리눅스 포팅작업 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	//DW-1911
 	struct drbd_marked_replicate *marked_rl, *t;
-	list_for_each_entry_safe(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+	list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 		list_del(&marked_rl->marked_rl_list);
 		kfree(marked_rl);
 	}
-#endif
 #endif
 
 	/* cleanup stuff that may have been allocated during
@@ -3629,11 +3595,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 	del_timer_sync(&resource->queued_twopc_timer);
 
 	spin_lock_irq(&resource->queued_twopc_lock);
-#ifdef _WIN32
-    list_for_each_entry_safe(struct queued_twopc, q, q1, &resource->queued_twopc, w.list) {
-#else
-	list_for_each_entry_safe(q, q1, &resource->queued_twopc, w.list) {
-#endif
+	list_for_each_entry_safe_ex(struct queued_twopc, q, q1, &resource->queued_twopc, w.list) {
 		list_del(&q->w.list);
 		kref_put(&q->connection->kref, drbd_destroy_connection);
 		kfree(q);
@@ -3646,12 +3608,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 	mvolTerminateThread(&resource->WorkThreadInfo);
 #endif
 
-#ifdef _WIN32
-	list_for_each_entry_safe(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#else
-	list_for_each_entry_safe(connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#endif
-
+	list_for_each_entry_safe_ex(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
 #ifdef _WIN32 //DW-1480
 		list_del(&connection->twopc_parent_list);
 #endif
@@ -3706,11 +3663,7 @@ static void do_retry(struct work_struct *ws)
 	spin_lock_irq(&retry->lock);
 	list_splice_init(&retry->writes, &writes);
 	spin_unlock_irq(&retry->lock);
-#ifdef _WIN32
-    list_for_each_entry_safe(struct drbd_request,  req, tmp, &writes, tl_requests) {
-#else
-	list_for_each_entry_safe(req, tmp, &writes, tl_requests) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_request,  req, tmp, &writes, tl_requests) {
 		struct drbd_device *device = req->device;
 		struct bio *bio = req->master_bio;
 		ULONG_PTR start_jif = req->start_jif;
@@ -3892,12 +3845,10 @@ struct completion_work {
 
 static int w_complete(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32	
-	UNREFERENCED_PARAMETER(cancel);
-#endif
 	struct completion_work *completion_work =
 		container_of(w, struct completion_work, w);
 
+	UNREFERENCED_PARAMETER(cancel);
 	complete(&completion_work->done);
 	return 0;
 }
@@ -4061,11 +4012,7 @@ void wake_all_device_misc(struct drbd_resource *resource)
 	struct drbd_device *device;
 	int vnr;
 	rcu_read_lock();
-#ifdef _WIN32
-	idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr)
-#else
-	idr_for_each_entry(&resource->devices, device, vnr)
-#endif
+	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr)
 		wake_up(&device->misc_wait);
 	rcu_read_unlock();
 }
@@ -4401,11 +4348,7 @@ void drbd_destroy_connection(struct kref *kref)
 	//DW-1696 : If the connecting object is destroyed, it also destroys the inactive_ee.
 	spin_lock(&resource->req_lock);
 	if (!list_empty(&connection->inactive_ee)) {
-#ifdef _WIN32		
-		list_for_each_entry_safe(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
-#else
-		list_for_each_entry_safe(peer_req, t, &connection->inactive_ee, w.list) {
-#endif
+		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
 		}
@@ -4413,11 +4356,7 @@ void drbd_destroy_connection(struct kref *kref)
 	spin_unlock(&resource->req_lock);
 #endif
 
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+    idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
 
 #ifdef _WIN32 // DW-1598 : set CONNECTION_ALREADY_FREED flags 
@@ -4787,11 +4726,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	kref_get(&device->kref);
 	kref_debug_get(&device->kref_debug, 1);
 
-#ifdef _WIN32
-    list_for_each_entry_safe(struct drbd_peer_device, peer_device, tmp_peer_device, &peer_devices, peer_devices) {
-#else
-	list_for_each_entry_safe(peer_device, tmp_peer_device, &peer_devices, peer_devices) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_device, peer_device, tmp_peer_device, &peer_devices, peer_devices) {
 		connection = peer_device->connection;
 		id = idr_alloc(&connection->peer_devices, peer_device,
 			       device->vnr, device->vnr + 1, GFP_NOWAIT);
@@ -4834,11 +4769,7 @@ out_remove_peer_device:
 	list_add_rcu(&tmp, &device->peer_devices);
 	list_del_init(&device->peer_devices);
 	synchronize_rcu();
-#ifdef _WIN32
-        list_for_each_entry_safe(struct drbd_peer_device, peer_device, tmp_peer_device, &tmp, peer_devices) {
-#else
-	list_for_each_entry_safe(peer_device, tmp_peer_device, &tmp, peer_devices) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_device, peer_device, tmp_peer_device, &tmp, peer_devices) {
 		struct drbd_connection *connection = peer_device->connection;
 
 		kref_debug_put(&connection->kref_debug, 3);
@@ -4861,11 +4792,7 @@ out_no_minor_idr:
 #endif
 
 out_no_peer_device:
-#ifdef _WIN32
-    list_for_each_entry_safe(struct drbd_peer_device, peer_device, tmp_peer_device, &peer_devices, peer_devices) {
-#else
-	list_for_each_entry_safe(peer_device, tmp_peer_device, &peer_devices, peer_devices) {
-#endif
+	list_for_each_entry_safe_ex(struct drbd_peer_device, peer_device, tmp_peer_device, &peer_devices, peer_devices) {
 		list_del(&peer_device->peer_devices);
 		kfree(peer_device);
 	}
@@ -4944,21 +4871,14 @@ void drbd_unregister_connection(struct drbd_connection *connection)
 	spin_lock_irq(&resource->req_lock);
 	set_bit(C_UNREGISTERED, &connection->flags);
 	smp_wmb();
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr) {
-#endif
+
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		list_del_rcu(&peer_device->peer_devices);
 		list_add(&peer_device->peer_devices, &work_list);
 	}
 	list_del_rcu(&connection->connections);
 	spin_unlock_irq(&resource->req_lock);
-#ifdef _WIN32
-    list_for_each_entry(struct drbd_peer_device, peer_device, &work_list, peer_devices)
-#else
-	list_for_each_entry(peer_device, &work_list, peer_devices)
-#endif
+	list_for_each_entry_ex(struct drbd_peer_device, peer_device, &work_list, peer_devices)
 		drbd_debugfs_peer_device_cleanup(peer_device);
 	drbd_debugfs_connection_cleanup(connection);
 }
@@ -4977,11 +4897,7 @@ void drbd_put_connection(struct drbd_connection *connection)
 	int vnr, rr, refs = 1;
 
 	del_connect_timer(connection);
-#ifdef _WIN32
-    idr_for_each_entry(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
-#else
-	idr_for_each_entry(&connection->peer_devices, peer_device, vnr)
-#endif
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
 		refs++;
 
 	rr = drbd_free_peer_reqs(connection->resource, &connection->done_ee, false);
@@ -5840,7 +5756,10 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] == L_SYNC_TARGET ||
-		    peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
+			peer_device->repl_state[NOW] == L_PAUSED_SYNC_T ||
+			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
+			peer_device->repl_state[NOW] == L_BEHIND ||
+			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
 			peer_device->current_uuid = val;
 			set_current = false;
 		}
@@ -5867,17 +5786,22 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 	drbd_propagate_uuids(device, got_new_bitmap_uuid);
 }
 
-static u64 __set_bitmap_slots(struct drbd_device *device, u64 bitmap_uuid, u64 do_nodes) __must_hold(local)
+static u64 __set_bitmap_slots(struct drbd_device *device, struct drbd_peer_device *peer_device, u64 do_nodes) __must_hold(local)
 {
 	struct drbd_peer_md *peer_md = device->ldev->md.peers;
 	u64 modified = 0;
 	int node_id;
+	u64 bitmap_uuid = 0;
 
 	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
 		if (node_id == device->ldev->md.node_id)
 			continue;
 		if (!(do_nodes & NODE_MASK(node_id)))
 			continue;
+
+		// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+		if (peer_device)
+			bitmap_uuid = peer_device->bitmap_uuids[node_id];
 
 		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
 			_drbd_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
@@ -5919,8 +5843,9 @@ u64 drbd_uuid_resync_finished(struct drbd_peer_device *peer_device) __must_hold(
 
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 	set_bitmap_slots = __test_bitmap_slots_of_peer(peer_device);
-	newer = __set_bitmap_slots(device, drbd_current_uuid(device), set_bitmap_slots);
-	equal = __set_bitmap_slots(device, 0, ~set_bitmap_slots);
+	// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
+	newer = __set_bitmap_slots(device, peer_device, set_bitmap_slots);
+	equal = __set_bitmap_slots(device, NULL, ~set_bitmap_slots);
 	_drbd_uuid_push_history(device, drbd_current_uuid(device));
 	__drbd_uuid_set_current(device, peer_device->current_uuid);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
@@ -6576,9 +6501,7 @@ out:
 int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 			    struct drbd_peer_device *peer_device) __must_hold(local)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(peer_device);
-#endif
 	drbd_resume_al(device);
 	drbd_bm_clear_all(device);
 	return drbd_bm_write(device, NULL);
@@ -6586,13 +6509,12 @@ int drbd_bmio_clear_all_n_write(struct drbd_device *device,
 
 static int w_bitmap_io(struct drbd_work *w, int unused)
 {
-#ifdef _WIN32
-	UNREFERENCED_PARAMETER(unused);
-#endif
 	struct bm_io_work *work =
 		container_of(w, struct bm_io_work, w);
 	struct drbd_device *device = work->device;
 	int rv = -EIO;
+
+	UNREFERENCED_PARAMETER(unused);
 
 	if (get_ldev(device)) {
 		if (work->flags & BM_LOCK_SINGLE_SLOT)

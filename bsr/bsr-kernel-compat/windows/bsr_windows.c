@@ -1685,7 +1685,7 @@ static struct task_struct *__find_thread(PKTHREAD id)
 {
     struct task_struct *t;
 
-    list_for_each_entry(struct task_struct, t, &ct_thread_list, list)
+    list_for_each_entry_ex(struct task_struct, t, &ct_thread_list, list)
     {
         if (t->pid == id) {
             return t;
@@ -3265,7 +3265,7 @@ struct blk_plug_cb *blk_check_plugged(blk_plug_cb_fn unplug, void *data,
 	if (!plug)
 		return NULL;
 
-	list_for_each_entry(struct blk_plug_cb, cb, &plug->cb_list, list)
+	list_for_each_entry_ex(struct blk_plug_cb, cb, &plug->cb_list, list)
 		if (cb->callback == unplug && cb->data == data)
 			return cb;
 

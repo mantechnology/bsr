@@ -190,11 +190,7 @@ struct drbd_transport *transport)
 			if (list_is_last(&drbd_path->list, &transport->paths))
 				drbd_path = NULL;
 			else{
-#ifdef _WIN32
-				drbd_path = list_next_entry(struct drbd_path, drbd_path, list);
-#else
-				drbd_path = list_next_entry(drbd_path, list);
-#endif
+				drbd_path = list_next_entry_ex(struct drbd_path, drbd_path, list);
 			}
 		}
 		else {
@@ -327,11 +323,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 			tcp_transport->rbuf[i].base = NULL;
 		}
 		spin_lock(&tcp_transport->paths_lock);
-#ifdef _WIN32
-		list_for_each_entry_safe(struct drbd_path, drbd_path, tmp, &transport->paths, list) {
-#else
-		list_for_each_entry_safe(drbd_path, tmp, &transport->paths, list) {
-#endif
+		list_for_each_entry_safe_ex(struct drbd_path, drbd_path, tmp, &transport->paths, list) {
 			list_del_init(&drbd_path->list);
 			kref_put(&drbd_path->kref, drbd_destroy_path);
 		}
@@ -1034,11 +1026,7 @@ static struct dtt_path *dtt_wait_connect_cond(struct drbd_transport *transport)
 	bool rv = false;
 
 	spin_lock(&tcp_transport->paths_lock);
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_path, drbd_path, &transport->paths, list) {
-#else
-	list_for_each_entry(drbd_path, &transport->paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
 		path = container_of(drbd_path, struct dtt_path, path);
 		listener = drbd_path->listener;
 #if 0
@@ -1427,9 +1415,8 @@ static void dtt_incoming_connection(struct sock *sock)
 	spin_lock_bh(&resource->listeners_lock);	
 
 	// DW-1498 : Find the listener that matches the LocalAddress in resource-> listeners.
-	list_for_each_entry(struct drbd_listener, listener, &resource->listeners, list) {
+	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
 		drbd_debug_conn("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
-		
 		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)LocalAddress)) {
 			find_listener = true;
 			break;
@@ -1847,11 +1834,7 @@ static struct dtt_path *dtt_next_path(struct drbd_tcp_transport *tcp_transport, 
 	if (list_is_last(&path->path.list, &transport->paths))
 		drbd_path = list_first_entry(&transport->paths, struct drbd_path, list);
 	else
-#ifdef _WIN32
-		drbd_path = list_next_entry(struct drbd_path, &path->path, list);
-#else
-		drbd_path = list_next_entry(&path->path, list);
-#endif
+		drbd_path = list_next_entry_ex(struct drbd_path, &path->path, list);
 	spin_unlock(&tcp_transport->paths_lock);
 
 	return container_of(drbd_path, struct dtt_path, path);
@@ -1906,11 +1889,7 @@ static int dtt_connect(struct drbd_transport *transport)
 		goto out;
 	}
 
-#ifdef _WIN32
-	list_for_each_entry(struct drbd_path, drbd_path, &transport->paths, list) {
-#else
-	list_for_each_entry(drbd_path, &transport->paths, list) {
-#endif
+	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
 		if (!drbd_path->listener) {
 			kref_get(&drbd_path->kref);
 			spin_unlock(&tcp_transport->paths_lock);
