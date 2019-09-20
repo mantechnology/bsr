@@ -151,6 +151,12 @@ extern char usermode_helper[];
 struct drbd_device;
 struct drbd_connection;
 
+// BSR-237
+#ifdef _WIN32
+#define NO_DEVICE
+#else
+#define NO_DEVICE NULL
+#endif
 /* I want to be able to grep for "drbd $resource_name"
  * and get all relevant log lines. */
 #ifdef _WIN32
@@ -190,6 +196,7 @@ struct drbd_connection;
         /*rcu_read_unlock(); _WIN32 // DW- */ \
 	    } while (0)
 
+// BSR-237 if object is empty (NO_DEVICE)
 #define __drbd_printk_(level, obj, fmt, ...) \
 	printk(level "[0x%p] " fmt, KeGetCurrentThread(), __VA_ARGS__)
 
@@ -301,6 +308,10 @@ void drbd_printk_with_wrong_object_type(void);
 
 void drbd_printk_with_wrong_object_type(void);
 
+// BSR-237 if object is empty or undefined (NO_DEVICE)
+#define __drbd_printk(level, fmt, args...) \
+	printk(level fmt, ## args)
+
 #define __drbd_printk_if_same_type(obj, type, func, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \
 	 __builtin_types_compatible_p(typeof(obj), const type)), \
@@ -319,7 +330,7 @@ void drbd_printk_with_wrong_object_type(void);
 	      __builtin_choose_expr( \
 		__drbd_printk_if_same_type(obj, struct drbd_peer_device *, \
 				 __drbd_printk_peer_device, level, fmt, ## args), \
-	        drbd_printk_with_wrong_object_type()))))
+	        __drbd_printk(level, fmt, ## args))))) 
 
 #if defined(disk_to_dev)
 #define drbd_dbg(device, fmt, args...) \
@@ -361,24 +372,21 @@ void drbd_printk_with_wrong_object_type(void);
 
 
 #ifdef _WIN32
-#define BUG()   drbd_crit(,"warning: failure\n")
-#else
-#define BUG()   drbd_crit(,"BUG: failure\n")
-#endif
-
+#define BUG()   drbd_crit(NO_DEVICE,"warning: failure\n")
 #define BUG_ON(_condition)	\
 	do {		\
 		if (_condition) {	\
 			\
-				drbd_crit(,"BUG: failure [ %s ]\n", #_condition); \
+				drbd_crit(NO_DEVICE,"BUG: failure [ %s ]\n", #_condition); \
 						}	\
 			} while (false)
 
+#endif
 #ifdef WIN_AL_BUG_ON
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            drbd_crit(,"BUG: failure [ %s ]\n", str_condition); \
+            drbd_crit(NO_DEVICE,"BUG: failure [ %s ]\n", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -391,7 +399,7 @@ void drbd_printk_with_wrong_object_type(void);
 do {	\
 		if (_condition) {\
 				\
-				drbd_debug(,"BUG: failure [ %s ]\n", #_condition); \
+				drbd_debug(NO_DEVICE,"BUG: failure [ %s ]\n", #_condition); \
 				}	\
 } while (false)
 
@@ -495,7 +503,7 @@ drbd_insert_fault(struct drbd_device *device, unsigned int type) {
 
     if (ret)
     {
-        drbd_info(,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
+        drbd_info(NO_DEVICE,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
 #else
@@ -2834,7 +2842,7 @@ drbd_commit_size_change(struct drbd_device *device, struct resize_parms *rs, u64
 static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		drbd_err(,"md block_device is null.\n");
+		drbd_err(NO_DEVICE,"md block_device is null.\n");
 		return 0;
 	}
 
@@ -2845,7 +2853,7 @@ static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 	}
 	else
 	{
-		drbd_err(,"bd_disk is null.\n");
+		drbd_err(NO_DEVICE,"bd_disk is null.\n");
 		return 0;
 	}
 }
@@ -2855,7 +2863,7 @@ static __inline sector_t drbd_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN32
 	if (!bdev) {
-		drbd_warn(,"Null argument\n");
+		drbd_warn(NO_DEVICE,"Null argument\n");
 		return 0;
 	}
 	

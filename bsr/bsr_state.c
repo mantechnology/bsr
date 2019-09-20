@@ -742,7 +742,7 @@ void state_change_lock(struct drbd_resource *resource, unsigned long *irq_flags,
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
 #ifdef _WIN32
-		drbd_warn(,"worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current , resource->worker.task);
+		drbd_warn(NO_DEVICE,"worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current , resource->worker.task);
 #else
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE\n");
@@ -763,7 +763,7 @@ static void __state_change_unlock(struct drbd_resource *resource, unsigned long 
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN32 
 	        while (wait_for_completion(done) == -DRBD_SIGKILL){
-	            drbd_info(,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+	            drbd_info(NO_DEVICE,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	        }
 #else
 			wait_for_completion(done);

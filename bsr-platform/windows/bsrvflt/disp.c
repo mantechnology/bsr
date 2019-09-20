@@ -72,7 +72,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	// init logging system first
 	wdrbd_logger_init();
 
-    drbd_debug(,"MVF Driver Loading...\n");
+    drbd_debug(NO_DEVICE,"MVF Driver Loading...\n");
 
     initRegistry(RegistryPath);
 
@@ -100,7 +100,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
     if (!NT_SUCCESS(status))
     {
-        drbd_err(,"Can't create root, err=%x\n", status);
+        drbd_err(NO_DEVICE,"Can't create root, err=%x\n", status);
         return status;
     }
 
@@ -108,7 +108,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
     if (!NT_SUCCESS(status))
     {
-        drbd_err(,"cannot create symbolic link, err=%x\n", status);
+        drbd_err(NO_DEVICE,"cannot create symbolic link, err=%x\n", status);
         IoDeleteDevice(deviceObject);
         return status;
     }
@@ -138,7 +138,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     // Init DRBD engine
     drbd_init();
 
-    drbd_info(,"MVF Driver loaded.\n");
+    drbd_info(NO_DEVICE,"MVF Driver loaded.\n");
 
     return STATUS_SUCCESS;
 }
@@ -274,7 +274,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         // Init WSK and StartNetLinkServer
 		Status = PsCreateSystemThread(&hNetLinkThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, InitWskNetlink, NULL);
         if (!NT_SUCCESS(Status)) {
-            drbd_err(,"PsCreateSystemThread failed with status 0x%08X\n", Status);
+            drbd_err(NO_DEVICE,"PsCreateSystemThread failed with status 0x%08X\n", Status);
             return Status;
         }
 
@@ -282,7 +282,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		ZwClose(hNetLinkThread);
 
         if (!NT_SUCCESS(Status)) {
-            drbd_err(,"ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
+            drbd_err(NO_DEVICE,"ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
             return Status;
         }
     }
@@ -296,7 +296,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     if (!NT_SUCCESS(status))
     {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-        drbd_err(,"cannot create device, err=0x%x\n", status);
+        drbd_err(NO_DEVICE,"cannot create device, err=0x%x\n", status);
         return status;
     }
 
@@ -349,7 +349,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 #ifndef _WIN32_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
         if (!NT_SUCCESS(status)) {
-            drbd_err(,"Failed to initialize WorkThread. status(0x%x)\n", status);
+            drbd_err(NO_DEVICE,"Failed to initialize WorkThread. status(0x%x)\n", status);
             //return status;
         }
 #endif
@@ -362,7 +362,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 	// DW-1109: create block device in add device routine, it won't be destroyed at least we put ref in remove device routine.
 	VolumeExtension->dev = create_drbd_block_device(VolumeExtension);
 
-	drbd_info(,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)\n",
+	drbd_info(NO_DEVICE,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)\n",
 		VolumeExtension,
 		VolumeExtension->PhysicalDeviceName,
 		VolumeExtension->Minor,
@@ -409,7 +409,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
 #if 0 // DW-1380
     if (DeviceObject == mvolRootDeviceObject) {
-        drbd_debug(,"mvolRootDevice Request\n");
+        drbd_debug(NO_DEVICE,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -425,7 +425,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		if (device && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] == D_DISKLESS))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-			//drbd_debug(,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
+			//drbd_debug(NO_DEVICE,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
 			// DW-1300: put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 
@@ -449,7 +449,7 @@ mvolClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
 #if 0 // DW-1380
     if (DeviceObject == mvolRootDeviceObject) {
-        drbd_debug(,"mvolRootDevice Request\n");
+        drbd_debug(NO_DEVICE,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -519,7 +519,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	PIO_STACK_LOCATION irpSp = NULL;
     if (DeviceObject == mvolRootDeviceObject)
     {
-        drbd_debug(,"mvolRootDevice Request\n");
+        drbd_debug(NO_DEVICE,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -535,7 +535,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		if (device && device->resource->bTempAllowMount == FALSE && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] <= D_FAILED))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-			//drbd_debug(,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
+			//drbd_debug(NO_DEVICE,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
 			// DW-1300: put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 
@@ -617,7 +617,7 @@ async_read_filter:
     {
 #ifdef DRBD_TRACE
         PIO_STACK_LOCATION readIrpSp = IoGetCurrentIrpStackLocation(Irp);
-        drbd_debug(,"\n\nupper driver READ request start! vol:%c: sect:0x%llx sz:%d --------------------------------!\n",
+        drbd_debug(NO_DEVICE,"\n\nupper driver READ request start! vol:%c: sect:0x%llx sz:%d --------------------------------!\n",
             VolumeExtension->Letter, (readIrpSp->Parameters.Read.ByteOffset.QuadPart / 512), readIrpSp->Parameters.Read.Length);
 #endif
 
@@ -671,7 +671,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			// then allow to lower device, so not try to send to peer
 			if (offset_sector + size_sector > vol_size_sector) {
 
-				drbd_debug(,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x\n",
+				drbd_debug(NO_DEVICE,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x\n",
 					&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 
 				unsigned long long saved_size = VolumeExtension->dev->bd_contains->d_size;
@@ -679,8 +679,8 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 				if (offset_sector + size_sector > saved_size && real_size > saved_size)
 				{
-					drbd_debug(,"saved_size (%llu), real_size (%llu) vol_sector(%llu) off_sector(%llu)\n", saved_size >> 9, real_size >> 9, vol_size_sector, offset_sector + size_sector);
-					drbd_debug(,"need to temporary bm write\n");
+					drbd_debug(NO_DEVICE,"saved_size (%llu), real_size (%llu) vol_sector(%llu) off_sector(%llu)\n", saved_size >> 9, real_size >> 9, vol_size_sector, offset_sector + size_sector);
+					drbd_debug(NO_DEVICE,"need to temporary bm write\n");
 				}				
 				
 				// DW-1300: put device reference count when no longer use.
@@ -690,7 +690,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 
 #ifdef DRBD_TRACE
-			drbd_debug(,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) ................Queuing(%d)!\n",
+			drbd_debug(NO_DEVICE,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) ................Queuing(%d)!\n",
 				&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount);
 #endif
 
@@ -733,7 +733,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
 
-			drbd_debug(,"Upper driver WRITE vol(%wZ) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x\n",
+			drbd_debug(NO_DEVICE,"Upper driver WRITE vol(%wZ) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x\n",
 					&VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 	
             Irp->IoStatus.Information = 0;
@@ -836,12 +836,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
 			if (!NT_SUCCESS(status))
 			{
-				drbd_warn(,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
+				drbd_warn(NO_DEVICE,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
 					&VolumeExtension->MountPoint, status);
 			}
 			else if (!size)
 			{	// ok
-				drbd_info(,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
+				drbd_info(NO_DEVICE,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
 					&VolumeExtension->MountPoint);
 			}
 

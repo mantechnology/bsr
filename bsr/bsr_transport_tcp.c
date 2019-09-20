@@ -234,7 +234,7 @@ int dtt_init(struct drbd_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09DW');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			drbd_warn(,"dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM" );
+			drbd_warn(NO_DEVICE,"dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM" );
 			goto fail;
 		}
 #else 
@@ -526,7 +526,7 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 	else if (err != (int)size) 
 	{
 		// DW-1502 : If the size of the received data differs from the expected size, the consistency will be broken.
-		drbd_err(,"Wrong data (expected size:%d, received size:%d)\n", size, err);
+		drbd_err(NO_DEVICE,"Wrong data (expected size:%d, received size:%d)\n", size, err);
 		err = -EIO;		
 		
 		goto fail;
@@ -715,9 +715,9 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	what = "create-connect";
 
 	if (my_addr.ss_family == AF_INET6) {
-		drbd_debug(,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
+		drbd_debug(NO_DEVICE,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
 	} else {
-		drbd_debug(,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
+		drbd_debug(NO_DEVICE,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 	}
 #ifdef _WSK_SOCKET_STATE
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
@@ -726,7 +726,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 #endif 
 	if (!NT_SUCCESS(status)) {
 		err = status;
-		drbd_debug(,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
+		drbd_debug(NO_DEVICE,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
 		switch (status) {
 		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
 #ifdef _WIN32
@@ -738,7 +738,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 		case STATUS_HOST_UNREACHABLE: err = -EHOSTUNREACH; break;
 		case STATUS_IO_TIMEOUT: err = -ETIMEDOUT; break;
 		default: 
-			drbd_err(,"create-connect failed with status 0x%08X \n", status);
+			drbd_err(NO_DEVICE,"create-connect failed with status 0x%08X \n", status);
 			err = -EINVAL; 
 			break;
 		}
@@ -825,7 +825,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	}
 	status = Bind(socket->sk, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&LocalAddressV4 : (PSOCKADDR)&LocalAddressV6 );
 	if (!NT_SUCCESS(status)) {
-		drbd_err(,"Bind() failed with status 0x%08X \n", status);
+		drbd_err(NO_DEVICE,"Bind() failed with status 0x%08X \n", status);
 		err = -EINVAL;
 		goto out;
 	}
@@ -897,7 +897,7 @@ out:
 #ifdef _WSK_SOCKET_STATE
 		status = SetEventCallbacks(socket, WSK_EVENT_DISCONNECT);
 		if (!NT_SUCCESS(status)) {
-			drbd_err(,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
+			drbd_err(NO_DEVICE,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
 			err = -1;
 			goto out;
 		}
@@ -1491,7 +1491,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	// DW-1398: do not accept if already connected.
 	if (atomic_read(&connection->transport.listening_done))
 	{
-		drbd_info(,"listening is done for this transport, request won't be accepted\n");
+		drbd_info(NO_DEVICE,"listening is done for this transport, request won't be accepted\n");
 		kfree(s_estab->sk_linux_attr);
 		kfree(s_estab);
 		spin_unlock(&listener->waiters_lock);
@@ -1578,9 +1578,9 @@ static void dtt_destroy_listener(struct drbd_listener *generic_listener)
 
 	// DW-1483 : WSK_EVENT_ACCEPT disable	
 	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	drbd_debug(,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
+	drbd_debug(NO_DEVICE,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
 	if (!NT_SUCCESS(status)) {
-		drbd_debug(,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
+		drbd_debug(NO_DEVICE,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
 	}
 #else
 	unregister_state_change(listener->s_listen->sk, listener);
@@ -1686,7 +1686,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	LONG InputBuffer = 1;
     status = ControlSocket(s_listen, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(,"ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
+        drbd_err(NO_DEVICE,"ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
         err = -1;
         goto out;
     }
@@ -1714,9 +1714,9 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
-			drbd_err(,"AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],(UCHAR)my_addr.__data[0],(UCHAR)my_addr.__data[1]);
+			drbd_err(NO_DEVICE,"AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],(UCHAR)my_addr.__data[0],(UCHAR)my_addr.__data[1]);
     	} else {
-			drbd_err(,"AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2],(UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4],(UCHAR)my_addr.__data[5],
+			drbd_err(NO_DEVICE,"AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2],(UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4],(UCHAR)my_addr.__data[5],
 																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
 																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
 																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
@@ -1767,7 +1767,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	// DW-845 fix crash issue(EventCallback is called when listener is not initialized, then reference to invalid Socketcontext at dtt_inspect_incoming.)
 	status = SetEventCallbacks(s_listen, WSK_EVENT_ACCEPT);
     if (!NT_SUCCESS(status)) {
-        drbd_err(,"Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
+        drbd_err(NO_DEVICE,"Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
     	err = -1;
         goto out;
     }
@@ -1866,7 +1866,7 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN32 // TODO
 	NTSTATUS status;
 	if (transport == NULL) {
-		drbd_err(,"dtt_connect transport is null.\n");
+		drbd_err(NO_DEVICE,"dtt_connect transport is null.\n");
 		return -EDESTADDRREQ;
 	}
 #endif
@@ -1918,10 +1918,10 @@ static int dtt_connect(struct drbd_transport *transport)
 #if 0// _WIN32
 		{		
 			if (path->path.my_addr.ss_family == AF_INET6) {
-				drbd_debug(,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
+				drbd_debug(NO_DEVICE,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
 			}
 			else {
-				drbd_debug(,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
+				drbd_debug(NO_DEVICE,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
 			}
 		}
 #endif
@@ -1947,9 +1947,9 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN32
         {
 		if (drbd_path->my_addr.ss_family == AF_INET6) {
-			drbd_debug(,"dtt_connect: drbd_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&drbd_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&drbd_path->peer_addr));
+			drbd_debug(NO_DEVICE,"dtt_connect: drbd_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&drbd_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&drbd_path->peer_addr));
 		} else {
-			drbd_debug(,"dtt_connect: drbd_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&drbd_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&drbd_path->peer_addr));
+			drbd_debug(NO_DEVICE,"dtt_connect: drbd_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&drbd_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&drbd_path->peer_addr));
 		}
 	}
 #endif
@@ -1962,9 +1962,9 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN32
 	{
 		if(connect_to_path->path.my_addr.ss_family == AF_INET6) {
-			drbd_debug(,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+			drbd_debug(NO_DEVICE,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 		} else {
-			drbd_debug(,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+			drbd_debug(NO_DEVICE,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 		}
 	}
 #endif
@@ -1983,9 +1983,9 @@ static int dtt_connect(struct drbd_transport *transport)
 			{
 #ifdef _WIN32
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					drbd_debug(,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					drbd_debug(NO_DEVICE,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					drbd_debug(,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					drbd_debug(NO_DEVICE,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}
 #endif
 			}
@@ -2028,7 +2028,7 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN32 // DW-1567
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0)
 				{
-					drbd_err(,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
+					drbd_err(NO_DEVICE,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
@@ -2042,7 +2042,7 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN32 // DW-1567
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0)
 				{
-					drbd_err(,"failed to send first packet, csocket (%p)\n", csocket->sk);
+					drbd_err(NO_DEVICE,"failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
@@ -2076,9 +2076,9 @@ retry:
 			{
 #ifdef _WIN32
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					drbd_debug(,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					drbd_debug(NO_DEVICE,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					drbd_debug(,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					drbd_debug(NO_DEVICE,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}				
 #endif				
 			}
@@ -2152,7 +2152,7 @@ randomize:
 #ifdef _WIN32 // release event callback before dtt_put_listener 
 	status = SetEventCallbacks(dttlistener->s_listen->sk, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
 	if (!NT_SUCCESS(status)) {
-		drbd_debug(,"WSK_EVENT_DISABLE failed=0x%x\n", status);
+		drbd_debug(NO_DEVICE,"WSK_EVENT_DISABLE failed=0x%x\n", status);
 		//goto out; // just go to release listener 
 	}
 #endif
@@ -2171,7 +2171,7 @@ randomize:
     LONG InputBuffer = 1;
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+        drbd_err(NO_DEVICE,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		//DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
@@ -2182,7 +2182,7 @@ randomize:
 
     status = ControlSocket(csocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+        drbd_err(NO_DEVICE,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		err = status;
         goto out;
     }
@@ -2667,9 +2667,9 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 
 						// kill DATA_STREAM thread
 						KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-						//drbd_info(,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+						//drbd_info(NO_DEVICE,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 						KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-						//drbd_info(,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+						//drbd_info(NO_DEVICE,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 						//ZwClose(attr->send_buf_thread_handle);
 						attr->send_buf_thread_handle = NULL;
 						
@@ -2705,20 +2705,20 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 			if (attr->send_buf_thread_handle != NULL)
 			{
 				KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-				//drbd_info(,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+				//drbd_info(NO_DEVICE,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 				KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-				//drbd_info(,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+				//drbd_info(NO_DEVICE,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}
 			else
 			{
-				drbd_warn(,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
+				drbd_warn(NO_DEVICE,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
 			}
 		}
 		else
 		{
-			//drbd_warn(,"No stream(channel:%d)\n", i);
+			//drbd_warn(NO_DEVICE,"No stream(channel:%d)\n", i);
 		}
 	}
 	return;

@@ -706,7 +706,7 @@ static int drbd_thread_setup(void *arg)
     thi->nt = ct_add_thread(KeGetCurrentThread(), thi->name, TRUE, 'B0DW');
     if (!thi->nt)
     {
-        drbd_err(,"DRBD_PANIC: ct_add_thread faild.\n");
+        drbd_err(NO_DEVICE,"DRBD_PANIC: ct_add_thread faild.\n");
         PsTerminateSystemThread(STATUS_SUCCESS);
     }
 
@@ -887,7 +887,7 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 	spin_lock_irqsave(&thi->t_lock, flags);
 
 #ifdef _WIN32
-	//drbd_info(,"thi(%s) ns(%s) state(%d) waitflag(%d) event(%d)-------------------!\n", 
+	//drbd_info(NO_DEVICE,"thi(%s) ns(%s) state(%d) waitflag(%d) event(%d)-------------------!\n", 
 	//	thi->name, (ns == RESTARTING) ? "RESTARTING" : "EXITING", thi->t_state, wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
 #endif
 	if (thi->t_state == NONE) {
@@ -919,7 +919,7 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 		}
 		else
 		{
-		//	drbd_info(,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
+		//	drbd_info(NO_DEVICE,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
 		}
 #else
 			force_sig(DRBD_SIGKILL, thi->task);
@@ -930,17 +930,17 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 	if (wait)
 #ifdef _WIN32
 	{ 
-		//drbd_info(,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
+		//drbd_info(NO_DEVICE,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
 		while (wait_for_completion(&thi->stop) == -DRBD_SIGKILL)
 		{
-		//	drbd_info(,"DRBD_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
+		//	drbd_info(NO_DEVICE,"DRBD_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
 		}
     }
 #else
 		wait_for_completion(&thi->stop);
 #endif
-	//drbd_info(,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
+	//drbd_info(NO_DEVICE,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
 }
 
 int conn_lowest_minor(struct drbd_connection *connection)
@@ -2256,7 +2256,7 @@ int drbd_send_peer_dagtag(struct drbd_connection *connection, struct drbd_connec
 	p->dagtag = cpu_to_be64(lost_peer->last_dagtag_sector);
 	p->node_id = cpu_to_be32(lost_peer->peer_node_id);
 #ifdef _WIN32_TRACE_PEER_DAGTAG
-	drbd_info(,"drbd_send_peer_dagtag lost_peer:%p lost_peer->last_dagtag_sector:%llx lost_peer->peer_node_id:%d\n",lost_peer,lost_peer->last_dagtag_sector,lost_peer->peer_node_id);
+	drbd_info(NO_DEVICE,"drbd_send_peer_dagtag lost_peer:%p lost_peer->last_dagtag_sector:%llx lost_peer->peer_node_id:%d\n",lost_peer,lost_peer->last_dagtag_sector,lost_peer->peer_node_id);
 #endif	
 	return send_command(connection, -1, P_PEER_DAGTAG, DATA_STREAM);
 }
@@ -2567,7 +2567,7 @@ int drbd_send_drequest(struct drbd_peer_device *peer_device, int cmd,
 	struct p_block_req *p;
 
 #ifdef DRBD_TRACE
-	drbd_debug(,"sz=%d sector=%lld\n", size, sector);
+	drbd_debug(NO_DEVICE,"sz=%d sector=%lld\n", size, sector);
 #endif
 	p = drbd_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
 	if (!p)
@@ -3534,7 +3534,7 @@ void drbd_destroy_device(struct kref *kref)
 	struct drbd_peer_device *peer_device, *tmp;
 
 #ifdef _WIN32
-	drbd_debug(,"%s\n", __FUNCTION__);
+	drbd_debug(NO_DEVICE,"%s\n", __FUNCTION__);
 #endif
 
 #ifdef _WIN32 // TODO : ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 리눅스 포팅작업 필요
@@ -3606,7 +3606,7 @@ void drbd_destroy_resource(struct kref *kref)
 	struct drbd_resource *resource = container_of(kref, struct drbd_resource, kref);
 
 #ifdef _WIN32
-	drbd_debug(,"%s\n", __FUNCTION__);
+	drbd_debug(NO_DEVICE,"%s\n", __FUNCTION__);
 #endif
 
 	idr_destroy(&resource->devices);
@@ -3760,7 +3760,7 @@ void drbd_restart_request(struct drbd_request *req)
 	spin_lock_irqsave(&retry.lock, flags);
 
 #ifdef _WIN32	
-	drbd_info(,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
+	drbd_info(NO_DEVICE,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
 #endif
 
 #ifdef _WIN32_NETQUEUED_LOG
@@ -3782,7 +3782,7 @@ void drbd_restart_request(struct drbd_request *req)
 #ifdef _WIN32
 void drbd_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 {
-    drbd_info(,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)\n",
+    drbd_info(NO_DEVICE,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)\n",
         KeGetCurrentIrql(), VolumeExtension->PhysicalDeviceName, &VolumeExtension->MountPoint);
 
     if (retry.wq)
@@ -3923,7 +3923,7 @@ void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_wo
 	init_completion(&completion_work.done);
 	drbd_queue_work(work_queue, &completion_work.w);
 	while (wait_for_completion_timeout(&completion_work.done, 100 ) == -DRBD_SIGKILL) {
-    	drbd_info(,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+    	drbd_info(NO_DEVICE,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	}
 }
 #endif
@@ -3938,7 +3938,7 @@ void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue
 
 #ifdef _WIN32	
 	if (get_t_state(&resource->worker) != RUNNING) {
-		drbd_info(,"drbd_flush_workqueue &resource->worker != RUNNING return resource:%p\n",resource);
+		drbd_info(NO_DEVICE,"drbd_flush_workqueue &resource->worker != RUNNING return resource:%p\n",resource);
 		return;
 	}
 #endif	
@@ -3947,7 +3947,7 @@ void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue
 	drbd_queue_work(work_queue, &completion_work.w);
 #ifdef _WIN32 
 	while (wait_for_completion(&completion_work.done) == -DRBD_SIGKILL) {
-        drbd_info(,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+        drbd_info(NO_DEVICE,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
     }	
 #else
 	wait_for_completion(&completion_work.done);
@@ -4716,7 +4716,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	// DW-1406 max_hw_sectors must be valued as number of maximum sectors.
 	// DW-1510 recalculate this_bdev->d_size
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
-	drbd_info(,"device:%p q->max_hw_sectors: %x sectors, device->this_bdev->d_size: %lld bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
+	drbd_info(NO_DEVICE,"device:%p q->max_hw_sectors: %x sectors, device->this_bdev->d_size: %lld bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, drbd_congested, device);
 	
@@ -5086,7 +5086,7 @@ int bsr_init(void)
 	INIT_LIST_HEAD(&retry.writes);
 	// DW-1105: need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
 	if (!NT_SUCCESS(start_mnt_monitor())) {
-		drbd_err(,"could not start mount monitor\n");
+		drbd_err(NO_DEVICE,"could not start mount monitor\n");
 		goto fail;
 	}
 

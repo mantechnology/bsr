@@ -44,18 +44,18 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 
 	do {
 		if(nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN ) {
-			drbd_info(,"alloc bab fail nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			drbd_info(NO_DEVICE,"alloc bab fail nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			goto $ALLOC_FAIL;
 		}
 		__try {
 			sz = sizeof(*ring) + nconf->sndbuf_size;
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
 			if(!ring) {
-				drbd_info(,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+				drbd_info(NO_DEVICE,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
 		} __except(EXCEPTION_EXECUTE_HANDLER) {
-			drbd_info(,"EXCEPTION_EXECUTE_HANDLER alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			drbd_info(NO_DEVICE,"EXCEPTION_EXECUTE_HANDLER alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -67,12 +67,12 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			sz = sizeof(*ring) + (1024 * 5120); // meta bab is about 5MB
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
 			if(!ring) {
-				drbd_info(,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+				drbd_info(NO_DEVICE,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 				kfree(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
-			drbd_info(,"EXCEPTION_EXECUTE_HANDLER alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			drbd_info(NO_DEVICE,"EXCEPTION_EXECUTE_HANDLER alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -83,7 +83,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 		
 	} while (false);
 	
-	drbd_info(,"alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+	drbd_info(NO_DEVICE,"alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 	return TRUE;
 
 $ALLOC_FAIL:
@@ -110,7 +110,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 
 	if (length == 0 || length > DRBD_SNDBUF_SIZE_MAX)
 	{
-		drbd_err(,"bab(%s) size(%d) is bad. max(%d)\n", name, length, DRBD_SNDBUF_SIZE_MAX);
+		drbd_err(NO_DEVICE,"bab(%s) size(%d) is bad. max(%d)\n", name, length, DRBD_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
 
@@ -132,7 +132,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 
 		mutex_init(&ring->cs);
 
-		//drbd_info(,"bab(%s) size(%d)\n", name, length);
+		//drbd_info(NO_DEVICE,"bab(%s) size(%d)\n", name, length);
 #ifdef SENDBUF_TRACE
 		INIT_LIST_HEAD(&ring->send_req_list);
 #endif
@@ -140,11 +140,11 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
-			drbd_err(,"bab(%s): static_big_buf alloc(%d) failed.  \n", name, MAX_ONETIME_SEND_BUF);
+			drbd_err(NO_DEVICE,"bab(%s): static_big_buf alloc(%d) failed.  \n", name, MAX_ONETIME_SEND_BUF);
 			return NULL;
 		}
 	} else {
-		drbd_err(,"bab(%s):alloc(%u) failed\n", name, sz);
+		drbd_err(NO_DEVICE,"bab(%s):alloc(%u) failed\n", name, sz);
 	}
 	return ring;
 }
@@ -212,7 +212,7 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 
 				if (tcp_transport->stream[stream]) {
 					if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
-						drbd_info(,"Stop send and quit\n");
+						drbd_info(NO_DEVICE,"Stop send and quit\n");
 						return -EIO;
 					}
 				}
@@ -250,7 +250,7 @@ $GO_BUFFERING:
 		ring->write_pos %= ring->length;
 	}
 	else {
-		drbd_err(,"unexpected bab case\n");
+		drbd_err(NO_DEVICE,"unexpected bab case\n");
 		BUG();
 	}
 
@@ -323,7 +323,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	int ret = 0;
 
 	if (bab == NULL) {
-		drbd_err(,"bab is null.\n");
+		drbd_err(NO_DEVICE,"bab is null.\n");
 		return 0;
 	}
 
@@ -342,12 +342,12 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 		if (ret != tx_sz) {
 			if (ret < 0) {
 				if (ret != -EINTR) {
-					drbd_info(,"Send Error(%d)\n", ret);
+					drbd_info(NO_DEVICE,"Send Error(%d)\n", ret);
 					ret = 0;
 				}
 				break;
 			} else {
-				drbd_info(,"Tx mismatch. req(%d) sent(%d)\n", tx_sz, ret);
+				drbd_info(NO_DEVICE,"Tx mismatch. req(%d) sent(%d)\n", tx_sz, ret);
 				// will be recovered by upper drbd protocol 
 			}
 		}
@@ -371,7 +371,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 	buffering_attr->quit = FALSE;
 
 	//KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
-	//drbd_info(,"start send_buf_thread\n");
+	//drbd_info(NO_DEVICE,"start send_buf_thread\n");
 
 	KeSetEvent(&buffering_attr->send_buf_thr_start_event, 0, FALSE);
 	nWaitTime = RtlConvertLongToLargeInteger(-10 * 1000 * 1000 * 10);
@@ -389,7 +389,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			break;
 
 		case STATUS_WAIT_0:
-			drbd_info(,"response kill-ack-event\n");
+			drbd_info(NO_DEVICE,"response kill-ack-event\n");
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
@@ -399,15 +399,15 @@ VOID NTAPI send_buf_thread(PVOID p)
 			break;
 
 		default:
-			drbd_err(,"unexpected wakeup case(0x%x). ignore.\n", status);
+			drbd_err(NO_DEVICE,"unexpected wakeup case(0x%x). ignore.\n", status);
 			goto done;
 		}
 	}
 
 done:
-	drbd_info(,"send_buf_killack_event!\n");
+	drbd_info(NO_DEVICE,"send_buf_killack_event!\n");
 	KeSetEvent(&buffering_attr->send_buf_killack_event, 0, FALSE);
-	drbd_info(,"sendbuf thread[%p] terminate!!\n",KeGetCurrentThread());
+	drbd_info(NO_DEVICE,"sendbuf thread[%p] terminate!!\n",KeGetCurrentThread());
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
 

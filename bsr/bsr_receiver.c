@@ -2269,7 +2269,7 @@ struct drbd_peer_request_details *d, struct packet_info *pi)
 	d->digest_size = digest_size;
 
 #ifdef _WIN32
-	drbd_debug(,"sector: %llu block_id: %llu peer_seq: %u dp_flags:%u length:%u bi_size:%u digest_size: %u\n", d->sector, d->block_id, d->peer_seq, d->dp_flags, d->length, d->bi_size, d->digest_size);
+	drbd_debug(NO_DEVICE,"sector: %llu block_id: %llu peer_seq: %u dp_flags:%u length:%u bi_size:%u digest_size: %u\n", d->sector, d->block_id, d->peer_seq, d->dp_flags, d->length, d->bi_size, d->digest_size);
 #endif
 }
 
@@ -3881,7 +3881,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 
 #ifdef _WIN32 // DW-1502 bump the mirrored data after the ack_receiver has terminated.
 	if(get_t_state(&connection->ack_receiver) != RUNNING) {
-		drbd_info(,"ack_receiver is not running... bump mirrored data\n");
+		drbd_info(NO_DEVICE,"ack_receiver is not running... bump mirrored data\n");
 		return 0;
 	}
 #endif	
@@ -4251,7 +4251,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 #endif
 
 #ifdef _WIN32_TRACE_PEER_DAGTAG
-		drbd_info(,"receive_Data connection->last_dagtag_sector:%llx ack_receiver thread state:%d\n",connection->last_dagtag_sector, get_t_state(&connection->ack_receiver));
+		drbd_info(NO_DEVICE,"receive_Data connection->last_dagtag_sector:%llx ack_receiver thread state:%d\n",connection->last_dagtag_sector, get_t_state(&connection->ack_receiver));
 #endif
 		return 0;
 	}
@@ -7952,7 +7952,7 @@ static int process_twopc(struct drbd_connection *connection,
 {
 #ifdef _WIN32
 	if (connection == NULL) {
-		drbd_err(,"process_twopc connection is null\n");
+		drbd_err(NO_DEVICE,"process_twopc connection is null\n");
 	}
 #endif
 
@@ -10679,13 +10679,13 @@ validate_req_change_req_state(struct drbd_peer_device *peer_device, u64 id, sect
 		return -EIO;
 	}
 #ifdef DRBD_TRACE	
-	drbd_debug(,"(%s) validate_req_change_req_state: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(NO_DEVICE,"(%s) validate_req_change_req_state: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	__req_mod(req, what, peer_device, &m);
 	spin_unlock_irq(&device->resource->req_lock);
 
 #ifdef DRBD_TRACE	
-	drbd_debug(,"(%s) validate_req_change_req_state: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	drbd_debug(NO_DEVICE,"(%s) validate_req_change_req_state: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 
 	if (m.bio)
@@ -10712,7 +10712,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 #endif
 	
 #ifdef DRBD_TRACE
-	drbd_debug(,"pi-cmd 0x%x(%s) sect:0x%llx sz:%d\n", pi->cmd, drbd_packet_name(pi->cmd), sector, blksize);
+	drbd_debug(NO_DEVICE,"pi-cmd 0x%x(%s) sect:0x%llx sz:%d\n", pi->cmd, drbd_packet_name(pi->cmd), sector, blksize);
 #endif
 
 	peer_device = conn_peer_device(connection, pi->vnr);
@@ -10955,7 +10955,7 @@ static int got_BarrierAck(struct drbd_connection *connection, struct packet_info
 	int vnr;
 
 #ifdef DRBD_TRACE
-	drbd_debug(,"do tl_release\n");
+	drbd_debug(NO_DEVICE,"do tl_release\n");
 #endif
 	tl_release(connection, p->barrier, be32_to_cpu(p->set_size));
 
@@ -11142,7 +11142,7 @@ static int got_peer_ack(struct drbd_connection *connection, struct packet_info *
 	dagtag = be64_to_cpu(p->dagtag);
 	in_sync = be64_to_cpu(p->mask);
 #ifdef _WIN32_TRACE_PEER_DAGTAG    
-	drbd_info(,"got_peer_ack dagtag:%llx in_sync:%llx\n", dagtag, in_sync);
+	drbd_info(NO_DEVICE,"got_peer_ack dagtag:%llx in_sync:%llx\n", dagtag, in_sync);
 #endif
 	
 	spin_lock_irq(&resource->req_lock);
@@ -11183,7 +11183,7 @@ found:
 			drbd_set_sync(device, peer_req->i.sector,
 				peer_req->i.size, ~in_sync_b, (ULONG_PTR)set_sync_mask);
 #ifdef _WIN32_TRACE_PEER_DAGTAG			
-			drbd_info(,"got_peer_ack drbd_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
+			drbd_info(NO_DEVICE,"got_peer_ack drbd_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
 				device, peer_req->i.sector, peer_req->i.size, in_sync_b, set_sync_mask);
 #endif
 			drbd_al_complete_io(device, &peer_req->i);
@@ -11391,7 +11391,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 			if (ping_ret) {
 				if (ping_ret == -EINTR && current->sig == SIGXCPU)
 				{
-					drbd_info(,"got SIGXCPU during ping\n");
+					drbd_info(NO_DEVICE,"got SIGXCPU during ping\n");
 					flush_signals(current);
 				}
 				drbd_err(connection, "drbd_send_ping has failed (%d)\n", ping_ret);
@@ -11463,7 +11463,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 #ifdef _WIN32
 			if (current->sig == SIGXCPU)
 			{
-				//drbd_info(,"got SIGXCPU during rx.\n");
+				//drbd_info(NO_DEVICE,"got SIGXCPU during rx.\n");
 			}
 #endif
 			flush_signals(current);
@@ -11512,7 +11512,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 
 				if (err == -EINTR && current->sig == SIGXCPU)
 				{
-					//drbd_info(,"got SIGXCPU during fn(%s)\n", drbd_packet_name(pi.cmd));
+					//drbd_info(NO_DEVICE,"got SIGXCPU during fn(%s)\n", drbd_packet_name(pi.cmd));
 					flush_signals(current);
 					goto ignore_sig;
 				}

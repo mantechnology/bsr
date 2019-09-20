@@ -70,7 +70,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		}
 		if (lc->flags)
 			private_strcat(print_lru, sizeof(print_lru), " flags= ", lc->flags);
-		drbd_crit(,"lru : %s\n", print_lru);
+		drbd_crit(NO_DEVICE,"lru : %s\n", print_lru);
 	}
 
 	if (e){
@@ -83,7 +83,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		if (e->lc_new_number)
 			private_strcat(print_ele, sizeof(print_ele), " lc_new_number= ", e->lc_new_number);
 
-		drbd_crit(,"element : %s\n", print_ele);
+		drbd_crit(NO_DEVICE,"element : %s\n", print_ele);
 	}
 }
 #endif 
@@ -408,7 +408,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		drbd_err(,"al is inaccessible, it could be not initialized or destroyed.\n");
+		drbd_err(NO_DEVICE,"al is inaccessible, it could be not initialized or destroyed.\n");
 		return NULL;
 	}
 #else
