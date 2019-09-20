@@ -1421,7 +1421,6 @@ retry:
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
 			}
-		}
 #else
 			if (forced)
 				drbd_uuid_new_current(device, true);
@@ -5788,7 +5787,7 @@ found_resource:
 	if (&resource->resources != (&drbd_resources))
 		goto put_result;
 #else
-	list_for_each_entry_continue_rcu(resource, &drbd_resources, resources) {
+	list_for_each_entry_continue_rcu_ex(struct drbd_resource, resource, &drbd_resources, resources) {
 		goto put_result;
 	}
 #endif
@@ -6136,7 +6135,7 @@ found_connection:
 	}
 
 #else
-	list_for_each_entry_continue_rcu(connection, &resource->connections, connections) {
+	list_for_each_entry_continue_rcu_ex(struct drbd_connection, connection, &resource->connections, connections) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
@@ -6372,7 +6371,7 @@ found_peer_device:
 
 
 #else
-	list_for_each_entry_continue_rcu(peer_device, &device->peer_devices, peer_devices) {
+	list_for_each_entry_continue_rcu_ex(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
