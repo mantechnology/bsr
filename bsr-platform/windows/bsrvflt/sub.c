@@ -134,7 +134,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status))
 	{
-		drbd_err(NO_DEVICE,"cannot remove device, status=0x%x\n", status);
+		drbd_err(NO_OBJECT,"cannot remove device, status=0x%x\n", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -150,7 +150,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	if (VolumeExtension->WorkThreadInfo.Active)
 	{
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
-		drbd_debug(NO_DEVICE,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
+		drbd_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
 	}
 #endif
 
@@ -184,15 +184,15 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	// DW-1277: check volume type we marked when drbd attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		drbd_info(NO_DEVICE,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		drbd_info(NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		drbd_info(NO_DEVICE,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		drbd_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		drbd_info(NO_DEVICE,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		drbd_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
 	FreeUnicodeString(&VolumeExtension->MountPoint);
@@ -355,7 +355,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				if (!newbuf)
 				{
 					status = STATUS_NO_MEMORY;
-					drbd_err(NO_DEVICE,"HOOKER malloc fail!!!\n");
+					drbd_err(NO_OBJECT,"HOOKER malloc fail!!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -386,7 +386,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				if (!newbuf)
 				{
 					status = STATUS_NO_MEMORY;
-					drbd_err(NO_DEVICE,"HOOKER rest malloc fail!!\n");
+					drbd_err(NO_OBJECT,"HOOKER rest malloc fail!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -418,7 +418,7 @@ fail_put_dev:
 		kref_put(&device->kref, drbd_destroy_device);
 
 fail:
-	drbd_err(NO_DEVICE,"failed. status=0x%x\n", status);
+	drbd_err(NO_OBJECT,"failed. status=0x%x\n", status);
 	return status;
 }
 
@@ -436,7 +436,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        drbd_err(NO_DEVICE,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
+        drbd_err(NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -444,7 +444,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-        drbd_err(NO_DEVICE,"cannot alloc new IRP\n");
+        drbd_err(NO_OBJECT,"cannot alloc new IRP\n");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -455,7 +455,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_DEVICE,"cannot get volume information, err=0x%x\n", status);
+        drbd_err(NO_OBJECT,"cannot get volume information, err=0x%x\n", status);
         return status;
     }
 
@@ -502,7 +502,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	FreeUnicodeString(&pvext->VolumeGuid);
 	pvext->Minor = 0;
 	
-	drbd_info(NO_DEVICE,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+	drbd_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
 	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
 
 		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
@@ -512,7 +512,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 			.MaximumLength = p->SymbolicLinkNameLength,
 			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
 
-		drbd_info(NO_DEVICE,"SymbolicLink num:%d %wZ\n",i,&name);
+		drbd_info(NO_OBJECT,"SymbolicLink num:%d %wZ\n",i,&name);
 
 		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
 
@@ -522,22 +522,22 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 
 			link = &pvext->MountPoint;
 			//FreeUnicodeString(link);
-			drbd_debug(NO_DEVICE,"Free letter link\n");
+			drbd_debug(NO_OBJECT,"Free letter link\n");
 		}
 		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
 
 			link = &pvext->VolumeGuid;
 			//FreeUnicodeString(link);
-			drbd_debug(NO_DEVICE,"Free volume guid link\n");
+			drbd_debug(NO_OBJECT,"Free volume guid link\n");
 		}
 
 		if(link) {
 			ucsdup(link, name.Buffer, name.Length);
-			drbd_debug(NO_DEVICE,"link alloc\n");
+			drbd_debug(NO_OBJECT,"link alloc\n");
 		}
 		
 	}
-	drbd_info(NO_DEVICE,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+	drbd_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
 cleanup:
 	kfree(inbuf);
 	kfree(otbuf);
@@ -599,7 +599,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL)
 	{
-		drbd_err(NO_DEVICE,"cannot alloc Log Entry\n");
+		drbd_err(NO_OBJECT,"cannot alloc Log Entry\n");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
@@ -848,7 +848,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
     if (KeGetCurrentIrql() > PASSIVE_LEVEL) // DRBD_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL)
     {
         // DRBD_DOC: you should consider to process EVENTLOG
-        drbd_warn(NO_DEVICE,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
+        drbd_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
         return 1;
     }
 #endif
@@ -997,14 +997,14 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	if (NULL == frames ||
 		0 == usFrameCount)
 	{
-		drbd_err(NO_DEVICE,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		drbd_err(NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
 		return 0;
 	}
 	
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
 	if (0 == usCaptured)
 	{
-		drbd_err(NO_DEVICE,"Captured frame count is 0\n");
+		drbd_err(NO_OBJECT,"Captured frame count is 0\n");
 		return 0;
 	}
 
@@ -1030,7 +1030,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 
 	if (NULL == stackFrames)
 	{
-		drbd_err(NO_DEVICE,"Failed to allcate pool for stackFrames\n");
+		drbd_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
 		return;
 	}
 
