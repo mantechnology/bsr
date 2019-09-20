@@ -38,6 +38,7 @@ else
 compat_objs += bsr-kernel-compat/blkdev_issue_zeroout.o
 endif
 
+compat_objs += bsr-kernel-compat/bsr_wrappers.o
 
 bsr-$(CONFIG_DEBUG_FS) += bsr_debugfs.o
 bsr-y += ../bsr-platform/linux/bsrhk/bsrhk_init.o
