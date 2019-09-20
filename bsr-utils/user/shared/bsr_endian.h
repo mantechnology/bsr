@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <endian.h>
 
+#ifdef _WIN32
 #ifndef BITS_PER_LONG
 #if defined(x64)
 # define BITS_PER_LONG 64
@@ -23,7 +24,7 @@
 # define BITS_PER_LONG __WORDSIZE
 #endif
 #endif
-#ifndef _WIN32
+#else // _LIN
 #ifndef BITS_PER_LONG
 # if defined(__SIZEOF_LONG__)
 #  define BITS_PER_LONG (__SIZEOF_LONG__ * 8)

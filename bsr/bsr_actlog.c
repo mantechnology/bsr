@@ -1610,10 +1610,8 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 	struct bm_extent *bm_ext;
 	int i, sig;
 	bool sa;
-#ifdef _WIN32
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER((enr * AL_EXT_PER_BM_SECT + AL_EXT_PER_BM_SECT));
-#endif
 #endif
 
 retry:
@@ -1695,11 +1693,9 @@ int drbd_try_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector, 
 
 	if (throttle && peer_device->resync_wenr != enr)
 		return -EAGAIN;
-#ifdef _WIN32
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(enr);
 	BUG_ON_UINT32_OVER(al_enr);
-#endif
 #endif
 
 	spin_lock_irq(&device->al_lock);
