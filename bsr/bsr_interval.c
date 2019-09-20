@@ -21,9 +21,10 @@ sector_t interval_end(struct rb_node *node)
 static void
 update_interval_end(struct rb_node *node, void *__unused)
 {
-	UNREFERENCED_PARAMETER(__unused);
 	struct drbd_interval *this = rb_entry(node, struct drbd_interval, rb);
 	sector_t end;
+
+	UNREFERENCED_PARAMETER(__unused);
 
 	end = this->sector + (this->size >> 9);
 	if (node->rb_left) {

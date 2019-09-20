@@ -1042,9 +1042,10 @@ int w_resync_timer(struct drbd_work *w, int cancel)
 
 int w_send_uuids(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_peer_device *peer_device =
 		container_of(w, struct drbd_peer_device, propagate_uuids_work);
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	if (peer_device->repl_state[NOW] < L_ESTABLISHED ||
 	    !test_bit(INITIAL_STATE_SENT, &peer_device->flags))
@@ -1485,10 +1486,12 @@ static int make_ov_request(struct drbd_peer_device *peer_device, int cancel)
 
 int w_ov_finished(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_peer_device_work *dw =
 		container_of(w, struct drbd_peer_device_work, w);
 	struct drbd_peer_device *peer_device = dw->peer_device;
+
+	UNREFERENCED_PARAMETER(cancel);
+
 	kfree(dw);
 	ov_out_of_sync_print(peer_device);
 	drbd_resync_finished(peer_device, D_MASK);
@@ -1503,11 +1506,11 @@ struct resync_finished_work {
 
 static int w_resync_finished(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
-
 	struct resync_finished_work *rfw = container_of(
 		container_of(w, struct drbd_peer_device_work, w),
 		struct resync_finished_work, pdw);
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	drbd_resync_finished(rfw->pdw.peer_device, rfw->new_peer_disk_state);
 	kfree(rfw);
@@ -2449,10 +2452,11 @@ static bool __drbd_may_sync_now(struct drbd_peer_device *peer_device)
 
 static bool drbd_pause_after(struct drbd_device *device)
 {
-	UNREFERENCED_PARAMETER(device);
 	struct drbd_device *other_device;
 	bool changed = false;
 	int vnr;
+
+	UNREFERENCED_PARAMETER(device);
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {
@@ -2492,10 +2496,11 @@ static bool drbd_pause_after(struct drbd_device *device)
  */
 static bool drbd_resume_next(struct drbd_device *device)
 {
-	UNREFERENCED_PARAMETER(device);
 	struct drbd_device *other_device;
 	bool changed = false;
 	int vnr;
+
+	UNREFERENCED_PARAMETER(device);
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct drbd_device *, &drbd_devices, other_device, vnr) {

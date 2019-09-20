@@ -832,10 +832,11 @@ void conn_disconnect(struct drbd_connection *connection);
 
 int connect_work(struct drbd_work *work, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_connection *connection =
 		container_of(work, struct drbd_connection, connect_timer_work);
 	enum drbd_state_rv rv;
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	if (connection->cstate[NOW] != C_CONNECTING)
 		goto out_put;
@@ -1466,10 +1467,11 @@ static enum finish_epoch drbd_flush_after_epoch(struct drbd_connection *connecti
 
 static int w_flush(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct flush_work *fw = container_of(w, struct flush_work, w);
 	struct drbd_epoch *epoch = fw->epoch;
 	struct drbd_connection *connection = epoch->connection;
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	kfree(fw);
 
@@ -2062,7 +2064,6 @@ struct drbd_peer_request *peer_req)
  */
 int w_e_reissue(struct drbd_work *w, int cancel) __releases(local)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -2078,6 +2079,9 @@ int w_e_reissue(struct drbd_work *w, int cancel) __releases(local)
 	   that will never trigger. If it is reported late, we will just
 	   print that warning and continue correctly for all future requests
 	   with WO_BDEV_FLUSH */
+
+	UNREFERENCED_PARAMETER(cancel);
+
 	if (previous_epoch(peer_device->connection, peer_req->epoch))
 		drbd_warn(device, "Write ordering was not enforced (one time event)\n");
 
@@ -2524,7 +2528,6 @@ static int bit_count(unsigned int val)
 
 static int split_e_end_resync_block(struct drbd_work *w, int unused)
 {
-	UNREFERENCED_PARAMETER(unused);
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -2534,6 +2537,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 	ULONG_PTR e_next_bb = peer_req->e_next_bb;
 	bool is_unmarked = false;
 
+	UNREFERENCED_PARAMETER(unused);
 	D_ASSERT((struct drbd_device *)peer_device->device, drbd_interval_empty(&peer_req->i));
 
 	drbd_debug(peer_device, "--bitmap bit : %llu ~ %llu\n", BM_SECT_TO_BIT(peer_req->i.sector), (BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)) - 1));
@@ -3468,10 +3472,11 @@ static int e_send_discard_write(struct drbd_work *w, int unused)
 
 static int e_send_retry_write(struct drbd_work *w, int unused)
 {
-	UNREFERENCED_PARAMETER(unused);
 	struct drbd_peer_request *peer_request =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_connection *connection = peer_request->peer_device->connection;
+
+	UNREFERENCED_PARAMETER(unused);
 
 	return e_send_ack(w, connection->agreed_pro_version >= 100 ?
 			     P_RETRY_WRITE : P_SUPERSEDED);
@@ -6929,8 +6934,9 @@ __change_connection_state(struct drbd_connection *connection,
 			  union drbd_state mask, union drbd_state val,
 			  enum chg_state_flags flags)
 {
-	UNREFERENCED_PARAMETER(flags);
 	struct drbd_resource *resource = connection->resource;
+
+	UNREFERENCED_PARAMETER(flags);
 
 	if (mask.role) {
 		/* not allowed */
@@ -7198,10 +7204,11 @@ static int receive_req_state(struct drbd_connection *connection, struct packet_i
 
 int abort_nested_twopc_work(struct drbd_work *work, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_resource *resource =
 		container_of(work, struct drbd_resource, twopc_work);
 	bool prepared = false;
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	spin_lock_irq(&resource->req_lock);
 	if (resource->twopc_reply.initiator_node_id != -1) {
@@ -9152,9 +9159,9 @@ static int receive_skip(struct drbd_connection *connection, struct packet_info *
 
 static int receive_UnplugRemote(struct drbd_connection *connection, struct packet_info *pi)
 {
-	UNREFERENCED_PARAMETER(pi);
 	struct drbd_transport *transport = &connection->transport;
 
+	UNREFERENCED_PARAMETER(pi);
 	/* Make sure we've acked all the data associated
 	 * with the data requests being unplugged */
 	transport->ops->hint(transport, DATA_STREAM, QUICKACK);
@@ -10907,13 +10914,14 @@ static u64 node_ids_to_bitmap(struct drbd_device *device, u64 node_ids) __must_h
 
 static int w_send_out_of_sync(struct drbd_work *w, int cancel)
 {
-	UNREFERENCED_PARAMETER(cancel);
 	struct drbd_peer_request *peer_req =
 		container_of(w, struct drbd_peer_request, w);
 	struct drbd_peer_device *peer_device = peer_req->send_oos_peer_device;
 	struct drbd_device *device = peer_device->device;
 	u64 in_sync = peer_req->send_oos_in_sync;
 	int err;
+
+	UNREFERENCED_PARAMETER(cancel);
 
 	err = drbd_send_out_of_sync(peer_device, &peer_req->i);
 	peer_req->sent_oos_nodes |= NODE_MASK(peer_device->node_id);

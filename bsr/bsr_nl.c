@@ -249,11 +249,11 @@ static struct drbd_path *first_path(struct drbd_connection *connection)
 static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
-	UNREFERENCED_PARAMETER(skb);
-
 	struct drbd_genlmsghdr *d_in = info->userhdr;
 	const u8 cmd = info->genlhdr->cmd;
 	int err;
+
+	UNREFERENCED_PARAMETER(skb);
 
 	memset(adm_ctx, 0, sizeof(*adm_ctx));
 #ifndef _WIN32
@@ -2544,13 +2544,14 @@ static void decide_on_write_same_support(struct drbd_device *device,
 static void drbd_setup_queue_param(struct drbd_device *device, struct drbd_backing_dev *bdev,
 				   unsigned int max_bio_size, struct o_qlim *o)
 {
-	UNREFERENCED_PARAMETER(o);
 	struct request_queue * const q = device->rq_queue;
 	unsigned int max_hw_sectors = max_bio_size >> 9;
 	struct request_queue *b = NULL;
 	struct disk_conf *dc;
 	bool discard_zeroes_if_aligned = true;
 	bool disable_write_same = false;
+
+	UNREFERENCED_PARAMETER(o);
 
 	if (bdev) {
 		b = bdev->backing_bdev->bd_disk->queue;
@@ -2971,7 +2972,6 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 
 bool want_bitmap(struct drbd_peer_device *peer_device)
 {
-	UNREFERENCED_PARAMETER(peer_device);
 #ifndef _WIN32
 	struct peer_device_conf *pdc; 
 	bool want_bitmap = false;
@@ -2982,6 +2982,7 @@ bool want_bitmap(struct drbd_peer_device *peer_device)
 		want_bitmap |= pdc->bitmap;
 	rcu_read_unlock();
 #else // TODO_WIN : Disable bitmap = no options temporary 
+	UNREFERENCED_PARAMETER(peer_device);
 	bool want_bitmap = true;
 #endif 
 	return want_bitmap;
