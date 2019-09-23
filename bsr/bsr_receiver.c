@@ -11294,13 +11294,8 @@ void drbd_send_acks_wf(struct work_struct *ws)
 	if (tcp_cork)
 		drbd_uncork(connection, CONTROL_STREAM);
 
-#ifdef _WIN32
 	if (err)
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD); // _WIN32 // DW-637 "change_state(C_DISCONNECTING)" is a problem that go to standalone status on disconnecting phase.
-#else
-	if (err)
-		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-#endif
 }
 
 void drbd_send_peer_ack_wf(struct work_struct *ws)
