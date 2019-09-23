@@ -731,7 +731,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	put_ldev(device);
 
 	if (m.bio)
-		complete_master_bio(device, &m, __FUNCTION__, __LINE__);
+		complete_master_bio(device, &m);
 
 #ifdef DRBD_TRACE	
 	{
@@ -3442,11 +3442,7 @@ restart:
 		if (m.bio || need_resched()) {
 			spin_unlock_irq(&connection->resource->req_lock);
 			if (m.bio)
-#ifdef _WIN32
-				complete_master_bio(device, &m, __func__, __LINE__ );
-#else
 				complete_master_bio(device, &m);
-#endif
 			cond_resched();
 			spin_lock_irq(&connection->resource->req_lock);
 			goto restart;
@@ -3707,11 +3703,7 @@ static int process_one_request(struct drbd_connection *connection)
 	spin_unlock_irq(&connection->resource->req_lock);
 
 	if (m.bio)
-#ifdef _WIN32
-		complete_master_bio(device, &m, __func__, __LINE__ );
-#else
 		complete_master_bio(device, &m);
-#endif
 
 #ifndef _WIN32
 	do_send_unplug = do_send_unplug && what == HANDED_OVER_TO_NETWORK;
@@ -3830,11 +3822,7 @@ int drbd_sender(struct drbd_thread *thi)
 		__req_mod(req, SEND_CANCELED, peer_device, &m);
 		spin_unlock_irq(&connection->resource->req_lock);
 		if (m.bio)
-#ifdef _WIN32
-			complete_master_bio(device, &m, __func__, __LINE__ );
-#else
 			complete_master_bio(device, &m);
-#endif
 	}
 
 	/* cancel all still pending works */

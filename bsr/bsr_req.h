@@ -333,13 +333,8 @@ extern void _req_may_be_done(struct drbd_request *req,
 extern int __req_mod(struct drbd_request *req, enum drbd_req_event what,
 		struct drbd_peer_device *peer_device,
 		struct bio_and_error *m);
-#ifdef _WIN32
-extern void complete_master_bio(struct drbd_device *device,
-		struct bio_and_error *m, char *func, int line);
-#else
 extern void complete_master_bio(struct drbd_device *device,
 		struct bio_and_error *m);
-#endif
 #ifdef _WIN32
 		extern KDEFERRED_ROUTINE request_timer_fn;
 #else
@@ -370,11 +365,7 @@ static inline int _req_mod(struct drbd_request *req, enum drbd_req_event what,
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	if (m.bio)
-#ifdef _WIN32
-		complete_master_bio(device, &m, __FUNCTION__, __LINE__);
-#else
 		complete_master_bio(device, &m);
-#endif
 
 	return rv;
 }
@@ -400,11 +391,7 @@ static inline int req_mod(struct drbd_request *req,
 	drbd_debug(NO_OBJECT,"(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	if (m.bio)
-#ifdef _WIN32
-		complete_master_bio(device, &m, __FUNCTION__, __LINE__); 
-#else
 		complete_master_bio(device, &m);
-#endif
 
 	return rv;
 }
