@@ -87,8 +87,8 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 // DW-1605 : try change_state again until timeout.
 #define stable_state_change(rv, resource, change_state) do{				\
 		int err = 0;							\
-		wait_event_interruptible_timeout(err, (resource)->state_wait,		\
-			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, HZ);	\
+		wait_event_interruptible_timeout_ex((resource)->state_wait,		\
+			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, HZ, err);	\
 		if (err == -ETIMEDOUT)				\
 			rv = SS_TIMEOUT;				\
 		else if (err == -DRBD_SIGKILL)		\
@@ -98,8 +98,8 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 #define stable_state_change(resource, change_state) ({				\
 		enum drbd_state_rv rv;						\
 		int err;							\
-		err = wait_event_interruptible((resource)->state_wait,		\
-			(rv = (change_state)) != SS_IN_TRANSIENT_STATE);	\
+		wait_event_interruptible_ex((resource)->state_wait,		\
+			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, err);	\
 		if (err)							\
 			err = -SS_UNKNOWN_ERROR;				\
 		else								\

@@ -169,8 +169,8 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				drbd_chk_io_error(device, 1, DRBD_FORCE_DETACH);
 
 				long timeo = 3 * HZ;
-				wait_event_interruptible_timeout(timeo, device->misc_wait,
-							 get_disk_state2(device) != D_FAILED, timeo);
+				wait_event_interruptible_timeout_ex(device->misc_wait,
+					 get_disk_state2(device) != D_FAILED, timeo, timeo);
 			}			
 			// DW-1300: put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);

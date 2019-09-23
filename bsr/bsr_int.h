@@ -3904,5 +3904,28 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #define NODE_MASK(id) ((u64)1 << (id))
 
+#ifdef _WIN32			
+#define wait_event_timeout_ex(wq, condition, timeout, res) \
+	wait_event_timeout(res, wq, condition, timeout);	
+#else	
+#define wait_event_timeout_ex(wq, condition, timeout, res) \
+	res = wait_event_timeout(wq, condition, timeout);	
 #endif
 
+#ifdef _WIN32
+#define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
+	wait_event_interruptible_timeout(res, wq, condition, timeout);	
+#else
+#define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
+	res = wait_event_interruptible_timeout(wq, condition, timeout);	
+#endif
+
+#ifdef _WIN32
+#define wait_event_interruptible_ex(wq, condition, res)	\
+	wait_event_interruptible(res, wq, condition);	
+#else
+#define wait_event_interruptible_ex(wq, condition, res)	\
+	res = wait_event_interruptible(wq, condition);
+#endif
+
+#endif

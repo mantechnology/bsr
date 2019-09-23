@@ -995,12 +995,12 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		for (;;) {\
 			_res = condition;				\
 			if (_res) \
-																											{ \
+			                                                                                                            { \
 				break; \
-																											} \
+																														} \
 			schedule(&wq, 1, __func, __line); /*  DW105: workaround: 1 ms polling  */ \
-																		} \
-									} while(false)
+																				} \
+										} while(false)
 
 #define wait_event(wq, condition) \
 	do {\
@@ -1009,7 +1009,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		if (_res) \
 			break; \
 		__wait_event(wq, condition, __FUNCTION__, __LINE__); \
-						} while(false)
+	                    } while(false)
 
 
 #define __wait_event_timeout(wq, condition, ret)  \
@@ -1020,18 +1020,18 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		for (;;) {\
 			i++; \
 			if (condition)   \
-																		{\
+																					{\
 				break;     \
-																		}\
+																					}\
 			/*ret = schedule(&wq, ret, __FUNC__, __LINE__);*/\
 			if (++t > real_timeout) \
-																		{\
+																					{\
 				ret = 0;\
 				break;\
-																		}\
+																					}\
 			schedule(&wq, 100, __FUNCTION__, __LINE__); /*  DW105: workaround: 1 ms polling  */ \
-												}  \
-							} while(false)
+														}  \
+								} while(false)
 
 #define wait_event_timeout(t, wq, condition, timeout) \
 	do { \
@@ -1039,7 +1039,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		if (!(condition)) \
 			__wait_event_timeout(wq, condition, __ret);  \
 		t = __ret; \
-					        		} while(false)
+						        		} while(false)
 
 #define __wait_event_interruptible(wq, condition, sig)   \
     do { \
