@@ -3656,11 +3656,7 @@ static void fail_postponed_requests(struct drbd_peer_request *peer_req)
 		__req_mod(req, NEG_ACKED, peer_req->peer_device, &m);
 		spin_unlock_irq(&device->resource->req_lock);
 		if (m.bio)
-#ifdef _WIN32
-			complete_master_bio(device, &m, __func__ , __LINE__ );
-#else
 			complete_master_bio(device, &m);
-#endif
 		spin_lock_irq(&device->resource->req_lock);
 		goto repeat;
 	}
@@ -10468,11 +10464,7 @@ validate_req_change_req_state(struct drbd_peer_device *peer_device, u64 id, sect
 #endif
 
 	if (m.bio)
-#ifdef _WIN32
-		complete_master_bio(device, &m, __func__, __LINE__ );
-#else
 		complete_master_bio(device, &m);
-#endif
 
 	return 0;
 }

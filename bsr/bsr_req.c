@@ -537,18 +537,10 @@ int w_notify_io_error(struct drbd_work *w, int cancel)
 }
 #endif
 
-#ifdef _WIN32
-void complete_master_bio(struct drbd_device *device,
-    struct bio_and_error *m, char *func, int line)
-#else
 void complete_master_bio(struct drbd_device *device,
 		struct bio_and_error *m)
-#endif
 {
 #ifdef _WIN32
-	UNREFERENCED_PARAMETER(func);
-	UNREFERENCED_PARAMETER(line);
-
 	struct bio* master_bio = NULL;
 #endif
 
@@ -2212,11 +2204,7 @@ out:
 	drbd_plug_device(bdev_get_queue(device->this_bdev));
 #endif
 	if (m.bio)
-#ifdef _WIN32
-        complete_master_bio(device, &m, __FUNCTION__, __LINE__);
-#else
 		complete_master_bio(device, &m);
-#endif
 }
 
 #ifdef _WIN32
