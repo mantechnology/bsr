@@ -56,7 +56,7 @@
 #include <signal.h>
 #include <time.h>
 
-//DW-1744
+// DW-1744
 #ifdef _WIN32
 #include <Windows.h>
 #include <iphlpapi.h>
@@ -66,7 +66,7 @@
 #include "shared_main.h"
 #include "shared_tool.h"
 
-//DW-1744
+// DW-1744
 #ifdef _WIN32
 extern struct IP_ADDRESS_STRING *ip_list;
 #else
@@ -417,7 +417,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 		if (flags & SUPRESS_STDERR) {
 			FILE *f = freopen("/dev/null", "w", stderr);
 			if (!f)
-				//DW-1777 revert source and change error message
+				// DW-1777 revert source and change error message
 				fprintf(stderr, "reopen null service failed\n");
 		}
 		if (argv[0])
@@ -427,7 +427,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			char path[256];
 			char *temp = strdup(argv[0]);
 			char *ptr, *name;
-			/* DW-1425: it's supposed to run any application that belongs to the paths have been set in 'path' env var as long as this is able to parse env vars.
+			/* DW-1425 it's supposed to run any application that belongs to the paths have been set in 'path' env var as long as this is able to parse env vars.
 						since cygwin is NOT, preferentially search full path that is gotton from env var of drbd and drx. */
 #define DRBDADM_MAX_ENV_LEN		64	
 			char envs[][DRBDADM_MAX_ENV_LEN] = { "DRBD_PATH", "DRX_PATH", "" };

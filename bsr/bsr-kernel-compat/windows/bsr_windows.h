@@ -82,7 +82,7 @@
 #define	KERN_INFO				"<6>"	/* informational			*/
 #define	KERN_DEBUG				"<7>"	/* debug-level messages			*/
 #ifdef _WIN32_DEBUG_OOS
-#define KERN_DEBUG_OOS			"<8>"	/* DW-1153: debug-oos */
+#define KERN_DEBUG_OOS			"<8>"	/* DW-1153 debug-oos */
 #endif
 
 enum
@@ -581,8 +581,8 @@ struct gendisk
 #ifdef _WIN32
     const struct block_device_operations *fops;
     void *private_data;
-	struct drbd_device*		drbd_device;			// DW-1300: the only point to access drbd device from volume extension.
-	EX_SPIN_LOCK			drbd_device_ref_lock;	// DW-1300: to synchronously access drbd_device. this lock is used when both referencing(shared) and deleting(exclusive) drbd device.
+	struct drbd_device*		drbd_device;			// DW-1300 the only point to access drbd device from volume extension.
+	EX_SPIN_LOCK			drbd_device_ref_lock;	// DW-1300 to synchronously access drbd_device. this lock is used when both referencing(shared) and deleting(exclusive) drbd device.
 #endif
 	PVOLUME_EXTENSION pDeviceExtension;
 #ifdef _WIN32
@@ -597,7 +597,7 @@ struct block_device {
 	// Otherwise, if the block device descriptor refers to a whole disk
 	// the bd_contains field points to the block device descriptor itself ...
 	// FROM Understanding the Linux Kernel, 3rd Edition
-	struct block_device *	bd_parent;			// DW-1109: it points the block device whose bd_contains points me.
+	struct block_device *	bd_parent;			// DW-1109 it points the block device whose bd_contains points me.
 	struct block_device *	bd_contains;
 	struct gendisk * bd_disk;
     unsigned long long d_size; // volume size in bytes
@@ -888,7 +888,7 @@ struct request_queue {
 	struct backing_dev_info backing_dev_info;
 	spinlock_t *queue_lock; // _WIN32: unused.
 	unsigned short logical_block_size;
-	// DW-1406: max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
+	// DW-1406 max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
 	unsigned long long max_hw_sectors;
 #ifdef _WIN32
     struct queue_limits limits; 
@@ -1192,7 +1192,7 @@ typedef struct crypto_tfm  crypto_tfm;
 
 extern void *crypto_alloc_tfm(char *name, u32 mask);
 extern unsigned int crypto_tfm_alg_digestsize(struct crypto_tfm *tfm);
-extern int generic_make_request(struct bio *bio); // return value is changed for error handling 2015.12.08(DW-649)
+extern int generic_make_request(struct bio *bio); // DW-649 return value is changed for error handling 2015.12.08
 
 extern int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait);
 

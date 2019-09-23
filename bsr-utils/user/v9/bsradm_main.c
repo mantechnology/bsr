@@ -116,7 +116,7 @@ static int adm_proxy_down(const struct cfg_ctx *);
 static int sh_nop(const struct cfg_ctx *);
 #ifdef _WIN32
 static int sh_resources_list(const struct cfg_ctx *);
-// DW-1249: auto-start by svc
+// DW-1249 auto-start by svc
 static int sh_resource_option(const struct cfg_ctx *);
 #endif
 static int sh_resources(const struct cfg_ctx *);
@@ -160,7 +160,7 @@ char *parse_file = NULL;
 #endif
 struct resources config = STAILQ_HEAD_INITIALIZER(config);
 struct d_resource *common = NULL;
-//DW-1744
+// DW-1744
 #ifdef _WIN32
 struct IP_ADDRESS_STRING *ip_list = NULL;
 #else
@@ -175,9 +175,9 @@ int config_from_stdin = 0;
 int config_valid = 1;
 int no_tty;
 int dry_run = 0;
-int ignore_hostname = 0; // DW-1719: Added option to ignore hostname check
+int ignore_hostname = 0; // DW-1719 Added option to ignore hostname check
 int verbose = 0;
-//DW-1744 : trace print option add
+// DW-1744 : trace print option add
 bool trace_print = false;
 int adjust_with_progress = 0;
 bool help;
@@ -388,7 +388,7 @@ static struct adm_cmd create_md_cmd = {"create-md", adm_create_md, &create_md_ct
 static struct adm_cmd show_gi_cmd = {"show-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1};
 static struct adm_cmd get_gi_cmd = {"get-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1};
 static struct adm_cmd dump_md_cmd = {"dump-md", adm_drbdmeta, ACF1_MINOR_ONLY };
-//DW-1922: Added '--force' option to wipe-md command
+// DW-1922 Added '--force' option to wipe-md command
 static struct adm_cmd wipe_md_cmd = { "wipe-md", adm_drbdmeta, &wipe_md_ctx, ACF1_MINOR_ONLY };
 static struct adm_cmd apply_al_cmd = {"apply-al", adm_drbdmeta, ACF1_MINOR_ONLY };
 static struct adm_cmd forget_peer_cmd = {"forget-peer", adm_forget_peer, ACF1_DISCONNECT };
@@ -398,7 +398,7 @@ static struct adm_cmd hidden_cmd = {"hidden-commands", hidden_cmds,.show_in_usag
 static struct adm_cmd sh_nop_cmd = {"sh-nop", sh_nop, ACF2_GEN_SHELL .uc_dialog = 1, .test_config = 1};
 #ifdef _WIN32
 static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL };
-// DW-1249: auto-start by svc
+// DW-1249 auto-start by svc
 static struct adm_cmd sh_resource_option_cmd = { "sh-resource-option", sh_resource_option, ACF1_RESNAME };
 #endif
 static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL};
@@ -498,7 +498,7 @@ struct adm_cmd *cmds[] = {
 	&sh_nop_cmd,
 #ifdef _WIN32
     &sh_resources_list_cmd,
-	// DW-1249: auto-start by svc
+	// DW-1249 auto-start by svc
 	&sh_resource_option_cmd,
 #endif
 	&sh_resources_cmd,
@@ -875,7 +875,7 @@ static int sh_resources_list(const struct cfg_ctx *ctx)
 	return 0;
 }
 
-// DW-1249: get specified option value from resource.
+// DW-1249 get specified option value from resource.
 static int sh_resource_option(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res = ctx->res;
@@ -1124,7 +1124,7 @@ static void free_config()
 		free_options(&common->handlers);
 		free(common);
 	}
-//DW-1744
+// DW-1744
 #ifdef _WIN32
 	free(ip_list);
 #else
@@ -1989,7 +1989,7 @@ int _proxy_connect_name_len(const struct d_resource *res, const struct connectio
 {
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-	// DW-1426: avoid crash when no proxy exists.
+	// DW-1426 avoid crash when no proxy exists.
 	if (!path ||
 		!path->peer_proxy ||
 		!path->my_proxy)
@@ -2005,7 +2005,7 @@ char *_proxy_connection_name(char *conn_name, const struct d_resource *res, cons
 {
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-	// DW-1426: avoid crash when no proxy exists.
+	// DW-1426 avoid crash when no proxy exists.
 	if (!path ||
 		!path->peer_proxy ||
 		!path->my_proxy)
@@ -2039,7 +2039,7 @@ int do_proxy_conn_up(const struct cfg_ctx *ctx)
 
 		conn_name = proxy_connection_name(ctx->res, conn);
 
-		// DW-1426: avoid crash when no proxy exists.
+		// DW-1426 avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
 
@@ -2086,7 +2086,7 @@ int do_proxy_conn_plugins(const struct cfg_ctx *ctx)
 
 		conn_name = proxy_connection_name(ctx->res, conn);
 
-		// DW-1426: avoid crash when no proxy exists.
+		// DW-1426 avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
 
@@ -2143,7 +2143,7 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx)
 
 		conn_name = proxy_connection_name(ctx->res, conn);
 
-		// DW-1426: avoid crash when no proxy exists.
+		// DW-1426 avoid crash when no proxy exists.
 		if (conn_name == (char*)0)
 			continue;
 
@@ -2169,7 +2169,7 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 
 	if (!path->my_proxy) {
 		return 0;
-#if 0 // DW-1719: Ignore connections that do not use proxy
+#if 0 // DW-1719 Ignore connections that do not use proxy
 		if (all_resources)
 			return 0;
 		err("%s:%d: In resource '%s',no proxy config for connection %sfrom '%s' to '%s'%s.\n",
@@ -2393,7 +2393,7 @@ int ctx_by_name(struct cfg_ctx *ctx, const char *id, checks check)
 		*conn_or_hostname++ = '\0';
 
 	res = res_by_name(res_name);
-	// DW-1719: Added option to ignore hostname check
+	// DW-1719 Added option to ignore hostname check
 	if (!res || (!ignore_hostname && res->ignore))
 		return -ENOENT;
 	ctx->res = res;
@@ -3194,7 +3194,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 		case 'T':
 			trace_print = true;
 			break;
-		case 'i': // DW-1719: Added option to ignore hostname check
+		case 'i': // DW-1719 Added option to ignore hostname check
 			ignore_hostname = 1;
 			break;
 		case 'c':
@@ -3616,7 +3616,7 @@ int main(int argc, char **argv)
 		exit(E_CONFIG_INVALID);
 	}
 
-	// DW-889: parsing running_config before post_parse().
+	// DW-889 parsing running_config before post_parse().
 	if (cmd != &connect_cmd && cmd != &adjust_cmd)
 	{
 		char *temp_file = config_file;

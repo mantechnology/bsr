@@ -2719,7 +2719,7 @@ static int _create_vhd_script(char * vhd_path, uint64_t size_mb, char * mount_po
 		"create vdisk file=\"%s\" maximum=%llu\n"
 		"attach vdisk\n"
 		"create partition primary\n"
-		"assign %s=\"%s\"",			// DW-1423: need quotation to get path with blank.
+		"assign %s=\"%s\"",			// DW-1423 need quotation to get path with blank.
 		vhd_path, size_mb, assign_type, mount_point);
 
 	fputs(buf, fp);
@@ -2836,7 +2836,7 @@ static char * _get_win32_device_ns(const char * device_name)
 					//fprintf(stderr, "GetVolumeNameForVolumeMountPoint() failed err(%d)\n", err);
 					return NULL;
 			}
-			// DW-1423: retrieve path.
+			// DW-1423 retrieve path.
 			wdn = (char*)malloc(strlen(temp) + 5);
 			if (!wdn)
 			{
@@ -4959,7 +4959,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	}
 #ifdef FEATURE_VHD_META_SUPPORT
 	char * meta_volume = _get_win32_device_ns(cfg->md_device_name);
-	// DW-1423: directory has been created while opening, it must exist. need to see if this's still directory.
+	// DW-1423 directory has been created while opening, it must exist. need to see if this's still directory.
 	int access_ret = access(meta_volume, R_OK);
 	int opendir_ret = opendir(meta_volume);
 
@@ -5308,7 +5308,7 @@ int is_attached(int minor)
 	if (pid == 0) {
 		FILE *f = freopen("/dev/null", "w", stderr);
 		if (!f)
-			//DW-1777 revert source and change error message
+			// DW-1777 revert source and change error message
 			fprintf(stderr, "open null service failed\n");
 
 		close(pipes[0]);

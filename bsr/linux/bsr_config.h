@@ -34,8 +34,8 @@ extern const char *drbd_buildtag(void);
 
 #define REL_VERSION "9.0.6"
 #define PRO_VERSION_MIN 86
-// DW-1293: protocol version 112 starts to support fast invalidate(remote)
-// DW-1601: protocol version 113 remove association to act_log and resync_lru
+// DW-1293 protocol version 112 starts to support fast invalidate(remote)
+// DW-1601 protocol version 113 remove association to act_log and resync_lru
 // PRO_VERSION_MAX is the maximum version allowed. If the protocol is changed or the feature is incompatible with the sub-version, you must increase that version.
 #define PRO_VERSION_MAX 113
 

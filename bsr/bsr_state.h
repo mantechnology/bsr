@@ -25,7 +25,7 @@ struct drbd_work;
 #define susp_nod_MASK 1
 #define susp_fen_MASK 1
 #ifndef _WIN32_SIMPLE_TWOPC // DW-1408
-// DW-1204: maximum retry count for twopc timeout.
+// DW-1204 maximum retry count for twopc timeout.
 #define TWOPC_TIMEOUT_RETRY_COUNT	2
 #endif
 
@@ -141,7 +141,7 @@ static inline enum drbd_state_rv change_cstate(struct drbd_connection *connectio
 }
 
 
-//DW-1892 
+// DW-1892 
 extern void __change_peer_role(struct drbd_connection *, enum drbd_role, const char*);
 extern void __change_repl_state(struct drbd_peer_device *, enum drbd_repl_state, const char*);
 extern void __change_repl_state_and_auto_cstate(struct drbd_peer_device *, enum drbd_repl_state, const char*);

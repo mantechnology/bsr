@@ -4,7 +4,7 @@
 #include "mvol.h"
 #include "LogManager.h"
 
-//DW-1921
+// DW-1921
 #define LOG_LV_MASK					0x7
 #define LOG_LV_DEFAULT_EVENTLOG		3
 #define LOG_LV_DEFAULT_DBG			6
@@ -48,7 +48,7 @@ usage()
         "   /m [letter] : mount\n"
         /*"   /d[f] : dismount[force] \n"*/
 		"   /get_log [ProviderName]\n"
-		//DW-1629
+		// DW-1629
 		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
 		"   /get_log [ProviderName] [ResourceName : Max Length 250][oos]\n"
 		"   /minlog_lv dbg [Level : 0~7] \n"
@@ -135,7 +135,7 @@ DWORD DeleteVolumeReg(TCHAR letter)
 	return lResult;
 }
 
-//DW-1921
+// DW-1921
 
 //Print log_level through the current registry value.
 BOOL GetLogLevel(int &sys_evtlog_lv, int &dbglog_lv, int &oos_trace_lv)
@@ -208,7 +208,7 @@ main(int argc, char* argv [])
 	char	Verbose = 0;
 	char	*resourceName = NULL;
 	int     Force = 0;
-	//DW-1921
+	// DW-1921
 	char	GetLogLv = 0;
 
 	LARGE_INTEGER Offset = {0,};
@@ -259,7 +259,7 @@ main(int argc, char* argv [])
 #ifdef _WIN32_DEBUG_OOS
 			argIndex++;
 
-			//DW-1629
+			// DW-1629
 			for (int num = 0; num < 2; num++) {
 				if (argIndex < argc)
 				{
@@ -653,7 +653,7 @@ main(int argc, char* argv [])
 		res = MVOL_SetHandlerUse(&hInfo);
 	}
 
-	//DW-1921
+	// DW-1921
 	if (GetLogLv)
 	{
 		int sys_evt_lv = 0;

@@ -72,7 +72,7 @@ KSTART_ROUTINE run_singlethread_workqueue;
 KSTART_ROUTINE adjust_changes_to_volume;
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError = {0,};
 
-// DW-1105: monitoring mount change thread state (FALSE : not working, TRUE : working)
+// DW-1105 monitoring mount change thread state (FALSE : not working, TRUE : working)
 atomic_t g_monitor_mnt_working = FALSE;
 
 extern struct mutex att_mod_mutex; 
@@ -918,10 +918,10 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 
             switch (status) {
             case STATUS_WAIT_0:
-				//DW-1862 fflush No event reset is required when waiting for IO to complete. 
+				// DW-1862 fflush No event reset is required when waiting for IO to complete. 
 				//So we set the parameters for cases where ResetEvent is not needed.
 				if (auto_reset_event)
-					KeResetEvent(&q->wqh_event); // DW-105: use event and polling both.
+					KeResetEvent(&q->wqh_event); // DW-105 use event and polling both.
                 break;
 
             case STATUS_WAIT_1:
@@ -1272,7 +1272,7 @@ void spin_unlock(spinlock_t *lock)
 void spin_lock_irq(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
-	if( curthread == lock->OwnerThread) {//DW-903 protect lock recursion
+	if( curthread == lock->OwnerThread) {// DW-903 protect lock recursion
 		drbd_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
@@ -1813,7 +1813,7 @@ int generic_make_request(struct bio *bio)
 	}
 
 	if (KeGetCurrentIrql() <= DISPATCH_LEVEL) {
-		//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
+		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension) {
 			status = IoAcquireRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 			if (!NT_SUCCESS(status)) {
@@ -1870,7 +1870,7 @@ int generic_make_request(struct bio *bio)
 
 	if (!newIrp) {
 		drbd_err(NO_OBJECT,"IoBuildAsynchronousFsdRequest: cannot alloc new IRP\n");
-		//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
+		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 		return -ENOMEM;
@@ -1883,7 +1883,7 @@ int generic_make_request(struct bio *bio)
 			pIoNextStackLocation->Flags = bio->MasterIrpStackFlags;
 		} else { 
 			//apply meta I/O's write_ordering
-			// DW-1300: get drbd device from gendisk.
+			// DW-1300 get drbd device from gendisk.
 			struct drbd_device* device = bio->bi_bdev->bd_disk->drbd_device;
 			if(device && device->resource->write_ordering >= WO_BDEV_FLUSH) {
 				pIoNextStackLocation->Flags |= (SL_WRITE_THROUGH | SL_FT_SEQUENTIAL_WRITE);
@@ -1899,11 +1899,11 @@ int generic_make_request(struct bio *bio)
 	if (gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE0) {
 		if (IsDiskError()) {
 			drbd_err(NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
-			//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
+			// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 			if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 				IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 
-			// DW-859: Without unlocking mdl and freeing irp, freeing buffer causes bug check code 0x4e(0x9a, ...)
+			// DW-859 Without unlocking mdl and freeing irp, freeing buffer causes bug check code 0x4e(0x9a, ...)
 			// When 'generic_make_request' returns an error code, bi_end_io is called to clean up the bio but doesn't do for irp. We should free irp that is made but wouldn't be delivered.
 			// If no error simulation, calling 'IoCallDriver' verifies our completion routine called so that irp will be freed there.
 			if (newIrp->MdlAddress != NULL) {
@@ -2352,12 +2352,12 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 			if (!IsEmptyUnicodeString(&pvext->MountPoint))
 				drbd_debug(NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
 
-			// DW-1105: detach volume when replicating volume letter is changed.
+			// DW-1105 detach volume when replicating volume letter is changed.
 			if (pvext->Active && bWasExist) {
 				if(IsEmptyUnicodeString(&pvext->MountPoint) || 
 					!RtlEqualUnicodeString(&pvext->MountPoint, &old_mount_point, TRUE) ) {
 
-					// DW-1300: get device and get reference.
+					// DW-1300 get device and get reference.
 					struct drbd_device *device = get_device_with_vol_ext(pvext, TRUE);
 					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
 						drbd_warn(NO_OBJECT,"replicating volume letter is changed, detaching\n");
@@ -2365,7 +2365,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
 						put_ldev(device);
 					}
-					// DW-1300: put device reference count when no longer use.
+					// DW-1300 put device reference count when no longer use.
 					if (device)
 						kref_put(&device->kref, drbd_destroy_device);
 				}
@@ -2377,7 +2377,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 		}
 	} 
 	
-	// DW-1109: not able to get volume size in add device routine, get it here if no size is assigned.
+	// DW-1109 not able to get volume size in add device routine, get it here if no size is assigned.
 	// DW-1469
 	d_size = get_targetdev_volsize(pvext);
 	
@@ -2388,14 +2388,14 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 	drbd_debug(NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
 }
 
-// DW-1105: refresh all volumes and handle changes.
+// DW-1105 refresh all volumes and handle changes.
 void adjust_changes_to_volume(PVOID pParam)
 {
 	UNREFERENCED_PARAMETER(pParam);
 	refresh_targetdev_list();
 }
 
-// DW-1105: request mount manager to notify us whenever there is a change in the mount manager's persistent symbolic link name database.
+// DW-1105 request mount manager to notify us whenever there is a change in the mount manager's persistent symbolic link name database.
 void monitor_mnt_change(PVOID pParam)
 {
 	UNREFERENCED_PARAMETER(pParam);
@@ -2434,7 +2434,7 @@ void monitor_mnt_change(PVOID pParam)
 			break;
 		}
 
-		// DW-1105: set state as 'working', this can be set as 'not working' by stop_mnt_monitor.
+		// DW-1105 set state as 'working', this can be set as 'not working' by stop_mnt_monitor.
 		atomic_set(&g_monitor_mnt_working, TRUE);
 
 		MOUNTMGR_CHANGE_NOTIFY_INFO mcni1 = { 0, }, mcni2 = { 0, };
@@ -2478,7 +2478,7 @@ void monitor_mnt_change(PVOID pParam)
 	}
 }
 
-// DW-1105: start monitoring mount change thread.
+// DW-1105 start monitoring mount change thread.
 NTSTATUS start_mnt_monitor()
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -2498,7 +2498,7 @@ NTSTATUS start_mnt_monitor()
 	return status;
 }
 
-// DW-1105: stop monitoring mount change thread.
+// DW-1105 stop monitoring mount change thread.
 void stop_mnt_monitor()
 {
 	atomic_set(&g_monitor_mnt_working, FALSE);
@@ -2564,7 +2564,7 @@ struct block_device * create_drbd_block_device(IN OUT PVOLUME_EXTENSION pvext)
 {
     struct block_device * dev;
 
-	// DW-1109: need to increase reference count of device object to guarantee not to be freed while we're using.
+	// DW-1109 need to increase reference count of device object to guarantee not to be freed while we're using.
 	ObReferenceObject(pvext->DeviceObject);
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
@@ -2614,16 +2614,16 @@ gendisk_failed:
 	return NULL;
 }
 
-// DW-1109: delete drbd bdev when ref cnt gets 0, clean up all resources that has been created in create_drbd_block_device.
+// DW-1109 delete drbd bdev when ref cnt gets 0, clean up all resources that has been created in create_drbd_block_device.
 void delete_drbd_block_device(struct kref *kref)
 {
 	struct block_device *bdev = container_of(kref, struct block_device, kref);
 
-	// DW-1109: reference count has been increased when we create block device, decrease here.
+	// DW-1109 reference count has been increased when we create block device, decrease here.
 	ObDereferenceObject(bdev->bd_disk->pDeviceExtension->DeviceObject);
 	bdev->bd_disk->pDeviceExtension->DeviceObject = NULL;
 
-	// DW-1381: set dev as NULL not to access from this volume extension since it's being deleted.
+	// DW-1381 set dev as NULL not to access from this volume extension since it's being deleted.
 	bdev->bd_disk->pDeviceExtension->dev = NULL;
 
 	blk_cleanup_queue(bdev->bd_disk->queue);
@@ -2643,14 +2643,14 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 	if (KeGetCurrentIrql() > DISPATCH_LEVEL)
 		return NULL;
 
-	// DW-1381: dev is set as NULL when block device is destroyed.
+	// DW-1381 dev is set as NULL when block device is destroyed.
 	if (!pvext->dev)
 	{
 		drbd_err(NO_OBJECT,"failed to get drbd device since pvext->dev is NULL\n");
 		return NULL;		
 	}
 
-	// DW-1381: check if device is removed already.
+	// DW-1381 check if device is removed already.
 	if (bCheckRemoveLock)
 	{
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);

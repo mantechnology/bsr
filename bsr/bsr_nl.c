@@ -1268,7 +1268,7 @@ retry:
 				for_each_peer_device_ref(peer_device, im, device) {
 					unsigned long long p_size = peer_device->max_size << 9; // volume size in bytes
 					unsigned long long l_size = get_targetdev_volsize(device->this_bdev->bd_disk->pDeviceExtension); // volume size in bytes
-					// DW-1323: abort initial full sync when target disk is smaller than source
+					// DW-1323 abort initial full sync when target disk is smaller than source
 					// If p_size is nonzero, it was connected with the peer.
 					if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && 
 						(p_size != 0) && 
@@ -1402,7 +1402,7 @@ retry:
 					&& (device->ldev->md.peers[peer_device->node_id].bitmap_uuid == 0)) {
 					if (younger_primary == false){
 						younger_primary = true; 
-						//DW-1850
+						// DW-1850
 						//If for_each_peer_device_ref exits to break, 
 						//the reference count should be decremented.
 						kref_put(&peer_device->connection->kref, drbd_destroy_connection);
@@ -1654,7 +1654,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	}
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 #ifdef _WIN32
-	// DW-1317: acquire volume control mutex, not to conflict to (dis)mount volume.
+	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 #endif
 
@@ -1708,7 +1708,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		retcode = SS_SUCCESS;
 		struct drbd_device * device;
 
-		// DW-1327: 
+		// DW-1327 
 		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
@@ -2210,7 +2210,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 			if (
 				(peer_device->repl_state[NOW] >= L_ESTABLISHED || peer_device->connection->cstate[NOW] >= C_CONNECTED)
 #ifdef _WIN32
-				&& test_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags) //DW-1799
+				&& test_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags) // DW-1799
 #endif
 			) {
 				/* If we still can see it, consider its last
@@ -2221,7 +2221,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 				 * "assume_peer_has_space".  */
 
 				if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size) {
-					// DW-1337: peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
+					// DW-1337 peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
 					// DW-1469 : only for initial sync
 					*max = min_not_zero(*max, peer_device->c_size);
 				} else {
@@ -2940,7 +2940,7 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 	}
 
 #ifdef _WIN32 //TODO
-	// DW-1109: inc ref when open it.
+	// DW-1109 inc ref when open it.
 	kref_get(&bdev->kref);
 #endif
 	if (!do_bd_link)
@@ -2997,7 +2997,7 @@ static int open_backing_devices(struct drbd_device *device,
 	
 	nbc->backing_bdev = bdev;
 #ifdef _WIN32
-	// DW-1277: mark that this will be using as replication volume.
+	// DW-1277 mark that this will be using as replication volume.
 	set_bit(VOLUME_TYPE_REPL, &bdev->bd_disk->pDeviceExtension->Flag);
 #endif
 
@@ -3021,7 +3021,7 @@ static int open_backing_devices(struct drbd_device *device,
 		return ERR_OPEN_MD_DISK;
 	nbc->md_bdev = bdev;
 #ifdef _WIN32
-	// DW-1277: mark that this will be using as meta volume.
+	// DW-1277 mark that this will be using as meta volume.
 	set_bit(VOLUME_TYPE_META, &bdev->bd_disk->pDeviceExtension->Flag);
 	bdev->bd_disk->private_data = nbc;		// for removing
 #endif
@@ -3280,7 +3280,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		NTSTATUS status = STATUS_UNSUCCESSFUL;
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(dh->minor, FALSE);
 		if (pvext) {
-			// DW-1461: set volume protection when attaching.
+			// DW-1461 set volume protection when attaching.
 			SetDrbdlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
 #ifdef _WIN32_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
@@ -3419,18 +3419,18 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	new_disk_conf = NULL;
 
 #ifdef _WIN32
-	// DW-1376: this_bdev indicates block device of replication volume, which can be removed anytime. need to get newly created block device.
+	// DW-1376 this_bdev indicates block device of replication volume, which can be removed anytime. need to get newly created block device.
 	if (device->this_bdev->bd_disk->pDeviceExtension != device->ldev->backing_bdev->bd_disk->pDeviceExtension)
 	{
-		// DW-1376: put old one.
+		// DW-1376 put old one.
 		blkdev_put(device->this_bdev, 0);
 
-		// DW-1376: get new one.
+		// DW-1376 get new one.
 		device->this_bdev = device->ldev->backing_bdev->bd_parent?device->ldev->backing_bdev->bd_parent : device->ldev->backing_bdev;
 		kref_get(&device->this_bdev->kref);
 	}
 
-	// DW-1300: set drbd device to access from volume extention
+	// DW-1300 set drbd device to access from volume extention
 	unsigned char oldIRQL = ExAcquireSpinLockExclusive(&device->this_bdev->bd_disk->drbd_device_ref_lock);	
 	device->this_bdev->bd_disk->drbd_device = device;
 	ExReleaseSpinLockExclusive(&device->this_bdev->bd_disk->drbd_device_ref_lock, oldIRQL);
@@ -3486,7 +3486,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	    !(resource->role[NOW] == R_PRIMARY && resource->susp_nod[NOW]) &&
 	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags))
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	// DW-1357: this is initialzing crashed primary. set crashed primary flag and clear all peer's ignoring flags.
+	// DW-1357 this is initialzing crashed primary. set crashed primary flag and clear all peer's ignoring flags.
 	{
 		struct drbd_md *md;
 		int node_id = 0;
@@ -4747,7 +4747,7 @@ static enum drbd_state_rv conn_try_disconnect(struct drbd_connection *connection
 #endif 
 
 repeat:
-	//DW-1874
+	// DW-1874
 	if (flags)
 		set_bit(FORCE_DISCONNECT, &connection->flags);
 
@@ -4791,7 +4791,7 @@ repeat:
 
 	if (rv >= SS_SUCCESS) {
 		int timeo;
-		// DW-1574: Increase the wait time from 1 second to 3 seconds.
+		// DW-1574 Increase the wait time from 1 second to 3 seconds.
 		wait_event_interruptible_timeout_ex(resource->state_wait,
 						 connection->cstate[NOW] == C_STANDALONE,
 						 3*HZ, timeo);
@@ -5348,12 +5348,12 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				peer_device = conn_peer_device(connection, device->vnr);
 				retcode = invalidate_resync(peer_device);
 				if (retcode >= SS_SUCCESS)
-				// DW-907: implicitly request to get synced to all peers, as a way of hedging first source node put out.
+				// DW-907 implicitly request to get synced to all peers, as a way of hedging first source node put out.
 				{
 					success = retcode;
 				}
 			}
-			// DW-907: retcode will be success at least one succeeded peer.
+			// DW-907 retcode will be success at least one succeeded peer.
 			if (success)
 			{
 				retcode = success;
@@ -6892,7 +6892,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->adm_mutex);
 #ifdef _WIN32
-	// DW-1317: acquire volume control mutex, not to conflict to (dis)mount volume.
+	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 #endif
 
@@ -6912,7 +6912,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	int vnr;
 	retcode = SS_SUCCESS;
 
-	// DW-1461: set volume protection when going down. 
+	// DW-1461 set volume protection when going down. 
 	idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 		if (pvext)
@@ -7716,7 +7716,7 @@ out_no_adm:
 
 }
 #ifdef _WIN32
-// DW-1229: using global attr may cause BSOD when we receive plural netlink requests. use local attr.
+// DW-1229 using global attr may cause BSOD when we receive plural netlink requests. use local attr.
 int drbd_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr)
 {
     drbd_genl_family.id = nlh->nlmsg_type;

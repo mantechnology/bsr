@@ -237,7 +237,7 @@ InitWskBuffer(
 	}
 
     try {
-		// DW-1223: Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
+		// DW-1223 Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
 		// we need write access for receiver, since buffer will be filled.
 		
 		MmProbeAndLockPages(WskBuffer->Mdl, KernelMode, bWriteAccess?IoWriteAccess:IoReadAccess);
@@ -257,7 +257,7 @@ __in PWSK_BUF WskBuffer
 )
 {
 	ASSERT(WskBuffer);
-	//DW-1882 If MmProbeAndLockPages fails, do not call the Unlock function.
+	// DW-1882 If MmProbeAndLockPages fails, do not call the Unlock function.
 	if (WskBuffer->Mdl->MdlFlags & MDL_PAGES_LOCKED)
 		MmUnlockPages(WskBuffer->Mdl);
 	IoFreeMdl(WskBuffer->Mdl);
@@ -428,7 +428,7 @@ CloseSocket(
 		if (STATUS_TIMEOUT == Status) { // DW-1316 detour WskCloseSocket hang in Win7/x86.
 			drbd_info(NO_OBJECT,"Timeout... Cancel WskCloseSocket:%p. maybe required to patch WSK Kernel. (irp:%p)\n", WskSocket, Irp);
 			IoCancelIrp(Irp);
-			// DW-1388: canceling must be completed before freeing the irp.
+			// DW-1388 canceling must be completed before freeing the irp.
 			KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 		}
 		Status = Irp->IoStatus.Status;
@@ -473,7 +473,7 @@ Connect(
 	IoFreeIrp(Irp);
 
 	if (NT_SUCCESS(Status)) {
-		//DW-1844 set connection status to WSK_ESTABLISHED
+		// DW-1844 set connection status to WSK_ESTABLISHED
 		pSock->sk_state = WSK_ESTABLISHED;
 	}
 
@@ -681,7 +681,7 @@ __in  BOOLEAN	bWriteAccess
 	}
 	
 	try {
-		// DW-1223: Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
+		// DW-1223 Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
 		// we need write access for receiver, since buffer will be filled.
 
 		MmProbeAndLockPages((*WskBuffer)->Mdl, KernelMode, bWriteAccess ? IoWriteAccess : IoReadAccess);
@@ -728,7 +728,7 @@ __in  BOOLEAN	bRawIrp)
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
-	//DW-1758 : Dynamic allocation of 'CompletionEvet', for resource management in completion routine
+	// DW-1758 : Dynamic allocation of 'CompletionEvet', for resource management in completion routine
 	*CompletionEvent = ExAllocatePoolWithTag(NonPagedPool, sizeof(KEVENT), 'CFDW');
 	if (!*CompletionEvent) {
 		return SOCKET_ERROR;
@@ -778,7 +778,7 @@ Send(
 		return SOCKET_ERROR;
 	}
 
-	//DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
+	// DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
 	//Status = InitWskBuffer(Buffer, BufferSize, &WskBuffer, FALSE);
 	Status = InitWskSendBuffer(&DataBuffer, Buffer, BufferSize, &WskBuffer, FALSE); 
 	if (!NT_SUCCESS(Status)) {
@@ -791,8 +791,8 @@ Send(
 								&CompletionEvent,
 								DataBuffer,
 								WskBuffer,
-								&BytesSent, //DW-1758 : Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, //DW-1758 : Get SendStatus (Irp->IoStatus.Status)
+								&BytesSent, // DW-1758 : Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 : Get SendStatus (Irp->IoStatus.Status)
 								FALSE);
 	if (!NT_SUCCESS(Status)) {
 		BytesSent = SOCKET_ERROR;
@@ -910,7 +910,7 @@ SendLocal(
 		return SOCKET_ERROR;
 	}
 
-	//DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
+	// DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
 	//Status = InitWskBuffer(Buffer, BufferSize, &WskBuffer, FALSE);
 	Status = InitWskSendBuffer(&DataBuffer, Buffer, BufferSize, &WskBuffer, FALSE);
 	if (!NT_SUCCESS(Status)) {
@@ -923,8 +923,8 @@ SendLocal(
 								&CompletionEvent,
 								DataBuffer,
 								WskBuffer,
-								&BytesSent, //DW-1758 : Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, //DW-1758 : Get SendStatus (Irp->IoStatus.Status)
+								&BytesSent, // DW-1758 : Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 : Get SendStatus (Irp->IoStatus.Status)
 		FALSE);
 	if (!NT_SUCCESS(Status)) {
 		BytesSent = SOCKET_ERROR;
@@ -967,7 +967,7 @@ SendLocal(
 				// FIXME: cancel & completion's race condition may be occurred.
 				// Status or Irp->IoStatus.Status  
 
-				//DW-1758 : release resource from the completion routine if IRP is cancelled 
+				// DW-1758 : release resource from the completion routine if IRP is cancelled 
 				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
@@ -1080,7 +1080,7 @@ SendAsync(
 			//struct      task_struct *thread = current;
 			int 		retry_count = 0;
 $SendAsync_retry:			
-			// DW-1173: do not wait for send_buf_kill_event, we need to send all items queued before cleaning up.
+			// DW-1173 do not wait for send_buf_kill_event, we need to send all items queued before cleaning up.
 			Status = KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, pTime);
 			switch (Status) {
 			case STATUS_TIMEOUT:

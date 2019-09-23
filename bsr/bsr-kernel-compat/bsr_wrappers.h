@@ -222,7 +222,7 @@ static inline sector_t bdev_logical_block_size(struct block_device *bdev)
 	return queue_logical_block_size(bdev_get_queue(bdev));
 }
 
-// DW-1406: max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
+// DW-1406 max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
 static inline unsigned long long queue_max_hw_sectors(struct request_queue *q)
 {
 	return q->max_hw_sectors;
@@ -334,7 +334,7 @@ static inline int drbd_blkdev_put(struct block_device *bdev, fmode_t mode)
 {
 #ifdef _WIN32
 	UNREFERENCED_PARAMETER(mode);	
-	// DW-1109: put ref count and delete bdev if ref gets 0
+	// DW-1109 put ref count and delete bdev if ref gets 0
 	struct block_device *b = bdev->bd_parent?bdev->bd_parent:bdev;
 	kref_put(&b->kref, delete_drbd_block_device);
 #else

@@ -92,7 +92,7 @@ enum drbd_tr_hints {
 enum { /* bits in the flags word */
 	NET_CONGESTED,		/* The data socket is congested */
 	RESOLVE_CONFLICTS,	/* Set on one node, cleared on the peer! */
-	// DW-1204: flag to flush send buffer when disconnecting.
+	// DW-1204 flag to flush send buffer when disconnecting.
 	DISCONNECT_FLUSH,
 };
 
@@ -145,7 +145,7 @@ struct drbd_transport {
 #endif
 	
 #ifdef _WIN32
-	// DW-1398: accepted all peers and listening socket is no longer available.
+	// DW-1398 accepted all peers and listening socket is no longer available.
 	atomic_t listening_done;
 #endif
 };

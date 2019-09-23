@@ -247,7 +247,7 @@ static inline void ratelimit_state_init(struct ratelimit_state *state, int inter
 DEFINE_RATELIMIT_STATE(drbd_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 #endif
 
-// DW-1130: check if peer's replication state is ok to forget it's bitmap.
+// DW-1130 check if peer's replication state is ok to forget it's bitmap.
 static inline bool isForgettableReplState(enum drbd_repl_state repl_state)
 {
 	if (repl_state < L_ESTABLISHED ||
@@ -266,7 +266,7 @@ static inline bool isForgettableReplState(enum drbd_repl_state repl_state)
 #ifdef _WIN32
 EX_SPIN_LOCK g_rcuLock; //rcu lock is ported with spinlock
 struct mutex g_genl_mutex;
-// DW-1495: change att_mod_mutex(DW-1293) to global mutex because it can be a problem if IO also occurs on othere resouces on the same disk. 
+// DW-1495 change att_mod_mutex(DW-1293) to global mutex because it can be a problem if IO also occurs on othere resouces on the same disk. 
 struct mutex att_mod_mutex; 
 #endif
 
@@ -1053,7 +1053,7 @@ out:
 }
 
 
-// DW-1315: check if I have primary neighbor, it has same semantics as drbd_all_neighbor_secondary and is also able to check the role to be changed.
+// DW-1315 check if I have primary neighbor, it has same semantics as drbd_all_neighbor_secondary and is also able to check the role to be changed.
 #ifdef _WIN32_RCU_LOCKED
 static bool drbd_all_neighbor_secondary_ex(struct drbd_resource *resource, u64 *authoritative, enum which_state which, bool locked)
 #else
@@ -1091,7 +1091,7 @@ static bool drbd_all_neighbor_secondary_ex(struct drbd_resource *resource, u64 *
 	return all_secondary;
 }
 
-// DW-1315: check the stability and authoritative node(if unstable), it has same semantics as drbd_device_stable and is also able to check the state to be changed.
+// DW-1315 check the stability and authoritative node(if unstable), it has same semantics as drbd_device_stable and is also able to check the state to be changed.
 #ifdef _WIN32_RCU_LOCKED
 bool drbd_device_stable_ex(struct drbd_device *device, u64 *authoritative, enum which_state which, bool locked)
 #else
@@ -1144,7 +1144,7 @@ out:
 }
 
 
-// DW-1145: it returns true if my disk is consistent with primary's
+// DW-1145 it returns true if my disk is consistent with primary's
 bool is_consistent_with_primary(struct drbd_device *device)
 {
 	struct drbd_peer_device *peer_device = NULL;
@@ -1515,7 +1515,7 @@ int drbd_send_peer_ack(struct drbd_connection *connection,
 	u64 mask = 0;
 
 
-#if 0 // DW-1099: masking my node id causes peers to improper in-sync.
+#if 0 // DW-1099 masking my node id causes peers to improper in-sync.
 	if (req->rq_state[0] & RQ_LOCAL_OK)
 		mask |= NODE_MASK(resource->res_opts.node_id);
 #endif
@@ -1694,7 +1694,7 @@ static int _drbd_send_uuids(struct drbd_peer_device *peer_device, u64 uuid_flags
 	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
 		uuid_flags |= UUID_FLAG_PRIMARY_IO_ERROR;
 #endif		
-	//DW-1874
+	// DW-1874
 #ifdef _WIN32 // TODO : MDF_PEER_IN_PROGRESS_SYNC 포팅작업 필요
 	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
@@ -1735,7 +1735,7 @@ static u64 __bitmap_uuid(struct drbd_device *device, int node_id) __must_hold(lo
 		(drbd_current_uuid(device) & ~UUID_PRIMARY))
 
 	{
-		// DW-978: Set MDF_PEER_DIFF_CUR_UUID flag so that we're able to recognize -1 is sent.
+		// DW-978 Set MDF_PEER_DIFF_CUR_UUID flag so that we're able to recognize -1 is sent.
 		// DW-1415 Set MDF_PEER_DIFF_CUR_UUID flag when only peer is in connected state to avoid exchanging uuid unlimitedly on the ring topology with flawed connection.
 		if (peer_device->connection->cstate[NOW] == C_CONNECTED)
 			peer_md[node_id].flags |= MDF_PEER_DIFF_CUR_UUID;
@@ -1788,7 +1788,7 @@ static int _drbd_send_uuids110(struct drbd_peer_device *peer_device, u64 uuid_fl
 			bitmap_uuids_mask |= NODE_MASK(i);
 	}
 
-	// DW-1253: sizeof(bitmap_uuids_mask) is 8, it cannot be found all nodes. so, change it to DRBD_NODE_ID_MAX. 
+	// DW-1253 sizeof(bitmap_uuids_mask) is 8, it cannot be found all nodes. so, change it to DRBD_NODE_ID_MAX. 
 	for_each_set_bit(i, (ULONG_PTR *)&bitmap_uuids_mask, DRBD_NODE_ID_MAX) {
 #ifdef _WIN64
 		BUG_ON_INT32_OVER(i);
@@ -1808,7 +1808,7 @@ static int _drbd_send_uuids110(struct drbd_peer_device *peer_device, u64 uuid_fl
 		uuid_flags |= UUID_FLAG_DISCARD_MY_DATA;
 
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	// DW-1357: do not send UUID_FLAG_CRASHED_PRIMARY if I don't need to get synced from this peer.
+	// DW-1357 do not send UUID_FLAG_CRASHED_PRIMARY if I don't need to get synced from this peer.
 	if (test_bit(CRASHED_PRIMARY, &device->flags) &&
 		!drbd_md_test_peer_flag(peer_device, MDF_PEER_IGNORE_CRASHED_PRIMARY))
 #else
@@ -1831,13 +1831,13 @@ static int _drbd_send_uuids110(struct drbd_peer_device *peer_device, u64 uuid_fl
 		D_ASSERT(peer_device, node_mask == 0);
 		p->node_mask = cpu_to_be64(authoritative_mask);
 	}
-	//DW-1874
+	// DW-1874
 #ifdef _WIN32 // TODO : MDF_PEER_IN_PROGRESS_SYNC 포팅작업 필요
 	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
 #endif
 
-	// DW-1145: set UUID_FLAG_CONSISTENT_WITH_PRI if my disk is consistent with primary's
+	// DW-1145 set UUID_FLAG_CONSISTENT_WITH_PRI if my disk is consistent with primary's
 	if (is_consistent_with_primary(device))
 		uuid_flags |= UUID_FLAG_CONSISTENT_WITH_PRI;
 #ifdef _WIN32
@@ -2918,7 +2918,7 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 			err = _drbd_send_zc_bio(peer_device, req->master_bio);
 #endif
 
-		// DW-1012: Remove out of sync when data is sent, this is the newest one.
+		// DW-1012 Remove out of sync when data is sent, this is the newest one.
 		if (!err)
 			drbd_set_in_sync(peer_device, req->i.sector, req->i.size);
 
@@ -3485,7 +3485,7 @@ void drbd_destroy_device(struct kref *kref)
 #endif
 
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-	//DW-1911
+	// DW-1911
 	struct drbd_marked_replicate *marked_rl, *t;
 	list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 		list_del(&marked_rl->marked_rl_list);
@@ -3497,9 +3497,9 @@ void drbd_destroy_device(struct kref *kref)
 	 * device (re-)configuration or state changes */
 	if (device->this_bdev)
 #ifdef _WIN32
-		// DW-1109: put bdev when device is being destroyed.
+		// DW-1109 put bdev when device is being destroyed.
 	{
-		// DW-1300: nullify drbd_device of volume extention when destroy drbd device.
+		// DW-1300 nullify drbd_device of volume extention when destroy drbd device.
 		PVOLUME_EXTENSION pvext = device->this_bdev->bd_disk->pDeviceExtension;
 		if (pvext &&
 			pvext->dev)
@@ -3588,7 +3588,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 #endif
 
 	list_for_each_entry_safe_ex(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#ifdef _WIN32 //DW-1480
+#ifdef _WIN32 // DW-1480
 		list_del(&connection->twopc_parent_list);
 #endif
 		kref_debug_put(&connection->kref_debug, 9);
@@ -3911,7 +3911,7 @@ static void drbd_put_send_buffers(struct drbd_connection *connection)
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		if (connection->send_buffer[i].page) {
 #ifdef _WIN32
-			//DW-1791 fix memory leak 
+			// DW-1791 fix memory leak 
 			__free_page(connection->send_buffer[i].page);
 #else // BSR-160 _LIN
 			put_page(connection->send_buffer[i].page);
@@ -4212,7 +4212,7 @@ struct drbd_connection *drbd_create_connection(struct drbd_resource *resource,
 	INIT_LIST_HEAD(&connection->read_ee);
 	INIT_LIST_HEAD(&connection->net_ee);
 	INIT_LIST_HEAD(&connection->done_ee);
-	INIT_LIST_HEAD(&connection->inactive_ee);	//DW-1696
+	INIT_LIST_HEAD(&connection->inactive_ee);	// DW-1696
 	init_waitqueue_head(&connection->ee_wait);
 
 	kref_init(&connection->kref);
@@ -4313,8 +4313,8 @@ void drbd_destroy_connection(struct kref *kref)
 	kfree(connection->current_epoch);
 
 #ifdef _WIN32 // TODO
-	//DW-1829 : inactive_ee must be free before peer_device.
-	//DW-1696 : If the connecting object is destroyed, it also destroys the inactive_ee.
+	// DW-1829 : inactive_ee must be free before peer_device.
+	// DW-1696 : If the connecting object is destroyed, it also destroys the inactive_ee.
 	spin_lock(&resource->req_lock);
 	if (!list_empty(&connection->inactive_ee)) {
 		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
@@ -4334,7 +4334,7 @@ void drbd_destroy_connection(struct kref *kref)
 		kref_put(&peer_device->device->kref, drbd_destroy_device);
 		free_peer_device(peer_device);
 #ifdef _WIN32 //TODO
-		//DW-1791 fix memory leak
+		// DW-1791 fix memory leak
 		spin_lock_irq(&resource->req_lock);
 		idr_remove(&connection->peer_devices, vnr);
 		spin_unlock_irq(&resource->req_lock);
@@ -4375,7 +4375,7 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 	spin_lock_init(&peer_device->peer_seq_lock);
 
 #ifdef _WIN32
-	//DW-1806 default value is TRUE
+	// DW-1806 default value is TRUE
 	KeInitializeEvent(&peer_device->state_initial_send_event, NotificationEvent, TRUE);
 #endif
 	err = drbd_create_peer_device_default_config(peer_device);
@@ -4419,7 +4419,7 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 	INIT_LIST_HEAD(&peer_device->propagate_uuids_work.list);
 	peer_device->propagate_uuids_work.cb = w_send_uuids;
 
-	// DW-1191: to send disappeared out-of-sync which found when req_destroy.
+	// DW-1191 to send disappeared out-of-sync which found when req_destroy.
 	INIT_LIST_HEAD(&peer_device->send_oos_list);
 	INIT_WORK(&peer_device->send_oos_work, drbd_send_out_of_sync_wf);
 	spin_lock_init(&peer_device->send_oos_lock);
@@ -4524,7 +4524,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-	//DW-1901
+	// DW-1901
 	INIT_LIST_HEAD(&device->marked_rl_list);
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
@@ -4579,7 +4579,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 		goto out_no_disk;
 	}
 #endif
-	// DW-1109: don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in drbd_destroy_device.
+	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in drbd_destroy_device.
 	q = blk_alloc_queue(GFP_KERNEL);
 	if (!q)
 		goto out_no_q;
@@ -4962,7 +4962,7 @@ int bsr_init(void)
 	INIT_WORK(&retry.worker, do_retry);
 	spin_lock_init(&retry.lock);
 	INIT_LIST_HEAD(&retry.writes);
-	// DW-1105: need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
+	// DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
 	if (!NT_SUCCESS(start_mnt_monitor())) {
 		drbd_err(NO_OBJECT,"could not start mount monitor\n");
 		goto fail;
@@ -5541,7 +5541,7 @@ static u64 rotate_current_into_bitmap(struct drbd_device *device, u64 weak_nodes
 		if (node_id == device->ldev->md.node_id)
 			continue;
 
-		// DW-1360: skip considering to rotate uuid for node which doesn't exist.
+		// DW-1360 skip considering to rotate uuid for node which doesn't exist.
 		if (peer_md[node_id].bitmap_index == -1 &&
 			!(peer_md[node_id].flags & MDF_NODE_EXISTS))
 			continue;
@@ -5727,22 +5727,22 @@ void drbd_uuid_received_new_current(struct drbd_peer_device *peer_device, u64 va
 		}
 	}
 
-	// DW-1340: do not update current uuid if my disk is outdated. the node sent uuid has my current uuid as bitmap uuid, and will start resync as soon as we do handshake.
+	// DW-1340 do not update current uuid if my disk is outdated. the node sent uuid has my current uuid as bitmap uuid, and will start resync as soon as we do handshake.
 	if (device->disk_state[NOW] == D_OUTDATED)
 		set_current = false;
 
 	if (set_current) {
 
-		// DW-1034: split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
+		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
 		__drbd_uuid_set_current(device, val);
-		// DW-837: Apply updated current uuid to meta disk.
+		// DW-837 Apply updated current uuid to meta disk.
 		drbd_md_mark_dirty(device);
 	}
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
 	if(set_current) {
-		// DW-977: Send current uuid as soon as set it to let the node which created uuid update mine.
+		// DW-977 Send current uuid as soon as set it to let the node which created uuid update mine.
 		drbd_send_current_uuid(peer_uuid_sent, val, drbd_weak_nodes_device(device));
 	}
 	drbd_propagate_uuids(device, got_new_bitmap_uuid);
@@ -5785,7 +5785,7 @@ static u64 __test_bitmap_slots_of_peer(struct drbd_peer_device *peer_device) __m
 	int node_id;
 
 	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-		// DW-1113: identical current uuid means they've cleared each other's bitmap uuid, while I haven't known it.
+		// DW-1113 identical current uuid means they've cleared each other's bitmap uuid, while I haven't known it.
 		struct drbd_peer_device *found_peer = peer_device_by_node_id(peer_device->device, node_id);
 		if (peer_device->bitmap_uuids[node_id] &&
 			found_peer &&
@@ -5998,7 +5998,7 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 		if (peer_md[node_id].bitmap_index == -1 && !(peer_md[node_id].flags & MDF_NODE_EXISTS))
 			continue;
 
-		// DW-978: Need to check if uuid has to be propagated even if bitmap_uuid is 0, it could be set -1 during sent, check the flag 'MDF_PEER_DIFF_CUR_UUID'.
+		// DW-978 Need to check if uuid has to be propagated even if bitmap_uuid is 0, it could be set -1 during sent, check the flag 'MDF_PEER_DIFF_CUR_UUID'.
 		if (peer_device->bitmap_uuids[node_id] == 0 && (peer_md[node_id].bitmap_uuid != 0 || (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))) {
 			u64 peer_current_uuid = peer_device->current_uuid & ~UUID_PRIMARY;
 			//int from_node_id;
@@ -6014,7 +6014,9 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 					drbd_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
 				else if (peer_md[node_id].bitmap_index != -1)
 				{
-					// DW-955, DW-1116, DW-1131: do not forget bitmap if peer is not forgettable state.
+					// DW-955 
+					// DW-1116
+					// DW-1131 do not forget bitmap if peer is not forgettable state.
 					struct drbd_peer_device *found_peer = peer_device_by_node_id(device, node_id);
 					
 					if (found_peer &&
@@ -6024,7 +6026,7 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 #endif
 					)
 					{
-						// DW-955: print log to recognize where forget_bitmap is called.
+						// DW-955 print log to recognize where forget_bitmap is called.
 #ifdef _WIN32
 						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n",
 							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (ULONG)found_peer->flags);
@@ -6041,15 +6043,15 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 				drbd_md_mark_dirty(device);
 // DW-979, DW-980
 clear_flag:
-				// DW-978: Clear the flag once we determine that uuid will be propagated.
+				// DW-978 Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
 				write_bm = true;
 			}
 
-#if 0 // DW-1099: copying bitmap has a defect, do sync whole out-of-sync until fixed.
+#if 0 // DW-1099 copying bitmap has a defect, do sync whole out-of-sync until fixed.
 			from_node_id = find_node_id_by_bitmap_uuid(device, peer_current_uuid);
 			if (from_node_id != -1 && node_id != from_node_id &&
-				// DW-978: Copying bitmap here assumed that bitmap uuid wasn't 0, check bitmap uuid again since flag 'MDF_PEER_DIFF_CUR_UUID' is added.
+				// DW-978 Copying bitmap here assumed that bitmap uuid wasn't 0, check bitmap uuid again since flag 'MDF_PEER_DIFF_CUR_UUID' is added.
 				peer_md[node_id].bitmap_uuid != 0 &&
 			    dagtag_newer(peer_md[from_node_id].bitmap_dagtag,
 					 peer_md[node_id].bitmap_dagtag)) {
@@ -6064,7 +6066,7 @@ clear_flag:
 						  node_id, from_node_id);
 				drbd_md_mark_dirty(device);
 
-				// DW-978: Clear the flag once we determine that uuid will be propagated.
+				// DW-978 Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
 				filled = true;
 			}
@@ -6073,7 +6075,7 @@ clear_flag:
 	}
 
 
-	// DW-955: peer has already cleared my bitmap, or receiving peer_in_sync has been left out. no resync is needed.
+	// DW-955 peer has already cleared my bitmap, or receiving peer_in_sync has been left out. no resync is needed.
 	if (drbd_bm_total_weight(peer_device) &&
 		peer_device->dirty_bits == 0 &&
 		isForgettableReplState(peer_device->repl_state[NOW]) &&
@@ -6104,7 +6106,7 @@ clear_flag:
 		drbd_md_mark_dirty(device);
 	}
 
-	// DW-1145: clear bitmap if peer has consistent disk with primary's, peer will also clear bitmap.
+	// DW-1145 clear bitmap if peer has consistent disk with primary's, peer will also clear bitmap.
 	if (drbd_bm_total_weight(peer_device) &&
 		peer_device->uuid_flags & UUID_FLAG_CONSISTENT_WITH_PRI &&
 		is_consistent_with_primary(device) &&
@@ -6144,11 +6146,11 @@ clear_flag:
 }
 
 #ifdef _WIN32
-// DW-1293: it performs fast invalidate(remote) when agreed protocol version is 112 or above, and fast sync options is enabled.
+// DW-1293 it performs fast invalidate(remote) when agreed protocol version is 112 or above, and fast sync options is enabled.
 int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local)
 {
 	int nRet = 0;
-	// DW-1293: queued bitmap work increases work count which may prevents io that we need to mount volume.
+	// DW-1293 queued bitmap work increases work count which may prevents io that we need to mount volume.
 	bool dec_bm_work_n = false;
 
 	if (atomic_read(&device->pending_bitmap_work.n))
@@ -6208,7 +6210,7 @@ int drbd_bmio_set_all_n_write(struct drbd_device *device,
 	struct drbd_peer_device *p;
 	
 	UNREFERENCED_PARAMETER(peer_device);
-	// DW-1333: set whole bits and update resync extent.
+	// DW-1333 set whole bits and update resync extent.
 	
 	for_each_peer_device_rcu(p, device) {
 		if (!update_sync_bits(p, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC)) {
@@ -6232,7 +6234,7 @@ int drbd_bmio_set_n_write(struct drbd_device *device,
 
 	drbd_md_set_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 	drbd_md_sync(device);
-	// DW-1333: set whole bits and update resync extent.
+	// DW-1333 set whole bits and update resync extent.
 	if (!update_sync_bits(peer_device, 0, (unsigned long)drbd_bm_bits(device), SET_OUT_OF_SYNC)) {
 		drbd_err(peer_device, "no sync bit has been set, set whole bits without updating resync extent instead.\n");
 		drbd_bm_set_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
@@ -6317,7 +6319,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	bool bRet = false;
 	PVOLUME_BITMAP_BUFFER pBitmap = NULL;
 	ULONG_PTR count = 0;
-	// DW-1317: to support fast sync from secondary sync source whose volume is NOT mounted.
+	// DW-1317 to support fast sync from secondary sync source whose volume is NOT mounted.
 	bool bSecondary = false;
 
 	if (NULL == device ||
@@ -6328,10 +6330,10 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		return false;
 	}
 
-	// DW-1317: prevent from writing smt on volume, such as being primary and getting resync data, it doesn't allow to dismount volume also.
+	// DW-1317 prevent from writing smt on volume, such as being primary and getting resync data, it doesn't allow to dismount volume also.
 	mutex_lock(&device->resource->vol_ctl_mutex);
 
-	// DW-1317: inspect resync side first, before get the allocated bitmap.
+	// DW-1317 inspect resync side first, before get the allocated bitmap.
 #ifdef _WIN32_RCU_LOCKED	
 	if (!drbd_inspect_resync_side(peer_device, side, NOW, false))
 #else
@@ -6352,7 +6354,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	
 	if (device->resource->role[NOW] == R_SECONDARY)
 	{
-		// DW-1317: set read-only attribute and mount for temporary.
+		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE)
 		{
 			drbd_info(peer_device,"I am a secondary sync source, will mount volume for temporary to get allocated clusters.\n");
@@ -6422,7 +6424,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 
 	} while (false, false);
 
-	// DW-1495: Change location due to deadlock(bm_change)
+	// DW-1495 Change location due to deadlock(bm_change)
 	// Set out-of-sync for allocated cluster.
 	if (bitmap_lock)
 		drbd_bm_lock(device, "Set out-of-sync for allocated cluster", BM_LOCK_CLEAR | BM_LOCK_BULK);

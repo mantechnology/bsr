@@ -534,7 +534,7 @@ bool random_by_dev_urandom(void *buffer, size_t len)
 	if (len == 0)
 		return false;
 
-	//DW-1779 generate random numbers based on length.
+	// DW-1779 generate random numbers based on length.
 	uint8_t *r;
 
 	srand(time(NULL));

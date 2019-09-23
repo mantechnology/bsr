@@ -688,7 +688,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		vsgai.GptAttributes = vggai.GptAttributes;
 		
 #ifdef  _WIN32_CHECK_PARTITION_STYLE
-		/* DW-1495: Make sure the disk is the disk is MBR and GPT and specify another argument. 
+		/* DW-1495 Make sure the disk is the disk is MBR and GPT and specify another argument. 
 		 * If you are using only GPT disks, att_mod_mutex is not required and can be removed later. 
 		 */ 
 		PARTITION_INFORMATION_EX	partInfoEx;
@@ -1644,7 +1644,7 @@ BOOLEAN isFastInitialSync()
 	return bRet;
 }
 
-// DW-1327: notifies callback object with given name and parameter.
+// DW-1327 notifies callback object with given name and parameter.
 NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -1673,7 +1673,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 	return status;
 }
 
-// DW-1327: notifies callback object of drbdlock, this routine is used to block or allow I/O by drbdlock.
+// DW-1327 notifies callback object of drbdlock, this routine is used to block or allow I/O by drbdlock.
 NTSTATUS SetDrbdlockIoBlock(PVOLUME_EXTENSION pVolumeExtension, bool bBlock)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;

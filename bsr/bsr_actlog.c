@@ -241,7 +241,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 	err = device->md_io.error;
 #ifdef _WIN32
     if(err == STATUS_NO_SUCH_DEVICE) {
-		// DW-1396: referencing bio causes BSOD as long as bio has already been freed once it's been submitted, we don't need volume device name which is already removed also.
+		// DW-1396 referencing bio causes BSOD as long as bio has already been freed once it's been submitted, we don't need volume device name which is already removed also.
         drbd_err(device, "cannot find meta volume\n");
         return err;
     }
@@ -326,7 +326,7 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 	for_each_peer_device_rcu(peer_device, al_ctx->device) {
 		if (peer_device == NULL)
 			goto out;
-		//DW-1601 If greater than 112, remove act_log and resync_lru associations
+		// DW-1601 If greater than 112, remove act_log and resync_lru associations
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 		if (peer_device->connection->agreed_pro_version <= 112) 
 #endif
@@ -375,7 +375,7 @@ set_bme_priority(struct get_activity_log_ref_ctx *al_ctx)
 
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, al_ctx->device) {
-		//DW-1601 If greater than 112, remove act_log and resync_lru associations
+		// DW-1601 If greater than 112, remove act_log and resync_lru associations
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 		if (peer_device->connection->agreed_pro_version <= 112)
 #endif
@@ -516,7 +516,7 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 		}
 #ifdef _WIN32
 		BUG_ON_UINT16_OVER(e->lc_index);
-		//DW-1918 the value of lc_new_number MAX should be verified by UINT32.
+		// DW-1918 the value of lc_new_number MAX should be verified by UINT32.
 		BUG_ON_UINT32_OVER(e->lc_new_number);
 #endif
 		buffer->update_slot_nr[i] = cpu_to_be16((u16)e->lc_index);
@@ -922,7 +922,7 @@ static bool extent_in_sync(struct drbd_peer_device *peer_device, unsigned int rs
 
 		return rv;
 	}
-	// DW-955: Need to send peer_in_sync to PausedSyncTarget and UpToDate node.
+	// DW-955 Need to send peer_in_sync to PausedSyncTarget and UpToDate node.
 	else if (peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
 		if (peer_device->disk_state[NOW] == D_UP_TO_DATE)
 			return true;
@@ -1203,7 +1203,7 @@ static void maybe_schedule_on_disk_bitmap_update(struct drbd_peer_device *peer_d
 	if (rs_done) {
 		if (peer_device->connection->agreed_pro_version <= 95 ||
 			is_sync_target_state(peer_device, NOW)) {
-			//DW-1908 check for duplicate completion
+			// DW-1908 check for duplicate completion
 			if (test_bit(RS_DONE, &peer_device->flags))
 				return;
 			set_bit(RS_DONE, &peer_device->flags);
@@ -1265,7 +1265,7 @@ int update_sync_bits(struct drbd_peer_device *peer_device,
 	}
 
 	if (count) {
-		//DW-1775 If not SET_OUT_OF_SYNC, check resync completion.
+		// DW-1775 If not SET_OUT_OF_SYNC, check resync completion.
 		if (mode != SET_OUT_OF_SYNC) {
 			ULONG_PTR still_to_go; bool rs_is_done;
 			if (mode == RECORD_RS_FAILED)
@@ -1285,7 +1285,7 @@ int update_sync_bits(struct drbd_peer_device *peer_device,
 		wake_up(&device->al_wait);
 	}
 	else {
-		//DW-1761 calls wake_up() to resolve the al_wait timeout when duplicate "SET_OUT_OF_SYNC"
+		// DW-1761 calls wake_up() to resolve the al_wait timeout when duplicate "SET_OUT_OF_SYNC"
 		if (peer_device->repl_state[NOW] == L_AHEAD && mode == SET_OUT_OF_SYNC) {
 			struct net_conf *nc;
 
@@ -1336,7 +1336,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 
 	if (!get_ldev(device))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
@@ -1350,7 +1350,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 
 	if (!expect(peer_device, sector < nr_sectors))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(peer_device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 		goto out;
@@ -1368,7 +1368,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		 * we only clear full, aligned, BM_BLOCK_SIZE blocks. */
 		if (unlikely(esector < BM_SECT_PER_BIT-1))
 #ifdef _WIN32_DEBUG_OOS
-			// DW-1153: add error log
+			// DW-1153 add error log
 		{
 			drbd_err(peer_device, "unexpected error, sector(%llu), esector(%llu)\n", sector, esector);
 			goto out;
@@ -1414,7 +1414,7 @@ bool drbd_set_all_out_of_sync(struct drbd_device *device, sector_t sector, int s
  * @bits:	bit values to use by bitmap index
  * @mask:	bitmap indexes to modify (mask set)
  */
-// DW-1191: caller needs to determine the peers that oos has been set.
+// DW-1191 caller needs to determine the peers that oos has been set.
 unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int size,
 		   ULONG_PTR bits, ULONG_PTR mask)
 {
@@ -1425,7 +1425,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 	unsigned long set_bits = 0;
 
 	struct drbd_peer_device *peer_device;
-	//DW-1871
+	// DW-1871
 	bool skip_clear = false;
 #ifndef _WIN32
 	mask &= (1 << device->bitmap->bm_max_peers) - 1;
@@ -1438,7 +1438,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 
 	if (!get_ldev(device))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 		return false; /* no disk, no metadata, no bitmap to set bits in */
@@ -1454,7 +1454,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 
 	if (!expect(device, sector < nr_sectors))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 		goto out;
@@ -1479,7 +1479,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 		clear_end = (ULONG_PTR)BM_SECT_TO_BIT(esector);
 	else {
 		clear_end = (ULONG_PTR)BM_SECT_TO_BIT(esector + 1);
-		//DW-1871 if clear_end is zero, you do not need to call it. update_sync_bits(), drbd_bm_clear_bits()
+		// DW-1871 if clear_end is zero, you do not need to call it. update_sync_bits(), drbd_bm_clear_bits()
 		if (clear_end == 0)
 			skip_clear = true;
 		else
@@ -1497,12 +1497,12 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 
 		if (test_bit(bitmap_index, &bits))
 		{
-			// DW-1191: caller needs to know if the bits has been set at least.
+			// DW-1191 caller needs to know if the bits has been set at least.
 			if (update_sync_bits(peer_device, (unsigned long)set_start, (unsigned long)set_end, SET_OUT_OF_SYNC) > 0)
 				set_bits |= (1 << bitmap_index);
 		}
 
-		//DW-1871
+		// DW-1871
 		else if (clear_start <= clear_end && !skip_clear)
 			update_sync_bits(peer_device, (unsigned long)clear_start, (unsigned long)clear_end, SET_IN_SYNC);
 	}
@@ -1520,7 +1520,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 			if (test_bit((unsigned int)bitmap_index, &bits))
 				drbd_bm_set_bits(device, (unsigned int)bitmap_index,
 				(unsigned long)set_start, (unsigned long)set_end);
-			//DW-1871
+			// DW-1871
 			else if (clear_start <= clear_end && !skip_clear)
 				drbd_bm_clear_bits(device, (unsigned int)bitmap_index,
 				(unsigned long)clear_start, (unsigned long)clear_end);
@@ -1762,7 +1762,7 @@ int drbd_try_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector, 
 		goto check_al;
 	}
 check_al:
-	//DW-1601 If greater than 112, remove act_log and resync_lru associations
+	// DW-1601 If greater than 112, remove act_log and resync_lru associations
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	if (peer_device->connection->agreed_pro_version <= 112) 
 #endif

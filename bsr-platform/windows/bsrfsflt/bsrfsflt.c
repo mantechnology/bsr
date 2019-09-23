@@ -116,7 +116,7 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 		drbdlockPreOperation,
 		drbdlockPostOperation },
 
-		//DW-1868
+		// DW-1868
 		{ IRP_MJ_QUERY_VOLUME_INFORMATION,
 		0,
 		drbdlockPreOperation,
@@ -636,7 +636,7 @@ Return Value:
 {
     UNREFERENCED_PARAMETER( CompletionContext );
 
-	// DW-1461: fsctl lock requested by drbd may fail due to drbdlock. make bypass operation executed in kernel mode.
+	// DW-1461 fsctl lock requested by drbd may fail due to drbdlock. make bypass operation executed in kernel mode.
 	if (Data->RequestorMode == KernelMode)
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 
@@ -688,7 +688,7 @@ Return Value:
 			if (NT_SUCCESS(status) &&
 				isProtectedVolume(pDiskDev))
 			{
-				//DW-1868 set up STAUS_ACCESS_DENIED for the IRP_MJ_QUERY_VOLUME_INFORMATION code to prevent the use of volume expansion/shrinkage 
+				// DW-1868 set up STAUS_ACCESS_DENIED for the IRP_MJ_QUERY_VOLUME_INFORMATION code to prevent the use of volume expansion/shrinkage 
 				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 				Data->IoStatus.Information = 0;
 

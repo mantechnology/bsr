@@ -1200,7 +1200,7 @@ VOID CleanupOosTrace()
 }
 #endif	// _WIN32_DEBUG_OOS
 
-//DW-1629
+// DW-1629
 BOOLEAN ExistsTargetString(char* target, char *msg)
 {
 	if (target == NULL)
@@ -1222,7 +1222,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	DWORD		dwControlCode = 0;
 	BOOL        ret = FALSE;
 	PDRBD_LOG	pDrbdLog = NULL;
-	//DW-1629
+	// DW-1629
 	char tstr[MAX_PATH];
 
 #ifdef _WIN32_DEBUG_OOS
@@ -1232,7 +1232,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 
 	if (resourceName != NULL) {
 		memset(tstr, MAX_PATH, 0);
-		//DW-1629 check logs for resource name and additional parsing data
+		// DW-1629 check logs for resource name and additional parsing data
 		//#define __drbd_printk_device ...
 		//#define __drbd_printk_peer_device ...
 		//#define __drbd_printk_resource ...
@@ -1270,7 +1270,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 			unsigned int loopcnt = min(pDrbdLog->totalcnt, LOGBUF_MAXCNT);
 			if (pDrbdLog->totalcnt <= LOGBUF_MAXCNT) {
 				for (unsigned int i = 0; i <= (loopcnt*MAX_DRBDLOG_BUF); i += MAX_DRBDLOG_BUF) {		
-					//DW-1629
+					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
 						continue;
 
@@ -1280,7 +1280,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
 					{
-						// DW-1153: don't write out-of-sync trace log since user doesn't want to see..
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
@@ -1294,7 +1294,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 				pDrbdLog->totalcnt = pDrbdLog->totalcnt%LOGBUF_MAXCNT;
 				
 				for (unsigned int i = (pDrbdLog->totalcnt + 1)*MAX_DRBDLOG_BUF; i < (LOGBUF_MAXCNT*MAX_DRBDLOG_BUF); i += MAX_DRBDLOG_BUF) {
-					//DW-1629
+					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
 						continue;
 
@@ -1304,7 +1304,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
 					{
-						// DW-1153: don't write out-of-sync trace log since user doesn't want to see..
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
@@ -1314,7 +1314,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 				}
 
 				for (unsigned int i = 0; i < (pDrbdLog->totalcnt + 1)*MAX_DRBDLOG_BUF; i += MAX_DRBDLOG_BUF) {
-					//DW-1629
+					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
 						continue;
 
@@ -1324,7 +1324,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
 					{
-						// DW-1153: don't write out-of-sync trace log since user doesn't want to see..
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif

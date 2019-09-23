@@ -120,7 +120,7 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
-#define _WIN32_DEBUG_OOS		// DW-1153: debug oos. // TODO : linux 포팅작업 필요
+#define _WIN32_DEBUG_OOS		// DW-1153 debug oos. // TODO : linux 포팅작업 필요
 
 #define LOGGING_TYPE_SYSLOG		0
 #define LOGGING_TYPE_DBGLOG		1

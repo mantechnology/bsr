@@ -160,7 +160,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	MVOL_UNLOCK();
 
 	if (VolumeExtension->dev) {
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, FALSE);
 		if (device)
 		{
@@ -172,16 +172,16 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				wait_event_interruptible_timeout_ex(device->misc_wait,
 					 get_disk_state2(device) != D_FAILED, timeo, timeo);
 			}			
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 		}
 		
-		// DW-1109: put ref count that's been set as 1 when initialized, in add device routine.
+		// DW-1109 put ref count that's been set as 1 when initialized, in add device routine.
 		// deleting block device can be defered if drbd device is using.		
 		blkdev_put(VolumeExtension->dev, 0);
 	}
 
-	// DW-1277: check volume type we marked when drbd attaches.
+	// DW-1277 check volume type we marked when drbd attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
 		drbd_info(NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
@@ -308,7 +308,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		length = irpSp->Parameters.Read.Length;
 	}
 
-	// DW-1300: get device and get reference.
+	// DW-1300 get device and get reference.
 	device = get_device_with_vol_ext(VolumeExtension, TRUE);
 	if (device/* && (mdev->state.role == R_PRIMARY)*/) {
 		struct splitInfo *splitInfo = 0;
@@ -413,7 +413,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 	}
 
 fail_put_dev:
-	// DW-1300: failed to go through drbd engine, the irp will be completed with failed status and complete_master_bio won't be called, put reference here.
+	// DW-1300 failed to go through drbd engine, the irp will be completed with failed status and complete_master_bio won't be called, put reference here.
 	if (device)
 		kref_put(&device->kref, drbd_destroy_device);
 
@@ -594,7 +594,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 		deviceNameLength = VolumeExtension->PhysicalDeviceNameLength;
 	}
 
-	//DW-1816 remove unnecessary allocate
+	// DW-1816 remove unnecessary allocate
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL)
@@ -613,7 +613,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 
 	wp = (PWCHAR) ((PCHAR) pLogEntry + pLogEntry->StringOffset);
 
-	//DW-1816 wcsncpy() is divided into sizeof(WCHAR) because the third argument is the WCHAR count. Also, fill the rest of the area with null after copying
+	// DW-1816 wcsncpy() is divided into sizeof(WCHAR) because the third argument is the WCHAR count. Also, fill the rest of the area with null after copying
 	if (RootExtension != NULL) {
 		wcsncpy(wp, RootExtension->PhysicalDeviceName, deviceNameLength / sizeof(WCHAR));
 	}
@@ -1011,7 +1011,7 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	return usCaptured;	
 }
 
-// DW-1153: Write Out-of-sync trace specific log. it includes stack frame.
+// DW-1153 Write Out-of-sync trace specific log. it includes stack frame.
 VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode)
 {
 	PVOID* stackFrames = NULL;

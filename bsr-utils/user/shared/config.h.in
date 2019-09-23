@@ -1,15 +1,16 @@
 /* user/shared/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Local configuration directory. Commonly /etc or /usr/local/etc */
+/* Local configuration directory. Commonly /etc or /usr/local/etc */
 #undef BSR_CONFIG_DIR
 
-/* Local state directory. Commonly /var/lib/bsr or /usr/local/var/lib/bsr */
+/* Local state directory. Commonly /var/lib/bsr or /usr/local/var/lib/bsr */
 #undef BSR_LIB_DIR
 
-/* Local lock directory. Commonly /var/lock or /usr/local/var/lock */
+/* Local lock directory. Commonly /var/lock or /usr/local/var/lock */
 #undef BSR_LOCK_DIR
 
-/* Runtime state directory. Commonly /var/run/bsr or /usr/local/var/run/bsr */
+/* Runtime state directory. Commonly /var/run/bsr or /usr/local/var/run/bsr
+   */
 #undef BSR_RUN_DIR
 
 /* Does genetlink provide CTRL_CMD_DELMCAST_GRP already */
