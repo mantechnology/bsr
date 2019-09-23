@@ -3906,11 +3906,7 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #ifdef _WIN32			
 #define wait_event_timeout_ex(wq, condition, timeout, res) \
-{	\
-	long __t = timeout;	\
-	wait_event_timeout(__t, wq, condition, __t);	\
-	res = __t;	\
-}
+	wait_event_timeout(res, wq, condition, timeout);	
 #else	
 #define wait_event_timeout_ex(wq, condition, timeout, res) \
 	res = wait_event_timeout(wq, condition, timeout);	
@@ -3918,11 +3914,7 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #ifdef _WIN32
 #define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
-{	\
-	int __r = timeout;	\
-	wait_event_interruptible_timeout(__r, wq, condition, timeout);	\
-	res = __r;	\
-}	
+	wait_event_interruptible_timeout(res, wq, condition, timeout);	
 #else
 #define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
 	res = wait_event_interruptible_timeout(wq, condition, timeout);	
@@ -3930,11 +3922,7 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #ifdef _WIN32
 #define wait_event_interruptible_ex(wq, condition, res)	\
-{	\
-	int __r = res;	\
-	wait_event_interruptible(__r, wq, condition);	\
-	res = __r;	\
-}
+	wait_event_interruptible(res, wq, condition);	
 #else
 #define wait_event_interruptible_ex(wq, condition, res)	\
 	res = wait_event_interruptible(wq, condition);
