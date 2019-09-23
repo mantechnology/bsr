@@ -3864,7 +3864,7 @@ int drbd_worker(struct drbd_thread *thi)
 
 		if (list_empty(&work_list)) {
 			bool w = false, r = false, d = false, p = false;
-			int sig;
+			int sig = 0;
 
 			update_worker_timing_details(resource, dequeue_work_batch);
 
