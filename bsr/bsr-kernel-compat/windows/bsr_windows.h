@@ -82,7 +82,7 @@
 #define	KERN_INFO				"<6>"	/* informational			*/
 #define	KERN_DEBUG				"<7>"	/* debug-level messages			*/
 #ifdef _WIN32_DEBUG_OOS
-#define KERN_DEBUG_OOS			"<8>"	/* DW-1153 debug-oos */
+#define KERN_DEBUG_OOS			"<8>"	// DW-1153 debug-oos 
 #endif
 
 enum

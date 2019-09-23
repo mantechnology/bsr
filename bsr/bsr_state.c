@@ -1503,7 +1503,7 @@ static enum drbd_state_rv __is_valid_soft_transition(struct drbd_resource *resou
 		     (role[NEW] == R_PRIMARY && !any_disk_up_to_date[NEW]))
 			return SS_NO_UP_TO_DATE_DISK;
 
-		/* DW-1155 not support Outdated-Primary */
+		// DW-1155 not support Outdated-Primary
 		if (!(role[OLD] == R_PRIMARY && (disk_state[OLD] <= D_OUTDATED)) &&
 		     (role[NEW] == R_PRIMARY && (disk_state[NEW] <= D_OUTDATED)))
 		{
@@ -3031,8 +3031,8 @@ static bool calc_device_stable(struct drbd_state_change *state_change, int n_dev
 }
 #endif
 
-/* DW-1315 This function is supposed to have the same semantics as calc_device_stable which doesn't return authoritative node.
-   We need to notify peer when keeping unstable device and authoritative node's changed as long as it is the criterion of operating resync. */
+// DW-1315 This function is supposed to have the same semantics as calc_device_stable which doesn't return authoritative node.
+ //  We need to notify peer when keeping unstable device and authoritative node's changed as long as it is the criterion of operating resync. 
 static bool calc_device_stable_ex(struct drbd_state_change *state_change, int n_device, enum which_state which, u64* authoritative)
 {
 	unsigned int n_connection;
@@ -3125,8 +3125,8 @@ enum drbd_disk_state os, enum drbd_disk_state ns)
 
 
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-/* DW-1357 it is called when we determined that crashed primary is no longer need for one of peer at least.
-	I am no longer crashed primary for all peers if..
+// DW-1357 it is called when we determined that crashed primary is no longer need for one of peer at least.
+/*	I am no longer crashed primary for all peers if..
 		1. I've done resync as a sync target from one of uptodate peer.
 		2. I've done resync as a sync source for all existing peers.
 	I am no longer crashed primary for only this peer if..
@@ -3606,10 +3606,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			if (disk_state[OLD] < D_UP_TO_DATE && repl_state[OLD] >= L_SYNC_SOURCE && repl_state[NEW] == L_ESTABLISHED)
 				send_new_state_to_all_peer_devices(state_change, n_device);
 
-			// DW-885, DW-897, DW-907
-			/* DW-885, DW-897, DW-907 We should notify our disk state when it goes unsyncable so that peer doesn't request to sync anymore.
-			 * Outdated myself, become D_INCONSISTENT, or became D_UP_TO_DATE tell peers 
-			 */
+			// DW-885
+			// DW-897
+			// DW-907 We should notify our disk state when it goes unsyncable so that peer doesn't request to sync anymore.
+			//Outdated myself, become D_INCONSISTENT, or became D_UP_TO_DATE tell peers 
 			if (disk_state[OLD] >= D_OUTDATED && disk_state[NEW] >= D_INCONSISTENT &&
 			    disk_state[NEW] != disk_state[OLD] && repl_state[NEW] >= L_ESTABLISHED)
 				send_state = true;
@@ -3705,8 +3705,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			if(!device_stable[OLD] && !device_stable[NEW] &&
 				authoritative[OLD] != authoritative[NEW] &&
 				get_ldev(device)) {	
-				/* DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE,
-							and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC */
+				// DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE, and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC 
 				drbd_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0);
 				put_ldev(device);
 			}
@@ -5010,7 +5009,7 @@ static void __change_role(struct change_role_context *role_context)
 		if (role == R_PRIMARY && force) {
 			if (device->disk_state[NEW] < D_UP_TO_DATE &&
 				device->disk_state[NEW] >= D_INCONSISTENT 
-				/* DW-1155 */
+				// DW-1155 
 				/* If Force-Primary, change the disk state to D_UP_TO_DATE. Do not consider a peer_disks. */
 				/* && !has_up_to_date_peer_disks(device) */
 			) {

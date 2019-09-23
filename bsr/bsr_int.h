@@ -1968,8 +1968,8 @@ struct drbd_device {
 	struct submit_worker submit;
 	bool susp_quorum[2];		/* IO suspended quorum lost */
 
-	/* DW-1755 disk error information structure is managed as a list, 
-	* and the error count is stored separately for the status command.
+	// DW-1755 disk error information structure is managed as a list, 
+	/* and the error count is stored separately for the status command.
 	Disk errors rarely occur, and even if they occur, 
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
@@ -3324,8 +3324,8 @@ drbd_post_work(struct drbd_resource *resource, int work_bit)
 }
 
 #ifdef _WIN32
-/* DW-1755 passthrough policy
- * Synchronization objects used in the process of forwarding events to events2 
+// DW-1755 passthrough policy
+ /* Synchronization objects used in the process of forwarding events to events2 
  * only work when irql is less than APC_LEVEL. 
  * However, because the completion routine can operate in DISPATCH_LEVEL, 
  * it must be handled through the work thread.*/

@@ -621,8 +621,8 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 	return bRet;
 }
 
-/* DW-1317
-   makes volume to be read-only. there will be no write at all when mounted, also any write operation to this volume will be failed. (0xC00000A2 : STATUS_MEDIA_WRITE_PROTECTED)
+// DW-1317
+/*   makes volume to be read-only. there will be no write at all when mounted, also any write operation to this volume will be failed. (0xC00000A2 : STATUS_MEDIA_WRITE_PROTECTED)
    be sure that drbd must not go sync target before clearing read-only attribute.
    for mounted read-only volume, write operation would come up as soon as read-only attribute is cleared.
 */
@@ -688,7 +688,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		vsgai.GptAttributes = vggai.GptAttributes;
 		
 #ifdef  _WIN32_CHECK_PARTITION_STYLE
-		/* DW-1495 Make sure the disk is the disk is MBR and GPT and specify another argument. 
+		// DW-1495 Make sure the disk is the disk is MBR and GPT and specify another argument. 
 		 * If you are using only GPT disks, att_mod_mutex is not required and can be removed later. 
 		 */ 
 		PARTITION_INFORMATION_EX	partInfoEx;

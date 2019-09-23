@@ -1200,8 +1200,8 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 		return;
 	}
 #endif
-	/* DW-1859 MDF_PRIMARY_IO_ERROR is the value required to check if io-error is cleared.
-	 * If all peer's OOS are removed, the io-error is considered to be resolved
+	// DW-1859 MDF_PRIMARY_IO_ERROR is the value required to check if io-error is cleared.
+	 /* If all peer's OOS are removed, the io-error is considered to be resolved
 	 * and the number of io-errors is initialized to zero. 
 	 */
 	

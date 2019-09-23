@@ -2568,12 +2568,12 @@ static void device_status(struct devices_list *device, bool single_device)
 		wrap_printf(indent, " client:%s", intentional_diskless_str(&device->info));
 	}
 
-	/* DW-1755 In the passthrough policy,
+	// DW-1755 In the passthrough policy,
 	 * the disk status is kept up_to_date in the event of a primary failure,
 	 * so disk error information should be displayed seperately.
 	 */
 
-	/* DW-1820
+	// DW-1820
 	 * Modified to print io-error on secondary. 
 	 * In secondary io-error, it is not UpToDate, so modify the condition.
 	 */

@@ -371,8 +371,8 @@ void drbd_req_destroy(struct kref *kref)
 					if (test_bit(bitmap_index, &set_bits) &&
 						peer_device->connection->cstate[NOW] >= C_CONNECTED)
 					{
-						/* DW-1191 sending out-of-sync isn't available since we need to acquire mutex to prepare command and caller acquired spin lock.
-								 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does. */
+						// DW-1191 sending out-of-sync isn't available since we need to acquire mutex to prepare command and caller acquired spin lock.
+						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct drbd_oos_no_req* send_oos = NULL;
 
 						drbd_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
@@ -567,8 +567,8 @@ void complete_master_bio(struct drbd_device *device,
 				status = STATUS_SUCCESS;
 			}
 			
-			/* DW-1755 In the passthrough policy, 
-			 * when a disk error occurs on the primary node, 
+			// DW-1755 In the passthrough policy, 
+			 /* when a disk error occurs on the primary node, 
 			 * write out_of_sync for all nodes.
 			 */
 			for_each_peer_device(peer_device, device) {

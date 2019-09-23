@@ -117,8 +117,8 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	if (!bio)
 		BIO_ENDIO_FN_RETURN;
 
-	/* DW-1822
-	 * The generic_make_request calls IoAcquireRemoveLock before the IRP is created
+	// DW-1822
+	 /* The generic_make_request calls IoAcquireRemoveLock before the IRP is created
 	 * and is freed from the completion routine functions.
 	 * However, retry I/O operations are performed without RemoveLock,
 	 * because the retry routine will work after the release.
@@ -353,8 +353,8 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			if (!__test_and_set_bit(__EE_SEND_WRITE_ACK, &peer_req->flags))
 				inc_unacked(peer_device);
 		}
-		/* DW-1810
-		 * There is no case where this flag is set because of WRITE SAME, TRIM. 
+		// DW-1810
+		 /* There is no case where this flag is set because of WRITE SAME, TRIM. 
            Therefore, the flag EE_WAS_ERROR means that an IO ERROR occurred. 
 		   In order to synchronize the Secondaries at the time of primary failure, 
 		   OOS for IO error is recorded for all nodes.
@@ -469,8 +469,8 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 	if (!bio)
 		BIO_ENDIO_FN_RETURN;
 
-	/* DW-1822
-	 * The generic_make_request calls IoAcquireRemoveLock before the IRP is created
+	// DW-1822
+	 /* The generic_make_request calls IoAcquireRemoveLock before the IRP is created
  	 * and is freed from the completion routine functions.
 	 * However, retry I/O operations are performed without RemoveLock,
 	 * because the retry routine will work after the release.
@@ -622,8 +622,8 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	if (!bio)
 		BIO_ENDIO_FN_RETURN;
 
-	/* DW-1822
-	 * The generic_make_request calls IoAcquireRemoveLock before the IRP is created
+	// DW-1822
+	 /* The generic_make_request calls IoAcquireRemoveLock before the IRP is created
 	 * and is freed from the completion routine functions.
 	 * However, retry I/O operations are performed without RemoveLock,
 	 * because the retry routine will work after the release.
@@ -3939,8 +3939,8 @@ int drbd_worker(struct drbd_thread *thi)
 }
 
 #ifdef _WIN32 // TODO
-/* DW-1755 When a disk error occurs, 
- * transfers the event to the work thread queue.
+// DW-1755 When a disk error occurs, 
+ /* transfers the event to the work thread queue.
  */
 static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error)
 {
