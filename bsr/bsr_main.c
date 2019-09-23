@@ -497,13 +497,13 @@ static void tl_abort_for_each_req_ref(struct drbd_request *next, struct list_hea
  * epoch of not yet barrier-acked requests, this function will cause a
  * termination of the connection.
  */
-void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
+void tl_release(struct drbd_connection *connection, int barrier_nr,
 		unsigned int set_size)
 {
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_request *r;
 	struct drbd_request *req = NULL;
-	unsigned int expect_epoch = 0;
+	int expect_epoch = 0;
 	unsigned int expect_size = 0;
 
 	spin_lock_irq(&connection->resource->req_lock);
@@ -545,18 +545,18 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 	/* first some paranoia code */
 	if (req == NULL) {
 		drbd_err(connection, "BAD! BarrierAck #%u received, but no epoch in tl!?\n",
-			 barrier_nr);
+			 (unsigned int)barrier_nr);
 		goto bail;
 	}
 	if (expect_epoch != barrier_nr) {
 		drbd_err(connection, "BAD! BarrierAck #%u received, expected #%u!\n",
-			 barrier_nr, expect_epoch);
+			(unsigned int)barrier_nr, (unsigned int)expect_epoch);
 		goto bail;
 	}
 
 	if (expect_size != set_size) {
 		drbd_err(connection, "BAD! BarrierAck #%u received with n_writes=%u, expected n_writes=%u!\n",
-			 barrier_nr, set_size, expect_size);
+			(unsigned int)barrier_nr, set_size, expect_size);
 		goto bail;
 	}
 
@@ -2499,7 +2499,7 @@ int drbd_send_bitmap(struct drbd_device *device, struct drbd_peer_device *peer_d
 	return err;
 }
 
-void drbd_send_b_ack(struct drbd_connection *connection, u32 barrier_nr, u32 set_size)
+void drbd_send_b_ack(struct drbd_connection *connection, s32 barrier_nr, u32 set_size)
 {
 	struct p_barrier_ack *p;
 
