@@ -532,7 +532,7 @@ void tl_release(struct drbd_connection *connection, unsigned int barrier_nr,
 			if (!(r->rq_state[0] & RQ_WRITE))
 				continue;
 			// _WIN32_MULTI_VOLUME
-			// DW-1166 : Check RQ_NET_DONE for multi-volume
+			// DW-1166 Check RQ_NET_DONE for multi-volume
 			if (!(r->rq_state[idx] & RQ_NET_MASK))
 				continue;
 			if (r->rq_state[idx] & RQ_NET_DONE)
@@ -2027,7 +2027,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 #ifdef _WIN32
 		// DW-1497 Fix max bio size to default 1MB, because we don't need to variable max bio config on Windows.
 		// Since max_bio_size is an integer type, an overflow has occurred for the value of max_hw_sectors.
-		// DW-1763 : set to DRBD_MAX_BIO_SIZE if larger than DRBD_MAX_BIO_SIZE.
+		// DW-1763 set to DRBD_MAX_BIO_SIZE if larger than DRBD_MAX_BIO_SIZE.
 		max_bio_size = (unsigned int)(min((queue_max_hw_sectors(device->ldev->backing_bdev->bd_disk->queue) << 9), DRBD_MAX_BIO_SIZE));
 #else
 		max_bio_size = queue_max_hw_sectors(q) << 9;
@@ -2059,7 +2059,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 	p->c_size = cpu_to_be64(trigger_reply ? 0 : drbd_get_capacity(device->this_bdev));
 	*/
 #ifdef _WIN32 
-	// DW-1469 : For initial sync, set c_size to 0.
+	// DW-1469 For initial sync, set c_size to 0.
 	if (drbd_current_uuid(device) == UUID_JUST_CREATED)
 	{
 		p->c_size = 0;	
@@ -4313,8 +4313,8 @@ void drbd_destroy_connection(struct kref *kref)
 	kfree(connection->current_epoch);
 
 #ifdef _WIN32 // TODO
-	// DW-1829 : inactive_ee must be free before peer_device.
-	// DW-1696 : If the connecting object is destroyed, it also destroys the inactive_ee.
+	// DW-1829 inactive_ee must be free before peer_device.
+	// DW-1696 If the connecting object is destroyed, it also destroys the inactive_ee.
 	spin_lock(&resource->req_lock);
 	if (!list_empty(&connection->inactive_ee)) {
 		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
@@ -4328,7 +4328,7 @@ void drbd_destroy_connection(struct kref *kref)
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
 
-#ifdef _WIN32 // DW-1598 : set CONNECTION_ALREADY_FREED flags 
+#ifdef _WIN32 // DW-1598 set CONNECTION_ALREADY_FREED flags 
 		set_bit(CONNECTION_ALREADY_FREED, &peer_device->flags); 
 #endif
 		kref_put(&peer_device->device->kref, drbd_destroy_device);
@@ -5562,7 +5562,7 @@ static u64 rotate_current_into_bitmap(struct drbd_device *device, u64 weak_nodes
 			do_it = (pdsk <= D_UNKNOWN && pdsk != D_NEGOTIATING) ||
 				(NODE_MASK(node_id) & weak_nodes);
 
-			// DW-1195 : bump current uuid when disconnecting with inconsistent peer.
+			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
 			do_it = do_it || ((peer_device->connection->cstate[NEW] < C_CONNECTED) && (pdsk == D_INCONSISTENT));
 
 		} else {
@@ -5828,7 +5828,8 @@ void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local) /
 	int bitmap_index = device->ldev->md.peers[node_id].bitmap_index;
 	const char* name;
 
-	/* DW-1843
+	// DW-1843
+	/*
 	 * When an io error occurs on the primary node, oos is recorded with up_to_date maintained. 
 	 * Therefore, when changing status to secondary, it is recognized as inconsistent oos and deleted through forget_bitmap. 
 	 * To prevent it, use MDF_PRIMARY_IO_ERROR.
@@ -6004,7 +6005,9 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 			//int from_node_id;
 
 			if (peer_current_uuid == (drbd_current_uuid(device) & ~UUID_PRIMARY)) {
-				// DW-978, DW-979, DW-980
+				// DW-978
+				// DW-979
+				// DW-980
 				// bitmap_uuid was already '0', just clear_flag and drbd_propagate_uuids().
 				if((peer_md[node_id].bitmap_uuid == 0) && (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))
 					goto clear_flag;
@@ -6041,7 +6044,8 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 					drbd_info(device, "Clearing bitmap UUID for node %d\n",
 						  node_id);
 				drbd_md_mark_dirty(device);
-// DW-979, DW-980
+// DW-979
+// DW-980
 clear_flag:
 				// DW-978 Clear the flag once we determine that uuid will be propagated.
 				peer_md[node_id].flags &= ~MDF_PEER_DIFF_CUR_UUID;
@@ -6079,13 +6083,14 @@ clear_flag:
 	if (drbd_bm_total_weight(peer_device) &&
 		peer_device->dirty_bits == 0 &&
 		isForgettableReplState(peer_device->repl_state[NOW]) &&
-		device->disk_state[NOW] > D_OUTDATED && // DW-1656 : no clearing bitmap when disk is Outdated.
+		device->disk_state[NOW] > D_OUTDATED && // DW-1656 no clearing bitmap when disk is Outdated.
 
-		// DW-1633 : if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
+		// DW-1633 if the peer has lost a primary and becomes stable, the dstate of peer_device becomes D_CONSISTENT and UUID_FLAG_GOT_STABLE is set.
 		// at this time, the reconciliation resync may work, so do not clear the bitmap.
 		!((peer_device->disk_state[NOW] == D_CONSISTENT) && (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE)) &&
 
-		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644, DW-1357 : clear bitmap when the disk state is same.
+		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644
+																		// DW-1357 clear bitmap when the disk state is same.
 		!(peer_device->uuid_authoritative_nodes & NODE_MASK(device->resource->res_opts.node_id)) &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==
 		(drbd_current_uuid(device) & ~UUID_PRIMARY))
@@ -6795,7 +6800,7 @@ void lock_all_resources(void)
 	mutex_lock(&resources_mutex);
 
 
-	// [DW-759] irq disable is ported to continue DISPATCH_LEVEL by global lock
+	// DW-759 irq disable is ported to continue DISPATCH_LEVEL by global lock
 	local_irq_disable();
 	for_each_resource(resource, &drbd_resources)
 #ifdef _WIN32
@@ -6815,7 +6820,7 @@ void unlock_all_resources(void)
 #else
 		spin_unlock(&resource->req_lock);
 #endif
-	// [DW-759] irq enable. return to PASSIVE_LEVEL
+	// DW-759 irq enable. return to PASSIVE_LEVEL
 	local_irq_enable();
 #ifdef _WIN32
 	drbd_debug_req_lock("local_irq_enable : CurrentIrql(%d)\n", KeGetCurrentIrql());

@@ -577,7 +577,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 
 VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 {
-	// DW-1505 : Keep only NUMOFLOGS(10) Preshutdown logs 
+	// DW-1505 Keep only NUMOFLOGS(10) Preshutdown logs 
 	size_t path_size; WCHAR DrbdPath[MAX_PATH] = { 0, }; WCHAR DrbdLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
 	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"BSR_PATH");

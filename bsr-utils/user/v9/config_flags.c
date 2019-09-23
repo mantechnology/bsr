@@ -901,7 +901,7 @@ const struct en_map quorum_map[] = {
 	{ "ping-int", NUMERIC(ping_int, PING_INT),					\
           .unit = "seconds" },								\
 	{ "sndbuf-size", NUMERIC(sndbuf_size, SNDBUF_SIZE),				\
-	/* DW-1421 : set implicit_clamp to true to avoid numeric_check */				\
+	/* // DW-1421 set implicit_clamp to true to avoid numeric_check */				\
           .unit = "bytes", .implicit_clamp = true },								\
 	{ "rcvbuf-size", NUMERIC(rcvbuf_size, RCVBUF_SIZE),				\
           .unit = "bytes" },								\
@@ -1053,10 +1053,10 @@ struct context_def resource_options_ctx = {
 		{ "max-io-depth", NUMERIC(nr_requests, NR_REQUESTS) },
 		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, DRBD_PEERS_MAX) },
 		{ "on-no-quorum", ENUM(on_no_quorum, ON_NO_QUORUM) },
-		// DW-1200 request buffer maximum size.
+		// DW-1200: request buffer maximum size.
 		{ "req-buf-size", NUMERIC(req_buf_size, REQ_BUF_SIZE), .unit = "bytes" },
 #ifdef _WIN32
-		// DW-1249 auto-start by svc
+		// DW-1249: auto-start by svc
 		{ "svc-autostart", BOOLEAN(svc_autostart, SVC_AUTOSTART) },
 		{ "io-error-retry-count", NUMERIC(io_error_retry_count, IO_ERROR_RETRY_COUNT) },
 #endif
@@ -1124,7 +1124,7 @@ struct context_def create_md_ctx = {
 		{ } },
 };
 
-// DW-1922
+//DW-1922
 //Apply `--force` option to use the wipe-md command when uninstall.
 //Invisible in help because it's only used internally.
 struct context_def wipe_md_ctx = {

@@ -1190,7 +1190,7 @@ retry:
 			for_each_connection_ref(connection, im, resource)
 				drbd_flush_workqueue(resource, &connection->sender_work);
 		}
-		// DW-1626 : A long wait occurs when the barrier is delayed. Wait 10 seconds.
+		// DW-1626 A long wait occurs when the barrier is delayed. Wait 10 seconds.
 		wait_event_timeout_ex(resource->barrier_wait, !barrier_pending(resource), timeout, timeout);
 
 		if (!timeout){
@@ -1261,7 +1261,7 @@ retry:
 		}
 
 		if (rv == SS_NO_UP_TO_DATE_DISK && force && !with_force) {
-#ifdef _WIN32 // DW-
+#ifdef _WIN32 // DW-938
 			u64 im;
 			idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 				struct drbd_peer_device *peer_device;
@@ -1389,7 +1389,7 @@ retry:
 
 		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 #ifdef _WIN32
-		// DW-1609 : It has been modified to function similar to 8.4.x for younger primary 
+		// DW-1609 It has been modified to function similar to 8.4.x for younger primary 
 			struct drbd_peer_device *peer_device;
 			u64 im;
 			bool younger_primary = false; // Add a younger_primary variable to create a new UUID if the condition is met.
@@ -1416,7 +1416,7 @@ retry:
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
 			
-			// DW-1154 : set UUID_PRIMARY when promote a resource to primary role.
+			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
@@ -1426,7 +1426,7 @@ retry:
 				drbd_uuid_new_current(device, true);
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
-			// DW-1154 : set UUID_PRIMARY when promote a resource to primary role.
+			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
@@ -1455,7 +1455,7 @@ retry:
 	}
 
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-		// DW-1154 : After changing role, writes the meta data.
+		// DW-1154 After changing role, writes the meta data.
 		drbd_md_sync(device);
 		set_disk_ro(device->vdisk, role == R_SECONDARY);
 		if (!resource->res_opts.auto_promote && role == R_PRIMARY)
@@ -2222,7 +2222,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 
 				if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size) {
 					// DW-1337 peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
-					// DW-1469 : only for initial sync
+					// DW-1469 only for initial sync
 					*max = min_not_zero(*max, peer_device->c_size);
 				} else {
 					*max = min_not_zero(*max, peer_device->max_size);
@@ -4531,10 +4531,10 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	connection = adm_ctx.connection;
 	cstate = connection->cstate[NOW];
 	if (cstate != C_STANDALONE) {
-#if 0	// DW-1292 : skip if cstate is not StandAlone
+#if 0	// DW-1292 skip if cstate is not StandAlone
 		retcode = ERR_NET_CONFIGURED;
 #endif
-		// DW-1574 : Returns an error message to the user in the disconnecting status
+		// DW-1574 Returns an error message to the user in the disconnecting status
 		// Disconnecting status will soon change the standalone status
 		if (cstate == C_DISCONNECTING){
 			retcode = ERR_NET_CONFIGURED;
@@ -4837,7 +4837,7 @@ void del_connection(struct drbd_connection *connection)
 	drbd_thread_stop(&connection->sender);
 
 #ifdef _WIN32    
-	// DW-1465 : Requires rcu wlock because list_del_rcu().
+	// DW-1465 Requires rcu wlock because list_del_rcu().
 	synchronize_rcu_w32_wlock();
 #endif
 	drbd_unregister_connection(connection);
@@ -5461,7 +5461,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN32
 	if (retcode >= SS_SUCCESS)
 	{
-		// DW-1391 : wait for bm_io_work to complete, then run the next invalidate peer. 
+		// DW-1391 wait for bm_io_work to complete, then run the next invalidate peer. 
 		 wait_event_interruptible_timeout_ex(resource->state_wait,
 				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
 				timeo, retcode);
@@ -6205,7 +6205,7 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 			      atomic_read(&peer_device->rs_pending_cnt);
 	s->peer_dev_unacked = atomic_read(&peer_device->unacked_cnt);
 
-	// DW-953 : apply v8.4.x source for L_VERIFY_X
+	// DW-953 apply v8.4.x source for L_VERIFY_X
 	if (peer_device->repl_state[NOW] == L_VERIFY_S)
 	{
 		s->peer_dev_out_of_sync = drbd_bm_bits(device) - BM_SECT_TO_BIT(peer_device->ov_position);

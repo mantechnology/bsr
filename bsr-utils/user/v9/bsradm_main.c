@@ -177,7 +177,7 @@ int no_tty;
 int dry_run = 0;
 int ignore_hostname = 0; // DW-1719 Added option to ignore hostname check
 int verbose = 0;
-// DW-1744 : trace print option add
+// DW-1744 trace print option add
 bool trace_print = false;
 int adjust_with_progress = 0;
 bool help;
@@ -709,7 +709,7 @@ int call_cmd(const struct adm_cmd *cmd, const struct cfg_ctx *ctx,
 		}
 	} else if (iterate_vols) {
 
-		// DW-1459 : Set KEEP_RUNNING to run attach_cmd on all volumes.
+		// DW-1459 Set KEEP_RUNNING to run attach_cmd on all volumes.
 		bool is_attach = (cmd == &attach_cmd);
 		if (is_attach)
 			on_error = KEEP_RUNNING;
@@ -717,7 +717,7 @@ int call_cmd(const struct adm_cmd *cmd, const struct cfg_ctx *ctx,
 		for_each_volume(vol, &res->me->volumes) {
 			tmp_ctx.vol = vol;
 			ret = __call_cmd_fn(&tmp_ctx, on_error);
-		// DW-1459 : attach_cmd runs on all volumes, regardless of return value.
+		// DW-1459 attach_cmd runs on all volumes, regardless of return value.
 			if (is_attach)
 				continue;
 

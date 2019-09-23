@@ -154,7 +154,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	}
 #endif
 
-	// DW-1541 : Remove the VolumeExtension from the device list before deleting the DeviceObject.
+	// DW-1541 Remove the VolumeExtension from the device list before deleting the DeviceObject.
 	MVOL_LOCK();
 	mvolDeleteDeviceList(VolumeExtension);
 	MVOL_UNLOCK();

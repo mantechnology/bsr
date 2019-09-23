@@ -74,7 +74,8 @@ extern void clear_remote_state_change(struct drbd_resource *resource);
 // DW-1894
 extern void clear_remote_state_change_without_lock(struct drbd_resource *resource);
 
-// DW-1073, DW-1257
+// DW-1073
+// DW-1257
 void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work);
 
 
@@ -84,7 +85,7 @@ extern union drbd_state drbd_get_peer_device_state(struct drbd_peer_device *, en
 extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum which_state);
 
 #ifdef _WIN32
-// DW-1605 : try change_state again until timeout.
+// DW-1605 try change_state again until timeout.
 #define stable_state_change(rv, resource, change_state) do{				\
 		int err = 0;							\
 		wait_event_interruptible_timeout_ex((resource)->state_wait,		\

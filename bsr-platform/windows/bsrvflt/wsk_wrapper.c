@@ -728,7 +728,7 @@ __in  BOOLEAN	bRawIrp)
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
-	// DW-1758 : Dynamic allocation of 'CompletionEvet', for resource management in completion routine
+	// DW-1758 Dynamic allocation of 'CompletionEvet', for resource management in completion routine
 	*CompletionEvent = ExAllocatePoolWithTag(NonPagedPool, sizeof(KEVENT), 'CFDW');
 	if (!*CompletionEvent) {
 		return SOCKET_ERROR;
@@ -778,7 +778,7 @@ Send(
 		return SOCKET_ERROR;
 	}
 
-	// DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
+	// DW-1758 Dynamic allocation of 'WskBuffer', for resource management in completion routine
 	//Status = InitWskBuffer(Buffer, BufferSize, &WskBuffer, FALSE);
 	Status = InitWskSendBuffer(&DataBuffer, Buffer, BufferSize, &WskBuffer, FALSE); 
 	if (!NT_SUCCESS(Status)) {
@@ -791,8 +791,8 @@ Send(
 								&CompletionEvent,
 								DataBuffer,
 								WskBuffer,
-								&BytesSent, // DW-1758 : Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, // DW-1758 : Get SendStatus (Irp->IoStatus.Status)
+								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
 								FALSE);
 	if (!NT_SUCCESS(Status)) {
 		BytesSent = SOCKET_ERROR;
@@ -831,7 +831,7 @@ Send(
 				//IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 
-				// DW-1758 : release resource from the completion routine if IRP is cancelled 
+				// DW-1758 release resource from the completion routine if IRP is cancelled 
 				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 
@@ -910,7 +910,7 @@ SendLocal(
 		return SOCKET_ERROR;
 	}
 
-	// DW-1758 : Dynamic allocation of 'WskBuffer', for resource management in completion routine
+	// DW-1758 Dynamic allocation of 'WskBuffer', for resource management in completion routine
 	//Status = InitWskBuffer(Buffer, BufferSize, &WskBuffer, FALSE);
 	Status = InitWskSendBuffer(&DataBuffer, Buffer, BufferSize, &WskBuffer, FALSE);
 	if (!NT_SUCCESS(Status)) {
@@ -923,8 +923,8 @@ SendLocal(
 								&CompletionEvent,
 								DataBuffer,
 								WskBuffer,
-								&BytesSent, // DW-1758 : Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, // DW-1758 : Get SendStatus (Irp->IoStatus.Status)
+								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
 		FALSE);
 	if (!NT_SUCCESS(Status)) {
 		BytesSent = SOCKET_ERROR;
@@ -967,7 +967,7 @@ SendLocal(
 				// FIXME: cancel & completion's race condition may be occurred.
 				// Status or Irp->IoStatus.Status  
 
-				// DW-1758 : release resource from the completion routine if IRP is cancelled 
+				// DW-1758 release resource from the completion routine if IRP is cancelled 
 				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);

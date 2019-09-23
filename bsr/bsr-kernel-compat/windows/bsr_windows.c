@@ -1183,7 +1183,7 @@ void up(struct semaphore *s)
     if (KeReadStateSemaphore(&s->sem) < s->sem.Limit)
     {
         drbd_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
-		// DW-1496 : KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
+		// DW-1496 KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
 		try{
 			KeReleaseSemaphore(&s->sem, IO_NO_INCREMENT, 1, FALSE);
 		} except(EXCEPTION_EXECUTE_HANDLER){
@@ -1626,7 +1626,7 @@ void del_gendisk(struct gendisk *disk)
 	}
 #endif
 
-	// DW-1493 : WSK_EVENT_DISCONNECT disable
+	// DW-1493 WSK_EVENT_DISCONNECT disable
 	if (sock->sk){
 		status = SetEventCallbacks(sock, WSK_EVENT_DISCONNECT | WSK_EVENT_DISABLE);
 		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
@@ -1920,7 +1920,7 @@ int generic_make_request(struct bio *bio)
 		}
 	}
 
-	// DW-1495 : If any volume is set to read only, all writes operations are paused temporarily. 
+	// DW-1495 If any volume is set to read only, all writes operations are paused temporarily. 
 	if (io == IRP_MJ_WRITE){
 		mutex_lock(&att_mod_mutex);
 		IoCallDriver(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, newIrp);

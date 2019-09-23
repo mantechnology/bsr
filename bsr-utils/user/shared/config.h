@@ -1,26 +1,27 @@
 /* user/shared/config.h.  Generated from config.h.in by configure.  */
 /* user/shared/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Local configuration directory. Commonly /etc or /usr/local/etc */
-#define BSR_CONFIG_DIR "/etc"
+/* Local configuration directory. Commonly /etc or /usr/local/etc */
+#define BSR_CONFIG_DIR "/usr/local/etc"
 
-/* Local state directory. Commonly /var/lib/bsr or /usr/local/var/lib/bsr */
-#define BSR_LIB_DIR "/var/lib/bsr"
+/* Local state directory. Commonly /var/lib/bsr or /usr/local/var/lib/bsr */
+#define BSR_LIB_DIR "/usr/local/var/lib/bsr"
 
-/* Local lock directory. Commonly /var/lock or /usr/local/var/lock */
-#define BSR_LOCK_DIR "/var/lock"
+/* Local lock directory. Commonly /var/lock or /usr/local/var/lock */
+#define BSR_LOCK_DIR "/usr/local/var/lock"
 
-/* Runtime state directory. Commonly /var/run/bsr or /usr/local/var/run/bsr */
-#define BSR_RUN_DIR "/var/run/bsr"
+/* Runtime state directory. Commonly /var/run/bsr or /usr/local/var/run/bsr
+   */
+#define BSR_RUN_DIR "/usr/local/var/run/bsr"
 
 /* Does genetlink provide CTRL_CMD_DELMCAST_GRP already */
-#define HAVE_CTRL_CMD_DELMCAST_GRP 1
+/* #undef HAVE_CTRL_CMD_DELMCAST_GRP */
 
 /* define if the compiler supports basic C++11 syntax */
 /* #undef HAVE_CXX11 */
 
 /* Define to 1 if you have the `getentropy' function. */
-/* #undef HAVE_GETENTROPY */
+#define HAVE_GETENTROPY 1
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT "dev3@mantech.co.kr"

@@ -222,7 +222,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 	struct drbd_peer_request *p_req, *t_inative;
 
 	spin_lock_irqsave(&device->resource->req_lock, flags);
-	// DW-1735 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
+	// DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
 #ifdef _WIN32
@@ -279,7 +279,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	u64 block_id;
 	struct drbd_peer_request *p_req, *t_inative;
 
-	// DW-1696 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
+	// DW-1696 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
@@ -521,7 +521,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 
 	bio_put(bio); /* no need for the bio anymore */
 
-	// DW-1598 : Prevent the function below from referencing a connection that already freed.
+	// DW-1598 Prevent the function below from referencing a connection that already freed.
 	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)){
 		BIO_ENDIO_FN_RETURN;
 	}
@@ -1737,7 +1737,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 
 	spin_lock_irq(&device->resource->req_lock);
 
-	// DW-1198 : If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
+	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
 	if (repl_state[NOW] == L_AHEAD)
 	{
 		drbd_info(peer_device, "I am ahead, do not finish resync.\n"); // DW-1518
@@ -2696,7 +2696,7 @@ static void do_start_resync(struct drbd_peer_device *peer_device)
 	drbd_info(peer_device, "starting resync ...\n"); // DW-1518
 	drbd_start_resync(peer_device, peer_device->start_resync_side);
 #ifdef _WIN32 //TODO for cross-platform 
-	// DW-1619 : moved to drbd_start_resync()
+	// DW-1619 moved to drbd_start_resync()
 	//clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
 #else
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &device->flags);
@@ -2820,7 +2820,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 	int r;
 
 
-#ifdef _WIN32 // DW-1619 : clear AHEAD_TO_SYNC_SOURCE bit when start resync.
+#ifdef _WIN32 // DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
 #endif	
 
@@ -3894,7 +3894,7 @@ int drbd_worker(struct drbd_thread *thi)
 			w = list_first_entry(&work_list, struct drbd_work, list);
 			list_del_init(&w->list);
 			update_worker_timing_details(resource, w->cb);
-#ifdef _WIN32 // DW- fix callback pointer's NULL case
+#ifdef _WIN32 // DW-938 fix callback pointer's NULL case
 			if (w->cb != NULL) {
 				w->cb(w, 0);
 			} else {

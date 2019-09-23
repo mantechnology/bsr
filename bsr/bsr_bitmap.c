@@ -176,7 +176,8 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 
 	if (trylock_failed) {
 #ifdef _WIN32
-		// DW-962, DW-1778 fix. bm_task can be NULL
+		// DW-962
+		// DW-1778 fix. bm_task can be NULL
 		struct task_struct *bm_task = b->bm_task;
         drbd_warn(device, "%s[0x%p] going to '%s' but bitmap already locked for '%s' by %s[0x%p]\n",
             current->comm, 
@@ -1391,7 +1392,8 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	if (!bio)
 		BIO_ENDIO_FN_RETURN;
 
-	/* DW-1822
+	// DW-1822
+	/*
 	 * The generic_make_request calls IoAcquireRemoveLock before the IRP is created
 	 * and is freed from the completion routine functions.
 	 * However, retry I/O operations are performed without RemoveLock, 
@@ -1508,7 +1510,7 @@ static void bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_ho
 	len = min_t(unsigned int, PAGE_SIZE,
 		(drbd_md_last_sector(device->ldev) - on_disk_sector + 1)<<9);
 
-#ifdef _WIN32 // DW-1617 : drbd_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
+#ifdef _WIN32 // DW-1617 drbd_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
 	if (len == 0){
 		drbd_warn(device, "If len is 0, change it to PAGE_SIZE.\n"); 
 		len = PAGE_SIZE; 

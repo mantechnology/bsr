@@ -51,7 +51,7 @@
 
 //#define _WIN32_WPP
 #define _WIN32_HANDLER_TIMEOUT	// call_usermodehelper timeout
-#define WIN_AL_BUG_ON // DW-1513 : Macro to print LRU
+#define WIN_AL_BUG_ON // DW-1513 Macro to print LRU
 
 #ifdef _WIN32_WPP
 #define WPP_CONTROL_GUIDS \
@@ -250,7 +250,7 @@ enum rq_flag_bits {
 #define EHOSTUNREACH			30
 #define EBADR					31
 #define EADDRINUSE              32
-#define EINVALADDR              33	// DW-1272 : STATUS_INVALID_ADDRESS_COMPONENT
+#define EINVALADDR              33	// DW-1272 STATUS_INVALID_ADDRESS_COMPONENT
 #define	EOVERFLOW				75	/* Value too large for defined data type */ // from linux 2.6.32.61
 #define	ESTALE					116	/* Stale NFS file handle */
 #define ECONNABORTED			130 /* Software caused connection abort */ 

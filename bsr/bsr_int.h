@@ -168,21 +168,21 @@ struct drbd_connection;
             __r->name, __d->vnr, __d->minor, drbd_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
     } while (0)
 
-// DW-1494 : (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
+// DW-1494 (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
 #define __drbd_printk_peer_device(level, peer_device, fmt, ...)	\
     do {								\
         const struct drbd_device *__d;				\
         const struct drbd_connection *__c;			\
         const struct drbd_resource *__r;			\
         int __cn;					\
-        /*rcu_read_lock();		_WIN32 // DW-	*/		\
+        /*rcu_read_lock();		_WIN32 // DW-938	*/		\
         __d = (peer_device)->device;				\
         __c = (peer_device)->connection;			\
         __r = __d->resource;					\
         __cn = __c->peer_node_id;	\
         printk(level "drbd %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
             __r->name, __d->vnr, __d->minor, __cn, drbd_disk_str((peer_device)->disk_state[NOW]), drbd_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
-        /*rcu_read_unlock();	_WIN32 // DW-	*/		\
+        /*rcu_read_unlock();	_WIN32 // DW-938	*/		\
 	    } while (0)
 
 #define __drbd_printk_resource(level, resource, fmt, ...) \
@@ -190,10 +190,10 @@ struct drbd_connection;
 
 #define __drbd_printk_connection(level, connection, fmt, ...) \
     do {	                    \
-        /*rcu_read_lock();	_WIN32 // DW- */ \
+        /*rcu_read_lock();	_WIN32 // DW-938 */ \
         printk(level "drbd %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, (connection)->resource->name,  \
         (connection)->peer_node_id, drbd_conn_str((connection)->cstate[NOW]), drbd_role_str((connection)->peer_role[NOW]), (connection)->flags,(connection)->resource->state_change_flags, __VA_ARGS__); \
-        /*rcu_read_unlock(); _WIN32 // DW- */ \
+        /*rcu_read_unlock(); _WIN32 // DW-938 */ \
 	    } while (0)
 
 // BSR-237 if object is empty (NO_OBJECT)
@@ -882,11 +882,11 @@ struct drbd_peer_request {
 	void* peer_req_databuf;
 
 	struct {
-		ULONG_PTR s_bb;		/* DW-1601 start bitmap bit of split data */
-		ULONG_PTR e_next_bb;/* DW-1601 end next bitmap bit of split data  */
-		atomic_t *count;	/* DW-1601 total split request (bitmap bit) */		        
-		atomic_t *unmarked_count;    /* DW-1911 this is the count for the sector not written in the maked replication bit */
-		atomic_t *failed_unmarked; /* DW-1911 true, if unmarked writing fails */
+		ULONG_PTR s_bb;		// DW-1601 start bitmap bit of split data 
+		ULONG_PTR e_next_bb;// DW-1601 end next bitmap bit of split data  
+		atomic_t *count;	// DW-1601 total split request (bitmap bit) 		        
+		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
+		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 
 	};
 //#endif
 };
@@ -1057,8 +1057,8 @@ enum {
 	// DW-955 add resync aborted flag to resume it later.
 	RESYNC_ABORTED,			/* Resync has been aborted due to unsyncable (peer)disk state, need to resume it when it goes syncable. */
 
-	UNSTABLE_TRIGGER_CP,	/* DW-1341 Do Trigger when my stability is unstable for Crashed Primay wiered case*/
-	SEND_BITMAP_WORK_PENDING, /* DW-1447 : Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.*/
+	UNSTABLE_TRIGGER_CP,	// DW-1341 Do Trigger when my stability is unstable for Crashed Primay wiered case
+	SEND_BITMAP_WORK_PENDING, // DW-1447 Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.
 
 #ifdef _WIN32 // DW-1598 
 	CONNECTION_ALREADY_FREED,
@@ -1378,7 +1378,7 @@ struct drbd_resource {
 					   and devices, connection and peer_devices lists */
 	struct mutex adm_mutex;		/* mutex to serialize administrative requests */
 #ifdef _WIN32
-	struct mutex vol_ctl_mutex;	/* DW-1317 chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. */
+	struct mutex vol_ctl_mutex;	// DW-1317 chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. 
 #endif
 	spinlock_t req_lock;
 	u64 dagtag_sector;		/* Protected by req_lock.
@@ -1550,7 +1550,7 @@ struct drbd_connection {
 	struct list_head net_ee;    /* zero-copy network send in progress */
 	struct list_head done_ee;   /* need to send P_WRITE_ACK */
 
-	struct list_head inactive_ee;	// DW-1696 : List of active_ee, sync_ee not processed at the end of the connection
+	struct list_head inactive_ee;	// DW-1696 List of active_ee, sync_ee not processed at the end of the connection
 
 	atomic_t done_ee_cnt;
 	struct work_struct send_acks_work;
@@ -2633,7 +2633,8 @@ void drbd_resync_after_changed(struct drbd_device *device);
 extern bool drbd_stable_sync_source_present(struct drbd_peer_device *, enum which_state);
 extern void drbd_start_resync(struct drbd_peer_device *, enum drbd_repl_state);
 
-// DW-1314, DW-1315
+// DW-1314
+// DW-1315
 #ifdef _WIN32_RCU_LOCKED
 extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which, bool locked);
 #else
@@ -2806,7 +2807,7 @@ extern enum drbd_state_rv drbd_support_2pc_resize(struct drbd_resource *resource
 extern enum determine_dev_size
 drbd_commit_size_change(struct drbd_device *device, struct resize_parms *rs, u64 nodes_to_reach);
 
-#ifdef _WIN32 // DW-1607 : get the real size of the meta disk.
+#ifdef _WIN32 // DW-1607 get the real size of the meta disk.
 static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
@@ -3218,7 +3219,7 @@ static inline sector_t drbd_get_max_capacity(struct drbd_backing_dev *bdev)
 	switch (bdev->md.meta_dev_idx) {
 	case DRBD_MD_INDEX_INTERNAL:
 	case DRBD_MD_INDEX_FLEX_INT:
-#ifdef _WIN32 // DW-1469 : get real size
+#ifdef _WIN32 // DW-1469 get real size
 		s = drbd_get_capacity(bdev->backing_bdev->bd_contains)
 #else
 		s = drbd_get_capacity(bdev->backing_bdev)
@@ -3626,7 +3627,7 @@ static inline bool drbd_state_is_stable(struct drbd_device *device)
 			// DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
 			//if (peer_device->connection->agreed_pro_version < 96)
 #ifdef _WIN32
-			// DW-1391 : Allow IO while getting the volume bitmap.
+			// DW-1391 Allow IO while getting the volume bitmap.
 			if (atomic_read(&device->resource->bGetVolBitmapDone))
 #endif
 				stable = false;

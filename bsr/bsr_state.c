@@ -1698,7 +1698,7 @@ static enum drbd_state_rv is_valid_transition(struct drbd_resource *resource)
 			    peer_device->repl_state[NEW] >= L_ESTABLISHED)
 #ifdef _WIN32
 			{
-				// DW-1529 : Eliminated stopped state of WFBitMapT. This node will try to reconnect after the state change fails. 
+				// DW-1529 Eliminated stopped state of WFBitMapT. This node will try to reconnect after the state change fails. 
 				drbd_info(connection, "return SS_NEED_CONNECTION!!! cs=%d repl=%d \n",
 					connection->cstate[OLD], peer_device->repl_state[NEW]);
 				return SS_NEED_CONNECTION; 
@@ -2470,7 +2470,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 				wake_up(&connection->sender_work.q_wait);
 			}
 
-			// DW-1195 : bump current uuid when disconnecting with inconsistent peer.
+			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
 			if (lost_contact_to_peer_data(peer_disk_state) || (peer_disk_state[NEW] == D_INCONSISTENT)) {
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
 					// DW-892 Bumping uuid during starting resync seems to be inadequate, this is a stopgap work as long as the purpose of 'lost_contact_to_peer_data' is unclear.
@@ -4537,7 +4537,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				(context->mask.conn == conn_MASK && context->val.conn == C_CONNECTED))
 				rv = check_primaries_distances(resource);
 
-			// DW-1231 : not allowed multiple primaries.
+			// DW-1231 not allowed multiple primaries.
 			if (reply->primary_nodes & NODE_MASK(context->target_node_id))
 			{			
 				rcu_read_lock();
@@ -5213,7 +5213,7 @@ static bool device_has_peer_devices_with_disk(struct drbd_device *device, enum c
 			/* We expect to receive up-to-date UUIDs soon.
 			   To avoid a race in receive_state, "clear" uuids while
 			   holding req_lock. I.e. atomic with the state change */
-			// DW-1321 : just clear uuids once, not twice because sometimes peer uuid comes eariler than local state change
+			// DW-1321 just clear uuids once, not twice because sometimes peer uuid comes eariler than local state change
 			if (phase == PH_PREPARE)
 				peer_device->uuids_received = false;
 
@@ -5578,7 +5578,7 @@ enum drbd_state_rv change_repl_state(struct drbd_peer_device *peer_device,
 			.mask = { { .conn = conn_MASK } },
 			.val = { { .conn = new_repl_state } },
 			.target_node_id = peer_device->node_id,
-			// DW-954 : send TWOPC_COMMIT packets to other nodes before updating the local state
+			// DW-954 send TWOPC_COMMIT packets to other nodes before updating the local state
 			.change_local_state_last = true,
 			.flags = flags
 		},

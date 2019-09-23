@@ -524,16 +524,16 @@ enum {
 
 #define _WIN32_MVFL
 #define _WIN32_MULTI_VOLUME
-#define _WIN32_RCU_LOCKED // DW-1477 : Lock if not locked.
-#define _WIN32_NOWAIT_COMPLETION // DW-1479 : Do not wait for WskCloseSocket to complete.
+#define _WIN32_RCU_LOCKED // DW-1477 Lock if not locked.
+#define _WIN32_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
 // TODO: _WIN32_NETQUEUED_LOG is need to move global define.
-#define _WIN32_NETQUEUED_LOG // DW-1521 : Improve I/O response time at low bandwidth.
+#define _WIN32_NETQUEUED_LOG // DW-1521 Improve I/O response time at low bandwidth.
 
 #endif
 
 #define _WIN32_TWOPC // DW-1252
 #define _WIN32_SIMPLE_TWOPC // DW-1408
-#define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 : crashed_primary node to be SyncSource.
+#define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 crashed_primary node to be SyncSource.
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
 #define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE // DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 

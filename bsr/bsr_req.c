@@ -2520,7 +2520,7 @@ void do_submit(struct work_struct *ws)
 			drbd_kick_lo(device);
 #endif
 
-#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 : If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
+#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
 			if(!schedule(&device->al_wait, AL_WAIT_TIMEOUT, __FUNCTION__, __LINE__)) {
 #else
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
