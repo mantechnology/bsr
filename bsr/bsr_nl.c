@@ -1097,7 +1097,7 @@ restart:
 			if (test_bit(GOT_NEG_ACK, &peer_device->flags)) {
 				clear_bit(GOT_NEG_ACK, &peer_device->flags);
 				ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
-				time_out = wait_event_timeout_ex(&resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out);
+				 wait_event_timeout_ex(resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out, time_out);
 				retry_count++;
 				goto restart;
 			}
@@ -1191,8 +1191,7 @@ retry:
 				drbd_flush_workqueue(resource, &connection->sender_work);
 		}
 		// DW-1626 : A long wait occurs when the barrier is delayed. Wait 10 seconds.
-
-		timeout = wait_event_timeout_ex(&resource->barrier_wait, !barrier_pending(resource), timeout);
+		wait_event_timeout_ex(resource->barrier_wait, !barrier_pending(resource), timeout, timeout);
 
 		if (!timeout){
 			drbd_warn(NO_OBJECT,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
@@ -1501,7 +1500,7 @@ retry:
 			drbd_flush_workqueue_timeout(resource, &connection->sender_work);
 	}
 	// step 2 : wait barrier pending with timeout
-	time_out = wait_event_timeout_ex(&resource->barrier_wait, !barrier_pending(resource), time_out);
+	wait_event_timeout_ex(resource->barrier_wait, !barrier_pending(resource), time_out, time_out);
 	if(!time_out) {
 		drbd_info(NO_OBJECT,"drbd_set_secondary_from_shutdown wait_event_timeout\n ");
 		goto out;
@@ -3668,9 +3667,9 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	/* D_DETACHING will transition to DISKLESS. */
 	drbd_resume_io(device);
 #ifdef _WIN32 // DW-1046 detour adm_detach hang
-	timeo = wait_event_interruptible_timeout_ex(&device->misc_wait,
+	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
-						 timeo);
+						 timeo, timeo);
 	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
 #else
 	ret = wait_event_interruptible(device->misc_wait,
@@ -4766,9 +4765,9 @@ repeat:
 			break;
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
-		t = wait_event_interruptible_timeout_ex(&resource->state_wait,
+		wait_event_interruptible_timeout_ex(resource->state_wait,
 			drbd_open_ro_count(resource) == 0,
-			HZ);
+			HZ, t);
 
 		if (t <= 0)
 			break;
@@ -4791,10 +4790,11 @@ repeat:
 	}
 
 	if (rv >= SS_SUCCESS) {
+		int timeo;
 		// DW-1574: Increase the wait time from 1 second to 3 seconds.
-		wait_event_interruptible_timeout_ex(&resource->state_wait,
+		wait_event_interruptible_timeout_ex(resource->state_wait,
 						 connection->cstate[NOW] == C_STANDALONE,
-						 3*HZ);	
+						 3*HZ, timeo);
 	}
 	
 	if (err_str) {
@@ -5210,6 +5210,7 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 {
 	struct drbd_resource *resource = peer_device->connection->resource;
 	enum drbd_state_rv rv;
+	int res = 0;
 
 #ifdef _WIN32
 	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
@@ -5223,8 +5224,8 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 		rv = stable_change_repl_state(peer_device, L_STARTING_SYNC_T,
 			CS_VERBOSE | CS_SERIALIZE);
 
-	wait_event_interruptible_ex(&resource->state_wait,
-				 peer_device->repl_state[NOW] != L_STARTING_SYNC_T);
+	wait_event_interruptible_ex(resource->state_wait,
+				 peer_device->repl_state[NOW] != L_STARTING_SYNC_T, res);
 
 	return rv;
 }
@@ -5461,9 +5462,9 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	if (retcode >= SS_SUCCESS)
 	{
 		// DW-1391 : wait for bm_io_work to complete, then run the next invalidate peer. 
-		retcode = wait_event_interruptible_timeout_ex(&resource->state_wait,
+		 wait_event_interruptible_timeout_ex(resource->state_wait,
 				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
-				timeo);
+				timeo, retcode);
 		if (-DRBD_SIGKILL == retcode)
 		{ 
 			retcode = SS_INTERRUPTED;

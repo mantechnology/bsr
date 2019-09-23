@@ -3085,17 +3085,17 @@ static int try_to_promote(struct drbd_device *device)
 			timeout -= HZ / 5;
 		} else if (rv == SS_TWO_PRIMARIES) {
 			/* Wait till the peer demoted itself */
-			timeout = wait_event_interruptible_timeout_ex(&resource->state_wait,
+			 wait_event_interruptible_timeout_ex(resource->state_wait,
 				resource->role[NOW] == R_PRIMARY ||
 				(!primary_peer_present(resource) && any_disk_is_uptodate(device)),
-				timeout);
+				timeout, timeout);
 
 			if (timeout <= 0)
 				break;
 		} else if (rv == SS_NO_UP_TO_DATE_DISK) {
 			/* Wait until we get a connection established */
-			timeout = wait_event_interruptible_timeout_ex(&resource->state_wait,
-				any_disk_is_uptodate(device), timeout);
+			wait_event_interruptible_timeout_ex(resource->state_wait,
+				 any_disk_is_uptodate(device), timeout, timeout);
 
 			if (timeout <= 0)
 				break;	
@@ -3147,9 +3147,10 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			}
 		}
 		else /* READ access only */ {
-			wait_event_interruptible_timeout_ex(&resource->state_wait,
+			int res;
+			wait_event_interruptible_timeout_ex(resource->state_wait,
 				ro_open_cond(device) != -EAGAIN,
-				resource->res_opts.auto_promote_timeout * HZ / 10);
+				resource->res_opts.auto_promote_timeout * HZ / 10, res);
 		}
 	} else if (resource->role[NOW] != R_PRIMARY && !(mode & FMODE_WRITE) && !allow_oos) {
 		rv = -EMEDIUMTYPE;

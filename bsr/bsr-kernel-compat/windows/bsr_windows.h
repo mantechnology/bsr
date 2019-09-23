@@ -1029,7 +1029,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 				ret = 0;\
 				break;\
 																					}\
-			schedule(wq, 100, __FUNCTION__, __LINE__); /*  DW105: workaround: 1 ms polling  */ \
+			schedule(&wq, 100, __FUNCTION__, __LINE__); /*  DW105: workaround: 1 ms polling  */ \
 														}  \
 								} while(false)
 
@@ -1051,7 +1051,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
                 sig = 0;    \
                 break;      \
 						            } \
-            sig = schedule(wq, 1, __FUNCTION__, __LINE__);   \
+            sig = schedule(&wq, 1, __FUNCTION__, __LINE__);   \
             if (-DRBD_SIGKILL == sig) { break; }    \
 				        } \
 			    } while(false)
@@ -1078,7 +1078,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		        ret = -ETIMEDOUT;\
 		        break;\
             }\
-	        ret = schedule(wq, 100, __FUNCTION__, __LINE__);  /* real_timeout = 0.1 sec*/ \
+	        ret = schedule(&wq, 100, __FUNCTION__, __LINE__);  /* real_timeout = 0.1 sec*/ \
             if (-DRBD_SIGKILL == ret) { break; } \
         }\
 	    } while(false)

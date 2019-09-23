@@ -3972,7 +3972,7 @@ static void complete_remote_state_change(struct drbd_resource *resource,
 		for(;;) {
 			long t = twopc_timeout(resource);
 
-			t = wait_event_timeout_ex(&resource->twopc_wait, when_done_lock(resource, irq_flags), t);
+			wait_event_timeout_ex(resource->twopc_wait, when_done_lock(resource, irq_flags), t, t);
 
 			if (t) {
 				break;
@@ -4494,10 +4494,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				    &request, reach_immediately);
 	have_peers = rv == SS_CW_SUCCESS;
 	if (have_peers) {
-		long t;
-		t = wait_event_timeout_ex(&resource->state_wait,
+		long t = 0;
+		wait_event_timeout_ex(resource->state_wait,
 								cluster_wide_reply_ready(resource),
-								twopc_timeout(resource));
+								twopc_timeout(resource), t);
         if (t)
 		{
 			rv = get_cluster_wide_reply(resource, context);
@@ -4767,10 +4767,10 @@ retry:
 
 	have_peers = rv == SS_CW_SUCCESS;
 	if (have_peers) {
-		long t;
-		t = wait_event_timeout_ex(&resource->state_wait,
+		long t = 0;
+		wait_event_timeout_ex(resource->state_wait,
 									cluster_wide_reply_ready(resource),
-									twopc_timeout(resource));
+									twopc_timeout(resource), t);
 		if (t)
 			rv = get_cluster_wide_reply(resource, NULL);
 		else
@@ -5071,7 +5071,7 @@ enum drbd_state_rv change_role_timeout(struct drbd_resource *resource,
 
         idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 			long t = 100;
-			t = wait_event_timeout_ex(&device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]), t);
+			wait_event_timeout_ex(device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]), t, t);
 			if(!t) {
 				if(got_state_sem)
 					up(&resource->state_sem);

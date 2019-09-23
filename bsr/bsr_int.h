@@ -3904,39 +3904,40 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 
 #define NODE_MASK(id) ((u64)1 << (id))
 
-static inline long wait_event_timeout_ex(wait_queue_head_t *wq, bool condition, long timeout)
-{
-	long t = timeout;
-#ifdef _WIN32
-	wait_event_timeout(t, wq, condition, timeout);
-#else
-	t = wait_event_timeout(*wq, condition, timeout);
-#endif
-	return t;
+#ifdef _WIN32			
+#define wait_event_timeout_ex(wq, condition, timeout, res) \
+{	\
+	long __t = timeout;	\
+	wait_event_timeout(__t, wq, condition, __t);	\
+	res = __t;	\
 }
+#else	
+#define wait_event_timeout_ex(wq, condition, timeout, res) \
+	res = wait_event_timeout(wq, condition, timeout);	
+#endif
 
-
-static inline int wait_event_interruptible_timeout_ex(wait_queue_head_t *wq, bool condition, long timeout)
-{
-	int r = timeout;
 #ifdef _WIN32
-	wait_event_interruptible_timeout(r, wq, condition, timeout);
+#define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
+{	\
+	int __r = timeout;	\
+	wait_event_interruptible_timeout(__r, wq, condition, timeout);	\
+	res = __r;	\
+}	
 #else
-	r = wait_event_interruptible_timeout(*wq, condition, timeout);
+#define wait_event_interruptible_timeout_ex(wq, condition, timeout, res)	\
+	res = wait_event_interruptible_timeout(wq, condition, timeout);	
 #endif
-	return r;
-}
 
-
-static inline int wait_event_interruptible_ex(wait_queue_head_t *wq, bool condition)
-{
-	int r;
 #ifdef _WIN32
-	wait_event_interruptible(r, wq, condition);
-#else
-	r = wait_event_interruptible(*wq, condition);
-#endif
-	return r;
+#define wait_event_interruptible_ex(wq, condition, res)	\
+{	\
+	int __r = res;	\
+	wait_event_interruptible(__r, wq, condition);	\
+	res = __r;	\
 }
+#else
+#define wait_event_interruptible_ex(wq, condition, res)	\
+	res = wait_event_interruptible(wq, condition);
 #endif
 
+#endif

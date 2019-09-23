@@ -124,12 +124,12 @@ struct update_peers_work {
 void *drbd_md_get_buffer(struct drbd_device *device, const char *intent)
 {
 	int r;
-	long t;
+	long t = 0;
 
-	t = wait_event_timeout_ex(&device->misc_wait,
-											(r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
-											device->disk_state[NOW] <= D_FAILED,
-											HZ * 10);
+	wait_event_timeout_ex(device->misc_wait,
+							(r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
+							device->disk_state[NOW] <= D_FAILED,
+							HZ * 10, t);
 
 	if (t == 0)
 		drbd_err(device, "Waited 10 Seconds for md_buffer! BUG?, %s\n", intent);
@@ -161,8 +161,8 @@ void wait_until_done_or_force_detached(struct drbd_device *device, struct drbd_b
 	if (dt == 0)
 		dt = MAX_SCHEDULE_TIMEOUT;
 
-	dt = wait_event_timeout_ex(&device->misc_wait, 
-								*done || test_bit(FORCE_DETACH, &device->flags), dt);
+	wait_event_timeout_ex(device->misc_wait, 
+		*done || test_bit(FORCE_DETACH, &device->flags), dt, dt);
 
 	if (dt == 0) {
 		drbd_err(device, "meta-data IO operation timed out\n");
@@ -1597,7 +1597,7 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 	struct drbd_device *device = peer_device->device;
 	ULONG_PTR enr = (ULONG_PTR)BM_SECT_TO_EXT(sector);
 	struct bm_extent *bm_ext;
-	int i, sig;
+	int i, sig = 0;
 	bool sa;
 #ifdef _WIN32
 #ifdef _WIN64
@@ -1606,8 +1606,8 @@ int drbd_rs_begin_io(struct drbd_peer_device *peer_device, sector_t sector)
 #endif
 
 retry:
-	sig = wait_event_interruptible_ex(&device->al_wait,
-		(bm_ext = _bme_get(peer_device, (unsigned int)enr)));
+	wait_event_interruptible_ex(device->al_wait,
+		(bm_ext = _bme_get(peer_device, (unsigned int)enr)), sig);
 
 	if (sig)
 		return -EINTR;
@@ -1619,9 +1619,9 @@ retry:
 	sa = drbd_rs_c_min_rate_throttle(peer_device);
 
 	for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
-		sig = wait_event_interruptible_ex(&device->al_wait,
-							(unsigned int)!_is_in_al(device, enr * AL_EXT_PER_BM_SECT + i) ||
-					       (sa && test_bit(BME_PRIORITY, &bm_ext->flags)));
+		wait_event_interruptible_ex(device->al_wait,
+							!_is_in_al(device, (unsigned int)enr * AL_EXT_PER_BM_SECT + i) ||
+							(sa && test_bit(BME_PRIORITY, &bm_ext->flags)), sig);
 
 		if (sig || (sa && test_bit(BME_PRIORITY, &bm_ext->flags))) {
 			int lc_put_result;			

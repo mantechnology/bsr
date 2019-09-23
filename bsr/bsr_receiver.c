@@ -689,7 +689,7 @@ static int drbd_recv(struct drbd_connection *connection, void **buf, size_t size
 			t = rcu_dereference(connection->transport.net_conf)->ping_timeo * HZ/10;
 			rcu_read_unlock();
 
-			t = wait_event_timeout_ex(&connection->ping_wait, connection->cstate[NOW] < C_CONNECTED, t);
+			wait_event_timeout_ex(connection->ping_wait, connection->cstate[NOW] < C_CONNECTED, t, t);
 
 			if (t)
 				goto out;
@@ -1826,7 +1826,7 @@ static void conn_wait_ee_empty_timeout(struct drbd_connection *connection, struc
 {
 	long t, timeout;
 	t = timeout = 3 * HZ; // 3 sec
-	t = wait_event_timeout_ex(&connection->ee_wait, conn_wait_ee_cond(connection, head), timeout);
+	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
 }
 
 static void conn_wait_ee_empty(struct drbd_connection *connection, struct list_head *head)
@@ -7010,16 +7010,13 @@ retry:
 out:
 
 	if (rv == SS_NO_UP_TO_DATE_DISK && resource->role[NOW] != R_PRIMARY) {
-#ifdef _WIN32
 		long t = 0;
-#else
-		long t;
-#endif
+
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
-		t = wait_event_interruptible_timeout_ex(&resource->state_wait,
+		wait_event_interruptible_timeout_ex(resource->state_wait,
 			drbd_open_ro_count(resource) == 0,
-			HZ);
+			HZ, t);
 
 		if (t > 0)
 			goto retry;
@@ -7373,7 +7370,7 @@ static enum alt_rv abort_local_transaction(struct drbd_resource *resource, unsig
 	spin_unlock_irq(&resource->req_lock);
 	wake_up(&resource->state_wait);
 
-	t = wait_event_timeout_ex(&resource->twopc_wait, (rv = when_done_lock(resource, for_tid)) != ALT_TIMEOUT, t);
+	wait_event_timeout_ex(resource->twopc_wait, (rv = when_done_lock(resource, for_tid)) != ALT_TIMEOUT, t, t);
 	clear_bit(TWOPC_ABORT_LOCAL, &resource->flags);
 	return rv;
 }
@@ -8921,6 +8918,7 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 	struct drbd_device *device;
 	struct bm_xfer_ctx c;
 	int err;
+	int res = 0;
 
 	peer_device = conn_peer_device(connection, pi->vnr);
 	if (!peer_device)
@@ -8935,8 +8933,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
 #endif
 	/* Final repl_states become visible when the disk leaves NEGOTIATING state */
-	wait_event_interruptible_ex(&device->resource->state_wait,
-				 read_disk_state(device) != D_NEGOTIATING);
+	wait_event_interruptible_ex(device->resource->state_wait,
+		read_disk_state(device) != D_NEGOTIATING, res);
 	
 	drbd_bm_slot_lock(peer_device, "receive bitmap", BM_LOCK_CLEAR | BM_LOCK_BULK);
 	/* you are supposed to send additional out-of-sync information
@@ -11156,9 +11154,9 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 				t = rcu_dereference(connection->transport.net_conf)->ping_timeo * HZ/10;
 				rcu_read_unlock();
 
-				t = wait_event_timeout_ex(&connection->ping_wait,
-											connection->cstate[NOW] < C_CONNECTED,
-											t);
+				wait_event_timeout_ex(connection->ping_wait,
+										connection->cstate[NOW] < C_CONNECTED,
+										t, t);
 				if (t)
 					break;
 			}

@@ -3863,16 +3863,17 @@ int drbd_worker(struct drbd_thread *thi)
 		drbd_thread_current_set_cpu(thi);
 
 		if (list_empty(&work_list)) {
-			bool w, r, d, p;
+			bool w = false, r = false, d = false, p = false;
+			int sig;
 
 			update_worker_timing_details(resource, dequeue_work_batch);
 
-			wait_event_interruptible_ex(&resource->work.q_wait,
+			wait_event_interruptible_ex(resource->work.q_wait,
 				(w = dequeue_work_batch(&resource->work, &work_list),
 				 r = test_and_clear_bit(RESOURCE_WORK_PENDING, &resource->flags),
 				 d = test_and_clear_bit(DEVICE_WORK_PENDING, &resource->flags),
 				 p = test_and_clear_bit(PEER_DEVICE_WORK_PENDING, &resource->flags),
-				 w || r || d || p));
+				 w || r || d || p), sig);
 
 			if (p) {
 				update_worker_timing_details(resource, do_unqueued_peer_device_work);
