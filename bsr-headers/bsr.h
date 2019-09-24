@@ -401,7 +401,7 @@ enum mdf_flag {
 	MDF_AL_DISABLED =       1 << 8,
 #ifdef _WIN32
 	MDF_LAST_PRIMARY = 1 << 16,
-	MDF_IO_ERROR = 1 << 17,				// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.*/
+	MDF_IO_ERROR = 1 << 17,				// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
 #endif
 };
 
@@ -417,7 +417,7 @@ enum mdf_peer_flag {
 	MDF_PEER_DIFF_CUR_UUID = 1 << 5,
 
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		// DW-1357 no need to get synced from this peer, ignore crashed primary */
+	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		// DW-1357 no need to get synced from this peer, ignore crashed primary 
 #endif
 
 	MDF_NODE_EXISTS =       1 << 16, /* */
@@ -426,7 +426,7 @@ enum mdf_peer_flag {
 	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,			// DW-1874 
 													//when the connection is lost during synchronization and the synctarget is complete synchronizing with another node, 
 													//it is used to determine the unnecessary out of sync removal when reconnected.
-	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,         // DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.*/
+	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,         // DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
 #endif
 };
 
@@ -512,8 +512,8 @@ enum drbd_peer_state {
 #define QOU_ALL 1025
 
 #ifdef _WIN32 // TODO
-/* flag bits per volume extension
-DW-1277 volume type is marked when drbd attaches */
+// flag bits per volume extension
+// DW-1277 volume type is marked when drbd attaches 
 enum {
 	VOLUME_TYPE_REPL,		// for replicating volume.
 	VOLUME_TYPE_META,		// for meta volume.

@@ -2569,7 +2569,7 @@ static void device_status(struct devices_list *device, bool single_device)
 	}
 
 	// DW-1755 In the passthrough policy,
-	 * the disk status is kept up_to_date in the event of a primary failure,
+	 /* the disk status is kept up_to_date in the event of a primary failure,
 	 * so disk error information should be displayed seperately.
 	 */
 

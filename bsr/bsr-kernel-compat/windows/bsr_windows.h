@@ -998,7 +998,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 			                                                                                                            { \
 				break; \
 																														} \
-			schedule(&wq, 1, __func, __line); /*  DW105: workaround: 1 ms polling  */ \
+			schedule(&wq, 1, __func, __line); /*  // DW-105 workaround: 1 ms polling  */ \
 																				} \
 										} while(false)
 
@@ -1029,7 +1029,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 				ret = 0;\
 				break;\
 																					}\
-			schedule(&wq, 100, __FUNCTION__, __LINE__); /*  DW105: workaround: 1 ms polling  */ \
+			schedule(&wq, 100, __FUNCTION__, __LINE__); /*  // DW-105 workaround: 1 ms polling  */ \
 														}  \
 								} while(false)
 
