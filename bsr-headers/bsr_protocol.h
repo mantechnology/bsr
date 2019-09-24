@@ -246,12 +246,12 @@ struct p_connection_features {
 } __packed;
 
 struct p_barrier {
-	uint32_t barrier;	/* barrier number _handle_ only */
+	int32_t barrier;	/* barrier number _handle_ only */
 	uint32_t pad;	/* to multiple of 8 Byte */
 } __packed;
 
 struct p_barrier_ack {
-	uint32_t barrier;
+	int32_t barrier;
 	uint32_t set_size;
 } __packed;
 

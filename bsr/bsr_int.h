@@ -691,7 +691,9 @@ struct drbd_request {
 	 * and to "barrier_nr" in struct drbd_epoch (and various
 	 * comments/function parameters/local variable names).
 	 */
-	unsigned int epoch;
+	// BSR-231 Since the epoch(barrier_nr) value is copied and used as an int variable and an unsigned int variable,
+	// there is a problem that the type conversion must be performed when comparing.Therefore it is unified to type int.
+	int epoch;
 
 	/* Position of this request in the serialized per-resource change
 	 * stream. Can be used to serialize with other events when
@@ -1342,7 +1344,7 @@ struct disconnect_work {
 #ifdef _WIN32
 struct flush_context_sync {
 	atomic_t primary_node_id;
-	atomic_t64 barrier_nr;
+	atomic_t barrier_nr;
 };
 
 struct issue_flush_context {
@@ -1620,14 +1622,14 @@ struct drbd_connection {
 #else
 		unsigned long last_sent_barrier_jif;
 #endif
-		unsigned int last_sent_epoch_nr;
+		int last_sent_epoch_nr;
 
 		/* whether this sender thread
 		 * has processed a single write yet. */
 		bool seen_any_write_yet;
 
 		/* Which barrier number to send with the next P_BARRIER */
-		unsigned int current_epoch_nr;
+		int current_epoch_nr;
 
 		/* how many write requests have been sent
 		 * with req->epoch == current_epoch_nr.
@@ -1945,7 +1947,7 @@ struct drbd_device {
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
 
-	unsigned int next_barrier_nr;
+	int next_barrier_nr;
 	struct drbd_md_io md_io;
 	spinlock_t al_lock;
 	wait_queue_head_t al_wait;
@@ -2123,7 +2125,7 @@ extern void drbd_thread_current_set_cpu(struct drbd_thread *thi);
 #endif
 #endif
 
-extern void tl_release(struct drbd_connection *, unsigned int barrier_nr,
+extern void tl_release(struct drbd_connection *, int barrier_nr,
 		       unsigned int set_size);
 extern void tl_clear(struct drbd_connection *);
 extern void drbd_free_sock(struct drbd_connection *connection);
@@ -2138,7 +2140,7 @@ extern int conn_send_state(struct drbd_connection *, union drbd_state);
 extern int drbd_send_state(struct drbd_peer_device *, union drbd_state);
 extern int drbd_send_current_state(struct drbd_peer_device *);
 extern int drbd_send_sync_param(struct drbd_peer_device *);
-extern void drbd_send_b_ack(struct drbd_connection *connection, u32 barrier_nr, u32 set_size);
+extern void drbd_send_b_ack(struct drbd_connection *connection, s32 barrier_nr, u32 set_size);
 extern int drbd_send_out_of_sync(struct drbd_peer_device *, struct drbd_interval *);
 extern int drbd_send_block(struct drbd_peer_device *, enum drbd_packet,
 			   struct drbd_peer_request *);
@@ -3670,7 +3672,7 @@ extern void drbd_queue_pending_bitmap_work(struct drbd_device *);
 /* rw = READ or WRITE (0 or 1); nothing else. */
 static inline void dec_ap_bio(struct drbd_device *device, int rw)
 {
-	unsigned int nr_requests = device->resource->res_opts.nr_requests;
+	int nr_requests = device->resource->res_opts.nr_requests;
 	int ap_bio = atomic_dec_return(&device->ap_bio_cnt[rw]);
 
 	D_ASSERT(device, ap_bio >= 0);
@@ -3684,7 +3686,7 @@ static inline void dec_ap_bio(struct drbd_device *device, int rw)
 	if (ap_bio == 0 && rw == WRITE && !list_empty(&device->pending_bitmap_work.q))
 		drbd_queue_pending_bitmap_work(device);
 
-	if (ap_bio == 0 || ap_bio == (int)nr_requests-1)
+	if (ap_bio == 0 || ap_bio == nr_requests-1)
 		wake_up(&device->misc_wait);
 }
 
@@ -3717,13 +3719,13 @@ static inline bool may_inc_ap_bio(struct drbd_device *device)
 static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 {
 	bool rv = false;
-	unsigned int nr_requests;
+	int nr_requests;
 	// DW-1200: request buffer maximum size.
 	LONGLONG req_buf_size_max;
 
 	spin_lock_irq(&device->resource->req_lock);
 	nr_requests = device->resource->res_opts.nr_requests;
-	rv = may_inc_ap_bio(device) && (unsigned int)atomic_read(&device->ap_bio_cnt[rw]) < nr_requests;
+	rv = may_inc_ap_bio(device) && (atomic_read(&device->ap_bio_cnt[rw]) < nr_requests);
 
 	// DW-1200: postpone I/O if current request buffer size is too big.
 	req_buf_size_max = ((LONGLONG)device->resource->res_opts.req_buf_size << 10);    // convert to byte
