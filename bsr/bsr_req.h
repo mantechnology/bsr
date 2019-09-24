@@ -286,19 +286,16 @@ enum drbd_req_state_bits {
 #define MR_WRITE       1
 #define MR_READ        2
 
-#ifdef _WIN32 
+// DW-689
 static inline bool drbd_req_make_private_bio(struct drbd_request *req, struct bio *bio_src)
-#else
-static inline void drbd_req_make_private_bio(struct drbd_request *req, struct bio *bio_src)
-#endif
 {
 	struct bio *bio;
 	bio = bio_clone(bio_src, GFP_NOIO); /* XXX cannot fail?? */
 
-#ifdef _WIN32
     if (!bio) {
-        return FALSE;
-    }
+        return false;
+	}
+#ifdef _WIN32
 	bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
@@ -308,9 +305,7 @@ static inline void drbd_req_make_private_bio(struct drbd_request *req, struct bi
 	bio->bi_end_io   = drbd_request_endio;
 	bio->bi_next     = NULL;
 
-#ifdef _WIN32
-    return TRUE;
-#endif
+    return true;
 }
 
 static inline bool drbd_req_is_write(struct drbd_request *req)
