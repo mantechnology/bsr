@@ -120,22 +120,20 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
 #endif
 
-#ifdef _WIN32
-    if (drbd_req_make_private_bio(req, bio_src) == FALSE)
+    if (drbd_req_make_private_bio(req, bio_src) == false)
     {
+		// DW-689
+#ifdef _WIN32
 		kfree2(req->req_databuf);
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
+#else
+		mempool_free(req, drbd_request_mempool);
+#endif
 		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
         return NULL;
     }
-#else
-	drbd_req_make_private_bio(req, bio_src);
-	// DW-1200 subtract freed request buffer size.
-	// DW-1539
-	atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
-#endif
 
 #ifdef _WIN32
 	req->private_bio->bio_databuf = req->req_databuf; // DW-776 (private bio's buffer is invalid when memory-overflow occured)
