@@ -1543,11 +1543,11 @@ static inline struct sk_buff *genlmsg_new(size_t payload, gfp_t flags)
  */
 #ifdef _WIN32
 
-extern void *compat_genlmsg_put(struct msg_buff *skb, u32 pid, u32 seq,
+extern void *compat_genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
 		           struct genl_family *family, int flags, u8 cmd);
 #define genlmsg_put compat_genlmsg_put
 
-extern void *genlmsg_put_reply(struct msg_buff *skb,
+extern void *genlmsg_put_reply(struct sk_buff *skb,
                          struct genl_info *info,
                          struct genl_family *family,
                          int flags, u8 cmd);

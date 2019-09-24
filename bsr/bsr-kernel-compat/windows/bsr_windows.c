@@ -2146,7 +2146,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 
 	return tmp;
 }
-void *compat_genlmsg_put(struct msg_buff *skb, u32 pid, u32 seq,
+void *compat_genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
 				       struct genl_family *family, int flags, u8 cmd)
 {
 	struct nlmsghdr *nlh;
@@ -2164,7 +2164,7 @@ void *compat_genlmsg_put(struct msg_buff *skb, u32 pid, u32 seq,
 	return (char *) hdr + GENL_HDRLEN;
 }
 
-void *genlmsg_put_reply(struct msg_buff *skb,
+void *genlmsg_put_reply(struct sk_buff *skb,
                          struct genl_info *info,
                          struct genl_family *family,
                          int flags, u8 cmd)

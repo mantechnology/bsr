@@ -273,13 +273,8 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 		err = -ENOMEM;
 		goto fail;
 	}
-#ifdef _WIN32
-	adm_ctx->reply_dh = genlmsg_put_reply((struct msg_buff *)adm_ctx->reply_skb,
-		info, &drbd_genl_family, 0, cmd);
-#else
 	adm_ctx->reply_dh = genlmsg_put_reply(adm_ctx->reply_skb,
 		info, &drbd_genl_family, 0, cmd);
-#endif
 	
 	/* put of a few bytes into a fresh skb of >= 4k will always succeed.
 	 * but anyways */
@@ -5746,15 +5741,9 @@ found_resource:
 	goto out;
 
 put_result:
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_RESOURCES);
-#else
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
 		cb->nlh->nlmsg_seq, &drbd_genl_family,
 		NLM_F_MULTI, DRBD_ADM_GET_RESOURCES);
-#endif
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -5914,15 +5903,9 @@ int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	goto out;  /* no more devices */
 
 put_result:
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_DEVICES);
-#else
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
 		cb->nlh->nlmsg_seq, &drbd_genl_family,
 		NLM_F_MULTI, DRBD_ADM_GET_DEVICES);
-#endif
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -6139,15 +6122,9 @@ found_resource:
 	goto out;  /* no more resources */
 
 put_result:
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_CONNECTIONS);
-#else
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
 		cb->nlh->nlmsg_seq, &drbd_genl_family,
 		NLM_F_MULTI, DRBD_ADM_GET_CONNECTIONS);
-#endif
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -6330,15 +6307,9 @@ found_peer_device:
 	goto next_device;
 
 put_result:
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_PEER_DEVICES);
-#else
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
 		cb->nlh->nlmsg_seq, &drbd_genl_family,
 		NLM_F_MULTI, DRBD_ADM_GET_PEER_DEVICES);
-#endif
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -7101,11 +7072,7 @@ void notify_resource_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_RESOURCE_STATE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_RESOURCE_STATE);
-#endif
 	
 	if (!dh)
 		goto nla_put_failure;
@@ -7157,11 +7124,7 @@ void notify_device_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_DEVICE_STATE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_DEVICE_STATE);
-#endif
 	
 	if (!dh)
 		goto nla_put_failure;
@@ -7212,11 +7175,7 @@ void notify_connection_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_CONNECTION_STATE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_CONNECTION_STATE);
-#endif
 	
 	if (!dh)
 		goto nla_put_failure;
@@ -7268,11 +7227,7 @@ void notify_peer_device_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_PEER_DEVICE_STATE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_PEER_DEVICE_STATE);
-#endif
 	
 	if (!dh)
 		goto nla_put_failure;
@@ -7323,11 +7278,7 @@ void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 		goto fail;
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_IO_ERROR);
-#else
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_PATH_STATE);
-#endif
+	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_IO_ERROR);
 	
 	if (!dh)
 		goto fail;
@@ -7379,11 +7330,7 @@ void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 		goto fail;
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_PATH_STATE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_PATH_STATE);
-#endif
 	
 	if (!dh)
 		goto fail;
@@ -7444,11 +7391,7 @@ void notify_helper(enum drbd_notification_type type,
 		goto fail;
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_HELPER);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_HELPER);
-#endif
 	
 	if (!dh)
 		goto fail;
@@ -7487,11 +7430,7 @@ static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 	int err;
 
 	err = -EMSGSIZE;
-#ifdef _WIN32
-	dh = genlmsg_put((struct msg_buff*)skb, 0, seq, &drbd_genl_family, 0, DRBD_INITIAL_STATE_DONE);
-#else
 	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_INITIAL_STATE_DONE);
-#endif
 	
 	if (!dh)
 		goto nla_put_failure;
