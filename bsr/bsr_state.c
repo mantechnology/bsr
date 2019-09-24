@@ -5181,6 +5181,7 @@ void __outdate_myself(struct drbd_resource *resource)
 	struct drbd_device *device;
 	int vnr;
 
+	// DW-663 
 	if (resource->role[NOW] == R_PRIMARY)
 		return;
 

@@ -607,14 +607,18 @@ void _tl_restart(struct drbd_connection *connection, enum drbd_req_event what)
 	struct drbd_request *req, *r;
 
 	tl_for_each_req_ref(req, r, &resource->transfer_log) {
-#ifdef _WIN32 // DW-689 temporary patch
-		if (NULL == req->device) { DbgPrintEx(FLTR_COMPONENT, DPFLTR_TRACE_LEVEL,"req->device is null! ignore!"); break; }
-#endif
+		// DW-689 temporary patch
+		if (NULL == req->device) {
+			drbd_err(NO_OBJECT,"req->device is null! ignore!"); 
+			break; 
+		}
 		peer_device = conn_peer_device(connection, req->device->vnr);
 
-#ifdef _WIN32 // DW-689 temporary patch
-		if (NULL == peer_device) { DbgPrintEx(FLTR_COMPONENT, DPFLTR_TRACE_LEVEL,"peer_device is null! ignore!"); break; }
-#endif
+		// DW-689 temporary patch
+		if (NULL == peer_device) {
+			drbd_err(NO_OBJECT, "peer_device is null! ignore!");
+			break; 
+		}
 		_req_mod(req, what, peer_device);
 	}
 }
@@ -4242,6 +4246,7 @@ fail:
 void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_free_op op)
 {
 #ifdef _WIN32
+	// DW-689
 	// redefine struct drbd_tcp_transport, buffer. required to refactoring about base, pos field 
 	struct buffer {
 		void *base;
