@@ -1693,15 +1693,6 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				SetDrbdlockIoBlock(pvext, FALSE);
 		}
 #endif
-#if 0 // _WIN32 // DW-778
-        int vnr;
-        struct drbd_device * device;
-        idr_for_each_entry(struct drbd_device *, &adm_ctx.resource->devices, device, vnr)
-        {
-            if (D_DISKLESS != device->disk_state[NOW])
-                FsctlCreateVolume(device->minor);
-        }
-#endif
 	} else {
 #ifdef _WIN32_MVFL
 #ifdef _WIN32_MULTI_VOLUME        
