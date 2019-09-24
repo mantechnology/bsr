@@ -638,8 +638,7 @@ Return Value:
 	if (Data->RequestorMode == KernelMode)
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 
-	switch (Data->Iopb->MajorFunction)
-	{
+	switch (Data->Iopb->MajorFunction) {
 		case IRP_MJ_READ:
 		case IRP_MJ_WRITE:
 		{			

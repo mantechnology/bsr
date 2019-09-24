@@ -402,8 +402,7 @@ Return Value:
 
 	pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
 
-	switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode)
-	{	
+	switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode) {	
 		case IOCTL_DRBDLOCK_GET_STATUS:
 		{
 			status = IOCTL_GetStatus(pIrp, &ulSize);

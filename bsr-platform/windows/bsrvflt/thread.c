@@ -147,8 +147,7 @@ mvolWorkThread(PVOID arg)
 			PsTerminateSystemThread(STATUS_SUCCESS);
 		}
 
-		while ((request = ExInterlockedRemoveHeadList(&pThreadInfo->ListHead, &pThreadInfo->ListLock)) != 0)
-		{
+		while ((request = ExInterlockedRemoveHeadList(&pThreadInfo->ListHead, &pThreadInfo->ListLock)) != 0) {
 #ifdef _WIN32_MULTIVOL_THREAD		
 			PMVOL_WORK_WRAPPER wr = CONTAINING_RECORD(request, struct _MVOL_WORK_WRAPPER, ListEntry);
 			DeviceObject = wr->DeviceObject;	
@@ -166,8 +165,7 @@ mvolWorkThread(PVOID arg)
 				KeGetCurrentIrql(), (irpSp->MajorFunction == IRP_MJ_WRITE)? "Write" : "Read", loop);
 #endif
 
-			switch (irpSp->MajorFunction)
-			{
+			switch (irpSp->MajorFunction) {
 				case IRP_MJ_WRITE:
 					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_WRITE);
 					if (status != STATUS_SUCCESS) {

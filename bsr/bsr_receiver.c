@@ -11301,8 +11301,7 @@ void drbd_send_out_of_sync_wf(struct work_struct *ws)
 	spin_lock_irq(&peer_device->send_oos_lock);
 	send_oos = list_first_entry(&peer_device->send_oos_list, struct drbd_oos_no_req, oos_list_head);
 
-	while (&send_oos->oos_list_head != &peer_device->send_oos_list)
-	{
+	while (&send_oos->oos_list_head != &peer_device->send_oos_list) {
 		struct drbd_interval interval;
 		interval.sector = send_oos->sector;
 		interval.size = send_oos->size;

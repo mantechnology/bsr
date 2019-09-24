@@ -512,8 +512,7 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 		goto cleanup;
 	}
 
-	while (ERROR_SUCCESS == dwStatus)
-	{
+	while (ERROR_SUCCESS == dwStatus) {
 		// read event log in chronological(old -> new) order.
 		if (!ReadEventLog(hEventLog, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ, 0, pBuffer, dwBytesToRead, &dwBytesRead, &dwMinBytesToRead)) {
 			dwStatus = GetLastError();
@@ -580,8 +579,7 @@ DWORD WriteLogWithRecordBuf(HANDLE hLogFile, LPCTSTR pszProviderName, PBYTE pBuf
 	PBYTE pRecord = pBuffer;
 	PBYTE pEndOfRecords = pBuffer + dwBytesRead;	
 	
-	while (pRecord < pEndOfRecords)
-	{
+	while (pRecord < pEndOfRecords) {
 		// Write event log data only when provider name matches.
 		if (0 == _tcsicmp(pszProviderName, (LPCTSTR)(pRecord + sizeof(EVENTLOGRECORD)))) {
 			// Some data doesn't have data length if writer didn't provide data size.
@@ -1008,8 +1006,7 @@ VOID ConvertCallStack(PCHAR LogLine)
 		return;
 	}
 	
-	while ((pTemp = strchr(pTemp, szDelimiter[0])) != NULL)
-	{
+	while ((pTemp = strchr(pTemp, szDelimiter[0])) != NULL) {
 		CHAR szAddr[MAX_FUNC_ADDR_LEN] = "";
 		PVOID dwAddr = 0;
 		CHAR szFuncName[MAX_FUNC_NAME_LEN] = "";
@@ -1432,8 +1429,7 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 		
 		char *pLine = buff, *pTemp = buff;
 		pTemp = strstr(pLine, "\0");		
-		while (pTemp = strstr(pLine, "\r\n"))
-		{
+		while (pTemp = strstr(pLine, "\r\n")) {
 			CHAR szLineBuf[1024] = "";
 			*pTemp = '\0';
 			strcpy_s(szLineBuf, pLine);	
@@ -1565,8 +1561,7 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 		}
 
 		char *pLine = buff, *pTemp = buff;
-		while (pTemp = strstr(pLine, "\r\n"))
-		{
+		while (pTemp = strstr(pLine, "\r\n")) {
 			CHAR szLineBuf[1024] = "";
 			*pTemp = '\0';
 			strcpy_s(szLineBuf, pLine);
@@ -1723,8 +1718,7 @@ DWORD GetDrbdlockStatus()
 		
 		getVolumeDrbdlockInfo(hDevice, VolumeName);
 
-		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName)))
-		{
+		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName))) {
 			getVolumeDrbdlockInfo(hDevice, VolumeName);
 		}
 

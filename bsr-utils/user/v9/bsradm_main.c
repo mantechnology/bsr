@@ -883,8 +883,7 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 		strcpy(optionName, sh_varname);
 		len = strlen(optionName);
 
-		while (len--)
-		{
+		while (len--) {
 			if (optionName[len] == '_')
 				optionName[len] = '-';
 		}
@@ -1184,8 +1183,7 @@ DWORD del_registry_volume(char * letter)
         return status;
     }
 
-    while (ERROR_SUCCESS == RegEnumValueA(hKey, dwIndex++, szRegLetter, &cbRegLetter, NULL, NULL, (LPBYTE)volGuid, &cbVolGuid))
-    {
+    while (ERROR_SUCCESS == RegEnumValueA(hKey, dwIndex++, szRegLetter, &cbRegLetter, NULL, NULL, (LPBYTE)volGuid, &cbVolGuid)) {
     
 #ifdef _WIN32_CLI_UPDATE
 	if (!strcasecmp(szRegLetter, letter))

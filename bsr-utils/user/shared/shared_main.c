@@ -428,8 +428,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			int i = 0;
 			// remove /usr/bin/
 			name = ptr = strtok(temp, "/");
-			while (ptr = strtok(NULL, "/"))
-			{
+			while (ptr = strtok(NULL, "/")) {
 				name = ptr;
 			}
 			

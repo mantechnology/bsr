@@ -532,8 +532,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		// supported file systems
 		// 1. NTFS
 		// 2. REFS
-		switch (usFileSystemType)
-		{
+		switch (usFileSystemType) {
 		case FILESYSTEM_STATISTICS_TYPE_NTFS:
 		{
 			NTFS_VOLUME_DATA_BUFFER nvdb = { 0, };
@@ -901,8 +900,7 @@ mvolSearchDevice( PWCHAR PhysicalDeviceName )
 
 	RootExtension = mvolRootDeviceObject->DeviceExtension;
 	VolumeExtension = RootExtension->Head;
-	while( VolumeExtension != NULL )
-	{
+	while( VolumeExtension != NULL ) {
 		if( !_wcsicmp(VolumeExtension->PhysicalDeviceName, PhysicalDeviceName) ) {
 			return VolumeExtension;
 		}
@@ -921,8 +919,7 @@ mvolSearchVolExtention(PDEVICE_OBJECT PhysicalDevice)
 
 	RootExtension = mvolRootDeviceObject->DeviceExtension;
 	VolumeExtension = RootExtension->Head;
-	while(VolumeExtension != NULL)
-	{
+	while(VolumeExtension != NULL) {
 		if(VolumeExtension->PhysicalDeviceObject == PhysicalDevice) {
 			return VolumeExtension;
 		}
@@ -945,8 +942,7 @@ mvolAddDeviceList( PVOLUME_EXTENSION pEntry )
 		return ;
 	}
 
-	while( pList->Next != NULL )
-	{
+	while( pList->Next != NULL ) {
 		pList = pList->Next;
 	}
 
@@ -970,8 +966,7 @@ mvolDeleteDeviceList( PVOLUME_EXTENSION pEntry )
 		return ;
 	}
 
-    while (pList->Next && pList->Next != pEntry)
-	{
+    while (pList->Next && pList->Next != pEntry) {
 		pList = pList->Next;
 	}
 
@@ -991,8 +986,7 @@ mvolGetDeviceCount()
 	
 	RootExtension = mvolRootDeviceObject->DeviceExtension;
 	VolumeExtension = RootExtension->Head;
-	while( VolumeExtension != NULL )
-	{
+	while( VolumeExtension != NULL ) {
 		count++;
 		VolumeExtension = VolumeExtension->Next;
 	}

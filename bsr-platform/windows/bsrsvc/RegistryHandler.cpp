@@ -99,8 +99,7 @@ void Tokenizer(__in const WCHAR * str, __inout list<wstring> & token_list)
     WCHAR * tok, *next_token1 = NULL;
 
     tok = wcstok_s((WCHAR *)str, delims, &next_token1);
-    while (tok)
-    {
+    while (tok) {
         token_list.push_back(wstring(tok));
         //cout << tok << endl;
         tok = wcstok_s(NULL, delims, &next_token1);
@@ -150,8 +149,7 @@ DWORD GetDiskLetterList(__inout list<WCHAR> & letter_list)
     wsprintf(szBuffer, L"%hs", readBuffer);
     tok = wcstok_s(szBuffer, L"\n", &next_token1);
     
-    while (tok)
-    {
+    while (tok) {
         letter_list.push_back(*tok);
         tok = wcstok_s(NULL, L"\n", &next_token1);
     }

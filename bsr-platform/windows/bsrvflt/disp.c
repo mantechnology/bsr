@@ -760,8 +760,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     PVOLUME_EXTENSION	VolumeExtension = DeviceObject->DeviceExtension;
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
-    switch (irpSp->Parameters.DeviceIoControl.IoControlCode)
-    {
+    switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
         case IOCTL_MVOL_GET_PROC_DRBD:
         {
             PMVOL_VOLUME_INFO p = NULL;
@@ -906,8 +905,7 @@ mvolDispatchPnp(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     }
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
-    switch (irpSp->MinorFunction)
-    {
+    switch (irpSp->MinorFunction) {
         case IRP_MN_START_DEVICE:
         {
             status = mvolStartDevice(DeviceObject, Irp);

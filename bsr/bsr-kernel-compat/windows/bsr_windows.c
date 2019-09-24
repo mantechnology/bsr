@@ -970,16 +970,13 @@ void run_singlethread_workqueue(PVOID StartContext)
     PVOID waitObjects[2] = { &wq->wakeupEvent, &wq->killEvent };
     int maxObj = 2;
 
-    while (wq->run)
-    {
+    while (wq->run) {
         status = KeWaitForMultipleObjects(maxObj, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, NULL, NULL);
-        switch (status)
-        {
+        switch (status) {
             case STATUS_WAIT_0:
             {
                 PLIST_ENTRY entry;
-                while ((entry = ExInterlockedRemoveHeadList(&wq->list_head, &wq->list_lock)) != 0)
-                {
+                while ((entry = ExInterlockedRemoveHeadList(&wq->list_head, &wq->list_lock)) != 0) {
                     struct work_struct_wrapper * wr = CONTAINING_RECORD(entry, struct work_struct_wrapper, element);
                     wr->w->func(wr->w);
                     kfree(wr);
@@ -1082,8 +1079,7 @@ int mutex_lock_interruptible(struct mutex *m)
 	
 	status = KeWaitForMultipleObjects(wObjCount, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, NULL, NULL);
 
-	switch (status)
-	{
+	switch (status) {
 	case STATUS_WAIT_0:		// mutex acquired.
 		err = 0;
 		break;
@@ -2911,8 +2907,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 
 	drbd_info(NO_OBJECT,"DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
 
-	while (sPos < aBufferSize)
-	{
+	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);
 		sLineLength = ((aBufferSize - sPos) > aWidth) ? aWidth : (aBufferSize - sPos);
 

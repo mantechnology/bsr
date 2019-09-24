@@ -146,8 +146,7 @@ int LogLink_Daemon(unsigned short *port)
 		// Attempt to connect to drbd-engine
 		int conn_loop = 0;
 
-		while(1)
-		{
+		while(1) {
 			if ((ret = connect(sock, (SOCKADDR*) (&sock_addr), sizeof(sock_addr))) == 0) {
 				wsprintf(tmp, L"LogLink: connected to drbd engine ok. retry=%d\r\n", conn_loop);
 				WriteLog(tmp);
@@ -165,8 +164,7 @@ int LogLink_Daemon(unsigned short *port)
 			}
 		}
 
-		while (1)
-		{
+		while (1) {
 			int sz;
 			char buffer[MAX_LOG_STRING];
 			wchar_t buffer2[MAX_LOG_STRING];
@@ -198,8 +196,7 @@ int LogLink_Daemon(unsigned short *port)
 			// mapping drbd-engine err-level to windows eventlog 
 
 			WORD wType;
-			switch (buffer[1] - '0')
-			{
+			switch (buffer[1] - '0') {
 				case 0: // PRINTK_EMERG
 				case 1: // PRINTK_ALERT
 				case 2: // PRINTK_CRIT

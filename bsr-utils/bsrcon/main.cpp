@@ -505,8 +505,7 @@ main(int argc, char* argv [])
 		{
 			int lineCount = 1;
 			line = strtok_s(VolumeInfo.Seq, "\n", &context);
-			while (line)
-			{
+			while (line) {
 				if (strstr(line, ": cs:")) {
 					cline = (char *)malloc(strlen(line) + 1);
 					strcpy_s(cline, strlen(line) + 1, line);

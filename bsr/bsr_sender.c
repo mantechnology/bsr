@@ -2731,8 +2731,7 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 		return false;
 	}
 
-	switch (replState)
-	{
+	switch (replState) {
 		case L_STARTING_SYNC_T:
 		case L_WF_BITMAP_T:
 		case L_SYNC_TARGET:

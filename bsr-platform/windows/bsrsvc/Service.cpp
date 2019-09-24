@@ -198,8 +198,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 
 		int i = 0;
-		while (1)
-		{
+		while (1) {
 			printf("test main loop(%d)...\n", i++);
 			Sleep(10000);
 		}
@@ -541,8 +540,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 		WriteLog(tmp);
 	}
 
-    while (g_bProcessStarted)
-    {
+    while (g_bProcessStarted) {
         Sleep(3000);
     }
 
@@ -614,8 +612,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 {
     wchar_t pTemp[1024];
 
-    switch (fdwControl)
-    {
+    switch (fdwControl) {
         case SERVICE_CONTROL_STOP:
             wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_STOP\n");
             WriteLog(pTemp);
@@ -660,8 +657,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 #endif
     }
 
-    switch (fdwControl)
-    {
+    switch (fdwControl) {
         case SERVICE_CONTROL_STOP:
         case SERVICE_CONTROL_SHUTDOWN:
         case SERVICE_CONTROL_PRESHUTDOWN:
