@@ -899,20 +899,18 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 	}
 	spin_unlock_irqrestore(&thi->t_lock, flags);
 
-	if (wait)
+	if (wait) {
 #ifdef _WIN32
-	{ 
-		//drbd_info(NO_OBJECT,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
+		// drbd_info(NO_OBJECT,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
-		while (wait_for_completion(&thi->stop) == -DRBD_SIGKILL)
-		{
-		//	drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
+		while (wait_for_completion(&thi->stop) == -DRBD_SIGKILL) {
+			// drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
 		}
-    }
-#else
+#else // _LIN
 		wait_for_completion(&thi->stop);
 #endif
-	//drbd_info(NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
+	}
+	// drbd_info(NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
 }
 
 int conn_lowest_minor(struct drbd_connection *connection)
@@ -3879,7 +3877,7 @@ void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue
 	while (wait_for_completion(&completion_work.done) == -DRBD_SIGKILL) {
         drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
     }	
-#else
+#else // _LIN
 	wait_for_completion(&completion_work.done);
 #endif
 }
