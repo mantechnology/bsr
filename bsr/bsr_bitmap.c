@@ -176,7 +176,8 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 
 	if (trylock_failed) {
 #ifdef _WIN32
-		//DW-962, DW-1778 fix. bm_task can be NULL
+		// DW-962
+		// DW-1778 fix. bm_task can be NULL
 		struct task_struct *bm_task = b->bm_task;
         drbd_warn(device, "%s[0x%p] going to '%s' but bitmap already locked for '%s' by %s[0x%p]\n",
             current->comm, 
@@ -795,7 +796,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long s
 #ifdef _WIN32_DEBUG_OOS
 		{
 			bitmap->bm_set[bitmap_index] -= total;
-			// DW-1153: Write log when clear bit.
+			// DW-1153 Write log when clear bit.
 			WriteOOSTraceLog(bitmap_index, init_start, end, total, SET_IN_SYNC);
 		}
 #else
@@ -808,7 +809,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long s
 #ifdef _WIN32_DEBUG_OOS
 		{
 			bitmap->bm_set[bitmap_index] += total;
-			// DW-1153: Write log when set bit.
+			// DW-1153 Write log when set bit.
 			WriteOOSTraceLog(bitmap_index, init_start, end, total, SET_OUT_OF_SYNC);
 		}
 #else
@@ -840,7 +841,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 
 	if (!expect(device, bitmap))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "unexpected error, could not get bitmap, start(%lu)\n", start);
 		return 1;
@@ -850,7 +851,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 #endif
 	if (!expect(device, bitmap->bm_pages))
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%lu)\n", start);
 		return 0;
@@ -861,7 +862,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, unsigned long sta
 
 	if (!bitmap->bm_bits)
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: add error log
+		// DW-1153 add error log
 	{
 		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%lu)\n", start);
 		return 0;
@@ -1045,7 +1046,7 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 	}
 	bits  = BM_SECT_TO_BIT(ALIGN(capacity, BM_SECT_PER_BIT));
 
-	// DW-917: The calculation of counting words should be divided by the bit count of 'int' since the accessing unit of data word for bitmap is 'int'.
+	// DW-917 The calculation of counting words should be divided by the bit count of 'int' since the accessing unit of data word for bitmap is 'int'.
 	words = (ALIGN(bits, 64) * b->bm_max_peers) / BITS_PER_BM_WORD;
 
 	if (get_ldev(device)) {
@@ -1064,7 +1065,7 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		}
 	}
 
-	// DW-917: Need to multiply the bytes of each word.
+	// DW-917 Need to multiply the bytes of each word.
     want = ALIGN(words*BYTES_PER_BM_WORD, PAGE_SIZE) >> PAGE_SHIFT;
 
 	have = b->bm_number_of_pages;
@@ -1193,14 +1194,14 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return;
 #ifdef _WIN32
-	//DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
+	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
 	if (!drbd_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
 		put_ldev(device);
 		return;
 	}
 #endif
-	/* DW-1859 MDF_PRIMARY_IO_ERROR is the value required to check if io-error is cleared.
-	 * If all peer's OOS are removed, the io-error is considered to be resolved
+	// DW-1859 MDF_PRIMARY_IO_ERROR is the value required to check if io-error is cleared.
+	 /* If all peer's OOS are removed, the io-error is considered to be resolved
 	 * and the number of io-errors is initialized to zero. 
 	 */
 	
@@ -1219,8 +1220,8 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 		}
 	}
 
-	//DW-1859 At primary, all OOS with all peers must be removed before the io - error count can be initialized.
-	//DW-1870 If all nodes are not connected, it is not resolved.
+	// DW-1859 At primary, all OOS with all peers must be removed before the io - error count can be initialized.
+	// DW-1870 If all nodes are not connected, it is not resolved.
 	if (total_count == 0 && !all_disconnected) {
 		drbd_md_clear_flag(device, MDF_IO_ERROR);
 		drbd_info(device, "io-error has been cleared.\n");
@@ -1247,13 +1248,13 @@ void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return;
 
-	//DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
+	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
 	if (!drbd_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
 		put_ldev(device);
 		return;
 	}
 
-	//DW-1859 In secondary, initialize io - error count when OOS with one peer is removed.
+	// DW-1859 In secondary, initialize io - error count when OOS with one peer is removed.
 	spin_lock_irqsave(&b->bm_lock, flags);
 	count = b->bm_set[peer_device->bitmap_index];
 	spin_unlock_irqrestore(&b->bm_lock, flags);
@@ -1391,7 +1392,8 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	if (!bio)
 		BIO_ENDIO_FN_RETURN;
 
-	/* DW-1822
+	// DW-1822
+	/*
 	 * The generic_make_request calls IoAcquireRemoveLock before the IRP is created
 	 * and is freed from the completion routine functions.
 	 * However, retry I/O operations are performed without RemoveLock, 
@@ -1399,7 +1401,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	 * IoReleaseRemoveLock must be moved so that it is released after the retry.
 	 */
 
-	//DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
+	// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 	if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk) {
 		if (bio->bi_bdev->bd_disk->pDeviceExtension != NULL) {
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -1437,7 +1439,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	bm_page_unlock_io(device, (int)idx);
 
 #ifdef _WIN32
-	//DW-1838 
+	// DW-1838 
 	//If IoAcquireRemoveLock fails, 
 	//DeviceObjects points to FAULT_TEST_FLAG, and IRP variable points to bio instead of IRP.
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
@@ -1508,7 +1510,7 @@ static void bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_ho
 	len = min_t(unsigned int, PAGE_SIZE,
 		(drbd_md_last_sector(device->ldev) - on_disk_sector + 1)<<9);
 
-#ifdef _WIN32 // DW-1617 : drbd_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
+#ifdef _WIN32 // DW-1617 drbd_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
 	if (len == 0){
 		drbd_warn(device, "If len is 0, change it to PAGE_SIZE.\n"); 
 		len = PAGE_SIZE; 

@@ -25,7 +25,7 @@ struct drbd_work;
 #define susp_nod_MASK 1
 #define susp_fen_MASK 1
 #ifndef _WIN32_SIMPLE_TWOPC // DW-1408
-// DW-1204: maximum retry count for twopc timeout.
+// DW-1204 maximum retry count for twopc timeout.
 #define TWOPC_TIMEOUT_RETRY_COUNT	2
 #endif
 
@@ -74,7 +74,8 @@ extern void clear_remote_state_change(struct drbd_resource *resource);
 // DW-1894
 extern void clear_remote_state_change_without_lock(struct drbd_resource *resource);
 
-// DW-1073, DW-1257
+// DW-1073
+// DW-1257
 void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work);
 
 
@@ -84,7 +85,7 @@ extern union drbd_state drbd_get_peer_device_state(struct drbd_peer_device *, en
 extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum which_state);
 
 #ifdef _WIN32
-// DW-1605 : try change_state again until timeout.
+// DW-1605 try change_state again until timeout.
 #define stable_state_change(rv, resource, change_state) do{				\
 		int err = 0;							\
 		wait_event_interruptible_timeout_ex((resource)->state_wait,		\
@@ -141,7 +142,7 @@ static inline enum drbd_state_rv change_cstate(struct drbd_connection *connectio
 }
 
 
-//DW-1892 
+// DW-1892 
 extern void __change_peer_role(struct drbd_connection *, enum drbd_role, const char*);
 extern void __change_repl_state(struct drbd_peer_device *, enum drbd_repl_state, const char*);
 extern void __change_repl_state_and_auto_cstate(struct drbd_peer_device *, enum drbd_repl_state, const char*);

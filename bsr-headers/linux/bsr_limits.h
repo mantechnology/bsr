@@ -72,7 +72,7 @@
 #define DRBD_CONNECT_INT_MIN 1
 #define DRBD_CONNECT_INT_MAX 120
 #ifdef _WIN32
-//DW-915
+// DW-915
 #define DRBD_CONNECT_INT_DEF 3   /* seconds */
 #else
 #define DRBD_CONNECT_INT_DEF 10   /* seconds */
@@ -93,7 +93,7 @@
 #define DRBD_PING_TIMEO_MIN  1
 #define DRBD_PING_TIMEO_MAX  300
 #ifdef _WIN32
-//DW-763
+// DW-763
 #define DRBD_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #else
 #define DRBD_PING_TIMEO_DEF  5
@@ -116,7 +116,7 @@
 // DW-1422 set limit send buffer max size to be within 32-bit variable, since config treats it as 32-bit var also.
 // to have this over 32-bit, re-define this as '((unsigned long long)64 << 30) and modify all arguments(include read data from config) to 64-bit var. 
 #define DRBD_SNDBUF_SIZE_MAX  (0xFFFFFFFFFF)
-/* DW-1436 sndbuf-size default value is set to 0, minimum value is set to 10M when used */
+// DW-1436 sndbuf-size default value is set to 0, minimum value is set to 10M when used 
 #define DRBD_SNDBUF_SIZE_DEF	0 
 #define DRBD_SNDBUF_SIZE_MIN  (1024*1024*10)
 #else
@@ -282,7 +282,7 @@
 #define DRBD_DISK_DRAIN_DEF	1
 #define DRBD_DISK_DISKLESS_DEF    0
 #define DRBD_MD_FLUSHES_DEF	1
-#ifdef _WIN32 // DW-1652 : change the default value of tcp-cork to no
+#ifdef _WIN32 // DW-1652 change the default value of tcp-cork to no
 #define DRBD_TCP_CORK_DEF	0
 #else
 #define DRBD_TCP_CORK_DEF	1
@@ -307,7 +307,7 @@
 #define DRBD_AUTO_PROMOTE_DEF	1
 #define DRBD_BITMAP_DEF         1
 
-#ifdef _WIN32 // DW-1249: auto-start by svc
+#ifdef _WIN32 // DW-1249 auto-start by svc
 #define DRBD_SVC_AUTOSTART_DEF 1
 // DW-1716
 #define DRBD_IO_ERROR_RETRY_COUNT_MIN 		0
@@ -327,7 +327,7 @@
 #define DRBD_MAX_BIO_SIZE_MAX	DRBD_MAX_BIO_SIZE
 #define DRBD_MAX_BIO_SIZE_SCALE '1'
 
-// DW-1200 DW-1539: request buffer maximum size, 10MB ~ 10GB, default : 100MB
+// DW-1200 DW-1539 request buffer maximum size, 10MB ~ 10GB, default : 100MB
 #define DRBD_REQ_BUF_SIZE_MIN        (10 << 10)
 #define DRBD_REQ_BUF_SIZE_DEF        (100 << 10)
 #define DRBD_REQ_BUF_SIZE_MAX        (10240 << 10)

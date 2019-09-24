@@ -264,7 +264,7 @@ void drbd_put_listener(struct drbd_path *path)
 	struct drbd_listener *listener;
 
 #ifdef _WIN32
-	// DW-1538: Sometimes null values come in. 
+	// DW-1538 Sometimes null values come in. 
 	if (!path)
 		return;
 

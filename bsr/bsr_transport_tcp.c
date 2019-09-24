@@ -252,7 +252,7 @@ fail:
 	return -ENOMEM;
 }
 
-// DW-1204: added argument bFlush.
+// DW-1204 added argument bFlush.
 static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 {
 	if (socket) {
@@ -261,7 +261,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 #endif
 
 #ifdef _WIN32_SEND_BUFFING
-		// DW-1204: flushing send buffer takes too long when network is slow, just shut it down if possible.
+		// DW-1204 flushing send buffer takes too long when network is slow, just shut it down if possible.
 		if (!bFlush)
 			kernel_sock_shutdown(socket, SHUT_RDWR);
 		
@@ -276,7 +276,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
         }
 #endif		
 
-		// DW-1173: shut the socket down after send buf thread goes down.
+		// DW-1173 shut the socket down after send buf thread goes down.
 		if (bFlush) // DW-1204
 			kernel_sock_shutdown(socket, SHUT_RDWR);
 
@@ -296,7 +296,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
 		if (tcp_transport->stream[i]) {
-			// DW-1204: provide boolean if send buffer has to be flushed.
+			// DW-1204 provide boolean if send buffer has to be flushed.
 			dtt_free_one_sock(tcp_transport->stream[i], test_bit(DISCONNECT_FLUSH, &transport->flags));
 			clear_bit(DISCONNECT_FLUSH, &transport->flags);
 
@@ -517,7 +517,7 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 	}
 	else if (err != (int)size) 
 	{
-		// DW-1502 : If the size of the received data differs from the expected size, the consistency will be broken.
+		// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
 		drbd_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", size, err);
 		err = -EIO;		
 		
@@ -621,7 +621,7 @@ static bool dtt_path_cmp_addr(struct dtt_path *path)
 	addr_size = min(drbd_path->my_addr_len, drbd_path->peer_addr_len);
 
 #ifdef _WSK_SOCKET_STATE
-	// DW-1452: Consider interworking with DRX 
+	// DW-1452 Consider interworking with DRX 
 	if (drbd_path->my_addr_len == drbd_path->peer_addr_len){
 		int my_node_id, peer_node_id; 
 		drbd_debug_conn("my_addr_len == peer_addr_len compare node_ids\n"); 
@@ -722,7 +722,8 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 		switch (status) {
 		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
 #ifdef _WIN32
-		// DW-1272, DW-1290 : retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
+		// DW-1272
+		// DW-1290 retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
 		case STATUS_INVALID_ADDRESS_COMPONENT: err = -EAGAIN; break;
 #endif
 		case STATUS_INVALID_DEVICE_STATE: err = -EAGAIN; break;
@@ -879,7 +880,7 @@ out:
 		if (socket)
 			sock_release(socket);
 #ifdef _WIN32
-		// DW-1272 : retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
+		// DW-1272 retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
 		if (err != -EAGAIN && err != -EINVALADDR)
 #else
 		if (err != -EAGAIN)
@@ -1414,7 +1415,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	
 	spin_lock_bh(&resource->listeners_lock);	
 
-	// DW-1498 : Find the listener that matches the LocalAddress in resource-> listeners.
+	// DW-1498 Find the listener that matches the LocalAddress in resource-> listeners.
 	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
 		drbd_debug_conn("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
 		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)LocalAddress)) {
@@ -1474,8 +1475,8 @@ static void dtt_incoming_connection(struct sock *sock)
 	}
 
 
-#if 0 // TODO_WIN, DW-1538 : disabled temporary
-	// DW-1398: do not accept if already connected.
+#if 0 // TODO_WIN, DW-1538 disabled temporary
+	// DW-1398 do not accept if already connected.
 	if (atomic_read(&connection->transport.listening_done))
 	{
 		drbd_info(NO_OBJECT,"listening is done for this transport, request won't be accepted\n");
@@ -1493,7 +1494,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	if (path2)
 	{
 		drbd_debug_conn("if(path) path->socket = s_estab\n");
-		if (path2->socket) // DW-1567 : fix system handle leak
+		if (path2->socket) // DW-1567 fix system handle leak
 		{
 			drbd_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
 			goto not_accept;
@@ -1507,7 +1508,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	{
 		drbd_debug_conn("else listener->paccept_socket = AccceptSocket\n");
 #ifdef _WSK_SOCKET_STATE
-		if (listener2->paccept_socket) // DW-1567 : fix system handle leak
+		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
 			drbd_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
 			goto not_accept;
@@ -1563,7 +1564,7 @@ static void dtt_destroy_listener(struct drbd_listener *generic_listener)
 #ifdef _WIN32
     unregister_state_change(listener->s_listen->sk_linux_attr, listener);
 
-	// DW-1483 : WSK_EVENT_ACCEPT disable	
+	// DW-1483 WSK_EVENT_ACCEPT disable	
 	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
 	drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
 	if (!NT_SUCCESS(status)) {
@@ -1984,7 +1985,7 @@ static int dtt_connect(struct drbd_transport *transport)
 
 	
 			if (!dsocket && !csocket) {
-#ifdef _WSK_SOCKET_STATE // DW-1452: remove DW-1297 and apply path comparison
+#ifdef _WSK_SOCKET_STATE // DW-1452 remove DW-1297 and apply path comparison
 				struct drbd_connection *connection =
 					container_of(transport, struct drbd_connection, transport);
 				use_for_data = dtt_path_cmp_addr(first_path, connection);
@@ -2140,7 +2141,7 @@ randomize:
 	connect_to_path->path.established = true;
 	drbd_path_event(transport, &connect_to_path->path);
 #ifdef _WIN32
-	// DW-1398: closing listening socket here makes accepted socket be unavailable, putting listeners is moved to conn_disconnect()
+	// DW-1398 closing listening socket here makes accepted socket be unavailable, putting listeners is moved to conn_disconnect()
 	atomic_set(&transport->listening_done, true);
 #else
 	dtt_put_listeners(transport);
@@ -2151,7 +2152,7 @@ randomize:
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
         drbd_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
-		//DW-1896 
+		// DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
 		//but, since socket is NULL, BSOD can occur.

@@ -141,7 +141,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
         goto out;
     }
 
-	// DW-1300: get device and get reference.
+	// DW-1300 get device and get reference.
 	device = get_device_with_vol_ext(pvext, TRUE);
 #ifdef _WIN32_MULTIVOL_THREAD
     if (device)
@@ -158,7 +158,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
     }
 
     pvext->Active = FALSE;
-	// DW-1327: to allow I/O by drbdlock.
+	// DW-1327 to allow I/O by drbdlock.
 	SetDrbdlockIoBlock(pvext, FALSE);
 #ifdef _WIN32_MULTIVOL_THREAD
 	pvext->WorkThreadInfo = NULL;
@@ -169,7 +169,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 out:
     COUNT_UNLOCK(pvext);
 
-	// DW-1300: put device reference count when no longer use.
+	// DW-1300 put device reference count when no longer use.
 	if (device)
 		kref_put(&device->kref, drbd_destroy_device);
 
@@ -337,7 +337,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		}
 #endif
 
-		// DW-1432: Modified to see if command was successful 
+		// DW-1432 Modified to see if command was successful 
 		Status = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
 		drbd_emerg(NO_OBJECT,"IOCTL_MVOL_SET_LOGLV_MIN LogType:%d Minimum Level:%d status = %lu\n", pLoggingMinLv->nType, pLoggingMinLv->nErrLvMin, Status);
 		if (Status != STATUS_SUCCESS){

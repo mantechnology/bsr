@@ -117,7 +117,7 @@ extern int fault_devs;
 extern int two_phase_commit_fail;
 #endif
 
-// DW-1200: currently allocated request buffer size in byte.
+// DW-1200 currently allocated request buffer size in byte.
 extern atomic_t64 g_total_req_buf_bytes;
 
 extern char usermode_helper[];
@@ -142,7 +142,7 @@ extern char usermode_helper[];
 #else
 #define ID_SYNCER (-1ULL)
 #endif
-//DW-1601 Add define values for split peer request processing and already sync processing
+// DW-1601 Add define values for split peer request processing and already sync processing
 #define ID_SYNCER_SPLIT_DONE ID_SYNCER
 #define ID_SYNCER_SPLIT (ID_SYNCER - 1)
 
@@ -168,21 +168,21 @@ struct drbd_connection;
             __r->name, __d->vnr, __d->minor, drbd_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
     } while (0)
 
-// DW-1494 : (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
+// DW-1494 (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
 #define __drbd_printk_peer_device(level, peer_device, fmt, ...)	\
     do {								\
         const struct drbd_device *__d;				\
         const struct drbd_connection *__c;			\
         const struct drbd_resource *__r;			\
         int __cn;					\
-        /*rcu_read_lock();		_WIN32 // DW-	*/		\
+        /*rcu_read_lock();		_WIN32 // DW-938	*/		\
         __d = (peer_device)->device;				\
         __c = (peer_device)->connection;			\
         __r = __d->resource;					\
         __cn = __c->peer_node_id;	\
         printk(level "drbd %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
             __r->name, __d->vnr, __d->minor, __cn, drbd_disk_str((peer_device)->disk_state[NOW]), drbd_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
-        /*rcu_read_unlock();	_WIN32 // DW-	*/		\
+        /*rcu_read_unlock();	_WIN32 // DW-938	*/		\
 	    } while (0)
 
 #define __drbd_printk_resource(level, resource, fmt, ...) \
@@ -190,10 +190,10 @@ struct drbd_connection;
 
 #define __drbd_printk_connection(level, connection, fmt, ...) \
     do {	                    \
-        /*rcu_read_lock();	_WIN32 // DW- */ \
+        /*rcu_read_lock();	_WIN32 // DW-938 */ \
         printk(level "drbd %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, (connection)->resource->name,  \
         (connection)->peer_node_id, drbd_conn_str((connection)->cstate[NOW]), drbd_role_str((connection)->peer_role[NOW]), (connection)->flags,(connection)->resource->state_change_flags, __VA_ARGS__); \
-        /*rcu_read_unlock(); _WIN32 // DW- */ \
+        /*rcu_read_unlock(); _WIN32 // DW-938 */ \
 	    } while (0)
 
 // BSR-237 if object is empty (NO_OBJECT)
@@ -394,7 +394,7 @@ void drbd_printk_with_wrong_object_type(void);
 		} while (false)
 #endif
 
-//DW-1918 add output at debug level
+// DW-1918 add output at debug level
 #define DEBUG_BUG_ON(_condition)	\
 do {	\
 		if (_condition) {\
@@ -678,7 +678,7 @@ struct drbd_request {
 	struct bio *private_bio;
 #ifdef _WIN32
 	char*	req_databuf;
-	// DW-1237: add request buffer reference count to free earlier when no longer need buf.
+	// DW-1237 add request buffer reference count to free earlier when no longer need buf.
 	atomic_t req_databuf_ref;
 #endif
 	struct drbd_interval i;
@@ -801,7 +801,7 @@ struct drbd_request {
 };
 
 
-// DW-1191: out-of-sync information that doesn't rely on drbd request.
+// DW-1191 out-of-sync information that doesn't rely on drbd request.
 struct drbd_oos_no_req{
 	struct list_head oos_list_head;
 	sector_t sector;
@@ -884,11 +884,11 @@ struct drbd_peer_request {
 	void* peer_req_databuf;
 
 	struct {
-		ULONG_PTR s_bb;		/* DW-1601 start bitmap bit of split data */
-		ULONG_PTR e_next_bb;/* DW-1601 end next bitmap bit of split data  */
-		atomic_t *count;	/* DW-1601 total split request (bitmap bit) */		        
-		atomic_t *unmarked_count;    /* DW-1911 this is the count for the sector not written in the maked replication bit */
-		atomic_t *failed_unmarked; /* DW-1911 true, if unmarked writing fails */
+		ULONG_PTR s_bb;		// DW-1601 start bitmap bit of split data 
+		ULONG_PTR e_next_bb;// DW-1601 end next bitmap bit of split data  
+		atomic_t *count;	// DW-1601 total split request (bitmap bit) 		        
+		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
+		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 
 	};
 //#endif
 };
@@ -967,11 +967,11 @@ enum {
 	/* Hold reference in activity log */
 	__EE_IN_ACTLOG,
 
-	//DW-1601
+	// DW-1601
 	/* split request */
 	__EE_SPLIT_REQUEST,
 
-	//DW-1601
+	// DW-1601
 	/* last split request */
 	__EE_SPLIT_LAST_REQUEST,
 };
@@ -991,7 +991,7 @@ enum {
 #define EE_APPLICATION				(1<<__EE_APPLICATION)				//LSB bit field:13
 #define EE_RS_THIN_REQ				(1<<__EE_RS_THIN_REQ)				//LSB bit field:14
 #define EE_IN_ACTLOG				(1<<__EE_IN_ACTLOG)					//LSB bit field:15
-//DW-1601
+// DW-1601
 #define EE_SPLIT_REQUEST			(1<<__EE_SPLIT_REQUEST)				//LSB bit field:16 
 #define EE_SPLIT_LAST_REQUEST		(1<<__EE_SPLIT_LAST_REQUEST)				//LSB bit field:17
 
@@ -1011,7 +1011,7 @@ enum {
 	__NEW_CUR_UUID,        /* Set NEW_CUR_UUID as soon as state change visible */
 	AL_SUSPENDED,		/* Activity logging is currently suspended. */
 #ifndef	_WIN32
-	// DW-874: Since resync works per peer device and device flag is shared for all peers, it may get racy with more than one peer.
+	// DW-874 Since resync works per peer device and device flag is shared for all peers, it may get racy with more than one peer.
 	// To support resync for more than one peer, this flag must be set as a peer device flag.
 	AHEAD_TO_SYNC_SOURCE,   /* Ahead -> SyncSource queued */
 #endif
@@ -1052,19 +1052,19 @@ enum {
 	GOT_NEG_ACK,        /* got a neg_ack while primary, wait until peer_disk is lower than
                     D_UP_TO_DATE before becoming secondary! */
 #ifdef _WIN32
-	// DW-874: Moved from device flag. See device flag comment for detail.
+	// DW-874 Moved from device flag. See device flag comment for detail.
 	AHEAD_TO_SYNC_SOURCE,   /* Ahead -> SyncSource queued */
 #endif
 
-	// DW-955: add resync aborted flag to resume it later.
+	// DW-955 add resync aborted flag to resume it later.
 	RESYNC_ABORTED,			/* Resync has been aborted due to unsyncable (peer)disk state, need to resume it when it goes syncable. */
 
-	UNSTABLE_TRIGGER_CP,	/* DW-1341: Do Trigger when my stability is unstable for Crashed Primay wiered case*/
-	SEND_BITMAP_WORK_PENDING, /* DW-1447 : Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.*/
+	UNSTABLE_TRIGGER_CP,	// DW-1341 Do Trigger when my stability is unstable for Crashed Primay wiered case
+	SEND_BITMAP_WORK_PENDING, // DW-1447 Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.
 
-#ifdef _WIN32 //DW-1598 
+#ifdef _WIN32 // DW-1598 
 	CONNECTION_ALREADY_FREED,
-	//DW-1799 use for disk size comparison and setup.
+	// DW-1799 use for disk size comparison and setup.
 	INITIAL_SIZE_RECEIVED,
 #endif 
 };
@@ -1254,7 +1254,7 @@ enum {
 	RECONNECT,
 	CONN_DISCARD_MY_DATA,
 	SEND_STATE_AFTER_AHEAD_C,
-	//DW-1874
+	// DW-1874
 	FORCE_DISCONNECT,
 };
 
@@ -1380,7 +1380,7 @@ struct drbd_resource {
 					   and devices, connection and peer_devices lists */
 	struct mutex adm_mutex;		/* mutex to serialize administrative requests */
 #ifdef _WIN32
-	struct mutex vol_ctl_mutex;	/* DW-1317: chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. */
+	struct mutex vol_ctl_mutex;	// DW-1317 chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. 
 #endif
 	spinlock_t req_lock;
 	u64 dagtag_sector;		/* Protected by req_lock.
@@ -1552,7 +1552,7 @@ struct drbd_connection {
 	struct list_head net_ee;    /* zero-copy network send in progress */
 	struct list_head done_ee;   /* need to send P_WRITE_ACK */
 
-	struct list_head inactive_ee;	//DW-1696 : List of active_ee, sync_ee not processed at the end of the connection
+	struct list_head inactive_ee;	// DW-1696 List of active_ee, sync_ee not processed at the end of the connection
 
 	atomic_t done_ee_cnt;
 	struct work_struct send_acks_work;
@@ -1660,7 +1660,7 @@ struct drbd_peer_device {
 	struct drbd_device *device;
 	struct drbd_connection *connection;
 
-	// DW-1191: out-of-sync list and work that will be queued to send.
+	// DW-1191 out-of-sync list and work that will be queued to send.
 	struct list_head send_oos_list;
 	struct work_struct send_oos_work;
 	spinlock_t send_oos_lock;
@@ -1691,7 +1691,7 @@ struct drbd_peer_device {
 	unsigned long flags;
 #endif
 #ifdef _WIN32
-	//DW-1806 set after initial send.
+	// DW-1806 set after initial send.
 	KEVENT state_initial_send_event;
 #endif	
 
@@ -1729,7 +1729,7 @@ struct drbd_peer_device {
     ULONG_PTR rs_paused;
     /* skipped because csum was equal [unit BM_BLOCK_SIZE] */
 	ULONG_PTR rs_same_csum;
-	//DW-1886
+	// DW-1886
 	/* write completed size (failed and success) */
 	atomic_t64 rs_written;
 #else
@@ -1743,11 +1743,11 @@ struct drbd_peer_device {
 	unsigned long rs_paused;
 	/* skipped because csum was equal [unit BM_BLOCK_SIZE] */
 	unsigned long rs_same_csum;
-	//DW-1886
+	// DW-1886
 	/* write completed size (failed and success) */
 	atomic64_t rs_written;
 #endif
-	//DW-1886 add a log for resync to check the data flow.
+	// DW-1886 add a log for resync to check the data flow.
 	/* size of send resync data request */
 	ULONG_PTR rs_send_req;
 	/* size of receive resync data */
@@ -1823,7 +1823,7 @@ struct drbd_peer_device {
 	} todo;
 };
 
-//DW-1911
+// DW-1911
 struct drbd_marked_replicate {
 	ULONG_PTR bb;	/* current bitmap bit */
 	u8 marked_rl;    /* marks the sector as bit. (4k = 8sector = u8(8bit)) */
@@ -1925,20 +1925,20 @@ struct drbd_device {
 	struct mutex bm_resync_fo_mutex;
 // #ifdef _WIN32	// TODO : 관련 로직 리눅스에서 검증 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-	//DW-1911 marked replication list, used for resync
+	// DW-1911 marked replication list, used for resync
 	//does not use lock because it guarantees synchronization for the use of marked_rl_list.
 	//Use lock if you cannot guarantee future marked_rl_list synchronization
 	struct list_head marked_rl_list;
 
-	//DW-1904 range set from out of sync to in sync as replication data.
+	// DW-1904 range set from out of sync to in sync as replication data.
 	//used to determine whether to replicate during resync.
 	ULONG_PTR s_rl_bb;
 	ULONG_PTR e_rl_bb;
 
-	//DW-1904 last recv resync data bitmap bit
+	// DW-1904 last recv resync data bitmap bit
 	ULONG_PTR e_resync_bb;
 
-	//DW-1911 hit resync in progress hit marked replicate,in sync count
+	// DW-1911 hit resync in progress hit marked replicate,in sync count
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
 #endif
@@ -1970,8 +1970,8 @@ struct drbd_device {
 	struct submit_worker submit;
 	bool susp_quorum[2];		/* IO suspended quorum lost */
 
-	/* DW-1755 disk error information structure is managed as a list, 
-	* and the error count is stored separately for the status command.
+	// DW-1755 disk error information structure is managed as a list, 
+	/* and the error count is stored separately for the status command.
 	Disk errors rarely occur, and even if they occur, 
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
@@ -2635,7 +2635,8 @@ void drbd_resync_after_changed(struct drbd_device *device);
 extern bool drbd_stable_sync_source_present(struct drbd_peer_device *, enum which_state);
 extern void drbd_start_resync(struct drbd_peer_device *, enum drbd_repl_state);
 
-// DW-1314, DW-1315
+// DW-1314
+// DW-1315
 #ifdef _WIN32_RCU_LOCKED
 extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which, bool locked);
 #else
@@ -2808,7 +2809,7 @@ extern enum drbd_state_rv drbd_support_2pc_resize(struct drbd_resource *resource
 extern enum determine_dev_size
 drbd_commit_size_change(struct drbd_device *device, struct resize_parms *rs, u64 nodes_to_reach);
 
-#ifdef _WIN32 // DW-1607 : get the real size of the meta disk.
+#ifdef _WIN32 // DW-1607 get the real size of the meta disk.
 static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
@@ -3220,7 +3221,7 @@ static inline sector_t drbd_get_max_capacity(struct drbd_backing_dev *bdev)
 	switch (bdev->md.meta_dev_idx) {
 	case DRBD_MD_INDEX_INTERNAL:
 	case DRBD_MD_INDEX_FLEX_INT:
-#ifdef _WIN32 // DW-1469 : get real size
+#ifdef _WIN32 // DW-1469 get real size
 		s = drbd_get_capacity(bdev->backing_bdev->bd_contains)
 #else
 		s = drbd_get_capacity(bdev->backing_bdev)
@@ -3325,8 +3326,8 @@ drbd_post_work(struct drbd_resource *resource, int work_bit)
 }
 
 #ifdef _WIN32
-/* DW-1755 passthrough policy
- * Synchronization objects used in the process of forwarding events to events2 
+// DW-1755 passthrough policy
+ /* Synchronization objects used in the process of forwarding events to events2 
  * only work when irql is less than APC_LEVEL. 
  * However, because the completion routine can operate in DISPATCH_LEVEL, 
  * it must be handled through the work thread.*/
@@ -3625,10 +3626,10 @@ static inline bool drbd_state_is_stable(struct drbd_device *device)
 
 			/* Allow IO in BM exchange states with new protocols */
 		case L_WF_BITMAP_S:
-			// DW-1121: sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
+			// DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
 			//if (peer_device->connection->agreed_pro_version < 96)
 #ifdef _WIN32
-			// DW-1391 : Allow IO while getting the volume bitmap.
+			// DW-1391 Allow IO while getting the volume bitmap.
 			if (atomic_read(&device->resource->bGetVolBitmapDone))
 #endif
 				stable = false;
@@ -3720,14 +3721,14 @@ static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 {
 	bool rv = false;
 	int nr_requests;
-	// DW-1200: request buffer maximum size.
+	// DW-1200 request buffer maximum size.
 	LONGLONG req_buf_size_max;
 
 	spin_lock_irq(&device->resource->req_lock);
 	nr_requests = device->resource->res_opts.nr_requests;
 	rv = may_inc_ap_bio(device) && (atomic_read(&device->ap_bio_cnt[rw]) < nr_requests);
 
-	// DW-1200: postpone I/O if current request buffer size is too big.
+	// DW-1200 postpone I/O if current request buffer size is too big.
 	req_buf_size_max = ((LONGLONG)device->resource->res_opts.req_buf_size << 10);    // convert to byte
 	if (req_buf_size_max < ((LONGLONG)DRBD_REQ_BUF_SIZE_MIN << 10) ||
 		req_buf_size_max >((LONGLONG)DRBD_REQ_BUF_SIZE_MAX << 10))
