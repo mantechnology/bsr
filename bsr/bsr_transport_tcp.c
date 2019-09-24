@@ -2307,11 +2307,10 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 		container_of(transport, struct drbd_tcp_transport, transport);
 	struct socket *socket = tcp_transport->stream[stream];
 
-#ifdef _WIN32 // DW-674 safely uncork operation, if socket is not NULL.(drbd 8.4.x referenced)
+	// DW-674 safely uncork operation, if socket is not NULL.(drbd 8.4.x referenced)
 	if(!socket) { 
 		return -EIO;
 	}
-#endif
 	
 #ifndef _WIN32
 	mm_segment_t oldfs = get_fs();
