@@ -44,7 +44,6 @@
 #define minor_to_letter(m)	('C'+(m))
 #define minor_to_mdev minor_to_device
 #define drbd_conf drbd_device
-#define _WIN32_V9_DW_663_LINBIT_PATCH 
 #define DRBD_GENERIC_POOL_TAG       ((ULONG)'dbrd')
 
 #define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"		/// used in NETLINK
