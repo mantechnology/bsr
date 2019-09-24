@@ -726,10 +726,10 @@ static void __state_change_unlock(struct drbd_resource *resource, unsigned long 
 	if (get_t_state(&resource->worker) == RUNNING) {
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN32 
-	        while (wait_for_completion(done) == -DRBD_SIGKILL){
+	        while (wait_for_completion(done) == -DRBD_SIGKILL) {
 	            drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	        }
-#else
+#else // _LIN
 			wait_for_completion(done);
 #endif
 		}
