@@ -10713,11 +10713,7 @@ static int got_BarrierAck(struct drbd_connection *connection, struct packet_info
 			//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
 			//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
 		    atomic_read64(&connection->ap_in_flight) == 0 &&
-#ifdef _WIN32
 			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
-#else
-			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->device->flags)) {
-#endif
 			peer_device->start_resync_side = L_SYNC_SOURCE;
 			peer_device->start_resync_timer.expires = jiffies + HZ;
 			add_timer(&peer_device->start_resync_timer);
