@@ -8461,9 +8461,9 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 		/* if we have both been inconsistent, and the peer has been
 		 * forced to be UpToDate with --force */
 		// DW-778 
-		if (device->disk_state[NOW] == D_INCONSISTENT || (peer_state.disk == D_INCONSISTENT &&
+		if ((device->disk_state[NOW] == D_INCONSISTENT || peer_state.disk == D_INCONSISTENT) &&
 			// DW-1359 to avoid start resync when it's already running.
-			(peer_state.conn < L_SYNC_SOURCE || peer_state.conn > L_PAUSED_SYNC_T)))
+			(peer_state.conn < L_SYNC_SOURCE || peer_state.conn > L_PAUSED_SYNC_T))
 			consider_resync |= test_bit(CONSIDER_RESYNC, &peer_device->flags);
 		/* if we had been plain connected, and the admin requested to
 		 * start a sync by "invalidate" or "invalidate-remote" */
