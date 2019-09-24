@@ -109,8 +109,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	memset(req, 0, sizeof(*req));
 #ifdef _WIN32
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
-	if (!req->req_databuf)
-	{
+	if (!req->req_databuf) {
 		drbd_err(NO_OBJECT,"req->req_databuf failed\n");
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
 		return NULL;
@@ -120,8 +119,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
 #endif
 
-    if (drbd_req_make_private_bio(req, bio_src) == false)
-    {
+    if (drbd_req_make_private_bio(req, bio_src) == false) {
 		// DW-689
 #ifdef _WIN32
 		kfree2(req->req_databuf);
@@ -199,11 +197,9 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
 	}
 	rcu_read_unlock();
 
-	if (!queued)
-	{
+	if (!queued) {
 #ifdef _WIN32
-        if (req->req_databuf)
-        {
+        if (req->req_databuf) {
             // DW-596 required to verify to free req_databuf at this point
             kfree2(req->req_databuf);
         }
@@ -361,8 +357,7 @@ void drbd_req_destroy(struct kref *kref)
 
 			// DW-1191 this req needs to go into bitmap, and notify peer if possible.
 			set_bits = drbd_set_sync(device, req->i.sector, req->i.size, bits, mask);			
-			if (set_bits)
-			{
+			if (set_bits) {
 				for_each_peer_device(peer_device, device) {
 					int bitmap_index = peer_device->bitmap_index;
 
@@ -376,8 +371,7 @@ void drbd_req_destroy(struct kref *kref)
 						drbd_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct drbd_oos_no_req), 0, 'OSDW');
-						if (send_oos)
-						{
+						if (send_oos) {
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
 							send_oos->sector = req->i.sector;
 							send_oos->size = req->i.size;
@@ -439,8 +433,7 @@ void drbd_req_destroy(struct kref *kref)
 				peer_ack_req = NULL;
 			} else {
 #ifdef _WIN32
-				if (peer_ack_req->req_databuf)
-				{
+				if (peer_ack_req->req_databuf) {
 					kfree2(peer_ack_req->req_databuf);
 				}
 				ExFreeToNPagedLookasideList(&drbd_request_mempool, peer_ack_req);
@@ -462,8 +455,7 @@ void drbd_req_destroy(struct kref *kref)
 			resource->last_peer_acked_dagtag = req->dagtag_sector;
 	} else {
 #ifdef _WIN32
-    	if (req->req_databuf)
-    	{
+    	if (req->req_databuf) {
     		kfree2(req->req_databuf);
     	}
         ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
@@ -825,8 +817,7 @@ static int drbd_req_put_completion_ref(struct drbd_request *req, struct bio_and_
 {
 	D_ASSERT(req->device, m || (req->rq_state[0] & RQ_POSTPONED));
 #ifdef DRBD_TRACE
-	if (put > 1)
-	{
+	if (put > 1) {
         drbd_debug(NO_OBJECT,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
 	}
 #endif
@@ -993,8 +984,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		atomic_inc(&req->completion_ref);
 		
 #ifdef _WIN32_NETQUEUED_LOG
-		if(atomic_inc_return(&req->nq_ref) == 1)
-		{
+		if(atomic_inc_return(&req->nq_ref) == 1) {
 			list_add_tail(&req->nq_requests, &device->resource->net_queued_log);
 		}
 #endif
@@ -1044,10 +1034,8 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 #ifdef _WIN32
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
-	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED))
-	{
-		if (0 == atomic_dec(&req->req_databuf_ref))
-		{
+	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
+		if (0 == atomic_dec(&req->req_databuf_ref)) {
 			kfree2(req->req_databuf);
 		}
 	}
@@ -1064,8 +1052,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		++c_put;
 
 #ifdef _WIN32_NETQUEUED_LOG
-		if (atomic_dec(&req->nq_ref) == 0)
-		{
+		if (atomic_dec(&req->nq_ref) == 0) {
 			list_del_init(&req->nq_requests);
 		}
 #endif

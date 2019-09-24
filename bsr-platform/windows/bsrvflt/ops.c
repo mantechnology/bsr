@@ -132,8 +132,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	struct drbd_device *device = NULL;
     COUNT_LOCK(pvext);
 	
-    if (!pvext->Active)
-	{
+    if (!pvext->Active) {
 		_snprintf(Message, sizeof(Message) - 1, "%wZ volume is not dismounted", &pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
 		drbd_err(NO_OBJECT,"%s\n", Message);
@@ -212,8 +211,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 		VolumeExtension = mvolSearchDevice( pVolumeInfo->PhysicalDeviceName );
 		MVOL_UNLOCK();
 
-		if( VolumeExtension == NULL )
-		{
+		if( VolumeExtension == NULL ) {
 			mvolLogError( DeviceObject, 322, MSG_NO_DEVICE, STATUS_NO_SUCH_DEVICE );
 			drbd_err(NO_OBJECT,"cannot find volume, PD=%ws\n", pVolumeInfo->PhysicalDeviceName);
 			return STATUS_NO_SUCH_DEVICE;
@@ -226,8 +224,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 
 	pVolumeSize = (PLARGE_INTEGER) Irp->AssociatedIrp.SystemBuffer;
 	status = mvolGetVolumeSize( VolumeExtension->TargetDeviceObject, pVolumeSize );
-	if( !NT_SUCCESS(status) )
-	{
+	if( !NT_SUCCESS(status) ) {
 		mvolLogError( VolumeExtension->DeviceObject, 323, MSG_CALL_DRIVER_ERROR, status );
 		drbd_err(NO_OBJECT,"cannot get volume size, err=0x%x\n", status);
 	}

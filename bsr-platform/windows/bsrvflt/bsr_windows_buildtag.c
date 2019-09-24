@@ -8,8 +8,7 @@
 
 const char *drbd_buildtag(void)
 {
-	if (strcmp(BUILD_VERSION, "") == 0)
-	{
+	if (strcmp(BUILD_VERSION, "") == 0) {
 		return "";
 	}
 	else

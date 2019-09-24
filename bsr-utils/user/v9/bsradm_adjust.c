@@ -904,8 +904,7 @@ struct d_resource *running_res_by_name(const char *name, bool parse)
 	}
 
 	// DW-889
-	if (parse && !adjust_more_than_one_resource)
-	{
+	if (parse && !adjust_more_than_one_resource) {
 		return parse_drbdsetup_show(name);
 	}
 

@@ -108,8 +108,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 	ring_buffer *ring;
 	signed long long sz = sizeof(*ring) + length;
 
-	if (length == 0 || length > DRBD_SNDBUF_SIZE_MAX)
-	{
+	if (length == 0 || length > DRBD_SNDBUF_SIZE_MAX) {
 		drbd_err(NO_OBJECT,"bab(%s) size(%d) is bad. max(%d)\n", name, length, DRBD_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
@@ -151,8 +150,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 
 void destroy_ring_buffer(ring_buffer *ring)
 {
-	if (ring)
-	{
+	if (ring) {
 		kfree2(ring->static_big_buf);
 		//ExFreePool(ring);
 		//kfree2(ring);
@@ -162,8 +160,7 @@ void destroy_ring_buffer(ring_buffer *ring)
 signed long long get_ring_buffer_size(ring_buffer *ring)
 {
 	signed long long s;
-	if (!ring)
-	{
+	if (!ring) {
 		return 0;
 	}
 

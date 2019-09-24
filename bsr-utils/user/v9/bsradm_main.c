@@ -878,8 +878,7 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 	struct d_resource *res = ctx->res;
 	char optionName[64] = "";
 	
-	if (sh_varname)
-	{
+	if (sh_varname) {
 		int len = 0;
 		strcpy(optionName, sh_varname);
 		len = strlen(optionName);
@@ -891,8 +890,7 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 		}
 
 		struct d_option* opt = find_opt(&res->res_options, optionName);
-		if (opt)
-		{
+		if (opt) {
 			printf("%s\n\n", esc(opt->value));
 		}
 		else
@@ -1156,15 +1154,13 @@ DWORD add_registry_volume(char * letter)
 
     status = RegCreateKeyExA(HKEY_LOCAL_MACHINE, gRegistryPath, 0, (PWCHAR)NULL, REG_OPTION_NON_VOLATILE,
     					   	KEY_ALL_ACCESS, (LPSECURITY_ATTRIBUTES) NULL, &hKey, &disposition);
-    if ( ERROR_SUCCESS != status )
-    {
+    if ( ERROR_SUCCESS != status ) {
     	printf("Failed to RegCreateKeyEx(). status(0x%x)\n", status);
     	return status;
     }
 
     status = RegSetValueExA(hKey, letter, 0, REG_BINARY, 0, 0);
-    if ( ERROR_SUCCESS != status )
-    {
+    if ( ERROR_SUCCESS != status ) {
         RegCloseKey(hKey);
     	printf( "Failed to RegSetValueEx status(0x%x)\n", status );
     	return status;
@@ -1184,8 +1180,7 @@ DWORD del_registry_volume(char * letter)
     DWORD cbRegLetter = 256, cbVolGuid = 256;
 
     status = RegOpenKeyExA( HKEY_LOCAL_MACHINE, gRegistryPath, 0, KEY_ALL_ACCESS, &hKey );
-    if (ERROR_SUCCESS != status)
-    {
+    if (ERROR_SUCCESS != status) {
         return status;
     }
 
@@ -3611,8 +3606,7 @@ int main(int argc, char **argv)
 	}
 
 	// DW-889 parsing running_config before post_parse().
-	if (cmd != &connect_cmd && cmd != &adjust_cmd)
-	{
+	if (cmd != &connect_cmd && cmd != &adjust_cmd) {
 		char *temp_file = config_file;
 		int temp_config_valid = config_valid;
 		if (!resource_names[0] || !strcmp(resource_names[0], "all")) 
@@ -3738,8 +3732,7 @@ int main(int argc, char **argv)
 				if (!ctx.res) {
 					// DW-889
 					ctx.res = res_by_name(resource_names[i]);
-					if(ctx.res && ctx.res->ignore)
-					{
+					if(ctx.res && ctx.res->ignore) {
 						err("'%s' ignored, invalid host.\n", resource_names[i]);
 					}
 					else

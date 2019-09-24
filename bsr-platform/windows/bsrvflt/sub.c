@@ -61,8 +61,7 @@ mvolRunIrpSynchronous(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	IoCopyCurrentIrpStackLocationToNext(Irp);
 	IoSetCompletionRoutine(Irp, mvolIrpCompletion, &event, TRUE, TRUE, TRUE);
 	status = IoCallDriver(VolumeExtension->TargetDeviceObject, Irp);
-	if (status == STATUS_PENDING)
-	{
+	if (status == STATUS_PENDING) {
 		KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, (PLARGE_INTEGER) NULL);
 		status = Irp->IoStatus.Status;
 	}
@@ -132,8 +131,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	}
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbd_err(NO_OBJECT,"cannot remove device, status=0x%x\n", status);
 	}
 
@@ -142,13 +140,11 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	IoDeleteDevice(DeviceObject);
 
 #ifdef _WIN32_MULTIVOL_THREAD
-	if (VolumeExtension->WorkThreadInfo)
-	{
+	if (VolumeExtension->WorkThreadInfo) {
 		VolumeExtension->WorkThreadInfo = NULL;		
 	}
 #else
-	if (VolumeExtension->WorkThreadInfo.Active)
-	{
+	if (VolumeExtension->WorkThreadInfo.Active) {
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
 		drbd_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
 	}
@@ -162,10 +158,8 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	if (VolumeExtension->dev) {
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, FALSE);
-		if (device)
-		{
-			if (get_disk_state2(device) >= D_INCONSISTENT)
-			{
+		if (device) {
+			if (get_disk_state2(device) >= D_INCONSISTENT) {
 				drbd_chk_io_error(device, 1, DRBD_FORCE_DETACH);
 
 				long timeo = 3 * HZ;
@@ -214,8 +208,7 @@ mvolDeviceUsage(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	PDEVICE_OBJECT		attachedDeviceObject;
 
 	attachedDeviceObject = IoGetAttachedDeviceReference(DeviceObject);
-	if (attachedDeviceObject)
-	{
+	if (attachedDeviceObject) {
 		if (attachedDeviceObject == DeviceObject ||
 			(attachedDeviceObject->Flags & DO_POWER_PAGABLE))
 		{
@@ -226,8 +219,7 @@ mvolDeviceUsage(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 
-	if (!(VolumeExtension->TargetDeviceObject->Flags & DO_POWER_PAGABLE))
-	{
+	if (!(VolumeExtension->TargetDeviceObject->Flags & DO_POWER_PAGABLE)) {
 		DeviceObject->Flags &= ~DO_POWER_PAGABLE;
 	}
 
@@ -284,11 +276,9 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 	struct drbd_device*			device = NULL;
 
 	irpSp = IoGetCurrentIrpStackLocation(Irp);
-	if (Irp->MdlAddress)
-	{
+	if (Irp->MdlAddress) {
 		buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
-		if (buffer == NULL)
-		{
+		if (buffer == NULL) {
 			return STATUS_INSUFFICIENT_RESOURCES;
 		}
 	}
@@ -297,8 +287,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
-	if (Io == IRP_MJ_WRITE)
-	{
+	if (Io == IRP_MJ_WRITE) {
 		offset.QuadPart = irpSp->Parameters.Write.ByteOffset.QuadPart;
 		length = irpSp->Parameters.Write.Length;
 	}
@@ -320,14 +309,12 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		loop = length / slice;
 		rest = length % slice;
 
-		if (loop == 0)
-		{
+		if (loop == 0) {
 			splitted_io_count = 1;
 		}
 		else
 		{
-			if (rest)
-			{
+			if (rest) {
 				splitted_io_count = loop + 1;
 			}
 			else
@@ -336,8 +323,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 			}
 
 			splitInfo = kzalloc(sizeof(struct splitInfo), 0, '95DW');
-			if (!splitInfo)
-			{
+			if (!splitInfo) {
 				status = STATUS_NO_MEMORY;
 				goto fail_put_dev;
 			}
@@ -349,11 +335,9 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		{
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
-			if (Io == IRP_MJ_READ)
-			{
+			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(slice, 0, 'A5DW');
-				if (!newbuf)
-				{
+				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
 					drbd_err(NO_OBJECT,"HOOKER malloc fail!!!\n");
 					goto fail_put_dev;
@@ -376,15 +360,12 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 			buffer = (char *) buffer + slice;
 		}
 
-		if (rest)
-		{
+		if (rest) {
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
-			if (Io == IRP_MJ_READ)
-			{
+			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(rest, 0, 'B5DW');
-				if (!newbuf)
-				{
+				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
 					drbd_err(NO_OBJECT,"HOOKER rest malloc fail!!\n");
 					goto fail_put_dev;
@@ -559,14 +540,12 @@ mvolGetDiskPerf(PDEVICE_OBJECT TargetDeviceObject, PDISK_PERFORMANCE pDiskPerf)
 											TargetDeviceObject, NULL, 0,
 											pDiskPerf, sizeof(DISK_PERFORMANCE),
 											FALSE, &event, &ioStatus);
-	if (!newIrp)
-	{
+	if (!newIrp) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
 	status = IoCallDriver(TargetDeviceObject, newIrp);
-	if (status == STATUS_PENDING)
-	{
+	if (status == STATUS_PENDING) {
 		KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, (PLARGE_INTEGER) NULL);
 		status = ioStatus.Status;
 	}
@@ -583,8 +562,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	PWCHAR				wp;
 	USHORT				len, deviceNameLength;
 	
-	if( mvolRootDeviceObject == DeviceObject )
-	{
+	if( mvolRootDeviceObject == DeviceObject ) {
 		RootExtension = DeviceObject->DeviceExtension;
 		deviceNameLength = RootExtension->PhysicalDeviceNameLength;
 	}
@@ -597,8 +575,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	// DW-1816 remove unnecessary allocate
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
-	if (pLogEntry == NULL)
-	{
+	if (pLogEntry == NULL) {
 		drbd_err(NO_OBJECT,"cannot alloc Log Entry\n");
 		return;
 	}
@@ -647,8 +624,7 @@ void save_to_system_event(char * buf, int length, int level_index)
 	while (offset < length)
 	{
 		int line_sz = WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", p);
-		if (line_sz > 0)
-		{
+		if (line_sz > 0) {
 			offset = offset + (line_sz / 2);
 			p = buf + offset;
 		}
@@ -845,8 +821,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 	/* total packet size */
 	int l_TotalSize;
 #if 0
-    if (KeGetCurrentIrql() > PASSIVE_LEVEL) // DRBD_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL)
-    {
+    if (KeGetCurrentIrql() > PASSIVE_LEVEL) // DRBD_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
         // DRBD_DOC: you should consider to process EVENTLOG
         drbd_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
         return 1;
@@ -931,8 +906,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 		mvolRootDeviceObject, (UCHAR) l_TotalSize);
 
 	/* Check allocation */
-	if (l_pErrorLogEntry != NULL)
-	{ /* OK */
+	if (l_pErrorLogEntry != NULL) { /* OK */
 
 		/* Set the error log entry header */
 		l_pErrorLogEntry->ErrorCode = pi_ErrorCode;
@@ -1002,8 +976,7 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	}
 	
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
-	if (0 == usCaptured)
-	{
+	if (0 == usCaptured) {
 		drbd_err(NO_OBJECT,"Captured frame count is 0\n");
 		return 0;
 	}
@@ -1019,8 +992,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	CHAR buf[MAX_DRBDLOG_BUF] = { 0, };
 
 	// getting stack frames may overload with frequent bitmap operation, just return if oos trace is disabled.
-	if (FALSE == atomic_read(&g_oos_trace))
-	{
+	if (FALSE == atomic_read(&g_oos_trace)) {
 		return;
 	}
 
@@ -1028,8 +1000,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 
 	stackFrames = (PVOID*)ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * frameCount, '22DW');
 
-	if (NULL == stackFrames)
-	{
+	if (NULL == stackFrames) {
 		drbd_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
 		return;
 	}
@@ -1047,8 +1018,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	
 	printk(buf);
 
-	if (NULL != stackFrames)
-	{
+	if (NULL != stackFrames) {
 		ExFreePool(stackFrames);
 		stackFrames = NULL;
 	}

@@ -223,12 +223,10 @@ main(int argc, char* argv [])
 
 	for (argIndex = 1; argIndex < argc; argIndex++)
 	{
-		if (strcmp(argv[argIndex], "/get_volume_size") == 0)
-		{
+		if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
 			GetVolumeSizeFlag++;
 		}
-        else if (strcmp(argv[argIndex], "/delayedack_enable") == 0)
-        {
+        else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
             DelayedAckEnableFlag++;
             argIndex++;
 
@@ -237,8 +235,7 @@ main(int argc, char* argv [])
             else
                 usage();
         }
-        else if (strcmp(argv[argIndex], "/nodelayedack") == 0)
-        {
+        else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
             DelayedAckDisableFlag++;
             argIndex++;
 
@@ -247,8 +244,7 @@ main(int argc, char* argv [])
             else
                 usage();
         }
-		else if (strcmp(argv[argIndex], "/get_log") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/get_log") == 0) {
 			argIndex++;
 			GetLog++;
 
@@ -261,12 +257,10 @@ main(int argc, char* argv [])
 
 			// DW-1629
 			for (int num = 0; num < 2; num++) {
-				if (argIndex < argc)
-				{
+				if (argIndex < argc) {
 					if (strcmp(argv[argIndex], "oos") == 0)
 						OosTrace++;
-					else if (!resourceName)
-					{
+					else if (!resourceName) {
 						resourceName = argv[argIndex];
 						//6 additional parsing data length (">drbd ")
 						if (strlen(resourceName) > MAX_PATH - 6)
@@ -283,8 +277,7 @@ main(int argc, char* argv [])
 #endif
 		}
 #ifdef _WIN32_DEBUG_OOS
-		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0) {
 			argIndex++;
 			ConvertOosLog++;
 
@@ -294,8 +287,7 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (strcmp(argv[argIndex], "/search_oos_log") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/search_oos_log") == 0) {
 			argIndex++;
 			SearchOosLog++;
 
@@ -313,8 +305,7 @@ main(int argc, char* argv [])
 				usage();
 		}
 #endif
-		else if (strcmp(argv[argIndex], "/write_log") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/write_log") == 0) {
 			argIndex++;
 			WriteLog++;
 			
@@ -331,8 +322,7 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (strcmp(argv[argIndex], "/handler_use") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/handler_use") == 0) {
 			HandlerUseFlag++;
 			argIndex++;
 
@@ -341,8 +331,7 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (!_stricmp(argv[argIndex], "/letter") || !_stricmp(argv[argIndex], "/l"))
-		{
+		else if (!_stricmp(argv[argIndex], "/letter") || !_stricmp(argv[argIndex], "/l")) {
 			argIndex++;
 
 			if (argIndex < argc)
@@ -350,16 +339,13 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (!strcmp(argv[argIndex], "/proc/drbd"))
-		{
+		else if (!strcmp(argv[argIndex], "/proc/drbd")) {
 			ProcDrbdFlag++;
 		}
-		else if (!strcmp(argv[argIndex], "/status") || !strcmp(argv[argIndex], "/s"))
-		{
+		else if (!strcmp(argv[argIndex], "/status") || !strcmp(argv[argIndex], "/s")) {
 			ProcDrbdFlagWithLetter++;
 		}
-		else if (!_stricmp(argv[argIndex], "/d"))
-        {
+		else if (!_stricmp(argv[argIndex], "/d")) {
             DismountFlag++;
             argIndex++;
 
@@ -369,8 +355,7 @@ main(int argc, char* argv [])
                 usage();
         }
 		/*
-		else if (!_stricmp(argv[argIndex], "/fd") || !_stricmp(argv[argIndex], "/df"))
-        {
+		else if (!_stricmp(argv[argIndex], "/fd") || !_stricmp(argv[argIndex], "/df")) {
             Force = 1;
             DismountFlag++;
             argIndex++;
@@ -381,8 +366,7 @@ main(int argc, char* argv [])
                 usage();
         }
 		*/
-        else if (!_stricmp(argv[argIndex], "/m"))
-        {
+        else if (!_stricmp(argv[argIndex], "/m")) {
             MountFlag++;
             argIndex++;
 
@@ -417,25 +401,20 @@ main(int argc, char* argv [])
 			}
 			
 		}
-		else if (strcmp(argv[argIndex], "/minlog_lv") == 0)
-		{
+		else if (strcmp(argv[argIndex], "/minlog_lv") == 0) {
 			argIndex++;
 			SetMinLogLv++;
 
 			// first argument indicates logging type.
-			if (argIndex < argc)
-			{
-				if (strcmp(argv[argIndex], "sys") == 0)
-				{
+			if (argIndex < argc) {
+				if (strcmp(argv[argIndex], "sys") == 0) {
 					lml.nType = LOGGING_TYPE_SYSLOG;
 				}
-				else if (strcmp(argv[argIndex], "dbg") == 0)
-				{
+				else if (strcmp(argv[argIndex], "dbg") == 0) {
 					lml.nType = LOGGING_TYPE_DBGLOG;
 				}
 #ifdef _WIN32_DEBUG_OOS
-				else if (strcmp(argv[argIndex], "oos") == 0)
-				{
+				else if (strcmp(argv[argIndex], "oos") == 0) {
 					lml.nType = LOGGING_TYPE_OOSLOG;
 				}
 #endif
@@ -445,27 +424,22 @@ main(int argc, char* argv [])
 
 			// second argument indicates minimum logging level.
 			argIndex++;
-			if (argIndex < argc)
-			{
+			if (argIndex < argc) {
 				lml.nErrLvMin = atoi(argv[argIndex]);
 			}
 			else
 				usage();
 		}
-		else if (!strcmp(argv[argIndex], "/drbdlock_status"))
-		{
+		else if (!strcmp(argv[argIndex], "/drbdlock_status")) {
 			Drbdlock_status++;
 		}
-		else if (!strcmp(argv[argIndex], "/info"))
-		{
+		else if (!strcmp(argv[argIndex], "/info")) {
 			VolumesInfoFlag++;
 		}
-		else if (!strcmp(argv[argIndex], "--verbose"))
-		{
+		else if (!strcmp(argv[argIndex], "--verbose")) {
 			Verbose++;
 		}
-		else if (!strcmp(argv[argIndex], "/get_log_lv"))
-		{
+		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
 			GetLogLv++;
 		}
 		else
@@ -474,8 +448,7 @@ main(int argc, char* argv [])
 		}
 	}
 
-	if (GetVolumeSizeFlag)
-	{
+	if (GetVolumeSizeFlag) {
 		MVOL_VOLUME_INFO	srcVolumeInfo;
 		LARGE_INTEGER		volumeSize;
 
@@ -484,8 +457,7 @@ main(int argc, char* argv [])
 		memset(&srcVolumeInfo, 0, sizeof(MVOL_VOLUME_INFO));
 
 		res = MVOL_GetVolumeInfo(Letter, &srcVolumeInfo);
-		if (res)
-		{
+		if (res) {
 			printf("cannot get src volume info, Drive=%c:, err=%d\n",
 				Letter, GetLastError());
 			return res;
@@ -493,8 +465,7 @@ main(int argc, char* argv [])
 
 		volumeSize.QuadPart = 0;
 		res = MVOL_GetVolumeSize(srcVolumeInfo.PhysicalDeviceName, &volumeSize);
-		if (res)
-		{
+		if (res) {
 			printf("cannot MVOL_GetVolumeSize, err=%d\n", res);
 			return res;
 		}
@@ -504,13 +475,11 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-	if (ProcDrbdFlag)
-	{
+	if (ProcDrbdFlag) {
 		MVOL_VOLUME_INFO VolumeInfo = {0,};
 
 		res = MVOL_GetStatus( &VolumeInfo );
-		if( res != ERROR_SUCCESS )
-		{
+		if( res != ERROR_SUCCESS ) {
 			fprintf( stderr, "Failed MVOL_GetStatus. Err=%u\n", res );
 		}
 		else
@@ -521,8 +490,7 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-	if (ProcDrbdFlagWithLetter)
-	{
+	if (ProcDrbdFlagWithLetter) {
 		MVOL_VOLUME_INFO VolumeInfo = { 0, };
 		CHAR tmpSeq[sizeof(VolumeInfo.Seq)] = { NULL };
 		CHAR *line, *cline;
@@ -530,8 +498,7 @@ main(int argc, char* argv [])
 		CHAR buffer[2] = { NULL };
 
 		res = MVOL_GetStatus(&VolumeInfo);
-		if (res != ERROR_SUCCESS)
-		{
+		if (res != ERROR_SUCCESS) {
 			fprintf(stderr, "Failed MVOL_GetStatus. Err=%u\n", res);
 		}
 		else
@@ -540,8 +507,7 @@ main(int argc, char* argv [])
 			line = strtok_s(VolumeInfo.Seq, "\n", &context);
 			while (line)
 			{
-				if (strstr(line, ": cs:"))
-				{
+				if (strstr(line, ": cs:")) {
 					cline = (char *)malloc(strlen(line) + 1);
 					strcpy_s(cline, strlen(line) + 1, line);
 					buffer[0] = atoi(strtok_s(NULL, ":", &cline)) + 67;
@@ -561,34 +527,28 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-    if (DelayedAckEnableFlag)
-    {	
+    if (DelayedAckEnableFlag) {	
 		res = MVOL_SetDelayedAck(addr, "enable");
-        if (res != ERROR_SUCCESS)
-        {
+        if (res != ERROR_SUCCESS) {
             fprintf(stderr, "Cannot enable DelayedAck. Err=%u\n", res);
         }
 
         return res;
     }
 
-    if (DelayedAckDisableFlag)
-    {
+    if (DelayedAckDisableFlag) {
         res = MVOL_SetDelayedAck(addr, "disable");
-        if (res != ERROR_SUCCESS)
-        {
+        if (res != ERROR_SUCCESS) {
             fprintf(stderr, "Cannot disable DelayedAck. Err=%u\n", res);
         }
 
         return res;
     }
 
-    if (DismountFlag)
-    {
+    if (DismountFlag) {
         res = MVOL_DismountVolume(Letter, Force);
 
-        if (res != ERROR_SUCCESS)
-        {
+        if (res != ERROR_SUCCESS) {
             fprintf(stderr, "Failed MVOL_DismountVolume. Err=%u\n", res);
         }
     }
@@ -610,52 +570,43 @@ main(int argc, char* argv [])
 		res = MVOL_SetMinimumLogLevel(&lml);
 	}
 
-	if (GetLog)
-	{
+	if (GetLog) {
 		//res = CreateLogFromEventLog( (LPCSTR)ProviderName );
 		res = MVOL_GetDrbdLog(ProviderName, resourceName, OosTrace);
 	}
 #ifdef _WIN32_DEBUG_OOS
-	if (ConvertOosLog)
-	{
+	if (ConvertOosLog) {
 		res = MVOL_ConvertOosLog((LPCTSTR)pSrcFilePath);
 	}
 
-	if (SearchOosLog)
-	{
+	if (SearchOosLog) {
 		res = MVOL_SearchOosLog((LPCTSTR)pSrcFilePath, (LPCTSTR)sector);
 	}
 #endif
 
-	if (WriteLog)
-	{
+	if (WriteLog) {
 		res = WriteEventLog((LPCSTR)ProviderName, (LPCSTR)LoggingData);
 	}
 
-	if (VolumesInfoFlag)
-	{
+	if (VolumesInfoFlag) {
 		res = MVOL_GetVolumesInfo(Verbose);
-		if( res != ERROR_SUCCESS )
-		{
+		if( res != ERROR_SUCCESS ) {
 			fprintf( stderr, "Failed MVOL_InitThread. Err=%u\n", res );
 		}
 
 		return res;
 	}
 
-	if (Drbdlock_status)
-	{
+	if (Drbdlock_status) {
 		res = GetDrbdlockStatus();
 	}
 
-	if (HandlerUseFlag)
-	{
+	if (HandlerUseFlag) {
 		res = MVOL_SetHandlerUse(&hInfo);
 	}
 
 	// DW-1921
-	if (GetLogLv)
-	{
+	if (GetLogLv) {
 		int sys_evt_lv = 0;
 		int dbglog_lv = 0;
 		int oos_trace_lv = 0;

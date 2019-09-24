@@ -322,8 +322,7 @@ int test_and_change_bit(int nr, const ULONG_PTR *addr)
 	ULONG_PTR *p = ((ULONG_PTR *) addr);
 	ULONG_PTR old;
 
-	if (!g_test_and_change_bit_flag)
-	{
+	if (!g_test_and_change_bit_flag) {
 		spin_lock_init(&g_test_and_change_bit_lock);
 		g_test_and_change_bit_flag = 1;
 	}
@@ -446,8 +445,7 @@ void * kzalloc(int size, int flag, ULONG Tag)
     static int fail_count = 0;
 
 	mem = ExAllocatePoolWithTag(NonPagedPool, size, Tag); 
-	if (!mem)
-	{
+	if (!mem) {
 		return NULL;
 	}
 
@@ -525,16 +523,14 @@ void drbd_bp(char *msg)
 
 __inline void kfree(void * x)
 {
-	if (x)
-	{
+	if (x) {
 		ExFreePool(x);
 	}
 }
 
 __inline void kvfree(void * x)
 {
-	if (x)
-	{
+	if (x) {
 		ExFreePool(x);
 	}
 }
@@ -546,13 +542,11 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	UNREFERENCED_PARAMETER(free_fn);
 
 	mempool_t *p_pool;
-	if (!pool_data)
-	{
+	if (!pool_data) {
 		return 0;
 	}
 	p_pool = kmalloc(sizeof(mempool_t), 0, 'F3DW');
-	if (!p_pool)
-	{
+	if (!p_pool) {
 		return 0;
 	}
 	p_pool->p_cache = pool_data;
@@ -650,8 +644,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
-	if (!p)
-	{
+	if (!p) {
 		drbd_err(NO_OBJECT,"kzalloc failed\n");
 		return 0;
 	}
@@ -670,8 +663,7 @@ int kref_put(struct kref *kref, void (*release)(struct kref *kref))
     WARN_ON(release == NULL);
     WARN_ON(release == (void (*)(struct kref *))kfree);
 
-    if (atomic_dec_and_test(&kref->refcount))
-    {
+    if (atomic_dec_and_test(&kref->refcount)) {
         release(kref);
         return 1;
     }
@@ -1008,8 +1000,7 @@ void run_singlethread_workqueue(PVOID StartContext)
 struct workqueue_struct *create_singlethread_workqueue(void * name)
 {
     struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31DW');
-    if (!wq)
-    {
+    if (!wq) {
         return NULL;
     }
 
@@ -1022,8 +1013,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 
     HANDLE hThread = NULL;
     NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         drbd_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
         kfree(wq);
         return NULL;
@@ -1031,8 +1021,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 
     status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
     ZwClose(hThread);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         drbd_err(NO_OBJECT,"ObReferenceObjectByHandle failed with status 0x%08X\n", status);
         kfree(wq);
         return NULL;
@@ -1059,8 +1048,7 @@ NTSTATUS mutex_lock_timeout(struct mutex *m, ULONG msTimeout)
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER nWaitTime = { 0, };
 
-	if (NULL == m)
-	{
+	if (NULL == m) {
 		return STATUS_INVALID_PARAMETER;
 	}
 
@@ -1087,8 +1075,7 @@ int mutex_lock_interruptible(struct mutex *m)
 	int wObjCount = 1;
 
 	waitObjects[0] = (PVOID)&m->mtx;
-	if (thread->has_sig_event)
-	{
+	if (thread->has_sig_event) {
 		waitObjects[1] = (PVOID)&thread->sig_event;
 		wObjCount++;
 	}
@@ -1125,8 +1112,7 @@ int mutex_trylock(struct mutex *m)
 	LARGE_INTEGER Timeout;
 	Timeout.QuadPart = 0; 
 
-	if (KeWaitForMutexObject(&m->mtx, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS)
-	{
+	if (KeWaitForMutexObject(&m->mtx, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
 		return 1;
 	}
 	else
@@ -1166,8 +1152,7 @@ int down_trylock(struct semaphore *s)
 	LARGE_INTEGER Timeout; 
 	Timeout.QuadPart = 0; 
 
-    if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS)
-    {
+    if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
         drbd_debug_sem("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 0;
     }
@@ -1180,8 +1165,7 @@ int down_trylock(struct semaphore *s)
 
 void up(struct semaphore *s)
 {
-    if (KeReadStateSemaphore(&s->sem) < s->sem.Limit)
-    {
+    if (KeReadStateSemaphore(&s->sem) < s->sem.Limit) {
         drbd_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
 		// DW-1496 KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
 		try{
@@ -1460,8 +1444,7 @@ int del_timer_sync(struct timer_list *t)
 static int
 __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 {
-    if (!timer_pending(timer) && pending_only)
-    {
+    if (!timer_pending(timer) && pending_only) {
 		return 0;
     }
 
@@ -1472,8 +1455,7 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 
 	BUG_ON_UINT32_OVER(expires);
 
-    if (current_milisec >= expires)
-    {
+    if (current_milisec >= expires) {
 		nWaitTime.QuadPart = -1;
     }
 	else
@@ -1521,8 +1503,7 @@ int mod_timer(struct timer_list *timer, ULONG_PTR expires)
 	unsigned long current_milisec = jiffies;
 	nWaitTime.QuadPart = 0;
 
-	if (current_milisec >= expires_ms)
-	{
+	if (current_milisec >= expires_ms) {
 		nWaitTime.LowPart = 1;
 		KeSetTimer(&t->ktimer, nWaitTime, &t->dpc);
 		return 0;
@@ -1539,18 +1520,15 @@ void kobject_put(struct kobject *kobj)
 {
     if (kobj) 
     {
-        if (kobj->name == NULL)
-        {
+        if (kobj->name == NULL) {
             //drbd_warn(NO_OBJECT,"%p name is null.\n", kobj);
             return;
         }
 
-		if (atomic_sub_and_test(1, &kobj->kref.refcount))
-		{
+		if (atomic_sub_and_test(1, &kobj->kref.refcount)) {
 			void(*release)(struct kobject *kobj);
 			release = kobj->ktype->release;
-			if (release == 0)
-			{
+			if (release == 0) {
 				return;
 			}
 			release(kobj);
@@ -1565,8 +1543,7 @@ void kobject_put(struct kobject *kobj)
 
 void kobject_del(struct kobject *kobj)
 {
-    if (!kobj)
-    {
+    if (!kobj) {
         drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -1575,8 +1552,7 @@ void kobject_del(struct kobject *kobj)
 
 void kobject_get(struct kobject *kobj)
 {
-    if (kobj)
-    {
+    if (kobj) {
         kref_get(&kobj->kref);
     }
     else
@@ -1701,8 +1677,7 @@ static void __delete_thread(struct task_struct *t)
     ct_thread_num--;
 
     // logic check
-    if (ct_thread_num < 0)
-    {
+    if (ct_thread_num < 0) {
         drbd_err(NO_OBJECT,"DRBD_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
         BUG();
     }
@@ -1712,14 +1687,12 @@ struct task_struct * ct_add_thread(PKTHREAD id, const char *name, BOOLEAN event,
 {
     struct task_struct *t;
 
-    if ((t = kzalloc(sizeof(*t), GFP_KERNEL, Tag)) == NULL)
-    {
+    if ((t = kzalloc(sizeof(*t), GFP_KERNEL, Tag)) == NULL) {
         return NULL;
     }
 
     t->pid = id;
-    if (event)
-    {
+    if (event) {
         KeInitializeEvent(&t->sig_event, SynchronizationEvent, FALSE);
         t->has_sig_event = TRUE;
     }
@@ -1745,8 +1718,7 @@ struct task_struct* ct_find_thread(PKTHREAD id)
     struct task_struct *t;
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
     t = __find_thread(id);
-    if (!t)
-    {
+    if (!t) {
         static struct task_struct g_dummy_current;
         t = &g_dummy_current;
         t->pid = 0;
@@ -1759,10 +1731,8 @@ struct task_struct* ct_find_thread(PKTHREAD id)
 
 int signal_pending(struct task_struct *task)
 {
-    if (task->has_sig_event)
-	{
-		if (task->sig || KeReadStateEvent(&task->sig_event))
-		{
+    if (task->has_sig_event) {
+		if (task->sig || KeReadStateEvent(&task->sig_event)) {
 			return 1;
 		}
 	}
@@ -1771,8 +1741,7 @@ int signal_pending(struct task_struct *task)
 
 void force_sig(int sig, struct task_struct  *task)
 {
-    if (task->has_sig_event)
-	{
+    if (task->has_sig_event) {
 		task->sig = sig;
 		KeSetEvent(&task->sig_event, 0, FALSE);
 	}
@@ -1780,8 +1749,7 @@ void force_sig(int sig, struct task_struct  *task)
 
 void flush_signals(struct task_struct *task)
 {
-    if (task->has_sig_event)
-	{
+    if (task->has_sig_event) {
 		KeClearEvent(&task->sig_event); 
 		task->sig = 0;
 	}
@@ -2135,8 +2103,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 	skb->tail += len;
 	skb->len  += len;
 
-	if (skb->tail > skb->end)
-	{
+	if (skb->tail > skb->end) {
 #ifndef _WIN32
 		// skb_over_panic(skb, len, __builtin_return_address(0));
 #else
@@ -2192,8 +2159,7 @@ int _DRBD_ratelimit(struct ratelimit_state *rs, const char * func, const char * 
 		!rs->interval)
 		return 1;
 
-	if (KeGetCurrentIrql() > DISPATCH_LEVEL)
-	{
+	if (KeGetCurrentIrql() > DISPATCH_LEVEL) {
 		return 1;
 	}
 
@@ -2257,8 +2223,7 @@ int _DRBD_ratelimit(size_t ratelimit_jiffies, size_t ratelimit_burst, struct drb
 #else
 bool _expect(long exp, struct drbd_conf *mdev, char *file, int line)
 {
-	if (!exp)
-	{
+	if (!exp) {
 		drbd_err(NO_OBJECT,"minor(%d) ASSERTION FAILED in file:%s line:%d\n", mdev->minor, file, line);
         BUG();
 	}
@@ -2287,8 +2252,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 
 	/* find first ent */
 #ifdef _WIN32
-	if (!idp)
-	{
+	if (!idp) {
 		return NULL;
 	}
 #endif
@@ -2580,15 +2544,13 @@ struct block_device * create_drbd_block_device(IN OUT PVOLUME_EXTENSION pvext)
     }
 
 	dev->bd_disk = alloc_disk(0);
-	if (!dev->bd_disk)
-	{
+	if (!dev->bd_disk) {
 		drbd_err(NO_OBJECT,"Failed to allocate gendisk NonPagedMemory\n");
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
-	if (!dev->bd_disk->queue)
-	{
+	if (!dev->bd_disk->queue) {
 		drbd_err(NO_OBJECT,"Failed to allocate request_queue NonPagedMemory\n");
 		goto request_queue_failed;
 	}
@@ -2644,18 +2606,15 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 		return NULL;
 
 	// DW-1381 dev is set as NULL when block device is destroyed.
-	if (!pvext->dev)
-	{
+	if (!pvext->dev) {
 		drbd_err(NO_OBJECT,"failed to get drbd device since pvext->dev is NULL\n");
 		return NULL;		
 	}
 
 	// DW-1381 check if device is removed already.
-	if (bCheckRemoveLock)
-	{
+	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			drbd_info(NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
 			return NULL;
 		}
@@ -2663,10 +2622,8 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 
 	oldIRQL = ExAcquireSpinLockShared(&pvext->dev->bd_disk->drbd_device_ref_lock);
 	device = pvext->dev->bd_disk->drbd_device;
-	if (device)
-	{
-		if (kref_get(&device->kref))
-		{
+	if (device) {
+		if (kref_get(&device->kref)) {
 			// already destroyed.
 			atomic_dec(&device->kref);			
 			device = NULL;
@@ -2775,8 +2732,7 @@ cleanup:
     kfree(keyInfo);
     kfree(valueInfo);
 
-    if (hKey)
-    {
+    if (hKey) {
         ZwClose(hKey);
     }
 
@@ -2946,8 +2902,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 	BUG_ON_INT32_OVER(sLineSize);
 #endif
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
-	if (!sLine)
-	{
+	if (!sLine) {
 		drbd_err(NO_OBJECT,"sLine:kzalloc failed\n");
 		return;
 	}
@@ -3193,8 +3148,7 @@ int drbd_backing_bdev_events(struct drbd_device *device)
 	DISK_PERFORMANCE diskPerf;
 
 	status = mvolGetDiskPerf(mdev->ldev->backing_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, &diskPerf);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbd_err(NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
 		return mdev->writ_cnt + mdev->read_cnt;
 	}
@@ -3205,8 +3159,7 @@ int drbd_backing_bdev_events(struct drbd_device *device)
 
 	return (diskPerf.BytesRead.QuadPart / 512) + (diskPerf.BytesWritten.QuadPart / 512);
 #else
-	if ((device->writ_cnt + device->read_cnt) == 0)
-	{
+	if ((device->writ_cnt + device->read_cnt) == 0) {
 		// initial value
 		return 100;
 	}
@@ -3304,22 +3257,19 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 		InitializeObjectAttributes(&oa, &pRootExtension->RegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
 
 		status = ZwOpenKey(&hKey, KEY_ALL_ACCESS, &oa);
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			break;
 		}
 
 		RtlInitUnicodeString(&usValueName, valueName);
 		status = ZwSetValueKey(hKey, &usValueName, 0, REG_DWORD, &value, sizeof(value));
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			break;
 		}
 
 	} while (false);
 
-	if (NULL != hKey)
-	{
+	if (NULL != hKey) {
 		ZwClose(hKey);
 		hKey = NULL;
 	}

@@ -144,8 +144,7 @@ int _tmain(int argc, _TCHAR* argv[])
     TCHAR * pdest = _tcsrchr(szPath, '\\');
     _tcsncpy_s(gServicePath, sizeof(gServicePath) / sizeof(TCHAR), szPath, (size_t)(pdest - szPath));
 
-    if (argc < 2)
-    {
+    if (argc < 2) {
         ExecuteSubProcess();
         return 0;
     }
@@ -160,8 +159,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		return RunService(ServiceName);
 	else if (_tcsicmp(L"/d", argv[1]) == 0)
 		return UpdateDescription(ServiceName, argv[2]);
-    else if (_tcsicmp(L"/t", argv[1]) == 0)
-    {
+    else if (_tcsicmp(L"/t", argv[1]) == 0) {
         DWORD dwPID;
         WCHAR *szServicePath;
         WCHAR *cmd = L"bsradm.exe initial-split-brain minor-6";
@@ -169,13 +167,11 @@ int _tmain(int argc, _TCHAR* argv[])
 
         size_t len;
         errno_t err = _wdupenv_s(&szServicePath, &len, L"BSR_PATH");
-        if (err)
-        {
+        if (err) {
             // default
             szServicePath = L"C:\\Program Files\\bsr\\bin";
         }
-        if ((wcslen(szServicePath) + wcslen(cmd) + 4) > MAX_PATH)
-        {
+        if ((wcslen(szServicePath) + wcslen(cmd) + 4) > MAX_PATH) {
             printf("szServicePath: too big!!\n");
         }
         wcsncpy_s(fullName, szServicePath, wcslen(szServicePath));
@@ -196,8 +192,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		unsigned short servPort = DRBD_DAEMON_TCP_PORT;
 		DWORD threadID;
 
-		if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) SockListener, &servPort, 0, (LPDWORD) &threadID) == NULL)
-		{
+		if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) SockListener, &servPort, 0, (LPDWORD) &threadID) == NULL) {
 			WriteLog(L"pthread_create() failed\n");
 			return 0;
 		}
@@ -227,8 +222,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (schSCManager == 0)
-    {
+    if (schSCManager == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -251,8 +245,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
         NULL
         );
 
-    if (schService == 0)
-    {
+    if (schService == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("Failed to create service %s, error code = %d\n"), ServiceName, err);
         WriteLog(pTemp);
@@ -288,8 +281,7 @@ DWORD UnInstall(const TCHAR * pName)
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (schSCManager == 0)
-    {
+    if (schSCManager == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -297,16 +289,14 @@ DWORD UnInstall(const TCHAR * pName)
     }
 
     SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
-    if (schService == 0)
-    {
+    if (schService == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
         WriteLog(pTemp);
     }
     else
     {
-        if (!DeleteService(schService))
-        {
+        if (!DeleteService(schService)) {
             _stprintf_s(pTemp, _T("Failed to delete service %s\n"), pName);
             WriteLog(pTemp);
         }
@@ -328,8 +318,7 @@ DWORD KillService(const TCHAR * pName)
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (schSCManager == 0)
-    {
+    if (schSCManager == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -338,8 +327,7 @@ DWORD KillService(const TCHAR * pName)
 
     // open the service
     SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
-    if (schService == 0)
-    {
+    if (schService == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -349,8 +337,7 @@ DWORD KillService(const TCHAR * pName)
 
     // call ControlService to kill the given service
     SERVICE_STATUS status;
-    if (!ControlService(schService, SERVICE_CONTROL_STOP, &status))
-    {
+    if (!ControlService(schService, SERVICE_CONTROL_STOP, &status)) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("ControlService failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -370,8 +357,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 
 	// run service with given name
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-	if (schSCManager == 0)
-	{
+	if (schSCManager == 0) {
 		err = GetLastError();
 		_stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
 		WriteLog(pTemp);
@@ -380,8 +366,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 	{
 		// open the service
 		SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
-		if (schService == 0)
-		{
+		if (schService == 0) {
 			err = GetLastError();
 			_stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
 			WriteLog(pTemp);
@@ -419,8 +404,7 @@ DWORD RunService(const TCHAR * pName)
 
     // run service with given name
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (schSCManager == 0)
-    {
+    if (schSCManager == 0) {
         err = GetLastError();
         _stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
         WriteLog(pTemp);
@@ -429,8 +413,7 @@ DWORD RunService(const TCHAR * pName)
     {
         // open the service
         SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
-        if (schService == 0)
-        {
+        if (schService == 0) {
             err= GetLastError();
             _stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
             WriteLog(pTemp);
@@ -438,8 +421,7 @@ DWORD RunService(const TCHAR * pName)
         else
         {
             // call StartService to run the service
-            if (StartService(schService, 0, (const WCHAR**)NULL))
-            {
+            if (StartService(schService, 0, (const WCHAR**)NULL)) {
                 CloseServiceHandle(schService);
                 CloseServiceHandle(schSCManager);
                 return TRUE;
@@ -475,8 +457,7 @@ VOID ExecuteSubProcess()
 
     DeregisterEventSource(hEventLog);
 
-    if (!StartServiceCtrlDispatcher(g_lpServiceStartTable))
-    {
+    if (!StartServiceCtrlDispatcher(g_lpServiceStartTable)) {
         TCHAR msg[MAX_PATH] = {0, };
         _stprintf_s(msg, _T("StartServiceCtrlDispatcher failed, error code = %d\n"), GetLastError());
         WriteLog(msg);
@@ -507,8 +488,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 	g_hServiceStatusHandle = RegisterServiceCtrlHandler(ServiceName, ServiceHandler);
 #endif
     
-    if (g_hServiceStatusHandle == 0)
-    {
+    if (g_hServiceStatusHandle == 0) {
         long nError = GetLastError();
 
         wsprintf(pTemp, L"RegisterServiceCtrlHandler failed, error code = %d\n", nError);
@@ -520,8 +500,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
     g_tServiceStatus.dwCurrentState = SERVICE_RUNNING;
     g_tServiceStatus.dwCheckPoint = 0;
     g_tServiceStatus.dwWaitHint = 0;
-    if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus))
-    {
+    if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus)) {
         long nError = GetLastError();
         wsprintf(pTemp, L"SetServiceStatus failed, error code = %d\n", nError);
         WriteLog(pTemp);
@@ -530,8 +509,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
     unsigned short servPort = DRBD_DAEMON_TCP_PORT;
     DWORD threadID;
 
-    if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)SockListener, &servPort, 0, (LPDWORD)&threadID) == NULL)
-    {
+    if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)SockListener, &servPort, 0, (LPDWORD)&threadID) == NULL) {
         WriteLog(L"pthread_create() failed\n");
         return;
     }
@@ -544,10 +522,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 
 	get_linklog_reg();
 
-	if (g_loglink_usage != LOGLINK_NOT_USED)
-	{
-		if ((g_LogLinkThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) LogLink_Daemon, NULL, 0, (LPDWORD) &threadID)) == NULL)
-		{
+	if (g_loglink_usage != LOGLINK_NOT_USED) {
+		if ((g_LogLinkThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) LogLink_Daemon, NULL, 0, (LPDWORD) &threadID)) == NULL) {
 			WriteLog(L"LogLink_Daemon failed\n");
 			return;
 		}
@@ -581,8 +557,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 	size_t path_size; WCHAR DrbdPath[MAX_PATH] = { 0, }; WCHAR DrbdLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
 	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"BSR_PATH");
-	if (result)
-	{
+	if (result) {
 		wcscpy_s(DrbdPath, L"c:\\Program Files\\bsr\\bin");
 	}
 	wcsncpy_s(DrbdLogPath, DrbdPath, wcslen(DrbdPath) - strlen("bin"));
@@ -674,8 +649,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 #endif
     };
 
-    if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus))
-    {
+    if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus)) {
         long nError = GetLastError();
         wsprintf(pTemp, L"SetServiceStatus failed, error code = %d\n", nError);
         WriteLog(pTemp);
@@ -722,11 +696,9 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 			
 #ifdef _WIN32_LOGLINK
 			extern int g_loglink_usage;
-			if (g_loglink_usage != LOGLINK_NOT_USED)
-			{
+			if (g_loglink_usage != LOGLINK_NOT_USED) {
 				extern HANDLE g_LogLinkThread;
-				if (g_LogLinkThread)
-				{
+				if (g_LogLinkThread) {
 					TerminateThread(g_LogLinkThread, 0);
 					CloseHandle(g_LogLinkThread);
 					g_LogLinkThread = NULL;
@@ -742,8 +714,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
             g_tServiceStatus.dwCheckPoint = 0;
             g_tServiceStatus.dwWaitHint = 0;
 
-            if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus))
-            {
+            if (!SetServiceStatus(g_hServiceStatusHandle, &g_tServiceStatus)) {
                 long nError = GetLastError();
                 wsprintf(pTemp, L"SetServiceStatus failed, error code = %d\n", nError);
                 WriteLog(pTemp);
@@ -762,8 +733,7 @@ void AddEventSource(TCHAR * csPath, TCHAR * csApp)
     DWORD   dwError = 0;
     TCHAR   szPath[MAX_PATH];
 
-	if (csPath)
-	{
+	if (csPath) {
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s\\%s"), csPath, csApp);
 	}
 	else
@@ -786,8 +756,7 @@ DWORD RemoveEventSource(TCHAR *csPath, TCHAR *csApp)
     TCHAR szPath[MAX_PATH];
 
    // _stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\%s"), csApp);
-	if (csPath)
-	{
+	if (csPath) {
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s\\%s"), csPath, csApp);
 
 	}
@@ -808,8 +777,7 @@ DWORD RcDrbdStart()
 
 	WriteLog(L"rc_drbd_start");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4) > MAX_PATH)
-    {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4) > MAX_PATH) {
         _stprintf_s(tmp, _T("Error: cmd too long(%d)\n"), dwLength);
         WriteLog(tmp);
         return -1;
@@ -817,8 +785,7 @@ DWORD RcDrbdStart()
     _stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws"), gServicePath, g_pwdrbdRcBat, _T("start"));
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 
-    if (ret)
-    {
+    if (ret) {
         _stprintf_s(tmp, _T("Faild rc_drbd_start: return val %d\n"), ret);
         WriteLog(tmp);
     }
@@ -839,8 +806,7 @@ DWORD RcDrbdStop(bool force)
 	else
 		WriteLog(L"rc_drbd_stop");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4 + 6) > MAX_PATH)
-    {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4 + 6) > MAX_PATH) {
         wsprintf(tmp, L"Error: cmd too long(%d)\n", dwLength);
         WriteLog(tmp);
         return -1;
@@ -852,8 +818,7 @@ DWORD RcDrbdStop(bool force)
 
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	
-    if (ret)
-    {
+    if (ret) {
         wsprintf(tmp, L"Faild rc_drbd_stop: return val %d\n", ret);
         WriteLog(tmp);
     }

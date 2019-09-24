@@ -42,8 +42,7 @@ static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)
  
     rb_set_parent(right, parent);
  
-    if (parent)
-    {
+    if (parent) {
         if (node == parent->rb_left)
             parent->rb_left = right;
         else
@@ -65,8 +64,7 @@ static void __rb_rotate_right(struct rb_node *node, struct rb_root *root)
  
     rb_set_parent(left, parent);
  
-    if (parent)
-    {
+    if (parent) {
         if (node == parent->rb_right)
             parent->rb_right = left;
         else
@@ -87,12 +85,10 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
 		if (!gparent)
 			break;
  
-        if (parent == gparent->rb_left)
-        {
+        if (parent == gparent->rb_left) {
             {
                 register struct rb_node *uncle = gparent->rb_right;
-                if (uncle && rb_is_red(uncle))
-                {
+                if (uncle && rb_is_red(uncle)) {
                     rb_set_black(uncle);
                     rb_set_black(parent);
                     rb_set_red(gparent);
@@ -101,8 +97,7 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
                 }
             }
  
-            if (parent->rb_right == node)
-            {
+            if (parent->rb_right == node) {
                 register struct rb_node *tmp;
                 __rb_rotate_left(parent, root);
                 tmp = parent;
@@ -116,8 +111,7 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
         } else {
             {
                 register struct rb_node *uncle = gparent->rb_left;
-                if (uncle && rb_is_red(uncle))
-                {
+                if (uncle && rb_is_red(uncle)) {
                     rb_set_black(uncle);
                     rb_set_black(parent);
                     rb_set_red(gparent);
@@ -126,8 +120,7 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
                 }
             }
  
-            if (parent->rb_left == node)
-            {
+            if (parent->rb_left == node) {
                 register struct rb_node *tmp;
                 __rb_rotate_right(parent, root);
                 tmp = parent;
@@ -153,13 +146,11 @@ struct rb_root *root)
 
 	while ((!node || rb_is_black(node)) && node != root->rb_node)
 	{
-		if (parent->rb_left == node)
-		{
+		if (parent->rb_left == node) {
 			other = parent->rb_right;
 			if (!other)
 				break;
-			if (rb_is_red(other))
-			{
+			if (rb_is_red(other)) {
 				rb_set_black(other);
 				rb_set_red(parent);
 				__rb_rotate_left(parent, root);
@@ -178,8 +169,7 @@ struct rb_root *root)
 			}
 			else
 			{
-				if (!other->rb_right || rb_is_black(other->rb_right))
-				{
+				if (!other->rb_right || rb_is_black(other->rb_right)) {
 					rb_set_black(other->rb_left);
 					rb_set_red(other);
 					__rb_rotate_right(other, root);
@@ -200,8 +190,7 @@ struct rb_root *root)
 			other = parent->rb_left;
 			if (!other)
 				break;
-			if (rb_is_red(other))
-			{
+			if (rb_is_red(other)) {
 				rb_set_black(other);
 				rb_set_red(parent);
 				__rb_rotate_right(parent, root);
@@ -220,8 +209,7 @@ struct rb_root *root)
 			}
 			else
 			{
-				if (!other->rb_left || rb_is_black(other->rb_left))
-				{
+				if (!other->rb_left || rb_is_black(other->rb_left)) {
 					rb_set_black(other->rb_right);
 					rb_set_red(other);
 					__rb_rotate_left(other, root);
@@ -300,8 +288,7 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
  
     if (child)
         rb_set_parent(child, parent);
-    if (parent)
-    {
+    if (parent) {
         if (parent->rb_left == node)
             parent->rb_left = child;
         else

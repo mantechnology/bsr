@@ -34,8 +34,7 @@ extern TCHAR *ServiceName;
 
 VOID WriteLog(wchar_t* pLogName, wchar_t* pMsg, WORD wType)
 {
-	if (!pLogName)
-	{
+	if (!pLogName) {
 		pLogName = ServiceName;
 	}
 
@@ -73,11 +72,9 @@ void get_linklog_reg()
 	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
 
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS == status)
-	{
+	if (ERROR_SUCCESS == status) {
 		status = RegQueryValueEx(hKey, TEXT("loglink_tcp_port"), NULL, &type, (LPBYTE) &value, &size);
-		if (ERROR_SUCCESS == status)
-		{
+		if (ERROR_SUCCESS == status) {
 			g_loglink_port = value;
 		}
 		else
@@ -86,8 +83,7 @@ void get_linklog_reg()
 		}
 
 		status = RegQueryValueEx(hKey, TEXT("loglink_usage"), NULL, &type, (LPBYTE) &value, &size);
-		if (ERROR_SUCCESS == status)
-		{
+		if (ERROR_SUCCESS == status) {
 			g_loglink_usage = value;
 		}
 		else
@@ -105,15 +101,13 @@ int LogLink_Daemon(unsigned short *port)
 	wchar_t tmp[TMPBUF];
 	WSADATA WsaDat;
 
-	if (WSAStartup(MAKEWORD(2, 2), &WsaDat) != 0)
-	{
+	if (WSAStartup(MAKEWORD(2, 2), &WsaDat) != 0) {
 		WriteLog(L"LogLink: Winsock initialization failed\r\n");
 		WSACleanup();
 		return 0;
 	}
 
-	if (g_loglink_usage == LOGLINK_NEW_NAME || g_loglink_usage == LOGLINK_2OUT)
-	{
+	if (g_loglink_usage == LOGLINK_NEW_NAME || g_loglink_usage == LOGLINK_2OUT) {
 		// TEST: create with new name
 		AddEventSource(NULL, new_logname);
 		WriteLog(L"LogLink: create new log event\r\n");
@@ -129,8 +123,7 @@ int LogLink_Daemon(unsigned short *port)
 		WriteLog(tmp);
 
 		SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (sock == INVALID_SOCKET)
-		{
+		if (sock == INVALID_SOCKET) {
 			wsprintf(tmp, L"LogLink: Socket creation Failed err=0x%x\r\n", WSAGetLastError());
 			WriteLog(tmp);
 			Sleep(10000);
@@ -138,8 +131,7 @@ int LogLink_Daemon(unsigned short *port)
 		}
 
 		struct hostent *host;
-		if ((host = gethostbyname((const char*)"127.0.0.1")) == NULL)
-		{
+		if ((host = gethostbyname((const char*)"127.0.0.1")) == NULL) {
 			wsprintf(tmp, L"LogLink: Failed to resolve hostname err=0x%x\r\n", WSAGetLastError());
 			WriteLog(tmp);
 			Sleep(10000);
@@ -156,16 +148,14 @@ int LogLink_Daemon(unsigned short *port)
 
 		while(1)
 		{
-			if ((ret = connect(sock, (SOCKADDR*) (&sock_addr), sizeof(sock_addr))) == 0)
-			{
+			if ((ret = connect(sock, (SOCKADDR*) (&sock_addr), sizeof(sock_addr))) == 0) {
 				wsprintf(tmp, L"LogLink: connected to drbd engine ok. retry=%d\r\n", conn_loop);
 				WriteLog(tmp);
 				break;
 			}
 			else
 			{
-				if (!(conn_loop++ % 30))
-				{
+				if (!(conn_loop++ % 30)) {
 					// accumulated? don't care.
 					wsprintf(tmp, L"LogLink: connect(#%d) failed ret=%d err=0x%x\r\n", conn_loop++, ret, WSAGetLastError());
 					WriteLog(tmp);
@@ -184,16 +174,14 @@ int LogLink_Daemon(unsigned short *port)
 			memset(buffer, 0, sizeof(buffer));
 
 			// recv msg size
-			if ((ret = recv(sock, (char*) &sz, sizeof(int), 0)) != sizeof(int))
-			{
+			if ((ret = recv(sock, (char*) &sz, sizeof(int), 0)) != sizeof(int)) {
 				wsprintf(tmp, L"LogLink: rx header ret=%d err=0x%x\r\n", ret, WSAGetLastError());
 				WriteLog(tmp);
 				break;
 			}
 
 			// checkmsg size
-			if (sz > (MAX_LOG_STRING - 1))
-			{
+			if (sz > (MAX_LOG_STRING - 1)) {
 				wsprintf(tmp, L"%S", "LogLink: msg size too big(%d)\r\n", sz);
 				WriteLog(NULL, tmp, EVENTLOG_WARNING_TYPE);
 
@@ -201,8 +189,7 @@ int LogLink_Daemon(unsigned short *port)
 			}
 
 			// recv message
-			if ((ret = recv(sock, (char*) &buffer, sz, 0)) != sz)
-			{
+			if ((ret = recv(sock, (char*) &buffer, sz, 0)) != sz) {
 				wsprintf(tmp, L"LogLink:rx ret=%d err=0x%x\r\n", ret, WSAGetLastError());
 				WriteLog(NULL, tmp, EVENTLOG_ERROR_TYPE);
 				break;
@@ -233,8 +220,7 @@ int LogLink_Daemon(unsigned short *port)
 			wsprintf(buffer2, L"%S", buffer + 3);
 			WriteLog(NULL, buffer2, wType);
 
-			if (g_loglink_usage == LOGLINK_2OUT)
-			{
+			if (g_loglink_usage == LOGLINK_2OUT) {
 				// TEST:
 				WriteLog(new_logname, buffer2, wType);
 			}
@@ -253,8 +239,7 @@ int LogLink_Daemon(unsigned short *port)
 			}
 #endif
 			// send ok
-			if ((ret = send(sock, (char*) &sz, sizeof(int), 0)) != sizeof(int))
-			{
+			if ((ret = send(sock, (char*) &sz, sizeof(int), 0)) != sizeof(int)) {
 				wsprintf(tmp, L"LogLink: tx ret=%d err=0x%x\r\n", ret, WSAGetLastError());
 				WriteLog(NULL, tmp, EVENTLOG_ERROR_TYPE);
 				break;

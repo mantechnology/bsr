@@ -165,8 +165,7 @@ int have_ip_ipv4(const char *ip)
 
 #else
 
-struct ifreq *get_ifreq(void)
-{
+struct ifreq *get_ifreq(void) {
 	int sockfd, num_ifaces;
 	struct ifreq *ifr;
 	struct ifconf ifc;
@@ -416,8 +415,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				// DW-1777 revert source and change error message
 				fprintf(stderr, "reopen null service failed\n");
 		}
-		if (argv[0])
-		{
+		if (argv[0]) {
 #ifdef _WIN32
 			// DW-1203 execvp() run with the full path.
 			char path[256];

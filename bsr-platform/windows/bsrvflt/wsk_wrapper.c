@@ -624,8 +624,7 @@ __in PVOID			Context
 	ExFreePool(SendParam->WskBuffer);
 	ExFreePool(SendParam->DataBuffer);
 
-	if (!Irp->Cancel)
-	{
+	if (!Irp->Cancel) {
 		*(SendParam->Status) = Irp->IoStatus.Status;
 
 		if (*(SendParam->Status) == STATUS_SUCCESS) {

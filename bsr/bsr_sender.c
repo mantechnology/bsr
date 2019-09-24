@@ -1019,8 +1019,7 @@ int w_resync_timer(struct drbd_work *w, int cancel)
 	case L_SYNC_TARGET:
 #ifdef _WIN32
 		// DW-1317 try to get volume control mutex, reset timer if failed.
-		if (mutex_trylock(&device->resource->vol_ctl_mutex))
-		{
+		if (mutex_trylock(&device->resource->vol_ctl_mutex)) {
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			make_resync_request(peer_device, cancel);
 		}
@@ -1562,8 +1561,7 @@ static bool was_resync_stable(struct drbd_peer_device *peer_device)
 		return false;
 
 	// DW-1113 clear UNSTABLE_RESYNC flag for all peers that I'm getting synced with and have set primary as authoritative node since I have consistent disk with primary.
-	if (peer_device->connection->peer_role[NOW] == R_PRIMARY)
-	{
+	if (peer_device->connection->peer_role[NOW] == R_PRIMARY) {
 		struct drbd_peer_device *found_peer = NULL;
 		for_each_peer_device_rcu(found_peer, device)
 		{
@@ -1618,8 +1616,7 @@ static void __cancel_other_resyncs(struct drbd_device *device)
 	struct drbd_peer_device *peer_device;
 
 	for_each_peer_device(peer_device, device) {
-		if (peer_device->repl_state[NEW] == L_PAUSED_SYNC_T)
-		{
+		if (peer_device->repl_state[NEW] == L_PAUSED_SYNC_T) {
 			// DW-955 canceling other resync may causes out-oof-sync remained, clear the bitmap since no need.
 			struct drbd_peer_md *peer_md = device->ldev->md.peers;
 			int peer_node_id = 0;
@@ -1738,8 +1735,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	spin_lock_irq(&device->resource->req_lock);
 
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
-	if (repl_state[NOW] == L_AHEAD)
-	{
+	if (repl_state[NOW] == L_AHEAD) {
 		drbd_info(peer_device, "I am ahead, do not finish resync.\n"); // DW-1518
 		put_ldev(device);
 		spin_unlock_irq(&device->resource->req_lock);	
@@ -1781,8 +1777,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		}
 	} else {
 #ifdef _WIN32
-		if (!((n_oos - peer_device->rs_failed) == 0))
-		{
+		if (!((n_oos - peer_device->rs_failed) == 0)) {
 			DbgPrint("_WIN32_v9_CHECK: n_oos=%Iu rs_failed=%Iu. Ignore assert ##########\n", n_oos, peer_device->rs_failed);
 		}
 #else
@@ -2731,8 +2726,7 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 	u64 authoritative = 0;
 
 	// no start resync if I haven't received uuid from peer.	
-	if (!peer_device->uuids_received)
-	{
+	if (!peer_device->uuids_received) {
 		drbd_info(peer_device, "I have not yet received uuid from peer, can not be %s\n", drbd_repl_str(replState));
 		return false;
 	}
@@ -2759,10 +2753,8 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 			return false;
 	}
 	
-	if (side == L_SYNC_TARGET)
-	{
-		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE))
-		{
+	if (side == L_SYNC_TARGET) {
+		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE)) {
 			drbd_info(peer_device, "Sync source is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
 				drbd_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;
@@ -2780,8 +2772,7 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 			return false;
 		}
 	}
-	else if (side == L_SYNC_SOURCE)
-	{
+	else if (side == L_SYNC_SOURCE) {
 #ifdef _WIN32_RCU_LOCKED
 		if (!drbd_device_stable_ex(device, &authoritative, which, locked))
 #else
@@ -2904,8 +2895,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		drbd_warn(peer_device, "could not start resync.\n");
 
 		// turn back the replication state to L_ESTABLISHED
-		if (peer_device->repl_state[NOW] > L_ESTABLISHED)
-		{
+		if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
 			begin_state_change_locked(device->resource, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 #ifdef _WIN32_RCU_LOCKED

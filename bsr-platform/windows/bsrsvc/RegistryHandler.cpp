@@ -126,8 +126,7 @@ DWORD GetDiskLetterList(__inout list<WCHAR> & letter_list)
 
     pPipe = _popen(cmd, "r");
 
-    if (!pPipe)
-    {
+    if (!pPipe) {
         result = GetLastError();
         Log(L"bsradm sh-dev all failed.\n");
         return result;
@@ -136,8 +135,7 @@ DWORD GetDiskLetterList(__inout list<WCHAR> & letter_list)
     size_t readSize = 0;
     readSize = fread((void*)readBuffer, sizeof(char), 1024 - 1, pPipe);
 
-    if (readSize == 0)
-    {
+    if (readSize == 0) {
         result = GetLastError();
         _pclose(pPipe);
         Log(L"no resources defined!\n");
@@ -180,8 +178,7 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
     const WCHAR * szRegistryPath = L"System\\CurrentControlSet\\Services\\bsr\\volumes";
 
     status = RegOpenKeyExW(HKEY_LOCAL_MACHINE, szRegistryPath, 0, KEY_ALL_ACCESS, &hKey);
-    if (ERROR_SUCCESS != status)
-    {
+    if (ERROR_SUCCESS != status) {
         Log(L"RegOpenKeyExW failed. status(%d)\n", status);
         return status;
     }
@@ -194,19 +191,16 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
         list<WCHAR>::iterator iter;
         for (iter = letter_list.begin(); iter != letter_list.end(); ++iter)
         {
-            if (toupper(*iter) == toupper(szRegLetter[0]))
-            {
+            if (toupper(*iter) == toupper(szRegLetter[0])) {
                 // found
                 Log(L"(%c) exist\n", szRegLetter[0]);
                 break;
             }
         }
 
-        if (letter_list.end() == iter)
-        {
+        if (letter_list.end() == iter) {
             status = RegDeleteValueW(hKey, szRegLetter);
-            if (ERROR_SUCCESS != status)
-            {
+            if (ERROR_SUCCESS != status) {
                 Log(L"RegDeleteValueW(%s) failed. status(0x%x)\n", szRegLetter, status);
                 RegCloseKey(hKey);
                 return status;
@@ -311,8 +305,7 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
         FALSE,                                  // do not watch subtree 
         FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME); // watch file name changes 
 
-    if (g_hChangeHandle == INVALID_HANDLE_VALUE)
-    {
+    if (g_hChangeHandle == INVALID_HANDLE_VALUE) {
         result = GetLastError();
         Log(L"\n ERROR: FindFirstChangeNotification function failed.\n");
         return result;
@@ -320,8 +313,7 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
 
     // Make a final validation check on our handles.
 
-    if (g_hChangeHandle == NULL)
-    {
+    if (g_hChangeHandle == NULL) {
         result = GetLastError();
         Log(L"\n ERROR: Unexpected NULL from FindFirstChangeNotification.\n");
         return result;
@@ -334,8 +326,7 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
         TEXT("CleanEvent")  // object name
         );
 
-    if (!g_hCleanEvent)
-    {
+    if (!g_hCleanEvent) {
         result = GetLastError();
         Log(L"CreateEvent failed. GetLastError(%d)\n", result);
         return result;
@@ -367,8 +358,7 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
                 // and then, we make the watchdog thread temporarily. 
 				SetEvent(g_hCleanEvent);
 
-                if (FindNextChangeNotification(g_hChangeHandle) == FALSE)
-                {
+                if (FindNextChangeNotification(g_hChangeHandle) == FALSE) {
                     Log(L"\n ERROR: FindNextChangeNotification function failed.\n");
                 }
                 break;
@@ -379,8 +369,7 @@ DWORD WINAPI WatchDirectory(LPVOID lpDir)
         }
     }
 
-    if (g_hCleanEvent)
-    {
+    if (g_hCleanEvent) {
         CloseHandle(g_hCleanEvent);
         g_hCleanEvent = NULL;
     }
@@ -396,8 +385,7 @@ DWORD StartRegistryCleaner()
     // get wdrbd's path in environment variables
     size_t path_size;
     errno_t result = _wgetenv_s(&path_size, g_szEnvPath, MAX_PATH, L"BSR_PATH");
-    if (result)
-    {
+    if (result) {
         wcscpy_s(g_szEnvPath, L"c:\\Program Files\\bsr\\bin");
     }
 
@@ -413,8 +401,7 @@ DWORD StartRegistryCleaner()
     
     // kick watchdog
     DWORD dwThreadID;
-    if (!g_hWatchDirThread)
-    {
+    if (!g_hWatchDirThread) {
         g_hWatchDirThread = CreateThread(
             NULL,              // default security
             0,                 // default stack size
@@ -439,28 +426,24 @@ DWORD StopRegistryCleaner()
 {
     Log(L"stop_registry_cleaner...\n");
 
-    if (g_hCleanThread)
-    {
+    if (g_hCleanThread) {
         TerminateThread(g_hCleanThread, 0);
         CloseHandle(g_hCleanThread);
         g_hCleanThread = NULL;
     }
 
-    if (g_hCleanEvent)
-    {
+    if (g_hCleanEvent) {
         CloseHandle(g_hCleanEvent);
         g_hCleanEvent = NULL;
     }
 
-    if (g_hWatchDirThread)
-    {
+    if (g_hWatchDirThread) {
         TerminateThread(g_hWatchDirThread, 0);
         CloseHandle(g_hWatchDirThread);
         g_hWatchDirThread = NULL;
     }
 
-    if (g_hChangeHandle)
-    {
+    if (g_hChangeHandle) {
         FindCloseChangeNotification(g_hChangeHandle);
         g_hChangeHandle = NULL;
     }

@@ -501,8 +501,7 @@ drbd_insert_fault(struct drbd_device *device, unsigned int type) {
 		(enable_faults & (1<<type)) &&
 		_drbd_insert_fault(device, type);
 
-    if (ret)
-    {
+    if (ret) {
         drbd_info(NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
@@ -2868,8 +2867,7 @@ static inline void drbd_set_my_capacity(struct drbd_device *device,
 					sector_t size)
 {
 #ifdef _WIN32
-	if (!device->this_bdev)
-	{
+	if (!device->this_bdev) {
 		return;
 }
 
@@ -3739,8 +3737,7 @@ static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 	if (atomic_read64(&g_total_req_buf_bytes) > req_buf_size_max) {
 		device->resource->breqbuf_overflow_alarm = true;
 	
-		if (drbd_ratelimit())
-		{
+		if (drbd_ratelimit()) {
 #ifdef _WIN32
 			drbd_warn(device, "request buffer is full, postponing I/O until we get enough memory. cur req_buf_size(%llu), max(%llu)\n", atomic_read64(&g_total_req_buf_bytes), req_buf_size_max);
 #else
