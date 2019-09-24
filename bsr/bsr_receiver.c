@@ -367,16 +367,16 @@ void* drbd_alloc_pages(struct drbd_transport *transport, unsigned int number, bo
 		container_of(transport, struct drbd_connection, transport);
 	void* mem = NULL;
 	
-	unsigned int mxb;
+	int mxb;
 
 	rcu_read_lock();
 	mxb = rcu_dereference(transport->net_conf)->max_buffers;
 	rcu_read_unlock();
 
-	if ((unsigned int)atomic_read(&connection->pp_in_use) < mxb)
+	if (atomic_read(&connection->pp_in_use) < mxb)
 		mem = __drbd_alloc_pages(number);
 	while (mem == NULL) {
-		if ((unsigned int)atomic_read(&connection->pp_in_use) < mxb) {
+		if (atomic_read(&connection->pp_in_use) < mxb) {
 			mem = __drbd_alloc_pages(number);
 			if (mem)
 				break;
@@ -1288,7 +1288,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	//A match between barrier_nr and primary_node_id means that 
 	//the barrier is currently waiting for the barrier.If you are not waiting, 
 	//you do not need to do anything.
-	if (octx->ctx_sync.barrier_nr == atomic_read64(&ctx->ctx_sync.barrier_nr) &&
+	if (octx->ctx_sync.barrier_nr == atomic_read(&ctx->ctx_sync.barrier_nr) &&
 		octx->ctx_sync.primary_node_id == atomic_read(&ctx->ctx_sync.primary_node_id)) {
 		if (atomic_dec_and_test(&ctx->pending)) {
 			complete(&ctx->done);
@@ -1350,7 +1350,7 @@ static void submit_one_flush(struct drbd_device *device, struct issue_flush_cont
 	octx->device = device;
 	octx->ctx = ctx;
 #ifdef _WIN32	
-	octx->ctx_sync.barrier_nr = atomic_read64(&ctx->ctx_sync.barrier_nr);
+	octx->ctx_sync.barrier_nr = atomic_read(&ctx->ctx_sync.barrier_nr);
 	octx->ctx_sync.primary_node_id = atomic_read(&ctx->ctx_sync.primary_node_id);
 #endif
 	bio->bi_bdev = device->ldev->backing_bdev;
@@ -1384,7 +1384,7 @@ static enum finish_epoch drbd_flush_after_epoch(struct drbd_connection *connecti
 		int vnr;
 #ifdef _WIN32
 		kref_get(&resource->kref);
-		atomic_set64(&resource->ctx_flush.ctx_sync.barrier_nr, epoch->barrier_nr);
+		atomic_set(&resource->ctx_flush.ctx_sync.barrier_nr, epoch->barrier_nr);
 		atomic_set(&resource->ctx_flush.ctx_sync.primary_node_id, connection->peer_node_id);
 		resource->ctx_flush.error = 0;
 		atomic_set(&resource->ctx_flush.pending, 1);
@@ -1426,14 +1426,14 @@ static enum finish_epoch drbd_flush_after_epoch(struct drbd_connection *connecti
 		if (!atomic_dec_and_test(&resource->ctx_flush.pending)) {
 			long ret = wait_for_completion_no_reset_event(&resource->ctx_flush.done);
 			if (ret == -DRBD_SIGKILL) {
-				drbd_warn(resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d\n", 
-					atomic_read(&resource->ctx_flush.pending), atomic_read64(&resource->ctx_flush.ctx_sync.barrier_nr), atomic_read(&resource->ctx_flush.ctx_sync.primary_node_id));
+				drbd_warn(resource, "thread signaled and no more wait pending:%d, barrier_nr:%u, primary_node_id:%d\n", 
+					atomic_read(&resource->ctx_flush.pending), (unsigned int)atomic_read(&resource->ctx_flush.ctx_sync.barrier_nr), atomic_read(&resource->ctx_flush.ctx_sync.primary_node_id));
 			}
 		}
 
 		// DW-1895
 		//The barrier_nr and primary_node_id are set to ctx and octx to ensure that they match in the completion routine.
-		atomic_set64(&resource->ctx_flush.ctx_sync.barrier_nr, -1);
+		atomic_set(&resource->ctx_flush.ctx_sync.barrier_nr, -1);
 		atomic_set(&resource->ctx_flush.ctx_sync.primary_node_id, -1);
 
 		kref_put(&resource->kref, drbd_destroy_resource);
@@ -11297,13 +11297,8 @@ void drbd_send_acks_wf(struct work_struct *ws)
 	if (tcp_cork)
 		drbd_uncork(connection, CONTROL_STREAM);
 
-#ifdef _WIN32
 	if (err)
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD); // _WIN32 // DW-637 "change_state(C_DISCONNECTING)" is a problem that go to standalone status on disconnecting phase.
-#else
-	if (err)
-		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-#endif
 }
 
 void drbd_send_peer_ack_wf(struct work_struct *ws)

@@ -141,7 +141,8 @@ GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u32_field_def(7,	DRBD_GENLA_F_MANDATORY, twopc_retry_timeout, DRBD_TWOPC_RETRY_TIMEOUT_DEF)
 	__u32_field_def(8,	0 /* OPTIONAL */,	peer_ack_delay, DRBD_PEER_ACK_DELAY_DEF)
 	__u32_field_def(9,	0 /* OPTIONAL */,	auto_promote_timeout, DRBD_AUTO_PROMOTE_TIMEOUT_DEF)
-	__u32_field_def(10,    0 /* OPTIONAL */,    nr_requests, DRBD_NR_REQUESTS_DEF)
+	// BSR-231 nr_requests is sufficient for int variables and better to operate with atmoic_t variables.
+	__s32_field_def(10,    0 /* OPTIONAL */,    nr_requests, DRBD_NR_REQUESTS_DEF)
 	__s32_field_def(11, 0 /* OPTIONAL */, quorum, DRBD_QUORUM_DEF)
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, DRBD_ON_NO_QUORUM_DEF)
 	__u32_field_def(13, 0 /* OPTIONAL */, req_buf_size, DRBD_REQ_BUF_SIZE_DEF)        // DW-1200 request buffer maximum size 
@@ -159,7 +160,8 @@ GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u32_field_def(7, DRBD_GENLA_F_MANDATORY, twopc_retry_timeout, DRBD_TWOPC_RETRY_TIMEOUT_DEF)
 	__u32_field_def(8, 0 /* OPTIONAL */, peer_ack_delay, DRBD_PEER_ACK_DELAY_DEF)
 	__u32_field_def(9, 0 /* OPTIONAL */, auto_promote_timeout, DRBD_AUTO_PROMOTE_TIMEOUT_DEF)
-	__u32_field_def(10, 0 /* OPTIONAL */, nr_requests, DRBD_NR_REQUESTS_DEF)
+	// BSR-231 nr_requests is sufficient for int variables and better to operate with atmoic_t variables.
+	__s32_field_def(10, 0 /* OPTIONAL */, nr_requests, DRBD_NR_REQUESTS_DEF)
 	__s32_field_def(11, 0 /* OPTIONAL */, quorum, DRBD_QUORUM_DEF)
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, DRBD_ON_NO_QUORUM_DEF)
 	__u32_field_def(13, 0 /* OPTIONAL */, req_buf_size, DRBD_REQ_BUF_SIZE_DEF)        // DW-1200 request buffer maximum size 
@@ -200,7 +202,8 @@ GENL_struct(DRBD_NLA_NET_CONF, 5, net_conf,
 	__flg_field_def(33, 0 /* OPTIONAL */,	csums_after_crash_only, DRBD_CSUMS_AFTER_CRASH_ONLY_DEF)
 	__u32_field_def(34, 0 /* OPTIONAL */, sock_check_timeo, DRBD_SOCKET_CHECK_TIMEO_DEF)
 	__str_field_def(35, DRBD_F_INVARIANT, transport_name, SHARED_SECRET_MAX)
-	__u32_field_def(36, 0 /* OPTIONAL */, max_buffers, DRBD_MAX_BUFFERS_DEF)
+	// BSR-231 max_buffers is sufficient for int variables and better to operate with atmoic_t variables.
+	__s32_field_def(36, 0 /* OPTIONAL */, max_buffers, DRBD_MAX_BUFFERS_DEF)
 )
 
 GENL_struct(DRBD_NLA_SET_ROLE_PARMS, 6, set_role_parms,

@@ -756,7 +756,7 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 	 * and reset the transfer log epoch write_cnt.
 	 */
 	if (bio_data_dir(req->master_bio) == WRITE &&
-	    (int)req->epoch == atomic_read(&device->resource->current_tle_nr))
+	    req->epoch == atomic_read(&device->resource->current_tle_nr))
 		start_new_tl_epoch(device->resource);
 
 	/* Update disk stats */

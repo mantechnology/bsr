@@ -50,7 +50,7 @@
 
 static int make_ov_request(struct drbd_peer_device *, int);
 static int make_resync_request(struct drbd_peer_device *, int);
-static void maybe_send_barrier(struct drbd_connection *, unsigned int);
+static void maybe_send_barrier(struct drbd_connection *, int);
 #ifdef _WIN32 //TODO
 static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error);
 #endif
@@ -3557,7 +3557,7 @@ static void wait_for_sender_todo(struct drbd_connection *connection)
 		 */
 		send_barrier =
 			atomic_read(&connection->resource->current_tle_nr) !=
-			(int)connection->send.current_epoch_nr;
+			connection->send.current_epoch_nr;
 		spin_unlock_irq(&connection->resource->req_lock);
 
 		if (send_barrier)
@@ -3600,7 +3600,7 @@ static void wait_for_sender_todo(struct drbd_connection *connection)
 		drbd_uncork(connection, DATA_STREAM);
 }
 
-static void re_init_if_first_write(struct drbd_connection *connection, unsigned int epoch)
+static void re_init_if_first_write(struct drbd_connection *connection, int epoch)
 {
 	if (!connection->send.seen_any_write_yet) {
 		connection->send.seen_any_write_yet = true;
@@ -3612,7 +3612,7 @@ static void re_init_if_first_write(struct drbd_connection *connection, unsigned 
 	}
 }
 
-static void maybe_send_barrier(struct drbd_connection *connection, unsigned int epoch)
+static void maybe_send_barrier(struct drbd_connection *connection, int epoch)
 {
 	/* re-init if first write on this connection */
 	if (!connection->send.seen_any_write_yet)
