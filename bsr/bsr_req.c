@@ -35,7 +35,7 @@
 #include "bsr_req.h"
 #endif
 
-// DW-1200: currently allocated request buffer size in byte.
+// DW-1200 currently allocated request buffer size in byte.
 #ifdef _WIN32
 atomic_t64 g_total_req_buf_bytes = 0;
 #else
@@ -102,7 +102,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	if (!req)
 		return NULL;
 
-	// DW-1200: add allocated request buffer size.
+	// DW-1200 add allocated request buffer size.
 	// DW-1539 change g_total_req_buf_bytes's usage to drbd_req's allocated size
 	atomic_add64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 
@@ -115,7 +115,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
 		return NULL;
 	}
-	// DW-1237: set request data buffer ref to 1 for local I/O.
+	// DW-1237 set request data buffer ref to 1 for local I/O.
 	atomic_set(&req->req_databuf_ref, 1);
 	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
 #endif
@@ -125,14 +125,14 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
     {
 		kfree2(req->req_databuf);
 		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
-		// DW-1200: subtract freed request buffer size.
+		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
         return NULL;
     }
 #else
 	drbd_req_make_private_bio(req, bio_src);
-	// DW-1200: subtract freed request buffer size.
+	// DW-1200 subtract freed request buffer size.
 	// DW-1539
 	atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 #endif
@@ -206,7 +206,7 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
 #ifdef _WIN32
         if (req->req_databuf)
         {
-            // DW-596: required to verify to free req_databuf at this point
+            // DW-596 required to verify to free req_databuf at this point
             kfree2(req->req_databuf);
         }
 
@@ -214,7 +214,7 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
 #else
 		mempool_free(req, drbd_request_mempool);
 #endif
-		// DW-1200: subtract freed request buffer size.
+		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 	}
@@ -341,7 +341,7 @@ void drbd_req_destroy(struct kref *kref)
 			struct drbd_peer_md *peer_md = device->ldev->md.peers;
 			ULONG_PTR bits = UINTPTR_MAX, mask = UINTPTR_MAX;
 			int node_id, max_node_id = device->resource->max_node_id;
-			//DW-1191
+			// DW-1191
 			ULONG_PTR set_bits = 0;
 
 			for (node_id = 0; node_id <= max_node_id; node_id++) {
@@ -361,7 +361,7 @@ void drbd_req_destroy(struct kref *kref)
 				}
 			}
 
-			// DW-1191: this req needs to go into bitmap, and notify peer if possible.
+			// DW-1191 this req needs to go into bitmap, and notify peer if possible.
 			set_bits = drbd_set_sync(device, req->i.sector, req->i.size, bits, mask);			
 			if (set_bits)
 			{
@@ -371,8 +371,8 @@ void drbd_req_destroy(struct kref *kref)
 					if (test_bit(bitmap_index, &set_bits) &&
 						peer_device->connection->cstate[NOW] >= C_CONNECTED)
 					{
-						/* DW-1191: sending out-of-sync isn't available since we need to acquire mutex to prepare command and caller acquired spin lock.
-								 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does. */
+						// DW-1191 sending out-of-sync isn't available since we need to acquire mutex to prepare command and caller acquired spin lock.
+						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct drbd_oos_no_req* send_oos = NULL;
 
 						drbd_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
@@ -450,7 +450,7 @@ void drbd_req_destroy(struct kref *kref)
 #else
 				mempool_free(peer_ack_req, drbd_request_mempool);
 #endif
-				// DW-1200: subtract freed request buffer size.
+				// DW-1200 subtract freed request buffer size.
 				// DW-1539
 				atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 			}
@@ -472,7 +472,7 @@ void drbd_req_destroy(struct kref *kref)
 #else
 		mempool_free(req, drbd_request_mempool);
 #endif
-		// DW-1200: subtract freed request buffer size.
+		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 	}
@@ -567,8 +567,8 @@ void complete_master_bio(struct drbd_device *device,
 				status = STATUS_SUCCESS;
 			}
 			
-			/* DW-1755 In the passthrough policy, 
-			 * when a disk error occurs on the primary node, 
+			// DW-1755 In the passthrough policy, 
+			 /* when a disk error occurs on the primary node, 
 			 * write out_of_sync for all nodes.
 			 */
 			for_each_peer_device(peer_device, device) {
@@ -614,7 +614,7 @@ void complete_master_bio(struct drbd_device *device,
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
 #ifdef _WIN32
-			// DW-1300: put reference when completing master irp.
+			// DW-1300 put reference when completing master irp.
 			kref_put(&device->kref, drbd_destroy_device);
 #endif
 
@@ -655,7 +655,7 @@ void complete_master_bio(struct drbd_device *device,
 
 				kfree(master_bio->splitInfo);
 #ifdef _WIN32
-				// DW-1300: put reference when completing master irp.
+				// DW-1300 put reference when completing master irp.
 				kref_put(&device->kref, drbd_destroy_device);
 #endif
 	        } 
@@ -788,7 +788,7 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 		// for the "passthrough" policy, all local errors are returned to the file system.
 		enum drbd_io_error_p eh = EP_PASSTHROUGH;
 
-		//DW-1837
+		// DW-1837
 		//If the disk is detached, device-> ldev can be null.
 		if (device->ldev) {
 			rcu_read_lock();
@@ -1045,7 +1045,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	}
 
 #ifdef _WIN32
-	// DW-1237: Local I/O has been completed, put request databuf ref. 
+	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED))
 	{
 		if (0 == atomic_dec(&req->req_databuf_ref))
@@ -1651,7 +1651,7 @@ static void __maybe_pull_ahead(struct drbd_device *device, struct drbd_connectio
 	on_congestion = nc ? nc->on_congestion : OC_BLOCK;
 	rcu_read_unlock();
 	if (on_congestion == OC_BLOCK ||
-		// DW-1204: peer is already disconnected, no pull ahead
+		// DW-1204 peer is already disconnected, no pull ahead
 		connection->cstate[NOW] < C_CONNECTED ||
 	    connection->agreed_pro_version < 96)
 		return;
@@ -1667,7 +1667,7 @@ static void __maybe_pull_ahead(struct drbd_device *device, struct drbd_connectio
 		return;
 
 	if (nc->cong_fill) {
-		//DW-1817 
+		// DW-1817 
 		//To accurately check when to enter AHEAD mode, you should consider the size of the synchronization data in the send buffer.
 		__u64 total_in_flight = atomic_read64(&connection->ap_in_flight) + atomic_read64(&connection->rs_in_flight);
 		if (total_in_flight >= nc->cong_fill) {
@@ -1802,7 +1802,7 @@ static int drbd_process_write_request(struct drbd_request *req)
 		send_oos = drbd_should_send_out_of_sync(peer_device);
 
 #ifdef _WIN32_DEBUG_OOS
-		// DW-1153: Write log when process I/O
+		// DW-1153 Write log when process I/O
 		printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n", KERN_DEBUG_OOS,
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
@@ -1815,7 +1815,7 @@ static int drbd_process_write_request(struct drbd_request *req)
 		if (remote) {
 			++count;
 #ifdef _WIN32 //TODO: for cross-platform
-			// DW-1237: get request databuf ref to send data block.
+			// DW-1237 get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
 #endif
 			_req_mod(req, TO_BE_SENT, peer_device);
@@ -2462,7 +2462,7 @@ void do_submit(struct work_struct *ws)
 {
 	struct drbd_device *device = container_of(ws, struct drbd_device, submit.worker);
 	struct waiting_for_act_log wfa;
-	//DW-1780 retry the same request with al_timeout
+	// DW-1780 retry the same request with al_timeout
 	ULONG_PTR al_wait_count = 0; 
 	wfa_init(&wfa);
 
@@ -2520,7 +2520,7 @@ void do_submit(struct work_struct *ws)
 			drbd_kick_lo(device);
 #endif
 
-#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 : If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
+#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
 			if(!schedule(&device->al_wait, AL_WAIT_TIMEOUT, __FUNCTION__, __LINE__)) {
 #else
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {

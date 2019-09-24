@@ -61,7 +61,7 @@ static FILE *m_popen(int *pid, char * const* argv)
 
 	dev_null = open("/dev/null", O_WRONLY);
 	if (dev_null == -1) {
-		//DW-1777 revert source and change error message
+		// DW-1777 revert source and change error message
 		err("Opening null service failed: %m\n");
 		exit(E_EXEC_ERROR);
 	}
@@ -790,7 +790,7 @@ adjust_net(const struct cfg_ctx *ctx, struct d_resource* running, int can_do_pro
 				adjust_peer_devices(&tmp_ctx, running_conn);
 		}
 #if 0
-		// DW-1424: the proxy Mantech uses is non compatible with Linbit's, let it adjust configuration itself.
+		// DW-1424 the proxy Mantech uses is non compatible with Linbit's, let it adjust configuration itself.
 		path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 		if (path->my_proxy && can_do_proxy)
 			proxy_reconf(&tmp_ctx, running_conn);

@@ -1,4 +1,4 @@
-
+#pragma warning (disable : 4127)
 
 VOID
 InitVolBlock(

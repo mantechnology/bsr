@@ -901,7 +901,7 @@ const struct en_map quorum_map[] = {
 	{ "ping-int", NUMERIC(ping_int, PING_INT),					\
           .unit = "seconds" },								\
 	{ "sndbuf-size", NUMERIC(sndbuf_size, SNDBUF_SIZE),				\
-	/* DW-1421 : set implicit_clamp to true to avoid numeric_check */				\
+	/* // DW-1421 set implicit_clamp to true to avoid numeric_check */				\
           .unit = "bytes", .implicit_clamp = true },								\
 	{ "rcvbuf-size", NUMERIC(rcvbuf_size, RCVBUF_SIZE),				\
           .unit = "bytes" },								\

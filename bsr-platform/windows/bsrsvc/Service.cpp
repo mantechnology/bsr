@@ -43,9 +43,9 @@ BOOL g_bProcessStarted = TRUE;
 
 TCHAR * ServiceName = _T("bsrService");
 TCHAR * ServiceDisplayName = _T("BSR for Windows");
-//DW-1741 ko
+// DW-1741 ko
 TCHAR * DescriptionKO = _T("BSR의 Windows 버전으로 실시간 블럭레벨 복제를 제공합니다. 이 서비스를 중지하면 복제 서비스에 문제가 발생할 수 있습니다.");
-//DW-1741 en
+// DW-1741 en
 TCHAR * DescriptionEN = _T("Provides real-time block-level replication with a Windows version of the BSR. Stopping this service can cause problems with the replication service.");
 
 SERVICE_TABLE_ENTRY		g_lpServiceStartTable[] =
@@ -98,7 +98,7 @@ VOID WriteLog(wchar_t* pMsg)
     DeregisterEventSource(hEventLog);
 }
 
-// DW-1505: Return the oldest filename if the number of files 
+// DW-1505 Return the oldest filename if the number of files 
 // with search names is NUMOFLOGS or greater  
 #define NUMOFLOGS 10
 TCHAR* GetOldestFileName(TCHAR* FileAllPath)
@@ -362,7 +362,7 @@ DWORD KillService(const TCHAR * pName)
     return err;
 }
 
-//DW-1741 add update service description
+// DW-1741 add update service description
 DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 {
 	wchar_t pTemp[1024];
@@ -577,7 +577,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 
 VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 {
-	// DW-1505 : Keep only NUMOFLOGS(10) Preshutdown logs 
+	// DW-1505 Keep only NUMOFLOGS(10) Preshutdown logs 
 	size_t path_size; WCHAR DrbdPath[MAX_PATH] = { 0, }; WCHAR DrbdLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
 	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"BSR_PATH");
@@ -614,7 +614,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 		WriteLog(tmp);
 	}
 	else {
-		//DW-1821 delete old log
+		// DW-1821 delete old log
 		if (OldPreShutdownTime != NULL) {
 			WCHAR DeleteFileName[MAX_PATH] = { 0, };
 
@@ -705,7 +705,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 				}
 			}
 			else {
-				//DW-1821 log before running RcDrbdStop() when the system shuts down.
+				// DW-1821 log before running RcDrbdStop() when the system shuts down.
 				TCHAR sPreShutdownTime[MAX_PATH], ePreShutdownTime[MAX_PATH];
 				SYSTEMTIME sTime;
 
@@ -846,7 +846,7 @@ DWORD RcDrbdStop(bool force)
         return -1;
     }
     wsprintf(szFullPath, L"\"%ws\\%ws\" %ws", gServicePath, g_pwdrbdRcBat, L"stop");
-	//DW-1874
+	// DW-1874
 	if (force)
 		wsprintf(szFullPath, L"%ws %ws", szFullPath, L"force");
 

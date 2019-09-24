@@ -338,7 +338,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 		}
 	}
 
-	// DW-889: The host is invalid, find it in running_config.
+	// DW-889 The host is invalid, find it in running_config.
 	if (!res->me) {
 		struct d_resource* running;
 		running = running_res_by_name(res->name, false);

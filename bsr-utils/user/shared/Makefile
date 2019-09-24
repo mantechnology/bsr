@@ -18,27 +18,27 @@
 #
 
 # variables set by configure
-DISTRO = redhat
-prefix = /usr
-exec_prefix = /usr
-localstatedir = /var
-datarootdir = /usr/share
-datadir = /usr/share
-sbindir = /usr/sbin
-sysconfdir = /etc
+DISTRO = 
+prefix = /usr/local
+exec_prefix = /usr/local
+localstatedir = /usr/local/var
+datarootdir = /usr/local/share
+datadir = /usr/local/share
+sbindir = /usr/local/sbin
+sysconfdir = /usr/local/etc
 BASH_COMPLETION_SUFFIX = 
-UDEV_RULE_SUFFIX = 
-INITDIR = /etc/rc.d/init.d
-LIBDIR = /usr/lib/bsr
+UDEV_RULE_SUFFIX = .disabled
+INITDIR = /usr/local/etc/init.d
+LIBDIR = /usr/local/lib/bsr
 CC = gcc
 CFLAGS = -g -O2
 LDFLAGS = 
 LN_S = ln -s
 
-BSR_LIB_DIR = /var/lib/bsr
-BSR_RUN_DIR = /var/run/bsr
-BSR_LOCK_DIR = /var/lock
-BSR_CONFIG_DIR = /etc
+BSR_LIB_DIR = /usr/local/var/lib/bsr
+BSR_RUN_DIR = /usr/local/var/run/bsr
+BSR_LOCK_DIR = /usr/local/var/lock
+BSR_CONFIG_DIR = /usr/local/etc
 
 # features enabled or disabled by configure
 WITH_UDEV = yes

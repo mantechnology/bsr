@@ -48,7 +48,7 @@ static __inline void INIT_LIST_HEAD(struct list_head *list)
  */
 static bool __list_add_valid(struct list_head *new, struct list_head *prev, struct list_head *next)
 {
-#ifdef _WIN32 //DW-1480
+#ifdef _WIN32 // DW-1480
 	if (next->prev != prev)
 	{
 		// list_add corruption.
@@ -86,7 +86,7 @@ static bool __list_add_valid(struct list_head *new, struct list_head *prev, stru
 #endif
 }
 
-#ifdef _WIN32 //DW-1480
+#ifdef _WIN32 // DW-1480
 static bool list_add_valid(struct list_head *new, struct list_head *prev)
 {
 	if(new == 0 || prev == 0 || prev->next == 0)

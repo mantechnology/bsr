@@ -57,7 +57,7 @@
 #define __BYTE_ORDER __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN_BITFIELD
 
-//DW-1507 remove unmeaning build warnings(2008 platform) and more warnings disable.
+// DW-1507 remove unmeaning build warnings(2008 platform) and more warnings disable.
 #pragma warning (disable : 4100 4121 4127 4152 4200 4201 4204 4221 )
 
 // BSR-238 warning disable list
@@ -401,7 +401,7 @@ enum mdf_flag {
 	MDF_AL_DISABLED =       1 << 8,
 #ifdef _WIN32
 	MDF_LAST_PRIMARY = 1 << 16,
-	MDF_IO_ERROR = 1 << 17,				/* DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.*/
+	MDF_IO_ERROR = 1 << 17,				// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
 #endif
 };
 
@@ -411,22 +411,22 @@ enum mdf_peer_flag {
 	MDF_PEER_FENCING =		1 << 2,
 	MDF_PEER_FULL_SYNC =	1 << 3,
 	MDF_PEER_DEVICE_SEEN =	1 << 4,
-	// DW-978: Bitmap uuid is set as -1 and sent to peers when it's 0 and current uuid doesn't match.
+	// DW-978 Bitmap uuid is set as -1 and sent to peers when it's 0 and current uuid doesn't match.
 	// It needs to be cleared when resync's done and gets matched current uuid.
 	// This flag indicates that above situation so that uuid will be propagated once resync is finished.
 	MDF_PEER_DIFF_CUR_UUID = 1 << 5,
 
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		/* DW-1357: no need to get synced from this peer, ignore crashed primary */
+	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		// DW-1357 no need to get synced from this peer, ignore crashed primary 
 #endif
 
 	MDF_NODE_EXISTS =       1 << 16, /* */
 #ifdef _WIN32
 	MDF_PEER_INIT_SYNCT_BEGIN	= 1 << 17,
-	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,			//DW-1874 
+	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,			// DW-1874 
 													//when the connection is lost during synchronization and the synctarget is complete synchronizing with another node, 
 													//it is used to determine the unnecessary out of sync removal when reconnected.
-	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,         /* DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.*/
+	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,         // DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
 #endif
 };
 
@@ -512,8 +512,8 @@ enum drbd_peer_state {
 #define QOU_ALL 1025
 
 #ifdef _WIN32 // TODO
-/* flag bits per volume extension
-DW-1277: volume type is marked when drbd attaches */
+// flag bits per volume extension
+// DW-1277 volume type is marked when drbd attaches 
 enum {
 	VOLUME_TYPE_REPL,		// for replicating volume.
 	VOLUME_TYPE_META,		// for meta volume.
@@ -524,16 +524,16 @@ enum {
 
 #define _WIN32_MVFL
 #define _WIN32_MULTI_VOLUME
-#define _WIN32_RCU_LOCKED // DW-1477 : Lock if not locked.
-#define _WIN32_NOWAIT_COMPLETION // DW-1479 : Do not wait for WskCloseSocket to complete.
+#define _WIN32_RCU_LOCKED // DW-1477 Lock if not locked.
+#define _WIN32_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
 // TODO: _WIN32_NETQUEUED_LOG is need to move global define.
-#define _WIN32_NETQUEUED_LOG // DW-1521 : Improve I/O response time at low bandwidth.
+#define _WIN32_NETQUEUED_LOG // DW-1521 Improve I/O response time at low bandwidth.
 
 #endif
 
 #define _WIN32_TWOPC // DW-1252
 #define _WIN32_SIMPLE_TWOPC // DW-1408
-#define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 : crashed_primary node to be SyncSource.
+#define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 crashed_primary node to be SyncSource.
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
 #define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE // DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 

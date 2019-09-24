@@ -28,7 +28,7 @@
 #define CMD_TIMEOUT_MEDIUM_DEF 121
 #define CMD_TIMEOUT_LONG_DEF 600
 
-//DW-1744 : trace print macro add
+// DW-1744 trace print macro add
 #define TRACE_PRINT(fmt, ...)		\
     do {						\
 		if(trace_print)				\

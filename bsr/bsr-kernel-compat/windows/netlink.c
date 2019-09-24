@@ -296,7 +296,7 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
     }
 }
 
-// DW-1229: using global attr may cause BSOD when we receive plural netlink requests. use local attr.
+// DW-1229 using global attr may cause BSOD when we receive plural netlink requests. use local attr.
 struct genl_info * genl_info_new(struct nlmsghdr * nlh, struct socket* sock, struct nlattr **attrs)
 {
     struct genl_info * pinfo = ExAllocateFromNPagedLookasideList(&genl_info_mempool);
@@ -634,7 +634,7 @@ NetlinkWorkThread(PVOID context)
         if (pinfo)
             ExFreeToNPagedLookasideList(&genl_info_mempool, pinfo);
 		
-		// DW-1229: using global attr may cause BSOD when we receive plural netlink requests. use local attr.
+		// DW-1229 using global attr may cause BSOD when we receive plural netlink requests. use local attr.
 		struct nlattr *local_attrs[128];
 
 		pinfo = genl_info_new(nlh, pSock, local_attrs);

@@ -38,7 +38,7 @@
 #include "../bsr/bsr_int.h"
 
 
-// DW-1513 : Output LRU status like lc_seq_printf_stats function
+// DW-1513 Output LRU status like lc_seq_printf_stats function
 #ifdef WIN_AL_BUG_ON
 void private_strcat(char* buf, size_t buf_len, char* string, ULONG_PTR string_value){
 	char tmp[64] = { 0, }; 

@@ -354,12 +354,12 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         }
 #endif
         VolumeExtension->Active = TRUE;
-		// DW-1327: to block I/O by drbdlock.
+		// DW-1327 to block I/O by drbdlock.
 		SetDrbdlockIoBlock(VolumeExtension, TRUE);
     }
 #endif
 
-	// DW-1109: create block device in add device routine, it won't be destroyed at least we put ref in remove device routine.
+	// DW-1109 create block device in add device routine, it won't be destroyed at least we put ref in remove device routine.
 	VolumeExtension->dev = create_drbd_block_device(VolumeExtension);
 
 	drbd_info(NO_OBJECT,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)\n",
@@ -419,14 +419,14 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #ifdef _WIN32_MVFL
     if (VolumeExtension->Active) 
 	{
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
-		// DW-1300: prevent mounting volume when device went diskless.
+		// DW-1300 prevent mounting volume when device went diskless.
 		if (device && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] == D_DISKLESS))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 			//drbd_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 
 			Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
@@ -434,7 +434,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 			return STATUS_INVALID_DEVICE_REQUEST;
 		}
-		// DW-1300: put device reference count when no longer use.
+		// DW-1300 put device reference count when no longer use.
 		else if (device)
 			kref_put(&device->kref, drbd_destroy_device);
     }
@@ -480,7 +480,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 	 
 	if (g_mj_flush_buffers_filter && VolumeExtension->Active) {
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
         if (device) {
 #ifdef _WIN32_MULTIVOL_THREAD
@@ -494,7 +494,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
                 &Irp->Tail.Overlay.ListEntry, &pThreadInfo->ListLock);
             IO_THREAD_SIG(pThreadInfo);
 #endif
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 			return STATUS_PENDING;
         } else {
@@ -529,23 +529,23 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #ifdef _WIN32_MVFL
     if (VolumeExtension->Active)
     {
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
-		// DW-1300: prevent mounting volume when device is failed or below.
+		// DW-1300 prevent mounting volume when device is failed or below.
 		if (device && device->resource->bTempAllowMount == FALSE && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] <= D_FAILED))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 			//drbd_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
 
-			//DW-1883
+			// DW-1883
 			//Driver Verifier generates a BSOD if IRP_MJ_SYSTEM_CONTROL is not passed to the lower stack driver.
 			//Modify the minor function to be changed to a value that is not currently defined. It will probably return STATUS_NOT_SUPPORTED.
 			irpSp = IoGetCurrentIrpStackLocation(Irp);
 			irpSp->MinorFunction = 0xFF;
 		}
-		// DW-1300: put device reference count when no longer use.
+		// DW-1300 put device reference count when no longer use.
 		else if (device)
 			kref_put(&device->kref, drbd_destroy_device);
     }
@@ -575,12 +575,12 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     if (VolumeExtension->Active)
     {
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
-		// DW-1363: prevent mounting volume when device is failed or below.
+		// DW-1363 prevent mounting volume when device is failed or below.
 		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE))
         {
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
             if (g_read_filter)
             {
@@ -589,7 +589,7 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         }
         else
         {
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
             goto invalid_device;
@@ -657,9 +657,9 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     }
 
     if (VolumeExtension->Active) {
-		// DW-1300: get device and get reference.
+		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
-		// DW-1363: prevent writing when device is failed or below.
+		// DW-1363 prevent writing when device is failed or below.
 		if (device && device->resource && (device->resource->role[NOW] == R_PRIMARY) && (device->resource->bPreSecondaryLock == FALSE) && (device->disk_state[NOW] > D_FAILED)) {
         	
 			PIO_STACK_LOCATION pisl = IoGetCurrentIrpStackLocation(Irp);
@@ -683,7 +683,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 					drbd_debug(NO_OBJECT,"need to temporary bm write\n");
 				}				
 				
-				// DW-1300: put device reference count when no longer use.
+				// DW-1300 put device reference count when no longer use.
 				kref_put(&device->kref, drbd_destroy_device);
 				goto skip;
 			}
@@ -723,13 +723,13 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             IO_THREAD_SIG(pThreadInfo);
 #endif
 
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
             return STATUS_PENDING;
         }
         else
         {
-			// DW-1300: put device reference count when no longer use.
+			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
 
@@ -876,10 +876,10 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		}		
 		case IOCTL_VOLUME_ONLINE:
 		{
-			//DW-1700
+			// DW-1700
 			//Update the volume size when the disk is online.
 			//After the IOCTL_VOLUME_ONLINE command completes, you can get the size of the volume.
-			//DW-1917
+			// DW-1917
 			LONGLONG size;
 			struct block_device *bdev = VolumeExtension->dev;
 
@@ -888,7 +888,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			if (bdev && bdev->bd_contains) {
 				size = get_targetdev_volsize(VolumeExtension);
 				bdev->bd_contains->d_size = size;
-				//DW-1917 max_hw_sectors value must be set.
+				// DW-1917 max_hw_sectors value must be set.
 				bdev->bd_disk->queue->max_hw_sectors = size ? (size >> 9) : DRBD_MAX_BIO_SIZE;
 			}
 
