@@ -106,7 +106,7 @@ unsigned minor_by_id(const char *id)
  */
 
 // DW-1744
-* There is currently no way to obtain an IP address via the ioctl function,
+/* There is currently no way to obtain an IP address via the ioctl function,
 * but sometimes an IP address is given for the old network card information left in the registry.
 * Seems to be a problem with cygwin.If you get the IP through the Windows API, that problem is solved.
 * There is no problem with the Linux operating system, so wrap it in ifdef to work only on Windows.

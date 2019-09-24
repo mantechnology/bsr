@@ -2574,7 +2574,7 @@ static void device_status(struct devices_list *device, bool single_device)
 	 */
 
 	// DW-1820
-	 * Modified to print io-error on secondary. 
+	 /* Modified to print io-error on secondary. 
 	 * In secondary io-error, it is not UpToDate, so modify the condition.
 	 */
 	if (device->info.io_error_count) {
