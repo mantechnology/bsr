@@ -898,7 +898,7 @@ struct scatterlist {
 #define MINORMASK	0xff
 
 extern struct workqueue_struct *create_singlethread_workqueue(void * name);
-extern int queue_work(struct workqueue_struct* queue, struct work_struct* work);
+extern bool queue_work(struct workqueue_struct* queue, struct work_struct* work);
 extern void destroy_workqueue(struct workqueue_struct *wq);
 
 extern void kobject_put(struct kobject *kobj);

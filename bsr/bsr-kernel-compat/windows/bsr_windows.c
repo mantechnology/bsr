@@ -944,18 +944,18 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 	return timeout < 0 ? 0 : timeout;
 }
 
-int queue_work(struct workqueue_struct* queue, struct work_struct* work)
+bool queue_work(struct workqueue_struct* queue, struct work_struct* work)
 {
 	struct work_struct_wrapper * wr = kmalloc(sizeof(struct work_struct_wrapper), 0, '68DW');
 	// DW-1051 fix NULL dereference.
 	if(!wr) {
-		return FALSE;
+		return false;
 	}
 
 	wr->w = work;
 	ExInterlockedInsertTailList(&queue->list_head, &wr->element, &queue->list_lock);
-	KeSetEvent(&queue->wakeupEvent, 0, FALSE); // signal to run_singlethread_workqueue
-	return TRUE;
+	KeSetEvent(&queue->wakeupEvent, 0, false); // signal to run_singlethread_workqueue
+	return true;
 }
 
 void run_singlethread_workqueue(PVOID StartContext)
