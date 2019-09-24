@@ -367,16 +367,16 @@ void* drbd_alloc_pages(struct drbd_transport *transport, unsigned int number, bo
 		container_of(transport, struct drbd_connection, transport);
 	void* mem = NULL;
 	
-	unsigned int mxb;
+	int mxb;
 
 	rcu_read_lock();
 	mxb = rcu_dereference(transport->net_conf)->max_buffers;
 	rcu_read_unlock();
 
-	if ((unsigned int)atomic_read(&connection->pp_in_use) < mxb)
+	if (atomic_read(&connection->pp_in_use) < mxb)
 		mem = __drbd_alloc_pages(number);
 	while (mem == NULL) {
-		if ((unsigned int)atomic_read(&connection->pp_in_use) < mxb) {
+		if (atomic_read(&connection->pp_in_use) < mxb) {
 			mem = __drbd_alloc_pages(number);
 			if (mem)
 				break;

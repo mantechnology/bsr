@@ -3672,7 +3672,7 @@ extern void drbd_queue_pending_bitmap_work(struct drbd_device *);
 /* rw = READ or WRITE (0 or 1); nothing else. */
 static inline void dec_ap_bio(struct drbd_device *device, int rw)
 {
-	unsigned int nr_requests = device->resource->res_opts.nr_requests;
+	int nr_requests = device->resource->res_opts.nr_requests;
 	int ap_bio = atomic_dec_return(&device->ap_bio_cnt[rw]);
 
 	D_ASSERT(device, ap_bio >= 0);
@@ -3686,7 +3686,7 @@ static inline void dec_ap_bio(struct drbd_device *device, int rw)
 	if (ap_bio == 0 && rw == WRITE && !list_empty(&device->pending_bitmap_work.q))
 		drbd_queue_pending_bitmap_work(device);
 
-	if (ap_bio == 0 || ap_bio == (int)nr_requests-1)
+	if (ap_bio == 0 || ap_bio == nr_requests-1)
 		wake_up(&device->misc_wait);
 }
 
@@ -3719,13 +3719,13 @@ static inline bool may_inc_ap_bio(struct drbd_device *device)
 static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 {
 	bool rv = false;
-	unsigned int nr_requests;
+	int nr_requests;
 	// DW-1200: request buffer maximum size.
 	LONGLONG req_buf_size_max;
 
 	spin_lock_irq(&device->resource->req_lock);
 	nr_requests = device->resource->res_opts.nr_requests;
-	rv = may_inc_ap_bio(device) && (unsigned int)atomic_read(&device->ap_bio_cnt[rw]) < nr_requests;
+	rv = may_inc_ap_bio(device) && (atomic_read(&device->ap_bio_cnt[rw]) < nr_requests);
 
 	// DW-1200: postpone I/O if current request buffer size is too big.
 	req_buf_size_max = ((LONGLONG)device->resource->res_opts.req_buf_size << 10);    // convert to byte
