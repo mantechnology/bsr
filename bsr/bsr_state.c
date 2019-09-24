@@ -726,10 +726,10 @@ static void __state_change_unlock(struct drbd_resource *resource, unsigned long 
 	if (get_t_state(&resource->worker) == RUNNING) {
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN32 
-	        while (wait_for_completion(done) == -DRBD_SIGKILL){
+	        while (wait_for_completion(done) == -DRBD_SIGKILL) {
 	            drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	        }
-#else
+#else // _LIN
 			wait_for_completion(done);
 #endif
 		}
@@ -5181,10 +5181,8 @@ void __outdate_myself(struct drbd_resource *resource)
 	struct drbd_device *device;
 	int vnr;
 
-#ifdef _WIN32_V9_DW_663_LINBIT_PATCH // _WIN32 // DW-663 PATCHED_BY_MANTECH from philipp.reisner@linbit.com 2016.05.03
 	if (resource->role[NOW] == R_PRIMARY)
 		return;
-#endif
 
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		if (device->disk_state[NOW] > D_OUTDATED)

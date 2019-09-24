@@ -485,7 +485,8 @@ static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info
 
 	adm_ctx->reply_dh->ret_code = retcode;
 	drbd_adm_send_reply(adm_ctx->reply_skb, info);
-#ifdef _WIN32 // DW-211 fix memory leak
+#ifdef _WIN32
+	// DW-211 fix memory leak
 	nlmsg_free(adm_ctx->reply_skb);
 #endif
 	adm_ctx->reply_skb = NULL;
