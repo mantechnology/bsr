@@ -82,6 +82,14 @@
 
 #endif
 
+
+// BSR-245 define timer_list data type for cross-platform
+#ifdef _WIN32
+#define TIMER_DATA_TYPE PVOID
+#else // _LIN
+#define TIMER_DATA_TYPE unsigned long
+#endif
+
 /* {{{ pr_* macros */
 /* some very old kernels don't have them, or at least not all of them */
 #ifndef pr_emerg
