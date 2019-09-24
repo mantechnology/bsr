@@ -125,7 +125,8 @@ static const char * const __error_messages[] = {
 	[-SS_TIMEOUT] = "Timeout in operation",
 	[-SS_WEAKLY_CONNECTED] = "Primary nodes must be strongly connected among each other",
 	[-SS_NO_QUORUM] = "No quorum",
-    [-SS_TARGET_DISK_TOO_SMALL] = "Target disk is smaller than source.",
+	[-SS_TARGET_DISK_TOO_SMALL] = "Target disk is smaller than source.",
+	// DW-839
 	[-SS_CONNECTED_DISKLESS] = "Refusing to be Diskless while Connected",
 	[-SS_LOWER_THAN_OUTDATED_PEER] = "Peer disk state is lower than outdated",
 	[-SS_BARRIER_ACK_PENDING_TIMEOUT] = "Failed to set secondary role due to barrier ack pending timeout(10s). Wait until resync starts or disconnect first to demote forcibly.",
