@@ -1010,11 +1010,9 @@ enum {
 	NEW_CUR_UUID,		/* Create new current UUID when thawing IO or issuing local IO */
 	__NEW_CUR_UUID,        /* Set NEW_CUR_UUID as soon as state change visible */
 	AL_SUSPENDED,		/* Activity logging is currently suspended. */
-#ifndef	_WIN32
 	// DW-874 Since resync works per peer device and device flag is shared for all peers, it may get racy with more than one peer.
 	// To support resync for more than one peer, this flag must be set as a peer device flag.
-	AHEAD_TO_SYNC_SOURCE,   /* Ahead -> SyncSource queued */
-#endif
+	//AHEAD_TO_SYNC_SOURCE,   /* Ahead -> SyncSource queued */
 	UNREGISTERED,
 	FLUSH_PENDING,		/* if set, device->flush_jif is when we submitted that flush
 				 * from drbd_flush_after_epoch() */
@@ -1051,10 +1049,8 @@ enum {
 	SEND_STATE_AFTER_AHEAD,
 	GOT_NEG_ACK,        /* got a neg_ack while primary, wait until peer_disk is lower than
                     D_UP_TO_DATE before becoming secondary! */
-#ifdef _WIN32
 	// DW-874 Moved from device flag. See device flag comment for detail.
 	AHEAD_TO_SYNC_SOURCE,   /* Ahead -> SyncSource queued */
-#endif
 
 	// DW-955 add resync aborted flag to resume it later.
 	RESYNC_ABORTED,			/* Resync has been aborted due to unsyncable (peer)disk state, need to resume it when it goes syncable. */
