@@ -768,7 +768,6 @@ static __inline struct nlmsghdr *
 	return nlh;
 }
 
-//typedef struct msg_buff  msg_buff;
 
 static __inline struct nlmsghdr *nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
 	int type, int payload, int flags)
