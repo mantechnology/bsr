@@ -3648,6 +3648,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	/* D_DETACHING will transition to DISKLESS. */
 	drbd_resume_io(device);
 	// DW-1046 detour adm_detach hang
+	// TODO: When passing the result of timeout to ret, it should be verified that there is no problem.
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
