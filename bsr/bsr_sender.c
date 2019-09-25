@@ -954,7 +954,7 @@ static int read_for_csum(struct drbd_peer_device *peer_device, sector_t sector, 
 		drbd_err(peer_device, "failed to allocate peer request\n");
 		goto defer;
 	}
-	
+
 	if (size) {
 		drbd_alloc_page_chain(&peer_device->connection->transport,
 			&peer_req->page_chain, DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
@@ -964,10 +964,10 @@ static int read_for_csum(struct drbd_peer_device *peer_device, sector_t sector, 
 		}
 #ifdef _WIN32
 		peer_req->peer_req_databuf = peer_req->page_chain.head;
-    } else {
+	} else {
 		peer_req->peer_req_databuf = NULL;
 #endif
-    }
+	}
 
 	peer_req->i.size = size;
 	peer_req->i.sector = sector;
