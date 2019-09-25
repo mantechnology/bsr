@@ -764,21 +764,12 @@ int drbd_thread_start(struct drbd_thread *thi)
 
 	switch (thi->t_state) {
 	case NONE:
-#ifdef _WIN32
 		if (connection)
-			drbd_info(connection, "Starting %s thread (from %s [0x%p])\n",
+			drbd_info(connection, "Starting %s thread (from %s ["PID_FORMAT"])\n",
 				 thi->name, current->comm, current->pid);
 		else
-			drbd_info(resource, "Starting %s thread (from %s [0x%p])\n",
+			drbd_info(resource, "Starting %s thread (from %s ["PID_FORMAT"])\n",
 				 thi->name, current->comm, current->pid);
-#else
-		if (connection)
-			drbd_info(connection, "Starting %s thread (from %s [%d])\n",
-				 thi->name, current->comm, current->pid);
-		else
-			drbd_info(resource, "Starting %s thread (from %s [%d])\n",
-				 thi->name, current->comm, current->pid);
-#endif
 		init_completion(&thi->stop);
 		D_ASSERT(resource, thi->task == NULL);
 		thi->reset_cpu_mask = 1;
@@ -836,10 +827,10 @@ int drbd_thread_start(struct drbd_thread *thi)
 	case EXITING:
 		thi->t_state = RESTARTING;
 		if (connection)
-			drbd_info(connection, "Restarting %s thread (from %s [%d])\n",
+			drbd_info(connection, "Restarting %s thread (from %s ["PID_FORMAT"])\n",
 					thi->name, current->comm, current->pid);
 		else
-			drbd_info(resource, "Restarting %s thread (from %s [%d])\n",
+			drbd_info(resource, "Restarting %s thread (from %s ["PID_FORMAT"])\n",
 					thi->name, current->comm, current->pid);
 		/* fall through */
 	case RUNNING:

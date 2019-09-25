@@ -45,6 +45,8 @@
 
 #ifdef _WIN32
 
+#define task_pid_nr(task)	(task->pid)
+
 #else //_LIN
 
 #ifndef ULONG_PTR
@@ -88,6 +90,14 @@
 #define TIMER_DATA_TYPE PVOID
 #else // _LIN
 #define TIMER_DATA_TYPE unsigned long
+#endif
+
+
+// BSR-276 pid print format for cross-platform
+#ifdef _WIN32
+#define PID_FORMAT	"0x%p"
+#else
+#define PID_FORMAT	"%d"
 #endif
 
 /* {{{ pr_* macros */
