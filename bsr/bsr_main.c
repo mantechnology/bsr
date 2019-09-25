@@ -4091,13 +4091,9 @@ struct drbd_resource *drbd_create_resource(const char *name,
 #endif	
 	
 	INIT_LIST_HEAD(&resource->peer_ack_list);
-#ifdef _WIN32
-    setup_timer(&resource->peer_ack_timer, peer_ack_timer_fn, resource);
-	setup_timer(&resource->repost_up_to_date_timer, repost_up_to_date_fn, resource);
-#else
-	setup_timer(&resource->peer_ack_timer, peer_ack_timer_fn, (unsigned long) resource);
-	setup_timer(&resource->repost_up_to_date_timer, repost_up_to_date_fn, (unsigned long)resource);
-#endif
+	setup_timer(&resource->peer_ack_timer, peer_ack_timer_fn, (TIMER_DATA_TYPE) resource);
+	setup_timer(&resource->repost_up_to_date_timer, repost_up_to_date_fn, (TIMER_DATA_TYPE) resource);
+
 	sema_init(&resource->state_sem, 1);
 	resource->role[NOW] = R_SECONDARY;
 	if (set_resource_options(resource, res_opts))
@@ -4117,19 +4113,11 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	init_waitqueue_head(&resource->twopc_wait);
 	init_waitqueue_head(&resource->barrier_wait);
 	INIT_LIST_HEAD(&resource->twopc_parents);
-#ifdef _WIN32
-    setup_timer(&resource->twopc_timer, twopc_timer_fn, resource);
-#else
-	setup_timer(&resource->twopc_timer, twopc_timer_fn, (unsigned long) resource);
-#endif
+	setup_timer(&resource->twopc_timer, twopc_timer_fn, (TIMER_DATA_TYPE) resource);
 	INIT_LIST_HEAD(&resource->twopc_work.list);
 	INIT_LIST_HEAD(&resource->queued_twopc);
 	spin_lock_init(&resource->queued_twopc_lock);
-#ifdef _WIN32
-    setup_timer(&resource->queued_twopc_timer, queued_twopc_timer_fn, resource);
-#else
-	setup_timer(&resource->queued_twopc_timer, queued_twopc_timer_fn, (unsigned long) resource);
-#endif
+	setup_timer(&resource->queued_twopc_timer, queued_twopc_timer_fn, (TIMER_DATA_TYPE) resource);
 	drbd_init_workqueue(&resource->work);
 	drbd_thread_init(resource, &resource->worker, drbd_worker, "worker");
 	drbd_thread_start(&resource->worker);
@@ -4190,13 +4178,7 @@ struct drbd_connection *drbd_create_connection(struct drbd_resource *resource,
 	mutex_init(&connection->mutex[CONTROL_STREAM]);
 
 	INIT_LIST_HEAD(&connection->connect_timer_work.list);
-#ifdef _WIN32
-	setup_timer(&connection->connect_timer, connect_timer_fn, connection);
-#else
-	setup_timer(&connection->connect_timer,
-		    connect_timer_fn,
-		    (unsigned long) connection);
-#endif
+	setup_timer(&connection->connect_timer, connect_timer_fn, (TIMER_DATA_TYPE) connection);
 	drbd_thread_init(resource, &connection->receiver, drbd_receiver, "receiver");
 	connection->receiver.connection = connection;
 	drbd_thread_init(resource, &connection->sender, drbd_sender, "sender");
@@ -4387,11 +4369,7 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 	init_timer(&peer_device->start_resync_timer);
 #endif
 	peer_device->start_resync_timer.function = start_resync_timer_fn;
-#ifdef _WIN32
-    peer_device->start_resync_timer.data = peer_device;
-#else
-	peer_device->start_resync_timer.data = (unsigned long) peer_device;
-#endif
+    peer_device->start_resync_timer.data = (TIMER_DATA_TYPE) peer_device;
 
 	INIT_LIST_HEAD(&peer_device->resync_work.list);
 	peer_device->resync_work.cb  = w_resync_timer;
@@ -4399,11 +4377,8 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 	init_timer(&peer_device->resync_timer);
 #endif
 	peer_device->resync_timer.function = resync_timer_fn;
-#ifdef _WIN32
-    peer_device->resync_timer.data = peer_device;
-#else
-	peer_device->resync_timer.data = (unsigned long) peer_device;
-#endif
+    peer_device->resync_timer.data = (TIMER_DATA_TYPE) peer_device;
+
 #ifdef _WIN32
     init_timer(&peer_device->start_resync_timer);
     init_timer(&peer_device->resync_timer);
@@ -4544,17 +4519,9 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	init_timer(&device->request_timer);
 #endif
 	device->md_sync_timer.function = md_sync_timer_fn;
-#ifdef _WIN32
-    device->md_sync_timer.data = device;
-#else
-	device->md_sync_timer.data = (unsigned long) device;
-#endif
+	device->md_sync_timer.data = (TIMER_DATA_TYPE) device;
 	device->request_timer.function = request_timer_fn;
-#ifdef _WIN32
-    device->request_timer.data = device;
-#else
-	device->request_timer.data = (unsigned long) device;
-#endif
+	device->request_timer.data = (TIMER_DATA_TYPE) device;
 
 #ifdef _WIN32
     init_timer(&device->md_sync_timer);

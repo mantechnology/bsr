@@ -117,10 +117,7 @@ enum
 #define RELATIVE(wait) (-(wait))
 
 #define __init                  NTAPI
-
-#ifdef _WIN32
 #define __exit                  NTAPI
-#endif
 
 #define NANOSECONDS(nanos) \
 (((signed __int64)(nanos)) / 100L)
@@ -407,11 +404,9 @@ struct mutex {
 #endif
 };
 
-#ifdef _WIN32
 struct semaphore{
     KSEMAPHORE sem;
 };
-#endif
 
 struct kref {
 	int refcount;
@@ -439,11 +434,7 @@ struct sockaddr_storage_win {
 }; 
 
 struct sock {
-#ifdef _WIN32
 	LONG_PTR sk_state_change;
-#else
-	int sk_state_change;
-#endif
 	int sk_user_data;
 	int sk_reuse;
 	int sk_allocation;
@@ -499,10 +490,8 @@ char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 	
 #define WQNAME_LEN	16	
 struct workqueue_struct {
-#ifdef _WIN32
     LIST_ENTRY list_head;
     KSPIN_LOCK list_lock;
-#endif
 	int run;
 	KEVENT	wakeupEvent;
 	KEVENT	killEvent;
@@ -510,7 +499,6 @@ struct workqueue_struct {
 	void (*func)();
 	char name[WQNAME_LEN];
 };
-#ifdef _WIN32
 struct timer_list {
     KTIMER ktimer;
     KDPC dpc;
@@ -522,13 +510,12 @@ struct timer_list {
     char name[32];
 #endif
 };
-#endif
+
 extern void init_timer(struct timer_list *t);
 extern void add_timer(struct timer_list *t);
 extern int del_timer_sync(struct timer_list *t);
 extern void del_timer(struct timer_list *t);
 extern int mod_timer(struct timer_list *t, ULONG_PTR expires);
-#ifdef _WIN32
 extern int mod_timer_pending(struct timer_list *timer, ULONG_PTR expires);
 
 struct lock_class_key { char __one_byte; };
@@ -550,7 +537,7 @@ struct lock_class_key *key,
     do {                                                        \
         setup_timer_key((timer), #timer, NULL, (fn), (data));   \
 	    } while(false)
-#endif
+
 struct work_struct {
 	struct list_head entry;
 	void (*func)(struct work_struct *work);
@@ -577,16 +564,12 @@ struct gendisk
 {
 	char disk_name[DISK_NAME_LEN];  /* name of major driver */
 	struct request_queue *queue;
-#ifdef _WIN32
     const struct block_device_operations *fops;
     void *private_data;
 	struct drbd_device*		drbd_device;			// DW-1300 the only point to access drbd device from volume extension.
 	EX_SPIN_LOCK			drbd_device_ref_lock;	// DW-1300 to synchronously access drbd_device. this lock is used when both referencing(shared) and deleting(exclusive) drbd device.
-#endif
 	PVOLUME_EXTENSION pDeviceExtension;
-#ifdef _WIN32
 	void * part0; 
-#endif
 };
 
 struct block_device {
@@ -611,10 +594,8 @@ typedef struct kmem_cache {
 typedef struct mempool_s {
 	struct kmem_cache *p_cache;
 	int page_alloc;
-#ifdef _WIN32
 	NPAGED_LOOKASIDE_LIST pageLS;
 	NPAGED_LOOKASIDE_LIST page_addrLS;
-#endif
 } mempool_t;
 
 struct bio_vec {
@@ -623,14 +604,8 @@ struct bio_vec {
 	unsigned int bv_offset;
 };
 
-#ifdef _WIN32
 typedef void(BIO_END_IO_CALLBACK)(void*, void*, void*);
 //PIO_COMPLETION_ROUTINE bio_end_io_t;
-#else
-struct bio;
-typedef void(bio_end_io_t)(struct bio *, int);
-#endif
-
 
 struct splitInfo {	
 	unsigned long 	finished;
@@ -719,12 +694,8 @@ extern void bio_endio(struct bio *bio, int error);
 #define bio_data_dir(bio)       ((bio)->bi_rw & 1)
 #define bio_rw(bio)             ((bio)->bi_rw & (RW_MASK))
 
-#ifdef _WIN32
 // DRBD_DOC: not support, it is always newest updated block for windows.
 #define bio_flagged(bio, flag)  (1) 
-#else
-#define bio_flagged(bio, flag)  ((bio)->bi_flags & (1 << (flag))) 
-#endif
 
 extern void rwlock_init(void *lock);
 extern void spin_lock_init(spinlock_t *lock);
@@ -753,24 +724,16 @@ extern void mutex_init(struct mutex *m, char *name);
 #else
 extern void mutex_init(struct mutex *m);
 #endif
-#ifdef _WIN32
 extern void sema_init(struct semaphore *s, int limit);
-#endif
 
 extern NTSTATUS mutex_lock(struct mutex *m);
-#ifdef _WIN32
 extern int mutex_lock_interruptible(struct mutex *m);
 extern NTSTATUS mutex_lock_timeout(struct mutex *m, ULONG msTimeout);
-#endif
 extern int mutex_is_locked(struct mutex *m);
 extern void mutex_unlock(struct mutex *m);
 extern int mutex_trylock(struct mutex *m);
 
-#ifdef _WIN32
 extern int kref_put(struct kref *kref, void (*release)(struct kref *kref));
-#else
-extern void kref_put(struct kref *kref, void(*release)(struct kref *kref));
-#endif
 extern int kref_get(struct kref *kref);
 extern void kref_init(struct kref *kref);
 
@@ -875,13 +838,12 @@ struct backing_dev_info {
 	void *congested_data;   /* Pointer to aux data for congested func */
 };
 
-#ifdef _WIN32
 struct queue_limits {
     unsigned int            max_discard_sectors;
     unsigned int            discard_granularity;    
 	unsigned int			discard_zeroes_data;
 };
-#endif
+
 struct request_queue {
 	void * queuedata;
 	struct backing_dev_info backing_dev_info;
@@ -889,9 +851,7 @@ struct request_queue {
 	unsigned short logical_block_size;
 	// DW-1406 max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
 	unsigned long long max_hw_sectors;
-#ifdef _WIN32
     struct queue_limits limits; 
-#endif
 };
 
 static __inline ULONG_PTR JIFFIES()
@@ -938,11 +898,7 @@ struct scatterlist {
 #define MINORMASK	0xff
 
 extern struct workqueue_struct *create_singlethread_workqueue(void * name);
-#ifdef _WIN32
-extern int queue_work(struct workqueue_struct* queue, struct work_struct* work);
-#else
-extern void queue_work(struct workqueue_struct* queue, struct work_struct* work);
-#endif
+extern bool queue_work(struct workqueue_struct* queue, struct work_struct* work);
 extern void destroy_workqueue(struct workqueue_struct *wq);
 
 extern void kobject_put(struct kobject *kobj);
@@ -1062,7 +1018,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
         sig = __ret; \
 			    } while(false)
 
-#ifdef _WIN32  // DW_552
+// DW-552
 #define wait_event_interruptible_timeout(ret, wq, condition, to) \
     do {\
         int t = 0;\
@@ -1081,7 +1037,6 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
             if (-DRBD_SIGKILL == ret) { break; } \
         }\
 	    } while(false)
-#endif
 
 #define wake_up(q) _wake_up(q, __FUNCTION__, __LINE__)
 
@@ -1091,9 +1046,7 @@ extern void wake_up_process(struct drbd_thread *thi);
 extern void _wake_up(wait_queue_head_t *q, char *__func, int __line);
 
 extern int test_and_change_bit(int nr, const ULONG_PTR *vaddr);
-#ifdef _WIN32
 extern ULONG_PTR find_first_bit(const ULONG_PTR* addr, ULONG_PTR size); //reference linux 3.x kernel. 64bit compatible
-#endif
 extern ULONG_PTR find_next_bit(const ULONG_PTR *addr, ULONG_PTR size, ULONG_PTR offset);
 extern ULONG_PTR find_next_zero_bit(const ULONG_PTR * addr, ULONG_PTR size, ULONG_PTR offset);
 
@@ -1467,8 +1420,6 @@ typedef struct _PTR_ENTRY
 } PTR_ENTRY, * PPTR_ENTRY;
 
 
-#ifdef _WIN32
-
 // linux-2.6.24 define 
 // kernel.h 
 #ifndef UINT_MAX
@@ -1495,35 +1446,6 @@ typedef struct _PTR_ENTRY
 /////////////////////////////////////////////////////////////////////
 // linux-2.6.24 define end
 ////////////////////////////////////////////////////////////////////
-
-#endif
-
-#ifdef _WIN32
-#if 0
-60 /* Common initializer macros and functions */
-61
-62 #ifdef CONFIG_DEBUG_LOCK_ALLOC
-63 # define __RWSEM_DEP_MAP_INIT(lockname), .dep_map = { .name = #lockname }
-64 #else
-65 # define __RWSEM_DEP_MAP_INIT(lockname)
-66 #endif
-67
-68 #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
-69 #define __RWSEM_OPT_INIT(lockname), .osq = OSQ_LOCK_UNLOCKED, .owner = NULL
-70 #else
-71 #define __RWSEM_OPT_INIT(lockname)
-72 #endif
-73
-74 #define __RWSEM_INITIALIZER(name)                               \
- 75         { .count = RWSEM_UNLOCKED_VALUE,                        \
- 76           .wait_list = LIST_HEAD_INIT((name).wait_list),        \
- 77           .wait_lock = __RAW_SPIN_LOCK_UNLOCKED(name.wait_lock) \
- 78           __RWSEM_OPT_INIT(name)                                \
- 79           __RWSEM_DEP_MAP_INIT(name) }
-80
-81 #define DECLARE_RWSEM(name) \
- 82         struct rw_semaphore name = __RWSEM_INITIALIZER(name)
-#endif
 
 extern void down(struct semaphore *s);
 extern int down_trylock(struct semaphore *s);
@@ -1555,7 +1477,6 @@ static int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 	return 0;
 }
 
-#endif
 
 #define snprintf(a, b, c,...) memset(a, 0, b); sprintf(a, c, ##__VA_ARGS__)
 
@@ -1563,7 +1484,6 @@ typedef struct sib_info sib_info;
 
 int drbd_genl_multicast_events(void *mdev, const struct sib_info *sib);
 
-#ifdef _WIN32
 extern int scnprintf(char * buf, size_t size, const char *fmt, ...);
 
 void list_cut_position(struct list_head *list, struct list_head *head, struct list_head *entry);
@@ -1582,9 +1502,7 @@ static inline unsigned int queue_io_min(struct request_queue *q)
 	return 0; // dummy: q->limits.io_min;
 }
 
-#endif
 
-#ifdef _WIN32
 /*
  * blk_plug permits building a queue of related requests by holding the I/O
  * fragments for a short period. This allows merging of sequential requests
@@ -1616,7 +1534,6 @@ extern struct blk_plug_cb *blk_check_plugged(blk_plug_cb_fn unplug, void *data, 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
 NTSTATUS SaveCurrentValue(PCWSTR valueName, int value);
-#endif
 
 BOOLEAN gbShutdown;
 
