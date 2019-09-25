@@ -2306,6 +2306,9 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 	struct drbd_tcp_transport *tcp_transport =
 		container_of(transport, struct drbd_tcp_transport, transport);
 	struct socket *socket = tcp_transport->stream[stream];
+	int len = (int)size;
+	int err = -EIO;
+
 #ifndef _WIN32
 	mm_segment_t oldfs;
 #endif
@@ -2321,8 +2324,6 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(size);
 #endif
-	int len = (int)size;
-	int err = -EIO;
 
 	msg_flags |= MSG_NOSIGNAL;
 	dtt_update_congested(tcp_transport);
