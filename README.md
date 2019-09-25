@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿# BSR
+﻿﻿﻿﻿﻿﻿# BSR
                            
 ## Synopsis
 Block Sync & Replication (BSR) is an open source project that implements software-based block replication over the network. It is based on a kernel-level replication engine and supports Windows and Linux cross-platform environments. BSR originally started out as a WDRBD project and only supported the Windows environment, but now extends to the Linux environment to support cross-platforms.
@@ -26,7 +26,7 @@ We improved performance by fundamentally solving the serious performance degrada
 - AL and Resync LRUs are designed to cause problems if both replication and synchronization occur simultaneously in a cross-reference relationship. In real-world replication applications, We have experienced many problems with local bottlenecks caused by AL bottlenecks and delays in synchronization because Resync LRU and AL may interfere with or compete with each other. and so, we minimized the bottlenecks of AL that could affect local I/O and have modified the existing logic to compensate for the behavior of the Resync LRU and AL to not interfere with each other.
 
 ### Passthrough Disk I/O Error Policy
-Improved disk I/O error handling logic to introduce a new policy called passthrough. The existing detach policy led to the implementation of a feature called diskless mode, which was unreasonable in HA operation. diskless mode is a good idea but lacks flexibility. Since disk I/O errors can happen all the time, detaching a disk that is being cloned is an extreme approach. It makes more sense for the file system to provide an opportunity to overcome this by retrying I/O. We devised a passthrough policy that complements the existing logic so that we have the opportunity to overcome I/O errors on our own without having to detach the disk being mirrored.
+Improved disk I/O error handling logic to introduce a new policy called passthrough. The existing detach policy led to the implementation of a feature called diskless mode, which was unreasonable in HA operation. diskless mode is a good idea but lacks flexibility. Since disk I/O errors can happen all the time, detaching a disk that is mirroring is an extreme approach. It makes more sense for the file system to provide an opportunity to overcome this by retrying I/O. We devised a passthrough policy that complements the existing logic so that we have the opportunity to overcome I/O errors on our own without having to detach the disk being mirrored.
 
 ### Timeout
 drbd is implemented with strict processing logic that does not handle timeouts, causing hang issues in many cases. We have validated this problem with a number of operational cases and have stabilized it with exception code through proper timeouts.
