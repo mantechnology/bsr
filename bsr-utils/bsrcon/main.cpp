@@ -221,8 +221,7 @@ main(int argc, char* argv [])
 	if (argc < 2)
 		usage();
 
-	for (argIndex = 1; argIndex < argc; argIndex++)
-	{
+	for (argIndex = 1; argIndex < argc; argIndex++) {
 		if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
 			GetVolumeSizeFlag++;
 		}

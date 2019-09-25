@@ -229,8 +229,7 @@ int LogLink_Daemon(unsigned short *port)
 			wsprintf(buffer2, L"linklog load test !!!!!!!!!!");
 			WriteLog(buffer2, EVENTLOG_WARNING_TYPE);
 
-			for (int i = 0; i < 10; i++)
-			{
+			for (int i = 0; i < 10; i++) {
 				wsprintf(buffer2, L"linklog load test ..........%d", i);
 				WriteLog(buffer2, EVENTLOG_ERROR_TYPE);
 			}

@@ -2918,8 +2918,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 		memcpy(sLine, sHexBuffer, 5);
 
 		/* Hex part */
-		for (i = 0; i < sLineLength; i++)
-		{
+		for (i = 0; i < sLineLength; i++) {
 			//snprintf(sHexBuffer, sizeof(sHexBuffer), "%02X", *(sBuffer + sPos + i));
 			memset(sHexBuffer, 0, 6);
 			_snprintf(sHexBuffer, sizeof(sHexBuffer) - 1, "%02X", *(sBuffer + sPos + i));
@@ -2927,8 +2926,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 		}
 
 		/* Character part */
-		for (i = 0; i < sLineLength; i++)
-		{
+		for (i = 0; i < sLineLength; i++) {
 			uint8_t sByte = *(sBuffer + sPos + i);
 			*(sLine + sCharAreaStartPos + i) = (sByte < 127 && sByte >= 0x20) ? (char) sByte : '.';
 		}

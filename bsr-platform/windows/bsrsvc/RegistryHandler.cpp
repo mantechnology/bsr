@@ -187,8 +187,7 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
         Log(L"(%c) in registry ---> ", szRegLetter[0]);
 
         list<WCHAR>::iterator iter;
-        for (iter = letter_list.begin(); iter != letter_list.end(); ++iter)
-        {
+        for (iter = letter_list.begin(); iter != letter_list.end(); ++iter) {
             if (toupper(*iter) == toupper(szRegLetter[0])) {
                 // found
                 Log(L"(%c) exist\n", szRegLetter[0]);

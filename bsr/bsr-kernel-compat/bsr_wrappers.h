@@ -645,8 +645,7 @@ static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
 #ifdef _WIN32
 	int i;
 	u8 *p = (u8*)desc; 
-	for(i = 0; i < 4; i++)
-	{
+	for(i = 0; i < 4; i++) {
 		*out++ = *p++; // long
 	}
 #else

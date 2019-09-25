@@ -807,10 +807,8 @@ BOOLEAN ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG 
 	
 	PCHAR pByte = (PCHAR)pVbb->Buffer;
 
-	for (LONGLONG ullBytePos = 0; ullBytePos < (pVbb->BitmapSize.QuadPart + 1) / BITS_PER_BYTE; ullBytePos += 1)
-	{
-		for (ULONGLONG ullBitPos = 0; ullBitPos < BITS_PER_BYTE; ullBitPos += readCount)
-		{
+	for (LONGLONG ullBytePos = 0; ullBytePos < (pVbb->BitmapSize.QuadPart + 1) / BITS_PER_BYTE; ullBytePos += 1) {
+		for (ULONGLONG ullBitPos = 0; ullBitPos < BITS_PER_BYTE; ullBitPos += readCount) {
 			CHAR pBit = (pByte[ullBytePos] >> ullBitPos) & ((1 << readCount) - 1);
 
 			if (pBit) {
@@ -818,8 +816,7 @@ BOOLEAN ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG 
 				ULONGLONG ullBytePos = ullBitPosTotal / BITS_PER_BYTE;
 				ULONGLONG ullBitPosInByte = ullBitPosTotal % BITS_PER_BYTE;
 
-				for (int i = 0; i <= (writeCount - 1) / BITS_PER_BYTE; i++)
-				{
+				for (int i = 0; i <= (writeCount - 1) / BITS_PER_BYTE; i++) {
 					CHAR setBits = (1 << (writeCount - i * BITS_PER_BYTE)) - 1;
 
 					if (i == 1)
@@ -1178,8 +1175,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
     SIZE_T cbBuf = sizeof(MOUNTDEV_UNIQUE_ID) + 256;
 
     PAGED_CODE();
-    for (;;)
-    {
+    for (;;) {
         PIRP req = NULL;
         IO_STATUS_BLOCK ioStatus;
         KEVENT evnt;
@@ -1251,8 +1247,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
     char pguid_text[128] = {0, };
     char temp[8] = {0, };
 
-    for (i = 0; i < guid->UniqueIdLength; ++i)
-    {
+    for (i = 0; i < guid->UniqueIdLength; ++i) {
         _itoa_s(guid->UniqueId[i], temp, 8, 16);
 		strncat(pguid_text, temp, sizeof(pguid_text)- strlen(pguid_text) - 1);
 		strncat(pguid_text, " ", sizeof(pguid_text) - strlen(pguid_text) - 1);

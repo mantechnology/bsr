@@ -1563,8 +1563,7 @@ static bool was_resync_stable(struct drbd_peer_device *peer_device)
 	// DW-1113 clear UNSTABLE_RESYNC flag for all peers that I'm getting synced with and have set primary as authoritative node since I have consistent disk with primary.
 	if (peer_device->connection->peer_role[NOW] == R_PRIMARY) {
 		struct drbd_peer_device *found_peer = NULL;
-		for_each_peer_device_rcu(found_peer, device)
-		{
+		for_each_peer_device_rcu(found_peer, device) {
 			enum drbd_repl_state repl_state = found_peer->repl_state[NOW];
 			u64 authoritative_nodes = found_peer->uuid_authoritative_nodes;
 
@@ -1593,8 +1592,7 @@ static void sanitize_state_after_unstable_resync(struct drbd_peer_device *peer_d
 	struct drbd_peer_device *found_peer = NULL;
 	
 	// unstable resync's done, does mean primary node exists. try to find it.
-	for_each_peer_device_rcu(found_peer, device)
-	{
+	for_each_peer_device_rcu(found_peer, device) {
 		// my disk is consistent with primary's, adopt it's disk state.
 		if (found_peer->connection->peer_role[NOW] == R_PRIMARY &&
 			drbd_bm_total_weight(found_peer) == 0)

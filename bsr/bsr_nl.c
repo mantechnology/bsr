@@ -7656,8 +7656,7 @@ void nl_policy_init_by_manual()
 
 struct genl_ops * get_drbd_genl_ops(u8 cmd)
 {
-    for (int i = 0; i < sizeof(drbd_genl_ops) / sizeof((drbd_genl_ops)[0]); i++)
-    {
+    for (int i = 0; i < sizeof(drbd_genl_ops) / sizeof((drbd_genl_ops)[0]); i++) {
         if (drbd_genl_ops[i].cmd == cmd) {
             return &drbd_genl_ops[i];
         }

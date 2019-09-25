@@ -2587,8 +2587,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 	struct drbd_connection* connection = container_of(transport, struct drbd_connection, transport);
 
 	if (size > 0 ) {
-		for (int i = 0; i < 2; i++)
-		{
+		for (int i = 0; i < 2; i++) {
 			if (tcp_transport->stream[i] != NULL) {
 				struct _buffering_attr *attr = &tcp_transport->stream[i]->buffering_attr;
 
@@ -2660,8 +2659,7 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
 	struct _buffering_attr *attr;
 
-	for (int i = 0; i < 2; i++)
-	{
+	for (int i = 0; i < 2; i++) {
 		if (tcp_transport->stream[i] != NULL) {
 			attr = &tcp_transport->stream[i]->buffering_attr;
 

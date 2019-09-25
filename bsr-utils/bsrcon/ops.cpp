@@ -432,8 +432,7 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force)
         if (IsVolumeMounted(handle)) {
             int duration = 10000, delay = 500;
             int i, count = duration / delay;
-            for (i = 0; i < count; ++i)
-            {
+            for (i = 0; i < count; ++i) {
                 Sleep(delay);
                 printf("LOG_ERROR: vol(%s) is not dismounted yet. %d count delay. GetLastError(0x%x)\n", letter, i, GetLastError());
                 if (!IsVolumeMounted(handle)) {
@@ -677,8 +676,7 @@ DWORD WriteLogToFile(HANDLE hLogFile, LPCTSTR pszTimeStamp, PBYTE pszData)
 	DWORD dwBytesWritten = 0;
 
 	// delete \r and \n if log contains them.
-	for (int i = 1; i <= 2; i++)
-	{
+	for (int i = 1; i <= 2; i++) {
 		PTCHAR pTemp = (PTCHAR)pszData;
 		pTemp += (_tcslen(pTemp) - i);
 		if (*pTemp == _T('\n') ||
@@ -886,8 +884,7 @@ BOOLEAN queryDrbdBase(VOID)
 
 		// found all loaded system modules.
 
-		for (ULONG i = 0; i<ModuleInfo->NumberOfModules; i++)
-		{
+		for (ULONG i = 0; i<ModuleInfo->NumberOfModules; i++) {
 			PCHAR pFileName = (PCHAR)(ModuleInfo->Modules[i].FullPathName + ModuleInfo->Modules[i].OffsetToFileName);
 			if (strcmp(pFileName, DRBD_DRIVER_NAME) == 0) {
 				// found loaded drbd.sys

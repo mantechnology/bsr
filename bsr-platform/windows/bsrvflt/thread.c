@@ -133,8 +133,7 @@ mvolWorkThread(PVOID arg)
     drbd_debug(NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
 #endif
 
-	for (;;)
-	{
+	for (;;) {
 		int loop = 0;
 
 		IO_THREAD_WAIT(pThreadInfo);

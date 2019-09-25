@@ -167,8 +167,7 @@ int SockListener(unsigned short *servPort)
 
 	servSock = CreateTCPServerSocket(*servPort);
 
-	for (;;)
-	{
+	for (;;) {
 		clntSock = AcceptTCPConnection(servSock);
 		{
 			extern TCHAR *ServiceName;

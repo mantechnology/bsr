@@ -432,8 +432,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				name = ptr;
 			}
 			
-			for (i = 0; i < sizeof(envs) / DRBDADM_MAX_ENV_LEN; i++)
-			{
+			for (i = 0; i < sizeof(envs) / DRBDADM_MAX_ENV_LEN; i++) {
 				if (i == (sizeof(envs) / DRBDADM_MAX_ENV_LEN) - 1)
 					strcpy(path, name);
 				else

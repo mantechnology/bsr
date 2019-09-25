@@ -331,8 +331,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 			splitInfo->LastError = STATUS_SUCCESS; 
 		}
 
-		for (io_id = 0; io_id < loop; io_id++)
-		{
+		for (io_id = 0; io_id < loop; io_id++) {
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
@@ -766,8 +765,7 @@ static int _char_to_wchar(wchar_t * dst, size_t buf_size, char * src)
     wchar_t * t = dst;
     int c = 0;
 
-    for (; *p && c < (int)buf_size; ++c)
-    {
+    for (; *p && c < (int)buf_size; ++c) {
         *t++ = (wchar_t)*p++;
     }
 
@@ -836,8 +834,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 
 	/* Create the insertion strings Insert the data items */
 	memset(l_Buf, 0, sizeof(l_Buf));
-	for (l_nDataItem = 0; l_nDataItem < pi_nDataItems; l_nDataItem++)
-	{
+	for (l_nDataItem = 0; l_nDataItem < pi_nDataItems; l_nDataItem++) {
 		//NTSTATUS status;
 		/* Current binary data item */
 		int l_CurDataItem;
@@ -1006,8 +1003,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 
 	frameCount = getStackFrames(stackFrames, frameCount);
 		
-	for (int i = 0; i < frameCount; i++)
-	{
+	for (int i = 0; i < frameCount; i++) {
 		CHAR temp[20] = { 0, };
 		_snprintf(temp, sizeof(temp) - 1, FRAME_DELIMITER"%p", stackFrames[i]);
 		strncat(buf, temp, sizeof(buf) - strlen(buf) - 1);
