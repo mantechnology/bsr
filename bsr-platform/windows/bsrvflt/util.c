@@ -250,8 +250,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
         }
 
         int i = 0;
-        do
-        {
+        do {
             status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_LOCK_VOLUME, 0, 0, 0, 0);            
             ++i;
         } while ((STATUS_ACCESS_DENIED == status) && i < 3);
@@ -512,8 +511,7 @@ BOOLEAN GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalClust
 		return FALSE;
 	}
 
-	do
-	{
+	do {
 		usFileSystemType = GetFileSystemTypeWithHandle(hVolume);
 		if (usFileSystemType == 0) {
 			drbd_err(NO_OBJECT,"GetFileSystemTypeWithHandle returned invalid file system type\n");
@@ -606,8 +604,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	IO_STATUS_BLOCK iosb = { 0, };
 
-	do
-	{
+	do {
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume) {
 			drbd_err(NO_OBJECT,"Could not get volume handle from minor(%u)\n", minor);
@@ -724,8 +721,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		return NULL;
 	}
 
-	do
-	{
+	do {
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume) {
 			drbd_err(NO_OBJECT,"Could not get volume handle from minor(%u)\n", minor);
@@ -831,8 +827,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 	ULONGLONG ullTotalCluster = 0;
 	ULONG ulBytesPerCluster = 0;
 
-	do
-	{
+	do {
 		// Get volume bitmap, bytes per cluster can be 512bytes ~ 64kb
 		pVbb = GetVolumeBitmap(minor, &ullTotalCluster, &ulBytesPerCluster);
 		if (NULL == pVbb) {

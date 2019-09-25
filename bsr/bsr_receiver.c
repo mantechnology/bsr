@@ -8361,8 +8361,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 						sector_t sector = 0;
 						ULONG_PTR bm_resync_fo = 0;
 
-						do
-						{
+						do {
 							bit = drbd_bm_find_next(peer_device, bm_resync_fo);
 							if (bit == DRBD_END_OF_BITMAP) {
 								break;

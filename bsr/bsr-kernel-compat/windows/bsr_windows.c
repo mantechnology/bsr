@@ -1343,8 +1343,7 @@ void get_random_bytes(void *buf, int nbytes)
     UCHAR * target = buf;
     int length = 0;
 
-    do
-    {
+    do {
 		rn = get_random_ulong(&rn);
         length = (4 > nbytes) ? nbytes : 4;
         memcpy(target, (UCHAR *)&rn, length);
@@ -3238,8 +3237,7 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	do
-	{
+	do {
 		pRootExtension = mvolRootDeviceObject->DeviceExtension;
 
 		InitializeObjectAttributes(&oa, &pRootExtension->RegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);

@@ -6349,8 +6349,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 
 	drbd_info(peer_device, "Writing the bitmap for allocated clusters.\n");
 
-	do
-	{
+	do {
 		if (bSecondary) {			
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.

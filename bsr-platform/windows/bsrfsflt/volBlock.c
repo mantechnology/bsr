@@ -282,8 +282,7 @@ Return Value:
 	PDEVICE_OBJECT pDiskDeviceObject = NULL;
 	PFLT_VOLUME pVolume = NULL;
 
-	do
-	{
+	do {
 		status = FltGetVolumeFromName(gFilterHandle, pusDevName, &pVolume);
 
 		if (!NT_SUCCESS(status)) {
@@ -343,8 +342,7 @@ Return Value:
 	PDEVICE_OBJECT pDev = NULL;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;	
 	
-	do
-	{
+	do {
 		status = IoGetDeviceObjectPointer(pusDevName, FILE_READ_DATA, &pFileObject, &pDev);
 		if (!NT_SUCCESS(status)) {
 			drbdlock_print_log("IoGetDeviceObjectPointer failed, status : 0x%x\n", status);

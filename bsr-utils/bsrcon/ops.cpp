@@ -859,8 +859,7 @@ BOOLEAN queryDrbdBase(VOID)
 	BOOLEAN bRet = FALSE;
 	PRTL_PROCESS_MODULES ModuleInfo = NULL;
 
-	do	
-	{
+	do {
 		status = ZwQuerySystemInformation(SystemModuleInformation, NULL, 0, &dwSize);
 
 		if (status != STATUS_INFO_LENGTH_MISMATCH) {
@@ -913,8 +912,7 @@ BOOLEAN GetSymbolFileSize(const TCHAR* pFileName, DWORD& FileSize)
 		return FALSE;	
 	}
 
-	do
-	{
+	do {
 		hFile = CreateFile(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 
 		if (hFile == INVALID_HANDLE_VALUE) {
@@ -948,8 +946,7 @@ BOOLEAN GetFuncNameWithOffset(ULONG ulOffset, PCHAR pszFuncName)
 	CSymbolInfoPackage sip;
 	DWORD64 Displacement = 0;
 
-	do
-	{
+	do {
 		bRet = SymFromAddr(GetCurrentProcess(), SymAddr, &Displacement, &sip.si);
 		if (!bRet) {
 			_tprintf(_T("SymFromAddr fail : %d, offset(%Ix)\n"), GetLastError(), ulOffset);
@@ -1052,8 +1049,7 @@ BOOLEAN InitOosTrace()
 
 	GetCurrentFilePath(DRBD_SYMBOL_NAME, tszDrbdSymbolPath);
 	
-	do
-	{
+	do {
 		if (g_pDrbdBaseAddr == NULL &&
 			FALSE == queryDrbdBase())
 		{
@@ -1278,8 +1274,7 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 	CHAR szSector[1024] = "";
 	char *pSector = NULL;
 	
-	do
-	{
+	do {
 		pSector = strstr(pszLine, "sector(") + strlen("sector(");
 		if (NULL == pSector) {
 			dwRet = ERROR_INVALID_DATA;
@@ -1379,8 +1374,7 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 	strcpy(ptSector, szSector);
 #endif
 
-	do
-	{
+	do {
 		hSrcFile = CreateFile(ptSrcFilePath, GENERIC_ALL, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 		if (hSrcFile == INVALID_HANDLE_VALUE) {
 			dwRet = GetLastError();
@@ -1500,8 +1494,7 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 	strcpy(ptSrcFilePath, pSrcFilePath);
 #endif
 
-	do
-	{
+	do {
 		bRet = InitOosTrace();
 		if (!bRet) {
 			_tprintf(_T("InitOosTrace failed, %d \n"), GetLastError());
@@ -1688,8 +1681,7 @@ DWORD GetDrbdlockStatus()
 	DWORD dwErr = ERROR_SUCCESS;
 	DWORD dwRet = 0;
 	
-	do
-	{
+	do {
 		hDevice = OpenDevice(DRBDLOCK_DEVICE_NAME_USER);
 
 		if (hDevice == INVALID_HANDLE_VALUE) {
