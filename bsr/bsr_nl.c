@@ -3650,7 +3650,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	// DW-1046 detour adm_detach hang
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
-						 timeo, ret);
+						 timeo, timeo);
 	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
 	if (retcode >= SS_SUCCESS)
 		drbd_cleanup_device(device);
