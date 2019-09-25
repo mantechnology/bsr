@@ -71,22 +71,14 @@
   /* active connection retries when C_CONNECTING */
 #define DRBD_CONNECT_INT_MIN 1
 #define DRBD_CONNECT_INT_MAX 120
-#ifdef _WIN32
 // DW-915
 #define DRBD_CONNECT_INT_DEF 3   /* seconds */
-#else
-#define DRBD_CONNECT_INT_DEF 10   /* seconds */
-#endif
 #define DRBD_CONNECT_INT_SCALE '1'
 
   /* keep-alive probes when idle */
 #define DRBD_PING_INT_MIN 1
 #define DRBD_PING_INT_MAX 120
-#ifdef _WIN32
 #define DRBD_PING_INT_DEF 3
-#else
-#define DRBD_PING_INT_DEF 10
-#endif
 #define DRBD_PING_INT_SCALE '1'
 
  /* timeout for the ping packets.*/
