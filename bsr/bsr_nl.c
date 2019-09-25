@@ -1654,7 +1654,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 #endif
 
 	if (info->genlhdr->cmd == DRBD_ADM_PRIMARY) {
-#ifdef _WIN32 // DW-839 not support diskless Primary
+		// DW-839 not support diskless Primary
 		int vnr;
 		struct drbd_device * device;
 		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
@@ -1663,7 +1663,6 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				goto fail;
 			}
 		}
-#endif
 
 #ifdef _WIN32
 		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
@@ -1771,8 +1770,8 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			clear_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
 	}
 
-#ifdef _WIN32
 fail:
+#ifdef _WIN32
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 #endif
@@ -3689,6 +3688,7 @@ int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info)
 	struct detach_parms parms = { };
 #endif
 	int err;
+	struct drbd_peer_device *peer_device;
 
 	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
@@ -3703,16 +3703,14 @@ int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-#ifdef _WIN32 // DW-839 not support diskless Primary
-	struct drbd_peer_device *peer_device = NULL;
+	// DW-839 not support diskless Primary
+	peer_device = NULL;
 	for_each_peer_device(peer_device, adm_ctx.device) {
 		if (peer_device->repl_state[NOW] > L_OFF && adm_ctx.device->resource->role[NOW] == R_PRIMARY) {
 			retcode = SS_CONNECTED_DISKLESS;
 			goto out;
 		}
 	}
-#endif
-
 
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	retcode = adm_detach(adm_ctx.device, parms.force_detach, adm_ctx.reply_skb);

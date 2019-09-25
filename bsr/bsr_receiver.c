@@ -8445,7 +8445,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 		/* if we have both been inconsistent, and the peer has been
 		 * forced to be UpToDate with --force */
 		// DW-778 
-		if (device->disk_state[NOW] == D_INCONSISTENT || peer_state.disk == D_INCONSISTENT &&
+		if ((device->disk_state[NOW] == D_INCONSISTENT || peer_state.disk == D_INCONSISTENT) &&
 			// DW-1359 to avoid start resync when it's already running.
 			(peer_state.conn < L_SYNC_SOURCE || peer_state.conn > L_PAUSED_SYNC_T))
 			consider_resync |= test_bit(CONSIDER_RESYNC, &peer_device->flags);
@@ -10695,11 +10695,7 @@ static int got_BarrierAck(struct drbd_connection *connection, struct packet_info
 			//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
 			//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
 		    atomic_read64(&connection->ap_in_flight) == 0 &&
-#ifdef _WIN32
 			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
-#else
-			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->device->flags)) {
-#endif
 			peer_device->start_resync_side = L_SYNC_SOURCE;
 			peer_device->start_resync_timer.expires = jiffies + HZ;
 			add_timer(&peer_device->start_resync_timer);
