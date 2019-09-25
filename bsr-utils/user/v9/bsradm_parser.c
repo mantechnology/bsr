@@ -1974,8 +1974,7 @@ static int pushd_to_current_config_file_unless_stdin(void)
     if (strncmp(tmp, "/", strlen("/")) == 0) {
         last_slash = strrchr(tmp, '/');
     }
-    else
-    {
+    else {
         last_slash = strrchr(tmp, '\\');
     }
 #else

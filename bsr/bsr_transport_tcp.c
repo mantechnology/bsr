@@ -1452,8 +1452,7 @@ static void dtt_incoming_connection(struct sock *sock)
     if (s_estab->sk_linux_attr) {
         s_estab->sk_linux_attr->sk_sndbuf = DRBD_SNDBUF_SIZE_DEF;
     }
-    else
-    {
+    else {
         kfree(s_estab);
 		spin_unlock_bh(&resource->listeners_lock);
 		drbd_debug_conn("NOT_ACCEPTED! sk_linux_attr alloc failed.\n");
@@ -1494,13 +1493,11 @@ static void dtt_incoming_connection(struct sock *sock)
 			drbd_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
 			goto not_accept;
 		}
-		else
-		{
+		else {
 			path2->socket = s_estab;
 		}
 	}
-	else
-	{
+	else {
 		drbd_debug_conn("else listener->paccept_socket = AccceptSocket\n");
 #ifdef _WSK_SOCKET_STATE
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
@@ -1508,8 +1505,7 @@ static void dtt_incoming_connection(struct sock *sock)
 			drbd_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
 			goto not_accept;
 		}
-		else
-		{
+		else {
 			listener->pending_accepts++;
 			listener2->paccept_socket = s_estab;
 		}
@@ -2270,8 +2266,7 @@ static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport)
     if (bab) {
         sk_wmem_queued = bab->sk_wmem_queued;
     }
-	else
-	{
+	else {
 		// don't know how to get WSK tx buffer usage yet. Ignore it.
 	}
 	
@@ -2623,8 +2618,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 					KeWaitForSingleObject(&attr->send_buf_thr_start_event, Executive, KernelMode, FALSE, NULL);
 					
 				}
-				else
-				{
+				else {
 					if (i == CONTROL_STREAM) {
 						attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
 
@@ -2643,8 +2637,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 					return FALSE;
 				}
 			}
-			else
-			{
+			else {
 				tr_warn(transport, "Unexpected: send buffer socket(channel:%d) is null!\n", i);
 				return FALSE;
 			}
@@ -2671,13 +2664,11 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}
-			else
-			{
+			else {
 				drbd_warn(NO_OBJECT,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
 			}
 		}
-		else
-		{
+		else {
 			//drbd_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}

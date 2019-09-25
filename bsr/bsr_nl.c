@@ -5452,8 +5452,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 		else if (-ETIMEDOUT == retcode) {
 			retcode = SS_TIMEOUT;
 		}
-		else
-		{
+		else {
 			retcode = SS_SUCCESS;
 		}
 	}
@@ -6173,8 +6172,7 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 	else if (peer_device->repl_state[NOW] == L_VERIFY_T) {
 		s->peer_dev_out_of_sync = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
 	}
-	else
-	{
+	else {
 		s->peer_dev_out_of_sync = drbd_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
 	}
 

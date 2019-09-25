@@ -892,8 +892,7 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 		if (opt) {
 			printf("%s\n\n", esc(opt->value));
 		}
-		else
-		{			
+		else {			
 			printf("%s\n", esc("NULL"));
 		}
 	}
@@ -3611,8 +3610,7 @@ int main(int argc, char **argv)
 		{	
 			parse_drbdsetup_show(NULL);
 		}
-		else
-		{	
+		else {	
 			parse_drbdsetup_show(resource_names[0]);
 		}
 		
@@ -3733,8 +3731,7 @@ int main(int argc, char **argv)
 					if(ctx.res && ctx.res->ignore) {
 						err("'%s' ignored, invalid host.\n", resource_names[i]);
 					}
-					else
-					{
+					else {
 						err("'%s' not defined in your config (for this host).\n", resource_names[i]);
 					}
 					exit(E_USAGE);

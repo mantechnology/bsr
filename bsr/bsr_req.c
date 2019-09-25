@@ -381,8 +381,7 @@ void drbd_req_destroy(struct kref *kref)
 							spin_unlock_irq(&peer_device->send_oos_lock);
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
-						else
-						{
+						else {
 #ifdef _WIN32
 							drbd_err(peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n", req->i.sector, req->i.size);
 #else

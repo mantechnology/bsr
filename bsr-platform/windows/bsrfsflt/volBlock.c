@@ -360,8 +360,7 @@ Return Value:
 		ObDereferenceObject(pFileObject);
 		pFileObject = NULL;
 	}
-	else
-	{
+	else {
 		*pDeviceObject = NULL;
 	}
 

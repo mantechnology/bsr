@@ -3037,8 +3037,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 
 		drbd_md_sync_if_dirty(device);
 	}
-	else
-	{
+	else {
 		drbd_err(peer_device, "Unable to start resync as %s (err = %d)\n", drbd_repl_str(repl_state), r); // DW-1518
 	}
 

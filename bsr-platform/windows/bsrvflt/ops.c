@@ -217,8 +217,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
-	else
-	{
+	else {
 		VolumeExtension = DeviceObject->DeviceExtension;
 	}
 
@@ -263,8 +262,7 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
-	else
-	{
+	else {
 		VolumeExtension = DeviceObject->DeviceExtension;
 	}
 

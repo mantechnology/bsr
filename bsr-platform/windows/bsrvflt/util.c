@@ -68,8 +68,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	if( BufferLength > nameInfo->Name.Length ) {
 		memcpy( Buffer, nameInfo->Name.Buffer, nameInfo->Name.Length );
 	}
-	else
-	{
+	else {
 		memcpy( Buffer, nameInfo->Name.Buffer, BufferLength-4 );
 	}
 
@@ -145,8 +144,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 __leave;
             }
         }
-        else
-        {
+        else {
             hFile = pvext->LockHandle;
         }
 
@@ -632,22 +630,19 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 				bRet = true;
 				break;
 			}
-			else
-			{
+			else {
 				// clear read-only attribute.
 				vggai.GptAttributes &= ~GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY;
 			}
 		}
-		else
-		{
+		else {
 			if (!set) {
 				// No additional setting attribute is required.
 				drbd_info(NO_OBJECT,"specified volume is writable already\n");
 				bRet = true;
 				break;
 			}
-			else
-			{
+			else {
 				// set read-only attribute.
 				vggai.GptAttributes |= GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY;
 			}
@@ -667,8 +662,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			drbd_err(NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)\n", status);
 			break;
 		}
-		else
-		{
+		else {
 			drbd_debug(NO_OBJECT,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
 		}
 		
@@ -692,8 +686,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			drbd_err(NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_VOLUME_SET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
 			break;
 		}
-		else
-		{
+		else {
 			drbd_info(NO_OBJECT,"Read-only attribute for volume(minor: %d) has been %s\n", minor, set ? "set" : "cleared");
 		}
 		
@@ -854,8 +847,7 @@ PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
 			pDrbdBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
 			pVbb = NULL;
 		}
-		else
-		{
+		else {
 			// Convert gotten bitmap into 4kb unit cluster bitmap.
 			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulDrbdBitmapUnit;
 			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
@@ -1405,8 +1397,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		proc_details = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		proc_details = 1;
 	}
 #endif
@@ -1416,8 +1407,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_bypass_level = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_bypass_level = 0;
 	}
 
@@ -1427,8 +1417,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_read_filter = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_read_filter = 0;
 	}
 #endif
@@ -1439,8 +1428,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS) {
 		g_mj_flush_buffers_filter = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_mj_flush_buffers_filter = 0;
 	}
 	
@@ -1449,8 +1437,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_use_volume_lock = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_use_volume_lock = 0;
 	}
 
@@ -1467,8 +1454,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_netlink_tcp_port = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_netlink_tcp_port = NETLINK_PORT;
 	}
 
@@ -1477,8 +1463,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_daemon_tcp_port = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_daemon_tcp_port = 5679;
 	}
 
@@ -1487,8 +1472,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		g_handler_use = *(int*) aucTemp;
 	}
-	else
-	{
+	else {
 		g_handler_use = 0;
 	}
 	
@@ -1520,8 +1504,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	if (status == STATUS_SUCCESS){
 		RtlCopyMemory(g_ver, aucTemp, ulLength * 2);
 	}
-	else
-	{
+	else {
 		RtlCopyMemory(g_ver, L"DRBD", 4 * 2); 
 	}
 	// _WIN32_V9: proc_details is removed. 

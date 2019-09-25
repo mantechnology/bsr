@@ -71,8 +71,7 @@ DWORD RunProcess(
 		wcscat_s(wszCmd, MAX_PATH, L"\\cmd.exe");
 		pwszAppName = wszCmd;
 	}
-	else
-	{
+	else {
 		pwszAppName = NULL;
 	}
 
@@ -334,8 +333,7 @@ int HandleTCPClient(int clntSocket)
 		wsprintf(tmp, L"HandleTCPClient: recv failed(%d) 0x%x\n", recvMsgSize, WSAGetLastError());
 		WriteLog(tmp);
 	}
-	else
-	{
+	else {
 	}
 
 	closesocket(clntSocket);

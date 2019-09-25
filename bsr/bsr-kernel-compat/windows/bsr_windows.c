@@ -1111,8 +1111,7 @@ int mutex_trylock(struct mutex *m)
 	if (KeWaitForMutexObject(&m->mtx, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
 		return 1;
 	}
-	else
-	{
+	else {
 		return 0;
 	}
 }
@@ -1152,8 +1151,7 @@ int down_trylock(struct semaphore *s)
         drbd_debug_sem("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 0;
     }
-    else
-    {
+    else {
         drbd_debug_sem("fail! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 1;
     }
@@ -1454,8 +1452,7 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
     if (current_milisec >= expires) {
 		nWaitTime.QuadPart = -1;
     }
-	else
-	{
+	else {
 		expires -= current_milisec;
 		nWaitTime = RtlConvertLongToLargeInteger(RELATIVE(MILLISECONDS((LONG)expires)));
 	}
@@ -1530,8 +1527,7 @@ void kobject_put(struct kobject *kobj)
 			release(kobj);
 		}
     }
-    else
-    {
+    else {
         //drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -1551,8 +1547,7 @@ void kobject_get(struct kobject *kobj)
     if (kobj) {
         kref_get(&kobj->kref);
     }
-    else
-    {
+    else {
         drbd_info(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -3297,8 +3292,7 @@ int drbd_resize(struct drbd_device *device)
 		{
 			drbd_err(device, "Connection is establised, resize not allowed. Disconnecting...\n");
 		} 
-		else
-		{
+		else {
 			continue;
 		}
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);

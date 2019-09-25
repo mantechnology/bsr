@@ -202,8 +202,7 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
                 RegCloseKey(hKey);
                 return status;
             }
-            else
-            {
+            else {
                 Log(L"%c was removed\n", szRegLetter[0]);
                 --dwIndex;
             }
@@ -407,8 +406,7 @@ DWORD StartRegistryCleaner()
             0,                 // default startup flags
             &dwThreadID);
     }
-    else
-    {
+    else {
         Log(L"Watching thread is already running\n");
     }
 

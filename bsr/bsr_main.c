@@ -890,8 +890,7 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 		{
 			force_sig(DRBD_SIGKILL, thi->task);
 		}
-		else
-		{
+		else {
 		//	drbd_info(NO_OBJECT,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
 		}
 #else
@@ -2058,8 +2057,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 	if (drbd_current_uuid(device) == UUID_JUST_CREATED) {
 		p->c_size = 0;	
 	} 	
-	else
-	{
+	else {
 		p->c_size = cpu_to_be64(drbd_get_capacity(device->this_bdev));
 	}
 #else
@@ -6178,8 +6176,7 @@ int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_devic
 			nRet = drbd_bmio_set_all_n_write(device, peer_device);
 		}
 	}
-	else
-	{
+	else {
 		drbd_warn(peer_device, "unexpected repl state: %s\n", drbd_repl_str(peer_device->repl_state[NOW]));
 	}
 

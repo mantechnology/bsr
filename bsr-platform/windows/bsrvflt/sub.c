@@ -282,8 +282,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 			return STATUS_INSUFFICIENT_RESOURCES;
 		}
 	}
-	else
-	{
+	else {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
@@ -291,8 +290,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		offset.QuadPart = irpSp->Parameters.Write.ByteOffset.QuadPart;
 		length = irpSp->Parameters.Write.Length;
 	}
-	else
-	{
+	else {
 		offset.QuadPart = irpSp->Parameters.Read.ByteOffset.QuadPart;
 		length = irpSp->Parameters.Read.Length;
 	}
@@ -312,13 +310,11 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		if (loop == 0) {
 			splitted_io_count = 1;
 		}
-		else
-		{
+		else {
 			if (rest) {
 				splitted_io_count = loop + 1;
 			}
-			else
-			{
+			else {
 				splitted_io_count = loop;
 			}
 
@@ -342,8 +338,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 					goto fail_put_dev;
 				}
 			}
-			else
-			{
+			else {
 				newbuf = buffer;
 			}
 
@@ -370,8 +365,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 					goto fail_put_dev;
 				}
 			}
-			else
-			{
+			else {
 				newbuf = buffer;
 			}
 
@@ -386,8 +380,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 
 		return STATUS_SUCCESS;
 	}
-	else
-	{
+	else {
 		status = STATUS_INVALID_DEVICE_REQUEST;
 		goto fail;
 	}
@@ -565,8 +558,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 		RootExtension = DeviceObject->DeviceExtension;
 		deviceNameLength = RootExtension->PhysicalDeviceNameLength;
 	}
-	else
-	{
+	else {
 		VolumeExtension = DeviceObject->DeviceExtension;
 		deviceNameLength = VolumeExtension->PhysicalDeviceNameLength;
 	}
@@ -626,8 +618,7 @@ void save_to_system_event(char * buf, int length, int level_index)
 			offset = offset + (line_sz / 2);
 			p = buf + offset;
 		}
-		else
-		{
+		else {
 			WriteEventLogEntryData(PRINTK_ERR, 0, 0, 1, L"%S", KERN_ERR "LogLink: save_to_system_event: unexpected ret\n");
 			break;
 		}

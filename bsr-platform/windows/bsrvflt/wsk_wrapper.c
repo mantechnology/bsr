@@ -633,8 +633,7 @@ __in PVOID			Context
 
 		KeSetEvent(SendParam->Event, IO_NO_INCREMENT, FALSE);
 	}
-	else
-	{
+	else {
 		ExFreePool(SendParam->Event);
 		IoFreeIrp(Irp);
 	}

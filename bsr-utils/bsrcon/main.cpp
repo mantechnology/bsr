@@ -441,8 +441,7 @@ main(int argc, char* argv [])
 		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
 			GetLogLv++;
 		}
-		else
-		{
+		else {
 			printf("Please check undefined arg[%d]=(%s)\n", argIndex, argv[argIndex]);
 		}
 	}
@@ -481,8 +480,7 @@ main(int argc, char* argv [])
 		if( res != ERROR_SUCCESS ) {
 			fprintf( stderr, "Failed MVOL_GetStatus. Err=%u\n", res );
 		}
-		else
-		{
+		else {
 			fprintf( stdout, "%s\n", VolumeInfo.Seq );
 		}
 
@@ -500,8 +498,7 @@ main(int argc, char* argv [])
 		if (res != ERROR_SUCCESS) {
 			fprintf(stderr, "Failed MVOL_GetStatus. Err=%u\n", res);
 		}
-		else
-		{
+		else {
 			int lineCount = 1;
 			line = strtok_s(VolumeInfo.Seq, "\n", &context);
 			while (line) {

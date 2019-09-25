@@ -529,21 +529,18 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 				pBuffer = pTemp;
 				dwBytesToRead = dwMinBytesToRead;
 			}
-			else
-			{
+			else {
 				if (ERROR_HANDLE_EOF != dwStatus) {
 					_tprintf(_T("ReadEventLog failed, err : %d\n"), dwStatus);
 				}
-				else
-				{
+				else {
 					// done.
 					dwStatus = ERROR_SUCCESS;					
 				}
 					goto cleanup;
 			}
 		}
-		else
-		{
+		else {
 			dwStatus = WriteLogWithRecordBuf(hLogFile, tszProviderName, pBuffer, dwBytesRead);
 
 			if (ERROR_SUCCESS != dwStatus) {
@@ -1672,8 +1669,7 @@ VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
 
 		bProtected;
 	}
-	else
-	{
+	else {
 		printf("err3\n");
 	}
 

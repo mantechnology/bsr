@@ -204,8 +204,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 	}
 #endif
-    else
-    {
+    else {
         TCHAR msg[256];
         _stprintf_s(msg, _T("Usage: bsrService.exe [/i|/k|/u|/s]\n"));
         WriteLog(msg);
@@ -249,8 +248,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
         _stprintf_s(pTemp, _T("Failed to create service %s, error code = %d\n"), ServiceName, err);
         WriteLog(pTemp);
     }
-    else
-	{
+    else {
 		SERVICE_DESCRIPTION sd;
 
 		sd.lpDescription = DescriptionEN;
@@ -293,14 +291,12 @@ DWORD UnInstall(const TCHAR * pName)
         _stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
         WriteLog(pTemp);
     }
-    else
-    {
+    else {
         if (!DeleteService(schService)) {
             _stprintf_s(pTemp, _T("Failed to delete service %s\n"), pName);
             WriteLog(pTemp);
         }
-        else
-        {
+        else {
             _stprintf_s(pTemp, _T("Service %s removed(Uninstalled)\n"), pName);
             WriteLog(pTemp);
         }
@@ -361,8 +357,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 		_stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
 		WriteLog(pTemp);
 	}
-	else
-	{
+	else {
 		// open the service
 		SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
 		if (schService == 0) {
@@ -370,8 +365,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 			_stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
 			WriteLog(pTemp);
 		}
-		else
-		{
+		else {
 			SERVICE_DESCRIPTION sd;
 
 			if (_tcsicmp(L"ko", lang) == 0)
@@ -408,8 +402,7 @@ DWORD RunService(const TCHAR * pName)
         _stprintf_s(pTemp, _T("OpenSCManager failed, error code = %d\n"), err);
         WriteLog(pTemp);
     }
-    else
-    {
+    else {
         // open the service
         SC_HANDLE schService = OpenService(schSCManager, pName, SERVICE_ALL_ACCESS);
         if (schService == 0) {
@@ -417,16 +410,14 @@ DWORD RunService(const TCHAR * pName)
             _stprintf_s(pTemp, _T("OpenService failed, error code = %d\n"), err);
             WriteLog(pTemp);
         }
-        else
-        {
+        else {
             // call StartService to run the service
             if (StartService(schService, 0, (const WCHAR**)NULL)) {
                 CloseServiceHandle(schService);
                 CloseServiceHandle(schSCManager);
                 return TRUE;
             }
-            else
-            {
+            else {
                 err = GetLastError();
                 _stprintf_s(pTemp, _T("StartService failed, error code = %d\n"), err);
                 WriteLog(pTemp);
@@ -732,8 +723,7 @@ void AddEventSource(TCHAR * csPath, TCHAR * csApp)
 	if (csPath) {
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s\\%s"), csPath, csApp);
 	}
-	else
-	{
+	else {
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s"), csApp);
 	}
 
@@ -756,8 +746,7 @@ DWORD RemoveEventSource(TCHAR *csPath, TCHAR *csApp)
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s\\%s"), csPath, csApp);
 
 	}
-	else
-	{
+	else {
 		_stprintf_s(szPath, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\%s"), csApp);
 	}
     return RegDeleteKey(HKEY_LOCAL_MACHINE, szPath);

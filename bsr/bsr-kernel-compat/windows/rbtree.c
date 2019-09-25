@@ -165,8 +165,7 @@ struct rb_root *root)
 				if (!parent)
 					break;
 			}
-			else
-			{
+			else {
 				if (!other->rb_right || rb_is_black(other->rb_right)) {
 					rb_set_black(other->rb_left);
 					rb_set_red(other);
@@ -183,8 +182,7 @@ struct rb_root *root)
 				break;
 			}
 		}
-		else
-		{
+		else {
 			other = parent->rb_left;
 			if (!other)
 				break;
@@ -205,8 +203,7 @@ struct rb_root *root)
 				if (!parent)
 					break;
 			}
-			else
-			{
+			else {
 				if (!other->rb_left || rb_is_black(other->rb_left)) {
 					rb_set_black(other->rb_right);
 					rb_set_red(other);
@@ -244,8 +241,7 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
         child = node->rb_right;
     else if (!node->rb_right)
         child = node->rb_left;
-    else
-    {
+    else {
         struct rb_node *old = node, *left;
         node = node->rb_right;
         while ((left = node->rb_left) != NULL)

@@ -378,8 +378,7 @@ struct genl_sock *genl_connect_to_family(struct genl_family *family)
 #endif
 	}
 #ifdef _WIN32
-	else
-	{
+	else {
 		s->s_family = family;
 	}
 	return s;

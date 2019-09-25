@@ -1024,8 +1024,7 @@ start:
 			add_timer(&connection->connect_timer);
 		}
 #ifdef _WIN32 
-		else
-		{
+		else {
 			drbd_debug(connection, "Skip connect_work\n");
 #if 0
 			LARGE_INTEGER	nWaitTime;
@@ -4509,8 +4508,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 				goto fail3;
 			}
 		}
-		else
-		{
+		else {
 			err = drbd_try_rs_begin_io(peer_device, sector, false);
 			if (err) {
 				err = drbd_send_ack(peer_device, P_RS_CANCEL, peer_req);
@@ -5550,8 +5548,7 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 	}
 
 	// DW-1221 If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
-	else
-	{
+	else {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
@@ -7294,8 +7291,7 @@ check_concurrent_transactions(struct drbd_resource *resource, struct twopc_reply
 #endif
 			return CSC_ABORT_LOCAL;
 		}
-		else
-		{
+		else {
 #ifdef _WIN32_TWOPC
 			drbd_info(resource, "[TWOPC] CSC_QUEUE! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
@@ -7495,8 +7491,7 @@ void queued_twopc_timer_fn(unsigned long data)
 		}
 #ifdef _WIN32 
 		// DW-1467 If you add q not deleted from queued_twopc list to work list, queued_twopc list will be broken.
-		else
-		{
+		else {
 			q = NULL;
 		}
 #endif
@@ -7933,8 +7928,7 @@ static int process_twopc(struct drbd_connection *connection,
 						list_add(&connection->twopc_parent_list,
 							&resource->twopc_parents);
 					}
-					else
-					{
+					else {
 						drbd_info(connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
 						kref_debug_put(&connection->kref_debug, 9);
 						kref_put(&connection->kref, drbd_destroy_connection);
@@ -8134,8 +8128,7 @@ static int process_twopc(struct drbd_connection *connection,
 		if (list_add_valid(&connection->twopc_parent_list, &resource->twopc_parents)) {						
 			list_add(&connection->twopc_parent_list, &resource->twopc_parents);
 		}
-		else
-		{
+		else {
 			drbd_info(connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
 			kref_debug_put(&connection->kref_debug, 9);
 			kref_put(&connection->kref, drbd_destroy_connection);

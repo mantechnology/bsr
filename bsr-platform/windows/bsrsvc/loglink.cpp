@@ -77,8 +77,7 @@ void get_linklog_reg()
 		if (ERROR_SUCCESS == status) {
 			g_loglink_port = value;
 		}
-		else
-		{
+		else {
 			g_loglink_port = DRBD_EVENTLOG_LINK_PORT;
 		}
 
@@ -86,8 +85,7 @@ void get_linklog_reg()
 		if (ERROR_SUCCESS == status) {
 			g_loglink_usage = value;
 		}
-		else
-		{
+		else {
 			g_loglink_usage = LOGLINK_NOT_USED;
 		}
 	}
@@ -152,8 +150,7 @@ int LogLink_Daemon(unsigned short *port)
 				WriteLog(tmp);
 				break;
 			}
-			else
-			{
+			else {
 				if (!(conn_loop++ % 30)) {
 					// accumulated? don't care.
 					wsprintf(tmp, L"LogLink: connect(#%d) failed ret=%d err=0x%x\r\n", conn_loop++, ret, WSAGetLastError());

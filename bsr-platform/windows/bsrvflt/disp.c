@@ -575,8 +575,7 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
                 goto async_read_filter;
             }
         }
-        else
-        {
+        else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
@@ -713,8 +712,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			kref_put(&device->kref, drbd_destroy_device);
             return STATUS_PENDING;
         }
-        else
-        {
+        else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);

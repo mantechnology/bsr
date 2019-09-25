@@ -2817,8 +2817,7 @@ static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 		bdev->d_size = get_targetdev_volsize(pvext);	// real size
 		return bdev->d_size >> 9;
 	}
-	else
-	{
+	else {
 		drbd_err(NO_OBJECT,"bd_disk is null.\n");
 		return 0;
 	}
