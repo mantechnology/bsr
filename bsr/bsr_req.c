@@ -36,11 +36,7 @@
 #endif
 
 // DW-1200 currently allocated request buffer size in byte.
-#ifdef _WIN32
-atomic_t64 g_total_req_buf_bytes = 0;
-#else
 atomic_t64 g_total_req_buf_bytes = ATOMIC_INIT(0);
-#endif
 
 static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, int size);
 
