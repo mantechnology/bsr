@@ -400,9 +400,10 @@ enum mdf_flag {
 	MDF_WAS_UP_TO_DATE =	1 << 4,
 	MDF_CRASHED_PRIMARY =	1 << 6,
 	MDF_AL_CLEAN =		1 << 7,
-	MDF_AL_DISABLED =       1 << 8,
-#ifdef _WIN32
+	MDF_AL_DISABLED = 1 << 8,
+	//DW-1291
 	MDF_LAST_PRIMARY = 1 << 16,
+#ifdef _WIN32
 	MDF_IO_ERROR = 1 << 17,				// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
 #endif
 };
