@@ -3370,7 +3370,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			    !test_bit(UNREGISTERED, &device->flags))
 				drbd_khelper(device, connection, "pri-on-incon-degr");
 
-#ifdef _WIN32 // DW-1291 provide LastPrimary Information for Local Primary
+			// DW-1291 provide LastPrimary Information for Local Primary
 			if( (role[OLD] == R_SECONDARY) && (role[NEW] == R_PRIMARY) ) {
 				if(get_ldev_if_state(device, D_NEGOTIATING)) {
 					drbd_md_set_flag (device, MDF_LAST_PRIMARY );
@@ -3385,7 +3385,6 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					put_ldev(device);
 				}
 			} 
-#endif
 
 			if (susp_nod[NEW]) {
 				enum drbd_req_event what = NOTHING;

@@ -7784,7 +7784,7 @@ static int process_twopc(struct drbd_connection *connection,
 			drbd_debug(connection, "Ignoring %s packet %u\n",
 				   drbd_packet_name(pi->cmd),
 				   reply->tid);
-#ifdef _WIN32 // DW-1291 provide LastPrimary Information for Peer Primary P_TWOPC_COMMIT
+			// DW-1291 provide LastPrimary Information for Peer Primary P_TWOPC_COMMIT
 			if(resource->role[NEW] == R_SECONDARY && reply->primary_nodes != 0 ) {
 				struct drbd_device *device;
 				int vnr;
@@ -7800,7 +7800,6 @@ static int process_twopc(struct drbd_connection *connection,
 					}
 				} 
 			}
-#endif			
 			return 0;
 		}
 		if (reply->is_aborted) {
@@ -8151,7 +8150,7 @@ static int process_twopc(struct drbd_connection *connection,
 
 		clear_remote_state_change(resource);
 
-#ifdef _WIN32 // DW-1291 provide LastPrimary Information for Peer Primary P_TWOPC_COMMIT
+		// DW-1291 provide LastPrimary Information for Peer Primary P_TWOPC_COMMIT
 		if( (resource->role[NEW] != R_PRIMARY) && (reply->primary_nodes != 0) ) {
 			struct drbd_device *device;
 			int vnr;
@@ -8167,7 +8166,7 @@ static int process_twopc(struct drbd_connection *connection,
 				}
 			}
 		}
-#endif
+
 		if (peer_device && rv >= SS_SUCCESS && !(flags & CS_ABORT))
 			drbd_md_sync_if_dirty(peer_device->device);
 
