@@ -2448,11 +2448,7 @@ drbd_determine_dev_size(struct drbd_device *, sector_t peer_current_size,
 extern void resync_after_online_grow(struct drbd_peer_device *);
 extern void drbd_reconsider_queue_parameters(struct drbd_device *device,
 			struct drbd_backing_dev *bdev, struct o_qlim *o);
-#ifdef _WIN32
 extern enum drbd_state_rv drbd_set_role(struct drbd_resource *, enum drbd_role, bool, struct sk_buff *);
-#else
-extern enum drbd_state_rv drbd_set_role(struct drbd_resource *, enum drbd_role, bool);
-#endif
 
 #ifdef _WIN32
 extern enum drbd_state_rv drbd_set_secondary_from_shutdown(struct drbd_resource *);
@@ -3193,12 +3189,8 @@ drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, 
 #endif
 
 
-#ifdef _WIN32
 extern void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue *work_queue);
 extern void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_work_queue *work_queue);
-#else
-extern void drbd_flush_workqueue(struct drbd_work_queue *work_queue);
-#endif
 
 /* To get the ack_receiver out of the blocking network stack,
  * so it can change its sk_rcvtimeo from idle- to ping-timeout,

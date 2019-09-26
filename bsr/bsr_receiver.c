@@ -9669,11 +9669,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
 	* w_make_resync_request etc. which may still be on the worker queue
 	* to be "canceled" */
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &connection->sender_work);
-#else 
-	drbd_flush_workqueue(&connection->sender_work);
-#endif 
 
 	drbd_finish_peer_reqs(connection);
 
@@ -9681,11 +9677,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	might have issued a work again. The one before drbd_finish_peer_reqs() is
 	necessary to reclaim net_ee in drbd_finish_peer_reqs(). */
 
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &connection->sender_work);
-#else 
-	drbd_flush_workqueue(&connection->sender_work);
-#endif 
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
