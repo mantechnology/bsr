@@ -1603,7 +1603,7 @@ void ct_init_thread_list()
     KeInitializeSpinLock(&ct_thread_list_lock);
 }
 
-static struct task_struct *__find_thread(PKTHREAD id)
+static struct task_struct *__find_thread(int id)
 {
     struct task_struct *t;
 
@@ -1629,7 +1629,7 @@ static void __delete_thread(struct task_struct *t)
     }
 }
 
-struct task_struct * ct_add_thread(PKTHREAD id, const char *name, BOOLEAN event, ULONG Tag)
+struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULONG Tag)
 {
     struct task_struct *t;
 
@@ -1652,14 +1652,14 @@ struct task_struct * ct_add_thread(PKTHREAD id, const char *name, BOOLEAN event,
     return t;
 }
 
-void ct_delete_thread(PKTHREAD id)
+void ct_delete_thread(int id)
 {
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
     __delete_thread(__find_thread(id));
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
 }
 
-struct task_struct* ct_find_thread(PKTHREAD id)
+struct task_struct* ct_find_thread(int id)
 {
     struct task_struct *t;
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
