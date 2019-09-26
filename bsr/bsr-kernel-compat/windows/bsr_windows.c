@@ -659,18 +659,14 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 // from  linux 2.6.32
 int kref_put(struct kref *kref, void (*release)(struct kref *kref))
 {
-#ifdef _WIN32
-    WARN_ON(release == NULL);
-    WARN_ON(release == (void (*)(struct kref *))kfree);
+	WARN_ON(release == NULL);
+	WARN_ON(release == (void (*)(struct kref *))kfree);
 
-    if (atomic_dec_and_test(&kref->refcount)) {
-        release(kref);
-        return 1;
-    }
-    return 0;
-#else
-	kref_sub(kref, 1, release);
-#endif
+	if (atomic_dec_and_test(&kref->refcount)) {
+		release(kref);
+		return 1;
+	}
+	return 0;
 }
 
 int kref_get(struct kref *kref)
@@ -940,93 +936,88 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 	timeout = (long)(expire - jiffies);
 	return timeout < 0 ? 0 : timeout;
 }
-#ifdef _WIN32
-int queue_work(struct workqueue_struct* queue, struct work_struct* work)
-#else
-void queue_work(struct workqueue_struct* queue, struct work_struct* work)
-#endif
+
+bool queue_work(struct workqueue_struct* queue, struct work_struct* work)
 {
-    struct work_struct_wrapper * wr = kmalloc(sizeof(struct work_struct_wrapper), 0, '68DW');
-#ifdef _WIN32 // DW-1051	
+	struct work_struct_wrapper * wr = kmalloc(sizeof(struct work_struct_wrapper), 0, '68DW');
+	// DW-1051 fix NULL dereference.
 	if(!wr) {
-		return FALSE;
+		return false;
 	}
-#endif	
-    wr->w = work;
-    ExInterlockedInsertTailList(&queue->list_head, &wr->element, &queue->list_lock);
-    KeSetEvent(&queue->wakeupEvent, 0, FALSE); // signal to run_singlethread_workqueue
-#ifdef _WIN32
-    return TRUE;
-#endif
+
+	wr->w = work;
+	ExInterlockedInsertTailList(&queue->list_head, &wr->element, &queue->list_lock);
+	KeSetEvent(&queue->wakeupEvent, 0, false); // signal to run_singlethread_workqueue
+	return true;
 }
-#ifdef _WIN32
+
 void run_singlethread_workqueue(PVOID StartContext)
 {
 	struct workqueue_struct * wq = (struct workqueue_struct *)StartContext;
 	if (wq == NULL)
 		return;
 
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
-    PVOID waitObjects[2] = { &wq->wakeupEvent, &wq->killEvent };
-    int maxObj = 2;
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	PVOID waitObjects[2] = { &wq->wakeupEvent, &wq->killEvent };
+	int maxObj = 2;
 
-    while (wq->run) {
-        status = KeWaitForMultipleObjects(maxObj, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, NULL, NULL);
-        switch (status) {
-            case STATUS_WAIT_0:
-            {
-                PLIST_ENTRY entry;
-                while ((entry = ExInterlockedRemoveHeadList(&wq->list_head, &wq->list_lock)) != 0) {
-                    struct work_struct_wrapper * wr = CONTAINING_RECORD(entry, struct work_struct_wrapper, element);
-                    wr->w->func(wr->w);
-                    kfree(wr);
-                }
-                break;
-            }
+	while (wq->run)	{
+		status = KeWaitForMultipleObjects(maxObj, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, NULL, NULL);
+		switch (status)	{
+			case STATUS_WAIT_0:	
+			{
+				PLIST_ENTRY entry;
+				while ((entry = ExInterlockedRemoveHeadList(&wq->list_head, &wq->list_lock)) != 0) {
+					struct work_struct_wrapper * wr = CONTAINING_RECORD(entry, struct work_struct_wrapper, element);
+					wr->w->func(wr->w);
+					kfree(wr);
+				}
+				break;
+			}
+			case (STATUS_WAIT_1) :
+				wq->run = FALSE;
+				break;
 
-            case (STATUS_WAIT_1) :
-                wq->run = FALSE;
-                break;
-
-            default:
-                continue;
-        }
-    }
+			default:
+				continue;
+		}
+	}
 }
 
 struct workqueue_struct *create_singlethread_workqueue(void * name)
 {
-    struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31DW');
-    if (!wq) {
-        return NULL;
-    }
 
-    KeInitializeEvent(&wq->wakeupEvent, SynchronizationEvent, FALSE);
-    KeInitializeEvent(&wq->killEvent, SynchronizationEvent, FALSE);
-    InitializeListHead(&wq->list_head);
-    KeInitializeSpinLock(&wq->list_lock);
+	struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31DW');
+	if (!wq) {
+		return NULL;
+	}
+
+	KeInitializeEvent(&wq->wakeupEvent, SynchronizationEvent, FALSE);
+	KeInitializeEvent(&wq->killEvent, SynchronizationEvent, FALSE);
+	InitializeListHead(&wq->list_head);
+	KeInitializeSpinLock(&wq->list_lock);
 	strncpy(wq->name, name, sizeof(wq->name) - 1);
-    wq->run = TRUE;
+	wq->run = TRUE;
 
-    HANDLE hThread = NULL;
-    NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
-    if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
-        kfree(wq);
-        return NULL;
-    }
+	HANDLE hThread = NULL;
+	NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
+	if (!NT_SUCCESS(status)) {
+		drbd_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
+		kfree(wq);
+		return NULL;
+	}
 
-    status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
-    ZwClose(hThread);
-    if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"ObReferenceObjectByHandle failed with status 0x%08X\n", status);
-        kfree(wq);
-        return NULL;
-    }
+	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
+	ZwClose(hThread);
+	if (!NT_SUCCESS(status)) {
+		drbd_err(NO_OBJECT,"ObReferenceObjectByHandle failed with status 0x%08X\n", status);
+		kfree(wq);
+		return NULL;
+	}
 
-    return wq;
+	return wq;
 }
-#endif
+
 #ifdef _WIN32_TMP_DEBUG_MUTEX
 void mutex_init(struct mutex *m, char *name)
 #else
@@ -1397,7 +1388,6 @@ void del_timer(struct timer_list *t)
     t->expires = 0;
 }
 
-#ifdef _WIN32
 /**
  * timer_pending - is a timer pending?
  * @timer: the timer in question
@@ -1415,22 +1405,12 @@ static __inline int timer_pending(const struct timer_list * timer)
 
 int del_timer_sync(struct timer_list *t)
 {
-#ifdef _WIN32		
 	bool pending = 0;
 	pending = timer_pending(t);
-	
+
 	del_timer(t);
 
 	return pending;
-#else
-	// from linux kernel 2.6.24
-	for (;;) {
-		int ret = try_to_del_timer_sync(timer);
-		if (ret >= 0)
-			return ret;
-		cpu_relax();
-	}
-#endif
 }
 
 
@@ -1478,34 +1458,10 @@ int mod_timer_pending(struct timer_list *timer, ULONG_PTR expires)
 {
     return __mod_timer(timer, expires, true);
 }
-#endif
 
 int mod_timer(struct timer_list *timer, ULONG_PTR expires)
 {
-#ifdef _WIN32
-
-	// DW-519 timer logic temporary patch. required fix DW-824. 
-    //if (timer_pending(timer) && timer->expires == expires)
-    //	return 1;
-
     return __mod_timer(timer, expires, false);
-#else
-	LARGE_INTEGER nWaitTime;
-
-	unsigned long current_milisec = jiffies;
-	nWaitTime.QuadPart = 0;
-
-	if (current_milisec >= expires_ms) {
-		nWaitTime.LowPart = 1;
-		KeSetTimer(&t->ktimer, nWaitTime, &t->dpc);
-		return 0;
-	}
-	expires_ms -= current_milisec;
-	nWaitTime = RtlConvertLongToLargeInteger(-1 * (expires_ms) * 1000 * 10);
-
-	KeSetTimer(&t->ktimer, nWaitTime, &t->dpc);
-	return 1;
-#endif
 }
 
 void kobject_put(struct kobject *kobj)
@@ -2094,11 +2050,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 	skb->len  += len;
 
 	if (skb->tail > skb->end) {
-#ifndef _WIN32
-		// skb_over_panic(skb, len, __builtin_return_address(0));
-#else
 		drbd_err(NO_OBJECT,"drbd:skb_put: skb_over_panic\n");
-#endif
 	}
 
 	return tmp;
@@ -2126,11 +2078,7 @@ void *genlmsg_put_reply(struct sk_buff *skb,
                          struct genl_family *family,
                          int flags, u8 cmd)
 {
-#ifndef _WIN32
-	return genlmsg_put(skb, info->snd_pid, info->snd_seq, family, flags, cmd);
-#else
 	return genlmsg_put(skb, info->snd_portid, info->snd_seq, family, flags, cmd);
-#endif
 }
 
 void genlmsg_cancel(struct sk_buff *skb, void *hdr)
@@ -2140,11 +2088,10 @@ void genlmsg_cancel(struct sk_buff *skb, void *hdr)
 
 }
 
-#ifdef _WIN32 
 int _DRBD_ratelimit(struct ratelimit_state *rs, const char * func, const char * __FILE, const int __LINE)
 {
 	int ret;
-	
+
 	if (!rs ||
 		!rs->interval)
 		return 1;
@@ -2179,58 +2126,14 @@ int _DRBD_ratelimit(struct ratelimit_state *rs, const char * func, const char * 
 
 	return ret;
 }
-#else
-int _DRBD_ratelimit(size_t ratelimit_jiffies, size_t ratelimit_burst, struct drbd_conf *mdev, char * __FILE, int __LINE)
-{ 
-	int __ret;						
-	static size_t toks = 0x80000000UL;
-	static size_t last_msg; 
-	static int missed;			
-	size_t now = jiffies;
-	toks += now - last_msg;					
-	last_msg = now;						
-	if (toks > (ratelimit_burst * ratelimit_jiffies))	
-		toks = ratelimit_burst * ratelimit_jiffies;	
-	if (toks >= ratelimit_jiffies) {
 
-		int lost = missed;				
-		missed = 0;					
-		toks -= ratelimit_jiffies;			
-		if (lost)					
-			dev_warn(mdev, "%d messages suppressed in %s:%d.\n", lost, __FILE, __LINE);	
-		__ret = 1;					
-	}
-	else {
-		missed++;					
-		__ret = 0;					
-	}							
-	return __ret;							
-}
-#endif
-
-#ifdef _WIN32
- // disable.
-#else
-bool _expect(long exp, struct drbd_conf *mdev, char *file, int line)
-{
-	if (!exp) {
-		drbd_err(NO_OBJECT,"minor(%d) ASSERTION FAILED in file:%s line:%d\n", mdev->minor, file, line);
-        BUG();
-	}
-	return exp;
-}
-#endif
 static int idr_max(int layers)
 {
 	int bits = min_t(int, layers * IDR_BITS, MAX_IDR_SHIFT);
 	return (1 << bits) - 1;
 }
 
-#ifndef _WIN32
-#define __round_mask(x, y) ((__typeof__(x))((y) - 1))
-#else
 #define __round_mask(x, y) ((y) - 1)
-#endif
 #define round_up(x, y) ((((x) - 1) | __round_mask(x, y)) + 1)
 
 void *idr_get_next(struct idr *idp, int *nextidp)
@@ -2241,11 +2144,9 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 	int n, max;
 
 	/* find first ent */
-#ifdef _WIN32
 	if (!idp) {
 		return NULL;
 	}
-#endif
 
 	n = idp->layers * IDR_BITS;
 	max = 1 << n;
@@ -2842,7 +2743,6 @@ struct block_device *blkdev_get_by_link(UNICODE_STRING * name, bool bUpdatetarge
 
 struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *holder, bool bUpdatetargetdev)
 {
-#ifdef _WIN32
 	UNREFERENCED_PARAMETER(mode);
 	UNREFERENCED_PARAMETER(holder);
 
@@ -2863,9 +2763,6 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlFreeUnicodeString(&upath);
 
 	return dev ? dev : ERR_PTR(-ENODEV);
-#else
-	return open_bdev_exclusive(path, mode, holder);
-#endif
 }
 
 void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
@@ -3165,7 +3062,7 @@ char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr)
 		);
 	return buf;
 }
-#ifdef _WIN32
+
 char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr)
 {
 	_snprintf(buf, len - 1, "[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]:%u\0",
@@ -3189,38 +3086,14 @@ char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr)
 			);
 	return buf;
 }
-#endif
 
-struct blk_plug_cb *blk_check_plugged(blk_plug_cb_fn unplug, void *data,
-				      int size)
+struct blk_plug_cb *blk_check_plugged(blk_plug_cb_fn unplug, void *data, int size)
 {
 	UNREFERENCED_PARAMETER(size);
 	UNREFERENCED_PARAMETER(unplug);
 	UNREFERENCED_PARAMETER(data);
 
-#ifndef _WIN32
-	struct blk_plug *plug = current->plug;
-	struct blk_plug_cb *cb;
-
-	if (!plug)
-		return NULL;
-
-	list_for_each_entry_ex(struct blk_plug_cb, cb, &plug->cb_list, list)
-		if (cb->callback == unplug && cb->data == data)
-			return cb;
-
-	/* Not currently on the callback list */
-	BUG_ON(size < sizeof(*cb));
-	cb = kzalloc(size, GFP_ATOMIC, 'D8DW');
-	if (cb) {
-		cb->data = data;
-		cb->callback = unplug;
-		list_add(&cb->list, &plug->cb_list);
-	}
-	return cb;
-#else
 	return NULL;
-#endif
 }
 /* Save current value in registry, this value is used when drbd is loading.*/
 NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
@@ -3233,9 +3106,7 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 
 	if (NULL == mvolRootDeviceObject ||
 		NULL == mvolRootDeviceObject->DeviceExtension)
-	{
 		return STATUS_UNSUCCESSFUL;
-	}
 
 	do {
 		pRootExtension = mvolRootDeviceObject->DeviceExtension;
@@ -3243,15 +3114,13 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 		InitializeObjectAttributes(&oa, &pRootExtension->RegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
 
 		status = ZwOpenKey(&hKey, KEY_ALL_ACCESS, &oa);
-		if (!NT_SUCCESS(status)) {
+		if (!NT_SUCCESS(status))
 			break;
-		}
 
 		RtlInitUnicodeString(&usValueName, valueName);
 		status = ZwSetValueKey(hKey, &usValueName, 0, REG_DWORD, &value, sizeof(value));
-		if (!NT_SUCCESS(status)) {
+		if (!NT_SUCCESS(status))
 			break;
-		}
 
 	} while (false);
 
@@ -3280,19 +3149,13 @@ int drbd_resize(struct drbd_device *device)
 		goto fail;
 	}
 
-	for_each_peer_device(peer_device, device) 
-	{
-		if (peer_device->repl_state[NOW] > L_ESTABLISHED) 
-		{
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->repl_state[NOW] > L_ESTABLISHED)
 			drbd_err(device, "Resize not allowed during resync. Disconnecting...\n");
-		} 
-		else if (peer_device->repl_state[NOW] == L_ESTABLISHED) 
-		{
+		else if (peer_device->repl_state[NOW] == L_ESTABLISHED)
 			drbd_err(device, "Connection is establised, resize not allowed. Disconnecting...\n");
-		} 
-		else {
+		else
 			continue;
-		}
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 	}		
 
@@ -3306,7 +3169,7 @@ int drbd_resize(struct drbd_device *device)
 	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 	rcu_read_unlock();
 	if (u_size != (sector_t)rs.resize_size) {
-        new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, 'C1DW');
+		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, 'C1DW');
 		if (!new_disk_conf) {
 			retcode = ERR_NOMEM;
 			goto fail_ldev;
@@ -3314,7 +3177,7 @@ int drbd_resize(struct drbd_device *device)
 	}
 
 	if (device->ldev->md.al_stripes != rs.al_stripes ||
-	    device->ldev->md.al_stripe_size_4k != rs.al_stripe_size / 4) {
+		device->ldev->md.al_stripe_size_4k != rs.al_stripe_size / 4) {
 		u32 al_size_k = rs.al_stripes * rs.al_stripe_size;
 
 		if (al_size_k > (16 * 1024 * 1024)) {
@@ -3346,9 +3209,9 @@ int drbd_resize(struct drbd_device *device)
 
 	ddsf = (rs.resize_force ? DDSF_ASSUME_UNCONNECTED_PEER_HAS_SPACE : 0)
 		| (rs.no_resync ? DDSF_NO_RESYNC : 0);
-	
+
 	dd = drbd_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
-	
+
 	drbd_md_sync_if_dirty(device);
 	put_ldev(device);
 	if (dd == DS_ERROR) {

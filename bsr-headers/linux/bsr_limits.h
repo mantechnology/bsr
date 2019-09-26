@@ -71,22 +71,14 @@
   /* active connection retries when C_CONNECTING */
 #define DRBD_CONNECT_INT_MIN 1
 #define DRBD_CONNECT_INT_MAX 120
-#ifdef _WIN32
 // DW-915
 #define DRBD_CONNECT_INT_DEF 3   /* seconds */
-#else
-#define DRBD_CONNECT_INT_DEF 10   /* seconds */
-#endif
 #define DRBD_CONNECT_INT_SCALE '1'
 
   /* keep-alive probes when idle */
 #define DRBD_PING_INT_MIN 1
 #define DRBD_PING_INT_MAX 120
-#ifdef _WIN32
 #define DRBD_PING_INT_DEF 3
-#else
-#define DRBD_PING_INT_DEF 10
-#endif
 #define DRBD_PING_INT_SCALE '1'
 
  /* timeout for the ping packets.*/
@@ -154,11 +146,8 @@
    * 200 should be more than enough even for very short timeouts */
 #define DRBD_KO_COUNT_MIN  0
 #define DRBD_KO_COUNT_MAX  200
-#ifdef _WIN32 // DW-988 adjust default ko_count value, because connection timeout is so long for somecase. 
+// DW-988 adjust default ko_count value, because connection timeout is so long for somecase. 
 #define DRBD_KO_COUNT_DEF  5 // DW-1208 3 -> 5 
-#else
-#define DRBD_KO_COUNT_DEF  7
-#endif
 #define DRBD_KO_COUNT_SCALE '1'
 /* } */
 
@@ -224,14 +213,6 @@
 
 #define DRBD_C_PLAN_AHEAD_MIN  0
 #define DRBD_C_PLAN_AHEAD_MAX  300
-
-#if 0 // DW-1543 rollback default c-plan-ahead value
-#ifdef _WIN32 // DW-1039 a continuos resync throuput is required.
-#define DRBD_C_PLAN_AHEAD_DEF  0
-#else
-#define DRBD_C_PLAN_AHEAD_DEF  20
-#endif
-#endif
 
 #define DRBD_C_PLAN_AHEAD_DEF  20
 #define DRBD_C_PLAN_AHEAD_SCALE '1'
