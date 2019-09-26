@@ -1082,7 +1082,7 @@ static bool wait_for_peer_disk_updates_timeout(struct drbd_resource *resource)
 	int retry_count = 0;
 restart:
 	if(retry_count == 2) { // retry 2 times and if it expired, return FALSE
-		return FALSE;
+		return false;
 	}
 	rcu_read_lock();
 	
@@ -1099,7 +1099,7 @@ restart:
 	}
 
 	rcu_read_unlock();
-	return TRUE;
+	return true;
 }
 
 
@@ -1607,12 +1607,8 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			}
 		}
 
-#ifdef _WIN32
 		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
 			adm_ctx.reply_skb);
-#else
-		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate);
-#endif
 		if (retcode >= SS_SUCCESS) {
 			set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
 #ifdef _WIN32
@@ -1682,7 +1678,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		struct drbd_device * device;
 		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
-				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false);				
+				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);				
 			} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 				if (retcode < SS_SUCCESS) {
 					FsctlUnlockVolume(device->minor);
@@ -1698,7 +1694,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					adm_ctx.resource->bPreDismountLock = FALSE;
 					goto fail;
 				}
-				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false);
+				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 				adm_ctx.resource->bPreSecondaryLock = FALSE;
 				adm_ctx.resource->bPreDismountLock = FALSE;
 			} else {
@@ -1707,7 +1703,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #endif
 #else
-		retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false);
+	retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 #endif
 		if (retcode >= SS_SUCCESS)
 			clear_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
@@ -3179,11 +3175,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			   (!atomic_read(&peer_device->ap_pending_cnt) ||
 			    drbd_suspended(device)));
 	/* and for other previously queued resource work */
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &resource->work);
-#else
-	drbd_flush_workqueue(&resource->work);
-#endif
 
 #ifdef _WIN32 // DW-1605
 	stable_state_change(rv, resource,
@@ -3565,7 +3557,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 {
 	enum drbd_state_rv retcode;
 	long timeo = 3*HZ;
-	char *err_str = NULL;
+	const char *err_str = NULL;
 	int ret = 0;
 
 	if (force) {
@@ -3593,7 +3585,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
-	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%d device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
+	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%ld device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
 	if (retcode >= SS_SUCCESS)
 		drbd_cleanup_device(device);
 	if (retcode == SS_IS_DISKLESS)
@@ -3603,7 +3595,7 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 out:
 	if (err_str) {
 		drbd_msg_put_info(reply_skb, err_str);
-		kfree(err_str);
+		kfree((void*)err_str);
 	}
 	return retcode;
 }
@@ -3856,11 +3848,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		retcode = ERR_NOMEM;
 		goto out;
 	}
-#ifdef _WIN32
 	drbd_flush_workqueue(adm_ctx.resource, &connection->sender_work);
-#else
-	drbd_flush_workqueue(&connection->sender_work);
-#endif
 
 	mutex_lock(&connection->resource->conf_update);
 	mutex_lock(&connection->mutex[DATA_STREAM]);
@@ -4768,11 +4756,7 @@ void del_connection(struct drbd_connection *connection)
 	 * events like state change notifications for this connection
 	 * are queued: we want the "destroy" event to come last.
 	 */
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &resource->work);
-#else
-	drbd_flush_workqueue(&resource->work);
-#endif
 	
 	mutex_lock(&notification_mutex);
 	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
@@ -5130,11 +5114,7 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 	enum drbd_state_rv rv;
 	int res = 0;
 
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
-#else
-	drbd_flush_workqueue(&peer_device->connection->sender_work);
-#endif
 
 	rv = change_repl_state(peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
@@ -5349,11 +5329,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 	drbd_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
-#else
-	drbd_flush_workqueue(&peer_device->connection->sender_work);
-#endif
 	
 	retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
@@ -6674,11 +6650,7 @@ static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
 	 * state change notifications for this device are queued: we want the
 	 * "destroy" event to come last.
 	 */
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &resource->work);
-#else
-	drbd_flush_workqueue(&resource->work);
-#endif
 	
 #ifdef _WIN32
     //synchronize_rcu_w32_wlock(); 	// _WIN32_V9_RCU //(2) this code is disabled for spinlock hang 
@@ -6727,11 +6699,7 @@ static int adm_del_resource(struct drbd_resource *resource)
 	 * state change notifications are queued: we want the "destroy" event
 	 * to come last.
 	 */
-#ifdef _WIN32
 	drbd_flush_workqueue(resource, &resource->work);
-#else
-	drbd_flush_workqueue(&resource->work);
-#endif
 	
 	mutex_lock(&resources_mutex);
 	err = ERR_NET_CONFIGURED;
@@ -6852,7 +6820,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 			SetDrbdlockIoBlock(pvext, TRUE);
 
 		if (D_DISKLESS == device->disk_state[NOW]) {
-			retcode = drbd_set_role(resource, R_SECONDARY, false);
+			retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 		} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 			
 			resource->bPreDismountLock = TRUE;
@@ -6866,7 +6834,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 				goto out;
 			}
 
-			retcode = drbd_set_role(resource, R_SECONDARY, false);
+			retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 			resource->bPreSecondaryLock = FALSE;
 			resource->bPreDismountLock = FALSE;
 			if (retcode < SS_SUCCESS) {
@@ -6881,7 +6849,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif
 #else
-	retcode = drbd_set_role(resource, R_SECONDARY, false);
+	retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 	if (retcode < SS_SUCCESS) {
 		drbd_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 		goto out;
