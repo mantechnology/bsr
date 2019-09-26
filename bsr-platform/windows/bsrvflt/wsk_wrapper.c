@@ -624,8 +624,7 @@ __in PVOID			Context
 	ExFreePool(SendParam->WskBuffer);
 	ExFreePool(SendParam->DataBuffer);
 
-	if (!Irp->Cancel)
-	{
+	if (!Irp->Cancel) {
 		*(SendParam->Status) = Irp->IoStatus.Status;
 
 		if (*(SendParam->Status) == STATUS_SUCCESS) {
@@ -634,8 +633,7 @@ __in PVOID			Context
 
 		KeSetEvent(SendParam->Event, IO_NO_INCREMENT, FALSE);
 	}
-	else
-	{
+	else {
 		ExFreePool(SendParam->Event);
 		IoFreeIrp(Irp);
 	}

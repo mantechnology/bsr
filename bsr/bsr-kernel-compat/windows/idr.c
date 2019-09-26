@@ -572,8 +572,7 @@ static void idr_cache_ctor(void * idr_layer, kmem_cache_t *idr_layer_cache, unsi
 
 static  int init_id_cache(void)
 {
-	if (!idr_layer_cache)
-	{
+	if (!idr_layer_cache) {
 		idr_layer_cache = kmem_cache_create("idr_layer_cache", sizeof(struct idr_layer), 0, 0, NULL, 'E4DW');
 	}
 	return 0;

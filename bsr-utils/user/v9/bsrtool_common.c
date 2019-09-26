@@ -189,16 +189,14 @@ static char *slurp_proc_drbd()
 
     hDevice = CreateFileA("\\\\.\\mvolCntl", GENERIC_READ, FILE_SHARE_READ,
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hDevice == INVALID_HANDLE_VALUE)
-    {
+    if (hDevice == INVALID_HANDLE_VALUE) {
         free(buffer);
         return NULL;
     }
 
     ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_PROC_DRBD,
         NULL, 0, &VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL);
-    if (ret == FALSE)
-    {
+    if (ret == FALSE) {
         CloseHandle(hDevice);
         free(buffer);
         return NULL;

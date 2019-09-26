@@ -322,8 +322,7 @@ int test_and_change_bit(int nr, const ULONG_PTR *addr)
 	ULONG_PTR *p = ((ULONG_PTR *) addr);
 	ULONG_PTR old;
 
-	if (!g_test_and_change_bit_flag)
-	{
+	if (!g_test_and_change_bit_flag) {
 		spin_lock_init(&g_test_and_change_bit_lock);
 		g_test_and_change_bit_flag = 1;
 	}
@@ -446,8 +445,7 @@ void * kzalloc(int size, int flag, ULONG Tag)
     static int fail_count = 0;
 
 	mem = ExAllocatePoolWithTag(NonPagedPool, size, Tag); 
-	if (!mem)
-	{
+	if (!mem) {
 		return NULL;
 	}
 
@@ -525,16 +523,14 @@ void drbd_bp(char *msg)
 
 __inline void kfree(void * x)
 {
-	if (x)
-	{
+	if (x) {
 		ExFreePool(x);
 	}
 }
 
 __inline void kvfree(void * x)
 {
-	if (x)
-	{
+	if (x) {
 		ExFreePool(x);
 	}
 }
@@ -546,13 +542,11 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	UNREFERENCED_PARAMETER(free_fn);
 
 	mempool_t *p_pool;
-	if (!pool_data)
-	{
+	if (!pool_data) {
 		return 0;
 	}
 	p_pool = kmalloc(sizeof(mempool_t), 0, 'F3DW');
-	if (!p_pool)
-	{
+	if (!p_pool) {
 		return 0;
 	}
 	p_pool->p_cache = pool_data;
@@ -650,8 +644,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
-	if (!p)
-	{
+	if (!p) {
 		drbd_err(NO_OBJECT,"kzalloc failed\n");
 		return 0;
 	}
@@ -981,7 +974,6 @@ void run_singlethread_workqueue(PVOID StartContext)
 				}
 				break;
 			}
-
 			case (STATUS_WAIT_1) :
 				wq->run = FALSE;
 				break;
@@ -994,6 +986,7 @@ void run_singlethread_workqueue(PVOID StartContext)
 
 struct workqueue_struct *create_singlethread_workqueue(void * name)
 {
+
 	struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31DW');
 	if (!wq) {
 		return NULL;
@@ -1043,8 +1036,7 @@ NTSTATUS mutex_lock_timeout(struct mutex *m, ULONG msTimeout)
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER nWaitTime = { 0, };
 
-	if (NULL == m)
-	{
+	if (NULL == m) {
 		return STATUS_INVALID_PARAMETER;
 	}
 
@@ -1071,16 +1063,14 @@ int mutex_lock_interruptible(struct mutex *m)
 	int wObjCount = 1;
 
 	waitObjects[0] = (PVOID)&m->mtx;
-	if (thread->has_sig_event)
-	{
+	if (thread->has_sig_event) {
 		waitObjects[1] = (PVOID)&thread->sig_event;
 		wObjCount++;
 	}
 	
 	status = KeWaitForMultipleObjects(wObjCount, &waitObjects[0], WaitAny, Executive, KernelMode, FALSE, NULL, NULL);
 
-	switch (status)
-	{
+	switch (status) {
 	case STATUS_WAIT_0:		// mutex acquired.
 		err = 0;
 		break;
@@ -1109,12 +1099,10 @@ int mutex_trylock(struct mutex *m)
 	LARGE_INTEGER Timeout;
 	Timeout.QuadPart = 0; 
 
-	if (KeWaitForMutexObject(&m->mtx, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS)
-	{
+	if (KeWaitForMutexObject(&m->mtx, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
 		return 1;
 	}
-	else
-	{
+	else {
 		return 0;
 	}
 }
@@ -1150,13 +1138,11 @@ int down_trylock(struct semaphore *s)
 	LARGE_INTEGER Timeout; 
 	Timeout.QuadPart = 0; 
 
-    if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS)
-    {
+    if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
         drbd_debug_sem("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 0;
     }
-    else
-    {
+    else {
         drbd_debug_sem("fail! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
         return 1;
     }
@@ -1164,8 +1150,7 @@ int down_trylock(struct semaphore *s)
 
 void up(struct semaphore *s)
 {
-    if (KeReadStateSemaphore(&s->sem) < s->sem.Limit)
-    {
+    if (KeReadStateSemaphore(&s->sem) < s->sem.Limit) {
         drbd_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
 		// DW-1496 KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
 		try{
@@ -1349,8 +1334,7 @@ void get_random_bytes(void *buf, int nbytes)
     UCHAR * target = buf;
     int length = 0;
 
-    do
-    {
+    do {
 		rn = get_random_ulong(&rn);
         length = (4 > nbytes) ? nbytes : 4;
         memcpy(target, (UCHAR *)&rn, length);
@@ -1433,8 +1417,7 @@ int del_timer_sync(struct timer_list *t)
 static int
 __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 {
-    if (!timer_pending(timer) && pending_only)
-    {
+    if (!timer_pending(timer) && pending_only) {
 		return 0;
     }
 
@@ -1445,12 +1428,10 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 
 	BUG_ON_UINT32_OVER(expires);
 
-    if (current_milisec >= expires)
-    {
+    if (current_milisec >= expires) {
 		nWaitTime.QuadPart = -1;
     }
-	else
-	{
+	else {
 		expires -= current_milisec;
 		nWaitTime = RtlConvertLongToLargeInteger(RELATIVE(MILLISECONDS((LONG)expires)));
 	}
@@ -1487,25 +1468,21 @@ void kobject_put(struct kobject *kobj)
 {
     if (kobj) 
     {
-        if (kobj->name == NULL)
-        {
+        if (kobj->name == NULL) {
             //drbd_warn(NO_OBJECT,"%p name is null.\n", kobj);
             return;
         }
 
-		if (atomic_sub_and_test(1, &kobj->kref.refcount))
-		{
+		if (atomic_sub_and_test(1, &kobj->kref.refcount)) {
 			void(*release)(struct kobject *kobj);
 			release = kobj->ktype->release;
-			if (release == 0)
-			{
+			if (release == 0) {
 				return;
 			}
 			release(kobj);
 		}
     }
-    else
-    {
+    else {
         //drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -1513,8 +1490,7 @@ void kobject_put(struct kobject *kobj)
 
 void kobject_del(struct kobject *kobj)
 {
-    if (!kobj)
-    {
+    if (!kobj) {
         drbd_warn(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -1523,12 +1499,10 @@ void kobject_del(struct kobject *kobj)
 
 void kobject_get(struct kobject *kobj)
 {
-    if (kobj)
-    {
+    if (kobj) {
         kref_get(&kobj->kref);
     }
-    else
-    {
+    else {
         drbd_info(NO_OBJECT,"kobj is null.\n");
         return;
     }
@@ -1649,8 +1623,7 @@ static void __delete_thread(struct task_struct *t)
     ct_thread_num--;
 
     // logic check
-    if (ct_thread_num < 0)
-    {
+    if (ct_thread_num < 0) {
         drbd_err(NO_OBJECT,"DRBD_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
         BUG();
     }
@@ -1660,14 +1633,12 @@ struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULON
 {
     struct task_struct *t;
 
-    if ((t = kzalloc(sizeof(*t), GFP_KERNEL, Tag)) == NULL)
-    {
+    if ((t = kzalloc(sizeof(*t), GFP_KERNEL, Tag)) == NULL) {
         return NULL;
     }
 
     t->pid = id;
-    if (event)
-    {
+    if (event) {
         KeInitializeEvent(&t->sig_event, SynchronizationEvent, FALSE);
         t->has_sig_event = TRUE;
     }
@@ -1693,8 +1664,7 @@ struct task_struct* ct_find_thread(int id)
     struct task_struct *t;
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
     t = __find_thread(id);
-    if (!t)
-    {
+    if (!t) {
         static struct task_struct g_dummy_current;
         t = &g_dummy_current;
         t->pid = 0;
@@ -1707,10 +1677,8 @@ struct task_struct* ct_find_thread(int id)
 
 int signal_pending(struct task_struct *task)
 {
-    if (task->has_sig_event)
-	{
-		if (task->sig || KeReadStateEvent(&task->sig_event))
-		{
+    if (task->has_sig_event) {
+		if (task->sig || KeReadStateEvent(&task->sig_event)) {
 			return 1;
 		}
 	}
@@ -1719,8 +1687,7 @@ int signal_pending(struct task_struct *task)
 
 void force_sig(int sig, struct task_struct  *task)
 {
-    if (task->has_sig_event)
-	{
+    if (task->has_sig_event) {
 		task->sig = sig;
 		KeSetEvent(&task->sig_event, 0, FALSE);
 	}
@@ -1728,8 +1695,7 @@ void force_sig(int sig, struct task_struct  *task)
 
 void flush_signals(struct task_struct *task)
 {
-    if (task->has_sig_event)
-	{
+    if (task->has_sig_event) {
 		KeClearEvent(&task->sig_event); 
 		task->sig = 0;
 	}
@@ -2130,8 +2096,7 @@ int _DRBD_ratelimit(struct ratelimit_state *rs, const char * func, const char * 
 		!rs->interval)
 		return 1;
 
-	if (KeGetCurrentIrql() > DISPATCH_LEVEL)
-	{
+	if (KeGetCurrentIrql() > DISPATCH_LEVEL) {
 		return 1;
 	}
 
@@ -2179,8 +2144,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 	int n, max;
 
 	/* find first ent */
-	if (!idp)
-	{
+	if (!idp) {
 		return NULL;
 	}
 
@@ -2471,15 +2435,13 @@ struct block_device * create_drbd_block_device(IN OUT PVOLUME_EXTENSION pvext)
     }
 
 	dev->bd_disk = alloc_disk(0);
-	if (!dev->bd_disk)
-	{
+	if (!dev->bd_disk) {
 		drbd_err(NO_OBJECT,"Failed to allocate gendisk NonPagedMemory\n");
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
-	if (!dev->bd_disk->queue)
-	{
+	if (!dev->bd_disk->queue) {
 		drbd_err(NO_OBJECT,"Failed to allocate request_queue NonPagedMemory\n");
 		goto request_queue_failed;
 	}
@@ -2535,18 +2497,15 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 		return NULL;
 
 	// DW-1381 dev is set as NULL when block device is destroyed.
-	if (!pvext->dev)
-	{
+	if (!pvext->dev) {
 		drbd_err(NO_OBJECT,"failed to get drbd device since pvext->dev is NULL\n");
 		return NULL;		
 	}
 
 	// DW-1381 check if device is removed already.
-	if (bCheckRemoveLock)
-	{
+	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			drbd_info(NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
 			return NULL;
 		}
@@ -2554,10 +2513,8 @@ struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheck
 
 	oldIRQL = ExAcquireSpinLockShared(&pvext->dev->bd_disk->drbd_device_ref_lock);
 	device = pvext->dev->bd_disk->drbd_device;
-	if (device)
-	{
-		if (kref_get(&device->kref))
-		{
+	if (device) {
+		if (kref_get(&device->kref)) {
 			// already destroyed.
 			atomic_dec(&device->kref);			
 			device = NULL;
@@ -2666,8 +2623,7 @@ cleanup:
     kfree(keyInfo);
     kfree(valueInfo);
 
-    if (hKey)
-    {
+    if (hKey) {
         ZwClose(hKey);
     }
 
@@ -2833,8 +2789,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 	BUG_ON_INT32_OVER(sLineSize);
 #endif
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
-	if (!sLine)
-	{
+	if (!sLine) {
 		drbd_err(NO_OBJECT,"sLine:kzalloc failed\n");
 		return;
 	}
@@ -2843,8 +2798,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 
 	drbd_info(NO_OBJECT,"DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
 
-	while (sPos < aBufferSize)
-	{
+	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);
 		sLineLength = ((aBufferSize - sPos) > aWidth) ? aWidth : (aBufferSize - sPos);
 
@@ -2855,8 +2809,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 		memcpy(sLine, sHexBuffer, 5);
 
 		/* Hex part */
-		for (i = 0; i < sLineLength; i++)
-		{
+		for (i = 0; i < sLineLength; i++) {
 			//snprintf(sHexBuffer, sizeof(sHexBuffer), "%02X", *(sBuffer + sPos + i));
 			memset(sHexBuffer, 0, 6);
 			_snprintf(sHexBuffer, sizeof(sHexBuffer) - 1, "%02X", *(sBuffer + sPos + i));
@@ -2864,8 +2817,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 		}
 
 		/* Character part */
-		for (i = 0; i < sLineLength; i++)
-		{
+		for (i = 0; i < sLineLength; i++) {
 			uint8_t sByte = *(sBuffer + sPos + i);
 			*(sLine + sCharAreaStartPos + i) = (sByte < 127 && sByte >= 0x20) ? (char) sByte : '.';
 		}
@@ -3080,8 +3032,7 @@ int drbd_backing_bdev_events(struct drbd_device *device)
 	DISK_PERFORMANCE diskPerf;
 
 	status = mvolGetDiskPerf(mdev->ldev->backing_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, &diskPerf);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbd_err(NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
 		return mdev->writ_cnt + mdev->read_cnt;
 	}
@@ -3092,8 +3043,7 @@ int drbd_backing_bdev_events(struct drbd_device *device)
 
 	return (diskPerf.BytesRead.QuadPart / 512) + (diskPerf.BytesWritten.QuadPart / 512);
 #else
-	if ((device->writ_cnt + device->read_cnt) == 0)
-	{
+	if ((device->writ_cnt + device->read_cnt) == 0) {
 		// initial value
 		return 100;
 	}
@@ -3174,9 +3124,10 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value)
 
 	} while (false);
 
-	if (NULL != hKey)
+	if (NULL != hKey) {
 		ZwClose(hKey);
 		hKey = NULL;
+	}
 
 	return status;
 }

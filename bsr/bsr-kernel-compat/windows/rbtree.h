@@ -36,9 +36,8 @@ unsigned long offset)
 {
 struct rb_node * n = inode->i_rb_page_cache.rb_node;
 struct page * page;
-
-while (n)
-{
+
+while (n) {
 page = rb_entry(n, struct page, rb_page_cache);
 
 if (offset< page->offset)
@@ -58,9 +57,8 @@ struct rb_node * node)
 struct rb_node ** p = &inode->i_rb_page_cache.rb_node;
 struct rb_node * parent = NULL;
 struct page * page;
-
-while (*p)
-{
+
+while (*p) {
 parent = *p;
 page = rb_entry(parent, struct page, rb_page_cache);
 

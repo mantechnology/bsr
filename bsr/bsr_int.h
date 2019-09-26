@@ -501,8 +501,7 @@ drbd_insert_fault(struct drbd_device *device, unsigned int type) {
 		(enable_faults & (1<<type)) &&
 		_drbd_insert_fault(device, type);
 
-    if (ret)
-    {
+    if (ret) {
         drbd_info(NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
@@ -538,19 +537,11 @@ struct bm_xfer_ctx {
 	 * stores total bits and long words
 	 * of the bitmap, so we don't need to
 	 * call the accessor functions over and again. */
-#ifdef _WIN32
 	ULONG_PTR bm_bits;
 	ULONG_PTR bm_words;
 	/* during xfer, current position within the bitmap */
 	ULONG_PTR bit_offset;
 	ULONG_PTR word_offset;
-#else
-	unsigned long bm_bits;
-	unsigned long bm_words;
-	/* during xfer, current position within the bitmap */
-	unsigned long bit_offset;
-	unsigned long word_offset;
-#endif
 
 	/* statistics; index: (h->command == P_BITMAP) */
 	unsigned packets[2];
@@ -718,11 +709,7 @@ struct drbd_request {
 	struct list_head req_pending_local;
 
 	/* for generic IO accounting */
-#ifdef _WIN32
     ULONG_PTR start_jif;
-#else
-	unsigned long start_jif;
-#endif
 
 	/* for DRBD internal statistics */
 
@@ -732,27 +719,13 @@ struct drbd_request {
 	 */
 
 	/* before actual request processing */
-#ifdef _WIN32
 	ULONG_PTR in_actlog_jif;
-#else
-	unsigned long in_actlog_jif;
-#endif
 	/* local disk */
-#ifdef _WIN32
 	ULONG_PTR pre_submit_jif;
-#else
-	unsigned long pre_submit_jif;
-#endif
 	/* per connection */
-#ifdef _WIN32
 	ULONG_PTR pre_send_jif[DRBD_PEERS_MAX];
 	ULONG_PTR acked_jif[DRBD_PEERS_MAX];
 	ULONG_PTR net_done_jif[DRBD_PEERS_MAX];
-#else
-	unsigned long pre_send_jif[DRBD_PEERS_MAX];
-	unsigned long acked_jif[DRBD_PEERS_MAX];
-	unsigned long net_done_jif[DRBD_PEERS_MAX];
-#endif
 
 	/* Possibly even more detail to track each phase:
 	 *  master_completion_jif
@@ -814,11 +787,7 @@ struct drbd_epoch {
 	unsigned int barrier_nr;
 	atomic_t epoch_size; /* increased on every request added. */
 	atomic_t active;     /* increased on every req. added, and dec on every finished. */
-#ifdef _WIN32	
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 };
 
 /* drbd_epoch flag bits */
@@ -855,19 +824,11 @@ struct drbd_peer_request {
 	unsigned int op_flags; /* to be used as bi_op_flags */
 	atomic_t pending_bios;
 	struct drbd_interval i;
-#ifdef _WIN32
-    ULONG_PTR flags; /* see comments on ee flag bits below */
-#else
-	unsigned long flags; /* see comments on ee flag bits below */
-#endif
+	ULONG_PTR flags; /* see comments on ee flag bits below */
 	union {
 		struct { /* regular peer_request */
 			struct drbd_epoch *epoch; /* for writes */
-#ifdef _WIN32
 			ULONG_PTR submit_jif;
-#else
-			unsigned long submit_jif;
-#endif 
 			union {
 				u64 block_id;
 				struct digest_info *digest;
@@ -1109,13 +1070,8 @@ struct drbd_bitmap {
 	struct page **bm_pages;
 	spinlock_t bm_lock;
 
-#ifdef _WIN32
-    ULONG_PTR bm_set[DRBD_PEERS_MAX]; /* number of bits set */
-    ULONG_PTR bm_bits;  /* bits per peer */
-#else
-	unsigned long bm_set[DRBD_PEERS_MAX]; /* number of bits set */
-	unsigned long bm_bits;  /* bits per peer */
-#endif
+	ULONG_PTR bm_set[DRBD_PEERS_MAX]; /* number of bits set */
+	ULONG_PTR bm_bits;  /* bits per peer */
 	size_t   bm_words;
 	size_t   bm_number_of_pages;
 	sector_t bm_dev_capacity;
@@ -1192,13 +1148,8 @@ struct drbd_backing_dev {
 
 struct drbd_md_io {
 	struct page *page;
-#ifdef _WIN32
-    ULONG_PTR start_jif;	/* last call to drbd_md_get_buffer */
-    ULONG_PTR submit_jif;	/* last _drbd_md_sync_page_io() submit */
-#else
-	unsigned long start_jif;	/* last call to drbd_md_get_buffer */
-	unsigned long submit_jif;	/* last _drbd_md_sync_page_io() submit */
-#endif
+	ULONG_PTR start_jif;	/* last call to drbd_md_get_buffer */
+	ULONG_PTR submit_jif;	/* last _drbd_md_sync_page_io() submit */
 	const char *current_use;
 	atomic_t in_use;
 	unsigned int done;
@@ -1304,11 +1255,7 @@ struct twopc_reply {
 
 struct drbd_thread_timing_details
 {
-#ifdef _WIN32
 	ULONG_PTR start_jif;
-#else
-	unsigned long start_jif;
-#endif
 	void *cb_addr;
 	const char *caller_fn;
 	unsigned int line;
@@ -1382,11 +1329,7 @@ struct drbd_resource {
 	u64 dagtag_sector;		/* Protected by req_lock.
 					 * See also dagtag_sector in
 					 * &drbd_request */
-#ifdef _WIN32	
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 	struct list_head transfer_log;	/* all requests not yet fully processed */
 
 #ifdef _WIN32_NETQUEUED_LOG
@@ -1480,11 +1423,7 @@ struct drbd_connection {
 	enum drbd_conn_state cstate[2];
 	enum drbd_role peer_role[2];
 	bool susp_fen[2];		/* IO suspended because fence peer handler runs */
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 	
 	enum drbd_fencing_policy fencing_policy;
 	wait_queue_head_t ping_wait;	/* Woken upon reception of a ping, and a state change */
@@ -1494,19 +1433,11 @@ struct drbd_connection {
 	int agreed_pro_version;		/* actually used protocol version */
 	u32 agreed_features;
 
-#ifdef _WIN32
 	ULONG_PTR last_received;	/* in jiffies, either socket */
-#else
-	unsigned long last_received;	/* in jiffies, either socket */
-#endif
 
-#ifdef _WIN32
 	atomic_t64 ap_in_flight; /* App bytes in flight (waiting for ack) */
 	atomic_t64 rs_in_flight; /* resync-data bytes in flight*/
-#else
-	atomic64_t ap_in_flight; /* App bytes in flight (waiting for ack) */
-	atomic64_t rs_in_flight; /* resync-data bytes in flight*/
-#endif
+
 	struct drbd_work connect_timer_work;
 	struct timer_list connect_timer;
 
@@ -1523,11 +1454,7 @@ struct drbd_connection {
 	spinlock_t epoch_lock;
 	unsigned int epochs;
 
-#ifdef _WIN32
 	ULONG_PTR last_reconnect_jif;
-#else
-	unsigned long last_reconnect_jif;
-#endif
 
 #ifndef _WIN32
 	/* empty member on older kernels without blk_start_plug() */
@@ -1613,11 +1540,8 @@ struct drbd_connection {
 	struct drbd_thread_timing_details r_timing_details[DRBD_THREAD_DETAILS_HIST];
 
 	struct {
-#ifdef _WIN32
-        ULONG_PTR last_sent_barrier_jif;
-#else
-		unsigned long last_sent_barrier_jif;
-#endif
+		ULONG_PTR last_sent_barrier_jif;
+
 		int last_sent_epoch_nr;
 
 		/* whether this sender thread
@@ -1681,11 +1605,7 @@ struct drbd_peer_device {
 	uint64_t max_size;
 	int bitmap_index;
 	int node_id;
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 #ifdef _WIN32
 	// DW-1806 set after initial send.
 	KEVENT state_initial_send_event;
@@ -1714,35 +1634,19 @@ struct drbd_peer_device {
 
 	/* use checksums for *this* resync */
 	bool use_csums;
-#ifdef _WIN32
-    /* blocks to resync in this run [unit BM_BLOCK_SIZE] */
-    ULONG_PTR rs_total;
-    /* number of resync blocks that failed in this run */
-    ULONG_PTR rs_failed;
-    /* Syncer's start time [unit jiffies] */
-    ULONG_PTR rs_start;
-    /* cumulated time in PausedSyncX state [unit jiffies] */
-    ULONG_PTR rs_paused;
-    /* skipped because csum was equal [unit BM_BLOCK_SIZE] */
+	/* blocks to resync in this run [unit BM_BLOCK_SIZE] */
+	ULONG_PTR rs_total;
+	/* number of resync blocks that failed in this run */
+	ULONG_PTR rs_failed;
+	/* Syncer's start time [unit jiffies] */
+	ULONG_PTR rs_start;
+	/* cumulated time in PausedSyncX state [unit jiffies] */
+	ULONG_PTR rs_paused;
+	/* skipped because csum was equal [unit BM_BLOCK_SIZE] */
 	ULONG_PTR rs_same_csum;
 	// DW-1886
 	/* write completed size (failed and success) */
 	atomic_t64 rs_written;
-#else
-	/* blocks to resync in this run [unit BM_BLOCK_SIZE] */
-	unsigned long rs_total;
-	/* number of resync blocks that failed in this run */
-	unsigned long rs_failed;
-	/* Syncer's start time [unit jiffies] */
-	unsigned long rs_start;
-	/* cumulated time in PausedSyncX state [unit jiffies] */
-	unsigned long rs_paused;
-	/* skipped because csum was equal [unit BM_BLOCK_SIZE] */
-	unsigned long rs_same_csum;
-	// DW-1886
-	/* write completed size (failed and success) */
-	atomic64_t rs_written;
-#endif
 	// DW-1886 add a log for resync to check the data flow.
 	/* size of send resync data request */
 	ULONG_PTR rs_send_req;
@@ -1752,24 +1656,13 @@ struct drbd_peer_device {
 
 #define DRBD_SYNC_MARKS 8
 #define DRBD_SYNC_MARK_STEP (3*HZ)
-#ifdef _WIN32
-    /* block not up-to-date at mark [unit BM_BLOCK_SIZE] */
-    ULONG_PTR rs_mark_left[DRBD_SYNC_MARKS];
-    /* marks's time [unit jiffies] */
-    ULONG_PTR rs_mark_time[DRBD_SYNC_MARKS];
-#else
 	/* block not up-to-date at mark [unit BM_BLOCK_SIZE] */
-	unsigned long rs_mark_left[DRBD_SYNC_MARKS];
+	ULONG_PTR rs_mark_left[DRBD_SYNC_MARKS];
 	/* marks's time [unit jiffies] */
-	unsigned long rs_mark_time[DRBD_SYNC_MARKS];
-#endif
+	ULONG_PTR rs_mark_time[DRBD_SYNC_MARKS];
 	/* current index into rs_mark_{left,time} */
 	int rs_last_mark;
-#ifdef _WIN32
-    ULONG_PTR rs_last_writeout;
-#else
-	unsigned long rs_last_writeout;
-#endif
+	ULONG_PTR rs_last_writeout;
 
 	/* where does the admin want us to start? (sector) */
 	sector_t ov_start_sector;
@@ -1787,11 +1680,7 @@ struct drbd_peer_device {
 	int rs_last_events;  /* counter of read or write "events" (unit sectors)
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
-#ifdef _WIN32
-    ULONG_PTR ov_left; /* in bits */
-#else
-	unsigned long ov_left; /* in bits */
-#endif
+	ULONG_PTR ov_left; /* in bits */
 
 	u64 current_uuid;
 	u64 bitmap_uuids[DRBD_PEERS_MAX];
@@ -1803,11 +1692,7 @@ struct drbd_peer_device {
 					 are authoritative */
 	bool uuids_received;
 
-#ifdef _WIN32
-    ULONG_PTR comm_bm_set; /* communicated number of set bits. */
-#else
-	unsigned long comm_bm_set; /* communicated number of set bits. */
-#endif
+	ULONG_PTR comm_bm_set; /* communicated number of set bits. */
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_peer_dev;
@@ -1843,11 +1728,7 @@ struct drbd_device {
 	struct drbd_resource *resource;
 	struct list_head peer_devices;
 	struct list_head pending_bitmap_io;
-#ifdef _WIN32
-    ULONG_PTR flush_jif;
-#else
-	unsigned long flush_jif;
-#endif
+	ULONG_PTR flush_jif;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_minor;
 	struct dentry *debugfs_vol;
@@ -1865,11 +1746,7 @@ struct drbd_device {
 	struct kref_debug_info kref_debug;
 
 	/* things that are stored as / read from meta data on disk */
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 
 	/* configured by drbdsetup */
 	struct drbd_backing_dev *ldev __protected_by(local);
@@ -1878,11 +1755,7 @@ struct drbd_device {
 	struct block_device *this_bdev;
 	struct gendisk	    *vdisk;
 
-#ifdef _WIN32
-    ULONG_PTR last_reattach_jif;
-#else
-	unsigned long last_reattach_jif;
-#endif
+	ULONG_PTR last_reattach_jif;
 	struct timer_list md_sync_timer;
 	struct timer_list request_timer;
 #ifdef DRBD_DEBUG_MD_SYNC
@@ -1913,13 +1786,8 @@ struct drbd_device {
 	struct list_head pending_completion[2];
 
 	struct drbd_bitmap *bitmap;
-#ifdef _WIN32
-    ULONG_PTR bm_resync_fo; /* bit offset for drbd_bm_find_next */
-#else
-	unsigned long bm_resync_fo; /* bit offset for drbd_bm_find_next */
-#endif
+	ULONG_PTR bm_resync_fo; /* bit offset for drbd_bm_find_next */
 	struct mutex bm_resync_fo_mutex;
-// #ifdef _WIN32	// TODO : 관련 로직 리눅스에서 검증 필요
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
 	// DW-1911 marked replication list, used for resync
 	//does not use lock because it guarantees synchronization for the use of marked_rl_list.
@@ -1938,7 +1806,6 @@ struct drbd_device {
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
 #endif
-//#endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
@@ -1977,11 +1844,7 @@ struct drbd_device {
 struct drbd_bm_aio_ctx {
 	struct drbd_device *device;
 	struct list_head list; /* on device->pending_bitmap_io */
-#ifdef _WIN32
 	ULONG_PTR start_jif;
-#else
-	unsigned long start_jif;
-#endif
 	atomic_t in_flight;
 	unsigned int done;
 	unsigned flags;
@@ -2402,7 +2265,6 @@ extern int  drbd_bm_resize(struct drbd_device *device, sector_t sectors, int set
 void drbd_bm_free(struct drbd_bitmap *bitmap);
 extern void drbd_bm_set_all(struct drbd_device *device);
 extern void drbd_bm_clear_all(struct drbd_device *device);
-#ifdef _WIN32
 /* set/clear/test only a few bits at a time */
 extern unsigned int drbd_bm_set_bits(struct drbd_device *, unsigned int, ULONG_PTR, ULONG_PTR);
 extern unsigned int drbd_bm_clear_bits(struct drbd_device *, unsigned int, ULONG_PTR, ULONG_PTR);
@@ -2412,17 +2274,9 @@ extern int drbd_bm_count_bits(struct drbd_device *, unsigned int, ULONG_PTR, ULO
 extern void drbd_bm_set_many_bits(struct drbd_peer_device *, ULONG_PTR, ULONG_PTR);
 extern void drbd_bm_clear_many_bits(struct drbd_peer_device *, ULONG_PTR, ULONG_PTR);
 extern void _drbd_bm_clear_many_bits(struct drbd_device *, int, ULONG_PTR, ULONG_PTR);
+#ifdef _WIN32
 extern ULONG_PTR drbd_bm_test_bit(struct drbd_peer_device *, const ULONG_PTR);
 #else
-/* set/clear/test only a few bits at a time */
-extern unsigned int drbd_bm_set_bits(struct drbd_device *, unsigned int, unsigned long, unsigned long);
-extern unsigned int drbd_bm_clear_bits(struct drbd_device *, unsigned int, unsigned long, unsigned long);
-extern int drbd_bm_count_bits(struct drbd_device *, unsigned int, unsigned long, unsigned long);
-/* bm_set_bits variant for use while holding drbd_bm_lock,
- * may process the whole bitmap in one go */
-extern void drbd_bm_set_many_bits(struct drbd_peer_device *, unsigned long, unsigned long);
-extern void drbd_bm_clear_many_bits(struct drbd_peer_device *, unsigned long, unsigned long);
-extern void _drbd_bm_clear_many_bits(struct drbd_device *, int, unsigned long, unsigned long);
 extern int drbd_bm_test_bit(struct drbd_peer_device *, unsigned long);
 #endif
 
@@ -2439,13 +2293,9 @@ extern int  drbd_bm_write_lazy(struct drbd_device *device, unsigned upper_idx) _
 extern int drbd_bm_write_all(struct drbd_device *, struct drbd_peer_device *) __must_hold(local);
 extern int drbd_bm_write_copy_pages(struct drbd_device *, struct drbd_peer_device *) __must_hold(local);
 extern size_t	     drbd_bm_words(struct drbd_device *device);
-#ifdef _WIN32
 extern ULONG_PTR drbd_bm_bits(struct drbd_device *device);
-#else
-extern unsigned long drbd_bm_bits(struct drbd_device *device);
-#endif
 extern sector_t      drbd_bm_capacity(struct drbd_device *device);
-#ifdef _WIN32
+
 #define DRBD_END_OF_BITMAP	UINTPTR_MAX
 extern ULONG_PTR drbd_bm_find_next(struct drbd_peer_device *, ULONG_PTR);
 /* bm_find_next variants for use while you hold drbd_bm_lock() */
@@ -2453,8 +2303,11 @@ extern ULONG_PTR _drbd_bm_find_next(struct drbd_peer_device *, ULONG_PTR);
 extern ULONG_PTR _drbd_bm_find_next_zero(struct drbd_peer_device *, ULONG_PTR);
 extern ULONG_PTR _drbd_bm_total_weight(struct drbd_device *, int);
 extern ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *);
+
+#ifdef _WIN32
 extern void check_and_clear_io_error_in_primary(struct drbd_device *);
 extern void check_and_clear_io_error_in_secondary(struct drbd_peer_device *);
+#endif
 
 /* for receive_bitmap */
 extern void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offset,
@@ -2462,21 +2315,7 @@ extern void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offse
 /* for _drbd_send_bitmap */
 extern void drbd_bm_get_lel(struct drbd_peer_device *peer_device, size_t offset,
     size_t number, ULONG_PTR *buffer);
-#else
-#define DRBD_END_OF_BITMAP	(~(unsigned long)0)
-extern unsigned long drbd_bm_find_next(struct drbd_peer_device *, unsigned long);
-/* bm_find_next variants for use while you hold drbd_bm_lock() */
-extern unsigned long _drbd_bm_find_next(struct drbd_peer_device *, unsigned long);
-extern unsigned long _drbd_bm_find_next_zero(struct drbd_peer_device *, unsigned long);
-extern unsigned long _drbd_bm_total_weight(struct drbd_device *, int);
-extern unsigned long drbd_bm_total_weight(struct drbd_peer_device *);
-/* for receive_bitmap */
-extern void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offset,
-		size_t number, unsigned long *buffer);
-/* for _drbd_send_bitmap */
-extern void drbd_bm_get_lel(struct drbd_peer_device *peer_device, size_t offset,
-		size_t number, unsigned long *buffer);
-#endif
+
 extern void drbd_bm_lock(struct drbd_device *device, char *why, enum bm_flag flags);
 extern void drbd_bm_unlock(struct drbd_device *device);
 extern void drbd_bm_slot_lock(struct drbd_peer_device *peer_device, char *why, enum bm_flag flags);
@@ -2748,11 +2587,7 @@ struct drbd_peer_request_details {
 
 struct queued_twopc {
 	struct drbd_work w;
-#ifdef _WIN32
-    ULONG_PTR start_jif;
-#else
-	unsigned long start_jif;
-#endif
+	ULONG_PTR start_jif;
 	struct drbd_connection *connection;
 	struct twopc_reply reply;
 	struct packet_info packet_info;
@@ -2818,8 +2653,7 @@ static __inline sector_t drbd_get_md_capacity(struct block_device *bdev)
 		bdev->d_size = get_targetdev_volsize(pvext);	// real size
 		return bdev->d_size >> 9;
 	}
-	else
-	{
+	else {
 		drbd_err(NO_OBJECT,"bd_disk is null.\n");
 		return 0;
 	}
@@ -2864,8 +2698,7 @@ static inline void drbd_set_my_capacity(struct drbd_device *device,
 					sector_t size)
 {
 #ifdef _WIN32
-	if (!device->this_bdev)
-	{
+	if (!device->this_bdev) {
 		return;
 }
 
@@ -3735,8 +3568,7 @@ static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 	if (atomic_read64(&g_total_req_buf_bytes) > req_buf_size_max) {
 		device->resource->breqbuf_overflow_alarm = true;
 	
-		if (drbd_ratelimit())
-		{
+		if (drbd_ratelimit()) {
 #ifdef _WIN32
 			drbd_warn(device, "request buffer is full, postponing I/O until we get enough memory. cur req_buf_size(%llu), max(%llu)\n", atomic_read64(&g_total_req_buf_bytes), req_buf_size_max);
 #else
@@ -3856,11 +3688,7 @@ static inline void drbd_kick_lo(struct drbd_device *device)
 struct bm_extent {
 	int rs_left; /* number of bits set (out of sync) in this extent. */
 	int rs_failed; /* number of failed resync requests in this extent. */
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 	struct lc_element lce;
 };
 

@@ -1473,8 +1473,7 @@ static enum drbd_state_rv __is_valid_soft_transition(struct drbd_resource *resou
 				if (repl_state[OLD] == L_SYNC_TARGET && repl_state[NEW] == L_ESTABLISHED)
 					goto allow;
 				// DW-891
-				if (test_bit(RECONCILIATION_RESYNC, &peer_device->flags) && repl_state[NEW] == L_WF_BITMAP_S)
-				{
+				if (test_bit(RECONCILIATION_RESYNC, &peer_device->flags) && repl_state[NEW] == L_WF_BITMAP_S) {
 					/* If it fails to change the repl_state, reconciliation resync does not do. 
 					So clear the RECONCILIATION_RESYNC bit. */
 					clear_bit(RECONCILIATION_RESYNC, &peer_device->flags);
@@ -1888,7 +1887,9 @@ static void sanitize_state(struct drbd_resource *resource)
 				}
 			}
 
-			// DW-885, DW-897, DW-907 Abort resync if disk state goes unsyncable.
+			// DW-885
+			// DW-897
+			// DW-907 Abort resync if disk state goes unsyncable.
 			if (((repl_state[NEW] == L_SYNC_TARGET || repl_state[NEW] == L_PAUSED_SYNC_T ) && peer_disk_state[NEW] <= D_INCONSISTENT) ||
 				((repl_state[NEW] == L_SYNC_SOURCE || repl_state[NEW] == L_PAUSED_SYNC_S ) && disk_state[NEW] <= D_INCONSISTENT))
 			{
@@ -1995,7 +1996,9 @@ static void sanitize_state(struct drbd_resource *resource)
 				__change_peer_disk_state(peer_device, max_peer_disk_state, __FUNCTION__);
 
 			if (peer_disk_state[NEW] < min_peer_disk_state)
-				// DW-885, DW-897, DW-907 
+				// DW-885
+				// DW-897
+				// DW-907 
 				// Do not discretionally make disk state syncable, syncable repl state would be changed once it tries to change to 'L_(PAUSED_)SYNC_TARGET', depending on disk state.
 				if (repl_state[NEW] != L_STARTING_SYNC_T)
 					__change_peer_disk_state(peer_device, min_peer_disk_state, __FUNCTION__);
@@ -2044,11 +2047,15 @@ static void sanitize_state(struct drbd_resource *resource)
 
 			/* Implication of the repl state on other peer's repl state */
 			if (repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)
-				// DW-885, DW-897, DW-907 Do not discretionally change other peer's replication state. 
+				// DW-885
+				// DW-897
+				// DW-907 Do not discretionally change other peer's replication state. 
 				// We should always notify state change, or possibly brought unpaired sync target up.
 				set_resync_susp_other_c(peer_device, true, false, __FUNCTION__);
 
-			// DW-885, DW-897, DW-907 Clear resync_susp_other_c when state change is aborted, to get resynced from other node.
+			// DW-885
+			// DW-897
+			// DW-907 Clear resync_susp_other_c when state change is aborted, to get resynced from other node.
 			if (repl_state[OLD] == L_STARTING_SYNC_T && 
 				// DW-1854 If the current state is L_STARTING_SYNC_T, the new state must be L_WF_BITMAP_T, otherwise change resync_sp_other_c to false.
 				(repl_state[NEW] != L_STARTING_SYNC_T && repl_state[NEW] != L_WF_BITMAP_T))
@@ -3046,10 +3053,8 @@ static bool calc_device_stable_ex(struct drbd_state_change *state_change, int n_
 			&state_change->connections[n_connection];
 		enum drbd_role *peer_role = connection_state_change->peer_role;
 
-		if (peer_role[which] == R_PRIMARY)
-		{
-			if (authoritative)
-			{
+		if (peer_role[which] == R_PRIMARY) {
+			if (authoritative) {
 				struct drbd_peer_device_state_change *peer_device_state_change = &state_change->peer_devices[n_device * state_change->n_connections + n_connection];
 				struct drbd_peer_device *peer_device = peer_device_state_change->peer_device;
 				*authoritative |= NODE_MASK(peer_device->node_id);
@@ -3068,8 +3073,7 @@ static bool calc_device_stable_ex(struct drbd_state_change *state_change, int n_
 		case L_WF_BITMAP_T:
 		case L_SYNC_TARGET:
 		case L_PAUSED_SYNC_T:
-			if (authoritative)
-			{
+			if (authoritative) {
 				struct drbd_peer_device *peer_device = peer_device_state_change->peer_device;
 				*authoritative |= NODE_MASK(peer_device->node_id);
 			}			
@@ -3150,8 +3154,7 @@ static void consider_finish_crashed_primary(struct drbd_peer_device *peer_device
 	drbd_md_set_peer_flag(peer_device, MDF_PEER_IGNORE_CRASHED_PRIMARY);
 
 	for_each_peer_device(p, device)	{
-		if (!drbd_md_test_peer_flag(p, MDF_PEER_IGNORE_CRASHED_PRIMARY))
-		{
+		if (!drbd_md_test_peer_flag(p, MDF_PEER_IGNORE_CRASHED_PRIMARY)) {
 			bAllPeerDone = false;
 		}
 	}
@@ -3445,16 +3448,14 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			 * at the time this work was queued. */
 #ifdef _WIN32 // DW-1447
 			// If the SEND_BITMAP_WORK_PENDING flag is set, also check the peer's repl_state. if L_WF_BITMAP_T, queuing send_bitmap().
-			if (test_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags))
-			{
+			if (test_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags)) {
 				if (repl_state[NEW] == L_WF_BITMAP_S && peer_device->repl_state[NOW] == L_WF_BITMAP_S && 
 					peer_device->last_repl_state == L_WF_BITMAP_T)
 				{
 					send_bitmap = true;
 					clear_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags);
 				} 
-				else if (repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_WF_BITMAP_S)
-				{
+				else if (repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_WF_BITMAP_S) {
 					clear_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags);
 				}
 			}
@@ -3466,8 +3467,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 #endif
 
 #ifdef _WIN32 // DW-1447
-			if (send_bitmap)
-			{
+			if (send_bitmap) {
 
 #else
 			if (repl_state[OLD] != L_WF_BITMAP_S && repl_state[NEW] == L_WF_BITMAP_S && 
@@ -3569,8 +3569,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					peer_device);
 
 			/* We are in the progress to start a full sync. SyncSource one slot. */
-			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S)
-			{
+			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) {
 				drbd_queue_bitmap_io(device,
 #ifdef _WIN32
 				// DW-1293
@@ -3714,8 +3713,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags)) {
 				drbd_info(peer_device, "Resync will be aborted due to change of state.\n");
 
-				if (repl_state[NOW] > L_ESTABLISHED)
-				{
+				if (repl_state[NOW] > L_ESTABLISHED) {
 					unsigned long irq_flags;
 					begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 					__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
@@ -4383,8 +4381,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	retry:
 #endif
 
-	if (current == resource->worker.task && resource->remote_state_change)
-	{
+	if (current == resource->worker.task && resource->remote_state_change) {
 		return __end_state_change(resource, &irq_flags, SS_CONCURRENT_ST_CHG, caller);
 	}
 
@@ -4497,8 +4494,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		wait_event_timeout_ex(resource->state_wait,
 								cluster_wide_reply_ready(resource),
 								twopc_timeout(resource), t);
-        if (t)
-		{
+        if (t) {
 			rv = get_cluster_wide_reply(resource, context);
 #ifdef _WIN32_TWOPC
 			drbd_info(resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) \n", 
@@ -4537,13 +4533,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				rv = check_primaries_distances(resource);
 
 			// DW-1231 not allowed multiple primaries.
-			if (reply->primary_nodes & NODE_MASK(context->target_node_id))
-			{			
+			if (reply->primary_nodes & NODE_MASK(context->target_node_id)) {			
 				rcu_read_lock();
 				for_each_connection_rcu(connection, resource) {
 					if (connection->peer_node_id != (unsigned int)context->target_node_id) {
-						if (connection->peer_role[NOW] == R_PRIMARY)
-						{
+						if (connection->peer_role[NOW] == R_PRIMARY) {
 							rv = SS_TWO_PRIMARIES;
 							break;
 						}

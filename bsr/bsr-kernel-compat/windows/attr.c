@@ -24,8 +24,7 @@ static int validate_nla(struct nlattr *nla, int maxtype,
 
     BUG_ON(pt->type > NLA_TYPE_MAX);
 
-    switch (pt->type)
-    {
+    switch (pt->type) {
         case NLA_FLAG:
             if (attrlen > 0)
                 return -ERANGE;
@@ -45,8 +44,7 @@ static int validate_nla(struct nlattr *nla, int maxtype,
             if (attrlen < 1)
                 return -ERANGE;
 
-            if (pt->len)
-            {
+            if (pt->len) {
                 char *buf = nla_data(nla);
 
                 if (buf[attrlen - 1] == '\0')
@@ -147,10 +145,8 @@ int nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
     {
         u16 type = (u16)nla_type(nla);
 
-        if (type > 0 && type <= maxtype)
-        {
-            if (policy)
-            {
+        if (type > 0 && type <= maxtype) {
+            if (policy) {
                 err = validate_nla(nla, maxtype, policy);
                 if (err < 0)
                     goto errout;
@@ -210,8 +206,7 @@ size_t nla_strlcpy(char *dst, const struct nlattr *nla, size_t dstsize)
         srclen--;
 
 
-    if (dstsize > 0)
-    {
+    if (dstsize > 0) {
         size_t len = (srclen >= dstsize) ? dstsize - 1 : srclen;
 
         memset(dst, 0, dstsize);

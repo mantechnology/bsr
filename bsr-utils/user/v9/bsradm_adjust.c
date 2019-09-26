@@ -420,8 +420,7 @@ redo_whole_conn:
 	run_o = STAILQ_FIRST(&running_path->my_proxy->plugins);
 	used = 0;
 	conn_name = proxy_connection_name(ctx->res, running_conn);
-	for(i=0; i<MAX_PLUGINS; i++)
-	{
+	for(i=0; i<MAX_PLUGINS; i++) {
 		if (used >= sizeof(plugin_changes)-1) {
 			err("Too many proxy plugin changes");
 			exit(E_CONFIG_INVALID);
@@ -904,8 +903,7 @@ struct d_resource *running_res_by_name(const char *name, bool parse)
 	}
 
 	// DW-889
-	if (parse && !adjust_more_than_one_resource)
-	{
+	if (parse && !adjust_more_than_one_resource) {
 		return parse_drbdsetup_show(name);
 	}
 

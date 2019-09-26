@@ -759,8 +759,7 @@ static __inline struct nlmsghdr *
 	nlh->nlmsg_pid = portid;
 	nlh->nlmsg_seq = seq;
 
-	if (NLMSG_ALIGN(size) - size != 0)
-	{
+	if (NLMSG_ALIGN(size) - size != 0) {
 		//memset( (int)nlmsg_data(nlh) + len, 0, NLMSG_ALIGN(size) - size);
 		memset((unsigned char*)nlmsg_data(nlh) + len, 0, NLMSG_ALIGN(size) - size); // 기존 (int)로 형변환 이유?... 확인필요.
 	}

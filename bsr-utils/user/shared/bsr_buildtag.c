@@ -15,12 +15,10 @@
 
 const char *bsr_buildtag(void)
 {
-	if (strcmp(BUILD_VERSION, "") == 0)
-	{
+	if (strcmp(BUILD_VERSION, "") == 0) {
 		return "";
 	}
-	else
-	{
+	else {
 		return BUILD_VERSION " GIT-hash: " COMMIT " build by " BUILD_USER"@"BUILD_HOST", " __TIMESTAMP__;
 	}
 	

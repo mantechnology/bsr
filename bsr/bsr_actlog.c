@@ -191,8 +191,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 	device->md_io.error = -ENODEV;
 #ifdef _WIN32
     bio = bio_alloc_drbd(GFP_NOIO, '30DW');
-    if (!bio)
-    {
+    if (!bio) {
         return -ENODEV;
     }
 #else
@@ -1489,8 +1488,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 		if (!test_and_clear_bit(bitmap_index, &mask))
 			continue;
 
-		if (test_bit(bitmap_index, &bits))
-		{
+		if (test_bit(bitmap_index, &bits)) {
 			// DW-1191 caller needs to know if the bits has been set at least.
 			if (update_sync_bits(peer_device, (unsigned long)set_start, (unsigned long)set_end, SET_OUT_OF_SYNC) > 0)
 				set_bits |= (1 << bitmap_index);

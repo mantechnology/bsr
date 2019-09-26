@@ -84,8 +84,7 @@ void unescape(char *txt)
 			continue;
 		}
 #ifdef _WIN32
-        if (*ue == '\\')
-        {
+        if (*ue == '\\') {
             *ue = '/';
         }
 #else
@@ -187,8 +186,7 @@ int fget_token(char *s, int size, int stream)
 	do { // eat white spaces in front.
 
 		r = read(stream, &c, 1);
-		if(r < 1)
-		{
+		if(r < 1) {
 			return EOF;
 		}
 	} while (!isgraph(c));
@@ -196,8 +194,7 @@ int fget_token(char *s, int size, int stream)
 	do { // read the first word into s
 		*sp++ = c;
 		r = read(stream, &c, 1);
-		if(r < 1)
-		{
+		if(r < 1) {
 			return EOF;
 		}
 	} while (isgraph(c) && --size);
@@ -281,8 +278,7 @@ DWORD _GetVolumeSize(LPSTR device_name, GET_LENGTH_INFORMATION * pgli)
 		0,                                  	// file attributes
 		NULL);                              	// do not copy file attributes
 
-	if (INVALID_HANDLE_VALUE == hDevice)
-	{
+	if (INVALID_HANDLE_VALUE == hDevice) {
 		err = GetLastError();
 		fprintf(stderr, "Failed to CreateFile(%s). error_code=%d\n", device_name, err);
 		return err;
@@ -295,8 +291,7 @@ DWORD _GetVolumeSize(LPSTR device_name, GET_LENGTH_INFORMATION * pgli)
 		&junk,									// # bytes returned
 		NULL);									// synchronous I/O
 
-	if (!bResult)
-	{
+	if (!bResult) {
 		err = GetLastError();
 		fprintf(stderr, "Failed to IOCTL_DISK_GET_LENGTH_INFO(%s) error_code=%d\n", device_name, err);
 		CloseHandle(hDevice);
@@ -328,8 +323,7 @@ DWORD _GetDriveGeometry(LPSTR device_name, DISK_GEOMETRY *pdg)
 		0,										// file attributes
 		NULL);									// do not copy file attributes
 
-	if (INVALID_HANDLE_VALUE == hDevice)
-	{
+	if (INVALID_HANDLE_VALUE == hDevice) {
 		err = GetLastError();
 		fprintf(stderr, "Failed to CreateFile(%s). error_code=%d\n", device_name, err);
 		return err;
@@ -342,8 +336,7 @@ DWORD _GetDriveGeometry(LPSTR device_name, DISK_GEOMETRY *pdg)
 		&junk,									// # bytes returned
 		(LPOVERLAPPED)NULL);					// synchronous I/O
 
-	if (!bResult)
-	{
+	if (!bResult) {
 		err = GetLastError();
 		fprintf(stderr, "Failed to IOCTL_DISK_GET_DRIVE_GEOMETRY_EX(%s) error_code=%d\n", device_name, err);
 		CloseHandle(hDevice);
@@ -370,8 +363,7 @@ int bdev_sect_size_nt(char * device_name, unsigned int *hard_sect_size)
 	DISK_GEOMETRY dg = { .BytesPerSector = 0, };
 
 	DWORD ret = _GetDriveGeometry(device_name, &dg);
-	if (!ret)
-	{
+	if (!ret) {
 		*hard_sect_size = dg.BytesPerSector;
 	}
 	return ret;
@@ -673,8 +665,7 @@ void ensure_sanity_of_res_name(char *stg)
 	 * control sequences. */
 	/* Only works for ASCII derived code sets. */
 	code = * (unsigned char*) stg;
-	if (code < ' ' || code == '\x7f')
-	{
+	if (code < ' ' || code == '\x7f') {
 	    fprintf(stderr, "Resource name is invalid - please don't use control characters.\n");
 	    exit(1);
 	}
@@ -802,8 +793,7 @@ int dt_minor_of_dev(const char *device)
 
 #ifdef _WIN32
     if (!digits_only) {
-        if (1 == strlen(c))
-        {
+        if (1 == strlen(c)) {
             return (*c & ~0x20) - 'C';
         }
         return -1;

@@ -1971,12 +1971,10 @@ static int pushd_to_current_config_file_unless_stdin(void)
 	/* config_save was canonicalized before, unless it is STDIN */
 #ifdef _WIN32
     tmp = strdupa(config_file);
-    if (strncmp(tmp, "/", strlen("/")) == 0)
-    {
+    if (strncmp(tmp, "/", strlen("/")) == 0) {
         last_slash = strrchr(tmp, '/');
     }
-    else
-    {
+    else {
         last_slash = strrchr(tmp, '\\');
     }
 #else
