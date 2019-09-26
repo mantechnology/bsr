@@ -70,7 +70,6 @@
 // 4204: nonstandard extension used : non-constant aggregate initializer
 // 4221: nonstandard extension used 
 
-#include <ntddk.h>
 #include "../../../bsr-headers/windows/types.h"
 #ifndef __KERNEL__
 #include <sys/types.h>
@@ -90,6 +89,8 @@
 # error "sorry, weird endianness on this box"
 #endif
 
+#else
+#include <ntddk.h>
 #endif
 
 #endif //_WIN32 END
@@ -417,14 +418,12 @@ enum mdf_peer_flag {
 	// It needs to be cleared when resync's done and gets matched current uuid.
 	// This flag indicates that above situation so that uuid will be propagated once resync is finished.
 	MDF_PEER_DIFF_CUR_UUID = 1 << 5,
-
 #ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
 	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		// DW-1357 no need to get synced from this peer, ignore crashed primary 
 #endif
-
 	MDF_NODE_EXISTS =       1 << 16, /* */
-#ifdef _WIN32
 	MDF_PEER_INIT_SYNCT_BEGIN	= 1 << 17,
+#ifdef _WIN32
 	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,			// DW-1874 
 													//when the connection is lost during synchronization and the synctarget is complete synchronizing with another node, 
 													//it is used to determine the unnecessary out of sync removal when reconnected.
