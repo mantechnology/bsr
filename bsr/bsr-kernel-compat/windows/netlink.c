@@ -473,8 +473,7 @@ static int w_connect(struct drbd_work *w, int cancel)
 
 static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 {
-	if (pops->doit)
-    {
+	if (pops->doit) {
 #if 0
 		struct drbd_config_context adm_ctx;
 
@@ -502,12 +501,10 @@ static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
         return pops->doit(NULL, pinfo);
     }
 
-    if (pinfo->nlhdr->nlmsg_flags && NLM_F_DUMP)
-    {
+    if (pinfo->nlhdr->nlmsg_flags && NLM_F_DUMP) {
         struct sk_buff * skb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
 
-        if (skb)
-        {
+        if (skb) {
             struct netlink_callback ncb = {
                 .skb = skb,
                 .nlh = pinfo->nlhdr,
@@ -527,8 +524,7 @@ static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 				}
             }
 
-            if (pops->done)
-            {
+            if (pops->done) {
                 pops->done(&ncb);
             }
 
@@ -731,8 +727,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
 	UNREFERENCED_PARAMETER(Flags);
 	UNREFERENCED_PARAMETER(SocketContext);
 
-    if (AcceptSocket == NULL)
-    {
+    if (AcceptSocket == NULL) {
         // If WSK provider makes a WskAcceptEvent callback with NULL 
         // AcceptSocket, this means that the listening socket is no longer
         // functional. The WSK client may handle this situation by trying

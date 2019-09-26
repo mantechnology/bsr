@@ -48,16 +48,14 @@ Return Value:
 
 	RtlInitUnicodeString(&g_usDeviceName, DRBDLOCK_DEVICE_OBJECT_NAME);
 	status = IoCreateDevice(pDrvObj, 0, &g_usDeviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &g_DeviceObject);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("IoCreateDevice Failed, status : 0x%x\n", status);
 		return status;
 	}
 
 	RtlInitUnicodeString(&g_usSymlinkName, DRBDLOCK_SYMLINK_NAME);
 	status = IoCreateSymbolicLink(&g_usSymlinkName, &g_usDeviceName);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("IoCreateSymbolicLink Failed, status : 0x%x\n", status);
 		return status;
 	}
@@ -129,52 +127,41 @@ Return Value:
 	ULONG ulSize = 0;
 	POBJECT_NAME_INFORMATION pNameInfo = NULL;
 
-	if (pVolumeControl == NULL)
-	{
+	if (pVolumeControl == NULL) {
 		// invalid parameter.
 		drbdlock_print_log("pVolumeControl is NULL\n");
 		return;
 	}
 	
 	status = ConvertVolume(&pVolumeControl->volume, &pVolObj);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("ConvertVolume failed, status : 0x%x\n", status);
 		return;
 	}
 
-	if (STATUS_INFO_LENGTH_MISMATCH == ObQueryNameString(pVolObj, NULL, 0, &ulSize))
-	{
+	if (STATUS_INFO_LENGTH_MISMATCH == ObQueryNameString(pVolObj, NULL, 0, &ulSize)) {
 		pNameInfo = (POBJECT_NAME_INFORMATION)ExAllocatePool(NonPagedPool, ulSize);		
-		if (pNameInfo)
-		{
+		if (pNameInfo) {
 			status = ObQueryNameString(pVolObj, pNameInfo, ulSize, &ulSize);
-			if (!NT_SUCCESS(status))
-			{
+			if (!NT_SUCCESS(status)) {
 				ulSize = 0;
 			}
 		}
 	}	
 
-	if (pVolumeControl->bBlock)
-	{
-		if (AddProtectedVolume(pVolObj))
-		{			
+	if (pVolumeControl->bBlock) {
+		if (AddProtectedVolume(pVolObj)) {			
 			drbdlock_print_log("volume(%ws) has been added as protected\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
-		else
-		{
+		else {
 			drbdlock_print_log("volume(%ws) add failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 	}
-	else
-	{
-		if (DeleteProtectedVolume(pVolObj))
-		{
+	else {
+		if (DeleteProtectedVolume(pVolObj)) {
 			drbdlock_print_log("volume(%ws) has been deleted from protected volume list\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
-		else
-		{
+		else {
 			drbdlock_print_log("volume(%ws) delete failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 	}
@@ -211,8 +198,7 @@ Return Value:
 	InitializeObjectAttributes(&oa, &usCallbackName, OBJ_CASE_INSENSITIVE | OBJ_PERMANENT, 0, 0);
 
 	status = ExCreateCallback(&g_pCallbackObj, &oa, TRUE, TRUE);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("ExCreateCallback failed, status : 0x%x\n", status);
 		return status;
 	}
@@ -257,8 +243,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 	UNICODE_STRING usCbName;
 	PCALLBACK_OBJECT pCallbackObj;
 
-	if (pszCallbackName == NULL)
-	{
+	if (pszCallbackName == NULL) {
 		return STATUS_INVALID_PARAMETER;
 	}
 
@@ -267,8 +252,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 
 	status = ExCreateCallback(&pCallbackObj, &cboa, FALSE, TRUE);
 
-	if (NT_SUCCESS(status))
-	{
+	if (NT_SUCCESS(status)) {
 		ExNotifyCallback(pCallbackObj, pParam, NULL);
 		ObDereferenceObject(pCallbackObj);
 	}
@@ -290,8 +274,7 @@ NTSTATUS ResizeDrbdVolume(PDEVICE_OBJECT pDeviceObject)
 	
 	status = NotifyCallbackObject(DRBD_CALLBACK_NAME, &volume);
 
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		return status;
 	}
 
@@ -377,8 +360,7 @@ Return Value:
 
 	status = ConvertVolume(&Vol, &pDevice);
 
-	if (NT_SUCCESS(status))
-	{
+	if (NT_SUCCESS(status)) {
 		BOOLEAN r = isProtectedVolume(pDevice);
 
 		RtlCopyMemory(pBuf, &r, sizeof(BOOLEAN));
@@ -417,8 +399,7 @@ Return Value:
 
 	pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
 
-	switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode)
-	{	
+	switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode) {	
 		case IOCTL_DRBDLOCK_GET_STATUS:
 		{
 			status = IOCTL_GetStatus(pIrp, &ulSize);

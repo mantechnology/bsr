@@ -98,16 +98,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     RtlInitUnicodeString(&nameUnicode, L"\\Device\\mvolCntl");
     status = IoCreateDevice(DriverObject, sizeof(ROOT_EXTENSION),
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         drbd_err(NO_OBJECT,"Can't create root, err=%x\n", status);
         return status;
     }
 
     RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolCntl");
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         drbd_err(NO_OBJECT,"cannot create symbolic link, err=%x\n", status);
         IoDeleteDevice(deviceObject);
         return status;
@@ -266,8 +264,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     ULONG               deviceType = 0;
 	static volatile LONG      IsEngineStart = FALSE;
 
-    if (FALSE == InterlockedCompareExchange(&IsEngineStart, TRUE, FALSE))
-    {
+    if (FALSE == InterlockedCompareExchange(&IsEngineStart, TRUE, FALSE)) {
         HANDLE		hNetLinkThread = NULL;
         NTSTATUS	Status = STATUS_UNSUCCESSFUL;
 
@@ -293,8 +290,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 
     status = IoCreateDevice(mvolDriverObject, sizeof(VOLUME_EXTENSION), NULL,
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
         drbd_err(NO_OBJECT,"cannot create device, err=0x%x\n", status);
         return status;
@@ -312,8 +308,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     VolumeExtension->IrpCount = 0;
     VolumeExtension->TargetDeviceObject =
         IoAttachDeviceToDeviceStack(AttachedDeviceObject, PhysicalDeviceObject);
-    if (VolumeExtension->TargetDeviceObject == NULL)
-    {
+    if (VolumeExtension->TargetDeviceObject == NULL) {
         mvolLogError(mvolRootDeviceObject, 103, MSG_ADD_DEVICE_ERROR, STATUS_NO_SUCH_DEVICE);
         IoDeleteDevice(AttachedDeviceObject);
         return STATUS_NO_SUCH_DEVICE;
@@ -324,8 +319,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 
     status = GetDeviceName(PhysicalDeviceObject,
         VolumeExtension->PhysicalDeviceName, MAXDEVICENAME * sizeof(WCHAR)); // -> \Device\HarddiskVolumeXX
-    if (!NT_SUCCESS(status))
-    {
+    if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 101, MSG_ADD_DEVICE_ERROR, status);
 		IoDeleteDevice(AttachedDeviceObject);
         return status;
@@ -517,8 +511,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 	PIO_STACK_LOCATION irpSp = NULL;
-    if (DeviceObject == mvolRootDeviceObject)
-    {
+    if (DeviceObject == mvolRootDeviceObject) {
         drbd_debug(NO_OBJECT,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
@@ -527,8 +520,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     }
 
 #ifdef _WIN32_MVFL
-    if (VolumeExtension->Active)
-    {
+    if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1300 prevent mounting volume when device is failed or below.
@@ -568,27 +560,22 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	NTSTATUS 	status = STATUS_SUCCESS;
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 
-    if (DeviceObject == mvolRootDeviceObject)
-    {
+    if (DeviceObject == mvolRootDeviceObject) {
         goto invalid_device;
     }
 
-    if (VolumeExtension->Active)
-    {
+    if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1363 prevent mounting volume when device is failed or below.
-		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE))
-        {
+		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE)) {
 			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, drbd_destroy_device);
-            if (g_read_filter)
-            {
+            if (g_read_filter) {
                 goto async_read_filter;
             }
         }
-        else
-        {
+        else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
@@ -649,8 +636,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	NTSTATUS status = STATUS_SUCCESS;
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 
-    if (DeviceObject == mvolRootDeviceObject)
-    {
+    if (DeviceObject == mvolRootDeviceObject) {
         Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return STATUS_INVALID_DEVICE_REQUEST;
@@ -677,8 +663,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				unsigned long long saved_size = VolumeExtension->dev->bd_contains->d_size;
 				unsigned long long real_size = get_targetdev_volsize(VolumeExtension); 	
 
-				if (offset_sector + size_sector > saved_size && real_size > saved_size)
-				{
+				if (offset_sector + size_sector > saved_size && real_size > saved_size) {
 					drbd_debug(NO_OBJECT,"saved_size (%llu), real_size (%llu) vol_sector(%llu) off_sector(%llu)\n", saved_size >> 9, real_size >> 9, vol_size_sector, offset_sector + size_sector);
 					drbd_debug(NO_OBJECT,"need to temporary bm write\n");
 				}				
@@ -727,8 +712,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			kref_put(&device->kref, drbd_destroy_device);
             return STATUS_PENDING;
         }
-        else
-        {
+        else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
 				kref_put(&device->kref, drbd_destroy_device);
@@ -774,8 +758,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     PVOLUME_EXTENSION	VolumeExtension = DeviceObject->DeviceExtension;
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
-    switch (irpSp->Parameters.DeviceIoControl.IoControlCode)
-    {
+    switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
         case IOCTL_MVOL_GET_PROC_DRBD:
         {
             PMVOL_VOLUME_INFO p = NULL;
@@ -834,13 +817,11 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			ULONG size = 0;
 
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
-			if (!NT_SUCCESS(status))
-			{
+			if (!NT_SUCCESS(status)) {
 				drbd_warn(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
 					&VolumeExtension->MountPoint, status);
 			}
-			else if (!size)
-			{	// ok
+			else if (!size) {	// ok
 				drbd_info(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
 					&VolumeExtension->MountPoint);
 			}
@@ -915,16 +896,14 @@ mvolDispatchPnp(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     NTSTATUS		status;
     PIO_STACK_LOCATION	irpSp;
 
-    if (DeviceObject == mvolRootDeviceObject)
-    {
+    if (DeviceObject == mvolRootDeviceObject) {
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return STATUS_SUCCESS;
     }
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
-    switch (irpSp->MinorFunction)
-    {
+    switch (irpSp->MinorFunction) {
         case IRP_MN_START_DEVICE:
         {
             status = mvolStartDevice(DeviceObject, Irp);

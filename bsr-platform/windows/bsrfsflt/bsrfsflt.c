@@ -530,15 +530,13 @@ Return Value:
                                 &FilterRegistration,
                                 &gFilterHandle );
 
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("FltRegisterFilter failed, status : 0x%x\n", status);
 		return status;
 	}
 
 	status = drbdlockCreateControlDeviceObject(DriverObject);
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("drbdlockCreateControlDeviceObject failed, status : 0x%x\n", status);
 		FltUnregisterFilter(gFilterHandle);
 		return status;
@@ -640,8 +638,7 @@ Return Value:
 	if (Data->RequestorMode == KernelMode)
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 
-	switch (Data->Iopb->MajorFunction)
-	{
+	switch (Data->Iopb->MajorFunction) {
 		case IRP_MJ_READ:
 		case IRP_MJ_WRITE:
 		{			
@@ -662,15 +659,13 @@ Return Value:
 		}
 		case IRP_MJ_FILE_SYSTEM_CONTROL:
 		{
-			if (Data->Iopb->Parameters.FileSystemControl.Direct.FsControlCode == FSCTL_EXTEND_VOLUME)
-			{
+			if (Data->Iopb->Parameters.FileSystemControl.Direct.FsControlCode == FSCTL_EXTEND_VOLUME) {
 				NTSTATUS status = STATUS_UNSUCCESSFUL;
 				PDEVICE_OBJECT pDiskDev = NULL;
 
 				status = FltGetDiskDeviceObject(FltObjects->Volume, &pDiskDev);
 
-				if (NT_SUCCESS(status))
-				{
+				if (NT_SUCCESS(status)) {
 					ResizeDrbdVolume(pDiskDev);
 				}
 

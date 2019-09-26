@@ -267,8 +267,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 		
 
         struct _buffering_attr *attr = &socket->buffering_attr;
-        if (attr->send_buf_thread_handle)
-        {
+        if (attr->send_buf_thread_handle) {
             KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
             KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
 			//ZwClose (attr->send_buf_thread_handle);
@@ -1432,8 +1431,7 @@ static void dtt_incoming_connection(struct sock *sock)
 
     struct socket * s_estab = kzalloc(sizeof(struct socket), 0, 'E6DW');
 
-    if (!s_estab)
-    {
+    if (!s_estab) {
     	spin_unlock_bh(&resource->listeners_lock);
 		drbd_debug_conn("NOT_ACCEPTED! s_estab alloc failed.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
@@ -1451,12 +1449,10 @@ static void dtt_incoming_connection(struct sock *sock)
 	_snprintf(s_estab->name, sizeof(s_estab->name) - 1, "estab_sock");
     s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'C6DW');
 
-    if (s_estab->sk_linux_attr)
-    {
+    if (s_estab->sk_linux_attr) {
         s_estab->sk_linux_attr->sk_sndbuf = DRBD_SNDBUF_SIZE_DEF;
     }
-    else
-    {
+    else {
         kfree(s_estab);
 		spin_unlock_bh(&resource->listeners_lock);
 		drbd_debug_conn("NOT_ACCEPTED! sk_linux_attr alloc failed.\n");
@@ -1477,8 +1473,7 @@ static void dtt_incoming_connection(struct sock *sock)
 
 #if 0 // TODO_WIN, DW-1538 disabled temporary
 	// DW-1398 do not accept if already connected.
-	if (atomic_read(&connection->transport.listening_done))
-	{
+	if (atomic_read(&connection->transport.listening_done)) {
 		drbd_info(NO_OBJECT,"listening is done for this transport, request won't be accepted\n");
 		kfree(s_estab->sk_linux_attr);
 		kfree(s_estab);
@@ -1491,21 +1486,18 @@ static void dtt_incoming_connection(struct sock *sock)
 	struct dtt_path *path2 = container_of(path, struct dtt_path, path);
 
 	struct dtt_listener *listener2 = container_of(listener, struct dtt_listener, listener);
-	if (path2)
-	{
+	if (path2) {
 		drbd_debug_conn("if(path) path->socket = s_estab\n");
 		if (path2->socket) // DW-1567 fix system handle leak
 		{
 			drbd_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
 			goto not_accept;
 		}
-		else
-		{
+		else {
 			path2->socket = s_estab;
 		}
 	}
-	else
-	{
+	else {
 		drbd_debug_conn("else listener->paccept_socket = AccceptSocket\n");
 #ifdef _WSK_SOCKET_STATE
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
@@ -1513,8 +1505,7 @@ static void dtt_incoming_connection(struct sock *sock)
 			drbd_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
 			goto not_accept;
 		}
-		else
-		{
+		else {
 			listener->pending_accepts++;
 			listener2->paccept_socket = s_estab;
 		}
@@ -1629,8 +1620,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	what = "sock_create_kern";
 #ifdef _WIN32
     s_listen = kzalloc(sizeof(struct socket), 0, '87DW');
-    if (!s_listen)
-    {
+    if (!s_listen) {
         err = -ENOMEM;
         goto out;
     }
@@ -1656,8 +1646,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
     }
 	
     s_listen->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '72DW');
-    if (!s_listen->sk_linux_attr)
-    {
+    if (!s_listen->sk_linux_attr) {
         err = -ENOMEM;
         goto out;
     }
@@ -2006,8 +1995,7 @@ static int dtt_connect(struct drbd_transport *transport)
 			if (use_for_data) {
 				dsocket = s;
 #ifdef _WIN32 // DW-1567
-				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0)
-				{
+				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
 					drbd_err(NO_OBJECT,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
@@ -2020,8 +2008,7 @@ static int dtt_connect(struct drbd_transport *transport)
 				clear_bit(RESOLVE_CONFLICTS, &transport->flags);
 				csocket = s;
 #ifdef _WIN32 // DW-1567
-				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0)
-				{
+				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
 					drbd_err(NO_OBJECT,"failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
@@ -2276,12 +2263,10 @@ static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport)
 	struct ring_buffer *bab = buffering_attr->bab;
 
     int sk_wmem_queued = 0;
-    if (bab)
-    {
+    if (bab) {
         sk_wmem_queued = bab->sk_wmem_queued;
     }
-	else
-	{
+	else {
 		// don't know how to get WSK tx buffer usage yet. Ignore it.
 	}
 	
@@ -2333,8 +2318,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 	do {
 		int sent;
 #ifdef _WIN32
-		if (stream == DATA_STREAM)
-		{
+		if (stream == DATA_STREAM) {
 			// ignore rcu_dereference
 			transport->ko_count = transport->net_conf->ko_count;
 		}
@@ -2598,33 +2582,26 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 	struct drbd_tcp_transport* tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
 	struct drbd_connection* connection = container_of(transport, struct drbd_connection, transport);
 
-	if (size > 0 )
-	{
-		for (int i = 0; i < 2; i++)
-		{
-			if (tcp_transport->stream[i] != NULL)
-			{
+	if (size > 0 ) {
+		for (int i = 0; i < 2; i++) {
+			if (tcp_transport->stream[i] != NULL) {
 				struct _buffering_attr *attr = &tcp_transport->stream[i]->buffering_attr;
 
-				if (attr->bab != NULL)
-				{
+				if (attr->bab != NULL) {
 					tr_warn(transport, "Unexpected: send buffer bab(%s) already exists!\n", tcp_transport->stream[i]->name);
 					return FALSE;
 				}
 
-				if (attr->send_buf_thread_handle != NULL)
-				{
+				if (attr->send_buf_thread_handle != NULL) {
 					tr_warn(transport, "Unexpected: send buffer thread(%s) already exists!\n", tcp_transport->stream[i]->name);
 					return FALSE;
 				}
 
-				if (i == CONTROL_STREAM)
-				{
+				if (i == CONTROL_STREAM) {
 					size = 1024 * 5120; // meta bab is about 5MB
 				}
 
-				if ((attr->bab = create_ring_buffer(connection, tcp_transport->stream[i]->name, size, i)) != NULL)
-				{
+				if ((attr->bab = create_ring_buffer(connection, tcp_transport->stream[i]->name, size, i)) != NULL) {
 					KeInitializeEvent(&attr->send_buf_kill_event, SynchronizationEvent, FALSE);
 					KeInitializeEvent(&attr->send_buf_killack_event, SynchronizationEvent, FALSE);
 					KeInitializeEvent(&attr->send_buf_thr_start_event, SynchronizationEvent, FALSE);
@@ -2642,10 +2619,8 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 					KeWaitForSingleObject(&attr->send_buf_thr_start_event, Executive, KernelMode, FALSE, NULL);
 					
 				}
-				else
-				{
-					if (i == CONTROL_STREAM)
-					{
+				else {
+					if (i == CONTROL_STREAM) {
 						attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
 
 						// kill DATA_STREAM thread
@@ -2663,8 +2638,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 					return FALSE;
 				}
 			}
-			else
-			{
+			else {
 				tr_warn(transport, "Unexpected: send buffer socket(channel:%d) is null!\n", i);
 				return FALSE;
 			}
@@ -2679,14 +2653,11 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
 	struct _buffering_attr *attr;
 
-	for (int i = 0; i < 2; i++)
-	{
-		if (tcp_transport->stream[i] != NULL)
-		{
+	for (int i = 0; i < 2; i++) {
+		if (tcp_transport->stream[i] != NULL) {
 			attr = &tcp_transport->stream[i]->buffering_attr;
 
-			if (attr->send_buf_thread_handle != NULL)
-			{
+			if (attr->send_buf_thread_handle != NULL) {
 				KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
 				//drbd_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 				KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
@@ -2694,13 +2665,11 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}
-			else
-			{
+			else {
 				drbd_warn(NO_OBJECT,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
 			}
 		}
-		else
-		{
+		else {
 			//drbd_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}

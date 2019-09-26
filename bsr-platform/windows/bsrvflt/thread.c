@@ -37,8 +37,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	SECURITY_QUALITY_OF_SERVICE	se_quality_service;
 
 #ifndef _WIN32_MULTIVOL_THREAD
-    if (pThreadInfo->Active)
-    {
+    if (pThreadInfo->Active) {
         return STATUS_DEVICE_ALREADY_ATTACHED;
     }
 #endif
@@ -56,8 +55,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 
 	status = SeCreateClientSecurity( PsGetCurrentThread(), &se_quality_service,
 		FALSE, (PSECURITY_CLIENT_CONTEXT)&pThreadInfo->se_client_context);
-	if( !NT_SUCCESS(status) )
-	{
+	if( !NT_SUCCESS(status) ) {
 		drbd_err(NO_OBJECT,"cannot create client security, err=0x%x\n", status);
 		return status;
 	}
@@ -69,8 +67,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 
 	status = PsCreateSystemThread( &threadhandle, 0L, NULL, 0L, NULL,
 		(PKSTART_ROUTINE)ThreadRoutine, (PVOID)pThreadInfo );
-	if( !NT_SUCCESS(status) )
-	{
+	if( !NT_SUCCESS(status) ) {
 		drbd_err(NO_OBJECT,"cannot create Thread, err=0x%x\n", status);
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
 		return status;
@@ -79,8 +76,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	status = ObReferenceObjectByHandle( threadhandle, THREAD_ALL_ACCESS, NULL, KernelMode,
 		&pThreadInfo->pThread, NULL );
 	ZwClose( threadhandle );
-	if( !NT_SUCCESS(status) )
-	{
+	if( !NT_SUCCESS(status) ) {
 		pThreadInfo->exit_thread = TRUE;
 		IO_THREAD_SIG( pThreadInfo);
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
@@ -107,8 +103,7 @@ mvolTerminateThread( PMVOL_THREAD pThreadInfo )
         KeWaitForSingleObject( pThreadInfo->pThread, Executive, KernelMode, FALSE, NULL );
     }
 
-    if( NULL != pThreadInfo->pThread )
-    {
+    if( NULL != pThreadInfo->pThread ) {
 	    ObDereferenceObject( pThreadInfo->pThread );
 	    SeDeleteClientSecurity( &pThreadInfo->se_client_context );
         pThreadInfo->pThread = NULL;
@@ -138,13 +133,11 @@ mvolWorkThread(PVOID arg)
     drbd_debug(NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
 #endif
 
-	for (;;)
-	{
+	for (;;) {
 		int loop = 0;
 
 		IO_THREAD_WAIT(pThreadInfo);
-		if (pThreadInfo->exit_thread)
-		{
+		if (pThreadInfo->exit_thread) {
 #ifdef _WIN32_MULTIVOL_THREAD
 			drbd_info(NO_OBJECT,"Terminating mvolWorkThread\n");
 #else
@@ -153,8 +146,7 @@ mvolWorkThread(PVOID arg)
 			PsTerminateSystemThread(STATUS_SUCCESS);
 		}
 
-		while ((request = ExInterlockedRemoveHeadList(&pThreadInfo->ListHead, &pThreadInfo->ListLock)) != 0)
-		{
+		while ((request = ExInterlockedRemoveHeadList(&pThreadInfo->ListHead, &pThreadInfo->ListLock)) != 0) {
 #ifdef _WIN32_MULTIVOL_THREAD		
 			PMVOL_WORK_WRAPPER wr = CONTAINING_RECORD(request, struct _MVOL_WORK_WRAPPER, ListEntry);
 			DeviceObject = wr->DeviceObject;	
@@ -172,12 +164,10 @@ mvolWorkThread(PVOID arg)
 				KeGetCurrentIrql(), (irpSp->MajorFunction == IRP_MJ_WRITE)? "Write" : "Read", loop);
 #endif
 
-			switch (irpSp->MajorFunction)
-			{
+			switch (irpSp->MajorFunction) {
 				case IRP_MJ_WRITE:
 					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_WRITE);
-					if (status != STATUS_SUCCESS)
-					{
+					if (status != STATUS_SUCCESS) {
 						mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
 
 						irp->IoStatus.Information = 0;
@@ -187,11 +177,9 @@ mvolWorkThread(PVOID arg)
 					break;
 
 			case IRP_MJ_READ:
-				if (g_read_filter)
-				{
+				if (g_read_filter) {
 					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_READ);
-					if (status != STATUS_SUCCESS)
-					{
+					if (status != STATUS_SUCCESS) {
 						mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
 						irp->IoStatus.Information = 0;
 						irp->IoStatus.Status = status;
@@ -214,10 +202,8 @@ mvolWorkThread(PVOID arg)
 			loop++;
 		}
 
-		if (loop > 1)
-		{
-			if (high < loop)
-			{
+		if (loop > 1) {
+			if (high < loop) {
 				high = loop;
 				drbd_info(NO_OBJECT,"hooker[%ws]: irp processing peek(%d)\n",
 					VolumeExtension->PhysicalDeviceName, high);
