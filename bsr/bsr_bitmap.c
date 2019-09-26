@@ -177,7 +177,7 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 			why, 
 			b->bm_why ? b->bm_why : "?",
 			bm_task ? bm_task->comm : "?", 
-			bm_task ? task_pid_nr(b->bm_task) : 0);		
+			bm_task ? task_pid_nr(bm_task) : 0);		
 		mutex_lock(&b->bm_change);
 	}
 	if (b->bm_flags & BM_LOCK_ALL)
