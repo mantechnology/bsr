@@ -3822,6 +3822,7 @@ void drbd_queue_work(struct drbd_work_queue *q, struct drbd_work *w)
 	wake_up(&q->q_wait);
 }
 
+// DW-1103 down from kernel with timeout
 void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_work_queue *work_queue)
 {
 	struct completion_work completion_work;
