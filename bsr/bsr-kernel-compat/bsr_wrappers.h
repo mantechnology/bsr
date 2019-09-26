@@ -45,6 +45,8 @@
 
 #ifdef _WIN32
 
+#define task_pid_nr(task)	(task->pid)
+
 #else //_LIN
 
 #ifndef ULONG_PTR

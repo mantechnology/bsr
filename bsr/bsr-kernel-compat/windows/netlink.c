@@ -554,7 +554,7 @@ NetlinkWorkThread(PVOID context)
 
 	drbd_debug(NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
 
-    ct_add_thread(KeGetCurrentThread(), "drbdcmd", FALSE, '25DW');
+	ct_add_thread((int)PsGetCurrentThreadId(), "drbdcmd", FALSE, '25DW');
     
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
 	if(!pSock) {
@@ -689,7 +689,7 @@ cleanup:
 		CloseSocket(pSock);
 	}
 
-    ct_delete_thread(KeGetCurrentThread());
+	ct_delete_thread((int)PsGetCurrentThreadId());
 
 	//ObDereferenceObject(pNetlinkCtx->NetlinkEThread);
 

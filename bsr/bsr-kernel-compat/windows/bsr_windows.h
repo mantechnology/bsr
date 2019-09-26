@@ -20,6 +20,7 @@
 
 #ifndef DRBD_WINDOWS_H
 #define DRBD_WINDOWS_H
+#include <ntddk.h>
 #include <wdm.h>
 #include <stdint.h>
 #include <ntstrsafe.h>
@@ -769,7 +770,7 @@ extern void set_disk_ro(struct gendisk *disk, int flag);
 #define TASK_COMM_LEN		32
 struct task_struct {
     struct list_head list; 
-	PKTHREAD pid; // for linux style
+	int pid; // thread ID
     KEVENT sig_event;
     BOOLEAN has_sig_event;
 	int sig; 
@@ -1136,7 +1137,7 @@ struct retry_worker {
 };
 
 
-#define current		    ct_find_thread(KeGetCurrentThread())
+#define current		    ct_find_thread((int)PsGetCurrentThreadId())
 
 #define MAX_PROC_BUF	2048
 
@@ -1354,9 +1355,9 @@ extern EX_SPIN_LOCK g_rcuLock;
 extern void local_irq_disable();
 extern void local_irq_enable();
 extern void ct_init_thread_list();
-extern struct task_struct * ct_add_thread(PKTHREAD id, const char *name, BOOLEAN event, ULONG Tag);
-extern void ct_delete_thread(PKTHREAD id);
-extern struct task_struct* ct_find_thread(PKTHREAD id);
+extern struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULONG Tag);
+extern void ct_delete_thread(int id);
+extern struct task_struct* ct_find_thread(int id);
 
 #define bdevname(dev, buf)   dev->bd_disk->disk_name
 

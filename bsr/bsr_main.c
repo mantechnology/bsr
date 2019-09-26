@@ -678,7 +678,7 @@ static int drbd_thread_setup(void *arg)
 	unsigned long flags;
 	int retval;
 #ifdef _WIN32
-    thi->nt = ct_add_thread(KeGetCurrentThread(), thi->name, TRUE, 'B0DW');
+	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
     if (!thi->nt) {
         drbd_err(NO_OBJECT,"DRBD_PANIC: ct_add_thread faild.\n");
         PsTerminateSystemThread(STATUS_SUCCESS);
@@ -762,21 +762,12 @@ int drbd_thread_start(struct drbd_thread *thi)
 
 	switch (thi->t_state) {
 	case NONE:
-#ifdef _WIN32
-		if (connection)
-			drbd_info(connection, "Starting %s thread (from %s [0x%p])\n",
-				 thi->name, current->comm, current->pid);
-		else
-			drbd_info(resource, "Starting %s thread (from %s [0x%p])\n",
-				 thi->name, current->comm, current->pid);
-#else
 		if (connection)
 			drbd_info(connection, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
 		else
 			drbd_info(resource, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
-#endif
 		init_completion(&thi->stop);
 		D_ASSERT(resource, thi->task == NULL);
 		thi->reset_cpu_mask = 1;

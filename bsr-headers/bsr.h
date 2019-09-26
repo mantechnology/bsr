@@ -70,6 +70,7 @@
 // 4204: nonstandard extension used : non-constant aggregate initializer
 // 4221: nonstandard extension used 
 
+#include <ntddk.h>
 #include "../../../bsr-headers/windows/types.h"
 #ifndef __KERNEL__
 #include <sys/types.h>
