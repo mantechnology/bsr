@@ -2863,7 +2863,7 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 		return bdev;
 	}
 
-#ifdef _WIN32 //TODO
+#ifdef _WIN32
 	// DW-1109 inc ref when open it.
 	kref_get(&bdev->kref);
 #endif

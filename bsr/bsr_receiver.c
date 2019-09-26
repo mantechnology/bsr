@@ -7278,17 +7278,13 @@ check_concurrent_transactions(struct drbd_resource *resource, struct twopc_reply
 
 	if (new_r->initiator_node_id < ongoing->initiator_node_id) {
 		if ((unsigned int)ongoing->initiator_node_id == resource->res_opts.node_id) {
-#ifdef _WIN32_TWOPC
 			drbd_info(resource, "[TWOPC] CSC_ABORT_LOCAL! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
-#endif
 			return CSC_ABORT_LOCAL;
 		}
 		else {
-#ifdef _WIN32_TWOPC
 			drbd_info(resource, "[TWOPC] CSC_QUEUE! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
-#endif
 			return CSC_QUEUE;
 		}
 	} else if (new_r->initiator_node_id > ongoing->initiator_node_id) {
@@ -7300,18 +7296,14 @@ check_concurrent_transactions(struct drbd_resource *resource, struct twopc_reply
 			clear_remote_state_change_without_lock(resource);
 			return CSC_UPDATE;
 		}
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "[TWOPC] CSC_REJECT! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
-#endif	
 
 		return CSC_REJECT;
 	}
 	if (new_r->tid != ongoing->tid) {
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "[TWOPC] CSC_TID_MISS! new_r->tid (%u) ongoing->tid (%u)\n",
 					new_r->tid, ongoing->tid);
-#endif	
 		return CSC_TID_MISS;
 	}
 
@@ -7783,10 +7775,8 @@ static int process_twopc(struct drbd_connection *connection,
 	
 	csc_rv = check_concurrent_transactions(resource, reply);
 
-#ifdef _WIN32_TWOPC
 	drbd_info(resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
 					reply->tid, reply->target_node_id, csc_rv, reply->primary_nodes, drbd_packet_name(pi->cmd));
-#endif
 	if (csc_rv == CSC_CLEAR && pi->cmd != P_TWOPC_ABORT) {
 		if (!is_prepare(pi->cmd)) {
 			/* We have committed or aborted this transaction already. */
@@ -7878,10 +7868,8 @@ static int process_twopc(struct drbd_connection *connection,
 					  reply->tid);
 		}
 
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "[TWOPC:%u] target_node_id (%d) abort_starting_twopc \n", 
 					reply->tid, reply->target_node_id);
-#endif
 		nested_twopc_abort(resource, pi->vnr, pi->cmd, p);
 		return 0;
 	} else {
@@ -8080,8 +8068,6 @@ static int process_twopc(struct drbd_connection *connection,
 		BUG();
 	}
 
-
-#ifdef _WIN32_TWOPC
 	drbd_info(resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n",
 				reply->tid,
 				reply->target_node_id,
@@ -8092,7 +8078,6 @@ static int process_twopc(struct drbd_connection *connection,
 				mask.role == role_MASK ? drbd_role_str(val.role) : "-",
 				mask.peer == peer_MASK ? drbd_role_str(val.peer) : "-",
 				flags);
-#endif
 		
 	switch (resource->twopc_type) {
 	case TWOPC_STATE_CHANGE:

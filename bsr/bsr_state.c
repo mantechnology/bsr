@@ -4448,7 +4448,6 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		  	context->val.i);
 #endif
 
-#ifdef _WIN32_TWOPC
 	drbd_info(resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n", 
 				be32_to_cpu(request.tid),
 				context->target_node_id,
@@ -4459,7 +4458,6 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				context->mask.role == role_MASK ? drbd_role_str(context->val.role) : "-",
 				context->mask.peer == peer_MASK ? drbd_role_str(context->val.peer) : "-",
 				context->flags);
-#endif
 
 		  
 	resource->remote_state_change = true;
@@ -4496,12 +4494,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 								twopc_timeout(resource), t);
         if (t) {
 			rv = get_cluster_wide_reply(resource, context);
-#ifdef _WIN32_TWOPC
 			drbd_info(resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) \n", 
 						reply->tid,
 						context->target_node_id, 
 						rv);
-#endif
 		}
 		else
 			rv = SS_TIMEOUT;
@@ -4604,15 +4600,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 #ifdef _WIN32_SIMPLE_TWOPC // DW-1408
 #else
 		long timeout = twopc_retry_timeout(resource, retries++);
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "Retrying cluster-wide state change %u after %ums rv = %d (%u->%d)\n",
 			  reply->tid, jiffies_to_msecs(timeout), rv, 
 			  resource->res_opts.node_id,
 			  context->target_node_id);
-#else
-		drbd_info(resource, "Retrying cluster-wide state change after %ums\n",
-			  jiffies_to_msecs(timeout));
-#endif
 #endif
 		if (have_peers)
 			twopc_phase2(resource, context->vnr, 0, &request, reach_immediately);
@@ -4644,32 +4635,19 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		set_bit(DISCONNECT_FLUSH, &target_connection->transport.flags);
 
 	if (rv >= SS_SUCCESS)
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "Committing cluster-wide state change %u (%ums) (%u->%d)\n",
 			  be32_to_cpu(request.tid),
 			  jiffies_to_msecs(jiffies - start_time),
 			  resource->res_opts.node_id,
 			  context->target_node_id);
 
-#else
-		drbd_info(resource, "Committing cluster-wide state change %u (%ums)\n",
-			  be32_to_cpu(request.tid),
-			  jiffies_to_msecs(jiffies - start_time));
-#endif
 	else
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "Aborting cluster-wide state change %u (%ums) rv = %d (%u->%d)\n",
 			  be32_to_cpu(request.tid),
 			  jiffies_to_msecs(jiffies - start_time),
 			  rv,
 			  resource->res_opts.node_id,
 			  context->target_node_id);
-#else
-		drbd_info(resource, "Aborting cluster-wide state change %u (%ums) rv = %d\n",
-			  be32_to_cpu(request.tid),
-			  jiffies_to_msecs(jiffies - start_time),
-			  rv);
-#endif
 
 	if (have_peers && context->change_local_state_last)
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
@@ -4858,9 +4836,7 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 	//spin_unlock_irq(&resource->req_lock);
 
 	if (!twopc_reply.tid){
-#ifdef _WIN32_TWOPC
 		drbd_info(resource, "!twopc_reply.tid = %u result: %s\n", twopc_reply.tid, drbd_packet_name(cmd));
-#endif
 		// DW-1414
 		spin_unlock_irq(&resource->req_lock);
 

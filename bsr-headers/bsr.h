@@ -533,7 +533,6 @@ enum {
 
 #endif
 
-#define _WIN32_TWOPC // DW-1252
 #define _WIN32_SIMPLE_TWOPC // DW-1408
 #define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 crashed_primary node to be SyncSource.
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
