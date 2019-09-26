@@ -342,12 +342,10 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 	if (!res->me) {
 		struct d_resource* running;
 		running = running_res_by_name(res->name, false);
-		if(running && running->me)
-		{
+		if(running && running->me) {
 			res->me = running->me;
 			res->me->used_as_me = 1;
-			if (res->me->lower)
-			{
+			if (res->me->lower) {
 				res->stacked = 1;
 			}
 		}

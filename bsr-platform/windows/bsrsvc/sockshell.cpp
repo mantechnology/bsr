@@ -64,35 +64,28 @@ DWORD RunProcess(
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	si.wShowWindow = wExecStyle;
 
-	if (wExecMode == EXEC_MODE_CMD)
-	{
+	if (wExecMode == EXEC_MODE_CMD) {
 		TCHAR systemDirPath[MAX_PATH] = _T("");
 		GetSystemDirectory(systemDirPath, sizeof(systemDirPath) / sizeof(_TCHAR));
 		swprintf_s(wszCmd, MAX_PATH, L"%s", systemDirPath);
 		wcscat_s(wszCmd, MAX_PATH, L"\\cmd.exe");
 		pwszAppName = wszCmd;
 	}
-	else
-	{
+	else {
 		pwszAppName = NULL;
 	}
 
-	if (pwszArg0)
-	{
+	if (pwszArg0) {
 		swprintf_s(wszCommandLine, MAX_PATH, L"%s", pwszArg0);
 	}
 
-	if (pwszParameter)
-	{
-		if (wcslen(pwszParameter) > 0)
-		{
-			if (wcslen(wszCommandLine) > 0)
-			{
+	if (pwszParameter) {
+		if (wcslen(pwszParameter) > 0) {
+			if (wcslen(wszCommandLine) > 0) {
 				wcscat_s(wszCommandLine, MAX_PATH, L" ");
 			}
 
-			if (wExecMode == EXEC_MODE_CMD)
-			{
+			if (wExecMode == EXEC_MODE_CMD) {
 				wcscat_s(wszCommandLine, MAX_PATH, L"/C ");
 			}
 			wcscat_s(wszCommandLine, MAX_PATH, pwszParameter);
@@ -122,13 +115,10 @@ DWORD RunProcess(
 	}
 
 	dwPID = pi.dwProcessId;
-	if (dwWait > 0)
-	{
+	if (dwWait > 0) {
 		ret = WaitForSingleObject(pi.hProcess, dwWait);
-		if (ret != WAIT_OBJECT_0)
-		{
-			if (ret == WAIT_FAILED)
-			{
+		if (ret != WAIT_OBJECT_0) {
+			if (ret == WAIT_FAILED) {
 				ret = GetLastError();
 			}
 
@@ -143,10 +133,8 @@ DWORD RunProcess(
 		}
 	}
 
-	if (lpdwExitCode)
-	{
-		if (!GetExitCodeProcess(pi.hProcess, lpdwExitCode))
-		{
+	if (lpdwExitCode) {
+		if (!GetExitCodeProcess(pi.hProcess, lpdwExitCode)) {
 			ret = GetLastError();
 			wsprintf(tmp, L"CreateProcess GetExitCodeProcess faild: GetLastError %d\n", ret);
 			WriteLog(tmp);
@@ -178,8 +166,7 @@ int SockListener(unsigned short *servPort)
 
 	servSock = CreateTCPServerSocket(*servPort);
 
-	for (;;)
-	{
+	for (;;) {
 		clntSock = AcceptTCPConnection(servSock);
 		{
 			extern TCHAR *ServiceName;
@@ -204,8 +191,7 @@ int SockListener(unsigned short *servPort)
 		/* Create separate memory for client argument */
 
 		HANDLE h;
-		if ((h = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ThreadMain, &clntSock, 0, (LPDWORD) &threadID)) == NULL)
-		{
+		if ((h = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ThreadMain, &clntSock, 0, (LPDWORD) &threadID)) == NULL) {
 			wsprintf(tmp, L"call_usermodehelper: CreateThread failed. err(%d)", GetLastError());
 			WriteLog(tmp);
 			return -1;
@@ -234,8 +220,7 @@ int CreateTCPServerSocket(unsigned short port)
 	struct sockaddr_in svrAddr; /* Local address */
 	
 	/* Create socket for incoming connections */
-	if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-	{
+	if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		DieWithError(L"socket() failed");
 		return -1;
 	}
@@ -254,15 +239,13 @@ int CreateTCPServerSocket(unsigned short port)
 		sizeof(bValid));             // Option length
 
 	/* Bind to the local address */
-	if (bind(sock, (struct sockaddr *) &svrAddr, sizeof(svrAddr)) < 0)
-	{
+	if (bind(sock, (struct sockaddr *) &svrAddr, sizeof(svrAddr)) < 0) {
 		DieWithError(L"bind() failed");
 		return -1;
 	}
 
 	/* Mark the socket so it will listen for incoming connections */
-	if (listen(sock, MAXPENDING) < 0)
-	{
+	if (listen(sock, MAXPENDING) < 0) {
 		DieWithError(L"listen() failed");
 		return -1;
 	}
@@ -279,8 +262,7 @@ int AcceptTCPConnection(int servSock)
 	clntLen = sizeof(clientAddr);
 
 	/* Wait for a client to connect */
-	if ((clntSock = accept(servSock, (struct sockaddr *) &clientAddr, (int*) &clntLen)) < 0)
-	{
+	if ((clntSock = accept(servSock, (struct sockaddr *) &clientAddr, (int*) &clntLen)) < 0) {
 		WriteLog(L"accept() failed");
 		return -1;
 	}
@@ -299,8 +281,7 @@ int HandleTCPClient(int clntSocket)
 	memset(tmp, 0, 256);
 	memset(rxcmdbuf, 0, RCVBUFSIZE);
 
-	if ((ret = send(clntSocket, "HI", 2, 0)) != 2)
-	{
+	if ((ret = send(clntSocket, "HI", 2, 0)) != 2) {
 		wsprintf(tmp, L"HandleTCPClient: send HI (0x%x) failed", WSAGetLastError());
 		WriteLog(tmp);
 		shutdown(clntSocket, 2);
@@ -308,8 +289,7 @@ int HandleTCPClient(int clntSocket)
 		return -1;
 	}
 
-	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, RCVBUFSIZE, 0)) < 0)
-	{
+	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, RCVBUFSIZE, 0)) < 0) {
 		wsprintf(tmp, L"HandleTCPClient: recv failed(%d)\n", recvMsgSize);
 		WriteLog(tmp);
 		return -1;
@@ -330,8 +310,7 @@ int HandleTCPClient(int clntSocket)
 	wsprintf(tmp, L"RunProcess(%ws) done\n", dest);
 	WriteLog(tmp);
 
-	if (ret != ERROR_SUCCESS)
-	{
+	if (ret != ERROR_SUCCESS) {
         wsprintf(tmp, L"Failed to run [%ws] process. GetLastError(%d)", gServicePath, ret);
         WriteLog(tmp);
 	}
@@ -340,8 +319,7 @@ int HandleTCPClient(int clntSocket)
 	rxcmdbuf[0] = (char)dwExitCode;
 
 
-	if ((ret = send(clntSocket, rxcmdbuf, 1, 0)) != 1)
-	{
+	if ((ret = send(clntSocket, rxcmdbuf, 1, 0)) != 1) {
 		wsprintf(tmp, L"HandleTCPClient: send(0x%x) failed !!!!", WSAGetLastError());
 		WriteLog(tmp);
 		shutdown(clntSocket, 2);
@@ -351,13 +329,11 @@ int HandleTCPClient(int clntSocket)
 	wsprintf(tmp, L"wait for engine BYE message.\n"); // TEST
 	WriteLog(tmp);// TEST
 
-	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, 3, 0)) != 3)
-	{
+	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, 3, 0)) != 3) {
 		wsprintf(tmp, L"HandleTCPClient: recv failed(%d) 0x%x\n", recvMsgSize, WSAGetLastError());
 		WriteLog(tmp);
 	}
-	else
-	{
+	else {
 	}
 
 	closesocket(clntSocket);

@@ -66,11 +66,9 @@ int get_netlink_port()
     DWORD size = sizeof(DWORD);
     const CHAR * registryPath = "SYSTEM\\CurrentControlSet\\Services\\bsr";
     status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
-    if (status == ERROR_SUCCESS)
-    {
+    if (status == ERROR_SUCCESS) {
         status = RegQueryValueEx(hKey, TEXT("netlink_tcp_port"), NULL, &type, (LPBYTE)&value, &size);
-        if (status == ERROR_SUCCESS)
-        {
+        if (status == ERROR_SUCCESS) {
             port = value;
         }
     }
@@ -380,8 +378,7 @@ struct genl_sock *genl_connect_to_family(struct genl_family *family)
 #endif
 	}
 #ifdef _WIN32
-	else
-	{
+	else {
 		s->s_family = family;
 	}
 	return s;

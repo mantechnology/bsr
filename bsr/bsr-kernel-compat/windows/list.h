@@ -49,23 +49,19 @@ static __inline void INIT_LIST_HEAD(struct list_head *list)
 static bool __list_add_valid(struct list_head *new, struct list_head *prev, struct list_head *next)
 {
 #ifdef _WIN32 // DW-1480
-	if (next->prev != prev)
-	{
+	if (next->prev != prev) {
 		// list_add corruption.
 		return false;
 	}
-	if (prev->next != next)
-	{
+	if (prev->next != next) {
 		// list_add corruption.
 		return false;
 	}
-	if (new == prev || new == next)
-	{
+	if (new == prev || new == next) {
 		//list_add double add.
 		return false;
 	}
-	if (new->next != new->prev)
-	{
+	if (new->next != new->prev) {
 		// new is not initialized.
 		return false;
 	}
@@ -220,8 +216,7 @@ static __inline void list_splice_init(struct list_head *list, struct list_head *
 static __inline void list_splice_tail_init(struct list_head *list,
                         struct list_head *head)
 {
-    if (!list_empty(list))
-    {
+    if (!list_empty(list)) {
         __list_splice(list, head->prev, head);
         INIT_LIST_HEAD(list);
     }

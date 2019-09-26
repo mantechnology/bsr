@@ -2838,8 +2838,7 @@ static char * _get_win32_device_ns(const char * device_name)
 			}
 			// DW-1423 retrieve path.
 			wdn = (char*)malloc(strlen(temp) + 5);
-			if (!wdn)
-			{
+			if (!wdn) {
 				fprintf(stderr, "malloc failed while getting directory path for mounting point\n");
 				return NULL;
 			}

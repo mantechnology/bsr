@@ -282,20 +282,17 @@ Return Value:
 	PDEVICE_OBJECT pDiskDeviceObject = NULL;
 	PFLT_VOLUME pVolume = NULL;
 
-	do
-	{
+	do {
 		status = FltGetVolumeFromName(gFilterHandle, pusDevName, &pVolume);
 
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			drbdlock_print_log("FltGetVolumeFromName failed, status : 0x%x\n", status);
 			break;
 		}
 
 		status = FltGetDiskDeviceObject(pVolume, &pDiskDeviceObject);
 
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			drbdlock_print_log("FltGetDiskDeviceObject failed, status : 0x%x\n", status);
 			break;
 		}
@@ -304,14 +301,12 @@ Return Value:
 
 	*pDeviceObject = pDiskDeviceObject;
 	
-	if (pVolume)
-	{
+	if (pVolume) {
 		FltObjectDereference(pVolume);
 		pVolume = NULL;
 	}
 
-	if (pDiskDeviceObject)
-	{
+	if (pDiskDeviceObject) {
 		ObDereferenceObject(pDiskDeviceObject);
 		pDiskDeviceObject = NULL;
 	}
@@ -347,11 +342,9 @@ Return Value:
 	PDEVICE_OBJECT pDev = NULL;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;	
 	
-	do
-	{
+	do {
 		status = IoGetDeviceObjectPointer(pusDevName, FILE_READ_DATA, &pFileObject, &pDev);
-		if (!NT_SUCCESS(status))
-		{
+		if (!NT_SUCCESS(status)) {
 			drbdlock_print_log("IoGetDeviceObjectPointer failed, status : 0x%x\n", status);
 			break;
 		}
@@ -365,8 +358,7 @@ Return Value:
 		ObDereferenceObject(pFileObject);
 		pFileObject = NULL;
 	}
-	else
-	{
+	else {
 		*pDeviceObject = NULL;
 	}
 
@@ -404,8 +396,7 @@ Return Value:
 		return STATUS_INVALID_PARAMETER;
 	}
 
-	if (pVolumeInfo->volumeType == VOLUME_TYPE_DEVICE_OBJECT)
-	{
+	if (pVolumeInfo->volumeType == VOLUME_TYPE_DEVICE_OBJECT) {
 		*pConverted = pVolumeInfo->volumeID.pVolumeObject;
 
 		return STATUS_SUCCESS;
@@ -415,13 +406,11 @@ Return Value:
 
 	status = GetDeviceObjectFlt(&usVolName, pConverted);
 
-	if (status == STATUS_FLT_VOLUME_NOT_FOUND)
-	{
+	if (status == STATUS_FLT_VOLUME_NOT_FOUND) {
 		status = GetDeviceObjectNonFlt(&usVolName, pConverted);
 	}
 
-	if (!NT_SUCCESS(status))
-	{
+	if (!NT_SUCCESS(status)) {
 		drbdlock_print_log("could not get device object for volume(%ws)\n", pVolumeInfo->volumeID.volumeName);
 	}
 

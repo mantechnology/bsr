@@ -38,8 +38,7 @@ OpenDevice( PCHAR devicename )
 
     handle = CreateFileA( devicename, GENERIC_READ, FILE_SHARE_READ, 
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
-    if( handle == INVALID_HANDLE_VALUE )
-    {
+    if( handle == INVALID_HANDLE_VALUE ) {
         printf("LOG_ERROR: OpenDevice: cannot open %s\n", devicename);	
     }
 
@@ -55,8 +54,7 @@ MVOL_GetVolumeInfo( CHAR DriveLetter, PMVOL_VOLUME_INFO pVolumeInfo )
     ULONG		len;
     CHAR		letter[] = "\\\\.\\ :";
 
-    if( pVolumeInfo == NULL )
-    {
+    if( pVolumeInfo == NULL ) {
         printf("LOG_ERROR: MVOL_GetVolumeInfo: invalid paramter\n");
         return ERROR_INVALID_PARAMETER;
     }
@@ -65,8 +63,7 @@ MVOL_GetVolumeInfo( CHAR DriveLetter, PMVOL_VOLUME_INFO pVolumeInfo )
     driveHandle = CreateFileA( letter, GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE, 
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
-    if( driveHandle == INVALID_HANDLE_VALUE )
-    {
+    if( driveHandle == INVALID_HANDLE_VALUE ) {
         res = GetLastError();
         printf("LOG_ERROR: MVOL_GetVolumeInfo: cannot open Drive (%c:), err=%u\n",
             DriveLetter, res);
@@ -154,13 +151,11 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 
 	}
 out:
-	if (INVALID_HANDLE_VALUE != handle)
-	{
+	if (INVALID_HANDLE_VALUE != handle) {
 		CloseHandle(handle);
 	}
 
-	if (buffer)
-	{
+	if (buffer) {
 		free(buffer);
 	}
 
@@ -176,21 +171,18 @@ MVOL_GetVolumeSize( PWCHAR PhysicalVolume, PLARGE_INTEGER pVolumeSize )
     ULONG			len;
     MVOL_VOLUME_INFO	volumeInfo = {0,};
 
-    if( PhysicalVolume == NULL || pVolumeSize == NULL )
-    {
+    if( PhysicalVolume == NULL || pVolumeSize == NULL ) {
         printf("LOG_ERROR: MVOL_GetVolumeSize: invalid paramter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
-    if( wcslen(PhysicalVolume) > MAXDEVICENAME )
-    {
+    if( wcslen(PhysicalVolume) > MAXDEVICENAME ) {
         printf("LOG_ERROR: MVOL_GetVolumeSize: invalid paramter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
     handle = OpenDevice( MVOL_DEVICE );
-    if( handle == INVALID_HANDLE_VALUE )
-    {
+    if( handle == INVALID_HANDLE_VALUE ) {
         res = GetLastError();
         printf("MVOL_GetVolumeSize: cannot open root device, err=%u\n", res);
         return res;
@@ -221,15 +213,13 @@ DWORD MVOL_GetStatus( PMVOL_VOLUME_INFO VolumeInfo )
     DWORD       dwReturned = 0;
     BOOL        ret = FALSE;
 
-    if( VolumeInfo == NULL )
-    {
+    if( VolumeInfo == NULL ) {
         fprintf( stderr, "LOG_ERROR: %s: Invalid parameter\n", __FUNCTION__ );
         return ERROR_INVALID_PARAMETER;
     }
 
     hDevice = OpenDevice( MVOL_DEVICE );
-    if( hDevice == INVALID_HANDLE_VALUE )
-    {
+    if( hDevice == INVALID_HANDLE_VALUE ) {
         retVal = GetLastError();
         fprintf( stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
             __FUNCTION__, retVal );
@@ -238,8 +228,7 @@ DWORD MVOL_GetStatus( PMVOL_VOLUME_INFO VolumeInfo )
 
     ret = DeviceIoControl( hDevice, IOCTL_MVOL_GET_PROC_DRBD,
         NULL, 0, VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL );
-    if( ret == FALSE )
-    {
+    if( ret == FALSE ) {
         retVal = GetLastError();
         fprintf( stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_PROC_DRBD. Err=%u\n",
             __FUNCTION__, retVal );
@@ -267,8 +256,7 @@ DWORD MVOL_SetDelayedAck(CHAR *addr, CHAR *arg)
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
     
-    if (!CreateProcess(appName, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-    {
+    if (!CreateProcess(appName, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         retVal = GetLastError();
     }
 
@@ -288,21 +276,18 @@ MVOL_set_ioctl(PWCHAR PhysicalVolume, DWORD code, MVOL_VOLUME_INFO *pVolumeInfo)
     ULONG			len;
     MVOL_VOLUME_INFO	volumeInfo = {0,};
 
-    if (PhysicalVolume == NULL)
-    {
+    if (PhysicalVolume == NULL) {
         printf("LOG_ERROR: MVOL_set_ioctl: invalid paramter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
-    if (wcslen(PhysicalVolume) > MAXDEVICENAME)
-    {
+    if (wcslen(PhysicalVolume) > MAXDEVICENAME) {
         printf("LOG_ERROR: MVOL_set_ioctl: invalid paramter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
     handle = OpenDevice(MVOL_DEVICE);
-    if (handle == INVALID_HANDLE_VALUE)
-    {
+    if (handle == INVALID_HANDLE_VALUE) {
         res = GetLastError();
         printf("MVOL_set_ioctl: cannot open root device, err=%u\n", res);
         return res;
@@ -366,8 +351,7 @@ DWORD MVOL_MountVolume(char drive_letter)
         FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
         OPEN_EXISTING, 0, NULL);
 
-    if (INVALID_HANDLE_VALUE == hDrive)
-    {
+    if (INVALID_HANDLE_VALUE == hDrive) {
         retVal = GetLastError();
         fprintf(stderr, "%s: Failed open %c: drive. Error Code=%u\n",
             __FUNCTION__, drive_letter, retVal);
@@ -376,16 +360,14 @@ DWORD MVOL_MountVolume(char drive_letter)
 
     ok = DeviceIoControl(hDrive, IOCTL_MVOL_MOUNT_VOLUME,
 		NULL, 0, MsgBuff, MAX_PATH, &dwReturned, NULL);
-    if (!ok)
-    {
+    if (!ok) {
         retVal = GetLastError();
         fprintf(stderr, "%s: Failed IOCTL_MVOL_MOUNT_VOLUME. ErrorCode(%u)\n",
             __FUNCTION__, retVal);
         goto out;
     }
 
-	if (dwReturned)
-	{
+	if (dwReturned) {
 		fprintf(stderr, MsgBuff);
 		retVal = 1;
 		goto out;
@@ -393,8 +375,7 @@ DWORD MVOL_MountVolume(char drive_letter)
 	
     retVal = ERROR_SUCCESS;
 out:
-    if (INVALID_HANDLE_VALUE != hDrive)
-    {
+    if (INVALID_HANDLE_VALUE != hDrive) {
         CloseHandle(hDrive);
     }
 
@@ -412,11 +393,9 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force)
     {
         handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
         
-        if (INVALID_HANDLE_VALUE == handle)
-        {
+        if (INVALID_HANDLE_VALUE == handle) {
             DWORD dwErr = GetLastError();
-            if (ERROR_FILE_NOT_FOUND != dwErr)
-            {
+            if (ERROR_FILE_NOT_FOUND != dwErr) {
                 printf("LOG_ERROR: Failed to create vol(%S)'s handle. GetLastError(0x%x)\n"
                     , letter, GetLastError());
             }
@@ -424,48 +403,39 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force)
             return GetLastError();
         }
 
-        if (!IsVolumeMounted(handle))
-        {
+        if (!IsVolumeMounted(handle)) {
             printf("LOG_ERROR: %c: is already dismounted\n", DriveLetter);
             return ERROR_SUCCESS;
         }
          
-        if (!Force)
-        {
-            if (!LockVolume(handle))
-            {
+        if (!Force) {
+            if (!LockVolume(handle)) {
                 printf("LOG_ERROR: %c: in use\n", DriveLetter);
                 return GetLastError();
             }
         }
         
         
-        if (!Dismount(handle))
-        {
+        if (!Dismount(handle)) {
             printf("LOG_ERROR: FSCTL_DISMOUNT_VOLUME fail. GetLastError(%d)\n", GetLastError());
             return GetLastError();
         }
 
-        if (!Force)
-        {
-            if (!UnlockVolume(handle))
-            {
+        if (!Force) {
+            if (!UnlockVolume(handle)) {
                 printf("LOG_ERROR: FSCTL_UNLOCK_VOLUME fail. GetLastError(%d)\n", GetLastError());
                 return GetLastError();
             }
         }
 
 
-        if (IsVolumeMounted(handle))
-        {
+        if (IsVolumeMounted(handle)) {
             int duration = 10000, delay = 500;
             int i, count = duration / delay;
-            for (i = 0; i < count; ++i)
-            {
+            for (i = 0; i < count; ++i) {
                 Sleep(delay);
                 printf("LOG_ERROR: vol(%s) is not dismounted yet. %d count delay. GetLastError(0x%x)\n", letter, i, GetLastError());
-                if (!IsVolumeMounted(handle))
-                {
+                if (!IsVolumeMounted(handle)) {
                     return ERROR_SUCCESS;
                 }
             }
@@ -475,8 +445,7 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force)
     }
     __finally
     {
-        if (handle)
-        {
+        if (handle) {
             CloseHandle(handle);
         }
     }
@@ -499,8 +468,7 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 		
 
 #ifdef _UNICODE
-	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pszProviderName, -1, tszProviderName, MAX_PATH))
-	{
+	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pszProviderName, -1, tszProviderName, MAX_PATH)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("MultiByteToWideChar failed, err : %d\n"), dwStatus);
 		goto cleanup;
@@ -513,16 +481,14 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 
 	// Get log file full path( [current process path]\[provider name].log )
 	dwStatus = GetCurrentFilePath(tszProviderName, szLogFilePath);
-	if (ERROR_SUCCESS != dwStatus)
-	{
+	if (ERROR_SUCCESS != dwStatus) {
 		_tprintf(_T("could not get log file path, err : %d\n"), dwStatus);
 		return dwStatus;
 	}
 
 	// Create log file and overwrite if exists.
 	hLogFile = CreateFile(szLogFilePath, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (INVALID_HANDLE_VALUE == hLogFile)
-	{
+	if (INVALID_HANDLE_VALUE == hLogFile) {
 		dwStatus = GetLastError();
 		_tprintf(_T("could not create file, err : %d\n"), dwStatus);
 		return dwStatus;
@@ -530,8 +496,7 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 	
 	// Provider name must exist as a subkey of Application.
 	hEventLog = OpenEventLog(NULL, tszProviderName);
-	if (NULL == hEventLog)
-	{
+	if (NULL == hEventLog) {
 		dwStatus = GetLastError();
 		_tprintf(_T("could not open event log, err : %d\n"), dwStatus);
 		goto cleanup;
@@ -540,28 +505,23 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 	// Buffer size will be increased if not enough.
 	dwBytesToRead = MAX_RECORD_BUFFER_SIZE;
 	pBuffer = (PBYTE)malloc(dwBytesToRead);
-	if (NULL == pBuffer)
-	{
+	if (NULL == pBuffer) {
 		_tprintf(_T("allocate memory for record buffer failed\n"));
 		dwStatus = ERROR_NOT_ENOUGH_MEMORY;
 		goto cleanup;
 	}
 
-	while (ERROR_SUCCESS == dwStatus)
-	{
+	while (ERROR_SUCCESS == dwStatus) {
 		// read event log in chronological(old -> new) order.
-		if (!ReadEventLog(hEventLog, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ, 0, pBuffer, dwBytesToRead, &dwBytesRead, &dwMinBytesToRead))
-		{
+		if (!ReadEventLog(hEventLog, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ, 0, pBuffer, dwBytesToRead, &dwBytesRead, &dwMinBytesToRead)) {
 			dwStatus = GetLastError();
 
-			if (ERROR_INSUFFICIENT_BUFFER == dwStatus)
-			{
+			if (ERROR_INSUFFICIENT_BUFFER == dwStatus) {
 				dwStatus = ERROR_SUCCESS;
 
 				// Increase buffer size and re-try it.
 				pTemp = (PBYTE)realloc(pBuffer, dwMinBytesToRead);
-				if (NULL == pTemp)
-				{
+				if (NULL == pTemp) {
 					_tprintf(_T("reallocate memory(%d bytes) for record buffer failed\n"), dwMinBytesToRead);
 					goto cleanup;
 				}
@@ -569,26 +529,21 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 				pBuffer = pTemp;
 				dwBytesToRead = dwMinBytesToRead;
 			}
-			else
-			{
-				if (ERROR_HANDLE_EOF != dwStatus)
-				{
+			else {
+				if (ERROR_HANDLE_EOF != dwStatus) {
 					_tprintf(_T("ReadEventLog failed, err : %d\n"), dwStatus);
 				}
-				else
-				{
+				else {
 					// done.
 					dwStatus = ERROR_SUCCESS;					
 				}
 					goto cleanup;
 			}
 		}
-		else
-		{
+		else {
 			dwStatus = WriteLogWithRecordBuf(hLogFile, tszProviderName, pBuffer, dwBytesRead);
 
-			if (ERROR_SUCCESS != dwStatus)
-			{
+			if (ERROR_SUCCESS != dwStatus) {
 				_tprintf(_T("Write Log Failed, err : %d\n"), dwStatus);
 			}
 		}
@@ -596,20 +551,17 @@ DWORD CreateLogFromEventLog(LPCSTR pszProviderName)
 	
 cleanup:
 
-	if (INVALID_HANDLE_VALUE != hLogFile)
-	{
+	if (INVALID_HANDLE_VALUE != hLogFile) {
 		CloseHandle(hLogFile);
 		hLogFile = INVALID_HANDLE_VALUE;
 	}
 
-	if (NULL != hEventLog)
-	{
+	if (NULL != hEventLog) {
 		CloseEventLog(hEventLog);
 		hEventLog = NULL;
 	}
 
-	if (NULL != pBuffer)
-	{
+	if (NULL != pBuffer) {
 		free(pBuffer);
 		pBuffer = NULL;
 	}
@@ -623,14 +575,11 @@ DWORD WriteLogWithRecordBuf(HANDLE hLogFile, LPCTSTR pszProviderName, PBYTE pBuf
 	PBYTE pRecord = pBuffer;
 	PBYTE pEndOfRecords = pBuffer + dwBytesRead;	
 	
-	while (pRecord < pEndOfRecords)
-	{
+	while (pRecord < pEndOfRecords) {
 		// Write event log data only when provider name matches.
-		if (0 == _tcsicmp(pszProviderName, (LPCTSTR)(pRecord + sizeof(EVENTLOGRECORD))))
-		{
+		if (0 == _tcsicmp(pszProviderName, (LPCTSTR)(pRecord + sizeof(EVENTLOGRECORD)))) {
 			// Some data doesn't have data length if writer didn't provide data size.
-			if (((PEVENTLOGRECORD)pRecord)->DataLength > 0)
-			{
+			if (((PEVENTLOGRECORD)pRecord)->DataLength > 0) {
 				PBYTE pData = NULL;
 				TCHAR szTimeStamp[MAX_TIMESTAMP_LEN] = _T("");
 
@@ -638,8 +587,7 @@ DWORD WriteLogWithRecordBuf(HANDLE hLogFile, LPCTSTR pszProviderName, PBYTE pBuf
 				GetTimestamp(((PEVENTLOGRECORD)pRecord)->TimeGenerated, szTimeStamp);
 
 				pData = (PBYTE)malloc(((PEVENTLOGRECORD)pRecord)->DataLength);
-				if (NULL == pData)
-				{
+				if (NULL == pData) {
 					_tprintf(_T("malloc failed\n"));
 					dwStatus = ERROR_NOT_ENOUGH_MEMORY;
 					break;
@@ -648,14 +596,12 @@ DWORD WriteLogWithRecordBuf(HANDLE hLogFile, LPCTSTR pszProviderName, PBYTE pBuf
 				memcpy(pData, (PBYTE)(pRecord + ((PEVENTLOGRECORD)pRecord)->DataOffset), ((PEVENTLOGRECORD)pRecord)->DataLength);
 				
 				dwStatus = WriteLogToFile(hLogFile, szTimeStamp, pData);
-				if (ERROR_SUCCESS != dwStatus)
-				{
+				if (ERROR_SUCCESS != dwStatus) {
 					_tprintf(_T("WriteLogToFile failed, err : %d\n"), dwStatus);
 					// Do not finish. Write next data.
 				}
 
-				if (NULL != pData)
-				{
+				if (NULL != pData) {
 					free(pData);
 					pData = NULL;
 				}
@@ -675,8 +621,7 @@ DWORD GetCurrentFilePath(LPCTSTR pszCurrentFileName, PTSTR pszCurrentFileFullPat
 	PTCHAR pTemp = NULL;
 
 	// Get current module path. (it includes [processname].[ext])
-	if (0 == GetModuleFileName(NULL, szLogFilePath, MAX_PATH))
-	{
+	if (0 == GetModuleFileName(NULL, szLogFilePath, MAX_PATH)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("could not get module path, err : %d\n"), dwStatus);
 		return dwStatus;
@@ -684,8 +629,7 @@ DWORD GetCurrentFilePath(LPCTSTR pszCurrentFileName, PTSTR pszCurrentFileFullPat
 
 	// Find last back slash.
 	pTemp = _tcsrchr(szLogFilePath, _T('\\'));
-	if (NULL == pTemp)
-	{
+	if (NULL == pTemp) {
 		dwStatus = ERROR_PATH_NOT_FOUND;
 		_tprintf(_T("invalid path format : %s\n"), szLogFilePath);
 		return dwStatus;
@@ -729,8 +673,7 @@ DWORD WriteLogToFile(HANDLE hLogFile, LPCTSTR pszTimeStamp, PBYTE pszData)
 	DWORD dwBytesWritten = 0;
 
 	// delete \r and \n if log contains them.
-	for (int i = 1; i <= 2; i++)
-	{
+	for (int i = 1; i <= 2; i++) {
 		PTCHAR pTemp = (PTCHAR)pszData;
 		pTemp += (_tcslen(pTemp) - i);
 		if (*pTemp == _T('\n') ||
@@ -741,16 +684,14 @@ DWORD WriteLogToFile(HANDLE hLogFile, LPCTSTR pszTimeStamp, PBYTE pszData)
 	}	
 	
 	// Log data format : mm/dd/yyyy hh:mm:ss [log data]
-	if (S_OK != StringCchPrintf(szLogData, MAX_LOGDATA_LEN, _T("%s %s\r\n"), pszTimeStamp, pszData))
-	{
+	if (S_OK != StringCchPrintf(szLogData, MAX_LOGDATA_LEN, _T("%s %s\r\n"), pszTimeStamp, pszData)) {
 		_tprintf(_T("making log data failed\n"));
 		dwStatus = ERROR_INVALID_DATA;
 		goto exit;
 	}
 
 #ifdef _UNICODE
-	if (0 == WideCharToMultiByte(CP_ACP, 0, szLogData, -1, (LPSTR)szAnsiLogData, MAX_LOGDATA_LEN, NULL, NULL))
-	{
+	if (0 == WideCharToMultiByte(CP_ACP, 0, szLogData, -1, (LPSTR)szAnsiLogData, MAX_LOGDATA_LEN, NULL, NULL)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("WideChartoMultiByte failed, err : %d\n"), dwStatus);
 		goto exit;
@@ -760,8 +701,7 @@ DWORD WriteLogToFile(HANDLE hLogFile, LPCTSTR pszTimeStamp, PBYTE pszData)
 #endif
 
 	dwBytesToWrite = (DWORD)strlen(szAnsiLogData);
-	if (!WriteFile(hLogFile, szAnsiLogData, dwBytesToWrite, &dwBytesWritten, NULL))
-	{
+	if (!WriteFile(hLogFile, szAnsiLogData, dwBytesToWrite, &dwBytesWritten, NULL)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("write log data failed, err : %d\n"), dwStatus);
 		goto exit;
@@ -780,8 +720,7 @@ DWORD WriteEventLog(LPCSTR pszProviderName, LPCSTR pszData)
 	
 	hEventLog = RegisterEventSourceA(NULL, pszProviderName);
 
-	if (NULL == hEventLog)
-	{
+	if (NULL == hEventLog) {
 		dwStatus = GetLastError();
 		_tprintf(_T("RegisterEventSource failed, err : %d\n"), dwStatus);
 		goto cleanup;
@@ -791,8 +730,7 @@ DWORD WriteEventLog(LPCSTR pszProviderName, LPCSTR pszData)
 
 	pwszLogData = (PWSTR)malloc(dwDataSize);
 
-	if (0 == MultiByteToWideChar(CP_ACP, 0, pszData, -1, pwszLogData, dwDataSize))
-	{
+	if (0 == MultiByteToWideChar(CP_ACP, 0, pszData, -1, pwszLogData, dwDataSize)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("MultiByteToWideChar failed, err : %d\n"), dwStatus);
 		goto cleanup;
@@ -800,8 +738,7 @@ DWORD WriteEventLog(LPCSTR pszProviderName, LPCSTR pszData)
 
 	PCWSTR aInsertions[] = { pwszLogData };
 
-	if (!ReportEventW(hEventLog, EVENTLOG_INFORMATION_TYPE, 0, ONELINE_INFO, NULL, 1, dwDataSize, aInsertions, (PVOID)pwszLogData))
-	{
+	if (!ReportEventW(hEventLog, EVENTLOG_INFORMATION_TYPE, 0, ONELINE_INFO, NULL, 1, dwDataSize, aInsertions, (PVOID)pwszLogData)) {
 		dwStatus = GetLastError();
 		_tprintf(_T("ReportEvent failed, err : %d\n"), dwStatus);
 		goto cleanup;
@@ -811,14 +748,12 @@ DWORD WriteEventLog(LPCSTR pszProviderName, LPCSTR pszData)
 
 cleanup:
 
-	if (NULL != pwszLogData)
-	{
+	if (NULL != pwszLogData) {
 		free(pwszLogData);
 		pwszLogData = NULL;
 	}
 
-	if (NULL != hEventLog)
-	{
+	if (NULL != hEventLog) {
 		CloseHandle(hEventLog);
 		hEventLog = NULL;
 	}
@@ -924,36 +859,30 @@ BOOLEAN queryDrbdBase(VOID)
 	BOOLEAN bRet = FALSE;
 	PRTL_PROCESS_MODULES ModuleInfo = NULL;
 
-	do	
-	{
+	do {
 		status = ZwQuerySystemInformation(SystemModuleInformation, NULL, 0, &dwSize);
 
-		if (status != STATUS_INFO_LENGTH_MISMATCH)
-		{
+		if (status != STATUS_INFO_LENGTH_MISMATCH) {
 			break;
 		}
 
 		ModuleInfo = (PRTL_PROCESS_MODULES)malloc(dwSize);
 
-		if (NULL == ModuleInfo)
-		{
+		if (NULL == ModuleInfo) {
 			break;
 		}
 
 		status = ZwQuerySystemInformation(SystemModuleInformation, ModuleInfo, dwSize, &dwSize);
 
-		if (status != STATUS_SUCCESS)
-		{
+		if (status != STATUS_SUCCESS) {
 			break;
 		}
 
 		// found all loaded system modules.
 
-		for (ULONG i = 0; i<ModuleInfo->NumberOfModules; i++)
-		{
+		for (ULONG i = 0; i<ModuleInfo->NumberOfModules; i++) {
 			PCHAR pFileName = (PCHAR)(ModuleInfo->Modules[i].FullPathName + ModuleInfo->Modules[i].OffsetToFileName);
-			if (strcmp(pFileName, DRBD_DRIVER_NAME) == 0)
-			{
+			if (strcmp(pFileName, DRBD_DRIVER_NAME) == 0) {
 				// found loaded drbd.sys
 				g_pDrbdBaseAddr = ModuleInfo->Modules[i].ImageBase;
 				g_ulDrbdImageSize = ModuleInfo->Modules[i].ImageSize;
@@ -965,8 +894,7 @@ BOOLEAN queryDrbdBase(VOID)
 
 	} while (false);
 			
-	if (NULL != ModuleInfo)
-	{
+	if (NULL != ModuleInfo) {
 		free(ModuleInfo);
 		ModuleInfo = NULL;
 	}
@@ -979,25 +907,21 @@ BOOLEAN GetSymbolFileSize(const TCHAR* pFileName, DWORD& FileSize)
 	BOOLEAN bRet = FALSE;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 
-	if (pFileName == NULL)
-	{
+	if (pFileName == NULL) {
 		_tprintf(_T("filePath is NULL\n"));
 		return FALSE;	
 	}
 
-	do
-	{
+	do {
 		hFile = CreateFile(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 
-		if (hFile == INVALID_HANDLE_VALUE)
-		{
+		if (hFile == INVALID_HANDLE_VALUE) {
 			_tprintf(_T("CreateFile failed, %d \n"), GetLastError());
 			break;
 		}
 
 		FileSize = GetFileSize(hFile, NULL);
-		if (FileSize == INVALID_FILE_SIZE)
-		{
+		if (FileSize == INVALID_FILE_SIZE) {
 			_tprintf(_T("GetFileSize failed, %d \n"), GetLastError());
 			break;
 		}
@@ -1006,8 +930,7 @@ BOOLEAN GetSymbolFileSize(const TCHAR* pFileName, DWORD& FileSize)
 
 	} while (false);
 
-	if (INVALID_HANDLE_VALUE != hFile)
-	{
+	if (INVALID_HANDLE_VALUE != hFile) {
 		CloseHandle(hFile);
 		hFile = INVALID_HANDLE_VALUE;
 	}
@@ -1023,17 +946,14 @@ BOOLEAN GetFuncNameWithOffset(ULONG ulOffset, PCHAR pszFuncName)
 	CSymbolInfoPackage sip;
 	DWORD64 Displacement = 0;
 
-	do
-	{
+	do {
 		bRet = SymFromAddr(GetCurrentProcess(), SymAddr, &Displacement, &sip.si);
-		if (!bRet)
-		{
+		if (!bRet) {
 			_tprintf(_T("SymFromAddr fail : %d, offset(%Ix)\n"), GetLastError(), ulOffset);
 			break;
 		}
 
-		if (sip.si.Tag != SymTagFunction)
-		{
+		if (sip.si.Tag != SymTagFunction) {
 			break;
 		}
 
@@ -1053,8 +973,7 @@ BOOLEAN GetFuncNameWithAddr(PVOID pAddr, PCHAR pszFuncName)
 
 	ulOffset = (ULONG_PTR)((DWORD64)pAddr - (DWORD64)g_pDrbdBaseAddr);
 	
-	if (ulOffset > g_ulDrbdImageSize)
-	{
+	if (ulOffset > g_ulDrbdImageSize) {
 		// address is not in drbd range.
 		return FALSE;
 	}
@@ -1078,18 +997,15 @@ VOID ConvertCallStack(PCHAR LogLine)
 		return;
 	}
 	
-	while ((pTemp = strchr(pTemp, szDelimiter[0])) != NULL)
-	{
+	while ((pTemp = strchr(pTemp, szDelimiter[0])) != NULL) {
 		CHAR szAddr[MAX_FUNC_ADDR_LEN] = "";
 		PVOID dwAddr = 0;
 		CHAR szFuncName[MAX_FUNC_NAME_LEN] = "";
 		pTemp++;
 		PCHAR pEnd = strchr(pTemp, szDelimiter[0]);
-		if (NULL == pEnd)
-		{
+		if (NULL == pEnd) {
 			pEnd = strchr(pTemp, '\0');
-			if (NULL == pEnd)
-			{
+			if (NULL == pEnd) {
 				_tprintf(_T("invalid string!!\n"));
 				continue;
 			}
@@ -1109,8 +1025,7 @@ VOID ConvertCallStack(PCHAR LogLine)
 	}
 
 	pTemp = strchr(LogLine, szDelimiter[0]);
-	if (NULL == pTemp)
-	{
+	if (NULL == pTemp) {
 		_tprintf(_T("could not find delimiter from %s\n"), LogLine);
 		return;
 	}
@@ -1134,8 +1049,7 @@ BOOLEAN InitOosTrace()
 
 	GetCurrentFilePath(DRBD_SYMBOL_NAME, tszDrbdSymbolPath);
 	
-	do
-	{
+	do {
 		if (g_pDrbdBaseAddr == NULL &&
 			FALSE == queryDrbdBase())
 		{
@@ -1153,23 +1067,20 @@ BOOLEAN InitOosTrace()
 
 		SymSetOptions(Options);
 		
-		if (FALSE == SymInitialize(GetCurrentProcess(), NULL, FALSE))
-		{
+		if (FALSE == SymInitialize(GetCurrentProcess(), NULL, FALSE)) {
 			_tprintf(_T("SymInitialize failed : %d\n"), GetLastError());
 			break;
 		}
 
 		GetSymbolFileSize(tszDrbdSymbolPath, dwFileSize);
 
-		if (0 == dwFileSize)
-		{
+		if (0 == dwFileSize) {
 			_tprintf(_T("Symbol file size is zero\n"));
 			break;
 		}
 
 #ifdef _UNICODE
-		if (0 == WideCharToMultiByte(CP_ACP, 0, tszDrbdSymbolPath, -1, (LPSTR)szDrbdSymbolPath, MAX_PATH, NULL, NULL))
-		{
+		if (0 == WideCharToMultiByte(CP_ACP, 0, tszDrbdSymbolPath, -1, (LPSTR)szDrbdSymbolPath, MAX_PATH, NULL, NULL)) {
 			_tprintf(_T("Failed to convert wchar to char : %d\n"), GetLastError());
 			break;
 		}
@@ -1178,8 +1089,7 @@ BOOLEAN InitOosTrace()
 #else
 		g_ModuleBase = SymLoadModule64(GetCurrentProcess(), NULL, tszDrbdSymbolPath, NULL, BaseAddr, dwFileSize);
 #endif
-		if (0 == g_ModuleBase)
-		{
+		if (0 == g_ModuleBase) {
 			_tprintf(_T("SymLoadModule64 failed : %d\n"), GetLastError());
 			break;
 		}
@@ -1278,8 +1188,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 #ifdef _WIN32_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
-					{
+					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1302,8 +1211,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 #ifdef _WIN32_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
-					{
+					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1322,8 +1230,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 #ifdef _WIN32_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING))
-					{
+					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1367,11 +1274,9 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 	CHAR szSector[1024] = "";
 	char *pSector = NULL;
 	
-	do
-	{
+	do {
 		pSector = strstr(pszLine, "sector(") + strlen("sector(");
-		if (NULL == pSector)
-		{
+		if (NULL == pSector) {
 			dwRet = ERROR_INVALID_DATA;
 			_tprintf(_T("could not find sector string\n"));
 			break;
@@ -1380,8 +1285,7 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 		strcpy_s(szSector, pSector);
 		
 		char *pSectorEnd = strchr(szSector, ')');
-		if (NULL == pSectorEnd)
-		{
+		if (NULL == pSectorEnd) {
 			dwRet = ERROR_INVALID_DATA;
 			_tprintf(_T("could not find sector string2\n"));
 			break;
@@ -1392,8 +1296,7 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 #define SECTOR_DELIMITER " ~ "
 
 		pSectorEnd = strstr(szSector, SECTOR_DELIMITER);
-		if (NULL == pSectorEnd)
-		{
+		if (NULL == pSectorEnd) {
 			dwRet = ERROR_INVALID_DATA;
 			_tprintf(_T("could not find sector delimiter\n"));
 			break;
@@ -1406,8 +1309,7 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 		pSector = pSectorEnd + strlen(SECTOR_DELIMITER);
 		endSector = atoll(pSector);
 
-		if (startSector < 0 || endSector < 0)
-		{
+		if (startSector < 0 || endSector < 0) {
 			dwRet = ERROR_INVALID_DATA;
 			_tprintf(_T("we got invalid sector(%llu ~ %llu)\n"), startSector, endSector);
 			break;
@@ -1423,15 +1325,13 @@ DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long u
 		}
 		
 		// write res file.
-		if (!WriteFile(hResFile, pszLine, strlen(pszLine), &dwRead, NULL))
-		{
+		if (!WriteFile(hResFile, pszLine, strlen(pszLine), &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("WriteFile1 failed, err : %d\n"), dwRet);
 			break;
 		}
 
-		if (!WriteFile(hResFile, "\r\n", 2, &dwRead, NULL))
-		{
+		if (!WriteFile(hResFile, "\r\n", 2, &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("WriteFile1 failed, err : %d\n"), dwRet);
 			break;
@@ -1459,14 +1359,12 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 	char *buff = NULL;
 
 #ifdef _UNICODE
-	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pSrcFilePath, -1, ptSrcFilePath, MAX_PATH))
-	{
+	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pSrcFilePath, -1, ptSrcFilePath, MAX_PATH)) {
 		dwRet = GetLastError();
 		_tprintf(_T("MultiByteToWideChar failed, err : %d\n"), dwRet);
 		return dwRet;
 	}
-	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)szSector, -1, ptSector, 128))
-	{
+	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)szSector, -1, ptSector, 128)) {
 		dwRet = GetLastError();
 		_tprintf(_T("MultiByteToWideChar failed, err : %d\n"), dwRet);
 		return dwRet;
@@ -1476,11 +1374,9 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 	strcpy(ptSector, szSector);
 #endif
 
-	do
-	{
+	do {
 		hSrcFile = CreateFile(ptSrcFilePath, GENERIC_ALL, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-		if (hSrcFile == INVALID_HANDLE_VALUE)
-		{
+		if (hSrcFile == INVALID_HANDLE_VALUE) {
 			dwRet = GetLastError();
 			_tprintf(_T("CreateFile for %s failed, %d \n"), ptSrcFilePath, dwRet);
 			break;
@@ -1497,15 +1393,13 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 		}
 		
 		buff = new char[liFileSize.QuadPart];
-		if (!buff)
-		{
+		if (!buff) {
 			dwRet = ERROR_NOT_ENOUGH_MEMORY;
 			printf("failed to alloc buff\n");
 			break;
 		}
 
-		if (!ReadFile(hSrcFile, buff, liFileSize.QuadPart, &dwRead, NULL))
-		{
+		if (!ReadFile(hSrcFile, buff, liFileSize.QuadPart, &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("ReadFile failed, %d \n"), dwRet);
 			break;
@@ -1515,8 +1409,7 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 		_tprintf(_T("resfile : %s\n"), ptResFilePath);
 				
 		hSearchedResFile = CreateFile(ptResFilePath, GENERIC_ALL, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (hSearchedResFile == INVALID_HANDLE_VALUE)
-		{
+		if (hSearchedResFile == INVALID_HANDLE_VALUE) {
 			dwRet = GetLastError();
 			_tprintf(_T("CreateFile for %s failed, %d \n"), ptResFilePath, dwRet);
 			break;
@@ -1524,23 +1417,20 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 		
 		char *pLine = buff, *pTemp = buff;
 		pTemp = strstr(pLine, "\0");		
-		while (pTemp = strstr(pLine, "\r\n"))
-		{
+		while (pTemp = strstr(pLine, "\r\n")) {
 			CHAR szLineBuf[1024] = "";
 			*pTemp = '\0';
 			strcpy_s(szLineBuf, pLine);	
 
 			// skip unless it's oos log.
-			if (strstr(szLineBuf, OOS_TRACE_STRING) == NULL)
-			{
+			if (strstr(szLineBuf, OOS_TRACE_STRING) == NULL) {
 				pLine = pTemp + 2;
 				continue;
 			}
 			
 			// write log if given sector is accessed
 			dwRet = WriteSearchLogIfMatch(hSearchedResFile, szLineBuf, ullSector);
-			if (ERROR_SUCCESS != dwRet)
-			{
+			if (ERROR_SUCCESS != dwRet) {
 				break;
 			}
 			
@@ -1548,19 +1438,16 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 			pLine = pTemp + 2;
 		}
 
-		if (ERROR_SUCCESS != dwRet)
-		{
+		if (ERROR_SUCCESS != dwRet) {
 			break;
 		}
 				
-		if (strchr(pLine, '\0') != NULL)
-		{
+		if (strchr(pLine, '\0') != NULL) {
 			CHAR szLineBuf[1024] = "";			
 			strcpy_s(szLineBuf, pLine);
 			
 			// skip unless it's oos log.
-			if (strstr(szLineBuf, OOS_TRACE_STRING) != NULL)
-			{
+			if (strstr(szLineBuf, OOS_TRACE_STRING) != NULL) {
 				// check if given sector is accessed
 				WriteSearchLogIfMatch(hSearchedResFile, szLineBuf, ullSector);
 			}
@@ -1568,20 +1455,17 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 
 	} while (false);
 
-	if (buff)
-	{
+	if (buff) {
 		delete(buff);
 		buff = NULL;
 	}
 
-	if (INVALID_HANDLE_VALUE != hSearchedResFile)
-	{
+	if (INVALID_HANDLE_VALUE != hSearchedResFile) {
 		CloseHandle(hSearchedResFile);
 		hSearchedResFile = INVALID_HANDLE_VALUE;
 	}
 
-	if (INVALID_HANDLE_VALUE != hSrcFile)
-	{
+	if (INVALID_HANDLE_VALUE != hSrcFile) {
 		CloseHandle(hSrcFile);
 		hSrcFile = INVALID_HANDLE_VALUE;
 	}
@@ -1601,8 +1485,7 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 	char *buff = NULL;
 	
 #ifdef _UNICODE
-	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pSrcFilePath, -1, ptSrcFilePath, MAX_PATH))
-	{
+	if (0 == MultiByteToWideChar(CP_ACP, 0, (LPSTR)pSrcFilePath, -1, ptSrcFilePath, MAX_PATH)) {
 		dwRet = GetLastError();
 		_tprintf(_T("MultiByteToWideChar failed, err : %d\n"), dwRet);
 		return dwRet;
@@ -1611,11 +1494,9 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 	strcpy(ptSrcFilePath, pSrcFilePath);
 #endif
 
-	do
-	{
+	do {
 		bRet = InitOosTrace();
-		if (!bRet)
-		{
+		if (!bRet) {
 			_tprintf(_T("InitOosTrace failed, %d \n"), GetLastError());
 			break;
 		}
@@ -1623,16 +1504,14 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 		_tcscpy_s(ptOrgRenamedFilePath, ptSrcFilePath);
 		_tcscat_s(ptOrgRenamedFilePath, _T("_org"));
 
-		if (!MoveFile(ptSrcFilePath, ptOrgRenamedFilePath))
-		{
+		if (!MoveFile(ptSrcFilePath, ptOrgRenamedFilePath)) {
 			dwRet = GetLastError();
 			_tprintf(_T("MoveFile for (%s -> %s) failed, %d \n"), ptSrcFilePath, ptOrgRenamedFilePath, dwRet);
 			break;
 		}
 
 		hFile = CreateFile(ptOrgRenamedFilePath, GENERIC_ALL, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-		if (hFile == INVALID_HANDLE_VALUE)
-		{
+		if (hFile == INVALID_HANDLE_VALUE) {
 			dwRet = GetLastError();
 			_tprintf(_T("CreateFile for %s failed, %d \n"), ptSrcFilePath, dwRet);
 			break;
@@ -1649,31 +1528,27 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 		}
 
 		buff = new char[liFileSize.QuadPart];
-		if (!buff)
-		{
+		if (!buff) {
 			dwRet = ERROR_NOT_ENOUGH_MEMORY;
 			printf("failed to alloc buff\n");
 			break;
 		}
 
-		if (!ReadFile(hFile, buff, liFileSize.QuadPart, &dwRead, NULL))
-		{
+		if (!ReadFile(hFile, buff, liFileSize.QuadPart, &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("ReadFile failed, %d \n"), dwRet);
 			break;
 		}
 
 		hConverted = CreateFile(ptSrcFilePath, GENERIC_ALL, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (hFile == INVALID_HANDLE_VALUE)
-		{
+		if (hFile == INVALID_HANDLE_VALUE) {
 			dwRet = GetLastError();
 			_tprintf(_T("CreateFile for %s failed, %d \n"), ptSrcFilePath, dwRet);
 			break;
 		}
 
 		char *pLine = buff, *pTemp = buff;
-		while (pTemp = strstr(pLine, "\r\n"))
-		{
+		while (pTemp = strstr(pLine, "\r\n")) {
 			CHAR szLineBuf[1024] = "";
 			*pTemp = '\0';
 			strcpy_s(szLineBuf, pLine);
@@ -1715,8 +1590,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 	DWORD		dwControlCode = 0;
 	BOOL        ret = FALSE;
 
-	if (pHandler == NULL || pHandler->use < 0 || pHandler->use > 1)
-	{
+	if (pHandler == NULL || pHandler->use < 0 || pHandler->use > 1) {
 		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter\n", __FUNCTION__);
 		return ERROR_INVALID_PARAMETER;
 	}
@@ -1758,8 +1632,7 @@ VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
 	BOOLEAN bProtected = FALSE;				// Protected, Not protected
 	PWCHAR pTemp = NULL;					// Volume{11111111-2222-3333-4444-555555555555}
 		
-	if (pszVolumeName == NULL)
-	{
+	if (pszVolumeName == NULL) {
 		printf("invalid paramter\n");
 		return;
 	}
@@ -1767,24 +1640,21 @@ VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
 	GetVolumePathNamesForVolumeNameW(pszVolumeName, szLetter, 10, &dwRet);
 
 	pTemp = wcsstr(pszVolumeName, L"Volume");
-	if (pTemp == NULL)
-	{
+	if (pTemp == NULL) {
 		printf("err2\n");
 		return;
 	}
 
 	pTemp[wcslen(pTemp) - 1] = L'\0';
 	
-	if (QueryDosDevice(pTemp, szDevName, 260))
-	{
+	if (QueryDosDevice(pTemp, szDevName, 260)) {
 		if (wcsstr(szDevName, L"Floppy") ||
 			wcsstr(szDevName, L"CdRom"))
 		{
 			return;
 		}
 
-		if (!DeviceIoControl(hDrbdlock, IOCTL_DRBDLOCK_GET_STATUS, szDevName, (wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, sizeof(bProtected), &dwRet, NULL))
-		{
+		if (!DeviceIoControl(hDrbdlock, IOCTL_DRBDLOCK_GET_STATUS, szDevName, (wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, sizeof(bProtected), &dwRet, NULL)) {
 			dwErr = GetLastError();
 			printf("DeviceIoControl Failed for device(%ws), err(%d)\n", szDevName, dwErr);
 			return;
@@ -1792,8 +1662,7 @@ VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
 
 		bProtected;
 	}
-	else
-	{
+	else {
 		printf("err3\n");
 	}
 
@@ -1812,12 +1681,10 @@ DWORD GetDrbdlockStatus()
 	DWORD dwErr = ERROR_SUCCESS;
 	DWORD dwRet = 0;
 	
-	do
-	{
+	do {
 		hDevice = OpenDevice(DRBDLOCK_DEVICE_NAME_USER);
 
-		if (hDevice == INVALID_HANDLE_VALUE)
-		{
+		if (hDevice == INVALID_HANDLE_VALUE) {
 			dwErr = GetLastError();
 			printf("Failed to open device(%s), err(%d)\n", DRBDLOCK_DEVICE_NAME_USER, dwErr);
 			break;
@@ -1829,23 +1696,20 @@ DWORD GetDrbdlockStatus()
 
 		FindHandle = FindFirstVolumeW(VolumeName, ARRAYSIZE(VolumeName));
 
-		if (FindHandle == INVALID_HANDLE_VALUE)
-		{
+		if (FindHandle == INVALID_HANDLE_VALUE) {
 			printf("Failed to find volume, err(%d)\n", GetLastError());
 			break;
 		}
 		
 		getVolumeDrbdlockInfo(hDevice, VolumeName);
 
-		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName)))
-		{
+		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName))) {
 			getVolumeDrbdlockInfo(hDevice, VolumeName);
 		}
 
 	} while (false);	
 	
-	if (hDevice != INVALID_HANDLE_VALUE)
-	{
+	if (hDevice != INVALID_HANDLE_VALUE) {
 		CloseHandle(hDevice);
 		hDevice = INVALID_HANDLE_VALUE;
 	}

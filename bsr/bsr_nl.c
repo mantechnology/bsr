@@ -163,8 +163,7 @@ static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
         drbd_debug(NO_OBJECT,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
             pnlh->nlmsg_len, pnlh->nlmsg_type, pnlh->nlmsg_flags, pnlh->nlmsg_seq, pnlh->nlmsg_pid, pgenlh->cmd, pgenlh->version);
 
-        if (pnlh->nlmsg_flags & NLM_F_ECHO)
-        {
+        if (pnlh->nlmsg_flags & NLM_F_ECHO) {
             drbd_debug(NO_OBJECT,"done\n", 0);
             return 0;
         }
@@ -3349,8 +3348,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef _WIN32
 	// DW-1376 this_bdev indicates block device of replication volume, which can be removed anytime. need to get newly created block device.
-	if (device->this_bdev->bd_disk->pDeviceExtension != device->ldev->backing_bdev->bd_disk->pDeviceExtension)
-	{
+	if (device->this_bdev->bd_disk->pDeviceExtension != device->ldev->backing_bdev->bd_disk->pDeviceExtension) {
 		// DW-1376 put old one.
 		blkdev_put(device->this_bdev, 0);
 
@@ -5274,8 +5272,7 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 			// DW-907 retcode will be success at least one succeeded peer.
-			if (success)
-			{
+			if (success) {
 				retcode = success;
 				goto out;
 			}
@@ -5379,22 +5376,18 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	drbd_resume_io(device);
 
 #ifdef _WIN32
-	if (retcode >= SS_SUCCESS)
-	{
+	if (retcode >= SS_SUCCESS) {
 		// DW-1391 wait for bm_io_work to complete, then run the next invalidate peer. 
 		 wait_event_interruptible_timeout_ex(resource->state_wait,
 				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
 				timeo, retcode);
-		if (-DRBD_SIGKILL == retcode)
-		{ 
+		if (-DRBD_SIGKILL == retcode) { 
 			retcode = SS_INTERRUPTED;
 		}
-		else if (-ETIMEDOUT == retcode)
-		{
+		else if (-ETIMEDOUT == retcode) {
 			retcode = SS_TIMEOUT;
 		}
-		else
-		{
+		else {
 			retcode = SS_SUCCESS;
 		}
 	}
@@ -6108,16 +6101,13 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 	s->peer_dev_unacked = atomic_read(&peer_device->unacked_cnt);
 
 	// DW-953 apply v8.4.x source for L_VERIFY_X
-	if (peer_device->repl_state[NOW] == L_VERIFY_S)
-	{
+	if (peer_device->repl_state[NOW] == L_VERIFY_S) {
 		s->peer_dev_out_of_sync = drbd_bm_bits(device) - BM_SECT_TO_BIT(peer_device->ov_position);
 	}
-	else if (peer_device->repl_state[NOW] == L_VERIFY_T)
-	{
+	else if (peer_device->repl_state[NOW] == L_VERIFY_T) {
 		s->peer_dev_out_of_sync = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
 	}
-	else
-	{
+	else {
 		s->peer_dev_out_of_sync = drbd_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
 	}
 
@@ -7599,10 +7589,8 @@ void nl_policy_init_by_manual()
 
 struct genl_ops * get_drbd_genl_ops(u8 cmd)
 {
-    for (int i = 0; i < sizeof(drbd_genl_ops) / sizeof((drbd_genl_ops)[0]); i++)
-    {
-        if (drbd_genl_ops[i].cmd == cmd)
-        {
+    for (int i = 0; i < sizeof(drbd_genl_ops) / sizeof((drbd_genl_ops)[0]); i++) {
+        if (drbd_genl_ops[i].cmd == cmd) {
             return &drbd_genl_ops[i];
         }
     }
