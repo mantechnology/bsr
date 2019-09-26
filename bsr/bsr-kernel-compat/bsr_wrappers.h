@@ -92,14 +92,6 @@
 #define TIMER_DATA_TYPE unsigned long
 #endif
 
-
-// BSR-276 pid print format for cross-platform
-#ifdef _WIN32
-#define PID_FORMAT	"0x%p"
-#else
-#define PID_FORMAT	"%d"
-#endif
-
 /* {{{ pr_* macros */
 /* some very old kernels don't have them, or at least not all of them */
 #ifndef pr_emerg

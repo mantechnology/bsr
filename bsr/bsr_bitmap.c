@@ -127,7 +127,7 @@ static void __bm_print_lock_info(struct drbd_device *device, const char *func)
 		return;
 	
 	// DW-898 at this point bm_task can be NULL.
-	drbd_err(device, "FIXME %s["PID_FORMAT"] in %s, bitmap locked for '%s' by %s["PID_FORMAT"]\n",
+	drbd_err(device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
 		current->comm,
 		task_pid_nr(current),
 		func,
@@ -171,7 +171,7 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 	if (trylock_failed) {		
 		// DW-962 DW-1778 fix. bm_task can be NULL
 		struct task_struct *bm_task = b->bm_task;
-		drbd_warn(device, "%s["PID_FORMAT"] going to '%s' but bitmap already locked for '%s' by %s["PID_FORMAT"]\n",
+		drbd_warn(device, "%s[%d] going to '%s' but bitmap already locked for '%s' by %s[%d]\n",
 			current->comm, 
 			task_pid_nr(current),
 			why, 

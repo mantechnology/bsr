@@ -1,5 +1,6 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 #ifdef _WIN32
+#include <ntddk.h>
 #include "./bsr-kernel-compat/windows/spinlock.h"
 #else
 #include <linux/spinlock.h>
@@ -347,7 +348,7 @@ bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stre
 
 	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		drbd_err(connection, "[%s/"PID_FORMAT"] sending time expired, ko = %u\n",
+		drbd_err(connection, "[%s/%d] sending time expired, ko = %u\n",
 			 current->comm, current->pid, connection->transport.ko_count);
 		request_ping(connection);
 	}

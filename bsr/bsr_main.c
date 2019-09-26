@@ -679,7 +679,7 @@ static int drbd_thread_setup(void *arg)
 	unsigned long flags;
 	int retval;
 #ifdef _WIN32
-    thi->nt = ct_add_thread(KeGetCurrentThread(), thi->name, TRUE, 'B0DW');
+	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
     if (!thi->nt)
     {
         drbd_err(NO_OBJECT,"DRBD_PANIC: ct_add_thread faild.\n");
@@ -765,10 +765,10 @@ int drbd_thread_start(struct drbd_thread *thi)
 	switch (thi->t_state) {
 	case NONE:
 		if (connection)
-			drbd_info(connection, "Starting %s thread (from %s ["PID_FORMAT"])\n",
+			drbd_info(connection, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
 		else
-			drbd_info(resource, "Starting %s thread (from %s ["PID_FORMAT"])\n",
+			drbd_info(resource, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
 		init_completion(&thi->stop);
 		D_ASSERT(resource, thi->task == NULL);
@@ -827,10 +827,10 @@ int drbd_thread_start(struct drbd_thread *thi)
 	case EXITING:
 		thi->t_state = RESTARTING;
 		if (connection)
-			drbd_info(connection, "Restarting %s thread (from %s ["PID_FORMAT"])\n",
+			drbd_info(connection, "Restarting %s thread (from %s [%d])\n",
 					thi->name, current->comm, current->pid);
 		else
-			drbd_info(resource, "Restarting %s thread (from %s ["PID_FORMAT"])\n",
+			drbd_info(resource, "Restarting %s thread (from %s [%d])\n",
 					thi->name, current->comm, current->pid);
 		/* fall through */
 	case RUNNING:
