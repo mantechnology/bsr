@@ -1073,82 +1073,40 @@ static bool barrier_pending(struct drbd_resource *resource)
 	return rv;
 }
 
-#ifdef _WIN32 // DW-1103 down from kernel with timeout
+// DW-1103 down from kernel with timeout
 static bool wait_for_peer_disk_updates_timeout(struct drbd_resource *resource)
 {
 	struct drbd_peer_device *peer_device;
 	struct drbd_device *device;
 	int vnr;
-	unsigned char oldIrql_rLock;
 	long time_out = 100;
 	int retry_count = 0;
 restart:
 	if(retry_count == 2) { // retry 2 times and if it expired, return FALSE
 		return FALSE;
 	}
-	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);
+	rcu_read_lock();
 	
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		for_each_peer_device_rcu(peer_device, device) {
 			if (test_bit(GOT_NEG_ACK, &peer_device->flags)) {
 				clear_bit(GOT_NEG_ACK, &peer_device->flags);
-				ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
-				 wait_event_timeout_ex(resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out, time_out);
+				rcu_read_unlock();
+				wait_event_timeout_ex(resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE, time_out, time_out);
 				retry_count++;
 				goto restart;
 			}
 		}
 	}
 
-	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
+	rcu_read_unlock();
 	return TRUE;
 }
-#endif
 
-static void wait_for_peer_disk_updates(struct drbd_resource *resource)
-{
-	struct drbd_peer_device *peer_device;
-	struct drbd_device *device;
-	int vnr;
-#ifdef _WIN32
-	unsigned char oldIrql_rLock;
-#endif
 
-restart:
-#ifdef _WIN32
-	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);
-#else
-	rcu_read_lock();
-#endif
-	
-	
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-		for_each_peer_device_rcu(peer_device, device) {
-			if (test_bit(GOT_NEG_ACK, &peer_device->flags)) {
-				clear_bit(GOT_NEG_ACK, &peer_device->flags);
-#ifdef _WIN32
-				ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
-#else
-				rcu_read_unlock();
-#endif
-				wait_event(resource->state_wait, peer_device->disk_state[NOW] < D_UP_TO_DATE);
-				goto restart;
-			}
-		}
-	}
-#ifdef _WIN32
-	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);
-#else
-	rcu_read_unlock();
-#endif
-}
 
 enum drbd_state_rv
-#ifdef _WIN32
 drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force, struct sk_buff *reply_skb)
-#else
-drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force)
-#endif
 {
 	struct drbd_device *device;
 	int vnr;
@@ -1157,12 +1115,8 @@ drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force)
 	int try_val = 0;
 	int forced = 0;
 	bool with_force = false;
-#ifdef _WIN32
-	char *err_str = NULL;
-	long timeout = 10 * HZ;
-#else
 	const char *err_str = NULL;
-#endif
+	long timeout = 10 * HZ;
 	enum chg_state_flags flags = CS_ALREADY_SERIALIZED | CS_DONT_RETRY | CS_WAIT_COMPLETE;
 
 
@@ -1182,7 +1136,7 @@ retry:
 		if (start_new_tl_epoch(resource)) {
 			struct drbd_connection *connection;
 			u64 im;
-#ifdef _WIN32
+
 			for_each_connection_ref(connection, im, resource)
 				drbd_flush_workqueue(resource, &connection->sender_work);
 		}
@@ -1199,16 +1153,7 @@ retry:
 			and see them in wait_for_peer_disk_updates() */
 		// DW-1460 fixup infinate wait when network connection is disconnected.
 		wait_for_peer_disk_updates_timeout(resource);
-#else
-			for_each_connection_ref(connection, im, resource)
-				drbd_flush_workqueue(&connection->sender_work);
-		}
-		wait_event(resource->barrier_wait, !barrier_pending(resource));
 
-		/* After waiting for pending barriers, we got any possible NEG_ACKs,
-			and see them in wait_for_peer_disk_updates() */
-		wait_for_peer_disk_updates(resource);
-#endif 
 		/* In case switching from R_PRIMARY to R_SECONDARY works
 		   out, there is no rw opener at this point. Thus, no new
 		   writes can come in. -> Flushing queued peer acks is
@@ -1226,7 +1171,7 @@ retry:
 			flags |= CS_VERBOSE;
 
 		if (err_str) {
-			kfree(err_str);
+			kfree((void*)err_str);
 			err_str = NULL;
 		}
 #ifdef _WIN32 // DW-1605
@@ -1461,13 +1406,11 @@ retry:
 out:
 	up(&resource->state_sem);
 
-#ifdef _WIN32 // TODO
 	if (err_str) {
 		if (reply_skb)
 			drbd_msg_put_info(reply_skb, err_str);
-		kfree(err_str);
+		kfree((void*)err_str);
 	}
-#endif
 	return rv;
 }
 

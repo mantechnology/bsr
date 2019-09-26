@@ -3060,11 +3060,7 @@ static int try_to_promote(struct drbd_device *device)
 	long timeout = resource->res_opts.auto_promote_timeout * HZ / 10;
 	int rv, retry = timeout / (HZ / 5); /* One try every 200ms */
 	do {
-#ifdef _WIN32
 		rv = drbd_set_role(resource, R_PRIMARY, false, NULL);
-#else
-		rv = drbd_set_role(resource, R_PRIMARY, false);
-#endif
 		if (rv >= SS_SUCCESS || timeout == 0) {
 #ifdef _WIN32			
 			resource->bPreSecondaryLock = FALSE;
@@ -3234,11 +3230,7 @@ DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 		if (open_rw_cnt == 0 &&
 		    resource->role[NOW] == R_PRIMARY &&
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
-#ifdef _WIN32				
 			rv = drbd_set_role(resource, R_SECONDARY, false, NULL);
-#else
-			rv = drbd_set_role(resource, R_SECONDARY, false);
-#endif
 			if (rv < SS_SUCCESS)
 				drbd_warn(resource, "Auto-demote failed: %s\n",
 					  drbd_set_st_err_str(rv));
@@ -3840,7 +3832,6 @@ void drbd_queue_work(struct drbd_work_queue *q, struct drbd_work *w)
 	wake_up(&q->q_wait);
 }
 
-#ifdef _WIN32 // DW-1103 down from kernel with timeout
 void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_work_queue *work_queue)
 {
 	struct completion_work completion_work;
@@ -3850,26 +3841,24 @@ void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_wo
 	completion_work.w.cb = w_complete;
 	init_completion(&completion_work.done);
 	drbd_queue_work(work_queue, &completion_work.w);
-	while (wait_for_completion_timeout(&completion_work.done, 100 ) == -DRBD_SIGKILL) {
-    	drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+#ifdef _WIN32 
+	while (wait_for_completion_timeout(&completion_work.done, 100) == -DRBD_SIGKILL) {
+		drbd_info(NO_OBJECT, "DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	}
+#else // _LIN
+	wait_for_completion_timeout(&completion_work.done, 100);
+#endif
 }
-#endif
 
-#ifndef _WIN32
-void drbd_flush_workqueue(struct drbd_work_queue *work_queue)
-#else
 void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue *work_queue)
-#endif
 {
 	struct completion_work completion_work;
 
-#ifdef _WIN32	
 	if (get_t_state(&resource->worker) != RUNNING) {
 		drbd_info(NO_OBJECT,"drbd_flush_workqueue &resource->worker != RUNNING return resource:%p\n",resource);
 		return;
 	}
-#endif	
+
 	completion_work.w.cb = w_complete;
 	init_completion(&completion_work.done);
 	drbd_queue_work(work_queue, &completion_work.w);
