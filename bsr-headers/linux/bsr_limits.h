@@ -282,8 +282,10 @@
 #define DRBD_AUTO_PROMOTE_DEF	1
 #define DRBD_BITMAP_DEF         1
 
-#ifdef _WIN32 // DW-1249 auto-start by svc
+// DW-1249 auto-start by svc
 #define DRBD_SVC_AUTOSTART_DEF 1
+
+#ifdef _WIN32 
 // DW-1716
 #define DRBD_IO_ERROR_RETRY_COUNT_MIN 		0
 #define DRBD_IO_ERROR_RETRY_COUNT_DEF		3

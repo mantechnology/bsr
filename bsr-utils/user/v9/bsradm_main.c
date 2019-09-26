@@ -114,11 +114,9 @@ static int adm_wait_ci(const struct cfg_ctx *);
 static int adm_proxy_up(const struct cfg_ctx *);
 static int adm_proxy_down(const struct cfg_ctx *);
 static int sh_nop(const struct cfg_ctx *);
-#ifdef _WIN32
 static int sh_resources_list(const struct cfg_ctx *);
 // DW-1249 auto-start by svc
 static int sh_resource_option(const struct cfg_ctx *);
-#endif
 static int sh_resources(const struct cfg_ctx *);
 static int sh_resource(const struct cfg_ctx *);
 static int sh_mod_parms(const struct cfg_ctx *);
@@ -393,11 +391,9 @@ static struct adm_cmd forget_peer_cmd = {"forget-peer", adm_forget_peer, ACF1_DI
 static struct adm_cmd hidden_cmd = {"hidden-commands", hidden_cmds,.show_in_usage = 1,};
 
 static struct adm_cmd sh_nop_cmd = {"sh-nop", sh_nop, ACF2_GEN_SHELL .uc_dialog = 1, .test_config = 1};
-#ifdef _WIN32
 static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL };
 // DW-1249 auto-start by svc
 static struct adm_cmd sh_resource_option_cmd = { "sh-resource-option", sh_resource_option, ACF1_RESNAME };
-#endif
 static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL};
 static struct adm_cmd sh_resource_cmd = {"sh-resource", sh_resource, ACF2_SH_RESNAME};
 static struct adm_cmd sh_mod_parms_cmd = {"sh-mod-parms", sh_mod_parms, ACF2_GEN_SHELL};
@@ -493,11 +489,11 @@ struct adm_cmd *cmds[] = {
 	&hidden_cmd,
 
 	&sh_nop_cmd,
-#ifdef _WIN32
+
     &sh_resources_list_cmd,
 	// DW-1249 auto-start by svc
 	&sh_resource_option_cmd,
-#endif
+
 	&sh_resources_cmd,
 	&sh_resource_cmd,
 	&sh_mod_parms_cmd,
@@ -858,7 +854,6 @@ static int sh_nop(const struct cfg_ctx *ctx)
 	return 0;
 }
 
-#ifdef _WIN32
 static int sh_resources_list(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res;
@@ -900,7 +895,6 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 	return 0;
 }
 
-#endif
 static int sh_resources(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res;
