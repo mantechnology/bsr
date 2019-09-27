@@ -1792,13 +1792,7 @@ static int _drbd_send_uuids110(struct drbd_peer_device *peer_device, u64 uuid_fl
 	if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 		uuid_flags |= UUID_FLAG_DISCARD_MY_DATA;
 
-#ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	// DW-1357 do not send UUID_FLAG_CRASHED_PRIMARY if I don't need to get synced from this peer.
-	if (test_bit(CRASHED_PRIMARY, &device->flags) &&
-		!drbd_md_test_peer_flag(peer_device, MDF_PEER_IGNORE_CRASHED_PRIMARY))
-#else
 	if (test_bit(CRASHED_PRIMARY, &device->flags))
-#endif
 		uuid_flags |= UUID_FLAG_CRASHED_PRIMARY;
 
 	if (!drbd_md_test_flag(device, MDF_CONSISTENT))
