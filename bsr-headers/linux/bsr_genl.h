@@ -130,6 +130,7 @@ GENL_struct(DRBD_NLA_DISK_CONF, 3, disk_conf,
 	__flg_field_def(24,     0 /* OPTIONAL */,       discard_zeroes_if_aligned, DRBD_DISCARD_ZEROES_IF_ALIGNED_DEF)
 	__flg_field_def(26, 0 /* OPTIONAL */, disable_write_same, DRBD_DISABLE_WRITE_SAME_DEF)
 )
+#ifdef _WIN32
 GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
 	__str_field_def(1,	DRBD_GENLA_F_MANDATORY,	cpu_mask,       DRBD_CPU_MASK_SIZE)
 	__u32_field_def(2,	DRBD_GENLA_F_MANDATORY,	on_no_data, DRBD_ON_NO_DATA_DEF)
@@ -146,10 +147,27 @@ GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, DRBD_ON_NO_QUORUM_DEF)
 	__u32_field_def(13, 0 /* OPTIONAL */, req_buf_size, DRBD_REQ_BUF_SIZE_DEF)        // DW-1200 request buffer maximum size 
 	__flg_field_def(14, 0 /* OPTIONAL */, svc_autostart, DRBD_SVC_AUTOSTART_DEF)	  // DW-1249 auto-start by svc
-#ifdef _WIN32
 	__u32_field_def(15, 0 /* OPTIONAL */, io_error_retry_count, DRBD_IO_ERROR_RETRY_COUNT_DEF)        // DW-1716 retry count for I/O error
-#endif
 )
+#else
+GENL_struct(DRBD_NLA_RESOURCE_OPTS, 4, res_opts,
+__str_field_def(1, DRBD_GENLA_F_MANDATORY, cpu_mask, DRBD_CPU_MASK_SIZE)
+__u32_field_def(2, DRBD_GENLA_F_MANDATORY, on_no_data, DRBD_ON_NO_DATA_DEF)
+__flg_field_def(3, DRBD_GENLA_F_MANDATORY, auto_promote, DRBD_AUTO_PROMOTE_DEF)
+__u32_field(4, DRBD_F_REQUIRED | DRBD_F_INVARIANT, node_id)
+__u32_field_def(5, DRBD_GENLA_F_MANDATORY, peer_ack_window, DRBD_PEER_ACK_WINDOW_DEF)
+__u32_field_def(6, DRBD_GENLA_F_MANDATORY, twopc_timeout, DRBD_TWOPC_TIMEOUT_DEF)
+__u32_field_def(7, DRBD_GENLA_F_MANDATORY, twopc_retry_timeout, DRBD_TWOPC_RETRY_TIMEOUT_DEF)
+__u32_field_def(8, 0 /* OPTIONAL */, peer_ack_delay, DRBD_PEER_ACK_DELAY_DEF)
+__u32_field_def(9, 0 /* OPTIONAL */, auto_promote_timeout, DRBD_AUTO_PROMOTE_TIMEOUT_DEF)
+// BSR-231 nr_requests is sufficient for int variables and better to operate with atmoic_t variables.
+__s32_field_def(10, 0 /* OPTIONAL */, nr_requests, DRBD_NR_REQUESTS_DEF)
+__s32_field_def(11, 0 /* OPTIONAL */, quorum, DRBD_QUORUM_DEF)
+__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, DRBD_ON_NO_QUORUM_DEF)
+__u32_field_def(13, 0 /* OPTIONAL */, req_buf_size, DRBD_REQ_BUF_SIZE_DEF)        // DW-1200 request buffer maximum size 
+__flg_field_def(14, 0 /* OPTIONAL */, svc_autostart, DRBD_SVC_AUTOSTART_DEF)	  // DW-1249 auto-start by svc
+)
+#endif
 
 GENL_struct(DRBD_NLA_NET_CONF, 5, net_conf,
 	__str_field_def(1,	DRBD_GENLA_F_MANDATORY | DRBD_F_SENSITIVE, shared_secret,	SHARED_SECRET_MAX)
