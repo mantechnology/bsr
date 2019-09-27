@@ -2210,13 +2210,9 @@ __drbd_next_peer_device_ref(u64 *, struct drbd_peer_device *, struct drbd_device
  * log, leaving this many sectors for the bitmap.
  */
 
-#ifdef _WIN32 // DW-1335 
+// DW-1335 
 #define DRBD_MAX_SECTORS_FIXED_BM \
 	  (((256 << 20 >> 9) - (32768 >> 9) - (4096 >> 9)) * (1LL<<(BM_EXT_SHIFT-9))) 
-#else
-#define DRBD_MAX_SECTORS_FIXED_BM \
-	  (((128 << 20 >> 9) - (32768 >> 9) - (4096 >> 9)) * (1LL<<(BM_EXT_SHIFT-9)))
-#endif
 	  
 #if !defined(CONFIG_LBDAF) && !defined(CONFIG_LBD) && BITS_PER_LONG == 32
 #define DRBD_MAX_SECTORS      DRBD_MAX_SECTORS_32
@@ -3098,11 +3094,8 @@ static inline sector_t drbd_md_ss(struct drbd_backing_dev *bdev)
 		return (drbd_get_capacity(bdev->backing_bdev) & ~7ULL) - 8;
 
 	/* external, some index; this is the old fixed size layout */
-#ifdef _WIN32 // DW-1335
+	// DW-1335
 	return (256 << 20 >> 9) * bdev->md.meta_dev_idx;
-#else
-	return (128 << 20 >> 9) * bdev->md.meta_dev_idx;
-#endif
 }
 
 void drbd_queue_work(struct drbd_work_queue *, struct drbd_work *);
