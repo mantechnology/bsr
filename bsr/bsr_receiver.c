@@ -9516,7 +9516,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
 
 #ifdef _WIN32
-	// DW-1398: closing listening socket busts accepted socket, put those sockets here instead.
+	// DW-1398 closing listening socket busts accepted socket, put those sockets here instead.
 	dtt_put_listeners(&connection->transport);
 #endif
 
