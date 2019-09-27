@@ -1471,18 +1471,6 @@ static void dtt_incoming_connection(struct sock *sock)
 	}
 
 
-#if 0 // TODO_WIN, DW-1538 disabled temporary
-	// DW-1398 do not accept if already connected.
-	if (atomic_read(&connection->transport.listening_done)) {
-		drbd_info(NO_OBJECT,"listening is done for this transport, request won't be accepted\n");
-		kfree(s_estab->sk_linux_attr);
-		kfree(s_estab);
-		spin_unlock(&listener->waiters_lock);
-		spin_unlock_bh(&resource->listeners_lock);
-		return STATUS_REQUEST_NOT_ACCEPTED;
-	}
-#endif 
-
 	struct dtt_path *path2 = container_of(path, struct dtt_path, path);
 
 	struct dtt_listener *listener2 = container_of(listener, struct dtt_listener, listener);
@@ -2115,22 +2103,11 @@ randomize:
 #endif
 		}
 	} while (!ok);
-#if 0   // No need to event disable because it will be released socket.
-#ifdef _WIN32 // release event callback before dtt_put_listener 
-	status = SetEventCallbacks(dttlistener->s_listen->sk, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	if (!NT_SUCCESS(status)) {
-		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed=0x%x\n", status);
-		//goto out; // just go to release listener 
-	}
-#endif
-#endif
+
 	TR_ASSERT(transport, first_path == connect_to_path);
 	connect_to_path->path.established = true;
 	drbd_path_event(transport, &connect_to_path->path);
-#ifdef _WIN32
-	// DW-1398 closing listening socket here makes accepted socket be unavailable, putting listeners is moved to conn_disconnect()
-	atomic_set(&transport->listening_done, true);
-#else
+#ifndef _WIN32
 	dtt_put_listeners(transport);
 #endif
 
