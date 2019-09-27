@@ -419,9 +419,6 @@ enum mdf_peer_flag {
 	// It needs to be cleared when resync's done and gets matched current uuid.
 	// This flag indicates that above situation so that uuid will be propagated once resync is finished.
 	MDF_PEER_DIFF_CUR_UUID = 1 << 5,
-#ifndef _WIN32_CRASHED_PRIMARY_SYNCSOURCE
-	MDF_PEER_IGNORE_CRASHED_PRIMARY = 1 << 6,		// DW-1357 no need to get synced from this peer, ignore crashed primary 
-#endif
 	MDF_NODE_EXISTS =       1 << 16, /* */
 	MDF_PEER_INIT_SYNCT_BEGIN	= 1 << 17,
 #ifdef _WIN32
@@ -534,7 +531,6 @@ enum {
 #endif
 
 #define _WIN32_SIMPLE_TWOPC // DW-1408
-#define _WIN32_CRASHED_PRIMARY_SYNCSOURCE // DW-1630 crashed_primary node to be SyncSource.
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
 #define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE // DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 
