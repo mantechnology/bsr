@@ -7788,7 +7788,7 @@ static int process_twopc(struct drbd_connection *connection,
 			if(resource->role[NEW] == R_SECONDARY && reply->primary_nodes != 0 ) {
 				struct drbd_device *device;
 				int vnr;
-				drbd_info(resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] target_node_id (%d) primary_nodes (%d) pi->cmd (%s)\n", 
+				drbd_info(resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] target_node_id (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
 					reply->tid, reply->target_node_id, reply->primary_nodes, drbd_packet_name(pi->cmd));
 				idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 					if(get_ldev_if_state(device, D_NEGOTIATING)) {
