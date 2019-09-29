@@ -2394,11 +2394,8 @@ extern void drbd_destroy_connection(struct kref *kref);
 extern struct drbd_resource *drbd_find_resource(const char *name);
 extern void drbd_destroy_resource(struct kref *kref);
 extern void conn_free_crypto(struct drbd_connection *connection);
-
-#ifdef _WIN32
 // DW-1398
 extern void dtt_put_listeners(struct drbd_transport *);
-#endif
 
 /* drbd_req */
 extern void do_submit(struct work_struct *ws);

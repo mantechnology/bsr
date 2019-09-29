@@ -143,11 +143,6 @@ struct drbd_transport {
 #else
 	unsigned long flags;
 #endif
-	
-#ifdef _WIN32
-	// DW-1398 accepted all peers and listening socket is no longer available.
-	atomic_t listening_done;
-#endif
 };
 
 struct drbd_transport_stats {
