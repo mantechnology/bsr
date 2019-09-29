@@ -8476,10 +8476,8 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 		return -EIO;
 	}
 
-#ifdef _WIN32 // DW-1447
+	// DW-1447 
 	peer_device->last_repl_state = peer_state.conn;
-#endif
-
 	
 #ifdef _WIN32_RCU_LOCKED
 	rv = end_state_change_locked(resource, false, __FUNCTION__);
@@ -8491,8 +8489,9 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 	spin_unlock_irq(&resource->req_lock);
 
 	if (rv < SS_SUCCESS) {
-#ifdef _WIN32 // DW-1447
+		// DW-1447
 		peer_device->last_repl_state = old_peer_state.conn;
+#ifdef _WIN32
 		// DW-1529 if old connection state is C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING
 		// DISCONNECTING makes cstate STANDALONE
 		// DW-1888 if the return value is SS_NEED_CONNECTION, reconnect it.
@@ -8535,9 +8534,6 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 
 	drbd_md_sync(device); /* update connected indicator, effective_size, ... */
 
-#ifndef _WIN32 // DW-1447 moved to before end_state_change_locked()
-	peer_device->last_repl_state = peer_state.conn;
-#endif
 	return 0;
 
 #ifdef _WIN32 // DW-1529
