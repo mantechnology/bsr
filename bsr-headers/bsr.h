@@ -530,7 +530,6 @@ enum {
 
 #endif
 
-#define _WIN32_SIMPLE_TWOPC // DW-1408
 // TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
 #define ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE // DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE 
 
