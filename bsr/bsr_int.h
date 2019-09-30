@@ -3740,31 +3740,16 @@ static inline struct drbd_connection *first_connection(struct drbd_resource *res
 	res = wait_event_interruptible(wq, condition);
 #endif
 
-#ifdef _WIN32 // DW-1480
-static bool list_add_valid(struct list_head *new, struct list_head *prev)
-#else
+// DW-1480
 static __inline bool list_add_valid(struct list_head *new, struct list_head *prev)
-#endif
 {
-	if (new == 0 || prev == 0 || prev->next == 0)
+	if ((new == 0 || prev == 0 || prev->next == 0) ||
+		(prev->next->prev != prev) || // list_add corruption.
+		(prev->next != prev->next) || // list_add corruption.
+		(new == prev || new == prev->next) || //list_add double add.
+		(new->next != new->prev)) // new is not initialized.
 		return false;
 
-	if (prev->next->prev != prev) {
-		// list_add corruption.
-		return false;
-	}
-	if (prev->next != prev->next) {
-		// list_add corruption.
-		return false;
-	}
-	if (new == prev || new == prev->next) {
-		//list_add double add.
-		return false;
-	}
-	if (new->next != new->prev) {
-		// new is not initialized.
-		return false;
-	}
 	return true;
 }
 

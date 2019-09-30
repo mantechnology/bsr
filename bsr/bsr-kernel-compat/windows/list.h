@@ -26,7 +26,7 @@ extern void list_del_init(struct list_head *entry);
 #define LIST_HEAD_INIT(name)			{ &(name), &(name) }
 #define LIST_HEAD(name)				struct list_head name = LIST_HEAD_INIT(name)
 
-static void INIT_LIST_HEAD(struct list_head *list)
+static __inline void INIT_LIST_HEAD(struct list_head *list)
 {
 	if(list == 0) {
 		return;
@@ -48,7 +48,7 @@ static void __list_add(struct list_head *new, struct list_head *prev, struct lis
 	prev->next = new;
 }
 
-static void list_add(struct list_head *new, struct list_head *head)
+static __inline void list_add(struct list_head *new, struct list_head *head)
 {
 	if(new == 0 || head == 0) {
 		return;
@@ -78,7 +78,7 @@ static void list_del(struct list_head *entry)
 	entry->prev = LIST_POISON2;
 }
 
-static int list_empty(const struct list_head *head)
+static __inline int list_empty(const struct list_head *head)
 {
 	if(head == 0) {
 		return 1;

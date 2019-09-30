@@ -297,7 +297,6 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 {
 	struct drbd_path *path;
 
-#ifdef _WIN32
 	// DW-1481 fix listener->list's NULL dereference, sanity check 
 	if(!addr || !listener || (listener->list.next == NULL) ) {
 		return NULL;
@@ -313,12 +312,6 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 		if (addr_equal(&path->peer_addr, addr))
 			return path;
 	}
-#else
-	list_for_each_entry(path, &listener->waiters, listener_link) {
-		if (addr_equal(&path->peer_addr, addr))
-			return path;
-	}
-#endif
 	
 	return NULL;
 }
