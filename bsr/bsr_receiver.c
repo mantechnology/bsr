@@ -876,9 +876,9 @@ static bool conn_connect(struct drbd_connection *connection)
 	bool have_mutex;
 
 start:
-#ifdef _WIN32
+
 	drbd_debug_conn("conn_connect\n"); 
-#endif
+
 	have_mutex = false;
 
 	clear_bit(DISCONNECT_EXPECTED, &connection->flags);
@@ -9482,9 +9482,9 @@ void conn_disconnect(struct drbd_connection *connection)
 	unsigned long irq_flags;
 	int vnr, i;
 	struct drbd_peer_request *peer_req;	
-#ifdef _WIN32
+
 	drbd_debug_conn("conn_disconnect\n"); 
-#endif
+
 	clear_bit(CONN_DRY_RUN, &connection->flags);
 	clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
 
@@ -9717,26 +9717,20 @@ int drbd_do_features(struct drbd_connection *connection)
 
 	err = drbd_send_features(connection);
 	if (err){
-#ifdef _WIN32
 		drbd_debug_conn("fail drbd_send_feature err = %d\n", err); 
-#endif
 		return 0;
 	}
-#ifdef _WIN32
+
 	drbd_debug_conn("success drbd_send_feature\n");
-#endif
+
 	err = drbd_recv_header(connection, &pi);
 	if (err) {
-#ifdef _WIN32
 		drbd_debug_conn("fail drbd_recv_header \n");
-#endif
 		if (err == -EAGAIN)
 			drbd_err(connection, "timeout while waiting for feature packet\n");
 		return 0;
 	}
-#ifdef _WIN32
 	drbd_debug_conn("success drbd_recv_header\n");
-#endif
 	if (pi.cmd != P_CONNECTION_FEATURES) {
 		drbd_err(connection, "expected ConnectionFeatures packet, received: %s (0x%04x)\n",
 			 drbd_packet_name(pi.cmd), pi.cmd);

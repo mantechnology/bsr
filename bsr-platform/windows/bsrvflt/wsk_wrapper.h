@@ -76,7 +76,6 @@ Disconnect(
 	__in struct socket* pSock
 	);
 
-#ifdef _WSK_SOCKET_STATE
 PWSK_SOCKET
 NTAPI
 CreateSocketConnect(
@@ -89,19 +88,6 @@ __inout  NTSTATUS* pStatus,
 __in PWSK_CLIENT_CONNECTION_DISPATCH dispatch,
 __in PVOID socketContext
 );
-#else
-PWSK_SOCKET
-NTAPI
-CreateSocketConnect(
-__in struct socket* pSock,
-__in USHORT		SocketType,
-__in ULONG		Protocol,
-__in PSOCKADDR	LocalAddress, // address family desc. required
-__in PSOCKADDR	RemoteAddress, // address family desc. required
-__inout  NTSTATUS* pStatus
-);
-#endif 
-
 
 LONG 
 NTAPI
@@ -257,12 +243,7 @@ _Outptr_result_maybenull_ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDis
 
 char *GetSockErrorString(NTSTATUS status);
 
-
-#ifdef _WSK_SOCKET_STATE 
-
 NTSTATUS WskDisconnectEvent(
 	_In_opt_ PVOID SocketContext,
 	_In_     ULONG Flags
 	);
-#endif
-

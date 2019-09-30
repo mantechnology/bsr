@@ -457,7 +457,6 @@ struct sock {
 #include <send_buf.h>
 #endif
 
-#ifdef _WSK_SOCKET_STATE
 enum sock_state {
 	WSK_NONE = 0,			// The socket structure is created but the WSK socket is not created
 	WSK_INVALID_DEVICE,		// invalid socket state
@@ -467,12 +466,10 @@ enum sock_state {
 	WSK_DISCONNECTING,		// disconnecting
 	WSK_INITIALIZING,		// WSK socket is created and try to connect
 	WSK_CONNECTING,			// connecting
-	//
 	WSK_ESTABLISHED,		// WSK socket's connection is established
 };
 //#define	TCP_DISCONNECTED	0
 //#define	TCP_ESTABLISHED	1
-#endif 
 
 struct socket {
 	struct sock *sk_linux_attr;
@@ -481,9 +478,7 @@ struct socket {
 #ifdef _WIN32_SEND_BUFFING
 	struct _buffering_attr buffering_attr;
 #endif
-#ifdef _WSK_SOCKET_STATE
-	int sk_state; 
-#endif 
+	int sk_state;
 };
 
 char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
