@@ -297,12 +297,12 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 {
 	struct drbd_path *path;
 
-#ifdef _WIN32
 	// DW-1481 fix listener->list's NULL dereference, sanity check 
 	if(!addr || !listener || (listener->list.next == NULL) ) {
 		return NULL;
 	}
 	list_for_each_entry_ex(struct drbd_path, path, &listener->waiters, listener_link) {
+#ifdef _WIN32
 		//drbd_debug_co("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
@@ -310,16 +310,11 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct 
 		} else {
 			drbd_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
-		if (addr_equal(&path->peer_addr, addr))
-			return path;
-	}
-#else
-	list_for_each_entry(path, &listener->waiters, listener_link) {
-		if (addr_equal(&path->peer_addr, addr))
-			return path;
-	}
 #endif
-	
+		if (addr_equal(&path->peer_addr, addr))
+			return path;
+	}
+
 	return NULL;
 }
 
