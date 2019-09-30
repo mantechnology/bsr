@@ -930,7 +930,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	int c_put = 0;
 	int k_put = 0;
 	const int idx = peer_device ? 1 + peer_device->node_id : 0;
-#ifdef _WIN32
+#ifdef _WIN32_NETQUEUED_LOG
     struct drbd_device * device = req->device;
 #endif
 	/* FIXME n_connections, when this request was created/scheduled. */
