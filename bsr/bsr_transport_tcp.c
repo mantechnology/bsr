@@ -1544,13 +1544,11 @@ static void dtt_destroy_listener(struct drbd_listener *generic_listener)
 	struct dtt_listener *listener =
 		container_of(generic_listener, struct dtt_listener, listener);
 
-	unregister_state_change(
 #ifdef _WIN32
-		listener->s_listen->sk_linux_attr,
+	unregister_state_change(listener->s_listen->sk_linux_attr, listener);
 #else
-		listener->s_listen->sk,
+	unregister_state_change(listener->s_listen->sk, listener);
 #endif
-		listener);
 
 	sock_release(listener->s_listen);
 	kfree(listener);
