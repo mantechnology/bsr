@@ -3327,11 +3327,17 @@ static bool dequeue_work_batch(struct drbd_work_queue *queue, struct list_head *
 static struct drbd_request *__next_request_for_connection(
 		struct drbd_connection *connection, struct drbd_request *r)
 {
-	// DW-1521
+#ifdef _WIN32_NETQUEUED_LOG
 	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests);
+#else
+	r = list_prepare_entry_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests);
+#endif
 
-	// DW-1521
+#ifdef _WIN32_NETQUEUED_LOG
 	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->net_queued_log, nq_requests) {
+#else
+	list_for_each_entry_continue_ex(struct drbd_request, r, &connection->resource->transfer_log, tl_requests) {
+#endif
 		int vnr = r->device->vnr;
 		struct drbd_peer_device *peer_device = conn_peer_device(connection, vnr);
 		unsigned s = drbd_req_state_by_peer_device(r, peer_device);

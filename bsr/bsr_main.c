@@ -3655,9 +3655,10 @@ void drbd_restart_request(struct drbd_request *req)
 	drbd_info(NO_OBJECT,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
 #endif
 
-	// DW-1521
+#ifdef _WIN32_NETQUEUED_LOG
 	atomic_set(&req->nq_ref, 0);
 	list_del_init(&req->nq_requests);	
+#endif
 	
 	list_move_tail(&req->tl_requests, &retry.writes);
 	spin_unlock_irqrestore(&retry.lock, flags);
@@ -4045,8 +4046,9 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	INIT_LIST_HEAD(&resource->connections);
 	INIT_LIST_HEAD(&resource->transfer_log);
 
-	// DW-1521
+#ifdef _WIN32_NETQUEUED_LOG
 	INIT_LIST_HEAD(&resource->net_queued_log);
+#endif	
 	
 	INIT_LIST_HEAD(&resource->peer_ack_list);
 	setup_timer(&resource->peer_ack_timer, peer_ack_timer_fn, (TIMER_DATA_TYPE) resource);
