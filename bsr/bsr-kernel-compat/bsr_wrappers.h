@@ -492,7 +492,6 @@ enum sock_shutdown_cmd {
 static inline int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
 {
 #ifdef _WIN32
-    //UNREFERENCED_PARAMETER(sock);
     UNREFERENCED_PARAMETER(how);
 	return Disconnect(sock);
 #else

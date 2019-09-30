@@ -27,7 +27,6 @@
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include <wsk_wrapper.h>
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
-#include "bsr_int.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 #else
 #include <linux/module.h>
@@ -42,7 +41,7 @@
 #include <bsr_transport.h>
 #include <bsr_wrappers.h>
 #endif
-
+#include "bsr_int.h"
 
 // The existing bsr_transport_tcp module has been integrated into bsr.
 //#ifndef _WIN32
@@ -75,11 +74,7 @@ struct dtt_listener {
 	void (*original_sk_state_change)(struct sock *sk);
 	struct socket *s_listen;
 #ifdef _WIN32
-#ifdef _WSK_SOCKET_STATE
 	struct socket * paccept_socket;
-#else
-	WSK_SOCKET* paccept_socket;
-#endif
 #endif
 	wait_queue_head_t wait; /* woken if a connection came in */
 };
@@ -104,9 +99,7 @@ struct dtt_path {
 };
 
 #ifdef _WIN32
-#ifdef _WSK_SOCKET_STATE 
 WSK_CLIENT_CONNECTION_DISPATCH dispatchDisco = { NULL, WskDisconnectEvent, NULL };
-#endif
 #endif
 
 static int dtt_init(struct drbd_transport *transport);
@@ -608,20 +601,15 @@ static void dtt_setbufsize(struct socket *socket, signed long long snd,
 #endif
 }
 
-#ifdef _WSK_SOCKET_STATE
 static bool dtt_path_cmp_addr(struct dtt_path *path, struct drbd_connection *connection)
-#else
-static bool dtt_path_cmp_addr(struct dtt_path *path)
-#endif 
 {
 	struct drbd_path *drbd_path = &path->path;
 	int addr_size;
 
 	addr_size = min(drbd_path->my_addr_len, drbd_path->peer_addr_len);
 
-#ifdef _WSK_SOCKET_STATE
 	// DW-1452 Consider interworking with DRX 
-	if (drbd_path->my_addr_len == drbd_path->peer_addr_len){
+	if (drbd_path->my_addr_len == drbd_path->peer_addr_len) {
 		int my_node_id, peer_node_id; 
 		drbd_debug_conn("my_addr_len == peer_addr_len compare node_ids\n"); 
 		
@@ -631,7 +619,7 @@ static bool dtt_path_cmp_addr(struct dtt_path *path)
 		drbd_debug_conn("my_node_id = %d, peer_node_id = %d\n", my_node_id, peer_node_id);
 		return my_node_id > peer_node_id; 		 
 	}
-#endif 
+
 	return memcmp(&drbd_path->my_addr, &drbd_path->peer_addr, addr_size) > 0;
 }
 
@@ -689,9 +677,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	err = 0;
 
 #ifdef _WIN32
-#ifdef _WSK_SOCKET_STATE
 	socket->sk_state = WSK_DISCONNECTED; 
-#endif
 #endif
  
 	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52DW');
@@ -710,11 +696,9 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	} else {
 		drbd_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 	}
-#ifdef _WSK_SOCKET_STATE
+
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
-#else
-	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status);
-#endif 
+
 	if (!NT_SUCCESS(status)) {
 		err = status;
 		drbd_debug(NO_OBJECT,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
@@ -886,7 +870,7 @@ out:
 #endif
 			tr_err(transport, "%s failed, err = %d\n", what, err);
 	} else {
-#ifdef _WSK_SOCKET_STATE
+#ifdef _WIN32
 		status = SetEventCallbacks(socket, WSK_EVENT_DISCONNECT);
 		if (!NT_SUCCESS(status)) {
 			drbd_err(NO_OBJECT,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
@@ -905,13 +889,12 @@ out:
 static int dtt_send_first_packet(struct drbd_tcp_transport *tcp_transport, struct socket *socket,
 			     enum drbd_packet cmd, enum drbd_stream stream)
 {
-#ifdef _WIN32
-	UNREFERENCED_PARAMETER(stream);
-#endif
 	struct p_header80 h;
 	int msg_flags = 0;
 	int err;
 
+	UNREFERENCED_PARAMETER(stream);
+	
 	if (!socket)
 		return -EIO;
 
@@ -934,7 +917,6 @@ static bool dtt_socket_ok_or_free(struct socket **socket)
 		return false;
 
 #ifdef _WIN32 
-#ifdef _WSK_SOCKET_STATE
 	if ((*socket)->sk_state == WSK_ESTABLISHED) {
 		drbd_debug_conn("socket->sk_state == WSK_ESTABLISHED wsk = %p\n", (*socket)->sk);
 		return true;
@@ -942,38 +924,19 @@ static bool dtt_socket_ok_or_free(struct socket **socket)
 
 	drbd_debug_conn("wsk = %p socket->sk_state = %d\n", (*socket)->sk, (*socket)->sk_state);
 	
-	if ( ((*socket)->sk_state >= WSK_INITIALIZING) &&
-		((*socket)->sk_state >= WSK_CONNECTING) ) {
-	} {
-		kernel_sock_shutdown(*socket, SHUT_RDWR);
-	}
+	kernel_sock_shutdown(*socket, SHUT_RDWR); // TODO Check if sk_state condition is required.
 
-	if ( (*socket)->sk_state >= WSK_DISCONNECTED ) {
+	if ((*socket)->sk_state >= WSK_DISCONNECTED) {
 		sock_release(*socket);
 		*socket = NULL;
 	}
 
 	return false;
-#else
-    NTSTATUS Status = ControlSocket(*socket, WskIoctl, SIO_WSK_QUERY_RECEIVE_BACKLOG, 0, 0, NULL, sizeof(SIZE_T), &out, NULL );
-	if (!NT_SUCCESS(Status)) {
-       	drbd_debug_conn("socket(0x%p), ControlSocket(%s): SIO_WSK_QUERY_RECEIVE_BACKLOG failed=0x%x\n", (*socket), (*socket)->name, Status); // _WIN32
-		kernel_sock_shutdown(*socket, SHUT_RDWR);
-		sock_release(*socket);
-       	*socket = NULL;
-        return false;
-	}
-#endif
 
 #else
 
-#ifdef _WIN32
-	if ((*socket)->sk->sk_state == WSK_ESTABLISHED)
-		return true;
-#else
 	if ((*socket)->sk->sk_state == TCP_ESTABLISHED)
 		return true;
-#endif
 	kernel_sock_shutdown(*socket, SHUT_RDWR);
 	sock_release(*socket);
 	*socket = NULL;
@@ -989,10 +952,8 @@ static bool dtt_connection_established(struct drbd_transport *transport,
 	struct net_conf *nc;
 	int timeout, good = 0;
 
-	if (!*socket1 || !*socket2){
-#ifdef _WIN32
+	if (!*socket1 || !*socket2) {
 		drbd_debug_conn("!*socket || !*socket2 and return false\n"); 
-#endif
 		return false;
 	}
 
@@ -1046,9 +1007,7 @@ static struct dtt_path *dtt_wait_connect_cond(struct drbd_transport *transport)
 			break;
 	}
 	spin_unlock(&tcp_transport->paths_lock);
-#ifdef _WIN32
 	drbd_debug_conn("rv = %d? path : NULL\n", rv); 
-#endif
 
 	return rv ? path : NULL;
 }
@@ -1127,26 +1086,8 @@ retry:
 		// paccept_socket = Accept(listener->s_listen->sk, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, status, timeo / HZ);
 		// 
 		if (listener->paccept_socket) {
-#ifdef _WSK_SOCKET_STATE
 			s_estab = listener->paccept_socket;
 			drbd_debug_conn("create estab_sock s_estab = listener->paccept_socket(%p)\n", s_estab);
-			
-#else
-			s_estab = kzalloc(sizeof(struct socket), 0, 'D6DW');
-			if (!s_estab) {
-				return -ENOMEM;
-			}
-			s_estab->sk = listener->paccept_socket;
-
-			drbd_debug_conn("create estab_sock s_estab = listener->paccept_socket(%p)\n", s_estab->sk);
-			sprintf(s_estab->name, "estab_sock");
-			s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'B6DW');
-			if (!s_estab->sk_linux_attr) {
-				kfree(s_estab);
-				return -ENOMEM;
-			}
-			s_estab->sk_linux_attr->sk_sndbuf = DRBD_SNDBUF_SIZE_DEF;
-#endif 
 		}
 		else {
 			if (status == STATUS_TIMEOUT) {
@@ -1439,12 +1380,10 @@ static void dtt_incoming_connection(struct sock *sock)
 
     s_estab->sk = AcceptSocket;
 
-#ifdef _WSK_SOCKET_STATE
 	*AcceptSocketDispatch = &dispatchDisco;
 	*AcceptSocketContext = s_estab;
 	s_estab->sk_state = WSK_ESTABLISHED;
 	SetEventCallbacks(s_estab, WSK_EVENT_DISCONNECT);		
-#endif
 
 	_snprintf(s_estab->name, sizeof(s_estab->name) - 1, "estab_sock");
     s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'C6DW');
@@ -1487,7 +1426,6 @@ static void dtt_incoming_connection(struct sock *sock)
 	}
 	else {
 		drbd_debug_conn("else listener->paccept_socket = AccceptSocket\n");
-#ifdef _WSK_SOCKET_STATE
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
 			drbd_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
@@ -1497,11 +1435,6 @@ static void dtt_incoming_connection(struct sock *sock)
 			listener->pending_accepts++;
 			listener2->paccept_socket = s_estab;
 		}
-
-#else
-		listener->pending_accepts++;
-		listener->paccept_socket = AcceptSocket;
-#endif
 	}
 	wake_up(&listener2->wait);
 
@@ -1738,7 +1671,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
     }
 #endif	
 
-#ifdef _WSK_SOCKET_STATE
+#ifdef _WIN32
 	s_listen->sk_state = WSK_DISCONNECTED; 
 #endif
 	return 0;
@@ -1770,19 +1703,13 @@ static void dtt_cleanup_accepted_sockets(struct dtt_path *path)
 }
 #endif
 
-#ifdef _WIN32
 // DW-1398
 void dtt_put_listeners(struct drbd_transport *transport)
-#else
-static void dtt_put_listeners(struct drbd_transport *transport)
-#endif
 {
 	struct drbd_tcp_transport *tcp_transport =
 		container_of(transport, struct drbd_tcp_transport, transport);
 	struct drbd_path *drbd_path;
-#ifdef _WIN32
 	drbd_debug_conn("dtt_put_listeners\n"); 
-#endif
 
 	spin_lock(&tcp_transport->paths_lock);
 	clear_bit(DTT_CONNECTING, &tcp_transport->flags);
@@ -1962,14 +1889,11 @@ static int dtt_connect(struct drbd_transport *transport)
 
 	
 			if (!dsocket && !csocket) {
-#ifdef _WSK_SOCKET_STATE // DW-1452 remove DW-1297 and apply path comparison
+				// DW-1452 remove DW-1297 and apply path comparison
 				struct drbd_connection *connection =
 					container_of(transport, struct drbd_connection, transport);
 				use_for_data = dtt_path_cmp_addr(first_path, connection);
 				drbd_debug_conn("use_for_date = %d\n", use_for_data); 
-#else
-		       use_for_data = dtt_path_cmp_addr(first_path);
-#endif 
 			} else if (!dsocket) {
            		use_for_data = true;
 			} else {
@@ -2009,20 +1933,16 @@ static int dtt_connect(struct drbd_transport *transport)
 		} else if (!first_path)
 			connect_to_path = dtt_next_path(tcp_transport, connect_to_path);
 
-		if (dtt_connection_established(transport, &dsocket, &csocket, &first_path)){
-#ifdef _WIN32
+		if (dtt_connection_established(transport, &dsocket, &csocket, &first_path)) {
 			drbd_debug_conn("success dtt_connection_established break the loop\n"); 
-#endif
 			break;
 		}
 
 retry:
 		s = NULL;
 		err = dtt_wait_for_connect(transport, connect_to_path->path.listener, &s, &connect_to_path);
-		if (err < 0 && err != -EAGAIN){
-#ifdef _WIN32
+		if (err < 0 && err != -EAGAIN) {
 			drbd_debug_conn("dtt_wait_for_connect fail err = %d goto out\n", err); 
-#endif
 			goto out;
 		}
 
@@ -2080,27 +2000,21 @@ retry:
 				kernel_sock_shutdown(s, SHUT_RDWR);
 				sock_release(s);
 randomize:
-				if (prandom_u32() & 1){
-#ifdef _WIN32
+				if (prandom_u32() & 1) {
 					drbd_debug_conn("goto retry:"); 
-#endif
 					goto retry;
 				}
 			}
 		}
 
-		if (drbd_should_abort_listening(transport)){
-#ifdef _WIN32
+		if (drbd_should_abort_listening(transport)) {
 			drbd_debug_conn("fail drbd_should_abort_listening and goto out_eagain\n"); 
-#endif
 			goto out_eagain;
 		}
 
 		ok = dtt_connection_established(transport, &dsocket, &csocket, &first_path);
-		if (ok){
-#ifdef _WIN32
+		if (ok) {
 			drbd_debug_conn("dtt_connection_established break the loop\n"); 
-#endif
 		}
 	} while (!ok);
 
@@ -2151,9 +2065,7 @@ randomize:
 	dtt_nodelay(dsocket);
 	dtt_nodelay(csocket);
 
-#ifdef _WIN32
 	drbd_debug_conn("tcp_transport->[STREAMS] <= dsocket, csocket\n");
-#endif
 
 	tcp_transport->stream[DATA_STREAM] = dsocket;
 	tcp_transport->stream[CONTROL_STREAM] = csocket;

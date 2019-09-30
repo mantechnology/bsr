@@ -351,6 +351,10 @@ void drbd_printk_with_wrong_object_type(void);
 	drbd_dbg(obj, fmt, ## args)
 #endif
 
+
+#define drbd_debug_conn(fmt, args...) //drbd_info(NO_OBJECT, fmt, ## args)
+
+
 #define drbd_emerg(obj, fmt, args...) \
 	drbd_printk(KERN_EMERG, obj, fmt, ## args)
 #define drbd_alert(obj, fmt, args...) \

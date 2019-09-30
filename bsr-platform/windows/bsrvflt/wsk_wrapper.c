@@ -510,7 +510,6 @@ Disconnect(
 	return STATUS_SUCCESS;
 }
 
-#ifdef _WSK_SOCKET_STATE
 PWSK_SOCKET
 NTAPI
 CreateSocketConnect(
@@ -523,18 +522,6 @@ CreateSocketConnect(
 	__in PWSK_CLIENT_CONNECTION_DISPATCH dispatch,
 	__in PVOID socketContext
 	)
-#else 
-PWSK_SOCKET
-NTAPI
-CreateSocketConnect(
-	__in struct socket* pSock,
-	__in USHORT		SocketType,
-	__in ULONG		Protocol,
-	__in PSOCKADDR	LocalAddress, // address family desc. required
-	__in PSOCKADDR	RemoteAddress, // address family desc. required
-	__inout  NTSTATUS* pStatus
-)
-#endif
 {
 	KEVENT			CompletionEvent = { 0 };
 	PIRP			Irp = NULL;
@@ -549,7 +536,6 @@ CreateSocketConnect(
 		return NULL;
 	}
 
-#ifdef _WSK_SOCKET_STATE
 	Status = g_WskProvider.Dispatch->WskSocketConnect(
 				g_WskProvider.Client,
 				SocketType,
@@ -563,21 +549,6 @@ CreateSocketConnect(
 				NULL,
 				NULL,
 				Irp);
-#else 
-	Status = g_WskProvider.Dispatch->WskSocketConnect(
-		g_WskProvider.Client,
-		SocketType,
-		Protocol,
-		LocalAddress,
-		RemoteAddress,
-		0,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		Irp);
-#endif 
 	if (Status == STATUS_PENDING) {
 		// DW-1689 Timeout(Adjusted from 3 sec to 2 sec) handling for WskSocketConnect.
 		LARGE_INTEGER nWaitTime = { 0, };
@@ -1814,7 +1785,6 @@ _Outptr_result_maybenull_ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDis
 }
 
 
-#ifdef _WSK_SOCKET_STATE 
 NTSTATUS WskDisconnectEvent(
 	_In_opt_ PVOID SocketContext,
 	_In_     ULONG Flags
@@ -1831,5 +1801,4 @@ NTSTATUS WskDisconnectEvent(
 	sock->sk_state = WSK_DISCONNECTED;
 	return STATUS_SUCCESS;
 }
-#endif
 
