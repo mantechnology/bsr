@@ -1016,8 +1016,13 @@ static void unregister_state_change(struct sock *sock, struct dtt_listener *list
 {
 #ifdef _WIN32
 	UNREFERENCED_PARAMETER(sock);
-	UNREFERENCED_PARAMETER(listener);
-	// not support 
+
+	// DW-1483 WSK_EVENT_ACCEPT disable	
+	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
+	drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
+	if (!NT_SUCCESS(status)) {
+		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
+	}
 #else 
 	write_lock_bh(&sock->sk_callback_lock);
 	sock->sk_state_change = listener->original_sk_state_change;
@@ -1105,7 +1110,6 @@ retry:
 		/* The established socket inherits the sk_state_change callback
 		   from the listening socket. */
 
-		unregister_state_change(s_estab->sk_linux_attr, listener); 
 		status = GetRemoteAddress(s_estab, (PSOCKADDR)&peer_addr);
 		if(status != STATUS_SUCCESS) {
 			kfree(s_estab->sk_linux_attr);
@@ -1474,22 +1478,16 @@ static void dtt_destroy_listener(struct drbd_listener *generic_listener)
 		container_of(generic_listener, struct dtt_listener, listener);
 
 #ifdef _WIN32
-    unregister_state_change(listener->s_listen->sk_linux_attr, listener);
-
-	// DW-1483 WSK_EVENT_ACCEPT disable	
-	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
-	if (!NT_SUCCESS(status)) {
-		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
-	}
+	unregister_state_change(listener->s_listen->sk_linux_attr, listener);
 #else
 	unregister_state_change(listener->s_listen->sk, listener);
 #endif
+
 	sock_release(listener->s_listen);
 	kfree(listener);
-#ifdef _WIN32 // DW-1483
+
+	// DW-1483
 	listener = NULL;
-#endif
 }
 
 #ifdef _WIN32
