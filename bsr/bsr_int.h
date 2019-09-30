@@ -701,7 +701,7 @@ struct drbd_request {
 
 	struct list_head tl_requests; /* ring list in the transfer log */
 
-#ifdef _WIN32_NETQUEUED_LOG
+#ifdef NETQUEUED_LOG
 	struct list_head nq_requests; /* ring list in the net queued log */
 	atomic_t nq_ref;
 #endif
@@ -1336,7 +1336,7 @@ struct drbd_resource {
 	ULONG_PTR flags;
 	struct list_head transfer_log;	/* all requests not yet fully processed */
 
-#ifdef _WIN32_NETQUEUED_LOG
+#ifdef NETQUEUED_LOG
 	struct list_head net_queued_log;	/* RQ_NET_QUEUED requests */
 #endif
 
