@@ -148,10 +148,9 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 
 	INIT_LIST_HEAD(&req->tl_requests);
 
-#ifdef _WIN32_NETQUEUED_LOG	
+	// DW-1521 
 	INIT_LIST_HEAD(&req->nq_requests);
 	atomic_set(&req->nq_ref, 0);
-#endif
 	
 	INIT_LIST_HEAD(&req->req_pending_master_completion);
 	INIT_LIST_HEAD(&req->req_pending_local);
@@ -298,11 +297,10 @@ void drbd_req_destroy(struct kref *kref)
 		goto out;
 	}
 
-#ifdef _WIN32_NETQUEUED_LOG
+	// DW-1521
 	atomic_set(&req->nq_ref, 0);
 	list_del_init(&req->nq_requests);
-#endif
-	
+
 	list_del_init(&req->tl_requests);
 
 	/* finally remove the request from the conflict detection
@@ -930,9 +928,9 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	int c_put = 0;
 	int k_put = 0;
 	const int idx = peer_device ? 1 + peer_device->node_id : 0;
-#ifdef _WIN32
+	// DW-1521
     struct drbd_device * device = req->device;
-#endif
+
 	/* FIXME n_connections, when this request was created/scheduled. */
 	BUG_ON(idx > DRBD_NODE_ID_MAX);
 	BUG_ON(idx < 0);
@@ -977,12 +975,11 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 	if (!(old_net & RQ_NET_QUEUED) && (set & RQ_NET_QUEUED)) {
 		atomic_inc(&req->completion_ref);
-		
-#ifdef _WIN32_NETQUEUED_LOG
+		// DW-1521
 		if(atomic_inc_return(&req->nq_ref) == 1) {
 			list_add_tail(&req->nq_requests, &device->resource->net_queued_log);
 		}
-#endif
+
 		set_if_null_req_next(peer_device, req);
 	}
 
@@ -1046,11 +1043,10 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
 		++c_put;
 
-#ifdef _WIN32_NETQUEUED_LOG
-		if (atomic_dec(&req->nq_ref) == 0) {
+		// DW-1521
+		if (atomic_dec_return(&req->nq_ref) == 0) {
 			list_del_init(&req->nq_requests);
 		}
-#endif
 		advance_conn_req_next(peer_device, req);
 	}
 
