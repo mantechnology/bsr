@@ -7079,9 +7079,8 @@ int abort_nested_twopc_work(struct drbd_work *work, int cancel)
 		resource->remote_state_change = false;
 		resource->twopc_reply.initiator_node_id = -1;
 		list_for_each_entry_safe_ex(struct drbd_connection, connection, tmp, &resource->twopc_parents, twopc_parent_list) {
-#ifdef _WIN32 // DW-1480
+			// DW-1480
 			list_del(&connection->twopc_parent_list);
-#endif
 			kref_debug_put(&connection->kref_debug, 9);
 			kref_put(&connection->kref, drbd_destroy_connection);
 		}
@@ -7852,7 +7851,7 @@ static int process_twopc(struct drbd_connection *connection,
 				if (!reply_cmd) {
 					kref_get(&connection->kref);
 					kref_debug_get(&connection->kref_debug, 9);
-#ifdef _WIN32	// DW-1480 Do not add duplicate twopc_parent_list to twopc_parents.
+					// DW-1480 Do not add duplicate twopc_parent_list to twopc_parents.
 					if(list_add_valid(&connection->twopc_parent_list, &resource->twopc_parents)) {	
 						list_add(&connection->twopc_parent_list,
 							&resource->twopc_parents);
@@ -7862,10 +7861,6 @@ static int process_twopc(struct drbd_connection *connection,
 						kref_debug_put(&connection->kref_debug, 9);
 						kref_put(&connection->kref, drbd_destroy_connection);
 					}
-#else
-					list_add(&connection->twopc_parent_list,
-						&resource->twopc_parents);
-#endif
 				}
 				spin_unlock_irq(&resource->req_lock);
 
@@ -8050,7 +8045,7 @@ static int process_twopc(struct drbd_connection *connection,
 		spin_lock_irq(&resource->req_lock);
 		kref_get(&connection->kref);
 		kref_debug_get(&connection->kref_debug, 9);
-#ifdef _WIN32	// DW-1480 Do not add duplicate twopc_parent_list to twopc_parents.
+		// DW-1480 Do not add duplicate twopc_parent_list to twopc_parents.
 		if (list_add_valid(&connection->twopc_parent_list, &resource->twopc_parents)) {						
 			list_add(&connection->twopc_parent_list, &resource->twopc_parents);
 		}
@@ -8059,9 +8054,6 @@ static int process_twopc(struct drbd_connection *connection,
 			kref_debug_put(&connection->kref_debug, 9);
 			kref_put(&connection->kref, drbd_destroy_connection);
 		}
-#else
-		list_add(&connection->twopc_parent_list, &resource->twopc_parents);
-#endif
 		mod_timer(&resource->twopc_timer, receive_jif + twopc_timeout(resource));
 		spin_unlock_irq(&resource->req_lock);
 
