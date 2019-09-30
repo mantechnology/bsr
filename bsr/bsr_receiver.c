@@ -3988,13 +3988,12 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		if (peer_req->flags & (EE_IS_TRIM | EE_WRITE_SAME | EE_IS_BARRIER)) {
 			err = drbd_al_begin_io_for_peer(peer_device, &peer_req->i);
 			if (err) {
-#ifdef _WIN32 // DW-1499 Decrease unacked_cnt when returning an error. 
+				// DW-1499 Decrease unacked_cnt when returning an error. 
 				drbd_err(peer_device, "disconnect during al begin io (err = %d)\n", err);
 				if (peer_req->flags & EE_SEND_WRITE_ACK) {
 					dec_unacked(peer_device);
 				}
-#endif
-			goto disconnect_during_al_begin_io;
+				goto disconnect_during_al_begin_io;
 			}
 		} else if (!drbd_al_begin_io_fastpath(device, &peer_req->i)) {
 			drbd_queue_peer_request(device, peer_req);
