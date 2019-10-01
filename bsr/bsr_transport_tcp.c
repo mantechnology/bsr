@@ -523,7 +523,7 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 		kunmap(page);
 		set_page_chain_offset(page, 0);
 		set_page_chain_size(page, len);
-		drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) len(0x%p)\n", err, socket, (int)len, data);
+		drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) data(0x%p)\n", err, socket, (int)len, data);
 		if (err < 0) {
 			goto fail;
 		}
