@@ -3655,7 +3655,7 @@ void drbd_restart_request(struct drbd_request *req)
 	drbd_info(NO_OBJECT,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
 #endif
 
-#ifdef _WIN32_NETQUEUED_LOG
+#ifdef NETQUEUED_LOG
 	atomic_set(&req->nq_ref, 0);
 	list_del_init(&req->nq_requests);	
 #endif
@@ -4046,7 +4046,7 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	INIT_LIST_HEAD(&resource->connections);
 	INIT_LIST_HEAD(&resource->transfer_log);
 
-#ifdef _WIN32_NETQUEUED_LOG
+#ifdef NETQUEUED_LOG
 	INIT_LIST_HEAD(&resource->net_queued_log);
 #endif	
 	
