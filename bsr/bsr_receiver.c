@@ -2599,9 +2599,11 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 						peer_req->i.sector = BM_BIT_TO_SECT(s_bb);
 						peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(i_bb - s_bb) << 9;
 #ifdef _WIN32
-						drbd_info(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %lu, size %llu\n", peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9));
+						drbd_info(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %lu, size %llu, count %d\n", 
+							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), peer_req->count);
 #else
-						drbd_info(peer_device, "--set in sync, bitmap bit start : %lu, range : %lu ~ %lu, size %lu\n", peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9));
+						drbd_info(peer_device, "--set in sync, bitmap bit start : %lu, range : %lu ~ %lu, size %lu, count %d\n", 
+							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), peer_req->count);
 #endif
 						if (i_bb == e_next_bb)
 							peer_req->block_id = ID_SYNCER_SPLIT_DONE;
@@ -3081,6 +3083,11 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 							}
 						}
 					}
+
+					// BSR-330 exit split because last out of sync request was made
+					if (e_oos == (i_bb - 1))
+						break;
+
 					s_split_request = false;
 				}
 				else {
@@ -8883,7 +8890,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 				if (pd->current_uuid == peer_device->current_uuid) {
 					int allow_size = 512;
 
-					ULONG_PTR *bb = kzalloc(sizeof(atomic_t), GFP_KERNEL, '8EDW');
+					// BSR-330 change invalid size allocation
+					ULONG_PTR *bb = kzalloc(sizeof(ULONG_PTR) * allow_size, GFP_KERNEL, '8EDW');
 					ULONG_PTR offset;
 
 					if (bb == NULL) {
@@ -8891,7 +8899,6 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 						return -ENOMEM;
 					}
 
-					memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
 #ifdef _WIN32
 					drbd_info(peer_device, "bitmap merge, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n", peer_device->bitmap_index, drbd_bm_total_weight(peer_device),
 						pd->bitmap_index, drbd_bm_total_weight(pd));
