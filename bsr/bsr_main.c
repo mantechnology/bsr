@@ -1251,9 +1251,7 @@ static char *alloc_send_buffer(struct drbd_connection *connection, int size,
 	char *page_start = page_address(sbuf->page);
 	
 	if (sbuf->pos - page_start + size > PAGE_SIZE) {
-#ifdef _WIN32
-		drbd_debug_rs("(%s) stream(%d)! unsent(%d) pos(%d) size(%d)\n", current->comm, drbd_stream, sbuf->unsent, sbuf->pos, size);
-#endif
+		drbd_debug_rs("(%s) stream(%d)! unsent(%ld) pos(%ld) size(%d)\n", current->comm, drbd_stream, (long)sbuf->unsent, (long)sbuf->pos, size);
 		flush_send_buffer(connection, drbd_stream);
 		new_or_recycle_send_buffer_page(sbuf);
 	}
@@ -2198,7 +2196,7 @@ int drbd_send_peer_dagtag(struct drbd_connection *connection, struct drbd_connec
 
 	p->dagtag = cpu_to_be64(lost_peer->last_dagtag_sector);
 	p->node_id = cpu_to_be32(lost_peer->peer_node_id);
-#ifdef _WIN32_TRACE_PEER_DAGTAG
+#ifdef _TRACE_PEER_DAGTAG
 	drbd_info(NO_OBJECT,"drbd_send_peer_dagtag lost_peer:%p lost_peer->last_dagtag_sector:%llx lost_peer->peer_node_id:%d\n",lost_peer,lost_peer->last_dagtag_sector,lost_peer->peer_node_id);
 #endif	
 	return send_command(connection, -1, P_PEER_DAGTAG, DATA_STREAM);
@@ -2515,9 +2513,7 @@ int drbd_send_drequest(struct drbd_peer_device *peer_device, int cmd,
 	p->block_id = block_id;
 	p->pad = 0;
 	p->blksize = cpu_to_be32(size);
-#ifdef _WIN32
-    drbd_debug_rs("size(%d) cmd(%d) sector(0x%llx) block_id(%d)\n", size, cmd, sector, block_id);
-#endif
+    drbd_debug_rs("size(%d) cmd(%d) sector(0x%llx) block_id(%llu)\n", size, cmd, (u64)sector, block_id);
 	return drbd_send_command(peer_device, cmd, DATA_STREAM);
 }
 

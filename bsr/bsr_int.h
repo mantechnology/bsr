@@ -353,6 +353,7 @@ void drbd_printk_with_wrong_object_type(void);
 
 
 #define drbd_debug_conn(fmt, args...) //drbd_info(NO_OBJECT, fmt, ## args)
+#define drbd_debug_rs(fmt, args...)
 
 
 #define drbd_emerg(obj, fmt, args...) \
@@ -3747,8 +3748,11 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 	if ((new == 0 || prev == 0 || prev->next == 0) ||
 		(prev->next->prev != prev) || // list_add corruption.
 		(prev->next != prev->next) || // list_add corruption.
-		(new == prev || new == prev->next) || //list_add double add.
-		(new->next != new->prev)) // new is not initialized.
+		(new == prev || new == prev->next) //list_add double add.
+#ifdef _WIN32 // TODO "twopc_parent_list already added" occurs on Linux. condition verification required. 
+		|| (new->next != new->prev) // new is not initialized.
+#endif
+		) 
 		return false;
 
 	return true;

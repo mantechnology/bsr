@@ -501,22 +501,10 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 	page = chain->head;
 	if (!page)
 		return -ENOMEM;
+
 #ifdef _WIN32
-	err = dtt_recv_short(socket, page, size, 0); // required to verify *peer_req_databuf pointer buffer , size value 's validity 
-	drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) all_pages(0x%p)\n", err, socket, size, page);
-    if (err < 0) {
-		goto fail;
-	}
-	else if (err != (int)size) 
-	{
-		// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-		drbd_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", size, err);
-		err = -EIO;		
-		
-		goto fail;
-	}
-	
-#else
+	err = dtt_recv_short(socket, page, size, 0); // required to verify *peer_req_databuf pointer buffer , size value 's validity
+#else // _LIN
 	page_chain_for_each(page) {
 		size_t len = min_t(int, size, PAGE_SIZE);
 		void *data = kmap(page);
@@ -524,11 +512,25 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 		kunmap(page);
 		set_page_chain_offset(page, 0);
 		set_page_chain_size(page, len);
-		if (err < 0)
+#endif
+		drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) all_pages(0x%p)\n", err, socket, (int)size, page);
+		if (err < 0) {
 			goto fail;
+		}
+		else if (err != (int)size) 
+		{
+			// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
+			drbd_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)size, err);
+			err = -EIO;		
+			
+			goto fail;
+		}
+	
+#ifndef _WIN32 //_LIN
 		size -= len;
 	}
 #endif
+
 	return 0;
 fail:
 	drbd_free_page_chain(transport, chain, 0);
