@@ -2889,24 +2889,6 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 	return bdev;
 }
 
-bool want_bitmap(struct drbd_peer_device *peer_device)
-{
-#ifndef _WIN32
-	struct peer_device_conf *pdc; 
-	bool want_bitmap = false;
-
-	rcu_read_lock();
-	pdc = rcu_dereference(peer_device->conf);
-	if (pdc)
-		want_bitmap |= pdc->bitmap;
-	rcu_read_unlock();
-#else // TODO_WIN : Disable bitmap = no options temporary 
-	UNREFERENCED_PARAMETER(peer_device);
-	bool want_bitmap = true;
-#endif 
-	return want_bitmap;
-}
-
 static int open_backing_devices(struct drbd_device *device,
 		struct disk_conf *new_disk_conf,
 		struct drbd_backing_dev *nbc)
@@ -2990,14 +2972,11 @@ void drbd_backing_dev_free(struct drbd_device *device, struct drbd_backing_dev *
 
 static void discard_not_wanted_bitmap_uuids(struct drbd_device *device, struct drbd_backing_dev *ldev)
 {
-	struct drbd_peer_md *peer_md = ldev->md.peers;
 	struct drbd_peer_device *peer_device;
 	int node_id;
 
 	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
 		peer_device = peer_device_by_node_id(device, node_id);
-		if (peer_device && peer_md[node_id].bitmap_uuid && !want_bitmap(peer_device))
-			peer_md[node_id].bitmap_uuid = 0;
 	}
 }
 
@@ -3273,7 +3252,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		bitmap_index = nbc->md.peers[connection->peer_node_id].bitmap_index;
 		if (bitmap_index != -1)
 			peer_device->bitmap_index = bitmap_index;
-		else if (want_bitmap(peer_device))
+		else 
 			slots_needed++;
 	}
 	if (slots_needed) {
@@ -3288,7 +3267,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			goto force_diskless_dec;
 		}
 		for_each_peer_device(peer_device, device) {
-			if (peer_device->bitmap_index != -1 || !want_bitmap(peer_device))
+			if (peer_device->bitmap_index != -1)
 				continue;
 
 			err = allocate_bitmap_index(peer_device, nbc); 
@@ -4075,7 +4054,7 @@ static void peer_device_to_info(struct peer_device_info *info,
 	info->peer_resync_susp_user = peer_device->resync_susp_user[NOW];
 	info->peer_resync_susp_peer = peer_device->resync_susp_peer[NOW];
 	info->peer_resync_susp_dependency = peer_device->resync_susp_dependency[NOW];
-	info->peer_is_intentional_diskless = !want_bitmap(peer_device);
+	info->peer_is_intentional_diskless = false;
 }
 
 static bool is_resync_target_in_other_connection(struct drbd_peer_device *peer_device)
@@ -4453,7 +4432,7 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
 		struct drbd_device *device;
 
-		if (peer_device->bitmap_index != -1 || !want_bitmap(peer_device))
+		if (peer_device->bitmap_index != -1)
 			continue;
 
 		device = peer_device->device;
