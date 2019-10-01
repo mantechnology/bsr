@@ -930,9 +930,8 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	int c_put = 0;
 	int k_put = 0;
 	const int idx = peer_device ? 1 + peer_device->node_id : 0;
-#ifdef _WIN32
     struct drbd_device * device = req->device;
-#endif
+
 	/* FIXME n_connections, when this request was created/scheduled. */
 	BUG_ON(idx > DRBD_NODE_ID_MAX);
 	BUG_ON(idx < 0);
@@ -1081,19 +1080,11 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		int refcount = refcount_read(&req->kref.refcount);
 		
 		if (refcount < at_least)
-#ifdef _WIN32
             drbd_err(device,
             "mod_rq_state: Logic BUG: 0: %x -> %x, %d: %x -> %x: refcount = %d, should be >= %d\n",
             old_local, req->rq_state[0],
             idx, old_net, req->rq_state[idx],
             refcount, at_least);
-#else
-			drbd_err(req->device,
-				"mod_rq_state: Logic BUG: 0: %x -> %x, %d: %x -> %x: refcount = %d, should be >= %d\n",
-				old_local, req->rq_state[0],
-				idx, old_net, req->rq_state[idx],
-				refcount, at_least);
-#endif
 	}
 
 	/* If we made progress, retry conflicting peer requests, if any. */
