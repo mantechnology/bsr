@@ -2600,10 +2600,10 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 						peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(i_bb - s_bb) << 9;
 #ifdef _WIN32
 						drbd_info(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %lu, size %llu, count %d\n", 
-							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), peer_req->count);
+							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), *(peer_req->count));
 #else
 						drbd_info(peer_device, "--set in sync, bitmap bit start : %lu, range : %lu ~ %lu, size %lu, count %d\n", 
-							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), peer_req->count);
+							peer_req->s_bb, s_bb, (i_bb - 1), (BM_BIT_TO_SECT(i_bb - s_bb) << 9), *(peer_req->count));
 #endif
 						if (i_bb == e_next_bb)
 							peer_req->block_id = ID_SYNCER_SPLIT_DONE;
