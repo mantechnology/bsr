@@ -264,11 +264,10 @@ void drbd_put_listener(struct drbd_path *path)
 	struct drbd_resource *resource;
 	struct drbd_listener *listener;
 
-#ifdef _WIN32
 	// DW-1538 Sometimes null values come in. 
 	if (!path)
 		return;
-
+#ifdef _WIN32
 	listener = (struct drbd_listener*)xchg((LONG_PTR*)&path->listener, (LONG_PTR)NULL);
 #else
 	listener = xchg(&path->listener, NULL);

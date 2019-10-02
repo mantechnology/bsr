@@ -126,8 +126,6 @@ static bool may_be_up_to_date(struct drbd_device *device) __must_hold(local)
 			continue;
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (peer_device) {
-			struct peer_device_conf *pdc = rcu_dereference(peer_device->conf);
-			want_bitmap = pdc->bitmap;
 			peer_disk_state = peer_device->disk_state[NEW];
 		}
 		else {
@@ -200,7 +198,7 @@ bool is_suspended_fen(struct drbd_resource *resource, enum which_state which)
 	struct drbd_connection *connection;
 	bool rv = false;
 
-#ifdef LINBIT_PATCH // DW-1538 Disable for a while to avoid recursively locking
+	// BSR-330
 	rcu_read_lock();
 	for_each_connection_rcu(connection, resource) {
 		if (connection->susp_fen[which]) {
@@ -209,14 +207,6 @@ bool is_suspended_fen(struct drbd_resource *resource, enum which_state which)
 		}
 	}
 	rcu_read_unlock();
-#else
-	for_each_connection(connection, resource) {
-		if (connection->susp_fen[which]) {
-			rv = true;
-			break;
-		}
-	}
-#endif
 	return rv;
 }
 
@@ -2816,7 +2806,7 @@ void notify_peer_device_state_change(struct sk_buff *skb,
 		.peer_resync_susp_user = p->resync_susp_user[NEW],
 		.peer_resync_susp_peer = p->resync_susp_peer[NEW],
 		.peer_resync_susp_dependency = p->resync_susp_dependency[NEW] || p->resync_susp_other_c[NEW],
-		.peer_is_intentional_diskless = !want_bitmap(peer_device),
+		.peer_is_intentional_diskless = false,
 	};
 
 	notify_peer_device_state(skb, seq, peer_device, &peer_device_info, type);

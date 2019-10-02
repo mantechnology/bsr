@@ -280,7 +280,6 @@
 #define DRBD_USE_RLE_DEF	1
 #define DRBD_CSUMS_AFTER_CRASH_ONLY_DEF 0
 #define DRBD_AUTO_PROMOTE_DEF	1
-#define DRBD_BITMAP_DEF         1
 
 // DW-1249 auto-start by svc
 #define DRBD_SVC_AUTOSTART_DEF 1

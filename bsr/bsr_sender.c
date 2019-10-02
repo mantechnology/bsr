@@ -156,6 +156,9 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		IoFreeIrp(Irp);
 	}
 
+	// BSR-330
+	//drbd_debug(NO_OBJECT,"drbd_md_io_complete: md_io->done(%d) bio se:0x%llx sz:%d\n", device->md_io.done, bio->bi_sector, bio->bi_size);
+
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		bio_put(bio);
 	}
@@ -171,12 +174,12 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	 * ASSERT(atomic_read(&mdev->md_io_in_use) == 1) there.
 	 */
 	drbd_md_put_buffer(device);
-
-    drbd_debug(NO_OBJECT,"drbd_md_io_complete: md_io->done(%d) bio se:0x%llx sz:%d\n", device->md_io.done, bio->bi_sector, bio->bi_size);
+	 
 	device->md_io.done = 1;
 	wake_up(&device->misc_wait);
 
-	drbd_debug(NO_OBJECT,"drbd_md_endio done.(%d)................!!!\n", md_endio_cnt++);
+	// BSR-330
+	//drbd_debug(NO_OBJECT, "drbd_md_endio done.(%d)................!!!\n", md_endio_cnt++);
 
 	BIO_ENDIO_FN_RETURN;
 
@@ -278,6 +281,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	int do_wake = 0;
 	u64 block_id;
 	struct drbd_peer_request *p_req, *t_inative;
+	unsigned int size;
 
 	// DW-1696 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	spin_lock_irqsave(&device->resource->req_lock, flags);
@@ -379,6 +383,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 	device->writ_cnt += peer_req->i.size >> 9;
 	atomic_inc(&connection->done_ee_cnt);
+	size = peer_req->i.size;
 	list_move_tail(&peer_req->w.list, &connection->done_ee);
 
 	/*
@@ -409,7 +414,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	if (block_id == ID_SYNCER) {
 		if (!(peer_flags & EE_SPLIT_REQUEST))
 			drbd_rs_complete_io(peer_device, sector, __FUNCTION__);
-		atomic_add64(peer_req->i.size, &peer_device->rs_written);
+		atomic_add64(size, &peer_device->rs_written);
 
 	}
 
@@ -438,7 +443,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 	struct bio *bio = NULL;
 	int error = 0;
 	static int peer_request_endio_cnt = 0;
-	drbd_debug(NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) drbd_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
+	//drbd_debug(NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) drbd_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		error = Irp->IoStatus.Status;
@@ -532,7 +537,8 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 		else
 			drbd_endio_read_sec_final(peer_req);
 	}
-	drbd_debug(NO_OBJECT,"drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+	//drbd_debug(NO_OBJECT,"drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+	
 	BIO_ENDIO_FN_RETURN;
 #else //_LIN //TODO for cross-platform code
 	struct drbd_peer_request *peer_req = bio->bi_private;

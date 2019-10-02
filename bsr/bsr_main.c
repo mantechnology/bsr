@@ -5471,12 +5471,6 @@ static u64 rotate_current_into_bitmap(struct drbd_device *device, u64 weak_nodes
 		if (peer_device) {
 			enum drbd_disk_state pdsk = peer_device->disk_state[NOW];
 			
-			if (peer_device->bitmap_index == -1) {
-				struct peer_device_conf *pdc;
-				pdc = rcu_dereference(peer_device->conf);
-				if (pdc && !pdc->bitmap)
-					continue;
-			}
 			do_it = (pdsk <= D_UNKNOWN && pdsk != D_NEGOTIATING) ||
 				(NODE_MASK(node_id) & weak_nodes);
 
