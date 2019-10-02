@@ -10950,13 +10950,12 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 
 		drbd_reclaim_net_peer_reqs(connection);
 
-#ifdef _WIN32
 		// DW-1539 alarm req-buf overflow and disconnect
 		if(connection->resource->breqbuf_overflow_alarm) {
 			drbd_err(connection, "drbd_resource:%p drbd_req overflow alarm\n",connection->resource);
 			goto reconnect;
 		}
-#endif
+		
 		if (test_and_clear_bit(SEND_PING, &connection->flags)) {
 #ifdef _WIN32
 			int ping_ret;
