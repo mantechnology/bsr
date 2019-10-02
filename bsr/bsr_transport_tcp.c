@@ -1694,9 +1694,14 @@ out:
 	return err;
 }
 
-#ifndef _WIN32
 static void dtt_cleanup_accepted_sockets(struct dtt_path *path)
 {
+#ifdef _WIN32
+		if (path->socket) {
+			sock_release(path->socket);
+			path->socket = NULL;
+		}
+#else // _LIN
 	while (!list_empty(&path->sockets)) {
 		struct dtt_socket_container *socket_c =
 			list_first_entry(&path->sockets, struct dtt_socket_container, list);
@@ -1706,8 +1711,8 @@ static void dtt_cleanup_accepted_sockets(struct dtt_path *path)
 		sock_release(socket_c->socket);
 		kfree(socket_c);
 	}
-}
 #endif
+}
 
 // DW-1398
 void dtt_put_listeners(struct drbd_transport *transport)
@@ -1723,16 +1728,8 @@ void dtt_put_listeners(struct drbd_transport *transport)
 
 	for_each_path_ref(drbd_path, transport) {
 		struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
-
 		drbd_put_listener(drbd_path);
-#ifdef _WIN32
-		if (path->socket) {
-			sock_release(path->socket);
-			path->socket = NULL;
-		}
-#else
 		dtt_cleanup_accepted_sockets(path);
-#endif
 	}
 }
 
@@ -1781,14 +1778,7 @@ static int dtt_connect(struct drbd_transport *transport)
 
 	for_each_path_ref(drbd_path, transport) {
 		struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
-#ifdef _WIN32
-		if (path->socket) {
-			sock_release(path->socket);
-			path->socket = NULL;
-		}
-#else
 		dtt_cleanup_accepted_sockets(path);
-#endif
 	}
 
 	spin_lock(&tcp_transport->paths_lock);
@@ -1912,29 +1902,23 @@ static int dtt_connect(struct drbd_transport *transport)
 
 			if (use_for_data) {
 				dsocket = s;
-#ifdef _WIN32 // DW-1567
+				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
 					drbd_err(NO_OBJECT,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
 				}
-#else
-				dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM);				
-#endif
 			} else {
 				clear_bit(RESOLVE_CONFLICTS, &transport->flags);
 				csocket = s;
-#ifdef _WIN32 // DW-1567
+				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
 					drbd_err(NO_OBJECT,"failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
 				}
-#else
-				dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM);
-#endif
 			}
 		} else if (!first_path)
 			connect_to_path = dtt_next_path(tcp_transport, connect_to_path);
