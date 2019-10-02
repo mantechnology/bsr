@@ -3785,12 +3785,12 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 	int op, op_flags;
 	int err, tp;
 
-#ifdef _WIN32 // DW-1502 bump the mirrored data after the ack_receiver has terminated.
+	// DW-1502 bump the mirrored data after the ack_receiver has terminated.
 	if(get_t_state(&connection->ack_receiver) != RUNNING) {
 		drbd_info(NO_OBJECT,"ack_receiver is not running... bump mirrored data\n");
 		return 0;
 	}
-#endif	
+
 	peer_device = conn_peer_device(connection, pi->vnr);    
 	if (!peer_device)
 		return -EIO;
@@ -4141,7 +4141,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		}
 #endif
 
-#ifdef _WIN32_TRACE_PEER_DAGTAG
+#ifdef _TRACE_PEER_DAGTAG
 		drbd_info(NO_OBJECT,"receive_Data connection->last_dagtag_sector:%llx ack_receiver thread state:%d\n",connection->last_dagtag_sector, get_t_state(&connection->ack_receiver));
 #endif
 		return 0;
@@ -4310,9 +4310,8 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 				(unsigned long long)sector, size);
 		return -EINVAL;
 	}
-#ifdef _WIN32
-    drbd_debug_rs("cmd(%s) sector(0x%llx), size(%d)\n", drbd_packet_name(pi->cmd), sector, size);
-#endif
+
+    drbd_debug_rs("cmd(%s) sector(0x%llx), size(%d)\n", drbd_packet_name(pi->cmd), (u64)sector, size);
 	min_d_state = pi->cmd == P_DATA_REQUEST ? D_UP_TO_DATE : D_OUTDATED;
 	if (!get_ldev_if_state(device, min_d_state)) {
 		verb = 1;
@@ -9092,7 +9091,7 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 			if ((new_repl_state == L_WF_BITMAP_T) && (peer_device->disk_state[NOW] <= D_INCONSISTENT))
 				goto out;
 
-#ifdef _WIN32_TRACE_PEER_DAGTAG
+#ifdef _TRACE_PEER_DAGTAG
 		drbd_info(connection, "Reconciliation resync because \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
 			  lost_peer->transport.net_conf->name, (int)dagtag_offset, lost_peer, lost_peer->last_dagtag_sector, be64_to_cpu(p->dagtag));
 #else
@@ -9120,7 +9119,7 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 		end_state_change(resource, &irq_flags, __FUNCTION__);
 #endif	
 	} else {
-#ifdef _WIN32_TRACE_PEER_DAGTAG	
+#ifdef _TRACE_PEER_DAGTAG	
 		drbd_info(connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
 			  lost_peer->transport.net_conf->name, (int)dagtag_offset, lost_peer, lost_peer->last_dagtag_sector, be64_to_cpu(p->dagtag));
 #else
@@ -10729,7 +10728,7 @@ static int got_peer_ack(struct drbd_connection *connection, struct packet_info *
 
 	dagtag = be64_to_cpu(p->dagtag);
 	in_sync = be64_to_cpu(p->mask);
-#ifdef _WIN32_TRACE_PEER_DAGTAG    
+#ifdef _TRACE_PEER_DAGTAG    
 	drbd_info(NO_OBJECT,"got_peer_ack dagtag:%llx in_sync:%llx\n", dagtag, in_sync);
 #endif
 	
@@ -10762,9 +10761,9 @@ found:
 			clear_bit(peer_device->bitmap_index, &set_sync_mask);
 			drbd_set_sync(device, peer_req->i.sector,
 				peer_req->i.size, ~in_sync_b, (ULONG_PTR)set_sync_mask);
-#ifdef _WIN32_TRACE_PEER_DAGTAG			
+#ifdef _TRACE_PEER_DAGTAG			
 			drbd_info(NO_OBJECT,"got_peer_ack drbd_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
-				device, peer_req->i.sector, peer_req->i.size, in_sync_b, set_sync_mask);
+				device, (u64)peer_req->i.sector, peer_req->i.size, (u64)in_sync_b, (u64)set_sync_mask);
 #endif
 			drbd_al_complete_io(device, &peer_req->i);
 			put_ldev(device);

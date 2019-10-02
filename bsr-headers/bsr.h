@@ -536,4 +536,7 @@ enum {
 // BSR-327 common NETQUEUED_LOG
 #define NETQUEUED_LOG // DW-1521 Improve I/O response time at low bandwidth.
 
+// BSR-326
+// #define _TRACE_PEER_DAGTAG		// trace peer_dagtag, last_dagtag 
+
 #endif
