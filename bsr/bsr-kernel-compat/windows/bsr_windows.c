@@ -3291,3 +3291,10 @@ bool IsDiskError()
 	}
 	return bErr;
 }
+
+void msleep(int millisecs)
+{
+	LARGE_INTEGER delay;
+	delay.QuadPart = (-1 * millisecs * 10000);
+	KeDelayExecutionThread(KernelMode, FALSE, &delay);
+}
