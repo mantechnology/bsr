@@ -228,11 +228,8 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 	// DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 		if (peer_req == p_req) {
-#ifdef _WIN32
-			drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#else
-			drbd_info(device, "destroy, read inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#endif
+			drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%d)\n", 
+				peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
 			spin_unlock_irqrestore(&device->resource->req_lock, flags);
@@ -290,18 +287,12 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			if (peer_req->block_id != ID_SYNCER) {
 				// DW-1920 in inactive_ee, the replication data calls drbd_al_complete_io() upon completion of the write.
 				drbd_al_complete_io(device, &peer_req->i);
-#ifdef _WIN32
-				drbd_info(device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#else
-				drbd_info(device, "destroy, active_ee => inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#endif
+				drbd_info(device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%d)\n", 
+					peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			}
 			else {
-#ifdef _WIN32
-				drbd_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#else
-				drbd_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%lu), size(%d)\n", peer_req, peer_req->i.sector, peer_req->i.size);
-#endif
+				drbd_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", 
+					peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			}
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
@@ -1748,15 +1739,12 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 
 #ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-#ifdef _WIN32
 	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
 		verify_done ? "Online verify" : "Resync",
-		dt + peer_device->rs_paused, peer_device->rs_paused, dbdt, device->h_insync_bb, device->h_marked_bb);
-#else
-	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec), hit bit (in sync %lu; marked rl %lu)\n",
-		verify_done ? "Online verify" : "Resync",
-		dt + peer_device->rs_paused, peer_device->rs_paused, dbdt, device->h_insync_bb, device->h_marked_bb);
-#endif
+		dt + peer_device->rs_paused, 
+		peer_device->rs_paused, dbdt, 
+		(unsigned long long)device->h_insync_bb, 
+		(unsigned long long)device->h_marked_bb);
 #else
 	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec)\n",
 		verify_done ? "Online verify" : "Resync", dt + peer_device->rs_paused, peer_device->rs_paused, dbdt);

@@ -1122,11 +1122,7 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
  * we still need to lock it, since it is important that this returns
  * bm_set == 0 precisely.
  */
-#ifdef _WIN32
 ULONG_PTR _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index)
-#else
-unsigned long _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index)
-#endif
 {
 	struct drbd_bitmap *b = device->bitmap;
 	ULONG_PTR s;
@@ -1143,18 +1139,12 @@ unsigned long _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index
 
 	return s;
 }
-#ifdef _WIN32
+
 ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *peer_device)
-#else
-unsigned long drbd_bm_total_weight(struct drbd_peer_device *peer_device)
-#endif
 {
 	struct drbd_device *device = peer_device->device;
-#ifdef _WIN32
     ULONG_PTR s;
-#else
-	unsigned long s;
-#endif
+
 	if (peer_device->bitmap_index == -1)
 		return 0;
 
