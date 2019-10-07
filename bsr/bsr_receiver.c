@@ -10278,20 +10278,28 @@ validate_req_change_req_state(struct drbd_peer_device *peer_device, u64 id, sect
 }
 
 // BSR-381 
-static void change_ahead_to_sync_source(struct drbd_connection *connection, struct drbd_peer_device* peer_device)
+static void change_ahead_to_sync_source(struct drbd_connection *connection)
 {
-	if (peer_device->repl_state[NOW] == L_AHEAD &&
-		// DW-1817 When exiting AHEAD mode, check only the replicated data.
-		//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
-		//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
+	int vnr;
+	struct drbd_peer_device *peer_device;
 
-		// BSR-381
-		(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
-		!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
-		peer_device->start_resync_side = L_SYNC_SOURCE;
-		peer_device->start_resync_timer.expires = jiffies + HZ;
-		add_timer(&peer_device->start_resync_timer);
+	rcu_read_lock();
+	// BSR-381 check AHEAD_TO_SYNC_SOURCE in connection unit.
+	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+		if (peer_device->repl_state[NOW] == L_AHEAD &&
+			// DW-1817 When exiting AHEAD mode, check only the replicated data.
+			//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
+			//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
+
+			// BSR-381
+			(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
+			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+			peer_device->start_resync_side = L_SYNC_SOURCE;
+			peer_device->start_resync_timer.expires = jiffies + HZ;
+			add_timer(&peer_device->start_resync_timer);
+		}
 	}
+	rcu_read_unlock();
 }
 
 static int got_BlockAck(struct drbd_connection *connection, struct packet_info *pi)
@@ -10340,7 +10348,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection, peer_device);
+			change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10366,7 +10374,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection, peer_device);
+			change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10432,7 +10440,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection, peer_device);
+			change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10456,7 +10464,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection, peer_device);
+			change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10560,20 +10568,14 @@ static int got_NegRSDReply(struct drbd_connection *connection, struct packet_inf
 
 static int got_BarrierAck(struct drbd_connection *connection, struct packet_info *pi)
 {
-	struct drbd_peer_device *peer_device;
 	struct p_barrier_ack *p = pi->data;
-	int vnr;
 
 #ifdef DRBD_TRACE
 	drbd_debug(NO_OBJECT,"do tl_release\n");
 #endif
 	tl_release(connection, p->barrier, be32_to_cpu(p->set_size));
 
-	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_peer_device *,  &connection->peer_devices, peer_device, vnr) {
-		change_ahead_to_sync_source(connection, peer_device);
-	}
-	rcu_read_unlock();
+	change_ahead_to_sync_source(connection);
 
 	return 0;
 }
