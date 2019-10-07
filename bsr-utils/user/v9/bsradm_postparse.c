@@ -84,10 +84,10 @@ void set_on_hosts_in_res(struct d_resource *res)
 								"device-minor", "device-minor:%s:%u", h->name,
 								vol->device_minor);
 
-							for_each_volume(vol, &host->volumes)
-								if (vol->device)
-									check_uniq_file_line(vol->v_config_file, vol->v_device_line,
-									"device", "device:%s:%s", h->name, vol->device);
+						for_each_volume(vol, &host->volumes)
+							if (vol->device)
+								check_uniq_file_line(vol->v_config_file, vol->v_device_line,
+								"device", "device:%s:%s", h->name, vol->device);
 					}
 				}
 

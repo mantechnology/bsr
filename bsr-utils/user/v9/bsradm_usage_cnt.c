@@ -239,7 +239,7 @@ struct hostent *my_gethostbyname(const char *name)
 		*/
 #ifdef _WIN32
 		h = gethostbyname(name);
-#else	// not support
+#else	// _LIN
 		gethostbyname_r(name, &ret, buf, sizeof(buf), &h, &my_h_errno);
 #endif
 	} else {

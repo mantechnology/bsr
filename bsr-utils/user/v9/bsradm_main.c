@@ -49,9 +49,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
-#ifndef _WIN32
 #include "bsr.h"
-#endif
 #include "linux/bsr_limits.h"
 #include "bsrtool_common.h"
 #include "bsradm.h"
@@ -61,7 +59,6 @@
 #include "shared_main.h"
 #include "bsradm_parser.h"
 #ifdef _WIN32
-#include "bsr.h"
 #include <windows.h>
 #undef BSR_CONFIG_DIR
 #define BSR_CONFIG_DIR "/etc"
@@ -153,9 +150,7 @@ int fline;
 char *config_file = NULL;
 char *config_save = NULL;
 char *config_test = NULL;
-#ifdef _WIN32
 char *parse_file = NULL;
-#endif
 struct resources config = STAILQ_HEAD_INITIALIZER(config);
 struct d_resource *common = NULL;
 // DW-1744
@@ -1392,19 +1387,11 @@ static int adm_resource(const struct cfg_ctx *ctx)
 	return ex;
 }
 
-#ifdef _WIN32
-static _off64_t read_drbd_dev_size(int minor)
-#else 
 static off64_t read_drbd_dev_size(int minor)
-#endif 
 {
 	char *path;
 	FILE *file;
-#ifdef _WIN32
-	_off64_t val;
-#else 
 	off64_t val;
-#endif 
 	int r;
 
 	m_asprintf(&path, "/sys/block/drbd%d/size", minor);
@@ -1426,15 +1413,9 @@ int adm_resize(const struct cfg_ctx *ctx)
 	char *argv[MAX_ARGS];
 	struct d_option *opt;
 	bool is_resize = !strcmp(ctx->cmd->name, "resize");
-#ifdef _WIN32
-	_off64_t old_size = -1;
-	_off64_t target_size = 0;
-	_off64_t new_size;
-#else
 	off64_t old_size = -1;
 	off64_t target_size = 0;
 	off64_t new_size;
-#endif 
 	int argc = 0;
 	int silent;
 	int ex;
@@ -2010,11 +1991,8 @@ int do_proxy_conn_up(const struct cfg_ctx *ctx)
 	for_each_connection(conn, &ctx->res->connections) {
 		struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-#ifdef _WIN32
+		// DW-1426
 		if (!path || !path->my_proxy || !path->peer_proxy)
-#else
-		if (!path->my_proxy || !path->peer_proxy)
-#endif
 			continue;
 
 		conn_name = proxy_connection_name(ctx->res, conn);
@@ -2057,11 +2035,8 @@ int do_proxy_conn_plugins(const struct cfg_ctx *ctx)
 	for_each_connection(conn, &ctx->res->connections) {
 		struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-#ifdef _WIN32
+		// DW-1426
 		if (!path || !path->my_proxy || !path->peer_proxy)
-#else
-		if (!path->my_proxy || !path->peer_proxy)
-#endif
 			continue;
 
 		conn_name = proxy_connection_name(ctx->res, conn);
@@ -2114,11 +2089,8 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx)
 	for_each_connection(conn, &res->connections) {
 		struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 
-#ifdef _WIN32
+		// DW-1426
 		if (!path || !path->my_proxy || !path->peer_proxy)
-#else
-		if (!path->my_proxy || !path->peer_proxy)
-#endif
 			continue;
 
 		conn_name = proxy_connection_name(ctx->res, conn);
@@ -3565,9 +3537,9 @@ int main(int argc, char **argv)
 	else
 		config_save = canonify_path(config_file);
 
-#ifdef _WIN32
+	// DW-1569
 	parse_file = config_file;
-#endif
+
 	my_parse();
 	TRACE_PRINT("config_file(%s) => my_parse() called\n", config_file);
 
@@ -3600,8 +3572,7 @@ int main(int argc, char **argv)
 	if (cmd != &connect_cmd && cmd != &adjust_cmd) {
 		char *temp_file = config_file;
 		int temp_config_valid = config_valid;
-		if (!resource_names[0] || !strcmp(resource_names[0], "all")) 
-		{	
+		if (!resource_names[0] || !strcmp(resource_names[0], "all")) {	
 			parse_drbdsetup_show(NULL);
 		}
 		else {	

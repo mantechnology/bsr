@@ -2056,26 +2056,16 @@ void include_stmt(char *str)
 				include_file(f, strdup(glob_buf.gl_pathv[i]));
 				fclose(f);
 			} else {
-#ifdef _WIN32
                 err("%s:%d: Failed to open include file 1 '%s'.\n",
 					parse_file, line, glob_buf.gl_pathv[i]);
-#else
-				err("%s:%d: Failed to open include file '%s'.\n",
-					config_save, line, glob_buf.gl_pathv[i]);
-#endif
 				config_valid = 0;
 			}
 		}
 		globfree(&glob_buf);
 	} else if (r == GLOB_NOMATCH) {
 		if (!strchr(str, '?') && !strchr(str, '*') && !strchr(str, '[')) {
-#ifdef _WIN32
             err("%s:%d: Failed to open include file '%s'.\n",
                 parse_file, line, str);
-#else
-			err("%s:%d: Failed to open include file '%s'.\n",
-			    config_save, line, str);
-#endif
 			config_valid = 0;
 		}
 	} else {
