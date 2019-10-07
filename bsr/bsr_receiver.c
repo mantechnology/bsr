@@ -391,7 +391,7 @@ void* drbd_alloc_pages(struct drbd_transport *transport, unsigned int number, bo
 
 		// DW-1457 resync can be stuck with small max buffer beside resync rate, recover it "gracefully"(quoting Linux drbd commit 'facf4555')
 		if (schedule_timeout(HZ / 10) == 0)
-			mxb = UINT_MAX;
+			mxb = INT32_MAX; // BSR-383 set MAX value of datatype 
 
 #ifdef _WIN32
 		schedule(&drbd_pp_wait, HZ, __FUNCTION__, __LINE__);
