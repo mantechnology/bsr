@@ -356,21 +356,13 @@ const struct version *drbd_utils_version(void)
 
 int version_code_kernel(void)
 {
-#ifdef _WIN32
-    const struct version *driver_version = drbd_driver_version(_STRICT);
-#else
-	const struct version *driver_version = drbd_driver_version(STRICT);
-#endif
+	const struct version *driver_version = drbd_driver_version(_STRICT);
 	return driver_version ? driver_version->version_code : 0;
 }
 
 const char *escaped_version_code_kernel(void)
 {
-#ifdef _WIN32
 	const struct version *driver_version = drbd_driver_version(_STRICT);
-#else
-	const struct version *driver_version = drbd_driver_version(STRICT);
-#endif
 	char buf[32];
 
 	if (!driver_version)

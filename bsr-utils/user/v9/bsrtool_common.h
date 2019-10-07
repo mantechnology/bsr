@@ -86,11 +86,7 @@ struct version {
 };
 
 enum driver_version_policy {
-#ifdef _WIN32
     _STRICT,
-#else
-	STRICT,
-#endif
 	FALLBACK_TO_UTILS
 };
 extern const struct version *drbd_driver_version(enum driver_version_policy fallback);

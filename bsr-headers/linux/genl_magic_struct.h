@@ -15,6 +15,9 @@
 
 #ifdef _WIN32
 #include "../windows/types.h"
+#ifdef __KERNEL__
+#include "../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
+#endif
 #ifndef inline
 #define inline __inline
 #endif
@@ -78,7 +81,6 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
 
 /* MAGIC helpers							{{{2 */
 
-#ifndef _WIN32
 static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 value)
 {
 #ifdef COMPAT_HAVE_NLA_PUT_64BIT
@@ -87,7 +89,6 @@ static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 valu
 	return nla_put_u64(skb, attrtype, value);
 #endif
 }
-#endif 
 
 /* possible field types */
 #define __flg_field(attr_nr, attr_flag, name) \
@@ -105,15 +106,9 @@ static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 valu
 #define __s32_field(attr_nr, attr_flag, name)	\
 	__field(attr_nr, attr_flag, name, NLA_U32, __s32, \
 			nla_get_u32, nla_put_u32, true)
-#ifndef _WIN32
 #define __u64_field(attr_nr, attr_flag, name)	\
 	__field(attr_nr, attr_flag, name, NLA_U64, __u64, \
 			nla_get_u64, nla_put_u64_0pad, false)
-#else
-#define __u64_field(attr_nr, attr_flag, name)	\
-	__field(attr_nr, attr_flag, name, NLA_U64, __u64, \
-			nla_get_u64, nla_put_u64, false)
-#endif 
 #define __str_field(attr_nr, attr_flag, name, maxlen) \
 	__array(attr_nr, attr_flag, name, NLA_NUL_STRING, char, maxlen, \
 			nla_strlcpy, nla_put, false)
