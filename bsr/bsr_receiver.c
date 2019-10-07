@@ -10273,7 +10273,7 @@ validate_req_change_req_state(struct drbd_peer_device *peer_device, u64 id, sect
 }
 
 // BSR-381 
-static void change_ahead_to_sync_source(struct drbd_connection *connection)
+static void try_change_ahead_to_sync_source(struct drbd_connection *connection)
 {
 	int vnr;
 	struct drbd_peer_device *peer_device;
@@ -10343,7 +10343,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection);
+			try_change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10369,7 +10369,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection);
+			try_change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10435,7 +10435,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection);
+			try_change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10459,7 +10459,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 				atomic_set64(&connection->rs_in_flight, 0);
 
 			// BSR-381 check the resync data in the ahead state.
-			change_ahead_to_sync_source(connection);
+			try_change_ahead_to_sync_source(connection);
 
 			return 0;
 		}
@@ -10570,7 +10570,7 @@ static int got_BarrierAck(struct drbd_connection *connection, struct packet_info
 #endif
 	tl_release(connection, p->barrier, be32_to_cpu(p->set_size));
 
-	change_ahead_to_sync_source(connection);
+	try_change_ahead_to_sync_source(connection);
 
 	return 0;
 }
