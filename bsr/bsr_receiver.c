@@ -10272,6 +10272,23 @@ validate_req_change_req_state(struct drbd_peer_device *peer_device, u64 id, sect
 	return 0;
 }
 
+// BSR-381 
+static void change_ahead_to_sync_source(struct drbd_connection *connection, struct drbd_peer_device* peer_device)
+{
+	if (peer_device->repl_state[NOW] == L_AHEAD &&
+		// DW-1817 When exiting AHEAD mode, check only the replicated data.
+		//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
+		//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
+
+		// BSR-381
+		(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
+		!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+		peer_device->start_resync_side = L_SYNC_SOURCE;
+		peer_device->start_resync_timer.expires = jiffies + HZ;
+		add_timer(&peer_device->start_resync_timer);
+	}
+}
+
 static int got_BlockAck(struct drbd_connection *connection, struct packet_info *pi)
 {
 	struct drbd_peer_device *peer_device;
@@ -10317,6 +10334,9 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
 				atomic_set64(&connection->rs_in_flight, 0);
 
+			// BSR-381 check the resync data in the ahead state.
+			change_ahead_to_sync_source(connection, peer_device);
+
 			return 0;
 		}
 	}
@@ -10339,6 +10359,10 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 			//At this point, it means that the synchronization data has been removed from the send buffer because the synchronization transfer is complete.
 			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
 				atomic_set64(&connection->rs_in_flight, 0);
+
+			// BSR-381 check the resync data in the ahead state.
+			change_ahead_to_sync_source(connection, peer_device);
+
 			return 0;
 		}
 	}
@@ -10402,6 +10426,9 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
 				atomic_set64(&connection->rs_in_flight, 0);
 
+			// BSR-381 check the resync data in the ahead state.
+			change_ahead_to_sync_source(connection, peer_device);
+
 			return 0;
 		}
 
@@ -10422,6 +10449,10 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 			//This means that the resync data is definitely free from send-buffer.
 			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
 				atomic_set64(&connection->rs_in_flight, 0);
+
+			// BSR-381 check the resync data in the ahead state.
+			change_ahead_to_sync_source(connection, peer_device);
+
 			return 0;
 		}
 	}
@@ -10535,16 +10566,7 @@ static int got_BarrierAck(struct drbd_connection *connection, struct packet_info
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct drbd_peer_device *,  &connection->peer_devices, peer_device, vnr) {
-		if (peer_device->repl_state[NOW] == L_AHEAD &&
-			// DW-1817 When exiting AHEAD mode, check only the replicated data.
-			//There is no need to wait until the buffer is completely emptied, so it is not necessary to check the synchronization data. 
-			//And most of the time, replication data will occupy most of it by DRBD's sync rate controller.
-		    atomic_read64(&connection->ap_in_flight) == 0 &&
-			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
-			peer_device->start_resync_side = L_SYNC_SOURCE;
-			peer_device->start_resync_timer.expires = jiffies + HZ;
-			add_timer(&peer_device->start_resync_timer);
-		}
+		change_ahead_to_sync_source(connection, peer_device);
 	}
 	rcu_read_unlock();
 
