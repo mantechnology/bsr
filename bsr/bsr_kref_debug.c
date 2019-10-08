@@ -9,9 +9,9 @@ static void get_resource_name(const struct kref_debug_info *debug_info, char *na
 {
 	struct drbd_resource *resource = container_of(debug_info, struct drbd_resource, kref_debug);
 	if (resource->name)
-		strcpy(name, resource->name);
+		strncpy(name, resource->name, sizeof(name) - 1);
 	else
-		strcpy(name, "unnamed");
+		strncpy(name, "unnamed", sizeof(name) - 1);
 }
 
 static void get_connection_name(const struct kref_debug_info *debug_info, char *name)

@@ -1048,10 +1048,11 @@ void resync_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-	if (data == NULL) //TODO
-		return;
 #endif
 	struct drbd_peer_device *peer_device = (struct drbd_peer_device *) data;
+
+	if (peer_device == NULL)
+		return;
 
 	drbd_queue_work_if_unqueued(
 		&peer_device->connection->sender_work,
@@ -2591,11 +2592,12 @@ void start_resync_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-
-	if (data == NULL) //TODO for linux
-		return;
 #endif
 	struct drbd_peer_device *peer_device = (struct drbd_peer_device *) data;
+
+	if (peer_device == NULL)
+		return;
+
 	drbd_info(peer_device, "post RS_START to the peer_device work\n"); // DW-1518
 	drbd_peer_device_post_work(peer_device, RS_START);
 }

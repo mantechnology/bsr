@@ -791,13 +791,15 @@ void connect_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
 	
-	if (data == NULL)
-		return;
 #endif
 	struct drbd_connection *connection = (struct drbd_connection *) data;
-	struct drbd_resource *resource = connection->resource;
+	struct drbd_resource *resource;
 	unsigned long irq_flags;
 
+	if (connection == NULL)
+		return;
+
+	resource = connection->resource;
 	spin_lock_irqsave(&resource->req_lock, irq_flags);
 	drbd_queue_work(&connection->sender_work, &connection->connect_timer_work);
 	spin_unlock_irqrestore(&resource->req_lock, irq_flags);
@@ -7087,13 +7089,13 @@ void twopc_timer_fn(unsigned long data)
     UNREFERENCED_PARAMETER(Dpc);
     UNREFERENCED_PARAMETER(arg1);
     UNREFERENCED_PARAMETER(arg2);
-
-	if (data == NULL)
-		return;
 #endif
 
 	struct drbd_resource *resource = (struct drbd_resource *) data;
 	unsigned long irq_flags;
+
+	if (resource == NULL)
+		return;
 
 	spin_lock_irqsave(&resource->req_lock, irq_flags);
 	if (resource->twopc_work.cb == NULL) {
@@ -7385,15 +7387,17 @@ void queued_twopc_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-	
-	if (data == NULL)
-		return;
 #endif
 
 	struct drbd_resource *resource = (struct drbd_resource *) data;
 	struct queued_twopc *q;
 	unsigned long irq_flags;
-	unsigned long t = twopc_timeout(resource) / 4;
+	unsigned long t;
+
+	if (resource == NULL)
+		return;
+
+	t = twopc_timeout(resource) / 4;
 
 	spin_lock_irqsave(&resource->queued_twopc_lock, irq_flags);
 	q = list_first_entry_or_null(&resource->queued_twopc, struct queued_twopc, w.list);
