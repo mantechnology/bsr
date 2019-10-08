@@ -2896,7 +2896,8 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 			struct drbd_marked_replicate *marked_rl, *t;
 			list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 				list_del(&marked_rl->marked_rl_list);
-				kfree2(marked_rl);
+				kfree(marked_rl);
+				marked_rl = NULL;
 			}
 			device->s_rl_bb = UINTPTR_MAX;
 			device->e_rl_bb = 0;

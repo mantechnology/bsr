@@ -528,7 +528,6 @@ enum {
 
 #endif
 
-// TODO : BSR-162 BUG: unable to handle kernel NULL pointer dereference at           (null)
 #define SPLIT_REQUEST_RESYNC // DW-1845 disables the DW-1601 function. If enabled, you must set SPLIT_REQUEST_RESYNC 
 
 
