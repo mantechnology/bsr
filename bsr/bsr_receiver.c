@@ -1863,12 +1863,13 @@ struct drbd_peer_request *peer_req,
 	unsigned n_bios = 0;
 	unsigned nr_pages = peer_req->page_chain.nr_pages;
 	int err = -ENOMEM;
-#ifdef _WIN32 // DW-1598 Do not submit peer_req if there is no connection
-	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)){
+	
+	// DW-1598 Do not submit peer_req if there is no connection
+	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)) {
 		drbd_info(device, "node-id : %d, flag : CONNECTION_ALREADY_FREED\n", peer_req->peer_device->node_id);
 		return 0;
 	}
-#endif
+
 	/* TRIM/DISCARD: for now, always use the helper function
 	 * blkdev_issue_zeroout(..., discard=true).
 	 * It's synchronous, but it does the right thing wrt. bio splitting.

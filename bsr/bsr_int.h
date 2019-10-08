@@ -1023,8 +1023,10 @@ enum {
 	UNSTABLE_TRIGGER_CP,	// DW-1341 Do Trigger when my stability is unstable for Crashed Primay wiered case
 	SEND_BITMAP_WORK_PENDING, // DW-1447 Do not queue send_bitmap() until the peer's repl_state changes to WFBitmapT. Used when invalidate-remote/invalidate.
 
-#ifdef _WIN32 // DW-1598 
+	// DW-1598
 	CONNECTION_ALREADY_FREED,
+	
+#ifdef _WIN32 
 	// DW-1799 use for disk size comparison and setup.
 	INITIAL_SIZE_RECEIVED,
 #endif 

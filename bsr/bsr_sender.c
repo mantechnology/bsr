@@ -514,23 +514,6 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 		}
 		IoFreeIrp(Irp);
 	}
-
-	bio_put(bio); /* no need for the bio anymore */
-
-	// DW-1598 Prevent the function below from referencing a connection that already freed.
-	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)){
-		BIO_ENDIO_FN_RETURN;
-	}
-
-	if (atomic_dec_and_test(&peer_req->pending_bios)) {
-		if (is_write)
-			drbd_endio_write_sec_final(peer_req);
-		else
-			drbd_endio_read_sec_final(peer_req);
-	}
-	//drbd_debug(NO_OBJECT,"drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
-	
-	BIO_ENDIO_FN_RETURN;
 #else //_LIN //TODO for cross-platform code
 	struct drbd_peer_request *peer_req = bio->bi_private;
 	struct drbd_device *device = peer_req->peer_device->device;
@@ -546,16 +529,24 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 
 	if (error)
 		set_bit(__EE_WAS_ERROR, &peer_req->flags);
+#endif
 
 	bio_put(bio); /* no need for the bio anymore */
+
+	// DW-1598 Prevent the function below from referencing a connection that already freed.
+	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)){
+		BIO_ENDIO_FN_RETURN;
+	}
 	if (atomic_dec_and_test(&peer_req->pending_bios)) {
 		if (is_write)
 			drbd_endio_write_sec_final(peer_req);
 		else
 			drbd_endio_read_sec_final(peer_req);
 	}
+
+	//drbd_debug(NO_OBJECT,"drbd_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+
 	BIO_ENDIO_FN_RETURN;
-#endif
 }
 
 void drbd_panic_after_delayed_completion_of_aborted_request(struct drbd_device *device)

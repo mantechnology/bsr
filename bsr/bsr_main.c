@@ -4264,9 +4264,9 @@ void drbd_destroy_connection(struct kref *kref)
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
 
-#ifdef _WIN32 // DW-1598 set CONNECTION_ALREADY_FREED flags 
+		// DW-1598 set CONNECTION_ALREADY_FREED flags 
 		set_bit(CONNECTION_ALREADY_FREED, &peer_device->flags); 
-#endif
+
 		kref_put(&peer_device->device->kref, drbd_destroy_device);
 		free_peer_device(peer_device);
 #ifdef _WIN32 //TODO
