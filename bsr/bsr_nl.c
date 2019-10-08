@@ -1328,8 +1328,7 @@ retry:
 
 
 		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-#ifdef _WIN32
-		// DW-1609 It has been modified to function similar to 8.4.x for younger primary 
+			// DW-1609 It has been modified to function similar to 8.4.x for younger primary 
 			struct drbd_peer_device *peer_device;
 			u64 im;
 			bool younger_primary = false; // Add a younger_primary variable to create a new UUID if the condition is met.
@@ -1342,10 +1341,12 @@ retry:
 					&& (device->ldev->md.peers[peer_device->node_id].bitmap_uuid == 0)) {
 					if (younger_primary == false){
 						younger_primary = true; 
+#ifdef _WIN32
 						// DW-1850
 						//If for_each_peer_device_ref exits to break, 
 						//the reference count should be decremented.
 						kref_put(&peer_device->connection->kref, drbd_destroy_connection);
+#endif
 						break; 
 					}
 				}
@@ -1361,17 +1362,6 @@ retry:
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
 				put_ldev(device);
 			}
-#else
-			if (forced)
-				drbd_uuid_new_current(device, true);
-			else
-				set_bit(NEW_CUR_UUID, &device->flags);
-			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
-			if (get_ldev(device)) {
-				device->ldev->md.current_uuid |= UUID_PRIMARY;
-				put_ldev(device);
-			}
-#endif
 		} 
 	}
 
