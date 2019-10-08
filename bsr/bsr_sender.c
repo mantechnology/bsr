@@ -2890,7 +2890,6 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 #endif
 	__change_repl_state_and_auto_cstate(peer_device, side, __FUNCTION__);
 	if (side == L_SYNC_TARGET) {
-#ifdef _WIN32 //TODO
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			// DW-1911
@@ -2907,7 +2906,6 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 			device->h_marked_bb = 0;
 			device->h_insync_bb = 0;
 		}
-#endif
 #endif
 		__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
 		init_resync_stable_bits(peer_device);
