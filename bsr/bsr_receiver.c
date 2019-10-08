@@ -898,13 +898,13 @@ start:
 			return false;
 		goto retry;
 	} else if (err < 0) {
-		drbd_warn(connection, "Failed to initiate connection, err=%d\n", err);
-#ifdef _WIN32 // DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
+		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
-			drbd_warn(connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry;\n");
+			drbd_warn(connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d\n", err);
 			goto retry;
 		}
-#endif
+		else
+			drbd_warn(connection, "Failed to initiate connection, err=%d\n", err);
 		goto abort;
 	}
 
