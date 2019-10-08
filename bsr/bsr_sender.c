@@ -1729,7 +1729,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		goto out_unlock;
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
 		verify_done ? "Online verify" : "Resync",
 		dt + peer_device->rs_paused, 
@@ -2891,7 +2891,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 	__change_repl_state_and_auto_cstate(peer_device, side, __FUNCTION__);
 	if (side == L_SYNC_TARGET) {
 #ifdef _WIN32 //TODO
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			// DW-1911
 			struct drbd_marked_replicate *marked_rl, *t;
