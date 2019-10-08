@@ -2402,7 +2402,7 @@ static int recv_dless_read(struct drbd_peer_device *peer_device, struct drbd_req
 }
 
 
-#ifndef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifndef SPLIT_REQUEST_RESYNC
 /*
  * e_end_resync_block() is called in ack_sender context via
  * drbd_finish_peer_reqs().
@@ -2492,7 +2492,7 @@ static bool drbd_send_ack_and_rs_failed(struct drbd_peer_device *peer_device, se
 }
 #endif
 
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 static int bit_count(unsigned int val)
 {
 	int count = 0;
@@ -3147,7 +3147,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 }
 #endif
 
-#ifndef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifndef SPLIT_REQUEST_RESYNC
 static int recv_resync_read(struct drbd_peer_device *peer_device,
 			    struct drbd_peer_request_details *d) __releases(local)
 {
@@ -3307,8 +3307,8 @@ static int receive_RSDataReply(struct drbd_connection *connection, struct packet
 	D_ASSERT(device, d.block_id == ID_SYNCER);
 
 	if (get_ldev(device)) {
-		// DW-1845 disables the DW-1601 function. If enabled, you must set ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+		// DW-1845 disables the DW-1601 function. If enabled, you must set SPLIT_REQUEST_RESYNC
+#ifdef SPLIT_REQUEST_RESYNC
 		err = split_recv_resync_read(peer_device, &d);
 #else
 		err = recv_resync_read(peer_device, &d);
@@ -4017,7 +4017,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		}
 
 		// DW-1601 if the status is L_SYNC_TARGET calculate
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113 && peer_device->repl_state[NOW] == L_SYNC_TARGET) {
 			sector_t ssector, esector;            
 			ULONG_PTR s_bb, e_bb;
@@ -9207,7 +9207,7 @@ static int receive_rs_deallocated(struct drbd_connection *connection, struct pac
 		peer_req->i.size = size;
 		peer_req->i.sector = sector;
 		peer_req->block_id = ID_SYNCER;
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 		peer_req->w.cb = split_e_end_resync_block;
 #else
 		peer_req->w.cb = e_end_resync_block;
@@ -10324,7 +10324,7 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 		return -EIO;
 	device = peer_device->device;
 
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	// DW-1601 ID_SYNCER_SPLIT_DONE == ID_SYNCER
 	if (connection->agreed_pro_version >= 113) {
 		if (p->block_id != ID_SYNCER_SPLIT)
@@ -10421,7 +10421,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 	device = peer_device->device;
 
 	// DW-1601 
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	if (connection->agreed_pro_version >= 113) {
 		if (p->block_id != ID_SYNCER_SPLIT)
 			update_peer_seq(peer_device, be32_to_cpu(p->seq_num));

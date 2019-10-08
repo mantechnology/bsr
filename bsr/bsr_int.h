@@ -1794,7 +1794,7 @@ struct drbd_device {
 	struct drbd_bitmap *bitmap;
 	ULONG_PTR bm_resync_fo; /* bit offset for drbd_bm_find_next */
 	struct mutex bm_resync_fo_mutex;
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	// DW-1911 marked replication list, used for resync
 	//does not use lock because it guarantees synchronization for the use of marked_rl_list.
 	//Use lock if you cannot guarantee future marked_rl_list synchronization

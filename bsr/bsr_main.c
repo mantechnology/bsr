@@ -3444,7 +3444,7 @@ void drbd_destroy_device(struct kref *kref)
 	drbd_debug(NO_OBJECT,"%s\n", __FUNCTION__);
 #endif
 
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	// DW-1911
 	struct drbd_marked_replicate *marked_rl, *t;
 	list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
@@ -4452,7 +4452,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+#ifdef SPLIT_REQUEST_RESYNC
 	// DW-1901
 	INIT_LIST_HEAD(&device->marked_rl_list);
 	device->s_rl_bb = UINTPTR_MAX;
