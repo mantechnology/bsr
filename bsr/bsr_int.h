@@ -847,9 +847,12 @@ struct drbd_peer_request {
 			u64 send_oos_in_sync;
 		};
 	};
-//#ifdef _WIN32 //TODO : 관련 로직 리눅스에서 검증 필요
-	void* peer_req_databuf;
 
+#ifdef _WIN32
+	void* peer_req_databuf;
+#endif
+
+//#ifdef _WIN32 //TODO : 관련 로직 리눅스에서 검증 필요
 	struct {
 		ULONG_PTR s_bb;		// DW-1601 start bitmap bit of split data 
 		ULONG_PTR e_next_bb;// DW-1601 end next bitmap bit of split data  
