@@ -1615,10 +1615,8 @@ struct drbd_peer_device {
 	int bitmap_index;
 	int node_id;
 	ULONG_PTR flags;
-#ifdef _WIN32
 	// DW-1806 set after initial send.
-	KEVENT state_initial_send_event;
-#endif	
+	wait_queue_head_t state_initial_send_wait;
 
 	enum drbd_repl_state start_resync_side;
 	enum drbd_repl_state last_repl_state; /* What we received from the peer */
