@@ -4238,9 +4238,7 @@ void drbd_destroy_connection(struct kref *kref)
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_peer_device *peer_device;
 	int vnr;
-#ifdef _WIN32
 	struct drbd_peer_request *peer_req, *t;
-#endif
 
 	drbd_info(connection, "%s\n", __FUNCTION__);
 
