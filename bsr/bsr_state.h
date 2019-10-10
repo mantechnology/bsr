@@ -80,8 +80,8 @@ extern union drbd_state drbd_get_device_state(struct drbd_device *, enum which_s
 extern union drbd_state drbd_get_peer_device_state(struct drbd_peer_device *, enum which_state);
 extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum which_state);
 
-#ifdef _WIN32
 // DW-1605 try change_state again until timeout.
+#ifdef _WIN32
 #define stable_state_change(rv, resource, change_state) do{				\
 		int err = 0;							\
 		wait_event_interruptible_timeout_ex((resource)->state_wait,		\
@@ -91,17 +91,15 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 		else if (err == -DRBD_SIGKILL)		\
 			rv = SS_INTERRUPTED;			\
 	}while(false)
-#else
-#define stable_state_change(resource, change_state) ({				\
-		enum drbd_state_rv rv;						\
+#else // _LIN
+#define stable_state_change(rv, resource, change_state) ({				\
 		int err;							\
-		wait_event_interruptible_ex((resource)->state_wait,		\
-			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, err);	\
-		if (err)							\
-			err = -SS_UNKNOWN_ERROR;				\
-		else								\
-			err = rv;						\
-		err;								\
+		wait_event_interruptible_timeout_ex((resource)->state_wait,		\
+			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, HZ, err);	\
+		if (err == 0)						\
+			rv = SS_TIMEOUT;				\
+		else if (err < 0)					\
+			rv = SS_UNKNOWN_ERROR;			\
 	})
 #endif
 
