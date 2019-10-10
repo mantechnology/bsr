@@ -5516,7 +5516,7 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 		}
 	}
 
-#ifdef _WIN32 // DW-1657 If an inconsistent node tries to become a SyncSource, it will disconnect.
+	// DW-1657 If an inconsistent node tries to become a SyncSource, it will disconnect.
 	if (hg == 3 && device->disk_state[NOW] < D_OUTDATED && 
 		drbd_current_uuid(peer_device->device) != UUID_JUST_CREATED) {
 		drbd_err(device, "I shall become SyncSource, but I am inconsistent!\n");
@@ -5527,7 +5527,6 @@ static enum drbd_repl_state drbd_sync_handshake(struct drbd_peer_device *peer_de
 		drbd_err(device, "I shall become SyncTarget, but peer is inconsistent!\n");
 		return -1;
 	}	
-#endif
 
 	if (test_bit(CONN_DRY_RUN, &connection->flags)) {
 		if (hg == 0)
