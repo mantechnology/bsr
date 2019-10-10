@@ -9033,7 +9033,8 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 	struct p_peer_dagtag *p = pi->data;
 	struct drbd_connection *lost_peer;
 	s64 dagtag_offset;
-	int vnr = 0;
+	int vnr = 0; 
+	enum drbd_state_rv rv;
 
 	lost_peer = drbd_get_connection_by_node_id(resource, be32_to_cpu(p->node_id));
 	if (!lost_peer)
@@ -9089,9 +9090,9 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 			__change_repl_state_and_auto_cstate(peer_device, new_repl_state, __FUNCTION__);
 			set_bit(RECONCILIATION_RESYNC, &peer_device->flags);
 		}
-#ifdef _WIN32 // DW-1632 If the RECONCILIATION_RESYNC flag is set, it will not be updated with the new UUID after resynchronization.
-			  // If the change to WFBitMapS fails, disable the RECONCILIATION_RESYNC flag.
-		enum drbd_status_rv rv = end_state_change(resource, &irq_flags, __FUNCTION__);
+		// DW-1632 If the RECONCILIATION_RESYNC flag is set, it will not be updated with the new UUID after resynchronization.
+		// If the change to WFBitMapS fails, disable the RECONCILIATION_RESYNC flag.
+		rv = end_state_change(resource, &irq_flags, __FUNCTION__);
 		idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			if (new_repl_state == L_WF_BITMAP_S && test_bit(RECONCILIATION_RESYNC, &peer_device->flags)) {
 				if (rv != SS_SUCCESS) {
@@ -9100,9 +9101,6 @@ static int receive_peer_dagtag(struct drbd_connection *connection, struct packet
 				}
 			}
 		}
-#else 
-		end_state_change(resource, &irq_flags, __FUNCTION__);
-#endif	
 	} else {
 #ifdef _TRACE_PEER_DAGTAG	
 		drbd_info(connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
