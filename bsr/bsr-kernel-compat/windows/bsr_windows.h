@@ -909,7 +909,7 @@ extern void * kmem_cache_alloc(void * cache, int flag, ULONG Tag);
 extern void kmem_cache_destroy(struct kmem_cache *s);
 extern struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align, unsigned long flags, void (*ctor)(void *), ULONG Tag);
 extern void kmem_cache_free(void * cache, void * x);
-#define kfree2(x) if((x)) {ExFreePool((x)); (x)=NULL;}
+#define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
 
 static __inline wait_queue_t initqueue(wait_queue_t *wq)
 {
