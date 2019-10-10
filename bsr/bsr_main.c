@@ -3867,7 +3867,7 @@ static void drbd_put_send_buffers(struct drbd_connection *connection)
 #ifdef _WIN32
 			// DW-1791 fix memory leak 
 			__free_page(connection->send_buffer[i].page);
-#else // BSR-160 _LIN
+#else 
 			put_page(connection->send_buffer[i].page);
 #endif
 			connection->send_buffer[i].page = NULL;
