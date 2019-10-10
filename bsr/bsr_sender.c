@@ -413,12 +413,8 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 		wake_up(&connection->ee_wait);
 
 	// DW-1903 EE_SPLIT_REQUEST is a duplicate request and does not call put_ldev().
-#ifdef _WIN32 //TODO
 	if (!(peer_flags & EE_SPLIT_REQUEST))
 		put_ldev(device);
-#else
-	put_ldev(device);
-#endif
 }
 
 /* writes on behalf of the partner, or resync writes,
