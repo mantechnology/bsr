@@ -569,9 +569,9 @@ drbd_alloc_peer_req(struct drbd_peer_device *peer_device, gfp_t gfp_mask) __must
 void __drbd_free_peer_req(struct drbd_peer_request *peer_req, int is_net)
 {
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
+
 #ifdef _WIN32
 	// DW-1773 peer_request is managed as inactive_ee, so peer_req_databuf is modified to be released from drbd_free_peer_req()
-	//if ( !(peer_req->flags & EE_WRITE) && peer_req->peer_req_databuf)	
 	if (peer_req->peer_req_databuf) {
 		kfree2(peer_req->peer_req_databuf);
 	}
