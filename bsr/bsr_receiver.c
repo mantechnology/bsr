@@ -5068,10 +5068,9 @@ static void log_handshake(struct drbd_peer_device *peer_device)
 	if (drbd_device_stable(device, NULL))
        uuid_flags |= UUID_FLAG_STABLE;
 	// DW-1874
-#ifdef _WIN32
 	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
-#endif
+
 	drbd_info(peer_device, "drbd_sync_handshake:\n");
 	drbd_uuid_dump_self(peer_device, peer_device->comm_bm_set, uuid_flags);
 	drbd_uuid_dump_peer(peer_device, peer_device->dirty_bits, peer_device->uuid_flags);
@@ -5235,6 +5234,7 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 				rv = L_WF_BITMAP_T;
 			}
 			else {
+#endif 
 				// DW-1874 If the UUID is the same and the MDF_PEER_IN_PROGRESS_SYNC flag is set, the out of sync is meaningless because resync with other nodes is complete.
 				if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC) ||
 						peer_device->uuid_flags & UUID_FLAG_IN_PROGRESS_SYNC) {
@@ -5247,20 +5247,15 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 					drbd_info(peer_device, "No resync, but %lu bits in bitmap!\n",
 						drbd_bm_total_weight(peer_device));
 				}
+#ifdef _WIN32 // DW-1843
 			}
-#else
-			drbd_info(peer_device, "No resync, but %lu bits in bitmap!\n",
-					drbd_bm_total_weight(peer_device));
-
 #endif
 		}
 	}
 
-	// DW-1874
-#ifdef _WIN32	
+	// DW-1874	
 	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		drbd_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
-#endif
 	return rv;
 }
 

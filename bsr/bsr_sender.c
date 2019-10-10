@@ -1908,9 +1908,7 @@ out:
 			drbd_khelper(NULL, connection, "unfence-peer");
 
 		// DW-1874
-#ifdef _WIN32 //TODO
 		drbd_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
-#endif
 	}
 
 	return 1;
@@ -2941,10 +2939,8 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 			peer_device->use_csums = use_checksum_based_resync(connection, device);
 		} else {
 			peer_device->use_csums = false;
-#ifdef _WIN32 //TODO
 			// DW-1874
 			drbd_md_set_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
-#endif
 		}
 
 		if ((side == L_SYNC_TARGET || side == L_PAUSED_SYNC_T) &&
