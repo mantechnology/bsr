@@ -3257,20 +3257,15 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			// DW-1447 
 			bool send_bitmap = false;
 
-#ifdef _WIN32
 			// DW-1806 If the initial state is not sent, wait for it to be sent.(Maximum 3 seconds)
-			if (!test_bit(INITIAL_STATE_SENT, &peer_device->flags)) {
-				LARGE_INTEGER		timeout;
-				NTSTATUS			status = STATUS_SUCCESS;
-
-				timeout.QuadPart = (-1 * 10000 * 3000);   // wait 3000 ms relative
-				status = KeWaitForSingleObject(&peer_device->state_initial_send_event, Executive, KernelMode, FALSE, &timeout);
-				if (status == STATUS_TIMEOUT) {
+			if (connection->cstate[NOW] == C_CONNECTED && !test_bit(INITIAL_STATE_SENT, &peer_device->flags)) {
+				long res;
+				wait_event_timeout_ex(peer_device->state_initial_send_wait, test_bit(INITIAL_STATE_SENT, &peer_device->flags), HZ * 3, res);
+				if (!res) {
 					/* FIXME timeout when sending initial state? */
 					drbd_err(peer_device, "state initial send timeout!\n");
 				}
 			}
-#endif
 
 			/* In case we finished a resync as resync-target update all neighbors
 			   about having a bitmap_uuid of 0 towards the previous sync-source.

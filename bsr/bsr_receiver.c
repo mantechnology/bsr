@@ -750,29 +750,23 @@ int drbd_connected(struct drbd_peer_device *peer_device)
 	atomic_set(&peer_device->packet_seq, 0);
 	peer_device->peer_seq = 0;
 
-#ifdef _WIN32
 	// DW-1806
-	KeResetEvent(&peer_device->state_initial_send_event);
-#endif
+	init_waitqueue_head(&peer_device->state_initial_send_wait);
+
 	err = drbd_send_sync_param(peer_device);
 	if (!err)
 		err = drbd_send_sizes(peer_device, 0, 0);
 	if (!err)
 		err = drbd_send_uuids(peer_device, 0, 0);
 	if (!err) {
-#ifdef _WIN32
 		err = drbd_send_current_state(peer_device);
 		// DW-1806
 		set_bit(INITIAL_STATE_SENT, &peer_device->flags);
-#else
-		set_bit(INITIAL_STATE_SENT, &peer_device->flags);
-		err = drbd_send_current_state(peer_device);		
-#endif
 	}
-#ifdef _WIN32
+
 	// DW-1806
-	KeSetEvent(&peer_device->state_initial_send_event, 0, FALSE);
-#endif
+	wake_up(&peer_device->state_initial_send_wait);
+
 	clear_bit(USE_DEGR_WFC_T, &peer_device->flags);
 	clear_bit(RESIZE_PENDING, &peer_device->flags);
 	mod_timer(&device->request_timer, jiffies + HZ); /* just start it here. */
