@@ -2651,10 +2651,6 @@ bool drbd_stable_sync_source_present(struct drbd_peer_device *except_peer_device
 
 static void do_start_resync(struct drbd_peer_device *peer_device)
 {
-#ifndef _WIN32
-	struct drbd_device *device = peer_device->device;
-#endif
-
 	if (atomic_read(&peer_device->unacked_cnt) ||
 	    atomic_read(&peer_device->rs_pending_cnt)) {
 		drbd_warn(peer_device, "postponing start_resync ... unacked : %d, pending : %d\n", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
@@ -2665,12 +2661,6 @@ static void do_start_resync(struct drbd_peer_device *peer_device)
 
 	drbd_info(peer_device, "starting resync ...\n"); // DW-1518
 	drbd_start_resync(peer_device, peer_device->start_resync_side);
-#ifdef _WIN32 //TODO for cross-platform 
-	// DW-1619 moved to drbd_start_resync()
-	//clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
-#else
-	clear_bit(AHEAD_TO_SYNC_SOURCE, &device->flags);
-#endif
 }
 
 static bool use_checksum_based_resync(struct drbd_connection *connection, struct drbd_device *device)
@@ -2785,9 +2775,8 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 	int r;
 
 
-#ifdef _WIN32 // DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
+	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
-#endif	
 
 	spin_lock_irq(&device->resource->req_lock);
 	repl_state = peer_device->repl_state[NOW];
