@@ -569,13 +569,15 @@ drbd_alloc_peer_req(struct drbd_peer_device *peer_device, gfp_t gfp_mask) __must
 void __drbd_free_peer_req(struct drbd_peer_request *peer_req, int is_net)
 {
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
-#ifndef _WIN32
-	might_sleep();
-#endif
+
+#ifdef _WIN32
 	// DW-1773 peer_request is managed as inactive_ee, so peer_req_databuf is modified to be released from drbd_free_peer_req()
 	if (peer_req->peer_req_databuf) {
 		kfree2(peer_req->peer_req_databuf);
 	}
+#else
+	might_sleep();
+#endif
 
 	if (peer_req->flags & EE_HAS_DIGEST)
 		kfree(peer_req->digest);
@@ -2691,8 +2693,10 @@ static struct drbd_peer_request *split_read_in_block(struct drbd_peer_device *pe
 		return NULL;
 	}
 
+#ifdef _WIN32
 	split_peer_request->peer_req_databuf = split_peer_request->page_chain.head;
 	memcpy(split_peer_request->peer_req_databuf, (char*)peer_request->peer_req_databuf + offset, split_peer_request->i.size);
+#endif
 	split_peer_request->count = split_count;
 	split_peer_request->s_bb = s_bb;
 	split_peer_request->e_next_bb = e_next_bb;
@@ -2702,9 +2706,11 @@ static struct drbd_peer_request *split_read_in_block(struct drbd_peer_device *pe
 	split_peer_request->w.cb = split_e_end_resync_block;
 	split_peer_request->submit_jif = jiffies;
 
+#ifdef _WIN32
 	if (verify != NULL) {
 		memcpy(verify + offset, (char*)peer_request->peer_req_databuf + offset, split_peer_request->i.size);
 	}
+#endif
 
 	drbd_debug(peer_device, "##split request s_bb(%llu), e_bb(%llu), sector(%llu), offset(%lu), size(%u)\n", 
 		(unsigned long long)s_bb, 
