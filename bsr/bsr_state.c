@@ -2546,10 +2546,8 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 			idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 				clear_bit(INITIAL_STATE_SENT, &peer_device->flags);
 				clear_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
-#ifdef _WIN32 // TODO: for cross-platfom
 				// DW-1799
 				clear_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags);
-#endif
 			}
 		}
 

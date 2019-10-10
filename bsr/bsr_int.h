@@ -1028,10 +1028,8 @@ enum {
 	// DW-1598
 	CONNECTION_ALREADY_FREED,
 	
-#ifdef _WIN32 
 	// DW-1799 use for disk size comparison and setup.
 	INITIAL_SIZE_RECEIVED,
-#endif 
 };
 
 /* We could make these currently hardcoded constants configurable
