@@ -4248,7 +4248,6 @@ void drbd_destroy_connection(struct kref *kref)
 		drbd_err(connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
 
-#ifdef _WIN32 // TODO
 	// DW-1829 inactive_ee must be free before peer_device.
 	// DW-1696 If the connecting object is destroyed, it also destroys the inactive_ee.
 	spin_lock(&resource->req_lock);
@@ -4259,7 +4258,6 @@ void drbd_destroy_connection(struct kref *kref)
 		}
 	}
 	spin_unlock(&resource->req_lock);
-#endif
 
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
