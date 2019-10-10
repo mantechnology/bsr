@@ -4265,12 +4265,11 @@ void drbd_destroy_connection(struct kref *kref)
 
 		kref_put(&peer_device->device->kref, drbd_destroy_device);
 		free_peer_device(peer_device);
-#ifdef _WIN32 //TODO
+
 		// DW-1791 fix memory leak
 		spin_lock_irq(&resource->req_lock);
 		idr_remove(&connection->peer_devices, vnr);
 		spin_unlock_irq(&resource->req_lock);
-#endif
 	}
 
 
