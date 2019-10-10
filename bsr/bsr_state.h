@@ -99,7 +99,7 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 		if (err == 0)						\
 			rv = SS_TIMEOUT;				\
 		else if (err < 0)					\
-            rv = -SS_UNKNOWN_ERROR;         \
+			rv = SS_UNKNOWN_ERROR;			\
 	})
 #endif
 
