@@ -3255,30 +3255,6 @@ char *kvasprintf(int flags, const char *fmt, va_list args)
 	return NULL;
 }
 
-VOID RetryAsyncWriteRequest(struct bio* bio, PIRP Irp, NTSTATUS error, char* ctx)
-{
-	PIO_STACK_LOCATION  pIrpStack = NULL;
-
-	// DW-1755 Counts the error value only when it is a passthrough policy.
-	// Only the first error is logged.
-	struct drbd_bm_aio_ctx *bm_ctx = bio->bi_private;
-	struct drbd_device *device = bm_ctx->device;
-	bool write_log = true;
-	if (atomic_read(&device->io_error_count) > 0)
-		write_log = false;
-
-	if (write_log)
-		drbd_warn(NO_OBJECT,"ctx:%s error:%x bio->io_retry:%d\n", ctx, error, bio->io_retry);
-
-	atomic_dec(&bio->io_retry);
-	pIrpStack = IoGetNextIrpStackLocation (Irp);
-	if(bio->MasterIrpStackFlags) 
-		pIrpStack->Flags = bio->MasterIrpStackFlags;
-	IoSetCompletionRoutine(Irp, (PIO_COMPLETION_ROUTINE)bio->bi_end_io, bio, TRUE, TRUE, TRUE);
-	IoCallDriver(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, Irp);
-	return; 
-}
-
 bool IsDiskError()
 {
 	bool bErr = FALSE;

@@ -100,6 +100,7 @@ enum drbd_io_error_p {
 	EP_PASS_ON, /* FIXME should the better be named "Ignore"? */
 	EP_CALL_HELPER,
 	EP_DETACH,
+	//DW-1755
 	EP_PASSTHROUGH
 };
 
@@ -403,11 +404,10 @@ enum mdf_flag {
 	MDF_CRASHED_PRIMARY =	1 << 6,
 	MDF_AL_CLEAN =		1 << 7,
 	MDF_AL_DISABLED = 1 << 8,
-	//DW-1291
+	// DW-1291
 	MDF_LAST_PRIMARY = 1 << 16,
-#ifdef _WIN32
-	MDF_IO_ERROR = 1 << 17,				// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
-#endif
+	// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
+	MDF_IO_ERROR = 1 << 17,				
 };
 
 enum mdf_peer_flag {
@@ -427,9 +427,8 @@ enum mdf_peer_flag {
 	// it is used to determine the unnecessary out of sync removal when reconnected.
 	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,
 
-#ifdef _WIN32
-	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,         // DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
-#endif
+	// DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
+	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,        
 };
 
 #define DRBD_PEERS_MAX 32
@@ -471,6 +470,7 @@ enum drbd_notification_type {
 	NOTIFY_DESTROY,
 	NOTIFY_CALL,
 	NOTIFY_RESPONSE,
+	// DW-1755
 	NOTIFY_ERROR,
 
 	NOTIFY_CONTINUES = 0x8000,
@@ -513,14 +513,16 @@ enum drbd_peer_state {
 #define QOU_MAJORITY 1024
 #define QOU_ALL 1025
 
-#ifdef _WIN32 // TODO
 // flag bits per volume extension
 // DW-1277 volume type is marked when drbd attaches 
+
+// DW-1755
 enum {
 	VOLUME_TYPE_REPL,		// for replicating volume.
 	VOLUME_TYPE_META,		// for meta volume.
 };
 
+#ifdef _WIN32 
 #define READ					0
 #define WRITE					1
 
@@ -528,7 +530,6 @@ enum {
 #define _WIN32_MULTI_VOLUME
 #define _WIN32_RCU_LOCKED // DW-1477 Lock if not locked.
 #define _WIN32_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
-
 #endif
 
 #define SPLIT_REQUEST_RESYNC // DW-1845 disables the DW-1601 function. If enabled, you must set SPLIT_REQUEST_RESYNC 

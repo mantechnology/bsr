@@ -3634,6 +3634,7 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		[NOTIFY_DESTROY] = "destroy",
 		[NOTIFY_CALL] = "call",
 		[NOTIFY_RESPONSE] = "response",
+		// DW-1755
 		[NOTIFY_ERROR] = "notify"
 	};
 	static char *object_name[] = {
@@ -3732,6 +3733,7 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		event_key(key, size + 1, name, dh->minor, &ctx);
 	}
 
+	// DW-1755
 	if (info->genlhdr->cmd == DRBD_IO_ERROR) {
 		printf("%s %s%s%s",
 			action_name[action], io_error_color_start(),
@@ -3901,7 +3903,8 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		} else
 			update_info(&key, NULL, 0);
 		break;
-	case DRBD_HELPER: {
+	case DRBD_HELPER: 
+	{
 		struct drbd_helper_info helper_info;
 
 		if (!drbd_helper_info_from_attrs(&helper_info, info)) {
@@ -3914,8 +3917,9 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		}
 	}
 		break;
-#ifdef _WIN32 // TODO : DRBD_IO_ERROR
-	case DRBD_IO_ERROR: {
+	// DW-1755
+	case DRBD_IO_ERROR: 
+	{
 		struct drbd_io_error_info io_error;
 		if (!drbd_io_error_info_from_attrs(&io_error, info)) {
 			if (io_error.is_cleared)
@@ -3933,7 +3937,6 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 		}
 	}
 		break;
-#endif
 	case DRBD_INITIAL_STATE_DONE:
 		break;
 	}

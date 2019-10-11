@@ -160,11 +160,13 @@ const char *disk_state_color_stop(enum drbd_disk_state disk_state, bool local)
 			  ARRAY_SIZE(disk_state_colors), false, local);
 }
 
+// DW-1755
 const char *io_error_color_start()
 {
 	return local_color_codes[COLOR_BAD];
 }
 
+// DW-1755
 const char *io_error_color_stop()
 {
 	return stop_color_code();

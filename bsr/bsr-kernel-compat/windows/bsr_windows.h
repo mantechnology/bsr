@@ -1541,7 +1541,6 @@ char		gLogBuf[LOGBUF_MAXCNT][MAX_DRBDLOG_BUF];
 int drbd_resize(struct drbd_device *device);
 
 extern char *kvasprintf(int flags, const char *fmt, va_list args);
-VOID RetryAsyncWriteRequest(struct bio* bio, PIRP Irp, NTSTATUS error, char* ctx);
 bool IsDiskError();
 void msleep(int millisecs);
 
