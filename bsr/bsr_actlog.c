@@ -344,9 +344,7 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 						}
 					}
 					rcu_read_unlock();
-#ifdef _WIN32
-					drbd_debug_al("return bm_ext, bm_ext->lce.lc_number = %lu, bm_ext->lce.refcnt = %lu\n", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
-#endif
+					drbd_debug_al("return bm_ext, bm_ext->lce.lc_number = %u, bm_ext->lce.refcnt = %u\n", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
 					return bm_ext;
 				}
 			}
@@ -354,9 +352,7 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 	}
 out:
 	rcu_read_unlock();
-#ifdef _WIN32
 	drbd_debug_al("return NULL\n");
-#endif
 	return NULL;
 }
 
@@ -690,9 +686,7 @@ bool put_actlog(struct drbd_device *device, unsigned int first, unsigned int las
 			drbd_err(device, "al_complete_io() called on inactive extent %u\n", enr);
 			continue;
 		}
-#ifdef _WIN32
-		drbd_debug_al("called lc_put extent->lc_number= %lu, extent->refcnt = %lu\n", extent->lc_number, extent->refcnt); 
-#endif
+		drbd_debug_al("called lc_put extent->lc_number= %u, extent->refcnt = %u\n", extent->lc_number, extent->refcnt); 
 		lc_put_result = lc_put(device->act_log, extent);
 		if (lc_put_result == 0)
 			wake = true;
@@ -847,9 +841,8 @@ bool drbd_al_complete_io(struct drbd_device *device, struct drbd_interval *i)
 	BUG_ON_UINT32_OVER(first);
 	BUG_ON_UINT32_OVER(last);
 #endif
-#ifdef _WIN32
-	drbd_debug_al("first = %lu last = %lu i->size = %lu\n", first, last, i->size);
-#endif
+	drbd_debug_al("first = %lu last = %lu i->size = %u\n", first, last, i->size);
+
 	return put_actlog(device, (unsigned int)first, (unsigned int)last);
 }
 
@@ -1758,18 +1751,14 @@ check_al:
 	{
 		for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
 			if (lc_is_used(device->act_log, (unsigned int)(al_enr + i))){
-#ifdef _WIN32
 				drbd_debug_al("check_al sector = %lu, enr = %lu, al_enr + 1 = %lu and goto try_again\n", sector, enr, al_enr + i);
-#endif
 				goto try_again;
 			}
 		}
 	}
 	set_bit(BME_LOCKED, &bm_ext->flags);
 proceed:
-#ifdef _WIN32
 	drbd_debug_al("proceed sector = %lu, enr = %lu\n", sector, enr);
-#endif
 	peer_device->resync_wenr = LC_FREE;
 	spin_unlock_irq(&device->al_lock);
 	return 0;
