@@ -1809,11 +1809,7 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
 
 out_unlock:
-#ifdef _WIN32_RCU_LOCKED
 	end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-	end_state_change_locked(device->resource);
-#endif
 
 	put_ldev(device);
 
@@ -1832,11 +1828,7 @@ out_unlock:
 			peer_device->resync_again--;
 			begin_state_change_locked(device->resource, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, new_repl_state, __FUNCTION__);
-#ifdef _WIN32_RCU_LOCKED
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-			end_state_change_locked(device->resource);
-#endif
 		}
 	}
 	spin_unlock_irq(&device->resource->req_lock);
@@ -2375,11 +2367,7 @@ static bool drbd_pause_after(struct drbd_device *device)
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
 		if (other_device->disk_state[NOW] == D_DISKLESS) {
-#ifdef _WIN32_RCU_LOCKED
 			abort_state_change_locked(other_device->resource, true, __FUNCTION__);
-#else
-			abort_state_change_locked(other_device->resource);
-#endif
 			continue;
 		}
 		for_each_peer_device(other_peer_device, other_device) {
@@ -2388,11 +2376,7 @@ static bool drbd_pause_after(struct drbd_device *device)
 			if (!__drbd_may_sync_now(other_peer_device))
 				__change_resync_susp_dependency(other_peer_device, true, __FUNCTION__);
 		}
-#ifdef _WIN32_RCU_LOCKED
 		if (end_state_change_locked(other_device->resource, true, __FUNCTION__) != SS_NOTHING_TO_DO)
-#else
-		if (end_state_change_locked(other_device->resource) != SS_NOTHING_TO_DO)
-#endif
 			changed = true;
 	}
 	rcu_read_unlock();
@@ -2419,11 +2403,7 @@ static bool drbd_resume_next(struct drbd_device *device)
 
 		begin_state_change_locked(other_device->resource, CS_HARD);
 		if (other_device->disk_state[NOW] == D_DISKLESS) {
-#ifdef _WIN32_RCU_LOCKED
 			abort_state_change_locked(other_device->resource, true, __FUNCTION__);
-#else
-			abort_state_change_locked(other_device->resource);
-#endif
 			continue;
 		}
 		for_each_peer_device(other_peer_device, other_device) {
@@ -2433,11 +2413,7 @@ static bool drbd_resume_next(struct drbd_device *device)
 			    __drbd_may_sync_now(other_peer_device))
 				__change_resync_susp_dependency(other_peer_device, false, __FUNCTION__);
 		}
-#ifdef _WIN32_RCU_LOCKED
 		if (end_state_change_locked(other_device->resource, true, __FUNCTION__) != SS_NOTHING_TO_DO)
-#else
-		if (end_state_change_locked(other_device->resource) != SS_NOTHING_TO_DO)
-#endif
 			changed = true;
 	}
 	rcu_read_unlock();
@@ -2637,11 +2613,7 @@ static bool use_checksum_based_resync(struct drbd_connection *connection, struct
 * rule for resync - Sync source must be stable and authoritative of sync target if sync target is unstable.
 * DW-1315 need to also inspect if I will be able to be resync side. (state[NEW])
 */
-#ifdef _WIN32_RCU_LOCKED
 bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state replState, enum which_state which, bool locked)
-#else
-bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state replState, enum which_state which)
-#endif
 {
 	struct drbd_device *device = peer_device->device;
 	enum drbd_repl_state side = 0;
@@ -2681,32 +2653,21 @@ bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_re
 			return false;
 		}
 
-#ifdef _WIN32_RCU_LOCKED
 		if (!drbd_device_stable_ex(device, &authoritative, which, locked) &&
-#else
-		if (!drbd_device_stable_ex(device, &authoritative, which) &&
-#endif
-			!(NODE_MASK(peer_device->node_id) & authoritative))
-		{
+			!(NODE_MASK(peer_device->node_id) & authoritative)) {
 			drbd_info(peer_device, "I am unstable and sync source is not my authoritative node, can not be %s, authoritative(%llx)\n",
 				drbd_repl_str(replState), authoritative);
 			return false;
 		}
 	}
 	else if (side == L_SYNC_SOURCE) {
-#ifdef _WIN32_RCU_LOCKED
-		if (!drbd_device_stable_ex(device, &authoritative, which, locked))
-#else
-		if (!drbd_device_stable_ex(device, &authoritative, which))
-#endif
-		{
+		if (!drbd_device_stable_ex(device, &authoritative, which, locked)) {
 			drbd_info(peer_device, "I am unstable, can not be %s, authoritative(%llx)\n", drbd_repl_str(replState), authoritative);
 			return false;
 		}
 
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE) &&
-			!(NODE_MASK(device->resource->res_opts.node_id) & peer_device->uuid_authoritative_nodes))
-		{
+			!(NODE_MASK(device->resource->res_opts.node_id) & peer_device->uuid_authoritative_nodes)) {
 			drbd_info(peer_device, "Sync target is unstable and I am not its authoritative node, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
 				drbd_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;			
@@ -2806,23 +2767,14 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 	}
 
 	// DW-1314 check stable sync source rules.
-#ifdef _WIN32_RCU_LOCKED
-	if (!drbd_inspect_resync_side(peer_device, side, NOW, false))
-#else
-	if (!drbd_inspect_resync_side(peer_device, side, NOW))
-#endif
-	{
+	if (!drbd_inspect_resync_side(peer_device, side, NOW, false)) {
 		drbd_warn(peer_device, "could not start resync.\n");
 
 		// turn back the replication state to L_ESTABLISHED
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
 			begin_state_change_locked(device->resource, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
-#ifdef _WIN32_RCU_LOCKED
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-			end_state_change_locked(device->resource);
-#endif
 		}
 		unlock_all_resources();
 		goto out;
@@ -2862,11 +2814,7 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 		__change_peer_disk_state(peer_device, D_INCONSISTENT, __FUNCTION__);
 	finished_resync_pdsk = peer_device->resync_finished_pdsk;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
-#ifdef _WIN32_RCU_LOCKED
 	r = end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-	r = end_state_change_locked(device->resource);
-#endif
 	repl_state = peer_device->repl_state[NOW];
 
 	if (repl_state < L_ESTABLISHED)

@@ -2095,11 +2095,7 @@ extern bool drbd_device_stable(struct drbd_device *device, u64 *authoritative);
 
 
 // DW-1315
-#ifdef _WIN32_RCU_LOCKED
 extern bool drbd_device_stable_ex(struct drbd_device *device, u64 *authoritative, enum which_state which, bool locked);
-#else
-extern bool drbd_device_stable_ex(struct drbd_device *device, u64 *authoritative, enum which_state which);
-#endif
 
 extern void drbd_flush_peer_acks(struct drbd_resource *resource);
 extern void drbd_drop_unsent(struct drbd_connection* connection);
@@ -2467,11 +2463,7 @@ extern void drbd_start_resync(struct drbd_peer_device *, enum drbd_repl_state);
 
 // DW-1314
 // DW-1315
-#ifdef _WIN32_RCU_LOCKED
 extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which, bool locked);
-#else
-extern bool drbd_inspect_resync_side(struct drbd_peer_device *peer_device, enum drbd_repl_state side, enum which_state which);
-#endif
 
 extern void resume_next_sg(struct drbd_device *device);
 extern void suspend_other_sg(struct drbd_device *device);
@@ -2895,11 +2887,7 @@ static inline void __drbd_chk_io_error_(struct drbd_device *device,
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
-#ifdef _WIN32_RCU_LOCKED
 				end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-				end_state_change_locked(device->resource);
-#endif
 			}
 			break;
 		}
@@ -2931,11 +2919,7 @@ static inline void __drbd_chk_io_error_(struct drbd_device *device,
 		if (device->disk_state[NOW] > D_FAILED) {
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
-#ifdef _WIN32_RCU_LOCKED
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-			end_state_change_locked(device->resource);
-#endif
 			drbd_err(device, "Local IO failed in %s. Detaching...\n", where);
 		}
 		break;
@@ -2949,11 +2933,7 @@ static inline void __drbd_chk_io_error_(struct drbd_device *device,
 			if (device->disk_state[NOW] > D_FAILED) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_FAILED, __FUNCTION__);
-#ifdef _WIN32_RCU_LOCKED
 				end_state_change_locked(device->resource, false, __FUNCTION__);
-#else
-				end_state_change_locked(device->resource);
-#endif
 			}
 
 			if (df == DRBD_META_IO_ERROR)
