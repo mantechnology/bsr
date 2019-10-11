@@ -568,7 +568,7 @@ struct bio_and_error *m)
 
 			drbd_md_set_flag(device, MDF_IO_ERROR);
 		}
-
+		// DW-1859
 		check_and_clear_io_error_in_primary(device);
 
 #ifdef _WIN32

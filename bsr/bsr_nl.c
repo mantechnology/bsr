@@ -7050,11 +7050,15 @@ failed:
 	drbd_err(peer_device, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
-
-#ifdef _WIN32				  
+		  
 void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 {
 	struct drbd_io_error_info io_error_info;
+	unsigned int seq;
+	struct sk_buff *skb = NULL;
+	struct drbd_genlmsghdr *dh;
+	int err;
+
 	io_error_info.error_code = io_error->error_code;
 	io_error_info.sector = io_error->sector;
 	io_error_info.size = io_error->size;
@@ -7062,11 +7066,7 @@ void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 	io_error_info.io_type = io_error->io_type;
 	io_error_info.is_cleared = io_error->is_cleared;
 	
-	unsigned int seq = atomic_inc_return(&drbd_genl_seq);
-	struct sk_buff *skb = NULL;
-	struct drbd_genlmsghdr *dh;
-	int err;
-
+	seq = atomic_inc_return(&drbd_genl_seq);
 	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 	err = -ENOMEM;
 	if (!skb)
@@ -7102,7 +7102,6 @@ fail:
 	if(skb)
 		nlmsg_free(skb);
 }
-#endif
 
 void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 		 enum drbd_notification_type type)

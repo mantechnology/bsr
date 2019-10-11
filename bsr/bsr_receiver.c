@@ -642,9 +642,8 @@ static int drbd_finish_peer_reqs(struct drbd_connection *connection)
 		if (!err)
 			err = err2;
 
-#ifdef _WIN32
+		// DW-1859
 		check_and_clear_io_error_in_secondary(peer_req->peer_device);
-#endif
 
 		if (!list_empty(&peer_req->recv_order)) {
 			// DW-972 Gotten peer_req is not always allocated in current connection since the work_list is spliced from device->done_ee.
@@ -10316,12 +10315,11 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 			drbd_set_in_sync(peer_device, sector, blksize);
 
 			// DW-1601 add DW-1859
-#ifdef _WIN32			
 			if (device->resource->role[NOW] == R_PRIMARY)
 				check_and_clear_io_error_in_primary(device);
 			else
 				check_and_clear_io_error_in_secondary(peer_device);
-#endif
+
 			if (p->block_id == ID_SYNCER_SPLIT_DONE) 
 				dec_rs_pending(peer_device);
 
@@ -10343,12 +10341,12 @@ static int got_BlockAck(struct drbd_connection *connection, struct packet_info *
 		if (p->block_id == ID_SYNCER) {
 			drbd_set_in_sync(peer_device, sector, blksize);
 
-#ifdef _WIN32
+			// DW-1859
 			if(device->resource->role[NOW] == R_PRIMARY)
 				check_and_clear_io_error_in_primary(device);
 			else
 				check_and_clear_io_error_in_secondary(peer_device);
-#endif				
+
 			dec_rs_pending(peer_device);
 			// DW-1817 
 			//At this point, it means that the synchronization data has been removed from the send buffer because the synchronization transfer is complete.
