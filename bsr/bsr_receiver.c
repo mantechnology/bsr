@@ -540,20 +540,13 @@ drbd_alloc_peer_req(struct drbd_peer_device *peer_device, gfp_t gfp_mask) __must
 
 	if (drbd_insert_fault(device, DRBD_FAULT_AL_EE))
 		return NULL;
-#ifdef _WIN32
-	peer_req = ExAllocateFromNPagedLookasideList(&drbd_ee_mempool);
-	if (!peer_req) {
-		drbd_err(device, "%s: allocation failed\n", __func__);
-		return NULL;
-	}
-#else
+
 	peer_req = mempool_alloc(drbd_ee_mempool, gfp_mask & ~__GFP_HIGHMEM);
 	if (!peer_req) {
 		if (!(gfp_mask & __GFP_NOWARN))
 			drbd_err(device, "%s: allocation failed\n", __func__);
 		return NULL;
 	}
-#endif
 
 	memset(peer_req, 0, sizeof(*peer_req));
 	INIT_LIST_HEAD(&peer_req->w.list);
@@ -584,12 +577,8 @@ void __drbd_free_peer_req(struct drbd_peer_request *peer_req, int is_net)
 	D_ASSERT(peer_device, atomic_read(&peer_req->pending_bios) == 0);
 	D_ASSERT(peer_device, drbd_interval_empty(&peer_req->i));
 	drbd_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
-#ifdef _WIN32
-	ExFreeToNPagedLookasideList(&drbd_ee_mempool, peer_req);
-#else
-	mempool_free(peer_req, drbd_ee_mempool);
-#endif
 
+	mempool_free(peer_req, drbd_ee_mempool);
 }
 
 int drbd_free_peer_reqs(struct drbd_resource *resource, struct list_head *list, bool is_net_ee)
@@ -9985,11 +9974,8 @@ void req_destroy_after_send_peer_ack(struct kref *kref)
     if (req->req_databuf) {
         kfree2(req->req_databuf);
     }
-
-    ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
-#else
-	mempool_free(req, drbd_request_mempool);
 #endif
+	mempool_free(req, drbd_request_mempool);
 
 	// DW-1200 subtract freed request buffer size.
 	// DW-1539 change g_total_req_buf_bytes's usage to drbd_req's allocated size
@@ -10804,11 +10790,9 @@ static void destroy_request(struct kref *kref)
     if (req->req_databuf) {
         kfree2(req->req_databuf);
     }
-
-    ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
-#else
-	mempool_free(req, drbd_request_mempool);
 #endif
+	mempool_free(req, drbd_request_mempool);
+
 	// DW-1200 subtract freed request buffer size.
 	// DW-1539
 	atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);

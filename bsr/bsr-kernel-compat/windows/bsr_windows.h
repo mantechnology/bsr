@@ -776,7 +776,7 @@ struct task_struct {
 
 extern mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_data);
 extern mempool_t *mempool_create_page_pool(int min_nr, int order);
-extern mempool_t *mempool_create_slab_pool(int min_nr, int order);
+extern mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag);
 extern void * mempool_alloc(mempool_t *pool, gfp_t gfp_mask);
 extern void mempool_free(void *req, void *mempool);
 extern void mempool_destroy(void *p);
