@@ -349,9 +349,8 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 		drbd_md_set_flag(device, MDF_IO_ERROR);
     }
 
-#ifdef _WIN32 //TODO
+	// DW-1859
 	check_and_clear_io_error_in_secondary(peer_device);
-#endif
 
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 

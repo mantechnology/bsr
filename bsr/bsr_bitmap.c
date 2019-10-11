@@ -1156,7 +1156,7 @@ ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *peer_device)
 	return s;
 }
 
-#ifdef _WIN32
+// DW-1859
 void check_and_clear_io_error_in_primary(struct drbd_device *device)
 {
 	struct drbd_peer_device *peer_device;
@@ -1169,13 +1169,13 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return;
-#ifdef _WIN32
+
 	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
 	if (!drbd_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
 		put_ldev(device);
 		return;
 	}
-#endif
+
 	// DW-1859 MDF_PRIMARY_IO_ERROR is the value required to check if io-error is cleared.
 	 /* If all peer's OOS are removed, the io-error is considered to be resolved
 	 * and the number of io-errors is initialized to zero. 
@@ -1244,7 +1244,6 @@ void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
 
 	put_ldev(device);
 }
-#endif
 
 /* Returns the number of unsigned long words per peer */
 size_t drbd_bm_words(struct drbd_device *device)
