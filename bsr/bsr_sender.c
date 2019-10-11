@@ -327,7 +327,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	 * (as soon as we release the req_lock) */
 
 	// DW-1601 the last split uses the sector of the first bit for resync_lru matching.
-#ifdef _WIN32 //TODO: for cross-platfom
+#ifdef SPLIT_REQUEST_RESYNC
 	if (peer_req->flags & EE_SPLIT_LAST_REQUEST)
 		sector = BM_BIT_TO_SECT(peer_req->s_bb);
 	else

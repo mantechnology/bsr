@@ -356,6 +356,7 @@ void drbd_printk_with_wrong_object_type(void);
 
 #define drbd_debug_conn(fmt, args...) //drbd_info(NO_OBJECT, fmt, ## args)
 #define drbd_debug_rs(fmt, args...)
+#define drbd_debug_al(fmt, args...)
 
 
 #define drbd_emerg(obj, fmt, args...) \
@@ -3554,11 +3555,9 @@ static inline bool inc_ap_bio_cond(struct drbd_device *device, int rw)
 		device->resource->breqbuf_overflow_alarm = true;
 	
 		if (drbd_ratelimit()) {
-#ifdef _WIN32
-			drbd_warn(device, "request buffer is full, postponing I/O until we get enough memory. cur req_buf_size(%llu), max(%llu)\n", atomic_read64(&g_total_req_buf_bytes), req_buf_size_max);
-#else
-			drbd_warn(device, "request buffer is full, postponing I/O until we get enough memory. cur req_buf_size(%ld), max(%llu)\n", atomic_read64(&g_total_req_buf_bytes), req_buf_size_max);
-#endif
+			drbd_warn(device, "request buffer is full, postponing I/O until we get enough memory. cur req_buf_size(%llu), max(%llu)\n", 
+				(unsigned long long)atomic_read64(&g_total_req_buf_bytes), 
+				req_buf_size_max);
 		}
 		rv = false;
 	} else {

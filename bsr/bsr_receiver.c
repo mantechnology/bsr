@@ -9380,13 +9380,10 @@ static void cleanup_resync_leftovers(struct drbd_peer_device *peer_device)
 	// DW-1886
 	if (peer_device->rs_send_req != peer_device->rs_recv_res ||
 		peer_device->rs_recv_res != (ULONG_PTR)atomic_read64(&peer_device->rs_written)) {
-#ifdef _WIN32
 		drbd_info(peer_device, "incomplete resync exit, rs_send_req(%llu), rs_recv_res(%llu), rs_written(%lld)\n",
-			peer_device->rs_send_req, peer_device->rs_recv_res, atomic_read64(&peer_device->rs_written));
-#else
-		drbd_info(peer_device, "incomplete resync exit, rs_send_req(%lu), rs_recv_res(%lu), rs_written(%ld)\n",
-			peer_device->rs_send_req, peer_device->rs_recv_res, atomic_read64(&peer_device->rs_written));
-#endif
+			(unsigned long long)peer_device->rs_send_req, 
+			(unsigned long long)peer_device->rs_recv_res, 
+			(unsigned long long)atomic_read64(&peer_device->rs_written));
 	}
 }
 
