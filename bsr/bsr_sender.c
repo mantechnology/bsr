@@ -330,7 +330,6 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	peer_flags = peer_req->flags;
 
 	if (peer_flags & EE_WAS_ERROR) {
-#ifdef _WIN32 // TODO
 		// DW-1842 __EE_SEND_WRITE_ACK should be used only for replication.
 		if (block_id != ID_SYNCER) {
 			/* In protocol != C, we usually do not send write acks.
@@ -338,12 +337,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			if (!__test_and_set_bit(__EE_SEND_WRITE_ACK, &peer_req->flags))
 				inc_unacked(peer_device);
 		}
-#else
-		/* In protocol != C, we usually do not send write acks.
-         * In case of a write error, send the neg ack anyways. */
-        if (!__test_and_set_bit(__EE_SEND_WRITE_ACK, &peer_req->flags))
-                inc_unacked(peer_device);
-#endif
+
 		// DW-1810
 		/* There is no case where this flag is set because of WRITE SAME, TRIM. 
 		Therefore, the flag EE_WAS_ERROR means that an IO ERROR occurred. 
