@@ -82,6 +82,14 @@
 #define kmalloc(size, flags, tag) kmalloc(size, flags)
 #endif
 
+#ifndef rcu_read_lock_check
+#define rcu_read_lock_check(locked) rcu_read_lock()
+#endif
+
+#ifndef rcu_read_unlock_check
+#define rcu_read_unlock_check(locked) rcu_read_unlock()
+#endif
+
 #endif
 
 

@@ -79,17 +79,9 @@ static bool got_contact_to_peer_data(enum drbd_disk_state *peer_disk_state);
 static bool peer_returns_diskless(struct drbd_peer_device *peer_device,
 enum drbd_disk_state os, enum drbd_disk_state ns);
 
-#ifdef _WIN32_RCU_LOCKED
 static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller);
-#else
-static void print_state_change(struct drbd_resource *resource, const char *prefix);
-#endif
 
-#ifdef _WIN32_RCU_LOCKED
 static void finish_state_change(struct drbd_resource *, struct completion *, bool locked, const char *caller);
-#else
-static void finish_state_change(struct drbd_resource *, struct completion *);
-#endif
 static int w_after_state_change(struct drbd_work *w, int unused);
 static enum drbd_state_rv is_valid_soft_transition(struct drbd_resource *);
 static enum drbd_state_rv is_valid_transition(struct drbd_resource *resource);
@@ -579,11 +571,7 @@ static void __clear_remote_state_change(struct drbd_resource *resource) {
 	queue_queued_twopc(resource);
 }
 static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, struct completion *done,
-#ifdef _WIN32_RCU_LOCKED
 					      enum drbd_state_rv rv, bool locked, const char* caller)
-#else
-					      enum drbd_state_rv rv)
-#endif
 {
 	enum chg_state_flags flags = resource->state_change_flags;
 	struct drbd_connection *connection;
@@ -597,22 +585,14 @@ static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, st
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
 			drbd_err(resource, "State change failed: %s\n", drbd_set_st_err_str(rv));
-#ifdef _WIN32_RCU_LOCKED
 			print_state_change(resource, "Failed: caller:%s\n", caller);
-#else
-			print_state_change(resource, "Failed: ");
-#endif
 		}
 		goto out;
 	}
 	if (flags & CS_PREPARE)
 		goto out;
 
-#ifdef _WIN32_RCU_LOCKED
 	finish_state_change(resource, done, locked, caller);
-#else
-	finish_state_change(resource, done);
-#endif
 
 	/* changes to local_cnt and device flags should be visible before
 	 * changes to state, which again should be visible before anything else
@@ -745,17 +725,10 @@ void begin_state_change_locked(struct drbd_resource *resource, enum chg_state_fl
 }
 
 
-#ifdef _WIN32_RCU_LOCKED
 enum drbd_state_rv end_state_change_locked(struct drbd_resource *resource, bool locked, const char* caller)
 {
 	return ___end_state_change(resource, NULL, SS_SUCCESS, locked, caller);
 }
-#else
-enum drbd_state_rv end_state_change_locked(struct drbd_resource *resource)
-{
-	return ___end_state_change(resource, NULL, SS_SUCCESS);
-}
-#endif
 
 void begin_state_change(struct drbd_resource *resource, unsigned long *irq_flags, enum chg_state_flags flags)
 {
@@ -792,11 +765,7 @@ static enum drbd_state_rv __end_state_change(struct drbd_resource *resource,
 		done = &__done;
 		init_completion(done);
 	} 
-#ifdef _WIN32_RCU_LOCKED
 	rv = ___end_state_change(resource, done, rv, false, caller);
-#else
-	rv = ___end_state_change(resource, done, rv);
-#endif
 	__state_change_unlock(resource, irq_flags, rv >= SS_SUCCESS ? done : NULL);
 	return rv;
 }
@@ -812,18 +781,10 @@ void abort_state_change(struct drbd_resource *resource, unsigned long *irq_flags
 	__end_state_change(resource, irq_flags, SS_UNKNOWN_ERROR, caller);
 }
 
-#ifdef _WIN32_RCU_LOCKED
 void abort_state_change_locked(struct drbd_resource *resource, bool locked, const char* caller)
-#else
-void abort_state_change_locked(struct drbd_resource *resource)
-#endif
 {
 	resource->state_change_flags &= ~CS_VERBOSE;
-#ifdef _WIN32_RCU_LOCKED
 	___end_state_change(resource, NULL, SS_UNKNOWN_ERROR, locked, caller);
-#else
-	___end_state_change(resource, NULL, SS_UNKNOWN_ERROR);
-#endif
 }
 
 static void begin_remote_state_change(struct drbd_resource *resource, unsigned long *irq_flags)
@@ -1117,11 +1078,7 @@ static int scnprintf_io_suspend_flags(char *buffer, size_t size,
 	return (int)(b - buffer);
 }
 
-#ifdef _WIN32_RCU_LOCKED
 static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller)
-#else
-static void print_state_change(struct drbd_resource *resource, const char *prefix)
-#endif
 {
 	char buffer[150], *b, *end = buffer + sizeof(buffer);
 	struct drbd_connection *connection;
@@ -1143,11 +1100,7 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 	}
 	if (b != buffer) {
 		*(b-1) = 0;
-#ifdef _WIN32_RCU_LOCKED
 		drbd_info(resource, "%s, %s%s\n", caller, prefix, buffer);
-#else
-		drbd_info(resource, "%s%s\n", prefix, buffer);
-#endif
 	}
 
 	for_each_connection(connection, resource) {
@@ -1166,11 +1119,7 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 
 		if (b != buffer) {
 			*(b-1) = 0;
-#ifdef _WIN32_RCU_LOCKED
 			drbd_info(connection, "%s, %s%s\n", caller, prefix, buffer);
-#else
-			drbd_info(connection, "%s%s\n", prefix, buffer);
-#endif
 		}
 	}
 
@@ -1179,18 +1128,11 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 		enum drbd_disk_state *disk_state = device->disk_state;
 
 		if (disk_state[OLD] != disk_state[NEW])
-#ifdef _WIN32_RCU_LOCKED
 			drbd_info(device, "%s, %sdisk( %s -> %s )\n",
 				  caller,
 				  prefix,
 				  drbd_disk_str(disk_state[OLD]),
 				  drbd_disk_str(disk_state[NEW]));
-#else
-			drbd_info(device, "%sdisk( %s -> %s )\n",
-				  prefix,
-				  drbd_disk_str(disk_state[OLD]),
-				  drbd_disk_str(disk_state[NEW]));
-#endif
 		for_each_peer_device(peer_device, device) {
 			enum drbd_disk_state *peer_disk_state = peer_device->disk_state;
 			enum drbd_repl_state *repl_state = peer_device->repl_state;
@@ -1216,11 +1158,7 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 
 			if (b != buffer) {
 				*(b-1) = 0;
-#ifdef _WIN32_RCU_LOCKED
 				drbd_info(peer_device, "%s, %s%s\n", caller, prefix, buffer);
-#else
-				drbd_info(peer_device, "%s%s\n", prefix, buffer);
-#endif
 			}
 		}
 	}
@@ -1849,16 +1787,10 @@ static void sanitize_state(struct drbd_resource *resource)
 
 			// DW-1314 restrict to be sync side when it is not able to.
 			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_SYNC_TARGET) ||
-				(repl_state[NEW] >= L_PAUSED_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T))
-			{
+				(repl_state[NEW] >= L_PAUSED_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
-#ifdef _WIN32_RCU_LOCKED
-					!drbd_inspect_resync_side(peer_device, repl_state[NEW], NOW, true))
-#else
-					!drbd_inspect_resync_side(peer_device, repl_state[NEW], NOW))
-#endif
-				{					
+					!drbd_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
 					drbd_warn(peer_device, "force it to be L_ESTABLISHED due to unsyncable stability\n");
 					__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
@@ -2214,11 +2146,7 @@ static bool primary_and_data_present(struct drbd_device *device)
 /**
  * finish_state_change  -  carry out actions triggered by a state change
  */
-#ifdef _WIN32_RCU_LOCKED
 static void finish_state_change(struct drbd_resource *resource, struct completion *done, bool locked, const char* caller)
-#else
-static void finish_state_change(struct drbd_resource *resource, struct completion *done)
-#endif
 {
 	enum drbd_role *role = resource->role;
 	struct drbd_device *device;
@@ -2228,11 +2156,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 	bool lost_a_primary_peer = false;
 	int vnr;
 
-#ifdef _WIN32_RCU_LOCKED
 	print_state_change(resource, "", caller);
-#else
-	print_state_change(resource, "");
-#endif
 
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		struct drbd_peer_device *peer_device;
@@ -2325,11 +2249,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 				(repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T))
 			{
 				if (repl_state[NOW] >= L_ESTABLISHED &&
-#ifdef _WIN32_RCU_LOCKED
 					!drbd_inspect_resync_side(peer_device, repl_state[NEW], NEW, locked))				
-#else
-					!drbd_inspect_resync_side(peer_device, repl_state[NEW], NEW))				
-#endif
 					set_bit(RESYNC_ABORTED, &peer_device->flags);
 			}
 

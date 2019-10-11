@@ -528,7 +528,6 @@ enum {
 
 #define _WIN32_MVFL
 #define _WIN32_MULTI_VOLUME
-#define _WIN32_RCU_LOCKED // DW-1477 Lock if not locked.
 #define _WIN32_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
 #endif
 
