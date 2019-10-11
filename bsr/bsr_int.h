@@ -618,6 +618,7 @@ struct drbd_work {
 	int (*cb)(struct drbd_work *, int cancel);
 };
 
+// DW-1755
 struct drbd_io_error_work {
 	struct drbd_work w;
 	struct drbd_device *device;
@@ -863,18 +864,16 @@ struct drbd_peer_request {
 //#endif
 };
 
-#ifdef _WIN32
 // DW-1755 passthrough policy
 // disk error structure to pass to events2
 struct drbd_io_error {
 	unsigned char	disk_type;
 	unsigned char	io_type;
-	NTSTATUS		error_code;
+	long		error_code;
 	sector_t		sector;
 	unsigned int	size;
 	bool			is_cleared;
 };
-#endif
 
 /* ee flag bits.
  * While corresponding bios are in flight, the only modification will be
@@ -2307,10 +2306,9 @@ extern ULONG_PTR _drbd_bm_find_next_zero(struct drbd_peer_device *, ULONG_PTR);
 extern ULONG_PTR _drbd_bm_total_weight(struct drbd_device *, int);
 extern ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *);
 
-#ifdef _WIN32
+// DW-1755
 extern void check_and_clear_io_error_in_primary(struct drbd_device *);
 extern void check_and_clear_io_error_in_secondary(struct drbd_peer_device *);
-#endif
 
 /* for receive_bitmap */
 extern void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offset,
@@ -3147,7 +3145,6 @@ drbd_post_work(struct drbd_resource *resource, int work_bit)
 	}
 }
 
-#ifdef _WIN32
 // DW-1755 passthrough policy
  /* Synchronization objects used in the process of forwarding events to events2 
  * only work when irql is less than APC_LEVEL. 
@@ -3161,7 +3158,7 @@ drbd_post_work(struct drbd_resource *resource, int work_bit)
 	drbd_queue_notify_io_error(device, disk_type, io_type, error_code, sector, size, false)
 
 static inline void
-drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, unsigned char io_type, NTSTATUS error_code, sector_t sector, unsigned int size, bool is_cleared)
+drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, unsigned char io_type, long error_code, sector_t sector, unsigned int size, bool is_cleared)
 {
 	struct drbd_io_error_work *w;
 	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
@@ -3183,7 +3180,6 @@ drbd_queue_notify_io_error(struct drbd_device *device, unsigned char disk_type, 
 		}
 	}
 }
-#endif
 
 
 extern void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue *work_queue);

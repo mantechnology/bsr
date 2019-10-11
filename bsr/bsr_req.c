@@ -500,10 +500,12 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 	return true;
 }
 
-#ifdef _WIN32
+// DW-1755
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
+#ifdef _WIN32
 	UNREFERENCED_PARAMETER(cancel);
+#endif
 	int ret = 0;
 	
 	struct drbd_io_error_work *dw =
@@ -517,14 +519,14 @@ int w_notify_io_error(struct drbd_work *w, int cancel)
 
 	return ret;
 }
-#endif
 
 void complete_master_bio(struct drbd_device *device,
-		struct bio_and_error *m)
+struct bio_and_error *m)
 {
 #ifdef _WIN32
 	struct bio* master_bio = NULL;
 #endif
+	struct drbd_peer_device *peer_device;
 
 	int rw = bio_data_dir(m->bio);
 #ifdef _WIN32
@@ -532,30 +534,33 @@ void complete_master_bio(struct drbd_device *device,
 #else
 	bio_endio(m->bio, m->error);
 #endif
+
+	peer_device = NULL;
+	// if bio has pMasterIrp, process to complete master bio.
 #ifdef _WIN32
-
-	struct drbd_peer_device *peer_device = NULL;
-    // if bio has pMasterIrp, process to complete master bio.
-    if(m->bio->pMasterIrp) {
-
-		master_bio = m->bio; // if pMasterIrp is exist, bio is master bio.
+	if (m->bio->pMasterIrp) {
 		NTSTATUS status = m->error;
-
+		master_bio = m->bio; // if pMasterIrp is exist, bio is master bio.
+#else
+	if (m->bio) {
+#endif
 		// In diskless mode, if irp was sent to peer,
 		// then would be completed success,
 		// The others should be converted to the Windows error status.
 		if (m->error) {
+#ifdef _WIN32
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				status = STATUS_SUCCESS;
 			}
-			
+#endif
+
 			// DW-1755 In the passthrough policy, 
-			 /* when a disk error occurs on the primary node, 
-			 * write out_of_sync for all nodes.
-			 */
+			/* when a disk error occurs on the primary node,
+			* write out_of_sync for all nodes.
+			*/
 			for_each_peer_device(peer_device, device) {
 				if (peer_device) {
-					drbd_set_out_of_sync(peer_device, master_bio->bi_sector, master_bio->bi_size);
+					drbd_set_out_of_sync(peer_device, m->bio->bi_sector, m->bio->bi_size);
 					if (peer_device->connection->cstate[NOW] == C_CONNECTED)
 						drbd_md_set_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 				}
@@ -566,12 +571,13 @@ void complete_master_bio(struct drbd_device *device,
 
 		check_and_clear_io_error_in_primary(device);
 
+#ifdef _WIN32
 		if (!master_bio->splitInfo) {
-	        if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024) ) {
-	            drbd_err(NO_OBJECT,"size 0x%x ERROR!\n", master_bio->bi_size);
-	            BUG();
-	        }
-			
+			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
+				drbd_err(NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
+				BUG();
+			}
+
 			if (NT_ERROR(status)) {
 				master_bio->pMasterIrp->IoStatus.Status = status;
 				master_bio->pMasterIrp->IoStatus.Information = 0;
@@ -582,17 +588,17 @@ void complete_master_bio(struct drbd_device *device,
 			}
 
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
-	        if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
-	            PVOID	buffer = NULL;
-	            buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
+			if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
+				PVOID	buffer = NULL;
+				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-	                drbd_err(NO_OBJECT,"MmGetSystemAddressForMdlSafe ERROR!\n");
-	                BUG();
-	            }
-	            if (buffer) {
-	                memcpy(buffer, master_bio->bio_databuf, master_bio->pMasterIrp->IoStatus.Information);
-	            }
-	        }
+					drbd_err(NO_OBJECT, "MmGetSystemAddressForMdlSafe ERROR!\n");
+					BUG();
+				}
+				if (buffer) {
+					memcpy(buffer, master_bio->bio_databuf, master_bio->pMasterIrp->IoStatus.Information);
+				}
+			}
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
 #ifdef _WIN32
@@ -600,35 +606,37 @@ void complete_master_bio(struct drbd_device *device,
 			kref_put(&device->kref, drbd_destroy_device);
 #endif
 
-	    } else {
+		}
+		else {
 
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
-	        if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
-	            PVOID	buffer = NULL;
-	            buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
-	            if (buffer == NULL) {
-	                drbd_err(NO_OBJECT,"splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
-	                BUG();
-	            }
+			if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
+				PVOID	buffer = NULL;
+				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
+				if (buffer == NULL) {
+					drbd_err(NO_OBJECT, "splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
+					BUG();
+				}
 				else {
 					// get offset and copy
 					memcpy((char *)buffer + (master_bio->split_id * MAX_SPILT_BLOCK_SZ), master_bio->bio_databuf, master_bio->pMasterIrp->IoStatus.Information);
 				}
 
-	            master_bio->pMasterIrp->IoStatus.Information = master_bio->bi_size;
-	        }
+				master_bio->pMasterIrp->IoStatus.Information = master_bio->bi_size;
+			}
 #endif
 
 			if (!NT_SUCCESS(status)) {
 				master_bio->splitInfo->LastError = status;
-	        }
-			
+			}
+
 			if (atomic_inc_return((volatile LONG *)&master_bio->splitInfo->finished) == (long)master_bio->split_total_id) {
 
-				if(master_bio->splitInfo->LastError == STATUS_SUCCESS) {
+				if (master_bio->splitInfo->LastError == STATUS_SUCCESS) {
 					master_bio->pMasterIrp->IoStatus.Status = STATUS_SUCCESS;
 					master_bio->pMasterIrp->IoStatus.Information = master_bio->split_total_length;
-				} else {
+				}
+				else {
 					master_bio->pMasterIrp->IoStatus.Status = master_bio->splitInfo->LastError;
 					master_bio->pMasterIrp->IoStatus.Information = 0;
 				}
@@ -640,17 +648,20 @@ void complete_master_bio(struct drbd_device *device,
 				// DW-1300 put reference when completing master irp.
 				kref_put(&device->kref, drbd_destroy_device);
 #endif
-	        } 
-	    }	    
+			}
+		}
 
 #ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
-	   	if ((bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
-	   	    kfree(master_bio->bio_databuf);
-	   	}
+		if ((bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
+			kfree(master_bio->bio_databuf);
+		}
 #endif
 		kfree(master_bio);
-	} else {
+	}
+	else {
 		panic("complete_master_bio ERRROR! pMasterIrp is NULL\n");
+	}
+#else
 	}
 #endif	
 	dec_ap_bio(device, rw);
@@ -765,7 +776,6 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 		req->rq_state[0] |= RQ_POSTPONED;
 	
 	if (!(req->rq_state[0] & RQ_POSTPONED)) {
-#ifdef _WIN32
 		// DW-1755 
 		// for the "passthrough" policy, all local errors are returned to the file system.
 		enum drbd_io_error_p eh = EP_PASSTHROUGH;
@@ -782,9 +792,7 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 			m->error = error;
 		else
 			m->error = ok ? 0 : (error ? error : -EIO);
-#else
-		m->error = ok ? 0 : (error ?: -EIO);
-#endif
+
 		m->bio = req->master_bio;
 		req->master_bio = NULL;
 		/* We leave it in the tree, to be able to verify later
@@ -1101,14 +1109,12 @@ static void drbd_report_io_error(struct drbd_device *device, struct drbd_request
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
 	// Only the first error is logged.
-
 	bool write_log = true;
-#ifdef _WIN32 //TODO: for cross-platform
+
 	if (atomic_read(&device->io_error_count) < INT32_MAX) {
-		if (atomic_inc(&device->io_error_count) > 1)
+		if (atomic_inc_return(&device->io_error_count) > 1)
 			write_log = true;
 	}
-#endif
 	if (!drbd_ratelimit())
 		write_log = false;
 

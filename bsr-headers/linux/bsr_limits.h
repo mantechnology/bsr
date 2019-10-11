@@ -182,6 +182,7 @@
 #define DRBD_DISK_SIZE_DEF  0 /* = disabled = no user size... */
 #define DRBD_DISK_SIZE_SCALE 's'  /* sectors */
 
+// DW-1755
 #define DRBD_ON_IO_ERROR_DEF EP_PASSTHROUGH 
 #define DRBD_FENCING_DEF FP_DONT_CARE
 #define DRBD_AFTER_SB_0P_DEF ASB_DISCONNECT

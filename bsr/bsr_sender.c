@@ -51,9 +51,9 @@
 static int make_ov_request(struct drbd_peer_device *, int);
 static int make_resync_request(struct drbd_peer_device *, int);
 static void maybe_send_barrier(struct drbd_connection *, int);
-#ifdef _WIN32 //TODO
+
+// DW-1755
 static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error);
-#endif
 
 /* endio handlers:
  *   drbd_md_endio (defined here)
@@ -79,8 +79,8 @@ NTSTATUS drbd_md_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 {
-#ifdef _WIN32
 	struct drbd_device *device;
+#ifdef _WIN32
     struct bio *bio = NULL;
     int error = 0;
 	static int md_endio_cnt = 0;
@@ -130,16 +130,18 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 		}
 	}
-
+#endif
 	BIO_ENDIO_FN_START;
 
 	device = bio->bi_private;
 	device->md_io.error = error;
 
-	if(NT_ERROR(error)) {
+#ifdef _WIN32
+	if (NT_ERROR(error)) {
+		// DW-1755
 		process_io_error(bio, device, VOLUME_TYPE_META, error);
 	}
-	
+
 	if (device->ldev) /* special case: drbd_md_read() during drbd_adm_attach() */
 		put_ldev(device);
 
@@ -184,13 +186,6 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	BIO_ENDIO_FN_RETURN;
 
 #else //_LIN //TODO: required to check a linux part.
-	struct drbd_device *device;
-
-	BIO_ENDIO_FN_START;
-
-	device = bio->bi_private;
-	device->md_io.error = error;
-
 	/* We grabbed an extra reference in _drbd_md_sync_page_io() to be able
 	 * to timeout on the lower level device, and eventually detach from it.
 	 * If this io completion runs after that timeout expired, this
@@ -202,6 +197,11 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	 * next drbd_md_sync_page_io(), that we trigger the
 	 * ASSERT(atomic_read(&mdev->md_io_in_use) == 1) there.
 	 */
+	if (error) {
+		// DW-1755
+		process_io_error(bio, device, VOLUME_TYPE_META, error);
+	}
+
 	drbd_md_put_buffer(device);
 	device->md_io.done = 1;
 	wake_up(&device->misc_wait);
@@ -488,6 +488,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 				(unsigned long long)peer_req->i.sector, peer_req->i.size);
 	if (NT_ERROR(error)) {
 		set_bit(__EE_WAS_ERROR, &peer_req->flags);
+		// DW-1755
 		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
 	}
 
@@ -516,8 +517,11 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 					: "read", error,
 				(unsigned long long)peer_req->i.sector);
 
-	if (error)
-		set_bit(__EE_WAS_ERROR, &peer_req->flags);
+	if (error) {
+		set_bit(__EE_WAS_ERROR, &peer_req->flags);	
+		// DW-1755
+		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
+	}
 #endif
 
 	bio_put(bio); /* no need for the bio anymore */
@@ -676,6 +680,7 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 			break;
 		}
 
+		// DW-1755
 		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
 	}
 	else {
@@ -781,6 +786,9 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 			what = WRITE_COMPLETED_WITH_ERROR;
 			break;
 		}
+
+		// DW-1755
+		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
 	} else {
 		what = COMPLETED_OK;
 	}
@@ -3874,7 +3882,6 @@ int drbd_worker(struct drbd_thread *thi)
 	return 0;
 }
 
-#ifdef _WIN32 // TODO
 // DW-1755 When a disk error occurs, 
  /* transfers the event to the work thread queue.
  */
@@ -3882,6 +3889,5 @@ static void process_io_error(struct bio *bio, struct drbd_device *device, unsign
 {
 	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, bio->bi_sector, bio->bi_size);
 }
-#endif
 
 
