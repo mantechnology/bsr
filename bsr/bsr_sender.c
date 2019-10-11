@@ -99,16 +99,6 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
-// DW-1830
-// Disable this code because io hang occurs during IRP reuse.
-#ifdef RETRY_WRITE_IO
-		if(NT_ERROR(error)) {
-			if( (bio->bi_rw & WRITE) && bio->io_retry ) {
-				RetryAsyncWriteRequest(bio, Irp, error, "drbd_md_endio");
-				return STATUS_MORE_PROCESSING_REQUIRED;
-			}
-		}
-#endif		
     } else {
         error = (int)Context;
         bio = (struct bio *)Irp;
@@ -348,22 +338,21 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			if (!__test_and_set_bit(__EE_SEND_WRITE_ACK, &peer_req->flags))
 				inc_unacked(peer_device);
 		}
-		// DW-1810
-		 /* There is no case where this flag is set because of WRITE SAME, TRIM. 
-           Therefore, the flag EE_WAS_ERROR means that an IO ERROR occurred. 
-		   In order to synchronize the Secondaries at the time of primary failure, 
-		   OOS for IO error is recorded for all nodes.
-		 */
-		drbd_set_all_out_of_sync(device, peer_req->i.sector, peer_req->i.size);
-		atomic_inc(&device->io_error_count);
-		drbd_md_set_flag(device, MDF_IO_ERROR);
 #else
 		/* In protocol != C, we usually do not send write acks.
          * In case of a write error, send the neg ack anyways. */
         if (!__test_and_set_bit(__EE_SEND_WRITE_ACK, &peer_req->flags))
                 inc_unacked(peer_device);
-        drbd_set_out_of_sync(peer_device, peer_req->i.sector, peer_req->i.size);
 #endif
+		// DW-1810
+		/* There is no case where this flag is set because of WRITE SAME, TRIM. 
+		Therefore, the flag EE_WAS_ERROR means that an IO ERROR occurred. 
+		In order to synchronize the Secondaries at the time of primary failure, 
+		OOS for IO error is recorded for all nodes.
+		*/
+		drbd_set_all_out_of_sync(device, peer_req->i.sector, peer_req->i.size);
+		atomic_inc(&device->io_error_count);
+		drbd_md_set_flag(device, MDF_IO_ERROR);
     }
 
 #ifdef _WIN32 //TODO
@@ -444,15 +433,6 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
-#ifdef RETRY_WRITE_IO // DW-1830 Disable this code because io hang occurs during IRP reuse.
-		// DW-1716 retry if an write I/O error occurs.
-		if (NT_ERROR(error)) {
-			if( (bio->bi_rw & WRITE) && bio->io_retry ) {
-				RetryAsyncWriteRequest(bio, Irp, error, "drbd_peer_request_endio");
-				return STATUS_MORE_PROCESSING_REQUIRED;
-			}
-		}
-#endif
 	} else {
 		error = (int)Context;
 		bio = (struct bio *)Irp;
@@ -586,15 +566,6 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
-#ifdef RETRY_WRITE_IO // DW-1830 Disable this code because io hang occurs during IRP reuse.
-		// DW-1716 retry if an write I/O error occurs.
-		if (NT_ERROR(error)) {
-			if( (bio->bi_rw & WRITE) && bio->io_retry ) {
-				RetryAsyncWriteRequest(bio, Irp, error, "drbd_request_endio");
-				return STATUS_MORE_PROCESSING_REQUIRED;
-			}
-		}
-#endif	
 	} else {
 		error = (int)Context;
 		bio = (struct bio *)Irp;
