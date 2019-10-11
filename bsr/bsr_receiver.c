@@ -5213,7 +5213,6 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 			drbd_uuid_set_bitmap(peer_device, 0);
 			drbd_bm_clear_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
 		} else if (drbd_bm_total_weight(peer_device)) {
-#ifdef _WIN32
 			// DW-1843
 			 /* If io-error occurs at the primary and the written oos is synchronized after demotion to secondary, 
 			 * the value of "hg" is sent to 0 because both nodes are in UpToDate state and uuid is the same. 
@@ -5228,7 +5227,6 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 				rv = L_WF_BITMAP_T;
 			}
 			else {
-#endif 
 				// DW-1874 If the UUID is the same and the MDF_PEER_IN_PROGRESS_SYNC flag is set, the out of sync is meaningless because resync with other nodes is complete.
 				if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC) ||
 						peer_device->uuid_flags & UUID_FLAG_IN_PROGRESS_SYNC) {
@@ -5241,9 +5239,7 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 					drbd_info(peer_device, "No resync, but %lu bits in bitmap!\n",
 						drbd_bm_total_weight(peer_device));
 				}
-#ifdef _WIN32 // DW-1843
 			}
-#endif
 		}
 	}
 
