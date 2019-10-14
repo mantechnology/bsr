@@ -651,8 +651,8 @@ void mempool_free(void *p, mempool_t *pool)
 			ExFreeToNPagedLookasideList(&pool->pageLS, _page);
 
 		}
-
-		kfree(p);
+		else
+			kfree(p);
 	}
 
 	return;
