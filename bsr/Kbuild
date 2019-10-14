@@ -15,6 +15,9 @@ LINUXINCLUDE := -I$(src) -I$(src)/../bsr-headers $(LINUXINCLUDE)
 # command line or environment
 override EXTRA_CFLAGS += -I$(src) -I$(src)/bsr-kernel-compat
 
+# BSR-389 add for linux
+override EXTRA_CFLAGS += -D_LIN
+
 # The augmented rbtree helper functions are not exported at least until kernel
 # version 2.6.38-rc2.
 ifeq ($(shell grep -e '\<rb_augment_insert\>' \

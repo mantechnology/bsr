@@ -27,13 +27,6 @@
 #ifndef DRBD_H
 #define DRBD_H
 
-
-#ifdef _WIN32
-#define _WIN
-#else
-#define _LIN
-#endif
-
 #ifdef _WIN
 
 #define __BYTE_ORDER __LITTLE_ENDIAN
