@@ -75,7 +75,7 @@
 #include <ntddk.h>
 #endif
 
-#elif defined _LIN // _WIN END
+#else // _LIN
 
 #include <asm/types.h>
 
