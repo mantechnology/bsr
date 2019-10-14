@@ -553,20 +553,6 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	p_pool->page_alloc = 0;
 	return p_pool;
 }
-mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag)
-{
-	UNREFERENCED_PARAMETER(min_nr);
-
-	mempool_t *p_pool = kmalloc(sizeof(mempool_t), 0, tag);
-	if (!p_pool) {
-		return 0;
-	}
-	p_pool->page_alloc = 1;
-	ExInitializeNPagedLookasideList(&p_pool->pageLS, NULL, NULL, 0, sizeof(struct page), 'B8DW', 0);
-	ExInitializeNPagedLookasideList(&p_pool->page_addrLS, NULL, NULL, 0, PAGE_SIZE, 'C8DW', 0);
-
-	return p_pool;
-}
 
 mempool_t *mempool_create_page_pool(int min_nr, int order)
 {

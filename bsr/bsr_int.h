@@ -2326,6 +2326,8 @@ extern void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_inde
 /* drbd_main.c */
 
 #ifdef _WIN32
+extern NPAGED_LOOKASIDE_LIST drbd_request_mempool;
+extern NPAGED_LOOKASIDE_LIST drbd_ee_mempool;		/* peer requests */
 extern NPAGED_LOOKASIDE_LIST drbd_bm_ext_cache;		/* bitmap extents */
 extern NPAGED_LOOKASIDE_LIST drbd_al_ext_cache;		/* activity log extents */
 #else
@@ -2333,9 +2335,9 @@ extern struct kmem_cache *drbd_request_cache;
 extern struct kmem_cache *drbd_ee_cache;	/* peer requests */
 extern struct kmem_cache *drbd_bm_ext_cache;	/* bitmap extents */
 extern struct kmem_cache *drbd_al_ext_cache;	/* activity log extents */
-#endif
 extern mempool_t *drbd_request_mempool;
 extern mempool_t *drbd_ee_mempool;
+#endif
 
 /* drbd's page pool, used to buffer data received from the peer,
  * or data requested by the peer.

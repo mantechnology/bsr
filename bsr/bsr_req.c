@@ -90,9 +90,11 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 {
 	struct drbd_request *req;
 	int i;
-
+#ifdef _WIN32
+    req = ExAllocateFromNPagedLookasideList(&drbd_request_mempool);
+#else
 	req = mempool_alloc(drbd_request_mempool, GFP_NOIO);
-
+#endif
 	if (!req)
 		return NULL;
 
@@ -104,8 +106,8 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 #ifdef _WIN32
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
 	if (!req->req_databuf) {
-		drbd_err(NO_OBJECT, "req->req_databuf failed\n");
-		mempool_free(req, drbd_request_mempool);
+		drbd_err(NO_OBJECT,"req->req_databuf failed\n");
+		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
 		return NULL;
 	}
 	// DW-1237 set request data buffer ref to 1 for local I/O.
@@ -117,8 +119,10 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 		// DW-689
 #ifdef _WIN32
 		kfree2(req->req_databuf);
-#endif
+		ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
+#else
 		mempool_free(req, drbd_request_mempool);
+#endif
 		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
@@ -195,8 +199,11 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
             // DW-596 required to verify to free req_databuf at this point
             kfree2(req->req_databuf);
         }
-#endif
+
+        ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
+#else
 		mempool_free(req, drbd_request_mempool);
+#endif
 		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
@@ -421,9 +428,11 @@ void drbd_req_destroy(struct kref *kref)
 				if (peer_ack_req->req_databuf) {
 					kfree2(peer_ack_req->req_databuf);
 				}
-#endif
-				mempool_free(peer_ack_req, drbd_request_mempool);
+				ExFreeToNPagedLookasideList(&drbd_request_mempool, peer_ack_req);
 				peer_ack_req = NULL;
+#else
+				mempool_free(peer_ack_req, drbd_request_mempool);
+#endif
 				// DW-1200 subtract freed request buffer size.
 				// DW-1539
 				atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
@@ -440,9 +449,11 @@ void drbd_req_destroy(struct kref *kref)
 #ifdef _WIN32
     	if (req->req_databuf) {
     		kfree2(req->req_databuf);
-		}
-#endif
+    	}
+        ExFreeToNPagedLookasideList(&drbd_request_mempool, req);
+#else
 		mempool_free(req, drbd_request_mempool);
+#endif
 		// DW-1200 subtract freed request buffer size.
 		// DW-1539
 		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
