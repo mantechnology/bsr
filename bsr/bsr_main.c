@@ -201,8 +201,6 @@ struct idr drbd_devices;
 struct list_head drbd_resources;
 
 #ifdef _WIN32
-NPAGED_LOOKASIDE_LIST drbd_request_mempool;
-NPAGED_LOOKASIDE_LIST drbd_ee_mempool;		/* peer requests */
 NPAGED_LOOKASIDE_LIST drbd_al_ext_cache;	/* bitmap extents */
 NPAGED_LOOKASIDE_LIST drbd_bm_ext_cache;	/* activity log extents */
 #else
@@ -210,9 +208,9 @@ struct kmem_cache *drbd_request_cache;
 struct kmem_cache *drbd_ee_cache;	/* peer requests */
 struct kmem_cache *drbd_bm_ext_cache;	/* bitmap extents */
 struct kmem_cache *drbd_al_ext_cache;	/* activity log extents */
+#endif
 mempool_t *drbd_request_mempool;
 mempool_t *drbd_ee_mempool;
-#endif
 mempool_t *drbd_md_io_page_pool;
 struct bio_set *drbd_md_io_bio_set;
 
@@ -3261,17 +3259,22 @@ static void drbd_destroy_mempools(void)
 #endif
 	/* D_ASSERT(device, atomic_read(&drbd_pp_vacant)==0); */
 
-#ifndef _WIN32
-	if (drbd_md_io_bio_set)
-		bioset_free(drbd_md_io_bio_set);
-#endif
 	if (drbd_md_io_page_pool)
 		mempool_destroy(drbd_md_io_page_pool);
-#ifndef _WIN32
+
 	if (drbd_ee_mempool)
 		mempool_destroy(drbd_ee_mempool);
+
 	if (drbd_request_mempool)
 		mempool_destroy(drbd_request_mempool);
+
+#ifdef _WIN32
+	ExDeleteNPagedLookasideList(&drbd_bm_ext_cache);
+	ExDeleteNPagedLookasideList(&drbd_al_ext_cache);
+#else
+	if (drbd_md_io_bio_set)
+		bioset_free(drbd_md_io_bio_set);
+
 	if (drbd_ee_cache)
 		kmem_cache_destroy(drbd_ee_cache);
 	if (drbd_request_cache)
@@ -3280,31 +3283,29 @@ static void drbd_destroy_mempools(void)
 		kmem_cache_destroy(drbd_bm_ext_cache);
 	if (drbd_al_ext_cache)
 		kmem_cache_destroy(drbd_al_ext_cache);
-#endif
 
-#ifdef _WIN32
-	ExDeleteNPagedLookasideList(&drbd_bm_ext_cache);
-	ExDeleteNPagedLookasideList(&drbd_al_ext_cache);
-	ExDeleteNPagedLookasideList(&drbd_request_mempool);
-	ExDeleteNPagedLookasideList(&drbd_ee_mempool);
-#else
-	drbd_md_io_bio_set   = NULL;
+	drbd_md_io_bio_set = NULL;
 	drbd_md_io_page_pool = NULL;
-	drbd_ee_mempool      = NULL;
-	drbd_request_mempool = NULL;
-	drbd_ee_cache        = NULL;
-	drbd_request_cache   = NULL;
-	drbd_bm_ext_cache    = NULL;
-	drbd_al_ext_cache    = NULL;	
+	drbd_ee_cache = NULL;
+	drbd_request_cache = NULL;
+	drbd_bm_ext_cache = NULL;
+	drbd_al_ext_cache = NULL;
 #endif
+	drbd_ee_mempool = NULL;
+	drbd_request_mempool = NULL;
 
 	return;
 }
 
 static int drbd_create_mempools(void)
 {
+	const int number = (DRBD_MAX_BIO_SIZE / PAGE_SIZE) * minor_count;
+#ifndef _WIN32
+	struct page *page;
+	int i;
+#endif
+
 #ifdef _WIN32
-	const int number = (DRBD_MAX_BIO_SIZE/PAGE_SIZE) * minor_count;
 	drbd_md_io_page_pool = NULL;
 	drbd_md_io_bio_set   = NULL;
 
@@ -3312,20 +3313,23 @@ static int drbd_create_mempools(void)
 		0, sizeof(struct bm_extent), '28DW', 0);
 	ExInitializeNPagedLookasideList(&drbd_al_ext_cache, NULL, NULL,
 		0, sizeof(struct lc_element), '38DW', 0);
-	ExInitializeNPagedLookasideList(&drbd_request_mempool, NULL, NULL,
-		0, sizeof(struct drbd_request), '48DW', 0);
-	ExInitializeNPagedLookasideList(&drbd_ee_mempool, NULL, NULL,
-		0, sizeof(struct drbd_peer_request), '58DW', 0);
+
+	drbd_request_mempool = mempool_create_slab_pool(sizeof(struct drbd_request), '48DW');
+	if (drbd_request_mempool == NULL)
+		goto Enomem;
+
+	drbd_ee_mempool = mempool_create_slab_pool(sizeof(struct drbd_peer_request), '58DW');
+	if (drbd_ee_mempool == NULL)
+		goto Enomem;
 
 	drbd_md_io_page_pool = mempool_create_page_pool(DRBD_MIN_POOL_PAGES, 0);
 	if (drbd_md_io_page_pool == NULL)
 		goto Enomem;
+
+	/* drbd's page pool */
 	spin_lock_init(&drbd_pp_lock);
 
 #else // _LIN
-	struct page *page;
-	const int number = (DRBD_MAX_BIO_SIZE/PAGE_SIZE) * minor_count;
-	int i;
 	/* prepare our caches and mempools */
 	drbd_request_mempool = NULL;
 	drbd_ee_cache        = NULL;
@@ -3360,10 +3364,6 @@ static int drbd_create_mempools(void)
 	if (drbd_md_io_bio_set == NULL)
 		goto Enomem;
 
-	drbd_md_io_page_pool = mempool_create_page_pool(DRBD_MIN_POOL_PAGES, 0);
-	if (drbd_md_io_page_pool == NULL)
-		goto Enomem;
-	
 	drbd_request_mempool = mempool_create_slab_pool(number, drbd_request_cache);
 	if (drbd_request_mempool == NULL)
 		goto Enomem;
@@ -3371,6 +3371,11 @@ static int drbd_create_mempools(void)
 	drbd_ee_mempool = mempool_create_slab_pool(number, drbd_ee_cache);
 	if (drbd_ee_mempool == NULL)
 		goto Enomem;
+
+	drbd_md_io_page_pool = mempool_create_page_pool(DRBD_MIN_POOL_PAGES, 0);
+	if (drbd_md_io_page_pool == NULL)
+		goto Enomem;
+
 	/* drbd's page pool */
 	spin_lock_init(&drbd_pp_lock);
 
@@ -3381,7 +3386,7 @@ static int drbd_create_mempools(void)
 		set_page_chain_next_offset_size(page, drbd_pp_pool, 0, 0);
 		drbd_pp_pool = page;
 	}
-
+	
 #endif
 
 	drbd_pp_vacant = number;
@@ -3518,12 +3523,10 @@ void drbd_free_resource(struct drbd_resource *resource)
 		kref_debug_put(&connection->kref_debug, 9);
 		kref_put(&connection->kref, drbd_destroy_connection);
 	}
-#ifdef _WIN32
+
     if (resource->peer_ack_req)
-        ExFreeToNPagedLookasideList(&drbd_request_mempool, resource->peer_ack_req);
-#else
-	mempool_free(resource->peer_ack_req, drbd_request_mempool);
-#endif
+		mempool_free(resource->peer_ack_req, drbd_request_mempool);
+
 	del_timer_sync(&resource->twopc_timer);
 	del_timer_sync(&resource->peer_ack_timer);
 	del_timer_sync(&resource->repost_up_to_date_timer);
