@@ -24,20 +24,19 @@
  */
 
 #ifdef _WIN32
-#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/idr.h"
-#else
+#else	// _LIN
 #include <linux/slab.h>
 #include <linux/crc32c.h>
-#include <bsr.h>
 #include <linux/bsr_limits.h>
 #include <linux/dynamic_debug.h>
 #endif
 #include "bsr_int.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
+#include "../bsr-headers/bsr.h"
 
 enum al_transaction_types {
 	AL_TR_UPDATE = 0,
@@ -81,10 +80,10 @@ struct __packed al_transaction_on_disk {
 	/* Some reserved bytes.  Expected usage is a 64bit counter of
 	 * sectors-written since device creation, and other data generation tag
 	 * supporting usage */
-#ifndef _WIN32
-	__be32	__reserved[4];
-#else
+#ifdef _WIN32
 	__be32	__reserved_win32[4];
+#else // _LIN
+	__be32	__reserved[4];
 #endif
 
 	/* --- 36 byte used --- */
@@ -108,12 +107,10 @@ struct __packed al_transaction_on_disk {
 	__be32	context[AL_CONTEXT_PER_TRANSACTION];
 };
 
-#ifdef _WIN32
+#ifdef _WIN32 
 #pragma pack (pop)
 #undef __packed
 #endif
-
-
 
 struct update_peers_work {
        struct drbd_work w;
@@ -189,14 +186,14 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 #endif
 	device->md_io.done = 0;
 	device->md_io.error = -ENODEV;
-#ifdef _WIN32
-    bio = bio_alloc_drbd(GFP_NOIO, '30DW');
+#ifdef _WIN32 
+	bio = bio_alloc_drbd(GFP_NOIO, '30DW');
+#else	// _LIN
+	bio = bio_alloc_drbd(GFP_NOIO);
+#endif
     if (!bio) {
         return -ENODEV;
     }
-#else
-	bio = bio_alloc_drbd(GFP_NOIO);
-#endif
 	bio->bi_bdev = bdev->md_bdev;
 	DRBD_BIO_BI_SECTOR(bio) = sector;
 	err = -EIO;
@@ -225,15 +222,15 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD))
 		bio_endio(bio, -EIO);
-#ifndef _WIN32
-	else
-		submit_bio(bio);
-#else
+#ifdef _WIN32
 	else {
 		if (submit_bio(bio)) {
 			bio_endio(bio, -EIO);
 		}
 	}
+#else // _LIN
+	else
+		submit_bio(bio);
 #endif
 
 	wait_until_done_or_force_detached(device, bdev, &device->md_io.done);
@@ -1318,29 +1315,23 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 	}
 
 	if (!get_ldev(device))
-#ifdef _WIN32_DEBUG_OOS
-		// DW-1153 add error log
 	{
+#ifdef _WIN32_DEBUG_OOS // DW-1153 add error log
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
+#endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
-#else
-		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
-#endif
 
 	nr_sectors = drbd_get_capacity(device->this_bdev);
 	esector = sector + (size >> 9) - 1;
 
 	if (!expect(peer_device, sector < nr_sectors))
-#ifdef _WIN32_DEBUG_OOS
-		// DW-1153 add error log
 	{
+#ifdef _WIN32_DEBUG_OOS // DW-1153 add error log
 		drbd_err(peer_device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
+#endif
 		goto out;
 	}
-#else
-		goto out;
-#endif
 	if (!expect(peer_device, esector < nr_sectors))
 		esector = nr_sectors - 1;
 
@@ -1350,15 +1341,14 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		/* Round up start sector, round down end sector.  We make sure
 		 * we only clear full, aligned, BM_BLOCK_SIZE blocks. */
 		if (unlikely(esector < BM_SECT_PER_BIT-1))
-#ifdef _WIN32_DEBUG_OOS
-			// DW-1153 add error log
 		{
+			// DW-1153 add error log
+#ifdef _WIN32_DEBUG_OOS
 			drbd_err(peer_device, "unexpected error, sector(%llu), esector(%llu)\n", sector, esector);
+#endif
 			goto out;
 		}
-#else
-			goto out;
-#endif
+
 		if (unlikely(esector == (nr_sectors-1)))
 			ebnr = lbnr;
 		else
@@ -1372,10 +1362,8 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 	}
 
 #ifdef _WIN32
-#ifndef _WIN64
 	BUG_ON_UINT32_OVER(sbnr);
 	BUG_ON_UINT32_OVER(ebnr);
-#endif
 #endif
 
 	count = update_sync_bits(peer_device, (unsigned long)sbnr, (unsigned long)ebnr, mode);
@@ -1410,9 +1398,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 	struct drbd_peer_device *peer_device;
 	// DW-1871
 	bool skip_clear = false;
-#ifndef _WIN32
-	mask &= (1 << device->bitmap->bm_max_peers) - 1;
-#endif
+
 	if (size <= 0 || !IS_ALIGNED(size, 512)) {
 		drbd_err(device, "%s sector: %llus, size: %d\n",
 			 __func__, (unsigned long long)sector, size);
@@ -1420,31 +1406,28 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 	}
 
 	if (!get_ldev(device))
-#ifdef _WIN32_DEBUG_OOS
-		// DW-1153 add error log
 	{
+		// DW-1153 add error log
+#ifdef _WIN32_DEBUG_OOS
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
+#endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
 	}
-#else
-		return false; /* no disk, no metadata, no bitmap to set bits in */
-#endif
-#ifdef _WIN32
+
 	mask &= (1 << device->bitmap->bm_max_peers) - 1;
-#endif
+
 	nr_sectors = drbd_get_capacity(device->this_bdev);
 	esector = sector + (size >> 9) - 1;
 
 	if (!expect(device, sector < nr_sectors))
-#ifdef _WIN32_DEBUG_OOS
-		// DW-1153 add error log
 	{
+		// DW-1153 add error log
+#ifdef _WIN32_DEBUG_OOS
 		drbd_err(device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
+#endif
 		goto out;
 	}
-#else
-		goto out;
-#endif
+
 	if (!expect(device, esector < nr_sectors))
 		esector = nr_sectors - 1;
 
@@ -1491,11 +1474,7 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 	rcu_read_unlock();
 	if (mask) {
 		ULONG_PTR bitmap_index;
-#ifdef _WIN32
 		for_each_set_bit(bitmap_index, (ULONG_PTR*)&mask, BITS_PER_LONG) {
-#else 
-		for_each_set_bit(bitmap_index, &mask, BITS_PER_LONG) {
-#endif
 #ifdef _WIN64
 			BUG_ON_UINT32_OVER(bitmap_index);
 #endif
