@@ -23,37 +23,19 @@
   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
+
 #ifndef DRBD_H
 #define DRBD_H
 
-#ifndef _WIN32 // _LIN
-#include <asm/types.h>
 
-#ifdef __KERNEL__
-#include <linux/types.h>
-#include <asm/byteorder.h>
+#ifdef _WIN32
+#define _WIN
 #else
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <limits.h>
-
-/* Although the Linux source code makes a difference between
-   generic endianness and the bitfields' endianness, there is no
-   architecture as of Linux-2.6.24-rc4 where the bitfields' endianness
-   does not match the generic endianness. */
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define __LITTLE_ENDIAN_BITFIELD
-#elif __BYTE_ORDER == __BIG_ENDIAN
-#define __BIG_ENDIAN_BITFIELD
-#else
-# error "sorry, weird endianness on this box"
+#define _LIN
 #endif
 
-#endif
+#ifdef _WIN
 
-
-#else // _WIN32
 #define __BYTE_ORDER __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN_BITFIELD
 
@@ -93,7 +75,34 @@
 #include <ntddk.h>
 #endif
 
-#endif //_WIN32 END
+#elif defined _LIN // _WIN END
+
+#include <asm/types.h>
+
+#ifdef __KERNEL__
+#include <linux/types.h>
+#include <asm/byteorder.h>
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <limits.h>
+
+/* Although the Linux source code makes a difference between
+   generic endianness and the bitfields' endianness, there is no
+   architecture as of Linux-2.6.24-rc4 where the bitfields' endianness
+   does not match the generic endianness. */
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN_BITFIELD
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define __BIG_ENDIAN_BITFIELD
+#else
+# error "sorry, weird endianness on this box"
+#endif
+
+#endif
+
+#endif // _LIN END
 
 
 enum drbd_io_error_p {
@@ -522,19 +531,18 @@ enum {
 	VOLUME_TYPE_META,		// for meta volume.
 };
 
-#ifdef _WIN32 
+#ifdef _WIN
 #define READ					0
 #define WRITE					1
 
-#define _WIN32_MVFL
-#define _WIN32_MULTI_VOLUME
-#define _WIN32_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
+#define _WIN_MVFL
+#define _WIN_MULTI_VOLUME
+#define _WIN_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
 #endif
 
 #define SPLIT_REQUEST_RESYNC // DW-1845 disables the DW-1601 function. If enabled, you must set SPLIT_REQUEST_RESYNC 
 
 
-// TODO: _WIN32_NETQUEUED_LOG is need to move global define.
 // BSR-327 common NETQUEUED_LOG
 #define NETQUEUED_LOG // DW-1521 Improve I/O response time at low bandwidth.
 

@@ -528,7 +528,7 @@ void tl_release(struct drbd_connection *connection, int barrier_nr,
 				break;
 			if (!(r->rq_state[0] & RQ_WRITE))
 				continue;
-			// _WIN32_MULTI_VOLUME
+			// _WIN_MULTI_VOLUME
 			// DW-1166 Check RQ_NET_DONE for multi-volume
 			if (!(r->rq_state[idx] & RQ_NET_MASK))
 				continue;

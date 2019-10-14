@@ -338,7 +338,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     mvolAddDeviceList(VolumeExtension);
     MVOL_UNLOCK();
     
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (do_add_minor(VolumeExtension->Minor)) {
 #ifndef _WIN32_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
@@ -410,7 +410,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         return STATUS_SUCCESS;
     }
 
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (VolumeExtension->Active) 
 	{
 		// DW-1300 get device and get reference.
@@ -519,7 +519,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         return STATUS_SUCCESS;
     }
 
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);

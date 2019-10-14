@@ -1224,7 +1224,7 @@ extern void ResolveDriveLetters(void);
 
 extern VOID MVOL_LOCK();
 extern VOID MVOL_UNLOCK();
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 extern NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush);
 extern NTSTATUS FsctlLockVolume(unsigned int minor);
 extern NTSTATUS FsctlUnlockVolume(unsigned int minor);

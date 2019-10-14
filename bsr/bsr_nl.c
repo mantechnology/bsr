@@ -1595,8 +1595,8 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #endif
 	} else {
-#ifdef _WIN32_MVFL
-#ifdef _WIN32_MULTI_VOLUME        
+#ifdef _WIN_MVFL
+#ifdef _WIN_MULTI_VOLUME        
 		int vnr;
 		retcode = SS_SUCCESS;
 		struct drbd_device * device;
@@ -3130,7 +3130,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	if (!get_ldev_if_state(device, D_ATTACHING))
 		goto force_diskless;
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 	struct drbd_genlmsghdr *dh = info->userhdr;
 	if (do_add_minor(dh->minor)) {
 		NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -6663,10 +6663,10 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 #endif
 	
 	/* demote */
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     // continue to dismount volume after drbdadm down is done.
 
-#ifdef _WIN32_MULTI_VOLUME    
+#ifdef _WIN_MULTI_VOLUME    
 	int vnr;
 	retcode = SS_SUCCESS;
 

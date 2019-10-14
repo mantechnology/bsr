@@ -1131,7 +1131,7 @@ static void find_drbdcmd(char **cmd, char **pathes)
 	err("Can not find command (bsrsetup/bsrmeta)\n");
 	exit(E_EXEC_ERROR);
 }
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 const PCHAR gRegistryPath = "System\\CurrentControlSet\\Services\\bsr\\volumes";
 
 DWORD add_registry_volume(char * letter)
@@ -1348,7 +1348,7 @@ int adm_new_minor(const struct cfg_ctx *ctx)
 	if (!ctx->vol->disk)
 		argv[NA(argc)] = ssprintf("--diskless");
 	argv[NA(argc)] = NULL;
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 	ex = add_registry_volume(ctx->vol->disk);
 	if (ERROR_SUCCESS != ex) {
 		return ex;
