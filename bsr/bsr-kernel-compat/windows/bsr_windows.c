@@ -554,6 +554,30 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	return p_pool;
 }
 
+mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag)
+{
+	mempool_t *p_pool = kmalloc(sizeof(mempool_t), 0, tag);
+
+	if (!p_pool) {
+		return 0;
+	}
+
+	p_pool->page_alloc = 0;
+
+	p_pool->p_cache = kmalloc(sizeof(struct kmem_cache), 0, tag);
+
+	if (!p_pool->p_cache) {
+		kfree(p_pool);
+		return 0;
+	}
+
+	// BSR-247 set allocations and tags.
+	p_pool->p_cache->size = min_nr;
+	p_pool->p_cache->tag = tag;
+
+	return p_pool;
+}
+
 mempool_t *mempool_create_page_pool(int min_nr, int order)
 {
 	UNREFERENCED_PARAMETER(order);
@@ -572,12 +596,20 @@ mempool_t *mempool_create_page_pool(int min_nr, int order)
 
 void mempool_destroy_page_pool (mempool_t *p_pool)
 {	
-	if(p_pool) {
-		ExDeleteNPagedLookasideList(&p_pool->page_addrLS);
-		ExDeleteNPagedLookasideList(&p_pool->pageLS);
+	if (p_pool) {
+		if (p_pool->page_alloc) {
+			ExDeleteNPagedLookasideList(&p_pool->page_addrLS);
+			ExDeleteNPagedLookasideList(&p_pool->pageLS);
+		}
+		else {
+			// BSR-247
+			if (p_pool->p_cache)
+				kfree(p_pool->p_cache); 
+		}
+
 		kfree(p_pool);
-	} 
-	
+	}
+
 	return;
 }
 
@@ -599,7 +631,8 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 		} 
 		
 	} else {
-		p = kzalloc(pool->p_cache->size, gfp_mask, '14DW');
+		// BSR-247
+		p = kzalloc(pool->p_cache->size, gfp_mask, pool->p_cache->tag);
 	}
 
 	if (!p) {
@@ -611,12 +644,14 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 
 void mempool_free(void *p, mempool_t *pool)
 {
-	if (pool->page_alloc) {
-		struct page* _page = (struct page*)p;	
-		ExFreeToNPagedLookasideList (&pool->page_addrLS, _page->addr);
-		ExFreeToNPagedLookasideList (&pool->pageLS, _page);
-			
-	} else {
+	if (pool) {
+		if (pool->page_alloc) {
+			struct page* _page = (struct page*)p;
+			ExFreeToNPagedLookasideList(&pool->page_addrLS, _page->addr);
+			ExFreeToNPagedLookasideList(&pool->pageLS, _page);
+
+		}
+
 		kfree(p);
 	}
 

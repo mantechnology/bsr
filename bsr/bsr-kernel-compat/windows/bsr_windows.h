@@ -584,6 +584,7 @@ struct block_device {
 typedef struct kmem_cache {
 	int size;
 	char *name;
+	ULONG tag;
 } kmem_cache_t;
 
 typedef struct mempool_s {
@@ -776,7 +777,8 @@ struct task_struct {
 
 extern mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_data);
 extern mempool_t *mempool_create_page_pool(int min_nr, int order);
-extern mempool_t *mempool_create_slab_pool(int min_nr, int order);
+// BSR-247 mempool_create_slab_pool() function does not use a memory pool.
+extern mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag);
 extern void * mempool_alloc(mempool_t *pool, gfp_t gfp_mask);
 extern void mempool_free(void *req, void *mempool);
 extern void mempool_destroy(void *p);
