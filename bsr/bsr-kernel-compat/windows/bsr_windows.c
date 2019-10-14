@@ -554,7 +554,7 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	return p_pool;
 }
 
-mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag)
+mempool_t *mempool_create_slab_pool(int size, ULONG tag)
 {
 	mempool_t *p_pool = kmalloc(sizeof(mempool_t), 0, tag);
 
@@ -572,7 +572,7 @@ mempool_t *mempool_create_slab_pool(int min_nr, ULONG tag)
 	}
 
 	// BSR-247 set allocations and tags.
-	p_pool->p_cache->size = min_nr;
+	p_pool->p_cache->size = size;
 	p_pool->p_cache->tag = tag;
 
 	return p_pool;
