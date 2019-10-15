@@ -23,7 +23,7 @@
 
  */
 
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
@@ -43,7 +43,7 @@ enum al_transaction_types {
 	AL_TR_INITIALIZED = 0xffff
 };
 /* all fields on disc in big endian */
-#ifdef _WIN32
+#ifdef _WIN
 #pragma pack (push, 1)
 #define __packed
 #endif
@@ -80,8 +80,8 @@ struct __packed al_transaction_on_disk {
 	/* Some reserved bytes.  Expected usage is a 64bit counter of
 	 * sectors-written since device creation, and other data generation tag
 	 * supporting usage */
-#ifdef _WIN32
-	__be32	__reserved_win32[4];
+#ifdef _WIN
+	__be32	__reserved_win[4];
 #else // _LIN
 	__be32	__reserved[4];
 #endif
@@ -107,7 +107,7 @@ struct __packed al_transaction_on_disk {
 	__be32	context[AL_CONTEXT_PER_TRANSACTION];
 };
 
-#ifdef _WIN32 
+#ifdef _WIN 
 #pragma pack (pop)
 #undef __packed
 #endif
@@ -186,7 +186,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 #endif
 	device->md_io.done = 0;
 	device->md_io.error = -ENODEV;
-#ifdef _WIN32 
+#ifdef _WIN 
 	bio = bio_alloc_drbd(GFP_NOIO, '30DW');
 #else	// _LIN
 	bio = bio_alloc_drbd(GFP_NOIO);
@@ -201,7 +201,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 		goto out;
 	bio->bi_private = device;
 	bio->bi_end_io = drbd_md_endio;
-#ifdef _WIN32
+#ifdef _WIN
 	bio->io_retry = device->resource->res_opts.io_error_retry_count;
 #endif
 	bio_set_op_attrs(bio, op, op_flags);
@@ -222,7 +222,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD))
 		bio_endio(bio, -EIO);
-#ifdef _WIN32
+#ifdef _WIN
 	else {
 		if (submit_bio(bio)) {
 			bio_endio(bio, -EIO);
@@ -235,7 +235,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 
 	wait_until_done_or_force_detached(device, bdev, &device->md_io.done);
 	err = device->md_io.error;
-#ifdef _WIN32
+#ifdef _WIN
     if(err == STATUS_NO_SUCH_DEVICE) {
 		// DW-1396 referencing bio causes BSOD as long as bio has already been freed once it's been submitted, we don't need volume device name which is already removed also.
         drbd_err(device, "cannot find meta volume\n");
@@ -256,7 +256,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 		goto retry;
 	}
 #endif
-#ifdef _WIN32
+#ifdef _WIN
 	return err;
 #endif
  out:
@@ -500,10 +500,12 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 			i++;
 			break;
 		}
-#ifdef _WIN32
-		BUG_ON_UINT16_OVER(e->lc_index);
-		// DW-1918 the value of lc_new_number MAX should be verified by UINT32.
-		BUG_ON_UINT32_OVER(e->lc_new_number);
+#ifdef _WIN
+	BUG_ON_UINT16_OVER(e->lc_index);
+#endif
+#ifdef _WIN64
+	// DW-1918 the value of lc_new_number MAX should be verified by UINT32.
+	BUG_ON_UINT32_OVER(e->lc_new_number);
 #endif
 		buffer->update_slot_nr[i] = cpu_to_be16((u16)e->lc_index);
 		buffer->update_extent_nr[i] = cpu_to_be32((u32)e->lc_new_number);
@@ -524,7 +526,7 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 		buffer->update_slot_nr[i] = cpu_to_be16(UINT16_MAX);
 		buffer->update_extent_nr[i] = cpu_to_be32(LC_FREE);
 	}
-#ifdef _WIN32
+#ifdef _WIN
 	BUG_ON_UINT16_OVER(device->act_log->nr_elements);
 	BUG_ON_UINT16_OVER(device->al_tr_cycle);
 #endif
@@ -546,9 +548,9 @@ static int __al_write_transaction(struct drbd_device *device, struct al_transact
 		device->al_tr_cycle = 0;
 
 	sector = al_tr_number_to_on_disk_sector(device);
-#ifdef _WIN32
+#ifdef _WIN
 	crc = crc32c(0, (uint8_t*)buffer, 4096);
-#else
+#else // _LIN
 	crc = crc32c(0, buffer, 4096);
 #endif
 	buffer->crc32c = cpu_to_be32(crc);
@@ -1358,7 +1360,7 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		ebnr = BM_SECT_TO_BIT(esector);
 	}
 
-#ifdef _WIN32
+#ifdef _WIN
 	BUG_ON_UINT32_OVER(sbnr);
 	BUG_ON_UINT32_OVER(ebnr);
 #endif
