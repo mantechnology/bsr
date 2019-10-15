@@ -771,18 +771,16 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 }
 
-#ifdef _WIN32
 void drbd_csum_pages(struct crypto_hash *tfm, struct drbd_peer_request *peer_req, void *digest)
-#else
-void drbd_csum_pages(struct crypto_hash *tfm, struct page *page, void *digest)
-#endif
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
 	*(uint32_t *)digest = crc32c(0, peer_req->peer_req_databuf, peer_req->i.size);
-#else // _LIN TODO it is different from 9.0.6
+#else // _LIN 
+	// TODO it is different from 9.0.6
 	struct hash_desc desc;
 	struct scatterlist sg;
+	struct page *page = peer_req->page_chain.head;
 
 	desc.tfm = tfm;
 	desc.flags = 0;
@@ -802,27 +800,25 @@ void drbd_csum_pages(struct crypto_hash *tfm, struct page *page, void *digest)
 }
 
 
-#ifdef _WIN32
 void drbd_csum_bio(struct crypto_hash *tfm, struct drbd_request *req, void *digest)
-#else
-void drbd_csum_bio(struct crypto_hash *tfm, struct bio *bio, void *digest)
-#endif
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
 	struct hash_desc desc;
-#else
+#else // _LIN
 	DRBD_BIO_VEC_TYPE bvec;
 	DRBD_ITER_TYPE iter;
 	struct hash_desc desc;
 	struct scatterlist sg;
+	struct bio *bio = req->master_bio;
 #endif
 
-#ifdef _WIN32 
+#ifdef _WIN 
 	if (req->req_databuf)
 		crypto_hash_update(&desc, (struct scatterlist *)req->req_databuf, req->i.size);
 	crypto_hash_final(&desc, digest);
-#else // TODO it is different from 9.0.6
+#else // _LIN 
+	// TODO it is different from 9.0.6
 	desc.tfm = tfm;
 	desc.flags = 0;
 
@@ -859,11 +855,7 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
 	digest = drbd_prepare_drequest_csum(peer_req, digest_size);
 	if (digest) {
-#ifdef _WIN32
-        drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
-#else
-		drbd_csum_pages(peer_device->connection->csums_tfm, peer_req->page_chain.head, digest);
-#endif
+		drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
 		/* Free peer_req and pages before send.
 		 * In case we block on congestion, we could otherwise run into
 		 * some distributed deadlock, if the other side blocks on
@@ -2065,11 +2057,7 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 
 			digest = kmalloc(digest_size, GFP_NOIO, '23DW');
 			if (digest) {
-#ifdef _WIN32
 				drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
-#else
-				drbd_csum_pages(peer_device->connection->csums_tfm, peer_req->page_chain.head, digest);
-#endif
 				eq = !memcmp(digest, di->digest, digest_size);
 				kfree(digest);
 			}
@@ -2121,11 +2109,7 @@ int w_e_end_ov_req(struct drbd_work *w, int cancel)
 	}
 
 	if (!(peer_req->flags & EE_WAS_ERROR))
-#ifdef _WIN32
-        drbd_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
-#else
-		drbd_csum_pages(peer_device->connection->verify_tfm, peer_req->page_chain.head, digest);
-#endif
+		drbd_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
 	else
 		memset(digest, 0, digest_size);
 
@@ -2192,12 +2176,7 @@ int w_e_end_ov_reply(struct drbd_work *w, int cancel)
 		digest_size = crypto_hash_digestsize(peer_device->connection->verify_tfm);
 		digest = kmalloc(digest_size, GFP_NOIO, '33DW');
 		if (digest) {
-#ifdef _WIN32
-            drbd_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
-#else
-			drbd_csum_pages(peer_device->connection->verify_tfm, peer_req->page_chain.head, digest);
-#endif
-
+			drbd_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
 			D_ASSERT(device, digest_size == di->digest_size);
 			eq = !memcmp(digest, di->digest, digest_size);
 			kfree(digest);

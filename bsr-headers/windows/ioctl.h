@@ -81,7 +81,7 @@ typedef struct _MVOL_SYNC_REQ
 	ULONG				Count;
 } MVOL_SYNC_REQ, *PMVOL_SYNC_REQ;
 
-#define _WIN32_MULTIVOL_THREAD
+#define _WIN_MULTIVOL_THREAD
 typedef struct _WDRBD_VOLUME_ENTRY
 {
 	WCHAR		PhysicalDeviceName[MAXDEVICENAME];
@@ -93,7 +93,7 @@ typedef struct _WDRBD_VOLUME_ENTRY
 
 	UCHAR		Minor;
 	BOOLEAN		ExtensionActive;
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	BOOLEAN		ThreadActive;
 	BOOLEAN		ThreadExit;
 #endif

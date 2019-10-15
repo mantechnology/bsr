@@ -3138,7 +3138,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		if (pvext) {
 			// DW-1461 set volume protection when attaching.
 			SetDrbdlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
 
 			FsctlLockVolume(dh->minor);
@@ -6419,7 +6419,7 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 		notify_resource_state(NULL, 0, resource, &resource_info, NOTIFY_CREATE);
 		mutex_unlock(&notification_mutex);
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 		NTSTATUS status;
 		status = mvolInitializeThread(&resource->WorkThreadInfo, mvolWorkThread);
 		if (!NT_SUCCESS(status)) {

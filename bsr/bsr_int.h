@@ -1408,7 +1408,7 @@ struct drbd_resource {
 	atomic_t bGetVolBitmapDone;  // DW-1391	
 #endif
 	bool breqbuf_overflow_alarm; // DW-1539
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	MVOL_THREAD			WorkThreadInfo;
 #endif
 #ifdef _WIN32
@@ -2490,17 +2490,10 @@ static inline void ov_out_of_sync_print(struct drbd_peer_device *peer_device)
 }
 
 
-#ifdef _WIN32
 extern void drbd_csum_bio(struct crypto_hash *, struct drbd_request *, void *);
-#else
-extern void drbd_csum_bio(struct crypto_hash *, struct bio *, void *);
-#endif
 
-#ifdef _WIN32
 extern void drbd_csum_pages(struct crypto_hash *, struct drbd_peer_request *, void *);
-#else
-extern void drbd_csum_pages(struct crypto_hash *, struct page *, void *);
-#endif
+
 /* worker callbacks */
 extern int w_e_end_data_req(struct drbd_work *, int);
 extern int w_e_end_rsdata_req(struct drbd_work *, int);

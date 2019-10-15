@@ -340,7 +340,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     
 #ifdef _WIN_MVFL
     if (do_add_minor(VolumeExtension->Minor)) {
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
         if (!NT_SUCCESS(status)) {
             drbd_err(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
@@ -477,7 +477,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
         if (device) {
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			IoMarkIrpPending(Irp);
 			mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp); 
 #else
@@ -608,7 +608,7 @@ async_read_filter:
             VolumeExtension->Letter, (readIrpSp->Parameters.Read.ByteOffset.QuadPart / 512), readIrpSp->Parameters.Read.Length);
 #endif
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 		IoMarkIrpPending(Irp);
 		mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp);
 #else
@@ -679,7 +679,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount);
 #endif
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			//It is processed in 2 passes according to IRQL.
 			//1. If IRQL is greater than or equal to DISPATCH LEVEL, Queue write I/O.
 			//2. Otherwise, Directly call mvolwritedispatch

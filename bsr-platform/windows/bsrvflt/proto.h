@@ -113,7 +113,7 @@ drbdCleanupCallback();
 //
 // thread.c
 //
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 NTSTATUS
 mvolInitializeThread( PMVOL_THREAD pThreadInfo, PKSTART_ROUTINE ThreadRoutine );
 #else
@@ -124,7 +124,7 @@ mvolInitializeThread( PVOLUME_EXTENSION DeviceExtension,
 VOID
 mvolTerminateThread( PMVOL_THREAD pThreadInfo );
 KSTART_ROUTINE mvolWorkThread;
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 VOID
 mvolQueueWork(PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp);
 #endif

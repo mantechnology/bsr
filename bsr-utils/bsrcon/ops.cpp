@@ -130,7 +130,7 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 				"     Replication Volume| %d\n"
 				"    Disk Partition Size| %llu bytes (%llu kibytes)\n"
 				"       Replication Size| %llu bytes (%llu kibytes)\n"
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 				"           ThreadActive| %d\n"
 				"             ThreadExit| %d\n"
 #endif
@@ -141,7 +141,7 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 				pEntry->ExtensionActive,
 				pEntry->Size, (pEntry->Size/1024),
 				pEntry->AgreedSize, (pEntry->AgreedSize/1024),
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 				pEntry->ThreadActive,
 				pEntry->ThreadExit,
 #endif

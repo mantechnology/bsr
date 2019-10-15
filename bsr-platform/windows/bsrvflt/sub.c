@@ -139,7 +139,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	IoDetachDevice(VolumeExtension->TargetDeviceObject);
 	IoDeleteDevice(DeviceObject);
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	if (VolumeExtension->WorkThreadInfo) {
 		VolumeExtension->WorkThreadInfo = NULL;		
 	}
