@@ -8204,7 +8204,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 				/* TODO: Since DRBD9 we experience that SyncSource still has
 				   bits set... NEED TO UNDERSTAND AND FIX! */
 				if (drbd_bm_total_weight(peer_device) > peer_device->rs_failed)
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 				{
 					// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
 					drbd_info(peer_device, "SyncSource still sees bits set!! FIXME\n");

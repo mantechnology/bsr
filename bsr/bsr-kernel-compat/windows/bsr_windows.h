@@ -80,7 +80,7 @@
 #define	KERN_NOTICE				"<5>"	/* normal but significant condition	*/
 #define	KERN_INFO				"<6>"	/* informational			*/
 #define	KERN_DEBUG				"<7>"	/* debug-level messages			*/
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define KERN_DEBUG_OOS			"<8>"	// DW-1153 debug-oos 
 #endif
 
@@ -312,7 +312,7 @@ typedef unsigned int                fmode_t;
 
 extern atomic_t g_eventlog_lv_min;
 extern atomic_t g_dbglog_lv_min;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 extern atomic_t g_oos_trace;
 #endif
 
@@ -322,11 +322,11 @@ extern atomic_t g_oos_trace;
    00000000 00000000 00000000 00000000
                                    ||| 3 bit between 0 ~ 2 indicates system event log level (0 ~ 7)
                                 |||	   3 bit between 3 ~ 5 indicates debug print log level (0 ~ 7)
-                               |	   1 bit on 6 indicates if oos is being traced. (0 or 1), it is valid only when _WIN32_DEBUG_OOS is defined.
+                               |	   1 bit on 6 indicates if oos is being traced. (0 or 1), it is valid only when _WIN_DEBUG_OOS is defined.
 */
 #define LOG_LV_BIT_POS_EVENTLOG		(0)
 #define LOG_LV_BIT_POS_DBG			(LOG_LV_BIT_POS_EVENTLOG + 3)
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define LOG_LV_BIT_POS_OOS_TRACE	(LOG_LV_BIT_POS_DBG + 3)
 #endif
 
@@ -337,7 +337,7 @@ extern atomic_t g_oos_trace;
 
 #define LOG_LV_MASK			0x7
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define Set_log_lv(log_level) \
 	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
 	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
@@ -369,7 +369,7 @@ extern void printk_init(void);
 extern void printk_cleanup(void);
 extern void _printk(const char * func, const char * format, ...);
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 #endif
 
@@ -1497,6 +1497,15 @@ static inline unsigned int queue_io_min(struct request_queue *q)
 {
 	UNREFERENCED_PARAMETER(q);
 	return 0; // dummy: q->limits.io_min;
+}
+
+
+#define do_div(n, base)		(n = n / base)
+
+static inline void copy_highpage(struct page *to, struct page *from)
+{
+	to->private = from->private;
+	memcpy(to->addr, from->addr, PAGE_SIZE);
 }
 
 

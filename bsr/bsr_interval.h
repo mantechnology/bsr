@@ -5,6 +5,7 @@
 #include "../bsr-headers/windows/types.h"
 #include "./bsr-kernel-compat/windows/rbtree.h"
 #define inline __inline
+#define __always_inline __inline
 #else
 #include <linux/version.h>
 #include <linux/types.h>

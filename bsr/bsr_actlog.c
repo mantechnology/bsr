@@ -1314,9 +1314,8 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 		return 0;
 	}
 
-	if (!get_ldev(device))
-	{
-#ifdef _WIN32_DEBUG_OOS // DW-1153 add error log
+	if (!get_ldev(device)) {
+#ifdef _WIN_DEBUG_OOS // DW-1153 add error log
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
@@ -1325,9 +1324,8 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 	nr_sectors = drbd_get_capacity(device->this_bdev);
 	esector = sector + (size >> 9) - 1;
 
-	if (!expect(peer_device, sector < nr_sectors))
-	{
-#ifdef _WIN32_DEBUG_OOS // DW-1153 add error log
+	if (!expect(peer_device, sector < nr_sectors)) {
+#ifdef _WIN_DEBUG_OOS // DW-1153 add error log
 		drbd_err(peer_device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 #endif
 		goto out;
@@ -1340,10 +1338,9 @@ int __drbd_change_sync(struct drbd_peer_device *peer_device, sector_t sector, in
 	if (mode == SET_IN_SYNC) {
 		/* Round up start sector, round down end sector.  We make sure
 		 * we only clear full, aligned, BM_BLOCK_SIZE blocks. */
-		if (unlikely(esector < BM_SECT_PER_BIT-1))
-		{
+		if (unlikely(esector < BM_SECT_PER_BIT-1)) {
 			// DW-1153 add error log
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 			drbd_err(peer_device, "unexpected error, sector(%llu), esector(%llu)\n", sector, esector);
 #endif
 			goto out;
@@ -1405,10 +1402,9 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 		return false;
 	}
 
-	if (!get_ldev(device))
-	{
+	if (!get_ldev(device)) {
 		// DW-1153 add error log
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 		drbd_err(device, "get_ldev failed, sector(%llu)\n", sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
@@ -1419,10 +1415,9 @@ unsigned long drbd_set_sync(struct drbd_device *device, sector_t sector, int siz
 	nr_sectors = drbd_get_capacity(device->this_bdev);
 	esector = sector + (size >> 9) - 1;
 
-	if (!expect(device, sector < nr_sectors))
-	{
+	if (!expect(device, sector < nr_sectors)) {
 		// DW-1153 add error log
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 		drbd_err(device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 #endif
 		goto out;

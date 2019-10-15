@@ -43,7 +43,7 @@
 
 // TODO: data type define 
 
-#ifdef _WIN32
+#ifdef _WIN
 
 #define task_pid_nr(task)	(task->pid)
 

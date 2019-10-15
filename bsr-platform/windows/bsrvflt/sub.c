@@ -646,7 +646,7 @@ void _printk(const char * func, const char * format, ...)
 	int printLevel = 0;
 	BOOLEAN bEventLog = FALSE;
 	BOOLEAN bDbgLog = FALSE;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	BOOLEAN bOosLog = FALSE;
 #endif
 	LARGE_INTEGER systemTime, localTime;
@@ -661,13 +661,13 @@ void _printk(const char * func, const char * format, ...)
 	// to print through debugger.
 	if (level_index <= atomic_read(&g_dbglog_lv_min))
 		bDbgLog = TRUE;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (TRUE == atomic_read(&g_oos_trace))
 		bOosLog = TRUE;
 #endif
 	
 	// nothing to log.
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (!bEventLog && !bDbgLog && !bOosLog) {
 #else
 	if (!bEventLog && !bDbgLog) {
@@ -950,7 +950,7 @@ VOID drbdFreeDev(PVOLUME_EXTENSION VolumeExtension)
 	kfree2(VolumeExtension->dev);
 }
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 {
 	USHORT usCaptured = 0;

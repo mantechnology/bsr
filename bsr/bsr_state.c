@@ -2317,7 +2317,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 				drbd_rs_controller_reset(peer_device);
 
 				if (repl_state[NEW] == L_VERIFY_S) {
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 					// DW-1199 add printing bitmap index to recognize peer node id.
 					drbd_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
 						(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
