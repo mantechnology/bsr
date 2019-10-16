@@ -103,16 +103,16 @@ enum drbd_tr_free_op {
 
 struct drbd_listener;
 
+#ifdef _LIN
+typedef struct sockaddr_storage EX_SOCKADDR_STORAGE;
+#endif
+
 /* A transport might wrap its own data structure around this. Having
    this base class as its first member. */
 struct drbd_path {
-#ifdef _WIN32
-	struct sockaddr_storage_win my_addr;
-	struct sockaddr_storage_win peer_addr;
-#else
-	struct sockaddr_storage my_addr;
-	struct sockaddr_storage peer_addr;
-#endif
+	EX_SOCKADDR_STORAGE my_addr;
+	EX_SOCKADDR_STORAGE peer_addr;
+
 	struct kref kref;
 
 	int my_addr_len;
@@ -256,11 +256,7 @@ struct drbd_listener {
 	struct list_head waiters; /* list head for paths */
 	spinlock_t waiters_lock;
 	int pending_accepts;
-#ifdef _WIN32
-    struct sockaddr_storage_win listen_addr;
-#else
-	struct sockaddr_storage listen_addr;
-#endif
+	EX_SOCKADDR_STORAGE listen_addr;
 	void (*destroy)(struct drbd_listener *);
 };
 
@@ -275,18 +271,12 @@ extern void drbd_unregister_transport_class(struct drbd_transport_class *transpo
 extern struct drbd_transport_class *drbd_get_transport_class(const char *transport_name);
 extern void drbd_put_transport_class(struct drbd_transport_class *);
 extern void drbd_print_transports_loaded(struct seq_file *seq);
-#ifdef _WIN32 // DW-1498
-extern bool addr_and_port_equal(const struct sockaddr_storage_win *addr1, const struct sockaddr_storage_win *addr2);
-#endif
+// DW-1498
+extern bool addr_and_port_equal(const EX_SOCKADDR_STORAGE *addr1, const EX_SOCKADDR_STORAGE *addr2);
 extern int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
 	int(*create_fn)(struct drbd_transport *, const struct sockaddr *, struct drbd_listener **));
 extern void drbd_put_listener(struct drbd_path *path);
-#ifdef _WIN32
-extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage_win *);
-#else
-//extern struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *, struct sockaddr_storage *);
-extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage *);
-#endif
+extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, EX_SOCKADDR_STORAGE *);
 extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
 extern bool drbd_should_abort_listening(struct drbd_transport *transport);
 extern void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path);

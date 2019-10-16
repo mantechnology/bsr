@@ -52,6 +52,9 @@
 #ifndef ULONG_PTR
 #define ULONG_PTR unsigned long
 #endif
+#ifndef LONG_PTR
+#define LONG_PTR long
+#endif
 
 #define INT16_MAX		SHRT_MAX
 #define INT32_MAX		INT_MAX

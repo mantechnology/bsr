@@ -635,12 +635,10 @@ static bool dtt_path_cmp_addr(struct dtt_path *path, struct drbd_connection *con
 static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *path, struct socket **ret_socket)
 {
 	const char *what;
-	struct socket *socket;
+	struct socket *socket;	
+	EX_SOCKADDR_STORAGE my_addr, peer_addr;
 #ifdef _WIN32
-	struct sockaddr_storage_win my_addr, peer_addr;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
-#else
-	struct sockaddr_storage my_addr, peer_addr;
 #endif
 	struct net_conf *nc;
 	int err;
@@ -1045,8 +1043,8 @@ static int dtt_wait_for_connect(struct drbd_transport *transport,
 {
 // Frequent conditional compilation directives in functions hurt too much readability, 
 // so Separated for conditional compilation into entire code blocks by platform.
-#ifdef _WIN32
-	struct sockaddr_storage_win peer_addr;
+#ifdef _WIN32	
+	EX_SOCKADDR_STORAGE peer_addr;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	int connect_int, err = 0;
 	long timeo;
@@ -1094,7 +1092,7 @@ retry:
 
 		s_estab = NULL;
 		// Accept and, create s_estab.
-		memset(&peer_addr, 0, sizeof(struct sockaddr_storage_win));
+		memset(&peer_addr, 0, sizeof(EX_SOCKADDR_STORAGE));
 		// saved paccept_socket in Accept Event Callback
 		// paccept_socket = Accept(listener->s_listen->sk, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, status, timeo / HZ);
 		// 
@@ -1186,7 +1184,7 @@ retry_locked:
 #else // _LIN
 
 	struct dtt_socket_container *socket_c;
-	struct sockaddr_storage peer_addr;
+	EX_SOCKADDR_STORAGE peer_addr;
 	int connect_int, peer_addr_len, err = 0;
 	long timeo;
 	struct socket *s_estab = NULL;
@@ -1370,7 +1368,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	// DW-1498 Find the listener that matches the LocalAddress in resource-> listeners.
 	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
 		drbd_debug_conn("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
-		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)LocalAddress)) {
+		if (addr_and_port_equal(&listener->listen_addr, (const EX_SOCKADDR_STORAGE *)LocalAddress)) {
 			find_listener = true;
 			break;
 		}
@@ -1411,7 +1409,7 @@ static void dtt_incoming_connection(struct sock *sock)
     }
 
 	spin_lock(&listener->waiters_lock);
-	struct drbd_path *path = drbd_find_path_by_addr(listener, (struct sockaddr_storage_win*)RemoteAddress);
+	struct drbd_path *path = drbd_find_path_by_addr(listener, (EX_SOCKADDR_STORAGE *)RemoteAddress);
 	if(!path) {
 		kfree(s_estab->sk_linux_attr);
 		kfree(s_estab);
@@ -1515,14 +1513,13 @@ static int dtt_create_listener(struct drbd_transport *transport,
 #ifdef _WIN32
 	//int err = 0, sndbuf_size, rcvbuf_size; 
 	int err = 0, rcvbuf_size; signed long long sndbuf_size;
-	struct sockaddr_storage_win my_addr;
 	NTSTATUS status;
 	SOCKADDR_IN ListenV4Addr = {0,};
 	SOCKADDR_IN6 ListenV6Addr = {0,};
 #else
 	int err, sndbuf_size, rcvbuf_size, addr_len;
-	struct sockaddr_storage my_addr;
 #endif
+	EX_SOCKADDR_STORAGE my_addr;
 	struct dtt_listener *listener = NULL;
 	struct socket *s_listen;
 	struct net_conf *nc;
@@ -1537,12 +1534,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	sndbuf_size = nc->sndbuf_size;
 	rcvbuf_size = nc->rcvbuf_size;
 	rcu_read_unlock();
-
-#ifdef _WIN32
-	my_addr = *(struct sockaddr_storage_win *)addr;
-#else
-	my_addr = *(struct sockaddr_storage *)addr;
-#endif
+	my_addr = *(EX_SOCKADDR_STORAGE *)addr;
 
 	what = "sock_create_kern";
 #ifdef _WIN32

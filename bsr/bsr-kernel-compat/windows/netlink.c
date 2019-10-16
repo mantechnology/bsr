@@ -474,30 +474,6 @@ static int w_connect(struct drbd_work *w, int cancel)
 static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 {
 	if (pops->doit) {
-#if 0
-		struct drbd_config_context adm_ctx;
-
-		if (pinfo->genlhdr->cmd == DRBD_ADM_CONNECT) {
-			struct connect_work* pcon_work = NULL;
-			struct drbd_resource* resource = NULL;
-			pcon_work = kmalloc(sizeof(*pcon_work), GFP_ATOMIC, 'F1DW');
-			if (pcon_work) {
-				pcon_work->w.cb = w_connect;
-				RtlCopyMemory(&pcon_work->ops, pops, sizeof(*pops));
-				RtlCopyMemory(&pcon_work->info, pinfo, sizeof(*pinfo));
-				resource = get_resource_from_genl_info(pinfo);
-				pcon_work->resource = resource;
-				if (resource) {
-					drbd_queue_work(&resource->work, &pcon_work->w);
-					return 0;
-				}
-			}
-			return ERR_RES_NOT_KNOWN;
-		}
-		else if (pinfo->genlhdr->cmd == DRBD_ADM_DISCONNECT) {
-			struct disconnect_work* pdiscon_work;
-		}
-#endif
         return pops->doit(NULL, pinfo);
     }
 

@@ -49,7 +49,7 @@
 #define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"		/// used in NETLINK
 
 //#define _WIN32_WPP
-#define _WIN32_HANDLER_TIMEOUT	// call_usermodehelper timeout
+#define _WIN_HANDLER_TIMEOUT	// call_usermodehelper timeout
 #define WIN_AL_BUG_ON // DW-1513 Macro to print LRU
 
 #ifdef _WIN32_WPP
@@ -428,10 +428,10 @@ struct kobject {
 };
 
 #define _K_SS_MAXSIZE	128 
-struct sockaddr_storage_win {
+typedef struct sockaddr_storage_win {
 	unsigned short	ss_family;		/* address family */
 	char	__data[_K_SS_MAXSIZE - sizeof(unsigned short)];
-}; 
+} EX_SOCKADDR_STORAGE; 
 
 struct sock {
 	LONG_PTR sk_state_change;
@@ -1173,7 +1173,7 @@ extern int g_bypass_level;
 extern int g_read_filter;
 extern int g_mj_flush_buffers_filter;
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 extern int g_use_volume_lock;
 extern int g_netlink_tcp_port;
 extern int g_daemon_tcp_port;
@@ -1181,7 +1181,7 @@ extern int g_daemon_tcp_port;
 
 extern WCHAR g_ver[];
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 int g_handler_use;
 int g_handler_timeout;
 int g_handler_retry;
@@ -1501,6 +1501,7 @@ static inline unsigned int queue_io_min(struct request_queue *q)
 
 
 #define do_div(n, base)		(n = n / base)
+#define uninitialized_var(x)	x = NULL
 
 static inline void copy_highpage(struct page *to, struct page *from)
 {

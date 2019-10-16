@@ -184,7 +184,7 @@ int _tmain(int argc, _TCHAR* argv[])
         free(szServicePath);
         return ERROR_SUCCESS;
     }
-#if 1 // _WIN32_HANDLER_TIMEOUT: test by a separate application, not daemon. remove later
+#if 1 // _WIN_HANDLER_TIMEOUT: test by a separate application, not daemon. remove later
 	else if (_tcsicmp(L"/n", argv[1]) == 0) 
 	{
 		// internal test only: no-daemon test

@@ -51,7 +51,7 @@ atomic_t g_dbglog_lv_min = LOG_LV_DEFAULT_DBG;
 atomic_t g_oos_trace = 0;
 #endif
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 int g_handler_use;
 int g_handler_timeout;
 int g_handler_retry;
@@ -2956,7 +2956,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			}
 			ret = -1;
 
-			// _WIN32_HANDLER_TIMEOUT
+			// _WIN_HANDLER_TIMEOUT
 			goto error;
 		}
 

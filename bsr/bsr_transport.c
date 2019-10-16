@@ -125,11 +125,7 @@ void drbd_print_transports_loaded(struct seq_file *seq)
 	up_read(&transport_classes_lock);
 }
 
-#ifdef _WIN32
-static bool addr_equal(const struct sockaddr_storage_win *addr1, const struct sockaddr_storage_win *addr2)
-#else
-static bool addr_equal(const struct sockaddr_storage *addr1, const struct sockaddr_storage *addr2)
-#endif
+static bool addr_equal(const EX_SOCKADDR_STORAGE *addr1, const EX_SOCKADDR_STORAGE *addr2)
 {
 	if (addr1->ss_family != addr2->ss_family)
 		return false;
@@ -158,11 +154,7 @@ static bool addr_equal(const struct sockaddr_storage *addr1, const struct sockad
 	}
 }
 
-#ifdef _WIN32
-bool addr_and_port_equal(const struct sockaddr_storage_win *addr1, const struct sockaddr_storage_win *addr2)
-#else
-static bool addr_and_port_equal(const struct sockaddr_storage *addr1, const struct sockaddr_storage *addr2)
-#endif
+bool addr_and_port_equal(const EX_SOCKADDR_STORAGE *addr1, const EX_SOCKADDR_STORAGE *addr2)
 {
 	if (!addr_equal(addr1, addr2))
 		return false;
@@ -183,16 +175,12 @@ static bool addr_and_port_equal(const struct sockaddr_storage *addr1, const stru
 }
 
 static struct drbd_listener *find_listener(struct drbd_connection *connection,
-					   const struct sockaddr_storage *addr)
+					   const EX_SOCKADDR_STORAGE *addr)
 {
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_listener *listener;
 	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
-#ifdef _WIN32
-		if (addr_and_port_equal(&listener->listen_addr, (const struct sockaddr_storage_win *)addr)) {
-#else
 		if (addr_and_port_equal(&listener->listen_addr, addr)) {
-#endif
 			kref_get(&listener->kref);
 			return listener;
 		}
@@ -212,7 +200,7 @@ int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
 
 	while (1) {
 		spin_lock_bh(&resource->listeners_lock);
-		listener = find_listener(connection, (struct sockaddr_storage *)addr);
+		listener = find_listener(connection, (EX_SOCKADDR_STORAGE *)addr);
 		if (!listener && new_listener) {
 			list_add(&new_listener->list, &resource->listeners);
 			listener = new_listener;
@@ -287,12 +275,9 @@ extern char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
 extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 #endif
 
-#ifdef _WIN32 // TODO: Check again that drbd_find_waiter_by_addr is not needed.
-struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct sockaddr_storage_win *addr)
-#else
-//struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, struct sockaddr_storage *addr)
-struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, struct sockaddr_storage *addr)
-#endif
+// TODO: Check again that drbd_find_waiter_by_addr is not needed.
+//struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, EX_SOCKADDR_STORAGE *addr)
+struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, EX_SOCKADDR_STORAGE *addr)
 {
 	struct drbd_path *path;
 
