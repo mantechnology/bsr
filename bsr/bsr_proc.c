@@ -22,24 +22,22 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/seq_file.h"
-#include "../bsr-headers/bsr.h"
-#else
+#else // _LIN
 #include <linux/module.h>
-
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <bsr.h>
 #endif
 #include "bsr_int.h"
+#include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_transport.h"
-#ifdef _WIN32
-	// replaced with MVF ioctl
-#else
+
+// windows replaced with MVF ioctl
+#ifdef _LIN
 static int drbd_proc_open(struct inode *inode, struct file *file);
 static int drbd_proc_release(struct inode *inode, struct file *file);
 
@@ -53,7 +51,7 @@ const struct file_operations drbd_proc_fops = {
 };
 #endif
 
-#ifdef _WIN32 // DW-826
+#ifdef _WIN // DW-826
 int drbd_seq_show(struct seq_file *seq, void *v)
 {
 	UNREFERENCED_PARAMETER(v);
@@ -64,7 +62,7 @@ int drbd_seq_show(struct seq_file *seq, void *v)
 
 	return 0;
 }
-#else
+#else // _LIN
 static int drbd_seq_show(struct seq_file *seq, void *v)
 {
 	seq_printf(seq, "version: " REL_VERSION " (api:%d/proto:%d-%d)\n%s\n",
@@ -76,9 +74,7 @@ static int drbd_seq_show(struct seq_file *seq, void *v)
 }
 #endif
 
-#ifdef _WIN32
-	// not support
-#else
+#ifdef _LIN
 static int drbd_proc_open(struct inode *inode, struct file *file)
 {
 	int err;
