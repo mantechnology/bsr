@@ -155,9 +155,7 @@ drbd_find_overlap(struct rb_root *root, sector_t sector, unsigned int size)
 			node = node->rb_left;
 		} else if (here->sector < end &&
 			   sector < here->sector + (here->size >> 9)) {
-#ifdef _WIN32 
             // PERFORMANCE_CHECK: this logic is entered when crystal 32QD test. required performance tuning for small I/O 
-#endif
 			overlap = here;
 			break;
 		} else if (sector >= here->sector) {
