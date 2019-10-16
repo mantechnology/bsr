@@ -80,7 +80,7 @@
 #endif
 
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN32_SEND_BUFFING
 #include "send_buf.h"		
 #endif
 #include "bsr_debugfs.h"
@@ -4113,7 +4113,7 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 	mutex_lock(&connection->mutex[DATA_STREAM]);
 	mutex_lock(&connection->mutex[CONTROL_STREAM]);
 
-#ifdef	_WIN_SEND_BUFFING
+#ifdef	_WIN32_SEND_BUFFING
 	// bab is freed at ops->free (sock_release). and so, send-buffering threads must be terminated prior to ops->free.  
 	// CONNECTION_RESET is occured at this point by stop_send_buffring 
 	// connection->transport.ops->stop_send_buffring(&connection->transport);
