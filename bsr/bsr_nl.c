@@ -5716,21 +5716,17 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 		resource_filter = find_cfg_context_attr(cb->nlh, T_ctx_resource_name);
 		if (resource_filter) {
 			retcode = ERR_RES_NOT_KNOWN;
-#ifdef _WIN32 // DW-900 to avoid the recursive lock
+#ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_unlock();
 #endif
 			resource = drbd_find_resource(nla_data(resource_filter));
-#ifdef _WIN32 // DW-900 to avoid the recursive lock
+#ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_lock_w32_inner();
 #endif
 			if (!resource)
 				goto put_result;
 			kref_debug_get(&resource->kref_debug, 6);
-#ifdef _WIN32
-            cb->args[0] = (LONG_PTR)resource;
-#else
-			cb->args[0] = (long)resource;
-#endif
+			cb->args[0] = (LONG_PTR)resource;
 			cb->args[1] = SINGLE_RESOURCE;
 		}
 	}
@@ -5740,20 +5736,16 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 		resource = list_first_entry(&drbd_resources, struct drbd_resource, resources);
 		kref_get(&resource->kref);
 		kref_debug_get(&resource->kref_debug, 6);
-#ifdef _WIN32
-        cb->args[0] = (LONG_PTR)resource;
-#else
-		cb->args[0] = (long)resource;
-#endif
+		cb->args[0] = (LONG_PTR)resource;
 		cb->args[1] = ITERATE_RESOURCES;
 	}
 
     next_resource:
 	rcu_read_unlock();
 	mutex_lock(&resource->conf_update);
-#ifdef _WIN32
-    rcu_read_lock_w32_inner();
-#else
+#ifdef _WIN
+	rcu_read_lock_w32_inner();
+#else // _LIN
 	rcu_read_lock();
 #endif
 	if (cb->args[2]) {
@@ -5766,19 +5758,13 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 	connection = list_entry(&resource->connections, struct drbd_connection, connections);
 
 found_connection:
-#ifdef _WIN32
-    //list_for_each_entry_continue_rcu_ex(struct drbd_connection, connection, &resource->connections, connections) {
-    //    retcode = NO_ERROR;
-    //    goto put_result;  /* only one iteration */
-    //}
-
+#ifdef _WIN
 	connection = list_entry_rcu(connection->connections.next, struct drbd_connection, connections);
 	if(&connection->connections != &(resource->connections)) {        
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
-
-#else
+#else // _LIN
 	list_for_each_entry_continue_rcu_ex(struct drbd_connection, connection, &resource->connections, connections) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
@@ -5796,22 +5782,6 @@ no_more_connections:
 	goto out;
 
 found_resource:
-//	list_for_each_entry_continue_rcu_ex(struct drbd_resource, next_resource, &drbd_resources, resources) {
-//		mutex_unlock(&resource->conf_update);
-//		kref_debug_put(&resource->kref_debug, 6);
-//		kref_put(&resource->kref, drbd_destroy_resource);
-//		resource = next_resource;
-//		kref_get(&resource->kref);
-//		kref_debug_get(&resource->kref_debug, 6);
-//#ifdef _WIN32
-//        cb->args[0] = (LONG_PTR)resource;
-//#else
-//		cb->args[0] = (long)resource;
-//#endif
-//		cb->args[2] = 0;
-//		goto next_resource;
-//	}
-
 	next_resource = list_entry_rcu(next_resource->resources.next, struct drbd_resource, resources);
 	if (&next_resource->resources != &(drbd_resources)) {
 		mutex_unlock(&resource->conf_update);
@@ -5820,11 +5790,7 @@ found_resource:
 		resource = next_resource;
 		kref_get(&resource->kref);
 		kref_debug_get(&resource->kref_debug, 6);
-#ifdef _WIN32
 		cb->args[0] = (LONG_PTR)resource;
-#else
-		cb->args[0] = (long)resource;
-#endif
 		cb->args[2] = 0;
 		goto next_resource;
 	}
@@ -5862,11 +5828,7 @@ put_result:
 		err = connection_statistics_to_skb(skb, &connection_statistics, !capable(CAP_SYS_ADMIN));
 		if (err)
 			goto out;
-#ifdef _WIN32
-        cb->args[2] = (LONG_PTR)connection;
-#else
-		cb->args[2] = (long)connection;
-#endif
+		cb->args[2] = (LONG_PTR)connection;
 	}
 	genlmsg_end(skb, dh);
 	err = 0;
