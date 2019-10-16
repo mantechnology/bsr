@@ -690,9 +690,6 @@ extern void bio_endio(struct bio *bio, int error);
 #define bio_data_dir(bio)       ((bio)->bi_rw & 1)
 #define bio_rw(bio)             ((bio)->bi_rw & (RW_MASK))
 
-// DRBD_DOC: not support, it is always newest updated block for windows.
-#define bio_flagged(bio, flag)  (1) 
-
 extern void rwlock_init(void *lock);
 extern void spin_lock_init(spinlock_t *lock);
 ///extern void spin_lock_irqsave(spinlock_t *lock, long flags);

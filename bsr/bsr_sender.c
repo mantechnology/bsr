@@ -511,7 +511,6 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 	struct bio_and_error m;
 	enum drbd_req_event what;
 #ifdef _WIN
-	int uptodate = 0; 
 	struct bio *bio = NULL;
 	int error = 0;
 
@@ -553,9 +552,6 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 	req = bio->bi_private;
 	device = req->device;
-#ifdef _WIN
-	uptodate = bio_flagged(bio, BIO_UPTODATE);
-#endif
 	BIO_ENDIO_FN_START;
 
 	/* If this request was aborted locally before,
