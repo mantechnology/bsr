@@ -593,7 +593,7 @@ static __printf(2, 3) int env_print(struct env *env, const char *fmt, ...)
 
 /* Put env variables for an address into an env buffer. */
 static void env_print_address(struct env *env, const char *prefix,
-			      EX_SOCKADDR_STORAGE *storage)
+			      SOCKADDR_STORAGE_EX *storage)
 {
 	const char *afs;
 
@@ -4178,7 +4178,7 @@ fail:
 	return retcode;
 }
 
-bool addr_eq_nla(const EX_SOCKADDR_STORAGE *addr, const int addr_len, const struct nlattr *nla)
+bool addr_eq_nla(const SOCKADDR_STORAGE_EX *addr, const int addr_len, const struct nlattr *nla)
 {
 	return	nla_len(nla) == addr_len && memcmp(nla_data(nla), addr, addr_len) == 0;
 }

@@ -431,7 +431,7 @@ struct kobject {
 typedef struct sockaddr_storage_win {
 	unsigned short	ss_family;		/* address family */
 	char	__data[_K_SS_MAXSIZE - sizeof(unsigned short)];
-} EX_SOCKADDR_STORAGE; 
+} SOCKADDR_STORAGE_EX; 
 
 struct sock {
 	LONG_PTR sk_state_change;
