@@ -228,7 +228,7 @@ struct drbd_transport_ops {
 	void (*debugfs_show)(struct drbd_transport *, struct seq_file *m);
 	int (*add_path)(struct drbd_transport *, struct drbd_path *path);
 	int (*remove_path)(struct drbd_transport *, struct drbd_path *path);
-#ifdef _WIN32_SEND_BUFFING 
+#ifdef _WIN_SEND_BUFFING 
 	bool (*start_send_buffring)(struct drbd_transport *, signed long long size);
 	void (*stop_send_buffring)(struct drbd_transport *);
 #endif
