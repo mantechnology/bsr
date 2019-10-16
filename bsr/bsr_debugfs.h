@@ -1,4 +1,4 @@
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/kernel.h"
 #else
 #include <linux/kernel.h>
@@ -23,9 +23,9 @@ void drbd_debugfs_device_cleanup(struct drbd_device *device);
 void drbd_debugfs_peer_device_add(struct drbd_peer_device *peer_device);
 void drbd_debugfs_peer_device_cleanup(struct drbd_peer_device *peer_device);
 #else
-#ifdef _WIN32
+#ifdef _WIN
 static __inline int drbd_debugfs_init(void) { return -ENODEV; }
-#else
+#else // _LIN
 static inline int __init drbd_debugfs_init(void) { return -ENODEV; }
 #endif
 static inline void drbd_debugfs_cleanup(void) { }
