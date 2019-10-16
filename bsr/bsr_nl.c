@@ -896,11 +896,15 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 
 	r = drbd_khelper(NULL, connection, "fence-peer");
 
+	// DW-798, BSR-399
 #ifdef _WIN
-	r = r << 8;
+	r = r & 0xff;
+#else // _LIN
+	r = (r >> 8) & 0xff;
 #endif
+
 	begin_state_change(resource, &irq_flags, CS_VERBOSE);
-	switch ((r>>8) & 0xff) {
+	switch (r) {
 	case P_INCONSISTENT: /* peer is inconsistent */
 		ex_to_string = "peer is inconsistent or worse";
 		__change_peer_disk_states(connection, D_INCONSISTENT);
@@ -941,7 +945,7 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 	}
 
 	drbd_info(connection, "fence-peer helper returned %d (%s)\n",
-		  (r>>8) & 0xff, ex_to_string);
+		  r, ex_to_string);
 
 	if (connection->cstate[NOW] >= C_CONNECTED ||
 	    initial_states_pending(connection)) {
