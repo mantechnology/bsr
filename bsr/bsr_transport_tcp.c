@@ -119,7 +119,7 @@ static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *
 static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport);
 static int dtt_add_path(struct drbd_transport *, struct drbd_path *path);
 static int dtt_remove_path(struct drbd_transport *, struct drbd_path *);
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 static bool dtt_start_send_buffring(struct drbd_transport *, signed long long size);
 static void dtt_stop_send_buffring(struct drbd_transport *);
 #endif
@@ -150,7 +150,7 @@ static struct drbd_transport_ops dtt_ops = {
 	.debugfs_show = dtt_debugfs_show,
 	.add_path = dtt_add_path,
 	.remove_path = dtt_remove_path,
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 	.start_send_buffring = dtt_start_send_buffring,
 	.stop_send_buffring = dtt_stop_send_buffring,
 #endif
@@ -253,7 +253,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 		synchronize_rcu();
 #endif
 
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 		// DW-1204 flushing send buffer takes too long when network is slow, just shut it down if possible.
 		if (!bFlush)
 			kernel_sock_shutdown(socket, SHUT_RDWR);
@@ -363,7 +363,7 @@ static int _dtt_send(struct drbd_tcp_transport *tcp_transport, struct socket *so
  * otherwise wake_asender() might interrupt some send_*Ack !
  */
 #ifdef _WIN32
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 		 // _dtt_send is only used when dtt_connect is processed(dtt_send_first_packet), at this time send buffering is not done yet.
 		rv = Send(socket, DataBuffer, (ULONG)iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, NULL, 0);
 #else
@@ -565,7 +565,7 @@ static void dtt_stats(struct drbd_transport *transport, struct drbd_transport_st
 #endif
 		// not supported
 		stats->send_buffer_size = sk->sk_sndbuf;
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 		{
 			struct _buffering_attr *buffering_attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
 			struct ring_buffer *bab = buffering_attr->bab;
@@ -1164,7 +1164,7 @@ retry:
 		}
 	}
 
-#ifdef _WIN32_SEND_BUFFING	
+#ifdef _WIN_SEND_BUFFING	
 	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
 #endif
 		
@@ -2202,7 +2202,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 			transport->ko_count = transport->net_conf->ko_count;
 		}
 
-#ifdef _WIN32_SEND_BUFFING 
+#ifdef _WIN_SEND_BUFFING 
 		sent = send_buf(transport, stream, socket, (void *)((unsigned char *)(page) +offset), len);
 		// WIN32_SEND_ERR_FIX: move we_should_drop_the_connection to inside of send_buf, because retransmission occurred
 #else
@@ -2217,7 +2217,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 		sent = socket->ops->sendpage(socket, page, offset, len, msg_flags);
 #endif
 		if (sent <= 0) {
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 			if (sent == -EAGAIN) 
 			{
 				break;
@@ -2452,7 +2452,7 @@ static void __exit dtt_cleanup(void)
 }
 #endif
 
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 
 extern KSTART_ROUTINE send_buf_thread;
 
@@ -2554,7 +2554,7 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 	}
 	return;
 }
-#endif // _WIN32_SEND_BUFFING
+#endif // _WIN_SEND_BUFFING
 
 //#ifndef _WIN32
 //module_init(dtt_initialize)
