@@ -1573,7 +1573,7 @@ void del_gendisk(struct gendisk *disk)
 		return;
 	}
 
-#ifndef _WIN_SEND_BUFFING
+#ifndef _WIN32_SEND_BUFFING
 	
 	status = CloseSocket(sock->sk); 
 	if (!NT_SUCCESS(status)) 
@@ -1597,7 +1597,7 @@ void del_gendisk(struct gendisk *disk)
 		sock->sk_linux_attr = 0;
 	}
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN32_SEND_BUFFING
 	struct _buffering_attr *buffering_attr = &sock->buffering_attr;
 	struct ring_buffer *bab = buffering_attr->bab;
 

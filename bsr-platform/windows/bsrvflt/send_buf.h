@@ -18,9 +18,9 @@
 */
 
 
-#ifndef __WIN_SEND_BUFFING_H
-#define __WIN_SEND_BUFFING_H
-#ifndef _WIN_SEND_BUFFING
+#ifndef __WIN32_SEND_BUFFING_H
+#define __WIN32_SEND_BUFFING_H
+#ifndef _WIN32_SEND_BUFFING
 #include "drbd_windows.h"	
 #include "wsk2.h"	
 #endif
