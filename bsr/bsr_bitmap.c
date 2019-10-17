@@ -1377,9 +1377,6 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	bio->bi_private = ctx;
 	bio->bi_end_io = drbd_bm_endio;
 	bio_set_op_attrs(bio, op, 0);
-#ifdef _WIN
-	bio->io_retry = device->resource->res_opts.io_error_retry_count;
-#endif
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD)) {
 		bio_endio(bio, -EIO);
 	} else {

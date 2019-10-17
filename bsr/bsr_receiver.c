@@ -1870,8 +1870,6 @@ next_bio:
 	++n_bios;
 
 #ifdef _WIN
-	bio->io_retry = device->resource->res_opts.io_error_retry_count;
-
 	bio->bi_size = data_size;
 	bio->bio_databuf = peer_req->peer_req_databuf = page;
 	page = NULL;

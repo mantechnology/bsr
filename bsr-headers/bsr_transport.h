@@ -1,14 +1,15 @@
 #ifndef DRBD_TRANSPORT_H
 #define DRBD_TRANSPORT_H
-#ifdef _WIN32
+#ifdef _WIN
 #include "../bsr/bsr-kernel-compat/windows/list.h"
 #include "../bsr/bsr-kernel-compat/windows/wait.h"
 #include "../bsr/bsr-kernel-compat/windows/bsr_windows.h"
-#else
+#else // _LIN
 #include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/wait.h>
 #include <linux/socket.h>
+#include <bsr_wrappers.h>
 #endif
 
 /* Whenever touch this file in a non-trivial way, increase the
@@ -31,7 +32,7 @@
  * pressure on the peer, eventually leading to deadlock.
  */
 #define GFP_TRY	(__GFP_HIGHMEM | __GFP_NOWARN | __GFP_RECLAIM)
-#ifdef _WIN32
+#ifdef _WIN
 #define tr_printk(level, transport, fmt, ...)  do {		\
 	rcu_read_lock();					\
 	printk(level "drbd %s: " fmt,			\
@@ -46,7 +47,7 @@
 	tr_printk(KERN_WARNING, transport, fmt, ## __VA_ARGS__)
 #define tr_info(transport, fmt, ...) \
 	tr_printk(KERN_INFO, transport, fmt, ## __VA_ARGS__)
-#else
+#else // _LIN
 #define tr_printk(level, transport, fmt, args...)  ({		\
 	rcu_read_lock();					\
 	printk(level "drbd %s %s:%s: " fmt,			\
@@ -138,20 +139,16 @@ struct drbd_transport {
 
 	/* These members are intended to be updated by the transport: */
 	unsigned int ko_count;
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 };
 
 struct drbd_transport_stats {
 	int unread_received;
 	int unacked_send;
-#ifdef _WIN32
+#ifdef _WIN
 	signed long long send_buffer_size;
 	signed long long send_buffer_used;
-#else
+#else // _LIN
 	int send_buffer_size;
 	int send_buffer_used;
 #endif
@@ -238,7 +235,7 @@ struct drbd_transport_class {
 	const char *name;
 	const int instance_size;
 	const int path_instance_size;
-#ifndef _WIN32 
+#ifdef _LIN 
 	struct module *module;
 #endif
 	int (*init)(struct drbd_transport *);
@@ -282,10 +279,10 @@ extern bool drbd_should_abort_listening(struct drbd_transport *transport);
 extern void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path);
 
 /* drbd_receiver.c*/
-#ifdef _WIN32
+#ifdef _WIN
 extern void* drbd_alloc_pages(struct drbd_transport *, unsigned int, bool);
 extern void drbd_free_pages(struct drbd_transport *transport, int page_count, int is_net);
-#else
+#else // _LIN
 extern struct page *drbd_alloc_pages(struct drbd_transport *, unsigned int, gfp_t);
 extern void drbd_free_pages(struct drbd_transport *transport, struct page *page, int is_net);
 #endif
@@ -298,12 +295,12 @@ static inline void drbd_alloc_page_chain(struct drbd_transport *t,
 
 static inline void drbd_free_page_chain(struct drbd_transport *transport, struct drbd_page_chain_head *chain, int is_net)
 {
-#ifdef _WIN32 
+#ifdef _WIN
 	// DW-1239 decrease nr_pages before drbd_free_pages().
 	int page_count = atomic_xchg((atomic_t *)&chain->nr_pages, 0);
 	drbd_free_pages(transport, page_count, is_net);
 	chain->head = NULL;
-#else
+#else // _LIN
 	drbd_free_pages(transport, chain->head, is_net);
 	chain->head = NULL;
 	chain->nr_pages = 0;
@@ -356,7 +353,7 @@ struct drbd_page_chain {
 #endif
 };
 
-#ifndef _WIN32
+#ifdef _LIN
 static inline void dummy_for_buildbug(void)
 {
 	struct page *dummy;
@@ -383,17 +380,17 @@ static inline void dummy_for_buildbug(void)
 		.offset = (o),				\
 		.size = (s),				\
 	 })
-#ifndef _WIN32
+#ifdef _WIN
+#define page_chain_for_each(page) \
+	for (; page ; page = page_chain_next(page))
+#define page_chain_for_each_safe(page, n) \
+	for (; page && ( n = page_chain_next(page)); page = n) 
+#else // _LIN
 #define page_chain_for_each(page) \
 	for (; page && ({ prefetch(page_chain_next(page)); 1; }); \
 			page = page_chain_next(page))
 #define page_chain_for_each_safe(page, n) \
 	for (; page && ({ n = page_chain_next(page); 1; }); page = n)
-#else
-#define page_chain_for_each(page) \
-	for (; page ; page = page_chain_next(page))
-#define page_chain_for_each_safe(page, n) \
-	for (; page && ( n = page_chain_next(page)); page = n) 
 #endif
 
 #ifndef SK_CAN_REUSE

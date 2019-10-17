@@ -255,7 +255,6 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 	// save original Master Irp's Stack Flags
 	bio->MasterIrpStackFlags = ((PIO_STACK_LOCATION)IoGetCurrentIrpStackLocation(upper_pirp))->Flags;
 
-	bio->io_retry = device->resource->res_opts.io_error_retry_count;
 	status = drbd_make_request(device->rq_queue, bio); // drbd local I/O entry point 
 	if (STATUS_SUCCESS != status) {
 		bio_free(bio);

@@ -1057,9 +1057,6 @@ struct context_def resource_options_ctx = {
 		{ "req-buf-size", NUMERIC(req_buf_size, REQ_BUF_SIZE), .unit = "bytes" },
 		// DW-1249 auto-start by svc
 		{ "svc-autostart", BOOLEAN(svc_autostart, SVC_AUTOSTART) },
-#ifdef _WIN32
-		{ "io-error-retry-count", NUMERIC(io_error_retry_count, IO_ERROR_RETRY_COUNT) },
-#endif
 		{ } },
 };
 

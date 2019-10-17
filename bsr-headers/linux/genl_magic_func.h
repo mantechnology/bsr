@@ -1,8 +1,8 @@
 #ifndef GENL_MAGIC_FUNC_H
 #define GENL_MAGIC_FUNC_H
-#ifdef _WIN32
+#ifdef _WIN
 #include "genl_magic_struct.h"
-#else
+#else // _LIN
 #include <linux/genl_magic_struct.h>
 #endif
 
@@ -42,22 +42,14 @@ static struct nla_policy s_name ## _nl_policy[] __read_mostly =		\
 	[attr_nr] = { .type = nla_type },
 
 #undef __array
-#ifdef _WIN32
 #define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
 		__get, __put, __is_signed)				\
 	[attr_nr] = { .type = nla_type,					\
 		      .len = (u16)(maxlen - (nla_type == NLA_NUL_STRING)) },
-#else
-#define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
-		__get, __put, __is_signed)				\
-	[attr_nr] = { .type = nla_type,					\
-		      .len = maxlen - (nla_type == NLA_NUL_STRING) },
-
-#endif
 
 #include GENL_MAGIC_INCLUDE_FILE
 
-#ifdef _WIN32
+#ifdef _WIN
 static void manual_nl_policy_init(void) 
 {  
 #include GENL_MAGIC_INCLUDE_FILE	
@@ -185,7 +177,7 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 }					__attribute__((unused))		\
 
 // TODO, required to compare original
-#ifdef _WIN32
+#ifdef _WIN
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment, ...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
@@ -201,7 +193,7 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 			pr_info("<< missing attr: %s\n", #name);	\
 			return -ENOMSG;					\
 		}
-#else
+#else // _LIN
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
@@ -261,7 +253,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
 }
 
 #ifdef __KERNEL__
-#ifndef _WIN32
+#ifdef _LIN
 #include <linux/stringify.h>
 #endif
 /*
@@ -270,7 +262,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
  */
 
 #undef GENL_op
-#ifdef _WIN32
+#ifdef _WIN
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\
@@ -278,7 +270,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
 	.policy	= CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy),	\
     .str = #op_name, \
 },
-#else //_LIN TODO
+#else //_LIN
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\
@@ -320,10 +312,10 @@ static struct genl_family ZZZ_genl_family;
  */
 #if defined(genl_register_family_with_ops_groups) || !defined(GENL_ID_GENERATE)
 #include <linux/genl_magic_func-genl_register_family_with_ops_groups.h>
-#else // TODO: for cross-platform code
-#ifdef _WIN32
-#include "genl_magic_func-genl_register_mc_group.h" // TODO for windows?
 #else
+#ifdef _WIN
+#include "genl_magic_func-genl_register_mc_group.h"
+#else // _LIN
 #include <linux/genl_magic_func-genl_register_mc_group.h>
 #endif
 #endif
@@ -338,7 +330,7 @@ static struct genl_family ZZZ_genl_family __read_mostly = {
 	.maxattr = ARRAY_SIZE(CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy))-1,
 
 
-#ifndef _WIN32
+#ifdef _LIN
 #ifndef GENL_ID_GENERATE
 	.ops = ZZZ_genl_ops,
 	.n_ops = ARRAY_SIZE(ZZZ_genl_ops),
@@ -417,8 +409,6 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 
 /* Functions for initializing structs to default values.  */
 
-#ifdef _WIN32
-
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
 		__is_signed)													\
@@ -427,16 +417,6 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 #define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
 		__get, __put, __is_signed)									\
 		UNREFERENCED_PARAMETER(x);
-
-#else // _LIN
-
-#undef __field
-#define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
-		__is_signed)
-#undef __array
-#define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
-		__get, __put, __is_signed)
-#endif
 
 #undef __u32_field_def
 #define __u32_field_def(attr_nr, attr_flag, name, default)		\

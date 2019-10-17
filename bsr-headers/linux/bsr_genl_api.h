@@ -1,6 +1,6 @@
 #ifndef DRBD_GENL_STRUCT_H
 #define DRBD_GENL_STRUCT_H
-#ifdef _WIN32
+#ifdef _WIN
 #include "../windows/types.h"
 #endif
 
@@ -34,19 +34,19 @@ enum {
  * we cannot possibly include <1/drbd_genl.h> */
 #undef linux
 
-#ifdef _WIN32
+#ifdef _WIN
 #include "../bsr.h"
-#else
+#else // _LIN
 #include <bsr.h>
 #endif
 
 #define GENL_MAGIC_VERSION	2
 #define GENL_MAGIC_FAMILY	drbd
 #define GENL_MAGIC_FAMILY_HDRSZ	sizeof(struct drbd_genlmsghdr)
-#ifdef _WIN32
-#define GENL_MAGIC_INCLUDE_FILE "bsr_genl.h" // TODO: linux 경로 인식 문제로 컴파일을 위해 임시 경로로 대치: linux/drbd_genl.h -> drbd_genl.h
+#ifdef _WIN
+#define GENL_MAGIC_INCLUDE_FILE "bsr_genl.h"
 #include "genl_magic_struct.h"
-#else
+#else // _LIN
 #define GENL_MAGIC_INCLUDE_FILE <linux/bsr_genl.h>
 #include <linux/genl_magic_struct.h>
 #endif
