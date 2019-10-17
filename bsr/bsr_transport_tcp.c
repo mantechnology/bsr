@@ -34,11 +34,11 @@
 #include <linux/tcp.h>
 #include <linux/highmem.h>
 #include <bsr_transport.h>
-#include <bsr_int.h>
 #endif
 #include "../bsr-headers/bsr_protocol.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"
+#include "bsr_int.h"
 
 // The existing bsr_transport_tcp module has been integrated into bsr.
 //#ifdef _LIN
