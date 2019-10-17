@@ -39,26 +39,17 @@ static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, 
 static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
 	struct request_queue *q = device->rq_queue;
-#ifdef _WIN
+
 	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		(struct hd_struct*)&device->vdisk->part0);
-#else // _LIN
-	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
-		&device->vdisk->part0);
-#endif
 }
 
 /* Update disk stats when completing request upwards */
 static void _drbd_end_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
 	struct request_queue *q = device->rq_queue;
-#ifdef _WIN
 	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
-#else // _LIN
-	generic_end_io_acct(q, bio_data_dir(req->master_bio),
-		&device->vdisk->part0, req->start_jif);
-#endif
 }
 #else
 static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request *req)
@@ -2446,9 +2437,8 @@ void do_submit(struct work_struct *ws)
 				break;
 			}
 			al_wait_count += 1;
-#ifdef _WIN
-			// Skipped 3d552f8 commit(linux drbd)
-#else // _LIN
+#ifdef _LIN 
+			// DW-691 windows skipped 3d552f8 commit(linux drbd)
 			drbd_kick_lo(device);
 #endif
 
@@ -2528,9 +2518,8 @@ void do_submit(struct work_struct *ws)
 
 		send_and_submit_pending(device, &wfa);
 	}
-#ifdef _WIN
-	// Skipped 3d552f8 commit(linux drbd)
-#else // _LIN
+#ifdef _LIN
+	// DW-691 windows skipped 3d552f8 commit(linux drbd)
 	drbd_kick_lo(device);
 #endif
 }

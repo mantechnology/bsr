@@ -1,8 +1,8 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
-#ifdef _WIN32
+#ifdef _WIN
 #include <ntddk.h>
 #include "./bsr-kernel-compat/windows/spinlock.h"
-#else
+#else // _LIN
 #include <linux/spinlock.h>
 #include <linux/module.h>
 #include <net/ipv6.h>
@@ -12,10 +12,10 @@
 
 
 static LIST_HEAD(transport_classes);
-#ifdef _WIN32
+#ifdef _WIN
 extern int __init dtt_initialize(void);
 KSPIN_LOCK	transport_classes_lock;
-#else
+#else // _LIN
 extern int dtt_initialize(void);
 static DECLARE_RWSEM(transport_classes_lock);
 #endif
@@ -73,7 +73,7 @@ static struct drbd_transport_class *get_transport_class(const char *name)
 
 	down_read(&transport_classes_lock);
 	tc = __find_transport_class(name);
-#ifndef _WIN32
+#ifdef _LIN
 	if (tc && !try_module_get(tc->module))
 		tc = NULL;
 #endif
@@ -93,7 +93,7 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 	return tc;
 }
 
-#ifndef _WIN32 // TODO: required to port on linux
+#ifdef _LIN // TODO: required to port on linux
 void drbd_put_transport_class(struct drbd_transport_class *tc)
 {
 	/* convenient in the error cleanup path */
@@ -113,9 +113,9 @@ void drbd_print_transports_loaded(struct seq_file *seq)
 
 	seq_puts(seq, "Transports (api:" __stringify(DRBD_TRANSPORT_API_VERSION) "):");
 	list_for_each_entry_ex(struct drbd_transport_class, tc, &transport_classes, list) {
-#ifdef _WIN32
+#ifdef _WIN
 		seq_printf(seq, " %s ", tc->name);
-#else
+#else // _LIN
 		seq_printf(seq, " %s (%s)", tc->name,
 				tc->module->version ? tc->module->version : "NONE");
 #endif
@@ -133,15 +133,15 @@ static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_
 	if (addr1->ss_family == AF_INET6) {
 		const struct sockaddr_in6 *v6a1 = (const struct sockaddr_in6 *)addr1;
 		const struct sockaddr_in6 *v6a2 = (const struct sockaddr_in6 *)addr2;
-#ifdef _WIN32
+#ifdef _WIN
 		if (!IN6_ADDR_EQUAL(&v6a1->sin6_addr, &v6a2->sin6_addr))
-#else
+#else // _LIN
 		if (!ipv6_addr_equal(&v6a1->sin6_addr, &v6a2->sin6_addr))
 #endif
 			return false;
-#ifdef _WIN32
+#ifdef _WIN
 		else if (IN6_IS_ADDR_LINKLOCAL(&v6a1->sin6_addr))
-#else
+#else // _LIN
 		else if (ipv6_addr_type(&v6a1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
 #endif
 			return v6a1->sin6_scope_id == v6a2->sin6_scope_id;
@@ -255,9 +255,9 @@ void drbd_put_listener(struct drbd_path *path)
 	// DW-1538 Sometimes null values come in. 
 	if (!path)
 		return;
-#ifdef _WIN32
+#ifdef _WIN
 	listener = (struct drbd_listener*)xchg((LONG_PTR*)&path->listener, (LONG_PTR)NULL);
-#else
+#else // _LIN
 	listener = xchg(&path->listener, NULL);
 #endif
 	if (!listener)
@@ -270,7 +270,7 @@ void drbd_put_listener(struct drbd_path *path)
 	kref_put(&listener->kref, drbd_listener_destroy);
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 extern char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
 extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 #endif
@@ -286,7 +286,7 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, SOCKADD
 		return NULL;
 	}
 	list_for_each_entry_ex(struct drbd_path, path, &listener->waiters, listener_link) {
-#ifdef _WIN32
+#ifdef _WIN
 		//drbd_debug_co("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
@@ -364,7 +364,7 @@ void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path)
 }
 
 
-//#ifndef _WIN32
+//#ifdef _LIN
 //EXPORT_SYMBOL_GPL(drbd_register_transport_class);
 //EXPORT_SYMBOL_GPL(drbd_unregister_transport_class);
 //EXPORT_SYMBOL_GPL(drbd_get_listener);
