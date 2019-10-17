@@ -22,18 +22,17 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./bsr-kernel-compat/windows/seq_file.h" /* for seq_printf */
-#include "./linux/lru_cache.h"
-#else
+#else // _LIN
 #include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/string.h> /* for memset */
 #include <linux/seq_file.h> /* for seq_printf */
-#include <linux/lru_cache.h>
 #endif
+#include "./linux/lru_cache.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "../bsr/bsr_int.h"
 
@@ -108,17 +107,17 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 #endif 
 
 
-#ifdef _WIN32
+#ifdef _WIN
 #define RETURN_VOID()     do { \
 	clear_bit_unlock(__LC_PARANOIA, &lc->flags); \
 	return; } while (false)
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 #define RETURN(x)     do { \
 	clear_bit_unlock(__LC_PARANOIA, &lc->flags); \
 	return x ; } while (false,false)
-#else
+#else // _LIN
 #define RETURN(x...)     do { \
 	clear_bit_unlock(__LC_PARANOIA, &lc->flags); \
 	return x ; } while (0)
@@ -154,9 +153,9 @@ int lc_try_lock(struct lru_cache *lc)
 {
 	unsigned long val;
 	do {
-#ifdef _WIN32
+#ifdef _WIN
 		val = atomic_cmpxchg((atomic_t *)&lc->flags, 0, LC_LOCKED);
-#else
+#else // _LIN
 		val = cmpxchg(&lc->flags, 0, LC_LOCKED);
 #endif
 	} while (unlikely (val == LC_PARANOIA));
@@ -186,11 +185,11 @@ int lc_try_lock(struct lru_cache *lc)
  * Returns a pointer to a newly initialized struct lru_cache on success,
  * or NULL on (allocation) failure.
  */
-#ifdef _WIN32
+#ifdef _WIN
 struct lru_cache *lc_create(const char *name, PNPAGED_LOOKASIDE_LIST cache,
 		unsigned max_pending_changes,
 		unsigned e_count, size_t e_size, size_t e_off)
-#else
+#else // _LIN
 struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 		unsigned max_pending_changes,
 		unsigned e_count, size_t e_size, size_t e_off)
@@ -200,11 +199,11 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 	struct lc_element **element = NULL;
 	struct lru_cache *lc;
 	struct lc_element *e;
-#ifndef _WIN32
+#ifdef _LIN
 	unsigned cache_obj_size = kmem_cache_size(cache);
 #endif
 	unsigned i;
-#ifndef _WIN32
+#ifdef _LIN
 	WARN_ON(cache_obj_size < e_size);
 	if (cache_obj_size < e_size)
 		return NULL;
@@ -214,7 +213,7 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 	if (e_count > LC_MAX_ACTIVE)
 		return NULL;
 
-#ifdef _WIN32
+#ifdef _WIN
 	slot = (struct hlist_head *)ExAllocatePoolWithTag(NonPagedPool,
 		e_count * sizeof(struct hlist_head), 'F4DW');
 	if (!slot)
@@ -230,7 +229,7 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 	if (!lc)
 		goto out_fail;
 	RtlZeroMemory(lc, sizeof(struct lru_cache));
-#else
+#else // _LIN
 	slot = kcalloc(e_count, sizeof(struct hlist_head), GFP_KERNEL);
 	if (!slot)
 		goto out_fail;
@@ -259,14 +258,14 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 
 	/* preallocate all objects */
 	for (i = 0; i < e_count; i++) {
-#ifdef _WIN32
-		UCHAR* p = (UCHAR*)ExAllocateFromNPagedLookasideList(cache);
-		if (!p) break;
-#else
-		unsigned char *p = kmem_cache_alloc(cache, GFP_KERNEL);
+		unsigned char *p = NULL;
+#ifdef _WIN
+		p = (unsigned char*)ExAllocateFromNPagedLookasideList(cache);
+#else // _LIN
+		p = kmem_cache_alloc(cache, GFP_KERNEL);
+#endif		
 		if (!p)
 			break;
-#endif
 		memset(p, 0, lc->element_size);
         e = (struct lc_element*)(p + e_off);
 		e->lc_index = i;
@@ -280,11 +279,10 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 
 	/* else: could not allocate all elements, give up */
 	for (i--; i; i--) {
-#ifdef _WIN32
-		UCHAR* p = (UCHAR*)element[i];
-		ExFreeToNPagedLookasideList(cache, p - e_off);
-#else
 		void *p = element[i];
+#ifdef _WIN
+		ExFreeToNPagedLookasideList(cache, (unsigned char *)p - e_off);
+#else // _LIN
 		kmem_cache_free(cache, (unsigned char *)p - e_off);
 #endif
 	}
@@ -300,11 +298,10 @@ static void lc_free_by_index(struct lru_cache *lc, unsigned i)
 	void *p = lc->lc_element[i];	
 	WARN_ON(!p);
 	if (p) {
-#ifdef _WIN32
-		p = (UCHAR*)p - lc->element_off;
-        ExFreeToNPagedLookasideList(lc->lc_cache, p);
-#else
 		p = (unsigned char*)p - lc->element_off;
+#ifdef _WIN
+        ExFreeToNPagedLookasideList(lc->lc_cache, p);
+#else // _LIN
 		kmem_cache_free(lc->lc_cache, p);
 #endif
 	}
@@ -354,11 +351,9 @@ void lc_reset(struct lru_cache *lc)
 	for (i = 0; i < lc->nr_elements; i++) {
 		struct lc_element *e = lc->lc_element[i];
 		void *p = e;
-#ifdef _WIN32
-		p = (UCHAR*)p - lc->element_off;
-#else
+
 		p = (unsigned char*)p - lc->element_off;
-#endif
+
 		memset(p, 0, lc->element_size);
 		/* re-init it */
 		e->lc_index = i;
@@ -398,14 +393,14 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 {
 	struct lc_element *e;
 
-#ifdef _WIN32
+#ifdef _WIN
 	if (!lc ||
 		!lc->nr_elements)
 	{
 		drbd_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
 		return NULL;
 	}
-#else
+#else // _LIN
 	BUG_ON(!lc);
 	BUG_ON(!lc->nr_elements);
 #endif
@@ -478,9 +473,9 @@ void lc_del(struct lru_cache *lc, struct lc_element *e)
 	e->lc_number = e->lc_new_number = LC_FREE;
 	hlist_del_init(&e->colision);
 	list_move(&e->list, &lc->free);
-#ifdef _WIN32
+#ifdef _WIN
 	RETURN_VOID();
-#else
+#else // _LIN
 	RETURN();
 #endif
 }
@@ -727,9 +722,9 @@ void lc_committed(struct lru_cache *lc)
 		list_move(&e->list, &lc->in_use);
 	}
 	lc->pending_changes = 0;
-#ifdef _WIN32
+#ifdef _WIN
 	RETURN_VOID();
-#else
+#else // _LIN
 	RETURN();
 #endif
 }
