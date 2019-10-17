@@ -25,11 +25,9 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifdef _WIN32
-
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
-
-#else
+#else // _LIN
 #include <linux/bsr_limits.h>
 #include <linux/random.h>
 #include <linux/jiffies.h>
@@ -531,10 +529,10 @@ static void ___begin_state_change(struct drbd_resource *resource)
 
 static void __begin_state_change(struct drbd_resource *resource)
 {
-#ifdef _WIN32 
+#ifdef _WIN
 	// _WIN32_V9_RCU //(4) required to refactoring because lock, unlock position is diffrent, maybe global scope lock is needed 
     drbd_debug_rcu("rcu_read_lock()\n");
-#else
+#else // _LIN
 	rcu_read_lock();
 #endif
 	___begin_state_change(resource);
@@ -648,12 +646,12 @@ static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, st
 
 	wake_up(&resource->state_wait);
 out:
-#ifdef _WIN32 
+#ifdef _WIN
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(5) temporary dummy.
     drbd_debug_rcu("rcu_read_unlock()\n");
-#else
+#else // _LIN
 	rcu_read_unlock();
 #endif
 
@@ -667,9 +665,9 @@ out:
 void state_change_lock(struct drbd_resource *resource, unsigned long *irq_flags, enum chg_state_flags flags)
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
-#ifdef _WIN32
+#ifdef _WIN
 		drbd_warn(NO_OBJECT,"worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current , resource->worker.task);
-#else
+#else // _LIN
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE\n");
 #endif
@@ -687,7 +685,7 @@ static void __state_change_unlock(struct drbd_resource *resource, unsigned long 
 	spin_unlock_irqrestore(&resource->req_lock, *irq_flags);
 	if (get_t_state(&resource->worker) == RUNNING) {
 		if (done && expect(resource, current != resource->worker.task)) {
-#ifdef _WIN32 
+#ifdef _WIN
 	        while (wait_for_completion(done) == -DRBD_SIGKILL) {
 	            drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	        }
@@ -789,12 +787,12 @@ void abort_state_change_locked(struct drbd_resource *resource, bool locked, cons
 
 static void begin_remote_state_change(struct drbd_resource *resource, unsigned long *irq_flags)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(6) temporary dummy.
     drbd_debug_rcu("rcu_read_unlock()");
-#else
+#else // _LIN
 	rcu_read_unlock();
 #endif
 	spin_unlock_irqrestore(&resource->req_lock, *irq_flags);
@@ -802,12 +800,12 @@ static void begin_remote_state_change(struct drbd_resource *resource, unsigned l
 
 static void __end_remote_state_change(struct drbd_resource *resource, enum chg_state_flags flags)
 {
-#ifdef _WIN32 
+#ifdef _WIN
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(7) temporary dummy.
     drbd_debug_rcu("rcu_read_lock()");
-#else
+#else // _LIN
 	rcu_read_lock();
 #endif
 	resource->state_change_flags = flags;
@@ -1267,9 +1265,9 @@ static bool calc_quorum(struct drbd_device *device, enum which_state which, stru
 	return have_quorum;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 static void _drbd_state_err(struct change_context *context, const char *fmt, ...)
-#else
+#else // _LIN
 static __printf(2, 3) void _drbd_state_err(struct change_context *context, const char *fmt, ...)
 #endif
 {
@@ -1288,9 +1286,9 @@ static __printf(2, 3) void _drbd_state_err(struct change_context *context, const
 		drbd_err(resource, "%s\n", err_str);
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 static void drbd_state_err(struct drbd_resource *resource, const char *fmt, ...)
-#else
+#else // _LIN
 static __printf(2, 3) void drbd_state_err(struct drbd_resource *resource, const char *fmt, ...)
 #endif
 {
@@ -1685,11 +1683,7 @@ static void sanitize_state(struct drbd_resource *resource)
 		struct drbd_peer_device *peer_device;
 		enum drbd_disk_state *disk_state = device->disk_state;
 		bool lost_connection = false;
-#ifdef _WIN32
 		int good_data_count[2] = { 0 };
-#else
-		int good_data_count[2] = { };
-#endif
 
 		if (disk_state[OLD] == D_DISKLESS && disk_state[NEW] == D_DETACHING)
 			__change_disk_state(device, D_DISKLESS, __FUNCTION__);
@@ -2187,11 +2181,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		enum drbd_disk_state *disk_state = device->disk_state;
 		struct drbd_peer_device *peer_device;
-#ifdef _WIN32
 		bool one_peer_disk_up_to_date[2] = {0, };
-#else
-		bool one_peer_disk_up_to_date[2] = { };
-#endif
 		bool create_new_uuid = false;
 
 		if (disk_state[OLD] != D_NEGOTIATING && disk_state[NEW] == D_NEGOTIATING) {
@@ -2526,7 +2516,7 @@ static void abw_start_sync(struct drbd_device *device,
 	case L_STARTING_SYNC_T:
 		/* Since the number of set bits changed and the other peer_devices are
 		   lready in L_PAUSED_SYNC_T state, we need to set rs_total here */
-#ifdef _WIN32
+#ifdef _WIN
 	{ 
 #endif
 		rcu_read_lock();
@@ -2534,32 +2524,23 @@ static void abw_start_sync(struct drbd_device *device,
 			initialize_resync(pd);
 		rcu_read_unlock();
 
-#ifdef _WIN32
 		// DW-1293 peer's bitmap will be reflected on local device's bitmap to perform fast invalidate(remote).
 		if (peer_device->connection->agreed_pro_version >= 112)
 			stable_change_repl_state(peer_device, L_WF_BITMAP_T, CS_VERBOSE);
 		else if (peer_device->connection->agreed_pro_version < 110)
 			stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
-#else
-		if (peer_device->connection->agreed_pro_version < 110)
-			stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
-#endif
 		else
 			drbd_start_resync(peer_device, L_SYNC_TARGET);
 		break;
-#ifdef _WIN32
+#ifdef _WIN
 	}
 #endif
 	case L_STARTING_SYNC_S:
-#ifdef _WIN32
 		// DW-1293 peer's bitmap will be reflected on local device's bitmap to perform fast invalidate(remote).
 		if (peer_device->connection->agreed_pro_version >= 112)
 			stable_change_repl_state(peer_device, L_WF_BITMAP_S, CS_VERBOSE);
 		else
 			drbd_start_resync(peer_device, L_SYNC_SOURCE);
-#else
-		drbd_start_resync(peer_device, L_SYNC_SOURCE);
-#endif
 		break;
 	default:
 		break;
@@ -2740,7 +2721,7 @@ static void notify_state_change(struct drbd_state_change *state_change)
     void *last_arg = NULL;
 
 #define HAS_CHANGED(state) ((state)[OLD] != (state)[NEW])
-#ifdef _WIN32
+#ifdef _WIN
 #define FINAL_STATE_CHANGE(type) \
 	{ if (last_func) \
 		last_func(NULL, 0, last_arg, type); \
@@ -2750,7 +2731,7 @@ static void notify_state_change(struct drbd_state_change *state_change)
 	   last_func = func; \
 	   last_arg = arg; \
 	}
-#else
+#else // _LIN
 #define FINAL_STATE_CHANGE(type) \
 	({ if (last_func) \
 		last_func(NULL, 0, last_arg, type); \
@@ -3106,11 +3087,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 		enum drbd_disk_state *disk_state = device_state_change->disk_state;
 		bool *susp_quorum = device_state_change->susp_quorum;
 		bool effective_disk_size_determined = false;
-#ifdef _WIN32
 		bool one_peer_disk_up_to_date[2] = { 0 };
-#else
-		bool one_peer_disk_up_to_date[2] = { };
-#endif
 		bool device_stable[2];
 		enum which_state which;
 		// DW-1315
@@ -3384,10 +3361,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			/* We are in the progress to start a full sync. SyncTarget sets all slots. */
 			if (repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)
 				drbd_queue_bitmap_io(device,
-#ifdef _WIN32
+#ifdef _WIN
 				// DW-1293
 					&drbd_bmio_set_all_or_fast, &abw_start_sync,
-#else
+#else // _LIN
 					&drbd_bmio_set_all_n_write, &abw_start_sync,
 #endif
 					"set_n_write from StartingSync",
@@ -3397,10 +3374,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			/* We are in the progress to start a full sync. SyncSource one slot. */
 			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) {
 				drbd_queue_bitmap_io(device,
-#ifdef _WIN32
+#ifdef _WIN
 				// DW-1293
 					&drbd_bmio_set_all_or_fast, &abw_start_sync,
-#else
+#else // _LIN
 					&drbd_bmio_set_n_write, &abw_start_sync,
 #endif
 					"set_n_write from StartingSync",
@@ -3891,13 +3868,7 @@ bool cluster_wide_reply_ready(struct drbd_resource *resource)
 			continue;
 		if(test_bit(TWOPC_NO, &connection->flags) ||
 			test_bit(TWOPC_RETRY, &connection->flags)) {
-#ifdef _WIN32 
-			static int x = 0; // globally! TODO: delete
-			if (!(x++ % 3000))
-				drbd_debug(connection, "Reply not ready yet x=(%d)\n", x);
-#else
 			drbd_debug(connection, "Reply not ready yet\n");
-#endif
 			ready = true;
 			break;
 		}
@@ -4132,19 +4103,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	struct drbd_connection *connection, *target_connection = NULL;
 	enum drbd_state_rv rv;
 	u64 reach_immediately;
-
 	// DW-1204 twopc is for disconnecting.
 	bool bDisconnecting = false;
-
-#ifdef _WIN32
     ULONG_PTR start_time;
-#else
-	unsigned long start_time;
-#endif
-
 	bool have_peers;
-
-
 
 	begin_state_change(resource, &irq_flags, context->flags | CS_LOCAL_ONLY);
 	resource->state_change_err_str = context->err_str;
@@ -4248,21 +4210,13 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	request.primary_nodes = 0;  /* Computed in phase 1. */
 	request.mask = cpu_to_be32(context->mask.i);
 	request.val = cpu_to_be32(context->val.i);
-#ifdef _WIN32
+
 	drbd_info(resource, "Preparing cluster-wide state change %u (%u->%d %u/%u)\n",
 			be32_to_cpu(request.tid),
 		  	resource->res_opts.node_id,
 		  	context->target_node_id,
 		  	context->mask.i,
 		  	context->val.i);
-#else
-	drbd_info(resource, "Preparing cluster-wide state change %u (%u->%d %u/%u)",
-			be32_to_cpu(request.tid),
-		  	resource->res_opts.node_id,
-		  	context->target_node_id,
-		  	context->mask.i,
-		  	context->val.i);
-#endif
 
 	drbd_info(resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n", 
 				be32_to_cpu(request.tid),
@@ -4800,55 +4754,6 @@ static bool do_change_role(struct change_context *context, enum change_phase pha
 		context->val.role == R_PRIMARY);
 }
 
-#ifdef _WIN32 // DW-1103 down from kernel with timeout
-enum drbd_state_rv change_role_timeout(struct drbd_resource *resource,
-			       enum drbd_role role,
-			       enum chg_state_flags flags,
-			       bool force)
-{
-	struct change_role_context role_context = {
-		.context = {
-			.resource = resource,
-			.vnr = -1,
-			.mask = { { .role = role_MASK } },
-			.val = { { .role = role } },
-			.target_node_id = -1,
-			.flags = flags | CS_SERIALIZE | CS_DONT_RETRY,
-			// DW-1233 send TWOPC packets to other nodes before updating the local state 
-			.change_local_state_last = true,
-		},
-		.force = force,
-	};
-	enum drbd_state_rv rv;
-	bool got_state_sem = false;
-
-	if (role == R_SECONDARY) {
-		struct drbd_device *device;
-		int vnr;
-
-		if (!(flags & CS_ALREADY_SERIALIZED)) {
-			down(&resource->state_sem);
-			got_state_sem = true;
-			role_context.context.flags |= CS_ALREADY_SERIALIZED;
-		}
-
-        idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-			long t = 100;
-			wait_event_timeout_ex(device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]), t, t);
-			if(!t) {
-				if(got_state_sem)
-					up(&resource->state_sem);
-				return SS_TIMEOUT;
-			}
-        }
-	}
-	rv = change_cluster_wide_state(do_change_role, &role_context.context, __FUNCTION__);
-	if (got_state_sem)
-		up(&resource->state_sem);
-	return rv;
-}
-#endif
-
 enum drbd_state_rv change_role(struct drbd_resource *resource,
 			       enum drbd_role role,
 			       enum chg_state_flags flags,
@@ -5039,10 +4944,10 @@ enum drbd_state_rv change_from_consistent(struct drbd_resource *resource,
 	struct change_context context = {
 		.resource = resource,
 		.vnr = -1,
-#ifdef _WIN32
+#ifdef _WIN
 		.mask = { 0 },
 		.val = { 0 },
-#else
+#else // _LIN
 		.mask = { },
 		.val = { },
 #endif
