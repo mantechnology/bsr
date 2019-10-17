@@ -25,7 +25,7 @@
 #ifndef _DRBD_VLI_H
 #define _DRBD_VLI_H
 
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #endif
 /*
@@ -162,7 +162,7 @@ static inline int vli_decode_bits(u64 *out, const u64 in)
 	/* NOT REACHED, if VLI_LEVELS code table is defined properly */
 	BUG();
 #undef LEVEL
-#ifdef _WIN32
+#ifdef _WIN
 	return 0;
 #endif
 }
@@ -212,11 +212,7 @@ struct bitstream_cursor {
 /* initialize cursor to point to first bit of stream */
 static inline void bitstream_cursor_reset(struct bitstream_cursor *cur, void *s)
 {
-#ifdef _WIN32
 	cur->b = (unsigned char *) s;
-#else
-	cur->b = s;
-#endif
 	cur->bit = 0;
 }
 
@@ -243,11 +239,7 @@ struct bitstream {
 
 static inline void bitstream_init(struct bitstream *bs, void *s, size_t len, unsigned int pad_bits)
 {
-#ifdef _WIN32
 	bs->buf = (unsigned char *)s;
-#else
-	bs->buf = s;
-#endif
 	bs->buf_len = len;
 	bs->pad_bits = pad_bits;
 	bitstream_cursor_reset(&bs->cur, bs->buf);
@@ -280,9 +272,9 @@ static inline int bitstream_put_bits(struct bitstream *bs, u64 val, const unsign
 
 	/* paranoia: strip off hi bits; they should not be set anyways. */
 	if (bits < 64)
-#ifdef _WIN32	
+#ifdef _WIN
 		val &= UINT64_MAX >> (64 - bits);
-#else
+#else // _LIN
 		val &= ~0ULL >> (64 - bits);
 #endif
 	*b++ |= (val & 0xff) << bs->cur.bit;
@@ -337,9 +329,9 @@ static inline int bitstream_get_bits(struct bitstream *bs, u64 *out, int bits)
 	val |= bs->cur.b[0] >> bs->cur.bit;
 
 	/* and mask out bits we don't want */
-#ifdef _WIN32	
+#ifdef _WIN
 	val &= UINT64_MAX >> (64 - bits);
-#else
+#else // _LIN
 	val &= ~0ULL >> (64 - bits);
 #endif
 	bitstream_cursor_advance(&bs->cur, bits);
@@ -358,11 +350,7 @@ static inline int bitstream_get_bits(struct bitstream *bs, u64 *out, int bits)
  */
 static inline int vli_encode_bits(struct bitstream *bs, u64 in)
 {
-#ifdef _WIN32
 	u64 code = 0; 
-#else
-	u64 code = code;
-#endif
 
 	int bits = __vli_encode_bits(&code, in);
 
