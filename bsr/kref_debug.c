@@ -1,9 +1,9 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
-#ifdef _WIN32
+#ifdef _WIN
 #include "./bsr-kernel-compat/windows/spinlock.h"
 #include "./bsr-kernel-compat/windows/seq_file.h"
-#else
+#else // _LIN
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>
 #include <linux/kref.h>
@@ -11,12 +11,12 @@
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "kref_debug.h"
 
-#ifdef _WIN32
+#ifdef _WIN
 // ignore _WIN32_V9_KREF_DEBUG: CONFIG_KREF_DEBUG 
 #ifdef CONFIG_KREF_DEBUG // && _WIN32
 
 #endif
-#else
+#else // _LIN
 struct list_head kref_debug_objects;
 spinlock_t kref_debug_lock;
 

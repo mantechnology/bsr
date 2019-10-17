@@ -23,21 +23,13 @@
  */
 
 #ifdef _WIN
-#include "../bsr-headers/bsr.h"
-#include "bsr_int.h"
-#include "../bsr-headers/bsr_protocol.h"
-#include "bsr_req.h"
-#include "bsr_vli.h"
 #include "./bsr-kernel-compat/windows/list.h"
-#include "../bsr-headers/bsr_transport.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
+#include "../bsr-headers/bsr_transport.h"
 #else // _LIN
 #include <linux/module.h>
-
 #include <linux/uaccess.h>
 #include <net/sock.h>
-
-#include <bsr.h>
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/in.h>
@@ -51,12 +43,14 @@
 #include <linux/vmalloc.h>
 #include <linux/random.h>
 #include <net/ipv6.h>
-#include "bsr_int.h"
-#include "bsr_protocol.h"
-#include "bsr_req.h"
-#include "bsr_vli.h"
 #include <linux/scatterlist.h>
 #endif
+
+#include "../bsr-headers/bsr.h"
+#include "../bsr-headers/bsr_protocol.h"
+#include "bsr_int.h"
+#include "bsr_req.h"
+#include "bsr_vli.h"
 
 
 #define PRO_FEATURES (DRBD_FF_TRIM|DRBD_FF_THIN_RESYNC|DRBD_FF_WSAME)
@@ -740,7 +734,7 @@ int drbd_connected(struct drbd_peer_device *peer_device)
 }
 #ifdef _WIN
 void connect_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
-#else
+#else // _LIN
 void connect_timer_fn(unsigned long data)
 #endif
 {
@@ -1167,7 +1161,7 @@ struct one_flush_context {
 
 #ifdef _WIN
 NTSTATUS one_flush_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
-#else
+#else // _LIN
 static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 {
@@ -1224,8 +1218,6 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		IoFreeIrp(Irp);
 	}
 
-	bio_put(bio);
-
 	// DW-1895
 	//A match between barrier_nr and primary_node_id means that 
 	//the barrier is currently waiting for the barrier.If you are not waiting, 
@@ -1237,12 +1229,9 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 			// DW-1862 When ctx->pending becomes 0, it means that IO of all disks is completed.
 		}
 	}
-
-	kfree(octx);
-#else // _LIN
+#endif	
 	kfree(octx);	
 	bio_put(bio);
-#endif	
 
 	clear_bit(FLUSH_PENDING, &device->flags);
 	put_ldev(device);
@@ -6068,9 +6057,8 @@ static int receive_sizes(struct drbd_connection *connection, struct packet_info 
 		   But allow online shrinking if we are connected. */
 		if (new_size < cur_size &&
 		    device->disk_state[NOW] >= D_OUTDATED &&
-#ifdef _WIN // DW-1469 allowed if discard_my_data option.
+			// DW-1469 allowed if discard_my_data option.
 			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
-#endif
 		    peer_device->repl_state[NOW] < L_ESTABLISHED) {
             drbd_err(peer_device, "The peer's disk size is too small! (%llu bytes < %llu bytes)\n",
                     (unsigned long long)(new_size<<9), (unsigned long long)(cur_size<<9));
@@ -8373,20 +8361,14 @@ receive_bitmap_plain(struct drbd_peer_device *peer_device, unsigned int size,
 	ULONG_PTR *p;
 	unsigned int data_size = DRBD_SOCKET_BUFFER_SIZE -
 				 drbd_header_size(peer_device->connection);
-#ifdef _WIN
 	ULONG_PTR num_words = min_t(size_t, data_size / (unsigned int)sizeof(*p),
 				       c->bm_words - c->word_offset);
 	ULONG_PTR want = num_words * sizeof(*p);
-#else // _LIN
-	unsigned int num_words = min_t(size_t, data_size / sizeof(*p),
-				       c->bm_words - c->word_offset);
-	unsigned int want = num_words * sizeof(*p);
-#endif
 	int err;
 
 
 	if (want != size) {
-		drbd_err(peer_device, "%s:want (%u) != size (%u)\n", __func__, want, size);
+		drbd_err(peer_device, "%s:want (%llu) != size (%llu)\n", __func__, (unsigned long long)want,  (unsigned long long)size);
 		return -EIO;
 	}
 	if (want == 0)
