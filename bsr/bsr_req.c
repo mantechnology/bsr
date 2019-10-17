@@ -22,18 +22,12 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
-#ifdef _WIN32
-#include "../bsr-headers/bsr.h"
-#include "bsr_int.h"
-#include "bsr_req.h"
-#else
+#ifdef _LIN
 #include <linux/module.h>
-
 #include <linux/slab.h>
-#include <bsr.h>
-#include "bsr_int.h"
-#include "bsr_req.h"
 #endif
+#include "bsr_req.h"
+
 
 // DW-1200 currently allocated request buffer size in byte.
 atomic_t64 g_total_req_buf_bytes = ATOMIC_INIT(0);
@@ -45,10 +39,10 @@ static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, 
 static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
 	struct request_queue *q = device->rq_queue;
-#ifdef _WIN32
+#ifdef _WIN
 	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		(struct hd_struct*)&device->vdisk->part0);
-#else
+#else // _LIN
 	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		&device->vdisk->part0);
 #endif
@@ -58,10 +52,10 @@ static void _drbd_start_io_acct(struct drbd_device *device, struct drbd_request 
 static void _drbd_end_io_acct(struct drbd_device *device, struct drbd_request *req)
 {
 	struct request_queue *q = device->rq_queue;
-#ifdef _WIN32
+#ifdef _WIN
 	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
-#else
+#else // _LIN
 	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		&device->vdisk->part0, req->start_jif);
 #endif
@@ -100,7 +94,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	atomic_add64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 
 	memset(req, 0, sizeof(*req));
-#ifdef _WIN32
+#ifdef _WIN
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
 	if (!req->req_databuf) {
 		drbd_err(NO_OBJECT,"req->req_databuf failed\n");
@@ -113,8 +107,8 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 #endif
 
     if (drbd_req_make_private_bio(req, bio_src) == false) {
+#ifdef _WIN
 		// DW-689
-#ifdef _WIN32
 		kfree2(req->req_databuf);
 #endif
 		mempool_free(req, drbd_request_mempool);
@@ -124,7 +118,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
         return NULL;
     }
 
-#ifdef _WIN32
+#ifdef _WIN
 	req->private_bio->bio_databuf = req->req_databuf; // DW-776 (private bio's buffer is invalid when memory-overflow occured)
 #endif
 
@@ -189,10 +183,10 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
 	rcu_read_unlock();
 
 	if (!queued) {
-#ifdef _WIN32
-        if (req->req_databuf) {
-            // DW-596 required to verify to free req_databuf at this point
-            kfree2(req->req_databuf);
+#ifdef _WIN
+		if (req->req_databuf) {
+			// DW-596 required to verify to free req_databuf at this point
+			kfree2(req->req_databuf);
 		}
 #endif
 		mempool_free(req, drbd_request_mempool);
@@ -243,11 +237,7 @@ void drbd_req_destroy(struct kref *kref)
 {
 	struct drbd_request *req = container_of(kref, struct drbd_request, kref);
 	struct drbd_request *destroy_next;
-#ifdef _WIN32
 	struct drbd_device *device = NULL;
-#else
-	struct drbd_device *device;
-#endif
 	struct drbd_peer_device *peer_device;
 	unsigned int s, device_refs = 0;
 	bool was_last_ref = false;
@@ -417,7 +407,7 @@ void drbd_req_destroy(struct kref *kref)
 				drbd_queue_peer_ack(resource, peer_ack_req);
 				peer_ack_req = NULL;
 			} else {
-#ifdef _WIN32
+#ifdef _WIN
 				if (peer_ack_req->req_databuf) {
 					kfree2(peer_ack_req->req_databuf);
 				}
@@ -437,9 +427,9 @@ void drbd_req_destroy(struct kref *kref)
 		if (!peer_ack_req)
 			resource->last_peer_acked_dagtag = req->dagtag_sector;
 	} else {
-#ifdef _WIN32
-    	if (req->req_databuf) {
-    		kfree2(req->req_databuf);
+#ifdef _WIN
+		if (req->req_databuf) {
+			kfree2(req->req_databuf);
 		}
 #endif
 		mempool_free(req, drbd_request_mempool);
@@ -492,13 +482,10 @@ bool start_new_tl_epoch(struct drbd_resource *resource)
 // DW-1755
 int w_notify_io_error(struct drbd_work *w, int cancel)
 {
-#ifdef _WIN32
-	UNREFERENCED_PARAMETER(cancel);
-#endif
 	int ret = 0;
-	
 	struct drbd_io_error_work *dw =
 		container_of(w, struct drbd_io_error_work, w);
+	UNREFERENCED_PARAMETER(cancel);
 
 	if (dw && dw->io_error) {
 		notify_io_error(dw->device, dw->io_error);
@@ -512,32 +499,31 @@ int w_notify_io_error(struct drbd_work *w, int cancel)
 void complete_master_bio(struct drbd_device *device,
 struct bio_and_error *m)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	struct bio* master_bio = NULL;
 #endif
 	struct drbd_peer_device *peer_device;
 
 	int rw = bio_data_dir(m->bio);
-#ifdef _WIN32
+#ifdef _WIN
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> drbd_request_endio -> complete_master_bio -> bio_endio)
-#else
+#else // _LIN
 	bio_endio(m->bio, m->error);
 #endif
-
 	peer_device = NULL;
+#ifdef _WIN
 	// if bio has pMasterIrp, process to complete master bio.
-#ifdef _WIN32
 	if (m->bio->pMasterIrp) {
 		NTSTATUS status = m->error;
 		master_bio = m->bio; // if pMasterIrp is exist, bio is master bio.
-#else
+#else // _LIN
 	if (m->bio) {
 #endif
 		// In diskless mode, if irp was sent to peer,
 		// then would be completed success,
 		// The others should be converted to the Windows error status.
 		if (m->error) {
-#ifdef _WIN32
+#ifdef _WIN
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				status = STATUS_SUCCESS;
 			}
@@ -560,7 +546,7 @@ struct bio_and_error *m)
 		// DW-1859
 		check_and_clear_io_error_in_primary(device);
 
-#ifdef _WIN32
+#ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
 				drbd_err(NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
@@ -576,7 +562,7 @@ struct bio_and_error *m)
 				master_bio->pMasterIrp->IoStatus.Information = master_bio->bi_size;
 			}
 
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
@@ -590,15 +576,12 @@ struct bio_and_error *m)
 			}
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
-#ifdef _WIN32
 			// DW-1300 put reference when completing master irp.
 			kref_put(&device->kref, drbd_destroy_device);
-#endif
-
 		}
 		else {
 
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			if (NT_SUCCESS(status) && (bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
@@ -614,7 +597,6 @@ struct bio_and_error *m)
 				master_bio->pMasterIrp->IoStatus.Information = master_bio->bi_size;
 			}
 #endif
-
 			if (!NT_SUCCESS(status)) {
 				master_bio->splitInfo->LastError = status;
 			}
@@ -633,14 +615,12 @@ struct bio_and_error *m)
 				IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
 
 				kfree(master_bio->splitInfo);
-#ifdef _WIN32
 				// DW-1300 put reference when completing master irp.
 				kref_put(&device->kref, drbd_destroy_device);
-#endif
 			}
 		}
 
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 		if ((bio_rw(master_bio) == READ) && master_bio->bio_databuf) {
 			kfree(master_bio->bio_databuf);
 		}
@@ -650,7 +630,7 @@ struct bio_and_error *m)
 	else {
 		panic("complete_master_bio ERRROR! pMasterIrp is NULL\n");
 	}
-#else
+#else // _LIN
 	}
 #endif	
 	dec_ap_bio(device, rw);
@@ -1001,11 +981,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		++c_put;
 
 	if (!(old_local & RQ_LOCAL_ABORTED) && (set_local & RQ_LOCAL_ABORTED)) {
-#ifdef _WIN32
-        D_ASSERT(device, req->rq_state[0] & RQ_LOCAL_PENDING);
-#else
-		D_ASSERT(req->device, req->rq_state[0] & RQ_LOCAL_PENDING);
-#endif
+		D_ASSERT(device, req->rq_state[0] & RQ_LOCAL_PENDING);
 		/* local completion may still come in later,
 		 * we need to keep the req object around. */
 		kref_get(&req->kref);
@@ -1020,7 +996,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		list_del_init(&req->req_pending_local);
 	}
 
-#ifdef _WIN32
+#ifdef _WIN
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
 		if (0 == atomic_dec(&req->req_databuf_ref)) {
@@ -1093,7 +1069,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 static void drbd_report_io_error(struct drbd_device *device, struct drbd_request *req)
 {
-#ifndef _WIN32
+#ifdef _LIN
 	char b[BDEVNAME_SIZE];
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
@@ -1279,9 +1255,9 @@ int __req_mod(struct drbd_request *req, enum drbd_req_event what,
 		mod_rq_state(req, m, peer_device, 0, RQ_NET_QUEUED|RQ_EXP_BARR_ACK);
 
 		/* close the epoch, in case it outgrew the limit */
-#ifdef _WIN32
-        rcu_read_lock_w32_inner();
-#else
+#ifdef _WIN
+		rcu_read_lock_w32_inner();
+#else // LIN
 		rcu_read_lock();
 #endif
 		if (peer_device && peer_device->connection) {
@@ -1490,7 +1466,7 @@ static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, 
 
 	if (device->disk_state[NOW] == D_UP_TO_DATE)
 		return true;
-#ifdef _WIN32 // DW-643 FsctlLockVolume fail problem.
+#ifdef _WIN // DW-643 FsctlLockVolume fail problem.
 	else if (device->disk_state[NOW] == D_OUTDATED)
 		return true;
 #endif
@@ -1523,17 +1499,17 @@ static bool remote_due_to_read_balancing(struct drbd_device *device,
 		struct drbd_peer_device *peer_device, sector_t sector,
 		enum drbd_read_balancing rbm)
 {
-#ifndef _WIN32
+#ifdef _LIN
 	struct backing_dev_info *bdi;
 #endif
 	int stripe_shift;
 
 	switch (rbm) {
 	case RB_CONGESTED_REMOTE:
-#ifdef _WIN32
-	// not support
-        return false;
-#else
+#ifdef _WIN
+		// not support
+		return false;
+#else // _LIN
 		bdi = bdi_from_device(device);
 		return bdi_read_congested(bdi);
 #endif
@@ -1591,9 +1567,9 @@ static void complete_conflicting_writes(struct drbd_request *req)
 		prepare_to_wait(&device->misc_wait, &wait, TASK_UNINTERRUPTIBLE);
 		i->waiting = true;
 		spin_unlock_irq(&device->resource->req_lock);
-#ifdef _WIN32
-        schedule(&device->misc_wait, MAX_SCHEDULE_TIMEOUT, __FUNCTION__, __LINE__);
-#else
+#ifdef _WIN
+		schedule(&device->misc_wait, MAX_SCHEDULE_TIMEOUT, __FUNCTION__, __LINE__);
+#else // _LIN
 		schedule();
 #endif
 		spin_lock_irq(&device->resource->req_lock);
@@ -1773,7 +1749,7 @@ static int drbd_process_write_request(struct drbd_request *req)
 
 		if (remote) {
 			++count;
-#ifdef _WIN32 //TODO: for cross-platform
+#ifdef _WIN
 			// DW-1237 get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
 #endif
@@ -1826,15 +1802,15 @@ drbd_submit_req_private_bio(struct drbd_request *req)
 			bio_endio(bio, -EIO);
 		else if (bio_op(bio) == REQ_OP_DISCARD)
 			drbd_process_discard_req(req);
-#ifndef _WIN32
-		else
-			generic_make_request(bio);
-#else
+#ifdef _WIN
 		else {
 			if (generic_make_request(bio)) {
 				bio_endio(bio, -EIO);
 			}
 		}
+#else // _LIN
+		else
+			generic_make_request(bio);
 #endif
 		put_ldev(device);
 	} else
@@ -1936,7 +1912,7 @@ static bool may_do_writes(struct drbd_device *device)
 #ifndef blk_queue_plugged
 //#ifdef COMPAT_HAVE_BLK_CHECK_PLUGGED //skip 597b214 commit
 
-#ifndef _WIN32
+#ifdef _LIN
 struct drbd_plug_cb {
 	struct blk_plug_cb cb;
 	struct drbd_request *most_recent_req;
@@ -1945,10 +1921,10 @@ struct drbd_plug_cb {
 #endif
 static void drbd_unplug(struct blk_plug_cb *cb, bool from_schedule)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(cb);
 	UNREFERENCED_PARAMETER(from_schedule);
-#else
+#else // _LIN
 	struct drbd_plug_cb *plug = container_of(cb, struct drbd_plug_cb, cb);
 	struct drbd_resource *resource = plug->cb.data;
 	struct drbd_request *req = plug->most_recent_req;
@@ -1970,9 +1946,9 @@ static void drbd_unplug(struct blk_plug_cb *cb, bool from_schedule)
 
 static struct drbd_plug_cb* drbd_check_plugged(struct drbd_resource *resource)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(resource);
-#else
+#else // _LIN
 	/* A lot of text to say
 	 * return (struct drbd_plug_cb*)blk_check_plugged(); */
 	struct drbd_plug_cb *plug;
@@ -1988,10 +1964,10 @@ static struct drbd_plug_cb* drbd_check_plugged(struct drbd_resource *resource)
 
 static void drbd_update_plug(struct drbd_plug_cb *plug, struct drbd_request *req)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(req);
 	UNREFERENCED_PARAMETER(plug);
-#else
+#else // _LIN
 	struct drbd_request *tmp = plug->most_recent_req;
 	/* Will be sent to some peer.
 	 * Remember to tag it with UNPLUG_REMOTE on unplug */
@@ -2106,7 +2082,7 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 			no_remote = true;
 	}
 
-#ifndef _WIN32
+#ifdef _LIN
 	if (no_remote == false) {
 		struct drbd_plug_cb *plug = drbd_check_plugged(resource);
 		if (plug)
@@ -2130,16 +2106,11 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 	} else if (no_remote) {
 nodata:
 		if (drbd_ratelimit())
-#ifdef _WIN32
-        {
-            struct drbd_device * device = req->device;
-            drbd_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
-                (unsigned long long)req->i.sector, req->i.size >> 9);
-        }
-#else
-			drbd_err(req->device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
-					(unsigned long long)req->i.sector, req->i.size >> 9);
-#endif
+		{
+			struct drbd_device * device = req->device;
+			drbd_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
+				(unsigned long long)req->i.sector, req->i.size >> 9);
+		}
 		/* A write may have been queued for send_oos, however.
 		 * So we can not simply free it, we must go through drbd_req_put_completion_ref() */
 	}
@@ -2157,7 +2128,7 @@ out:
 	 * That's why we cannot check on req->private_bio. */
 	if (submit_private_bio)
 		drbd_submit_req_private_bio(req);
-#ifndef _WIN32
+#ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.
 	 * we plug after submit, so we won't miss an unplug event */
 	drbd_plug_device(bdev_get_queue(device->this_bdev));
@@ -2166,26 +2137,26 @@ out:
 		complete_master_bio(device, &m);
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 NTSTATUS __drbd_make_request(struct drbd_device *device, struct bio *bio, ULONG_PTR start_jif)
-#else
+#else // _LIN
 void __drbd_make_request(struct drbd_device *device, struct bio *bio, unsigned long start_jif)
 #endif
 {
 	struct drbd_request *req = drbd_request_prepare(device, bio, start_jif);
-#ifdef _WIN32
+#ifdef _WIN
 	if ((LONG_PTR)req == -ENOMEM) //only memory allocation fail case
 		return STATUS_UNSUCCESSFUL;
 	if (IS_ERR_OR_NULL(req)) //retry case in drbd_request_prepare. don't retrun STATUS_UNSUCCESSFUL.
 		return STATUS_SUCCESS;
-#else
+#else // _LIN
 	if (IS_ERR_OR_NULL(req))
 		return;
 #endif
 	
 	drbd_send_and_submit(device, req);
 
-#ifdef _WIN32
+#ifdef _WIN
 	return STATUS_SUCCESS;
 #endif
 }
@@ -2256,14 +2227,14 @@ static void __drbd_submit_peer_request(struct drbd_peer_request *peer_req)
 
 static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_log *wfa)
 {
-#ifndef _WIN32
-	//struct blk_plug plug;
+#ifdef _LIN
+	struct blk_plug plug;
 #endif
 	struct drbd_request *req, *tmp;
 	struct drbd_peer_request *pr, *pr_tmp;
 
-#ifndef _WIN32
-	//blk_start_plug(&plug);
+#ifdef _LIN
+	blk_start_plug(&plug);
 #endif
 
 	list_for_each_entry_safe_ex(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.incoming, wait_for_actlog) {
@@ -2289,8 +2260,8 @@ static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_
 		list_del_init(&req->tl_requests);
 		drbd_send_and_submit(device, req);
 	}
-#ifndef _WIN32
-	//blk_finish_plug(&plug);
+#ifdef _LIN
+	blk_finish_plug(&plug);
 #endif
 }
 
@@ -2363,14 +2334,14 @@ out:
 
 static void send_and_submit_pending(struct drbd_device *device, struct waiting_for_act_log *wfa)
 {
-#ifndef _WIN32
-	//struct blk_plug plug;
+#ifdef _LIN
+	struct blk_plug plug;
 #endif
 	struct drbd_request *req, *tmp;
 	struct drbd_peer_request *pr, *pr_tmp;
 
-#ifndef _WIN32
-	//blk_start_plug(&plug);
+#ifdef _LIN
+	blk_start_plug(&plug);
 #endif
 	list_for_each_entry_safe_ex(struct drbd_peer_request, pr, pr_tmp, &wfa->peer_requests.pending, wait_for_actlog) {
 		__drbd_submit_peer_request(pr);
@@ -2383,8 +2354,8 @@ static void send_and_submit_pending(struct drbd_device *device, struct waiting_f
 		list_del_init(&req->tl_requests);
 		drbd_send_and_submit(device, req);
 	}
-#ifndef _WIN32
-	//blk_finish_plug(&plug);
+#ifdef _LIN
+	blk_finish_plug(&plug);
 #endif
 }
 
@@ -2475,13 +2446,15 @@ void do_submit(struct work_struct *ws)
 				break;
 			}
 			al_wait_count += 1;
-#ifndef _WIN32	// Skipped 3d552f8 commit(linux drbd)
+#ifdef _WIN
+			// Skipped 3d552f8 commit(linux drbd)
+#else // _LIN
 			drbd_kick_lo(device);
 #endif
 
-#ifdef _WIN32 // DW-1513, DW-1546, DW-1761 If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
+#ifdef _WIN // DW-1513, DW-1546, DW-1761 If al_wait event is not received during AL_WAIT_TIMEOUT, disconnect.
 			if(!schedule(&device->al_wait, AL_WAIT_TIMEOUT, __FUNCTION__, __LINE__)) {
-#else
+#else // _LIN
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
 #endif
 				struct drbd_peer_device *peer_device;
@@ -2555,7 +2528,9 @@ void do_submit(struct work_struct *ws)
 
 		send_and_submit_pending(device, &wfa);
 	}
-#ifndef _WIN32	// Skipped 3d552f8 commit(linux drbd)
+#ifdef _WIN
+	// Skipped 3d552f8 commit(linux drbd)
+#else // _LIN
 	drbd_kick_lo(device);
 #endif
 }
@@ -2563,13 +2538,12 @@ void do_submit(struct work_struct *ws)
 MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct drbd_device *device = (struct drbd_device *) q->queuedata;
-#ifdef _WIN32
-	NTSTATUS	status;
 	ULONG_PTR start_jif;
-#else
-	unsigned long start_jif;
+#ifdef _WIN
+	NTSTATUS	status;
 #endif
-#ifndef _WIN32
+
+#ifdef _LIN
 	/* We never supported BIO_RW_BARRIER.
 	 * We don't need to, anymore, either: starting with kernel 2.6.36,
 	 * we have REQ_FUA and REQ_PREFLUSH, which will be handled transparently
@@ -2579,6 +2553,7 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 		MAKE_REQUEST_RETURN;
 	}
 #endif
+
 #ifdef COMPAT_HAVE_BLK_QUEUE_SPLIT
 /* 54efd50 block: make generic_make_request handle arbitrarily sized bios
  * introduced blk_queue_split(), which is supposed to split (and put on the
@@ -2593,10 +2568,10 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 	start_jif = jiffies;
 	inc_ap_bio(device, bio_data_dir(bio));
 
-#ifdef _WIN32
+#ifdef _WIN
 	status = __drbd_make_request(device, bio, start_jif);
 	return status;
-#else
+#else // _LIN
 	__drbd_make_request(device, bio, start_jif);
 
 	MAKE_REQUEST_RETURN;
@@ -2721,9 +2696,9 @@ static bool net_timeout_reached(struct drbd_request *net_req,
  * ~198 days with 250 HZ, we have a window where the timeout would need
  * to expire twice (worst case) to become effective. Good enough.
  */
-#ifdef _WIN32
+#ifdef _WIN
 void request_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
-#else
+#else // _LIN
 void request_timer_fn(unsigned long data)
 #endif
 {
@@ -2731,7 +2706,7 @@ void request_timer_fn(unsigned long data)
 	struct drbd_connection *connection;
 	struct drbd_request *req_read, *req_write;
 	
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
@@ -2768,10 +2743,10 @@ void request_timer_fn(unsigned long data)
 
 		if (device->disk_state[NOW] > D_FAILED) {
 			et = min_not_zero(et, dt);
-#ifdef _WIN32
+#ifdef _WIN
 			next_trigger_time = time_min_in_future(now,
 					next_trigger_time + dt, oldest_submit_jif + dt);
-#else
+#else // _LIN
 			next_trigger_time = time_min_in_future(now,
 					next_trigger_time, oldest_submit_jif + dt);
 #endif

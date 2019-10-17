@@ -3202,7 +3202,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			} 
 
 			if (susp_nod[NEW]) {
-				enum drbd_req_event what = NOTHING;
+				enum drbd_req_event what = NOTHING_EVENT;
 
 				if (repl_state[OLD] < L_ESTABLISHED &&
 				    conn_lowest_repl_state(connection) >= L_ESTABLISHED)
@@ -3216,7 +3216,7 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					what = RESTART_FROZEN_DISK_IO;
 #endif
 
-				if (what != NOTHING) {
+				if (what != NOTHING_EVENT) {
 					unsigned long irq_flags;
 
 					/* Is this too early?  We should only

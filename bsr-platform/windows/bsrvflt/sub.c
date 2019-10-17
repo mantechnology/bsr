@@ -328,7 +328,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		}
 
 		for (io_id = 0; io_id < loop; io_id++) {
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(slice, 0, 'A5DW');
@@ -355,7 +355,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		}
 
 		if (rest) {
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(rest, 0, 'B5DW');

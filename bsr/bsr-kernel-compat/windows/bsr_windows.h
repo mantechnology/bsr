@@ -40,7 +40,7 @@
 #define _WIN_SEND_BUFFING				// Use Send Buffering
 #define _WSK_SOCKETCONNECT
 #define _WIN32_EVENTLOG			        // Windows Eventlog porting point
-#define _WIN32_TMP_Win8_BUG_0x1a_61946
+#define _WIN_TMP_Win8_BUG_0x1a_61946
 #define minor_to_letter(m)	('C'+(m))
 #define minor_to_mdev minor_to_device
 #define drbd_conf drbd_device
