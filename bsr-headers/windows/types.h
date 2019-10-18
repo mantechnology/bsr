@@ -39,9 +39,6 @@ typedef unsigned int		u32;
 typedef signed long long	s64;
 typedef unsigned long long	u64;
 typedef unsigned long long	sector_t;
-#ifndef __KERNEL__
-typedef _off64_t off64_t;
-#endif
 
 typedef __u16		__le16;
 typedef __u16		__be16;

@@ -60,6 +60,7 @@
 #include "bsradm_parser.h"
 #ifdef _WIN32
 #include <windows.h>
+typedef _off64_t off64_t;
 #undef BSR_CONFIG_DIR
 #define BSR_CONFIG_DIR "/etc"
 #endif

@@ -70,13 +70,14 @@ endif
 
 ifdef is_win32
 	CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared -I../../../bsr-platform/windows/bsrvflt
-	# _WIN32
+	# _WIN
 	# _WIN32_V9 for 9.0.0 porting.
 	# _WIN32_CLI_UPDATE for updated cygwin version (2.10.0)
+	CFLAGS += -gdwarf-2 -g3 -D_WIN -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE 
 	ifdef x64
-		CFLAGS += -gdwarf-2 -g3 -D_WIN32 -Dx64  -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE
+		CFLAGS += -D_WIN64 -Dx64
 	else
-		CFLAGS += -gdwarf-2 -g3 -D_WIN32  -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE
+		CFLAGS += -D_WIN32 
 	endif
 	CFLAGS += $(EXTRA_CFLAGS)
 
