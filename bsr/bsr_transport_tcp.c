@@ -539,7 +539,7 @@ static void dtt_stats(struct drbd_transport *transport, struct drbd_transport_st
 	if (socket) {
 #ifdef _WIN
 		struct sock *sk = socket->sk_linux_attr;
-#else
+#else // _LIN
 		struct sock *sk = socket->sk;
 		struct tcp_sock *tp = tcp_sk(sk);
 

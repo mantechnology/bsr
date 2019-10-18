@@ -267,7 +267,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
 	.policy	= CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy),	\
     .str = #op_name, \
 },
-#else //_LIN
+#else // _LIN
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\

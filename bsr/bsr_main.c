@@ -34,20 +34,13 @@
  * but keep the code as it is written.
  */
 #include <ntifs.h>
-#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
 
-#include "../bsr-headers/linux/bsr_limits.h"
-#include "bsr_int.h"
-#include "../bsr-headers/bsr_protocol.h"
-#include "bsr_req.h" /* only for _req_mod in tl_release and tl_clear */
-#include "bsr_vli.h"
 
 #else // _LIN
 #include <linux/module.h>
 #include <linux/jiffies.h>
-#include <bsr.h>
 #include <linux/uaccess.h>
 #include <asm/types.h>
 #include <net/sock.h>
@@ -71,13 +64,13 @@
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 
-#include <linux/bsr_limits.h>
+#endif
+#include "../bsr-headers/bsr.h"
+#include "../bsr-headers/linux/bsr_limits.h"
 #include "bsr_int.h"
-#include "bsr_protocol.h"
+#include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h" /* only for _req_mod in tl_release and tl_clear */
 #include "bsr_vli.h"
-
-#endif
 
 
 #ifdef _WIN_SEND_BUFFING
@@ -171,16 +164,16 @@ module_param(two_phase_commit_fail, int, 0644);
 unsigned int minor_count = DRBD_MINOR_COUNT_DEF;
 #ifdef _WIN 
 // if not initialized, it means error.
-bool disable_sendpage = 1;      // not support page I/O
+bool disable_sendpage = true;      // not support page I/O
 #else // _LIN
 bool disable_sendpage;
 #endif
-bool allow_oos = 0;
+bool allow_oos = false;
 
 /* Module parameter for setting the user mode helper program
  * to run. Default is /sbin/drbdadm */
 #ifdef _WIN
-char usermode_helper[80] = "drbdadm.exe";
+char usermode_helper[80] = "bsradm.exe";
 #else // _LIN
 char usermode_helper[80] = "/sbin/bsradm";
 #endif
@@ -1985,14 +1978,12 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 	TODO verify: this may be needed for v8 compatibility still.
 	p->c_size = cpu_to_be64(trigger_reply ? 0 : drbd_get_capacity(device->this_bdev));
 	*/
-#ifdef _WIN 
+
 	// DW-1469 For initial sync, set c_size to 0.
 	if (drbd_current_uuid(device) == UUID_JUST_CREATED) {
 		p->c_size = 0;	
 	} 	
-	else 
-#endif
-	{
+	else {
 		p->c_size = cpu_to_be64(drbd_get_capacity(device->this_bdev));
 	}
 	
@@ -2376,9 +2367,8 @@ static int _drbd_send_bitmap(struct drbd_device *device,
 		put_ldev(device);
 	}
 
-#ifdef _WIN
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
-#endif
+
 	c = (struct bm_xfer_ctx) {
 		.bm_bits = drbd_bm_bits(device),
 		.bm_words = drbd_bm_words(device),
@@ -2778,9 +2768,7 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 		drbd_csum_bio(peer_device->connection->integrity_tfm, req, digest_out);
 
 	if (wsame) {
-#ifdef _WIN
-		//not support
-#else // _LIN
+#ifdef _LIN
 		additional_size_command(peer_device->connection, DATA_STREAM,
 					bio_iovec(req->master_bio) BVD bv_len);
 		err = __send_command(peer_device->connection, device->vnr, P_WSAME, DATA_STREAM);
@@ -3260,9 +3248,9 @@ static int drbd_create_mempools(void)
 	int i;
 #endif
 
-#ifdef _WIN
 	drbd_md_io_page_pool = NULL;
-	drbd_md_io_bio_set   = NULL;
+	drbd_md_io_bio_set = NULL;
+#ifdef _WIN
 
 	ExInitializeNPagedLookasideList(&drbd_bm_ext_cache, NULL, NULL,
 		0, sizeof(struct bm_extent), '28DW', 0);
@@ -3292,8 +3280,6 @@ static int drbd_create_mempools(void)
 	drbd_bm_ext_cache    = NULL;
 	drbd_al_ext_cache    = NULL;
 	drbd_pp_pool         = NULL;
-	drbd_md_io_page_pool = NULL;
-	drbd_md_io_bio_set   = NULL;
 	/* caches */
 	drbd_request_cache = kmem_cache_create(
 		"drbd_req", sizeof(struct drbd_request), 0, 0, NULL);
@@ -3420,10 +3406,10 @@ void drbd_destroy_device(struct kref *kref)
 	__free_page(device->md_io.page);
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
-#ifdef _WIN
+
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
-#endif
+
 	kref_debug_destroy(&device->kref_debug);
 
 	kfree(device);
@@ -4412,7 +4398,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 #endif
 #ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
-#else //_LIN
+#else // _LIN
 	sprintf(disk->disk_name, "drbd%d", minor);
 #endif
 	disk->private_data = device;
@@ -4699,10 +4685,8 @@ void bsr_cleanup(void)
 	if (retry.wq)
 		destroy_workqueue(retry.wq);
 	drbd_debugfs_cleanup();
-	drbd_destroy_mempools();
 
-#else //_LIN
-
+#else // _LIN
 	if (drbd_proc)
 		remove_proc_entry("bsr", NULL);
 
@@ -4710,11 +4694,9 @@ void bsr_cleanup(void)
 		destroy_workqueue(retry.wq);
 
 	drbd_genl_unregister();
-
 	drbd_unregister_blkdev(DRBD_MAJOR, "bsr");
-	drbd_destroy_mempools();
-
 #endif
+	drbd_destroy_mempools();
 
 	idr_destroy(&drbd_devices);
 

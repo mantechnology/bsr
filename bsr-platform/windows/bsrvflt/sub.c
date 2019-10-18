@@ -27,7 +27,7 @@
 #include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
-#ifdef _WIN32
+#ifdef _WIN
 #include <ntdddisk.h>
 #endif
 

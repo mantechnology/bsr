@@ -374,15 +374,13 @@ static struct page **bm_realloc_pages(struct drbd_bitmap *b, ULONG_PTR want)
 	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60DW');
 
 	if (!new_pages) {
-#ifdef _WIN
-		return NULL;
-#else // _LIN
+#ifdef _LIN
 		new_pages = __vmalloc(bytes,
 				GFP_NOIO | __GFP_HIGHMEM | __GFP_ZERO,
 				PAGE_KERNEL);
 		if (!new_pages)
-			return NULL;
 #endif
+			return NULL;
 	}
 
 	if (want >= have) {
@@ -474,11 +472,8 @@ static inline ULONG_PTR last_bit_on_page(struct drbd_bitmap *bitmap,
 					     ULONG_PTR bit)
 {
 	ULONG_PTR word = interleaved_word32(bitmap, bitmap_index, bit);
-#ifdef _WIN
+
 	return (bit | 31) + ((ULONG_PTR)(word32_in_page(~word) / bitmap->bm_max_peers) << 5);
-#else // _LIN
-	return (bit | 31) + ((word32_in_page(-(word + 1)) / bitmap->bm_max_peers) << 5);
-#endif
 }
 
 static inline ULONG_PTR bit_to_page_interleaved(struct drbd_bitmap *bitmap,
@@ -749,36 +744,30 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	struct drbd_bitmap *bitmap = device->bitmap;
 
 	if (!expect(device, bitmap))
-#ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
 	{
+#ifdef _WIN_DEBUG_OOS
 		drbd_err(device, "unexpected error, could not get bitmap, start(%lu)\n", start);
+#endif
 		return 1;
 	}
-#else
-		return 1;
-#endif
 	if (!expect(device, bitmap->bm_pages))
+	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-	{
 		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%lu)\n", start);
+#endif
 		return 0;
 	}
-#else
-		return 0;
-#endif
 
 	if (!bitmap->bm_bits)
+	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-	{
 		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%lu)\n", start);
+#endif
 		return 0;
 	}
-#else
-		return 0;
-#endif
 
 	if (bitmap->bm_task != current) {
 		switch(op) {
@@ -1204,7 +1193,7 @@ static void drbd_bm_aio_ctx_destroy(struct kref *kref)
 /* bv_page may be a copy, or may be the original */
 #ifdef _WIN
 NTSTATUS drbd_bm_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
-#else //_LIN
+#else // _LIN
 static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 #endif
 {
@@ -1247,7 +1236,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 		}
 	}
-#endif //_WIN END
+#endif // _WIN END
 	struct drbd_bm_aio_ctx *ctx = bio->bi_private;
 	struct drbd_device *device = ctx->device;
 	struct drbd_bitmap *b = device->bitmap;

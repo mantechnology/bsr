@@ -782,14 +782,13 @@ static int drbd_req_put_completion_ref(struct drbd_request *req, struct bio_and_
 	}
 #endif
 	if (!atomic_sub_and_test(put, &req->completion_ref))
-#ifdef DRBD_TRACE
 	{
-        drbd_debug(NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
+#ifdef DRBD_TRACE
+		drbd_debug(NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
+#endif
 		return 0;
 	}
-#else
-		return 0;
-#endif
+
 	drbd_req_complete(req, m);
 
 	if (req->rq_state[0] & RQ_POSTPONED) {
@@ -2732,7 +2731,7 @@ void request_timer_fn(unsigned long data)
 
 		if (device->disk_state[NOW] > D_FAILED) {
 			et = min_not_zero(et, dt);
-#ifdef _WIN
+#ifdef _WIN // TODO
 			next_trigger_time = time_min_in_future(now,
 					next_trigger_time + dt, oldest_submit_jif + dt);
 #else // _LIN

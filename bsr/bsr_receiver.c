@@ -1042,11 +1042,9 @@ int decode_header(struct drbd_connection *connection, void *header, struct packe
 			 connection->agreed_pro_version);
 		return -EINVAL;
 	}
-#ifdef _WIN
-	pi->data = (UCHAR *)header + header_size;
-#else // _LIN
-	pi->data = header + header_size;
-#endif
+
+	pi->data = (unsigned char *)header + header_size;
+
 	return 0;
 }
 
@@ -8566,9 +8564,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 	}
 	device = peer_device->device;
 
-#ifdef _WIN 
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
-#endif
+
 	/* Final repl_states become visible when the disk leaves NEGOTIATING state */
 	wait_event_interruptible_ex(device->resource->state_wait,
 		read_disk_state(device) != D_NEGOTIATING, res);

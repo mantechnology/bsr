@@ -25,10 +25,7 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
-#ifdef _WIN
-
 #include "../bsr-headers/bsr.h"
-#define		ERR_LOCAL_AND_PEER_ADDR 173	
 #include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
@@ -36,12 +33,14 @@
 #include "bsr_debugfs.h"
 #include "../bsr-headers/bsr_transport.h"
 #include "../bsr-headers/linux/bsr_limits.h"
+
+#ifdef _WIN
+#define		ERR_LOCAL_AND_PEER_ADDR 173	
 #include "proto.h"
 
 #else // _LIN
 
 #include <linux/module.h>
-#include <bsr.h>
 #include <linux/in.h>
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -49,18 +48,10 @@
 #include <linux/blkpg.h>
 #include <linux/cpumask.h>
 #include <linux/random.h>
-#include "bsr_int.h"
-#include "bsr_protocol.h"
-#include "bsr_req.h"
-#include "bsr_state_change.h"
-#include "bsr_debugfs.h"
-#include "bsr_transport.h"
 #include <asm/unaligned.h>
-#include <linux/bsr_limits.h>
 #include <linux/kthread.h>
 #include <linux/security.h>
 #include <net/genetlink.h>
-
 #endif
 
 
@@ -125,16 +116,9 @@ int drbd_adm_get_initial_state_done(struct netlink_callback *cb);
 KSTART_ROUTINE _try_outdate_peer_async;
 #endif
 
-#ifdef _WIN
 #include "../bsr-headers/linux/bsr_genl_api.h"
 #include "bsr_nla.h"
 #include "../bsr-headers/linux/genl_magic_func.h"
-#else // _LIN
-#include <linux/bsr_genl_api.h>
-#include "bsr_nla.h"
-#include <linux/genl_magic_func.h>
-#endif
-
 
 atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
 
@@ -1303,12 +1287,12 @@ retry:
 					&& (device->ldev->md.peers[peer_device->node_id].bitmap_uuid == 0)) {
 					if (younger_primary == false){
 						younger_primary = true; 
-#ifdef _WIN
+
 						// DW-1850
 						//If for_each_peer_device_ref exits to break, 
 						//the reference count should be decremented.
 						kref_put(&peer_device->connection->kref, drbd_destroy_connection);
-#endif
+
 						break; 
 					}
 				}
@@ -1418,7 +1402,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			adm_ctx.resource->bPreSecondaryLock = FALSE;
 #endif
 		}
-#ifdef _WIN
+#ifdef _WIN // TODO should I apply SS_TARGET_DISK_TOO_SMALL to linux?
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 			goto fail;
 
@@ -2539,9 +2523,8 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 			drbd_send_sync_param(peer_device);
 	}
 
-#ifdef _WIN
-	// skip synchronize_rcu 
-#else // _LIN
+#ifdef _LIN
+	// windows skip synchronize_rcu 
 	synchronize_rcu();
 #endif
 	kfree(old_disk_conf);
@@ -2553,9 +2536,8 @@ fail_unlock:
  fail:
 	kfree(new_disk_conf);
 success:
-#ifdef _WIN
-    // skip synchronize_rcu 
-#else // _LIN
+#ifdef _LIN
+    // windows skip synchronize_rcu 
 	if (retcode != NO_ERROR)
 		synchronize_rcu();
 #endif
@@ -4367,7 +4349,7 @@ static enum drbd_state_rv conn_try_disconnect(struct drbd_connection *connection
 	long t = 0;
 #ifdef _WIN
 	char *err_str = NULL;
-#else
+#else // _LIN
 	const char *err_str = NULL;
 #endif 
 
@@ -4483,9 +4465,8 @@ void del_connection(struct drbd_connection *connection)
 					 NOTIFY_DESTROY | NOTIFY_CONTINUES);
 	notify_connection_state(NULL, 0, connection, NULL, NOTIFY_DESTROY);
 	mutex_unlock(&notification_mutex);
-#ifdef _WIN
-	//(1) synchronize_rcu_w32_wlock() is disabled, because Assertion: *** DPC watchdog timeout
-#else // _LIN
+#ifdef _LIN
+	//windows, (1) synchronize_rcu_w32_wlock() is disabled, because Assertion: *** DPC watchdog timeout
 	synchronize_rcu();
 #endif
 	drbd_put_connection(connection);
@@ -6107,9 +6088,10 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 
 	if (adm_ctx.resource)
 		goto out;
-#ifdef _WIN
+#ifdef _WIN 
 	if (res_opts.node_id >= DRBD_NODE_ID_MAX) {
-#else
+#else // _LIN
+	// TODO node id -1??
 	if (res_opts.node_id < 0 || res_opts.node_id >= DRBD_NODE_ID_MAX) {
 #endif
 		pr_err("drbd: invalid node id (%d)\n", res_opts.node_id);

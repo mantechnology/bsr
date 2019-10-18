@@ -2,7 +2,7 @@
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/seq_file.h"
 #include "./bsr-kernel-compat/windows/jiffies.h"
-#else
+#else // _LIN
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>

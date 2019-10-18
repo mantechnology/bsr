@@ -44,7 +44,7 @@
 
 #define task_pid_nr(task)	(task->pid)
 
-#else //_LIN
+#else // _LIN
 
 #ifndef ULONG_PTR
 #define ULONG_PTR unsigned long
@@ -1750,7 +1750,7 @@ static __inline int kref_get_unless_zero(struct kref *kref)
 
 #ifndef COMPAT_HAVE_PRANDOM_U32
 #ifdef _WIN
-static int random32_win()
+static int random32()
 {
     int buf;
     get_random_bytes(&buf, 4);
@@ -1759,11 +1759,7 @@ static int random32_win()
 #endif
 static inline u32 prandom_u32(void)
 {
-#ifdef _WIN
-    return random32_win();
-#else // _LIN
-	return random32();
-#endif
+    return random32();
 }
 #endif
 

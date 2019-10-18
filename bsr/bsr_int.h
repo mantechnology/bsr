@@ -584,7 +584,7 @@ struct drbd_thread {
     struct task_struct *nt;
     KEVENT start_event;
     KEVENT wait_event;
-#endif // _LIN
+#endif
 	spinlock_t t_lock;
 	struct task_struct *task;
 	struct completion stop;
@@ -2719,15 +2719,11 @@ extern KDEFERRED_ROUTINE connect_timer_fn;
 #else // _LIN
 extern void twopc_timer_fn(unsigned long);
 extern void connect_timer_fn(unsigned long);
-#endif
-#ifdef _WIN
-// not support
-#else // _LIN
+
 /* drbd_proc.c */
 extern struct proc_dir_entry *drbd_proc;
 extern const struct file_operations drbd_proc_fops;
 #endif
-
 
 typedef enum { RECORD_RS_FAILED, SET_OUT_OF_SYNC, SET_IN_SYNC } update_sync_bits_mode;
 
