@@ -48,11 +48,7 @@ extern int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
 extern int drbd_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 extern int drbd_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 /* .dumpit */
-#ifdef _WIN32
 extern int drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
-#else
-extern void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
-#endif
 
 extern int _drbd_adm_get_status(struct sk_buff *skb, struct genl_info * pinfo);
 

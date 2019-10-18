@@ -30,7 +30,7 @@
 #include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #include "disp.tmh"
 #endif
 
@@ -127,7 +127,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     KeInitializeMutex(&eventlogMutex, 0);
 	downup_rwlock_init(&transport_classes_lock); //init spinlock for transport 
 	
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	WPP_INIT_TRACING(DriverObject, RegistryPath);
 	DoTraceMessage(TRCINFO, "WDRBD V9(1:1) MVF Driver loaded.");
 #endif
@@ -145,7 +145,7 @@ VOID
 mvolUnload(IN PDRIVER_OBJECT DriverObject)
 {
     UNREFERENCED_PARAMETER(DriverObject);
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	WPP_CLEANUP(DriverObject);
 #endif
 	wdrbd_logger_cleanup();

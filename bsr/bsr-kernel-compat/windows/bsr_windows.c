@@ -1052,14 +1052,14 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	return wq;
 }
 
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 void mutex_init(struct mutex *m, char *name)
 #else
 void mutex_init(struct mutex *m)
 #endif
 {
 	KeInitializeMutex(&m->mtx, 0);
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 	memset(m->name, 0, 32);
 	strcpy(m->name, name); 
 #endif
@@ -3007,7 +3007,7 @@ error:
 void panic(char *msg)
 {
     drbd_err(NO_OBJECT,"%s\n", msg);
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 	WriteEventLogEntryData((ULONG) DEV_ERR_3003, 0, 0, 1, L"%S", msg);
 #endif
 // DW-1587 
@@ -3060,7 +3060,7 @@ void list_cut_position(struct list_head *list, struct list_head *head, struct li
 
 int drbd_backing_bdev_events(struct drbd_device *device)
 {
-#ifdef _WIN32_GetDiskPerf
+#ifdef _WIN_GetDiskPerf
 	extern NTSTATUS mvolGetDiskPerf(PDEVICE_OBJECT TargetDeviceObject, PDISK_PERFORMANCE pDiskPerf);
 	NTSTATUS status;
 	DISK_PERFORMANCE diskPerf;

@@ -31,7 +31,7 @@
 #include <ntdddisk.h>
 #endif
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #include "sub.tmh" 
 #endif
 
@@ -517,7 +517,7 @@ cleanup:
 	return status;
 }
 
-#ifdef _WIN32_GetDiskPerf
+#ifdef _WIN_GetDiskPerf
 NTSTATUS
 mvolGetDiskPerf(PDEVICE_OBJECT TargetDeviceObject, PDISK_PERFORMANCE pDiskPerf)
 {
@@ -592,7 +592,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 }
 
 
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 
 DWORD msgids [] = {
 	PRINTK_EMERG,
@@ -732,7 +732,7 @@ void _printk(const char * func, const char * format, ...)
 		// TODO: chekc min?
 	}
 	
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	DoTraceMessage(TRCINFO, "%s", buf);
 	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", buf);
 	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "drbd_info: [%s] %s", func, buf);

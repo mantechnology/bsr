@@ -20,13 +20,8 @@
   linux/lib/rbtree.c
 */
  
-#ifdef _WIN32
 #include "bsr_windows.h"
 #include "rbtree.h"
-#else
-//#include<linux/rbtree.h>
-//#include<linux/module.h>
-#endif
 
 static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)
 {

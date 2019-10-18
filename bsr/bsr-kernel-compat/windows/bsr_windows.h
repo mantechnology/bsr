@@ -39,7 +39,7 @@
 
 #define _WIN_SEND_BUFFING				// Use Send Buffering
 #define _WSK_SOCKETCONNECT
-#define _WIN32_EVENTLOG			        // Windows Eventlog porting point
+#define _WIN_EVENTLOG			        // Windows Eventlog porting point
 #define _WIN_TMP_Win8_BUG_0x1a_61946
 #define minor_to_letter(m)	('C'+(m))
 #define minor_to_mdev minor_to_device
@@ -48,11 +48,11 @@
 
 #define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"		/// used in NETLINK
 
-//#define _WIN32_WPP
+//#define _WIN_WPP
 #define _WIN_HANDLER_TIMEOUT	// call_usermodehelper timeout
 #define WIN_AL_BUG_ON // DW-1513 Macro to print LRU
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #define WPP_CONTROL_GUIDS \
 	WPP_DEFINE_CONTROL_GUID(LogGuid, \
 	(998bdf51, 0349, 4fbc, 870c, d6130a955a5f), \
@@ -373,7 +373,7 @@ extern void _printk(const char * func, const char * format, ...);
 extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 #endif
 
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 #define wdrbd_logger_init()		printk_init();
 #define wdrbd_logger_cleanup()	printk_cleanup();
 #define printk(format, ...)   \
@@ -399,7 +399,7 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 
 struct mutex {
 	KMUTEX mtx;
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 	char name[32]; 
 #endif
 };
@@ -609,7 +609,7 @@ struct splitInfo {
 };
 
 struct bio {
-	PIRP 					pMasterIrp;  /* _WIN32: for upper layer's  IRP */
+	PIRP 					pMasterIrp;  /* _WIN: for upper layer's  IRP */
 
 	unsigned int 			split_id;
 	unsigned int 			split_total_id;
@@ -711,7 +711,7 @@ extern void write_lock_irq(spinlock_t *lock);
 extern void write_lock_bh(spinlock_t *lock);
 extern void write_unlock_irq(spinlock_t *lock);
 
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 extern void mutex_init(struct mutex *m, char *name);
 #else
 extern void mutex_init(struct mutex *m);
@@ -840,7 +840,7 @@ struct queue_limits {
 struct request_queue {
 	void * queuedata;
 	struct backing_dev_info backing_dev_info;
-	spinlock_t *queue_lock; // _WIN32: unused.
+	spinlock_t *queue_lock; // _WIN: unused.
 	unsigned short logical_block_size;
 	// DW-1406 max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
 	unsigned long long max_hw_sectors;

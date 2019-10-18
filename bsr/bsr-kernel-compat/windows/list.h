@@ -7,9 +7,7 @@
 #define POISON_POINTER_DELTA		0
 #endif
 
-#ifdef _WIN32
 #include <stdbool.h>
-#endif
 
 #define LIST_POISON1			0 
 #define LIST_POISON2			0 
