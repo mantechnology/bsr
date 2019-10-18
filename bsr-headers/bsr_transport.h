@@ -299,12 +299,11 @@ static inline void drbd_free_page_chain(struct drbd_transport *transport, struct
 	// DW-1239 decrease nr_pages before drbd_free_pages().
 	int page_count = atomic_xchg((atomic_t *)&chain->nr_pages, 0);
 	drbd_free_pages(transport, page_count, is_net);
-	chain->head = NULL;
 #else // _LIN
 	drbd_free_pages(transport, chain->head, is_net);
-	chain->head = NULL;
 	chain->nr_pages = 0;
 #endif
+	chain->head = NULL;
 }
 
 /*

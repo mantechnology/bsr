@@ -34,21 +34,12 @@ enum {
  * we cannot possibly include <1/drbd_genl.h> */
 #undef linux
 
-#ifdef _WIN
 #include "../bsr.h"
-#else // _LIN
-#include <bsr.h>
-#endif
 
 #define GENL_MAGIC_VERSION	2
 #define GENL_MAGIC_FAMILY	drbd
 #define GENL_MAGIC_FAMILY_HDRSZ	sizeof(struct drbd_genlmsghdr)
-#ifdef _WIN
 #define GENL_MAGIC_INCLUDE_FILE "bsr_genl.h"
 #include "genl_magic_struct.h"
-#else // _LIN
-#define GENL_MAGIC_INCLUDE_FILE <linux/bsr_genl.h>
-#include <linux/genl_magic_struct.h>
-#endif
 
 #endif

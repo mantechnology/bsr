@@ -1,10 +1,7 @@
 #ifndef GENL_MAGIC_FUNC_H
 #define GENL_MAGIC_FUNC_H
-#ifdef _WIN
+
 #include "genl_magic_struct.h"
-#else // _LIN
-#include <linux/genl_magic_struct.h>
-#endif
 
 /*
  * Magic: declare tla policy						{{{1
@@ -45,7 +42,7 @@ static struct nla_policy s_name ## _nl_policy[] __read_mostly =		\
 #define __array(attr_nr, attr_flag, name, nla_type, _type, maxlen,	\
 		__get, __put, __is_signed)				\
 	[attr_nr] = { .type = nla_type,					\
-		      .len = (u16)(maxlen - (nla_type == NLA_NUL_STRING)) },
+		      .len = (unsigned short)(maxlen - (nla_type == NLA_NUL_STRING)) },
 
 #include GENL_MAGIC_INCLUDE_FILE
 
@@ -262,7 +259,7 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
  */
 
 #undef GENL_op
-#ifdef _WIN
+#ifdef _WIN // TODO Does linux need GENL_op #op_name, too?
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\
@@ -313,11 +310,7 @@ static struct genl_family ZZZ_genl_family;
 #if defined(genl_register_family_with_ops_groups) || !defined(GENL_ID_GENERATE)
 #include <linux/genl_magic_func-genl_register_family_with_ops_groups.h>
 #else
-#ifdef _WIN
 #include "genl_magic_func-genl_register_mc_group.h"
-#else // _LIN
-#include <linux/genl_magic_func-genl_register_mc_group.h>
-#endif
 #endif
 
 static struct genl_family ZZZ_genl_family __read_mostly = {

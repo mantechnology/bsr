@@ -26,11 +26,11 @@
 #ifndef LRU_CACHE_H
 #define LRU_CACHE_H
 
-#ifdef _WIN32
+#ifdef _WIN
 #include <stdbool.h>
 #include "../bsr-kernel-compat/windows/bsr_windows.h"
 #define COMPAT_HAVE_BOOL_TYPE
-#else
+#else // _LIN
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/bitops.h>
@@ -228,9 +228,9 @@ struct lru_cache {
 	struct list_head to_be_changed;
 
 	/* the pre-created kmem cache to allocate the objects from */
-#ifdef _WIN32
+#ifdef _WIN
 	PNPAGED_LOOKASIDE_LIST lc_cache;
-#else
+#else // _LIN
 	struct kmem_cache *lc_cache;
 #endif
 
@@ -297,11 +297,11 @@ enum {
 #define LC_LOCKED   (1<<__LC_LOCKED)
 #define LC_STARVING (1<<__LC_STARVING)
 
-#ifdef _WIN32
+#ifdef _WIN
 extern struct lru_cache *lc_create(const char *name, PNPAGED_LOOKASIDE_LIST cache,
 		unsigned max_pending_changes,
 		unsigned e_count, size_t e_size, size_t e_off);
-#else
+#else // _LIN
 extern struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 		unsigned max_pending_changes,
 		unsigned e_count, size_t e_size, size_t e_off);
