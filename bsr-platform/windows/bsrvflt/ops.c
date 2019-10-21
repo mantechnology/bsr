@@ -60,7 +60,7 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 		RtlCopyMemory(pventry->VolumeGuid, pvext->VolumeGuid.Buffer, pvext->VolumeGuid.Length);
 		pventry->ExtensionActive = pvext->Active;
 		pventry->Minor = pvext->Minor;
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 		pventry->ThreadActive = pvext->WorkThreadInfo.Active;
 		pventry->ThreadExit = pvext->WorkThreadInfo.exit_thread;
 #endif
@@ -142,7 +142,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 
 	// DW-1300 get device and get reference.
 	device = get_device_with_vol_ext(pvext, TRUE);
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
     if (device)
 #else
 	if (pvext->WorkThreadInfo.Active && device)
@@ -159,7 +159,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
     pvext->Active = FALSE;
 	// DW-1327 to allow I/O by drbdlock.
 	SetDrbdlockIoBlock(pvext, FALSE);
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	pvext->WorkThreadInfo = NULL;
 #else
 	mvolTerminateThread(&pvext->WorkThreadInfo);
@@ -323,7 +323,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			atomic_set(&g_eventlog_lv_min, pLoggingMinLv->nErrLvMin);
 		else if (pLoggingMinLv->nType == LOGGING_TYPE_DBGLOG)
 			atomic_set(&g_dbglog_lv_min, pLoggingMinLv->nErrLvMin);
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 		else if (pLoggingMinLv->nType == LOGGING_TYPE_OOSLOG) {
 			if (pLoggingMinLv->nErrLvMin)
 				atomic_set(&g_oos_trace, TRUE);

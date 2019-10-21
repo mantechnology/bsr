@@ -1,14 +1,15 @@
 #ifndef DRBD_TRANSPORT_H
 #define DRBD_TRANSPORT_H
-#ifdef _WIN32
+#ifdef _WIN
 #include "../bsr/bsr-kernel-compat/windows/list.h"
 #include "../bsr/bsr-kernel-compat/windows/wait.h"
 #include "../bsr/bsr-kernel-compat/windows/bsr_windows.h"
-#else
+#else // _LIN
 #include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/wait.h>
 #include <linux/socket.h>
+#include <bsr_wrappers.h>
 #endif
 
 /* Whenever touch this file in a non-trivial way, increase the
@@ -31,7 +32,7 @@
  * pressure on the peer, eventually leading to deadlock.
  */
 #define GFP_TRY	(__GFP_HIGHMEM | __GFP_NOWARN | __GFP_RECLAIM)
-#ifdef _WIN32
+#ifdef _WIN
 #define tr_printk(level, transport, fmt, ...)  do {		\
 	rcu_read_lock();					\
 	printk(level "drbd %s: " fmt,			\
@@ -46,7 +47,7 @@
 	tr_printk(KERN_WARNING, transport, fmt, ## __VA_ARGS__)
 #define tr_info(transport, fmt, ...) \
 	tr_printk(KERN_INFO, transport, fmt, ## __VA_ARGS__)
-#else
+#else // _LIN
 #define tr_printk(level, transport, fmt, args...)  ({		\
 	rcu_read_lock();					\
 	printk(level "drbd %s %s:%s: " fmt,			\
@@ -103,16 +104,16 @@ enum drbd_tr_free_op {
 
 struct drbd_listener;
 
+#ifdef _LIN
+typedef struct sockaddr_storage SOCKADDR_STORAGE_EX;
+#endif
+
 /* A transport might wrap its own data structure around this. Having
    this base class as its first member. */
 struct drbd_path {
-#ifdef _WIN32
-	struct sockaddr_storage_win my_addr;
-	struct sockaddr_storage_win peer_addr;
-#else
-	struct sockaddr_storage my_addr;
-	struct sockaddr_storage peer_addr;
-#endif
+	SOCKADDR_STORAGE_EX my_addr;
+	SOCKADDR_STORAGE_EX peer_addr;
+
 	struct kref kref;
 
 	int my_addr_len;
@@ -138,20 +139,16 @@ struct drbd_transport {
 
 	/* These members are intended to be updated by the transport: */
 	unsigned int ko_count;
-#ifdef _WIN32
 	ULONG_PTR flags;
-#else
-	unsigned long flags;
-#endif
 };
 
 struct drbd_transport_stats {
 	int unread_received;
 	int unacked_send;
-#ifdef _WIN32
+#ifdef _WIN
 	signed long long send_buffer_size;
 	signed long long send_buffer_used;
-#else
+#else // _LIN
 	int send_buffer_size;
 	int send_buffer_used;
 #endif
@@ -228,7 +225,7 @@ struct drbd_transport_ops {
 	void (*debugfs_show)(struct drbd_transport *, struct seq_file *m);
 	int (*add_path)(struct drbd_transport *, struct drbd_path *path);
 	int (*remove_path)(struct drbd_transport *, struct drbd_path *path);
-#ifdef _WIN32_SEND_BUFFING 
+#ifdef _WIN_SEND_BUFFING 
 	bool (*start_send_buffring)(struct drbd_transport *, signed long long size);
 	void (*stop_send_buffring)(struct drbd_transport *);
 #endif
@@ -238,7 +235,7 @@ struct drbd_transport_class {
 	const char *name;
 	const int instance_size;
 	const int path_instance_size;
-#ifndef _WIN32 
+#ifdef _LIN 
 	struct module *module;
 #endif
 	int (*init)(struct drbd_transport *);
@@ -256,11 +253,7 @@ struct drbd_listener {
 	struct list_head waiters; /* list head for paths */
 	spinlock_t waiters_lock;
 	int pending_accepts;
-#ifdef _WIN32
-    struct sockaddr_storage_win listen_addr;
-#else
-	struct sockaddr_storage listen_addr;
-#endif
+	SOCKADDR_STORAGE_EX listen_addr;
 	void (*destroy)(struct drbd_listener *);
 };
 
@@ -275,27 +268,21 @@ extern void drbd_unregister_transport_class(struct drbd_transport_class *transpo
 extern struct drbd_transport_class *drbd_get_transport_class(const char *transport_name);
 extern void drbd_put_transport_class(struct drbd_transport_class *);
 extern void drbd_print_transports_loaded(struct seq_file *seq);
-#ifdef _WIN32 // DW-1498
-extern bool addr_and_port_equal(const struct sockaddr_storage_win *addr1, const struct sockaddr_storage_win *addr2);
-#endif
+// DW-1498
+extern bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2);
 extern int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
 	int(*create_fn)(struct drbd_transport *, const struct sockaddr *, struct drbd_listener **));
 extern void drbd_put_listener(struct drbd_path *path);
-#ifdef _WIN32
-extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage_win *);
-#else
-//extern struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *, struct sockaddr_storage *);
-extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, struct sockaddr_storage *);
-#endif
+extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, SOCKADDR_STORAGE_EX *);
 extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
 extern bool drbd_should_abort_listening(struct drbd_transport *transport);
 extern void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path);
 
 /* drbd_receiver.c*/
-#ifdef _WIN32
+#ifdef _WIN
 extern void* drbd_alloc_pages(struct drbd_transport *, unsigned int, bool);
 extern void drbd_free_pages(struct drbd_transport *transport, int page_count, int is_net);
-#else
+#else // _LIN
 extern struct page *drbd_alloc_pages(struct drbd_transport *, unsigned int, gfp_t);
 extern void drbd_free_pages(struct drbd_transport *transport, struct page *page, int is_net);
 #endif
@@ -308,16 +295,15 @@ static inline void drbd_alloc_page_chain(struct drbd_transport *t,
 
 static inline void drbd_free_page_chain(struct drbd_transport *transport, struct drbd_page_chain_head *chain, int is_net)
 {
-#ifdef _WIN32 
+#ifdef _WIN
 	// DW-1239 decrease nr_pages before drbd_free_pages().
 	int page_count = atomic_xchg((atomic_t *)&chain->nr_pages, 0);
 	drbd_free_pages(transport, page_count, is_net);
-	chain->head = NULL;
-#else
+#else // _LIN
 	drbd_free_pages(transport, chain->head, is_net);
-	chain->head = NULL;
 	chain->nr_pages = 0;
 #endif
+	chain->head = NULL;
 }
 
 /*
@@ -366,7 +352,7 @@ struct drbd_page_chain {
 #endif
 };
 
-#ifndef _WIN32
+#ifdef _LIN
 static inline void dummy_for_buildbug(void)
 {
 	struct page *dummy;
@@ -393,17 +379,17 @@ static inline void dummy_for_buildbug(void)
 		.offset = (o),				\
 		.size = (s),				\
 	 })
-#ifndef _WIN32
+#ifdef _WIN
+#define page_chain_for_each(page) \
+	for (; page ; page = page_chain_next(page))
+#define page_chain_for_each_safe(page, n) \
+	for (; page && ( n = page_chain_next(page)); page = n) 
+#else // _LIN
 #define page_chain_for_each(page) \
 	for (; page && ({ prefetch(page_chain_next(page)); 1; }); \
 			page = page_chain_next(page))
 #define page_chain_for_each_safe(page, n) \
 	for (; page && ({ n = page_chain_next(page); 1; }); page = n)
-#else
-#define page_chain_for_each(page) \
-	for (; page ; page = page_chain_next(page))
-#define page_chain_for_each_safe(page, n) \
-	for (; page && ( n = page_chain_next(page)); page = n) 
 #endif
 
 #ifndef SK_CAN_REUSE

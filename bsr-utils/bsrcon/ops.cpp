@@ -23,7 +23,7 @@
 #include <tchar.h>
 #include <strsafe.h>
 #include "mvol.h"
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #include "OosTrace.h"
 #endif
 #include "LogManager.h"
@@ -130,7 +130,7 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 				"     Replication Volume| %d\n"
 				"    Disk Partition Size| %llu bytes (%llu kibytes)\n"
 				"       Replication Size| %llu bytes (%llu kibytes)\n"
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 				"           ThreadActive| %d\n"
 				"             ThreadExit| %d\n"
 #endif
@@ -141,7 +141,7 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 				pEntry->ExtensionActive,
 				pEntry->Size, (pEntry->Size/1024),
 				pEntry->AgreedSize, (pEntry->AgreedSize/1024),
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 				pEntry->ThreadActive,
 				pEntry->ThreadExit,
 #endif
@@ -808,7 +808,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	BOOL        ret = FALSE;
 
 	if (pLml == NULL ||
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 		(pLml->nType != LOGGING_TYPE_SYSLOG && pLml->nType != LOGGING_TYPE_DBGLOG && pLml->nType != LOGGING_TYPE_OOSLOG) ||
 #else
 		(pLml->nType != LOGGING_TYPE_SYSLOG && pLml->nType != LOGGING_TYPE_DBGLOG) ||
@@ -844,7 +844,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	return retVal;
 }
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 // DW-1153
 PVOID g_pDrbdBaseAddr;		// base address of loaded drbd.sys
 ULONG g_ulDrbdImageSize;		// image size of loaded drbd.sys
@@ -1108,7 +1108,7 @@ VOID CleanupOosTrace()
 	::SymUnloadModule64(GetCurrentProcess, g_ModuleBase);
 	::SymCleanup(GetCurrentProcess());
 }
-#endif	// _WIN32_DEBUG_OOS
+#endif	// _WIN_DEBUG_OOS
 
 // DW-1629
 BOOLEAN ExistsTargetString(char* target, char *msg)
@@ -1135,7 +1135,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	// DW-1629
 	char tstr[MAX_PATH];
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (oosTrace)
 		oosTrace = InitOosTrace();	
 #endif
@@ -1185,7 +1185,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						continue;
 
 					DWORD dwWritten;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
@@ -1208,7 +1208,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						continue;
 
 					DWORD dwWritten;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
@@ -1227,7 +1227,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 						continue;
 
 					DWORD dwWritten;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
 						ConvertCallStack(&pDrbdLog->LogBuf[i]);
 					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
@@ -1255,7 +1255,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	if (pDrbdLog) {
 		free(pDrbdLog);
 	}
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (oosTrace){
 		CleanupOosTrace();
 	}
@@ -1264,7 +1264,7 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	return retVal;
 }
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long ullSearchSector)
 {
 	DWORD dwRet = ERROR_SUCCESS;

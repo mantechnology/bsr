@@ -237,7 +237,7 @@ struct hostent *my_gethostbyname(const char *name)
 		* gethostbyname_r() apparently does not use any internal locks.
 		* Even if unnecessary in our case, it feels less dirty.
 		*/
-#ifdef _WIN32
+#ifdef _WIN
 		h = gethostbyname(name);
 #else	// _LIN
 		gethostbyname_r(name, &ret, buf, sizeof(buf), &h, &my_h_errno);
@@ -619,11 +619,11 @@ int adm_create_md(const struct cfg_ctx *ctx)
 	if(rv || dry_run) return rv;
 
 
-#ifdef _WIN32 // DW-1602 fix a inappropriate device name for bdev_size.
+#ifdef _WIN // DW-1602 fix a inappropriate device name for bdev_size.
 	char device_name[256]= {0,};
 	sprintf(device_name,"\\\\.\\%s:",ctx->vol->disk);
 	device_size = bdev_size(device_name);
-#else
+#else // _LIN
 	fd = open(ctx->vol->disk,O_RDONLY);
 	if( fd != -1) {
 		device_size = bdev_size(fd);

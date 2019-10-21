@@ -27,11 +27,11 @@
 #include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
-#ifdef _WIN32
+#ifdef _WIN
 #include <ntdddisk.h>
 #endif
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #include "sub.tmh" 
 #endif
 
@@ -139,7 +139,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	IoDetachDevice(VolumeExtension->TargetDeviceObject);
 	IoDeleteDevice(DeviceObject);
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	if (VolumeExtension->WorkThreadInfo) {
 		VolumeExtension->WorkThreadInfo = NULL;		
 	}
@@ -255,7 +255,6 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 	// save original Master Irp's Stack Flags
 	bio->MasterIrpStackFlags = ((PIO_STACK_LOCATION)IoGetCurrentIrpStackLocation(upper_pirp))->Flags;
 
-	bio->io_retry = device->resource->res_opts.io_error_retry_count;
 	status = drbd_make_request(device->rq_queue, bio); // drbd local I/O entry point 
 	if (STATUS_SUCCESS != status) {
 		bio_free(bio);
@@ -328,7 +327,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		}
 
 		for (io_id = 0; io_id < loop; io_id++) {
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(slice, 0, 'A5DW');
@@ -355,7 +354,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 		}
 
 		if (rest) {
-#ifdef _WIN32_TMP_Win8_BUG_0x1a_61946
+#ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
 				newbuf = kzalloc(rest, 0, 'B5DW');
@@ -518,7 +517,7 @@ cleanup:
 	return status;
 }
 
-#ifdef _WIN32_GetDiskPerf
+#ifdef _WIN_GetDiskPerf
 NTSTATUS
 mvolGetDiskPerf(PDEVICE_OBJECT TargetDeviceObject, PDISK_PERFORMANCE pDiskPerf)
 {
@@ -593,7 +592,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 }
 
 
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 
 DWORD msgids [] = {
 	PRINTK_EMERG,
@@ -646,7 +645,7 @@ void _printk(const char * func, const char * format, ...)
 	int printLevel = 0;
 	BOOLEAN bEventLog = FALSE;
 	BOOLEAN bDbgLog = FALSE;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	BOOLEAN bOosLog = FALSE;
 #endif
 	LARGE_INTEGER systemTime, localTime;
@@ -661,13 +660,13 @@ void _printk(const char * func, const char * format, ...)
 	// to print through debugger.
 	if (level_index <= atomic_read(&g_dbglog_lv_min))
 		bDbgLog = TRUE;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (TRUE == atomic_read(&g_oos_trace))
 		bOosLog = TRUE;
 #endif
 	
 	// nothing to log.
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (!bEventLog && !bDbgLog && !bOosLog) {
 #else
 	if (!bEventLog && !bDbgLog) {
@@ -733,7 +732,7 @@ void _printk(const char * func, const char * format, ...)
 		// TODO: chekc min?
 	}
 	
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	DoTraceMessage(TRCINFO, "%s", buf);
 	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", buf);
 	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "drbd_info: [%s] %s", func, buf);
@@ -950,7 +949,7 @@ VOID drbdFreeDev(PVOLUME_EXTENSION VolumeExtension)
 	kfree2(VolumeExtension->dev);
 }
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 {
 	USHORT usCaptured = 0;

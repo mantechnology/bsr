@@ -27,27 +27,20 @@
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
-#ifdef _WIN32
+#ifdef _WIN
 // DW-1587 
  /* Turns off the C6319 warning caused by code analysis.
  * The use of comma does not cause any performance problems or bugs, 
  * but keep the code as it is written.
  */
 #include <ntifs.h>
-#include "../bsr-headers/bsr.h"
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "./bsr-kernel-compat/windows/kernel.h"
 
-#include "../bsr-headers/linux/bsr_limits.h"
-#include "bsr_int.h"
-#include "../bsr-headers/bsr_protocol.h"
-#include "bsr_req.h" /* only for _req_mod in tl_release and tl_clear */
-#include "bsr_vli.h"
 
-#else
+#else // _LIN
 #include <linux/module.h>
 #include <linux/jiffies.h>
-#include <bsr.h>
 #include <linux/uaccess.h>
 #include <asm/types.h>
 #include <net/sock.h>
@@ -71,28 +64,28 @@
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 
-#include <linux/bsr_limits.h>
+#endif
+#include "../bsr-headers/bsr.h"
+#include "../bsr-headers/linux/bsr_limits.h"
 #include "bsr_int.h"
-#include "bsr_protocol.h"
+#include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h" /* only for _req_mod in tl_release and tl_clear */
 #include "bsr_vli.h"
 
-#endif
 
-
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 #include "send_buf.h"		
 #endif
 #include "bsr_debugfs.h"
 #include "../bsr-headers/bsr_meta_data.h"
-#ifndef _WIN32 
+#ifdef _LIN 
 #ifdef COMPAT_HAVE_LINUX_BYTEORDER_SWABB_H
 #include <linux/byteorder/swabb.h>
 #else
 #include <linux/swab.h>
 #endif
 #endif
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 #include "Proto.h"
 #endif
 
@@ -103,25 +96,25 @@
 #define DRBD_RELEASE_RETURN int
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 static int drbd_open(struct block_device *bdev, fmode_t mode);
 static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode);
-#else
+#else // _LIN
 int bsr_open(struct block_device *bdev, fmode_t mode);
 DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 static KDEFERRED_ROUTINE md_sync_timer_fn;
 static KDEFERRED_ROUTINE peer_ack_timer_fn;
 KSTART_ROUTINE drbd_thread_setup;
 extern void nl_policy_init_by_manual(void);
-#else
+#else // _LIN
 static void md_sync_timer_fn(unsigned long data);
 #endif
 static int w_bitmap_io(struct drbd_work *w, int unused);
 static int flush_send_buffer(struct drbd_connection *connection, enum drbd_stream drbd_stream);
-#ifndef _WIN32
+#ifdef _LIN
 MODULE_AUTHOR("Philipp Reisner <phil@linbit.com>, "
 	      "Lars Ellenberg <lars@linbit.com>");
 MODULE_DESCRIPTION("drbd - Distributed Replicated Block Device v" REL_VERSION);
@@ -140,8 +133,8 @@ module_param(minor_count, uint, 0444);
 module_param(disable_sendpage, bool, 0644);
 module_param(allow_oos, bool, 0);
 #endif
+
 #ifdef CONFIG_DRBD_FAULT_INJECTION
-#ifdef _WIN32
 
 //Example: Simulate data write errors on / dev / drbd0 with a probability of 5 % .
 //		echo 16 > /sys/module/drbd/parameters/enable_faults
@@ -152,15 +145,9 @@ int enable_faults = 0;  // 0xFFFF;
 int fault_rate = 0;     // test on lower than 5%
 int fault_devs = 0;     // minor number for test target
 static int fault_count = 0;
-#else
-int enable_faults;
-int fault_rate;
-static int fault_count;
-int fault_devs;
-#endif
 int two_phase_commit_fail;
 
-#ifndef _WIN32
+#ifdef _LIN
 /* bitmap of enabled faults */
 module_param(enable_faults, int, 0664);
 /* fault rate % value - applies to all enabled faults */
@@ -175,23 +162,23 @@ module_param(two_phase_commit_fail, int, 0644);
 
 /* module parameter, defined */
 unsigned int minor_count = DRBD_MINOR_COUNT_DEF;
-#ifdef _WIN32 
+#ifdef _WIN 
 // if not initialized, it means error.
-bool disable_sendpage = 1;      // not support page I/O
-bool allow_oos = 0;
-#else
+bool disable_sendpage = true;      // not support page I/O
+#else // _LIN
 bool disable_sendpage;
-bool allow_oos;
 #endif
+bool allow_oos = false;
 
 /* Module parameter for setting the user mode helper program
  * to run. Default is /sbin/drbdadm */
-#ifdef _WIN32
-char usermode_helper[80] = "drbdadm.exe";
-#else
+#ifdef _WIN
+char usermode_helper[80] = "bsradm.exe";
+#else // _LIN
 char usermode_helper[80] = "/sbin/bsradm";
 #endif
-#ifndef _WIN32
+
+#ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);
 #endif
 /* in 2.6.x, our device mapping and config info contains our virtual gendisks
@@ -200,10 +187,10 @@ module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0
 struct idr drbd_devices;
 struct list_head drbd_resources;
 
-#ifdef _WIN32
+#ifdef _WIN
 NPAGED_LOOKASIDE_LIST drbd_al_ext_cache;	/* bitmap extents */
 NPAGED_LOOKASIDE_LIST drbd_bm_ext_cache;	/* activity log extents */
-#else
+#else // _LIN
 struct kmem_cache *drbd_request_cache;
 struct kmem_cache *drbd_ee_cache;	/* peer requests */
 struct kmem_cache *drbd_bm_ext_cache;	/* bitmap extents */
@@ -220,15 +207,14 @@ struct bio_set *drbd_md_io_bio_set;
    Note: This is a single linked list, the next pointer is the private
 	 member of struct page.
  */
-#ifndef _WIN32
+#ifdef _LIN
 struct page *drbd_pp_pool;
 #endif
 spinlock_t   drbd_pp_lock;
 int          drbd_pp_vacant;
 wait_queue_head_t drbd_pp_wait;
 
-#ifdef _WIN32
-
+#ifdef _WIN
 struct ratelimit_state drbd_ratelimit_state;	// need to initialize before use.
 
 static inline void ratelimit_state_init(struct ratelimit_state *state, int interval_init, int burst_init)
@@ -240,7 +226,7 @@ static inline void ratelimit_state_init(struct ratelimit_state *state, int inter
 	}
 }
 
-#else
+#else // _LIN
 DEFINE_RATELIMIT_STATE(drbd_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 #endif
 
@@ -260,23 +246,21 @@ static inline bool isForgettableReplState(enum drbd_repl_state repl_state)
 	return true;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 EX_SPIN_LOCK g_rcuLock; //rcu lock is ported with spinlock
 struct mutex g_genl_mutex;
 // DW-1495 change att_mod_mutex(DW-1293) to global mutex because it can be a problem if IO also occurs on othere resouces on the same disk. 
 struct mutex att_mod_mutex; 
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 static const struct block_device_operations drbd_ops = {
 	.open =    drbd_open,
 	.release = drbd_release,
 };
-#else
-// no define
+#else // _LIN
+extern const struct block_device_operations bsr_ops;
 #endif
-
-
 
 
 #ifdef COMPAT_HAVE_BIO_FREE
@@ -286,15 +270,15 @@ static void bio_destructor_drbd(struct bio *bio)
 }
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 struct bio *bio_alloc_drbd(gfp_t gfp_mask, ULONG Tag)
-#else
+#else // _LIN
 struct bio *bio_alloc_drbd(gfp_t gfp_mask)
 #endif
 {
-#ifdef _WIN32
+#ifdef _WIN
 	return bio_alloc(gfp_mask, 1, Tag);
-#else
+#else // _LIN
 	struct bio *bio;
 
 	if (!drbd_md_io_bio_set)
@@ -528,7 +512,7 @@ void tl_release(struct drbd_connection *connection, int barrier_nr,
 				break;
 			if (!(r->rq_state[0] & RQ_WRITE))
 				continue;
-			// _WIN32_MULTI_VOLUME
+			// _WIN_MULTI_VOLUME
 			// DW-1166 Check RQ_NET_DONE for multi-volume
 			if (!(r->rq_state[idx] & RQ_NET_MASK))
 				continue;
@@ -664,9 +648,9 @@ void tl_abort_disk_io(struct drbd_device *device)
         spin_unlock_irq(&resource->req_lock);
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 VOID NTAPI drbd_thread_setup(void *arg)
-#else
+#else // _LIN
 static int drbd_thread_setup(void *arg)
 #endif
 {
@@ -675,15 +659,15 @@ static int drbd_thread_setup(void *arg)
 	struct drbd_connection *connection = thi->connection;
 	unsigned long flags;
 	int retval;
-#ifdef _WIN32
+#ifdef _WIN
 	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
-    if (!thi->nt) {
-        drbd_err(NO_OBJECT,"DRBD_PANIC: ct_add_thread faild.\n");
-        PsTerminateSystemThread(STATUS_SUCCESS);
-    }
+	if (!thi->nt) {
+		drbd_err(NO_OBJECT,"DRBD_PANIC: ct_add_thread faild.\n");
+		PsTerminateSystemThread(STATUS_SUCCESS);
+	}
 
-    KeSetEvent(&thi->start_event, 0, FALSE);
-    KeWaitForSingleObject(&thi->wait_event, Executive, KernelMode, FALSE, NULL);
+	KeSetEvent(&thi->start_event, 0, FALSE);
+	KeWaitForSingleObject(&thi->wait_event, Executive, KernelMode, FALSE, NULL);
 #endif
 
 restart:
@@ -710,8 +694,8 @@ restart:
 		spin_unlock_irqrestore(&thi->t_lock, flags);
 		goto restart;
 	}
-#ifdef _WIN32
-    ct_delete_thread(thi->task->pid);
+#ifdef _WIN
+	ct_delete_thread(thi->task->pid);
 #endif
 	thi->task = NULL;
 	thi->t_state = NONE;
@@ -725,10 +709,10 @@ restart:
 	complete(&thi->stop);
 	spin_unlock_irqrestore(&thi->t_lock, flags);
 
-#ifdef _WIN32	
-    PsTerminateSystemThread(STATUS_SUCCESS); 
+#ifdef _WIN
+	PsTerminateSystemThread(STATUS_SUCCESS); 
 	// not reached here
-#else
+#else // _LIN
 	return retval;
 #endif
 }
@@ -749,7 +733,7 @@ int drbd_thread_start(struct drbd_thread *thi)
 {
 	struct drbd_resource *resource = thi->resource;
 	struct drbd_connection *connection = thi->connection;
-#ifndef _WIN32
+#ifdef _LIN
 	struct task_struct *nt;
 #endif
 	unsigned long flags;
@@ -772,27 +756,26 @@ int drbd_thread_start(struct drbd_thread *thi)
 		thi->t_state = RUNNING;
 		spin_unlock_irqrestore(&thi->t_lock, flags);
 		flush_signals(current); /* otherw. may get -ERESTARTNOINTR */
-#ifdef _WIN32
-        thi->nt = NULL;
-        {
-            HANDLE		hThread = NULL;
-            NTSTATUS	Status = STATUS_UNSUCCESSFUL;
+#ifdef _WIN
+		thi->nt = NULL;
+		{
+			HANDLE		hThread = NULL;
+			NTSTATUS	Status = STATUS_UNSUCCESSFUL;
 
-            KeInitializeEvent(&thi->start_event, SynchronizationEvent, FALSE);
-            KeInitializeEvent(&thi->wait_event, SynchronizationEvent, FALSE);
-            Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, drbd_thread_setup, (void *) thi);
-            if (!NT_SUCCESS(Status)) {
-                return false;
-            }
-            ZwClose(hThread);
-        }
+			KeInitializeEvent(&thi->start_event, SynchronizationEvent, FALSE);
+			KeInitializeEvent(&thi->wait_event, SynchronizationEvent, FALSE);
+			Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, drbd_thread_setup, (void *) thi);
+			if (!NT_SUCCESS(Status)) {
+				return false;
+			}
+			ZwClose(hThread);
+		}
 
-        KeWaitForSingleObject(&thi->start_event, Executive, KernelMode, FALSE, NULL);
-        if (!thi->nt) {
-            return false;
-        }
-#else
-
+		KeWaitForSingleObject(&thi->start_event, Executive, KernelMode, FALSE, NULL);
+		if (!thi->nt) {
+			return false;
+		}
+#else // _LIN
 		nt = kthread_create(drbd_thread_setup, (void *) thi,
 				    "drbd_%c_%s", thi->name[0], resource->name);
 
@@ -806,16 +789,16 @@ int drbd_thread_start(struct drbd_thread *thi)
 		}
 #endif
 		spin_lock_irqsave(&thi->t_lock, flags);
-#ifdef _WIN32
-        thi->task = thi->nt;
-#else
+#ifdef _WIN
+		thi->task = thi->nt;
+#else // _LIN
 		thi->task = nt;
 #endif
 		thi->t_state = RUNNING;
 		spin_unlock_irqrestore(&thi->t_lock, flags);
-#ifdef _WIN32
-        wake_up_process(thi);
-#else
+#ifdef _WIN
+		wake_up_process(thi);
+#else // _LIN
 		wake_up_process(nt);
 #endif
 		break;
@@ -848,10 +831,9 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 	/* may be called from state engine, holding the req lock irqsave */
 	spin_lock_irqsave(&thi->t_lock, flags);
 
-#ifdef _WIN32
 	//drbd_info(NO_OBJECT,"thi(%s) ns(%s) state(%d) waitflag(%d) event(%d)-------------------!\n", 
-	//	thi->name, (ns == RESTARTING) ? "RESTARTING" : "EXITING", thi->t_state, wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
-#endif
+	//	thi->name, (ns == RESTARTING) ? "RESTARTING" : "EXITING", thi->t_state, wait, KeReadStateEvent(&thi->stop.wait.wqh_event));
+
 	if (thi->t_state == NONE) {
 		spin_unlock_irqrestore(&thi->t_lock, flags);
 		if (restart)
@@ -875,21 +857,15 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 		smp_mb();
 		init_completion(&thi->stop);
 		if (thi->task != current)
-#ifdef _WIN32
-		{
 			force_sig(DRBD_SIGKILL, thi->task);
-		}
 		else {
 		//	drbd_info(NO_OBJECT,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
 		}
-#else
-			force_sig(DRBD_SIGKILL, thi->task);
-#endif
 	}
 	spin_unlock_irqrestore(&thi->t_lock, flags);
 
 	if (wait) {
-#ifdef _WIN32
+#ifdef _WIN
 		// drbd_info(NO_OBJECT,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
 		while (wait_for_completion(&thi->stop) == -DRBD_SIGKILL) {
@@ -899,7 +875,9 @@ void _drbd_thread_stop(struct drbd_thread *thi, int restart, int wait)
 		wait_for_completion(&thi->stop);
 #endif
 	}
-	// drbd_info(NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event)); // _WIN32
+
+	// drbd_info(NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event));
+
 }
 
 int conn_lowest_minor(struct drbd_connection *connection)
@@ -1153,7 +1131,7 @@ static void prepare_header80(struct p_header80 *h, enum drbd_packet cmd, int siz
 {
 	h->magic   = cpu_to_be32(DRBD_MAGIC);
 	h->command = cpu_to_be16(cmd);
-#ifdef _WIN32
+#ifdef _WIN
 	BUG_ON_UINT16_OVER((__be16)size - sizeof(struct p_header80));
 #endif
 	h->length  = cpu_to_be16((__be16)size - sizeof(struct p_header80));
@@ -1170,7 +1148,7 @@ static void prepare_header100(struct p_header100 *h, enum drbd_packet cmd,
 				      int size, int vnr)
 {
 	h->magic = cpu_to_be32(DRBD_MAGIC_100);
-#ifdef _WIN32	
+#ifdef _WIN	
 	BUG_ON_UINT16_OVER(vnr);
 #endif
 	h->volume = cpu_to_be16((uint16_t)vnr);
@@ -1204,7 +1182,7 @@ static void new_or_recycle_send_buffer_page(struct drbd_send_buffer *sbuf)
 
 		page = alloc_page(GFP_KERNEL);
 		if (page) {
-#ifndef _WIN32
+#ifdef _LIN
 			put_page(sbuf->page);
 #endif
 			sbuf->page = page;
@@ -1264,13 +1242,13 @@ void *__conn_prepare_command(struct drbd_connection *connection, int size,
 	}
 
 	header_size = drbd_header_size(connection);
-#ifdef _WIN32
+#ifdef _WIN
 	void *p = (char *)alloc_send_buffer(connection, header_size + size, drbd_stream) + header_size;
 	if(!p) {
 		drbd_err(connection, "failed allocate send buffer\n");
 	}
 	return p;
-#else
+#else // _LIN
 	return alloc_send_buffer(connection, header_size + size, drbd_stream) + header_size;
 #endif
 }
@@ -1339,9 +1317,9 @@ static int flush_send_buffer(struct drbd_connection *connection, enum drbd_strea
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(offset);
 #endif
-#ifdef _WIN32
+#ifdef _WIN
     err = tr_ops->send_page(transport, drbd_stream, sbuf->page->addr, (int)offset, (size_t)size, msg_flags);
-#else
+#else // _LIN
 	err = tr_ops->send_page(transport, drbd_stream, sbuf->page, offset, size, msg_flags);
 #endif
 	if (!err) {
@@ -1528,9 +1506,9 @@ int drbd_send_sync_param(struct drbd_peer_device *peer_device)
 	/* initialize verify_alg and csums_alg */
 	memset(p->verify_alg, 0, SHARED_SECRET_MAX);
 	memset(p->csums_alg, 0, SHARED_SECRET_MAX);
-#ifdef _WIN32
+#ifdef _WIN
     rcu_read_lock_w32_inner();
-#else
+#else // _LIN
 	rcu_read_lock();
 #endif
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
@@ -1583,9 +1561,9 @@ int __drbd_send_protocol(struct drbd_connection *connection, enum drbd_packet cm
 	p = __conn_prepare_command(connection, size, DATA_STREAM);
 	if (!p)
 		return -EIO;
-#ifdef _WIN32
+#ifdef _WIN
     rcu_read_lock_w32_inner();
-#else
+#else // _LIN
 	rcu_read_lock();
 #endif
 	nc = rcu_dereference(connection->transport.net_conf);
@@ -1697,7 +1675,7 @@ static u64 __bitmap_uuid(struct drbd_device *device, int node_id) __must_hold(lo
 		if (peer_device->connection->cstate[NOW] == C_CONNECTED)
 			peer_md[node_id].flags |= MDF_PEER_DIFF_CUR_UUID;
 
-#ifdef _WIN32
+#ifdef _WIN
 		bitmap_uuid = UINT64_MAX;
 #else	// _LIN
 		bitmap_uuid = -1;
@@ -1873,21 +1851,21 @@ int drbd_attach_peer_device(struct drbd_peer_device *peer_device) __must_hold(lo
 
 	pdc = rcu_dereference_protected(peer_device->conf,
 		lockdep_is_held(&peer_device->device->resource->conf_update));
-#ifdef _WIN32
+#ifdef _WIN
     if (peer_device->rs_plan_s)
         resync_plan = peer_device->rs_plan_s;
     else
     	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ, '88DW');
-#else
+#else // _LIN
 	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ);
 #endif
 	if (!resync_plan)
 		goto out;
-#ifdef _WIN32
+#ifdef _WIN
 	resync_lru = lc_create("resync", &drbd_bm_ext_cache,
 			       1, 61, sizeof(struct bm_extent),
 			       offsetof(struct bm_extent, lce));
-#else
+#else // _LIN
 	resync_lru = lc_create("resync", drbd_bm_ext_cache,
 			       1, 61, sizeof(struct bm_extent),
 			       offsetof(struct bm_extent, lce));
@@ -1906,7 +1884,7 @@ out:
 	return err;
 }
 
-#ifndef _WIN32
+#ifdef _LIN
 /* communicated if (agreed_features & DRBD_FF_WSAME) */
 void assign_p_sizes_qlim(struct drbd_device *device, struct p_sizes *p, struct request_queue *q)
 {
@@ -1937,7 +1915,6 @@ void assign_p_sizes_qlim(struct drbd_device *device, struct p_sizes *p, struct r
 }
 #endif
 
-//int drbd_send_sizes(struct drbd_peer_device *peer_device, int trigger_reply, enum dds_flags flags)
 int drbd_send_sizes(struct drbd_peer_device *peer_device,
 			uint64_t u_size_diskless, enum dds_flags flags)
 {
@@ -1958,7 +1935,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 
 	memset(p, 0, packet_size);
 	if (get_ldev_if_state(device, D_NEGOTIATING)) {
-#ifndef _WIN32
+#ifdef _LIN
 		struct request_queue *q = bdev_get_queue(device->ldev->backing_bdev);
 #endif
 		d_size = drbd_get_max_capacity(device->ldev);
@@ -1966,16 +1943,17 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 		u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 		rcu_read_unlock();
 		q_order_type = drbd_queue_order_type(device);
-#ifdef _WIN32
+#ifdef _WIN
 		// DW-1497 Fix max bio size to default 1MB, because we don't need to variable max bio config on Windows.
 		// Since max_bio_size is an integer type, an overflow has occurred for the value of max_hw_sectors.
 		// DW-1763 set to DRBD_MAX_BIO_SIZE if larger than DRBD_MAX_BIO_SIZE.
-		max_bio_size = (unsigned int)(min((queue_max_hw_sectors(device->ldev->backing_bdev->bd_disk->queue) << 9), DRBD_MAX_BIO_SIZE));
-#else
+		max_bio_size = (unsigned int)(min((queue_max_hw_sectors(device->ldev->backing_bdev->bd_disk->queue) << 9), 
+											DRBD_MAX_BIO_SIZE));
+#else // _LIN
 		max_bio_size = queue_max_hw_sectors(q) << 9;
 		max_bio_size = min(max_bio_size, DRBD_MAX_BIO_SIZE);
 #endif
-#ifndef _WIN32
+#ifdef _LIN
 		assign_p_sizes_qlim(device, p, q);
 #endif
 		put_ldev(device);
@@ -1984,7 +1962,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 		u_size = u_size_diskless;
 		q_order_type = QUEUE_ORDERED_NONE;
 		max_bio_size = DRBD_MAX_BIO_SIZE; /* ... multiple BIOs per peer_request */
-#ifndef _WIN32
+#ifdef _LIN
 		assign_p_sizes_qlim(device, p, NULL);
 #endif
 	}
@@ -2000,7 +1978,7 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 	TODO verify: this may be needed for v8 compatibility still.
 	p->c_size = cpu_to_be64(trigger_reply ? 0 : drbd_get_capacity(device->this_bdev));
 	*/
-#ifdef _WIN32 
+
 	// DW-1469 For initial sync, set c_size to 0.
 	if (drbd_current_uuid(device) == UUID_JUST_CREATED) {
 		p->c_size = 0;	
@@ -2008,11 +1986,9 @@ int drbd_send_sizes(struct drbd_peer_device *peer_device,
 	else {
 		p->c_size = cpu_to_be64(drbd_get_capacity(device->this_bdev));
 	}
-#else
-	p->c_size = cpu_to_be64(drbd_get_capacity(device->this_bdev));
-#endif
+	
 	p->max_bio_size = cpu_to_be32(max_bio_size);
-#ifdef _WIN32
+#ifdef _WIN
 	BUG_ON_UINT16_OVER(q_order_type);
 #endif
 	p->queue_order_type = cpu_to_be16((uint16_t)q_order_type);
@@ -2191,15 +2167,9 @@ static int fill_bitmap_rle_bits(struct drbd_peer_device *peer_device,
 				struct bm_xfer_ctx *c)
 {
 	struct bitstream bs;
-#ifdef _WIN32
 	ULONG_PTR plain_bits;
 	ULONG_PTR tmp;
 	ULONG_PTR rl;
-#else
-	unsigned long plain_bits;
-	unsigned long tmp;
-	unsigned long rl;
-#endif
 	unsigned len;
 	unsigned toggle;
 	int bits, use_rle;
@@ -2333,13 +2303,8 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 		/* was not compressible.
 		 * send a buffer full of plain text bits instead. */
 		unsigned int data_size;
-#ifdef _WIN32
 		ULONG_PTR num_words;
-        ULONG_PTR *pu = (ULONG_PTR *)pc;
-#else
-		unsigned long num_words;
-		unsigned long *pu = (unsigned long *)pc;
-#endif
+		ULONG_PTR *pu = (ULONG_PTR *)pc;
 		data_size = DRBD_SOCKET_BUFFER_SIZE - header_size;
 		num_words = min_t(size_t, data_size / sizeof(*pu),
 				  c->bm_words - c->word_offset);
@@ -2402,9 +2367,8 @@ static int _drbd_send_bitmap(struct drbd_device *device,
 		put_ldev(device);
 	}
 
-#ifdef _WIN32
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
-#endif
+
 	c = (struct bm_xfer_ctx) {
 		.bm_bits = drbd_bm_bits(device),
 		.bm_words = drbd_bm_words(device),
@@ -2542,9 +2506,9 @@ static int _drbd_send_page(struct drbd_peer_device *peer_device, struct page *pa
 	struct drbd_transport_ops *tr_ops = transport->ops;
 	int err;
 
-#ifdef _WIN32
+#ifdef _WIN
 	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, msg_flags);
-#else
+#else // _LIN
 	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, msg_flags);
 #endif
 	if (!err) {
@@ -2553,7 +2517,7 @@ static int _drbd_send_page(struct drbd_peer_device *peer_device, struct page *pa
 
 	return err;
 }
-#ifdef _WIN32 
+#ifdef _WIN
 //we don't need to consider page, care to only buffer in no_send_page
 int _drbd_no_send_page(struct drbd_peer_device *peer_device, void * buffer,
 			      int offset, size_t size, unsigned msg_flags)
@@ -2571,7 +2535,7 @@ int _drbd_no_send_page(struct drbd_peer_device *peer_device, void * buffer,
 	}
 	return err;
 }
-#else
+#else // _LIN
 int _drbd_no_send_page(struct drbd_peer_device *peer_device, struct page *page,
 			      int offset, size_t size, unsigned msg_flags)
 {
@@ -2601,7 +2565,7 @@ int _drbd_no_send_page(struct drbd_peer_device *peer_device, struct page *page,
 static int _drbd_send_bio(struct drbd_peer_device *peer_device, struct bio *bio)
 {
 	struct drbd_connection *connection = peer_device->connection;
-#ifndef _WIN32
+#ifdef _LIN
 	DRBD_BIO_VEC_TYPE bvec;
 	DRBD_ITER_TYPE iter;
 #endif
@@ -2609,14 +2573,14 @@ static int _drbd_send_bio(struct drbd_peer_device *peer_device, struct bio *bio)
 	alloc_send_buffer(connection, PAGE_SIZE, DATA_STREAM);
 	connection->send_buffer[DATA_STREAM].allocated_size = 0;
 
-#ifdef _WIN32
+#ifdef _WIN
 	int err;
 	err = _drbd_no_send_page(peer_device, bio->bio_databuf, 0, bio->bi_size, 0);
 	if (err)
 		return err;
 
 	peer_device->send_cnt += (bio->bi_size) >> 9;
-#else
+#else // _LIN
 	/* hint all but last page with MSG_MORE */
 	bio_for_each_segment(bvec, bio, iter) {
 		int err;
@@ -2645,13 +2609,13 @@ static int _drbd_send_zc_bio(struct drbd_peer_device *peer_device, struct bio *b
 	 * put_page(); and would cause either a VM_BUG directly, or
 	 * __page_cache_release a page that would actually still be referenced
 	 * by someone, leading to some obscure delayed Oops somewhere else. */
-#ifdef _WIN32
+#ifdef _WIN
 	int err;
 	err = _drbd_no_send_page(peer_device, bio->bio_databuf, 0, bio->bi_size, 0);
 	if (err)
 		return err;
 	return 0;
-#else
+#else // _LIN
 	DRBD_BIO_VEC_TYPE bvec;
 	DRBD_ITER_TYPE iter;
 	bool no_zc = disable_sendpage;
@@ -2688,7 +2652,7 @@ static int _drbd_send_zc_bio(struct drbd_peer_device *peer_device, struct bio *b
 static int _drbd_send_zc_ee(struct drbd_peer_device *peer_device,
 			    struct drbd_peer_request *peer_req)
 {
-#ifndef _WIN32
+#ifdef _LIN
 	struct page *page = peer_req->page_chain.head;
 #endif
 	unsigned len = peer_req->i.size;
@@ -2696,13 +2660,13 @@ static int _drbd_send_zc_ee(struct drbd_peer_device *peer_device,
 
 	flush_send_buffer(peer_device->connection, DATA_STREAM);
 
-#ifdef _WIN32
+#ifdef _WIN
 	// add bio-linked pointer to drbd_peer_request structure
 	// bio-linked pointer(peer_req_databuf) is used to replace with page structure buffers
 	err = _drbd_no_send_page(peer_device, peer_req->peer_req_databuf, 0, len, 0);
 	if (err)
 		return err;
-#else
+#else // _LIN
 	/* hint all but last page with MSG_MORE */
 	page_chain_for_each(page) {
 		unsigned l = min_t(unsigned, len, PAGE_SIZE);
@@ -2751,11 +2715,7 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 	void *digest_out = NULL;
 	unsigned int dp_flags = 0;
 	int digest_size = 0;
-#ifdef _WIN32
 	int err = 0;
-#else
-	int err;
-#endif
 	
 	const unsigned s = drbd_req_state_by_peer_device(req, peer_device);
 
@@ -2785,11 +2745,7 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 	}
 
 	p->sector = cpu_to_be64(req->i.sector);
-#ifdef _WIN32
 	p->block_id = (ULONG_PTR)req;
-#else
-	p->block_id = (unsigned long)req;
-#endif
 	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
 	
 	dp_flags = bio_flags_to_wire(peer_device->connection, req->master_bio);
@@ -2809,19 +2765,13 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 	}
 
 	if (digest_size && digest_out)
-#ifdef _WIN32
 		drbd_csum_bio(peer_device->connection->integrity_tfm, req, digest_out);
-#else
-		drbd_csum_bio(peer_device->connection->integrity_tfm, req->master_bio, digest_out);
-#endif
 
 	if (wsame) {
-#ifndef _WIN32
+#ifdef _LIN
 		additional_size_command(peer_device->connection, DATA_STREAM,
 					bio_iovec(req->master_bio) BVD bv_len);
 		err = __send_command(peer_device->connection, device->vnr, P_WSAME, DATA_STREAM);
-#else 
-		//not support
 #endif
 	} else {
 		additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
@@ -2840,15 +2790,15 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 		 * receiving side, we sure have detected corruption elsewhere.
 		 */
 		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
-#ifdef _WIN32
+#ifdef _WIN
 			err = _drbd_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else
+#else // _LIN
 			err = _drbd_send_bio(peer_device, req->master_bio);
 #endif
 		else
-#ifdef _WIN32
+#ifdef _WIN
 			err = _drbd_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else
+#else // _LIN
 			err = _drbd_send_zc_bio(peer_device, req->master_bio);
 #endif
 
@@ -2861,11 +2811,7 @@ int drbd_send_dblock(struct drbd_peer_device *peer_device, struct drbd_request *
 			/* 64 byte, 512 bit, is the largest digest size
 			 * currently supported in kernel crypto. */
 			unsigned char digest[64];
-#ifdef _WIN32
 			drbd_csum_bio(peer_device->connection->integrity_tfm, req, digest);
-#else
-			drbd_csum_bio(peer_device->connection->integrity_tfm, req->master_bio, digest);
-#endif
 			if (memcmp(p + 1, digest, digest_size)) {
 				drbd_warn(device,
 					"Digest mismatch, buffer modified by upper layers during write: %llus +%u\n",
@@ -2904,11 +2850,7 @@ int drbd_send_block(struct drbd_peer_device *peer_device, enum drbd_packet cmd,
 	p->seq_num = 0;  /* unused */
 	p->dp_flags = 0;
 	if (digest_size)
-#ifdef _WIN32
-        drbd_csum_pages(peer_device->connection->integrity_tfm, peer_req, p + 1);
-#else
-		drbd_csum_pages(peer_device->connection->integrity_tfm, peer_req->page_chain.head, p + 1);
-#endif
+		drbd_csum_pages(peer_device->connection->integrity_tfm, peer_req, p + 1);
 	additional_size_command(peer_device->connection, DATA_STREAM, peer_req->i.size);
 
 	err = __send_command(peer_device->connection,
@@ -2998,7 +2940,7 @@ static int try_to_promote(struct drbd_device *device)
 	do {
 		rv = drbd_set_role(resource, R_PRIMARY, false, NULL);
 		if (rv >= SS_SUCCESS || timeout == 0) {
-#ifdef _WIN32			
+#ifdef _WIN		
 			resource->bPreSecondaryLock = FALSE;
 #endif
 			return rv;
@@ -3043,9 +2985,9 @@ static int ro_open_cond(struct drbd_device *device)
 		return -EAGAIN;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 static int drbd_open(struct block_device *bdev, fmode_t mode)
-#else
+#else // _LIN
 int bsr_open(struct block_device *bdev, fmode_t mode)
 #endif
 {
@@ -3133,9 +3075,9 @@ static void open_counts(struct drbd_resource *resource, int *rw_count_ptr, int *
 	*ro_count_ptr = ro_count;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 static DRBD_RELEASE_RETURN drbd_release(struct gendisk *gd, fmode_t mode)
-#else
+#else // _LIN
 DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 #endif
 {
@@ -3154,9 +3096,9 @@ DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 
 	if (open_ro_cnt == 0)
-#ifdef _WIN32
+#ifdef _WIN
 		wake_up(&resource->state_wait);
-#else
+#else // _LIN
 		wake_up_all(&resource->state_wait);
 #endif
 
@@ -3182,9 +3124,10 @@ DRBD_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 /* need to hold resource->req_lock */
 void drbd_queue_unplug(struct drbd_device *device)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(device);
-#else
+	// not support
+#else // _LIN
 	struct drbd_resource *resource = device->resource;
 	struct drbd_connection *connection;
 	u64 dagtag_sector;
@@ -3245,7 +3188,9 @@ void drbd_cleanup_device(struct drbd_device *device)
 
 static void drbd_destroy_mempools(void)
 {
-#ifndef _WIN32
+#ifdef _WIN
+	drbd_pp_vacant = 0;	
+#else // _LIN
 	struct page *page;
 
 	while (drbd_pp_pool) {
@@ -3254,8 +3199,6 @@ static void drbd_destroy_mempools(void)
 		__free_page(page);
 		drbd_pp_vacant--;
 	}
-#else
-    drbd_pp_vacant = 0;
 #endif
 	/* D_ASSERT(device, atomic_read(&drbd_pp_vacant)==0); */
 
@@ -3268,10 +3211,10 @@ static void drbd_destroy_mempools(void)
 	if (drbd_request_mempool)
 		mempool_destroy(drbd_request_mempool);
 
-#ifdef _WIN32
+#ifdef _WIN
 	ExDeleteNPagedLookasideList(&drbd_bm_ext_cache);
 	ExDeleteNPagedLookasideList(&drbd_al_ext_cache);
-#else
+#else // _LIN
 	if (drbd_md_io_bio_set)
 		bioset_free(drbd_md_io_bio_set);
 
@@ -3300,14 +3243,14 @@ static void drbd_destroy_mempools(void)
 static int drbd_create_mempools(void)
 {
 	const int number = (DRBD_MAX_BIO_SIZE / PAGE_SIZE) * minor_count;
-#ifndef _WIN32
+#ifdef _LIN
 	struct page *page;
 	int i;
 #endif
 
-#ifdef _WIN32
 	drbd_md_io_page_pool = NULL;
-	drbd_md_io_bio_set   = NULL;
+	drbd_md_io_bio_set = NULL;
+#ifdef _WIN
 
 	ExInitializeNPagedLookasideList(&drbd_bm_ext_cache, NULL, NULL,
 		0, sizeof(struct bm_extent), '28DW', 0);
@@ -3337,8 +3280,6 @@ static int drbd_create_mempools(void)
 	drbd_bm_ext_cache    = NULL;
 	drbd_al_ext_cache    = NULL;
 	drbd_pp_pool         = NULL;
-	drbd_md_io_page_pool = NULL;
-	drbd_md_io_bio_set   = NULL;
 	/* caches */
 	drbd_request_cache = kmem_cache_create(
 		"drbd_req", sizeof(struct drbd_request), 0, 0, NULL);
@@ -3412,14 +3353,15 @@ void drbd_destroy_device(struct kref *kref)
 	struct drbd_device *device = container_of(kref, struct drbd_device, kref);
 	struct drbd_resource *resource = device->resource;
 	struct drbd_peer_device *peer_device, *tmp;
-
-#ifdef _WIN32
-	drbd_debug(NO_OBJECT,"%s\n", __FUNCTION__);
-#endif
-
 #ifdef SPLIT_REQUEST_RESYNC
 	// DW-1911
 	struct drbd_marked_replicate *marked_rl, *t;
+#endif
+
+	drbd_debug(NO_OBJECT,"%s\n", __FUNCTION__);
+
+#ifdef SPLIT_REQUEST_RESYNC
+	// DW-1911
 	list_for_each_entry_safe_ex(struct drbd_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 		list_del(&marked_rl->marked_rl_list);
 		kfree(marked_rl);
@@ -3429,7 +3371,7 @@ void drbd_destroy_device(struct kref *kref)
 	/* cleanup stuff that may have been allocated during
 	 * device (re-)configuration or state changes */
 	if (device->this_bdev) {
-#ifdef _WIN32
+#ifdef _WIN
 		// DW-1109 put bdev when device is being destroyed.
 		// DW-1300 nullify drbd_device of volume extention when destroy drbd device.
 		PVOLUME_EXTENSION pvext = device->this_bdev->bd_disk->pDeviceExtension;
@@ -3441,7 +3383,7 @@ void drbd_destroy_device(struct kref *kref)
 
 		blkdev_put(device->this_bdev, 0);
 		device->this_bdev = NULL;
-#else
+#else // _LIN
 		bdput(device->this_bdev);
 #endif
 	}
@@ -3464,10 +3406,10 @@ void drbd_destroy_device(struct kref *kref)
 	__free_page(device->md_io.page);
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
-#ifdef _WIN32
+
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
-#endif
+
 	kref_debug_destroy(&device->kref_debug);
 
 	kfree(device);
@@ -3480,18 +3422,16 @@ void drbd_destroy_resource(struct kref *kref)
 {
 	struct drbd_resource *resource = container_of(kref, struct drbd_resource, kref);
 
-#ifdef _WIN32
 	drbd_debug(NO_OBJECT,"%s\n", __FUNCTION__);
-#endif
 
 	idr_destroy(&resource->devices);
-#ifndef _WIN32
+#ifdef _LIN
 	free_cpumask_var(resource->cpu_mask);
 #endif
 	kfree(resource->name);
 	kref_debug_destroy(&resource->kref_debug);
 	kfree(resource);
-#ifndef _WIN32
+#ifdef _LIN
 	module_put(THIS_MODULE);
 #endif
 }
@@ -3513,7 +3453,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 
 	drbd_thread_stop(&resource->worker);
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	mvolTerminateThread(&resource->WorkThreadInfo);
 #endif
 
@@ -3537,10 +3477,10 @@ void drbd_free_resource(struct drbd_resource *resource)
 /* One global retry thread, if we need to push back some bio and have it
  * reinserted through our make request function.
  */
- #ifdef _WIN32
-// move to drbd_windows.h
+#ifdef _WIN
+// moved to drbd_windows.h
 struct retry_worker retry;
-#else
+#else // _LIN
 static struct retry_worker {
 	struct workqueue_struct *wq;
 	struct work_struct worker;
@@ -3618,9 +3558,7 @@ void drbd_restart_request(struct drbd_request *req)
 	unsigned long flags;
 	spin_lock_irqsave(&retry.lock, flags);
 
-#ifdef _WIN32	
 	drbd_info(NO_OBJECT,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
-#endif
 
 #ifdef NETQUEUED_LOG
 	atomic_set(&req->nq_ref, 0);
@@ -3638,7 +3576,7 @@ void drbd_restart_request(struct drbd_request *req)
 	queue_work(retry.wq, &retry.worker);
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 void drbd_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 {
     drbd_info(NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)\n",
@@ -3660,21 +3598,17 @@ void drbd_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
  */
 static int drbd_congested(void *congested_data, int bdi_bits)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(bdi_bits);
 	UNREFERENCED_PARAMETER(congested_data);
-#endif
-#ifndef _WIN32
-	struct drbd_device *device = congested_data;
-	struct request_queue *q;
-#endif
-	int r = 0;
-
-#ifdef _WIN32
-	
 	// WDRBD: not support data socket congestion
 	// In V8.x, drbd_congested is called at drbd_seq_show, but In V9.x, not called , maybe replace with DEBUGFS
-#else
+	return 0;
+#else // _LIN
+	struct drbd_device *device = congested_data;
+	struct request_queue *q;
+	int r = 0;
+
 	if (!may_inc_ap_bio(device)) {
 		/* DRBD has frozen IO */
 		r = bdi_bits;
@@ -3697,27 +3631,11 @@ static int drbd_congested(void *congested_data, int bdi_bits)
 	}
 
 	if (get_ldev(device)) {
-#ifdef _WIN32
-        // In Linux, this drbd_congested callback is not recalled by bdi_congested.
-        // bdi_congested just return bdi->state managed by kernel 
-        // and so, we should support a similar result compared to bdi->state on Windows 
-        //   - BDI_write_congested,	/* The write queue is getting full */
-        //   - BDI_read_congested,	/* The read queue is getting full */
-        // WDRBD don't support (no congestion)
-        r = 0;  
-#else
 		q = bdev_get_queue(device->ldev->backing_bdev);
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
-#endif
 		put_ldev(device);
 	}
-#ifdef _WIN32_SEND_BUFFING 
-#if 0
-    if (test_bit(NET_CONGESTED, &mdev->tconn->flags)) {
-        reason = 'n';
-    }
-#endif
-#else
+
 	if (bdi_bits & (1 << WB_async_congested)) {
 		struct drbd_peer_device *peer_device;
 
@@ -3730,11 +3648,10 @@ static int drbd_congested(void *congested_data, int bdi_bits)
 		}
 		rcu_read_unlock();
 	}
-#endif
 
 out:
-#endif
 	return r;
+#endif
 }
 
 static void drbd_init_workqueue(struct drbd_work_queue* wq)
@@ -3779,7 +3696,7 @@ void drbd_flush_workqueue_timeout(struct drbd_resource* resource, struct drbd_wo
 	completion_work.w.cb = w_complete;
 	init_completion(&completion_work.done);
 	drbd_queue_work(work_queue, &completion_work.w);
-#ifdef _WIN32 
+#ifdef _WIN
 	while (wait_for_completion_timeout(&completion_work.done, 100) == -DRBD_SIGKILL) {
 		drbd_info(NO_OBJECT, "DRBD_SIGKILL occurs. Ignore and wait for real event\n");
 	}
@@ -3800,10 +3717,10 @@ void drbd_flush_workqueue(struct drbd_resource* resource, struct drbd_work_queue
 	completion_work.w.cb = w_complete;
 	init_completion(&completion_work.done);
 	drbd_queue_work(work_queue, &completion_work.w);
-#ifdef _WIN32 
+#ifdef _WIN
 	while (wait_for_completion(&completion_work.done) == -DRBD_SIGKILL) {
-        drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
-    }	
+		drbd_info(NO_OBJECT,"DRBD_SIGKILL occurs. Ignore and wait for real event\n");
+	}
 #else // _LIN
 	wait_for_completion(&completion_work.done);
 #endif
@@ -3835,10 +3752,10 @@ static void drbd_put_send_buffers(struct drbd_connection *connection)
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		if (connection->send_buffer[i].page) {
-#ifdef _WIN32
+#ifdef _WIN
 			// DW-1791 fix memory leak 
 			__free_page(connection->send_buffer[i].page);
-#else 
+#else // _LIN
 			put_page(connection->send_buffer[i].page);
 #endif
 			connection->send_buffer[i].page = NULL;
@@ -3876,13 +3793,13 @@ void drbd_flush_peer_acks(struct drbd_resource *resource)
 	}
 	spin_unlock_irq(&resource->req_lock);
 }
-#ifdef _WIN32
+#ifdef _WIN
 static void peer_ack_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
-#else
+#else // _LIN
 static void peer_ack_timer_fn(unsigned long data)
 #endif
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
@@ -3923,10 +3840,10 @@ void wake_all_device_misc(struct drbd_resource *resource)
 
 int set_resource_options(struct drbd_resource *resource, struct res_opts *res_opts)
 {
-#ifdef _WIN32
+#ifdef _WIN
     resource->res_opts = *res_opts;
 	return 0;
-#else
+#else // _LIN
 	struct drbd_connection *connection;
 	cpumask_var_t new_cpu_mask;
 	int err;
@@ -3993,7 +3910,7 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	struct drbd_resource *resource;
 
 	resource = kzalloc(sizeof(struct drbd_resource), GFP_KERNEL, 'A0DW');
-#ifdef _WIN32
+#ifdef _WIN
 	resource->bPreSecondaryLock = FALSE;
 	resource->bPreDismountLock = FALSE;
 	atomic_set(&resource->bGetVolBitmapDone, true);
@@ -4003,7 +3920,7 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	resource->name = kstrdup(name, GFP_KERNEL);
 	if (!resource->name)
 		goto fail_free_resource;
-#ifndef _WIN32
+#ifdef _LIN
 	if (!zalloc_cpumask_var(&resource->cpu_mask, GFP_KERNEL))
 		goto fail_free_name;
 #endif
@@ -4029,7 +3946,7 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	resource->twopc_reply.initiator_node_id = -1;
 	mutex_init(&resource->conf_update);
 	mutex_init(&resource->adm_mutex);
-#ifdef _WIN32
+#ifdef _WIN
 	// DW-1317
 	mutex_init(&resource->vol_ctl_mutex);
 #endif
@@ -4150,7 +4067,7 @@ fail:
 /* free the transport specific members (e.g., sockets) of a connection */
 void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_free_op op)
 {
-#ifdef _WIN32
+#ifdef _WIN
 	// DW-689
 	// redefine struct drbd_tcp_transport, buffer. required to refactoring about base, pos field 
 	struct buffer {
@@ -4182,13 +4099,13 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 	mutex_lock(&connection->mutex[DATA_STREAM]);
 	mutex_lock(&connection->mutex[CONTROL_STREAM]);
 
-#ifdef	_WIN32_SEND_BUFFING
+#ifdef	_WIN_SEND_BUFFING
 	// bab is freed at ops->free (sock_release). and so, send-buffering threads must be terminated prior to ops->free.  
 	// CONNECTION_RESET is occured at this point by stop_send_buffring 
 	// connection->transport.ops->stop_send_buffring(&connection->transport);
 #endif
 	connection->transport.ops->free(&connection->transport, op);
-#ifndef _WIN32
+#ifdef _LIN
 	if (op == DESTROY_TRANSPORT)
 		drbd_put_transport_class(connection->transport.class);
 #endif
@@ -4253,7 +4170,7 @@ void drbd_destroy_connection(struct kref *kref)
 	//
 	// destroy_bab
 	//
-#ifdef _WIN32	
+#ifdef _WIN
 	destroy_bab(connection);
 #endif
 
@@ -4285,7 +4202,7 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 		return NULL;
 	}
 
-#ifndef _WIN32
+#ifdef _LIN
 	init_timer(&peer_device->start_resync_timer);
 #endif
 	peer_device->start_resync_timer.function = start_resync_timer_fn;
@@ -4293,13 +4210,13 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 
 	INIT_LIST_HEAD(&peer_device->resync_work.list);
 	peer_device->resync_work.cb  = w_resync_timer;
-#ifndef _WIN32
+#ifdef _LIN
 	init_timer(&peer_device->resync_timer);
 #endif
 	peer_device->resync_timer.function = resync_timer_fn;
     peer_device->resync_timer.data = (TIMER_DATA_TYPE) peer_device;
 
-#ifdef _WIN32
+#ifdef _WIN
     init_timer(&peer_device->start_resync_timer);
     init_timer(&peer_device->resync_timer);
 #ifdef DBG
@@ -4336,10 +4253,10 @@ static int init_submitter(struct drbd_device *device)
 	/* opencoded create_singlethread_workqueue(),
 	 * to be able to use format string arguments */
 
-#ifdef _WIN32
+#ifdef _WIN
 	device->submit.wq =
 		create_singlethread_workqueue("drbd_submit");
-#else
+#else // _LIN
 	device->submit.wq =
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 		alloc_ordered_workqueue("drbd%u_submit", WQ_MEM_RECLAIM, device->minor);
@@ -4356,9 +4273,6 @@ static int init_submitter(struct drbd_device *device)
 	return 0;
 }
 
-#ifndef _WIN32
-extern const struct block_device_operations bsr_ops;
-#endif
 
 enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsigned int minor,
 				      struct device_conf *device_conf, struct drbd_device **p_device)
@@ -4368,18 +4282,15 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	struct drbd_device *device;
 	struct drbd_peer_device *peer_device, *tmp_peer_device;
 	struct gendisk *disk;
-#ifdef _WIN32
     struct request_queue *q = NULL;
-#else
-	struct request_queue *q;
-#endif
+
 	LIST_HEAD(peer_devices);
 	LIST_HEAD(tmp);
 	int id;
 	int vnr = adm_ctx->volume;
 	enum drbd_ret_code err = ERR_NOMEM;
 	bool locked = false;
-#ifdef _WIN32
+#ifdef _WIN
     if ((minor < 1) || (minor > MINORMASK))
         return ERR_INVALID_REQUEST;
 #endif
@@ -4434,7 +4345,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	spin_lock_init(&device->pending_bitmap_work.q_lock);
 	INIT_LIST_HEAD(&device->pending_bitmap_work.q);
 
-#ifndef _WIN32
+#ifdef _LIN
 	init_timer(&device->md_sync_timer);
 	init_timer(&device->request_timer);
 #endif
@@ -4443,7 +4354,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	device->request_timer.function = request_timer_fn;
 	device->request_timer.data = (TIMER_DATA_TYPE) device;
 
-#ifdef _WIN32
+#ifdef _WIN
     init_timer(&device->md_sync_timer);
     init_timer(&device->request_timer);
 #ifdef DBG
@@ -4456,7 +4367,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	init_waitqueue_head(&device->misc_wait);
 	init_waitqueue_head(&device->al_wait);
 	init_waitqueue_head(&device->seq_wait);
-#ifdef _WIN32
+#ifdef _WIN
 	// DW-1698 Only when drbd_device is created, it requests to update information about target device To fixup the frequency of calls to update_targetdev
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);
 	if (!pvext) {
@@ -4479,24 +4390,24 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 
 	set_disk_ro(disk, true);
 	disk->queue = q;
-#ifndef _WIN32
+#ifdef _LIN
 	disk->major = DRBD_MAJOR;
 	disk->first_minor = minor;
 
 	disk->fops = &bsr_ops;
 #endif
-#ifdef _WIN32
+#ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
-#else //_LIN	
+#else // _LIN
 	sprintf(disk->disk_name, "drbd%d", minor);
 #endif
 	disk->private_data = device;
-#ifndef _WIN32
+#ifdef _LIN
 	device->this_bdev = bdget(MKDEV(DRBD_MAJOR, minor));
 	/* we have no partitions. we contain only ourselves. */
 	device->this_bdev->bd_contains = device->this_bdev;
 #endif
-#ifdef _WIN32
+#ifdef _WIN
 	kref_get(&pvext->dev->kref);
 	device->this_bdev = pvext->dev;
 	q->logical_block_size = 512;
@@ -4510,7 +4421,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	blk_queue_make_request(q, drbd_make_request);
     blk_queue_write_cache(q, true, true);
 
-#ifndef _WIN32
+#ifdef _LIN
 	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 	blk_queue_merge_bvec(q, drbd_merge_bvec);
@@ -4594,7 +4505,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 		err = ERR_NOMEM;
 		goto out_remove_peer_device;
 	}
-#ifndef _WIN32
+#ifdef _LIN
 	add_disk(disk);
 #endif
 	for_each_peer_device(peer_device, device) {
@@ -4610,32 +4521,30 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	return NO_ERROR;
 
 out_remove_peer_device:
-#ifdef _WIN32
     {
-        synchronize_rcu_w32_wlock();
+#ifdef _WIN
+		synchronize_rcu_w32_wlock();
 #endif
-	list_add_rcu(&tmp, &device->peer_devices);
-	list_del_init(&device->peer_devices);
-	synchronize_rcu();
-	list_for_each_entry_safe_ex(struct drbd_peer_device, peer_device, tmp_peer_device, &tmp, peer_devices) {
-		struct drbd_connection *connection = peer_device->connection;
+		list_add_rcu(&tmp, &device->peer_devices);
+		list_del_init(&device->peer_devices);
+		synchronize_rcu();
+		list_for_each_entry_safe_ex(struct drbd_peer_device, peer_device, tmp_peer_device, &tmp, peer_devices) {
+			struct drbd_connection *connection = peer_device->connection;
 
-		kref_debug_put(&connection->kref_debug, 3);
-		kref_put(&connection->kref, drbd_destroy_connection);
-		idr_remove(&connection->peer_devices, device->vnr);
-		list_del(&peer_device->peer_devices);
-		kfree(peer_device);
-	}
-#ifdef _WIN32
+			kref_debug_put(&connection->kref_debug, 3);
+			kref_put(&connection->kref, drbd_destroy_connection);
+			idr_remove(&connection->peer_devices, device->vnr);
+			list_del(&peer_device->peer_devices);
+			kfree(peer_device);
+		}
     }
-#endif
 out_idr_remove_minor:
 	idr_remove(&drbd_devices, minor);
 
 out_no_minor_idr:
 	if (locked)
 		spin_unlock_irq(&resource->req_lock);
-#ifndef _WIN32
+#ifdef _LIN
 	synchronize_rcu();
 #endif
 
@@ -4649,7 +4558,7 @@ out_no_peer_device:
 out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
-#ifndef _WIN32 
+#ifdef _LIN 
 	put_disk(disk);
 #endif
 out_no_disk:
@@ -4772,14 +4681,12 @@ void bsr_cleanup(void)
 	 * some drbdsetup commands may wait forever
 	 * for an answer.
 	 */
-#ifdef _WIN32
+#ifdef _WIN
 	if (retry.wq)
 		destroy_workqueue(retry.wq);
 	drbd_debugfs_cleanup();
-	drbd_destroy_mempools();
 
-#else //_LIN
-
+#else // _LIN
 	if (drbd_proc)
 		remove_proc_entry("bsr", NULL);
 
@@ -4787,11 +4694,9 @@ void bsr_cleanup(void)
 		destroy_workqueue(retry.wq);
 
 	drbd_genl_unregister();
-
 	drbd_unregister_blkdev(DRBD_MAJOR, "bsr");
-	drbd_destroy_mempools();
-
 #endif
+	drbd_destroy_mempools();
 
 	idr_destroy(&drbd_devices);
 
@@ -4799,16 +4704,15 @@ void bsr_cleanup(void)
 
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 int __init drbd_init(void)
-#else
+#else // _LIN
 int bsr_init(void)
 #endif
 {
-
 	int err;
 
-#ifdef _WIN32
+#ifdef _WIN
 	nl_policy_init_by_manual();
 	g_rcuLock = 0; // init RCU lock
 	
@@ -4819,6 +4723,7 @@ int bsr_init(void)
 	ratelimit_state_init(&drbd_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 
 	ct_init_thread_list();
+#endif
 
 	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
 		pr_err("invalid minor_count (%d)\n", minor_count);
@@ -4828,89 +4733,77 @@ int bsr_init(void)
 		minor_count = DRBD_MINOR_COUNT_DEF;
 #endif
 	}
-	strncpy(drbd_pp_wait.eventName, "drbd_pp_wait", sizeof(drbd_pp_wait.eventName) - 1);
-	init_waitqueue_head(&drbd_pp_wait);
-	idr_init(&drbd_devices);
-	mutex_init(&resources_mutex);
-	INIT_LIST_HEAD(&drbd_resources);
 
-	err = drbd_create_mempools();
-	if (err)
-		goto fail;
-
-	err = -ENOMEM;
-
-	retry.wq = create_singlethread_workqueue("drbd-reissue");
-	if (!retry.wq) {
-		pr_err("unable to create retry workqueue\n");
-		goto fail;
-	}
-	INIT_WORK(&retry.worker, do_retry);
-	spin_lock_init(&retry.lock);
-	INIT_LIST_HEAD(&retry.writes);
-	// DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
-	if (!NT_SUCCESS(start_mnt_monitor())) {
-		drbd_err(NO_OBJECT,"could not start mount monitor\n");
-		goto fail;
-	}
-
-#else //_LIN
-	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
-		pr_err("invalid minor_count (%d)\n", minor_count);
-#ifdef MODULE
-		return -EINVAL;
-#else
-		minor_count = DRBD_MINOR_COUNT_DEF;
-#endif
-	}
-
-	err = drbd_create_mempools();
-	if (err)
-		goto fail;
-
-	//err = -ENOMEM; // TODO need to check for right error code
-
+#ifdef _LIN
 	err = register_blkdev(DRBD_MAJOR, "bsr");
 	if (err) {
 		pr_err("unable to register block device major %d\n", DRBD_MAJOR);
 		return err;
 	}
+#endif
 
 	/*
 	* allocate all necessary structs
 	*/
+#ifdef _WIN
+	strncpy(drbd_pp_wait.eventName, "drbd_pp_wait", sizeof(drbd_pp_wait.eventName) - 1);
+#endif
 	init_waitqueue_head(&drbd_pp_wait);
 
-	drbd_proc = NULL; /* play safe for drbd_cleanup */
-	idr_init(&drbd_devices);
 
+#ifdef _LIN
+	drbd_proc = NULL; /* play safe for drbd_cleanup */
+#endif
+
+	idr_init(&drbd_devices);
 	mutex_init(&resources_mutex);
 	INIT_LIST_HEAD(&drbd_resources);
 
-
+#ifdef _LIN
 	err = drbd_genl_register();
 	if (err) {
 		pr_err("unable to register generic netlink family\n");
 		goto fail;
 	}
-	
+#endif
+
+	err = drbd_create_mempools();
+	if (err)
+		goto fail;
+
+	err = -ENOMEM; // Used when drbd_proc and retry.wq creation failed.
+#ifdef _LIN
 	drbd_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &drbd_proc_fops, NULL);
 	if (!drbd_proc)	{
 		pr_err("unable to register proc file\n");
 		goto fail;
 	}
+#endif
+
 	retry.wq = create_singlethread_workqueue("drbd-reissue");
 	if (!retry.wq) {
 		pr_err("unable to create retry workqueue\n");
 		goto fail;
 	}
+
 	INIT_WORK(&retry.worker, do_retry);
 	spin_lock_init(&retry.lock);
 	INIT_LIST_HEAD(&retry.writes);
-//	if (drbd_debugfs_init())
-//		pr_notice("failed to initialize debugfs -- will not be available\n");
 
-#endif //_LIN END
+#ifdef _WIN
+	// DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
+	if (!NT_SUCCESS(start_mnt_monitor())) {
+		drbd_err(NO_OBJECT,"could not start mount monitor\n");
+		goto fail;
+	}
+#endif
+
+#ifdef _LIN
+#if 0 // moved to bsr_load()
+	if (drbd_debugfs_init())
+		pr_notice("failed to initialize debugfs -- will not be available\n");
+#endif
+#endif
 
 	pr_info("initialized. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)\n",
@@ -5077,9 +4970,9 @@ static int check_offsets_and_sizes(struct drbd_device *device,
 		struct meta_data_on_disk_9 *on_disk,
 		struct drbd_backing_dev *bdev)
 {
-#ifdef _WIN32 // DW-1607
+#ifdef _WIN // DW-1607
 	sector_t capacity = drbd_get_md_capacity(bdev->md_bdev);
-#else
+#else // _LIN
 	sector_t capacity = drbd_get_capacity(bdev->md_bdev);
 #endif
 	struct drbd_md *in_core = &bdev->md;
@@ -5776,89 +5669,93 @@ static int find_node_id_by_bitmap_uuid(struct drbd_device *device, u64 bm_uuid) 
 }
 #endif
 
-//static bool node_connected(struct drbd_resource *resource, int node_id)
-//{
-//	struct drbd_connection *connection;
-//	bool r = false;
-//
-//	rcu_read_lock();
-//	connection = drbd_connection_by_node_id(resource, node_id);
-//	if (connection)
-//		r = connection->cstate[NOW] == C_CONNECTED;
-//	rcu_read_unlock();
-//
-//	return r;
-//}
+#if 0 // not used.
+static bool node_connected(struct drbd_resource *resource, int node_id)
+{
+	struct drbd_connection *connection;
+	bool r = false;
 
-//static bool detect_copy_ops_on_peer(struct drbd_peer_device *peer_device) __must_hold(local)
-//{
-//	struct drbd_device *device = peer_device->device;
-//	struct drbd_peer_md *peer_md = device->ldev->md.peers;
-//	struct drbd_resource *resource = device->resource;
-//	int node_id1, node_id2, from_id;
-//	u64 peer_bm_uuid;
-//	bool modified = false;
-//
-//	for (node_id1 = 0; node_id1 < DRBD_NODE_ID_MAX; node_id1++) {
-//		if (device->ldev->md.peers[node_id1].bitmap_index == -1)
-//			continue;
-//
-//		if (node_connected(resource, node_id1))
-//			continue;
-//
-//		peer_bm_uuid = peer_device->bitmap_uuids[node_id1] & ~UUID_PRIMARY;
-//		if (!peer_bm_uuid)
-//			continue;
-//
-//		for (node_id2 = node_id1 + 1; node_id2 < DRBD_NODE_ID_MAX; node_id2++) {
-//			if (device->ldev->md.peers[node_id2].bitmap_index == -1)
-//				continue;
-//
-//			if (node_connected(resource, node_id2))
-//				continue;
-//
-//			if (peer_bm_uuid == (peer_device->bitmap_uuids[node_id2] & ~UUID_PRIMARY))
-//				goto found;
-//		}
-//	}
-//	return false;
-//
-//found:
-//	from_id = find_node_id_by_bitmap_uuid(device, peer_bm_uuid);
-//	if (from_id == -1) {
-//		if (peer_md[node_id1].bitmap_uuid == 0 && peer_md[node_id2].bitmap_uuid == 0)
-//			return false;
-//		drbd_err(peer_device, "unexpected\n");
-//		drbd_err(peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
-//			 peer_device->node_id, peer_bm_uuid, node_id1, node_id2);
-//		drbd_err(peer_device, "I have %llX for node_id=%d\n",
-//			 peer_md[node_id1].bitmap_uuid, node_id1);
-//		drbd_err(peer_device, "I have %llX for node_id=%d\n",
-//			 peer_md[node_id2].bitmap_uuid, node_id2);
-//		return false;
-//	}
-//
-//	if (peer_md[from_id].bitmap_index == -1)
-//		return false;
-//
-//	if (from_id != node_id1 &&
-//	    peer_md[node_id1].bitmap_uuid != peer_bm_uuid) {
-//		peer_md[node_id1].bitmap_uuid = peer_bm_uuid;
-//		peer_md[node_id1].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
-//		copy_bitmap(device, from_id, node_id1);
-//		modified = true;
-//
-//	}
-//	if (from_id != node_id2 &&
-//	    peer_md[node_id2].bitmap_uuid != peer_bm_uuid) {
-//		peer_md[node_id2].bitmap_uuid = peer_bm_uuid;
-//		peer_md[node_id2].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
-//		copy_bitmap(device, from_id, node_id2);
-//		modified = true;
-//	}
-//
-//	return modified;
-//}
+	rcu_read_lock();
+	connection = drbd_connection_by_node_id(resource, node_id);
+	if (connection)
+		r = connection->cstate[NOW] == C_CONNECTED;
+	rcu_read_unlock();
+
+	return r;
+}
+#endif
+
+#if 0 // not used.
+static bool detect_copy_ops_on_peer(struct drbd_peer_device *peer_device) __must_hold(local)
+{
+	struct drbd_device *device = peer_device->device;
+	struct drbd_peer_md *peer_md = device->ldev->md.peers;
+	struct drbd_resource *resource = device->resource;
+	int node_id1, node_id2, from_id;
+	u64 peer_bm_uuid;
+	bool modified = false;
+
+	for (node_id1 = 0; node_id1 < DRBD_NODE_ID_MAX; node_id1++) {
+		if (device->ldev->md.peers[node_id1].bitmap_index == -1)
+			continue;
+
+		if (node_connected(resource, node_id1))
+			continue;
+
+		peer_bm_uuid = peer_device->bitmap_uuids[node_id1] & ~UUID_PRIMARY;
+		if (!peer_bm_uuid)
+			continue;
+
+		for (node_id2 = node_id1 + 1; node_id2 < DRBD_NODE_ID_MAX; node_id2++) {
+			if (device->ldev->md.peers[node_id2].bitmap_index == -1)
+				continue;
+
+			if (node_connected(resource, node_id2))
+				continue;
+
+		if (peer_bm_uuid == (peer_device->bitmap_uuids[node_id2] & ~UUID_PRIMARY))
+				goto found;
+		}
+	}
+	return false;
+
+found:
+	from_id = find_node_id_by_bitmap_uuid(device, peer_bm_uuid);
+	if (from_id == -1) {
+		if (peer_md[node_id1].bitmap_uuid == 0 && peer_md[node_id2].bitmap_uuid == 0)
+			return false;
+		drbd_err(peer_device, "unexpected\n");
+		drbd_err(peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
+			 peer_device->node_id, peer_bm_uuid, node_id1, node_id2);
+		drbd_err(peer_device, "I have %llX for node_id=%d\n",
+			 peer_md[node_id1].bitmap_uuid, node_id1);
+		drbd_err(peer_device, "I have %llX for node_id=%d\n",
+			 peer_md[node_id2].bitmap_uuid, node_id2);
+		return false;
+	}
+
+	if (peer_md[from_id].bitmap_index == -1)
+		return false;
+
+	if (from_id != node_id1 &&
+	    peer_md[node_id1].bitmap_uuid != peer_bm_uuid) {
+		peer_md[node_id1].bitmap_uuid = peer_bm_uuid;
+		peer_md[node_id1].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
+		copy_bitmap(device, from_id, node_id1);
+		modified = true;
+
+	}
+	if (from_id != node_id2 &&
+	    peer_md[node_id2].bitmap_uuid != peer_bm_uuid) {
+		peer_md[node_id2].bitmap_uuid = peer_bm_uuid;
+		peer_md[node_id2].bitmap_dagtag = peer_md[from_id].bitmap_dagtag;
+		copy_bitmap(device, from_id, node_id2);
+		modified = true;
+	}
+
+	return modified;
+}
+#endif
 
 void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __must_hold(local)
 {
@@ -5900,19 +5797,10 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 					
 					if (found_peer &&
 						isForgettableReplState(found_peer->repl_state[NOW])
-#ifdef _WIN32 
-						&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
-#endif
-					)
-					{
+						&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 						// DW-955 print log to recognize where forget_bitmap is called.
-#ifdef _WIN32
 						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n",
-							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (ULONG)found_peer->flags);
-#else
-						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n", 
 							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned)found_peer->flags);
-#endif
 						forget_bitmap(device, node_id);
 					}					
 				}
@@ -5965,8 +5853,7 @@ clear_flag:
 		// at this time, the reconciliation resync may work, so do not clear the bitmap.
 		!((peer_device->disk_state[NOW] == D_CONSISTENT) && (peer_device->uuid_flags & UUID_FLAG_GOT_STABLE)) &&
 
-		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644
-																		// DW-1357 clear bitmap when the disk state is same.
+		(device->disk_state[NOW] == peer_device->disk_state[NOW]) && // DW-1644 DW-1357 clear bitmap when the disk state is same.
 		!(peer_device->uuid_authoritative_nodes & NODE_MASK(device->resource->res_opts.node_id)) &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==
 		(drbd_current_uuid(device) & ~UUID_PRIMARY))
@@ -5976,11 +5863,7 @@ clear_flag:
 		if (peer_bm_uuid)
 			_drbd_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1
-#ifdef _WIN32
-			&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
-#endif
-		)
-		{
+				&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 			drbd_info(peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%d)\n", device->disk_state[NOW]);
 			forget_bitmap(device, peer_node_id);
 		}
@@ -5999,11 +5882,7 @@ clear_flag:
 		if (peer_bm_uuid)
 			_drbd_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1 
-#ifdef _WIN32
-			&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)
-#endif
-		)
-		{
+				&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 			drbd_info(peer_device, "bitmap will be cleared because peer has consistent disk with primary's\n");
 			forget_bitmap(device, peer_node_id);
 		}
@@ -6026,7 +5905,7 @@ clear_flag:
 	}
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 // DW-1293 it performs fast invalidate(remote) when agreed protocol version is 112 or above, and fast sync options is enabled.
 int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local)
 {
@@ -6124,7 +6003,7 @@ int drbd_bmio_set_n_write(struct drbd_device *device,
 	return rv;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 // DW-844
 #define GetBitPos(bytes, bitsInByte)	((bytes * BITS_PER_BYTE) + bitsInByte)
 			  
@@ -6310,7 +6189,7 @@ out:
 
 	return bRet;
 }
-#endif	// _WIN32
+#endif	// _WIN
 
 /**
  * drbd_bmio_clear_all_n_write() - io_fn for drbd_queue_bitmap_io() or drbd_bitmap_io()
@@ -6574,13 +6453,13 @@ bool drbd_md_test_peer_flag(struct drbd_peer_device *peer_device, enum mdf_peer_
 
 	return md->peers[peer_device->node_id].flags & flag;
 }
-#ifdef _WIN32
+#ifdef _WIN
 static void md_sync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
-#else
+#else // _LIN
 static void md_sync_timer_fn(unsigned long data)
 #endif
 {
-#ifdef _WIN32
+#ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
@@ -6599,7 +6478,7 @@ static void md_sync_timer_fn(unsigned long data)
  */
 int drbd_wait_misc(struct drbd_device *device, struct drbd_peer_device *peer_device, struct drbd_interval *i)
 {
-#ifndef _WIN32
+#ifdef _LIN
 	DEFINE_WAIT(wait);
 #endif
 	long timeout;
@@ -6621,16 +6500,14 @@ int drbd_wait_misc(struct drbd_device *device, struct drbd_peer_device *peer_dev
 
 	/* Indicate to wake up device->misc_wait on progress.  */
 	i->waiting = true;
-#ifndef _WIN32
+#ifdef _LIN
 	prepare_to_wait(&device->misc_wait, &wait, TASK_INTERRUPTIBLE);
 #endif
 	spin_unlock_irq(&device->resource->req_lock);
-#ifdef _WIN32
+#ifdef _WIN
     timeout = schedule(&device->misc_wait, timeout, __FUNCTION__, __LINE__);
-#else
+#else // _LIN
 	timeout = schedule_timeout(timeout);
-#endif
-#ifndef _WIN32
 	finish_wait(&device->misc_wait, &wait);
 #endif
 	spin_lock_irq(&device->resource->req_lock);
@@ -6654,9 +6531,9 @@ void lock_all_resources(void)
 	// DW-759 irq disable is ported to continue DISPATCH_LEVEL by global lock
 	local_irq_disable();
 	for_each_resource(resource, &drbd_resources)
-#ifdef _WIN32
+#ifdef _WIN
 		spin_lock_irq(&resource->req_lock);
-#else
+#else // _LIN
 		spin_lock_nested(&resource->req_lock, i++);
 #endif
 }
@@ -6666,14 +6543,14 @@ void unlock_all_resources(void)
 	struct drbd_resource *resource;
 
 	for_each_resource(resource, &drbd_resources)
-#ifdef _WIN32
+#ifdef _WIN
 		spin_unlock_irq(&resource->req_lock);
-#else
+#else // _LIN
 		spin_unlock(&resource->req_lock);
 #endif
 	// DW-759 irq enable. return to PASSIVE_LEVEL
 	local_irq_enable();
-#ifdef _WIN32
+#ifdef _WIN
 	drbd_debug_req_lock("local_irq_enable : CurrentIrql(%d)\n", KeGetCurrentIrql());
 #endif
 	mutex_unlock(&resources_mutex);
@@ -6728,9 +6605,9 @@ _drbd_fault_random(struct fault_random_state *rsp)
 		rsp->count = FAULT_RANDOM_REFRESH;
 	}
 	rsp->state = rsp->state * FAULT_RANDOM_MULT + FAULT_RANDOM_ADD;
-#ifdef _WIN32
+#ifdef _WIN
     return rsp->state;
-#else
+#else // _LIN
 	return swahw32(rsp->state);
 #endif
 }
@@ -6774,8 +6651,9 @@ _drbd_insert_fault(struct drbd_device *device, unsigned int type)
 	return ret;
 }
 #endif
-#ifndef _WIN32
+#ifdef _LIN
 #if 0 // TODO
+// moved to bsrhk_init.c
 module_init(drbd_init)
 module_exit(drbd_cleanup)
 #endif

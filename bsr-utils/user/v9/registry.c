@@ -99,9 +99,7 @@ static int register_path(const char *linkname, const char *path)
 		return -1;
 	}
 	if (mkdir(BSR_RUN_DIR, S_IRWXU) != 0 && errno != EEXIST) {
-#ifdef _WIN32
-		// ignore
-#else
+#ifdef _LIN
 		perror(BSR_RUN_DIR);
 #endif
 		return -1;

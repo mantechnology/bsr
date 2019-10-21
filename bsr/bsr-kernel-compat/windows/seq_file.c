@@ -21,11 +21,7 @@ int seq_printf(struct seq_file *m, const char *f, ...)
     va_list args;
 
     va_start(args, f);
-#ifdef _WIN32
 	ret = _vsnprintf(m->buf + seq_file_idx, sizeof(m->buf) - seq_file_idx - 1, f, args);
-#else
-    ret = seq_vprintf(m, f, args);
-#endif
     va_end(args);
     seq_file_idx += ret;
     ASSERT(seq_file_idx < MAX_PROC_BUF);

@@ -3,9 +3,9 @@
 #include <assert.h>
 
 #include <sys/socket.h>
-#ifdef _WIN32
+#ifdef _WIN
 #include "windows/wingenl.h"
-#else
+#else // _LIN
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
 #endif
@@ -35,7 +35,7 @@ struct en_map {
 
 /* ============================================================================================== */
 
-#ifdef _WIN32
+#ifdef _WIN
 void manual_nl_policy_init_by_app()
 {
 	extern void manual_nl_policy_init(void);
@@ -848,7 +848,7 @@ const struct en_map quorum_map[] = {
 	{ "all", QOU_ALL },
 };
 
-#ifdef _WIN32
+#ifdef _WIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
@@ -869,7 +869,7 @@ const struct en_map quorum_map[] = {
 	{ "rs-discard-granularity",							\
 		NUMERIC(rs_discard_granularity, RS_DISCARD_GRANULARITY), \
 		.unit = "bytes" }
-#else
+#else // _LIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
@@ -1057,9 +1057,6 @@ struct context_def resource_options_ctx = {
 		{ "req-buf-size", NUMERIC(req_buf_size, REQ_BUF_SIZE), .unit = "bytes" },
 		// DW-1249 auto-start by svc
 		{ "svc-autostart", BOOLEAN(svc_autostart, SVC_AUTOSTART) },
-#ifdef _WIN32
-		{ "io-error-retry-count", NUMERIC(io_error_retry_count, IO_ERROR_RETRY_COUNT) },
-#endif
 		{ } },
 };
 

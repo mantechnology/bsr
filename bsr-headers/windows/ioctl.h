@@ -81,7 +81,7 @@ typedef struct _MVOL_SYNC_REQ
 	ULONG				Count;
 } MVOL_SYNC_REQ, *PMVOL_SYNC_REQ;
 
-#define _WIN32_MULTIVOL_THREAD
+#define _WIN_MULTIVOL_THREAD
 typedef struct _WDRBD_VOLUME_ENTRY
 {
 	WCHAR		PhysicalDeviceName[MAXDEVICENAME];
@@ -93,7 +93,7 @@ typedef struct _WDRBD_VOLUME_ENTRY
 
 	UCHAR		Minor;
 	BOOLEAN		ExtensionActive;
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	BOOLEAN		ThreadActive;
 	BOOLEAN		ThreadExit;
 #endif
@@ -120,16 +120,16 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
-#define _WIN32_DEBUG_OOS		// DW-1153 debug oos. // TODO : linux 포팅작업 필요
+#define _WIN_DEBUG_OOS		// DW-1153 debug oos. // TODO : linux 포팅작업 필요
 
 #define LOGGING_TYPE_SYSLOG		0
 #define LOGGING_TYPE_DBGLOG		1
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 // DW-1153
 #define LOGGING_TYPE_OOSLOG		2
 #endif
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define FRAME_DELIMITER		"@"
 #define OOS_TRACE_STRING	"oos_trace"
 #define STACK_FRAME_CAPTURE_COUNT	(10)
@@ -139,7 +139,7 @@ typedef struct _LOGGING_MIN_LV {
 #endif
 
 #define MAX_DRBDLOG_BUF				512
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define LOGBUF_MAXCNT				100000
 #else
 #define LOGBUF_MAXCNT				10000

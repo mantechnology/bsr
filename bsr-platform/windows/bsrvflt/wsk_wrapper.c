@@ -6,7 +6,7 @@
 extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
 IO_COMPLETION_ROUTINE CompletionRoutine;
 IO_COMPLETION_ROUTINE SendCompletionRoutine;
-#ifdef _WIN32_NOWAIT_COMPLETION
+#ifdef _WIN_NOWAIT_COMPLETION
 IO_COMPLETION_ROUTINE NoWaitCompletionRoutine;
 #endif
 
@@ -133,7 +133,7 @@ NTAPI CompletionRoutine(
 	return STATUS_MORE_PROCESSING_REQUIRED;
 }
 
-#ifdef _WIN32_NOWAIT_COMPLETION
+#ifdef _WIN_NOWAIT_COMPLETION
 NTSTATUS
 NTAPI NoWaitCompletionRoutine(
 	__in PDEVICE_OBJECT	DeviceObject,
@@ -182,7 +182,7 @@ InitWskData(
 	return STATUS_SUCCESS;
 }
 
-#ifdef _WIN32_NOWAIT_COMPLETION
+#ifdef _WIN_NOWAIT_COMPLETION
 NTSTATUS
 InitWskNoWaitData(
 	__out PIRP*		pIrp,
@@ -372,7 +372,7 @@ CreateSocket(
 }
 
 
-#ifdef _WIN32_NOWAIT_COMPLETION
+#ifdef _WIN_NOWAIT_COMPLETION
 NTSTATUS
 NTAPI
 CloseSocket(

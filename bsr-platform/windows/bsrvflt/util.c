@@ -33,7 +33,7 @@
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, QueryMountDUID)
 #pragma alloc_text(PAGE, DeleteRegistryValueKey)
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 //#pragma alloc_text(PAGE, FsctlFlsuhDismountVolume)
 #pragma alloc_text(PAGE, FsctlLockVolume)
 #pragma alloc_text(PAGE, FsctlUnlockVolume)
@@ -76,7 +76,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	return STATUS_SUCCESS;
 }
 
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 /**
 * @brief    do FSCTL_DISMOUNT_VOLUME in kernel.
 *           advised to use this function in next sequence
@@ -1462,7 +1462,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		g_daemon_tcp_port = 5679;
 	}
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 	status = GetRegistryValue(L"handler_use", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
 		g_handler_use = *(int*) aucTemp;

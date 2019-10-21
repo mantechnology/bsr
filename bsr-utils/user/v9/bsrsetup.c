@@ -49,7 +49,7 @@
 #include <libgen.h>
 #include <time.h>
 #include <search.h>
-#ifndef _WIN32
+#ifdef _LIN
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
 #endif
@@ -696,7 +696,7 @@ int lock_fd;
 struct genl_sock *drbd_sock = NULL;
 
 struct genl_family drbd_genl_family = {
-#ifdef _WIN32    //  require a value over NLMSG_MIN_TYPE, and then a continuous nl command processing can be possiable.
+#ifdef _WIN    //  require a value over NLMSG_MIN_TYPE, and then a continuous nl command processing can be possiable.
     .id = NLMSG_MIN_TYPE + 1,
 #endif
 	.name = "drbd",
@@ -721,12 +721,12 @@ static int conv_block_dev(struct drbd_argument *ad, struct msg_buff *msg,
 	struct stat sb;
 	int device_fd;
 
-#ifdef _WIN32 
+#ifdef _WIN
     nla_put_string(msg, ad->nla_type, arg);
     return NO_ERROR;
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
     //char *vol = "\\\\.\\Volume{606d8688-83b7-4625-8a41-3c5e39a3e618}";
     // char *buf = malloc(strlen(cfg->md_device_name) + 20); // additional space 20 bytes are enough
     char buf[1024];
@@ -1508,7 +1508,7 @@ static bool kernel_older_than(int version, int patchlevel, int sublevel)
 	struct utsname utsname;
 	char *rel;
 	int l;
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	// DW-1210 Not required on Windows OS
 	return true; 
 #endif
@@ -1607,7 +1607,7 @@ static int generic_get(struct drbd_cmd *cm, int timeout_arg, void *u_ptr)
 	}
 
 	if (cm->continuous_poll) {
-#ifndef _WIN32
+#ifdef _LIN
 		/* also always (try to) listen to nlctrl notify,
 		* so we have a chance to notice rmmod.  */
 		int id = GENL_ID_CTRL;
@@ -3383,7 +3383,7 @@ static int check_resize_cmd(struct drbd_cmd *cm, int argc, char **argv)
 			break;
 		}
 
-#ifdef _WIN32
+#ifdef _WIN
         char buf[256];
         memset(buf, 0, sizeof(buf));
         sprintf(buf, "\\\\.\\%1s", device->disk_conf.backing_dev);
@@ -3395,9 +3395,9 @@ static int check_resize_cmd(struct drbd_cmd *cm, int argc, char **argv)
 			ret = 1;
 			break;
 		}
-#ifdef _WIN32
+#ifdef _WIN
         bd_size = bdev_size(device->disk_conf.backing_dev);
-#else
+#else // _LIN
 		bd_size = bdev_size(fd);
 #endif
 		close(fd);
@@ -3920,7 +3920,7 @@ static int print_notifications(struct drbd_cmd *cm, struct genl_info *info, void
 	// DW-1755
 	case DRBD_IO_ERROR: 
 	{
-		struct drbd_io_error_info io_error;
+		struct drbd_io_error_info io_error = { 0, };
 		if (!drbd_io_error_info_from_attrs(&io_error, info)) {
 			if (io_error.is_cleared)
 				printf(" cleared%s", key ? key : "-");
@@ -4227,7 +4227,7 @@ static void print_usage_and_exit(const char *addinfo)
 
 static int modprobe_drbd(void)
 {
-#ifndef _WIN32
+#ifdef _LIN
 	struct stat sb;
 	int ret, retries = 10;
 
@@ -4255,9 +4255,8 @@ static int modprobe_drbd(void)
 				"and can be loaded!\n");
 	}
 	return ret == 0;
-#else
-    return 1;
 #endif
+	return 1;
 }
 
 static void maybe_exec_legacy_drbdsetup(char **argv)

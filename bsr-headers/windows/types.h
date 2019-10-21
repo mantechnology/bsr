@@ -39,9 +39,6 @@ typedef unsigned int		u32;
 typedef signed long long	s64;
 typedef unsigned long long	u64;
 typedef unsigned long long	sector_t;
-#ifndef __KERNEL__
-typedef _off64_t off64_t;
-#endif
 
 typedef __u16		__le16;
 typedef __u16		__be16;
@@ -63,7 +60,7 @@ typedef		__u16		uint16_t;
 typedef		__u32		uint32_t;
 
 //#if defined(__GNUC__)
-#ifndef _WIN32_APP
+#ifndef _WIN_APP
 typedef		__u64		uint64_t;
 typedef		__u64		u_int64_t;
 typedef		__s64		int64_t;

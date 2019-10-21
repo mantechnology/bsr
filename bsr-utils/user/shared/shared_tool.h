@@ -1,7 +1,7 @@
 ﻿#ifndef TOOL_SHARED_H
 #define TOOL_SHARED_H
 
-#ifndef _WIN32
+#ifdef _LIN
 #include <linux/fs.h>           /* for BLKGETSIZE64 */
 #endif
 #include <inttypes.h>
@@ -14,7 +14,7 @@
 #define IN_IS_ADDR_LOOPBACK(a) ((htonl((a)->s_addr) & 0xff000000) == 0x7f000000)
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 #define FEATURE_VHD_META_SUPPORT
 #define CREATE_VHD_SCRIPT	"__creation__vhd"
 #define ATTACH_VHD_SCRIPT	"__attach__vhd"
@@ -53,21 +53,17 @@ struct option;
 struct d_address;
 
 extern const char* shell_escape(const char* s);
-#ifdef _WIN32
-extern int convert_win32_separator(char * name);
-#endif
 extern char* ppsize(char* buf, unsigned long long size);
 extern const char* make_optstring(struct option *options);
-#ifdef _WIN32
-extern int fget_token(char *s, int size, int stream);
-#else
-extern int fget_token(char *s, int size, FILE* stream);
-#endif
 extern int sget_token(char *s, int size, const char** text);
-#ifdef _WIN32
+
+#ifdef _WIN
+extern int convert_win32_separator(char * name);
+extern int fget_token(char *s, int size, int stream);
 extern int bdev_sect_size_nt(char * device_name, unsigned int *hard_sect_size);
 extern uint64_t bdev_size(char * device_name);
-#else
+#else // _LIN
+extern int fget_token(char *s, int size, FILE* stream);
 extern uint64_t bdev_size(int fd);
 #endif
 

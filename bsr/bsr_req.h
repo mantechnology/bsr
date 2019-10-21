@@ -24,18 +24,14 @@
 
 #ifndef _DRBD_REQ_H
 #define _DRBD_REQ_H
-#ifdef _WIN32
+#ifdef _WIN
 #include "../bsr-headers/bsr.h"
-#else
+#else // _LIN
 #include <linux/module.h>
-
 #include <linux/slab.h>
 #include <bsr.h>
 #endif
 #include "bsr_int.h"
-#ifdef _WIN32
-#undef NOTHING
-#endif
 
 /* The request callbacks will be called in irq context by the IDE drivers,
    and in Softirqs/Tasklets/BH context by the SCSI drivers,
@@ -127,7 +123,7 @@ enum drbd_req_event {
 	RESEND,
 	FAIL_FROZEN_DISK_IO,
 	RESTART_FROZEN_DISK_IO,
-	NOTHING,
+	NOTHING_EVENT,
 };
 
 /* encoding of request states for now.  we don't actually need that many bits.
@@ -295,7 +291,7 @@ static inline bool drbd_req_make_private_bio(struct drbd_request *req, struct bi
     if (!bio) {
         return false;
 	}
-#ifdef _WIN32
+#ifdef _WIN
 	bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
@@ -330,9 +326,9 @@ extern int __req_mod(struct drbd_request *req, enum drbd_req_event what,
 		struct bio_and_error *m);
 extern void complete_master_bio(struct drbd_device *device,
 		struct bio_and_error *m);
-#ifdef _WIN32
-		extern KDEFERRED_ROUTINE request_timer_fn;
-#else
+#ifdef _WIN
+extern KDEFERRED_ROUTINE request_timer_fn;
+#else // _LIN
 extern void request_timer_fn(unsigned long data);
 #endif
 extern void tl_restart(struct drbd_connection *connection, enum drbd_req_event what);

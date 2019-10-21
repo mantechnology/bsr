@@ -37,10 +37,10 @@
 //#define DRBD_TRACE				    // trace replication flow(basic)
 //#define DRBD_TRACE1				    // trace replication flow(detail)
 
-#define _WIN32_SEND_BUFFING				// Use Send Buffering
+#define _WIN_SEND_BUFFING				// Use Send Buffering
 #define _WSK_SOCKETCONNECT
-#define _WIN32_EVENTLOG			        // Windows Eventlog porting point
-#define _WIN32_TMP_Win8_BUG_0x1a_61946
+#define _WIN_EVENTLOG			        // Windows Eventlog porting point
+#define _WIN_TMP_Win8_BUG_0x1a_61946
 #define minor_to_letter(m)	('C'+(m))
 #define minor_to_mdev minor_to_device
 #define drbd_conf drbd_device
@@ -48,11 +48,11 @@
 
 #define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"		/// used in NETLINK
 
-//#define _WIN32_WPP
-#define _WIN32_HANDLER_TIMEOUT	// call_usermodehelper timeout
+//#define _WIN_WPP
+#define _WIN_HANDLER_TIMEOUT	// call_usermodehelper timeout
 #define WIN_AL_BUG_ON // DW-1513 Macro to print LRU
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #define WPP_CONTROL_GUIDS \
 	WPP_DEFINE_CONTROL_GUID(LogGuid, \
 	(998bdf51, 0349, 4fbc, 870c, d6130a955a5f), \
@@ -80,7 +80,7 @@
 #define	KERN_NOTICE				"<5>"	/* normal but significant condition	*/
 #define	KERN_INFO				"<6>"	/* informational			*/
 #define	KERN_DEBUG				"<7>"	/* debug-level messages			*/
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define KERN_DEBUG_OOS			"<8>"	// DW-1153 debug-oos 
 #endif
 
@@ -312,7 +312,7 @@ typedef unsigned int                fmode_t;
 
 extern atomic_t g_eventlog_lv_min;
 extern atomic_t g_dbglog_lv_min;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 extern atomic_t g_oos_trace;
 #endif
 
@@ -322,11 +322,11 @@ extern atomic_t g_oos_trace;
    00000000 00000000 00000000 00000000
                                    ||| 3 bit between 0 ~ 2 indicates system event log level (0 ~ 7)
                                 |||	   3 bit between 3 ~ 5 indicates debug print log level (0 ~ 7)
-                               |	   1 bit on 6 indicates if oos is being traced. (0 or 1), it is valid only when _WIN32_DEBUG_OOS is defined.
+                               |	   1 bit on 6 indicates if oos is being traced. (0 or 1), it is valid only when _WIN_DEBUG_OOS is defined.
 */
 #define LOG_LV_BIT_POS_EVENTLOG		(0)
 #define LOG_LV_BIT_POS_DBG			(LOG_LV_BIT_POS_EVENTLOG + 3)
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define LOG_LV_BIT_POS_OOS_TRACE	(LOG_LV_BIT_POS_DBG + 3)
 #endif
 
@@ -337,7 +337,7 @@ extern atomic_t g_oos_trace;
 
 #define LOG_LV_MASK			0x7
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 #define Set_log_lv(log_level) \
 	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
 	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
@@ -369,11 +369,11 @@ extern void printk_init(void);
 extern void printk_cleanup(void);
 extern void _printk(const char * func, const char * format, ...);
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 #endif
 
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 #define wdrbd_logger_init()		printk_init();
 #define wdrbd_logger_cleanup()	printk_cleanup();
 #define printk(format, ...)   \
@@ -399,7 +399,7 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 
 struct mutex {
 	KMUTEX mtx;
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 	char name[32]; 
 #endif
 };
@@ -428,10 +428,10 @@ struct kobject {
 };
 
 #define _K_SS_MAXSIZE	128 
-struct sockaddr_storage_win {
+typedef struct sockaddr_storage_win {
 	unsigned short	ss_family;		/* address family */
 	char	__data[_K_SS_MAXSIZE - sizeof(unsigned short)];
-}; 
+} SOCKADDR_STORAGE_EX; 
 
 struct sock {
 	LONG_PTR sk_state_change;
@@ -441,7 +441,7 @@ struct sock {
 	int sk_priority;
 	int sk_sndtimeo; //intptr_t 
 	int sk_rcvtimeo; //intptr_t
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 	// unused!
 #else
 	int sk_wmem_queued;
@@ -452,7 +452,7 @@ struct sock {
 };
 
 #include <wsk.h>
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 #include <send_buf.h>
 #endif
 
@@ -474,7 +474,7 @@ struct socket {
 	struct sock *sk_linux_attr;
 	PWSK_SOCKET sk;
 	char name[32];
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 	struct _buffering_attr buffering_attr;
 #endif
 	int sk_state;
@@ -609,7 +609,7 @@ struct splitInfo {
 };
 
 struct bio {
-	PIRP 					pMasterIrp;  /* _WIN32: for upper layer's  IRP */
+	PIRP 					pMasterIrp;  /* _WIN: for upper layer's  IRP */
 
 	unsigned int 			split_id;
 	unsigned int 			split_total_id;
@@ -640,7 +640,6 @@ struct bio {
 	unsigned int			bi_max_vecs;    /* max bvl_vecs we can hold */
 	struct bio_vec			bi_io_vec[1]; // only one!!!
 	UCHAR					MasterIrpStackFlags; //Stack Location's Flag
-	unsigned int 			io_retry;
 };
 
 struct bio_set {
@@ -690,9 +689,6 @@ extern void bio_endio(struct bio *bio, int error);
 #define bio_data_dir(bio)       ((bio)->bi_rw & 1)
 #define bio_rw(bio)             ((bio)->bi_rw & (RW_MASK))
 
-// DRBD_DOC: not support, it is always newest updated block for windows.
-#define bio_flagged(bio, flag)  (1) 
-
 extern void rwlock_init(void *lock);
 extern void spin_lock_init(spinlock_t *lock);
 ///extern void spin_lock_irqsave(spinlock_t *lock, long flags);
@@ -715,7 +711,7 @@ extern void write_lock_irq(spinlock_t *lock);
 extern void write_lock_bh(spinlock_t *lock);
 extern void write_unlock_irq(spinlock_t *lock);
 
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 extern void mutex_init(struct mutex *m, char *name);
 #else
 extern void mutex_init(struct mutex *m);
@@ -844,7 +840,7 @@ struct queue_limits {
 struct request_queue {
 	void * queuedata;
 	struct backing_dev_info backing_dev_info;
-	spinlock_t *queue_lock; // _WIN32: unused.
+	spinlock_t *queue_lock; // _WIN: unused.
 	unsigned short logical_block_size;
 	// DW-1406 max_hw_sectors must be 64bit variable since it can be bigger than 4gb.
 	unsigned long long max_hw_sectors;
@@ -1173,7 +1169,7 @@ extern int g_bypass_level;
 extern int g_read_filter;
 extern int g_mj_flush_buffers_filter;
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 extern int g_use_volume_lock;
 extern int g_netlink_tcp_port;
 extern int g_daemon_tcp_port;
@@ -1181,7 +1177,7 @@ extern int g_daemon_tcp_port;
 
 extern WCHAR g_ver[];
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 int g_handler_use;
 int g_handler_timeout;
 int g_handler_retry;
@@ -1224,7 +1220,7 @@ extern void ResolveDriveLetters(void);
 
 extern VOID MVOL_LOCK();
 extern VOID MVOL_UNLOCK();
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
 extern NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush);
 extern NTSTATUS FsctlLockVolume(unsigned int minor);
 extern NTSTATUS FsctlUnlockVolume(unsigned int minor);
@@ -1497,6 +1493,16 @@ static inline unsigned int queue_io_min(struct request_queue *q)
 {
 	UNREFERENCED_PARAMETER(q);
 	return 0; // dummy: q->limits.io_min;
+}
+
+
+#define do_div(n, base)		(n = n / base)
+#define uninitialized_var(x)	x = NULL
+
+static inline void copy_highpage(struct page *to, struct page *from)
+{
+	to->private = from->private;
+	memcpy(to->addr, from->addr, PAGE_SIZE);
 }
 
 

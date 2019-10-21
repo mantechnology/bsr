@@ -27,7 +27,7 @@
 #include "send_buf.h"	
 #include "../../../bsr-headers/linux/bsr_limits.h"
 
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 #define EnterCriticalSection mutex_lock
 #define LeaveCriticalSection mutex_unlock
 
@@ -411,4 +411,4 @@ done:
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
 
-#endif // _WIN32_SEND_BUFFING
+#endif // _WIN_SEND_BUFFING

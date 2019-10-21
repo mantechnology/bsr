@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
-#ifndef _WIN32 
+#ifdef _LIN 
 #include <linux/major.h>
 #endif
 #include "shared_tool.h"
@@ -100,7 +100,7 @@ extern void add_lib_drbd_to_path(void);
 extern uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length);
 
 
-#ifdef _WIN32
+#ifdef _WIN
 #define UTRACE(format, arg...) fprintf(stderr, "[%s|%d] "format, __FUNCTION__, __LINE__, ##arg)
 #endif
 

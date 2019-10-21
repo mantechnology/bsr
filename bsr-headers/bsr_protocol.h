@@ -2,9 +2,9 @@
 #define __DRBD_PROTOCOL_H
 
 #ifdef __KERNEL__
-#ifdef _WIN32
+#ifdef _WIN
 #include "windows/types.h"
-#else
+#else // _LIN
 #include <linux/types.h>
 #endif
 #else
@@ -110,10 +110,10 @@ enum drbd_packet {
 };
 
 #ifndef __packed
-#ifdef _WIN32
+#ifdef _WIN
 #pragma pack (push, 1) 
 #define __packed
-#else
+#else // _LIN
 #define __packed __attribute__((packed))
 #endif
 #endif
@@ -516,7 +516,7 @@ struct p_peer_dagtag {
  */
 #define DRBD_SOCKET_BUFFER_SIZE 4096
 
-#ifdef _WIN32
+#ifdef _WIN
 #pragma pack(pop)
 #undef __packed
 #endif

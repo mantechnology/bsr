@@ -23,7 +23,7 @@
 #include "proto.h"
 #include "../../../bsr/bsr_int.h"
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 NTSTATUS
 mvolInitializeThread( PMVOL_THREAD pThreadInfo, PKSTART_ROUTINE ThreadRoutine )
 #else
@@ -36,14 +36,14 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	HANDLE						threadhandle;
 	SECURITY_QUALITY_OF_SERVICE	se_quality_service;
 
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
     if (pThreadInfo->Active) {
         return STATUS_DEVICE_ALREADY_ATTACHED;
     }
 #endif
 
 	pThreadInfo->exit_thread = FALSE;
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	pThreadInfo->DeviceObject = VolumeExtension->DeviceObject;
 #endif
 
@@ -82,7 +82,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
 		return status;
 	}
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	pThreadInfo->Active = TRUE;
 #endif
 	return STATUS_SUCCESS;
@@ -92,7 +92,7 @@ VOID
 mvolTerminateThread( PMVOL_THREAD pThreadInfo )
 {
     if( NULL == pThreadInfo )   return ;
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 	if(!pThreadInfo->exit_thread)
 #else
     if( TRUE == pThreadInfo->Active )
@@ -108,7 +108,7 @@ mvolTerminateThread( PMVOL_THREAD pThreadInfo )
 	    SeDeleteClientSecurity( &pThreadInfo->se_client_context );
         pThreadInfo->pThread = NULL;
     }
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	pThreadInfo->Active = FALSE;
 #endif
 }
@@ -126,7 +126,7 @@ mvolWorkThread(PVOID arg)
 	pThreadInfo = (PMVOL_THREAD) arg;
 	int							high = 0;
 
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
 	DeviceObject = pThreadInfo->DeviceObject;
 	VolumeExtension = DeviceObject->DeviceExtension;
 	
@@ -138,7 +138,7 @@ mvolWorkThread(PVOID arg)
 
 		IO_THREAD_WAIT(pThreadInfo);
 		if (pThreadInfo->exit_thread) {
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			drbd_info(NO_OBJECT,"Terminating mvolWorkThread\n");
 #else
 			drbd_debug(NO_OBJECT,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
@@ -147,7 +147,7 @@ mvolWorkThread(PVOID arg)
 		}
 
 		while ((request = ExInterlockedRemoveHeadList(&pThreadInfo->ListHead, &pThreadInfo->ListLock)) != 0) {
-#ifdef _WIN32_MULTIVOL_THREAD		
+#ifdef _WIN_MULTIVOL_THREAD		
 			PMVOL_WORK_WRAPPER wr = CONTAINING_RECORD(request, struct _MVOL_WORK_WRAPPER, ListEntry);
 			DeviceObject = wr->DeviceObject;	
 			VolumeExtension = DeviceObject->DeviceExtension;		
@@ -196,7 +196,7 @@ mvolWorkThread(PVOID arg)
 				IoCompleteRequest(irp, (CCHAR)(NT_SUCCESS(irp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
 				break;
 			}
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			kfree(wr);
 #endif
 			loop++;
@@ -215,7 +215,7 @@ mvolWorkThread(PVOID arg)
 
 
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76DW');

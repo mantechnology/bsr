@@ -13,7 +13,7 @@
 #define be_u16 struct { uint16_t be; }
 #endif
 
-#if defined(_WIN32) && defined(__KERNEL__)
+#if defined(_WIN) && defined(__KERNEL__)
 #pragma pack (push, 1)
 #define __packed
 #endif
@@ -24,7 +24,7 @@ struct peer_dev_md_on_disk_9 {
 	be_s32 bitmap_index;
 	be_u32 reserved_u32[2];
 } __packed;
-#if defined(_WIN32) && defined(__KERNEL__) && !defined(__INTELLISENSE__)
+#if defined(_WIN) && defined(__KERNEL__) && !defined(__INTELLISENSE__)
 __declspec(align(4096))
 #endif
 struct meta_data_on_disk_9 {
@@ -51,11 +51,11 @@ struct meta_data_on_disk_9 {
 
 	struct peer_dev_md_on_disk_9 peers[DRBD_PEERS_MAX];
 	be_u64 history_uuids[HISTORY_UUIDS];
-#if defined(_WIN32) && defined(__KERNEL__)
+#if defined(_WIN) && defined(__KERNEL__)
     char padding[1];
 };
 #pragma pack (pop)
-#else
+#else // _LIN
 	char padding[0] __attribute__((aligned(4096)));
 } __packed;
 #endif

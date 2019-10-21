@@ -13,7 +13,7 @@
 # error "you need to define GENL_MAGIC_INCLUDE_FILE before inclusion"
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 #include "../windows/types.h"
 #ifdef __KERNEL__
 #include "../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
@@ -21,7 +21,7 @@
 #ifndef inline
 #define inline __inline
 #endif
-#else
+#else // _LIN
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
 #ifdef __KERNEL__
@@ -125,9 +125,9 @@ static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 valu
 	__s32_field(attr_nr, attr_flag, name)
 #define __str_field_def(attr_nr, attr_flag, name, maxlen) \
 	__str_field(attr_nr, attr_flag, name, maxlen)
-#ifdef _WIN32
+#ifdef _WIN
 #define GENL_op_init(...)	__VA_ARGS__
-#else
+#else // _LIN
 #define GENL_op_init(args...)	args
 #endif
 #define GENL_doit(handler)		\
@@ -278,7 +278,7 @@ struct s_name { s_fields };
 	type name;
 
 #undef __array
-#ifdef _WIN32
+#ifdef _WIN
 #define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
 		__get, __put, __is_signed)				\
 	__u32 name ## _len;	\
@@ -287,7 +287,7 @@ struct s_name { s_fields };
 #pragma pack(push, 4)
 #include GENL_MAGIC_INCLUDE_FILE
 #pragma pack(pop)
-#else
+#else // _LIN
 #define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
 		__get, __put, __is_signed)				\
 	type name[maxlen];	\

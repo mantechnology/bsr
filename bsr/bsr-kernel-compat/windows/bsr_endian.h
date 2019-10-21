@@ -12,20 +12,14 @@
 */
 
 #include <stdint.h>
-#ifdef _WIN32
 #define inline  __inline
 #include <basetsd.h>
-#else
-#include <endian.h>
-#endif
 
 #ifndef BITS_PER_LONG
 #if defined(_WIN64)
 # define BITS_PER_LONG 64
-#elif defined(_WIN32)
-# define BITS_PER_LONG 32
 #else
-# define BITS_PER_LONG __WORDSIZE
+# define BITS_PER_LONG 32
 #endif
 #endif
 
@@ -40,43 +34,9 @@
 * oh, well...
 */
 
-#ifndef _WIN32
-#define __swab16(x) \
-({ \
-	__u16 __x = (x); \
-	((__u16)( \
-		(((__u16)(__x) & (__u16)0x00ffUL) << 8) | \
-		(((__u16)(__x) & (__u16)0xff00UL) >> 8) )); \
-})
-
-#define __swab32(x) \
-({ \
-	uint32_t __x = (x); \
-	((uint32_t)( \
-		(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-		(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-		(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-		(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-})
-
-#define __swab64(x) \
-({ \
-	uint64_t __x = (x); \
-	((uint64_t)( \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x0000000000ff0000ULL) << 24) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x00000000ff000000ULL) <<  8) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) | \
-		(uint64_t)(((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56) )); \
-})
-#else
 #define __swab16(x)     _byteswap_ushort(x)
 #define __swab32(x)     _byteswap_ulong(x)
 #define __swab64(x)     _byteswap_uint64(x)
-#endif
 
 /*
 * linux/byteorder/little_endian.h
@@ -145,11 +105,7 @@ static inline ULONG_PTR generic_hweight64(uint64_t w)
     return (res & 0x00000000FFFFFFFF) + ((res >> 32) & 0x00000000FFFFFFFF);
 #endif
 }
-#ifdef _WIN32
 static inline ULONG_PTR hweight_long(unsigned long w)
-#else
-static inline unsigned long hweight_long(unsigned long w)
-#endif
 {
     return sizeof(w) == 4 ? generic_hweight32(w) : generic_hweight64(w);
 }

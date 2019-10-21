@@ -56,7 +56,7 @@ extern const char *drbd_buildtag(void);
 #endif
 
 /* CONFIG_KREF_DEBUG has to be enabled in Kbuild */
-#ifndef _WIN32
+#ifdef _LIN
 #ifdef __KERNEL__
 #include "compat.h"
 #endif

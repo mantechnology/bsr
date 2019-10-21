@@ -1,11 +1,12 @@
 #ifndef __DRBD_INTERVAL_H
 #define __DRBD_INTERVAL_H
 
-#ifdef _WIN32
+#ifdef _WIN
 #include "../bsr-headers/windows/types.h"
 #include "./bsr-kernel-compat/windows/rbtree.h"
 #define inline __inline
-#else
+#define __always_inline __inline
+#else // _LIN
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/rbtree.h>
@@ -21,18 +22,16 @@
  *
  * RHEL5 kernels until at least 2.6.18-238.12.1.el5 have the broken definition.
  */
-#ifndef _WIN32
-
+#ifdef _WIN
+#if !defined(RB_EMPTY_NODE)
+#undef RB_EMPTY_NODE                                                        
+#define RB_EMPTY_NODE(node)     (rb_parent(node) == node)           
+#endif   
+#else // _LIN
 #if !defined(RB_EMPTY_NODE) || LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,19)
 #undef RB_EMPTY_NODE                                                        
 #define RB_EMPTY_NODE(node)     (rb_parent(node) == node)                                                                                        
-#endif
-#else
-#if !defined(RB_EMPTY_NODE)
-#undef RB_EMPTY_NODE                                                        
-#define RB_EMPTY_NODE(node)     (rb_parent(node) == node)                    
-#endif
-
+#endif      
 #endif
 
 

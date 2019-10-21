@@ -1,7 +1,7 @@
 #ifndef __OOS_TRACE__
 #define __OOS_TRACE__
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 
 #include <DbgHelp.h>
 #include <Windows.h>

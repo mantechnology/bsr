@@ -30,7 +30,7 @@
 #include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 #include "disp.tmh"
 #endif
 
@@ -127,7 +127,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     KeInitializeMutex(&eventlogMutex, 0);
 	downup_rwlock_init(&transport_classes_lock); //init spinlock for transport 
 	
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	WPP_INIT_TRACING(DriverObject, RegistryPath);
 	DoTraceMessage(TRCINFO, "WDRBD V9(1:1) MVF Driver loaded.");
 #endif
@@ -145,7 +145,7 @@ VOID
 mvolUnload(IN PDRIVER_OBJECT DriverObject)
 {
     UNREFERENCED_PARAMETER(DriverObject);
-#ifdef _WIN32_WPP
+#ifdef _WIN_WPP
 	WPP_CLEANUP(DriverObject);
 #endif
 	wdrbd_logger_cleanup();
@@ -338,9 +338,9 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     mvolAddDeviceList(VolumeExtension);
     MVOL_UNLOCK();
     
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (do_add_minor(VolumeExtension->Minor)) {
-#ifndef _WIN32_MULTIVOL_THREAD
+#ifndef _WIN_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
         if (!NT_SUCCESS(status)) {
             drbd_err(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
@@ -410,7 +410,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         return STATUS_SUCCESS;
     }
 
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (VolumeExtension->Active) 
 	{
 		// DW-1300 get device and get reference.
@@ -477,7 +477,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
         if (device) {
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			IoMarkIrpPending(Irp);
 			mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp); 
 #else
@@ -519,7 +519,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         return STATUS_SUCCESS;
     }
 
-#ifdef _WIN32_MVFL
+#ifdef _WIN_MVFL
     if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
 		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
@@ -608,7 +608,7 @@ async_read_filter:
             VolumeExtension->Letter, (readIrpSp->Parameters.Read.ByteOffset.QuadPart / 512), readIrpSp->Parameters.Read.Length);
 #endif
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 		IoMarkIrpPending(Irp);
 		mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp);
 #else
@@ -679,7 +679,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount);
 #endif
 
-#ifdef _WIN32_MULTIVOL_THREAD
+#ifdef _WIN_MULTIVOL_THREAD
 			//It is processed in 2 passes according to IRQL.
 			//1. If IRQL is greater than or equal to DISPATCH LEVEL, Queue write I/O.
 			//2. Otherwise, Directly call mvolwritedispatch

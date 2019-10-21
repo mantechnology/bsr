@@ -47,11 +47,11 @@ int g_daemon_tcp_port;
 // minimum levels of logging, below indicates default values. it can be changed when WDRBD receives IOCTL_MVOL_SET_LOGLV_MIN.
 atomic_t g_eventlog_lv_min = LOG_LV_DEFAULT_EVENTLOG;
 atomic_t g_dbglog_lv_min = LOG_LV_DEFAULT_DBG;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 atomic_t g_oos_trace = 0;
 #endif
 
-#ifdef _WIN32_HANDLER_TIMEOUT
+#ifdef _WIN_HANDLER_TIMEOUT
 int g_handler_use;
 int g_handler_timeout;
 int g_handler_retry;
@@ -804,7 +804,6 @@ struct bio *bio_clone(struct bio * bio_src, int flag)
 	bio->bi_vcnt = bio_src->bi_vcnt;
 	bio->bi_size = bio_src->bi_size;
 	bio->bi_idx = bio_src->bi_idx;
-	bio->io_retry = bio_src->io_retry;
 
 	return bio;
 }
@@ -1053,14 +1052,14 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	return wq;
 }
 
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 void mutex_init(struct mutex *m, char *name)
 #else
 void mutex_init(struct mutex *m)
 #endif
 {
 	KeInitializeMutex(&m->mtx, 0);
-#ifdef _WIN32_TMP_DEBUG_MUTEX
+#ifdef _WIN_TMP_DEBUG_MUTEX
 	memset(m->name, 0, 32);
 	strcpy(m->name, name); 
 #endif
@@ -1573,7 +1572,7 @@ void del_gendisk(struct gendisk *disk)
 		return;
 	}
 
-#ifndef _WIN32_SEND_BUFFING
+#ifndef _WIN_SEND_BUFFING
 	
 	status = CloseSocket(sock->sk); 
 	if (!NT_SUCCESS(status)) 
@@ -1597,7 +1596,7 @@ void del_gendisk(struct gendisk *disk)
 		sock->sk_linux_attr = 0;
 	}
 
-#ifdef _WIN32_SEND_BUFFING
+#ifdef _WIN_SEND_BUFFING
 	struct _buffering_attr *buffering_attr = &sock->buffering_attr;
 	struct ring_buffer *bab = buffering_attr->bab;
 
@@ -2956,7 +2955,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			}
 			ret = -1;
 
-			// _WIN32_HANDLER_TIMEOUT
+			// _WIN_HANDLER_TIMEOUT
 			goto error;
 		}
 
@@ -3008,7 +3007,7 @@ error:
 void panic(char *msg)
 {
     drbd_err(NO_OBJECT,"%s\n", msg);
-#ifdef _WIN32_EVENTLOG
+#ifdef _WIN_EVENTLOG
 	WriteEventLogEntryData((ULONG) DEV_ERR_3003, 0, 0, 1, L"%S", msg);
 #endif
 // DW-1587 
@@ -3061,7 +3060,7 @@ void list_cut_position(struct list_head *list, struct list_head *head, struct li
 
 int drbd_backing_bdev_events(struct drbd_device *device)
 {
-#ifdef _WIN32_GetDiskPerf
+#ifdef _WIN_GetDiskPerf
 	extern NTSTATUS mvolGetDiskPerf(PDEVICE_OBJECT TargetDeviceObject, PDISK_PERFORMANCE pDiskPerf);
 	NTSTATUS status;
 	DISK_PERFORMANCE diskPerf;

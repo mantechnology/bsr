@@ -67,7 +67,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 
 DWORD GetDrbdlockStatus();
 
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);
 DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector);
 #endif

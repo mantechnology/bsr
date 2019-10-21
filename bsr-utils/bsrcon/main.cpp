@@ -193,7 +193,7 @@ main(int argc, char* argv [])
     char    *addr = NULL;
 	char	GetLog = 0;
 	char	OosTrace = 0;
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	char	ConvertOosLog = 0;
 	char	*pSrcFilePath = NULL;	
 	char	SearchOosLog = 0;
@@ -251,7 +251,7 @@ main(int argc, char* argv [])
 				ProviderName = argv[argIndex];
 			else
 				usage();
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 			argIndex++;
 
 			// DW-1629
@@ -275,7 +275,7 @@ main(int argc, char* argv [])
 			}
 #endif
 		}
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0) {
 			argIndex++;
 			ConvertOosLog++;
@@ -412,7 +412,7 @@ main(int argc, char* argv [])
 				else if (strcmp(argv[argIndex], "dbg") == 0) {
 					lml.nType = LOGGING_TYPE_DBGLOG;
 				}
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 				else if (strcmp(argv[argIndex], "oos") == 0) {
 					lml.nType = LOGGING_TYPE_OOSLOG;
 				}
@@ -569,7 +569,7 @@ main(int argc, char* argv [])
 		//res = CreateLogFromEventLog( (LPCSTR)ProviderName );
 		res = MVOL_GetDrbdLog(ProviderName, resourceName, OosTrace);
 	}
-#ifdef _WIN32_DEBUG_OOS
+#ifdef _WIN_DEBUG_OOS
 	if (ConvertOosLog) {
 		res = MVOL_ConvertOosLog((LPCTSTR)pSrcFilePath);
 	}

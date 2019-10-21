@@ -1,10 +1,7 @@
 #include "bsr_kref_debug.h"
 #include "bsr_int.h"
 
-#ifdef _WIN32
-	// not support
-#else
-
+#ifdef _LIN
 static void get_resource_name(const struct kref_debug_info *debug_info, char *name)
 {
 	struct drbd_resource *resource = container_of(debug_info, struct drbd_resource, kref_debug);

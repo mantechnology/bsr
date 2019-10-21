@@ -73,7 +73,7 @@ extern union drbd_state drbd_get_peer_device_state(struct drbd_peer_device *, en
 extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum which_state);
 
 // DW-1605 try change_state again until timeout.
-#ifdef _WIN32
+#ifdef _WIN
 #define stable_state_change(rv, resource, change_state) do{				\
 		int err = 0;							\
 		wait_event_interruptible_timeout_ex((resource)->state_wait,		\
@@ -100,9 +100,6 @@ extern enum drbd_state_rv nested_twopc_request(struct drbd_resource *, int, enum
 extern bool cluster_wide_reply_ready(struct drbd_resource *);
 
 extern enum drbd_state_rv change_role(struct drbd_resource *, enum drbd_role, enum chg_state_flags, bool, const char **);
-#ifdef _WIN32
-extern enum drbd_state_rv change_role_timeout(struct drbd_resource *, enum drbd_role , enum chg_state_flags , bool );
-#endif
 extern void __change_io_susp_user(struct drbd_resource *, bool);
 extern enum drbd_state_rv change_io_susp_user(struct drbd_resource *, bool, enum chg_state_flags);
 extern void __change_io_susp_no_data(struct drbd_resource *, bool);

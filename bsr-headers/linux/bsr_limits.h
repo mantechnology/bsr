@@ -54,10 +54,11 @@
    * more than one minute timeout is not useful */
 #define DRBD_TIMEOUT_MIN 1
 #define DRBD_TIMEOUT_MAX 600
-#ifdef _WIN32  
+#ifdef _WIN
+// TODO _WIN_SEND_BUFFING
 // DW-1524 fix infinite send retry on low-bandwith
 #define DRBD_TIMEOUT_DEF (50)     /* 5 seconds */
-#else
+#else // _LIN
 #define DRBD_TIMEOUT_DEF 60       /* 6 seconds */
 #endif
 #define DRBD_TIMEOUT_SCALE '1'
@@ -96,7 +97,8 @@
 #define DRBD_MAX_EPOCH_SIZE_SCALE '1'
 
 
-#ifdef _WIN32
+#ifdef _WIN
+// TODO _WIN_SEND_BUFFING
 #ifdef _WIN64 
 // DW-1422 set limit send buffer max size to be within 32-bit variable, since config treats it as 32-bit var also.
 // to have this over 32-bit, re-define this as '((unsigned long long)64 << 30) and modify all arguments(include read data from config) to 64-bit var. 
@@ -110,12 +112,13 @@
 /* I don't think that a tcp send buffer of more than 10M is useful */
 #define DRBD_SNDBUF_SIZE_MIN   (1024*1024*10)
 #endif
-
-#else
+#else // _LIN
 #define DRBD_SNDBUF_SIZE_MAX  (10<<20)
 #define DRBD_SNDBUF_SIZE_DEF  0
 #define DRBD_SNDBUF_SIZE_MIN  0 // DW-1719 add missing definitions (support linux)
 #endif
+
+
 #define DRBD_SNDBUF_SIZE_SCALE '1'
 
 #define DRBD_RCVBUF_SIZE_MIN  0
@@ -267,14 +270,6 @@
 
 // DW-1249 auto-start by svc
 #define DRBD_SVC_AUTOSTART_DEF 1
-
-#ifdef _WIN32 
-// DW-1716
-#define DRBD_IO_ERROR_RETRY_COUNT_MIN 		0
-#define DRBD_IO_ERROR_RETRY_COUNT_DEF		3
-#define DRBD_IO_ERROR_RETRY_COUNT_MAX		100
-#define DRBD_IO_ERROR_RETRY_COUNT_SCALE		'1'
-#endif
 
 #define DRBD_NR_REQUESTS_MIN	4
 // DW-836 

@@ -22,10 +22,8 @@
   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
-#ifdef _WIN32
 #include "bsr.h"
-#else
-#include <bsr.h>
+#ifdef _LIN
 #include <linux/fs.h>
 #endif
 #include "bsr_strings.h"

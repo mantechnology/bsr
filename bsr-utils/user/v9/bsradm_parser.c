@@ -848,9 +848,7 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor)
 	if (!devname)
 		return;
 
-#ifdef _WIN32
-	// ignore!
-#else
+#ifdef _LIN
 	/* if devname is set, it starts with /dev/drbd */
 	if (only_digits(devname + 9)) {
 		int m = strtol(devname + 9, NULL, 10);
@@ -888,9 +886,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 			free(yylval.txt);
 		} else
 			vol->device = yylval.txt;
-#ifdef _WIN32
-		// ignore!
-#else
+#ifdef _LIN
 		if (strncmp("/dev/drbd", vol->device, 9)) {
 			err("%s:%d: device name must start with /dev/drbd\n"
 			    "\t(/dev/ is optional, but drbd is required)\n",
@@ -987,7 +983,7 @@ int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 		switch (token) {
 		case TK_STRING:
 			vol->disk = yylval.txt;
-#ifdef _WIN32
+#ifdef _WIN
 			// DW-1451 Device name and disk name must be the same in Windows. 			
 			if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
 				err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
@@ -1814,7 +1810,7 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 				struct d_volume *vol = volume0(&res->volumes);
 				vol->disk = yylval.txt;
 				vol->parsed_disk = 1;
-#ifdef _WIN32   // DW-1451 Device name and disk name must be the same in Windows. 			
+#ifdef _WIN   // DW-1451 Device name and disk name must be the same in Windows. 			
 				if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
 					err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
 					exit(E_CONFIG_INVALID);
@@ -1969,7 +1965,7 @@ static int pushd_to_current_config_file_unless_stdin(void)
 	char *last_slash, *tmp;
 
 	/* config_save was canonicalized before, unless it is STDIN */
-#ifdef _WIN32
+#ifdef _WIN
     tmp = strdupa(config_file);
     if (strncmp(tmp, "/", strlen("/")) == 0) {
         last_slash = strrchr(tmp, '/');
@@ -1977,7 +1973,7 @@ static int pushd_to_current_config_file_unless_stdin(void)
     else {
         last_slash = strrchr(tmp, '\\');
     }
-#else
+#else // _LIN
 	tmp = strdupa(config_save);
 	last_slash = strrchr(tmp, '/');
 #endif
