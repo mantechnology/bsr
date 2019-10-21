@@ -40,15 +40,13 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#ifndef _WIN32
+#ifdef _LIN
 #include <sys/prctl.h>
-#endif
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#ifndef _WIN32 
 #include <linux/sockios.h>
 #include <linux/netdevice.h>
 #endif
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -57,7 +55,7 @@
 #include <time.h>
 
 // DW-1744
-#ifdef _WIN32
+#ifdef _WIN
 #include <Windows.h>
 #include <iphlpapi.h>
 #endif
@@ -67,9 +65,9 @@
 #include "shared_tool.h"
 
 // DW-1744
-#ifdef _WIN32
+#ifdef _WIN
 extern struct IP_ADDRESS_STRING *ip_list;
-#else
+#else // _LIN
 extern struct ifreq *ifreq_list;
 #endif
 
@@ -107,7 +105,7 @@ unsigned minor_by_id(const char *id)
 * Seems to be a problem with cygwin.If you get the IP through the Windows API, that problem is solved.
 * There is no problem with the Linux operating system, so wrap it in ifdef to work only on Windows.
 */
-#ifdef _WIN32
+#ifdef _WIN
 struct IP_ADDRESS_STRING *get_ip_list(void)
 {
 	PIP_ADAPTER_INFO p = NULL;
@@ -163,7 +161,7 @@ int have_ip_ipv4(const char *ip)
 	return 0;
 }
 
-#else
+#else // _LIN
 
 struct ifreq *get_ifreq(void) {
 	int sockfd, num_ifaces;
@@ -396,7 +394,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 		exit(E_EXEC_ERROR);
 	}
 	if (pid == 0) {
-#ifndef _WIN32
+#ifdef _LIN
 		prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
 		/* Child: close reading end. */
@@ -416,7 +414,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				fprintf(stderr, "reopen null service failed\n");
 		}
 		if (argv[0]) {
-#ifdef _WIN32
+#ifdef _WIN
 			// DW-1203 execvp() run with the full path.
 			char path[256];
 			char *temp = strdup(argv[0]);
@@ -441,14 +439,14 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				if (!execvp(path, argv))
 					break;
 			}
-#else
+#else // _LIN
 			execvp(argv[0], argv);
 #endif
 		}
-#ifdef _WIN32
+#ifdef _WIN
 		fprintf(stderr, "Can not exec %s\n", argv[0]);
 		perror("Failed");
-#else
+#else // _LIN
 		fprintf(stderr, "Can not exec\n");
 #endif
 		exit(E_EXEC_ERROR);

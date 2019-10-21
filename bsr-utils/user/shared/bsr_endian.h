@@ -14,14 +14,12 @@
 #include <stdint.h>
 #include <endian.h>
 
-#ifdef _WIN32
+#ifdef _WIN
 #ifndef BITS_PER_LONG
 #if defined(x64)
 # define BITS_PER_LONG 64
-#elif defined(_WIN32)
-# define BITS_PER_LONG 32
 #else
-# define BITS_PER_LONG __WORDSIZE
+# define BITS_PER_LONG 32
 #endif
 #endif
 #else // _LIN

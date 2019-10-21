@@ -1,9 +1,6 @@
-#ifdef _WIN32
- // 
+#ifdef _WIN
 #include <string.h>
 #else
-//#define _WIN32_APP
-//#define _WIN32
 #include <bsr.h>
 #endif
 

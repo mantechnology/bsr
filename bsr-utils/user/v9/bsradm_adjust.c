@@ -697,10 +697,9 @@ void schedule_peer_device_options(const struct cfg_ctx *ctx)
 			peer_device = find_peer_device(conn, tmp_ctx.vol->vnr);
 			if (!peer_device || STAILQ_EMPTY(&peer_device->pd_options))
 				continue;
-#ifdef _WIN32
+			// DW-629 avoid exception when running adjust
             if (peer_device->connection->peer == NULL)
                 continue;
-#endif
 
 			tmp_ctx.conn = conn;
 			schedule_deferred_cmd(cmd, &tmp_ctx, CFG_PEER_DEVICE | SCHEDULE_ONCE);

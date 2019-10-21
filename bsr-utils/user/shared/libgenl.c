@@ -1,4 +1,4 @@
-﻿#ifdef _WIN32
+﻿#ifdef _WIN
 #include <windows.h>
 #include <errno.h>
 #include "bsrtool_common.h"
@@ -14,12 +14,12 @@
 #include <poll.h>
 
 int genl_join_mc_group(struct genl_sock *s, const char *name) {
-#ifdef _WIN32
+#ifdef _WIN
 	// not support
 	int len = send(s->s_fd, DRBD_EVENT_SOCKET_STRING, strlen(DRBD_EVENT_SOCKET_STRING), 0);
 
 #ifdef NL_PACKET_MSG
-    UTRACE("sending DRBD_EVENT_SOCKET_STRING. len(%d)\n", len);
+	UTRACE("sending DRBD_EVENT_SOCKET_STRING. len(%d)\n", len);
 #endif
 
 	if (len != strlen(DRBD_EVENT_SOCKET_STRING)) {
@@ -27,7 +27,7 @@ int genl_join_mc_group(struct genl_sock *s, const char *name) {
 		return -1;
 	}
 	return len;
-#else
+#else // _LIN
 	int g_id;
 	int i;
 
@@ -56,25 +56,25 @@ int genl_join_mc_group(struct genl_sock *s, const char *name) {
 		}						\
 		} while(false)
 
-#ifdef _WIN32
+#ifdef _WIN
 int get_netlink_port()
 {
-    DWORD value, port = NETLINK_PORT;
-    HKEY hKey;
-    DWORD status;
-    DWORD type = REG_DWORD;
-    DWORD size = sizeof(DWORD);
-    const CHAR * registryPath = "SYSTEM\\CurrentControlSet\\Services\\bsr";
-    status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
-    if (status == ERROR_SUCCESS) {
-        status = RegQueryValueEx(hKey, TEXT("netlink_tcp_port"), NULL, &type, (LPBYTE)&value, &size);
-        if (status == ERROR_SUCCESS) {
-            port = value;
-        }
-    }
-    
-    RegCloseKey(hKey);
-    return htons(port);
+	DWORD value, port = NETLINK_PORT;
+	HKEY hKey;
+	DWORD status;
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	const CHAR * registryPath = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
+	if (status == ERROR_SUCCESS) {
+		status = RegQueryValueEx(hKey, TEXT("netlink_tcp_port"), NULL, &type, (LPBYTE)&value, &size);
+		if (status == ERROR_SUCCESS) {
+			port = value;
+		}
+	}
+
+	RegCloseKey(hKey);
+	return htons(port);
 }
 #endif
 
@@ -101,17 +101,7 @@ static struct genl_sock *genl_connect(__u32 nl_groups)
 	/* start with some sane sequence number */
 	s->s_seq_expect = s->s_seq_next = time(0);
 
-#ifndef _WIN32
-	s->s_fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC);
-	if (s->s_fd == -1)
-		goto fail;
-
-	sock_len = sizeof(s->s_local);
-	DO_OR_LOG_AND_FAIL(setsockopt(s->s_fd, SOL_SOCKET, SO_SNDBUF, &bsz, sizeof(bsz)));
-	DO_OR_LOG_AND_FAIL(setsockopt(s->s_fd, SOL_SOCKET, SO_RCVBUF, &bsz, sizeof(bsz)));
-	DO_OR_LOG_AND_FAIL(bind(s->s_fd, (struct sockaddr*) &s->s_local, sizeof(s->s_local)));
-	DO_OR_LOG_AND_FAIL(getsockname(s->s_fd, (struct sockaddr*) &s->s_local, &sock_len));
-#else
+#ifdef _WIN
 	/* Create the windows TCP socket */
 	if ((s->s_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		perror("socket");
@@ -128,6 +118,16 @@ static struct genl_sock *genl_connect(__u32 nl_groups)
 		perror("connect");
 		return NULL;
 	}
+#else // _LIN
+	s->s_fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC);
+	if (s->s_fd == -1)
+		goto fail;
+
+	sock_len = sizeof(s->s_local);
+	DO_OR_LOG_AND_FAIL(setsockopt(s->s_fd, SOL_SOCKET, SO_SNDBUF, &bsz, sizeof(bsz)));
+	DO_OR_LOG_AND_FAIL(setsockopt(s->s_fd, SOL_SOCKET, SO_RCVBUF, &bsz, sizeof(bsz)));
+	DO_OR_LOG_AND_FAIL(bind(s->s_fd, (struct sockaddr*) &s->s_local, sizeof(s->s_local)));
+	DO_OR_LOG_AND_FAIL(getsockname(s->s_fd, (struct sockaddr*) &s->s_local, &sock_len));
 #endif
 
 	dbg(3, "bound socket to nl_pid:%u, my pid:%u, len:%u, sizeof:%u\n",
@@ -226,9 +226,9 @@ retry:
 	else if (n < 0) {
 		if (errno == EINTR) {
 			dbg(3, "recvmsg() returned EINTR, retrying\n");
-#ifdef _WIN32
-            return -EINTR;
-#else
+#ifdef _WIN
+			return -EINTR;
+#else // _LIN
 			goto retry;
 #endif
 		} else if (errno == EAGAIN) {
@@ -252,7 +252,7 @@ retry:
 		goto retry;
 	} else if (flags != 0) {
 		/* Buffer is big enough, do the actual reading */
-#ifdef _WIN32
+#ifdef _WIN
 		struct nlmsghdr *nlh = (struct nlmsghdr *)iov->iov_base;
 		iov->iov_len = nlh->nlmsg_len; // resize to rx only one reaponse
 #endif
@@ -263,7 +263,7 @@ retry:
 	if (msg.msg_namelen != sizeof(struct sockaddr_nl))
 		return -E_RCV_NO_SOURCE_ADDR;
 
-#ifndef _WIN32
+#ifdef _LIN
 	if (addr.nl_pid != 0) {
 		dbg(3, "ignoring message from sender pid %u != 0\n",
 				addr.nl_pid);
@@ -353,7 +353,7 @@ static struct genl_family genl_ctrl = {
 struct genl_sock *genl_connect_to_family(struct genl_family *family)
 {
 	struct genl_sock *s = NULL;
-#ifndef _WIN32
+#ifdef _LIN
 	struct msg_buff *msg;
 	struct nlmsghdr *nlh;
 	struct nlattr *nla;
@@ -373,18 +373,18 @@ struct genl_sock *genl_connect_to_family(struct genl_family *family)
 	s = genl_connect(family->nl_groups);
 	if (!s) {
 		dbg(1, "error creating netlink socket");
-#ifndef _WIN32
+#ifdef _LIN
 		goto out;
 #endif
 	}
-#ifdef _WIN32
+#ifdef _WIN
 	else {
 		s->s_family = family;
 	}
 	return s;
 #endif
 
-#ifndef _WIN32
+#ifdef _LIN
 	genlmsg_put(msg, &genl_ctrl, 0, CTRL_CMD_GETFAMILY);
 
 	nla_put_string(msg, CTRL_ATTR_FAMILY_NAME, family->name);
@@ -481,7 +481,7 @@ out:
  */
 
 #include <string.h>
-#ifndef _WIN32
+#ifdef _LIN
 #include <linux/types.h>
 #endif
 

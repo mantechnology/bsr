@@ -217,7 +217,7 @@ void drbd_printk_with_wrong_object_type(void);
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
 #define dynamic_drbd_dbg(obj, fmt, args...) \
 	dynamic_dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
-#elif defined(_WIN32) && defined(DBG)
+#elif defined(_WIN) && defined(DBG)
 #define dynamic_drbd_dbg(obj, fmt, ...) \
 	drbd_dbg(obj, fmt, __VA_ARGS__)
 #else

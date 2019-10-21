@@ -58,7 +58,7 @@
 #include "bsradm_dump.h"
 #include "shared_main.h"
 #include "bsradm_parser.h"
-#ifdef _WIN32
+#ifdef _WIN
 #include <windows.h>
 typedef _off64_t off64_t;
 #undef BSR_CONFIG_DIR
@@ -155,9 +155,9 @@ char *parse_file = NULL;
 struct resources config = STAILQ_HEAD_INITIALIZER(config);
 struct d_resource *common = NULL;
 // DW-1744
-#ifdef _WIN32
+#ifdef _WIN
 struct IP_ADDRESS_STRING *ip_list = NULL;
-#else
+#else // _LIN
 struct ifreq *ifreq_list = NULL;
 #endif
 int is_drbd_top;
@@ -1108,9 +1108,9 @@ static void free_config()
 		free(common);
 	}
 // DW-1744
-#ifdef _WIN32
+#ifdef _WIN
 	free(ip_list);
-#else
+#else // _LIN
 	free(ifreq_list);
 #endif
 
@@ -1174,7 +1174,7 @@ DWORD del_registry_volume(char * letter)
 
     while (ERROR_SUCCESS == RegEnumValueA(hKey, dwIndex++, szRegLetter, &cbRegLetter, NULL, NULL, (LPBYTE)volGuid, &cbVolGuid)) {
     
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	if (!strcasecmp(szRegLetter, letter))
 #else 	    
 	if (!stricmp(szRegLetter, letter))
@@ -1761,9 +1761,9 @@ static int adm_khelper(const struct cfg_ctx *ctx)
 	char *sh_cmd;
 	char minor_string[8];
 	char volume_string[8];
-#ifdef _WIN32
+#ifdef _WIN
 	char *argv[] = { "cmd", "/c", NULL, NULL };
-#else
+#else // _LIN
 	char *argv[] = { "/bin/sh", "-c", NULL, NULL };
 #endif
 	setenv("DRBD_CONF", config_save, 1);
@@ -2709,9 +2709,9 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 			check_exit_codes(pids);
 			return 0;
 		}
-#ifdef _WIN32_APP
+#ifdef _WIN_APP
 		// ignored
-#else
+#else // _LIN
 		if (system("exec > /dev/null 2>&1; plymouth quit ; usplash_write QUIT ; "
 			   "stty echo icanon icrnl"))
 			/* Ignore return value. Cannot do anything about it anyways. */;
@@ -3456,7 +3456,7 @@ int main(int argc, char **argv)
 
 	initialize_err();
 	initialize_deferred_cmds();
-#ifdef _WIN32
+#ifdef _WIN
 	{
         extern void manual_nl_policy_init_by_app(void);
         manual_nl_policy_init_by_app();

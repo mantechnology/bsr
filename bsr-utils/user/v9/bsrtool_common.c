@@ -15,9 +15,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <bsr.h>
-#ifdef _WIN32
+#ifdef _WIN
 #include <windows.h>
-#else
+#else // _LIN
 #include <linux/fs.h>           /* for BLKGETSIZE64 */
 #endif
 #include <string.h>
@@ -135,9 +135,7 @@ const char *get_hostname(void)
 }
 
 
-/* For our purpose (finding the revision) SLURP_SIZE is always enough.
- */
-#ifdef _WIN32 
+#ifdef _WIN 
 typedef struct _MVOL_VOLUME_INFO
 {
 	BOOLEAN				Active;
@@ -150,38 +148,41 @@ typedef struct _MVOL_VOLUME_INFO
 #define	MVOL_TYPE		0x9800
 #define	IOCTL_MVOL_GET_PROC_DRBD			CTL_CODE(MVOL_TYPE, 38, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #endif 
+
+/* For our purpose (finding the revision) SLURP_SIZE is always enough.
+ */
 static char *slurp_proc_drbd()
 {
-#ifdef _WIN32
-    HANDLE hDevice = INVALID_HANDLE_VALUE;
-    MVOL_VOLUME_INFO VolumeInfo = { 0, };
-    char *buffer = NULL;
-    DWORD dwReturned = 0;
-    const int SLURP_SIZE = 4096;
-    BOOL ret = FALSE;
+#ifdef _WIN
+	HANDLE hDevice = INVALID_HANDLE_VALUE;
+	MVOL_VOLUME_INFO VolumeInfo = { 0, };
+	char *buffer = NULL;
+	DWORD dwReturned = 0;
+	const int SLURP_SIZE = 4096;
+	BOOL ret = FALSE;
 
-    buffer = malloc(SLURP_SIZE);
-    if (!buffer)   return NULL;
+	buffer = malloc(SLURP_SIZE);
+	if (!buffer)   return NULL;
 
-    hDevice = CreateFileA("\\\\.\\mvolCntl", GENERIC_READ, FILE_SHARE_READ,
-        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hDevice == INVALID_HANDLE_VALUE) {
-        free(buffer);
-        return NULL;
-    }
+	hDevice = CreateFileA("\\\\.\\mvolCntl", GENERIC_READ, FILE_SHARE_READ,
+		NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		free(buffer);
+		return NULL;
+	}
 
-    ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_PROC_DRBD,
-        NULL, 0, &VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL);
-    if (ret == FALSE) {
-        CloseHandle(hDevice);
-        free(buffer);
-        return NULL;
-    }
+	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_PROC_DRBD,
+		NULL, 0, &VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL);
+	if (ret == FALSE) {
+		CloseHandle(hDevice);
+		free(buffer);
+		return NULL;
+	}
 
-    CloseHandle(hDevice);
-    memcpy(buffer, VolumeInfo.Seq, SLURP_SIZE);
-    return buffer;
-#else
+	CloseHandle(hDevice);
+	memcpy(buffer, VolumeInfo.Seq, SLURP_SIZE);
+	return buffer;
+#else // _LIN
 	const int SLURP_SIZE = 4096;
 	char *buffer;
 	int rr, fd;

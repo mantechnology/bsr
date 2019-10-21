@@ -45,13 +45,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-#ifdef _WIN32
 #include "bsr.h"		/* only use DRBD_MAGIC from here! */
+#ifdef _WIN
 #include <windows.h>
-#else
+#else // _LIN
 #include <linux/major.h>
 #include <linux/kdev_t.h>
-#include <bsr.h>		/* only use DRBD_MAGIC from here! */
 #include <linux/fs.h>           /* for BLKFLSBUF */
 #endif
 
@@ -326,7 +325,7 @@ struct format {
 	int ll_fd;		/* not yet used here */
 	int md_fd;
 	int md_hard_sect_size;
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	HANDLE md_handle; 
 #endif 
 	/* unused in 06 */
@@ -1087,7 +1086,7 @@ struct meta_cmd cmds[] = {
  * or do we want to duplicate the error handling everywhere? */
 void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, const char* tag)
 {
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	if(cfg->md_handle == INVALID_HANDLE_VALUE){
 		fprintf(stderr, " pread_or_die : unable to use handle \n");
 		exit(10); 
@@ -1178,7 +1177,7 @@ void validate_offsets_or_die(struct format *cfg, size_t count, off_t offset, con
 static unsigned n_writes = 0;
 void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offset, const char* tag)
 {
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	HANDLE fd = cfg->md_handle; 
 	DWORD c; 
 	BOOL err; 
@@ -1203,7 +1202,7 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 			fprintf_hex(stderr, offset, buf, count);
 		return;
 	}
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	err = WriteFile(cfg->md_handle, buf, count, &c, &ol);
 	
 	if(err == FALSE){
@@ -1584,7 +1583,7 @@ int v06_md_open(struct format *cfg)
 
 int generic_md_close(struct format *cfg)
 {
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	if(cfg->md_handle != INVALID_HANDLE_VALUE){
 		CloseHandle(cfg->md_handle); 
 	}
@@ -1775,7 +1774,7 @@ static void zeroout_bitmap(struct format *cfg)
 	fprintf(stderr, "initializing bitmap (%u KB) to all zero\n",
 		(unsigned int)(bitmap_bytes >> 10));
 
-#ifdef _WIN32 
+#ifdef _WIN
 	// not support. execute the fallback code.
 #else // _LIN
 	err = ioctl(cfg->md_fd, BLKZEROOUT, &range);
@@ -2868,13 +2867,12 @@ int v07_style_md_open(struct format *cfg)
 	unsigned int hard_sect_size = 0;
 	int ioctl_err;
 	int open_flags = O_RDWR | O_DIRECT;
-#ifdef _WIN32
+#ifdef _WIN
 	char * buf = _get_win32_device_ns(cfg->md_device_name);
-
 	free(cfg->md_device_name);
 	cfg->md_device_name = buf;
 #endif
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	cfg->md_handle = INVALID_HANDLE_VALUE; 
 #endif 	
 	/* For old-style fixed size indexed external meta data,
@@ -2888,7 +2886,7 @@ int v07_style_md_open(struct format *cfg)
 		open_flags |= O_EXCL;
 
  retry:
-#ifdef _WIN32_CLI_UPDATE
+#ifdef _WIN_CLI_UPDATE
 	 cfg->md_handle = CreateFileA(cfg->md_device_name,       // drive to open
                 GENERIC_READ | GENERIC_WRITE,           // no access to the drive
                 FILE_SHARE_READ | FILE_SHARE_WRITE,     // share mode
@@ -2943,7 +2941,7 @@ int v07_style_md_open(struct format *cfg)
 		}
 		exit(20);
 	}
-#ifndef _WIN32	// not Windows style
+#ifdef _LIN
 	if (fstat(cfg->md_fd, &sb)) {
 		PERROR("fstat(%s) failed", cfg->md_device_name);
 		exit(20);
@@ -2961,9 +2959,9 @@ int v07_style_md_open(struct format *cfg)
 	if (format_version(cfg) >= DRBD_V08) {
 		ASSERT(cfg->md_index != DRBD_MD_INDEX_INTERNAL);
 	}
-#ifdef _WIN32
+#ifdef _WIN
 	ioctl_err = bdev_sect_size_nt(cfg->md_device_name, &hard_sect_size);
-#else
+#else // _LIN
 	ioctl_err = ioctl(cfg->md_fd, BLKSSZGET, &hard_sect_size);
 #endif
 	if (ioctl_err) {
@@ -2977,11 +2975,11 @@ int v07_style_md_open(struct format *cfg)
 			fprintf(stderr, "hard_sect_size is %d Byte\n",
 			cfg->md_hard_sect_size);
 	}
-#ifdef _WIN32
+	
 	if (!cfg->bd_size)
+#ifdef _WIN
 		cfg->bd_size = bdev_size(cfg->md_device_name);
-#else
-	if (!cfg->bd_size)
+#else // _LIN
 		cfg->bd_size = bdev_size(cfg->md_fd);
 #endif
 	/* check_for_existing_data() wants to read that much,
@@ -3003,7 +3001,7 @@ int v07_style_md_open(struct format *cfg)
 			(long long unsigned)cfg->bd_size);
 		exit(10);
 	}
-#ifndef _WIN32
+#ifdef _LIN
 	if (!opened_odirect &&
 	    (MAJOR(sb.st_rdev) != RAMDISK_MAJOR)) {
 		ioctl_err = ioctl(cfg->md_fd, BLKFLSBUF);

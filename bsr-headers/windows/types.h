@@ -60,7 +60,7 @@ typedef		__u16		uint16_t;
 typedef		__u32		uint32_t;
 
 //#if defined(__GNUC__)
-#ifndef _WIN32_APP
+#ifndef _WIN_APP
 typedef		__u64		uint64_t;
 typedef		__u64		u_int64_t;
 typedef		__s64		int64_t;

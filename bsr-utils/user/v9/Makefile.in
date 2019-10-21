@@ -71,9 +71,8 @@ endif
 ifdef is_win32
 	CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared -I../../../bsr-platform/windows/bsrvflt
 	# _WIN
-	# _WIN32_V9 for 9.0.0 porting.
-	# _WIN32_CLI_UPDATE for updated cygwin version (2.10.0)
-	CFLAGS += -gdwarf-2 -g3 -D_WIN -D_WIN32_APP  -D_WIN32_V9  -D_WIN32_CLI_UPDATE 
+	# _WIN_CLI_UPDATE for updated cygwin version (2.10.0)
+	CFLAGS += -gdwarf-2 -g3 -D_WIN -D_WIN_APP -D_WIN_CLI_UPDATE 
 	ifdef x64
 		CFLAGS += -D_WIN64 -Dx64
 	else
@@ -84,6 +83,7 @@ ifdef is_win32
 else
 # _LIN
 CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared
+CFLAGS += -D_LIN
 CFLAGS += $(EXTRA_CFLAGS)
 
 GENETLINK_H := /usr/include/linux/genetlink.h

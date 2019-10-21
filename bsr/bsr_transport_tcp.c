@@ -1765,7 +1765,7 @@ static int dtt_connect(struct drbd_transport *transport)
 			kref_get(&drbd_path->kref);
 			spin_unlock(&tcp_transport->paths_lock);
 
-#if 0// _WIN32
+#if 0// _WIN
 		{		
 			if (path->path.my_addr.ss_family == AF_INET6) {
 				drbd_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));

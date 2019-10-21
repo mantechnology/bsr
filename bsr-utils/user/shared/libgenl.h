@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#ifdef _WIN32
+#ifdef _WIN
 #include "windows/wingenl.h"
-#else
+#else // _LIN
 #include <linux/socket.h>
 #include <linux/types.h>
 #include <linux/netlink.h>

@@ -83,10 +83,10 @@ void unescape(char *txt)
 			ue++;
 			continue;
 		}
-#ifdef _WIN32
-        if (*ue == '\\') {
-            *ue = '/';
-        }
+#ifdef _WIN
+		if (*ue == '\\') {
+			*ue = '/';
+		}
 #else
 		if (*ue == '\\')
 			ue++;
@@ -98,7 +98,7 @@ void unescape(char *txt)
 	*e = '\0';
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 /**
 * @brief
 *	convert Unix to Windows path separator ('/' -> '\')
@@ -174,7 +174,7 @@ const char *make_optstring(struct option *options)
  * s will contain only a truncated token, and the next call will
  * return the next size-1 non-white-space bytes of stream.
  */
-#ifdef _WIN32
+#ifdef _WIN
 int fget_token(char *s, int size, int stream)
 {
 	char c;
@@ -202,7 +202,7 @@ int fget_token(char *s, int size, int stream)
 	*sp = 0;
 	return 1;
 }
-#else
+#else // _LIN
 int fget_token(char *s, int size, FILE* stream)
 {
 	int c;
@@ -248,7 +248,7 @@ int sget_token(char *s, int size, const char** text)
 	return 1;
 }
 
-#ifdef _WIN32
+#ifdef _WIN
 
 #define UNICODE 1
 #define _UNICODE 1
@@ -370,16 +370,16 @@ int bdev_sect_size_nt(char * device_name, unsigned int *hard_sect_size)
 }
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN
 uint64_t bdev_size(char * device_name)
-#else
+#else // _LIN
 uint64_t bdev_size(int fd)
 #endif
 {
 	uint64_t size64;		/* size in byte. */
-#ifdef _WIN32
+#ifdef _WIN
 	size64 = _bdev_size_nt(device_name); 
-#else
+#else // _LIN
 	long size;		/* size in sectors. */
 	int err;
 
@@ -521,7 +521,7 @@ out:
 
 bool random_by_dev_urandom(void *buffer, size_t len)
 {
-#ifdef _WIN32	
+#ifdef _WIN
 
 	if (len == 0)
 		return false;
@@ -743,11 +743,11 @@ int get_fd_lockfile_timeout(const char *path, int seconds)
     };
 
     if ((fd = open(path, O_RDWR | O_CREAT, 0600)) < 0) {
-#ifndef _WIN32	
+#ifdef _WIN
+	return 1;
+#else
 	fprintf(stderr,"open(%s): %m\n",path);
 	return -1;
-#else
-	return 1;
 #endif
     }
 
@@ -791,14 +791,14 @@ int dt_minor_of_dev(const char *device)
 	int digits_only = only_digits(device);
 	const char *c = device;
 
-#ifdef _WIN32
+#ifdef _WIN
     if (!digits_only) {
         if (1 == strlen(c)) {
             return (*c & ~0x20) - 'C';
         }
         return -1;
     }
-#else
+#else // _LIN
 	/* On udev/devfs based system the device nodes does not
 	 * exist before the drbd is created.
 	 *
