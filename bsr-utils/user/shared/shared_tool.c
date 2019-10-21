@@ -87,7 +87,7 @@ void unescape(char *txt)
 		if (*ue == '\\') {
 			*ue = '/';
 		}
-#else
+#else // _LIN
 		if (*ue == '\\')
 			ue++;
 #endif
@@ -745,7 +745,7 @@ int get_fd_lockfile_timeout(const char *path, int seconds)
     if ((fd = open(path, O_RDWR | O_CREAT, 0600)) < 0) {
 #ifdef _WIN
 	return 1;
-#else
+#else // _LIN
 	fprintf(stderr,"open(%s): %m\n",path);
 	return -1;
 #endif

@@ -1,6 +1,6 @@
 #ifdef _WIN
 #include <string.h>
-#else
+#else // _LIN
 #include <bsr.h>
 #endif
 

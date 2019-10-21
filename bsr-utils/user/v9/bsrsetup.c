@@ -4227,9 +4227,7 @@ static void print_usage_and_exit(const char *addinfo)
 
 static int modprobe_drbd(void)
 {
-#ifdef _WIN
-	return 1;
-#else // _LIN
+#ifdef _LIN
 	struct stat sb;
 	int ret, retries = 10;
 
@@ -4258,6 +4256,7 @@ static int modprobe_drbd(void)
 	}
 	return ret == 0;
 #endif
+	return 1;
 }
 
 static void maybe_exec_legacy_drbdsetup(char **argv)

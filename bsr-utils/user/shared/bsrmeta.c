@@ -1774,9 +1774,8 @@ static void zeroout_bitmap(struct format *cfg)
 	fprintf(stderr, "initializing bitmap (%u KB) to all zero\n",
 		(unsigned int)(bitmap_bytes >> 10));
 
-#ifdef _WIN
-	// not support. execute the fallback code.
-#else // _LIN
+#ifdef _LIN
+	// windwos not support. execute the fallback code.
 	err = ioctl(cfg->md_fd, BLKZEROOUT, &range);
 	if (!err)
 		return;

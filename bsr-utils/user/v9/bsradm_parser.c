@@ -848,9 +848,7 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor)
 	if (!devname)
 		return;
 
-#ifdef _WIN
-	// ignore!
-#else // _LIN
+#ifdef _LIN
 	/* if devname is set, it starts with /dev/drbd */
 	if (only_digits(devname + 9)) {
 		int m = strtol(devname + 9, NULL, 10);
@@ -888,9 +886,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 			free(yylval.txt);
 		} else
 			vol->device = yylval.txt;
-#ifdef _WIN
-		// ignore!
-#else // _LIN
+#ifdef _LIN
 		if (strncmp("/dev/drbd", vol->device, 9)) {
 			err("%s:%d: device name must start with /dev/drbd\n"
 			    "\t(/dev/ is optional, but drbd is required)\n",
