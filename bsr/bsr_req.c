@@ -2095,8 +2095,7 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 		submit_private_bio = true;
 	} else if (no_remote) {
 nodata:
-		if (drbd_ratelimit())
-		{
+		if (drbd_ratelimit()) {
 			struct drbd_device * device = req->device;
 			drbd_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
 				(unsigned long long)req->i.sector, req->i.size >> 9);

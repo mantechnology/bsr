@@ -2709,9 +2709,7 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 			check_exit_codes(pids);
 			return 0;
 		}
-#ifdef _WIN_APP
-		// ignored
-#else // _LIN
+#ifdef _LIN
 		if (system("exec > /dev/null 2>&1; plymouth quit ; usplash_write QUIT ; "
 			   "stty echo icanon icrnl"))
 			/* Ignore return value. Cannot do anything about it anyways. */;
