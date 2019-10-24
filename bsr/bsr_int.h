@@ -3458,7 +3458,7 @@ static inline void dec_ap_bio(struct drbd_device *device, int rw)
 
 static inline bool drbd_suspended(struct drbd_device *device)
 {
-	return resource_is_suspended(device->resource, NOW);
+	return resource_is_suspended(device->resource, NOW, false);
 }
 
 static inline bool may_inc_ap_bio(struct drbd_device *device)

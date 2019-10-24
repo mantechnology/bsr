@@ -866,7 +866,7 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 		/* We are no longer suspended due to the fencing policy.
 		 * We may still be suspended due to the on-no-data-accessible policy.
 		 * If that was OND_IO_ERROR, fail pending requests. */
-		if (!resource_is_suspended(resource, NOW))
+		if (!resource_is_suspended(resource, NOW, false))
 			_tl_restart(connection, CONNECTION_LOST_WHILE_PENDING);
 		end_state_change_locked(resource, false, __FUNCTION__);
 		spin_unlock_irq(&resource->req_lock);
@@ -5328,13 +5328,31 @@ put_result:
 		goto out;
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
+
+#ifdef _WIN
+	// BSR-421 modify deadlock of rcu_read_lock
+	rcu_read_unlock();
+#endif
 	err = nla_put_drbd_cfg_context(skb, resource, NULL, NULL, NULL);
+#ifdef _WIN
+	rcu_read_lock_w32_inner();
+#endif
+
 	if (err)
 		goto out;
 	err = res_opts_to_skb(skb, &resource->res_opts, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto out;
+
+#ifdef _WIN
+	// BSR-421 modify deadlock of rcu_read_lock
+	rcu_read_unlock();
+#endif
 	resource_to_info(&resource_info, resource);
+#ifdef _WIN
+	rcu_read_lock_w32_inner();
+#endif
+
 	err = resource_info_to_skb(skb, &resource_info, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto out;
@@ -5478,7 +5496,15 @@ put_result:
 	dh->minor = UINT32_MAX;
 	if (retcode == NO_ERROR) {
 		dh->minor = device->minor;
+
+#ifdef _WIN
+		// BSR-421 modify deadlock of rcu_read_lock
+		rcu_read_unlock();
+#endif
 		err = nla_put_drbd_cfg_context(skb, device->resource, NULL, device, NULL);
+#ifdef _WIN
+		rcu_read_lock_w32_inner();
+#endif
 		if (err)
 			goto out;
 		if (get_ldev(device)) {
@@ -5659,7 +5685,14 @@ put_result:
 	if (retcode == NO_ERROR) {
 		struct net_conf *net_conf;
 
+#ifdef _WIN
+		// BSR-421 modify deadlock of rcu_read_lock
+		rcu_read_unlock();
+#endif
 		err = nla_put_drbd_cfg_context(skb, resource, connection, NULL, NULL);
+#ifdef _WIN
+		rcu_read_lock_w32_inner();
+#endif
 		if (err)
 			goto out;
 		net_conf = rcu_dereference(connection->transport.net_conf);
@@ -6051,8 +6084,8 @@ static void resource_to_info(struct resource_info *info,
 	info->res_role = resource->role[NOW];
 	info->res_susp = resource->susp[NOW];
 	info->res_susp_nod = resource->susp_nod[NOW];
-	info->res_susp_fen = is_suspended_fen(resource, NOW);
-	info->res_susp_quorum = is_suspended_quorum(resource, NOW);
+	info->res_susp_fen = is_suspended_fen(resource, NOW, false);
+	info->res_susp_quorum = is_suspended_quorum(resource, NOW, false);
 }
 
 int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
