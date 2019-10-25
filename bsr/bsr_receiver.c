@@ -710,9 +710,6 @@ int drbd_connected(struct drbd_peer_device *peer_device)
 	atomic_set(&peer_device->packet_seq, 0);
 	peer_device->peer_seq = 0;
 
-	// DW-1806
-	init_waitqueue_head(&peer_device->state_initial_send_wait);
-
 	err = drbd_send_sync_param(peer_device);
 	if (!err)
 		err = drbd_send_sizes(peer_device, 0, 0);
