@@ -77,7 +77,8 @@ static bool got_contact_to_peer_data(enum drbd_disk_state *peer_disk_state);
 static bool peer_returns_diskless(struct drbd_peer_device *peer_device,
 enum drbd_disk_state os, enum drbd_disk_state ns);
 
-static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller);
+// BSR-421 add locked status
+static void print_state_change(struct drbd_resource *resource, const char *prefix, bool locked, const char *caller);
 
 static void finish_state_change(struct drbd_resource *, struct completion *, bool locked, const char *caller);
 static int w_after_state_change(struct drbd_work *w, int unused);
@@ -183,49 +184,73 @@ enum drbd_disk_state disk_state_from_md(struct drbd_device *device) __must_hold(
 	return disk_state;
 }
 
-bool is_suspended_fen(struct drbd_resource *resource, enum which_state which)
+bool is_suspended_fen(struct drbd_resource *resource, enum which_state which, bool locked)
 {
 	struct drbd_connection *connection;
 	bool rv = false;
 
+	// BSR-421 modify deadlock of rcu_read_lock
+#ifdef _WIN
 	// BSR-330
+	unsigned char oldIrql_rLock = 0;
+	if (!locked) 
+		rcu_read_lock_w32_inner();
+#else
 	rcu_read_lock();
-	for_each_connection_rcu(connection, resource) {
-		if (connection->susp_fen[which]) {
-			rv = true;
-			break;
+#endif
+		for_each_connection_rcu(connection, resource) {
+			if (connection->susp_fen[which]) {
+				rv = true;
+				break;
+			}
 		}
-	}
-	rcu_read_unlock();
+#ifdef _WIN
+	if(!locked)
+#endif
+		rcu_read_unlock();
+
 	return rv;
 }
 
-bool is_suspended_quorum(struct drbd_resource *resource, enum which_state which)
+bool is_suspended_quorum(struct drbd_resource *resource, enum which_state which, bool locked)
 {
 	struct drbd_device *device;
 	bool rv = false;
 	int vnr;
 
+	// BSR-421 modify deadlock of rcu_read_lock
+#ifdef _WIN
+	// BSR-330
+	unsigned char oldIrql_rLock = 0;
+	if (!locked)
+		rcu_read_lock_w32_inner();
+#else
 	rcu_read_lock();
+#endif
+
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		if (device->susp_quorum[which]) {
 			rv = true;
 			break;
 		}
 	}
-	rcu_read_unlock();
+
+#ifdef _WIN
+	if (!locked)
+#endif
+		rcu_read_unlock();
 
 	return rv;
 }
 
-bool resource_is_suspended(struct drbd_resource *resource, enum which_state which)
+bool resource_is_suspended(struct drbd_resource *resource, enum which_state which, bool locked)
 {
 	bool rv = resource->susp[which] || resource->susp_nod[which];
 
 	if (rv)
 		return rv;
 
-	return is_suspended_fen(resource, which) || is_suspended_quorum(resource, which);
+	return is_suspended_fen(resource, which, locked) || is_suspended_quorum(resource, which, locked);
 }
 
 static void count_objects(struct drbd_resource *resource,
@@ -583,7 +608,7 @@ static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, st
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
 			drbd_err(resource, "State change failed: %s\n", drbd_set_st_err_str(rv));
-			print_state_change(resource, "Failed: caller:%s\n", caller);
+			print_state_change(resource, "Failed: caller ", locked, caller);
 		}
 		goto out;
 	}
@@ -839,9 +864,9 @@ static union drbd_state drbd_get_resource_state(struct drbd_resource *resource, 
 		.disk = D_UNKNOWN,  /* really: undefined */
 		.role = resource->role[which],
 		.peer = R_UNKNOWN,  /* really: undefined */
-		.susp = resource->susp[which] || is_suspended_quorum(resource, which),
+		.susp = resource->susp[which] || is_suspended_quorum(resource, which, false),
 		.susp_nod = resource->susp_nod[which],
-		.susp_fen = is_suspended_fen(resource, which),
+		.susp_fen = is_suspended_fen(resource, which, false),
 		.pdsk = D_UNKNOWN,  /* really: undefined */
 	} };
 
@@ -1056,27 +1081,28 @@ static int scnprintf_resync_suspend_flags(char *buffer, size_t size,
 
 static int scnprintf_io_suspend_flags(char *buffer, size_t size,
 				      struct drbd_resource *resource,
-				      enum which_state which)
+				      enum which_state which,
+						  bool locked)
 {
 	char *b = buffer, *end = buffer + size;
 
-	if (!resource_is_suspended(resource, which))
+	if (!resource_is_suspended(resource, which, false))
 		return scnprintf(buffer, size, "no");
 
 	if (resource->susp[which])
 		b += scnprintf(b, end - b, "user,");
 	if (resource->susp_nod[which])
 		b += scnprintf(b, end - b, "no-disk,");
-	if (is_suspended_fen(resource, which))
+	if (is_suspended_fen(resource, which, locked))
 		b += scnprintf(b, end - b, "fencing,");
-	if (is_suspended_quorum(resource, which))
+	if (is_suspended_quorum(resource, which, locked))
 		b += scnprintf(b, end - b, "quorum,");
 	*(--b) = 0;
 
 	return (int)(b - buffer);
 }
 
-static void print_state_change(struct drbd_resource *resource, const char *prefix, const char *caller)
+static void print_state_change(struct drbd_resource *resource, const char *prefix, bool locked, const char *caller)
 {
 	char buffer[150], *b, *end = buffer + sizeof(buffer);
 	struct drbd_connection *connection;
@@ -1089,11 +1115,11 @@ static void print_state_change(struct drbd_resource *resource, const char *prefi
 		b += scnprintf(b, end - b, "role( %s -> %s ) ",
 			       drbd_role_str(role[OLD]),
 			       drbd_role_str(role[NEW]));
-	if (resource_is_suspended(resource, OLD) != resource_is_suspended(resource, NEW)) {
+	if (resource_is_suspended(resource, OLD, locked) != resource_is_suspended(resource, NEW, locked)) {
 		b += scnprintf(b, end - b, "susp-io( ");
-		b += scnprintf_io_suspend_flags(b, end - b, resource, OLD);
+		b += scnprintf_io_suspend_flags(b, end - b, resource, OLD, locked);
 		b += scnprintf(b, end - b, " -> ");
-		b += scnprintf_io_suspend_flags(b, end - b, resource, NEW);
+		b += scnprintf_io_suspend_flags(b, end - b, resource, NEW, locked);
 		b += scnprintf(b, end - b, ") ");
 	}
 	if (b != buffer) {
@@ -2150,7 +2176,7 @@ static void finish_state_change(struct drbd_resource *resource, struct completio
 	bool lost_a_primary_peer = false;
 	int vnr;
 
-	print_state_change(resource, "", caller);
+	print_state_change(resource, "", locked, caller);
 
 	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 		struct drbd_peer_device *peer_device;
