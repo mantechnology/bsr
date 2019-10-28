@@ -765,11 +765,11 @@ static bool all_peer_devices_connected(struct drbd_connection *connection)
 	int vnr;
 	bool rv = true;
 
-	// BSR-426
+	// BSR-426 
 #ifdef _WIN
 	bool need_spinlock = false;
 
-	if (KeTestSpinLock(&connection->resource->req_lock.spinLock)) {
+	if (is_spin_lock_in_current_thread(&connection->resource->req_lock)) {
 		spin_unlock(&connection->resource->req_lock);
 		need_spinlock = true;
 	}

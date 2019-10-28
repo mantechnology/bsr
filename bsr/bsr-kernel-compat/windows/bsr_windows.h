@@ -1350,6 +1350,7 @@ extern void ct_init_thread_list();
 extern struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULONG Tag);
 extern void ct_delete_thread(int id);
 extern struct task_struct* ct_find_thread(int id);
+extern BOOLEAN is_spin_lock_in_current_thread(spinlock_t *lock);
 
 #define bdevname(dev, buf)   dev->bd_disk->disk_name
 
