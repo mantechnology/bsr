@@ -765,6 +765,15 @@ static bool all_peer_devices_connected(struct drbd_connection *connection)
 	int vnr;
 	bool rv = true;
 
+	// BSR-426
+#ifdef _WIN
+	bool need_spinlock = false;
+
+	if (KeTestSpinLock(&connection->resource->req_lock.spinLock)) {
+		spin_unlock(&connection->resource->req_lock);
+		need_spinlock = true;
+	}
+#endif
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (peer_device->repl_state[NOW] < L_ESTABLISHED) {
@@ -773,6 +782,11 @@ static bool all_peer_devices_connected(struct drbd_connection *connection)
 		}
 	}
 	rcu_read_unlock();
+
+#ifdef _WIN
+	if (need_spinlock)
+		spin_unlock(&connection->resource->req_lock);
+#endif
 
 	return rv;
 }
