@@ -4443,14 +4443,7 @@ void del_connection(struct drbd_connection *connection)
 	 */
 	drbd_thread_stop(&connection->sender);
 
-#ifdef _WIN
-	// DW-1465 Requires rcu wlock because list_del_rcu().
-	synchronize_rcu_w32_wlock();
-#endif
 	drbd_unregister_connection(connection);
-#ifdef _WIN
-	synchronize_rcu();
-#endif
 
 	/*
 	 * Flush the resource work queue to make sure that no more
