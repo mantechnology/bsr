@@ -4010,11 +4010,11 @@ unlock_fail_free_connection:
 	mutex_unlock(&adm_ctx->resource->conf_update);
 fail_free_connection:
 	if (!list_empty(&connection->connections)) {
-#ifdef _WIN
-		synchronize_rcu_w32_wlock();
-#endif
 		drbd_unregister_connection(connection);
+		// BSR-426
+#ifdef _LIN
 		synchronize_rcu();
+#endif
 	}
 	drbd_put_connection(connection);
 fail_put_transport:
@@ -4443,14 +4443,7 @@ void del_connection(struct drbd_connection *connection)
 	 */
 	drbd_thread_stop(&connection->sender);
 
-#ifdef _WIN
-	// DW-1465 Requires rcu wlock because list_del_rcu().
-	synchronize_rcu_w32_wlock();
-#endif
 	drbd_unregister_connection(connection);
-#ifdef _WIN
-	synchronize_rcu();
-#endif
 
 	/*
 	 * Flush the resource work queue to make sure that no more
