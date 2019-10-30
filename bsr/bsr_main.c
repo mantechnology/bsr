@@ -4133,17 +4133,16 @@ void drbd_destroy_connection(struct kref *kref)
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
 		drbd_err(connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
-
-	// DW-1829 inactive_ee must be free before peer_device.
+	
 	// DW-1696 If the connecting object is destroyed, it also destroys the inactive_ee.
-	spin_lock(&resource->req_lock);
+	// DW-1829 inactive_ee must be free before peer_device.
+	// BSR-434 remove unnecessary lock 
 	if (!list_empty(&connection->inactive_ee)) {
 		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
 		}
 	}
-	spin_unlock(&resource->req_lock);
 
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
@@ -4155,11 +4154,9 @@ void drbd_destroy_connection(struct kref *kref)
 		free_peer_device(peer_device);
 
 		// DW-1791 fix memory leak
-		spin_lock_irq(&resource->req_lock);
+		// BSR-434 remove unnecessary lock
 		idr_remove(&connection->peer_devices, vnr);
-		spin_unlock_irq(&resource->req_lock);
 	}
-
 
 	idr_destroy(&connection->peer_devices);
 
