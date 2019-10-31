@@ -4037,6 +4037,7 @@ struct drbd_connection *drbd_create_connection(struct drbd_resource *resource,
 	INIT_LIST_HEAD(&connection->net_ee);
 	INIT_LIST_HEAD(&connection->done_ee);
 	INIT_LIST_HEAD(&connection->inactive_ee);	// DW-1696
+	atomic_set(&connection->inacitve_ee_cnt, 0); // BSR-438
 	init_waitqueue_head(&connection->ee_wait);
 
 	kref_init(&connection->kref);
@@ -4126,22 +4127,17 @@ void drbd_destroy_connection(struct kref *kref)
 	struct drbd_resource *resource = connection->resource;
 	struct drbd_peer_device *peer_device;
 	int vnr;
-	struct drbd_peer_request *peer_req, *t;
 
 	drbd_info(connection, "%s\n", __FUNCTION__);
 
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
 		drbd_err(connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
-	
-	// DW-1696 If the connecting object is destroyed, it also destroys the inactive_ee.
-	// DW-1829 inactive_ee must be free before peer_device.
-	// BSR-434 remove unnecessary lock 
-	if (!list_empty(&connection->inactive_ee)) {
-		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
-			list_del(&peer_req->w.list);
-			drbd_free_peer_req(peer_req);
-		}
+
+	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
+	//			inacitve_ee processing logic not completed is required (cancellation, etc.)
+	if (atomic_read(&connection->inacitve_ee_cnt)) {
+		drbd_info(connection, "inactive_ee count not completed:%u\n", atomic_read(&connection->inacitve_ee_cnt));
 	}
 
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {

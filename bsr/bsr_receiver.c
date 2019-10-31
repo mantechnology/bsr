@@ -9305,6 +9305,12 @@ void conn_disconnect(struct drbd_connection *connection)
 		// DW-1735 If the list is not empty because it has been moved to inactive_ee, it as a bug
 		list_splice_init(&connection->read_ee, &connection->inactive_ee);
 	}
+
+	// BSR-438
+	list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->inactive_ee, w.list) {
+		atomic_inc(&connection->inacitve_ee_cnt);
+	}
+
 	spin_unlock(&resource->req_lock);
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
