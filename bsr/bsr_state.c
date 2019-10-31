@@ -4653,7 +4653,8 @@ void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool
 	}
 
 	// allocate memory for connection pointers.
-	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_KERNEL, 'D8DW');
+	// BSR-427 fix hang. change GFP_KERNEL flag to GFP_ATOMIC
+	connections = (struct drbd_connection**)kmalloc(sizeof(struct drbd_connection*) * connectionCount, GFP_ATOMIC, 'D8DW');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
 		drbd_err(resource, "failed to allocate memory for connections\n");
