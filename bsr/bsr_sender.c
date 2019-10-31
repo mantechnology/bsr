@@ -205,6 +205,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 				peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
+			atomic_dec(&connection->inacitve_ee_cnt);
 			spin_unlock_irqrestore(&device->resource->req_lock, flags);
 			put_ldev(device);
 			return;
@@ -267,6 +268,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 			}
 			list_del(&peer_req->w.list);
 			drbd_free_peer_req(peer_req);
+			atomic_dec(&connection->inacitve_ee_cnt);
 			spin_unlock_irqrestore(&device->resource->req_lock, flags);
 			put_ldev(device);
 			return;
