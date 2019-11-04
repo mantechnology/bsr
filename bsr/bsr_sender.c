@@ -1684,6 +1684,10 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	// DW-955 clear resync aborted flag when just resync is done.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
 
+	// BSR-431 clear MDF_PEER_INIT_SYNCT_BEGIN flag when just resync is done.
+	if (drbd_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
+		drbd_md_clear_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+
 out_unlock:
 	end_state_change_locked(device->resource, false, __FUNCTION__);
 
@@ -2944,12 +2948,8 @@ void __update_timing_details(
 
 	++(*cb_nr);
 }
-#ifdef _WIN
-static void do_device_work(struct drbd_device *device, const ULONG_PTR todo)
-#else // _LIN
-static void do_device_work(struct drbd_device *device, const unsigned long todo)
-#endif
 
+static void do_device_work(struct drbd_device *device, const ULONG_PTR todo)
 {
 	if (test_bit(MD_SYNC, &todo))
 		do_md_sync(device);
@@ -2958,11 +2958,8 @@ static void do_device_work(struct drbd_device *device, const unsigned long todo)
 	if (test_bit(DESTROY_DISK, &todo))
 		drbd_ldev_destroy(device);
 }
-#ifdef _WIN
+
 static void do_peer_device_work(struct drbd_peer_device *peer_device, const ULONG_PTR todo)
-#else // _LIN
-static void do_peer_device_work(struct drbd_peer_device *peer_device, const unsigned long todo)
-#endif
 {
 	if (test_bit(RS_DONE, &todo) ||
 	    test_bit(RS_PROGRESS, &todo))

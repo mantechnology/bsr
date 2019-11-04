@@ -5023,19 +5023,22 @@ static int bitmap_mod_after_handshake(struct drbd_peer_device *peer_device, int 
 
 		// DW-1285 If MDF_PEER_INIT_SYNCT_BEGIN is off, It must be first time inital sync case, 
 		// and then set entire oos for fullsync or full used oos for fastsync.
-		if( !(peer_device->uuid_flags & UUID_FLAG_INIT_SYNCT_BEGIN)) {
+		// BSR-431 add MDF_PEER_INIT_SYNCT_BEGIN flag check.
+		if ((hg == 3 && (peer_device->uuid_flags & UUID_FLAG_INIT_SYNCT_BEGIN)) ||
+			(hg == -3 && drbd_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN)))
+			return 0; 
+
 #ifdef _WIN
-			// DW-844 check if fast sync is enalbed every time we do initial sync.
-			// set out-of-sync for allocated clusters.
-			if (!isFastInitialSync() ||
-				!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true)) 
+		// DW-844 check if fast sync is enalbed every time we do initial sync.
+		// set out-of-sync for allocated clusters.
+		if (!isFastInitialSync() ||
+			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true)) 
 #endif
-			{
-				drbd_info(peer_device, "Writing the whole bitmap, full sync required after drbd_sync_handshake.\n");			
-				if (drbd_bitmap_io(device, &drbd_bmio_set_n_write, "set_n_write from sync_handshake",
-					BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
-					return -1;			
-			}
+		{
+			drbd_info(peer_device, "Writing the whole bitmap, full sync required after drbd_sync_handshake.\n");			
+			if (drbd_bitmap_io(device, &drbd_bmio_set_n_write, "set_n_write from sync_handshake",
+				BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
+				return -1;			
 		}
 	}
 	return 0;
