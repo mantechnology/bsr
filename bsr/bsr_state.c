@@ -643,10 +643,10 @@ static enum drbd_state_rv ___end_state_change(struct drbd_resource *resource, st
 		for_each_peer_device(peer_device, device) {
 			peer_device->disk_state[NOW] = peer_device->disk_state[NEW];
 
-			// DW-1131
-			// Move to queue_after_state_change_work.
-			//peer_device->repl_state[NOW] = peer_device->repl_state[NEW];
-	
+			// DW-1131 move to queue_after_state_change_work.
+			// BSR-439 fixed by adding a condition in w_after_state_change()
+			peer_device->repl_state[NOW] = 
+				peer_device->repl_state[NEW];
 			peer_device->resync_susp_user[NOW] =
 				peer_device->resync_susp_user[NEW];
 			peer_device->resync_susp_peer[NOW] =
@@ -2106,23 +2106,22 @@ static void queue_after_state_change_work(struct drbd_resource *resource,
 	/* Caller holds req_lock */
 	struct after_state_change_work *work;
 	gfp_t gfp = GFP_ATOMIC;
-	struct drbd_device *device;
-	int vnr;
 
 	work = kmalloc(sizeof(*work), gfp, '83DW');
 	if (work)
 		work->state_change = remember_state_change(resource, gfp);
-
-	// DW-1131
-	// Updating repl_state, before w_after_state_change add to drbd_work_queue. 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-		struct drbd_peer_device *peer_device;
-		for_each_peer_device(peer_device, device) {			
-			peer_device->repl_state[NOW] = peer_device->repl_state[NEW];
-		}
-	}
 	
 	if (work && work->state_change) {
+		// BSR-439 if the new disk state value is D_DETACHING, it will be reflected immediately.
+		struct drbd_device *device;
+		int vnr;
+
+		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+			if (device->disk_state[NEW] == D_DETACHING &&
+				device->disk_state[NOW] != D_DETACHING)
+				device->disk_state[NOW] = device->disk_state[NEW];
+		}
+
 		work->w.cb = w_after_state_change;
 		work->done = done;
 		drbd_queue_work(&resource->work, &work->w);
@@ -3303,7 +3302,9 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 
 			// DW-1447 If the SEND_BITMAP_WORK_PENDING flag is set, also check the peer's repl_state. if L_WF_BITMAP_T, queuing send_bitmap().
 			if (test_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags)) {
-				if (repl_state[NEW] == L_WF_BITMAP_S && peer_device->repl_state[NOW] == L_WF_BITMAP_S && 
+				// BSR-439 add conditions when repl_state[new] is not applied. (previous Issue DW-1131)
+				if (repl_state[NEW] == L_WF_BITMAP_S && 
+					(peer_device->repl_state[NOW] == L_WF_BITMAP_S || (repl_state[NOW] == peer_device->repl_state[NOW] && repl_state[NEW] == peer_device->repl_state[NEW])) && 
 					peer_device->last_repl_state == L_WF_BITMAP_T)
 				{
 					send_bitmap = true;
@@ -3313,8 +3314,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 					clear_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags);
 				}
 			}
-			else if (repl_state[OLD] != L_WF_BITMAP_S && repl_state[NEW] == L_WF_BITMAP_S && 
-				peer_device->repl_state[NOW] == L_WF_BITMAP_S)
+			else if (repl_state[OLD] != L_WF_BITMAP_S &&
+				// BSR-439 add conditions when repl_state[new] is not applied. (previous Issue DW-1131)
+				repl_state[NEW] == L_WF_BITMAP_S && 
+				(peer_device->repl_state[NOW] == L_WF_BITMAP_S || (repl_state[NOW] == peer_device->repl_state[NOW] && repl_state[NEW] == peer_device->repl_state[NEW])))
 			{
 				send_bitmap = true;
 			}
@@ -3328,8 +3331,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			}
 
 			// DW-1447
-			if (repl_state[OLD] == L_STARTING_SYNC_T && repl_state[NEW] == L_WF_BITMAP_T
-				&& peer_device->repl_state[NOW] == L_WF_BITMAP_T)
+			if (repl_state[OLD] == L_STARTING_SYNC_T && 
+				// BSR-439 add conditions when repl_state[new] is not applied. (previous Issue DW-1131)
+				repl_state[NEW] == L_WF_BITMAP_T && 
+				(peer_device->repl_state[NOW] == L_WF_BITMAP_T || (repl_state[NOW] == peer_device->repl_state[NOW] && repl_state[NEW] == peer_device->repl_state[NEW])))
 			{
 				send_state = true;
 			}
@@ -3350,7 +3355,10 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			 * Though, no need to da that just yet
 			 * if there is a resync going on still */
 			if (role[OLD] == R_PRIMARY && role[NEW] == R_SECONDARY &&
-				peer_device->repl_state[NOW] <= L_ESTABLISHED && get_ldev(device)) {
+				// BSR-439 add conditions when repl_state[new] is not applied. (previous Issue DW-1131)
+				repl_state[NEW] <= L_ESTABLISHED && 
+				(peer_device->repl_state[NOW] <= L_ESTABLISHED || (repl_state[NOW] == peer_device->repl_state[NOW] && repl_state[NEW] == peer_device->repl_state[NEW])) && 
+				get_ldev(device)) {
 				/* No changes to the bitmap expected this time, so assert that,
 				 * even though no harm was done if it did change. */
 				drbd_bitmap_io_from_worker(device, &drbd_bm_write,
