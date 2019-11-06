@@ -1298,8 +1298,10 @@ retry:
 				}
 			} 
 
-			if (forced || younger_primary == true)
+			if (forced)
 				drbd_uuid_new_current(device, true);
+			else if (younger_primary) 
+				drbd_uuid_new_current(device, false); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
 			
