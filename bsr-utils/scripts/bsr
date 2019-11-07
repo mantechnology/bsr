@@ -159,38 +159,27 @@ case "$1" in
 	    exit 6 # LSB for "not configured"
 	fi
 
-	# TODO
-	# $BSRADM adjust-with-progress all
-	# [[ $? -gt 1 ]] && exit 20
+	$BSRADM adjust-with-progress all
+	[[ $? -gt 1 ]] && exit 20
 
 	# make sure udev has time to create the device files
 	# FIXME this probably should, on platforms that have it,
 	# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
 
-	# TODO
-	#for DEVICE in `$BSRADM sh-dev all`; do
-	#    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
-	#	echo "UDEV_TIMEOUT_LOCAL $UDEV_TIMEOUT_LOCAL"
-	#	echo "DEVICE $DEVICE"
-	#    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
-	#	sleep 1
-	#	echo [! -e $DEVICE]
-	#	UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
-	#    done
-	#done
+	for DEVICE in `$BSRADM sh-dev all`; do
+	    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
+	    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
+		sleep 1
+		UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
+	    done
+	done
 
 
 	[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
 	run_hook start_before-wait
 	$BSRADM wait-con-int # User interruptible version of wait-connect all
 	run_hook start
-
-	# Become primary if configured
-	# Currently, this is necessary for drbd8
-	# drbd9 supports automatic promote and removes the "sh-b-pri" command.
-	$BSRADM sh-b-pri all || true
-	log_end_msg 0
-
+	
 	# Now handle stacked devices, if any
 	STACKED_RESOURCES=""
 	# no point trying stacking, if we don't have at least one primary.
@@ -226,13 +215,13 @@ case "$1" in
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
 	log_daemon_msg "Stopping all BSR resources"
 	for try in 1 2; do
-	    # if [ -e $PROC_BSR ] ; then //TODO
+	    if [ -e $PROC_BSR ] ; then
 		[[ $try = 2 ]] && echo "Retrying once..."
 		# bypass drbdadm and drbd config file and everything,
 		# to avoid leaving devices around that are not referenced by
 		# the current config file, or in case the current config file
 		# does not parse for some reason.
-		for d in /dev/bsr* ; do
+		for d in /dev/drbd* ; do
 			[ -L "$d" ] && continue
 			[ -b "$d" ] || continue
 			M=$(umount "$d" 2>&1)
@@ -241,16 +230,16 @@ case "$1" in
 			*) echo "$M" >&2 ;;
 			esac
 		done
-		# TODO
-		#for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
-		#	$BSRSETUP down "$res"
-		#done
+		
+		for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
+			$BSRSETUP down "$res"
+		done
 		_udev_settle &> /dev/null
 		if [ -d /sys/module/bsr/holders ]; then
 			(cd /sys/module/bsr/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
 		fi
 		$RMMOD bsr && break
-	    # fi
+	    fi
 	done
 	run_hook stop
 	[ -f /var/lock/subsys/bsr ] && rm /var/lock/subsys/bsr
@@ -273,8 +262,7 @@ case "$1" in
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
 	log_daemon_msg  "Reloading BSR configuration"
 	
-	# TODO
-	# $BSRADM adjust all
+	$BSRADM adjust all
 	run_hook reload
 	log_end_msg 0
 	;;
