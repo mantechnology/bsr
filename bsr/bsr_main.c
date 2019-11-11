@@ -146,6 +146,7 @@ int fault_rate = 0;     // test on lower than 5%
 int fault_devs = 0;     // minor number for test target
 static int fault_count = 0;
 int two_phase_commit_fail;
+extern spinlock_t g_inactive_lock;
 
 #ifdef _LIN
 /* bitmap of enabled faults */
@@ -4135,9 +4136,17 @@ void drbd_destroy_connection(struct kref *kref)
 	kfree(connection->current_epoch);
 
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
-	//			inacitve_ee processing logic not completed is required (cancellation, etc.)
+	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
+		struct drbd_peer_request *peer_req, *t;
 		drbd_info(connection, "inactive_ee count not completed:%u\n", atomic_read(&connection->inacitve_ee_cnt));
+		spin_lock(&g_inactive_lock);
+		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
+			list_del(&peer_req->w.list);
+			drbd_free_peer_req(peer_req);
+			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
+		}
+		spin_unlock(&g_inactive_lock);
 	}
 
     idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -4717,7 +4726,9 @@ int bsr_init(void)
 #ifdef _WIN
 	nl_policy_init_by_manual();
 	g_rcuLock = 0; // init RCU lock
-	
+	// BSR-438
+	spin_lock_init(&g_inactive_lock);
+
 	mutex_init(&g_genl_mutex);
 	mutex_init(&notification_mutex);
 	mutex_init(&att_mod_mutex); 
