@@ -3569,7 +3569,9 @@ int main(int argc, char **argv)
 	}
 
 	// DW-889 parsing running_config before post_parse().
-	if (cmd != &connect_cmd && cmd != &adjust_cmd) {
+	// BSR-446 fix adjust-with-progress segfault
+	// exclude adjust_cmd and adjust_wp_cmd. it will be run in _adm_adjust().
+	if (cmd != &connect_cmd && cmd != &adjust_cmd && cmd != &adjust_wp_cmd) {
 		char *temp_file = config_file;
 		int temp_config_valid = config_valid;
 		if (!resource_names[0] || !strcmp(resource_names[0], "all")) {	
