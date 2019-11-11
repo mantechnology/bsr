@@ -79,6 +79,8 @@ extern atomic_t64 g_total_req_buf_bytes;
 IO_COMPLETION_ROUTINE one_flush_endio;
 #endif
 
+extern spinlock_t g_inactive_lock;
+
 int drbd_do_features(struct drbd_connection *connection);
 int drbd_do_auth(struct drbd_connection *connection);
 
@@ -544,9 +546,13 @@ void __drbd_free_peer_req(struct drbd_peer_request *peer_req, int is_net)
 
 	if (peer_req->flags & EE_HAS_DIGEST)
 		kfree(peer_req->digest);
-	D_ASSERT(peer_device, atomic_read(&peer_req->pending_bios) == 0);
-	D_ASSERT(peer_device, drbd_interval_empty(&peer_req->i));
-	drbd_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
+	
+	// BSR-438
+	if (!(peer_req->flags & EE_WAS_LOST_REQ)) {
+		D_ASSERT(peer_device, atomic_read(&peer_req->pending_bios) == 0);
+		D_ASSERT(peer_device, drbd_interval_empty(&peer_req->i));
+		drbd_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
+	}
 
 	mempool_free(peer_req, drbd_ee_mempool);
 }
@@ -2451,7 +2457,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 				}
 			}
 
-			if (!(peer_req->flags & EE_SPLIT_REQUEST) && !(peer_req->flags & EE_SPLIT_LAST_REQUEST))
+			if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ))
 				err = drbd_send_ack(peer_device, P_RS_WRITE_ACK, peer_req);
 		}
 	}
@@ -2462,14 +2468,14 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 
 		if (!is_unmarked) {
 			drbd_rs_failed_io(peer_device, sector, peer_req->i.size);
-			if (!(peer_req->flags & EE_SPLIT_REQUEST) && !(peer_req->flags & EE_SPLIT_LAST_REQUEST)) {
+			if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ)) {
 				err = drbd_send_ack(peer_device, P_NEG_ACK, peer_req);
 			}
 		}
 	}
 
 	// DW-1911 check split request
-	if (peer_req->flags & EE_SPLIT_REQUEST || peer_req->flags & EE_SPLIT_LAST_REQUEST) {
+	if (peer_req->flags & EE_SPLIT_REQ || peer_req->flags & EE_SPLIT_LAST_REQ) {
 		// DW-1911 check that all split requests are completed.
 		if (peer_req->count && 0 == atomic_dec_return(peer_req->count)) {
 			bool is_in_sync = false;	//true : in sync, false : out of sync
@@ -2817,7 +2823,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 																BM_BIT_TO_SECT(offset), (BM_BIT_TO_SECT(offset - s_bb) << 9),
 																(unsigned int)(BM_BIT_TO_SECT(i_bb - offset) << 9),
 																s_bb, e_next_bb,
-																((e_oos == (i_bb - 1) && !marked_rl) ? EE_SPLIT_LAST_REQUEST : EE_SPLIT_REQUEST),
+																((e_oos == (i_bb - 1) && !marked_rl) ? EE_SPLIT_LAST_REQ : EE_SPLIT_REQ),
 																split_count, NULL);
 
 						if (!split_peer_req) {
@@ -2908,7 +2914,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 																		((BM_BIT_TO_SECT(marked_rl->bb - s_bb) + i) << 9),
 																		1 << 9,
 																		s_bb, e_next_bb,
-																		((marked_rl->bb == e_oos && marked_rl->end_unmarked_rl == i) ? EE_SPLIT_LAST_REQUEST : EE_SPLIT_REQUEST),
+																		((marked_rl->bb == e_oos && marked_rl->end_unmarked_rl == i) ? EE_SPLIT_LAST_REQ : EE_SPLIT_REQ),
 																		split_count, NULL);
 
 								if (!split_peer_req) {
@@ -9275,6 +9281,8 @@ void conn_disconnect(struct drbd_connection *connection)
 	// DW-1732 Initialization active_ee(bitmap, al) 
 
 	// DW-1920
+	// BSR-438
+	spin_lock(&g_inactive_lock);
 	if (!list_empty(&connection->active_ee)) {
 		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->active_ee, w.list) {
 			struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -9310,10 +9318,13 @@ void conn_disconnect(struct drbd_connection *connection)
 	}
 
 	// BSR-438
+	atomic_set(&connection->inacitve_ee_cnt, 0);
 	list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->inactive_ee, w.list) {
+		set_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags);
 		atomic_inc(&connection->inacitve_ee_cnt);
 	}
 
+	spin_unlock(&g_inactive_lock);
 	spin_unlock(&resource->req_lock);
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
