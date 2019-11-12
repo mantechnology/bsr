@@ -802,7 +802,7 @@ int dt_minor_of_dev(const char *device)
 	/* On udev/devfs based system the device nodes does not
 	 * exist before the drbd is created.
 	 *
-	 * If the device name starts with /dev/drbd followed by
+	 * If the device name starts with /dev/bsr followed by
 	 * only digits, or if only digits are given,
 	 * those digits are the minor number.
 	 *
@@ -813,9 +813,10 @@ int dt_minor_of_dev(const char *device)
 	 * Interpreting any digits as minor number is dangerous!
 	 */
 	if (!digits_only) {
-		if (!strncmp("/dev/drbd", device, 9) &&
-		    only_digits(device + 9))
-			c = device + 9;
+		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		if (!strncmp("/dev/bsr", device, 8) &&
+		    only_digits(device + 8))
+			c = device + 8;
 
 		/* if the device node exists,
 		 * and is a block device with the correct major,
@@ -831,7 +832,7 @@ int dt_minor_of_dev(const char *device)
 			return -1;
 	}
 #endif
-	/* ^[0-9]+$ or ^/dev/drbd[0-9]+$ */
+	/* ^[0-9]+$ or ^/dev/bsr[0-9]+$ */
 
 	errno = 0;
 	m = strtol(c, NULL, 10);

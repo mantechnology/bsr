@@ -4401,7 +4401,8 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 #ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
 #else // _LIN
-	sprintf(disk->disk_name, "drbd%d", minor);
+	// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+	sprintf(disk->disk_name, "bsr%d", minor);
 #endif
 	disk->private_data = device;
 #ifdef _LIN

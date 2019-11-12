@@ -849,25 +849,26 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor)
 		return;
 
 #ifdef _LIN
-	/* if devname is set, it starts with /dev/drbd */
-	if (only_digits(devname + 9)) {
-		int m = strtol(devname + 9, NULL, 10);
+	/* if devname is set, it starts with /dev/bsr */
+	// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+	if (only_digits(devname + 8)) {
+		int m = strtol(devname + 8, NULL, 10);
 		if (m == explicit_minor)
 			return;
 
 		err("%s:%d: explicit minor number must match with device name\n"
-		    "\tTry \"device /dev/drbd%u minor %u;\",\n"
+		    "\tTry \"device /dev/bsr%u minor %u;\",\n"
 		    "\tor leave off either device name or explicit minor.\n"
-		    "\tArbitrary device names must start with /dev/drbd_\n"
-		    "\tmind the '_'! (/dev/ is optional, but drbd_ is required)\n",
+		    "\tArbitrary device names must start with /dev/bsr_\n"
+		    "\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
 		    config_file, fline, explicit_minor, explicit_minor);
 		config_valid = 0;
 		return;
-	} else if (devname[9] == '_')
+	} else if (devname[8] == '_')
 		return;
 
-	err("%s:%d: arbitrary device name must start with /dev/drbd_\n"
-	    "\tmind the '_'! (/dev/ is optional, but drbd_ is required)\n",
+	err("%s:%d: arbitrary device name must start with /dev/bsr_\n"
+	    "\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
 	    config_file, fline);
 	config_valid = 0;
 #endif
@@ -881,15 +882,17 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 
 	switch (yylex()) {
 	case TK_STRING:
-		if (!strncmp("drbd", yylval.txt, 4)) {
+		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		if (!strncmp("bsr", yylval.txt, 3)) {
 			m_asprintf(&vol->device, "/dev/%s", yylval.txt);
 			free(yylval.txt);
 		} else
 			vol->device = yylval.txt;
 #ifdef _LIN
-		if (strncmp("/dev/drbd", vol->device, 9)) {
-			err("%s:%d: device name must start with /dev/drbd\n"
-			    "\t(/dev/ is optional, but drbd is required)\n",
+		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		if (strncmp("/dev/bsr", vol->device, 8)) {
+			err("%s:%d: device name must start with /dev/bsr\n"
+			    "\t(/dev/ is optional, but bsr is required)\n",
 			    config_file, fline);
 			config_valid = 0;
 			/* no goto out yet,
@@ -918,7 +921,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 		EXP(';');
 
 		/* if both device name and minor number are explicitly given,
-		 * force /dev/drbd<minor-number> or /dev/drbd_<arbitrary> */
+		 * force /dev/bsr<minor-number> or /dev/bsr_<arbitrary> */
 		check_minor_nonsense(vol->device, vol->device_minor);
 	}
 out:

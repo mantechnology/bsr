@@ -929,10 +929,11 @@ static int sh_udev(const struct cfg_ctx *ctx)
 		return 1;
 	}
 
-	if (!strncmp(vol->device, "/dev/drbd", 9))
+	// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+	if (!strncmp(vol->device, "/dev/bsr", 8))
 		printf("DEVICE=%s\n", vol->device + 5);
 	else
-		printf("DEVICE=drbd%u\n", vol->device_minor);
+		printf("DEVICE=bsr%u\n", vol->device_minor);
 
 	/* in case older udev rules are still in place,
 	* but do not yet have the work-around for the
@@ -1396,7 +1397,7 @@ static off64_t read_drbd_dev_size(int minor)
 	off64_t val;
 	int r;
 
-	m_asprintf(&path, "/sys/block/drbd%d/size", minor);
+	m_asprintf(&path, "/sys/block/bsr%d/size", minor);
 	file = fopen(path, "r");
 	if (file) {
 		r = fscanf(file, "%" SCNd64, &val);

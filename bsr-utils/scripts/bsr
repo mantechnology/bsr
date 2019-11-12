@@ -221,7 +221,8 @@ case "$1" in
 		# to avoid leaving devices around that are not referenced by
 		# the current config file, or in case the current config file
 		# does not parse for some reason.
-		for d in /dev/drbd* ; do
+		# BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		for d in /dev/bsr* ; do
 			[ -L "$d" ] && continue
 			[ -b "$d" ] || continue
 			M=$(umount "$d" 2>&1)

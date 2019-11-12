@@ -545,7 +545,8 @@ void set_disk_in_res(struct d_resource *res)
 				if (b->device)
 					m_asprintf(&a->disk, "%s", b->device);
 				else
-					m_asprintf(&a->disk, "/dev/drbd%u", b->device_minor);
+					// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+					m_asprintf(&a->disk, "/dev/bsr%u", b->device_minor);
 				/* stacked implicit volumes need internal meta data, too */
 				if (!a->meta_disk)
 					m_asprintf(&a->meta_disk, "internal");
@@ -1216,7 +1217,8 @@ void expand_common(void)
 				}
 
 				if (!vol->device)
-					m_asprintf(&vol->device, "/dev/drbd%u",
+					// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+					m_asprintf(&vol->device, "/dev/bsr%u",
 						   vol->device_minor);
 			}
 		}
