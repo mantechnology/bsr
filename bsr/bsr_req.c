@@ -2607,6 +2607,15 @@ static ULONG_PTR time_min_in_future(ULONG_PTR now,
 {
 	t1 = time_after(now, t1) ? now : t1;
 	t2 = time_after(now, t2) ? now : t2;
+
+	// BSR-408 return the nearest future time
+	if (t1 == now && t2 == now)
+		return now;
+	if (t1 == now)
+		return t2;
+	if (t2 == now)
+		return t1;
+
 	return time_after(t1, t2) ? t2 : t1;
 }
 
@@ -2730,13 +2739,8 @@ void request_timer_fn(unsigned long data)
 
 		if (device->disk_state[NOW] > D_FAILED) {
 			et = min_not_zero(et, dt);
-#ifdef _WIN // TODO
-			next_trigger_time = time_min_in_future(now,
-					next_trigger_time + dt, oldest_submit_jif + dt);
-#else // _LIN
 			next_trigger_time = time_min_in_future(now,
 					next_trigger_time, oldest_submit_jif + dt);
-#endif
 			restart_timer = true;
 		}
 
