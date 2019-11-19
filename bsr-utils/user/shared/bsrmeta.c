@@ -2927,18 +2927,30 @@ int v07_style_md_open(struct format *cfg)
 		}
 #endif
 #ifdef _LIN_LOOP_META_SUPPORT
+#ifdef LOOP_CTL_ADD // support since Linux 3.1
 		if (save_errno == ENOENT && cfg->loop_file_path) {
-			char cmd[512];
-			sprintf(cmd, "losetup %s %s", cfg->md_device_name, cfg->loop_file_path);
+			int loopctlfd;
+			int devnr;
+			int err;
+
 			fprintf(stderr, "set up the loop device (%s)\n", cfg->md_device_name);
-			if (system(cmd) != 0) {
-				fprintf(stderr, "failed to associate the loop device (%s) with the meta file (%s)\n", 
-						cfg->md_device_name, cfg->loop_file_path);
+			loopctlfd = open("/dev/loop-control", O_RDWR);
+			if (loopctlfd == -1) {
+				fprintf(stderr, "failed to open /dev/loop-control\n");
 				exit(20);
 			}
-		
+			devnr = atoi(strtok(cfg->md_device_name, "/dev/loop"));
+			// add the new loop device.
+			// on success, the device index is returned.
+			err = ioctl(loopctlfd, LOOP_CTL_ADD, devnr);
+			close(loopctlfd);
+			if (err != devnr) {
+				fprintf(stderr, "failed to add the new loop device (%s)\n", cfg->md_device_name);
+				exit(20);
+			}
 			goto retry;
 		}
+#endif
 #endif
 
 		if (save_errno == EBUSY && (open_flags & O_EXCL)) {
