@@ -29,6 +29,7 @@ MODPROBE="/sbin/modprobe"
 RMMOD="/sbin/rmmod"
 UDEV_TIMEOUT=10
 ADD_MOD_PARAM=""
+LOSETUP="losetup"
 
 PATH=/usr/sbin:/sbin:$PATH
 
@@ -158,6 +159,18 @@ case "$1" in
 	    log_end_msg 1
 	    exit 6 # LSB for "not configured"
 	fi
+
+	# BSR-5 set up the loop device at service start.
+	# _LIN_LOOP_META_SUPPORT
+	for RES in `$BSRADM sh-resources-list`; do
+		MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
+		if [ -n "$MD_IDX" ]; then
+			if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
+				MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
+				$LOSETUP $MD_DEV $MD_IDX
+			fi
+		fi
+	done
 
 	$BSRADM adjust-with-progress all
 	[[ $? -gt 1 ]] && exit 20

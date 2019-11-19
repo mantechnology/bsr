@@ -63,6 +63,10 @@
 
 #include "config.h"
 
+#ifdef _LIN_LOOP_META_SUPPORT
+#include <linux/loop.h>
+#endif
+
 /* BLKZEROOUT, available on linux-3.6 and later,
 * and maybe backported to distribution kernels,
 * even if they pretend to be older.
@@ -315,9 +319,12 @@ struct format {
 	const struct format_ops *ops;
 	char *md_device_name;	/* well, in 06 it is file name */
 	char *drbd_dev_name;
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 	char *vhd_dev_path;
 	int peer_count;
+#endif
+#ifdef _LIN_LOOP_META_SUPPORT
+	char *loop_file_path;
 #endif
 	unsigned minor;		/* cache, determined from drbd_dev_name */
 	int lock_fd;
@@ -2682,7 +2689,7 @@ static void clip_effective_size_and_bm_bytes(struct format *cfg)
 	}
 	cfg->bm_bytes = bm_bytes(&cfg->md, cfg->md.effective_size);
 }
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 #include <libgen.h>
 
 /**
@@ -2902,7 +2909,7 @@ int v07_style_md_open(struct format *cfg)
 #endif 		
 		int save_errno = errno;
 		PERROR("open(%s) failed", cfg->md_device_name);
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 		// failed to access by drive letter
 		if (save_errno == ENOENT && cfg->vhd_dev_path &&
 			(F_OK == access(cfg->vhd_dev_path, R_OK))) {
@@ -2919,6 +2926,21 @@ int v07_style_md_open(struct format *cfg)
 			}
 		}
 #endif
+#ifdef _LIN_LOOP_META_SUPPORT
+		if (save_errno == ENOENT && cfg->loop_file_path) {
+			char cmd[512];
+			sprintf(cmd, "losetup %s %s", cfg->md_device_name, cfg->loop_file_path);
+			fprintf(stderr, "set up the loop device (%s)\n", cfg->md_device_name);
+			if (system(cmd) != 0) {
+				fprintf(stderr, "failed to associate the loop device (%s) with the meta file (%s)\n", 
+						cfg->md_device_name, cfg->loop_file_path);
+				exit(20);
+			}
+		
+			goto retry;
+		}
+#endif
+
 		if (save_errno == EBUSY && (open_flags & O_EXCL)) {
 			if ((!force && command->function == &meta_apply_al) ||
 			    !confirmed("Exclusive open failed. Do it anyways?"))
@@ -2940,6 +2962,30 @@ int v07_style_md_open(struct format *cfg)
 		}
 		exit(20);
 	}
+
+#ifdef _LIN_LOOP_META_SUPPORT
+	if (cfg->loop_file_path) {
+		struct loop_info info;
+		if (ioctl(cfg->md_fd, LOOP_GET_STATUS, &info) != 0) {
+			int file_fd;
+			file_fd = open(cfg->loop_file_path, O_RDWR);
+			if (file_fd < 0) {
+				fprintf(stderr, "failed to open mete file (%s)\n", cfg->loop_file_path);
+				exit(20);
+			}
+
+			// associate the loop device with the open file.			
+			if (ioctl(cfg->md_fd, LOOP_SET_FD, file_fd) != 0) {
+				fprintf(stderr, "failed to associate the loop device (%s) with the meta file (%s)\n", 
+						cfg->md_device_name, cfg->loop_file_path);
+				close(file_fd);
+				exit(20);
+			}
+			close(file_fd);
+		}
+	}
+#endif
+
 #ifdef _LIN
 	if (fstat(cfg->md_fd, &sb)) {
 		PERROR("fstat(%s) failed", cfg->md_device_name);
@@ -3071,9 +3117,14 @@ int v07_parse(struct format *cfg, char **argv, int argc, int *ai)
 		index = DRBD_MD_INDEX_FLEX_EXT;
 	} else if (!strcmp(argv[1],"flex-internal")) {
 		index = DRBD_MD_INDEX_FLEX_INT;
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 	} else if (strstr(argv[1], ".vhd")) {
 		cfg->vhd_dev_path = strdup(argv[1]);
+		index = DRBD_MD_INDEX_FLEX_EXT;
+#endif
+#ifdef _LIN_LOOP_META_SUPPORT
+	} else if (strstr(cfg->md_device_name, "loop") && strstr(argv[1], "/")) {
+		cfg->loop_file_path = strdup(argv[1]);
 		index = DRBD_MD_INDEX_FLEX_EXT;
 #endif
 	} else {
@@ -4953,7 +5004,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		fprintf(stderr, "MAX_PEERS argument not in allowed range 1 .. %d.\n", DRBD_PEERS_MAX);
 		exit(20);
 	}
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 	char * meta_volume = _get_win32_device_ns(cfg->md_device_name);
 	// DW-1423 directory has been created while opening, it must exist. need to see if this's still directory.
 	int access_ret = access(meta_volume, R_OK);

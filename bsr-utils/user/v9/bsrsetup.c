@@ -762,8 +762,11 @@ static int conv_md_idx(struct drbd_argument *ad, struct msg_buff *msg,
 
 	if(!strcmp(arg,"internal")) idx = DRBD_MD_INDEX_FLEX_INT;
 	else if(!strcmp(arg,"flexible")) idx = DRBD_MD_INDEX_FLEX_EXT;
-#ifdef FEATURE_VHD_META_SUPPORT
+#ifdef _WIN_VHD_META_SUPPORT
 	else if(strstr(arg,".vhd")) idx = DRBD_MD_INDEX_FLEX_EXT;
+#endif
+#ifdef _LIN_LOOP_META_SUPPORT
+	else if(strstr(arg,"/")) idx = DRBD_MD_INDEX_FLEX_EXT;
 #endif
 	else idx = m_strtoll(arg,1);
 
