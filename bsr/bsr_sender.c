@@ -782,8 +782,13 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 	if (unlikely(cancel))
 		goto out;
 
-	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0))
+	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0)) {
+		// BSR-448 fix bug that checksum synchronization stops when SyncTarget io-error occurs continuously.
+		atomic_add(peer_req->i.size >> 9, &peer_device->rs_sect_in);
+		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
+		drbd_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
 		goto out;
+	}
 
 	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
 	digest = drbd_prepare_drequest_csum(peer_req, digest_size);
@@ -1054,7 +1059,7 @@ static int drbd_rs_number_requests(struct drbd_peer_device *peer_device)
 
 	sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
 	peer_device->rs_in_flight -= sect_in;
-
+	
 	rcu_read_lock();
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
 	mxb = nc ? nc->max_buffers : 0;
@@ -1625,13 +1630,16 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 			khelper_cmd = "out-of-sync";
 		}
 	} else {
+		// BSR-448 On the SyncSource side of checksum synchronization, n_oos and rs_failed value are different.
+		if(!peer_device->use_csums || repl_state[NOW] != L_SYNC_SOURCE) {
 #ifdef _WIN
-		if (!((n_oos - peer_device->rs_failed) == 0)) {
-			DbgPrint("_WIN32_v9_CHECK: n_oos=%Iu rs_failed=%Iu. Ignore assert ##########\n", n_oos, peer_device->rs_failed);
-		}
+			if (!((n_oos - peer_device->rs_failed) == 0)) {
+				DbgPrint("_WIN32_v9_CHECK: n_oos=%Iu rs_failed=%Iu. Ignore assert ##########\n", n_oos, peer_device->rs_failed);
+			}
 #else // _LIN
-		D_ASSERT(peer_device, (n_oos - peer_device->rs_failed) == 0);
+			D_ASSERT(peer_device, (n_oos - peer_device->rs_failed) == 0);
 #endif
+		}
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T)
 			khelper_cmd = "after-resync-target";
@@ -1651,8 +1659,9 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		}
 	}
 
-	if (peer_device->rs_failed) {
-		drbd_info(peer_device, "            %lu failed blocks\n", peer_device->rs_failed);
+	// BSR-448 On the SyncSource side of checksum synchronization, rs_failed value is not recognized.
+	if (peer_device->rs_failed || n_oos) {
+		drbd_info(peer_device, "            %lu failed blocks, %lu remained blocks\n", peer_device->rs_failed, n_oos);
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T) {
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
