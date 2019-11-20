@@ -15,9 +15,12 @@
 #endif
 
 #ifdef _WIN
-#define FEATURE_VHD_META_SUPPORT
+#define _WIN_VHD_META_SUPPORT
 #define CREATE_VHD_SCRIPT	"__creation__vhd"
 #define ATTACH_VHD_SCRIPT	"__attach__vhd"
+#else // _LIN
+// BSR-5 Implement loop meta device
+#define _LIN_LOOP_META_SUPPORT
 #endif
 
 #define COMM_TIMEOUT 120
