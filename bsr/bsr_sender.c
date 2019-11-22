@@ -2008,6 +2008,8 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 			/* rs_same_csums unit is BM_BLOCK_SIZE */
 			peer_device->rs_same_csum += peer_req->i.size >> BM_BLOCK_SHIFT;
 			err = drbd_send_ack(peer_device, P_RS_IS_IN_SYNC, peer_req);
+			// BSR-448 applied to release io-error value.
+			check_and_clear_io_error_in_primary(device);
 		} else {
 			inc_rs_pending(peer_device);
 			peer_req->block_id = ID_SYNCER; /* By setting block_id, digest pointer becomes invalid! */
@@ -2019,6 +2021,8 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 		err = drbd_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 		if (drbd_ratelimit())
 			drbd_err(device, "Sending NegDReply. I guess it gets messy.\n");
+		// BSR-448 fix bug that checksum synchronization stops when SyncSource io-error occurs continuously.
+		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 	}
 
 	dec_unacked(peer_device);
