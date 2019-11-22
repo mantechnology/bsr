@@ -8055,38 +8055,35 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 			    old_peer_state.conn == L_PAUSED_SYNC_S) {
 				/* TODO: Since DRBD9 we experience that SyncSource still has
 				   bits set... NEED TO UNDERSTAND AND FIX! */
-				// BSR-448 On the SyncSource side of checksum synchronization, oos and rs_failed value are different.
-				if(!peer_device->use_csums || peer_device->repl_state[NOW] != L_SYNC_SOURCE) {
-					if (drbd_bm_total_weight(peer_device) > peer_device->rs_failed)
+				if (drbd_bm_total_weight(peer_device) > peer_device->rs_failed)
 #ifdef _WIN_DEBUG_OOS
-					{
-						// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
-						drbd_info(peer_device, "SyncSource still sees bits set!! FIXME\n");
-						if(TRUE == atomic_read(&g_oos_trace)) {
-							ULONG_PTR bit = 0;
-							sector_t sector = 0;
-							ULONG_PTR bm_resync_fo = 0;
+				{
+					// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
+					drbd_info(peer_device, "SyncSource still sees bits set!! FIXME\n");
+					if(TRUE == atomic_read(&g_oos_trace)) {
+						ULONG_PTR bit = 0;
+						sector_t sector = 0;
+						ULONG_PTR bm_resync_fo = 0;
 
-							do {
-								bit = drbd_bm_find_next(peer_device, bm_resync_fo);
-								if (bit == DRBD_END_OF_BITMAP) {
-									break;
-								}
+						do {
+							bit = drbd_bm_find_next(peer_device, bm_resync_fo);
+							if (bit == DRBD_END_OF_BITMAP) {
+								break;
+							}
 
-								sector = BM_BIT_TO_SECT(bit);
+							sector = BM_BIT_TO_SECT(bit);
 
-								printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_DEBUG_OOS,
-									peer_device->node_id, peer_device->bitmap_index, sector);
+							printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_DEBUG_OOS,
+								peer_device->node_id, peer_device->bitmap_index, sector);
 
-								bm_resync_fo = bit + 1;
+							bm_resync_fo = bit + 1;
 
-							} while (true);
-						}
+						} while (true);
 					}
-#else
-						drbd_warn(peer_device, "SyncSource still sees bits set!! FIXME\n");
-#endif
 				}
+#else
+					drbd_warn(peer_device, "SyncSource still sees bits set!! FIXME\n");
+#endif
 
 				drbd_resync_finished(peer_device, peer_state.disk);
 				peer_device->last_repl_state = peer_state.conn;

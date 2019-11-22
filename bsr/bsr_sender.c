@@ -1630,16 +1630,13 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 			khelper_cmd = "out-of-sync";
 		}
 	} else {
-		// BSR-448 On the SyncSource side of checksum synchronization, n_oos and rs_failed value are different.
-		if(!peer_device->use_csums || repl_state[NOW] != L_SYNC_SOURCE) {
 #ifdef _WIN
-			if (!((n_oos - peer_device->rs_failed) == 0)) {
-				DbgPrint("_WIN32_v9_CHECK: n_oos=%Iu rs_failed=%Iu. Ignore assert ##########\n", n_oos, peer_device->rs_failed);
-			}
-#else // _LIN
-			D_ASSERT(peer_device, (n_oos - peer_device->rs_failed) == 0);
-#endif
+		if (!((n_oos - peer_device->rs_failed) == 0)) {
+			DbgPrint("_WIN32_v9_CHECK: n_oos=%Iu rs_failed=%Iu. Ignore assert ##########\n", n_oos, peer_device->rs_failed);
 		}
+#else // _LIN
+		D_ASSERT(peer_device, (n_oos - peer_device->rs_failed) == 0);
+#endif
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T)
 			khelper_cmd = "after-resync-target";
@@ -1659,9 +1656,8 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 		}
 	}
 
-	// BSR-448 On the SyncSource side of checksum synchronization, rs_failed value is not recognized.
-	if (peer_device->rs_failed || n_oos) {
-		drbd_info(peer_device, "            %lu failed blocks, %lu remained blocks\n", peer_device->rs_failed, n_oos);
+	if (peer_device->rs_failed) {
+		drbd_info(peer_device, "            %lu failed blocks\n", peer_device->rs_failed);
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T) {
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
