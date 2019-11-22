@@ -784,16 +784,21 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 
 	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0)) {
 		// BSR-448 fix bug that checksum synchronization stops when SyncTarget io-error occurs continuously.
+		// Send the packet with block_id set to ID_OUT_OF_SYNC.
 		atomic_add(peer_req->i.size >> 9, &peer_device->rs_sect_in);
 		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 		drbd_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-		goto out;
+		peer_req->block_id = ID_OUT_OF_SYNC;
+		//goto out;
 	}
 
 	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
 	digest = drbd_prepare_drequest_csum(peer_req, digest_size);
 	if (digest) {
 		drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
+		// BSR-448 Do not receive ack if send io fail notification packet.
+		if (likely((peer_req->flags & EE_WAS_ERROR) == 0))
+			inc_rs_pending(peer_device);
 		/* Free peer_req and pages before send.
 		 * In case we block on congestion, we could otherwise run into
 		 * some distributed deadlock, if the other side blocks on
@@ -801,7 +806,6 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 		 * drbd_alloc_pages due to pp_in_use > max_buffers. */
 		drbd_free_peer_req(peer_req);
 		peer_req = NULL;
-		inc_rs_pending(peer_device);
 		err = drbd_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
 		drbd_err(peer_device, "kmalloc() of digest failed.\n");
