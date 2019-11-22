@@ -782,13 +782,24 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 	if (unlikely(cancel))
 		goto out;
 
-	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0))
-		goto out;
+	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0)) {
+		// BSR-448 fix bug that checksum synchronization stops when SyncTarget io-error occurs continuously.
+		// Send the packet with block_id set to ID_OUT_OF_SYNC.
+		atomic_add(peer_req->i.size >> 9, &peer_device->rs_sect_in);
+		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
+		drbd_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
+		peer_req->block_id = ID_CSUM_SYNC_IO_ERROR;
+		if (peer_device->connection->agreed_pro_version < 113)
+			goto out;
+	}
 
 	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
 	digest = drbd_prepare_drequest_csum(peer_req, digest_size);
 	if (digest) {
 		drbd_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
+		// BSR-448 Do not receive ack if send io fail notification packet.
+		if (likely((peer_req->flags & EE_WAS_ERROR) == 0))
+			inc_rs_pending(peer_device);
 		/* Free peer_req and pages before send.
 		 * In case we block on congestion, we could otherwise run into
 		 * some distributed deadlock, if the other side blocks on
@@ -796,7 +807,6 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 		 * drbd_alloc_pages due to pp_in_use > max_buffers. */
 		drbd_free_peer_req(peer_req);
 		peer_req = NULL;
-		inc_rs_pending(peer_device);
 		err = drbd_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
 		drbd_err(peer_device, "kmalloc() of digest failed.\n");
@@ -1054,7 +1064,7 @@ static int drbd_rs_number_requests(struct drbd_peer_device *peer_device)
 
 	sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
 	peer_device->rs_in_flight -= sect_in;
-
+	
 	rcu_read_lock();
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
 	mxb = nc ? nc->max_buffers : 0;
@@ -1999,6 +2009,8 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 			/* rs_same_csums unit is BM_BLOCK_SIZE */
 			peer_device->rs_same_csum += peer_req->i.size >> BM_BLOCK_SHIFT;
 			err = drbd_send_ack(peer_device, P_RS_IS_IN_SYNC, peer_req);
+			// BSR-448 applied to release io-error value.
+			check_and_clear_io_error_in_primary(device);
 		} else {
 			inc_rs_pending(peer_device);
 			peer_req->block_id = ID_SYNCER; /* By setting block_id, digest pointer becomes invalid! */
@@ -2010,6 +2022,8 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 		err = drbd_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 		if (drbd_ratelimit())
 			drbd_err(device, "Sending NegDReply. I guess it gets messy.\n");
+		// BSR-448 fix bug that checksum synchronization stops when SyncSource io-error occurs continuously.
+		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 	}
 
 	dec_unacked(peer_device);
