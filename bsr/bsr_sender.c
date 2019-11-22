@@ -788,8 +788,9 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 		atomic_add(peer_req->i.size >> 9, &peer_device->rs_sect_in);
 		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 		drbd_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-		peer_req->block_id = ID_OUT_OF_SYNC;
-		//goto out;
+		peer_req->block_id = ID_CSUM_SYNC_IO_ERROR;
+		if (peer_device->connection->agreed_pro_version < 113)
+			goto out;
 	}
 
 	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);

@@ -4278,7 +4278,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 			goto fail2;
 
 		// BSR-448 Check for io failure on the SyncTarget.
-		if(block_id == ID_OUT_OF_SYNC) {
+		if(block_id == ID_CSUM_SYNC_IO_ERROR) {
 			drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 			goto fail2;
 		}

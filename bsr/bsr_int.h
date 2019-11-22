@@ -129,6 +129,7 @@ extern char usermode_helper[];
 
 #define ID_IN_SYNC      (4711ULL)
 #define ID_OUT_OF_SYNC  (4712ULL)
+#define ID_CSUM_SYNC_IO_ERROR		(4713ULL) // BSR-448 io-error of SyncTarget during checksum synchronization
 #ifdef _WIN
 #define ID_SYNCER (UINT64_MAX)
 #else // _LIN
