@@ -784,7 +784,7 @@ static int w_e_send_csum(struct drbd_work *w, int cancel)
 
 	if (unlikely((peer_req->flags & EE_WAS_ERROR) != 0)) {
 		// BSR-448 fix bug that checksum synchronization stops when SyncTarget io-error occurs continuously.
-		// Send the packet with block_id set to ID_OUT_OF_SYNC.
+		// Send the packet with block_id set to ID_CSUM_SYNC_IO_ERROR.
 		atomic_add(peer_req->i.size >> 9, &peer_device->rs_sect_in);
 		drbd_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 		drbd_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);

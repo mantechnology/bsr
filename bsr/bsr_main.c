@@ -74,7 +74,7 @@
 
 
 #ifdef _WIN_SEND_BUFFING
-#include "send_buf.h"		
+#include "bsr_send_buf.h"
 #endif
 #include "bsr_debugfs.h"
 #include "../bsr-headers/bsr_meta_data.h"

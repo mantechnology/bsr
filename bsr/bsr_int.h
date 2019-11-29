@@ -53,7 +53,7 @@
 #endif
 
 #ifdef _WIN_SEND_BUFFING
-#include "send_buf.h"
+#include "bsr_send_buf.h"
 #endif
 
 #include "../bsr-headers/linux/bsr_genl_api.h"
