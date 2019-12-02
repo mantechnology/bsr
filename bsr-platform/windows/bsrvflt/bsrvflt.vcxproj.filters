@@ -82,7 +82,7 @@
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\rbtree.c">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
     </ClCompile>
-    <ClCompile Include="send_buf.c">
+    <ClCompile Include="..\..\..\bsr\bsr_send_buf.c">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\windows\seq_file.c">
@@ -243,7 +243,7 @@
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\sched.h">
       <Filter>bsr\bsr-kernel-compat\windows</Filter>
     </ClInclude>
-    <ClInclude Include="send_buf.h">
+    <ClInclude Include="..\..\..\bsr\bsr_send_buf.h">
       <Filter>bsr-platform\windows\bsrvflt</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\seq_file.h">

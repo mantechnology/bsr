@@ -24,7 +24,7 @@
 #include "../../../bsr/bsr-kernel-compat/windows/idr.h"
 #include "disp.h" 
 #include "../../../bsr/bsr_int.h"
-#include "send_buf.h"	
+#include "bsr_send_buf.h"	
 #include "../../../bsr-headers/linux/bsr_limits.h"
 
 #ifdef _WIN_SEND_BUFFING

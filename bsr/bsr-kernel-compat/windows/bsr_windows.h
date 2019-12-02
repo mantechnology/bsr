@@ -453,7 +453,7 @@ struct sock {
 
 #include <wsk.h>
 #ifdef _WIN_SEND_BUFFING
-#include <send_buf.h>
+#include "../../../bsr/bsr_send_buf.h"
 #endif
 
 enum sock_state {
