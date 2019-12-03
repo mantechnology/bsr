@@ -25,7 +25,7 @@
 #define GROW_BUFFER    MSG_PROBE
 
 // BSR-12
-// #define _SEND_BUFFING
+#define _SEND_BUFFING
 
 #ifdef _SEND_BUFFING		// Use Send Buffering
 #ifdef _WIN

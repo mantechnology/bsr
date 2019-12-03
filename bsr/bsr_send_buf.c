@@ -17,14 +17,19 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#ifdef _WIN_SEND_BUFFING
 #include "bsr-kernel-compat/windows/bsr_windows.h"
 #include "../bsr-platform/windows/bsrvflt/wsk_wrapper.h"
 #include "bsr-kernel-compat/windows/bsr_wingenl.h"
 #include "bsr-kernel-compat/windows/bsr_endian.h"
 #include "bsr-kernel-compat/windows/idr.h"
 #include "../bsr-platform/windows/bsrvflt/disp.h" 
-#include "bsr_int.h"
 #include "bsr_send_buf.h"
+#else // _LIN_SEND_BUFFING
+#include <linux/net.h>
+#include <net/sock.h>
+#endif
+#include "bsr_int.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 
 #ifdef _SEND_BUFFING
@@ -49,6 +54,7 @@ struct drbd_tcp_transport {
 #endif
 };
 
+#ifdef _WIN_SEND_BUFFING
 bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
 {
 	ring_buffer* ring = NULL;
@@ -111,14 +117,69 @@ $ALLOC_FAIL:
 	connection->ptxbab[CONTROL_STREAM] = NULL;
 	return FALSE;
 }
+#else // _LIN_SEND_BUFFING
+bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
+{
+	ring_buffer* ring = NULL;
+	signed long long sz = 0;
+
+	if(0 == nconf->sndbuf_size) {
+		return false;
+	}
+
+	do {
+		if(nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN ) {
+			drbd_info(NO_OBJECT,"alloc bab fail nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			goto $ALLOC_FAIL;
+		}
+
+		sz = sizeof(*ring) + nconf->sndbuf_size;
+		ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+		if(!ring) {
+			drbd_info(NO_OBJECT,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			goto $ALLOC_FAIL;
+		}
+		// DW-1927 Sets the size value when the buffer is allocated.
+		ring->length = nconf->sndbuf_size + 1;
+		connection->ptxbab[DATA_STREAM] = ring;
+
+		sz = sizeof(*ring) + CONTROL_BUFF_SIZE; // meta bab is about 5MB
+		ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+		if(!ring) {
+			drbd_info(NO_OBJECT,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+			kvfree(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
+			goto $ALLOC_FAIL;
+		}
+		// DW-1927 Sets the size value when the buffer is allocated.
+		ring->length = CONTROL_BUFF_SIZE + 1;
+		connection->ptxbab[CONTROL_STREAM] = ring;
+	} while (false);
+	
+	drbd_info(NO_OBJECT,"alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+	return true;
+
+$ALLOC_FAIL:
+	connection->ptxbab[DATA_STREAM] = NULL;
+	connection->ptxbab[CONTROL_STREAM] = NULL;
+	return false;
+}
+#endif
 
 void destroy_bab(struct drbd_connection* connection)
 {
 	if(connection->ptxbab[DATA_STREAM]) {
+#ifdef _WIN_SEND_BUFFING
 		kfree2(connection->ptxbab[DATA_STREAM]);
+#else
+		kvfree(connection->ptxbab[DATA_STREAM]);
+#endif
 	} 
 	if(connection->ptxbab[CONTROL_STREAM]) {
+#ifdef _WIN_SEND_BUFFING
 		kfree2(connection->ptxbab[CONTROL_STREAM]);
+#else
+		kvfree(connection->ptxbab[CONTROL_STREAM]);
+#endif
 	}
 	return;
 }
@@ -154,7 +215,11 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 #ifdef SENDBUF_TRACE
 		INIT_LIST_HEAD(&ring->send_req_list);
 #endif
+#ifdef _WIN_SEND_BUFFING
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
+#else
+		ring->static_big_buf = (char *)kvmalloc(MAX_ONETIME_SEND_BUF, GFP_KERNEL);
+#endif
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
@@ -170,7 +235,11 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 void destroy_ring_buffer(ring_buffer *ring)
 {
 	if (ring) {
+#ifdef _WIN_SEND_BUFFING
 		kfree2(ring->static_big_buf);
+#else // _LIN_SEND_BUFFING
+		kvfree(ring->static_big_buf);
+#endif
 		//ExFreePool(ring);
 		//kfree2(ring);
 	}
@@ -194,8 +263,10 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 {
 	signed long long remain;
 	signed long long ringbuf_size = 0;
+#ifdef _WIN_SEND_BUFFING
 	LARGE_INTEGER	Interval;
 	Interval.QuadPart = (-1 * 100 * 10000);   //// wait 100ms relative
+#endif
 
 	EnterCriticalSection(&ring->cs);
 
@@ -208,17 +279,29 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 		do {
 			int loop = 0;
 			for (loop = 0; loop < retry; loop++) {
+#ifdef _WIN_SEND_BUFFING
 				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
+else // _LIN_SEND_BUFFING
+				msleep(100);
+#endif
 				struct drbd_tcp_transport *tcp_transport =
 					container_of(transport, struct drbd_tcp_transport, transport);
 
+#ifdef _WIN_SEND_BUFFING
 				if (tcp_transport->stream[stream]) {
 					if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
 						drbd_info(NO_OBJECT,"Stop send and quit\n");
 						return -EIO;
 					}
 				}
-
+#else // _LIN_SEND_BUFFING
+				if (tcp_transport) {
+					if (tcp_transport->buffering_attr[stream].quit == true)	{
+						drbd_info(NO_OBJECT,"Stop send and quit\n");
+						return -EIO;
+					}
+				}
+#endif
 				EnterCriticalSection(&ring->cs);
 				ringbuf_size = (ring->write_pos - ring->read_pos + ring->length) % ring->length;
 				if ((ringbuf_size + len) > highwater) {
@@ -265,7 +348,11 @@ $GO_BUFFERING:
 	return len;
 }
 
+#ifdef _WIN_SEND_BUFFING
 bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen)
+#else // _LIN_SEND_BUFFING
+bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
+#endif
 {
 	signed long long remain;
 	signed long long ringbuf_size = 0;
@@ -299,6 +386,7 @@ bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long
 	return 1;
 }
 
+#ifdef _WIN_SEND_BUFFING
 int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *socket, PVOID buf, LONG size)
 {
 	struct _buffering_attr *buffering_attr = &socket->buffering_attr;
@@ -318,7 +406,45 @@ int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *
 	KeSetEvent(&buffering_attr->ring_buf_event, 0, FALSE);
 	return (int)size;
 }
+#else // _LIN_SEND_BUFFING
+int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, struct socket *socket, void *buf, size_t size)
+{
+	struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
 
+	if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
+		struct kvec iov;
+		struct msghdr msg;
+		int rv, msg_flags = 0;;
+
+		iov.iov_base = buf;
+		iov.iov_len  = size;
+
+		msg.msg_name       = NULL;
+		msg.msg_namelen    = 0;
+		msg.msg_control    = NULL;
+		msg.msg_controllen = 0;
+		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
+
+		rv = kernel_sendmsg(socket, &msg, &iov, 1, size);
+		if (rv == -EAGAIN) {
+		}
+		return rv;
+	}
+
+	signed long long  tmp = (long long)buffering_attr->bab->length * 99;
+	signed long long highwater = (signed long long)tmp / 100; // 99% // refacto: global
+	// performance tuning point for delay time
+	int retry = socket->sk->sk_sndtimeo / 100;
+
+	size = write_ring_buffer(&tcp_transport->transport, stream, buffering_attr->bab, buf, size, highwater, retry);
+
+	set_bit(RING_BUF_EVENT, &buffering_attr->flags);
+	wake_up(&buffering_attr->ring_buf_event);
+	return (int)size;
+}
+#endif
+
+#ifdef _WIN_SEND_BUFFING
 int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
@@ -357,11 +483,53 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 
 	return ret;
 }
+#else // _LIN_SEND_BUFFING
+int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
+{
+	int rv = 0;
+	int msg_flags = 0;
+
+	if (bab == NULL) {
+		drbd_err(NO_OBJECT,"bab is null.\n");
+		return 0;
+	}
+
+	while (true) {
+		long long tx_sz = 0;
+
+		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
+			break;
+		}
+
+		struct kvec iov;
+		struct msghdr msg;
+
+		iov.iov_base = bab->static_big_buf;
+		iov.iov_len  = (unsigned long)tx_sz;
+
+		msg.msg_name       = NULL;
+		msg.msg_namelen    = 0;
+		msg.msg_control    = NULL;
+		msg.msg_controllen = 0;
+		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
+
+		rv = kernel_sendmsg(socket, &msg, &iov, 1, (size_t)tx_sz);
+		if (rv == -EAGAIN) {
+		}
+		if (rv == -EINTR) {
+			flush_signals(current);
+			rv = 0;
+		}
+	}
+
+	return rv;
+}
+#endif
 
 //
 // send buffring thread
 //
-
+#ifdef _WIN_SEND_BUFFING
 VOID NTAPI send_buf_thread(PVOID p)
 {
 	struct _buffering_attr *buffering_attr = (struct _buffering_attr *)p;
@@ -412,5 +580,42 @@ done:
 	drbd_info(NO_OBJECT,"sendbuf thread[%p] terminate!!\n",KeGetCurrentThread());
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
+#else // _LIN_SEND_BUFFING
+int send_buf_thread(void *p)
+{
+	struct drbd_tcp_transport *tcp_transport = (struct drbd_tcp_transport *)p;
+	//struct drbd_tcp_transport *tcp_transport = container_of(buffering_attr, struct drbd_tcp_transport, buffering_attr);
+	struct socket *socket;
+	struct _buffering_attr *buffering_attr;
 
+	if(test_bit(IDX_STREAM, &tcp_transport->flags)) {
+		socket = tcp_transport->stream[CONTROL_STREAM];
+		buffering_attr = &tcp_transport->buffering_attr[CONTROL_STREAM];
+	}
+	else {
+		socket = tcp_transport->stream[DATA_STREAM];
+		buffering_attr = &tcp_transport->buffering_attr[DATA_STREAM];
+	}
+	
+	long timeo = 1 * HZ;
+
+	buffering_attr->quit = false;
+
+	set_bit(SEND_BUF_START, &buffering_attr->flags);
+	wake_up(&buffering_attr->send_buf_thr_start_event);
+
+	while (!buffering_attr->send_buf_kill_event) {
+		wait_event_interruptible_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, timeo);
+		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
+			do_send(socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
+		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);
+	}
+
+	drbd_info(NO_OBJECT,"send_buf_killack_event!\n");
+	set_bit(SEND_BUF_KILLACK, &buffering_attr->flags);
+	wake_up(&buffering_attr->send_buf_killack_event);
+	drbd_info(NO_OBJECT,"sendbuf thread terminate!!\n");
+	return 0;
+}
+#endif
 #endif // _SEND_BUFFING

@@ -4092,11 +4092,19 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 	struct drbd_tcp_transport *tcp_transport =
 		container_of(&connection->transport, struct drbd_tcp_transport, transport);
 	if (tcp_transport) {
+#ifdef _WIN_SEND_BUFFING
 		if (tcp_transport->stream[DATA_STREAM])
 			tcp_transport->stream[DATA_STREAM]->buffering_attr.quit = TRUE;
 
 		if (tcp_transport->stream[CONTROL_STREAM])
 			tcp_transport->stream[CONTROL_STREAM]->buffering_attr.quit = TRUE;
+#else // _LIN_SEND_BUFFING
+		if (tcp_transport)
+			tcp_transport->buffering_attr[DATA_STREAM].quit = true;
+
+		if (tcp_transport)
+			tcp_transport->buffering_attr[CONTROL_STREAM].quit = true;
+#endif
 	}
 	// this logic must be done before mutex lock(next line) is acuquired
 #endif
