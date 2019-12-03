@@ -17,7 +17,7 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN
 #include "bsr-kernel-compat/windows/bsr_windows.h"
 #include "../bsr-platform/windows/bsrvflt/wsk_wrapper.h"
 #include "bsr-kernel-compat/windows/bsr_wingenl.h"
@@ -25,7 +25,7 @@
 #include "bsr-kernel-compat/windows/idr.h"
 #include "../bsr-platform/windows/bsrvflt/disp.h" 
 #include "bsr_send_buf.h"
-#else // _LIN_SEND_BUFFING
+#else // _LIN
 #include <linux/net.h>
 #include <net/sock.h>
 #endif
@@ -281,7 +281,7 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 			for (loop = 0; loop < retry; loop++) {
 #ifdef _WIN_SEND_BUFFING
 				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
-else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUFFING
 				msleep(100);
 #endif
 				struct drbd_tcp_transport *tcp_transport =

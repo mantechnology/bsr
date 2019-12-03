@@ -18,10 +18,9 @@
 */
 
 
+#ifndef __SEND_BUFFING_H
+#define __SEND_BUFFING_H
 #ifdef _WIN
-#ifndef __WIN_SEND_BUFFING_H
-#define __WIN_SEND_BUFFING_H
-#endif
 #ifndef _WIN_SEND_BUFFING
 #include "drbd_windows.h"
 #include "wsk2.h"
@@ -111,3 +110,4 @@ extern int send_buf(struct drbd_transport *transport, enum drbd_stream stream, s
 extern bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen);
 extern int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, socket *socket, void *buf, size_t size);
 #endif
+#endif // __SEND_BUFFING_H

@@ -37,7 +37,7 @@
 //#define DRBD_TRACE				    // trace replication flow(basic)
 //#define DRBD_TRACE1				    // trace replication flow(detail)
 
-#define _SEND_BUFFING					// Use Send Buffering
+#define _WIN_SEND_BUFFING					// Use Send Buffering
 #define _WSK_SOCKETCONNECT
 #define _WIN_EVENTLOG			        // Windows Eventlog porting point
 #define _WIN_TMP_Win8_BUG_0x1a_61946
