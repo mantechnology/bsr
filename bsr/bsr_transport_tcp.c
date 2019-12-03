@@ -64,6 +64,9 @@ struct drbd_tcp_transport {
 	ULONG_PTR flags;
 	struct socket *stream[2];
 	struct buffer rbuf[2];
+#ifdef _LIN_SEND_BUFFING
+	struct _buffering_attr buffering_attr[2];
+#endif
 };
 
 struct dtt_listener {
@@ -116,7 +119,7 @@ static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *
 static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport);
 static int dtt_add_path(struct drbd_transport *, struct drbd_path *path);
 static int dtt_remove_path(struct drbd_transport *, struct drbd_path *);
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUFFING
 static bool dtt_start_send_buffring(struct drbd_transport *, signed long long size);
 static void dtt_stop_send_buffring(struct drbd_transport *);
 #endif
@@ -147,7 +150,7 @@ static struct drbd_transport_ops dtt_ops = {
 	.debugfs_show = dtt_debugfs_show,
 	.add_path = dtt_add_path,
 	.remove_path = dtt_remove_path,
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUFFING
 	.start_send_buffring = dtt_start_send_buffring,
 	.stop_send_buffring = dtt_stop_send_buffring,
 #endif
@@ -256,14 +259,14 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 			kernel_sock_shutdown(socket, SHUT_RDWR);
 		
 
-        struct _buffering_attr *attr = &socket->buffering_attr;
+		struct _buffering_attr *attr = &socket->buffering_attr;
         if (attr->send_buf_thread_handle) {
             KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
             KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
 			//ZwClose (attr->send_buf_thread_handle);
             attr->send_buf_thread_handle = NULL;
         }
-#endif		
+#endif
 
 		// DW-1173 shut the socket down after send buf thread goes down.
 		if (bFlush) // DW-1204
@@ -2178,7 +2181,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 #else
 		sent = Send(socket->sk, (void *)((unsigned char *)(page) + offset), len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, transport, stream);
 #endif
-#else // _LIN
+#else // _LIN		
 		sent = socket->ops->sendpage(socket, page, offset, len, msg_flags);
 #endif
 		if (sent <= 0) {
@@ -2461,12 +2464,12 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 					ZwClose(attr->send_buf_thread_handle);
 					// wait send buffering thread start...
 					KeWaitForSingleObject(&attr->send_buf_thr_start_event, Executive, KernelMode, FALSE, NULL);
-					
+				
 				}
 				else {
 					if (i == CONTROL_STREAM) {
 						attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
-
+						
 						// kill DATA_STREAM thread
 						KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
 						//drbd_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);

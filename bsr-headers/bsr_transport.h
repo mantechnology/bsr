@@ -24,6 +24,17 @@
 #define CALLER_BUFFER  MSG_DONTROUTE
 #define GROW_BUFFER    MSG_PROBE
 
+// BSR-12
+// #define _SEND_BUFFING
+
+#ifdef _SEND_BUFFING		// Use Send Buffering
+#ifdef _WIN
+#define _WIN_SEND_BUFFING
+#else // _LIN
+#define _LIN_SEND_BUFFING
+#endif
+#endif
+
 /*
  * gfp_mask for allocating memory with no write-out.
  *
@@ -225,7 +236,7 @@ struct drbd_transport_ops {
 	void (*debugfs_show)(struct drbd_transport *, struct seq_file *m);
 	int (*add_path)(struct drbd_transport *, struct drbd_path *path);
 	int (*remove_path)(struct drbd_transport *, struct drbd_path *path);
-#ifdef _WIN_SEND_BUFFING 
+#ifdef _SEND_BUFFING 
 	bool (*start_send_buffring)(struct drbd_transport *, signed long long size);
 	void (*stop_send_buffring)(struct drbd_transport *);
 #endif

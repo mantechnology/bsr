@@ -52,10 +52,6 @@
 #include "compat.h"
 #endif
 
-#ifdef _WIN_SEND_BUFFING
-#include "bsr_send_buf.h"
-#endif
-
 #include "../bsr-headers/linux/bsr_genl_api.h"
 #include "bsr_state.h"
 #include "bsr_kref_debug.h"
@@ -68,7 +64,9 @@
 #include "../bsr-headers/bsr_strings.h"
 #include "../bsr-headers/bsr.h"
 
-
+#ifdef _SEND_BUFFING
+#include "bsr_send_buf.h"
+#endif
 
 #ifdef __CHECKER__
 # define __protected_by(x)       __attribute__((require_context(x,1,999,"rdwr")))
@@ -1572,7 +1570,7 @@ struct drbd_connection {
 		/* position in change stream */
 		u64 current_dagtag_sector;
 	} send;
-#ifdef _WIN
+#ifdef _SEND_BUFFING
 	ring_buffer* ptxbab[2];
 #endif	
 	unsigned int peer_node_id;

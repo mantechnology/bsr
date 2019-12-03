@@ -17,21 +17,37 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
-#include "wsk_wrapper.h"
-#include "../../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
-#include "../../../bsr/bsr-kernel-compat/windows/bsr_endian.h"
-#include "../../../bsr/bsr-kernel-compat/windows/idr.h"
-#include "disp.h" 
-#include "../../../bsr/bsr_int.h"
-#include "bsr_send_buf.h"	
-#include "../../../bsr-headers/linux/bsr_limits.h"
+#include "bsr-kernel-compat/windows/bsr_windows.h"
+#include "../bsr-platform/windows/bsrvflt/wsk_wrapper.h"
+#include "bsr-kernel-compat/windows/bsr_wingenl.h"
+#include "bsr-kernel-compat/windows/bsr_endian.h"
+#include "bsr-kernel-compat/windows/idr.h"
+#include "../bsr-platform/windows/bsrvflt/disp.h" 
+#include "bsr_int.h"
+#include "bsr_send_buf.h"
+#include "../bsr-headers/linux/bsr_limits.h"
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUFFING
 #define EnterCriticalSection mutex_lock
 #define LeaveCriticalSection mutex_unlock
 
 #define MAX_ONETIME_SEND_BUF	(1024*1024*10) // 10MB
+
+struct buffer {
+	void *base;
+	void *pos;
+};
+
+struct drbd_tcp_transport {
+	struct drbd_transport transport; /* Must be first! */
+	spinlock_t paths_lock;
+	ULONG_PTR flags;
+	struct socket *stream[2];
+	struct buffer rbuf[2];
+#ifdef _LIN_SEND_BUFFING
+	struct _buffering_attr buffering_attr[2];
+#endif
+};
 
 bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
 {
@@ -193,20 +209,6 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 			int loop = 0;
 			for (loop = 0; loop < retry; loop++) {
 				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
-
-				struct buffer {
-					void *base;
-					void *pos;
-				};
-
-				struct drbd_tcp_transport {
-					struct drbd_transport transport; /* Must be first! */
-					spinlock_t paths_lock;
-					ULONG_PTR flags;
-					struct socket *stream[2];
-					struct buffer rbuf[2];
-				};
-
 				struct drbd_tcp_transport *tcp_transport =
 					container_of(transport, struct drbd_tcp_transport, transport);
 
@@ -348,7 +350,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 				break;
 			} else {
 				drbd_info(NO_OBJECT,"Tx mismatch. req(%d) sent(%d)\n", tx_sz, ret);
-				// will be recovered by upper drbd protocol 
+				// will be recovered by upper drbd protocol
 			}
 		}
 	}
@@ -411,4 +413,4 @@ done:
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
 
-#endif // _WIN_SEND_BUFFING
+#endif // _SEND_BUFFING

@@ -21,8 +21,8 @@
 #ifndef __WIN_SEND_BUFFING_H
 #define __WIN_SEND_BUFFING_H
 #ifndef _WIN_SEND_BUFFING
-#include "drbd_windows.h"	
-#include "wsk2.h"	
+#include "drbd_windows.h"
+#include "wsk2.h"
 #endif
 #define SENDER_IS_RECV			0
 #define SENDER_IS_ASEND			1
@@ -62,11 +62,20 @@ struct ring_buffer {
 };
 
 struct _buffering_attr {
+#ifdef _WIN_SEND_BUFFING
 	HANDLE send_buf_thread_handle;
 	KEVENT send_buf_kill_event;
 	KEVENT send_buf_killack_event;
 	KEVENT send_buf_thr_start_event;
 	KEVENT ring_buf_event;
+#else // _LIN_SEND_BUFFING
+	struct task_struct *send_buf_thread_handle;
+	bool send_buf_kill_event;
+	wait_queue_head_t send_buf_killack_event;
+	wait_queue_head_t send_buf_thr_start_event;
+	wait_queue_head_t ring_buf_event;
+	ULONG_PTR flags;
+#endif
 	struct ring_buffer *bab;
 	bool quit;
 };

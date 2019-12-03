@@ -4069,7 +4069,7 @@ fail:
 /* free the transport specific members (e.g., sockets) of a connection */
 void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_free_op op)
 {
-#ifdef _WIN
+#ifdef _SEND_BUFFING
 	// DW-689
 	// redefine struct drbd_tcp_transport, buffer. required to refactoring about base, pos field 
 	struct buffer {
@@ -4083,6 +4083,9 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 		ULONG_PTR flags;
 		struct socket *stream[2];
 		struct buffer rbuf[2];
+#ifdef _LIN_SEND_BUFFING
+		struct _buffering_attr buffering_attr[2];
+#endif
 	};
 
 	// set socket quit signal first
@@ -4172,7 +4175,7 @@ void drbd_destroy_connection(struct kref *kref)
 	//
 	// destroy_bab
 	//
-#ifdef _WIN
+#ifdef _SEND_BUFFING
 	destroy_bab(connection);
 #endif
 

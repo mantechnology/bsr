@@ -3597,7 +3597,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 
 
-#ifdef _WIN // _WIN_SEND_BUFFING
+#ifdef _SEND_BUFFING
 	// DW-1436 unable to change send buffer size dynamically
 	if (connection->cstate[NOW] >= C_CONNECTED){
 		if (old_net_conf->sndbuf_size != new_net_conf->sndbuf_size){
@@ -4004,11 +4004,11 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	}
 	mutex_unlock(&adm_ctx->resource->conf_update);
 
-#ifdef _WIN // TODO _WIN_SEND_BUFFING
+#ifdef _SEND_BUFFING
 	if(alloc_bab(connection, connection->transport.net_conf)) {
 	} else {
 	}
-#endif	
+#endif
 	drbd_debugfs_connection_add(connection); /* after ->net_conf was assigned */
 	drbd_thread_start(&connection->sender);
 	*ret_conn = connection;
