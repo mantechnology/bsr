@@ -249,7 +249,7 @@ fail:
 // DW-1204 added argument bFlush.
 #ifdef _LIN_SEND_BUF
 static void dtt_free_one_sock(struct socket *socket, bool bFlush, struct _buffering_attr *attr)
-#else // Other(_WIN_SEND_BUF, _LIN, _WIN..)
+#else // _WIN_SEND_BUF, _LIN, _WIN
 static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 #endif
 {
@@ -314,7 +314,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 			// DW-1204 provide boolean if send buffer has to be flushed.
 #ifdef _LIN_SEND_BUF
 			dtt_free_one_sock(tcp_transport->stream[i], test_bit(DISCONNECT_FLUSH, &transport->flags), &tcp_transport->buffering_attr[i]);
-#else // Other(_WIN_SEND_BUF, _LIN, _WIN..)
+#else // _WIN_SEND_BUF, _LIN, _WIN
 			dtt_free_one_sock(tcp_transport->stream[i], test_bit(DISCONNECT_FLUSH, &transport->flags));
 #endif
 			clear_bit(DISCONNECT_FLUSH, &transport->flags);
