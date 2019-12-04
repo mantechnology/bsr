@@ -73,8 +73,8 @@
 #include "bsr_vli.h"
 
 
-#ifdef _WIN_SEND_BUFFING
-#include "send_buf.h"		
+#ifdef _WIN_SEND_BUF
+#include "bsr_send_buf.h"
 #endif
 #include "bsr_debugfs.h"
 #include "../bsr-headers/bsr_meta_data.h"
@@ -4069,7 +4069,7 @@ fail:
 /* free the transport specific members (e.g., sockets) of a connection */
 void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_free_op op)
 {
-#ifdef _WIN
+#ifdef _SEND_BUF
 	// DW-689
 	// redefine struct drbd_tcp_transport, buffer. required to refactoring about base, pos field 
 	struct buffer {
@@ -4083,17 +4083,28 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 		ULONG_PTR flags;
 		struct socket *stream[2];
 		struct buffer rbuf[2];
+#ifdef _LIN_SEND_BUF
+		struct _buffering_attr buffering_attr[2];
+#endif
 	};
 
 	// set socket quit signal first
 	struct drbd_tcp_transport *tcp_transport =
 		container_of(&connection->transport, struct drbd_tcp_transport, transport);
 	if (tcp_transport) {
+#ifdef _WIN_SEND_BUF
 		if (tcp_transport->stream[DATA_STREAM])
 			tcp_transport->stream[DATA_STREAM]->buffering_attr.quit = TRUE;
 
 		if (tcp_transport->stream[CONTROL_STREAM])
 			tcp_transport->stream[CONTROL_STREAM]->buffering_attr.quit = TRUE;
+#else // _LIN_SEND_BUF
+		if (tcp_transport)
+			tcp_transport->buffering_attr[DATA_STREAM].quit = true;
+
+		if (tcp_transport)
+			tcp_transport->buffering_attr[CONTROL_STREAM].quit = true;
+#endif
 	}
 	// this logic must be done before mutex lock(next line) is acuquired
 #endif
@@ -4101,7 +4112,7 @@ void drbd_transport_shutdown(struct drbd_connection *connection, enum drbd_tr_fr
 	mutex_lock(&connection->mutex[DATA_STREAM]);
 	mutex_lock(&connection->mutex[CONTROL_STREAM]);
 
-#ifdef	_WIN_SEND_BUFFING
+#ifdef	_WIN_SEND_BUF
 	// bab is freed at ops->free (sock_release). and so, send-buffering threads must be terminated prior to ops->free.  
 	// CONNECTION_RESET is occured at this point by stop_send_buffring 
 	// connection->transport.ops->stop_send_buffring(&connection->transport);
@@ -4172,7 +4183,7 @@ void drbd_destroy_connection(struct kref *kref)
 	//
 	// destroy_bab
 	//
-#ifdef _WIN
+#ifdef _SEND_BUF
 	destroy_bab(connection);
 #endif
 

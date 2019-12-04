@@ -1014,7 +1014,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="data.c" />
     <ClCompile Include="disp.c" />
     <ClCompile Include="ops.c" />
-    <ClCompile Include="send_buf.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_send_buf.c" />
     <ClCompile Include="sub.c" />
     <ClCompile Include="thread.c" />
     <ClCompile Include="util.c" />
@@ -1076,7 +1076,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClInclude Include="bsrvfltmsg.h" />
     <ClInclude Include="bsrvfltse.h" />
     <ClInclude Include="proto.h" />
-    <ClInclude Include="send_buf.h" />
+    <ClInclude Include="..\..\..\bsr\bsr_send_buf.h" />
     <ClInclude Include="wsk_wrapper.h" />
   </ItemGroup>
   <ItemGroup>

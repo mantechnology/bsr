@@ -832,7 +832,7 @@ static bool conn_connect(struct drbd_connection *connection)
 	bool have_mutex;
 
 start:
-
+	
 	drbd_debug_conn("conn_connect\n"); 
 
 	have_mutex = false;
@@ -929,10 +929,10 @@ start:
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	have_mutex = false;
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
 	// DW-1436 removing the protocol dependency of the send buffer thread
 	if (nc->sndbuf_size >= DRBD_SNDBUF_SIZE_MIN) {
-		bool send_buffring = FALSE;
+		bool send_buffring = false;
 
 		send_buffring = transport->ops->start_send_buffring(transport, nc->sndbuf_size);
 		if (send_buffring)

@@ -18,11 +18,13 @@
 */
 
 
-#ifndef __WIN_SEND_BUFFING_H
-#define __WIN_SEND_BUFFING_H
-#ifndef _WIN_SEND_BUFFING
-#include "drbd_windows.h"	
-#include "wsk2.h"	
+#ifndef __SEND_BUF_H
+#define __SEND_BUF_H
+#ifdef _WIN
+#ifndef _WIN_SEND_BUF
+#include "drbd_windows.h"
+#include "wsk2.h"
+#endif
 #endif
 #define SENDER_IS_RECV			0
 #define SENDER_IS_ASEND			1
@@ -32,6 +34,12 @@
 #define SENDER_IS_UNDEF			-1
 
 // #define SENDBUF_TRACE // trace send buffring 
+
+#define IDX_STREAM 2 // BSR-12 for classification of Data and Control Stream.
+// BSR-12 send buffer event flag for linux
+#define SEND_BUF_KILLACK 1
+#define SEND_BUF_START 2
+#define RING_BUF_EVENT 3
 
 #ifdef SENDBUF_TRACE
 struct _send_req {
@@ -62,11 +70,20 @@ struct ring_buffer {
 };
 
 struct _buffering_attr {
+#ifdef _WIN_SEND_BUF
 	HANDLE send_buf_thread_handle;
 	KEVENT send_buf_kill_event;
 	KEVENT send_buf_killack_event;
 	KEVENT send_buf_thr_start_event;
 	KEVENT ring_buf_event;
+#else // _LIN_SEND_BUF
+	struct task_struct *send_buf_thread_handle;
+	bool send_buf_kill_event;
+	wait_queue_head_t send_buf_killack_event;
+	wait_queue_head_t send_buf_thr_start_event;
+	wait_queue_head_t ring_buf_event;
+	ULONG_PTR flags;
+#endif
 	struct ring_buffer *bab;
 	bool quit;
 };
@@ -77,14 +94,20 @@ typedef struct socket  socket;
 typedef struct drbd_transport  drbd_transport;
 typedef enum drbd_stream  drbd_stream;
 typedef struct drbd_connection  drbd_connection;
+typedef struct drbd_tcp_transport  drbd_tcp_transport;
 
 extern bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf);
 extern void destroy_bab(struct drbd_connection* connection);
 extern ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, signed long long length, enum drbd_stream stream);
 extern void destroy_ring_buffer(ring_buffer *ring);
 extern signed long long get_ring_buffer_size(ring_buffer *ring);
+extern signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_stream stream, ring_buffer *ring, const char *data, signed long long len, signed long long highwater, int retry);
+#ifdef _WIN_SEND_BUF
 //extern void read_ring_buffer(ring_buffer *ring, char *data, int len);
 extern bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen);
-extern signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_stream stream, ring_buffer *ring, const char *data, signed long long len, signed long long highwater, int retry);
 extern int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *socket, PVOID buf, LONG size);
+#else // _LIN_SEND_BUF
+extern bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen);
+extern int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, socket *socket, void *buf, size_t size);
 #endif
+#endif // __SEND_BUF_H

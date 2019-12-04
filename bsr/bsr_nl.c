@@ -3446,11 +3446,10 @@ _check_net_options(struct drbd_connection *connection, struct net_conf *old_net_
 	    new_net_conf->wire_protocol != DRBD_PROT_A)
 		return ERR_CONG_NOT_PROTO_A;
 
-#ifdef _WIN // DW-1436 sndbuf-size must be at least 10M 
+	// DW-1436 sndbuf-size must be at least 10M 
 	if (new_net_conf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN && new_net_conf->sndbuf_size > 0){
 		return ERR_SNDBUF_SIZE_TOO_SMALL;
 	}
-#endif 
 
 	return NO_ERROR;
 }
@@ -3597,7 +3596,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 
 
-#ifdef _WIN // _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
 	// DW-1436 unable to change send buffer size dynamically
 	if (connection->cstate[NOW] >= C_CONNECTED){
 		if (old_net_conf->sndbuf_size != new_net_conf->sndbuf_size){
@@ -4004,11 +4003,11 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	}
 	mutex_unlock(&adm_ctx->resource->conf_update);
 
-#ifdef _WIN // TODO _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
 	if(alloc_bab(connection, connection->transport.net_conf)) {
 	} else {
 	}
-#endif	
+#endif
 	drbd_debugfs_connection_add(connection); /* after ->net_conf was assigned */
 	drbd_thread_start(&connection->sender);
 	*ret_conn = connection;
