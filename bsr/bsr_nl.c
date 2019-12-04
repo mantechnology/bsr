@@ -3446,11 +3446,10 @@ _check_net_options(struct drbd_connection *connection, struct net_conf *old_net_
 	    new_net_conf->wire_protocol != DRBD_PROT_A)
 		return ERR_CONG_NOT_PROTO_A;
 
-#ifdef _WIN // DW-1436 sndbuf-size must be at least 10M 
+	// DW-1436 sndbuf-size must be at least 10M 
 	if (new_net_conf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN && new_net_conf->sndbuf_size > 0){
 		return ERR_SNDBUF_SIZE_TOO_SMALL;
 	}
-#endif 
 
 	return NO_ERROR;
 }
