@@ -32,7 +32,7 @@
 #include "bsr_int.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 #define EnterCriticalSection mutex_lock
 #define LeaveCriticalSection mutex_unlock
 
@@ -49,12 +49,16 @@ struct drbd_tcp_transport {
 	ULONG_PTR flags;
 	struct socket *stream[2];
 	struct buffer rbuf[2];
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 	struct _buffering_attr buffering_attr[2];
 #endif
 };
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
+#define FALSE false;
+#define TRUE true;
+#endif
+
 bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
 {
 	ring_buffer* ring = NULL;
@@ -69,15 +73,22 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			drbd_info(NO_OBJECT,"alloc bab fail nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			goto $ALLOC_FAIL;
 		}
+#ifdef _WIN_SEND_BUF
 		__try {
+#endif
 			sz = sizeof(*ring) + nconf->sndbuf_size;
+#ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
+#else // _LIN_SEND_BUF
+			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+#endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = nconf->sndbuf_size + 1;
+#ifdef _WIN_SEND_BUF
 		} __except(EXCEPTION_EXECUTE_HANDLER) {
 			drbd_info(NO_OBJECT,"EXCEPTION_EXECUTE_HANDLER alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
@@ -85,18 +96,26 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			}
 			goto $ALLOC_FAIL;
 		}
+#endif
 		
 		connection->ptxbab[DATA_STREAM] = ring;
+#ifdef _WIN_SEND_BUF
 		__try {
+#endif
 			sz = sizeof(*ring) + CONTROL_BUFF_SIZE; // meta bab is about 5MB
+#ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
+#else // _LIN_SEND_BUF
+			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+#endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
-				kfree(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
+				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = CONTROL_BUFF_SIZE + 1;
+#ifdef _WIN_SEND_BUF
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
 			drbd_info(NO_OBJECT,"EXCEPTION_EXECUTE_HANDLER alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
@@ -104,7 +123,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			}
 			goto $ALLOC_FAIL;
 		}
-		
+#endif
 		connection->ptxbab[CONTROL_STREAM] = ring;
 		
 	} while (false);
@@ -117,70 +136,11 @@ $ALLOC_FAIL:
 	connection->ptxbab[CONTROL_STREAM] = NULL;
 	return FALSE;
 }
-#else // _LIN_SEND_BUFFING
-bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
-{
-	ring_buffer* ring = NULL;
-	signed long long sz = 0;
-
-	if(0 == nconf->sndbuf_size) {
-		return false;
-	}
-
-	do {
-		if(nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN ) {
-			drbd_info(NO_OBJECT,"alloc bab fail nconf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
-			goto $ALLOC_FAIL;
-		}
-
-		sz = sizeof(*ring) + nconf->sndbuf_size;
-		ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
-		if(!ring) {
-			drbd_info(NO_OBJECT,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
-			goto $ALLOC_FAIL;
-		}
-		// DW-1927 Sets the size value when the buffer is allocated.
-		ring->length = nconf->sndbuf_size + 1;
-		connection->ptxbab[DATA_STREAM] = ring;
-
-		sz = sizeof(*ring) + CONTROL_BUFF_SIZE; // meta bab is about 5MB
-		ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
-		if(!ring) {
-			drbd_info(NO_OBJECT,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
-			kvfree(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
-			goto $ALLOC_FAIL;
-		}
-		// DW-1927 Sets the size value when the buffer is allocated.
-		ring->length = CONTROL_BUFF_SIZE + 1;
-		connection->ptxbab[CONTROL_STREAM] = ring;
-	} while (false);
-	
-	drbd_info(NO_OBJECT,"alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
-	return true;
-
-$ALLOC_FAIL:
-	connection->ptxbab[DATA_STREAM] = NULL;
-	connection->ptxbab[CONTROL_STREAM] = NULL;
-	return false;
-}
-#endif
 
 void destroy_bab(struct drbd_connection* connection)
 {
-	if(connection->ptxbab[DATA_STREAM]) {
-#ifdef _WIN_SEND_BUFFING
-		kfree2(connection->ptxbab[DATA_STREAM]);
-#else
-		kvfree(connection->ptxbab[DATA_STREAM]);
-#endif
-	} 
-	if(connection->ptxbab[CONTROL_STREAM]) {
-#ifdef _WIN_SEND_BUFFING
-		kfree2(connection->ptxbab[CONTROL_STREAM]);
-#else
-		kvfree(connection->ptxbab[CONTROL_STREAM]);
-#endif
-	}
+	kvfree2(connection->ptxbab[DATA_STREAM]);
+	kvfree2(connection->ptxbab[CONTROL_STREAM]);
 	return;
 }
 
@@ -215,7 +175,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 #ifdef SENDBUF_TRACE
 		INIT_LIST_HEAD(&ring->send_req_list);
 #endif
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
 #else
 		ring->static_big_buf = (char *)kvmalloc(MAX_ONETIME_SEND_BUF, GFP_KERNEL);
@@ -235,13 +195,9 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 void destroy_ring_buffer(ring_buffer *ring)
 {
 	if (ring) {
-#ifdef _WIN_SEND_BUFFING
-		kfree2(ring->static_big_buf);
-#else // _LIN_SEND_BUFFING
-		kvfree(ring->static_big_buf);
-#endif
+		kvfree2(ring->static_big_buf);
 		//ExFreePool(ring);
-		//kfree2(ring);
+ 		//kfree2(ring);
 	}
 }
 
@@ -263,7 +219,7 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 {
 	signed long long remain;
 	signed long long ringbuf_size = 0;
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 	LARGE_INTEGER	Interval;
 	Interval.QuadPart = (-1 * 100 * 10000);   //// wait 100ms relative
 #endif
@@ -279,22 +235,22 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 		do {
 			int loop = 0;
 			for (loop = 0; loop < retry; loop++) {
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 				msleep(100);
 #endif
 				struct drbd_tcp_transport *tcp_transport =
 					container_of(transport, struct drbd_tcp_transport, transport);
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 				if (tcp_transport->stream[stream]) {
 					if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
 						drbd_info(NO_OBJECT,"Stop send and quit\n");
 						return -EIO;
 					}
 				}
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 				if (tcp_transport) {
 					if (tcp_transport->buffering_attr[stream].quit == true)	{
 						drbd_info(NO_OBJECT,"Stop send and quit\n");
@@ -348,9 +304,9 @@ $GO_BUFFERING:
 	return len;
 }
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen)
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 #endif
 {
@@ -386,7 +342,7 @@ bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 	return 1;
 }
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *socket, PVOID buf, LONG size)
 {
 	struct _buffering_attr *buffering_attr = &socket->buffering_attr;
@@ -406,7 +362,7 @@ int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *
 	KeSetEvent(&buffering_attr->ring_buf_event, 0, FALSE);
 	return (int)size;
 }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, struct socket *socket, void *buf, size_t size)
 {
 	struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
@@ -444,7 +400,7 @@ int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, 
 }
 #endif
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
@@ -483,7 +439,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 
 	return ret;
 }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
@@ -529,7 +485,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 //
 // send buffring thread
 //
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 VOID NTAPI send_buf_thread(PVOID p)
 {
 	struct _buffering_attr *buffering_attr = (struct _buffering_attr *)p;
@@ -580,7 +536,7 @@ done:
 	drbd_info(NO_OBJECT,"sendbuf thread[%p] terminate!!\n",KeGetCurrentThread());
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 int send_buf_thread(void *p)
 {
 	struct drbd_tcp_transport *tcp_transport = (struct drbd_tcp_transport *)p;
@@ -618,4 +574,4 @@ int send_buf_thread(void *p)
 	return 0;
 }
 #endif
-#endif // _SEND_BUFFING
+#endif // _SEND_BUF

@@ -64,9 +64,12 @@
 #include "../bsr-headers/bsr_strings.h"
 #include "../bsr-headers/bsr.h"
 
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 #include "bsr_send_buf.h"
 #endif
+
+#define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
+#define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
 
 #ifdef __CHECKER__
 # define __protected_by(x)       __attribute__((require_context(x,1,999,"rdwr")))
@@ -1570,7 +1573,7 @@ struct drbd_connection {
 		/* position in change stream */
 		u64 current_dagtag_sector;
 	} send;
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 	ring_buffer* ptxbab[2];
 #endif	
 	unsigned int peer_node_id;

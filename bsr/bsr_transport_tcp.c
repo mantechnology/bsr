@@ -65,7 +65,7 @@ struct drbd_tcp_transport {
 	ULONG_PTR flags;
 	struct socket *stream[2];
 	struct buffer rbuf[2];
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 	struct _buffering_attr buffering_attr[2];
 #endif
 };
@@ -120,7 +120,7 @@ static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *
 static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport);
 static int dtt_add_path(struct drbd_transport *, struct drbd_path *path);
 static int dtt_remove_path(struct drbd_transport *, struct drbd_path *);
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 static bool dtt_start_send_buffring(struct drbd_transport *, signed long long size);
 static void dtt_stop_send_buffring(struct drbd_transport *);
 #endif
@@ -151,7 +151,7 @@ static struct drbd_transport_ops dtt_ops = {
 	.debugfs_show = dtt_debugfs_show,
 	.add_path = dtt_add_path,
 	.remove_path = dtt_remove_path,
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 	.start_send_buffring = dtt_start_send_buffring,
 	.stop_send_buffring = dtt_stop_send_buffring,
 #endif
@@ -247,7 +247,7 @@ fail:
 }
 
 // DW-1204 added argument bFlush.
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 static void dtt_free_one_sock(struct socket *socket, bool bFlush, struct _buffering_attr *attr)
 #else
 static void dtt_free_one_sock(struct socket *socket, bool bFlush)
@@ -259,13 +259,13 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 		synchronize_rcu();
 #endif
 
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 		// DW-1204 flushing send buffer takes too long when network is slow, just shut it down if possible.
 		if (!bFlush)
 			kernel_sock_shutdown(socket, SHUT_RDWR);
 		
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 		struct _buffering_attr *attr = &socket->buffering_attr;
         if (attr->send_buf_thread_handle) {
             KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
@@ -273,7 +273,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 			//ZwClose (attr->send_buf_thread_handle);
             attr->send_buf_thread_handle = NULL;
         }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 		if (attr->send_buf_thread_handle) {
 			attr->send_buf_kill_event = true;
             wait_event_interruptible_ex(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags), res);
@@ -312,7 +312,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 	for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
 		if (tcp_transport->stream[i]) {
 			// DW-1204 provide boolean if send buffer has to be flushed.
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 			dtt_free_one_sock(tcp_transport->stream[i], test_bit(DISCONNECT_FLUSH, &transport->flags), &tcp_transport->buffering_attr[i]);
 #else
 			dtt_free_one_sock(tcp_transport->stream[i], test_bit(DISCONNECT_FLUSH, &transport->flags));
@@ -320,7 +320,7 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 			clear_bit(DISCONNECT_FLUSH, &transport->flags);
 
 			tcp_transport->stream[i] = NULL;
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 			// BSR-12 NULL assignment of bab for reallocation on reconnection.
 			tcp_transport->buffering_attr[i].bab = NULL;
 #endif
@@ -394,7 +394,7 @@ static int _dtt_send(struct drbd_tcp_transport *tcp_transport, struct socket *so
  * otherwise wake_asender() might interrupt some send_*Ack !
  */
 #ifdef _WIN
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 		 // _dtt_send is only used when dtt_connect is processed(dtt_send_first_packet), at this time send buffering is not done yet.
 		rv = Send(socket, DataBuffer, (ULONG)iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, NULL, 0);
 #else
@@ -582,9 +582,13 @@ static void dtt_stats(struct drbd_transport *transport, struct drbd_transport_st
 #endif
 		// not supported
 		stats->send_buffer_size = sk->sk_sndbuf;
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
 		{
+#ifdef _WIN_SEND_BUF
 			struct _buffering_attr *buffering_attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
+#else // _LIN_SEND_BUF
+			struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[DATA_STREAM];
+#endif
 			struct ring_buffer *bab = buffering_attr->bab;
 			if (bab) {
 				stats->send_buffer_used = bab->sk_wmem_queued;
@@ -1174,7 +1178,7 @@ retry:
 		}
 	}
 
-#ifdef _WIN_SEND_BUFFING	
+#ifdef _WIN_SEND_BUF	
 	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
 #endif
 		
@@ -1284,6 +1288,11 @@ retry:
 			goto retry_locked;
 		}
 	}
+
+#ifdef _LIN_SEND_BUF	
+	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
+#endif
+
 	spin_unlock_bh(&listener->listener.waiters_lock);
 	*socket = s_estab;
 	*ret_path = path;
@@ -2206,14 +2215,14 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 			transport->ko_count = transport->net_conf->ko_count;
 		}
 
-#ifdef _WIN_SEND_BUFFING 
+#ifdef _WIN_SEND_BUF
 		sent = send_buf(transport, stream, socket, (void *)((unsigned char *)(page) +offset), len);
 		// WIN32_SEND_ERR_FIX: move we_should_drop_the_connection to inside of send_buf, because retransmission occurred
 #else
 		sent = Send(socket->sk, (void *)((unsigned char *)(page) + offset), len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, transport, stream);
 #endif
 #else // _LIN
-#ifdef _LIN_SEND_BUFFING
+#ifdef _LIN_SEND_BUF
 		// BSR-12
 		sent = send_buf(tcp_transport, stream, socket, (void *)((unsigned char *)(page_address(page)) +offset), len);
 #else		
@@ -2221,7 +2230,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 #endif
 #endif
 		if (sent <= 0) {
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
 			if (sent == -EAGAIN) 
 			{
 				break;
@@ -2456,8 +2465,8 @@ static void __exit dtt_cleanup(void)
 }
 #endif
 
-#ifdef _SEND_BUFFING
-#ifdef _WIN_SEND_BUFFING
+#ifdef _SEND_BUF
+#ifdef _WIN_SEND_BUF
 
 extern KSTART_ROUTINE send_buf_thread;
 
@@ -2531,7 +2540,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 	}
 	return FALSE;
 }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 extern int send_buf_thread(void *p);
 
 static bool dtt_start_send_buffring(struct drbd_transport *transport, signed long long size)
@@ -2607,7 +2616,7 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 }
 #endif
 
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 static void dtt_stop_send_buffring(struct drbd_transport *transport)
 {
 	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
@@ -2635,7 +2644,7 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 	}
 	return;
 }
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 static void dtt_stop_send_buffring(struct drbd_transport *transport)
 {
 	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
@@ -2664,7 +2673,7 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 	return;
 }
 #endif
-#endif // _SEND_BUFFING
+#endif // _SEND_BUF
 
 //#ifdef _LIN
 //module_init(dtt_initialize)

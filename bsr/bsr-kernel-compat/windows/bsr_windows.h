@@ -37,7 +37,7 @@
 //#define DRBD_TRACE				    // trace replication flow(basic)
 //#define DRBD_TRACE1				    // trace replication flow(detail)
 
-#define _WIN_SEND_BUFFING					// Use Send Buffering
+#define _WIN_SEND_BUF					// Use Send Buffering
 #define _WSK_SOCKETCONNECT
 #define _WIN_EVENTLOG			        // Windows Eventlog porting point
 #define _WIN_TMP_Win8_BUG_0x1a_61946
@@ -441,7 +441,7 @@ struct sock {
 	int sk_priority;
 	int sk_sndtimeo; //intptr_t 
 	int sk_rcvtimeo; //intptr_t
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 	// unused!
 #else
 	int sk_wmem_queued;
@@ -452,7 +452,7 @@ struct sock {
 };
 
 #include <wsk.h>
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 #include "../../../bsr/bsr_send_buf.h"
 #endif
 
@@ -474,7 +474,7 @@ struct socket {
 	struct sock *sk_linux_attr;
 	PWSK_SOCKET sk;
 	char name[32];
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 	struct _buffering_attr buffering_attr;
 #endif
 	int sk_state;
@@ -907,7 +907,6 @@ extern void * kmem_cache_alloc(void * cache, int flag, ULONG Tag);
 extern void kmem_cache_destroy(struct kmem_cache *s);
 extern struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align, unsigned long flags, void (*ctor)(void *), ULONG Tag);
 extern void kmem_cache_free(void * cache, void * x);
-#define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
 
 static __inline wait_queue_t initqueue(wait_queue_t *wq)
 {

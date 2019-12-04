@@ -929,12 +929,12 @@ start:
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	have_mutex = false;
 
-#ifdef _SEND_BUFFING
+#ifdef _SEND_BUF
 	// DW-1436 removing the protocol dependency of the send buffer thread
 	if (nc->sndbuf_size >= DRBD_SNDBUF_SIZE_MIN) {
-#ifdef _WIN_SEND_BUFFING
+#ifdef _WIN_SEND_BUF
 		bool send_buffring = FALSE;
-#else // _LIN_SEND_BUFFING
+#else // _LIN_SEND_BUF
 		bool send_buffring = false;
 #endif
 
