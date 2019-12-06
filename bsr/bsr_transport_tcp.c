@@ -619,10 +619,13 @@ static void dtt_setbufsize(struct socket *socket, signed long long snd,
     }
 #else // _LIN
 	/* open coded SO_SNDBUF, SO_RCVBUF */
+	// BSR-456 When using send buffer, socket buffer uses the default size.
+#ifndef _SEND_BUF
 	if (snd) {
 		socket->sk->sk_sndbuf = snd;
 		socket->sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
 	}
+#endif
 	if (rcv) {
 		socket->sk->sk_rcvbuf = rcv;
 		socket->sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
@@ -1538,7 +1541,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	SOCKADDR_IN ListenV4Addr = {0,};
 	SOCKADDR_IN6 ListenV6Addr = {0,};
 #else // _LIN
-	int err, sndbuf_size, rcvbuf_size, addr_len;
+	int err, rcvbuf_size, addr_len; signed long long sndbuf_size;
 #endif
 	SOCKADDR_STORAGE_EX my_addr;
 	struct dtt_listener *listener = NULL;
