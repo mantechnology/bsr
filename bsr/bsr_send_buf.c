@@ -80,7 +80,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 #ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
 #else // _LIN_SEND_BUF
-			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
@@ -106,7 +106,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 #ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
 #else // _LIN_SEND_BUF
-			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_KERNEL);
+			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
@@ -178,7 +178,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 #ifdef _WIN_SEND_BUF
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
 #else
-		ring->static_big_buf = (char *)kvmalloc(MAX_ONETIME_SEND_BUF, GFP_KERNEL);
+		ring->static_big_buf = (char *)kvmalloc(MAX_ONETIME_SEND_BUF, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
@@ -366,7 +366,7 @@ int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *
 int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, struct socket *socket, void *buf, size_t size)
 {
 	struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
-
+	
 	if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
 		struct kvec iov;
 		struct msghdr msg;
@@ -391,7 +391,7 @@ int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, 
 	signed long long highwater = (signed long long)tmp / 100; // 99% // refacto: global
 	// performance tuning point for delay time
 	int retry = socket->sk->sk_sndtimeo / 100;
-
+	
 	size = write_ring_buffer(&tcp_transport->transport, stream, buffering_attr->bab, buf, size, highwater, retry);
 
 	set_bit(RING_BUF_EVENT, &buffering_attr->flags);
