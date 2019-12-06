@@ -80,6 +80,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 #ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
 #else // _LIN_SEND_BUF
+			// BSR-453 Exception handling when there is not enough memory available
 			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if(!ring) {
@@ -106,6 +107,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 #ifdef _WIN_SEND_BUF
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
 #else // _LIN_SEND_BUF
+			// BSR-453 Exception handling when there is not enough memory available
 			ring = (ring_buffer*)kvmalloc((size_t)sz, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if(!ring) {
@@ -178,6 +180,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 #ifdef _WIN_SEND_BUF
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
 #else
+		// BSR-453 Exception handling when there is not enough memory available
 		ring->static_big_buf = (char *)kvmalloc(MAX_ONETIME_SEND_BUF, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 		if (!ring->static_big_buf) {
