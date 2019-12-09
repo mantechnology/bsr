@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿# BSR
+﻿﻿﻿﻿﻿﻿﻿# BSR
                            
 ## Synopsis
 Block Sync & Replication (BSR) is an open source project that implements software-based block replication over the network. It is based on a kernel-level replication engine and supports Windows and Linux cross-platform environments. BSR originally started out as a WDRBD project and only supported the Windows environment, but now extends to the Linux environment to support cross-platforms.
@@ -22,7 +22,7 @@ BSR is oriented towards FastSync. FastSync now performs synchronization only fas
 ### Improved replication/synchronization logics
 We improved performance by fundamentally solving the serious performance degradation problem that DRBD has.
 
-- DRBD suffers from severe performance degradation in low bandwidth asynchronous replication. Operating in asynchronous Ahead mode has a flaw in the DRBD implementation itself, causing performance degradation. We found that this problem is an internal bottleneck when a large number of replication requests are pending in the transfer log, and we effectively compensate for this problem.
+- DRBD9 has a bottleneck in DRBD internal logic and causes local I/O performance degradation when DRBD request increases dramatically in low band replication environment. We have redesigned the logic to manage the replication request separately so that local I/O is not affected even at low bandwidths.
 - AL and Resync LRUs are designed to cause problems if both replication and synchronization occur simultaneously in a cross-reference relationship. In real-world replication applications, We have experienced many problems with local bottlenecks caused by AL bottlenecks and delays in synchronization because Resync LRU and AL may interfere with or compete with each other. and so, we minimized the bottlenecks of AL that could affect local I/O and have modified the existing logic to compensate for the behavior of the Resync LRU and AL to not interfere with each other.
 
 ### Passthrough Disk I/O Error Policy
