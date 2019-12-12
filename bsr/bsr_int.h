@@ -102,7 +102,10 @@
 extern unsigned int minor_count;
 extern bool disable_sendpage;
 extern bool allow_oos;
-
+#ifdef _LIN_FAST_SYNC
+extern bool use_fast_sync; 
+extern bool debug_fast_sync; /* debugging log output to dmesg */
+#endif
 #ifdef CONFIG_DRBD_FAULT_INJECTION
 extern int enable_faults;
 extern int fault_rate;
@@ -992,12 +995,12 @@ enum {
 	FLUSH_PENDING,		/* if set, device->flush_jif is when we submitted that flush
 				 * from drbd_flush_after_epoch() */
 
-        /* cleared only after backing device related structures have been destroyed. */
-        GOING_DISKLESS,         /* Disk is being detached, because of io-error, or admin request. */
+	/* cleared only after backing device related structures have been destroyed. */
+	GOING_DISKLESS,         /* Disk is being detached, because of io-error, or admin request. */
 
-        /* to be used in drbd_device_post_work() */
-        GO_DISKLESS,            /* tell worker to schedule cleanup before detach */
-        DESTROY_DISK,           /* tell worker to close backing devices and destroy related structures. */
+	/* to be used in drbd_device_post_work() */
+	GO_DISKLESS,            /* tell worker to schedule cleanup before detach */
+	DESTROY_DISK,           /* tell worker to close backing devices and destroy related structures. */
 	MD_SYNC,		/* tell worker to call drbd_md_sync() */
 
 	HAVE_LDEV,
@@ -1336,9 +1339,7 @@ struct drbd_resource {
 	struct mutex conf_update;	/* for ready-copy-update of net_conf and disk_conf
 					   and devices, connection and peer_devices lists */
 	struct mutex adm_mutex;		/* mutex to serialize administrative requests */
-#ifdef _WIN
 	struct mutex vol_ctl_mutex;	// DW-1317 chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. 
-#endif
 	spinlock_t req_lock;
 	u64 dagtag_sector;		/* Protected by req_lock.
 					 * See also dagtag_sector in
@@ -1410,8 +1411,8 @@ struct drbd_resource {
 	bool bPreSecondaryLock;
 	bool bPreDismountLock; // DW-1286
 	bool bTempAllowMount;  // DW-1317
-	atomic_t bGetVolBitmapDone;  // DW-1391	
 #endif
+	atomic_t bGetVolBitmapDone;  // DW-1391	
 	bool breqbuf_overflow_alarm; // DW-1539
 #ifdef _WIN_MULTIVOL_THREAD
 	MVOL_THREAD			WorkThreadInfo;
@@ -2082,16 +2083,26 @@ extern int drbd_bitmap_io_from_worker(struct drbd_device *,
 		char *why, enum bm_flag flags,
 		struct drbd_peer_device *);
 extern int drbd_bmio_set_n_write(struct drbd_device *device, struct drbd_peer_device *) __must_hold(local);
-#ifdef _WIN
+
+
+// BSR-450
+#ifdef _LIN
+typedef struct bitmap_buffer {
+    long long int BitmapSize;
+    unsigned char Buffer[1];
+
+} VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
+#endif
+
 // DW-844
 extern bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device *, enum drbd_repl_state side, bool bitmap_lock) __must_hold(local);
-#endif
+extern bool isFastInitialSync(void) __must_hold(local);
+extern PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
+
 extern int drbd_bmio_clear_all_n_write(struct drbd_device *device, struct drbd_peer_device *) __must_hold(local);
 extern int drbd_bmio_set_all_n_write(struct drbd_device *device, struct drbd_peer_device *) __must_hold(local);
-#ifdef _WIN
 // DW-1293
 extern int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local);
-#endif
 extern bool drbd_device_stable(struct drbd_device *device, u64 *authoritative);
 
 
@@ -3407,10 +3418,8 @@ static inline bool drbd_state_is_stable(struct drbd_device *device)
 		case L_WF_BITMAP_S:
 			// DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
 			//if (peer_device->connection->agreed_pro_version < 96)
-#ifdef _WIN
 			// DW-1391 Allow IO while getting the volume bitmap.
 			if (atomic_read(&device->resource->bGetVolBitmapDone))
-#endif
 				stable = false;
 			break;
 

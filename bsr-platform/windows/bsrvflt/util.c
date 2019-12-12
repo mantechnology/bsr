@@ -700,7 +700,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 }
 
 // returns volume bitmap and cluster information.
-PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCluster, PULONG pulBytesPerCluster)
+PVOID GetVolumeBitmap(struct drbd_device *device, PULONGLONG pullTotalCluster, PULONG pulBytesPerCluster)
 {
 	PVOLUME_BITMAP_BUFFER pVbb = NULL;
 	HANDLE hVolume = NULL;
@@ -712,24 +712,24 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 	if (NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		drbd_err(NO_OBJECT,"Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
+		drbd_err(device, "Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
 		return NULL;
 	}
 
 	if (KeGetCurrentIrql() > PASSIVE_LEVEL) {
-		drbd_err(NO_OBJECT,"Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
+		drbd_err(device, "Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
 		return NULL;
 	}
 
 	do {
-		hVolume = GetVolumeHandleFromDeviceMinor(minor);
+		hVolume = GetVolumeHandleFromDeviceMinor(device->minor);
 		if (NULL == hVolume) {
-			drbd_err(NO_OBJECT,"Could not get volume handle from minor(%u)\n", minor);
+			drbd_err(device, "Could not get volume handle from minor(%u)\n", device->minor);
 			break;
 		}
 				
 		if (FALSE == GetClusterInfoWithVolumeHandle(hVolume, pullTotalCluster, pulBytesPerCluster)) {
-			drbd_err(NO_OBJECT,"Could not get cluster information\n");
+			drbd_err(device, "Could not get cluster information\n");
 			break;
 		}
 
@@ -737,14 +737,14 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		
 		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16DW');
 		if (NULL == pVbb) {
-			drbd_err(NO_OBJECT,"pVbb allocation failed\n");
+			drbd_err(device, "pVbb allocation failed\n");
 			break;
 		}
 				
 		slib.StartingLcn.QuadPart = 0;
 		status = ZwFsControlFile(hVolume, NULL, NULL, NULL, &ioStatus, FSCTL_GET_VOLUME_BITMAP, &slib, sizeof(slib), pVbb, ulBitmapSize);
 		if (!NT_SUCCESS(status)) {
-			drbd_err(NO_OBJECT,"ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
+			drbd_err(device, "ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
 			break;
 		}
 				
@@ -767,112 +767,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmap(unsigned int minor, PULONGLONG pullTotalCl
 		}
 	}
 
-	return pVbb;
-}
-
-/* drbd assumes bytes per cluster as 4096. convert if need.
-ex:
-      2048 bytes    ->    4096 bytes
-       00110100              0110
-
-        16 kb       ->    4096 bytes
-        0110           00001111 11110000
-*/
-BOOLEAN ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG bytesPerCluster, ULONG ulDrbdBitmapUnit)
-{
-	int readCount = 1;
-	int writeCount = 1;
-
-	if (NULL == pVbb ||
-		NULL == pVbb->Buffer ||
-		NULL == pConverted)
-	{
-		drbd_err(NO_OBJECT,"Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
-		return FALSE;
-	}
-
-	writeCount = (bytesPerCluster / ulDrbdBitmapUnit) + (bytesPerCluster < ulDrbdBitmapUnit);	// drbd bits count affected by a bit of volume bitmap. maximum value : 16
-	readCount = (ulDrbdBitmapUnit / bytesPerCluster) + (bytesPerCluster > ulDrbdBitmapUnit);	// volume bits count to be converted into a drbd bit. maximum value : 8
-	
-	PCHAR pByte = (PCHAR)pVbb->Buffer;
-
-	for (LONGLONG ullBytePos = 0; ullBytePos < (pVbb->BitmapSize.QuadPart + 1) / BITS_PER_BYTE; ullBytePos += 1) {
-		for (ULONGLONG ullBitPos = 0; ullBitPos < BITS_PER_BYTE; ullBitPos += readCount) {
-			CHAR pBit = (pByte[ullBytePos] >> ullBitPos) & ((1 << readCount) - 1);
-
-			if (pBit) {
-				ULONGLONG ullBitPosTotal = ((ullBytePos * BITS_PER_BYTE + ullBitPos) * writeCount) / readCount;
-				ULONGLONG ullBytePos = ullBitPosTotal / BITS_PER_BYTE;
-				ULONGLONG ullBitPosInByte = ullBitPosTotal % BITS_PER_BYTE;
-
-				for (int i = 0; i <= (writeCount - 1) / BITS_PER_BYTE; i++) {
-					CHAR setBits = (1 << (writeCount - i * BITS_PER_BYTE)) - 1;
-
-					if (i == 1)
-						ullBitPosInByte = 0;
-					pConverted[ullBytePos + i] |= (setBits << ullBitPosInByte);
-				}
-			}
-		}
-	}
-
-	return TRUE;
-}
-
-PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit)
-{
-	PVOLUME_BITMAP_BUFFER pVbb = NULL;
-	PVOLUME_BITMAP_BUFFER pDrbdBitmap = NULL;
-	ULONG ulConvertedBitmapSize = 0;
-	ULONGLONG ullTotalCluster = 0;
-	ULONG ulBytesPerCluster = 0;
-
-	do {
-		// Get volume bitmap, bytes per cluster can be 512bytes ~ 64kb
-		pVbb = GetVolumeBitmap(minor, &ullTotalCluster, &ulBytesPerCluster);
-		if (NULL == pVbb) {
-			drbd_err(NO_OBJECT,"Could not get volume bitmap, minor(%u)\n", minor);
-			break;
-		}
-
-		// use file system returned volume bitmap if it's compatible with drbd.
-		if (ulBytesPerCluster == ulDrbdBitmapUnit) {
-			pDrbdBitmap = pVbb;
-			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
-			pDrbdBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
-			pVbb = NULL;
-		}
-		else {
-			// Convert gotten bitmap into 4kb unit cluster bitmap.
-			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulDrbdBitmapUnit;
-			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
-
-			pDrbdBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56DW');
-			if (NULL == pDrbdBitmap) {
-				drbd_err(NO_OBJECT,"pConvertedBitmap allocation failed\n");
-				break;
-			}
-
-			pDrbdBitmap->StartingLcn.QuadPart = 0;
-			pDrbdBitmap->BitmapSize.QuadPart = ulConvertedBitmapSize;
-
-			RtlZeroMemory(pDrbdBitmap->Buffer, (size_t)(pDrbdBitmap->BitmapSize.QuadPart));
-			if (FALSE == ConvertVolumeBitmap(pVbb, (PCHAR)pDrbdBitmap->Buffer, ulBytesPerCluster, ulDrbdBitmapUnit)) {
-				drbd_err(NO_OBJECT,"Could not convert bitmap, ulBytesPerCluster(%u), ulDrbdBitmapUnit(%u)\n", ulBytesPerCluster, ulDrbdBitmapUnit);
-				ExFreePool(pDrbdBitmap);
-				pDrbdBitmap = NULL;
-				break;
-			}
-		}
-
-	} while (false);
-
-	if (NULL != pVbb) {
-		ExFreePool(pVbb);
-		pVbb = NULL;
-	}
-
-	return (PVOLUME_BITMAP_BUFFER)pDrbdBitmap;
+	return (PVOLUME_BITMAP_BUFFER)pVbb;
 }
 #endif
 
@@ -1516,27 +1411,6 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		);
 
 	return 0;
-}
-
-BOOLEAN isFastInitialSync()
-{
-	ULONG ulLength = 0;
-	int nTemp = 0;
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
-	PROOT_EXTENSION pRootExtension = NULL;
-	BOOLEAN bRet = FALSE;
-
-	pRootExtension = mvolRootDeviceObject->DeviceExtension;
-
-	if (NULL != pRootExtension) {
-		status = GetRegistryValue(L"use_fast_sync", &ulLength, (UCHAR*)&nTemp, &pRootExtension->RegistryPath);
-		if (status == STATUS_SUCCESS)
-			bRet = (nTemp ? TRUE : FALSE);
-	}
-
-	drbd_info(NO_OBJECT,"Fast sync %s\n", bRet ? "enabled" : "disabled");
-	
-	return bRet;
 }
 
 // DW-1327 notifies callback object with given name and parameter.

@@ -1380,10 +1380,9 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 	mutex_lock(&adm_ctx.resource->adm_mutex);
-#ifdef _WIN
+
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 
 	if (info->genlhdr->cmd == DRBD_ADM_PRIMARY) {
 		// DW-839 not support diskless Primary
@@ -1499,10 +1498,8 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	}
 
 fail:
-#ifdef _WIN
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 out:
 	drbd_adm_finish(&adm_ctx, info, (enum drbd_ret_code)retcode);
@@ -6384,10 +6381,9 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	resource = adm_ctx.resource;
 
 	mutex_lock(&resource->adm_mutex);
-#ifdef _WIN
+
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 
 #ifdef _WIN
 	if (get_t_state(&resource->worker) != RUNNING) {		
@@ -6499,15 +6495,11 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 		retcode = conn_try_disconnect(connection, 0, adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
 			mutex_lock(&resource->conf_update);
-#ifdef _WIN
 			// BSR-418 vol_ctl_mutex deadlock in function SetOOSAllocatedCluster()
 			mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 			del_connection(connection);
-#ifdef _WIN
 			// BSR-418 
 			mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 
 			mutex_unlock(&resource->conf_update);
 		} else {
@@ -6547,10 +6539,8 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	/* holding a reference to resource in adm_crx until drbd_adm_finish() */
 	mutex_unlock(&resource->conf_update);
 out:
-#ifdef _WIN
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
-#endif
 	mutex_unlock(&resource->adm_mutex);
 	drbd_adm_finish(&adm_ctx, info, retcode);
 	return 0;

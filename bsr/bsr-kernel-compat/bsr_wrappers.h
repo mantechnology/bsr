@@ -63,6 +63,11 @@
 #define UINTPTR_MAX		ULONG_MAX
 
 #define LONGLONG		long long int
+#define ULONGLONG		unsigned long long
+#define ULONG			unsigned int
+#define PCHAR			char *
+#define CHAR			char
+#define PVOID			void *
 
 #define atomic_t64				atomic64_t
 #define atomic_add64			atomic64_add

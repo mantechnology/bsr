@@ -1216,6 +1216,7 @@ extern bool is_equal_volume_link(
 
 extern void dumpHex(const void *b, const size_t s, size_t w);	
 extern void ResolveDriveLetters(void);
+extern NTSTATUS GetRegistryValue(PCWSTR pwcsValueName, ULONG *pReturnLength, UCHAR *pucReturnBuffer, PUNICODE_STRING pRegistryPath);
 
 extern VOID MVOL_LOCK();
 extern VOID MVOL_UNLOCK();
@@ -1225,9 +1226,7 @@ extern NTSTATUS FsctlLockVolume(unsigned int minor);
 extern NTSTATUS FsctlUnlockVolume(unsigned int minor);
 extern NTSTATUS FsctlFlushVolume(unsigned int minor);
 extern NTSTATUS FsctlCreateVolume(unsigned int minor);
-// DW-844
-extern PVOID GetVolumeBitmapForDrbd(unsigned int minor, ULONG ulDrbdBitmapUnit);
-extern BOOLEAN isFastInitialSync();
+
 // DW-1327
 extern NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam);
 extern NTSTATUS SetDrbdlockIoBlock(PVOLUME_EXTENSION pVolumeExtension, bool bBlock);
