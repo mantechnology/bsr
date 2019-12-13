@@ -142,6 +142,7 @@ struct ext_group_desc {
 
 
 #define EXT_DEFAULT_DESC_SIZE		32
+#define EXT_MIN_DESC_SIZE_64BIT		64
 #define EXT_DEFAULT_BLOCK_SIZE		1024
 
 #define EXT_SUPER_BLOCK_OFFSET		1024

@@ -93,17 +93,19 @@ static char * read_superblock(struct file *fd)
 
 PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *ext_sb)
 {
-	unsigned int group_count =0;
+	unsigned long group_count = 0;
 	unsigned int group_no;
 	unsigned int read_size;
 	long long int bitmap_size;
 	unsigned short desc_size;
 	PVOLUME_BITMAP_BUFFER bitmap_buf;
 	ULONGLONG total_block;
-	ULONG bytes_per_block;
 	ssize_t ret;
 	loff_t offset, group_desc_offset;
-	unsigned int free_blocks_co = 0;
+	unsigned long free_blocks_co = 0;	
+	unsigned long bytes_per_block;
+	unsigned long first_data_block = le32_to_cpu(ext_sb->s_first_data_block);
+	unsigned long blocks_per_group = le32_to_cpu(ext_sb->s_blocks_per_group);
 
 	
 	if (ext_sb->s_feature_incompat & cpu_to_le32(EXT_FEATURE_INCOMPAT_META_BG)) {
@@ -112,14 +114,11 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		return NULL;
 	}
 
-	
-	total_block = ext_sb->s_blocks_count_lo;
-	bytes_per_block = EXT_DEFAULT_BLOCK_SIZE << ext_sb->s_log_block_size;
+	total_block = ((ULONGLONG)le32_to_cpu(ext_sb->s_blocks_count_hi) << 32) | le32_to_cpu(ext_sb->s_blocks_count_lo);
+	bytes_per_block = EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size);
+	group_count = (total_block - first_data_block + blocks_per_group - 1) / blocks_per_group;
 
-	group_count = 1 + (total_block-1) / ext_sb->s_blocks_per_group;
-	
-
-	bitmap_size = total_block / BITS_PER_BYTE;
+	bitmap_size = (total_block / BITS_PER_BYTE) + 1;
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
@@ -138,7 +137,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 			goto fail_and_free;
 		}
 
-		desc_size = ext_sb->s_desc_size;
+		desc_size = le16_to_cpu(ext_sb->s_desc_size);
 	}
 	else {
 		desc_size = EXT_DEFAULT_DESC_SIZE;
@@ -146,17 +145,17 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 	if (debug_fast_sync) {
 		drbd_info(NO_OBJECT, "=============================\n");
-		drbd_info(NO_OBJECT, "s_first_data_block : %u \n", ext_sb->s_first_data_block);
-		drbd_info(NO_OBJECT, "s_blocks_count_lo : %u \n", ext_sb->s_blocks_count_lo);	
-		drbd_info(NO_OBJECT, "s_blocks_per_group : %u \n", ext_sb->s_blocks_per_group);
+		drbd_info(NO_OBJECT, "first_data_block : %lu \n", first_data_block);
+		drbd_info(NO_OBJECT, "total block count : %llu \n", total_block);	
+		drbd_info(NO_OBJECT, "blocks_per_group : %lu \n", blocks_per_group);
 		drbd_info(NO_OBJECT, "group descriptor size : %u \n", desc_size);
-		drbd_info(NO_OBJECT, "block size : %u \n", bytes_per_block);
+		drbd_info(NO_OBJECT, "block size : %lu \n", bytes_per_block);
 		drbd_info(NO_OBJECT, "bitmap size : %lld \n", bitmap_size);
-		drbd_info(NO_OBJECT, "group count : %u \n", group_count);
+		drbd_info(NO_OBJECT, "group count : %lu \n", group_count);
 		drbd_info(NO_OBJECT, "=============================\n");
 	}
 
-	group_desc_offset = bytes_per_block * (ext_sb->s_first_data_block + 1);
+	group_desc_offset = bytes_per_block * (first_data_block + 1);
 	read_size = bytes_per_block;
 
 	for (group_no = 0; group_no < group_count; group_no++) {
@@ -166,11 +165,12 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		unsigned int first_block = 0;
 		unsigned int last_block = 0;
 		bool block_uninit = false;
+		unsigned long long bg_block_bitmap;
 		
 		
 		if (debug_fast_sync) {
-			first_block = group_no * ext_sb->s_blocks_per_group + ext_sb->s_first_data_block;
-			last_block = first_block + (ext_sb->s_blocks_per_group - 1);
+			first_block = group_no * blocks_per_group + first_data_block;
+			last_block = first_block + (blocks_per_group - 1);
 			if (last_block > total_block - 1) {
 				last_block = total_block - 1;
 			}
@@ -191,17 +191,19 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		
 		block_uninit = group_desc.bg_flags & cpu_to_le16(EXT_BG_BLOCK_UNINIT);
 			
-		if (!group_desc.bg_block_bitmap_lo) {
+		if (!le32_to_cpu(group_desc.bg_block_bitmap_lo)) {
 			drbd_err(NO_OBJECT, "failed to read bg_block_bitmap_lo\n");
 			goto fail_and_free;
 		}
 
-
+		bg_block_bitmap = le32_to_cpu(group_desc.bg_block_bitmap_lo) |
+					(desc_size >= EXT_MIN_DESC_SIZE_64BIT ?
+					(ULONGLONG)le32_to_cpu(group_desc.bg_block_bitmap_hi) << 32 : 0);
 		
 		if (debug_fast_sync) {
 			drbd_info(NO_OBJECT, "Group %u (Blocks %u ~ %u) \n", group_no, first_block, last_block);
-			drbd_info(NO_OBJECT, "block bitmap : %u\n", group_desc.bg_block_bitmap_lo);
-			drbd_info(NO_OBJECT, "block bitmap offset : %u\n", group_desc.bg_block_bitmap_lo * bytes_per_block);
+			drbd_info(NO_OBJECT, "block bitmap : %llu\n", bg_block_bitmap);
+			drbd_info(NO_OBJECT, "block bitmap offset : %llu\n", bg_block_bitmap * bytes_per_block);
 		}
 
 
@@ -209,7 +211,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 			if (debug_fast_sync) {
 				drbd_info(NO_OBJECT, "skip BLOCK_UNINIT group\n");
 				drbd_info(NO_OBJECT, "=============================\n");
-				free_blocks_co += free;
+				free_blocks_co += bytes_per_block * BITS_PER_BYTE;
 			}
 			continue;
 		}
@@ -218,7 +220,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 				read_size = bitmap_size - (group_no * bytes_per_block);
 
 		// Move position to bitmap block
-		offset = fd->f_op->llseek(fd, group_desc.bg_block_bitmap_lo * bytes_per_block, SEEK_SET);
+		offset = fd->f_op->llseek(fd, bg_block_bitmap * bytes_per_block, SEEK_SET);
 		if (offset < 0) {
 			drbd_err(NO_OBJECT, "failed to lseek bitmap_block (err=%lld)\n", offset);
 			goto fail_and_free;
@@ -238,14 +240,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		if (debug_fast_sync) {
 
 			used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
-							ext_sb->s_blocks_per_group,
-							ext_sb->s_first_data_block,
+							blocks_per_group,
+							first_data_block,
 							last_block - first_block + 1);
 			drbd_info(NO_OBJECT, "used block count : %d\n", used);
 
 			free = ext_free_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
-							ext_sb->s_blocks_per_group,
-							ext_sb->s_first_data_block, 
+							blocks_per_group,
+							first_data_block, 
 							last_block - first_block + 1);
 			drbd_info(NO_OBJECT, "free block count : %d\n", free);
 			drbd_info(NO_OBJECT, "=============================\n");
@@ -254,7 +256,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 	}
 	if (debug_fast_sync) {
-		drbd_info(NO_OBJECT, "free_blocks : %u\n", free_blocks_co);
+		drbd_info(NO_OBJECT, "free_blocks : %lu\n", free_blocks_co);
 	}
 
 	return bitmap_buf;
@@ -271,11 +273,12 @@ fail_and_free:
 
 bool is_ext_fs(struct ext_super_block *ext_sb)
 {
-	if (ext_sb->s_magic == cpu_to_le16(EXT_MAGIC) && 
-		ext_sb->s_blocks_count_lo > 0 && 
-		ext_sb->s_blocks_per_group > 0 && 
-		ext_sb->s_inodes_per_group > 0 ) {
-		// TODO : add more condition
+	if (le16_to_cpu(ext_sb->s_magic) == EXT_MAGIC && 
+		le32_to_cpu(ext_sb->s_blocks_count_lo) > 0 && 
+		le32_to_cpu(ext_sb->s_blocks_per_group) > 0 && 
+		le32_to_cpu(ext_sb->s_inodes_per_group) > 0 &&
+		EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size) > 0 &&
+		le16_to_cpu(ext_sb->s_inode_size) > 0 ) {
 		return true;
 	}
 
@@ -314,8 +317,8 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 		// for ext-filesystem
 		struct ext_super_block *ext_sb = (struct ext_super_block *)(super_block + EXT_SUPER_BLOCK_OFFSET);
 
-		*ptotal_block = ext_sb->s_blocks_count_lo;
-		*pbytes_per_block = EXT_DEFAULT_BLOCK_SIZE << ext_sb->s_log_block_size;
+		*ptotal_block = le32_to_cpu(ext_sb->s_blocks_count_lo);
+		*pbytes_per_block = EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size);
 
 		bitmap_buf = read_ext_bitmap(fd, ext_sb);
 	}
