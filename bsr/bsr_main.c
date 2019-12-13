@@ -6174,7 +6174,7 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 #ifdef _WIN
 	bitmapSize = (pVbb->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
 #else // _LIN
-	bitmapSize = pVbb->BitmapSize + 1;
+	bitmapSize = pVbb->BitmapSize;
 #endif
 
 	for (ullBytePos = 0; ullBytePos < bitmapSize; ullBytePos += 1) {

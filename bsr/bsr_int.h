@@ -2096,7 +2096,7 @@ typedef struct bitmap_buffer {
 
 // DW-844
 extern bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device *, enum drbd_repl_state side, bool bitmap_lock) __must_hold(local);
-extern bool isFastInitialSync(void) __must_hold(local);
+extern bool isFastInitialSync(void);
 extern PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
 
 extern int drbd_bmio_clear_all_n_write(struct drbd_device *device, struct drbd_peer_device *) __must_hold(local);
@@ -3416,8 +3416,10 @@ static inline bool drbd_state_is_stable(struct drbd_device *device)
 
 			/* Allow IO in BM exchange states with new protocols */
 		case L_WF_BITMAP_S:
-			// DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
-			//if (peer_device->connection->agreed_pro_version < 96)
+			
+#if 0 // DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
+			if (peer_device->connection->agreed_pro_version < 96)
+#endif
 			// DW-1391 Allow IO while getting the volume bitmap.
 			if (atomic_read(&device->resource->bGetVolBitmapDone))
 				stable = false;

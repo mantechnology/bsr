@@ -450,8 +450,6 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
 	int msg_flags = 0;
-	struct kvec iov;
-	struct msghdr msg;
 
 	if (bab == NULL) {
 		drbd_err(NO_OBJECT,"bab is null.\n");
@@ -460,12 +458,12 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 
 	while (true) {
 		long long tx_sz = 0;
+		struct kvec iov;
+		struct msghdr msg;
 
 		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
 			break;
 		}
-
-		
 
 		iov.iov_base = bab->static_big_buf;
 		iov.iov_len  = (unsigned long)tx_sz;
