@@ -1536,12 +1536,14 @@ static int dtt_create_listener(struct drbd_transport *transport,
 {
 #ifdef _WIN
 	//int err = 0, sndbuf_size, rcvbuf_size; 
-	int err = 0, rcvbuf_size; signed long long sndbuf_size;
+	int err = 0, rcvbuf_size;
+	signed long long sndbuf_size;
 	NTSTATUS status;
 	SOCKADDR_IN ListenV4Addr = {0,};
 	SOCKADDR_IN6 ListenV6Addr = {0,};
 #else // _LIN
-	int err, rcvbuf_size, addr_len; signed long long sndbuf_size;
+	int err, rcvbuf_size, addr_len;
+	signed long long sndbuf_size;
 #endif
 	SOCKADDR_STORAGE_EX my_addr;
 	struct dtt_listener *listener = NULL;

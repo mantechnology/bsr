@@ -3,6 +3,7 @@
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
 #include "ext_fs.h"
+#include "xfs_fs.h"
 
 #define EXT_MAGIC		0xEF53		/* EXT2_SUPER_MAGIC, EXT3_SUPER_MAGIC, EXT4_SUPER_MAGIC*/
 #define XFS_MAGIC		0x58465342	/* XFS_SUPER_MAGIC, XFS_SB_MAGIC */
@@ -285,6 +286,166 @@ bool is_ext_fs(struct ext_super_block *ext_sb)
 	return false;
 }
 
+PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
+{
+	unsigned int ag_count = 0;
+	unsigned int ag_no = 0;
+	//unsigned int agf_root = 0;
+	int blk_size = 0;
+	int sect_size = 0;
+	unsigned short bb_level = 0;
+	unsigned short bb_numrecs = 0;
+	int bb_numrecs_no = 0;
+	int bb_leftsib = 0;
+	int bb_rightsib = 0;
+	//xfs_agf_t agf;
+	struct xfs_btree_block btsb;
+	xfs_alloc_rec_t ar;
+	long long int bitmap_size;
+	PVOLUME_BITMAP_BUFFER bitmap_buf;
+	ULONGLONG total_block;
+	ULONGLONG free_bits_co = 0;
+	ULONGLONG free_blocks_co = 0;
+	loff_t offset, ag_blocks_offset = 0;
+	int startbit = 0;
+	int bitcount = 0;
+	int bitcount_no = 0;
+	int ret = 0;
+	
+	ag_count = be32_to_cpu(xfs_sb->sb_agcount);
+	ag_blocks_offset = be32_to_cpu(xfs_sb->sb_agblocks);
+	blk_size = be32_to_cpu(xfs_sb->sb_blocksize);
+	sect_size = be16_to_cpu(xfs_sb->sb_sectsize);
+	total_block = be64_to_cpu(xfs_sb->sb_dblocks);
+
+	bitmap_size = (total_block / BITS_PER_BYTE) + 1;
+	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
+
+	if (bitmap_buf == NULL) {
+		drbd_err(NO_OBJECT, "bitmap_buf allocation failed\n");
+		return NULL;
+	}
+
+	bitmap_buf->BitmapSize = bitmap_size;
+	memset(bitmap_buf->Buffer, 0xFF, bitmap_buf->BitmapSize);
+
+	if (debug_fast_sync) {
+		drbd_info(NO_OBJECT, "=============================\n");
+		drbd_info(NO_OBJECT, "ag_count : %d \n", ag_count);
+		drbd_info(NO_OBJECT, "total block count : %llu \n", total_block);	
+		drbd_info(NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
+		drbd_info(NO_OBJECT, "block size : %d \n", blk_size);
+		drbd_info(NO_OBJECT, "sector size : %d \n", sect_size);
+		drbd_info(NO_OBJECT, "=============================\n");
+	}
+
+	for (ag_no = 0; ag_no < ag_count; ag_no++) {
+		/* TODO? : find first leaf block using ptr node */
+		// read ag free space block
+		// Move position to bitmap btree root block
+		// read bitmap btree root block
+		// Move position to ptr offset
+		// read bitmap ptr node
+		// find first btree leaf block
+
+		// Move position to btree first leaf block
+		offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + 1) * blk_size, SEEK_SET);
+		if (offset < 0) {
+			drbd_err(NO_OBJECT, "failed to lseek first leaf node of btree_block (err=%lld)\n", offset);
+			goto fail_and_free;
+		}
+
+		// read free block btree first leaf block
+		ret = fd->f_op->read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+		if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
+			drbd_err(NO_OBJECT, "failed to read first leaf node of btree_block (err=%d)\n", ret);
+			goto fail_and_free;
+		}
+
+		bb_level = be16_to_cpu(btsb.bb_level);
+		if(bb_level != 0) {
+			drbd_err(NO_OBJECT, "failed to read leaf node (err=%hd)\n", bb_level);
+			goto fail_and_free;
+		}
+		bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
+
+		if (debug_fast_sync) {
+			drbd_info(NO_OBJECT, "[ag_no:%d] first leaf node bb_level : %hd bb_numrecs : %hd\n", ag_no, bb_level, bb_numrecs);
+		}
+
+		do {
+			if(bb_rightsib > 0) {
+				offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + bb_rightsib) * blk_size, SEEK_SET);
+				if (offset < 0) {
+					drbd_err(NO_OBJECT, "failed to lseek secondary btree_block (err=%lld)\n", offset);
+					goto fail_and_free;
+				}
+				
+				// read free block btree secondary leaf block
+				ret = fd->f_op->read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+				if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
+					drbd_err(NO_OBJECT, "failed to read secondary btree_block (err=%d)\n", ret);
+					goto fail_and_free;
+				}
+
+				bb_level = be16_to_cpu(btsb.bb_level);
+				if(bb_level != 0) {
+					drbd_err(NO_OBJECT, "failed to read secondary leaf node (err=%hd)\n", bb_level);
+					goto fail_and_free;
+				}
+				bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
+			}
+			
+			for(bb_numrecs_no = 0 ; bb_numrecs_no < bb_numrecs ; bb_numrecs_no++) {
+				// read free block info
+				ret = fd->f_op->read(fd, (char *)&ar, sizeof(xfs_alloc_rec_t), &fd->f_pos);
+				offset = ((ag_blocks_offset * ag_no) + be32_to_cpu(ar.ar_startblock)) / BITS_PER_BYTE;
+				startbit = ((ag_blocks_offset * ag_no) + be32_to_cpu(ar.ar_startblock)) % BITS_PER_BYTE;
+				bitcount = be32_to_cpu(ar.ar_blockcount);
+
+				// convert free block info to bitmap
+				for(bitcount_no = startbit ; bitcount_no < (bitcount + startbit) ; bitcount_no++) {
+					// set bitmap bit to '0' for free block
+					bitmap_buf->Buffer[offset + (bitcount_no/BITS_PER_BYTE)] &= ~(1 << (bitcount_no % BITS_PER_BYTE));
+					free_bits_co++;
+				}
+
+				free_blocks_co += bitcount;
+			}
+
+			bb_leftsib = be32_to_cpu(btsb.bb_u.s.bb_leftsib);
+			bb_rightsib = be32_to_cpu(btsb.bb_u.s.bb_rightsib);
+
+		} while(bb_rightsib > 0);
+
+	}
+	if (debug_fast_sync) {
+		drbd_info(NO_OBJECT, "total free_blocks : %llu free_bits : %llu\n", free_blocks_co, free_bits_co);
+	}
+
+	return bitmap_buf;
+
+fail_and_free:
+	if (bitmap_buf != NULL) {
+		kfree(bitmap_buf);
+		bitmap_buf = NULL;
+	}
+	
+	return NULL;
+}
+
+
+bool is_xfs_fs(struct xfs_sb *xfs_sb)
+{
+	if (xfs_sb->sb_magicnum == cpu_to_be32(XFS_SB_MAGIC) && 
+		be64_to_cpu(xfs_sb->sb_dblocks) > 0 && 
+		be32_to_cpu(xfs_sb->sb_agblocks) > 0 &&
+		be32_to_cpu(xfs_sb->sb_agcount) > 0) {
+		return true;
+	}
+
+	return false;
+}
 
 PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
 {
@@ -322,10 +483,19 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 
 		bitmap_buf = read_ext_bitmap(fd, ext_sb);
 	}
-	else /* if (is_xfs_fs((struct xfs_super_block *)super_block))*/ {
-		// TODO : for xfs filesystem
-	}
+	else if (is_xfs_fs((struct xfs_sb *)super_block)){
+		// for xfs filesystem
+		struct xfs_sb *xfs_sb = (struct xfs_sb *)super_block;
 
+		*ptotal_block = be64_to_cpu(xfs_sb->sb_dblocks);
+		*pbytes_per_block = be32_to_cpu(xfs_sb->sb_blocksize);
+
+		// TODO : journal flush for free space block updates
+		//if(!xfs_sb_version_haslazysbcount(xfs_sb))
+			bitmap_buf = read_xfs_bitmap(fd, xfs_sb);
+		//else
+		//	drbd_info(NO_OBJECT, "Fast sync is not available in xfs due to the lazysbcount flag.(sb_features2 : 0x%x)\n", be32_to_cpu(xfs_sb->sb_features2));
+	}
 
 fail_and_close:
 	filp_close(fd, NULL);
