@@ -6275,6 +6275,8 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	ULONG_PTR count = 0;
 	// DW-1317 to support fast sync from secondary sync source whose volume is NOT mounted.
 	bool bSecondary = false;
+	struct drbd_bitmap *bitmap = device->bitmap;
+	int bmi = peer_device->bitmap_index;
 
 	if (NULL == device ||
 		NULL == peer_device ||
@@ -6367,6 +6369,8 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 #endif
 	} while (false);
 
+	drbd_info(peer_device, "%lu bits(%lu KB) have been set as out-of-sync\n", bitmap->bm_set[bmi], (bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
+
 	// DW-1495 Change location due to deadlock(bm_change)
 	// Set out-of-sync for allocated cluster.
 	if (bitmap_lock)
@@ -6380,7 +6384,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		bRet = false;
 	}
 	else{
-		drbd_info(peer_device, "%lu bits(%lu KB) are set as out-of-sync\n", count, (count << (BM_BLOCK_SHIFT - 10)));
+		drbd_info(peer_device, "%lu bits(%lu KB) are set as new out-of-sync\n", count, (count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
 		
