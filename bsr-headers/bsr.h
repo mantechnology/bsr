@@ -542,4 +542,7 @@ enum {
 // BSR-326
 // #define _TRACE_PEER_DAGTAG		// trace peer_dagtag, last_dagtag 
 
+// BSR-458
+#define READ_BYPASS_TO_BACKING_BDEV
+
 #endif
