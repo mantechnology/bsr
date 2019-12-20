@@ -2531,6 +2531,7 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 	NTSTATUS	status;
 #endif
 
+#ifdef _LIN
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 	// BSR-458
 	if(rw == READ) {
@@ -2539,8 +2540,6 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 		MAKE_REQUEST_RETURN;
 	}
 #endif
-
-#ifdef _LIN
 	/* We never supported BIO_RW_BARRIER.
 	 * We don't need to, anymore, either: starting with kernel 2.6.36,
 	 * we have REQ_FUA and REQ_PREFLUSH, which will be handled transparently
