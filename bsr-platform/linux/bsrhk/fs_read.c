@@ -336,6 +336,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		drbd_info(NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
 		drbd_info(NO_OBJECT, "block size : %d \n", blk_size);
 		drbd_info(NO_OBJECT, "sector size : %d \n", sect_size);
+		drbd_info(NO_OBJECT, "bitmap size : %lld \n", bitmap_buf->BitmapSize);
 		drbd_info(NO_OBJECT, "=============================\n");
 	}
 
@@ -452,21 +453,25 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 	struct file *fd;
 	PVOLUME_BITMAP_BUFFER bitmap_buf = NULL;
 	char * super_block = NULL;
-
 	char disk_name[512] = {0};
-	
     mm_segment_t old_fs = get_fs();
 	
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
     set_fs(KERNEL_DS);
-	
-
 
 	fd = filp_open(disk_name, O_RDONLY, 0);
-
 	if (fd == NULL || IS_ERR(fd)) {
 		drbd_err(device, "%s open failed\n", disk_name);
 		goto fail;
+	}
+
+	if(device->this_bdev->bd_super) {
+		// journal log flush
+		freeze_super(device->this_bdev->bd_super);
+
+		// meta flush
+		fsync_bdev(device->this_bdev);
+		invalidate_bdev(device->this_bdev);
 	}
 
 	super_block = read_superblock(fd);
@@ -500,6 +505,10 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 fail_and_close:
 	filp_close(fd, NULL);
 	set_fs(old_fs);
+
+	if(device->this_bdev->bd_super) {
+		thaw_super(device->this_bdev->bd_super);
+	}
 fail:
 	if (bitmap_buf)
 		return (PVOLUME_BITMAP_BUFFER)bitmap_buf;
