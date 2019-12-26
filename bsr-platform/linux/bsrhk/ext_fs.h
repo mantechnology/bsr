@@ -141,17 +141,75 @@ struct ext_group_desc {
 };
 
 
-#define EXT_DEFAULT_DESC_SIZE		32
+
+
+#define EXT_FEATURE_COMPAT_HAS_JOURNAL		0x0004
+
+#define EXT_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008 /* Journal device */
+#define EXT_FEATURE_INCOMPAT_META_BG	0x0010
+#define EXT_FEATURE_INCOMPAT_64BIT		0x0080
+
+
+
+#define EXT_FEATURE_COMPAT_FUNCS(name, flagname) \
+static inline bool ext_has_feature_##name(struct ext_super_block *sb) \
+{ \
+	return ((sb->s_feature_compat & \
+		cpu_to_le32(EXT_FEATURE_COMPAT_##flagname)) != 0); \
+} \
+
+#define EXT_FEATURE_INCOMPAT_FUNCS(name, flagname) \
+static inline bool ext_has_feature_##name(struct ext_super_block *sb) \
+{ \
+	return ((sb->s_feature_incompat & \
+		cpu_to_le32(EXT_FEATURE_INCOMPAT_##flagname)) != 0); \
+} \
+
+
+EXT_FEATURE_COMPAT_FUNCS(has_journal,		HAS_JOURNAL)
+
+
+EXT_FEATURE_INCOMPAT_FUNCS(journal_dev,	JOURNAL_DEV)
+EXT_FEATURE_INCOMPAT_FUNCS(meta_bg,		META_BG)
+EXT_FEATURE_INCOMPAT_FUNCS(64bit,		64BIT)
+
+
+#define EXT_MIN_BLOCK_SIZE		1024
+#define EXT_BLOCK_SIZE(s)		(EXT_MIN_BLOCK_SIZE << le32_to_cpu((s)->s_log_block_size))
+
+#define EXT_MIN_DESC_SIZE		32
 #define EXT_MIN_DESC_SIZE_64BIT		64
-#define EXT_DEFAULT_BLOCK_SIZE		1024
+
+static inline unsigned long long ext_blocks_count(struct ext_super_block *es)
+{
+	if(ext_has_feature_64bit(es)) {
+		return ((unsigned long long)le32_to_cpu(es->s_blocks_count_hi) << 32) |
+			le32_to_cpu(es->s_blocks_count_lo);
+	}
+	else {
+		return le32_to_cpu(es->s_blocks_count_lo);
+	}
+}
+
+
+unsigned long long ext_block_bitmap(struct ext_super_block *sb,
+			       struct ext_group_desc *bg)
+{
+	return le32_to_cpu(bg->bg_block_bitmap_lo) |
+		(sb->s_desc_size >= EXT_MIN_DESC_SIZE_64BIT ?
+		 (unsigned long long)le32_to_cpu(bg->bg_block_bitmap_hi) << 32 : 0);
+}
+
+
 
 #define EXT_SUPER_BLOCK_OFFSET		1024
 #define EXT_SUPER_BLOCK_SIZE		1024
+#define EXT_SUPER_MAGIC				0xEF53		/* EXT2_SUPER_MAGIC, EXT3_SUPER_MAGIC, EXT4_SUPER_MAGIC*/
 
 
 #define EXT_BG_BLOCK_UNINIT	0x0002	/* Block bitmap not in use */
 
-#define EXT_FEATURE_INCOMPAT_META_BG	0x0010
-#define EXT_FEATURE_INCOMPAT_64BIT		0x0080
+
+
 
 #endif

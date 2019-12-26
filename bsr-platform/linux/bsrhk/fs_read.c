@@ -5,10 +5,6 @@
 #include "ext_fs.h"
 #include "xfs_fs.h"
 
-#define EXT_MAGIC		0xEF53		/* EXT2_SUPER_MAGIC, EXT3_SUPER_MAGIC, EXT4_SUPER_MAGIC*/
-#define XFS_MAGIC		0x58465342	/* XFS_SUPER_MAGIC, XFS_SB_MAGIC */
-
-
 // for ext-fs debugging
 int ext_used_blocks(unsigned int group, char * bitmap,
 			unsigned int nbytes, unsigned int offset, unsigned int count)
@@ -109,14 +105,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	unsigned long blocks_per_group = le32_to_cpu(ext_sb->s_blocks_per_group);
 
 	
-	if (ext_sb->s_feature_incompat & cpu_to_le32(EXT_FEATURE_INCOMPAT_META_BG)) {
+	if (ext_has_feature_meta_bg(ext_sb)) {
 		drbd_info(NO_OBJECT, "EXT_FEATURE_INCOMPAT_META_BG is set. fastsync not support \n");
 		// TODO : support MEAT_BG
 		return NULL;
 	}
-
-	total_block = ((ULONGLONG)le32_to_cpu(ext_sb->s_blocks_count_hi) << 32) | le32_to_cpu(ext_sb->s_blocks_count_lo);
-	bytes_per_block = EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size);
+	
+	total_block = ext_blocks_count(ext_sb);
+	bytes_per_block = EXT_BLOCK_SIZE(ext_sb);
 	group_count = (total_block - first_data_block + blocks_per_group - 1) / blocks_per_group;
 
 	bitmap_size = (total_block / BITS_PER_BYTE) + 1;
@@ -132,7 +128,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	memset(bitmap_buf->Buffer, 0, bitmap_buf->BitmapSize);
 
 
-	if ((ext_sb->s_feature_incompat & cpu_to_le32(EXT_FEATURE_INCOMPAT_64BIT))) {
+	if (ext_has_feature_64bit(ext_sb)) {
 		if (!ext_sb->s_desc_size) {
 			drbd_err(NO_OBJECT, "wrong s_desc_size\n");
 			goto fail_and_free;
@@ -141,7 +137,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		desc_size = le16_to_cpu(ext_sb->s_desc_size);
 	}
 	else {
-		desc_size = EXT_DEFAULT_DESC_SIZE;
+		desc_size = EXT_MIN_DESC_SIZE;
 	}
 
 	if (debug_fast_sync) {
@@ -191,15 +187,12 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}	
 		
 		block_uninit = group_desc.bg_flags & cpu_to_le16(EXT_BG_BLOCK_UNINIT);
-			
-		if (!le32_to_cpu(group_desc.bg_block_bitmap_lo)) {
-			drbd_err(NO_OBJECT, "failed to read bg_block_bitmap_lo\n");
+		bg_block_bitmap = ext_block_bitmap(ext_sb, &group_desc);
+
+		if (!bg_block_bitmap) {
+			drbd_err(NO_OBJECT, "failed to read bg_block_bitmap\n");
 			goto fail_and_free;
 		}
-
-		bg_block_bitmap = le32_to_cpu(group_desc.bg_block_bitmap_lo) |
-					(desc_size >= EXT_MIN_DESC_SIZE_64BIT ?
-					(ULONGLONG)le32_to_cpu(group_desc.bg_block_bitmap_hi) << 32 : 0);
 		
 		if (debug_fast_sync) {
 			drbd_info(NO_OBJECT, "Group %u (Blocks %u ~ %u) \n", group_no, first_block, last_block);
@@ -274,12 +267,12 @@ fail_and_free:
 
 bool is_ext_fs(struct ext_super_block *ext_sb)
 {
-	if (le16_to_cpu(ext_sb->s_magic) == EXT_MAGIC && 
+	if (le16_to_cpu(ext_sb->s_magic) == EXT_SUPER_MAGIC && 
 		le32_to_cpu(ext_sb->s_blocks_count_lo) > 0 && 
 		le32_to_cpu(ext_sb->s_blocks_per_group) > 0 && 
 		le32_to_cpu(ext_sb->s_inodes_per_group) > 0 &&
-		EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size) > 0 &&
-		le16_to_cpu(ext_sb->s_inode_size) > 0 ) {
+		le16_to_cpu(ext_sb->s_inode_size) > 0  && 
+		EXT_BLOCK_SIZE(ext_sb) > 0) {
 		return true;
 	}
 
@@ -462,13 +455,13 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 	fd = filp_open(disk_name, O_RDONLY, 0);
 	if (fd == NULL || IS_ERR(fd)) {
 		drbd_err(device, "%s open failed\n", disk_name);
-		goto fail;
+		goto out;
 	}
 
 	if(device->this_bdev->bd_super) {
 		// journal log flush
-		freeze_super(device->this_bdev->bd_super);
-
+		freeze_bdev(device->this_bdev);
+	
 		// meta flush
 		fsync_bdev(device->this_bdev);
 		invalidate_bdev(device->this_bdev);
@@ -476,15 +469,15 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 
 	super_block = read_superblock(fd);
 	if (super_block == NULL) {		
-		goto fail_and_close;
+		goto close;
 	}
 
 	if (is_ext_fs((struct ext_super_block *)(super_block + EXT_SUPER_BLOCK_OFFSET))) {
 		// for ext-filesystem
 		struct ext_super_block *ext_sb = (struct ext_super_block *)(super_block + EXT_SUPER_BLOCK_OFFSET);
 
-		*ptotal_block = le32_to_cpu(ext_sb->s_blocks_count_lo);
-		*pbytes_per_block = EXT_DEFAULT_BLOCK_SIZE << le32_to_cpu(ext_sb->s_log_block_size);
+		*ptotal_block = ext_blocks_count(ext_sb);
+		*pbytes_per_block = EXT_BLOCK_SIZE(ext_sb);
 
 		bitmap_buf = read_ext_bitmap(fd, ext_sb);
 	}
@@ -502,14 +495,15 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 		//	drbd_info(NO_OBJECT, "Fast sync is not available in xfs due to the lazysbcount flag.(sb_features2 : 0x%x)\n", be32_to_cpu(xfs_sb->sb_features2));
 	}
 
-fail_and_close:
+close:
 	filp_close(fd, NULL);
 	set_fs(old_fs);
 
 	if(device->this_bdev->bd_super) {
-		thaw_super(device->this_bdev->bd_super);
+		thaw_bdev(device->this_bdev, device->this_bdev->bd_super);
 	}
-fail:
+
+out:
 	if (bitmap_buf)
 		return (PVOLUME_BITMAP_BUFFER)bitmap_buf;
 	else 
