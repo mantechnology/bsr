@@ -115,7 +115,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	bytes_per_block = EXT_BLOCK_SIZE(ext_sb);
 	group_count = (total_block - first_data_block + blocks_per_group - 1) / blocks_per_group;
 
-	bitmap_size = (total_block / BITS_PER_BYTE) + 1;
+	bitmap_size = ALIGN(total_block, BITS_PER_BYTE) / BITS_PER_BYTE;
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
@@ -311,7 +311,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	sect_size = be16_to_cpu(xfs_sb->sb_sectsize);
 	total_block = be64_to_cpu(xfs_sb->sb_dblocks);
 
-	bitmap_size = (total_block / BITS_PER_BYTE) + 1;
+	bitmap_size = ALIGN(total_block, BITS_PER_BYTE) / BITS_PER_BYTE;
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
@@ -476,7 +476,7 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 		// for ext-filesystem
 		struct ext_super_block *ext_sb = (struct ext_super_block *)(super_block + EXT_SUPER_BLOCK_OFFSET);
 
-		*ptotal_block = ext_blocks_count(ext_sb);
+		*ptotal_block = ALIGN(ext_blocks_count(ext_sb), BITS_PER_BYTE);
 		*pbytes_per_block = EXT_BLOCK_SIZE(ext_sb);
 
 		bitmap_buf = read_ext_bitmap(fd, ext_sb);
@@ -485,7 +485,7 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 		// for xfs filesystem
 		struct xfs_sb *xfs_sb = (struct xfs_sb *)super_block;
 
-		*ptotal_block = be64_to_cpu(xfs_sb->sb_dblocks);
+		*ptotal_block = ALIGN(be64_to_cpu(xfs_sb->sb_dblocks), BITS_PER_BYTE);
 		*pbytes_per_block = be32_to_cpu(xfs_sb->sb_blocksize);
 
 		// TODO : journal flush for free space block updates
