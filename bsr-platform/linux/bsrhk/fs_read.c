@@ -16,12 +16,12 @@ int ext_used_blocks(unsigned int group, char * bitmap,
 	drbd_info(NO_OBJECT, "used_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
-		if (test_bit_le(i, bitmap)) {
+		if (test_bit_le(i, (void *)bitmap)) {
 			used++;
 			if (p)
 				printk(", ");
 			printk("%u", i + offset);
-			for (j = ++i; j < count && test_bit_le(j, bitmap); j++)
+			for (j = ++i; j < count && test_bit_le(j, (void *)bitmap); j++)
 				used++;
 			if (--j != i) {
 				printk("-");
@@ -47,12 +47,12 @@ int ext_free_blocks(unsigned int group, char * bitmap,
 	drbd_info(NO_OBJECT, "free_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
-		if (!test_bit_le(i, bitmap)) {
+		if (!test_bit_le(i, (void *)bitmap)) {
 			free++;
 			if (p)
 				printk(", ");
 			printk("%u", i + offset);
-			for (j = ++i; j < count && !test_bit_le(j, bitmap); j++)
+			for (j = ++i; j < count && !test_bit_le(j, (void *)bitmap); j++)
 				free++;
 			if (--j != i) {
 				printk("-");
