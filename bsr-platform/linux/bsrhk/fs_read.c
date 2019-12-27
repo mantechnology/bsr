@@ -111,6 +111,20 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		return NULL;
 	}
 	
+	// get size of group descriptor
+	if (ext_has_feature_64bit(ext_sb)) {
+		if (!ext_sb->s_desc_size) {
+			drbd_err(NO_OBJECT, "wrong s_desc_size\n");
+			return NULL;
+		}
+
+		desc_size = le16_to_cpu(ext_sb->s_desc_size);
+	}
+	else {
+		desc_size = EXT_MIN_DESC_SIZE;
+	}
+
+	
 	total_block = ext_blocks_count(ext_sb);
 	bytes_per_block = EXT_BLOCK_SIZE(ext_sb);
 	group_count = (total_block - first_data_block + blocks_per_group - 1) / blocks_per_group;
@@ -126,19 +140,6 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 	bitmap_buf->BitmapSize = bitmap_size;
 	memset(bitmap_buf->Buffer, 0, bitmap_buf->BitmapSize);
-
-
-	if (ext_has_feature_64bit(ext_sb)) {
-		if (!ext_sb->s_desc_size) {
-			drbd_err(NO_OBJECT, "wrong s_desc_size\n");
-			goto fail_and_free;
-		}
-
-		desc_size = le16_to_cpu(ext_sb->s_desc_size);
-	}
-	else {
-		desc_size = EXT_MIN_DESC_SIZE;
-	}
 
 	if (debug_fast_sync) {
 		drbd_info(NO_OBJECT, "=============================\n");
@@ -447,10 +448,10 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 	PVOLUME_BITMAP_BUFFER bitmap_buf = NULL;
 	char * super_block = NULL;
 	char disk_name[512] = {0};
-    mm_segment_t old_fs = get_fs();
+	mm_segment_t old_fs = get_fs();
 	
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
-    set_fs(KERNEL_DS);
+	set_fs(KERNEL_DS);
 
 	fd = filp_open(disk_name, O_RDONLY, 0);
 	if (fd == NULL || IS_ERR(fd)) {
@@ -493,6 +494,9 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 			bitmap_buf = read_xfs_bitmap(fd, xfs_sb);
 		//else
 		//	drbd_info(NO_OBJECT, "Fast sync is not available in xfs due to the lazysbcount flag.(sb_features2 : 0x%x)\n", be32_to_cpu(xfs_sb->sb_features2));
+	}
+	else {
+		drbd_warn(device, "(%s) not supported for fast sync.\n", disk_name);
 	}
 
 close:

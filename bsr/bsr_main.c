@@ -6219,8 +6219,8 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForDrbd(struct drbd_device *device, ULONG u
 		// use file system returned volume bitmap if it's compatible with drbd.
 		if (ulBytesPerCluster == ulDrbdBitmapUnit) {
 			pDrbdBitmap = pVbb;
-			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
 #ifdef _WIN
+			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
 			pDrbdBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
 #endif
 			pVbb = NULL;
