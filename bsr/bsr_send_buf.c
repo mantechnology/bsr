@@ -59,6 +59,16 @@ struct drbd_tcp_transport {
 #define TRUE true;
 #endif
 
+void *bsr_kvmalloc(size_t size, gfp_t flags)
+{
+	void *ret;
+
+	ret = kmalloc(size, flags | __GFP_NOWARN, '');
+	if (!ret)
+		ret = __vmalloc(size, flags, PAGE_KERNEL);
+	return ret;
+}
+
 bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf) 
 {
 	ring_buffer* ring = NULL;
@@ -81,12 +91,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
 #else // _LIN_SEND_BUF
 			// BSR-453 Exception handling when there is not enough memory available
-			ring = (ring_buffer*)kmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN, '');
-			if (!ring) {
-				ring = (ring_buffer*)__vmalloc((size_t)sz,
-					GFP_ATOMIC | __GFP_NOWARN,
-					PAGE_KERNEL);
-			}
+			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc data bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
@@ -113,12 +118,7 @@ bool alloc_bab(struct drbd_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
 #else // _LIN_SEND_BUF
 			// BSR-453 Exception handling when there is not enough memory available
-			ring = (ring_buffer*)kmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN, '');
-			if (!ring) {
-				ring = (ring_buffer*)__vmalloc((size_t)sz,
-					GFP_ATOMIC | __GFP_NOWARN,
-					PAGE_KERNEL);
-			}
+			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
 				drbd_info(NO_OBJECT,"alloc meta bab fail connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
@@ -191,12 +191,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
 #else
 		// BSR-453 Exception handling when there is not enough memory available
-		ring->static_big_buf = (char *)kmalloc(MAX_ONETIME_SEND_BUF, GFP_ATOMIC | __GFP_NOWARN, '');
-		if (!ring->static_big_buf) {
-			ring->static_big_buf = (char *)__vmalloc(MAX_ONETIME_SEND_BUF,
-				GFP_ATOMIC | __GFP_NOWARN,
-				PAGE_KERNEL);
-		}
+		ring->static_big_buf = (char *)bsr_kvmalloc(MAX_ONETIME_SEND_BUF, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
