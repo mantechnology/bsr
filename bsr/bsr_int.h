@@ -3730,4 +3730,7 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 	return true;
 }
 
+// BSR-453
+extern void *bsr_kvmalloc(size_t size, gfp_t flags);
+
 #endif
