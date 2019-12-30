@@ -357,6 +357,16 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			goto fail_and_free;
 		}
 
+		// check if xfs version5
+		if (!xfs_sb_version_hascrc(xfs_sb)) {
+			// offset is reduced if not version5 because the structure changed since version5.
+			offset = fd->f_op->llseek(fd, -XFS_BTREE_SHDR_ADDITIONAL_SIZE_TO_VERSION_5, SEEK_CUR);
+			if (offset < 0) {
+				drbd_err(NO_OBJECT, "failed to lseek reduced addition size of btree_block since version5(err=%lld)\n", offset);
+				goto fail_and_free;
+			}
+		}
+
 		bb_level = be16_to_cpu(btsb.bb_level);
 		if(bb_level != 0) {
 			drbd_err(NO_OBJECT, "failed to read leaf node (err=%hd)\n", bb_level);

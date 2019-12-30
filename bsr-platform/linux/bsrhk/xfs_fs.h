@@ -50,6 +50,8 @@ typedef __u32			xfs_nlink_t;
 #define XFS_SB_VERSION2_LAZYSBCOUNTBIT	0x00000002	/* Superblk counters */
 
 #define	XFS_SB_VERSION_NUM(sbp)	((sbp)->sb_versionnum & be16_to_cpu(XFS_SB_VERSION_NUMBITS))
+
+#define XFS_BTREE_SHDR_ADDITIONAL_SIZE_TO_VERSION_5 40
 /*
  * Structure of the super block
  * 
@@ -153,6 +155,14 @@ static inline bool xfs_sb_version_haslazysbcount(struct xfs_sb *sbp)
 	return (XFS_SB_VERSION_NUM(sbp) == XFS_SB_VERSION_5) ||
 	       (xfs_sb_version_hasmorebits(sbp) &&
 		(sbp->sb_features2 & be32_to_cpu(XFS_SB_VERSION2_LAZYSBCOUNTBIT)));
+}
+
+/*
+ * V5 superblock specific feature checks
+ */
+static inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp)
+{
+	return XFS_SB_VERSION_NUM(sbp) == XFS_SB_VERSION_5;
 }
 
 /*
@@ -289,6 +299,7 @@ struct xfs_btree_block_shdr {
 	__be32		bb_leftsib;
 	__be32		bb_rightsib;
 
+	/* version 5 filesystem fields start here */
 	__be64		bb_blkno;
 	__be64		bb_lsn;
 	uuid_t		bb_uuid;
@@ -301,6 +312,7 @@ struct xfs_btree_block_lhdr {
 	__be64		bb_leftsib;
 	__be64		bb_rightsib;
 
+	/* version 5 filesystem fields start here */
 	__be64		bb_blkno;
 	__be64		bb_lsn;
 	uuid_t		bb_uuid;
