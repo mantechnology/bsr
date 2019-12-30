@@ -221,19 +221,15 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 			goto fail_and_free;
 		}
 
-
 		// read bitmap block
 		ret = fd->f_op->read(fd, &bitmap_buf->Buffer[bytes_per_block * group_no], read_size, &fd->f_pos);
-		
-		
-		drbd_err(NO_OBJECT, "read bitmap_block (%ld)\n", ret);
 		if (ret < 0 || ret != read_size) {
 			drbd_err(NO_OBJECT, "failed to read bitmap_block (err=%ld)\n", ret);
 			goto fail_and_free;
 		}
 
 		if (debug_fast_sync) {
-
+			drbd_info(NO_OBJECT, "read bitmap_block (%ld)\n", ret);
 			used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
 							blocks_per_group,
 							first_data_block,
@@ -301,8 +297,9 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	ULONGLONG free_bits_co = 0;
 	ULONGLONG free_blocks_co = 0;
 	loff_t offset, ag_blocks_offset = 0;
+	int startblock = 0;
+	int blockcount = 0;
 	int startbit = 0;
-	int bitcount = 0;
 	int bitcount_no = 0;
 	int ret = 0;
 	
@@ -325,6 +322,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 
 	if (debug_fast_sync) {
 		drbd_info(NO_OBJECT, "=============================\n");
+		drbd_info(NO_OBJECT, "version : %d \n", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
 		drbd_info(NO_OBJECT, "ag_count : %d \n", ag_count);
 		drbd_info(NO_OBJECT, "total block count : %llu \n", total_block);	
 		drbd_info(NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
@@ -404,18 +402,24 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			for(bb_numrecs_no = 0 ; bb_numrecs_no < bb_numrecs ; bb_numrecs_no++) {
 				// read free block info
 				ret = fd->f_op->read(fd, (char *)&ar, sizeof(xfs_alloc_rec_t), &fd->f_pos);
-				offset = ((ag_blocks_offset * ag_no) + be32_to_cpu(ar.ar_startblock)) / BITS_PER_BYTE;
-				startbit = ((ag_blocks_offset * ag_no) + be32_to_cpu(ar.ar_startblock)) % BITS_PER_BYTE;
-				bitcount = be32_to_cpu(ar.ar_blockcount);
+				startblock = be32_to_cpu(ar.ar_startblock);
+				blockcount = be32_to_cpu(ar.ar_blockcount);
+
+				offset = ((ag_blocks_offset * ag_no) + startblock) / BITS_PER_BYTE;
+				startbit = ((ag_blocks_offset * ag_no) + startblock) % BITS_PER_BYTE;
 
 				// convert free block info to bitmap
-				for(bitcount_no = startbit ; bitcount_no < (bitcount + startbit) ; bitcount_no++) {
+				for(bitcount_no = startbit ; bitcount_no < (blockcount + startbit) ; bitcount_no++) {
+					if(offset + (bitcount_no/BITS_PER_BYTE) >= bitmap_buf->BitmapSize) {
+						drbd_err(NO_OBJECT, "failed to read free block info, bitmap buffer overflow! (startblock:%d, blockcount:%d)\n", startblock, blockcount);
+						goto fail_and_free;
+					}
 					// set bitmap bit to '0' for free block
 					bitmap_buf->Buffer[offset + (bitcount_no/BITS_PER_BYTE)] &= ~(1 << (bitcount_no % BITS_PER_BYTE));
 					free_bits_co++;
 				}
 
-				free_blocks_co += bitcount;
+				free_blocks_co += blockcount;
 			}
 
 			bb_leftsib = be32_to_cpu(btsb.bb_u.s.bb_leftsib);

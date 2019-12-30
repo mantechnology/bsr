@@ -162,7 +162,7 @@ static inline bool xfs_sb_version_haslazysbcount(struct xfs_sb *sbp)
  */
 static inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp)
 {
-	return XFS_SB_VERSION_NUM(sbp) == XFS_SB_VERSION_5;
+	return be16_to_cpu(XFS_SB_VERSION_NUM(sbp)) == XFS_SB_VERSION_5;
 }
 
 /*
