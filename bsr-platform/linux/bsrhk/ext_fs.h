@@ -180,28 +180,6 @@ EXT_FEATURE_INCOMPAT_FUNCS(64bit,		64BIT)
 #define EXT_MIN_DESC_SIZE		32
 #define EXT_MIN_DESC_SIZE_64BIT		64
 
-static inline unsigned long long ext_blocks_count(struct ext_super_block *es)
-{
-	if(ext_has_feature_64bit(es)) {
-		return ((unsigned long long)le32_to_cpu(es->s_blocks_count_hi) << 32) |
-			le32_to_cpu(es->s_blocks_count_lo);
-	}
-	else {
-		return le32_to_cpu(es->s_blocks_count_lo);
-	}
-}
-
-
-unsigned long long ext_block_bitmap(struct ext_super_block *sb,
-			       struct ext_group_desc *bg)
-{
-	return le32_to_cpu(bg->bg_block_bitmap_lo) |
-		(sb->s_desc_size >= EXT_MIN_DESC_SIZE_64BIT ?
-		 (unsigned long long)le32_to_cpu(bg->bg_block_bitmap_hi) << 32 : 0);
-}
-
-
-
 #define EXT_SUPER_BLOCK_OFFSET		1024
 #define EXT_SUPER_BLOCK_SIZE		1024
 #define EXT_SUPER_MAGIC				0xEF53		/* EXT2_SUPER_MAGIC, EXT3_SUPER_MAGIC, EXT4_SUPER_MAGIC*/
@@ -209,7 +187,14 @@ unsigned long long ext_block_bitmap(struct ext_super_block *sb,
 
 #define EXT_BG_BLOCK_UNINIT	0x0002	/* Block bitmap not in use */
 
-
-
+inline unsigned long long ext_blocks_count(struct ext_super_block *es);
+unsigned long long ext_block_bitmap(struct ext_super_block *sb,
+			       struct ext_group_desc *bg);
+int ext_used_blocks(unsigned int group, char * bitmap,
+			unsigned int nbytes, unsigned int offset, unsigned int count);
+int ext_free_blocks(unsigned int group, char * bitmap,
+			unsigned int nbytes, unsigned int offset, unsigned int count);
+PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *ext_sb);
+bool is_ext_fs(struct ext_super_block *ext_sb);
 
 #endif

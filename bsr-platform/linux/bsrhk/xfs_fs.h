@@ -142,29 +142,6 @@ typedef struct xfs_sb {
 	/* must be padded to 64 bit alignment */
 } xfs_sb_t;
 
-static inline bool xfs_sb_version_hasmorebits(struct xfs_sb *sbp)
-{
-	return XFS_SB_VERSION_NUM(sbp) == XFS_SB_VERSION_5 ||
-	       (sbp->sb_versionnum & be16_to_cpu(XFS_SB_VERSION_MOREBITSBIT));
-}
-/*
- * sb_features2 bit version macros.
- */
-static inline bool xfs_sb_version_haslazysbcount(struct xfs_sb *sbp)
-{
-	return (XFS_SB_VERSION_NUM(sbp) == XFS_SB_VERSION_5) ||
-	       (xfs_sb_version_hasmorebits(sbp) &&
-		(sbp->sb_features2 & be32_to_cpu(XFS_SB_VERSION2_LAZYSBCOUNTBIT)));
-}
-
-/*
- * V5 superblock specific feature checks
- */
-static inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp)
-{
-	return be16_to_cpu(XFS_SB_VERSION_NUM(sbp)) == XFS_SB_VERSION_5;
-}
-
 /*
  * Allocation group header
  *
@@ -339,5 +316,12 @@ struct xfs_btree_block {
 #define XFS_BTREE_LBLOCK_LEN \
 	(offsetof(struct xfs_btree_block, bb_u) + \
 	 offsetof(struct xfs_btree_block_lhdr, bb_blkno))
+
+inline bool xfs_sb_version_hasmorebits(struct xfs_sb *sbp);
+inline bool xfs_sb_version_haslazysbcount(struct xfs_sb *sbp);
+inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp);
+
+PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb);
+bool is_xfs_fs(struct xfs_sb *xfs_sb);
 
 #endif
