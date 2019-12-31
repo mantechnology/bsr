@@ -132,6 +132,10 @@ MODULE_PARM_DESC(allow_oos, "DONT USE!");
 module_param(minor_count, uint, 0444);
 module_param(disable_sendpage, bool, 0644);
 module_param(allow_oos, bool, 0);
+#ifdef _LIN_FAST_SYNC
+module_param(use_fast_sync, bool, 0644);
+module_param(debug_fast_sync, bool, 0644);
+#endif
 #endif
 
 #ifdef CONFIG_DRBD_FAULT_INJECTION
@@ -170,7 +174,10 @@ bool disable_sendpage = true;      // not support page I/O
 bool disable_sendpage;
 #endif
 bool allow_oos = false;
-
+#ifdef _LIN_FAST_SYNC
+bool use_fast_sync = true;
+bool debug_fast_sync = true;
+#endif
 /* Module parameter for setting the user mode helper program
  * to run. Default is /sbin/drbdadm */
 #ifdef _WIN
@@ -3914,8 +3921,8 @@ struct drbd_resource *drbd_create_resource(const char *name,
 #ifdef _WIN
 	resource->bPreSecondaryLock = FALSE;
 	resource->bPreDismountLock = FALSE;
-	atomic_set(&resource->bGetVolBitmapDone, true);
 #endif
+	atomic_set(&resource->bGetVolBitmapDone, true);
 	if (!resource)
 		goto fail;
 	resource->name = kstrdup(name, GFP_KERNEL);
@@ -3947,10 +3954,9 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	resource->twopc_reply.initiator_node_id = -1;
 	mutex_init(&resource->conf_update);
 	mutex_init(&resource->adm_mutex);
-#ifdef _WIN
 	// DW-1317
 	mutex_init(&resource->vol_ctl_mutex);
-#endif
+
 	spin_lock_init(&resource->req_lock);
 	INIT_LIST_HEAD(&resource->listeners);
 	spin_lock_init(&resource->listeners_lock);
@@ -5932,7 +5938,6 @@ clear_flag:
 	}
 }
 
-#ifdef _WIN
 // DW-1293 it performs fast invalidate(remote) when agreed protocol version is 112 or above, and fast sync options is enabled.
 int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local)
 {
@@ -5982,7 +5987,6 @@ int drbd_bmio_set_all_or_fast(struct drbd_device *device, struct drbd_peer_devic
 
 	return nRet;
 }
-#endif
 
 int drbd_bmio_set_all_n_write(struct drbd_device *device,
 			      struct drbd_peer_device *peer_device) __must_hold(local)
@@ -6033,7 +6037,6 @@ int drbd_bmio_set_n_write(struct drbd_device *device,
 	return rv;
 }
 
-#ifdef _WIN
 // DW-844
 #define GetBitPos(bytes, bitsInByte)	((bytes * BITS_PER_BYTE) + bitsInByte)
 			  
@@ -6044,19 +6047,32 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct drbd_peer_devic
 	ULONG_PTR count = 0;
 	PCHAR pByte = NULL;
 	
+	LONGLONG llBytePos;
+	LONGLONG llBitPosInByte;
+	LONGLONG bitmapSize;
+
+	
 	if (NULL == pBitmap ||
 		NULL == pBitmap->Buffer ||
 		NULL == peer_device)
 	{
 		drbd_err(peer_device, "Invalid parameter, pBitmap(0x%p), pBitmap->Buffer(0x%p) peer_device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
+#ifdef _WIN
 		return UINT64_MAX;
+#else	// _LIN
+		return -1;
+#endif
 	}
 
 	pByte = (PCHAR)pBitmap->Buffer;
-	
+#ifdef _WIN
+	bitmapSize = pBitmap->BitmapSize.QuadPart;
+#else
+	bitmapSize = pBitmap->BitmapSize;
+#endif
 	// find continuously set bits and set out-of-sync.
-	for (LONGLONG llBytePos = 0; llBytePos < pBitmap->BitmapSize.QuadPart; llBytePos++) {
-		for (LONGLONG llBitPosInByte = 0; llBitPosInByte < BITS_PER_BYTE; llBitPosInByte++) {
+	for (llBytePos = 0; llBytePos < bitmapSize; llBytePos++) {
+		for (llBitPosInByte = 0; llBitPosInByte < BITS_PER_BYTE; llBitPosInByte++) {
 			CHAR pBit = (pByte[llBytePos] >> llBitPosInByte) & 0x1;
 
 			// found first set bit.
@@ -6083,7 +6099,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct drbd_peer_devic
 
 	// met last bit while finding zero bit.
 	if (llStartBit != -1) {
-		llEndBit = (LONG_PTR)pBitmap->BitmapSize.QuadPart * BITS_PER_BYTE - 1;	// last cluster
+		llEndBit = (LONG_PTR)bitmapSize * BITS_PER_BYTE - 1;	// last cluster
 		count += update_sync_bits(peer_device, (unsigned long)llStartBit, (unsigned long)llEndBit, SET_OUT_OF_SYNC, false);
 
 		llStartBit = -1;
@@ -6093,6 +6109,162 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct drbd_peer_devic
 	return count;
 }
 
+bool isFastInitialSync()
+{
+	bool bRet = false;
+#ifdef _WIN
+	ULONG ulLength = 0;
+	int nTemp = 0;
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	PROOT_EXTENSION pRootExtension = NULL;
+
+	pRootExtension = mvolRootDeviceObject->DeviceExtension;
+
+	if (NULL != pRootExtension) {
+		status = GetRegistryValue(L"use_fast_sync", &ulLength, (UCHAR*)&nTemp, &pRootExtension->RegistryPath);
+		if (status == STATUS_SUCCESS)
+			bRet = (nTemp ? TRUE : FALSE);
+	}
+
+#else // _LIN
+#ifdef _LIN_FAST_SYNC
+	bRet = use_fast_sync;
+#else
+	bRet = false;
+#endif
+#endif
+	drbd_info(NO_OBJECT, "Fast sync %s\n", bRet ? "enabled" : "disabled");
+	
+	return bRet;
+}
+
+
+
+
+/* drbd assumes bytes per cluster as 4096. convert if need.
+ex:
+      2048 bytes    ->    4096 bytes
+       00110100              0110
+
+        16 kb       ->    4096 bytes
+        0110           00001111 11110000
+*/
+bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG bytesPerCluster, ULONG ulDrbdBitmapUnit)
+{
+	int readCount = 1;
+	int writeCount = 1;
+	PCHAR pByte;
+	
+	LONGLONG ullBytePos;
+	LONGLONG ullBitPos;
+	LONGLONG bitmapSize;
+		
+	if (NULL == pVbb ||
+		NULL == pVbb->Buffer ||
+		NULL == pConverted)
+	{
+		drbd_err(NO_OBJECT,"Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
+		return false;
+	}
+
+	writeCount = (bytesPerCluster / ulDrbdBitmapUnit) + (bytesPerCluster < ulDrbdBitmapUnit);	// drbd bits count affected by a bit of volume bitmap. maximum value : 16
+	readCount = (ulDrbdBitmapUnit / bytesPerCluster) + (bytesPerCluster > ulDrbdBitmapUnit);	// volume bits count to be converted into a drbd bit. maximum value : 8
+	
+	pByte = (PCHAR)pVbb->Buffer;
+#ifdef _WIN
+	bitmapSize = (pVbb->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
+#else // _LIN
+	bitmapSize = pVbb->BitmapSize;
+#endif
+
+	for (ullBytePos = 0; ullBytePos < bitmapSize; ullBytePos += 1) {
+		for (ullBitPos = 0; ullBitPos < BITS_PER_BYTE; ullBitPos += readCount) {
+			CHAR pBit = (pByte[ullBytePos] >> ullBitPos) & ((1 << readCount) - 1);
+
+			if (pBit) {
+				LONGLONG ullBitPosTotal = ((ullBytePos * BITS_PER_BYTE + ullBitPos) * writeCount) / readCount;
+				LONGLONG ullByte = ullBitPosTotal / BITS_PER_BYTE;
+				LONGLONG ullBitPosInByte = ullBitPosTotal % BITS_PER_BYTE;
+				int i;
+				for (i = 0; i <= (writeCount - 1) / BITS_PER_BYTE; i++) {
+					CHAR setBits = (1 << (writeCount - i * BITS_PER_BYTE)) - 1;
+
+					if (i == 1)
+						ullBitPosInByte = 0;
+					pConverted[ullByte + i] |= (setBits << ullBitPosInByte);
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+
+PVOLUME_BITMAP_BUFFER GetVolumeBitmapForDrbd(struct drbd_device *device, ULONG ulDrbdBitmapUnit)
+{
+	PVOLUME_BITMAP_BUFFER pVbb = NULL;
+	PVOLUME_BITMAP_BUFFER pDrbdBitmap = NULL;
+	ULONG ulConvertedBitmapSize = 0;
+	ULONGLONG ullTotalCluster = 0;
+	ULONG ulBytesPerCluster = 0;
+
+	do {
+		pVbb = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmap(device, &ullTotalCluster, &ulBytesPerCluster);
+		if (NULL == pVbb) {
+			drbd_err(device, "Could not get volume bitmap, minor(%u)\n", device->minor);
+			break;
+		}
+			
+		// use file system returned volume bitmap if it's compatible with drbd.
+		if (ulBytesPerCluster == ulDrbdBitmapUnit) {
+			pDrbdBitmap = pVbb;
+#ifdef _WIN
+			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
+			pDrbdBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
+#endif
+			pVbb = NULL;
+		}
+		else {
+			// Convert gotten bitmap into 4kb unit cluster bitmap.
+			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulDrbdBitmapUnit;
+			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
+#ifdef _WIN
+			pDrbdBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56DW');			
+#else // _LIN
+			pDrbdBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
+#endif
+			if (NULL == pDrbdBitmap) {
+				drbd_err(device, "pConvertedBitmap allocation failed\n");
+				break;
+			}
+
+#ifdef _WIN
+			pDrbdBitmap->StartingLcn.QuadPart = 0;
+			pDrbdBitmap->BitmapSize.QuadPart = ulConvertedBitmapSize;
+			RtlZeroMemory(pDrbdBitmap->Buffer, (size_t)(pDrbdBitmap->BitmapSize.QuadPart));
+#else // _LIN			
+			pDrbdBitmap->BitmapSize = ulConvertedBitmapSize;
+			memset(pDrbdBitmap->Buffer, 0, pDrbdBitmap->BitmapSize);			
+#endif
+			if (!ConvertVolumeBitmap(pVbb, (char *)pDrbdBitmap->Buffer, ulBytesPerCluster, ulDrbdBitmapUnit)) {
+				drbd_err(device, "Could not convert bitmap, ulBytesPerCluster(%u), ulDrbdBitmapUnit(%u)\n", ulBytesPerCluster, ulDrbdBitmapUnit);
+				kfree(pDrbdBitmap);
+				pDrbdBitmap = NULL;
+				break;
+			}
+		}
+	} while (false);
+
+	if (NULL != pVbb) {
+		kfree(pVbb);
+		pVbb = NULL;
+	}
+
+	return pDrbdBitmap;
+}
+
+
 // set out-of-sync for allocated clusters.
 bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device *peer_device, enum drbd_repl_state side, bool bitmap_lock)
 {
@@ -6101,6 +6273,8 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	ULONG_PTR count = 0;
 	// DW-1317 to support fast sync from secondary sync source whose volume is NOT mounted.
 	bool bSecondary = false;
+	struct drbd_bitmap *bitmap = device->bitmap;
+	int bmi = peer_device->bitmap_index;
 
 	if (NULL == device ||
 		NULL == peer_device ||
@@ -6143,7 +6317,8 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	drbd_info(peer_device, "Writing the bitmap for allocated clusters.\n");
 
 	do {
-		if (bSecondary) {			
+#ifdef _WIN
+		if (bSecondary) {
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
@@ -6155,12 +6330,13 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 			// allow mount within getting volume bitmap.
 			device->resource->bTempAllowMount = TRUE;			
 		}
-
+#endif
 		// DW-1391
 		atomic_set(&device->resource->bGetVolBitmapDone, false);
 
 		// Get volume bitmap which is converted into 4kb cluster unit.
-		pBitmap = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmapForDrbd(device->minor, BM_BLOCK_SIZE);		
+		pBitmap = GetVolumeBitmapForDrbd(device, BM_BLOCK_SIZE);
+		
 		if (NULL == pBitmap) {
 			drbd_err(peer_device, "Could not get bitmap for drbd\n");
 		}
@@ -6168,10 +6344,10 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		// DW-1391
 		atomic_set(&device->resource->bGetVolBitmapDone, true);
 		
+#ifdef _WIN
 		if (bSecondary) {
 			// prevent from mounting volume.
 			device->resource->bTempAllowMount = FALSE;
-
 			// dismount volume.
 			FsctlFlushDismountVolume(device->minor, false);
 
@@ -6188,8 +6364,10 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 			}
 			mutex_unlock(&att_mod_mutex);
 		}
+#endif
+	} while (false);
 
-	} while (false, false);
+	drbd_info(peer_device, "%lu bits(%lu KB) have been set as out-of-sync\n", bitmap->bm_set[bmi], (bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
 
 	// DW-1495 Change location due to deadlock(bm_change)
 	// Set out-of-sync for allocated cluster.
@@ -6204,13 +6382,13 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		bRet = false;
 	}
 	else{
-		drbd_info(peer_device, "%lu bits(%lu KB) are set as out-of-sync\n", count, (count << (BM_BLOCK_SHIFT - 10)));
+		drbd_info(peer_device, "%lu bits(%lu KB) are set as new out-of-sync\n", count, (count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
 		
 
 	if (pBitmap) {
-		ExFreePool(pBitmap);
+		kfree(pBitmap);
 		pBitmap = NULL;
 	}
 
@@ -6219,7 +6397,8 @@ out:
 
 	return bRet;
 }
-#endif	// _WIN
+
+
 
 /**
  * drbd_bmio_clear_all_n_write() - io_fn for drbd_queue_bitmap_io() or drbd_bitmap_io()

@@ -542,7 +542,11 @@ enum {
 // BSR-326
 // #define _TRACE_PEER_DAGTAG		// trace peer_dagtag, last_dagtag 
 
+#ifdef _LIN
+// BSR-450 support fast-sync
+#define _LIN_FAST_SYNC
 // BSR-458
 #define READ_BYPASS_TO_BACKING_BDEV
+#endif
 
 #endif

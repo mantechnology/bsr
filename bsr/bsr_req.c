@@ -232,6 +232,7 @@ void drbd_req_destroy(struct kref *kref)
 	struct drbd_peer_device *peer_device;
 	unsigned int s, device_refs = 0;
 	bool was_last_ref = false;
+	unsigned long flags;
 
  tail_recursion:
 	if (device_refs > 0 && device != req->device) {
@@ -346,9 +347,9 @@ void drbd_req_destroy(struct kref *kref)
 							send_oos->sector = req->i.sector;
 							send_oos->size = req->i.size;
 							
-							spin_lock_irq(&peer_device->send_oos_lock);
+							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
 							list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
-							spin_unlock_irq(&peer_device->send_oos_lock);
+							spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {

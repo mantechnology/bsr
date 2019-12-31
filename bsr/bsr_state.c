@@ -3408,12 +3408,8 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			/* We are in the progress to start a full sync. SyncTarget sets all slots. */
 			if (repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)
 				drbd_queue_bitmap_io(device,
-#ifdef _WIN
 				// DW-1293
 					&drbd_bmio_set_all_or_fast, &abw_start_sync,
-#else // _LIN
-					&drbd_bmio_set_all_n_write, &abw_start_sync,
-#endif
 					"set_n_write from StartingSync",
 					BM_LOCK_CLEAR | BM_LOCK_BULK,
 					peer_device);
@@ -3421,12 +3417,8 @@ static int w_after_state_change(struct drbd_work *w, int unused)
 			/* We are in the progress to start a full sync. SyncSource one slot. */
 			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) {
 				drbd_queue_bitmap_io(device,
-#ifdef _WIN
 				// DW-1293
 					&drbd_bmio_set_all_or_fast, &abw_start_sync,
-#else // _LIN
-					&drbd_bmio_set_n_write, &abw_start_sync,
-#endif
 					"set_n_write from StartingSync",
 					BM_LOCK_CLEAR | BM_LOCK_BULK,
 					peer_device);

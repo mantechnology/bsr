@@ -162,7 +162,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 	signed long long sz = sizeof(*ring) + length;
 
 	if (length == 0 || length > DRBD_SNDBUF_SIZE_MAX) {
-		drbd_err(NO_OBJECT,"bab(%s) size(%d) is bad. max(%d)\n", name, length, DRBD_SNDBUF_SIZE_MAX);
+		drbd_err(NO_OBJECT,"bab(%s) size(%lld) is bad. max(%ld)\n", name, length, DRBD_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
 
@@ -200,7 +200,7 @@ ring_buffer *create_ring_buffer(struct drbd_connection* connection, char *name, 
 			return NULL;
 		}
 	} else {
-		drbd_err(NO_OBJECT,"bab(%s):alloc(%u) failed\n", name, sz);
+		drbd_err(NO_OBJECT,"bab(%s):alloc(%lld) failed\n", name, sz);
 	}
 	return ring;
 }
@@ -248,13 +248,13 @@ signed long long write_ring_buffer(struct drbd_transport *transport, enum drbd_s
 		do {
 			int loop = 0;
 			for (loop = 0; loop < retry; loop++) {
+				struct drbd_tcp_transport *tcp_transport;
 #ifdef _WIN_SEND_BUF
 				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
 #else // _LIN_SEND_BUF
 				msleep(100);
 #endif
-				struct drbd_tcp_transport *tcp_transport =
-					container_of(transport, struct drbd_tcp_transport, transport);
+				tcp_transport =	container_of(transport, struct drbd_tcp_transport, transport);
 
 #ifdef _WIN_SEND_BUF
 				if (tcp_transport->stream[stream]) {
@@ -379,7 +379,10 @@ int send_buf(struct drbd_transport *transport, enum drbd_stream stream, socket *
 int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, struct socket *socket, void *buf, size_t size)
 {
 	struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
-	
+	signed long long tmp;
+	signed long long highwater;
+	int retry;
+
 	if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
 		struct kvec iov;
 		struct msghdr msg;
@@ -400,10 +403,10 @@ int send_buf(struct drbd_tcp_transport *tcp_transport, enum drbd_stream stream, 
 		return rv;
 	}
 
-	signed long long  tmp = (long long)buffering_attr->bab->length * 99;
-	signed long long highwater = (signed long long)tmp / 100; // 99% // refacto: global
+	tmp = (long long)buffering_attr->bab->length * 99;
+	highwater = (signed long long)tmp / 100; // 99% // refacto: global
 	// performance tuning point for delay time
-	int retry = socket->sk->sk_sndtimeo / 100;
+	retry = socket->sk->sk_sndtimeo / 100;
 	
 	size = write_ring_buffer(&tcp_transport->transport, stream, buffering_attr->bab, buf, size, highwater, retry);
 
@@ -465,13 +468,12 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 
 	while (true) {
 		long long tx_sz = 0;
+		struct kvec iov;
+		struct msghdr msg;
 
 		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
 			break;
 		}
-
-		struct kvec iov;
-		struct msghdr msg;
 
 		iov.iov_base = bab->static_big_buf;
 		iov.iov_len  = (unsigned long)tx_sz;
@@ -556,6 +558,8 @@ int send_buf_thread(void *p)
 	//struct drbd_tcp_transport *tcp_transport = container_of(buffering_attr, struct drbd_tcp_transport, buffering_attr);
 	struct socket *socket;
 	struct _buffering_attr *buffering_attr;
+	
+	long timeo = 1 * HZ;
 
 	if(test_bit(IDX_STREAM, &tcp_transport->flags)) {
 		socket = tcp_transport->stream[CONTROL_STREAM];
@@ -566,7 +570,6 @@ int send_buf_thread(void *p)
 		buffering_attr = &tcp_transport->buffering_attr[DATA_STREAM];
 	}
 	
-	long timeo = 1 * HZ;
 
 	buffering_attr->quit = false;
 

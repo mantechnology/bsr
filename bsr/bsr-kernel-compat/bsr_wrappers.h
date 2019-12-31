@@ -63,6 +63,11 @@
 #define UINTPTR_MAX		ULONG_MAX
 
 #define LONGLONG		long long int
+#define ULONGLONG		unsigned long long
+#define ULONG			unsigned int
+#define PCHAR			char *
+#define CHAR			char
+#define PVOID			void *
 
 #define atomic_t64				atomic64_t
 #define atomic_add64			atomic64_add
@@ -2057,7 +2062,7 @@ struct blk_plug { };
 static void blk_start_plug(struct blk_plug *plug) {};
 static void blk_finish_plug(struct blk_plug *plug) {};
 #else
-#define blk_start_plug(plug) do { } while (0)
+#define blk_start_plug(plug) do { (void)plug; } while (0)
 #define blk_finish_plug(plug) do { } while (0)
 #endif
 #endif
