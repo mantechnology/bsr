@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿# BSR
+﻿﻿﻿﻿﻿﻿﻿﻿# BSR
                            
 ## Synopsis
 Block Sync & Replication (BSR) is an open source project that implements software-based block replication over the network. It is based on a kernel-level replication engine and supports Windows and Linux cross-platform environments. BSR originally started out as a WDRBD project and only supported the Windows environment, but now extends to the Linux environment to support cross-platforms.
@@ -17,7 +17,10 @@ BSR is basically a fork project of DRBD, but it is a more reliable and powerful 
 BSR has redesigned the 1:N synchronization logic of DRBD9's. Basically, Stable Sync is the main synchronization logic of BSR, By limiting the directionality of synchronization in a 1: N mesh topology, you can clarify which nodes can be SyncSource. In addition, when the role is changed or swtich-over, the trigger is activated by protocol to change the synchronization direction actively. so it is more stable by implementing consistent synchronization logic compared to DRBD9 which performs synchronization without proper criteria.
 
 ### Fast Sync
-BSR is oriented towards FastSync. FastSync now performs synchronization only fast on disk space that is used on a filesystem basis, making synchronization much faster. It has been implemented in Windows environment and has secured its stability, and we plan to port it for use in Linux environment.
+BSR is oriented towards FastSync. FastSync now performs synchronization only fast on disk space that is used on a filesystem basis, making synchronization much faster. It has been implemented in Windows environment and has secured its stability, and we port it for Linux environment. Currently, FastSync supports NTFS, ReFS, ext and xfs file systems.
+
+### Kernel Tx Buffering
+In the meantime, DRX integration with proxy buffering was required for long-distance replication on Linux. It is now possible to perform kernel-level TX buffering on Linux. We have further increased the performance of asynchronous replication.
 
 ### Improved replication/synchronization logics
 We improved performance by fundamentally solving the serious performance degradation problem that DRBD has.
