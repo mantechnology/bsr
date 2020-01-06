@@ -294,7 +294,12 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #endif
 
 
-
+#ifdef COMPAT_HAVE_BLK_QC_T_MAKE_REQUEST
+/* in Commit dece16353ef47d8d33f5302bc158072a9d65e26f
+ * make_request() becomes type blk_qc_t. */
+#define MAKE_REQUEST_TYPE blk_qc_t
+#define MAKE_REQUEST_RETURN return BLK_QC_T_NONE
+#else
 #ifdef COMPAT_HAVE_VOID_MAKE_REQUEST
 /* in Commit 5a7bbad27a410350e64a2d7f5ec18fc73836c14f (between Linux-3.1 and 3.2)
    make_request() becomes type void. Before it had type int. */
@@ -303,6 +308,7 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #else
 #define MAKE_REQUEST_TYPE int
 #define MAKE_REQUEST_RETURN return 0
+#endif
 #endif
 
 #define __bitwise__
