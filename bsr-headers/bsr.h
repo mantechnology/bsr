@@ -524,10 +524,12 @@ enum {
 	VOLUME_TYPE_META,		// for meta volume.
 };
 
-#ifdef _WIN
+#if defined(_WIN) || !defined(__KERNEL__)
 #define READ					0
 #define WRITE					1
+#endif
 
+#ifdef _WIN
 #define _WIN_MVFL
 #define _WIN_MULTI_VOLUME
 #define _WIN_NOWAIT_COMPLETION // DW-1479 Do not wait for WskCloseSocket to complete.
