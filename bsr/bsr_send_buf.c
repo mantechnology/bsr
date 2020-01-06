@@ -26,6 +26,7 @@
 #include "../bsr-platform/windows/bsrvflt/disp.h" 
 #include "bsr_send_buf.h"
 #else // _LIN
+#include <linux/vmalloc.h>
 #include <linux/net.h>
 #include <net/sock.h>
 #endif

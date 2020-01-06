@@ -527,7 +527,7 @@ struct bio_and_error *m)
 			*/
 			for_each_peer_device(peer_device, device) {
 				if (peer_device) {
-					drbd_set_out_of_sync(peer_device, m->bio->bi_sector, m->bio->bi_size);
+					drbd_set_out_of_sync(peer_device, DRBD_BIO_BI_SECTOR(m->bio), DRBD_BIO_BI_SIZE(m->bio));
 					if (peer_device->connection->cstate[NOW] == C_CONNECTED)
 						drbd_md_set_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 				}

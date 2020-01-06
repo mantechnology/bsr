@@ -3706,7 +3706,7 @@ int drbd_worker(struct drbd_thread *thi)
  */
 static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error)
 {
-	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, bio->bi_sector, bio->bi_size);
+	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, DRBD_BIO_BI_SECTOR(bio), DRBD_BIO_BI_SIZE(bio));
 }
 
 
