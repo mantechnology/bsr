@@ -32,7 +32,7 @@ extern const char *drbd_buildtag(void);
 
 /* End of external module for 2.6.33 stuff */
 
-#define REL_VERSION "1.6.0-A3"
+#define REL_VERSION "1.6.0-PREALPHA3"
 #define PRO_VERSION_MIN 86
 // DW-1293 protocol version 112 starts to support fast invalidate(remote)
 // DW-1601 protocol version 113 remove association to act_log and resync_lru

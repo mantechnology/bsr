@@ -38,7 +38,7 @@
 Name: bsr
 Summary: BSR driver for Linux
 Version: @PACKAGE_VERSION@
-Release: A3@RPM_DIST_TAG@
+Release: PREALPHA3@RPM_DIST_TAG@
 Source: bsr-utils-%{version}.tar.gz
 License: GPLv2+
 ExclusiveOS: linux
@@ -297,5 +297,5 @@ fi
 
 
 %changelog
-* Mon Jan 06 2020 <dev3@mantech.co.kr> - 1.6.0-A3
+* Mon Jan 06 2020 <dev3@mantech.co.kr> - 1.6.0-PREALPHA3
 - New upstream release.

@@ -175,6 +175,7 @@ PNAME	:= bsr-utils
 	@[ -s .filelist ] # assert there is something in .filelist now
 	@find documentation -name "[^.]*.[58]" -o -name "*.html" | \
 	sed "s/^/$(PNAME)-$(DIST_VERSION)\//"              >> .filelist ; \
+	find ../bsr-headers/ -name \*.c -or -name \*.h -not -path \*windows* >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/user/shared/bsr_buildtag.c >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/user/shared/config.h.in  >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/.filelist            >> .filelist ; \
