@@ -218,7 +218,7 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 	device->md_io.submit_jif = jiffies;
 
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD))
-		bio_endio(bio, -EIO);
+		bsr_bio_endio(bio, -EIO);
 #ifdef _WIN
 	else {
 		if (submit_bio(bio)) {

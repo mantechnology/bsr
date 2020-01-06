@@ -1194,7 +1194,7 @@ static void drbd_bm_aio_ctx_destroy(struct kref *kref)
 #ifdef _WIN
 NTSTATUS drbd_bm_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 #else // _LIN
-static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
+static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 {
 #ifdef _WIN
@@ -1367,7 +1367,7 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	bio->bi_end_io = drbd_bm_endio;
 	bio_set_op_attrs(bio, op, 0);
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD)) {
-		bio_endio(bio, -EIO);
+		bsr_bio_endio(bio, -EIO);
 	} else {
 #ifdef _WIN
 		if (submit_bio(bio)) {

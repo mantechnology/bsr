@@ -391,10 +391,28 @@ typedef NTSTATUS BIO_ENDIO_TYPE;
 #define BIO_ENDIO_FN_START 
 #define BIO_ENDIO_FN_RETURN     return STATUS_MORE_PROCESSING_REQUIRED	
 #else
+#ifdef COMPAT_HAVE_BIO_BI_ERROR
+static inline void bsr_bio_endio(struct bio *bio, int error)
+{
+        bio->bi_error = error;
+        bio_endio(bio);
+}
 #define BIO_ENDIO_TYPE void
-#define BIO_ENDIO_ARGS(b,e) (b,e)
+#define BIO_ENDIO_ARGS(b) (b)
+//#define BIO_ENDIO_FN_START do {} while (0)
+#define BIO_ENDIO_FN_START      \
+        int error = bio->bi_error
+#define BIO_ENDIO_FN_RETURN return
+#else
+static inline void bsr_bio_endio(struct bio *bio, int error)
+{
+        bio_endio(bio, error);
+}
+#define BIO_ENDIO_TYPE void
+#define BIO_ENDIO_ARGS(b) (b, int error)
 #define BIO_ENDIO_FN_START do {} while (0)
 #define BIO_ENDIO_FN_RETURN return
+#endif
 #endif
 
 /* bi_end_io handlers */
@@ -406,13 +424,9 @@ extern IO_COMPLETION_ROUTINE drbd_peer_request_endio;
 extern IO_COMPLETION_ROUTINE drbd_request_endio;
 extern IO_COMPLETION_ROUTINE drbd_bm_endio;
 #else // _LIN
-extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-#endif
-
-#ifdef COMPAT_HAVE_BIO_BI_ERROR
-#define bio_endio(B,E) do { (B)->bi_error = E; bio_endio(B); } while (0)
+extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)

@@ -500,7 +500,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> drbd_request_endio -> complete_master_bio -> bio_endio)
 #else // _LIN
-	bio_endio(m->bio, m->error);
+	bsr_bio_endio(m->bio, m->error);
 #endif
 	peer_device = NULL;
 #ifdef _WIN
@@ -1764,7 +1764,7 @@ static void drbd_process_discard_req(struct drbd_request *req)
 {
 	int err = drbd_issue_discard_or_zero_out(req->device,
 				req->i.sector, req->i.size >> 9, true);
-	bio_endio(req->private_bio, err ? -EIO : 0);
+	bsr_bio_endio(req->private_bio, err ? -EIO : 0);
 }
 
 static void
@@ -1790,7 +1790,7 @@ drbd_submit_req_private_bio(struct drbd_request *req)
 	 * this bio. */
 	if (get_ldev(device)) {
 		if (drbd_insert_fault(device, type))
-			bio_endio(bio, -EIO);
+			bsr_bio_endio(bio, -EIO);
 		else if (bio_op(bio) == REQ_OP_DISCARD)
 			drbd_process_discard_req(req);
 #ifdef _WIN
@@ -1805,7 +1805,7 @@ drbd_submit_req_private_bio(struct drbd_request *req)
 #endif
 		put_ldev(device);
 	} else
-		bio_endio(bio, -EIO);
+		bsr_bio_endio(bio, -EIO);
 }
 
 static void drbd_queue_write(struct drbd_device *device, struct drbd_request *req)
@@ -1839,7 +1839,7 @@ drbd_request_prepare(struct drbd_device *device, struct bio *bio, ULONG_PTR star
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
 		drbd_err(device, "could not kmalloc() req\n");
-		bio_endio(bio, -ENOMEM);
+		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
 	req->start_jif = start_jif;
@@ -2546,7 +2546,7 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 	 * we have REQ_FUA and REQ_PREFLUSH, which will be handled transparently
 	 * by the block layer. */
 	if (unlikely(bio->bi_opf & DRBD_REQ_HARDBARRIER)) {
-		bio_endio(bio, -EOPNOTSUPP);
+		bsr_bio_endio(bio, -EOPNOTSUPP);
 		MAKE_REQUEST_RETURN;
 	}
 #endif
