@@ -14,7 +14,10 @@ static char * read_superblock(struct file *fd)
 	 *   ext superblock is starting at the 1024 bytes, size is 1024 bytes
 	 *   xfs superblock is starting at the 0 byte, size is 512 bytes	
 	*/
-	ret = fd->f_op->read(fd, super_block, sizeof(super_block), &fd->f_pos); // TODO : change to __bread? vfs_read? kernel_read?
+
+	// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
+	// This is temporary read code.
+	ret = vfs_read(fd, super_block, sizeof(super_block), &fd->f_pos);
 	
 	if (ret < 0 || ret != sizeof(super_block)) {
 		drbd_err(NO_OBJECT, "failed to read super_block (err=%ld)\n", ret);
