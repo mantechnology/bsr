@@ -115,12 +115,11 @@ static void md_sync_timer_fn(unsigned long data);
 static int w_bitmap_io(struct drbd_work *w, int unused);
 static int flush_send_buffer(struct drbd_connection *connection, enum drbd_stream drbd_stream);
 #ifdef _LIN
-MODULE_AUTHOR("Philipp Reisner <phil@linbit.com>, "
-	      "Lars Ellenberg <lars@linbit.com>");
-MODULE_DESCRIPTION("drbd - Distributed Replicated Block Device v" REL_VERSION);
+MODULE_AUTHOR("<dev3@mantech.co.kr>");
+MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
 MODULE_VERSION(REL_VERSION);
 MODULE_LICENSE("GPL");
-MODULE_PARM_DESC(minor_count, "Approximate number of drbd devices ("
+MODULE_PARM_DESC(minor_count, "Approximate number of bsr devices ("
 		 __stringify(DRBD_MINOR_COUNT_MIN) "-" __stringify(DRBD_MINOR_COUNT_MAX) ")");
 MODULE_ALIAS_BLOCKDEV_MAJOR(DRBD_MAJOR);
 
