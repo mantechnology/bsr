@@ -37,9 +37,10 @@
 
 Name: bsr
 Summary: BSR driver for Linux
-Version: @PACKAGE_VERSION@
+Version: 1.6.0
 Release: PREALPHA3@RPM_DIST_TAG@
-Source: bsr-utils-%{version}.tar.gz
+%global tarball_version %(echo "%{version}-%{?release}" | sed -e "s,%{?dist}$,,")
+Source: bsr-utils-%{tarball_version}.tar.gz
 License: GPLv2+
 ExclusiveOS: linux
 Group: System Environment/Kernel
@@ -213,7 +214,7 @@ management utility.
 
 
 %prep
-%setup -q -n bsr-utils-%{version}
+%setup -q -n bsr-utils-%{tarball_version}
 
 %build
 # rebuild configure...
