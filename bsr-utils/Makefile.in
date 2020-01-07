@@ -169,16 +169,13 @@ check_changelogs_up2date:
 PNAME	:= bsr-utils
 .PHONY: .filelist
 .filelist:
-	@set -e ; submodules=`$(GIT) submodule foreach --quiet 'echo $$path'`; \
-	$(GIT) ls-files | \
-		grep -vxF -e "$$submodules" | \
+	@set -e ; $(GIT) ls-files | \
 		sed '$(if $(PRESERVE_DEBIAN),,/^debian/d);s#^#$(PNAME)-$(DIST_VERSION)/#' | \
-		grep -v "gitignore\|gitmodules" > .filelist
-	@$(GIT) submodule foreach --quiet 'git ls-files | sed -e "s,^,$(PNAME)-$(DIST_VERSION)/$$path/,"' | \
-		grep -v "gitignore\|gitmodules" >> .filelist
+		grep -v "gitignore\|gitmodules\|bsrcon\|vcxproj" > .filelist
 	@[ -s .filelist ] # assert there is something in .filelist now
 	@find documentation -name "[^.]*.[58]" -o -name "*.html" | \
 	sed "s/^/$(PNAME)-$(DIST_VERSION)\//"              >> .filelist ; \
+	find ../bsr-headers/ -name \*.c -or -name \*.h -not -path \*windows* >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/user/shared/bsr_buildtag.c >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/user/shared/config.h.in  >> .filelist ; \
 	echo $(PNAME)-$(DIST_VERSION)/.filelist            >> .filelist ; \
@@ -202,7 +199,7 @@ tgz:
 	rm bsr-utils-$(FDIST_VERSION)
 
 ifeq ($(FORCE),)
-tgz: check_changelogs_up2date doc
+tgz: check_changelogs_up2date # doc
 endif
 
 tools doc tgz: check-submods
@@ -239,7 +236,7 @@ bsr.spec: bsr.spec.in configure
 	./configure --enable-spec
 
 .PHONY: rpmprep
-rpmprep: tgz bsr.spec
+rpmprep: .filelist tgz bsr.spec
 	cp bsr-utils-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
 
 .PHONY: rpm

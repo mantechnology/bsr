@@ -132,9 +132,9 @@ check check_changelogs_up2date:
 	   printf "\n\t%s Version/Release: tags need update\n" $$f; 		\
 	   grep -Hn "^Version: " $$f ; 						\
 	   up2date=false; fi ; 							\
-	   in_changelog=$$(sed -n -e '0,/^%changelog/d' 			\
-			     -e '/- '"$$dver_re"'\>/p' < $$f) ; 		\
-	   if test -z "$$in_changelog" ; then 					\
+	in_changelog=$$(sed -n -e '0,/^%changelog/d' 			\
+		     -e '/- '"$$dver_re"'\>/p' < $$f) ; 		\
+	if test -z "$$in_changelog" ; then 					\
 	   printf "\n\t%%changelog in %s needs update\n" $$f; 			\
 	   grep -Hn "^%changelog" $$f ; 					\
 	   up2date=false; fi; 							\
@@ -152,11 +152,8 @@ check check_changelogs_up2date:
 
 .PHONY: bsr/.bsr_git_revision
 ifdef GITHEAD
-override GITDIFF := $(shell $(GIT) diff --name-only HEAD 2>/dev/null |	\
-			tr -s '\t\n' '  ' |		\
-			sed -e 's/^/ /;s/ *$$//')
 bsr/.bsr_git_revision:
-	@echo GIT-hash: $(GITHEAD)$(GITDIFF) > $@
+	@echo GIT-hash: $(GITHEAD) > $@
 else
 bsr/.bsr_git_revision:
 	@echo >&2 "Need a git checkout to regenerate $@"; test -s $@
@@ -165,13 +162,9 @@ endif
 # update of .filelist is forced:
 .PHONY: .filelist
 .filelist:
-	@set -e ; submodules=`$(GIT) submodule foreach --quiet 'echo $$path'`; \
-	$(GIT) ls-files | \
-	  grep -vxF -e "$$submodules" | \
+	@set -e ; $(GIT) ls-files | \
 	  sed '$(if $(PRESERVE_DEBIAN),,/^debian/d);s#^#bsr-$(DIST_VERSION)/#' | \
-	  grep -v "gitignore\|gitmodules" > .filelist
-	@$(GIT) submodule foreach --quiet 'git ls-files | sed -e "s,^,bsr-$(DIST_VERSION)/$$path/,"' | \
-	  grep -v "gitignore\|gitmodules" >> .filelist
+	  grep -v "gitignore\|gitmodules\|windows\|bsr-utils" > .filelist
 	@[ -s .filelist ] # assert there is something in .filelist now
 	@echo bsr-$(DIST_VERSION)/.filelist               >> .filelist ; \
 	echo bsr-$(DIST_VERSION)/bsr/.bsr_git_revision >> .filelist ; \
@@ -220,7 +213,7 @@ ifdef RPMBUILD
 # If unset, the macro will figure it out internally, and not depend on
 # uname -r, which may be wrong in a chroot build environment.
 .PHONY: kmp-rpm
-kmp-rpm: tgz bsr-kernel.spec
+kmp-rpm: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
 	$(RPMBUILD) -bb \
 	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \

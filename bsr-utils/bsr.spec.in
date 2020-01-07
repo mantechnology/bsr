@@ -1,0 +1,301 @@
+# Define init script directory. %{_initddir} is available from Fedora
+# 9 forward; CentOS knows 5 only %{_initrddir}. Neither are known to
+# autoconf...
+%{!?_initddir: %{expand: %%global _initddir %{_initrddir}}}
+
+# Compatibility macro wrappers for legacy RPM versions that do not
+# support conditional builds
+%{!?bcond_without: %{expand: %%global bcond_without() %%{expand:%%%%{!?_without_%%{1}:%%%%global with_%%{1} 1}}}}
+%{!?bcond_with:    %{expand: %%global bcond_with()    %%{expand:%%%%{?_with_%%{1}:%%%%global with_%%{1} 1}}}}
+%{!?with:          %{expand: %%global with()          %%{expand:%%%%{?with_%%{1}:1}%%%%{!?with_%%{1}:0}}}}
+%{!?without:       %{expand: %%global without()       %%{expand:%%%%{?with_%%{1}:0}%%%%{!?with_%%{1}:1}}}}
+
+%if 0%{!?initscripttype:1}
+# initscripttype not explicitly defined in some macro file or on commandline
+# use presence of systemd_post macro to determine the initscripttype
+%if %{?systemd_post:1}%{!?systemd_post:0}
+%global initscripttype systemd
+%else
+%global initscripttype sysv
+%endif
+%endif
+
+# Conditionals
+# Invoke "rpmbuild --without <feature>" or "rpmbuild --with <feature>"
+# to disable or enable specific features
+%bcond_without manual
+%bcond_without udev
+# conditionals may not contain "-" nor "_", hence "bashcompletion"
+%bcond_without bashcompletion
+%bcond_without sbinsymlinks
+# --with xen is ignored on any non-x86 architecture
+%bcond_without xen
+%bcond_without bsrmon
+%ifnarch %{ix86} x86_64
+%global _without_xen --without-xen
+%endif
+
+Name: bsr
+Summary: BSR driver for Linux
+Version: @PACKAGE_VERSION@
+Release: PREALPHA3@RPM_DIST_TAG@
+Source: bsr-utils-%{version}.tar.gz
+License: GPLv2+
+ExclusiveOS: linux
+Group: System Environment/Kernel
+# URL: 
+BuildRoot: %(mktemp -ud %{_tmppath}/bsr-utils-%{version}-%{release}-XXXXXX)
+BuildRequires: @RPM_BUILDREQ_DEFAULT@
+Requires: bsr-utils = %{version}
+%ifarch %{ix86} x86_64
+%if %{with xen}
+Requires: bsr-xen = %{version}
+%endif
+%endif
+%if %{with udev}
+Requires: bsr-udev = %{version}
+BuildRequires: udev
+%endif
+%if %{with bsrmon}
+BuildRequires: gcc-c++
+%endif
+%if %{with bashcompletion}
+Requires: bsr-bash-completion = %{version}
+%endif
+
+%description
+BSR mirrors a block device over the network to another machine.
+Think of it as networked raid 1. It is a building block for
+setting up high availability (HA) clusters.
+
+This is a virtual package, installing the full BSR userland suite.
+
+# Just a few docs go into the "bsr" package. Everything else is part
+# of one of the bsr-* packages.
+%files
+%defattr(-,root,root,-)
+%doc COPYING
+%doc ChangeLog
+%doc README.md
+
+%package utils
+Summary: Management utilities for BSR
+Group: System Environment/Kernel
+# Our kernel modules "require" specific bsr-utils versions, not ranges.
+# Which was natural as long as userland and module shared the same repo
+# and source tarball, and would be build together.
+#
+# Now we split the userland part, we "provide" a list of versions here,
+# to be able to use this package with existing module packages.
+#
+
+%if %{initscripttype} == "sysv"
+@RPM_REQ_CHKCONFIG_POST@
+@RPM_REQ_CHKCONFIG_PREUN@
+%endif
+
+%description utils
+BSR mirrors a block device over the network to another machine.
+Think of it as networked raid 1. It is a building block for
+setting up high availability (HA) clusters.
+
+This packages includes the BSR administration tools.
+
+%files utils
+%defattr(755,root,root,-)
+%if %{with sbinsymlinks}
+/sbin/bsrsetup
+/sbin/bsradm
+/sbin/bsrmeta
+%endif
+%{_sbindir}/bsrsetup
+%{_sbindir}/bsradm
+%{_sbindir}/bsrmeta
+%if %{with bsrmon}
+%{_sbindir}/bsrmon
+%endif
+%if %{initscripttype} == "sysv"
+%{_initddir}/bsr
+%endif
+%{_sbindir}/bsr-overview
+%dir %{_prefix}/lib/bsr
+%{_prefix}/lib/bsr/outdate-peer.sh
+%{_prefix}/lib/bsr/snapshot-resync-target-lvm.sh
+%{_prefix}/lib/bsr/unsnapshot-resync-target-lvm.sh
+%{_prefix}/lib/bsr/notify-out-of-sync.sh
+%{_prefix}/lib/bsr/notify-split-brain.sh
+%{_prefix}/lib/bsr/notify-emergency-reboot.sh
+%{_prefix}/lib/bsr/notify-emergency-shutdown.sh
+%{_prefix}/lib/bsr/notify-io-error.sh
+%{_prefix}/lib/bsr/notify-pri-lost-after-sb.sh
+%{_prefix}/lib/bsr/notify-pri-lost.sh
+%{_prefix}/lib/bsr/notify-pri-on-incon-degr.sh
+%{_prefix}/lib/bsr/notify.sh
+%dir %{_var}/lib/bsr
+%ghost %dir %{_var}/run/bsr
+
+%defattr(-,root,root,-)
+%if %{initscripttype} == "systemd"
+%{_unitdir}/bsr.service
+%{_tmpfilesdir}/bsr.conf
+/lib/bsr/bsr
+%endif
+%config(noreplace) %{_sysconfdir}/bsr.conf
+%dir %{_sysconfdir}/bsr.d
+%config(noreplace) %{_sysconfdir}/bsr.d/global_common.conf
+%if %{without manual}
+%else
+%{_mandir}/man8/bsr-*
+%{_mandir}/man8/bsrsetup-*
+%{_mandir}/man8/bsradm-*
+%{_mandir}/man5/bsr.conf-*
+%{_mandir}/man8/bsrmeta-*
+%if %{with bsrmon}
+%{_mandir}/man8/bsrmon-*
+%endif
+%endif
+%doc scripts/bsr.conf.example
+%doc COPYING
+%doc ChangeLog
+%doc README.md
+
+%ifarch %{ix86} x86_64
+%if %{with xen}
+%package xen
+Summary: Xen block device management script for BSR
+Group: System Environment/Kernel
+Requires: bsr-utils = %{version}-%{release}
+@RPM_REQ_XEN@
+@RPM_SUBPACKAGE_NOARCH@
+
+%description xen
+This package contains a Xen block device helper script for BSR, capable of
+promoting and demoting BSR resources as necessary.
+
+%files xen
+%defattr(755,root,root,-)
+%{_sysconfdir}/xen/scripts/block-bsr
+%endif # with xen
+%endif # arch %{ix86} x86_64
+
+%if %{with udev}
+%package udev
+Summary: udev integration scripts for BSR
+Group: System Environment/Kernel
+Requires: bsr-utils = %{version}-%{release}, udev
+@RPM_SUBPACKAGE_NOARCH@
+
+%description udev
+This package contains udev helper scripts for BSR, managing symlinks to
+BSR devices in /dev/bsr/by-res and /dev/bsr/by-disk.
+
+%files udev
+%defattr(-,root,root,-)
+%config @udevrulesdir@/65-bsr.rules*
+%endif # with udev
+
+%if %{with bashcompletion}
+%package bash-completion
+Summary: Programmable bash completion support for bsradm
+Group: System Environment/Base
+Requires: bsr-utils = %{version}-%{release}
+@RPM_REQ_BASH_COMPLETION@
+@RPM_SUBPACKAGE_NOARCH@
+
+%description bash-completion
+This package contains programmable bash completion support for the bsradm
+management utility.
+
+%files bash-completion
+%defattr(-,root,root,-)
+%config %{_sysconfdir}/bash_completion.d/bsradm*
+%endif # with bashcompletion
+
+
+%prep
+%setup -q -n bsr-utils-%{version}
+
+%build
+# rebuild configure...
+aclocal
+autoheader
+autoconf
+%configure \
+    %{?_without_udev} \
+    %{?_without_xen} \
+    %{?_without_bashcompletion} \
+    %{?_without_manual} \
+    --with-initdir=%{_initddir} \
+    %{?_tmpfilesdir:--with-tmpfilesdir=%{_tmpfilesdir}} \
+    --with-initscripttype=%{initscripttype} \
+    %{?_without_bsrmon}
+make %{?_smp_mflags}
+
+%install
+rm -rf %{buildroot}
+make install DESTDIR=%{buildroot} CREATE_MAN_LINK=no
+
+%if %{with sbinsymlinks}
+# Don't do this if you are already on a /sbin -=> /usr/sbin distro
+# compat: we used to live in /sbin/
+# there may be many hardcoded /sbin/bsr* out there,
+# including variants of our own scripts.
+mkdir -p %{buildroot}/var/run/bsr
+mkdir %{buildroot}/sbin/
+cd %{buildroot}/sbin/
+ln -sv ..%{_sbindir}/bsradm .
+ln -sv ..%{_sbindir}/bsrmeta .
+ln -sv ..%{_sbindir}/bsrsetup .
+%endif
+
+%clean
+rm -rf %{buildroot}
+
+%post utils
+%if %{initscripttype} == "systemd"
+%systemd_post bsr.service
+%endif
+%if %{initscripttype} == "sysv"
+chkconfig --add bsr
+%endif
+%if %{without manual}
+%else
+for f in bsr bsradm bsrmeta bsrsetup; do
+    ln -sf $f-8.4.8.gz %{_mandir}/man8/$f.8.gz
+done
+ln -sf bsr.conf-8.4.5.gz %{_mandir}/man5/bsr.conf.5.gz
+%if %{with bsrmon}
+ln -sf bsrmon-9.0.8.gz %{_mandir}/man8/bsrmon.8.gz
+%endif
+%endif
+%if %{without udev}
+for i in `seq 0 15` ; do
+    test -b /dev/bsr$i || mknod -m 0660 /dev/bsr$i b 147 $i;
+done
+%endif #without udev
+
+%preun utils
+for f in bsr bsradm bsrmeta bsrsetup; do
+    rm -f %{_mandir}/man8/$f.8.gz
+done
+rm -f %{_mandir}/man5/bsr.conf.5.gz
+rm -f %{_mandir}/man8/bsrmon.8.gz
+%if %{initscripttype} == "systemd"
+%systemd_preun bsr.service
+%endif
+%if %{initscripttype} == "sysv"
+if [ $1 -eq 0 ]; then
+        %{_initrddir}/bsr stop >/dev/null 2>&1
+        /sbin/chkconfig --del bsr
+fi
+%endif
+
+%if %{initscripttype} == "systemd"
+%postun utils
+%systemd_postun
+%endif
+
+
+%changelog
+* Mon Jan 06 2020 Man Technology Inc. <dev3@mantech.co.kr> - 1.6.0-PREALPHA3
+- New upstream release.
