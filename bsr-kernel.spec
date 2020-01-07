@@ -79,5 +79,5 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
-* Mon Jan 06 2020 <dev3@mantech.co.kr> - 1.6.0-PREALPHA3
+* Mon Jan 06 2020 Man Technology Inc. <dev3@mantech.co.kr> - 1.6.0-PREALPHA3
 - New upstream release.

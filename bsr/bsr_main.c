@@ -115,7 +115,7 @@ static void md_sync_timer_fn(unsigned long data);
 static int w_bitmap_io(struct drbd_work *w, int unused);
 static int flush_send_buffer(struct drbd_connection *connection, enum drbd_stream drbd_stream);
 #ifdef _LIN
-MODULE_AUTHOR("<dev3@mantech.co.kr>");
+MODULE_AUTHOR("Man Technology Inc. <dev3@mantech.co.kr>");
 MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
 MODULE_VERSION(REL_VERSION);
 MODULE_LICENSE("GPL");
