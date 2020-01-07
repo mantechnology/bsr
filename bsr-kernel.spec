@@ -67,6 +67,7 @@ for flavor in %flavors_to_build ; do
     make -C %{kernel_source $flavor} modules_install \
 	M=$PWD/obj/$flavor
     kernelrelease=$(cat %{kernel_source $flavor}/include/config/kernel.release || make -s -C %{kernel_source $flavor} kernelrelease)
+    find $INSTALL_MOD_PATH/lib/modules -iname 'modules.*' -exec rm {} \;
     mv obj/$flavor/.kernel.config.gz obj/k-config-$kernelrelease.gz
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
 done
