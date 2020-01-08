@@ -72,7 +72,7 @@ spinlock_t g_inactive_lock; // BSR-438
 #ifdef _WIN
 NTSTATUS drbd_md_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 #else // _LIN
-BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
+BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 {
 	struct drbd_device *device;
@@ -426,7 +426,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 #ifdef _WIN
 BIO_ENDIO_TYPE drbd_peer_request_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 #else // _LIN
-BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
+BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 {
 #ifdef _WIN
@@ -544,7 +544,7 @@ void drbd_panic_after_delayed_completion_of_aborted_request(struct drbd_device *
 #ifdef _WIN
 NTSTATUS drbd_request_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 #else // _LIN
-BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
+BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 {
 	unsigned long flags;
@@ -592,9 +592,9 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error)
 		}
 	}
 #endif
+	BIO_ENDIO_FN_START;
 	req = bio->bi_private;
 	device = req->device;
-	BIO_ENDIO_FN_START;
 
 	/* If this request was aborted locally before,
 	* but now was completed "successfully",
@@ -3706,7 +3706,7 @@ int drbd_worker(struct drbd_thread *thi)
  */
 static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error)
 {
-	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, bio->bi_sector, bio->bi_size);
+	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, DRBD_BIO_BI_SECTOR(bio), DRBD_BIO_BI_SIZE(bio));
 }
 
 

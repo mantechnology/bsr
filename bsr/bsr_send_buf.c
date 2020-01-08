@@ -26,6 +26,7 @@
 #include "../bsr-platform/windows/bsrvflt/disp.h" 
 #include "bsr_send_buf.h"
 #else // _LIN
+#include <linux/vmalloc.h>
 #include <linux/net.h>
 #include <net/sock.h>
 #endif
@@ -558,6 +559,7 @@ int send_buf_thread(void *p)
 	//struct drbd_tcp_transport *tcp_transport = container_of(buffering_attr, struct drbd_tcp_transport, buffering_attr);
 	struct socket *socket;
 	struct _buffering_attr *buffering_attr;
+	int ret = 0;
 	
 	long timeo = 1 * HZ;
 
@@ -577,7 +579,7 @@ int send_buf_thread(void *p)
 	wake_up(&buffering_attr->send_buf_thr_start_event);
 
 	while (!buffering_attr->send_buf_kill_event) {
-		wait_event_interruptible_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, timeo);
+		wait_event_interruptible_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
 			do_send(socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
 		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);

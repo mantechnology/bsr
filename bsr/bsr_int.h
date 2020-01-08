@@ -2719,12 +2719,12 @@ static inline void drbd_generic_make_request(struct drbd_device *device,
 	__release(local);
 	if (!bio->bi_bdev) {
 		drbd_err(device, "drbd_generic_make_request: bio->bi_bdev == NULL\n");
-		bio_endio(bio, -ENODEV);
+		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
 
 	if (drbd_insert_fault(device, fault_type))
-		bio_endio(bio, -EIO);
+		bsr_bio_endio(bio, -EIO);
 #ifdef _WIN
 	else {
 		if (generic_make_request(bio)) {

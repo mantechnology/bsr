@@ -294,7 +294,12 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #endif
 
 
-
+#ifdef COMPAT_HAVE_BLK_QC_T_MAKE_REQUEST
+/* in Commit dece16353ef47d8d33f5302bc158072a9d65e26f
+ * make_request() becomes type blk_qc_t. */
+#define MAKE_REQUEST_TYPE blk_qc_t
+#define MAKE_REQUEST_RETURN return BLK_QC_T_NONE
+#else
 #ifdef COMPAT_HAVE_VOID_MAKE_REQUEST
 /* in Commit 5a7bbad27a410350e64a2d7f5ec18fc73836c14f (between Linux-3.1 and 3.2)
    make_request() becomes type void. Before it had type int. */
@@ -303,6 +308,7 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #else
 #define MAKE_REQUEST_TYPE int
 #define MAKE_REQUEST_RETURN return 0
+#endif
 #endif
 
 #define __bitwise__
@@ -391,10 +397,28 @@ typedef NTSTATUS BIO_ENDIO_TYPE;
 #define BIO_ENDIO_FN_START 
 #define BIO_ENDIO_FN_RETURN     return STATUS_MORE_PROCESSING_REQUIRED	
 #else
+#ifdef COMPAT_HAVE_BIO_BI_ERROR
+static inline void bsr_bio_endio(struct bio *bio, int error)
+{
+        bio->bi_error = error;
+        bio_endio(bio);
+}
 #define BIO_ENDIO_TYPE void
-#define BIO_ENDIO_ARGS(b,e) (b,e)
+#define BIO_ENDIO_ARGS(b) (b)
+//#define BIO_ENDIO_FN_START do {} while (0)
+#define BIO_ENDIO_FN_START      \
+        int error = bio->bi_error
+#define BIO_ENDIO_FN_RETURN return
+#else
+static inline void bsr_bio_endio(struct bio *bio, int error)
+{
+        bio_endio(bio, error);
+}
+#define BIO_ENDIO_TYPE void
+#define BIO_ENDIO_ARGS(b) (b, int error)
 #define BIO_ENDIO_FN_START do {} while (0)
 #define BIO_ENDIO_FN_RETURN return
+#endif
 #endif
 
 /* bi_end_io handlers */
@@ -406,13 +430,9 @@ extern IO_COMPLETION_ROUTINE drbd_peer_request_endio;
 extern IO_COMPLETION_ROUTINE drbd_request_endio;
 extern IO_COMPLETION_ROUTINE drbd_bm_endio;
 #else // _LIN
-extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
-#endif
-
-#ifdef COMPAT_HAVE_BIO_BI_ERROR
-#define bio_endio(B,E) do { (B)->bi_error = E; bio_endio(B); } while (0)
+extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
