@@ -579,7 +579,7 @@ int send_buf_thread(void *p)
 	wake_up(&buffering_attr->send_buf_thr_start_event);
 
 	while (!buffering_attr->send_buf_kill_event) {
-		wait_event_interruptible_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
+		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
 			do_send(socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
 		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);

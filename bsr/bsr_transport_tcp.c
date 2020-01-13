@@ -253,7 +253,6 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush, struct _buffer
 static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 #endif
 {
-	int res = 0;
 	if (socket) {
 #ifdef _LIN
 		synchronize_rcu();
@@ -276,7 +275,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 #else // _LIN_SEND_BUF
 		if (attr->send_buf_thread_handle) {
 			attr->send_buf_kill_event = true;
-            wait_event_interruptible_ex(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags), res);
+			wait_event(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags));
 			clear_bit(SEND_BUF_KILLACK, &attr->flags);
 			//ZwClose (attr->send_buf_thread_handle);
             attr->send_buf_thread_handle = NULL;
@@ -2552,7 +2551,6 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 {
 	struct drbd_tcp_transport* tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
 	struct drbd_connection* connection = container_of(transport, struct drbd_connection, transport);
-	int res = 0;
 	int i = 0;
 
 	if (size > 0 ) {
@@ -2592,14 +2590,14 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 						attr->bab = NULL;
 						return false;
 					}
-					wait_event_interruptible_ex(attr->send_buf_thr_start_event, test_bit(SEND_BUF_START, &attr->flags), res);
+					wait_event(attr->send_buf_thr_start_event, test_bit(SEND_BUF_START, &attr->flags));
 					clear_bit(SEND_BUF_START, &attr->flags);
 				}
 				else {
 					if (i == CONTROL_STREAM) {
-						attr = &tcp_transport->buffering_attr[i];
+						attr = &tcp_transport->buffering_attr[DATA_STREAM];
 						attr->send_buf_kill_event = true;
-						wait_event_interruptible_ex(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags), res);
+						wait_event(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags));
 						clear_bit(SEND_BUF_KILLACK, &attr->flags);
 						attr->send_buf_thread_handle = NULL;
 						
@@ -2654,7 +2652,6 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 {
 	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
 	struct _buffering_attr *attr;
-	int res = 0;
 	int i = 0;
 
 	for (i = 0; i < 2; i++) {
@@ -2663,7 +2660,7 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 
 			if (attr->send_buf_thread_handle != NULL) {
 				attr->send_buf_kill_event = true;
-				wait_event_interruptible_ex(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags), res);
+				wait_event(attr->send_buf_killack_event, test_bit(SEND_BUF_KILLACK, &attr->flags));
 				clear_bit(SEND_BUF_KILLACK, &attr->flags);
 				attr->send_buf_thread_handle = NULL;
 			}
