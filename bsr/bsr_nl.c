@@ -1147,13 +1147,17 @@ retry:
 		}
 
 		if (rv == SS_NO_UP_TO_DATE_DISK && force && !with_force) {
-#ifdef _WIN // DW-938
+			// DW-647 volume size comparison before initial sync
 			u64 im;
 			idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
 				struct drbd_peer_device *peer_device;
 				for_each_peer_device_ref(peer_device, im, device) {
 					unsigned long long p_size = peer_device->max_size << 9; // volume size in bytes
+#ifdef _WIN
 					unsigned long long l_size = get_targetdev_volsize(device->this_bdev->bd_disk->pDeviceExtension); // volume size in bytes
+#else // _LIN
+					unsigned long long l_size = drbd_get_max_capacity(device->ldev) << 9; // volume size in bytes
+#endif
 					// DW-1323 abort initial full sync when target disk is smaller than source
 					// If p_size is nonzero, it was connected with the peer.
 					if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && 
@@ -1165,7 +1169,7 @@ retry:
 
 			if (rv == SS_TARGET_DISK_TOO_SMALL)
 				goto out;
-#endif
+
 			with_force = true;
 			forced = 1;
 			continue;
@@ -1403,10 +1407,10 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			adm_ctx.resource->bPreSecondaryLock = FALSE;
 #endif
 		}
-#ifdef _WIN // TODO should I apply SS_TARGET_DISK_TOO_SMALL to linux?
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 			goto fail;
 
+#ifdef _WIN
 		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
