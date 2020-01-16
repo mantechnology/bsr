@@ -1301,12 +1301,15 @@ struct disconnect_work {
 };
 #endif
 
-#ifdef _WIN
 struct flush_context_sync {
 	atomic_t primary_node_id;
-	atomic_t barrier_nr;
+	atomic_t64 barrier_nr;
 };
 
+/* This is blkdev_issue_flush, but asynchronous.
+ * We want to submit to all component volumes in parallel,
+ * then wait for all completions.
+ */
 struct issue_flush_context {
 	atomic_t pending;
 	int error;
@@ -1318,7 +1321,6 @@ struct one_flush_context {
 	struct issue_flush_context *ctx;
 	struct flush_context_sync ctx_sync;
 };
-#endif
 
 struct drbd_resource {
 	char *name;
@@ -1417,9 +1419,7 @@ struct drbd_resource {
 #ifdef _WIN_MULTIVOL_THREAD
 	MVOL_THREAD			WorkThreadInfo;
 #endif
-#ifdef _WIN
 	struct issue_flush_context ctx_flush; // DW-1895
-#endif
 };
 
 struct drbd_connection {
