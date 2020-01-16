@@ -3026,7 +3026,8 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 				ro_open_cond(device) != -EAGAIN,
 				resource->res_opts.auto_promote_timeout * HZ / 10, res);
 		}
-	} else if (resource->role[NOW] != R_PRIMARY && !(mode & FMODE_WRITE) && !allow_oos) {
+	// BSR-465 allow mount within getting volume bitmap.
+	} else if (resource->role[NOW] != R_PRIMARY && !resource->bTempAllowMount && !(mode & FMODE_WRITE) && !allow_oos) {
 		rv = -EMEDIUMTYPE;
 		goto out;
 	}
@@ -6319,8 +6320,8 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	drbd_info(peer_device, "Writing the bitmap for allocated clusters.\n");
 
 	do {
-#ifdef _WIN
 		if (bSecondary) {
+#ifdef _WIN
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
@@ -6329,10 +6330,10 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 				bSecondary = false;
 				break;
 			}
-			// allow mount within getting volume bitmap.
-			device->resource->bTempAllowMount = TRUE;			
-		}
 #endif
+			// allow mount within getting volume bitmap.
+			device->resource->bTempAllowMount = true;			
+		}
 		// DW-1391
 		atomic_set(&device->resource->bGetVolBitmapDone, false);
 
@@ -6346,10 +6347,10 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		// DW-1391
 		atomic_set(&device->resource->bGetVolBitmapDone, true);
 		
-#ifdef _WIN
 		if (bSecondary) {
 			// prevent from mounting volume.
-			device->resource->bTempAllowMount = FALSE;
+			device->resource->bTempAllowMount = false;
+#ifdef _WIN
 			// dismount volume.
 			FsctlFlushDismountVolume(device->minor, false);
 
@@ -6365,8 +6366,9 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 				}
 			}
 			mutex_unlock(&att_mod_mutex);
-		}
 #endif
+		}
+
 	} while (false);
 
 	drbd_info(peer_device, "%lu bits(%lu KB) have been set as out-of-sync\n", bitmap->bm_set[bmi], (bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
