@@ -44,6 +44,7 @@
 #include <linux/random.h>
 #include <net/ipv6.h>
 #include <linux/scatterlist.h>
+#include <linux/signal.h>
 #endif
 
 #include "../bsr-headers/bsr.h"
@@ -1354,7 +1355,13 @@ static enum finish_epoch drbd_flush_after_epoch(struct drbd_connection *connecti
 					atomic_read(&ctx.pending), (unsigned int)atomic_read(&ctx.ctx_sync.barrier_nr), atomic_read(&ctx.ctx_sync.primary_node_id));
 			}
 #else // _LIN
-			wait_for_completion(&ctx.done);
+			// BSR-387
+			while(wait_for_completion_killable(&ctx.done) == -ERESTARTSYS) {
+				if(sigismember(&current->pending.signal, DRBD_SIGKILL)) {
+					drbd_warn(resource, "thread signaled and no more wait\n");
+					break;
+				}
+			}
 #endif
 		}
 
