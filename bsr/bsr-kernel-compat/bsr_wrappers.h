@@ -396,6 +396,7 @@ typedef NTSTATUS BIO_ENDIO_TYPE;
 #define BIO_ENDIO_ARGS(b,e) (void *p1, void *p2, void *p3)
 #define BIO_ENDIO_FN_START 
 #define BIO_ENDIO_FN_RETURN     return STATUS_MORE_PROCESSING_REQUIRED	
+#define bsr_bio_endio(b,e) bio_endio(b,e)
 #else
 #ifdef COMPAT_HAVE_BIO_BI_ERROR
 static inline void bsr_bio_endio(struct bio *bio, int error)
