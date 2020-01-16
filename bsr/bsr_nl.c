@@ -5362,6 +5362,8 @@ put_result:
 	if (err)
 		goto out;
 	resource_statistics.res_stat_write_ordering = resource->write_ordering;
+	// DW-1925
+	resource_statistics.res_stat_req_write_cnt = atomic_read(&resource->req_write_cnt);
 	err = resource_statistics_to_skb(skb, &resource_statistics, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto out;
@@ -6613,6 +6615,8 @@ void notify_resource_state(struct sk_buff *skb,
 	     resource_info_to_skb(skb, resource_info, true)))
 		goto nla_put_failure;
 	resource_statistics.res_stat_write_ordering = resource->write_ordering;
+	// DW-1925
+	resource_statistics.res_stat_req_write_cnt = atomic_read(&resource->req_write_cnt);
 	err = resource_statistics_to_skb(skb, &resource_statistics, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto nla_put_failure;
