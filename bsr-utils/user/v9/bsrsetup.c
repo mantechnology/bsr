@@ -2298,6 +2298,10 @@ void print_resource_statistics(int indent,
 	    write_ordering_str[wo]) {
 		wrap_printf(indent, " write-ordering:%s", write_ordering_str[wo]);
 	}
+
+	// DW-1925
+	wrap_printf(indent, " req-pending:" U32,
+		(int)new->res_stat_req_write_cnt);
 }
 
 void print_device_statistics(int indent,

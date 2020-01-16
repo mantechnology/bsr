@@ -28,10 +28,6 @@
 #endif
 #include "bsr_req.h"
 
-
-// DW-1200 currently allocated request buffer size in byte.
-atomic_t64 g_total_req_buf_bytes = ATOMIC_INIT(0);
-
 static bool drbd_may_do_local_read(struct drbd_device *device, sector_t sector, int size);
 
 #ifndef __disk_stat_inc
@@ -80,15 +76,10 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	if (!req)
 		return NULL;
 
-	// DW-1200 add allocated request buffer size.
-	// DW-1539 change g_total_req_buf_bytes's usage to drbd_req's allocated size
-	atomic_add64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
-
 	memset(req, 0, sizeof(*req));
 #ifdef _WIN
 	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
 	if (!req->req_databuf) {
-		drbd_err(NO_OBJECT,"req->req_databuf failed\n");
 		mempool_free(req, &drbd_request_mempool);
 		return NULL;
 	}
@@ -103,11 +94,11 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 		kfree2(req->req_databuf);
 #endif
 		mempool_free(req, drbd_request_mempool);
-		// DW-1200 subtract freed request buffer size.
-		// DW-1539
-		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
-        return NULL;
+		return NULL;
     }
+
+	// DW-1925 improvement req-buf-size
+	atomic_inc(&device->resource->req_write_cnt);
 
 #ifdef _WIN
 	req->private_bio->bio_databuf = req->req_databuf; // DW-776 (private bio's buffer is invalid when memory-overflow occured)
@@ -180,11 +171,9 @@ void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *re
 			kfree2(req->req_databuf);
 		}
 #endif
+		// DW-1925 improvement req-buf-size
+		atomic_dec(&resource->req_write_cnt);
 		mempool_free(req, drbd_request_mempool);
-
-		// DW-1200 subtract freed request buffer size.
-		// DW-1539
-		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 	}
 
 }
@@ -404,14 +393,13 @@ void drbd_req_destroy(struct kref *kref)
 					kfree2(peer_ack_req->req_databuf);
 				}
 #endif
+				// DW-1925 improvement req-buf-size
+				atomic_dec(&resource->req_write_cnt);
 				mempool_free(peer_ack_req, drbd_request_mempool);
 				peer_ack_req = NULL;
-				// DW-1200 subtract freed request buffer size.
-				// DW-1539
-				atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 			}
 		}
-		req->device = NULL;
+
 		resource->peer_ack_req = req;
 		mod_timer(&resource->peer_ack_timer,
 			  jiffies + resource->res_opts.peer_ack_delay * HZ / 1000);
@@ -424,10 +412,9 @@ void drbd_req_destroy(struct kref *kref)
 			kfree2(req->req_databuf);
 		}
 #endif
+		// DW-1925 improvement req-buf-size
+		atomic_dec(&req->device->resource->req_write_cnt);
 		mempool_free(req, drbd_request_mempool);
-		// DW-1200 subtract freed request buffer size.
-		// DW-1539
-		atomic_sub64(sizeof(struct drbd_request), &g_total_req_buf_bytes);
 	}
 
 	/*
