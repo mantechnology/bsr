@@ -1264,7 +1264,32 @@ ULONG_PTR update_sync_bits(struct drbd_peer_device *peer_device,
 
 		wake_up(&device->al_wait);
 	}
+	else {
+		// DW-1761 calls wake_up() to resolve the al_wait timeout when duplicate "SET_OUT_OF_SYNC"
+		if (peer_device->repl_state[NOW] == L_AHEAD && mode == SET_OUT_OF_SYNC) {
+			struct net_conf *nc;
 
+		// BSR-444
+#ifdef _WIN
+			unsigned char oldIrql_rLock = 0;
+
+			if (!locked)
+				rcu_read_lock_w32_inner();
+#else // _LIN
+			rcu_read_lock();
+#endif
+
+			nc = rcu_dereference(peer_device->connection->transport.net_conf);
+
+#ifdef _WIN
+			if (!locked)
+#endif
+				rcu_read_unlock();
+
+			if (device->act_log->used < nc->cong_extents)
+				wake_up(&device->al_wait);
+		}
+	}
 	return count;
 }
 
