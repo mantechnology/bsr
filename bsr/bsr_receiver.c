@@ -1710,12 +1710,16 @@ static bool conn_wait_ee_cond(struct drbd_connection *connection, struct list_he
 	return done;
 }
 
+#define CONN_WAIT_TIMEOUT 3
+
 // DW-1682 Added 3 sec timeout for active_ee when disconnecting 
-static void conn_wait_ee_empty_timeout(struct drbd_connection *connection, struct list_head *head)
+static long conn_wait_ee_empty_timeout(struct drbd_connection *connection, struct list_head *head)
 {
 	long t, timeout;
-	t = timeout = 3 * HZ; // 3 sec
+	t = timeout = CONN_WAIT_TIMEOUT * HZ; // 3 sec
 	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
+
+	return t;
 }
 
 static void conn_wait_ee_empty(struct drbd_connection *connection, struct list_head *head)
@@ -1727,6 +1731,36 @@ static void conn_wait_ee_empty_or_disconnect(struct drbd_connection *connection,
 {
 	wait_event(connection->ee_wait,
 		conn_wait_ee_cond(connection, head) || connection->cstate[NOW] < C_CONNECTED);
+}
+
+// DW-1954 if ee is not empty, wait for CONN_WAIT_TIMEOUT seconds.
+static void conn_wait_ee_empty_and_update_timeout(struct drbd_connection *connection, struct list_head *head)
+{
+	long res;
+	ULONG_PTR ee_before_cnt = 0, ee_after_cnt = 0;
+	struct drbd_peer_request *peer_req;
+
+	unsigned int wait_cnt = 0;
+	for (;;) {
+		res = conn_wait_ee_empty_timeout(connection, head);
+		if (res != 0) {
+			break;
+		}
+		wait_cnt += 1;
+		ee_after_cnt = 0;
+		spin_lock(&connection->resource->req_lock);
+		list_for_each_entry_ex(struct drbd_peer_request, peer_req, head, w.list) {
+			ee_after_cnt++;
+		}
+		spin_unlock(&connection->resource->req_lock);
+		if (ee_before_cnt == ee_after_cnt) {
+			drbd_debug(connection, "ee not empty, count(%u), wait time(%u)\n", ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
+			break;
+		}
+
+		drbd_debug(connection, "ee count, before(%u) : after(%u), wait time(%u)\n", ee_before_cnt, ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
+		ee_before_cnt = ee_after_cnt;
+	}
 }
 
 /**
@@ -2400,7 +2434,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 		if (atomic_read(peer_req->failed_unmarked) == 1)
 			peer_req->flags |= EE_WAS_ERROR;
 
-		drbd_info(peer_device, "--finished unmarked s_bb(%llu), e_bb(%llu), sector(%llu), res(%s)\n", 
+		drbd_debug(peer_device, "--finished unmarked s_bb(%llu), e_bb(%llu), sector(%llu), res(%s)\n", 
 			(unsigned long long)peer_req->s_bb, 
 			(unsigned long long)(peer_req->e_next_bb - 1), 
 			(unsigned long long)sector, 
@@ -2467,7 +2501,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 						peer_req->i.sector = BM_BIT_TO_SECT(s_bb);
 						peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(i_bb - s_bb) << 9;
 
-						drbd_info(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %llu, size %llu, count %d\n", 
+						drbd_debug(peer_device, "--set in sync, bitmap bit start : %llu, range : %llu ~ %llu, size %llu, count %d\n", 
 							(unsigned long long)peer_req->s_bb, 
 							(unsigned long long)s_bb, 
 							(unsigned long long)(i_bb - 1), 
@@ -2495,7 +2529,7 @@ static int split_e_end_resync_block(struct drbd_work *w, int unused)
 						// DW-1601 If out of sync is found within range, it is set as a failure.
 						peer_req->i.sector = BM_BIT_TO_SECT(s_bb);
 						peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(i_bb - s_bb) << 9;
-						drbd_info(peer_device, "--set failed io, bitmap bit start : %llu, range : %llu ~ %llu, size %llu\n", 
+						drbd_err(peer_device, "--set failed to I/O, bitmap bit start : %llu, range : %llu ~ %llu, size %llu\n", 
 							(unsigned long long)peer_req->s_bb, 
 							(unsigned long long)s_bb, 
 							(unsigned long long)(i_bb - 1), 
@@ -2704,7 +2738,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 
 	peer_req = read_in_block(peer_device, d);
 	if (!peer_req) {
-		drbd_err(peer_device, "failed peer_req allocate\n");
+		drbd_err(peer_device, "failed to allocate peer_req\n");
 		return -EIO;
 	}
 
@@ -2738,7 +2772,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 		atomic_t *split_count;
 		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 		if (!split_count) {
-			drbd_err(peer_device, "failed split count allocate\n");
+			drbd_err(peer_device, "failed to allocate split count\n");
 			return -ENOMEM;
 		}
 
@@ -2765,7 +2799,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 						// DW-1886
 						atomic_add64(d->bi_size, &peer_device->rs_written);
 						// DW-1601 all data is synced.						
-						drbd_info(peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu\n", 
+						drbd_debug(peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu\n", 
 							(unsigned long long)i_bb, 
 							(unsigned long long)s_bb, 
 							(unsigned long long)(e_next_bb - 1));
@@ -2786,7 +2820,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 				submit_peer:
 					// DW-1601 if offset is set to out of sync previously, write request to split_peer_req for data in index now from the corresponding offset.
 					if (s_split_request) {
-						drbd_info(peer_device, "##sync bitmap bit %llu, split request %llu ~ %llu, size %llu, start(%llu) ~ end(%llu), end out of sync(%llu)\n",
+						drbd_debug(peer_device, "##sync bitmap bit %llu, split request %llu ~ %llu, size %llu, start(%llu) ~ end(%llu), end out of sync(%llu)\n",
 							(unsigned long long)(i_bb - 1), 
 							(unsigned long long)offset, 
 							(unsigned long long)(i_bb - 1), 
@@ -2802,7 +2836,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 																split_count, NULL);
 
 						if (!split_peer_req) {
-							drbd_err(peer_device, "in sync split_peer_req alloc failed , %llu\n", (unsigned long long)i_bb);
+							drbd_err(peer_device, "failed to alloc split_peer_req, %llu\n", (unsigned long long)i_bb);
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
@@ -2863,14 +2897,14 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 
 						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 						if (!unmarked_count) {
-							drbd_err(peer_device, "failed unmakred count allocate\n");
+							drbd_err(peer_device, "failed to allocate unmakred_count\n");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
 						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 						if (!failed_unmarked) {
-							drbd_err(peer_device, "failed failed unmarked allocate\n");
+							drbd_err(peer_device, "failed to allocate failed_unmarked\n");
 							kfree(unmarked_count);
 							// DW-1923
 							err = -ENOMEM;
@@ -2893,7 +2927,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 																		split_count, NULL);
 
 								if (!split_peer_req) {
-									drbd_err(peer_device, "marked split_peer_req alloc failed , %llu\n", (unsigned long long)i_bb);
+									drbd_err(peer_device, "failed to allocate split_peer_req, %llu\n", (unsigned long long)i_bb);
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
 										kfree(failed_unmarked);
@@ -2915,7 +2949,7 @@ static int split_recv_resync_read(struct drbd_peer_device *peer_device, struct d
 								if (is_sync_target(peer_device))
 									drbd_set_all_out_of_sync(device, split_peer_req->i.sector, split_peer_req->i.size);
 
-								drbd_info(peer_device, "##unmarked bb(%llu), sector(%llu), offset(%d), count(%d)\n", 
+								drbd_debug(peer_device, "##unmarked bb(%llu), sector(%llu), offset(%d), count(%d)\n", 
 									(unsigned long long)marked_rl->bb, 
 									(unsigned long long)BM_BIT_TO_SECT(marked_rl->bb) + i, i, atomic_read(unmarked_count));
 								if (!drbd_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, DRBD_FAULT_RS_WR) == 0) {
@@ -9259,7 +9293,9 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
-	conn_wait_ee_empty_timeout(connection, &connection->active_ee);
+
+	// DW-1954 wait CONN_WAIT_TIMEOUT (default 3 seconds) and keep waiting if ee is not empty and ee is the same as before.
+	conn_wait_ee_empty_and_update_timeout(connection, &connection->active_ee);
 
 	// DW-1874 call after active_ee wait
 	drain_resync_activity(connection);
