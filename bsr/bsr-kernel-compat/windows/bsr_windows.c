@@ -827,9 +827,9 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 
 #include "../../../bsr/bsr_int.h"
 
-long IS_ERR_OR_NULL(const void *ptr)
+bool IS_ERR_OR_NULL(const void *ptr)
 {
-	return !ptr || IS_ERR_VALUE((unsigned long) ptr); 
+	return !ptr || IS_ERR_VALUE((ULONG_PTR) ptr);
 }
 
 void *ERR_PTR(long error)
@@ -842,9 +842,9 @@ long PTR_ERR(const void *ptr)
 	return (long)ptr;
 }
 
-int IS_ERR(void *ptr)
+bool IS_ERR(void *ptr)
 {
-	return IS_ERR_VALUE((unsigned long) ptr);
+	return IS_ERR_VALUE((ULONG_PTR) ptr);
 }
 
 void wake_up_process(struct drbd_thread *thi)
