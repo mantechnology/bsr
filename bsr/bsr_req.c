@@ -2516,7 +2516,7 @@ MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 	ULONG_PTR start_jif;
 #ifdef _WIN
 	NTSTATUS	status;
-#else //_LIN
+#else // _LIN
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 	const int rw = bio_data_dir(bio);
 	// BSR-458
