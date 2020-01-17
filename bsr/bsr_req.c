@@ -2513,14 +2513,12 @@ void do_submit(struct work_struct *ws)
 MAKE_REQUEST_TYPE drbd_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct drbd_device *device = (struct drbd_device *) q->queuedata;
-	const int rw = bio_data_dir(bio);
 	ULONG_PTR start_jif;
 #ifdef _WIN
 	NTSTATUS	status;
-#endif
-
-#ifdef _LIN
+#else //_LIN
 #ifdef READ_BYPASS_TO_BACKING_BDEV
+	const int rw = bio_data_dir(bio);
 	// BSR-458
 	if(rw == READ) {
 		bio->bi_bdev = device->ldev->backing_bdev;
