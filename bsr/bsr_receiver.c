@@ -9189,7 +9189,7 @@ static void cleanup_resync_leftovers(struct drbd_peer_device *peer_device)
 		drbd_info(peer_device, "incomplete resync exit, rs_send_req(%llu), rs_recv_res(%llu), rs_written(%lld)\n",
 			(unsigned long long)peer_device->rs_send_req, 
 			(unsigned long long)peer_device->rs_recv_res, 
-			atomic_read64(&peer_device->rs_written));
+			(long long)atomic_read64(&peer_device->rs_written));
 	}
 }
 
@@ -10221,7 +10221,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 			set_bit(GOT_NEG_ACK, &peer_device->flags);
 
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			drbd_info(connection, "drbd_rs_failed_io sector : %llu, size %d\n", sector, size);
+			drbd_info(connection, "drbd_rs_failed_io sector : %llu, size %d\n", (unsigned long long)sector, size);
 			drbd_rs_failed_io(peer_device, sector, size);
 			if (p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);

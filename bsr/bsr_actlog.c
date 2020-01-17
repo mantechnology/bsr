@@ -785,9 +785,9 @@ int drbd_al_begin_io_nonblock(struct drbd_device *device, struct drbd_interval *
 		// DW-1945 fixup that Log debug logs when pending_changes are insufficient.
 		// because insufficient of slots for pending_changes can occur frequently.
 		if (al->max_pending_changes - al->pending_changes < nr_al_extents)
-			drbd_dbg(device, "insufficient al_extent slots for 'pending_changes' nr_al_extents:%llu pending:%lu\n", (unsigned long long)nr_al_extents, al->pending_changes);
+			drbd_dbg(device, "insufficient al_extent slots for 'pending_changes' nr_al_extents:%llu pending:%u\n", (unsigned long long)nr_al_extents, al->pending_changes);
 		else
-			drbd_info(device, "insufficient al_extent slots for 'used' nr_al_extents:%llu used:%lu\n", (unsigned long long)nr_al_extents, al->used);
+			drbd_info(device, "insufficient al_extent slots for 'used' nr_al_extents:%llu used:%u\n", (unsigned long long)nr_al_extents, al->used);
 		return -ENOBUFS;
 	}
 
@@ -1806,7 +1806,7 @@ void drbd_rs_complete_io(struct drbd_peer_device *peer_device, sector_t sector, 
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		drbd_err(device, "%s => drbd_rs_complete_io(,%llu [=%llu], %llu) called, "
 		    "but refcnt is 0!?\n", 
-			caller, (unsigned long long)sector, (unsigned long long)enr, (ULONG_PTR)BM_SECT_TO_BIT(sector));
+			caller, (unsigned long long)sector, (unsigned long long)enr, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
 	}
 
