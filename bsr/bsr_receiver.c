@@ -934,11 +934,11 @@ start:
 
 		send_buffring = transport->ops->start_send_buffring(transport, nc->sndbuf_size);
 		if (send_buffring)
-			drbd_info(connection, "send-buffering ok size(%lld) cong_fill(%lld)\n", nc->sndbuf_size, (nc->cong_fill));
+			drbd_info(connection, "send-buffering ok size(%llu) cong_fill(%llu)\n", nc->sndbuf_size, (nc->cong_fill));
 		else
 			drbd_warn(connection, "send-buffering disabled\n");
 	} else {
-		drbd_warn(connection, "send-buffering disabled nc->sndbuf_size:%lld\n",nc->sndbuf_size);
+		drbd_warn(connection, "send-buffering disabled nc->sndbuf_size:%llu\n",nc->sndbuf_size);
 	}
 #endif
 
@@ -1754,11 +1754,11 @@ static void conn_wait_ee_empty_and_update_timeout(struct drbd_connection *connec
 		}
 		spin_unlock(&connection->resource->req_lock);
 		if (ee_before_cnt == ee_after_cnt) {
-			drbd_debug(connection, "ee not empty, count(%u), wait time(%u)\n", ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
+			drbd_debug(connection, "ee not empty, count(%llu), wait time(%u)\n", (unsigned long long)ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
 			break;
 		}
 
-		drbd_debug(connection, "ee count, before(%u) : after(%u), wait time(%u)\n", ee_before_cnt, ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
+		drbd_debug(connection, "ee count, before(%llu) : after(%llu), wait time(%u)\n", (unsigned long long)ee_before_cnt, (unsigned long long)ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
 		ee_before_cnt = ee_after_cnt;
 	}
 }
@@ -2611,10 +2611,10 @@ static struct drbd_peer_request *split_read_in_block(struct drbd_peer_device *pe
 	}
 #endif
 
-	drbd_debug(peer_device, "##split request s_bb(%llu), e_bb(%llu), sector(%llu), offset(%lu), size(%u)\n", 
+	drbd_debug(peer_device, "##split request s_bb(%llu), e_bb(%llu), sector(%llu), offset(%llu), size(%u)\n", 
 		(unsigned long long)s_bb, 
 		(unsigned long long)(e_next_bb - 1), 
-		sector, offset, size);
+		sector, (unsigned long long)offset, size);
 	return split_peer_request;
 }
 
@@ -3114,8 +3114,8 @@ find_request(struct drbd_device *device, struct rb_root *root, u64 id,
 	if (drbd_contains_interval(root, sector, &req->i) && req->i.local)
 		return req;
 	if (!missing_ok) {
-		drbd_err(device, "%s: failed to find request 0x%lx, sector %llus\n", func,
-			(unsigned long)id, (unsigned long long)sector);
+		drbd_err(device, "%s: failed to find request 0x%llx, sector %llus\n", func,
+			(unsigned long long)id, (unsigned long long)sector);
 	}
 	return NULL;
 }
@@ -3958,7 +3958,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 							list_add(&(s_marked_rl->marked_rl_list), &device->marked_rl_list);
 						}
 						else {
-							drbd_err(peer_device, "marked replicate allocate failed, bit : %llu\n", (unsigned long long)s_bb);
+							drbd_err(peer_device, "failed to marked replicate allocate, bit : %llu\n", (unsigned long long)s_bb);
 							return -ENOMEM;
 						}
 					}
@@ -3991,7 +3991,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 							list_add(&(e_marked_rl->marked_rl_list), &device->marked_rl_list);
 						}
 						else {
-							drbd_err(peer_device, "marked replicate allocate failed, bit : %llu\n", (unsigned long long)e_bb);
+							drbd_err(peer_device, "failed to marked replicate allocate, bit : %llu\n", (unsigned long long)e_bb);
 							return -ENOMEM;
 						}
 
@@ -4178,12 +4178,12 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 	size   = be32_to_cpu(p->blksize);
 
 	if (size <= 0 || !IS_ALIGNED(size, 512) || size > DRBD_MAX_BIO_SIZE) {
-		drbd_err(device, "%s:%d: sector: %llus, size: %u\n", __FILE__, __LINE__,
+		drbd_err(device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
 				(unsigned long long)sector, size);
 		return -EINVAL;
 	}
 	if (sector + (size>>9) > capacity) {
-		drbd_err(device, "%s:%d: sector: %llus, size: %u\n", __FILE__, __LINE__,
+		drbd_err(device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
 				(unsigned long long)sector, size);
 		return -EINVAL;
 	}
@@ -5090,8 +5090,8 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 	} else {
 		rv = L_ESTABLISHED;
 		if (drbd_bitmap_uuid(peer_device)) {
-			drbd_info(peer_device, "clearing bitmap UUID and bitmap content (%lu bits)\n",
-				  drbd_bm_total_weight(peer_device));
+			drbd_info(peer_device, "clearing bitmap UUID and bitmap content (%llu bits)\n",
+				  (unsigned long long)drbd_bm_total_weight(peer_device));
 			drbd_uuid_set_bitmap(peer_device, 0);
 			drbd_bm_clear_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
 		} else if (drbd_bm_total_weight(peer_device)) {
@@ -5112,14 +5112,14 @@ static enum drbd_repl_state goodness_to_repl_state(struct drbd_peer_device *peer
 				// DW-1874 If the UUID is the same and the MDF_PEER_IN_PROGRESS_SYNC flag is set, the out of sync is meaningless because resync with other nodes is complete.
 				if (drbd_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC) ||
 						peer_device->uuid_flags & UUID_FLAG_IN_PROGRESS_SYNC) {
-					drbd_info(peer_device, "ended during synchronization and completed resync with other nodes, clearing bitmap UUID and bitmap content (%lu bits)\n",
-						drbd_bm_total_weight(peer_device));
+					drbd_info(peer_device, "ended during synchronization and completed resync with other nodes, clearing bitmap UUID and bitmap content (%llu bits)\n",
+						(unsigned long long)drbd_bm_total_weight(peer_device));
 					drbd_uuid_set_bitmap(peer_device, 0);
 					drbd_bm_clear_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
 				}
 				else {
-					drbd_info(peer_device, "No resync, but %lu bits in bitmap!\n",
-						drbd_bm_total_weight(peer_device));
+					drbd_info(peer_device, "No resync, but %llu bits in bitmap!\n",
+						(unsigned long long)drbd_bm_total_weight(peer_device));
 				}
 			}
 		}
@@ -9138,10 +9138,10 @@ static void drbdd(struct drbd_connection *connection)
 		}
 
 		update_receiver_timing_details(connection, cmd->fn);
-		drbd_debug(connection, "receiving %s, size: %d vnr: %d\n", drbd_packet_name(pi.cmd), pi.size, pi.vnr);
+		drbd_debug(connection, "receiving %s, size: %u vnr: %d\n", drbd_packet_name(pi.cmd), pi.size, pi.vnr);
 		err = cmd->fn(connection, &pi);
 		if (err) {
-			drbd_err(connection, "error receiving %s, e: %d l: %d!\n",
+			drbd_err(connection, "error receiving %s, e: %d l: %u!\n",
 				 drbd_packet_name(pi.cmd), err, pi.size);
 			goto err_out;
 		}
@@ -9189,7 +9189,7 @@ static void cleanup_resync_leftovers(struct drbd_peer_device *peer_device)
 		drbd_info(peer_device, "incomplete resync exit, rs_send_req(%llu), rs_recv_res(%llu), rs_written(%lld)\n",
 			(unsigned long long)peer_device->rs_send_req, 
 			(unsigned long long)peer_device->rs_recv_res, 
-			(unsigned long long)atomic_read64(&peer_device->rs_written));
+			atomic_read64(&peer_device->rs_written));
 	}
 }
 
@@ -9315,7 +9315,7 @@ void conn_disconnect(struct drbd_connection *connection)
 			// DW-1812 set inactive_ee to out of sync.
 			drbd_set_out_of_sync(peer_device, peer_req->i.sector, peer_req->i.size);
 			list_del(&peer_req->recv_order);
-			drbd_info(device, "add, active_ee => inactive_ee(%p), sector(%llu), size(%d)\n", 
+			drbd_info(device, "add, active_ee => inactive_ee(%p), sector(%llu), size(%u)\n", 
 				peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 		}
 		list_splice_init(&connection->active_ee, &connection->inactive_ee);
@@ -9325,7 +9325,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	if (!list_empty(&connection->sync_ee)) {
 		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->sync_ee, w.list) {
 			struct drbd_device *device = peer_req->peer_device->device; 
-			drbd_info(device, "add, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", 
+			drbd_info(device, "add, sync_ee => inactive_ee(%p), sector(%llu), size(%u)\n", 
 				peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size); 
 		}
 		list_splice_init(&connection->sync_ee, &connection->inactive_ee);
@@ -9380,16 +9380,16 @@ void conn_disconnect(struct drbd_connection *connection)
 
 	i = drbd_free_peer_reqs(resource, &connection->read_ee, true);
 	if (i)
-		drbd_err(connection, "read_ee not empty, killed %u entries\n", i);
+		drbd_err(connection, "read_ee not empty, killed %d entries\n", i);
 	i = drbd_free_peer_reqs(resource, &connection->active_ee, true);
 	if (i)
-		drbd_err(connection, "active_ee not empty, killed %u entries\n", i);
+		drbd_err(connection, "active_ee not empty, killed %d entries\n", i);
 	i = drbd_free_peer_reqs(resource, &connection->sync_ee, true);
 	if (i)
-		drbd_err(connection, "sync_ee not empty, killed %u entries\n", i);
+		drbd_err(connection, "sync_ee not empty, killed %d entries\n", i);
 	i = drbd_free_peer_reqs(resource, &connection->net_ee, true);
 	if (i)
-		drbd_err(connection, "net_ee not empty, killed %u entries\n", i);
+		drbd_err(connection, "net_ee not empty, killed %d entries\n", i);
 
 	cleanup_unacked_peer_requests(connection);
 	cleanup_peer_ack_list(connection);
@@ -10221,7 +10221,7 @@ static int got_NegAck(struct drbd_connection *connection, struct packet_info *pi
 			set_bit(GOT_NEG_ACK, &peer_device->flags);
 
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			drbd_info(connection, "drbd_rs_failed_io sector : %lu, size %d\n", sector, size);
+			drbd_info(connection, "drbd_rs_failed_io sector : %llu, size %d\n", sector, size);
 			drbd_rs_failed_io(peer_device, sector, size);
 			if (p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);
@@ -10826,7 +10826,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 			}
 			expect = (int)(header_size + cmd->pkt_size);
 			if (pi.size != expect - header_size) {
-				drbd_err(connection, "Wrong packet size on meta (c: %d, l: %d)\n",
+				drbd_err(connection, "Wrong packet size on meta (c: %d, l: %u)\n",
 					pi.cmd, pi.size);
 				goto reconnect;
 			}

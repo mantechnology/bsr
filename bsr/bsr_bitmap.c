@@ -747,7 +747,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 		// DW-1153 add error log
 	{
 #ifdef _WIN_DEBUG_OOS
-		drbd_err(device, "unexpected error, could not get bitmap, start(%lu)\n", start);
+		drbd_err(device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 1;
 	}
@@ -755,7 +755,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%lu)\n", start);
+		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -764,7 +764,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%lu)\n", start);
+		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -929,8 +929,8 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		u64 bits_on_disk = drbd_md_on_disk_bits(device);
 		put_ldev(device);
 		if (bits > bits_on_disk) {
-			drbd_err(device, "Not enough space for bitmap: %lu > %lu\n",
-				(ULONG_PTR)bits, (ULONG_PTR)bits_on_disk);
+			drbd_err(device, "Not enough space for bitmap: %llu > %llu\n",
+				(unsigned long long)bits, bits_on_disk);
 			err = -ENOSPC;
 			goto out;
 		}
@@ -994,7 +994,7 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		kvfree(opages);
 	if (!growing)
 		bm_count_bits(device);
-	drbd_info(device, "resync bitmap: bits=%lu words=%lu pages=%lu\n", bits, words, want);
+	drbd_info(device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
 
  out:
 	drbd_bm_unlock(device);
@@ -1209,7 +1209,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE4) {
 			if(IsDiskError()) {
-				drbd_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				drbd_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%u ErrorCount:%u\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -1248,7 +1248,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	if ((ctx->flags & BM_AIO_COPY_PAGES) == 0 &&
 	    !bm_test_page_unchanged(b->bm_pages[idx]))
-		drbd_warn(device, "bitmap page idx %lu changed during IO!\n", idx);
+		drbd_warn(device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
 
 	if (error) {
 		/* ctx error will hold the completed-last non-zero error code,
@@ -1258,11 +1258,11 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		/* Not identical to on disk version of it.
 		 * Is BM_PAGE_IO_ERROR enough? */
 		if (drbd_ratelimit())
-			drbd_err(device, "IO ERROR %d on bitmap page idx %lu\n",
-					error, idx);
+			drbd_err(device, "IO ERROR %d on bitmap page idx %llu\n",
+					error, (unsigned long long)idx);
 	} else {
 		bm_clear_page_io_err(b->bm_pages[idx]);
-		dynamic_drbd_dbg(device, "bitmap page idx %lu completed\n", idx);
+		dynamic_drbd_dbg(device, "bitmap page idx %llu completed\n", (unsigned long long)idx);
 	}
 
 	bm_page_unlock_io(device, (int)idx);
@@ -1553,9 +1553,9 @@ static int bm_rw_range(struct drbd_device *device,
 	if (flags == 0 && count) {
 		unsigned int ms = jiffies_to_msecs(jiffies - now);
 		if (ms > 5) {
-			drbd_info(device, "bitmap %s of %lu pages took %u ms\n",
+			drbd_info(device, "bitmap %s of %llu pages took %u ms\n",
 				 (flags & BM_AIO_READ) ? "READ" : "WRITE",
-				 count, ms);
+				 (unsigned long long)count, ms);
 		}
 	}
 

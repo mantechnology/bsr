@@ -2228,7 +2228,7 @@ static int fill_bitmap_rle_bits(struct drbd_peer_device *peer_device,
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
 			drbd_err(peer_device, "unexpected zero runlength while encoding bitmap "
-			    "t:%u bo:%lu\n", toggle, c->bit_offset);
+			    "t:%u bo:%llu\n", toggle, (unsigned long long)c->bit_offset);
 			return -1;
 		}
 
@@ -4159,7 +4159,7 @@ void drbd_destroy_connection(struct kref *kref)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct drbd_peer_request *peer_req, *t;
-		drbd_info(connection, "inactive_ee count not completed:%u\n", atomic_read(&connection->inacitve_ee_cnt));
+		drbd_info(connection, "inactive_ee count not completed:%d\n", atomic_read(&connection->inacitve_ee_cnt));
 		spin_lock(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct drbd_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
@@ -4419,7 +4419,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	disk->fops = &bsr_ops;
 #endif
 #ifdef _WIN
-	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%d", minor);
+	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "drbd%u", minor);
 #else // _LIN
 	// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
 	sprintf(disk->disk_name, "bsr%d", minor);
@@ -4437,7 +4437,7 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 	// DW-1406 max_hw_sectors must be valued as number of maximum sectors.
 	// DW-1510 recalculate this_bdev->d_size
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
-	drbd_info(NO_OBJECT,"device:%p q->max_hw_sectors: %x sectors, device->this_bdev->d_size: %lld bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
+	drbd_info(NO_OBJECT,"device:%p q->max_hw_sectors: %llu sectors, device->this_bdev->d_size: %llu bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, drbd_congested, device);
 	
@@ -4762,7 +4762,7 @@ int bsr_init(void)
 #endif
 
 	if (minor_count < DRBD_MINOR_COUNT_MIN || minor_count > DRBD_MINOR_COUNT_MAX) {
-		pr_err("invalid minor_count (%d)\n", minor_count);
+		pr_err("invalid minor_count (%u)\n", minor_count);
 #ifdef MODULE
 		return -EINVAL;
 #else
@@ -5646,8 +5646,8 @@ void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local) /
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	rcu_read_lock();
 	name = name_of_node_id(device->resource, node_id);
-	drbd_info(device, "clearing bitmap UUID and content (%lu bits) for node %d (%s)(slot %d)\n",
-		  _drbd_bm_total_weight(device, bitmap_index), node_id, name, bitmap_index);
+	drbd_info(device, "clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)\n",
+		  (unsigned long long)_drbd_bm_total_weight(device, bitmap_index), node_id, name, bitmap_index);
 	rcu_read_unlock();
 	drbd_suspend_io(device, WRITE_ONLY);
 	drbd_bm_lock(device, "forget_bitmap()", BM_LOCK_TEST | BM_LOCK_SET);
@@ -5835,8 +5835,8 @@ void drbd_uuid_detect_finished_resyncs(struct drbd_peer_device *peer_device) __m
 						isForgettableReplState(found_peer->repl_state[NOW])
 						&& !drbd_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 						// DW-955 print log to recognize where forget_bitmap is called.
-						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%x)\n",
-							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned)found_peer->flags);
+						drbd_info(device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%llx)\n",
+							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned long long)found_peer->flags);
 						forget_bitmap(device, node_id);
 					}					
 				}
@@ -6371,7 +6371,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 
 	} while (false);
 
-	drbd_info(peer_device, "%lu bits(%lu KB) have been set as out-of-sync\n", bitmap->bm_set[bmi], (bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
+	drbd_info(peer_device, "%llu bits(%llu KB) have been set as out-of-sync\n", (unsigned long long)bitmap->bm_set[bmi], (unsigned long long)(bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
 
 	// DW-1495 Change location due to deadlock(bm_change)
 	// Set out-of-sync for allocated cluster.
@@ -6386,7 +6386,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		bRet = false;
 	}
 	else{
-		drbd_info(peer_device, "%lu bits(%lu KB) are set as new out-of-sync\n", count, (count << (BM_BLOCK_SHIFT - 10)));
+		drbd_info(peer_device, "%llu bits(%llu KB) are set as new out-of-sync\n", (unsigned long long)count, (unsigned long long)(count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
 		

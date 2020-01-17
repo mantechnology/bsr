@@ -201,7 +201,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			drbd_info(NO_OBJECT, "destroy, read lost inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			drbd_info(NO_OBJECT, "destroy, read lost inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			drbd_free_peer_req(peer_req);
 			return;
 		}
@@ -215,7 +215,7 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 			//DW-1735 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
 			list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 				if (peer_req == p_req) {
-					drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+					drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					list_del(&peer_req->w.list);
 					drbd_free_peer_req(peer_req);
 					atomic_dec(&connection->inacitve_ee_cnt);
@@ -278,7 +278,7 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			drbd_info(NO_OBJECT, "destroy, wrtie inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			drbd_info(NO_OBJECT, "destroy, wrtie inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			drbd_free_peer_req(peer_req); 
 		}
 		else {
@@ -293,10 +293,10 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls drbd_al_complete_io() upon completion of the write.
 						drbd_al_complete_io(device, &peer_req->i);
-						drbd_info(device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						drbd_info(device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {
-						drbd_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%d)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						drbd_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 
 					list_del(&peer_req->w.list);
@@ -1170,7 +1170,7 @@ next_sector:
 
 		if (bit == DRBD_END_OF_BITMAP) {
 			device->bm_resync_fo = drbd_bm_bits(device);
-			drbd_info(peer_device, "DRBD_END_OF_BITMAP, device->bm_resync_fo : %lu, bm_set : %lu\n", device->bm_resync_fo, drbd_bm_total_weight(peer_device));
+			drbd_info(peer_device, "DRBD_END_OF_BITMAP, device->bm_resync_fo : %llu, bm_set : %llu\n", (unsigned long long)device->bm_resync_fo, (unsigned long long)drbd_bm_total_weight(peer_device));
 			put_ldev(device);
 			return 0;
 		}
@@ -1275,7 +1275,7 @@ next_sector:
 		 * resync data block, and the last bit is cleared.
 		 * until then resync "work" is "inactive" ...
 		 */
-		drbd_info(peer_device, "P_RS_DATA_REPLY not received??,  device->bm_resync_fo : %lu, bm_set : %lu\n", device->bm_resync_fo, drbd_bm_total_weight(peer_device));
+		drbd_info(peer_device, "P_RS_DATA_REPLY not received??,  device->bm_resync_fo : %llu, bm_set : %llu\n", (unsigned long long)device->bm_resync_fo, (unsigned long long)drbd_bm_total_weight(peer_device));
 		put_ldev(device);
 		return 0;
 	}
@@ -1611,15 +1611,15 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 
 #ifdef SPLIT_REQUEST_RESYNC
-	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
+	drbd_info(peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
 		verify_done ? "Online verify" : "Resync",
-		dt + peer_device->rs_paused, 
-		peer_device->rs_paused, dbdt, 
+		(unsigned long long)dt + peer_device->rs_paused, 
+		(unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt, 
 		(unsigned long long)device->h_insync_bb, 
 		(unsigned long long)device->h_marked_bb);
 #else // _LIN
-	drbd_info(peer_device, "%s done (total %lu sec; paused %lu sec; %lu K/sec)\n",
-		verify_done ? "Online verify" : "Resync", dt + peer_device->rs_paused, peer_device->rs_paused, dbdt);
+	drbd_info(peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec)\n",
+		verify_done ? "Online verify" : "Resync", (unsigned long long)dt + peer_device->rs_paused, (unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt);
 #endif
 	n_oos = drbd_bm_total_weight(peer_device);
 
@@ -1647,17 +1647,17 @@ int drbd_resync_finished(struct drbd_peer_device *peer_device,
 			const ULONG_PTR ratio =
 				(t == 0)     ? 0 :
 			(t < 100000) ? ((s*100)/t) : (s/(t/100));
-			drbd_info(peer_device, "%lu %% had equal checksums, eliminated: %luK; "
-			     "transferred %luK total %luK\n",
-			     ratio,
-			     Bit2KB(peer_device->rs_same_csum),
-			     Bit2KB(peer_device->rs_total - peer_device->rs_same_csum),
-			     Bit2KB(peer_device->rs_total));
+			drbd_info(peer_device, "%llu %% had equal checksums, eliminated: %lluK; "
+			     "transferred %lluK total %lluK\n",
+			     (unsigned long long)ratio,
+			     (unsigned long long)Bit2KB(peer_device->rs_same_csum),
+			     (unsigned long long)Bit2KB(peer_device->rs_total - peer_device->rs_same_csum),
+			     (unsigned long long)Bit2KB(peer_device->rs_total));
 		}
 	}
 
 	if (peer_device->rs_failed) {
-		drbd_info(peer_device, "            %lu failed blocks\n", peer_device->rs_failed);
+		drbd_info(peer_device, "            %llu failed blocks\n", (unsigned long long)peer_device->rs_failed);
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T) {
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -1970,7 +1970,7 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 	int err, eq = 0;
 
 	if (unlikely(cancel)) {
-		drbd_info(peer_device, "cancel csum rs req, sector : %lu\n", peer_req->i.sector);
+		drbd_info(peer_device, "cancel csum rs req, sector : %llu\n", (unsigned long long)peer_req->i.sector);
 		drbd_free_peer_req(peer_req);
 		dec_unacked(peer_device);
 		return 0;
@@ -2765,10 +2765,10 @@ void drbd_start_resync(struct drbd_peer_device *peer_device, enum drbd_repl_stat
 			drbd_md_set_peer_flag (peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
 		}
 		
-		drbd_info(peer_device, "Began resync as %s (will sync %lu KB [%lu bits set]).\n",
+		drbd_info(peer_device, "Began resync as %s (will sync %llu KB [%llu bits set]).\n",
 		     drbd_repl_str(repl_state),
-		     (unsigned long) peer_device->rs_total << (BM_BLOCK_SHIFT-10),
-		     (unsigned long) peer_device->rs_total);
+		     (unsigned long long) peer_device->rs_total << (BM_BLOCK_SHIFT-10),
+		     (unsigned long long) peer_device->rs_total);
 		if (side == L_SYNC_TARGET) {
 			// DW-1846 bm_resync_fo must be locked and set.
 			mutex_lock(&device->bm_resync_fo_mutex);
