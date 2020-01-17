@@ -1725,14 +1725,14 @@ ULONG_PTR _drbd_bm_find_next_zero(struct drbd_peer_device *peer_device, ULONG_PT
 	return ____bm_op(peer_device->device, peer_device->bitmap_index, start, DRBD_END_OF_BITMAP,
 		    BM_OP_FIND_ZERO_BIT, NULL, KM_USER0);
 }
-unsigned int drbd_bm_set_bits(struct drbd_device *device, unsigned int bitmap_index,
+ULONG_PTR drbd_bm_set_bits(struct drbd_device *device, unsigned int bitmap_index,
     ULONG_PTR start, ULONG_PTR end)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, start, end, BM_OP_SET, NULL);
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(count);
 #endif
-	return (unsigned int)count;
+	return count;
 }
 static __always_inline void
 __bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
@@ -1794,14 +1794,14 @@ void drbd_bm_clear_all(struct drbd_device *device)
 	for (bitmap_index = 0; bitmap_index < bitmap->bm_max_peers; bitmap_index++)
 		__bm_many_bits_op(device, bitmap_index, 0, DRBD_END_OF_BITMAP, BM_OP_CLEAR);
 }
-unsigned int drbd_bm_clear_bits(struct drbd_device *device, unsigned int bitmap_index,
+ULONG_PTR drbd_bm_clear_bits(struct drbd_device *device, unsigned int bitmap_index,
 	ULONG_PTR start, ULONG_PTR end)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, start, end, BM_OP_CLEAR, NULL);
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(count);
 #endif
-	return (unsigned int)count;
+	return count;
 }
 
 /* returns bit state
@@ -1829,13 +1829,13 @@ ULONG_PTR drbd_bm_test_bit(struct drbd_peer_device *peer_device, const ULONG_PTR
 }
 
 /* returns number of bits set in the range [s, e] */
-int drbd_bm_count_bits(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR s, ULONG_PTR e)
+ULONG_PTR drbd_bm_count_bits(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR s, ULONG_PTR e)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, s, e, BM_OP_COUNT, NULL);
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(count);
 #endif
-	return (int)count;
+	return count;
 }
 
 void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsigned int to_index)
