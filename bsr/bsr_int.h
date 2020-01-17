@@ -1409,8 +1409,8 @@ struct drbd_resource {
 #ifdef _WIN
 	bool bPreSecondaryLock;
 	bool bPreDismountLock; // DW-1286
-	bool bTempAllowMount;  // DW-1317
 #endif
+	bool bTempAllowMount;  // DW-1317
 	atomic_t bGetVolBitmapDone;  // DW-1391	
 	bool breqbuf_overflow_alarm; // DW-1539
 #ifdef _WIN_MULTIVOL_THREAD

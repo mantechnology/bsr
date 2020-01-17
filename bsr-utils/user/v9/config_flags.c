@@ -1047,15 +1047,17 @@ struct context_def resource_options_ctx = {
 	.fields = {
 		{ "cpu-mask", STRING(cpu_mask) },
 		{ "on-no-data-accessible", ENUM(on_no_data, ON_NO_DATA) },
-		{ "auto-promote", BOOLEAN(auto_promote, AUTO_PROMOTE) },
+		// BSR-465 auto-promote disable
+		/*{ "auto-promote", BOOLEAN(auto_promote, AUTO_PROMOTE) },*/
 		{ "peer-ack-window", NUMERIC(peer_ack_window, PEER_ACK_WINDOW), .unit = "bytes" },
 		{ "peer-ack-delay", NUMERIC(peer_ack_delay, PEER_ACK_DELAY),
 			.unit = "milliseconds" },
 		{ "twopc-timeout", NUMERIC(twopc_timeout, TWOPC_TIMEOUT), .unit = "1/10 seconds" },
 		{ "twopc-retry-timeout", NUMERIC(twopc_retry_timeout, TWOPC_RETRY_TIMEOUT),
 			.unit = "1/10 seconds" },
-		{ "auto-promote-timeout", NUMERIC(auto_promote_timeout, AUTO_PROMOTE_TIMEOUT),
-			.unit = "1/10 seconds" },
+		// BSR-465 auto-promote disable
+		/*{ "auto-promote-timeout", NUMERIC(auto_promote_timeout, AUTO_PROMOTE_TIMEOUT),
+			.unit = "1/10 seconds" },*/
 		{ "max-io-depth", NUMERIC(nr_requests, NR_REQUESTS) },
 		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, DRBD_PEERS_MAX) },
 		{ "on-no-quorum", ENUM(on_no_quorum, ON_NO_QUORUM) },
