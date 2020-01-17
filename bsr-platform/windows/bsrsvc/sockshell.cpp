@@ -54,9 +54,11 @@ DWORD RunProcess(
 	wchar_t				*pwszAppName;
 	wchar_t				tmp[TMPBUF];
 
+	
+#if 0 // DW-1950 64bit support
 	PVOID oldValue;
 	Wow64DisableWow64FsRedirection(&oldValue);
-
+#endif
 	ZeroMemory(&si, sizeof(si));
 	ZeroMemory(&pi, sizeof(pi));
 
@@ -109,7 +111,9 @@ DWORD RunProcess(
 
 		wsprintf(tmp, L"CreateProcess faild: GetLastError %d\n", ret);
 		WriteLog(tmp);
+#if 0 // DW-1950 64bit support
 		Wow64RevertWow64FsRedirection(oldValue);
+#endif
 
 		return ret;
 	}
@@ -127,8 +131,9 @@ DWORD RunProcess(
 
 			wsprintf(tmp, L"CreateProcess WaitForSingleObject faild: Error %d\n", ret);
 			WriteLog(tmp);
-
+#if 0 // DW-1950 64bit support
 			Wow64RevertWow64FsRedirection(oldValue);
+#endif
 			return ret;
 		}
 	}
@@ -143,8 +148,9 @@ DWORD RunProcess(
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-
+#if 0 // DW-1950 64bit support
 	Wow64RevertWow64FsRedirection(oldValue);
+#endif
 	return ERROR_SUCCESS;
 }
 
