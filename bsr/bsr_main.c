@@ -185,6 +185,9 @@ char usermode_helper[80] = "bsradm.exe";
 char usermode_helper[80] = "/sbin/bsradm";
 #endif
 
+// DW-1961 feature log
+atomic_t g_featurelog_flag = ATOMIC_INIT(0);
+
 #ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);
 #endif

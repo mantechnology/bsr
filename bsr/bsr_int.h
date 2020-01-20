@@ -49,6 +49,7 @@
 #include <linux/genhd.h>
 #include <linux/idr.h>
 #include <linux/prefetch.h>
+#include <linux/time.h>
 #include "compat.h"
 #endif
 
@@ -260,7 +261,10 @@ void drbd_printk_with_wrong_object_type(void);
 	drbd_printk(KERN_WARNING, obj, fmt, __VA_ARGS__)
 #define drbd_info(obj, fmt, ...) \
 	drbd_printk(KERN_INFO, obj, fmt, __VA_ARGS__)
-
+#define drbd_oos(obj, fmt, ...) \
+	drbd_printk(KERN_OOS, obj, fmt, __VA_ARGS__)
+#define drbd_latency(obj, fmt, ...) \
+	drbd_printk(KERN_LATENCY, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
 #define drbd_debug(obj, fmt, ...) \
 	drbd_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
@@ -351,7 +355,7 @@ void drbd_printk_with_wrong_object_type(void);
 #define drbd_debug_conn(fmt, args...) //drbd_info(NO_OBJECT, fmt, ## args)
 #define drbd_debug_rs(fmt, args...)
 #define drbd_debug_al(fmt, args...)
-
+#define drbd_latency(obj, fmt, args...)
 
 #define drbd_emerg(obj, fmt, args...) \
 	drbd_printk(KERN_EMERG, obj, fmt, ## args)
@@ -404,6 +408,14 @@ do {	\
 				drbd_debug(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
 				}	\
 } while (false)
+
+
+// DW-1961
+extern atomic_t g_featurelog_flag;
+#define FEATURELOG_FLAG_OOS 		(1 << 0)
+#define FEATURELOG_FLAG_LATENCY 	(1 << 1)
+
+
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
@@ -726,8 +738,18 @@ struct drbd_request {
 	ULONG_PTR pre_submit_jif;
 	/* per connection */
 	ULONG_PTR pre_send_jif[DRBD_PEERS_MAX];
+#ifdef _LIN
 	ULONG_PTR acked_jif[DRBD_PEERS_MAX];
 	ULONG_PTR net_done_jif[DRBD_PEERS_MAX];
+#endif
+
+	// DW-1961
+	bool	 do_submit;				// Whether do_submit logic passed
+	LONGLONG created_ts;			// req created
+	LONGLONG io_request_ts;			// Before delivering an io request to disk
+	LONGLONG io_complete_ts;		// Received io completion from disk
+	LONGLONG net_sent_ts[DRBD_PEERS_MAX];			// Send request to peer
+	LONGLONG net_done_ts[DRBD_PEERS_MAX];			// Received a response from peer
 
 	/* Possibly even more detail to track each phase:
 	 *  master_completion_jif
@@ -831,6 +853,13 @@ struct drbd_peer_request {
 		struct { /* regular peer_request */
 			struct drbd_epoch *epoch; /* for writes */
 			ULONG_PTR submit_jif;
+
+			// DW-1961
+			bool	 do_submit;				// Whether do_submit logic passed
+			LONGLONG created_ts;			// req created
+			LONGLONG io_request_ts;			// Before delivering an io request to disk
+			LONGLONG io_complete_ts;		// Received io completion from disk
+
 			union {
 				u64 block_id;
 				struct digest_info *digest;
@@ -1164,6 +1193,12 @@ struct drbd_md_io {
 	struct page *page;
 	ULONG_PTR start_jif;	/* last call to drbd_md_get_buffer */
 	ULONG_PTR submit_jif;	/* last _drbd_md_sync_page_io() submit */
+
+	// DW-1961
+	LONGLONG prepare_ts;	// prepare md io request
+	LONGLONG io_request_ts;		// before requesting md io to disk
+	LONGLONG io_complete_ts;		// receive md io complete
+
 	const char *current_use;
 	atomic_t in_use;
 	unsigned int done;
@@ -3735,5 +3770,37 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 // BSR-453
 extern void *bsr_kvmalloc(size_t size, gfp_t flags);
 #endif
+
+
+// DW-1961
+static inline LONGLONG timestamp(void)
+{
+#ifdef _WIN
+	LARGE_INTEGER time_stamp = KeQueryPerformanceCounter(NULL);
+	return time_stamp.QuadPart;
+#else // _LIN
+	// TODO : get microsecond
+	return 0;
+#endif
+}
+
+
+static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
+{
+#ifdef _WIN
+	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
+		drbd_info(NO_OBJECT, "timestamp is invalid\n");
+		return -1;
+	}
+
+	LONGLONG microsec_elapse = end_ts - begin_ts;
+	microsec_elapse *= 1000000;
+	microsec_elapse /= g_frequency.QuadPart;
+	return microsec_elapse;
+#else // _LIN
+	return 0;
+#endif
+}
+
 
 #endif

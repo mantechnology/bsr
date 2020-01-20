@@ -233,6 +233,13 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 	device = peer_device->device;
 	connection = peer_device->connection;
 
+	// DW-1961
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+		drbd_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+			peer_req, peer_req->do_submit, device->minor, drbd_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
+			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
+	}
+
 	spin_lock_irqsave(&device->resource->req_lock, flags);
 	device->read_cnt += peer_req->i.size >> 9;
 	list_del(&peer_req->w.list);
@@ -316,6 +323,12 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	device = peer_device->device;
 	connection = peer_device->connection;
 
+	// DW-1961
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+		drbd_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+			peer_req, peer_req->do_submit, device->minor, drbd_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
+			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
+	}
 	/* if this is a failed barrier request, disable use of barriers,
 	 * and schedule for resubmission */
 #ifdef _WIN64
@@ -475,6 +488,10 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bool is_write = bio_data_dir(bio) == WRITE;
 	bool is_discard = bio_op(bio) == REQ_OP_DISCARD;
 
+	// DW-1961 Save timestamp for IO latency measuremen
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		peer_req->io_complete_ts = timestamp();
+
 	BIO_ENDIO_FN_START;
 #ifdef _WIN
 	if (NT_ERROR(error) && drbd_ratelimit())
@@ -595,6 +612,10 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_START;
 	req = bio->bi_private;
 	device = req->device;
+
+	// DW-1961 Calculate and Log IO Latency
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		req->io_complete_ts = timestamp();
 
 	/* If this request was aborted locally before,
 	* but now was completed "successfully",
