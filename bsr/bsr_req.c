@@ -376,6 +376,13 @@ void drbd_req_destroy(struct kref *kref)
 		}
 	}
 
+	// DW-1961
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+		drbd_latency(device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus)\n",
+			req, req->do_submit, device->minor, drbd_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
+			timestamp_elapse(req->created_ts, req->io_request_ts), timestamp_elapse(req->io_request_ts, req->io_complete_ts), timestamp_elapse(req->created_ts, timestamp()));
+	}
+
 	device_refs++; /* In both branches of the if the reference to device gets released */
 	if (s & RQ_WRITE && req->i.size) {
 		struct drbd_resource *resource = device->resource;
@@ -945,6 +952,10 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 		if (!(old_net & RQ_NET_DONE)) {
 			atomic_add64(req->i.size, &peer_device->connection->ap_in_flight);
 			set_if_null_req_not_net_done(peer_device, req);
+
+			// DW-1961
+			if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+				req->net_sent_ts[peer_device->node_id] = timestamp();
 		}
 		if (req->rq_state[idx] & RQ_NET_PENDING)
 			set_if_null_req_ack_pending(peer_device, req);
@@ -986,7 +997,9 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
 		++c_put;
+#ifdef _LIN
 		req->acked_jif[peer_device->node_id] = jiffies;
+#endif
 		advance_conn_req_ack_pending(peer_device, req);
 	}
 
@@ -1009,8 +1022,17 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 		if (old_net & RQ_EXP_BARR_ACK)
 			++k_put;
-		req->net_done_jif[peer_device->node_id] = jiffies;
 
+		// DW-1961 Calculate and Log IO Latency
+		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+			req->net_done_ts[peer_device->node_id] = timestamp();
+			drbd_latency(peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)\n",
+				req, req->do_submit, peer_device->node_id, drbd_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
+				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
+		}
+#ifdef _LIN
+		req->net_done_jif[peer_device->node_id] = jiffies;
+#endif
 		/* in ahead/behind mode, or just in case,
 		 * before we finally destroy this request,
 		 * the caching pointers must not reference it anymore */
@@ -1716,7 +1738,7 @@ static int drbd_process_write_request(struct drbd_request *req)
 
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 Write log when process I/O
-		printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n", KERN_DEBUG_OOS,
+		printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n", KERN_OOS,
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
 
@@ -1780,16 +1802,19 @@ drbd_submit_req_private_bio(struct drbd_request *req)
 			bsr_bio_endio(bio, -EIO);
 		else if (bio_op(bio) == REQ_OP_DISCARD)
 			drbd_process_discard_req(req);
-#ifdef _WIN
 		else {
+			// DW-1961 Save timestamp for IO latency measuremen
+			if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+				req->io_request_ts = timestamp();
+
+#ifdef _WIN
 			if (generic_make_request(bio)) {
 				bio_endio(bio, -EIO);
 			}
-		}
 #else // _LIN
-		else
 			generic_make_request(bio);
 #endif
+		}
 		put_ldev(device);
 	} else
 		bsr_bio_endio(bio, -EIO);
@@ -1829,6 +1854,11 @@ drbd_request_prepare(struct drbd_device *device, struct bio *bio, ULONG_PTR star
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
+
+	// DW-1961 Save timestamp for IO latency measuremen
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		req->created_ts = timestamp();
+
 	req->start_jif = start_jif;
 
 	if (!get_ldev(device)) {
@@ -1853,12 +1883,15 @@ drbd_request_prepare(struct drbd_device *device, struct bio *bio, ULONG_PTR star
 			if (!drbd_al_begin_io_fastpath(device, &req->i))
 				goto queue_for_submitter_thread;
 			req->rq_state[0] |= RQ_IN_ACT_LOG;
+#ifdef _LIN
 			req->in_actlog_jif = jiffies;
+#endif
 		}
 	}
 	return req;
 
- queue_for_submitter_thread:
+queue_for_submitter_thread:
+	req->do_submit = true;
 	drbd_queue_write(device, req);
 	return NULL;
 }
@@ -2235,7 +2268,9 @@ static void submit_fast_path(struct drbd_device *device, struct waiting_for_act_
 				continue;
 
 			req->rq_state[0] |= RQ_IN_ACT_LOG;
+#ifdef _LIN
 			req->in_actlog_jif = jiffies;
+#endif
 			atomic_dec(&device->ap_actlog_cnt);
 		}
 
@@ -2331,7 +2366,9 @@ static void send_and_submit_pending(struct drbd_device *device, struct waiting_f
 
 	list_for_each_entry_safe_ex(struct drbd_request, req, tmp, &wfa->requests.pending, tl_requests) {
 		req->rq_state[0] |= RQ_IN_ACT_LOG;
+#ifdef _LIN
 		req->in_actlog_jif = jiffies;
+#endif
 		atomic_dec(&device->ap_actlog_cnt);
 		list_del_init(&req->tl_requests);
 		drbd_send_and_submit(device, req);

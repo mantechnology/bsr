@@ -1,3 +1,4 @@
+#ifdef CONFIG_DEBUG_FS
 #define pr_fmt(fmt)	KBUILD_MODNAME " debugfs: " fmt
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/seq_file.h"
@@ -1546,4 +1547,5 @@ fail:
 	else
 		return -EINVAL;
 }
+#endif
 #endif

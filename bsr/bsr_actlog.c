@@ -123,6 +123,10 @@ void *drbd_md_get_buffer(struct drbd_device *device, const char *intent)
 	int r;
 	long t = 0;
 
+	// DW-1961 Measure how long the metadisk waits for use
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		device->md_io.prepare_ts = timestamp();
+
 	wait_event_timeout_ex(device->misc_wait,
 							(r = atomic_cmpxchg(&device->md_io.in_use, 0, 1)) == 0 ||
 							device->disk_state[NOW] <= D_FAILED,
@@ -135,8 +139,10 @@ void *drbd_md_get_buffer(struct drbd_device *device, const char *intent)
 		return NULL;
 
 	device->md_io.current_use = intent;
+#ifdef _LIN
 	device->md_io.start_jif = jiffies;
 	device->md_io.submit_jif = device->md_io.start_jif - 1;
+#endif
 	return page_address(device->md_io.page);
 }
 
@@ -215,7 +221,14 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 
 	bio_get(bio); /* one bio_put() is in the completion handler */
 	atomic_inc(&device->md_io.in_use); /* drbd_md_put_buffer() is in the completion handler */
+
+	// DW-1961 Save timestamp for IO latency measurement
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		device->md_io.io_request_ts = timestamp();
+
+#ifdef _LIN
 	device->md_io.submit_jif = jiffies;
+#endif
 
 	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD))
 		bsr_bio_endio(bio, -EIO);
@@ -231,6 +244,16 @@ static int _drbd_md_sync_page_io(struct drbd_device *device,
 #endif
 
 	wait_until_done_or_force_detached(device, bdev, &device->md_io.done);
+
+	// DW-1961 Calculate and Log IO Latency
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+		device->md_io.io_complete_ts = timestamp();
+		drbd_latency(device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)\n", 
+				(op == REQ_OP_WRITE) ? "write" : "read",
+				timestamp_elapse(device->md_io.prepare_ts, device->md_io.io_request_ts), 
+				timestamp_elapse(device->md_io.io_request_ts, device->md_io.io_complete_ts));
+	}
+
 	err = device->md_io.error;
 #ifdef _WIN
     if(err == STATUS_NO_SUCH_DEVICE) {

@@ -124,10 +124,8 @@ typedef struct _LOGGING_MIN_LV {
 
 #define LOGGING_TYPE_SYSLOG		0
 #define LOGGING_TYPE_DBGLOG		1
-#ifdef _WIN_DEBUG_OOS
-// DW-1153
-#define LOGGING_TYPE_OOSLOG		2
-#endif
+// DW-1961 add logging type
+#define LOGGING_TYPE_FEATURELOG 2
 
 #ifdef _WIN_DEBUG_OOS
 #define FRAME_DELIMITER		"@"
@@ -139,11 +137,7 @@ typedef struct _LOGGING_MIN_LV {
 #endif
 
 #define MAX_DRBDLOG_BUF				512
-#ifdef _WIN_DEBUG_OOS
 #define LOGBUF_MAXCNT				100000
-#else
-#define LOGBUF_MAXCNT				10000
-#endif
 
 typedef struct _DRBD_LOG {
 	LONGLONG 	totalcnt;

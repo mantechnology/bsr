@@ -551,7 +551,7 @@ void __drbd_free_peer_req(struct drbd_peer_request *peer_req, int is_net)
 		D_ASSERT(peer_device, drbd_interval_empty(&peer_req->i));
 		drbd_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
 	}
-
+	
 	mempool_free(peer_req, drbd_ee_mempool);
 }
 
@@ -1178,6 +1178,10 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_START;
 
 #ifdef _WIN
+	// DW-1961 Calculate and Log IO Latency
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		drbd_latency(device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+
 	if (NT_ERROR(error)) {
 #else // _LIN
 	if (error) {
@@ -1263,7 +1267,15 @@ static void submit_one_flush(struct drbd_device *device, struct issue_flush_cont
 	bio->bi_private = octx;
 	bio->bi_end_io = one_flush_endio;
 
+#ifdef _WIN
+	// DW-1961 Save timestamp for flush IO latency measurement
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		bio->flush_ts = timestamp();
+#endif
+
+#ifdef _LIN
 	device->flush_jif = jiffies;
+#endif
 	set_bit(FLUSH_PENDING, &device->flags);
 	atomic_inc(&ctx->pending);
 	bio_set_op_attrs(bio, REQ_OP_FLUSH, WRITE_FLUSH);
@@ -1928,6 +1940,11 @@ next_bio:
 	atomic_set(&peer_req->pending_bios, n_bios);
 	/* for debugfs: update timestamp, mark as submitted */
 	peer_req->submit_jif = jiffies;
+
+	// DW-1961 Save timestamp for IO latency measurement
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		peer_req->io_request_ts = timestamp();
+
 	peer_req->flags |= EE_SUBMITTED;
 	do {
 		bio = bios;
@@ -2192,6 +2209,11 @@ read_in_block(struct drbd_peer_device *peer_device, struct drbd_peer_request_det
 	peer_req->i.sector = d->sector;
 	peer_req->block_id = d->block_id;
 	peer_req->flags |= EE_WRITE;
+
+	// DW-1961 Save timestamp for IO latency measurement
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		peer_req->created_ts = timestamp();
+
 	if (d->length == 0)
 		return peer_req;
 
@@ -2334,6 +2356,11 @@ static int e_end_resync_block(struct drbd_work *w, int unused)
 	UNREFERENCED_PARAMETER(unused);
 
 	D_ASSERT(peer_device, drbd_interval_empty(&peer_req->i));
+
+	// DW-1961 Calculate and Log IO Latency
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
+		peer_req->io_complete_ts = timestamp();
+	}
 
 	// DW-1846 send P_NEG_ACK if not sync target
 	if (is_sync_target(peer_device)) {
@@ -2585,6 +2612,10 @@ static struct drbd_peer_request *split_read_in_block(struct drbd_peer_device *pe
 	split_peer_request->flags |= flags;
 
 	split_peer_request->block_id = peer_request->block_id;
+
+	// DW-1961 Save timestamp for IO latency measurement
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		split_peer_request->created_ts = timestamp();
 
 	drbd_alloc_page_chain(transport, &split_peer_request->page_chain, DIV_ROUND_UP(split_peer_request->i.size, PAGE_SIZE), GFP_TRY);
 	if (split_peer_request->page_chain.head == NULL) {
@@ -3884,6 +3915,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 				goto disconnect_during_al_begin_io;
 			}
 		} else if (!drbd_al_begin_io_fastpath(device, &peer_req->i)) {
+			peer_req->do_submit = true;
 			drbd_queue_peer_request(device, peer_req);
 			return 0;
 		}
@@ -4239,6 +4271,11 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 	peer_req->i.size = size;
 	peer_req->i.sector = sector;
 	peer_req->block_id = p->block_id;
+
+	// DW-1961 Save timestamp for IO latency measuremen
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		peer_req->created_ts = timestamp();
+
 	/* no longer valid, about to call drbd_recv again for the digest... */
 	p = pi->data = NULL;
 
@@ -8082,7 +8119,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 				{
 					// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
 					drbd_info(peer_device, "SyncSource still sees bits set!! FIXME\n");
-					if(TRUE == atomic_read(&g_oos_trace)) {
+					if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_OOS) {
 						ULONG_PTR bit = 0;
 						sector_t sector = 0;
 						ULONG_PTR bm_resync_fo = 0;
@@ -8095,7 +8132,7 @@ static int receive_state(struct drbd_connection *connection, struct packet_info 
 
 							sector = BM_BIT_TO_SECT(bit);
 
-							printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_DEBUG_OOS,
+							printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;
