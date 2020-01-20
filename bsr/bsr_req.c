@@ -2423,7 +2423,7 @@ void do_submit(struct work_struct *ws)
 			prepare_al_transaction_nonblock(device, &wfa);
 			if (!wfa_lists_empty(&wfa, pending)) {
 				if(al_wait_count)
-					drbd_debug(device, "al_wait retry count : %lu\n", al_wait_count);
+					drbd_debug(device, "al_wait retry count : %llu\n", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
 				break;
 			}
@@ -2439,7 +2439,7 @@ void do_submit(struct work_struct *ws)
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
 #endif
 				struct drbd_peer_device *peer_device;
-				drbd_err(device, "al_wait timeout... disconnect, retry %lu\n", al_wait_count);
+				drbd_err(device, "al_wait timeout... disconnect, retry %llu\n", (unsigned long long)al_wait_count);
 				for_each_peer_device_rcu(peer_device, device) {
 					change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 				}

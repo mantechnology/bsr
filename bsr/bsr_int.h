@@ -2493,9 +2493,9 @@ extern void repost_up_to_date_fn(unsigned long data);
 static inline void ov_out_of_sync_print(struct drbd_peer_device *peer_device)
 {
 	if (peer_device->ov_last_oos_size) {
-		drbd_err(peer_device, "Out of sync: start=%llu, size=%lu (sectors)\n",
+		drbd_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
 		     (unsigned long long)peer_device->ov_last_oos_start,
-		     (unsigned long)peer_device->ov_last_oos_size);
+		     (unsigned long long)peer_device->ov_last_oos_size);
 	}
 	peer_device->ov_last_oos_size = 0;
 }
