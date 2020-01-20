@@ -6053,9 +6053,9 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct drbd_peer_devic
 	ULONG_PTR count = 0;
 	PCHAR pByte = NULL;
 	
-	ULONG_PTR llBytePos;
-	ULONG_PTR llBitPosInByte;
 	ULONG_PTR bitmapSize;
+	ULONG_PTR llBytePos;
+	short llBitPosInByte;
 
 	
 	if (NULL == pBitmap ||
