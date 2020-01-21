@@ -5661,7 +5661,7 @@ void forget_bitmap(struct drbd_device *device, int node_id) __must_hold(local) /
 	rcu_read_unlock();
 	drbd_suspend_io(device, WRITE_ONLY);
 	drbd_bm_lock(device, "forget_bitmap()", BM_LOCK_TEST | BM_LOCK_SET);
-	_drbd_bm_clear_many_bits(device, bitmap_index, 0, DRBD_END_OF_BITMAP);
+	drbd_bm_clear_many_bits(device, bitmap_index, 0, DRBD_END_OF_BITMAP);
 	drbd_bm_unlock(device);
 	drbd_resume_io(device);
 	drbd_md_mark_dirty(device);
@@ -6309,7 +6309,7 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 	// clear all bits before start initial sync. (clear bits only for this peer device)	
 	if (bitmap_lock)
 		drbd_bm_slot_lock(peer_device, "initial sync for allocated cluster", BM_LOCK_BULK);
-	drbd_bm_clear_many_bits(peer_device, 0, DRBD_END_OF_BITMAP);
+	drbd_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, DRBD_END_OF_BITMAP);
 	drbd_bm_write(device, NULL);
 	if (bitmap_lock)
 		drbd_bm_slot_unlock(peer_device);
