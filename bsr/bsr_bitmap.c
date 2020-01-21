@@ -1209,7 +1209,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE4) {
 			if(IsDiskError()) {
-				drbd_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%u ErrorCount:%u\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				drbd_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%lu ErrorCount:%lu\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
