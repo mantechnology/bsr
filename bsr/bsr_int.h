@@ -849,6 +849,8 @@ struct drbd_peer_request {
 	atomic_t pending_bios;
 	struct drbd_interval i;
 	ULONG_PTR flags; /* see comments on ee flag bits below */
+	// DW-1966 I/O error number
+	int error;
 	union {
 		struct { /* regular peer_request */
 			struct drbd_epoch *epoch; /* for writes */
