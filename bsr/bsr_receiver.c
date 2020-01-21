@@ -9380,7 +9380,7 @@ void conn_disconnect(struct drbd_connection *connection)
 	if (!list_empty(&connection->read_ee)) {
 		list_for_each_entry_ex(struct drbd_peer_request, peer_req, &connection->read_ee, w.list) {
 			struct drbd_device *device = peer_req->peer_device->device;
-			drbd_info(device, "add, read_ee => inactive_ee(%p), sector(%llu), size(%d)\n", 
+			drbd_info(device, "add, read_ee => inactive_ee(%p), sector(%llu), size(%u)\n", 
 				peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size); 
 		}
 		// DW-1735 If the list is not empty because it has been moved to inactive_ee, it as a bug
