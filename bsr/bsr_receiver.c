@@ -4002,7 +4002,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 							break;
 						s_marked_rl->marked_rl |= 1 << i;
 					}
-					drbd_info(peer_device, "sbb marking bb(%llu), ssector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", 
+					drbd_debug(peer_device, "sbb marking bb(%llu), ssector(%llu), sector(%llu), size(%u), marked(%u), offset(%u)\n", 
 						(unsigned long long)s_marked_rl->bb, 
 						(unsigned long long)ssector, 
 						(unsigned long long)BM_BIT_TO_SECT(s_marked_rl->bb), 
@@ -4032,7 +4032,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 					for (i = 0; i < (esector - BM_BIT_TO_SECT(e_bb)); i++) {
 						e_marked_rl->marked_rl |= 1 << i;
 					}
-					drbd_info(peer_device, "marking bb(%llu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(0)\n", 
+					drbd_debug(peer_device, "marking bb(%llu), esector(%llu), sector(%llu), size(%u), marked(%u), offset(0)\n", 
 						(unsigned long long)e_marked_rl->bb, 
 						(unsigned long long)esector, 
 						(unsigned long long)BM_BIT_TO_SECT(e_marked_rl->bb), 
@@ -9408,6 +9408,11 @@ void conn_disconnect(struct drbd_connection *connection)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 
+		// DW-1965 initialize values that need to be answered or set after completion of I/O.
+		atomic_set(&peer_device->unacked_cnt, 0);
+		atomic_set(&peer_device->rs_pending_cnt, 0);
+		atomic_set(&peer_device->rs_sect_in, 0);
+		
 		peer_device_disconnected(peer_device);
 	
 		kref_put(&device->kref, drbd_destroy_device);
