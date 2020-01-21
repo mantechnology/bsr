@@ -1475,7 +1475,10 @@ struct drbd_connection {
 	enum drbd_role peer_role[2];
 	bool susp_fen[2];		/* IO suspended because fence peer handler runs */
 	ULONG_PTR flags;
-	
+
+	// DW-1977
+	enum drbd_packet last_send_packet;
+
 	enum drbd_fencing_policy fencing_policy;
 	wait_queue_head_t ping_wait;	/* Woken upon reception of a ping, and a state change */
 
@@ -3781,27 +3784,31 @@ static inline LONGLONG timestamp(void)
 	LARGE_INTEGER time_stamp = KeQueryPerformanceCounter(NULL);
 	return time_stamp.QuadPart;
 #else // _LIN
-	// TODO : get microsecond
-	return 0;
+	LONGLONG time_stamp;
+	time_stamp = ktime_to_us(ktime_get());
+
+	return time_stamp;
 #endif
 }
 
 
 static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 {
-#ifdef _WIN
+	LONGLONG microsec_elapse;
+
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
 		drbd_info(NO_OBJECT, "timestamp is invalid\n");
 		return -1;
 	}
 
-	LONGLONG microsec_elapse = end_ts - begin_ts;
+	microsec_elapse = end_ts - begin_ts;
+
+#ifdef _WIN
 	microsec_elapse *= 1000000;
 	microsec_elapse /= g_frequency.QuadPart;
-	return microsec_elapse;
-#else // _LIN
-	return 0;
 #endif
+
+	return microsec_elapse;
 }
 
 

@@ -936,7 +936,7 @@ int w_resync_timer(struct drbd_work *w, int cancel)
 	struct drbd_peer_device *peer_device =
 		container_of(w, struct drbd_peer_device, resync_work);
 	struct drbd_device *device = peer_device->device;
-
+	LONGLONG ts = timestamp();
 	mutex_lock(&device->bm_resync_fo_mutex);
 
 	switch (peer_device->repl_state[NOW]) {
@@ -948,11 +948,18 @@ int w_resync_timer(struct drbd_work *w, int cancel)
 		if (mutex_trylock(&device->resource->vol_ctl_mutex)) {
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			make_resync_request(peer_device, cancel);
+			// DW-1977
+			ts = timestamp_elapse(ts, timestamp());
+			if (ts > ((3 * 1000) * HZ)) {
+				drbd_warn(peer_device, "resync request takes a long time(%lldus)\n", ts);
+			}
 		}
 		else		
 			mod_timer(&peer_device->resync_timer, jiffies);	
 		break;
 	default:
+		// DW-1977
+		drbd_info(peer_device, "completed because it is not in the VERIFY_S or SYNC_TARGET replication state.\n");
 		break;
 	}
 

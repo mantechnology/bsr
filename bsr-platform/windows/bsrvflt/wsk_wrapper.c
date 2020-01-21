@@ -801,7 +801,8 @@ Send(
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
+				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p) size:%lu\n", 
+									__FUNCTION__, Timeout, pSock->sk_state, WskSocket, BufferSize);
 				IoCancelIrp(Irp);
 
 				return -EAGAIN;
@@ -1236,7 +1237,8 @@ LONG NTAPI Receive(
             if (Irp->IoStatus.Status == STATUS_SUCCESS) {
                 BytesReceived = (LONG) Irp->IoStatus.Information;
             } else {
-				drbd_info(NO_OBJECT,"RECV(%s) wsk(0x%p) multiWait err(0x%x:%s)\n", thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status));
+				drbd_info(NO_OBJECT,"RECV(%s) wsk(0x%p) multiWait err(0x%x:%s) size(%lu)\n", 
+						thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize);
 				if(Irp->IoStatus.Status) {
                     BytesReceived = -ECONNRESET;
                 }
