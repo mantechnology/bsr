@@ -47,8 +47,8 @@ static int make_ov_request(struct drbd_peer_device *, int);
 static int make_resync_request(struct drbd_peer_device *, int);
 static void maybe_send_barrier(struct drbd_connection *, int);
 
-// DW-1755
-static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error);
+// DW-1755 DW-1966
+static void process_io_error(sector_t sector, unsigned int size, bool write, struct drbd_device *device, unsigned char disk_type, int error);
 
 /* endio handlers:
  *   drbd_md_endio (defined here)
@@ -138,8 +138,8 @@ BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	if (error) {
 #endif
-		// DW-1755
-		process_io_error(bio, device, VOLUME_TYPE_META, error);
+		// DW-1755 DW-1966
+		process_io_error(DRBD_BIO_BI_SECTOR(bio), DRBD_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_META, error);
 	}
 
 #ifdef _WIN
@@ -212,13 +212,15 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 			device = peer_device->device;
 			connection = peer_device->connection;
 
-			//DW-1735 : In case of the same peer_request, destroy it in inactive_ee and exit the function.
+			//DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 			list_for_each_entry_safe_ex(struct drbd_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 				if (peer_req == p_req) {
 					drbd_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
 					if (peer_req->flags & EE_WAS_ERROR) {
+						// DW-1966
+						process_io_error(peer_req->i.sector, peer_req->i.size, false, device, VOLUME_TYPE_REPL, peer_req->error);
 						atomic_inc(&device->io_error_count);
 						drbd_md_set_flag(device, MDF_IO_ERROR);
 						if (device->resource->role[NOW] == R_PRIMARY) {
@@ -257,6 +259,9 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 	if (list_empty(&connection->read_ee))
 		wake_up(&connection->ee_wait);
 	if (test_bit(__EE_WAS_ERROR, &peer_req->flags)) {
+		// DW-1966
+		process_io_error(peer_req->i.sector, peer_req->i.size, false, device, VOLUME_TYPE_REPL, peer_req->error);
+
 		atomic_inc(&device->io_error_count);
 		drbd_md_set_flag(device, MDF_IO_ERROR);
 		// DW-1843 set MDF_PRIMARY_IO_ERROR flag when reading IO error at primary.
@@ -322,6 +327,8 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
 					if (peer_req->flags & EE_WAS_ERROR) {
+						// DW-1966
+						process_io_error(peer_req->i.sector, peer_req->i.size, true, device, VOLUME_TYPE_REPL, peer_req->error);
 						drbd_set_all_out_of_sync(device, peer_req->i.sector, peer_req->i.size);
 						atomic_inc(&device->io_error_count);
 						drbd_md_set_flag(device, MDF_IO_ERROR);
@@ -385,6 +392,9 @@ void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(l
 	peer_flags = peer_req->flags;
 
 	if (peer_flags & EE_WAS_ERROR) {
+		// DW-1966
+		process_io_error(peer_req->i.sector, peer_req->i.size, true, device, VOLUME_TYPE_REPL, peer_req->error);
+
 		// DW-1842 __EE_SEND_WRITE_ACK should be used only for replication.
 		if (block_id != ID_SYNCER) {
 			/* In protocol != C, we usually do not send write acks.
@@ -505,7 +515,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 
 	struct drbd_peer_request *peer_req = bio->bi_private;
-	struct drbd_device *device = peer_req->peer_device->device;
+
 	bool is_write = bio_data_dir(bio) == WRITE;
 	bool is_discard = bio_op(bio) == REQ_OP_DISCARD;
 
@@ -519,7 +529,7 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	if (error && drbd_ratelimit())
 #endif
-		drbd_warn(device, "%s: error=0x%08X sec=%llus size:%d\n",
+		drbd_warn(NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d\n",
 		is_write ? (is_discard ? "discard" : "write")
 		: "read", error,
 		(unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -530,7 +540,9 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 		set_bit(__EE_WAS_ERROR, &peer_req->flags);
 		// DW-1755
-		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
+		// DW-1966 "process_io_error()" it is called by "drbd_endio_write_sec_final()", "drbd_endio_read_sec_final()".
+		// set I/O error
+		peer_req->error = error;
 	}
 #ifdef _WIN
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
@@ -549,10 +561,6 @@ BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	bio_put(bio); /* no need for the bio anymore */
 
-	// DW-1598 Prevent the function below from referencing a connection that already freed.
-	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)){
-		BIO_ENDIO_FN_RETURN;
-	}
 	if (atomic_dec_and_test(&peer_req->pending_bios)) {
 		if (is_write)
 			drbd_endio_write_sec_final(peer_req);
@@ -699,8 +707,8 @@ BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 			break;
 		}
 
-		// DW-1755
-		process_io_error(bio, device, VOLUME_TYPE_REPL, error);
+		// DW-1755 DW-1966
+		process_io_error(DRBD_BIO_BI_SECTOR(bio), DRBD_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_REPL, error);
 	}
 	else {
 		what = COMPLETED_OK;
@@ -3750,9 +3758,9 @@ int drbd_worker(struct drbd_thread *thi)
 // DW-1755 When a disk error occurs, 
  /* transfers the event to the work thread queue.
  */
-static void process_io_error(struct bio *bio, struct drbd_device *device, unsigned char disk_type, int error)
+static void process_io_error(sector_t sector, unsigned int size, bool write, struct drbd_device *device, unsigned char disk_type, int error)
 {
-	drbd_queue_notify_io_error_occurred(device, disk_type, (bio->bi_rw & WRITE) ? WRITE : READ, error, DRBD_BIO_BI_SECTOR(bio), DRBD_BIO_BI_SIZE(bio));
+	drbd_queue_notify_io_error_occurred(device, disk_type, (write == true) ? WRITE : READ, error, sector, size);
 }
 
 
