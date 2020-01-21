@@ -915,6 +915,7 @@ start:
 		clear_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 		// DW-1799
 		clear_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags);
+		peer_device->bm_ctx.count = 0;
 	}
 
 	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -8604,88 +8605,17 @@ static enum drbd_disk_state read_disk_state(struct drbd_device *device)
 	return disk_state;
 }
 
-/* Since we are processing the bitfield from lower addresses to higher,
-   it does not matter if the process it in 32 bit chunks or 64 bit
-   chunks as long as it is little endian. (Understand it as byte stream,
-   beginning with the lowest byte...) If we would use big endian
-   we would need to process it from the highest address to the lowest,
-   in order to be agnostic to the 32 vs 64 bits issue.
 
-   returns 0 on failure, 1 if we successfully received it. */
-static int receive_bitmap(struct drbd_connection *connection, struct packet_info *pi)
+// DW-1981
+static int receive_bitmap_finished(struct drbd_connection *connection, struct drbd_peer_device *peer_device)
 {
-	struct drbd_peer_device *peer_device;
-	struct drbd_device *device;
-	struct bm_xfer_ctx c;
-	int err;
-	int res = 0;
-
-	peer_device = conn_peer_device(connection, pi->vnr);
-	if (!peer_device)
+	int err = 0;
+	struct drbd_device *device = peer_device->device;
+	if (!device)
 		return -EIO;
-	if (peer_device->bitmap_index == -1) {
-		drbd_err(peer_device, "No bitmap allocated in receive_bitmap()!\n");
-		return -EIO;
-	}
-	device = peer_device->device;
 
-	memset(&c, 0, sizeof(struct bm_xfer_ctx));
-
-	/* Final repl_states become visible when the disk leaves NEGOTIATING state */
-	wait_event_interruptible_ex(device->resource->state_wait,
-		read_disk_state(device) != D_NEGOTIATING, res);
-	
-	drbd_bm_slot_lock(peer_device, "receive bitmap", BM_LOCK_CLEAR | BM_LOCK_BULK);
-	/* you are supposed to send additional out-of-sync information
-	 * if you actually set bits during this phase */
-
-	c = (struct bm_xfer_ctx) {
-		.bm_bits = drbd_bm_bits(device),
-		.bm_words = drbd_bm_words(device),
-	};
-
-	for(;;) {
-		if (pi->cmd == P_BITMAP)
-			err = receive_bitmap_plain(peer_device, pi->size, &c);
-		else if (pi->cmd == P_COMPRESSED_BITMAP) {
-			/* MAYBE: sanity check that we speak proto >= 90,
-			 * and the feature is enabled! */
-			struct p_compressed_bm *p;
-
-			if (pi->size > DRBD_SOCKET_BUFFER_SIZE - drbd_header_size(connection)) {
-				drbd_err(device, "ReportCBitmap packet too large\n");
-				err = -EIO;
-				goto out;
-			}
-			if (pi->size <= sizeof(*p)) {
-				drbd_err(device, "ReportCBitmap packet too small (l:%u)\n", pi->size);
-				err = -EIO;
-				goto out;
-			}
-			err = drbd_recv_all(connection, (void **)&p, pi->size);
-			if (err)
-			       goto out;
-			err = decode_bitmap_c(peer_device, p, &c, pi->size);
-		} else {
-			drbd_warn(device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
-			err = -EIO;
-			goto out;
-		}
-
-		c.packets[pi->cmd == P_BITMAP]++;
-		c.bytes[pi->cmd == P_BITMAP] += drbd_header_size(connection) + pi->size;
-
-		if (err <= 0) {
-			if (err < 0)
-				goto out;
-			break;
-		}
-		err = drbd_recv_header(connection, pi);
-		if (err)
-			goto out;
-	}
-
-	INFO_bm_xfer_stats(peer_device, "receive", &c);
+	peer_device->bm_ctx.count = 0;
+	INFO_bm_xfer_stats(peer_device, "receive", &peer_device->bm_ctx);
 
 	if (peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
 		enum drbd_state_rv rv;
@@ -8699,7 +8629,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 		if (connection->agreed_pro_version < 110) {
 			rv = stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
 			D_ASSERT(device, rv == SS_SUCCESS);
-		} else {
+		}
+		else {
 			// DW-1815 merge the peer_device bitmap into the same current_uuid.
 			struct drbd_peer_device* pd;
 
@@ -8737,7 +8668,8 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 
 			drbd_start_resync(peer_device, L_SYNC_TARGET);
 		}
-	} else if (peer_device->repl_state[NOW] != L_WF_BITMAP_S) {
+	}
+	else if (peer_device->repl_state[NOW] != L_WF_BITMAP_S) {
 		/* admin may have requested C_DISCONNECTING,
 		 * other threads may have noticed network errors */
 		drbd_info(peer_device, "unexpected repl_state (%s) in receive_bitmap\n",
@@ -8748,9 +8680,96 @@ static int receive_bitmap(struct drbd_connection *connection, struct packet_info
 	err = 0;
 
  out:
-	drbd_bm_slot_unlock(peer_device);
 	if (!err && peer_device->repl_state[NOW] == L_WF_BITMAP_S)
 		drbd_start_resync(peer_device, L_SYNC_SOURCE);
+	return err;
+}
+
+
+/* Since we are processing the bitfield from lower addresses to higher,
+   it does not matter if the process it in 32 bit chunks or 64 bit
+   chunks as long as it is little endian. (Understand it as byte stream,
+   beginning with the lowest byte...) If we would use big endian
+   we would need to process it from the highest address to the lowest,
+   in order to be agnostic to the 32 vs 64 bits issue.
+
+   returns 0 on failure, 1 if we successfully received it. */
+static int receive_bitmap(struct drbd_connection *connection, struct packet_info *pi)
+{
+	struct drbd_peer_device *peer_device;
+	struct drbd_device *device;
+	int err;
+	int res = 0;
+
+	peer_device = conn_peer_device(connection, pi->vnr);
+	if (!peer_device)
+		return -EIO;
+	if (peer_device->bitmap_index == -1) {
+		drbd_err(peer_device, "No bitmap allocated in receive_bitmap()!\n");
+		return -EIO;
+	}
+	device = peer_device->device;
+
+	/* Final repl_states become visible when the disk leaves NEGOTIATING state */
+	wait_event_interruptible_ex(device->resource->state_wait,
+		read_disk_state(device) != D_NEGOTIATING, res);
+	
+	drbd_bm_slot_lock(peer_device, "receive bitmap", BM_LOCK_CLEAR | BM_LOCK_BULK);
+	/* you are supposed to send additional out-of-sync information
+	 * if you actually set bits during this phase */
+
+	if (peer_device->bm_ctx.count == 0) {
+		memset(&peer_device->bm_ctx, 0, sizeof(struct bm_xfer_ctx));
+
+		peer_device->bm_ctx.bm_bits = drbd_bm_bits(device);
+		peer_device->bm_ctx.bm_words = drbd_bm_words(device);
+	}
+
+	peer_device->bm_ctx.count++;
+
+	if (pi->cmd == P_BITMAP) {
+		err = receive_bitmap_plain(peer_device, pi->size, &peer_device->bm_ctx);
+	}
+	else if (pi->cmd == P_COMPRESSED_BITMAP) {
+		/* MAYBE: sanity check that we speak proto >= 90,
+		* and the feature is enabled! */
+		struct p_compressed_bm *p;
+
+		if (pi->size > DRBD_SOCKET_BUFFER_SIZE - drbd_header_size(connection)) {
+			drbd_err(device, "ReportCBitmap packet too large\n");
+			err = -EIO;
+			goto out;
+		}
+		if (pi->size <= sizeof(*p)) {
+			drbd_err(device, "ReportCBitmap packet too small (l:%u)\n", pi->size);
+			err = -EIO;
+			goto out;
+		}
+		err = drbd_recv_all(connection, (void **)&p, pi->size);
+		if (err)
+			goto out;
+		err = decode_bitmap_c(peer_device, p, &peer_device->bm_ctx, pi->size);
+	}
+	else {
+		drbd_warn(device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
+		err = -EIO;
+		goto out;
+	}
+
+	peer_device->bm_ctx.packets[pi->cmd == P_BITMAP]++;
+	peer_device->bm_ctx.bytes[pi->cmd == P_BITMAP] += drbd_header_size(connection) + pi->size;
+
+	if (err <= 0) {
+		if (err < 0)
+			goto out;
+
+		err = receive_bitmap_finished(connection, peer_device);
+	}
+	else
+		err = 0;
+
+out:
+	drbd_bm_slot_unlock(peer_device);
 	return err;
 }
 
