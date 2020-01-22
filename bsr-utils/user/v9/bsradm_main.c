@@ -154,12 +154,7 @@ char *config_test = NULL;
 char *parse_file = NULL;
 struct resources config = STAILQ_HEAD_INITIALIZER(config);
 struct d_resource *common = NULL;
-// DW-1744
-#ifdef _WIN
-struct IP_ADDRESS_STRING *ip_list = NULL;
-#else // _LIN
 struct ifreq *ifreq_list = NULL;
-#endif
 int is_drbd_top;
 enum { NORMAL, STACKED, IGNORED, __N_RESOURCE_TYPES };
 int nr_resources[__N_RESOURCE_TYPES];
@@ -1109,12 +1104,8 @@ static void free_config()
 		free_options(&common->handlers);
 		free(common);
 	}
-// DW-1744
-#ifdef _WIN
-	free(ip_list);
-#else // _LIN
+
 	free(ifreq_list);
-#endif
 
 }
 
