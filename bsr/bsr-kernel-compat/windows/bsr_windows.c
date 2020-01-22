@@ -1461,31 +1461,30 @@ int del_timer_sync(struct timer_list *t)
 static int
 __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 {
-    if (!timer_pending(timer) && pending_only) {
+	if (!timer_pending(timer) && pending_only) {
 		return 0;
-    }
+	}
 
-    LARGE_INTEGER nWaitTime = { .QuadPart = 0 };
-    ULONG_PTR current_milisec = jiffies;
+	LARGE_INTEGER nWaitTime = { .QuadPart = 0 };
+	ULONG_PTR current_milisec = jiffies;
 
-    timer->expires = expires;
+	timer->expires = expires;
 
-	BUG_ON_UINT32_OVER(expires);
-
-    if (current_milisec >= expires) {
+	if (current_milisec >= expires) {
 		nWaitTime.QuadPart = -1;
-    }
+	}
 	else {
 		expires -= current_milisec;
+		BUG_ON_UINT32_OVER(expires);
 		nWaitTime = RtlConvertLongToLargeInteger(RELATIVE(MILLISECONDS((LONG)expires)));
 	}
 
 #ifdef DBG
-    drbd_debug_tm("%s timer(0x%p) current(%d) expires(%d) gap(%d)\n",
-        timer->name, timer, current_milisec, timer->expires, timer->expires - current_milisec);
+	drbd_debug_tm("%s timer(0x%p) current(%d) expires(%d) gap(%d)\n",
+		timer->name, timer, current_milisec, timer->expires, timer->expires - current_milisec);
 #endif
-    KeSetTimer(&timer->ktimer, nWaitTime, &timer->dpc);
-    return 1;
+	KeSetTimer(&timer->ktimer, nWaitTime, &timer->dpc);
+	return 1;
 }
 
 /**
