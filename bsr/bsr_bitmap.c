@@ -182,7 +182,8 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 	}
 	if (b->bm_flags & BM_LOCK_ALL)
 		drbd_err(device, "FIXME bitmap already locked in bm_lock\n");
-	b->bm_flags |= flags & BM_LOCK_ALL;
+	// DW-1979
+	b->bm_flags |= ((flags & BM_LOCK_ALL) | (flags & BM_LOCK_POINTLESS));
 
 	b->bm_why  = why;
 	b->bm_task = current;
@@ -210,7 +211,8 @@ void drbd_bm_unlock(struct drbd_device *device)
 	if (!(device->bitmap->bm_flags & BM_LOCK_ALL))
 		drbd_err(device, "FIXME bitmap not locked in bm_unlock\n");
 
-	b->bm_flags &= ~BM_LOCK_ALL;
+	// DW-1979
+	b->bm_flags &= ~(BM_LOCK_ALL | BM_LOCK_POINTLESS);
 	b->bm_why  = NULL;
 	b->bm_task = NULL;
 	b->bm_locked_peer = NULL;
@@ -450,6 +452,8 @@ enum bitmap_operations {
 	BM_OP_FIND_ZERO_BIT,
 	// DW-1978 used to find bit the range.
 	BM_OP_RANGE_FIND_BIT,
+	// DW-1979 used to find zero bit the range.
+	BM_OP_RANGE_FIND_ZERO_BIT,
 };
 
 static inline ULONG_PTR interleaved_word32(struct drbd_bitmap *bitmap,
@@ -504,7 +508,8 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 #endif
 	ULONG_PTR real_end = 0;
 
-	if (op == BM_OP_RANGE_FIND_BIT)
+	if (op == BM_OP_RANGE_FIND_BIT ||
+		op == BM_OP_RANGE_FIND_ZERO_BIT)
 		real_end = end + 1;
 
 	if (end >= bitmap->bm_bits)
@@ -558,6 +563,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 					goto found;
 				bit_in_page = last + 1;
 				break;
+			case BM_OP_RANGE_FIND_ZERO_BIT:
 			case BM_OP_FIND_ZERO_BIT:
 				count = find_next_zero_bit_le(addr, last + 1, bit_in_page);
 				if (count < last + 1)
@@ -602,6 +608,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 				if (count < bit_in_page + 32)
 					goto found;
 				break;
+			case BM_OP_RANGE_FIND_ZERO_BIT:
 			case BM_OP_FIND_ZERO_BIT:
 				count = find_next_zero_bit_le(addr, bit_in_page + 32, bit_in_page);
 				if (count < bit_in_page + 32)
@@ -672,6 +679,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 				start = end + 1;
 			}
 			break;
+		case BM_OP_RANGE_FIND_ZERO_BIT:
 		case BM_OP_FIND_ZERO_BIT:
 			{
 				ULONG_PTR last = bit_in_page + (end - start);
@@ -735,6 +743,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 			bitmap->bm_set[bitmap_index] += total;
 #endif
 		break;
+	case BM_OP_RANGE_FIND_ZERO_BIT:
 	case BM_OP_RANGE_FIND_BIT:
 		total = real_end;
 		break;
@@ -784,12 +793,12 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	if (bitmap->bm_task != current) {
 		switch(op) {
 		case BM_OP_CLEAR:
-			if (bitmap->bm_flags & BM_LOCK_CLEAR)
+			if (bitmap->bm_flags & BM_LOCK_CLEAR && !(bitmap->bm_flags & BM_LOCK_POINTLESS))
 				bm_print_lock_info(device);
 			break;
 		case BM_OP_SET:
 		case BM_OP_MERGE:
-			if (bitmap->bm_flags & BM_LOCK_SET)
+			if (bitmap->bm_flags & BM_LOCK_SET && !(bitmap->bm_flags & BM_LOCK_POINTLESS))
 				bm_print_lock_info(device);
 			break;
 		case BM_OP_TEST:
@@ -798,7 +807,8 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 		case BM_OP_FIND_BIT:
 		case BM_OP_FIND_ZERO_BIT:
 		case BM_OP_RANGE_FIND_BIT:
-			if (bitmap->bm_flags & BM_LOCK_TEST)
+		case BM_OP_RANGE_FIND_ZERO_BIT:
+			if (bitmap->bm_flags & BM_LOCK_TEST && !(bitmap->bm_flags & BM_LOCK_POINTLESS))
 				bm_print_lock_info(device);
 			break;
 		}
@@ -1721,6 +1731,13 @@ extern ULONG_PTR drbd_bm_range_find_next(struct drbd_peer_device *peer_device, U
 		BM_OP_RANGE_FIND_BIT, NULL);
 }
 
+// DW-1979
+extern ULONG_PTR drbd_bm_range_find_next_zero(struct drbd_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
+{
+	return bm_op(peer_device->device, peer_device->bitmap_index, start, end,
+		BM_OP_RANGE_FIND_ZERO_BIT, NULL);
+}
+
 #if 0
 /* not yet needed for anything. */
 unsigned long drbd_bm_find_next_zero(struct drbd_peer_device *peer_device, unsigned long start)
@@ -1759,8 +1776,9 @@ __bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_P
 {
 	struct drbd_bitmap *bitmap = device->bitmap;
 	ULONG_PTR bit = start;
+#ifdef _WIN
 	ULONG_PTR offset = start;
-
+#endif
 	spin_lock_irq(&bitmap->bm_lock);
 
 	if (end >= bitmap->bm_bits)
