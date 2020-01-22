@@ -560,7 +560,7 @@ struct bm_xfer_ctx {
 	/* statistics; index: (h->command == P_BITMAP) */
 	unsigned packets[2];
 	unsigned bytes[2];
-	unsigned int count;  // DW-1981
+	ULONG_PTR count;  // DW-1981
 };
 
 extern void INFO_bm_xfer_stats(struct drbd_peer_device *, const char *, struct bm_xfer_ctx *);
@@ -1110,6 +1110,8 @@ enum bm_flag {
 	BM_LOCK_ALL = BM_LOCK_TEST | BM_LOCK_SET | BM_LOCK_CLEAR | BM_LOCK_BULK,
 
 	BM_LOCK_SINGLE_SLOT = 0x10,
+	// DW-1979 used to avoid printing unnecessary FIXME logs by modifying issues (send, receive bitmap)
+	BM_LOCK_POINTLESS = 0x20,
 };
 
 struct drbd_bitmap {
@@ -1449,7 +1451,6 @@ struct drbd_resource {
 	bool bPreDismountLock; // DW-1286
 #endif
 	bool bTempAllowMount;  // DW-1317
-	atomic_t bGetVolBitmapDone;  // DW-1391	
 	bool breqbuf_overflow_alarm; // DW-1539
 #ifdef _WIN_MULTIVOL_THREAD
 	MVOL_THREAD			WorkThreadInfo;
@@ -1684,6 +1685,12 @@ struct drbd_peer_device {
 	atomic_t unacked_cnt;	 /* Need to send replies for */
 	atomic_t rs_pending_cnt; /* RS request/data packets on the wire */
 	atomic_t wait_for_actlog;
+	// DW-1979 the value used by the syncaget to match the "out of sync" with the sync source when exchanging the bitmap.
+	// set to 1 when waiting for a response to a resync request.
+	atomic_t wait_for_recv_rs_reply;
+	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
+	// set to 1 to wait for bitmap exchange.
+	atomic_t wait_for_recv_bitmap;
 
 	/* use checksums for *this* resync */
 	bool use_csums;
@@ -2060,6 +2067,8 @@ extern int drbd_send_drequest(struct drbd_peer_device *, int cmd,
 extern void *drbd_prepare_drequest_csum(struct drbd_peer_request *peer_req, int digest_size);
 extern int drbd_send_ov_request(struct drbd_peer_device *, sector_t sector, int size);
 
+// DW-1979
+extern void drbd_send_bitmap_target_complete(struct drbd_device *, struct drbd_peer_device *, int);
 extern int drbd_send_bitmap(struct drbd_device *, struct drbd_peer_device *);
 extern int drbd_send_dagtag(struct drbd_connection *connection, u64 dagtag);
 extern void drbd_send_sr_reply(struct drbd_connection *connection, int vnr,
@@ -2346,6 +2355,11 @@ extern ULONG_PTR drbd_bm_bits(struct drbd_device *device);
 extern sector_t      drbd_bm_capacity(struct drbd_device *device);
 
 #define DRBD_END_OF_BITMAP	UINTPTR_MAX
+
+// DW-1979 25000000 is 100 Gbyte (1bit = 4k) 
+#define RANGE_FIND_NEXT_BIT 25000000
+extern ULONG_PTR drbd_bm_range_find_next_zero(struct drbd_peer_device *, ULONG_PTR, ULONG_PTR);
+
 // DW-1978
 extern ULONG_PTR drbd_bm_range_find_next(struct drbd_peer_device *, ULONG_PTR, ULONG_PTR);
 extern ULONG_PTR drbd_bm_find_next(struct drbd_peer_device *, ULONG_PTR);
@@ -3462,12 +3476,8 @@ static inline bool drbd_state_is_stable(struct drbd_device *device)
 
 			/* Allow IO in BM exchange states with new protocols */
 		case L_WF_BITMAP_S:
-			
-#if 0 // DW-1121 sending out-of-sync when repl state is WFBitmapS possibly causes stopping resync, by setting new out-of-sync sector which bm_resync_fo has been already swept.
+			// DW-1979 remove the DW-1121, DW-1391 issue as I/O hang can occur 
 			if (peer_device->connection->agreed_pro_version < 96)
-#endif
-			// DW-1391 Allow IO while getting the volume bitmap.
-			if (atomic_read(&device->resource->bGetVolBitmapDone))
 				stable = false;
 			break;
 

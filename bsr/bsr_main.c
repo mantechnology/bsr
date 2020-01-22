@@ -2187,6 +2187,7 @@ static int fill_bitmap_rle_bits(struct drbd_peer_device *peer_device,
 	ULONG_PTR plain_bits;
 	ULONG_PTR tmp;
 	ULONG_PTR rl;
+	ULONG_PTR offset;
 	unsigned len;
 	unsigned toggle;
 	int bits, use_rle;
@@ -2215,10 +2216,16 @@ static int fill_bitmap_rle_bits(struct drbd_peer_device *peer_device,
 	/* see how much plain bits we can stuff into one packet
 	 * using RLE and VLI. */
 	do {
-		tmp = (toggle == 0) ? _drbd_bm_find_next_zero(peer_device, c->bit_offset)
-				    : _drbd_bm_find_next(peer_device, c->bit_offset);
-
-		if (tmp == DRBD_END_OF_BITMAP)
+		// DW-1979 to avoid lock occupancy, divide and find.
+		offset = c->bit_offset;
+		for (;;) {
+			tmp = (toggle == 0) ? drbd_bm_range_find_next_zero(peer_device, offset, offset + RANGE_FIND_NEXT_BIT) :
+				drbd_bm_range_find_next(peer_device, offset, offset + RANGE_FIND_NEXT_BIT);
+			if (tmp >= c->bm_bits || tmp < (offset + RANGE_FIND_NEXT_BIT + 1))
+				break;
+			offset = tmp;
+		}
+		if (tmp > c->bm_bits)
 			tmp = c->bm_bits;
 
 		rl = tmp - c->bit_offset;
@@ -2288,18 +2295,32 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 {
 	struct drbd_device *device = peer_device->device;
 	unsigned int header_size = drbd_header_size(peer_device->connection);
-	struct p_compressed_bm *pc;
+	struct p_compressed_bm *pc, *tpc;
 	int len, err;
 
-	pc = (struct p_compressed_bm *)
-		(alloc_send_buffer(peer_device->connection, DRBD_SOCKET_BUFFER_SIZE, DATA_STREAM) + header_size);
+	tpc = (struct p_compressed_bm *)kzalloc(DRBD_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, '70DW');
 
-	len = fill_bitmap_rle_bits(peer_device, pc,
-			DRBD_SOCKET_BUFFER_SIZE - header_size - sizeof(*pc), c);
+	if (!tpc) {
+		drbd_err(peer_device, "allocate failed\n");
+		return -ENOMEM;
+	}
+
+	len = fill_bitmap_rle_bits(peer_device, tpc,
+			DRBD_SOCKET_BUFFER_SIZE - header_size - sizeof(*tpc), c);
 	if (len < 0) {
 		drbd_err(peer_device, "unexpected len : %d \n", len);
 		return -EIO;
 	}
+
+	// DW-1979
+	mutex_lock(&peer_device->connection->mutex[DATA_STREAM]);
+
+	pc = (struct p_compressed_bm *)
+		(alloc_send_buffer(peer_device->connection, DRBD_SOCKET_BUFFER_SIZE, DATA_STREAM) + header_size);
+
+	pc->encoding = tpc->encoding;
+	memcpy(pc->code, tpc->code, DRBD_SOCKET_BUFFER_SIZE - header_size - sizeof(*pc));
+	kfree(tpc);
 
 	if (len) {
 		dcbp_set_code(pc, RLE_VLI_Bits);
@@ -2345,6 +2366,9 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 		if (c->bit_offset > c->bm_bits)
 			c->bit_offset = c->bm_bits;
 	}
+
+	mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
+
 	if (!err) {
 		if (len == 0) {
 			INFO_bm_xfer_stats(peer_device, "send", c);
@@ -2354,6 +2378,64 @@ send_bitmap_rle_or_plain(struct drbd_peer_device *peer_device, struct bm_xfer_ct
 	}
 	return -EIO;
 }
+
+
+// DW-1979
+void drbd_send_bitmap_target_complete(struct drbd_device *device, struct drbd_peer_device *peer_device, int err)
+{
+	if (err) {
+		drbd_err(peer_device, "synctarget send bitmap failed err(%d)\n", err);
+		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+	}
+
+	/* Omit CS_WAIT_COMPLETE and CS_SERIALIZE with this state
+	* transition to avoid deadlocks. */
+
+	if (peer_device->connection->agreed_pro_version < 110) {
+		enum drbd_state_rv rv;
+		rv = stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
+		D_ASSERT(device, rv == SS_SUCCESS);
+	}
+	else {
+		// DW-1815 merge the peer_device bitmap into the same current_uuid.
+		struct drbd_peer_device* pd;
+		for_each_peer_device(pd, device) {
+			if (pd == peer_device)
+				continue;
+
+			if (pd->current_uuid == peer_device->current_uuid) {
+				int allow_size = 512;
+				ULONG_PTR *bb = kzalloc(sizeof(ULONG_PTR) * allow_size, GFP_KERNEL, '8EDW');
+				ULONG_PTR offset;
+
+				if (bb == NULL) {
+					drbd_err(peer_device, "bitmap bit buffer allocate failed\n");
+					change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+					return;
+				}
+
+				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
+
+				drbd_info(peer_device, "bitmap merge, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n",
+					peer_device->bitmap_index, (unsigned long long)drbd_bm_total_weight(peer_device),
+					pd->bitmap_index, (unsigned long long)drbd_bm_total_weight(pd));
+
+				for (offset = drbd_bm_find_next(peer_device, 0); offset < drbd_bm_bits(device); offset += allow_size) {
+					drbd_bm_get_lel(peer_device, offset, allow_size, bb);
+					drbd_bm_merge_lel(pd, offset, allow_size, bb);
+				}
+
+				drbd_info(peer_device, "finished bitmap merge, to index(%d) out of sync (%llu)\n", 
+					pd->bitmap_index, (unsigned long long)drbd_bm_total_weight(pd));
+
+				kfree(bb);
+			}
+		}
+
+		drbd_start_resync(peer_device, L_SYNC_TARGET);
+	}
+}
+
 
 /* See the comment at receive_bitmap() */
 static int _drbd_send_bitmap(struct drbd_device *device,
@@ -2409,9 +2491,18 @@ int drbd_send_bitmap(struct drbd_device *device, struct drbd_peer_device *peer_d
 	}
 
 	mutex_lock(&peer_device->connection->mutex[DATA_STREAM]);
-	if (peer_transport->ops->stream_ok(peer_transport, DATA_STREAM))
+	// DW-1979
+	if (peer_transport->ops->stream_ok(peer_transport, DATA_STREAM)) {
+		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
+		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
+		// DW-1979
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
+			peer_device->repl_state[NOW] == L_AHEAD)
+			atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 		err = !_drbd_send_bitmap(device, peer_device);
-	mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
+	}
+	else
+		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
 
 	return err;
 }
@@ -3932,7 +4023,6 @@ struct drbd_resource *drbd_create_resource(const char *name,
 	resource->bPreSecondaryLock = FALSE;
 	resource->bPreDismountLock = FALSE;
 #endif
-	atomic_set(&resource->bGetVolBitmapDone, true);
 	if (!resource)
 		goto fail;
 	resource->name = kstrdup(name, GFP_KERNEL);
@@ -4273,6 +4363,8 @@ struct drbd_peer_device *create_peer_device(struct drbd_device *device, struct d
 	atomic_set(&peer_device->rs_pending_cnt, 0);
 	atomic_set(&peer_device->wait_for_actlog, 0);
 	atomic_set(&peer_device->rs_sect_in, 0);
+	atomic_set(&peer_device->wait_for_recv_bitmap, 0);
+	atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
 
 	peer_device->bitmap_index = -1;
 	peer_device->resync_wenr = LC_FREE;
@@ -6345,8 +6437,6 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 			// allow mount within getting volume bitmap.
 			device->resource->bTempAllowMount = true;			
 		}
-		// DW-1391
-		atomic_set(&device->resource->bGetVolBitmapDone, false);
 
 		// Get volume bitmap which is converted into 4kb cluster unit.
 		pBitmap = GetVolumeBitmapForDrbd(device, BM_BLOCK_SIZE);
@@ -6354,9 +6444,6 @@ bool SetOOSAllocatedCluster(struct drbd_device *device, struct drbd_peer_device 
 		if (NULL == pBitmap) {
 			drbd_err(peer_device, "Could not get bitmap for drbd\n");
 		}
-
-		// DW-1391
-		atomic_set(&device->resource->bGetVolBitmapDone, true);
 		
 		if (bSecondary) {
 			// prevent from mounting volume.
@@ -6439,6 +6526,12 @@ static int w_bitmap_io(struct drbd_work *w, int unused)
 
 	UNREFERENCED_PARAMETER(unused);
 
+	// DW-1979 drbd_send_bitmap function does not lock.
+	if (&drbd_send_bitmap == work->io_fn) {
+		if (atomic_dec_and_test(&device->pending_bitmap_work.n))
+			wake_up(&device->misc_wait);
+	}
+
 	if (get_ldev(device)) {
 		if (work->flags & BM_LOCK_SINGLE_SLOT)
 			drbd_bm_slot_lock(work->peer_device, work->why, work->flags);
@@ -6455,8 +6548,12 @@ static int w_bitmap_io(struct drbd_work *w, int unused)
 	if (work->done)
 		work->done(device, work->peer_device, rv);
 
-	if (atomic_dec_and_test(&device->pending_bitmap_work.n))
-		wake_up(&device->misc_wait);
+	// DW-1979
+	if (&drbd_send_bitmap != work->io_fn) {
+		if (atomic_dec_and_test(&device->pending_bitmap_work.n))
+			wake_up(&device->misc_wait);
+	}
+
 	kfree(work);
 
 	return 0;
@@ -6497,11 +6594,13 @@ void drbd_queue_bitmap_io(struct drbd_device *device,
 {
 	struct bm_io_work *bm_io_work;
 
-	D_ASSERT(device, current == device->resource->worker.task);
+	// DW-1979 other threads are also used(drbd_receiver()), so i changed to the info level log to output
+	if (current == device->resource->worker.task)
+		drbd_info(device, "%s, worker.task(%p), current(%p)\n", why ? why : "?", device->resource->worker.task, current);
 
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21DW');
 	if (!bm_io_work) {
-		drbd_err(peer_device, "Could not allocate bm io work.\n");
+		drbd_err(device, "Could not allocate bm io work.\n");
 		done(device, peer_device, -ENOMEM);
 		return;
 	}

@@ -1650,7 +1650,9 @@ bool drbd_should_do_remote(struct drbd_peer_device *peer_device, enum which_stat
 	enum drbd_disk_state peer_disk_state = peer_device->disk_state[which];
 	enum drbd_repl_state repl_state = peer_device->repl_state[which];
 
-	return peer_disk_state == D_UP_TO_DATE ||
+	return peer_disk_state == D_UP_TO_DATE ||	
+		// DW-1979 add drbd_should_do-remote() allowed state
+		repl_state == L_WF_BITMAP_S ||
 		(peer_disk_state == D_INCONSISTENT &&
 		(repl_state == L_ESTABLISHED ||
 		(repl_state >= L_WF_BITMAP_T && repl_state < L_AHEAD)));
