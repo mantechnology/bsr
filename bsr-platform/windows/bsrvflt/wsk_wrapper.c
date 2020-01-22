@@ -742,6 +742,7 @@ Send(
 	LARGE_INTEGER	nWaitTime; LARGE_INTEGER	*pTime;
 	NTSTATUS		SendStatus = STATUS_UNSUCCESSFUL;
 	PCHAR			DataBuffer = NULL;
+	LONGLONG		send_ts = 0;
 
 	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int)BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
 		return SOCKET_ERROR;
@@ -781,6 +782,9 @@ Send(
 		goto $Send_fail;
 	}
 
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		send_ts = timestamp();
+
 	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskSend(
 																			WskSocket,
 																			WskBuffer,
@@ -801,7 +805,7 @@ Send(
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p) size:%lu\n", 
+				drbd_info(NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p) size(%lu)\n", 
 									__FUNCTION__, Timeout, pSock->sk_state, WskSocket, BufferSize);
 				IoCancelIrp(Irp);
 
@@ -809,22 +813,26 @@ Send(
 			}
 			goto $Send_fail;
 		}
+		else if (Status == STATUS_SUCCESS) {
+			if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+				WDRBD_LATENCY("%s, SUCCESS, Current state : %d(0x%p) size(%lu) elapse(%lldus)\n", __FUNCTION__, pSock->sk_state, WskSocket, BufferSize, timestamp_elapse(send_ts, timestamp()));
+		}
 	}
 
 	if (SendStatus != STATUS_SUCCESS) {
 		switch (SendStatus) {
 		case STATUS_IO_TIMEOUT:
-			drbd_info(NO_OBJECT,"Send timeout... wsk(0x%p)\n", WskSocket);
+			drbd_info(NO_OBJECT,"Send timeout... wsk(0x%p) size(%lu)\n", WskSocket, BufferSize);
 			BytesSent = -EAGAIN;
 			break;
 		case STATUS_INVALID_DEVICE_STATE:
 		case STATUS_FILE_FORCED_CLOSED:
-			drbd_info(NO_OBJECT,"Send invalid WSK Socket state (%s) wsk(0x%p)\n", GetSockErrorString(SendStatus), WskSocket);
+			drbd_info(NO_OBJECT,"Send invalid WSK Socket state (%s) wsk(0x%p) size(%lu)\n", GetSockErrorString(SendStatus), WskSocket, BufferSize);
 			pSock->sk_state = WSK_INVALID_DEVICE;
 			BytesSent = -ECONNRESET;
 			break;
 		default:
-			drbd_info(NO_OBJECT,"Send error, default state(%s) wsk(0x%p)\n", GetSockErrorString(SendStatus), WskSocket);
+			drbd_info(NO_OBJECT,"Send error, default state(%s) wsk(0x%p) size(%lu)\n", GetSockErrorString(SendStatus), WskSocket, BufferSize);
 			BytesSent = -ECONNRESET;
 			break;
 		}
@@ -1183,6 +1191,7 @@ LONG NTAPI Receive(
 	WSK_BUF		WskBuffer = { 0 };
 	LONG		BytesReceived = SOCKET_ERROR;
 	NTSTATUS	Status = STATUS_UNSUCCESSFUL;
+	LONGLONG	recv_ts = 0;
 
     struct      task_struct *thread = current;
     PVOID       waitObjects[2];
@@ -1207,6 +1216,9 @@ LONG NTAPI Receive(
 		FreeWskBuffer(&WskBuffer);
 		return SOCKET_ERROR;
 	}
+
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+		recv_ts = timestamp();
 
 	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskReceive(
 				WskSocket,
@@ -1236,6 +1248,9 @@ LONG NTAPI Receive(
         case STATUS_WAIT_0: // waitObjects[0] CompletionEvent
             if (Irp->IoStatus.Status == STATUS_SUCCESS) {
                 BytesReceived = (LONG) Irp->IoStatus.Information;
+
+				if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+					WDRBD_LATENCY("RECV(%s) wsk(0x%p) SUCCESS err(0x%x:%s) size(%lu) elapse(%lldus)\n", thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize, timestamp_elapse(recv_ts, timestamp()));
             } else {
 				drbd_info(NO_OBJECT,"RECV(%s) wsk(0x%p) multiWait err(0x%x:%s) size(%lu)\n", 
 						thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize);
@@ -1265,12 +1280,12 @@ LONG NTAPI Receive(
 			switch (Irp->IoStatus.Status) {
 			case STATUS_IO_TIMEOUT:
 				BytesReceived = -EAGAIN;
-				drbd_info(NO_OBJECT,"WskReceive timeout... wsk(0x%p)\n", WskSocket);
+				drbd_info(NO_OBJECT,"WskReceive timeout... wsk(0x%p) size(%lu)\n", WskSocket, BufferSize);
 				break;
 			case STATUS_INVALID_DEVICE_STATE:
 			case STATUS_FILE_FORCED_CLOSED:
 				BytesReceived = -ECONNRESET;
-				drbd_info(NO_OBJECT,"WskReceive invalid WSK Socket state (%s) wsk(0x%p)\n", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
+				drbd_info(NO_OBJECT,"WskReceive invalid WSK Socket state (%s) wsk(0x%p) size(%lu)\n", GetSockErrorString(Irp->IoStatus.Status), WskSocket, BufferSize);
 				pSock->sk_state = WSK_INVALID_DEVICE;
 				break;	
 			default:
