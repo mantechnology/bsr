@@ -1759,6 +1759,7 @@ __bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_P
 {
 	struct drbd_bitmap *bitmap = device->bitmap;
 	ULONG_PTR bit = start;
+	ULONG_PTR offset = start;
 
 	spin_lock_irq(&bitmap->bm_lock);
 
@@ -1772,11 +1773,21 @@ __bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_P
 
 		__bm_op(device, bitmap_index, bit, last_bit, op, NULL);
 		bit = last_bit + 1;
+
+		// DW-1996 use windows instead of need_resched()
+#ifdef _WIN
+		if (1 <= ((bit - offset) / RANGE_FIND_NEXT_BIT)) {
+			spin_unlock_irq(&bitmap->bm_lock);
+			offset = bit;
+			spin_lock_irq(&bitmap->bm_lock);
+		}
+#else // _LIN
 		if (need_resched()) {
 			spin_unlock_irq(&bitmap->bm_lock);
 			cond_resched();
 			spin_lock_irq(&bitmap->bm_lock);
 		}
+#endif
 	}
 	spin_unlock_irq(&bitmap->bm_lock);
 }
@@ -1784,12 +1795,7 @@ void drbd_bm_set_many_bits(struct drbd_peer_device *peer_device, ULONG_PTR start
 {
 	__bm_many_bits_op(peer_device->device, peer_device->bitmap_index, start, end, BM_OP_SET);
 }
-void drbd_bm_clear_many_bits(struct drbd_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
-{
-	__bm_many_bits_op(peer_device->device, peer_device->bitmap_index, start, end, BM_OP_CLEAR);
-}
-void
-_drbd_bm_clear_many_bits(struct drbd_device *device, int bitmap_index, ULONG_PTR start, ULONG_PTR end)
+void drbd_bm_clear_many_bits(struct drbd_device *device, int bitmap_index, ULONG_PTR start, ULONG_PTR end)
 {
 	__bm_many_bits_op(device, bitmap_index, start, end, BM_OP_CLEAR);
 }
@@ -1857,6 +1863,7 @@ ULONG_PTR drbd_bm_count_bits(struct drbd_device *device, unsigned int bitmap_ind
 	return count;
 }
 
+#if 0
 void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsigned int to_index)
 {
 	struct drbd_bitmap *bitmap = device->bitmap;
@@ -1908,3 +1915,4 @@ void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsi
 
 	spin_unlock_irq(&bitmap->bm_lock);
 }
+#endif
