@@ -5887,7 +5887,7 @@ static int receive_SyncParam(struct drbd_connection *connection, struct packet_i
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		drbd_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n",
+		drbd_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
@@ -8651,6 +8651,8 @@ static int receive_bitmap_finished(struct drbd_connection *connection, struct dr
 			drbd_repl_str(peer_device->repl_state[NOW]));
 		// DW-1613 Reconnect the UUID because it might not be received properly due to a synchronization issue.
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
+		// DW-2014 error return for reconnect
+		return -EAGAIN;
 	}
 
 	if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
