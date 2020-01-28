@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Author="Lars Ellenberg <lars.ellenberg@linbit.com>"
+Author="Man Technology inc <dev3@mantech.co.kr>"
 Date="2014-09-18"
 Version="1.0"
 License="GPL v2+"
@@ -10,7 +10,7 @@ License="GPL v2+"
 # Alteeve's Niche! - https://alteeve.ca/w/
 # As found at https://github.com/digimer/rhcs_fence/releases/tag/0.2.8
 #
-# This program ties Linbit's BSR into Red Hat's RHCS's fence daemon via the
+# This program ties Mantech's BSR into Red Hat's RHCS's fence daemon via the
 # 'fence_node' shell call.
 
 # from environment

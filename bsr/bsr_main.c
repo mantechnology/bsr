@@ -1,11 +1,9 @@
 /*
    bsr_main.c
 
-   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
    Thanks to Carter Burden, Bart Grantham and Gennadiy Nerubayev
    from Logicworks, Inc. for making SDP replication support possible.

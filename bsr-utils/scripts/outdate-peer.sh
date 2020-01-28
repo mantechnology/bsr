@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #  outdate-peer.sh
-#  This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+#  This file is part of BSR by Man Technology inc.
 #
 
 #

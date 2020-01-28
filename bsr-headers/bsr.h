@@ -2,11 +2,9 @@
   bsr.h
   Kernel module for 2.6.x Kernels
 
-  This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+  This file is part of BSR by Man Technology inc.
 
-  Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-  Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-  Copyright (C) 2001-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+  Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
   bsr is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

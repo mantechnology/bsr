@@ -1,11 +1,9 @@
 /*
  * BSR setup via genetlink
  *
- * This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+ * This file is part of BSR by Man Technology inc.
  *
- * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
- * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
- * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
  *
  * bsr is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -601,7 +599,7 @@ static const char *error_messages[] = {
 	EM(ERR_MD_IDX_INVALID) = "Lower device / meta device / index combination invalid.",
 	EM(117) = "Currently we only support devices up to 3.998TB.\n"
 	"(up to 2TB in case you do not have CONFIG_LBD set)\n"
-	"Contact office@linbit.com, if you need more.",
+	"Contact dev3@mantech.co.kr, if you need more.",
 	EM(ERR_IO_MD_DISK) = "IO error(s) occurred during initial access to meta-data.\n",
 	EM(ERR_MD_UNCLEAN) = "Unclean meta-data found.\nYou need to 'bsrdadm apply-al res'\n",
 	EM(ERR_MD_INVALID) = "No valid meta-data signature found.\n\n"

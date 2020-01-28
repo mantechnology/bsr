@@ -1,6 +1,6 @@
 # Makefile for bsr.o
 #
-# This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+# This file is part of BSR by Man Technology inc.
 #
 # bsr is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

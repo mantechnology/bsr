@@ -3,7 +3,7 @@
 
    This file is part of BSR.
 
-   Copyright (C) 2014-2017, LINBIT HA-Solutions GmbH.
+   Copyright (C) 2014-2020, Man Technology inc.
 
    bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -43,9 +43,7 @@
 
 // The existing bsr_transport_tcp module has been integrated into bsr.
 //#ifdef _LIN
-//MODULE_AUTHOR("Philipp Reisner <philipp.reisner@linbit.com>");
-//MODULE_AUTHOR("Lars Ellenberg <lars.ellenberg@linbit.com>");
-//MODULE_AUTHOR("Roland Kammerer <roland.kammerer@linbit.com>");
+//MODULE_AUTHOR("Man Technology inc <dev3@mantech.co.kr>");
 //MODULE_DESCRIPTION("TCP (SDP, SSOCKS) transport layer for BSR");
 //MODULE_LICENSE("GPL");
 //MODULE_VERSION("1.0.0");

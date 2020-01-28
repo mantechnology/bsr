@@ -1,10 +1,8 @@
 # Makefile for bsr
 #
-# This file is part of BSR by Philipp Reisner and Lars Ellenberg.
+# This file is part of BSR by Man Technology inc.
 #
-# Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-# Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-# Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+# Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 #
 # bsr is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -160,7 +158,7 @@ check_changelogs_up2date:
 	then \
 	   echo -e "\n\tconfigure.ac needs update"; \
 	   up2date=false; fi ; \
-	if ! grep "^bsr-utils ($$dver_re+linbit" >/dev/null 2>&1 debian/changelog; \
+	if ! grep "^bsr-utils ($$dver_re+mantech" >/dev/null 2>&1 debian/changelog; \
 	then \
 	   echo -e "\n\tdebian/changelog needs update [ignored]\n"; \
 	   : do not fail the build because of outdated debian/changelog ; fi ; \

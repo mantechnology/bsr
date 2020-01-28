@@ -1,12 +1,10 @@
 /*
    bsradm_registry.c
 
-   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
-   It was written by Johannes Thoma <johannes.thoma@linbit.com>
+   This file is part of BSR by Man Technology inc.
+   It was written by Man Technology inc <dev3@mantech.co.kr>
 
-   Copyright (C) 2002-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 2002-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
    bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
