@@ -1198,7 +1198,7 @@ bsr0 node-id:1 role:Primary suspended:no
     <title>Examples</title>
 
     <para>Please see the <ulink
-	url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>
+	url="https://github.com/mantechnology/bsr/"><citetitle>BSR User's Guide</citetitle></ulink>
       for examples.</para>
 
   </refsect1>
@@ -1249,8 +1249,8 @@ bsr0 node-id:1 role:Primary suspended:no
 
         <manvolnum>8</manvolnum>
       </citerefentry>,
-      <ulink url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>,
-       <ulink url="http://www.bsr.org/"><citetitle>BSR Web Site</citetitle></ulink></para>
+      <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR User's Guide</citetitle></ulink>,
+       <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR Web Site</citetitle></ulink></para>
 
   </refsect1>
 </refentry>

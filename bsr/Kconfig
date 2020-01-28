@@ -35,7 +35,7 @@ config BLK_DEV_BSR
 	  cache coherency.
 
 	  For automatic failover you need a cluster manager (e.g. heartbeat).
-	  See also: http://www.bsr.org/, http://www.linux-ha.org
+	  See also: https://github.com/mantechnology/bsr
 
 	  If unsure, say N.
 

@@ -58,7 +58,7 @@ domain backing disks and libvirt instance disks respectively.
       <citerefentry><refentrytitle>bsr.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>bsrsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>bsradm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="http://www.bsr.org/"><citetitle>BSR Homepage</citetitle></ulink>
+      <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR Homepage</citetitle></ulink>
     </para>
   </refsect1>
 </refentry>

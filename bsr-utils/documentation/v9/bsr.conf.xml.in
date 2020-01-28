@@ -116,7 +116,7 @@ resource r0 {
     protocol C.</para>
 
     <para>Please refer to the <ulink
-	url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>
+	url="https://github.com/mantechnology/bsr/"><citetitle>BSR User's Guide</citetitle></ulink>
       for more examples.</para>
 
   </refsect1>
@@ -1061,8 +1061,8 @@ resource
 
         <manvolnum>8</manvolnum>
       </citerefentry>,
-      <ulink url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>,
-       <ulink url="http://www.bsr.org/"><citetitle>BSR Web Site</citetitle></ulink></para>
+      <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR User's Guide</citetitle></ulink>,
+       <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR Web Site</citetitle></ulink></para>
 
   </refsect1>
 </refentry>
