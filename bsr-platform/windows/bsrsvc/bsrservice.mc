@@ -12,7 +12,7 @@ MessageID		= 1002
 Severity		= Informational
 SymbolicName	= MSG_SERVICE_START
 Language		= English
-DRBD Daemon Service start.
+BSR Daemon Service start.
 .
 
 MessageID		= 1003

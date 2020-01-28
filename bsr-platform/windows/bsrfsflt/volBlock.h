@@ -27,6 +27,6 @@ isProtectedVolume(
 
 NTSTATUS
 ConvertVolume(
-	IN PDRBDLOCK_VOLUME pVolumeInfo,
+	IN PBSRLOCK_VOLUME pVolumeInfo,
 	OUT PDEVICE_OBJECT *pConverted
 	);

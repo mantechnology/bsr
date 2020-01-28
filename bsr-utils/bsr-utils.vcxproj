@@ -272,7 +272,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{37AC4F5A-1EDB-42AD-9DD8-D139D01F5062}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>drbdutils</RootNamespace>
+    <RootNamespace>bsrutils</RootNamespace>
     <ProjectName>bsr-utils</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

@@ -1,16 +1,16 @@
 Basic Data Structure
 ====================
 
-A node has a number of DRBD resources.  Each such resource has a number of
+A node has a number of BSR resources.  Each such resource has a number of
 devices (aka volumes) and connections to other nodes ("peer nodes"). Each
 device has a unique minor device number.
 
-This relationship is represented by the global variable drbd_resources, the
-drbd_resource, drbd_connection, drbd_device, and drbd_peer_device objects, and
+This relationship is represented by the global variable bsr_resources, the
+bsr_resource, bsr_connection, bsr_device, and bsr_peer_device objects, and
 their interconnections.
 
-The objects form a matrix; a drbd_peer_device object sits at each intersection
-between a drbd_device and a drbd_connection:
+The objects form a matrix; a bsr_peer_device object sits at each intersection
+between a bsr_device and a bsr_connection:
 
   /--------------+---------------+.....+---------------\
   |   resource   |    device     |     |    device     |
@@ -32,9 +32,9 @@ pointers from peer_devices to their connections a devices, and from connections
 and devices to their resource.
 
 In addition, devices can be accessed by major / minor number from the global
-variable drbd_devices.
+variable bsr_devices.
 
-The drbd_resource, drbd_connection, and drbd_device objects are reference
+The bsr_resource, bsr_connection, and bsr_device objects are reference
 counted.  The peer_device objects only serve to establish the links between
 devices and connections; their lifetime is determined by the lifetime of the
 device and connection which they reference.

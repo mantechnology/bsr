@@ -10,18 +10,18 @@ License="GPL v2+"
 # Alteeve's Niche! - https://alteeve.ca/w/
 # As found at https://github.com/digimer/rhcs_fence/releases/tag/0.2.8
 #
-# This program ties Linbit's DRBD into Red Hat's RHCS's fence daemon via the
+# This program ties Linbit's BSR into Red Hat's RHCS's fence daemon via the
 # 'fence_node' shell call.
 
 # from environment
 # if tools do not yet export the plural,
 # use the (deprecated) singular.
-: ${DRBD_PEERS:=$DRBD_PEER}
+: ${BSR_PEERS:=$BSR_PEER}
 
 PROG=${0##*/}
 : ${DEBUG:=1}
 LOG_PRIO=daemon.warning
-LOG_TAG="$PROG[$$] $DRBD_PEERS: $DRBD_RESOURCE(minor $DRBD_MINOR)"
+LOG_TAG="$PROG[$$] $BSR_PEERS: $BSR_RESOURCE(minor $BSR_MINOR)"
 
 ##############################################################################
 # helper functions
@@ -31,7 +31,7 @@ die() { echo "$*"; exit 1; }
 
 all_minors_up_to_date()
 {
-	set -- $DRBD_MINOR
+	set -- $BSR_MINOR
 	local n_minors=$#
 
 	[[ $n_minors != 0 ]] ||
@@ -43,9 +43,9 @@ all_minors_up_to_date()
 	local minor_regex="^ *($*): cs:"
 	IFS=$_OLDIFS
 
-	# grep -c -Ee '^ *(m|i|n|o|r|s): cs:.* ds:UpToDate' /proc/drbd
-	local proc_drbd=$(</proc/drbd)
-	local minors_of_resource=$(echo "$proc_drbd" | grep -E -e "$minor_regex")
+	# grep -c -Ee '^ *(m|i|n|o|r|s): cs:.* ds:UpToDate' /proc/bsr
+	local proc_bsr=$(</proc/bsr)
+	local minors_of_resource=$(echo "$proc_bsr" | grep -E -e "$minor_regex")
 	local n_up_to_date=$(echo "$minors_of_resource" | grep -c -e "ds:UpToDate")
 
 	debug "n_minors: $n_minors; n_up_to_date: $n_up_to_date"
@@ -141,11 +141,11 @@ fi
 # "main"
 ##############################################################################
 
-[[ $DRBD_PEERS ]] || die "No target list specified. You need to pass DRBD_PEERS via environment."
+[[ $BSR_PEERS ]] || die "No target list specified. You need to pass BSR_PEERS via environment."
 
 all_minors_up_to_date || die "some minor device is NOT 'UpToDate', will not fence peer"
 
-for peer in $DRBD_PEERS; do
+for peer in $BSR_PEERS; do
 	for name in $peer ${peer%%.*}; do
 		set -- $(cman_tool -F id,type nodes -n $name)
 		id=$1 state=$2
@@ -187,6 +187,6 @@ done
 
 # if we fenced more than one peer,
 # add an other log line
-[[ $peer != $DRBD_PEERS ]] &&
-echo "SUCCESSFULLY FENCED $DRBD_PEERS"
+[[ $peer != $BSR_PEERS ]] &&
+echo "SUCCESSFULLY FENCED $BSR_PEERS"
 exit 7

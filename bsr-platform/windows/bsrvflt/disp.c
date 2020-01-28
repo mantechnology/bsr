@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, wbsr@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -70,9 +70,9 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     ULONG				i;
 
 	// init logging system first
-	wdrbd_logger_init();
+	wbsr_logger_init();
 
-    drbd_debug(NO_OBJECT,"MVF Driver Loading...\n");
+    bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
 
     initRegistry(RegistryPath);
 
@@ -99,14 +99,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     status = IoCreateDevice(DriverObject, sizeof(ROOT_EXTENSION),
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"Can't create root, err=%x\n", status);
+        bsr_err(NO_OBJECT,"Can't create root, err=%x\n", status);
         return status;
     }
 
     RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolCntl");
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"cannot create symbolic link, err=%x\n", status);
+        bsr_err(NO_OBJECT,"cannot create symbolic link, err=%x\n", status);
         IoDeleteDevice(deviceObject);
         return status;
     }
@@ -132,14 +132,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	
 #ifdef _WIN_WPP
 	WPP_INIT_TRACING(DriverObject, RegistryPath);
-	DoTraceMessage(TRCINFO, "WDRBD V9(1:1) MVF Driver loaded.");
+	DoTraceMessage(TRCINFO, "WBSR V9(1:1) MVF Driver loaded.");
 #endif
 
-	drbdStartupCallback();
-    // Init DRBD engine
-    drbd_init();
+	bsrStartupCallback();
+    // Init BSR engine
+    bsr_init();
 
-    drbd_info(NO_OBJECT,"MVF Driver loaded.\n");
+    bsr_info(NO_OBJECT,"MVF Driver loaded.\n");
 
     return STATUS_SUCCESS;
 }
@@ -151,8 +151,8 @@ mvolUnload(IN PDRIVER_OBJECT DriverObject)
 #ifdef _WIN_WPP
 	WPP_CLEANUP(DriverObject);
 #endif
-	wdrbd_logger_cleanup();
-	drbdCleanupCallback();
+	wbsr_logger_cleanup();
+	bsrCleanupCallback();
 	WskPutNPI();
 }
 
@@ -274,7 +274,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         // Init WSK and StartNetLinkServer
 		Status = PsCreateSystemThread(&hNetLinkThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, InitWskNetlink, NULL);
         if (!NT_SUCCESS(Status)) {
-            drbd_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", Status);
+            bsr_err(NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", Status);
             return Status;
         }
 
@@ -282,7 +282,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		ZwClose(hNetLinkThread);
 
         if (!NT_SUCCESS(Status)) {
-            drbd_err(NO_OBJECT,"ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
+            bsr_err(NO_OBJECT,"ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
             return Status;
         }
     }
@@ -295,7 +295,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
     if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-        drbd_err(NO_OBJECT,"cannot create device, err=0x%x\n", status);
+        bsr_err(NO_OBJECT,"cannot create device, err=0x%x\n", status);
         return status;
     }
 
@@ -346,20 +346,20 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 #ifndef _WIN_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
         if (!NT_SUCCESS(status)) {
-            drbd_err(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+            bsr_err(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
             //return status;
         }
 #endif
         VolumeExtension->Active = TRUE;
-		// DW-1327 to block I/O by drbdlock.
-		SetDrbdlockIoBlock(VolumeExtension, TRUE);
+		// DW-1327 to block I/O by bsrlock.
+		SetBsrlockIoBlock(VolumeExtension, TRUE);
     }
 #endif
 
 	// DW-1109 create block device in add device routine, it won't be destroyed at least we put ref in remove device routine.
-	VolumeExtension->dev = create_drbd_block_device(VolumeExtension);
+	VolumeExtension->dev = create_bsr_block_device(VolumeExtension);
 
-	drbd_info(NO_OBJECT,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)\n",
+	bsr_info(NO_OBJECT,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)\n",
 		VolumeExtension,
 		VolumeExtension->PhysicalDeviceName,
 		VolumeExtension->Minor,
@@ -406,7 +406,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
 #if 0 // DW-1380
     if (DeviceObject == mvolRootDeviceObject) {
-        drbd_debug(NO_OBJECT,"mvolRootDevice Request\n");
+        bsr_debug(NO_OBJECT,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -417,14 +417,14 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     if (VolumeExtension->Active) 
 	{
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1300 prevent mounting volume when device went diskless.
 		if (device && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] == D_DISKLESS))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-			//drbd_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
+			//bsr_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
 
 			Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
 			IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -433,7 +433,7 @@ mvolCreate(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		}
 		// DW-1300 put device reference count when no longer use.
 		else if (device)
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
     }
 #endif
 #endif
@@ -446,7 +446,7 @@ mvolClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
 #if 0 // DW-1380
     if (DeviceObject == mvolRootDeviceObject) {
-        drbd_debug(NO_OBJECT,"mvolRootDevice Request\n");
+        bsr_debug(NO_OBJECT,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -456,14 +456,14 @@ mvolClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     return mvolSendToNextDriver(DeviceObject, Irp);
 }
 
-void drbd_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension);
+void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension);
 
 NTSTATUS
 mvolShutdown(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 
-	drbd_cleanup_by_win_shutdown(VolumeExtension);
+	bsr_cleanup_by_win_shutdown(VolumeExtension);
 
     return mvolSendToNextDriver(DeviceObject, Irp);
     //status = mvolRunIrpSynchronous(DeviceObject, Irp); // DW-1146 disable cleaunup logic. for some case, hang occurred while shutdown
@@ -478,7 +478,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	 
 	if (g_mj_flush_buffers_filter && VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
         if (device) {
 #ifdef _WIN_MULTIVOL_THREAD
 			IoMarkIrpPending(Irp);
@@ -492,7 +492,7 @@ mvolFlush(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             IO_THREAD_SIG(pThreadInfo);
 #endif
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
 			return STATUS_PENDING;
         } else {
         	Irp->IoStatus.Information = 0;
@@ -515,7 +515,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 	PIO_STACK_LOCATION irpSp = NULL;
     if (DeviceObject == mvolRootDeviceObject) {
-        drbd_debug(NO_OBJECT,"mvolRootDevice Request\n");
+        bsr_debug(NO_OBJECT,"mvolRootDevice Request\n");
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -525,14 +525,14 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #ifdef _WIN_MVFL
     if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1300 prevent mounting volume when device is failed or below.
 		if (device && device->resource->bTempAllowMount == FALSE && ((R_PRIMARY != device->resource->role[NOW]) || (device->resource->bPreDismountLock == TRUE) || device->disk_state[NOW] <= D_FAILED))   // V9
 		{
 			//PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-			//drbd_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
+			//bsr_debug(NO_OBJECT,"DeviceObject(0x%x), MinorFunction(0x%x) STATUS_INVALID_DEVICE_REQUEST\n", DeviceObject, irpSp->MinorFunction);
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
 
 			// DW-1883
 			//Driver Verifier generates a BSOD if IRP_MJ_SYSTEM_CONTROL is not passed to the lower stack driver.
@@ -542,7 +542,7 @@ mvolSystemControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		}
 		// DW-1300 put device reference count when no longer use.
 		else if (device)
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
     }
 #endif
     IoSkipCurrentIrpStackLocation(Irp);
@@ -569,11 +569,11 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1363 prevent mounting volume when device is failed or below.
 		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE)) {
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
             if (g_read_filter) {
                 goto async_read_filter;
             }
@@ -581,7 +581,7 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
-				kref_put(&device->kref, drbd_destroy_device);
+				kref_put(&device->kref, bsr_destroy_device);
             goto invalid_device;
         }
     }
@@ -605,9 +605,9 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 async_read_filter:
     {
-#ifdef DRBD_TRACE
+#ifdef BSR_TRACE
         PIO_STACK_LOCATION readIrpSp = IoGetCurrentIrpStackLocation(Irp);
-        drbd_debug(NO_OBJECT,"\n\nupper driver READ request start! vol:%c: sect:0x%llx sz:%d --------------------------------!\n",
+        bsr_debug(NO_OBJECT,"\n\nupper driver READ request start! vol:%c: sect:0x%llx sz:%d --------------------------------!\n",
             VolumeExtension->Letter, (readIrpSp->Parameters.Read.ByteOffset.QuadPart / 512), readIrpSp->Parameters.Read.Length);
 #endif
 
@@ -647,38 +647,38 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     if (VolumeExtension->Active) {
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1363 prevent writing when device is failed or below.
 		if (device && device->resource && (device->resource->role[NOW] == R_PRIMARY) && (device->resource->bPreSecondaryLock == FALSE) && (device->disk_state[NOW] > D_FAILED)) {
         	
 			PIO_STACK_LOCATION pisl = IoGetCurrentIrpStackLocation(Irp);
 			ULONGLONG offset_sector = (ULONGLONG)(pisl->Parameters.Write.ByteOffset.QuadPart) >> 9;
 			ULONG size_sector = pisl->Parameters.Write.Length >> 9;
-			sector_t vol_size_sector = drbd_get_capacity(device->this_bdev);
+			sector_t vol_size_sector = bsr_get_capacity(device->this_bdev);
 
 			// if io offset is larger than volume size oacassionally,
 			// then allow to lower device, so not try to send to peer
 			if (offset_sector + size_sector > vol_size_sector) {
 
-				drbd_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x\n",
+				bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x\n",
 					&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 
 				unsigned long long saved_size = VolumeExtension->dev->bd_contains->d_size;
 				unsigned long long real_size = get_targetdev_volsize(VolumeExtension); 	
 
 				if (offset_sector + size_sector > saved_size && real_size > saved_size) {
-					drbd_debug(NO_OBJECT,"saved_size (%llu), real_size (%llu) vol_sector(%llu) off_sector(%llu)\n", saved_size >> 9, real_size >> 9, vol_size_sector, offset_sector + size_sector);
-					drbd_debug(NO_OBJECT,"need to temporary bm write\n");
+					bsr_debug(NO_OBJECT,"saved_size (%llu), real_size (%llu) vol_sector(%llu) off_sector(%llu)\n", saved_size >> 9, real_size >> 9, vol_size_sector, offset_sector + size_sector);
+					bsr_debug(NO_OBJECT,"need to temporary bm write\n");
 				}				
 				
 				// DW-1300 put device reference count when no longer use.
-				kref_put(&device->kref, drbd_destroy_device);
+				kref_put(&device->kref, bsr_destroy_device);
 				goto skip;
 			}
 
 
-#ifdef DRBD_TRACE
-			drbd_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) ................Queuing(%d)!\n",
+#ifdef BSR_TRACE
+			bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) ................Queuing(%d)!\n",
 				&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount);
 #endif
 
@@ -715,15 +715,15 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #endif
 
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
             return STATUS_PENDING;
         }
         else {
 			// DW-1300 put device reference count when no longer use.
 			if (device)
-				kref_put(&device->kref, drbd_destroy_device);
+				kref_put(&device->kref, bsr_destroy_device);
 
-			drbd_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x\n",
+			bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x\n",
 					&VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 	
             Irp->IoStatus.Information = 0;
@@ -754,7 +754,7 @@ skip:
 }
 
 extern int seq_file_idx;
-extern int drbd_seq_show(struct seq_file *seq, void *v);
+extern int bsr_seq_show(struct seq_file *seq, void *v);
 
 NTSTATUS
 mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
@@ -765,7 +765,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
-        case IOCTL_MVOL_GET_PROC_DRBD:
+        case IOCTL_MVOL_GET_PROC_BSR:
         {
             PMVOL_VOLUME_INFO p = NULL;
 
@@ -773,7 +773,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
             MVOL_LOCK();
             seq_file_idx = 0;
-            drbd_seq_show((struct seq_file *)&p->Seq, 0);
+            bsr_seq_show((struct seq_file *)&p->Seq, 0);
             MVOL_UNLOCK();
 
             irpSp->Parameters.DeviceIoControl.OutputBufferLength = sizeof(MVOL_VOLUME_INFO);
@@ -824,11 +824,11 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
 			if (!NT_SUCCESS(status)) {
-				drbd_warn(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
+				bsr_warn(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
 					&VolumeExtension->MountPoint, status);
 			}
 			else if (!size) {	// ok
-				drbd_info(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
+				bsr_info(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
 					&VolumeExtension->MountPoint);
 			}
 
@@ -846,10 +846,10 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_SetMinimumLogLevel(DeviceObject, Irp); // Set minimum level of logging (system event log, service log)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
-		case IOCTL_MVOL_GET_DRBD_LOG:
+		case IOCTL_MVOL_GET_BSR_LOG:
 		{
 			ULONG size = 0;
-			status = IOCTL_GetDrbdLog(DeviceObject, Irp, &size);
+			status = IOCTL_GetBsrLog(DeviceObject, Irp, &size);
 			if(status == STATUS_SUCCESS) {
 				MVOL_IOCOMPLETE_REQ(Irp, status, size);
 			} else {
@@ -876,7 +876,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				size = get_targetdev_volsize(VolumeExtension);
 				bdev->bd_contains->d_size = size;
 				// DW-1917 max_hw_sectors value must be set.
-				bdev->bd_disk->queue->max_hw_sectors = size ? (size >> 9) : DRBD_MAX_BIO_SIZE;
+				bdev->bd_disk->queue->max_hw_sectors = size ? (size >> 9) : BSR_MAX_BIO_SIZE;
 			}
 
 			Irp->IoStatus.Status = status;

@@ -46,33 +46,33 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
  */
 
 /*
- * @DRBD_GENLA_F_MANDATORY: By default, netlink ignores attributes it does not
+ * @BSR_GENLA_F_MANDATORY: By default, netlink ignores attributes it does not
  * know about.  This flag can be set in nlattr->nla_type to indicate that this
  * attribute must not be ignored.
  *
- * We check and remove this flag in drbd_nla_check_mandatory() before
+ * We check and remove this flag in bsr_nla_check_mandatory() before
  * validating the attribute types and lengths via nla_parse_nested().
  */
-#define DRBD_GENLA_F_MANDATORY (1 << 14)
+#define BSR_GENLA_F_MANDATORY (1 << 14)
 
 /*
- * Flags specific to drbd and not visible at the netlink layer, used in
+ * Flags specific to bsr and not visible at the netlink layer, used in
  * <struct>_from_attrs and <struct>_to_skb:
  *
- * @DRBD_F_REQUIRED: Attribute is required; a request without this attribute is
+ * @BSR_F_REQUIRED: Attribute is required; a request without this attribute is
  * invalid.
  *
- * @DRBD_F_SENSITIVE: Attribute includes sensitive information and must not be
+ * @BSR_F_SENSITIVE: Attribute includes sensitive information and must not be
  * included in unpriviledged get requests or broadcasts.
  *
- * @DRBD_F_INVARIANT: Attribute is set when an object is initially created, but
+ * @BSR_F_INVARIANT: Attribute is set when an object is initially created, but
  * cannot subsequently be changed.
  */
-#define DRBD_F_REQUIRED (1 << 0)
-#define DRBD_F_SENSITIVE (1 << 1)
-#define DRBD_F_INVARIANT (1 << 2)
+#define BSR_F_REQUIRED (1 << 0)
+#define BSR_F_SENSITIVE (1 << 1)
+#define BSR_F_INVARIANT (1 << 2)
 
-#define __nla_type(x)	((__u16)((x) & NLA_TYPE_MASK & ~DRBD_GENLA_F_MANDATORY))
+#define __nla_type(x)	((__u16)((x) & NLA_TYPE_MASK & ~BSR_GENLA_F_MANDATORY))
 
 /*									}}}1
  * MAGIC
@@ -185,12 +185,12 @@ enum {								\
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type,	\
 		__get, __put, __is_signed)			\
-	T_ ## name = (__u16)(attr_nr | ((attr_flag) & DRBD_GENLA_F_MANDATORY)),
+	T_ ## name = (__u16)(attr_nr | ((attr_flag) & BSR_GENLA_F_MANDATORY)),
 
 #undef __array
 #define __array(attr_nr, attr_flag, name, nla_type, type,	\
 		maxlen, __get, __put, __is_signed)		\
-	T_ ## name = (__u16)(attr_nr | ((attr_flag) & DRBD_GENLA_F_MANDATORY)),
+	T_ ## name = (__u16)(attr_nr | ((attr_flag) & BSR_GENLA_F_MANDATORY)),
 
 #include GENL_MAGIC_INCLUDE_FILE
 

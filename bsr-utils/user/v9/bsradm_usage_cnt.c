@@ -1,24 +1,24 @@
 /*
-   drbdadm_usage_cnt.c
+   bsradm_usage_cnt.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2006-2008, LINBIT Information Technologies GmbH
    Copyright (C) 2006-2008, Philipp Reisner <philipp.reisner@linbit.com>
    Copyright (C) 2006-2008, Lars Ellenberg  <lars.ellenberg@linbit.com>
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -42,11 +42,11 @@
 #include "bsradm.h"
 #include "bsrtool_common.h"
 #include "bsr_endian.h"
-#include "bsr.h"		/* only use DRBD_MAGIC from here! */
+#include "bsr.h"		/* only use BSR_MAGIC from here! */
 #include "config_flags.h"
 
 #define HTTP_PORT 80
-#define HTTP_HOST "usage.drbd.org"
+#define HTTP_HOST "usage.bsr.org"
 #define HTTP_ADDR "212.69.161.111"
 #define NODE_ID_FILE BSR_LIB_DIR"/node_id"
 
@@ -63,18 +63,18 @@ struct node_info_od {
 
 
 
-void maybe_exec_legacy_drbdadm(char **argv)
+void maybe_exec_legacy_bsradm(char **argv)
 {
-	const struct version *driver_version = drbd_driver_version(FALLBACK_TO_UTILS);
+	const struct version *driver_version = bsr_driver_version(FALLBACK_TO_UTILS);
 
 	if (driver_version->version.major == 8 &&
 	    driver_version->version.minor == 3) {
-#ifdef DRBD_LEGACY_83
-		/* This drbdadm warned already... */
-		setenv("DRBD_DONT_WARN_ON_VERSION_MISMATCH", "1", 0);
-		add_lib_drbd_to_path();
-		execvp(drbdadm_83, argv);
-		err("execvp() failed to exec %s: %m\n", drbdadm_83);
+#ifdef BSR_LEGACY_83
+		/* This bsradm warned already... */
+		setenv("BSR_DONT_WARN_ON_VERSION_MISMATCH", "1", 0);
+		add_lib_bsr_to_path();
+		execvp(bsradm_83, argv);
+		err("execvp() failed to exec %s: %m\n", bsradm_83);
 #else
 		config_help_legacy("bsradm", driver_version);
 #endif
@@ -82,12 +82,12 @@ void maybe_exec_legacy_drbdadm(char **argv)
 	}
 	if (driver_version->version.major == 8 &&
 	    driver_version->version.minor == 4) {
-#ifdef DRBD_LEGACY_84
-		/* This drbdadm warned already... */
-		setenv("DRBD_DONT_WARN_ON_VERSION_MISMATCH", "1", 0);
-		add_lib_drbd_to_path();
-		execvp(drbdadm_84, argv);
-		err("execvp() failed to exec %s: %m\n", drbdadm_84);
+#ifdef BSR_LEGACY_84
+		/* This bsradm warned already... */
+		setenv("BSR_DONT_WARN_ON_VERSION_MISMATCH", "1", 0);
+		add_lib_bsr_to_path();
+		execvp(bsradm_84, argv);
+		err("execvp() failed to exec %s: %m\n", bsradm_84);
 #else
 		config_help_legacy("bsradm", driver_version);
 #endif
@@ -130,13 +130,13 @@ static void write_node_id(struct node_info *ni)
 	}
 
 	if(ni->rev.svn_revision != 0) { // SVN style (old)
-		on_disk.magic               = cpu_to_be32(DRBD_MAGIC);
+		on_disk.magic               = cpu_to_be32(BSR_MAGIC);
 		on_disk.ni.node_uuid        = cpu_to_be64(ni->node_uuid);
 		on_disk.ni.rev.svn_revision = cpu_to_be32(ni->rev.svn_revision);
 		memset(on_disk.ni.rev.git_hash,0,GIT_HASH_BYTE);
 		size = SVN_STYLE_OD;
 	} else {
-		on_disk.magic               = cpu_to_be32(DRBD_MAGIC+1);
+		on_disk.magic               = cpu_to_be32(BSR_MAGIC+1);
 		on_disk.ni.node_uuid        = cpu_to_be64(ni->node_uuid);
 		on_disk.ni.rev.svn_revision = 0;
 		memcpy(on_disk.ni.rev.git_hash,ni->rev.git_hash,GIT_HASH_BYTE);
@@ -170,12 +170,12 @@ static int read_node_id(struct node_info *ni)
 	}
 
 	switch (be32_to_cpu(on_disk.magic)) {
-	case DRBD_MAGIC:
+	case BSR_MAGIC:
 		ni->node_uuid = be64_to_cpu(on_disk.ni.node_uuid);
 		ni->rev.svn_revision = be32_to_cpu(on_disk.ni.rev.svn_revision);
 		memset(ni->rev.git_hash, 0, GIT_HASH_BYTE);
 		break;
-	case DRBD_MAGIC+1:
+	case BSR_MAGIC+1:
 		ni->node_uuid = be64_to_cpu(on_disk.ni.node_uuid);
 		ni->rev.svn_revision = 0;
 		memcpy(ni->rev.git_hash, on_disk.ni.rev.git_hash, GIT_HASH_BYTE);
@@ -385,7 +385,7 @@ int have_vcs_hash(const struct version *v)
 	return 0;
 }
 
-/* Ensure that the node is counted on http://usage.drbd.org
+/* Ensure that the node is counted on http://usage.bsr.org
  */
 #define ANSWER_SIZE 80
 
@@ -398,7 +398,7 @@ void uc_node(enum usage_count_type type)
 	char answer[ANSWER_SIZE];
 	char n_comment[ANSWER_SIZE*3];
 	char *r;
-	const struct version *driver_version = drbd_driver_version(FALLBACK_TO_UTILS);
+	const struct version *driver_version = bsr_driver_version(FALLBACK_TO_UTILS);
 
 	if( type == UC_NO ) return;
 	if( getuid() != 0 ) return;
@@ -406,7 +406,7 @@ void uc_node(enum usage_count_type type)
 	/* not when running directly from init,
 	 * or if stdout is no tty.
 	 * you do not want to have the "user information message"
-	 * as output from `drbdadm sh-resources all`
+	 * as output from `bsradm sh-resources all`
 	 */
 	if (getenv("INIT_VERSION")) return;
 	if (no_tty) return;
@@ -417,8 +417,8 @@ void uc_node(enum usage_count_type type)
 		send = 1;
 	} else if (!have_vcs_hash(driver_version)) {
 		/* If we don't know the current version control system hash,
-		 * we found the version via "modprobe -F version drbd",
-		 * and did not find a /proc/drbd to read it from.
+		 * we found the version via "modprobe -F version bsr",
+		 * and did not find a /proc/bsr to read it from.
 		 * Avoid flipping between "hash-some-value" and "hash-all-zero",
 		 * Re-registering every time...
 		 */
@@ -437,20 +437,20 @@ void uc_node(enum usage_count_type type)
 	n_comment[0]=0;
 	if (type == UC_ASK ) {
 		err("\n"
-		    "\t\t--== This is %s of DRBD ==--\n"
-		    "Please take part in the global DRBD usage count at http://"HTTP_HOST".\n\n"
+		    "\t\t--== This is %s of BSR ==--\n"
+		    "Please take part in the global BSR usage count at http://"HTTP_HOST".\n\n"
 		    "The counter works anonymously. It creates a random number to identify\n"
 		    "your machine and sends that random number, along with the kernel and\n"
-		    "DRBD version, to "HTTP_HOST".\n\n"
+		    "BSR version, to "HTTP_HOST".\n\n"
 		    "The benefits for you are:\n"
 		    " * In response to your submission, the server ("HTTP_HOST") will tell you\n"
 		    "   how many users before you have installed this version (%s).\n"
 		    " * With a high counter LINBIT has a strong motivation to\n"
-		    "   continue funding DRBD's development.\n\n"
+		    "   continue funding BSR's development.\n\n"
 		    "http://"HTTP_HOST"/cgi-bin/insert_usage.pl?nu="U64"&%s\n\n"
 		    "In case you want to participate but know that this machine is firewalled,\n"
 		    "simply issue the query string with your favorite web browser or wget.\n"
-		    "You can control all of this by setting 'usage-count' in your drbd.conf.\n\n"
+		    "You can control all of this by setting 'usage-count' in your bsr.conf.\n\n"
 		    "* You may enter a free form comment about your machine, that gets\n"
 		    "  used on "HTTP_HOST" instead of the big random number.\n"
 		    "* If you wish to opt out entirely, simply enter 'no'.\n"
@@ -476,7 +476,7 @@ void uc_node(enum usage_count_type type)
 		if (type == UC_ASK) {
 			err("\n"
 			    "From now on, bsradm will contact "HTTP_HOST" only when you update\n"
-			    "DRBD or when you use 'bsradm create-md'. Of course it will continue\n"
+			    "BSR or when you use 'bsradm create-md'. Of course it will continue\n"
 			    "to ask you for confirmation as long as 'usage-count' is at its default\n"
 			    "value of 'ask'.\n\n"
 			    "Just press [RETURN] to continue: ");
@@ -488,7 +488,7 @@ void uc_node(enum usage_count_type type)
 
 /* For our purpose (finding the revision) SLURP_SIZE is always enough.
  */
-static char* run_adm_drbdmeta(const struct cfg_ctx *ctx, const char *arg_override)
+static char* run_adm_bsrmeta(const struct cfg_ctx *ctx, const char *arg_override)
 {
 	const int SLURP_SIZE = 4096;
 	int rr,pipes[2];
@@ -514,7 +514,7 @@ static char* run_adm_drbdmeta(const struct cfg_ctx *ctx, const char *arg_overrid
 		close(pipes[1]);
 		local_cmd.name = arg_override;
 		local_ctx.cmd = &local_cmd;
-		rr = _adm_drbdmeta(&local_ctx,
+		rr = _adm_bsrmeta(&local_ctx,
 				   SLEEPS_VERY_LONG|
 				   DONT_REPORT_FAILED,
 				   NULL);
@@ -596,21 +596,21 @@ int adm_create_md(const struct cfg_ctx *ctx)
 		max_peers_str = ssprintf("%d", max_peers);
 	}
 
-	/* drbdmeta does not understand "--max-peers=",
+	/* bsrmeta does not understand "--max-peers=",
 	 * so we drop it from the option list here... */
 	if (b_opt_max_peers)
 		STAILQ_REMOVE(&backend_options, b_opt_max_peers, d_name, link);
 
 	verbose_tmp = verbose;
 	verbose = 0;
-	tb = run_adm_drbdmeta(ctx, "read-dev-uuid");
+	tb = run_adm_bsrmeta(ctx, "read-dev-uuid");
 	verbose = verbose_tmp;
 	device_uuid = strto_u64(tb,NULL,16);
 	free(tb);
 
-	/* This is "drbdmeta ... create-md".
+	/* This is "bsrmeta ... create-md".
 	 * It implicitly adds all backend_options to the command line. */
-	rv = _adm_drbdmeta(ctx, SLEEPS_VERY_LONG, max_peers_str);
+	rv = _adm_bsrmeta(ctx, SLEEPS_VERY_LONG, max_peers_str);
 	/* ... now add back "--max-peers=", if any,
 	 * in case the caller loops over several volumes. */
 	if (b_opt_max_peers)
@@ -640,11 +640,11 @@ int adm_create_md(const struct cfg_ctx *ctx)
 		if( global_options.usage_count == UC_ASK ) {
 			err("\n"
 			    "\t\t--== Creating metadata ==--\n"
-			    "As with nodes, we count the total number of devices mirrored by DRBD\n"
+			    "As with nodes, we count the total number of devices mirrored by BSR\n"
 			    "at http://"HTTP_HOST".\n\n"
 			    "The counter works anonymously. It creates a random number to identify\n"
 			    "the device and sends that random number, along with the kernel and\n"
-			    "DRBD version, to "HTTP_HOST".\n\n"
+			    "BSR version, to "HTTP_HOST".\n\n"
 			    "http://"HTTP_HOST"/cgi-bin/insert_usage.pl?nu="U64"&ru="U64"&rs="U64"\n\n"
 			    "* If you wish to opt out entirely, simply enter 'no'.\n"
 			    "* To continue, just press [RETURN]\n",
@@ -679,8 +679,8 @@ int adm_create_md(const struct cfg_ctx *ctx)
 
 		local_cmd.name = "write-dev-uuid";
 		local_ctx.cmd = &local_cmd;
-		local_cmd.drbdsetup_ctx = &wildcard_ctx;
-		_adm_drbdmeta(&local_ctx, SLEEPS_VERY_LONG, NULL);
+		local_cmd.bsrsetup_ctx = &wildcard_ctx;
+		_adm_bsrmeta(&local_ctx, SLEEPS_VERY_LONG, NULL);
 
 		free_names(&backend_options);
 		backend_options = old_backend_options;

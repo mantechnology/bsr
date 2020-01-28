@@ -2,11 +2,11 @@
 
 Module Name:
 
-    drbdlock.c
+    bsrlock.c
 
 Abstract:
 
-    This is the main module of the drbdlock miniFilter driver.
+    This is the main module of the bsrlock miniFilter driver.
 
 Environment:
 
@@ -33,7 +33,7 @@ DriverEntry (
     );
 
 NTSTATUS
-drbdlockInstanceSetup (
+bsrlockInstanceSetup (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_SETUP_FLAGS Flags,
     _In_ DEVICE_TYPE VolumeDeviceType,
@@ -41,37 +41,37 @@ drbdlockInstanceSetup (
     );
 
 VOID
-drbdlockInstanceTeardownStart (
+bsrlockInstanceTeardownStart (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
     );
 
 VOID
-drbdlockInstanceTeardownComplete (
+bsrlockInstanceTeardownComplete (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
     );
 
 NTSTATUS
-drbdlockUnload (
+bsrlockUnload (
     _In_ FLT_FILTER_UNLOAD_FLAGS Flags
     );
 
 NTSTATUS
-drbdlockInstanceQueryTeardown (
+bsrlockInstanceQueryTeardown (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
     );
 
 FLT_PREOP_CALLBACK_STATUS
-drbdlockPreOperation (
+bsrlockPreOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _Flt_CompletionContext_Outptr_ PVOID *CompletionContext
     );
 
 FLT_POSTOP_CALLBACK_STATUS
-drbdlockPostOperation (
+bsrlockPostOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_opt_ PVOID CompletionContext,
@@ -79,7 +79,7 @@ drbdlockPostOperation (
     );
 
 FLT_PREOP_CALLBACK_STATUS
-drbdlockPreOperationNoPostOperation (
+bsrlockPreOperationNoPostOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _Flt_CompletionContext_Outptr_ PVOID *CompletionContext
@@ -93,230 +93,230 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 
 		{ IRP_MJ_CREATE,
 		0,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 		{ IRP_MJ_CLOSE,
 		0,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 		{ IRP_MJ_READ,
 		FLTFL_OPERATION_REGISTRATION_SKIP_CACHED_IO | FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 		{ IRP_MJ_WRITE,
 		FLTFL_OPERATION_REGISTRATION_SKIP_CACHED_IO | FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 		{ IRP_MJ_FILE_SYSTEM_CONTROL,
 		0,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 		// DW-1868
 		{ IRP_MJ_QUERY_VOLUME_INFORMATION,
 		0,
-		drbdlockPreOperation,
-		drbdlockPostOperation },
+		bsrlockPreOperation,
+		bsrlockPostOperation },
 
 #if 0 // TODO - List all of the requests to filter.
     { IRP_MJ_CREATE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_CREATE_NAMED_PIPE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_CLOSE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_READ,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_WRITE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_QUERY_INFORMATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SET_INFORMATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_QUERY_EA,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SET_EA,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_FLUSH_BUFFERS,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_QUERY_VOLUME_INFORMATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SET_VOLUME_INFORMATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_DIRECTORY_CONTROL,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_FILE_SYSTEM_CONTROL,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_DEVICE_CONTROL,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_INTERNAL_DEVICE_CONTROL,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SHUTDOWN,
       0,
-      drbdlockPreOperationNoPostOperation,
+      bsrlockPreOperationNoPostOperation,
       NULL },                               //post operations not supported
 
     { IRP_MJ_LOCK_CONTROL,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_CLEANUP,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_CREATE_MAILSLOT,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_QUERY_SECURITY,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SET_SECURITY,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_QUERY_QUOTA,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_SET_QUOTA,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_PNP,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_RELEASE_FOR_SECTION_SYNCHRONIZATION,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_ACQUIRE_FOR_MOD_WRITE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_RELEASE_FOR_MOD_WRITE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_ACQUIRE_FOR_CC_FLUSH,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_RELEASE_FOR_CC_FLUSH,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_FAST_IO_CHECK_IF_POSSIBLE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_NETWORK_QUERY_OPEN,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_MDL_READ,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_MDL_READ_COMPLETE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_PREPARE_MDL_WRITE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_MDL_WRITE_COMPLETE,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_VOLUME_MOUNT,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
     { IRP_MJ_VOLUME_DISMOUNT,
       0,
-      drbdlockPreOperation,
-      drbdlockPostOperation },
+      bsrlockPreOperation,
+      bsrlockPostOperation },
 
 #endif // TODO
 
@@ -336,12 +336,12 @@ CONST FLT_REGISTRATION FilterRegistration = {
     NULL,                               //  Context
     Callbacks,                          //  Operation callbacks
 
-    drbdlockUnload,                           //  MiniFilterUnload
+    bsrlockUnload,                           //  MiniFilterUnload
 
-    drbdlockInstanceSetup,                    //  InstanceSetup
-    drbdlockInstanceQueryTeardown,            //  InstanceQueryTeardown
-    drbdlockInstanceTeardownStart,            //  InstanceTeardownStart
-    drbdlockInstanceTeardownComplete,         //  InstanceTeardownComplete
+    bsrlockInstanceSetup,                    //  InstanceSetup
+    bsrlockInstanceQueryTeardown,            //  InstanceQueryTeardown
+    bsrlockInstanceTeardownStart,            //  InstanceTeardownStart
+    bsrlockInstanceTeardownComplete,         //  InstanceTeardownComplete
 
     NULL,                               //  GenerateFileName
     NULL,                               //  GenerateDestinationFileName
@@ -352,7 +352,7 @@ CONST FLT_REGISTRATION FilterRegistration = {
 
 
 NTSTATUS
-drbdlockInstanceSetup (
+bsrlockInstanceSetup (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_SETUP_FLAGS Flags,
     _In_ DEVICE_TYPE VolumeDeviceType,
@@ -392,7 +392,7 @@ Return Value:
 
 
 NTSTATUS
-drbdlockInstanceQueryTeardown (
+bsrlockInstanceQueryTeardown (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
     )
@@ -429,7 +429,7 @@ Return Value:
 
 
 VOID
-drbdlockInstanceTeardownStart (
+bsrlockInstanceTeardownStart (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
     )
@@ -458,7 +458,7 @@ Return Value:
 
 
 VOID
-drbdlockInstanceTeardownComplete (
+bsrlockInstanceTeardownComplete (
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
     )
@@ -520,7 +520,7 @@ Return Value:
 
     UNREFERENCED_PARAMETER( RegistryPath );
 
-	drbdlock_print_log("DriverEntry\n");
+	bsrlock_print_log("DriverEntry\n");
 	
     //
     //  Register with FltMgr to tell it our callback routines
@@ -531,18 +531,18 @@ Return Value:
                                 &gFilterHandle );
 
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("FltRegisterFilter failed, status : 0x%x\n", status);
+		bsrlock_print_log("FltRegisterFilter failed, status : 0x%x\n", status);
 		return status;
 	}
 
-	status = drbdlockCreateControlDeviceObject(DriverObject);
+	status = bsrlockCreateControlDeviceObject(DriverObject);
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("drbdlockCreateControlDeviceObject failed, status : 0x%x\n", status);
+		bsrlock_print_log("bsrlockCreateControlDeviceObject failed, status : 0x%x\n", status);
 		FltUnregisterFilter(gFilterHandle);
 		return status;
 	}			
 
-	drbdlockStartupCallback();
+	bsrlockStartupCallback();
 
 	InitVolBlock();
 
@@ -552,7 +552,7 @@ Return Value:
     status = FltStartFiltering( gFilterHandle );
 
     if (!NT_SUCCESS( status )) {
-		drbdlock_print_log("FltStartFiltering failed, status : 0x%x\n", status);
+		bsrlock_print_log("FltStartFiltering failed, status : 0x%x\n", status);
         FltUnregisterFilter( gFilterHandle );
     }   
 
@@ -560,7 +560,7 @@ Return Value:
 }
 
 NTSTATUS
-drbdlockUnload (
+bsrlockUnload (
     _In_ FLT_FILTER_UNLOAD_FLAGS Flags
     )
 /*++
@@ -584,15 +584,15 @@ Return Value:
 {
     UNREFERENCED_PARAMETER( Flags );
 	
-	drbdlock_print_log("Unloading\n");
+	bsrlock_print_log("Unloading\n");
 
     FltUnregisterFilter( gFilterHandle );
 
 	CleanupVolBlock();
 
-	drbdlockCleanupCallback();
+	bsrlockCleanupCallback();
 
-	drbdlockDeleteControlDeviceObject();
+	bsrlockDeleteControlDeviceObject();
 
     return STATUS_SUCCESS;
 }
@@ -602,7 +602,7 @@ Return Value:
     MiniFilter callback routines.
 *************************************************************************/
 FLT_PREOP_CALLBACK_STATUS
-drbdlockPreOperation (
+bsrlockPreOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _Flt_CompletionContext_Outptr_ PVOID *CompletionContext
@@ -634,7 +634,7 @@ Return Value:
 {
     UNREFERENCED_PARAMETER( CompletionContext );
 
-	// DW-1461 fsctl lock requested by drbd may fail due to drbdlock. make bypass operation executed in kernel mode.
+	// DW-1461 fsctl lock requested by bsr may fail due to bsrlock. make bypass operation executed in kernel mode.
 	if (Data->RequestorMode == KernelMode)
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 
@@ -666,7 +666,7 @@ Return Value:
 				status = FltGetDiskDeviceObject(FltObjects->Volume, &pDiskDev);
 
 				if (NT_SUCCESS(status)) {
-					ResizeDrbdVolume(pDiskDev);
+					ResizeBsrVolume(pDiskDev);
 				}
 
 			}
@@ -697,7 +697,7 @@ Return Value:
 }
 
 FLT_POSTOP_CALLBACK_STATUS
-drbdlockPostOperation (
+bsrlockPostOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_opt_ PVOID CompletionContext,
@@ -740,7 +740,7 @@ Return Value:
 
 
 FLT_PREOP_CALLBACK_STATUS
-drbdlockPreOperationNoPostOperation (
+bsrlockPreOperationNoPostOperation (
     _Inout_ PFLT_CALLBACK_DATA Data,
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _Flt_CompletionContext_Outptr_ PVOID *CompletionContext
@@ -781,12 +781,12 @@ Return Value:
     return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }
 
-void drbdlock_print_log(const char * format, ...)
+void bsrlock_print_log(const char * format, ...)
 /*++
 
 Routine Description:
 
-	appends drbdlock prefix and print log.
+	appends bsrlock prefix and print log.
 
 Arguments:
 
@@ -798,12 +798,12 @@ Return Value:
 
 --*/
 {
-	char szTemp[DRBDLOCK_LOG_MAXLEN] = DRBDLOCK_LOG_PREFIX;
+	char szTemp[BSRLOCK_LOG_MAXLEN] = BSRLOCK_LOG_PREFIX;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 
 	va_list args;
 	va_start(args, format);
-	status = RtlStringCchVPrintfA(szTemp + strlen(DRBDLOCK_LOG_PREFIX), DRBDLOCK_LOG_MAXLEN, format, args);
+	status = RtlStringCchVPrintfA(szTemp + strlen(BSRLOCK_LOG_PREFIX), BSRLOCK_LOG_MAXLEN, format, args);
 	va_end(args);
 
 	if (NT_SUCCESS(status))

@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, wbsr@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -56,7 +56,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	status = SeCreateClientSecurity( PsGetCurrentThread(), &se_quality_service,
 		FALSE, (PSECURITY_CLIENT_CONTEXT)&pThreadInfo->se_client_context);
 	if( !NT_SUCCESS(status) ) {
-		drbd_err(NO_OBJECT,"cannot create client security, err=0x%x\n", status);
+		bsr_err(NO_OBJECT,"cannot create client security, err=0x%x\n", status);
 		return status;
 	}
 
@@ -68,7 +68,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	status = PsCreateSystemThread( &threadhandle, 0L, NULL, 0L, NULL,
 		(PKSTART_ROUTINE)ThreadRoutine, (PVOID)pThreadInfo );
 	if( !NT_SUCCESS(status) ) {
-		drbd_err(NO_OBJECT,"cannot create Thread, err=0x%x\n", status);
+		bsr_err(NO_OBJECT,"cannot create Thread, err=0x%x\n", status);
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
 		return status;
 	}
@@ -130,7 +130,7 @@ mvolWorkThread(PVOID arg)
 	DeviceObject = pThreadInfo->DeviceObject;
 	VolumeExtension = DeviceObject->DeviceExtension;
 	
-    drbd_debug(NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
+    bsr_debug(NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
 #endif
 
 	for (;;) {
@@ -139,9 +139,9 @@ mvolWorkThread(PVOID arg)
 		IO_THREAD_WAIT(pThreadInfo);
 		if (pThreadInfo->exit_thread) {
 #ifdef _WIN_MULTIVOL_THREAD
-			drbd_info(NO_OBJECT,"Terminating mvolWorkThread\n");
+			bsr_info(NO_OBJECT,"Terminating mvolWorkThread\n");
 #else
-			drbd_debug(NO_OBJECT,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
+			bsr_debug(NO_OBJECT,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
 #endif
 			PsTerminateSystemThread(STATUS_SUCCESS);
 		}
@@ -158,9 +158,9 @@ mvolWorkThread(PVOID arg)
 #endif
 			irpSp = IoGetCurrentIrpStackLocation(irp);
 
-#ifdef DRBD_TRACE	
+#ifdef BSR_TRACE	
 			DbgPrint("\n");
-			drbd_debug(NO_OBJECT,"I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
+			bsr_debug(NO_OBJECT,"I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
 				KeGetCurrentIrql(), (irpSp->MajorFunction == IRP_MJ_WRITE)? "Write" : "Read", loop);
 #endif
 
@@ -191,7 +191,7 @@ mvolWorkThread(PVOID arg)
 				mvolSendToNextDriver(VolumeExtension->DeviceObject, irp);
 				break;
 			default:
-				drbd_err(NO_OBJECT,"WorkThread: invalid IRP MJ=0x%x\n", irpSp->MajorFunction);
+				bsr_err(NO_OBJECT,"WorkThread: invalid IRP MJ=0x%x\n", irpSp->MajorFunction);
 				irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 				IoCompleteRequest(irp, (CCHAR)(NT_SUCCESS(irp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
 				break;
@@ -205,7 +205,7 @@ mvolWorkThread(PVOID arg)
 		if (loop > 1) {
 			if (high < loop) {
 				high = loop;
-				drbd_info(NO_OBJECT,"hooker[%ws]: irp processing peek(%d)\n",
+				bsr_info(NO_OBJECT,"hooker[%ws]: irp processing peek(%d)\n",
 					VolumeExtension->PhysicalDeviceName, high);
 			}
 		}		
@@ -221,7 +221,7 @@ VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP 
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76DW');
 
     if(!wr) {
-        drbd_err(NO_OBJECT,"Could not allocate mvol work.\n");
+        bsr_err(NO_OBJECT,"Could not allocate mvol work.\n");
         return;
     }
     

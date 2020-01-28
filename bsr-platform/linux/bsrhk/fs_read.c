@@ -20,14 +20,14 @@ static char * read_superblock(struct file *fd)
 	ret = vfs_read(fd, super_block, sizeof(super_block), &fd->f_pos);
 	
 	if (ret < 0 || ret != sizeof(super_block)) {
-		drbd_err(NO_OBJECT, "failed to read super_block (err=%ld)\n", ret);
+		bsr_err(NO_OBJECT, "failed to read super_block (err=%ld)\n", ret);
 		return NULL;
 	}
 
 	return super_block;
 }
 
-PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
+PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
 {
 	struct file *fd;
 	PVOLUME_BITMAP_BUFFER bitmap_buf = NULL;
@@ -40,7 +40,7 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 
 	fd = filp_open(disk_name, O_RDONLY, 0);
 	if (fd == NULL || IS_ERR(fd)) {
-		drbd_err(device, "%s open failed\n", disk_name);
+		bsr_err(device, "%s open failed\n", disk_name);
 		goto out;
 	}
 
@@ -77,7 +77,7 @@ PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULON
 		bitmap_buf = read_xfs_bitmap(fd, xfs_sb);
 	}
 	else {
-		drbd_warn(device, "(%s) not supported for fast sync.\n", disk_name);
+		bsr_warn(device, "(%s) not supported for fast sync.\n", disk_name);
 	}
 
 close:
@@ -95,7 +95,7 @@ out:
 		return NULL;
 }
 #else
-PVOID GetVolumeBitmap(struct drbd_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
+PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
 {
 	return NULL;
 }

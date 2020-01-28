@@ -1,5 +1,5 @@
-#ifndef DRBD_META_DATA_H
-#define DRBD_META_DATA_H
+#ifndef BSR_META_DATA_H
+#define BSR_META_DATA_H
 
 #ifdef __KERNEL__
 #define be_u64 u64
@@ -49,7 +49,7 @@ struct meta_data_on_disk_9 {
 
 	be_u32 reserved_u32[2];
 
-	struct peer_dev_md_on_disk_9 peers[DRBD_PEERS_MAX];
+	struct peer_dev_md_on_disk_9 peers[BSR_PEERS_MAX];
 	be_u64 history_uuids[HISTORY_UUIDS];
 #if defined(_WIN) && defined(__KERNEL__)
     char padding[1];

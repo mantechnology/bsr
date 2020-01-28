@@ -1,4 +1,4 @@
-Description="DRBD configuration"
+Description="BSR configuration"
 
 -- Include IPv4 and IPv6 as "numbers"
 Digits=[[ [0-9.:]+[kmgtKMGTs]? ]]

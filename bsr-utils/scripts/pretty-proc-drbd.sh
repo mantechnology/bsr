@@ -1,6 +1,6 @@
 #!/bin/bash
 PATH=/sbin:$PATH
-DEFAULTS=/etc/defaults/drbd-pretty-status
+DEFAULTS=/etc/defaults/bsr-pretty-status
 
 # for highlighting see console_codes(4)
 
@@ -50,7 +50,7 @@ case "$1" in
 esac
 done
 
-drbd_pretty_status()
+bsr_pretty_status()
 {
     if ! $short ||
        ! type column &> /dev/null ||
@@ -59,9 +59,9 @@ drbd_pretty_status()
        ! type sed &> /dev/null ||
        ! type tr &> /dev/null
     then
-	cat /proc/drbd
+	cat /proc/bsr
     else
-	sed -e '2q' < /proc/drbd
+	sed -e '2q' < /proc/bsr
 	sed_script=$(
 		i=0;
 		_sh_status_process() {
@@ -71,7 +71,7 @@ drbd_pretty_status()
 				$_minor $i \
 				"${_res_name//[!a-zA-Z0-9_ -]/_}" "$stacked"
 		};
-		eval "$(drbdadm sh-status)" )
+		eval "$(bsradm sh-status)" )
 
 	p() {
 		sed -e "1,2d" \
@@ -85,11 +85,11 @@ drbd_pretty_status()
 		      -e '/^$/d;/ns:.*nr:.*dw:/d;/resync:/d;/act_log:/d;' \
 		      -e 's/^\(.\[.*\)\(sync.ed:\)/... ... \2/;/^.finish:/d;' \
 		      -e 's/^\(.[0-9 %]*oos:\)/... ... \1/' \
-		      < "/proc/drbd" | tr -s '\t ' '  ' 
+		      < "/proc/bsr" | tr -s '\t ' '  ' 
 	}
 	m() {
 		join -1 2 -2 1 -o 1.1,2.2,2.3 \
-			<( ( drbdadm sh-dev all ; drbdadm -S sh-dev all ) | cat -n | sort -k2,2) \
+			<( ( bsradm sh-dev all ; bsradm -S sh-dev all ) | cat -n | sort -k2,2) \
 			<(sort < /proc/mounts ) |
 			sort -n | tr -s '\t ' '  ' | sed -e 's/^ *//'
 	}
@@ -133,4 +133,4 @@ s/UpToDate/$c_u2d_1&$c_u2d_0/g;
 # and there you can override all highlight definitions again
 test -r "$DEFAULTS" && . "$DEFAULTS"
 
-drbd_pretty_status
+bsr_pretty_status

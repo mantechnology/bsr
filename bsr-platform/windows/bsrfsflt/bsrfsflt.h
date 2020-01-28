@@ -1,7 +1,7 @@
 
 
 
-#define DRBDLOCK_LOG_MAXLEN 260
-#define DRBDLOCK_LOG_PREFIX "[Drbdlock]"
-void drbdlock_print_log(const char * format, ...);
+#define BSRLOCK_LOG_MAXLEN 260
+#define BSRLOCK_LOG_PREFIX "[Bsrlock]"
+void bsrlock_print_log(const char * format, ...);
 

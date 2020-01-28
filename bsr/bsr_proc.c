@@ -1,24 +1,24 @@
 /*
-   drbd_proc.c
+   bsr_proc.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
    Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
    Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -38,49 +38,49 @@
 
 // windows replaced with MVF ioctl
 #ifdef _LIN
-static int drbd_proc_open(struct inode *inode, struct file *file);
-static int drbd_proc_release(struct inode *inode, struct file *file);
+static int bsr_proc_open(struct inode *inode, struct file *file);
+static int bsr_proc_release(struct inode *inode, struct file *file);
 
-struct proc_dir_entry *drbd_proc;
-const struct file_operations drbd_proc_fops = {
+struct proc_dir_entry *bsr_proc;
+const struct file_operations bsr_proc_fops = {
 	.owner		= THIS_MODULE,
-	.open		= drbd_proc_open,
+	.open		= bsr_proc_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
-	.release	= drbd_proc_release,
+	.release	= bsr_proc_release,
 };
 #endif
 
 #ifdef _WIN // DW-826
-int drbd_seq_show(struct seq_file *seq, void *v)
+int bsr_seq_show(struct seq_file *seq, void *v)
 {
 	UNREFERENCED_PARAMETER(v);
 
-	seq_printf(seq, "WDRBD:%s\nLDRBD: " REL_VERSION " (api:%d/proto:%d-%d)\n",
-		drbd_buildtag(),GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
-	drbd_print_transports_loaded(seq);
+	seq_printf(seq, "WBSR:%s\nLBSR: " REL_VERSION " (api:%d/proto:%d-%d)\n",
+		bsr_buildtag(),GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
+	bsr_print_transports_loaded(seq);
 
 	return 0;
 }
 #else // _LIN
-static int drbd_seq_show(struct seq_file *seq, void *v)
+static int bsr_seq_show(struct seq_file *seq, void *v)
 {
 	seq_printf(seq, "version: " REL_VERSION " (api:%d/proto:%d-%d)\n%s\n",
-		GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX, drbd_buildtag());
+		GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX, bsr_buildtag());
 	print_kref_debug_info(seq);
-	drbd_print_transports_loaded(seq);
+	bsr_print_transports_loaded(seq);
 
 	return 0;
 }
 #endif
 
 #ifdef _LIN
-static int drbd_proc_open(struct inode *inode, struct file *file)
+static int bsr_proc_open(struct inode *inode, struct file *file)
 {
 	int err;
 
 	if (try_module_get(THIS_MODULE)) {
-		err = single_open(file, drbd_seq_show, NULL);
+		err = single_open(file, bsr_seq_show, NULL);
 		if (err)
 			module_put(THIS_MODULE);
 		return err;
@@ -88,7 +88,7 @@ static int drbd_proc_open(struct inode *inode, struct file *file)
 	return -ENODEV;
 }
 
-static int drbd_proc_release(struct inode *inode, struct file *file)
+static int bsr_proc_release(struct inode *inode, struct file *file)
 {
 	module_put(THIS_MODULE);
 	return single_release(inode, file);

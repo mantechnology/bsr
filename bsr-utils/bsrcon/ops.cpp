@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, wbsr@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -118,11 +118,11 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 	}
 
 	res = ERROR_SUCCESS;
-	int count = dwReturned / sizeof(WDRBD_VOLUME_ENTRY);
-	//printf("size(%d) count(%d) sizeof(WDRBD_VOLUME_ENTRY)(%d)\n", dwReturned, count, sizeof(WDRBD_VOLUME_ENTRY));
+	int count = dwReturned / sizeof(WBSR_VOLUME_ENTRY);
+	//printf("size(%d) count(%d) sizeof(WBSR_VOLUME_ENTRY)(%d)\n", dwReturned, count, sizeof(WBSR_VOLUME_ENTRY));
 
 	for (int i = 0; i < count; ++i) {
-		PWDRBD_VOLUME_ENTRY pEntry = ((PWDRBD_VOLUME_ENTRY)buffer) + i;
+		PWBSR_VOLUME_ENTRY pEntry = ((PWBSR_VOLUME_ENTRY)buffer) + i;
 		printf("--------------------------------------------------------------------------------------\n");
 		printf( "   Physical Device Name| %ws\n"
 				"                  Minor| %d\n"
@@ -221,16 +221,16 @@ DWORD MVOL_GetStatus( PMVOL_VOLUME_INFO VolumeInfo )
     hDevice = OpenDevice( MVOL_DEVICE );
     if( hDevice == INVALID_HANDLE_VALUE ) {
         retVal = GetLastError();
-        fprintf( stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
+        fprintf( stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
             __FUNCTION__, retVal );
         return retVal;
     }
 
-    ret = DeviceIoControl( hDevice, IOCTL_MVOL_GET_PROC_DRBD,
+    ret = DeviceIoControl( hDevice, IOCTL_MVOL_GET_PROC_BSR,
         NULL, 0, VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL );
     if( ret == FALSE ) {
         retVal = GetLastError();
-        fprintf( stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_PROC_DRBD. Err=%u\n",
+        fprintf( stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_PROC_BSR. Err=%u\n",
             __FUNCTION__, retVal );
     }
 
@@ -778,7 +778,7 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
@@ -788,7 +788,7 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie)
 		pSdie, sizeof(SIMULATION_DISK_IO_ERROR), pSdie, sizeof(SIMULATION_DISK_IO_ERROR), &dwReturned, NULL);
 	if (ret == FALSE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_PROC_DRBD. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_PROC_BSR. Err=%u\n",
 			__FUNCTION__, retVal);
 	}
 
@@ -819,7 +819,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
@@ -842,16 +842,16 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 
 #ifdef _WIN_DEBUG_OOS
 // DW-1153
-PVOID g_pDrbdBaseAddr;		// base address of loaded drbd.sys
-ULONG g_ulDrbdImageSize;		// image size of loaded drbd.sys
-DWORD64 g_ModuleBase;			// base address of loaded drbd.pdb
+PVOID g_pBsrBaseAddr;		// base address of loaded bsr.sys
+ULONG g_ulBsrImageSize;		// image size of loaded bsr.sys
+DWORD64 g_ModuleBase;			// base address of loaded bsr.pdb
 
-// get base address and image size of loaded drbd.sys
-BOOLEAN queryDrbdBase(VOID)
+// get base address and image size of loaded bsr.sys
+BOOLEAN queryBsrBase(VOID)
 {
 	DWORD dwSize = 0;
 	NTSTATUS status;
-	PVOID pDrbdAddr = NULL;
+	PVOID pBsrAddr = NULL;
 	BOOLEAN bRet = FALSE;
 	PRTL_PROCESS_MODULES ModuleInfo = NULL;
 
@@ -878,10 +878,10 @@ BOOLEAN queryDrbdBase(VOID)
 
 		for (ULONG i = 0; i<ModuleInfo->NumberOfModules; i++) {
 			PCHAR pFileName = (PCHAR)(ModuleInfo->Modules[i].FullPathName + ModuleInfo->Modules[i].OffsetToFileName);
-			if (strcmp(pFileName, DRBD_DRIVER_NAME) == 0) {
-				// found loaded drbd.sys
-				g_pDrbdBaseAddr = ModuleInfo->Modules[i].ImageBase;
-				g_ulDrbdImageSize = ModuleInfo->Modules[i].ImageSize;
+			if (strcmp(pFileName, BSR_DRIVER_NAME) == 0) {
+				// found loaded bsr.sys
+				g_pBsrBaseAddr = ModuleInfo->Modules[i].ImageBase;
+				g_ulBsrImageSize = ModuleInfo->Modules[i].ImageSize;
 				bRet = TRUE;
 
 				break;
@@ -967,10 +967,10 @@ BOOLEAN GetFuncNameWithAddr(PVOID pAddr, PCHAR pszFuncName)
 	BOOLEAN bRet = FALSE;
 	ULONG_PTR ulOffset = 0;
 
-	ulOffset = (ULONG_PTR)((DWORD64)pAddr - (DWORD64)g_pDrbdBaseAddr);
+	ulOffset = (ULONG_PTR)((DWORD64)pAddr - (DWORD64)g_pBsrBaseAddr);
 	
-	if (ulOffset > g_ulDrbdImageSize) {
-		// address is not in drbd range.
+	if (ulOffset > g_ulBsrImageSize) {
+		// address is not in bsr range.
 		return FALSE;
 	}
 
@@ -1027,33 +1027,33 @@ VOID ConvertCallStack(PCHAR LogLine)
 	}
 	
 	*pTemp = '\0';
-	strcat_s(LogLine, MAX_DRBDLOG_BUF, szStackFramesName);	
+	strcat_s(LogLine, MAX_BSRLOG_BUF, szStackFramesName);	
 }
 
 // initialize out-of-sync trace.
-// 1. get loaded drbd driver address, image size.
-// 2. initialize and load drbd symbol
+// 1. get loaded bsr driver address, image size.
+// 2. initialize and load bsr symbol
 BOOLEAN InitOosTrace()
 {
 	BOOLEAN bRet = FALSE;
 	DWORD dwFileSize = 0;
 	DWORD64 BaseAddr = 0x10000000;
-	TCHAR tszDrbdSymbolPath[MAX_PATH] = _T("");
+	TCHAR tszBsrSymbolPath[MAX_PATH] = _T("");
 #ifdef _UNICODE
-	CHAR szDrbdSymbolPath[MAX_PATH] = "";
+	CHAR szBsrSymbolPath[MAX_PATH] = "";
 #endif
 
-	GetCurrentFilePath(DRBD_SYMBOL_NAME, tszDrbdSymbolPath);
+	GetCurrentFilePath(BSR_SYMBOL_NAME, tszBsrSymbolPath);
 	
 	do {
-		if (g_pDrbdBaseAddr == NULL &&
-			FALSE == queryDrbdBase())
+		if (g_pBsrBaseAddr == NULL &&
+			FALSE == queryBsrBase())
 		{
-			_tprintf(_T("Failed to initialize drbd base\n"));
+			_tprintf(_T("Failed to initialize bsr base\n"));
 			break;			
 		}
 
-		_tprintf(_T("drbd.sys(%p), imageSize(%x)\n"), g_pDrbdBaseAddr, g_ulDrbdImageSize);
+		_tprintf(_T("bsr.sys(%p), imageSize(%x)\n"), g_pBsrBaseAddr, g_ulBsrImageSize);
 
 		DWORD Options = 0;
 
@@ -1068,7 +1068,7 @@ BOOLEAN InitOosTrace()
 			break;
 		}
 
-		GetSymbolFileSize(tszDrbdSymbolPath, dwFileSize);
+		GetSymbolFileSize(tszBsrSymbolPath, dwFileSize);
 
 		if (0 == dwFileSize) {
 			_tprintf(_T("Symbol file size is zero\n"));
@@ -1076,14 +1076,14 @@ BOOLEAN InitOosTrace()
 		}
 
 #ifdef _UNICODE
-		if (0 == WideCharToMultiByte(CP_ACP, 0, tszDrbdSymbolPath, -1, (LPSTR)szDrbdSymbolPath, MAX_PATH, NULL, NULL)) {
+		if (0 == WideCharToMultiByte(CP_ACP, 0, tszBsrSymbolPath, -1, (LPSTR)szBsrSymbolPath, MAX_PATH, NULL, NULL)) {
 			_tprintf(_T("Failed to convert wchar to char : %d\n"), GetLastError());
 			break;
 		}
 
-		g_ModuleBase = SymLoadModule64(GetCurrentProcess(), NULL, szDrbdSymbolPath, NULL, BaseAddr, dwFileSize);
+		g_ModuleBase = SymLoadModule64(GetCurrentProcess(), NULL, szBsrSymbolPath, NULL, BaseAddr, dwFileSize);
 #else
-		g_ModuleBase = SymLoadModule64(GetCurrentProcess(), NULL, tszDrbdSymbolPath, NULL, BaseAddr, dwFileSize);
+		g_ModuleBase = SymLoadModule64(GetCurrentProcess(), NULL, tszBsrSymbolPath, NULL, BaseAddr, dwFileSize);
 #endif
 		if (0 == g_ModuleBase) {
 			_tprintf(_T("SymLoadModule64 failed : %d\n"), GetLastError());
@@ -1098,7 +1098,7 @@ BOOLEAN InitOosTrace()
 }
 
 // initialize out-of-sync trace.
-// 1. unload and clean up drbd symbol
+// 1. unload and clean up bsr symbol
 VOID CleanupOosTrace()
 {
 	::SymUnloadModule64(GetCurrentProcess, g_ModuleBase);
@@ -1120,14 +1120,14 @@ BOOLEAN ExistsTargetString(char* target, char *msg)
 	return true;
 }
 
-DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
+DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
 {
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       retVal = ERROR_SUCCESS;
 	DWORD       dwReturned = 0;
 	DWORD		dwControlCode = 0;
 	BOOL        ret = FALSE;
-	PDRBD_LOG	pDrbdLog = NULL;
+	PBSR_LOG	pBsrLog = NULL;
 	// DW-1629
 	char tstr[MAX_PATH];
 
@@ -1139,33 +1139,33 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	if (resourceName != NULL) {
 		memset(tstr, MAX_PATH, 0);
 		// DW-1629 check logs for resource name and additional parsing data
-		//#define __drbd_printk_device ...
-		//#define __drbd_printk_peer_device ...
-		//#define __drbd_printk_resource ...
-		//#define __drbd_printk_connection ...
-		sprintf_s(tstr, ">drbd %s", resourceName);
+		//#define __bsr_printk_device ...
+		//#define __bsr_printk_peer_device ...
+		//#define __bsr_printk_resource ...
+		//#define __bsr_printk_connection ...
+		sprintf_s(tstr, ">bsr %s", resourceName);
 	}
 
 	// 1. Open MVOL_DEVICE
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
-	pDrbdLog = (PDRBD_LOG)malloc(DRBD_LOG_SIZE);
-	if (!pDrbdLog) {
+	pBsrLog = (PBSR_LOG)malloc(BSR_LOG_SIZE);
+	if (!pBsrLog) {
 		retVal = GetLastError();
 		fprintf(stderr, "LOG_ERROR: %s: Failed malloc. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
-	// 2. DeviceIoControl with DRBD_LOG_SIZE parameter (DW-1054)
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_DRBD_LOG, pDrbdLog, DRBD_LOG_SIZE, pDrbdLog, DRBD_LOG_SIZE, &dwReturned, NULL);
+	// 2. DeviceIoControl with BSR_LOG_SIZE parameter (DW-1054)
+	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_BSR_LOG, pBsrLog, BSR_LOG_SIZE, pBsrLog, BSR_LOG_SIZE, &dwReturned, NULL);
 	if (ret == FALSE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_DRBD_LOG. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_BSR_LOG. Err=%u\n",
 			__FUNCTION__, retVal);
 	}
 	else {
@@ -1173,66 +1173,66 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 		hLogFile = CreateFileA(pszProviderName, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hLogFile != INVALID_HANDLE_VALUE) {
 			
-			unsigned int loopcnt = min(pDrbdLog->totalcnt, LOGBUF_MAXCNT);
-			if (pDrbdLog->totalcnt <= LOGBUF_MAXCNT) {
-				for (unsigned int i = 0; i <= (loopcnt*MAX_DRBDLOG_BUF); i += MAX_DRBDLOG_BUF) {		
+			unsigned int loopcnt = min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
+			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
+				for (unsigned int i = 0; i <= (loopcnt*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {		
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
 						continue;
 
 					DWORD dwWritten;
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
-					DWORD len = (DWORD)strlen(&pDrbdLog->LogBuf[i]);
-					WriteFile(hLogFile, &pDrbdLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 				}
 			}
-			else { // pDrbdLog->totalcnt > LOGBUF_MAXCNT
+			else { // pBsrLog->totalcnt > LOGBUF_MAXCNT
 				unsigned int loopcnt1 = 0, loopcnt2 = 0;
-				pDrbdLog->totalcnt = pDrbdLog->totalcnt%LOGBUF_MAXCNT;
+				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
 				
-				for (unsigned int i = (pDrbdLog->totalcnt + 1)*MAX_DRBDLOG_BUF; i < (LOGBUF_MAXCNT*MAX_DRBDLOG_BUF); i += MAX_DRBDLOG_BUF) {
+				for (unsigned int i = (pBsrLog->totalcnt + 1)*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
 						continue;
 
 					DWORD dwWritten;
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
-					DWORD len = (DWORD)strlen(&pDrbdLog->LogBuf[i]);
-					WriteFile(hLogFile, &pDrbdLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 				}
 
-				for (unsigned int i = 0; i < (pDrbdLog->totalcnt + 1)*MAX_DRBDLOG_BUF; i += MAX_DRBDLOG_BUF) {
+				for (unsigned int i = 0; i < (pBsrLog->totalcnt + 1)*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pDrbdLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
 						continue;
 
 					DWORD dwWritten;
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pDrbdLog->LogBuf[i]);
-					else if (NULL != strstr(&pDrbdLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
-					DWORD len = (DWORD)strlen(&pDrbdLog->LogBuf[i]);
-					WriteFile(hLogFile, &pDrbdLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 				}
 			}
@@ -1248,8 +1248,8 @@ DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrac
 	if (hDevice != INVALID_HANDLE_VALUE) {
 		CloseHandle(hDevice);
 	}
-	if (pDrbdLog) {
-		free(pDrbdLog);
+	if (pBsrLog) {
+		free(pBsrLog);
 	}
 #ifdef _WIN_DEBUG_OOS
 	if (oosTrace){
@@ -1595,7 +1595,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open drbd. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
@@ -1616,7 +1616,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 	return retVal;
 }
 
-VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
+VOID getVolumeBsrlockInfo(HANDLE hBsrlock, PWCHAR pszVolumeName)
 {
 	
 	DWORD dwErr = 0;
@@ -1650,7 +1650,7 @@ VOID getVolumeDrbdlockInfo(HANDLE hDrbdlock, PWCHAR pszVolumeName)
 			return;
 		}
 
-		if (!DeviceIoControl(hDrbdlock, IOCTL_DRBDLOCK_GET_STATUS, szDevName, (wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, sizeof(bProtected), &dwRet, NULL)) {
+		if (!DeviceIoControl(hBsrlock, IOCTL_BSRLOCK_GET_STATUS, szDevName, (wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, sizeof(bProtected), &dwRet, NULL)) {
 			dwErr = GetLastError();
 			printf("DeviceIoControl Failed for device(%ws), err(%d)\n", szDevName, dwErr);
 			return;
@@ -1670,7 +1670,7 @@ print_info:
 	printf("\n");
 }
 
-DWORD GetDrbdlockStatus()
+DWORD GetBsrlockStatus()
 {	
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	PWCHAR pTemp = NULL;
@@ -1678,11 +1678,11 @@ DWORD GetDrbdlockStatus()
 	DWORD dwRet = 0;
 	
 	do {
-		hDevice = OpenDevice(DRBDLOCK_DEVICE_NAME_USER);
+		hDevice = OpenDevice(BSRLOCK_DEVICE_NAME_USER);
 
 		if (hDevice == INVALID_HANDLE_VALUE) {
 			dwErr = GetLastError();
-			printf("Failed to open device(%s), err(%d)\n", DRBDLOCK_DEVICE_NAME_USER, dwErr);
+			printf("Failed to open device(%s), err(%d)\n", BSRLOCK_DEVICE_NAME_USER, dwErr);
 			break;
 		}
 		
@@ -1697,10 +1697,10 @@ DWORD GetDrbdlockStatus()
 			break;
 		}
 		
-		getVolumeDrbdlockInfo(hDevice, VolumeName);
+		getVolumeBsrlockInfo(hDevice, VolumeName);
 
 		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName))) {
-			getVolumeDrbdlockInfo(hDevice, VolumeName);
+			getVolumeBsrlockInfo(hDevice, VolumeName);
 		}
 
 	} while (false);	

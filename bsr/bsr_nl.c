@@ -1,24 +1,24 @@
 /*
-   drbd_nl.c
+   bsr_nl.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
    Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
    Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -65,52 +65,52 @@ bool capable(int cap)
 #endif
 
 /* .doit */
-// int drbd_adm_create_resource(struct sk_buff *skb, struct genl_info *info);
-// int drbd_adm_delete_resource(struct sk_buff *skb, struct genl_info *info);
+// int bsr_adm_create_resource(struct sk_buff *skb, struct genl_info *info);
+// int bsr_adm_delete_resource(struct sk_buff *skb, struct genl_info *info);
 
-int drbd_adm_new_minor(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_del_minor(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_new_minor(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_del_minor(struct sk_buff *skb, struct genl_info *info);
 
-int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_del_resource(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_down(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_del_resource(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_down(struct sk_buff *skb, struct genl_info *info);
 
-int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_new_peer(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_del_peer(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_new_path(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_del_path(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_start_ov(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_disconnect(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_pause_sync(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_resume_sync(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_outdate(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_get_status(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
-int drbd_adm_forget_peer(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_detach(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_new_peer(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_del_peer(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_new_path(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_del_path(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_disconnect(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_pause_sync(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_resume_sync(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
+int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info);
 /* .dumpit */
-int drbd_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb);
-int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb);
-int drbd_adm_dump_devices_done(struct netlink_callback *cb);
-int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb);
-int drbd_adm_dump_connections_done(struct netlink_callback *cb);
-int drbd_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb);
-int drbd_adm_dump_peer_devices_done(struct netlink_callback *cb);
-int drbd_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb);
-int drbd_adm_get_initial_state_done(struct netlink_callback *cb);
+int bsr_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb);
+int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb);
+int bsr_adm_dump_devices_done(struct netlink_callback *cb);
+int bsr_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb);
+int bsr_adm_dump_connections_done(struct netlink_callback *cb);
+int bsr_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb);
+int bsr_adm_dump_peer_devices_done(struct netlink_callback *cb);
+int bsr_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb);
+int bsr_adm_get_initial_state_done(struct netlink_callback *cb);
 
 #ifdef _WIN
 KSTART_ROUTINE _try_outdate_peer_async;
@@ -120,7 +120,7 @@ KSTART_ROUTINE _try_outdate_peer_async;
 #include "bsr_nla.h"
 #include "../bsr-headers/linux/genl_magic_func.h"
 
-atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
+atomic_t bsr_genl_seq = ATOMIC_INIT(2); /* two. */
 
 #ifdef _WIN 
 // noti mutex 
@@ -130,12 +130,12 @@ DEFINE_MUTEX(notification_mutex);
 #endif
 
 /* used blkdev_get_by_path, to claim our meta data device(s) */
-static char *drbd_m_holder = "Hands off! this is DRBD's meta data device.";
+static char *bsr_m_holder = "Hands off! this is BSR's meta data device.";
 
 #ifdef _WIN
-int drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
 #else // _LIN
-static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
+static void bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
 #endif
 {
 	genlmsg_end(skb, genlmsg_data(nlmsg_data(nlmsg_hdr(skb))));
@@ -144,11 +144,11 @@ static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
         struct nlmsghdr * pnlh = (struct nlmsghdr *)skb->data;
         struct genlmsghdr * pgenlh = nlmsg_data(pnlh);
 
-        drbd_debug(NO_OBJECT,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
+        bsr_debug(NO_OBJECT,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
             pnlh->nlmsg_len, pnlh->nlmsg_type, pnlh->nlmsg_flags, pnlh->nlmsg_seq, pnlh->nlmsg_pid, pgenlh->cmd, pgenlh->version);
 
         if (pnlh->nlmsg_flags & NLM_F_ECHO) {
-            drbd_debug(NO_OBJECT,"done\n", 0);
+            bsr_debug(NO_OBJECT,"done\n", 0);
             return 0;
         }
     }
@@ -166,9 +166,9 @@ static void drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
 	
 }
 
-/* Used on a fresh "drbd_adm_prepare"d reply_skb, this cannot fail: The only
+/* Used on a fresh "bsr_adm_prepare"d reply_skb, this cannot fail: The only
  * reason it could fail was no space in skb, and there are 4k available. */
-static int drbd_msg_put_info(struct sk_buff *skb, const char *info)
+static int bsr_msg_put_info(struct sk_buff *skb, const char *info)
 {
 	struct nlattr *nla;
 	int err = -EMSGSIZE;
@@ -176,7 +176,7 @@ static int drbd_msg_put_info(struct sk_buff *skb, const char *info)
 	if (!info || !info[0])
 		return 0;
 
-	nla = nla_nest_start(skb, DRBD_NLA_CFG_REPLY);
+	nla = nla_nest_start(skb, BSR_NLA_CFG_REPLY);
 	if (!nla)
 		return err;
 
@@ -189,19 +189,19 @@ static int drbd_msg_put_info(struct sk_buff *skb, const char *info)
 	return 0;
 }
 
-static int drbd_adm_finish(struct drbd_config_context *, struct genl_info *, int);
+static int bsr_adm_finish(struct bsr_config_context *, struct genl_info *, int);
 
-extern struct genl_ops drbd_genl_ops[];
+extern struct genl_ops bsr_genl_ops[];
 
 #ifdef COMPAT_HAVE_SECURITY_NETLINK_RECV
-#define drbd_security_netlink_recv(skb, cap) \
+#define bsr_security_netlink_recv(skb, cap) \
 	security_netlink_recv(skb, cap)
 #else
 #ifdef _LIN
 /* see
  * fd77846 security: remove the security_netlink_recv hook as it is equivalent to capable()
  */
-static inline bool drbd_security_netlink_recv(struct sk_buff *skb, int cap)
+static inline bool bsr_security_netlink_recv(struct sk_buff *skb, int cap)
 {
 	return !capable(cap);
 }
@@ -209,13 +209,13 @@ static inline bool drbd_security_netlink_recv(struct sk_buff *skb, int cap)
 #endif
 
 
-static struct drbd_path *first_path(struct drbd_connection *connection)
+static struct bsr_path *first_path(struct bsr_connection *connection)
 {
 	/* Ideally this function is removed at a later point in time.
 	   It was introduced when replacing the single address pair
 	   with a list of address pairs (or paths). */
 
-	return list_first_entry_or_null(&connection->transport.paths, struct drbd_path, list);
+	return list_first_entry_or_null(&connection->transport.paths, struct bsr_path, list);
 }
 
 /* This would be a good candidate for a "pre_doit" hook,
@@ -223,16 +223,16 @@ static struct drbd_path *first_path(struct drbd_connection *connection)
  * But we need to stay compatible with older kernels.
  * If it returns successfully, adm_ctx members are valid.
  */
-#define DRBD_ADM_NEED_MINOR        (1 << 0)
-#define DRBD_ADM_NEED_RESOURCE     (1 << 1)
-#define DRBD_ADM_NEED_CONNECTION   (1 << 2)
-#define DRBD_ADM_NEED_PEER_DEVICE  (1 << 3)
-#define DRBD_ADM_NEED_PEER_NODE    (1 << 4)
-#define DRBD_ADM_IGNORE_VERSION    (1 << 5)
-static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
+#define BSR_ADM_NEED_MINOR        (1 << 0)
+#define BSR_ADM_NEED_RESOURCE     (1 << 1)
+#define BSR_ADM_NEED_CONNECTION   (1 << 2)
+#define BSR_ADM_NEED_PEER_DEVICE  (1 << 3)
+#define BSR_ADM_NEED_PEER_NODE    (1 << 4)
+#define BSR_ADM_IGNORE_VERSION    (1 << 5)
+static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
-	struct drbd_genlmsghdr *d_in = info->userhdr;
+	struct bsr_genlmsghdr *d_in = info->userhdr;
 	const u8 cmd = info->genlhdr->cmd;
 	int err;
 
@@ -245,8 +245,8 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	 * set have CAP_NET_ADMIN; we also require CAP_SYS_ADMIN for
 	 * administrative commands.
 	 */
-	if ((drbd_genl_ops[cmd].flags & GENL_ADMIN_PERM) &&
-	    drbd_security_netlink_recv(skb, CAP_SYS_ADMIN))
+	if ((bsr_genl_ops[cmd].flags & GENL_ADMIN_PERM) &&
+	    bsr_security_netlink_recv(skb, CAP_SYS_ADMIN))
 		return -EPERM;
 #endif
 
@@ -257,7 +257,7 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 		goto fail;
 	}
 	adm_ctx->reply_dh = genlmsg_put_reply(adm_ctx->reply_skb,
-		info, &drbd_genl_family, 0, cmd);
+		info, &bsr_genl_family, 0, cmd);
 	
 	/* put of a few bytes into a fresh skb of >= 4k will always succeed.
 	 * but anyways */
@@ -266,36 +266,36 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 		goto fail;
 	}
 
-	if (info->genlhdr->version != GENL_MAGIC_VERSION && (flags & DRBD_ADM_IGNORE_VERSION) == 0) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "Wrong API version, upgrade your drbd utils.");
+	if (info->genlhdr->version != GENL_MAGIC_VERSION && (flags & BSR_ADM_IGNORE_VERSION) == 0) {
+		bsr_msg_put_info(adm_ctx->reply_skb, "Wrong API version, upgrade your bsr utils.");
 		err = -EINVAL;
 		goto fail;
 	}
 
-	if (flags & DRBD_ADM_NEED_PEER_DEVICE)
-		flags |= DRBD_ADM_NEED_CONNECTION;
-	if (flags & DRBD_ADM_NEED_CONNECTION)
-		flags |= DRBD_ADM_NEED_PEER_NODE;
-	if (flags & DRBD_ADM_NEED_PEER_NODE)
-		flags |= DRBD_ADM_NEED_RESOURCE;
+	if (flags & BSR_ADM_NEED_PEER_DEVICE)
+		flags |= BSR_ADM_NEED_CONNECTION;
+	if (flags & BSR_ADM_NEED_CONNECTION)
+		flags |= BSR_ADM_NEED_PEER_NODE;
+	if (flags & BSR_ADM_NEED_PEER_NODE)
+		flags |= BSR_ADM_NEED_RESOURCE;
 
 	adm_ctx->reply_dh->minor = d_in->minor;
 	adm_ctx->reply_dh->ret_code = NO_ERROR;
 
 	adm_ctx->volume = VOLUME_UNSPECIFIED;
 	adm_ctx->peer_node_id = PEER_NODE_ID_UNSPECIFIED;
-	if (info->attrs[DRBD_NLA_CFG_CONTEXT]) {
+	if (info->attrs[BSR_NLA_CFG_CONTEXT]) {
 		struct nlattr *nla;
 		/* parse and validate only */
-		err = drbd_cfg_context_from_attrs(NULL, info);
+		err = bsr_cfg_context_from_attrs(NULL, info);
 		if (err)
 			goto fail;
 
 		/* It was present, and valid,
 		 * copy it over to the reply skb. */
 		err = nla_put_nohdr(adm_ctx->reply_skb,
-				info->attrs[DRBD_NLA_CFG_CONTEXT]->nla_len,
-				info->attrs[DRBD_NLA_CFG_CONTEXT]);
+				info->attrs[BSR_NLA_CFG_CONTEXT]->nla_len,
+				info->attrs[BSR_NLA_CFG_CONTEXT]);
 		if (err)
 			goto fail;
 
@@ -312,7 +312,7 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	}
 
 	if (adm_ctx->resource_name) {
-		adm_ctx->resource = drbd_find_resource(adm_ctx->resource_name);
+		adm_ctx->resource = bsr_find_resource(adm_ctx->resource_name);
 		if (adm_ctx->resource)
 			kref_debug_get(&adm_ctx->resource->kref_debug, 2);
 	}
@@ -326,13 +326,13 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	}
 	rcu_read_unlock();
 
-	if (!adm_ctx->device && (flags & DRBD_ADM_NEED_MINOR)) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "unknown minor");
+	if (!adm_ctx->device && (flags & BSR_ADM_NEED_MINOR)) {
+		bsr_msg_put_info(adm_ctx->reply_skb, "unknown minor");
 		err = ERR_MINOR_INVALID;
 		goto finish;
 	}
-	if (!adm_ctx->resource && (flags & DRBD_ADM_NEED_RESOURCE)) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "unknown resource");
+	if (!adm_ctx->resource && (flags & BSR_ADM_NEED_RESOURCE)) {
+		bsr_msg_put_info(adm_ctx->reply_skb, "unknown resource");
 		err = ERR_INVALID_REQUEST;
 		if (adm_ctx->resource_name)
 			err = ERR_RES_NOT_KNOWN;
@@ -340,39 +340,39 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 	}
 	if (adm_ctx->peer_node_id != PEER_NODE_ID_UNSPECIFIED) {
 		/* peer_node_id is unsigned int */
-		if (adm_ctx->peer_node_id >= DRBD_NODE_ID_MAX) {
-			drbd_msg_put_info(adm_ctx->reply_skb, "peer node id out of range");
+		if (adm_ctx->peer_node_id >= BSR_NODE_ID_MAX) {
+			bsr_msg_put_info(adm_ctx->reply_skb, "peer node id out of range");
 			err = ERR_INVALID_REQUEST;
 			goto finish;
 		}
 		if (adm_ctx->resource && adm_ctx->peer_node_id == adm_ctx->resource->res_opts.node_id) {
-			drbd_msg_put_info(adm_ctx->reply_skb, "peer node id cannot be my own node id");
+			bsr_msg_put_info(adm_ctx->reply_skb, "peer node id cannot be my own node id");
 			err = ERR_INVALID_REQUEST;
 			goto finish;
 		}
-		adm_ctx->connection = drbd_get_connection_by_node_id(adm_ctx->resource, adm_ctx->peer_node_id);
+		adm_ctx->connection = bsr_get_connection_by_node_id(adm_ctx->resource, adm_ctx->peer_node_id);
 		if (adm_ctx->connection)
 			kref_debug_get(&adm_ctx->connection->kref_debug, 2);
-	} else if (flags & DRBD_ADM_NEED_PEER_NODE) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "peer node id missing");
+	} else if (flags & BSR_ADM_NEED_PEER_NODE) {
+		bsr_msg_put_info(adm_ctx->reply_skb, "peer node id missing");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
-	if (flags & DRBD_ADM_NEED_CONNECTION) {
+	if (flags & BSR_ADM_NEED_CONNECTION) {
 		if (!adm_ctx->connection) {
-			drbd_msg_put_info(adm_ctx->reply_skb, "unknown connection");
+			bsr_msg_put_info(adm_ctx->reply_skb, "unknown connection");
 			err = ERR_INVALID_REQUEST;
 			goto finish;
 		}
 	}
-	if (flags & DRBD_ADM_NEED_PEER_DEVICE) {
+	if (flags & BSR_ADM_NEED_PEER_DEVICE) {
 		rcu_read_lock();
 		if (adm_ctx->volume != VOLUME_UNSPECIFIED)
 			adm_ctx->peer_device =
 				idr_find(&adm_ctx->connection->peer_devices,
 					 adm_ctx->volume);
 		if (!adm_ctx->peer_device) {
-			drbd_msg_put_info(adm_ctx->reply_skb, "unknown volume");
+			bsr_msg_put_info(adm_ctx->reply_skb, "unknown volume");
 			err = ERR_INVALID_REQUEST;
 			rcu_read_unlock();
 			goto finish;
@@ -391,7 +391,7 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 		pr_warning("request: minor=%u, resource=%s; but that minor belongs to resource %s\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->resource->name);
-		drbd_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
+		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
@@ -402,14 +402,14 @@ static int drbd_adm_prepare(struct drbd_config_context *adm_ctx,
 				adm_ctx->minor, adm_ctx->volume,
 				adm_ctx->device->vnr,
 				adm_ctx->device->resource->name);
-		drbd_msg_put_info(adm_ctx->reply_skb, "minor exists as different volume");
+		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists as different volume");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
 	if (adm_ctx->device && adm_ctx->peer_device &&
 		adm_ctx->resource && adm_ctx->resource->name &&
 	    adm_ctx->peer_device->device != adm_ctx->device) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
+		bsr_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
 		pr_warning("request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->vnr, adm_ctx->peer_node_id);
@@ -435,29 +435,29 @@ fail:
 	return err;
 
 finish:
-	return drbd_adm_finish(adm_ctx, info, err);
+	return bsr_adm_finish(adm_ctx, info, err);
 }
 
-static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info *info, int retcode)
+static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
 	if (retcode < SS_SUCCESS) {
-		struct drbd_resource *resource = adm_ctx->resource;		
-		drbd_err(resource, "cmd(%u) error: %s\n", info->genlhdr->cmd, drbd_set_st_err_str(retcode));
+		struct bsr_resource *resource = adm_ctx->resource;		
+		bsr_err(resource, "cmd(%u) error: %s\n", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
 	}
 
 	if (adm_ctx->device) {
 		kref_debug_put(&adm_ctx->device->kref_debug, 4);
-		kref_put(&adm_ctx->device->kref, drbd_destroy_device);
+		kref_put(&adm_ctx->device->kref, bsr_destroy_device);
 		adm_ctx->device = NULL;
 	}
 	if (adm_ctx->connection) {
 		kref_debug_put(&adm_ctx->connection->kref_debug, 2);
-		kref_put(&adm_ctx->connection->kref, drbd_destroy_connection);
+		kref_put(&adm_ctx->connection->kref, bsr_destroy_connection);
 		adm_ctx->connection = NULL;
 	}
 	if (adm_ctx->resource) {
 		kref_debug_put(&adm_ctx->resource->kref_debug, 2);
-		kref_put(&adm_ctx->resource->kref, drbd_destroy_resource);
+		kref_put(&adm_ctx->resource->kref, bsr_destroy_resource);
 		adm_ctx->resource = NULL;
 	}
 
@@ -465,7 +465,7 @@ static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info
 		return -ENOMEM;
 
 	adm_ctx->reply_dh->ret_code = retcode;
-	drbd_adm_send_reply(adm_ctx->reply_skb, info);
+	bsr_adm_send_reply(adm_ctx->reply_skb, info);
 #ifdef _WIN
 	// DW-211 fix memory leak
 	nlmsg_free(adm_ctx->reply_skb);
@@ -474,18 +474,18 @@ static int drbd_adm_finish(struct drbd_config_context *adm_ctx, struct genl_info
 	return 0;
 }
 
-static void conn_md_sync(struct drbd_connection *connection)
+static void conn_md_sync(struct bsr_connection *connection)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	int vnr;
 
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-		struct drbd_device *device = peer_device->device;
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+		struct bsr_device *device = peer_device->device;
 		kref_get(&device->kref);
 		rcu_read_unlock();
-		drbd_md_sync_if_dirty(device);
-		kref_put(&device->kref, drbd_destroy_device);
+		bsr_md_sync_if_dirty(device);
+		kref_put(&device->kref, bsr_destroy_device);
 #ifdef _WIN
         rcu_read_lock_w32_inner();
 #else // _LIN
@@ -498,28 +498,28 @@ static void conn_md_sync(struct drbd_connection *connection)
 /* Try to figure out where we are happy to become primary.
    This is unsed by the crm-fence-peer mechanism
 */
-static u64 up_to_date_nodes(struct drbd_device *device, bool op_is_fence)
+static u64 up_to_date_nodes(struct bsr_device *device, bool op_is_fence)
 {
-	struct drbd_resource *resource = device->resource;
+	struct bsr_resource *resource = device->resource;
 	const int my_node_id = resource->res_opts.node_id;
 	u64 mask = NODE_MASK(my_node_id);
 
 	if (resource->role[NOW] == R_PRIMARY || op_is_fence) {
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 
 		rcu_read_lock();
 		for_each_peer_device_rcu(peer_device, device) {
-			enum drbd_disk_state pdsk = peer_device->disk_state[NOW];
+			enum bsr_disk_state pdsk = peer_device->disk_state[NOW];
 			if (pdsk == D_UP_TO_DATE)
 				mask |= NODE_MASK(peer_device->node_id);
 		}
 		rcu_read_unlock();
 	} else if (device->disk_state[NOW] == D_UP_TO_DATE) {
-		struct drbd_peer_md *peer_md = device->ldev->md.peers;
+		struct bsr_peer_md *peer_md = device->ldev->md.peers;
 		int node_id;
 
-		for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-			struct drbd_peer_device *peer_device;
+		for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+			struct bsr_peer_device *peer_device;
 			if (node_id == my_node_id)
 				continue;
 
@@ -633,26 +633,26 @@ static char **make_envp(struct env *env)
 #ifdef _WIN
 #define magic_printk(level, fmt, args, ...)				\
 	if (peer_device)						\
-		__drbd_printk_peer_device(level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(level, peer_device, fmt, args); \
 	else if (device)						\
-		__drbd_printk_device(level, device, fmt, args);		\
+		__bsr_printk_device(level, device, fmt, args);		\
 	else								\
-		__drbd_printk_connection(level, connection, fmt, args);
+		__bsr_printk_connection(level, connection, fmt, args);
 #else // _LIN
 #define magic_printk(level, fmt, args...)				\
 	if (peer_device)						\
-		__drbd_printk_peer_device(level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(level, peer_device, fmt, args); \
 	else if (device)						\
-		__drbd_printk_device(level, device, fmt, args);		\
+		__bsr_printk_device(level, device, fmt, args);		\
 	else								\
-		__drbd_printk_connection(level, connection, fmt, args);
+		__bsr_printk_connection(level, connection, fmt, args);
 #endif
 
-int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection, char *cmd)
+int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)
 {
-	struct drbd_resource *resource = device ? device->resource : connection->resource;
+	struct bsr_resource *resource = device ? device->resource : connection->resource;
 	char *argv[] = {usermode_helper, cmd, resource->name, NULL };
-	struct drbd_peer_device *peer_device = NULL;
+	struct bsr_peer_device *peer_device = NULL;
 	struct env env = { .size = PAGE_SIZE };
 	char **envp;
 	int ret;
@@ -674,38 +674,38 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 	env_print(&env, "TERM=linux");
 	env_print(&env, "PATH=/sbin:/usr/sbin:/bin:/usr/bin");
 	if (device) {
-		env_print(&env, "DRBD_MINOR=%u", device_to_minor(device));
-		env_print(&env, "DRBD_VOLUME=%u", device->vnr);
+		env_print(&env, "BSR_MINOR=%u", device_to_minor(device));
+		env_print(&env, "BSR_VOLUME=%u", device->vnr);
 		if (get_ldev(device)) {
 			struct disk_conf *disk_conf =
 				rcu_dereference(device->ldev->disk_conf);
-			env_print(&env, "DRBD_BACKING_DEV=%s",
+			env_print(&env, "BSR_BACKING_DEV=%s",
 				  disk_conf->backing_dev);
 			put_ldev(device);
 		}
 	}
 	if (connection) {
-		struct drbd_path *path = first_path(connection);
+		struct bsr_path *path = first_path(connection);
 		if (path) {
 			/* TO BE DELETED */
-			env_print_address(&env, "DRBD_MY_", &path->my_addr);
-			env_print_address(&env, "DRBD_PEER_", &path->peer_addr);
+			env_print_address(&env, "BSR_MY_", &path->my_addr);
+			env_print_address(&env, "BSR_PEER_", &path->peer_addr);
 		}
-		env_print(&env, "DRBD_PEER_NODE_ID=%u", connection->peer_node_id);
+		env_print(&env, "BSR_PEER_NODE_ID=%u", connection->peer_node_id);
 	}
 	if (connection && !device) {
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 		int vnr;
 
-		idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-			struct drbd_device *device = peer_device->device;
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+			struct bsr_device *device = peer_device->device;
 
-			env_print(&env, "DRBD_MINOR_%u=%u",
+			env_print(&env, "BSR_MINOR_%u=%u",
 				  vnr, peer_device->device->minor);
 			if (get_ldev(device)) {
 				struct disk_conf *disk_conf =
 					rcu_dereference(device->ldev->disk_conf);
-				env_print(&env, "DRBD_BACKING_DEV_%u=%s",
+				env_print(&env, "BSR_BACKING_DEV_%u=%s",
 					  vnr, disk_conf->backing_dev);
 				put_ldev(device);
 			}
@@ -715,11 +715,11 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 
 	if (strstr(cmd, "fence") && connection) {
 		bool op_is_fence = strcmp(cmd, "fence-peer") == 0;
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 		u64 mask = ULLONG_MAX;
 		int vnr;
-		idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-			struct drbd_device *device = peer_device->device;
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+			struct bsr_device *device = peer_device->device;
 
 			if (get_ldev(device)) {
 				u64 m = up_to_date_nodes(device, op_is_fence);
@@ -754,7 +754,7 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 	/* The helper may take some time.
 	 * write out any unsynced meta data changes now */
 	if (device)
-		drbd_md_sync_if_dirty(device);
+		bsr_md_sync_if_dirty(device);
 	else if (connection)
 		conn_md_sync(connection);
 
@@ -795,21 +795,21 @@ int drbd_khelper(struct drbd_device *device, struct drbd_connection *connection,
 	return ret;
 
     out_err:
-	drbd_err(resource, "Could not call %s user-space helper: error %d"
+	bsr_err(resource, "Could not call %s user-space helper: error %d"
 		 "out of memory\n", cmd, ret);
 	return 0;
 }
 
 #undef magic_printk
 
-static bool initial_states_pending(struct drbd_connection *connection)
+static bool initial_states_pending(struct bsr_connection *connection)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	int vnr;
 	bool pending = false;
 
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (test_bit(INITIAL_STATE_SENT, &peer_device->flags) &&
 		    !test_bit(INITIAL_STATE_RECEIVED, &peer_device->flags)) {
 			pending = true;
@@ -820,15 +820,15 @@ static bool initial_states_pending(struct drbd_connection *connection)
 	return pending;
 }
 
-static bool intentional_diskless(struct drbd_resource *resource)
+static bool intentional_diskless(struct bsr_resource *resource)
 {
 	bool intentional_diskless = true;
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int vnr;
 
 	rcu_read_lock();
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		if (!device->device_conf.intentional_diskless) {
 			intentional_diskless = false;
 			break;
@@ -839,19 +839,19 @@ static bool intentional_diskless(struct drbd_resource *resource)
 	return intentional_diskless;
 }
 
-bool conn_try_outdate_peer(struct drbd_connection *connection)
+bool conn_try_outdate_peer(struct bsr_connection *connection)
 {
-	struct drbd_resource *resource = connection->resource;
+	struct bsr_resource *resource = connection->resource;
 	ULONG_PTR last_reconnect_jif;
-	enum drbd_fencing_policy fencing_policy;
-	enum drbd_disk_state disk_state;
+	enum bsr_fencing_policy fencing_policy;
+	enum bsr_disk_state disk_state;
 	char *ex_to_string;
 	int r;
 	unsigned long irq_flags;
 
 	spin_lock_irq(&resource->req_lock);
 	if (connection->cstate[NOW] >= C_CONNECTED) {
-		drbd_err(connection, "Expected cstate < C_CONNECTED\n");
+		bsr_err(connection, "Expected cstate < C_CONNECTED\n");
 		spin_unlock_irq(&resource->req_lock);
 		return false;
 	}
@@ -878,7 +878,7 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 	if (fencing_policy == FP_DONT_CARE)
 		return true;
 
-	r = drbd_khelper(NULL, connection, "fence-peer");
+	r = bsr_khelper(NULL, connection, "fence-peer");
 
 	// DW-798, BSR-399
 #ifdef _WIN
@@ -910,25 +910,25 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 		 * This is useful when an unconnected R_SECONDARY is asked to
 		 * become R_PRIMARY, but finds the other peer being active. */
 		ex_to_string = "peer is active";
-		drbd_warn(connection, "Peer is primary, outdating myself.\n");
+		bsr_warn(connection, "Peer is primary, outdating myself.\n");
 		__change_disk_states(resource, D_OUTDATED);
 		break;
 	case P_FENCING:
 		/* THINK: do we need to handle this
 		 * like case 4 P_OUTDATED, or more like case 5 P_DOWN? */
 		if (fencing_policy != FP_STONITH)
-			drbd_err(connection, "fence-peer() = 7 && fencing != Stonith !!!\n");
+			bsr_err(connection, "fence-peer() = 7 && fencing != Stonith !!!\n");
 		ex_to_string = "peer was stonithed";
 		__change_peer_disk_states(connection, D_OUTDATED);
 		break;
 	default:
 		/* The script is broken ... */
-		drbd_err(connection, "fence-peer helper broken, returned %d\n", (r>>8)&0xff);
+		bsr_err(connection, "fence-peer helper broken, returned %d\n", (r>>8)&0xff);
 		abort_state_change(resource, &irq_flags, __FUNCTION__);
 		return false; /* Eventually leave IO frozen */
 	}
 
-	drbd_info(connection, "fence-peer helper returned %d (%s)\n",
+	bsr_info(connection, "fence-peer helper returned %d (%s)\n",
 		  r, ex_to_string);
 
 	if (connection->cstate[NOW] >= C_CONNECTED ||
@@ -939,7 +939,7 @@ bool conn_try_outdate_peer(struct drbd_connection *connection)
 	if (connection->last_reconnect_jif != last_reconnect_jif) {
 		/* In case the connection was established and dropped
 		   while the fence-peer handler was running, ignore it */
-		drbd_info(connection, "Ignoring fence-peer exit code\n");
+		bsr_info(connection, "Ignoring fence-peer exit code\n");
 		goto abort;
 	}
 
@@ -958,12 +958,12 @@ void _try_outdate_peer_async(void *data)
 static int _try_outdate_peer_async(void *data)
 #endif
 {
-	struct drbd_connection *connection = (struct drbd_connection *)data;
+	struct bsr_connection *connection = (struct bsr_connection *)data;
 
 	conn_try_outdate_peer(connection);
 
 	kref_debug_put(&connection->kref_debug, 4);
-	kref_put(&connection->kref, drbd_destroy_connection);
+	kref_put(&connection->kref, bsr_destroy_connection);
 #ifdef _WIN
 	PsTerminateSystemThread(STATUS_SUCCESS); 
 #else // _LIN
@@ -971,7 +971,7 @@ static int _try_outdate_peer_async(void *data)
 #endif
 }
 
-void conn_try_outdate_peer_async(struct drbd_connection *connection)
+void conn_try_outdate_peer_async(struct bsr_connection *connection)
 {
 #ifdef _LIN
 	struct task_struct *opa;
@@ -984,8 +984,8 @@ void conn_try_outdate_peer_async(struct drbd_connection *connection)
 
 	Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, _try_outdate_peer_async, (void *)connection);
 	if (!NT_SUCCESS(Status)) {
-		drbd_err(NO_OBJECT,"PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X\n", Status);
-		kref_put(&connection->kref, drbd_destroy_connection);
+		bsr_err(NO_OBJECT,"PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X\n", Status);
+		kref_put(&connection->kref, bsr_destroy_connection);
 	}
 	else
 		ZwClose (hThread);
@@ -996,18 +996,18 @@ void conn_try_outdate_peer_async(struct drbd_connection *connection)
 	 * wait_on_completion_killable(), will mistake our pending signal
 	 * for a new fatal signal and fail. */
 	flush_signals(current);
-	opa = kthread_run(_try_outdate_peer_async, connection, "drbd_async_h");
+	opa = kthread_run(_try_outdate_peer_async, connection, "bsr_async_h");
 	if (IS_ERR(opa)) {
-		drbd_err(connection, "out of mem, failed to invoke fence-peer helper\n");
+		bsr_err(connection, "out of mem, failed to invoke fence-peer helper\n");
 		kref_debug_put(&connection->kref_debug, 4);
-		kref_put(&connection->kref, drbd_destroy_connection);
+		kref_put(&connection->kref, bsr_destroy_connection);
 	}
 #endif
 }
 
-static bool barrier_pending(struct drbd_resource *resource)
+static bool barrier_pending(struct bsr_resource *resource)
 {
-	struct drbd_connection *connection;
+	struct bsr_connection *connection;
 	bool rv = false;
 
 	rcu_read_lock();
@@ -1023,10 +1023,10 @@ static bool barrier_pending(struct drbd_resource *resource)
 }
 
 // DW-1103 down from kernel with timeout
-static bool wait_for_peer_disk_updates_timeout(struct drbd_resource *resource)
+static bool wait_for_peer_disk_updates_timeout(struct bsr_resource *resource)
 {
-	struct drbd_peer_device *peer_device;
-	struct drbd_device *device;
+	struct bsr_peer_device *peer_device;
+	struct bsr_device *device;
 	int vnr;
 	long time_out = 100;
 	int retry_count = 0;
@@ -1036,7 +1036,7 @@ restart:
 	}
 	rcu_read_lock();
 	
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		for_each_peer_device_rcu(peer_device, device) {
 			if (test_bit(GOT_NEG_ACK, &peer_device->flags)) {
 				clear_bit(GOT_NEG_ACK, &peer_device->flags);
@@ -1054,13 +1054,13 @@ restart:
 
 
 
-enum drbd_state_rv
-drbd_set_role(struct drbd_resource *resource, enum drbd_role role, bool force, struct sk_buff *reply_skb)
+enum bsr_state_rv
+bsr_set_role(struct bsr_resource *resource, enum bsr_role role, bool force, struct sk_buff *reply_skb)
 {
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int vnr;
 	const int max_tries = 4;
-	enum drbd_state_rv rv = SS_UNKNOWN_ERROR;
+	enum bsr_state_rv rv = SS_UNKNOWN_ERROR;
 	int try_val = 0;
 	int forced = 0;
 	bool with_force = false;
@@ -1073,7 +1073,7 @@ retry:
 	down(&resource->state_sem);
 
 	if (role == R_PRIMARY) {
-		struct drbd_connection *connection;
+		struct bsr_connection *connection;
 
 		/* Detect dead peers as soon as possible.  */
 
@@ -1083,17 +1083,17 @@ retry:
 		rcu_read_unlock();
 	} else /* (role == R_SECONDARY) */ {
 		if (start_new_tl_epoch(resource)) {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 			u64 im;
 
 			for_each_connection_ref(connection, im, resource)
-				drbd_flush_workqueue(resource, &connection->sender_work);
+				bsr_flush_workqueue(resource, &connection->sender_work);
 		}
 		// DW-1626 A long wait occurs when the barrier is delayed. Wait 10 seconds.
 		wait_event_timeout_ex(resource->barrier_wait, !barrier_pending(resource), timeout, timeout);
 
 		if (!timeout){
-			drbd_warn(NO_OBJECT,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
+			bsr_warn(NO_OBJECT,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
 			rv = SS_BARRIER_ACK_PENDING_TIMEOUT;
 			goto out;
 		}
@@ -1112,7 +1112,7 @@ retry:
 		   peer_acks queued on asender's TODO list go out before
 		   we send the two phase commit packet.
 		*/
-		drbd_flush_peer_acks(resource);
+		bsr_flush_peer_acks(resource);
 	}
 
 	while (try_val++ < max_tries) {
@@ -1149,18 +1149,18 @@ retry:
 		if (rv == SS_NO_UP_TO_DATE_DISK && force && !with_force) {
 			// DW-647 volume size comparison before initial sync
 			u64 im;
-			idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-				struct drbd_peer_device *peer_device;
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+				struct bsr_peer_device *peer_device;
 				for_each_peer_device_ref(peer_device, im, device) {
 					unsigned long long p_size = peer_device->max_size << 9; // volume size in bytes
 #ifdef _WIN
 					unsigned long long l_size = get_targetdev_volsize(device->this_bdev->bd_disk->pDeviceExtension); // volume size in bytes
 #else // _LIN
-					unsigned long long l_size = drbd_get_max_capacity(device->ldev) << 9; // volume size in bytes
+					unsigned long long l_size = bsr_get_max_capacity(device->ldev) << 9; // volume size in bytes
 #endif
 					// DW-1323 abort initial full sync when target disk is smaller than source
 					// If p_size is nonzero, it was connected with the peer.
-					if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && 
+					if ((bsr_current_uuid(device) == UUID_JUST_CREATED) && 
 						(p_size != 0) && 
 						(l_size > p_size))
 						rv = SS_TARGET_DISK_TOO_SMALL;
@@ -1176,19 +1176,19 @@ retry:
 		}
 
 		if (rv == SS_NO_UP_TO_DATE_DISK && !with_force) {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 			u64 im;
 
 			up(&resource->state_sem); /* Allow connect while fencing */
 			for_each_connection_ref(connection, im, resource) {
-				struct drbd_peer_device *peer_device;
+				struct bsr_peer_device *peer_device;
 				int vnr;
 
 				if (conn_highest_pdsk(connection) != D_UNKNOWN)
 					continue;
 
-				idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
-					struct drbd_device *device = peer_device->device;
+				idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+					struct bsr_device *device = peer_device->device;
 
 					if (device->disk_state[NOW] != D_CONSISTENT)
 						continue;
@@ -1205,13 +1205,13 @@ retry:
 		if (rv == SS_NOTHING_TO_DO)
 			goto out;
 		if (rv == SS_PRIMARY_NOP && !with_force) {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 			u64 im;
 
 			up(&resource->state_sem); /* Allow connect while fencing */
 			for_each_connection_ref(connection, im, resource) {
 				if (!conn_try_outdate_peer(connection) && force) {
-					drbd_warn(connection, "Forced into split brain situation!\n");
+					bsr_warn(connection, "Forced into split brain situation!\n");
 					with_force = true;
 				}
 			}
@@ -1221,7 +1221,7 @@ retry:
 		}
 
 		if (rv == SS_TWO_PRIMARIES) {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 			struct net_conf *nc;
 			unsigned int timeout = 0;
 
@@ -1259,10 +1259,10 @@ retry:
 		goto out;
 
 	if (forced)
-		drbd_warn(resource, "Forced to consider local data as UpToDate!\n");
+		bsr_warn(resource, "Forced to consider local data as UpToDate!\n");
 
 	if (role == R_SECONDARY) {
-		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 				// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
@@ -1272,7 +1272,7 @@ retry:
 			}
 		}
 	} else {
-		struct drbd_connection *connection;
+		struct bsr_connection *connection;
 
 		rcu_read_lock();
 		for_each_connection_rcu(connection, resource)
@@ -1280,9 +1280,9 @@ retry:
 		rcu_read_unlock();
 
 
-		idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			// DW-1609 It has been modified to function similar to 8.4.x for younger primary 
-			struct drbd_peer_device *peer_device;
+			struct bsr_peer_device *peer_device;
 			u64 im;
 			bool younger_primary = false; // Add a younger_primary variable to create a new UUID if the condition is met.
 
@@ -1298,7 +1298,7 @@ retry:
 						// DW-1850
 						//If for_each_peer_device_ref exits to break, 
 						//the reference count should be decremented.
-						kref_put(&peer_device->connection->kref, drbd_destroy_connection);
+						kref_put(&peer_device->connection->kref, bsr_destroy_connection);
 
 						break; 
 					}
@@ -1306,9 +1306,9 @@ retry:
 			} 
 
 			if (forced)
-				drbd_uuid_new_current(device, true);
+				bsr_uuid_new_current(device, true);
 			else if (younger_primary) 
-				drbd_uuid_new_current(device, false); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
+				bsr_uuid_new_current(device, false); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
 			
@@ -1320,8 +1320,8 @@ retry:
 		} 
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-		 struct drbd_peer_device *peer_device;
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+		 struct bsr_peer_device *peer_device;
 		 u64 im;
 
 		 for_each_peer_device_ref(peer_device, im, device) {
@@ -1331,20 +1331,20 @@ retry:
 			if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
 				/* if this was forced, we should consider sync */
 				if (forced) {
-					drbd_send_uuids(peer_device, 0, 0);
+					bsr_send_uuids(peer_device, 0, 0);
 					set_bit(CONSIDER_RESYNC, &peer_device->flags);
 				}
-				drbd_send_current_state(peer_device);
+				bsr_send_current_state(peer_device);
 			}
 		}
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		// DW-1154 After changing role, writes the meta data.
-		drbd_md_sync(device);
+		bsr_md_sync(device);
 		set_disk_ro(device->vdisk, role == R_SECONDARY);
 		if (!resource->res_opts.auto_promote && role == R_PRIMARY)
-			drbd_kobject_uevent(device);
+			bsr_kobject_uevent(device);
 	}
 
 out:
@@ -1352,7 +1352,7 @@ out:
 
 	if (err_str) {
 		if (reply_skb)
-			drbd_msg_put_info(reply_skb, err_str);
+			bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
 	}
 	return rv;
@@ -1366,23 +1366,23 @@ static const char *from_attrs_err_to_txt(int err)
 		"invalid attribute value";
 }
 
-int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
+	struct bsr_config_context adm_ctx;
 	struct set_role_parms parms;
 	int err;
-	enum drbd_state_rv retcode;
+	enum bsr_state_rv retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_RESOURCE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
 	memset(&parms, 0, sizeof(parms));
-	if (info->attrs[DRBD_NLA_SET_ROLE_PARMS]) {
+	if (info->attrs[BSR_NLA_SET_ROLE_PARMS]) {
 		err = set_role_parms_from_attrs(&parms, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out;
 		}
 	}
@@ -1391,18 +1391,18 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-	if (info->genlhdr->cmd == DRBD_ADM_PRIMARY) {
+	if (info->genlhdr->cmd == BSR_ADM_PRIMARY) {
 		// DW-839 not support diskless Primary
 		int vnr;
-		struct drbd_device * device;
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		struct bsr_device * device;
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				retcode = SS_IS_DISKLESS;
 				goto fail;
 			}
 		}
 
-		retcode = drbd_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
+		retcode = bsr_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
 			adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
 			set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
@@ -1414,10 +1414,10 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			goto fail;
 
 #ifdef _WIN
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
-				SetDrbdlockIoBlock(pvext, FALSE);
+				SetBsrlockIoBlock(pvext, FALSE);
 		}
 #endif
 	} else {
@@ -1425,16 +1425,16 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MULTI_VOLUME        
 		int vnr;
 		retcode = SS_SUCCESS;
-		struct drbd_device * device;
+		struct bsr_device * device;
 
 		// DW-1327 
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
-				SetDrbdlockIoBlock(pvext, TRUE);
+				SetBsrlockIoBlock(pvext, TRUE);
 		}
 
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
@@ -1442,7 +1442,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				continue;
 		}
 
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
@@ -1457,12 +1457,12 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		
 		if (retcode == SS_SUCCESS) {
 			adm_ctx.resource->bPreSecondaryLock = TRUE;
-			retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 			adm_ctx.resource->bPreSecondaryLock = FALSE;
 			adm_ctx.resource->bPreDismountLock = FALSE;
 		}
 
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
@@ -1470,10 +1470,10 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #else
 		int vnr;
-		struct drbd_device * device;
-		idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+		struct bsr_device * device;
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
-				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);				
+				retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);				
 			} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 				if (retcode < SS_SUCCESS) {
 					FsctlUnlockVolume(device->minor);
@@ -1489,7 +1489,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					adm_ctx.resource->bPreDismountLock = FALSE;
 					goto fail;
 				}
-				retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
+				retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 				adm_ctx.resource->bPreSecondaryLock = FALSE;
 				adm_ctx.resource->bPreDismountLock = FALSE;
 			} else {
@@ -1498,7 +1498,7 @@ int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #endif
 #else
-	retcode = drbd_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
+	retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 #endif
 		if (retcode >= SS_SUCCESS)
 			clear_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
@@ -1509,12 +1509,12 @@ fail:
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 out:
-	drbd_adm_finish(&adm_ctx, info, (enum drbd_ret_code)retcode);
+	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
 	return 0;
 }
 
 
-u64 drbd_capacity_to_on_disk_bm_sect(u64 capacity_sect, unsigned int max_peers)
+u64 bsr_capacity_to_on_disk_bm_sect(u64 capacity_sect, unsigned int max_peers)
 {
 	u64 bits, bytes;
 
@@ -1555,8 +1555,8 @@ u64 drbd_capacity_to_on_disk_bm_sect(u64 capacity_sect, unsigned int max_peers)
  *  Activity log size used to be fixed 32kB,
  *  but is about to become configurable.
  */
-void drbd_md_set_sector_offsets(struct drbd_device *device,
-				struct drbd_backing_dev *bdev)
+void bsr_md_set_sector_offsets(struct bsr_device *device,
+				struct bsr_backing_dev *bdev)
 {
 	sector_t md_size_sect = 0;
 	unsigned int al_size_sect = bdev->md.al_size_4k * 8;
@@ -1567,7 +1567,7 @@ void drbd_md_set_sector_offsets(struct drbd_device *device,
 	else
 		max_peers = 1;
 
-	bdev->md.md_offset = drbd_md_ss(bdev);
+	bdev->md.md_offset = bsr_md_ss(bdev);
 
 	switch (bdev->md.meta_dev_idx) {
 	default:
@@ -1579,25 +1579,25 @@ void drbd_md_set_sector_offsets(struct drbd_device *device,
 		bdev->md.al_offset = (4096 >> 9);
 		bdev->md.bm_offset = (4096 >> 9) + al_size_sect;
 		break;
-	case DRBD_MD_INDEX_FLEX_EXT:
+	case BSR_MD_INDEX_FLEX_EXT:
 		/* just occupy the full device; unit: sectors */
 #ifdef _WIN // DW-1607
-		bdev->md.md_size_sect = (u32)drbd_get_md_capacity(bdev->md_bdev);
+		bdev->md.md_size_sect = (u32)bsr_get_md_capacity(bdev->md_bdev);
 #else // _LIN
-		bdev->md.md_size_sect = drbd_get_capacity(bdev->md_bdev);
+		bdev->md.md_size_sect = bsr_get_capacity(bdev->md_bdev);
 #endif
 		bdev->md.al_offset = (4096 >> 9);
 		bdev->md.bm_offset = (4096 >> 9) + al_size_sect;
 		break;
-	case DRBD_MD_INDEX_INTERNAL:
-	case DRBD_MD_INDEX_FLEX_INT:
+	case BSR_MD_INDEX_INTERNAL:
+	case BSR_MD_INDEX_FLEX_INT:
 		bdev->md.al_offset = (~al_size_sect + 1);
 
 		/* enough bitmap to cover the storage,
-		 * plus the "drbd meta data super block",
+		 * plus the "bsr meta data super block",
 		 * and the activity log; */
-		md_size_sect = drbd_capacity_to_on_disk_bm_sect(
-				drbd_get_capacity(bdev->backing_bdev),
+		md_size_sect = bsr_capacity_to_on_disk_bm_sect(
+				bsr_get_capacity(bdev->backing_bdev),
 				max_peers)
 			+ (4096 >> 9) + al_size_sect;
 
@@ -1629,31 +1629,31 @@ char *ppsize(char *buf, size_t len, unsigned long long size)
 	return buf;
 }
 
-/* The receiver may call drbd_suspend_io(device, WRITE_ONLY).
- * It should not call drbd_suspend_io(device, READ_AND_WRITE) since
+/* The receiver may call bsr_suspend_io(device, WRITE_ONLY).
+ * It should not call bsr_suspend_io(device, READ_AND_WRITE) since
  * if the node is an D_INCONSISTENT R_PRIMARY (L_SYNC_TARGET) it
  * may need to issue remote READs. Those is turn need the receiver
- * to complete. -> calling drbd_suspend_io(device, READ_AND_WRITE) deadlocks.
+ * to complete. -> calling bsr_suspend_io(device, READ_AND_WRITE) deadlocks.
  */
 /* Note these are not to be confused with
- * drbd_adm_suspend_io/drbd_adm_resume_io,
- * which are (sub) state changes triggered by admin (drbdsetup),
+ * bsr_adm_suspend_io/bsr_adm_resume_io,
+ * which are (sub) state changes triggered by admin (bsrsetup),
  * and can be long lived.
- * This changes an device->flag, is triggered by drbd internals,
+ * This changes an device->flag, is triggered by bsr internals,
  * and should be short-lived. */
 /* It needs to be a counter, since multiple threads might
    independently suspend and resume IO. */
-void drbd_suspend_io(struct drbd_device *device, enum suspend_scope ss)
+void bsr_suspend_io(struct bsr_device *device, enum suspend_scope ss)
 {
 	atomic_inc(&device->suspend_cnt);
-	if (drbd_suspended(device))
+	if (bsr_suspended(device))
 		return;
 	wait_event(device->misc_wait,
 		   (atomic_read(&device->ap_bio_cnt[WRITE]) +
 		    ss == READ_AND_WRITE ? atomic_read(&device->ap_bio_cnt[READ]) : 0) == 0);
 }
 
-void drbd_resume_io(struct drbd_device *device)
+void bsr_resume_io(struct bsr_device *device)
 {
 	if (atomic_dec_and_test(&device->suspend_cnt))
 		wake_up(&device->misc_wait);
@@ -1672,9 +1672,9 @@ void drbd_resume_io(struct drbd_device *device)
  * forgotten across node restarts.  Further nodes can only be added if their
  * disks are big enough.
  */
-static bool effective_disk_size_determined(struct drbd_device *device)
+static bool effective_disk_size_determined(struct bsr_device *device)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	bool rv = false;
 
 	if (device->ldev->md.effective_size != 0)
@@ -1695,13 +1695,13 @@ static bool effective_disk_size_determined(struct drbd_device *device)
 }
 
 /**
- * drbd_determine_dev_size() -  Sets the right device size obeying all constraints
- * @device:	DRBD device.
+ * bsr_determine_dev_size() -  Sets the right device size obeying all constraints
+ * @device:	BSR device.
  *
- * You should call drbd_md_sync() after calling this function.
+ * You should call bsr_md_sync() after calling this function.
  */
 enum determine_dev_size
-drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
+bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		enum dds_flags flags, struct resize_parms *rs) __must_hold(local)
 {
 	struct md_offsets_and_sizes {
@@ -1715,7 +1715,7 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 		u32 al_stripe_size_4k;
 	} prev;
 	sector_t u_size, size;
-	struct drbd_md *md = &device->ldev->md;
+	struct bsr_md *md = &device->ldev->md;
 	char ppb[10];
 	void *buffer;
 
@@ -1730,10 +1730,10 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 	 * Move is not exactly correct, btw, currently we have all our meta
 	 * data in core memory, to "move" it we just write it all out, there
 	 * are no reads. */
-	drbd_suspend_io(device, READ_AND_WRITE);
-	buffer = drbd_md_get_buffer(device, __func__); /* Lock meta-data IO */
+	bsr_suspend_io(device, READ_AND_WRITE);
+	buffer = bsr_md_get_buffer(device, __func__); /* Lock meta-data IO */
 	if (!buffer) {
-		drbd_resume_io(device);
+		bsr_resume_io(device);
 		return DS_ERROR;
 	}
 
@@ -1753,18 +1753,18 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 		md->al_size_4k = (u64)rs->al_stripes * rs->al_stripe_size / 4;
 	}
 
-	drbd_md_set_sector_offsets(device, device->ldev);
+	bsr_md_set_sector_offsets(device, device->ldev);
 
 	rcu_read_lock();
 	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 	rcu_read_unlock();
-	size = drbd_new_dev_size(device, peer_current_size, u_size, flags);
+	size = bsr_new_dev_size(device, peer_current_size, u_size, flags);
 
 	if (size < prev.effective_size) {
 		if (rs && u_size == 0) {
 			/* Remove "rs &&" later. This check should always be active, but
 			   right now the receiver expects the permissive behavior */
-			drbd_warn(device, "Implicit shrink not allowed. "
+			bsr_warn(device, "Implicit shrink not allowed. "
 				 "Use --size=%llus for explicit shrink.\n",
 				 (unsigned long long)size);
 			rv = DS_ERROR_SHRINK;
@@ -1775,27 +1775,27 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 			goto err_out;
 	}
 
-	if (drbd_get_capacity(device->this_bdev) != size ||
-	    drbd_bm_capacity(device) != size) {
+	if (bsr_get_capacity(device->this_bdev) != size ||
+	    bsr_bm_capacity(device) != size) {
 		int err;
-		err = drbd_bm_resize(device, size, !(flags & DDSF_NO_RESYNC));
+		err = bsr_bm_resize(device, size, !(flags & DDSF_NO_RESYNC));
 		if (unlikely(err)) {
 			/* currently there is only one error: ENOMEM! */
-			size = drbd_bm_capacity(device);
+			size = bsr_bm_capacity(device);
 			if (size == 0) {
-				drbd_err(device, "OUT OF MEMORY! "
+				bsr_err(device, "OUT OF MEMORY! "
 				    "Could not allocate bitmap!\n");
 			} else {
-				drbd_err(device, "BM resizing failed. "
+				bsr_err(device, "BM resizing failed. "
 				    "Leaving size unchanged\n");
 			}
 			rv = DS_ERROR;
 		}
 		/* racy, see comments above. */
-		drbd_set_my_capacity(device, size);
+		bsr_set_my_capacity(device, size);
 		if (effective_disk_size_determined(device)) {
 			md->effective_size = size;
-			drbd_info(device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
 			     (unsigned long long)size >> 1);
 		}
 	}
@@ -1821,40 +1821,40 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 		 * to move the on-disk location of the activity log ringbuffer.
 		 * Lock for transaction is good enough, it may well be "dirty"
 		 * or even "starving". */
-		wait_event(device->al_wait, drbd_al_try_lock_for_transaction(device));
+		wait_event(device->al_wait, bsr_al_try_lock_for_transaction(device));
 
 		/* mark current on-disk bitmap and activity log as unreliable */
 		prev_al_disabled = !!(md->flags & MDF_AL_DISABLED);
 		md->flags |= MDF_AL_DISABLED;
-		for (i = 0; i < DRBD_PEERS_MAX; i++) {
+		for (i = 0; i < BSR_PEERS_MAX; i++) {
 			if (md->peers[i].flags & MDF_PEER_FULL_SYNC)
 				prev_peer_full_sync |= 1 << i;
 			else
 				md->peers[i].flags |= MDF_PEER_FULL_SYNC;
 		}
-		drbd_md_write(device, buffer);
+		bsr_md_write(device, buffer);
 
-		drbd_al_initialize(device, buffer);
+		bsr_al_initialize(device, buffer);
 
-		drbd_info(device, "Writing the whole bitmap, %s\n",
+		bsr_info(device, "Writing the whole bitmap, %s\n",
 			 la_size_changed && md_moved ? "size changed and md moved" :
 			 la_size_changed ? "size changed" : "md moved");
-		/* next line implicitly does drbd_suspend_io()+drbd_resume_io() */
-		drbd_bitmap_io(device, md_moved ? &drbd_bm_write_all : &drbd_bm_write,
+		/* next line implicitly does bsr_suspend_io()+bsr_resume_io() */
+		bsr_bitmap_io(device, md_moved ? &bsr_bm_write_all : &bsr_bm_write,
 			       "size changed", BM_LOCK_ALL, NULL);
 
 		/* on-disk bitmap and activity log is authoritative again
 		 * (unless there was an IO error meanwhile...) */
 		if (!prev_al_disabled)
 			md->flags &= ~MDF_AL_DISABLED;
-		for (i = 0; i < DRBD_PEERS_MAX; i++) {
+		for (i = 0; i < BSR_PEERS_MAX; i++) {
 			if (0 == (prev_peer_full_sync & (1 << i)))
 				md->peers[i].flags &= ~MDF_PEER_FULL_SYNC;
 		}
-		drbd_md_write(device, buffer);
+		bsr_md_write(device, buffer);
 
 		if (rs)
-			drbd_info(device, "Changed AL layout to al-stripes = %u, al-stripe-size-kB = %u\n",
+			bsr_info(device, "Changed AL layout to al-stripes = %u, al-stripe-size-kB = %u\n",
 				 md->al_stripes, md->al_stripe_size_4k * 4);
 	}
 
@@ -1878,8 +1878,8 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
 	}
 	lc_unlock(device->act_log);
 	wake_up(&device->al_wait);
-	drbd_md_put_buffer(device);
-	drbd_resume_io(device);
+	bsr_md_put_buffer(device);
+	bsr_resume_io(device);
 
 	return rv;
 }
@@ -1890,19 +1890,19 @@ drbd_determine_dev_size(struct drbd_device *device, sector_t peer_current_size,
  * Check if all peer devices that have bitmap slots assigned in the metadata
  * are connected.
  */
-static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __must_hold(local)
+static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max) __must_hold(local)
 {
 	int node_id;
 	bool all_known;
 
 	all_known = true;
 	rcu_read_lock();
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-		struct drbd_peer_md *peer_md = &device->ldev->md.peers[node_id];
-		struct drbd_peer_device *peer_device;
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		struct bsr_peer_md *peer_md = &device->ldev->md.peers[node_id];
+		struct bsr_peer_device *peer_device;
 
 		if (device->ldev->md.node_id == node_id) {
-			drbd_info(device, "my node_id: %u\n", node_id);
+			bsr_info(device, "my node_id: %u\n", node_id);
 			continue; /* skip myself... */
 		}
 		/* Have we met this peer node id before? */
@@ -1910,14 +1910,14 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 			continue;
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (peer_device) {
-			enum drbd_disk_state pdsk = peer_device->disk_state[NOW];
-			drbd_info(peer_device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x max_size: %llu (%s)\n",
+			enum bsr_disk_state pdsk = peer_device->disk_state[NOW];
+			bsr_info(peer_device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x max_size: %llu (%s)\n",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
 					peer_md->flags,
 					peer_device->max_size,
-					drbd_disk_str(pdsk));
+					bsr_disk_str(pdsk));
 
 			/* Note: in receive_sizes during connection handshake,
 			 * repl_state may still be L_OFF;
@@ -1932,7 +1932,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 				 * ignore the size we last knew, and
 				 * "assume_peer_has_space".  */
 
-				if ((drbd_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size) {
+				if ((bsr_current_uuid(device) == UUID_JUST_CREATED) && peer_device->c_size) {
 					// DW-1337 peer has already been agreed and has smaller current size. this node needs to also accept already agreed size.
 					// DW-1469 only for initial sync
 					*max = min_not_zero(*max, peer_device->c_size);
@@ -1942,14 +1942,14 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 				continue;
 			}
 		} else {
-			drbd_info(device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x (not currently reachable)\n",
+			bsr_info(device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x (not currently reachable)\n",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
 					peer_md->flags);
 		}
 		/* Even the currently diskless peer does not really know if it
-		 * is diskless on purpose (a "DRBD client") or if it just was
+		 * is diskless on purpose (a "BSR client") or if it just was
 		 * not possible to attach (backend device gone for some
 		 * reason).  But we remember in our meta data if we have ever
 		 * seen a peer disk for this peer.  If we did not ever see a
@@ -1965,7 +1965,7 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 }
 
 #if 0
-#define DDUMP_LLU(d, x) do { drbd_info(d, "%u: " #x ": %llu\n", __LINE__, (unsigned long long)x); } while (0)
+#define DDUMP_LLU(d, x) do { bsr_info(d, "%u: " #x ": %llu\n", __LINE__, (unsigned long long)x); } while (0)
 #else
 #define DDUMP_LLU(d, x) do { } while (0)
 #endif
@@ -1973,12 +1973,12 @@ static bool get_max_agreeable_size(struct drbd_device *device, uint64_t *max) __
 /* MUST hold a reference on ldev. */
 
 sector_t
-drbd_new_dev_size(struct drbd_device *device,
+bsr_new_dev_size(struct bsr_device *device,
 		sector_t current_size, /* need at least this much */
 		sector_t user_capped_size, /* want (at most) this much */
 		enum dds_flags flags) __must_hold(local)
 {
-	struct drbd_resource *resource = device->resource;
+	struct bsr_resource *resource = device->resource;
 	uint64_t p_size = 0;
 	uint64_t la_size = device->ldev->md.effective_size; /* last agreed size */
 	uint64_t m_size; /* my size */
@@ -1988,7 +1988,7 @@ drbd_new_dev_size(struct drbd_device *device,
 	if (flags & DDSF_2PC)
 		return resource->twopc_resize.new_size;
 
-	m_size = drbd_get_max_capacity(device->ldev);
+	m_size = bsr_get_max_capacity(device->ldev);
 	all_known_connected = get_max_agreeable_size(device, &p_size);
 
 	if (all_known_connected) {
@@ -2005,7 +2005,7 @@ drbd_new_dev_size(struct drbd_device *device,
 		DDUMP_LLU(device, la_size);
 		p_size = min_not_zero(p_size, m_size);
 		if (p_size > la_size)
-			drbd_warn(device, "Resize forced while not fully connected!\n");
+			bsr_warn(device, "Resize forced while not fully connected!\n");
 	} else {
 		DDUMP_LLU(device, p_size);
 		DDUMP_LLU(device, m_size);
@@ -2022,7 +2022,7 @@ drbd_new_dev_size(struct drbd_device *device,
 
 
 	if (size == 0)
-		drbd_err(device, "All nodes diskless!\n");
+		bsr_err(device, "All nodes diskless!\n");
 
 	if (flags & DDSF_IGNORE_PEER_CONSTRAINTS) {
 		if (current_size > size
@@ -2031,7 +2031,7 @@ drbd_new_dev_size(struct drbd_device *device,
 	}
 
 	if (user_capped_size > size)
-		drbd_err(device, "Requested disk size is too big (%llu > %llu)kiB\n",
+		bsr_err(device, "Requested disk size is too big (%llu > %llu)kiB\n",
 		(unsigned long long)user_capped_size >> 1,
 		(unsigned long long)size >> 1);
 	else if (user_capped_size)
@@ -2041,14 +2041,14 @@ drbd_new_dev_size(struct drbd_device *device,
 }
 
 /**
- * drbd_check_al_size() - Ensures that the AL is of the right size
- * @device:	DRBD device.
+ * bsr_check_al_size() - Ensures that the AL is of the right size
+ * @device:	BSR device.
  *
  * Returns -EBUSY if current al lru is still used, -ENOMEM when allocation
- * failed, and 0 on success. You should call drbd_md_sync() after you called
+ * failed, and 0 on success. You should call bsr_md_sync() after you called
  * this function.
  */
-static int drbd_check_al_size(struct drbd_device *device, struct disk_conf *dc)
+static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 {
 	struct lru_cache *n, *t;
 	struct lc_element *e;
@@ -2062,14 +2062,14 @@ static int drbd_check_al_size(struct drbd_device *device, struct disk_conf *dc)
 	in_use = 0;
 	t = device->act_log;
 #ifdef _WIN
-	n = lc_create("act_log", &drbd_al_ext_cache, AL_UPDATES_PER_TRANSACTION,
+	n = lc_create("act_log", &bsr_al_ext_cache, AL_UPDATES_PER_TRANSACTION,
 		dc->al_extents, sizeof(struct lc_element), 0);
 #else // _LIN
-	n = lc_create("act_log", drbd_al_ext_cache, AL_UPDATES_PER_TRANSACTION,
+	n = lc_create("act_log", bsr_al_ext_cache, AL_UPDATES_PER_TRANSACTION,
 		dc->al_extents, sizeof(struct lc_element), 0);
 #endif
 	if (n == NULL) {
-		drbd_err(device, "Cannot allocate act_log lru!\n");
+		bsr_err(device, "Cannot allocate act_log lru!\n");
 		return -ENOMEM;
 	}
 	spin_lock_irq(&device->al_lock);
@@ -2077,7 +2077,7 @@ static int drbd_check_al_size(struct drbd_device *device, struct disk_conf *dc)
 		for (i = 0; i < t->nr_elements; i++) {
 			e = lc_element_by_index(t, i);
 			if (e->refcnt)
-				drbd_err(device, "refcnt(%u)==%u\n",
+				bsr_err(device, "refcnt(%u)==%u\n",
 				    e->lc_number, e->refcnt);
 			in_use += e->refcnt;
 		}
@@ -2086,19 +2086,19 @@ static int drbd_check_al_size(struct drbd_device *device, struct disk_conf *dc)
 		device->act_log = n;
 	spin_unlock_irq(&device->al_lock);
 	if (in_use) {
-		drbd_err(device, "Activity log still in use!\n");
+		bsr_err(device, "Activity log still in use!\n");
 		lc_destroy(n);
 		return -EBUSY;
 	} else {
 		lc_destroy(t);
 	}
-	drbd_md_mark_dirty(device); /* we changed device->act_log->nr_elemens */
+	bsr_md_mark_dirty(device); /* we changed device->act_log->nr_elemens */
 	return 0;
 }
 
-static u32 common_connection_features(struct drbd_resource *resource)
+static u32 common_connection_features(struct bsr_resource *resource)
 {
-	struct drbd_connection *connection;
+	struct bsr_connection *connection;
 	u32 features = UINT32_MAX;
 
 	rcu_read_lock();
@@ -2117,17 +2117,17 @@ static void blk_queue_discard_granularity(struct request_queue *q, unsigned int 
 	q->limits.discard_granularity = granularity;
 }
 
-static unsigned int drbd_max_discard_sectors(struct drbd_resource *resource)
+static unsigned int bsr_max_discard_sectors(struct bsr_resource *resource)
 {
-	struct drbd_connection *connection;
-	unsigned int s = DRBD_MAX_BBIO_SECTORS;
+	struct bsr_connection *connection;
+	unsigned int s = BSR_MAX_BBIO_SECTORS;
 
 	/* when we introduced WRITE_SAME support, we also bumped
 	 * our maximum supported batch bio size used for discards. */
 	rcu_read_lock();
 	for_each_connection_rcu(connection, resource) {
-		if (!(connection->agreed_features & DRBD_FF_WSAME)) {
-			/* before, with DRBD <= 8.4.6, we only allowed up to one AL_EXTENT_SIZE. */
+		if (!(connection->agreed_features & BSR_FF_WSAME)) {
+			/* before, with BSR <= 8.4.6, we only allowed up to one AL_EXTENT_SIZE. */
 			s = AL_EXTENT_SIZE >> 9;
 		}
 	}
@@ -2137,12 +2137,12 @@ static unsigned int drbd_max_discard_sectors(struct drbd_resource *resource)
 }
 
 #ifdef _LIN
-static void decide_on_discard_support(struct drbd_device *device,
+static void decide_on_discard_support(struct bsr_device *device,
 			struct request_queue *q,
 			struct request_queue *b,
 			bool discard_zeroes_if_aligned)
 {
-	/* q = drbd device queue (device->rq_queue)
+	/* q = bsr device queue (device->rq_queue)
 	 * b = backing device queue (device->ldev->backing_bdev->bd_disk->queue),
 	 *     or NULL if diskless
 	 */
@@ -2150,11 +2150,11 @@ static void decide_on_discard_support(struct drbd_device *device,
 
 	if (can_do && b && !queue_discard_zeroes_data(b) && !discard_zeroes_if_aligned) {
 		can_do = false;
-		drbd_info(device, "discard_zeroes_data=0 and discard_zeroes_if_aligned=no: disabling discards\n");
+		bsr_info(device, "discard_zeroes_data=0 and discard_zeroes_if_aligned=no: disabling discards\n");
 	}
-	if (can_do && !(common_connection_features(device->resource) & DRBD_FF_TRIM)) {
+	if (can_do && !(common_connection_features(device->resource) & BSR_FF_TRIM)) {
 		can_do = false;
-		drbd_info(device, "peer DRBD too old, does not support TRIM: disabling discards\n");
+		bsr_info(device, "peer BSR too old, does not support TRIM: disabling discards\n");
 	}
 	if (can_do) {
 		/* We don't care for the granularity, really.
@@ -2164,7 +2164,7 @@ static void decide_on_discard_support(struct drbd_device *device,
 		 * you care, you need to use devices with similar
 		 * topology on all peers. */
 		blk_queue_discard_granularity(q, 512);
-		q->limits.max_discard_sectors = drbd_max_discard_sectors(device->resource);
+		q->limits.max_discard_sectors = bsr_max_discard_sectors(device->resource);
 		queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, q);
 	} else {
 		queue_flag_clear_unlocked(QUEUE_FLAG_DISCARD, q);
@@ -2185,24 +2185,24 @@ static void fixup_discard_if_not_supported(struct request_queue *q)
 	}
 }
 
-static void decide_on_write_same_support(struct drbd_device *device,
+static void decide_on_write_same_support(struct bsr_device *device,
 			struct request_queue *q,
 			struct request_queue *b, struct o_qlim *o,
 			bool disable_write_same)
 {
 #ifndef COMPAT_WRITE_SAME_CAPABLE
-	drbd_dbg(device, "This kernel is too old, no WRITE_SAME support.\n");
+	bsr_dbg(device, "This kernel is too old, no WRITE_SAME support.\n");
 #else
 	bool can_do = b ? b->limits.max_write_same_sectors : true;
 
 	if (can_do && disable_write_same) {
 		can_do = false;
-		drbd_info(device, "WRITE_SAME disabled by config\n");
+		bsr_info(device, "WRITE_SAME disabled by config\n");
 	}
 
-	if (can_do && !(common_connection_features(device->resource) & DRBD_FF_WSAME)) {
+	if (can_do && !(common_connection_features(device->resource) & BSR_FF_WSAME)) {
 		can_do = false;
-		drbd_info(device, "peer does not support WRITE_SAME\n");
+		bsr_info(device, "peer does not support WRITE_SAME\n");
 	}
 
 	if (o) {
@@ -2212,17 +2212,17 @@ static void decide_on_write_same_support(struct drbd_device *device,
 		unsigned int me_lbs = queue_logical_block_size(q);
 
 		if (me_lbs_b != me_lbs) {
-			drbd_warn(device,
-				"logical block size of local backend does not match (drbd:%u, backend:%u); was this a late attach?\n",
+			bsr_warn(device,
+				"logical block size of local backend does not match (bsr:%u, backend:%u); was this a late attach?\n",
 				me_lbs, me_lbs_b);
 			/* rather disable write same than trigger some BUG_ON later in the scsi layer. */
 			can_do = false;
 		}
 		if (me_lbs_b != peer_lbs) {
-			drbd_warn(device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.\n",
+			bsr_warn(device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.\n",
 				me_lbs, peer_lbs);
 			if (can_do) {
-				drbd_dbg(device, "logical block size mismatch: WRITE_SAME disabled.\n");
+				bsr_dbg(device, "logical block size mismatch: WRITE_SAME disabled.\n");
 				can_do = false;
 			}
 			me_lbs = max(me_lbs, me_lbs_b);
@@ -2232,9 +2232,9 @@ static void decide_on_write_same_support(struct drbd_device *device,
 			if (peer_lbs > me_lbs) {
 				if (device->resource->role[NOW] != R_PRIMARY) {
 					blk_queue_logical_block_size(q, peer_lbs);
-					drbd_warn(device, "logical block size set to %u\n", peer_lbs);
+					bsr_warn(device, "logical block size set to %u\n", peer_lbs);
 				} else {
-					drbd_warn(device,
+					bsr_warn(device,
 						"current Primary must NOT adjust logical block size (%u -> %u); hope for the best.\n",
 						me_lbs, peer_lbs);
 				}
@@ -2243,17 +2243,17 @@ static void decide_on_write_same_support(struct drbd_device *device,
 		if (can_do && !o->write_same_capable) {
 			/* If we introduce an open-coded write-same loop on the receiving side,
 			 * the peer would present itself as "capable". */
-			drbd_dbg(device, "WRITE_SAME disabled (peer device not capable)\n");
+			bsr_dbg(device, "WRITE_SAME disabled (peer device not capable)\n");
 			can_do = false;
 		}
 	}
 
-	blk_queue_max_write_same_sectors(q, can_do ? DRBD_MAX_BBIO_SECTORS : 0);
+	blk_queue_max_write_same_sectors(q, can_do ? BSR_MAX_BBIO_SECTORS : 0);
 #endif
 }
 #endif
 
-static void drbd_setup_queue_param(struct drbd_device *device, struct drbd_backing_dev *bdev,
+static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_dev *bdev,
 				   unsigned int max_bio_size, struct o_qlim *o)
 {
 	struct request_queue * const q = device->rq_queue;
@@ -2293,10 +2293,10 @@ static void drbd_setup_queue_param(struct drbd_device *device, struct drbd_backi
 #endif
 }
 
-void drbd_reconsider_queue_parameters(struct drbd_device *device, struct drbd_backing_dev *bdev, struct o_qlim *o)
+void bsr_reconsider_queue_parameters(struct bsr_device *device, struct bsr_backing_dev *bdev, struct o_qlim *o)
 {
 	unsigned int max_bio_size = device->device_conf.max_bio_size;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 
 	if (bdev) {
 		max_bio_size = (unsigned int)(min(max_bio_size,
@@ -2310,28 +2310,28 @@ void drbd_reconsider_queue_parameters(struct drbd_device *device, struct drbd_ba
 	}
 	spin_unlock_irq(&device->resource->req_lock);
 
-	drbd_setup_queue_param(device, bdev, max_bio_size, o);
+	bsr_setup_queue_param(device, bdev, max_bio_size, o);
 }
 
 /* Make sure IO is suspended before calling this function(). */
-static void drbd_try_suspend_al(struct drbd_device *device)
+static void bsr_try_suspend_al(struct bsr_device *device)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	bool suspend = true;
 	int max_peers = device->bitmap->bm_max_peers, bitmap_index;
 
 	for (bitmap_index = 0; bitmap_index < max_peers; bitmap_index++) {
-		if (_drbd_bm_total_weight(device, bitmap_index) !=
-		    drbd_bm_bits(device))
+		if (_bsr_bm_total_weight(device, bitmap_index) !=
+		    bsr_bm_bits(device))
 			return;
 	}
 
-	if (!drbd_al_try_lock(device)) {
-		drbd_warn(device, "Failed to lock al in %s()", __func__);
+	if (!bsr_al_try_lock(device)) {
+		bsr_warn(device, "Failed to lock al in %s()", __func__);
 		return;
 	}
 
-	drbd_al_shrink(device);
+	bsr_al_shrink(device);
 	spin_lock_irq(&device->resource->req_lock);
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED) {
@@ -2345,17 +2345,17 @@ static void drbd_try_suspend_al(struct drbd_device *device)
 	lc_unlock(device->act_log);
 
 	if (suspend)
-		drbd_info(device, "Suspended AL updates\n");
+		bsr_info(device, "Suspended AL updates\n");
 }
 
 
 static bool should_set_defaults(struct genl_info *info)
 {
-	unsigned flags = ((struct drbd_genlmsghdr*)info->userhdr)->flags;
-	return 0 != (flags & DRBD_GENL_F_SET_DEFAULTS);
+	unsigned flags = ((struct bsr_genlmsghdr*)info->userhdr)->flags;
+	return 0 != (flags & BSR_GENL_F_SET_DEFAULTS);
 }
 
-static unsigned int drbd_al_extents_max(struct drbd_backing_dev *bdev)
+static unsigned int bsr_al_extents_max(struct bsr_backing_dev *bdev)
 {
 	/* This is limited by 16 bit "slot" numbers,
 	 * and by available on-disk context storage.
@@ -2370,7 +2370,7 @@ static unsigned int drbd_al_extents_max(struct drbd_backing_dev *bdev)
 	 * 72 transaction blocks amounts to more than 2**16 context slots,
 	 * so cap there first.
 	 */
-	const unsigned int max_al_nr = DRBD_AL_EXTENTS_MAX;
+	const unsigned int max_al_nr = BSR_AL_EXTENTS_MAX;
 	const unsigned int sufficient_on_disk =
 		(max_al_nr + AL_CONTEXT_PER_TRANSACTION -1)
 		/AL_CONTEXT_PER_TRANSACTION;
@@ -2390,21 +2390,21 @@ static bool write_ordering_changed(struct disk_conf *a, struct disk_conf *b)
 		a->disk_drain != b->disk_drain;
 }
 
-static void sanitize_disk_conf(struct drbd_device *device, struct disk_conf *disk_conf,
-			       struct drbd_backing_dev *nbc)
+static void sanitize_disk_conf(struct bsr_device *device, struct disk_conf *disk_conf,
+			       struct bsr_backing_dev *nbc)
 {
 	struct request_queue * const q = nbc->backing_bdev->bd_disk->queue;
 
-	if (disk_conf->al_extents < DRBD_AL_EXTENTS_MIN)
-		disk_conf->al_extents = DRBD_AL_EXTENTS_MIN;
-	if (disk_conf->al_extents > drbd_al_extents_max(nbc))
-		disk_conf->al_extents = drbd_al_extents_max(nbc);
+	if (disk_conf->al_extents < BSR_AL_EXTENTS_MIN)
+		disk_conf->al_extents = BSR_AL_EXTENTS_MIN;
+	if (disk_conf->al_extents > bsr_al_extents_max(nbc))
+		disk_conf->al_extents = bsr_al_extents_max(nbc);
 
 	if (!blk_queue_discard(q) ||
 	    (!queue_discard_zeroes_data(q) && !disk_conf->discard_zeroes_if_aligned)) {
 		if (disk_conf->rs_discard_granularity) {
 			disk_conf->rs_discard_granularity = 0; /* disable feature */
-			drbd_info(device, "rs_discard_granularity feature disabled\n");
+			bsr_info(device, "rs_discard_granularity feature disabled\n");
 		}
 	}
 
@@ -2422,22 +2422,22 @@ static void sanitize_disk_conf(struct drbd_device *device, struct disk_conf *dis
 			disk_conf->rs_discard_granularity = q->limits.max_discard_sectors << 9;
 
 		if (disk_conf->rs_discard_granularity != (unsigned int)orig_value)
-			drbd_info(device, "rs_discard_granularity changed to %u\n",
+			bsr_info(device, "rs_discard_granularity changed to %u\n",
 				  disk_conf->rs_discard_granularity);
 	}
 }
 
-int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
-	struct drbd_device *device;
-	struct drbd_resource *resource;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
+	struct bsr_device *device;
+	struct bsr_resource *resource;
 	struct disk_conf *new_disk_conf, *old_disk_conf;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	int err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -2467,19 +2467,19 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	err = disk_conf_from_attrs_for_change(new_disk_conf, info);
 	if (err && err != -ENOMSG) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto fail_unlock;
 	}
 
 	sanitize_disk_conf(device, new_disk_conf, device->ldev);
 
-	drbd_suspend_io(device, READ_AND_WRITE);
-	wait_event(device->al_wait, drbd_al_try_lock(device));
-	drbd_al_shrink(device);
-	err = drbd_check_al_size(device, new_disk_conf);
+	bsr_suspend_io(device, READ_AND_WRITE);
+	wait_event(device->al_wait, bsr_al_try_lock(device));
+	bsr_al_shrink(device);
+	err = bsr_check_al_size(device, new_disk_conf);
 	lc_unlock(device->act_log);
 	wake_up(&device->al_wait);
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 
 	if (err) {
 		retcode = ERR_NOMEM;
@@ -2487,7 +2487,7 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	lock_all_resources();
-	retcode = drbd_resync_after_valid(device, new_disk_conf->resync_after);
+	retcode = bsr_resync_after_valid(device, new_disk_conf->resync_after);
 	if (retcode == NO_ERROR) {
 #ifdef _WIN
 		synchronize_rcu_w32_wlock();
@@ -2496,7 +2496,7 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 		synchronize_rcu();
 #endif
-		drbd_resync_after_changed(device);
+		bsr_resync_after_changed(device);
 	}
 	unlock_all_resources();
 
@@ -2516,17 +2516,17 @@ int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		set_bit(MD_NO_FUA, &device->flags);
 
 	if (write_ordering_changed(old_disk_conf, new_disk_conf))
-		drbd_bump_write_ordering(device->resource, NULL, WO_BIO_BARRIER);
+		bsr_bump_write_ordering(device->resource, NULL, WO_BIO_BARRIER);
 
 	if (old_disk_conf->discard_zeroes_if_aligned != new_disk_conf->discard_zeroes_if_aligned
 		|| old_disk_conf->disable_write_same != new_disk_conf->disable_write_same)
-		drbd_reconsider_queue_parameters(device, device->ldev, NULL);
+		bsr_reconsider_queue_parameters(device, device->ldev, NULL);
 
-	drbd_md_sync_if_dirty(device);
+	bsr_md_sync_if_dirty(device);
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED)
-			drbd_send_sync_param(peer_device);
+			bsr_send_sync_param(peer_device);
 	}
 
 #ifdef _LIN
@@ -2550,7 +2550,7 @@ success:
 	put_ldev(device);
 out:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
@@ -2562,13 +2562,13 @@ static void mutex_unlock_cond(struct mutex *mutex, bool *have_mutex)
 	}
 }
 
-static void update_resource_dagtag(struct drbd_resource *resource, struct drbd_backing_dev *bdev)
+static void update_resource_dagtag(struct bsr_resource *resource, struct bsr_backing_dev *bdev)
 {
 	u64 dagtag = 0;
 	int node_id;
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-		struct drbd_peer_md *peer_md;
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		struct bsr_peer_md *peer_md;
 		if (bdev->md.node_id == node_id)
 			continue;
 
@@ -2581,13 +2581,13 @@ static void update_resource_dagtag(struct drbd_resource *resource, struct drbd_b
 		resource->dagtag_sector = dagtag;
 }
 
-static int used_bitmap_slots(struct drbd_backing_dev *bdev)
+static int used_bitmap_slots(struct bsr_backing_dev *bdev)
 {
 	int node_id;
 	int used = 0;
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-		struct drbd_peer_md *peer_md = &bdev->md.peers[node_id];
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		struct bsr_peer_md *peer_md = &bdev->md.peers[node_id];
 
 		if (peer_md->bitmap_index != -1)
 			used++;
@@ -2596,12 +2596,12 @@ static int used_bitmap_slots(struct drbd_backing_dev *bdev)
 	return used;
 }
 
-static bool bitmap_index_vacant(struct drbd_backing_dev *bdev, int bitmap_index)
+static bool bitmap_index_vacant(struct bsr_backing_dev *bdev, int bitmap_index)
 {
 	int node_id;
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
-		struct drbd_peer_md *peer_md = &bdev->md.peers[node_id];
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		struct bsr_peer_md *peer_md = &bdev->md.peers[node_id];
 
 		if (peer_md->bitmap_index == bitmap_index)
 			return false;
@@ -2610,16 +2610,16 @@ static bool bitmap_index_vacant(struct drbd_backing_dev *bdev, int bitmap_index)
 }
 
 static int
-allocate_bitmap_index(struct drbd_peer_device *peer_device,
-struct drbd_backing_dev *nbc)
+allocate_bitmap_index(struct bsr_peer_device *peer_device,
+struct bsr_backing_dev *nbc)
 {
-	struct drbd_device *device = peer_device->device;
+	struct bsr_device *device = peer_device->device;
 	const int peer_node_id = peer_device->connection->peer_node_id;
 	unsigned int bitmap_index;
 
 	for (bitmap_index = 0; bitmap_index < device->bitmap->bm_max_peers; bitmap_index++) {
 		if (bitmap_index_vacant(nbc, bitmap_index)) {
-			struct drbd_peer_md *peer_md = &nbc->md.peers[peer_node_id];
+			struct bsr_peer_md *peer_md = &nbc->md.peers[peer_node_id];
 
 			peer_md->bitmap_index = bitmap_index;
 			peer_device->bitmap_index = bitmap_index;
@@ -2627,11 +2627,11 @@ struct drbd_backing_dev *nbc)
 			return 0;
 		}
 	}
-	drbd_err(peer_device, "Not enough free bitmap slots\n");
+	bsr_err(peer_device, "Not enough free bitmap slots\n");
 	return -ENOSPC;
 }
 
-static struct block_device *open_backing_dev(struct drbd_device *device,
+static struct block_device *open_backing_dev(struct bsr_device *device,
 		const char *bdev_path, void *claim_ptr, bool do_bd_link)
 {
 	struct block_device *bdev;
@@ -2643,7 +2643,7 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
 #endif
 	if (IS_ERR(bdev)) {
-		drbd_err(device, "open(\"%s\") failed with %ld\n",
+		bsr_err(device, "open(\"%s\") failed with %ld\n",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
@@ -2662,7 +2662,7 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 #endif
 	if (err) {
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
-		drbd_err(device, "bd_link_disk_holder(\"%s\", ...) failed with %d\n",
+		bsr_err(device, "bd_link_disk_holder(\"%s\", ...) failed with %d\n",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
 	}
@@ -2676,9 +2676,9 @@ static struct block_device *open_backing_dev(struct drbd_device *device,
 	return bdev;
 }
 
-static int open_backing_devices(struct drbd_device *device,
+static int open_backing_devices(struct bsr_device *device,
 		struct disk_conf *new_disk_conf,
-		struct drbd_backing_dev *nbc)
+		struct bsr_backing_dev *nbc)
 {
 	struct block_device *bdev;
 
@@ -2694,20 +2694,20 @@ static int open_backing_devices(struct drbd_device *device,
 
 	/*
 	 * meta_dev_idx >= 0: external fixed size, possibly multiple
-	 * drbd sharing one meta device.  TODO in that case, paranoia
+	 * bsr sharing one meta device.  TODO in that case, paranoia
 	 * check that [md_bdev, meta_dev_idx] is not yet used by some
-	 * other drbd minor!  (if you use drbd.conf + drbdadm, that
+	 * other bsr minor!  (if you use bsr.conf + bsradm, that
 	 * should check it for you already; but if you don't, or
 	 * someone fooled it, we need to double check here)
 	 */
 	bdev = open_backing_dev(device, new_disk_conf->meta_dev,
-		/* claim ptr: device, if claimed exclusively; shared drbd_m_holder,
-		 * if potentially shared with other drbd minors */
-			(new_disk_conf->meta_dev_idx < 0) ? (void*)device : (void*)drbd_m_holder,
+		/* claim ptr: device, if claimed exclusively; shared bsr_m_holder,
+		 * if potentially shared with other bsr minors */
+			(new_disk_conf->meta_dev_idx < 0) ? (void*)device : (void*)bsr_m_holder,
 		/* avoid double bd_claim_by_disk() for the same (source,target) tuple,
 		 * as would happen with internal metadata. */
-			(new_disk_conf->meta_dev_idx != DRBD_MD_INDEX_FLEX_INT &&
-			 new_disk_conf->meta_dev_idx != DRBD_MD_INDEX_INTERNAL));
+			(new_disk_conf->meta_dev_idx != BSR_MD_INDEX_FLEX_INT &&
+			 new_disk_conf->meta_dev_idx != BSR_MD_INDEX_INTERNAL));
 	if (IS_ERR(bdev))
 		return ERR_OPEN_MD_DISK;
 	nbc->md_bdev = bdev;
@@ -2719,7 +2719,7 @@ static int open_backing_devices(struct drbd_device *device,
 	return NO_ERROR;
 }
 
-static void close_backing_dev(struct drbd_device *device, struct block_device *bdev,
+static void close_backing_dev(struct bsr_device *device, struct block_device *bdev,
 	bool do_bd_unlink)
 {
 	UNREFERENCED_PARAMETER(device);
@@ -2736,7 +2736,7 @@ static void close_backing_dev(struct drbd_device *device, struct block_device *b
 	blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
 }
 
-void drbd_backing_dev_free(struct drbd_device *device, struct drbd_backing_dev *ldev)
+void bsr_backing_dev_free(struct bsr_device *device, struct bsr_backing_dev *ldev)
 {
 	if (ldev == NULL)
 		return;
@@ -2755,42 +2755,42 @@ void drbd_backing_dev_free(struct drbd_device *device, struct drbd_backing_dev *
 	kfree(ldev);
 }
 
-static void discard_not_wanted_bitmap_uuids(struct drbd_device *device, struct drbd_backing_dev *ldev)
+static void discard_not_wanted_bitmap_uuids(struct bsr_device *device, struct bsr_backing_dev *ldev)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	int node_id;
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
 		peer_device = peer_device_by_node_id(device, node_id);
 	}
 }
 
-int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_device *device;
-	struct drbd_resource *resource;
+	struct bsr_config_context adm_ctx;
+	struct bsr_device *device;
+	struct bsr_resource *resource;
 	int err;
-	enum drbd_ret_code retcode;
+	enum bsr_ret_code retcode;
 	enum determine_dev_size dd;
 	sector_t max_possible_sectors;
 	sector_t min_md_device_sectors;
-	struct drbd_backing_dev *nbc; /* new_backing_conf */
+	struct bsr_backing_dev *nbc; /* new_backing_conf */
 	struct disk_conf *new_disk_conf = NULL;
-	enum drbd_state_rv rv;
-	struct drbd_peer_device *peer_device;
+	enum bsr_state_rv rv;
+	struct bsr_peer_device *peer_device;
 	unsigned int slots_needed = 0;
 	bool have_conf_update = false;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 	device = adm_ctx.device;
 	resource = device->resource;
 	mutex_lock(&resource->adm_mutex);
 
-	/* allocation not in the IO path, drbdsetup context */
-	nbc = kzalloc(sizeof(struct drbd_backing_dev), GFP_KERNEL, '61DW');
+	/* allocation not in the IO path, bsrsetup context */
+	nbc = kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61DW');
 
 	if (!nbc) {
 		retcode = ERR_NOMEM;
@@ -2810,17 +2810,17 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	err = disk_conf_from_attrs(new_disk_conf, info);
 	if (err) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto fail;
 	}
 
-	if (new_disk_conf->meta_dev_idx < DRBD_MD_INDEX_FLEX_INT) {
+	if (new_disk_conf->meta_dev_idx < BSR_MD_INDEX_FLEX_INT) {
 		retcode = ERR_MD_IDX_INVALID;
 		goto fail;
 	}
 
 	lock_all_resources();
-	retcode = drbd_resync_after_valid(device, new_disk_conf->resync_after);
+	retcode = bsr_resync_after_valid(device, new_disk_conf->resync_after);
 	unlock_all_resources();
 	if (retcode != NO_ERROR)
 		goto fail;
@@ -2830,8 +2830,8 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 
 	if ((nbc->backing_bdev == nbc->md_bdev) !=
-	    (new_disk_conf->meta_dev_idx == DRBD_MD_INDEX_INTERNAL ||
-	     new_disk_conf->meta_dev_idx == DRBD_MD_INDEX_FLEX_INT)) {
+	    (new_disk_conf->meta_dev_idx == BSR_MD_INDEX_INTERNAL ||
+	     new_disk_conf->meta_dev_idx == BSR_MD_INDEX_FLEX_INT)) {
 		retcode = ERR_MD_IDX_INVALID;
 		goto fail;
 	}
@@ -2842,7 +2842,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 	}
 	/* It may just now have detached because of IO error.  Make sure
-	 * drbd_ldev_destroy is done already, we may end up here very fast,
+	 * bsr_ldev_destroy is done already, we may end up here very fast,
 	 * e.g. if someone calls attach from the on-io-error handler,
 	 * to realize a "hot spare" feature (not that I'd recommend that) */
 	wait_event(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags));
@@ -2858,7 +2858,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!device->bitmap) {
-		device->bitmap = drbd_bm_alloc();
+		device->bitmap = bsr_bm_alloc();
 		if (!device->bitmap) {
 			retcode = ERR_NOMEM;
 			goto fail;
@@ -2867,38 +2867,38 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Read our meta data super block early.
 	 * This also sets other on-disk offsets. */
-	retcode = drbd_md_read(device, nbc);
+	retcode = bsr_md_read(device, nbc);
 	if (retcode != NO_ERROR)
 		goto fail;
 
 	discard_not_wanted_bitmap_uuids(device, nbc);
 	sanitize_disk_conf(device, new_disk_conf, nbc);
 
-	if (drbd_get_max_capacity(nbc) < new_disk_conf->disk_size) {
-		drbd_err(device, "max capacity %llu smaller than disk size %llu\n",
-			(unsigned long long) drbd_get_max_capacity(nbc),
+	if (bsr_get_max_capacity(nbc) < new_disk_conf->disk_size) {
+		bsr_err(device, "max capacity %llu smaller than disk size %llu\n",
+			(unsigned long long) bsr_get_max_capacity(nbc),
 			(unsigned long long) new_disk_conf->disk_size);
 		retcode = ERR_DISK_TOO_SMALL;
 		goto fail;
 	}
 
 	if (new_disk_conf->meta_dev_idx < 0) {
-		max_possible_sectors = DRBD_MAX_SECTORS_FLEX;
+		max_possible_sectors = BSR_MAX_SECTORS_FLEX;
 		/* at least one MB, otherwise it does not make sense */
 		min_md_device_sectors = (2<<10);
 	} else {
-		max_possible_sectors = DRBD_MAX_SECTORS;
+		max_possible_sectors = BSR_MAX_SECTORS;
 		// DW-1335
 		min_md_device_sectors = (256 << 20 >> 9) * (new_disk_conf->meta_dev_idx + 1);
 	}
 
 #ifdef _WIN // DW-1607
-	if (drbd_get_md_capacity(nbc->md_bdev) < min_md_device_sectors) {
+	if (bsr_get_md_capacity(nbc->md_bdev) < min_md_device_sectors) {
 #else // _LIN
-	if (drbd_get_capacity(nbc->md_bdev) < min_md_device_sectors) {
+	if (bsr_get_capacity(nbc->md_bdev) < min_md_device_sectors) {
 #endif
 		retcode = ERR_MD_DISK_TOO_SMALL;
-		drbd_warn(device, "refusing attach: md-device too small, "
+		bsr_warn(device, "refusing attach: md-device too small, "
 		     "at least %llu sectors needed for this meta-disk type\n",
 		     (unsigned long long) min_md_device_sectors);
 		goto fail;
@@ -2906,35 +2906,35 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Make sure the new disk is big enough
 	 * (we may currently be R_PRIMARY with no local disk...) */
-	if (drbd_get_max_capacity(nbc) <
-	    drbd_get_capacity(device->this_bdev)) {
-		drbd_err(device,
+	if (bsr_get_max_capacity(nbc) <
+	    bsr_get_capacity(device->this_bdev)) {
+		bsr_err(device,
 			"Current (diskless) capacity %llu, cannot attach smaller (%llu) disk\n",
-			(unsigned long long)drbd_get_capacity(device->this_bdev),
-			(unsigned long long)drbd_get_max_capacity(nbc));
+			(unsigned long long)bsr_get_capacity(device->this_bdev),
+			(unsigned long long)bsr_get_max_capacity(nbc));
 		retcode = ERR_DISK_TOO_SMALL;
 		goto fail;
 	}
 
-	nbc->known_size = drbd_get_capacity(nbc->backing_bdev);
+	nbc->known_size = bsr_get_capacity(nbc->backing_bdev);
 
 	if (nbc->known_size > max_possible_sectors) {
-		drbd_warn(device, "==> truncating very big lower level device "
+		bsr_warn(device, "==> truncating very big lower level device "
 			"to currently maximum possible %llu sectors <==\n",
 			(unsigned long long) max_possible_sectors);
 		if (new_disk_conf->meta_dev_idx >= 0)
-			drbd_warn(device, "==>> using internal or flexible "
+			bsr_warn(device, "==>> using internal or flexible "
 				      "meta data may help <<==\n");
 	}
 
-	drbd_suspend_io(device, READ_AND_WRITE);
+	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(resource->barrier_wait, !barrier_pending(resource));
 	for_each_peer_device(peer_device, device)
 		wait_event(device->misc_wait,
 			   (!atomic_read(&peer_device->ap_pending_cnt) ||
-			    drbd_suspended(device)));
+			    bsr_suspended(device)));
 	/* and for other previously queued resource work */
-	drbd_flush_workqueue(resource, &resource->work);
+	bsr_flush_workqueue(resource, &resource->work);
 
 	// DW-1605
 	stable_state_change(rv, resource,
@@ -2943,20 +2943,20 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	retcode = rv;  /* FIXME: Type mismatch. */
 	if (rv >= SS_SUCCESS)
 		update_resource_dagtag(resource, nbc);
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 	if (rv < SS_SUCCESS)
 		goto fail;
 
 	if (!get_ldev_if_state(device, D_ATTACHING))
 		goto force_diskless;
 #ifdef _WIN_MVFL
-	struct drbd_genlmsghdr *dh = info->userhdr;
+	struct bsr_genlmsghdr *dh = info->userhdr;
 	if (do_add_minor(dh->minor)) {
 		NTSTATUS status = STATUS_UNSUCCESSFUL;
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(dh->minor, FALSE);
 		if (pvext) {
 			// DW-1461 set volume protection when attaching.
-			SetDrbdlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
+			SetBsrlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
 
@@ -2996,20 +2996,20 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 			else {
-				drbd_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+				bsr_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
 			}
 #endif
 		}
 	}
 #endif
-	drbd_info(device, "Maximum number of peer devices = %u\n",
+	bsr_info(device, "Maximum number of peer devices = %u\n",
 		  device->bitmap->bm_max_peers);
 	mutex_lock(&resource->conf_update);
 	have_conf_update = true;
 
 	/* Make sure the local node id matches or is unassigned */
 	if (nbc->md.node_id != -1 && (unsigned int)nbc->md.node_id != resource->res_opts.node_id) {
-		drbd_err(device, "Local node id %u differs from local "
+		bsr_err(device, "Local node id %u differs from local "
 			 "node id %d on device\n",
 			 resource->res_opts.node_id,
 			 nbc->md.node_id);
@@ -3019,7 +3019,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Make sure no bitmap slot has our own node id */
 	if (nbc->md.peers[resource->res_opts.node_id].bitmap_index != -1) {
-		drbd_err(device, "There is a bitmap for my own node id (%u)\n",
+		bsr_err(device, "There is a bitmap for my own node id (%u)\n",
 			 resource->res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto force_diskless_dec;
@@ -3027,7 +3027,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Make sure we have a bitmap slot for each peer id */
 	for_each_peer_device(peer_device, device) {
-		struct drbd_connection *connection = peer_device->connection;
+		struct bsr_connection *connection = peer_device->connection;
 		int bitmap_index;
 
 		bitmap_index = nbc->md.peers[connection->peer_node_id].bitmap_index;
@@ -3040,7 +3040,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		unsigned int slots_available = device->bitmap->bm_max_peers - used_bitmap_slots(nbc);
 
 		if (slots_needed > slots_available) {
-			drbd_err(device, "Not enough free bitmap "
+			bsr_err(device, "Not enough free bitmap "
 				 "slots (available=%u, needed=%u)\n",
 				 slots_available,
 				 slots_needed);
@@ -3071,7 +3071,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				data_present = true;
 		}
 		if (!data_present) {
-			drbd_err(device, "Can only attach to data with current UUID=%016llX\n",
+			bsr_err(device, "Can only attach to data with current UUID=%016llX\n",
 				 (unsigned long long)device->exposed_data_uuid);
 			retcode = ERR_DATA_NOT_CURRENT;
 			goto force_diskless_dec;
@@ -3079,7 +3079,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	/* Since we are diskless, fix the activity log first... */
-	if (drbd_check_al_size(device, new_disk_conf)) {
+	if (bsr_check_al_size(device, new_disk_conf)) {
 		retcode = ERR_NOMEM;
 		goto force_diskless_dec;
 	}
@@ -3104,13 +3104,13 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		kref_get(&device->this_bdev->kref);
 	}
 
-	// DW-1300 set drbd device to access from volume extention
-	unsigned char oldIRQL = ExAcquireSpinLockExclusive(&device->this_bdev->bd_disk->drbd_device_ref_lock);	
-	device->this_bdev->bd_disk->drbd_device = device;
-	ExReleaseSpinLockExclusive(&device->this_bdev->bd_disk->drbd_device_ref_lock, oldIRQL);
+	// DW-1300 set bsr device to access from volume extention
+	unsigned char oldIRQL = ExAcquireSpinLockExclusive(&device->this_bdev->bd_disk->bsr_device_ref_lock);	
+	device->this_bdev->bd_disk->bsr_device = device;
+	ExReleaseSpinLockExclusive(&device->this_bdev->bd_disk->bsr_device_ref_lock, oldIRQL);
 #endif
 	for_each_peer_device(peer_device, device) {
-		err = drbd_attach_peer_device(peer_device);
+		err = bsr_attach_peer_device(peer_device);
 		if (err) {
 			retcode = ERR_NOMEM;
 			goto force_diskless_dec;
@@ -3121,7 +3121,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	have_conf_update = false;
 
 	lock_all_resources();
-	retcode = drbd_resync_after_valid(device, device->ldev->disk_conf->resync_after);
+	retcode = bsr_resync_after_valid(device, device->ldev->disk_conf->resync_after);
 	if (retcode != NO_ERROR) {
 		unlock_all_resources();
 		goto force_diskless_dec;
@@ -3134,16 +3134,16 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	else
 		set_bit(MD_NO_FUA, &device->flags);
 
-	drbd_resync_after_changed(device);
-	drbd_bump_write_ordering(resource, device->ldev, WO_BIO_BARRIER);
+	bsr_resync_after_changed(device);
+	bsr_bump_write_ordering(resource, device->ldev, WO_BIO_BARRIER);
 	unlock_all_resources();
 
 	/* Prevent shrinking of consistent devices ! */
 	{
-	unsigned long long nsz = drbd_new_dev_size(device, 0, device->ldev->disk_conf->disk_size, 0);
+	unsigned long long nsz = bsr_new_dev_size(device, 0, device->ldev->disk_conf->disk_size, 0);
 	unsigned long long eff = device->ldev->md.effective_size;
-	if (drbd_md_test_flag(device, MDF_CONSISTENT) && nsz < eff) {
-		drbd_warn(device,
+	if (bsr_md_test_flag(device, MDF_CONSISTENT) && nsz < eff) {
+		bsr_warn(device,
 			"refusing to truncate a consistent device (%llu < %llu)\n",
 			nsz, eff);		
 		retcode = ERR_DISK_TOO_SMALL;
@@ -3151,12 +3151,12 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 	}
 
-	if (drbd_md_test_flag(device, MDF_CRASHED_PRIMARY))
+	if (bsr_md_test_flag(device, MDF_CRASHED_PRIMARY))
 		set_bit(CRASHED_PRIMARY, &device->flags);
 	else
 		clear_bit(CRASHED_PRIMARY, &device->flags);
 
-	if (drbd_md_test_flag(device, MDF_PRIMARY_IND) &&
+	if (bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
 	    !(resource->role[NOW] == R_PRIMARY && resource->susp_nod[NOW]) &&
 	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags))
 		set_bit(CRASHED_PRIMARY, &device->flags);
@@ -3164,7 +3164,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
 
-	drbd_reconsider_queue_parameters(device, device->ldev, NULL);
+	bsr_reconsider_queue_parameters(device, device->ldev, NULL);
 
 	/* If I am currently not R_PRIMARY,
 	 * but meta data primary indicator is set,
@@ -3183,12 +3183,12 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	for_each_peer_device(peer_device, device) {
 		clear_bit(USE_DEGR_WFC_T, &peer_device->flags);
 		if (resource->role[NOW] != R_PRIMARY &&
-		    drbd_md_test_flag(device, MDF_PRIMARY_IND) &&
-		    !drbd_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
+		    bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
+		    !bsr_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
 			set_bit(USE_DEGR_WFC_T, &peer_device->flags);
 	}
 
-	dd = drbd_determine_dev_size(device, 0, 0, NULL);
+	dd = bsr_determine_dev_size(device, 0, 0, NULL);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
 		goto force_diskless_dec;
@@ -3197,7 +3197,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			set_bit(RESYNC_AFTER_NEG, &peer_device->flags);
 	}
 
-	if (drbd_bitmap_io(device, &drbd_bm_read,
+	if (bsr_bitmap_io(device, &bsr_bm_read,
 		"read from attaching", BM_LOCK_ALL,
 		NULL)) {
 		retcode = ERR_IO_MD_DISK;
@@ -3206,11 +3206,11 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	for_each_peer_device(peer_device, device) {
 		if ((test_bit(CRASHED_PRIMARY, &device->flags) &&
-		     drbd_md_test_flag(device, MDF_AL_DISABLED)) ||
-		    drbd_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
-			drbd_info(peer_device, "Assuming that all blocks are out of sync "
+		     bsr_md_test_flag(device, MDF_AL_DISABLED)) ||
+		    bsr_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
+			bsr_info(peer_device, "Assuming that all blocks are out of sync "
 				  "(aka FullSync)\n");
-			if (drbd_bitmap_io(device, &drbd_bmio_set_n_write,
+			if (bsr_bitmap_io(device, &bsr_bmio_set_n_write,
 				"set_n_write from attaching", BM_LOCK_ALL,
 				peer_device)) {
 				retcode = ERR_IO_MD_DISK;
@@ -3219,7 +3219,7 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	drbd_try_suspend_al(device); /* IO is still suspended here... */
+	bsr_try_suspend_al(device); /* IO is still suspended here... */
 
 #ifdef _WIN
 	unsigned char oldIrql_rLock1; // RCU_SPECIAL_CASE
@@ -3254,12 +3254,12 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	else
 		device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 
-	drbd_md_sync(device);
+	bsr_md_sync(device);
 
-	drbd_kobject_uevent(device);
+	bsr_kobject_uevent(device);
 	put_ldev(device);
 	mutex_unlock(&resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 
  force_diskless_dec:
@@ -3268,16 +3268,16 @@ int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	change_disk_state(device, D_DISKLESS, CS_HARD, NULL);
  fail:
 	mutex_unlock_cond(&resource->conf_update, &have_conf_update);
-	drbd_backing_dev_free(device, nbc);
+	bsr_backing_dev_free(device, nbc);
 	mutex_unlock(&resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static enum drbd_disk_state get_disk_state(struct drbd_device *device)
+static enum bsr_disk_state get_disk_state(struct bsr_device *device)
 {
-	struct drbd_resource *resource = device->resource;
-	enum drbd_disk_state disk_state;
+	struct bsr_resource *resource = device->resource;
+	enum bsr_disk_state disk_state;
 
 	spin_lock_irq(&resource->req_lock);
 	disk_state = device->disk_state[NOW];
@@ -3285,9 +3285,9 @@ static enum drbd_disk_state get_disk_state(struct drbd_device *device)
 	return disk_state;
 }
 
-static int adm_detach(struct drbd_device *device, int force, struct sk_buff *reply_skb)
+static int adm_detach(struct bsr_device *device, int force, struct sk_buff *reply_skb)
 {
-	enum drbd_state_rv retcode;
+	enum bsr_state_rv retcode;
 	long timeo = 3*HZ;
 	const char *err_str = NULL;
 	int ret = 0;
@@ -3299,27 +3299,27 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 		goto out;
 	}
 
-	drbd_suspend_io(device, READ_AND_WRITE); /* so no-one is stuck in drbd_al_begin_io */
+	bsr_suspend_io(device, READ_AND_WRITE); /* so no-one is stuck in bsr_al_begin_io */
 	// DW-1605
 	stable_state_change(retcode, device->resource,
 		change_disk_state(device, D_DETACHING,
 			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE, &err_str));
 
 	/* D_DETACHING will transition to DISKLESS. */
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 	// DW-1046 detour adm_detach hang
 	// TODO: When passing the result of timeout to ret, it should be verified that there is no problem.
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
-	drbd_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%ld device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
+	bsr_info(NO_OBJECT,"wait_event_interruptible_timeout timeo:%ld device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
 	if (retcode >= SS_SUCCESS) {
 		int res;
 
 		// BSR-439
-		/* wait for completion of drbd_ldev_destroy() */
+		/* wait for completion of bsr_ldev_destroy() */
 		wait_event_interruptible_ex(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags), res);
-		drbd_cleanup_device(device);
+		bsr_cleanup_device(device);
 	}
 	if (retcode == SS_IS_DISKLESS)
 		retcode = SS_NOTHING_TO_DO;
@@ -3327,34 +3327,34 @@ static int adm_detach(struct drbd_device *device, int force, struct sk_buff *rep
 		retcode = ERR_INTR;
 out:
 	if (err_str) {
-		drbd_msg_put_info(reply_skb, err_str);
+		bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
 	}
 	return retcode;
 }
 
 /* Detaching the disk is a process in multiple stages.  First we need to lock
- * out application IO, in-flight IO, IO stuck in drbd_al_begin_io.
+ * out application IO, in-flight IO, IO stuck in bsr_al_begin_io.
  * Then we transition to D_DISKLESS, and wait for put_ldev() to return all
  * internal references as well.
  * Only then we have finally detached. */
-int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_detach(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
     struct detach_parms parms = { 0 };
 	int err;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-	if (info->attrs[DRBD_NLA_DETACH_PARMS]) {
+	if (info->attrs[BSR_NLA_DETACH_PARMS]) {
 		err = detach_parms_from_attrs(&parms, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out;
 		}
 	}
@@ -3372,18 +3372,18 @@ int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info)
 	retcode = adm_detach(adm_ctx.device, parms.force_detach, adm_ctx.reply_skb);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 out:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static bool conn_resync_running(struct drbd_connection *connection)
+static bool conn_resync_running(struct bsr_connection *connection)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	bool rv = false;
 	int vnr;
 
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (peer_device->repl_state[NOW] == L_SYNC_SOURCE ||
 		    peer_device->repl_state[NOW] == L_SYNC_TARGET ||
 		    peer_device->repl_state[NOW] == L_PAUSED_SYNC_S ||
@@ -3397,14 +3397,14 @@ static bool conn_resync_running(struct drbd_connection *connection)
 	return rv;
 }
 
-static bool conn_ov_running(struct drbd_connection *connection)
+static bool conn_ov_running(struct bsr_connection *connection)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	bool rv = false;
 	int vnr;
 
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (peer_device->repl_state[NOW] == L_VERIFY_S ||
 		    peer_device->repl_state[NOW] == L_VERIFY_T) {
 			rv = true;
@@ -3416,8 +3416,8 @@ static bool conn_ov_running(struct drbd_connection *connection)
 	return rv;
 }
 
-static enum drbd_ret_code
-_check_net_options(struct drbd_connection *connection, struct net_conf *old_net_conf, struct net_conf *new_net_conf)
+static enum bsr_ret_code
+_check_net_options(struct bsr_connection *connection, struct net_conf *old_net_conf, struct net_conf *new_net_conf)
 {
 	if (old_net_conf && connection->cstate[NOW] == C_CONNECTED && connection->agreed_pro_version < 100) {
 		if (new_net_conf->wire_protocol != old_net_conf->wire_protocol)
@@ -3439,30 +3439,30 @@ _check_net_options(struct drbd_connection *connection, struct net_conf *old_net_
 		return ERR_NEED_ALLOW_TWO_PRI;
 
 	if (new_net_conf->two_primaries &&
-	    (new_net_conf->wire_protocol != DRBD_PROT_C))
+	    (new_net_conf->wire_protocol != BSR_PROT_C))
 		return ERR_NOT_PROTO_C;
 
-	if (new_net_conf->wire_protocol == DRBD_PROT_A &&
+	if (new_net_conf->wire_protocol == BSR_PROT_A &&
 	    new_net_conf->fencing_policy == FP_STONITH)
 		return ERR_STONITH_AND_PROT_A;
 
 	if (new_net_conf->on_congestion != OC_BLOCK &&
-	    new_net_conf->wire_protocol != DRBD_PROT_A)
+	    new_net_conf->wire_protocol != BSR_PROT_A)
 		return ERR_CONG_NOT_PROTO_A;
 
 	// DW-1436 sndbuf-size must be at least 10M 
-	if (new_net_conf->sndbuf_size < DRBD_SNDBUF_SIZE_MIN && new_net_conf->sndbuf_size > 0){
+	if (new_net_conf->sndbuf_size < BSR_SNDBUF_SIZE_MIN && new_net_conf->sndbuf_size > 0){
 		return ERR_SNDBUF_SIZE_TOO_SMALL;
 	}
 
 	return NO_ERROR;
 }
 
-static enum drbd_ret_code
-check_net_options(struct drbd_connection *connection, struct net_conf *new_net_conf)
+static enum bsr_ret_code
+check_net_options(struct bsr_connection *connection, struct net_conf *new_net_conf)
 {
-	enum drbd_ret_code rv;
-	struct drbd_peer_device *peer_device;
+	enum bsr_ret_code rv;
+	struct bsr_peer_device *peer_device;
 	int i;
 
 	rcu_read_lock();
@@ -3470,10 +3470,10 @@ check_net_options(struct drbd_connection *connection, struct net_conf *new_net_c
 	rcu_read_unlock();
 
 	/* connection->peer_devices protected by resource->conf_update here */
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
-		struct drbd_device *device = peer_device->device;
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
+		struct bsr_device *device = peer_device->device;
 		if (!device->bitmap) {
-			device->bitmap = drbd_bm_alloc();
+			device->bitmap = bsr_bm_alloc();
 			if (!device->bitmap)
 				return ERR_NOMEM;
 		}
@@ -3507,14 +3507,14 @@ alloc_hash(struct crypto_hash **tfm, char *tfm_name, int err_alg)
 	return NO_ERROR;
 }
 
-static enum drbd_ret_code
+static enum bsr_ret_code
 alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 {
 #ifdef _WIN
 #define CRYPTO_MAX_ALG_NAME             64
 #endif
 	char hmac_name[CRYPTO_MAX_ALG_NAME];
-	enum drbd_ret_code rv;
+	enum bsr_ret_code rv;
 
 	rv = alloc_hash(&crypto->csums_tfm, new_net_conf->csums_alg,
 		       ERR_CSUMS_ALG);
@@ -3550,17 +3550,17 @@ static void free_crypto(struct crypto *crypto)
 	crypto_free_hash(crypto->verify_tfm);
 }
 
-int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
-	struct drbd_connection *connection;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
+	struct bsr_connection *connection;
 	struct net_conf *old_net_conf, *new_net_conf = NULL;
 	int err;
 	int ovr; /* online verify running */
 	int rsr; /* re-sync running */
 	struct crypto crypto = { 0 };
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -3572,14 +3572,14 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		retcode = ERR_NOMEM;
 		goto out;
 	}
-	drbd_flush_workqueue(adm_ctx.resource, &connection->sender_work);
+	bsr_flush_workqueue(adm_ctx.resource, &connection->sender_work);
 
 	mutex_lock(&connection->resource->conf_update);
 	mutex_lock(&connection->mutex[DATA_STREAM]);
 	old_net_conf = connection->transport.net_conf;
 
 	if (!old_net_conf) {
-		drbd_msg_put_info(adm_ctx.reply_skb, "net conf missing, try connect");
+		bsr_msg_put_info(adm_ctx.reply_skb, "net conf missing, try connect");
 		retcode = ERR_INVALID_REQUEST;
 		goto fail;
 	}
@@ -3591,7 +3591,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	err = net_conf_from_attrs_for_change(new_net_conf, info);
 	if (err && err != -ENOMSG) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto fail;
 	}
 
@@ -3661,7 +3661,7 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	connection->integrity_tfm = crypto.integrity_tfm;
 	if (connection->cstate[NOW] >= C_CONNECTED && connection->agreed_pro_version >= 100)
 		/* Do this without trying to take connection->data.mutex again.  */
-		__drbd_send_protocol(connection, P_PROTOCOL_UPDATE);
+		__bsr_send_protocol(connection, P_PROTOCOL_UPDATE);
 
 	crypto_free_hash(connection->cram_hmac_tfm);
 	connection->cram_hmac_tfm = crypto.cram_hmac_tfm;
@@ -3674,11 +3674,11 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	kfree(old_net_conf);
 
 	if (connection->cstate[NOW] >= C_CONNECTED) {
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 		int vnr;
 
-		idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
-			drbd_send_sync_param(peer_device);
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
+			bsr_send_sync_param(peer_device);
 	}
 
 	goto out;
@@ -3690,11 +3690,11 @@ int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	kfree(new_net_conf);
  out:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static int adjust_resync_fifo(struct drbd_peer_device *peer_device,
+static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 			      struct peer_device_conf *conf,
 			      struct fifo_buffer **pp_old_plan)
 {
@@ -3712,7 +3712,7 @@ static int adjust_resync_fifo(struct drbd_peer_device *peer_device,
 		new_plan = fifo_alloc(fifo_size);
 #endif
 		if (!new_plan) {
-			drbd_err(peer_device, "kmalloc of fifo_buffer failed");
+			bsr_err(peer_device, "kmalloc of fifo_buffer failed");
 			return -ENOMEM;
 		}
 		rcu_assign_pointer(peer_device->rs_plan_s, new_plan);
@@ -3723,16 +3723,16 @@ static int adjust_resync_fifo(struct drbd_peer_device *peer_device,
 	return 0;
 }
 
-int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
-	struct drbd_peer_device *peer_device;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
+	struct bsr_peer_device *peer_device;
 	struct peer_device_conf *old_peer_device_conf, *new_peer_device_conf = NULL;
 	struct fifo_buffer *old_plan = NULL;
 	int err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -3753,15 +3753,15 @@ int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	err = peer_device_conf_from_attrs_for_change(new_peer_device_conf, info);
 	if (err && err != -ENOMSG) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto fail_ret_set;
 	}
 
 	if (!expect(peer_device, new_peer_device_conf->resync_rate >= 1))
 		new_peer_device_conf->resync_rate = 1;
 
-	if (new_peer_device_conf->c_plan_ahead > DRBD_C_PLAN_AHEAD_MAX)
-		new_peer_device_conf->c_plan_ahead = DRBD_C_PLAN_AHEAD_MAX;
+	if (new_peer_device_conf->c_plan_ahead > BSR_C_PLAN_AHEAD_MAX)
+		new_peer_device_conf->c_plan_ahead = BSR_C_PLAN_AHEAD_MAX;
 
 	err = adjust_resync_fifo(peer_device, new_peer_device_conf, &old_plan);
 	if (err)
@@ -3769,7 +3769,7 @@ int drbd_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	drbd_info(peer_device, "new, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n", 
+	bsr_info(peer_device, "new, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
 		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
 
@@ -3788,12 +3788,12 @@ fail_ret_set:
 
 	mutex_unlock(&adm_ctx.resource->conf_update);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 
 }
 
-int drbd_create_peer_device_default_config(struct drbd_peer_device *peer_device)
+int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 {
 	struct peer_device_conf *conf;
 	int err;
@@ -3807,7 +3807,7 @@ int drbd_create_peer_device_default_config(struct drbd_peer_device *peer_device)
 	if (err)
 		return err;
 
-	drbd_info(peer_device, "default, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n",
+	bsr_info(peer_device, "default, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
 		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate);
 
@@ -3817,14 +3817,14 @@ int drbd_create_peer_device_default_config(struct drbd_peer_device *peer_device)
 }
 
 static void connection_to_info(struct connection_info *info,
-			       struct drbd_connection *connection)
+			       struct bsr_connection *connection)
 {
 	info->conn_connection_state = connection->cstate[NOW];
 	info->conn_role = connection->peer_role[NOW];
 }
 
 static void peer_device_to_info(struct peer_device_info *info,
-				struct drbd_peer_device *peer_device)
+				struct bsr_peer_device *peer_device)
 {
 	info->peer_repl_state = peer_device->repl_state[NOW];
 	info->peer_disk_state = peer_device->disk_state[NOW];
@@ -3834,10 +3834,10 @@ static void peer_device_to_info(struct peer_device_info *info,
 	info->peer_is_intentional_diskless = false;
 }
 
-static bool is_resync_target_in_other_connection(struct drbd_peer_device *peer_device)
+static bool is_resync_target_in_other_connection(struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = peer_device->device;
-	struct drbd_peer_device *p;
+	struct bsr_device *device = peer_device->device;
+	struct bsr_peer_device *p;
 
 	for_each_peer_device(p, device) {
 		if (p == peer_device)
@@ -3850,31 +3850,31 @@ static bool is_resync_target_in_other_connection(struct drbd_peer_device *peer_d
 	return false;
 }
 
-static int adm_new_connection(struct drbd_connection **ret_conn,
-		struct drbd_config_context *adm_ctx, struct genl_info *info)
+static int adm_new_connection(struct bsr_connection **ret_conn,
+		struct bsr_config_context *adm_ctx, struct genl_info *info)
 {
 	struct connection_info connection_info;
-	enum drbd_notification_type flags;
+	enum bsr_notification_type flags;
 	unsigned int peer_devices = 0;
-	struct drbd_device *device;
-	struct drbd_peer_device *peer_device;
+	struct bsr_device *device;
+	struct bsr_peer_device *peer_device;
 	struct net_conf *old_net_conf, *new_net_conf = NULL;
 	struct crypto crypto = { NULL, };
-	struct drbd_connection *connection;
-	enum drbd_ret_code retcode;
+	struct bsr_connection *connection;
+	enum bsr_ret_code retcode;
 	int i, err;
 	char *transport_name;
-	struct drbd_transport_class *tr_class;
+	struct bsr_transport_class *tr_class;
 
 	*ret_conn = NULL;
 	if (adm_ctx->connection) {
-		struct drbd_resource * resource = adm_ctx->resource;
-		drbd_err(resource, "Connection for peer node id %u already exists\n",
+		struct bsr_resource * resource = adm_ctx->resource;
+		bsr_err(resource, "Connection for peer node id %u already exists\n",
 			adm_ctx->peer_node_id);
 		return ERR_INVALID_REQUEST;
 	}
 
-	/* allocation not in the IO path, drbdsetup / netlink process context */
+	/* allocation not in the IO path, bsrsetup / netlink process context */
 	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1DW');
 	if (!new_net_conf)
 		return ERR_NOMEM;
@@ -3884,18 +3884,18 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	err = net_conf_from_attrs(new_net_conf, info);
 	if (err) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
 		goto fail;
 	}
 
 	transport_name = new_net_conf->transport_name[0] ? new_net_conf->transport_name : "tcp";
-	tr_class = drbd_get_transport_class(transport_name);
+	tr_class = bsr_get_transport_class(transport_name);
 	if (!tr_class) {
 		retcode = ERR_CREATE_TRANSPORT;
 		goto fail;
 	}
 
-	connection = drbd_create_connection(adm_ctx->resource, tr_class);
+	connection = bsr_create_connection(adm_ctx->resource, tr_class);
 	if (!connection) {
 		retcode = ERR_NOMEM;
 		goto fail_put_transport;
@@ -3916,7 +3916,7 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	((char *)new_net_conf->shared_secret)[SHARED_SECRET_MAX-1] = 0;
 
 	mutex_lock(&adm_ctx->resource->conf_update);
-	idr_for_each_entry_ex(struct drbd_device *, &adm_ctx->resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &adm_ctx->resource->devices, device, i) {
 		int id;
 
 		retcode = ERR_NOMEM;
@@ -3929,8 +3929,8 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 			goto unlock_fail_free_connection;
 	}
 
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
-		struct drbd_device *device = peer_device->device;
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
+		struct bsr_device *device = peer_device->device;
 
 		peer_device->resync_susp_other_c[NOW] =
 			is_resync_target_in_other_connection(peer_device);
@@ -3967,7 +3967,7 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 		adm_ctx->resource->max_node_id = connection->peer_node_id;
 
 	/* Set bitmap_index if it was allocated previously */
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
 		unsigned int bitmap_index;
 
 		device = peer_device->device;
@@ -3984,7 +3984,7 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	flags = (peer_devices--) ? NOTIFY_CONTINUES : 0;
 	mutex_lock(&notification_mutex);
 	notify_connection_state(NULL, 0, connection, &connection_info, NOTIFY_CREATE | flags);
-    idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
+    idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
 		struct peer_device_info peer_device_info;
 
 		peer_device_to_info(&peer_device_info, peer_device);
@@ -3993,9 +3993,9 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	}
 	mutex_unlock(&notification_mutex);
 
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
 		if (get_ldev_if_state(peer_device->device, D_NEGOTIATING)) {
-			err = drbd_attach_peer_device(peer_device);
+			err = bsr_attach_peer_device(peer_device);
 			put_ldev(peer_device->device);
 			if (err) {
 				retcode = ERR_NOMEM;
@@ -4012,8 +4012,8 @@ static int adm_new_connection(struct drbd_connection **ret_conn,
 	} else {
 	}
 #endif
-	drbd_debugfs_connection_add(connection); /* after ->net_conf was assigned */
-	drbd_thread_start(&connection->sender);
+	bsr_debugfs_connection_add(connection); /* after ->net_conf was assigned */
+	bsr_thread_start(&connection->sender);
 	*ret_conn = connection;
 	return NO_ERROR;
 
@@ -4021,16 +4021,16 @@ unlock_fail_free_connection:
 	mutex_unlock(&adm_ctx->resource->conf_update);
 fail_free_connection:
 	if (!list_empty(&connection->connections)) {
-		drbd_unregister_connection(connection);
+		bsr_unregister_connection(connection);
 		// BSR-426
 #ifdef _LIN
 		synchronize_rcu();
 #endif
 	}
-	drbd_put_connection(connection);
+	bsr_put_connection(connection);
 fail_put_transport:
 #ifdef _LIN
-	drbd_put_transport_class(tr_class);
+	bsr_put_transport_class(tr_class);
 #endif
 fail:
 	free_crypto(&crypto);
@@ -4044,11 +4044,11 @@ bool addr_eq_nla(const SOCKADDR_STORAGE_EX *addr, const int addr_len, const stru
 	return	nla_len(nla) == addr_len && memcmp(nla_data(nla), addr, addr_len) == 0;
 }
 
-static enum drbd_ret_code
-check_path_against_nla(const struct drbd_path *path,
+static enum bsr_ret_code
+check_path_against_nla(const struct bsr_path *path,
 		       const struct nlattr *my_addr, const struct nlattr *peer_addr)
 {
-	enum drbd_ret_code ret = NO_ERROR;
+	enum bsr_ret_code ret = NO_ERROR;
 
 	if (addr_eq_nla(&path->my_addr, path->my_addr_len, my_addr))
 		ret = ERR_LOCAL_ADDR;
@@ -4057,26 +4057,26 @@ check_path_against_nla(const struct drbd_path *path,
 	return ret;
 }
 
-static enum drbd_ret_code
-check_path_usable(const struct drbd_config_context *adm_ctx,
+static enum bsr_ret_code
+check_path_usable(const struct bsr_config_context *adm_ctx,
 		  const struct nlattr *my_addr, const struct nlattr *peer_addr)
 {
-	struct drbd_resource *resource;
-	struct drbd_connection *connection;
-	enum drbd_ret_code retcode;
+	struct bsr_resource *resource;
+	struct bsr_connection *connection;
+	enum bsr_ret_code retcode;
 
 	if (!(my_addr && peer_addr)) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "connection endpoint(s) missing");
+		bsr_msg_put_info(adm_ctx->reply_skb, "connection endpoint(s) missing");
 		return ERR_INVALID_REQUEST;
 	}
 
 	/* No need for _rcu here. All reconfiguration is
 	 * strictly serialized on resources_mutex. We are protected against
 	 * concurrent reconfiguration/addition/deletion */
-	for_each_resource(resource, &drbd_resources) {
+	for_each_resource(resource, &bsr_resources) {
 		for_each_connection(connection, resource) {
-			struct drbd_path *path;
-			list_for_each_entry_ex(struct drbd_path, path, &connection->transport.paths, list) {
+			struct bsr_path *path;
+			list_for_each_entry_ex(struct bsr_path, path, &connection->transport.paths, list) {
 				retcode = check_path_against_nla(path, my_addr, peer_addr);
 				if (retcode == NO_ERROR)
 					continue;
@@ -4092,19 +4092,19 @@ check_path_usable(const struct drbd_config_context *adm_ctx,
 	return NO_ERROR;
 }
 
-static enum drbd_ret_code
-adm_add_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
+static enum bsr_ret_code
+adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 {
-	struct drbd_transport *transport = &adm_ctx->connection->transport;
+	struct bsr_transport *transport = &adm_ctx->connection->transport;
 	struct nlattr *my_addr = NULL, *peer_addr = NULL;
-	struct drbd_path *path;
-	enum drbd_ret_code retcode;
+	struct bsr_path *path;
+	enum bsr_ret_code retcode;
 	int err;
 
 	/* parse and validate only */
 	err = path_parms_from_attrs(NULL, info);
 	if (err) {
-		drbd_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
 		return ERR_MANDATORY_TAG;
 	}
 	my_addr = nested_attr_tb[__nla_type(T_my_addr)];
@@ -4127,27 +4127,27 @@ adm_add_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
 
 	err = transport->ops->add_path(transport, path);
 	if (err) {
-		struct drbd_connection * connection = adm_ctx->connection;
-		kref_put(&path->kref, drbd_destroy_path);
-		drbd_err(connection, "add_path() failed with %d\n", err);
-		drbd_msg_put_info(adm_ctx->reply_skb, "add_path on transport failed");
+		struct bsr_connection * connection = adm_ctx->connection;
+		kref_put(&path->kref, bsr_destroy_path);
+		bsr_err(connection, "add_path() failed with %d\n", err);
+		bsr_msg_put_info(adm_ctx->reply_skb, "add_path on transport failed");
 		return ERR_INVALID_REQUEST;
 	}
 	notify_path(adm_ctx->connection, path, NOTIFY_CREATE);
 	return NO_ERROR;
 }
 
-int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
+	struct bsr_config_context adm_ctx;
 	struct connect_parms parms = { 0, };
-	struct drbd_peer_device *peer_device;
-	struct drbd_connection *connection;
-	enum drbd_ret_code retcode;
-	enum drbd_conn_state cstate;
+	struct bsr_peer_device *peer_device;
+	struct bsr_connection *connection;
+	enum bsr_ret_code retcode;
+	enum bsr_conn_state cstate;
 	int i, err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4166,16 +4166,16 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (first_path(connection) == NULL) {
-		drbd_msg_put_info(adm_ctx.reply_skb, "connection endpoint(s) missing");
+		bsr_msg_put_info(adm_ctx.reply_skb, "connection endpoint(s) missing");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 
-	if (info->attrs[DRBD_NLA_CONNECT_PARMS]) {
+	if (info->attrs[BSR_NLA_CONNECT_PARMS]) {
 		err = connect_parms_from_attrs(&parms, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out;
 		}
 	}
@@ -4190,8 +4190,8 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 		set_bit(CONN_DRY_RUN, &connection->flags);
 
 	/* Eventually allocate bitmap indexes for the peer_devices here */
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, i) {
-		struct drbd_device *device;
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
+		struct bsr_device *device;
 
 		if (peer_device->bitmap_index != -1)
 			continue;
@@ -4206,23 +4206,23 @@ int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info)
 			retcode = ERR_INVALID_REQUEST;
 			goto out;
 		}
-		drbd_md_mark_dirty(device);
+		bsr_md_mark_dirty(device);
 	}
 
 	retcode = change_cstate_ex(connection, C_UNCONNECTED, CS_VERBOSE);
 
 out:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_new_peer(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_new_peer(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_connection *connection;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_connection *connection;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_NODE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_NODE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4230,22 +4230,22 @@ int drbd_adm_new_peer(struct sk_buff *skb, struct genl_info *info)
 
 	if (adm_ctx.connection) {
 		retcode = ERR_INVALID_REQUEST;
-		drbd_msg_put_info(adm_ctx.reply_skb, "peer connection already exists");
+		bsr_msg_put_info(adm_ctx.reply_skb, "peer connection already exists");
 	} else {
 		retcode = adm_new_connection(&connection, &adm_ctx, info);
 	}
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_new_path(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_new_path(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4257,39 +4257,39 @@ int drbd_adm_new_path(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	mutex_unlock(&resources_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static enum drbd_ret_code
-adm_del_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
+static enum bsr_ret_code
+adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 {
-	struct drbd_connection *connection = adm_ctx->connection;
-	struct drbd_transport *transport = &connection->transport;
+	struct bsr_connection *connection = adm_ctx->connection;
+	struct bsr_transport *transport = &connection->transport;
 	struct nlattr *my_addr = NULL, *peer_addr = NULL;
-	struct drbd_path *path = NULL; 
+	struct bsr_path *path = NULL; 
 	int nr_paths = 0;
 	int err;
 
 	/* parse and validate only */
 	err = path_parms_from_attrs(NULL, info);
 	if (err) {
-		drbd_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx->reply_skb, from_attrs_err_to_txt(err));
 		return ERR_MANDATORY_TAG;
 	}
 	my_addr = nested_attr_tb[__nla_type(T_my_addr)];
 	peer_addr = nested_attr_tb[__nla_type(T_peer_addr)];
-	list_for_each_entry_ex(struct drbd_path, path, &transport->paths, list)
+	list_for_each_entry_ex(struct bsr_path, path, &transport->paths, list)
 		nr_paths++;
 
 	if (nr_paths == 1 && connection->cstate[NOW] >= C_CONNECTING) {
-		drbd_msg_put_info(adm_ctx->reply_skb,
+		bsr_msg_put_info(adm_ctx->reply_skb,
 				  "Can not delete last path, use disconnect first!");
 		return ERR_INVALID_REQUEST;
 	}
 	
 	err = -ENOENT;
-	list_for_each_entry_ex(struct drbd_path, path, &transport->paths, list) {
+	list_for_each_entry_ex(struct bsr_path, path, &transport->paths, list) {
 		if (!addr_eq_nla(&path->my_addr, path->my_addr_len, my_addr))
 			continue;
 		if (!addr_eq_nla(&path->peer_addr, path->peer_addr_len, peer_addr))
@@ -4305,22 +4305,22 @@ adm_del_path(struct drbd_config_context *adm_ctx,  struct genl_info *info)
 		   We do the synchronize_rcu() here in the generic code */
 		INIT_LIST_HEAD(&path->list);
 		notify_path(connection, path, NOTIFY_DESTROY);
-		kref_put(&path->kref, drbd_destroy_path);
+		kref_put(&path->kref, bsr_destroy_path);
 		return NO_ERROR;
 	}
 
-	drbd_err(connection, "del_path() failed with %d\n", err);
-	drbd_msg_put_info(adm_ctx->reply_skb,
+	bsr_err(connection, "del_path() failed with %d\n", err);
+	bsr_msg_put_info(adm_ctx->reply_skb,
 			  err == -ENOENT ? "no such path" : "del_path on transport failed");
 	return ERR_INVALID_REQUEST;
 }
 
-int drbd_adm_del_path(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_del_path(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4332,17 +4332,17 @@ int drbd_adm_del_path(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	mutex_unlock(&resources_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_open_ro_count(struct drbd_resource *resource)
+int bsr_open_ro_count(struct bsr_resource *resource)
 {
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int vnr, open_ro_cnt = 0;
 
 	spin_lock_irq(&resource->req_lock);
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr)
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr)
 		open_ro_cnt += device->open_ro_cnt;
 	spin_unlock_irq(&resource->req_lock);
 
@@ -4350,12 +4350,12 @@ int drbd_open_ro_count(struct drbd_resource *resource)
 }
 
 
-static enum drbd_state_rv conn_try_disconnect(struct drbd_connection *connection, bool force,
+static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, bool force,
 					      struct sk_buff *reply_skb)
 {
-	struct drbd_resource *resource = connection->resource;
-	enum drbd_conn_state cstate;
-	enum drbd_state_rv rv;
+	struct bsr_resource *resource = connection->resource;
+	enum bsr_conn_state cstate;
+	enum bsr_state_rv rv;
 	enum chg_state_flags flags = force ? CS_HARD : 0;
 	long t = 0;
 #ifdef _WIN
@@ -4384,7 +4384,7 @@ repeat:
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
 		wait_event_interruptible_timeout_ex(resource->state_wait,
-			drbd_open_ro_count(resource) == 0,
+			bsr_open_ro_count(resource) == 0,
 			HZ, t);
 
 		if (t <= 0)
@@ -4416,7 +4416,7 @@ repeat:
 	}
 	
 	if (err_str) {
-		drbd_msg_put_info(reply_skb, err_str);
+		bsr_msg_put_info(reply_skb, err_str);
 		kfree(err_str);
 	}
 
@@ -4425,46 +4425,46 @@ repeat:
 
 /* this cann only be called immediately after a successful
  * conn_try_disconnect, within the same resource->adm_mutex */
-void del_connection(struct drbd_connection *connection)
+void del_connection(struct bsr_connection *connection)
 {
-	struct drbd_resource *resource = connection->resource;
-	struct drbd_peer_device *peer_device;
-	enum drbd_state_rv rv2;
+	struct bsr_resource *resource = connection->resource;
+	struct bsr_peer_device *peer_device;
+	enum bsr_state_rv rv2;
 	int vnr;
 
 	/* No one else can reconfigure the network while I am here.
-	 * The state handling only uses drbd_thread_stop_nowait(),
+	 * The state handling only uses bsr_thread_stop_nowait(),
 	 * we want to really wait here until the receiver is no more.
 	 */
-	drbd_thread_stop(&connection->receiver);
+	bsr_thread_stop(&connection->receiver);
 
 	/* Race breaker.  This additional state change request may be
 	 * necessary, if this was a forced disconnect during a receiver
 	 * restart.  We may have "killed" the receiver thread just
-	 * after drbd_receiver() returned.  Typically, we should be
+	 * after bsr_receiver() returned.  Typically, we should be
 	 * C_STANDALONE already, now, and this becomes a no-op.
 	 */
 	rv2 = change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD);
 	if (rv2 < SS_SUCCESS)
-		drbd_err(connection,
+		bsr_err(connection,
 			"unexpected rv2=%d in del_connection()\n",
 			rv2);
 	/* Make sure the sender thread has actually stopped: state
-	 * handling only does drbd_thread_stop_nowait().
+	 * handling only does bsr_thread_stop_nowait().
 	 */
-	drbd_thread_stop(&connection->sender);
+	bsr_thread_stop(&connection->sender);
 
-	drbd_unregister_connection(connection);
+	bsr_unregister_connection(connection);
 
 	/*
 	 * Flush the resource work queue to make sure that no more
 	 * events like state change notifications for this connection
 	 * are queued: we want the "destroy" event to come last.
 	 */
-	drbd_flush_workqueue(resource, &resource->work);
+	bsr_flush_workqueue(resource, &resource->work);
 	
 	mutex_lock(&notification_mutex);
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr)
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
 		notify_peer_device_state(NULL, 0, peer_device, NULL,
 					 NOTIFY_DESTROY | NOTIFY_CONTINUES);
 	notify_connection_state(NULL, 0, connection, NULL, NOTIFY_DESTROY);
@@ -4473,27 +4473,27 @@ void del_connection(struct drbd_connection *connection)
 	//windows, (1) synchronize_rcu_w32_wlock() is disabled, because Assertion: *** DPC watchdog timeout
 	synchronize_rcu();
 #endif
-	drbd_put_connection(connection);
+	bsr_put_connection(connection);
 }
 
 int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 {
-	struct drbd_config_context adm_ctx;
+	struct bsr_config_context adm_ctx;
 	struct disconnect_parms parms;
-	struct drbd_connection *connection;
-	enum drbd_state_rv rv;
-	enum drbd_ret_code retcode;
+	struct bsr_connection *connection;
+	enum bsr_state_rv rv;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
 	memset(&parms, 0, sizeof(parms));
-	if (info->attrs[DRBD_NLA_DISCONNECT_PARMS]) {
+	if (info->attrs[BSR_NLA_DISCONNECT_PARMS]) {
 		int err = disconnect_parms_from_attrs(&parms, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto fail;
 		}
 	}
@@ -4512,28 +4512,28 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 		retcode = NO_ERROR;
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
  fail:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_disconnect(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_disconnect(struct sk_buff *skb, struct genl_info *info)
 {
 	return adm_disconnect(skb, info, 0);
 }
 
-int drbd_adm_del_peer(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_del_peer(struct sk_buff *skb, struct genl_info *info)
 {
 	return adm_disconnect(skb, info, 1);
 }
 
-void resync_after_online_grow(struct drbd_peer_device *peer_device)
+void resync_after_online_grow(struct bsr_peer_device *peer_device)
 {
-	struct drbd_connection *connection = peer_device->connection;
-	struct drbd_device *device = peer_device->device;
+	struct bsr_connection *connection = peer_device->connection;
+	struct bsr_device *device = peer_device->device;
 	bool sync_source = false;
 	s32 peer_id;
 
-	drbd_info(peer_device, "Resync of new storage after online grow\n");
+	bsr_info(peer_device, "Resync of new storage after online grow\n");
 	if (device->resource->role[NOW] != connection->peer_role[NOW])
 		sync_source = (device->resource->role[NOW] == R_PRIMARY);
 	else if (connection->agreed_pro_version < 111)
@@ -4553,58 +4553,58 @@ void resync_after_online_grow(struct drbd_peer_device *peer_device)
 					 CS_VERBOSE | CS_SERIALIZE);
 		return;
 	}
-	drbd_start_resync(peer_device, sync_source ? L_SYNC_SOURCE : L_SYNC_TARGET);
+	bsr_start_resync(peer_device, sync_source ? L_SYNC_SOURCE : L_SYNC_TARGET);
 }
 
-sector_t drbd_local_max_size(struct drbd_device *device) __must_hold(local)
+sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local)
 {
-	struct drbd_backing_dev *tmp_bdev;
+	struct bsr_backing_dev *tmp_bdev;
 	sector_t s;
 
-	tmp_bdev = kmalloc(sizeof(struct drbd_backing_dev), GFP_ATOMIC, '97DW');
+	tmp_bdev = kmalloc(sizeof(struct bsr_backing_dev), GFP_ATOMIC, '97DW');
 	if (!tmp_bdev)
 		return 0;
 
 	*tmp_bdev = *device->ldev;
-	drbd_md_set_sector_offsets(device, tmp_bdev);
-	s = drbd_get_max_capacity(tmp_bdev);
+	bsr_md_set_sector_offsets(device, tmp_bdev);
+	s = bsr_get_max_capacity(tmp_bdev);
 	kfree(tmp_bdev);
 
 	return s;
 }
 
-int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 {
 #ifdef _WIN
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-	// DW-1469 disable drbd_adm_resize
-	drbd_msg_put_info(adm_ctx.reply_skb, "cmd(drbd_adm_resize) error: not support.\n");
-	drbd_adm_finish(&adm_ctx, info, ERR_INVALID_REQUEST);
+	// DW-1469 disable bsr_adm_resize
+	bsr_msg_put_info(adm_ctx.reply_skb, "cmd(bsr_adm_resize) error: not support.\n");
+	bsr_adm_finish(&adm_ctx, info, ERR_INVALID_REQUEST);
 	return 0;
 #else // _LIN
-	struct drbd_config_context adm_ctx;
+	struct bsr_config_context adm_ctx;
 	struct disk_conf *old_disk_conf, *new_disk_conf = NULL;
 	struct resize_parms rs;
-	struct drbd_device *device;
-	enum drbd_ret_code retcode;
+	struct bsr_device *device;
+	enum bsr_ret_code retcode;
 	enum determine_dev_size dd;
 	bool change_al_layout = false;
 	enum dds_flags ddsf;
 	sector_t u_size;
 	int err;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	bool resolve_by_node_id = true;
 	bool has_up_to_date_primary;
 	bool traditional_resize = false;
 	sector_t local_max_size;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4618,11 +4618,11 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	memset(&rs, 0, sizeof(struct resize_parms));
 	rs.al_stripes = device->ldev->md.al_stripes;
 	rs.al_stripe_size = device->ldev->md.al_stripe_size_4k * 4;
-	if (info->attrs[DRBD_NLA_RESIZE_PARMS]) {
+	if (info->attrs[BSR_NLA_RESIZE_PARMS]) {
 		err = resize_parms_from_attrs(&rs, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto fail_ldev;
 		}
 	}
@@ -4635,9 +4635,9 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 	
-	local_max_size = drbd_local_max_size(device);
+	local_max_size = bsr_local_max_size(device);
 	if (rs.resize_size && local_max_size < (sector_t)rs.resize_size) {
-		drbd_err(device, "requested %llu sectors, backend seems only able to support %llu\n",
+		bsr_err(device, "requested %llu sectors, backend seems only able to support %llu\n",
 			(unsigned long long)(sector_t)rs.resize_size,
 			(unsigned long long)local_max_size);
 		retcode = ERR_DISK_TOO_SMALL;
@@ -4670,7 +4670,7 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	}
 	
 	for_each_peer_device(peer_device, device) {
-		struct drbd_connection *connection = peer_device->connection;
+		struct bsr_connection *connection = peer_device->connection;
 		if (rs.no_resync &&
 			connection->cstate[NOW] == C_CONNECTED &&
 			connection->agreed_pro_version < 93) {
@@ -4713,7 +4713,7 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 		change_al_layout = true;
 	}
 	
-	device->ldev->known_size = drbd_get_capacity(device->ldev->backing_bdev);
+	device->ldev->known_size = bsr_get_capacity(device->ldev->backing_bdev);
 	
 	if (new_disk_conf) {
 		mutex_lock(&device->resource->conf_update);
@@ -4734,10 +4734,10 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 				change_al_layout ? &rs : NULL);
 	if (dd == DS_2PC_NOT_SUPPORTED) {
 		traditional_resize = true;
-		dd = drbd_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
+		dd = bsr_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
 	}
 	
-	drbd_md_sync_if_dirty(device);
+	bsr_md_sync_if_dirty(device);
 	put_ldev(device);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
@@ -4758,15 +4758,15 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 			if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
 				if (dd == DS_GREW)
 					set_bit(RESIZE_PENDING, &peer_device->flags);
-				drbd_send_uuids(peer_device, 0, 0);
-				drbd_send_sizes(peer_device, rs.resize_size, ddsf);
+				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_sizes(peer_device, rs.resize_size, ddsf);
 			}
 		}
 	}
 	
  fail:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 
  fail_ldev:
@@ -4776,14 +4776,14 @@ int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info)
 #endif	
 }
 
-int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 	struct res_opts res_opts;
 	int err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_RESOURCE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4794,7 +4794,7 @@ int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info)
 	err = res_opts_from_attrs_for_change(&res_opts, info);
 	if (err && err != -ENOMSG) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto fail;
 	}
 
@@ -4808,17 +4808,17 @@ int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info)
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 
 fail:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device)
+static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 {
-	struct drbd_resource *resource = peer_device->connection->resource;
-	enum drbd_state_rv rv;
+	struct bsr_resource *resource = peer_device->connection->resource;
+	enum bsr_state_rv rv;
 	int res = 0;
 
-	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
+	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
 
 	rv = change_repl_state(peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
@@ -4832,13 +4832,13 @@ static enum drbd_state_rv invalidate_resync(struct drbd_peer_device *peer_device
 	return rv;
 }
 
-static enum drbd_state_rv invalidate_no_resync(struct drbd_device *device) __must_hold(local)
+static enum bsr_state_rv invalidate_no_resync(struct bsr_device *device) __must_hold(local)
 {
-	struct drbd_resource *resource = device->resource;
-	struct drbd_peer_device *peer_device;
-	struct drbd_connection *connection;
+	struct bsr_resource *resource = device->resource;
+	struct bsr_peer_device *peer_device;
+	struct bsr_connection *connection;
 	unsigned long irq_flags;
-	enum drbd_state_rv rv;
+	enum bsr_state_rv rv;
 
 	begin_state_change(resource, &irq_flags, CS_VERBOSE);
 	for_each_connection(connection, resource) {
@@ -4852,7 +4852,7 @@ static enum drbd_state_rv invalidate_no_resync(struct drbd_device *device) __mus
 	rv = end_state_change(resource, &irq_flags, __FUNCTION__);
 
 	if (rv >= SS_SUCCESS) {
-		drbd_bitmap_io(device, &drbd_bmio_set_all_n_write,
+		bsr_bitmap_io(device, &bsr_bmio_set_all_n_write,
 			       "set_n_write from invalidate",
 			       BM_LOCK_CLEAR | BM_LOCK_BULK,
 			       NULL);
@@ -4861,16 +4861,16 @@ static enum drbd_state_rv invalidate_no_resync(struct drbd_device *device) __mus
 	return rv;
 }
 
-int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_peer_device *sync_from_peer_device = NULL;
-	struct drbd_resource *resource;
-	struct drbd_peer_device *peer_device;
-	struct drbd_device *device;
-	int retcode = 0; /* enum drbd_ret_code rsp. enum drbd_state_rv */
+	struct bsr_config_context adm_ctx;
+	struct bsr_peer_device *sync_from_peer_device = NULL;
+	struct bsr_resource *resource;
+	struct bsr_peer_device *peer_device;
+	struct bsr_device *device;
+	int retcode = 0; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4882,10 +4882,10 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	for_each_peer_device(peer_device, device) {
-		enum drbd_repl_state *repl_state = peer_device->repl_state;
+		enum bsr_repl_state *repl_state = peer_device->repl_state;
 		if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_WF_BITMAP_T) ||
 			(repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
-			if (repl_state[NOW] >= L_ESTABLISHED && !drbd_inspect_resync_side(peer_device, repl_state[NEW], NEW, false)) {
+			if (repl_state[NOW] >= L_ESTABLISHED && !bsr_inspect_resync_side(peer_device, repl_state[NEW], NEW, false)) {
 				retcode = ERR_CODE_BASE;
 				goto out_no_ldev;
 			}
@@ -4896,7 +4896,7 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->adm_mutex);
 
-	if (info->attrs[DRBD_NLA_INVALIDATE_PARMS]) {
+	if (info->attrs[BSR_NLA_INVALIDATE_PARMS]) {
 		struct invalidate_parms inv = { 0, };
 		int err;
 
@@ -4904,17 +4904,17 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 		err = invalidate_parms_from_attrs(&inv, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out_no_resume;
 		}
 
 		if (inv.sync_from_peer_node_id != -1) {
-			struct drbd_connection *connection =
-				drbd_connection_by_node_id(resource, inv.sync_from_peer_node_id);
+			struct bsr_connection *connection =
+				bsr_connection_by_node_id(resource, inv.sync_from_peer_node_id);
 			// DW-1134 fix crash for invalid peer node id
 			if(connection == NULL) {
 				retcode = ERR_INVALID_PEER_NODE_ID;
-				drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+				bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 				goto out_no_resume;
 			}
 			sync_from_peer_device = conn_peer_device(connection, device->vnr);
@@ -4924,7 +4924,7 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	/* If there is still bitmap IO pending, probably because of a previous
 	 * resync just being finished, wait for it before requesting a new resync.
 	 * Also wait for its after_state_ch(). */
-	drbd_suspend_io(device, READ_AND_WRITE);
+	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 
 	if (sync_from_peer_device) {
@@ -4932,12 +4932,12 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	} else {
 		int retry = 3;
 		do {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 			// DW-907
 			int success = 0;
 
 			for_each_connection(connection, resource) {
-				struct drbd_peer_device *peer_device;
+				struct bsr_peer_device *peer_device;
 
 				peer_device = conn_peer_device(connection, device->vnr);
 				retcode = invalidate_resync(peer_device);
@@ -4961,36 +4961,36 @@ int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	}
 
 out:
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
 	put_ldev(device);
 out_no_ldev:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static int drbd_bmio_set_susp_al(struct drbd_device *device, struct drbd_peer_device *peer_device) __must_hold(local)
+static int bsr_bmio_set_susp_al(struct bsr_device *device, struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	int rv;
 
-	rv = drbd_bmio_set_n_write(device, peer_device);
-	drbd_try_suspend_al(device);
+	rv = bsr_bmio_set_n_write(device, peer_device);
+	bsr_try_suspend_al(device);
 	return rv;
 }
 
-int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_peer_device *peer_device;
-	struct drbd_resource *resource;
-	struct drbd_device *device;
-	struct drbd_peer_device *temp_peer_device;
-	int retcode; /* enum drbd_ret_code rsp. enum drbd_state_rv */
+	struct bsr_config_context adm_ctx;
+	struct bsr_peer_device *peer_device;
+	struct bsr_resource *resource;
+	struct bsr_device *device;
+	struct bsr_peer_device *temp_peer_device;
+	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 	// DW-1391
 	long timeo = 5*HZ;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -4999,8 +4999,8 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	resource = device->resource;
 
 	for_each_peer_device(temp_peer_device, device) {
-		enum drbd_role *role = resource->role;
-		enum drbd_repl_state *repl_state = temp_peer_device->repl_state;
+		enum bsr_role *role = resource->role;
+		enum bsr_repl_state *repl_state = temp_peer_device->repl_state;
 
 		if ( (role[NOW] == R_SECONDARY)
 			&& ( repl_state[NOW] == L_STARTING_SYNC_T 
@@ -5021,9 +5021,9 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->adm_mutex);
 
-	drbd_suspend_io(device, READ_AND_WRITE);
+	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
-	drbd_flush_workqueue(resource, &peer_device->connection->sender_work);
+	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
 	
 	retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
@@ -5034,7 +5034,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			retcode = change_peer_disk_state(peer_device, D_INCONSISTENT,
 							 CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
 			if (retcode >= SS_SUCCESS) {
-				if (drbd_bitmap_io(adm_ctx.device, &drbd_bmio_set_susp_al,
+				if (bsr_bitmap_io(adm_ctx.device, &bsr_bmio_set_susp_al,
 						   "set_n_write from invalidate_peer",
 						   BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
 					retcode = ERR_IO_MD_DISK;
@@ -5043,7 +5043,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S,
 							   CS_VERBOSE | CS_SERIALIZE);
 	}
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 
 	if (retcode >= SS_SUCCESS) {
 		// DW-1391 wait for bm_io_work to complete, then run the next invalidate peer. 
@@ -5051,7 +5051,7 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
 				timeo, retcode);
 #ifdef _WIN
-		if (-DRBD_SIGKILL == retcode) { 
+		if (-BSR_SIGKILL == retcode) { 
 			retcode = SS_INTERRUPTED;
 		}
 		else if (-ETIMEDOUT == retcode) {
@@ -5073,17 +5073,17 @@ int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	mutex_unlock(&resource->adm_mutex);
 	put_ldev(device);
 out:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_pause_sync(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_pause_sync(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -5095,17 +5095,17 @@ int drbd_adm_pause_sync(struct sk_buff *skb, struct genl_info *info)
 		retcode = ERR_PAUSE_IS_SET;
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_resume_sync(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_resume_sync(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -5129,25 +5129,25 @@ int drbd_adm_resume_sync(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_resource *resource;
-	enum drbd_state_rv retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_resource *resource;
+	enum bsr_state_rv retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 	resource = adm_ctx.device->resource;
 
 #ifdef _WIN 
-	// DW-1361 disable drbd_adm_suspend_io
-	drbd_err(resource, "cmd(%u) error: drbd_adm_suspend_io not support.\n", info->genlhdr->cmd);
-	drbd_adm_finish(&adm_ctx, info, -ENOMSG);
+	// DW-1361 disable bsr_adm_suspend_io
+	bsr_err(resource, "cmd(%u) error: bsr_adm_suspend_io not support.\n", info->genlhdr->cmd);
+	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN
 	//TODO: support for suspend io on linux?
@@ -5158,31 +5158,31 @@ int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE));
 
 	mutex_unlock(&resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 #endif
 }
 
-int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_resource *resource;
-	int retcode; /* enum drbd_ret_code rsp. enum drbd_state_rv */
+	struct bsr_config_context adm_ctx;
+	struct bsr_resource *resource;
+	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 #ifdef _LIN
-	struct drbd_device *device;	
-	struct drbd_connection *connection;
+	struct bsr_device *device;	
+	struct bsr_connection *connection;
 	ULONG_PTR irq_flags;
 #endif
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
 #ifdef _WIN
-	// DW-1361 disable drbd_adm_resume_io
+	// DW-1361 disable bsr_adm_resume_io
 	resource = adm_ctx.device->resource;
-	drbd_err(resource, "cmd(%u) error: drbd_adm_resume_io not support.\n", info->genlhdr->cmd);
-	drbd_adm_finish(&adm_ctx, info, -ENOMSG);
+	bsr_err(resource, "cmd(%u) error: bsr_adm_resume_io not support.\n", info->genlhdr->cmd);
+	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN
 	//TODO: support for resumio on linux?
@@ -5190,8 +5190,8 @@ int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	device = adm_ctx.device;
 	resource = device->resource;
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags))
-		drbd_uuid_new_current(device, false);
-	drbd_suspend_io(device, READ_AND_WRITE);
+		bsr_uuid_new_current(device, false);
+	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
 	__change_io_susp_user(resource, false);
 	__change_io_susp_no_data(resource, false);
@@ -5201,10 +5201,10 @@ int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	__change_io_susp_quorum(device, false);
 	retcode = end_state_change(resource, &irq_flags, __FUNCTION__);
 	if (retcode == SS_SUCCESS) {
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 
 		for_each_peer_device(peer_device, device) {
-			struct drbd_connection *connection = peer_device->connection;
+			struct bsr_connection *connection = peer_device->connection;
 
 			if (peer_device->repl_state[NOW] < L_ESTABLISHED)
 				tl_clear(connection);
@@ -5214,19 +5214,19 @@ int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 				tl_restart(connection, FAIL_FROZEN_DISK_IO);
 		}
 	}
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 #endif
 }
 
-int drbd_adm_outdate(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_state_rv retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_state_rv retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
@@ -5236,18 +5236,18 @@ int drbd_adm_outdate(struct sk_buff *skb, struct genl_info *info)
 			CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE, NULL));
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static int nla_put_drbd_cfg_context(struct sk_buff *skb,
-				    struct drbd_resource *resource,
-				    struct drbd_connection *connection,
-				    struct drbd_device *device,
-				    struct drbd_path *path)
+static int nla_put_bsr_cfg_context(struct sk_buff *skb,
+				    struct bsr_resource *resource,
+				    struct bsr_connection *connection,
+				    struct bsr_device *device,
+				    struct bsr_path *path)
 {
 	struct nlattr *nla;
-	nla = nla_nest_start(skb, DRBD_NLA_CFG_CONTEXT);
+	nla = nla_nest_start(skb, BSR_NLA_CFG_CONTEXT);
 	if (!nla)
 		goto nla_put_failure;
 	if (device)
@@ -5282,44 +5282,44 @@ nla_put_failure:
 static struct nlattr *find_cfg_context_attr(const struct nlmsghdr *nlh, int attr)
 {
 	const unsigned hdrlen = GENL_HDRLEN + GENL_MAGIC_FAMILY_HDRSZ;
-	const int maxtype = ARRAY_SIZE(drbd_cfg_context_nl_policy) - 1;
+	const int maxtype = ARRAY_SIZE(bsr_cfg_context_nl_policy) - 1;
 	struct nlattr *nla;
 
 	nla = nla_find(nlmsg_attrdata(nlh, hdrlen), nlmsg_attrlen(nlh, hdrlen),
-		       DRBD_NLA_CFG_CONTEXT);
+		       BSR_NLA_CFG_CONTEXT);
 	if (!nla)
 		return NULL;
-	return drbd_nla_find_nested(maxtype, nla, __nla_type(attr));
+	return bsr_nla_find_nested(maxtype, nla, __nla_type(attr));
 }
 
-static void resource_to_info(struct resource_info *, struct drbd_resource *);
+static void resource_to_info(struct resource_info *, struct bsr_resource *);
 
-int drbd_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb)
+int bsr_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct drbd_genlmsghdr *dh;
-	struct drbd_resource *resource;
+	struct bsr_genlmsghdr *dh;
+	struct bsr_resource *resource;
 	struct resource_info resource_info;
 	struct resource_statistics resource_statistics;
 	int err;
 
 	rcu_read_lock();
 	if (cb->args[0]) {
-		for_each_resource_rcu(resource, &drbd_resources)
-			if (resource == (struct drbd_resource *)cb->args[0])
+		for_each_resource_rcu(resource, &bsr_resources)
+			if (resource == (struct bsr_resource *)cb->args[0])
 				goto found_resource;
 		err = 0;  /* resource was probably deleted */
 		goto out;
 	}
-	resource = list_entry(&drbd_resources,
-			      struct drbd_resource, resources);
+	resource = list_entry(&bsr_resources,
+			      struct bsr_resource, resources);
 
 found_resource:
 #ifdef _WIN
-	resource = list_entry_rcu(resource->resources.next, struct drbd_resource, resources); 
-	if (&resource->resources != (&drbd_resources))
+	resource = list_entry_rcu(resource->resources.next, struct bsr_resource, resources); 
+	if (&resource->resources != (&bsr_resources))
 		goto put_result;
 #else // _LIN
-	list_for_each_entry_continue_rcu_ex(struct drbd_resource, resource, &drbd_resources, resources) {
+	list_for_each_entry_continue_rcu_ex(struct bsr_resource, resource, &bsr_resources, resources) {
 		goto put_result;
 	}
 #endif
@@ -5328,8 +5328,8 @@ found_resource:
 
 put_result:
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_RESOURCES);
+		cb->nlh->nlmsg_seq, &bsr_genl_family,
+		NLM_F_MULTI, BSR_ADM_GET_RESOURCES);
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -5341,7 +5341,7 @@ put_result:
 	// BSR-421 modify deadlock of rcu_read_lock
 	rcu_read_unlock();
 #endif
-	err = nla_put_drbd_cfg_context(skb, resource, NULL, NULL, NULL);
+	err = nla_put_bsr_cfg_context(skb, resource, NULL, NULL, NULL);
 #ifdef _WIN
 	rcu_read_lock_w32_inner();
 #endif
@@ -5382,12 +5382,12 @@ out:
 }
 
 static void device_to_statistics(struct device_statistics *s,
-				 struct drbd_device *device)
+				 struct bsr_device *device)
 {
 	memset(s, 0, sizeof(*s));
 	s->dev_upper_blocked = !may_inc_ap_bio(device);
 	if (get_ldev(device)) {
-		struct drbd_md *md = &device->ldev->md;
+		struct bsr_md *md = &device->ldev->md;
 		u64 *history_uuids = (u64 *)s->history_uuids;
 		struct request_queue *q;
 		int n;
@@ -5410,7 +5410,7 @@ static void device_to_statistics(struct device_statistics *s,
 #endif
 		put_ldev(device);
 	}
-	s->dev_size = drbd_get_capacity(device->this_bdev);
+	s->dev_size = bsr_get_capacity(device->this_bdev);
 	s->dev_read = device->read_cnt;
 	s->dev_write = device->writ_cnt;
 	s->dev_al_writes = device->al_writ_cnt;
@@ -5430,31 +5430,31 @@ static void device_to_statistics(struct device_statistics *s,
 static int put_resource_in_arg0(struct netlink_callback *cb, int holder_nr)
 {
 	if (cb->args[0]) {
-		struct drbd_resource *resource =
-			(struct drbd_resource *)cb->args[0];
+		struct bsr_resource *resource =
+			(struct bsr_resource *)cb->args[0];
 		kref_debug_put(&resource->kref_debug, holder_nr); /* , 6); , 7); */
-		kref_put(&resource->kref, drbd_destroy_resource);
+		kref_put(&resource->kref, bsr_destroy_resource);
 	}
 
 	return 0;
 }
 
-int drbd_adm_dump_devices_done(struct netlink_callback *cb) {
+int bsr_adm_dump_devices_done(struct netlink_callback *cb) {
 	return put_resource_in_arg0(cb, 7);
 }
 
-int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
+int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
-	struct drbd_resource *resource;	
+	struct bsr_resource *resource;	
 	int minor = 0, err = 0, retcode = 0;
-	struct drbd_device *uninitialized_var(device);
-	struct drbd_genlmsghdr *dh;
+	struct bsr_device *uninitialized_var(device);
+	struct bsr_genlmsghdr *dh;
 	struct device_info device_info;
 	struct device_statistics device_statistics;
 	struct idr *idr_to_search;
 
-	resource = (struct drbd_resource *)cb->args[0];
+	resource = (struct bsr_resource *)cb->args[0];
 
 	rcu_read_lock();
 	if (!cb->args[0] && !cb->args[1]) {
@@ -5464,7 +5464,7 @@ int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_unlock();
 #endif
-			resource = drbd_find_resource(nla_data(resource_filter));
+			resource = bsr_find_resource(nla_data(resource_filter));
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_lock_w32_inner();
 #endif
@@ -5478,19 +5478,19 @@ int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	BUG_ON_INT32_OVER(cb->args[1]);
 #endif
 	minor = (int)cb->args[1];
-	idr_to_search = resource ? &resource->devices : &drbd_devices;
+	idr_to_search = resource ? &resource->devices : &bsr_devices;
 	device = idr_get_next(idr_to_search, &minor);
 	if (!device) {
 		err = 0;
 		goto out;
 	}
 
-//	idr_for_each_entry_continue_ex(struct drbd_device *, idr_to_search, device, minor) {
+//	idr_for_each_entry_continue_ex(struct bsr_device *, idr_to_search, device, minor) {
 //		retcode = NO_ERROR;
 //		goto put_result;  /* only one iteration */
 //	}
 
-	device = (struct drbd_device *)idr_get_next((idr_to_search), &(minor));
+	device = (struct bsr_device *)idr_get_next((idr_to_search), &(minor));
 	if (device) {
 			retcode = NO_ERROR;
 			goto put_result;  /* only one iteration */
@@ -5501,8 +5501,8 @@ int drbd_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 
 put_result:
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_DEVICES);
+		cb->nlh->nlmsg_seq, &bsr_genl_family,
+		NLM_F_MULTI, BSR_ADM_GET_DEVICES);
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -5516,7 +5516,7 @@ put_result:
 		// BSR-421 modify deadlock of rcu_read_lock
 		rcu_read_unlock();
 #endif
-		err = nla_put_drbd_cfg_context(skb, device->resource, NULL, device, NULL);
+		err = nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL);
 #ifdef _WIN
 		rcu_read_lock_w32_inner();
 #endif
@@ -5560,20 +5560,20 @@ out:
 	return skb->len;
 }
 
-int drbd_adm_dump_connections_done(struct netlink_callback *cb)
+int bsr_adm_dump_connections_done(struct netlink_callback *cb)
 {
 	return put_resource_in_arg0(cb, 6);
 }
 
-int connection_paths_to_skb(struct sk_buff *skb, struct drbd_connection *connection)
+int connection_paths_to_skb(struct sk_buff *skb, struct bsr_connection *connection)
 {
-	struct drbd_path *path;
-	struct nlattr *tla = nla_nest_start(skb, DRBD_NLA_PATH_PARMS);
+	struct bsr_path *path;
+	struct nlattr *tla = nla_nest_start(skb, BSR_NLA_PATH_PARMS);
 	if (!tla)
 		goto nla_put_failure;
 
 	/* array of such paths. */
-	list_for_each_entry_ex(struct drbd_path, path, &connection->transport.paths, list) {
+	list_for_each_entry_ex(struct bsr_path, path, &connection->transport.paths, list) {
 		if (nla_put(skb, T_my_addr, path->my_addr_len, &path->my_addr))
 			goto nla_put_failure;
 		if (nla_put(skb, T_peer_addr, path->peer_addr_len, &path->peer_addr))
@@ -5590,18 +5590,18 @@ nla_put_failure:
 
 enum { SINGLE_RESOURCE, ITERATE_RESOURCES };
 
-int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
+int bsr_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
-	struct drbd_resource *resource = NULL, *next_resource;
-	struct drbd_connection *uninitialized_var(connection);
+	struct bsr_resource *resource = NULL, *next_resource;
+	struct bsr_connection *uninitialized_var(connection);
 	int err = 0, retcode;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	struct connection_info connection_info;
 	struct connection_statistics connection_statistics;
 
 	rcu_read_lock();
-	resource = (struct drbd_resource *)cb->args[0];
+	resource = (struct bsr_resource *)cb->args[0];
 	if (!cb->args[0]) {
 		resource_filter = find_cfg_context_attr(cb->nlh, T_ctx_resource_name);
 		if (resource_filter) {
@@ -5609,7 +5609,7 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_unlock();
 #endif
-			resource = drbd_find_resource(nla_data(resource_filter));
+			resource = bsr_find_resource(nla_data(resource_filter));
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_lock_w32_inner();
 #endif
@@ -5621,9 +5621,9 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 		}
 	}
 	if (!resource) {
-		if (list_empty(&drbd_resources))
+		if (list_empty(&bsr_resources))
 			goto out;
-		resource = list_first_entry(&drbd_resources, struct drbd_resource, resources);
+		resource = list_first_entry(&bsr_resources, struct bsr_resource, resources);
 		kref_get(&resource->kref);
 		kref_debug_get(&resource->kref_debug, 6);
 		cb->args[0] = (LONG_PTR)resource;
@@ -5640,22 +5640,22 @@ int drbd_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 #endif
 	if (cb->args[2]) {
 		for_each_connection_rcu(connection, resource)
-			if (connection == (struct drbd_connection *)cb->args[2])
+			if (connection == (struct bsr_connection *)cb->args[2])
 				goto found_connection;
 		/* connection was probably deleted */
 		goto no_more_connections;
 	}
-	connection = list_entry(&resource->connections, struct drbd_connection, connections);
+	connection = list_entry(&resource->connections, struct bsr_connection, connections);
 
 found_connection:
 #ifdef _WIN
-	connection = list_entry_rcu(connection->connections.next, struct drbd_connection, connections);
+	connection = list_entry_rcu(connection->connections.next, struct bsr_connection, connections);
 	if(&connection->connections != &(resource->connections)) {        
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
 #else // _LIN
-	list_for_each_entry_continue_rcu_ex(struct drbd_connection, connection, &resource->connections, connections) {
+	list_for_each_entry_continue_rcu_ex(struct bsr_connection, connection, &resource->connections, connections) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
@@ -5663,7 +5663,7 @@ found_connection:
 
 no_more_connections:
 	if (cb->args[1] == ITERATE_RESOURCES) {
-		for_each_resource_rcu(next_resource, &drbd_resources) {
+		for_each_resource_rcu(next_resource, &bsr_resources) {
 			if (next_resource == resource)
 				goto found_resource;
 		}
@@ -5672,11 +5672,11 @@ no_more_connections:
 	goto out;
 
 found_resource:
-	next_resource = list_entry_rcu(next_resource->resources.next, struct drbd_resource, resources);
-	if (&next_resource->resources != &(drbd_resources)) {
+	next_resource = list_entry_rcu(next_resource->resources.next, struct bsr_resource, resources);
+	if (&next_resource->resources != &(bsr_resources)) {
 		mutex_unlock(&resource->conf_update);
 		kref_debug_put(&resource->kref_debug, 6);
-		kref_put(&resource->kref, drbd_destroy_resource);
+		kref_put(&resource->kref, bsr_destroy_resource);
 		resource = next_resource;
 		kref_get(&resource->kref);
 		kref_debug_get(&resource->kref_debug, 6);
@@ -5689,8 +5689,8 @@ found_resource:
 
 put_result:
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_CONNECTIONS);
+		cb->nlh->nlmsg_seq, &bsr_genl_family,
+		NLM_F_MULTI, BSR_ADM_GET_CONNECTIONS);
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -5704,7 +5704,7 @@ put_result:
 		// BSR-421 modify deadlock of rcu_read_lock
 		rcu_read_unlock();
 #endif
-		err = nla_put_drbd_cfg_context(skb, resource, connection, NULL, NULL);
+		err = nla_put_bsr_cfg_context(skb, resource, connection, NULL, NULL);
 #ifdef _WIN
 		rcu_read_lock_w32_inner();
 #endif
@@ -5740,9 +5740,9 @@ out:
 }
 
 static void peer_device_to_statistics(struct peer_device_statistics *s,
-				      struct drbd_peer_device *peer_device)
+				      struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = peer_device->device;
+	struct bsr_device *device = peer_device->device;
 
 	memset(s, 0, sizeof(*s));
 	s->peer_dev_received = peer_device->recv_cnt;
@@ -5753,19 +5753,19 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 
 	// DW-953 apply v8.4.x source for L_VERIFY_X
 	if (peer_device->repl_state[NOW] == L_VERIFY_S) {
-		s->peer_dev_out_of_sync = drbd_bm_bits(device) - BM_SECT_TO_BIT(peer_device->ov_position);
+		s->peer_dev_out_of_sync = bsr_bm_bits(device) - BM_SECT_TO_BIT(peer_device->ov_position);
 	}
 	else if (peer_device->repl_state[NOW] == L_VERIFY_T) {
 		s->peer_dev_out_of_sync = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
 	}
 	else {
-		s->peer_dev_out_of_sync = drbd_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
+		s->peer_dev_out_of_sync = bsr_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
 	}
 
 	s->peer_dev_resync_failed = peer_device->rs_failed << (BM_BLOCK_SHIFT - 9);
 	if (get_ldev(device)) {
-		struct drbd_md *md = &device->ldev->md;
-		struct drbd_peer_md *peer_md = &md->peers[peer_device->node_id];
+		struct bsr_md *md = &device->ldev->md;
+		struct bsr_peer_md *peer_md = &md->peers[peer_device->node_id];
 
 		spin_lock_irq(&md->uuid_lock);
 		s->peer_dev_bitmap_uuid = peer_md->bitmap_uuid;
@@ -5775,23 +5775,23 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 	}
 }
 
-int drbd_adm_dump_peer_devices_done(struct netlink_callback *cb)
+int bsr_adm_dump_peer_devices_done(struct netlink_callback *cb)
 {
 	return put_resource_in_arg0(cb, 9);
 }
 
-int drbd_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
+int bsr_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
-	struct drbd_resource *resource;
-	struct drbd_device *uninitialized_var(device);
-	struct drbd_peer_device *peer_device = NULL;
+	struct bsr_resource *resource;
+	struct bsr_device *uninitialized_var(device);
+	struct bsr_peer_device *peer_device = NULL;
 	int minor = 0, err = 0, retcode = 0;
 	
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	struct idr *idr_to_search;
 
-	resource = (struct drbd_resource *)cb->args[0];
+	resource = (struct bsr_resource *)cb->args[0];
 
 	rcu_read_lock();
 	if (!cb->args[0] && !cb->args[1]) {
@@ -5801,7 +5801,7 @@ int drbd_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_unlock();
 #endif
-			resource = drbd_find_resource(nla_data(resource_filter));
+			resource = bsr_find_resource(nla_data(resource_filter));
 #ifdef _WIN // DW-900 to avoid the recursive lock
 			rcu_read_lock_w32_inner();
 #endif
@@ -5816,7 +5816,7 @@ int drbd_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	BUG_ON_INT32_OVER(cb->args[1]);
 #endif
 	minor = (int)cb->args[1];
-	idr_to_search = resource ? &resource->devices : &drbd_devices;
+	idr_to_search = resource ? &resource->devices : &bsr_devices;
 	device = idr_find(idr_to_search, minor);
 	if (!device) {
 next_device:
@@ -5830,23 +5830,23 @@ next_device:
 	}
 	if (cb->args[2]) {
 		for_each_peer_device_rcu(peer_device, device)
-			if (peer_device == (struct drbd_peer_device *)cb->args[2])
+			if (peer_device == (struct bsr_peer_device *)cb->args[2])
 				goto found_peer_device;
 		/* peer device was probably deleted */
 		goto next_device;
 	}
 	/* Make peer_device point to the list head (not the first entry). */
-	peer_device = list_entry(&device->peer_devices, struct drbd_peer_device, peer_devices);
+	peer_device = list_entry(&device->peer_devices, struct bsr_peer_device, peer_devices);
 
 found_peer_device:
 #ifdef _WIN
-	peer_device = list_entry_rcu(peer_device->peer_devices.next, struct drbd_peer_device, peer_devices);
+	peer_device = list_entry_rcu(peer_device->peer_devices.next, struct bsr_peer_device, peer_devices);
 	if (&peer_device->peer_devices != &(device->peer_devices)) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
 #else // _LIN
-	list_for_each_entry_continue_rcu_ex(struct drbd_peer_device, peer_device, &device->peer_devices, peer_devices) {
+	list_for_each_entry_continue_rcu_ex(struct bsr_peer_device, peer_device, &device->peer_devices, peer_devices) {
 		retcode = NO_ERROR;
 		goto put_result;  /* only one iteration */
 	}
@@ -5855,8 +5855,8 @@ found_peer_device:
 
 put_result:
 	dh = genlmsg_put(skb, NETLINK_CB_PORTID(cb->skb),
-		cb->nlh->nlmsg_seq, &drbd_genl_family,
-		NLM_F_MULTI, DRBD_ADM_GET_PEER_DEVICES);
+		cb->nlh->nlmsg_seq, &bsr_genl_family,
+		NLM_F_MULTI, BSR_ADM_GET_PEER_DEVICES);
 	
 	err = -ENOMEM;
 	if (!dh)
@@ -5872,7 +5872,7 @@ put_result:
 #ifdef _WIN // DW-900 to avoid the recursive lock
 		rcu_read_unlock();
 #endif
-		err = nla_put_drbd_cfg_context(skb, device->resource, peer_device->connection, device, NULL);
+		err = nla_put_bsr_cfg_context(skb, device->resource, peer_device->connection, device, NULL);
 #ifdef _WIN // DW-900 to avoid the recursive lock
 		rcu_read_lock_w32_inner();
 #endif
@@ -5906,15 +5906,15 @@ out:
 	return skb->len;
 }
 
-int drbd_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code retcode;
 	struct timeout_parms tp;
 	int err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 	peer_device = adm_ctx.peer_device;
@@ -5930,19 +5930,19 @@ int drbd_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info)
 		return err;
 	}
 
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-int drbd_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_device *device;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_device *device;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code retcode;
 	struct start_ov_parms parms;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_PEER_DEVICE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -5952,11 +5952,11 @@ int drbd_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	/* resume from last known position, if possible */
 	parms.ov_start_sector = peer_device->ov_start_sector;
 	parms.ov_stop_sector = ULLONG_MAX;
-	if (info->attrs[DRBD_NLA_START_OV_PARMS]) {
+	if (info->attrs[BSR_NLA_START_OV_PARMS]) {
 		int err = start_ov_parms_from_attrs(&parms, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out;
 		} 
 	}
@@ -5968,46 +5968,46 @@ int drbd_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 
 	/* If there is still bitmap IO pending, e.g. previous resync or verify
 	 * just being finished, wait for it before requesting a new resync. */
-	drbd_suspend_io(device, READ_AND_WRITE);
+	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	retcode = stable_change_repl_state(peer_device,
 		L_VERIFY_S, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
-	drbd_resume_io(device);
+	bsr_resume_io(device);
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 out:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static bool should_skip_initial_sync(struct drbd_peer_device *peer_device)
+static bool should_skip_initial_sync(struct bsr_peer_device *peer_device)
 {
 	return peer_device->repl_state[NOW] == L_ESTABLISHED &&
 	       peer_device->connection->agreed_pro_version >= 90 &&
-	       drbd_current_uuid(peer_device->device) == UUID_JUST_CREATED;
+	       bsr_current_uuid(peer_device->device) == UUID_JUST_CREATED;
 }
 
-int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_device *device;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_device *device;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code retcode;
 	int err;
 	struct new_c_uuid_parms args;
 	u64 nodes = 0, diskfull = 0;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
 	device = adm_ctx.device;
 	memset(&args, 0, sizeof(args));
-	if (info->attrs[DRBD_NLA_NEW_C_UUID_PARMS]) {
+	if (info->attrs[BSR_NLA_NEW_C_UUID_PARMS]) {
 		err = new_c_uuid_parms_from_attrs(&args, info);
 		if (err) {
 			retcode = ERR_MANDATORY_TAG;
-			drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out_nolock;
 		}
 	}
@@ -6024,7 +6024,7 @@ int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 	for_each_peer_device(peer_device, device) {
 		if (args.clear_bm && should_skip_initial_sync(peer_device)) {
 			if (peer_device->disk_state[NOW] >= D_INCONSISTENT) {
-				drbd_info(peer_device, "Preparing to skip initial sync\n");
+				bsr_info(peer_device, "Preparing to skip initial sync\n");
 				diskfull |= NODE_MASK(peer_device->node_id);
 			}
 			nodes |= NODE_MASK(peer_device->node_id);
@@ -6036,24 +6036,24 @@ int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	for_each_peer_device(peer_device, device)
-		drbd_uuid_set_bitmap(peer_device, 0); /* Rotate UI_BITMAP to History 1, etc... */
-	drbd_uuid_new_current_by_user(device); /* New current, previous to UI_BITMAP */
+		bsr_uuid_set_bitmap(peer_device, 0); /* Rotate UI_BITMAP to History 1, etc... */
+	bsr_uuid_new_current_by_user(device); /* New current, previous to UI_BITMAP */
 
 	if (args.clear_bm) {
 		unsigned long irq_flags;
 
-		err = drbd_bitmap_io(device, &drbd_bmio_clear_all_n_write,
+		err = bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 			"clear_n_write from new_c_uuid", BM_LOCK_ALL, NULL);
 		if (err) {
-			drbd_err(device, "Writing bitmap failed with %d\n",err);
+			bsr_err(device, "Writing bitmap failed with %d\n",err);
 			retcode = ERR_IO_MD_DISK;
 		}
 		for_each_peer_device(peer_device, device) {
 			if (NODE_MASK(peer_device->node_id) & nodes) {
 				if (NODE_MASK(peer_device->node_id) & diskfull)
-					drbd_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
-				_drbd_uuid_set_bitmap(peer_device, 0);
-				drbd_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
+					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
+				_bsr_uuid_set_bitmap(peer_device, 0);
+				bsr_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
 			}
 		}
 		begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
@@ -6065,36 +6065,36 @@ int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 		end_state_change(device->resource, &irq_flags, __FUNCTION__);
 	}
 
-	drbd_md_sync_if_dirty(device);
+	bsr_md_sync_if_dirty(device);
 out_dec:
 	put_ldev(device);
 out:
 	up(&device->resource->state_sem);
 out_nolock:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static enum drbd_ret_code
-drbd_check_resource_name(struct drbd_config_context *adm_ctx)
+static enum bsr_ret_code
+bsr_check_resource_name(struct bsr_config_context *adm_ctx)
 {
 	const char *name = adm_ctx->resource_name;
 	if (!name || !name[0]) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "resource name missing");
+		bsr_msg_put_info(adm_ctx->reply_skb, "resource name missing");
 		return ERR_MANDATORY_TAG;
 	}
 	/* As we want to use these in sysfs/configfs/debugfs,
 	 * we must not allow slashes. */
 	if (strchr(name, '/')) {
-		drbd_msg_put_info(adm_ctx->reply_skb, "invalid resource name");
+		bsr_msg_put_info(adm_ctx->reply_skb, "invalid resource name");
 		return ERR_INVALID_REQUEST;
 	}
 	return NO_ERROR;
 }
 
 static void resource_to_info(struct resource_info *info,
-			     struct drbd_resource *resource)
+			     struct bsr_resource *resource)
 {
 	info->res_role = resource->role[NOW];
 	info->res_susp = resource->susp[NOW];
@@ -6103,18 +6103,18 @@ static void resource_to_info(struct resource_info *info,
 	info->res_susp_quorum = is_suspended_quorum(resource, NOW, false);
 }
 
-int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_resource *resource;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	struct bsr_resource *resource;
+	enum bsr_ret_code retcode;
 	struct res_opts res_opts;
 	int err;
 
 #ifdef _PARALLEL_OPS
 	mutex_lock(&resources_mutex);
 #endif
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, 0);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, 0);
 	if (!adm_ctx.reply_skb) {
 #ifdef _PARALLEL_OPS
 		mutex_unlock(&resources_mutex);
@@ -6126,29 +6126,29 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	err = res_opts_from_attrs(&res_opts, info);
 	if (err) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto out;
 	}
 
-	retcode = drbd_check_resource_name(&adm_ctx);
+	retcode = bsr_check_resource_name(&adm_ctx);
 	if (retcode != NO_ERROR)
 		goto out;
 
 	if (adm_ctx.resource)
 		goto out;
 #ifdef _WIN 
-	if (res_opts.node_id >= DRBD_NODE_ID_MAX) {
+	if (res_opts.node_id >= BSR_NODE_ID_MAX) {
 #else // _LIN
 	// TODO node id -1??
-	if (res_opts.node_id < 0 || res_opts.node_id >= DRBD_NODE_ID_MAX) {
+	if (res_opts.node_id < 0 || res_opts.node_id >= BSR_NODE_ID_MAX) {
 #endif
-		pr_err("drbd: invalid node id (%d)\n", res_opts.node_id);
+		pr_err("bsr: invalid node id (%d)\n", res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 #ifdef _LIN
 	if (!try_module_get(THIS_MODULE)) {
-		pr_err("drbd: Could not get a module reference\n");
+		pr_err("bsr: Could not get a module reference\n");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
@@ -6157,7 +6157,7 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 #ifndef _PARALLEL_OPS
 	mutex_lock(&resources_mutex);
 #endif
-	resource = drbd_create_resource(adm_ctx.resource_name, &res_opts);
+	resource = bsr_create_resource(adm_ctx.resource_name, &res_opts);
 #ifndef _PARALLEL_OPS
 	mutex_unlock(&resources_mutex);
 #endif
@@ -6173,7 +6173,7 @@ int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 		NTSTATUS status;
 		status = mvolInitializeThread(&resource->WorkThreadInfo, mvolWorkThread);
 		if (!NT_SUCCESS(status)) {
-			drbd_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+			bsr_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
 		}
 #endif
 		
@@ -6188,12 +6188,12 @@ out:
 #ifdef _PARALLEL_OPS
 	mutex_unlock(&resources_mutex);
 #endif
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
 void device_to_info(struct device_info *info,
-			   struct drbd_device *device)
+			   struct bsr_device *device)
 {
 	info->dev_disk_state = device->disk_state[NOW];
 	info->is_intentional_diskless = device->device_conf.intentional_diskless;
@@ -6201,17 +6201,17 @@ void device_to_info(struct device_info *info,
 	info->io_error_count = atomic_read(&device->io_error_count);  
 }
 
-int drbd_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_genlmsghdr *dh = info->userhdr;
+	struct bsr_config_context adm_ctx;
+	struct bsr_genlmsghdr *dh = info->userhdr;
 	struct device_conf device_conf;
-	struct drbd_resource *resource;
-	struct drbd_device *device;
-	enum drbd_ret_code retcode;
+	struct bsr_resource *resource;
+	struct bsr_device *device;
+	enum bsr_ret_code retcode;
 	int err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_RESOURCE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -6219,17 +6219,17 @@ int drbd_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 	err = device_conf_from_attrs(&device_conf, info);
 	if (err && err != -ENOMSG) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto out;
 	}
 
 	if (dh->minor > MINORMASK) {
-		drbd_msg_put_info(adm_ctx.reply_skb, "requested minor out of range");
+		bsr_msg_put_info(adm_ctx.reply_skb, "requested minor out of range");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
-	if (adm_ctx.volume > DRBD_VOLUME_MAX) {
-		drbd_msg_put_info(adm_ctx.reply_skb, "requested volume id out of range");
+	if (adm_ctx.volume > BSR_VOLUME_MAX) {
+		bsr_msg_put_info(adm_ctx.reply_skb, "requested volume id out of range");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
@@ -6240,17 +6240,17 @@ int drbd_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 	resource = adm_ctx.resource;
 	mutex_lock(&resource->conf_update);
 	for(;;) {
-		retcode = drbd_create_device(&adm_ctx, dh->minor, &device_conf, &device);
+		retcode = bsr_create_device(&adm_ctx, dh->minor, &device_conf, &device);
 		if (retcode != ERR_NOMEM ||
 		    schedule_timeout_interruptible(HZ / 10))
 			break;
 		/* Keep retrying until the memory allocations eventually succeed. */
 	}
 	if (retcode == NO_ERROR) {
-		struct drbd_peer_device *peer_device;
+		struct bsr_peer_device *peer_device;
 		struct device_info info;
 		unsigned int peer_devices = 0;
-		enum drbd_notification_type flags;
+		enum bsr_notification_type flags;
 
 		for_each_peer_device(peer_device, device)
 			peer_devices++;
@@ -6271,15 +6271,15 @@ int drbd_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 	}
 	mutex_unlock(&resource->conf_update);
 out:
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
+static enum bsr_ret_code adm_del_minor(struct bsr_device *device)
 {
-	struct drbd_resource *resource = device->resource;
-	struct drbd_peer_device *peer_device;
-	enum drbd_ret_code ret;
+	struct bsr_resource *resource = device->resource;
+	struct bsr_peer_device *peer_device;
+	enum bsr_ret_code ret;
 	u64 im;
 
 	spin_lock_irq(&resource->req_lock);
@@ -6300,7 +6300,7 @@ static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
 					 CS_VERBOSE | CS_WAIT_COMPLETE);
 
 	// BSR-439
-	/* If the worker still has to find it to call drbd_ldev_destroy(),
+	/* If the worker still has to find it to call bsr_ldev_destroy(),
 	* we must not unregister the device yet. */
 	wait_event(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags));
 
@@ -6309,9 +6309,9 @@ static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
 	 * state change notifications for this device are queued: we want the
 	 * "destroy" event to come last.
 	 */
-	drbd_flush_workqueue(resource, &resource->work);
+	bsr_flush_workqueue(resource, &resource->work);
 	
-	drbd_unregister_device(device);
+	bsr_unregister_device(device);
 
 	mutex_lock(&notification_mutex);
 	for_each_peer_device_ref(peer_device, im, device)
@@ -6322,17 +6322,17 @@ static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
 #ifdef _LIN
 	synchronize_rcu();
 #endif
-	drbd_put_device(device);
+	bsr_put_device(device);
 
 	return ret;
 }
 
-int drbd_adm_del_minor(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_del_minor(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_MINOR);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -6340,11 +6340,11 @@ int drbd_adm_del_minor(struct sk_buff *skb, struct genl_info *info)
 	retcode = adm_del_minor(adm_ctx.device);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
-static int adm_del_resource(struct drbd_resource *resource)
+static int adm_del_resource(struct bsr_resource *resource)
 {
 	int err;
 
@@ -6353,7 +6353,7 @@ static int adm_del_resource(struct drbd_resource *resource)
 	 * state change notifications are queued: we want the "destroy" event
 	 * to come last.
 	 */
-	drbd_flush_workqueue(resource, &resource->work);
+	bsr_flush_workqueue(resource, &resource->work);
 	
 	mutex_lock(&resources_mutex);
 	err = ERR_NET_CONFIGURED;
@@ -6372,27 +6372,27 @@ static int adm_del_resource(struct drbd_resource *resource)
 	synchronize_rcu_w32_wlock();
 #endif
 	list_del_rcu(&resource->resources);
-	drbd_debugfs_resource_cleanup(resource);
+	bsr_debugfs_resource_cleanup(resource);
 	synchronize_rcu();
-	drbd_free_resource(resource);
+	bsr_free_resource(resource);
 out:
 	mutex_unlock(&resources_mutex);
 	return err;
 }
 
-int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_resource *resource;
-	struct drbd_connection *connection;
-	struct drbd_device *device;
-	int retcode; /* enum drbd_ret_code rsp. enum drbd_state_rv */
-	enum drbd_ret_code ret;
+	struct bsr_config_context adm_ctx;
+	struct bsr_resource *resource;
+	struct bsr_connection *connection;
+	struct bsr_device *device;
+	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
+	enum bsr_ret_code ret;
 	int i;
 	u64 im;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info,
-			DRBD_ADM_NEED_RESOURCE | DRBD_ADM_IGNORE_VERSION);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info,
+			BSR_ADM_NEED_RESOURCE | BSR_ADM_IGNORE_VERSION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -6405,7 +6405,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef _WIN
 	if (get_t_state(&resource->worker) != RUNNING) {		
-		drbd_msg_put_info(adm_ctx.reply_skb, "resource already down");
+		bsr_msg_put_info(adm_ctx.reply_skb, "resource already down");
 		retcode = SS_NOTHING_TO_DO;
 		goto out;
 	}
@@ -6413,20 +6413,20 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	
 	/* demote */
 #ifdef _WIN_MVFL
-    // continue to dismount volume after drbdadm down is done.
+    // continue to dismount volume after bsradm down is done.
 
 #ifdef _WIN_MULTI_VOLUME    
 	int vnr;
 	retcode = SS_SUCCESS;
 
 	// DW-1461 set volume protection when going down. 
-	idr_for_each_entry_ex(struct drbd_device *, &adm_ctx.resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 		if (pvext)
-			SetDrbdlockIoBlock(pvext, TRUE);
+			SetBsrlockIoBlock(pvext, TRUE);
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		if (device->disk_state[NOW] == D_DISKLESS)
 			continue;
 
@@ -6434,7 +6434,7 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 			continue;
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		if (device->disk_state[NOW] == D_DISKLESS)
 			continue;
 
@@ -6449,15 +6449,15 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 				
 	if (retcode == SS_SUCCESS) {
 		resource->bPreSecondaryLock = TRUE;
-		retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+		retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 		if (retcode < SS_SUCCESS)
-			drbd_msg_put_info(adm_ctx.reply_skb, "failed to demote");
+			bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 
 		resource->bPreSecondaryLock = FALSE;
 		resource->bPreDismountLock = FALSE;
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		if (device->disk_state[NOW] == D_DISKLESS)
 			continue;
 		FsctlUnlockVolume(device->minor);
@@ -6467,13 +6467,13 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	if(retcode < SS_SUCCESS)
 		goto out;
 #else
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor);
 		if (pvext)
-			SetDrbdlockIoBlock(pvext, TRUE);
+			SetBsrlockIoBlock(pvext, TRUE);
 
 		if (D_DISKLESS == device->disk_state[NOW]) {
-			retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 		} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 			
 			resource->bPreDismountLock = TRUE;
@@ -6487,11 +6487,11 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 				goto out;
 			}
 
-			retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 			resource->bPreSecondaryLock = FALSE;
 			resource->bPreDismountLock = FALSE;
 			if (retcode < SS_SUCCESS) {
-				drbd_msg_put_info(adm_ctx.reply_skb, "failed to demote");
+				bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 				FsctlUnlockVolume(device->minor);
 				goto out;
 			}
@@ -6502,9 +6502,9 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif
 #else
-	retcode = drbd_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+	retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 	if (retcode < SS_SUCCESS) {
-		drbd_msg_put_info(adm_ctx.reply_skb, "failed to demote");
+		bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 		goto out;
 	}
 #endif
@@ -6521,9 +6521,9 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 			mutex_unlock(&resource->conf_update);
 		} else {
-			drbd_info(connection, "conn_try_disconnect retcode : %d\n", retcode);
+			bsr_info(connection, "conn_try_disconnect retcode : %d\n", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
-			kref_put(&connection->kref, drbd_destroy_connection);
+			kref_put(&connection->kref, bsr_destroy_connection);
 			goto out;
 		}
 	}
@@ -6531,21 +6531,21 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 	
 	/* detach and delete minor */
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		kref_get(&device->kref);
 		rcu_read_unlock();
 		retcode = adm_detach(device, 0, adm_ctx.reply_skb);
 		mutex_lock(&resource->conf_update);
 		ret = adm_del_minor(device);
 		mutex_unlock(&resource->conf_update);
-		kref_put(&device->kref, drbd_destroy_device);
+		kref_put(&device->kref, bsr_destroy_device);
 		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
-			drbd_msg_put_info(adm_ctx.reply_skb, "failed to detach");
+			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
 			goto out;
 		}
 		if (ret != NO_ERROR) {
 			/* "can not happen" */
-			drbd_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");
+			bsr_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");
 			goto out;
 		}
 		rcu_read_lock();
@@ -6554,55 +6554,55 @@ int drbd_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->conf_update);
 	retcode = adm_del_resource(resource);
-	/* holding a reference to resource in adm_crx until drbd_adm_finish() */
+	/* holding a reference to resource in adm_crx until bsr_adm_finish() */
 	mutex_unlock(&resource->conf_update);
 out:
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 	mutex_unlock(&resource->adm_mutex);
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
 
-int drbd_adm_del_resource(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_del_resource(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	enum drbd_ret_code retcode;
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_RESOURCE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
 	retcode = adm_del_resource(adm_ctx.resource);
 
-	drbd_adm_finish(&adm_ctx, info, retcode);
+	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
 
 static int nla_put_notification_header(struct sk_buff *msg,
-				       enum drbd_notification_type type)
+				       enum bsr_notification_type type)
 {
-	struct drbd_notification_header nh = {
+	struct bsr_notification_header nh = {
 		.nh_type = type,
 	};
 
-	return drbd_notification_header_to_skb(msg, &nh, true);
+	return bsr_notification_header_to_skb(msg, &nh, true);
 }
 
 void notify_resource_state(struct sk_buff *skb,
 			   unsigned int seq,
-			   struct drbd_resource *resource,
+			   struct bsr_resource *resource,
 			   struct resource_info *resource_info,
-			   enum drbd_notification_type type)
+			   enum bsr_notification_type type)
 {
 	struct resource_statistics resource_statistics;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	bool multicast = false;
 	int err;
 
 	if (!skb) {
-		seq = atomic_inc_return(&drbd_genl_seq);
+		seq = atomic_inc_return(&bsr_genl_seq);
 		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 		err = -ENOMEM;
 		if (!skb)
@@ -6611,13 +6611,13 @@ void notify_resource_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_RESOURCE_STATE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_RESOURCE_STATE);
 	
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
-	if (nla_put_drbd_cfg_context(skb, resource, NULL, NULL, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, resource, NULL, NULL, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
 	     resource_info_to_skb(skb, resource_info, true)))
@@ -6630,7 +6630,7 @@ void notify_resource_state(struct sk_buff *skb,
 		goto nla_put_failure;
 	genlmsg_end(skb, dh);
 	if (multicast) {
-		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
@@ -6640,23 +6640,23 @@ void notify_resource_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	drbd_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
 			err, seq);
 }
 
 void notify_device_state(struct sk_buff *skb,
 			 unsigned int seq,
-			 struct drbd_device *device,
+			 struct bsr_device *device,
 			 struct device_info *device_info,
-			 enum drbd_notification_type type)
+			 enum bsr_notification_type type)
 {
 	struct device_statistics device_statistics;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	bool multicast = false;
 	int err;
 
 	if (!skb) {
-		seq = atomic_inc_return(&drbd_genl_seq);
+		seq = atomic_inc_return(&bsr_genl_seq);
 		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 		err = -ENOMEM;
 		if (!skb)
@@ -6665,13 +6665,13 @@ void notify_device_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_DEVICE_STATE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_DEVICE_STATE);
 	
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = device->minor;
 	dh->ret_code = NO_ERROR;
-	if (nla_put_drbd_cfg_context(skb, device->resource, NULL, device, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
 	     device_info_to_skb(skb, device_info, true)))
@@ -6680,7 +6680,7 @@ void notify_device_state(struct sk_buff *skb,
 	device_statistics_to_skb(skb, &device_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
-		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
@@ -6690,24 +6690,24 @@ void notify_device_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	drbd_err(device, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(device, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
 
 /* open coded path_parms_to_skb() iterating of the list */
 void notify_connection_state(struct sk_buff *skb,
 			     unsigned int seq,
-			     struct drbd_connection *connection,
+			     struct bsr_connection *connection,
 			     struct connection_info *connection_info,
-			     enum drbd_notification_type type)
+			     enum bsr_notification_type type)
 {
 	struct connection_statistics connection_statistics;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	bool multicast = false;
 	int err;
 
 	if (!skb) {
-		seq = atomic_inc_return(&drbd_genl_seq);
+		seq = atomic_inc_return(&bsr_genl_seq);
 		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 		err = -ENOMEM;
 		if (!skb)
@@ -6716,13 +6716,13 @@ void notify_connection_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_CONNECTION_STATE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_CONNECTION_STATE);
 	
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
-	if (nla_put_drbd_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
 	     connection_info_to_skb(skb, connection_info, true)))
@@ -6732,7 +6732,7 @@ void notify_connection_state(struct sk_buff *skb,
 	connection_statistics_to_skb(skb, &connection_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
-		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
@@ -6742,24 +6742,24 @@ void notify_connection_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	drbd_err(connection, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(connection, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
 
 void notify_peer_device_state(struct sk_buff *skb,
 			      unsigned int seq,
-			      struct drbd_peer_device *peer_device,
+			      struct bsr_peer_device *peer_device,
 			      struct peer_device_info *peer_device_info,
-			      enum drbd_notification_type type)
+			      enum bsr_notification_type type)
 {
 	struct peer_device_statistics peer_device_statistics;
-	struct drbd_resource *resource = peer_device->device->resource;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_resource *resource = peer_device->device->resource;
+	struct bsr_genlmsghdr *dh;
 	bool multicast = false;
 	int err;
 
 	if (!skb) {
-		seq = atomic_inc_return(&drbd_genl_seq);
+		seq = atomic_inc_return(&bsr_genl_seq);
 		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 		err = -ENOMEM;
 		if (!skb)
@@ -6768,13 +6768,13 @@ void notify_peer_device_state(struct sk_buff *skb,
 	}
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_PEER_DEVICE_STATE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_PEER_DEVICE_STATE);
 	
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
-	if (nla_put_drbd_cfg_context(skb, resource, peer_device->connection, peer_device->device, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, resource, peer_device->connection, peer_device->device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
 	     peer_device_info_to_skb(skb, peer_device_info, true)))
@@ -6783,7 +6783,7 @@ void notify_peer_device_state(struct sk_buff *skb,
 	peer_device_statistics_to_skb(skb, &peer_device_statistics, !capable(CAP_SYS_ADMIN));
 	genlmsg_end(skb, dh);
 	if (multicast) {
-		err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
 			goto failed;
@@ -6793,16 +6793,16 @@ void notify_peer_device_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	drbd_err(peer_device, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(peer_device, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
 		  
-void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
+void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error)
 {
-	struct drbd_io_error_info io_error_info;
+	struct bsr_io_error_info io_error_info;
 	unsigned int seq;
 	struct sk_buff *skb = NULL;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	int err;
 
 	io_error_info.error_code = io_error->error_code;
@@ -6812,14 +6812,14 @@ void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 	io_error_info.io_type = io_error->io_type;
 	io_error_info.is_cleared = io_error->is_cleared;
 	
-	seq = atomic_inc_return(&drbd_genl_seq);
+	seq = atomic_inc_return(&bsr_genl_seq);
 	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 	err = -ENOMEM;
 	if (!skb)
 		goto fail;
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_IO_ERROR);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_IO_ERROR);
 	
 	if (!dh)
 		goto fail;
@@ -6827,13 +6827,13 @@ void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error)
 	dh->minor = device->minor;
 	dh->ret_code = NO_ERROR;
 	mutex_lock(&notification_mutex);
-	if (nla_put_drbd_cfg_context(skb, device->resource, NULL, device, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
 		nla_put_notification_header(skb, NOTIFY_ERROR) ||
-		drbd_io_error_info_to_skb(skb, &io_error_info, true))
+		bsr_io_error_info_to_skb(skb, &io_error_info, true))
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
-	err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 	skb = NULL;
 	/* skb has been consumed or freed in netlink_broadcast() */
 	if (err && err != -ESRCH)
@@ -6849,14 +6849,14 @@ fail:
 		nlmsg_free(skb);
 }
 
-void notify_path(struct drbd_connection *connection, struct drbd_path *path,
-		 enum drbd_notification_type type)
+void notify_path(struct bsr_connection *connection, struct bsr_path *path,
+		 enum bsr_notification_type type)
 {
-	struct drbd_resource *resource = connection->resource;
-	struct drbd_path_info path_info;
-	unsigned int seq = atomic_inc_return(&drbd_genl_seq);
+	struct bsr_resource *resource = connection->resource;
+	struct bsr_path_info path_info;
+	unsigned int seq = atomic_inc_return(&bsr_genl_seq);
 	struct sk_buff *skb = NULL;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	int err;
 
 	path_info.path_established = path->established;
@@ -6867,7 +6867,7 @@ void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 		goto fail;
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_PATH_STATE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_PATH_STATE);
 	
 	if (!dh)
 		goto fail;
@@ -6875,13 +6875,13 @@ void notify_path(struct drbd_connection *connection, struct drbd_path *path,
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
 	mutex_lock(&notification_mutex);
-	if (nla_put_drbd_cfg_context(skb, resource, connection, NULL, path) ||
+	if (nla_put_bsr_cfg_context(skb, resource, connection, NULL, path) ||
 	    nla_put_notification_header(skb, type) ||
-	    drbd_path_info_to_skb(skb, &path_info, true))
+	    bsr_path_info_to_skb(skb, &path_info, true))
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
-	err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 	skb = NULL;
 	/* skb has been consumed or freed in netlink_broadcast() */
 	if (err && err != -ESRCH)
@@ -6895,19 +6895,19 @@ fail:
 	// DW-1556 fix DV crash, NULL dereference
 	if(skb)
 		nlmsg_free(skb);
-	drbd_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
 
-void notify_helper(enum drbd_notification_type type,
-		   struct drbd_device *device, struct drbd_connection *connection,
+void notify_helper(enum bsr_notification_type type,
+		   struct bsr_device *device, struct bsr_connection *connection,
 		   const char *name, int status)
 {
-	struct drbd_resource *resource = device ? device->resource : connection->resource;
-	struct drbd_helper_info helper_info;
-	unsigned int seq = atomic_inc_return(&drbd_genl_seq);
+	struct bsr_resource *resource = device ? device->resource : connection->resource;
+	struct bsr_helper_info helper_info;
+	unsigned int seq = atomic_inc_return(&bsr_genl_seq);
 	struct sk_buff *skb = NULL;
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	int err;
 
 #ifdef _WIN
@@ -6925,19 +6925,19 @@ void notify_helper(enum drbd_notification_type type,
 		goto fail;
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_HELPER);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_HELPER);
 	
 	if (!dh)
 		goto fail;
 	dh->minor = device ? device->minor : -1;
 	dh->ret_code = NO_ERROR;
 	mutex_lock(&notification_mutex);
-	if (nla_put_drbd_cfg_context(skb, resource, connection, device, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, resource, connection, device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
-	    drbd_helper_info_to_skb(skb, &helper_info, true))
+	    bsr_helper_info_to_skb(skb, &helper_info, true))
 		goto unlock_fail;
 	genlmsg_end(skb, dh);
-	err = drbd_genl_multicast_events(skb, GFP_NOWAIT);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 	skb = NULL;
 	/* skb has been consumed or freed in netlink_broadcast() */
 	if (err && err != -ESRCH)
@@ -6951,17 +6951,17 @@ fail:
 	// DW-1556 fix DV crash, NULL dereference
 	if(skb)
 		nlmsg_free(skb);
-	drbd_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
+	bsr_err(resource, "Error %d while broadcasting event. Event seq:%u\n",
 		 err, seq);
 }
 
 static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 {
-	struct drbd_genlmsghdr *dh;
+	struct bsr_genlmsghdr *dh;
 	int err;
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &drbd_genl_family, 0, DRBD_INITIAL_STATE_DONE);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_INITIAL_STATE_DONE);
 	
 	if (!dh)
 		goto nla_put_failure;
@@ -6980,14 +6980,14 @@ nla_put_failure:
 static void free_state_changes(struct list_head *list)
 {
 	while (!list_empty(list)) {
-		struct drbd_state_change *state_change =
-			list_first_entry(list, struct drbd_state_change, list);
+		struct bsr_state_change *state_change =
+			list_first_entry(list, struct bsr_state_change, list);
 		list_del(&state_change->list);
 		forget_state_change(state_change);
 	}
 }
 
-static unsigned int notifications_for_state_change(struct drbd_state_change *state_change)
+static unsigned int notifications_for_state_change(struct bsr_state_change *state_change)
 {
 	return 1 +
 	       state_change->n_connections +
@@ -6997,10 +6997,10 @@ static unsigned int notifications_for_state_change(struct drbd_state_change *sta
 
 static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct drbd_state_change *state_change = (struct drbd_state_change *)cb->args[0];
+	struct bsr_state_change *state_change = (struct bsr_state_change *)cb->args[0];
 	ULONG_PTR seq = cb->args[2];
 	ULONG_PTR n;
-	enum drbd_notification_type flags = 0;
+	enum bsr_notification_type flags = 0;
 
 	/* There is no need for taking notification_mutex here: it doesn't
 	   matter if the initial state events mix with later state chage
@@ -7044,9 +7044,9 @@ static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 
 next:
 	if (cb->args[4] == cb->args[3]) {
-		struct drbd_state_change *next_state_change =
+		struct bsr_state_change *next_state_change =
 			list_entry(state_change->list.next,
-				   struct drbd_state_change, list);
+				   struct bsr_state_change, list);
 		cb->args[0] = (LONG_PTR)next_state_change;
 		cb->args[3] = notifications_for_state_change(next_state_change);
 		cb->args[4] = 0;
@@ -7055,12 +7055,12 @@ out:
 	return skb->len;
 }
 
-int drbd_adm_get_initial_state_done(struct netlink_callback *cb)
+int bsr_adm_get_initial_state_done(struct netlink_callback *cb)
 {
 	LIST_HEAD(head);
 	if (cb->args[0]) {
-		struct drbd_state_change *state_change =
-			(struct drbd_state_change *)cb->args[0];
+		struct bsr_state_change *state_change =
+			(struct bsr_state_change *)cb->args[0];
 		cb->args[0] = 0;
 
 		/* connect list to head */
@@ -7070,9 +7070,9 @@ int drbd_adm_get_initial_state_done(struct netlink_callback *cb)
 	return 0;
 }
 
-int drbd_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
+int bsr_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct drbd_resource *resource;
+	struct bsr_resource *resource;
 	LIST_HEAD(head);
 
 	if (cb->args[5] >= 1) {
@@ -7083,8 +7083,8 @@ int drbd_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 
 	cb->args[5] = 2;  /* number of iterations */
 	mutex_lock(&resources_mutex);
-	for_each_resource(resource, &drbd_resources) {
-		struct drbd_state_change *state_change;
+	for_each_resource(resource, &bsr_resources) {
+		struct bsr_state_change *state_change;
 
 		state_change = remember_state_change(resource, GFP_KERNEL);
 		if (!state_change) {
@@ -7100,8 +7100,8 @@ int drbd_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 	mutex_unlock(&resources_mutex);
 
 	if (!list_empty(&head)) {
-		struct drbd_state_change *state_change =
-			list_entry(head.next, struct drbd_state_change, list);
+		struct bsr_state_change *state_change =
+			list_entry(head.next, struct bsr_state_change, list);
 		cb->args[0] = (LONG_PTR)state_change;
 		cb->args[3] = notifications_for_state_change(state_change);
 		list_del(&head);  /* detach list from head */
@@ -7111,16 +7111,16 @@ int drbd_adm_get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 	return get_initial_state(skb, cb);
 }
 
-int drbd_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
+int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 {
-	struct drbd_config_context adm_ctx;
-	struct drbd_resource *resource;
-	struct drbd_device *device;
+	struct bsr_config_context adm_ctx;
+	struct bsr_resource *resource;
+	struct bsr_device *device;
 	struct forget_peer_parms parms = { 0 };
-	enum drbd_state_rv retcode;
+	enum bsr_state_rv retcode;
 	int vnr, peer_node_id, err;
 
-	retcode = drbd_adm_prepare(&adm_ctx, skb, info, DRBD_ADM_NEED_RESOURCE);
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
@@ -7129,25 +7129,25 @@ int drbd_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 	err = forget_peer_parms_from_attrs(&parms, info);
 	if (err) {
 		retcode = ERR_MANDATORY_TAG;
-		drbd_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto out_no_adm;
 	}
 
 	mutex_lock(&resource->adm_mutex);
 
 	peer_node_id = parms.forget_peer_node_id;
-	if (drbd_connection_by_node_id(resource, peer_node_id)) {
+	if (bsr_connection_by_node_id(resource, peer_node_id)) {
 		retcode = ERR_NET_CONFIGURED;
 		goto out;
 	}
 
-	if (peer_node_id < 0 || peer_node_id >= DRBD_NODE_ID_MAX) {
+	if (peer_node_id < 0 || peer_node_id >= BSR_NODE_ID_MAX) {
 		retcode = ERR_INVALID_PEER_NODE_ID;
 		goto out;
 	}
 
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, vnr) {
-		struct drbd_peer_md *peer_md;
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+		struct bsr_peer_md *peer_md;
 
 		if (!get_ldev(device))
 			continue;
@@ -7163,26 +7163,26 @@ int drbd_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 		peer_md->flags = 0;
 		peer_md->bitmap_index = -1;
 
-		drbd_md_sync(device);
+		bsr_md_sync(device);
 		put_ldev(device);
 	}
 out:
 	mutex_unlock(&resource->adm_mutex);
 out_no_adm:
-	drbd_adm_finish(&adm_ctx, info, (enum drbd_ret_code)retcode);
+	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
 	return 0;
 
 }
 #ifdef _WIN
 // DW-1229 using global attr may cause BSOD when we receive plural netlink requests. use local attr.
-int drbd_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr)
+int bsr_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr)
 {
-	drbd_genl_family.id = nlh->nlmsg_type;
+	bsr_genl_family.id = nlh->nlmsg_type;
 
-	return nla_parse(attr, ARRAY_SIZE(drbd_tla_nl_policy) - 1,
-		nlmsg_attrdata(nlh, GENL_HDRLEN + drbd_genl_family.hdrsize),
-		nlmsg_attrlen(nlh, GENL_HDRLEN + drbd_genl_family.hdrsize),
-		drbd_tla_nl_policy);
+	return nla_parse(attr, ARRAY_SIZE(bsr_tla_nl_policy) - 1,
+		nlmsg_attrdata(nlh, GENL_HDRLEN + bsr_genl_family.hdrsize),
+		nlmsg_attrlen(nlh, GENL_HDRLEN + bsr_genl_family.hdrsize),
+		bsr_tla_nl_policy);
 }
 
 void nl_policy_init_by_manual()
@@ -7191,11 +7191,11 @@ void nl_policy_init_by_manual()
 	manual_nl_policy_init();
 }
 
-struct genl_ops * get_drbd_genl_ops(u8 cmd)
+struct genl_ops * get_bsr_genl_ops(u8 cmd)
 {
-	for (int i = 0; i < sizeof(drbd_genl_ops) / sizeof((drbd_genl_ops)[0]); i++) {
-		if (drbd_genl_ops[i].cmd == cmd) {
-			return &drbd_genl_ops[i];
+	for (int i = 0; i < sizeof(bsr_genl_ops) / sizeof((bsr_genl_ops)[0]); i++) {
+		if (bsr_genl_ops[i].cmd == cmd) {
+			return &bsr_genl_ops[i];
 		}
 	}
 

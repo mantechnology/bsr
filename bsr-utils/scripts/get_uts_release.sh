@@ -8,5 +8,5 @@
             echo "#include \"$d/$x\"";
         done;
     done;
-    echo "drbd_kernel_release UTS_RELEASE"
-} | gcc -nostdinc -E -P - | sed -ne 's/^drbd_kernel_release "\(.*\)".*/\1/p'
+    echo "bsr_kernel_release UTS_RELEASE"
+} | gcc -nostdinc -E -P - | sed -ne 's/^bsr_kernel_release "\(.*\)".*/\1/p'

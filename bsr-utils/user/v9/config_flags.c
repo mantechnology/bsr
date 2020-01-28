@@ -708,7 +708,7 @@ struct field_class fc_string = {
 	.u = { .e = {									\
 		.map = f ## _map,							\
 		.size = ARRAY_SIZE(f ## _map),						\
-		.def = DRBD_ ## d ## _DEF } }
+		.def = BSR_ ## d ## _DEF } }
 
 #define ENUM_NOCASE(f, d)								\
 	.nla_type = T_ ## f,								\
@@ -716,23 +716,23 @@ struct field_class fc_string = {
 	.u = { .e = {									\
 		.map = f ## _map,							\
 		.size = ARRAY_SIZE(f ## _map),						\
-		.def = DRBD_ ## d ## _DEF } }
+		.def = BSR_ ## d ## _DEF } }
 
 #define NUMERIC(f, d)									\
 	.nla_type = T_ ## f,								\
 	.ops = &fc_numeric,								\
 	.u = { .n = {									\
-		.min = DRBD_ ## d ## _MIN,						\
-		.max = DRBD_ ## d ## _MAX,						\
-		.def = DRBD_ ## d ## _DEF,						\
+		.min = BSR_ ## d ## _MIN,						\
+		.max = BSR_ ## d ## _MAX,						\
+		.def = BSR_ ## d ## _DEF,						\
 		.is_signed = F_ ## f ## _IS_SIGNED,					\
-		.scale = DRBD_ ## d ## _SCALE } }
+		.scale = BSR_ ## d ## _SCALE } }
 
 #define BOOLEAN(f, d)									\
 	.nla_type = T_ ## f,								\
 	.ops = &fc_boolean,								\
 	.u = { .b = {									\
-		.def = DRBD_ ## d ## _DEF } },						\
+		.def = BSR_ ## d ## _DEF } },						\
 	.argument_is_optional = true
 
 #define FLAG(f)										\
@@ -759,14 +759,14 @@ struct field_class fc_string = {
         .map_size = ARRAY_SIZE(f ## _map),        \
         .min = num_min,                    \
         .max = num_max,                    \
-        .def = DRBD_ ## d ## _DEF, } }            \
+        .def = BSR_ ## d ## _DEF, } }            \
 
 /* ============================================================================================== */
 
 const char *wire_protocol_map[] = {
-	[DRBD_PROT_A] = "A",
-	[DRBD_PROT_B] = "B",
-	[DRBD_PROT_C] = "C",
+	[BSR_PROT_A] = "A",
+	[BSR_PROT_B] = "B",
+	[BSR_PROT_C] = "C",
 };
 
 const char *on_io_error_map[] = {
@@ -940,7 +940,7 @@ const struct en_map quorum_map[] = {
 
 struct context_def disk_options_ctx = {
 	NLA_POLICY(disk_conf),
-	.nla_type = DRBD_NLA_DISK_CONF,
+	.nla_type = BSR_NLA_DISK_CONF,
 	.fields = {
 		CHANGEABLE_DISK_OPTIONS,
 		{ } },
@@ -948,7 +948,7 @@ struct context_def disk_options_ctx = {
 
 struct context_def net_options_ctx = {
 	NLA_POLICY(net_conf),
-	.nla_type = DRBD_NLA_NET_CONF,
+	.nla_type = BSR_NLA_NET_CONF,
 	.fields = {
 		CHANGEABLE_NET_OPTIONS,
 		{ } },
@@ -956,7 +956,7 @@ struct context_def net_options_ctx = {
 
 struct context_def primary_cmd_ctx = {
 	NLA_POLICY(set_role_parms),
-	.nla_type = DRBD_NLA_SET_ROLE_PARMS,
+	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
 		{ } },
@@ -964,7 +964,7 @@ struct context_def primary_cmd_ctx = {
 
 struct context_def attach_cmd_ctx = {
 	NLA_POLICY(disk_conf),
-	.nla_type = DRBD_NLA_DISK_CONF,
+	.nla_type = BSR_NLA_DISK_CONF,
 	.fields = {
 		{ "size", NUMERIC(disk_size, DISK_SIZE),
 		  .unit = "bytes" },
@@ -977,7 +977,7 @@ struct context_def attach_cmd_ctx = {
 
 struct context_def detach_cmd_ctx = {
 	NLA_POLICY(detach_parms),
-	.nla_type = DRBD_NLA_DETACH_PARMS,
+	.nla_type = BSR_NLA_DETACH_PARMS,
 	.fields = {
 		{ "force", FLAG(force_detach) },
 		{ }
@@ -986,7 +986,7 @@ struct context_def detach_cmd_ctx = {
 
 struct context_def new_peer_cmd_ctx = {
 	NLA_POLICY(net_conf),
-	.nla_type = DRBD_NLA_NET_CONF,
+	.nla_type = BSR_NLA_NET_CONF,
 	.fields = {
 		{ "transport", STRING(transport_name) },
 		CHANGEABLE_NET_OPTIONS,
@@ -995,7 +995,7 @@ struct context_def new_peer_cmd_ctx = {
 
 struct context_def path_cmd_ctx = {
 	NLA_POLICY(path_parms),
-	.nla_type = DRBD_NLA_PATH_PARMS,
+	.nla_type = BSR_NLA_PATH_PARMS,
 	.fields = { { } },
 };
 
@@ -1005,7 +1005,7 @@ struct context_def path_cmd_ctx = {
 
 struct context_def connect_cmd_ctx = {
 	NLA_POLICY(connect_parms),
-	.nla_type = DRBD_NLA_CONNECT_PARMS,
+	.nla_type = BSR_NLA_CONNECT_PARMS,
 	.fields = {
 		CONNECT_CMD_OPTIONS,
 		{ } },
@@ -1013,7 +1013,7 @@ struct context_def connect_cmd_ctx = {
 
 struct context_def show_net_options_ctx = {
 	NLA_POLICY(net_conf),
-	.nla_type = DRBD_NLA_NET_CONF,
+	.nla_type = BSR_NLA_NET_CONF,
 	.fields = {
 		{ "transport", STRING(transport_name) },
 		CHANGEABLE_NET_OPTIONS,
@@ -1022,7 +1022,7 @@ struct context_def show_net_options_ctx = {
 
 struct context_def disconnect_cmd_ctx = {
 	NLA_POLICY(disconnect_parms),
-	.nla_type = DRBD_NLA_DISCONNECT_PARMS,
+	.nla_type = BSR_NLA_DISCONNECT_PARMS,
 	.fields = {
 		{ "force", FLAG(force_disconnect) },
 		{ } },
@@ -1030,7 +1030,7 @@ struct context_def disconnect_cmd_ctx = {
 
 struct context_def resize_cmd_ctx = {
 	NLA_POLICY(resize_parms),
-	.nla_type = DRBD_NLA_RESIZE_PARMS,
+	.nla_type = BSR_NLA_RESIZE_PARMS,
 	.fields = {
 		{ "size", NUMERIC(resize_size, DISK_SIZE),
 		  .unit = "bytes" },
@@ -1043,7 +1043,7 @@ struct context_def resize_cmd_ctx = {
 
 struct context_def resource_options_ctx = {
 	NLA_POLICY(res_opts),
-	.nla_type = DRBD_NLA_RESOURCE_OPTS,
+	.nla_type = BSR_NLA_RESOURCE_OPTS,
 	.fields = {
 		{ "cpu-mask", STRING(cpu_mask) },
 		{ "on-no-data-accessible", ENUM(on_no_data, ON_NO_DATA) },
@@ -1059,7 +1059,7 @@ struct context_def resource_options_ctx = {
 		/*{ "auto-promote-timeout", NUMERIC(auto_promote_timeout, AUTO_PROMOTE_TIMEOUT),
 			.unit = "1/10 seconds" },*/
 		{ "max-io-depth", NUMERIC(nr_requests, NR_REQUESTS) },
-		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, DRBD_PEERS_MAX) },
+		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, BSR_PEERS_MAX) },
 		{ "on-no-quorum", ENUM(on_no_quorum, ON_NO_QUORUM) },
 		// DW-1925 number and size of request objects can be set
 		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
@@ -1071,7 +1071,7 @@ struct context_def resource_options_ctx = {
 
 struct context_def new_current_uuid_cmd_ctx = {
 	NLA_POLICY(new_c_uuid_parms),
-	.nla_type = DRBD_NLA_NEW_C_UUID_PARMS,
+	.nla_type = BSR_NLA_NEW_C_UUID_PARMS,
 	.fields = {
 		{ "clear-bitmap", FLAG(clear_bm) },
 		{ } },
@@ -1079,7 +1079,7 @@ struct context_def new_current_uuid_cmd_ctx = {
 
 struct context_def verify_cmd_ctx = {
 	NLA_POLICY(start_ov_parms),
-	.nla_type = DRBD_NLA_START_OV_PARMS,
+	.nla_type = BSR_NLA_START_OV_PARMS,
 	.fields = {
 		{ "start", NUMERIC(ov_start_sector, DISK_SIZE),
 		  .unit = "bytes" },
@@ -1090,7 +1090,7 @@ struct context_def verify_cmd_ctx = {
 
 struct context_def device_options_ctx = {
 	NLA_POLICY(device_conf),
-	.nla_type = DRBD_NLA_DEVICE_CONF,
+	.nla_type = BSR_NLA_DEVICE_CONF,
 	.fields = {
 		{ "max-bio-size", NUMERIC(max_bio_size, MAX_BIO_SIZE) },
 		{ "diskless", FLAG(intentional_diskless) },
@@ -1099,7 +1099,7 @@ struct context_def device_options_ctx = {
 
 struct context_def invalidate_ctx = {
 	NLA_POLICY(invalidate_parms),
-	.nla_type = DRBD_NLA_INVALIDATE_PARMS,
+	.nla_type = BSR_NLA_INVALIDATE_PARMS,
 	.fields = {
 		{ "sync-from-peer-node-id", NUMERIC(sync_from_peer_node_id, SYNC_FROM_NID) },
 		{ } },
@@ -1107,7 +1107,7 @@ struct context_def invalidate_ctx = {
 
 struct context_def peer_device_options_ctx = {
 	NLA_POLICY(peer_device_conf),
-	.nla_type = DRBD_NLA_PEER_DEVICE_OPTS,
+	.nla_type = BSR_NLA_PEER_DEVICE_OPTS,
 	.fields = {
 		{ "resync-rate", NUMERIC(resync_rate, RESYNC_RATE), .unit = "bytes/second" },
 		{ "c-plan-ahead", NUMERIC(c_plan_ahead, C_PLAN_AHEAD), .unit = "1/10 seconds" },
@@ -1118,7 +1118,7 @@ struct context_def peer_device_options_ctx = {
 		{ } },
 };
 
-// only used in drbdadm:
+// only used in bsradm:
 struct context_def create_md_ctx = {
        .fields = {
 		{ .name = "max-peers", .argument_is_optional = false },
@@ -1147,7 +1147,7 @@ struct context_def adjust_ctx = {
 };
 
 
-// only used by drbdadm's config file parser:
+// only used by bsradm's config file parser:
 struct context_def handlers_ctx = {
 	.fields = {
 		{ "pri-on-incon-degr", .ops = &fc_string, .needs_double_quoting = true},
@@ -1182,11 +1182,11 @@ struct context_def proxy_options_ctx = {
 #define ADM_NUMERIC(d)									\
 	.ops = &fc_numeric,								\
 	.u = { .n = {									\
-		.min = DRBD_ ## d ## _MIN,						\
-		.max = DRBD_ ## d ## _MAX,						\
-		.def = DRBD_ ## d ## _DEF,						\
+		.min = BSR_ ## d ## _MIN,						\
+		.max = BSR_ ## d ## _MAX,						\
+		.def = BSR_ ## d ## _DEF,						\
 		.is_signed = false,							\
-		.scale = DRBD_ ## d ## _SCALE } }
+		.scale = BSR_ ## d ## _SCALE } }
 
 struct context_def startup_options_ctx = {
 	.fields = {

@@ -46,13 +46,13 @@ get_cib_xml() {
 
 
 # if not passed in, try to "guess" it from the cib
-# we only know the DRBD_RESOURCE.
+# we only know the BSR_RESOURCE.
 fence_peer_init()
 {
 	# we know which instance we are: $OCF_RESOURCE_INSTANCE.
 	# but we do not know the xml ID of the <master/> :(
 	# cibadmin -Ql --xpath \
-	# '//master[primitive[@type="drbd" and instance_attributes/nvpair[@name = "drbd_resource" and @value="r0"]]]/@id'
+	# '//master[primitive[@type="bsr" and instance_attributes/nvpair[@name = "bsr_resource" and @value="r0"]]]/@id'
 	# but I'd have to pipe that through sed anyways, because @attribute
 	# xpath queries are not supported.
 	# and I'd be incompatible with older cibadmin not supporting --xpath.
@@ -62,14 +62,14 @@ fence_peer_init()
 			   /<master / h;
 			     /<primitive/,/<\/primitive/ {
 			       /<instance_attributes/,/<\/instance_attributes/ {
-				 /<nvpair .*\bname="drbd_resource"/ {
-				   /.*\bvalue="'"$DRBD_RESOURCE"'"/! d
+				 /<nvpair .*\bname="bsr_resource"/ {
+				   /.*\bvalue="'"$BSR_RESOURCE"'"/! d
 				   x
 				   s/^.*\bid="\([^"]*\)".*/\1/p
 				   q
 				 };};};}')}
 	if [[ -z $master_id ]] ; then
-		echo WARNING "drbd-fencing could not determine the master id of drbd resource $DRBD_RESOURCE"
+		echo WARNING "bsr-fencing could not determine the master id of bsr resource $BSR_RESOURCE"
 		return 1;
 	fi
 	have_constraint=$(set +x; echo "$cib_xml" |
@@ -77,8 +77,8 @@ fence_peer_init()
 	return 0
 }
 
-# drbd_fence_peer_exit_code is per the exit code
-# convention of the DRBD "fence-peer" handler,
+# bsr_fence_peer_exit_code is per the exit code
+# convention of the BSR "fence-peer" handler,
 # obviously.
 # 3: peer is already outdated or worse (e.g. inconsistent)
 # 4: peer has been successfully fenced
@@ -105,7 +105,7 @@ fence_peer_init()
 # --dc-timeout is how long we try to contact a DC before we give up.
 # This is necessary, because placing the constraint will fail (with some
 # internal timeout) if no DC was available when we request the constraint.
-# Which is likely if the DC crashed. Then the surviving DRBD Primary needs
+# Which is likely if the DC crashed. Then the surviving BSR Primary needs
 # to wait for a new DC to be elected. Usually such election takes only
 # fractions of a second, but it can take much longer (the default election
 # timeout in pacemaker is ~2 minutes!).
@@ -174,7 +174,7 @@ fence_peer_init()
 #	without doing additional waiting.  If the peer is still reachable, we
 #	place the constraint - if the peer had better data, it should have a
 #	higher master score, and we should not have been asked to become
-#	primary.  If the peer is not reachable, we don't do anything, and DRBD
+#	primary.  If the peer is not reachable, we don't do anything, and BSR
 #	will refuse to be promoted. This is necessary to avoid problems
 #	With data diversion, in case this "crash" was due to a STONITH operation,
 #	maybe the reboot did not fix our cluster communications!
@@ -218,7 +218,7 @@ check_cluster_properties()
 
 #
 # In case this is a two-node cluster (still common with
-# DRBD clusters) it does not have real quorum.
+# BSR clusters) it does not have real quorum.
 # If it is configured to do STONITH, and reboot,
 # and after reboot that STONITHed node cluster comm is
 # still broken, it will shoot the still online node,
@@ -228,7 +228,7 @@ check_cluster_properties()
 # "no-quorum-policy=ignore" will usually succeed.
 #
 # So we need to differentiate between node reachable or
-# not, and DRBD "Consistent" or "UpToDate".
+# not, and BSR "Consistent" or "UpToDate".
 #
 try_place_constraint()
 {
@@ -245,78 +245,78 @@ try_place_constraint()
 		sleep $(( net_hickup_time - SECONDS ))
 	done
 
-	set_states_from_proc_drbd
-	: == DEBUG == DRBD_peer=${DRBD_peer[*]} ===
-	: == DEBUG == DRBD_pdsk=${DRBD_pdsk[*]} ===
-	if $DRBD_pdsk_all_uptodate ; then
+	set_states_from_proc_bsr
+	: == DEBUG == BSR_peer=${BSR_peer[*]} ===
+	: == DEBUG == BSR_pdsk=${BSR_pdsk[*]} ===
+	if $BSR_pdsk_all_uptodate ; then
 		echo WARNING "All peer disks are UpToDate! Did not place the constraint."
 		rc=0
 		return
 	fi
 
 	: == DEBUG == CTS_mode=$CTS_mode ==
-	: == DEBUG == DRBD_disk_all_consistent=$DRBD_disk_all_consistent ==
-	: == DEBUG == DRBD_disk_all_uptodate=$DRBD_disk_all_uptodate ==
-	: == DEBUG == $peer_state/${DRBD_disk[*]}/$unreachable_peer_is ==
-	if [[ ${#DRBD_disk[*]} = 0 ]]; then
-		# Someone called this script, without the corresponding drbd
+	: == DEBUG == BSR_disk_all_consistent=$BSR_disk_all_consistent ==
+	: == DEBUG == BSR_disk_all_uptodate=$BSR_disk_all_uptodate ==
+	: == DEBUG == $peer_state/${BSR_disk[*]}/$unreachable_peer_is ==
+	if [[ ${#BSR_disk[*]} = 0 ]]; then
+		# Someone called this script, without the corresponding bsr
 		# resource being configured. That's not very useful.
 		echo WARNING "could not determine my disk state: did not place the constraint!"
 		rc=0
-		# keep drbd_fence_peer_exit_code at "generic error",
+		# keep bsr_fence_peer_exit_code at "generic error",
 		# which will cause a "script is broken" message in case it was
-		# indeed called as handler from within drbd
+		# indeed called as handler from within bsr
 
 	# No, NOT fenced/Consistent:
 	# just because we have been able to shoot him
 	# does not make our data any better.
-	elif [[ $peer_state = reachable ]] && $DRBD_disk_all_consistent; then
-		#           = reachable ]] && $DRBD_disk_all_uptodate
+	elif [[ $peer_state = reachable ]] && $BSR_disk_all_consistent; then
+		#           = reachable ]] && $BSR_disk_all_uptodate
 		#	is implicitly handled here as well.
 		set_constraint &&
-		drbd_fence_peer_exit_code=4 rc=0 &&
-		echo INFO "peer is $peer_state, my disk is ${DRBD_disk[*]}: placed constraint '$id_prefix-$master_id'"
+		bsr_fence_peer_exit_code=4 rc=0 &&
+		echo INFO "peer is $peer_state, my disk is ${BSR_disk[*]}: placed constraint '$id_prefix-$master_id'"
 
-	elif [[ $peer_state = fenced ]] && $DRBD_disk_all_uptodate ; then
+	elif [[ $peer_state = fenced ]] && $BSR_disk_all_uptodate ; then
 		set_constraint &&
-		drbd_fence_peer_exit_code=7 rc=0 &&
-		echo INFO "peer is $peer_state, my disk is $DRBD_disk: placed constraint '$id_prefix-$master_id'"
+		bsr_fence_peer_exit_code=7 rc=0 &&
+		echo INFO "peer is $peer_state, my disk is $BSR_disk: placed constraint '$id_prefix-$master_id'"
 
 	# Peer is neither "reachable" nor "fenced" (above would have matched)
 	# So we just hit some timeout.
 	# As long as we are UpToDate, place the constraint and continue.
 	# If you don't like that, use a ridiculously high timeout,
 	# or patch this script.
-	elif $DRBD_disk_all_uptodate ; then
+	elif $BSR_disk_all_uptodate ; then
 		# We could differentiate between unreachable,
 		# and DC-unreachable.  In the latter case, placing the
-		# constraint will fail anyways, and  drbd_fence_peer_exit_code
+		# constraint will fail anyways, and  bsr_fence_peer_exit_code
 		# will stay at "generic error".
 		set_constraint &&
-		drbd_fence_peer_exit_code=5 rc=0 &&
+		bsr_fence_peer_exit_code=5 rc=0 &&
 		echo INFO "peer is not reachable, my disk is UpToDate: placed constraint '$id_prefix-$master_id'"
 
 	# This block is reachable by operator intervention only
 	# (unless you are hacking this script and know what you are doing)
-	elif [[ $peer_state != reachable ]] && [[ $unreachable_peer_is = outdated ]] && $DRBD_disk_all_consistent; then
+	elif [[ $peer_state != reachable ]] && [[ $unreachable_peer_is = outdated ]] && $BSR_disk_all_consistent; then
 		# If the peer is not reachable, but we are only Consistent, we
 		# may need some way to still allow promotion.
-		# Easy way out: --force primary with drbdsetup.
+		# Easy way out: --force primary with bsrsetup.
 		# But that would not place the constraint, nor outdate the
 		# peer.  With this --unreachable-peer-is-outdated, we still try
 		# to set the constraint.  Next promotion attempt will find the
 		# "correct" constraint, consider the peer as successfully
 		# fenced, and continue.
 		set_constraint &&
-		drbd_fence_peer_exit_code=5 rc=0 &&
+		bsr_fence_peer_exit_code=5 rc=0 &&
 		echo WARNING "peer is unreachable, my disk is only Consistent: --unreachable-peer-is-outdated FORCED constraint '$id_prefix-$master_id'" &&
 		echo WARNING "This MAY RISK DATA INTEGRITY"
 
 	# So I'm not UpToDate, and peer is not reachable.
 	# Tell the module about "not reachable", and don't do anything else.
 	else
-		echo WARNING "peer is $peer_state, my disk is ${DRBD_disk[*]}: did not place the constraint!"
-		drbd_fence_peer_exit_code=5 rc=0
+		echo WARNING "peer is $peer_state, my disk is ${BSR_disk[*]}: did not place the constraint!"
+		bsr_fence_peer_exit_code=5 rc=0
 		# I'd like to return 6 here, otherwise pacemaker will retry
 		# forever to promote, even though 6 is not strictly correct.
 	fi
@@ -361,12 +361,12 @@ commit_suicide()
 	sleep 864000
 }
 
-# drbd_peer_fencing fence|unfence
-drbd_peer_fencing()
+# bsr_peer_fencing fence|unfence
+bsr_peer_fencing()
 {
 	local rc
 	# input to fence_peer_init:
-	# $DRBD_RESOURCE is set by command line of from environment.
+	# $BSR_RESOURCE is set by command line of from environment.
 	# $id_prefix is set by command line or default.
 	# $master_id is set by command line or will be parsed from the cib.
 	# output of fence_peer_init:
@@ -415,7 +415,7 @@ drbd_peer_fencing()
 		if [[ "$have_constraint" = "$(set +x; echo "$new_constraint" |
 			sed_rsc_location_suitable_for_string_compare "$id_prefix-$master_id")" ]]; then
 			echo INFO "suitable constraint already placed: '$id_prefix-$master_id'"
-			drbd_fence_peer_exit_code=4
+			bsr_fence_peer_exit_code=4
 			rc=0
 		elif [[ -n "$have_constraint" ]] ; then
 			# if this id already exists, but looks different, we may have lost a shootout
@@ -424,7 +424,7 @@ drbd_peer_fencing()
 			# 21 happend to be "The object already exists" with my cibadmin
 			rc=21
 
-			# maybe: drbd_fence_peer_exit_code=6
+			# maybe: bsr_fence_peer_exit_code=6
 			# as this is not the constraint we'd like to set,
 			# it is likely the inverse, so we probably can assume
 			# that the peer is active primary, or at least has
@@ -438,17 +438,17 @@ drbd_peer_fencing()
 		fi
 
 		# XXX policy decision:
-		if $suicide_on_failure_if_primary && [[ $drbd_fence_peer_exit_code != [3457] ]]; then
-			set_states_from_proc_drbd
-			[[ "${DRBD_role[*]}" = *Primary* ]] && commit_suicide
+		if $suicide_on_failure_if_primary && [[ $bsr_fence_peer_exit_code != [3457] ]]; then
+			set_states_from_proc_bsr
+			[[ "${BSR_role[*]}" = *Primary* ]] && commit_suicide
 		fi
 
 		return $rc
 		;;
 	unfence)
 		if [[ -n $have_constraint ]]; then
-			set_states_from_proc_drbd
-			if $DRBD_disk_all_uptodate && $DRBD_pdsk_all_uptodate; then
+			set_states_from_proc_bsr
+			if $BSR_disk_all_uptodate && $BSR_pdsk_all_uptodate; then
 				if $unfence_only_if_owner_match && [[ "$have_constraint" != "$(set +x; echo "$new_constraint" |
 					sed_rsc_location_suitable_for_string_compare "$id_prefix-$master_id")" ]]
 				then
@@ -459,7 +459,7 @@ drbd_peer_fencing()
 				fi
 			else
 				local w="My"
-				$DRBD_disk_all_uptodate && w="Peer's"
+				$BSR_disk_all_uptodate && w="Peer's"
 				echo WARNING "$w disk(s) are NOT all UpToDate, leaving constraint in place."
 				return 1
 			fi
@@ -472,12 +472,12 @@ drbd_peer_fencing()
 
 double_check_after_fencing()
 {
-	set_states_from_proc_drbd
-	: == DEBUG == DRBD_peer=${DRBD_peer[*]} ===
-	: == DEBUG == DRBD_pdsk=${DRBD_pdsk[*]} ===
-	if $DRBD_pdsk_all_uptodate ; then
+	set_states_from_proc_bsr
+	: == DEBUG == BSR_peer=${BSR_peer[*]} ===
+	: == DEBUG == BSR_pdsk=${BSR_pdsk[*]} ===
+	if $BSR_pdsk_all_uptodate ; then
 		echo WARNING "All peer disks are UpToDate (again), trying to remove the constraint again."
-		remove_constraint && drbd_fence_peer_exit_code=1 rc=0
+		remove_constraint && bsr_fence_peer_exit_code=1 rc=0
 		return
 	fi
 }
@@ -617,23 +617,23 @@ check_peer_node_reachable()
 			# we would likely stay Consistent, and refuse to Promote.
 			# And CTS would be very unhappy.
 			# Pretend that the peer was reachable if we are missing a node_state entry for it.
-			if [[ $DRBD_PEER ]] && ! echo "$state_lines" | grep -q -F uname=\"$DRBD_PEER\" ; then
+			if [[ $BSR_PEER ]] && ! echo "$state_lines" | grep -q -F uname=\"$BSR_PEER\" ; then
 				peer_state="reachable"
-				echo WARNING "CTS-mode: pretending that unseen node $DRBD_PEER was reachable"
+				echo WARNING "CTS-mode: pretending that unseen node $BSR_PEER was reachable"
 				return
 			fi
 		fi
 
-		# very unlikely: no DRBD_PEER passed in,
+		# very unlikely: no BSR_PEER passed in,
 		# but in fact only one other cluster node.
-		# Use that one as DRBD_PEER.
-		if [[ -z $DRBD_PEER ]] && [[ $nr_other_nodes = 1 ]]; then
-			DRBD_PEER=${other_node_uname_attrs#uname=\"}
-			DRBD_PEER=${DRBD_PEER%\"}
+		# Use that one as BSR_PEER.
+		if [[ -z $BSR_PEER ]] && [[ $nr_other_nodes = 1 ]]; then
+			BSR_PEER=${other_node_uname_attrs#uname=\"}
+			BSR_PEER=${BSR_PEER%\"}
 		fi
 
-		if [[ -z $DRBD_PEER ]]; then
-			# Multi node cluster, but unknown DRBD Peer.
+		if [[ -z $BSR_PEER ]]; then
+			# Multi node cluster, but unknown BSR Peer.
 			# This should not be a problem, unless you have
 			# no_quorum_policy=ignore in an N > 2 cluster.
 			# (yes, I've seen such beasts in the wild!)
@@ -649,9 +649,9 @@ check_peer_node_reachable()
 				sleep $full_timeout
 			fi
 
-			# In the unlikely case that we don't know our DRBD peer,
+			# In the unlikely case that we don't know our BSR peer,
 			#	there is no point in polling the cib again,
-			#	that won't teach us who our DRBD peer is.
+			#	that won't teach us who our BSR peer is.
 			#
 			#	We waited $full_timeout seconds already,
 			#	to allow for node level fencing to shoot us.
@@ -667,7 +667,7 @@ check_peer_node_reachable()
 		# we know the peer or/and are a two node cluster
 		#
 
-		node_state=$(set +x; echo "$state_lines" | grep -F uname=\"$DRBD_PEER\")
+		node_state=$(set +x; echo "$state_lines" | grep -F uname=\"$BSR_PEER\")
 
 		# populates in_ccm, crmd, exxpected, join, will_fence=[false|true]
 		guess_if_pacemaker_will_fence
@@ -695,14 +695,14 @@ check_peer_node_reachable()
 		# Convert deci-seconds to milli-seconds, and double it.
 		if [[ $crmd = "online" ]] ; then
 			local out
-			if out=$( crmadmin -t $(( cibtimeout * 200 )) -S $DRBD_PEER ) \
+			if out=$( crmadmin -t $(( cibtimeout * 200 )) -S $BSR_PEER ) \
 			&& [[ $out = *"(ok)" ]]; then
 				peer_state="reachable"
 				return
 			fi
 		fi
 
-		# We know our DRBD peer.
+		# We know our BSR peer.
 		# We are still not sure about its status, though.
 		#
 		# It is not (yet) "expected down" per the cib, but it is not
@@ -728,57 +728,57 @@ check_peer_node_reachable()
 	# NOT REACHED
 }
 
-set_states_from_proc_drbd()
+set_states_from_proc_bsr()
 {
 	local IFS line lines i disk pdsk
-	# DRBD_MINOR exported by drbdadm since 8.3.3
-	[[ $DRBD_MINOR ]] || DRBD_MINOR=$(drbdadm ${DRBD_CONF:+ -c "$DRBD_CONF"} sh-minor $DRBD_RESOURCE) || return
+	# BSR_MINOR exported by bsradm since 8.3.3
+	[[ $BSR_MINOR ]] || BSR_MINOR=$(bsradm ${BSR_CONF:+ -c "$BSR_CONF"} sh-minor $BSR_RESOURCE) || return
 
 	# if we have more than one minor, do a word split, ...
-	set -- $DRBD_MINOR
+	set -- $BSR_MINOR
 	# ... and convert into regex:
-	IFS="|$IFS"; DRBD_MINOR="($*)"; IFS=${IFS#?}
+	IFS="|$IFS"; BSR_MINOR="($*)"; IFS=${IFS#?}
 
 	# We must not recurse into netlink,
-	# this may be a callback triggered by "drbdsetup primary".
-	# grep /proc/drbd instead
+	# this may be a callback triggered by "bsrsetup primary".
+	# grep /proc/bsr instead
 
-	DRBD_peer=()
-	DRBD_role=()
-	DRBD_disk=()
-	DRBD_pdsk=()
-	DRBD_disk_all_uptodate=true
-	DRBD_disk_all_consistent=true
-	DRBD_pdsk_all_uptodate=true
+	BSR_peer=()
+	BSR_role=()
+	BSR_disk=()
+	BSR_pdsk=()
+	BSR_disk_all_uptodate=true
+	BSR_disk_all_consistent=true
+	BSR_pdsk_all_uptodate=true
 
 	IFS=$'\n'
-	lines=($(sed -nre "/^ *$DRBD_MINOR: cs:/ { s/:/ /g; p; }" /proc/drbd))
+	lines=($(sed -nre "/^ *$BSR_MINOR: cs:/ { s/:/ /g; p; }" /proc/bsr))
 	IFS=$' \t\n'
 
 	i=0
 	for line in "${lines[@]}"; do
 		set -- $line
-		DRBD_peer[i]=${5#*/}
-		DRBD_role[i]=${5%/*}
+		BSR_peer[i]=${5#*/}
+		BSR_role[i]=${5%/*}
 		pdsk=${7#*/}
 		disk=${7%/*}
-		DRBD_disk[i]=${disk:-Unconfigured}
-		DRBD_pdsk[i]=${pdsk:-DUnknown}
+		BSR_disk[i]=${disk:-Unconfigured}
+		BSR_pdsk[i]=${pdsk:-DUnknown}
 		case $disk in
 		UpToDate) ;;
 		Consistent)
-			DRBD_disk_all_uptodate=false ;;
+			BSR_disk_all_uptodate=false ;;
 		*)
-			DRBD_disk_all_uptodate=false
-			DRBD_disk_all_consistent=false ;;
+			BSR_disk_all_uptodate=false
+			BSR_disk_all_consistent=false ;;
 		esac
-		[[ $pdsk != UpToDate ]] && DRBD_pdsk_all_uptodate=false
+		[[ $pdsk != UpToDate ]] && BSR_pdsk_all_uptodate=false
 		let i++
 	done
 	if (( i = 0 )) ; then
-		DRBD_pdsk_all_uptodate=false
-		DRBD_disk_all_uptodate=false
-		DRBD_disk_all_consistent=false
+		BSR_pdsk_all_uptodate=false
+		BSR_disk_all_uptodate=false
+		BSR_disk_all_consistent=false
 	fi
 }
 ############################################################
@@ -833,10 +833,10 @@ while [[ $# != 0 ]]; do
 		shift
 		;;
 	--resource=*)
-		DRBD_RESOURCE=${1#*=}
+		BSR_RESOURCE=${1#*=}
 		;;
 	-r|--resource)
-		DRBD_RESOURCE=$2
+		BSR_RESOURCE=$2
 		shift
 		;;
 	--master-id=*)
@@ -924,7 +924,7 @@ while [[ $# != 0 ]]; do
 	--unreachable-peer-is-outdated)
 		# This is NOT to be scripted.
 		# Or people will put this into the handler definition in
-		# drbd.conf, and all this nice work was useless.
+		# bsr.conf, and all this nice work was useless.
 		test -t 0 &&
 		unreachable_peer_is=outdated
 		;;
@@ -944,12 +944,12 @@ done
 #
 # Sanitize lock_file and lock_dir
 #
-if [[ ${lock_dir:=/var/lock/drbd} != /* ]] ; then
+if [[ ${lock_dir:=/var/lock/bsr} != /* ]] ; then
 	echo WARNING "lock_dir needs to be an absolute path, not [$lock_dir]; using default."
-	lock_dir=/var/lock/drbd
+	lock_dir=/var/lock/bsr
 fi
 case $lock_file in
-"")	lock_file=$lock_dir/fence.${DRBD_RESOURCE//\//_} ;;
+"")	lock_file=$lock_dir/fence.${BSR_RESOURCE//\//_} ;;
 NONE)	: ;;
 /*)	: ;;
 *)	lock_file=$lock_dir/$lock_file ;;
@@ -959,13 +959,13 @@ if [[ $lock_file != NONE && $lock_file != $lock_dir/* ]]; then
 	: == DEBUG == "override: lock_dir=$lock_dir to match lock_file=$lock_file"
 fi
 
-# DRBD_RESOURCE: from environment
+# BSR_RESOURCE: from environment
 # master_id: parsed from cib
 
 : "== unreachable_peer_is == ${unreachable_peer_is:=unknown}"
 # apply defaults:
 : "== fencing_attribute   == ${fencing_attribute:="#uname"}"
-: "== id_prefix           == ${id_prefix:="drbd-fence-by-handler"}"
+: "== id_prefix           == ${id_prefix:="bsr-fence-by-handler"}"
 : "== role                == ${role:="Master"}"
 
 # defaults suitable for most cases
@@ -978,27 +978,27 @@ fi
 : "== lock_dir            == ${lock_dir}"
 
 
-# check envars normally passed in by drbdadm
-# TODO DRBD_CONF is also passed in.  we may need to use it in the
+# check envars normally passed in by bsradm
+# TODO BSR_CONF is also passed in.  we may need to use it in the
 # xpath query, in case someone is crazy enough to use different
 # conf files with the _same_ resource name.
 # for now: do not do that, or hardcode the cib id of the master
-# in the handler section of your drbd conf file.
-for var in DRBD_RESOURCE; do
+# in the handler section of your bsr conf file.
+for var in BSR_RESOURCE; do
 	if [ -z "${!var}" ]; then
-		echo "Environment variable \$$var not found (this is normally passed in by drbdadm)." >&2
+		echo "Environment variable \$$var not found (this is normally passed in by bsradm)." >&2
 		exit 1
 	fi
 done
 
 # Fixup id-prefix to include the resource name
-# There may be multiple drbd instances part of the same M/S Group, pointing to
+# There may be multiple bsr instances part of the same M/S Group, pointing to
 # the same master-id. Still they need to all have their own constraint, to be
 # able to unfence independently when they finish their resync independently.
 # Be nice to people who already explicitly configure an id prefix containing
 # the resource name.
-if [[ $id_prefix != *"-$DRBD_RESOURCE" ]] ; then
-	id_prefix="$id_prefix-$DRBD_RESOURCE"
+if [[ $id_prefix != *"-$BSR_RESOURCE" ]] ; then
+	id_prefix="$id_prefix-$BSR_RESOURCE"
 	: "== id_prefix           == ${id_prefix}"
 fi
 
@@ -1006,14 +1006,14 @@ fi
 HOSTNAME=$(uname -n)
 
 $quiet || {
-    for k in ${!DRBD_*} UP_TO_DATE_NODES; do printf "%s=%q " "$k" "${!k}"; done
+    for k in ${!BSR_*} UP_TO_DATE_NODES; do printf "%s=%q " "$k" "${!k}"; done
     printf '%q' "$0"
     [[ $# != 0 ]] && printf ' %q' "$@"
     printf '\n'
 }
 
-# to be set by drbd_peer_fencing()
-drbd_fence_peer_exit_code=1
+# to be set by bsr_peer_fencing()
+bsr_fence_peer_exit_code=1
 
 got_flock=false
 if [[ $lock_file != NONE ]] ; then
@@ -1035,15 +1035,15 @@ fi
 
 case $PROG in
     crm-fence-peer.sh)
-	if drbd_peer_fencing fence; then
+	if bsr_peer_fencing fence; then
 		: == DEBUG == $cibadmin_invocations cibadmin calls ==
 		: == DEBUG == $SECONDS seconds ==
-		[[ $drbd_fence_peer_exit_code = [347] ]] && double_check_after_fencing
-		exit $drbd_fence_peer_exit_code
+		[[ $bsr_fence_peer_exit_code = [347] ]] && double_check_after_fencing
+		exit $bsr_fence_peer_exit_code
 	fi
 	;;
     crm-unfence-peer.sh)
-	if drbd_peer_fencing unfence; then
+	if bsr_peer_fencing unfence; then
 		: == DEBUG == $cibadmin_invocations cibadmin calls ==
 		: == DEBUG == $SECONDS seconds ==
 		exit 0

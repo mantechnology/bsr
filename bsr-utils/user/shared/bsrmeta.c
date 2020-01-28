@@ -1,24 +1,24 @@
 ﻿/*
    bsrmeta.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2004-2008, LINBIT Information Technologies GmbH
    Copyright (C) 2004-2008, Philipp Reisner <philipp.reisner@linbit.com>
    Copyright (C) 2004-2008, Lars Ellenberg  <lars.ellenberg@linbit.com>
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -45,7 +45,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-#include "bsr.h"		/* only use DRBD_MAGIC from here! */
+#include "bsr.h"		/* only use BSR_MAGIC from here! */
 #ifdef _WIN
 #include <windows.h>
 #else // _LIN
@@ -158,10 +158,10 @@ static int confirmed(const char *text)
 /*
  * FIXME
  *
- * when configuring a drbd device:
+ * when configuring a bsr device:
  *
- * Require valid drbd meta data at the respective location.  A meta data
- * block would only be created by the drbdmeta command.
+ * Require valid bsr meta data at the respective location.  A meta data
+ * block would only be created by the bsrmeta command.
  *
  * (How) do we want to implement this: A meta data block contains some
  * reference to the physical device it belongs. Refuse to attach not
@@ -169,7 +169,7 @@ static int confirmed(const char *text)
  *
  * THINK: put a checksum within the on-disk meta data block, too?
  *
- * When asked to create a new meta data block, the drbdmeta command
+ * When asked to create a new meta data block, the bsrmeta command
  * warns loudly if either the data device or the meta data device seem
  * to contain some data, and requires explicit confirmation anyways.
  *
@@ -182,7 +182,7 @@ static int confirmed(const char *text)
  * Maybe with an external meta data device, we want to require a "meta
  * data device super block", which could also serve as TOC to the meta
  * data, once we have variable size meta data.  Other option could be a
- * /var/lib/drbd/md-toc plain file, and some magic block on every device
+ * /var/lib/bsr/md-toc plain file, and some magic block on every device
  * that serves as md storage.
  *
  * For certain content on the lower level device, we should refuse
@@ -222,11 +222,11 @@ static int confirmed(const char *text)
 
 #define DEFAULT_BM_BLOCK_SIZE  (1<<12)
 
-#define DRBD_MD_MAGIC_06   (DRBD_MAGIC+2)
-#define DRBD_MD_MAGIC_07   (DRBD_MAGIC+3)
-#define DRBD_MD_MAGIC_08   (DRBD_MAGIC+4)
-#define DRBD_MD_MAGIC_84_UNCLEAN   (DRBD_MAGIC+5)
-#define DRBD_MD_MAGIC_09   (DRBD_MAGIC+6)
+#define BSR_MD_MAGIC_06   (BSR_MAGIC+2)
+#define BSR_MD_MAGIC_07   (BSR_MAGIC+3)
+#define BSR_MD_MAGIC_08   (BSR_MAGIC+4)
+#define BSR_MD_MAGIC_84_UNCLEAN   (BSR_MAGIC+5)
+#define BSR_MD_MAGIC_09   (BSR_MAGIC+6)
 
 /*
  * }
@@ -254,11 +254,11 @@ char **global_argv;
 char *progname = NULL;
 
 enum md_format {
-	DRBD_V06,
-	DRBD_V07,
-	DRBD_V08,
-	DRBD_V09,
-	DRBD_UNKNOWN,
+	BSR_V06,
+	BSR_V07,
+	BSR_V08,
+	BSR_V09,
+	BSR_UNKNOWN,
 };
 
 /* let gcc help us get it right.
@@ -285,10 +285,10 @@ struct peer_md_cpu {
 struct md_cpu {
 	uint64_t current_uuid;
 	uint64_t history_uuids[HISTORY_UUIDS];
-	/* present since drbd 0.6 */
+	/* present since bsr 0.6 */
 	uint32_t gc[GEN_CNT_SIZE];	/* generation counter */
 	uint32_t magic;
-	/* added in drbd 0.7;
+	/* added in bsr 0.7;
 	 * 0.7 stores effevtive_size on disk as kb, 0.8 in units of sectors.
 	 * we use sectors in our general working structure here */
 	uint64_t effective_size;	/* last agreed size */
@@ -296,21 +296,21 @@ struct md_cpu {
 	int32_t al_offset;		/* signed sector offset to this block */
 	uint32_t al_nr_extents;	/* important for restoring the AL */
 	int32_t bm_offset;		/* signed sector offset to the bitmap, from here */
-	/* Since DRBD 0.8 we have uuid instead of gc */
+	/* Since BSR 0.8 we have uuid instead of gc */
 	uint32_t flags;
 	uint64_t device_uuid;
 	uint32_t bm_bytes_per_bit;
 	uint32_t la_peer_max_bio_size;
-	/* Since DRBD 9.0 the following new stuff: */
+	/* Since BSR 9.0 the following new stuff: */
 	uint32_t max_peers;
 	int32_t node_id;
-	struct peer_md_cpu peers[DRBD_PEERS_MAX];
+	struct peer_md_cpu peers[BSR_PEERS_MAX];
 	uint32_t al_stripes;
 	uint32_t al_stripe_size_4k;
 };
 
 /*
- * drbdmeta specific types
+ * bsrmeta specific types
  */
 
 struct format_ops;
@@ -318,7 +318,7 @@ struct format_ops;
 struct format {
 	const struct format_ops *ops;
 	char *md_device_name;	/* well, in 06 it is file name */
-	char *drbd_dev_name;
+	char *bsr_dev_name;
 #ifdef _WIN_VHD_META_SUPPORT
 	char *vhd_dev_path;
 	int peer_count;
@@ -326,9 +326,9 @@ struct format {
 #ifdef _LIN_LOOP_META_SUPPORT
 	char *loop_file_path;
 #endif
-	unsigned minor;		/* cache, determined from drbd_dev_name */
+	unsigned minor;		/* cache, determined from bsr_dev_name */
 	int lock_fd;
-	int drbd_fd;		/* no longer used!   */
+	int bsr_fd;		/* no longer used!   */
 	int ll_fd;		/* not yet used here */
 	int md_fd;
 	int md_hard_sect_size;
@@ -363,7 +363,7 @@ struct format {
 
 	/* last-known bdev info,
 	 * to increase the chance of finding internal meta data in case the
-	 * lower level device has been resized without telling DRBD.
+	 * lower level device has been resized without telling BSR.
 	 * Loaded from file for internal metadata */
 	struct bdev_info lk_bd;
 };
@@ -392,7 +392,7 @@ struct format_ops {
 
 struct format_ops f_ops[];
 /*
- * -- DRBD 0.6 --------------------------------------
+ * -- BSR 0.6 --------------------------------------
  */
 
 struct __packed md_on_disk_06 {
@@ -422,7 +422,7 @@ void md_cpu_to_disk_06(struct md_on_disk_06 *disk, struct md_cpu *cpu)
 
 int v06_validate_md(struct format *cfg)
 {
-	if (cfg->md.magic != DRBD_MD_MAGIC_06) {
+	if (cfg->md.magic != BSR_MD_MAGIC_06) {
 		fprintf(stderr, "v06 Magic number not found\n");
 		return -1;
 	}
@@ -430,7 +430,7 @@ int v06_validate_md(struct format *cfg)
 }
 
 /*
- * -- DRBD 0.7 --------------------------------------
+ * -- BSR 0.7 --------------------------------------
  */
 unsigned long bm_bytes(const struct md_cpu * const md, uint64_t sectors);
 
@@ -487,29 +487,29 @@ int is_valid_md(enum md_format f,
 	int al_size_sect;
 	int n;
 
-	ASSERT(f == DRBD_V07 || f == DRBD_V08 || f == DRBD_V09);
+	ASSERT(f == BSR_V07 || f == BSR_V08 || f == BSR_V09);
 
-	if ((f == DRBD_V07 && md->magic != DRBD_MD_MAGIC_07) ||
-	    (f == DRBD_V08 && md->magic != DRBD_MD_MAGIC_08
-			  && md->magic != DRBD_MD_MAGIC_84_UNCLEAN) ||
-	    (f == DRBD_V09 && md->magic != DRBD_MD_MAGIC_09)) {
+	if ((f == BSR_V07 && md->magic != BSR_MD_MAGIC_07) ||
+	    (f == BSR_V08 && md->magic != BSR_MD_MAGIC_08
+			  && md->magic != BSR_MD_MAGIC_84_UNCLEAN) ||
+	    (f == BSR_V09 && md->magic != BSR_MD_MAGIC_09)) {
 		if (verbose >= 1)
 			fprintf(stderr, "%s Magic number not found\n", v);
 		return 0;
 	}
 
-	if (md->max_peers < 1 || md->max_peers > DRBD_PEERS_MAX) {
+	if (md->max_peers < 1 || md->max_peers > BSR_PEERS_MAX) {
 		fprintf(stderr, "%s max-peers value %d out of bounds\n",
 			v, md->max_peers);
 		return 0;
 	}
-	if (md->node_id < -1 || md->node_id > DRBD_PEERS_MAX + 1) {
+	if (md->node_id < -1 || md->node_id > BSR_PEERS_MAX + 1) {
 		fprintf(stderr, "%s device node-id value %d out of bounds\n",
 			v, md->node_id);
 		return 0;
 	}
 	for (n = 0; n < md->max_peers; n++) {
-		if (md->peers[n].bitmap_index < -1 || md->peers[n].bitmap_index > DRBD_PEERS_MAX + 1) {
+		if (md->peers[n].bitmap_index < -1 || md->peers[n].bitmap_index > BSR_PEERS_MAX + 1) {
 			fprintf(stderr, "%s peer device %d node-id value %d out of bounds\n",
 				v, n, md->peers[n].bitmap_index);
 			return 0;
@@ -520,8 +520,8 @@ int is_valid_md(enum md_format f,
 
 	switch(md_index) {
 	default:
-	case DRBD_MD_INDEX_INTERNAL:
-	case DRBD_MD_INDEX_FLEX_EXT:
+	case BSR_MD_INDEX_INTERNAL:
+	case BSR_MD_INDEX_FLEX_EXT:
 		if (md->al_offset != MD_AL_OFFSET_07) {
 			fprintf(stderr, "%s Magic number (al_offset) not found\n", v);
 			fprintf(stderr, "\texpected: %d, found %d\n",
@@ -534,7 +534,7 @@ int is_valid_md(enum md_format f,
 			return 0;
 		}
 		break;
-	case DRBD_MD_INDEX_FLEX_INT:
+	case BSR_MD_INDEX_FLEX_INT:
 		if (md->al_offset != -al_size_sect) {
 			fprintf(stderr, "%s al_offset: expected %d, found %d\n", v,
 				-al_size_sect, md->al_offset);
@@ -543,7 +543,7 @@ int is_valid_md(enum md_format f,
 
 		md_size_sect = bm_bytes(md, ll_size >> 9) >> 9;
 		md_size_sect = ALIGN(md_size_sect, 8);    /* align on 4K blocks */
-		/* plus the "drbd meta data super block",
+		/* plus the "bsr meta data super block",
 		 * and the activity log; unit still sectors */
 		md_size_sect += MD_AL_OFFSET_07 + al_size_sect;
 
@@ -555,7 +555,7 @@ int is_valid_md(enum md_format f,
 		if (md->md_size_sect != md_size_sect) {
 			fprintf(stderr, "strange md_size_sect %u (expected: "U64")\n",
 					md->md_size_sect, md_size_sect);
-			if (f == DRBD_V08) return 0;
+			if (f == BSR_V08) return 0;
 			/* else not an error,
 			 * was inconsistently implemented in v07 */
 		}
@@ -608,12 +608,12 @@ int v07_al_disk_to_cpu(struct al_sector_cpu *al_cpu, struct al_sector_on_disk *a
 		xor_sum ^= al_cpu->updates[i].extent;
 	}
 	al_cpu->xor_sum = be32_to_cpu(al_disk->xor_sum.be);
-	return al_cpu->magic == DRBD_MAGIC &&
+	return al_cpu->magic == BSR_MAGIC &&
 		al_cpu->xor_sum == xor_sum;
 }
 
 /*
- * -- DRBD 8.0, 8.2, 8.3 --------------------------------------
+ * -- BSR 8.0, 8.2, 8.3 --------------------------------------
  */
 
 struct __packed md_on_disk_08 {
@@ -696,13 +696,13 @@ void md_cpu_to_disk_08(struct md_on_disk_08 *disk, const struct md_cpu *cpu)
 }
 
 /*
- * -- DRBD 8.4 --------------------------------------
+ * -- BSR 8.4 --------------------------------------
  */
 
 /* new in 8.4: 4k al transaction blocks */
 #define AL_UPDATES_PER_TRANSACTION 64
 #define AL_CONTEXT_PER_TRANSACTION 919
-/* from DRBD 8.4 linux/drbd/drbd_limits.h, DRBD_AL_EXTENTS_MAX */
+/* from BSR 8.4 linux/bsr/bsr_limits.h, BSR_AL_EXTENTS_MAX */
 #define AL_EXTENTS_MAX  65534
 enum al_transaction_types {
 	AL_TR_UPDATE = 0,
@@ -730,7 +730,7 @@ struct __packed al_4k_transaction_on_disk {
 	/* how many updates in this transaction */
 	be_u16	n_updates;
 
-	/* maximum slot number, "al-extents" in drbd.conf speak.
+	/* maximum slot number, "al-extents" in bsr.conf speak.
 	 * Having this in each transaction should make reconfiguration
 	 * of that parameter easier. */
 	be_u16	context_size;
@@ -806,14 +806,14 @@ int v84_al_disk_to_cpu(struct al_4k_cpu *al_cpu, struct al_4k_transaction_on_dis
 
 	al_disk->crc32c.be = 0;
 	crc = crc32c(crc, (void*)al_disk, 4096);
-	al_cpu->is_valid = (al_cpu->magic == DRBD_AL_MAGIC && al_cpu->crc32c == crc);
+	al_cpu->is_valid = (al_cpu->magic == BSR_AL_MAGIC && al_cpu->crc32c == crc);
 	return al_cpu->is_valid;
 }
 
 /*
- * -- DRBD 9.0 --------------------------------------
+ * -- BSR 9.0 --------------------------------------
  */
-/* struct meta_data_on_disk_9 is in drbd_meta_data.h */
+/* struct meta_data_on_disk_9 is in bsr_meta_data.h */
 
 void md_disk_09_to_cpu(struct md_cpu *cpu, const struct meta_data_on_disk_9 *disk)
 {
@@ -835,11 +835,11 @@ void md_disk_09_to_cpu(struct md_cpu *cpu, const struct meta_data_on_disk_9 *dis
 	cpu->al_stripes = be32_to_cpu(disk->al_stripes.be);
 	cpu->al_stripe_size_4k = be32_to_cpu(disk->al_stripe_size_4k.be);
 
-	if (cpu->max_peers > DRBD_PEERS_MAX)
-		cpu->max_peers = DRBD_PEERS_MAX;
+	if (cpu->max_peers > BSR_PEERS_MAX)
+		cpu->max_peers = BSR_PEERS_MAX;
 
 	cpu->current_uuid = be64_to_cpu(disk->current_uuid.be);
-	for (p = 0; p < DRBD_NODE_ID_MAX; p++) {
+	for (p = 0; p < BSR_NODE_ID_MAX; p++) {
 		cpu->peers[p].flags = be32_to_cpu(disk->peers[p].flags.be);
 		cpu->peers[p].bitmap_index = be32_to_cpu(disk->peers[p].bitmap_index.be);
 		cpu->peers[p].bitmap_uuid =
@@ -874,7 +874,7 @@ void md_cpu_to_disk_09(struct meta_data_on_disk_9 *disk, const struct md_cpu *cp
 	disk->al_stripe_size_4k.be = cpu_to_be32(cpu->al_stripe_size_4k);
 
 	disk->current_uuid.be = cpu_to_be64(cpu->current_uuid);
-	for (p = 0; p < DRBD_NODE_ID_MAX; p++) {
+	for (p = 0; p < BSR_NODE_ID_MAX; p++) {
 		disk->peers[p].flags.be = cpu_to_be32(cpu->peers[p].flags);
 		disk->peers[p].bitmap_index.be = cpu_to_be32(cpu->peers[p].bitmap_index);
 		disk->peers[p].bitmap_uuid.be =
@@ -941,7 +941,7 @@ enum {
 };
 
 struct format_ops f_ops[] = {
-	[DRBD_V06] = {
+	[BSR_V06] = {
 		     .name = "v06",
 		     .args = (char *[]){"minor", NULL},
 		     .parse = v06_parse,
@@ -956,7 +956,7 @@ struct format_ops f_ops[] = {
 		     .outdate_gi = m_outdate_gc,
 		     .invalidate_gi = m_invalidate_gc,
 		     },
-	[DRBD_V07] = {
+	[BSR_V07] = {
 		     .name = "v07",
 		     .args = (char *[]){"device", "index", NULL},
 		     .parse = v07_parse,
@@ -971,7 +971,7 @@ struct format_ops f_ops[] = {
 		     .outdate_gi = m_outdate_gc,
 		     .invalidate_gi = m_invalidate_gc,
 		     },
-	[DRBD_V08] = {
+	[BSR_V08] = {
 		     .name = "v08",
 		     .args = (char *[]){"device", "index", NULL},
 		     .parse = v07_parse,
@@ -986,7 +986,7 @@ struct format_ops f_ops[] = {
 		     .outdate_gi = m_outdate_uuid,
 		     .invalidate_gi = m_invalidate_uuid,
 		     },
-	[DRBD_V09] = {
+	[BSR_V09] = {
 		     .name = "v09",
 		     .args = (char *[]){"device", "index", NULL},
 		     .parse = v07_parse,
@@ -1009,19 +1009,19 @@ static inline enum md_format format_version(struct format *cfg)
 }
 static inline int is_v06(struct format *cfg)
 {
-	return format_version(cfg) == DRBD_V06;
+	return format_version(cfg) == BSR_V06;
 }
 static inline int is_v07(struct format *cfg)
 {
-	return format_version(cfg) == DRBD_V07;
+	return format_version(cfg) == BSR_V07;
 }
 static inline int is_v08(struct format *cfg)
 {
-	return format_version(cfg) == DRBD_V08;
+	return format_version(cfg) == BSR_V08;
 }
 static inline int is_v09(struct format *cfg)
 {
-	return format_version(cfg) == DRBD_V09;
+	return format_version(cfg) == BSR_V09;
 }
 
 /******************************************
@@ -1504,7 +1504,7 @@ int m_invalidate_v9_uuid(struct md_cpu *md)
 	md->flags &= ~MDF_CONSISTENT;
 	md->flags &= ~MDF_WAS_UP_TO_DATE;
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
 		md->peers[node_id].flags |= MDF_PEER_FULL_SYNC;
 	}
 
@@ -1548,7 +1548,7 @@ int v06_parse(struct format *cfg, char **argv, int argc, int *ai)
 		fprintf(stderr, "'%s' is not a valid minor number.\n", argv[0]);
 		exit(20);
 	}
-	if (asprintf(&e, "%s/drbd%lu", BSR_LIB_DIR, minor) <= 18) {
+	if (asprintf(&e, "%s/bsr%lu", BSR_LIB_DIR, minor) <= 18) {
 		fprintf(stderr, "asprintf() failed.\n");
 		exit(20);
 	};
@@ -1616,7 +1616,7 @@ int v06_md_initialize(struct format *cfg,
 	cfg->md.gc[ConnectedCnt] = 1;
 	cfg->md.gc[ArbitraryCnt] = 1;
 	cfg->md.max_peers = 1;
-	cfg->md.magic = DRBD_MD_MAGIC_06;
+	cfg->md.magic = BSR_MD_MAGIC_06;
 	return 0;
 }
 
@@ -1645,8 +1645,8 @@ static uint64_t max_usable_sectors(struct format *cfg)
 	 * which covers the last 128 MB of the device,
 	 * and has the same layout as the "external:" above.
 	 */
-	if(cfg->md_index == DRBD_MD_INDEX_INTERNAL ||
-	   cfg->md_index == DRBD_MD_INDEX_FLEX_INT) {
+	if(cfg->md_index == BSR_MD_INDEX_INTERNAL ||
+	   cfg->md_index == BSR_MD_INDEX_FLEX_INT) {
 		/* for internal meta data, the available storage is limitted by
 		 * the first meta data sector, even if the available bitmap
 		 * space would support more. */
@@ -1694,18 +1694,18 @@ void re_initialize_md_offsets(struct format *cfg)
 		cfg->md.al_offset = MD_AL_OFFSET_07;
 		cfg->md.bm_offset = cfg->md.al_offset + al_size_sect;
 		break;
-	case DRBD_MD_INDEX_FLEX_EXT:
+	case BSR_MD_INDEX_FLEX_EXT:
 		/* just occupy the full device; unit: sectors */
 		cfg->md.md_size_sect = cfg->bd_size >> 9;
 		cfg->md.al_offset = MD_AL_OFFSET_07;
 		cfg->md.bm_offset = cfg->md.al_offset + al_size_sect;
 		break;
-	case DRBD_MD_INDEX_INTERNAL: /* only v07 */
+	case BSR_MD_INDEX_INTERNAL: /* only v07 */
 		cfg->md.md_size_sect = MD_RESERVED_SECT_07;
 		cfg->md.al_offset = MD_AL_OFFSET_07;
 		cfg->md.bm_offset = MD_BM_OFFSET_07;
 		break;
-	case DRBD_MD_INDEX_FLEX_INT:
+	case BSR_MD_INDEX_FLEX_INT:
 		/* al size is still fixed */
 		cfg->md.al_offset = -al_size_sect;
 
@@ -1718,7 +1718,7 @@ void re_initialize_md_offsets(struct format *cfg)
 				fprintf(stderr, "Maybe try a 64bit arch?\n");
 			exit(10);
 		}
-		/* plus the "drbd meta data super block",
+		/* plus the "bsr meta data super block",
 		 * and the activity log; unit still sectors */
 		md_size_sect += MD_AL_OFFSET_07 + al_size_sect;
 		cfg->md.md_size_sect = md_size_sect;
@@ -1743,8 +1743,8 @@ void initialize_al(struct format *cfg)
 	unsigned int mx = cfg->md.al_stripes * cfg->md.al_stripe_size_4k;
 	size_t al_size = mx * 4096;
 	memset(on_disk_buffer, 0x00, al_size);
-	if (format_version(cfg) >= DRBD_V08) {
-		/* DRBD <= 8.3 does not care if it is all zero,
+	if (format_version(cfg) >= BSR_V08) {
+		/* BSR <= 8.3 does not care if it is all zero,
 		 * or otherwise wrong magic.
 		 *
 		 * For 8.4 and 9.0, we initialize to something that is
@@ -1754,7 +1754,7 @@ void initialize_al(struct format *cfg)
 		unsigned crc_be = 0;
 		int i;
 		for (i = 0; i < mx; i++, al++) {
-			al->magic.be = cpu_to_be32(DRBD_AL_MAGIC);
+			al->magic.be = cpu_to_be32(BSR_AL_MAGIC);
 			al->transaction_type.be = cpu_to_be16(AL_TR_INITIALIZED);
 			/* crc calculated once */
 			if (i == 0)
@@ -1866,17 +1866,17 @@ uint64_t v07_style_md_get_byte_offset(const int idx, const uint64_t bd_size)
 	default: /* external, some index */
 		offset = MD_RESERVED_SECT_07 * idx * 512;
 		break;
-	case DRBD_MD_INDEX_INTERNAL:
+	case BSR_MD_INDEX_INTERNAL:
 		offset = (bd_size & ~4095LLU)
 		    - MD_RESERVED_SECT_07 * 512;
 		break;
-	case DRBD_MD_INDEX_FLEX_INT:
+	case BSR_MD_INDEX_FLEX_INT:
 		/* sizeof(struct md_on_disk_07) == 4k
 		 * position: last 4k aligned block of 4k size */
 		offset  = bd_size - 4096LLU;
 		offset &= ~4095LLU;
 		break;
-	case DRBD_MD_INDEX_FLEX_EXT:
+	case BSR_MD_INDEX_FLEX_EXT:
 		offset = 0;
 		break;
 	}
@@ -1992,13 +1992,13 @@ void printf_al(struct format *cfg)
 		 * we should introduce a new meta data "super block" magic, so we won't
 		 * have the same super block with two different activity log
 		 * transaction layouts */
-		if (format_version(cfg) < DRBD_V08)
+		if (format_version(cfg) < BSR_V08)
 			printf_al_07(cfg, al_512_disk);
 
 		/* looks like we have the new al format */
 		else if (is_al_84 ||
-			 DRBD_AL_MAGIC == be32_to_cpu(al_4k_disk[0].magic.be) ||
-			 DRBD_AL_MAGIC == be32_to_cpu(al_4k_disk[1].magic.be)) {
+			 BSR_AL_MAGIC == be32_to_cpu(al_4k_disk[0].magic.be) ||
+			 BSR_AL_MAGIC == be32_to_cpu(al_4k_disk[1].magic.be)) {
 			is_al_84 = 1;
 			printf_al_84(cfg, al_4k_disk, block_nr_offset, N);
 		}
@@ -2365,14 +2365,14 @@ void apply_al(struct format *cfg, uint32_t *hot_extent)
 int need_to_apply_al(struct format *cfg)
 {
 	switch (format_version(cfg)) {
-	case DRBD_V06:
+	case BSR_V06:
 		return 0; /* there was no activity log in 0.6 */
-	case DRBD_V07:
+	case BSR_V07:
 		return cfg->md.gc[Flags] & MDF_PRIMARY_IND;
-	case DRBD_V08:
-	case DRBD_V09:
+	case BSR_V08:
+	case BSR_V09:
 		return cfg->md.flags & MDF_PRIMARY_IND;
-	case DRBD_UNKNOWN:
+	case BSR_UNKNOWN:
 		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
 	}
 	return 0;
@@ -2391,8 +2391,8 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 	if (argc > 0)
 		fprintf(stderr, "Ignoring additional arguments\n");
 
-	if (format_version(cfg) < DRBD_V07) {
-		fprintf(stderr, "apply-al only implemented for DRBD >= 0.7\n");
+	if (format_version(cfg) < BSR_V07) {
+		fprintf(stderr, "apply-al only implemented for BSR >= 0.7\n");
 		return -1;
 	}
 
@@ -2425,10 +2425,10 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 	 * we should introduce a new meta data "super block" magic, so we won't
 	 * have the same super block with two different activity log
 	 * transaction layouts */
-	else if (DRBD_MD_MAGIC_84_UNCLEAN == cfg->md.magic ||
-		 DRBD_MD_MAGIC_09 == cfg->md.magic ||
-		 DRBD_AL_MAGIC == be32_to_cpu(al_4k_disk[0].magic.be) ||
-		 DRBD_AL_MAGIC == be32_to_cpu(al_4k_disk[1].magic.be) ||
+	else if (BSR_MD_MAGIC_84_UNCLEAN == cfg->md.magic ||
+		 BSR_MD_MAGIC_09 == cfg->md.magic ||
+		 BSR_AL_MAGIC == be32_to_cpu(al_4k_disk[0].magic.be) ||
+		 BSR_AL_MAGIC == be32_to_cpu(al_4k_disk[1].magic.be) ||
 		 cfg->md.al_stripes != 1 || cfg->md.al_stripe_size_4k != 8) {
 		err = replay_al_84(cfg, hot_extent);
 	} else {
@@ -2481,9 +2481,9 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 	if (re_initialize_anyways || (err > 0 && !is_v07(cfg)))
 		initialize_al(cfg);
 
-	if (format_version(cfg) >= DRBD_V08 &&
+	if (format_version(cfg) >= BSR_V08 &&
 	    ((cfg->md.flags & MDF_AL_CLEAN) == 0 ||
-	     cfg->md.magic != DRBD_MD_MAGIC_08))
+	     cfg->md.magic != BSR_MD_MAGIC_08))
 		need_to_update_md_flags = 1;
 
 	err = 0;
@@ -2499,10 +2499,10 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 		 * USE_DEGR_WFC_T as long as MDF_CRASHED_PRIMARY is set.
 		 * Maybe that even results in better semantics.
 		 */
-		if (format_version(cfg) >= DRBD_V08)
+		if (format_version(cfg) >= BSR_V08)
 			cfg->md.flags |= MDF_AL_CLEAN;
 		if (is_v08(cfg))
-			cfg->md.magic = DRBD_MD_MAGIC_08;
+			cfg->md.magic = BSR_MD_MAGIC_08;
 
 		err = cfg->ops->md_cpu_to_disk(cfg);
 		err = cfg->ops->close(cfg) || err;
@@ -2585,7 +2585,7 @@ static void fprintf_bm(FILE *f, struct format *cfg, int peer_nr, const char* ind
 	* If you change buffer_size, double check this hackish reasoning as well. */
 	const size_t max_chunk_size = round_down(buffer_size, 4096 * max_peers);
 
-	ASSERT(buffer_size >= DRBD_PEERS_MAX * 4096);
+	ASSERT(buffer_size >= BSR_PEERS_MAX * 4096);
 	ASSERT(max_chunk_size);
 
 	i = peer_nr;
@@ -2661,20 +2661,20 @@ void printf_bm(struct format *cfg)
 	int i;
 
 	switch (format_version(cfg)) {
-	case DRBD_V06:
+	case BSR_V06:
 		return;
-	case DRBD_V07:
-	case DRBD_V08:
+	case BSR_V07:
+	case BSR_V08:
 		printf("bm ");
 		fprintf_bm(stdout, cfg, 0, "");
 		break;
-	case DRBD_V09:
+	case BSR_V09:
 		for (i = 0; i < cfg->md.max_peers; i++) {
 			printf("bitmap[%d] ", i);
 			fprintf_bm(stdout, cfg, i, "");
 		}
 		break;
-	case DRBD_UNKNOWN:
+	case BSR_UNKNOWN:
 		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
 	}
 }
@@ -3013,8 +3013,8 @@ int v07_style_md_open(struct format *cfg)
 		cfg->bd_size = sb.st_size;
 	}
 #endif
-	if (format_version(cfg) >= DRBD_V08) {
-		ASSERT(cfg->md_index != DRBD_MD_INDEX_INTERNAL);
+	if (format_version(cfg) >= BSR_V08) {
+		ASSERT(cfg->md_index != BSR_MD_INDEX_INTERNAL);
 	}
 #ifdef _WIN
 	ioctl_err = bdev_sect_size_nt(cfg->md_device_name, &hard_sect_size);
@@ -3095,7 +3095,7 @@ int v07_md_disk_to_cpu(struct format *cfg)
 	int ok;
 	PREAD(cfg, on_disk_buffer, sizeof(struct md_on_disk_07), cfg->md_offset);
 	md_disk_07_to_cpu(&md, (struct md_on_disk_07*)on_disk_buffer);
-	ok = is_valid_md(DRBD_V07, &md, cfg->md_index, cfg->bd_size);
+	ok = is_valid_md(BSR_V07, &md, cfg->md_index, cfg->bd_size);
 	if (ok)
 		cfg->md = md;
 	return ok ? 0 : -1;
@@ -3103,7 +3103,7 @@ int v07_md_disk_to_cpu(struct format *cfg)
 
 int v07_md_cpu_to_disk(struct format *cfg)
 {
-	if (!is_valid_md(DRBD_V07, &cfg->md, cfg->md_index, cfg->bd_size))
+	if (!is_valid_md(BSR_V07, &cfg->md, cfg->md_index, cfg->bd_size))
 		return -1;
 	md_cpu_to_disk_07(on_disk_buffer, &cfg->md);
 	PWRITE(cfg, on_disk_buffer, sizeof(struct md_on_disk_07), cfg->md_offset);
@@ -3123,21 +3123,21 @@ int v07_parse(struct format *cfg, char **argv, int argc, int *ai)
 	cfg->md_device_name = strdup(argv[0]);
 	if (!strcmp(argv[1],"internal")) {
 		index =
-		  is_v07(cfg) ? DRBD_MD_INDEX_INTERNAL
-			      : DRBD_MD_INDEX_FLEX_INT;
+		  is_v07(cfg) ? BSR_MD_INDEX_INTERNAL
+			      : BSR_MD_INDEX_FLEX_INT;
 	} else if (!strcmp(argv[1],"flex-external")) {
-		index = DRBD_MD_INDEX_FLEX_EXT;
+		index = BSR_MD_INDEX_FLEX_EXT;
 	} else if (!strcmp(argv[1],"flex-internal")) {
-		index = DRBD_MD_INDEX_FLEX_INT;
+		index = BSR_MD_INDEX_FLEX_INT;
 #ifdef _WIN_VHD_META_SUPPORT
 	} else if (strstr(argv[1], ".vhd")) {
 		cfg->vhd_dev_path = strdup(argv[1]);
-		index = DRBD_MD_INDEX_FLEX_EXT;
+		index = BSR_MD_INDEX_FLEX_EXT;
 #endif
 #ifdef _LIN_LOOP_META_SUPPORT
 	} else if (strstr(cfg->md_device_name, "loop") && strstr(argv[1], "/")) {
 		cfg->loop_file_path = strdup(argv[1]);
-		index = DRBD_MD_INDEX_FLEX_EXT;
+		index = BSR_MD_INDEX_FLEX_EXT;
 #endif
 	} else {
 		e = argv[1];
@@ -3167,7 +3167,7 @@ int v07_md_initialize(struct format *cfg, int do_disk_writes,
 	cfg->md.gc[ConnectedCnt] = 1;
 	cfg->md.gc[ArbitraryCnt] = 1;
 	cfg->md.max_peers = 1;
-	cfg->md.magic = DRBD_MD_MAGIC_07;
+	cfg->md.magic = BSR_MD_MAGIC_07;
 	/* No striping in v07!
 	 * But some parts of the common code expect these members to be properly initialized. */
 	cfg->md.al_stripes = 1;
@@ -3194,10 +3194,10 @@ void v08_check_for_resize(struct format *cfg)
 	/* you should not call me if you already found something. */
 	ASSERT(cfg->md.magic == 0);
 
-	/* check for resized lower level device ... only check for drbd 8 */
-	if (format_version(cfg) < DRBD_V08)
+	/* check for resized lower level device ... only check for bsr 8 */
+	if (format_version(cfg) < BSR_V08)
 		return;
-	if (cfg->md_index != DRBD_MD_INDEX_FLEX_INT)
+	if (cfg->md_index != BSR_MD_INDEX_FLEX_INT)
 		return;
 
 	/* Do we know anything? Maybe it never was stored. */
@@ -3221,7 +3221,7 @@ void v08_check_for_resize(struct format *cfg)
 		return;
 
 	flex_offset = v07_style_md_get_byte_offset(
-		DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
+		BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
 
 	/* actually check that offset, if it is accessible. */
 	/* If someone shrunk that device, I won't be able to read it! */
@@ -3229,16 +3229,16 @@ void v08_check_for_resize(struct format *cfg)
 		PREAD(cfg, on_disk_buffer, 4096, flex_offset);
 		if (is_v08(cfg)) {
 			md_disk_08_to_cpu(&md_test, (struct md_on_disk_08*)on_disk_buffer);
-			found = is_valid_md(DRBD_V08, &md_test, DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
+			found = is_valid_md(BSR_V08, &md_test, BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
 		}
 		else if (is_v09(cfg)) {
 			md_disk_09_to_cpu(&md_test, (struct meta_data_on_disk_9*)on_disk_buffer);
-			found = is_valid_md(DRBD_V09, &md_test, DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
+			found = is_valid_md(BSR_V09, &md_test, BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
 		}
 	}
 
 	if (verbose) {
-		fprintf(stderr, "While checking for internal meta data for drbd%u on %s,\n"
+		fprintf(stderr, "While checking for internal meta data for bsr%u on %s,\n"
 				"it appears that it may have been relocated.\n"
 				"It used to be ", cfg->minor, cfg->md_device_name);
 		if (cfg->lk_bd.bd_name &&
@@ -3290,7 +3290,7 @@ int v08_md_disk_to_cpu(struct format *cfg)
 	int ok;
 	PREAD(cfg, on_disk_buffer, sizeof(struct md_on_disk_08), cfg->md_offset);
 	md_disk_08_to_cpu(&md, (struct md_on_disk_08*)on_disk_buffer);
-	ok = is_valid_md(DRBD_V08, &md, cfg->md_index, cfg->bd_size);
+	ok = is_valid_md(BSR_V08, &md, cfg->md_index, cfg->bd_size);
 	if (ok)
 		cfg->md = md;
 	if (verbose >= 3 + !!ok && verbose <= 10)
@@ -3300,7 +3300,7 @@ int v08_md_disk_to_cpu(struct format *cfg)
 
 int v08_md_cpu_to_disk(struct format *cfg)
 {
-	if (!is_valid_md(DRBD_V08, &cfg->md, cfg->md_index, cfg->bd_size))
+	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size))
 		return -1;
 	md_cpu_to_disk_08((struct md_on_disk_08 *)on_disk_buffer, &cfg->md);
 	PWRITE(cfg, on_disk_buffer, sizeof(struct md_on_disk_08), cfg->md_offset);
@@ -3322,7 +3322,7 @@ int v08_md_initialize(struct format *cfg, int do_disk_writes,
 		cfg->md.history_uuids[i] = 0;
 	cfg->md.flags = MDF_AL_CLEAN;
 	cfg->md.max_peers = 1;
-	cfg->md.magic = DRBD_MD_MAGIC_08;
+	cfg->md.magic = BSR_MD_MAGIC_08;
 	cfg->md.al_stripes = option_al_stripes;
 	cfg->md.al_stripe_size_4k = option_al_stripe_size_4k;
 
@@ -3334,7 +3334,7 @@ int v08_md_close(struct format *cfg)
 	/* update last known info, if we changed anything,
 	 * or if explicitly requested. */
 	if (cfg->update_lk_bdev && !dry_run) {
-		if (cfg->md_index != DRBD_MD_INDEX_FLEX_INT)
+		if (cfg->md_index != BSR_MD_INDEX_FLEX_INT)
 			lk_bdev_delete(cfg->minor);
 		else {
 			cfg->lk_bd.bd_size = cfg->bd_size;
@@ -3355,7 +3355,7 @@ int v09_md_disk_to_cpu(struct format *cfg)
 	int ok;
 	PREAD(cfg, on_disk_buffer, sizeof(struct meta_data_on_disk_9), cfg->md_offset);
 	md_disk_09_to_cpu(&md, (struct meta_data_on_disk_9*)on_disk_buffer);
-	ok = is_valid_md(DRBD_V09, &md, cfg->md_index, cfg->bd_size);
+	ok = is_valid_md(BSR_V09, &md, cfg->md_index, cfg->bd_size);
 	if (ok)
 		cfg->md = md;
 	if (verbose >= 3 + !!ok && verbose <= 10)
@@ -3365,7 +3365,7 @@ int v09_md_disk_to_cpu(struct format *cfg)
 
 int v09_md_cpu_to_disk(struct format *cfg)
 {
-	if (!is_valid_md(DRBD_V09, &cfg->md, cfg->md_index, cfg->bd_size))
+	if (!is_valid_md(BSR_V09, &cfg->md, cfg->md_index, cfg->bd_size))
 		return -1;
 	md_cpu_to_disk_09((struct meta_data_on_disk_9 *)on_disk_buffer, &cfg->md);
 	PWRITE(cfg, on_disk_buffer, sizeof(struct meta_data_on_disk_9), cfg->md_offset);
@@ -3383,7 +3383,7 @@ int v09_md_initialize(struct format *cfg, int do_disk_writes, int max_peers)
 	cfg->md.max_peers = max_peers;
 	cfg->md.flags = MDF_AL_CLEAN;
 	cfg->md.node_id = -1;
-	cfg->md.magic = DRBD_MD_MAGIC_09;
+	cfg->md.magic = BSR_MD_MAGIC_09;
 	cfg->md.al_stripes = option_al_stripes;
 	cfg->md.al_stripe_size_4k = option_al_stripe_size_4k;
 
@@ -3391,7 +3391,7 @@ int v09_md_initialize(struct format *cfg, int do_disk_writes, int max_peers)
 	for (i = 0; i < ARRAY_SIZE(cfg->md.history_uuids); i++)
 		cfg->md.history_uuids[i] = 0;
 
-	for (p = 0; p < DRBD_NODE_ID_MAX; p++) {
+	for (p = 0; p < BSR_NODE_ID_MAX; p++) {
 		cfg->md.peers[p].bitmap_uuid = 0;
 		cfg->md.peers[p].flags = 0;
 		cfg->md.peers[p].bitmap_index = -1;
@@ -3523,7 +3523,7 @@ void print_dump_header()
 	int i;
 
 	strftime(time_str, sizeof(time_str), "%F %T %z [%s]", localtime(&t));
-	printf("# DRBD meta data dump\n# %s\n# %s>",
+	printf("# BSR meta data dump\n# %s\n# %s>",
 		time_str, get_hostname());
 
 	for (i=0; i < global_argc; i++)
@@ -3583,7 +3583,7 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	}
 
 	al_is_clean =
-		DRBD_MD_MAGIC_84_UNCLEAN != cfg->md.magic &&
+		BSR_MD_MAGIC_84_UNCLEAN != cfg->md.magic &&
 		(cfg->md.flags & MDF_AL_CLEAN) != 0;
 
 	if (!al_is_clean) {
@@ -3600,7 +3600,7 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 		printf("This_is_an_unclean_meta_data_dump._Don't_trust_the_bitmap.\n"
 			"# You should \"apply-al\" first, if you plan to restore this.\n\n");
 
-	if (format_version(cfg) >= DRBD_V09)
+	if (format_version(cfg) >= BSR_V09)
 		printf("max-peers %d;\n", cfg->md.max_peers);
 	printf("# md_size_sect %llu\n", (long long unsigned)cfg->md.md_size_sect);
 
@@ -3623,7 +3623,7 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 		(unsigned long long)cfg->lk_bd.bd_size);
 
 		cfg->md_offset = v07_style_md_get_byte_offset(
-			DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
+			BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
 
 		cfg->al_offset = cfg->md_offset + cfg->md.al_offset * 512LL;
 		cfg->bm_offset = cfg->md_offset + cfg->md.bm_offset * 512LL;
@@ -3635,15 +3635,15 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	printf("\n");
 
 	switch (format_version(cfg)) {
-	case DRBD_V06:
-	case DRBD_V07:
+	case BSR_V06:
+	case BSR_V07:
 		printf("gc {\n   ");
 		for (i = 0; i < GEN_CNT_SIZE; i++) {
 			printf(" %d;", cfg->md.gc[i]);
 		}
 		printf("\n}\n");
 		break;
-	case DRBD_V08:
+	case BSR_V08:
 		printf("uuid {\n");
 		printf("    0x"X64(016)"; 0x"X64(016)"; 0x"X64(016)"; 0x"X64(016)";\n",
 		       cfg->md.current_uuid,
@@ -3653,18 +3653,18 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 		printf("    flags 0x"X32(08)";\n", cfg->md.peers[0].flags);
 		printf("}\n");
 		break;
-	case DRBD_V09:
+	case BSR_V09:
 		printf("node-id %d;\n"
 		       "current-uuid 0x"X64(016)";\n"
 		       "flags 0x"X32(08)";\n",
 		       cfg->md.node_id,
 		       cfg->md.current_uuid, cfg->md.flags);
-		for (i = 0; i < DRBD_NODE_ID_MAX; i++) {
+		for (i = 0; i < BSR_NODE_ID_MAX; i++) {
 			struct peer_md_cpu *peer = &cfg->md.peers[i];
 			char flag_buf[80];
 
 			printf("peer[%d] {\n", i);
-			if (format_version(cfg) >= DRBD_V09) {
+			if (format_version(cfg) >= BSR_V09) {
 				printf("    bitmap-index %d;\n",
 				       peer->bitmap_index);
 			}
@@ -3685,14 +3685,14 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 			       cfg->md.history_uuids[i]);
 		printf("\n}\n");
 		break;
-	case DRBD_UNKNOWN:
+	case BSR_UNKNOWN:
 		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
 	}
 
-	if (format_version(cfg) >= DRBD_V07) {
+	if (format_version(cfg) >= BSR_V07) {
 		printf("# al-extents %u;\n", cfg->md.al_nr_extents);
 		printf("la-size-sect "U64";\n", cfg->md.effective_size);
-		if (format_version(cfg) >= DRBD_V08) {
+		if (format_version(cfg) >= BSR_V08) {
 			printf("bm-byte-per-bit "U32";\n",
 			       cfg->md.bm_bytes_per_bit);
 			printf("device-uuid 0x"X64(016)";\n",
@@ -3843,7 +3843,7 @@ int parse_bitmap_window_one_peer(struct format *cfg, int window, int peer_nr, in
 
 	i = peer_nr - window * (buffer_size / sizeof(*bm));
 
-	if (format_version(cfg) < DRBD_V09)
+	if (format_version(cfg) < BSR_V09)
 		EXP(TK_BM);
 	else {
 		EXP(TK_BITMAP); EXP('[');
@@ -3911,9 +3911,9 @@ int parse_bitmap_window(struct format *cfg, int window, int parse_only)
 {
 	int words = 0, i;
 
-	if (format_version(cfg) < DRBD_V09) {
+	if (format_version(cfg) < BSR_V09) {
 		return parse_bitmap_window_one_peer(cfg, window, 0, parse_only);
-	} else /* >= DRBD_V09 */ {
+	} else /* >= BSR_V09 */ {
 		for (i = 0; i < cfg->md.max_peers; i++) {
 			words = parse_bitmap_window_one_peer(cfg, window, i, parse_only);
 		}
@@ -3979,7 +3979,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	int new_max_peers = 1;
 	int i;
 	int err;
-	char slots_seen[DRBD_NODE_ID_MAX] = { 0, };
+	char slots_seen[BSR_NODE_ID_MAX] = { 0, };
 	int cur_slot;
 
 	if (argc > 0) {
@@ -4017,7 +4017,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	if (!parse_only) {
 		fprintf(stderr, "reinitializing\n");
 		if (old_max_peers < new_max_peers &&
-		    cfg->md_index != DRBD_MD_INDEX_FLEX_INT) {
+		    cfg->md_index != BSR_MD_INDEX_FLEX_INT) {
 			printf("Meta data needs more space now, since max_peers\n"
 			       "is bigger than in existing meta_data. (%d -> %d)\n",
 			       old_max_peers, new_max_peers);
@@ -4027,7 +4027,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	}
 
 
-	if (format_version(cfg) < DRBD_V08) {
+	if (format_version(cfg) < BSR_V08) {
 		EXP(TK_GC); EXP('{');
 		for (i = 0; i < GEN_CNT_SIZE; i++) {
 			EXP(TK_NUM); EXP(';');
@@ -4058,11 +4058,11 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 			EXP(TK_FLAGS); EXP(TK_U32); EXP(';');
 			cfg->md.flags = (uint32_t)yylval.u64;
 
-			for (i = 0; i < DRBD_NODE_ID_MAX; i++) {
+			for (i = 0; i < BSR_NODE_ID_MAX; i++) {
 				EXP(TK_PEER); EXP('[');
 				EXP(TK_NUM); EXP(']');
 				cur_slot = yylval.u64;
-				if (cur_slot < 0 || cur_slot >= DRBD_NODE_ID_MAX) {
+				if (cur_slot < 0 || cur_slot >= BSR_NODE_ID_MAX) {
 					fprintf(stderr, "Parse error in line %u: "
 						"Slot %d out of range\n",
 						yylineno, cur_slot);
@@ -4098,7 +4098,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	}
 	EXP(TK_LA_SIZE); EXP(TK_NUM); EXP(';');
 	cfg->md.effective_size = yylval.u64;
-	if (format_version(cfg) >= DRBD_V08) {
+	if (format_version(cfg) >= BSR_V08) {
 		EXP(TK_BM_BYTE_PER_BIT); EXP(TK_NUM); EXP(';');
 		cfg->md.bm_bytes_per_bit = yylval.u64;
 		/* Check whether the value of bm_bytes_per_bit is
@@ -4191,7 +4191,7 @@ void md_convert_07_to_08(struct format *cfg)
 
 	/* KB <-> sectors is done in the md disk<->cpu functions.
 	 * We only need to adjust the magic here. */
-	cfg->md.magic = DRBD_MD_MAGIC_08;
+	cfg->md.magic = BSR_MD_MAGIC_08;
 
 	// The MDF Flags are (nearly) the same in 07 and 08
 	cfg->md.flags = cfg->md.gc[Flags];
@@ -4218,7 +4218,7 @@ void md_convert_07_to_08(struct format *cfg)
 	 * necessary if flex external or internal */
 	re_initialize_md_offsets(cfg);
 
-	if (!is_valid_md(DRBD_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
+	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
 		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
@@ -4247,7 +4247,7 @@ void md_convert_08_to_07(struct format *cfg)
 
 	/* KB <-> sectors is done in the md disk<->cpu functions.
 	 * We only need to adjust the magic here. */
-	cfg->md.magic = DRBD_MD_MAGIC_07;
+	cfg->md.magic = BSR_MD_MAGIC_07;
 
 	/* FIXME somehow generate GCs in a sane way */
 	/* FIXME convert the flags? */
@@ -4261,7 +4261,7 @@ void md_convert_08_to_07(struct format *cfg)
 	 * necessary if flex external or internal */
 	re_initialize_md_offsets(cfg);
 
-	if (!is_valid_md(DRBD_V07, &cfg->md, cfg->md_index, cfg->bd_size)) {
+	if (!is_valid_md(BSR_V07, &cfg->md, cfg->md_index, cfg->bd_size)) {
 		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
@@ -4271,7 +4271,7 @@ void md_convert_08_to_09(struct format *cfg)
 {
 	int p;
 
-	for (p = 0; p < DRBD_NODE_ID_MAX; p++) {
+	for (p = 0; p < BSR_NODE_ID_MAX; p++) {
 		cfg->md.peers[p].bitmap_uuid = 0;
 		cfg->md.peers[p].flags = 0;
 		cfg->md.peers[p].bitmap_index = -1;
@@ -4289,10 +4289,10 @@ void md_convert_08_to_09(struct format *cfg)
 	cfg->md.flags &= ~(MDF_CONNECTED_IND | MDF_FULL_SYNC | MDF_PEER_OUT_DATED);
 
 	cfg->md.node_id = -1;
-	cfg->md.magic = DRBD_MD_MAGIC_09;
+	cfg->md.magic = BSR_MD_MAGIC_09;
 	re_initialize_md_offsets(cfg);
 
-	if (!is_valid_md(DRBD_V09, &cfg->md, cfg->md_index, cfg->bd_size)) {
+	if (!is_valid_md(BSR_V09, &cfg->md, cfg->md_index, cfg->bd_size)) {
 		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
@@ -4309,11 +4309,11 @@ void md_convert_09_to_08(struct format *cfg)
 	if (cfg->md.peers[0].flags & MDF_PEER_OUTDATED)
 		cfg->md.flags |= MDF_PEER_OUT_DATED;
 
-	cfg->md.magic = DRBD_MD_MAGIC_08;
+	cfg->md.magic = BSR_MD_MAGIC_08;
 	cfg->md.max_peers = 1;
 	re_initialize_md_offsets(cfg);
 
-	if (!is_valid_md(DRBD_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
+	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
 		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
@@ -4325,52 +4325,52 @@ void convert_md(struct format *cfg, enum md_format from)
 
 	switch(to) {
 	default:
-	case DRBD_UNKNOWN:
-	case DRBD_V06:
+	case BSR_UNKNOWN:
+	case BSR_V06:
 		fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 		exit(10);
-	case DRBD_V07:
+	case BSR_V07:
 		switch(from) {
-		case DRBD_V09:
+		case BSR_V09:
 			md_convert_09_to_08(cfg);
-		case DRBD_V08:
+		case BSR_V08:
 			md_convert_08_to_07(cfg);
-		case DRBD_V07:
+		case BSR_V07:
 			break;
-		case DRBD_V06:
-		case DRBD_UNKNOWN:
+		case BSR_V06:
+		case BSR_UNKNOWN:
 		default:
 			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
 		}
 		break;
-	case DRBD_V08:
+	case BSR_V08:
 		switch(from) {
 		default:
-		case DRBD_UNKNOWN:
-		case DRBD_V06:
+		case BSR_UNKNOWN:
+		case BSR_V06:
 			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
-		case DRBD_V07:
+		case BSR_V07:
 			md_convert_07_to_08(cfg);
-		case DRBD_V08:
+		case BSR_V08:
 			break;
-		case DRBD_V09:
+		case BSR_V09:
 			md_convert_09_to_08(cfg);
 		}
 		break;
-	case DRBD_V09:
+	case BSR_V09:
 		switch(from) {
 		default:
-		case DRBD_UNKNOWN:
-		case DRBD_V06:
+		case BSR_UNKNOWN:
+		case BSR_V06:
 			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
-		case DRBD_V07:
+		case BSR_V07:
 			md_convert_07_to_08(cfg);
-		case DRBD_V08:
+		case BSR_V08:
 			md_convert_08_to_09(cfg);
-		case DRBD_V09:
+		case BSR_V09:
 			;
 		}
 	}
@@ -4637,7 +4637,7 @@ void check_for_existing_data(struct format *cfg)
 
 	if (f.bnum) {
 		if (cfg->md_index >= 0 ||
-		    cfg->md_index == DRBD_MD_INDEX_FLEX_EXT) {
+		    cfg->md_index == BSR_MD_INDEX_FLEX_EXT) {
 			printf("\nThis would corrupt existing data.\n");
 			if (ignore_sanity_checks) {
 				printf("\nIgnoring sanity check on user request.\n\n");
@@ -4705,23 +4705,23 @@ void check_for_existing_data(struct format *cfg)
 enum md_format detect_md(struct md_cpu *md, const uint64_t ll_size, int index_format)
 {
 	struct md_cpu md_test;
-	enum md_format have = DRBD_UNKNOWN;
+	enum md_format have = BSR_UNKNOWN;
 
 	md_disk_07_to_cpu(&md_test, (struct md_on_disk_07*)on_disk_buffer);
-	if (is_valid_md(DRBD_V07, &md_test, index_format, ll_size)) {
-		have = DRBD_V07;
+	if (is_valid_md(BSR_V07, &md_test, index_format, ll_size)) {
+		have = BSR_V07;
 		*md = md_test;
 	}
 
 	md_disk_08_to_cpu(&md_test, (struct md_on_disk_08*)on_disk_buffer);
-	if (is_valid_md(DRBD_V08, &md_test, index_format, ll_size)) {
-		have = DRBD_V08;
+	if (is_valid_md(BSR_V08, &md_test, index_format, ll_size)) {
+		have = BSR_V08;
 		*md = md_test;
 	}
 
 	md_disk_09_to_cpu(&md_test, (struct meta_data_on_disk_9*)on_disk_buffer);
-	if (is_valid_md(DRBD_V09, &md_test, index_format, ll_size)) {
-		have = DRBD_V09;
+	if (is_valid_md(BSR_V09, &md_test, index_format, ll_size)) {
+		have = BSR_V09;
 		*md = md_test;
 	}
 
@@ -4731,16 +4731,16 @@ enum md_format detect_md(struct md_cpu *md, const uint64_t ll_size, int index_fo
 void check_internal_md_flavours(struct format * cfg) {
 	struct md_cpu md_now;
 	off_t fixed_offset, flex_offset;
-	enum md_format have = DRBD_UNKNOWN;
+	enum md_format have = BSR_UNKNOWN;
 	int fixed = 0; /* as opposed to flex */
 
-	ASSERT( cfg->md_index == DRBD_MD_INDEX_INTERNAL ||
-		cfg->md_index == DRBD_MD_INDEX_FLEX_INT );
+	ASSERT( cfg->md_index == BSR_MD_INDEX_INTERNAL ||
+		cfg->md_index == BSR_MD_INDEX_FLEX_INT );
 
 	fixed_offset = v07_style_md_get_byte_offset(
-		DRBD_MD_INDEX_INTERNAL, cfg->bd_size);
+		BSR_MD_INDEX_INTERNAL, cfg->bd_size);
 	flex_offset = v07_style_md_get_byte_offset(
-		DRBD_MD_INDEX_FLEX_INT, cfg->bd_size);
+		BSR_MD_INDEX_FLEX_INT, cfg->bd_size);
 
 	/* printf("%lld\n%lld\n%lld\n", (long long unsigned)cfg->bd_size,
 	   (long long unsigned)fixed_offset, (long long unsigned)flex_offset); */
@@ -4751,25 +4751,25 @@ void check_internal_md_flavours(struct format * cfg) {
 
 		md_disk_07_to_cpu(&md_test,
 			(struct md_on_disk_07*)on_disk_buffer);
-		if (is_valid_md(DRBD_V07, &md_test, DRBD_MD_INDEX_INTERNAL, cfg->bd_size)) {
-			have = DRBD_V07;
+		if (is_valid_md(BSR_V07, &md_test, BSR_MD_INDEX_INTERNAL, cfg->bd_size)) {
+			have = BSR_V07;
 			fixed = 1;
 			md_now = md_test;
 		}
 	}
 
-	if (have == DRBD_UNKNOWN) {
+	if (have == BSR_UNKNOWN) {
 		PREAD(cfg, on_disk_buffer, 4096, flex_offset);
-		have = detect_md(&md_now, cfg->bd_size, DRBD_MD_INDEX_FLEX_INT);
+		have = detect_md(&md_now, cfg->bd_size, BSR_MD_INDEX_FLEX_INT);
 	}
 
-	if (have == DRBD_UNKNOWN)
+	if (have == BSR_UNKNOWN)
 		return;
 
 	fprintf(stderr, "You want me to create a %s%s style %s internal meta data block.\n",
 		cfg->ops->name,
-		(is_v07(cfg) && cfg->md_index == DRBD_MD_INDEX_FLEX_INT) ? "(plus)" : "",
-		cfg->md_index == DRBD_MD_INDEX_FLEX_INT ? "flexible-size" : "fixed-size");
+		(is_v07(cfg) && cfg->md_index == BSR_MD_INDEX_FLEX_INT) ? "(plus)" : "",
+		cfg->md_index == BSR_MD_INDEX_FLEX_INT ? "flexible-size" : "fixed-size");
 
 
 	fprintf(stderr, "There appears to be a %s %s internal meta data block\n"
@@ -4779,7 +4779,7 @@ void check_internal_md_flavours(struct format * cfg) {
 		fixed ? (long long unsigned)fixed_offset : (long long unsigned)flex_offset);
 
 	if (format_version(cfg) == have) {
-		if (have != DRBD_V07
+		if (have != BSR_V07
 		&& (cfg->md.al_stripes != option_al_stripes
 		||  cfg->md.al_stripe_size_4k != option_al_stripe_size_4k)) {
 			if (confirmed("Do you want to change the activity log stripe settings *only*?")) {
@@ -4832,10 +4832,10 @@ void check_internal_md_flavours(struct format * cfg) {
 	 * after successful conversion.
 	 */
 	/* we convert from v07 "fixed" to flexible internal, we wipe the "fixed" offset */
-	if (have == DRBD_V07 && fixed && cfg->md_index == DRBD_MD_INDEX_FLEX_INT)
+	if (have == BSR_V07 && fixed && cfg->md_index == BSR_MD_INDEX_FLEX_INT)
 		cfg->wipe_fixed = fixed_offset;
 	/* we convert from "flexible" to v07 fixed, we wipe the "flexible" offset */
-	else if ((have != DRBD_V07 || fixed == 0) && (is_v07(cfg) && cfg->md_index == DRBD_MD_INDEX_INTERNAL))
+	else if ((have != BSR_V07 || fixed == 0) && (is_v07(cfg) && cfg->md_index == BSR_MD_INDEX_INTERNAL))
 		cfg->wipe_flex = flex_offset;
 }
 
@@ -4852,11 +4852,11 @@ void wipe_after_convert(struct format *cfg)
 
 void check_external_md_flavours(struct format * cfg) {
 	struct md_cpu md_now;
-	enum md_format have = DRBD_UNKNOWN;
+	enum md_format have = BSR_UNKNOWN;
 	char msg[160];
 
 	ASSERT( cfg->md_index >= 0 ||
-		cfg->md_index == DRBD_MD_INDEX_FLEX_EXT );
+		cfg->md_index == BSR_MD_INDEX_FLEX_EXT );
 
 	if (cfg->md.magic) {
 		if (!confirmed("Valid meta data seems to be in place.\n"
@@ -4869,9 +4869,9 @@ void check_external_md_flavours(struct format * cfg) {
 	}
 
 	PREAD(cfg, on_disk_buffer, 4096, cfg->md_offset);
-	have = detect_md(&md_now, cfg->bd_size, DRBD_MD_INDEX_FLEX_EXT);
+	have = detect_md(&md_now, cfg->bd_size, BSR_MD_INDEX_FLEX_EXT);
 
-	if (have == DRBD_UNKNOWN)
+	if (have == BSR_UNKNOWN)
 		return;
 
 	snprintf(msg, 160, "Valid %s meta-data found, convert to %s?",
@@ -4910,15 +4910,15 @@ int v08_move_internal_md_after_resize(struct format *cfg)
 	off_t last_chunk_size;
 	int err;
 
-	ASSERT(format_version(cfg) >= DRBD_V08);
-	ASSERT(cfg->md_index == DRBD_MD_INDEX_FLEX_INT);
+	ASSERT(format_version(cfg) >= BSR_V08);
+	ASSERT(cfg->md_index == BSR_MD_INDEX_FLEX_INT);
 	ASSERT(cfg->lk_bd.bd_size <= cfg->bd_size);
 
 	/* we just read it in v08_check_for_resize().
 	 * no need to do it again, but ASSERT this. */
 	md_old = cfg->md;
-	ASSERT(is_valid_md(format_version(cfg), &md_old, DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size));
-	old_offset = v07_style_md_get_byte_offset(DRBD_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
+	ASSERT(is_valid_md(format_version(cfg), &md_old, BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size));
+	old_offset = v07_style_md_get_byte_offset(BSR_MD_INDEX_FLEX_INT, cfg->lk_bd.bd_size);
 
 	/* fix AL and bitmap offsets, populate byte offsets for the new location */
 	re_initialize_md_offsets(cfg);
@@ -4953,7 +4953,7 @@ int v08_move_internal_md_after_resize(struct format *cfg)
 	/* The AL was of fixed size.
 	 * Bitmap is of flexible size, new bitmap is likely larger.
 	 * We do not initialize that part, we just leave "garbage" in there.
-	 * Once DRBD "agrees" on the new lower level device size, that part of
+	 * Once BSR "agrees" on the new lower level device size, that part of
 	 * the bitmap will be handled by the module, anyways. */
 	old_bm_offset = old_offset + cfg->md.bm_offset * 512LL;
 
@@ -4978,7 +4978,7 @@ int v08_move_internal_md_after_resize(struct format *cfg)
 	err = cfg->ops->md_cpu_to_disk(cfg);
 
 	if (!err)
-		printf("Internal drbd meta data successfully moved.\n");
+		printf("Internal bsr meta data successfully moved.\n");
 
 	if (!err && old_offset < cfg->bm_offset) {
 		/* wipe out previous meta data block, it has been superseded. */
@@ -5012,8 +5012,8 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	} else if (argc > 0)
 		fprintf(stderr, "Ignoring additional arguments\n");
 
-	if (max_peers < 1 || max_peers > DRBD_PEERS_MAX) {
-		fprintf(stderr, "MAX_PEERS argument not in allowed range 1 .. %d.\n", DRBD_PEERS_MAX);
+	if (max_peers < 1 || max_peers > BSR_PEERS_MAX) {
+		fprintf(stderr, "MAX_PEERS argument not in allowed range 1 .. %d.\n", BSR_PEERS_MAX);
 		exit(20);
 	}
 #ifdef _WIN_VHD_META_SUPPORT
@@ -5031,8 +5031,8 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		evsm = _get_bdev_size_by_letter('C' + cfg->minor); // per bytes
 		evsm = ((evsm >> 20) / 32768) * max_peers
 			/* refer to 
-			http://www.drbd.org/en/doc/users-guide-90/ch-internals#s-meta-data-size */
-			+ 1		/* for drbd reservation */
+			http://www.bsr.org/en/doc/users-guide-90/ch-internals#s-meta-data-size */
+			+ 1		/* for bsr reservation */
 			+ 7;	/* for vhd reservation */
 
 		// check the pre-created vhd
@@ -5103,8 +5103,8 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	 * flex-internal format version, as well as the v07 fixed-size internal
 	 * meta data offset for its flavor of meta data.
 	 */
-	if (cfg->md_index == DRBD_MD_INDEX_INTERNAL ||
-	    cfg->md_index == DRBD_MD_INDEX_FLEX_INT)
+	if (cfg->md_index == BSR_MD_INDEX_INTERNAL ||
+	    cfg->md_index == BSR_MD_INDEX_FLEX_INT)
 		check_internal_md_flavours(cfg);
 	else
 		check_external_md_flavours(cfg);
@@ -5113,7 +5113,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		/* calls check_for_existing_data() internally */
 		err = cfg->ops->md_initialize(cfg, 1, max_peers); /* Clears on disk AL implicitly */
 	else {
-		if (format_version(cfg) >= DRBD_V09 && max_peers != 1)
+		if (format_version(cfg) >= BSR_V09 && max_peers != 1)
 			printf("Warning: setting max_peers to 1 instead of %d\n\n",
 			       max_peers);
 		err = 0; /* we have sucessfully converted somthing */
@@ -5128,7 +5128,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	 * to flexible size, we'd need to move the AL and bitmap
 	 * over to the new location!
 	 * But the upgrade procedure in such case is documented to first get
-	 * the previous DRBD into "clean" L_ESTABLISHED R_SECONDARY/R_SECONDARY, so AL
+	 * the previous BSR into "clean" L_ESTABLISHED R_SECONDARY/R_SECONDARY, so AL
 	 * and bitmap should be empty anyways.
 	 */
 	printf("Writing meta data...\n");
@@ -5139,7 +5139,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	if (err)
 		fprintf(stderr, "operation failed\n");
 	else
-		printf("New drbd meta data block successfully created.\n");
+		printf("New bsr meta data block successfully created.\n");
 
 	return err;
 }
@@ -5153,11 +5153,11 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 
 	virgin = cfg->ops->open(cfg);
 	if (virgin) {
-		fprintf(stderr,"There appears to be no drbd meta data to wipe out?\n");
+		fprintf(stderr,"There appears to be no bsr meta data to wipe out?\n");
 		return 0;
 	}
 
-	if (!confirmed("Do you really want to wipe out the DRBD meta data?")) {
+	if (!confirmed("Do you really want to wipe out the BSR meta data?")) {
 		printf("Operation cancelled.\n");
 		exit(1);
 	}
@@ -5170,7 +5170,7 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	if (err)
 		fprintf(stderr, "operation failed\n");
 	else
-		printf("DRBD meta data block successfully wiped out.\n");
+		printf("BSR meta data block successfully wiped out.\n");
 
 	/* delete last-known bdev info, it is of no use now. */
 	lk_bdev_delete(cfg->minor);
@@ -5271,7 +5271,7 @@ void print_usage_and_exit()
 	     progname);
 
 	printf("\nFORMATS:\n");
-	for (i = DRBD_V06; i < DRBD_UNKNOWN; i++) {
+	for (i = BSR_V06; i < BSR_UNKNOWN; i++) {
 		printf("  %s", f_ops[i].name);
 		if ((args = f_ops[i].args)) {
 			while (*args) {
@@ -5302,11 +5302,11 @@ int parse_format(struct format *cfg, char **argv, int argc, int *ai)
 		return -1;
 	}
 
-	for (f = DRBD_V06; f < DRBD_UNKNOWN; f++) {
+	for (f = BSR_V06; f < BSR_UNKNOWN; f++) {
 		if (!strcmp(f_ops[f].name, argv[0]))
 			break;
 	}
-	if (f == DRBD_UNKNOWN) {
+	if (f == BSR_UNKNOWN) {
 		fprintf(stderr, "Unknown format '%s'.\n", argv[0]);
 		return -1;
 	}
@@ -5318,10 +5318,10 @@ int parse_format(struct format *cfg, char **argv, int argc, int *ai)
 }
 
 
-static enum drbd_disk_state drbd_str_disk(const char *str)
+static enum bsr_disk_state bsr_str_disk(const char *str)
 {
-	/* drbd 8.4 and earlier provide "Local/Remote"
-	 * drbd 9. only "Local". */
+	/* bsr 8.4 and earlier provide "Local/Remote"
+	 * bsr 9. only "Local". */
 	const char *slash = strchr(str, '/');
 	size_t len;
 	int n;
@@ -5331,10 +5331,10 @@ static enum drbd_disk_state drbd_str_disk(const char *str)
 	else
 		len = strlen(str);
 
-	for (n = 0; n < drbd_disk_state_names.size; n++) {
-		if (drbd_disk_state_names.names[n] &&
-		    !strncmp(str, drbd_disk_state_names.names[n], len))
-			return (enum drbd_disk_state)n;
+	for (n = 0; n < bsr_disk_state_names.size; n++) {
+		if (bsr_disk_state_names.names[n] &&
+		    !strncmp(str, bsr_disk_state_names.names[n], len))
+			return (enum bsr_disk_state)n;
 	}
 	if (!strcmp(str, "Unconfigured"))
 		return D_DISKLESS;
@@ -5391,7 +5391,7 @@ int is_attached(int minor)
 	}
 	result[rr-1] = 0;
 
-	return drbd_str_disk(result) > D_DISKLESS ? 1 : 0;
+	return bsr_str_disk(result) > D_DISKLESS ? 1 : 0;
 }
 
 int meta_chk_offline_resize(struct format *cfg, char **argv, int argc)
@@ -5410,14 +5410,14 @@ int meta_chk_offline_resize(struct format *cfg, char **argv, int argc)
 		/* create, delete or update the last known info */
 		if (lk_bdev_load(cfg->minor, &cfg->lk_bd) < 0)
 				return -1;
-		if (cfg->md_index != DRBD_MD_INDEX_FLEX_INT)
+		if (cfg->md_index != BSR_MD_INDEX_FLEX_INT)
 			lk_bdev_delete(cfg->minor);
 		else if (cfg->lk_bd.bd_size != cfg->bd_size ||
 			 cfg->lk_bd.bd_uuid != cfg->md.device_uuid)
 			cfg->update_lk_bdev = 1;
 		return cfg->ops->close(cfg);
 	} else if (err == NO_VALID_MD_FOUND) {
-		if (format_version(cfg) < DRBD_V08 || cfg->md_index != DRBD_MD_INDEX_FLEX_INT) {
+		if (format_version(cfg) < BSR_V08 || cfg->md_index != BSR_MD_INDEX_FLEX_INT) {
 			fprintf(stderr, "Operation only supported for >= v8 internal meta data\n");
 			return -1;
 		}
@@ -5426,8 +5426,8 @@ int meta_chk_offline_resize(struct format *cfg, char **argv, int argc)
 	}
 	/* VALID_MD_FOUND_AT_LAST_KNOWN_LOCATION */
 
-	ASSERT(format_version(cfg) >= DRBD_V08);
-	ASSERT(cfg->md_index == DRBD_MD_INDEX_FLEX_INT);
+	ASSERT(format_version(cfg) >= BSR_V08);
+	ASSERT(cfg->md_index == BSR_MD_INDEX_FLEX_INT);
 	ASSERT(cfg->lk_bd.bd_size);
 	ASSERT(cfg->md.magic);
 
@@ -5553,8 +5553,8 @@ int main(int argc, char **argv)
 		    break;
 	    case 'i':
 		    option_node_id = m_strtoll(optarg, 1);
-		    if (option_node_id < 0 || option_node_id > (DRBD_PEERS_MAX - 1)) {
-			    fprintf(stderr, "node-id out of range (0...%d)\n", DRBD_PEERS_MAX - 1);
+		    if (option_node_id < 0 || option_node_id > (BSR_PEERS_MAX - 1)) {
+			    fprintf(stderr, "node-id out of range (0...%d)\n", BSR_PEERS_MAX - 1);
 			    exit(10);
 		    }
 		    break;
@@ -5576,7 +5576,7 @@ int main(int argc, char **argv)
 	ai = optind;
 
 	cfg = new_cfg();
-	cfg->drbd_dev_name = argv[ai++];
+	cfg->bsr_dev_name = argv[ai++];
 
 	if (parse_format(cfg, argv + ai, argc - ai, &ai)) {
 		/* parse has already printed some error message */
@@ -5604,21 +5604,21 @@ int main(int argc, char **argv)
 	 * unlock happens implicitly when the process dies,
 	 * but may be requested implicitly
 	 */
-	if (strcmp(cfg->drbd_dev_name, "-")) {
-		cfg->minor = dt_minor_of_dev(cfg->drbd_dev_name);
+	if (strcmp(cfg->bsr_dev_name, "-")) {
+		cfg->minor = dt_minor_of_dev(cfg->bsr_dev_name);
 		if (cfg->minor < 0) {
 			fprintf(stderr, "Cannot determine minor device number of "
-					"drbd device '%s'",
-				cfg->drbd_dev_name);
+					"bsr device '%s'",
+				cfg->bsr_dev_name);
 			exit(20);
 		}
-		cfg->lock_fd = dt_lock_drbd(cfg->minor);
+		cfg->lock_fd = dt_lock_bsr(cfg->minor);
 
 		/* check whether this is in use */
 		minor_attached = is_attached(cfg->minor);
 		if (minor_attached && command->modifies_md) {
 			fprintf(stderr, "Device '%s' is configured!\n",
-				cfg->drbd_dev_name);
+				cfg->bsr_dev_name);
 			exit(20);
 		}
 	} else {

@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, wbsr@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -78,7 +78,7 @@ void get_linklog_reg()
 			g_loglink_port = value;
 		}
 		else {
-			g_loglink_port = DRBD_EVENTLOG_LINK_PORT;
+			g_loglink_port = BSR_EVENTLOG_LINK_PORT;
 		}
 
 		status = RegQueryValueEx(hKey, TEXT("loglink_usage"), NULL, &type, (LPBYTE) &value, &size);
@@ -141,12 +141,12 @@ int LogLink_Daemon(unsigned short *port)
 		sock_addr.sin_family = AF_INET;
 		sock_addr.sin_addr.s_addr = *((unsigned long*) host->h_addr);
 
-		// Attempt to connect to drbd-engine
+		// Attempt to connect to bsr-engine
 		int conn_loop = 0;
 
 		while(1) {
 			if ((ret = connect(sock, (SOCKADDR*) (&sock_addr), sizeof(sock_addr))) == 0) {
-				wsprintf(tmp, L"LogLink: connected to drbd engine ok. retry=%d\r\n", conn_loop);
+				wsprintf(tmp, L"LogLink: connected to bsr engine ok. retry=%d\r\n", conn_loop);
 				WriteLog(tmp);
 				break;
 			}
@@ -190,7 +190,7 @@ int LogLink_Daemon(unsigned short *port)
 				break;
 			}
 
-			// mapping drbd-engine err-level to windows eventlog 
+			// mapping bsr-engine err-level to windows eventlog 
 
 			WORD wType;
 			switch (buffer[1] - '0') {

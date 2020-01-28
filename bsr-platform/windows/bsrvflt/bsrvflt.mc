@@ -144,7 +144,7 @@ MessageID		= 3003
 Severity		= Error
 SymbolicName	= DEV_ERR_3003
 Language		= English
-DRBD_PANIC: %2.
+BSR_PANIC: %2.
 .
 
 MessageID		= 3005
@@ -218,56 +218,56 @@ MessageID		= 12011
 Severity		= Error
 SymbolicName	= DEV_EMERG
 Language		= English
-<0>block drbd%2
+<0>block bsr%2
 .
 
 MessageID		= 12012
 Severity		= Warning
 SymbolicName	= DEV_ALERT
 Language		= English
-<1>block drbd%2
+<1>block bsr%2
 .
 
 MessageID		= 12013
 Severity		= Error
 SymbolicName	= DEV_CRIT
 Language		= English
-<2>block drbd%2
+<2>block bsr%2
 .
 
 MessageID		= 12014
 Severity		= Error
 SymbolicName	= DEV_ERR
 Language		= English
-<3>block drbd%2
+<3>block bsr%2
 .
 
 MessageID		= 12015
 Severity		= Warning
 SymbolicName	= DEV_WARN
 Language		= English
-<4>block drbd%2
+<4>block bsr%2
 .
 
 MessageID		= 12016
 Severity		= Informational
 SymbolicName	= DEV_NOTICE
 Language		= English
-<5>block drbd%2
+<5>block bsr%2
 .
 
 MessageID		= 12017
 Severity		= Informational
 SymbolicName	= DEV_INFO
 Language		= English
-<6>block drbd%2
+<6>block bsr%2
 .
 
 MessageID		= 12018
 Severity		= Informational
 SymbolicName	= DEV_DBG
 Language		= English
-<7>block drbd%2
+<7>block bsr%2
 .
 
 MessageID		= 12021

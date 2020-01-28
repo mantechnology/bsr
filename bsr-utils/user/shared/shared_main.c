@@ -1,22 +1,22 @@
 ﻿/*
    shared_main.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2014, LINBIT HA Solutions GmbH.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -295,7 +295,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 		}
 	}
 
-	/* flush stdout and stderr, so output of drbdadm
+	/* flush stdout and stderr, so output of bsradm
 	 * and helper binaries is reported in order! */
 	fflush(stdout);
 	fflush(stderr);
@@ -344,9 +344,9 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			char *temp = strdup(argv[0]);
 			char *ptr, *name;
 			// DW-1425 it's supposed to run any application that belongs to the paths have been set in 'path' env var as long as this is able to parse env vars. 
-			// since cygwin is NOT, preferentially search full path that is gotton from env var of drbd and drx. 
-#define DRBDADM_MAX_ENV_LEN		64	
-			char envs[][DRBDADM_MAX_ENV_LEN] = { "DRBD_PATH", "DRX_PATH", "" };
+			// since cygwin is NOT, preferentially search full path that is gotton from env var of bsr and drx. 
+#define BSRADM_MAX_ENV_LEN		64	
+			char envs[][BSRADM_MAX_ENV_LEN] = { "BSR_PATH", "DRX_PATH", "" };
 			int i = 0;
 			// remove /usr/bin/
 			name = ptr = strtok(temp, "/");
@@ -354,8 +354,8 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				name = ptr;
 			}
 			
-			for (i = 0; i < sizeof(envs) / DRBDADM_MAX_ENV_LEN; i++) {
-				if (i == (sizeof(envs) / DRBDADM_MAX_ENV_LEN) - 1)
+			for (i = 0; i < sizeof(envs) / BSRADM_MAX_ENV_LEN; i++) {
+				if (i == (sizeof(envs) / BSRADM_MAX_ENV_LEN) - 1)
 					strcpy(path, name);
 				else
 					sprintf(path, "%s\\%s", getenv(envs[i]), name);

@@ -3,7 +3,7 @@
 #include <linux/bsr_genl_api.h>
 #include "bsr_nla.h"
 
-static int drbd_nla_check_mandatory(int maxtype, struct nlattr *nla)
+static int bsr_nla_check_mandatory(int maxtype, struct nlattr *nla)
 {
 	struct nlattr *head = nla_data(nla);
 	int len = nla_len(nla);
@@ -11,15 +11,15 @@ static int drbd_nla_check_mandatory(int maxtype, struct nlattr *nla)
 
 	/*
 	 * validate_nla (called from nla_parse_nested) ignores attributes
-	 * beyond maxtype, and does not understand the DRBD_GENLA_F_MANDATORY flag.
-	 * In order to have it validate attributes with the DRBD_GENLA_F_MANDATORY
+	 * beyond maxtype, and does not understand the BSR_GENLA_F_MANDATORY flag.
+	 * In order to have it validate attributes with the BSR_GENLA_F_MANDATORY
 	 * flag set also, check and remove that flag before calling
 	 * nla_parse_nested.
 	 */
 
 	nla_for_each_attr(nla, head, len, rem) {
-		if (nla->nla_type & DRBD_GENLA_F_MANDATORY) {
-			nla->nla_type &= ~DRBD_GENLA_F_MANDATORY;
+		if (nla->nla_type & BSR_GENLA_F_MANDATORY) {
+			nla->nla_type &= ~BSR_GENLA_F_MANDATORY;
 			if (nla_type(nla) > maxtype)
 				return -EOPNOTSUPP;
 		}
@@ -27,23 +27,23 @@ static int drbd_nla_check_mandatory(int maxtype, struct nlattr *nla)
 	return 0;
 }
 
-int drbd_nla_parse_nested(struct nlattr *tb[], int maxtype, struct nlattr *nla,
+int bsr_nla_parse_nested(struct nlattr *tb[], int maxtype, struct nlattr *nla,
 			  const struct nla_policy *policy)
 {
 	int err;
 
-	err = drbd_nla_check_mandatory(maxtype, nla);
+	err = bsr_nla_check_mandatory(maxtype, nla);
 	if (!err)
 		err = nla_parse_nested(tb, maxtype, nla, policy);
 
 	return err;
 }
 
-struct nlattr *drbd_nla_find_nested(int maxtype, struct nlattr *nla, int attrtype)
+struct nlattr *bsr_nla_find_nested(int maxtype, struct nlattr *nla, int attrtype)
 {
 	int err;
 
-	err = drbd_nla_check_mandatory(maxtype, nla);
+	err = bsr_nla_check_mandatory(maxtype, nla);
 	if (err)
 		/* ignore */;
 	return nla_find_nested(nla, attrtype);

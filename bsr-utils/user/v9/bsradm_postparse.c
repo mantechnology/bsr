@@ -1,22 +1,22 @@
 /*
-   drbdadm_postparse.c actions to do after config parsing
+   bsradm_postparse.c actions to do after config parsing
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2012, LINBIT Information Technologies GmbH
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -178,7 +178,7 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 			if (conn->peer)
 				host_info = conn->peer; /* With new format we create one for _peer_node_id */
 			else
-				continue; /* Old drbdsetup does not houtput a host section */
+				continue; /* Old bsrsetup does not houtput a host section */
 		}
 
 		if (!host_info) {
@@ -224,7 +224,7 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 	}
 
 	if (conn->implicit && i == 2 && !host_info_array[0]->node_id && !host_info_array[1]->node_id) {
-		/* This is drbd-8.3 / drbd-8.4 compatibility, auto created node-id */
+		/* This is bsr-8.3 / bsr-8.4 compatibility, auto created node-id */
 		bool have_node_ids;
 
 		have_node_ids = generate_implicit_node_id(addr_hash, host_info_array);
@@ -297,7 +297,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 		}
 		else if (host->by_address) {
 			if (!have_ip(host->address.af, host->address.addr) &&
-				/* for debugging only, e.g. __DRBD_NODE__=10.0.0.1 */
+				/* for debugging only, e.g. __BSR_NODE__=10.0.0.1 */
 			    strcmp(hostname, host->address.addr))
 				continue;
 		} else if (host->lower) {
@@ -374,7 +374,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 					path->my_address = h->address.addr ? &h->address : &res->me->address;
 				path->my_proxy = h->proxy;
 			} else {
-				if (!conn->peer) /* Keep w/o addresses form "drbdsetup show" for adjust */
+				if (!conn->peer) /* Keep w/o addresses form "bsrsetup show" for adjust */
 					conn->ignore = 1;
 			}
 		}
@@ -506,7 +506,7 @@ void set_peer_in_resource(struct d_resource* res, int peer_required)
 	}
 	res->peers_addrs_set = peers_addrs_set;
 
-	if (!(peer_required & DRBDSETUP_SHOW))
+	if (!(peer_required & BSRSETUP_SHOW))
 		add_no_bitmap_opt(res);
 }
 
@@ -545,7 +545,7 @@ void set_disk_in_res(struct d_resource *res)
 				if (b->device)
 					m_asprintf(&a->disk, "%s", b->device);
 				else
-					// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+					// BSR-386 rename to be the same as name of major device due to pvcreate error
 					m_asprintf(&a->disk, "/dev/bsr%u", b->device_minor);
 				/* stacked implicit volumes need internal meta data, too */
 				if (!a->meta_disk)
@@ -660,7 +660,7 @@ static void check_volumes_complete(struct d_resource *res, struct d_host_info *h
 static void check_meta_disk(struct d_volume *vol, struct d_host_info *host)
 {
 	struct d_name *h;
-	/* when parsing "drbdsetup show[-all]" output,
+	/* when parsing "bsrsetup show[-all]" output,
 	 * a detached volume will only have device/minor,
 	 * but no disk or meta disk. */
 	if (vol->meta_disk == NULL)
@@ -1120,7 +1120,7 @@ void post_parse(struct resources *resources, enum pp_flags flags)
 		struct d_host_info *host;
 		struct mesh *mesh;
 
-		if (!(flags & DRBDSETUP_SHOW)) {
+		if (!(flags & BSRSETUP_SHOW)) {
 			for_each_connection(con, &res->connections)
 				must_have_two_hosts(res, con);
 		}
@@ -1217,7 +1217,7 @@ void expand_common(void)
 				}
 
 				if (!vol->device)
-					// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+					// BSR-386 rename to be the same as name of major device due to pvcreate error
 					m_asprintf(&vol->device, "/dev/bsr%u",
 						   vol->device_minor);
 			}
@@ -1331,7 +1331,7 @@ static int sanity_check_abs_cmd(char *cmd_name)
 		static int did_header = 0;
 		if (!did_header)
 			err("WARN:\n"
-			    "  You are using the 'drbd-peer-outdater' as fence-peer program.\n"
+			    "  You are using the 'bsr-peer-outdater' as fence-peer program.\n"
 			    "  If you use that mechanism the dopd heartbeat plugin program needs\n"
 			    "  to be able to call bsrsetup and bsrmeta with root privileges.\n\n"
 			    "  You need to fix this with these commands:\n");
@@ -1400,9 +1400,9 @@ static void sanity_check_conf(char *c)
 		return;
 
 	err("WARN:\n"
-	    "  You are using the 'drbd-peer-outdater' as fence-peer program.\n"
+	    "  You are using the 'bsr-peer-outdater' as fence-peer program.\n"
 	    "  If you use that mechanism the dopd heartbeat plugin program needs\n"
-	    "  to be able to read the drbd.config file.\n\n"
+	    "  to be able to read the bsr.config file.\n\n"
 	    "  You need to fix this with these commands:\n"
 	    "  chgrp haclient %s\n"
 	    "  chmod g+r %s\n\n", c, c);
@@ -1414,8 +1414,8 @@ static void sanity_check_perm()
 	if (checked)
 		return;
 
-	sanity_check_cmd(drbdsetup);
-	sanity_check_cmd(drbdmeta);
+	sanity_check_cmd(bsrsetup);
+	sanity_check_cmd(bsrmeta);
 	sanity_check_conf(config_file);
 	checked = 1;
 }
@@ -1540,7 +1540,7 @@ static void validate_resource(struct d_resource *res, enum pp_flags flags)
 	}
 
 	if ((opt = find_opt(&res->handlers, "fence-peer"))) {
-		if (strstr(opt->value, "drbd-peer-outdater"))
+		if (strstr(opt->value, "bsr-peer-outdater"))
 			sanity_check_perm();
 	}
 

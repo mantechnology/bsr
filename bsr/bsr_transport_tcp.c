@@ -1,22 +1,22 @@
 /*
-   drbd_transport_tcp.c
+   bsr_transport_tcp.c
 
-   This file is part of DRBD.
+   This file is part of BSR.
 
    Copyright (C) 2014-2017, LINBIT HA-Solutions GmbH.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 #include "../bsr-headers/bsr.h"
@@ -46,7 +46,7 @@
 //MODULE_AUTHOR("Philipp Reisner <philipp.reisner@linbit.com>");
 //MODULE_AUTHOR("Lars Ellenberg <lars.ellenberg@linbit.com>");
 //MODULE_AUTHOR("Roland Kammerer <roland.kammerer@linbit.com>");
-//MODULE_DESCRIPTION("TCP (SDP, SSOCKS) transport layer for DRBD");
+//MODULE_DESCRIPTION("TCP (SDP, SSOCKS) transport layer for BSR");
 //MODULE_LICENSE("GPL");
 //MODULE_VERSION("1.0.0");
 //#endif
@@ -59,8 +59,8 @@ struct buffer {
 
 #define DTT_CONNECTING 1
 
-struct drbd_tcp_transport {
-	struct drbd_transport transport; /* Must be first! */
+struct bsr_tcp_transport {
+	struct bsr_transport transport; /* Must be first! */
 	spinlock_t paths_lock;
 	ULONG_PTR flags;
 	struct socket *stream[2];
@@ -71,7 +71,7 @@ struct drbd_tcp_transport {
 };
 
 struct dtt_listener {
-	struct drbd_listener listener;
+	struct bsr_listener listener;
 	void (*original_sk_state_change)(struct sock *sk);
 	struct socket *s_listen;
 #ifdef _WIN
@@ -81,7 +81,7 @@ struct dtt_listener {
 };
 
 /* Since each path might have a different local IP address, each
-path might need its own listener. Therefore the drbd_waiter object
+path might need its own listener. Therefore the bsr_waiter object
 is embedded into the dtt_path and _not_ the dtt_waiter */
 #ifdef _LIN
 struct dtt_socket_container {
@@ -91,7 +91,7 @@ struct dtt_socket_container {
 #endif
 
 struct dtt_path {
-	struct drbd_path path;
+	struct bsr_path path;
 #ifdef _WIN
 	struct socket *socket;
 #else // _LIN
@@ -103,31 +103,31 @@ struct dtt_path {
 WSK_CLIENT_CONNECTION_DISPATCH dispatchDisco = { NULL, WskDisconnectEvent, NULL };
 #endif
 
-static int dtt_init(struct drbd_transport *transport);
-static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free_op);
-static int dtt_connect(struct drbd_transport *transport);
-static int dtt_recv(struct drbd_transport *transport, enum drbd_stream stream, void **buf, size_t size, int flags);
-static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_chain_head *chain, size_t size);
-static void dtt_stats(struct drbd_transport *transport, struct drbd_transport_stats *stats);
-static void dtt_set_rcvtimeo(struct drbd_transport *transport, enum drbd_stream stream, long timeout);
-static long dtt_get_rcvtimeo(struct drbd_transport *transport, enum drbd_stream stream);
-static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream, struct page *page,
+static int dtt_init(struct bsr_transport *transport);
+static void dtt_free(struct bsr_transport *transport, enum bsr_tr_free_op free_op);
+static int dtt_connect(struct bsr_transport *transport);
+static int dtt_recv(struct bsr_transport *transport, enum bsr_stream stream, void **buf, size_t size, int flags);
+static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain_head *chain, size_t size);
+static void dtt_stats(struct bsr_transport *transport, struct bsr_transport_stats *stats);
+static void dtt_set_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream, long timeout);
+static long dtt_get_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream);
+static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream, struct page *page,
 		int offset, size_t size, unsigned msg_flags);
-static int dtt_send_zc_bio(struct drbd_transport *, struct bio *bio);
-static bool dtt_stream_ok(struct drbd_transport *transport, enum drbd_stream stream);
-static bool dtt_hint(struct drbd_transport *transport, enum drbd_stream stream, enum drbd_tr_hints hint);
-static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *m);
-static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport);
-static int dtt_add_path(struct drbd_transport *, struct drbd_path *path);
-static int dtt_remove_path(struct drbd_transport *, struct drbd_path *);
+static int dtt_send_zc_bio(struct bsr_transport *, struct bio *bio);
+static bool dtt_stream_ok(struct bsr_transport *transport, enum bsr_stream stream);
+static bool dtt_hint(struct bsr_transport *transport, enum bsr_stream stream, enum bsr_tr_hints hint);
+static void dtt_debugfs_show(struct bsr_transport *transport, struct seq_file *m);
+static void dtt_update_congested(struct bsr_tcp_transport *tcp_transport);
+static int dtt_add_path(struct bsr_transport *, struct bsr_path *path);
+static int dtt_remove_path(struct bsr_transport *, struct bsr_path *);
 #ifdef _SEND_BUF
-static bool dtt_start_send_buffring(struct drbd_transport *, signed long long size);
-static void dtt_stop_send_buffring(struct drbd_transport *);
+static bool dtt_start_send_buffring(struct bsr_transport *, signed long long size);
+static void dtt_stop_send_buffring(struct bsr_transport *);
 #endif
 
-static struct drbd_transport_class tcp_transport_class = {
+static struct bsr_transport_class tcp_transport_class = {
 	.name = "tcp",
-	.instance_size = sizeof(struct drbd_tcp_transport),
+	.instance_size = sizeof(struct bsr_tcp_transport),
 	.path_instance_size = sizeof(struct dtt_path),
 #ifdef _LIN
 	.module = THIS_MODULE,
@@ -136,7 +136,7 @@ static struct drbd_transport_class tcp_transport_class = {
 	.list = LIST_HEAD_INIT(tcp_transport_class.list),
 };
 
-static struct drbd_transport_ops dtt_ops = {
+static struct bsr_transport_ops dtt_ops = {
 	.free = dtt_free,
 	.connect = dtt_connect,
 	.recv = dtt_recv,
@@ -160,43 +160,43 @@ static struct drbd_transport_ops dtt_ops = {
 
 /* Might restart iteration, if current element is removed from list!! */
 #define for_each_path_ref(path, transport)			\
-	for (path = __drbd_next_path_ref(NULL, transport);	\
+	for (path = __bsr_next_path_ref(NULL, transport);	\
 	     path;						\
-	     path = __drbd_next_path_ref(path, transport))
+	     path = __bsr_next_path_ref(path, transport))
 
 /* This is save as long you use list_del_init() everytime something is removed
 from the list. */
-static struct drbd_path *__drbd_next_path_ref(struct drbd_path *drbd_path,
-struct drbd_transport *transport)
+static struct bsr_path *__bsr_next_path_ref(struct bsr_path *bsr_path,
+struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 
 	spin_lock(&tcp_transport->paths_lock);
-	if (!drbd_path) {
-		drbd_path = list_first_entry_or_null(&transport->paths, struct drbd_path, list);
+	if (!bsr_path) {
+		bsr_path = list_first_entry_or_null(&transport->paths, struct bsr_path, list);
 	}
 	else {
-		bool in_list = !list_empty(&drbd_path->list);
-		kref_put(&drbd_path->kref, drbd_destroy_path);
+		bool in_list = !list_empty(&bsr_path->list);
+		kref_put(&bsr_path->kref, bsr_destroy_path);
 		if (in_list) {
 			/* Element still on the list, ref count can not drop to zero! */
-			if (list_is_last(&drbd_path->list, &transport->paths))
-				drbd_path = NULL;
+			if (list_is_last(&bsr_path->list, &transport->paths))
+				bsr_path = NULL;
 			else{
-				drbd_path = list_next_entry_ex(struct drbd_path, drbd_path, list);
+				bsr_path = list_next_entry_ex(struct bsr_path, bsr_path, list);
 			}
 		}
 		else {
 			/* No longer on the list, element might be freed already, restart from the start */
-			drbd_path = list_first_entry_or_null(&transport->paths, struct drbd_path, list);
+			bsr_path = list_first_entry_or_null(&transport->paths, struct bsr_path, list);
 		}
 	}
-	if (drbd_path)
-		kref_get(&drbd_path->kref);
+	if (bsr_path)
+		kref_get(&bsr_path->kref);
 	spin_unlock(&tcp_transport->paths_lock);
 
-	return drbd_path;
+	return bsr_path;
 }
 
 static void dtt_nodelay(struct socket *socket)
@@ -210,11 +210,11 @@ static void dtt_nodelay(struct socket *socket)
 #endif
 }
 
-int dtt_init(struct drbd_transport *transport)
+int dtt_init(struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	enum drbd_stream i;
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	enum bsr_stream i;
 
 	spin_lock_init(&tcp_transport->paths_lock);
 	tcp_transport->transport.ops = &dtt_ops;
@@ -224,7 +224,7 @@ int dtt_init(struct drbd_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09DW');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			drbd_warn(NO_OBJECT,"dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM" );
+			bsr_warn(NO_OBJECT,"dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM" );
 			goto fail;
 		}
 #else  // _LIN
@@ -280,7 +280,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 			//ZwClose (attr->send_buf_thread_handle);
             attr->send_buf_thread_handle = NULL;
 
-			// BSR-12 its code present in sock_release() of wdrbd.
+			// BSR-12 its code present in sock_release() of wbsr.
 			if(attr->bab) {
 				if(attr->bab->static_big_buf) {
 					kvfree(attr->bab->static_big_buf);
@@ -298,12 +298,12 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 	}
 }
 
-static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free_op)
+static void dtt_free(struct bsr_transport *transport, enum bsr_tr_free_op free_op)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	enum drbd_stream i;
-	struct drbd_path *drbd_path;
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	enum bsr_stream i;
+	struct bsr_path *bsr_path;
 	/* free the socket specific stuff,
 	 * mutexes are handled by caller */
 
@@ -326,15 +326,15 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 		}
 	}
 
-	for_each_path_ref(drbd_path, transport) {
-		bool was_established = drbd_path->established;
-		drbd_path->established = false;
+	for_each_path_ref(bsr_path, transport) {
+		bool was_established = bsr_path->established;
+		bsr_path->established = false;
 		if (was_established)
-			drbd_path_event(transport, drbd_path);
+			bsr_path_event(transport, bsr_path);
 	}
 
 	if (free_op == DESTROY_TRANSPORT) {
-		struct drbd_path *tmp;
+		struct bsr_path *tmp;
 
 		for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
 #ifdef _WIN
@@ -345,15 +345,15 @@ static void dtt_free(struct drbd_transport *transport, enum drbd_tr_free_op free
 			tcp_transport->rbuf[i].base = NULL;
 		}
 		spin_lock(&tcp_transport->paths_lock);
-		list_for_each_entry_safe_ex(struct drbd_path, drbd_path, tmp, &transport->paths, list) {
-			list_del_init(&drbd_path->list);
-			kref_put(&drbd_path->kref, drbd_destroy_path);
+		list_for_each_entry_safe_ex(struct bsr_path, bsr_path, tmp, &transport->paths, list) {
+			list_del_init(&bsr_path->list);
+			kref_put(&bsr_path->kref, bsr_destroy_path);
 		}
 		spin_unlock(&tcp_transport->paths_lock);
 	}
 }
 
-static int _dtt_send(struct drbd_tcp_transport *tcp_transport, struct socket *socket,
+static int _dtt_send(struct bsr_tcp_transport *tcp_transport, struct socket *socket,
 		      void *buf, size_t size, unsigned msg_flags)
 {
 #ifdef _WIN
@@ -389,7 +389,7 @@ static int _dtt_send(struct drbd_tcp_transport *tcp_transport, struct socket *so
 		 * -EAGAIN on timeout, -EINTR on signal.
 		 */
 /* THINK
- * do we need to block DRBD_SIG if sock == &meta.socket ??
+ * do we need to block BSR_SIG if sock == &meta.socket ??
  * otherwise wake_asender() might interrupt some send_*Ack !
  */
 #ifdef _WIN
@@ -402,12 +402,12 @@ static int _dtt_send(struct drbd_tcp_transport *tcp_transport, struct socket *so
 #else  // _LIN
 		rv = kernel_sendmsg(socket, &msg, &iov, 1, size);
 		if (rv == -EAGAIN) {
-			struct drbd_transport *transport = &tcp_transport->transport;
-			enum drbd_stream stream =
+			struct bsr_transport *transport = &tcp_transport->transport;
+			enum bsr_stream stream =
 				tcp_transport->stream[DATA_STREAM] == socket ?
 					DATA_STREAM : CONTROL_STREAM;
 
-			if (drbd_stream_send_timed_out(transport, stream))
+			if (bsr_stream_send_timed_out(transport, stream))
 				break;
 			else
 				continue;
@@ -458,10 +458,10 @@ static int dtt_recv_short(struct socket *socket, void *buf, size_t size, int fla
 #endif
 }
 
-static int dtt_recv(struct drbd_transport *transport, enum drbd_stream stream, void **buf, size_t size, int flags)
+static int dtt_recv(struct bsr_transport *transport, enum bsr_stream stream, void **buf, size_t size, int flags)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 	struct socket *socket = tcp_transport->stream[stream];
 	unsigned char* buffer = NULL;
 	int rv;
@@ -495,10 +495,10 @@ static int dtt_recv(struct drbd_transport *transport, enum drbd_stream stream, v
 	return rv;
 }
 
-static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_chain_head *chain, size_t size)
+static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain_head *chain, size_t size)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 	struct socket *socket = tcp_transport->stream[DATA_STREAM];
 	struct page *page;
 	int err;
@@ -513,20 +513,20 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(DIV_ROUND_UP(size, PAGE_SIZE));
 #endif
-	drbd_alloc_page_chain(transport, chain, (unsigned int)DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
+	bsr_alloc_page_chain(transport, chain, (unsigned int)DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
 	page = chain->head;
 	if (!page)
 		return -ENOMEM;
 
 #ifdef _WIN
 	err = dtt_recv_short(socket, page, size, 0); // required to verify *peer_req_databuf pointer buffer , size value 's validity
-	drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) all_pages(0x%p)\n", err, socket, (int)size, page);
+	bsr_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) all_pages(0x%p)\n", err, socket, (int)size, page);
 	if (err < 0) {
 		goto fail;
 	}
 	else if (err != (int)size) {
 		// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-		drbd_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)size, err);
+		bsr_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)size, err);
 		err = -EIO;		
 		
 		goto fail;
@@ -539,13 +539,13 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 		kunmap(page);
 		set_page_chain_offset(page, 0);
 		set_page_chain_size(page, len);
-		drbd_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) data(0x%p)\n", err, socket, (int)len, data);
+		bsr_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) data(0x%p)\n", err, socket, (int)len, data);
 		if (err < 0) {
 			goto fail;
 		}
 		else if (err != (int)len) {
 			// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-			drbd_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)len, err);
+			bsr_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)len, err);
 			err = -EIO;
 			goto fail;
 		}
@@ -555,17 +555,17 @@ static int dtt_recv_pages(struct drbd_transport *transport, struct drbd_page_cha
 
 	return 0;
 fail:
-	drbd_free_page_chain(transport, chain, 0);
+	bsr_free_page_chain(transport, chain, 0);
 #ifdef _WIN // page count is decreased by free_page, actual allocated memory is freed separately.
 	kfree(page);
 #endif
 	return err;
 }
 
-static void dtt_stats(struct drbd_transport *transport, struct drbd_transport_stats *stats)
+static void dtt_stats(struct bsr_transport *transport, struct bsr_transport_stats *stats)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 
 	struct socket *socket = tcp_transport->stream[DATA_STREAM];
 
@@ -609,7 +609,7 @@ static void dtt_setbufsize(struct socket *socket, signed long long snd,
         socket->sk_linux_attr->sk_sndbuf = snd;
     }
     else { 
-        socket->sk_linux_attr->sk_sndbuf = DRBD_SNDBUF_SIZE_DEF;
+        socket->sk_linux_attr->sk_sndbuf = BSR_SNDBUF_SIZE_DEF;
     }
 
     if (rcv) {
@@ -632,30 +632,30 @@ static void dtt_setbufsize(struct socket *socket, signed long long snd,
 #endif
 }
 
-static bool dtt_path_cmp_addr(struct dtt_path *path, struct drbd_connection *connection)
+static bool dtt_path_cmp_addr(struct dtt_path *path, struct bsr_connection *connection)
 {
-	struct drbd_path *drbd_path = &path->path;
+	struct bsr_path *bsr_path = &path->path;
 	int addr_size;
 
-	addr_size = min(drbd_path->my_addr_len, drbd_path->peer_addr_len);
+	addr_size = min(bsr_path->my_addr_len, bsr_path->peer_addr_len);
 
 	// DW-1452 Consider interworking with DRX 
-	if (drbd_path->my_addr_len == drbd_path->peer_addr_len) {
+	if (bsr_path->my_addr_len == bsr_path->peer_addr_len) {
 		int my_node_id, peer_node_id; 
-		drbd_debug_conn("my_addr_len == peer_addr_len compare node_ids\n"); 
+		bsr_debug_conn("my_addr_len == peer_addr_len compare node_ids\n"); 
 		
 		my_node_id = connection->resource->res_opts.node_id; 
 		peer_node_id = connection->peer_node_id; 
 
-		drbd_debug_conn("my_node_id = %d, peer_node_id = %d\n", my_node_id, peer_node_id);
+		bsr_debug_conn("my_node_id = %d, peer_node_id = %d\n", my_node_id, peer_node_id);
 		return my_node_id > peer_node_id; 		 
 	}
 
-	return memcmp(&drbd_path->my_addr, &drbd_path->peer_addr, addr_size) > 0;
+	return memcmp(&bsr_path->my_addr, &bsr_path->peer_addr, addr_size) > 0;
 }
 
 
-static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *path, struct socket **ret_socket)
+static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *path, struct socket **ret_socket)
 {
 	const char *what;
 	struct socket *socket;	
@@ -721,16 +721,16 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	what = "create-connect";
 
 	if (my_addr.ss_family == AF_INET6) {
-		drbd_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
+		bsr_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
 	} else {
-		drbd_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
+		bsr_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 	}
 
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
 
 	if (!NT_SUCCESS(status)) {
 		err = status;
-		drbd_debug(NO_OBJECT,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
+		bsr_debug(NO_OBJECT,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
 		switch (status) {
 		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
 		// DW-1272
@@ -741,7 +741,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 		case STATUS_HOST_UNREACHABLE: err = -EHOSTUNREACH; break;
 		case STATUS_IO_TIMEOUT: err = -ETIMEDOUT; break;
 		default: 
-			drbd_err(NO_OBJECT,"create-connect failed with status 0x%08X \n", status);
+			bsr_err(NO_OBJECT,"create-connect failed with status 0x%08X \n", status);
 			err = -EINVAL; 
 			break;
 		}
@@ -809,7 +809,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	/* explicitly bind to the configured IP as source IP
 	*  for the outgoing connections.
 	*  This is needed for multihomed hosts and to be
-	*  able to use lo: interfaces for drbd.
+	*  able to use lo: interfaces for bsr.
 	* Make sure to use 0 as port number, so linux selects
 	*  a free one dynamically.
 	*/
@@ -828,7 +828,7 @@ static int dtt_try_connect(struct drbd_transport *transport, struct dtt_path *pa
 	}
 	status = Bind(socket->sk, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&LocalAddressV4 : (PSOCKADDR)&LocalAddressV6 );
 	if (!NT_SUCCESS(status)) {
-		drbd_err(NO_OBJECT,"Bind() failed with status 0x%08X \n", status);
+		bsr_err(NO_OBJECT,"Bind() failed with status 0x%08X \n", status);
 		err = -EINVAL;
 		goto out;
 	}
@@ -900,7 +900,7 @@ out:
 #ifdef _WIN
 		status = SetEventCallbacks(socket, WSK_EVENT_DISCONNECT);
 		if (!NT_SUCCESS(status)) {
-			drbd_err(NO_OBJECT,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
+			bsr_err(NO_OBJECT,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
 			err = -1;
 			goto out;
 		}
@@ -913,8 +913,8 @@ out:
 }
 
 
-static int dtt_send_first_packet(struct drbd_tcp_transport *tcp_transport, struct socket *socket,
-			     enum drbd_packet cmd, enum drbd_stream stream)
+static int dtt_send_first_packet(struct bsr_tcp_transport *tcp_transport, struct socket *socket,
+			     enum bsr_packet cmd, enum bsr_stream stream)
 {
 	struct p_header80 h;
 	int msg_flags = 0;
@@ -925,7 +925,7 @@ static int dtt_send_first_packet(struct drbd_tcp_transport *tcp_transport, struc
 	if (!socket)
 		return -EIO;
 
-	h.magic = cpu_to_be32(DRBD_MAGIC);
+	h.magic = cpu_to_be32(BSR_MAGIC);
 	h.command = cpu_to_be16(cmd);
 	h.length = 0;
 
@@ -945,11 +945,11 @@ static bool dtt_socket_ok_or_free(struct socket **socket)
 
 #ifdef _WIN 
 	if ((*socket)->sk_state == WSK_ESTABLISHED) {
-		drbd_debug_conn("socket->sk_state == WSK_ESTABLISHED wsk = %p\n", (*socket)->sk);
+		bsr_debug_conn("socket->sk_state == WSK_ESTABLISHED wsk = %p\n", (*socket)->sk);
 		return true;
 	}
 
-	drbd_debug_conn("wsk = %p socket->sk_state = %d\n", (*socket)->sk, (*socket)->sk_state);
+	bsr_debug_conn("wsk = %p socket->sk_state = %d\n", (*socket)->sk, (*socket)->sk_state);
 	
 	kernel_sock_shutdown(*socket, SHUT_RDWR); // TODO Check if sk_state condition is required.
 
@@ -968,7 +968,7 @@ static bool dtt_socket_ok_or_free(struct socket **socket)
 	return false;
 }
 
-static bool dtt_connection_established(struct drbd_transport *transport,
+static bool dtt_connection_established(struct bsr_transport *transport,
 				       struct socket **socket1,
 				       struct socket **socket2,
 				       struct dtt_path **first_path)
@@ -977,7 +977,7 @@ static bool dtt_connection_established(struct drbd_transport *transport,
 	int timeout, good = 0;
 
 	if (!*socket1 || !*socket2) {
-		drbd_debug_conn("!*socket || !*socket2 and return false\n"); 
+		bsr_debug_conn("!*socket || !*socket2 and return false\n"); 
 		return false;
 	}
 
@@ -1000,24 +1000,24 @@ static bool dtt_connection_established(struct drbd_transport *transport,
 	return good == 2;
 }
 
-static struct dtt_path *dtt_wait_connect_cond(struct drbd_transport *transport)
+static struct dtt_path *dtt_wait_connect_cond(struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	struct drbd_listener *listener;
-	struct drbd_path *drbd_path;
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	struct bsr_listener *listener;
+	struct bsr_path *bsr_path;
 	struct dtt_path *path = NULL;
 
 	bool rv = false;
 
 	spin_lock(&tcp_transport->paths_lock);
-	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
-		path = container_of(drbd_path, struct dtt_path, path);
-		listener = drbd_path->listener;
+	list_for_each_entry_ex(struct bsr_path, bsr_path, &transport->paths, list) {
+		path = container_of(bsr_path, struct dtt_path, path);
+		listener = bsr_path->listener;
 #if 0
 		extern char * get_ip4(char *buf, struct sockaddr_in *sockaddr);
 		char sbuf[64], dbuf[64];
-		drbd_debug_co("[%p]dtt_wait_connect_cond: peer:%s sname=%s accept=%d\n", KeGetCurrentThread(), get_ip4(sbuf, &path->path.peer_addr), path->socket->name, listener->pending_accepts);		
+		bsr_debug_co("[%p]dtt_wait_connect_cond: peer:%s sname=%s accept=%d\n", KeGetCurrentThread(), get_ip4(sbuf, &path->path.peer_addr), path->socket->name, listener->pending_accepts);		
 #endif
 		spin_lock_bh(&listener->waiters_lock);
 #ifdef _WIN
@@ -1031,7 +1031,7 @@ static struct dtt_path *dtt_wait_connect_cond(struct drbd_transport *transport)
 			break;
 	}
 	spin_unlock(&tcp_transport->paths_lock);
-	drbd_debug_conn("rv = %d? path : NULL\n", rv); 
+	bsr_debug_conn("rv = %d? path : NULL\n", rv); 
 
 	return rv ? path : NULL;
 }
@@ -1043,9 +1043,9 @@ static void unregister_state_change(struct sock *sock, struct dtt_listener *list
 
 	// DW-1483 WSK_EVENT_ACCEPT disable	
 	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
+	bsr_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
 	if (!NT_SUCCESS(status)) {
-		drbd_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
+		bsr_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
 	}
 #else // _LIN
 	write_lock_bh(&sock->sk_callback_lock);
@@ -1055,8 +1055,8 @@ static void unregister_state_change(struct sock *sock, struct dtt_listener *list
 #endif
 }
 
-static int dtt_wait_for_connect(struct drbd_transport *transport,
-				struct drbd_listener *drbd_listener, struct socket **socket,
+static int dtt_wait_for_connect(struct bsr_transport *transport,
+				struct bsr_listener *bsr_listener, struct socket **socket,
 				struct dtt_path **ret_path)
 {
 // Frequent conditional compilation directives in functions hurt too much readability, 
@@ -1068,8 +1068,8 @@ static int dtt_wait_for_connect(struct drbd_transport *transport,
 	long timeo;
 	struct socket *s_estab = NULL;
 	struct net_conf *nc;
-	struct drbd_path *drbd_path2;
-	struct dtt_listener *listener = container_of(drbd_listener, struct dtt_listener, listener);
+	struct bsr_path *bsr_path2;
+	struct dtt_listener *listener = container_of(bsr_listener, struct dtt_listener, listener);
 	struct dtt_path *path = NULL;
 
 	rcu_read_lock();
@@ -1089,19 +1089,19 @@ retry:
 		(path = dtt_wait_connect_cond(transport)),
 		timeo, timeo);
 
-	if (-DRBD_SIGKILL == timeo)	{
-		drbd_debug_conn("-DRBD_SIGKILL == timeo return -DRBD_SIGKILL\n");
-		return -DRBD_SIGKILL;
+	if (-BSR_SIGKILL == timeo)	{
+		bsr_debug_conn("-BSR_SIGKILL == timeo return -BSR_SIGKILL\n");
+		return -BSR_SIGKILL;
 	}
 
 	if (-ETIMEDOUT == timeo){
-		drbd_debug_conn("-ETIMEOUT == timeout return -EAGAIN\n");
+		bsr_debug_conn("-ETIMEOUT == timeout return -EAGAIN\n");
 		return -EAGAIN;
 	}
 
 	spin_lock_bh(&listener->listener.waiters_lock);
 	if (path->socket) {
-		drbd_debug_conn("path->socket s_estab = path->socket(%p)\n", path->socket->sk);
+		bsr_debug_conn("path->socket s_estab = path->socket(%p)\n", path->socket->sk);
 		s_estab = path->socket;
 		path->socket = NULL;
 	} else if (listener->listener.pending_accepts > 0) {
@@ -1116,15 +1116,15 @@ retry:
 		// 
 		if (listener->paccept_socket) {
 			s_estab = listener->paccept_socket;
-			drbd_debug_conn("create estab_sock s_estab = listener->paccept_socket(%p)\n", s_estab);
+			bsr_debug_conn("create estab_sock s_estab = listener->paccept_socket(%p)\n", s_estab);
 		}
 		else {
 			if (status == STATUS_TIMEOUT) {
-				drbd_debug_conn("status == timeout err = -EAGAIN\n");
+				bsr_debug_conn("status == timeout err = -EAGAIN\n");
 				err = -EAGAIN;
 			}
 			else {
-				drbd_debug_conn("status else and err = -1 \n");
+				bsr_debug_conn("status else and err = -1 \n");
 				err = -1;
 			}
 		}
@@ -1141,11 +1141,11 @@ retry:
 			return -1;
 		}
 		char dbuf[128];
-		drbd_debug_conn("GetRemoteAddress : peer_addr %s\n", get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
+		bsr_debug_conn("GetRemoteAddress : peer_addr %s\n", get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 
 		spin_lock_bh(&listener->listener.waiters_lock);
-		drbd_path2 = drbd_find_path_by_addr(&listener->listener, &peer_addr);
-		if (!drbd_path2) {
+		bsr_path2 = bsr_find_path_by_addr(&listener->listener, &peer_addr);
+		if (!bsr_path2) {
 			struct sockaddr_in6 *from_sin6;
 			struct sockaddr_in *from_sin;
 
@@ -1164,9 +1164,9 @@ retry:
 
 			goto retry_locked;
 		}
-		if (drbd_path2 != &path->path) {
+		if (bsr_path2 != &path->path) {
 			struct dtt_path *path2 =
-				container_of(drbd_path2, struct dtt_path, path);
+				container_of(bsr_path2, struct dtt_path, path);
 
 			if (path2->socket) {
 				tr_info(transport, /* path2->transport, */
@@ -1184,7 +1184,7 @@ retry:
 	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
 #endif
 		
-	drbd_debug_co("%p dtt_wait_for_connect ok done.\n", KeGetCurrentThread());
+	bsr_debug_co("%p dtt_wait_for_connect ok done.\n", KeGetCurrentThread());
 	spin_unlock_bh(&listener->listener.waiters_lock);
 	*socket = s_estab;
 	*ret_path = path;
@@ -1207,8 +1207,8 @@ retry_locked:
 	long timeo;
 	struct socket *s_estab = NULL;
 	struct net_conf *nc;
-	struct drbd_path *drbd_path2;
-	struct dtt_listener *listener = container_of(drbd_listener, struct dtt_listener, listener);
+	struct bsr_path *bsr_path2;
+	struct dtt_listener *listener = container_of(bsr_listener, struct dtt_listener, listener);
 	struct dtt_path *path = NULL;
 
 	rcu_read_lock();
@@ -1252,8 +1252,8 @@ retry:
 		s_estab->ops->getname(s_estab, (struct sockaddr *)&peer_addr, &peer_addr_len, 2);
 
 		spin_lock_bh(&listener->listener.waiters_lock);
-		drbd_path2 = drbd_find_path_by_addr(&listener->listener, &peer_addr);
-		if (!drbd_path2) {
+		bsr_path2 = bsr_find_path_by_addr(&listener->listener, &peer_addr);
+		if (!bsr_path2) {
 			struct sockaddr_in6 *from_sin6;
 			struct sockaddr_in *from_sin;
 
@@ -1272,9 +1272,9 @@ retry:
 
 			goto retry_locked;
 		}
-		if (drbd_path2 != &path->path) {
+		if (bsr_path2 != &path->path) {
 			struct dtt_path *path2 =
-				container_of(drbd_path2, struct dtt_path, path);
+				container_of(bsr_path2, struct dtt_path, path);
 
 			socket_c = kmalloc(sizeof(*socket_c), GFP_ATOMIC, '');
 			if (!socket_c) {
@@ -1312,9 +1312,9 @@ retry_locked:
 #endif
 }
 
-static int dtt_receive_first_packet(struct drbd_tcp_transport *tcp_transport, struct socket *socket)
+static int dtt_receive_first_packet(struct bsr_tcp_transport *tcp_transport, struct socket *socket)
 {
-	struct drbd_transport *transport = &tcp_transport->transport;
+	struct bsr_transport *transport = &tcp_transport->transport;
 	struct p_header80 *h = tcp_transport->rbuf[DATA_STREAM].base;
 	const unsigned int header_size = sizeof(*h);
 	struct net_conf *nc;
@@ -1335,14 +1335,14 @@ static int dtt_receive_first_packet(struct drbd_tcp_transport *tcp_transport, st
 
 	err = dtt_recv_short(socket, h, header_size, 0);
 #ifdef _WIN
-    drbd_debug_sk("socket(0x%p) err(%d) header_size(%u)\n", socket, err, header_size);
+    bsr_debug_sk("socket(0x%p) err(%d) header_size(%u)\n", socket, err, header_size);
 #endif
 	if (err != (int)header_size) {
 		if (err >= 0)
 			err = -EIO;
 		return err;
 	}
-	if (h->magic != cpu_to_be32(DRBD_MAGIC)) {
+	if (h->magic != cpu_to_be32(BSR_MAGIC)) {
 		tr_err(transport, "Wrong magic value 0x%08x in receive_first_packet\n",
 			 be32_to_cpu(h->magic));
 		return -EINVAL;
@@ -1367,30 +1367,30 @@ static void dtt_incoming_connection(struct sock *sock)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(Flags);
-	struct drbd_resource *resource = (struct drbd_resource *) SocketContext;
-	struct drbd_listener *listener = NULL;
+	struct bsr_resource *resource = (struct bsr_resource *) SocketContext;
+	struct bsr_listener *listener = NULL;
 	bool find_listener = false;
 
     if (AcceptSocket == NULL ) {
-		drbd_debug_conn("NOT_ACCEPTED! AcceptSocket is null.\n");
+		bsr_debug_conn("NOT_ACCEPTED! AcceptSocket is null.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 	
 	if (!resource) {
-		drbd_debug_conn("NOT_ACCEPTED! SocketContext is null.\n");
+		bsr_debug_conn("NOT_ACCEPTED! SocketContext is null.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
 	char buf[128];
-	drbd_debug_conn("LocalAddress:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)LocalAddress));
-	drbd_debug_conn("RemoteAddress:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)RemoteAddress));
+	bsr_debug_conn("LocalAddress:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)LocalAddress));
+	bsr_debug_conn("RemoteAddress:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)RemoteAddress));
 
 	
 	spin_lock_bh(&resource->listeners_lock);	
 
 	// DW-1498 Find the listener that matches the LocalAddress in resource-> listeners.
-	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
-		drbd_debug_conn("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
+	list_for_each_entry_ex(struct bsr_listener, listener, &resource->listeners, list) {
+		bsr_debug_conn("listener->listen_addr:%s \n", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
 		if (addr_and_port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress)) {
 			find_listener = true;
 			break;
@@ -1399,7 +1399,7 @@ static void dtt_incoming_connection(struct sock *sock)
 
 	if (!find_listener) {
 		spin_unlock_bh(&resource->listeners_lock);
-		drbd_debug_conn("NOT_ACCEPTED! listener not found.\n");
+		bsr_debug_conn("NOT_ACCEPTED! listener not found.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
@@ -1407,7 +1407,7 @@ static void dtt_incoming_connection(struct sock *sock)
 
     if (!s_estab) {
     	spin_unlock_bh(&resource->listeners_lock);
-		drbd_debug_conn("NOT_ACCEPTED! s_estab alloc failed.\n");
+		bsr_debug_conn("NOT_ACCEPTED! s_estab alloc failed.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 
@@ -1422,23 +1422,23 @@ static void dtt_incoming_connection(struct sock *sock)
     s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'C6DW');
 
     if (s_estab->sk_linux_attr) {
-        s_estab->sk_linux_attr->sk_sndbuf = DRBD_SNDBUF_SIZE_DEF;
+        s_estab->sk_linux_attr->sk_sndbuf = BSR_SNDBUF_SIZE_DEF;
     }
     else {
         kfree(s_estab);
 		spin_unlock_bh(&resource->listeners_lock);
-		drbd_debug_conn("NOT_ACCEPTED! sk_linux_attr alloc failed.\n");
+		bsr_debug_conn("NOT_ACCEPTED! sk_linux_attr alloc failed.\n");
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 
 	spin_lock(&listener->waiters_lock);
-	struct drbd_path *path = drbd_find_path_by_addr(listener, (SOCKADDR_STORAGE_EX *)RemoteAddress);
+	struct bsr_path *path = bsr_find_path_by_addr(listener, (SOCKADDR_STORAGE_EX *)RemoteAddress);
 	if(!path) {
 		kfree(s_estab->sk_linux_attr);
 		kfree(s_estab);
 		spin_unlock(&listener->waiters_lock);
 		spin_unlock_bh(&resource->listeners_lock);
-		drbd_debug_conn("NOT_ACCEPTED! drbd_path not found.\n");
+		bsr_debug_conn("NOT_ACCEPTED! bsr_path not found.\n");
 		return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
@@ -1447,10 +1447,10 @@ static void dtt_incoming_connection(struct sock *sock)
 
 	struct dtt_listener *listener2 = container_of(listener, struct dtt_listener, listener);
 	if (path2) {
-		drbd_debug_conn("if(path) path->socket = s_estab\n");
+		bsr_debug_conn("if(path) path->socket = s_estab\n");
 		if (path2->socket) // DW-1567 fix system handle leak
 		{
-			drbd_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
+			bsr_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
 			goto not_accept;
 		}
 		else {
@@ -1458,10 +1458,10 @@ static void dtt_incoming_connection(struct sock *sock)
 		}
 	}
 	else {
-		drbd_debug_conn("else listener->paccept_socket = AccceptSocket\n");
+		bsr_debug_conn("else listener->paccept_socket = AccceptSocket\n");
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
-			drbd_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
+			bsr_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
 			goto not_accept;
 		}
 		else {
@@ -1473,7 +1473,7 @@ static void dtt_incoming_connection(struct sock *sock)
 
 	spin_unlock(&listener->waiters_lock);
 	spin_unlock_bh(&resource->listeners_lock);
-	drbd_debug_sk("s_estab(0x%p) wsk(0x%p) wake!!!!\n", s_estab, AcceptSocket);
+	bsr_debug_sk("s_estab(0x%p) wsk(0x%p) wake!!!!\n", s_estab, AcceptSocket);
 
 	return STATUS_SUCCESS;
 
@@ -1501,7 +1501,7 @@ not_accept:
 #endif
 }
 
-static void dtt_destroy_listener(struct drbd_listener *generic_listener)
+static void dtt_destroy_listener(struct bsr_listener *generic_listener)
 {
 	struct dtt_listener *listener =
 		container_of(generic_listener, struct dtt_listener, listener);
@@ -1529,9 +1529,9 @@ WSK_CLIENT_LISTEN_DISPATCH dispatch = {
 
 
 
-static int dtt_create_listener(struct drbd_transport *transport,
+static int dtt_create_listener(struct bsr_transport *transport,
 			       const struct sockaddr *addr,
-			       struct drbd_listener **ret_listener)
+			       struct bsr_listener **ret_listener)
 {
 #ifdef _WIN
 	//int err = 0, sndbuf_size, rcvbuf_size; 
@@ -1577,7 +1577,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
         goto out;
     }
 
-	struct drbd_connection *connection = container_of(transport, struct drbd_connection, transport);	
+	struct bsr_connection *connection = container_of(transport, struct bsr_connection, transport);	
 	
 	if (my_addr.ss_family == AF_INET6) {
 		s_listen->sk = CreateSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, (PVOID*)connection->resource, &dispatch, WSK_FLAG_LISTEN_SOCKET); // this is listen socket
@@ -1607,7 +1607,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	LONG InputBuffer = 1;
     status = ControlSocket(s_listen, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
+        bsr_err(NO_OBJECT,"ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
         err = -1;
         goto out;
     }
@@ -1635,9 +1635,9 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
-			drbd_err(NO_OBJECT,"AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],(UCHAR)my_addr.__data[0],(UCHAR)my_addr.__data[1]);
+			bsr_err(NO_OBJECT,"AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],(UCHAR)my_addr.__data[0],(UCHAR)my_addr.__data[1]);
     	} else {
-			drbd_err(NO_OBJECT,"AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2],(UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4],(UCHAR)my_addr.__data[5],
+			bsr_err(NO_OBJECT,"AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2],(UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4],(UCHAR)my_addr.__data[5],
 																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
 																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
 																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
@@ -1674,7 +1674,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	write_unlock_bh(&s_listen->sk->sk_callback_lock);
 
 	what = "listen";
-	err = s_listen->ops->listen(s_listen, DRBD_PEERS_MAX * 2);
+	err = s_listen->ops->listen(s_listen, BSR_PEERS_MAX * 2);
 	if (err < 0)
 		goto out;
 #endif
@@ -1688,7 +1688,7 @@ static int dtt_create_listener(struct drbd_transport *transport,
 	// DW-845 fix crash issue(EventCallback is called when listener is not initialized, then reference to invalid Socketcontext at dtt_inspect_incoming.)
 	status = SetEventCallbacks(s_listen, WSK_EVENT_ACCEPT);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
+        bsr_err(NO_OBJECT,"Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
     	err = -1;
         goto out;
     }
@@ -1732,55 +1732,55 @@ static void dtt_cleanup_accepted_sockets(struct dtt_path *path)
 }
 
 // DW-1398
-void dtt_put_listeners(struct drbd_transport *transport)
+void dtt_put_listeners(struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	struct drbd_path *drbd_path;
-	drbd_debug_conn("dtt_put_listeners\n"); 
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	struct bsr_path *bsr_path;
+	bsr_debug_conn("dtt_put_listeners\n"); 
 
 	spin_lock(&tcp_transport->paths_lock);
 	clear_bit(DTT_CONNECTING, &tcp_transport->flags);
 	spin_unlock(&tcp_transport->paths_lock);
 
-	for_each_path_ref(drbd_path, transport) {
-		struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
-		drbd_put_listener(drbd_path);
+	for_each_path_ref(bsr_path, transport) {
+		struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
+		bsr_put_listener(bsr_path);
 		dtt_cleanup_accepted_sockets(path);
 	}
 }
 
-static struct dtt_path *dtt_next_path(struct drbd_tcp_transport *tcp_transport, struct dtt_path *path)
+static struct dtt_path *dtt_next_path(struct bsr_tcp_transport *tcp_transport, struct dtt_path *path)
 {
-	struct drbd_transport *transport = &tcp_transport->transport;
-	struct drbd_path *drbd_path;
+	struct bsr_transport *transport = &tcp_transport->transport;
+	struct bsr_path *bsr_path;
 
 	spin_lock(&tcp_transport->paths_lock);
 	if (list_is_last(&path->path.list, &transport->paths))
-		drbd_path = list_first_entry(&transport->paths, struct drbd_path, list);
+		bsr_path = list_first_entry(&transport->paths, struct bsr_path, list);
 	else
-		drbd_path = list_next_entry_ex(struct drbd_path, &path->path, list);
+		bsr_path = list_next_entry_ex(struct bsr_path, &path->path, list);
 	spin_unlock(&tcp_transport->paths_lock);
 
-	return container_of(drbd_path, struct dtt_path, path);
+	return container_of(bsr_path, struct dtt_path, path);
 }
 #ifdef _WIN
 extern char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
 extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 #endif
 
-static int dtt_connect(struct drbd_transport *transport)
+static int dtt_connect(struct bsr_transport *transport)
 {
 #ifdef _WIN // TODO
 	NTSTATUS status;
 	if (transport == NULL) {
-		drbd_err(NO_OBJECT,"dtt_connect transport is null.\n");
+		bsr_err(NO_OBJECT,"dtt_connect transport is null.\n");
 		return -EDESTADDRREQ;
 	}
 #endif
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	struct drbd_path *drbd_path;
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	struct bsr_path *bsr_path;
 	struct dtt_path *connect_to_path, *first_path = NULL;
 	struct socket *dsocket, *csocket;
 	struct net_conf *nc;
@@ -1793,8 +1793,8 @@ static int dtt_connect(struct drbd_transport *transport)
 	dsocket = NULL;
 	csocket = NULL;
 
-	for_each_path_ref(drbd_path, transport) {
-		struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
+	for_each_path_ref(bsr_path, transport) {
+		struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
 		dtt_cleanup_accepted_sockets(path);
 	}
 
@@ -1807,51 +1807,51 @@ static int dtt_connect(struct drbd_transport *transport)
 		goto out;
 	}
 
-	list_for_each_entry_ex(struct drbd_path, drbd_path, &transport->paths, list) {
-		if (!drbd_path->listener) {
-			kref_get(&drbd_path->kref);
+	list_for_each_entry_ex(struct bsr_path, bsr_path, &transport->paths, list) {
+		if (!bsr_path->listener) {
+			kref_get(&bsr_path->kref);
 			spin_unlock(&tcp_transport->paths_lock);
 
 #if 0// _WIN
 		{		
 			if (path->path.my_addr.ss_family == AF_INET6) {
-				drbd_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
+				bsr_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
 			}
 			else {
-				drbd_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
+				bsr_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
 			}
 		}
 #endif
-		err = drbd_get_listener(transport, drbd_path, dtt_create_listener);
-		kref_put(&drbd_path->kref, drbd_destroy_path);
+		err = bsr_get_listener(transport, bsr_path, dtt_create_listener);
+		kref_put(&bsr_path->kref, bsr_destroy_path);
 		if (err)
 			goto out;
 		spin_lock(&tcp_transport->paths_lock);
-		drbd_path = list_first_entry_or_null(&transport->paths, struct drbd_path, list);
-		if (drbd_path)
+		bsr_path = list_first_entry_or_null(&transport->paths, struct bsr_path, list);
+		if (bsr_path)
 			continue;
 		else
 			break;
 		}
 	}
 
-	drbd_path = list_first_entry(&transport->paths, struct drbd_path, list);
+	bsr_path = list_first_entry(&transport->paths, struct bsr_path, list);
 	
-	if (drbd_path == NULL) {
+	if (bsr_path == NULL) {
 		spin_unlock(&tcp_transport->paths_lock);
 		goto out;
 	}
 #ifdef _WIN
         {
-		if (drbd_path->my_addr.ss_family == AF_INET6) {
-			drbd_debug(NO_OBJECT,"dtt_connect: drbd_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&drbd_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&drbd_path->peer_addr));
+		if (bsr_path->my_addr.ss_family == AF_INET6) {
+			bsr_debug(NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&bsr_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&bsr_path->peer_addr));
 		} else {
-			drbd_debug(NO_OBJECT,"dtt_connect: drbd_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&drbd_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&drbd_path->peer_addr));
+			bsr_debug(NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&bsr_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&bsr_path->peer_addr));
 		}
 	}
 #endif
 
-	connect_to_path = container_of(drbd_path, struct dtt_path, path);
+	connect_to_path = container_of(bsr_path, struct dtt_path, path);
 	if (connect_to_path == NULL) {
 		spin_unlock(&tcp_transport->paths_lock);
 		goto out;
@@ -1859,9 +1859,9 @@ static int dtt_connect(struct drbd_transport *transport)
 #ifdef _WIN
 	{
 		if(connect_to_path->path.my_addr.ss_family == AF_INET6) {
-			drbd_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+			bsr_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 		} else {
-			drbd_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+			bsr_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 		}
 	}
 #endif
@@ -1876,13 +1876,13 @@ static int dtt_connect(struct drbd_transport *transport)
 			goto out;
 
 		if (s) {
-#ifdef drbd_debug_ip4
+#ifdef bsr_debug_ip4
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					drbd_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					drbd_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}
 #endif
 			}
@@ -1903,10 +1903,10 @@ static int dtt_connect(struct drbd_transport *transport)
 	
 			if (!dsocket && !csocket) {
 				// DW-1452 remove DW-1297 and apply path comparison
-				struct drbd_connection *connection =
-					container_of(transport, struct drbd_connection, transport);
+				struct bsr_connection *connection =
+					container_of(transport, struct bsr_connection, transport);
 				use_for_data = dtt_path_cmp_addr(first_path, connection);
-				drbd_debug_conn("use_for_date = %d\n", use_for_data); 
+				bsr_debug_conn("use_for_date = %d\n", use_for_data); 
 			} else if (!dsocket) {
            		use_for_data = true;
 			} else {
@@ -1921,7 +1921,7 @@ static int dtt_connect(struct drbd_transport *transport)
 				dsocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
-					drbd_err(NO_OBJECT,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
+					bsr_err(NO_OBJECT,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
@@ -1931,7 +1931,7 @@ static int dtt_connect(struct drbd_transport *transport)
 				csocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
-					drbd_err(NO_OBJECT,"failed to send first packet, csocket (%p)\n", csocket->sk);
+					bsr_err(NO_OBJECT,"failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
@@ -1941,7 +1941,7 @@ static int dtt_connect(struct drbd_transport *transport)
 			connect_to_path = dtt_next_path(tcp_transport, connect_to_path);
 
 		if (dtt_connection_established(transport, &dsocket, &csocket, &first_path)) {
-			drbd_debug_conn("success dtt_connection_established break the loop\n"); 
+			bsr_debug_conn("success dtt_connection_established break the loop\n"); 
 			break;
 		}
 
@@ -1949,18 +1949,18 @@ retry:
 		s = NULL;
 		err = dtt_wait_for_connect(transport, connect_to_path->path.listener, &s, &connect_to_path);
 		if (err < 0 && err != -EAGAIN) {
-			drbd_debug_conn("dtt_wait_for_connect fail err = %d goto out\n", err); 
+			bsr_debug_conn("dtt_wait_for_connect fail err = %d goto out\n", err); 
 			goto out;
 		}
 
 		if (s) {
-#ifdef drbd_debug_ip4 
+#ifdef bsr_debug_ip4 
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					drbd_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					drbd_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}				
 #endif				
 			}
@@ -1976,9 +1976,9 @@ retry:
 				connect_to_path = first_path;
 				goto randomize;
 			}
-			//drbd_debug_conn("dtt_socket_ok_or_free(&dsocket)\n"); 
+			//bsr_debug_conn("dtt_socket_ok_or_free(&dsocket)\n"); 
 			dtt_socket_ok_or_free(&dsocket);
-			//drbd_debug_conn("dtt_socket_ok_or_free(&csocket)\n");
+			//bsr_debug_conn("dtt_socket_ok_or_free(&csocket)\n");
 			dtt_socket_ok_or_free(&csocket);
 			switch (fp) {
 			case P_INITIAL_DATA:
@@ -2008,26 +2008,26 @@ retry:
 				sock_release(s);
 randomize:
 				if (prandom_u32() & 1) {
-					drbd_debug_conn("goto retry:"); 
+					bsr_debug_conn("goto retry:"); 
 					goto retry;
 				}
 			}
 		}
 
-		if (drbd_should_abort_listening(transport)) {
-			drbd_debug_conn("fail drbd_should_abort_listening and goto out_eagain\n"); 
+		if (bsr_should_abort_listening(transport)) {
+			bsr_debug_conn("fail bsr_should_abort_listening and goto out_eagain\n"); 
 			goto out_eagain;
 		}
 
 		ok = dtt_connection_established(transport, &dsocket, &csocket, &first_path);
 		if (ok) {
-			drbd_debug_conn("dtt_connection_established break the loop\n"); 
+			bsr_debug_conn("dtt_connection_established break the loop\n"); 
 		}
 	} while (!ok);
 
 	TR_ASSERT(transport, first_path == connect_to_path);
 	connect_to_path->path.established = true;
-	drbd_path_event(transport, &connect_to_path->path);
+	bsr_path_event(transport, &connect_to_path->path);
 #ifdef _LIN
 	dtt_put_listeners(transport);
 #endif
@@ -2036,7 +2036,7 @@ randomize:
     LONG InputBuffer = 1;
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+        bsr_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		// DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
@@ -2047,7 +2047,7 @@ randomize:
 
     status = ControlSocket(csocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+        bsr_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		err = status;
         goto out;
     }
@@ -2072,7 +2072,7 @@ randomize:
 	dtt_nodelay(dsocket);
 	dtt_nodelay(csocket);
 
-	drbd_debug_conn("tcp_transport->[STREAMS] <= dsocket, csocket\n");
+	bsr_debug_conn("tcp_transport->[STREAMS] <= dsocket, csocket\n");
 
 	tcp_transport->stream[DATA_STREAM] = dsocket;
 	tcp_transport->stream[CONTROL_STREAM] = csocket;
@@ -2110,10 +2110,10 @@ out:
 	return err;
 }
 
-static void dtt_set_rcvtimeo(struct drbd_transport *transport, enum drbd_stream stream, long timeout)
+static void dtt_set_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream, long timeout)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 
 	struct socket *socket = tcp_transport->stream[stream];
 	if (socket) {
@@ -2125,10 +2125,10 @@ static void dtt_set_rcvtimeo(struct drbd_transport *transport, enum drbd_stream 
 	}
 }
 
-static long dtt_get_rcvtimeo(struct drbd_transport *transport, enum drbd_stream stream)
+static long dtt_get_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 
 	struct socket *socket = tcp_transport->stream[stream];
 #ifdef _WIN
@@ -2138,17 +2138,17 @@ static long dtt_get_rcvtimeo(struct drbd_transport *transport, enum drbd_stream 
 #endif
 }
 
-static bool dtt_stream_ok(struct drbd_transport *transport, enum drbd_stream stream)
+static bool dtt_stream_ok(struct bsr_transport *transport, enum bsr_stream stream)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 
 	struct socket *socket = tcp_transport->stream[stream];
 
 	return socket && socket->sk;
 }
 
-static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport)
+static void dtt_update_congested(struct bsr_tcp_transport *tcp_transport)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(tcp_transport);
@@ -2166,7 +2166,7 @@ static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport)
 		// don't know how to get WSK tx buffer usage yet. Ignore it.
 	}
 	
-	drbd_debug_tr("dtt_update_congested:  sndbuf=%d sk_wmem_queued=%d\n", sock->sk_sndbuf, sk_wmem_queued);
+	bsr_debug_tr("dtt_update_congested:  sndbuf=%d sk_wmem_queued=%d\n", sock->sk_sndbuf, sk_wmem_queued);
 
 	if (sk_wmem_queued > sock->sk_sndbuf * 4 / 5) // reached 80%
     {
@@ -2181,11 +2181,11 @@ static void dtt_update_congested(struct drbd_tcp_transport *tcp_transport)
 #endif
 }
 
-static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stream,
+static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream,
 			 struct page *page, int offset, size_t size, unsigned msg_flags)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 	struct socket *socket = tcp_transport->stream[stream];
 	int len = (int)size;
 	int err = -EIO;
@@ -2194,7 +2194,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 	mm_segment_t oldfs;
 #endif
 
-	// DW-674 safely uncork operation, if socket is not NULL.(drbd 8.4.x referenced)
+	// DW-674 safely uncork operation, if socket is not NULL.(bsr 8.4.x referenced)
 	if(!socket) { 
 		return -EIO;
 	}
@@ -2241,7 +2241,7 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 			}
 #else
 			if (sent == -EAGAIN) {
-				if (drbd_stream_send_timed_out(transport, stream))
+				if (bsr_stream_send_timed_out(transport, stream))
 					break;
 				continue;
 			}
@@ -2266,10 +2266,10 @@ static int dtt_send_page(struct drbd_transport *transport, enum drbd_stream stre
 	return err;
 }
 
-static int dtt_send_zc_bio(struct drbd_transport *transport, struct bio *bio)
+static int dtt_send_zc_bio(struct bsr_transport *transport, struct bio *bio)
 {
-	DRBD_BIO_VEC_TYPE bvec;
-	DRBD_ITER_TYPE iter;
+	BSR_BIO_VEC_TYPE bvec;
+	BSR_ITER_TYPE iter;
 
 	bio_for_each_segment(bvec, bio, iter) {
 		int err;
@@ -2280,7 +2280,7 @@ static int dtt_send_zc_bio(struct drbd_transport *transport, struct bio *bio)
 		if (err)
 			return err;
 
-		if (bio->bi_rw & DRBD_REQ_WSAME)
+		if (bio->bi_rw & BSR_REQ_WSAME)
 			break;
 	}
 	return 0;
@@ -2319,11 +2319,11 @@ static void dtt_quickack(struct socket *socket)
 #endif
 }
 
-static bool dtt_hint(struct drbd_transport *transport, enum drbd_stream stream,
-		enum drbd_tr_hints hint)
+static bool dtt_hint(struct bsr_transport *transport, enum bsr_stream stream,
+		enum bsr_tr_hints hint)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 	bool rv = true;
 	struct socket *socket = tcp_transport->stream[stream];
 
@@ -2374,16 +2374,16 @@ static void dtt_debugfs_show_stream(struct seq_file *m, struct socket *socket)
 #endif
 }
 
-static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *m)
+static void dtt_debugfs_show(struct bsr_transport *transport, struct seq_file *m)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(transport);
 	UNREFERENCED_PARAMETER(m);
 
 #else // _LIN
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	enum drbd_stream i;
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	enum bsr_stream i;
 
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
@@ -2399,26 +2399,26 @@ static void dtt_debugfs_show(struct drbd_transport *transport, struct seq_file *
 #endif
 }
 
-static int dtt_add_path(struct drbd_transport *transport, struct drbd_path *drbd_path)
+static int dtt_add_path(struct bsr_transport *transport, struct bsr_path *bsr_path)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
 #ifdef _LIN
-	struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
+	struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
 #endif
 	bool active; //TODO: The implementation of dtt_add_path differs from 9.0.6. Need to re-check
 
-	drbd_path->established = false;
+	bsr_path->established = false;
 #ifdef _LIN
 	INIT_LIST_HEAD(&path->sockets);
 #endif
 retry:
 	active = test_bit(DTT_CONNECTING, &tcp_transport->flags);
-	if (!active && drbd_path->listener)
-		drbd_put_listener(drbd_path);
+	if (!active && bsr_path->listener)
+		bsr_put_listener(bsr_path);
 
-	if (active && !drbd_path->listener) {
-		int err = drbd_get_listener(transport, drbd_path, dtt_create_listener);
+	if (active && !bsr_path->listener) {
+		int err = bsr_get_listener(transport, bsr_path, dtt_create_listener);
 		if (err)
 			return err;
 	}
@@ -2428,25 +2428,25 @@ retry:
 		spin_unlock(&tcp_transport->paths_lock);
 		goto retry;
 	}
-	list_add(&drbd_path->list, &transport->paths);
+	list_add(&bsr_path->list, &transport->paths);
 	spin_unlock(&tcp_transport->paths_lock);
 
 	return 0;
 }
 
-static int dtt_remove_path(struct drbd_transport *transport, struct drbd_path *drbd_path)
+static int dtt_remove_path(struct bsr_transport *transport, struct bsr_path *bsr_path)
 {
-	struct drbd_tcp_transport *tcp_transport =
-		container_of(transport, struct drbd_tcp_transport, transport);
-	struct dtt_path *path = container_of(drbd_path, struct dtt_path, path);
+	struct bsr_tcp_transport *tcp_transport =
+		container_of(transport, struct bsr_tcp_transport, transport);
+	struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
 
-	if (drbd_path->established)
+	if (bsr_path->established)
 		return -EBUSY;
 
 	spin_lock(&tcp_transport->paths_lock);
-	list_del_init(&drbd_path->list);
+	list_del_init(&bsr_path->list);
 	spin_unlock(&tcp_transport->paths_lock);
-	drbd_put_listener(&path->path);
+	bsr_put_listener(&path->path);
 	
 	return 0;
 }
@@ -2458,14 +2458,14 @@ int __init dtt_initialize(void)
 int dtt_initialize(void)
 #endif
 {
-	return drbd_register_transport_class(&tcp_transport_class,
-					     DRBD_TRANSPORT_API_VERSION,
-					     sizeof(struct drbd_transport));
+	return bsr_register_transport_class(&tcp_transport_class,
+					     BSR_TRANSPORT_API_VERSION,
+					     sizeof(struct bsr_transport));
 }
 #if 0 // disable. Not used in bsr.
 static void __exit dtt_cleanup(void)
 {
-	drbd_unregister_transport_class(&tcp_transport_class);
+	bsr_unregister_transport_class(&tcp_transport_class);
 }
 #endif
 
@@ -2474,10 +2474,10 @@ static void __exit dtt_cleanup(void)
 
 extern KSTART_ROUTINE send_buf_thread;
 
-static bool dtt_start_send_buffring(struct drbd_transport *transport, signed long long size)
+static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long long size)
 {
-	struct drbd_tcp_transport* tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
-	struct drbd_connection* connection = container_of(transport, struct drbd_connection, transport);
+	struct bsr_tcp_transport* tcp_transport = container_of(transport, struct bsr_tcp_transport, transport);
+	struct bsr_connection* connection = container_of(transport, struct bsr_connection, transport);
 
 	if (size > 0 ) {
 		for (int i = 0; i < 2; i++) {
@@ -2522,9 +2522,9 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 						
 						// kill DATA_STREAM thread
 						KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-						//drbd_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+						//bsr_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 						KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-						//drbd_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+						//bsr_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 						//ZwClose(attr->send_buf_thread_handle);
 						attr->send_buf_thread_handle = NULL;
 						
@@ -2547,10 +2547,10 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 #else // _LIN_SEND_BUF
 extern int send_buf_thread(void *p);
 
-static bool dtt_start_send_buffring(struct drbd_transport *transport, signed long long size)
+static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long long size)
 {
-	struct drbd_tcp_transport* tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
-	struct drbd_connection* connection = container_of(transport, struct drbd_connection, transport);
+	struct bsr_tcp_transport* tcp_transport = container_of(transport, struct bsr_tcp_transport, transport);
+	struct bsr_connection* connection = container_of(transport, struct bsr_connection, transport);
 	int i = 0;
 
 	if (size > 0 ) {
@@ -2620,9 +2620,9 @@ static bool dtt_start_send_buffring(struct drbd_transport *transport, signed lon
 #endif
 
 #ifdef _WIN_SEND_BUF
-static void dtt_stop_send_buffring(struct drbd_transport *transport)
+static void dtt_stop_send_buffring(struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport = container_of(transport, struct bsr_tcp_transport, transport);
 	struct _buffering_attr *attr;
 
 	for (int i = 0; i < 2; i++) {
@@ -2631,26 +2631,26 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 
 			if (attr->send_buf_thread_handle != NULL) {
 				KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-				//drbd_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+				//bsr_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 				KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-				//drbd_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+				//bsr_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				drbd_warn(NO_OBJECT,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
+				bsr_warn(NO_OBJECT,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
 			}
 		}
 		else {
-			drbd_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
+			bsr_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}
 	return;
 }
 #else // _LIN_SEND_BUF
-static void dtt_stop_send_buffring(struct drbd_transport *transport)
+static void dtt_stop_send_buffring(struct bsr_transport *transport)
 {
-	struct drbd_tcp_transport *tcp_transport = container_of(transport, struct drbd_tcp_transport, transport);
+	struct bsr_tcp_transport *tcp_transport = container_of(transport, struct bsr_tcp_transport, transport);
 	struct _buffering_attr *attr;
 	int i = 0;
 
@@ -2665,11 +2665,11 @@ static void dtt_stop_send_buffring(struct drbd_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				drbd_warn(NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
+				bsr_warn(NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
 			}
 		}
 		else {
-			drbd_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
+			bsr_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}
 	return;

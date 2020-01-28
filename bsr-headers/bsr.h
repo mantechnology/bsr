@@ -1,31 +1,31 @@
 /*
-  drbd.h
+  bsr.h
   Kernel module for 2.6.x Kernels
 
-  This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+  This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
   Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
   Copyright (C) 2001-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
 
-  drbd is free software; you can redistribute it and/or modify
+  bsr is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2, or (at your option)
   any later version.
 
-  drbd is distributed in the hope that it will be useful,
+  bsr is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with drbd; see the file COPYING.  If not, write to
+  along with bsr; see the file COPYING.  If not, write to
   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
 
-#ifndef DRBD_H
-#define DRBD_H
+#ifndef BSR_H
+#define BSR_H
 
 #ifdef _WIN
 
@@ -98,7 +98,7 @@
 #endif // _LIN END
 
 
-enum drbd_io_error_p {
+enum bsr_io_error_p {
 	EP_PASS_ON, /* FIXME should the better be named "Ignore"? */
 	EP_CALL_HELPER,
 	EP_DETACH,
@@ -106,19 +106,19 @@ enum drbd_io_error_p {
 	EP_PASSTHROUGH
 };
 
-enum drbd_fencing_policy {
+enum bsr_fencing_policy {
 	FP_DONT_CARE = 0,
 	FP_RESOURCE,
 	FP_STONITH
 };
 
-enum drbd_disconnect_p {
+enum bsr_disconnect_p {
 	DP_RECONNECT,
 	DP_DROP_NET_CONF,
 	DP_FREEZE_IO
 };
 
-enum drbd_after_sb_p {
+enum bsr_after_sb_p {
 	ASB_DISCONNECT,
 	ASB_DISCARD_YOUNGER_PRI,
 	ASB_DISCARD_OLDER_PRI,
@@ -132,29 +132,29 @@ enum drbd_after_sb_p {
 	ASB_VIOLENTLY
 };
 
-enum drbd_on_no_data {
+enum bsr_on_no_data {
 	OND_IO_ERROR,
 	OND_SUSPEND_IO
 };
 
-enum drbd_on_no_quorum {
+enum bsr_on_no_quorum {
 	ONQ_IO_ERROR = OND_IO_ERROR,
 	ONQ_SUSPEND_IO = OND_SUSPEND_IO
 };
 
-enum drbd_on_congestion {
+enum bsr_on_congestion {
 	OC_BLOCK,
 	OC_PULL_AHEAD,
 	OC_DISCONNECT,
 };
 
 // DW-1925
-enum drbd_on_req_write_congestion {
+enum bsr_on_req_write_congestion {
 	ORWC_DISCONNECT,
 	ORWC_BLOCK,
 };
 
-enum drbd_read_balancing {
+enum bsr_read_balancing {
 	RB_PREFER_LOCAL,
 	RB_PREFER_REMOTE,
 	RB_ROUND_ROBIN,
@@ -169,7 +169,7 @@ enum drbd_read_balancing {
 };
 
 /* KEEP the order, do not delete or insert. Only append. */
-enum drbd_ret_code {
+enum bsr_ret_code {
 	ERR_CODE_BASE		= 100,
 	NO_ERROR		= 101,
 	ERR_LOCAL_ADDR		= 102,
@@ -204,17 +204,17 @@ enum drbd_ret_code {
 	ERR_NO_DISK		= 138,
 	ERR_NOT_PROTO_C		= 139,
 	ERR_NOMEM_BITMAP	= 140,
-	ERR_INTEGRITY_ALG	= 141, /* DRBD 8.2 only */
-	ERR_INTEGRITY_ALG_ND	= 142, /* DRBD 8.2 only */
-	ERR_CPU_MASK_PARSE	= 143, /* DRBD 8.2 only */
-	ERR_CSUMS_ALG		= 144, /* DRBD 8.2 only */
-	ERR_CSUMS_ALG_ND	= 145, /* DRBD 8.2 only */
-	ERR_VERIFY_ALG		= 146, /* DRBD 8.2 only */
-	ERR_VERIFY_ALG_ND	= 147, /* DRBD 8.2 only */
-	ERR_CSUMS_RESYNC_RUNNING= 148, /* DRBD 8.2 only */
-	ERR_VERIFY_RUNNING	= 149, /* DRBD 8.2 only */
+	ERR_INTEGRITY_ALG	= 141, /* BSR 8.2 only */
+	ERR_INTEGRITY_ALG_ND	= 142, /* BSR 8.2 only */
+	ERR_CPU_MASK_PARSE	= 143, /* BSR 8.2 only */
+	ERR_CSUMS_ALG		= 144, /* BSR 8.2 only */
+	ERR_CSUMS_ALG_ND	= 145, /* BSR 8.2 only */
+	ERR_VERIFY_ALG		= 146, /* BSR 8.2 only */
+	ERR_VERIFY_ALG_ND	= 147, /* BSR 8.2 only */
+	ERR_CSUMS_RESYNC_RUNNING= 148, /* BSR 8.2 only */
+	ERR_VERIFY_RUNNING	= 149, /* BSR 8.2 only */
 	ERR_DATA_NOT_CURRENT	= 150,
-	ERR_CONNECTED		= 151, /* DRBD 8.3 only */
+	ERR_CONNECTED		= 151, /* BSR 8.3 only */
 	ERR_PERM		= 152,
 	ERR_NEED_APV_93		= 153,
 	ERR_STONITH_AND_PROT_A  = 154,
@@ -244,11 +244,11 @@ enum drbd_ret_code {
 	AFTER_LAST_ERR_CODE
 };
 
-#define DRBD_PROT_A   1
-#define DRBD_PROT_B   2
-#define DRBD_PROT_C   3
+#define BSR_PROT_A   1
+#define BSR_PROT_B   2
+#define BSR_PROT_C   3
 
-enum drbd_role {
+enum bsr_role {
 	R_UNKNOWN = 0,
 	R_PRIMARY = 1,     /* role */
 	R_SECONDARY = 2,   /* role */
@@ -260,7 +260,7 @@ enum drbd_role {
  * that there is no socket!
  * >= C_CONNECTED ==> There is a socket
  */
-enum drbd_conn_state {
+enum bsr_conn_state {
 	C_STANDALONE,
 	C_DISCONNECTING,  /* Temporary state on the way to C_STANDALONE. */
 	C_UNCONNECTED,    /* >= C_UNCONNECTED -> inc_net() succeeds */
@@ -282,7 +282,7 @@ enum drbd_conn_state {
 	C_MASK = 31,
 };
 
-enum drbd_repl_state {
+enum bsr_repl_state {
 	L_NEGOTIATING = C_CONNECTED, /* used for peer_device->negotiation_result only */
 	L_OFF = C_CONNECTED,
 
@@ -307,7 +307,7 @@ enum drbd_repl_state {
 	L_NEG_NO_RESULT = L_BEHIND,  /* used for peer_device->negotiation_result only */
 };
 
-enum drbd_disk_state {
+enum bsr_disk_state {
 	D_DISKLESS,
 	D_ATTACHING,      /* In the process of reading the meta-data */
 	D_DETACHING,      /* Added in protocol version 110 */
@@ -322,7 +322,7 @@ enum drbd_disk_state {
 	D_MASK = 15
 };
 
-union drbd_state {
+union bsr_state {
 /* According to gcc's docs is the ...
  * The order of allocation of bit-fields within a unit (C90 6.5.2.1, C99 6.7.2.1).
  * Determined by ABI.
@@ -365,12 +365,12 @@ union drbd_state {
 	unsigned int i;
 };
 
-enum drbd_state_rv {
+enum bsr_state_rv {
 	SS_CW_NO_NEED = 4,
 	SS_CW_SUCCESS = 3,
 	SS_NOTHING_TO_DO = 2,
 	SS_SUCCESS = 1,
-	SS_UNKNOWN_ERROR = 0, /* Used to sleep longer in _drbd_request_state */
+	SS_UNKNOWN_ERROR = 0, /* Used to sleep longer in _bsr_request_state */
 	SS_TWO_PRIMARIES = -1,
 	SS_NO_UP_TO_DATE_DISK = -2,
 	SS_NO_LOCAL_DISK = -4,
@@ -383,7 +383,7 @@ enum drbd_state_rv {
 	SS_IS_DISKLESS = -11,
 	SS_DEVICE_IN_USE = -12,
 	SS_NO_NET_CONFIG = -13,
-	SS_NO_VERIFY_ALG = -14,       /* drbd-8.2 only */
+	SS_NO_VERIFY_ALG = -14,       /* bsr-8.2 only */
 	SS_NEED_CONNECTION = -15,
 	SS_LOWER_THAN_OUTDATED = -16,
 	SS_NOT_SUPPORTED = -17,
@@ -439,10 +439,10 @@ enum mdf_peer_flag {
 	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,        
 };
 
-#define DRBD_PEERS_MAX 32
-#define DRBD_NODE_ID_MAX DRBD_PEERS_MAX
+#define BSR_PEERS_MAX 32
+#define BSR_NODE_ID_MAX BSR_PEERS_MAX
 
-enum drbd_uuid_index {
+enum bsr_uuid_index {
 	UI_CURRENT,
 	UI_BITMAP,
 	UI_HISTORY_START,
@@ -453,9 +453,9 @@ enum drbd_uuid_index {
 };
 
 #define HISTORY_UUIDS_V08 (UI_HISTORY_END - UI_HISTORY_START + 1)
-#define HISTORY_UUIDS DRBD_PEERS_MAX
+#define HISTORY_UUIDS BSR_PEERS_MAX
 
-enum drbd_timeout_flag {
+enum bsr_timeout_flag {
 	UT_DEFAULT      = 0,
 	UT_DEGRADED     = 1,
 	UT_PEER_OUTDATED = 2,
@@ -471,7 +471,7 @@ enum write_ordering_e {
 	WO_BIO_BARRIER
 };
 
-enum drbd_notification_type {
+enum bsr_notification_type {
 	NOTIFY_EXISTS,
 	NOTIFY_CREATE,
 	NOTIFY_CHANGE,
@@ -486,7 +486,7 @@ enum drbd_notification_type {
 };
 
 /* These values are part of the ABI! */
-enum drbd_peer_state {
+enum bsr_peer_state {
 	P_INCONSISTENT = 3,
 	P_OUTDATED = 4,
 	P_DOWN = 5,
@@ -495,34 +495,34 @@ enum drbd_peer_state {
 };
 
 /* magic numbers used in meta data and network packets */
-#define DRBD_MAGIC 0x83740267
-#define DRBD_MAGIC_BIG 0x835a
-#define DRBD_MAGIC_100 0x8620ec20
+#define BSR_MAGIC 0x83740267
+#define BSR_MAGIC_BIG 0x835a
+#define BSR_MAGIC_100 0x8620ec20
 
-#define DRBD_MD_MAGIC_07   (DRBD_MAGIC+3)
-#define DRBD_MD_MAGIC_08   (DRBD_MAGIC+4)
-#define DRBD_MD_MAGIC_84_UNCLEAN	(DRBD_MAGIC+5)
-#define DRBD_MD_MAGIC_09   (DRBD_MAGIC+6)
+#define BSR_MD_MAGIC_07   (BSR_MAGIC+3)
+#define BSR_MD_MAGIC_08   (BSR_MAGIC+4)
+#define BSR_MD_MAGIC_84_UNCLEAN	(BSR_MAGIC+5)
+#define BSR_MD_MAGIC_09   (BSR_MAGIC+6)
 
 /* how I came up with this magic?
  * base64 decode "actlog==" ;) */
-#define DRBD_AL_MAGIC 0x69cb65a2
+#define BSR_AL_MAGIC 0x69cb65a2
 
 /* these are of type "int" */
-#define DRBD_MD_INDEX_INTERNAL -1
-#define DRBD_MD_INDEX_FLEX_EXT -2
-#define DRBD_MD_INDEX_FLEX_INT -3
+#define BSR_MD_INDEX_INTERNAL -1
+#define BSR_MD_INDEX_FLEX_EXT -2
+#define BSR_MD_INDEX_FLEX_INT -3
 
-#define DRBD_CPU_MASK_SIZE 32
+#define BSR_CPU_MASK_SIZE 32
 
-#define DRBD_MAX_BIO_SIZE (1U << 20)
+#define BSR_MAX_BIO_SIZE (1U << 20)
 
 #define QOU_OFF 0
 #define QOU_MAJORITY 1024
 #define QOU_ALL 1025
 
 // flag bits per volume extension
-// DW-1277 volume type is marked when drbd attaches 
+// DW-1277 volume type is marked when bsr attaches 
 
 // DW-1755
 enum {

@@ -220,7 +220,7 @@
 //
 // MessageText:
 //
-// DRBD_PANIC: %2.
+// BSR_PANIC: %2.
 //
 #define DEV_ERR_3003                     0xC0000BBBL
 
@@ -311,7 +311,7 @@
 //
 // MessageText:
 //
-// <0>block drbd%2
+// <0>block bsr%2
 //
 #define DEV_EMERG                        0xC0002EEBL
 
@@ -320,7 +320,7 @@
 //
 // MessageText:
 //
-// <1>block drbd%2
+// <1>block bsr%2
 //
 #define DEV_ALERT                        0x80002EECL
 
@@ -329,7 +329,7 @@
 //
 // MessageText:
 //
-// <2>block drbd%2
+// <2>block bsr%2
 //
 #define DEV_CRIT                         0xC0002EEDL
 
@@ -338,7 +338,7 @@
 //
 // MessageText:
 //
-// <3>block drbd%2
+// <3>block bsr%2
 //
 #define DEV_ERR                          0xC0002EEEL
 
@@ -347,7 +347,7 @@
 //
 // MessageText:
 //
-// <4>block drbd%2
+// <4>block bsr%2
 //
 #define DEV_WARN                         0x80002EEFL
 
@@ -356,7 +356,7 @@
 //
 // MessageText:
 //
-// <5>block drbd%2
+// <5>block bsr%2
 //
 #define DEV_NOTICE                       0x40002EF0L
 
@@ -365,7 +365,7 @@
 //
 // MessageText:
 //
-// <6>block drbd%2
+// <6>block bsr%2
 //
 #define DEV_INFO                         0x40002EF1L
 
@@ -374,7 +374,7 @@
 //
 // MessageText:
 //
-// <7>block drbd%2
+// <7>block bsr%2
 //
 #define DEV_DBG                          0x40002EF2L
 

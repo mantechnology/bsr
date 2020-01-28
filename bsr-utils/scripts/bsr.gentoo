@@ -20,9 +20,9 @@ depend() {
 
 opts="${opts} reload"
 
-DEFAULTFILE="/etc/conf.d/drbd"
-DRBDADM="/sbin/drbdadm"
-PROC_DRBD="/proc/drbd"
+DEFAULTFILE="/etc/conf.d/bsr"
+BSRADM="/sbin/bsradm"
+PROC_BSR="/proc/bsr"
 MODPROBE="/sbin/modprobe"
 RMMOD="/sbin/rmmod"
 UDEV_TIMEOUT=10
@@ -32,19 +32,19 @@ if [ -f $DEFAULTFILE ]; then
   . $DEFAULTFILE
 fi
 
-# Just in case drbdadm want to display any errors in the configuration
+# Just in case bsradm want to display any errors in the configuration
 # file, or we need to ask the user about registering this installation
-# at http://usage.drbd.org, we call drbdadm here without any IO
+# at http://usage.bsr.org, we call bsradm here without any IO
 # redirection.
-$DRBDADM sh-nop
+$BSRADM sh-nop
 
 function assure_module_is_loaded
 {
-    [ -e "$PROC_DRBD" ] && return
-    ebegin "Loading drbd module"
+    [ -e "$PROC_BSR" ] && return
+    ebegin "Loading bsr module"
     ret=0
 
-    $MODPROBE -s drbd `$DRBDADM sh-mod-parms` $ADD_MOD_PARAM || ret=20
+    $MODPROBE -s bsr `$BSRADM sh-mod-parms` $ADD_MOD_PARAM || ret=20
     eend $ret
     return $ret
 }
@@ -59,9 +59,9 @@ function adjust_with_progress
     local S=0
     local N=0
 
-    einfon "Setting drbd parameters "
-    COMMANDS=`$DRBDADM -d adjust all` || { 
-    	eend 20 "Error executing drbdadm"
+    einfon "Setting bsr parameters "
+    COMMANDS=`$BSRADM -d adjust all` || { 
+    	eend 20 "Error executing bsradm"
 	return 20 
     }
     echo -n "[ "
@@ -87,15 +87,15 @@ function adjust_with_progress
 }
 
 start() {
-	einfo "Starting DRBD resources:"
+	einfo "Starting BSR resources:"
 	eindent
 	assure_module_is_loaded || return $?
 	adjust_with_progress || return $?
 
         # make sure udev has time to create the device files
 	ebegin "Waiting for udev device creation ..."
-        for RESOURCE in `$DRBDADM sh-resources`; do
-            for DEVICE in `$DRBDADM sh-dev $RESOURCE`; do
+        for RESOURCE in `$BSRADM sh-resources`; do
+            for DEVICE in `$BSRADM sh-dev $RESOURCE`; do
                 UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
                 while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
                     sleep 1
@@ -106,7 +106,7 @@ start() {
 	eend 0
 
 	einfon "Waiting for connection "
-	$DRBDADM wait-con-int
+	$BSRADM wait-con-int
 	echo 
 	ret=$?
 	eend $ret
@@ -115,19 +115,19 @@ start() {
 
 stop() {
 
-	ebegin "Stopping all DRBD resources"
+	ebegin "Stopping all BSR resources"
 
-        # Check for mounted drbd devices
-        if ! grep -q '^/dev/drbd' /proc/mounts &>/dev/null; then
-                if [ -e ${PROC_DRBD} ]; then
-                        ${DRBDADM} down all
-                        ${RMMOD} drbd
+        # Check for mounted bsr devices
+        if ! grep -q '^/dev/bsr' /proc/mounts &>/dev/null; then
+                if [ -e ${PROC_BSR} ]; then
+                        ${BSRADM} down all
+                        ${RMMOD} bsr
                 fi
 		ret=$?
                 eend $ret
 		return $ret
         else
-                einfo "drbd devices mounted, please umount them before trying to stop drbd!"
+                einfo "bsr devices mounted, please umount them before trying to stop bsr!"
                 eend 1
 		return 1
         fi
@@ -137,13 +137,13 @@ status() {
 	# NEEDS to be heartbeat friendly...
 	# so: put some "OK" in the output.
 
-        if [ -e $PROC_DRBD ]; then
+        if [ -e $PROC_BSR ]; then
 	    ret=0
-            ebegin "drbd driver loaded OK; device status:"
+            ebegin "bsr driver loaded OK; device status:"
 	    eend $ret
-            cat $PROC_DRBD
+            cat $PROC_BSR
         else
-	    ebegin "drbd not loaded"
+	    ebegin "bsr not loaded"
 	    ret=3
 	    eend $ret
         fi
@@ -151,8 +151,8 @@ status() {
 }
 
 reload() {
-	ebegin "Reloading DRBD"
-	${DRBDADM} adjust all
+	ebegin "Reloading BSR"
+	${BSRADM} adjust all
 	ret=$?
 	eend $ret
 	return $ret

@@ -23,10 +23,10 @@
  * Whenever you change the file format, remember to bump the version. *
  **********************************************************************/
 
-static struct dentry *drbd_debugfs_root;
-static struct dentry *drbd_debugfs_version;
-static struct dentry *drbd_debugfs_resources;
-static struct dentry *drbd_debugfs_minors;
+static struct dentry *bsr_debugfs_root;
+static struct dentry *bsr_debugfs_version;
+static struct dentry *bsr_debugfs_resources;
+static struct dentry *bsr_debugfs_minors;
 
 
 static void seq_print_age_or_dash(struct seq_file *m, bool valid, ULONG_PTR dt)
@@ -57,11 +57,11 @@ static void seq_print_rq_state_bit(struct seq_file *m,
 	__seq_print_rq_state_bit(m, is_set, sep, set_name, NULL);
 }
 
-/* pretty print enum drbd_req_state_bits req->rq_state */
-static void seq_print_request_state(struct seq_file *m, struct drbd_request *req)
+/* pretty print enum bsr_req_state_bits req->rq_state */
+static void seq_print_request_state(struct seq_file *m, struct bsr_request *req)
 {
-	struct drbd_device *device = req->device;
-	struct drbd_peer_device *peer_device;
+	struct bsr_device *device = req->device;
+	struct bsr_peer_device *peer_device;
 	unsigned int s = req->rq_state[0];
 	char sep = ' ';
 	seq_printf(m, "\t0x%08x", s);
@@ -106,12 +106,12 @@ static void seq_print_request_state(struct seq_file *m, struct drbd_request *req
 
 #define memberat(PTR, TYPE, OFFSET) (*(TYPE *)((char *)PTR + OFFSET))
 
-static void print_one_age_or_dash(struct seq_file *m, struct drbd_request *req,
+static void print_one_age_or_dash(struct seq_file *m, struct bsr_request *req,
 				  unsigned int set_mask, unsigned int clear_mask,
 				  unsigned long now, size_t offset)
 {
-	struct drbd_device *device = req->device;
-	struct drbd_peer_device *peer_device;
+	struct bsr_device *device = req->device;
+	struct bsr_peer_device *peer_device;
 
 	for_each_peer_device(peer_device, device) {
 		unsigned int s = req->rq_state[1 + peer_device->node_id];
@@ -124,7 +124,7 @@ static void print_one_age_or_dash(struct seq_file *m, struct drbd_request *req,
 	}
 	seq_puts(m, "\t-");
 }
-static void seq_print_one_request(struct seq_file *m, struct drbd_request *req, ULONG_PTR now)
+static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, ULONG_PTR now)
 {
 	/* change anything here, fixup header below! */
 	unsigned int s = req->rq_state[0];
@@ -153,24 +153,24 @@ static void seq_print_one_request(struct seq_file *m, struct drbd_request *req, 
 #define RQ_HDR RQ_HDR_1 RQ_HDR_2 RQ_HDR_3 RQ_HDR_4
 
 
-static void seq_print_minor_vnr_req(struct seq_file *m, struct drbd_request *req, ULONG_PTR now)
+static void seq_print_minor_vnr_req(struct seq_file *m, struct bsr_request *req, ULONG_PTR now)
 {
 	seq_printf(m, "%u\t%u\t", req->device->minor, req->device->vnr);
 	seq_print_one_request(m, req, now);
 }
 
-static void seq_print_resource_pending_meta_io(struct seq_file *m, struct drbd_resource *resource, ULONG_PTR now)
+static void seq_print_resource_pending_meta_io(struct seq_file *m, struct bsr_resource *resource, ULONG_PTR now)
 {
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int i;
 
 	seq_puts(m, "minor\tvnr\tstart\tsubmit\tintent\n");
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
-		struct drbd_md_io tmp;
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
+		struct bsr_md_io tmp;
 		/* In theory this is racy,
 		 * in the sense that there could have been a
-		 * drbd_md_put_buffer(); drbd_md_get_buffer();
+		 * bsr_md_put_buffer(); bsr_md_get_buffer();
 		 * between accessing these members here.  */
 		tmp = device->md_io;
 		if (atomic_read(&tmp.in_use)) {
@@ -187,21 +187,21 @@ static void seq_print_resource_pending_meta_io(struct seq_file *m, struct drbd_r
 
 
 
-static void seq_print_waiting_for_AL(struct seq_file *m, struct drbd_resource *resource, ULONG_PTR now)
+static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *resource, ULONG_PTR now)
 {
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int i;
 	
 	seq_puts(m, "minor\tvnr\tage\t#waiting\n");
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		ULONG_PTR jif;
-		struct drbd_request *req;
+		struct bsr_request *req;
 		int n = atomic_read(&device->ap_actlog_cnt);
 		if (n) {
 			spin_lock_irq(&device->resource->req_lock);
 			req = list_first_entry_or_null(&device->pending_master_completion[1],
-				struct drbd_request, req_pending_master_completion);
+				struct bsr_request, req_pending_master_completion);
 			/* if the oldest request does not wait for the activity log
 			 * it is not interesting for us here */
 			if (req && !(req->rq_state[0] & RQ_IN_ACT_LOG))
@@ -222,14 +222,14 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct drbd_resource *r
 	rcu_read_unlock();
 }
 
-static void seq_print_device_bitmap_io(struct seq_file *m, struct drbd_device *device, ULONG_PTR now)
+static void seq_print_device_bitmap_io(struct seq_file *m, struct bsr_device *device, ULONG_PTR now)
 {
-	struct drbd_bm_aio_ctx *ctx;
+	struct bsr_bm_aio_ctx *ctx;
 	ULONG_PTR start_jif;
 	unsigned int in_flight;
 	unsigned int flags;
 	spin_lock_irq(&device->resource->req_lock);
-	ctx = list_first_entry_or_null(&device->pending_bitmap_io, struct drbd_bm_aio_ctx, list);
+	ctx = list_first_entry_or_null(&device->pending_bitmap_io, struct bsr_bm_aio_ctx, list);
 	if (ctx && ctx->done)
 		ctx = NULL;
 	if (ctx) {
@@ -247,21 +247,21 @@ static void seq_print_device_bitmap_io(struct seq_file *m, struct drbd_device *d
 	}
 }
 
-static void seq_print_resource_pending_bitmap_io(struct seq_file *m, struct drbd_resource *resource, ULONG_PTR now)
+static void seq_print_resource_pending_bitmap_io(struct seq_file *m, struct bsr_resource *resource, ULONG_PTR now)
 {
-	struct drbd_device *device;
+	struct bsr_device *device;
 	int i;
 
 	seq_puts(m, "minor\tvnr\trw\tage\t#in-flight\n");
 	rcu_read_lock();
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		seq_print_device_bitmap_io(m, device, now);
 	}
 	rcu_read_unlock();
 }
 
 /* pretty print enum peer_req->flags */
-static void seq_print_peer_request_flags(struct seq_file *m, struct drbd_peer_request *peer_req)
+static void seq_print_peer_request_flags(struct seq_file *m, struct bsr_peer_request *peer_req)
 {
 	ULONG_PTR f = peer_req->flags;
 	char sep = ' ';
@@ -280,17 +280,17 @@ static void seq_print_peer_request_flags(struct seq_file *m, struct drbd_peer_re
 }
 
 static void seq_print_peer_request(struct seq_file *m,
-	struct drbd_connection *connection, struct list_head *lh,
+	struct bsr_connection *connection, struct list_head *lh,
 	ULONG_PTR now)
 {
 	bool reported_preparing = false;
-	struct drbd_peer_request *peer_req;
+	struct bsr_peer_request *peer_req;
 
 	UNREFERENCED_PARAMETER(connection);
 
-	list_for_each_entry_ex(struct drbd_peer_request, peer_req, lh, w.list) {
-		struct drbd_peer_device *peer_device = peer_req->peer_device;
-		struct drbd_device *device = peer_device ? peer_device->device : NULL;
+	list_for_each_entry_ex(struct bsr_peer_request, peer_req, lh, w.list) {
+		struct bsr_peer_device *peer_device = peer_req->peer_device;
+		struct bsr_device *device = peer_device ? peer_device->device : NULL;
 
 		if (reported_preparing && !(peer_req->flags & EE_SUBMITTED))
 			continue;
@@ -310,7 +310,7 @@ static void seq_print_peer_request(struct seq_file *m,
 }
 
 static void seq_print_connection_peer_requests(struct seq_file *m,
-	struct drbd_connection *connection, ULONG_PTR now)
+	struct bsr_connection *connection, ULONG_PTR now)
 {
 	seq_puts(m, "minor\tvnr\tsector\tsize\trw\tage\tflags\n");
 	spin_lock_irq(&connection->resource->req_lock);
@@ -321,7 +321,7 @@ static void seq_print_connection_peer_requests(struct seq_file *m,
 }
 
 static void seq_print_device_peer_flushes(struct seq_file *m,
-	struct drbd_device *device, ULONG_PTR now)
+	struct bsr_device *device, ULONG_PTR now)
 {
 	if (test_bit(FLUSH_PENDING, &device->flags)) {
 		seq_printf(m, "%u\t%u\t-\t-\tF\t%u\tflush\n",
@@ -331,28 +331,28 @@ static void seq_print_device_peer_flushes(struct seq_file *m,
 }
 
 static void seq_print_resource_pending_peer_requests(struct seq_file *m,
-	struct drbd_resource *resource, ULONG_PTR now)
+	struct bsr_resource *resource, ULONG_PTR now)
 {
-	struct drbd_connection *connection;
-	struct drbd_device *device;
+	struct bsr_connection *connection;
+	struct bsr_device *device;
 	int i;
 
 	rcu_read_lock();
 	for_each_connection_rcu(connection, resource) {
 		seq_print_connection_peer_requests(m, connection, now);
 	}
-	idr_for_each_entry_ex(struct drbd_device *, &resource->devices, device, i) {
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		seq_print_device_peer_flushes(m, device, now);
 	}
 	rcu_read_unlock();
 }
 
 static void seq_print_resource_transfer_log_summary(struct seq_file *m,
-	struct drbd_resource *resource,
-	struct drbd_connection *connection,
+	struct bsr_resource *resource,
+	struct bsr_connection *connection,
 	ULONG_PTR now)
 {
-	struct drbd_request *req;
+	struct bsr_request *req;
 	unsigned int count = 0;
 	unsigned int show_state = 0;
 
@@ -360,22 +360,22 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 
 	seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
 	spin_lock_irq(&resource->req_lock);
-	list_for_each_entry_ex(struct drbd_request, req, &resource->transfer_log, tl_requests) {
-		struct drbd_device *device = req->device;
-		struct drbd_peer_device *peer_device;
+	list_for_each_entry_ex(struct bsr_request, req, &resource->transfer_log, tl_requests) {
+		struct bsr_device *device = req->device;
+		struct bsr_peer_device *peer_device;
 		unsigned int tmp = 0;
 		unsigned int s;
 		++count;
 
 		/* don't disable irq "forever" */
 		if (!(count & 0x1ff)) {
-			struct drbd_request *req_next;
+			struct bsr_request *req_next;
 			kref_get(&req->kref);
 			spin_unlock_irq(&resource->req_lock);
 			cond_resched();
 			spin_lock_irq(&resource->req_lock);
-            req_next = list_next_entry_ex(struct drbd_request, req, tl_requests);
-			if (kref_put(&req->kref, drbd_req_destroy))
+            req_next = list_next_entry_ex(struct bsr_request, req, tl_requests);
+			if (kref_put(&req->kref, bsr_req_destroy))
 				req = req_next;
 			if (&req->tl_requests == &resource->transfer_log)
 				break;
@@ -417,10 +417,10 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 /* TODO: transfer_log and friends should be moved to resource */
 static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 {
-	struct drbd_resource *resource = m->private;
-	struct drbd_connection *connection;
-	struct drbd_transport *transport;
-	struct drbd_transport_stats transport_stats;
+	struct bsr_resource *resource = m->private;
+	struct bsr_connection *connection;
+	struct bsr_transport *transport;
+	struct bsr_transport_stats transport_stats;
 
 	ULONG_PTR jif = jiffies;
 	UNREFERENCED_PARAMETER(pos);
@@ -470,13 +470,13 @@ static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 	jif = jiffies - jif;
 	if (jif)
 		seq_printf(m, "generated in %u ms\n", jiffies_to_msecs(jif));
-	kref_put(&connection->kref, drbd_destroy_connection);
+	kref_put(&connection->kref, bsr_destroy_connection);
 	return 0;
 }
 
 static int resource_state_twopc_show(struct seq_file *m, void *pos)
 {
-	struct drbd_resource *resource = m->private;
+	struct bsr_resource *resource = m->private;
 	struct twopc_reply twopc = {0,};
 	bool active = false;
 	ULONG_PTR jif;
@@ -501,7 +501,7 @@ static int resource_state_twopc_show(struct seq_file *m, void *pos)
 			   twopc.target_node_id);
 
 		if (twopc.initiator_node_id == (int)resource->res_opts.node_id) {
-			struct drbd_connection *connection;
+			struct bsr_connection *connection;
 
 			seq_puts(m, "  peers reply's: ");
 			rcu_read_lock();
@@ -547,7 +547,7 @@ static int resource_state_twopc_show(struct seq_file *m, void *pos)
 
 #ifdef _LIN
 /* make sure at *open* time that the respective object won't go away. */
-static int drbd_single_open(struct file *file, int (*show)(struct seq_file *, void *),
+static int bsr_single_open(struct file *file, int (*show)(struct seq_file *, void *),
 		                void *data, struct kref *kref,
 				void (*release)(struct kref *))
 {
@@ -578,17 +578,17 @@ out:
 
 static int resource_attr_release(struct inode *inode, struct file *file)
 {
-	struct drbd_resource *resource = inode->i_private;
-	kref_put(&resource->kref, drbd_destroy_resource);
+	struct bsr_resource *resource = inode->i_private;
+	kref_put(&resource->kref, bsr_destroy_resource);
 	return single_release(inode, file);
 }
 
-#define drbd_debugfs_resource_attr(name)				\
+#define bsr_debugfs_resource_attr(name)				\
 static int resource_ ## name ## _open(struct inode *inode, struct file *file) \
 {									\
-	struct drbd_resource *resource = inode->i_private;		\
-	return drbd_single_open(file, resource_ ## name ## _show, resource, \
-				&resource->kref, drbd_destroy_resource); \
+	struct bsr_resource *resource = inode->i_private;		\
+	return bsr_single_open(file, resource_ ## name ## _show, resource, \
+				&resource->kref, bsr_destroy_resource); \
 }									\
 static const struct file_operations resource_ ## name ## _fops = {	\
 	.owner		= THIS_MODULE,					\
@@ -598,10 +598,10 @@ static const struct file_operations resource_ ## name ## _fops = {	\
 	.release	= resource_attr_release,			\
 };
 
-drbd_debugfs_resource_attr(in_flight_summary)
-drbd_debugfs_resource_attr(state_twopc)
+bsr_debugfs_resource_attr(in_flight_summary)
+bsr_debugfs_resource_attr(state_twopc)
 
-#define drbd_dcf(top, obj, attr) do {		\
+#define bsr_dcf(top, obj, attr) do {		\
 	dentry = debugfs_create_file(#attr, S_IRUSR|S_IRUSR,	\
 			top, obj, &obj ## _ ## attr ## _fops);	\
 	if (IS_ERR_OR_NULL(dentry))				\
@@ -610,24 +610,24 @@ drbd_debugfs_resource_attr(state_twopc)
 	} while (0)
 
 #define res_dcf(attr) \
-	drbd_dcf(resource->debugfs_res, resource, attr)
+	bsr_dcf(resource->debugfs_res, resource, attr)
 
 #define conn_dcf(attr) \
-	drbd_dcf(connection->debugfs_conn, connection, attr)
+	bsr_dcf(connection->debugfs_conn, connection, attr)
 
 #define vol_dcf(attr) \
-	drbd_dcf(device->debugfs_vol, device, attr)
+	bsr_dcf(device->debugfs_vol, device, attr)
 
 #define peer_dev_dcf(attr) \
-	drbd_dcf(peer_device->debugfs_peer_dev, peer_device, attr)
+	bsr_dcf(peer_device->debugfs_peer_dev, peer_device, attr)
 
-void drbd_debugfs_resource_add(struct drbd_resource *resource)
+void bsr_debugfs_resource_add(struct bsr_resource *resource)
 {
 	struct dentry *dentry;
-	if (!drbd_debugfs_resources)
+	if (!bsr_debugfs_resources)
 		return;
 
-	dentry = debugfs_create_dir(resource->name, drbd_debugfs_resources);
+	dentry = debugfs_create_dir(resource->name, bsr_debugfs_resources);
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
 	resource->debugfs_res = dentry;
@@ -649,17 +649,17 @@ void drbd_debugfs_resource_add(struct drbd_resource *resource)
 	return;
 
 fail:
-	drbd_debugfs_resource_cleanup(resource);
-	drbd_err(resource, "failed to create debugfs dentry\n");
+	bsr_debugfs_resource_cleanup(resource);
+	bsr_err(resource, "failed to create debugfs dentry\n");
 }
 
-static void drbd_debugfs_remove(struct dentry **dp)
+static void bsr_debugfs_remove(struct dentry **dp)
 {
 	debugfs_remove(*dp);
 	*dp = NULL;
 }
 
-void drbd_debugfs_resource_cleanup(struct drbd_resource *resource)
+void bsr_debugfs_resource_cleanup(struct bsr_resource *resource)
 {
 	/* Older kernels have a broken implementation of
 	 * debugfs_remove_recursive (prior to upstream commit 776164c1f)
@@ -669,18 +669,18 @@ void drbd_debugfs_resource_cleanup(struct drbd_resource *resource)
 	 * and call debugfs_remove on all of them separately.
 	 */
 	/* it is ok to call debugfs_remove(NULL) */
-	drbd_debugfs_remove(&resource->debugfs_res_state_twopc);
-	drbd_debugfs_remove(&resource->debugfs_res_in_flight_summary);
-	drbd_debugfs_remove(&resource->debugfs_res_connections);
-	drbd_debugfs_remove(&resource->debugfs_res_volumes);
-	drbd_debugfs_remove(&resource->debugfs_res);
+	bsr_debugfs_remove(&resource->debugfs_res_state_twopc);
+	bsr_debugfs_remove(&resource->debugfs_res_in_flight_summary);
+	bsr_debugfs_remove(&resource->debugfs_res_connections);
+	bsr_debugfs_remove(&resource->debugfs_res_volumes);
+	bsr_debugfs_remove(&resource->debugfs_res);
 }
 
 static void seq_print_one_timing_detail(struct seq_file *m,
-	const struct drbd_thread_timing_details *tdp,
+	const struct bsr_thread_timing_details *tdp,
 	unsigned long now)
 {
-	struct drbd_thread_timing_details td;
+	struct bsr_thread_timing_details td;
 	/* No locking...
 	 * use temporary assignment to get at consistent data. */
 	do {
@@ -697,7 +697,7 @@ static void seq_print_one_timing_detail(struct seq_file *m,
 
 static void seq_print_timing_details(struct seq_file *m,
 		const char *title,
-		unsigned int cb_nr, struct drbd_thread_timing_details *tdp, unsigned long now)
+		unsigned int cb_nr, struct bsr_thread_timing_details *tdp, unsigned long now)
 {
 	unsigned int start_idx;
 	unsigned int i;
@@ -707,8 +707,8 @@ static void seq_print_timing_details(struct seq_file *m,
 	 * If it is very busy, we will possibly skip events, or even see wrap
 	 * arounds, which could only be avoided with locking.
 	 */
-	start_idx = cb_nr % DRBD_THREAD_DETAILS_HIST;
-	for (i = start_idx; i < DRBD_THREAD_DETAILS_HIST; i++)
+	start_idx = cb_nr % BSR_THREAD_DETAILS_HIST;
+	for (i = start_idx; i < BSR_THREAD_DETAILS_HIST; i++)
 		seq_print_one_timing_detail(m, tdp+i, now);
 	for (i = 0; i < start_idx; i++)
 		seq_print_one_timing_detail(m, tdp+i, now);
@@ -716,8 +716,8 @@ static void seq_print_timing_details(struct seq_file *m,
 
 static int connection_callback_history_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_connection *connection = m->private;
-	struct drbd_resource *resource = connection->resource;
+	struct bsr_connection *connection = m->private;
+	struct bsr_resource *resource = connection->resource;
 	unsigned long jif = jiffies;
 
 	/* BUMP me if you change the file format/content/presentation */
@@ -732,9 +732,9 @@ static int connection_callback_history_show(struct seq_file *m, void *ignored)
 
 static int connection_oldest_requests_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_connection *connection = m->private;
+	struct bsr_connection *connection = m->private;
 	unsigned long now = jiffies;
-	struct drbd_request *r1, *r2;
+	struct bsr_request *r1, *r2;
 
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
@@ -757,15 +757,15 @@ static int connection_oldest_requests_show(struct seq_file *m, void *ignored)
 
 static int connection_transport_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_connection *connection = m->private;
-	struct drbd_transport *transport = &connection->transport;
-	struct drbd_transport_ops *tr_ops = transport->ops;
-	enum drbd_stream i;
+	struct bsr_connection *connection = m->private;
+	struct bsr_transport *transport = &connection->transport;
+	struct bsr_transport_ops *tr_ops = transport->ops;
+	enum bsr_stream i;
 
 	seq_printf(m, "v: %u\n\n", 0);
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
-		struct drbd_send_buffer *sbuf = &connection->send_buffer[i];
+		struct bsr_send_buffer *sbuf = &connection->send_buffer[i];
 		seq_printf(m, "%s stream\n", i == DATA_STREAM ? "data" : "control");
 		seq_printf(m, "  corked: %d\n", test_bit(CORKED + i, &connection->flags));
 		seq_printf(m, "  unsent: %ld bytes\n", (long)(sbuf->pos - sbuf->unsent));
@@ -781,8 +781,8 @@ static int connection_transport_show(struct seq_file *m, void *ignored)
 
 static int connection_debug_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_connection *connection = m->private;
-	struct drbd_resource *resource = connection->resource;
+	struct bsr_connection *connection = m->private;
+	struct bsr_resource *resource = connection->resource;
 	unsigned long flags = connection->flags;
 	unsigned int u1, u2;
 	unsigned long long ull1, ull2;
@@ -830,18 +830,18 @@ static int connection_debug_show(struct seq_file *m, void *ignored)
 
 static int connection_attr_release(struct inode *inode, struct file *file)
 {
-	struct drbd_connection *connection = inode->i_private;
-	kref_put(&connection->kref, drbd_destroy_connection);
+	struct bsr_connection *connection = inode->i_private;
+	kref_put(&connection->kref, bsr_destroy_connection);
 	return single_release(inode, file);
 }
 
-#define drbd_debugfs_connection_attr(name)				\
+#define bsr_debugfs_connection_attr(name)				\
 static int connection_ ## name ## _open(struct inode *inode, struct file *file) \
 {									\
-	struct drbd_connection *connection = inode->i_private;		\
-	return drbd_single_open(file, connection_ ## name ## _show,	\
+	struct bsr_connection *connection = inode->i_private;		\
+	return bsr_single_open(file, connection_ ## name ## _show,	\
 				connection, &connection->kref,		\
-				drbd_destroy_connection);		\
+				bsr_destroy_connection);		\
 }									\
 static const struct file_operations connection_ ## name ## _fops = {	\
 	.owner		= THIS_MODULE,				      	\
@@ -851,15 +851,15 @@ static const struct file_operations connection_ ## name ## _fops = {	\
 	.release	= connection_attr_release,			\
 };
 
-drbd_debugfs_connection_attr(oldest_requests)
-drbd_debugfs_connection_attr(callback_history)
-drbd_debugfs_connection_attr(transport)
-drbd_debugfs_connection_attr(debug)
+bsr_debugfs_connection_attr(oldest_requests)
+bsr_debugfs_connection_attr(callback_history)
+bsr_debugfs_connection_attr(transport)
+bsr_debugfs_connection_attr(debug)
 
-void drbd_debugfs_connection_add(struct drbd_connection *connection)
+void bsr_debugfs_connection_add(struct bsr_connection *connection)
 {
 	struct dentry *conns_dir = connection->resource->debugfs_res_connections;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	char conn_name[SHARED_SECRET_MAX];
 	struct dentry *dentry;
 	int vnr;
@@ -882,30 +882,30 @@ void drbd_debugfs_connection_add(struct drbd_connection *connection)
 	conn_dcf(transport);
 	conn_dcf(debug);
 
-	idr_for_each_entry_ex(struct drbd_peer_device *, &connection->peer_devices, peer_device, vnr) {
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
-			drbd_debugfs_peer_device_add(peer_device);
+			bsr_debugfs_peer_device_add(peer_device);
 	}
 
 	return;
 
 fail:
-	drbd_debugfs_connection_cleanup(connection);
-	drbd_err(connection, "failed to create debugfs dentry\n");
+	bsr_debugfs_connection_cleanup(connection);
+	bsr_err(connection, "failed to create debugfs dentry\n");
 }
 
-void drbd_debugfs_connection_cleanup(struct drbd_connection *connection)
+void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 {
-	drbd_debugfs_remove(&connection->debugfs_conn_debug);
-	drbd_debugfs_remove(&connection->debugfs_conn_transport);
-	drbd_debugfs_remove(&connection->debugfs_conn_callback_history);
-	drbd_debugfs_remove(&connection->debugfs_conn_oldest_requests);
-	drbd_debugfs_remove(&connection->debugfs_conn);
+	bsr_debugfs_remove(&connection->debugfs_conn_debug);
+	bsr_debugfs_remove(&connection->debugfs_conn_transport);
+	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
+	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
+	bsr_debugfs_remove(&connection->debugfs_conn);
 }
 
 static int device_act_log_extents_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_device *device = m->private;
+	struct bsr_device *device = m->private;
 
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
@@ -920,10 +920,10 @@ static int device_act_log_extents_show(struct seq_file *m, void *ignored)
 
 static int device_oldest_requests_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_device *device = m->private;
-	struct drbd_resource *resource = device->resource;
+	struct bsr_device *device = m->private;
+	struct bsr_resource *resource = device->resource;
 	unsigned long now = jiffies;
-	struct drbd_request *r1, *r2;
+	struct bsr_request *r1, *r2;
 	int i;
 
 	/* BUMP me if you change the file format/content/presentation */
@@ -934,9 +934,9 @@ static int device_oldest_requests_show(struct seq_file *m, void *ignored)
 	/* WRITE, then READ */
 	for (i = 1; i >= 0; --i) {
 		r1 = list_first_entry_or_null(&device->pending_master_completion[i],
-			struct drbd_request, req_pending_master_completion);
+			struct bsr_request, req_pending_master_completion);
 		r2 = list_first_entry_or_null(&device->pending_completion[i],
-			struct drbd_request, req_pending_local);
+			struct bsr_request, req_pending_local);
 		if (r1)
 			seq_print_one_request(m, r1, now);
 		if (r2 && r2 != r1)
@@ -948,8 +948,8 @@ static int device_oldest_requests_show(struct seq_file *m, void *ignored)
 
 static int device_data_gen_id_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_device *device = m->private;
-	struct drbd_md *md;
+	struct bsr_device *device = m->private;
+	struct bsr_md *md;
 	int node_id, i = 0;
 
 	if (!get_ldev_if_state(device, D_FAILED))
@@ -958,9 +958,9 @@ static int device_data_gen_id_show(struct seq_file *m, void *ignored)
 	md = &device->ldev->md;
 
 	spin_lock_irq(&md->uuid_lock);
-	seq_printf(m, "0x%016llX\n", drbd_current_uuid(device));
+	seq_printf(m, "0x%016llX\n", bsr_current_uuid(device));
 
-	for (node_id = 0; node_id < DRBD_NODE_ID_MAX; node_id++) {
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
 		if (md->peers[node_id].bitmap_index == -1)
 			continue;
 		seq_printf(m, "%s[%d]0x%016llX", i++ ? " " : "", node_id,
@@ -969,7 +969,7 @@ static int device_data_gen_id_show(struct seq_file *m, void *ignored)
 	seq_putc(m, '\n');
 
 	for (i = 0; i < HISTORY_UUIDS; i++)
-		seq_printf(m, "0x%016llX\n", drbd_history_uuid(device, i));
+		seq_printf(m, "0x%016llX\n", bsr_history_uuid(device, i));
 	spin_unlock_irq(&md->uuid_lock);
 	put_ldev(device);
 	return 0;
@@ -977,7 +977,7 @@ static int device_data_gen_id_show(struct seq_file *m, void *ignored)
 
 static int device_io_frozen_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_device *device = m->private;
+	struct bsr_device *device = m->private;
 
 	if (!get_ldev_if_state(device, D_FAILED))
 		return -ENODEV;
@@ -985,9 +985,9 @@ static int device_io_frozen_show(struct seq_file *m, void *ignored)
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
 
-	seq_printf(m, "drbd_suspended(): %d\n", drbd_suspended(device));
+	seq_printf(m, "bsr_suspended(): %d\n", bsr_suspended(device));
 	seq_printf(m, "suspend_cnt: %d\n", atomic_read(&device->suspend_cnt));
-	seq_printf(m, "!drbd_state_is_stable(): %d\n", !drbd_state_is_stable(device));
+	seq_printf(m, "!bsr_state_is_stable(): %d\n", !bsr_state_is_stable(device));
 	seq_printf(m, "ap_bio_cnt[READ]: %d\n", atomic_read(&device->ap_bio_cnt[READ]));
 	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
 	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
@@ -999,24 +999,24 @@ static int device_io_frozen_show(struct seq_file *m, void *ignored)
 
 static int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_device *device = m->private;
+	struct bsr_device *device = m->private;
 	seq_printf(m, "0x%016llX\n", (unsigned long long)device->exposed_data_uuid);
 	return 0;
 }
 
 static int device_attr_release(struct inode *inode, struct file *file)
 {
-	struct drbd_device *device = inode->i_private;
-	kref_put(&device->kref, drbd_destroy_device);
+	struct bsr_device *device = inode->i_private;
+	kref_put(&device->kref, bsr_destroy_device);
 	return single_release(inode, file);
 }
 
-#define drbd_debugfs_device_attr(name)						\
+#define bsr_debugfs_device_attr(name)						\
 static int device_ ## name ## _open(struct inode *inode, struct file *file)	\
 {										\
-	struct drbd_device *device = inode->i_private;				\
-	return drbd_single_open(file, device_ ## name ## _show, device,		\
-				&device->kref, drbd_destroy_device);		\
+	struct bsr_device *device = inode->i_private;				\
+	return bsr_single_open(file, device_ ## name ## _show, device,		\
+				&device->kref, bsr_destroy_device);		\
 }										\
 static const struct file_operations device_ ## name ## _fops = {		\
 	.owner		= THIS_MODULE,						\
@@ -1026,22 +1026,22 @@ static const struct file_operations device_ ## name ## _fops = {		\
 	.release	= device_attr_release,					\
 };
 
-drbd_debugfs_device_attr(oldest_requests)
-drbd_debugfs_device_attr(act_log_extents)
-drbd_debugfs_device_attr(data_gen_id)
-drbd_debugfs_device_attr(io_frozen)
-drbd_debugfs_device_attr(ed_gen_id)
+bsr_debugfs_device_attr(oldest_requests)
+bsr_debugfs_device_attr(act_log_extents)
+bsr_debugfs_device_attr(data_gen_id)
+bsr_debugfs_device_attr(io_frozen)
+bsr_debugfs_device_attr(ed_gen_id)
 
-void drbd_debugfs_device_add(struct drbd_device *device)
+void bsr_debugfs_device_add(struct bsr_device *device)
 {
 	struct dentry *vols_dir = device->resource->debugfs_res_volumes;
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	char minor_buf[8]; /* MINORMASK, MINORBITS == 20; */
 	char vnr_buf[8];   /* volume number vnr is even 16 bit only; */
 	char *slink_name = NULL;
 
 	struct dentry *dentry;
-	if (!vols_dir || !drbd_debugfs_minors)
+	if (!vols_dir || !bsr_debugfs_minors)
 		return;
 
 	snprintf(vnr_buf, sizeof(vnr_buf), "%u", device->vnr);
@@ -1055,7 +1055,7 @@ void drbd_debugfs_device_add(struct drbd_device *device)
 			device->resource->name, device->vnr);
 	if (!slink_name)
 		goto fail;
-	dentry = debugfs_create_symlink(minor_buf, drbd_debugfs_minors, slink_name);
+	dentry = debugfs_create_symlink(minor_buf, bsr_debugfs_minors, slink_name);
 	kfree(slink_name);
 	slink_name = NULL;
 	if (IS_ERR_OR_NULL(dentry))
@@ -1072,33 +1072,33 @@ void drbd_debugfs_device_add(struct drbd_device *device)
 	/* Caller holds conf_update */
 	for_each_peer_device(peer_device, device) {
 		if (!peer_device->debugfs_peer_dev)
-			drbd_debugfs_peer_device_add(peer_device);
+			bsr_debugfs_peer_device_add(peer_device);
 	}
 
 	return;
 
 fail:
-	drbd_debugfs_device_cleanup(device);
-	drbd_err(device, "failed to create debugfs entries\n");
+	bsr_debugfs_device_cleanup(device);
+	bsr_err(device, "failed to create debugfs entries\n");
 }
 
-void drbd_debugfs_device_cleanup(struct drbd_device *device)
+void bsr_debugfs_device_cleanup(struct bsr_device *device)
 {
-	drbd_debugfs_remove(&device->debugfs_minor);
-	drbd_debugfs_remove(&device->debugfs_vol_oldest_requests);
-	drbd_debugfs_remove(&device->debugfs_vol_act_log_extents);
-	drbd_debugfs_remove(&device->debugfs_vol_data_gen_id);
-	drbd_debugfs_remove(&device->debugfs_vol_io_frozen);
-	drbd_debugfs_remove(&device->debugfs_vol_ed_gen_id);
-	drbd_debugfs_remove(&device->debugfs_vol);
+	bsr_debugfs_remove(&device->debugfs_minor);
+	bsr_debugfs_remove(&device->debugfs_vol_oldest_requests);
+	bsr_debugfs_remove(&device->debugfs_vol_act_log_extents);
+	bsr_debugfs_remove(&device->debugfs_vol_data_gen_id);
+	bsr_debugfs_remove(&device->debugfs_vol_io_frozen);
+	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
+	bsr_debugfs_remove(&device->debugfs_vol);
 }
 
-static int drbd_single_open_peer_device(struct file *file,
+static int bsr_single_open_peer_device(struct file *file,
 					int (*show)(struct seq_file *, void *),
-					struct drbd_peer_device *peer_device)
+					struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = peer_device->device;
-	struct drbd_connection *connection = peer_device->connection;
+	struct bsr_device *device = peer_device->device;
+	struct bsr_connection *connection = peer_device->connection;
 	bool got_connection, got_device;
 	struct dentry *parent;
 
@@ -1117,16 +1117,16 @@ static int drbd_single_open_peer_device(struct file *file,
 		mutex_unlock(&parent->d_inode->i_mutex);
 		ret = single_open(file, show, peer_device);
 		if (ret) {
-			kref_put(&connection->kref, drbd_destroy_connection);
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&connection->kref, bsr_destroy_connection);
+			kref_put(&device->kref, bsr_destroy_device);
 		}
 		return ret;
 	}
 
 	if (got_connection)
-		kref_put(&connection->kref, drbd_destroy_connection);
+		kref_put(&connection->kref, bsr_destroy_connection);
 	if (got_device)
-		kref_put(&device->kref, drbd_destroy_device);
+		kref_put(&device->kref, bsr_destroy_device);
 out_unlock:
 	mutex_unlock(&parent->d_inode->i_mutex);
 out:
@@ -1146,8 +1146,8 @@ static void resync_dump_detail(struct seq_file *m, struct lc_element *e)
 
 static int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_peer_device *peer_device = m->private;
-	struct drbd_device *device = peer_device->device;
+	struct bsr_peer_device *peer_device = m->private;
+	struct bsr_device *device = peer_device->device;
 
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
@@ -1174,8 +1174,8 @@ static void seq_printf_with_thousands_grouping(struct seq_file *seq, long v)
 		seq_printf(seq, "%ld", v);
 }
 
-static void drbd_get_syncer_progress(struct drbd_peer_device *pd,
-		enum drbd_repl_state repl_state, unsigned long *rs_total,
+static void bsr_get_syncer_progress(struct bsr_peer_device *pd,
+		enum bsr_repl_state repl_state, unsigned long *rs_total,
 		unsigned long *bits_left, unsigned int *per_mil_done)
 {
 	/* this is to break it at compile time when we change that, in case we
@@ -1190,7 +1190,7 @@ static void drbd_get_syncer_progress(struct drbd_peer_device *pd,
 	if (repl_state == L_VERIFY_S || repl_state == L_VERIFY_T)
 		*bits_left = pd->ov_left;
 	else
-		*bits_left = drbd_bm_total_weight(pd) - pd->rs_failed;
+		*bits_left = bsr_bm_total_weight(pd) - pd->rs_failed;
 	/* >> 10 to prevent overflow,
 	 * +1 to prevent division by zero */
 	if (*bits_left > *rs_total) {
@@ -1217,15 +1217,15 @@ static void drbd_get_syncer_progress(struct drbd_peer_device *pd,
 	}
 }
 
-static void drbd_syncer_progress(struct drbd_peer_device *pd, struct seq_file *seq,
-		enum drbd_repl_state repl_state)
+static void bsr_syncer_progress(struct bsr_peer_device *pd, struct seq_file *seq,
+		enum bsr_repl_state repl_state)
 {
 	unsigned long db, dt, dbdt, rt, rs_total, rs_left;
 	unsigned int res;
 	int i, x, y;
 	int stalled = 0;
 
-	drbd_get_syncer_progress(pd, repl_state, &rs_total, &rs_left, &res);
+	bsr_get_syncer_progress(pd, repl_state, &rs_total, &rs_left, &res);
 
 	x = res/50;
 	y = 20-x;
@@ -1265,10 +1265,10 @@ static void drbd_syncer_progress(struct drbd_peer_device *pd, struct seq_file *s
 	 * rt: remaining time
 	 */
 	/* Rolling marks. last_mark+1 may just now be modified.  last_mark+2 is
-	 * at least (DRBD_SYNC_MARKS-2)*DRBD_SYNC_MARK_STEP old, and has at
-	 * least DRBD_SYNC_MARK_STEP time before it will be modified. */
+	 * at least (BSR_SYNC_MARKS-2)*BSR_SYNC_MARK_STEP old, and has at
+	 * least BSR_SYNC_MARK_STEP time before it will be modified. */
 	/* ------------------------ ~18s average ------------------------ */
-	i = (pd->rs_last_mark + 2) % DRBD_SYNC_MARKS;
+	i = (pd->rs_last_mark + 2) % BSR_SYNC_MARKS;
 	dt = (jiffies - pd->rs_mark_time[i]) / HZ;
 	if (dt > 180)
 		stalled = 1;
@@ -1287,8 +1287,8 @@ static void drbd_syncer_progress(struct drbd_peer_device *pd, struct seq_file *s
 	seq_puts(seq, " (");
 	/* ------------------------- ~3s average ------------------------ */
 	if (1) {
-		/* this is what drbd_rs_should_slow_down() uses */
-		i = (pd->rs_last_mark + DRBD_SYNC_MARKS-1) % DRBD_SYNC_MARKS;
+		/* this is what bsr_rs_should_slow_down() uses */
+		i = (pd->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
 		dt = (jiffies - pd->rs_mark_time[i]) / HZ;
 		if (!dt)
 			dt++;
@@ -1319,7 +1319,7 @@ static void drbd_syncer_progress(struct drbd_peer_device *pd, struct seq_file *s
 	{
 		/* 64 bit:
 		 * we convert to sectors in the display below. */
-		unsigned long bm_bits = drbd_bm_bits(pd->device);
+		unsigned long bm_bits = bsr_bm_bits(pd->device);
 		unsigned long bit_pos;
 		unsigned long long stop_sector = 0;
 		if (repl_state == L_VERIFY_S ||
@@ -1342,11 +1342,11 @@ static void drbd_syncer_progress(struct drbd_peer_device *pd, struct seq_file *s
 	}
 }
 
-static int peer_device_proc_drbd_show(struct seq_file *m, void *ignored)
+static int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
 {
-	struct drbd_peer_device *peer_device = m->private;
-	struct drbd_device *device = peer_device->device;
-	union drbd_state state;
+	struct bsr_peer_device *peer_device = m->private;
+	struct bsr_device *device = peer_device->device;
+	union bsr_state state;
 	const char *sn;
 	struct net_conf *nc;
 	char wp;
@@ -1361,7 +1361,7 @@ static int peer_device_proc_drbd_show(struct seq_file *m, void *ignored)
 	state.peer_isp = peer_device->resync_susp_peer[NOW];
 	state.aftr_isp = peer_device->resync_susp_dependency[NOW];
 
-	sn = drbd_repl_str(state.conn);
+	sn = bsr_repl_str(state.conn);
 
 	rcu_read_lock();
 	{
@@ -1369,18 +1369,18 @@ static int peer_device_proc_drbd_show(struct seq_file *m, void *ignored)
 		bdi_rw_congested(device->rq_queue->backing_dev_info);
 
 		nc = rcu_dereference(peer_device->connection->transport.net_conf);
-		wp = nc ? nc->wire_protocol - DRBD_PROT_A + 'A' : ' ';
+		wp = nc ? nc->wire_protocol - BSR_PROT_A + 'A' : ' ';
 		seq_printf(m,
 		   "%2d: cs:%s ro:%s/%s ds:%s/%s %c %c%c%c%c%c%c\n"
 		   "    ns:%u nr:%u dw:%u dr:%u al:%u bm:%u "
 		   "lo:%d pe:[%d;%d] ua:%d ap:[%d;%d] ep:%d wo:%d",
 		   device->minor, sn,
-		   drbd_role_str(state.role),
-		   drbd_role_str(state.peer),
-		   drbd_disk_str(state.disk),
-		   drbd_disk_str(state.pdsk),
+		   bsr_role_str(state.role),
+		   bsr_role_str(state.peer),
+		   bsr_disk_str(state.disk),
+		   bsr_disk_str(state.pdsk),
 		   wp,
-		   drbd_suspended(device) ? 's' : 'r',
+		   bsr_suspended(device) ? 's' : 'r',
 		   state.aftr_isp ? 'a' : '-',
 		   state.peer_isp ? 'p' : '-',
 		   state.user_isp ? 'u' : '-',
@@ -1403,13 +1403,13 @@ static int peer_device_proc_drbd_show(struct seq_file *m, void *ignored)
 		);
 		seq_printf(m, " oos:%llu\n",
 			   Bit2KB((unsigned long long)
-				   drbd_bm_total_weight(peer_device)));
+				   bsr_bm_total_weight(peer_device)));
 	}
 	if (state.conn == L_SYNC_SOURCE ||
 	    state.conn == L_SYNC_TARGET ||
 	    state.conn == L_VERIFY_S ||
 	    state.conn == L_VERIFY_T)
-		drbd_syncer_progress(peer_device, m, state.conn);
+		bsr_syncer_progress(peer_device, m, state.conn);
 
 	if (get_ldev_if_state(device, D_FAILED)) {
 		lc_seq_printf_stats(m, peer_device->resync_lru);
@@ -1424,19 +1424,19 @@ static int peer_device_proc_drbd_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
-#define drbd_debugfs_peer_device_attr(name)					\
+#define bsr_debugfs_peer_device_attr(name)					\
 static int peer_device_ ## name ## _open(struct inode *inode, struct file *file)\
 {										\
-	struct drbd_peer_device *peer_device = inode->i_private;		\
-	return drbd_single_open_peer_device(file,				\
+	struct bsr_peer_device *peer_device = inode->i_private;		\
+	return bsr_single_open_peer_device(file,				\
 					    peer_device_ ## name ## _show,	\
 					    peer_device);			\
 }										\
 static int peer_device_ ## name ## _release(struct inode *inode, struct file *file)\
 {										\
-	struct drbd_peer_device *peer_device = inode->i_private;		\
-	kref_put(&peer_device->connection->kref, drbd_destroy_connection);	\
-	kref_put(&peer_device->device->kref, drbd_destroy_device);		\
+	struct bsr_peer_device *peer_device = inode->i_private;		\
+	kref_put(&peer_device->connection->kref, bsr_destroy_connection);	\
+	kref_put(&peer_device->device->kref, bsr_destroy_device);		\
 	return single_release(inode, file);					\
 }										\
 static const struct file_operations peer_device_ ## name ## _fops = {		\
@@ -1447,10 +1447,10 @@ static const struct file_operations peer_device_ ## name ## _fops = {		\
 	.release	= peer_device_ ## name ## _release,			\
 };
 
-drbd_debugfs_peer_device_attr(resync_extents)
-drbd_debugfs_peer_device_attr(proc_drbd)
+bsr_debugfs_peer_device_attr(resync_extents)
+bsr_debugfs_peer_device_attr(proc_bsr)
 
-void drbd_debugfs_peer_device_add(struct drbd_peer_device *peer_device)
+void bsr_debugfs_peer_device_add(struct bsr_peer_device *peer_device)
 {
 	struct dentry *conn_dir = peer_device->connection->debugfs_conn;
 	struct dentry *dentry;
@@ -1467,24 +1467,24 @@ void drbd_debugfs_peer_device_add(struct drbd_peer_device *peer_device)
 
 	/* debugfs create file */
 	peer_dev_dcf(resync_extents);
-	peer_dev_dcf(proc_drbd);
+	peer_dev_dcf(proc_bsr);
 	return;
 
 fail:
-	drbd_debugfs_peer_device_cleanup(peer_device);
-	drbd_err(peer_device, "failed to create debugfs entries\n");
+	bsr_debugfs_peer_device_cleanup(peer_device);
+	bsr_err(peer_device, "failed to create debugfs entries\n");
 }
 
-void drbd_debugfs_peer_device_cleanup(struct drbd_peer_device *peer_device)
+void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_device)
 {
-	drbd_debugfs_remove(&peer_device->debugfs_peer_dev_proc_drbd);
-	drbd_debugfs_remove(&peer_device->debugfs_peer_dev_resync_extents);
-	drbd_debugfs_remove(&peer_device->debugfs_peer_dev);
+	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_proc_bsr);
+	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_resync_extents);
+	bsr_debugfs_remove(&peer_device->debugfs_peer_dev);
 }
 
-static int drbd_version_show(struct seq_file *m, void *ignored)
+static int bsr_version_show(struct seq_file *m, void *ignored)
 {
-	seq_printf(m, "# %s\n", drbd_buildtag());
+	seq_printf(m, "# %s\n", bsr_buildtag());
 	seq_printf(m, "VERSION=%s\n", REL_VERSION);
 	seq_printf(m, "API_VERSION=%u\n", GENL_MAGIC_VERSION);
 	seq_printf(m, "PRO_VERSION_MIN=%u\n", PRO_VERSION_MIN);
@@ -1492,14 +1492,14 @@ static int drbd_version_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
-static int drbd_version_open(struct inode *inode, struct file *file)
+static int bsr_version_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, drbd_version_show, NULL);
+	return single_open(file, bsr_version_show, NULL);
 }
 
-static const struct file_operations drbd_version_fops = {
+static const struct file_operations bsr_version_fops = {
 	.owner = THIS_MODULE,
-	.open = drbd_version_open,
+	.open = bsr_version_open,
 	.llseek = seq_lseek,
 	.read = seq_read,
 	.release = single_release,
@@ -1507,41 +1507,41 @@ static const struct file_operations drbd_version_fops = {
 
 /* not __exit, may be indirectly called
  * from the module-load-failure path as well. */
-void drbd_debugfs_cleanup(void)
+void bsr_debugfs_cleanup(void)
 {
-	drbd_debugfs_remove(&drbd_debugfs_resources);
-	drbd_debugfs_remove(&drbd_debugfs_minors);
-	drbd_debugfs_remove(&drbd_debugfs_version);
-	drbd_debugfs_remove(&drbd_debugfs_root);
+	bsr_debugfs_remove(&bsr_debugfs_resources);
+	bsr_debugfs_remove(&bsr_debugfs_minors);
+	bsr_debugfs_remove(&bsr_debugfs_version);
+	bsr_debugfs_remove(&bsr_debugfs_root);
 }
 
-int __init drbd_debugfs_init(void)
+int __init bsr_debugfs_init(void)
 {
 	struct dentry *dentry;
 
-	dentry = debugfs_create_dir("drbd", NULL);
+	dentry = debugfs_create_dir("bsr", NULL);
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
-	drbd_debugfs_root = dentry;
+	bsr_debugfs_root = dentry;
 
-	dentry = debugfs_create_file("version", 0444, drbd_debugfs_root, NULL, &drbd_version_fops);
+	dentry = debugfs_create_file("version", 0444, bsr_debugfs_root, NULL, &bsr_version_fops);
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
-	drbd_debugfs_version = dentry;
+	bsr_debugfs_version = dentry;
 
-	dentry = debugfs_create_dir("resources", drbd_debugfs_root);
+	dentry = debugfs_create_dir("resources", bsr_debugfs_root);
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
-	drbd_debugfs_resources = dentry;
+	bsr_debugfs_resources = dentry;
 
-	dentry = debugfs_create_dir("minors", drbd_debugfs_root);
+	dentry = debugfs_create_dir("minors", bsr_debugfs_root);
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
-	drbd_debugfs_minors = dentry;
+	bsr_debugfs_minors = dentry;
 	return 0;
 
 fail:
-	drbd_debugfs_cleanup();
+	bsr_debugfs_cleanup();
 	if (dentry)
 		return PTR_ERR(dentry);
 	else

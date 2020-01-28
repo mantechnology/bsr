@@ -1,29 +1,29 @@
 /*
-   drbd_req.h
+   bsr_req.h
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Philipp Reisner and Lars Ellenberg.
 
    Copyright (C) 2006-2008, LINBIT Information Technologies GmbH.
    Copyright (C) 2006-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
    Copyright (C) 2006-2008, Philipp Reisner <philipp.reisner@linbit.com>.
 
-   DRBD is free software; you can redistribute it and/or modify
+   BSR is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   DRBD is distributed in the hope that it will be useful,
+   BSR is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef _DRBD_REQ_H
-#define _DRBD_REQ_H
+#ifndef _BSR_REQ_H
+#define _BSR_REQ_H
 #ifdef _WIN
 #include "../bsr-headers/bsr.h"
 #else // _LIN
@@ -39,10 +39,10 @@
    Try to get the locking right :) */
 
 /*
- * Objects of type struct drbd_request do only exist on a R_PRIMARY node, and are
+ * Objects of type struct bsr_request do only exist on a R_PRIMARY node, and are
  * associated with IO requests originating from the block layer above us.
  *
- * There are quite a few things that may happen to a drbd request
+ * There are quite a few things that may happen to a bsr request
  * during its lifetime.
  *
  *  It will be created.
@@ -77,7 +77,7 @@
  *      with or without "success".
  */
 
-enum drbd_req_event {
+enum bsr_req_event {
 	CREATED,
 	TO_BE_SENT,
 	TO_BE_SUBMITTED,
@@ -95,7 +95,7 @@ enum drbd_req_event {
 	 *
 	 * Just like "real" requests, empty flushes (blkdev_issue_flush()) will
 	 * only see an error if neither local nor remote data is reachable. */
-	QUEUE_AS_DRBD_BARRIER,
+	QUEUE_AS_BSR_BARRIER,
 
 	SEND_CANCELED,
 	SEND_FAILED,
@@ -131,7 +131,7 @@ enum drbd_req_event {
  * need to look at the connection state and/or manipulate some lists at the
  * same time, so we should hold the request lock anyways.
  */
-enum drbd_req_state_bits {
+enum bsr_req_state_bits {
 	/* 3210
 	 * 0000: no local possible
 	 * 0001: to be submitted
@@ -200,7 +200,7 @@ enum drbd_req_state_bits {
 	 */
 	__RQ_NET_OK,
 
-	/* peer called drbd_set_in_sync() for this write */
+	/* peer called bsr_set_in_sync() for this write */
 	__RQ_NET_SIS,
 
 	/* keep this last, its for the RQ_NET_MASK */
@@ -211,7 +211,7 @@ enum drbd_req_state_bits {
 	__RQ_WSAME,
 	__RQ_UNMAP,
 
-	/* Should call drbd_al_complete_io() for this request... */
+	/* Should call bsr_al_complete_io() for this request... */
 	__RQ_IN_ACT_LOG,
 
 	/* This was the most recent request during some blk_finish_plug()
@@ -223,7 +223,7 @@ enum drbd_req_state_bits {
 	__RQ_POSTPONED,
 
 	/* would have been completed,
-	 * but was not, because of drbd_suspended() */
+	 * but was not, because of bsr_suspended() */
 	__RQ_COMPLETION_SUSP,
 
 	/* We expect a receive ACK (wire proto B) */
@@ -283,7 +283,7 @@ enum drbd_req_state_bits {
 #define MR_READ        2
 
 // DW-689
-static inline bool drbd_req_make_private_bio(struct drbd_request *req, struct bio *bio_src)
+static inline bool bsr_req_make_private_bio(struct bsr_request *req, struct bio *bio_src)
 {
 	struct bio *bio;
 	bio = bio_clone(bio_src, GFP_NOIO); /* XXX cannot fail?? */
@@ -298,13 +298,13 @@ static inline bool drbd_req_make_private_bio(struct drbd_request *req, struct bi
 	req->private_bio = bio;
 
 	bio->bi_private  = req;
-	bio->bi_end_io   = drbd_request_endio;
+	bio->bi_end_io   = bsr_request_endio;
 	bio->bi_next     = NULL;
 
     return true;
 }
 
-static inline bool drbd_req_is_write(struct drbd_request *req)
+static inline bool bsr_req_is_write(struct bsr_request *req)
 {
 	return req->rq_state[0] & RQ_WRITE;
 }
@@ -317,43 +317,43 @@ struct bio_and_error {
 	int error;
 };
 
-extern bool start_new_tl_epoch(struct drbd_resource *resource);
-extern void drbd_req_destroy(struct kref *kref);
-extern void _req_may_be_done(struct drbd_request *req,
+extern bool start_new_tl_epoch(struct bsr_resource *resource);
+extern void bsr_req_destroy(struct kref *kref);
+extern void _req_may_be_done(struct bsr_request *req,
 		struct bio_and_error *m);
-extern int __req_mod(struct drbd_request *req, enum drbd_req_event what,
-		struct drbd_peer_device *peer_device,
+extern int __req_mod(struct bsr_request *req, enum bsr_req_event what,
+		struct bsr_peer_device *peer_device,
 		struct bio_and_error *m);
-extern void complete_master_bio(struct drbd_device *device,
+extern void complete_master_bio(struct bsr_device *device,
 		struct bio_and_error *m);
 #ifdef _WIN
 extern KDEFERRED_ROUTINE request_timer_fn;
 #else // _LIN
 extern void request_timer_fn(unsigned long data);
 #endif
-extern void tl_restart(struct drbd_connection *connection, enum drbd_req_event what);
-extern void _tl_restart(struct drbd_connection *connection, enum drbd_req_event what);
-extern void drbd_queue_peer_ack(struct drbd_resource *resource, struct drbd_request *req);
-extern bool drbd_should_do_remote(struct drbd_peer_device *, enum which_state);
+extern void tl_restart(struct bsr_connection *connection, enum bsr_req_event what);
+extern void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what);
+extern void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req);
+extern bool bsr_should_do_remote(struct bsr_peer_device *, enum which_state);
 
 // DW-1755
-extern void notify_io_error(struct drbd_device *device, struct drbd_io_error *io_error);
+extern void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error);
 
-/* this is in drbd_main.c */
-extern void drbd_restart_request(struct drbd_request *req);
+/* this is in bsr_main.c */
+extern void bsr_restart_request(struct bsr_request *req);
 
 /* use this if you don't want to deal with calling complete_master_bio()
  * outside the spinlock, e.g. when walking some list on cleanup. */
-static inline int _req_mod(struct drbd_request *req, enum drbd_req_event what,
-		struct drbd_peer_device *peer_device)
+static inline int _req_mod(struct bsr_request *req, enum bsr_req_event what,
+		struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = req->device;
+	struct bsr_device *device = req->device;
 	struct bio_and_error m;
 	int rv;
 
 	/* __req_mod possibly frees req, do not touch req after that! */
-#ifdef DRBD_TRACE
-	drbd_debug(NO_OBJECT,"(%s) _req_mod: call __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+#ifdef BSR_TRACE
+	bsr_debug(NO_OBJECT,"(%s) _req_mod: call __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	if (m.bio)
@@ -365,22 +365,22 @@ static inline int _req_mod(struct drbd_request *req, enum drbd_req_event what,
 /* completion of master bio is outside of spinlock.
  * If you need it irqsave, do it your self!
  * Which means: don't use from bio endio callback. */
-static inline int req_mod(struct drbd_request *req,
-		enum drbd_req_event what,
-		struct drbd_peer_device *peer_device)
+static inline int req_mod(struct bsr_request *req,
+		enum bsr_req_event what,
+		struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = req->device;
+	struct bsr_device *device = req->device;
 	struct bio_and_error m;
 	int rv;
 
 	spin_lock_irq(&device->resource->req_lock);
-#ifdef DRBD_TRACE	
-	drbd_debug(NO_OBJECT,"(%s) req_mod: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+#ifdef BSR_TRACE	
+	bsr_debug(NO_OBJECT,"(%s) req_mod: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	spin_unlock_irq(&device->resource->req_lock);
-#ifdef DRBD_TRACE	
-	drbd_debug(NO_OBJECT,"(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+#ifdef BSR_TRACE	
+	bsr_debug(NO_OBJECT,"(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);

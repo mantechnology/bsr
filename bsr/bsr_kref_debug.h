@@ -1,5 +1,5 @@
-#ifndef DRBD_KREF_DEBUG_H
-#define DRBD_KREF_DEBUG_H
+#ifndef BSR_KREF_DEBUG_H
+#define BSR_KREF_DEBUG_H
 
 #include "kref_debug.h"
 

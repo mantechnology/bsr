@@ -1,7 +1,7 @@
-# This file contains the rules to create named DRBD devices.
+# This file contains the rules to create named BSR devices.
 
 SUBSYSTEM!="block", GOTO="bsr_end"
-KERNEL!="drbd*", GOTO="bsr_end"
+KERNEL!="bsr*", GOTO="bsr_end"
 
 IMPORT{program}="@sbindir@/bsradm sh-udev minor-%m"
 
@@ -13,7 +13,7 @@ ENV{SYMLINK_BY_DISK}!="", SYMLINK+="$env{SYMLINK_BY_DISK}"
 ENV{SYMLINK_BY_RES}!="", SYMLINK+="$env{SYMLINK_BY_RES}", GOTO="have_symlink"
 ENV{SYMLINK}!="", OPTIONS+="string_escape=none", SYMLINK="$env{SYMLINK}", GOTO="have_symlink"
 
-# Legacy rules for older DRBD 8.3 & 8.4 when bsradm sh-udev did not yet export SYMLINK
+# Legacy rules for older BSR 8.3 & 8.4 when bsradm sh-udev did not yet export SYMLINK
 ENV{DISK}!="", SYMLINK+="bsr/by-disk/$env{DISK}"
 ENV{RESOURCE}!="", SYMLINK+="bsr/by-res/$env{RESOURCE}"
 
