@@ -7,33 +7,33 @@
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="drbdsetup_options">
+  <xsl:template match="bsrsetup_options">
     <!-- ignore -->
   </xsl:template>
 
-  <xsl:template match="pick_drbdsetup_option">
+  <xsl:template match="pick_bsrsetup_option">
     <xsl:variable name="name" select="@name"/>
     <varlistentry>
-      <xsl:apply-templates select="//drbdsetup_options/drbdsetup_option[@name=$name]/term"/>
+      <xsl:apply-templates select="//bsrsetup_options/bsrsetup_option[@name=$name]/term"/>
       <listitem>
-	<xsl:apply-templates select="//drbdsetup_options/drbdsetup_option[@name=$name]/definition/*"/>
+	<xsl:apply-templates select="//bsrsetup_options/bsrsetup_option[@name=$name]/definition/*"/>
       </listitem>
     </varlistentry>
   </xsl:template>
 
-  <xsl:template match="drbdsetup_option//indexterm">
+  <xsl:template match="bsrsetup_option//indexterm">
     <!-- ignore -->
   </xsl:template>
 
-  <xsl:template match="drbdsetup_option//only-drbdsetup">
+  <xsl:template match="bsrsetup_option//only-bsrsetup">
     <xsl:copy-of select="node()"/>
   </xsl:template>
 
-  <xsl:template match="drbdsetup_option//only-drbd-conf">
+  <xsl:template match="bsrsetup_option//only-bsr-conf">
     <!-- ignore -->
   </xsl:template>
 
-  <xsl:template match="drbdsetup_option/term/option">
+  <xsl:template match="bsrsetup_option/term/option">
     <xsl:variable name="args" select="@*"/>
     <option>
       <xsl:text>--</xsl:text>

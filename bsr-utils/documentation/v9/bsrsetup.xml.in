@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-  <!ENTITY drbdsetup_options SYSTEM "./drbdsetup-options.xml">
+  <!ENTITY bsrsetup_options SYSTEM "./bsrsetup-options.xml">
 ]>
-<refentry id="re-drbdsetup">
-  &drbdsetup_options;
+<refentry id="re-bsrsetup">
+  &bsrsetup_options;
 
   <refentryinfo>
     <date>3 December 2011</date>
 
-    <productname>DRBD</productname>
+    <productname>BSR</productname>
 
     <productnumber>9.0.0</productnumber>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>drbdsetup</refentrytitle>
+    <refentrytitle>bsrsetup</refentrytitle>
 
     <manvolnum>8</manvolnum>
 
@@ -23,16 +23,16 @@
   </refmeta>
 
   <refnamediv>
-    <refname>drbdsetup</refname>
+    <refname>bsrsetup</refname>
 
-    <refpurpose>Configure the DRBD kernel module<indexterm significance="normal">
-        <primary>drbdsetup</primary>
+    <refpurpose>Configure the BSR kernel module<indexterm significance="normal">
+        <primary>bsrsetup</primary>
       </indexterm></refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis sepchar=" ">
-      <command moreinfo="none">drbdsetup</command>
+      <command moreinfo="none">bsrsetup</command>
       <arg choice="plain" rep="norepeat">command</arg>
       <arg choice="req" rep="repeat">argument</arg>
       <arg choice="opt" rep="repeat">option</arg>
@@ -42,14 +42,14 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <command moreinfo="none">drbdsetup</command> utility serves to
-      configure the DRBD kernel module and to show its current configuration.
+    <para>The <command moreinfo="none">bsrsetup</command> utility serves to
+      configure the BSR kernel module and to show its current configuration.
       Users usually interact with the <command
-	moreinfo="none">drbdadm</command> utility, which provides a more
-      high-level interface to DRBD than <command
-	moreinfo="none">drbdsetup</command>.  (See <option>drbdadm</option>'s
-      <option>--dry-run</option> option to see how <option>drbdadm</option>
-      uses <option>drbdsetup</option>.)</para>
+	moreinfo="none">bsradm</command> utility, which provides a more
+      high-level interface to BSR than <command
+	moreinfo="none">bsrsetup</command>.  (See <option>bsradm</option>'s
+      <option>--dry-run</option> option to see how <option>bsradm</option>
+      uses <option>bsrsetup</option>.)</para>
 
     <para>Some option arguments have a default scale which applies when a plain
     number is specified (for example Kilo, or 1024 times the numeric value).
@@ -63,14 +63,14 @@
 
     <variablelist>
       <varlistentry>
-	<xi:include href="drbdsetup_attach.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_attach.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Attach a lower-level device to an existing replicated device. -->
-	<xi:include href="drbdsetup_disk-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_disk-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Change the disk options of an attached lower-level device. -->
 
         <listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>disk</secondary>
 	  </indexterm>
@@ -80,7 +80,7 @@
 	    <option>disk-options</option> command changes the disk options of
 	    an attached lower-level device.  In either case, the replicated
 	    device must have been created with <command
-	    moreinfo="none">drbdsetup new-minor</command>.</para>
+	    moreinfo="none">bsrsetup new-minor</command>.</para>
 
 	    <para>Both commands refer to the replicated device by its
 	    <replaceable>minor</replaceable> number.
@@ -96,28 +96,28 @@
 
 
 	  <variablelist>
-	    <pick_drbdsetup_option name="al-extents"/>
-	    <pick_drbdsetup_option name="al-updates"/>
-	    <pick_drbdsetup_option name="disk-barrier"/>
-	    <pick_drbdsetup_option name="disk-timeout"/>
-	    <pick_drbdsetup_option name="md-flushes"/>
-	    <pick_drbdsetup_option name="on-io-error"/>
-	    <pick_drbdsetup_option name="read-balancing"/>
-	    <pick_drbdsetup_option name="resync-after"/>
-	    <pick_drbdsetup_option name="size"/> <!-- only for attach, not for disk-options? -->
-	    <pick_drbdsetup_option name="discard-zeroes-if-aligned"/>
-	    <pick_drbdsetup_option name="rs-discard-granularity"/>
+	    <pick_bsrsetup_option name="al-extents"/>
+	    <pick_bsrsetup_option name="al-updates"/>
+	    <pick_bsrsetup_option name="disk-barrier"/>
+	    <pick_bsrsetup_option name="disk-timeout"/>
+	    <pick_bsrsetup_option name="md-flushes"/>
+	    <pick_bsrsetup_option name="on-io-error"/>
+	    <pick_bsrsetup_option name="read-balancing"/>
+	    <pick_bsrsetup_option name="resync-after"/>
+	    <pick_bsrsetup_option name="size"/> <!-- only for attach, not for disk-options? -->
+	    <pick_bsrsetup_option name="discard-zeroes-if-aligned"/>
+	    <pick_bsrsetup_option name="rs-discard-granularity"/>
           </variablelist>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_peer-device-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_peer-device-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remember the current size of a lower-level device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>peer-device-options</secondary>
 	  </indexterm>
@@ -127,51 +127,51 @@
 
 
 	  <variablelist>
-	    <pick_drbdsetup_option name="c-delay-target"/>
-	    <pick_drbdsetup_option name="c-fill-target"/>
-	    <pick_drbdsetup_option name="c-max-rate"/>
-	    <pick_drbdsetup_option name="c-min-rate"/>
-	    <pick_drbdsetup_option name="c-plan-ahead"/>
-	    <pick_drbdsetup_option name="resync-rate"/>
+	    <pick_bsrsetup_option name="c-delay-target"/>
+	    <pick_bsrsetup_option name="c-fill-target"/>
+	    <pick_bsrsetup_option name="c-max-rate"/>
+	    <pick_bsrsetup_option name="c-min-rate"/>
+	    <pick_bsrsetup_option name="c-plan-ahead"/>
+	    <pick_bsrsetup_option name="resync-rate"/>
 	 </variablelist>
 
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_check-resize.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_check-resize.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remember the current size of a lower-level device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>check-resize</secondary>
 	  </indexterm>
 
 	  <para>Remember the current size of the lower-level device of the
-	  specified replicated device.  Used by drbdadm.  The size information
+	  specified replicated device.  Used by bsradm.  The size information
 	  is stored in file
-	  /var/lib/drbd/drbd-minor-<replaceable>minor</replaceable>.lkbd.</para>
+	  /var/lib/bsr/bsr-minor-<replaceable>minor</replaceable>.lkbd.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_new-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_new-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Create a connection/peer within a resource. -->
-	<xi:include href="drbdsetup_net-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_net-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Change the network options of a connection. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>net</secondary>
 	  </indexterm>
 
 	  <para>The <option>new-peer</option> command creates a connection within
           a <replaceable>resource</replaceable>. The resource
-	  must have been created with <command moreinfo="none">drbdsetup
+	  must have been created with <command moreinfo="none">bsrsetup
 	  new-resource</command>.  The <option>net-options</option> command
 	  changes the network options of an existing connection. Before a
 	  connection can be activated with the <option>connect</option>
@@ -180,51 +180,51 @@
 
 	  <variablelist>
 
-	    <pick_drbdsetup_option name="after-sb-0pri"/>
-	    <pick_drbdsetup_option name="after-sb-1pri"/>
-	    <pick_drbdsetup_option name="after-sb-2pri"/>
-	    <pick_drbdsetup_option name="allow-two-primaries"/>
-	    <pick_drbdsetup_option name="always-asbp"/>
-	    <pick_drbdsetup_option name="connect-int"/>
-	    <pick_drbdsetup_option name="cram-hmac-alg"/>
-	    <pick_drbdsetup_option name="csums-alg"/>
-	    <pick_drbdsetup_option name="csums-after-crash-only"/>
-	    <pick_drbdsetup_option name="data-integrity-alg"/>
-	    <pick_drbdsetup_option name="fencing"/>
-	    <pick_drbdsetup_option name="ko-count"/>
-	    <pick_drbdsetup_option name="max-buffers"/>
-	    <pick_drbdsetup_option name="max-epoch-size"/>
-	    <pick_drbdsetup_option name="on-congestion"/>
-	    <pick_drbdsetup_option name="ping-int"/>
-	    <pick_drbdsetup_option name="ping-timeout"/>
-	    <pick_drbdsetup_option name="socket-check-timeout"/>
-	    <pick_drbdsetup_option name="protocol"/>
-	    <pick_drbdsetup_option name="rcvbuf-size"/>
-	    <pick_drbdsetup_option name="rr-conflict"/>
-	    <pick_drbdsetup_option name="shared-secret"/>
-	    <pick_drbdsetup_option name="sndbuf-size"/>
-	    <pick_drbdsetup_option name="tcp-cork"/>
-	    <pick_drbdsetup_option name="timeout"/>
-	    <pick_drbdsetup_option name="use-rle"/>
-	    <pick_drbdsetup_option name="verify-alg"/>
+	    <pick_bsrsetup_option name="after-sb-0pri"/>
+	    <pick_bsrsetup_option name="after-sb-1pri"/>
+	    <pick_bsrsetup_option name="after-sb-2pri"/>
+	    <pick_bsrsetup_option name="allow-two-primaries"/>
+	    <pick_bsrsetup_option name="always-asbp"/>
+	    <pick_bsrsetup_option name="connect-int"/>
+	    <pick_bsrsetup_option name="cram-hmac-alg"/>
+	    <pick_bsrsetup_option name="csums-alg"/>
+	    <pick_bsrsetup_option name="csums-after-crash-only"/>
+	    <pick_bsrsetup_option name="data-integrity-alg"/>
+	    <pick_bsrsetup_option name="fencing"/>
+	    <pick_bsrsetup_option name="ko-count"/>
+	    <pick_bsrsetup_option name="max-buffers"/>
+	    <pick_bsrsetup_option name="max-epoch-size"/>
+	    <pick_bsrsetup_option name="on-congestion"/>
+	    <pick_bsrsetup_option name="ping-int"/>
+	    <pick_bsrsetup_option name="ping-timeout"/>
+	    <pick_bsrsetup_option name="socket-check-timeout"/>
+	    <pick_bsrsetup_option name="protocol"/>
+	    <pick_bsrsetup_option name="rcvbuf-size"/>
+	    <pick_bsrsetup_option name="rr-conflict"/>
+	    <pick_bsrsetup_option name="shared-secret"/>
+	    <pick_bsrsetup_option name="sndbuf-size"/>
+	    <pick_bsrsetup_option name="tcp-cork"/>
+	    <pick_bsrsetup_option name="timeout"/>
+	    <pick_bsrsetup_option name="use-rle"/>
+	    <pick_bsrsetup_option name="verify-alg"/>
 	  </variablelist>
 	</listitem>
       </varlistentry>
 
 
       <varlistentry>
-	<xi:include href="drbdsetup_new-path.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_new-path.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Create a path to a peer (within a connection). -->
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>net</secondary>
 	  </indexterm>
 
 	  <para>The <option>new-path</option> command creates a path within
           a <replaceable>connection</replaceable>. The connection
-	  must have been created with <command moreinfo="none">drbdsetup
+	  must have been created with <command moreinfo="none">bsrsetup
 	  new-peer</command>. <replaceable>Local_addr</replaceable> and
 	  <replaceable>remote_addr</replaceable> refer to the local and remote
 	  protocol, network address, and port in the format
@@ -247,34 +247,34 @@
 
 
       <varlistentry>
-	<xi:include href="drbdsetup_connect.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_connect.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Activate a connection. -->
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>net</secondary>
 	  </indexterm>
 
 	  <para>The <option>connect</option> command activates a connection.
-	  That means that the DRBD driver will bind and listen on all local
+	  That means that the BSR driver will bind and listen on all local
 	  addresses of the connection-'s paths. It will begin to try to establish
 	  one or more paths of the connection.  Available options: </para>
 
 	  <variablelist>
-	    <pick_drbdsetup_option name="tentative"/>
-	    <pick_drbdsetup_option name="discard-my-data"/>
+	    <pick_bsrsetup_option name="tentative"/>
+	    <pick_bsrsetup_option name="discard-my-data"/>
 	  </variablelist>
 
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_del-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_del-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remove a connection/peer within a resource. -->
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>net</secondary>
 	  </indexterm>
@@ -286,11 +286,11 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_del-path.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_del-path.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remove a connection/peer within a resource. -->
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>net</secondary>
 	  </indexterm>
@@ -305,53 +305,53 @@
 
 
       <varlistentry>
-	<xi:include href="drbdsetup_cstate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_cstate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the current state of a connection. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>cstate</secondary>
 	  </indexterm>
 
 	  <para>Show the current state of a connection.  The connection is
 	  identified by the node-id of the peer; see the <command
-	  moreinfo="none">drbdsetup connect</command> command.</para>
+	  moreinfo="none">bsrsetup connect</command> command.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_del-minor.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_del-minor.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remove a replicated device. -->
 
 	<listitem>
 	  <para>Remove a replicated device.  No lower-level device may be
-	  attached; see <command moreinfo="none">drbdsetup detach</command>.</para>
+	  attached; see <command moreinfo="none">bsrsetup detach</command>.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_del-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_del-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Remove a resource. -->
 
 	<listitem>
 	  <para>Remove a resource.  All volumes and connections must be removed
-	  first (<command moreinfo="none">drbdsetup del-minor</command>,
-	  <command moreinfo="none">drbdsetup disconnect</command>).
-	  Alternatively, <command moreinfo="none">drbdsetup down</command> can
+	  first (<command moreinfo="none">bsrsetup del-minor</command>,
+	  <command moreinfo="none">bsrsetup disconnect</command>).
+	  Alternatively, <command moreinfo="none">bsrsetup down</command> can
 	  be used to remove a resource together with all its volumes and
 	  connections.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_detach.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_detach.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Detach the lower-level device of a replicated device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>detach</secondary>
 	  </indexterm>
@@ -373,29 +373,29 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_disconnect.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_disconnect.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Disconnect a resource from a peer host. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>disconnect</secondary>
 	  </indexterm>
 
 	  <para>Remove a connection to a peer host.  The connection is
 	  identified by the node-id of the peer; see the <command
-	  moreinfo="none">drbdsetup connect</command> command.</para>
+	  moreinfo="none">bsrsetup connect</command> command.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_down.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_down.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Take a resource down. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>down</secondary>
 	  </indexterm>
@@ -407,12 +407,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_dstate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_dstate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the current disk state of a lower-level device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>dstate</secondary>
 	  </indexterm>
@@ -422,17 +422,17 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_events2.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_events2.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the current state and all state changes of all resources. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>events2</secondary>
 	  </indexterm>
 
-	  <para>Show the current state of all configured DRBD objects, followed
+	  <para>Show the current state of all configured BSR objects, followed
 	    by all changes to the state.</para>
 
 	  <para>The output format is meant to be human as well as machine
@@ -475,12 +475,12 @@
     </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_get-gi.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_get-gi.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the data generation identifiers for a device on a particular connection. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>get-gi</secondary>
 	  </indexterm>
@@ -488,24 +488,24 @@
 	  <para>Show the data generation identifiers for a device on a
 	  particular connection.  The device is identified by its volume
 	  number.  The connection is identified by its endpoints; see the
-	  <command moreinfo="none">drbdsetup connect</command> command.</para>
+	  <command moreinfo="none">bsrsetup connect</command> command.</para>
 
 	  <para>The output consists of the current UUID, bitmap UUID, and the
 	  first two history UUIDS, folowed by a set of flags.  The current UUID
 	  and history UUIDs are device specific; the bitmap UUID and flags are
 	  peer device specific.  This command only shows the first two history
-	  UUIDs.  Internally, DRBD maintains one history UUID for each possible
+	  UUIDs.  Internally, BSR maintains one history UUID for each possible
 	  peer device.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_invalidate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_invalidate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Replace the local data of a resource with that of a peer. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>invalidate</secondary>
 	  </indexterm>
@@ -519,12 +519,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_invalidate-remote.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_invalidate-remote.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Replace a peer's data of a resource with the local data. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>invalidate-remote</secondary>
 	  </indexterm>
@@ -536,12 +536,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_new-current-uuid.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_new-current-uuid.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Generate a new current UUID. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>new-current-uuid</secondary>
 	  </indexterm>
@@ -572,14 +572,14 @@
 		<simpara>On <emphasis>both</emphasis> nodes, initialize meta data and configure the
 		device.</simpara>
 
-		<simpara><command moreinfo="none">drbdadm create-md --force
+		<simpara><command moreinfo="none">bsradm create-md --force
 		<replaceable>res</replaceable></command></simpara>
 	      </listitem>
 
 	      <listitem>
 		<simpara>They need to do the initial handshake, so they know their sizes.</simpara>
 
-		<simpara><command moreinfo="none">drbdadm up
+		<simpara><command moreinfo="none">bsradm up
 		<replaceable>res</replaceable></command></simpara>
 	      </listitem>
 
@@ -587,7 +587,7 @@
 		<simpara>They are now Connected Secondary/Secondary Inconsistent/Inconsistent.
 		Generate a new current-uuid and clear the dirty bitmap.</simpara>
 
-		<simpara><command moreinfo="none">drbdadm --clear-bitmap new-current-uuid
+		<simpara><command moreinfo="none">bsradm --clear-bitmap new-current-uuid
 		<replaceable>res</replaceable></command></simpara>
 	      </listitem>
 
@@ -595,10 +595,10 @@
 		<simpara>They are now Connected Secondary/Secondary UpToDate/UpToDate. Make one side
 		primary and create a file system.</simpara>
 
-		<simpara><command moreinfo="none">drbdadm primary
+		<simpara><command moreinfo="none">bsradm primary
 		<replaceable>res</replaceable></command></simpara>
 
-		<simpara><command moreinfo="none">mkfs -t <replaceable>fs-type</replaceable> $(drbdadm
+		<simpara><command moreinfo="none">mkfs -t <replaceable>fs-type</replaceable> $(bsradm
 		sh-dev <replaceable>res</replaceable>)</command></simpara>
 		<!-- FIXME: sh-dev can probably return more than one device; we can no longer use it like this. -->
 	      </listitem>
@@ -621,7 +621,7 @@
 	  <para>The necessary steps on the current active server are: <orderedlist
 	      continuation="restarts" inheritnum="ignore" numeration="arabic">
 	      <listitem>
-		<simpara><command moreinfo="none">drbdsetup new-current-uuid --clear-bitmap <replaceable>minor</replaceable>
+		<simpara><command moreinfo="none">bsrsetup new-current-uuid --clear-bitmap <replaceable>minor</replaceable>
 		</command></simpara>
 	      </listitem>
 
@@ -632,32 +632,32 @@
 	      </listitem>
 
 	      <listitem>
-		<simpara><command moreinfo="none">drbdsetup new-current-uuid <replaceable>minor</replaceable>
+		<simpara><command moreinfo="none">bsrsetup new-current-uuid <replaceable>minor</replaceable>
 		</command></simpara>
 	      </listitem>
 	    </orderedlist> Now add the disk to the new secondary node, and join it to the cluster. You
 	  will get a resync of that parts that were changed since the first call to <command
-	  moreinfo="none">drbdsetup</command> in step 1.</para>
+	  moreinfo="none">bsrsetup</command> in step 1.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_new-minor.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_new-minor.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Create a new replicated device within a resource. -->
 
 	<listitem>
 	  <para>Create a new replicated device within a resource.  The command
 	    creates a block device inode for the replicated device (by default,
-	    /dev/drbd<replaceable>minor</replaceable>).  The
+	    /dev/bsr<replaceable>minor</replaceable>).  The
 	    <replaceable>volume</replaceable> number identifies the device
 	    within the <replaceable>resource</replaceable>.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_new-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_new-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Create a new resource. -->
-	<xi:include href="drbdsetup_resource-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_resource-options.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Change the resource options of an existing resource. -->
 
 	<listitem>
@@ -666,13 +666,13 @@
 	    the resource options of an existing resource.  Available options:
 
 	  <variablelist>
-	    <pick_drbdsetup_option name="auto-promote"/>
-	    <pick_drbdsetup_option name="cpu-mask"/>
-	    <pick_drbdsetup_option name="on-no-data-accessible"/>
-	    <pick_drbdsetup_option name="peer-ack-window"/>
-	    <pick_drbdsetup_option name="peer-ack-delay"/>
-        <pick_drbdsetup_option name="quorum"/>
-        <pick_drbdsetup_option name="on-no-quorum"/>
+	    <pick_bsrsetup_option name="auto-promote"/>
+	    <pick_bsrsetup_option name="cpu-mask"/>
+	    <pick_bsrsetup_option name="on-no-data-accessible"/>
+	    <pick_bsrsetup_option name="peer-ack-window"/>
+	    <pick_bsrsetup_option name="peer-ack-delay"/>
+        <pick_bsrsetup_option name="quorum"/>
+        <pick_bsrsetup_option name="on-no-quorum"/>
 
 	  </variablelist>
 	  </para>
@@ -680,12 +680,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_outdate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_outdate.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Mark the data on a lower-level device as outdated. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>outdate</secondary>
 	  </indexterm>
@@ -698,12 +698,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_pause-sync.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_pause-sync.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Stop resynchronizing between a local and a peer device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>pause-sync</secondary>
 	  </indexterm>
@@ -715,12 +715,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_primary.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_primary.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Change the role of a node in a resource to primary. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>primary</secondary>
 	  </indexterm>
@@ -759,22 +759,22 @@
 	    </varlistentry>
 	  </variablelist>
 
-	  <para>Note that DRBD usually only allows one node in a cluster to be
-	    in primary role at any time; this allows DRBD to coordinate access
+	  <para>Note that BSR usually only allows one node in a cluster to be
+	    in primary role at any time; this allows BSR to coordinate access
 	    to the devices in a resource across nodes.  The
 	    <option>--allow-two-primaries</option> network option changes this;
-	    in that case, a mechanism outside of DRBD needs to coordinate
+	    in that case, a mechanism outside of BSR needs to coordinate
 	    device access.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_resize.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_resize.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Reexamine the lower-level device sizes to resize a replicated device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>resize</secondary>
 	  </indexterm>
@@ -790,7 +790,7 @@
 
 		<listitem>
 		  <para>Resize the device even if some of the peer devices are
-		  not connected at the moment.  DRBD will try to resize the peer
+		  not connected at the moment.  BSR will try to resize the peer
 		  devices when they next connect.  It will refuse to connect to a
 		  peer device which is too small.</para>
 		</listitem>
@@ -803,7 +803,7 @@
 		  assume that it is identical on all nodes.  This option can be
 		  used when the disk space is uninitialized and differences do
 		  not matter, or when it is known to be identical on all nodes.
-		  See the <command moreinfo="none">drbdsetup verify</command>
+		  See the <command moreinfo="none">bsrsetup verify</command>
 		  command.</para>
 		</listitem>
 	      </varlistentry>
@@ -812,7 +812,7 @@
 		<term><option>--size <replaceable>val</replaceable></option></term>
 		<listitem>
 		  <para>This option can be used to online shrink the usable
-		  size of a drbd device. It's the users responsibility to
+		  size of a bsr device. It's the users responsibility to
 		  make sure that a file system on the device is not
 		  truncated by that operation.</para>
 		</listitem>
@@ -837,12 +837,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_resume-io.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_resume-io.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Resume I/O on a replicated device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>resume-io</secondary>
 	  </indexterm>
@@ -853,12 +853,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_resume-sync.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_resume-sync.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Resume the resynchronization between a local and a peer device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>resume-sync</secondary>
 	  </indexterm>
@@ -868,12 +868,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_role.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_role.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the current role of a resource. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>role</secondary>
 	  </indexterm>
@@ -883,12 +883,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_secondary.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_secondary.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Change the role of a node in a resource to secondary. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>secondary</secondary>
 	  </indexterm>
@@ -899,12 +899,12 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_show.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_show.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the current configuration of a resource, or of all resources. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>show</secondary>
 	  </indexterm>
@@ -928,45 +928,45 @@
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_show-gi.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_show-gi.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show data generation identifiers for a device and peer device, with explanations. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>show-gi</secondary>
 	  </indexterm>
 
 	  <para>Show the data generation identifiers for a device on a
 	  particular connection.  In addition, explain the output.  The output
-	  otherwise is the same as in the <command moreinfo="none">drbdsetup
+	  otherwise is the same as in the <command moreinfo="none">bsrsetup
 	  get-gi</command> command.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><command moreinfo="none">drbdsetup</command><arg choice="plain" rep="norepeat">state</arg></term>
+	<term><command moreinfo="none">bsrsetup</command><arg choice="plain" rep="norepeat">state</arg></term>
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>state</secondary>
 	  </indexterm>
 
-	  <para>This is an alias for <command moreinfo="none">drbdsetup
+	  <para>This is an alias for <command moreinfo="none">bsrsetup
 	  role</command>. Deprecated.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_status.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_status.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Show the status of a resource, or of all resources. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>status</secondary>
 	  </indexterm>
@@ -1012,7 +1012,7 @@
 
 		<listitem>
 		  <para>Colorize the output.  With
-		    <option>--color=auto</option>, <option>drbdsetup</option>
+		    <option>--color=auto</option>, <option>bsrsetup</option>
 		    emits color codes only when standard output is connected to
 		    a terminal.
 		  </para>
@@ -1024,7 +1024,7 @@
 	  <para>For example, the non-verbose output for a resource with only
 	  one connection and only one volume could look like this:
 	      <programlisting format="linespecific">
-drbd0 role:Primary
+bsr0 role:Primary
   disk:UpToDate
   host2.example.com role:Secondary
     disk:UpToDate
@@ -1034,7 +1034,7 @@ drbd0 role:Primary
 	    <para>With the <option>--verbose</option> option, the same resource
 	    could be reported as:
 	      <programlisting format="linespecific">
-drbd0 node-id:1 role:Primary suspended:no
+bsr0 node-id:1 role:Primary suspended:no
   volume:0 minor:1 disk:UpToDate blocked:no
   host2.example.com local:ipv4:192.168.123.4:7788
       peer:ipv4:192.168.123.2:7788 node-id:0 connection:WFReportParams
@@ -1046,12 +1046,12 @@ drbd0 node-id:1 role:Primary suspended:no
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_suspend-io.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_suspend-io.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Suspend I/O on a replicated device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>suspend-io</secondary>
 	  </indexterm>
@@ -1062,12 +1062,12 @@ drbd0 node-id:1 role:Primary suspended:no
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_verify.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_verify.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Verify the data on a lower-level device against a peer device. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>verify</secondary>
 	  </indexterm>
@@ -1081,7 +1081,7 @@ drbd0 node-id:1 role:Primary suspended:no
 	  as out-of-sync, but they are <emphasis>not</emphasis> automatically
 	  brought back into sync.  To bring them into sync, the resource must
 	  be disconnected and reconnected.  Progress can be monitored in the
-	  output of <command moreinfo="none">drbdsetup status
+	  output of <command moreinfo="none">bsrsetup status
 	    --statistics</command>.  Available options:</para>
 
 	  <variablelist>
@@ -1118,37 +1118,37 @@ drbd0 node-id:1 role:Primary suspended:no
 	  </variablelist>
 
 	  <para>Also see the notes on data integrity in the <citerefentry>
-	  <refentrytitle>drbd.conf</refentrytitle> <manvolnum>5</manvolnum>
+	  <refentrytitle>bsr.conf</refentrytitle> <manvolnum>5</manvolnum>
 	  </citerefentry> manual page.</para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
 
-	<xi:include href="drbdsetup_wait-connect-volume.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-connect-volume.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until a device on a peer is visible. -->
-	<xi:include href="drbdsetup_wait-connect-connection.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-connect-connection.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until all peer volumes of connection are visible. -->
-	<xi:include href="drbdsetup_wait-connect-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-connect-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until all connections are establised. -->
 
-	<xi:include href="drbdsetup_wait-sync-volume.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-sync-volume.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until a device on a peer is up to date. -->
-	<xi:include href="drbdsetup_wait-sync-connection.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-sync-connection.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until resync finished on all volumes of a connection. -->
-	<xi:include href="drbdsetup_wait-sync-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_wait-sync-resource.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Wait until resync finished on all volumes. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>wait-connect-volume</secondary>
 	    <secondary>wait-connect-connection</secondary>
 	    <secondary>wait-connect-resource</secondary>
 	  </indexterm>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>wait-sync-volume</secondary>
 	    <secondary>wait-sync-connection</secondary>
@@ -1161,22 +1161,22 @@ drbd0 node-id:1 role:Primary suspended:no
 	  commands:
 
 	    <variablelist>
-	      <pick_drbdsetup_option name="degr-wfc-timeout"/>
-	      <pick_drbdsetup_option name="outdated-wfc-timeout"/>
-	      <pick_drbdsetup_option name="wait-after-sb"/>
-	      <pick_drbdsetup_option name="wfc-timeout"/>
+	      <pick_bsrsetup_option name="degr-wfc-timeout"/>
+	      <pick_bsrsetup_option name="outdated-wfc-timeout"/>
+	      <pick_bsrsetup_option name="wait-after-sb"/>
+	      <pick_bsrsetup_option name="wfc-timeout"/>
 	    </variablelist>
 	  </para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<xi:include href="drbdsetup_forget-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="bsrsetup_forget-peer.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
 	<!-- Completely remove any reference to a unconnected peer from meta-data. -->
 
 	<listitem>
 	  <indexterm significance="normal">
-	    <primary>drbdsetup</primary>
+	    <primary>bsrsetup</primary>
 
 	    <secondary>forget-peer</secondary>
 	  </indexterm>
@@ -1198,7 +1198,7 @@ drbd0 node-id:1 role:Primary suspended:no
     <title>Examples</title>
 
     <para>Please see the <ulink
-	url="http://www.drbd.org/users-guide/"><citetitle>DRBD User's Guide</citetitle></ulink>
+	url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>
       for examples.</para>
 
   </refsect1>
@@ -1206,26 +1206,25 @@ drbd0 node-id:1 role:Primary suspended:no
   <refsect1>
     <title>Version</title>
 
-    <simpara>This document was revised for version 9.0.0 of the DRBD distribution.</simpara>
+    <simpara>This document was revised for version 9.0.0 of the BSR distribution.</simpara>
   </refsect1>
 
   <refsect1>
     <title>Author</title>
 
-    <simpara>Written by Philipp Reisner <email>philipp.reisner@linbit.com</email> and Lars
-    Ellenberg <email>lars.ellenberg@linbit.com</email>.</simpara>
+    <simpara>Written by Man Technology inc <email>dev3@mantech.co.kr</email>.</simpara>
   </refsect1>
 
   <refsect1>
     <title>Reporting Bugs</title>
 
-    <simpara>Report bugs to <email>drbd-user@lists.linbit.com</email>.</simpara>
+    <simpara>Report bugs to <email>dev3@mantech.co.kr</email>.</simpara>
   </refsect1>
 
   <refsect1>
     <title>Copyright</title>
 
-    <simpara>Copyright 2001-2012 LINBIT Information Technologies, Philipp Reisner, Lars Ellenberg.
+    <simpara>Copyright 2007-2020 Man Technology inc.
     This is free software; see the source for copying conditions. There is NO warranty; not even
     for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</simpara>
   </refsect1>
@@ -1234,24 +1233,24 @@ drbd0 node-id:1 role:Primary suspended:no
     <title>See Also</title>
 
     <para><citerefentry>
-        <refentrytitle>drbd.conf</refentrytitle>
+        <refentrytitle>bsr.conf</refentrytitle>
 
         <manvolnum>5</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbd</refentrytitle>
+        <refentrytitle>bsr</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbddisk</refentrytitle>
+        <refentrytitle>bsrdisk</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbdadm</refentrytitle>
+        <refentrytitle>bsradm</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>,
-      <ulink url="http://www.drbd.org/users-guide/"><citetitle>DRBD User's Guide</citetitle></ulink>,
-       <ulink url="http://www.drbd.org/"><citetitle>DRBD Web Site</citetitle></ulink></para>
+      <ulink url="http://www.bsr.org/users-guide/"><citetitle>BSR User's Guide</citetitle></ulink>,
+       <ulink url="http://www.bsr.org/"><citetitle>BSR Web Site</citetitle></ulink></para>
 
   </refsect1>
 </refentry>

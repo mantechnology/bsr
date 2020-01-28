@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
-<refentry id="re-drbdadm">
+<refentry id="re-bsradm">
   <refentryinfo>
     <date>6 December 2012</date>
 
-    <productname>DRBD</productname>
+    <productname>BSR</productname>
 
     <productnumber>9.0.0</productnumber>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>drbdadm</refentrytitle>
+    <refentrytitle>bsradm</refentrytitle>
 
     <manvolnum>8</manvolnum>
 
@@ -19,16 +19,16 @@
   </refmeta>
 
   <refnamediv>
-    <refname>drbdadm</refname>
+    <refname>bsradm</refname>
 
-    <refpurpose>Utility for DRBD administration<indexterm significance="normal">
-        <primary>drbdadm</primary>
+    <refpurpose>Utility for BSR administration<indexterm significance="normal">
+        <primary>bsradm</primary>
       </indexterm></refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis sepchar=" ">
-      <command moreinfo="none">drbdadm</command>
+      <command moreinfo="none">bsradm</command>
 
       <arg choice="opt" rep="repeat">options</arg>
 
@@ -53,15 +53,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <option>drbdadm</option> utility is used for managing DRBD based
+    <para>The <option>bsradm</option> utility is used for managing BSR based
       on its configuration files, see <citerefentry>
-      <refentrytitle>drbd.conf</refentrytitle> <manvolnum>5</manvolnum>
+      <refentrytitle>bsr.conf</refentrytitle> <manvolnum>5</manvolnum>
       </citerefentry>.  It translates high-level commands into one or more
-      lower-level commands for the <option>drbdsetup</option> and
-      <option>drbdmeta</option> utilities, which control the kernel module
+      lower-level commands for the <option>bsrsetup</option> and
+      <option>bsrmeta</option> utilities, which control the kernel module
       and manipulate the on-disk metadata.</para>
 
-    <para>Depending on the command, the <option>drbdadm</option> utility
+    <para>Depending on the command, the <option>bsradm</option> utility
       operates on one or more resources, devices, connections, or peer devices.
       The following command contexts are defined:</para>
 
@@ -120,8 +120,8 @@
 
     <para>All options following a double-dash are passed through to the
       lower-level utilities as specified.  In addition,
-      <option>drbdadm</option> understands most of the options of
-      <option>drbdsetup</option>, and will pass them through even without the
+      <option>bsradm</option> understands most of the options of
+      <option>bsrsetup</option>, and will pass them through even without the
       double-dash.
     </para>
   </refsect1>
@@ -134,12 +134,12 @@
         <term><option>-d</option>, <option>--dry-run</option></term>
 
         <listitem>
-	  <para>Show which commands <option>drbdadm</option> would execute
+	  <para>Show which commands <option>bsradm</option> would execute
 	    instead of actually executing them (for example, <command
-	      moreinfo="none">drbdadm -d up <replaceable>resource</replaceable></command>).
+	      moreinfo="none">bsradm -d up <replaceable>resource</replaceable></command>).
 	    This can be a useful way to learn how <command
-	      moreinfo="none">drbdsetup</command> and <command
-	      moreinfo="none">drbdmeta</command> are used.</para>
+	      moreinfo="none">bsrsetup</command> and <command
+	      moreinfo="none">bsrmeta</command> are used.</para>
         </listitem>
       </varlistentry>
 
@@ -149,13 +149,13 @@
 
         <listitem>
 	  <para>Use an alternative configuration file.  By default,
-	    <option>drbdadm</option> will use the the first of the following
-	    files that exists: <option>/etc/drbd-90.conf</option>,
-	    <option>/etc/drbd-84.conf</option>,
-	    <option>/etc/drbd-83.conf</option>,
-	    <option>/etc/drbd-82.conf</option>,
-	    <option>/etc/drbd-08.conf</option>,
-	    <option>/etc/drbd.conf</option>.</para>
+	    <option>bsradm</option> will use the the first of the following
+	    files that exists: <option>/etc/bsr-90.conf</option>,
+	    <option>/etc/bsr-84.conf</option>,
+	    <option>/etc/bsr-83.conf</option>,
+	    <option>/etc/bsr-82.conf</option>,
+	    <option>/etc/bsr-08.conf</option>,
+	    <option>/etc/bsr.conf</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -170,22 +170,22 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-s</option>, <option>--drbdsetup</option>
+        <term><option>-s</option>, <option>--bsrsetup</option>
         <replaceable>file</replaceable></term>
 
         <listitem>
-          <para>Specifies the full path to the <option>drbdsetup</option> program. If this option
-          is omitted, drbdadm will look for it beneath itself first, and then in the PATH.</para>
+          <para>Specifies the full path to the <option>bsrsetup</option> program. If this option
+          is omitted, bsradm will look for it beneath itself first, and then in the PATH.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>-m</option>, <option>--drbdmeta</option>
+        <term><option>-m</option>, <option>--bsrmeta</option>
         <replaceable>file</replaceable></term>
 
         <listitem>
-          <para>Specifies the full path to the <option>drbdmeta</option> program. If this option
-          is omitted, drbdadm will look for it beneath itself first, and then in the PATH.</para>
+          <para>Specifies the full path to the <option>bsrmeta</option> program. If this option
+          is omitted, bsradm will look for it beneath itself first, and then in the PATH.</para>
         </listitem>
       </varlistentry>
 
@@ -208,14 +208,14 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>adjust</secondary>
 	    </indexterm> Adjust the configuration of the kernel module so that
 	    it matches the configuration files.  The result should be the same
 	    as when stopping and restarting all resources (<command
-	      moreinfo="none">drbdadm down all</command> followed by <command
-	      moreinfo="none">drbdadm up all</command>), but without the
+	      moreinfo="none">bsradm down all</command> followed by <command
+	      moreinfo="none">bsradm up all</command>), but without the
 	    interruptions.</para>
 
 	  <para>Note that the adjust command can misinterpret the configuration
@@ -232,7 +232,7 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>adjust-with-progress</secondary>
 	    </indexterm> The same as <option>adjust</option>, but with some
@@ -248,11 +248,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>apply-al</secondary>
 	      </indexterm> Apply the activity log of the specified device.  See
-	      <citerefentry> <refentrytitle>drbdmeta</refentrytitle>
+	      <citerefentry> <refentrytitle>bsrmeta</refentrytitle>
 		<manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -266,7 +266,7 @@
 
         <listitem>
 	  <para>Attach a lower-level device to an existing replicated device.
-	    See <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    See <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -278,11 +278,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>check-resize</secondary>
-            </indexterm> Call drbdmeta to eventually move internal meta data. If the backing
-          device was resized, while DRBD was not running, meta data has to be moved to the end of
+            </indexterm> Call bsrmeta to eventually move internal meta data. If the backing
+          device was resized, while BSR was not running, meta data has to be moved to the end of
           the device, so that the next <option>attach</option> command can succeed.</para>
         </listitem>
 	<!-- FIXME: This is not very clear.  When does the end user need to
@@ -296,14 +296,14 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>connect</secondary> </indexterm> Activate an exisiting
 	      connection to a peer. The connection needs to be created first
 	      with the <option>new-peer</option> command, and have at least
 	      one path created with the <option>new-path</option> command.
 	      See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -316,12 +316,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>create-md</secondary>
 	    </indexterm> Initialize the metadata of a device. This is necessary
 	    before a device can be attached; see <citerefentry>
-	      <refentrytitle>drbdmeta</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrmeta</refentrytitle> <manvolnum>8</manvolnum>
 	  </citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -333,11 +333,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>cstate</secondary>
 	    </indexterm> Show the current state of a connection.  See
-	    <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -349,11 +349,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>detach</secondary> </indexterm> Detach the lower-level
 	    device of a replicated device. See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	  </citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -365,11 +365,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>disconnect</secondary> </indexterm> Remove a
 	    connection to a peer host.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	  </citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -381,11 +381,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
               <secondary>disk-options</secondary>
 	      </indexterm> Cange the disk options of an attached lower-level
 	      device.  See <citerefentry>
-		<refentrytitle>drbdsetup</refentrytitle>
+		<refentrytitle>bsrsetup</refentrytitle>
 		<manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -398,11 +398,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>down</secondary> </indexterm> Take a resource down by
 	    removing all volumes, connections, and the resource itself.
-	    See <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    See <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -415,12 +415,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>dstate</secondary>
 	    </indexterm> Show the current disk
 	    state of a lower-level device.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
           </para>
         </listitem>
@@ -433,7 +433,7 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>dump</secondary>
 	    </indexterm> Parse the configuration file and dump it to stdout.
@@ -449,12 +449,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>dump-md</secondary>
 	  </indexterm> Dump the metadata of a device in text form, including
 	  the bitmap and activity log.  See <citerefentry>
-	    <refentrytitle>drbdmeta</refentrytitle> <manvolnum>8</manvolnum>
+	    <refentrytitle>bsrmeta</refentrytitle> <manvolnum>8</manvolnum>
 	</citerefentry> for details.</para>
         </listitem>
       </varlistentry>
@@ -466,14 +466,14 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>get-gi</secondary>
 	    </indexterm> Show the data generation identifiers for a device on a
-	    particular connection.  Uses <option>drbdsetup</option> for
-	    attached devices and <option>drbdmeta</option> for unattached
+	    particular connection.  Uses <option>bsrsetup</option> for
+	    attached devices and <option>bsrmeta</option> for unattached
 	    devices.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -495,11 +495,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>invalidate</secondary> </indexterm> Replace the local
 	    data of a device with that of a peer.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -512,11 +512,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>invalidate-remote</secondary> </indexterm> Replace a
 	    peer device's data of a resource with the local data.  See
-	    <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -529,10 +529,10 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
               <secondary>net-options</secondary>
 	    </indexterm> Change the network options of an existing connection.
-	    See <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    See <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -545,11 +545,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>new-current-uuid</secondary> </indexterm> Generate a
 	    new currend UUID.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -561,11 +561,11 @@
 	</term>
 
         <listitem>
-	  <para><indexterm significance="normal"> <primary>drbdadm</primary>
+	  <para><indexterm significance="normal"> <primary>bsradm</primary>
 
 	      <secondary>outdate</secondary> </indexterm> Mark the data on a
 	    lower-level device as outdated.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -578,12 +578,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>pause-sync</secondary>
 	    </indexterm> Stop resynchronizing between a local and a peer device
 	    by setting the local pause flag.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -596,11 +596,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>primary</secondary> </indexterm> Change the role of a
 	    node in a resource to primary.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -613,13 +613,13 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>resize</secondary> </indexterm> Resize the lower-level
 	    devices of a replicated device on all nodes.  This combines the
 	    <option>check-resize</option> and <option>resize</option>
 	    lower-level commands; see <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -632,12 +632,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>resource-options</secondary>
 	  </indexterm> Change the resource options of an existing
 	  resource.  See <citerefentry>
-	    <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	    <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -650,11 +650,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>resume-sync</secondary> </indexterm> Allow
 	    resynchronization to resume by clearing the local sync pause flag.
-	    See <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    See <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -667,7 +667,7 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>role</secondary>
 	    </indexterm> Show the current role of a resource.
@@ -682,7 +682,7 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>secondary</secondary>
 	    </indexterm> Change the role of a node in a resource to secondary.
@@ -698,12 +698,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>show-gi</secondary>
 	    </indexterm> Show the data generation identifiers for a device on a
 	    particular connection. In addition, explain the output.  See
-	    <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -716,11 +716,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>state</secondary>
 	    </indexterm> This is an alias for <command
-	    moreinfo="none">drbdsetup role</command>. Deprecated.
+	    moreinfo="none">bsrsetup role</command>. Deprecated.
 	  </para>
         </listitem>
       </varlistentry>
@@ -732,16 +732,16 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>up</secondary>
 	    </indexterm> Bring up a resource by applying the activity log of
 	    all volumes, creating the resource, creating the replicated
 	    devices, attaching the lower-level devices, and connecting to all
-	    peers.  See the <option>apply-al</option> drbdmeta command and the
+	    peers.  See the <option>apply-al</option> bsrmeta command and the
 	    <option>new-resource</option>, <option>new-device</option>,
 	    <option>new-minor</option>, <option>attach</option>, and
-	    <option>connect</option> drbdsetup commands.</para>
+	    <option>connect</option> bsrsetup commands.</para>
         </listitem>
       </varlistentry>
 
@@ -752,12 +752,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
               <secondary>verify</secondary>
 	    </indexterm> Start online verification, change which part of the
 	    device will be verified, or stop online verification.  See
-	    <citerefentry> <refentrytitle>drbdsetup</refentrytitle>
+	    <citerefentry> <refentrytitle>bsrsetup</refentrytitle>
 	      <manvolnum>8</manvolnum> </citerefentry> for details.
 	  </para>
         </listitem>
@@ -774,12 +774,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>wait-connect</secondary> </indexterm> Wait until a
 	    device on a peer, all devices over a connection, or all devices on
 	    all peers are visible. See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -797,12 +797,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>wait-sync</secondary> </indexterm> Wait until a
 	    device is connected and has finished eventual resync operation. Also
 	    available on connection and resource level.  See <citerefentry>
-	      <refentrytitle>drbdsetup</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrsetup</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -815,11 +815,11 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
-	      <secondary>wipe-md</secondary> </indexterm> Wipe out the DRBD
+	      <secondary>wipe-md</secondary> </indexterm> Wipe out the BSR
 	    metadata of a device.  See <citerefentry>
-	      <refentrytitle>drbdmeta</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrmeta</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -832,12 +832,12 @@
 
         <listitem>
           <para><indexterm significance="normal">
-              <primary>drbdadm</primary>
+              <primary>bsradm</primary>
 
 	      <secondary>forget-peer</secondary> </indexterm> Completely remove any
 	      reference to a unconnected peer from meta-data.
 	      See <citerefentry>
-	      <refentrytitle>drbdmeta</refentrytitle> <manvolnum>8</manvolnum>
+	      <refentrytitle>bsrmeta</refentrytitle> <manvolnum>8</manvolnum>
 	    </citerefentry> for details.
 	  </para>
         </listitem>
@@ -849,26 +849,25 @@
   <refsect1>
     <title>Version</title>
 
-    <simpara>This document was revised for version 9.0.0 of the DRBD distribution.</simpara>
+    <simpara>This document was revised for version 9.0.0 of the BSR distribution.</simpara>
   </refsect1>
 
   <refsect1>
     <title>Author</title>
 
-    <simpara>Written by Philipp Reisner <email>philipp.reisner@linbit.com</email> and Lars
-    Ellenberg <email>lars.ellenberg@linbit.com</email></simpara>
+    <simpara>Written by Man Technology inc <email>dev3@mantech.co.kr</email></simpara>
   </refsect1>
 
   <refsect1>
     <title>Reporting Bugs</title>
 
-    <simpara>Report bugs to <email>drbd-user@lists.linbit.com</email>.</simpara>
+    <simpara>Report bugs to <email>dev3@mantech.co.kr</email>.</simpara>
   </refsect1>
 
   <refsect1>
     <title>Copyright</title>
 
-    <simpara>Copyright 2001-2012 LINBIT Information Technologies, Philipp Reisner, Lars Ellenberg.
+    <simpara>Copyright 2007-2020 Man Technology inc.
     This is free software; see the source for copying conditions. There is NO warranty; not even
     for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</simpara>
   </refsect1>
@@ -877,27 +876,27 @@
     <title>See Also</title>
 
     <para><citerefentry>
-        <refentrytitle>drbd.conf</refentrytitle>
+        <refentrytitle>bsr.conf</refentrytitle>
 
         <manvolnum>5</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbd</refentrytitle>
+        <refentrytitle>bsr</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbddisk</refentrytitle>
+        <refentrytitle>bsrdisk</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbdsetup</refentrytitle>
+        <refentrytitle>bsrsetup</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry>, <citerefentry>
-        <refentrytitle>drbdmeta</refentrytitle>
+        <refentrytitle>bsrmeta</refentrytitle>
 
         <manvolnum>8</manvolnum>
       </citerefentry> and the
-      <ulink url="http://www.drbd.org/"><citetitle>DRBD project web site</citetitle></ulink></para>
+      <ulink url="http://www.bsr.org/"><citetitle>BSR project web site</citetitle></ulink></para>
 
   </refsect1>
 </refentry>

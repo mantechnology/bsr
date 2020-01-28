@@ -1,13 +1,13 @@
 # vim: set foldenable foldmethod=indent sw=4 ts=8 :
 
-# Copyright 2013 Linbit HA Solutions GmbH
-# Lars Ellenberg @ linbit.com
+# Copyright 2013 Man Technology inc
+# dev3@mantech.co.kr
 
 TODO:
 	someone convert this into proper ascii doc please ;-)
 	... and draw some pictures ...
 
-How crm-fence-peer.sh, pacemaker, and the OCF Linbit DRBD resource agent
+How crm-fence-peer.sh, pacemaker, and the OCF Mantech BSR resource agent
 are supposed to work together.
 
 Two node cluster is the trickier one, because it has not real quorum.
@@ -25,20 +25,20 @@ Node reboot, possibly because of crash or stonith due to communication loss
 		crm may decide to elect itself, shoot the peer,
 		and start services.
 
-		If DRBD peer disk state is known Outdated or worse, DRBD will
+		If BSR peer disk state is known Outdated or worse, BSR will
 		switch itself to UpToDate, allowing it to be promoted,
 		without further fencing actions.
 
-		If DRBD peer disk state is DUnknown, DRBD will be only Consistent.
+		If BSR peer disk state is DUnknown, BSR will be only Consistent.
 		In case crm decides to promote this instance, the fence-peer callback
 		runs, finds the peer "unreachable", finds itself Consistent only,
-		does NOT set any constraint, and DRBD refuses to be promoted.
+		does NOT set any constraint, and BSR refuses to be promoted.
 
 		CRM will now try in an endless loop to promote this instance.
 
 		Avoid this by adding
 		param adjust_master_score="0 10 1000 10000"
-		to the DRBD resource definition.
+		to the BSR resource definition.
 
 	no replication link
 		CRM can see both nodes. [delay: crmadmin -S $peer]
@@ -61,7 +61,7 @@ Only Replication link breaks during normal operation
 		both fence-peer callbacks find DC,
 		both see node_state "reachable",
 		optionaly delay for --network-hickup timeout,
-		and if DRBD is still disconnected,
+		and if BSR is still disconnected,
 		both try to set the constraint.
 		Only one succeeds.
 
@@ -102,7 +102,7 @@ Total communication loss
 
 	The difference is the potential of data divergence.
 
-	If DRBD was configured for "fencing resource-and-stonith",
+	If BSR was configured for "fencing resource-and-stonith",
 	IO on any Primary is frozen while the fence-peer callback runs.
 
 	If stonith is enabled, timeouts should be selected so that
@@ -114,7 +114,7 @@ Total communication loss
 
 		==> Multi-Primary *requires*
 		    both node level fencing (stonith)
-		    AND drbd resource level fencing
+		    AND bsr resource level fencing
 
 	Again: Multi-Primary REQUIRES stonith enabled and working.
 
