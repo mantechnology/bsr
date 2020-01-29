@@ -2382,10 +2382,14 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 static void ensure_current_uuid(struct bsr_device *device)
 {
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
-		struct bsr_resource *resource = device->resource;
-		mutex_lock(&resource->conf_update);
-		bsr_uuid_new_current(device, false);
-		mutex_unlock(&resource->conf_update);
+		// DW-2004 the function ensure_current_uuid() updates the uuid during replication, 
+		// so if uuid update is required in D_FAILED state, please update with other function.
+		if (device->disk_state[NOW] != D_FAILED) {
+			struct bsr_resource *resource = device->resource;
+			mutex_lock(&resource->conf_update);
+			bsr_uuid_new_current(device, false);
+			mutex_unlock(&resource->conf_update);
+		}
 	}
 }
 

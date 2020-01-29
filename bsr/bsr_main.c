@@ -6387,20 +6387,33 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 	struct bsr_bitmap *bitmap = device->bitmap;
 	int bmi = peer_device->bitmap_index;
 
+	// DW-2017 in this function, to avoid deadlock a bitmap lock within the vol_ctl_mutex should not be used.
+	// if bitmap_lock is true, it was called from bsr_receiver() and the object is guaranteed to be removed after completion
+	if (!bitmap_lock)
+		// DW-1317: prevent from writing smt on volume, such as being primary and getting resync data, it doesn't allow to dismount volume also.
+		mutex_lock(&device->resource->vol_ctl_mutex);
+
+	// DW-2017 after locking, access to the object shall be made.
 	if (NULL == device ||
 		NULL == peer_device ||
-		(side != L_SYNC_SOURCE && side != L_SYNC_TARGET))
-	{
-		bsr_err(peer_device,"Invalid parameter, device(0x%p), peer_device(0x%p), side(%s)\n", device, peer_device, bsr_repl_str(side));
+		(side != L_SYNC_SOURCE && side != L_SYNC_TARGET)) {
+		// DW-2017 change log output based on peer_device status
+		if (peer_device)
+			bsr_err(peer_device,"Invalid parameter side(%s)\n", bsr_repl_str(side));
+		else
+			bsr_err(NO_OBJECT, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+
+		if (!bitmap_lock)
+			mutex_unlock(&device->resource->vol_ctl_mutex);
+
 		return false;
 	}
-
-	// DW-1317 prevent from writing smt on volume, such as being primary and getting resync data, it doesn't allow to dismount volume also.
-	mutex_lock(&device->resource->vol_ctl_mutex);
 
 	// DW-1317 inspect resync side first, before get the allocated bitmap.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
 		bsr_warn(peer_device, "can't be %s\n", bsr_repl_str(side));
+		if (!bitmap_lock)
+			mutex_unlock(&device->resource->vol_ctl_mutex);
 		goto out;
 	}
 
@@ -6409,8 +6422,11 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bsr_bm_slot_lock(peer_device, "initial sync for allocated cluster", BM_LOCK_BULK);
 	bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
 	bsr_bm_write(device, NULL);
-	if (bitmap_lock)
+	if (bitmap_lock) {
 		bsr_bm_slot_unlock(peer_device);
+		// DW-2017
+		mutex_lock(&device->resource->vol_ctl_mutex);
+	}
 	
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
@@ -6421,7 +6437,8 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		else if (side == L_SYNC_TARGET) {
 			bsr_info(peer_device,"I am a sync target, wait to receive source's bitmap\n");
 			bRet = true;
-			goto out;			
+			mutex_unlock(&device->resource->vol_ctl_mutex);
+			goto out;
 		}
 	}
 
@@ -6474,12 +6491,16 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	} while (false);
 
-	bsr_info(peer_device, "%llu bits(%llu KB) have been set as out-of-sync\n", (unsigned long long)bitmap->bm_set[bmi], (unsigned long long)(bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
+	bsr_info(peer_device, "%llu bits(%llu KB) have been set as out-of-sync\n", 
+			(unsigned long long)bitmap->bm_set[bmi], (unsigned long long)(bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
 
 	// DW-1495 Change location due to deadlock(bm_change)
 	// Set out-of-sync for allocated cluster.
-	if (bitmap_lock)
+	if (bitmap_lock) {
+		// DW-2017
+		mutex_unlock(&device->resource->vol_ctl_mutex);
 		bsr_bm_lock(device, "Set out-of-sync for allocated cluster", BM_LOCK_CLEAR | BM_LOCK_BULK);
+	}
 	count = SetOOSFromBitmap(pBitmap, peer_device);
 	if (bitmap_lock)
 		bsr_bm_unlock(device);
@@ -6489,7 +6510,8 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bRet = false;
 	}
 	else{
-		bsr_info(peer_device, "%llu bits(%llu KB) are set as new out-of-sync\n", (unsigned long long)count, (unsigned long long)(count << (BM_BLOCK_SHIFT - 10)));
+		bsr_info(peer_device, "%llu bits(%llu KB) are set as new out-of-sync\n", 
+				(unsigned long long)count, (unsigned long long)(count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
 		
@@ -6499,9 +6521,10 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		pBitmap = NULL;
 	}
 
-out:
-	mutex_unlock(&device->resource->vol_ctl_mutex);
+	if (!bitmap_lock)
+		mutex_unlock(&device->resource->vol_ctl_mutex);
 
+out:
 	return bRet;
 }
 

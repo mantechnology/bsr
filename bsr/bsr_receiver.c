@@ -5885,7 +5885,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %uk, c_max_rate : %uk, c_min_rate : %uk\n",
+		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
@@ -8649,6 +8649,8 @@ static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr
 			bsr_repl_str(peer_device->repl_state[NOW]));
 		// DW-1613 Reconnect the UUID because it might not be received properly due to a synchronization issue.
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
+		// DW-2014 error return for reconnect
+		return -EAGAIN;
 	}
 
 	if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
@@ -8983,13 +8985,16 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 	if (connection->peer_role[NOW] == R_UNKNOWN)
 		return 0;
 
+	// DW-1975 If the current uuid is updated, the remaining bitmap uuid is also removed.
 	if (current_uuid == bsr_current_uuid(device)) {
-		// DW-1975 If the current uuid is updated, the remaining bitmap uuid is also removed.
 		struct bsr_device *device = peer_device->device;
-		struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
-		if (peer_md->bitmap_uuid != 0) { 
-			bsr_info(peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)\n", current_uuid, peer_md->bitmap_uuid);
-			bsr_uuid_set_bitmap(peer_device, 0);
+		// DW-2009 initialize the bitmap uuid only in specific condition
+		if (bsr_current_uuid(device) != 0 && device->ldev) {
+			struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
+			if (peer_md->bitmap_uuid != 0) {
+				bsr_info(peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)\n", current_uuid, peer_md->bitmap_uuid);
+				bsr_uuid_set_bitmap(peer_device, 0);
+			}
 		}
 
 		return 0;

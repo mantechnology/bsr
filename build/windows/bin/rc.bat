@@ -107,14 +107,7 @@ REM ------------------------------------------------------------------------
 
 @echo off
 
-if "%2" == "force" (
-	echo Force Stopping all BSR resources
-	bsradm disconnect --force all
-	timeout /t 3 /NOBREAK > nul
-) else (
-	echo Stopping all BSR resources
-)
-
+echo Stopping all BSR resources
 bsradm down all
 timeout /t 3 /NOBREAK > nul
 
