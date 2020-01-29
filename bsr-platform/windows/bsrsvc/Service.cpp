@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ SERVICE_TABLE_ENTRY		g_lpServiceStartTable[] =
 
 SERVICE_STATUS_HANDLE   g_hServiceStatusHandle;
 SERVICE_STATUS          g_tServiceStatus;
-WCHAR					*g_pwbsrRcBat = L"rc.bat";
+WCHAR					*g_pbsrRcBat = L"rc.bat";
 TCHAR                   gServicePath[MAX_PATH];
 
 VOID WriteLogFormat(WCHAR* msg, ...)
@@ -778,12 +778,12 @@ DWORD RcBsrStart()
 
 	WriteLog(L"rc_bsr_start");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwbsrRcBat) + 4) > MAX_PATH) {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pbsrRcBat) + 4) > MAX_PATH) {
         _stprintf_s(tmp, _T("Error: cmd too long(%d)\n"), dwLength);
         WriteLog(tmp);
         return -1;
     }
-    _stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws"), gServicePath, g_pwbsrRcBat, _T("start"));
+    _stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws"), gServicePath, g_pbsrRcBat, _T("start"));
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 
     if (ret) {
@@ -804,12 +804,12 @@ DWORD RcBsrStop()
 	
 	WriteLog(L"rc_bsr_stop");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwbsrRcBat) + 4 + 6) > MAX_PATH) {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pbsrRcBat) + 4 + 6) > MAX_PATH) {
         wsprintf(tmp, L"Error: cmd too long(%d)\n", dwLength);
         WriteLog(tmp);
         return -1;
     }
-    wsprintf(szFullPath, L"\"%ws\\%ws\" %ws", gServicePath, g_pwbsrRcBat, L"stop");
+    wsprintf(szFullPath, L"\"%ws\\%ws\" %ws", gServicePath, g_pbsrRcBat, L"stop");
 
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	

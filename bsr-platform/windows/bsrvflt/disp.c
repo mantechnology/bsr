@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     ULONG				i;
 
 	// init logging system first
-	wbsr_logger_init();
+	bsr_logger_init();
 
     bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
 
@@ -132,7 +132,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	
 #ifdef _WIN_WPP
 	WPP_INIT_TRACING(DriverObject, RegistryPath);
-	DoTraceMessage(TRCINFO, "WBSR V9(1:1) MVF Driver loaded.");
+	DoTraceMessage(TRCINFO, "BSR V9(1:1) MVF Driver loaded.");
 #endif
 
 	bsrStartupCallback();
@@ -151,7 +151,7 @@ mvolUnload(IN PDRIVER_OBJECT DriverObject)
 #ifdef _WIN_WPP
 	WPP_CLEANUP(DriverObject);
 #endif
-	wbsr_logger_cleanup();
+	bsr_logger_cleanup();
 	bsrCleanupCallback();
 	WskPutNPI();
 }

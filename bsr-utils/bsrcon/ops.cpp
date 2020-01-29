@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -118,11 +118,11 @@ MVOL_GetVolumesInfo(BOOLEAN verbose)
 	}
 
 	res = ERROR_SUCCESS;
-	int count = dwReturned / sizeof(WBSR_VOLUME_ENTRY);
-	//printf("size(%d) count(%d) sizeof(WBSR_VOLUME_ENTRY)(%d)\n", dwReturned, count, sizeof(WBSR_VOLUME_ENTRY));
+	int count = dwReturned / sizeof(BSR_VOLUME_ENTRY);
+	//printf("size(%d) count(%d) sizeof(BSR_VOLUME_ENTRY)(%d)\n", dwReturned, count, sizeof(BSR_VOLUME_ENTRY));
 
 	for (int i = 0; i < count; ++i) {
-		PWBSR_VOLUME_ENTRY pEntry = ((PWBSR_VOLUME_ENTRY)buffer) + i;
+		PBSR_VOLUME_ENTRY pEntry = ((PBSR_VOLUME_ENTRY)buffer) + i;
 		printf("--------------------------------------------------------------------------------------\n");
 		printf( "   Physical Device Name| %ws\n"
 				"                  Minor| %d\n"

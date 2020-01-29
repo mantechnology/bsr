@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -43,17 +43,17 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 
 	PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 	ULONG outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-	if (outlen < (count * sizeof(WBSR_VOLUME_ENTRY))) {
-		//bsr_err(NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(WBSR_VOLUME_ENTRY)) );
-		*ReturnLength = count * sizeof(WBSR_VOLUME_ENTRY);
+	if (outlen < (count * sizeof(BSR_VOLUME_ENTRY))) {
+		//bsr_err(NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(BSR_VOLUME_ENTRY)) );
+		*ReturnLength = count * sizeof(BSR_VOLUME_ENTRY);
 		status = STATUS_BUFFER_TOO_SMALL;
 		goto out;
 	}
 
-	PWBSR_VOLUME_ENTRY pventry = (PWBSR_VOLUME_ENTRY)Irp->AssociatedIrp.SystemBuffer;
+	PBSR_VOLUME_ENTRY pventry = (PBSR_VOLUME_ENTRY)Irp->AssociatedIrp.SystemBuffer;
 	PVOLUME_EXTENSION pvext = prext->Head;
 	for ( ; pvext; pvext = pvext->Next, pventry++) {
-		RtlZeroMemory(pventry, sizeof(WBSR_VOLUME_ENTRY));
+		RtlZeroMemory(pventry, sizeof(BSR_VOLUME_ENTRY));
 
 		RtlCopyMemory(pventry->PhysicalDeviceName, pvext->PhysicalDeviceName, pvext->PhysicalDeviceNameLength);
 		RtlCopyMemory(pventry->MountPoint, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
@@ -72,7 +72,7 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 		}
 	}
 
-	*ReturnLength = count * sizeof(WBSR_VOLUME_ENTRY);
+	*ReturnLength = count * sizeof(BSR_VOLUME_ENTRY);
 out:
 	MVOL_UNLOCK();
 

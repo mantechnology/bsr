@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ int g_netlink_tcp_port;
 int g_daemon_tcp_port;
 LARGE_INTEGER g_frequency = { .QuadPart = 0 };		// DW-1961
 
-// minimum levels of logging, below indicates default values. it can be changed when WBSR receives IOCTL_MVOL_SET_LOGLV_MIN.
+// minimum levels of logging, below indicates default values. it can be changed when BSR receives IOCTL_MVOL_SET_LOGLV_MIN.
 atomic_t g_eventlog_lv_min = LOG_LV_DEFAULT_EVENTLOG;
 atomic_t g_dbglog_lv_min = LOG_LV_DEFAULT_DBG;
 
@@ -659,7 +659,7 @@ void mempool_free(void *p, mempool_t *pool)
 void mempool_destroy(void *p)
 {
 	UNREFERENCED_PARAMETER(p);
-	// we don't need to free mempool. wbsr is static loading driver.
+	// we don't need to free mempool. bsr is static loading driver.
 }
 
 void kmem_cache_destroy(struct kmem_cache *s)

@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -313,11 +313,11 @@ extern atomic_t g_dbglog_lv_min;
 
 #define MAX_SPILT_BLOCK_SZ			(1 << 20)
 
-#define WBSR_THREAD_POINTER
+#define BSR_THREAD_POINTER
 
 #define FLTR_COMPONENT              DPFLTR_DEFAULT_ID
 //#define FLTR_COMPONENT              DPFLTR_IHVDRIVER_ID
-#define FEATURE_WBSR_PRINT
+#define FEATURE_BSR_PRINT
 
 extern void printk_init(void);
 extern void printk_cleanup(void);
@@ -328,8 +328,8 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 #endif
 
 #ifdef _WIN_EVENTLOG
-#define wbsr_logger_init()		printk_init();
-#define wbsr_logger_cleanup()	printk_cleanup();
+#define bsr_logger_init()		printk_init();
+#define bsr_logger_cleanup()	printk_cleanup();
 #define printk(format, ...)   \
     _printk(__FUNCTION__, format, __VA_ARGS__)
 #else
@@ -1423,7 +1423,7 @@ static int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 	UNREFERENCED_PARAMETER(bdev);
 	UNREFERENCED_PARAMETER(gfp_mask);
 	UNREFERENCED_PARAMETER(discard);
-	// WBSR: Not support
+	// BSR: Not support
 	return 0;
 }
 

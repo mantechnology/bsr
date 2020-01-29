@@ -240,7 +240,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_debug_conn	
 #define bsr_debug_al
 
-#ifndef FEATURE_WBSR_PRINT
+#ifndef FEATURE_BSR_PRINT
 #define bsr_err     __noop
 #define bsr_warn      __noop
 #define bsr_debug     __noop

@@ -52,8 +52,7 @@ case "$0" in
 		BODY="
 BSR has detected split brain on resource $pretty_print
 between $BSR_LOCAL_HOST and $BSR_PEER.
-Please rectify this immediately.
-Please see http://www.bsr.org/users-guide/s-resolve-split-brain.html for details on doing so."
+Please rectify this immediately."
 		;;
 	*out-of-sync.sh)
 		SUBJECT="BSR resource $pretty_print has out-of-sync blocks"

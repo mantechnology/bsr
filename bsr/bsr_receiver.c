@@ -189,7 +189,7 @@ static void * __bsr_alloc_pages(unsigned int number)
 	/* Yes, testing bsr_pp_vacant outside the lock is racy.
 	* So what. It saves a spin_lock. */
 	
-	// DW-1457 checking bsr_pp_vacant has been removed, WBSR has no allocated memory pool but allocates as it needs.
+	// DW-1457 checking bsr_pp_vacant has been removed, BSR has no allocated memory pool but allocates as it needs.
 	void * mem = kmalloc(number * PAGE_SIZE, 0, '17DW');
 	if (mem) {
 		spin_lock(&bsr_pp_lock);
@@ -436,7 +436,7 @@ struct page *bsr_alloc_pages(struct bsr_transport *transport, unsigned int numbe
  * Either links the page chain back to the global pool,
  * or returns all pages to the system. */
 #ifdef _WIN
-/* wbsr actually don't allocate page pool. it only manage page_count for pool_size, and then it doesn't free memory
+/* bsr actually don't allocate page pool. it only manage page_count for pool_size, and then it doesn't free memory
 * this part is differnce with __bsr_free_peer_req().
 */
 void bsr_free_pages(struct bsr_transport *transport, int page_count, int is_net) // redefinition with page_count param.

@@ -278,7 +278,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 			//ZwClose (attr->send_buf_thread_handle);
             attr->send_buf_thread_handle = NULL;
 
-			// BSR-12 its code present in sock_release() of wbsr.
+			// BSR-12 its code present in sock_release() of bsr.
 			if(attr->bab) {
 				if(attr->bab->static_big_buf) {
 					kvfree(attr->bab->static_big_buf);

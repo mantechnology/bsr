@@ -3711,7 +3711,7 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(bdi_bits);
 	UNREFERENCED_PARAMETER(congested_data);
-	// WBSR: not support data socket congestion
+	// BSR: not support data socket congestion
 	// In V8.x, bsr_congested is called at bsr_seq_show, but In V9.x, not called , maybe replace with DEBUGFS
 	return 0;
 #else // _LIN
@@ -4754,7 +4754,7 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 
 	// BSR-426 repositioned req_lock to resolve deadlock.
 	// BSR-447 req_lock spinlock should precede the rcu lock.
-	// false the locked parameter at end_state_change_locked() in wbsr causes synchronization problems, the parameter is false if it is locked by req_lock spinlock.
+	// false the locked parameter at end_state_change_locked() in bsr causes synchronization problems, the parameter is false if it is locked by req_lock spinlock.
 	spin_lock_irq(&resource->req_lock);
 #ifdef _WIN
 	// DW-1465 Requires rcu wlock because list_del_rcu().

@@ -54,7 +54,7 @@ int bsr_seq_show(struct seq_file *seq, void *v)
 {
 	UNREFERENCED_PARAMETER(v);
 
-	seq_printf(seq, "WBSR:%s\nLBSR: " REL_VERSION " (api:%d/proto:%d-%d)\n",
+	seq_printf(seq, "BSR:%s\nLBSR: " REL_VERSION " (api:%d/proto:%d-%d)\n",
 		bsr_buildtag(),GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
 	bsr_print_transports_loaded(seq);
 

@@ -5028,8 +5028,6 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		uint64_t evsm;		// Estimated Vhd Size per MiB
 		evsm = _get_bdev_size_by_letter('C' + cfg->minor); // per bytes
 		evsm = ((evsm >> 20) / 32768) * max_peers
-			/* refer to 
-			http://www.bsr.org/en/doc/users-guide-90/ch-internals#s-meta-data-size */
 			+ 1		/* for bsr reservation */
 			+ 7;	/* for vhd reservation */
 

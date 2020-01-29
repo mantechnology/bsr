@@ -1,6 +1,6 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wbsr@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
 	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ typedef struct _MVOL_SYNC_REQ
 } MVOL_SYNC_REQ, *PMVOL_SYNC_REQ;
 
 #define _WIN_MULTIVOL_THREAD
-typedef struct _WBSR_VOLUME_ENTRY
+typedef struct _BSR_VOLUME_ENTRY
 {
 	WCHAR		PhysicalDeviceName[MAXDEVICENAME];
 	WCHAR		MountPoint[MAXDEVICENAME];
@@ -97,7 +97,7 @@ typedef struct _WBSR_VOLUME_ENTRY
 	BOOLEAN		ThreadActive;
 	BOOLEAN		ThreadExit;
 #endif
-} WBSR_VOLUME_ENTRY, *PWBSR_VOLUME_ENTRY;
+} BSR_VOLUME_ENTRY, *PBSR_VOLUME_ENTRY;
 
 #define SIMUL_DISK_IO_ERROR_FLAG0		0 // No Disk Error 
 #define SIMUL_DISK_IO_ERROR_FLAG1		1 // Continuous Disk Error Flag
