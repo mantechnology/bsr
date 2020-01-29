@@ -1,5 +1,5 @@
-#ifndef __DRBD_INTERVAL_H
-#define __DRBD_INTERVAL_H
+#ifndef __BSR_INTERVAL_H
+#define __BSR_INTERVAL_H
 
 #ifdef _WIN
 #include "../bsr-headers/windows/types.h"
@@ -44,7 +44,7 @@ static inline void rb_set_parent(struct rb_node *rb, struct rb_node *p)
 #endif
 /* /Compatibility code */
 
-struct drbd_interval {
+struct bsr_interval {
 	struct rb_node rb;
 	sector_t sector;		/* start sector of the interval */
 	unsigned int size;		/* size in bytes */
@@ -55,28 +55,28 @@ struct drbd_interval {
 					 * ignore for conflict detection */
 };
 
-static inline void drbd_clear_interval(struct drbd_interval *i)
+static inline void bsr_clear_interval(struct bsr_interval *i)
 {
 	RB_CLEAR_NODE(&i->rb);
 }
 
-static inline bool drbd_interval_empty(struct drbd_interval *i)
+static inline bool bsr_interval_empty(struct bsr_interval *i)
 {
 	return RB_EMPTY_NODE(&i->rb);
 }
 
-extern bool drbd_insert_interval(struct rb_root *, struct drbd_interval *);
-extern bool drbd_contains_interval(struct rb_root *, sector_t,
-				   struct drbd_interval *);
-extern void drbd_remove_interval(struct rb_root *, struct drbd_interval *);
-extern struct drbd_interval *drbd_find_overlap(struct rb_root *, sector_t,
+extern bool bsr_insert_interval(struct rb_root *, struct bsr_interval *);
+extern bool bsr_contains_interval(struct rb_root *, sector_t,
+				   struct bsr_interval *);
+extern void bsr_remove_interval(struct rb_root *, struct bsr_interval *);
+extern struct bsr_interval *bsr_find_overlap(struct rb_root *, sector_t,
 					unsigned int);
-extern struct drbd_interval *drbd_next_overlap(struct drbd_interval *, sector_t,
+extern struct bsr_interval *bsr_next_overlap(struct bsr_interval *, sector_t,
 					unsigned int);
 
-#define drbd_for_each_overlap(i, root, sector, size)		\
-	for (i = drbd_find_overlap(root, sector, size);		\
+#define bsr_for_each_overlap(i, root, sector, size)		\
+	for (i = bsr_find_overlap(root, sector, size);		\
 	     i;							\
-	     i = drbd_next_overlap(i, sector, size))
+	     i = bsr_next_overlap(i, sector, size))
 
-#endif  /* __DRBD_INTERVAL_H */
+#endif  /* __BSR_INTERVAL_H */

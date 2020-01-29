@@ -1,23 +1,21 @@
-# Makefile for drbd
+# Makefile for bsr
 #
-# This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+# This file is part of BSR by Man Technology inc.
 #
-# Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-# Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-# Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+# Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 #
-# drbd is free software; you can redistribute it and/or modify
+# bsr is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# drbd is distributed in the hope that it will be useful,
+# bsr is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with drbd
+# along with bsr
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 
@@ -144,7 +142,7 @@ check check_changelogs_up2date:
 	   printf "\nChangeLog:3:\tneeds update\n"; 				\
 	   up2date=false; fi ; 							\
 	if test -e debian/changelog 						\
-	&& ! grep -H "^bsr ($$dver\(+linbit\)\?[-~]$$drel" debian/changelog; \
+	&& ! grep -H "^bsr ($$dver\(+mantech\)\?[-~]$$drel" debian/changelog; \
 	then 									\
 	   printf "\n\tdebian/changelog:1: needs update\n"; 			\
 	   up2date=false; fi ; 							\

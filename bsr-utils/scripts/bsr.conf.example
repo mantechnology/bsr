@@ -58,7 +58,7 @@ resource "ipv6_example_res" {
 	}
 
 	volume 2 {
-		device	"/dev/drbd_fancy_name" minor 0;
+		device	"/dev/bsr_fancy_name" minor 0;
 		disk	/dev/vg0/example2;
 		meta-disk internal;
 	}
@@ -142,8 +142,8 @@ resource stacked_multi_volume {
 
 		proxy on charly {
 			# In the regular production site, there is a dedicated host to run
-			# DRBD-proxy
-			inside    192.168.23.24:7780; # for connections to DRBD
+			# BSR-proxy
+			inside    192.168.23.24:7780; # for connections to BSR
 			outside   172.16.17.18:7780; # for connections over the WAN or VPN
 			options {
 				memlimit 1G; # Additional proxy options are possible here
@@ -171,7 +171,7 @@ resource stacked_multi_volume {
 	}
 }
 
-resource drbd_9_two_connection {
+resource bsr_9_two_connection {
 	volume 0 {
 	       device minor 19;
 	       disk /dev/foo/bar;
@@ -237,7 +237,7 @@ resource drbd_9_two_connection {
 	}
 }
 
-resource drbd_9_mesh {
+resource bsr_9_mesh {
     options {
         quorum majority;
         on-no-quorum io-error;
@@ -269,7 +269,7 @@ resource drbd_9_mesh {
 	}
 }
 
-resource drbd_9_multi_path {
+resource bsr_9_multi_path {
 	volume 0 {
 	       device minor 12;
 	       disk /dev/foo/bar3;

@@ -36,7 +36,7 @@ usage()
 {
 	printf("usage: bsrcon cmds options \n\n"
 		"cmds:\n"
-		/*"   /proc/drbd \n"*/
+		/*"   /proc/bsr \n"*/
 		/*"   /get_volume_size \n"*/
 		"   /nodelayedack [ip|guid]\n"
         "   /delayedack_enable [ip|guid]\n"
@@ -63,9 +63,9 @@ usage()
 		
 	printf("   /write_log [ProviderName] \"[LogData]\" \n"
 		"   /handler_use [0,1]\n"
-		"	/drbdlock_status\n"
+		"	/bsrlock_status\n"
 		"   /info\n"
-		"   /status : drbd version\n"
+		"   /status : bsr version\n"
 		"	/get_log_lv\n"
 
 		"\n\n"
@@ -75,7 +75,7 @@ usage()
 		"\n\n"
 
 		"examples:\n"
-/*		"bsrcon /proc/drbd\n"*/
+/*		"bsrcon /proc/bsr\n"*/
 /*		"bsrcon /status\n"*/
 /*		"bsrcon /s\n"*/
         "bsrcon /nodelayedack 10.10.0.1 \n"
@@ -94,7 +94,7 @@ usage()
 	exit(ERROR_INVALID_PARAMETER);
 }
 
-const TCHAR gDrbdRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsr\\volumes");
+const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsr\\volumes");
 
 static
 DWORD DeleteVolumeReg(TCHAR letter)
@@ -112,7 +112,7 @@ DWORD DeleteVolumeReg(TCHAR letter)
 
 	LONG lResult = ERROR_SUCCESS;
 
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gDrbdRegistryPath, 0, KEY_ALL_ACCESS, &hKey);
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistryPath, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
 		if (lResult == ERROR_FILE_NOT_FOUND) {
 			fprintf(stderr, "Key not found\n");
@@ -153,12 +153,12 @@ BOOL GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 {
 	HKEY hKey = NULL;
 	LONG lResult = ERROR_SUCCESS;
-	const TCHAR drbdRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD logLevel = 0;
 
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, drbdRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
 		return FALSE;
 	}
@@ -194,8 +194,8 @@ main(int argc, char* argv [])
 	int  	argIndex = 0;
 	UCHAR	Letter = 'C';
 	char	GetVolumeSizeFlag = 0;
-	char	ProcDrbdFlag = 0;
-	char	ProcDrbdFlagWithLetter = 0;
+	char	ProcBsrFlag = 0;
+	char	ProcBsrFlagWithLetter = 0;
     char    DelayedAckEnableFlag = 0;
     char    DelayedAckDisableFlag = 0;
 	char	HandlerUseFlag = 0;
@@ -215,7 +215,7 @@ main(int argc, char* argv [])
 	char	*ProviderName = NULL;
 	char	*LoggingData = NULL;
 	char	VolumesInfoFlag = 0;
-	char	Drbdlock_status = 0;
+	char	Bsrlock_status = 0;
 	char	Verbose = 0;
 	char	*resourceName = NULL;
 	int     Force = 0;
@@ -272,7 +272,7 @@ main(int argc, char* argv [])
 						OosTrace++;
 					else if (!resourceName) {
 						resourceName = argv[argIndex];
-						//6 additional parsing data length (">drbd ")
+						//6 additional parsing data length (">bsr ")
 						if (strlen(resourceName) > MAX_PATH - 6)
 							usage();
 					}
@@ -349,11 +349,11 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (!strcmp(argv[argIndex], "/proc/drbd")) {
-			ProcDrbdFlag++;
+		else if (!strcmp(argv[argIndex], "/proc/bsr")) {
+			ProcBsrFlag++;
 		}
 		else if (!strcmp(argv[argIndex], "/status") || !strcmp(argv[argIndex], "/s")) {
-			ProcDrbdFlagWithLetter++;
+			ProcBsrFlagWithLetter++;
 		}
 		else if (!_stricmp(argv[argIndex], "/d")) {
             DismountFlag++;
@@ -438,8 +438,8 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
-		else if (!strcmp(argv[argIndex], "/drbdlock_status")) {
-			Drbdlock_status++;
+		else if (!strcmp(argv[argIndex], "/bsrlock_status")) {
+			Bsrlock_status++;
 		}
 		else if (!strcmp(argv[argIndex], "/info")) {
 			VolumesInfoFlag++;
@@ -482,7 +482,7 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-	if (ProcDrbdFlag) {
+	if (ProcBsrFlag) {
 		MVOL_VOLUME_INFO VolumeInfo = {0,};
 
 		res = MVOL_GetStatus( &VolumeInfo );
@@ -496,7 +496,7 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-	if (ProcDrbdFlagWithLetter) {
+	if (ProcBsrFlagWithLetter) {
 		MVOL_VOLUME_INFO VolumeInfo = { 0, };
 		CHAR tmpSeq[sizeof(VolumeInfo.Seq)] = { NULL };
 		CHAR *line, *cline;
@@ -561,7 +561,7 @@ main(int argc, char* argv [])
 		res = MVOL_MountVolume(Letter);
 		if (ERROR_SUCCESS == res) {
 			if (ERROR_SUCCESS == DeleteVolumeReg(Letter)) {
-				fprintf(stderr, "%c: is Mounted, not any more drbd volume.\nRequire to delete a resource file.\n", Letter);
+				fprintf(stderr, "%c: is Mounted, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
 			}
 		}
 	}
@@ -576,7 +576,7 @@ main(int argc, char* argv [])
 
 	if (GetLog) {
 		//res = CreateLogFromEventLog( (LPCSTR)ProviderName );
-		res = MVOL_GetDrbdLog(ProviderName, resourceName, OosTrace);
+		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
 	}
 #ifdef _WIN_DEBUG_OOS
 	if (ConvertOosLog) {
@@ -601,8 +601,8 @@ main(int argc, char* argv [])
 		return res;
 	}
 
-	if (Drbdlock_status) {
-		res = GetDrbdlockStatus();
+	if (Bsrlock_status) {
+		res = GetBsrlockStatus();
 	}
 
 	if (HandlerUseFlag) {

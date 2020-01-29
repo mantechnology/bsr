@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -100,10 +100,10 @@ mvolStartDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 }
 
 static
-enum drbd_disk_state get_disk_state2(struct drbd_device *device)
+enum bsr_disk_state get_disk_state2(struct bsr_device *device)
 {
-	struct drbd_resource *resource = device->resource;
-	enum drbd_disk_state disk_state;
+	struct bsr_resource *resource = device->resource;
+	enum bsr_disk_state disk_state;
 
 	spin_lock_irq(&resource->req_lock);
 	disk_state = device->disk_state[NOW];
@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		drbd_err(NO_OBJECT,"cannot remove device, status=0x%x\n", status);
+		bsr_err(NO_OBJECT,"cannot remove device, status=0x%x\n", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -146,7 +146,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #else
 	if (VolumeExtension->WorkThreadInfo.Active) {
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
-		drbd_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
+		bsr_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
 	}
 #endif
 
@@ -157,36 +157,36 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 	if (VolumeExtension->dev) {
 		// DW-1300 get device and get reference.
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, FALSE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, FALSE);
 		if (device) {
 			if (get_disk_state2(device) >= D_INCONSISTENT) {
-				drbd_chk_io_error(device, 1, DRBD_FORCE_DETACH);
+				bsr_chk_io_error(device, 1, BSR_FORCE_DETACH);
 
 				long timeo = 3 * HZ;
 				wait_event_interruptible_timeout_ex(device->misc_wait,
 					 get_disk_state2(device) != D_FAILED, timeo, timeo);
 			}			
 			// DW-1300 put device reference count when no longer use.
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
 		}
 		
 		// DW-1109 put ref count that's been set as 1 when initialized, in add device routine.
-		// deleting block device can be defered if drbd device is using.		
+		// deleting block device can be defered if bsr device is using.		
 		blkdev_put(VolumeExtension->dev, 0);
 	}
 
-	// DW-1277 check volume type we marked when drbd attaches.
+	// DW-1277 check volume type we marked when bsr attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		drbd_info(NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		drbd_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		drbd_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
 	FreeUnicodeString(&VolumeExtension->MountPoint);
@@ -229,7 +229,7 @@ mvolDeviceUsage(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 }
 
 int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, struct splitInfo *splitInfo,
-    long split_id, long split_total_id, long split_total_length, struct drbd_device *device, PVOID buffer, LARGE_INTEGER offset, ULONG length)
+    long split_id, long split_total_id, long split_total_length, struct bsr_device *device, PVOID buffer, LARGE_INTEGER offset, ULONG length)
 {
 	NTSTATUS				status;
 	struct bio				*bio;
@@ -255,7 +255,7 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 	// save original Master Irp's Stack Flags
 	bio->MasterIrpStackFlags = ((PIO_STACK_LOCATION)IoGetCurrentIrpStackLocation(upper_pirp))->Flags;
 
-	status = drbd_make_request(device->rq_queue, bio); // drbd local I/O entry point 
+	status = bsr_make_request(device->rq_queue, bio); // bsr local I/O entry point 
 	if (STATUS_SUCCESS != status) {
 		bio_free(bio);
 		status = STATUS_INSUFFICIENT_RESOURCES;
@@ -272,7 +272,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 	PVOID						buffer;
 	LARGE_INTEGER				offset;
 	ULONG						length;
-	struct drbd_device*			device = NULL;
+	struct bsr_device*			device = NULL;
 
 	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	if (Irp->MdlAddress) {
@@ -333,7 +333,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					drbd_err(NO_OBJECT,"HOOKER malloc fail!!!\n");
+					bsr_err(NO_OBJECT,"HOOKER malloc fail!!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -360,7 +360,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					drbd_err(NO_OBJECT,"HOOKER rest malloc fail!!\n");
+					bsr_err(NO_OBJECT,"HOOKER rest malloc fail!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -385,12 +385,12 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 	}
 
 fail_put_dev:
-	// DW-1300 failed to go through drbd engine, the irp will be completed with failed status and complete_master_bio won't be called, put reference here.
+	// DW-1300 failed to go through bsr engine, the irp will be completed with failed status and complete_master_bio won't be called, put reference here.
 	if (device)
-		kref_put(&device->kref, drbd_destroy_device);
+		kref_put(&device->kref, bsr_destroy_device);
 
 fail:
-	drbd_err(NO_OBJECT,"failed. status=0x%x\n", status);
+	bsr_err(NO_OBJECT,"failed. status=0x%x\n", status);
 	return status;
 }
 
@@ -408,7 +408,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        drbd_err(NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
+        bsr_err(NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -416,7 +416,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-        drbd_err(NO_OBJECT,"cannot alloc new IRP\n");
+        bsr_err(NO_OBJECT,"cannot alloc new IRP\n");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -427,7 +427,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"cannot get volume information, err=0x%x\n", status);
+        bsr_err(NO_OBJECT,"cannot get volume information, err=0x%x\n", status);
         return status;
     }
 
@@ -474,7 +474,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	FreeUnicodeString(&pvext->VolumeGuid);
 	pvext->Minor = 0;
 	
-	drbd_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
 	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
 
 		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
@@ -484,7 +484,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 			.MaximumLength = p->SymbolicLinkNameLength,
 			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
 
-		drbd_info(NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
+		bsr_info(NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
 
 		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
 
@@ -494,22 +494,22 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 
 			link = &pvext->MountPoint;
 			//FreeUnicodeString(link);
-			drbd_debug(NO_OBJECT,"Free letter link\n");
+			bsr_debug(NO_OBJECT,"Free letter link\n");
 		}
 		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
 
 			link = &pvext->VolumeGuid;
 			//FreeUnicodeString(link);
-			drbd_debug(NO_OBJECT,"Free volume guid link\n");
+			bsr_debug(NO_OBJECT,"Free volume guid link\n");
 		}
 
 		if(link) {
 			ucsdup(link, name.Buffer, name.Length);
-			drbd_debug(NO_OBJECT,"link alloc\n");
+			bsr_debug(NO_OBJECT,"link alloc\n");
 		}
 		
 	}
-	drbd_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
 cleanup:
 	kfree(inbuf);
 	kfree(otbuf);
@@ -566,7 +566,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		drbd_err(NO_OBJECT,"cannot alloc Log Entry\n");
+		bsr_err(NO_OBJECT,"cannot alloc Log Entry\n");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
@@ -679,7 +679,7 @@ void _printk(const char * func, const char * format, ...)
 	totallogcnt = InterlockedIncrement64(&gTotalLogCnt);
 	
 	buf = gLogBuf[logcnt];
-	RtlZeroMemory(buf, MAX_DRBDLOG_BUF);
+	RtlZeroMemory(buf, MAX_BSRLOG_BUF);
 //#define TOTALCNT_OFFSET	(9)
 //#define TIME_OFFSET		(TOTALCNT_OFFSET+24)	//"00001234 08/02/2016 13:24:13.123 "
 	KeQuerySystemTime(&systemTime);
@@ -687,7 +687,7 @@ void _printk(const char * func, const char * format, ...)
 
     RtlTimeToTimeFields(&localTime, &timeFields);
 
-	offset = _snprintf(buf, MAX_DRBDLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
+	offset = _snprintf(buf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
 										totallogcnt,
 										timeFields.Month,
 										timeFields.Day,
@@ -702,33 +702,33 @@ void _printk(const char * func, const char * format, ...)
 
 	switch (level_index) {
 	case KERN_EMERG_NUM: case KERN_ALERT_NUM: case KERN_CRIT_NUM: 
-		printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf+offset, "drbd_crit", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf+offset, "bsr_crit", LEVEL_OFFSET); break;
 	case KERN_ERR_NUM: 
-		printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf+offset, "drbd_erro", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf+offset, "bsr_erro", LEVEL_OFFSET); break;
 	case KERN_WARNING_NUM: 
-		printLevel = DPFLTR_WARNING_LEVEL; memcpy(buf+offset, "drbd_warn", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_WARNING_LEVEL; memcpy(buf+offset, "bsr_warn", LEVEL_OFFSET); break;
 	case KERN_NOTICE_NUM: case KERN_INFO_NUM: 
-		printLevel = DPFLTR_INFO_LEVEL; memcpy(buf+offset, "drbd_info", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_INFO_LEVEL; memcpy(buf+offset, "bsr_info", LEVEL_OFFSET); break;
 	case KERN_DEBUG_NUM: 
-		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf+offset, "drbd_trac", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf+offset, "bsr_trac", LEVEL_OFFSET); break;
 	case KERN_OOS_NUM:
-		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "drbd_oos ", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_oos ", LEVEL_OFFSET); break;
 	case KERN_LATENCY_NUM:
-		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "drbd_late", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_late", LEVEL_OFFSET); break;
 	default: 
-		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf+offset, "drbd_unkn", LEVEL_OFFSET); break;
+		printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf+offset, "bsr_unkn", LEVEL_OFFSET); break;
 	}
 	
 	va_start(args, format);
-	ret = _vsnprintf(buf + offset + LEVEL_OFFSET, MAX_DRBDLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // DRBD_DOC: improve vsnprintf 
+	ret = _vsnprintf(buf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
 	va_end(args);
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(strlen(buf));
 #endif
 	int length = (int)strlen(buf);
-	if (length > MAX_DRBDLOG_BUF) {
-		length = MAX_DRBDLOG_BUF - 1;
-		buf[MAX_DRBDLOG_BUF - 1] = 0;
+	if (length > MAX_BSRLOG_BUF) {
+		length = MAX_BSRLOG_BUF - 1;
+		buf[MAX_BSRLOG_BUF - 1] = 0;
 	} else {
 		// TODO: chekc min?
 	}
@@ -736,7 +736,7 @@ void _printk(const char * func, const char * format, ...)
 #ifdef _WIN_WPP
 	DoTraceMessage(TRCINFO, "%s", buf);
 	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", buf);
-	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "drbd_info: [%s] %s", func, buf);
+	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "bsr_info: [%s] %s", func, buf);
 #else
 	
 	if (bEventLog) {
@@ -809,9 +809,9 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 	/* total packet size */
 	int l_TotalSize;
 #if 0
-    if (KeGetCurrentIrql() > PASSIVE_LEVEL) // DRBD_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
-        // DRBD_DOC: you should consider to process EVENTLOG
-        drbd_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
+    if (KeGetCurrentIrql() > PASSIVE_LEVEL) // BSR_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
+        // BSR_DOC: you should consider to process EVENTLOG
+        bsr_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
         return 1;
     }
 #endif
@@ -939,7 +939,7 @@ NTSTATUS DeleteDriveLetterInRegistry(char letter)
 /**
 * @brief   free VOLUME_EXTENSION's dev object
 */
-VOID drbdFreeDev(PVOLUME_EXTENSION VolumeExtension)
+VOID bsrFreeDev(PVOLUME_EXTENSION VolumeExtension)
 {
 	if (VolumeExtension == NULL || VolumeExtension->dev == NULL) {
 		return;
@@ -958,13 +958,13 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	if (NULL == frames ||
 		0 == usFrameCount)
 	{
-		drbd_err(NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		bsr_err(NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
 		return 0;
 	}
 	
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
 	if (0 == usCaptured) {
-		drbd_err(NO_OBJECT,"Captured frame count is 0\n");
+		bsr_err(NO_OBJECT,"Captured frame count is 0\n");
 		return 0;
 	}
 
@@ -976,7 +976,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 {
 	PVOID* stackFrames = NULL;
 	USHORT frameCount = STACK_FRAME_CAPTURE_COUNT;
-	CHAR buf[MAX_DRBDLOG_BUF] = { 0, };
+	CHAR buf[MAX_BSRLOG_BUF] = { 0, };
 
 	// getting stack frames may overload with frequent bitmap operation, just return if oos trace is disabled.
 	if (!(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_OOS)) {
@@ -988,7 +988,7 @@ VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	stackFrames = (PVOID*)ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * frameCount, '22DW');
 
 	if (NULL == stackFrames) {
-		drbd_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
+		bsr_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
 		return;
 	}
 

@@ -21,7 +21,7 @@
 MODULE_LICENSE("GPL");
 
 //#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
-#ifdef COMPAT_DRBD_RELEASE_RETURNS_VOID
+#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 #define BSR_RELEASE_RETURN void
 #else
 #define BSR_RELEASE_RETURN int
@@ -46,7 +46,7 @@ static int __init bsr_load(void)
 {
 	printk("bsr kernel driver load\n");	
 	initialize_kref_debugging();
-	if (drbd_debugfs_init())
+	if (bsr_debugfs_init())
 		pr_notice("failed to initialize debugfs -- will not be available\n");
 	return bsr_init();	
 }
@@ -55,7 +55,7 @@ static void bsr_unload(void)
 {	
 	bsr_cleanup();	
 	//  _WIN32_V9_DEBUGFS: minord is cleanup at this point, required to analyze it.
-	drbd_debugfs_cleanup();
+	bsr_debugfs_cleanup();
 	printk("bsr kernel driver unload done\n");
 	return;
 }
@@ -69,7 +69,7 @@ static int bsr_mount(struct block_device *bdev, fmode_t mode)
 static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 {
 	printk("bsr_umount gendisk:%p, mode:%d\n",gd, mode);
-#ifdef COMPAT_DRBD_RELEASE_RETURNS_VOID
+#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
 #else
 	return bsr_release(gd, mode);

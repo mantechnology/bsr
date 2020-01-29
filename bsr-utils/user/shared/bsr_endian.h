@@ -1,5 +1,5 @@
-﻿#ifndef DRBD_ENDIAN_H
-#define DRBD_ENDIAN_H 1
+﻿#ifndef BSR_ENDIAN_H
+#define BSR_ENDIAN_H 1
 
 /*
  * we don't want additional dependencies on other packages,

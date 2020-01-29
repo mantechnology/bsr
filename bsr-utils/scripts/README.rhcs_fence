@@ -8,10 +8,10 @@ License: GPL v2.0+
 
 -=] Description:
 
-This script is designed to be used as DRBD's 'fence-peer' handler. It ties
-DRBD's fence call, using 'disk { fencing resource-and-stonith }' into Red Hat
+This script is designed to be used as BSR's 'fence-peer' handler. It ties
+BSR's fence call, using 'disk { fencing resource-and-stonith }' into Red Hat
 Cluster Service's fenced daemon. This allows you to configure fencing once in
-your cluster and use it for both the cluster and DRBD.
+your cluster and use it for both the cluster and BSR.
 
 This program was based heavily on Lon Hohberger <lhh[a]redhat.com> 
 "obliterate-peer.sh" script. This was created as a replacement fence handler
@@ -21,7 +21,7 @@ program in order to switch to perl.
 
 -=] Supported Environments
 
-This script supports two-node DRBD setups only, but the nodes themselves may be
+This script supports two-node BSR setups only, but the nodes themselves may be
 part of a larger cluster. This script should be used when 
 'fencing resource-and-stonith' is set only. The 'on <host> { }' name *must*
 match the '<clusternode name="..."> as well.
@@ -55,7 +55,7 @@ above.
 - Second, 'UpToDate' check;
 
 When a fence call is made, this program checks the referenced resource minor
-number's disk state to ensure it is 'UpToDate' as resported by '/proc/drbd'.
+number's disk state to ensure it is 'UpToDate' as resported by '/proc/bsr'.
 The fence call will abort if the disk state is 'Consistent' (or anything else).
 This helps prevent accidentally fencing the original survivng node when the
 cluster communication is up, but the storage network is not, avoiding a 
@@ -75,13 +75,13 @@ Exit codes;
 
 If you run into any trouble, please enable 'debug' mode by setting the internal
 'debug' value to '1'. If you need help, please send the output of the syslog
-of both nodes with debug enabled to the Linux Cluster mailing list or DRBD 
+of both nodes with debug enabled to the Linux Cluster mailing list or BSR 
 Users mailing list.
 
 
 -=] Getting Help:
 
 By email:     digimer@alteeve.com / https://alteeve.com
-IRC:          #linux-cluster and #drbd on freenode.net
+IRC:          #linux-cluster and #bsr on freenode.net
 Mailing list: https://www.redhat.com/mailman/listinfo/linux-cluster
-              http://lists.linbit.com/mailman/listinfo/drbd-user
+              http://lists.linbit.com/mailman/listinfo/bsr-user

@@ -1,5 +1,5 @@
-#ifndef __DRBD_CONFIG_FLAGS_H
-#define __DRBD_CONFIG_FLAGS_H
+#ifndef __BSR_CONFIG_FLAGS_H
+#define __BSR_CONFIG_FLAGS_H
 
 struct msg_buff;
 struct nlattr;
@@ -62,7 +62,7 @@ struct field_def {
 	} u;
 	bool needs_double_quoting;
 	bool argument_is_optional;
-	bool checked_in_postparse; /* Do not check in drbdadm_parse.c
+	bool checked_in_postparse; /* Do not check in bsradm_parse.c
 				      It gets checked and converted later*/
 	bool implicit_clamp;
 	const char *unit;
@@ -111,4 +111,4 @@ extern struct context_def wildcard_ctx;
 
 extern const char *double_quote_string(const char *str);
 
-#endif  /* __DRBD_CONFIG_FLAGS_H */
+#endif  /* __BSR_CONFIG_FLAGS_H */

@@ -155,7 +155,7 @@ static int __ ## s_name ## _from_attrs(struct s_name *s,		\
 	if (!tla)							\
 		return -ENOMSG;						\
 	DPRINT_TLA(#s_name, "<=-", #tag_name);				\
-	err = drbd_nla_parse_nested(ntb, maxtype, tla, s_name ## _nl_policy);	\
+	err = bsr_nla_parse_nested(ntb, maxtype, tla, s_name ## _nl_policy);	\
 	if (err)							\
 		return err;						\
 									\
@@ -178,15 +178,15 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment, ...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
-			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+			if (exclude_invariants && !!((attr_flag) & BSR_F_INVARIANT)) {		\
 				pr_info("<< must not change invariant attr: %s\n", #name);	\
 				return -EEXIST;				\
 			}						\
 			assignment;					\
-		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+		} else if (exclude_invariants && !!((attr_flag) & BSR_F_INVARIANT)) {		\
 			/* attribute missing from payload, */		\
 			/* which was expected */			\
-		} else if (((attr_flag) & DRBD_F_REQUIRED, (attr_flag) & DRBD_F_REQUIRED)) {		\
+		} else if (((attr_flag) & BSR_F_REQUIRED, (attr_flag) & BSR_F_REQUIRED)) {		\
 			pr_info("<< missing attr: %s\n", #name);	\
 			return -ENOMSG;					\
 		}
@@ -194,15 +194,15 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
 #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment...)	\
 		nla = ntb[attr_nr];						\
 		if (nla) {						\
-			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+			if (exclude_invariants && !!((attr_flag) & BSR_F_INVARIANT)) {		\
 				pr_info("<< must not change invariant attr: %s\n", #name);	\
 				return -EEXIST;				\
 			}						\
 			assignment;					\
-		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
+		} else if (exclude_invariants && !!((attr_flag) & BSR_F_INVARIANT)) {		\
 			/* attribute missing from payload, */		\
 			/* which was expected */			\
-		} else if ((attr_flag) & DRBD_F_REQUIRED) {		\
+		} else if ((attr_flag) & BSR_F_REQUIRED) {		\
 			pr_info("<< missing attr: %s\n", #name);	\
 			return -ENOMSG;					\
 		}
@@ -380,7 +380,7 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 #undef __field
 #define __field(attr_nr, attr_flag, name, nla_type, type, __get, __put,	\
 		__is_signed)						\
-	if (!exclude_sensitive || !((attr_flag) & DRBD_F_SENSITIVE)) {	\
+	if (!exclude_sensitive || !((attr_flag) & BSR_F_SENSITIVE)) {	\
 		DPRINT_FIELD(">>", nla_type, name, s, NULL);		\
 		if (__put(skb, attr_nr, s->name))			\
 			goto nla_put_failure;				\
@@ -389,7 +389,7 @@ static inline int s_name ## _to_unpriv_skb(struct sk_buff *skb,		\
 #undef __array
 #define __array(attr_nr, attr_flag, name, nla_type, type, maxlen,	\
 		__get, __put, __is_signed)				\
-	if (!exclude_sensitive || !((attr_flag) & DRBD_F_SENSITIVE)) {	\
+	if (!exclude_sensitive || !((attr_flag) & BSR_F_SENSITIVE)) {	\
 		DPRINT_ARRAY(">>",nla_type, name, s, NULL);		\
 		if (__put(skb, attr_nr, min_t(int, maxlen,		\
 			s->name ## _len + (nla_type == NLA_NUL_STRING)),\

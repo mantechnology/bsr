@@ -1,6 +1,6 @@
 
-#ifndef __DRBDLOCK_PCH_H_
-#define __DRBDLOCK_PCH_H_
+#ifndef __BSRLOCK_PCH_H_
+#define __BSRLOCK_PCH_H_
 
 #pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
 

@@ -1,25 +1,23 @@
 /*
  *
-   drbdadm_parser.c a hand crafted parser
+   bsradm_parser.c a hand crafted parser
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2006-2008, LINBIT Information Technologies GmbH
-   Copyright (C) 2006-2008, Philipp Reisner <philipp.reisner@linbit.com>
-   Copyright (C) 2006-2008, Lars Ellenberg  <lars.ellenberg@linbit.com>
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -162,9 +160,9 @@ void range_check(const enum range_checks what, const char *name,
 	 */
 
 #define M_STRTOLL_RANGE(x) \
-		m_strtoll_range(value, DRBD_ ## x ## _SCALE, name, \
-				DRBD_ ## x ## _MIN, \
-				DRBD_ ## x ## _MAX)
+		m_strtoll_range(value, BSR_ ## x ## _SCALE, name, \
+				BSR_ ## x ## _MIN, \
+				BSR_ ## x ## _MAX)
 
 	switch (what) {
 	case R_MINOR_COUNT:
@@ -850,7 +848,7 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor)
 
 #ifdef _LIN
 	/* if devname is set, it starts with /dev/bsr */
-	// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+	// BSR-386 rename to be the same as name of major device due to pvcreate error
 	if (only_digits(devname + 8)) {
 		int m = strtol(devname + 8, NULL, 10);
 		if (m == explicit_minor)
@@ -882,14 +880,14 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 
 	switch (yylex()) {
 	case TK_STRING:
-		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		// BSR-386 rename to be the same as name of major device due to pvcreate error
 		if (!strncmp("bsr", yylval.txt, 3)) {
 			m_asprintf(&vol->device, "/dev/%s", yylval.txt);
 			free(yylval.txt);
 		} else
 			vol->device = yylval.txt;
 #ifdef _LIN
-		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		// BSR-386 rename to be the same as name of major device due to pvcreate error
 		if (strncmp("/dev/bsr", vol->device, 8)) {
 			err("%s:%d: device name must start with /dev/bsr\n"
 			    "\t(/dev/ is optional, but bsr is required)\n",
@@ -1982,7 +1980,7 @@ static int pushd_to_current_config_file_unless_stdin(void)
 #endif
 	if (!last_slash)
 		/* Currently parsing stdin, stay where we are.
-		 * FIXME introduce DRBD_INCLUDE_PATH?
+		 * FIXME introduce BSR_INCLUDE_PATH?
 		 * I don't feel comfortable "trusting" the current directory
 		 * for relative include file paths.
 		 */

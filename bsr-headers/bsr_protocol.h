@@ -1,5 +1,5 @@
-#ifndef __DRBD_PROTOCOL_H
-#define __DRBD_PROTOCOL_H
+#ifndef __BSR_PROTOCOL_H
+#define __BSR_PROTOCOL_H
 
 #ifdef __KERNEL__
 #ifdef _WIN
@@ -15,7 +15,7 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-enum drbd_packet {
+enum bsr_packet {
 	/* receiver (data socket) */
 	P_DATA		      = 0x00,
 	P_DATA_REPLY	      = 0x01, /* Response to P_DATA_REQUEST */
@@ -136,7 +136,7 @@ struct p_header80 {
 
 /* Header for big packets, Used for data packets exceeding 64kB */
 struct p_header95 {
-	uint16_t magic;	/* use DRBD_MAGIC_BIG here */
+	uint16_t magic;	/* use BSR_MAGIC_BIG here */
 	uint16_t command;
 	uint32_t length;
 } __packed;
@@ -213,11 +213,11 @@ struct p_block_req {
  */
 
 /* supports TRIM/DISCARD on the "wire" protocol */
-#define DRBD_FF_TRIM 1
+#define BSR_FF_TRIM 1
 
 /* Detect all-zeros during resync, and rather TRIM/UNMAP/DISCARD those blocks
  * instead of fully allocate a supposedly thin volume on initial resync */
-#define DRBD_FF_THIN_RESYNC 2
+#define BSR_FF_THIN_RESYNC 2
 
 /* supports WRITE_SAME on the "wire" protocol.
  * Note: this flag is overloaded,
@@ -226,9 +226,9 @@ struct p_block_req {
  *     max discard size of 128 MiB
  *     instead of 4M before that.
  *   - indicates that we exchange additional settings in p_sizes
- *     drbd_send_sizes()/receive_sizes()
+ *     bsr_send_sizes()/receive_sizes()
  */
-#define DRBD_FF_WSAME 4
+#define BSR_FF_WSAME 4
 
 struct p_connection_features {
 	uint32_t protocol_min;
@@ -279,7 +279,7 @@ struct p_rs_param_95 {
 	uint32_t c_max_rate;
 } __packed;
 
-enum drbd_conn_flags {
+enum bsr_conn_flags {
 	CF_DISCARD_MY_DATA = 1,
 	CF_DRY_RUN = 2,
 };
@@ -348,7 +348,7 @@ struct p_uuid {
 	uint64_t uuid;
 } __packed;
 
-/* optional queue_limits if (agreed_features & DRBD_FF_WSAME)
+/* optional queue_limits if (agreed_features & BSR_FF_WSAME)
  * see also struct queue_limits, as of late 2015 */
 struct o_qlim {
 	/* we don't need it yet, but we may as well communicate it now */
@@ -358,7 +358,7 @@ struct o_qlim {
 	 * but I'd have to put in padding anyways. */
 	uint32_t logical_block_size;
 
-	/* One incoming bio becomes one DRBD request,
+	/* One incoming bio becomes one BSR request,
 	 * which may be translated to several bio on the receiving side.
 	 * We don't need to communicate chunk/boundary/segment ... limits.
 	 */
@@ -373,7 +373,7 @@ struct o_qlim {
 
 	/* Backend discard capabilities.
 	 * Receiving side uses "blkdev_issue_discard()", no need to communicate
-	 * more specifics.  If the backend cannot do discards, the DRBD peer
+	 * more specifics.  If the backend cannot do discards, the BSR peer
 	 * may fall back to blkdev_issue_zeroout().
 	 */
 	uint8_t discard_enabled;
@@ -387,10 +387,10 @@ struct p_sizes {
 	uint64_t u_size;  /* user requested size */
 	uint64_t c_size;  /* current exported size */
 	uint32_t max_bio_size;  /* Maximal size of a BIO */
-	uint16_t queue_order_type;  /* not yet implemented in DRBD*/
+	uint16_t queue_order_type;  /* not yet implemented in BSR*/
 	uint16_t dds_flags; /* use enum dds_flags here. */
 
-	/* optional queue_limits if (agreed_features & DRBD_FF_WSAME) */
+	/* optional queue_limits if (agreed_features & BSR_FF_WSAME) */
 	struct o_qlim qlim[0];
 } __packed;
 
@@ -448,7 +448,7 @@ struct p_twopc_reply {
 
 } __packed;
 
-struct p_drbd06_param {
+struct p_bsr06_param {
 	uint64_t size;
 	uint32_t state;
 	uint32_t blksize;
@@ -466,7 +466,7 @@ struct p_block_desc {
 
 /* Valid values for the encoding field.
  * Bump proto version when changing this. */
-enum drbd_bitmap_code {
+enum bsr_bitmap_code {
 	/* RLE_VLI_Bytes = 0,
 	 * and other bit variants had been defined during
 	 * algorithm evaluation. */
@@ -474,7 +474,7 @@ enum drbd_bitmap_code {
 };
 
 struct p_compressed_bm {
-	/* (encoding & 0x0f): actual encoding, see enum drbd_bitmap_code
+	/* (encoding & 0x0f): actual encoding, see enum bsr_bitmap_code
 	 * (encoding & 0x80): polarity (set/unset) of first runlength
 	 * ((encoding >> 4) & 0x07): pad_bits, number of trailing zero bits
 	 * used to pad up to head.length bytes
@@ -514,10 +514,10 @@ struct p_peer_dagtag {
  * Bitmap packets need to fit within a single page on the sender and receiver,
  * so we are limited to 4 KiB (and not to PAGE_SIZE, which can be bigger).
  */
-#define DRBD_SOCKET_BUFFER_SIZE 4096
+#define BSR_SOCKET_BUFFER_SIZE 4096
 
 #ifdef _WIN
 #pragma pack(pop)
 #undef __packed
 #endif
-#endif  /* __DRBD_PROTOCOL_H */
+#endif  /* __BSR_PROTOCOL_H */

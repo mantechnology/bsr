@@ -1,27 +1,27 @@
-drbd
-	drbd sys-v type init script
-drbd.gentoo
+bsr
+	bsr sys-v type init script
+bsr.gentoo
 	gentoo specific variation of the same
-drbdadm.bash_completion
-	bash completion for the drbdadm command
-drbddisk
+bsradm.bash_completion
+	bash completion for the bsradm command
+bsrdisk
 	resource script for heartbeat (R1 style)
-block-drbd
-	xen "drbd" vbd type implementation
-drbd.sh.rhcs
+block-bsr
+	xen "bsr" vbd type implementation
+bsr.sh.rhcs
 	resource script for Red Hat Cluster Suite rgmanager
-drbd.metadata.rhcs
+bsr.metadata.rhcs
 	resource script metadata for Red Hat Cluster Suite rgmanager
 outdate-peer.sh
 	example implementation of the fence-peer mechanism using ssh
-drbd.conf
+bsr.conf
 	commented example configuration
-drbd-overview.pl
-	consolidates /proc/drbd, /etc/drbd.conf, xm list, lvs, df
-pretty-proc-drbd.sh
-	example how to pretty-print (optionally with color) /proc/drbd
+bsr-overview.pl
+	consolidates /proc/bsr, /etc/bsr.conf, xm list, lvs, df
+pretty-proc-bsr.sh
+	example how to pretty-print (optionally with color) /proc/bsr
 
 build helpers:
   get_uts_release.sh
-  adjust_drbd_config_h.sh 
+  adjust_bsr_config_h.sh 
   patch-kernel

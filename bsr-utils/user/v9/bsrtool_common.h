@@ -1,5 +1,5 @@
-#ifndef DRBDTOOL_COMMON_H
-#define DRBDTOOL_COMMON_H
+#ifndef BSRTOOL_COMMON_H
+#define BSRTOOL_COMMON_H
 
 #include "bsr_endian.h"
 #include <stdio.h>
@@ -10,11 +10,11 @@
 #endif
 #include "shared_tool.h"
 
-#define LANANA_DRBD_MAJOR 147	/* we should get this into linux/major.h */
-#ifndef DRBD_MAJOR
-#define DRBD_MAJOR LANANA_DRBD_MAJOR
-#elif (DRBD_MAJOR != LANANA_DRBD_MAJOR)
-# error "FIXME unexpected DRBD_MAJOR"
+#define LANANA_BSR_MAJOR 147	/* we should get this into linux/major.h */
+#ifndef BSR_MAJOR
+#define BSR_MAJOR LANANA_BSR_MAJOR
+#elif (BSR_MAJOR != LANANA_BSR_MAJOR)
+# error "FIXME unexpected BSR_MAJOR"
 #endif
 
 #ifndef __packed
@@ -61,7 +61,7 @@ enum mdf_flag_08 {
 
 struct option;
 
-extern void dt_release_lockfile(int drbd_fd);
+extern void dt_release_lockfile(int bsr_fd);
 extern unsigned long long m_strtoll(const char* s,const char def_unit);
 extern void dt_print_uuids(const uint64_t* uuid, unsigned int flags);
 extern void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags);
@@ -89,14 +89,14 @@ enum driver_version_policy {
     _STRICT,
 	FALLBACK_TO_UTILS
 };
-extern const struct version *drbd_driver_version(enum driver_version_policy fallback);
-extern const struct version *drbd_utils_version(void);
+extern const struct version *bsr_driver_version(enum driver_version_policy fallback);
+extern const struct version *bsr_utils_version(void);
 extern const char *escaped_version_code_kernel(void);
 extern int version_code_kernel(void);
 extern int version_code_userland(void);
 extern int version_equal(const struct version *rev1, const struct version *rev2);
 extern void config_help_legacy(const char * const tool, const struct version * const driver_version);
-extern void add_lib_drbd_to_path(void);
+extern void add_lib_bsr_to_path(void);
 extern uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length);
 
 

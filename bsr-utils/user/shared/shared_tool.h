@@ -79,7 +79,7 @@ extern void unescape(char *txt);
 extern volatile int alarm_raised;
 
 /* If the lower level device is resized,
- * and DRBD did not move its "internal" meta data in time,
+ * and BSR did not move its "internal" meta data in time,
  * the next time we try to attach, we won't find our meta data.
  *
  * Some helpers for storing and retrieving "last known"
@@ -122,8 +122,8 @@ extern bool addr_scope_local(const char *input);
 
 extern unsigned long long m_strtoll(const char* s,const char def_unit);
 extern int only_digits(const char *s);
-extern int dt_lock_drbd(int minor);
-extern void dt_unlock_drbd(int lock_fd);
+extern int dt_lock_bsr(int minor);
+extern void dt_unlock_bsr(int lock_fd);
 extern int dt_minor_of_dev(const char *device);
 extern void dt_print_gc(const uint32_t* gen_cnt);
 extern void dt_pretty_print_gc(const uint32_t* gen_cnt);

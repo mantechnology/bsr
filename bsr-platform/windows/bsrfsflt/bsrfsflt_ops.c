@@ -2,11 +2,11 @@
 
 Module Name:
 
-	drbdlock_ops.c
+	bsrlock_ops.c
 
 Abstract:
 
-	This is the device operations module of the drbdlock miniFilter driver.
+	This is the device operations module of the bsrlock miniFilter driver.
 
 Environment:
 
@@ -24,7 +24,7 @@ PCALLBACK_OBJECT g_pCallbackObj;
 PVOID g_pCallbackReg;
 
 NTSTATUS
-drbdlockCreateControlDeviceObject(
+bsrlockCreateControlDeviceObject(
 	IN PDRIVER_OBJECT pDrvObj
 	)
 /*++
@@ -35,7 +35,7 @@ Routine Description:
 
 Arguments:
 
-	pDrvObj - drbdlock driver object.
+	pDrvObj - bsrlock driver object.
 
 Return Value:
 
@@ -46,17 +46,17 @@ Return Value:
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	ULONG i;
 
-	RtlInitUnicodeString(&g_usDeviceName, DRBDLOCK_DEVICE_OBJECT_NAME);
+	RtlInitUnicodeString(&g_usDeviceName, BSRLOCK_DEVICE_OBJECT_NAME);
 	status = IoCreateDevice(pDrvObj, 0, &g_usDeviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &g_DeviceObject);
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("IoCreateDevice Failed, status : 0x%x\n", status);
+		bsrlock_print_log("IoCreateDevice Failed, status : 0x%x\n", status);
 		return status;
 	}
 
-	RtlInitUnicodeString(&g_usSymlinkName, DRBDLOCK_SYMLINK_NAME);
+	RtlInitUnicodeString(&g_usSymlinkName, BSRLOCK_SYMLINK_NAME);
 	status = IoCreateSymbolicLink(&g_usSymlinkName, &g_usDeviceName);
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("IoCreateSymbolicLink Failed, status : 0x%x\n", status);
+		bsrlock_print_log("IoCreateSymbolicLink Failed, status : 0x%x\n", status);
 		return status;
 	}
 
@@ -69,7 +69,7 @@ Return Value:
 }
 
 VOID
-drbdlockDeleteControlDeviceObject(
+bsrlockDeleteControlDeviceObject(
 	VOID
 	)
 /*++
@@ -95,7 +95,7 @@ Return Value:
 }
 
 VOID
-drbdlockCallbackFunc(
+bsrlockCallbackFunc(
 	IN PVOID Context,
 	IN PVOID Argument1,
 	IN PVOID Argument2
@@ -104,12 +104,12 @@ drbdlockCallbackFunc(
 
 Routine Description:
 
-	This routine is called whenever other driver notifies drbdlock's callback object.
+	This routine is called whenever other driver notifies bsrlock's callback object.
 
 Arguments:
 
 	Context - not used.
-	Argument1 - Pointer to the DRBDLOCK_VOLUME_CONTROL data structure containing volume information to be (un)blocked.
+	Argument1 - Pointer to the BSRLOCK_VOLUME_CONTROL data structure containing volume information to be (un)blocked.
 	Argument2 - not used.
 
 Return Value:
@@ -121,7 +121,7 @@ Return Value:
 	UNREFERENCED_PARAMETER(Context);
 	UNREFERENCED_PARAMETER(Argument2);
 
-	PDRBDLOCK_VOLUME_CONTROL pVolumeControl = (PDRBDLOCK_VOLUME_CONTROL)Argument1;
+	PBSRLOCK_VOLUME_CONTROL pVolumeControl = (PBSRLOCK_VOLUME_CONTROL)Argument1;
 	PDEVICE_OBJECT pVolObj = NULL;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	ULONG ulSize = 0;
@@ -129,13 +129,13 @@ Return Value:
 
 	if (pVolumeControl == NULL) {
 		// invalid parameter.
-		drbdlock_print_log("pVolumeControl is NULL\n");
+		bsrlock_print_log("pVolumeControl is NULL\n");
 		return;
 	}
 	
 	status = ConvertVolume(&pVolumeControl->volume, &pVolObj);
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("ConvertVolume failed, status : 0x%x\n", status);
+		bsrlock_print_log("ConvertVolume failed, status : 0x%x\n", status);
 		return;
 	}
 
@@ -151,18 +151,18 @@ Return Value:
 
 	if (pVolumeControl->bBlock) {
 		if (AddProtectedVolume(pVolObj)) {			
-			drbdlock_print_log("volume(%ws) has been added as protected\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
+			bsrlock_print_log("volume(%ws) has been added as protected\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 		else {
-			drbdlock_print_log("volume(%ws) add failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
+			bsrlock_print_log("volume(%ws) add failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 	}
 	else {
 		if (DeleteProtectedVolume(pVolObj)) {
-			drbdlock_print_log("volume(%ws) has been deleted from protected volume list\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
+			bsrlock_print_log("volume(%ws) has been deleted from protected volume list\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 		else {
-			drbdlock_print_log("volume(%ws) delete failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
+			bsrlock_print_log("volume(%ws) delete failed\n", (ulSize && pNameInfo) ? pNameInfo->Name.Buffer : L"NULL");
 		}
 	}
 
@@ -171,7 +171,7 @@ Return Value:
 }
 
 NTSTATUS
-drbdlockStartupCallback(
+bsrlockStartupCallback(
 	VOID
 	)
 /*++
@@ -194,22 +194,22 @@ Return Value:
 	OBJECT_ATTRIBUTES oa = { 0, };
 	UNICODE_STRING usCallbackName;
 
-	RtlInitUnicodeString(&usCallbackName, DRBDLOCK_CALLBACK_NAME);
+	RtlInitUnicodeString(&usCallbackName, BSRLOCK_CALLBACK_NAME);
 	InitializeObjectAttributes(&oa, &usCallbackName, OBJ_CASE_INSENSITIVE | OBJ_PERMANENT, 0, 0);
 
 	status = ExCreateCallback(&g_pCallbackObj, &oa, TRUE, TRUE);
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("ExCreateCallback failed, status : 0x%x\n", status);
+		bsrlock_print_log("ExCreateCallback failed, status : 0x%x\n", status);
 		return status;
 	}
 
-	g_pCallbackReg = ExRegisterCallback(g_pCallbackObj, drbdlockCallbackFunc, NULL);
+	g_pCallbackReg = ExRegisterCallback(g_pCallbackObj, bsrlockCallbackFunc, NULL);
 
 	return status;
 }
 
 VOID
-drbdlockCleanupCallback(
+bsrlockCleanupCallback(
 	VOID
 	)
 /*++
@@ -257,22 +257,22 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 		ObDereferenceObject(pCallbackObj);
 	}
 	else
-		drbdlock_print_log("Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
+		bsrlock_print_log("Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
 
 	return status;
 }
 
-NTSTATUS ResizeDrbdVolume(PDEVICE_OBJECT pDeviceObject)
+NTSTATUS ResizeBsrVolume(PDEVICE_OBJECT pDeviceObject)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 
 
-	DRBD_VOLUME_CONTROL volume = { 0, };
+	BSR_VOLUME_CONTROL volume = { 0, };
 
 	volume.pVolumeObject = pDeviceObject;
 	
 	
-	status = NotifyCallbackObject(DRBD_CALLBACK_NAME, &volume);
+	status = NotifyCallbackObject(BSR_CALLBACK_NAME, &volume);
 
 	if (!NT_SUCCESS(status)) {
 		return status;
@@ -323,7 +323,7 @@ IOCTL_GetStatus(
 
 Routine Description:
 
-	This routine is called when received IOCTL_DRBDLOCK_GET_STATUS and returns status of drbdlock.
+	This routine is called when received IOCTL_BSRLOCK_GET_STATUS and returns status of bsrlock.
 
 Arguments:
 
@@ -339,21 +339,21 @@ Return Value:
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	PIO_STACK_LOCATION pIrpStack = IoGetCurrentIrpStackLocation(pIrp);	
 	PDEVICE_OBJECT pDevice = NULL;
-	DRBDLOCK_VOLUME Vol = { 0, };
+	BSRLOCK_VOLUME Vol = { 0, };
 	PVOID pBuf = pIrp->AssociatedIrp.SystemBuffer;
 
 	if (pBuf == NULL ||
 		pIrpStack->Parameters.DeviceIoControl.InputBufferLength < (2 * sizeof(WCHAR)) ||
 		pIrpStack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(BOOLEAN))
 	{
-		drbdlock_print_log("invalid buffer length, input(%u), output(%u)\n",
+		bsrlock_print_log("invalid buffer length, input(%u), output(%u)\n",
 			pIrpStack->Parameters.DeviceIoControl.InputBufferLength,
 			pIrpStack->Parameters.DeviceIoControl.OutputBufferLength);
 		return STATUS_INVALID_PARAMETER;
 	}
 
 	Vol.volumeType = VOLUME_TYPE_DEVICE_NAME;
-	status = RtlStringCchCopyW(Vol.volumeID.volumeName, DRBDLOCK_VOLUMENAME_MAX_LEN, pBuf);
+	status = RtlStringCchCopyW(Vol.volumeID.volumeName, BSRLOCK_VOLUMENAME_MAX_LEN, pBuf);
 
 	if (!NT_SUCCESS(status))
 		return status;
@@ -400,7 +400,7 @@ Return Value:
 	pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
 
 	switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode) {	
-		case IOCTL_DRBDLOCK_GET_STATUS:
+		case IOCTL_BSRLOCK_GET_STATUS:
 		{
 			status = IOCTL_GetStatus(pIrp, &ulSize);
 

@@ -3,7 +3,7 @@
 #include <errno.h>
 #include "bsrtool_common.h"
 #include <arpa/inet.h>
-#define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"
+#define BSR_EVENT_SOCKET_STRING	"BSR_EVENTS"
 #endif
 #include "libgenl.h"
 
@@ -16,13 +16,13 @@
 int genl_join_mc_group(struct genl_sock *s, const char *name) {
 #ifdef _WIN
 	// not support
-	int len = send(s->s_fd, DRBD_EVENT_SOCKET_STRING, strlen(DRBD_EVENT_SOCKET_STRING), 0);
+	int len = send(s->s_fd, BSR_EVENT_SOCKET_STRING, strlen(BSR_EVENT_SOCKET_STRING), 0);
 
 #ifdef NL_PACKET_MSG
-	UTRACE("sending DRBD_EVENT_SOCKET_STRING. len(%d)\n", len);
+	UTRACE("sending BSR_EVENT_SOCKET_STRING. len(%d)\n", len);
 #endif
 
-	if (len != strlen(DRBD_EVENT_SOCKET_STRING)) {
+	if (len != strlen(BSR_EVENT_SOCKET_STRING)) {
 		perror("send genl_join_mc_group error"); 
 		return -1;
 	}

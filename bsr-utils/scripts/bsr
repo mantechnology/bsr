@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # chkconfig: - 21 08
-# description: Loads and unloads the drbd module
+# description: Loads and unloads the bsr module
 #
-# Copyright 2001-2013 LINBIT
+# Copyright 2007-2020 Man Technology inc
 #
-# Philipp Reisner, Lars Ellenberg
+# Man Technology inc
 #
 ### BEGIN INIT INFO
-# Provides: drbd
+# Provides: bsr
 # Required-Start: $local_fs $network $syslog
 # Required-Stop:  $local_fs $network $syslog
 # Should-Start:   sshd multipathd
@@ -18,7 +18,7 @@
 # X-Start-Before: heartbeat corosync
 # X-Stop-After:   heartbeat corosync
 # X-Interactive:  true
-# Short-Description:    Control drbd resources.
+# Short-Description:    Control bsr resources.
 ### END INIT INFO
 
 DEFAULTFILE="/etc/default/bsr"
@@ -116,7 +116,7 @@ bsr_pretty_status()
 }
 
 # Try to settle regardless of udev version or presence,
-# so "/etc/init.d/drbd stop" is able to rmmod, without interfering
+# so "/etc/init.d/bsr stop" is able to rmmod, without interfering
 # temporary module references caused by udev scanning the devices.
 # But don't wait too long.
 _udev_settle()
@@ -145,9 +145,9 @@ case "$1" in
 	# no module, no BSR.
 	assure_module_is_loaded
 
-	# Just in case drbdadm want to display any errors in the configuration
+	# Just in case bsradm want to display any errors in the configuration
 	# file, or we need to ask the user about registering this installation
-	# at http://usage.drbd.org, we call drbdadm here without any IO
+	# at http://usage.bsr.org, we call bsradm here without any IO
 	# redirection.
 	# If "no op" has a non-zero exit code, the config is unusable,
 	# and every other command will fail.
@@ -230,11 +230,11 @@ case "$1" in
 	for try in 1 2; do
 	    if [ -e $PROC_BSR ] ; then
 		[[ $try = 2 ]] && echo "Retrying once..."
-		# bypass drbdadm and drbd config file and everything,
+		# bypass bsradm and bsr config file and everything,
 		# to avoid leaving devices around that are not referenced by
 		# the current config file, or in case the current config file
 		# does not parse for some reason.
-		# BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		# BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
 		for d in /dev/bsr* ; do
 			[ -L "$d" ] && continue
 			[ -b "$d" ] || continue

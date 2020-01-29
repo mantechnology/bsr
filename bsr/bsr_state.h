@@ -1,16 +1,16 @@
-#ifndef DRBD_STATE_H
-#define DRBD_STATE_H
+#ifndef BSR_STATE_H
+#define BSR_STATE_H
 
 #include "../bsr-headers/bsr_protocol.h"
 
-struct drbd_resource;
-struct drbd_device;
-struct drbd_connection;
-struct drbd_peer_device;
-struct drbd_work;
+struct bsr_resource;
+struct bsr_device;
+struct bsr_connection;
+struct bsr_peer_device;
+struct bsr_work;
 
 /**
- * DOC: DRBD State macros
+ * DOC: BSR State macros
  *
  * These macros are used to express state changes in easily readable form.
  */
@@ -40,37 +40,37 @@ enum chg_state_flags {
 	CS_DONT_RETRY    = 1 << 11, /* Disable internal retry. Caller has a retry loop */
 };
 
-extern void drbd_resume_al(struct drbd_device *device);
+extern void bsr_resume_al(struct bsr_device *device);
 
-enum drbd_disk_state conn_highest_disk(struct drbd_connection *connection);
-enum drbd_disk_state conn_lowest_disk(struct drbd_connection *connection);
-enum drbd_disk_state conn_highest_pdsk(struct drbd_connection *connection);
+enum bsr_disk_state conn_highest_disk(struct bsr_connection *connection);
+enum bsr_disk_state conn_lowest_disk(struct bsr_connection *connection);
+enum bsr_disk_state conn_highest_pdsk(struct bsr_connection *connection);
 
-extern void state_change_lock(struct drbd_resource *, unsigned long *, enum chg_state_flags);
-extern void state_change_unlock(struct drbd_resource *, unsigned long *);
+extern void state_change_lock(struct bsr_resource *, unsigned long *, enum chg_state_flags);
+extern void state_change_unlock(struct bsr_resource *, unsigned long *);
 
-extern void begin_state_change(struct drbd_resource *, unsigned long *, enum chg_state_flags);
-extern enum drbd_state_rv end_state_change(struct drbd_resource *, unsigned long *, const char*);
-extern void abort_state_change(struct drbd_resource *, unsigned long *, const char*);
-extern void abort_state_change_locked(struct drbd_resource *resource, bool locked, const char* caller);
+extern void begin_state_change(struct bsr_resource *, unsigned long *, enum chg_state_flags);
+extern enum bsr_state_rv end_state_change(struct bsr_resource *, unsigned long *, const char*);
+extern void abort_state_change(struct bsr_resource *, unsigned long *, const char*);
+extern void abort_state_change_locked(struct bsr_resource *resource, bool locked, const char* caller);
 
-extern void begin_state_change_locked(struct drbd_resource *, enum chg_state_flags);
-extern enum drbd_state_rv end_state_change_locked(struct drbd_resource *, bool locked, const char* caller);
+extern void begin_state_change_locked(struct bsr_resource *, enum chg_state_flags);
+extern enum bsr_state_rv end_state_change_locked(struct bsr_resource *, bool locked, const char* caller);
 
-extern void abort_prepared_state_change(struct drbd_resource *);
-extern void clear_remote_state_change(struct drbd_resource *resource);
+extern void abort_prepared_state_change(struct bsr_resource *);
+extern void clear_remote_state_change(struct bsr_resource *resource);
 // DW-1894
-extern void clear_remote_state_change_without_lock(struct drbd_resource *resource);
+extern void clear_remote_state_change_without_lock(struct bsr_resource *resource);
 
 // DW-1073
 // DW-1257
-void twopc_end_nested(struct drbd_resource *resource, enum drbd_packet cmd, bool as_work);
+void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool as_work);
 
 
 enum which_state;
-extern union drbd_state drbd_get_device_state(struct drbd_device *, enum which_state);
-extern union drbd_state drbd_get_peer_device_state(struct drbd_peer_device *, enum which_state);
-extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum which_state);
+extern union bsr_state bsr_get_device_state(struct bsr_device *, enum which_state);
+extern union bsr_state bsr_get_peer_device_state(struct bsr_peer_device *, enum which_state);
+extern union bsr_state bsr_get_connection_state(struct bsr_connection *, enum which_state);
 
 // DW-1605 try change_state again until timeout.
 #ifdef _WIN
@@ -80,7 +80,7 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 			(rv = (change_state)) != SS_IN_TRANSIENT_STATE, HZ, err);	\
 		if (err == -ETIMEDOUT)				\
 			rv = SS_TIMEOUT;				\
-		else if (err == -DRBD_SIGKILL)		\
+		else if (err == -BSR_SIGKILL)		\
 			rv = SS_INTERRUPTED;			\
 	}while(false)
 #else // _LIN
@@ -95,29 +95,29 @@ extern union drbd_state drbd_get_connection_state(struct drbd_connection *, enum
 	})
 #endif
 
-extern int nested_twopc_work(struct drbd_work *work, int cancel);
-extern enum drbd_state_rv nested_twopc_request(struct drbd_resource *, int, enum drbd_packet, struct p_twopc_request *);
-extern bool cluster_wide_reply_ready(struct drbd_resource *);
+extern int nested_twopc_work(struct bsr_work *work, int cancel);
+extern enum bsr_state_rv nested_twopc_request(struct bsr_resource *, int, enum bsr_packet, struct p_twopc_request *);
+extern bool cluster_wide_reply_ready(struct bsr_resource *);
 
-extern enum drbd_state_rv change_role(struct drbd_resource *, enum drbd_role, enum chg_state_flags, bool, const char **);
-extern void __change_io_susp_user(struct drbd_resource *, bool);
-extern enum drbd_state_rv change_io_susp_user(struct drbd_resource *, bool, enum chg_state_flags);
-extern void __change_io_susp_no_data(struct drbd_resource *, bool);
-extern void __change_io_susp_fencing(struct drbd_connection *, bool);
-extern void __change_io_susp_quorum(struct drbd_device *, bool);
+extern enum bsr_state_rv change_role(struct bsr_resource *, enum bsr_role, enum chg_state_flags, bool, const char **);
+extern void __change_io_susp_user(struct bsr_resource *, bool);
+extern enum bsr_state_rv change_io_susp_user(struct bsr_resource *, bool, enum chg_state_flags);
+extern void __change_io_susp_no_data(struct bsr_resource *, bool);
+extern void __change_io_susp_fencing(struct bsr_connection *, bool);
+extern void __change_io_susp_quorum(struct bsr_device *, bool);
 
-extern void __change_disk_states(struct drbd_resource *, enum drbd_disk_state);
-extern enum drbd_state_rv change_disk_state(struct drbd_device *, enum drbd_disk_state, enum chg_state_flags, const char **);
+extern void __change_disk_states(struct bsr_resource *, enum bsr_disk_state);
+extern enum bsr_state_rv change_disk_state(struct bsr_device *, enum bsr_disk_state, enum chg_state_flags, const char **);
 
-extern void __change_cstate(struct drbd_connection *, enum drbd_conn_state);
-extern enum drbd_state_rv change_cstate_es(struct drbd_connection *, enum drbd_conn_state, enum chg_state_flags, const char **, const char *);
+extern void __change_cstate(struct bsr_connection *, enum bsr_conn_state);
+extern enum bsr_state_rv change_cstate_es(struct bsr_connection *, enum bsr_conn_state, enum chg_state_flags, const char **, const char *);
 
 
 #define change_cstate_ex(connection, cstate, flags) \
 	change_cstate(connection, cstate, flags, __FUNCTION__)
 
-static inline enum drbd_state_rv change_cstate(struct drbd_connection *connection,
-												enum drbd_conn_state cstate,
+static inline enum bsr_state_rv change_cstate(struct bsr_connection *connection,
+												enum bsr_conn_state cstate,
 												enum chg_state_flags flags,
 												const char *caller)
 {
@@ -126,41 +126,41 @@ static inline enum drbd_state_rv change_cstate(struct drbd_connection *connectio
 
 
 // DW-1892 
-extern void __change_peer_role(struct drbd_connection *, enum drbd_role, const char*);
-extern void __change_repl_state(struct drbd_peer_device *, enum drbd_repl_state, const char*);
-extern void __change_repl_state_and_auto_cstate(struct drbd_peer_device *, enum drbd_repl_state, const char*);
-extern void __change_peer_disk_state(struct drbd_peer_device *, enum drbd_disk_state, const char*);
-extern void __change_disk_state(struct drbd_device *, enum drbd_disk_state, const char*);
-extern void __change_cstate_state(struct drbd_connection *, enum drbd_conn_state, const char*);
+extern void __change_peer_role(struct bsr_connection *, enum bsr_role, const char*);
+extern void __change_repl_state(struct bsr_peer_device *, enum bsr_repl_state, const char*);
+extern void __change_repl_state_and_auto_cstate(struct bsr_peer_device *, enum bsr_repl_state, const char*);
+extern void __change_peer_disk_state(struct bsr_peer_device *, enum bsr_disk_state, const char*);
+extern void __change_disk_state(struct bsr_device *, enum bsr_disk_state, const char*);
+extern void __change_cstate_state(struct bsr_connection *, enum bsr_conn_state, const char*);
 
-extern enum drbd_state_rv change_repl_state(struct drbd_peer_device *, enum drbd_repl_state, enum chg_state_flags);
-extern enum drbd_state_rv stable_change_repl_state(struct drbd_peer_device *, enum drbd_repl_state, enum chg_state_flags);
+extern enum bsr_state_rv change_repl_state(struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
+extern enum bsr_state_rv stable_change_repl_state(struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
 
-extern void __change_peer_disk_states(struct drbd_connection *, enum drbd_disk_state);
-extern void __outdate_myself(struct drbd_resource *resource);
-extern enum drbd_state_rv change_peer_disk_state(struct drbd_peer_device *, enum drbd_disk_state, enum chg_state_flags);
+extern void __change_peer_disk_states(struct bsr_connection *, enum bsr_disk_state);
+extern void __outdate_myself(struct bsr_resource *resource);
+extern enum bsr_state_rv change_peer_disk_state(struct bsr_peer_device *, enum bsr_disk_state, enum chg_state_flags);
 
-enum drbd_state_rv change_from_consistent(struct drbd_resource *, enum chg_state_flags);
+enum bsr_state_rv change_from_consistent(struct bsr_resource *, enum chg_state_flags);
 
-extern void __change_resync_susp_user(struct drbd_peer_device *, bool, const char*);
-extern enum drbd_state_rv change_resync_susp_user(struct drbd_peer_device *, bool, enum chg_state_flags, const char *);
-extern void __change_resync_susp_peer(struct drbd_peer_device *, bool, const char*);
-extern void __change_resync_susp_dependency(struct drbd_peer_device *, bool, const char*);
-extern void __change_resync_susp_other_c(struct drbd_peer_device *, bool, const char*);
+extern void __change_resync_susp_user(struct bsr_peer_device *, bool, const char*);
+extern enum bsr_state_rv change_resync_susp_user(struct bsr_peer_device *, bool, enum chg_state_flags, const char *);
+extern void __change_resync_susp_peer(struct bsr_peer_device *, bool, const char*);
+extern void __change_resync_susp_dependency(struct bsr_peer_device *, bool, const char*);
+extern void __change_resync_susp_other_c(struct bsr_peer_device *, bool, const char*);
 
-struct drbd_work;
-extern int abort_nested_twopc_work(struct drbd_work *, int);
+struct bsr_work;
+extern int abort_nested_twopc_work(struct bsr_work *, int);
 
-extern bool resource_is_suspended(struct drbd_resource *resource, enum which_state which, bool locked);
-extern bool is_suspended_fen(struct drbd_resource *resource, enum which_state which, bool locked);
-extern bool is_suspended_quorum(struct drbd_resource *resource, enum which_state which, bool locked);
+extern bool resource_is_suspended(struct bsr_resource *resource, enum which_state which, bool locked);
+extern bool is_suspended_fen(struct bsr_resource *resource, enum which_state which, bool locked);
+extern bool is_suspended_quorum(struct bsr_resource *resource, enum which_state which, bool locked);
 
 enum dds_flags;
 enum determine_dev_size;
 struct resize_parms;
 
 extern enum determine_dev_size
-change_cluster_wide_device_size(struct drbd_device *, sector_t, uint64_t, enum dds_flags,
+change_cluster_wide_device_size(struct bsr_device *, sector_t, uint64_t, enum dds_flags,
 			struct resize_parms *);
 
 #endif

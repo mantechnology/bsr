@@ -1,25 +1,25 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
 
-#ifndef DRBD_WINDOWS_H
-#define DRBD_WINDOWS_H
+#ifndef BSR_WINDOWS_H
+#define BSR_WINDOWS_H
 #include <ntddk.h>
 #include <wdm.h>
 #include <stdint.h>
@@ -34,8 +34,8 @@
 
 #include "disp.h"
 
-//#define DRBD_TRACE				    // trace replication flow(basic)
-//#define DRBD_TRACE1				    // trace replication flow(detail)
+//#define BSR_TRACE				    // trace replication flow(basic)
+//#define BSR_TRACE1				    // trace replication flow(detail)
 
 #define _WIN_SEND_BUF					// Use Send Buffering
 #define _WSK_SOCKETCONNECT
@@ -43,10 +43,10 @@
 #define _WIN_TMP_Win8_BUG_0x1a_61946
 #define minor_to_letter(m)	('C'+(m))
 #define minor_to_mdev minor_to_device
-#define drbd_conf drbd_device
-#define DRBD_GENERIC_POOL_TAG       ((ULONG)'dbrd')
+#define bsr_conf bsr_device
+#define BSR_GENERIC_POOL_TAG       ((ULONG)'dbrd')
 
-#define DRBD_EVENT_SOCKET_STRING	"DRBD_EVENTS"		/// used in NETLINK
+#define BSR_EVENT_SOCKET_STRING	"BSR_EVENTS"		/// used in NETLINK
 
 //#define _WIN_WPP
 #define _WIN_HANDLER_TIMEOUT	// call_usermodehelper timeout
@@ -246,7 +246,7 @@ enum rq_flag_bits {
 
 #define WRITE_SYNC				WRITE	// REQ_SYNC | REQ_NOIDLE not used.
 
-// for drbd_actlog.c
+// for bsr_actlog.c
 #define __attribute__(packed)
 #define __attribute(packed)
 #ifdef LONG_MAX
@@ -313,11 +313,11 @@ extern atomic_t g_dbglog_lv_min;
 
 #define MAX_SPILT_BLOCK_SZ			(1 << 20)
 
-#define WDRBD_THREAD_POINTER
+#define BSR_THREAD_POINTER
 
 #define FLTR_COMPONENT              DPFLTR_DEFAULT_ID
 //#define FLTR_COMPONENT              DPFLTR_IHVDRIVER_ID
-#define FEATURE_WDRBD_PRINT
+#define FEATURE_BSR_PRINT
 
 extern void printk_init(void);
 extern void printk_cleanup(void);
@@ -328,8 +328,8 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 #endif
 
 #ifdef _WIN_EVENTLOG
-#define wdrbd_logger_init()		printk_init();
-#define wdrbd_logger_cleanup()	printk_cleanup();
+#define bsr_logger_init()		printk_init();
+#define bsr_logger_cleanup()	printk_cleanup();
 #define printk(format, ...)   \
     _printk(__FUNCTION__, format, __VA_ARGS__)
 #else
@@ -515,8 +515,8 @@ struct gendisk
 	struct request_queue *queue;
     const struct block_device_operations *fops;
     void *private_data;
-	struct drbd_device*		drbd_device;			// DW-1300 the only point to access drbd device from volume extension.
-	EX_SPIN_LOCK			drbd_device_ref_lock;	// DW-1300 to synchronously access drbd_device. this lock is used when both referencing(shared) and deleting(exclusive) drbd device.
+	struct bsr_device*		bsr_device;			// DW-1300 the only point to access bsr device from volume extension.
+	EX_SPIN_LOCK			bsr_device_ref_lock;	// DW-1300 to synchronously access bsr_device. this lock is used when both referencing(shared) and deleting(exclusive) bsr device.
 	PVOLUME_EXTENSION pDeviceExtension;
 	void * part0; 
 };
@@ -581,12 +581,12 @@ struct bio {
 	unsigned int			bi_size;	/* residual I/O count */
 	atomic_t				bi_cnt;		/* pin count */
 	/* bi_end_io is assigned in next comment places.
-	Blkdev_issue_zeroout.c (drbd\drbd-kernel-compat):		bio->bi_end_io = bio_batch_end_io;
-	Drbd_actlog.c (drbd):	bio->bi_end_io = drbd_md_endio;
-	Drbd_bitmap.c (drbd):	bio->bi_end_io = drbd_bm_endio;
-	Drbd_receiver.c (drbd):	bio->bi_end_io = one_flush_endio;
-	Drbd_receiver.c (drbd):	bio->bi_end_io = drbd_peer_request_endio;
-	Drbd_req.h (drbd):	bio->bi_end_io   = drbd_request_endio;
+	Blkdev_issue_zeroout.c (bsr\bsr-kernel-compat):		bio->bi_end_io = bio_batch_end_io;
+	Bsr_actlog.c (bsr):	bio->bi_end_io = bsr_md_endio;
+	Bsr_bitmap.c (bsr):	bio->bi_end_io = bsr_bm_endio;
+	Bsr_receiver.c (bsr):	bio->bi_end_io = one_flush_endio;
+	Bsr_receiver.c (bsr):	bio->bi_end_io = bsr_peer_request_endio;
+	Bsr_req.h (bsr):	bio->bi_end_io   = bsr_request_endio;
 	*/
 	//BIO_END_IO_CALLBACK*	bi_end_io; 
 	PIO_COMPLETION_ROUTINE  bi_end_io;
@@ -607,7 +607,7 @@ struct completion {
 };
 
 struct accept_wait_data {
-    struct drbd_tconn *tconn;
+    struct bsr_tconn *tconn;
     struct socket *s_listen;
     struct socket *s_accept;
     struct completion door_bell;
@@ -956,7 +956,7 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
                 break;      \
 						            } \
             sig = schedule(&wq, 1, __FUNCTION__, __LINE__);   \
-            if (-DRBD_SIGKILL == sig) { break; }    \
+            if (-BSR_SIGKILL == sig) { break; }    \
 				        } \
 			    } while(false)
 
@@ -983,14 +983,14 @@ extern long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line
 		        break;\
             }\
 	        ret = schedule(&wq, 100, __FUNCTION__, __LINE__);  /* real_timeout = 0.1 sec*/ \
-            if (-DRBD_SIGKILL == ret) { break; } \
+            if (-BSR_SIGKILL == ret) { break; } \
         }\
 	    } while(false)
 
 #define wake_up(q) _wake_up(q, __FUNCTION__, __LINE__)
 
-struct drbd_thread;
-extern void wake_up_process(struct drbd_thread *thi);
+struct bsr_thread;
+extern void wake_up_process(struct bsr_thread *thi);
 
 extern void _wake_up(wait_queue_head_t *q, char *__func, int __line);
 
@@ -1141,8 +1141,8 @@ int g_handler_retry;
 #endif
 
 extern PETHREAD	g_NetlinkServerThread;
-extern union drbd_state g_mask; 
-extern union drbd_state g_val;
+extern union bsr_state g_mask; 
+extern union bsr_state g_val;
 ///
 
 
@@ -1187,7 +1187,7 @@ extern NTSTATUS FsctlCreateVolume(unsigned int minor);
 
 // DW-1327
 extern NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam);
-extern NTSTATUS SetDrbdlockIoBlock(PVOLUME_EXTENSION pVolumeExtension, bool bBlock);
+extern NTSTATUS SetBsrlockIoBlock(PVOLUME_EXTENSION pVolumeExtension, bool bBlock);
 // DW-1317
 extern bool ChangeVolumeReadonly(unsigned int minor, bool set);
 #endif
@@ -1224,12 +1224,12 @@ extern NTSTATUS DeleteRegistryValueKey(__in PUNICODE_STRING preg_path, __in PUNI
 extern NTSTATUS DeleteDriveLetterInRegistry(char letter);
 extern NTSTATUS _QueryVolumeNameRegistry(_In_ PMOUNTDEV_UNIQUE_ID pmuid, _Out_ PVOLUME_EXTENSION pvext);
 extern void NTAPI NetlinkServerThread(PVOID p);
-extern struct block_device * create_drbd_block_device(IN OUT PVOLUME_EXTENSION pvext);
-extern void delete_drbd_block_device(struct kref *kref);
+extern struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext);
+extern void delete_bsr_block_device(struct kref *kref);
 // DW-1300
-extern struct drbd_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckRemoveLock);
+extern struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckRemoveLock);
 extern BOOLEAN do_add_minor(unsigned int minor);
-extern void drbdFreeDev(PVOLUME_EXTENSION pDeviceExtension);
+extern void bsrFreeDev(PVOLUME_EXTENSION pDeviceExtension);
 extern void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate);
 extern void refresh_targetdev_list();
 extern PVOLUME_EXTENSION get_targetdev_by_minor(unsigned int minor, bool bUpdatetargetdev);
@@ -1266,38 +1266,38 @@ extern EX_SPIN_LOCK g_rcuLock;
 
 #define rcu_read_lock() \
     unsigned char oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    drbd_debug_rcu("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_unlock() \
     ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    drbd_debug_rcu("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_lock_w32_inner() \
 	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    drbd_debug_rcu("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define synchronize_rcu_w32_wlock() \
 	unsigned char  oldIrql_wLock; \
 	oldIrql_wLock = ExAcquireSpinLockExclusive(&g_rcuLock);\
-    drbd_debug_rcu("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    bsr_debug_rcu("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define synchronize_rcu() \
 	ExReleaseSpinLockExclusive(&g_rcuLock, oldIrql_wLock);\
-    drbd_debug_rcu("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    bsr_debug_rcu("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define rcu_read_lock_check(locked) \
     unsigned char oldIrql_rLock = 0;\
     if (locked) {\
-		drbd_debug_rcu("rcu_read_lock_check : already locked. currentIrql(%d)\n", KeGetCurrentIrql());\
+		bsr_debug_rcu("rcu_read_lock_check : already locked. currentIrql(%d)\n", KeGetCurrentIrql());\
     } else {\
     	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    	drbd_debug_rcu("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	bsr_debug_rcu("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
     }\
     
 #define rcu_read_unlock_check(locked) \
 	if (!locked) {\
     	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    	drbd_debug_rcu("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	bsr_debug_rcu("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
 	}\
 	
 extern void local_irq_disable();
@@ -1423,7 +1423,7 @@ static int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 	UNREFERENCED_PARAMETER(bdev);
 	UNREFERENCED_PARAMETER(gfp_mask);
 	UNREFERENCED_PARAMETER(discard);
-	// WDRBD: Not support
+	// BSR: Not support
 	return 0;
 }
 
@@ -1432,7 +1432,7 @@ static int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 
 typedef struct sib_info sib_info;
 
-int drbd_genl_multicast_events(void *mdev, const struct sib_info *sib);
+int bsr_genl_multicast_events(void *mdev, const struct sib_info *sib);
 
 extern int scnprintf(char * buf, size_t size, const char *fmt, ...);
 
@@ -1444,7 +1444,7 @@ void list_cut_position(struct list_head *list, struct list_head *head, struct li
 	     (bit) < (size);					\
 	     (bit) = find_next_bit((addr), (size), (bit) + 1))
 
-extern int drbd_backing_bdev_events(struct drbd_device *device);
+extern int bsr_backing_bdev_events(struct bsr_device *device);
 
 static inline unsigned int queue_io_min(struct request_queue *q)
 {
@@ -1500,13 +1500,13 @@ BOOLEAN gbShutdown;
 
 LONGLONG	gTotalLogCnt;
 long		gLogCnt;
-char		gLogBuf[LOGBUF_MAXCNT][MAX_DRBDLOG_BUF];
+char		gLogBuf[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
 
 // DW-1469
-int drbd_resize(struct drbd_device *device);
+int bsr_resize(struct bsr_device *device);
 
 extern char *kvasprintf(int flags, const char *fmt, va_list args);
 bool IsDiskError();
 void msleep(int millisecs);
 
-#endif // DRBD_WINDOWS_H
+#endif // BSR_WINDOWS_H

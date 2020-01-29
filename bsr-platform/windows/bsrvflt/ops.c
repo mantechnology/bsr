@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -24,7 +24,7 @@
 #include "../../../bsr/bsr_int.h"
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
-CALLBACK_FUNCTION drbdCallbackFunc;
+CALLBACK_FUNCTION bsrCallbackFunc;
 PCALLBACK_OBJECT g_pCallbackObj;
 PVOID g_pCallbackReg;
 
@@ -43,17 +43,17 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 
 	PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 	ULONG outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-	if (outlen < (count * sizeof(WDRBD_VOLUME_ENTRY))) {
-		//drbd_err(NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(WDRBD_VOLUME_ENTRY)) );
-		*ReturnLength = count * sizeof(WDRBD_VOLUME_ENTRY);
+	if (outlen < (count * sizeof(BSR_VOLUME_ENTRY))) {
+		//bsr_err(NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(BSR_VOLUME_ENTRY)) );
+		*ReturnLength = count * sizeof(BSR_VOLUME_ENTRY);
 		status = STATUS_BUFFER_TOO_SMALL;
 		goto out;
 	}
 
-	PWDRBD_VOLUME_ENTRY pventry = (PWDRBD_VOLUME_ENTRY)Irp->AssociatedIrp.SystemBuffer;
+	PBSR_VOLUME_ENTRY pventry = (PBSR_VOLUME_ENTRY)Irp->AssociatedIrp.SystemBuffer;
 	PVOLUME_EXTENSION pvext = prext->Head;
 	for ( ; pvext; pvext = pvext->Next, pventry++) {
-		RtlZeroMemory(pventry, sizeof(WDRBD_VOLUME_ENTRY));
+		RtlZeroMemory(pventry, sizeof(BSR_VOLUME_ENTRY));
 
 		RtlCopyMemory(pventry->PhysicalDeviceName, pvext->PhysicalDeviceName, pvext->PhysicalDeviceNameLength);
 		RtlCopyMemory(pventry->MountPoint, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
@@ -72,7 +72,7 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 		}
 	}
 
-	*ReturnLength = count * sizeof(WDRBD_VOLUME_ENTRY);
+	*ReturnLength = count * sizeof(BSR_VOLUME_ENTRY);
 out:
 	MVOL_UNLOCK();
 
@@ -90,7 +90,7 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	if( DeviceObject == mvolRootDeviceObject ) {
 		mvolLogError( DeviceObject, 211,
 			MSG_ROOT_DEVICE_REQUEST, STATUS_INVALID_DEVICE_REQUEST );
-		drbd_err(NO_OBJECT,"RootDevice\n");
+		bsr_err(NO_OBJECT,"RootDevice\n");
 		return STATUS_INVALID_DEVICE_REQUEST;
 	}
 
@@ -98,7 +98,7 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 	if( outlen < sizeof(MVOL_VOLUME_INFO) )	{
 		mvolLogError( DeviceObject, 212, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		drbd_err(NO_OBJECT,"buffer too small out %d sizeof(MVOL_VOLUME_INFO) %d\n", outlen, sizeof(MVOL_VOLUME_INFO));
+		bsr_err(NO_OBJECT,"buffer too small out %d sizeof(MVOL_VOLUME_INFO) %d\n", outlen, sizeof(MVOL_VOLUME_INFO));
 		*ReturnLength = sizeof(MVOL_VOLUME_INFO);
 		return STATUS_BUFFER_TOO_SMALL;
 	}
@@ -119,7 +119,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	}
 
 	if (!Irp->AssociatedIrp.SystemBuffer) {
-		drbd_warn(NO_OBJECT,"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried\n");
+		bsr_warn(NO_OBJECT,"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried\n");
 		return STATUS_INVALID_PARAMETER;
 	}
 
@@ -129,13 +129,13 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	CHAR Message[128] = { 0, };
 	*ReturnLength = 0;
 	// DW-1300
-	struct drbd_device *device = NULL;
+	struct bsr_device *device = NULL;
     COUNT_LOCK(pvext);
 	
     if (!pvext->Active) {
 		_snprintf(Message, sizeof(Message) - 1, "%wZ volume is not dismounted", &pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
-		drbd_err(NO_OBJECT,"%s\n", Message);
+		bsr_err(NO_OBJECT,"%s\n", Message);
         //status = STATUS_INVALID_DEVICE_REQUEST;
         goto out;
     }
@@ -148,17 +148,17 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	if (pvext->WorkThreadInfo.Active && device)
 #endif
 	{
-		_snprintf(Message, sizeof(Message) - 1, "%wZ volume is handling by drbd. Failed to mount",
+		_snprintf(Message, sizeof(Message) - 1, "%wZ volume is handling by bsr. Failed to mount",
 			&pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
-		drbd_err(NO_OBJECT,"%s\n", Message);
+		bsr_err(NO_OBJECT,"%s\n", Message);
         //status = STATUS_VOLUME_DISMOUNTED;
         goto out;
     }
 
     pvext->Active = FALSE;
-	// DW-1327 to allow I/O by drbdlock.
-	SetDrbdlockIoBlock(pvext, FALSE);
+	// DW-1327 to allow I/O by bsrlock.
+	SetBsrlockIoBlock(pvext, FALSE);
 #ifdef _WIN_MULTIVOL_THREAD
 	pvext->WorkThreadInfo = NULL;
 #else
@@ -170,7 +170,7 @@ out:
 
 	// DW-1300 put device reference count when no longer use.
 	if (device)
-		kref_put(&device->kref, drbd_destroy_device);
+		kref_put(&device->kref, bsr_destroy_device);
 
 	if (*ReturnLength) {
 		ULONG outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
@@ -198,14 +198,14 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 	if( inlen < sizeof(MVOL_VOLUME_INFO) || outlen < sizeof(LARGE_INTEGER) ) {
 		mvolLogError( DeviceObject, 321, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
 
-		drbd_err(NO_OBJECT,"buffer too small\n");
+		bsr_err(NO_OBJECT,"buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
 	pVolumeInfo = (PMVOL_VOLUME_INFO) Irp->AssociatedIrp.SystemBuffer;
 	
 	if( DeviceObject == mvolRootDeviceObject ) {
-		drbd_debug(NO_OBJECT,"Root Device IOCTL\n");
+		bsr_debug(NO_OBJECT,"Root Device IOCTL\n");
 
 		MVOL_LOCK();
 		VolumeExtension = mvolSearchDevice( pVolumeInfo->PhysicalDeviceName );
@@ -213,7 +213,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 
 		if( VolumeExtension == NULL ) {
 			mvolLogError( DeviceObject, 322, MSG_NO_DEVICE, STATUS_NO_SUCH_DEVICE );
-			drbd_err(NO_OBJECT,"cannot find volume, PD=%ws\n", pVolumeInfo->PhysicalDeviceName);
+			bsr_err(NO_OBJECT,"cannot find volume, PD=%ws\n", pVolumeInfo->PhysicalDeviceName);
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
@@ -225,7 +225,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 	status = mvolGetVolumeSize( VolumeExtension->TargetDeviceObject, pVolumeSize );
 	if( !NT_SUCCESS(status) ) {
 		mvolLogError( VolumeExtension->DeviceObject, 323, MSG_CALL_DRIVER_ERROR, status );
-		drbd_err(NO_OBJECT,"cannot get volume size, err=0x%x\n", status);
+		bsr_err(NO_OBJECT,"cannot get volume size, err=0x%x\n", status);
 	}
 
 	return status;
@@ -244,13 +244,13 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 	if( inlen < sizeof(MVOL_VOLUME_INFO) || outlen < sizeof(MVOL_COUNT_INFO) ) {
 		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		drbd_err(NO_OBJECT,"buffer too small\n");
+		bsr_err(NO_OBJECT,"buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
 	pVolumeInfo = (PMVOL_VOLUME_INFO) Irp->AssociatedIrp.SystemBuffer;
 	if( DeviceObject == mvolRootDeviceObject ) {
-		drbd_debug(NO_OBJECT,"Root Device IOCTL\n");
+		bsr_debug(NO_OBJECT,"Root Device IOCTL\n");
 
 		MVOL_LOCK();
 		VolumeExtension = mvolSearchDevice( pVolumeInfo->PhysicalDeviceName );
@@ -258,7 +258,7 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 
 		if( VolumeExtension == NULL ) {
 			mvolLogError( DeviceObject, 352, MSG_NO_DEVICE, STATUS_NO_SUCH_DEVICE );
-			drbd_err(NO_OBJECT,"cannot find volume, PD=%ws\n", pVolumeInfo->PhysicalDeviceName);
+			bsr_err(NO_OBJECT,"cannot find volume, PD=%ws\n", pVolumeInfo->PhysicalDeviceName);
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
@@ -287,13 +287,13 @@ IOCTL_SetSimulDiskIoError( PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	if( inlen < sizeof(SIMULATION_DISK_IO_ERROR) || outlen < sizeof(SIMULATION_DISK_IO_ERROR) ) {
 		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		drbd_err(NO_OBJECT,"buffer too small\n");
+		bsr_err(NO_OBJECT,"buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if(Irp->AssociatedIrp.SystemBuffer) {
 		pSDError = (SIMULATION_DISK_IO_ERROR*)Irp->AssociatedIrp.SystemBuffer;
 		RtlCopyMemory(&gSimulDiskIoError, pSDError, sizeof(SIMULATION_DISK_IO_ERROR));
-		drbd_info(NO_OBJECT,"IOCTL_MVOL_SET_SIMUL_DISKIO_ERROR ErrorFlag:%d ErrorType:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
+		bsr_info(NO_OBJECT,"IOCTL_MVOL_SET_SIMUL_DISKIO_ERROR ErrorFlag:%d ErrorType:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
 	} else {
 		return STATUS_INVALID_PARAMETER;
 	}
@@ -313,7 +313,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(LOGGING_MIN_LV)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		drbd_err(NO_OBJECT,"buffer too small\n");
+		bsr_err(NO_OBJECT,"buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -329,7 +329,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		// DW-1432 Modified to see if command was successful 
 		Status = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
 		// DW-2008
-		drbd_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d), result : %lu\n", 
+		bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d), result : %lu\n", 
 					g_log_type_str[pLoggingMinLv->nType], pLoggingMinLv->nType, 
 					(pLoggingMinLv->nType == LOGGING_TYPE_FEATURELOG) ? g_feature_lv_str[pLoggingMinLv->nErrLvMin] : g_default_lv_str[pLoggingMinLv->nErrLvMin], pLoggingMinLv->nErrLvMin,
 					Status);
@@ -346,33 +346,33 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 
 NTSTATUS
-IOCTL_GetDrbdLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
+IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {
 	ULONG			inlen, outlen;
-	DRBD_LOG* 		pDrbdLog = NULL;
+	BSR_LOG* 		pBsrLog = NULL;
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
 	if(!size) {
-		drbd_err(NO_OBJECT,"GetDrbdLog Invalid parameter. size is NULL\n");
+		bsr_err(NO_OBJECT,"GetBsrLog Invalid parameter. size is NULL\n");
 		return STATUS_INVALID_PARAMETER;
 	}
 	*size = 0;	
 	
-	if (inlen < DRBD_LOG_SIZE || outlen < DRBD_LOG_SIZE) {
+	if (inlen < BSR_LOG_SIZE || outlen < BSR_LOG_SIZE) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		drbd_err(NO_OBJECT,"GetDrbdLog buffer too small\n");
+		bsr_err(NO_OBJECT,"GetBsrLog buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
-		pDrbdLog = (DRBD_LOG*)Irp->AssociatedIrp.SystemBuffer;
-		pDrbdLog->totalcnt = gTotalLogCnt;
-		if(pDrbdLog->LogBuf) {
-			RtlCopyMemory(pDrbdLog->LogBuf, gLogBuf, MAX_DRBDLOG_BUF*LOGBUF_MAXCNT);
-			*size = DRBD_LOG_SIZE;
+		pBsrLog = (BSR_LOG*)Irp->AssociatedIrp.SystemBuffer;
+		pBsrLog->totalcnt = gTotalLogCnt;
+		if(pBsrLog->LogBuf) {
+			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
+			*size = BSR_LOG_SIZE;
 		} else {
-			drbd_err(NO_OBJECT,"GetDrbdLog Invalid parameter. pDrbdLog->LogBuf is NULL\n");
+			bsr_err(NO_OBJECT,"GetBsrLog Invalid parameter. pBsrLog->LogBuf is NULL\n");
 			return STATUS_INVALID_PARAMETER;
 		}
 	}
@@ -390,7 +390,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(HANDLER_INFO)) {
 		mvolLogError(DeviceObject, 356, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		drbd_err(NO_OBJECT,"buffer too small\n");
+		bsr_err(NO_OBJECT,"buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	
@@ -400,7 +400,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 		SaveCurrentValue(L"handler_use", g_handler_use);
 
-		drbd_debug(NO_OBJECT,"IOCTL_MVOL_SET_HANDLER_USE : %d \n", g_handler_use);
+		bsr_debug(NO_OBJECT,"IOCTL_MVOL_SET_HANDLER_USE : %d \n", g_handler_use);
 	}
 	else {
 		return STATUS_INVALID_PARAMETER;
@@ -411,7 +411,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 
 VOID
-drbdCallbackFunc(
+bsrCallbackFunc(
 	IN PVOID Context, 
 	IN PVOID Argument1,	
 	IN PVOID Argument2)
@@ -419,12 +419,12 @@ drbdCallbackFunc(
 
 Routine Description:
 
-	This routine is called whenever drbdlock driver notifies drbdlock's callback object.
+	This routine is called whenever bsrlock driver notifies bsrlock's callback object.
 
 Arguments:
 
 	Context - not used.
-	Argument1 - Pointer to the DRBD_VOLUME_CONTROL data structure containing volume information to be resized.
+	Argument1 - Pointer to the BSR_VOLUME_CONTROL data structure containing volume information to be resized.
 	Argument2 - not used.
 
 Return Value:
@@ -436,11 +436,11 @@ Return Value:
 	UNREFERENCED_PARAMETER(Context);
 	UNREFERENCED_PARAMETER(Argument2);
 
-	PDRBD_VOLUME_CONTROL pVolume = (PDRBD_VOLUME_CONTROL)Argument1;
+	PBSR_VOLUME_CONTROL pVolume = (PBSR_VOLUME_CONTROL)Argument1;
 
 	if (pVolume == NULL) {
 		// invalid parameter.
-		drbd_err(NO_OBJECT,"pVolume is NULL\n");
+		bsr_err(NO_OBJECT,"pVolume is NULL\n");
 		return;
 	}
 
@@ -449,11 +449,11 @@ Return Value:
 	PVOLUME_EXTENSION VolumeExtension = mvolSearchVolExtention(pDeviceObject);
 	
 	if (VolumeExtension == NULL) {
-		drbd_err(NO_OBJECT,"cannot find volume, PDO=0x%p\n", pDeviceObject);
+		bsr_err(NO_OBJECT,"cannot find volume, PDO=0x%p\n", pDeviceObject);
 		return;
 	}
 
-	drbd_info(NO_OBJECT,"volume [%ws] is extended.\n", VolumeExtension->PhysicalDeviceName);
+	bsr_info(NO_OBJECT,"volume [%ws] is extended.\n", VolumeExtension->PhysicalDeviceName);
 
 	unsigned long long new_size = get_targetdev_volsize(VolumeExtension);
 	
@@ -462,29 +462,29 @@ Return Value:
 	}	
 	
 	if (VolumeExtension->Active) {	
-		struct drbd_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 
 		if (device) {
 			int err = 0;
 			
 
-			drbd_suspend_io(device, WRITE_ONLY);
-			drbd_set_my_capacity(device, new_size >> 9);
+			bsr_suspend_io(device, WRITE_ONLY);
+			bsr_set_my_capacity(device, new_size >> 9);
 			
-			err = drbd_resize(device);
+			err = bsr_resize(device);
 
 			if (err) {
-				drbd_err(NO_OBJECT,"drbd resize failed. (err=%d)\n", err);
+				bsr_err(NO_OBJECT,"bsr resize failed. (err=%d)\n", err);
 			}
-			drbd_resume_io(device);
+			bsr_resume_io(device);
 
-			kref_put(&device->kref, drbd_destroy_device);
+			kref_put(&device->kref, bsr_destroy_device);
 		}
 	}
 }
 
 NTSTATUS 
-drbdStartupCallback(
+bsrStartupCallback(
 )
 /*++
 
@@ -506,22 +506,22 @@ Return Value:
 	OBJECT_ATTRIBUTES oa = { 0, };
 	UNICODE_STRING usCallbackName;
 
-	RtlInitUnicodeString(&usCallbackName, DRBD_CALLBACK_NAME);
+	RtlInitUnicodeString(&usCallbackName, BSR_CALLBACK_NAME);
 	InitializeObjectAttributes(&oa, &usCallbackName, OBJ_CASE_INSENSITIVE | OBJ_PERMANENT, 0, 0);
 
 	status = ExCreateCallback(&g_pCallbackObj, &oa, TRUE, TRUE);
 	if (!NT_SUCCESS(status)) {
-		drbd_info(NO_OBJECT,"ExCreateCallback failed, status : 0x%x\n", status);
+		bsr_info(NO_OBJECT,"ExCreateCallback failed, status : 0x%x\n", status);
 		return status;
 	}
 
-	g_pCallbackReg = ExRegisterCallback(g_pCallbackObj, drbdCallbackFunc, NULL);
+	g_pCallbackReg = ExRegisterCallback(g_pCallbackObj, bsrCallbackFunc, NULL);
 
 	return status;
 }
 
 VOID
-drbdCleanupCallback(
+bsrCleanupCallback(
 	)
 /*++
 

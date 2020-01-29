@@ -1,24 +1,22 @@
 /*
    lru_cache.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2003-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 2003-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2003-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -69,7 +67,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		}
 		if (lc->flags)
 			private_strcat(print_lru, sizeof(print_lru), " flags= ", lc->flags);
-		drbd_crit(NO_OBJECT,"lru : %s\n", print_lru);
+		bsr_crit(NO_OBJECT,"lru : %s\n", print_lru);
 	}
 
 	if (e){
@@ -82,7 +80,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		if (e->lc_new_number)
 			private_strcat(print_ele, sizeof(print_ele), " lc_new_number= ", e->lc_new_number);
 
-		drbd_crit(NO_OBJECT,"element : %s\n", print_ele);
+		bsr_crit(NO_OBJECT,"element : %s\n", print_ele);
 	}
 }
 #endif 
@@ -397,7 +395,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		drbd_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
+		bsr_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
 		return NULL;
 	}
 #else // _LIN

@@ -1,5 +1,5 @@
-#ifndef DRBD_TRANSPORT_H
-#define DRBD_TRANSPORT_H
+#ifndef BSR_TRANSPORT_H
+#define BSR_TRANSPORT_H
 #ifdef _WIN
 #include "../bsr/bsr-kernel-compat/windows/list.h"
 #include "../bsr/bsr-kernel-compat/windows/wait.h"
@@ -13,13 +13,13 @@
 #endif
 
 /* Whenever touch this file in a non-trivial way, increase the
-   DRBD_TRANSPORT_API_VERSION
+   BSR_TRANSPORT_API_VERSION
    So that transport compiled against an older version of this
    header will no longer load in a module that assumes a newer
    version. */
-#define DRBD_TRANSPORT_API_VERSION 15
+#define BSR_TRANSPORT_API_VERSION 15
 
-/* MSG_MSG_DONTROUTE and MSG_PROBE are not used by DRBD. I.e.
+/* MSG_MSG_DONTROUTE and MSG_PROBE are not used by BSR. I.e.
    we can reuse these flags for our purposes */
 #define CALLER_BUFFER  MSG_DONTROUTE
 #define GROW_BUFFER    MSG_PROBE
@@ -38,7 +38,7 @@
 /*
  * gfp_mask for allocating memory with no write-out.
  *
- * When drbd allocates memory on behalf of the peer, we prevent it from causing
+ * When bsr allocates memory on behalf of the peer, we prevent it from causing
  * write-out because in a criss-cross setup, the write-out could lead to memory
  * pressure on the peer, eventually leading to deadlock.
  */
@@ -46,7 +46,7 @@
 #ifdef _WIN
 #define tr_printk(level, transport, fmt, ...)  do {		\
 	rcu_read_lock();					\
-	printk(level "drbd %s: " fmt,			\
+	printk(level "bsr %s: " fmt,			\
 	       rcu_dereference((transport)->net_conf)->name,	\
 	       __VA_ARGS__);					\
 	rcu_read_unlock();					\
@@ -61,7 +61,7 @@
 #else // _LIN
 #define tr_printk(level, transport, fmt, args...)  ({		\
 	rcu_read_lock();					\
-	printk(level "drbd %s %s:%s: " fmt,			\
+	printk(level "bsr %s %s:%s: " fmt,			\
 	       (transport)->log_prefix,				\
 	       (transport)->class->name,			\
 	       rcu_dereference((transport)->net_conf)->name,	\
@@ -84,16 +84,16 @@
 				 #exp, __func__);				\
 	} while (0)
 
-struct drbd_resource;
-struct drbd_connection;
-struct drbd_peer_device;
+struct bsr_resource;
+struct bsr_connection;
+struct bsr_peer_device;
 
-enum drbd_stream {
+enum bsr_stream {
 	DATA_STREAM,
 	CONTROL_STREAM
 };
 
-enum drbd_tr_hints {
+enum bsr_tr_hints {
 	CORK,
 	UNCORK,
 	NODELAY,
@@ -108,12 +108,12 @@ enum { /* bits in the flags word */
 	DISCONNECT_FLUSH,
 };
 
-enum drbd_tr_free_op {
+enum bsr_tr_free_op {
 	CLOSE_CONNECTION,
 	DESTROY_TRANSPORT
 };
 
-struct drbd_listener;
+struct bsr_listener;
 
 #ifdef _LIN
 typedef struct sockaddr_storage SOCKADDR_STORAGE_EX;
@@ -121,7 +121,7 @@ typedef struct sockaddr_storage SOCKADDR_STORAGE_EX;
 
 /* A transport might wrap its own data structure around this. Having
    this base class as its first member. */
-struct drbd_path {
+struct bsr_path {
 	SOCKADDR_STORAGE_EX my_addr;
 	SOCKADDR_STORAGE_EX peer_addr;
 
@@ -133,15 +133,15 @@ struct drbd_path {
 	
 	struct list_head list; /* paths of a connection */
 	struct list_head listener_link; /* paths waiting for an incomming connection,
-									head is in a drbd_listener */
-	struct drbd_listener *listener;
+									head is in a bsr_listener */
+	struct bsr_listener *listener;
 };
 
-/* Each transport implementation should embed a struct drbd_transport
+/* Each transport implementation should embed a struct bsr_transport
    into it's instance data structure. */
-struct drbd_transport {
-	struct drbd_transport_ops *ops;
-	struct drbd_transport_class *class;
+struct bsr_transport {
+	struct bsr_transport_ops *ops;
+	struct bsr_transport_class *class;
 
 	struct list_head paths;
 
@@ -153,7 +153,7 @@ struct drbd_transport {
 	ULONG_PTR flags;
 };
 
-struct drbd_transport_stats {
+struct bsr_transport_stats {
 	int unread_received;
 	int unacked_send;
 #ifdef _WIN
@@ -166,7 +166,7 @@ struct drbd_transport_stats {
 };
 
 /* argument to ->recv_pages() */
-struct drbd_page_chain_head {
+struct bsr_page_chain_head {
 	struct page *head; // WIN32:used by void pointer to memory which alloccated by malloc()
 	unsigned int nr_pages;
 };
@@ -174,9 +174,9 @@ struct drbd_page_chain_head {
 
 typedef struct seq_file seq_file;
 
-struct drbd_transport_ops {
-	void (*free)(struct drbd_transport *, enum drbd_tr_free_op free_op);
-	int (*connect)(struct drbd_transport *);
+struct bsr_transport_ops {
+	void (*free)(struct bsr_transport *, enum bsr_tr_free_op free_op);
+	int (*connect)(struct bsr_transport *);
 
 /**
  * recv() - Receive data via the transport
@@ -209,7 +209,7 @@ struct drbd_transport_ops {
  * code is negative. A 0 indicates that the socket was closed by the remote
  * side.
  */
-	int (*recv)(struct drbd_transport *, enum drbd_stream, void **buf, size_t size, int flags);
+	int (*recv)(struct bsr_transport *, enum bsr_stream, void **buf, size_t size, int flags);
 
 /**
  * recv_pages() - Receive bulk data via the transport's DATA_STREAM
@@ -218,38 +218,38 @@ struct drbd_transport_ops {
  * @size:	Number of bytes to receive
  *
  * recv_pages() will return the requested amount of data from DATA_STREAM,
- * and place it into pages allocated with drbd_alloc_pages().
+ * and place it into pages allocated with bsr_alloc_pages().
  *
  * Upon success the function returns 0. Upon error the function returns a
  * negative value
  */
-	int (*recv_pages)(struct drbd_transport *, struct drbd_page_chain_head *, size_t size);
+	int (*recv_pages)(struct bsr_transport *, struct bsr_page_chain_head *, size_t size);
 
-	void (*stats)(struct drbd_transport *, struct drbd_transport_stats *stats);
-	void (*set_rcvtimeo)(struct drbd_transport *, enum drbd_stream, long timeout);
-	long (*get_rcvtimeo)(struct drbd_transport *, enum drbd_stream);
-	int (*send_page)(struct drbd_transport *, enum drbd_stream, struct page *,
+	void (*stats)(struct bsr_transport *, struct bsr_transport_stats *stats);
+	void (*set_rcvtimeo)(struct bsr_transport *, enum bsr_stream, long timeout);
+	long (*get_rcvtimeo)(struct bsr_transport *, enum bsr_stream);
+	int (*send_page)(struct bsr_transport *, enum bsr_stream, struct page *,
 			 int offset, size_t size, unsigned msg_flags);
-	int (*send_zc_bio)(struct drbd_transport *, struct bio *bio);
-	bool (*stream_ok)(struct drbd_transport *, enum drbd_stream);
-	bool (*hint)(struct drbd_transport *, enum drbd_stream, enum drbd_tr_hints hint);
-	void (*debugfs_show)(struct drbd_transport *, struct seq_file *m);
-	int (*add_path)(struct drbd_transport *, struct drbd_path *path);
-	int (*remove_path)(struct drbd_transport *, struct drbd_path *path);
+	int (*send_zc_bio)(struct bsr_transport *, struct bio *bio);
+	bool (*stream_ok)(struct bsr_transport *, enum bsr_stream);
+	bool (*hint)(struct bsr_transport *, enum bsr_stream, enum bsr_tr_hints hint);
+	void (*debugfs_show)(struct bsr_transport *, struct seq_file *m);
+	int (*add_path)(struct bsr_transport *, struct bsr_path *path);
+	int (*remove_path)(struct bsr_transport *, struct bsr_path *path);
 #ifdef _SEND_BUF 
-	bool (*start_send_buffring)(struct drbd_transport *, signed long long size);
-	void (*stop_send_buffring)(struct drbd_transport *);
+	bool (*start_send_buffring)(struct bsr_transport *, signed long long size);
+	void (*stop_send_buffring)(struct bsr_transport *);
 #endif
 };
 
-struct drbd_transport_class {
+struct bsr_transport_class {
 	const char *name;
 	const int instance_size;
 	const int path_instance_size;
 #ifdef _LIN 
 	struct module *module;
 #endif
-	int (*init)(struct drbd_transport *);
+	int (*init)(struct bsr_transport *);
 	struct list_head list;
 };
 
@@ -257,61 +257,61 @@ struct drbd_transport_class {
 /* An "abstract base class" for transport implementations. I.e. it
    should be embedded into a transport specific representation of a
    listening "socket" */
-struct drbd_listener {
+struct bsr_listener {
 	struct kref kref;
-	struct drbd_resource *resource;
+	struct bsr_resource *resource;
 	struct list_head list; /* link for resource->listeners */
 	struct list_head waiters; /* list head for paths */
 	spinlock_t waiters_lock;
 	int pending_accepts;
 	SOCKADDR_STORAGE_EX listen_addr;
-	void (*destroy)(struct drbd_listener *);
+	void (*destroy)(struct bsr_listener *);
 };
 
-/* drbd_main.c */
-extern void drbd_destroy_path(struct kref *kref);
+/* bsr_main.c */
+extern void bsr_destroy_path(struct kref *kref);
 
-/* drbd_transport.c */
-extern int drbd_register_transport_class(struct drbd_transport_class *transport_class,
+/* bsr_transport.c */
+extern int bsr_register_transport_class(struct bsr_transport_class *transport_class,
 					 int api_version,
-					 int drbd_transport_size);
-extern void drbd_unregister_transport_class(struct drbd_transport_class *transport_class);
-extern struct drbd_transport_class *drbd_get_transport_class(const char *transport_name);
-extern void drbd_put_transport_class(struct drbd_transport_class *);
-extern void drbd_print_transports_loaded(struct seq_file *seq);
+					 int bsr_transport_size);
+extern void bsr_unregister_transport_class(struct bsr_transport_class *transport_class);
+extern struct bsr_transport_class *bsr_get_transport_class(const char *transport_name);
+extern void bsr_put_transport_class(struct bsr_transport_class *);
+extern void bsr_print_transports_loaded(struct seq_file *seq);
 // DW-1498
 extern bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2);
-extern int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
-	int(*create_fn)(struct drbd_transport *, const struct sockaddr *, struct drbd_listener **));
-extern void drbd_put_listener(struct drbd_path *path);
-extern struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *, SOCKADDR_STORAGE_EX *);
-extern bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream);
-extern bool drbd_should_abort_listening(struct drbd_transport *transport);
-extern void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path);
+extern int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
+	int(*create_fn)(struct bsr_transport *, const struct sockaddr *, struct bsr_listener **));
+extern void bsr_put_listener(struct bsr_path *path);
+extern struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *, SOCKADDR_STORAGE_EX *);
+extern bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream stream);
+extern bool bsr_should_abort_listening(struct bsr_transport *transport);
+extern void bsr_path_event(struct bsr_transport *transport, struct bsr_path *path);
 
-/* drbd_receiver.c*/
+/* bsr_receiver.c*/
 #ifdef _WIN
-extern void* drbd_alloc_pages(struct drbd_transport *, unsigned int, bool);
-extern void drbd_free_pages(struct drbd_transport *transport, int page_count, int is_net);
+extern void* bsr_alloc_pages(struct bsr_transport *, unsigned int, bool);
+extern void bsr_free_pages(struct bsr_transport *transport, int page_count, int is_net);
 #else // _LIN
-extern struct page *drbd_alloc_pages(struct drbd_transport *, unsigned int, gfp_t);
-extern void drbd_free_pages(struct drbd_transport *transport, struct page *page, int is_net);
+extern struct page *bsr_alloc_pages(struct bsr_transport *, unsigned int, gfp_t);
+extern void bsr_free_pages(struct bsr_transport *transport, struct page *page, int is_net);
 #endif
-static inline void drbd_alloc_page_chain(struct drbd_transport *t,
-	struct drbd_page_chain_head *chain, unsigned int nr, gfp_t gfp_flags)
+static inline void bsr_alloc_page_chain(struct bsr_transport *t,
+	struct bsr_page_chain_head *chain, unsigned int nr, gfp_t gfp_flags)
 {
-	chain->head = drbd_alloc_pages(t, nr, gfp_flags);
+	chain->head = bsr_alloc_pages(t, nr, gfp_flags);
 	chain->nr_pages = chain->head ? nr : 0;
 }
 
-static inline void drbd_free_page_chain(struct drbd_transport *transport, struct drbd_page_chain_head *chain, int is_net)
+static inline void bsr_free_page_chain(struct bsr_transport *transport, struct bsr_page_chain_head *chain, int is_net)
 {
 #ifdef _WIN
-	// DW-1239 decrease nr_pages before drbd_free_pages().
+	// DW-1239 decrease nr_pages before bsr_free_pages().
 	int page_count = atomic_xchg((atomic_t *)&chain->nr_pages, 0);
-	drbd_free_pages(transport, page_count, is_net);
+	bsr_free_pages(transport, page_count, is_net);
 #else // _LIN
-	drbd_free_pages(transport, chain->head, is_net);
+	bsr_free_pages(transport, chain->head, is_net);
 	chain->nr_pages = 0;
 #endif
 	chain->head = NULL;
@@ -336,7 +336,7 @@ static inline void drbd_free_page_chain(struct drbd_transport *transport, struct
  *
  * Red Hat struct page is different from upstream (layout and members) :(
  * So I am not too sure about the "all other fields", and it is not as easy to
- * find a place where sizeof(struct drbd_page_chain) would fit on all archs and
+ * find a place where sizeof(struct bsr_page_chain) would fit on all archs and
  * distribution-changed layouts.
  *
  * But (upstream) struct page also says:
@@ -349,7 +349,7 @@ static inline void drbd_free_page_chain(struct drbd_transport *transport, struct
  */
 
 /* grafted over struct page.lru */
-struct drbd_page_chain {
+struct bsr_page_chain {
 	struct page *next;	/* next page in chain, if any */
 #ifdef CONFIG_64BIT
 	unsigned int offset;	/* start offset of data within this page */
@@ -367,25 +367,25 @@ struct drbd_page_chain {
 static inline void dummy_for_buildbug(void)
 {
 	struct page *dummy;
-	BUILD_BUG_ON(sizeof(struct drbd_page_chain) > sizeof(dummy->lru));
+	BUILD_BUG_ON(sizeof(struct bsr_page_chain) > sizeof(dummy->lru));
 }
 #endif
 
 #define page_chain_next(page) \
-	(((struct drbd_page_chain*)&(page)->lru)->next)
+	(((struct bsr_page_chain*)&(page)->lru)->next)
 #define page_chain_size(page) \
-	(((struct drbd_page_chain*)&(page)->lru)->size)
+	(((struct bsr_page_chain*)&(page)->lru)->size)
 #define page_chain_offset(page) \
-	(((struct drbd_page_chain*)&(page)->lru)->offset)
+	(((struct bsr_page_chain*)&(page)->lru)->offset)
 #define set_page_chain_next(page, v) \
-	(((struct drbd_page_chain*)&(page)->lru)->next = (v))
+	(((struct bsr_page_chain*)&(page)->lru)->next = (v))
 #define set_page_chain_size(page, v) \
-	(((struct drbd_page_chain*)&(page)->lru)->size = (v))
+	(((struct bsr_page_chain*)&(page)->lru)->size = (v))
 #define set_page_chain_offset(page, v) \
-	(((struct drbd_page_chain*)&(page)->lru)->offset = (v))
+	(((struct bsr_page_chain*)&(page)->lru)->offset = (v))
 #define set_page_chain_next_offset_size(page, n, o, s)	\
-	*((struct drbd_page_chain*)&(page)->lru) =	\
-	((struct drbd_page_chain) {			\
+	*((struct bsr_page_chain*)&(page)->lru) =	\
+	((struct bsr_page_chain) {			\
 		.next = (n),				\
 		.offset = (o),				\
 		.size = (s),				\

@@ -2,7 +2,7 @@
 arch=$1
 #cd -P "$( dirname "$0" )"
 #cd ../../..
-#cd drbdpkg/user
+#cd bsrpkg/user
 tr -d '\015' < autogen.sh > autogen_windows.sh
 chmod +x autogen_windows.sh
 ./autogen_windows.sh

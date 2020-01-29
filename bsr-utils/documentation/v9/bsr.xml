@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<refentry id="re-bsr">
+  <refnamediv>
+    <refname>bsr</refname>
+    <refpurpose>The start and stop script for BSR</refpurpose>
+  </refnamediv>
+  <refentryinfo>
+    <productname>BSR</productname>
+    <productnumber>9.0.0</productnumber>
+    <date>24 June 2014</date>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>bsr</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="manual">System Administration</refmiscinfo>
+  </refmeta>
+  <refsynopsisdiv>
+    <cmdsynopsis sepchar=" ">
+      <command moreinfo="none">/etc/init.d/bsr</command>
+      <group choice="req" rep="norepeat">
+	<arg choice="plain" rep="norepeat">start</arg>
+	<arg choice="plain" rep="norepeat">stop</arg>
+	<arg choice="plain" rep="norepeat">status</arg>
+	<arg choice="plain" rep="norepeat">reload</arg>
+	<arg choice="plain" rep="norepeat">restart</arg>
+	<arg choice="plain" rep="norepeat">force-reload</arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>Introduction</title>
+    <para>The <command>/etc/init.d/bsr</command> script is used
+    to start and stop bsr on a system V style init system.</para>
+  <para>When using a cluster resource manger such as Pacemaker,
+  BSR should usually <emphasis>not</emphasis> be started by the init system,
+  but should typically be exclusively controlled by the cluster manager.
+  You should not use, and disable, the init script in this case.
+  <command>chmod -x /etc/init.d/bsr</command> has proven most effective for this.
+  </para>
+  <para>In order to use <command>/etc/init.d/bsr</command>, define a bsr
+    configuration. See
+    <citerefentry><refentrytitle>bsr.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.
+  </para>
+  </refsect1>
+  <refsect1>
+    <title>Version</title>
+    <simpara>This document was revised for version 9.0.0 of the BSR distribution.
+  </simpara>
+  </refsect1>
+  <refsect1>
+    <title>Author</title>
+    <simpara>Written by Man Technology inc <email>dev3@mantech.co.kr</email>.
+  </simpara>
+  </refsect1>
+  <refsect1>
+    <title>Reporting Bugs</title>
+    <simpara>Report bugs to <email>dev3@mantech.co.kr</email>.
+  </simpara>
+  </refsect1>
+  <refsect1>
+    <title>Copyright</title>
+    <simpara>Copyright 2007-2020 Man Technology inc. This  is  free software;
+    see the source for copying conditions.  There is NO warranty;
+    not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  </simpara>
+  </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>bsr.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bsrsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bsradm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <ulink url="https://github.com/mantechnology/bsr/"><citetitle>BSR Homepage</citetitle></ulink>
+    </para>
+  </refsect1>
+</refentry>

@@ -1,29 +1,29 @@
 
 
 NTSTATUS
-drbdlockCreateControlDeviceObject(
+bsrlockCreateControlDeviceObject(
 	IN PDRIVER_OBJECT pDrvObj
 	);
 
 VOID
-drbdlockDeleteControlDeviceObject(
+bsrlockDeleteControlDeviceObject(
 	VOID
 	);
 
 VOID
-drbdlockCallbackFunc(
+bsrlockCallbackFunc(
 	IN PVOID Context,
 	IN PVOID Argument1,
 	IN PVOID Argument2
 	);
 
 NTSTATUS
-drbdlockStartupCallback(
+bsrlockStartupCallback(
 	VOID
 	);
 
 VOID
-drbdlockCleanupCallback(
+bsrlockCleanupCallback(
 	VOID
 	);
 
@@ -40,7 +40,7 @@ DeviceIoControlDispatch(
 	);
 
 NTSTATUS 
-ResizeDrbdVolume(
+ResizeBsrVolume(
 	PDEVICE_OBJECT pDeviceObject
 	);
 

@@ -6,7 +6,7 @@ Module Name:
 
 Abstract:
 
-	This is the volume block module of the drbdlock miniFilter driver.
+	This is the volume block module of the bsrlock miniFilter driver.
 
 Environment:
 
@@ -240,7 +240,7 @@ Arguments:
 
 Return Value:
 
-	True: specified volume is protected by drbdlock.
+	True: specified volume is protected by bsrlock.
 	False: specified volume is NOT protected.
 
 --*/
@@ -286,14 +286,14 @@ Return Value:
 		status = FltGetVolumeFromName(gFilterHandle, pusDevName, &pVolume);
 
 		if (!NT_SUCCESS(status)) {
-			drbdlock_print_log("FltGetVolumeFromName failed, status : 0x%x\n", status);
+			bsrlock_print_log("FltGetVolumeFromName failed, status : 0x%x\n", status);
 			break;
 		}
 
 		status = FltGetDiskDeviceObject(pVolume, &pDiskDeviceObject);
 
 		if (!NT_SUCCESS(status)) {
-			drbdlock_print_log("FltGetDiskDeviceObject failed, status : 0x%x\n", status);
+			bsrlock_print_log("FltGetDiskDeviceObject failed, status : 0x%x\n", status);
 			break;
 		}
 
@@ -345,7 +345,7 @@ Return Value:
 	do {
 		status = IoGetDeviceObjectPointer(pusDevName, FILE_READ_DATA, &pFileObject, &pDev);
 		if (!NT_SUCCESS(status)) {
-			drbdlock_print_log("IoGetDeviceObjectPointer failed, status : 0x%x\n", status);
+			bsrlock_print_log("IoGetDeviceObjectPointer failed, status : 0x%x\n", status);
 			break;
 		}
 
@@ -367,18 +367,18 @@ Return Value:
 
 NTSTATUS
 ConvertVolume(
-	IN PDRBDLOCK_VOLUME pVolumeInfo,
+	IN PBSRLOCK_VOLUME pVolumeInfo,
 	OUT PDEVICE_OBJECT *pConverted
 	)
 /*++
 
 Routine Description:
 
-	This routine gets volume device object from DRBDLOCK_VOLUME structure.
+	This routine gets volume device object from BSRLOCK_VOLUME structure.
 
 Arguments:
 
-	pVolumeInfo - Pointer to the DRBDLOCK_VOLUME_CONTROL data structure containing volume information.
+	pVolumeInfo - Pointer to the BSRLOCK_VOLUME_CONTROL data structure containing volume information.
 	pConverted - Pointer to the volume device object that is gotton from pVolumeInfo.
 
 Return Value:
@@ -411,7 +411,7 @@ Return Value:
 	}
 
 	if (!NT_SUCCESS(status)) {
-		drbdlock_print_log("could not get device object for volume(%ws)\n", pVolumeInfo->volumeID.volumeName);
+		bsrlock_print_log("could not get device object for volume(%ws)\n", pVolumeInfo->volumeID.volumeName);
 	}
 
 	return status;	

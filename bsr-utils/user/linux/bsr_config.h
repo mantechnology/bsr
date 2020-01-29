@@ -1,25 +1,25 @@
 ﻿/*
-  drbd_config.h
-  DRBD's compile time configuration.
+  bsr_config.h
+  BSR's compile time configuration.
 
-  drbd is free software; you can redistribute it and/or modify
+  bsr is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2, or (at your option)
   any later version.
 
-  drbd is distributed in the hope that it will be useful,
+  bsr is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with drbd; see the file COPYING.  If not, write to
+  along with bsr; see the file COPYING.  If not, write to
   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#ifndef DRBD_CONFIG_H
-#define DRBD_CONFIG_H
+#ifndef BSR_CONFIG_H
+#define BSR_CONFIG_H
 
-extern const char *drbd_buildtag(void);
+extern const char *bsr_buildtag(void);
 
 #endif

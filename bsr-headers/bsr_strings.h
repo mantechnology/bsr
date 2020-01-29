@@ -1,27 +1,27 @@
-#ifndef __DRBD_STRINGS_H
-#define __DRBD_STRINGS_H
+#ifndef __BSR_STRINGS_H
+#define __BSR_STRINGS_H
 
 struct state_names {
 	const char * const *names;
 	unsigned int size;
 };
 
-extern struct state_names drbd_conn_state_names;
-extern struct state_names drbd_repl_state_names;
-extern struct state_names drbd_role_state_names;
-extern struct state_names drbd_disk_state_names;
-extern struct state_names drbd_error_messages;
+extern struct state_names bsr_conn_state_names;
+extern struct state_names bsr_repl_state_names;
+extern struct state_names bsr_role_state_names;
+extern struct state_names bsr_disk_state_names;
+extern struct state_names bsr_error_messages;
 
-enum drbd_packet;
+enum bsr_packet;
 
-extern const char *drbd_repl_str(enum drbd_repl_state);
-extern const char *drbd_conn_str(enum drbd_conn_state);
-extern const char *drbd_role_str(enum drbd_role);
-extern const char *drbd_disk_str(enum drbd_disk_state);
-extern const char *drbd_set_st_err_str(enum drbd_state_rv);
-extern const char *drbd_packet_name(enum drbd_packet);
+extern const char *bsr_repl_str(enum bsr_repl_state);
+extern const char *bsr_conn_str(enum bsr_conn_state);
+extern const char *bsr_role_str(enum bsr_role);
+extern const char *bsr_disk_str(enum bsr_disk_state);
+extern const char *bsr_set_st_err_str(enum bsr_state_rv);
+extern const char *bsr_packet_name(enum bsr_packet);
 
 // DW-1755
-extern const char *drbd_io_type_name(unsigned char type);
-extern const char *drbd_disk_type_name(unsigned char type);
-#endif  /* __DRBD_STRINGS_H */
+extern const char *bsr_io_type_name(unsigned char type);
+extern const char *bsr_disk_type_name(unsigned char type);
+#endif  /* __BSR_STRINGS_H */

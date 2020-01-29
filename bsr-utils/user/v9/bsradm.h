@@ -1,5 +1,5 @@
-#ifndef DRBDADM_H
-#define DRBDADM_H
+#ifndef BSRADM_H
+#define BSRADM_H
 
 #include <stdbool.h>
 #include <sys/utsname.h>
@@ -108,7 +108,7 @@ struct d_volume
 	/* Do not dump an explicit volume section */
 	unsigned int implicit :1 ;
 
-	/* flags for "drbdadm adjust" */
+	/* flags for "bsradm adjust" */
 	unsigned int adj_del_minor :1;
 	unsigned int adj_new_minor :1;
 	unsigned int adj_detach :1;
@@ -251,11 +251,11 @@ struct cfg_ctx;
 struct adm_cmd {
 	const char *name;
 	int (*function) (const struct cfg_ctx *);
-	const struct context_def *drbdsetup_ctx;
+	const struct context_def *bsrsetup_ctx;
 	/* which level this command is for.
 	 * 0: don't show this command, ever
 	 * 1: normal administrative commands, shown in normal help
-	 * 2-4: shown on "drbdadm hidden-commands"
+	 * 2-4: shown on "bsradm hidden-commands"
 	 * 2: useful for shell scripts
 	 * 3: callbacks potentially called from kernel module on certain events
 	 * 4: advanced, experts and developers only */
@@ -264,7 +264,7 @@ struct adm_cmd {
 	unsigned int res_name_required:1;
 	/* if set, the backend command expects the resource name */
 	unsigned int backend_res_name:1;
-	/* Give the backend(drbdsetup) more time to complete its mission */
+	/* Give the backend(bsrsetup) more time to complete its mission */
 	unsigned int takes_long:1;
 	/* if set, command requires an explicit volume number as well */
 	unsigned int vol_id_required:1;
@@ -273,10 +273,10 @@ struct adm_cmd {
 	unsigned int vol_id_optional:1;
 	/* error out if the ip specified is not available/active now */
 	unsigned int verify_ips:1;
-	/* if set, use the "cache" in /var/lib/drbd to figure out
+	/* if set, use the "cache" in /var/lib/bsr to figure out
 	 * which config file to use.
 	 * This is necessary for handlers (callbacks from kernel) to work
-	 * when using "drbdadm -c /some/other/config/file" */
+	 * when using "bsradm -c /some/other/config/file" */
 	unsigned int use_cached_config_file:1;
 	/* need_peer could also be named iterate_peers */
 	unsigned int need_peer:1;
@@ -344,15 +344,15 @@ extern struct adm_cmd proxy_reconf_cmd;
 
 struct d_name *find_backend_option(const char *opt_name);
 extern int adm_create_md(const struct cfg_ctx *);
-extern int _adm_drbdmeta(const struct cfg_ctx *, int flags, char *argument);
+extern int _adm_bsrmeta(const struct cfg_ctx *, int flags, char *argument);
 
 extern struct d_option *find_opt(struct options *base, const char *name);
 extern bool del_opt(struct options *base, const char * const name);
 
-/* stages of configuration, as performed on "drbdadm up"
- * or "drbdadm adjust":
+/* stages of configuration, as performed on "bsradm up"
+ * or "bsradm adjust":
  */
-enum drbd_cfg_stage {
+enum bsr_cfg_stage {
 	/* prerequisite stage: create objects, start daemons, ... */
 	CFG_PREREQ,
 
@@ -392,8 +392,8 @@ enum drbd_cfg_stage {
 
 #define SCHEDULE_ONCE 0x1000
 
-extern void schedule_deferred_cmd(struct adm_cmd *, const struct cfg_ctx *, enum drbd_cfg_stage);
-extern void maybe_exec_legacy_drbdadm(char **argv);
+extern void schedule_deferred_cmd(struct adm_cmd *, const struct cfg_ctx *, enum bsr_cfg_stage);
+extern void maybe_exec_legacy_bsradm(char **argv);
 extern void uc_node(enum usage_count_type type);
 extern int have_ip(const char *af, const char *ip);
 extern void free_opt(struct d_option *item);
@@ -463,11 +463,11 @@ extern bool trace_print;
 extern int verbose;
 extern int all_resources;
 extern int adjust_more_than_one_resource;
-extern char* drbdsetup;
-extern char* drbdmeta;
-extern char* drbd_proxy_ctl;
-extern char* drbdadm_83;
-extern char* drbdadm_84;
+extern char* bsrsetup;
+extern char* bsrmeta;
+extern char* bsr_proxy_ctl;
+extern char* bsradm_83;
+extern char* bsradm_84;
 extern char ss_buffer[1024];
 extern const char *hostname;
 extern struct names backend_options;

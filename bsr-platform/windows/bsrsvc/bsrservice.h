@@ -49,7 +49,7 @@
 //
 // MessageText:
 //
-// DRBD Daemon Service start.
+// BSR Daemon Service start.
 //
 #define MSG_SERVICE_START                0x400003EAL
 

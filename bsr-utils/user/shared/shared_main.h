@@ -1,22 +1,22 @@
 ﻿/*
    shared_main.h
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2014, LINBIT HA Solutions GmbH.
+   Copyright (C) 2014, Man Technology inc.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
@@ -52,7 +52,7 @@ int have_ip(const char *af, const char *ip);
 int have_ip_ipv4(const char *ip);
 int have_ip_ipv6(const char *ip);
 
-const char *drbd_buildtag(void);
+const char *bsr_buildtag(void);
 
 #define E_USAGE		  1
 #define E_SYNTAX	  2
@@ -91,7 +91,7 @@ enum usage_count_type {
 
 enum pp_flags {
 	MATCH_ON_PROXY = 1,
-	DRBDSETUP_SHOW = 2,
+	BSRSETUP_SHOW = 2,
 };
 
 struct d_globals

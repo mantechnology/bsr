@@ -1,24 +1,22 @@
 /*
-   drbd_bitmap.c
+   bsr_bitmap.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2004-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 2004-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2004-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
@@ -57,14 +55,14 @@
 #define BITS_PER_BM_WORD	(BYTES_PER_BM_WORD << 3)
 
 #ifdef _WIN
-IO_COMPLETION_ROUTINE drbd_bm_endio;
+IO_COMPLETION_ROUTINE bsr_bm_endio;
 #endif
 
 /* OPAQUE outside this file!
- * interface defined in drbd_int.h
+ * interface defined in bsr_int.h
 
  * convention:
- * function name drbd_bm_... => used elsewhere, "public".
+ * function name bsr_bm_... => used elsewhere, "public".
  * function name      bm_... => internal to implementation, "private".
  */
 
@@ -113,21 +111,21 @@ IO_COMPLETION_ROUTINE drbd_bm_endio;
  *  Access to the *bm_pages is protected by bm_lock.
  *  It is safe to read the other members within the lock.
  *
- *  drbd_bm_set_bits is called from bio_endio callbacks,
+ *  bsr_bm_set_bits is called from bio_endio callbacks,
  *  We may be called with irq already disabled,
  *  so we need spin_lock_irqsave().
  *  And we need the kmap_atomic.
  */
 
 #define bm_print_lock_info(m) __bm_print_lock_info(m, __func__)
-static void __bm_print_lock_info(struct drbd_device *device, const char *func)
+static void __bm_print_lock_info(struct bsr_device *device, const char *func)
 {
-	struct drbd_bitmap *b = device->bitmap;
-	if (!drbd_ratelimit())
+	struct bsr_bitmap *b = device->bitmap;
+	if (!bsr_ratelimit())
 		return;
 	
 	// DW-898 at this point bm_task can be NULL.
-	drbd_err(device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
+	bsr_err(device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
 		current->comm,
 		task_pid_nr(current),
 		func,
@@ -136,12 +134,12 @@ static void __bm_print_lock_info(struct drbd_device *device, const char *func)
 		b->bm_task ? task_pid_nr(b->bm_task) : 0);
 }
 
-/* drbd_bm_lock() was introduced before drbd-9.0 to ensure that access to
+/* bsr_bm_lock() was introduced before bsr-9.0 to ensure that access to
    bitmap is locked out by other means (states, etc..). If a needed lock was
    not acquired or already taken a warning gets logged, and the critical
    sections get serialized on a mutex.
 
-   Since drbd-9.0 actions on the bitmap could happen in parallel (e.g. "receive
+   Since bsr-9.0 actions on the bitmap could happen in parallel (e.g. "receive
    bitmap").
    The cheap solution taken right now, is to completely serialize bitmap
    operations but do not warn if they operate on different bitmap slots.
@@ -150,14 +148,14 @@ static void __bm_print_lock_info(struct drbd_device *device, const char *func)
    bitmap slot) and to allow those operations to happen parallel.
  */
 static void
-_drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
+_bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 	      char *why, enum bm_flag flags)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	int trylock_failed;
 
 	if (!b) {
-		drbd_err(device, "FIXME no bitmap in drbd_bm_lock!?\n");
+		bsr_err(device, "FIXME no bitmap in bsr_bm_lock!?\n");
 		return;
 	}
 
@@ -171,7 +169,7 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 	if (trylock_failed) {		
 		// DW-962 DW-1778 fix. bm_task can be NULL
 		struct task_struct *bm_task = b->bm_task;
-		drbd_warn(device, "%s[%d] going to '%s' but bitmap already locked for '%s' by %s[%d]\n",
+		bsr_warn(device, "%s[%d] going to '%s' but bitmap already locked for '%s' by %s[%d]\n",
 			current->comm, 
 			task_pid_nr(current),
 			why, 
@@ -181,7 +179,7 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 		mutex_lock(&b->bm_change);
 	}
 	if (b->bm_flags & BM_LOCK_ALL)
-		drbd_err(device, "FIXME bitmap already locked in bm_lock\n");
+		bsr_err(device, "FIXME bitmap already locked in bm_lock\n");
 	// DW-1979
 	b->bm_flags |= ((flags & BM_LOCK_ALL) | (flags & BM_LOCK_POINTLESS));
 
@@ -190,26 +188,26 @@ _drbd_bm_lock(struct drbd_device *device, struct drbd_peer_device *peer_device,
 	b->bm_locked_peer = peer_device;
 }
 
-void drbd_bm_lock(struct drbd_device *device, char *why, enum bm_flag flags)
+void bsr_bm_lock(struct bsr_device *device, char *why, enum bm_flag flags)
 {
-	_drbd_bm_lock(device, NULL, why, flags);
+	_bsr_bm_lock(device, NULL, why, flags);
 }
 
-void drbd_bm_slot_lock(struct drbd_peer_device *peer_device, char *why, enum bm_flag flags)
+void bsr_bm_slot_lock(struct bsr_peer_device *peer_device, char *why, enum bm_flag flags)
 {
-	_drbd_bm_lock(peer_device->device, peer_device, why, flags);
+	_bsr_bm_lock(peer_device->device, peer_device, why, flags);
 }
 
-void drbd_bm_unlock(struct drbd_device *device)
+void bsr_bm_unlock(struct bsr_device *device)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	if (!b) {
-		drbd_err(device, "FIXME no bitmap in drbd_bm_unlock!?\n");
+		bsr_err(device, "FIXME no bitmap in bsr_bm_unlock!?\n");
 		return;
 	}
 
 	if (!(device->bitmap->bm_flags & BM_LOCK_ALL))
-		drbd_err(device, "FIXME bitmap not locked in bm_unlock\n");
+		bsr_err(device, "FIXME bitmap not locked in bm_unlock\n");
 
 	// DW-1979
 	b->bm_flags &= ~(BM_LOCK_ALL | BM_LOCK_POINTLESS);
@@ -219,9 +217,9 @@ void drbd_bm_unlock(struct drbd_device *device)
 	mutex_unlock(&b->bm_change);
 }
 
-void drbd_bm_slot_unlock(struct drbd_peer_device *peer_device)
+void bsr_bm_slot_unlock(struct bsr_peer_device *peer_device)
 {
-	drbd_bm_unlock(peer_device->device);
+	bsr_bm_unlock(peer_device->device);
 }
 
 /* we store some "meta" info about our pages in page->private */
@@ -266,16 +264,16 @@ static ULONG_PTR bm_page_to_idx(struct page *page)
 /* As is very unlikely that the same page is under IO from more than one
  * context, we can get away with a bit per page and one wait queue per bitmap.
  */
-static void bm_page_lock_io(struct drbd_device *device, int page_nr)
+static void bm_page_lock_io(struct bsr_device *device, int page_nr)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	void *addr = &page_private(b->bm_pages[page_nr]);
 	wait_event(b->bm_io_wait, !test_and_set_bit(BM_PAGE_IO_LOCK, addr));
 }
 
-static void bm_page_unlock_io(struct drbd_device *device, int page_nr)
+static void bm_page_unlock_io(struct bsr_device *device, int page_nr)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	void *addr = &page_private(b->bm_pages[page_nr]);
 	clear_bit_unlock(BM_PAGE_IO_LOCK, addr);
 	wake_up(&device->bitmap->bm_io_wait);
@@ -295,7 +293,7 @@ static void bm_set_page_need_writeout(struct page *page)
 	set_bit(BM_PAGE_NEED_WRITEOUT, &page_private(page));
 }
 
-void drbd_bm_reset_al_hints(struct drbd_device *device)
+void bsr_bm_reset_al_hints(struct bsr_device *device)
 {
 	device->bitmap->n_bitmap_hints = 0;
 }
@@ -327,8 +325,8 @@ static int bm_test_page_lazy_writeout(struct page *page)
 }
 
 /*
- * actually most functions herein should take a struct drbd_bitmap*, not a
- * struct drbd_device*, but for the debug macros I like to have the device around
+ * actually most functions herein should take a struct bsr_bitmap*, not a
+ * struct bsr_device*, but for the debug macros I like to have the device around
  * to be able to report device specific.
  */
 
@@ -352,7 +350,7 @@ static void bm_free_pages(struct page **pages, ULONG_PTR number)
 /*
  * "have" and "want" are NUMBER OF PAGES.
  */
-static struct page **bm_realloc_pages(struct drbd_bitmap *b, ULONG_PTR want)
+static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 {
 	struct page **old_pages = b->bm_pages;
 	struct page **new_pages, *page;
@@ -368,7 +366,7 @@ static struct page **bm_realloc_pages(struct drbd_bitmap *b, ULONG_PTR want)
 	BUG_ON_UINT32_OVER(sizeof(struct page *)*want);
 #endif
 	/* Trying kmalloc first, falling back to vmalloc.
-	 * GFP_NOIO, as this is called while drbd IO is "suspended",
+	 * GFP_NOIO, as this is called while bsr IO is "suspended",
 	 * and during resize or attach on diskless Primary,
 	 * we must not block on IO to ourselves.
 	 * Context is receiver thread or dmsetup. */
@@ -410,10 +408,10 @@ static struct page **bm_realloc_pages(struct drbd_bitmap *b, ULONG_PTR want)
 	return new_pages;
 }
 
-struct drbd_bitmap *drbd_bm_alloc(void)
+struct bsr_bitmap *bsr_bm_alloc(void)
 {
-	struct drbd_bitmap *b;
-	b = kzalloc(sizeof(struct drbd_bitmap), GFP_KERNEL, '70DW');
+	struct bsr_bitmap *b;
+	b = kzalloc(sizeof(struct bsr_bitmap), GFP_KERNEL, '70DW');
 	
 	if (!b)
 		return NULL;
@@ -427,14 +425,14 @@ struct drbd_bitmap *drbd_bm_alloc(void)
 	return b;
 }
 
-sector_t drbd_bm_capacity(struct drbd_device *device)
+sector_t bsr_bm_capacity(struct bsr_device *device)
 {
 	if (!expect(device, device->bitmap))
 		return 0;
 	return device->bitmap->bm_dev_capacity;
 }
 
-void drbd_bm_free(struct drbd_bitmap *bitmap)
+void bsr_bm_free(struct bsr_bitmap *bitmap)
 {
 	bm_free_pages(bitmap->bm_pages, bitmap->bm_number_of_pages);
 	kvfree(bitmap->bm_pages);
@@ -456,7 +454,7 @@ enum bitmap_operations {
 	BM_OP_RANGE_FIND_ZERO_BIT,
 };
 
-static inline ULONG_PTR interleaved_word32(struct drbd_bitmap *bitmap,
+static inline ULONG_PTR interleaved_word32(struct bsr_bitmap *bitmap,
 					       unsigned int bitmap_index,
 					       ULONG_PTR bit)
 {
@@ -473,7 +471,7 @@ static inline unsigned int word32_in_page(ULONG_PTR word)
 	return word & ((1 << (PAGE_SHIFT - 2)) - 1);
 }
 
-static inline ULONG_PTR last_bit_on_page(struct drbd_bitmap *bitmap,
+static inline ULONG_PTR last_bit_on_page(struct bsr_bitmap *bitmap,
 					     unsigned int bitmap_index,
 					     ULONG_PTR bit)
 {
@@ -482,7 +480,7 @@ static inline ULONG_PTR last_bit_on_page(struct drbd_bitmap *bitmap,
 	return (bit | 31) + ((ULONG_PTR)(word32_in_page(~word) / bitmap->bm_max_peers) << 5);
 }
 
-static inline ULONG_PTR bit_to_page_interleaved(struct drbd_bitmap *bitmap,
+static inline ULONG_PTR bit_to_page_interleaved(struct bsr_bitmap *bitmap,
 						    unsigned int bitmap_index,
 						    ULONG_PTR bit)
 {
@@ -494,10 +492,10 @@ static inline ULONG_PTR bit_to_page_interleaved(struct drbd_bitmap *bitmap,
 	____bm_op(device, bitmap_index, start, end, op, buffer)
 #endif
 static __always_inline ULONG_PTR
-____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
+____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
 	 enum bitmap_operations op, __le32 *buffer, enum km_type km_type)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	unsigned int word32_skip = 32 * bitmap->bm_max_peers;
 	ULONG_PTR total = 0;
 	ULONG_PTR word;
@@ -523,7 +521,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 		ULONG_PTR count = 0;
 		void *addr;
 
-		addr = drbd_kmap_atomic(bitmap->bm_pages[page], km_type);
+		addr = bsr_kmap_atomic(bitmap->bm_pages[page], km_type);
 		if (((start & 31) && (start | 31) <= end) || op == BM_OP_TEST) {
 			unsigned int last = bit_in_page | 31;
 			switch(op) {
@@ -544,7 +542,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 						break;
 					case BM_OP_TEST:
 						total = !!test_bit_le(bit_in_page, addr);
-						drbd_kunmap_atomic(addr, km_type);
+						bsr_kunmap_atomic(addr, km_type);
 						return total;
 					default:
 						break;
@@ -692,7 +690,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 		}
 
 	    next_page:
-		drbd_kunmap_atomic(addr, km_type);
+		bsr_kunmap_atomic(addr, km_type);
 		bit_in_page -= BITS_PER_PAGE;
 		switch(op) {
 		case BM_OP_CLEAR:
@@ -714,7 +712,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 		continue;
 
 	    found:
-		drbd_kunmap_atomic(addr, km_type);
+		bsr_kunmap_atomic(addr, km_type);
 		return start + count - bit_in_page;
 	}
 	switch(op) {
@@ -749,7 +747,7 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 		break;
 	case BM_OP_FIND_BIT:
 	case BM_OP_FIND_ZERO_BIT:
-		total = DRBD_END_OF_BITMAP;
+		total = BSR_END_OF_BITMAP;
 		break;
 	default:
 		break;
@@ -759,16 +757,16 @@ ____bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start
 
 /* Returns the number of bits changed.  */
 static __always_inline ULONG_PTR
-__bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
+__bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
 	enum bitmap_operations op, __le32 *buffer)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 
 	if (!expect(device, bitmap))
 		// DW-1153 add error log
 	{
 #ifdef _WIN_DEBUG_OOS
-		drbd_err(device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
+		bsr_err(device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 1;
 	}
@@ -776,7 +774,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-		drbd_err(device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
+		bsr_err(device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -785,7 +783,7 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	{
 #ifdef _WIN_DEBUG_OOS
 		// DW-1153 add error log
-		drbd_err(device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
+		bsr_err(device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -816,10 +814,10 @@ __bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, 
 	return ____bm_op(device, bitmap_index, start, end, op, buffer, KM_IRQ1);
 }
 static __always_inline ULONG_PTR
-bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
+bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
       enum bitmap_operations op, __le32 *buffer)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	unsigned long irq_flags;
 	ULONG_PTR count;
 
@@ -832,28 +830,28 @@ bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, UL
 #ifdef BITMAP_DEBUG
 #define bm_op(device, bitmap_index, start, end, op, buffer) \
 	({ unsigned long ret; \
-	   drbd_info(device, "%s: bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(device, "%s: bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = bm_op(device, bitmap_index, start, end, op, buffer); \
-	   drbd_info(device, "= %lu\n", ret); \
+	   bsr_info(device, "= %lu\n", ret); \
 	   ret; })
 
 #define __bm_op(device, bitmap_index, start, end, op, buffer) \
 	({ unsigned long ret; \
-	   drbd_info(device, "%s: __bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(device, "%s: __bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = __bm_op(device, bitmap_index, start, end, op, buffer); \
-	   drbd_info(device, "= %lu\n", ret); \
+	   bsr_info(device, "= %lu\n", ret); \
 	   ret; })
 #endif
 
 #ifdef BITMAP_DEBUG
 #define ___bm_op(device, bitmap_index, start, end, op, buffer, km_type) \
 	({ unsigned long ret; \
-	   drbd_info(device, "%s: ___bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(device, "%s: ___bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = ____bm_op(device, bitmap_index, start, end, op, buffer, km_type); \
-	   drbd_info(device, "= %lu\n", ret); \
+	   bsr_info(device, "= %lu\n", ret); \
 	   ret; })
 #else
 #define ___bm_op(device, bitmap_index, start, end, op, buffer, km_type) \
@@ -862,9 +860,9 @@ bm_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, UL
 
 /* you better not modify the bitmap while this is running,
  * or its results will be stale */
-static void bm_count_bits(struct drbd_device *device)
+static void bm_count_bits(struct bsr_device *device)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	unsigned int bitmap_index;
 
 	for (bitmap_index = 0; bitmap_index < bitmap->bm_max_peers; bitmap_index++) {
@@ -879,10 +877,10 @@ static void bm_count_bits(struct drbd_device *device)
 	}
 }
 
-/* For the layout, see comment above drbd_md_set_sector_offsets(). */
-static u64 drbd_md_on_disk_bits(struct drbd_device *device)
+/* For the layout, see comment above bsr_md_set_sector_offsets(). */
+static u64 bsr_md_on_disk_bits(struct bsr_device *device)
 {
-	struct drbd_backing_dev *ldev = device->ldev;
+	struct bsr_backing_dev *ldev = device->ldev;
 	u64 bitmap_sectors, word64_on_disk;
 	if (ldev->md.al_offset == 8)
 		bitmap_sectors = ldev->md.md_size_sect - ldev->md.bm_offset;
@@ -905,9 +903,9 @@ static u64 drbd_md_on_disk_bits(struct drbd_device *device)
  * In case this is actually a resize, we copy the old bitmap into the new one.
  * Otherwise, the bitmap is initialized to all bits set.
  */
-int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bits)
+int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR bits, words, obits;
 	ULONG_PTR want, have, onpages; /* number of pages */
 	struct page **npages, **opages = NULL;
@@ -917,9 +915,9 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 	if (!expect(device, b))
 		return -ENOMEM;
 
-	drbd_bm_lock(device, "resize", BM_LOCK_ALL);
+	bsr_bm_lock(device, "resize", BM_LOCK_ALL);
 
-	drbd_info(device, "drbd_bm_resize called with capacity == %llu\n",
+	bsr_info(device, "bsr_bm_resize called with capacity == %llu\n",
 			(unsigned long long)capacity);
 
 	if (capacity == b->bm_dev_capacity)
@@ -949,10 +947,10 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 	words = (ALIGN(bits, 64) * b->bm_max_peers) / BITS_PER_BM_WORD;
 
 	if (get_ldev(device)) {
-		u64 bits_on_disk = drbd_md_on_disk_bits(device);
+		u64 bits_on_disk = bsr_md_on_disk_bits(device);
 		put_ldev(device);
 		if (bits > bits_on_disk) {
-			drbd_err(device, "Not enough space for bitmap: %llu > %llu\n",
+			bsr_err(device, "Not enough space for bitmap: %llu > %llu\n",
 				(unsigned long long)bits, bits_on_disk);
 			err = -ENOSPC;
 			goto out;
@@ -967,7 +965,7 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		D_ASSERT(device, b->bm_pages != NULL);
 		npages = b->bm_pages;
 	} else {
-		if (drbd_insert_fault(device, DRBD_FAULT_BM_ALLOC))
+		if (bsr_insert_fault(device, BSR_FAULT_BM_ALLOC))
 			npages = NULL;
 		else
 			npages = bm_realloc_pages(b, want);
@@ -997,11 +995,11 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 			ULONG_PTR bm_set = b->bm_set[bitmap_index];
 
 			if (set_new_bits) { 
-				___bm_op(device, bitmap_index, obits, DRBD_END_OF_BITMAP, BM_OP_SET, NULL, KM_IRQ1);
+				___bm_op(device, bitmap_index, obits, BSR_END_OF_BITMAP, BM_OP_SET, NULL, KM_IRQ1);
 				bm_set += bits - obits;
 			}
 			else
-				___bm_op(device, bitmap_index, obits, DRBD_END_OF_BITMAP, BM_OP_CLEAR, NULL, KM_IRQ1);
+				___bm_op(device, bitmap_index, obits, BSR_END_OF_BITMAP, BM_OP_CLEAR, NULL, KM_IRQ1);
 
 			b->bm_set[bitmap_index] = bm_set;
 		}
@@ -1017,10 +1015,10 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
 		kvfree(opages);
 	if (!growing)
 		bm_count_bits(device);
-	drbd_info(device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
+	bsr_info(device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
 
  out:
-	drbd_bm_unlock(device);
+	bsr_bm_unlock(device);
 	return err;
 }
 
@@ -1030,9 +1028,9 @@ int drbd_bm_resize(struct drbd_device *device, sector_t capacity, int set_new_bi
  * we still need to lock it, since it is important that this returns
  * bm_set == 0 precisely.
  */
-ULONG_PTR _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index)
+ULONG_PTR _bsr_bm_total_weight(struct bsr_device *device, int bitmap_index)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR s;
 	unsigned long flags;
 
@@ -1048,9 +1046,9 @@ ULONG_PTR _drbd_bm_total_weight(struct drbd_device *device, int bitmap_index)
 	return s;
 }
 
-ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *peer_device)
+ULONG_PTR bsr_bm_total_weight(struct bsr_peer_device *peer_device)
 {
-	struct drbd_device *device = peer_device->device;
+	struct bsr_device *device = peer_device->device;
     ULONG_PTR s;
 
 	if (peer_device->bitmap_index == -1)
@@ -1059,15 +1057,15 @@ ULONG_PTR drbd_bm_total_weight(struct drbd_peer_device *peer_device)
 	/* if I don't have a disk, I don't know about out-of-sync status */
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return 0;
-	s = _drbd_bm_total_weight(device, peer_device->bitmap_index);
+	s = _bsr_bm_total_weight(device, peer_device->bitmap_index);
 	put_ldev(device);
 	return s;
 }
 
 // DW-1859
-void check_and_clear_io_error_in_primary(struct drbd_device *device)
+void check_and_clear_io_error_in_primary(struct bsr_device *device)
 {
-	struct drbd_peer_device *peer_device;
+	struct bsr_peer_device *peer_device;
 	ULONG_PTR total_count = 0;
 	unsigned long flags;
 	bool all_disconnected = true;
@@ -1079,7 +1077,7 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 		return;
 
 	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
-	if (!drbd_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
+	if (!bsr_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
 		put_ldev(device);
 		return;
 	}
@@ -1098,7 +1096,7 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 			spin_unlock_irqrestore(&device->bitmap->bm_lock, flags);
 
 			if (count == 0)
-				drbd_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
+				bsr_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 
 			total_count += count;
 		}
@@ -1107,19 +1105,19 @@ void check_and_clear_io_error_in_primary(struct drbd_device *device)
 	// DW-1859 At primary, all OOS with all peers must be removed before the io - error count can be initialized.
 	// DW-1870 If all nodes are not connected, it is not resolved.
 	if (total_count == 0 && !all_disconnected) {
-		drbd_md_clear_flag(device, MDF_IO_ERROR);
-		drbd_info(device, "io-error has been cleared.\n");
+		bsr_md_clear_flag(device, MDF_IO_ERROR);
+		bsr_info(device, "io-error has been cleared.\n");
 		atomic_set(&device->io_error_count, 0);
-		drbd_queue_notify_io_error_cleared(device);
+		bsr_queue_notify_io_error_cleared(device);
 	}
 
 	put_ldev(device);
 }
 
-void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
+void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 {
-	struct drbd_bitmap *b;
-	struct drbd_device *device;
+	struct bsr_bitmap *b;
+	struct bsr_device *device;
 	ULONG_PTR count;
 	unsigned long flags;
 
@@ -1133,7 +1131,7 @@ void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
 		return;
 
 	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
-	if (!drbd_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
+	if (!bsr_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
 		put_ldev(device);
 		return;
 	}
@@ -1143,20 +1141,20 @@ void check_and_clear_io_error_in_secondary(struct drbd_peer_device *peer_device)
 	count = b->bm_set[peer_device->bitmap_index];
 	spin_unlock_irqrestore(&b->bm_lock, flags);
 	if (count == 0) {
-		drbd_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
-		drbd_md_clear_flag(device, MDF_IO_ERROR);
-		drbd_info(peer_device, "io-error has been cleared.\n");
+		bsr_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
+		bsr_md_clear_flag(device, MDF_IO_ERROR);
+		bsr_info(peer_device, "io-error has been cleared.\n");
 		atomic_set(&device->io_error_count, 0);
-		drbd_queue_notify_io_error_cleared(device);
+		bsr_queue_notify_io_error_cleared(device);
 	}
 
 	put_ldev(device);
 }
 
 /* Returns the number of unsigned long words per peer */
-size_t drbd_bm_words(struct drbd_device *device)
+size_t bsr_bm_words(struct bsr_device *device)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	if (!expect(device, b))
 		return 0;
 	if (!expect(device, b->bm_pages))
@@ -1165,9 +1163,9 @@ size_t drbd_bm_words(struct drbd_device *device)
 	return b->bm_words / b->bm_max_peers;
 }
 
-ULONG_PTR drbd_bm_bits(struct drbd_device *device)
+ULONG_PTR bsr_bm_bits(struct bsr_device *device)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	if (!expect(device, b))
 		return 0;
 
@@ -1176,10 +1174,10 @@ ULONG_PTR drbd_bm_bits(struct drbd_device *device)
 
 /* merge number words from buffer into the bitmap starting at offset.
  * buffer[i] is expected to be little endian unsigned long.
- * bitmap must be locked by drbd_bm_lock.
+ * bitmap must be locked by bsr_bm_lock.
  * currently only used from receive_bitmap.
  */
-void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offset, size_t number,
+void bsr_bm_merge_lel(struct bsr_peer_device *peer_device, size_t offset, size_t number,
 	ULONG_PTR *buffer)
 {
 	ULONG_PTR start, end;
@@ -1191,7 +1189,7 @@ void drbd_bm_merge_lel(struct drbd_peer_device *peer_device, size_t offset, size
 /* copy number words from the bitmap starting at offset into the buffer.
  * buffer[i] will be little endian unsigned long.
  */
-void drbd_bm_get_lel(struct drbd_peer_device *peer_device, size_t offset, size_t number,
+void bsr_bm_get_lel(struct bsr_peer_device *peer_device, size_t offset, size_t number,
 	ULONG_PTR *buffer)
 {
 	ULONG_PTR start, end;
@@ -1201,9 +1199,9 @@ void drbd_bm_get_lel(struct drbd_peer_device *peer_device, size_t offset, size_t
 }
 
 
-static void drbd_bm_aio_ctx_destroy(struct kref *kref)
+static void bsr_bm_aio_ctx_destroy(struct kref *kref)
 {
-	struct drbd_bm_aio_ctx *ctx = container_of(kref, struct drbd_bm_aio_ctx, kref);
+	struct bsr_bm_aio_ctx *ctx = container_of(kref, struct bsr_bm_aio_ctx, kref);
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctx->device->resource->req_lock, flags);
@@ -1215,9 +1213,9 @@ static void drbd_bm_aio_ctx_destroy(struct kref *kref)
 
 /* bv_page may be a copy, or may be the original */
 #ifdef _WIN
-NTSTATUS drbd_bm_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
+NTSTATUS bsr_bm_endio(PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 #else // _LIN
-static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
+static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 {
 #ifdef _WIN
@@ -1232,7 +1230,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE4) {
 			if(IsDiskError()) {
-				drbd_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%lu ErrorCount:%lu\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%lu ErrorCount:%lu\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -1260,9 +1258,9 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		}
 	}
 #endif // _WIN END
-	struct drbd_bm_aio_ctx *ctx = bio->bi_private;
-	struct drbd_device *device = ctx->device;
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bm_aio_ctx *ctx = bio->bi_private;
+	struct bsr_device *device = ctx->device;
+	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR idx = bm_page_to_idx(bio->bi_io_vec[0].bv_page);
 
 	BIO_ENDIO_FN_START;
@@ -1271,7 +1269,7 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	if ((ctx->flags & BM_AIO_COPY_PAGES) == 0 &&
 	    !bm_test_page_unchanged(b->bm_pages[idx]))
-		drbd_warn(device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
+		bsr_warn(device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
 
 	if (error) {
 		/* ctx error will hold the completed-last non-zero error code,
@@ -1280,12 +1278,12 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		bm_set_page_io_err(b->bm_pages[idx]);
 		/* Not identical to on disk version of it.
 		 * Is BM_PAGE_IO_ERROR enough? */
-		if (drbd_ratelimit())
-			drbd_err(device, "IO ERROR %d on bitmap page idx %llu\n",
+		if (bsr_ratelimit())
+			bsr_err(device, "IO ERROR %d on bitmap page idx %llu\n",
 					error, (unsigned long long)idx);
 	} else {
 		bm_clear_page_io_err(b->bm_pages[idx]);
-		dynamic_drbd_dbg(device, "bitmap page idx %llu completed\n", (unsigned long long)idx);
+		dynamic_bsr_dbg(device, "bitmap page idx %llu completed\n", (unsigned long long)idx);
 	}
 
 	bm_page_unlock_io(device, (int)idx);
@@ -1312,37 +1310,37 @@ static BIO_ENDIO_TYPE drbd_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 
 	if (ctx->flags & BM_AIO_COPY_PAGES)
-		mempool_free(bio->bi_io_vec[0].bv_page, drbd_md_io_page_pool);
+		mempool_free(bio->bi_io_vec[0].bv_page, bsr_md_io_page_pool);
 	
 	bio_put(bio);
 
 	if (atomic_dec_and_test(&ctx->in_flight)) {
 		ctx->done = 1;
 		wake_up(&device->misc_wait);
-		kref_put(&ctx->kref, &drbd_bm_aio_ctx_destroy);
+		kref_put(&ctx->kref, &bsr_bm_aio_ctx_destroy);
 	}
-#ifdef DRBD_TRACE	
+#ifdef BSR_TRACE	
 	{
 		static int cnt = 0;
-		drbd_debug(NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
+		bsr_debug(NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
 	}
 #endif
 
 	BIO_ENDIO_FN_RETURN;
 }
 
-static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hold(local)
+static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold(local)
 {
-	struct drbd_device *device = ctx->device;
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_device *device = ctx->device;
+	struct bsr_bitmap *b = device->bitmap;
 	struct page *page;
 	unsigned int len;
 	unsigned int op = (ctx->flags & BM_AIO_READ) ? REQ_OP_READ : REQ_OP_WRITE;
 	sector_t on_disk_sector;
 #ifdef _WIN
-	struct bio *bio = bio_alloc_drbd(GFP_NOIO, '50DW');
+	struct bio *bio = bio_alloc_bsr(GFP_NOIO, '50DW');
 #else // _LIN
-	struct bio *bio = bio_alloc_drbd(GFP_NOIO);
+	struct bio *bio = bio_alloc_bsr(GFP_NOIO);
 #endif
 
     if (!bio) {
@@ -1357,11 +1355,11 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	 * flexible external meta data device,
 	 * or with PAGE_SIZE > 4k */
 	len = min_t(unsigned int, PAGE_SIZE,
-		(drbd_md_last_sector(device->ldev) - on_disk_sector + 1)<<9);
+		(bsr_md_last_sector(device->ldev) - on_disk_sector + 1)<<9);
 
-	// DW-1617 drbd_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
+	// DW-1617 bsr_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
 	if (len == 0){
-		drbd_warn(device, "If len is 0, change it to PAGE_SIZE.\n"); 
+		bsr_warn(device, "If len is 0, change it to PAGE_SIZE.\n"); 
 		len = PAGE_SIZE; 
 	}
 
@@ -1372,7 +1370,7 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	bm_set_page_unchanged(b->bm_pages[page_nr]);
 
 	if (ctx->flags & BM_AIO_COPY_PAGES) {
-		page = mempool_alloc(drbd_md_io_page_pool, __GFP_HIGHMEM|__GFP_RECLAIM);
+		page = mempool_alloc(bsr_md_io_page_pool, __GFP_HIGHMEM|__GFP_RECLAIM);
 		if (!page) {
 			bio_put(bio);
 			goto no_memory;
@@ -1382,14 +1380,14 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	} else
 		page = b->bm_pages[page_nr];
 	bio->bi_bdev = device->ldev->md_bdev;
-	DRBD_BIO_BI_SECTOR(bio) = on_disk_sector;
+	BSR_BIO_BI_SECTOR(bio) = on_disk_sector;
 	/* bio_add_page of a single page to an empty bio will always succeed,
 	 * according to api.  Do we want to assert that? */
 	bio_add_page(bio, page, len, 0);
 	bio->bi_private = ctx;
-	bio->bi_end_io = drbd_bm_endio;
+	bio->bi_end_io = bsr_bm_endio;
 	bio_set_op_attrs(bio, op, 0);
-	if (drbd_insert_fault(device, (op == REQ_OP_WRITE) ? DRBD_FAULT_MD_WR : DRBD_FAULT_MD_RD)) {
+	if (bsr_insert_fault(device, (op == REQ_OP_WRITE) ? BSR_FAULT_MD_WR : BSR_FAULT_MD_RD)) {
 		bsr_bio_endio(bio, -EIO);
 	} else {
 #ifdef _WIN
@@ -1398,13 +1396,13 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 		}
 		else {
 			/* this should not count as user activity and cause the
-			* resync to throttle -- see drbd_rs_should_slow_down(). */
+			* resync to throttle -- see bsr_rs_should_slow_down(). */
 			atomic_add(len >> 9, &device->rs_sect_ev);
 		}
 #else // _LIN
 		submit_bio(bio);
 		/* this should not count as user activity and cause the
-		 * resync to throttle -- see drbd_rs_should_slow_down(). */
+		 * resync to throttle -- see bsr_rs_should_slow_down(). */
 		atomic_add(len >> 9, &device->rs_sect_ev);
 #endif
 	}
@@ -1412,13 +1410,13 @@ static int bm_page_io_async(struct drbd_bm_aio_ctx *ctx, int page_nr) __must_hol
 	return 0;
 
 no_memory :
-	drbd_err(NO_OBJECT,"Unexpected logic: No memory!\n");
+	bsr_err(NO_OBJECT,"Unexpected logic: No memory!\n");
 	return -ENOMEM;
 }
 
 /**
  * bm_rw_range() - read/write the specified range of bitmap pages
- * @device: drbd device this bitmap is associated with
+ * @device: bsr device this bitmap is associated with
  * @rw:	READ or WRITE
  * @start_page, @end_page: inclusive range of bitmap page indices to process
  * @flags: BM_AIO_*, see struct bm_aio_ctx.
@@ -1432,12 +1430,12 @@ no_memory :
  * In case this becomes an issue on systems with larger PAGE_SIZE,
  * we may want to change this again to do 4k aligned 4k pieces.
  */
-static int bm_rw_range(struct drbd_device *device,
+static int bm_rw_range(struct bsr_device *device,
 	ULONG_PTR start_page, ULONG_PTR end_page,
 	unsigned flags) __must_hold(local)
 {
-	struct drbd_bm_aio_ctx *ctx;
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bm_aio_ctx *ctx;
+	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR i, count = 0;
 
 	ULONG_PTR now;
@@ -1447,7 +1445,7 @@ static int bm_rw_range(struct drbd_device *device,
 	 * We are protected against bitmap disappearing/resizing by holding an
 	 * ldev reference (caller must have called get_ldev()).
 	 * For read/write, we are protected against changes to the bitmap by
-	 * the bitmap lock (see drbd_bitmap_io).
+	 * the bitmap lock (see bsr_bitmap_io).
 	 * For lazy writeout, we don't care for ongoing changes to the bitmap,
 	 * as we submit copies of pages anyways.
 	 */
@@ -1456,11 +1454,11 @@ static int bm_rw_range(struct drbd_device *device,
 	if (!expect(device, b->bm_number_of_pages))
 		return -ENODEV;
 
-	ctx = kmalloc(sizeof(struct drbd_bm_aio_ctx), GFP_NOIO, '80DW');
+	ctx = kmalloc(sizeof(struct bsr_bm_aio_ctx), GFP_NOIO, '80DW');
 	if (!ctx)
 		return -ENOMEM;
 
-	*ctx = (struct drbd_bm_aio_ctx) {
+	*ctx = (struct bsr_bm_aio_ctx) {
 		.device = device,
 		.start_jif = jiffies,
 		.in_flight = ATOMIC_INIT(1),
@@ -1470,12 +1468,12 @@ static int bm_rw_range(struct drbd_device *device,
 		.kref = KREF_INIT(2),
 	};
 
-	if (!expect(device, get_ldev_if_state(device, D_ATTACHING))) {  /* put is in drbd_bm_aio_ctx_destroy() */
+	if (!expect(device, get_ldev_if_state(device, D_ATTACHING))) {  /* put is in bsr_bm_aio_ctx_destroy() */
 		kfree(ctx);
 		return -ENODEV;
 	}
-	/* Here, D_ATTACHING is sufficient because drbd_bm_read() is only
-	 * called from drbd_adm_attach(), after device->ldev has been assigned.
+	/* Here, D_ATTACHING is sufficient because bsr_bm_read() is only
+	 * called from bsr_adm_attach(), after device->ldev has been assigned.
 	 *
 	 * The corresponding put_ldev() happens in bm_aio_ctx_destroy().
 	 */
@@ -1537,14 +1535,14 @@ static int bm_rw_range(struct drbd_device *device,
 			 * unless specifically requested to write ALL pages */
 			if (!(flags & BM_AIO_WRITE_ALL_PAGES) &&
 			    bm_test_page_unchanged(b->bm_pages[i])) {
-				//dynamic_drbd_dbg(device, "skipped bm write for idx %u\n", i);
+				//dynamic_bsr_dbg(device, "skipped bm write for idx %u\n", i);
 				continue;
 			}
 			/* during lazy writeout,
 			 * ignore those pages not marked for lazy writeout. */
 			if ((flags & BM_AIO_WRITE_LAZY) &&
 			    !bm_test_page_lazy_writeout(b->bm_pages[i])) {
-				//dynamic_drbd_dbg(device, "skipped bm lazy write for idx %u\n", i);
+				//dynamic_bsr_dbg(device, "skipped bm lazy write for idx %u\n", i);
 				continue;
 			}
 			atomic_inc(&ctx->in_flight);
@@ -1559,7 +1557,7 @@ static int bm_rw_range(struct drbd_device *device,
 	}
 
 	/*
-	 * We initialize ctx->in_flight to one to make sure drbd_bm_endio
+	 * We initialize ctx->in_flight to one to make sure bsr_bm_endio
 	 * will not set ctx->done early, and decrement / test it here.  If there
 	 * are still some bios in flight, we need to wait for them here.
 	 * If all IO is done already (or nothing had been submitted), there is
@@ -1567,24 +1565,24 @@ static int bm_rw_range(struct drbd_device *device,
 	 * "in_flight reached zero, all done" event.
 	 */
 	if (!atomic_dec_and_test(&ctx->in_flight)) {
-		drbd_blk_run_queue(bdev_get_queue(device->ldev->md_bdev));
+		bsr_blk_run_queue(bdev_get_queue(device->ldev->md_bdev));
 		wait_until_done_or_force_detached(device, device->ldev, &ctx->done);
 	} else
-		kref_put(&ctx->kref, &drbd_bm_aio_ctx_destroy);
+		kref_put(&ctx->kref, &bsr_bm_aio_ctx_destroy);
 
 	/* summary for global bitmap IO */
 	if (flags == 0 && count) {
 		unsigned int ms = jiffies_to_msecs(jiffies - now);
 		if (ms > 5) {
-			drbd_info(device, "bitmap %s of %llu pages took %u ms\n",
+			bsr_info(device, "bitmap %s of %llu pages took %u ms\n",
 				 (flags & BM_AIO_READ) ? "READ" : "WRITE",
 				 (unsigned long long)count, ms);
 		}
 	}
 
 	if (ctx->error) {
-		drbd_alert(device, "we had at least one MD IO ERROR during bitmap IO\n");
-		drbd_chk_io_error(device, 1, DRBD_META_IO_ERROR);
+		bsr_alert(device, "we had at least one MD IO ERROR during bitmap IO\n");
+		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 		err = -EIO; /* ctx->error ? */
 	}
 
@@ -1594,15 +1592,15 @@ static int bm_rw_range(struct drbd_device *device,
 	if (flags & BM_AIO_READ) {
 		now = jiffies;
 		bm_count_bits(device);
-		drbd_info(device, "recounting of set bits took additional %ums\n",
+		bsr_info(device, "recounting of set bits took additional %ums\n",
 		     jiffies_to_msecs(jiffies - now));
 	}
 
-	kref_put(&ctx->kref, &drbd_bm_aio_ctx_destroy);
+	kref_put(&ctx->kref, &bsr_bm_aio_ctx_destroy);
 	return err;
 }
 
-static int bm_rw(struct drbd_device *device, unsigned flags)
+static int bm_rw(struct bsr_device *device, unsigned flags)
 {
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(device->bitmap->bm_number_of_pages);
@@ -1611,19 +1609,19 @@ static int bm_rw(struct drbd_device *device, unsigned flags)
 }
 
 /**
- * drbd_bm_read() - Read the whole bitmap from its on disk location.
- * @device:	DRBD device.
+ * bsr_bm_read() - Read the whole bitmap from its on disk location.
+ * @device:	BSR device.
  */
-int drbd_bm_read(struct drbd_device *device,
-		 struct drbd_peer_device *peer_device) __must_hold(local)
+int bsr_bm_read(struct bsr_device *device,
+		 struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	UNREFERENCED_PARAMETER(peer_device);
 	return bm_rw(device, BM_AIO_READ);
 }
 
-static void push_al_bitmap_hint(struct drbd_device *device, unsigned int page_nr)
+static void push_al_bitmap_hint(struct bsr_device *device, unsigned int page_nr)
 {
-	struct drbd_bitmap *b = device->bitmap;
+	struct bsr_bitmap *b = device->bitmap;
 	struct page *page = b->bm_pages[page_nr];
 	BUG_ON(b->n_bitmap_hints >= ARRAY_SIZE(b->al_bitmap_hints));
 	if (!test_and_set_bit(BM_PAGE_HINT_WRITEOUT, &page_private(page)) && (b->n_bitmap_hints < ARRAY_SIZE(b->al_bitmap_hints)))
@@ -1631,16 +1629,16 @@ static void push_al_bitmap_hint(struct drbd_device *device, unsigned int page_nr
 }
 
 /**
- * drbd_bm_mark_range_for_writeout() - mark with a "hint" to be considered for writeout
- * @device:	DRBD device.
+ * bsr_bm_mark_range_for_writeout() - mark with a "hint" to be considered for writeout
+ * @device:	BSR device.
  *
  * From within an activity log transaction, we mark a few pages with these
- * hints, then call drbd_bm_write_hinted(), which will only write out changed
+ * hints, then call bsr_bm_write_hinted(), which will only write out changed
  * pages which are flagged with this mark.
  */
-void drbd_bm_mark_range_for_writeout(struct drbd_device *device, ULONG_PTR start, ULONG_PTR end)
+void bsr_bm_mark_range_for_writeout(struct bsr_device *device, ULONG_PTR start, ULONG_PTR end)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	ULONG_PTR last_page;
 	ULONG_PTR page_nr;
 
@@ -1658,81 +1656,81 @@ void drbd_bm_mark_range_for_writeout(struct drbd_device *device, ULONG_PTR start
 
 
 /**
- * drbd_bm_write() - Write the whole bitmap to its on disk location.
- * @device:	DRBD device.
+ * bsr_bm_write() - Write the whole bitmap to its on disk location.
+ * @device:	BSR device.
  *
  * Will only write pages that have changed since last IO.
  */
-int drbd_bm_write(struct drbd_device *device,
-		  struct drbd_peer_device *peer_device) __must_hold(local)
+int bsr_bm_write(struct bsr_device *device,
+		  struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	UNREFERENCED_PARAMETER(peer_device);
 	return bm_rw(device, 0);
 }
 
 /**
- * drbd_bm_write_all() - Write the whole bitmap to its on disk location.
- * @mdev:	DRBD device.
+ * bsr_bm_write_all() - Write the whole bitmap to its on disk location.
+ * @mdev:	BSR device.
  *
  * Will write all pages.
  */
-int drbd_bm_write_all(struct drbd_device *device,
-		      struct drbd_peer_device *peer_device) __must_hold(local)
+int bsr_bm_write_all(struct bsr_device *device,
+		      struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	UNREFERENCED_PARAMETER(peer_device);
 	return bm_rw(device, BM_AIO_WRITE_ALL_PAGES);
 }
 
 /**
- * drbd_bm_write_lazy() - Write bitmap pages 0 to @upper_idx-1, if they have changed.
- * @device:	DRBD device.
+ * bsr_bm_write_lazy() - Write bitmap pages 0 to @upper_idx-1, if they have changed.
+ * @device:	BSR device.
  * @upper_idx:	0: write all changed pages; +ve: page index to stop scanning for changed pages
  */
-int drbd_bm_write_lazy(struct drbd_device *device, unsigned upper_idx) __must_hold(local)
+int bsr_bm_write_lazy(struct bsr_device *device, unsigned upper_idx) __must_hold(local)
 {
 	return bm_rw_range(device, 0, upper_idx - 1, BM_AIO_COPY_PAGES | BM_AIO_WRITE_LAZY);
 }
 
 /**
- * drbd_bm_write_copy_pages() - Write the whole bitmap to its on disk location.
- * @device:	DRBD device.
+ * bsr_bm_write_copy_pages() - Write the whole bitmap to its on disk location.
+ * @device:	BSR device.
  *
  * Will only write pages that have changed since last IO.
- * In contrast to drbd_bm_write(), this will copy the bitmap pages
+ * In contrast to bsr_bm_write(), this will copy the bitmap pages
  * to temporary writeout pages. It is intended to trigger a full write-out
  * while still allowing the bitmap to change, for example if a resync or online
  * verify is aborted due to a failed peer disk, while local IO continues, or
  * pending resync acks are still being processed.
  */
-int drbd_bm_write_copy_pages(struct drbd_device *device,
-			     struct drbd_peer_device *peer_device) __must_hold(local)
+int bsr_bm_write_copy_pages(struct bsr_device *device,
+			     struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	UNREFERENCED_PARAMETER(peer_device);
 	return bm_rw(device, BM_AIO_COPY_PAGES);
 }
 
 /**
- * drbd_bm_write_hinted() - Write bitmap pages with "hint" marks, if they have changed.
- * @device:	DRBD device.
+ * bsr_bm_write_hinted() - Write bitmap pages with "hint" marks, if they have changed.
+ * @device:	BSR device.
  */
-int drbd_bm_write_hinted(struct drbd_device *device) __must_hold(local)
+int bsr_bm_write_hinted(struct bsr_device *device) __must_hold(local)
 {
 	return bm_rw(device, BM_AIO_WRITE_HINTED | BM_AIO_COPY_PAGES);
 }
-ULONG_PTR drbd_bm_find_next(struct drbd_peer_device *peer_device, ULONG_PTR start)
+ULONG_PTR bsr_bm_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start)
 {
-	return bm_op(peer_device->device, peer_device->bitmap_index, start, DRBD_END_OF_BITMAP,
+	return bm_op(peer_device->device, peer_device->bitmap_index, start, BSR_END_OF_BITMAP,
 		     BM_OP_FIND_BIT, NULL);
 }
 
-extern ULONG_PTR drbd_bm_range_find_next(struct drbd_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end) 
+extern ULONG_PTR bsr_bm_range_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end) 
 {
 	return bm_op(peer_device->device, peer_device->bitmap_index, start, end,
 		BM_OP_RANGE_FIND_BIT, NULL);
 }
 
 // DW-1979
-extern ULONG_PTR drbd_bm_range_find_next_zero(struct drbd_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
+extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
 {
 	return bm_op(peer_device->device, peer_device->bitmap_index, start, end,
 		BM_OP_RANGE_FIND_ZERO_BIT, NULL);
@@ -1740,7 +1738,7 @@ extern ULONG_PTR drbd_bm_range_find_next_zero(struct drbd_peer_device *peer_devi
 
 #if 0
 /* not yet needed for anything. */
-unsigned long drbd_bm_find_next_zero(struct drbd_peer_device *peer_device, unsigned long start)
+unsigned long bsr_bm_find_next_zero(struct bsr_peer_device *peer_device, unsigned long start)
 {
 	return bm_op(peer_device->device, peer_device->bitmap_index, start, -1UL,
 		     BM_OP_FIND_ZERO_BIT, NULL);
@@ -1748,20 +1746,20 @@ unsigned long drbd_bm_find_next_zero(struct drbd_peer_device *peer_device, unsig
 #endif
 
 /* does not spin_lock_irqsave.
- * you must take drbd_bm_lock() first */
-ULONG_PTR _drbd_bm_find_next(struct drbd_peer_device *peer_device, ULONG_PTR start)
+ * you must take bsr_bm_lock() first */
+ULONG_PTR _bsr_bm_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start)
 {
 	/* WARN_ON(!(device->b->bm_flags & BM_LOCK_SET)); */
-	return ____bm_op(peer_device->device, peer_device->bitmap_index, start, DRBD_END_OF_BITMAP,
+	return ____bm_op(peer_device->device, peer_device->bitmap_index, start, BSR_END_OF_BITMAP,
 		    BM_OP_FIND_BIT, NULL, KM_USER0);
 }
-ULONG_PTR _drbd_bm_find_next_zero(struct drbd_peer_device *peer_device, ULONG_PTR start)
+ULONG_PTR _bsr_bm_find_next_zero(struct bsr_peer_device *peer_device, ULONG_PTR start)
 {
 	/* WARN_ON(!(device->b->bm_flags & BM_LOCK_SET)); */
-	return ____bm_op(peer_device->device, peer_device->bitmap_index, start, DRBD_END_OF_BITMAP,
+	return ____bm_op(peer_device->device, peer_device->bitmap_index, start, BSR_END_OF_BITMAP,
 		    BM_OP_FIND_ZERO_BIT, NULL, KM_USER0);
 }
-ULONG_PTR drbd_bm_set_bits(struct drbd_device *device, unsigned int bitmap_index,
+ULONG_PTR bsr_bm_set_bits(struct bsr_device *device, unsigned int bitmap_index,
     ULONG_PTR start, ULONG_PTR end)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, start, end, BM_OP_SET, NULL);
@@ -1771,10 +1769,10 @@ ULONG_PTR drbd_bm_set_bits(struct drbd_device *device, unsigned int bitmap_index
 	return count;
 }
 static __always_inline void
-__bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
+__bm_many_bits_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, ULONG_PTR end,
 	enum bitmap_operations op)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	ULONG_PTR bit = start;
 #ifdef _WIN
 	ULONG_PTR offset = start;
@@ -1809,35 +1807,35 @@ __bm_many_bits_op(struct drbd_device *device, unsigned int bitmap_index, ULONG_P
 	}
 	spin_unlock_irq(&bitmap->bm_lock);
 }
-void drbd_bm_set_many_bits(struct drbd_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
+void bsr_bm_set_many_bits(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
 {
 	__bm_many_bits_op(peer_device->device, peer_device->bitmap_index, start, end, BM_OP_SET);
 }
-void drbd_bm_clear_many_bits(struct drbd_device *device, int bitmap_index, ULONG_PTR start, ULONG_PTR end)
+void bsr_bm_clear_many_bits(struct bsr_device *device, int bitmap_index, ULONG_PTR start, ULONG_PTR end)
 {
 	__bm_many_bits_op(device, bitmap_index, start, end, BM_OP_CLEAR);
 }
 
 /* set all bits in the bitmap */
-void drbd_bm_set_all(struct drbd_device *device)
+void bsr_bm_set_all(struct bsr_device *device)
 {
-       struct drbd_bitmap *bitmap = device->bitmap;
+       struct bsr_bitmap *bitmap = device->bitmap;
        unsigned int bitmap_index;
 
        for (bitmap_index = 0; bitmap_index < bitmap->bm_max_peers; bitmap_index++)
-		   __bm_many_bits_op(device, bitmap_index, 0, DRBD_END_OF_BITMAP, BM_OP_SET);
+		   __bm_many_bits_op(device, bitmap_index, 0, BSR_END_OF_BITMAP, BM_OP_SET);
 }
 
 /* clear all bits in the bitmap */
-void drbd_bm_clear_all(struct drbd_device *device)
+void bsr_bm_clear_all(struct bsr_device *device)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	unsigned int bitmap_index;
 
 	for (bitmap_index = 0; bitmap_index < bitmap->bm_max_peers; bitmap_index++)
-		__bm_many_bits_op(device, bitmap_index, 0, DRBD_END_OF_BITMAP, BM_OP_CLEAR);
+		__bm_many_bits_op(device, bitmap_index, 0, BSR_END_OF_BITMAP, BM_OP_CLEAR);
 }
-ULONG_PTR drbd_bm_clear_bits(struct drbd_device *device, unsigned int bitmap_index,
+ULONG_PTR bsr_bm_clear_bits(struct bsr_device *device, unsigned int bitmap_index,
 	ULONG_PTR start, ULONG_PTR end)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, start, end, BM_OP_CLEAR, NULL);
@@ -1854,15 +1852,15 @@ ULONG_PTR drbd_bm_clear_bits(struct drbd_device *device, unsigned int bitmap_ind
  *  0 ... bit not set
  * -1 ... first out of bounds access, stop testing for bits!
  */
-ULONG_PTR drbd_bm_test_bit(struct drbd_peer_device *peer_device, const ULONG_PTR bitnr)
+ULONG_PTR bsr_bm_test_bit(struct bsr_peer_device *peer_device, const ULONG_PTR bitnr)
 {
-	struct drbd_bitmap *bitmap = peer_device->device->bitmap;
+	struct bsr_bitmap *bitmap = peer_device->device->bitmap;
 	unsigned long irq_flags;
 	ULONG_PTR ret;
 
 	spin_lock_irqsave(&bitmap->bm_lock, irq_flags);
 	if (bitnr >= bitmap->bm_bits)
-		ret = DRBD_END_OF_BITMAP;
+		ret = BSR_END_OF_BITMAP;
 	else {
 		ret = __bm_op(peer_device->device, peer_device->bitmap_index, bitnr, bitnr,
 			BM_OP_COUNT, NULL);
@@ -1872,7 +1870,7 @@ ULONG_PTR drbd_bm_test_bit(struct drbd_peer_device *peer_device, const ULONG_PTR
 }
 
 /* returns number of bits set in the range [s, e] */
-ULONG_PTR drbd_bm_count_bits(struct drbd_device *device, unsigned int bitmap_index, ULONG_PTR s, ULONG_PTR e)
+ULONG_PTR bsr_bm_count_bits(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR s, ULONG_PTR e)
 {
 	ULONG_PTR count = bm_op(device, bitmap_index, s, e, BM_OP_COUNT, NULL);
 #ifdef _WIN64
@@ -1882,9 +1880,9 @@ ULONG_PTR drbd_bm_count_bits(struct drbd_device *device, unsigned int bitmap_ind
 }
 
 #if 0
-void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsigned int to_index)
+void bsr_bm_copy_slot(struct bsr_device *device, unsigned int from_index, unsigned int to_index)
 {
-	struct drbd_bitmap *bitmap = device->bitmap;
+	struct bsr_bitmap *bitmap = device->bitmap;
 	ULONG_PTR word_nr, from_word_nr, to_word_nr;
 	unsigned int from_page_nr, to_page_nr, current_page_nr;
 	u32 data_word, *addr;
@@ -1893,7 +1891,7 @@ void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsi
 
 	bitmap->bm_set[to_index] = 0;
 	current_page_nr = 0;
-	addr = drbd_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
+	addr = bsr_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
 	for (word_nr = 0; word_nr < bitmap->bm_words; word_nr += bitmap->bm_max_peers) {
 		from_word_nr = word_nr + from_index;
 		from_page_nr = (unsigned int)word32_to_page(from_word_nr);
@@ -1901,14 +1899,14 @@ void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsi
 		to_page_nr = (unsigned int)word32_to_page(to_word_nr);
 
 		if (current_page_nr != from_page_nr) {
-			drbd_kunmap_atomic(addr, KM_IRQ1);
+			bsr_kunmap_atomic(addr, KM_IRQ1);
 			if (need_resched()) {
 				spin_unlock_irq(&bitmap->bm_lock);
 				cond_resched();
 				spin_lock_irq(&bitmap->bm_lock);
 			}
 			current_page_nr = from_page_nr;
-			addr = drbd_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
+			addr = bsr_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
 		}
 		data_word = addr[word32_in_page(from_word_nr)];
 
@@ -1919,9 +1917,9 @@ void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsi
 		}
 
 		if (current_page_nr != to_page_nr) {
-			drbd_kunmap_atomic(addr, KM_IRQ1);
+			bsr_kunmap_atomic(addr, KM_IRQ1);
 			current_page_nr = to_page_nr;
-			addr = drbd_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
+			addr = bsr_kmap_atomic(bitmap->bm_pages[current_page_nr], KM_IRQ1);
 		}
 
 		if (addr[word32_in_page(to_word_nr)] != data_word)
@@ -1929,7 +1927,7 @@ void drbd_bm_copy_slot(struct drbd_device *device, unsigned int from_index, unsi
 		addr[word32_in_page(to_word_nr)] = data_word;
 		bitmap->bm_set[to_index] += hweight32(data_word);
 	}
-	drbd_kunmap_atomic(addr, KM_IRQ1);
+	bsr_kunmap_atomic(addr, KM_IRQ1);
 
 	spin_unlock_irq(&bitmap->bm_lock);
 }

@@ -3,7 +3,7 @@
 
   <xsl:template match="/">
     <term>
-      <command moreinfo="none">drbdsetup</command>
+      <command moreinfo="none">bsrsetup</command>
       <xsl:apply-templates select="command"/>
     </term>
   </xsl:template>

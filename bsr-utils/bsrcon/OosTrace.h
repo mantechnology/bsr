@@ -16,8 +16,8 @@ extern "C" NTSYSAPI NTSTATUS WINAPI ZwQuerySystemInformation(
 	_In_      ULONG     SystemInformationLength,
 	_Out_opt_ PULONG    ReturnLength);
 
-#define DRBD_DRIVER_NAME	"drbd.sys"
-#define DRBD_SYMBOL_NAME	_T("drbd.pdb")
+#define BSR_DRIVER_NAME	"bsr.sys"
+#define BSR_SYMBOL_NAME	_T("bsr.pdb")
 
 #define SymTagFunction 5
 #define SystemModuleInformation 11

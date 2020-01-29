@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 #  snapshot-resync-target-lvm.sh
-#  This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+#  This file is part of BSR by Man Technology inc.
 #
-# The caller (drbdadm) sets for us:
-# DRBD_RESOURCE, DRBD_VOLUME, DRBD_MINOR, DRBD_LL_DISK etc.
+# The caller (bsradm) sets for us:
+# BSR_RESOURCE, BSR_VOLUME, BSR_MINOR, BSR_LL_DISK etc.
 #
 ###########
 #
@@ -14,15 +14,15 @@
 
 export LC_ALL=C LANG=C
 
-if [[ -z "$DRBD_RESOURCE" || -z "$DRBD_LL_DISK" ]]; then
-	echo "DRBD_RESOURCE/DRBD_LL_DISK is not set. This script is supposed to"
-	echo "get called by drbdadm as a handler script"
+if [[ -z "$BSR_RESOURCE" || -z "$BSR_LL_DISK" ]]; then
+	echo "BSR_RESOURCE/BSR_LL_DISK is not set. This script is supposed to"
+	echo "get called by bsradm as a handler script"
 	exit 0
 fi
 
 PROG=$(basename $0)
 exec > >(exec 2>&- ; logger -t "$PROG[$$]" -p local5.info) 2>&1
-echo "invoked for $DRBD_RESOURCE/$DRBD_VOLUME (drbd$DRBD_MINOR)"
+echo "invoked for $BSR_RESOURCE/$BSR_VOLUME (bsr$BSR_MINOR)"
 
 TEMP=$(getopt -o p:a:nv --long percent:,additional:,disconnect-on-error,verbose -- "$@")
 
@@ -31,12 +31,12 @@ if [ $? != 0 ]; then
 	exit 0
 fi
 
-if BACKING_BDEV=$(drbdadm sh-ll-dev "$DRBD_RESOURCE/$DRBD_VOLUME"); then
+if BACKING_BDEV=$(bsradm sh-ll-dev "$BSR_RESOURCE/$BSR_VOLUME"); then
 	is_stacked=false
-elif BACKING_BDEV=$(drbdadm sh-ll-dev "$(drbdadm -S sh-lr-of "$DRBD_RESOURCE")/$DRBD_VOLUME"); then
+elif BACKING_BDEV=$(bsradm sh-ll-dev "$(bsradm -S sh-lr-of "$BSR_RESOURCE")/$BSR_VOLUME"); then
 	is_stacked=true
 else
-	echo "Cannot determine lower level device of resource $DRBD_RESOURCE/$DRBD_VOLUME, sorry."
+	echo "Cannot determine lower level device of resource $BSR_RESOURCE/$BSR_VOLUME, sorry."
 	exit 0
 fi
 
@@ -63,7 +63,7 @@ LVC_OPTIONS=""
 BE_VERBOSE=0
 SNAP_NAME=$LV_NAME-before-resync
 $is_stacked && SNAP_NAME=$SNAP_NAME-stacked
-DEFAULTFILE="/etc/default/drbd-snapshot"
+DEFAULTFILE="/etc/default/bsr-snapshot"
 
 if [ -f $DEFAULTFILE ]; then
 	. $DEFAULTFILE
@@ -106,24 +106,24 @@ else
 	(
 		set -e
 		[ $BE_VERBOSE = 1 ] && set -x
-		case $DRBD_MINOR in
+		case $BSR_MINOR in
 			*[!0-9]*|"")
 			if $is_stacked; then
-				DRBD_MINOR=$(drbdadm -S sh-minor "$DRBD_RESOURCE")
+				BSR_MINOR=$(bsradm -S sh-minor "$BSR_RESOURCE")
 			else
-				DRBD_MINOR=$(drbdadm sh-minor "$DRBD_RESOURCE")
+				BSR_MINOR=$(bsradm sh-minor "$BSR_RESOURCE")
 			fi
 			;;
 		*)
-			:;; # ok, already exported by drbdadm
+			:;; # ok, already exported by bsradm
 		esac
 
-		OUT_OF_SYNC=$(sed -ne "/^ *$DRBD_MINOR:/ "'{
+		OUT_OF_SYNC=$(sed -ne "/^ *$BSR_MINOR:/ "'{
 				n;
 				s/^.* oos:\([0-9]*\).*$/\1/;
 				s/^$/0/; # default if not found
 				p;
-				q; }' < /proc/drbd) # unit KiB
+				q; }' < /proc/bsr) # unit KiB
 		SNAP_SIZE=$((OUT_OF_SYNC + SNAP_ADDITIONAL + LV_SIZE_K * SNAP_PERC / 100))
 		lvcreate -s -n $SNAP_NAME -L ${SNAP_SIZE}k $LVC_OPTIONS $VG_NAME/$LV_NAME
 	)

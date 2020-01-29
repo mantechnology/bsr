@@ -9,7 +9,7 @@ extern DWORD MVOL_GetVolumesInfo(BOOLEAN verbose);
 
 DWORD MVOL_GetVolumeSize( PWCHAR PhysicalVolume, PLARGE_INTEGER pVolumeSize );
 /**
- *      @brief  get drbd's status inforamtion 
+ *      @brief  get bsr's status inforamtion 
  *      @param  VolumeInfo [out]    status Info buffer 
  *      @return if it success, return ERROR_SUCCESS, if failed, return value is GetLastError()'s return
  */
@@ -61,11 +61,11 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie);
 
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 
-DWORD MVOL_GetDrbdLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
+DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 
 DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 
-DWORD GetDrbdlockStatus();
+DWORD GetBsrlockStatus();
 
 #ifdef _WIN_DEBUG_OOS
 DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);

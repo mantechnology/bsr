@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #  outdate-peer.sh
-#  This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+#  This file is part of BSR by Man Technology inc.
 #
 
 #
@@ -39,7 +39,7 @@
 #
 
 #
-# The caller (drbdadm) sets DRBD_RESOURCE and DRBD_PEER for us.
+# The caller (bsradm) sets BSR_RESOURCE and BSR_PEER for us.
 #
 
 TIMEOUT=6
@@ -73,7 +73,7 @@ if [ -z "$PEER_IP" -o -z "$OWN_IP" ]; then
 fi
 
 for IP in $PEER_IP; do
-    ssh $IP drbdadm outdate ${DRBD_RESOURCE:-r0} &
+    ssh $IP bsradm outdate ${BSR_RESOURCE:-r0} &
     SSH_PID="$SSH_PID $!"
 done
 
@@ -97,7 +97,7 @@ for P in $SSH_PID; do
 	wait $P
 	EXIT_CODE=$?
 
-	# exit codes of drbdmeata outdate:
+	# exit codes of bsrmeata outdate:
 	# 5  -> is inconsistent
 	# 0  -> is outdated
 	# 17 -> outdate failed because peer is primary.
@@ -113,7 +113,7 @@ for P in $SSH_PID; do
     fi
 done
 
-# We return to DRBD - kernel driver:
+# We return to BSR - kernel driver:
 #
 # 6 -> peer is primary (and UpToDate)
 # 5 -> peer is down / unreachable.

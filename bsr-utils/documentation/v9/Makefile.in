@@ -1,19 +1,19 @@
 # Makefile in documentation directory
 #
-# This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+# This file is part of BSR by Man Technology inc.
 #
-# drbd is free software; you can redistribute it and/or modify
+# bsr is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# drbd is distributed in the hope that it will be useful,
+# bsr is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with drbd; see the file COPYING.  If not, write to
+# along with bsr; see the file COPYING.  If not, write to
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 # variables set by configure
@@ -30,8 +30,8 @@ WITH_BASHCOMPLETION = @WITH_BASHCOMPLETION@
 DESTDIR ?= /
 CREATE_MAN_LINK ?= yes
 
-MANPAGES       := drbdsetup.8 drbd.conf.5 drbd.8 drbdadm.8 drbdmeta.8
-MANPAGES       += drbd-overview.8
+MANPAGES       := bsrsetup.8 bsr.conf.5 bsr.8 bsradm.8 bsrmeta.8
+MANPAGES       += bsr-overview.8
 
 STYLESHEET_PREFIX ?= http://docbook.sourceforge.net/release/xsl/current
 MANPAGES_STYLESHEET ?= $(STYLESHEET_PREFIX)/manpages/docbook.xsl
@@ -45,17 +45,17 @@ XSLTPROC_MANPAGES_OPTIONS ?= $(XSLTPROC_OPTIONS)
 XSLTPROC_HTML_OPTIONS ?= $(XSLTPROC_OPTIONS)
 XSLTPROC_FO_OPTIONS ?= $(XSLTPROC_OPTIONS)
 
-DRBDSETUP_CMDS = new-resource new-minor del-resource del-minor
-DRBDSETUP_CMDS += new-peer new-path del-peer del-path
-DRBDSETUP_CMDS += attach connect disk-options net-options resource-options peer-device-options
-DRBDSETUP_CMDS += disconnect detach primary secondary verify invalidate invalidate-remote
-DRBDSETUP_CMDS += down role cstate dstate
-DRBDSETUP_CMDS += resize check-resize pause-sync resume-sync
-DRBDSETUP_CMDS += outdate show-gi get-gi show events2
-DRBDSETUP_CMDS += status suspend-io resume-io new-current-uuid
-DRBDSETUP_CMDS += wait-connect-volume wait-connect-connection wait-connect-resource
-DRBDSETUP_CMDS += wait-sync-volume wait-sync-connection wait-sync-resource
-DRBDSETUP_CMDS += forget-peer
+BSRSETUP_CMDS = new-resource new-minor del-resource del-minor
+BSRSETUP_CMDS += new-peer new-path del-peer del-path
+BSRSETUP_CMDS += attach connect disk-options net-options resource-options peer-device-options
+BSRSETUP_CMDS += disconnect detach primary secondary verify invalidate invalidate-remote
+BSRSETUP_CMDS += down role cstate dstate
+BSRSETUP_CMDS += resize check-resize pause-sync resume-sync
+BSRSETUP_CMDS += outdate show-gi get-gi show events2
+BSRSETUP_CMDS += status suspend-io resume-io new-current-uuid
+BSRSETUP_CMDS += wait-connect-volume wait-connect-connection wait-connect-resource
+BSRSETUP_CMDS += wait-sync-volume wait-sync-connection wait-sync-resource
+BSRSETUP_CMDS += forget-peer
 
 make_doc := $(shell $(XSLTPROC)				\
 	$(XSLTPROC_MANPAGES_OPTIONS)			\
@@ -97,47 +97,47 @@ doc-clean: distclean
 	$(XSLTPROC_FO_OPTIONS) \
 	$(FO_STYLESHEET) $<
 
-../../user/v9/drbdsetup.o: FORCE
-	$(MAKE) -C $(@D) drbdsetup
+../../user/v9/bsrsetup.o: FORCE
+	$(MAKE) -C $(@D) bsrsetup
 
 .PHONY: FORCE
 FORCE:
 
 # Don't try to re-make files tracked in git
 FILES_IN_GIT := # $(shell git ls-files)
-FILES_IN_GIT += Makefile.in drbd-overview.xml drbd.conf.xml.in drbd.conf.xsl
-FILES_IN_GIT += drbd.xml drbdadm.xml drbdmeta.xml drbdsetup-options.xml
-FILES_IN_GIT += drbdsetup.xml.in drbdsetup.xsl xml-usage-to-docbook.xsl
+FILES_IN_GIT += Makefile.in bsr-overview.xml bsr.conf.xml.in bsr.conf.xsl
+FILES_IN_GIT += bsr.xml bsradm.xml bsrmeta.xml bsrsetup-options.xml
+FILES_IN_GIT += bsrsetup.xml.in bsrsetup.xsl xml-usage-to-docbook.xsl
 $(FILES_IN_GIT): ;
 
 
-drbdsetup_X.xml := $(patsubst %,drbdsetup_%.xml,$(DRBDSETUP_CMDS))
-drbdsetup_xml-help_X.xml := $(patsubst %,drbdsetup_xml-help_%.xml,$(DRBDSETUP_CMDS))
+bsrsetup_X.xml := $(patsubst %,bsrsetup_%.xml,$(BSRSETUP_CMDS))
+bsrsetup_xml-help_X.xml := $(patsubst %,bsrsetup_xml-help_%.xml,$(BSRSETUP_CMDS))
 
-$(drbdsetup_xml-help_X.xml): ../../user/v9/drbdsetup.o
-$(drbdsetup_X.xml): xml-usage-to-docbook.xsl
+$(bsrsetup_xml-help_X.xml): ../../user/v9/bsrsetup.o
+$(bsrsetup_X.xml): xml-usage-to-docbook.xsl
 
-drbdsetup_xml-help_%.xml:
-	../../user/v9/drbdsetup xml-help $* > $@
+bsrsetup_xml-help_%.xml:
+	../../user/v9/bsrsetup xml-help $* > $@
 
-drbdsetup_%.xml: drbdsetup_xml-help_%.xml
+bsrsetup_%.xml: bsrsetup_xml-help_%.xml
 	$(XSLTPROC) -o $@ xml-usage-to-docbook.xsl $<
 
-drbd.conf.xml: drbd.conf.xml.in drbd.conf.xsl drbdsetup-options.xml
-	$(XSLTPROC) -o $@ drbd.conf.xsl $<
+bsr.conf.xml: bsr.conf.xml.in bsr.conf.xsl bsrsetup-options.xml
+	$(XSLTPROC) -o $@ bsr.conf.xsl $<
 
-drbdsetup.xml: drbdsetup.xml.in drbdsetup.xsl drbdsetup-options.xml
-	$(XSLTPROC) -o $@ drbdsetup.xsl $<
+bsrsetup.xml: bsrsetup.xml.in bsrsetup.xsl bsrsetup-options.xml
+	$(XSLTPROC) -o $@ bsrsetup.xsl $<
 
 distclean:
 ifeq ($(make_doc),doc)
 	rm -f *.[58] manpage.links manpage.refs *~ manpage.log
 endif
 	rm -f *.ps.gz *.pdf *.ps *.html pod2htm*
-	rm -f drbdsetup_*.xml
-	rm -f drbd.conf.xml drbdsetup.xml
+	rm -f bsrsetup_*.xml
+	rm -f bsr.conf.xml bsrsetup.xml
 
-.PRECIOUS: drbd.conf.xml drbdsetup.xml
+.PRECIOUS: bsr.conf.xml bsrsetup.xml
 
 #######
 
@@ -170,7 +170,7 @@ pdf:	$(MANPAGES:.8=.pdf)
 
 ps:	$(MANPAGES:.8=.ps)
 
-drbdsetup.8: drbdsetup.xml $(drbdsetup_X.xml)
+bsrsetup.8: bsrsetup.xml $(bsrsetup_X.xml)
 
 
 .PHONY: install uninstall clean distclean

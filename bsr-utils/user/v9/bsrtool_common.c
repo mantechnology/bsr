@@ -27,8 +27,8 @@
 #include "bsrtool_common.h"
 #include "config.h"
 
-static struct version __drbd_driver_version = {};
-static struct version __drbd_utils_version = {};
+static struct version __bsr_driver_version = {};
+static struct version __bsr_utils_version = {};
 
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
@@ -142,16 +142,16 @@ typedef struct _MVOL_VOLUME_INFO
 	WCHAR				PhysicalDeviceName[256];		// src device
 	ULONG				PeerIp;
 	USHORT				PeerPort;
-	CHAR				Seq[2048]; // DRBD_DW130: check enough? and chaneg to dynamically
+	CHAR				Seq[2048]; // BSR_DW130: check enough? and chaneg to dynamically
 } MVOL_VOLUME_INFO, *PMVOL_VOLUME_INFO;
 
 #define	MVOL_TYPE		0x9800
-#define	IOCTL_MVOL_GET_PROC_DRBD			CTL_CODE(MVOL_TYPE, 38, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define	IOCTL_MVOL_GET_PROC_BSR			CTL_CODE(MVOL_TYPE, 38, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #endif 
 
 /* For our purpose (finding the revision) SLURP_SIZE is always enough.
  */
-static char *slurp_proc_drbd()
+static char *slurp_proc_bsr()
 {
 #ifdef _WIN
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
@@ -171,7 +171,7 @@ static char *slurp_proc_drbd()
 		return NULL;
 	}
 
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_PROC_DRBD,
+	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_PROC_BSR,
 		NULL, 0, &VolumeInfo, sizeof(MVOL_VOLUME_INFO), &dwReturned, NULL);
 	if (ret == FALSE) {
 		CloseHandle(hDevice);
@@ -306,26 +306,26 @@ static void parse_version(struct version *rel, const char *text)
 	}
 }
 
-const struct version *drbd_driver_version(enum driver_version_policy fallback)
+const struct version *bsr_driver_version(enum driver_version_policy fallback)
 {
 	char *version_txt;
-	char *drbd_driver_version_override;
+	char *bsr_driver_version_override;
 
-	if (__drbd_driver_version.version_code)
-		return &__drbd_driver_version;
+	if (__bsr_driver_version.version_code)
+		return &__bsr_driver_version;
 
-	drbd_driver_version_override = getenv("DRBD_DRIVER_VERSION_OVERRIDE");
-	if (drbd_driver_version_override) {
-		version_from_str(&__drbd_driver_version, drbd_driver_version_override);
-		if (__drbd_driver_version.version_code)
-			return &__drbd_driver_version;
+	bsr_driver_version_override = getenv("BSR_DRIVER_VERSION_OVERRIDE");
+	if (bsr_driver_version_override) {
+		version_from_str(&__bsr_driver_version, bsr_driver_version_override);
+		if (__bsr_driver_version.version_code)
+			return &__bsr_driver_version;
 	}
 
-	version_txt = slurp_proc_drbd();
+	version_txt = slurp_proc_bsr();
 	if (version_txt) {
-		parse_version(&__drbd_driver_version, version_txt);
+		parse_version(&__bsr_driver_version, version_txt);
 		free(version_txt);
-		return &__drbd_driver_version;
+		return &__bsr_driver_version;
 	} else {
 		FILE *in = popen("modinfo -F version bsr", "r");
 		if (in) {
@@ -333,37 +333,37 @@ const struct version *drbd_driver_version(enum driver_version_policy fallback)
 			int c = fscanf(in, "%30s", buf);
 			pclose(in);
 			if (c == 1) {
-				version_from_str(&__drbd_driver_version, buf);
-				return &__drbd_driver_version;
+				version_from_str(&__bsr_driver_version, buf);
+				return &__bsr_driver_version;
 			}
 		}
 	}
 
 	if (fallback == FALLBACK_TO_UTILS)
-		return drbd_utils_version();
+		return bsr_utils_version();
 
 	return NULL;
 }
 
-const struct version *drbd_utils_version(void)
+const struct version *bsr_utils_version(void)
 {
-	if (!__drbd_utils_version.version_code) {
-		version_from_str(&__drbd_utils_version, PACKAGE_VERSION);
-		parse_version(&__drbd_utils_version, bsr_buildtag());
+	if (!__bsr_utils_version.version_code) {
+		version_from_str(&__bsr_utils_version, PACKAGE_VERSION);
+		parse_version(&__bsr_utils_version, bsr_buildtag());
 	}
 
-	return &__drbd_utils_version;
+	return &__bsr_utils_version;
 }
 
 int version_code_kernel(void)
 {
-	const struct version *driver_version = drbd_driver_version(_STRICT);
+	const struct version *driver_version = bsr_driver_version(_STRICT);
 	return driver_version ? driver_version->version_code : 0;
 }
 
 const char *escaped_version_code_kernel(void)
 {
-	const struct version *driver_version = drbd_driver_version(_STRICT);
+	const struct version *driver_version = bsr_driver_version(_STRICT);
 	char buf[32];
 
 	if (!driver_version)
@@ -379,7 +379,7 @@ const char *escaped_version_code_kernel(void)
 
 int version_code_userland(void)
 {
-	const struct version *utils_version = drbd_utils_version();
+	const struct version *utils_version = bsr_utils_version();
 	return utils_version->version_code;
 }
 
@@ -395,7 +395,7 @@ void config_help_legacy(const char * const tool,
 		const struct version * const driver_version)
 {
 	fprintf(stderr,
-			"This %s was build without support for drbd kernel code (%d.%d).\n"
+			"This %s was build without support for bsr kernel code (%d.%d).\n"
 			"Consider to rebuild your user land tools\n"
 			"and configure --with-%d%dsupport ...\n",
 			tool,
@@ -403,21 +403,21 @@ void config_help_legacy(const char * const tool,
 			driver_version->version.major, driver_version->version.minor);
 }
 
-void add_lib_drbd_to_path(void)
+void add_lib_bsr_to_path(void)
 {
 	char *new_path = NULL;
 	char *old_path = getenv("PATH");
-	static const char lib_drbd[]="/lib/drbd";
+	static const char lib_bsr[]="/lib/bsr";
 
 	if (!old_path)
-		setenv("PATH", lib_drbd, 1);
+		setenv("PATH", lib_bsr, 1);
 	else {
 		m_asprintf(&new_path, "%s%s%s",
 				old_path,
 				(*old_path &&
 				 old_path[strlen(old_path) -1] != ':')
 				? ":" : "",
-				lib_drbd);
+				lib_bsr);
 		setenv("PATH", new_path, 1);
 	}
 }

@@ -8,7 +8,7 @@
 static inline
 sector_t interval_end(struct rb_node *node)
 {
-	struct drbd_interval *this = rb_entry(node, struct drbd_interval, rb);
+	struct bsr_interval *this = rb_entry(node, struct bsr_interval, rb);
 	return this->end;
 }
 
@@ -22,7 +22,7 @@ sector_t interval_end(struct rb_node *node)
 static void
 update_interval_end(struct rb_node *node, void *__unused)
 {
-	struct drbd_interval *this = rb_entry(node, struct drbd_interval, rb);
+	struct bsr_interval *this = rb_entry(node, struct bsr_interval, rb);
 	sector_t end;
 
 	UNREFERENCED_PARAMETER(__unused);
@@ -42,18 +42,18 @@ update_interval_end(struct rb_node *node, void *__unused)
 }
 
 /**
- * drbd_insert_interval  -  insert a new interval into a tree
+ * bsr_insert_interval  -  insert a new interval into a tree
  */
 bool
-drbd_insert_interval(struct rb_root *root, struct drbd_interval *this)
+bsr_insert_interval(struct rb_root *root, struct bsr_interval *this)
 {
 	struct rb_node **new = &root->rb_node, *parent = NULL;
 
 	BUG_ON(!IS_ALIGNED(this->size, 512));
 
 	while (*new) {
-		struct drbd_interval *here =
-			rb_entry(*new, struct drbd_interval, rb);
+		struct bsr_interval *here =
+			rb_entry(*new, struct bsr_interval, rb);
 
 		parent = *new;
 		if (this->sector < here->sector)
@@ -75,7 +75,7 @@ drbd_insert_interval(struct rb_root *root, struct drbd_interval *this)
 }
 
 /**
- * drbd_contains_interval  -  check if a tree contains a given interval
+ * bsr_contains_interval  -  check if a tree contains a given interval
  * @sector:	start sector of @interval
  * @interval:	may be an invalid pointer
  *
@@ -85,14 +85,14 @@ drbd_insert_interval(struct rb_root *root, struct drbd_interval *this)
  * sector number.
  */
 bool
-drbd_contains_interval(struct rb_root *root, sector_t sector,
-		       struct drbd_interval *interval)
+bsr_contains_interval(struct rb_root *root, sector_t sector,
+		       struct bsr_interval *interval)
 {
 	struct rb_node *node = root->rb_node;
 
 	while (node) {
-		struct drbd_interval *here =
-			rb_entry(node, struct drbd_interval, rb);
+		struct bsr_interval *here =
+			rb_entry(node, struct bsr_interval, rb);
 
 		if (sector < here->sector)
 			node = node->rb_left;
@@ -109,15 +109,15 @@ drbd_contains_interval(struct rb_root *root, sector_t sector,
 }
 
 /**
- * drbd_remove_interval  -  remove an interval from a tree
+ * bsr_remove_interval  -  remove an interval from a tree
  */
 void
-drbd_remove_interval(struct rb_root *root, struct drbd_interval *this)
+bsr_remove_interval(struct rb_root *root, struct bsr_interval *this)
 {
 	struct rb_node *deepest;
 
 	/* avoid endless loop */
-	if (drbd_interval_empty(this))
+	if (bsr_interval_empty(this))
 		return;
 
 	deepest = rb_augment_erase_begin(&this->rb);
@@ -126,7 +126,7 @@ drbd_remove_interval(struct rb_root *root, struct drbd_interval *this)
 }
 
 /**
- * drbd_find_overlap  - search for an interval overlapping with [sector, sector + size)
+ * bsr_find_overlap  - search for an interval overlapping with [sector, sector + size)
  * @sector:	start sector
  * @size:	size, aligned to 512 bytes
  *
@@ -136,18 +136,18 @@ drbd_remove_interval(struct rb_root *root, struct drbd_interval *this)
  * overlapping intervals will be on the right side of the tree, reachable with
  * rb_next().
  */
-struct drbd_interval *
-drbd_find_overlap(struct rb_root *root, sector_t sector, unsigned int size)
+struct bsr_interval *
+bsr_find_overlap(struct rb_root *root, sector_t sector, unsigned int size)
 {
 	struct rb_node *node = root->rb_node;
-	struct drbd_interval *overlap = NULL;
+	struct bsr_interval *overlap = NULL;
 	sector_t end = sector + (size >> 9);
 
 	BUG_ON(!IS_ALIGNED(size, 512));
 
 	while (node) {
-		struct drbd_interval *here =
-			rb_entry(node, struct drbd_interval, rb);
+		struct bsr_interval *here =
+			rb_entry(node, struct bsr_interval, rb);
 
 		if (node->rb_left &&
 		    sector < interval_end(node->rb_left)) {
@@ -167,8 +167,8 @@ drbd_find_overlap(struct rb_root *root, sector_t sector, unsigned int size)
 	return overlap;
 }
 
-struct drbd_interval *
-drbd_next_overlap(struct drbd_interval *i, sector_t sector, unsigned int size)
+struct bsr_interval *
+bsr_next_overlap(struct bsr_interval *i, sector_t sector, unsigned int size)
 {
 	sector_t end = sector + (size >> 9);
 	struct rb_node *node;
@@ -177,7 +177,7 @@ drbd_next_overlap(struct drbd_interval *i, sector_t sector, unsigned int size)
 		node = rb_next(&i->rb);
 		if (!node)
 			return NULL;
-		i = rb_entry(node, struct drbd_interval, rb);
+		i = rb_entry(node, struct bsr_interval, rb);
 		if (i->sector >= end)
 			return NULL;
 		if (sector < i->sector + (i->size >> 9))

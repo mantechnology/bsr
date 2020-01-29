@@ -1,24 +1,22 @@
 /*
-   drbdadm_adjust.c
+   bsradm_adjust.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+   This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2003-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 2003-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2003-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
@@ -45,7 +43,7 @@
 #include "bsradm_parser.h"
 #include "config_flags.h"
 
-/* drbdsetup show might complain that the device minor does
+/* bsrsetup show might complain that the device minor does
    not exist at all. Redirect stderr to /dev/null therefore.
  */
 static FILE *m_popen(int *pid, char * const* argv)
@@ -306,7 +304,7 @@ static int disk_equal(struct d_volume *conf, struct d_volume *running)
 static int do_proxy_reconf(const struct cfg_ctx *ctx)
 {
 	int rv;
-	char *argv[4] = { drbd_proxy_ctl, "-c", (char*)ctx->cmd->name, NULL };
+	char *argv[4] = { bsr_proxy_ctl, "-c", (char*)ctx->cmd->name, NULL };
 
 	rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name);
 	return rv;
@@ -411,7 +409,7 @@ redo_whole_conn:
 		schedule_deferred_cmd(&proxy_conn_plugins_cmd, ctx, CFG_NET_PREP_UP);
 
 		/* With connection cleanup and reopen everything is rebuild anyway, and
-		 * DRBD will get a reconnect too.  */
+		 * BSR will get a reconnect too.  */
 		return 0;
 	}
 
@@ -511,7 +509,7 @@ int need_trigger_kobj_change(struct d_resource *res)
 	/* double check device information */
 	if (!S_ISBLK(sbuf.st_mode))
 		return 1;
-	if (major(sbuf.st_rdev) != DRBD_MAJOR)
+	if (major(sbuf.st_rdev) != BSR_MAJOR)
 		return 1;
 	if (minor(sbuf.st_rdev) != STAILQ_FIRST(&res->me->volumes)->device_minor)
 		return 1;
@@ -830,10 +828,10 @@ static void adjust_disk(const struct cfg_ctx *ctx, struct d_resource* running)
 	}
 }
 
-char config_file_drbdsetup_show[] = "bsrsetup show";
+char config_file_bsrsetup_show[] = "bsrsetup show";
 struct resources running_config = STAILQ_HEAD_INITIALIZER(running_config);
 
-struct d_resource *parse_drbdsetup_show(const char *name)
+struct d_resource *parse_bsrsetup_show(const char *name)
 {
 	struct d_resource *res = NULL;
 	char* argv[4];
@@ -841,21 +839,21 @@ struct d_resource *parse_drbdsetup_show(const char *name)
 	int token;
 
 	/* disable check_uniq, so it won't interfere
-	 * with parsing of drbdsetup show output */
+	 * with parsing of bsrsetup show output */
 	config_valid = 2;
 
 	/* setup error reporting context for the parsing routines */
 	line = 1;
-	config_file = config_file_drbdsetup_show;
+	config_file = config_file_bsrsetup_show;
 
 	argc = 0;
-	argv[argc++] = drbdsetup;
+	argv[argc++] = bsrsetup;
 	argv[argc++] = "show";
 	if (name)
 		argv[argc++] = ssprintf("%s", name);
 	argv[argc++] = NULL;
 
-	/* actually parse drbdsetup show output */
+	/* actually parse bsrsetup show output */
 	yyin = m_popen(&pid,argv);
 	for (;;) {
 		token = yylex();
@@ -881,19 +879,19 @@ struct d_resource *parse_drbdsetup_show(const char *name)
 	fclose(yyin);
 	waitpid(pid, 0, 0);
 
-	post_parse(&running_config, DRBDSETUP_SHOW);
+	post_parse(&running_config, BSRSETUP_SHOW);
 	return res;
 }
 
 // DW-889
 struct d_resource *running_res_by_name(const char *name, bool parse)
 {
-	static bool drbdsetup_show_parsed = false;
+	static bool bsrsetup_show_parsed = false;
 	struct d_resource *res;
 	// DW-889
-	if (parse && adjust_more_than_one_resource && !drbdsetup_show_parsed) {
-		parse_drbdsetup_show(NULL); /* all in one go */
-		drbdsetup_show_parsed = true;
+	if (parse && adjust_more_than_one_resource && !bsrsetup_show_parsed) {
+		parse_bsrsetup_show(NULL); /* all in one go */
+		bsrsetup_show_parsed = true;
 	}
 
 	for_each_resource(res, &running_config) {
@@ -903,7 +901,7 @@ struct d_resource *running_res_by_name(const char *name, bool parse)
 
 	// DW-889
 	if (parse && !adjust_more_than_one_resource) {
-		return parse_drbdsetup_show(name);
+		return parse_bsrsetup_show(name);
 	}
 
 	return NULL;
@@ -935,8 +933,8 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	running = running_res_by_name(ctx->res->name, true);
 	
 	if (running) {
-		set_me_in_resource(running, DRBDSETUP_SHOW);
-		set_peer_in_resource(running, DRBDSETUP_SHOW);
+		set_me_in_resource(running, BSRSETUP_SHOW);
+		set_peer_in_resource(running, BSRSETUP_SHOW);
 	}
 
 	/* Parse proxy settings, if this host has a proxy definition.
@@ -968,16 +966,16 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 
 			line = 1;
 			m_asprintf(&show_conn, "show proxy-settings %s", proxy_connection_name(tmp_ctx.res, configured_conn));
-			sprintf(config_file_dummy, "drbd-proxy-ctl -c '%s'", show_conn);
+			sprintf(config_file_dummy, "bsr-proxy-ctl -c '%s'", show_conn);
 			config_file = config_file_dummy;
 
 			argc=0;
-			argv[argc++]=drbd_proxy_ctl;
+			argv[argc++]=bsr_proxy_ctl;
 			argv[argc++]="-c";
 			argv[argc++]=show_conn;
 			argv[argc++]=0;
 
-			/* actually parse "drbd-proxy-ctl show" output */
+			/* actually parse "bsr-proxy-ctl show" output */
 			yyin = m_popen(&pid, argv);
 			r = !parse_proxy_options_section(&path->my_proxy);
 			can_do_proxy &= r;

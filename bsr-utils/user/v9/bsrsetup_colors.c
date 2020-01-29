@@ -91,32 +91,32 @@ static const char *color_code(int index, int *array, int size,
 		return "";
 }
 
-const char *role_color_start(enum drbd_role role, bool local)
+const char *role_color_start(enum bsr_role role, bool local)
 {
 	return color_code(role, role_colors,
 			  ARRAY_SIZE(role_colors), true, local);
 }
 
-const char *role_color_stop(enum drbd_role role, bool local)
+const char *role_color_stop(enum bsr_role role, bool local)
 {
 	return color_code(role, role_colors,
 			  ARRAY_SIZE(role_colors), false, local);
 }
 
-const char *cstate_color_start(enum drbd_conn_state cstate)
+const char *cstate_color_start(enum bsr_conn_state cstate)
 {
 	return color_code(cstate, cstate_colors,
 			 ARRAY_SIZE(cstate_colors), true, true);
 }
 
-const char *cstate_color_stop(enum drbd_conn_state cstate)
+const char *cstate_color_stop(enum bsr_conn_state cstate)
 {
 	return color_code(cstate, cstate_colors,
 			  ARRAY_SIZE(cstate_colors), false, true);
 }
 
 static bool
-is_local_repl_state(enum drbd_repl_state repl_state)
+is_local_repl_state(enum bsr_repl_state repl_state)
 {
 	switch(repl_state) {
 		case L_SYNC_TARGET:
@@ -128,21 +128,21 @@ is_local_repl_state(enum drbd_repl_state repl_state)
 	}
 }
 
-const char *repl_state_color_start(enum drbd_repl_state repl_state)
+const char *repl_state_color_start(enum bsr_repl_state repl_state)
 {
 	return color_code(repl_state, repl_state_colors,
 			  ARRAY_SIZE(repl_state_colors), true,
 			  is_local_repl_state(repl_state));
 }
 
-const char *repl_state_color_stop(enum drbd_repl_state repl_state)
+const char *repl_state_color_stop(enum bsr_repl_state repl_state)
 {
 	return color_code(repl_state, repl_state_colors,
 			  ARRAY_SIZE(repl_state_colors), false,
 			  is_local_repl_state(repl_state));
 }
 
-const char *disk_state_color_start(enum drbd_disk_state disk_state, bool intentional, bool local)
+const char *disk_state_color_start(enum bsr_disk_state disk_state, bool intentional, bool local)
 {
 	if (disk_state == D_DISKLESS && intentional)
 		disk_state = D_UP_TO_DATE;
@@ -150,7 +150,7 @@ const char *disk_state_color_start(enum drbd_disk_state disk_state, bool intenti
 			  ARRAY_SIZE(disk_state_colors), true, local);
 }
 
-const char *disk_state_color_stop(enum drbd_disk_state disk_state, bool local)
+const char *disk_state_color_stop(enum bsr_disk_state disk_state, bool local)
 {
 	return color_code(disk_state, disk_state_colors,
 			  ARRAY_SIZE(disk_state_colors), false, local);

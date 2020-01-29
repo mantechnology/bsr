@@ -1,14 +1,14 @@
-<drbdsetup_options>
-  <drbdsetup_option name="al-extents">
+<bsrsetup_options>
+  <bsrsetup_option name="al-extents">
     <term xml:id="al-extents"><option>al-extents <replaceable>extents</replaceable></option>
     </term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>al-extents</secondary>
-	</indexterm> DRBD automatically maintains a "hot" or "active" disk area
+	</indexterm> BSR automatically maintains a "hot" or "active" disk area
       likely to be written to again soon based on the recent write activity.
       The "active" disk area can be written to immediately, while "inactive"
       disk areas must be "activated" first, which requires a meta-data write.
@@ -27,16 +27,16 @@
       <para>
 	Note that the effective maximum may be smaller, depending on how
 	you created the device meta data, see also
-	<citerefentry><refentrytitle>drbdmeta</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+	<citerefentry><refentrytitle>bsrmeta</refentrytitle><manvolnum>8</manvolnum></citerefentry>
 	The effective maximum is 919 * (available on-disk activity-log ring-buffer area/4kB -1),
 	the default 32kB ring-buffer effects a maximum of 6433 (covers more than 25 GiB of data)
 	We recommend to keep this well within the amount your backend storage
 	and replication link are able to resync inside of about 5 minutes.
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="al-updates">
+  <bsrsetup_option name="al-updates">
     <term xml:id="al-updates"><option>al-updates
 	<group choice="req" rep="norepeat">
 	  <arg choice="plain" rep="norepeat">yes</arg>
@@ -47,7 +47,7 @@
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 	  <secondary>al-updates</secondary>
 	</indexterm> With this parameter, the activity log can be turned off
       entirely (see the <option>al-extents</option> parameter). This will speed
@@ -57,9 +57,9 @@
       <option>yes</option>.
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="c-delay-target">
+  <bsrsetup_option name="c-delay-target">
     <term xml:id="c-delay-target"><option>c-delay-target <replaceable>delay_target</replaceable></option></term>
 
     <term xml:id="c-fill-target"><option>c-fill-target <replaceable>fill_target</replaceable></option></term>
@@ -77,18 +77,18 @@
       defined. The maximum bandwidth is limited by the
       <option>c-max-rate</option> parameter.</para>
 
-      <para>The <option>c-plan-ahead</option> parameter defines how fast drbd
+      <para>The <option>c-plan-ahead</option> parameter defines how fast bsr
       adapts to changes in the resync speed.  It should be set to five times
       the network round-trip time or more.  Common values for
       <option>c-fill-target</option> for "normal" data paths range from 4K to
-      100K. If drbd-proxy is used, it is advised to use
+      100K. If bsr-proxy is used, it is advised to use
       <option>c-delay-target</option> instead of <option>c-fill-target</option>. The
       <option>c-delay-target</option> parameter is used if the
       <option>c-fill-target</option> parameter is undefined or set to 0.  The
       <option>c-delay-target</option> parameter should be set to five times the
       network round-trip time or more. The <option>c-max-rate</option> option
-      should be set to either the bandwidth available between the DRBD-hosts and the
-      machines hosting DRBD-proxy, or to the available disk bandwidth.</para>
+      should be set to either the bandwidth available between the BSR-hosts and the
+      machines hosting BSR-proxy, or to the available disk bandwidth.</para>
 
       <para>The default values of these parameters are:
       <option>c-plan-ahead</option> = 20 (in units of 0.1 seconds),
@@ -96,11 +96,11 @@
       <option>c-delay-target</option> = 1 (in units of 0.1 seconds),
       and <option>c-max-rate</option> = 102400 (in units of KiB/s).</para>
 
-      <para>Dynamic resync speed control is available since DRBD 8.3.9.</para>
+      <para>Dynamic resync speed control is available since BSR 8.3.9.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="c-min-rate">
+  <bsrsetup_option name="c-min-rate">
     <term xml:id="c-min-rate"><option>c-min-rate <replaceable>min_rate</replaceable></option></term>
 
     <definition>
@@ -117,9 +117,9 @@
       <para>The default value of <option>c-min-rate</option> is 4096, in units of
       KiB/s.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="disk-barrier">
+  <bsrsetup_option name="disk-barrier">
     <term xml:id="disk-barrier"><option>disk-barrier</option></term>
 
     <term xml:id="disk-flushes"><option>disk-flushes</option></term>
@@ -128,22 +128,22 @@
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 	<secondary>disk-barrier</secondary>
       </indexterm>
 
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>disk-flushes</secondary>
       </indexterm>
 
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 	<secondary>disk-drain</secondary>
       </indexterm>
 
-      <para>DRBD has three methods of handling the ordering of dependent write
+      <para>BSR has three methods of handling the ordering of dependent write
       requests:
 	<variablelist>
 	  <varlistentry>
@@ -160,10 +160,10 @@
 
 	      <para>Note that on systems which do not support
 	      disk barriers, enabling this option can lead to data loss or
-	      corruption. Until DRBD 8.4.1, <option>disk-barrier</option> was
-	      turned on if the I/O stack below DRBD did support barriers.
+	      corruption. Until BSR 8.4.1, <option>disk-barrier</option> was
+	      turned on if the I/O stack below BSR did support barriers.
 	      Kernels since linux-2.6.36 (or 2.6.32 RHEL6) no longer allow to
-	      detect if barriers are supported. Since drbd-8.4.2,
+	      detect if barriers are supported. Since bsr-8.4.2,
 	      this option is off by default and needs to be enabled explicitly.
 	      </para>
 	    </listitem>
@@ -183,16 +183,16 @@
 	      <para>Wait for the request queue to "drain" (that is, wait for
 	      the requests to finish) before submitting a dependent write
 	      request. This method requires that requests are stable on disk
-	      when they finish. Before DRBD 8.0.9, this was the only method
+	      when they finish. Before BSR 8.0.9, this was the only method
 	      implemented. This option is enabled by default. Do not disable
 	      in production environments.
 	    </para>
 	    </listitem>
 	  </varlistentry>
 	</variablelist>
-	From these three methods, drbd will use the first that is enabled and
+	From these three methods, bsr will use the first that is enabled and
 	supported by the backing storage device.  If all three of these options
-	are turned off, DRBD will submit write requests without bothering about
+	are turned off, BSR will submit write requests without bothering about
 	dependencies. Depending on the I/O stack, write requests can be
 	reordered, and they can be submitted in a different order on different
 	cluster nodes. This can result in data loss or corruption. Therefore,
@@ -206,21 +206,21 @@
       battery backed write cache, disk draining can be a reasonable
       choice.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="disk-timeout">
+  <bsrsetup_option name="disk-timeout">
     <term xml:id="disk-timeout"> <option>disk-timeout</option>
     </term>
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 	<secondary>disk-timeout</secondary>
       </indexterm>
-      <para>If the lower-level device on which a DRBD device stores its data does
+      <para>If the lower-level device on which a BSR device stores its data does
       not finish an I/O request within the defined
-      <option>disk-timeout</option>, DRBD treats this as a failure. The
+      <option>disk-timeout</option>, BSR treats this as a failure. The
       lower-level device is detached, and the device's disk state advances to
-      Diskless.  If DRBD is connected to one or more peers, the failed request
+      Diskless.  If BSR is connected to one or more peers, the failed request
       is passed on to one of them.</para>
 
       <para>This option is <emphasis>dangerous and may lead to kernel panic!</emphasis></para>
@@ -248,21 +248,21 @@
       <para>The default value of
       <option>disk-timeout</option> is 0, which stands for an infinite timeout.
       Timeouts are specified in units of 0.1 seconds. This option is available
-      since DRBD 8.3.12.</para>
+      since BSR 8.3.12.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="fencing">
+  <bsrsetup_option name="fencing">
     <term xml:id="fencing"><option>fencing <replaceable>fencing_policy</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>fencing</secondary>
 	</indexterm> <option>Fencing</option> is a preventive measure to avoid
       situations where both nodes are primary and disconnected. This is also
-      known as a split-brain situation. DRBD supports the following fencing
+      known as a split-brain situation. BSR supports the following fencing
       policies:</para>
 
       <variablelist>
@@ -281,7 +281,7 @@
 	    <para>If a node becomes a disconnected primary, it tries to fence the peer.
 	    This is done by calling the <option>fence-peer</option> handler. The
 	    handler is supposed to reach the peer over an alternative communication path
-	    and call '<option>drbdadm outdate minor</option>' there.</para>
+	    and call '<option>bsradm outdate minor</option>' there.</para>
 	  </listitem>
 	</varlistentry>
 
@@ -292,23 +292,23 @@
 	    <para>If a node becomes a disconnected primary, it freezes all its IO operations
 	    and calls its fence-peer handler. The fence-peer handler is supposed to reach
 	    the peer over an alternative communication path and call
-	    '<option>drbdadm outdate minor</option>' there. In case it cannot
+	    '<option>bsradm outdate minor</option>' there. In case it cannot
 	    do that, it should stonith the peer. IO is resumed as soon as
 	    the situation is resolved. In case the fence-peer  handler fails,
-	    I/O can be resumed manually with '<option>drbdadm
+	    I/O can be resumed manually with '<option>bsradm
 	    resume-io</option>'.</para>
 	  </listitem>
 	</varlistentry>
       </variablelist>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="md-flushes">
+  <bsrsetup_option name="md-flushes">
     <term xml:id="md-flushes"><option>md-flushes</option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>md-flushes</secondary>
       </indexterm>
@@ -317,17 +317,17 @@
       This option is enabled by default.  See the <option>disk-flushes</option>
       parameter.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="on-io-error">
+  <bsrsetup_option name="on-io-error">
     <term xml:id="on-io-error"><option>on-io-error <replaceable>handler</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>on-io-error</secondary>
-	</indexterm> Configure how DRBD reacts to I/O errors on a
+	</indexterm> Configure how BSR reacts to I/O errors on a
 	lower-level device. The following policies are defined:
 
 	<variablelist>
@@ -356,14 +356,14 @@
 	</variablelist>
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="read-balancing">
+  <bsrsetup_option name="read-balancing">
     <term xml:id="read-balancing"><option>read-balancing <replaceable>policy</replaceable></option>
     </term>
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 	<secondary>read-balancing</secondary>
       </indexterm>
       <para>
@@ -375,12 +375,12 @@
 	<option xml:id="_32K-striping">32K-striping</option>, <option xml:id="_64K-striping">64K-striping</option>,
 	<option xml:id="_128K-striping">128K-striping</option>, <option xml:id="_256K-striping">256K-striping</option>,
 	<option xml:id="_512K-striping">512K-striping</option> and <option xml:id="_1M-striping">1M-striping</option>.</para>
-	<para>This option is available since DRBD 8.4.1.</para>
+	<para>This option is available since BSR 8.4.1.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
 
-  <drbdsetup_option name="discard-zeroes-if-aligned">
+  <bsrsetup_option name="discard-zeroes-if-aligned">
     <term xml:id="discard-zeroes-if-aligned"><option>discard-zeroes-if-aligned <group choice="req" rep="norepeat">
     <arg choice="plain" rep="norepeat">yes</arg>
     <arg choice="plain" rep="norepeat">no</arg>
@@ -388,7 +388,7 @@
     <definition>
       <para>
         <indexterm significance="normal">
-          <primary>drbd.conf</primary>
+          <primary>bsr.conf</primary>
           <secondary>discard-zeroes-if-aligned</secondary>
         </indexterm>
 	There are several aspects to discard/trim/unmap support on linux
@@ -398,12 +398,12 @@
 	(usually zeroes), or undefined data (possibly old data, possibly
 	garbage).
 	</para><para>
-	If on different nodes, DRBD is backed by devices with differing discard
+	If on different nodes, BSR is backed by devices with differing discard
 	characteristics, discards may lead to data divergence (old data or
 	garbage left over on one backend, zeroes due to unmapped areas on the
 	other backend). Online verify would now potentially report tons of
 	spurious differences.  While probably harmless for most use cases
-	(fstrim on a file system), DRBD cannot have that.
+	(fstrim on a file system), BSR cannot have that.
 	</para><para>
 	To play safe, we have to disable discard support, if our local backend
 	(on a Primary) does not support "discard_zeroes_data=true".  We also have to
@@ -422,11 +422,11 @@
 	effectively achieve discard_zeroes_data=true on such devices.
 	</para><para>
 	Setting <option>discard-zeroes-if-aligned</option> to <option>yes</option>
-	will allow DRBD to use discards, and to announce discard_zeroes_data=true,
+	will allow BSR to use discards, and to announce discard_zeroes_data=true,
 	even on backends that announce discard_zeroes_data=false.
 	</para><para>
 	Setting <option>discard-zeroes-if-aligned</option> to <option>no</option>
-	will cause DRBD to always fall-back to zero-out on the receiving side,
+	will cause BSR to always fall-back to zero-out on the receiving side,
 	and to not even announce discard capabilities on the Primary,
 	if the respective backend announces discard_zeroes_data=false.
 	</para><para>
@@ -438,46 +438,46 @@
 	This option is available since 8.4.7.
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="rs-discard-granularity">
+  <bsrsetup_option name="rs-discard-granularity">
     <term>
       <option>rs-discard-granularity <replaceable>byte</replaceable></option>
     </term>
     <definition>
       <indexterm significance="normal">
-        <primary>drbd.conf</primary>
+        <primary>bsr.conf</primary>
         <secondary>rs-discard-granularity</secondary>
       </indexterm>
       <para>
         When <option>rs-discard-granularity</option> is set to a non zero, positive
-        value then DRBD tries to do a resync operation in requests of this size.
+        value then BSR tries to do a resync operation in requests of this size.
         In case such a block contains only zero bytes on the sync source node,
         the sync target node will issue a discard/trim/unmap command for
         the area.</para>
 	<para>The value is constrained by the discard granularity of the backing
 	block device. In case <option>rs-discard-granularity</option> is not a
-	multiplier of the discard granularity of the backing block device DRBD
+	multiplier of the discard granularity of the backing block device BSR
 	rounds it up. The feature only gets active if the backing block device
 	reads back zeroes after a discard command.</para>
         <para> The default value of is 0. This option is available since 8.4.7.
         </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="resync-after">
+  <bsrsetup_option name="resync-after">
       <term xml:id="resync-after">
-	<only-drbdsetup>
+	<only-bsrsetup>
 	  <option>resync-after <replaceable>minor</replaceable></option>
-	</only-drbdsetup>
-	<only-drbd-conf>
+	</only-bsrsetup>
+	<only-bsr-conf>
 	  <option>resync-after <replaceable>res-name</replaceable>/<replaceable>volume</replaceable></option>
-	</only-drbd-conf>
+	</only-bsr-conf>
       </term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>resync-after</secondary>
 	</indexterm> Define that a device should only resynchronize after the
@@ -488,28 +488,28 @@
 	process.  This option can be used to form a chain or tree of
 	dependencies among devices.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="resync-rate">
+  <bsrsetup_option name="resync-rate">
     <term xml:id="resync-rate"><option>resync-rate <replaceable>rate</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>resync-rate</secondary>
-	</indexterm> Define how much bandwidth DRBD may use for
-	resynchronizing.  DRBD allows "normal" application I/O even during a
+	</indexterm> Define how much bandwidth BSR may use for
+	resynchronizing.  BSR allows "normal" application I/O even during a
 	resync. If the resync takes up too much bandwidth, application I/O
 	can become very slow. This parameter allows to avoid that. Please
 	note this is option only works when the dynamic resync controller is
 	disabled.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="size">
-    <!-- NOTE: This description is neither used in drbd.conf.xml.in nor in
-	 drbdsetup.xml.in. -->
+  <bsrsetup_option name="size">
+    <!-- NOTE: This description is neither used in bsr.conf.xml.in nor in
+	 bsrsetup.xml.in. -->
     <term xml:id="size"><option>size <replaceable>size</replaceable></option></term>
 
     <definition>
@@ -531,48 +531,48 @@
 
       <!--
 	<para>If you use the <replaceable>size</replaceable> parameter in
-	drbd.conf, we strongly recommend to add an explicit unit postfix.
-	drbdadm and drbdsetup used to have mismatching default units.</para>
+	bsr.conf, we strongly recommend to add an explicit unit postfix.
+	bsradm and bsrsetup used to have mismatching default units.</para>
       -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="dialog-refresh">
+  <bsrsetup_option name="dialog-refresh">
     <term xml:id="dialog-refresh"><option>dialog-refresh <replaceable>time</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>dialog-refresh</secondary>
-	</indexterm> The DRBD init script can be used to configure and start
-	DRBD devices, which can involve waiting for other cluster nodes.
+	</indexterm> The BSR init script can be used to configure and start
+	BSR devices, which can involve waiting for other cluster nodes.
 	While waiting, the init script shows the remaining waiting time.  The
 	<option>dialog-refresh</option> defines the number of seconds between
 	updates of that countdown. The default value is 1; a value of 0 turns
 	off the countdown.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="disable-ip-verification">
+  <bsrsetup_option name="disable-ip-verification">
     <term xml:id="disable-ip-verification"><option>disable-ip-verification</option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>disable-ip-verification</secondary>
       </indexterm>
 
       <para>
-	Normally, DRBD verifies that the IP addresses in the configuration
+	Normally, BSR verifies that the IP addresses in the configuration
 	match the host names. Use the <option>disable-ip-verification</option>
 	parameter to disable these checks.
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="usage-count">
+  <bsrsetup_option name="usage-count">
     <term xml:id="usage-count"><option>usage-count
 	<group choice="req" rep="norepeat">
 	  <arg choice="plain" rep="norepeat">yes</arg>
@@ -583,15 +583,15 @@
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>usage-count</secondary>
       </indexterm>
 
-      <para>A explained on DRBD's <ulink url="http://usage.drbd.org"><citetitle>
-      Online Usage Counter</citetitle></ulink> web page, DRBD includes a
+      <para>A explained on BSR's <ulink url="http://usage.bsr.org"><citetitle>
+      Online Usage Counter</citetitle></ulink> web page, BSR includes a
       mechanism for anonymously counting how many installations are using which
-      versions of DRBD. The results are available on the web page for anyone to
+      versions of BSR. The results are available on the web page for anyone to
       see.</para>
 
       <para>This parameter defines if a cluster node participates in the usage
@@ -601,54 +601,54 @@
 
       <para>We would like to ask users to participate in the online usage
       counter as this provides us valuable feedback for steering the
-      development of DRBD.</para>
+      development of BSR.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
   
-  <drbdsetup_option name="udev-always-use-vnr">
+  <bsrsetup_option name="udev-always-use-vnr">
     <term xml:id="udev-always-use-vnr"><option>udev-always-use-vnr</option></term>
 
     <definition>
       <indexterm significance="normal">
-    <primary>drbd.conf</primary>
+    <primary>bsr.conf</primary>
 
     <secondary>udev-always-use-vnr</secondary>
       </indexterm>
 
-      <para>When udev asks drbdadm for a list of device related symlinks,
-      drbdadm would suggest symlinks with differing naming conventions,
+      <para>When udev asks bsradm for a list of device related symlinks,
+      bsradm would suggest symlinks with differing naming conventions,
       depending on whether the resource has explicit
       <literal>volume VNR { }</literal> definitions,
       or only one single volume with the implicit volume number 0:
       <programlisting><![CDATA[
 # implicit single volume without "volume 0 {}" block
-DEVICE=drbd<minor>
-SYMLINK_BY_RES=drbd/by-res/<resource-name>
-SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
+DEVICE=bsr<minor>
+SYMLINK_BY_RES=bsr/by-res/<resource-name>
+SYMLINK_BY_DISK=bsr/by-disk/<backing-disk-name>
 
 # explicit volume definition: volume VNR { }
-DEVICE=drbd<minor>
-SYMLINK_BY_RES=drbd/by-res/<resource-name>/VNR
-SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
+DEVICE=bsr<minor>
+SYMLINK_BY_RES=bsr/by-res/<resource-name>/VNR
+SYMLINK_BY_DISK=bsr/by-disk/<backing-disk-name>
 ]]></programlisting>
     </para>
 
     <para>If you define this parameter in the global section,
-    drbdadm will always add the <literal>.../VNR</literal> part,
+    bsradm will always add the <literal>.../VNR</literal> part,
     and will not care for whether the volume definition was implicit or explicit.
     </para>
 
     <para>For legacy backward compatibility, this is off by default,
     but we do recommend to enable it.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="after-sb-0pri">
+  <bsrsetup_option name="after-sb-0pri">
     <term xml:id="after-sb-0pri"><option>after-sb-0pri <replaceable>policy</replaceable></option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>after-sb-0pri</secondary>
       </indexterm>
@@ -708,14 +708,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       </variablelist>
       <!-- FIXME: Refer to rr-conflict. -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="after-sb-1pri">
+  <bsrsetup_option name="after-sb-1pri">
     <term xml:id="after-sb-1pri"><option>after-sb-1pri <replaceable>policy</replaceable></option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>after-sb-1pri</secondary>
       </indexterm>
@@ -779,14 +779,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       </variablelist>
       <!-- FIXME: Refer to rr-conflict. -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="after-sb-2pri">
+  <bsrsetup_option name="after-sb-2pri">
     <term xml:id="after-sb-2pri"><option>after-sb-2pri <replaceable>policy</replaceable></option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>after-sb-2pri</secondary>
       </indexterm>
@@ -828,34 +828,34 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       </variablelist>
       <!-- FIXME: Refer to rr-conflict. -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="allow-two-primaries">
+  <bsrsetup_option name="allow-two-primaries">
     <term xml:id="allow-two-primaries"><option>allow-two-primaries</option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>allow-two-primaries</secondary>
-	</indexterm> The most common way to configure DRBD devices is to allow
+	</indexterm> The most common way to configure BSR devices is to allow
 	only one node to be primary (and thus writable) at a time.</para>
 
 	<para>In some scenarios it is preferable to allow two nodes to be
-	primary at once; a mechanism outside of DRBD then must make sure that
+	primary at once; a mechanism outside of BSR then must make sure that
 	writes to the shared, replicated device happen in a coordinated way.
 	This can be done with a shared-storage cluster file system like OCFS2
 	and GFS, or with virtual machine images and a virtual machine manager
 	that can migrate virtual machines between physical machines.</para>
 
-	<para>The <option>allow-two-primaries</option> parameter tells DRBD to
+	<para>The <option>allow-two-primaries</option> parameter tells BSR to
 	allow two nodes to be primary at the same time. Never enable this
 	option when using a non-distributed file system; otherwise, data
 	corruption and node crashes will result!</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="always-asbp">
+  <bsrsetup_option name="always-asbp">
     <term xml:id="always-asbp"><option>always-asbp</option></term>
     <!-- FIXME: this option does not mke any sense anymore. How can we fix this? -->
     <definition>
@@ -867,30 +867,30 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       full sync, if the UUIDs indicate the presence of a third node. (Or double faults led
       to strange UUID sets.)</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="connect-int">
+  <bsrsetup_option name="connect-int">
     <term xml:id="connect-int"><option>connect-int <replaceable>time</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>connect-int</secondary>
 	</indexterm> As soon as a connection between two nodes is configured
-	with <command moreinfo="none">drbdsetup connect</command>, DRBD
-	immediately tries to establish the connection. If this fails, DRBD
+	with <command moreinfo="none">bsrsetup connect</command>, BSR
+	immediately tries to establish the connection. If this fails, BSR
 	waits for <option>connect-int</option> seconds and then repeats.  The
 	default value of <option>connect-int</option> is 10 seconds.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="cram-hmac-alg">
+  <bsrsetup_option name="cram-hmac-alg">
     <term xml:id="cram-hmac-alg"><option>cram-hmac-alg <replaceable>hash-algorithm</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>cram-hmac-alg</secondary>
 	</indexterm> Configure the hash-based message authentication code
@@ -901,14 +901,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	Peer authentication also requires a <option>shared-secret</option> to
 	be configured.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="csums-alg">
+  <bsrsetup_option name="csums-alg">
     <term xml:id="csum-alg"><option>csums-alg <replaceable>hash-algorithm</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>csums-alg</secondary>
 	</indexterm> Normally, when two nodes resynchronize, the sync target
@@ -930,14 +930,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	listed in /proc/crypto.  By default, <option>csums-alg</option> is
 	unset.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="csums-after-crash-only">
+  <bsrsetup_option name="csums-after-crash-only">
     <term xml:id="csums-after-crash-only"><option>csums-after-crash-only</option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>csums-after-crash-only</secondary>
 	</indexterm> Enabling this option (and csums-alg, above) makes it possible to
@@ -950,23 +950,23 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       where the recovery marked larger areas (those covered by the activity log)
       as need-to-be-resynced, just in case. Introduced in 8.4.5.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="data-integrity-alg">
+  <bsrsetup_option name="data-integrity-alg">
     <term xml:id="data-integrity-alg"><option>data-integrity-alg </option> <replaceable>alg</replaceable></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>data-integrity-alg</secondary>
       </indexterm>
 
-      <para>DRBD normally relies on the data integrity checks built into the
+      <para>BSR normally relies on the data integrity checks built into the
       TCP/IP protocol, but if a data integrity algorithm is configured, it will
       additionally use this algorithm to make sure that the data received over
       the network match what the sender has sent.  If a data integrity error is
-      detected, DRBD will close the network connection and reconnect, which
+      detected, BSR will close the network connection and reconnect, which
       will trigger a resync.</para>
 
       <para>The <option>data-integrity-alg</option> can be set to one of the
@@ -977,14 +977,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	option in production environments.  Also see the notes on data
 	integrity below.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="ko-count">
+  <bsrsetup_option name="ko-count">
     <term xml:id="ko-count"><option>ko-count <replaceable>number</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>ko-count</secondary>
 	</indexterm> If a secondary node fails to complete a write request in
@@ -994,17 +994,17 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       To disable this feature, you should explicitly set it to 0; defaults may change between versions.
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="max-buffers">
+  <bsrsetup_option name="max-buffers">
 	  <term xml:id="max-buffers"><option>max-buffers <replaceable>number</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>max-buffers</secondary>
-	</indexterm> Limits the memory usage per DRBD minor device on the receiving side,
+	</indexterm> Limits the memory usage per BSR minor device on the receiving side,
 	or for internal buffers during resync or online-verify.
 	Unit is PAGE_SIZE, which is 4 KiB on most systems.
 	The minimum possible setting is hard coded to 32 (=128 KiB).
@@ -1015,24 +1015,24 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	You want to increase max-buffers if you cannot saturate the IO backend on the
         receiving side.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="max-epoch-size">
+  <bsrsetup_option name="max-epoch-size">
     <term xml:id="max-epoch-size"><option>max-epoch-size <replaceable>number</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>max-epoch-size</secondary>
-	</indexterm> Define the maximum number of write requests DRBD may issue
+	</indexterm> Define the maximum number of write requests BSR may issue
 	before issuing a write barrier.  The default value is 2048, with a
 	minimum of 1 and a maximum of 20000.  Setting this parameter to a value
 	below 10 is likely to decrease performance.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="on-congestion">
+  <bsrsetup_option name="on-congestion">
     <term xml:id="on-congestion"><option>on-congestion <replaceable>policy</replaceable></option></term>
 
     <term xml:id="congestion-fill"><option>congestion-fill <replaceable>threshold</replaceable></option></term>
@@ -1041,14 +1041,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
     <replaceable>threshold</replaceable></option></term>
 
     <definition>
-      <para>By default, DRBD blocks when the TCP send queue is full. This prevents
+      <para>By default, BSR blocks when the TCP send queue is full. This prevents
       applications from generating further write requests until more buffer
       space becomes available again.</para>
 
-      <para>When DRBD is used together with DRBD-proxy, it can be better to use
+      <para>When BSR is used together with BSR-proxy, it can be better to use
       the <option>pull-ahead</option> <option>on-congestion</option> policy,
-      which can switch DRBD into ahead/behind mode before the send queue is full.
-      DRBD then records the differences between itself and the peer in its
+      which can switch BSR into ahead/behind mode before the send queue is full.
+      BSR then records the differences between itself and the peer in its
       bitmap, but it no longer replicates them to the peer.  When enough buffer
       space becomes available again, the node resynchronizes with the peer and
       switches back to normal replication.</para>
@@ -1070,70 +1070,70 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       effective only when set to a value smaller than
       <option>al-extents</option>.</para>
 
-      <para>Ahead/behind mode is available since DRBD 8.3.10.</para>
+      <para>Ahead/behind mode is available since BSR 8.3.10.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="ping-int">
+  <bsrsetup_option name="ping-int">
     <term xml:id="ping-int"><option>ping-int <replaceable>interval</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>ping-int</secondary>
 	</indexterm> When the TCP/IP connection to a peer is idle for more than
-	<option>ping-int</option> seconds, DRBD will send a keep-alive packet
+	<option>ping-int</option> seconds, BSR will send a keep-alive packet
 	to make sure that a failed peer or network connection is detected
 	reasonably soon.  The default value is 10 seconds, with a minimum of 1
 	and a maximum of 120 seconds. The unit is seconds.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="ping-timeout">
+  <bsrsetup_option name="ping-timeout">
     <term xml:id="ping-timeout"><option>ping-timeout <replaceable>timeout</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>ping-timeout</secondary>
 	</indexterm> Define the timeout for replies to keep-alive packets.  If
-	the peer does not reply within <option>ping-timeout</option>, DRBD will
+	the peer does not reply within <option>ping-timeout</option>, BSR will
 	close and try to reestablish the connection.  The default value is 0.5
 	seconds, with a minimum of 0.1 seconds and a maximum of 3 seconds.  The
 	unit is tenths of a second.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="socket-check-timeout">
+  <bsrsetup_option name="socket-check-timeout">
     <term xml:id="socket-check-timeout"><option>socket-check-timeout <replaceable>timeout</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>socket-check-timeout</secondary>
-	</indexterm>In setups involving a DRBD-proxy and connections that experience a lot of
+	</indexterm>In setups involving a BSR-proxy and connections that experience a lot of
         buffer-bloat it might be necessary to set <option>ping-timeout</option> to an
-        unusual high value. By default DRBD uses the same value to wait if a newly
-        established TCP-connection is stable. Since the DRBD-proxy is usually located
-        in the same data center such a long wait time may hinder DRBD's connect process.</para>
+        unusual high value. By default BSR uses the same value to wait if a newly
+        established TCP-connection is stable. Since the BSR-proxy is usually located
+        in the same data center such a long wait time may hinder BSR's connect process.</para>
 	<para>In such setups <option>socket-check-timeout</option> should be set to
-	at least to the round trip time between DRBD and DRBD-proxy. I.e. in most
+	at least to the round trip time between BSR and BSR-proxy. I.e. in most
 	cases to 1.</para>
 	<para>The default unit is tenths of a second, the default value is 0 (which causes
-        DRBD to use the value of <option>ping-timeout</option> instead).
+        BSR to use the value of <option>ping-timeout</option> instead).
 	Introduced in 8.4.5.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="protocol">
+  <bsrsetup_option name="protocol">
     <term xml:id="protocol"><option>protocol <replaceable>name</replaceable></option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>protocol</secondary>
       </indexterm>
@@ -1145,7 +1145,7 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	    <term xml:id="A"><option>A</option></term>
 
 	    <listitem>
-	      <para>Writes to the DRBD device complete as soon as they have
+	      <para>Writes to the BSR device complete as soon as they have
 	      reached the local disk and the TCP/IP send buffer.</para>
 	    </listitem>
 	  </varlistentry>
@@ -1153,7 +1153,7 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	    <term xml:id="B"><option>B</option></term>
 
 	    <listitem>
-	      <para>Writes to the DRBD device complete as soon as they have
+	      <para>Writes to the BSR device complete as soon as they have
 	      reached the local disk, and all peers have acknowledged the
 	      receipt of the write requests.</para>
 	    </listitem>
@@ -1162,21 +1162,21 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	    <term xml:id="C"><option>C</option></term>
 
 	    <listitem>
-	      <para>Writes to the DRBD device complete as soon as they have
+	      <para>Writes to the BSR device complete as soon as they have
 	      reached the local and all remote disks.</para>
 	    </listitem>
 	  </varlistentry>
 	</variablelist>
       </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="rcvbuf-size">
+  <bsrsetup_option name="rcvbuf-size">
     <term xml:id="rcvbuf-size"><option>rcvbuf-size <replaceable>size</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>rcvbuf-size</secondary>
 	</indexterm> Configure the size of the TCP/IP receive buffer.  A value
@@ -1184,14 +1184,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	This parameter usually does not need to be set, but it can be set
 	to a value up to 10 MiB.  The default unit is bytes.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="rr-conflict">
+  <bsrsetup_option name="rr-conflict">
     <term xml:id="rr-conflict"><option>rr-conflict</option> <replaceable>policy</replaceable></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>rr-conflict</secondary>
       </indexterm>
@@ -1232,63 +1232,63 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	   after-sb-0pri, after-sb-1pri, and after-sb-2pri. -->
       <!-- FIXME: Refer to after-sb-0pri, after-sb-1pri, and after-sb-2pri. -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="shared-secret">
+  <bsrsetup_option name="shared-secret">
     <term xml:id="shared-secret"><option>shared-secret <replaceable>secret</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>shared-secret</secondary>
 	</indexterm> Configure the shared secret used for peer authentication.
 	The secret is a string of up to 64 characters. Peer authentication also
 	requires the <option>cram-hmac-alg</option> parameter to be set.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="sndbuf-size">
+  <bsrsetup_option name="sndbuf-size">
     <term xml:id="sndbuf-size"><option>sndbuf-size <replaceable>size</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>sndbuf-size</secondary>
-	</indexterm> Configure the size of the TCP/IP send buffer.  Since DRBD
+	</indexterm> Configure the size of the TCP/IP send buffer.  Since BSR
       8.0.13 / 8.2.7, a value of 0 (the default) causes the buffer size to
       adjust dynamically.  Values below 32 KiB are harmful to the throughput
       on this connection.  Large buffer sizes can be useful especially when
       protocol A is used over high-latency networks; the maximum value
       supported is 10 MiB.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="tcp-cork">
+  <bsrsetup_option name="tcp-cork">
     <term xml:id="tcp-cork"><option>tcp-cork</option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>tcp-cork</secondary>
       </indexterm>
 
-      <para>By default, DRBD uses the TCP_CORK socket option to prevent the
+      <para>By default, BSR uses the TCP_CORK socket option to prevent the
       kernel from sending partial messages; this results in fewer and bigger
       packets on the network.  Some network stacks can perform worse with this
       optimization.  On these, the <option>tcp-cork</option> parameter can be
       used to turn this optimization off.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="timeout">
+  <bsrsetup_option name="timeout">
     <term xml:id="timeout"><option>timeout <replaceable>time</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>timeout</secondary>
 	</indexterm> Define the timeout for replies over the network: if a peer
@@ -1298,14 +1298,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       <option>ping-int</option>.  The default is 6 seconds; the value is
       specified in tenths of a second.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="use-rle">
+  <bsrsetup_option name="use-rle">
     <term xml:id="use-rle"><option>use-rle</option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>use-rle</secondary>
 	</indexterm> Each replicated device on a cluster node has a separate
@@ -1322,15 +1322,15 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	time and bandwidth for the bitmap transfers.</para>
 
 	<para>The <option>use-rle</option> parameter determines if run-length
-	encoding should be used.  It is on by default since DRBD 8.4.0.</para>
+	encoding should be used.  It is on by default since BSR 8.4.0.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="verify-alg">
+  <bsrsetup_option name="verify-alg">
     <term xml:id="verify-alg"><option>verify-alg <replaceable>hash-algorithm</replaceable></option></term>
 
     <definition>
-      <para>Online verification (<command moreinfo="none">drbdadm
+      <para>Online verification (<command moreinfo="none">bsradm
 	  verify</command>) computes and compares checksums of disk blocks
 	(i.e., hash values) in order to detect if they differ.  The
 	<option>verify-alg</option> parameter determines which algorithm to use
@@ -1342,9 +1342,9 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	low-load periods, for example once a month.  Also see the notes on data
 	integrity below.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="discard-my-data">
+  <bsrsetup_option name="discard-my-data">
     <term xml:id="discard-my-data"><option>discard-my-data</option></term>
 
     <definition>
@@ -1352,26 +1352,26 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	most up-to-data data.  Use this option to manually recover from a
 	split-brain situation.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="tentative">
+  <bsrsetup_option name="tentative">
     <term xml:id="tentative"><option>tentative</option></term>
 
     <definition>
       <para>Only determine if a connection to the peer can be established and
 	if a resync is necessary (and in which direction) without actually
 	establishing the connection or starting the resync.  Check the system
-	log to see what DRBD would do without the <option>--tentative</option>
+	log to see what BSR would do without the <option>--tentative</option>
 	option.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="auto-promote">
+  <bsrsetup_option name="auto-promote">
     <term xml:id="auto-promote"><option>auto-promote <replaceable>bool-value</replaceable></option></term>
 
     <definition>
       <indexterm significance="normal">
-	<primary>drbd.conf</primary>
+	<primary>bsr.conf</primary>
 
 	<secondary>auto-promote</secondary>
       </indexterm>
@@ -1379,17 +1379,17 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       <para>A resource must be promoted to primary role before any of its devices
       can be mounted or opened for writing.</para>
 
-      <para>Before DRBD 9, this could only be done explicitly ("drbdadm
-      primary").  Since DRBD 9, the <option>auto-promote</option> parameter
+      <para>Before BSR 9, this could only be done explicitly ("bsradm
+      primary").  Since BSR 9, the <option>auto-promote</option> parameter
       allows to automatically promote a resource to primary role when one of
       its devices is mounted or opened for writing.  As soon as all devices are
       unmounted or closed with no more remaining users, the role of the
       resource changes back to secondary.</para>
 
       <para>Automatic promotion only succeeds if the cluster state allows it
-      (that is, if an explicit <command moreinfo="none">drbdadm
+      (that is, if an explicit <command moreinfo="none">bsradm
 	primary</command> command would succeed).  Otherwise, mounting or
-      opening the device fails as it already did before DRBD 9: the
+      opening the device fails as it already did before BSR 9: the
       <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
       system call fails with errno set to EROFS (Read-only file system); the
       <citerefentry><refentrytitle>open</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -1397,32 +1397,32 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       type).</para>
 
       <para>Irrespective of the <option>auto-promote</option> parameter, if a
-      device is promoted explicitly (<command moreinfo="none">drbdadm
+      device is promoted explicitly (<command moreinfo="none">bsradm
 	primary</command>), it also needs to be demoted explicitly (<command
-	moreinfo="none">drbdadm secondary</command>).</para>
+	moreinfo="none">bsradm secondary</command>).</para>
 
-      <para>The <option>auto-promote</option> parameter is available since DRBD
+      <para>The <option>auto-promote</option> parameter is available since BSR
       9.0.0, and defaults to <constant>yes</constant>.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="cpu-mask">
+  <bsrsetup_option name="cpu-mask">
     <term xml:id="cpu-mask"><option>cpu-mask <replaceable>cpu-mask</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>cpu-mask</secondary>
-	</indexterm> Set the cpu affinity mask for DRBD kernel threads.  The
+	</indexterm> Set the cpu affinity mask for BSR kernel threads.  The
 	cpu mask is specified as a hexadecimal number.  The default value is 0,
 	which lets the scheduler decide which kernel threads run on which CPUs.
 	CPU numbers in <option>cpu-mask</option> which do not exist in the
 	system are ignored.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="on-no-data-accessible">
+  <bsrsetup_option name="on-no-data-accessible">
     <term xml:id="on-no-data-accessible"><option>on-no-data-accessible
 	<replaceable>policy</replaceable></option></term>
 
@@ -1443,8 +1443,8 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	    <listitem><para>
 		The resource suspends I/O.  I/O can be resumed by (re)attaching
 		the lower-level device, by connecting to a peer which has
-		access to the data, or by forcing DRBD to resume I/O with
-		<command moreinfo="none">drbdadm resume-io
+		access to the data, or by forcing BSR to resume I/O with
+		<command moreinfo="none">bsradm resume-io
 		  <replaceable>res</replaceable></command>.  When no data is
 		available, forcing I/O to resume will result in the same
 		behavior as the <option>io-error</option> policy.
@@ -1452,21 +1452,21 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	  </varlistentry>
 	</variablelist>
 
-      This setting is available since DRBD 8.3.9; the default policy is
+      This setting is available since BSR 8.3.9; the default policy is
 	<option>io-error</option>. </para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="peer-ack-window">
+  <bsrsetup_option name="peer-ack-window">
     <term xml:id="peer-ack-window"><option>peer-ack-window <replaceable>value</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>peer-ack-window</secondary>
 	</indexterm>
-	On each node and for each device, DRBD maintains a bitmap of the
+	On each node and for each device, BSR maintains a bitmap of the
 	differences between the local and remote data for each peer device.
 	For example, in a three-node setup (nodes A, B, C) each with a single
 	device, every node maintains one bitmap for each of its peers.</para>
@@ -1494,14 +1494,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	the default unit is sectors.  This option is available since
 	9.0.0.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="peer-ack-delay">
+  <bsrsetup_option name="peer-ack-delay">
     <term xml:id="peer-ack-delay"><option>peer-ack-delay <replaceable>expiry-time</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>peer-ack-delay</secondary>
 	</indexterm>
@@ -1519,14 +1519,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	the default unit is milliseconds.  This option is available since
 	9.0.0.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="degr-wfc-timeout">
+  <bsrsetup_option name="degr-wfc-timeout">
     <term xml:id="degr-wfc-timeout"><option>degr-wfc-timeout <replaceable>timeout</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>degr-wfc-timeout</secondary>
 	</indexterm> Define how long to wait until all peers are
@@ -1546,14 +1546,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	     three nodes fails, we will still wait for that one node for
 	     wfc-timeout, which might be forever. -->
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="outdated-wfc-timeout">
+  <bsrsetup_option name="outdated-wfc-timeout">
     <term xml:id="outdated-wfc-timeout"><option>outdated-wfc-timeout <replaceable>timeout</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>outdated-wfc-timeout</secondary>
 	</indexterm> Define how long to wait until all peers are
@@ -1568,44 +1568,44 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 	which stands for an infinite timeout.  Also see the
 	<option>wfc-timeout</option> parameter.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="wait-after-sb">
+  <bsrsetup_option name="wait-after-sb">
     <term xml:id="wait-after-sb"><option>wait-after-sb</option></term>
 
     <definition>
-      <para>This parameter causes DRBD to continue waiting in the init
+      <para>This parameter causes BSR to continue waiting in the init
 	script even when a split-brain situation has been detected, and
 	the nodes therefore refuse to connect to each other.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
 
-  <drbdsetup_option name="wfc-timeout">
+  <bsrsetup_option name="wfc-timeout">
     <term xml:id="wfc-timeout"><option>wfc-timeout <replaceable>timeout</replaceable></option></term>
 
     <definition>
       <para><indexterm significance="normal">
-	  <primary>drbd.conf</primary>
+	  <primary>bsr.conf</primary>
 
 	  <secondary>wfc-timeout</secondary>
 	</indexterm> Define how long the init script waits until all peers are
 	connected.  This can be useful in combination with a cluster manager
-	which cannot manage DRBD resources: when the cluster manager starts,
-	the DRBD resources will already be up and running.  With a more capable
+	which cannot manage BSR resources: when the cluster manager starts,
+	the BSR resources will already be up and running.  With a more capable
 	cluster manager such as Pacemaker, it makes more sense to let the
-	cluster manager control DRBD resources.  The timeout is specified in
+	cluster manager control BSR resources.  The timeout is specified in
 	seconds. The default value is 0, which stands for an infinite timeout.
 	Also see the <option>degr-wfc-timeout</option> parameter.</para>
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
   
-  <drbdsetup_option name="quorum">
+  <bsrsetup_option name="quorum">
     <term xml:id="quorum"><option>quorum <replaceable>value</replaceable></option>
     </term>
 
     <definition>
       <para><indexterm significance="normal">
-      <primary>drbd.conf</primary>
+      <primary>bsr.conf</primary>
 
       <secondary>quorum</secondary>
       </indexterm> When activated, a cluster partition requires quorum
@@ -1635,14 +1635,14 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
       with all the missing outdated nodes. In case my partition might
       be smaller than the other, quorum is lost in this moment.</para>
 
-      <para>The quorum implementation is available starting with the DRBD kernel
+      <para>The quorum implementation is available starting with the BSR kernel
       driver version 9.0.7.</para>
 
     </definition>
-  </drbdsetup_option>
+  </bsrsetup_option>
   
   
-  <drbdsetup_option name="on-no-quorum">
+  <bsrsetup_option name="on-no-quorum">
     <term xml:id="on-no-quorum"><option>on-no-quorum <group choice="req" rep="norepeat">
     <arg choice="plain" rep="norepeat">io-error</arg>
     <arg choice="plain" rep="norepeat">suspend-io</arg>
@@ -1651,16 +1651,16 @@ SYMLINK_BY_DISK=drbd/by-disk/<backing-disk-name>
 
     <definition>
       <para><indexterm significance="normal">
-      <primary>drbd.conf</primary>
+      <primary>bsr.conf</primary>
 
       <secondary>quorum</secondary>
-      </indexterm> By default DRBD freezes IO on a device, that lost quorum.
+      </indexterm> By default BSR freezes IO on a device, that lost quorum.
       By setting the <option>on-no-quorum</option> to <option>io-error</option> it
       completes all IO operations with an error if quorum ist lost.</para>
 
-      <para>The <option>on-no-quorum</option> options is available starting with the DRBD kernel
+      <para>The <option>on-no-quorum</option> options is available starting with the BSR kernel
       driver version 9.0.8.</para>
     </definition>
 
-  </drbdsetup_option>
-</drbdsetup_options>
+  </bsrsetup_option>
+</bsrsetup_options>

@@ -1,30 +1,28 @@
 /*
-   drbdadm_registry.c
+   bsradm_registry.c
 
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-   It was written by Johannes Thoma <johannes.thoma@linbit.com>
+   This file is part of BSR by Man Technology inc.
+   It was written by Man Technology inc <dev3@mantech.co.kr>
 
-   Copyright (C) 2002-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 2002-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
-   drbd is free software; you can redistribute it and/or modify
+   bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   drbd is distributed in the hope that it will be useful,
+   bsr is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with drbd; see the file COPYING.  If not, write to
+   along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
 
-/* This keeps track of which DRBD minor was configured in which
+/* This keeps track of which BSR minor was configured in which
  * config file. This is required to have alternative config files
  * (-c switch) and userland event handlers.
  */
@@ -46,7 +44,7 @@
 
 static void linkname_from_minor(char *linkname, int minor)
 {
-	sprintf(linkname, "%s/drbd-minor-%d.conf", BSR_RUN_DIR, minor);
+	sprintf(linkname, "%s/bsr-minor-%d.conf", BSR_RUN_DIR, minor);
 }
 
 int unregister_minor(int minor)
@@ -144,7 +142,7 @@ char *lookup_minor(int minor)
 
 static void linkname_from_resource_name(char *linkname, const char *name)
 {
-	sprintf(linkname, "%s/drbd-resource-%s.conf", BSR_RUN_DIR, name);
+	sprintf(linkname, "%s/bsr-resource-%s.conf", BSR_RUN_DIR, name);
 }
 
 int unregister_resource(const char *name)
@@ -191,9 +189,9 @@ char *lookup_resource(const char *name)
 
 int main(int argc, char ** argv)
 {
-	register_minor(1, "/etc/drbd-xy.conf");
-	register_minor(15, "/etc/drbd-82.conf");
-	register_minor(14, "/../../../../../../etc/drbd-82.conf");
+	register_minor(1, "/etc/bsr-xy.conf");
+	register_minor(15, "/etc/bsr-82.conf");
+	register_minor(14, "/../../../../../../etc/bsr-82.conf");
 	printf("Minor 1 is %s.\n", lookup_minor(1));
 	printf("Minor 2 is %s.\n", lookup_minor(2));
 	printf("Minor 14 is %s.\n", lookup_minor(14));

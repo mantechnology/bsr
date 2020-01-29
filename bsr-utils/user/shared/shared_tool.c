@@ -405,12 +405,12 @@ uint64_t bdev_size(int fd)
 char *lk_bdev_path(unsigned minor)
 {
 	char *path;
-	m_asprintf(&path, "%s/drbd-minor-%d.lkbd", BSR_LIB_DIR, minor);
+	m_asprintf(&path, "%s/bsr-minor-%d.lkbd", BSR_LIB_DIR, minor);
 	return path;
 }
 
 /* If the lower level device is resized,
- * and DRBD did not move its "internal" meta data in time,
+ * and BSR did not move its "internal" meta data in time,
  * the next time we try to attach, we won't find our meta data.
  *
  * Some helpers for storing and retrieving "last known"
@@ -800,7 +800,7 @@ int dt_minor_of_dev(const char *device)
     }
 #else // _LIN
 	/* On udev/devfs based system the device nodes does not
-	 * exist before the drbd is created.
+	 * exist before the bsr is created.
 	 *
 	 * If the device name starts with /dev/bsr followed by
 	 * only digits, or if only digits are given,
@@ -808,12 +808,12 @@ int dt_minor_of_dev(const char *device)
 	 *
 	 * Otherwise, we cannot reliably determine the minor number!
 	 *
-	 * We allow "arbitrary" device names in drbd.conf,
+	 * We allow "arbitrary" device names in bsr.conf,
 	 * and those may well contain digits.
 	 * Interpreting any digits as minor number is dangerous!
 	 */
 	if (!digits_only) {
-		// BSR-386 rename "drbd" to "bsr" to be the same as name of major device due to pvcreate error
+		// BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
 		if (!strncmp("/dev/bsr", device, 8) &&
 		    only_digits(device + 8))
 			c = device + 8;
@@ -821,11 +821,11 @@ int dt_minor_of_dev(const char *device)
 		/* if the device node exists,
 		 * and is a block device with the correct major,
 		 * do not enforce further naming conventions.
-		 * people without udev, and not using drbdadm
+		 * people without udev, and not using bsradm
 		 * may do whatever they like. */
 		else if (!stat(device,&sb) &&
 			 S_ISBLK(sb.st_mode) &&
-			 major(sb.st_rdev) == LANANA_DRBD_MAJOR)
+			 major(sb.st_rdev) == LANANA_BSR_MAJOR)
 			return minor(sb.st_rdev);
 
 		else
@@ -850,7 +850,7 @@ int only_digits(const char *s)
 	return c != s && *c == 0;
 }
 
-int dt_lock_drbd(int minor)
+int dt_lock_bsr(int minor)
 {
 	int sz, lfd;
 	char *lfname;
@@ -859,8 +859,8 @@ int dt_lock_drbd(int minor)
 	 * maybe we should also place a fcntl lock on the
 	 * _physical_device_ we open later...
 	 *
-	 * This lock is to prevent a drbd minor from being configured
-	 * by drbdsetup while drbdmeta is about to mess with its meta data.
+	 * This lock is to prevent a bsr minor from being configured
+	 * by bsrsetup while bsrmeta is about to mess with its meta data.
 	 *
 	 * If you happen to mess with the meta data of one device,
 	 * pretending it belongs to an other, you'll screw up completely.
@@ -868,13 +868,13 @@ int dt_lock_drbd(int minor)
 	 * We should store something in the meta data to detect such abuses.
 	 */
 
-	/* NOTE that /var/lock/drbd-*-* may not be "secure",
-	 * maybe we should rather use /var/lock/drbd/drbd-*-*,
-	 * and make sure that /var/lock/drbd is drwx.-..-. root:root  ...
+	/* NOTE that /var/lock/bsr-*-* may not be "secure",
+	 * maybe we should rather use /var/lock/bsr/bsr-*-*,
+	 * and make sure that /var/lock/bsr is drwx.-..-. root:root  ...
 	 */
 
-	sz = asprintf(&lfname, BSR_LOCK_DIR "/drbd-%d-%d",
-		      LANANA_DRBD_MAJOR, minor);
+	sz = asprintf(&lfname, BSR_LOCK_DIR "/bsr-%d-%d",
+		      LANANA_BSR_MAJOR, minor);
 	if (sz < 0) {
 		perror("");
 		exit(20);
@@ -888,7 +888,7 @@ int dt_lock_drbd(int minor)
 }
 
 /* ignore errors */
-void dt_unlock_drbd(int lock_fd)
+void dt_unlock_bsr(int lock_fd)
 {
 	if (lock_fd >= 0)
 		unlock_fd(lock_fd);
@@ -1067,9 +1067,9 @@ int err(const char *format, ...)
 /* if @str is NULL or the empty string, return "";
  * if @str contains ' ', '\t' or '\\',
  * surround it with ", and escape space, tab, backslash and double-quote with backslash.
- * This escape is for escaping tokens for the drbdadm config parser,
- * so any legal input do drbdadm "drbdadm dump" should result in output, which,
- * if fed into an additional "drbdadm dump" should give the same output again.
+ * This escape is for escaping tokens for the bsradm config parser,
+ * so any legal input do bsradm "bsradm dump" should result in output, which,
+ * if fed into an additional "bsradm dump" should give the same output again.
  */
 const char *esc(char *str)
 {

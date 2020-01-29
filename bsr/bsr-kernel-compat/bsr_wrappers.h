@@ -1,5 +1,5 @@
-#ifndef _DRBD_WRAPPERS_H
-#define _DRBD_WRAPPERS_H
+#ifndef _BSR_WRAPPERS_H
+#define _BSR_WRAPPERS_H
 
 #ifdef _WIN
 #include "../../../bsr-headers/bsr.h"
@@ -337,7 +337,7 @@ struct block_device *open_bdev_exclusive(const char *path, fmode_t mode, void *h
 	UNREFERENCED_PARAMETER(mode);
 	UNREFERENCED_PARAMETER(holder);
 #ifdef _LIN
-	/* drbd does not open readonly, but try to be correct, anyways */
+	/* bsr does not open readonly, but try to be correct, anyways */
 	return open_bdev_excl(path, (mode & FMODE_WRITE) ? 0 : MS_RDONLY, holder);
 #endif
 }
@@ -359,17 +359,17 @@ static inline struct block_device *blkdev_get_by_path(const char *path,
 	return open_bdev_exclusive(path, mode, holder);
 }
 #endif
-static inline int drbd_blkdev_put(struct block_device *bdev, fmode_t mode)
+static inline int bsr_blkdev_put(struct block_device *bdev, fmode_t mode)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(mode);	
 	// DW-1109 put ref count and delete bdev if ref gets 0
 	struct block_device *b = bdev->bd_parent?bdev->bd_parent:bdev;
-	kref_put(&b->kref, delete_drbd_block_device);
+	kref_put(&b->kref, delete_bsr_block_device);
 #else // _LIN
 	/* blkdev_put != close_bdev_exclusive, in general, so this is obviously
 	 * not correct, and there should be some if (mode & FMODE_EXCL) ...
-	 * But this is the only way it is used in DRBD,
+	 * But this is the only way it is used in BSR,
 	 * and for <= 2.6.27, there is no FMODE_EXCL anyways. */
 	close_bdev_exclusive(bdev, mode);
 
@@ -378,11 +378,11 @@ static inline int drbd_blkdev_put(struct block_device *bdev, fmode_t mode)
 	 * close_bdev_exclusive is void. */
 	return 0;
 }
-#define blkdev_put(b, m)	drbd_blkdev_put(b, m)
+#define blkdev_put(b, m)	bsr_blkdev_put(b, m)
 #endif
 
 
-#define drbd_bio_uptodate(bio) bio_flagged(bio, BIO_UPTODATE)
+#define bsr_bio_uptodate(bio) bio_flagged(bio, BIO_UPTODATE)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 #define BIO_ENDIO_TYPE void
@@ -423,17 +423,17 @@ static inline void bsr_bio_endio(struct bio *bio, int error)
 #endif
 
 /* bi_end_io handlers */
-//extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
+//extern BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio, int error);
 
 #ifdef _WIN
-extern IO_COMPLETION_ROUTINE drbd_md_endio;
-extern IO_COMPLETION_ROUTINE drbd_peer_request_endio;
-extern IO_COMPLETION_ROUTINE drbd_request_endio;
-extern IO_COMPLETION_ROUTINE drbd_bm_endio;
+extern IO_COMPLETION_ROUTINE bsr_md_endio;
+extern IO_COMPLETION_ROUTINE bsr_peer_request_endio;
+extern IO_COMPLETION_ROUTINE bsr_request_endio;
+extern IO_COMPLETION_ROUTINE bsr_bm_endio;
 #else // _LIN
-extern BIO_ENDIO_TYPE drbd_md_endio BIO_ENDIO_ARGS(struct bio *bio);
-extern BIO_ENDIO_TYPE drbd_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio);
-extern BIO_ENDIO_TYPE drbd_request_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio);
+extern BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
@@ -477,7 +477,7 @@ static inline void sg_set_page(struct scatterlist *sg, struct page *page,
 
 /* see 7eaceac block: remove per-queue plugging */
 #ifdef blk_queue_plugged
-static inline void drbd_plug_device(struct request_queue *q)
+static inline void bsr_plug_device(struct request_queue *q)
 {
 	spin_lock_irq(q->queue_lock);
 
@@ -492,14 +492,14 @@ static inline void drbd_plug_device(struct request_queue *q)
 	spin_unlock_irq(q->queue_lock);
 }
 #else
-static inline void drbd_plug_device(struct request_queue *q)
+static inline void bsr_plug_device(struct request_queue *q)
 {
 	UNREFERENCED_PARAMETER(q);
 }
 #endif
 
 #ifdef _LIN
-static inline int drbd_backing_bdev_events(struct gendisk *disk)
+static inline int bsr_backing_bdev_events(struct gendisk *disk)
 {
 #if defined(__disk_stat_inc)
 	/* older kernel */
@@ -535,14 +535,14 @@ static inline int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_c
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-static inline void drbd_unregister_blkdev(unsigned int major, const char *name)
+static inline void bsr_unregister_blkdev(unsigned int major, const char *name)
 {
 	int ret = unregister_blkdev(major, name);
 	if (ret)
 		pr_err("unregister of device failed\n");
 }
 #else
-#define drbd_unregister_blkdev unregister_blkdev
+#define bsr_unregister_blkdev unregister_blkdev
 #endif
 
 #if !defined(CRYPTO_ALG_ASYNC)
@@ -966,17 +966,17 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 		
 /* Linux 4.8 split bio OPs and FLAGs {{{2 */
 
-#define DRBD_REQ_PREFLUSH	REQ_PREFLUSH
-#define DRBD_REQ_FUA		REQ_FUA
-#define DRBD_REQ_SYNC		REQ_SYNC
+#define BSR_REQ_PREFLUSH	REQ_PREFLUSH
+#define BSR_REQ_FUA		REQ_FUA
+#define BSR_REQ_SYNC		REQ_SYNC
 
 /* long gone */
-#define DRBD_REQ_HARDBARRIER	0
-#define DRBD_REQ_UNPLUG		0
+#define BSR_REQ_HARDBARRIER	0
+#define BSR_REQ_UNPLUG		0
 
 /* became an op, no longer flag */
-#define DRBD_REQ_DISCARD	0
-#define DRBD_REQ_WSAME		0
+#define BSR_REQ_DISCARD	0
+#define BSR_REQ_WSAME		0
 
 /* Gone in Linux 4.10 */
 #ifndef WRITE_SYNC
@@ -993,43 +993,43 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
  */
 
 
-#define DRBD_REQ_PREFLUSH	(1UL << BIO_RW_FLUSH)
-#define DRBD_REQ_FUA		(1UL << BIO_RW_FUA)
-#define DRBD_REQ_HARDBARRIER	(1UL << BIO_RW_BARRIER)
-#define DRBD_REQ_DISCARD	(1UL << BIO_RW_DISCARD)
-#define DRBD_REQ_SYNC		(1UL << BIO_RW_SYNCIO)
-#define DRBD_REQ_UNPLUG		(1UL << BIO_RW_UNPLUG)
+#define BSR_REQ_PREFLUSH	(1UL << BIO_RW_FLUSH)
+#define BSR_REQ_FUA		(1UL << BIO_RW_FUA)
+#define BSR_REQ_HARDBARRIER	(1UL << BIO_RW_BARRIER)
+#define BSR_REQ_DISCARD	(1UL << BIO_RW_DISCARD)
+#define BSR_REQ_SYNC		(1UL << BIO_RW_SYNCIO)
+#define BSR_REQ_UNPLUG		(1UL << BIO_RW_UNPLUG)
 
 #define REQ_RAHEAD		(1UL << BIO_RW_AHEAD)
 
 #elif defined(REQ_FLUSH)	/* introduced in 2.6.36, {{{2
 				 * now equivalent to bi_rw */
 
-#define DRBD_REQ_SYNC		REQ_SYNC
-#define DRBD_REQ_PREFLUSH	REQ_FLUSH
-#define DRBD_REQ_FUA		REQ_FUA
-#define DRBD_REQ_DISCARD	REQ_DISCARD
+#define BSR_REQ_SYNC		REQ_SYNC
+#define BSR_REQ_PREFLUSH	REQ_FLUSH
+#define BSR_REQ_FUA		REQ_FUA
+#define BSR_REQ_DISCARD	REQ_DISCARD
 /* REQ_HARDBARRIER has been around for a long time,
  * without being directly related to bi_rw.
  * so the ifdef is only usful inside the ifdef REQ_FLUSH!
  * commit 7cc0158 (v2.6.36-rc1) made it a bi_rw flag, ...  */
 #ifdef REQ_HARDBARRIER
-#define DRBD_REQ_HARDBARRIER	REQ_HARDBARRIER
+#define BSR_REQ_HARDBARRIER	REQ_HARDBARRIER
 #else
 /* ... but REQ_HARDBARRIER was removed again in 02e031c (v2.6.37-rc4). */
-#define DRBD_REQ_HARDBARRIER	0
+#define BSR_REQ_HARDBARRIER	0
 #endif
 
 /* again: testing on this _inside_ the ifdef REQ_FLUSH,
  * see 721a960 block: kill off REQ_UNPLUG */
 #ifdef REQ_UNPLUG
-#define DRBD_REQ_UNPLUG		REQ_UNPLUG
+#define BSR_REQ_UNPLUG		REQ_UNPLUG
 #else
-#define DRBD_REQ_UNPLUG		0
+#define BSR_REQ_UNPLUG		0
 #endif
 
 #ifdef REQ_WRITE_SAME
-#define DRBD_REQ_WSAME         REQ_WRITE_SAME
+#define BSR_REQ_WSAME         REQ_WRITE_SAME
 #define COMPAT_WRITE_SAME_CAPABLE
 #endif
 
@@ -1043,25 +1043,25 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
  * 213d9417fec62ef4c3675621b9364a667954d4dd,
  * 93dbb393503d53cd226e5e1f0088fe8f4dbaa2b8
  * later, the defines even became an enum ;-) */
-#define DRBD_REQ_SYNC		(1UL << BIO_RW_SYNC)
-#define DRBD_REQ_UNPLUG		(1UL << BIO_RW_SYNC)
+#define BSR_REQ_SYNC		(1UL << BIO_RW_SYNC)
+#define BSR_REQ_UNPLUG		(1UL << BIO_RW_SYNC)
 #else
 /* cannot test on defined(BIO_RW_SYNCIO), it may be an enum */
-#define DRBD_REQ_SYNC		(1UL << BIO_RW_SYNCIO)
-#define DRBD_REQ_UNPLUG		(1UL << BIO_RW_UNPLUG)
+#define BSR_REQ_SYNC		(1UL << BIO_RW_SYNCIO)
+#define BSR_REQ_UNPLUG		(1UL << BIO_RW_UNPLUG)
 #endif
 
-#define DRBD_REQ_PREFLUSH	(1UL << BIO_RW_BARRIER)
+#define BSR_REQ_PREFLUSH	(1UL << BIO_RW_BARRIER)
 /* REQ_FUA has been around for a longer time,
  * without a direct equivalent in bi_rw. */
-#define DRBD_REQ_FUA		(1UL << BIO_RW_BARRIER)
-#define DRBD_REQ_HARDBARRIER	(1UL << BIO_RW_BARRIER)
+#define BSR_REQ_FUA		(1UL << BIO_RW_BARRIER)
+#define BSR_REQ_HARDBARRIER	(1UL << BIO_RW_BARRIER)
 
 #define COMPAT_MAYBE_RETRY_HARDBARRIER
 
 /* we don't support DISCARDS yet, anyways.
  * cannot test on defined(BIO_RW_DISCARD), it may be an enum */
-#define DRBD_REQ_DISCARD	0
+#define BSR_REQ_DISCARD	0
 #endif
 
 
@@ -1119,15 +1119,15 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 
 /* fallback defines for older kernels {{{2 */
 
-#ifndef DRBD_REQ_WSAME
-#define DRBD_REQ_WSAME		0
+#ifndef BSR_REQ_WSAME
+#define BSR_REQ_WSAME		0
 #endif
 
 #ifndef WRITE_FLUSH
 #ifndef WRITE_SYNC
 #error  FIXME WRITE_SYNC undefined??
 #endif
-#define WRITE_FLUSH       (WRITE_SYNC | DRBD_REQ_PREFLUSH)
+#define WRITE_FLUSH       (WRITE_SYNC | BSR_REQ_PREFLUSH)
 #endif
 
 #ifndef REQ_NOIDLE
@@ -1147,15 +1147,15 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 
 #define _adjust_ra_pages(qrap, brap) do { \
 	if (qrap != brap) { \
-		drbd_info(device, "Adjusting my ra_pages to backing device's (%lu -> %lu)\n", qrap, brap); \
+		bsr_info(device, "Adjusting my ra_pages to backing device's (%lu -> %lu)\n", qrap, brap); \
 		qrap = brap; \
 		} \
 } while(0)
 
 #ifdef COMPAT_HAVE_POINTER_BACKING_DEV_INFO
 #define bdi_from_device(device) (device->ldev->backing_bdev->bd_disk->queue->backing_dev_info)
-#define init_bdev_info(bdev_info, drbd_congested, device) do { \
-	(bdev_info)->congested_fn = drbd_congested; \
+#define init_bdev_info(bdev_info, bsr_congested, device) do { \
+	(bdev_info)->congested_fn = bsr_congested; \
 	(bdev_info)->congested_data = device; \
 } while(0)
 #define adjust_ra_pages(q, b) _adjust_ra_pages((q)->backing_dev_info->ra_pages, (b)->backing_dev_info->ra_pages)
@@ -1163,8 +1163,8 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 #define bdi_rw_congested(BDI) bdi_rw_congested(&BDI)
 #define bdi_congested(BDI, BDI_BITS) bdi_congested(&BDI, (BDI_BITS))
 #define bdi_from_device(device) (&device->ldev->backing_bdev->bd_disk->queue->backing_dev_info)
-#define init_bdev_info(bdev_info, drbd_congested, device) do { \
-	(bdev_info).congested_fn = drbd_congested; \
+#define init_bdev_info(bdev_info, bsr_congested, device) do { \
+	(bdev_info).congested_fn = bsr_congested; \
 	(bdev_info).congested_data = device; \
 } while(0)
 #define adjust_ra_pages(q, b) _adjust_ra_pages((q)->backing_dev_info.ra_pages, (b)->backing_dev_info.ra_pages)
@@ -1196,16 +1196,16 @@ enum req_op {
 	REQ_OP_FLUSH = REQ_OP_WRITE,
 
 	/* These may be not supported in older kernels.
-	* In that case, the DRBD_REQ_* will be 0,
+	* In that case, the BSR_REQ_* will be 0,
 	* bio_op() aka. op_from_rq_bits() will never return these,
 	* and we map the REQ_OP_* to something stupid.
 	*/
 #ifdef LINBIT_PATCH
-	REQ_OP_DISCARD = DRBD_REQ_DISCARD ?: -1,
-	REQ_OP_WRITE_SAME = DRBD_REQ_WSAME ?: -2,
+	REQ_OP_DISCARD = BSR_REQ_DISCARD ?: -1,
+	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ?: -2,
 #else
-	REQ_OP_DISCARD = DRBD_REQ_DISCARD ? -1 : -1,
-	REQ_OP_WRITE_SAME = DRBD_REQ_WSAME ? -1 : -2,
+	REQ_OP_DISCARD = BSR_REQ_DISCARD ? -1 : -1,
+	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ? -1 : -2,
 #endif 
 
 	/* REQ_OP_SECURE_ERASE: does not matter to us,
@@ -1219,9 +1219,9 @@ extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
 
 static inline int op_from_rq_bits(u64 flags)
 {
-	if (flags & DRBD_REQ_DISCARD)
+	if (flags & BSR_REQ_DISCARD)
 		return REQ_OP_DISCARD;
-	else if (flags & DRBD_REQ_WSAME)
+	else if (flags & BSR_REQ_WSAME)
 		return REQ_OP_WRITE_SAME;
 	else if (flags & REQ_WRITE)
 		return REQ_OP_WRITE;
@@ -1303,11 +1303,11 @@ static inline int op_from_rq_bits(u64 flags)
  * Make sure the replacements for the augmented rbtree helper functions do not
  * clash with functions the kernel implements but does not export.
  */
-#define rb_augment_f drbd_rb_augment_f
-#define rb_augment_path drbd_rb_augment_path
-#define rb_augment_insert drbd_rb_augment_insert
-#define rb_augment_erase_begin drbd_rb_augment_erase_begin
-#define rb_augment_erase_end drbd_rb_augment_erase_end
+#define rb_augment_f bsr_rb_augment_f
+#define rb_augment_path bsr_rb_augment_path
+#define rb_augment_insert bsr_rb_augment_insert
+#define rb_augment_erase_begin bsr_rb_augment_erase_begin
+#define rb_augment_erase_end bsr_rb_augment_erase_end
 
 typedef void (*rb_augment_f)(struct rb_node *node, void *data);
 
@@ -1740,16 +1740,16 @@ static __inline int kref_get_unless_zero(struct kref *kref)
 #ifdef COMPAT_KMAP_ATOMIC_PAGE_ONLY
 /* see 980c19e3
  * highmem: mark k[un]map_atomic() with two arguments as deprecated */
-#define drbd_kmap_atomic(page, km)	kmap_atomic(page)
-#define drbd_kunmap_atomic(addr, km)	kunmap_atomic(addr)
+#define bsr_kmap_atomic(page, km)	kmap_atomic(page)
+#define bsr_kunmap_atomic(addr, km)	kunmap_atomic(addr)
 #else
 
 #ifdef _LIN
-#define drbd_kmap_atomic(page, km)	kmap_atomic(page, km)
-#define drbd_kunmap_atomic(addr, km)	kunmap_atomic(addr, km)
+#define bsr_kmap_atomic(page, km)	kmap_atomic(page, km)
+#define bsr_kunmap_atomic(addr, km)	kunmap_atomic(addr, km)
 #else
-#define drbd_kmap_atomic(page, km)	(page->addr)
-#define drbd_kunmap_atomic(addr, km)	(addr)
+#define bsr_kmap_atomic(page, km)	(page->addr)
+#define bsr_kunmap_atomic(addr, km)	(addr)
 #define kunmap_atomic(page)	(page->addr)	
 #define kmap(page)	(page->addr)	
 #define kunmap(page)	(page->addr)	
@@ -1909,17 +1909,17 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
    7988613b0 block: Convert bio_for_each_segment() to bvec_iter
    4f024f379 block: Abstract out bvec iterator
  */
-#define DRBD_BIO_VEC_TYPE struct bio_vec
-#define DRBD_ITER_TYPE struct bvec_iter
+#define BSR_BIO_VEC_TYPE struct bio_vec
+#define BSR_ITER_TYPE struct bvec_iter
 #define BVD .
-#define DRBD_BIO_BI_SECTOR(BIO) ((BIO)->bi_iter.bi_sector)
-#define DRBD_BIO_BI_SIZE(BIO) ((BIO)->bi_iter.bi_size)
+#define BSR_BIO_BI_SECTOR(BIO) ((BIO)->bi_iter.bi_sector)
+#define BSR_BIO_BI_SIZE(BIO) ((BIO)->bi_iter.bi_size)
 #else
-#define DRBD_BIO_VEC_TYPE struct bio_vec *
-#define DRBD_ITER_TYPE int
+#define BSR_BIO_VEC_TYPE struct bio_vec *
+#define BSR_ITER_TYPE int
 #define BVD ->
-#define DRBD_BIO_BI_SECTOR(BIO) ((BIO)->bi_sector)
-#define DRBD_BIO_BI_SIZE(BIO) ((BIO)->bi_size)
+#define BSR_BIO_BI_SECTOR(BIO) ((BIO)->bi_sector)
+#define BSR_BIO_BI_SIZE(BIO) ((BIO)->bi_size)
 
 /* Attention: The backward comp version of this macro accesses bio from
    calling namespace */
@@ -2133,7 +2133,7 @@ struct ib_cq_init_attr {
 };
 
 static inline struct ib_cq *
-drbd_ib_create_cq(struct ib_device *device,
+bsr_ib_create_cq(struct ib_device *device,
 		  ib_comp_handler comp_handler,
 		  void (*event_handler)(struct ib_event *, void *),
 		  void *cq_context,
@@ -2144,7 +2144,7 @@ drbd_ib_create_cq(struct ib_device *device,
 }
 
 #define ib_create_cq(DEV, COMP_H, EVENT_H, CTX, ATTR) \
-	drbd_ib_create_cq(DEV, COMP_H, EVENT_H, CTX, ATTR)
+	bsr_ib_create_cq(DEV, COMP_H, EVENT_H, CTX, ATTR)
 #endif
 #endif
 

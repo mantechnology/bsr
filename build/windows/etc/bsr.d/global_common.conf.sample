@@ -11,14 +11,14 @@ common {
 		# like hard resetting the node under certain circumstances.
 		# Be careful when chosing your poison.
 
-		# pri-on-incon-degr "/usr/lib/drbd/notify-pri-on-incon-degr.sh; /usr/lib/drbd/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
-		# pri-lost-after-sb "/usr/lib/drbd/notify-pri-lost-after-sb.sh; /usr/lib/drbd/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
-		# local-io-error "/usr/lib/drbd/notify-io-error.sh; /usr/lib/drbd/notify-emergency-shutdown.sh; echo o > /proc/sysrq-trigger ; halt -f";
-		# fence-peer "/usr/lib/drbd/crm-fence-peer.sh";
-		# split-brain "/usr/lib/drbd/notify-split-brain.sh root";
-		# out-of-sync "/usr/lib/drbd/notify-out-of-sync.sh root";
-		# before-resync-target "/usr/lib/drbd/snapshot-resync-target-lvm.sh -p 15 -- -c 16k";
-		# after-resync-target /usr/lib/drbd/unsnapshot-resync-target-lvm.sh;
+		# pri-on-incon-degr "/usr/lib/bsr/notify-pri-on-incon-degr.sh; /usr/lib/bsr/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
+		# pri-lost-after-sb "/usr/lib/bsr/notify-pri-lost-after-sb.sh; /usr/lib/bsr/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
+		# local-io-error "/usr/lib/bsr/notify-io-error.sh; /usr/lib/bsr/notify-emergency-shutdown.sh; echo o > /proc/sysrq-trigger ; halt -f";
+		# fence-peer "/usr/lib/bsr/crm-fence-peer.sh";
+		# split-brain "/usr/lib/bsr/notify-split-brain.sh root";
+		# out-of-sync "/usr/lib/bsr/notify-out-of-sync.sh root";
+		# before-resync-target "/usr/lib/bsr/snapshot-resync-target-lvm.sh -p 15 -- -c 16k";
+		# after-resync-target /usr/lib/bsr/unsnapshot-resync-target-lvm.sh;
 	}
 
 	startup {

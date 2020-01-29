@@ -20,28 +20,28 @@ extern int dtt_initialize(void);
 static DECLARE_RWSEM(transport_classes_lock);
 #endif
 
-static struct drbd_transport_class *__find_transport_class(const char *transport_name)
+static struct bsr_transport_class *__find_transport_class(const char *transport_name)
 {
-	struct drbd_transport_class *transport_class;
+	struct bsr_transport_class *transport_class;
 
-	list_for_each_entry_ex(struct drbd_transport_class, transport_class, &transport_classes, list)
+	list_for_each_entry_ex(struct bsr_transport_class, transport_class, &transport_classes, list)
 		if (!strcmp(transport_class->name, transport_name))
 			return transport_class;
 
 	return NULL;
 }
 
-int drbd_register_transport_class(struct drbd_transport_class *transport_class, int version,
-				  int drbd_transport_size)
+int bsr_register_transport_class(struct bsr_transport_class *transport_class, int version,
+				  int bsr_transport_size)
 {
 	int rv = 0;
-	if (version != DRBD_TRANSPORT_API_VERSION) {
-		pr_err("DRBD_TRANSPORT_API_VERSION not compatible\n");
+	if (version != BSR_TRANSPORT_API_VERSION) {
+		pr_err("BSR_TRANSPORT_API_VERSION not compatible\n");
 		return -EINVAL;
 	}
 
-	if (drbd_transport_size != sizeof(struct drbd_transport)) {
-		pr_err("sizeof(drbd_transport) not compatible\n");
+	if (bsr_transport_size != sizeof(struct bsr_transport)) {
+		pr_err("sizeof(bsr_transport) not compatible\n");
 		return -EINVAL;
 	}
 
@@ -55,7 +55,7 @@ int drbd_register_transport_class(struct drbd_transport_class *transport_class, 
 	return rv;
 }
 
-void drbd_unregister_transport_class(struct drbd_transport_class *transport_class)
+void bsr_unregister_transport_class(struct bsr_transport_class *transport_class)
 {
 	down_write(&transport_classes_lock);
 	if (!__find_transport_class(transport_class->name)) {
@@ -67,9 +67,9 @@ void drbd_unregister_transport_class(struct drbd_transport_class *transport_clas
 	up_write(&transport_classes_lock);
 }
 
-static struct drbd_transport_class *get_transport_class(const char *name)
+static struct bsr_transport_class *get_transport_class(const char *name)
 {
-	struct drbd_transport_class *tc;
+	struct bsr_transport_class *tc;
 
 	down_read(&transport_classes_lock);
 	tc = __find_transport_class(name);
@@ -81,9 +81,9 @@ static struct drbd_transport_class *get_transport_class(const char *name)
 	return tc;
 }
 
-struct drbd_transport_class *drbd_get_transport_class(const char *name)
+struct bsr_transport_class *bsr_get_transport_class(const char *name)
 {
-	struct drbd_transport_class *tc = get_transport_class(name);
+	struct bsr_transport_class *tc = get_transport_class(name);
 
 	if (!tc) {
 		dtt_initialize();
@@ -94,7 +94,7 @@ struct drbd_transport_class *drbd_get_transport_class(const char *name)
 }
 
 #ifdef _LIN // TODO: required to port on linux
-void drbd_put_transport_class(struct drbd_transport_class *tc)
+void bsr_put_transport_class(struct bsr_transport_class *tc)
 {
 	/* convenient in the error cleanup path */
 	if (!tc)
@@ -105,14 +105,14 @@ void drbd_put_transport_class(struct drbd_transport_class *tc)
 }
 #endif
 
-void drbd_print_transports_loaded(struct seq_file *seq)
+void bsr_print_transports_loaded(struct seq_file *seq)
 {
-	struct drbd_transport_class *tc;
+	struct bsr_transport_class *tc;
 
 	down_read(&transport_classes_lock);
 
-	seq_puts(seq, "Transports (api:" __stringify(DRBD_TRANSPORT_API_VERSION) "):");
-	list_for_each_entry_ex(struct drbd_transport_class, tc, &transport_classes, list) {
+	seq_puts(seq, "Transports (api:" __stringify(BSR_TRANSPORT_API_VERSION) "):");
+	list_for_each_entry_ex(struct bsr_transport_class, tc, &transport_classes, list) {
 #ifdef _WIN
 		seq_printf(seq, " %s ", tc->name);
 #else // _LIN
@@ -174,12 +174,12 @@ bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAG
 	//return false;
 }
 
-static struct drbd_listener *find_listener(struct drbd_connection *connection,
+static struct bsr_listener *find_listener(struct bsr_connection *connection,
 					   const SOCKADDR_STORAGE_EX *addr)
 {
-	struct drbd_resource *resource = connection->resource;
-	struct drbd_listener *listener;
-	list_for_each_entry_ex(struct drbd_listener, listener, &resource->listeners, list) {
+	struct bsr_resource *resource = connection->resource;
+	struct bsr_listener *listener;
+	list_for_each_entry_ex(struct bsr_listener, listener, &resource->listeners, list) {
 		if (addr_and_port_equal(&listener->listen_addr, addr)) {
 			kref_get(&listener->kref);
 			return listener;
@@ -188,14 +188,14 @@ static struct drbd_listener *find_listener(struct drbd_connection *connection,
 	return NULL;
 }
 
-int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
-	int(*create_listener)(struct drbd_transport *, const struct sockaddr *addr, struct drbd_listener **))
+int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
+	int(*create_listener)(struct bsr_transport *, const struct sockaddr *addr, struct bsr_listener **))
 {
-	struct drbd_connection *connection =
-		container_of(transport, struct drbd_connection, transport);
+	struct bsr_connection *connection =
+		container_of(transport, struct bsr_connection, transport);
 	struct sockaddr *addr = (struct sockaddr *)&path->my_addr;
-	struct drbd_resource *resource = connection->resource;
-	struct drbd_listener *listener, *new_listener = NULL;
+	struct bsr_resource *resource = connection->resource;
+	struct bsr_listener *listener, *new_listener = NULL;
 	int err, tries = 0;
 
 	while (1) {
@@ -235,10 +235,10 @@ int drbd_get_listener(struct drbd_transport *transport, struct drbd_path *path,
 	}
 }
 
-static void drbd_listener_destroy(struct kref *kref)
+static void bsr_listener_destroy(struct kref *kref)
 {
-	struct drbd_listener *listener = container_of(kref, struct drbd_listener, kref);
-	struct drbd_resource *resource = listener->resource;
+	struct bsr_listener *listener = container_of(kref, struct bsr_listener, kref);
+	struct bsr_resource *resource = listener->resource;
 
 	spin_lock_bh(&resource->listeners_lock);
 	list_del(&listener->list);
@@ -247,16 +247,16 @@ static void drbd_listener_destroy(struct kref *kref)
 	listener->destroy(listener);
 }
 
-void drbd_put_listener(struct drbd_path *path)
+void bsr_put_listener(struct bsr_path *path)
 {
-	struct drbd_resource *resource;
-	struct drbd_listener *listener;
+	struct bsr_resource *resource;
+	struct bsr_listener *listener;
 
 	// DW-1538 Sometimes null values come in. 
 	if (!path)
 		return;
 #ifdef _WIN
-	listener = (struct drbd_listener*)xchg((LONG_PTR*)&path->listener, (LONG_PTR)NULL);
+	listener = (struct bsr_listener*)xchg((LONG_PTR*)&path->listener, (LONG_PTR)NULL);
 #else // _LIN
 	listener = xchg(&path->listener, NULL);
 #endif
@@ -267,7 +267,7 @@ void drbd_put_listener(struct drbd_path *path)
 	spin_lock_bh(&resource->listeners_lock);
 	list_del(&path->listener_link);
 	spin_unlock_bh(&resource->listeners_lock);
-	kref_put(&listener->kref, drbd_listener_destroy);
+	kref_put(&listener->kref, bsr_listener_destroy);
 }
 
 #ifdef _WIN
@@ -275,24 +275,24 @@ extern char * get_ip4(char *buf, size_t len, struct sockaddr_in *sockaddr);
 extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 #endif
 
-// TODO: Check again that drbd_find_waiter_by_addr is not needed.
-//struct drbd_waiter *drbd_find_waiter_by_addr(struct drbd_listener *listener, SOCKADDR_STORAGE_EX *addr)
-struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, SOCKADDR_STORAGE_EX *addr)
+// TODO: Check again that bsr_find_waiter_by_addr is not needed.
+//struct bsr_waiter *bsr_find_waiter_by_addr(struct bsr_listener *listener, SOCKADDR_STORAGE_EX *addr)
+struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_STORAGE_EX *addr)
 {
-	struct drbd_path *path;
+	struct bsr_path *path;
 
 	// DW-1481 fix listener->list's NULL dereference, sanity check 
 	if(!addr || !listener || (listener->list.next == NULL) ) {
 		return NULL;
 	}
-	list_for_each_entry_ex(struct drbd_path, path, &listener->waiters, listener_link) {
+	list_for_each_entry_ex(struct bsr_path, path, &listener->waiters, listener_link) {
 #ifdef _WIN
-		//drbd_debug_co("[%p] drbd_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
+		//bsr_debug_co("[%p] bsr_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
-			drbd_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
+			bsr_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
 		} else {
-			drbd_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
+			bsr_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
 #endif
 		if (addr_equal(&path->peer_addr, addr))
@@ -303,18 +303,18 @@ struct drbd_path *drbd_find_path_by_addr(struct drbd_listener *listener, SOCKADD
 }
 
 /**
- * drbd_stream_send_timed_out() - Tells transport if the connection should stay alive
- * @connection:	DRBD connection to operate on.
+ * bsr_stream_send_timed_out() - Tells transport if the connection should stay alive
+ * @connection:	BSR connection to operate on.
  * @stream:     DATA_STREAM or CONTROL_STREAM
  *
  * When it returns true, the transport should return -EAGAIN to its caller of the
  * send function. When it returns false the transport should keep on trying to
  * get the packet through.
  */
-bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stream stream)
+bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream stream)
 {
-	struct drbd_connection *connection =
-		container_of(transport, struct drbd_connection, transport);
+	struct bsr_connection *connection =
+		container_of(transport, struct bsr_connection, transport);
 	bool drop_it;
 
 	drop_it = stream == CONTROL_STREAM
@@ -327,7 +327,7 @@ bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stre
 
 	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		drbd_err(connection, "[%s/%d] sending time expired, ko = %u\n",
+		bsr_err(connection, "[%s/%d] sending time expired, ko = %u\n",
 			 current->comm, current->pid, connection->transport.ko_count);
 		request_ping(connection);
 	}
@@ -336,10 +336,10 @@ bool drbd_stream_send_timed_out(struct drbd_transport *transport, enum drbd_stre
 
 }
 
-bool drbd_should_abort_listening(struct drbd_transport *transport)
+bool bsr_should_abort_listening(struct bsr_transport *transport)
 {
-	struct drbd_connection *connection =
-		container_of(transport, struct drbd_connection, transport);
+	struct bsr_connection *connection =
+		container_of(transport, struct bsr_connection, transport);
 	bool abort = false;
 
 	if (connection->cstate[NOW] <= C_DISCONNECTING)
@@ -355,22 +355,22 @@ bool drbd_should_abort_listening(struct drbd_transport *transport)
 }
 
 /* Called by a transport if a path was established / disconnected */
-void drbd_path_event(struct drbd_transport *transport, struct drbd_path *path)
+void bsr_path_event(struct bsr_transport *transport, struct bsr_path *path)
 {
-	struct drbd_connection *connection =
-		container_of(transport, struct drbd_connection, transport);
+	struct bsr_connection *connection =
+		container_of(transport, struct bsr_connection, transport);
 
 	notify_path(connection, path, NOTIFY_CHANGE);
 }
 
 
 //#ifdef _LIN
-//EXPORT_SYMBOL_GPL(drbd_register_transport_class);
-//EXPORT_SYMBOL_GPL(drbd_unregister_transport_class);
-//EXPORT_SYMBOL_GPL(drbd_get_listener);
-//EXPORT_SYMBOL_GPL(drbd_put_listener);
-//EXPORT_SYMBOL_GPL(drbd_find_path_by_addr);
-//EXPORT_SYMBOL_GPL(drbd_stream_send_timed_out);
-//EXPORT_SYMBOL_GPL(drbd_should_abort_listening);
-//EXPORT_SYMBOL_GPL(drbd_path_event);
+//EXPORT_SYMBOL_GPL(bsr_register_transport_class);
+//EXPORT_SYMBOL_GPL(bsr_unregister_transport_class);
+//EXPORT_SYMBOL_GPL(bsr_get_listener);
+//EXPORT_SYMBOL_GPL(bsr_put_listener);
+//EXPORT_SYMBOL_GPL(bsr_find_path_by_addr);
+//EXPORT_SYMBOL_GPL(bsr_stream_send_timed_out);
+//EXPORT_SYMBOL_GPL(bsr_should_abort_listening);
+//EXPORT_SYMBOL_GPL(bsr_path_event);
 //#endif

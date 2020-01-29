@@ -5,7 +5,7 @@
 #include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr_nla.h"
 
-NPAGED_LOOKASIDE_LIST drbd_workitem_mempool;
+NPAGED_LOOKASIDE_LIST bsr_workitem_mempool;
 NPAGED_LOOKASIDE_LIST netlink_ctx_mempool;
 NPAGED_LOOKASIDE_LIST genl_info_mempool;
 NPAGED_LOOKASIDE_LIST genl_msg_mempool;
@@ -22,86 +22,86 @@ typedef struct _NETLINK_CTX {
 } NETLINK_CTX, *PNETLINK_CTX;
 
 
-extern int drbd_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr);
+extern int bsr_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr);
 
-extern int drbd_adm_new_resource(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_del_resource(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_down(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_set_role(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_attach(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_disk_opts(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_detach(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_connect(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_net_opts(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_resize(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_start_ov(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_disconnect(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_invalidate(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_pause_sync(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_resume_sync(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_outdate(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_get_status(struct sk_buff *skb, struct genl_info *info);
-extern int drbd_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_del_resource(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_down(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_detach(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_disconnect(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_pause_sync(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_resume_sync(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 /* .dumpit */
-extern int drbd_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
 
-extern int _drbd_adm_get_status(struct sk_buff *skb, struct genl_info * pinfo);
+extern int _bsr_adm_get_status(struct sk_buff *skb, struct genl_info * pinfo);
 
 WORKER_THREAD_ROUTINE NetlinkWorkThread;
 /*
-static struct genl_ops drbd_genl_ops[] = {
-{ .doit = drbd_adm_new_minor, .flags = 0x01, .cmd = DRBD_ADM_NEW_MINOR, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_del_minor, .flags = 0x01, .cmd = DRBD_ADM_DEL_MINOR, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_new_resource, .flags = 0x01, .cmd = DRBD_ADM_NEW_RESOURCE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_del_resource, .flags = 0x01, .cmd = DRBD_ADM_DEL_RESOURCE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_resource_opts, .flags = 0x01, .cmd = DRBD_ADM_RESOURCE_OPTS, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_new_peer, .flags = 0x01, .cmd = DRBD_ADM_NEW_PEER, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_new_path, .flags = 0x01, .cmd = DRBD_ADM_NEW_PATH, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_del_peer, .flags = 0x01, .cmd = DRBD_ADM_DEL_PEER, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_del_path, .flags = 0x01, .cmd = DRBD_ADM_DEL_PATH, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_connect, .flags = 0x01, .cmd = DRBD_ADM_CONNECT, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_net_opts, .flags = 0x01, .cmd = DRBD_ADM_CHG_NET_OPTS, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_disconnect, .flags = 0x01, .cmd = DRBD_ADM_DISCONNECT, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_attach, .flags = 0x01, .cmd = DRBD_ADM_ATTACH, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_disk_opts, .flags = 0x01, .cmd = DRBD_ADM_CHG_DISK_OPTS, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_resize, .flags = 0x01, .cmd = DRBD_ADM_RESIZE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_set_role, .flags = 0x01, .cmd = DRBD_ADM_PRIMARY, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_set_role, .flags = 0x01, .cmd = DRBD_ADM_SECONDARY, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_new_c_uuid, .flags = 0x01, .cmd = DRBD_ADM_NEW_C_UUID, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_start_ov, .flags = 0x01, .cmd = DRBD_ADM_START_OV, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_detach, .flags = 0x01, .cmd = DRBD_ADM_DETACH, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_invalidate, .flags = 0x01, .cmd = DRBD_ADM_INVALIDATE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_invalidate_peer, .flags = 0x01, .cmd = DRBD_ADM_INVAL_PEER, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_pause_sync, .flags = 0x01, .cmd = DRBD_ADM_PAUSE_SYNC, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_resume_sync, .flags = 0x01, .cmd = DRBD_ADM_RESUME_SYNC, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_suspend_io, .flags = 0x01, .cmd = DRBD_ADM_SUSPEND_IO, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_resume_io, .flags = 0x01, .cmd = DRBD_ADM_RESUME_IO, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_outdate, .flags = 0x01, .cmd = DRBD_ADM_OUTDATE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_get_timeout_type, .flags = 0x01, .cmd = DRBD_ADM_GET_TIMEOUT_TYPE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_down, .flags = 0x01, .cmd = DRBD_ADM_DOWN, .policy = drbd_tla_nl_policy, },
-{ .dumpit = drbd_adm_dump_resources, .cmd = DRBD_ADM_GET_RESOURCES, .policy = drbd_tla_nl_policy, },
-{ .dumpit = drbd_adm_dump_devices, .done = drbd_adm_dump_devices_done, .cmd = DRBD_ADM_GET_DEVICES, .policy = drbd_tla_nl_policy, },
-{ .dumpit = drbd_adm_dump_connections, .done = drbd_adm_dump_connections_done, .cmd = DRBD_ADM_GET_CONNECTIONS, .policy = drbd_tla_nl_policy, },
-{ .dumpit = drbd_adm_dump_peer_devices, .done = drbd_adm_dump_peer_devices_done, .cmd = DRBD_ADM_GET_PEER_DEVICES, .policy = drbd_tla_nl_policy, },
-{ .dumpit = drbd_adm_get_initial_state, .cmd = DRBD_ADM_GET_INITIAL_STATE, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_forget_peer, .flags = 0x01, .cmd = DRBD_ADM_FORGET_PEER, .policy = drbd_tla_nl_policy, },
-{ .doit = drbd_adm_peer_device_opts, .flags = 0x01, .cmd = DRBD_ADM_CHG_PEER_DEVICE_OPTS, .policy = drbd_tla_nl_policy, },
+static struct genl_ops bsr_genl_ops[] = {
+{ .doit = bsr_adm_new_minor, .flags = 0x01, .cmd = BSR_ADM_NEW_MINOR, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_del_minor, .flags = 0x01, .cmd = BSR_ADM_DEL_MINOR, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_new_resource, .flags = 0x01, .cmd = BSR_ADM_NEW_RESOURCE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_del_resource, .flags = 0x01, .cmd = BSR_ADM_DEL_RESOURCE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_resource_opts, .flags = 0x01, .cmd = BSR_ADM_RESOURCE_OPTS, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_new_peer, .flags = 0x01, .cmd = BSR_ADM_NEW_PEER, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_new_path, .flags = 0x01, .cmd = BSR_ADM_NEW_PATH, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_del_peer, .flags = 0x01, .cmd = BSR_ADM_DEL_PEER, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_del_path, .flags = 0x01, .cmd = BSR_ADM_DEL_PATH, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_connect, .flags = 0x01, .cmd = BSR_ADM_CONNECT, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_net_opts, .flags = 0x01, .cmd = BSR_ADM_CHG_NET_OPTS, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_disconnect, .flags = 0x01, .cmd = BSR_ADM_DISCONNECT, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_attach, .flags = 0x01, .cmd = BSR_ADM_ATTACH, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_disk_opts, .flags = 0x01, .cmd = BSR_ADM_CHG_DISK_OPTS, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_resize, .flags = 0x01, .cmd = BSR_ADM_RESIZE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_set_role, .flags = 0x01, .cmd = BSR_ADM_PRIMARY, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_set_role, .flags = 0x01, .cmd = BSR_ADM_SECONDARY, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_new_c_uuid, .flags = 0x01, .cmd = BSR_ADM_NEW_C_UUID, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_start_ov, .flags = 0x01, .cmd = BSR_ADM_START_OV, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_detach, .flags = 0x01, .cmd = BSR_ADM_DETACH, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_invalidate, .flags = 0x01, .cmd = BSR_ADM_INVALIDATE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_invalidate_peer, .flags = 0x01, .cmd = BSR_ADM_INVAL_PEER, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_pause_sync, .flags = 0x01, .cmd = BSR_ADM_PAUSE_SYNC, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_resume_sync, .flags = 0x01, .cmd = BSR_ADM_RESUME_SYNC, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_suspend_io, .flags = 0x01, .cmd = BSR_ADM_SUSPEND_IO, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_resume_io, .flags = 0x01, .cmd = BSR_ADM_RESUME_IO, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_outdate, .flags = 0x01, .cmd = BSR_ADM_OUTDATE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_get_timeout_type, .flags = 0x01, .cmd = BSR_ADM_GET_TIMEOUT_TYPE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_down, .flags = 0x01, .cmd = BSR_ADM_DOWN, .policy = bsr_tla_nl_policy, },
+{ .dumpit = bsr_adm_dump_resources, .cmd = BSR_ADM_GET_RESOURCES, .policy = bsr_tla_nl_policy, },
+{ .dumpit = bsr_adm_dump_devices, .done = bsr_adm_dump_devices_done, .cmd = BSR_ADM_GET_DEVICES, .policy = bsr_tla_nl_policy, },
+{ .dumpit = bsr_adm_dump_connections, .done = bsr_adm_dump_connections_done, .cmd = BSR_ADM_GET_CONNECTIONS, .policy = bsr_tla_nl_policy, },
+{ .dumpit = bsr_adm_dump_peer_devices, .done = bsr_adm_dump_peer_devices_done, .cmd = BSR_ADM_GET_PEER_DEVICES, .policy = bsr_tla_nl_policy, },
+{ .dumpit = bsr_adm_get_initial_state, .cmd = BSR_ADM_GET_INITIAL_STATE, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_forget_peer, .flags = 0x01, .cmd = BSR_ADM_FORGET_PEER, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_peer_device_opts, .flags = 0x01, .cmd = BSR_ADM_CHG_PEER_DEVICE_OPTS, .policy = bsr_tla_nl_policy, },
 };
 */
 
 /*
-static struct genl_family drbd_genl_family  = {
+static struct genl_family bsr_genl_family  = {
 	.id = 0,
-	.name = "drbd",
+	.name = "bsr",
 	.version = 2,
 
-	.hdrsize = (((sizeof(struct drbd_genlmsghdr)) + 4 - 1) & ~(4 - 1)),
-	.maxattr = (sizeof(drbd_tla_nl_policy) / sizeof((drbd_tla_nl_policy)[0]))-1,
+	.hdrsize = (((sizeof(struct bsr_genlmsghdr)) + 4 - 1) & ~(4 - 1)),
+	.maxattr = (sizeof(bsr_tla_nl_policy) / sizeof((bsr_tla_nl_policy)[0]))-1,
 };
 */
 
@@ -140,7 +140,7 @@ static bool push_msocket_entry(void * ptr)
     MvfAcquireResourceExclusive(&genl_multi_socket_res_lock);
 
     PushEntryList(&gSocketList.slink, &(entry->slink));
-    //drbd_debug(NO_OBJECT,"Added entry(0x%p), slink(0x%p), socket(0x%p)\n", entry, entry->slink, entry->ptr);
+    //bsr_debug(NO_OBJECT,"Added entry(0x%p), slink(0x%p), socket(0x%p)\n", entry, entry->slink, entry->ptr);
 
     MvfReleaseResource(&genl_multi_socket_res_lock);
 
@@ -160,7 +160,7 @@ static void pop_msocket_entry(void * ptr)
         PPTR_ENTRY socket_entry = (PPTR_ENTRY)CONTAINING_RECORD(iter->Next, PTR_ENTRY, slink);
 
         if (socket_entry && socket_entry->ptr == ptr) {
-            //drbd_debug(NO_OBJECT,"socket_entry(0x%p), slink(0x%p), socket(0x%p) found in list\n", socket_entry, socket_entry->slink, socket_entry->ptr);
+            //bsr_debug(NO_OBJECT,"socket_entry(0x%p), slink(0x%p), socket(0x%p) found in list\n", socket_entry, socket_entry->slink, socket_entry->ptr);
             iter->Next = PopEntryList(iter->Next);
 
             ExFreePool(socket_entry);
@@ -178,7 +178,7 @@ static void pop_msocket_entry(void * ptr)
 /**
 * @brief: Send all to socket in list, using global socket list variable for multicast (gSocketList)
 */
-int drbd_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
+int bsr_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
 {
 	UNREFERENCED_PARAMETER(sib);
 
@@ -196,10 +196,10 @@ int drbd_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
         PPTR_ENTRY socket_entry = (PPTR_ENTRY)CONTAINING_RECORD(iter->Next, PTR_ENTRY, slink);
 
         if (socket_entry) {
-            //drbd_debug(NO_OBJECT,"send socket(0x%p), data(0x%p), len(%d)\n", socket_entry->ptr, skb->data, skb->len);
-			int sent = SendLocal(socket_entry->ptr, skb->data, skb->len, 0, (DRBD_TIMEOUT_DEF*100));
+            //bsr_debug(NO_OBJECT,"send socket(0x%p), data(0x%p), len(%d)\n", socket_entry->ptr, skb->data, skb->len);
+			int sent = SendLocal(socket_entry->ptr, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100));
             if (sent != skb->len) {
-                drbd_info(NO_OBJECT,"Failed to send socket(0x%x)\n", socket_entry->ptr);
+                bsr_info(NO_OBJECT,"Failed to send socket(0x%x)\n", socket_entry->ptr);
             }
         }
         iter = iter->Next;
@@ -224,7 +224,7 @@ NTSTATUS reply_error(int type, int flags, int error, struct genl_info * pinfo)
             err->error = -error;
             err->msg.nlmsg_len = 0;
 
-            drbd_adm_send_reply(reply_skb, pinfo);
+            bsr_adm_send_reply(reply_skb, pinfo);
         }
         nlmsg_free(reply_skb);
     } else {
@@ -243,8 +243,8 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_MULTI);
     } else if (err < 0) {
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_ACK);
-        // -ENODEV : occured by first drbdadm adjust. response?
-        drbd_info(NO_OBJECT,"drbd_adm_get_status_all err = %d\n", err);
+        // -ENODEV : occured by first bsradm adjust. response?
+        bsr_info(NO_OBJECT,"bsr_adm_get_status_all err = %d\n", err);
     }
 
     if (nlh) {
@@ -254,11 +254,11 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
         hdr->reserved = 0;
     }
 
-	if(drbd_adm_send_reply(skb, info) < 0) {
+	if(bsr_adm_send_reply(skb, info) < 0) {
 		err = -1;
 	}
 
-    drbd_debug(NO_OBJECT,"send_reply(%d) seq(%d)\n", err, cb->nlh->nlmsg_seq);
+    bsr_debug(NO_OBJECT,"send_reply(%d) seq(%d)\n", err, cb->nlh->nlmsg_seq);
 
     return err;
 }
@@ -271,10 +271,10 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
         return -1; // return non-zero!
     }
 	
-	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (DRBD_TIMEOUT_DEF*100))) == (skb->len)) {
+	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100))) == (skb->len)) {
         return 0; // success
     } else {
-        drbd_info(NO_OBJECT,"sent Error=0x%x. sock=%p, data=%p sz=%d\n", sent, info->pSock->sk, skb->data, skb->len);
+        bsr_info(NO_OBJECT,"sent Error=0x%x. sock=%p, data=%p sz=%d\n", sent, info->pSock->sk, skb->data, skb->len);
         return -2; // return non-zero!
     }
 }
@@ -285,7 +285,7 @@ struct genl_info * genl_info_new(struct nlmsghdr * nlh, struct socket* sock, str
     struct genl_info * pinfo = ExAllocateFromNPagedLookasideList(&genl_info_mempool);
 
     if (!pinfo) {
-        drbd_err(NO_OBJECT,"Failed to allocate (struct genl_info) memory. size(%d)\n",
+        bsr_err(NO_OBJECT,"Failed to allocate (struct genl_info) memory. size(%d)\n",
             sizeof(struct genl_info));
         return NULL;
     }
@@ -371,7 +371,7 @@ InitWskNetlink(void * pctx)
     // Init WSK
     status = WskGetNPI();
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"Failed to init. status(0x%x)\n", status);
+        bsr_err(NO_OBJECT,"Failed to init. status(0x%x)\n", status);
         return;
     }
 
@@ -381,11 +381,11 @@ InitWskNetlink(void * pctx)
         return;
     }
 
-    drbd_info(NO_OBJECT,"Netlink Server Start\n");
+    bsr_info(NO_OBJECT,"Netlink Server Start\n");
 	
 	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42DW');
 	if(!gpNetlinkServerSocket) {
-		drbd_err(NO_OBJECT,"Failed to alloc Netlink server struct socket\n");
+		bsr_err(NO_OBJECT,"Failed to alloc Netlink server struct socket\n");
 		return;
 	}
 	
@@ -396,7 +396,7 @@ InitWskNetlink(void * pctx)
         WSK_FLAG_LISTEN_SOCKET);
 
     if (!netlink_socket) {
-        drbd_err(NO_OBJECT,"Failed to create Netlink server socket\n");
+        bsr_err(NO_OBJECT,"Failed to create Netlink server socket\n");
         goto end;
     }
 
@@ -408,11 +408,11 @@ InitWskNetlink(void * pctx)
 
     status = Bind(gpNetlinkServerSocket, (PSOCKADDR)&LocalAddress);
     if (!NT_SUCCESS(status)) {
-        drbd_err(NO_OBJECT,"Failed to bind. status(0x%x)\n", status);
+        bsr_err(NO_OBJECT,"Failed to bind. status(0x%x)\n", status);
         CloseSocket(gpNetlinkServerSocket);
     }
     
-	ExInitializeNPagedLookasideList(&drbd_workitem_mempool, NULL, NULL,
+	ExInitializeNPagedLookasideList(&bsr_workitem_mempool, NULL, NULL,
         0, sizeof(struct _NETLINK_WORK_ITEM), '27DW', 0);
     ExInitializeNPagedLookasideList(&netlink_ctx_mempool, NULL, NULL,
         0, sizeof(struct _NETLINK_CTX), '27DW', 0);
@@ -435,7 +435,7 @@ end:
 NTSTATUS
 ReleaseWskNetlink()
 {
-	ExDeleteNPagedLookasideList(&drbd_workitem_mempool);
+	ExDeleteNPagedLookasideList(&bsr_workitem_mempool);
     ExDeleteNPagedLookasideList(&netlink_ctx_mempool);
     ExDeleteNPagedLookasideList(&genl_info_mempool);
     ExDeleteNPagedLookasideList(&genl_msg_mempool);
@@ -447,21 +447,21 @@ ReleaseWskNetlink()
 
 
 #if 0
-static int w_connect(struct drbd_work *w, int cancel)
+static int w_connect(struct bsr_work *w, int cancel)
 {
 	struct connect_work* pcon_work = container_of(w, struct connect_work, w);
-	struct drbd_resource* resource = pcon_work->resource;
+	struct bsr_resource* resource = pcon_work->resource;
 	LARGE_INTEGER		timeout;
 	NTSTATUS			status;
 
 	timeout.QuadPart = (-1 * 10000 * 6000);   // wait 6000 ms relative
 
 	pcon_work->ops.doit(NULL, &pcon_work->info);
-	drbd_info(NO_OBJECT,"w_connect:\n");
+	bsr_info(NO_OBJECT,"w_connect:\n");
 
 	status = KeWaitForSingleObject(&resource->workerdone, Executive, KernelMode, FALSE, &timeout);
 	if (status == STATUS_TIMEOUT) {
-		drbd_info(NO_OBJECT,"w_connect:KeWaitForSingleObject timeout\n");
+		bsr_info(NO_OBJECT,"w_connect:KeWaitForSingleObject timeout\n");
 	}
 
 	kfree(pcon_work);
@@ -494,7 +494,7 @@ static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 
                 ret = _genl_dump(pops, skb, &ncb, pinfo);
 				if(cnt++ > 512) {
-					drbd_info(NO_OBJECT,"_genl_dump exceed process break;\n");
+					bsr_info(NO_OBJECT,"_genl_dump exceed process break;\n");
 					break;
 				}
             }
@@ -527,13 +527,13 @@ NetlinkWorkThread(PVOID context)
 	// set thread priority
 	KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
 
-	drbd_debug(NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
+	bsr_debug(NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
 
-	ct_add_thread((int)PsGetCurrentThreadId(), "drbdcmd", FALSE, '25DW');
+	ct_add_thread((int)PsGetCurrentThreadId(), "bsrcmd", FALSE, '25DW');
     
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
 	if(!pSock) {
-		drbd_err(NO_OBJECT,"Failed to allocate struct socket memory. size(%d)\n", sizeof(struct socket));
+		bsr_err(NO_OBJECT,"Failed to allocate struct socket memory. size(%d)\n", sizeof(struct socket));
         goto cleanup;
 	}
 
@@ -542,7 +542,7 @@ NetlinkWorkThread(PVOID context)
 	
     psock_buf = ExAllocateFromNPagedLookasideList(&genl_msg_mempool);
     if (!psock_buf) {
-        drbd_err(NO_OBJECT,"Failed to allocate NP memory. size(%d)\n", NLMSG_GOODSIZE);
+        bsr_err(NO_OBJECT,"Failed to allocate NP memory. size(%d)\n", NLMSG_GOODSIZE);
         goto cleanup;
     }
 
@@ -550,26 +550,26 @@ NetlinkWorkThread(PVOID context)
         readcount = Receive(pSock, psock_buf, NLMSG_GOODSIZE, 0, 0);
 
         if (readcount == 0) {
-            drbd_debug(NO_OBJECT,"Receive done...\n");
+            bsr_debug(NO_OBJECT,"Receive done...\n");
             goto cleanup;
         } else if(readcount < 0) {
-            drbd_info(NO_OBJECT,"Receive error = 0x%x\n", readcount);
+            bsr_info(NO_OBJECT,"Receive error = 0x%x\n", readcount);
             goto cleanup;
         }
 		
 		struct nlmsghdr *nlh = (struct nlmsghdr *)psock_buf;
 		
 		
-		// drbdsetup events2
-        if (strstr(psock_buf, DRBD_EVENT_SOCKET_STRING)) {
-			drbd_debug(NO_OBJECT,"DRBD_EVENT_SOCKET_STRING received. socket(0x%p)\n", socket);
+		// bsrsetup events2
+        if (strstr(psock_buf, BSR_EVENT_SOCKET_STRING)) {
+			bsr_debug(NO_OBJECT,"BSR_EVENT_SOCKET_STRING received. socket(0x%p)\n", socket);
 			if (!push_msocket_entry(pSock)) {
 				goto cleanup;
 			}
 
-			if (strlen(DRBD_EVENT_SOCKET_STRING) < (size_t)readcount) {
-				nlh = (struct nlmsghdr *)((char*)psock_buf + strlen(DRBD_EVENT_SOCKET_STRING));
-				readcount -= (LONG)strlen(DRBD_EVENT_SOCKET_STRING);
+			if (strlen(BSR_EVENT_SOCKET_STRING) < (size_t)readcount) {
+				nlh = (struct nlmsghdr *)((char*)psock_buf + strlen(BSR_EVENT_SOCKET_STRING));
+				readcount -= (LONG)strlen(BSR_EVENT_SOCKET_STRING);
 			} else {
 				continue;
 			}
@@ -580,8 +580,8 @@ NetlinkWorkThread(PVOID context)
 		if( ((unsigned int)readcount != nlh->nlmsg_len) 
 			|| (nlh->nlmsg_type < NLMSG_MIN_TYPE) 
 			|| (nlh->nlmsg_pid != 0x5744) ) {
-			drbd_warn(NO_OBJECT,"Unrecognizable netlink command arrives and doesn't process...\n");
-			drbd_debug(NO_OBJECT,"rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+			bsr_warn(NO_OBJECT,"Unrecognizable netlink command arrives and doesn't process...\n");
+			bsr_debug(NO_OBJECT,"rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
             	readcount, nlh->nlmsg_len, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 			goto cleanup;
 		}
@@ -594,33 +594,33 @@ NetlinkWorkThread(PVOID context)
 
 		pinfo = genl_info_new(nlh, pSock, local_attrs);
         if (!pinfo) {
-            drbd_err(NO_OBJECT,"Failed to allocate (struct genl_info) memory. size(%d)\n", sizeof(struct genl_info));
+            bsr_err(NO_OBJECT,"Failed to allocate (struct genl_info) memory. size(%d)\n", sizeof(struct genl_info));
             goto cleanup;
         }
 
-        drbd_tla_parse(nlh, local_attrs);
+        bsr_tla_parse(nlh, local_attrs);
         if (!nlmsg_ok(nlh, readcount)) {
-            drbd_err(NO_OBJECT,"rx message(%d) crashed!\n", readcount);
+            bsr_err(NO_OBJECT,"rx message(%d) crashed!\n", readcount);
             goto cleanup;
         }
 
-        drbd_debug(NO_OBJECT,"rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+        bsr_debug(NO_OBJECT,"rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
             readcount, nlh->nlmsg_len, pinfo->genlhdr->cmd, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 
         // check whether resource suspended
-        struct drbd_genlmsghdr * gmh = pinfo->userhdr;
+        struct bsr_genlmsghdr * gmh = pinfo->userhdr;
         if (gmh) {
             minor = gmh->minor;
-            struct drbd_conf * mdev = minor_to_device(minor);
-            if (mdev && drbd_suspended(mdev)) {
+            struct bsr_conf * mdev = minor_to_device(minor);
+            if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                drbd_warn(NO_OBJECT,"minor(%d) suspended\n", gmh->minor);
+                bsr_warn(NO_OBJECT,"minor(%d) suspended\n", gmh->minor);
                 goto cleanup;
             }
         }
 
         u8 cmd = pinfo->genlhdr->cmd;
-        struct genl_ops * pops = get_drbd_genl_ops(cmd);
+        struct genl_ops * pops = get_bsr_genl_ops(cmd);
 
         if (pops) {
 			NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -630,19 +630,19 @@ NetlinkWorkThread(PVOID context)
 			// DW-1699 fixup netlink log level. the get series commands are adjusted to log at the trace log level.
 			cli_info(gmh->minor, "Command (%s:%u)\n", pops->str, cmd);
 			
-            if( (DRBD_ADM_GET_RESOURCES <= cmd)  && (cmd <= DRBD_ADM_GET_PEER_DEVICES) ) {
-				drbd_debug(NO_OBJECT,"drbd netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
+            if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
+				bsr_debug(NO_OBJECT,"bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
             } else {
-            	drbd_info(NO_OBJECT,"drbd netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
+            	bsr_info(NO_OBJECT,"bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
             }
 			status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
 
             // DW-1998 set STATUS_SUCNESS under the following conditions even if the mutex is not obtained.
 			mutex_lock(&g_genl_run_cmd_mutex);
-			// DW-1998 add an exception condition for the mutex when running DRBD_ADM_GET_INITIAL_STATE
+			// DW-1998 add an exception condition for the mutex when running BSR_ADM_GET_INITIAL_STATE
 			if (status != STATUS_SUCCESS &&
-				DRBD_ADM_GET_INITIAL_STATE == cmd &&
-				DRBD_ADM_ATTACH == g_genl_run_cmd) {
+				BSR_ADM_GET_INITIAL_STATE == cmd &&
+				BSR_ADM_ATTACH == g_genl_run_cmd) {
 				status = STATUS_SUCCESS;
 				locked = false;
 			}
@@ -661,21 +661,21 @@ NetlinkWorkThread(PVOID context)
 					mutex_unlock(&g_genl_run_cmd_mutex);
 
 				if (err) {
-					drbd_err(NO_OBJECT,"netlink cmd failed while operating. cmd(%u), error(%d)\n", cmd, err);
+					bsr_err(NO_OBJECT,"netlink cmd failed while operating. cmd(%u), error(%d)\n", cmd, err);
 					errcnt++;
 				}
-				if( (DRBD_ADM_GET_RESOURCES <= cmd)  && (cmd <= DRBD_ADM_GET_PEER_DEVICES) ) {
-					drbd_debug(NO_OBJECT,"drbd netlink cmd(%s:%u) done <-\n", pops->str, cmd);
+				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
+					bsr_debug(NO_OBJECT,"bsr netlink cmd(%s:%u) done <-\n", pops->str, cmd);
 				} else {
-					drbd_info(NO_OBJECT,"drbd netlink cmd(%s:%u) done <-\n", pops->str, cmd);
+					bsr_info(NO_OBJECT,"bsr netlink cmd(%s:%u) done <-\n", pops->str, cmd);
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
-				drbd_info(NO_OBJECT,"drbd netlink cmd(%s:%u) Failed to acquire the mutex status: 0x%x\n", pops->str, cmd, status);
+				bsr_info(NO_OBJECT,"bsr netlink cmd(%s:%u) Failed to acquire the mutex status: 0x%x\n", pops->str, cmd, status);
 			}
 
         } else {
-            drbd_info(NO_OBJECT,"Not validated cmd(%d)\n", cmd);
+            bsr_info(NO_OBJECT,"Not validated cmd(%d)\n", cmd);
         }
     }
 
@@ -690,7 +690,7 @@ cleanup:
 
 	//ObDereferenceObject(pNetlinkCtx->NetlinkEThread);
 
-	ExFreeToNPagedLookasideList(&drbd_workitem_mempool, context);
+	ExFreeToNPagedLookasideList(&bsr_workitem_mempool, context);
 
     genl_info_free(pinfo);
 	
@@ -701,9 +701,9 @@ cleanup:
 		kfree(pSock);
 	
     if (errcnt) {
-        drbd_err(NO_OBJECT,"NetlinkWorkThread:%p done. error occured %d times\n",KeGetCurrentThread(), errcnt);
+        bsr_err(NO_OBJECT,"NetlinkWorkThread:%p done. error occured %d times\n",KeGetCurrentThread(), errcnt);
     } else {
-		drbd_debug(NO_OBJECT,"NetlinkWorkThread:%p done...\n",KeGetCurrentThread());
+		bsr_debug(NO_OBJECT,"NetlinkWorkThread:%p done...\n",KeGetCurrentThread());
     }
 }
 // Listening socket callback which is invoked whenever a new connection arrives.
@@ -743,7 +743,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
     SOCKADDR_IN * pRemote = (SOCKADDR_IN *)RemoteAddress;
     SOCKADDR_IN * pLocal = (SOCKADDR_IN *)LocalAddress;
 
-    drbd_debug(NO_OBJECT,"%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected\n",
+    bsr_debug(NO_OBJECT,"%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected\n",
 					        pRemote->sin_addr.S_un.S_un_b.s_b1,
 					        pRemote->sin_addr.S_un.S_un_b.s_b2,
 					        pRemote->sin_addr.S_un.S_un_b.s_b3,
@@ -757,15 +757,15 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
 
 	// DW-1701 Only allow to local loopback netlink command
 	if(pRemote->sin_addr.S_un.S_un_b.s_b1 != 0x7f) {
-		drbd_debug(NO_OBJECT,"External connection attempt was made and blocked.\n");		
+		bsr_debug(NO_OBJECT,"External connection attempt was made and blocked.\n");		
 		return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
 	
-    PNETLINK_WORK_ITEM netlinkWorkItem = ExAllocateFromNPagedLookasideList(&drbd_workitem_mempool);
+    PNETLINK_WORK_ITEM netlinkWorkItem = ExAllocateFromNPagedLookasideList(&bsr_workitem_mempool);
 
     if (!netlinkWorkItem) {
-        drbd_err(NO_OBJECT,"Failed to allocate NP memory. size(%d)\n", sizeof(NETLINK_WORK_ITEM));
+        bsr_err(NO_OBJECT,"Failed to allocate NP memory. size(%d)\n", sizeof(NETLINK_WORK_ITEM));
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 

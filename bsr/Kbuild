@@ -1,4 +1,4 @@
-obj-m := bsr.o # drbd_transport_tcp.o
+obj-m := bsr.o # bsr_transport_tcp.o
 
 clean-files := compat.h .config.timestamp
 
@@ -65,7 +65,7 @@ endif
 $(patsubst %,$(obj)/%,$(bsr-y)): $(obj)/compat.h
 #$(patsubst %,$(obj)/%,bsr_transport_tcp.o): $(obj)/compat.h
 
-obj-$(CONFIG_BLK_DEV_DRBD)     += bsr.o
+obj-$(CONFIG_BLK_DEV_BSR)     += bsr.o
 
 # ======================================================================
 
@@ -131,7 +131,7 @@ $(obj)/bsr_linux_buildtag.c: $(filter-out bsr_linux_buildtag.o,$(bsr-y))
 	echo -e "/* automatically generated. DO NOT EDIT. */";			\
 	echo -e "#include <bsr.h>";					\
 	echo -e "#include <linux/bsr_config.h>";				\
-	echo -e "const char *drbd_buildtag(void)\n{";				\
+	echo -e "const char *bsr_buildtag(void)\n{";				\
 	if test -e $(src)/../.git &&						\
 	   GITHEAD=$$(cd $(src) && git rev-parse HEAD); then			\
 		echo -e "\treturn \"GIT-hash: $$GITHEAD\"";		\

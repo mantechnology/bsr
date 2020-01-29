@@ -1,4 +1,4 @@
-// DRBD_DOC: from http://ftp.openswan.org/openswan/openswan-ocf/klips-fsm/lib/idr.c
+// BSR_DOC: from http://ftp.openswan.org/openswan/openswan-ocf/klips-fsm/lib/idr.c
 /*
 * 2002-10-18  written by Jim Houston jim.houston@ccur.com
 *	Copyright (C) 2002 by Concurrent Computer Corporation
@@ -420,7 +420,7 @@ void *idr_find(struct idr *idp, int id)
  *
  * The caller must serialize idr_for_each() vs idr_get_new() and idr_remove().
  */
-// DRBD_DOC: from http://ftp.openswan.org/openswan/openswan-ocf/klips-fsm/lib/idr.c
+// BSR_DOC: from http://ftp.openswan.org/openswan/openswan-ocf/klips-fsm/lib/idr.c
 int idr_for_each(struct idr *idp,
 		 int (*fn)(int id, void *p, void *data), void *data)
 {

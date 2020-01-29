@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -35,8 +35,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv);
 VOID WINAPI ServiceHandler(DWORD fdwControl);
 VOID AddEventSource(TCHAR * caPath, TCHAR * csApp);
 DWORD RemoveEventSource(TCHAR *caPath, TCHAR * csApp);
-DWORD RcDrbdStart();
-DWORD RcDrbdStop();
+DWORD RcBsrStart();
+DWORD RcBsrStop();
 
 
 BOOL g_bProcessStarted = TRUE;
@@ -56,7 +56,7 @@ SERVICE_TABLE_ENTRY		g_lpServiceStartTable[] =
 
 SERVICE_STATUS_HANDLE   g_hServiceStatusHandle;
 SERVICE_STATUS          g_tServiceStatus;
-WCHAR					*g_pwdrbdRcBat = L"rc.bat";
+WCHAR					*g_pbsrRcBat = L"rc.bat";
 TCHAR                   gServicePath[MAX_PATH];
 
 VOID WriteLogFormat(WCHAR* msg, ...)
@@ -189,7 +189,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		// internal test only: no-daemon test
 
-		unsigned short servPort = DRBD_DAEMON_TCP_PORT;
+		unsigned short servPort = BSR_DAEMON_TCP_PORT;
 		DWORD threadID;
 
 		if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) SockListener, &servPort, 0, (LPDWORD) &threadID) == NULL) {
@@ -496,7 +496,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
         WriteLog(pTemp);
     }
 
-    unsigned short servPort = DRBD_DAEMON_TCP_PORT;
+    unsigned short servPort = BSR_DAEMON_TCP_PORT;
     DWORD threadID;
 
     if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)SockListener, &servPort, 0, (LPDWORD)&threadID) == NULL) {
@@ -521,13 +521,13 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 	}
 #endif
 
-    RcDrbdStart();
+    RcBsrStart();
 
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
 	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStart.log"));
 	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	if (ret) {
-		_stprintf_s(tmp, _T("service start drbdlog fail:%d\n"), ret);
+		_stprintf_s(tmp, _T("service start bsrlog fail:%d\n"), ret);
 		WriteLog(tmp);
 	}
 
@@ -537,26 +537,26 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 
     WriteLog(L"Service is stopped.\n");
 
-    //DrbdSetStatus(SERVICE_STOPPED);
+    //BsrSetStatus(SERVICE_STOPPED);
 }
 
 VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 {
 	// DW-1505 Keep only NUMOFLOGS(10) Preshutdown logs 
-	size_t path_size; WCHAR DrbdPath[MAX_PATH] = { 0, }; WCHAR DrbdLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
+	size_t path_size; WCHAR BsrPath[MAX_PATH] = { 0, }; WCHAR BsrLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
-	errno_t result = _wgetenv_s(&path_size, DrbdPath, MAX_PATH, L"BSR_PATH");
+	errno_t result = _wgetenv_s(&path_size, BsrPath, MAX_PATH, L"BSR_PATH");
 	if (result) {
-		wcscpy_s(DrbdPath, L"c:\\Program Files\\bsr\\bin");
+		wcscpy_s(BsrPath, L"c:\\Program Files\\bsr\\bin");
 	}
-	wcsncpy_s(DrbdLogPath, DrbdPath, wcslen(DrbdPath) - strlen("bin"));
-	wcscat_s(DrbdLogPath, L"log\\");
-	wcscat_s(FindAllLogFileName, DrbdLogPath);
+	wcsncpy_s(BsrLogPath, BsrPath, wcslen(BsrPath) - strlen("bin"));
+	wcscat_s(BsrLogPath, L"log\\");
+	wcscat_s(FindAllLogFileName, BsrLogPath);
 	wcscat_s(FindAllLogFileName, _T("Preshutdown*")); // Path to file name beginning with 'Preshutdown'
 
 	while ((OldestFileName = GetOldestFileName(FindAllLogFileName)) != NULL){
 		WCHAR DeleteFileName[MAX_PATH] = { 0, };
-		wcsncpy_s(DeleteFileName, DrbdLogPath, wcslen(DrbdLogPath));
+		wcsncpy_s(DeleteFileName, BsrLogPath, wcslen(BsrLogPath));
 		wcscat_s(DeleteFileName, OldestFileName);
 		// Delete oldest file by name  
 		if (DeleteFile(DeleteFileName) == 0){
@@ -574,7 +574,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 
 	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	if (ret) {
-		_stprintf_s(tmp, _T("service preshutdown drbdlog fail:%d\n"), ret);
+		_stprintf_s(tmp, _T("service preshutdown bsrlog fail:%d\n"), ret);
 		WriteLog(tmp);
 	}
 	else {
@@ -582,7 +582,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 		if (OldPreShutdownTime != NULL) {
 			WCHAR DeleteFileName[MAX_PATH] = { 0, };
 
-			wcsncpy_s(DeleteFileName, DrbdLogPath, wcslen(DrbdLogPath));
+			wcsncpy_s(DeleteFileName, BsrLogPath, wcslen(BsrLogPath));
 			wcscat_s(DeleteFileName, OldPreShutdownTime);
 			// Delete oldest file by name  
 			if (DeleteFile(DeleteFileName) == 0){
@@ -655,13 +655,13 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 			
 			if (SERVICE_CONTROL_STOP == fdwControl) {
 
-				RcDrbdStop();
+				RcBsrStop();
 
 				TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
 				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStop.log"));
 				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 				if (ret) {
-					_stprintf_s(tmp, _T("service stop drbdlog fail:%d\n"), ret);
+					_stprintf_s(tmp, _T("service stop bsrlog fail:%d\n"), ret);
 					WriteLog(tmp);
 				}
 			}
@@ -677,7 +677,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 				_stprintf_s(tmp, _T("presuhtdown force disconnect\n"));
 				WriteLog(tmp);
 
-				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws %ws"), gServicePath, _T("drbdadm"), _T("disconnect"), _T("--force"), _T("all"));
+				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws %ws"), gServicePath, _T("bsradm"), _T("disconnect"), _T("--force"), _T("all"));
 				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 				
 				if (ret) {
@@ -685,12 +685,12 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 					WriteLog(tmp);
 				}
 
-				// DW-1821 log before running RcDrbdStop() when the system shuts down.
+				// DW-1821 log before running RcBsrStop() when the system shuts down.
 				GetLocalTime(&sTime);
 				_stprintf(sPreShutdownTime, _T("Preshutdown-s-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
 				ExecPreShutDownLog(sPreShutdownTime, NULL);
 
-				RcDrbdStop();
+				RcBsrStop();
 
 				GetLocalTime(&sTime);
 				_stprintf(ePreShutdownTime, _T("Preshutdown-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
@@ -768,7 +768,7 @@ DWORD RemoveEventSource(TCHAR *csPath, TCHAR *csApp)
     return RegDeleteKey(HKEY_LOCAL_MACHINE, szPath);
 }
 
-DWORD RcDrbdStart()
+DWORD RcBsrStart()
 {    
     DWORD dwPID;
     TCHAR tmp[1024];
@@ -776,25 +776,25 @@ DWORD RcDrbdStart()
     DWORD dwLength;
     DWORD ret;
 
-	WriteLog(L"rc_drbd_start");
+	WriteLog(L"rc_bsr_start");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4) > MAX_PATH) {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pbsrRcBat) + 4) > MAX_PATH) {
         _stprintf_s(tmp, _T("Error: cmd too long(%d)\n"), dwLength);
         WriteLog(tmp);
         return -1;
     }
-    _stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws"), gServicePath, g_pwdrbdRcBat, _T("start"));
+    _stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws"), gServicePath, g_pbsrRcBat, _T("start"));
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 
     if (ret) {
-        _stprintf_s(tmp, _T("Faild rc_drbd_start: return val %d\n"), ret);
+        _stprintf_s(tmp, _T("Faild rc_bsr_start: return val %d\n"), ret);
         WriteLog(tmp);
     }
 
     return ret;
 }
 
-DWORD RcDrbdStop()
+DWORD RcBsrStop()
 {
     DWORD dwPID;
     WCHAR szFullPath[MAX_PATH] = {0};
@@ -802,19 +802,19 @@ DWORD RcDrbdStop()
     DWORD dwLength;
     DWORD ret;
 	
-	WriteLog(L"rc_drbd_stop");
+	WriteLog(L"rc_bsr_stop");
 
-    if ((dwLength = wcslen(gServicePath) + wcslen(g_pwdrbdRcBat) + 4 + 6) > MAX_PATH) {
+    if ((dwLength = wcslen(gServicePath) + wcslen(g_pbsrRcBat) + 4 + 6) > MAX_PATH) {
         wsprintf(tmp, L"Error: cmd too long(%d)\n", dwLength);
         WriteLog(tmp);
         return -1;
     }
-    wsprintf(szFullPath, L"\"%ws\\%ws\" %ws", gServicePath, g_pwdrbdRcBat, L"stop");
+    wsprintf(szFullPath, L"\"%ws\\%ws\" %ws", gServicePath, g_pbsrRcBat, L"stop");
 
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	
     if (ret) {
-        wsprintf(tmp, L"Faild rc_drbd_stop: return val %d\n", ret);
+        wsprintf(tmp, L"Faild rc_bsr_stop: return val %d\n", ret);
         WriteLog(tmp);
     }
 

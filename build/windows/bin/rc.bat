@@ -107,7 +107,7 @@ REM ------------------------------------------------------------------------
 
 @echo off
 
-echo Stopping all DRBD resources
+echo Stopping all BSR resources
 bsradm down all
 timeout /t 3 /NOBREAK > nul
 

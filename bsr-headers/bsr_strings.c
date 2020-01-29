@@ -1,24 +1,22 @@
 /*
-  drbd.h
+  bsr.h
 
-  This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
+  This file is part of BSR by Man Technology inc.
 
-  Copyright (C) 2003-2008, LINBIT Information Technologies GmbH.
-  Copyright (C) 2003-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-  Copyright (C) 2003-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+  Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
 
-  drbd is free software; you can redistribute it and/or modify
+  bsr is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2, or (at your option)
   any later version.
 
-  drbd is distributed in the hope that it will be useful,
+  bsr is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with drbd; see the file COPYING.  If not, write to
+  along with bsr; see the file COPYING.  If not, write to
   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
@@ -42,7 +40,7 @@ static const char * const __conn_state_names[] = {
 	[C_CONNECTED]	     = "Connected",
 };
 
-struct state_names drbd_conn_state_names = {
+struct state_names bsr_conn_state_names = {
 	.names = __conn_state_names,
 	.size = sizeof __conn_state_names / sizeof __conn_state_names[0],
 };
@@ -65,7 +63,7 @@ static const char * const __repl_state_names[] = {
 	[L_BEHIND]           = "Behind",
 };
 
-struct state_names drbd_repl_state_names = {
+struct state_names bsr_repl_state_names = {
 	.names = __repl_state_names,
 	.size = sizeof __repl_state_names / sizeof __repl_state_names[0],
 };
@@ -76,7 +74,7 @@ static const char * const __role_state_names[] = {
 	[R_SECONDARY] = "Secondary",
 };
 
-struct state_names drbd_role_state_names = {
+struct state_names bsr_role_state_names = {
 	.names = __role_state_names,
 	.size = sizeof __role_state_names / sizeof __role_state_names[0],
 };
@@ -94,7 +92,7 @@ static const char * const __disk_state_names[] = {
 	[D_UP_TO_DATE]   = "UpToDate",
 };
 
-struct state_names drbd_disk_state_names = {
+struct state_names bsr_disk_state_names = {
 	.names = __disk_state_names,
 	.size = sizeof __disk_state_names / sizeof __disk_state_names[0],
 };
@@ -132,7 +130,7 @@ static const char * const __error_messages[] = {
 
 };
 
-struct state_names drbd_error_messages = {
+struct state_names bsr_error_messages = {
 	.names = __error_messages,
 	.size = sizeof __error_messages / sizeof __error_messages[0],
 };
@@ -197,53 +195,53 @@ static const char * const __packet_names[] = {
 	[P_TWOPC_YES]		= "P_TWOPC_YES",
 	[P_TWOPC_NO]		= "P_TWOPC_NO",
 	[P_TWOPC_RETRY]		= "P_TWOPC_RETRY",
-	/* enum drbd_packet, but not commands - obsoleted flags:
+	/* enum bsr_packet, but not commands - obsoleted flags:
 	 *	P_MAY_IGNORE
 	 *	P_MAX_OPT_CMD
 	 */
 };
 
-struct state_names drbd_packet_names = {
+struct state_names bsr_packet_names = {
         .names = __packet_names,
         .size = sizeof __packet_names / sizeof __packet_names[0],
 };
 
-const char *drbd_repl_str(enum drbd_repl_state s)
+const char *bsr_repl_str(enum bsr_repl_state s)
 {
-	return (s < 0 || (unsigned int)s >= drbd_repl_state_names.size ||
-	        !drbd_repl_state_names.names[s]) ?
-	       "?" : drbd_repl_state_names.names[s];
+	return (s < 0 || (unsigned int)s >= bsr_repl_state_names.size ||
+	        !bsr_repl_state_names.names[s]) ?
+	       "?" : bsr_repl_state_names.names[s];
 }
 
-const char *drbd_conn_str(enum drbd_conn_state s)
+const char *bsr_conn_str(enum bsr_conn_state s)
 {
-	return (s < 0 || (unsigned int)s >= drbd_conn_state_names.size ||
-	        !drbd_conn_state_names.names[s]) ?
-	       "?" : drbd_conn_state_names.names[s];
+	return (s < 0 || (unsigned int)s >= bsr_conn_state_names.size ||
+	        !bsr_conn_state_names.names[s]) ?
+	       "?" : bsr_conn_state_names.names[s];
 }
 
-const char *drbd_role_str(enum drbd_role s)
+const char *bsr_role_str(enum bsr_role s)
 {
-	return (s < 0 || (unsigned int)s >= drbd_role_state_names.size ||
-	        !drbd_role_state_names.names[s]) ?
-	       "?" : drbd_role_state_names.names[s];
+	return (s < 0 || (unsigned int)s >= bsr_role_state_names.size ||
+	        !bsr_role_state_names.names[s]) ?
+	       "?" : bsr_role_state_names.names[s];
 }
 
-const char *drbd_disk_str(enum drbd_disk_state s)
+const char *bsr_disk_str(enum bsr_disk_state s)
 {
-	return (s < 0 || (unsigned int)s >= drbd_disk_state_names.size ||
-	        !drbd_disk_state_names.names[s]) ?
-	       "?" : drbd_disk_state_names.names[s];
+	return (s < 0 || (unsigned int)s >= bsr_disk_state_names.size ||
+	        !bsr_disk_state_names.names[s]) ?
+	       "?" : bsr_disk_state_names.names[s];
 }
 
-const char *drbd_set_st_err_str(enum drbd_state_rv err)
+const char *bsr_set_st_err_str(enum bsr_state_rv err)
 {
-	return (-err < 0 || (unsigned int)(~err + 1) >= drbd_error_messages.size ||
-	        !drbd_error_messages.names[-err]) ?
-	       "?" : drbd_error_messages.names[-err];
+	return (-err < 0 || (unsigned int)(~err + 1) >= bsr_error_messages.size ||
+	        !bsr_error_messages.names[-err]) ?
+	       "?" : bsr_error_messages.names[-err];
 }
 
-const char *drbd_packet_name(enum drbd_packet cmd)
+const char *bsr_packet_name(enum bsr_packet cmd)
 {
 	/* too big for the array: 0xfffX */
 	if (cmd == P_INITIAL_META)
@@ -259,7 +257,7 @@ const char *drbd_packet_name(enum drbd_packet cmd)
 
 
 //DW-1755
-const char *drbd_disk_type_name(unsigned char type) {
+const char *bsr_disk_type_name(unsigned char type) {
 	switch (type) {
 	case VOLUME_TYPE_REPL:
 		return "data";
@@ -269,7 +267,7 @@ const char *drbd_disk_type_name(unsigned char type) {
 	return "unknown";
 }
 
-const char *drbd_io_type_name(unsigned char type) {
+const char *bsr_io_type_name(unsigned char type) {
 	switch (type) {
 	case READ:
 		return "read";

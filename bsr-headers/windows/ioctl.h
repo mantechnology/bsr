@@ -1,19 +1,19 @@
 /*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
-	Copyright(C) 2007-2016, wdrbd@mantech.co.kr
+	Copyright(C) 2007-2016, dev3@mantech.co.kr
 
-	Windows DRBD is free software; you can redistribute it and/or modify
+	Windows BSR is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation; either version 2, or (at your option)
 	any later version.
 
-	Windows DRBD is distributed in the hope that it will be useful,
+	Windows BSR is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Windows DRBD; see the file COPYING. If not, write to
+	along with Windows BSR; see the file COPYING. If not, write to
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
@@ -43,13 +43,13 @@
 
 #define	IOCTL_MVOL_GET_COUNT_INFO			CTL_CODE(MVOL_TYPE, 30, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define	IOCTL_MVOL_GET_PROC_DRBD			CTL_CODE(MVOL_TYPE, 38, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define	IOCTL_MVOL_GET_PROC_BSR			CTL_CODE(MVOL_TYPE, 38, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IOCTL_MVOL_SET_SIMUL_DISKIO_ERROR	CTL_CODE(MVOL_TYPE, 40, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IOCTL_MVOL_SET_LOGLV_MIN			CTL_CODE(MVOL_TYPE, 46, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_MVOL_GET_DRBD_LOG				CTL_CODE(MVOL_TYPE, 50, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_MVOL_GET_BSR_LOG				CTL_CODE(MVOL_TYPE, 50, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IOCTL_MVOL_SET_HANDLER_USE			CTL_CODE(MVOL_TYPE, 52, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
@@ -65,7 +65,7 @@ typedef struct _MVOL_VOLUME_INFO
 	WCHAR				PhysicalDeviceName[MAXDEVICENAME];		// src device
 	ULONG				PeerIp;
 	USHORT				PeerPort;
-	CHAR				Seq[MAX_PROC_BUF]; // DRBD_DW130: check enough? and chaneg to dynamically
+	CHAR				Seq[MAX_PROC_BUF]; // BSR_DW130: check enough? and chaneg to dynamically
 } MVOL_VOLUME_INFO, *PMVOL_VOLUME_INFO;
 
 typedef struct _MVOL_COUNT_INFO
@@ -82,7 +82,7 @@ typedef struct _MVOL_SYNC_REQ
 } MVOL_SYNC_REQ, *PMVOL_SYNC_REQ;
 
 #define _WIN_MULTIVOL_THREAD
-typedef struct _WDRBD_VOLUME_ENTRY
+typedef struct _BSR_VOLUME_ENTRY
 {
 	WCHAR		PhysicalDeviceName[MAXDEVICENAME];
 	WCHAR		MountPoint[MAXDEVICENAME];
@@ -97,7 +97,7 @@ typedef struct _WDRBD_VOLUME_ENTRY
 	BOOLEAN		ThreadActive;
 	BOOLEAN		ThreadExit;
 #endif
-} WDRBD_VOLUME_ENTRY, *PWDRBD_VOLUME_ENTRY;
+} BSR_VOLUME_ENTRY, *PBSR_VOLUME_ENTRY;
 
 #define SIMUL_DISK_IO_ERROR_FLAG0		0 // No Disk Error 
 #define SIMUL_DISK_IO_ERROR_FLAG1		1 // Continuous Disk Error Flag
@@ -179,15 +179,15 @@ enum
 #define MAX_FUNC_ADDR_LEN		(20)
 #endif
 
-#define MAX_DRBDLOG_BUF				512
+#define MAX_BSRLOG_BUF				512
 #define LOGBUF_MAXCNT				100000
 
-typedef struct _DRBD_LOG {
+typedef struct _BSR_LOG {
 	LONGLONG 	totalcnt;
-	char		LogBuf[1]; // LOGBUF_MAXCNT*MAX_DRBDLOG_BUF
-}DRBD_LOG, *PDRBD_LOG;
+	char		LogBuf[1]; // LOGBUF_MAXCNT*MAX_BSRLOG_BUF
+}BSR_LOG, *PBSR_LOG;
 
-#define DRBD_LOG_SIZE				((LOGBUF_MAXCNT*MAX_DRBDLOG_BUF) + sizeof(LONGLONG))
+#define BSR_LOG_SIZE				((LOGBUF_MAXCNT*MAX_BSRLOG_BUF) + sizeof(LONGLONG))
 
 
 typedef struct _HANDLER_INFO

@@ -1,5 +1,5 @@
-#ifndef __DRBD_WINGENL_H__
-#define __DRBD_WINGENL_H__
+#ifndef __BSR_WINGENL_H__
+#define __BSR_WINGENL_H__
 #include <wdm.h>
 #include <wsk.h>
 #include "list.h"
@@ -787,4 +787,4 @@ static __inline void *genlmsg_data(const struct genlmsghdr *gnlh)
 }
 
 extern int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info);
-#endif __DRBD_WINGENL_H__
+#endif __BSR_WINGENL_H__
