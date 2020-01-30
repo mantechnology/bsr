@@ -3156,8 +3156,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	if (bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
 	    !(resource->role[NOW] == R_PRIMARY && resource->susp_nod[NOW]) &&
-	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags))
+	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags)) {
+		
 		set_bit(CRASHED_PRIMARY, &device->flags);
+		
+		// BSR-175 set crashed primary work pending flags
+		for_each_peer_device(peer_device, device)
+			bsr_md_set_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING);
+
+	}
 
 	device->read_cnt = 0;
 	device->writ_cnt = 0;

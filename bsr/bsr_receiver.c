@@ -4892,7 +4892,9 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 
 		/* Common power [off|failure]? */
 		*rule_nr = 40;
-		if (test_bit(CRASHED_PRIMARY, &device->flags)) {
+		if (test_bit(CRASHED_PRIMARY, &device->flags) && 
+			// BSR-175
+			bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
 			if ((peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) &&
 			    test_bit(RESOLVE_CONFLICTS, &connection->transport.flags))
 				return -1;

@@ -3103,6 +3103,43 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 	}
 }
 
+/*
+ BSR-175 it is called when we determined that crashed primary is no longer need for one of peer at least.
+	I am no longer crashed primary for all peers if..
+		1. I've done resync as a sync target from one of uptodate peer.
+		2. I've done resync as a sync source for all existing peers.
+	I am no longer crashed primary for only this peer if..
+		1. I've done resync as a sync source for this peer, but have not done resync for another peer.
+*/ 
+static void consider_finish_crashed_primary(struct bsr_peer_device *peer_device, bool done)
+{
+	struct bsr_device *device = peer_device->device;
+	struct bsr_peer_device *p;
+
+	if (done) {
+		clear_bit(CRASHED_PRIMARY, &device->flags);
+
+		for_each_peer_device(p, device)
+			bsr_md_clear_peer_flag(p, MDF_CRASHED_PRIMARY_WORK_PENDING);
+
+		return;
+	}
+
+	bsr_md_clear_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING);
+
+	done = true;
+	for_each_peer_device(p, device) {
+		if (p != peer_device && 
+			bsr_md_test_peer_flag(p, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
+			done = false;
+			break;
+		}
+	}
+
+	if (done)
+		clear_bit(CRASHED_PRIMARY, &device->flags);
+}
+
 
 /*
  * Perform after state change actions that may sleep.
@@ -3169,7 +3206,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-998 Disk state is adopted by peer disk and it could have any syncable state, so is local disk state.
 			if (resync_finished && disk_state[NEW] >= D_OUTDATED && disk_state[NEW] == peer_disk_state[NOW]) {
-				clear_bit(CRASHED_PRIMARY, &device->flags);
+				//BSR-175 clear CRASHED_PRIMARY flag if I've done resync as a sync target from one of peer.
+				if (test_bit(CRASHED_PRIMARY, &device->flags)) 
+					consider_finish_crashed_primary(peer_device, repl_state[NOW] == L_SYNC_TARGET && repl_state[NEW] == L_ESTABLISHED);
+
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
 			}
@@ -3220,7 +3260,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			if ((disk_state[OLD] != D_UP_TO_DATE || peer_disk_state[OLD] != D_UP_TO_DATE) &&
 			    (disk_state[NEW] == D_UP_TO_DATE && peer_disk_state[NEW] == D_UP_TO_DATE)) {
-				clear_bit(CRASHED_PRIMARY, &device->flags);
+				// BSR-175 clear CRASHED_PRIMARY flag if I've done resync as a sync target from one of peer.
+				if (test_bit(CRASHED_PRIMARY, &device->flags))
+					consider_finish_crashed_primary(peer_device, repl_state[NOW] == L_SYNC_TARGET && repl_state[NEW] == L_ESTABLISHED);
+
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
 			}
