@@ -937,46 +937,71 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 		for_each_connection(conn, &res->connections) {
 			for_each_path(path, &conn->paths) {
 				struct d_address *addr[2];
+				struct d_address *in_proxy[2];
+				struct d_address *out_proxy[2];
 				int i = 0;
 
 				STAILQ_FOREACH(ha1, &path->hname_address_pairs, link) {
+					int j = 0;
+
 					addr[i] = ha1->address.addr ? &ha1->address : &ha1->host_info->address;
 					if (addr[i]->is_local_address)
 						continue;
 
-					e = malloc(sizeof *e);
-					if (!e) {
-						err("malloc: %m\n");
-						exit(E_EXEC_ERROR);
+					// BSR-167 includes proxy in duplicates of network information checks.
+					if(ha1->host_info->proxy_compat_only) {
+						in_proxy[i] = &ha1->host_info->proxy_compat_only->inside;
+						out_proxy[i] = &ha1->host_info->proxy_compat_only->outside;
+						if (in_proxy[i]->is_local_address || out_proxy[i]->is_local_address)
+							continue;
 					}
 
-					e->da = addr[i];
-					e->res = res;
-					f = tfind(e, &addrtree_root, addrtree_key_cmp);
-					if (f) {
-						ep = *(struct addrtree_entry **)f;
-						if (ep->res != res) {
-							if (ha1->conflicts)
-								continue;
-
-							ha2 = find_hname_addr_in_res(ep->res, addr[i]);
-							if (!ha2)
-								continue;
-
-							if (ha2->conflicts)
-								continue;
-							fprintf(stderr, "%s:%d: in resource %s\n"
-								"    %s:%s:%s is also used %s:%d (resource %s)\n",
-								e->res->config_file, ha1->config_line, e->res->name,
-								addr[i]->af, addr[i]->addr, addr[i]->port,
-								ep->res->config_file, ha2->config_line, ep->res->name);
-							ha2->conflicts = 1;
-							ha1->conflicts = 1;
-							config_valid = 0;
+					while(true) {
+						e = malloc(sizeof *e);
+						if (!e) {
+							err("malloc: %m\n");
+							exit(E_EXEC_ERROR);
 						}
+					
+						if(j == 0)
+							e->da = addr[i];
+						if(j == 1)
+							e->da = in_proxy[i];
+						if(j == 2)
+							e->da = out_proxy[i];
+						e->res = res;
+
+						f = tfind(e, &addrtree_root, addrtree_key_cmp);
+						if (f) {
+							ep = *(struct addrtree_entry **)f;
+							if (ep->res != res) {
+								if (ha1->conflicts)
+									break;
+
+								ha2 = find_hname_addr_in_res(ep->res, e->da);
+								if (!ha2)
+									break;
+
+								if (ha2->conflicts)
+									break;
+								fprintf(stderr, "%s:%d: in resource %s\n"
+									"    %s:%s:%s is also used %s:%d (resource %s)\n",
+									e->res->config_file, ha1->config_line, e->res->name,
+									e->da->af, e->da->addr, e->da->port,
+									ep->res->config_file, ha2->config_line, ep->res->name);
+								ha2->conflicts = 1;
+								ha1->conflicts = 1;
+								config_valid = 0;
+							}
+						}
+						else
+							tsearch(e, &addrtree_root, addrtree_key_cmp);
+						j++;
+						if(!ha1->host_info->proxy_compat_only)
+							break;
+						else if(j == 3)
+							break;
 					}
-					else
-						tsearch(e, &addrtree_root, addrtree_key_cmp);
 					i++;
 				}
 				if (i == 2 && addresses_equal(addr[0], addr[1]) &&
