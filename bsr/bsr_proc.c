@@ -49,28 +49,18 @@ const struct file_operations bsr_proc_fops = {
 };
 #endif
 
-#ifdef _WIN // DW-826
+// DW-826
 int bsr_seq_show(struct seq_file *seq, void *v)
 {
 	UNREFERENCED_PARAMETER(v);
 
-	seq_printf(seq, "BSR:%s\nLBSR: " REL_VERSION " (api:%d/proto:%d-%d)\n",
-		bsr_buildtag(),GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
-	bsr_print_transports_loaded(seq);
-
-	return 0;
-}
-#else // _LIN
-static int bsr_seq_show(struct seq_file *seq, void *v)
-{
-	seq_printf(seq, "version: " REL_VERSION " (api:%d/proto:%d-%d)\n%s\n",
+	seq_printf(seq, "BSR: " REL_VERSION " (api:%d/proto:%d-%d)\n%s\n",
 		GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX, bsr_buildtag());
 	print_kref_debug_info(seq);
 	bsr_print_transports_loaded(seq);
 
 	return 0;
 }
-#endif
 
 #ifdef _LIN
 static int bsr_proc_open(struct inode *inode, struct file *file)
