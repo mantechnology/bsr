@@ -1643,7 +1643,9 @@ static int _bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags)
 
 	if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 		uuid_flags |= UUID_FLAG_DISCARD_MY_DATA;
-	if (test_bit(CRASHED_PRIMARY, &device->flags))
+	// BSR-175
+	if (test_bit(CRASHED_PRIMARY, &device->flags) &&
+		bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING))
 		uuid_flags |= UUID_FLAG_CRASHED_PRIMARY;
 	if (!bsr_md_test_flag(device, MDF_CONSISTENT))
 		uuid_flags |= UUID_FLAG_INCONSISTENT;	
@@ -1756,7 +1758,9 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 		uuid_flags |= UUID_FLAG_DISCARD_MY_DATA;
 
-	if (test_bit(CRASHED_PRIMARY, &device->flags))
+	// BSR-175
+	if (test_bit(CRASHED_PRIMARY, &device->flags) && 
+		bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING))
 		uuid_flags |= UUID_FLAG_CRASHED_PRIMARY;
 
 	if (!bsr_md_test_flag(device, MDF_CONSISTENT))
