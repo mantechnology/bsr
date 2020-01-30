@@ -900,7 +900,7 @@ static int addrtree_key_cmp(const void *a, const void *b)
 	return addresses_cmp(e1->da, e2->da);
 }
 
-static struct hname_address *find_hname_addr_in_res(struct d_resource *res, struct d_address *addr)
+static struct hname_address *find_hname_addr_in_res(struct d_resource *res, struct d_address *addr, int proxy_dir)
 {
 	struct hname_address *ha;
 	struct connection *conn;
@@ -914,6 +914,22 @@ static struct hname_address *find_hname_addr_in_res(struct d_resource *res, stru
 
 				if (addresses_equal(addr, addr2))
 					return ha;
+
+				if(ha->host_info->proxy_compat_only) {
+					// BSR-167 compare the inside proxy with the outside proxy
+					// proxy_dir(1) : inside proxy
+					if(proxy_dir == 1) {
+						addr2 = &ha->host_info->proxy_compat_only->outside;
+						if (addresses_equal(addr, addr2))
+							return ha;
+					}
+					// proxy_dir(2) : outside proxy
+					else if(proxy_dir == 2) {
+						addr2 = &ha->host_info->proxy_compat_only->inside;
+						if (addresses_equal(addr, addr2))
+							return ha;
+					}
+				}
 			}
 		}
 	}
@@ -974,21 +990,36 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 						f = tfind(e, &addrtree_root, addrtree_key_cmp);
 						if (f) {
 							ep = *(struct addrtree_entry **)f;
+
+							if (ha1->conflicts)
+									break;
+
+							ha2 = find_hname_addr_in_res(ep->res, e->da, j);
+							if (!ha2)
+									break;
+
+							if (ha2->conflicts)
+									break;
+
 							if (ep->res != res) {
-								if (ha1->conflicts)
-									break;
-
-								ha2 = find_hname_addr_in_res(ep->res, e->da);
-								if (!ha2)
-									break;
-
-								if (ha2->conflicts)
-									break;
 								fprintf(stderr, "%s:%d: in resource %s\n"
 									"    %s:%s:%s is also used %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
 									ep->res->config_file, ha2->config_line, ep->res->name);
+									
+								ha2->conflicts = 1;
+								ha1->conflicts = 1;
+								config_valid = 0;
+							}
+							// BSR-167 check duplication of node and proxy network information in same node of same resource
+							else if(j != 0 && !strcmp(ha1->name, ha2->name)) {
+								fprintf(stderr, "%s:%d: in resource %s\n"
+									"    %s:%s:%s is also used in proxy section%s:%d (resource %s)\n",
+									e->res->config_file, ha1->config_line, e->res->name,
+									e->da->af, e->da->addr, e->da->port,
+									ep->res->config_file, ha2->config_line, ep->res->name);
+
 								ha2->conflicts = 1;
 								ha1->conflicts = 1;
 								config_valid = 0;
