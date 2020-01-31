@@ -900,32 +900,51 @@ static int addrtree_key_cmp(const void *a, const void *b)
 	return addresses_cmp(e1->da, e2->da);
 }
 
-static struct hname_address *find_hname_addr_in_res(struct d_resource *res, struct d_address *addr, int proxy_dir)
+static struct hname_address *find_hname_addr_in_res(struct d_resource *res, struct hname_address* ha1, int address_type, bool is_same_res)
 {
 	struct hname_address *ha;
 	struct connection *conn;
 	struct path *path;
+	struct d_address *addr = NULL;
+
+	if(address_type == 0)
+		addr = ha1->address.addr ? &ha1->address : &ha1->host_info->address;
+	else if(address_type == 1)
+		addr = &ha1->host_info->proxy_compat_only->inside;
+	else if(address_type == 2)
+		addr = &ha1->host_info->proxy_compat_only->outside;
 
 	for_each_connection(conn, &res->connections) {
 		for_each_path(path, &conn->paths) {
 			STAILQ_FOREACH(ha, &path->hname_address_pairs, link) {
 				struct d_address *addr2;
-				addr2 = ha->address.addr ? &ha->address : &ha->host_info->address;
 
+				addr2 = ha->address.addr ? &ha->address : &ha->host_info->address;
 				if (addresses_equal(addr, addr2))
 					return ha;
 
-				if(ha->host_info->proxy_compat_only) {
-					// BSR-167 compare the inside proxy with the outside proxy
-					// proxy_dir(1) : inside proxy
-					if(proxy_dir == 1) {
-						addr2 = &ha->host_info->proxy_compat_only->outside;
+				if(ha1->host_info->proxy_compat_only) {
+					if(is_same_res && !strcmp(ha1->name, ha->name)) {
+						// BSR-167 compare the inside proxy with the outside proxy
+						// address_type(1) : inside proxy
+						if(address_type == 1) {
+							addr2 = &ha->host_info->proxy_compat_only->outside;
+							if (addresses_equal(addr, addr2))
+								return ha;
+						}
+						// address_type(2) : outside proxy
+						else if(address_type == 2) {
+							addr2 = &ha->host_info->proxy_compat_only->inside;
+							if (addresses_equal(addr, addr2))
+								return ha;
+						}
+					}
+					else {
+						addr2 = &ha->host_info->proxy_compat_only->inside;
 						if (addresses_equal(addr, addr2))
 							return ha;
-					}
-					// proxy_dir(2) : outside proxy
-					else if(proxy_dir == 2) {
-						addr2 = &ha->host_info->proxy_compat_only->inside;
+
+						addr2 = &ha->host_info->proxy_compat_only->outside;
 						if (addresses_equal(addr, addr2))
 							return ha;
 					}
@@ -992,14 +1011,14 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 							ep = *(struct addrtree_entry **)f;
 
 							if (ha1->conflicts)
-									break;
+								break;
 
-							ha2 = find_hname_addr_in_res(ep->res, e->da, j);
+							ha2 = find_hname_addr_in_res(ep->res, ha1, j, (ep->res == res));
 							if (!ha2)
-									break;
+								break;
 
 							if (ha2->conflicts)
-									break;
+								break;
 
 							if (ep->res != res) {
 								fprintf(stderr, "%s:%d: in resource %s\n"
@@ -1012,10 +1031,10 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 								ha1->conflicts = 1;
 								config_valid = 0;
 							}
-							// BSR-167 check duplication of node and proxy network information in same node of same resource
-							else if(j != 0 && !strcmp(ha1->name, ha2->name)) {
+							// BSR-167 check duplication of node and proxy network information in same resource
+							else if(j != 0) {
 								fprintf(stderr, "%s:%d: in resource %s\n"
-									"    %s:%s:%s is also used in proxy section%s:%d (resource %s)\n",
+									"    %s:%s:%s is also used in proxy section %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
 									ep->res->config_file, ha2->config_line, ep->res->name);
