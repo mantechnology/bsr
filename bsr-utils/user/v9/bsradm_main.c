@@ -1611,9 +1611,10 @@ static int __adm_bsrsetup_silent(const struct cfg_ctx *ctx)
 	}
 
 	/* see bsrsetup.c, print_config_error():
-	 *  11: some unspecific state change error. (ignore for invalidate)
+	 *  11: some unspecific state change error.
 	 *  17: SS_NO_UP_TO_DATE_DISK */
-	if ((strcmp(ctx->cmd->name, "invalidate") && rv == 11) || rv == 17)
+	// BSR-174 error output to console when invalidate fails
+	if (rv == 11 || rv == 17)
 		rw = write(fileno(stderr), buffer, s);
 
 	return rv;

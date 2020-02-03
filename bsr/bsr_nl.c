@@ -4837,6 +4837,7 @@ static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 	return rv;
 }
 
+#if 0 // BSR-174 not used
 static enum bsr_state_rv invalidate_no_resync(struct bsr_device *device) __must_hold(local)
 {
 	struct bsr_resource *resource = device->resource;
@@ -4865,6 +4866,7 @@ static enum bsr_state_rv invalidate_no_resync(struct bsr_device *device) __must_
 
 	return rv;
 }
+#endif
 
 int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 {
@@ -4960,8 +4962,10 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 
 			if (retcode != SS_NEED_CONNECTION)
 				break;
-
-			retcode = invalidate_no_resync(device);
+			
+			// BSR-174 not allow invalidate when disconnected
+			//retcode = invalidate_no_resync(device);
+			
 		} while (retcode == SS_UNKNOWN_ERROR && retry--);
 	}
 
@@ -4975,6 +4979,7 @@ out_no_ldev:
 	return 0;
 }
 
+#if 0 // BSR-174 not used
 static int bsr_bmio_set_susp_al(struct bsr_device *device, struct bsr_peer_device *peer_device) __must_hold(local)
 {
 	int rv;
@@ -4983,6 +4988,7 @@ static int bsr_bmio_set_susp_al(struct bsr_device *device, struct bsr_peer_devic
 	bsr_try_suspend_al(device);
 	return rv;
 }
+#endif
 
 int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 {
@@ -5033,6 +5039,8 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
 	if (retcode < SS_SUCCESS) {
+		// BSR-174 not allow invalidate-remote when disconnected
+#if 0
 		if (retcode == SS_NEED_CONNECTION && resource->role[NOW] == R_PRIMARY) {
 			/* The peer will get a resync upon connect anyways.
 			 * Just make that into a full resync. */
@@ -5045,6 +5053,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 					retcode = ERR_IO_MD_DISK;
 			}
 		} else
+#endif
 			retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S,
 							   CS_VERBOSE | CS_SERIALIZE);
 	}
