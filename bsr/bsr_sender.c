@@ -98,8 +98,10 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
         bio = (struct bio *)Irp;
     }
 
-	if (!bio)
+	if (!bio) {
+		bsr_debug(NO_OBJECT,"null bio\n");
 		BIO_ENDIO_FN_RETURN;
+	}
 
 	// DW-1822
 	 /* The generic_make_request calls IoAcquireRemoveLock before the IRP is created
@@ -143,6 +145,8 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
 		put_ldev(device);
+	else
+		bsr_debug(device, "ldev null\n");
 	
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		if (Irp->MdlAddress != NULL) {
@@ -619,8 +623,10 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		bio = (struct bio *)Irp;
 	}
 
-	if (!bio)
+	if (!bio) {
+		bsr_debug(NO_OBJECT,"null bio\n");
 		BIO_ENDIO_FN_RETURN;
+	}
 
 	// DW-1822
 	 /* The generic_make_request calls IoAcquireRemoveLock before the IRP is created
@@ -2776,6 +2782,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			end_state_change_locked(device->resource, false, __FUNCTION__);
 		}
 		unlock_all_resources();
+		// DW-2031 add put_ldev() due to ldev leak occurrence
+		put_ldev(device);
 		goto out;
 	}
 
