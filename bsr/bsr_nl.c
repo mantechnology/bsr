@@ -1304,9 +1304,9 @@ retry:
 			} 
 
 			if (forced)
-				bsr_uuid_new_current(device, true);
+				bsr_uuid_new_current(device, true, __FUNCTION__);
 			else if (younger_primary) 
-				bsr_uuid_new_current(device, false); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
+				bsr_uuid_new_current(device, false, __FUNCTION__); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 			else
 				set_bit(NEW_CUR_UUID, &device->flags);
 			
@@ -4356,6 +4356,8 @@ int bsr_open_ro_count(struct bsr_resource *resource)
 
 
 static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, bool force,
+					      // DW-2035 no wait resync option (sync_ee)
+					      bool DISCONN_NO_WAIT_RESYNC,
 					      struct sk_buff *reply_skb)
 {
 	struct bsr_resource *resource = connection->resource;
@@ -4370,9 +4372,9 @@ static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, 
 #endif 
 
 repeat:
-	// DW-1874
-	if (flags)
-		set_bit(FORCE_DISCONNECT, &connection->flags);
+	// DW-2035
+	if (DISCONN_NO_WAIT_RESYNC)
+		set_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags);
 
 	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, __FUNCTION__);
 	switch (rv) {
@@ -4505,7 +4507,7 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 
 	connection = adm_ctx.connection;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
-	rv = conn_try_disconnect(connection, parms.force_disconnect, adm_ctx.reply_skb);
+	rv = conn_try_disconnect(connection, parms.force_disconnect, false, adm_ctx.reply_skb);
 	if (rv >= SS_SUCCESS && destroy) {
 		mutex_lock(&connection->resource->conf_update);
 		del_connection(connection);
@@ -5204,7 +5206,7 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	device = adm_ctx.device;
 	resource = device->resource;
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags))
-		bsr_uuid_new_current(device, false);
+		bsr_uuid_new_current(device, false, __FUNCTION__);
 	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
 	__change_io_susp_user(resource, false);
@@ -6524,7 +6526,8 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 #endif
 
 	for_each_connection_ref(connection, im, resource) {
-		retcode = conn_try_disconnect(connection, 0, adm_ctx.reply_skb);
+		// DW-2035
+		retcode = conn_try_disconnect(connection, false, true, adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
 			mutex_lock(&resource->conf_update);
 			// BSR-418 vol_ctl_mutex deadlock in function SetOOSAllocatedCluster()
