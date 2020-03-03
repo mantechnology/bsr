@@ -2170,4 +2170,8 @@ bsr_ib_create_cq(struct ib_device *device,
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
 #endif
 
+#ifndef COMPAT_HAVE_BIO_CLONE_FAST
+# define bio_clone_fast(bio, gfp, bio_set) bio_clone(bio, gfp)
+#endif
+
 #endif

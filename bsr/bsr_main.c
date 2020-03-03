@@ -208,6 +208,7 @@ mempool_t *bsr_request_mempool;
 mempool_t *bsr_ee_mempool;
 mempool_t *bsr_md_io_page_pool;
 struct bio_set *bsr_md_io_bio_set;
+struct bio_set *bsr_io_bio_set;
 
 /* I do not use a standard mempool, because:
    1) I want to hand out the pre-allocated objects first.
@@ -3329,6 +3330,8 @@ static void bsr_destroy_mempools(void)
 	ExDeleteNPagedLookasideList(&bsr_bm_ext_cache);
 	ExDeleteNPagedLookasideList(&bsr_al_ext_cache);
 #else // _LIN
+	if (bsr_io_bio_set)
+		bioset_free(bsr_io_bio_set);
 	if (bsr_md_io_bio_set)
 		bioset_free(bsr_md_io_bio_set);
 
@@ -3341,6 +3344,7 @@ static void bsr_destroy_mempools(void)
 	if (bsr_al_ext_cache)
 		kmem_cache_destroy(bsr_al_ext_cache);
 
+	bsr_io_bio_set = NULL;
 	bsr_md_io_bio_set = NULL;
 	bsr_md_io_page_pool = NULL;
 	bsr_ee_cache = NULL;
@@ -3362,6 +3366,7 @@ static int bsr_create_mempools(void)
 	int i;
 #endif
 
+	bsr_io_bio_set = NULL;
 	bsr_md_io_page_pool = NULL;
 	bsr_md_io_bio_set = NULL;
 #ifdef _WIN
@@ -3415,6 +3420,10 @@ static int bsr_create_mempools(void)
 	if (bsr_al_ext_cache == NULL)
 		goto Enomem;
 	/* mempools */
+	bsr_io_bio_set = bioset_create(BIO_POOL_SIZE, 0);
+	if (bsr_io_bio_set == NULL)
+		goto Enomem;
+
 	bsr_md_io_bio_set = bioset_create(BSR_MIN_POOL_PAGES, 0);
 	if (bsr_md_io_bio_set == NULL)
 		goto Enomem;
