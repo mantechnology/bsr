@@ -2775,11 +2775,14 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 					     int fault_type, struct bio *bio)
 {
 	__release(local);
+
+#if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
 		bsr_err(device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
+#endif
 
 	if (bsr_insert_fault(device, fault_type))
 		bsr_bio_endio(bio, -EIO);
@@ -3775,7 +3778,6 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 {
 	if ((new == 0 || prev == 0 || prev->next == 0) ||
 		(prev->next->prev != prev) || // list_add corruption.
-		(prev->next != prev->next) || // list_add corruption.
 		(new == prev || new == prev->next) //list_add double add.
 #ifdef _WIN // TODO "twopc_parent_list already added" occurs on Linux. condition verification required. 
 		|| (new->next != new->prev) // new is not initialized.

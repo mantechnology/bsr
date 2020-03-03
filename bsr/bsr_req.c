@@ -1790,7 +1790,7 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 	else
 		type = BSR_FAULT_DT_RD;
 
-	bio->bi_bdev = device->ldev->backing_bdev;
+	bio_set_dev(bio, device->ldev->backing_bdev);
 
 	/* State may have changed since we grabbed our reference on the
 	 * device->ldev member. Double check, and short-circuit to endio.
@@ -2581,7 +2581,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	const int rw = bio_data_dir(bio);
 	// BSR-458
 	if(rw == READ) {
-		bio->bi_bdev = device->ldev->backing_bdev;
+		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
 		MAKE_REQUEST_RETURN;
 	}

@@ -198,7 +198,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
     if (!bio) {
         return -ENODEV;
     }
-	bio->bi_bdev = bdev->md_bdev;
+	bio_set_dev(bio, bdev->md_bdev);
 	BSR_BIO_BI_SECTOR(bio) = sector;
 	err = -EIO;
 	if (bio_add_page(bio, device->md_io.page, size, 0) != size)
