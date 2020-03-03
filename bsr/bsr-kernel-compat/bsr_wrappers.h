@@ -2174,4 +2174,22 @@ bsr_ib_create_cq(struct ib_device *device,
 # define bio_clone_fast(bio, gfp, bio_set) bio_clone(bio, gfp)
 #endif
 
+
+#ifndef COMPAT_HAVE_INODE_LOCK
+/* up to kernel 2.6.38 inclusive, there was a
+ * linux/writeback.h:extern spinlock_t inode_lock;
+ * which was implicitly included.
+ * avoid error: 'inode_lock' redeclared as different kind of symbol */
+#define inode_lock(i) bsr_inode_lock(i)
+static inline void inode_lock(struct inode *inode)
+{
+	mutex_lock(&inode->i_mutex);
+}
+
+static inline void inode_unlock(struct inode *inode)
+{
+	mutex_unlock(&inode->i_mutex);
+}
+#endif
+
 #endif
