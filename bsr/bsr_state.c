@@ -3375,11 +3375,14 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 						peer_device);
 			}
 
-			// DW-1447
-			if (repl_state[OLD] == L_STARTING_SYNC_T && 
-				repl_state[NEW] == L_WF_BITMAP_T && peer_device->repl_state[NOW] == L_WF_BITMAP_T)
-			{
-				send_state = true;
+			if (repl_state[NEW] == L_WF_BITMAP_T &&
+				peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
+				// DW-1447
+				if (repl_state[OLD] == L_STARTING_SYNC_T)
+					send_state = true;
+				// DW-2026 if the status is not L_STARTING_SYNC_T, the status is not send.
+				else
+					bsr_info(peer_device, "not sending state because of old repl_state(%s)\n", bsr_repl_str(repl_state[OLD]));
 			}
 
 			if (peer_disk_state[NEW] < D_INCONSISTENT && get_ldev(device)) {

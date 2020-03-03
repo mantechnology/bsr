@@ -6314,8 +6314,9 @@ static void bsr_resync(struct bsr_peer_device *peer_device,
 		/* Those events might happen very quickly. In case we are still processing
 		   the previous resync we need to re-enter that state. Schedule sending of
 		   the bitmap here explicitly */
-		peer_device->resync_again++;
-		bsr_info(peer_device, "...postponing this until current resync finished\n");
+		// DW-2026 remove unnecessary resync again
+		//peer_device->resync_again++;
+		bsr_info(peer_device, "...resync is already in progress.\n");
 	}
 }
 
@@ -6353,8 +6354,9 @@ static void bsr_resync_authoritative(struct bsr_peer_device *peer_device, enum b
 
 	rv = change_repl_state(peer_device, new_repl_state, CS_VERBOSE);
 	if (rv == SS_NOTHING_TO_DO || rv == SS_RESYNC_RUNNING) {
-		peer_device->resync_again++;
-		bsr_info(peer_device, "...postponing this until current resync finished\n");
+		// DW-2026 remove unnecessary resync again
+		//peer_device->resync_again++;
+		bsr_info(peer_device, "...resync is already in progress.\n");
 	}
 }
 
@@ -9421,6 +9423,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 
+		// DW-2026 Initialize resync_again
+		peer_device->resync_again = 0;
+		
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 0);
 		atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
