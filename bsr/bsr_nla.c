@@ -39,7 +39,7 @@ int bsr_nla_parse_nested(struct nlattr *tb[], int maxtype, struct nlattr *nla,
 
 	err = bsr_nla_check_mandatory(maxtype, nla);
 	if (!err)
-		err = nla_parse_nested(tb, maxtype, nla, policy);
+		err = nla_parse_nested(tb, maxtype, nla, policy, NULL);
 
 	return err;
 }

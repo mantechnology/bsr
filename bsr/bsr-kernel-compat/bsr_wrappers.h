@@ -1519,6 +1519,19 @@ static inline int nla_type(const struct nlattr *nla)
 #endif
 
 /*
+ * v4.12 fceb6435e852 netlink: pass extended ACK struct to parsing functions
+ * and some preparation commits introduce a new "netlink extended ack" error
+ * reporting mechanism. For now, only work around that here.  As trigger, use
+ * NETLINK_MAX_COOKIE_LEN introduced somewhere in the middle of that patchset.
+ */
+#ifndef NETLINK_MAX_COOKIE_LEN
+#include <net/netlink.h>
+#define nla_parse_nested(tb, maxtype, nla, policy, extack) \
+       nla_parse_nested(tb, maxtype, nla, policy)
+#endif
+
+
+/*
  * nlmsg_hdr was added to <linux/netlink.h> in mainline commit b529ccf2
  * (v2.6.22-rc1).
  */
