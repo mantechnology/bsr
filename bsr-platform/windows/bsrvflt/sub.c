@@ -698,7 +698,7 @@ void _printk(const char * func, const char * format, ...)
 										timeFields.Milliseconds,
 										func);
 
-#define LEVEL_OFFSET	9
+#define LEVEL_OFFSET	8
 
 	switch (level_index) {
 	case KERN_EMERG_NUM: case KERN_ALERT_NUM: case KERN_CRIT_NUM: 
