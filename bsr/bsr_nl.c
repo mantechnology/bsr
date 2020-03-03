@@ -4894,8 +4894,10 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 			(repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 			if (repl_state[NOW] >= L_ESTABLISHED && !bsr_inspect_resync_side(peer_device, repl_state[NEW], NEW, false)) {
 				retcode = ERR_CODE_BASE;
-				goto out_no_ldev;
 			}
+			// DW-2031 add put_ldev() due to ldev leak occurrence
+			put_ldev(device);
+			goto out_no_ldev;
 		}
 	}
 

@@ -2836,13 +2836,13 @@ extern ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 	ULONG_PTR sbnr, ULONG_PTR ebnr, update_sync_bits_mode mode, bool locked);
 
 extern ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector, int size,
-		update_sync_bits_mode mode);
+		update_sync_bits_mode mode, const char* caller);
 #define bsr_set_in_sync(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, SET_IN_SYNC)
+	__bsr_change_sync(peer_device, sector, size, SET_IN_SYNC, __FUNCTION__)
 #define bsr_set_out_of_sync(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, SET_OUT_OF_SYNC)
+	__bsr_change_sync(peer_device, sector, size, SET_OUT_OF_SYNC, __FUNCTION__)
 #define bsr_rs_failed_io(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, RECORD_RS_FAILED)
+	__bsr_change_sync(peer_device, sector, size, RECORD_RS_FAILED, __FUNCTION__)
 
 extern void bsr_al_shrink(struct bsr_device *device);
 extern bool bsr_sector_has_priority(struct bsr_peer_device *, sector_t);
