@@ -5533,7 +5533,7 @@ u64 bsr_weak_nodes_device(struct bsr_device *device)
 }
 
 
-static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send) __must_hold(local)
+static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, const char* caller) __must_hold(local)
 {
 	struct bsr_peer_device *peer_device;
 	u64 got_new_bitmap_uuid, weak_nodes, val;
@@ -5552,7 +5552,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	__bsr_uuid_set_current(device, val);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
-	bsr_info(device, "new current UUID: %016llX weak: %016llX\n",
+	bsr_info(device, "%s, new current UUID: %016llX weak: %016llX\n", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
 	/* get it to stable storage _now_ */
@@ -5574,10 +5574,10 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
  * the bitmap slot. Causes an incremental resync upon next connect.
  * The caller must hold adm_mutex or conf_update
  */
-void bsr_uuid_new_current(struct bsr_device *device, bool forced)
+void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* caller)
 {
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
-		__bsr_uuid_new_current(device, forced, true);
+		__bsr_uuid_new_current(device, forced, true, caller);
 		put_ldev(device);
 	} else {
 		struct bsr_peer_device *peer_device;
@@ -5586,7 +5586,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced)
 		get_random_bytes(&current_uuid, sizeof(u64));
 		current_uuid &= ~UUID_PRIMARY;
 		bsr_set_exposed_data_uuid(device, current_uuid);
-		bsr_info(device, "sending new current UUID: %016llX\n", current_uuid);
+		bsr_info(device, "%s, sending new current UUID: %016llX\n", caller, current_uuid);
 
 		weak_nodes = bsr_weak_nodes_device(device);
 		for_each_peer_device(peer_device, device) {
@@ -5599,7 +5599,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced)
 void bsr_uuid_new_current_by_user(struct bsr_device *device)
 {
 	if (get_ldev(device)) {
-		__bsr_uuid_new_current(device, false, false);
+		__bsr_uuid_new_current(device, false, false, __FUNCTION__);
 		put_ldev(device);
 	}
 }
