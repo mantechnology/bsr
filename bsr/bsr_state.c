@@ -3369,7 +3369,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-1447
 			if (send_bitmap) {
-				bsr_queue_bitmap_io(device, &bsr_send_bitmap, NULL,
+				bsr_queue_bitmap_io(device, &bsr_send_bitmap, &bsr_send_bitmap_source_complete,
 						"send_bitmap (WFBitMapS)",
 						BM_LOCK_SET | BM_LOCK_CLEAR | BM_LOCK_BULK | BM_LOCK_SINGLE_SLOT | BM_LOCK_POINTLESS,
 						peer_device);

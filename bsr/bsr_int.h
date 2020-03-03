@@ -2065,6 +2065,9 @@ extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 extern void *bsr_prepare_drequest_csum(struct bsr_peer_request *peer_req, int digest_size);
 extern int bsr_send_ov_request(struct bsr_peer_device *, sector_t sector, int size);
 
+// DW-2037
+extern void bsr_send_bitmap_source_complete(struct bsr_device *, struct bsr_peer_device *, int);
+
 // DW-1979
 extern void bsr_send_bitmap_target_complete(struct bsr_device *, struct bsr_peer_device *, int);
 extern int bsr_send_bitmap(struct bsr_device *, struct bsr_peer_device *);

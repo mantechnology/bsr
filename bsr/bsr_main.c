@@ -2249,9 +2249,17 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		/* paranoia: catch zero runlength.
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
-			bsr_err(peer_device, "unexpected zero runlength while encoding bitmap "
+			bsr_warn(peer_device, "unexpected zero runlength while encoding bitmap "
 			    "t:%u bo:%llu\n", toggle, (unsigned long long)c->bit_offset);
-			return -1;
+			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
+			if (toggle == 0) {
+				update_sync_bits(peer_device, offset, offset, SET_OUT_OF_SYNC, false);
+				continue;
+			}
+			else {
+				bsr_err(peer_device, "unexpected out-of-sync has occurred\n");
+				return -1;
+			}
 		}
 
 		bits = vli_encode_bits(&bs, rl);
@@ -2384,6 +2392,16 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	return -EIO;
 }
 
+void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
+{
+	UNREFERENCED_PARAMETER(device);
+
+	// DW-2037 reconnect if the bitmap cannot be restored.
+	if (err) {
+		bsr_err(peer_device, "syncsource send bitmap failed err(%d)\n", err);
+		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+	}
+}
 
 // DW-1979
 void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
@@ -6569,7 +6587,9 @@ static int w_bitmap_io(struct bsr_work *w, int unused)
 			bsr_bm_slot_lock(work->peer_device, work->why, work->flags);
 		else
 			bsr_bm_lock(device, work->why, work->flags);
+
 		rv = work->io_fn(device, work->peer_device);
+		
 		if (work->flags & BM_LOCK_SINGLE_SLOT)
 			bsr_bm_slot_unlock(work->peer_device);
 		else
