@@ -2135,6 +2135,28 @@ static unsigned int bsr_max_discard_sectors(struct bsr_resource *resource)
 }
 
 #ifdef _LIN
+
+#ifndef COMPAT_HAVE_BLK_QUEUE_FLAG_SET
+static void blk_queue_flag_set(unsigned int flag, struct request_queue *q)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(q->queue_lock, flags);
+	queue_flag_set(flag, q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+}
+
+static void blk_queue_flag_clear(unsigned int flag, struct request_queue *q)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(q->queue_lock, flags);
+	queue_flag_clear(flag, q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+}
+#endif
+
+
 static void decide_on_discard_support(struct bsr_device *device,
 			struct request_queue *q,
 			struct request_queue *b,
@@ -2163,9 +2185,9 @@ static void decide_on_discard_support(struct bsr_device *device,
 		 * topology on all peers. */
 		blk_queue_discard_granularity(q, 512);
 		q->limits.max_discard_sectors = bsr_max_discard_sectors(device->resource);
-		queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, q);
+		blk_queue_flag_set(QUEUE_FLAG_DISCARD, q);
 	} else {
-		queue_flag_clear_unlocked(QUEUE_FLAG_DISCARD, q);
+		blk_queue_flag_clear(QUEUE_FLAG_DISCARD, q);
 		blk_queue_discard_granularity(q, 0);
 		q->limits.max_discard_sectors = 0;
 	}
@@ -2279,7 +2301,7 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 	blk_queue_max_hw_sectors(q, max_hw_sectors);
 	/* This is the workaround for "bio would need to, but cannot, be split" */
 #ifdef _LIN
-	blk_queue_segment_boundary(q, PAGE_CACHE_SIZE-1);
+	blk_queue_segment_boundary(q, PAGE_SIZE-1);
 	decide_on_discard_support(device, q, b, discard_zeroes_if_aligned);
 	decide_on_write_same_support(device, q, b, o, disable_write_same);
 

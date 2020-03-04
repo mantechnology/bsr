@@ -399,18 +399,18 @@ typedef NTSTATUS BIO_ENDIO_TYPE;
 #define bsr_bio_endio(b,e) bio_endio(b,e)
 #else
 #ifdef COMPAT_HAVE_BIO_BI_STATUS
-static inline void bsr_bio_endio(struct bio *bio, blk_status_t status)
+static inline void bsr_bio_endio(struct bio *bio, int error)
 {
-	bio->bi_status = status;
+	bio->bi_status = errno_to_blk_status(error);
 	bio_endio(bio);
 }
 
 #define BIO_ENDIO_TYPE void
 #define BIO_ENDIO_ARGS(b) (b)
 #define BIO_ENDIO_FN_START	\
-	blk_status_t status = bio->bi_status
+	blk_status_t status = bio->bi_status;	\
+	int error = blk_status_to_errno(status);
 #define BIO_ENDIO_FN_RETURN return
-
 #else
 
 
@@ -422,7 +422,6 @@ static inline void bsr_bio_endio(struct bio *bio, int error)
 }
 #define BIO_ENDIO_TYPE void
 #define BIO_ENDIO_ARGS(b) (b)
-//#define BIO_ENDIO_FN_START do {} while (0)
 #define BIO_ENDIO_FN_START      \
         int error = bio->bi_error
 #define BIO_ENDIO_FN_RETURN return
