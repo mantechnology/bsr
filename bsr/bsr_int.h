@@ -1772,6 +1772,13 @@ struct bsr_marked_replicate {
 	u16 end_unmarked_rl;
 };
 
+// DW-2042
+struct bsr_resync_pending_sectors {
+	sector_t sst;	/* start sector number */
+	sector_t est;	/* end sector number */
+	struct list_head pending_sectors;
+};
+
 struct submit_worker {
 	struct workqueue_struct *wq;
 	struct work_struct worker;
@@ -1849,6 +1856,8 @@ struct bsr_device {
 	ULONG_PTR bm_resync_fo; /* bit offset for bsr_bm_find_next */
 	struct mutex bm_resync_fo_mutex;
 #ifdef SPLIT_REQUEST_RESYNC
+	// DW-2042
+	struct list_head resync_pending_sectors;
 	// DW-1911 marked replication list, used for resync
 	//does not use lock because it guarantees synchronization for the use of marked_rl_list.
 	//Use lock if you cannot guarantee future marked_rl_list synchronization

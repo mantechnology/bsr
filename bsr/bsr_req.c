@@ -326,7 +326,7 @@ void bsr_req_destroy(struct kref *kref)
 						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct bsr_oos_no_req* send_oos = NULL;
 
-						bsr_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
+						bsr_info(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
 						if (send_oos) {
@@ -905,6 +905,13 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		BUG_ON(clear);
 	}
 
+	// DW-2042 When setting RQ_OOS_NET_QUEUED, RQ_OOS_PENDING shall be set.
+#ifdef SPLIT_REQUEST_RESYNC
+	if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
+		return;
+	}
+#endif
+
 	if (bsr_suspended(req->device) && !((old_local | clear_local) & RQ_COMPLETION_SUSP))
 		set_local |= RQ_COMPLETION_SUSP;
 
@@ -1267,8 +1274,18 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			start_new_tl_epoch(device->resource);
 		break;
 
+#ifdef SPLIT_REQUEST_RESYNC
+	case QUEUE_FOR_PENDING_OOS:
+		mod_rq_state(req, m, peer_device, 0, RQ_OOS_PENDING|RQ_NET_PENDING);
+		break;
+#endif
+
 	case QUEUE_FOR_SEND_OOS:
+#ifdef SPLIT_REQUEST_RESYNC
+		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED | RQ_NET_QUEUED);
+#else
 		mod_rq_state(req, m, peer_device, 0, RQ_NET_QUEUED);
+#endif
 		break;
 
 	case READ_RETRY_REMOTE_CANCELED:
@@ -1761,8 +1778,16 @@ static int bsr_process_write_request(struct bsr_request *req)
 				in_tree = true;
 			}
 			_req_mod(req, QUEUE_FOR_NET_WRITE, peer_device);
-		} else if (bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size))
-			_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+		}
+		else if (bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size)) {
+#ifdef SPLIT_REQUEST_RESYNC
+			if (peer_device->connection->agreed_pro_version >= 113)
+			// DW-2042 set QUEUE_FOR_SEND_OOS after completion of writing and send QUEUE_FOR_PENDING_OOS. For transmission, QUEUE_FOR_PENDING_OOS must be set before setting QUEUE_FOR_SEND_OOS.
+				_req_mod(req, QUEUE_FOR_PENDING_OOS, peer_device);
+			else
+#endif
+				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+		}
 
 	}
 

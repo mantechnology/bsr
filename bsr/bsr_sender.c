@@ -600,6 +600,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bsr_device *device = NULL;
 	struct bio_and_error m;
 	enum bsr_req_event what;
+	struct bsr_peer_device* peer_device;
 #ifdef _WIN
 	struct bio *bio = NULL;
 	int error = 0;
@@ -744,6 +745,17 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	/* not req_mod(), we need irqsave here! */
 	spin_lock_irqsave(&device->resource->req_lock, flags);
+	// DW-2042
+#ifdef SPLIT_REQUEST_RESYNC
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			int idx = peer_device ? 1 + peer_device->node_id : 0;
+			if (req->rq_state[idx] & RQ_OOS_PENDING)
+				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+		}
+	}
+#endif
+
 #ifdef _WIN
 #ifdef BSR_TRACE	
 	bsr_debug(NO_OBJECT,"(%s) bsr_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
@@ -1735,7 +1747,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	}
 
 	if (peer_device->rs_failed) {
-		bsr_info(peer_device, "            %llu failed blocks\n", (unsigned long long)peer_device->rs_failed);
+		bsr_info(peer_device, "            %llu failed blocks (out of sync :%llu)\n", (unsigned long long)peer_device->rs_failed, (unsigned long long)n_oos);
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T) {
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -2691,7 +2703,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_disk_state finished_resync_pdsk = D_UNKNOWN;
 	enum bsr_repl_state repl_state;
 	int r;
-
+	struct bsr_resync_pending_sectors *pending_st, *t1;
+	struct bsr_marked_replicate *marked_rl, *t2;
 
 	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
@@ -2799,9 +2812,14 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (side == L_SYNC_TARGET) {
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113) {
+			//DW-2042
+			list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, t1, &(device->resync_pending_sectors), pending_sectors) {
+				list_del(&pending_st->pending_sectors);
+				kfree2(pending_st);
+			}
+
 			// DW-1911
-			struct bsr_marked_replicate *marked_rl, *t;
-			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t2, &(device->marked_rl_list), marked_rl_list) {
 				list_del(&marked_rl->marked_rl_list);
 				kfree(marked_rl);
 				marked_rl = NULL;

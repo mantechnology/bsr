@@ -4479,6 +4479,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #ifdef SPLIT_REQUEST_RESYNC
 	// DW-1901
 	INIT_LIST_HEAD(&device->marked_rl_list);
+	//DW-2042
+	INIT_LIST_HEAD(&device->resync_pending_sectors);
+	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
 	device->e_resync_bb = 0;
