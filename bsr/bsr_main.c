@@ -2830,10 +2830,11 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	unsigned int dp_flags = 0;
 	int digest_size = 0;
 	int err = 0;
+	const int op = bio_op(req->master_bio);
 	
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
-	if (req->master_bio->bi_rw & BSR_REQ_DISCARD) {
+	if (op == BSR_REQ_DISCARD) {
 		trim = bsr_prepare_command(peer_device, sizeof(*trim), DATA_STREAM);
 		if (!trim)
 			return -EIO;
@@ -2843,7 +2844,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		if (peer_device->connection->integrity_tfm)
 			digest_size = crypto_ahash_digestsize(peer_device->connection->integrity_tfm);
 
-		if (req->master_bio->bi_rw & BSR_REQ_WSAME) {
+		if (op == BSR_REQ_WSAME) {
 			wsame = bsr_prepare_command(peer_device, sizeof(*wsame) + digest_size, DATA_STREAM);
 			if (!wsame)
 				return -EIO;

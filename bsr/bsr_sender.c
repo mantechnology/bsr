@@ -137,7 +137,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if (error) {
 #endif
 		// DW-1755 DW-1966
-		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_META, error);
+		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_opf & WRITE), device, VOLUME_TYPE_META, error);
 	}
 
 #ifdef _WIN
@@ -706,7 +706,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		}
 
 		// DW-1755 DW-1966
-		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_REPL, error);
+		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_opf & WRITE), device, VOLUME_TYPE_REPL, error);
 	}
 	else {
 		what = COMPLETED_OK;
