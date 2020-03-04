@@ -7401,17 +7401,29 @@ static void nested_twopc_abort(struct bsr_resource *resource, int vnr, enum bsr_
 			       struct p_twopc_request *request)
 {
 	struct bsr_connection *connection;
-	u64 nodes_to_reach, reach_immediately, im;
+	u64 nodes_to_reach, reach_immediately, im, mask;
+	unsigned int target_node_id;
 
 	spin_lock_irq(&resource->req_lock);
 	nodes_to_reach = be64_to_cpu(request->nodes_to_reach);
 	reach_immediately = directly_connected_nodes(resource, NOW) & nodes_to_reach;
 	nodes_to_reach &= ~(reach_immediately | NODE_MASK(resource->res_opts.node_id));
 	request->nodes_to_reach = cpu_to_be64(nodes_to_reach);
+	target_node_id = be32_to_cpu(request->target_node_id);
 	spin_unlock_irq(&resource->req_lock);
 
+	// DW-2029 send a twopc request to target node first
+	if (target_node_id != -1) {
+		connection = bsr_connection_by_node_id(resource, target_node_id);
+		if (connection && (reach_immediately & NODE_MASK(connection->peer_node_id)))
+			conn_send_twopc_request(connection, vnr, cmd, request);
+	}
+	// send to other nodes
 	for_each_connection_ref(connection, im, resource) {
-		u64 mask = NODE_MASK(connection->peer_node_id);
+		if (target_node_id != -1 && target_node_id == connection->peer_node_id)
+			continue;
+
+		mask = NODE_MASK(connection->peer_node_id);
 		if (reach_immediately & mask)
 			conn_send_twopc_request(connection, vnr, cmd, request);
 	}
@@ -7614,6 +7626,21 @@ static int process_twopc(struct bsr_connection *connection,
 					}
 				} 
 			}
+
+			// DW-2029 reconnect if twopc(L_STARTING_SYNC_S) commit have already timed out
+			if (resource->twopc_type == TWOPC_STATE_CHANGE && pi->cmd == P_TWOPC_COMMIT) {
+				mask.i = be32_to_cpu(p->mask);
+				val.i = be32_to_cpu(p->val);
+							
+				if (reply->target_node_id == (int)resource->res_opts.node_id &&
+					mask.conn == conn_MASK && val.conn == L_STARTING_SYNC_S) {
+					bsr_err(connection, "[TWOPC:%u] target_node_id (%d) unexpected packet \n",
+							reply->tid, reply->target_node_id);
+
+					return -EIO;
+				}
+			}
+
 			return 0;
 		}
 		if (reply->is_aborted) {

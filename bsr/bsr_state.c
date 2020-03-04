@@ -3902,6 +3902,40 @@ change_peer_state(struct bsr_connection *connection, int vnr,
 	return rv;
 }
 
+// DW-2029
+static enum bsr_state_rv
+conn_send_twopc(struct bsr_resource *resource, struct bsr_connection *connection, struct p_twopc_request *request,
+			int vnr, enum bsr_packet cmd, u64 reach_immediately)
+{
+	u64 mask;
+	enum bsr_state_rv rv = SS_SUCCESS;
+
+	clear_bit(TWOPC_PREPARED, &connection->flags);
+
+	if (connection->agreed_pro_version < 110)
+		return rv;
+
+	mask = NODE_MASK(connection->peer_node_id);
+	if (reach_immediately & mask)
+		set_bit(TWOPC_PREPARED, &connection->flags);
+	else
+		return rv;
+
+	clear_bit(TWOPC_YES, &connection->flags);
+	clear_bit(TWOPC_NO, &connection->flags);
+	clear_bit(TWOPC_RETRY, &connection->flags);
+
+	if (!conn_send_twopc_request(connection, vnr, cmd, request)) {
+		rv = SS_CW_SUCCESS;
+	}
+	else {
+		clear_bit(TWOPC_PREPARED, &connection->flags);
+		wake_up(&resource->work.q_wait);
+	}
+	
+	return rv;
+}
+
 static enum bsr_state_rv
 __cluster_wide_request(struct bsr_resource *resource, int vnr, enum bsr_packet cmd,
 		       struct p_twopc_request *request, u64 reach_immediately)
@@ -3909,30 +3943,24 @@ __cluster_wide_request(struct bsr_resource *resource, int vnr, enum bsr_packet c
 	struct bsr_connection *connection;
 	enum bsr_state_rv rv = SS_SUCCESS;
 	u64 im;
+	unsigned int target_node_id = be32_to_cpu(request->target_node_id);
 
-	for_each_connection_ref(connection, im, resource) {
-		u64 mask;
-
-		clear_bit(TWOPC_PREPARED, &connection->flags);
-
-		if (connection->agreed_pro_version < 110)
-			continue;
-		mask = NODE_MASK(connection->peer_node_id);
-		if (reach_immediately & mask)
-			set_bit(TWOPC_PREPARED, &connection->flags);
-		else
-			continue;
-
-		clear_bit(TWOPC_YES, &connection->flags);
-		clear_bit(TWOPC_NO, &connection->flags);
-		clear_bit(TWOPC_RETRY, &connection->flags);
-
-		if (!conn_send_twopc_request(connection, vnr, cmd, request)) {
-			rv = SS_CW_SUCCESS;
-		} else {
-			clear_bit(TWOPC_PREPARED, &connection->flags);
-			wake_up(&resource->work.q_wait);
+	// DW-2029 send a twopc request to target node first
+	if (target_node_id != -1) {
+		connection = bsr_connection_by_node_id(resource, target_node_id);
+		if (connection) {
+			if (SS_SUCCESS != conn_send_twopc(resource, connection, request, vnr, cmd, reach_immediately))
+				rv = SS_CW_SUCCESS;
 		}
+	}
+
+	// send to other nodes
+	for_each_connection_ref(connection, im, resource) {
+		if (target_node_id != -1 && target_node_id == connection->peer_node_id)
+			continue;
+
+		if (SS_SUCCESS != conn_send_twopc(resource, connection, request, vnr, cmd, reach_immediately))
+			rv = SS_CW_SUCCESS;
 	}
 	return rv;
 }
@@ -4128,8 +4156,21 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
 	struct bsr_connection *connection;
 	u64 im;
 
+	unsigned int target_node_id = be32_to_cpu(request->target_node_id);
+	
+	// DW-2029 send a twopc request to target node first
+	if (target_node_id != -1) {
+		connection = bsr_connection_by_node_id(resource, target_node_id);
+		if (connection && (reach_immediately & NODE_MASK(connection->peer_node_id)))
+			conn_send_twopc_request(connection, vnr, twopc_cmd, request);
+	}
+	// send to other nodes
 	for_each_connection_ref(connection, im, resource) {
 		u64 mask = NODE_MASK(connection->peer_node_id);
+
+		if (target_node_id != -1 && target_node_id == connection->peer_node_id)
+			continue;
+
 		if (!(reach_immediately & mask))
 			continue;
 
