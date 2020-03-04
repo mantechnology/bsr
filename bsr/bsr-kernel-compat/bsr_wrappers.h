@@ -561,7 +561,7 @@ static inline void bsr_unregister_blkdev(unsigned int major, const char *name)
 #define bsr_unregister_blkdev unregister_blkdev
 #endif
 
-#if !defined(CRYPTO_ALG_ASYNC)
+#if defined(_WIN) || !defined(CRYPTO_ALG_ASYNC)
 /* With Linux-2.6.19 the crypto API changed! */
 /* This is not a generic backport of the new api, it just implements
    the corner case of "hmac(xxx)".  */
@@ -708,6 +708,27 @@ static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
 #endif
 	return 0;
 }
+
+#ifdef _WIN
+
+#define crypto_ahash crypto_hash
+#define crypto_shash crypto_hash
+
+static inline void crypto_free_ahash(struct crypto_ahash *tfm)
+{
+	crypto_free_hash(tfm);
+}
+
+static inline void crypto_free_shash(struct crypto_shash *tfm)
+{
+	crypto_free_hash(tfm);
+}
+
+static inline unsigned int crypto_ahash_digestsize(struct crypto_ahash *tfm)
+{
+	return crypto_hash_digestsize(tfm);
+}
+#endif
 
 #endif
 
@@ -1524,7 +1545,9 @@ static inline int nla_type(const struct nlattr *nla)
  * NETLINK_MAX_COOKIE_LEN introduced somewhere in the middle of that patchset.
  */
 #ifndef NETLINK_MAX_COOKIE_LEN
+#ifdef _LIN
 #include <net/netlink.h>
+#endif
 #define nla_parse_nested(tb, maxtype, nla, policy, extack) \
        nla_parse_nested(tb, maxtype, nla, policy)
 #endif
@@ -2186,7 +2209,7 @@ bsr_ib_create_cq(struct ib_device *device,
 # define bio_clone_fast(bio, gfp, bio_set) bio_clone(bio, gfp)
 #endif
 
-
+#ifdef _LIN
 #ifndef COMPAT_HAVE_INODE_LOCK
 /* up to kernel 2.6.38 inclusive, there was a
  * linux/writeback.h:extern spinlock_t inode_lock;
@@ -2203,5 +2226,47 @@ static inline void inode_unlock(struct inode *inode)
 	mutex_unlock(&inode->i_mutex);
 }
 #endif
+
+
+#if !(defined(COMPAT_HAVE_AHASH_REQUEST_ON_STACK) && \
+      defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
+      defined COMPAT_HAVE_SHASH_DESC_ZERO)
+#include <crypto/hash.h>
+
+#ifndef COMPAT_HAVE_AHASH_REQUEST_ON_STACK
+#define AHASH_REQUEST_ON_STACK(name, ahash)			   \
+	char __##name##_desc[sizeof(struct ahash_request) +	   \
+		crypto_ahash_reqsize(ahash)] CRYPTO_MINALIGN_ATTR; \
+	struct ahash_request *name = (void *)__##name##_desc
+#endif
+
+#ifndef COMPAT_HAVE_SHASH_DESC_ON_STACK
+#define SHASH_DESC_ON_STACK(shash, ctx)				  \
+	char __##shash##_desc[sizeof(struct shash_desc) +	  \
+		crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
+	struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
+#endif
+
+#ifndef COMPAT_HAVE_SHASH_DESC_ZERO
+#ifndef barrier_data
+#define barrier_data(ptr) barrier()
+#endif
+static inline void ahash_request_zero(struct ahash_request *req)
+{
+	/* memzero_explicit(...) */
+	memset(req, 0, sizeof(*req) + crypto_ahash_reqsize(crypto_ahash_reqtfm(req)));
+	barrier_data(req);
+}
+
+static inline void shash_desc_zero(struct shash_desc *desc)
+{
+	/* memzero_explicit(...) */
+	memset(desc, 0, sizeof(*desc) + crypto_shash_descsize(desc->tfm));
+	barrier_data(desc);
+}
+#endif
+#endif
+#endif // end _LIN
+
 
 #endif

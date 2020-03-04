@@ -31,6 +31,7 @@
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "../bsr-headers/windows/types.h"
 #else // _LIN
+#include <crypto/hash.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/version.h>
@@ -38,7 +39,6 @@
 #include <linux/sched.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
-#include <linux/crypto.h>
 #include <linux/ratelimit.h>
 #include <linux/mutex.h>
 #include <linux/major.h>
@@ -1495,11 +1495,11 @@ struct bsr_connection {
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
 
-	struct crypto_hash *cram_hmac_tfm;
-	struct crypto_hash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
-	struct crypto_hash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
-	struct crypto_hash *csums_tfm;
-	struct crypto_hash *verify_tfm;
+	struct crypto_shash *cram_hmac_tfm;
+	struct crypto_ahash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
+	struct crypto_ahash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
+	struct crypto_ahash *csums_tfm;
+	struct crypto_ahash *verify_tfm;
 	void *int_dig_in;
 	void *int_dig_vv;
 
@@ -2564,9 +2564,9 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
 }
 
 
-extern void bsr_csum_bio(struct crypto_hash *, struct bsr_request *, void *);
+extern void bsr_csum_bio(struct crypto_ahash *, struct bsr_request *, void *);
 
-extern void bsr_csum_pages(struct crypto_hash *, struct bsr_peer_request *, void *);
+extern void bsr_csum_pages(struct crypto_ahash *, struct bsr_peer_request *, void *);
 
 /* worker callbacks */
 extern int w_e_end_data_req(struct bsr_work *, int);
