@@ -326,7 +326,7 @@ void bsr_req_destroy(struct kref *kref)
 						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct bsr_oos_no_req* send_oos = NULL;
 
-						bsr_info(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
+						bsr_info(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
 						if (send_oos) {
