@@ -53,6 +53,7 @@ extern int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
 extern int _bsr_adm_get_status(struct sk_buff *skb, struct genl_info * pinfo);
 
 WORKER_THREAD_ROUTINE NetlinkWorkThread;
+static int netlink_work_thread_cnt = 0;
 /*
 static struct genl_ops bsr_genl_ops[] = {
 { .doit = bsr_adm_new_minor, .flags = 0x01, .cmd = BSR_ADM_NEW_MINOR, .policy = bsr_tla_nl_policy, },
@@ -528,9 +529,9 @@ NetlinkWorkThread(PVOID context)
 	KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
 
 	bsr_debug(NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
-
-	ct_add_thread((int)PsGetCurrentThreadId(), "bsrcmd", FALSE, '25DW');
     
+    netlink_work_thread_cnt++;
+
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
 	if(!pSock) {
 		bsr_err(NO_OBJECT,"Failed to allocate struct socket memory. size(%d)\n", sizeof(struct socket));
@@ -665,9 +666,9 @@ NetlinkWorkThread(PVOID context)
 					errcnt++;
 				}
 				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-					bsr_debug(NO_OBJECT,"bsr netlink cmd(%s:%u) done <-\n", pops->str, cmd);
+					bsr_debug(NO_OBJECT,"bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt-1);
 				} else {
-					bsr_info(NO_OBJECT,"bsr netlink cmd(%s:%u) done <-\n", pops->str, cmd);
+					bsr_info(NO_OBJECT,"bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt-1);
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
@@ -686,8 +687,8 @@ cleanup:
 		CloseSocket(pSock);
 	}
 
-	ct_delete_thread((int)PsGetCurrentThreadId());
-
+    netlink_work_thread_cnt--;
+    
 	//ObDereferenceObject(pNetlinkCtx->NetlinkEThread);
 
 	ExFreeToNPagedLookasideList(&bsr_workitem_mempool, context);
