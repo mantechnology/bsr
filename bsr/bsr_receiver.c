@@ -9767,7 +9767,7 @@ void conn_disconnect(struct bsr_connection *connection)
 		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
 
 		// DW-2026 Initialize resync_again
-		peer_device->resync_again = 0;
+		peer_device->resync_again = false;
 
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 1);
