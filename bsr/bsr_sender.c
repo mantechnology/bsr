@@ -750,8 +750,11 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			int idx = peer_device ? 1 + peer_device->node_id : 0;
-			if (req->rq_state[idx] & RQ_OOS_PENDING)
+			if (req->rq_state[idx] & RQ_OOS_PENDING) {
+				// DW-2058 set out of sync again before sending.
+				bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+			}
 		}
 	}
 #endif
@@ -2704,8 +2707,6 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_disk_state finished_resync_pdsk = D_UNKNOWN;
 	enum bsr_repl_state repl_state;
 	int r;
-	struct bsr_resync_pending_sectors *pending_st, *t1;
-	struct bsr_marked_replicate *marked_rl, *t2;
 
 	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
@@ -2777,6 +2778,21 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		add_timer(&peer_device->start_resync_timer);
 		return;
 	}
+
+	// DW-2058
+#ifdef SPLIT_REQUEST_RESYNC
+	//DW-2042
+	if (peer_device->connection->agreed_pro_version >= 113) {
+		struct bsr_resync_pending_sectors *pending_st, *t;
+		mutex_lock(&device->resync_pending_fo_mutex);
+		list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, t, &(device->resync_pending_sectors), pending_sectors) {
+			list_del(&pending_st->pending_sectors);
+			kfree2(pending_st);
+		}
+		mutex_unlock(&device->resync_pending_fo_mutex);
+	}
+#endif
+
 	lock_all_resources();
 	clear_bit(B_RS_H_DONE, &peer_device->flags);
 	if (connection->cstate[NOW] < C_CONNECTED ||
@@ -2813,14 +2829,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (side == L_SYNC_TARGET) {
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113) {
-			//DW-2042
-			list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, t1, &(device->resync_pending_sectors), pending_sectors) {
-				list_del(&pending_st->pending_sectors);
-				kfree2(pending_st);
-			}
-
+			struct bsr_marked_replicate *marked_rl, *t;
 			// DW-1911
-			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t2, &(device->marked_rl_list), marked_rl_list) {
+			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 				list_del(&marked_rl->marked_rl_list);
 				kfree(marked_rl);
 				marked_rl = NULL;
@@ -3553,6 +3564,22 @@ static int process_one_request(struct bsr_connection *connection)
 				bsr_send_current_state(peer_device);
 			}
 			err = bsr_send_out_of_sync(peer_device, &req->i);
+
+#ifdef SPLIT_REQUEST_RESYNC
+			// DW-2058 if all request(pending out of sync) is sent when the current status is L_ESTABLISHED and out of sync remains, start resync.
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				if (peer_device->repl_state[NOW] == L_ESTABLISHED &&
+					// dec rq_pending_oos_cnt
+					atomic_dec_return(&peer_device->rq_pending_oos_cnt) == 0 &&
+					bsr_bm_total_weight(peer_device)) {
+
+					bsr_info(peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state\n", (unsigned long long)bsr_bm_total_weight(peer_device)); 
+					peer_device->start_resync_side = L_SYNC_SOURCE;
+					peer_device->start_resync_timer.expires = jiffies + HZ;
+					add_timer(&peer_device->start_resync_timer);
+				}
+			}
+#endif
 			what = OOS_HANDED_TO_NETWORK;
 		}
 	} else {
