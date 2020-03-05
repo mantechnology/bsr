@@ -271,6 +271,17 @@ static inline unsigned int queue_discard_zeroes_data(struct request_queue *q)
 #endif
 
 
+static inline int bsr_always_getpeername(struct socket *sock, struct sockaddr *uaddr)
+{
+#ifdef COMPAT_SOCK_OPS_RETURNS_ADDR_LEN
+	return sock->ops->getname(sock, uaddr, 2);
+#else
+	int len = 0;
+	int err = sock->ops->getname(sock, uaddr, &len, 2);
+	return err ?: len;
+#endif
+}
+
 #ifndef COMPAT_HAVE_BDEV_DISCARD_ALIGNMENT
 static inline int bdev_discard_alignment(struct block_device *bdev)
 {
