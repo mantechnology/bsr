@@ -36,6 +36,7 @@
 #include <linux/mm_inline.h>
 #include <linux/slab.h>
 #include <linux/pkt_sched.h>
+#include <uapi/linux/sched/types.h>
 #define __KERNEL_SYSCALLS__
 #include <linux/unistd.h>
 #include <linux/vmalloc.h>
@@ -3996,7 +3997,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 							break;
 					}
 
-					if ((BM_BIT_TO_SECT(s_bb) != ssector || (BM_BIT_TO_SECT(s_bb) == ssector && s_bb == s_bb)) &&
+					if ((BM_BIT_TO_SECT(s_bb) != ssector || (BM_BIT_TO_SECT(s_bb) == ssector)) &&
 						bsr_bm_test_bit(peer_device, s_bb) == 1) {
 						if (!s_marked_rl) {
 							s_marked_rl = kzalloc(sizeof(struct bsr_marked_replicate), GFP_KERNEL, 'E8DW');
@@ -6109,7 +6110,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		if (peer_device->disk_state[NOW] > D_DISKLESS)
 			warn_if_differ_considerably(peer_device, "lower level device sizes",
 					p_size, my_max_size);
-			warn_if_differ_considerably(peer_device, "user requested size",
+		warn_if_differ_considerably(peer_device, "user requested size",
 					    p_usize, my_usize);
 
 		if (is_handshake)
@@ -7296,17 +7297,17 @@ void queued_twopc_timer_fn(BSR_TIMER_FN_ARG)
 
 	struct queued_twopc *q;
 	unsigned long irq_flags;
-	unsigned long t;
+	unsigned long timeo;
 
 	if (resource == NULL)
 		return;
 
-	t = twopc_timeout(resource) / 4;
+	timeo = twopc_timeout(resource) / 4;
 
 	spin_lock_irqsave(&resource->queued_twopc_lock, irq_flags);
 	q = list_first_entry_or_null(&resource->queued_twopc, struct queued_twopc, w.list);
 	if (q) {
-		if (jiffies - q->start_jif >= t){
+		if (jiffies - q->start_jif >= timeo){
 			resource->starting_queued_twopc = q; 
 			list_del(&q->w.list);
 		}
@@ -9760,7 +9761,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 		goto fail;
 	}
 
-	resp_size = crypto_hash_digestsize(connection->cram_hmac_tfm);
+	resp_size = crypto_shash_digestsize(connection->cram_hmac_tfm);
 	response = __conn_prepare_command(connection, resp_size, DATA_STREAM);
 	if (!response) {
 		rv = 0;
@@ -9773,7 +9774,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 		dig_size += sizeof(peers_ch->i);
 	}
 
-	rv = crypto_shash_digest(&desc, &sg, sg.length, response);
+	rv = crypto_shash_digest(desc, peers_ch->d, dig_size, response);
 	if (rv) {
 		bsr_err(connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
@@ -9823,7 +9824,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 		dig_size += sizeof(my_challenge.i);
 	}
 
-	rv = crypto_shash_digest(&desc, &sg, sg.length, right_response);
+	rv = crypto_shash_digest(desc, my_challenge.d, dig_size, right_response);
 	if (rv) {
 		bsr_err(connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
