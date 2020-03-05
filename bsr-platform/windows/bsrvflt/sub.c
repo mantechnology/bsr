@@ -159,7 +159,8 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// DW-1300 get device and get reference.
 		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, FALSE);
 		if (device) {
-			if (get_disk_state2(device) >= D_INCONSISTENT) {
+			// DW-2033 If a disk is removed while attaching, change to diskless. even in negotiating
+			if (get_disk_state2(device) >= D_NEGOTIATING || get_disk_state2(device) == D_ATTACHING) {
 				bsr_chk_io_error(device, 1, BSR_FORCE_DETACH);
 
 				long timeo = 3 * HZ;
@@ -192,6 +193,9 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	FreeUnicodeString(&VolumeExtension->MountPoint);
 	FreeUnicodeString(&VolumeExtension->VolumeGuid);
 	
+	// DW-2033 to avoid potential BSOD in mvolGetVolumeSize()
+	VolumeExtension->TargetDeviceObject = NULL;
+
 	Irp->IoStatus.Status = status;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return status;
