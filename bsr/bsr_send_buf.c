@@ -510,6 +510,8 @@ VOID NTAPI send_buf_thread(PVOID p)
 	LARGE_INTEGER nWaitTime;
 	LARGE_INTEGER *pTime;
 
+	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25DW');
+
 	buffering_attr->quit = FALSE;
 
 	//KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
@@ -550,6 +552,7 @@ done:
 	bsr_info(NO_OBJECT,"send_buf_killack_event!\n");
 	KeSetEvent(&buffering_attr->send_buf_killack_event, 0, FALSE);
 	bsr_info(NO_OBJECT,"sendbuf thread[%p] terminate!!\n",KeGetCurrentThread());
+	ct_delete_thread((int)PsGetCurrentThreadId());
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
 #else // _LIN_SEND_BUF
