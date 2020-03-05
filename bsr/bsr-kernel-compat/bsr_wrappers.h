@@ -2205,9 +2205,47 @@ bsr_ib_create_cq(struct ib_device *device,
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
 #endif
 
+
+#ifndef COMPAT_HAVE_BIOSET_INIT
 #ifndef COMPAT_HAVE_BIO_CLONE_FAST
 # define bio_clone_fast(bio, gfp, bio_set) bio_clone(bio, gfp)
+#else
+# define bio_clone_fast(BIO, GFP, P) bio_clone_fast(BIO, GFP, *P)
 #endif
+
+#define BSR_BIO_SET   bio_set *
+
+#ifdef _LIN
+#define bio_alloc_bioset(GFP, n, P) bio_alloc_bioset(GFP, n, *P)
+static inline void bioset_exit(struct bio_set **bs)
+{
+	if (*bs) {
+		bioset_free(*bs);
+		*bs = NULL;
+	}
+}
+#if defined(COMPAT_HAVE_BIOSET_NEED_BVECS)
+#define bioset_init(BS, S, FP, F) __bioset_init(BS, S, FP, F)
+#else
+#define bioset_init(BS, S, FP, F) __bioset_init(BS, S, FP, 0)
+#endif
+static inline int
+__bioset_init(struct bio_set **bs, unsigned int size, unsigned int front_pad, int flags)
+{
+	*bs = bioset_create(size, front_pad, flags);
+	return *bs == NULL ? -ENOMEM : 0;
+}
+
+static inline bool
+bioset_initialized(struct bio_set **bs)
+{
+	return *bs != NULL;
+}
+#endif
+#else
+#define BSR_BIO_SET   bio_set
+#endif
+
 
 #ifdef _LIN
 #ifndef COMPAT_HAVE_INODE_LOCK

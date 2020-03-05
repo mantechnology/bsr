@@ -2429,10 +2429,10 @@ extern mempool_t *bsr_md_io_page_pool;
 
 /* We also need to make sure we get a bio
  * when we need it for housekeeping purposes */
-extern struct bio_set *bsr_md_io_bio_set;
+extern struct BSR_BIO_SET bsr_md_io_bio_set;
 
 /* And a bio_set for cloning */
-extern struct bio_set *bsr_io_bio_set;
+extern struct BSR_BIO_SET bsr_io_bio_set;
 
 /* to allocate from that set */
 #ifdef _WIN

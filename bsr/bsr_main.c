@@ -207,8 +207,8 @@ struct kmem_cache *bsr_al_ext_cache;	/* activity log extents */
 mempool_t *bsr_request_mempool;
 mempool_t *bsr_ee_mempool;
 mempool_t *bsr_md_io_page_pool;
-struct bio_set *bsr_md_io_bio_set;
-struct bio_set *bsr_io_bio_set;
+struct BSR_BIO_SET bsr_md_io_bio_set;
+struct BSR_BIO_SET bsr_io_bio_set;
 
 /* I do not use a standard mempool, because:
    1) I want to hand out the pre-allocated objects first.
@@ -293,10 +293,10 @@ struct bio *bio_alloc_bsr(gfp_t gfp_mask)
 #else // _LIN
 	struct bio *bio;
 
-	if (!bsr_md_io_bio_set)
+	if (!bioset_initialized(&bsr_md_io_bio_set))
 		return bio_alloc(gfp_mask, 1);
 
-	bio = bio_alloc_bioset(gfp_mask, 1, bsr_md_io_bio_set);
+	bio = bio_alloc_bioset(gfp_mask, 1, &bsr_md_io_bio_set);
 	if (!bio)
 		return NULL;
 #ifdef COMPAT_HAVE_BIO_FREE
@@ -3331,10 +3331,8 @@ static void bsr_destroy_mempools(void)
 	ExDeleteNPagedLookasideList(&bsr_bm_ext_cache);
 	ExDeleteNPagedLookasideList(&bsr_al_ext_cache);
 #else // _LIN
-	if (bsr_io_bio_set)
-		bioset_free(bsr_io_bio_set);
-	if (bsr_md_io_bio_set)
-		bioset_free(bsr_md_io_bio_set);
+	bioset_exit(&bsr_io_bio_set);
+	bioset_exit(&bsr_md_io_bio_set);
 
 	if (bsr_ee_cache)
 		kmem_cache_destroy(bsr_ee_cache);
@@ -3345,8 +3343,6 @@ static void bsr_destroy_mempools(void)
 	if (bsr_al_ext_cache)
 		kmem_cache_destroy(bsr_al_ext_cache);
 
-	bsr_io_bio_set = NULL;
-	bsr_md_io_bio_set = NULL;
 	bsr_md_io_page_pool = NULL;
 	bsr_ee_cache = NULL;
 	bsr_request_cache = NULL;
@@ -3364,12 +3360,11 @@ static int bsr_create_mempools(void)
 	const int number = (BSR_MAX_BIO_SIZE / PAGE_SIZE) * minor_count;
 #ifdef _LIN
 	struct page *page;
-	int i;
+	int i, ret;
 #endif
 
-	bsr_io_bio_set = NULL;
 	bsr_md_io_page_pool = NULL;
-	bsr_md_io_bio_set = NULL;
+	
 #ifdef _WIN
 
 	ExInitializeNPagedLookasideList(&bsr_bm_ext_cache, NULL, NULL,
@@ -3421,12 +3416,12 @@ static int bsr_create_mempools(void)
 	if (bsr_al_ext_cache == NULL)
 		goto Enomem;
 	/* mempools */
-	bsr_io_bio_set = bioset_create(BIO_POOL_SIZE, 0);
-	if (bsr_io_bio_set == NULL)
+	ret = bioset_init(&bsr_io_bio_set, BIO_POOL_SIZE, 0, 0);
+	if (ret)
 		goto Enomem;
 
-	bsr_md_io_bio_set = bioset_create(BSR_MIN_POOL_PAGES, 0);
-	if (bsr_md_io_bio_set == NULL)
+	ret = bioset_init(&bsr_md_io_bio_set, BSR_MIN_POOL_PAGES, 0, BIOSET_NEED_BVECS);
+	if (ret)
 		goto Enomem;
 
 	bsr_request_mempool = mempool_create_slab_pool(number, bsr_request_cache);
