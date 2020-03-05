@@ -990,15 +990,17 @@ int w_send_uuids(struct bsr_work *w, int cancel)
 #ifdef _WIN
 void resync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void resync_timer_fn(unsigned long data)
+void resync_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else // _LIN
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, resync_timer);
+#endif
 
 	if (peer_device == NULL)
 		return;
@@ -2515,15 +2517,17 @@ void bsr_rs_controller_reset(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 void start_resync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void start_resync_timer_fn(unsigned long data)
+void start_resync_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, start_resync_timer);
+#endif
 
 	if (peer_device == NULL)
 		return;
@@ -3015,16 +3019,17 @@ static int do_md_sync(struct bsr_device *device)
 #ifdef _WIN
 void repost_up_to_date_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void repost_up_to_date_fn(unsigned long data)
+void repost_up_to_date_fn(DRBD_TIMER_FN_ARG)
 #endif 
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_resource *resource = (struct bsr_resource *) data;
-
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, repost_up_to_date_timer);
+#endif
 	bsr_post_work(resource, TRY_BECOME_UP_TO_DATE);
 }
 

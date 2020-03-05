@@ -2750,10 +2750,9 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 #ifdef _WIN
 void request_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void request_timer_fn(unsigned long data)
+void request_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
-	struct bsr_device *device = (struct bsr_device *) data;
 	struct bsr_connection *connection;
 	struct bsr_request *req_read, *req_write;
 	
@@ -2761,6 +2760,9 @@ void request_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
+	struct bsr_device *device = (struct bsr_device *) data;
+#else // _LIN
+	struct bsr_device *device = BSR_TIMER_ARG2OBJ(device, request_timer);
 #endif
 	ULONG_PTR oldest_submit_jif;
 	ULONG_PTR dt = 0;

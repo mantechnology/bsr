@@ -2205,6 +2205,19 @@ bsr_ib_create_cq(struct ib_device *device,
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
 #endif
 
+#ifdef COMPAT_HAVE_TIMER_SETUP
+/* starting with v4.16 new timer interface*/
+#define BSR_TIMER_FN_ARG struct timer_list *t
+#define BSR_TIMER_ARG2OBJ(OBJ, MEMBER) from_timer(OBJ, t, MEMBER)
+#define bsr_timer_setup(OBJ, MEMBER, TIMER_FN) timer_setup(&OBJ->MEMBER, TIMER_FN, 0)
+#define BSR_TIMER_CALL_ARG(OBJ, MEMBER) &OBJ->MEMBER
+#else
+/* timer interface before v4.16 */
+#define BSR_TIMER_FN_ARG unsigned long data
+#define BSR_TIMER_ARG2OBJ(OBJ, MEMBER) (typeof(OBJ)) data
+#define bsr_timer_setup(OBJ, MEMBER, TIMER_FN) setup_timer(&OBJ->MEMBER, TIMER_FN, (TIMER_DATA_TYPE)OBJ)
+#define BSR_TIMER_CALL_ARG(OBJ, MEMBER) (unsigned long) OBJ
+#endif
 
 #ifndef COMPAT_HAVE_BIOSET_INIT
 #ifndef COMPAT_HAVE_BIO_CLONE_FAST

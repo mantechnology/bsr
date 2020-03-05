@@ -2550,7 +2550,7 @@ extern struct bsr_peer_device *peer_device_by_node_id(struct bsr_device *, int);
 #ifdef _WIN
 extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 #else  // _LIN
-extern void repost_up_to_date_fn(unsigned long data);
+extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
@@ -2587,8 +2587,8 @@ extern int w_send_uuids(struct bsr_work *, int);
 extern KDEFERRED_ROUTINE resync_timer_fn;
 extern KDEFERRED_ROUTINE start_resync_timer_fn;
 #else // _LIN
-extern void resync_timer_fn(unsigned long data);
-extern void start_resync_timer_fn(unsigned long data);
+extern void resync_timer_fn(BSR_TIMER_FN_ARG);
+extern void start_resync_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 
 extern void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req);
@@ -2681,7 +2681,7 @@ extern void queue_queued_twopc(struct bsr_resource *resource);
 #ifdef _WIN
 extern KDEFERRED_ROUTINE queued_twopc_timer_fn;
 #else // _LIN
-extern void queued_twopc_timer_fn(unsigned long data);
+extern void queued_twopc_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 extern bool bsr_have_local_disk(struct bsr_resource *resource);
 extern enum bsr_state_rv bsr_support_2pc_resize(struct bsr_resource *resource);
@@ -2808,8 +2808,8 @@ void bsr_bump_write_ordering(struct bsr_resource *resource, struct bsr_backing_d
 extern KDEFERRED_ROUTINE twopc_timer_fn;
 extern KDEFERRED_ROUTINE connect_timer_fn;
 #else // _LIN
-extern void twopc_timer_fn(unsigned long);
-extern void connect_timer_fn(unsigned long);
+extern void twopc_timer_fn(BSR_TIMER_FN_ARG);
+extern void connect_timer_fn(BSR_TIMER_FN_ARG);
 
 /* bsr_proc.c */
 extern struct proc_dir_entry *bsr_proc;

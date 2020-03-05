@@ -108,7 +108,7 @@ static KDEFERRED_ROUTINE peer_ack_timer_fn;
 KSTART_ROUTINE bsr_thread_setup;
 extern void nl_policy_init_by_manual(void);
 #else // _LIN
-static void md_sync_timer_fn(unsigned long data);
+static void md_sync_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 static int w_bitmap_io(struct bsr_work *w, int unused);
 static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream bsr_stream);
@@ -3915,15 +3915,19 @@ void bsr_flush_peer_acks(struct bsr_resource *resource)
 #ifdef _WIN
 static void peer_ack_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-static void peer_ack_timer_fn(unsigned long data)
+static void peer_ack_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
+
 	struct bsr_resource *resource = (struct bsr_resource *) data;
+#else // _LIN
+
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, peer_ack_timer);
+#endif
 
 	bsr_flush_peer_acks(resource);
 }
@@ -4053,9 +4057,8 @@ struct bsr_resource *bsr_create_resource(const char *name,
 #endif	
 	
 	INIT_LIST_HEAD(&resource->peer_ack_list);
-	setup_timer(&resource->peer_ack_timer, peer_ack_timer_fn, (TIMER_DATA_TYPE) resource);
-	setup_timer(&resource->repost_up_to_date_timer, repost_up_to_date_fn, (TIMER_DATA_TYPE) resource);
-
+	bsr_timer_setup(resource, peer_ack_timer, peer_ack_timer_fn);
+	bsr_timer_setup(resource, repost_up_to_date_timer, repost_up_to_date_fn);
 	sema_init(&resource->state_sem, 1);
 	resource->role[NOW] = R_SECONDARY;
 	if (set_resource_options(resource, res_opts))
@@ -4074,11 +4077,11 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	init_waitqueue_head(&resource->twopc_wait);
 	init_waitqueue_head(&resource->barrier_wait);
 	INIT_LIST_HEAD(&resource->twopc_parents);
-	setup_timer(&resource->twopc_timer, twopc_timer_fn, (TIMER_DATA_TYPE) resource);
+	bsr_timer_setup(resource, twopc_timer, twopc_timer_fn);
 	INIT_LIST_HEAD(&resource->twopc_work.list);
 	INIT_LIST_HEAD(&resource->queued_twopc);
 	spin_lock_init(&resource->queued_twopc_lock);
-	setup_timer(&resource->queued_twopc_timer, queued_twopc_timer_fn, (TIMER_DATA_TYPE) resource);
+	bsr_timer_setup(resource, queued_twopc_timer, queued_twopc_timer_fn);
 	bsr_init_workqueue(&resource->work);
 	bsr_thread_init(resource, &resource->worker, bsr_worker, "worker");
 	bsr_thread_start(&resource->worker);
@@ -4142,7 +4145,8 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	mutex_init(&connection->mutex[CONTROL_STREAM]);
 
 	INIT_LIST_HEAD(&connection->connect_timer_work.list);
-	setup_timer(&connection->connect_timer, connect_timer_fn, (TIMER_DATA_TYPE) connection);
+	bsr_timer_setup(connection, connect_timer, connect_timer_fn);
+	
 	bsr_thread_init(resource, &connection->receiver, bsr_receiver, "receiver");
 	connection->receiver.connection = connection;
 	bsr_thread_init(resource, &connection->sender, bsr_sender, "sender");
@@ -4335,23 +4339,14 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 		return NULL;
 	}
 
-#ifdef _LIN
-	init_timer(&peer_device->start_resync_timer);
-#endif
-	peer_device->start_resync_timer.function = start_resync_timer_fn;
-    peer_device->start_resync_timer.data = (TIMER_DATA_TYPE) peer_device;
+	bsr_timer_setup(peer_device, start_resync_timer,
+			 start_resync_timer_fn);
 
 	INIT_LIST_HEAD(&peer_device->resync_work.list);
 	peer_device->resync_work.cb  = w_resync_timer;
-#ifdef _LIN
-	init_timer(&peer_device->resync_timer);
-#endif
-	peer_device->resync_timer.function = resync_timer_fn;
-    peer_device->resync_timer.data = (TIMER_DATA_TYPE) peer_device;
+	bsr_timer_setup(peer_device, resync_timer, resync_timer_fn);
 
 #ifdef _WIN
-    init_timer(&peer_device->start_resync_timer);
-    init_timer(&peer_device->resync_timer);
 #ifdef DBG
     memset(peer_device->start_resync_timer.name, 0, Q_NAME_SZ);
 	strncpy(peer_device->start_resync_timer.name, "start_resync_timer", sizeof(peer_device->start_resync_timer.name) - 1);
@@ -4480,18 +4475,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	spin_lock_init(&device->pending_bitmap_work.q_lock);
 	INIT_LIST_HEAD(&device->pending_bitmap_work.q);
 
-#ifdef _LIN
-	init_timer(&device->md_sync_timer);
-	init_timer(&device->request_timer);
-#endif
-	device->md_sync_timer.function = md_sync_timer_fn;
-	device->md_sync_timer.data = (TIMER_DATA_TYPE) device;
-	device->request_timer.function = request_timer_fn;
-	device->request_timer.data = (TIMER_DATA_TYPE) device;
+	bsr_timer_setup(device, md_sync_timer, md_sync_timer_fn);
+	bsr_timer_setup(device, request_timer, request_timer_fn);
 
 #ifdef _WIN
-    init_timer(&device->md_sync_timer);
-    init_timer(&device->request_timer);
 #ifdef DBG
     memset(device->md_sync_timer.name, 0, Q_NAME_SZ);
 	strncpy(device->md_sync_timer.name, "md_sync_timer", sizeof(device->md_sync_timer.name) - 1);
@@ -6816,15 +6803,17 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 #ifdef _WIN
 static void md_sync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-static void md_sync_timer_fn(unsigned long data)
+static void md_sync_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_device *device = (struct bsr_device *) data;
+#else // _LIN
+	struct bsr_device *device = BSR_TIMER_ARG2OBJ(device, md_sync_timer);
+#endif
 	bsr_device_post_work(device, MD_SYNC);
 }
 

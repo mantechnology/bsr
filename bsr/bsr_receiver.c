@@ -734,15 +734,17 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 void connect_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void connect_timer_fn(unsigned long data)
+void connect_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_connection *connection = (struct bsr_connection *) data;
+#else // _LIN
+	struct bsr_connection *connection = BSR_TIMER_ARG2OBJ(connection, connect_timer);
+#endif
 	struct bsr_resource *resource;
 	unsigned long irq_flags;
 
@@ -6979,16 +6981,18 @@ int abort_nested_twopc_work(struct bsr_work *work, int cancel)
 #ifdef _WIN
 void twopc_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void twopc_timer_fn(unsigned long data)
+void twopc_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
+	struct bsr_resource *resource = (struct bsr_resource *) data;
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, twopc_timer);
 #endif
 
-	struct bsr_resource *resource = (struct bsr_resource *) data;
 	unsigned long irq_flags;
 
 	if (resource == NULL)
@@ -7277,16 +7281,19 @@ static int queued_twopc_work(struct bsr_work *w, int cancel)
 #ifdef _WIN
 void queued_twopc_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void queued_twopc_timer_fn(unsigned long data)
+void queued_twopc_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
+	struct bsr_resource *resource = (struct bsr_resource *) data;
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, queued_twopc_timer);
+	
 #endif
 
-	struct bsr_resource *resource = (struct bsr_resource *) data;
 	struct queued_twopc *q;
 	unsigned long irq_flags;
 	unsigned long t;
@@ -9231,7 +9238,7 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 	resync_timer_fn(NULL, (PVOID)peer_device, NULL, NULL);
 #else // _LIN
-	resync_timer_fn((unsigned long)peer_device);
+	resync_timer_fn(BSR_TIMER_CALL_ARG(peer_device, resync_timer));
 #endif 
 	del_timer_sync(&peer_device->start_resync_timer);
 

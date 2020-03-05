@@ -327,7 +327,7 @@ extern void complete_master_bio(struct bsr_device *device,
 #ifdef _WIN
 extern KDEFERRED_ROUTINE request_timer_fn;
 #else // _LIN
-extern void request_timer_fn(unsigned long data);
+extern void request_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 extern void tl_restart(struct bsr_connection *connection, enum bsr_req_event what);
 extern void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what);
