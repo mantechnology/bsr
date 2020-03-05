@@ -2834,7 +2834,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
-	if (op == BSR_REQ_DISCARD) {
+	if (op == REQ_OP_DISCARD) {
 		trim = bsr_prepare_command(peer_device, sizeof(*trim), DATA_STREAM);
 		if (!trim)
 			return -EIO;
@@ -2844,7 +2844,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		if (peer_device->connection->integrity_tfm)
 			digest_size = crypto_ahash_digestsize(peer_device->connection->integrity_tfm);
 
-		if (op == BSR_REQ_WSAME) {
+		if (op == REQ_OP_WRITE_SAME) {
 			wsame = bsr_prepare_command(peer_device, sizeof(*wsame) + digest_size, DATA_STREAM);
 			if (!wsame)
 				return -EIO;
@@ -4550,9 +4550,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	blk_queue_merge_bvec(q, bsr_merge_bvec);
 #endif
 #endif
-	q->queue_lock = &resource->req_lock; /* needed since we use */
 #ifdef blk_queue_plugged
-		/* plugging on a queue, that actually has no requests! */
+	q->queue_lock = &resource->req_lock; /* needed since we use */
+	/* plugging on a queue, that actually has no requests! */
 	q->unplug_fn = bsr_unplug_fn;
 #endif
 

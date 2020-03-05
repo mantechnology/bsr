@@ -517,11 +517,12 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bool is_write = bio_data_dir(bio) == WRITE;
 	bool is_discard = bio_op(bio) == REQ_OP_DISCARD;
 
+	BIO_ENDIO_FN_START;
+	
 	// DW-1961 Save timestamp for IO latency measuremen
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
 		peer_req->io_complete_ts = timestamp();
 
-	BIO_ENDIO_FN_START;
 #ifdef _WIN
 	if (NT_ERROR(error) && bsr_ratelimit())
 #else // _LIN
@@ -3019,7 +3020,7 @@ static int do_md_sync(struct bsr_device *device)
 #ifdef _WIN
 void repost_up_to_date_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void repost_up_to_date_fn(DRBD_TIMER_FN_ARG)
+void repost_up_to_date_fn(BSR_TIMER_FN_ARG)
 #endif 
 {
 #ifdef _WIN

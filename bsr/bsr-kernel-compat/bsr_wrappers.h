@@ -1248,21 +1248,27 @@ enum req_op {
 	* bio_op() aka. op_from_rq_bits() will never return these,
 	* and we map the REQ_OP_* to something stupid.
 	*/
-#ifdef LINBIT_PATCH
-	REQ_OP_DISCARD = BSR_REQ_DISCARD ?: -1,
-	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ?: -2,
-#else
-	REQ_OP_DISCARD = BSR_REQ_DISCARD ? -1 : -1,
-	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ? -1 : -2,
-#endif 
+	REQ_OP_DISCARD = BSR_REQ_DISCARD ? BSR_REQ_DISCARD : -1,
+	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ? BSR_REQ_WSAME : -2,
 
 	/* REQ_OP_SECURE_ERASE: does not matter to us,
 	* I don't see how we could support that anyways. */
 };
 #define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
 
-#ifndef bio_set_op_attrs
+#ifdef _WIN
 extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
+#else // LIN
+static inline void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
+{
+	/* If we explicitly issue discards or write_same, we use
+	* blkdev_isse_discard() and blkdev_issue_write_same() helpers.
+	* If we implicitly submit them, we just pass on a cloned bio to
+	* generic_make_request().  We expect to use bio_set_op_attrs() with
+	* REQ_OP_READ or REQ_OP_WRITE only. */
+	BUG_ON(!(op == REQ_OP_READ || op == REQ_OP_WRITE));
+	bio->bi_rw |= (op | flags);
+}
 #endif
 
 static inline int op_from_rq_bits(u64 flags)
