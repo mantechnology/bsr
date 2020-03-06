@@ -2792,6 +2792,46 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			kfree2(pending_st);
 		}
 		mutex_unlock(&device->resync_pending_fo_mutex);
+
+		// DW - 2050
+		if (side == L_SYNC_TARGET) {
+			//DW-1911
+			struct bsr_marked_replicate *marked_rl, *t;
+			ULONG_PTR offset = 0;
+
+			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
+				list_del(&marked_rl->marked_rl_list);
+				kfree2(marked_rl);
+			}
+#ifdef _WIN
+			device->s_rl_bb = UINT64_MAX;
+#else	// _LIN
+			device->s_rl_bb = -1;
+#endif
+			device->e_rl_bb = 0;
+
+			// DW-1908 set start out of sync bit
+			// DW-2050 fix temporary hang caused by req_lock and bm_lock
+			for (;;) {
+				ULONG_PTR tmp = bsr_bm_range_find_next(peer_device, offset, offset + RANGE_FIND_NEXT_BIT);
+
+				if (tmp < (offset + RANGE_FIND_NEXT_BIT + 1)) {
+					device->e_resync_bb = tmp;
+					break;
+				}
+
+				if (tmp >= bsr_bm_bits(device)) {
+					device->e_resync_bb = BSR_END_OF_BITMAP;
+					break;
+				}
+
+				offset = tmp;
+			}
+
+			//DW-1908
+			device->h_marked_bb = 0;
+			device->h_insync_bb = 0;
+		}
 	}
 #endif
 
@@ -2829,24 +2869,6 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 #endif
 	__change_repl_state_and_auto_cstate(peer_device, side, __FUNCTION__);
 	if (side == L_SYNC_TARGET) {
-#ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			struct bsr_marked_replicate *marked_rl, *t;
-			// DW-1911
-			list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
-				list_del(&marked_rl->marked_rl_list);
-				kfree(marked_rl);
-				marked_rl = NULL;
-			}
-			device->s_rl_bb = UINTPTR_MAX;
-			device->e_rl_bb = 0;
-			// DW-1908 set start out of sync bit
-			device->e_resync_bb = bsr_bm_find_next(peer_device, 0);
-			// DW-1908
-			device->h_marked_bb = 0;
-			device->h_insync_bb = 0;
-		}
-#endif
 		__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
 		init_resync_stable_bits(peer_device);
 	} else /* side == L_SYNC_SOURCE */
