@@ -2891,9 +2891,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	e_next_bb = d->bi_size == 0 ? s_bb : (ULONG_PTR)BM_SECT_TO_BIT(d->sector + (d->bi_size >> 9));
 	e_oos = 0;
 
-	// DW-1904 set e_resync_bb
-	device->e_resync_bb = (e_next_bb - 1);
-
 	if (d->bi_size < BM_BLOCK_SIZE) {
 		bsr_warn(peer_device, "bug FIMXME!! bi_size(%lu) < BM_BLOCK_SIZE\n", (unsigned long)d->bi_size);
 	}
@@ -3876,6 +3873,10 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 	u16 i = 0;
 	u16 offset = 0;
 
+	// DW-2065
+	if (device->e_resync_bb == (ULONG_PTR)atomic_read64(&device->bm_resync_curr))
+		return 0;
+
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(sst);
 	e_bb = (ULONG_PTR)BM_SECT_TO_BIT(est);
 
@@ -3884,7 +3885,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 		e_bb -= 1;
 
 	// DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
-	n_resync_bb = device->e_resync_bb + (ULONG_PTR)BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), BSR_MAX_BIO_SIZE)) >> 9);
+	n_resync_bb = (ULONG_PTR)atomic_read64(&device->bm_resync_curr);
 
 	if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
 		(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {
@@ -9169,6 +9170,11 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 			// DW-2042 resume resync using rs_failed
 			device->bm_resync_fo = bit;
 		}
+
+		// DW-2065
+		if (bit < device->e_resync_bb)
+			device->e_resync_bb = bit;
+
 		break; 
 	default:
 		bsr_info(device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind\n",
