@@ -2302,6 +2302,13 @@ bioset_initialized(struct bio_set **bs)
 
 
 #ifdef _LIN
+#ifdef COMPAT_NEED_D_INODE
+static inline struct inode *d_inode(struct dentry *dentry)
+{
+	return dentry->d_inode;
+}
+#endif
+
 #ifndef COMPAT_HAVE_INODE_LOCK
 /* up to kernel 2.6.38 inclusive, there was a
  * linux/writeback.h:extern spinlock_t inode_lock;
