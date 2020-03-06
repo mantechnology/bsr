@@ -27,9 +27,10 @@ typedef uint64_t	xfs_filblks_t;	/* number of blocks in a file */
 
 typedef int64_t		xfs_srtblock_t;	/* signed version of xfs_rtblock_t */
 
-#ifndef COMPAT_HAVE_UUID_T
+#ifndef UUID_SIZE
+#define UUID_SIZE 16
 typedef struct {
-	__u8 b[16];
+	__u8 b[UUID_SIZE];
 } uuid_t;
 #endif
 

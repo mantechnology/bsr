@@ -81,10 +81,10 @@
 #endif
 
 #ifndef kzalloc
-#define kzalloc(size, flags, tag) kzalloc(size, flags)
+#define kzalloc(size, flags, args...) kzalloc(size, flags)
 #endif
 #ifndef kmalloc
-#define kmalloc(size, flags, tag) kmalloc(size, flags)
+#define kmalloc(size, flags, args...) kmalloc(size, flags)
 #endif
 
 #ifndef rcu_read_lock_check
@@ -270,7 +270,7 @@ static inline unsigned int queue_discard_zeroes_data(struct request_queue *q)
 }
 #endif
 
-
+#ifdef _LIN
 static inline int bsr_always_getpeername(struct socket *sock, struct sockaddr *uaddr)
 {
 #ifdef COMPAT_SOCK_OPS_RETURNS_ADDR_LEN
@@ -281,6 +281,7 @@ static inline int bsr_always_getpeername(struct socket *sock, struct sockaddr *u
 	return err ?: len;
 #endif
 }
+#endif
 
 #ifndef COMPAT_HAVE_BDEV_DISCARD_ALIGNMENT
 static inline int bdev_discard_alignment(struct block_device *bdev)
@@ -1338,17 +1339,31 @@ static inline int op_from_rq_bits(u64 flags)
 #define bio_split(bi, first_sectors) bio_split(bi, bio_split_pool, first_sectors)
 #endif
 
-#ifndef COMPAT_HAVE_BIOSET_CREATE_FRONT_PAD
-/* see comments in compat/tests/have_bioset_create_front_pad.c */
-#ifdef COMPAT_BIOSET_CREATE_HAS_THREE_PARAMETERS
-#define bioset_create(pool_size, front_pad)	bioset_create(pool_size, pool_size, 1)
-#else
-#ifdef _LIN
-#define bioset_create(pool_size, front_pad)	bioset_create(pool_size, 1)
-#endif
-#endif
-#endif
 
+#ifdef _LIN
+/* history of bioset_create():
+ *  v4.13  011067b  blk: replace bioset_create_nobvec() with a flags arg to bioset_create()
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad, int flags)
+ *
+ *  v3.18  d8f429e  block: add bioset_create_nobvec()
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad)
+ *  +struct bio_set *bioset_create_nobvec(unsigned int pool_size, unsigned int front_pad)
+ *
+ *  v3.16  f9c78b2  block: move bio.c and bio-integrity.c from fs/ to block/
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad)
+ *
+ *  --- we don't care for older than 2.3.32 ---
+ */
+#if defined(COMPAT_HAVE_BIOSET_NEED_BVECS)
+/* all good, "modern" kernel before v4.18 */
+#elif defined(COMPAT_HAVE_BIOSET_CREATE_FRONT_PAD)
+# define bioset_create(pool_size, front_pad, flags) bioset_create(pool_size, front_pad)
+#elif defined(COMPAT_HAVE_BIOSET_INIT)
+/* => v4.18*/
+#else
+# error "bsr compat layer broken"
+#endif
+#endif
 
 #if !(defined(COMPAT_HAVE_RB_AUGMENT_FUNCTIONS) && \
       defined(AUGMENTED_RBTREE_SYMBOLS_EXPORTED))
@@ -1901,7 +1916,7 @@ static inline int idr_alloc(struct idr *idr, void *ptr, int start, int end, gfp_
 	return got;
 }
 #endif
-
+#ifdef _LIN
 #ifndef BLKDEV_ISSUE_ZEROOUT_EXPORTED
 /* Was introduced with 2.6.34 */
 extern int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
@@ -1925,7 +1940,7 @@ extern int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 	blkdev_issue_zeroout(BDEV, SS, NS, GFP)
 #endif
 #endif
-
+#endif
 
 #ifndef COMPAT_HAVE_GENL_LOCK
 static inline void genl_lock(void)  { }
@@ -2307,7 +2322,7 @@ static inline void inode_unlock(struct inode *inode)
 
 #if !(defined(COMPAT_HAVE_AHASH_REQUEST_ON_STACK) && \
       defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
-      defined COMPAT_HAVE_SHASH_DESC_ZERO)
+      defined(COMPAT_HAVE_SHASH_DESC_ZERO))
 #include <crypto/hash.h>
 
 #ifndef COMPAT_HAVE_AHASH_REQUEST_ON_STACK
