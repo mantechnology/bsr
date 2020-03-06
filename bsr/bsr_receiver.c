@@ -2831,10 +2831,11 @@ static bool prepare_split_peer_request(struct bsr_peer_device *peer_device, ULON
 	return find_isb;
 }
 
-bool is_set_area_replicate_out_of_sync(struct bsr_device *device, ULONG_PTR s_bb, ULONG_PTR e_next_bb) 
+bool is_out_of_sync_after_replication(struct bsr_device *device, ULONG_PTR s_bb, ULONG_PTR e_next_bb) 
 {
 	// DW-1904 check that the resync data is within the out of sync range of the replication data.
-	if (device->e_rl_bb > device->s_rl_bb) {
+	// DW-2065 modify to incorrect conditions
+	if (device->e_rl_bb >= device->s_rl_bb) {
 		if ((device->s_rl_bb <= s_bb && device->e_rl_bb >= s_bb)) {
 			if (device->e_rl_bb <= (e_next_bb - 1)) {
 				device->e_rl_bb = (s_bb - 1);
@@ -2890,9 +2891,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	e_next_bb = d->bi_size == 0 ? s_bb : (ULONG_PTR)BM_SECT_TO_BIT(d->sector + (d->bi_size >> 9));
 	e_oos = 0;
 
-	// DW-1904 set e_resync_bb
-	device->e_resync_bb = (e_next_bb - 1);
-
 	if (d->bi_size < BM_BLOCK_SIZE) {
 		bsr_warn(peer_device, "bug FIMXME!! bi_size(%lu) < BM_BLOCK_SIZE\n", (unsigned long)d->bi_size);
 	}
@@ -2902,7 +2900,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 	if (peer_device->connection->agreed_pro_version >= 113 &&         
 		// DW-1904 if it is not affected by the replication data, it writes the resync data without check(split request, marked replicate list). 
-		(!list_empty(&device->marked_rl_list) || is_set_area_replicate_out_of_sync(device, s_bb, e_next_bb))) {
+		(!list_empty(&device->marked_rl_list) || is_out_of_sync_after_replication(device, s_bb, e_next_bb))) {
 
 		// DW-1601 
 		//the number of peer_requests in the bitmap area that are released when the bitmap is found in the synchronization data.
@@ -3875,19 +3873,23 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 	u16 i = 0;
 	u16 offset = 0;
 
+	// DW-2065
+	if (device->e_resync_bb == (ULONG_PTR)atomic_read64(&device->bm_resync_curr))
+		return 0;
+
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(sst);
 	e_bb = (ULONG_PTR)BM_SECT_TO_BIT(est);
 
-	//DW-1911 use e_bb instead of e_next_b for replication.
+	// DW-1911 use e_bb instead of e_next_b for replication.
 	if (BM_BIT_TO_SECT(e_bb) == est)
 		e_bb -= 1;
 
-	//DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
-	n_resync_bb = device->e_resync_bb + (ULONG_PTR)BM_SECT_TO_BIT((min((queue_max_hw_sectors(device->rq_queue) << 9), BSR_MAX_BIO_SIZE)) >> 9);
+	// DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
+	n_resync_bb = (ULONG_PTR)atomic_read64(&device->bm_resync_curr);
 
 	if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
 		(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {
-		//DW-1911 check if marked already exists.
+		// DW-1911 check if marked already exists.
 		list_for_each_entry_ex(struct bsr_marked_replicate, marked_rl, &(device->marked_rl_list), marked_rl_list) {
 			if (marked_rl->bb == s_bb)
 				s_marked_rl = marked_rl;
@@ -3898,7 +3900,8 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 				break;
 		}
 
-		if ((BM_BIT_TO_SECT(s_bb) != sst || (BM_BIT_TO_SECT(s_bb) == sst && s_bb == s_bb)) &&
+		// DW-2065 modify to incorrect conditions
+		if ((BM_BIT_TO_SECT(s_bb) != sst || (BM_BIT_TO_SECT(s_bb) == sst && s_bb == e_bb)) &&
 			bsr_bm_test_bit(peer_device, s_bb) == 1) {
 			if (!s_marked_rl) {
 #ifdef _WIN
@@ -3918,7 +3921,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 				}
 			}
 
-			//DW-1911 set the bit to match the sector.
+			// DW-1911 set the bit to match the sector.
 			offset = (u16)(sst - BM_BIT_TO_SECT(s_bb));;
 			for (i = offset; i < (offset + (size >> 9)); i++) {
 				if (BM_SECT_TO_BIT(BM_BIT_TO_SECT(s_bb) + i) != s_bb)
@@ -3929,7 +3932,8 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 				(unsigned long long)s_marked_rl->bb, (unsigned long long)sst, (unsigned long long)BM_BIT_TO_SECT(s_marked_rl->bb), (size >> 9), s_marked_rl->marked_rl, offset);
 		}
 
-		if (s_bb != e_bb && BM_BIT_TO_SECT(BM_SECT_TO_BIT(est)) != (est - 1) &&
+		// DW-2065 modify to incorrect conditions
+		if (s_bb != e_bb && BM_BIT_TO_SECT(BM_SECT_TO_BIT(est)) != est &&
 			bsr_bm_test_bit(peer_device, e_bb) == 1) {
 			if (!e_marked_rl) {
 #ifdef _WIN
@@ -3949,7 +3953,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 				}
 			}
 
-			//DW-1911 set the bit to match the sector.
+			// DW-1911 set the bit to match the sector.
 			for (i = 0; i < (est - BM_BIT_TO_SECT(e_bb)); i++) {
 				e_marked_rl->marked_rl |= 1 << i;
 			}
@@ -3958,9 +3962,9 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 		}
 	}
 
-	//DW-1904
+	// DW-1904 this area is set up to check marked_rl and in sync bit when receiving resync data.
 	if (in_sync) {
-		//DW-1911 marked_rl bit is excluded.
+		// DW-1911 marked_rl bit is excluded.
 		if (s_marked_rl != NULL)
 			s_bb += 1;
 		if (e_marked_rl != NULL)
@@ -9166,6 +9170,11 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 			// DW-2042 resume resync using rs_failed
 			device->bm_resync_fo = bit;
 		}
+
+		// DW-2065
+		if (bit < device->e_resync_bb)
+			device->e_resync_bb = bit;
+
 		break; 
 	default:
 		bsr_info(device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind\n",

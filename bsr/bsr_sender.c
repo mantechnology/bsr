@@ -1323,6 +1323,10 @@ next_sector:
 			device->bm_resync_fo = bit + 1;
 #endif
 
+#ifdef SPLIT_REQUEST_RESYNC
+		// DW-2065
+		atomic_set64(&device->bm_resync_curr, device->bm_resync_fo);
+#endif
 		/* adjust very last sectors, in case we are oddly sized */
 		if (sector + (size>>9) > capacity)
 			size = (unsigned int)(capacity-sector)<<9;
@@ -2827,6 +2831,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 				offset = tmp;
 			}
+
+			// DW-2065
+			atomic_set64(&device->bm_resync_curr, device->e_resync_bb);
 
 			//DW-1908
 			device->h_marked_bb = 0;
