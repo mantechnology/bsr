@@ -126,7 +126,7 @@ static const char * const __error_messages[] = {
 	// DW-839
 	[-SS_CONNECTED_DISKLESS] = "Refusing to be Diskless while Connected",
 	[-SS_LOWER_THAN_OUTDATED_PEER] = "Peer disk state is lower than outdated",
-	[-SS_BARRIER_ACK_PENDING_TIMEOUT] = "Failed to set secondary role due to barrier ack pending timeout(10s). Wait until resync starts or disconnect first to demote forcibly.",
+	[-SS_BARRIER_ACK_PENDING_TIMEOUT] = "Failed to set secondary role due to barrier ack pending timeout(10s). Retry to demote first(drbdadm secondary r0). if demote timeout continues, disconnect and demote forcibly.",
 
 };
 
