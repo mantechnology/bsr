@@ -5643,28 +5643,28 @@ void bsr_propagate_uuids(struct bsr_device *device, u64 nodes)
 void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val, u64 weak_nodes) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	// DW-977
-	struct bsr_peer_device *peer_uuid_sent = peer_device;
+	struct bsr_peer_device *target;
 	u64 dagtag = peer_device->connection->last_dagtag_sector;
 	u64 got_new_bitmap_uuid = 0;
 	bool set_current = true;
 
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 
-	for_each_peer_device(peer_device, device) {
-		if (peer_device->repl_state[NOW] == L_SYNC_TARGET ||
-			peer_device->repl_state[NOW] == L_PAUSED_SYNC_T ||
+	for_each_peer_device(target, device) {
+		if (target->repl_state[NOW] == L_SYNC_TARGET ||
+			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
-			peer_device->repl_state[NOW] == L_BEHIND ||
-			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
-			peer_device->current_uuid = val;
+			target->repl_state[NOW] == L_BEHIND ||
+			target->repl_state[NOW] == L_WF_BITMAP_T) {
+			target->current_uuid = val;
 			set_current = false;
 		}
 	}
 
 	// DW-1340 do not update current uuid if my disk is outdated. the node sent uuid has my current uuid as bitmap uuid, and will start resync as soon as we do handshake.
-	if (device->disk_state[NOW] == D_OUTDATED)
+	if (device->disk_state[NOW] == D_OUTDATED) {
 		set_current = false;
+	}
 
 	if (set_current) {
 
@@ -5674,11 +5674,14 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
 	}
+	else
+		bsr_warn(peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
+
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
 	if(set_current) {
 		// DW-977 Send current uuid as soon as set it to let the node which created uuid update mine.
-		bsr_send_current_uuid(peer_uuid_sent, val, bsr_weak_nodes_device(device));
+		bsr_send_current_uuid(peer_device, val, bsr_weak_nodes_device(device));
 	}
 	bsr_propagate_uuids(device, got_new_bitmap_uuid);
 }
