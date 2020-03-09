@@ -756,7 +756,7 @@ retry:
 					hVolume = NULL;
 				}
 				rtc++;
-				bsr_info(device, "handle retry (%d/%d), minor(%u)\n", rtc, RETRY_MAX_COUNT, minor);
+				bsr_info(device, "handle retry (%d/%d), minor(%u)\n", rtc, RETRY_MAX_COUNT, device->minor);
 				goto retry;
 			}
 			bsr_err(device, "Could not get cluster information\n");
