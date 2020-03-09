@@ -1280,6 +1280,14 @@ ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 			still_to_go = bsr_bm_total_weight(peer_device);
 			rs_is_done = (still_to_go <= peer_device->rs_failed);
 
+#ifdef SPLIT_REQUEST_RESYNC
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2076 resync completion must be done on the only synctarget otherwise retry resync may not proceed.
+				if (rs_is_done && peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+					rs_is_done = false;
+				}
+			}
+#endif
 			if (mode == SET_IN_SYNC) 
 				bsr_advance_rs_marks(peer_device, still_to_go);
 
@@ -1893,8 +1901,8 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 				lc_put(peer_device->resync_lru, &bm_ext->lce);
 			}
 			if (bm_ext->lce.refcnt != 0) {
-				bsr_info(peer_device, "Retrying bsr_rs_del_all() later. "
-				     "refcnt=%u\n", bm_ext->lce.refcnt);
+				bsr_info(peer_device, "Retrying bsr_rs_del_all() later. number=%u, "
+				     "refcnt=%u\n", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
 				put_ldev(device);
 				spin_unlock_irq(&device->al_lock);
 				return -EAGAIN;

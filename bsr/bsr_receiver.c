@@ -2501,7 +2501,7 @@ static int split_request_complete(struct bsr_peer_device* peer_device, struct bs
 	int err = 0;
 
 	// DW-2055 resync data write complete should be set only when synctarget
-	if (is_sync_target(peer_device) || peer_device->repl_state[NOW] == L_BEHIND) {
+	if (is_sync_target(peer_device)) {
 		ULONG_PTR i_bb = 0;
 		for (i_bb = peer_req->s_bb; i_bb < e_next_bb; i_bb++) {
 			if (bsr_bm_test_bit(peer_device, i_bb) == 1) {
@@ -2661,7 +2661,7 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 	is_unmarked = check_unmarked_and_processing(peer_device, peer_req);
 
 	// DW-2055 resync data write complete should be set only when synctarget
-	if (is_sync_target(peer_device) || peer_device->repl_state[NOW] == L_BEHIND) {
+	if (is_sync_target(peer_device)) {
 		if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 			if (!is_unmarked) {
 				// DW-2042
@@ -9144,7 +9144,6 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	sector = be64_to_cpu(p->sector);
 
 	mutex_lock(&device->bm_resync_fo_mutex);
-	bsr_set_out_of_sync(peer_device, sector, be32_to_cpu(p->blksize));
 
 	switch (peer_device->repl_state[NOW]) {
 	case L_WF_SYNC_UUID:
@@ -9170,16 +9169,21 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 			// DW-2042 resume resync using rs_failed
 			device->bm_resync_fo = bit;
 		}
-
+#ifdef SPLIT_REQUEST_RESYNC
 		// DW-2065
 		if (bit < device->e_resync_bb)
 			device->e_resync_bb = bit;
+#endif
 
 		break; 
 	default:
 		bsr_info(device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind\n",
 				bsr_repl_str(peer_device->repl_state[NOW]));
 	}
+
+	// DW-2076  out of sync is set after adding resync pending list.
+	bsr_set_out_of_sync(peer_device, sector, be32_to_cpu(p->blksize));
+
 	mutex_unlock(&device->bm_resync_fo_mutex);
 
 	// MODIFIED_BY_MANTECH DW-1354: new out-of-sync has been set and resync timer has been expired, 
@@ -9793,9 +9797,6 @@ void conn_disconnect(struct bsr_connection *connection)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 
-		// DW-2058
-		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
-
 		// DW-2026 Initialize resync_again
 		peer_device->resync_again = false;
 
@@ -9810,6 +9811,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		
 		peer_device_disconnected(peer_device);
 	
+		// DW-2076
+		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();
 	}
@@ -10658,7 +10662,7 @@ static int got_NegAck(struct bsr_connection *connection, struct packet_info *pi)
 			set_bit(GOT_NEG_ACK, &peer_device->flags);
 
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			bsr_info(connection, "bsr_rs_failed_io sector : %llu, size %d\n", (unsigned long long)sector, size);
+			bsr_debug(connection, "bsr_rs_failed_io sector : %llu, size %d\n", (unsigned long long)sector, size);
 			bsr_rs_failed_io(peer_device, sector, size);
 			if (p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);
