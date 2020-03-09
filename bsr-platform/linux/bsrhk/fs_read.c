@@ -15,9 +15,7 @@ static char * read_superblock(struct file *fd)
 	 *   xfs superblock is starting at the 0 byte, size is 512 bytes	
 	*/
 
-	// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-	// This is temporary read code.
-	ret = vfs_read(fd, super_block, sizeof(super_block), &fd->f_pos);
+	ret = bsr_read(fd, super_block, sizeof(super_block), &fd->f_pos);
 	
 	if (ret < 0 || ret != sizeof(super_block)) {
 		bsr_err(NO_OBJECT, "failed to read super_block (err=%ld)\n", ret);

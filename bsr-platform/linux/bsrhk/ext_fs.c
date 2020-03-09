@@ -176,9 +176,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}
 
 		// read group descriptor
-		// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-		// This is temporary read code.
-		ret = vfs_read(fd, (char *)&group_desc, desc_size, &fd->f_pos);
+		ret = bsr_read(fd, (char *)&group_desc, desc_size, &fd->f_pos);
 		if (ret < 0 || ret != desc_size) {
 			bsr_err(NO_OBJECT, "failed to read group_descriptor (err=%ld)\n", ret);
 			goto fail_and_free;
@@ -219,9 +217,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}
 
 		// read bitmap block
-		// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-		// This is temporary read code.
-		ret = vfs_read(fd, &bitmap_buf->Buffer[bytes_per_block * group_no], read_size, &fd->f_pos);
+		ret = bsr_read(fd, &bitmap_buf->Buffer[bytes_per_block * group_no], read_size, &fd->f_pos);
 		if (ret < 0 || ret != read_size) {
 			bsr_err(NO_OBJECT, "failed to read bitmap_block (err=%ld)\n", ret);
 			goto fail_and_free;
