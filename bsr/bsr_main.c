@@ -1532,21 +1532,13 @@ int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 #endif
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
 
-	if (get_ldev(peer_device->device)) {
-		pdc = rcu_dereference(peer_device->conf);
-		p->resync_rate = cpu_to_be32(pdc->resync_rate);
-		p->c_plan_ahead = cpu_to_be32(pdc->c_plan_ahead);
-		p->c_delay_target = cpu_to_be32(pdc->c_delay_target);
-		p->c_fill_target = cpu_to_be32(pdc->c_fill_target);
-		p->c_max_rate = cpu_to_be32(pdc->c_max_rate);
-		put_ldev(peer_device->device);
-	} else {
-		p->resync_rate = cpu_to_be32(BSR_RESYNC_RATE_DEF);
-		p->c_plan_ahead = cpu_to_be32(BSR_C_PLAN_AHEAD_DEF);
-		p->c_delay_target = cpu_to_be32(BSR_C_DELAY_TARGET_DEF);
-		p->c_fill_target = cpu_to_be32(BSR_C_FILL_TARGET_DEF);
-		p->c_max_rate = cpu_to_be32(BSR_C_MAX_RATE_DEF);
-	}
+	// DW-2023 fix incorrect resync-rate setting
+	pdc = rcu_dereference(peer_device->conf);
+	p->resync_rate = cpu_to_be32(pdc->resync_rate);
+	p->c_plan_ahead = cpu_to_be32(pdc->c_plan_ahead);
+	p->c_delay_target = cpu_to_be32(pdc->c_delay_target);
+	p->c_fill_target = cpu_to_be32(pdc->c_fill_target);
+	p->c_max_rate = cpu_to_be32(pdc->c_max_rate);
 
 	if (apv >= 88)
 		strncpy(p->verify_alg, nc->verify_alg, sizeof(p->verify_alg) - 1);
@@ -2250,9 +2242,17 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		/* paranoia: catch zero runlength.
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
-			bsr_err(peer_device, "unexpected zero runlength while encoding bitmap "
+			bsr_warn(peer_device, "unexpected zero runlength while encoding bitmap "
 			    "t:%u bo:%llu\n", toggle, (unsigned long long)c->bit_offset);
-			return -1;
+			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
+			if (toggle == 0) {
+				update_sync_bits(peer_device, offset, offset, SET_OUT_OF_SYNC, false);
+				continue;
+			}
+			else {
+				bsr_err(peer_device, "unexpected out-of-sync has occurred\n");
+				return -1;
+			}
 		}
 
 		bits = vli_encode_bits(&bs, rl);
@@ -2385,6 +2385,16 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	return -EIO;
 }
 
+void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
+{
+	UNREFERENCED_PARAMETER(device);
+
+	// DW-2037 reconnect if the bitmap cannot be restored.
+	if (err) {
+		bsr_err(peer_device, "syncsource send bitmap failed err(%d)\n", err);
+		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+	}
+}
 
 // DW-1979
 void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
@@ -4363,12 +4373,15 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	INIT_WORK(&peer_device->send_oos_work, bsr_send_out_of_sync_wf);
 	spin_lock_init(&peer_device->send_oos_lock);
 	
+	// DW-2058
+	atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+
 	atomic_set(&peer_device->ap_pending_cnt, 0);
 	atomic_set(&peer_device->unacked_cnt, 0);
 	atomic_set(&peer_device->rs_pending_cnt, 0);
 	atomic_set(&peer_device->wait_for_actlog, 0);
 	atomic_set(&peer_device->rs_sect_in, 0);
-	atomic_set(&peer_device->wait_for_recv_bitmap, 0);
+	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
 
 	peer_device->bitmap_index = -1;
@@ -4459,11 +4472,17 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);
 #ifdef SPLIT_REQUEST_RESYNC
+	mutex_init(&device->resync_pending_fo_mutex);
 	// DW-1901
 	INIT_LIST_HEAD(&device->marked_rl_list);
+	//DW-2042
+	INIT_LIST_HEAD(&device->resync_pending_sectors);
+	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
 	device->e_resync_bb = 0;
+
+	atomic_set64(&device->bm_resync_curr, 0);
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);
@@ -5525,7 +5544,7 @@ u64 bsr_weak_nodes_device(struct bsr_device *device)
 }
 
 
-static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send) __must_hold(local)
+static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, const char* caller) __must_hold(local)
 {
 	struct bsr_peer_device *peer_device;
 	u64 got_new_bitmap_uuid, weak_nodes, val;
@@ -5544,7 +5563,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	__bsr_uuid_set_current(device, val);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
-	bsr_info(device, "new current UUID: %016llX weak: %016llX\n",
+	bsr_info(device, "%s, new current UUID: %016llX weak: %016llX\n", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
 	/* get it to stable storage _now_ */
@@ -5566,10 +5585,10 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
  * the bitmap slot. Causes an incremental resync upon next connect.
  * The caller must hold adm_mutex or conf_update
  */
-void bsr_uuid_new_current(struct bsr_device *device, bool forced)
+void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* caller)
 {
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
-		__bsr_uuid_new_current(device, forced, true);
+		__bsr_uuid_new_current(device, forced, true, caller);
 		put_ldev(device);
 	} else {
 		struct bsr_peer_device *peer_device;
@@ -5578,7 +5597,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced)
 		get_random_bytes(&current_uuid, sizeof(u64));
 		current_uuid &= ~UUID_PRIMARY;
 		bsr_set_exposed_data_uuid(device, current_uuid);
-		bsr_info(device, "sending new current UUID: %016llX\n", current_uuid);
+		bsr_info(device, "%s, sending new current UUID: %016llX\n", caller, current_uuid);
 
 		weak_nodes = bsr_weak_nodes_device(device);
 		for_each_peer_device(peer_device, device) {
@@ -5591,7 +5610,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced)
 void bsr_uuid_new_current_by_user(struct bsr_device *device)
 {
 	if (get_ldev(device)) {
-		__bsr_uuid_new_current(device, false, false);
+		__bsr_uuid_new_current(device, false, false, __FUNCTION__);
 		put_ldev(device);
 	}
 }
@@ -5618,28 +5637,28 @@ void bsr_propagate_uuids(struct bsr_device *device, u64 nodes)
 void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val, u64 weak_nodes) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	// DW-977
-	struct bsr_peer_device *peer_uuid_sent = peer_device;
+	struct bsr_peer_device *target;
 	u64 dagtag = peer_device->connection->last_dagtag_sector;
 	u64 got_new_bitmap_uuid = 0;
 	bool set_current = true;
 
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 
-	for_each_peer_device(peer_device, device) {
-		if (peer_device->repl_state[NOW] == L_SYNC_TARGET ||
-			peer_device->repl_state[NOW] == L_PAUSED_SYNC_T ||
+	for_each_peer_device(target, device) {
+		if (target->repl_state[NOW] == L_SYNC_TARGET ||
+			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
-			peer_device->repl_state[NOW] == L_BEHIND ||
-			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
-			peer_device->current_uuid = val;
+			target->repl_state[NOW] == L_BEHIND ||
+			target->repl_state[NOW] == L_WF_BITMAP_T) {
+			target->current_uuid = val;
 			set_current = false;
 		}
 	}
 
 	// DW-1340 do not update current uuid if my disk is outdated. the node sent uuid has my current uuid as bitmap uuid, and will start resync as soon as we do handshake.
-	if (device->disk_state[NOW] == D_OUTDATED)
+	if (device->disk_state[NOW] == D_OUTDATED) {
 		set_current = false;
+	}
 
 	if (set_current) {
 
@@ -5649,11 +5668,14 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
 	}
+	else
+		bsr_warn(peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
+
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
 	if(set_current) {
 		// DW-977 Send current uuid as soon as set it to let the node which created uuid update mine.
-		bsr_send_current_uuid(peer_uuid_sent, val, bsr_weak_nodes_device(device));
+		bsr_send_current_uuid(peer_device, val, bsr_weak_nodes_device(device));
 	}
 	bsr_propagate_uuids(device, got_new_bitmap_uuid);
 }
@@ -6561,7 +6583,9 @@ static int w_bitmap_io(struct bsr_work *w, int unused)
 			bsr_bm_slot_lock(work->peer_device, work->why, work->flags);
 		else
 			bsr_bm_lock(device, work->why, work->flags);
+
 		rv = work->io_fn(device, work->peer_device);
+		
 		if (work->flags & BM_LOCK_SINGLE_SLOT)
 			bsr_bm_slot_unlock(work->peer_device);
 		else

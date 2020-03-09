@@ -326,7 +326,7 @@ void bsr_req_destroy(struct kref *kref)
 						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct bsr_oos_no_req* send_oos = NULL;
 
-						bsr_debug(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", req->i.sector, req->i.size);
+						bsr_info(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
 						if (send_oos) {
@@ -905,6 +905,13 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		BUG_ON(clear);
 	}
 
+	// DW-2042 When setting RQ_OOS_NET_QUEUED, RQ_OOS_PENDING shall be set.
+#ifdef SPLIT_REQUEST_RESYNC
+	if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
+		return;
+	}
+#endif
+
 	if (bsr_suspended(req->device) && !((old_local | clear_local) & RQ_COMPLETION_SUSP))
 		set_local |= RQ_COMPLETION_SUSP;
 
@@ -927,6 +934,12 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		atomic_inc(&req->completion_ref);
 
 	if (!(old_net & RQ_NET_PENDING) && (set & RQ_NET_PENDING)) {
+		// DW-2058 inc rq_pending_oos_cnt
+#ifdef SPLIT_REQUEST_RESYNC
+		if ((peer_device->connection->agreed_pro_version >= 113) && (set & RQ_OOS_PENDING)) {
+			atomic_inc(&peer_device->rq_pending_oos_cnt);
+		}
+#endif
 		inc_ap_pending(peer_device);
 		atomic_inc(&req->completion_ref);
 	}
@@ -1013,6 +1026,14 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	}
 
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
+#ifdef SPLIT_REQUEST_RESYNC
+		if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2076 
+				atomic_dec(&peer_device->rq_pending_oos_cnt);
+			}
+		}
+#endif
 		if (old_net & RQ_NET_SENT) {
 			if (atomic_sub_return64(req->i.size, &peer_device->connection->ap_in_flight) < 0)
 				atomic_set64(&peer_device->connection->ap_in_flight, 0);
@@ -1267,8 +1288,18 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			start_new_tl_epoch(device->resource);
 		break;
 
+#ifdef SPLIT_REQUEST_RESYNC
+	case QUEUE_FOR_PENDING_OOS:
+		mod_rq_state(req, m, peer_device, 0, RQ_OOS_PENDING|RQ_NET_PENDING);
+		break;
+#endif
+
 	case QUEUE_FOR_SEND_OOS:
+#ifdef SPLIT_REQUEST_RESYNC
+		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED | RQ_NET_QUEUED);
+#else
 		mod_rq_state(req, m, peer_device, 0, RQ_NET_QUEUED);
+#endif
 		break;
 
 	case READ_RETRY_REMOTE_CANCELED:
@@ -1661,7 +1692,9 @@ bool bsr_should_do_remote(struct bsr_peer_device *peer_device, enum which_state 
 
 static bool bsr_should_send_out_of_sync(struct bsr_peer_device *peer_device)
 {
-	return peer_device->repl_state[NOW] == L_AHEAD || peer_device->repl_state[NOW] == L_WF_BITMAP_S;
+	return peer_device->repl_state[NOW] == L_AHEAD;
+	// DW-2058 modify DW-1979 to remove the L_WF_BITMAPS_S condition
+	// || peer_device->repl_state[NOW] == L_WF_BITMAP_S;
 	/* pdsk = D_INCONSISTENT as a consequence. Protocol 96 check not necessary
 	   since we enter state L_AHEAD only if proto >= 96 */
 }
@@ -1761,8 +1794,17 @@ static int bsr_process_write_request(struct bsr_request *req)
 				in_tree = true;
 			}
 			_req_mod(req, QUEUE_FOR_NET_WRITE, peer_device);
-		} else if (bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size))
-			_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+		}
+		else if (bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size)) {
+#ifdef SPLIT_REQUEST_RESYNC
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2042 set QUEUE_FOR_SEND_OOS after completion of writing and send QUEUE_FOR_PENDING_OOS. For transmission, QUEUE_FOR_PENDING_OOS must be set before setting QUEUE_FOR_SEND_OOS.
+				_req_mod(req, QUEUE_FOR_PENDING_OOS, peer_device);
+			}
+			else
+#endif
+				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+		}
 
 	}
 
@@ -2387,7 +2429,7 @@ static void ensure_current_uuid(struct bsr_device *device)
 		if (device->disk_state[NOW] != D_FAILED) {
 			struct bsr_resource *resource = device->resource;
 			mutex_lock(&resource->conf_update);
-			bsr_uuid_new_current(device, false);
+			bsr_uuid_new_current(device, false, __FUNCTION__);
 			mutex_unlock(&resource->conf_update);
 		}
 	}

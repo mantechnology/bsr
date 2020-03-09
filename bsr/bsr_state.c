@@ -3080,7 +3080,7 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			struct bsr_device *device = peer_device->device;
 			if (test_and_clear_bit(NEW_CUR_UUID, &device->flags))
-				bsr_uuid_new_current(device, false);
+				bsr_uuid_new_current(device, false, __FUNCTION__);
 		}
 		mutex_unlock(&resource->conf_update);
 		begin_state_change(resource, &irq_flags, CS_VERBOSE);
@@ -3351,25 +3351,27 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-1447 If the SEND_BITMAP_WORK_PENDING flag is set, also check the peer's repl_state. if L_WF_BITMAP_T, queuing send_bitmap().
 			if (test_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags)) {
-				if (repl_state[NEW] == L_WF_BITMAP_S && peer_device->repl_state[NOW] == L_WF_BITMAP_S &&
-					peer_device->last_repl_state == L_WF_BITMAP_T)
-				{
+				if (repl_state[NEW] == L_WF_BITMAP_S && 
+					((peer_device->repl_state[NOW] == L_WF_BITMAP_S && peer_device->last_repl_state == L_WF_BITMAP_T) ||
+					// DW-2064 send bitmap when L_AHEAD is in state and wait_for_recv_bitmap is set
+					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) {
 					send_bitmap = true;
 					clear_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags);
-				} 
+				}
 				else if (repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_WF_BITMAP_S) {
 					clear_bit(SEND_BITMAP_WORK_PENDING, &peer_device->flags);
 				}
 			}
-			else if (repl_state[OLD] != L_WF_BITMAP_S &&
-				repl_state[NEW] == L_WF_BITMAP_S && peer_device->repl_state[NOW] == L_WF_BITMAP_S)
-			{
+			else if (repl_state[OLD] != L_WF_BITMAP_S && repl_state[NEW] == L_WF_BITMAP_S &&
+					((peer_device->repl_state[NOW] == L_WF_BITMAP_S) ||
+					// DW-2064 send bitmap when L_AHEAD is in state and wait_for_recv_bitmap is set
+					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) {
 				send_bitmap = true;
 			}
 
 			// DW-1447
 			if (send_bitmap) {
-				bsr_queue_bitmap_io(device, &bsr_send_bitmap, NULL,
+				bsr_queue_bitmap_io(device, &bsr_send_bitmap, &bsr_send_bitmap_source_complete,
 						"send_bitmap (WFBitMapS)",
 						BM_LOCK_SET | BM_LOCK_CLEAR | BM_LOCK_BULK | BM_LOCK_SINGLE_SLOT | BM_LOCK_POINTLESS,
 						peer_device);
@@ -3611,7 +3613,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				/* When a peer disk goes from D_UP_TO_DATE to D_FAILED or D_INCONSISTENT
 				   we know that a write failed on that node. Therefore we need to create
 				   the new UUID right now (not wait for the next write to come in) */
-				bsr_uuid_new_current(device, false);
+				bsr_uuid_new_current(device, false, __FUNCTION__);
 			}
 
 
@@ -3902,6 +3904,40 @@ change_peer_state(struct bsr_connection *connection, int vnr,
 	return rv;
 }
 
+// DW-2029
+static enum bsr_state_rv
+conn_send_twopc(struct bsr_resource *resource, struct bsr_connection *connection, struct p_twopc_request *request,
+			int vnr, enum bsr_packet cmd, u64 reach_immediately)
+{
+	u64 mask;
+	enum bsr_state_rv rv = SS_SUCCESS;
+
+	clear_bit(TWOPC_PREPARED, &connection->flags);
+
+	if (connection->agreed_pro_version < 110)
+		return rv;
+
+	mask = NODE_MASK(connection->peer_node_id);
+	if (reach_immediately & mask)
+		set_bit(TWOPC_PREPARED, &connection->flags);
+	else
+		return rv;
+
+	clear_bit(TWOPC_YES, &connection->flags);
+	clear_bit(TWOPC_NO, &connection->flags);
+	clear_bit(TWOPC_RETRY, &connection->flags);
+
+	if (!conn_send_twopc_request(connection, vnr, cmd, request)) {
+		rv = SS_CW_SUCCESS;
+	}
+	else {
+		clear_bit(TWOPC_PREPARED, &connection->flags);
+		wake_up(&resource->work.q_wait);
+	}
+	
+	return rv;
+}
+
 static enum bsr_state_rv
 __cluster_wide_request(struct bsr_resource *resource, int vnr, enum bsr_packet cmd,
 		       struct p_twopc_request *request, u64 reach_immediately)
@@ -3909,30 +3945,24 @@ __cluster_wide_request(struct bsr_resource *resource, int vnr, enum bsr_packet c
 	struct bsr_connection *connection;
 	enum bsr_state_rv rv = SS_SUCCESS;
 	u64 im;
+	unsigned int target_node_id = be32_to_cpu(request->target_node_id);
 
-	for_each_connection_ref(connection, im, resource) {
-		u64 mask;
-
-		clear_bit(TWOPC_PREPARED, &connection->flags);
-
-		if (connection->agreed_pro_version < 110)
-			continue;
-		mask = NODE_MASK(connection->peer_node_id);
-		if (reach_immediately & mask)
-			set_bit(TWOPC_PREPARED, &connection->flags);
-		else
-			continue;
-
-		clear_bit(TWOPC_YES, &connection->flags);
-		clear_bit(TWOPC_NO, &connection->flags);
-		clear_bit(TWOPC_RETRY, &connection->flags);
-
-		if (!conn_send_twopc_request(connection, vnr, cmd, request)) {
-			rv = SS_CW_SUCCESS;
-		} else {
-			clear_bit(TWOPC_PREPARED, &connection->flags);
-			wake_up(&resource->work.q_wait);
+	// DW-2029 send a twopc request to target node first
+	if (target_node_id != -1) {
+		connection = bsr_connection_by_node_id(resource, target_node_id);
+		if (connection) {
+			if (SS_SUCCESS != conn_send_twopc(resource, connection, request, vnr, cmd, reach_immediately))
+				rv = SS_CW_SUCCESS;
 		}
+	}
+
+	// send to other nodes
+	for_each_connection_ref(connection, im, resource) {
+		if (target_node_id != -1 && target_node_id == connection->peer_node_id)
+			continue;
+
+		if (SS_SUCCESS != conn_send_twopc(resource, connection, request, vnr, cmd, reach_immediately))
+			rv = SS_CW_SUCCESS;
 	}
 	return rv;
 }
@@ -4128,8 +4158,21 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
 	struct bsr_connection *connection;
 	u64 im;
 
+	unsigned int target_node_id = be32_to_cpu(request->target_node_id);
+	
+	// DW-2029 send a twopc request to target node first
+	if (target_node_id != -1) {
+		connection = bsr_connection_by_node_id(resource, target_node_id);
+		if (connection && (reach_immediately & NODE_MASK(connection->peer_node_id)))
+			conn_send_twopc_request(connection, vnr, twopc_cmd, request);
+	}
+	// send to other nodes
 	for_each_connection_ref(connection, im, resource) {
 		u64 mask = NODE_MASK(connection->peer_node_id);
+
+		if (target_node_id != -1 && target_node_id == connection->peer_node_id)
+			continue;
+
 		if (!(reach_immediately & mask))
 			continue;
 

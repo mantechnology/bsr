@@ -1254,8 +1254,8 @@ enum {
 	RECONNECT,
 	CONN_DISCARD_MY_DATA,
 	SEND_STATE_AFTER_AHEAD_C,
-	// DW-1874
-	FORCE_DISCONNECT,
+	// DW-2035 set only when command down is in role secondary
+	DISCONN_NO_WAIT_RESYNC,
 };
 
 /* flag bits per resource */
@@ -1678,7 +1678,7 @@ struct bsr_peer_device {
 	/* resync extent number waiting for application requests */
 	unsigned int resync_wenr;
 	enum bsr_disk_state resync_finished_pdsk; /* Finished while starting resync */
-	int resync_again; /* decided to resync again while resync running */
+	bool resync_again; /* decided to resync again while resync running */
 
 	atomic_t ap_pending_cnt; /* AP data packets on the wire, ack expected */
 	atomic_t unacked_cnt;	 /* Need to send replies for */
@@ -1690,6 +1690,9 @@ struct bsr_peer_device {
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
+
+	// DW-2058 number of incomplete write requests to send out of sync
+	atomic_t rq_pending_oos_cnt;
 
 	/* use checksums for *this* resync */
 	bool use_csums;
@@ -1773,6 +1776,13 @@ struct bsr_marked_replicate {
 	u16 end_unmarked_rl;
 };
 
+// DW-2042
+struct bsr_resync_pending_sectors {
+	sector_t sst;	/* start sector number */
+	sector_t est;	/* end sector number */
+	struct list_head pending_sectors;
+};
+
 struct submit_worker {
 	struct workqueue_struct *wq;
 	struct work_struct worker;
@@ -1850,6 +1860,11 @@ struct bsr_device {
 	ULONG_PTR bm_resync_fo; /* bit offset for bsr_bm_find_next */
 	struct mutex bm_resync_fo_mutex;
 #ifdef SPLIT_REQUEST_RESYNC
+	// DW-2042
+	struct list_head resync_pending_sectors;
+	// DW-2058 mutex for resync pending list
+	struct mutex resync_pending_fo_mutex;
+
 	// DW-1911 marked replication list, used for resync
 	//does not use lock because it guarantees synchronization for the use of marked_rl_list.
 	//Use lock if you cannot guarantee future marked_rl_list synchronization
@@ -1866,6 +1881,9 @@ struct bsr_device {
 	// DW-1911 hit resync in progress hit marked replicate,in sync count
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
+
+	// DW-2065
+	atomic_t64 bm_resync_curr;
 #endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which
@@ -2066,6 +2084,9 @@ extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 extern void *bsr_prepare_drequest_csum(struct bsr_peer_request *peer_req, int digest_size);
 extern int bsr_send_ov_request(struct bsr_peer_device *, sector_t sector, int size);
 
+// DW-2037
+extern void bsr_send_bitmap_source_complete(struct bsr_device *, struct bsr_peer_device *, int);
+
 // DW-1979
 extern void bsr_send_bitmap_target_complete(struct bsr_device *, struct bsr_peer_device *, int);
 extern int bsr_send_bitmap(struct bsr_device *, struct bsr_peer_device *);
@@ -2096,7 +2117,7 @@ extern void bsr_uuid_received_new_current(struct bsr_peer_device *, u64 , u64) _
 extern void bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
 extern void _bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
 extern void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local);
-extern void bsr_uuid_new_current(struct bsr_device *device, bool forced);
+extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* caller);
 extern void bsr_uuid_new_current_by_user(struct bsr_device *device);
 extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val) __must_hold(local);
 extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device) __must_hold(local);
@@ -2844,13 +2865,13 @@ extern ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 	ULONG_PTR sbnr, ULONG_PTR ebnr, update_sync_bits_mode mode, bool locked);
 
 extern ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector, int size,
-		update_sync_bits_mode mode);
+		update_sync_bits_mode mode, const char* caller);
 #define bsr_set_in_sync(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, SET_IN_SYNC)
+	__bsr_change_sync(peer_device, sector, size, SET_IN_SYNC, __FUNCTION__)
 #define bsr_set_out_of_sync(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, SET_OUT_OF_SYNC)
+	__bsr_change_sync(peer_device, sector, size, SET_OUT_OF_SYNC, __FUNCTION__)
 #define bsr_rs_failed_io(peer_device, sector, size) \
-	__bsr_change_sync(peer_device, sector, size, RECORD_RS_FAILED)
+	__bsr_change_sync(peer_device, sector, size, RECORD_RS_FAILED, __FUNCTION__)
 
 extern void bsr_al_shrink(struct bsr_device *device);
 extern bool bsr_sector_has_priority(struct bsr_peer_device *, sector_t);
@@ -2977,7 +2998,8 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		 */
 		if (df == BSR_FORCE_DETACH)
 			set_bit(FORCE_DETACH, &device->flags);
-		if (device->disk_state[NOW] > D_FAILED) {
+		// DW-2033 Change to Failed even at Attaching
+		if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
@@ -2991,7 +3013,8 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		if (df == BSR_FORCE_DETACH)
 			set_bit(FORCE_DETACH, &device->flags);
 		if (df == BSR_META_IO_ERROR || df == BSR_FORCE_DETACH) {
-			if (device->disk_state[NOW] > D_FAILED) {
+			// DW-2033 Change to Failed even at Attaching
+			if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_FAILED, __FUNCTION__);
 				end_state_change_locked(device->resource, false, __FUNCTION__);
