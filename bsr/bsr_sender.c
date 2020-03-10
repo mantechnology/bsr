@@ -139,7 +139,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if (error) {
 #endif
 		// DW-1755 DW-1966
-		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_META, error);
+		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_opf & WRITE), device, VOLUME_TYPE_META, error);
 	}
 
 #ifdef _WIN
@@ -521,11 +521,12 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bool is_write = bio_data_dir(bio) == WRITE;
 	bool is_discard = bio_op(bio) == REQ_OP_DISCARD;
 
+	BIO_ENDIO_FN_START;
+	
 	// DW-1961 Save timestamp for IO latency measuremen
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
 		peer_req->io_complete_ts = timestamp();
 
-	BIO_ENDIO_FN_START;
 #ifdef _WIN
 	if (NT_ERROR(error) && bsr_ratelimit())
 #else // _LIN
@@ -713,7 +714,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		}
 
 		// DW-1755 DW-1966
-		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_rw & WRITE), device, VOLUME_TYPE_REPL, error);
+		process_io_error(BSR_BIO_BI_SECTOR(bio), BSR_BIO_BI_SIZE(bio), (bio->bi_opf & WRITE), device, VOLUME_TYPE_REPL, error);
 	}
 	else {
 		what = COMPLETED_OK;
@@ -774,68 +775,73 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_RETURN;
 }
 
-void bsr_csum_pages(struct crypto_hash *tfm, struct bsr_peer_request *peer_req, void *digest)
+void bsr_csum_pages(struct crypto_ahash *tfm, struct bsr_peer_request *peer_req, void *digest)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
 	*(uint32_t *)digest = crc32c(0, peer_req->peer_req_databuf, peer_req->i.size);
 #else // _LIN 
-	// TODO it is different from 9.0.6
-	struct hash_desc desc;
+	AHASH_REQUEST_ON_STACK(req, tfm);
 	struct scatterlist sg;
 	struct page *page = peer_req->page_chain.head;
 
-	desc.tfm = tfm;
-	desc.flags = 0;
+	ahash_request_set_tfm(req, tfm);
+	ahash_request_set_callback(req, 0, NULL, NULL);
 
 	sg_init_table(&sg, 1);
-	crypto_hash_init(&desc);
+	crypto_ahash_init(req);
 
 	page_chain_for_each(page) {
 		unsigned off = page_chain_offset(page);
 		unsigned len = page_chain_size(page);
 		sg_set_page(&sg, page, len, off);
-		crypto_hash_update(&desc, &sg, sg.length);
+		ahash_request_set_crypt(req, &sg, NULL, sg.length);
+		crypto_ahash_update(req);
 	}
-	crypto_hash_final(&desc, digest);
+	ahash_request_set_crypt(req, NULL, digest, 0);
+	crypto_ahash_final(req);
+	ahash_request_zero(req);
 
 #endif
 }
 
 
-void bsr_csum_bio(struct crypto_hash *tfm, struct bsr_request *req, void *digest)
+void bsr_csum_bio(struct crypto_ahash *tfm, struct bsr_request *request, void *digest)
 {
-	struct hash_desc desc;
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
+	struct hash_desc desc;
 #else // _LIN
 	BSR_BIO_VEC_TYPE bvec;
 	BSR_ITER_TYPE iter;
 	struct scatterlist sg;
-	struct bio *bio = req->master_bio;
+	AHASH_REQUEST_ON_STACK(req, tfm);
+	struct bio *bio = request->master_bio;
 #endif
 
 #ifdef _WIN 
-	if (req->req_databuf)
-		crypto_hash_update(&desc, (struct scatterlist *)req->req_databuf, req->i.size);
+	if (request->req_databuf)
+		crypto_hash_update(&desc, (struct scatterlist *)request->req_databuf, request->i.size);
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
-	// TODO it is different from 9.0.6
-	desc.tfm = tfm;
-	desc.flags = 0;
+	ahash_request_set_tfm(req, tfm);
+	ahash_request_set_callback(req, 0, NULL, NULL);
 
 	sg_init_table(&sg, 1);
-	crypto_hash_init(&desc);
+	crypto_ahash_init(req);
 
 	bio_for_each_segment(bvec, bio, iter) {
 		sg_set_page(&sg, bvec BVD bv_page, bvec BVD bv_len, bvec BVD bv_offset);
-		crypto_hash_update(&desc, &sg, sg.length);
+		ahash_request_set_crypt(req, &sg, NULL, sg.length);
+		crypto_ahash_update(req);
 		/* WRITE_SAME has only one segment,
 		 * checksum the payload only once. */
 		if (bio_op(bio) == REQ_OP_WRITE_SAME)
 			break;
 	}
-	crypto_hash_final(&desc, digest);
+	ahash_request_set_crypt(req, NULL, digest, 0);
+	crypto_ahash_final(req);
+	ahash_request_zero(req);
 #endif
 }
 
@@ -862,7 +868,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 			goto out;
 	}
 
-	digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
+	digest_size = crypto_ahash_digestsize(peer_device->connection->csums_tfm);
 	digest = bsr_prepare_drequest_csum(peer_req, digest_size);
 	if (digest) {
 		bsr_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
@@ -1006,15 +1012,17 @@ int w_send_uuids(struct bsr_work *w, int cancel)
 #ifdef _WIN
 void resync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void resync_timer_fn(unsigned long data)
+void resync_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else // _LIN
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, resync_timer);
+#endif
 
 	if (peer_device == NULL)
 		return;
@@ -2089,7 +2097,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 		 * a real fix would be much more involved,
 		 * introducing more locking mechanisms */
 		if (peer_device->connection->csums_tfm) {
-			digest_size = crypto_hash_digestsize(peer_device->connection->csums_tfm);
+			digest_size = crypto_ahash_digestsize(peer_device->connection->csums_tfm);
 			D_ASSERT(device, digest_size == di->digest_size);
 
 			digest = kmalloc(digest_size, GFP_NOIO, '23DW');
@@ -2141,7 +2149,7 @@ int w_e_end_ov_req(struct bsr_work *w, int cancel)
 	if (unlikely(cancel))
 		goto out;
 
-	digest_size = crypto_hash_digestsize(peer_device->connection->verify_tfm);
+	digest_size = crypto_ahash_digestsize(peer_device->connection->verify_tfm);
 	/* FIXME if this allocation fails, online verify will not terminate! */
 	digest = bsr_prepare_drequest_csum(peer_req, digest_size);
 	if (!digest) {
@@ -2214,7 +2222,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	di = peer_req->digest;
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
-		digest_size = crypto_hash_digestsize(peer_device->connection->verify_tfm);
+		digest_size = crypto_ahash_digestsize(peer_device->connection->verify_tfm);
 		digest = kmalloc(digest_size, GFP_NOIO, '33DW');
 		if (digest) {
 			bsr_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
@@ -2538,15 +2546,17 @@ void bsr_rs_controller_reset(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 void start_resync_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void start_resync_timer_fn(unsigned long data)
+void start_resync_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, start_resync_timer);
+#endif
 
 	if (peer_device == NULL)
 		return;
@@ -3091,16 +3101,17 @@ static int do_md_sync(struct bsr_device *device)
 #ifdef _WIN
 void repost_up_to_date_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void repost_up_to_date_fn(unsigned long data)
+void repost_up_to_date_fn(BSR_TIMER_FN_ARG)
 #endif 
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_resource *resource = (struct bsr_resource *) data;
-
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, repost_up_to_date_timer);
+#endif
 	bsr_post_work(resource, TRY_BECOME_UP_TO_DATE);
 }
 

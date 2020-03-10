@@ -1,7 +1,7 @@
 #include "bsr_wrappers.h"
 #include "../../bsr/bsr_int.h"
 
-#ifndef bio_set_op_attrs
+#ifdef _WIN
 void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
 {
 	/* If we explicitly issue discards or write_same, we use

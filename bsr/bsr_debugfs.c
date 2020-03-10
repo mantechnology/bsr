@@ -561,12 +561,12 @@ static int bsr_single_open(struct file *file, int (*show)(struct seq_file *, voi
 	if (!parent || !parent->d_inode)
 		goto out;
 	/* serialize with d_delete() */
-	mutex_lock(&parent->d_inode->i_mutex);
+	inode_lock(d_inode(parent));
 	/* Make sure the object is still alive */
 	if (simple_positive(file->f_path.dentry)
 	&& kref_get_unless_zero(kref))
 		ret = 0;
-	mutex_unlock(&parent->d_inode->i_mutex);
+	inode_unlock(d_inode(parent));
 	if (!ret) {
 		ret = single_open(file, show, data);
 		if (ret)
@@ -1105,7 +1105,7 @@ static int bsr_single_open_peer_device(struct file *file,
 	parent = file->f_path.dentry->d_parent;
 	if (!parent || !parent->d_inode)
 		goto out;
-	mutex_lock(&parent->d_inode->i_mutex);
+	inode_lock(d_inode(parent));
 	if (!simple_positive(file->f_path.dentry))
 		goto out_unlock;
 
@@ -1114,7 +1114,7 @@ static int bsr_single_open_peer_device(struct file *file,
 
 	if (got_connection && got_device) {
 		int ret;
-		mutex_unlock(&parent->d_inode->i_mutex);
+		inode_unlock(d_inode(parent));
 		ret = single_open(file, show, peer_device);
 		if (ret) {
 			kref_put(&connection->kref, bsr_destroy_connection);
@@ -1128,7 +1128,7 @@ static int bsr_single_open_peer_device(struct file *file,
 	if (got_device)
 		kref_put(&device->kref, bsr_destroy_device);
 out_unlock:
-	mutex_unlock(&parent->d_inode->i_mutex);
+	inode_unlock(d_inode(parent));
 out:
 	return -ESTALE;
 }

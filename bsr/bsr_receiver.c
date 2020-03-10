@@ -36,6 +36,7 @@
 #include <linux/mm_inline.h>
 #include <linux/slab.h>
 #include <linux/pkt_sched.h>
+#include <uapi/linux/sched/types.h>
 #define __KERNEL_SYSCALLS__
 #include <linux/unistd.h>
 #include <linux/vmalloc.h>
@@ -734,15 +735,17 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 void connect_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void connect_timer_fn(unsigned long data)
+void connect_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
-#endif
 	struct bsr_connection *connection = (struct bsr_connection *) data;
+#else // _LIN
+	struct bsr_connection *connection = BSR_TIMER_ARG2OBJ(connection, connect_timer);
+#endif
 	struct bsr_resource *resource;
 	unsigned long irq_flags;
 
@@ -1262,7 +1265,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 	// DW-1895
 	atomic_set64(&octx->ctx_sync.barrier_nr, atomic_read64(&ctx->ctx_sync.barrier_nr));
 	atomic_set(&octx->ctx_sync.primary_node_id, atomic_read(&ctx->ctx_sync.primary_node_id));
-	bio->bi_bdev = device->ldev->backing_bdev;
+	bio_set_dev(bio, device->ldev->backing_bdev);
 	bio->bi_private = octx;
 	bio->bi_end_io = one_flush_endio;
 
@@ -1879,7 +1882,7 @@ next_bio:
 	}
 	/* > peer_req->i.sector, unless this is the first bio */
 	BSR_BIO_BI_SECTOR(bio) = sector;
-	bio->bi_bdev = device->ldev->backing_bdev;
+	bio_set_dev(bio, device->ldev->backing_bdev);
 	/* we special case some flags in the multi-bio case, see below
 	 * (REQ_UNPLUG, REQ_PREFLUSH, or BIO_RW_BARRIER in older kernels) */
 	bio_set_op_attrs(bio, op, op_flags);
@@ -2144,7 +2147,7 @@ struct bsr_peer_request_details *d, struct packet_info *pi)
 	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME;
 	unsigned int digest_size =
 		pi->cmd != P_TRIM && connection->peer_integrity_tfm ?
-		crypto_hash_digestsize(connection->peer_integrity_tfm) : 0;
+		crypto_ahash_digestsize(connection->peer_integrity_tfm) : 0;
 
 	d->sector = be64_to_cpu(p->p_data.sector);
 	d->block_id = p->p_data.block_id;
@@ -2299,7 +2302,7 @@ static int recv_dless_read(struct bsr_peer_device *peer_device, struct bsr_reque
 
 	digest_size = 0;
 	if (peer_device->connection->peer_integrity_tfm) {
-		digest_size = crypto_hash_digestsize(peer_device->connection->peer_integrity_tfm);
+		digest_size = crypto_ahash_digestsize(peer_device->connection->peer_integrity_tfm);
 		err = bsr_recv_into(peer_device->connection, dig_in, digest_size);
 		if (err)
 			return err;
@@ -5669,7 +5672,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 	int p_proto, p_discard_my_data, p_two_primaries, cf;
 	struct net_conf *nc, *old_net_conf, *new_net_conf = NULL;
 	char integrity_alg[SHARED_SECRET_MAX] = "";
-	struct crypto_hash *peer_integrity_tfm = NULL;
+	struct crypto_ahash *peer_integrity_tfm = NULL;
 	void *int_dig_in = NULL, *int_dig_vv = NULL;
 
 #ifdef _WIN
@@ -5765,7 +5768,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 #ifdef _WIN
 		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, CRYPTO_ALG_ASYNC, '52DW');
 #else // _LIN
-		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, CRYPTO_ALG_ASYNC);
+		peer_integrity_tfm = crypto_alloc_ahash(integrity_alg, 0, CRYPTO_ALG_ASYNC);
 #endif
 		if (IS_ERR(peer_integrity_tfm)) {
 			peer_integrity_tfm = NULL;
@@ -5774,7 +5777,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 			goto disconnect;
 		}
 
-		hash_size = crypto_hash_digestsize(peer_integrity_tfm);
+		hash_size = crypto_ahash_digestsize(peer_integrity_tfm);
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62DW');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72DW');
 		if (!(int_dig_in && int_dig_vv)) {
@@ -5814,7 +5817,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	mutex_unlock(&connection->resource->conf_update);
 
-	crypto_free_hash(connection->peer_integrity_tfm);
+	crypto_free_ahash(connection->peer_integrity_tfm);
 	kfree(connection->int_dig_in);
 	kfree(connection->int_dig_vv);
 	connection->peer_integrity_tfm = peer_integrity_tfm;
@@ -5839,7 +5842,7 @@ disconnect_rcu_unlock:
 	rcu_read_unlock();
 #endif
 disconnect:
-	crypto_free_hash(peer_integrity_tfm);
+	crypto_free_ahash(peer_integrity_tfm);
 	kfree(int_dig_in);
 	kfree(int_dig_vv);
 	change_cstate_ex(connection, C_DISCONNECTING, CS_HARD); 
@@ -5851,10 +5854,10 @@ disconnect:
  * return: NULL (alg name was "")
  *         ERR_PTR(error) if something goes wrong
  *         or the crypto hash ptr, if it worked out ok. */
-static struct crypto_hash *bsr_crypto_alloc_digest_safe(const struct bsr_device *device,
+static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device *device,
 		const char *alg, const char *name)
 {
-	struct crypto_hash *tfm;
+	struct crypto_ahash *tfm;
 
 	if (!alg[0])
 		return NULL;
@@ -5863,7 +5866,7 @@ static struct crypto_hash *bsr_crypto_alloc_digest_safe(const struct bsr_device 
 	char* alg2 = (char*)alg;
 	tfm = crypto_alloc_hash(alg2, 0, CRYPTO_ALG_ASYNC, 'A6DW');
 #else // _LIN
-	tfm = crypto_alloc_hash(alg, 0, CRYPTO_ALG_ASYNC);
+	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
 #endif
 	if (IS_ERR(tfm)) {
 		bsr_err(device, "Can not allocate \"%s\" as %s (reason: %ld)\n",
@@ -5897,8 +5900,8 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	struct bsr_device *device;
 	struct p_rs_param_95 *p;
 	unsigned int header_size, data_size, exp_max_sz;
-	struct crypto_hash *verify_tfm = NULL;
-	struct crypto_hash *csums_tfm = NULL;
+	struct crypto_ahash *verify_tfm = NULL;
+	struct crypto_ahash *csums_tfm = NULL;
 	struct net_conf *old_net_conf, *new_net_conf = NULL;
 	struct peer_device_conf *old_peer_device_conf = NULL, *new_peer_device_conf = NULL;
 	const int apv = connection->agreed_pro_version;
@@ -6044,14 +6047,14 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			if (verify_tfm) {
 				strncpy(new_net_conf->verify_alg, p->verify_alg, sizeof(new_net_conf->verify_alg) - 1);
 				new_net_conf->verify_alg_len = (__u32)(strlen(p->verify_alg) + 1);
-				crypto_free_hash(connection->verify_tfm);
+				crypto_free_ahash(connection->verify_tfm);
 				connection->verify_tfm = verify_tfm;
 				bsr_info(device, "using verify-alg: \"%s\"\n", p->verify_alg);
 			}
 			if (csums_tfm) {
 				strncpy(new_net_conf->csums_alg, p->csums_alg, sizeof(new_net_conf->csums_alg) - 1);
 				new_net_conf->csums_alg_len = (__u32)(strlen(p->csums_alg) + 1);
-				crypto_free_hash(connection->csums_tfm);
+				crypto_free_ahash(connection->csums_tfm);
 				connection->csums_tfm = csums_tfm;
 				bsr_info(device, "using csums-alg: \"%s\"\n", p->csums_alg);
 			}
@@ -6106,9 +6109,9 @@ disconnect:
 	mutex_unlock(&resource->conf_update);
 	/* just for completeness: actually not needed,
 	 * as this is not reached if csums_tfm was ok. */
-	crypto_free_hash(csums_tfm);
+	crypto_free_ahash(csums_tfm);
 	/* but free the verify_tfm again, if csums_tfm did not work out */
-	crypto_free_hash(verify_tfm);
+	crypto_free_ahash(verify_tfm);
 	change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 	return -EIO;
 }
@@ -6289,7 +6292,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		if (peer_device->disk_state[NOW] > D_DISKLESS)
 			warn_if_differ_considerably(peer_device, "lower level device sizes",
 					p_size, my_max_size);
-			warn_if_differ_considerably(peer_device, "user requested size",
+		warn_if_differ_considerably(peer_device, "user requested size",
 					    p_usize, my_usize);
 
 		if (is_handshake)
@@ -7164,16 +7167,18 @@ int abort_nested_twopc_work(struct bsr_work *work, int cancel)
 #ifdef _WIN
 void twopc_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void twopc_timer_fn(unsigned long data)
+void twopc_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
+	struct bsr_resource *resource = (struct bsr_resource *) data;
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, twopc_timer);
 #endif
 
-	struct bsr_resource *resource = (struct bsr_resource *) data;
 	unsigned long irq_flags;
 
 	if (resource == NULL)
@@ -7462,29 +7467,32 @@ static int queued_twopc_work(struct bsr_work *w, int cancel)
 #ifdef _WIN
 void queued_twopc_timer_fn(PKDPC Dpc, PVOID data, PVOID arg1, PVOID arg2)
 #else // _LIN
-void queued_twopc_timer_fn(unsigned long data)
+void queued_twopc_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
 	UNREFERENCED_PARAMETER(Dpc);
+	struct bsr_resource *resource = (struct bsr_resource *) data;
+#else // _LIN
+	struct bsr_resource *resource = BSR_TIMER_ARG2OBJ(resource, queued_twopc_timer);
+	
 #endif
 
-	struct bsr_resource *resource = (struct bsr_resource *) data;
 	struct queued_twopc *q;
 	unsigned long irq_flags;
-	unsigned long t;
+	unsigned long timeo;
 
 	if (resource == NULL)
 		return;
 
-	t = twopc_timeout(resource) / 4;
+	timeo = twopc_timeout(resource) / 4;
 
 	spin_lock_irqsave(&resource->queued_twopc_lock, irq_flags);
 	q = list_first_entry_or_null(&resource->queued_twopc, struct queued_twopc, w.list);
 	if (q) {
-		if (jiffies - q->start_jif >= t){
+		if (jiffies - q->start_jif >= timeo){
 			resource->starting_queued_twopc = q; 
 			list_del(&q->w.list);
 		}
@@ -9605,7 +9613,7 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 #ifdef _WIN
 	resync_timer_fn(NULL, (PVOID)peer_device, NULL, NULL);
 #else // _LIN
-	resync_timer_fn((unsigned long)peer_device);
+	resync_timer_fn(BSR_TIMER_CALL_ARG(peer_device, resync_timer));
 #endif 
 	del_timer_sync(&peer_device->start_resync_timer);
 
@@ -10051,13 +10059,12 @@ struct auth_challenge {
 int bsr_do_auth(struct bsr_connection *connection)
 {
 	struct auth_challenge my_challenge, *peers_ch = NULL;
-	struct scatterlist sg;
 	void *response;
 	char *right_response = NULL;
 	unsigned int key_len;
 	char secret[SHARED_SECRET_MAX]; /* 64 byte */
 	unsigned int resp_size;
-	struct hash_desc desc;
+	SHASH_DESC_ON_STACK(desc, connection->cram_hmac_tfm);
 	struct packet_info pi;
 	struct net_conf *nc;
 	int err, rv, dig_size;
@@ -10070,12 +10077,12 @@ int bsr_do_auth(struct bsr_connection *connection)
 	memcpy(secret, nc->shared_secret, key_len);
 	rcu_read_unlock();
 
-	desc.tfm = connection->cram_hmac_tfm;
-	desc.flags = 0;
+	desc->tfm = connection->cram_hmac_tfm;
+	desc->flags = 0;
 
-	rv = crypto_hash_setkey(connection->cram_hmac_tfm, (u8 *)secret, key_len);
+	rv = crypto_shash_setkey(connection->cram_hmac_tfm, (u8 *)secret, key_len);
 	if (rv) {
-		bsr_err(connection, "crypto_hash_setkey() failed with %d\n", rv);
+		bsr_err(connection, "crypto_shash_setkey() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10131,24 +10138,22 @@ int bsr_do_auth(struct bsr_connection *connection)
 		goto fail;
 	}
 
-	resp_size = crypto_hash_digestsize(connection->cram_hmac_tfm);
+	resp_size = crypto_shash_digestsize(connection->cram_hmac_tfm);
 	response = __conn_prepare_command(connection, resp_size, DATA_STREAM);
 	if (!response) {
 		rv = 0;
 		goto fail;
 	}
 
-	sg_init_table(&sg, 1);
 	dig_size = pi.size;
 	if (peer_is_bsr_9) {
 		peers_ch->i = cpu_to_be32(connection->resource->res_opts.node_id);
 		dig_size += sizeof(peers_ch->i);
 	}
-	sg_set_buf(&sg, peers_ch, dig_size);
 
-	rv = crypto_hash_digest(&desc, &sg, sg.length, response);
+	rv = crypto_shash_digest(desc, peers_ch->d, dig_size, response);
 	if (rv) {
-		bsr_err(connection, "crypto_hash_digest() failed with %d\n", rv);
+		bsr_err(connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10195,11 +10200,10 @@ int bsr_do_auth(struct bsr_connection *connection)
 		my_challenge.i = cpu_to_be32(connection->peer_node_id);
 		dig_size += sizeof(my_challenge.i);
 	}
-	sg_set_buf(&sg, &my_challenge, dig_size);
 
-	rv = crypto_hash_digest(&desc, &sg, sg.length, right_response);
+	rv = crypto_shash_digest(desc, my_challenge.d, dig_size, right_response);
 	if (rv) {
-		bsr_err(connection, "crypto_hash_digest() failed with %d\n", rv);
+		bsr_err(connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10215,7 +10219,7 @@ int bsr_do_auth(struct bsr_connection *connection)
  fail:
 	kfree(peers_ch);
 	kfree(right_response);
-
+	shash_desc_zero(desc);
 	return rv;
 }
 #endif

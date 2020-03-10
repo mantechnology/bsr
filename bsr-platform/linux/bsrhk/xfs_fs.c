@@ -97,9 +97,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		}
 
 		// read free block btree first leaf block
-		// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-		// This is temporary read code.
-		ret = vfs_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+		ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
 		if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
 			bsr_err(NO_OBJECT, "failed to read first leaf node of btree_block (err=%d)\n", ret);
 			goto fail_and_free;
@@ -135,9 +133,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 				}
 				
 				// read free block btree secondary leaf block
-				// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-				// This is temporary read code.
-				ret = vfs_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+				ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
 				if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
 					bsr_err(NO_OBJECT, "failed to read secondary btree_block (err=%d)\n", ret);
 					goto fail_and_free;
@@ -153,9 +149,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			
 			for(bb_numrecs_no = 0 ; bb_numrecs_no < bb_numrecs ; bb_numrecs_no++) {
 				// read free block info
-				// TODO : need to apply kernel compatibility codes such as vfs_read or kernel_read.
-				// This is temporary read code.
-				ret = vfs_read(fd, (char *)&ar, sizeof(xfs_alloc_rec_t), &fd->f_pos);
+				ret = bsr_read(fd, (char *)&ar, sizeof(xfs_alloc_rec_t), &fd->f_pos);
 				startblock = be32_to_cpu(ar.ar_startblock);
 				blockcount = be32_to_cpu(ar.ar_blockcount);
 

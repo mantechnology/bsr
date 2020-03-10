@@ -1832,7 +1832,7 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 	else
 		type = BSR_FAULT_DT_RD;
 
-	bio->bi_bdev = device->ldev->backing_bdev;
+	bio_set_dev(bio, device->ldev->backing_bdev);
 
 	/* State may have changed since we grabbed our reference on the
 	 * device->ldev member. Double check, and short-circuit to endio.
@@ -2623,7 +2623,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	const int rw = bio_data_dir(bio);
 	// BSR-458
 	if(rw == READ) {
-		bio->bi_bdev = device->ldev->backing_bdev;
+		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
 		MAKE_REQUEST_RETURN;
 	}
@@ -2792,10 +2792,9 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 #ifdef _WIN
 void request_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
-void request_timer_fn(unsigned long data)
+void request_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {
-	struct bsr_device *device = (struct bsr_device *) data;
 	struct bsr_connection *connection;
 	struct bsr_request *req_read, *req_write;
 	
@@ -2803,6 +2802,9 @@ void request_timer_fn(unsigned long data)
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
+	struct bsr_device *device = (struct bsr_device *) data;
+#else // _LIN
+	struct bsr_device *device = BSR_TIMER_ARG2OBJ(device, request_timer);
 #endif
 	ULONG_PTR oldest_submit_jif;
 	ULONG_PTR dt = 0;

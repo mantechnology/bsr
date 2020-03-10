@@ -1201,7 +1201,7 @@ retry_locked:
 
 	struct dtt_socket_container *socket_c;
 	SOCKADDR_STORAGE_EX peer_addr;
-	int connect_int, peer_addr_len, err = 0;
+	int connect_int, err = 0;
 	long timeo;
 	struct socket *s_estab = NULL;
 	struct net_conf *nc;
@@ -1247,7 +1247,7 @@ retry:
 		   from the listening socket. */
 		unregister_state_change(s_estab->sk, listener);
 
-		s_estab->ops->getname(s_estab, (struct sockaddr *)&peer_addr, &peer_addr_len, 2);
+		bsr_always_getpeername(s_estab, (struct sockaddr *)&peer_addr);
 
 		spin_lock_bh(&listener->listener.waiters_lock);
 		bsr_path2 = bsr_find_path_by_addr(&listener->listener, &peer_addr);
@@ -2278,7 +2278,7 @@ static int dtt_send_zc_bio(struct bsr_transport *transport, struct bio *bio)
 		if (err)
 			return err;
 
-		if (bio->bi_rw & BSR_REQ_WSAME)
+		if (bio_op(bio) == REQ_OP_WRITE_SAME)
 			break;
 	}
 	return 0;

@@ -81,10 +81,10 @@
 #endif
 
 #ifndef kzalloc
-#define kzalloc(size, flags, tag) kzalloc(size, flags)
+#define kzalloc(size, flags, args...) kzalloc(size, flags)
 #endif
 #ifndef kmalloc
-#define kmalloc(size, flags, tag) kmalloc(size, flags)
+#define kmalloc(size, flags, args...) kmalloc(size, flags)
 #endif
 
 #ifndef rcu_read_lock_check
@@ -270,6 +270,18 @@ static inline unsigned int queue_discard_zeroes_data(struct request_queue *q)
 }
 #endif
 
+#ifdef _LIN
+static inline int bsr_always_getpeername(struct socket *sock, struct sockaddr *uaddr)
+{
+#ifdef COMPAT_SOCK_OPS_RETURNS_ADDR_LEN
+	return sock->ops->getname(sock, uaddr, 2);
+#else
+	int len = 0;
+	int err = sock->ops->getname(sock, uaddr, &len, 2);
+	return err ?: len;
+#endif
+}
+#endif
 
 #ifndef COMPAT_HAVE_BDEV_DISCARD_ALIGNMENT
 static inline int bdev_discard_alignment(struct block_device *bdev)
@@ -398,6 +410,22 @@ typedef NTSTATUS BIO_ENDIO_TYPE;
 #define BIO_ENDIO_FN_RETURN     return STATUS_MORE_PROCESSING_REQUIRED	
 #define bsr_bio_endio(b,e) bio_endio(b,e)
 #else
+#ifdef COMPAT_HAVE_BIO_BI_STATUS
+static inline void bsr_bio_endio(struct bio *bio, int error)
+{
+	bio->bi_status = errno_to_blk_status(error);
+	bio_endio(bio);
+}
+
+#define BIO_ENDIO_TYPE void
+#define BIO_ENDIO_ARGS(b) (b)
+#define BIO_ENDIO_FN_START	\
+	blk_status_t status = bio->bi_status;	\
+	int error = blk_status_to_errno(status);
+#define BIO_ENDIO_FN_RETURN return
+#else
+
+
 #ifdef COMPAT_HAVE_BIO_BI_ERROR
 static inline void bsr_bio_endio(struct bio *bio, int error)
 {
@@ -406,7 +434,6 @@ static inline void bsr_bio_endio(struct bio *bio, int error)
 }
 #define BIO_ENDIO_TYPE void
 #define BIO_ENDIO_ARGS(b) (b)
-//#define BIO_ENDIO_FN_START do {} while (0)
 #define BIO_ENDIO_FN_START      \
         int error = bio->bi_error
 #define BIO_ENDIO_FN_RETURN return
@@ -419,6 +446,7 @@ static inline void bsr_bio_endio(struct bio *bio, int error)
 #define BIO_ENDIO_ARGS(b) (b, int error)
 #define BIO_ENDIO_FN_START do {} while (0)
 #define BIO_ENDIO_FN_RETURN return
+#endif
 #endif
 #endif
 
@@ -545,7 +573,7 @@ static inline void bsr_unregister_blkdev(unsigned int major, const char *name)
 #define bsr_unregister_blkdev unregister_blkdev
 #endif
 
-#if !defined(CRYPTO_ALG_ASYNC)
+#if defined(_WIN) || !defined(CRYPTO_ALG_ASYNC)
 /* With Linux-2.6.19 the crypto API changed! */
 /* This is not a generic backport of the new api, it just implements
    the corner case of "hmac(xxx)".  */
@@ -692,6 +720,27 @@ static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
 #endif
 	return 0;
 }
+
+#ifdef _WIN
+
+#define crypto_ahash crypto_hash
+#define crypto_shash crypto_hash
+
+static inline void crypto_free_ahash(struct crypto_ahash *tfm)
+{
+	crypto_free_hash(tfm);
+}
+
+static inline void crypto_free_shash(struct crypto_shash *tfm)
+{
+	crypto_free_hash(tfm);
+}
+
+static inline unsigned int crypto_ahash_digestsize(struct crypto_ahash *tfm)
+{
+	return crypto_hash_digestsize(tfm);
+}
+#endif
 
 #endif
 
@@ -1200,21 +1249,27 @@ enum req_op {
 	* bio_op() aka. op_from_rq_bits() will never return these,
 	* and we map the REQ_OP_* to something stupid.
 	*/
-#ifdef LINBIT_PATCH
-	REQ_OP_DISCARD = BSR_REQ_DISCARD ?: -1,
-	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ?: -2,
-#else
-	REQ_OP_DISCARD = BSR_REQ_DISCARD ? -1 : -1,
-	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ? -1 : -2,
-#endif 
+	REQ_OP_DISCARD = BSR_REQ_DISCARD ? BSR_REQ_DISCARD : -1,
+	REQ_OP_WRITE_SAME = BSR_REQ_WSAME ? BSR_REQ_WSAME : -2,
 
 	/* REQ_OP_SECURE_ERASE: does not matter to us,
 	* I don't see how we could support that anyways. */
 };
 #define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
 
-#ifndef bio_set_op_attrs
+#ifdef _WIN
 extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
+#else // LIN
+static inline void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
+{
+	/* If we explicitly issue discards or write_same, we use
+	* blkdev_isse_discard() and blkdev_issue_write_same() helpers.
+	* If we implicitly submit them, we just pass on a cloned bio to
+	* generic_make_request().  We expect to use bio_set_op_attrs() with
+	* REQ_OP_READ or REQ_OP_WRITE only. */
+	BUG_ON(!(op == REQ_OP_READ || op == REQ_OP_WRITE));
+	bio->bi_rw |= (op | flags);
+}
 #endif
 
 static inline int op_from_rq_bits(u64 flags)
@@ -1284,17 +1339,31 @@ static inline int op_from_rq_bits(u64 flags)
 #define bio_split(bi, first_sectors) bio_split(bi, bio_split_pool, first_sectors)
 #endif
 
-#ifndef COMPAT_HAVE_BIOSET_CREATE_FRONT_PAD
-/* see comments in compat/tests/have_bioset_create_front_pad.c */
-#ifdef COMPAT_BIOSET_CREATE_HAS_THREE_PARAMETERS
-#define bioset_create(pool_size, front_pad)	bioset_create(pool_size, pool_size, 1)
-#else
-#ifdef _LIN
-#define bioset_create(pool_size, front_pad)	bioset_create(pool_size, 1)
-#endif
-#endif
-#endif
 
+#ifdef _LIN
+/* history of bioset_create():
+ *  v4.13  011067b  blk: replace bioset_create_nobvec() with a flags arg to bioset_create()
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad, int flags)
+ *
+ *  v3.18  d8f429e  block: add bioset_create_nobvec()
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad)
+ *  +struct bio_set *bioset_create_nobvec(unsigned int pool_size, unsigned int front_pad)
+ *
+ *  v3.16  f9c78b2  block: move bio.c and bio-integrity.c from fs/ to block/
+ *  +struct bio_set *bioset_create(unsigned int pool_size, unsigned int front_pad)
+ *
+ *  --- we don't care for older than 2.3.32 ---
+ */
+#if defined(COMPAT_HAVE_BIOSET_NEED_BVECS)
+/* all good, "modern" kernel before v4.18 */
+#elif defined(COMPAT_HAVE_BIOSET_CREATE_FRONT_PAD)
+# define bioset_create(pool_size, front_pad, flags) bioset_create(pool_size, front_pad)
+#elif defined(COMPAT_HAVE_BIOSET_INIT)
+/* => v4.18*/
+#else
+# error "bsr compat layer broken"
+#endif
+#endif
 
 #if !(defined(COMPAT_HAVE_RB_AUGMENT_FUNCTIONS) && \
       defined(AUGMENTED_RBTREE_SYMBOLS_EXPORTED))
@@ -1500,6 +1569,21 @@ static inline int nla_type(const struct nlattr *nla)
 }
 
 #endif
+
+/*
+ * v4.12 fceb6435e852 netlink: pass extended ACK struct to parsing functions
+ * and some preparation commits introduce a new "netlink extended ack" error
+ * reporting mechanism. For now, only work around that here.  As trigger, use
+ * NETLINK_MAX_COOKIE_LEN introduced somewhere in the middle of that patchset.
+ */
+#ifndef NETLINK_MAX_COOKIE_LEN
+#ifdef _LIN
+#include <net/netlink.h>
+#endif
+#define nla_parse_nested(tb, maxtype, nla, policy, extack) \
+       nla_parse_nested(tb, maxtype, nla, policy)
+#endif
+
 
 /*
  * nlmsg_hdr was added to <linux/netlink.h> in mainline commit b529ccf2
@@ -1832,22 +1916,31 @@ static inline int idr_alloc(struct idr *idr, void *ptr, int start, int end, gfp_
 	return got;
 }
 #endif
-
+#ifdef _LIN
 #ifndef BLKDEV_ISSUE_ZEROOUT_EXPORTED
 /* Was introduced with 2.6.34 */
 extern int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
-				sector_t nr_sects, gfp_t gfp_mask, bool discard);
+				sector_t nr_sects, gfp_t gfp_mask);
+#define blkdev_issue_zeroout(BDEV, SS, NS, GFP, flags /* = NOUNMAP */) \
+	blkdev_issue_zeroout(BDEV, SS, NS, GFP)
 #else
 /* synopsis changed a few times, though */
-#ifdef COMPAT_BLKDEV_ISSUE_ZEROOUT_BLKDEV_IFL_WAIT
-#define blkdev_issue_zeroout(BDEV, SS, NS, GFP, discard) \
-	blkdev_issue_zeroout(BDEV, SS, NS, GFP, BLKDEV_IFL_WAIT)
-#elif !defined(COMPAT_BLKDEV_ISSUE_ZEROOUT_DISCARD)
+#if  defined(BLKDEV_ZERO_NOUNMAP)
+/* >= v4.12 */
+/* use blkdev_issue_zeroout() as written out in the actual source code.
+ * right now, we only use it with flags = BLKDEV_ZERO_NOUNMAP */
+#elif  defined(COMPAT_BLKDEV_ISSUE_ZEROOUT_DISCARD)
+/* no BLKDEV_ZERO_NOUNMAP as last parameter, but a bool discard instead */
+/* still need to define BLKDEV_ZERO_NOUNMAP, to compare against 0 */
+#define BLKDEV_ZERO_NOUNMAP 1
+#define blkdev_issue_zeroout(BDEV, SS, NS, GFP, flags /* = NOUNMAP */) \
+	blkdev_issue_zeroout(BDEV, SS, NS, GFP, (flags) == 0 /* bool discard */)
+#else /* !defined(COMPAT_BLKDEV_ISSUE_ZEROOUT_DISCARD) */
 #define blkdev_issue_zeroout(BDEV, SS, NS, GFP, discard) \
 	blkdev_issue_zeroout(BDEV, SS, NS, GFP)
 #endif
 #endif
-
+#endif
 
 #ifndef COMPAT_HAVE_GENL_LOCK
 static inline void genl_lock(void)  { }
@@ -2149,6 +2242,140 @@ bsr_ib_create_cq(struct ib_device *device,
 #endif
 
 
+#if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
+#define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
+#endif
 
+#ifdef COMPAT_HAVE_TIMER_SETUP
+/* starting with v4.16 new timer interface*/
+#define BSR_TIMER_FN_ARG struct timer_list *t
+#define BSR_TIMER_ARG2OBJ(OBJ, MEMBER) from_timer(OBJ, t, MEMBER)
+#define bsr_timer_setup(OBJ, MEMBER, TIMER_FN) timer_setup(&OBJ->MEMBER, TIMER_FN, 0)
+#define BSR_TIMER_CALL_ARG(OBJ, MEMBER) &OBJ->MEMBER
+#else
+/* timer interface before v4.16 */
+#define BSR_TIMER_FN_ARG unsigned long data
+#define BSR_TIMER_ARG2OBJ(OBJ, MEMBER) (typeof(OBJ)) data
+#define bsr_timer_setup(OBJ, MEMBER, TIMER_FN) setup_timer(&OBJ->MEMBER, TIMER_FN, (TIMER_DATA_TYPE)OBJ)
+#define BSR_TIMER_CALL_ARG(OBJ, MEMBER) (unsigned long) OBJ
+#endif
+
+#ifndef COMPAT_HAVE_BIOSET_INIT
+#ifndef COMPAT_HAVE_BIO_CLONE_FAST
+# define bio_clone_fast(bio, gfp, bio_set) bio_clone(bio, gfp)
+#else
+# define bio_clone_fast(BIO, GFP, P) bio_clone_fast(BIO, GFP, *P)
+#endif
+
+#define BSR_BIO_SET   bio_set *
+
+#ifdef _LIN
+#define bio_alloc_bioset(GFP, n, P) bio_alloc_bioset(GFP, n, *P)
+static inline void bioset_exit(struct bio_set **bs)
+{
+	if (*bs) {
+		bioset_free(*bs);
+		*bs = NULL;
+	}
+}
+#if defined(COMPAT_HAVE_BIOSET_NEED_BVECS)
+#define bioset_init(BS, S, FP, F) __bioset_init(BS, S, FP, F)
+#else
+#define bioset_init(BS, S, FP, F) __bioset_init(BS, S, FP, 0)
+#endif
+static inline int
+__bioset_init(struct bio_set **bs, unsigned int size, unsigned int front_pad, int flags)
+{
+	*bs = bioset_create(size, front_pad, flags);
+	return *bs == NULL ? -ENOMEM : 0;
+}
+
+static inline bool
+bioset_initialized(struct bio_set **bs)
+{
+	return *bs != NULL;
+}
+#endif
+#else
+#define BSR_BIO_SET   bio_set
+#endif
+
+
+#ifdef _LIN
+#ifdef COMPAT_NEED_D_INODE
+static inline struct inode *d_inode(struct dentry *dentry)
+{
+	return dentry->d_inode;
+}
+#endif
+
+#ifndef COMPAT_HAVE_INODE_LOCK
+/* up to kernel 2.6.38 inclusive, there was a
+ * linux/writeback.h:extern spinlock_t inode_lock;
+ * which was implicitly included.
+ * avoid error: 'inode_lock' redeclared as different kind of symbol */
+#define inode_lock(i) bsr_inode_lock(i)
+static inline void inode_lock(struct inode *inode)
+{
+	mutex_lock(&inode->i_mutex);
+}
+
+static inline void inode_unlock(struct inode *inode)
+{
+	mutex_unlock(&inode->i_mutex);
+}
+#endif
+
+
+#if !(defined(COMPAT_HAVE_AHASH_REQUEST_ON_STACK) && \
+      defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
+      defined(COMPAT_HAVE_SHASH_DESC_ZERO))
+#include <crypto/hash.h>
+
+#ifndef COMPAT_HAVE_AHASH_REQUEST_ON_STACK
+#define AHASH_REQUEST_ON_STACK(name, ahash)			   \
+	char __##name##_desc[sizeof(struct ahash_request) +	   \
+		crypto_ahash_reqsize(ahash)] CRYPTO_MINALIGN_ATTR; \
+	struct ahash_request *name = (void *)__##name##_desc
+#endif
+
+#ifndef COMPAT_HAVE_SHASH_DESC_ON_STACK
+#define SHASH_DESC_ON_STACK(shash, ctx)				  \
+	char __##shash##_desc[sizeof(struct shash_desc) +	  \
+		crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
+	struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
+#endif
+
+#ifndef COMPAT_HAVE_SHASH_DESC_ZERO
+#ifndef barrier_data
+#define barrier_data(ptr) barrier()
+#endif
+static inline void ahash_request_zero(struct ahash_request *req)
+{
+	/* memzero_explicit(...) */
+	memset(req, 0, sizeof(*req) + crypto_ahash_reqsize(crypto_ahash_reqtfm(req)));
+	barrier_data(req);
+}
+
+static inline void shash_desc_zero(struct shash_desc *desc)
+{
+	/* memzero_explicit(...) */
+	memset(desc, 0, sizeof(*desc) + crypto_shash_descsize(desc->tfm));
+	barrier_data(desc);
+}
+#endif
+#endif
+#endif // end _LIN
+
+#ifdef _LIN
+static inline ssize_t bsr_read(struct file *file, void *buf, size_t count, loff_t *pos)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+	return kernel_read(file, buf, count, pos);
+#else
+	return vfs_read(file, buf, count, pos);
+#endif
+}
+#endif
 
 #endif

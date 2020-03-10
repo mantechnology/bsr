@@ -31,14 +31,15 @@
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "../bsr-headers/windows/types.h"
 #else // _LIN
+#include <crypto/hash.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/list.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
-#include <linux/crypto.h>
 #include <linux/ratelimit.h>
 #include <linux/mutex.h>
 #include <linux/major.h>
@@ -1495,11 +1496,11 @@ struct bsr_connection {
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
 
-	struct crypto_hash *cram_hmac_tfm;
-	struct crypto_hash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
-	struct crypto_hash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
-	struct crypto_hash *csums_tfm;
-	struct crypto_hash *verify_tfm;
+	struct crypto_shash *cram_hmac_tfm;
+	struct crypto_ahash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
+	struct crypto_ahash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
+	struct crypto_ahash *csums_tfm;
+	struct crypto_ahash *verify_tfm;
 	void *int_dig_in;
 	void *int_dig_vv;
 
@@ -2450,7 +2451,11 @@ extern mempool_t *bsr_md_io_page_pool;
 
 /* We also need to make sure we get a bio
  * when we need it for housekeeping purposes */
-extern struct bio_set *bsr_md_io_bio_set;
+extern struct BSR_BIO_SET bsr_md_io_bio_set;
+
+/* And a bio_set for cloning */
+extern struct BSR_BIO_SET bsr_io_bio_set;
+
 /* to allocate from that set */
 #ifdef _WIN
 extern struct bio *bio_alloc_bsr(gfp_t gfp_mask, ULONG Tag);
@@ -2567,7 +2572,7 @@ extern struct bsr_peer_device *peer_device_by_node_id(struct bsr_device *, int);
 #ifdef _WIN
 extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 #else  // _LIN
-extern void repost_up_to_date_fn(unsigned long data);
+extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
@@ -2581,9 +2586,9 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
 }
 
 
-extern void bsr_csum_bio(struct crypto_hash *, struct bsr_request *, void *);
+extern void bsr_csum_bio(struct crypto_ahash *, struct bsr_request *, void *);
 
-extern void bsr_csum_pages(struct crypto_hash *, struct bsr_peer_request *, void *);
+extern void bsr_csum_pages(struct crypto_ahash *, struct bsr_peer_request *, void *);
 
 /* worker callbacks */
 extern int w_e_end_data_req(struct bsr_work *, int);
@@ -2604,8 +2609,8 @@ extern int w_send_uuids(struct bsr_work *, int);
 extern KDEFERRED_ROUTINE resync_timer_fn;
 extern KDEFERRED_ROUTINE start_resync_timer_fn;
 #else // _LIN
-extern void resync_timer_fn(unsigned long data);
-extern void start_resync_timer_fn(unsigned long data);
+extern void resync_timer_fn(BSR_TIMER_FN_ARG);
+extern void start_resync_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 
 extern void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req);
@@ -2698,7 +2703,7 @@ extern void queue_queued_twopc(struct bsr_resource *resource);
 #ifdef _WIN
 extern KDEFERRED_ROUTINE queued_twopc_timer_fn;
 #else // _LIN
-extern void queued_twopc_timer_fn(unsigned long data);
+extern void queued_twopc_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 extern bool bsr_have_local_disk(struct bsr_resource *resource);
 extern enum bsr_state_rv bsr_support_2pc_resize(struct bsr_resource *resource);
@@ -2796,11 +2801,14 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 					     int fault_type, struct bio *bio)
 {
 	__release(local);
+
+#if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
 		bsr_err(device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
+#endif
 
 	if (bsr_insert_fault(device, fault_type))
 		bsr_bio_endio(bio, -EIO);
@@ -2822,8 +2830,8 @@ void bsr_bump_write_ordering(struct bsr_resource *resource, struct bsr_backing_d
 extern KDEFERRED_ROUTINE twopc_timer_fn;
 extern KDEFERRED_ROUTINE connect_timer_fn;
 #else // _LIN
-extern void twopc_timer_fn(unsigned long);
-extern void connect_timer_fn(unsigned long);
+extern void twopc_timer_fn(BSR_TIMER_FN_ARG);
+extern void connect_timer_fn(BSR_TIMER_FN_ARG);
 
 /* bsr_proc.c */
 extern struct proc_dir_entry *bsr_proc;
@@ -3798,7 +3806,6 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 {
 	if ((new == 0 || prev == 0 || prev->next == 0) ||
 		(prev->next->prev != prev) || // list_add corruption.
-		(prev->next != prev->next) || // list_add corruption.
 		(new == prev || new == prev->next) //list_add double add.
 #ifdef _WIN // TODO "twopc_parent_list already added" occurs on Linux. condition verification required. 
 		|| (new->next != new->prev) // new is not initialized.
