@@ -1906,6 +1906,14 @@ out:
 	if (verify_done && peer_device->ov_left == 0)
 		peer_device->ov_start_sector = 0;
 
+	// DW-2088
+	bsr_md_clear_peer_flag(peer_device, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID);
+
+	if (old_repl_state == L_SYNC_SOURCE || old_repl_state == L_PAUSED_SYNC_S) {
+		// DW-1874
+		bsr_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
+	}
+
 	bsr_md_sync_if_dirty(device);
 
 	if (khelper_cmd)
@@ -1932,9 +1940,6 @@ out:
 		rcu_read_unlock();
 		if (disk_state == D_UP_TO_DATE && pdsk_state == D_UP_TO_DATE)
 			bsr_khelper(NULL, connection, "unfence-peer");
-
-		// DW-1874
-		bsr_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
 	}
 
 	return 1;
