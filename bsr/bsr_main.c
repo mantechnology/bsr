@@ -2552,6 +2552,32 @@ int bsr_send_rs_deallocated(struct bsr_peer_device *peer_device,
 	return bsr_send_command(peer_device, P_RS_DEALLOCATED, DATA_STREAM);
 }
 
+/**
+* _bsr_send_ack() - Sends an ack packet
+* @device:	BSR device.
+* @cmd:	Packet command code.
+* @sector:	sector, needs to be in big endian byte order
+* @blksize:	size in byte, needs to be in big endian byte order
+* @block_id:	Id, big endian byte order
+*/
+int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+	u64 sector, u32 blksize, u64 block_id)
+{
+	struct p_block_ack *p;
+
+	if (peer_device->repl_state[NOW] < L_ESTABLISHED)
+		return -EIO;
+
+	p = bsr_prepare_command(peer_device, sizeof(*p), CONTROL_STREAM);
+	if (!p)
+		return -EIO;
+	p->sector = sector;
+	p->block_id = block_id;
+	p->blksize = blksize;
+	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
+	return bsr_send_command(peer_device, cmd, CONTROL_STREAM);
+}
+
 int bsr_send_drequest(struct bsr_peer_device *peer_device, int cmd,
 		       sector_t sector, int size, u64 block_id)
 {
@@ -4383,6 +4409,10 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
+	// DW-2082 
+	atomic_set(&peer_device->sent_rs_request, 0);		
+	peer_device->sent_rs_req_sector = 0;
+	peer_device->sent_rs_req_size = 0;
 
 	peer_device->bitmap_index = -1;
 	peer_device->resync_wenr = LC_FREE;
@@ -4480,9 +4510,8 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
-	device->e_resync_bb = 0;
-
-	atomic_set64(&device->bm_resync_curr, 0);
+	atomic_set64(&device->s_resync_bb, 0);
+	atomic_set64(&device->e_resync_bb, 0);
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);

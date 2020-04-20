@@ -2394,32 +2394,6 @@ static int e_end_resync_block(struct bsr_work *w, int unused)
 }
 #endif
 
-/**
-* _bsr_send_ack() - Sends an ack packet
-* @device:	BSR device.
-* @cmd:	Packet command code.
-* @sector:	sector, needs to be in big endian byte order
-* @blksize:	size in byte, needs to be in big endian byte order
-* @block_id:	Id, big endian byte order
-*/
-static int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
-	u64 sector, u32 blksize, u64 block_id)
-{
-	struct p_block_ack *p;
-
-	if (peer_device->repl_state[NOW] < L_ESTABLISHED)
-		return -EIO;
-
-	p = bsr_prepare_command(peer_device, sizeof(*p), CONTROL_STREAM);
-	if (!p)
-		return -EIO;
-	p->sector = sector;
-	p->block_id = block_id;
-	p->blksize = blksize;
-	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
-	return bsr_send_command(peer_device, cmd, CONTROL_STREAM);
-}
-
 static int bsr_send_ack_dp(struct bsr_peer_device *peer_device, enum bsr_packet cmd, struct bsr_peer_request_details *d)
 {
 	return _bsr_send_ack(peer_device, cmd,
@@ -2617,7 +2591,6 @@ static void dup_verification_and_processing(struct bsr_peer_device* peer_device,
 static bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req)
 {
 	bool unmakred = peer_req->unmarked_count != NULL;
-	sector_t sector = peer_req->i.sector;
 
 	if (peer_req->unmarked_count && 
 		0 == atomic_dec_return(peer_req->unmarked_count)) {
@@ -2629,8 +2602,12 @@ static bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, s
 
 		bsr_debug(peer_device, "--finished unmarked s_bb(%llu), e_bb(%llu), sector(%llu), res(%s)\n", (unsigned long long)peer_req->s_bb, (unsigned long long)(peer_req->e_next_bb - 1), (unsigned long long)sector, (atomic_read(peer_req->failed_unmarked) == 1 ? "failed" : "success"));
 
-		sector = BM_BIT_TO_SECT(BM_SECT_TO_BIT(peer_req->i.sector));
+		// DW-2082
+		peer_req->i.sector = BM_BIT_TO_SECT(BM_SECT_TO_BIT(peer_req->i.sector));
 		peer_req->i.size = BM_SECT_PER_BIT << 9;
+
+		BSR_VERIFY_DATA("%s, finished unmarked sector(%llu), size(%u), bitmap(%llu ~ %llu)\n",
+			__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 		kfree2(peer_req->unmarked_count);
 		if (peer_req->failed_unmarked)
@@ -2660,6 +2637,9 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 	D_ASSERT((struct bsr_device *)peer_device->device, bsr_interval_empty(&peer_req->i));
 
 	bsr_debug(peer_device, "--bitmap bit : %llu ~ %llu\n", BM_SECT_TO_BIT(peer_req->i.sector), (BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)) - 1));
+
+	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)\n",
+		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 	is_unmarked = check_unmarked_and_processing(peer_device, peer_req);
 
@@ -2838,24 +2818,17 @@ bool is_out_of_sync_after_replication(struct bsr_device *device, ULONG_PTR s_bb,
 {
 	// DW-1904 check that the resync data is within the out of sync range of the replication data.
 	// DW-2065 modify to incorrect conditions
+	// DW-2082 the range(s_rl_bb, e_rl_bb) should not be reset because there is no warranty coming in sequentially.
 	if (device->e_rl_bb >= device->s_rl_bb) {
 		if ((device->s_rl_bb <= s_bb && device->e_rl_bb >= s_bb)) {
-			if (device->e_rl_bb <= (e_next_bb - 1)) {
-				device->e_rl_bb = (s_bb - 1);
-			}
 			return true;
 		}
 
 		if (device->s_rl_bb <= (e_next_bb - 1) && device->e_rl_bb >= (e_next_bb - 1)) {
-			if (device->s_rl_bb >= s_bb) {
-				device->s_rl_bb = e_next_bb;
-			}
 			return true;
 		}
 
 		if ((device->s_rl_bb >= s_bb && device->e_rl_bb <= (e_next_bb - 1))) {
-			device->s_rl_bb = UINTPTR_MAX;
-			device->e_rl_bb = 0;
 			return true;
 		}
 	}
@@ -2883,6 +2856,52 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		bsr_err(peer_device, "failed to allocate peer_req\n");
 		return -EIO;
 	}
+
+#ifdef SPLIT_REQUEST_RESYNC
+	if (peer_device->connection->agreed_pro_version >= 113) {
+		if (atomic_read(&peer_device->wait_for_recv_rs_reply)) {
+			// DW-2082 bitmap exchange completed
+			bool restart = false;
+
+			bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
+			atomic_add(d->bi_size >> 9, &device->rs_sect_ev);
+
+			mutex_lock(&device->bm_resync_fo_mutex);
+			// DW-1979
+			atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
+			atomic_set(&peer_device->sent_rs_request, 0);
+
+			// DW-2082 store resync response information that checks completion of bitmap exchange
+			peer_device->sent_rs_req_sector = peer_req->i.sector;
+			peer_device->sent_rs_req_size = peer_req->i.size;
+
+			// DW-2082 since the bitmap exchange is complete, start resync from the beginning.
+			restart = (device->bm_resync_fo == bsr_bm_bits(device));
+			device->bm_resync_fo = atomic_read64(&device->s_resync_bb);
+
+			if (restart)
+				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
+
+			mutex_unlock(&device->bm_resync_fo_mutex);
+			BSR_VERIFY_DATA("syncsource bitmap operation completed, force failed sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
+				(unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+
+			dec_rs_pending(peer_device);
+			bsr_free_peer_req(peer_req);
+
+			return 0;
+		}
+
+		// DW-2082 completion of resync requests that previously confirmed completion of bitmap exchange
+		if (peer_device->sent_rs_req_size != 0) {
+			BSR_VERIFY_DATA("send ack from syncsource, force failed sector(%llu) size(%d), bitmap(%llu ~ %llu)\n",
+				(unsigned long long)peer_device->sent_rs_req_sector, peer_device->sent_rs_req_size, (unsigned long long)BM_SECT_TO_BIT(peer_device->sent_rs_req_sector), (unsigned long long)BM_SECT_TO_BIT(peer_device->sent_rs_req_sector + (peer_device->sent_rs_req_size >> 9)));
+			err = _bsr_send_ack(peer_device, P_RS_WRITE_ACK, cpu_to_be64(peer_device->sent_rs_req_sector), cpu_to_be32(peer_device->sent_rs_req_size), ID_SYNCER_SPLIT_DONE);
+			peer_device->sent_rs_req_sector = 0;
+			peer_device->sent_rs_req_size = 0;
+		}
+	}
+#endif
 
 	if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 		clear_bit(STABLE_RESYNC, &device->flags);
@@ -2937,6 +2956,11 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 					if (is_all_sync) {
 						// DW-1886
 						atomic_add64(d->bi_size, &peer_device->rs_written);
+						device->h_insync_bb += (e_next_bb - s_bb);
+
+						BSR_VERIFY_DATA("%s, all in sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+							__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+
 						// DW-1601 all data is synced.						
 						bsr_debug(peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu\n", 
 							(unsigned long long)i_bb, 
@@ -2951,6 +2975,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						return err;
 					}
+
+					device->h_insync_bb++;
 
 					// DW-1886
 					if (already_in_sync_bb)
@@ -2979,6 +3005,9 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
+
+						BSR_VERIFY_DATA("%s, split, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+							__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
 
 						spin_lock_irq(&device->resource->req_lock);
 						list_add_tail(&split_peer_req->w.list, &peer_device->connection->sync_ee);
@@ -3054,11 +3083,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 						atomic_set(unmarked_count, (sizeof(marked_rl->marked_rl) * 8) - bit_count(marked_rl->marked_rl));
 						atomic_set(failed_unmarked, 0);
 
+						device->h_marked_bb++;
+
 						for (i = 0; i < sizeof(marked_rl->marked_rl) * 8; i++) {
 							// DW-1911 perform writing per unmarked sector.
 							if (!(marked_rl->marked_rl & 1 << i)) {
 								split_peer_req = split_read_in_block(peer_device, peer_req,
-																		BM_BIT_TO_SECT(marked_rl->bb),
+																		// DW-2082 corrected incorrectly calculated start sector
+																		(BM_BIT_TO_SECT(marked_rl->bb) + i), 
 																		((BM_BIT_TO_SECT(marked_rl->bb - s_bb) + i) << 9),
 																		1 << 9,
 																		s_bb, e_next_bb,
@@ -3075,6 +3107,9 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 									err = -ENOMEM;
 									goto split_error_clear;
 								}
+
+								BSR_VERIFY_DATA("%s, marked, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+									__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
 
 								split_peer_req->unmarked_count = unmarked_count;
 								split_peer_req->failed_unmarked = failed_unmarked;
@@ -3137,6 +3172,9 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	}
 	else {
 	all_out_of_sync:
+		BSR_VERIFY_DATA("%s, all out of sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+			__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+
 		/* corresponding dec_unacked() in e_end_resync_block()
 		* respective _bsr_clear_done_ee */
 		peer_req->w.cb = split_e_end_resync_block;
@@ -3345,9 +3383,6 @@ static int receive_RSDataReply(struct bsr_connection *connection, struct packet_
 	D_ASSERT(device, d.block_id == ID_SYNCER);
 
 	if (get_ldev(device)) {
-		// DW-1979
-		atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
-
 		// DW-1845 disables the DW-1601 function. If enabled, you must set SPLIT_REQUEST_RESYNC
 #ifdef SPLIT_REQUEST_RESYNC
 		err = split_recv_resync_read(peer_device, &d);
@@ -3405,6 +3440,9 @@ static int e_end_block(struct bsr_work *w, int cancel)
 
 	struct bsr_epoch *epoch;
 	int err = 0, pcmd;
+
+	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)\n",
+		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 	if (peer_req->flags & EE_IS_BARRIER) {
 		epoch = previous_epoch(peer_device->connection, peer_req->epoch);
@@ -3872,13 +3910,12 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 	ULONG_PTR s_bb, e_bb;
 	struct bsr_device* device = peer_device->device;
 	struct bsr_marked_replicate *marked_rl = NULL, *s_marked_rl = NULL, *e_marked_rl = NULL;
-	ULONG_PTR n_resync_bb = 0;
 	u16 i = 0;
 	u16 offset = 0;
 
-	// DW-2065
-	if (device->e_resync_bb == (ULONG_PTR)atomic_read64(&device->bm_resync_curr))
-		return 0;
+	//DW-1904 range in progress for resync (device->s_resync_bb ~ device->e_resync_bb)
+	ULONG_PTR s_resync_bb = (ULONG_PTR)atomic_read64(&device->s_resync_bb);
+	ULONG_PTR n_resync_bb = (ULONG_PTR)atomic_read64(&device->e_resync_bb);
 
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(sst);
 	e_bb = (ULONG_PTR)BM_SECT_TO_BIT(est);
@@ -3887,11 +3924,8 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 	if (BM_BIT_TO_SECT(e_bb) == est)
 		e_bb -= 1;
 
-	// DW-1904 next resync data range(device->e_resync_bb ~ n_resync_bb)
-	n_resync_bb = (ULONG_PTR)atomic_read64(&device->bm_resync_curr);
-
-	if ((device->e_resync_bb < e_bb && n_resync_bb >= e_bb) ||
-		(device->e_resync_bb < s_bb && n_resync_bb >= s_bb)) {
+	if ((s_resync_bb < e_bb && n_resync_bb >= e_bb) ||
+		(s_resync_bb < s_bb && n_resync_bb >= s_bb)) {
 		// DW-1911 check if marked already exists.
 		list_for_each_entry_ex(struct bsr_marked_replicate, marked_rl, &(device->marked_rl_list), marked_rl_list) {
 			if (marked_rl->bb == s_bb)
@@ -4206,9 +4240,31 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 				goto disconnect_during_al_begin_io;
 			}
 		} else if (!bsr_al_begin_io_fastpath(device, &peer_req->i)) {
-			peer_req->do_submit = true;
-			bsr_queue_peer_request(device, peer_req);
-			return 0;
+#ifdef SPLIT_REQUEST_RESYNC
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2082 process actlog commit(do_submt()) immediately without separate queuing.
+				err = bsr_al_begin_io_nonblock(device, &peer_req->i);
+				if (err) {
+					return err;
+				}
+				bsr_al_begin_io_commit(device);
+				BSR_VERIFY_DATA("%s, al commit(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)\n",
+					__FUNCTION__, bsr_repl_str(peer_device->repl_state[NOW]), (unsigned long long)peer_req->i.sector, peer_req->i.size, 
+					(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), atomic_read(&peer_device->wait_for_recv_rs_reply) ? "true" : "false");
+			}
+			else {
+#endif
+				peer_req->do_submit = true;
+				bsr_queue_peer_request(device, peer_req);
+				return 0;
+#ifdef SPLIT_REQUEST_RESYNC
+			}
+#endif
+		}
+		else {
+			BSR_VERIFY_DATA("%s, al fastpath(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)\n",
+				__FUNCTION__, bsr_repl_str(peer_device->repl_state[NOW]), (unsigned long long)peer_req->i.sector, peer_req->i.size, 
+				(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), atomic_read(&peer_device->wait_for_recv_rs_reply) ? "true" : "false");
 		}
 		peer_req->flags |= EE_IN_ACTLOG;
 	}
@@ -4619,6 +4675,17 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			}
 		}
 		else {
+#ifdef SPLIT_REQUEST_RESYNC
+			//DW-1601 ID_SYNCER_SPLIT_DONE == ID_SYNCER
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2082 send RS_CANCEL if bitmap replacement is not complete
+				if (atomic_read(&peer_device->wait_for_recv_bitmap)) {
+					BSR_VERIFY_DATA("cancels resync data until the bitmap operation is complete\n");
+					err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
+					goto fail3;
+				}
+			}
+#endif
 			err = bsr_try_rs_begin_io(peer_device, sector, false);
 			if (err) {
 				err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
@@ -4638,6 +4705,9 @@ submit_for_resync:
 	atomic_add(size >> 9, &device->rs_sect_ev);
 
 submit:
+	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)\n",
+		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+
 	update_receiver_timing_details(connection, bsr_submit_peer_request);
 	inc_unacked(peer_device);
 	if (bsr_submit_peer_request(device, peer_req, REQ_OP_READ, 0,
@@ -9179,8 +9249,10 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 		}
 #ifdef SPLIT_REQUEST_RESYNC
 		// DW-2065
-		if (bit < device->e_resync_bb)
-			device->e_resync_bb = bit;
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if (bit < (ULONGLONG)atomic_read64(&device->s_resync_bb))
+				atomic_set64(&device->s_resync_bb, bit);
+		}
 #endif
 
 		break; 
@@ -9811,6 +9883,11 @@ void conn_disconnect(struct bsr_connection *connection)
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 		atomic_set(&peer_device->wait_for_recv_rs_reply, 0);
+
+		// DW-2082
+		atomic_set(&peer_device->sent_rs_request, 0);
+		peer_device->sent_rs_req_sector = 0;
+		peer_device->sent_rs_req_size = 0;
 
 		// DW-1965 initialize values that need to be answered or set after completion of I/O.
 		atomic_set(&peer_device->unacked_cnt, 0);
@@ -10788,6 +10865,8 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			// DW-1807 Ignore P_RS_CANCEL if peer_device is not in resync.
 			// DW-1846 receive data when synchronization is in progress.
 			if (is_sync_target(peer_device)) {
+				BSR_VERIFY_DATA("receive sync request cancellation\n");
+
 				bit = (ULONG_PTR)BM_SECT_TO_BIT(sector);
 
 				mutex_lock(&device->bm_resync_fo_mutex);
