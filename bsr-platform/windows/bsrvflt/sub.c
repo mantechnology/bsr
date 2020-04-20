@@ -136,9 +136,8 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
-	IoDetachDevice(VolumeExtension->TargetDeviceObject);
-	IoDeleteDevice(DeviceObject);
 
+	// DW-2081 the VolumeExtension internal resources should be released before calling the IoDeleteDevice().
 #ifdef _WIN_MULTIVOL_THREAD
 	if (VolumeExtension->WorkThreadInfo) {
 		VolumeExtension->WorkThreadInfo = NULL;		
@@ -193,9 +192,13 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	FreeUnicodeString(&VolumeExtension->MountPoint);
 	FreeUnicodeString(&VolumeExtension->VolumeGuid);
 	
+	IoDetachDevice(VolumeExtension->TargetDeviceObject);
+
 	// DW-2033 to avoid potential BSOD in mvolGetVolumeSize()
 	VolumeExtension->TargetDeviceObject = NULL;
 
+	IoDeleteDevice(DeviceObject);
+	
 	Irp->IoStatus.Status = status;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return status;
