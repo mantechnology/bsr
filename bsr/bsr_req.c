@@ -907,8 +907,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// DW-2042 When setting RQ_OOS_NET_QUEUED, RQ_OOS_PENDING shall be set.
 #ifdef SPLIT_REQUEST_RESYNC
-	if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
-		return;
+	if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
+		if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
+			return;
+		}
 	}
 #endif
 
@@ -936,8 +938,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_PENDING) && (set & RQ_NET_PENDING)) {
 		// DW-2058 inc rq_pending_oos_cnt
 #ifdef SPLIT_REQUEST_RESYNC
-		if ((peer_device->connection->agreed_pro_version >= 113) && (set & RQ_OOS_PENDING)) {
-			atomic_inc(&peer_device->rq_pending_oos_cnt);
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if (set & RQ_OOS_PENDING) {
+				atomic_inc(&peer_device->rq_pending_oos_cnt);
+			}
 		}
 #endif
 		inc_ap_pending(peer_device);
@@ -1027,8 +1031,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
 #ifdef SPLIT_REQUEST_RESYNC
-		if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
-			if (peer_device->connection->agreed_pro_version >= 113) {
+		if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
+			if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
 				// DW-2076 
 				atomic_dec(&peer_device->rq_pending_oos_cnt);
 			}
@@ -2178,8 +2182,11 @@ out:
 	 * If however this request did not even have a private bio to submit
 	 * (e.g. remote read), req may already be invalid now.
 	 * That's why we cannot check on req->private_bio. */
-	if (submit_private_bio)
+	if (submit_private_bio) {
+		BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)\n",
+			__FUNCTION__, (unsigned long long)req->i.sector, req->i.size, (unsigned long long)BM_SECT_TO_BIT(req->i.sector), (unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
 		bsr_submit_req_private_bio(req);
+	}
 #ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.
 	 * we plug after submit, so we won't miss an unplug event */

@@ -366,6 +366,8 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_WARNING, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
+#define BSR_VERIFY_DATA(fmt, args...) \
+	bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \
@@ -1691,6 +1693,13 @@ struct bsr_peer_device {
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
 
+	// DW-2082 whether to send a resync request to decide whether to replace the bitmap if the bitmap exchange is not complete
+	atomic_t sent_rs_request;
+	// DW-2082 about resync requests that have determined whether to replace the bitmap
+	// additional completion during synchronization after bitmap replacement (P_RS_WRITE_ACK)
+	ULONG_PTR sent_rs_req_sector;
+	int sent_rs_req_size;
+
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
 
@@ -1875,15 +1884,14 @@ struct bsr_device {
 	ULONG_PTR s_rl_bb;
 	ULONG_PTR e_rl_bb;
 
-	// DW-1904 last recv resync data bitmap bit
-	ULONG_PTR e_resync_bb;
-
 	// DW-1911 hit resync in progress hit marked replicate,in sync count
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
 
-	// DW-2065
-	atomic_t64 bm_resync_curr;
+	// DW-1904 resyc start bitmap offset
+	atomic_t64 s_resync_bb;
+	// DW-2065 resyc end bitmap offset
+	atomic_t64 e_resync_bb;
 #endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which
@@ -2081,6 +2089,10 @@ extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet,
 extern int bsr_send_dblock(struct bsr_peer_device *, struct bsr_request *req);
 extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 			      sector_t sector, int size, u64 block_id);
+
+extern int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+	u64 sector, u32 blksize, u64 block_id);
+
 extern void *bsr_prepare_drequest_csum(struct bsr_peer_request *peer_req, int digest_size);
 extern int bsr_send_ov_request(struct bsr_peer_device *, sector_t sector, int size);
 
@@ -3345,9 +3357,11 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 }
 
 #define dec_rs_pending(peer_device) \
-	((void)expect((peer_device), __dec_rs_pending(peer_device) >= 0))
-static inline int __dec_rs_pending(struct bsr_peer_device *peer_device)
+	((void)expect((peer_device), __dec_rs_pending(peer_device, __FUNCTION__) >= 0))
+static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
+	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
+		bsr_warn(peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3366,9 +3380,11 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 }
 
 #define dec_unacked(peer_device) \
-	((void)expect(peer_device, __dec_unacked(peer_device) >= 0))
-static inline int __dec_unacked(struct bsr_peer_device *peer_device)
+	((void)expect(peer_device, __dec_unacked(peer_device, __FUNCTION__) >= 0))
+static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
+	if (atomic_read(&peer_device->unacked_cnt) == 0)
+		bsr_warn(peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
