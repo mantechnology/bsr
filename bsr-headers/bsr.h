@@ -438,7 +438,8 @@ enum mdf_peer_flag {
 	MDF_PEER_IN_PROGRESS_SYNC 	= 1 << 18,
 
 	// DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
-	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,        
+	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,      
+	MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID	= 1 << 20,	// DW-2088 if the source is the same UUID at the start of resync, set up the flag on the resync source node and use it to verify that the synchronization source node has changed.  
 };
 
 #define BSR_PEERS_MAX 32
