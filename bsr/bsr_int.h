@@ -139,11 +139,12 @@ extern char usermode_helper[];
 // DW-1601 Add define values for split peer request processing and already sync processing
 #define ID_SYNCER_SPLIT_DONE ID_SYNCER
 #define ID_SYNCER_SPLIT (ID_SYNCER - 1)
-// DW-2112 Add block id that does not set in sync when sending P_RS_WRITE_WRITE_ACK
-// currently, it is only used for synchronization requests that confirm completion of bitmap exchange.
-#define ID_SYNCER_NOT_INSYNC_DONE (ID_SYNCER - 2)
 
 #define UUID_NEW_BM_OFFSET ((u64)0x0001000000000000ULL)
+
+// DW-2124
+#define B_COMPLETE 0x01
+
 //DW-1927
 #define CONTROL_BUFF_SIZE	1024 * 5120
 
@@ -267,8 +268,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_OOS, obj, fmt, __VA_ARGS__)
 #define bsr_latency(obj, fmt, ...) \
 	bsr_printk(KERN_LATENCY, obj, fmt, __VA_ARGS__)
-#define BSR_VERIFY_DATA(fmt, ...) \
-	bsr_printk(KERN_INFO, , fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
@@ -1705,9 +1704,6 @@ struct bsr_peer_device {
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
 
-	// DW-2082 whether to send a resync request to decide whether to replace the bitmap if the bitmap exchange is not complete
-	atomic_t sent_bitmap_exchange_complete_request;
-
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
 
@@ -2101,6 +2097,8 @@ extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 
 extern int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	u64 sector, u32 blksize, u64 block_id);
+
+extern int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state);
 
 extern void *bsr_prepare_drequest_csum(struct bsr_peer_request *peer_req, int digest_size);
 extern int bsr_send_ov_request(struct bsr_peer_device *, sector_t sector, int size);

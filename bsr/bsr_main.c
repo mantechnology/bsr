@@ -2611,6 +2611,22 @@ int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	return bsr_send_command(peer_device, cmd, CONTROL_STREAM);
 }
 
+// DW-2124
+int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state)
+{
+	struct p_bm_exchange_state *p;
+
+	p = bsr_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
+
+	if (!p)
+		return -EIO;
+
+	p->state = cpu_to_be32(state);
+
+	return bsr_send_command(peer_device, cmd, DATA_STREAM);
+
+}
+
 int bsr_send_drequest(struct bsr_peer_device *peer_device, int cmd,
 		       sector_t sector, int size, u64 block_id)
 {
@@ -4442,8 +4458,6 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
-	// DW-2082 
-	atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);	
 
 
 	atomic_set64(&peer_device->s_resync_bb, 0);
