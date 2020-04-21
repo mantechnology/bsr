@@ -909,7 +909,8 @@ void bsr_al_shrink(struct bsr_device *device)
 
 static bool extent_in_sync(struct bsr_peer_device *peer_device, unsigned int rs_enr)
 {
-	if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
+	// DW-2096 send peer_in_sync to Ahead node.
+	if (peer_device->repl_state[NOW] == L_ESTABLISHED || peer_device->repl_state[NOW] == L_AHEAD) {
 		if (bsr_bm_total_weight(peer_device) == 0)
 			return true;
 		if (bm_e_weight(peer_device, rs_enr) == 0)
