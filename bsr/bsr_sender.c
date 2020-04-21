@@ -2886,18 +2886,6 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		atomic_set64(&device->s_resync_bb, 0);
 		atomic_set64(&device->e_resync_bb, 0);
 
-		// DW-2082 if it is not completed before, complete it at the start of resync.
-		if (peer_device->sent_rs_req_size) {
-			BSR_VERIFY_DATA("start resync from syncsource, force failed sector(%llu) size(%d), bitmap(%llu ~ %llu)\n",
-				(unsigned long long)peer_device->sent_rs_req_sector, peer_device->sent_rs_req_size, (unsigned long long)BM_SECT_TO_BIT(peer_device->sent_rs_req_sector), (unsigned long long)BM_SECT_TO_BIT(peer_device->sent_rs_req_sector + (peer_device->sent_rs_req_size >> 9)));
-			if (_bsr_send_ack(peer_device, P_RS_WRITE_ACK, cpu_to_be64(peer_device->sent_rs_req_sector), cpu_to_be32(peer_device->sent_rs_req_size), ID_SYNCER_SPLIT_DONE)) {
-				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
-				return;
-			}
-			peer_device->sent_rs_req_sector = 0;
-			peer_device->sent_rs_req_size = 0;
-		}
-
 		// DW-2050
 		if (side == L_SYNC_TARGET) {
 			// DW-1908 set start out of sync bit
