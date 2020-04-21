@@ -1466,6 +1466,18 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 
 			FsctlUnlockVolume(device->minor);
 		}
+
+		// DW-2107 remove from block target if setting from primary to secondary fails
+		if (retcode != SS_SUCCESS && adm_ctx.resource->role[NOW] == R_PRIMARY) {
+			idr_for_each_entry(struct drbd_device *, &adm_ctx.resource->devices, device, vnr)
+			{
+				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
+				if (pvext)
+				{
+					SetDrbdlockIoBlock(pvext, FALSE);
+				}
+			}
+		}
 #else
 		int vnr;
 		struct bsr_device * device;
@@ -6522,9 +6534,20 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		FsctlUnlockVolume(device->minor);
 	}
 
-	
-	if(retcode < SS_SUCCESS)
+	if(retcode < SS_SUCCESS) {
+		// DW-2107 remove from block target if setting from primary to secondary fails
+		if (resource->role[NOW] == R_PRIMARY) {
+			idr_for_each_entry(struct drbd_device *, &resource->devices, device, vnr)
+			{
+				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
+				if (pvext)
+				{
+					SetDrbdlockIoBlock(pvext, FALSE);
+				}
+			}
+		}
 		goto out;
+	}
 #else
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor);
