@@ -267,6 +267,8 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_OOS, obj, fmt, __VA_ARGS__)
 #define bsr_latency(obj, fmt, ...) \
 	bsr_printk(KERN_LATENCY, obj, fmt, __VA_ARGS__)
+#define BSR_VERIFY_DATA(fmt, ...) \
+	bsr_printk(KERN_INFO, , fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
@@ -369,8 +371,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_WARNING, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
-#define BSR_VERIFY_DATA(fmt, args...) \
-	bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \
@@ -380,6 +380,14 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 #endif
 
+// DW-2099
+#ifdef _WIN
+#define BSR_VERIFY_DATA(_m_, ...) \
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) printk(KERN_INFO "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
+#else // _LIN
+#define BSR_VERIFY_DATA(fmt, args...) \
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
+#endif
 
 #ifdef _WIN
 #define BUG()   bsr_crit(NO_OBJECT,"warning: failure\n")
@@ -419,7 +427,8 @@ extern atomic_t g_featurelog_flag;
 #define FEATURELOG_FLAG_OOS 		(1 << 0)
 #define FEATURELOG_FLAG_LATENCY 	(1 << 1)
 
-
+// DW-2099 flags for data verification
+#define FEATURELOG_FLAG_VERIFY 		(1 << 2)
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
@@ -1691,13 +1700,13 @@ struct bsr_peer_device {
 	atomic_t wait_for_actlog;
 	// DW-1979 the value used by the syncaget to match the "out of sync" with the sync source when exchanging the bitmap.
 	// set to 1 when waiting for a response to a resync request.
-	atomic_t wait_for_recv_rs_reply;
+	atomic_t wait_for_bitmp_exchange_complete;
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
 
 	// DW-2082 whether to send a resync request to decide whether to replace the bitmap if the bitmap exchange is not complete
-	atomic_t sent_rs_request;
+	atomic_t sent_bitmap_exchange_complete_request;
 
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
