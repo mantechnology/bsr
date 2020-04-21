@@ -2873,23 +2873,15 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 			atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
 			atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
 
-			// DW-2103 if the resync data is not in the L_SYNC_TARGET state, complete the incomplete request.
-			if (peer_device->repl_state[NOW] != L_SYNC_TARGET) {
-				BSR_VERIFY_DATA("send request to complete bitmap exchange since is not in synctarget state, sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
-						(unsigned long long)peer_req->i.sector, 
-						peer_req->i.size, 
-						(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
-						(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
-				peer_req->block_id = ID_SYNCER_SPLIT_DONE;
-				if (bsr_send_ack(peer_device, P_RS_WRITE_ACK, peer_req)) {
-					return -EIO;
-				}
-			}
-			else {
-				// DW-2082 store resync response information that checks completion of bitmap exchange
-				peer_device->sent_rs_req_sector = peer_req->i.sector;
-				peer_device->sent_rs_req_size = peer_req->i.size;
-			}
+			// DW-2112 
+			BSR_VERIFY_DATA("send request to complete bitmap exchange, sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
+					(unsigned long long)peer_req->i.sector, 
+					peer_req->i.size, 
+					(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+					(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+			peer_req->block_id = ID_SYNCER_NOT_INSYNC_DONE;
+			if (bsr_send_ack(peer_device, P_RS_WRITE_ACK, peer_req))
+				return -EIO;
 
 			// DW-2082 since the bitmap exchange is complete, start resync from the beginning.
 			restart = (device->bm_resync_fo == bsr_bm_bits(device));
@@ -2899,8 +2891,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
 
 			mutex_unlock(&device->bm_resync_fo_mutex);
-			BSR_VERIFY_DATA("syncsource bitmap operation completed, force failed sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
-				(unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 			dec_rs_pending(peer_device);
 			bsr_free_peer_req(peer_req);
@@ -9908,8 +9898,6 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// DW-2082
 		atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
-		peer_device->sent_rs_req_sector = 0;
-		peer_device->sent_rs_req_size = 0;
 
 		// DW-1965 initialize values that need to be answered or set after completion of I/O.
 		atomic_set(&peer_device->unacked_cnt, 0);
@@ -10700,8 +10688,16 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 		if (p->block_id != ID_SYNCER_SPLIT)
 			update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
-		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			bsr_set_in_sync(peer_device, sector, blksize);
+		// DW-2112 add ID_SYNCER_NOT_INSYNC_DONE
+		if (p->block_id == ID_SYNCER_NOT_INSYNC_DONE || p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
+			// DW-2112 only set when in sync is in a certain state to avoid overlapping.
+			if (device->resource->role[NOW] == R_PRIMARY || 
+				is_sync_source(peer_device) || 
+				peer_device->repl_state[NOW] == L_AHEAD) {
+				// DW-2112 set in sync if block id is not ID_SYNCER_NOT_INSYNC_DONE
+				if (p->block_id != ID_SYNCER_NOT_INSYNC_DONE)
+					bsr_set_in_sync(peer_device, sector, blksize);
+			}
 
 			// DW-1601 add DW-1859
 			if (device->resource->role[NOW] == R_PRIMARY)
@@ -10709,7 +10705,8 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			else
 				check_and_clear_io_error_in_secondary(peer_device);
 
-			if (p->block_id == ID_SYNCER_SPLIT_DONE) 
+			// DW-2112
+			if (p->block_id == ID_SYNCER_NOT_INSYNC_DONE || p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);
 
 			// DW-1601 add DW-1817
