@@ -8512,7 +8512,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		if (old_peer_state.conn != L_BEHIND) {
 			bsr_info(peer_device, "peer is Ahead. change to Behind mode\n"); // DW-1518
 		}
-		new_repl_state = L_BEHIND;
+		// DW-2104 When the Ahead node is demoted, Behind state is changed to Established.
+		if (peer_state.role == R_SECONDARY)
+			new_repl_state = L_ESTABLISHED;
+		else
+			new_repl_state = L_BEHIND;
 	}
 
 	if (peer_device->uuids_received &&
