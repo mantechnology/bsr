@@ -4447,6 +4447,9 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	peer_device->sent_rs_req_sector = 0;
 	peer_device->sent_rs_req_size = 0;
 
+	atomic_set64(&peer_device->s_resync_bb, 0);
+	atomic_set64(&peer_device->e_resync_bb, 0);
+
 	peer_device->bitmap_index = -1;
 	peer_device->resync_wenr = LC_FREE;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
@@ -4543,8 +4546,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
-	atomic_set64(&device->s_resync_bb, 0);
-	atomic_set64(&device->e_resync_bb, 0);
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);

@@ -3917,9 +3917,9 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 	u16 i = 0;
 	u16 offset = 0;
 
-	//DW-1904 range in progress for resync (device->s_resync_bb ~ device->e_resync_bb)
-	ULONG_PTR s_resync_bb = (ULONG_PTR)atomic_read64(&device->s_resync_bb);
-	ULONG_PTR n_resync_bb = (ULONG_PTR)atomic_read64(&device->e_resync_bb);
+	//DW-1904 range in progress for resync (peer_device->s_resync_bb ~ peer_device->e_resync_bb)
+	ULONG_PTR s_resync_bb = (ULONG_PTR)atomic_read64(&peer_device->s_resync_bb);
+	ULONG_PTR n_resync_bb = (ULONG_PTR)atomic_read64(&peer_device->e_resync_bb);
 
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(sst);
 	e_bb = (ULONG_PTR)BM_SECT_TO_BIT(est);
@@ -9264,8 +9264,8 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 #ifdef SPLIT_REQUEST_RESYNC
 		// DW-2065
 		if (peer_device->connection->agreed_pro_version >= 113) {
-			if (bit < (ULONGLONG)atomic_read64(&device->s_resync_bb))
-				atomic_set64(&device->s_resync_bb, bit);
+			if (bit < (ULONGLONG)atomic_read64(&peer_device->s_resync_bb))
+				atomic_set64(&peer_device->s_resync_bb, bit);
 		}
 #endif
 
@@ -10580,7 +10580,7 @@ static int got_IsInSync(struct bsr_connection *connection, struct packet_info *p
 
 				// DW-2082 since the bitmap exchange is complete, start resync from the beginning.
 				restart = (device->bm_resync_fo == bsr_bm_bits(device));
-				device->bm_resync_fo = device->s_resync_bb;
+				device->bm_resync_fo = atomic_read64(&peer_device->s_resync_bb);
 
 				if (restart)
 					mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
