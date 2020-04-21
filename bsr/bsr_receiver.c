@@ -2874,7 +2874,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 			bool restart = false;
 
 			bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-			atomic_add(d->bi_size >> 9, &device->rs_sect_ev);
 
 			mutex_lock(&device->bm_resync_fo_mutex);
 			// DW-1979
@@ -10566,8 +10565,42 @@ static int got_IsInSync(struct bsr_connection *connection, struct packet_info *p
 	update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
 	if (get_ldev(device)) {
+		// DW-2098 apply DW-2082 to P_RS_IS_IN_SYNC
+#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
+				// DW-2082 bitmap exchange completed
+				bool restart = false;
+
+				mutex_lock(&device->bm_resync_fo_mutex);
+				// DW-1979
+				atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+				atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
+
+				bsr_set_out_of_sync(peer_device, sector, blksize);
+
+				// DW-2082 since the bitmap exchange is complete, start resync from the beginning.
+				restart = (device->bm_resync_fo == bsr_bm_bits(device));
+				device->bm_resync_fo = device->s_resync_bb;
+
+				if (restart)
+					mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
+
+				mutex_unlock(&device->bm_resync_fo_mutex);
+				BSR_VERIFY_DATA("syncsource bitmap operation completed, force failed sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
+					sector, blksize, BM_SECT_TO_BIT(sector), BM_SECT_TO_BIT(sector + (blksize >> 9)));
+			}
+			else
+				bsr_set_in_sync(peer_device, sector, blksize);
+		}
+		else {
+#else
+			bsr_set_in_sync(peer_device, sector, blksize);
+#endif
+#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+		}
+#endif
 		bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
-		bsr_set_in_sync(peer_device, sector, blksize);
 		/* rs_same_csums is supposed to count in units of BM_BLOCK_SIZE */
 		peer_device->rs_same_csum += (blksize >> BM_BLOCK_SHIFT);
 		// BSR-448 applied to release io-error value.
@@ -10878,6 +10911,17 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			
 			break;
 		case P_RS_CANCEL:
+			mutex_lock(&device->bm_resync_fo_mutex);
+#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
+			// DW-2098 receive is possible even in the behind state, so check even if it is not in sync target state.
+			if (peer_device->connection->agreed_pro_version >= 113) {
+				// DW-2089 if the request for confirmation of completion of bitmap exchange is canceled, set the sent_bitmap_exchange_complete_request to zero for retransmission.
+				if (atomic_read(&peer_device->sent_bitmap_exchange_complete_request) &&
+					atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
+					atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
+				}
+			}
+#endif
 			// DW-1807 Ignore P_RS_CANCEL if peer_device is not in resync.
 			// DW-1846 receive data when synchronization is in progress.
 			if (is_sync_target(peer_device)) {
@@ -10885,20 +10929,12 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 
 				bit = (ULONG_PTR)BM_SECT_TO_BIT(sector);
 
-				mutex_lock(&device->bm_resync_fo_mutex);
-
-				// DW-2089 if the request for confirmation of completion of bitmap exchange is canceled, set the sent_bitmap_exchange_complete_request to zero for retransmission.
-				if (atomic_read(&peer_device->sent_bitmap_exchange_complete_request) &&
-					atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
-					atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
-				}
-
 				device->bm_resync_fo = min(device->bm_resync_fo, bit);
-				mutex_unlock(&device->bm_resync_fo_mutex);
 
 				atomic_add(size >> 9, &peer_device->rs_sect_in);
 				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
 			}
+			mutex_unlock(&device->bm_resync_fo_mutex);
 			break;
 		default:
 			BUG();
