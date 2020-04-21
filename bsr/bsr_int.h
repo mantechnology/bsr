@@ -366,9 +366,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_WARNING, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
-// DW-2099
-#define BSR_VERIFY_DATA(fmt, args...) \
-	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \
@@ -378,6 +375,14 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 #endif
 
+// DW-2099
+#ifdef _WIN
+#define BSR_VERIFY_DATA(_m_, ...) \
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) printk(KERN_INFO "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
+#else // _LIN
+#define BSR_VERIFY_DATA(fmt, args...) \
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
+#endif
 
 #ifdef _WIN
 #define BUG()   bsr_crit(NO_OBJECT,"warning: failure\n")
