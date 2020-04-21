@@ -2879,7 +2879,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 			// DW-2082 since the bitmap exchange is complete, start resync from the beginning.
 			restart = (device->bm_resync_fo == bsr_bm_bits(device));
-			device->bm_resync_fo = atomic_read64(&device->s_resync_bb);
+			device->bm_resync_fo = atomic_read64(&peer_device->s_resync_bb);
 
 			if (restart)
 				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
