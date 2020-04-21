@@ -264,6 +264,8 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_OOS, obj, fmt, __VA_ARGS__)
 #define bsr_latency(obj, fmt, ...) \
 	bsr_printk(KERN_LATENCY, obj, fmt, __VA_ARGS__)
+#define BSR_VERIFY_DATA(fmt, ...) \
+	bsr_printk(KERN_INFO, , fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
@@ -1695,13 +1697,13 @@ struct bsr_peer_device {
 	atomic_t wait_for_actlog;
 	// DW-1979 the value used by the syncaget to match the "out of sync" with the sync source when exchanging the bitmap.
 	// set to 1 when waiting for a response to a resync request.
-	atomic_t wait_for_recv_rs_reply;
+	atomic_t wait_for_bitmp_exchange_complete;
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
 
 	// DW-2082 whether to send a resync request to decide whether to replace the bitmap if the bitmap exchange is not complete
-	atomic_t sent_rs_request;
+	atomic_t sent_bitmap_exchange_complete_request;
 	// DW-2082 about resync requests that have determined whether to replace the bitmap
 	// additional completion during synchronization after bitmap replacement (P_RS_WRITE_ACK)
 	ULONG_PTR sent_rs_req_sector;
