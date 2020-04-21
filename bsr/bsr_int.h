@@ -1712,6 +1712,12 @@ struct bsr_peer_device {
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
 
+	// DW-2119 this variables in the device were moved to the peer_device.
+	// DW-1904 resync start bitmap offset
+	atomic_t64 s_resync_bb;
+	// DW-2065 resync end bitmap offset
+	atomic_t64 e_resync_bb;
+
 	/* use checksums for *this* resync */
 	bool use_csums;
 	/* blocks to resync in this run [unit BM_BLOCK_SIZE] */
@@ -1896,11 +1902,6 @@ struct bsr_device {
 	// DW-1911 hit resync in progress hit marked replicate,in sync count
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
-
-	// DW-1904 resyc start bitmap offset
-	atomic_t64 s_resync_bb;
-	// DW-2065 resyc end bitmap offset
-	atomic_t64 e_resync_bb;
 #endif
 	int open_rw_cnt, open_ro_cnt;
 	/* FIXME clean comments, restructure so it is more obvious which

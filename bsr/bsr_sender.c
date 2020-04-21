@@ -1352,9 +1352,9 @@ next_sector:
 
 #ifdef SPLIT_REQUEST_RESYNC
 		// DW-2082
-		if ((ULONG_PTR)atomic_read64(&device->e_resync_bb) < device->bm_resync_fo) {
+		if ((ULONG_PTR)atomic_read64(&peer_device->e_resync_bb) < device->bm_resync_fo) {
 			// DW-2065
-			atomic_set64(&device->e_resync_bb, device->bm_resync_fo);
+			atomic_set64(&peer_device->e_resync_bb, device->bm_resync_fo);
 		}
 #endif
 		/* adjust very last sectors, in case we are oddly sized */
@@ -2885,8 +2885,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		device->e_rl_bb = 0;
 
 		// DW-2065
-		atomic_set64(&device->s_resync_bb, 0);
-		atomic_set64(&device->e_resync_bb, 0);
+		atomic_set64(&peer_device->s_resync_bb, 0);
+		atomic_set64(&peer_device->e_resync_bb, 0);
 
 		// DW-2050
 		if (side == L_SYNC_TARGET) {
@@ -2896,12 +2896,12 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				ULONG_PTR tmp = bsr_bm_range_find_next(peer_device, offset, offset + RANGE_FIND_NEXT_BIT);
 
 				if (tmp < (offset + RANGE_FIND_NEXT_BIT + 1)) {
-					atomic_set64(&device->s_resync_bb, tmp);
+					atomic_set64(&peer_device->s_resync_bb, tmp);
 					break;
 				}
 
 				if (tmp >= bsr_bm_bits(device)) {
-					atomic_set64(&device->s_resync_bb, BSR_END_OF_BITMAP);
+					atomic_set64(&peer_device->s_resync_bb, BSR_END_OF_BITMAP);
 					break;
 				}
 
@@ -2909,7 +2909,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			}
 
 			// DW-2065
-			atomic_set64(&device->e_resync_bb, atomic_read64(&device->s_resync_bb));
+			atomic_set64(&peer_device->e_resync_bb, atomic_read64(&peer_device->s_resync_bb));
 		}
 	}
 #endif
