@@ -366,8 +366,9 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_WARNING, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
+// DW-2099
 #define BSR_VERIFY_DATA(fmt, args...) \
-	bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \
@@ -416,7 +417,8 @@ extern atomic_t g_featurelog_flag;
 #define FEATURELOG_FLAG_OOS 		(1 << 0)
 #define FEATURELOG_FLAG_LATENCY 	(1 << 1)
 
-
+// DW-2099 flags for data verification
+#define FEATURELOG_FLAG_VERIFY 		(1 << 2)
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
