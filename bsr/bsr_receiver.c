@@ -2905,6 +2905,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 			dec_rs_pending(peer_device);
 			bsr_free_peer_req(peer_req);
+			// DW-2106 call put_ldev() at the location because it does not proceed with writing.
+			put_ldev(device);
 
 			return 0;
 		}
