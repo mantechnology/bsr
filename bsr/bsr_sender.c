@@ -1221,10 +1221,8 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_device->connection->agreed_pro_version >= 113) {
 		// DW-2082 if the bitmap exchange was not completed and the resync request was sent once, the next resync request is not sent.
-		if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete) &&
-			atomic_read(&peer_device->sent_bitmap_exchange_complete_request)) {
-			BSR_VERIFY_DATA("waiting for syncsource to complete bitmap operation, (%d, %d)\n",
-				atomic_read(&peer_device->wait_for_bitmp_exchange_complete), atomic_read(&peer_device->sent_bitmap_exchange_complete_request));
+		if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
+			BSR_VERIFY_DATA("waiting for syncsource to bitmap exchange status\n");
 			goto requeue;
 		}
 	}
@@ -1394,19 +1392,6 @@ next_sector:
 			peer_device->rs_send_req += size;
 		}
 	}
-
-#ifdef ACT_LOG_TO_RESYNC_LRU_RELATIVITY_DISABLE
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			// DW-2082 if the bitmap exchange is not completed, the resync request is used to determine whether the bitmap has been replaced.
-			if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete) && !atomic_read(&peer_device->sent_bitmap_exchange_complete_request)) {
-				BSR_VERIFY_DATA("first sent resync request, sector(%llu) size(%u), bitmap(%llu ~ %llu)\n",
-					sector, size, BM_SECT_TO_BIT(sector), BM_SECT_TO_BIT(sector + (size >> 9)));
-				atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 1);
-				// DW-2098 only one resync request should be sent.
-				break;
-			}
-		}
-#endif
 
 	if (device->bm_resync_fo >= bsr_bm_bits(device)) {
 		/* last syncer _request_ was sent,
@@ -1882,8 +1867,6 @@ out_unlock:
 	peer_device->rs_failed = 0;
 	peer_device->rs_paused = 0;
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
-	// DW-2082
-	atomic_set(&peer_device->sent_bitmap_exchange_complete_request, 0);
 
 	if (peer_device->resync_again) {
 		enum bsr_repl_state new_repl_state =
