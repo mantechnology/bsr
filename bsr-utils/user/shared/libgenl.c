@@ -231,11 +231,7 @@ retry:
 	else if (n < 0) {
 		if (errno == EINTR) {
 			dbg(3, "recvmsg() returned EINTR, retrying\n");
-#ifdef _WIN
-			return -EINTR;
-#else // _LIN
 			goto retry;
-#endif
 		} else if (errno == EAGAIN) {
 			dbg(3, "recvmsg() returned EAGAIN, aborting\n");
 			return 0;
@@ -272,12 +268,13 @@ retry:
 			return -E_RCV_ENOBUFS;
 		}
 		// DW-2071 read one at a time.
+		size_t len = nlh->nlmsg_len;
 		if (iov->iov_len < nlh->nlmsg_len) {
-			iov->iov_base = realloc(iov->iov_base, nlh->nlmsg_len);
+			iov->iov_base = realloc(iov->iov_base, len);
 			if (!iov->iov_base)
 				return -E_RCV_ENOBUFS;
 		}
-		iov->iov_len = nlh->nlmsg_len;
+		iov->iov_len = len;
 
 		// DW-2071
 		flags = 0;
