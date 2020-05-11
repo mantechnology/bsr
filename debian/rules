@@ -1,0 +1,68 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
+
+VERSION := $(shell dpkg-parsechangelog | sed -rne 's/^Version: ([0-9]+:)?//p')
+PACKAGE=bsr-module
+DKMSDIR=bsr-dkms
+MODSRCDIR=bsr-module-source
+
+# modifieable for experiments or debugging m-a
+MA_DIR ?= /usr/share/modass
+# load generic variable handling
+-include $(MA_DIR)/include/generic.make
+# load default rules, including kdist, kdist_image, ...
+-include $(MA_DIR)/include/common-rules.make
+
+%:
+	dh $@ --with dkms
+
+override_dh_auto_clean: ;
+override_dh_auto_configure: ;
+override_dh_auto_build: ;
+override_dh_auto_test: ;
+override_dh_auto_install: ;
+
+override_dh_install:
+	# dkms
+	dh_install bsr ../$(DKMSDIR)/usr/src/bsr-$(VERSION)/src
+	dh_install bsr-headers ../$(DKMSDIR)/usr/src/bsr-$(VERSION)/src
+	dh_install bsr-platform ../$(DKMSDIR)/usr/src/bsr-$(VERSION)/src
+
+	# m-a
+	dh_install bsr ../$(MODSRCDIR)/usr/src/modules/bsr/
+	dh_install debian/changelog ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	dh_install debian/control ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	dh_install debian/compat ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	dh_install debian/copyright ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	dh_install debian/*modules.in ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	dh_install debian/rules ../$(MODSRCDIR)/usr/src/modules/bsr/debian
+	cd debian/$(MODSRCDIR)/usr/src ; tar pzfvc bsr.tar.gz modules ; rm -rf modules
+	install -m 755 debian/modass.bsr-module-source ./debian/$(MODSRCDIR)/usr/share/modass/overrides/$(MODSRCDIR)
+
+override_dh_dkms:
+	dh_dkms -V $(VERSION)
+
+# some nasty clue code for m-a
+kdist_clean:
+	dh_clean
+	-$(MAKE) -C bsr clean
+
+DEB_BUILD_ARCH := $(shell dpkg --print-architecture)
+binary-modules: prep-deb-files
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	$(MAKE) -C bsr KERNEL_SOURCES=$(KSRC) MODVERSIONS=detect KERNEL=linux-$(KVERS) KDIR=$(KSRC)
+	install -m644 -b -D bsr/bsr.ko $(CURDIR)/debian/$(PKGNAME)/lib/modules/$(KVERS)/updates/bsr.ko
+	install -m644 -b -D bsr/Module.symvers $(DEB_DESTDIR)/Module.symvers.$(KVERS).$(DEB_BUILD_ARCH)
+	dh_installdocs
+	dh_installchangelogs
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol -- -v$(VERSION)
+	dh_md5sums
+	dh_builddeb --destdir=$(DEB_DESTDIR)
+

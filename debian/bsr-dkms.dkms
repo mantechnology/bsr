@@ -1,0 +1,8 @@
+PACKAGE_VERSION="#MODULE_VERSION#"
+PACKAGE_NAME="bsr"
+MAKE="make -C src/bsr KDIR=/lib/modules/$kernelver/build"
+CLEAN="make -C src/bsr clean KDIR=/lib/modules/$kernelver/build"
+BUILT_MODULE_NAME[0]="bsr"
+BUILT_MODULE_LOCATION[0]="./src/bsr/"
+DEST_MODULE_LOCATION[0]="/kernel/drivers/block/bsr"
+AUTOINSTALL="yes"
