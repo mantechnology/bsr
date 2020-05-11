@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# dh_installinit automatically adds update-rc.d calls
+# all supported systems use udev nowadays
+
+. /usr/share/debconf/confmodule
+
+db_get bsr-utils/manpages
+MANVERSION=$RET
+db_stop
+
+# man pages
+for f in bsr bsradm bsrmeta bsrsetup; do
+	ln -sf $f-$MANVERSION.8.gz /usr/share/man/man8/$f.8.gz
+done
+ln -sf bsr.conf-$MANVERSION.5.gz /usr/share/man/man5/bsr.conf.5.gz
+
+# ja man pages
+for f in bsr bsradm bsrmeta bsrsetup; do
+	ln -sf $f-$MANVERSION.8.gz /usr/share/man/ja/man8/$f.8.gz
+done
+ln -sf bsr.conf-$MANVERSION.5.gz /usr/share/man/ja/man5/bsr.conf.5.gz
+
+# compat: we used to live in /sbin/
+# there may be many hardcoded /sbin/bsr* out there,
+# including variants of our own scripts.
+# Unless /sbin is a symlink to /usr/sbin anyways.
+if ! test /sbin -ef /usr/sbin; then
+	ln -sf /usr/sbin/bsrsetup /sbin/
+	ln -sf /usr/sbin/bsrmeta /sbin/
+	ln -sf /usr/sbin/bsradm /sbin/
+fi
+
+#DEBHELPER#

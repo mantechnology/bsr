@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. /usr/share/debconf/confmodule
+
+case $1 in purge|remove|deconfigure)
+	update-rc.d bsr remove >/dev/null
+	# remove compat symlinks installed by .postinst
+	rm -f /sbin/bsrsetup /sbin/bsrmeta /sbin/bsradm
+
+	# remove man page links
+	for f in bsr bsradm bsrmeta bsrsetup; do
+		rm -f /usr/share/man/man8/$f.8.gz
+	done
+	rm -f /usr/share/man/man5/bsr.conf.5.gz
+	db_purge
+	;;
+esac
+
+#DEBHELPER#
