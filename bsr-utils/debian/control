@@ -1,0 +1,26 @@
+Source: bsr-utils
+Section: admin
+Priority: extra
+Maintainer: Man Technology Inc. <dev3@mantech.co.kr>
+Uploaders: Man Technology Inc. <dev3@mantech.co.kr>
+Build-Depends: bash-completion,
+               debhelper (>= 7),
+               dh-systemd,
+               docbook-xsl,
+               flex,
+               udev,
+               xsltproc
+Homepage: http://www.mantech.co.kr/
+Vcs-Browser: https://github.com/mantechnology/bsr
+Vcs-Git: https://github.com/mantechnology/bsr.git
+
+Package: bsr-utils
+Architecture: linux-any
+Depends: debconf (>= 0.5),
+         mount,
+         ${misc:Depends},
+         ${shlibs:Depends}
+Suggests: heartbeat
+Recommends: heirloom-mailx | mailx
+Description: This package contains the programs that will control the bsr kernel
+ module provided in the Linux kernel or external bsr module source.

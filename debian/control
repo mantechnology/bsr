@@ -1,0 +1,36 @@
+Source: bsr
+Section: admin
+Priority: extra
+Maintainer: Man Technology Inc. <dev3@mantech.co.kr>
+Build-Depends: bash,
+               debhelper (>= 7),
+               dkms
+
+Package: bsr-dkms
+Architecture: all
+Section: admin
+Depends: debhelper (>=7),
+         dkms (>= 1.9.5),
+         curl,
+         ${misc:Depends}
+Conflicts: bsr-module-source
+Provides: bsr-dkms
+Replaces: bsr-module-source
+Description: This module is the kernel-dependent driver for BSR.  This is split out so
+ that multiple kernel driver versions can be installed, one for each
+ installed kernel.
+Homepage: http://www.mantech.co.kr/
+
+Package: bsr-module-source
+Architecture: all
+Section: admin
+Depends: debhelper (>= 7),
+         ${misc:Depends}
+Conflicts: bsr-dkms
+Provides: bsr-module-source
+Replaces: bsr-dkms
+Recommends: kernel-package | module-assistant
+Description: This module is the kernel-dependent driver for BSR.  This is split out so
+ that multiple kernel driver versions can be installed, one for each
+ installed kernel.
+Homepage: http://www.mantech.co.kr/

@@ -1,0 +1,5 @@
+Template: bsr-utils/manpages
+Type: select
+Choices: 8.3, 8.4, 9.0
+Default: 8.4
+Description: Which version of the bsr man pages do you want to use?

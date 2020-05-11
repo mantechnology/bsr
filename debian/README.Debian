@@ -1,0 +1,10 @@
+bsr for Debian
+---------------
+
+To make sure the default installation of bsr is non-interactive, I
+have set the default value of the inittimeout parameter to be a
+negative number.  This may not be what you would like for a production
+setup.  See the bsr.conf man page and pay special attention to the
+inittimeout, skip-wait, and load-only options.
+
+ -- Man Technology Inc <dev3@mantech.co.kr>  Mon May 11 12:44:14 2020
