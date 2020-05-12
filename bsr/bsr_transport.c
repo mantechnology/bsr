@@ -7,8 +7,8 @@
 #include <linux/module.h>
 #include <net/ipv6.h>
 #endif
-#include "../bsr-headers/bsr_transport.h"
 #include "bsr_int.h"
+#include "../bsr-headers/bsr_transport.h"
 
 
 static LIST_HEAD(transport_classes);

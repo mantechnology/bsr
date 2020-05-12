@@ -1,6 +1,6 @@
+#include "./bsr_int.h"
 #include "bsr_interval.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
-#include "./bsr_int.h"
 
 /**
  * interval_end  -  return end of @node

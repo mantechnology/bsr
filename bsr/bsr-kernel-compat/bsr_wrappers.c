@@ -1,5 +1,5 @@
-#include "bsr_wrappers.h"
 #include "../../bsr/bsr_int.h"
+#include "bsr_wrappers.h"
 
 #ifdef _WIN
 void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
