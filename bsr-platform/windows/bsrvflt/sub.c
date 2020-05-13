@@ -635,14 +635,133 @@ void save_to_system_event(char * buf, int length, int level_index)
 	}
 }
 
+enum bsr_thread_state g_consumer_state = EXITING;
+PVOID g_consumer_thread = NULL;
+
+// BSR-578 threads writing logs to a file 
+void log_consumer_thread(PVOID param) {
+	struct log_ring_buffer *rb;
+	HANDLE hFile;
+	IO_STATUS_BLOCK ioStatus;
+	OBJECT_ATTRIBUTES obAttribute;
+	UNICODE_STRING fileFullPath, regPath;
+	NTSTATUS status;
+	LONG indx = 0;
+	char* buffer = NULL;
+	LARGE_INTEGER	interval;
+	ULONG pathLength;
+	WCHAR filePath[255] = { 0 };
+	WCHAR temp[255] = { 0 };
+	WCHAR* ptr;
+
+	// BSR-578 wait for file system (changed later..)
+	interval.QuadPart = (-1 * 1000 * 10000);   // wait 1000ms relative
+	KeDelayExecutionThread(KernelMode, FALSE, &interval);
+
+	RtlInitUnicodeString(&regPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
+
+	status = GetRegistryValue(L"BSR_PATH", &pathLength, (UCHAR*)&filePath, &regPath);
+
+	if (!NT_SUCCESS(status)) {
+		bsr_info(NO_OBJECT, "failed to get bsr path status(%x)\n", status);
+		return;
+	}
+
+	ptr = wcsrchr(filePath, L'\\');
+	if (ptr != NULL)
+		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+
+	_snwprintf(temp, sizeof(temp) - sizeof(WCHAR), L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+
+	bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
+
+	RtlInitUnicodeString(&fileFullPath, temp);
+	InitializeObjectAttributes(&obAttribute, &fileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
+	
+	status = ZwCreateFile(&hFile,
+							FILE_APPEND_DATA,
+							&obAttribute,
+							&ioStatus,
+							NULL,
+							FILE_ATTRIBUTE_NORMAL,
+							FILE_SHARE_READ,
+							FILE_OPEN_IF,
+							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+							NULL,
+							0);
+	
+	if (!NT_SUCCESS(status)) {
+		bsr_info(NO_OBJECT, "failed to create log file status(%x)\n", status);
+		g_consumer_state = EXITING;
+		return;
+	}
+
+	interval.QuadPart = (-1 * 100 * 10000);  // wait 10ms relative
+	rb = (struct log_ring_buffer *)gLogBuf;
+	while (g_consumer_state == RUNNING) {
+		if (!log_ring_consume(rb, &indx)) {
+			KeDelayExecutionThread(KernelMode, FALSE, &interval);
+			continue;
+		}
+		buffer = ((char*)gLogBuf + sizeof(struct log_ring_buffer) + (indx * MAX_BSRLOG_BUF));
+		DbgPrintEx(FLTR_COMPONENT, 6, buffer);
+
+		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
+		if (!NT_SUCCESS(status)) {
+			bsr_info(NO_OBJECT, "failed to write log status(%x)\n", status);
+			g_consumer_state = EXITING;
+			return;
+		}
+		log_ring_dispose(rb);
+	}
+
+	if (hFile) {
+		ZwClose(hFile);
+		hFile = NULL;
+	}
+}
+
 void printk_init(void)
 {
 	// initialization for logging. the function '_prink' shouldn't be called before this initialization.
+
+	// BSR-578 initializing log buffer
+	struct log_ring_buffer *rb;
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE hThread = NULL;
+
+	memset(gLogBuf, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF) + sizeof(struct log_ring_buffer));
+
+	rb = (struct log_ring_buffer*)gLogBuf;
+	rb->max_count = LOGBUF_MAXCNT;
+
+	g_consumer_state = RUNNING;
+	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
+		return;
+	}
+
+	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
+		&g_consumer_thread, NULL);
+
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
+		g_consumer_thread = NULL;
+		return;
+	}
+
+	if (NULL != hThread) 
+		ZwClose(hThread);
 }
 
 void printk_cleanup(void)
 {
-	
+	g_consumer_state = EXITING;
+	if (g_consumer_thread != NULL) {
+		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
+		ObDereferenceObject(g_consumer_thread);
+	}
 }
 
 
@@ -665,7 +784,12 @@ void _printk(const char * func, const char * format, ...)
     TIME_FIELDS timeFields = {0,};
 	LONGLONG	totallogcnt = 0;
 	long 		offset = 0;
+	struct log_ring_buffer *rb = NULL;
+	struct acquire_data ad = { 0, };
+
 	ASSERT((level_index >= 0) && (level_index < KERN_NUM_END));
+
+	rb = (struct log_ring_buffer*)gLogBuf;
 
 	// to write system event log.
 	if (level_index <= atomic_read(&g_eventlog_lv_min))
@@ -682,14 +806,12 @@ void _printk(const char * func, const char * format, ...)
 	
 	// DW-2034 if only eventlogs are to be recorded, they are not recorded in the log buffer.
 	if (bDbgLog || bOosLog || bLatency) {
-		logcnt = InterlockedIncrement(&gLogCnt);
-		if (logcnt >= LOGBUF_MAXCNT) {
-			InterlockedExchange(&gLogCnt, 0);
-			logcnt = 0;
-		}
-		totallogcnt = InterlockedIncrement64(&gTotalLogCnt);
+		// BSE-112 it should not be produced when it is not consumed.
+		if (g_consumer_state == RUNNING)
+			logcnt = log_ring_acquire(rb, &ad);
+		totallogcnt = InterlockedIncrement64(&rb->total_count);
 
-		buf = gLogBuf[logcnt];
+		buf = ((char*)gLogBuf + sizeof(struct log_ring_buffer) + (logcnt * MAX_BSRLOG_BUF));
 		RtlZeroMemory(buf, MAX_BSRLOG_BUF);
 		//#define TOTALCNT_OFFSET	(9)
 		//#define TIME_OFFSET		(TOTALCNT_OFFSET+24)	//"00001234 08/02/2016 13:24:13.123 "
@@ -740,6 +862,10 @@ void _printk(const char * func, const char * format, ...)
 		}
 
 		DbgPrintEx(FLTR_COMPONENT, printLevel, buf);
+
+		// BSE-112 it should not be produced when it is not consumed.
+		if (!bEventLog && g_consumer_state == RUNNING)
+			log_ring_commit(rb, ad);
 	}
 	
 #ifdef _WIN_WPP
@@ -749,13 +875,16 @@ void _printk(const char * func, const char * format, ...)
 #else
 	
 	if (bEventLog) {
-		char tbuf[MAX_BSRLOG_BUF] = {0,};
-
 		if (buf) {
 			ebuf = buf + offset + LEVEL_OFFSET;
 			elength = length - (offset + LEVEL_OFFSET);
+			// BSE-112 it should not be produced when it is not consumed.
+			if (g_consumer_state == RUNNING)
+				log_ring_commit(rb, ad);
 		}
 		else {
+			char tbuf[MAX_BSRLOG_BUF] = { 0, };
+
 			// DW-2034 log event logs only
 			va_start(args, format);
 			ret = _vsnprintf(tbuf, MAX_BSRLOG_BUF - 1, format, args); 

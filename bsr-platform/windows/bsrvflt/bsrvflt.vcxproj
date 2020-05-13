@@ -998,6 +998,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\bsr_debugfs.c" />
     <ClCompile Include="..\..\..\bsr\bsr_interval.c" />
     <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_log_buf.c" />
     <ClCompile Include="..\..\..\bsr\bsr_main.c" />
     <ClCompile Include="..\..\..\bsr\bsr_nl.c" />
     <ClCompile Include="..\..\..\bsr\bsr_nla.c" />
@@ -1063,6 +1064,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClInclude Include="..\..\..\bsr\bsr_int.h" />
     <ClInclude Include="..\..\..\bsr\bsr_interval.h" />
     <ClInclude Include="..\..\..\bsr\bsr_kref_debug.h" />
+    <ClInclude Include="..\..\..\bsr\bsr_log_buf.h" />
     <ClInclude Include="..\..\..\bsr\bsr_nla.h" />
     <ClInclude Include="..\..\..\bsr\bsr_req.h" />
     <ClInclude Include="..\..\..\bsr\bsr_state.h" />

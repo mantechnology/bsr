@@ -1428,17 +1428,10 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		RtlCopyMemory(g_ver, L"BSR", 4 * 2); 
 	}
 	// _WIN32_V9: proc_details is removed. 
-	bsr_info(NO_OBJECT,"registry_path[%wZ]\n"
-		"bypass_level=%d, read_filter=%d, use_volume_lock=%d, "
-		"netlink_tcp_port=%d, daemon_tcp_port=%d, ver=%ws\n",
-		RegPath_unicode,
-		g_bypass_level,
-		g_read_filter,
-		g_use_volume_lock,
-		g_netlink_tcp_port,
-		g_daemon_tcp_port,
-		g_ver
-		);
+	bsr_info(NO_OBJECT, "registry_path[%wZ]\n", RegPath_unicode);
+	bsr_info(NO_OBJECT, "bypass_level=%d, read_filter=%d, use_volume_lock=%d, netlink_tcp_port=%d, daemon_tcp_port=%d, ver=%ws\n", g_bypass_level, g_read_filter,
+																																	g_use_volume_lock, g_netlink_tcp_port,
+																																	g_daemon_tcp_port, g_ver);
 
 	return 0;
 }
