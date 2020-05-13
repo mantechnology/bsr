@@ -21,7 +21,6 @@
 */
 #include "../bsr-headers/bsr.h"
 #ifdef _WIN
-#include "../bsr-headers/bsr_transport.h"
 #include <wsk_wrapper.h>
 #include "./bsr-kernel-compat/windows/bsr_endian.h"
 #include "../bsr-headers/linux/bsr_limits.h"
@@ -33,13 +32,13 @@
 #include <linux/net.h>
 #include <linux/tcp.h>
 #include <linux/highmem.h>
-#include <bsr_transport.h>
 #include <linux/kthread.h>
 #endif
+#include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "../bsr-headers/linux/bsr_genl_api.h"
-#include "bsr_int.h"
+#include "../bsr-headers/bsr_transport.h"
 
 // The existing bsr_transport_tcp module has been integrated into bsr.
 //#ifdef _LIN

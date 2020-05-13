@@ -30,9 +30,9 @@
 #include <linux/string.h> /* for memset */
 #include <linux/seq_file.h> /* for seq_printf */
 #endif
-#include "./linux/lru_cache.h"
-#include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "../bsr/bsr_int.h"
+#include "./bsr-kernel-compat/bsr_wrappers.h"
+#include "./linux/lru_cache.h"
 
 
 // DW-1513 Output LRU status like lc_seq_printf_stats function
