@@ -5823,11 +5823,8 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 	s->peer_dev_unacked = atomic_read(&peer_device->unacked_cnt);
 
 	// DW-953 apply v8.4.x source for L_VERIFY_X
-	if (peer_device->repl_state[NOW] == L_VERIFY_S) {
-		s->peer_dev_out_of_sync = bsr_bm_bits(device) - BM_SECT_TO_BIT(peer_device->ov_position);
-	}
-	else if (peer_device->repl_state[NOW] == L_VERIFY_T) {
-		s->peer_dev_out_of_sync = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
+	if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T) {
+		s->peer_dev_ov_left = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
 	}
 	else {
 		s->peer_dev_out_of_sync = bsr_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
