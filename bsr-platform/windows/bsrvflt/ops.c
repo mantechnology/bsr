@@ -22,7 +22,7 @@
 #include "disp.h"
 #include "proto.h"
 #include "../../../bsr/bsr_int.h"
-#include "../../../bsr/bsr_log_buf.h"
+#include "../../../bsr/bsr_idx_ring_buf.h"
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
@@ -381,12 +381,10 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
-		struct log_ring_buffer *rb = (struct log_ring_buffer*)gLogBuf;
-
 		pBsrLog = (BSR_LOG*)Irp->AssociatedIrp.SystemBuffer;
-		pBsrLog->totalcnt = InterlockedCompareExchange64(&rb->total_count, 0, 0);
+		pBsrLog->totalcnt = InterlockedCompareExchange64(&gLogBuf.h.total_count, 0, 0);
 		if (pBsrLog->LogBuf) {
-				RtlCopyMemory(pBsrLog->LogBuf, ((char*)gLogBuf + sizeof(struct log_ring_buffer)), MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
+			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 				*size = BSR_LOG_SIZE;
 		} else {
 			bsr_err(NO_OBJECT,"GetBsrLog Invalid parameter. pBsrLog->LogBuf is NULL\n");

@@ -362,8 +362,7 @@
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -384,8 +383,7 @@
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -412,11 +410,7 @@
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll $(TargetPath)
-copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x86\bin\bsradm.exe"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x86\bin\bsrmeta.exe"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x86\bin\bsrsetup.exe"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -443,11 +437,7 @@ signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology In
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll $(TargetPath)
-copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x64\bin\bsradm.exe"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x64\bin\bsrmeta.exe"
-signtool sign /v /ac ..\build\cert\MSCV-VSClass3.cer /s my /n "Man Technology Inc." /sha1 679164f5d8e90f9c50277d456ae5d59938d1a2b9 /t http://timestamp.verisign.com/scripts/timstamp.dll "$(SolutionDir)\build\windows\x64\bin\bsrsetup.exe"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

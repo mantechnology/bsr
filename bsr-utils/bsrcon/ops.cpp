@@ -1199,7 +1199,8 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 				unsigned int loopcnt1 = 0, loopcnt2 = 0;
 				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
 				
-				for (unsigned int i = (pBsrLog->totalcnt + 1)*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
+				// BSR-578 log start point is calculated based on zero.
+				for (unsigned int i = (pBsrLog->totalcnt-1)*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
 					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
 						continue;
@@ -1218,7 +1219,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 				}
 
-				for (unsigned int i = 0; i < (pBsrLog->totalcnt + 1)*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
+				for (unsigned int i = 0; i < (pBsrLog->totalcnt-1)*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
 					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
 						continue;
