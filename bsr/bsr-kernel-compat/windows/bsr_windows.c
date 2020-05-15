@@ -33,7 +33,7 @@
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)
 #endif
-long		gLogCnt = 0;
+long gLogCnt = -1;
 
 int g_bypass_level;
 int g_read_filter;
