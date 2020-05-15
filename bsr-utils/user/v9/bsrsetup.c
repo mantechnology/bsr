@@ -2673,9 +2673,14 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 		indent = 8;
 		if (peer_device->info.peer_repl_state >= L_SYNC_SOURCE &&
 		    peer_device->info.peer_repl_state <= L_PAUSED_SYNC_T) {
-			wrap_printf(indent, " done:%.2f", (int)(10000 * (1 -
-				(double)peer_device->statistics.peer_dev_out_of_sync /
-				(double)peer_device->device->statistics.dev_size)) / 100.f);
+			if(peer_device->info.peer_repl_state == L_VERIFY_S || peer_device->info.peer_repl_state == L_VERIFY_T)
+				wrap_printf(indent, " done:%.2f", (int)(10000 * (1 -
+					(double)peer_device->statistics.peer_dev_ov_left /
+					(double)peer_device->device->statistics.dev_size)) / 100.f);
+			else
+				wrap_printf(indent, " done:%.2f", (int)(10000 * (1 -
+					(double)peer_device->statistics.peer_dev_out_of_sync /
+					(double)peer_device->device->statistics.dev_size)) / 100.f);
 		}
 		if (opt_verbose ||
 		    peer_device->info.peer_resync_susp_user ||
