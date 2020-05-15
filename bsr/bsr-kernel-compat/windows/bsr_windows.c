@@ -33,6 +33,7 @@
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)
 #endif
+// BSR-578 initialize to -1 for output from 0 array
 long gLogCnt = -1;
 
 int g_bypass_level;

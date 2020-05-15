@@ -699,6 +699,7 @@ void log_consumer_thread(PVOID param) {
 
 	interval.QuadPart = (-1 * 100 * 10000);  // wait 10ms relative
 
+	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
 
 	while (g_consumer_state == RUNNING) {
@@ -708,6 +709,7 @@ void log_consumer_thread(PVOID param) {
 		}
 		
 		if (!output_log_path) {
+			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
 			output_log_path = true;
 		}
@@ -816,13 +818,14 @@ void _printk(const char * func, const char * format, ...)
 	
 	// DW-2034 if only eventlogs are to be recorded, they are not recorded in the log buffer.
 	if (bDbgLog || bOosLog || bLatency) {
-		// BSR-578 it should not be produced when it is not consumed.
+		// BSR-578 it should not be produced when it is not consumed thread.
 		if (g_consumer_state == RUNNING) {
 			logcnt = idx_ring_acquire(&gLogBuf.h, &ad);
 			if (gLogBuf.h.r_idx.has_consumer) {
 				InterlockedExchange(&gLogCnt, logcnt);
 			}
 			else {
+				// BSR-578 consumer thread started but actual consumption did not start
 				logcnt = InterlockedIncrement(&gLogCnt);
 				if (logcnt >= LOGBUF_MAXCNT) {
 					InterlockedExchange(&gLogCnt, 0);

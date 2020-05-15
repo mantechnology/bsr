@@ -11,6 +11,7 @@ bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad)
 		KeDelayExecutionThread(KernelMode, FALSE, &interval);
 	}
 
+	// BSR-578 if the consumer is not started, initialize disposed and consumed to committed
 	if (!rb->r_idx.has_consumer) {
 		LONG committed = InterlockedCompareExchange(&rb->r_idx.committed, 0, 0);
 
@@ -65,6 +66,7 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 {
 	LONG acquired = 0, disposed = 0, next = 0;
 	LARGE_INTEGER	interval;
+	// BSR-578 short delay may result in hang
 	interval.QuadPart = (-1 * 100 * 10000);   // wait 100ms relative
 
 	while (true) {
@@ -81,6 +83,7 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 				break;
 			}
 			else {
+				// BSR-578 when the buffer is overflowing but there is no consumer
 				if (!rb->r_idx.has_consumer) {
 					if (!InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)
 						break;
@@ -101,6 +104,7 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 					break;
 				}
 				else {
+					// BSR-578 when the buffer is overflowing but there is no consumer
 					if (!rb->r_idx.has_consumer) {
 						if (!InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)
 							break;
