@@ -1498,9 +1498,16 @@ NTSTATUS SaveCurrentValue(PCWSTR valueName, int value);
 BOOLEAN gbShutdown;
 
 
-LONGLONG	gTotalLogCnt;
-long		gLogCnt;
-char		gLogBuf[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+#include "../../../bsr/bsr_idx_ring_buf.h"
+
+// BSR-578 
+struct log_idx_ring_buffer_t {
+	struct idx_ring_buffer h;
+	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+};
+
+struct log_idx_ring_buffer_t gLogBuf; 
+long gLogCnt;
 
 // DW-1469
 int bsr_resize(struct bsr_device *device);

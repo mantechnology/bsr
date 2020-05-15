@@ -109,6 +109,9 @@
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\bsr_wrappers.c">
       <Filter>bsr\bsr-kernel-compat</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_idx_ring_buf.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\backing-dev.h">
@@ -281,6 +284,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\bsr.h">
       <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_idx_ring_buf.h">
+      <Filter>bsr</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
