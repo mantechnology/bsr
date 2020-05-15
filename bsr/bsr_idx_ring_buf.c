@@ -4,11 +4,18 @@
 bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad)
 {
 	LARGE_INTEGER	interval;
-	interval.QuadPart = (-1 * 1 * 10000);   // wait 1ms relative
+	interval.QuadPart = (-1 * 10 * 10000);   // wait 10ms relative
 
 	while (InterlockedCompareExchange(&rb->r_idx.committed, (ad.next % rb->max_count), ad.prev) != ad.prev) {
 		//SwitchToThread()	
 		KeDelayExecutionThread(KernelMode, FALSE, &interval);
+	}
+
+	if (!rb->r_idx.has_consumer) {
+		LONG committed = InterlockedCompareExchange(&rb->r_idx.committed, 0, 0);
+
+		InterlockedExchange(&rb->r_idx.disposed, committed);
+		InterlockedExchange(&rb->r_idx.consumed, committed);
 	}
 
 	return true;
@@ -55,7 +62,7 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 {
 	LONG acquired = 0, disposed = 0, next = 0;
 	LARGE_INTEGER	interval;
-	interval.QuadPart = (-1 * 10 * 10000);   // wait 10ms relative
+	interval.QuadPart = (-1 * 100 * 10000);   // wait 100ms relative
 
 	while (rb->r_idx.has_consumer) {
 		acquired = InterlockedCompareExchange(&rb->r_idx.acquired, 0, 0);

@@ -698,6 +698,9 @@ void log_consumer_thread(PVOID param) {
 	}
 
 	interval.QuadPart = (-1 * 100 * 10000);  // wait 10ms relative
+
+	gLogBuf.h.r_idx.has_consumer = true;
+
 	while (g_consumer_state == RUNNING) {
 		if (!idx_ring_consume(&gLogBuf.h, &idx)) {
 			KeDelayExecutionThread(KernelMode, FALSE, &interval);
@@ -742,14 +745,14 @@ void printk_init(void)
 	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
 
 	gLogBuf.h.max_count = LOGBUF_MAXCNT;
+	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = RUNNING;
+
 	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
 		return;
 	}
-
-	gLogBuf.h.r_idx.has_consumer = true;
 
 	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
 		&g_consumer_thread, NULL);
@@ -816,10 +819,16 @@ void _printk(const char * func, const char * format, ...)
 		// BSR-578 it should not be produced when it is not consumed.
 		if (g_consumer_state == RUNNING) {
 			logcnt = idx_ring_acquire(&gLogBuf.h, &ad);
-			if (gLogBuf.h.r_idx.has_consumer)
+			if (gLogBuf.h.r_idx.has_consumer) {
 				InterlockedExchange(&gLogCnt, logcnt);
-			else
+			}
+			else {
 				logcnt = InterlockedIncrement(&gLogCnt);
+				if (logcnt >= LOGBUF_MAXCNT) {
+					InterlockedExchange(&gLogCnt, 0);
+					logcnt = 0;
+				}
+			}
 		}
 		else {
 			// BSR-578
@@ -829,7 +838,6 @@ void _printk(const char * func, const char * format, ...)
 				logcnt = 0;
 			}
 		}
-
 
 		totallogcnt = InterlockedIncrement64(&gLogBuf.h.total_count);
 
