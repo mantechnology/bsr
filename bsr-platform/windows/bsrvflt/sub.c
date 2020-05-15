@@ -911,7 +911,7 @@ void _printk(const char * func, const char * format, ...)
 		if (buf) {
 			ebuf = buf + offset + LEVEL_OFFSET;
 			elength = length - (offset + LEVEL_OFFSET);
-			// BSE-112 it should not be produced when it is not consumed.
+			// BSE-578 it should not be produced when it is not consumed.
 			if (g_consumer_state == RUNNING)
 				idx_ring_commit(&gLogBuf.h, ad);
 		}
