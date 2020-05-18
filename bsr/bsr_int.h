@@ -68,6 +68,8 @@
 #include "bsr_send_buf.h"
 #endif
 
+#include "../../../bsr/bsr_idx_ring_buf.h"
+
 #define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
 
@@ -114,6 +116,21 @@ extern int two_phase_commit_fail;
 #endif
 
 extern char usermode_helper[];
+// BSR-578 
+struct log_idx_ring_buffer_t {
+	struct idx_ring_buffer h;
+	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+};
+
+struct log_idx_ring_buffer_t gLogBuf;
+atomic_t gLogCnt;
+
+enum bsr_thread_state g_consumer_state;
+PVOID g_consumer_thread;
+
+void init_logging();
+void clean_logging();
+void log_consumer_thread(PVOID param);
 
 #ifndef BSR_MAJOR
 # define BSR_MAJOR 147

@@ -635,148 +635,13 @@ void save_to_system_event(char * buf, int length, int level_index)
 	}
 }
 
-enum bsr_thread_state g_consumer_state = EXITING;
-PVOID g_consumer_thread = NULL;
-
-// BSR-578 threads writing logs to a file 
-void log_consumer_thread(PVOID param) {
-	HANDLE hFile;
-	IO_STATUS_BLOCK ioStatus;
-	OBJECT_ATTRIBUTES obAttribute;
-	UNICODE_STRING fileFullPath, regPath;
-	NTSTATUS status;
-	LONG idx = 0;
-	char* buffer = NULL;
-	LARGE_INTEGER	interval;
-	ULONG pathLength;
-	WCHAR filePath[255] = { 0 };
-	WCHAR temp[255] = { 0 };
-	WCHAR* ptr;
-	bool output_log_path = false;
-
-	// BSR-578 wait for file system (changed later..)
-	interval.QuadPart = (-1 * 1000 * 10000);   // wait 1000ms relative
-	KeDelayExecutionThread(KernelMode, FALSE, &interval);
-
-	RtlInitUnicodeString(&regPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
-
-	status = GetRegistryValue(L"BSR_PATH", &pathLength, (UCHAR*)&filePath, &regPath);
-
-	if (!NT_SUCCESS(status)) {
-		gLogBuf.h.r_idx.has_consumer = false;
-		g_consumer_state = EXITING;
-		bsr_info(NO_OBJECT, "failed to get bsr path status(%x)\n", status);
-		return;
-	}
-
-	ptr = wcsrchr(filePath, L'\\');
-	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
-
-	_snwprintf(temp, sizeof(temp) - sizeof(WCHAR), L"\\??\\%ws\\log\\bsrlog.txt", filePath);
-
-	RtlInitUnicodeString(&fileFullPath, temp);
-	InitializeObjectAttributes(&obAttribute, &fileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
-	
-	status = ZwCreateFile(&hFile,
-							FILE_APPEND_DATA,
-							&obAttribute,
-							&ioStatus,
-							NULL,
-							FILE_ATTRIBUTE_NORMAL,
-							FILE_SHARE_READ,
-							FILE_OPEN_IF,
-							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
-							NULL,
-							0);
-	
-	if (!NT_SUCCESS(status)) {
-		gLogBuf.h.r_idx.has_consumer = false;
-		g_consumer_state = EXITING;
-		bsr_info(NO_OBJECT, "failed to create log file status(%x)\n", status);
-		return;
-	}
-
-	interval.QuadPart = (-1 * 100 * 10000);  // wait 10ms relative
-
-	// BSR-578 set before consumption starts.
-	gLogBuf.h.r_idx.has_consumer = true;
-
-	while (g_consumer_state == RUNNING) {
-		if (!idx_ring_consume(&gLogBuf.h, &idx)) {
-			KeDelayExecutionThread(KernelMode, FALSE, &interval);
-			continue;
-		}
-		
-		if (!output_log_path) {
-			// BSR-578 print out after consumption starts, not thread starts.
-			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
-			output_log_path = true;
-		}
-
-		buffer = ((char*)gLogBuf.b + (idx * MAX_BSRLOG_BUF));
-		
-		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
-		if (!NT_SUCCESS(status)) {
-			gLogBuf.h.r_idx.has_consumer = false;
-			g_consumer_state = EXITING;
-			bsr_info(NO_OBJECT, "failed to write log status(%x)\n", status);
-			break;
-		}
-		idx_ring_dispose(&gLogBuf.h);
-	}
-
-	if (hFile) {
-		ZwClose(hFile);
-		hFile = NULL;
-	}
-
-	gLogBuf.h.r_idx.has_consumer = false;
-	g_consumer_state = EXITING;
-	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
-}
-
 void printk_init(void)
 {
 	// initialization for logging. the function '_prink' shouldn't be called before this initialization.
-
-	// BSR-578 initializing log buffer
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
-	HANDLE hThread = NULL;
-
-	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
-
-	gLogBuf.h.max_count = LOGBUF_MAXCNT;
-	gLogBuf.h.r_idx.has_consumer = false;
-	g_consumer_state = RUNNING;
-
-	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
-		return;
-	}
-
-	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
-		&g_consumer_thread, NULL);
-
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
-		g_consumer_thread = NULL;
-		return;
-	}
-
-
-	if (NULL != hThread) 
-		ZwClose(hThread);
 }
 
 void printk_cleanup(void)
 {
-	g_consumer_state = EXITING;
-	if (g_consumer_thread != NULL) {
-		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
-		ObDereferenceObject(g_consumer_thread);
-	}
 }
 
 
@@ -797,7 +662,7 @@ void _printk(const char * func, const char * format, ...)
 	BOOLEAN bLatency = FALSE;
 	LARGE_INTEGER systemTime, localTime;
     TIME_FIELDS timeFields = {0,};
-	LONGLONG	totallogcnt = 0;
+	unsigned long long	totallogcnt = 0;
 	long 		offset = 0;
 	struct acquire_data ad = { 0, };
 
@@ -822,22 +687,22 @@ void _printk(const char * func, const char * format, ...)
 		if (g_consumer_state == RUNNING) {
 			logcnt = idx_ring_acquire(&gLogBuf.h, &ad);
 			if (gLogBuf.h.r_idx.has_consumer) {
-				InterlockedExchange(&gLogCnt, logcnt);
+				atomic_set(&gLogCnt, logcnt);
 			}
 			else {
 				// BSR-578 consumer thread started but actual consumption did not start
-				logcnt = InterlockedIncrement(&gLogCnt);
+				logcnt = atomic_inc_return(&gLogCnt);
 				if (logcnt >= LOGBUF_MAXCNT) {
-					InterlockedExchange(&gLogCnt, 0);
+					atomic_set(&gLogCnt, 0);
 					logcnt = 0;
 				}
 			}
 		}
 		else {
 			// BSR-578
-			logcnt = InterlockedIncrement(&gLogCnt);
+			logcnt = atomic_inc_return(&gLogCnt);
 			if (logcnt >= LOGBUF_MAXCNT) {
-				InterlockedExchange(&gLogCnt, 0);
+				atomic_set(&gLogCnt, 0);
 				logcnt = 0;
 			}
 		}

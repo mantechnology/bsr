@@ -69,6 +69,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     UNICODE_STRING      		nameUnicode, linkUnicode;
     ULONG				i;
 
+	init_logging();
 	// init logging system first
 	bsr_logger_init();
 
@@ -153,6 +154,7 @@ mvolUnload(IN PDRIVER_OBJECT DriverObject)
 #endif
 	bsr_logger_cleanup();
 	bsrCleanupCallback();
+	clean_logging();
 	WskPutNPI();
 }
 

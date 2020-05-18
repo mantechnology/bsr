@@ -102,6 +102,11 @@ int bsr_open(struct block_device *bdev, fmode_t mode);
 BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 #endif
 
+// BSR-578 initialize to -1 for output from 0 array
+atomic_t gLogCnt = -1;
+enum bsr_thread_state g_consumer_state = EXITING;
+PVOID g_consumer_thread = NULL;
+
 #ifdef _WIN
 static KDEFERRED_ROUTINE md_sync_timer_fn;
 static KDEFERRED_ROUTINE peer_ack_timer_fn;
@@ -4900,6 +4905,164 @@ void bsr_put_connection(struct bsr_connection *connection)
 	kref_sub(&connection->kref, refs, bsr_destroy_connection);
 }
 
+// BSR-578 threads writing logs to a file 
+void log_consumer_thread(PVOID param) 
+{
+#ifdef _WIN
+	HANDLE hFile;
+	IO_STATUS_BLOCK ioStatus;
+	OBJECT_ATTRIBUTES obAttribute;
+	UNICODE_STRING fileFullPath, regPath;
+	NTSTATUS status;
+	atomic_t idx = 0;
+	char* buffer = NULL;
+	ULONG pathLength;
+	WCHAR filePath[255] = { 0 };
+	WCHAR temp[255] = { 0 };
+	WCHAR* ptr;
+	bool output_log_path = false;
+
+	// BSR-578 wait for file system (changed later..)
+	msleep(1000); // wait 1000ms relative
+
+	RtlInitUnicodeString(&regPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
+
+	status = GetRegistryValue(L"BSR_PATH", &pathLength, (UCHAR*)&filePath, &regPath);
+
+	if (!NT_SUCCESS(status)) {
+		gLogBuf.h.r_idx.has_consumer = false;
+		g_consumer_state = EXITING;
+		bsr_info(NO_OBJECT, "failed to get bsr path status(%x)\n", status);
+		return;
+	}
+
+	ptr = wcsrchr(filePath, L'\\');
+	if (ptr != NULL)
+		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+
+	_snwprintf(temp, sizeof(temp) - sizeof(WCHAR), L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+
+	RtlInitUnicodeString(&fileFullPath, temp);
+	InitializeObjectAttributes(&obAttribute, &fileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
+
+	status = ZwCreateFile(&hFile,
+		FILE_APPEND_DATA,
+		&obAttribute,
+		&ioStatus,
+		NULL,
+		FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ,
+		FILE_OPEN_IF,
+		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+		NULL,
+		0);
+
+	if (!NT_SUCCESS(status)) {
+		gLogBuf.h.r_idx.has_consumer = false;
+		g_consumer_state = EXITING;
+		bsr_info(NO_OBJECT, "failed to create log file status(%x)\n", status);
+		return;
+	}
+#else 
+	// BSR-581
+	// TODO creating a linux log file
+#endif
+	// BSR-578 set before consumption starts.
+	gLogBuf.h.r_idx.has_consumer = true;
+
+	while (g_consumer_state == RUNNING) {
+		if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+			msleep(100); // wait 100ms relative
+			continue;
+		}
+
+		if (!output_log_path) {
+			// BSR-578 print out after consumption starts, not thread starts.
+			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
+			output_log_path = true;
+		}
+
+		buffer = ((char*)gLogBuf.b + (idx * MAX_BSRLOG_BUF));
+
+#ifdef _WIN
+		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
+		if (!NT_SUCCESS(status)) {
+			gLogBuf.h.r_idx.has_consumer = false;
+			g_consumer_state = EXITING;
+			bsr_info(NO_OBJECT, "failed to write log status(%x)\n", status);
+			break;
+		}
+#else
+		// BSR-581
+		// TODO writing linux log files
+#endif
+		idx_ring_dispose(&gLogBuf.h);
+	}
+
+#ifdef _WIN
+	if (hFile) {
+		ZwClose(hFile);
+		hFile = NULL;
+	}
+#else
+	// BSR-581
+	// TODO close linux log files?
+#endif
+
+	gLogBuf.h.r_idx.has_consumer = false;
+	g_consumer_state = EXITING;
+	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
+}
+
+void clean_logging()
+{
+#ifdef _WIN
+	g_consumer_state = EXITING;
+	if (g_consumer_thread != NULL) {
+		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
+		ObDereferenceObject(g_consumer_thread);
+	}
+#else
+	// linux
+#endif
+}
+
+void init_logging()
+{
+#ifdef _WIN
+	// BSR-578 initializing log buffer
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE hThread = NULL;
+
+	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
+
+	gLogBuf.h.max_count = LOGBUF_MAXCNT;
+	gLogBuf.h.r_idx.has_consumer = false;
+	g_consumer_state = RUNNING;
+
+	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
+		return;
+	}
+
+	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
+		&g_consumer_thread, NULL);
+
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
+		g_consumer_thread = NULL;
+		return;
+	}
+
+	if (NULL != hThread)
+		ZwClose(hThread);
+#else
+	// BSR-581
+	// TOD generate logging threads
+#endif
+}
+
 void bsr_cleanup(void)
 {
 	/* first remove proc,
@@ -4931,6 +5094,11 @@ void bsr_cleanup(void)
 
 	pr_info("module cleanup done.\n");
 
+#ifdef _LIN
+	//BSR-581
+	// TODO need to make sure it's in the right place to call
+	clean_logging();
+#endif
 }
 
 #ifdef _WIN
@@ -4940,6 +5108,12 @@ int bsr_init(void)
 #endif
 {
 	int err;
+
+#ifdef _LIN
+	//BSR-581
+	// TODO need to make sure it's in the right place to call
+	init_logging();
+#endif
 
 #ifdef _WIN
 	nl_policy_init_by_manual();

@@ -3,42 +3,38 @@
 
 bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad)
 {
-	LARGE_INTEGER	interval;
-	interval.QuadPart = (-1 * 10 * 10000);   // wait 10ms relative
-
-	while (InterlockedCompareExchange(&rb->r_idx.committed, (ad.next % rb->max_count), ad.prev) != ad.prev) {
-		//SwitchToThread()	
-		KeDelayExecutionThread(KernelMode, FALSE, &interval);
+	while (atomic_cmpxchg(&rb->r_idx.committed, ad.prev, (ad.next % rb->max_count)) != ad.prev) {
+		msleep(10); // wait 10ms relative
 	}
 
 	// BSR-578 if the consumer is not started, initialize disposed and consumed to committed
 	if (!rb->r_idx.has_consumer) {
-		LONG committed = InterlockedCompareExchange(&rb->r_idx.committed, 0, 0);
+		LONG committed = atomic_cmpxchg(&rb->r_idx.committed, 0, 0);
 
-		if (InterlockedCompareExchange64(&rb->max_count, 0, 0) < 
-			InterlockedCompareExchange64(&rb->total_count, 0, 0)) {
-			InterlockedExchange(&rb->r_idx.disposed, committed);
-			InterlockedExchange(&rb->r_idx.consumed, committed);
+		if (atomic_cmpxchg64(&rb->max_count, 0, 0) <
+			atomic_cmpxchg64(&rb->total_count, 0, 0)) {
+			atomic_set(&rb->r_idx.disposed, committed);
+			atomic_set(&rb->r_idx.consumed, committed);
 		}
 	}
 
 	return true;
 }
 
-bool idx_ring_consume(struct idx_ring_buffer *rb, LONG *consume)
+bool idx_ring_consume(struct idx_ring_buffer *rb, atomic_t *consume)
 {
-	LONG committed, consumed, next;
+	atomic_t committed, consumed, next;
 	//head
-	committed = InterlockedCompareExchange(&rb->r_idx.committed, 0, 0);
+	committed = atomic_cmpxchg(&rb->r_idx.committed, 0, 0);
 	//tail
-	*consume = consumed = InterlockedCompareExchange(&rb->r_idx.consumed, 0, 0);
+	*consume = consumed = atomic_cmpxchg(&rb->r_idx.consumed, 0, 0);
 	next = consumed + 1;
 
 	if (committed == consumed) {
 		return false;
 	}
 
-	InterlockedExchange(&rb->r_idx.consumed, (next % rb->max_count));
+	atomic_set(&rb->r_idx.consumed, (next % rb->max_count));
 
 	return true;
 }
@@ -48,16 +44,16 @@ bool idx_ring_dispose(struct idx_ring_buffer *rb)
 {
 	LONG committed, disposed, next;
 	//head
-	committed = InterlockedCompareExchange(&rb->r_idx.committed, 0, 0);
+	committed = atomic_cmpxchg(&rb->r_idx.committed, 0, 0);
 	//tail
-	disposed = InterlockedCompareExchange(&rb->r_idx.disposed, 0, 0);
+	disposed = atomic_cmpxchg(&rb->r_idx.disposed, 0, 0);
 	next = disposed + 1;
 
 	if (committed == disposed) {
 		return false;
 	}
 
-	InterlockedExchange(&rb->r_idx.disposed, (next % rb->max_count));
+	atomic_set(&rb->r_idx.disposed, (next % rb->max_count));
 
 	return true;
 }
@@ -65,18 +61,15 @@ bool idx_ring_dispose(struct idx_ring_buffer *rb)
 LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 {
 	LONG acquired = 0, disposed = 0, next = 0;
-	LARGE_INTEGER	interval;
-	// BSR-578 short delay may result in hang
-	interval.QuadPart = (-1 * 100 * 10000);   // wait 100ms relative
 
 	while (true) {
-		acquired = InterlockedCompareExchange(&rb->r_idx.acquired, 0, 0);
-		disposed = InterlockedCompareExchange(&rb->r_idx.disposed, 0, 0);
+		acquired = atomic_cmpxchg(&rb->r_idx.acquired, 0, 0);
+		disposed = atomic_cmpxchg(&rb->r_idx.disposed, 0, 0);
 		next = acquired + 1;
 
 		if (acquired < disposed) {
 			if (next < disposed) {
-				if (InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)  {
+				if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)  {
 					continue;
 				}
 
@@ -85,11 +78,13 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 			else {
 				// BSR-578 when the buffer is overflowing but there is no consumer
 				if (!rb->r_idx.has_consumer) {
-					if (!InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)
+					if (!atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
 						break;
 				}
-				else
-					KeDelayExecutionThread(KernelMode, FALSE, &interval);
+				else {
+					// BSR-578 short delay may result in hang
+					msleep(100); // wait 10ms relative
+				}
 
 				continue;
 			}
@@ -97,7 +92,7 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 		else {
 			if (next >= rb->max_count) {
 				if (disposed) {
-					if (InterlockedCompareExchange(&rb->r_idx.acquired, (next % rb->max_count), acquired) != acquired) {
+					if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % rb->max_count)) != acquired) {
 						continue;
 					}
 
@@ -106,15 +101,17 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 				else {
 					// BSR-578 when the buffer is overflowing but there is no consumer
 					if (!rb->r_idx.has_consumer) {
-						if (!InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)
+						if (!atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
 							break;
 					}
-					else
-						KeDelayExecutionThread(KernelMode, FALSE, &interval);
+					else {
+						// BSR-578 short delay may result in hang
+						msleep(100); // wait 10ms relative
+					}
 				}
 			}
 			else {
-				if (InterlockedCompareExchange(&rb->r_idx.acquired, next, acquired) != acquired)
+				if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
 					continue;
 
 				break;

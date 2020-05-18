@@ -233,10 +233,6 @@ signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_str
 {
 	signed long long remain;
 	signed long long ringbuf_size = 0;
-#ifdef _WIN_SEND_BUF
-	LARGE_INTEGER	Interval;
-	Interval.QuadPart = (-1 * 100 * 10000);   //// wait 100ms relative
-#endif
 
 	EnterCriticalSection(&ring->cs);
 
@@ -250,11 +246,9 @@ signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_str
 			int loop = 0;
 			for (loop = 0; loop < retry; loop++) {
 				struct bsr_tcp_transport *tcp_transport;
-#ifdef _WIN_SEND_BUF
-				KeDelayExecutionThread(KernelMode, FALSE, &Interval);
-#else // _LIN_SEND_BUF
+
 				msleep(100);
-#endif
+
 				tcp_transport =	container_of(transport, struct bsr_tcp_transport, transport);
 
 #ifdef _WIN_SEND_BUF

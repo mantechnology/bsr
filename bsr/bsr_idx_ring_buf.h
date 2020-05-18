@@ -4,20 +4,24 @@
 #include <ntddk.h>
 #include <stdbool.h>
 
+#ifdef _WIN
+#include "./bsr-kernel-compat/windows/bsr_windows.h"
+#endif
+
 struct acquire_data {
-	LONG prev;
-	LONG next;
+	atomic_t prev;
+	atomic_t next;
 };
 
 struct ring_index_t {
 	// writable 
-	LONG acquired;
+	atomic_t acquired;
 	// write completed 
-	LONG committed;
+	atomic_t committed;
 	// readable 
-	LONG consumed;
+	atomic_t consumed;
 	// next read 
-	LONG disposed;
+	atomic_t disposed;
 	// it's a variable to determine whether a consumer exists or not.
 	// used to prevent infinite atmosphere in idx_ring_acquire().
 	bool has_consumer;
@@ -25,13 +29,13 @@ struct ring_index_t {
 
 struct idx_ring_buffer {
 	struct ring_index_t r_idx;
-	LONGLONG total_count;
-	LONGLONG max_count;
+	atomic_t64 total_count;
+	atomic_t64 max_count;
 };
 
 bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad);
 bool idx_ring_dispose(struct idx_ring_buffer *rb);
 LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad);
-bool idx_ring_consume(struct idx_ring_buffer *rb, LONG *consume);
+bool idx_ring_consume(struct idx_ring_buffer *rb, atomic_t *consume);
 
 #endif

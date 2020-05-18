@@ -741,8 +741,8 @@ extern void *mempool_free_slab(gfp_t gfp_mask, void *pool_data);
 #define atomic_inc(_v)			atomic_inc_return(_v)
 #define atomic_dec(_v)			atomic_dec_return(_v)
 
-#define	atomic_inc_return64(_p)		InterlockedIncrement64((unsigned long long volatile*)(_p))
-#define	atomic_dec_return64(_p)		InterlockedDecrement64((unsigned long long volatile*)(_p))
+#define	atomic_inc_return64(_p)		InterlockedIncrement64((LONGLONG volatile*)(_p))
+#define	atomic_dec_return64(_p)		InterlockedDecrement64((LONGLONG volatile*)(_p))
 #define atomic_inc64(_v)		atomic_inc_return64(_v)
 #define atomic_dec64(_v)		atomic_dec_return64(_v)
 
@@ -767,6 +767,7 @@ extern int atomic_cmpxchg(atomic_t *v, int old, int new);
 extern int atomic_read(const atomic_t *v);
 extern LONGLONG atomic_read64(const atomic_t64 *v);
 extern int atomic_xchg(atomic_t *v, int n);
+extern LONGLONG atomic_cmpxchg64(atomic_t64 *v, atomic_t64 old, atomic_t64 new);
 
 extern LARGE_INTEGER g_frequency;
 
@@ -1496,18 +1497,6 @@ extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 NTSTATUS SaveCurrentValue(PCWSTR valueName, int value);
 
 BOOLEAN gbShutdown;
-
-
-#include "../../../bsr/bsr_idx_ring_buf.h"
-
-// BSR-578 
-struct log_idx_ring_buffer_t {
-	struct idx_ring_buffer h;
-	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
-};
-
-struct log_idx_ring_buffer_t gLogBuf; 
-long gLogCnt;
 
 // DW-1469
 int bsr_resize(struct bsr_device *device);
