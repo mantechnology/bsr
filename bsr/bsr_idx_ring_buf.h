@@ -1,11 +1,13 @@
 #ifndef BSR_IDX_RING_BUF_H
 #define BSR_IDX_RING_BUF_H
 
+#ifdef _WIN
 #include <ntddk.h>
 #include <stdbool.h>
-
-#ifdef _WIN
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
+#else
+	// BSR-581
+	// TODO add headers required for linux
 #endif
 
 struct acquire_data {

@@ -662,7 +662,7 @@ void _printk(const char * func, const char * format, ...)
 	BOOLEAN bLatency = FALSE;
 	LARGE_INTEGER systemTime, localTime;
     TIME_FIELDS timeFields = {0,};
-	unsigned long long	totallogcnt = 0;
+	LONGLONG	totallogcnt = 0;
 	long 		offset = 0;
 	struct acquire_data ad = { 0, };
 
