@@ -168,6 +168,9 @@ extern void log_consumer_thread(PVOID param);
 //DW-1927
 #define CONTROL_BUFF_SIZE	1024 * 5120
 
+// BSR-119
+#define OV_REQUEST_NUM_BLOCK 10
+
 struct bsr_device;
 struct bsr_connection;
 

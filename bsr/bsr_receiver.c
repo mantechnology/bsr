@@ -10938,7 +10938,8 @@ static int got_OVResult(struct bsr_connection *connection, struct packet_info *p
 	bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
 	dec_rs_pending(peer_device);
 
-	--peer_device->ov_left;
+	// BSR-119
+	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x200) == 0x200)
