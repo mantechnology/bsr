@@ -421,11 +421,6 @@ LONGLONG atomic_read64(const atomic_t64 *v)
 	return InterlockedAnd64((LONGLONG*)v, 0xffffffffffffffff);
 }
 
-LONGLONG atomic_cmpxchg64(atomic_t64 *v, atomic_t64 old, atomic_t64 new)
-{
-	return InterlockedCompareExchange64((LONGLONG *)v, new, old);
-}
-
 void * kmalloc(int size, int flag, ULONG Tag)
 {
 	return kcalloc(size, 1, flag, Tag); // => adjust size, count parameter mismatch

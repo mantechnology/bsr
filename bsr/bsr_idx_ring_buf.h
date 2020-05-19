@@ -8,6 +8,9 @@
 #else
 	// BSR-581
 	// TODO add headers required for linux
+#include "./bsr-kernel-compat/bsr_wrappers.h"
+#include <linux/types.h>
+#include <linux/delay.h>
 #endif
 
 struct acquire_data {

@@ -65,6 +65,7 @@
 #define LONGLONG		long long int
 #define ULONGLONG		unsigned long long
 #define ULONG			unsigned int
+#define LONG			int
 #define PCHAR			char *
 #define CHAR			char
 #define PVOID			void *

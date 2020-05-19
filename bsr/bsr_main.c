@@ -102,11 +102,6 @@ int bsr_open(struct block_device *bdev, fmode_t mode);
 BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 #endif
 
-// BSR-578 initialize to -1 for output from 0 array
-atomic_t gLogCnt = -1;
-enum bsr_thread_state g_consumer_state = EXITING;
-PVOID g_consumer_thread = NULL;
-
 #ifdef _WIN
 static KDEFERRED_ROUTINE md_sync_timer_fn;
 static KDEFERRED_ROUTINE peer_ack_timer_fn;
@@ -166,6 +161,13 @@ module_param(fault_devs, int, 0644);
 module_param(two_phase_commit_fail, int, 0644);
 #endif
 #endif
+
+// BSR-578
+struct log_idx_ring_buffer_t gLogBuf;
+int gLogCnt;
+
+enum bsr_thread_state g_consumer_state;
+PVOID g_consumer_thread;
 
 /* module parameter, defined */
 unsigned int minor_count = BSR_MINOR_COUNT_DEF;
@@ -4908,19 +4910,19 @@ void bsr_put_connection(struct bsr_connection *connection)
 // BSR-578 threads writing logs to a file 
 void log_consumer_thread(PVOID param) 
 {
+	char* buffer = NULL;
+	bool started = false;
+	atomic_t idx;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
 	OBJECT_ATTRIBUTES obAttribute;
 	UNICODE_STRING fileFullPath, regPath;
 	NTSTATUS status;
-	atomic_t idx = 0;
-	char* buffer = NULL;
 	ULONG pathLength;
 	WCHAR filePath[255] = { 0 };
 	WCHAR temp[255] = { 0 };
 	WCHAR* ptr;
-	bool output_log_path = false;
 
 	// BSR-578 wait for file system (changed later..)
 	msleep(1000); // wait 1000ms relative
@@ -4969,6 +4971,7 @@ void log_consumer_thread(PVOID param)
 #endif
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
+	atomic_set(&idx, 0);
 
 	while (g_consumer_state == RUNNING) {
 		if (!idx_ring_consume(&gLogBuf.h, &idx)) {
@@ -4976,13 +4979,18 @@ void log_consumer_thread(PVOID param)
 			continue;
 		}
 
-		if (!output_log_path) {
+		if (!started) {
+#ifdef _WIN
 			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
-			output_log_path = true;
+#else
+			// BSR-581
+			// TODO ..
+#endif
+			started = true;
 		}
 
-		buffer = ((char*)gLogBuf.b + (idx * MAX_BSRLOG_BUF));
+		buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * MAX_BSRLOG_BUF));
 
 #ifdef _WIN
 		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
@@ -5014,7 +5022,7 @@ void log_consumer_thread(PVOID param)
 	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
 }
 
-void clean_logging()
+void clean_logging(void)
 {
 #ifdef _WIN
 	g_consumer_state = EXITING;
@@ -5027,8 +5035,13 @@ void clean_logging()
 #endif
 }
 
-void init_logging()
+void init_logging(void)
 {
+	// BSR-578 initialize to -1 for output from 0 array
+	gLogCnt = -1;
+	g_consumer_state = EXITING;
+	g_consumer_thread = NULL;
+
 #ifdef _WIN
 	// BSR-578 initializing log buffer
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
