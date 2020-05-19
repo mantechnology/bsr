@@ -180,9 +180,6 @@ enum
 #define MAX_FUNC_ADDR_LEN		(20)
 #endif
 
-#define MAX_BSRLOG_BUF				512
-#define LOGBUF_MAXCNT				100000
-
 typedef struct _BSR_LOG {
 	LONGLONG 	totalcnt;
 	char		LogBuf[1]; // LOGBUF_MAXCNT*MAX_BSRLOG_BUF

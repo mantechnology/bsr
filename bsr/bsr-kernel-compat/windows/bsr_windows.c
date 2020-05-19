@@ -33,8 +33,6 @@
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)
 #endif
-// BSR-578 initialize to -1 for output from 0 array
-long gLogCnt = -1;
 
 int g_bypass_level;
 int g_read_filter;
@@ -406,6 +404,7 @@ int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	return InterlockedCompareExchange((long *)v, new, old);
 }
+
 
 int atomic_xchg(atomic_t *v, int n)
 {
