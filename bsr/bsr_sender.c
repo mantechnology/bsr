@@ -1451,6 +1451,16 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			goto requeue;
 		}
 
+		// BSR-119 verify in OV_REQUEST_NUM_BLOCK unit to reduce disk I/O load.
+		while (i+1 < number) {
+			if(size < (OV_REQUEST_NUM_BLOCK * BM_BLOCK_SIZE)) {
+				size += BM_BLOCK_SIZE;
+				i++;
+			}
+			else
+				break;
+		}
+
 		if (sector + (size >> 9) > capacity) {
 			BUG_ON(UINT_MAX < (capacity - sector) << 9);
 			size = (unsigned int)(capacity - sector) << 9;
@@ -1461,7 +1471,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			dec_rs_pending(peer_device);
 			return 0;
 		}
-		sector += BM_SECT_PER_BIT;
+		sector += BM_BIT_TO_SECT((i % OV_REQUEST_NUM_BLOCK) + 1);
 	}
 	peer_device->ov_position = sector;
 
@@ -2276,7 +2286,8 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	dec_unacked(peer_device);
 
-	--peer_device->ov_left;
+	// BSR-119
+	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x200) == 0x200)
