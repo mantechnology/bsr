@@ -24,7 +24,7 @@
 CXX             = g++
 OBJECTS         = main.o ops.o
 TARGET          = bsrcon
-CXXFLAGS        = -std=c++11 -D_LIN -I. -I../../bsr-header -Wall
+CXXFLAGS        = -D_LIN -I. -I../../bsr-header -Wall
 
 # variables set by configure
 sbindir = @sbindir@

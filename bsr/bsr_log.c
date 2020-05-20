@@ -20,6 +20,9 @@ atomic_t g_dbglog_lv_min = ATOMIC_INIT(LOG_LV_DEFAULT_DBG);
 #ifndef ktime_to_timespec64
 #define ktime_to_timespec64 ktime_to_timespec
 #endif
+#ifndef timespec64
+#define timespec64 timespec
+#endif
 #endif
 
 #endif
@@ -76,7 +79,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #ifdef _WIN
 	int level_index = format[1] - '0';
 #else
-	int level_index = printk_get_level(level)  - '0';
+	int level_index = level[1]  - '0';
 #endif
 	int printLevel = 0;
 	bool bEventLog = false;
@@ -85,9 +88,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	bool bLatency = false;
 #ifdef _WIN
 	LARGE_INTEGER systemTime, localTime;
-    TIME_FIELDS timeFields = {0,};
+	TIME_FIELDS timeFields = {0,};
 #else // _LIN
-	struct timespec ts;
+	struct timespec64 ts;
 	struct tm tm;
 #endif
 	LONGLONG	totallogcnt = 0;
