@@ -29,26 +29,29 @@ int ext_used_blocks(unsigned int group, char * bitmap,
 	int used = 0;
 	unsigned int i;
 	unsigned int j;
-	bsr_info(NO_OBJECT, "used_blocks : ");
+
+	static char buf[128];
+	int buf_offset;
+	
+	buf_offset = sprintf(buf, "used_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
 		if (test_bit_le(i, (void *)bitmap)) {
 			used++;
 			if (p)
-				printk(", ");
-			printk("%u", i + offset);
+				buf_offset += sprintf(buf + buf_offset,", ");
+			buf_offset += sprintf(buf + buf_offset, "%u", i + offset);
 			for (j = ++i; j < count && test_bit_le(j, (void *)bitmap); j++)
 				used++;
 			if (--j != i) {
-				printk("-");
-				printk("%u", j + offset);
+				buf_offset += sprintf(buf + buf_offset, "-%u", j + offset);
 				i = j;
 			}
 			p = 1;
 		}
 	}
 	
-	printk("\n");
+	bsr_info(NO_OBJECT, "%s\n", buf);
 	return used;
 }
 
@@ -60,26 +63,29 @@ int ext_free_blocks(unsigned int group, char * bitmap,
 	unsigned int i;
 	unsigned int j;
 	int free = 0;
-	bsr_info(NO_OBJECT, "free_blocks : ");
+
+	static char buf[128];
+	int buf_offset;
+
+	buf_offset = sprintf(buf, "free_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
 		if (!test_bit_le(i, (void *)bitmap)) {
 			free++;
 			if (p)
-				printk(", ");
-			printk("%u", i + offset);
+				buf_offset += sprintf(buf + buf_offset,", ");
+			buf_offset += sprintf(buf + buf_offset, "%u", i + offset);
 			for (j = ++i; j < count && !test_bit_le(j, (void *)bitmap); j++)
 				free++;
 			if (--j != i) {
-				printk("-");
-				printk("%u", j + offset);
+				buf_offset += sprintf(buf + buf_offset, "-%u", j + offset);
 				i = j;
 			}
 			p = 1;
 		}
 	}
 	
-	printk("\n");
+	bsr_info(NO_OBJECT, "%s\n", buf);
 	return free;
 }
 

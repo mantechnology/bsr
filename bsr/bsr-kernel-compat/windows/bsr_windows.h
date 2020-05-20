@@ -296,18 +296,8 @@ enum km_type {
 
 typedef unsigned int                fmode_t;
 
-extern atomic_t g_eventlog_lv_min;
-extern atomic_t g_dbglog_lv_min;
 
 #define LOG_LV_REG_VALUE_NAME	L"log_level"
-
-#define Set_log_lv(log_level) \
-	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
-	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
-	atomic_set(&g_featurelog_flag, (log_level >> LOG_LV_BIT_POS_FEATURELOG) & LOG_LV_MASK);
-
-#define Get_log_lv() \
-	(atomic_read(&g_eventlog_lv_min) << LOG_LV_BIT_POS_EVENTLOG) | (atomic_read(&g_dbglog_lv_min) << LOG_LV_BIT_POS_DBG) | (atomic_read(&g_featurelog_flag) << LOG_LV_BIT_POS_FEATURELOG)
 
 #define MAX_TEXT_BUF                256
 
@@ -321,7 +311,6 @@ extern atomic_t g_dbglog_lv_min;
 
 extern void printk_init(void);
 extern void printk_cleanup(void);
-extern void _printk(const char * func, const char * format, ...);
 
 #ifdef _WIN_DEBUG_OOS
 extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
@@ -331,7 +320,7 @@ extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 #define bsr_logger_init()		printk_init();
 #define bsr_logger_cleanup()	printk_cleanup();
 #define printk(format, ...)   \
-    _printk(__FUNCTION__, format, __VA_ARGS__)
+    _printk(__FUNCTION__, 0/*not used*/, format, __VA_ARGS__)
 #else
 #define printk(format, ...)
 #endif

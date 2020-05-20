@@ -61,8 +61,9 @@
 #else // _LIN
 #define tr_printk(level, transport, fmt, args...)  ({		\
 	rcu_read_lock();					\
-	printk(level "bsr %s %s:%s: " fmt,			\
-	       (transport)->log_prefix,				\
+	_printk(__FUNCTION__, level,  "<%c>bsr %s %s:%s: " fmt,			\
+	       level[1],	\
+		   (transport)->log_prefix,				\
 	       (transport)->class->name,			\
 	       rcu_dereference((transport)->net_conf)->name,	\
 	       ## args);					\

@@ -44,6 +44,7 @@
 #include <net/sock.h>
 #include <linux/ctype.h>
 #include <linux/fs.h>
+#include <linux/miscdevice.h>
 #include <linux/file.h>
 #include <linux/proc_fs.h>
 #include <linux/init.h>
@@ -62,6 +63,7 @@
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 
+#include "../bsr-headers/linux/bsr_ioctl.h"
 #endif
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/linux/bsr_limits.h"
@@ -150,6 +152,8 @@ int two_phase_commit_fail;
 extern spinlock_t g_inactive_lock;
 
 #ifdef _LIN
+unsigned int log_level = LOG_LV_DEFAULT;
+
 /* bitmap of enabled faults */
 module_param(enable_faults, int, 0664);
 /* fault rate % value - applies to all enabled faults */
@@ -159,12 +163,17 @@ module_param(fault_count, int, 0664);
 /* bitmap of devices to insert faults on */
 module_param(fault_devs, int, 0644);
 module_param(two_phase_commit_fail, int, 0644);
+module_param(log_level, int, 0644);
 #endif
 #endif
 
 // BSR-578
 struct log_idx_ring_buffer_t gLogBuf;
-int gLogCnt;
+atomic_t64 gLogCnt;
+#ifdef _LIN // BSR-577 TODO remove
+atomic_t64 	gTotalLogCnt = ATOMIC_INIT(0);
+char		gLogBuf_old[LOGBUF_MAXCNT][MAX_BSRLOG_BUF] = {{0,0},};
+#endif
 
 enum bsr_thread_state g_consumer_state;
 PVOID g_consumer_thread;
@@ -229,6 +238,106 @@ struct page *bsr_pp_pool;
 spinlock_t   bsr_pp_lock;
 int          bsr_pp_vacant;
 wait_queue_head_t bsr_pp_wait;
+
+#ifdef _LIN
+
+// BSR-577
+static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
+{
+	LOGGING_MIN_LV loggingMinLv;
+	int previous_lv_min = 0;
+	int err;
+
+	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
+	
+	if (err) {
+		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		return err;
+	}
+
+	if (loggingMinLv.nType == LOGGING_TYPE_SYSLOG) {
+		previous_lv_min = atomic_read(&g_eventlog_lv_min);
+		atomic_set(&g_eventlog_lv_min, loggingMinLv.nErrLvMin);
+	}
+	else if (loggingMinLv.nType == LOGGING_TYPE_DBGLOG) {
+		previous_lv_min = atomic_read(&g_dbglog_lv_min);
+		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
+	}
+	else if (loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) {
+		previous_lv_min = atomic_read(&g_featurelog_flag);
+		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
+	}
+	else {
+		bsr_warn(NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
+	}
+
+	// BSR-577 TODO save to file?
+	//err = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
+	
+	// DW-2008
+	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
+				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
+				// DW-2041
+				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
+				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
+				);
+	return err;
+}
+
+static int bsr_get_log(BSR_LOG __user *bsr_log) 
+{
+	int err;
+	
+	err = copy_to_user(&bsr_log->totalcnt, &gTotalLogCnt, (unsigned long) sizeof(gTotalLogCnt));
+
+	if (err) {
+		bsr_warn(NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
+		return err;
+	}
+	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf_old, (unsigned long) sizeof(gLogBuf_old));
+	if (err) {
+		bsr_warn(NO_OBJECT, "gLogBuf copy to user failed.\n");
+	}
+
+	return err;
+}
+
+static long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
+{
+	int err = 0;
+	
+	if ( _IOC_TYPE( cmd ) != BSR_IOCTL_MAGIC ) 
+		return -EINVAL;
+
+	switch (cmd) {
+	case IOCTL_MVOL_SET_LOGLV_MIN:
+	{
+		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)pram);
+		break;
+	}
+	case IOCTL_MVOL_GET_BSR_LOG:
+	{
+		err = bsr_get_log((BSR_LOG __user *)pram);
+		break;
+	}
+	default :
+		break;
+	}
+	return err;
+}
+
+static const struct file_operations bsr_ctl_fops = {
+		.unlocked_ioctl = bsr_control_ioctl,
+};
+
+#define BSR_CTRL_MINOR MISC_DYNAMIC_MINOR
+static struct miscdevice bsr_misc = {
+	.minor		= BSR_CTRL_MINOR,
+	.name		= "bsr-control",
+	.fops		= &bsr_ctl_fops,
+};
+
+#endif
 
 #ifdef _WIN
 struct ratelimit_state bsr_ratelimit_state;	// need to initialize before use.
@@ -5038,7 +5147,7 @@ void clean_logging(void)
 void init_logging(void)
 {
 	// BSR-578 initialize to -1 for output from 0 array
-	gLogCnt = -1;
+	atomic_set64(&gLogCnt, -1);
 	g_consumer_state = EXITING;
 	g_consumer_thread = NULL;
 
@@ -5099,13 +5208,14 @@ void bsr_cleanup(void)
 		destroy_workqueue(retry.wq);
 
 	bsr_genl_unregister();
+	misc_deregister(&bsr_misc);
 	bsr_unregister_blkdev(BSR_MAJOR, "bsr");
 #endif
 	bsr_destroy_mempools();
 
 	idr_destroy(&bsr_devices);
 
-	pr_info("module cleanup done.\n");
+	bsr_info(NO_OBJECT, "module cleanup done.\n");
 
 #ifdef _LIN
 	//BSR-581
@@ -5148,7 +5258,7 @@ int bsr_init(void)
 #endif
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
-		pr_err("invalid minor_count (%u)\n", minor_count);
+		bsr_err(NO_OBJECT, "invalid minor_count (%u)\n", minor_count);
 #ifdef MODULE
 		return -EINVAL;
 #else
@@ -5159,9 +5269,11 @@ int bsr_init(void)
 #ifdef _LIN
 	err = register_blkdev(BSR_MAJOR, "bsr");
 	if (err) {
-		pr_err("unable to register block device major %d\n", BSR_MAJOR);
+		bsr_err(NO_OBJECT, "unable to register block device major %d\n", BSR_MAJOR);
 		return err;
 	}
+
+	err = misc_register(&bsr_misc);
 #endif
 
 	/*
@@ -5184,7 +5296,7 @@ int bsr_init(void)
 #ifdef _LIN
 	err = bsr_genl_register();
 	if (err) {
-		pr_err("unable to register generic netlink family\n");
+		bsr_err(NO_OBJECT, "unable to register generic netlink family\n");
 		goto fail;
 	}
 #endif
@@ -5197,14 +5309,14 @@ int bsr_init(void)
 #ifdef _LIN
 	bsr_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &bsr_proc_fops, NULL);
 	if (!bsr_proc)	{
-		pr_err("unable to register proc file\n");
+		bsr_err(NO_OBJECT, "unable to register proc file\n");
 		goto fail;
 	}
 #endif
 
 	retry.wq = create_singlethread_workqueue("bsr-reissue");
 	if (!retry.wq) {
-		pr_err("unable to create retry workqueue\n");
+		bsr_err(NO_OBJECT, "unable to create retry workqueue\n");
 		goto fail;
 	}
 
@@ -5223,15 +5335,15 @@ int bsr_init(void)
 #ifdef _LIN
 #if 0 // moved to bsr_load()
 	if (bsr_debugfs_init())
-		pr_notice("failed to initialize debugfs -- will not be available\n");
+		bsr_noti(NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
 #endif
 #endif
 
-	pr_info("initialized. "
+	bsr_info(NO_OBJECT, "initialized. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)\n",
 	       GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
-	pr_info("%s\n", bsr_buildtag());
-	pr_info("registered as block device major %d\n", BSR_MAJOR);
+	bsr_info(NO_OBJECT, "%s\n", bsr_buildtag());
+	bsr_info(NO_OBJECT, "registered as block device major %d\n", BSR_MAJOR);
 
 
 	return 0; /* Success! */
@@ -5239,9 +5351,9 @@ int bsr_init(void)
 fail:
 	bsr_cleanup();
 	if (err == -ENOMEM)
-		pr_err("ran out of memory\n");
+		bsr_err(NO_OBJECT, "ran out of memory\n");
 	else
-		pr_err("initialization failure\n");
+		bsr_err(NO_OBJECT, "initialization failure\n");
 	return err;
 
 }

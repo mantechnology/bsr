@@ -126,7 +126,12 @@ struct log_idx_ring_buffer_t {
 };
 
 extern struct log_idx_ring_buffer_t gLogBuf;
-extern int gLogCnt;
+extern atomic_t64 gLogCnt;
+
+#ifdef _LIN // BSR-577 TODO remove
+extern atomic_t64 	gTotalLogCnt;
+extern char		gLogBuf_old[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+#endif
 
 extern enum bsr_thread_state g_consumer_state;
 extern PVOID g_consumer_thread;
@@ -173,6 +178,9 @@ extern void log_consumer_thread(PVOID param);
 
 struct bsr_device;
 struct bsr_connection;
+
+// BSR-577 Change to common method
+extern void _printk(const char * func, const char * level, const char * format, ...);
 
 // BSR-237
 #ifdef _WIN
@@ -285,6 +293,8 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_ERR, obj, fmt, __VA_ARGS__)
 #define bsr_warn(obj, fmt, ...) \
 	bsr_printk(KERN_WARNING, obj, fmt, __VA_ARGS__)
+#define bsr_noti(obj, fmt, ...) \
+	bsr_printk(KERN_NOTICE, obj, fmt, __VA_ARGS__)
 #define bsr_info(obj, fmt, ...) \
 	bsr_printk(KERN_INFO, obj, fmt, __VA_ARGS__)
 #define bsr_oos(obj, fmt, ...) \
@@ -298,12 +308,13 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_debug(obj, fmt, ...) bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
 #endif
 #else  // _LIN
+
 #define __bsr_printk_device(level, device, fmt, args...)		\
 	({								\
 		const struct bsr_device *__d = (device);		\
 		const struct bsr_resource *__r = __d->resource;	\
-		printk(level "bsr %s/%u bsr%u: " fmt,			\
-			__r->name, __d->vnr, __d->minor, ## args);	\
+		_printk(__FUNCTION__, level, "<%c>bsr %s/%u bsr%u: " fmt,			\
+			(level)[1], __r->name, __d->vnr, __d->minor, ## args);	\
 	})
 
 #define __bsr_printk_peer_device(level, peer_device, fmt, args...)	\
@@ -317,17 +328,17 @@ void bsr_printk_with_wrong_object_type(void);
 		__c = (peer_device)->connection;			\
 		__r = __d->resource;					\
 		__cn = rcu_dereference(__c->transport.net_conf)->name;	\
-		printk(level "bsr %s/%u bsr%u %s: " fmt,		\
-			__r->name, __d->vnr, __d->minor, __cn, ## args);\
+		_printk(__FUNCTION__, level, "<%c>bsr %s/%u bsr%u %s: " fmt,		\
+			(level)[1], __r->name, __d->vnr, __d->minor, __cn, ## args);\
 		rcu_read_unlock();					\
 	})
 
 #define __bsr_printk_resource(level, resource, fmt, args...) \
-	printk(level "bsr %s: " fmt, (resource)->name, ## args)
+	_printk(__FUNCTION__, level, "<%c>bsr %s: " fmt, level[1], (resource)->name, ## args)
 
 #define __bsr_printk_connection(level, connection, fmt, args...) \
 	({	rcu_read_lock(); \
-		printk(level "bsr %s %s: " fmt, (connection)->resource->name,  \
+		_printk(__FUNCTION__, level, "<%c>bsr %s %s: " fmt, (level)[1], (connection)->resource->name,  \
 		       rcu_dereference((connection)->transport.net_conf)->name, ## args); \
 		rcu_read_unlock(); \
 	})
@@ -336,7 +347,7 @@ void bsr_printk_with_wrong_object_type(void);
 
 // BSR-237 if object is empty or undefined (NO_OBJECT)
 #define __bsr_printk(level, fmt, args...) \
-	printk(level fmt, ## args)
+	_printk(__FUNCTION__, level, "<%c>" fmt, level[1], ## args)
 
 #define __bsr_printk_if_same_type(obj, type, func, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \
@@ -387,10 +398,14 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_EMERG, obj, fmt, ## args)
 #define bsr_alert(obj, fmt, args...) \
 	bsr_printk(KERN_ALERT, obj, fmt, ## args)
+#define bsr_crit(obj, fmt, args...) \
+	bsr_printk(KERN_CRIT, obj, fmt, ## args)
 #define bsr_err(obj, fmt, args...) \
 	bsr_printk(KERN_ERR, obj, fmt, ## args)
 #define bsr_warn(obj, fmt, args...) \
 	bsr_printk(KERN_WARNING, obj, fmt, ## args)
+#define bsr_noti(obj, fmt, args...) \
+	bsr_printk(KERN_NOTICE, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
 
@@ -398,7 +413,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_debug(obj, fmt, args...) \
 	bsr_printk(KERN_DEBUG, obj, fmt, ## args)
 #else
-#define bsr_debug(obj, fmt, args...)
+#define bsr_debug(obj, fmt, args...) bsr_printk(KERN_DEBUG, obj, fmt, ## args)
 #endif
 #endif
 
@@ -443,6 +458,9 @@ do {	\
 				}	\
 } while (false)
 
+// BSR-577
+extern atomic_t g_eventlog_lv_min;
+extern atomic_t g_dbglog_lv_min;
 
 // DW-1961
 extern atomic_t g_featurelog_flag;
@@ -451,6 +469,11 @@ extern atomic_t g_featurelog_flag;
 
 // DW-2099 flags for data verification
 #define FEATURELOG_FLAG_VERIFY 		(1 << 2)
+
+#ifdef _LIN // BSR-577 TODO
+extern unsigned int log_level;
+#endif
+
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)

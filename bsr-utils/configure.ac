@@ -52,6 +52,7 @@ WITH_BASHCOMPLETION=yes
 WITH_NOARCH_SUBPACKAGES=no
 WITH_MANUAL=no
 WITH_BSRMON=no
+WITH_BSRCON=yes
 
 AC_ARG_WITH([udev],
 	[AS_HELP_STRING([--with-udev],
@@ -163,7 +164,13 @@ AC_ARG_WITH([bsrmon],
 	[AS_HELP_STRING([--without-bsrmon],
 			[Do not include the BSR resource reporting utility])],
 	[WITH_BSRMON=$withval])
-AC_SUBST(WITH_BSRDMON)
+AC_SUBST(WITH_BSRMON)
+
+AC_ARG_WITH([bsrcon],
+	[AS_HELP_STRING([--without-bsrcon],
+			[Do not include the bsrcon utility])],
+	[WITH_BSRCON=$withval])
+AC_SUBST(WITH_BSRCON)
 
 dnl Checks for programs
 AC_PROG_CC
@@ -354,8 +361,9 @@ if test -z $SPECMODE; then
    if [[ $WITH_BSRMON == "yes" ]] ; then
       AC_CONFIG_FILES(user/bsrmon/Makefile)
    fi
-
-   	
+   if [[ $WITH_BSRCON == "yes" ]] ; then
+      AC_CONFIG_FILES(bsrcon/Makefile)
+   fi
    
    AC_CONFIG_HEADERS(user/shared/config.h)
 else

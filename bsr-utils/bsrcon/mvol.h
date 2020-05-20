@@ -1,9 +1,13 @@
 #ifndef __MVOL_H__
 #define __MVOL_H__
 
+#ifdef _WIN
 #include "ioctl.h"
+#else // _LIN
+#include "../../bsr-headers/linux/bsr_ioctl.h"
+#endif
 
-
+#ifdef _WIN
 DWORD MVOL_GetVolumeInfo( CHAR DriveLetter, PMVOL_VOLUME_INFO pVolumeInfo );
 extern DWORD MVOL_GetVolumesInfo(BOOLEAN verbose);
 
@@ -59,17 +63,19 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force);
 */
 DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie);
 
-DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
-
-DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
-
 DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 
 DWORD GetBsrlockStatus();
+
+#endif
+
+DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
+
+DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 
 #ifdef _WIN_DEBUG_OOS
 DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);
 DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector);
 #endif
 
-#endif __MVOL_H__
+#endif // __MVOL_H__

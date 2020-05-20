@@ -152,7 +152,7 @@ static void bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
     }
 #endif
 	if (genlmsg_reply(skb, info)) {
-		pr_err("error sending genl reply\n");
+		bsr_err(NO_OBJECT, "error sending genl reply\n");
 #ifdef _WIN
 		return -1;
 #endif
@@ -386,7 +386,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	/* some more paranoia, if the request was over-determined */
 	if (adm_ctx->device && adm_ctx->resource && adm_ctx->device->resource && 
 	    adm_ctx->device->resource != adm_ctx->resource) {
-		pr_warning("request: minor=%u, resource=%s; but that minor belongs to resource %s\n",
+		bsr_warn(NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->resource->name);
 		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
@@ -396,7 +396,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	if (adm_ctx->device && adm_ctx->device->resource && 
 	    adm_ctx->volume != VOLUME_UNSPECIFIED &&
 	    adm_ctx->volume != adm_ctx->device->vnr) {
-		pr_warning("request: minor=%u, volume=%u; but that minor is volume %u in %s\n",
+		bsr_warn(NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s\n",
 				adm_ctx->minor, adm_ctx->volume,
 				adm_ctx->device->vnr,
 				adm_ctx->device->resource->name);
@@ -408,7 +408,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 		adm_ctx->resource && adm_ctx->resource->name &&
 	    adm_ctx->peer_device->device != adm_ctx->device) {
 		bsr_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
-		pr_warning("request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device\n",
+		bsr_warn(NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->vnr, adm_ctx->peer_node_id);
 		err = ERR_INVALID_REQUEST;
@@ -6210,13 +6210,13 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	// TODO node id -1??
 	if (res_opts.node_id < 0 || res_opts.node_id >= BSR_NODE_ID_MAX) {
 #endif
-		pr_err("bsr: invalid node id (%d)\n", res_opts.node_id);
+		bsr_err(NO_OBJECT, "bsr: invalid node id (%d)\n", res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 #ifdef _LIN
 	if (!try_module_get(THIS_MODULE)) {
-		pr_err("bsr: Could not get a module reference\n");
+		bsr_err(NO_OBJECT, "bsr: Could not get a module reference\n");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
@@ -7054,7 +7054,7 @@ static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 
 nla_put_failure:
 	nlmsg_free(skb);
-	pr_err("Error %d sending event. Event seq:%u\n", err, seq);
+	bsr_err(NO_OBJECT, "Error %d sending event. Event seq:%u\n", err, seq);
 }
 
 static void free_state_changes(struct list_head *list)
