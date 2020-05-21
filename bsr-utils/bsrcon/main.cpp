@@ -359,24 +359,24 @@ int main(int argc, char* argv [])
 		else if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
 			GetVolumeSizeFlag++;
 		}
-        else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
-            DelayedAckEnableFlag++;
-            argIndex++;
+		else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
+			DelayedAckEnableFlag++;
+			argIndex++;
 
 			if (argIndex < argc)
 				addr = argv[argIndex];
-            else
-                usage();
-        }
-        else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
-            DelayedAckDisableFlag++;
-            argIndex++;
+			else
+				usage();
+		}
+		else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
+			DelayedAckDisableFlag++;
+			argIndex++;
 
-            if (argIndex < argc)
-                addr = argv[argIndex];
-            else
-                usage();
-        }
+			if (argIndex < argc)
+				addr = argv[argIndex];
+			else
+				usage();
+		}
 		else if (strcmp(argv[argIndex], "/handler_use") == 0) {
 			HandlerUseFlag++;
 			argIndex++;
@@ -458,7 +458,7 @@ int main(int argc, char* argv [])
 			}
 			
 		}
-				else if (!strcmp(argv[argIndex], "/bsrlock_status")) {
+		else if (!strcmp(argv[argIndex], "/bsrlock_status")) {
 			Bsrlock_status++;
 		}
 		else if (!strcmp(argv[argIndex], "/info")) {

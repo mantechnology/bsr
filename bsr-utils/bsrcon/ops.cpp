@@ -1588,7 +1588,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	}
 #else // _LIN
 	if ((fd = open(BSR_CONTROL_DEV, O_RDWR))==-1) {
-		fprintf(stderr, "CLOG_ERROR: Can not open /dev/bsr-control\n");
+		fprintf(stderr, "LOG_ERROR: Can not open /dev/bsr-control\n");
 		return -1;
 	}
 #endif

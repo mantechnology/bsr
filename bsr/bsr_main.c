@@ -5208,6 +5208,7 @@ void bsr_cleanup(void)
 		destroy_workqueue(retry.wq);
 
 	bsr_genl_unregister();
+	// BSR-577
 	misc_deregister(&bsr_misc);
 	bsr_unregister_blkdev(BSR_MAJOR, "bsr");
 #endif
@@ -5273,7 +5274,13 @@ int bsr_init(void)
 		return err;
 	}
 
+	// BSR-577
 	err = misc_register(&bsr_misc);
+	if (err) {
+		bsr_err(NO_OBJECT, "unable to register bsr-control device\n");
+		return err;
+	}
+
 #endif
 
 	/*
