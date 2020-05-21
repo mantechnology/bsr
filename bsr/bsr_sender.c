@@ -973,6 +973,18 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 
 	switch (peer_device->repl_state[NOW]) {
 	case L_VERIFY_S:
+		// BSR-118
+		if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags)) {
+#ifdef _WIN
+			while (wait_for_completion_timeout(&peer_device->fast_ov_work.done, 1000) == -BSR_SIGKILL) {
+				bsr_info(peer_device, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
+			}
+#else // _LIN
+			wait_for_completion_timeout(&peer_device->fast_ov_work.done, 1000);
+#endif
+			peer_device->ov_left = bsr_ov_bm_total_weight(peer_device);
+			clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
+		}
 		make_ov_request(peer_device, cancel);
 		break;
 	case L_SYNC_TARGET:
@@ -1416,6 +1428,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 {
 	struct bsr_device *device = peer_device->device;
 	int number, i, size;
+	ULONG_PTR bit;
 	sector_t sector;
 	const sector_t capacity = bsr_get_capacity(device->this_bdev);
 	bool stop_sector_reached = false;
@@ -1446,32 +1459,58 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 #endif
 		size = BM_BLOCK_SIZE;
 
+		// BSR-118 bitmap operation to use fast ov
+		for (;;) {
+			bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT);
+			if (bit < bsr_bm_bits(device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
+				break;
+			}
+
+			if (bit >= bsr_bm_bits(device)) {
+				bsr_info(peer_device, "BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu\n", 
+						(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position);
+				peer_device->ov_bm_position = bsr_bm_bits(device);
+				peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
+				return 0;
+			}
+
+			peer_device->ov_bm_position = bit;
+		}
+
+		sector = BM_BIT_TO_SECT(bit);
+
 		if (bsr_try_rs_begin_io(peer_device, sector, true)) {
 			peer_device->ov_position = sector;
 			goto requeue;
 		}
 
+		peer_device->ov_bm_position = bit + 1;
+
 		// BSR-119 verify in OV_REQUEST_NUM_BLOCK unit to reduce disk I/O load.
 		while (i+1 < number) {
+			if (bsr_ov_bm_test_bit(peer_device, bit + 1) != 1)
+				break;
+
 			if(size < (OV_REQUEST_NUM_BLOCK * BM_BLOCK_SIZE)) {
 				size += BM_BLOCK_SIZE;
 				i++;
+				bit++;
 			}
 			else
 				break;
 		}
 
-		if (sector + (size >> 9) > capacity) {
-			BUG_ON(UINT_MAX < (capacity - sector) << 9);
+		if (sector + (size >> 9) > capacity)
 			size = (unsigned int)(capacity - sector) << 9;
-		}
 
 		inc_rs_pending(peer_device);
 		if (bsr_send_ov_request(peer_device, sector, size)) {
 			dec_rs_pending(peer_device);
 			return 0;
 		}
-		sector += BM_BIT_TO_SECT((i % OV_REQUEST_NUM_BLOCK) + 1);
+		sector += (size >> 9);
+		if (size > BM_BLOCK_SIZE)
+			peer_device->ov_bm_position = bit + 1;
 	}
 	peer_device->ov_position = sector;
 
@@ -1759,6 +1798,12 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	n_oos = bsr_bm_total_weight(peer_device);
 
 	if (repl_state[NOW] == L_VERIFY_S || repl_state[NOW] == L_VERIFY_T) {
+		// BSR-118
+		if (NULL != peer_device->fast_ov_bitmap) {
+			kfree(peer_device->fast_ov_bitmap);
+			peer_device->fast_ov_bitmap = NULL;
+		}
+
 		if (n_oos) {
 			bsr_alert(peer_device, "Online verify found %lu %dk block out of sync!\n",
 			      n_oos, Bit2KB(1));

@@ -4595,7 +4595,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
+			peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
 			peer_device->rs_total = peer_device->ov_left;
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
@@ -9899,6 +9899,12 @@ void conn_disconnect(struct bsr_connection *connection)
 	
 		// DW-2076
 		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+
+		// BSR-118
+		if (NULL != peer_device->fast_ov_bitmap) {
+			kfree(peer_device->fast_ov_bitmap);
+			peer_device->fast_ov_bitmap = NULL;
+		}
 
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();

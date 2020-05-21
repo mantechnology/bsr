@@ -2076,6 +2076,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 	if (peer_device->connection->agreed_pro_version < 90)
 		peer_device->ov_start_sector = 0;
 	peer_device->rs_total = bsr_bm_bits(device);
+	peer_device->ov_bm_position = 0;
 	peer_device->ov_position = 0;
 	if (repl_state == L_VERIFY_T) {
 		/* starting online verify from an arbitrary position
@@ -2342,6 +2343,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				int i;
 
 				set_ov_position(peer_device, repl_state[NEW]);
+				peer_device->fast_ov_bitmap = NULL;
 				peer_device->rs_start = now;
 				peer_device->rs_last_sect_ev = 0;
 				peer_device->ov_last_oos_size = 0;
@@ -2355,6 +2357,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				bsr_rs_controller_reset(peer_device);
 
 				if (repl_state[NEW] == L_VERIFY_S) {
+					// BSR-118
+					if (isFastInitialSync()) {
+						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
+						init_completion(&peer_device->fast_ov_work.done);
+					}
 #ifdef _WIN_DEBUG_OOS
 					// DW-1199 add printing bitmap index to recognize peer node id.
 					bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
@@ -3524,6 +3531,14 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					"write from resync_finished", BM_LOCK_BULK,
 					NULL);
 				put_ldev(device);
+			}
+
+			// BSR-118
+			if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S) {
+				if (isFastInitialSync()) {
+					peer_device->fast_ov_work.w.cb = w_fast_ov_get_bm;
+					bsr_queue_work(&resource->work, &peer_device->fast_ov_work.w);
+				}
 			}
 
 			/* Verify finished, or reached stop sector.  Peer did not know about

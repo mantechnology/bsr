@@ -2677,7 +2677,7 @@ int bsr_send_ov_request(struct bsr_peer_device *peer_device, sector_t sector, in
 	if (!p)
 		return -EIO;
 	p->sector = cpu_to_be64(sector);
-	p->block_id = ID_SYNCER /* unused */;
+	p->block_id = peer_device->ov_left; // BSR-118 initially send bitmap_total_weight of fast ov to the target
 	p->blksize = cpu_to_be32(size);
 	return bsr_send_command(peer_device, P_OV_REQUEST, DATA_STREAM);
 }
@@ -6809,7 +6809,93 @@ out:
 	return bRet;
 }
 
+// BSR-118
+int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
+	struct ov_work *fast_ov_work =
+		container_of(w, struct ov_work, w);
+	struct bsr_peer_device *peer_device =
+		container_of(fast_ov_work, struct bsr_peer_device, fast_ov_work);
+	struct bsr_device *device = peer_device->device;
+	enum bsr_repl_state side = peer_device->repl_state[NOW];
+	// DW-1317 to support fast sync from secondary sync source whose volume is NOT mounted.
+	bool bSecondary = false;
+	bool err = true;
+	PVOLUME_BITMAP_BUFFER pBitmap = NULL;
+	
+	UNREFERENCED_PARAMETER(cancel);
 
+	if (device->resource->role[NOW] == R_SECONDARY) {
+		// DW-1317 set read-only attribute and mount for temporary.
+		if (side == L_VERIFY_S) {
+			bsr_info(peer_device,"I am a secondary verify source, will mount volume for temporary to get allocated clusters.\n");
+			bSecondary = true;
+		}
+		else {
+			bsr_err(peer_device,"Access in invalid repl_state(%s).\n", bsr_repl_str(device->resource->role[NOW]));
+			err = true;
+			goto out;
+		}
+	}
+
+	do {
+		if (bSecondary) {
+#ifdef _WIN
+			mutex_lock(&att_mod_mutex);
+			// set readonly attribute.
+			if (!ChangeVolumeReadonly(device->minor, true)) {
+				bsr_err(peer_device, "Could not change volume read-only attribute\n");
+				mutex_unlock(&att_mod_mutex);
+				bSecondary = false;
+				break;
+			}
+#endif
+			// allow mount within getting volume bitmap.
+			device->resource->bTempAllowMount = true;			
+		}
+
+		// Get volume bitmap which is converted into 4kb cluster unit.
+		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
+		
+		if (NULL == pBitmap) {
+			bsr_err(peer_device, "Could not get bitmap for bsr\n");
+			err = true;
+		}
+		
+		if (bSecondary) {
+			// prevent from mounting volume.
+			device->resource->bTempAllowMount = false;
+#ifdef _WIN
+			// dismount volume.
+			FsctlFlushDismountVolume(device->minor, false);
+
+			// clear readonly attribute
+			if (!ChangeVolumeReadonly(device->minor, false)) {
+				bsr_err(peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
+				if (device &&
+					get_ldev_if_state(device, D_NEGOTIATING))
+				{
+					set_bit(FORCE_DETACH, &device->flags);
+					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
+					put_ldev(device);
+				}
+			}
+			mutex_unlock(&att_mod_mutex);
+#endif
+		}
+
+	} while (false);
+
+	if (side == L_VERIFY_S) {
+		if (NULL != pBitmap) {
+			peer_device->fast_ov_bitmap = pBitmap;
+			err = false;
+		}
+	}
+
+out:
+	complete(&fast_ov_work->done);
+	return err;
+}
 
 /**
  * bsr_bmio_clear_all_n_write() - io_fn for bsr_queue_bitmap_io() or bsr_bitmap_io()
