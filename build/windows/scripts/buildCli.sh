@@ -6,7 +6,7 @@ arch=$1
 tr -d '\015' < autogen.sh > autogen_windows.sh
 chmod +x autogen_windows.sh
 ./autogen_windows.sh
-./configure
+./configure --without-bsrcon
 cd user/v9
 pwd
 make clean

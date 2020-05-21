@@ -8,6 +8,7 @@
 #include <linux/seq_file.h>
 #include <linux/kref.h>
 #endif
+#include "bsr_int.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "kref_debug.h"
 
@@ -64,15 +65,15 @@ void kref_debug_destroy(struct kref_debug_info *debug_info)
 
 	spin_lock_irqsave(&kref_debug_lock, irq_flags);
 	if (has_refs(debug_info)) {
-		pr_err("ASSERT FAILED\n");
-		pr_err("object of class: %s\n", debug_info->class->name);
+		bsr_err(NO_OBJECT, "ASSERT FAILED\n");
+		bsr_err(NO_OBJECT, "object of class: %s\n", debug_info->class->name);
 		for (i = 0; i < KREF_DEBUG_HOLDER_MAX; i++) {
 			if (debug_info->holders[i] == 0)
 				continue;
-			pr_err("  [%d] = %d (%s)\n", i, debug_info->holders[i],
+			bsr_err(NO_OBJECT, "  [%d] = %d (%s)\n", i, debug_info->holders[i],
 			       debug_info->class->holder_name[i] ?: "");
 		}
-		pr_err("\n");
+		bsr_err(NO_OBJECT, "\n");
 	}
 
 	list_del(&debug_info->objects);
@@ -84,7 +85,7 @@ void kref_debug_get(struct kref_debug_info *debug_info, int holder_nr)
 	unsigned long irq_flags;
 
 	if (holder_nr >= KREF_DEBUG_HOLDER_MAX) {
-		pr_err("Increase KREF_DEBUG_HOLDER_MAX\n");
+		bsr_err(NO_OBJECT, "Increase KREF_DEBUG_HOLDER_MAX\n");
 		return;
 	}
 
@@ -98,7 +99,7 @@ void kref_debug_sub(struct kref_debug_info *debug_info, int refs, int holder_nr)
 	unsigned long irq_flags;
 
 	if (holder_nr >= KREF_DEBUG_HOLDER_MAX) {
-		pr_err("Increase KREF_DEBUG_HOLDER_MAX\n");
+		bsr_err(NO_OBJECT, "Increase KREF_DEBUG_HOLDER_MAX\n");
 		return;
 	}
 

@@ -31,6 +31,7 @@
 # --with xen is ignored on any non-x86 architecture
 %bcond_without xen
 %bcond_without bsrmon
+%bcond_without bsrcon
 %ifnarch %{ix86} x86_64
 %global _without_xen --without-xen
 %endif
@@ -58,6 +59,9 @@ Requires: bsr-udev = %{version}
 BuildRequires: udev
 %endif
 %if %{with bsrmon}
+BuildRequires: gcc-c++
+%endif
+%if %{with bsrcon}
 BuildRequires: gcc-c++
 %endif
 %if %{with bashcompletion}
@@ -114,6 +118,9 @@ This packages includes the BSR administration tools.
 %{_sbindir}/bsrmeta
 %if %{with bsrmon}
 %{_sbindir}/bsrmon
+%endif
+%if %{with bsrcon}
+%{_sbindir}/bsrcon
 %endif
 %if %{initscripttype} == "sysv"
 %{_initddir}/bsr

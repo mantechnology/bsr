@@ -1,0 +1,49 @@
+# Makefile for bsrcon
+#
+# This file is part of BSR by Man Technology inc.
+#
+# Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
+#
+# bsr is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# bsr is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with bsr
+# the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+
+# variables set by configure
+CXX             = g++
+OBJECTS         = main.o ops.o
+TARGET          = bsrcon
+CXXFLAGS        = -D_LIN -I. -I../../bsr-header -Wall
+
+# variables set by configure
+sbindir = @sbindir@
+
+# variables meant to be overridden from the make command line
+DESTDIR ?= /
+
+
+all : $(TARGET)
+ 
+$(TARGET) : $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+install:
+	install -m 755 bsrcon $(DESTDIR)$(sbindir) ;
+
+uninstall:
+	rm -f $(DESTDIR)$(sbindir)/bsrcon
+
+clean :
+	rm -f $(TARGET)
+	rm -f *.o

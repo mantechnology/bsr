@@ -76,6 +76,8 @@
 #define atomic_set64			atomic64_set
 #define atomic_read64			atomic64_read
 #define atomic_sub64			atomic64_sub
+#define atomic_inc_return64		atomic64_inc_return
+#define atomic_dec_return64		atomic64_dec_return
 
 #ifndef UNREFERENCED_PARAMETER 
 #define UNREFERENCED_PARAMETER(x)
@@ -106,6 +108,7 @@
 #define TIMER_DATA_TYPE unsigned long
 #endif
 
+// BSR-577 TODO remove
 /* {{{ pr_* macros */
 /* some very old kernels don't have them, or at least not all of them */
 #ifndef pr_emerg

@@ -1,11 +1,18 @@
+#ifdef _WIN
 #include <windows.h>
-#include <stdio.h>
 #include <tchar.h>
+#include <stdio.h>
 #include "mvol.h"
 #include "LogManager.h"
+#else // _LIN
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "mvol.h"
+#endif
 
-void
-disk_error_usage()
+#ifdef _WIN
+void disk_error_usage()
 {
 	printf("disk error simulation. Absolutely only for testing purposes!\n"
 		"usage: bsrcon /disk_error <errorflag> <errortype> <errorcount>\n\n"
@@ -26,26 +33,32 @@ disk_error_usage()
 		"errorcount:\n"
         "   0 ~ 4294967295, unsigned integer\n"
 	);
-
 	exit(ERROR_INVALID_PARAMETER);
 }
+#endif
 
-
-void
-usage()
+void usage()
 {
 	printf("usage: bsrcon cmds options \n\n"
-		"cmds:\n"
-		/*"   /proc/bsr \n"*/
-		/*"   /get_volume_size \n"*/
+		"cmds:\n");
+#ifdef _WIN
+	printf(
 		"   /nodelayedack [ip|guid]\n"
         "   /delayedack_enable [ip|guid]\n"
         "   /m [letter] : mount\n"
-        /*"   /d[f] : dismount[force] \n"*/
+		"   /handler_use [0,1]\n"
+		"   /bsrlock_status\n"
+		"   /info\n"
+		"   /status : bsr version\n"
+		"   /write_log [ProviderName] \"[LogData]\" \n"
+);
+#endif
+	printf(
 		"   /get_log [ProviderName]\n"
 		// DW-1629
 		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
 		"   /get_log [ProviderName] [ResourceName : Max Length 250][oos]\n"
+		"   /get_log_lv\n"
 		"   /minlog_lv [sys, dbg] [Level : 0~7]\n");
 	// DW-2008
 	printf("\t level info,");
@@ -56,44 +69,37 @@ usage()
 
 	printf("   /minlog_lv feature [flag : 0,1,2,4]\n");
 	printf("\t level info,");
-	for (int i = 0; i < LOG_FEATURE_MAX_LEVEL; i++) {
+	for (int i = 0; (1 << (i - 1)) < LOG_FEATURE_MAX_LEVEL; i++) {
 		printf(" %s(%d)", g_feature_lv_str[i], i == 0 ? 0 : 1 << (i - 1));
 	}
 	printf("\n");
 		
-	printf("   /write_log [ProviderName] \"[LogData]\" \n"
-		"   /handler_use [0,1]\n"
-		"	/bsrlock_status\n"
-		"   /info\n"
-		"   /status : bsr version\n"
-		"	/get_log_lv\n"
-
+	printf(
 		"\n\n"
-
+#ifdef _WIN
 		"options:\n"
 		"   /letter or /l : drive letter \n"
 		"\n\n"
-
 		"examples:\n"
-/*		"bsrcon /proc/bsr\n"*/
-/*		"bsrcon /status\n"*/
-/*		"bsrcon /s\n"*/
         "bsrcon /nodelayedack 10.10.0.1 \n"
-        /*"bsrcon /d F \n"*/
         "bsrcon /m F \n"
+		"bsrcon /handler_use 1 \n"	
+		"bsrcon /write_log bsrService \"Logging start\" \n"	
+#else
+		"examples:\n"
+#endif
 		"bsrcon /get_log bsrService \n"
 		"bsrcon /get_log bsrService r0\n"
+		"bsrcon /get_log_lv \n"
 		"bsrcon /minlog_lv dbg 6 \n"
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /minlog_lv feature 2\n"
-		"bsrcon /write_log bsrService \"Logging start\" \n"
-		"bsrcon /handler_use 1 \n"		
-		"bsrcon /get_log_lv \n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
 }
 
+#ifdef _WIN
 const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsr\\volumes");
 
 static
@@ -145,7 +151,6 @@ DWORD DeleteVolumeReg(TCHAR letter)
 
 	return lResult;
 }
-
 // DW-1921
 
 //Print log_level through the current registry value.
@@ -187,11 +192,27 @@ BOOL GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 	return TRUE;
 }
 
-DWORD
-main(int argc, char* argv [])
+#endif
+
+#ifdef _WIN
+DWORD main(int argc, char* argv [])
+#else
+int main(int argc, char* argv [])
+#endif
 {
 	DWORD	res = ERROR_SUCCESS;
 	int  	argIndex = 0;
+	char	GetLog = 0;
+	char	OosTrace = 0;
+	char	*ProviderName = NULL;
+	char	*resourceName = NULL;
+	// DW-1921
+	char	GetLogLv = 0;
+	char	SetMinLogLv = 0;
+	LOGGING_MIN_LV lml = { 0, };
+
+#ifdef _WIN
+
 	UCHAR	Letter = 'C';
 	char	GetVolumeSizeFlag = 0;
 	char	ProcBsrFlag = 0;
@@ -202,59 +223,27 @@ main(int argc, char* argv [])
     char    MountFlag = 0, DismountFlag = 0;
 	char	SimulDiskIoErrorFlag = 0;
     char    *addr = NULL;
-	char	GetLog = 0;
-	char	OosTrace = 0;
+	char	WriteLog = 0;
+	char	*LoggingData = NULL;
+	char	VolumesInfoFlag = 0;
+	char	Bsrlock_status = 0;
+	char	Verbose = 0;
+	int     Force = 0;
+	SIMULATION_DISK_IO_ERROR sdie = { 0, };
+	HANDLER_INFO hInfo = { 0, };
+#endif
 #ifdef _WIN_DEBUG_OOS
 	char	ConvertOosLog = 0;
 	char	*pSrcFilePath = NULL;	
 	char	SearchOosLog = 0;
 	char	*sector = NULL;
 #endif
-	char	WriteLog = 0;
-	char	SetMinLogLv = 0;
-	char	*ProviderName = NULL;
-	char	*LoggingData = NULL;
-	char	VolumesInfoFlag = 0;
-	char	Bsrlock_status = 0;
-	char	Verbose = 0;
-	char	*resourceName = NULL;
-	int     Force = 0;
-	// DW-1921
-	char	GetLogLv = 0;
-
-	LARGE_INTEGER Offset = {0,};
-	ULONG	BlockSize = 0;
-	ULONG	Count = 0;
-	SIMULATION_DISK_IO_ERROR sdie = { 0, };
-	LOGGING_MIN_LV lml = { 0, };
-	HANDLER_INFO hInfo = { 0, };
 
 	if (argc < 2)
 		usage();
 
 	for (argIndex = 1; argIndex < argc; argIndex++) {
-		if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
-			GetVolumeSizeFlag++;
-		}
-        else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
-            DelayedAckEnableFlag++;
-            argIndex++;
-
-			if (argIndex < argc)
-				addr = argv[argIndex];
-            else
-                usage();
-        }
-        else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
-            DelayedAckDisableFlag++;
-            argIndex++;
-
-            if (argIndex < argc)
-                addr = argv[argIndex];
-            else
-                usage();
-        }
-		else if (strcmp(argv[argIndex], "/get_log") == 0) {
+		if (strcmp(argv[argIndex], "/get_log") == 0) {
 			argIndex++;
 			GetLog++;
 
@@ -262,15 +251,19 @@ main(int argc, char* argv [])
 				ProviderName = argv[argIndex];
 			else
 				usage();
-#ifdef _WIN_DEBUG_OOS
 			argIndex++;
 
 			// DW-1629
 			for (int num = 0; num < 2; num++) {
 				if (argIndex < argc) {
+
+#ifdef _WIN_DEBUG_OOS
 					if (strcmp(argv[argIndex], "oos") == 0)
 						OosTrace++;
 					else if (!resourceName) {
+#else
+					if (!resourceName) {
+#endif
 						resourceName = argv[argIndex];
 						//6 additional parsing data length (">bsr ")
 						if (strlen(resourceName) > MAX_PATH - 6)
@@ -284,7 +277,7 @@ main(int argc, char* argv [])
 				else
 					break;
 			}
-#endif
+
 		}
 #ifdef _WIN_DEBUG_OOS
 		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0) {
@@ -315,6 +308,37 @@ main(int argc, char* argv [])
 				usage();
 		}
 #endif
+		else if (strcmp(argv[argIndex], "/minlog_lv") == 0) {
+			argIndex++;
+			SetMinLogLv++;
+
+			// first argument indicates logging type.
+			if (argIndex < argc) {
+				if (strcmp(argv[argIndex], "sys") == 0) {
+					lml.nType = LOGGING_TYPE_SYSLOG;
+				}
+				else if (strcmp(argv[argIndex], "dbg") == 0) {
+					lml.nType = LOGGING_TYPE_DBGLOG;
+				}
+				else if (strcmp(argv[argIndex], "feature") == 0) {
+					lml.nType = LOGGING_TYPE_FEATURELOG;
+				}
+				else
+					usage();				
+			}
+
+			// second argument indicates minimum logging level.
+			argIndex++;
+			if (argIndex < argc) {
+				lml.nErrLvMin = atoi(argv[argIndex]);
+			}
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
+			GetLogLv++;
+		}
+#ifdef _WIN
 		else if (strcmp(argv[argIndex], "/write_log") == 0) {
 			argIndex++;
 			WriteLog++;
@@ -329,6 +353,27 @@ main(int argc, char* argv [])
 			argIndex++;
 			if (argIndex < argc)
 				LoggingData = argv[argIndex];
+			else
+				usage();
+		}
+		else if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
+			GetVolumeSizeFlag++;
+		}
+		else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
+			DelayedAckEnableFlag++;
+			argIndex++;
+
+			if (argIndex < argc)
+				addr = argv[argIndex];
+			else
+				usage();
+		}
+		else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
+			DelayedAckDisableFlag++;
+			argIndex++;
+
+			if (argIndex < argc)
+				addr = argv[argIndex];
 			else
 				usage();
 		}
@@ -349,6 +394,7 @@ main(int argc, char* argv [])
 			else
 				usage();
 		}
+		
 		else if (!strcmp(argv[argIndex], "/proc/bsr")) {
 			ProcBsrFlag++;
 		}
@@ -364,6 +410,7 @@ main(int argc, char* argv [])
             else
                 usage();
         }
+
 		/*
 		else if (!_stricmp(argv[argIndex], "/fd") || !_stricmp(argv[argIndex], "/df")) {
             Force = 1;
@@ -411,33 +458,6 @@ main(int argc, char* argv [])
 			}
 			
 		}
-		else if (strcmp(argv[argIndex], "/minlog_lv") == 0) {
-			argIndex++;
-			SetMinLogLv++;
-
-			// first argument indicates logging type.
-			if (argIndex < argc) {
-				if (strcmp(argv[argIndex], "sys") == 0) {
-					lml.nType = LOGGING_TYPE_SYSLOG;
-				}
-				else if (strcmp(argv[argIndex], "dbg") == 0) {
-					lml.nType = LOGGING_TYPE_DBGLOG;
-				}
-				else if (strcmp(argv[argIndex], "feature") == 0) {
-					lml.nType = LOGGING_TYPE_FEATURELOG;
-				}
-				else
-					usage();				
-			}
-
-			// second argument indicates minimum logging level.
-			argIndex++;
-			if (argIndex < argc) {
-				lml.nErrLvMin = atoi(argv[argIndex]);
-			}
-			else
-				usage();
-		}
 		else if (!strcmp(argv[argIndex], "/bsrlock_status")) {
 			Bsrlock_status++;
 		}
@@ -447,12 +467,25 @@ main(int argc, char* argv [])
 		else if (!strcmp(argv[argIndex], "--verbose")) {
 			Verbose++;
 		}
-		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
-			GetLogLv++;
-		}
+#endif
 		else {
 			printf("Please check undefined arg[%d]=(%s)\n", argIndex, argv[argIndex]);
 		}
+	}
+
+
+	if (SetMinLogLv) {
+		res = MVOL_SetMinimumLogLevel(&lml);
+	}
+
+	if (GetLog) {
+		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
+	}
+	
+#ifdef _WIN
+
+	if (GetLog) {
+		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
 	}
 
 	if (GetVolumeSizeFlag) {
@@ -565,19 +598,10 @@ main(int argc, char* argv [])
 			}
 		}
 	}
-
 	if (SimulDiskIoErrorFlag) {
 		res = MVOL_SimulDiskIoError(&sdie);
 	}
 
-	if (SetMinLogLv) {
-		res = MVOL_SetMinimumLogLevel(&lml);
-	}
-
-	if (GetLog) {
-		//res = CreateLogFromEventLog( (LPCSTR)ProviderName );
-		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
-	}
 #ifdef _WIN_DEBUG_OOS
 	if (ConvertOosLog) {
 		res = MVOL_ConvertOosLog((LPCTSTR)pSrcFilePath);
@@ -591,6 +615,7 @@ main(int argc, char* argv [])
 	if (WriteLog) {
 		res = WriteEventLog((LPCSTR)ProviderName, (LPCSTR)LoggingData);
 	}
+
 
 	if (VolumesInfoFlag) {
 		res = MVOL_GetVolumesInfo(Verbose);
@@ -608,7 +633,6 @@ main(int argc, char* argv [])
 	if (HandlerUseFlag) {
 		res = MVOL_SetHandlerUse(&hInfo);
 	}
-
 	// DW-1921
 	if (GetLogLv) {
 		int sys_evt_lv = 0;
@@ -624,6 +648,7 @@ main(int argc, char* argv [])
 			printf("Failed to get log level.\n");
 	}
 
+#endif
 	return res;
 }
 

@@ -999,6 +999,7 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\bsr_interval.c" />
     <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c" />
     <ClCompile Include="..\..\..\bsr\bsr_idx_ring_buf.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_log.c" />
     <ClCompile Include="..\..\..\bsr\bsr_main.c" />
     <ClCompile Include="..\..\..\bsr\bsr_nl.c" />
     <ClCompile Include="..\..\..\bsr\bsr_nla.c" />

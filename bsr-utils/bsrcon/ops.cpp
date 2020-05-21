@@ -17,20 +17,33 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#ifdef _WIN
 #include <windows.h>
 #include <winioctl.h>
-#include <stdio.h>
 #include <tchar.h>
 #include <strsafe.h>
+#include <stdio.h>
+#include "LogManager.h"
+#include "../../bsr-platform/windows/bsrsvc/bsrService.h"
+#include "../../bsr-platform/windows/bsrfsflt/bsrfsflt_comm.h"
+#else // _LIN
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#endif
 #include "mvol.h"
 #ifdef _WIN_DEBUG_OOS
 #include "OosTrace.h"
 #endif
-#include "LogManager.h"
-#include "../../bsr-platform/windows/bsrsvc/bsrService.h"
-#include "../../bsr-platform/windows/bsrfsflt/bsrfsflt_comm.h"
 
 
+
+#ifdef _WIN
 HANDLE
 OpenDevice( PCHAR devicename )
 {
@@ -799,47 +812,6 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie)
 	return retVal;
 }
 
-DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
-{	
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       retVal = ERROR_SUCCESS;
-	DWORD       dwReturned = 0;
-	DWORD		dwControlCode = 0;
-	BOOL        ret = FALSE;
-
-	if (pLml == NULL ||
-		(pLml->nType < LOGGING_TYPE_SYSLOG || pLml->nType > LOGGING_TYPE_FEATURELOG) ||
-		((pLml->nType == LOGGING_TYPE_SYSLOG || pLml->nType == LOGGING_TYPE_DBGLOG) && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_DEFAULT_MAX_LEVEL)) ||
-		(pLml->nType == LOGGING_TYPE_FEATURELOG && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_FEATURE_MAX_LEVEL)))
-	{
-		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, pLml->nErrLvMin);
-		return ERROR_INVALID_PARAMETER;
-	}
-
-	// 1. Open MVOL_DEVICE
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-	
-
-	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOGLV_MIN, pLml, sizeof(LOGGING_MIN_LV), NULL, 0, &dwReturned, NULL);
-	if (ret == FALSE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
-			__FUNCTION__, retVal);
-	}
-
-	// 3. CloseHandle MVOL_DEVICE
-	if (hDevice != INVALID_HANDLE_VALUE) {
-		CloseHandle(hDevice);
-	}
-	return retVal;
-}
 
 #ifdef _WIN_DEBUG_OOS
 // DW-1153
@@ -1106,161 +1078,6 @@ VOID CleanupOosTrace()
 	::SymCleanup(GetCurrentProcess());
 }
 #endif	// _WIN_DEBUG_OOS
-
-// DW-1629
-BOOLEAN ExistsTargetString(char* target, char *msg)
-{
-	if (target == NULL)
-		return false;
-
-	char* ptr = strstr(msg, target);
-
-	if (ptr == NULL)
-		return false;
-
-	return true;
-}
-
-DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
-{
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       retVal = ERROR_SUCCESS;
-	DWORD       dwReturned = 0;
-	DWORD		dwControlCode = 0;
-	BOOL        ret = FALSE;
-	PBSR_LOG	pBsrLog = NULL;
-	// DW-1629
-	char tstr[MAX_PATH];
-
-#ifdef _WIN_DEBUG_OOS
-	if (oosTrace)
-		oosTrace = InitOosTrace();	
-#endif
-
-	if (resourceName != NULL) {
-		memset(tstr, MAX_PATH, 0);
-		// DW-1629 check logs for resource name and additional parsing data
-		//#define __bsr_printk_device ...
-		//#define __bsr_printk_peer_device ...
-		//#define __bsr_printk_resource ...
-		//#define __bsr_printk_connection ...
-		sprintf_s(tstr, ">bsr %s", resourceName);
-	}
-
-	// 1. Open MVOL_DEVICE
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-	pBsrLog = (PBSR_LOG)malloc(BSR_LOG_SIZE);
-	if (!pBsrLog) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed malloc. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-	// 2. DeviceIoControl with BSR_LOG_SIZE parameter (DW-1054)
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_BSR_LOG, pBsrLog, BSR_LOG_SIZE, pBsrLog, BSR_LOG_SIZE, &dwReturned, NULL);
-	if (ret == FALSE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_BSR_LOG. Err=%u\n",
-			__FUNCTION__, retVal);
-	}
-	else {
-		HANDLE hLogFile = INVALID_HANDLE_VALUE;
-		hLogFile = CreateFileA(pszProviderName, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (hLogFile != INVALID_HANDLE_VALUE) {
-			
-			unsigned int loopcnt = min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
-			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
-				for (unsigned int i = 0; i <= (loopcnt*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {		
-					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
-						continue;
-
-					DWORD dwWritten;
-#ifdef _WIN_DEBUG_OOS
-					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
-						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
-						continue;
-					}
-#endif
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
-					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
-				}
-			}
-			else { // pBsrLog->totalcnt > LOGBUF_MAXCNT
-				unsigned int loopcnt1 = 0, loopcnt2 = 0;
-				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
-
-				// BSR-578 log start point is calculated based on zero.
-				for (unsigned int i = pBsrLog->totalcnt*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
-					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
-						continue;
-
-					DWORD dwWritten;
-#ifdef _WIN_DEBUG_OOS
-					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
-						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
-						continue;
-					}
-#endif
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
-					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
-				}
-
-				for (unsigned int i = 0; i < pBsrLog->totalcnt*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
-					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
-						continue;
-
-					DWORD dwWritten;
-#ifdef _WIN_DEBUG_OOS
-					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
-						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
-						continue;
-					}
-#endif
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
-					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
-				}
-			}
-			CloseHandle(hLogFile);
-		}
-		else {
-			retVal = GetLastError();
-			fprintf(stderr, "LOG_ERROR: %s: Failed CreateFile. Err=%u\n",
-				__FUNCTION__, retVal);
-		}
-	}
-	// 3. CloseHandle MVOL_DEVICE
-	if (hDevice != INVALID_HANDLE_VALUE) {
-		CloseHandle(hDevice);
-	}
-	if (pBsrLog) {
-		free(pBsrLog);
-	}
-#ifdef _WIN_DEBUG_OOS
-	if (oosTrace){
-		CleanupOosTrace();
-	}
-#endif	
-
-	return retVal;
-}
 
 #ifdef _WIN_DEBUG_OOS
 DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long ullSearchSector)
@@ -1713,4 +1530,281 @@ DWORD GetBsrlockStatus()
 	}
 
 	return dwErr;
+}
+
+
+
+
+#endif
+
+
+
+// DW-1629
+BOOLEAN ExistsTargetString(char* target, char *msg)
+{
+	if (target == NULL)
+		return false;
+
+	char* ptr = strstr(msg, target);
+
+	if (ptr == NULL)
+		return false;
+
+	return true;
+}
+
+
+DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
+{	
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+	BOOL        ret = FALSE;
+#else // _LIN
+	int fd;
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+
+
+	if (pLml == NULL ||
+		(pLml->nType < LOGGING_TYPE_SYSLOG || pLml->nType > LOGGING_TYPE_FEATURELOG) ||
+		((pLml->nType == LOGGING_TYPE_SYSLOG || pLml->nType == LOGGING_TYPE_DBGLOG) && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_DEFAULT_MAX_LEVEL)) ||
+		(pLml->nType == LOGGING_TYPE_FEATURELOG && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_FEATURE_MAX_LEVEL)))
+	{
+		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, pLml->nErrLvMin);
+		return ERROR_INVALID_PARAMETER;
+	}
+
+
+	// 1. Open MVOL_DEVICE
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR))==-1) {
+		fprintf(stderr, "LOG_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOGLV_MIN, pLml, sizeof(LOGGING_MIN_LV), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+	if (ioctl(fd, IOCTL_MVOL_SET_LOGLV_MIN, pLml) != 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	// 3. CloseHandle MVOL_DEVICE
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+#endif
+	return retVal;
+}
+
+
+DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+	FILE *fp; 
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+	PBSR_LOG	pBsrLog = NULL;
+	// DW-1629
+	char tstr[MAX_PATH];
+
+#ifdef _WIN_DEBUG_OOS
+	if (oosTrace)
+		oosTrace = InitOosTrace();	
+#endif
+
+	if (resourceName != NULL) {
+		memset(tstr, MAX_PATH, 0);
+		// DW-1629 check logs for resource name and additional parsing data
+		//#define __bsr_printk_device ...
+		//#define __bsr_printk_peer_device ...
+		//#define __bsr_printk_resource ...
+		//#define __bsr_printk_connection ...
+#ifdef _WIN
+		sprintf_s(tstr, ">bsr %s", resourceName);
+#else // _LIN
+		sprintf(tstr, ">bsr %s", resourceName);
+#endif
+	}
+	
+	// 1. Open MVOL_DEVICE
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR))==-1) {
+		fprintf(stderr, "LOG_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	pBsrLog = (PBSR_LOG)malloc(BSR_LOG_SIZE);
+	if (!pBsrLog) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed malloc. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+		//fprintf(stderr, "Failed malloc\n");
+		//exit(1);
+
+	}
+
+	// 2. DeviceIoControl with BSR_LOG_SIZE parameter (DW-1054)
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_GET_BSR_LOG, pBsrLog, BSR_LOG_SIZE, pBsrLog, BSR_LOG_SIZE, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+	if (ioctl(fd, IOCTL_MVOL_GET_BSR_LOG, pBsrLog) != 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_GET_BSR_LOG. Err=%u\n",
+			__FUNCTION__, retVal);
+	}	
+	else {
+
+#ifdef _WIN
+		HANDLE hLogFile = INVALID_HANDLE_VALUE;
+		hLogFile = CreateFileA(pszProviderName, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hLogFile != INVALID_HANDLE_VALUE) {
+#else // _LIN
+		fp = fopen(pszProviderName ,"w");
+		if(fp != NULL) {
+#endif
+			unsigned int loopcnt = min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
+			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
+				for (unsigned int i = 0; i <= (loopcnt*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {		
+					// DW-1629
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+						continue;
+
+#ifdef _WIN_DEBUG_OOS
+					if (oosTrace)
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
+						continue;
+					}
+#endif
+
+#ifdef _WIN
+					DWORD dwWritten;
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
+#else // _LIN
+					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+#endif
+				}
+			}
+			else { // pBsrLog->totalcnt > LOGBUF_MAXCNT
+				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
+				// BSR-578 log start point is calculated based on zero.
+				for (unsigned int i = pBsrLog->totalcnt*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
+					// DW-1629
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+						continue;
+
+#ifdef _WIN_DEBUG_OOS
+					if (oosTrace)
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
+						continue;
+					}
+#endif
+
+#ifdef _WIN
+					DWORD dwWritten;
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
+#else // _LIN
+					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+#endif
+				}
+
+				for (unsigned int i = 0; i < pBsrLog->totalcnt*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
+					// DW-1629
+					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+						continue;
+
+#ifdef _WIN_DEBUG_OOS
+					if (oosTrace)
+						ConvertCallStack(&pBsrLog->LogBuf[i]);
+					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
+						continue;
+					}
+#endif
+#ifdef _WIN
+					DWORD dwWritten;
+					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
+					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
+#else // _LIN
+					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+#endif
+				}
+			}
+#ifdef _WIN
+			CloseHandle(hLogFile);
+#else // _LIN
+			fclose(fp);
+#endif
+		}
+		else {
+			retVal = GetLastError();
+			fprintf(stderr, "LOG_ERROR: %s: Failed CreateFile. Err=%u\n",
+				__FUNCTION__, retVal);
+		}
+	}
+	// 3. CloseHandle MVOL_DEVICE
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+#endif
+
+	if (pBsrLog) {
+		free(pBsrLog);
+	}
+#ifdef _WIN_DEBUG_OOS
+	if (oosTrace){
+		CleanupOosTrace();
+	}
+#endif	
+
+	return retVal;
+
 }

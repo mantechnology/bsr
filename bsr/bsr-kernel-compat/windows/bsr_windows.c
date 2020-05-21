@@ -42,10 +42,6 @@ int g_netlink_tcp_port;
 int g_daemon_tcp_port;
 LARGE_INTEGER g_frequency = { .QuadPart = 0 };		// DW-1961
 
-// minimum levels of logging, below indicates default values. it can be changed when BSR receives IOCTL_MVOL_SET_LOGLV_MIN.
-atomic_t g_eventlog_lv_min = LOG_LV_DEFAULT_EVENTLOG;
-atomic_t g_dbglog_lv_min = LOG_LV_DEFAULT_DBG;
-
 #ifdef _WIN_HANDLER_TIMEOUT
 int g_handler_use;
 int g_handler_timeout;

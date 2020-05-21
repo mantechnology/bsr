@@ -35,14 +35,18 @@ WITH_XEN = @WITH_XEN@
 WITH_BASHCOMPLETION = @WITH_BASHCOMPLETION@
 WITH_MANUAL = @WITH_MANUAL@
 WITH_BSRMON = @WITH_BSRMON@
+WITH_BSRCON = @WITH_BSRCON@
 
 # for some reason some of the commands below only work correctly in bash,
 # and not in e.g. dash. I'm too lazy to fix it to be compatible.
 SHELL=/bin/bash
 
-TOOLS_DIRS  = user/shared user/v9 scripts 
+TOOLS_DIRS  = user/shared user/v9 scripts
 ifeq ($(WITH_BSRMON),yes)
-	TOOLS_DIRS  += user/bsrdmon
+	TOOLS_DIRS  += user/bsrmon
+endif
+ifeq ($(WITH_BSRCON),yes)
+	TOOLS_DIRS  += bsrcon
 endif
 DOC_DIRS    = documentation/v9
 
@@ -127,6 +131,9 @@ EXTRA_CLEAN += Makefile user/Makefile user/v9/Makefile scripts/Makefile
 ifeq ($(WITH_BSRMON),yes)
 	EXTRA_CLEAN += user/bsrmon/Makefile
 endif
+ifeq ($(WITH_BSRCON),yes)
+	EXTRA_CLEAN += bsrcon/Makefile
+endif
 
 ifeq ($(WITH_MANUAL),yes)
 	EXTRA_CLEAN += documentation/Makefile documentation/v9/Makefile
@@ -169,7 +176,7 @@ PNAME	:= bsr-utils
 .filelist:
 	@set -e ; $(GIT) ls-files | \
 		sed '$(if $(PRESERVE_DEBIAN),,/^debian/d);s#^#$(PNAME)-$(DIST_VERSION)/#' | \
-		grep -v "gitignore\|gitmodules\|bsrcon\|vcxproj" > .filelist
+		grep -v "gitignore\|gitmodules\|vcxproj" > .filelist
 	@[ -s .filelist ] # assert there is something in .filelist now
 	@find documentation -name "[^.]*.[58]" -o -name "*.html" | \
 	sed "s/^/$(PNAME)-$(DIST_VERSION)\//"              >> .filelist ; \

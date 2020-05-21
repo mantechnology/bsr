@@ -112,6 +112,9 @@
     <ClCompile Include="..\..\..\bsr\bsr_idx_ring_buf.c">
       <Filter>bsr</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\bsr\bsr_log.c">
+      <Filter>bsr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\backing-dev.h">

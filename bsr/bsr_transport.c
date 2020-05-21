@@ -36,18 +36,18 @@ int bsr_register_transport_class(struct bsr_transport_class *transport_class, in
 {
 	int rv = 0;
 	if (version != BSR_TRANSPORT_API_VERSION) {
-		pr_err("BSR_TRANSPORT_API_VERSION not compatible\n");
+		bsr_err(NO_OBJECT, "BSR_TRANSPORT_API_VERSION not compatible\n");
 		return -EINVAL;
 	}
 
 	if (bsr_transport_size != sizeof(struct bsr_transport)) {
-		pr_err("sizeof(bsr_transport) not compatible\n");
+		bsr_err(NO_OBJECT, "sizeof(bsr_transport) not compatible\n");
 		return -EINVAL;
 	}
 
 	down_write(&transport_classes_lock);
 	if (__find_transport_class(transport_class->name)) {
-		pr_err("transport class '%s' already registered\n", transport_class->name);
+		bsr_err(NO_OBJECT, "transport class '%s' already registered\n", transport_class->name);
 		rv = -EEXIST;
 	} else
 		list_add_tail(&transport_class->list, &transport_classes);
@@ -59,7 +59,7 @@ void bsr_unregister_transport_class(struct bsr_transport_class *transport_class)
 {
 	down_write(&transport_classes_lock);
 	if (!__find_transport_class(transport_class->name)) {
-		pr_crit("unregistering unknown transport class '%s'\n",
+		bsr_crit(NO_OBJECT, "unregistering unknown transport class '%s'\n",
 			transport_class->name);
 		BUG();
 	}

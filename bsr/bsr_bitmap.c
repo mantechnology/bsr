@@ -338,7 +338,7 @@ static void bm_free_pages(struct page **pages, ULONG_PTR number)
 
 	for (i = 0; i < number; i++) {
 		if (!pages[i]) {
-			pr_alert("bm_free_pages tried to free a NULL pointer; i=%lu n=%lu\n",
+			bsr_alert(NO_OBJECT, "bm_free_pages tried to free a NULL pointer; i=%lu n=%lu\n",
 				 i, number);
 			continue;
 		}
