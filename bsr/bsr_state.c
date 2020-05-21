@@ -1818,8 +1818,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 
 			// DW-1314 restrict to be sync side when it is not able to.
-			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_SYNC_TARGET) ||
-				(repl_state[NEW] >= L_PAUSED_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
+			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					

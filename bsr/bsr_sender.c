@@ -2722,14 +2722,17 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 			side = L_SYNC_SOURCE;
 			break;
 		case L_VERIFY_S:    // need to deal with verification state.
+			side = L_VERIFY_S;
+			break;
 		case L_VERIFY_T:
-			return true;
+			side = L_VERIFY_T;
+			break;
 		default:
 			bsr_info(peer_device, "unexpected repl_state (%s)\n", bsr_repl_str(replState));
 			return false;
 	}
 	
-	if (side == L_SYNC_TARGET) {
+	if (side == L_SYNC_TARGET || side == L_VERIFY_T) {
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE)) {
 			bsr_info(peer_device, "Sync source is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
@@ -2743,7 +2746,7 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 			return false;
 		}
 	}
-	else if (side == L_SYNC_SOURCE) {
+	else if (side == L_SYNC_SOURCE || side == L_VERIFY_S) {
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked)) {
 			bsr_info(peer_device, "I am unstable, can not be %s, authoritative(%llx)\n", bsr_repl_str(replState), authoritative);
 			return false;
