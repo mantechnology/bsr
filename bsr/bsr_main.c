@@ -152,8 +152,6 @@ int two_phase_commit_fail;
 extern spinlock_t g_inactive_lock;
 
 #ifdef _LIN
-unsigned int log_level = LOG_LV_DEFAULT;
-
 /* bitmap of enabled faults */
 module_param(enable_faults, int, 0664);
 /* fault rate % value - applies to all enabled faults */
@@ -163,7 +161,6 @@ module_param(fault_count, int, 0664);
 /* bitmap of devices to insert faults on */
 module_param(fault_devs, int, 0644);
 module_param(two_phase_commit_fail, int, 0644);
-module_param(log_level, int, 0644);
 #endif
 #endif
 
@@ -252,7 +249,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	
 	if (err) {
 		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
-		return err;
+		return -1;
 	}
 
 	if (loggingMinLv.nType == LOGGING_TYPE_SYSLOG) {
@@ -270,9 +267,6 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	else {
 		bsr_warn(NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
 	}
-
-	// BSR-577 TODO save to file?
-	//err = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
 	
 	// DW-2008
 	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
@@ -281,7 +275,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
 				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
 				);
-	return err;
+	return Get_log_lv();
 }
 
 static int bsr_get_log(BSR_LOG __user *bsr_log) 
@@ -5232,12 +5226,6 @@ int bsr_init(void)
 #endif
 {
 	int err;
-
-#ifdef _LIN
-	//BSR-581
-	// TODO need to make sure it's in the right place to call
-	init_logging();
-#endif
 
 #ifdef _WIN
 	nl_policy_init_by_manual();
