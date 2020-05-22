@@ -975,13 +975,6 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 	case L_VERIFY_S:
 		// BSR-118
 		if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags)) {
-#ifdef _WIN
-			while (wait_for_completion_timeout(&peer_device->fast_ov_work.done, 1000) == -BSR_SIGKILL) {
-				bsr_info(peer_device, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
-			}
-#else // _LIN
-			wait_for_completion_timeout(&peer_device->fast_ov_work.done, 1000);
-#endif
 			peer_device->ov_left = bsr_ov_bm_total_weight(peer_device);
 			clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 		}

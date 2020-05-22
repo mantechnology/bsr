@@ -6039,7 +6039,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	retcode = stable_change_repl_state(peer_device,
-		L_VERIFY_S, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
+		L_VERIFY_S, CS_VERBOSE | CS_SERIALIZE);
 	bsr_resume_io(device);
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);

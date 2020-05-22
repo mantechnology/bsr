@@ -2360,17 +2360,18 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 					// BSR-118
 					if (isFastInitialSync()) {
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
-						init_completion(&peer_device->fast_ov_work.done);
 					}
+					else {
 #ifdef _WIN_DEBUG_OOS
-					// DW-1199 add printing bitmap index to recognize peer node id.
-					bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
-						(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
+						// DW-1199 add printing bitmap index to recognize peer node id.
+						bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
+							(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
 #else
-					bsr_info(peer_device, "Starting Online Verify from sector %llu\n",
-							(unsigned long long)peer_device->ov_position);
+						bsr_info(peer_device, "Starting Online Verify from sector %llu\n",
+								(unsigned long long)peer_device->ov_position);
 #endif
-					mod_timer(&peer_device->resync_timer, jiffies);
+						mod_timer(&peer_device->resync_timer, jiffies);
+					}
 				}
 			} else if (!(repl_state[OLD] >= L_SYNC_SOURCE && repl_state[OLD] <= L_PAUSED_SYNC_T) &&
 				   (repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {

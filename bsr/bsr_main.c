@@ -6831,7 +6831,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			bSecondary = true;
 		}
 		else {
-			bsr_err(peer_device,"Access in invalid repl_state(%s).\n", bsr_repl_str(device->resource->role[NOW]));
+			bsr_warn(peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
 			goto out;
 		}
@@ -6890,10 +6890,18 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			peer_device->fast_ov_bitmap = pBitmap;
 			err = false;
 		}
+#ifdef _WIN_DEBUG_OOS
+		// DW-1199 add printing bitmap index to recognize peer node id.
+		bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
+			(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
+#else
+		bsr_info(peer_device, "Starting Online Verify from sector %llu\n",
+				(unsigned long long)peer_device->ov_position);
+#endif
+		mod_timer(&peer_device->resync_timer, jiffies);
 	}
 
 out:
-	complete(&fast_ov_work->done);
 	return err;
 }
 
