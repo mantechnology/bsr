@@ -1563,6 +1563,8 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	BOOL        ret = FALSE;
 #else // _LIN
 	int fd;
+	FILE *fp;
+	long log_level=0;
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
@@ -1597,7 +1599,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 #ifdef _WIN
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOGLV_MIN, pLml, sizeof(LOGGING_MIN_LV), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
-	if (ioctl(fd, IOCTL_MVOL_SET_LOGLV_MIN, pLml) != 0) {
+	if ((log_level = ioctl(fd, IOCTL_MVOL_SET_LOGLV_MIN, pLml)) < 0) {
 #endif
 		retVal = GetLastError();
 		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
@@ -1612,6 +1614,17 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 #else // _LIN
 	if (fd)
 		close(fd);
+
+	// BSR-584 write /etc/bsr.d/.log_level
+	fp = fopen(BSR_LOG_LEVEL_REG, "w");
+	if(fp != NULL) {
+		fprintf(fp, "%ld", log_level);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+			fprintf(stderr, "LOG_ERROR: %s: Failed create %s file. Err=%u\n",
+				__FUNCTION__, BSR_LOG_LEVEL_REG, retVal);
+	}
 #endif
 	return retVal;
 }

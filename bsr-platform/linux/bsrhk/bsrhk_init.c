@@ -43,13 +43,70 @@ const struct block_device_operations bsr_ops = {
 	.release = bsr_umount,
 };
 
+
+// BSR-584 reading log level from /etc/bsr.d/.log_level file
+static long read_log_lv(void)
+{	
+	struct file *fd = NULL;
+	char *buffer = NULL;
+	int filesize = 0;
+	long log_level = LOG_LV_DEFAULT;
+	int err = 0;
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	fd = filp_open(BSR_LOG_LEVEL_REG, O_RDONLY, 0);
+
+	if (fd == NULL || IS_ERR(fd))
+		goto out;
+
+	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
+	if (filesize <= 0)
+		goto close;
+
+	buffer = kmalloc(filesize, GFP_ATOMIC|__GFP_NOWARN);
+
+	memset(buffer, 0, sizeof(filesize));
+	
+	if (fd->f_op->llseek(fd, 0, SEEK_SET) < 0)
+		goto close;
+	err = bsr_read(fd, buffer, filesize, &fd->f_pos);
+	if (err < 0 || err != filesize)
+		goto close;
+
+	err = kstrtol(buffer, 0, &log_level);
+	if (err < 0 || log_level == 0)
+		log_level = LOG_LV_DEFAULT;
+
+close:
+	if (buffer != NULL)
+		kfree(buffer);
+	if (fd != NULL)
+		filp_close(fd, NULL);
+out:
+	set_fs(oldfs);
+	return log_level;
+}
+
+
 static int __init bsr_load(void)
 {
+	long log_level = 0;
+
+#ifdef _LIN
+	// BSR-581
+	init_logging();
+#endif
+
+	log_level = read_log_lv();
 	Set_log_lv(log_level);
+
 	bsr_info(NO_OBJECT, "bsr kernel driver load\n");
 	initialize_kref_debugging();
 	if (bsr_debugfs_init())
 		bsr_noti(NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
+
 	return bsr_init();	
 }
 

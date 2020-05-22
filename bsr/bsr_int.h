@@ -470,11 +470,6 @@ extern atomic_t g_featurelog_flag;
 // DW-2099 flags for data verification
 #define FEATURELOG_FLAG_VERIFY 		(1 << 2)
 
-#ifdef _LIN // BSR-577 TODO
-extern unsigned int log_level;
-#endif
-
-
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
 
