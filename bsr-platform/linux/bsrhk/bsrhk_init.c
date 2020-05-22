@@ -45,7 +45,7 @@ const struct block_device_operations bsr_ops = {
 
 
 // BSR-584 reading log level from /etc/bsr.d/.log_level file
-static long read_log_lv()
+static long read_log_lv(void)
 {	
 	struct file *fd = NULL;
 	char *buffer = NULL;
