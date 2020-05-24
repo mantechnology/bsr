@@ -2073,8 +2073,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 			    enum bsr_repl_state repl_state)
 {
 	struct bsr_device *device = peer_device->device;
-	if (peer_device->connection->agreed_pro_version < 90)
-		peer_device->ov_start_sector = 0;
+	peer_device->ov_start_sector = 0;
 	peer_device->rs_total = bsr_bm_bits(device);
 	peer_device->ov_bm_position = 0;
 	peer_device->ov_position = 0;
