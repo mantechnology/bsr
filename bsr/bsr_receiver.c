@@ -4595,14 +4595,19 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
+			if (peer_device->connection->agreed_pro_version >= 113)
+				peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
+			else
+				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
 			peer_device->rs_total = peer_device->ov_left;
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
 			}
-			bsr_info(device, "Online Verify start sector: %llu\n",
-					(unsigned long long)sector);
+			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) (will verify %llu KB [%llu bits set]).\n",
+						bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index,
+						(unsigned long long) peer_device->ov_left << (BM_BLOCK_SHIFT-10),
+						(unsigned long long) peer_device->ov_left);
 		}
 		peer_req->w.cb = w_e_end_ov_req;
 		fault_type = BSR_FAULT_RS_RD;

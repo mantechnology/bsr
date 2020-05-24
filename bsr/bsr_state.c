@@ -2362,14 +2362,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
-#ifdef _WIN_DEBUG_OOS
-						// DW-1199 add printing bitmap index to recognize peer node id.
-						bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
-							(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
-#else
-						bsr_info(peer_device, "Starting Online Verify from sector %llu\n",
-								(unsigned long long)peer_device->ov_position);
-#endif
+						bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) (will verify %llu KB [%llu bits set]).\n",
+							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index,
+							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
+							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
+
 						mod_timer(&peer_device->resync_timer, jiffies);
 					}
 				}
