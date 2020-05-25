@@ -1,8 +1,8 @@
+#include "../../../bsr/bsr_int.h"
 #include "bsr_windows.h"
 #include "wsk_wrapper.h"
 #include "bsr_wingenl.h"
 #include "idr.h"
-#include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr_nla.h"
 
 NPAGED_LOOKASIDE_LIST bsr_workitem_mempool;

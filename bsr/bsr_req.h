@@ -22,6 +22,7 @@
 
 #ifndef _BSR_REQ_H
 #define _BSR_REQ_H
+#include "bsr_int.h"
 #ifdef _WIN
 #include "../bsr-headers/bsr.h"
 #else // _LIN
@@ -29,7 +30,6 @@
 #include <linux/slab.h>
 #include <bsr.h>
 #endif
-#include "bsr_int.h"
 
 /* The request callbacks will be called in irq context by the IDE drivers,
    and in Softirqs/Tasklets/BH context by the SCSI drivers,

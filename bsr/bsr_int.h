@@ -25,6 +25,7 @@
 #define _BSR_INT_H
 
 #ifdef _WIN
+#include <ntifs.h>
 #include "stddef.h"
 #include "./bsr-kernel-compat/windows/list.h"
 #include "./bsr-kernel-compat/windows/sched.h"

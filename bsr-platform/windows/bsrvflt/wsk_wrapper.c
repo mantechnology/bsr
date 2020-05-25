@@ -1,7 +1,6 @@
-
+#include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "wsk_wrapper.h"
-#include "../../../bsr/bsr_int.h"
 
 extern bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream stream);
 IO_COMPLETION_ROUTINE CompletionRoutine;

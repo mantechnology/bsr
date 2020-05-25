@@ -23,8 +23,8 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
-#include "../bsr-headers/bsr.h"
 #include "bsr_int.h"
+#include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
 #include "bsr_state_change.h"

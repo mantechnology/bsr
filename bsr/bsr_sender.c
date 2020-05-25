@@ -20,6 +20,7 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
+#include "bsr_int.h"
 #include "../bsr-headers/bsr.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/sched.h"
@@ -36,7 +37,6 @@
 #include <linux/random.h>
 #include <linux/scatterlist.h>
 #endif
-#include "bsr_int.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
 

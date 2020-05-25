@@ -17,6 +17,7 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "../../../bsr/bsr_int.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <intrin.h>
@@ -28,7 +29,6 @@
 #include "../bsr_wrappers.h"
 #include "disp.h"
 #include "proto.h"
-#include "../../../bsr/bsr_int.h"
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, do_add_minor)

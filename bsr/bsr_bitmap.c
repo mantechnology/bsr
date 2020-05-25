@@ -22,6 +22,7 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
+#include "bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "../bsr-headers/bsr.h"
@@ -35,8 +36,6 @@
 #include <linux/dynamic_debug.h>
 #include <asm/kmap_types.h>
 #endif
-
-#include "bsr_int.h"
 
 /* See the ifdefs and comments inside that header file.
  * On recent kernels this is not needed. */
@@ -1727,7 +1726,7 @@ ULONG_PTR bsr_bm_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start)
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const ULONG_PTR bitnr)
 {
 	PCHAR pByte;
-	LONGLONG bitmapSize = 0;
+	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR ret;
 
 	// full ov
@@ -1736,7 +1735,7 @@ extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const U
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 #ifdef _WIN
-	bitmapSize = (peer_device->fast_ov_bitmap->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
+	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
 #else // _LIN
 	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
 #endif
@@ -1752,7 +1751,7 @@ extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const U
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 {
 	PCHAR pByte;
-	LONGLONG bitmapSize = 0;
+	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 	ULONG_PTR s = 0;
 
@@ -1762,7 +1761,7 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 #ifdef _WIN
-	bitmapSize = (peer_device->fast_ov_bitmap->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
+	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
 #else // _LIN
 	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
 #endif
@@ -1778,7 +1777,7 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
 {
 	PCHAR pByte;
-	LONGLONG bitmapSize = 0;
+	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 
 	// full ov
@@ -1787,7 +1786,7 @@ extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, 
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 #ifdef _WIN
-	bitmapSize = (peer_device->fast_ov_bitmap->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
+	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
 #else // _LIN
 	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
 #endif
@@ -1806,7 +1805,7 @@ extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, 
 extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *peer_device)
 {
 	PCHAR pByte;
-	LONGLONG bitmapSize = 0;
+	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 	ULONG_PTR s = 0;
 
@@ -1815,12 +1814,12 @@ extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *peer_device)
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 #ifdef _WIN
-	bitmapSize = (peer_device->fast_ov_bitmap->BitmapSize.QuadPart + 1) / BITS_PER_BYTE;
+	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
 #else // _LIN
 	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
 #endif
 
-	for(bit = ((bitmapSize << 3) - 1); bit >= 0; bit--) {
+	for(bit = ((bitmapSize << 3) - 1); bit > 0; bit--) {
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (BITS_PER_BYTE-(bit+1))) & 0x01) == 1) {
 			s++;
 			if (s == peer_device->ov_left)
