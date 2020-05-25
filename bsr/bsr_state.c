@@ -2073,7 +2073,8 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 			    enum bsr_repl_state repl_state)
 {
 	struct bsr_device *device = peer_device->device;
-	peer_device->ov_start_sector = 0;
+	if (peer_device->connection->agreed_pro_version < 90)
+		peer_device->ov_start_sector = 0;
 	peer_device->rs_total = bsr_bm_bits(device);
 	peer_device->ov_bm_position = 0;
 	peer_device->ov_position = 0;
@@ -2093,6 +2094,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 		} else
 			peer_device->rs_total -= bit;
 		peer_device->ov_position = peer_device->ov_start_sector;
+		peer_device->ov_bm_position = BM_SECT_TO_BIT(peer_device->ov_position);
 	}
 	peer_device->ov_left = peer_device->rs_total;
 }
@@ -2291,8 +2293,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			 * Log the last position, unless end-of-device. */
 			if ((repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) &&
 			    repl_state[NEW] <= L_ESTABLISHED) {
+				// BSR-118
 				peer_device->ov_start_sector =
-					BM_BIT_TO_SECT(bsr_bm_bits(device) - peer_device->ov_left);
+					BM_BIT_TO_SECT(bsr_ov_bm_find_abort_bit(peer_device));
+
 				if (peer_device->ov_left)
 					bsr_info(peer_device, "Online Verify reached sector %llu\n",
 						  (unsigned long long)peer_device->ov_start_sector);
@@ -2361,8 +2365,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
-						bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) (will verify %llu KB [%llu bits set]).\n",
-							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index,
+						bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
 

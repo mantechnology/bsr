@@ -2438,6 +2438,7 @@ extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);
 extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
+extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *);
 // DW-1978
 extern ULONG_PTR bsr_bm_range_find_next(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 extern ULONG_PTR bsr_bm_find_next(struct bsr_peer_device *, ULONG_PTR);

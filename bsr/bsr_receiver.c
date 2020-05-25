@@ -4604,8 +4604,8 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
 			}
-			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) (will verify %llu KB [%llu bits set]).\n",
-						bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index,
+			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+						bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 						(unsigned long long) peer_device->ov_left << (BM_BLOCK_SHIFT-10),
 						(unsigned long long) peer_device->ov_left);
 		}
