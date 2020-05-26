@@ -1,5 +1,6 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+#include "bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/spinlock.h"
 #include "./bsr-kernel-compat/windows/seq_file.h"
@@ -8,7 +9,6 @@
 #include <linux/seq_file.h>
 #include <linux/kref.h>
 #endif
-#include "bsr_int.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "kref_debug.h"
 
