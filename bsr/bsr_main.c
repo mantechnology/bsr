@@ -6824,6 +6824,8 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	
 	UNREFERENCED_PARAMETER(cancel);
 
+	mutex_lock(&device->resource->vol_ctl_mutex);
+	
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_VERIFY_S) {
@@ -6896,6 +6898,8 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 		     (unsigned long long) bsr_ov_bm_total_weight(peer_device));
 		mod_timer(&peer_device->resync_timer, jiffies);
 	}
+
+	mutex_unlock(&device->resource->vol_ctl_mutex);
 
 out:
 	return err;
