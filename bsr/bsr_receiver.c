@@ -5960,7 +5960,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 {
 	struct bsr_peer_device *peer_device;
 	struct bsr_device *device;
-	struct p_rs_param_95 *p;
+	struct p_rs_param_114 *p;
 	unsigned int header_size, data_size, exp_max_sz;
 	struct crypto_ahash *verify_tfm = NULL;
 	struct crypto_ahash *csums_tfm = NULL;
@@ -5981,7 +5981,8 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		    : apv == 88 ? sizeof(struct p_rs_param)
 					+ SHARED_SECRET_MAX
 		    : apv <= 94 ? sizeof(struct p_rs_param_89)
-		    : /* apv >= 95 */ sizeof(struct p_rs_param_95);
+		    : apv <= 113 ? sizeof(struct p_rs_param_95)
+			: /* apv >= 114 */ sizeof(struct p_rs_param_114);
 
 	if (pi->size > exp_max_sz) {
 		bsr_err(device, "SyncParam packet too long: received %u, expected <= %u bytes\n",
@@ -5996,8 +5997,12 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		header_size = sizeof(struct p_rs_param_89);
 		data_size = pi->size - header_size;
 		D_ASSERT(device, data_size == 0);
-	} else {
+	} else if (apv <= 113) {
 		header_size = sizeof(struct p_rs_param_95);
+		data_size = pi->size - header_size;
+		D_ASSERT(device, data_size == 0);
+	} else {
+		header_size = sizeof(struct p_rs_param_114);
 		data_size = pi->size - header_size;
 		D_ASSERT(device, data_size == 0);
 	}
@@ -6097,6 +6102,12 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			}
 		}
 
+		// BSR-587
+		if (apv >= 114 && new_peer_device_conf) {
+			new_peer_device_conf->ov_req_num = be32_to_cpu(p->ov_req_num);
+			new_peer_device_conf->ov_req_interval = be32_to_cpu(p->ov_req_interval);
+		}
+
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2DW');
 			if (!new_net_conf) {
@@ -6134,9 +6145,10 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n",
+		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
-			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
+			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
+			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 		put_ldev(device);
 	}

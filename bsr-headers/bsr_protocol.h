@@ -289,6 +289,19 @@ struct p_rs_param_95 {
 	uint32_t c_max_rate;
 } __packed;
 
+// BSR-587
+struct p_rs_param_114 {
+	uint32_t resync_rate;
+	char verify_alg[SHARED_SECRET_MAX];
+	char csums_alg[SHARED_SECRET_MAX];
+	uint32_t c_plan_ahead;
+	uint32_t c_delay_target;
+	uint32_t c_fill_target;
+	uint32_t c_max_rate;
+	uint32_t ov_req_num;
+	uint32_t ov_req_interval;
+} __packed;
+
 enum bsr_conn_flags {
 	CF_DISCARD_MY_DATA = 1,
 	CF_DRY_RUN = 2,

@@ -1425,9 +1425,15 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	sector_t sector;
 	const sector_t capacity = bsr_get_capacity(device->this_bdev);
 	bool stop_sector_reached = false;
+	struct peer_device_conf *pdc;
 
 	if (unlikely(cancel))
 		return 1;
+
+	// BSR-587 optional ov request size and interval
+	rcu_read_lock();
+	pdc = rcu_dereference(peer_device->conf);
+	rcu_read_unlock();
 
 	number = bsr_rs_number_requests(peer_device);
 
@@ -1484,7 +1490,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			if (bsr_ov_bm_test_bit(peer_device, bit + 1) != 1)
 				break;
 
-			if(size < (OV_REQUEST_NUM_BLOCK * BM_BLOCK_SIZE)) {
+			if(size < (pdc->ov_req_num * BM_BLOCK_SIZE)) {
 				size += BM_BLOCK_SIZE;
 				i++;
 				bit++;
@@ -1510,7 +1516,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
  requeue:
 	peer_device->rs_in_flight += (i << (BM_BLOCK_SHIFT - 9));
 	if (i == 0 || !stop_sector_reached)
-		mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
+		mod_timer(&peer_device->resync_timer, jiffies + pdc->ov_req_interval);
 	return 1;
 }
 

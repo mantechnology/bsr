@@ -1609,7 +1609,7 @@ int bsr_send_peer_ack(struct bsr_connection *connection,
 
 int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 {
-	struct p_rs_param_95 *p;
+	struct p_rs_param_114 *p;
 	int size;
 	const int apv = peer_device->connection->agreed_pro_version;
 	enum bsr_packet cmd;
@@ -1623,7 +1623,8 @@ int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 		: apv == 88 ? (int)sizeof(struct p_rs_param)
 		+ (int)(strlen(nc->verify_alg) + 1)
 			: apv <= 94 ? (int)sizeof(struct p_rs_param_89)
-		: /* apv >= 95 */ (int)sizeof(struct p_rs_param_95);
+		: apv <= 113 ? (int)sizeof(struct p_rs_param_95)
+		: /* apv >= 114 */ (int)sizeof(struct p_rs_param_114);
 
 	cmd = apv >= 89 ? P_SYNC_PARAM89 : P_SYNC_PARAM;
 	rcu_read_unlock();
@@ -1649,6 +1650,8 @@ int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 	p->c_delay_target = cpu_to_be32(pdc->c_delay_target);
 	p->c_fill_target = cpu_to_be32(pdc->c_fill_target);
 	p->c_max_rate = cpu_to_be32(pdc->c_max_rate);
+	p->ov_req_num = cpu_to_be32(pdc->ov_req_num);
+	p->ov_req_interval = cpu_to_be32(pdc->ov_req_interval);
 
 	if (apv >= 88)
 		strncpy(p->verify_alg, nc->verify_alg, sizeof(p->verify_alg) - 1);
