@@ -2361,7 +2361,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 				if (repl_state[NEW] == L_VERIFY_S) {
 					// BSR-118
-					if (isFastInitialSync()) {
+					if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
@@ -3536,7 +3536,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// BSR-118
 			if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S) {
-				if (isFastInitialSync()) {
+				if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
 					peer_device->fast_ov_work.w.cb = w_fast_ov_get_bm;
 					bsr_queue_work(&resource->work, &peer_device->fast_ov_work.w);
 				}

@@ -4595,7 +4595,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			if (peer_device->connection->agreed_pro_version >= 113)
+			if (peer_device->connection->agreed_pro_version >= 114)
 				peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
 			else
 				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
