@@ -1818,8 +1818,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 
 			// DW-1314 restrict to be sync side when it is not able to.
-			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_SYNC_TARGET) ||
-				(repl_state[NEW] >= L_PAUSED_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
+			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
@@ -2077,6 +2076,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 	if (peer_device->connection->agreed_pro_version < 90)
 		peer_device->ov_start_sector = 0;
 	peer_device->rs_total = bsr_bm_bits(device);
+	peer_device->ov_bm_position = 0;
 	peer_device->ov_position = 0;
 	if (repl_state == L_VERIFY_T) {
 		/* starting online verify from an arbitrary position
@@ -2094,6 +2094,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 		} else
 			peer_device->rs_total -= bit;
 		peer_device->ov_position = peer_device->ov_start_sector;
+		peer_device->ov_bm_position = BM_SECT_TO_BIT(peer_device->ov_position);
 	}
 	peer_device->ov_left = peer_device->rs_total;
 }
@@ -2292,8 +2293,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			 * Log the last position, unless end-of-device. */
 			if ((repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) &&
 			    repl_state[NEW] <= L_ESTABLISHED) {
+				// BSR-118
 				peer_device->ov_start_sector =
-					BM_BIT_TO_SECT(bsr_bm_bits(device) - peer_device->ov_left);
+					BM_BIT_TO_SECT(bsr_ov_bm_find_abort_bit(peer_device));
+
 				if (peer_device->ov_left)
 					bsr_info(peer_device, "Online Verify reached sector %llu\n",
 						  (unsigned long long)peer_device->ov_start_sector);
@@ -2343,6 +2346,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				int i;
 
 				set_ov_position(peer_device, repl_state[NEW]);
+				peer_device->fast_ov_bitmap = NULL;
 				peer_device->rs_start = now;
 				peer_device->rs_last_sect_ev = 0;
 				peer_device->ov_last_oos_size = 0;
@@ -2356,15 +2360,18 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				bsr_rs_controller_reset(peer_device);
 
 				if (repl_state[NEW] == L_VERIFY_S) {
-#ifdef _WIN_DEBUG_OOS
-					// DW-1199 add printing bitmap index to recognize peer node id.
-					bsr_info(peer_device, "Starting Online Verify from sector %llu, bitmap_index(%d)\n",
-						(unsigned long long)peer_device->ov_position, peer_device->bitmap_index);
-#else
-					bsr_info(peer_device, "Starting Online Verify from sector %llu\n",
-							(unsigned long long)peer_device->ov_position);
-#endif
-					mod_timer(&peer_device->resync_timer, jiffies);
+					// BSR-118
+					if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
+						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
+					}
+					else {
+						bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
+							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
+
+						mod_timer(&peer_device->resync_timer, jiffies);
+					}
 				}
 			} else if (!(repl_state[OLD] >= L_SYNC_SOURCE && repl_state[OLD] <= L_PAUSED_SYNC_T) &&
 				   (repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
@@ -3525,6 +3532,14 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					"write from resync_finished", BM_LOCK_BULK,
 					NULL);
 				put_ldev(device);
+			}
+
+			// BSR-118
+			if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S) {
+				if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
+					peer_device->fast_ov_work.w.cb = w_fast_ov_get_bm;
+					bsr_queue_work(&resource->work, &peer_device->fast_ov_work.w);
+				}
 			}
 
 			/* Verify finished, or reached stop sector.  Peer did not know about

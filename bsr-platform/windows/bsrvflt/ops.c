@@ -17,11 +17,11 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "../../../bsr/bsr_int.h"
 #include <wdm.h>
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "disp.h"
 #include "proto.h"
-#include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr_idx_ring_buf.h"
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;

@@ -25,6 +25,7 @@
 #define _BSR_INT_H
 
 #ifdef _WIN
+#include <ntifs.h>
 #include "stddef.h"
 #include "./bsr-kernel-compat/windows/list.h"
 #include "./bsr-kernel-compat/windows/sched.h"
@@ -1123,6 +1124,9 @@ enum {
 	
 	// DW-1799 use for disk size comparison and setup.
 	INITIAL_SIZE_RECEIVED,
+
+	// BSR-118
+	OV_FAST_BM_SET_PENDING,
 };
 
 /* We could make these currently hardcoded constants configurable
@@ -1684,6 +1688,21 @@ enum bsr_neighbor {
 	NEXT_HIGHER
 };
 
+// BSR-450
+#ifdef _LIN
+typedef struct bitmap_buffer {
+    long long int BitmapSize;
+    unsigned char Buffer[1];
+
+} VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
+#endif
+
+// BSR-118
+struct ov_work {
+	struct bsr_work w;
+	struct completion done;
+};
+
 struct bsr_peer_device {
 	struct list_head peer_devices;
 	struct bsr_device *device;
@@ -1724,6 +1743,7 @@ struct bsr_peer_device {
 	struct bsr_work resync_work;
 	struct timer_list resync_timer;
 	struct bsr_work propagate_uuids_work;
+	struct ov_work fast_ov_work;
 
 	/* Used to track operations of resync... */
 	struct lru_cache *resync_lru;
@@ -1789,6 +1809,7 @@ struct bsr_peer_device {
 	/* where does the admin want us to start? (sector) */
 	sector_t ov_start_sector;
 	sector_t ov_stop_sector;
+	ULONG_PTR ov_bm_position; /* bit offset for bsr_ov_bm_find_next */
 	/* where are we now? (sector) */
 	sector_t ov_position;
 	/* Start sector of out of sync range (to merge printk reporting). */
@@ -1803,6 +1824,7 @@ struct bsr_peer_device {
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
 	ULONG_PTR ov_left; /* in bits */
+	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
 
 	u64 current_uuid;
 	u64 bitmap_uuids[BSR_PEERS_MAX];
@@ -2216,15 +2238,6 @@ extern int bsr_bitmap_io_from_worker(struct bsr_device *,
 extern int bsr_bmio_set_n_write(struct bsr_device *device, struct bsr_peer_device *) __must_hold(local);
 
 
-// BSR-450
-#ifdef _LIN
-typedef struct bitmap_buffer {
-    long long int BitmapSize;
-    unsigned char Buffer[1];
-
-} VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
-#endif
-
 // DW-844
 extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *, enum bsr_repl_state side, bool bitmap_lock) __must_hold(local);
 extern bool isFastInitialSync(void);
@@ -2440,6 +2453,11 @@ extern sector_t      bsr_bm_capacity(struct bsr_device *device);
 #define RANGE_FIND_NEXT_BIT 25000000
 extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 
+// BSR-118
+extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
+extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);
+extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
+extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *);
 // DW-1978
 extern ULONG_PTR bsr_bm_range_find_next(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 extern ULONG_PTR bsr_bm_find_next(struct bsr_peer_device *, ULONG_PTR);
@@ -2664,6 +2682,8 @@ extern int w_e_reissue(struct bsr_work *, int);
 extern int w_restart_disk_io(struct bsr_work *, int);
 extern int w_start_resync(struct bsr_work *, int);
 extern int w_send_uuids(struct bsr_work *, int);
+// BSR-118
+extern int w_fast_ov_get_bm(struct bsr_work *, int);
 
 #ifdef _WIN
 extern KDEFERRED_ROUTINE resync_timer_fn;

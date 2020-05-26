@@ -19,8 +19,8 @@
    along with bsr; see the file COPYING.  If not, write to
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
-#include "../bsr-headers/bsr.h"
 #include "bsr_int.h"
+#include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_transport.h"
 #ifdef _WIN
 #include <wsk_wrapper.h>

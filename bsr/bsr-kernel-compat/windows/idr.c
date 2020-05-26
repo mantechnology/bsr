@@ -25,10 +25,10 @@
 * with the slab allocator.
 */
 
+#include "../../../bsr/bsr_int.h"
 #include "bsr_windows.h"
 #include "bsr_wingenl.h"
 #include "idr.h"
-#include "../../../bsr/bsr_int.h"
 
 static kmem_cache_t *idr_layer_cache;
 

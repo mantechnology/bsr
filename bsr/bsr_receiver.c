@@ -20,6 +20,7 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/list.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
@@ -48,7 +49,6 @@
 
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_protocol.h"
-#include "bsr_int.h"
 #include "bsr_req.h"
 #include "bsr_vli.h"
 
@@ -4595,14 +4595,19 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
+			if (peer_device->connection->agreed_pro_version >= 114)
+				peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
+			else
+				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
 			peer_device->rs_total = peer_device->ov_left;
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
 			}
-			bsr_info(device, "Online Verify start sector: %llu\n",
-					(unsigned long long)sector);
+			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+						bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+						(unsigned long long) peer_device->ov_left << (BM_BLOCK_SHIFT-10),
+						(unsigned long long) peer_device->ov_left);
 		}
 		peer_req->w.cb = w_e_end_ov_req;
 		fault_type = BSR_FAULT_RS_RD;
@@ -9899,6 +9904,12 @@ void conn_disconnect(struct bsr_connection *connection)
 	
 		// DW-2076
 		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+
+		// BSR-118
+		if (NULL != peer_device->fast_ov_bitmap) {
+			kfree(peer_device->fast_ov_bitmap);
+			peer_device->fast_ov_bitmap = NULL;
+		}
 
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();

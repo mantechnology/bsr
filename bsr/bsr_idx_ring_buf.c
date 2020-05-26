@@ -1,5 +1,5 @@
-#include "./bsr_idx_ring_buf.h"
 #include "./bsr_int.h"
+#include "./bsr_idx_ring_buf.h"
 
 bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad)
 {
