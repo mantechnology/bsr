@@ -136,18 +136,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 				logcnt = 0;
 			}
 		}
-#ifdef _WIN
+
 		totallogcnt = atomic_inc_return64(&gLogBuf.h.total_count);
-#else // BSR-577 TODO remove
-		totallogcnt = atomic_inc_return64(&gTotalLogCnt);
-#endif
-
-
-#ifdef _WIN
 		buf = ((char*)gLogBuf.b + (logcnt * MAX_BSRLOG_BUF));
-#else // BSR-577 TODO remove
-		buf = gLogBuf_old[logcnt];
-#endif
 
 #ifdef _WIN
 		RtlZeroMemory(buf, MAX_BSRLOG_BUF);

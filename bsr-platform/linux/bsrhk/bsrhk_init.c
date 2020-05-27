@@ -55,7 +55,7 @@ static long read_log_lv(void)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	fd = filp_open(BSR_LOG_LEVEL_REG, O_RDONLY, 0);
 
 	if (fd == NULL || IS_ERR(fd))
@@ -116,6 +116,11 @@ static void bsr_unload(void)
 	//  _WIN32_V9_DEBUGFS: minord is cleanup at this point, required to analyze it.
 	bsr_debugfs_cleanup();
 	bsr_info(NO_OBJECT, "bsr kernel driver unload done\n");
+#ifdef _LIN
+	// BSR-581
+	clean_logging();
+#endif
+
 	return;
 }
 

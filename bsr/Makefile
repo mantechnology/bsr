@@ -167,6 +167,7 @@ else
 		@echo "Don't forget to depmod."
       endif
     endif
+	install -d /var/log/bsr
   else
     install:
 	@echo "No .bsr_kernelrelease found. Do you need to 'make' the module first?"

@@ -167,13 +167,13 @@ module_param(two_phase_commit_fail, int, 0644);
 // BSR-578
 struct log_idx_ring_buffer_t gLogBuf;
 atomic_t64 gLogCnt;
-#ifdef _LIN // BSR-577 TODO remove
-atomic_t64 	gTotalLogCnt = ATOMIC_INIT(0);
-char		gLogBuf_old[LOGBUF_MAXCNT][MAX_BSRLOG_BUF] = {{0,0},};
-#endif
 
 enum bsr_thread_state g_consumer_state;
+#ifdef _WIN
 PVOID g_consumer_thread;
+#else // _LIN
+struct task_struct *g_consumer_thread;
+#endif
 
 /* module parameter, defined */
 unsigned int minor_count = BSR_MINOR_COUNT_DEF;
@@ -282,13 +282,13 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 {
 	int err;
 	
-	err = copy_to_user(&bsr_log->totalcnt, &gTotalLogCnt, (unsigned long) sizeof(gTotalLogCnt));
+	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
 
 	if (err) {
 		bsr_warn(NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
 		return err;
 	}
-	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf_old, (unsigned long) sizeof(gLogBuf_old));
+	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 	if (err) {
 		bsr_warn(NO_OBJECT, "gLogBuf copy to user failed.\n");
 	}
@@ -5010,8 +5010,12 @@ void bsr_put_connection(struct bsr_connection *connection)
 	kref_sub(&connection->kref, refs, bsr_destroy_connection);
 }
 
-// BSR-578 threads writing logs to a file 
+// BSR-578 threads writing logs to a file
+#ifdef _WIN
 void log_consumer_thread(PVOID param) 
+#else // _LIN
+int log_consumer_thread(void *unused) 
+#endif
 {
 	char* buffer = NULL;
 	bool started = false;
@@ -5070,7 +5074,30 @@ void log_consumer_thread(PVOID param)
 	}
 #else 
 	// BSR-581
-	// TODO creating a linux log file
+	// creating a linux log file
+	struct file *fd = NULL;
+	int err = 0;
+	size_t filesize = 0;
+	mm_segment_t oldfs;
+	char path[24] = "/var/log/bsr/bsrlog.txt"; 
+
+	// BSR-578 wait for file system (changed later..)
+	msleep(1000); // wait 1000ms relative
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	set_fs(oldfs);
+	if (fd == NULL || IS_ERR(fd))
+	{
+		gLogBuf.h.r_idx.has_consumer = false;
+		g_consumer_state = EXITING;
+		bsr_info(NO_OBJECT, "failed to create log file\n");
+		if (fd != NULL)
+			filp_close(fd, NULL);
+		
+		return 0;
+	}
 #endif
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
@@ -5087,14 +5114,13 @@ void log_consumer_thread(PVOID param)
 			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
 #else
-			// BSR-581
-			// TODO ..
+			bsr_info(NO_OBJECT, "bsrlog path : %s\n", path);
 #endif
 			started = true;
 		}
 
 		buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * MAX_BSRLOG_BUF));
-
+		
 #ifdef _WIN
 		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
 		if (!NT_SUCCESS(status)) {
@@ -5105,7 +5131,19 @@ void log_consumer_thread(PVOID param)
 		}
 #else
 		// BSR-581
-		// TODO writing linux log files
+		// writing linux log files		
+		filesize = strlen(buffer);
+		oldfs = get_fs();
+		set_fs(KERNEL_DS);
+		err = bsr_write(fd, buffer, filesize, &fd->f_pos);
+		set_fs(oldfs);
+
+		if (err < 0 || err != filesize) {
+			gLogBuf.h.r_idx.has_consumer = false;
+			g_consumer_state = EXITING;
+			bsr_info(NO_OBJECT, "failed to write log\n");
+			break;
+		}
 #endif
 		idx_ring_dispose(&gLogBuf.h);
 	}
@@ -5117,25 +5155,33 @@ void log_consumer_thread(PVOID param)
 	}
 #else
 	// BSR-581
-	// TODO close linux log files?
+	// close linux log files
+	if (fd != NULL)
+		filp_close(fd, NULL);
 #endif
 
 	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = EXITING;
 	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
+
+#ifdef _LIN
+	return 0;
+#endif
 }
 
 void clean_logging(void)
 {
-#ifdef _WIN
 	g_consumer_state = EXITING;
+	
 	if (g_consumer_thread != NULL) {
+#ifdef _WIN
 		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
 		ObDereferenceObject(g_consumer_thread);
-	}
-#else
-	// linux
+#else // _LIN
+		kthread_stop(g_consumer_thread);
+		g_consumer_thread = NULL;
 #endif
+	}
 }
 
 void init_logging(void)
@@ -5144,7 +5190,6 @@ void init_logging(void)
 	atomic_set64(&gLogCnt, -1);
 	g_consumer_state = EXITING;
 	g_consumer_thread = NULL;
-
 #ifdef _WIN
 	// BSR-578 initializing log buffer
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -5175,7 +5220,23 @@ void init_logging(void)
 		ZwClose(hThread);
 #else
 	// BSR-581
-	// TOD generate logging threads
+	// generate logging threads
+
+	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
+
+	atomic_set64(&gLogBuf.h.max_count, LOGBUF_MAXCNT);
+	gLogBuf.h.r_idx.has_consumer = false;
+	g_consumer_state = RUNNING;
+	
+	g_consumer_thread = kthread_run(log_consumer_thread, NULL, "bsr_log_consumer");
+
+	if(!g_consumer_thread || IS_ERR(g_consumer_thread)) {
+		printk(KERN_ERR "bsr: bsr_log_consumer thread failed(%d)\n", (int)IS_ERR(g_consumer_thread));
+		g_consumer_state = EXITING;
+		g_consumer_thread = NULL;
+		return;
+	}
+
 #endif
 }
 
@@ -5211,12 +5272,6 @@ void bsr_cleanup(void)
 	idr_destroy(&bsr_devices);
 
 	bsr_info(NO_OBJECT, "module cleanup done.\n");
-
-#ifdef _LIN
-	//BSR-581
-	// TODO need to make sure it's in the right place to call
-	clean_logging();
-#endif
 }
 
 #ifdef _WIN
@@ -5349,8 +5404,12 @@ fail:
 		bsr_err(NO_OBJECT, "ran out of memory\n");
 	else
 		bsr_err(NO_OBJECT, "initialization failure\n");
-	return err;
+#ifdef _LIN
+	// BSR-581
+	clean_logging();
+#endif
 
+	return err;
 }
 
 
