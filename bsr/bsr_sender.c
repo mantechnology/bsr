@@ -1490,7 +1490,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			if (bsr_ov_bm_test_bit(peer_device, bit + 1) != 1)
 				break;
 
-			if(size < (pdc->ov_req_num * BM_BLOCK_SIZE)) {
+			if(size < ((int)pdc->ov_req_num * BM_BLOCK_SIZE)) {
 				size += BM_BLOCK_SIZE;
 				i++;
 				bit++;
