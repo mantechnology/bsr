@@ -77,7 +77,7 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 			else {
 				// BSR-578 when the buffer is overflowing but there is no consumer
 				if (!rb->r_idx.has_consumer) {
-					if (!atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
+					if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) == acquired)
 						break;
 				}
 				else {
@@ -100,7 +100,7 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 				else {
 					// BSR-578 when the buffer is overflowing but there is no consumer
 					if (!rb->r_idx.has_consumer) {
-						if (!atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
+						if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % atomic_read64(&rb->max_count))) == acquired)
 							break;
 					}
 					else {
