@@ -1,36 +1,24 @@
 #include "./bsr_idx_ring_buf.h"
 #include "./bsr_int.h"
 
-bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad)
+// BSR-583
+void idx_ring_commit(struct idx_ring_buffer *rb, char* flags)
 {
-	while (atomic_cmpxchg(&rb->r_idx.committed, atomic_read(&ad.prev), (atomic_read(&ad.next) % atomic_read64(&rb->max_count))) != atomic_read(&ad.prev)) {
-		msleep(10); // wait 10ms relative
-	}
-
-	// BSR-578 if the consumer is not started, initialize disposed and consumed to committed
-	if (!rb->r_idx.has_consumer) {
-		LONG committed = atomic_read(&rb->r_idx.committed);
-
-		if (atomic_read64(&rb->max_count) < atomic_read64(&rb->total_count)) {
-			atomic_set(&rb->r_idx.disposed, committed);
-			atomic_set(&rb->r_idx.consumed, committed);
-		}
-	}
-
-	return true;
+	*flags = IDX_DATA_COMPLETION;
 }
 
 bool idx_ring_consume(struct idx_ring_buffer *rb, atomic_t *consume)
 {
-	int committed, consumed, next;
+	int acquired, consumed, next; 
 	//head
-	committed = atomic_read(&rb->r_idx.committed);
+	acquired = atomic_read(&rb->r_idx.acquired);
+
 	//tail
 	consumed = atomic_read(&rb->r_idx.consumed);
 	atomic_set(consume, consumed);
 	next = consumed + 1;
 
-	if (committed == consumed) {
+	if (acquired == consumed) {
 		return false;
 	}
 
@@ -40,39 +28,50 @@ bool idx_ring_consume(struct idx_ring_buffer *rb, atomic_t *consume)
 }
 
 
-bool idx_ring_dispose(struct idx_ring_buffer *rb)
+bool idx_ring_dispose(struct idx_ring_buffer *rb, char* flags)
 {
-	int committed, disposed, next;
+	int acquired,disposed, next;
 	//head
-	committed = atomic_read(&rb->r_idx.committed);
+	acquired = atomic_read(&rb->r_idx.acquired);
 	//tail
 	disposed = atomic_read(&rb->r_idx.disposed);
 	next = disposed + 1;
 
-	if (committed == disposed) {
+	if (acquired == disposed) {
 		return false;
 	}
 
+	*flags = IDX_DATA_RECORDING;
 	atomic_set(&rb->r_idx.disposed, (next % atomic_read64(&rb->max_count)));
 
 	return true;
 }
 
-LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
+bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 {
 	int acquired = 0, disposed = 0, next = 0;
+	LONGLONG remaining = 0;
 
 	while (true) {
 		acquired = atomic_read(&rb->r_idx.acquired);
 		disposed = atomic_read(&rb->r_idx.disposed);
 		next = acquired + 1;
 
+		// BSR-583 after an overflow occurs, it fails until more than 10% of space is left.
+		if (rb->r_idx.is_overflowing == true) {
+			if (acquired < disposed)
+				remaining = (acquired + atomic_read64(&rb->max_count)) - disposed;
+			else 
+				remaining = acquired - disposed;
+		
+			if (remaining < (atomic_read64(&rb->max_count) / 10))
+				return false;
+		}
+		// 100 < 500 
 		if (acquired < disposed) {
 			if (next < disposed) {
-				if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)  {
+				if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)
 					continue;
-				}
-
 				break;
 			}
 			else {
@@ -82,8 +81,9 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 						break;
 				}
 				else {
-					// BSR-578 short delay may result in hang
-					msleep(100); // wait 10ms relative
+					// BSR-583 occurs when consumption is slow.
+					rb->r_idx.is_overflowing = true;
+					return false;
 				}
 
 				continue;
@@ -95,7 +95,6 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 					if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % atomic_read64(&rb->max_count))) != acquired) {
 						continue;
 					}
-
 					break;
 				}
 				else {
@@ -105,8 +104,9 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 							break;
 					}
 					else {
-						// BSR-578 short delay may result in hang
-						msleep(100); // wait 10ms relative
+						// BSR-583 supply not consumed
+						rb->r_idx.is_overflowing = true;
+						return false;
 					}
 				}
 			}
@@ -119,9 +119,9 @@ LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad)
 		}
 	}
 
-	atomic_set(&ad->prev, acquired);
-	atomic_set(&ad->next, next);
+	rb->r_idx.is_overflowing = false;
+	*idx = acquired;
 
-	return acquired;
+	return true;
 }
 

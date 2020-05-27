@@ -5022,6 +5022,8 @@ void log_consumer_thread(PVOID param)
 	char* buffer = NULL;
 	bool started = false;
 	atomic_t idx;
+	// BSR-583
+	bool chk_complete = false;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
@@ -5062,7 +5064,7 @@ void log_consumer_thread(PVOID param)
 		&ioStatus,
 		NULL,
 		FILE_ATTRIBUTE_NORMAL,
-		FILE_SHARE_READ,
+		FILE_SHARE_READ | FILE_SHARE_DELETE,
 		FILE_OPEN_IF,
 		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
 		NULL,
@@ -5083,10 +5085,14 @@ void log_consumer_thread(PVOID param)
 	atomic_set(&idx, 0);
 
 	while (g_consumer_state == RUNNING) {
-		if (!idx_ring_consume(&gLogBuf.h, &idx)) {
-			msleep(100); // wait 100ms relative
-			continue;
+		if (chk_complete == false) {
+			if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+				msleep(100); // wait 100ms relative
+				continue;
+			}
 		}
+;
+		chk_complete = true;
 
 		if (!started) {
 #ifdef _WIN
@@ -5099,10 +5105,14 @@ void log_consumer_thread(PVOID param)
 			started = true;
 		}
 
-		buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * MAX_BSRLOG_BUF));
-
+		buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
+		if (*buffer == IDX_DATA_RECORDING) {
+			msleep(100); // wait 100ms relative
+			continue;
+		}
+		chk_complete = false;
 #ifdef _WIN
-		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)buffer, (ULONG)strlen(buffer), NULL, NULL);
+		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
 		if (!NT_SUCCESS(status)) {
 			gLogBuf.h.r_idx.has_consumer = false;
 			g_consumer_state = EXITING;
@@ -5113,7 +5123,7 @@ void log_consumer_thread(PVOID param)
 		// BSR-581
 		// TODO writing linux log files
 #endif
-		idx_ring_dispose(&gLogBuf.h);
+		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
 
 #ifdef _WIN

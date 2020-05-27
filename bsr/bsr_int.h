@@ -122,7 +122,9 @@ extern char usermode_helper[];
 
 struct log_idx_ring_buffer_t {
 	struct idx_ring_buffer h;
-	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
+	atomic_t64 missing_count;
+	spinlock_t lock;
 };
 
 extern struct log_idx_ring_buffer_t gLogBuf;
