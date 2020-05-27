@@ -129,17 +129,20 @@ struct log_idx_ring_buffer_t {
 extern struct log_idx_ring_buffer_t gLogBuf;
 extern atomic_t64 gLogCnt;
 
-#ifdef _LIN // BSR-577 TODO remove
-extern atomic_t64 	gTotalLogCnt;
-extern char		gLogBuf_old[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
-#endif
-
 extern enum bsr_thread_state g_consumer_state;
+#ifdef _WIN
 extern PVOID g_consumer_thread;
+#else // _LIN
+extern struct task_struct *g_consumer_thread;
+#endif
 
 extern void init_logging(void);
 extern void clean_logging(void);
+#ifdef _WIN
 extern void log_consumer_thread(PVOID param);
+#else // _LIN
+extern int log_consumer_thread(void *unused);
+#endif
 
 #ifndef BSR_MAJOR
 # define BSR_MAJOR 147
@@ -348,7 +351,7 @@ void bsr_printk_with_wrong_object_type(void);
 
 // BSR-237 if object is empty or undefined (NO_OBJECT)
 #define __bsr_printk(level, fmt, args...) \
-	_printk(__FUNCTION__, level, "<%c>" fmt, level[1], ## args)
+	_printk(__FUNCTION__, level, "<%c>bsr " fmt, level[1], ## args)
 
 #define __bsr_printk_if_same_type(obj, type, func, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \

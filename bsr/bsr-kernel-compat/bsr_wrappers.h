@@ -2380,6 +2380,16 @@ static inline ssize_t bsr_read(struct file *file, void *buf, size_t count, loff_
 	return vfs_read(file, buf, count, pos);
 #endif
 }
+
+static inline ssize_t bsr_write(struct file *file, void *buf, size_t count, loff_t *pos)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+	return kernel_write(file, buf, count, pos);
+#else
+	return vfs_write(file, buf, count, pos);
+#endif
+}
+
 #endif
 
 #endif

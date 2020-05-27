@@ -6212,13 +6212,13 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	// TODO node id -1??
 	if (res_opts.node_id < 0 || res_opts.node_id >= BSR_NODE_ID_MAX) {
 #endif
-		bsr_err(NO_OBJECT, "bsr: invalid node id (%d)\n", res_opts.node_id);
+		bsr_err(NO_OBJECT, "invalid node id (%d)\n", res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 #ifdef _LIN
 	if (!try_module_get(THIS_MODULE)) {
-		bsr_err(NO_OBJECT, "bsr: Could not get a module reference\n");
+		bsr_err(NO_OBJECT, "Could not get a module reference\n");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
