@@ -1,4 +1,5 @@
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+#include "bsr_int.h"
 #ifdef _WIN
 #include <ntddk.h>
 #include "./bsr-kernel-compat/windows/spinlock.h"
@@ -7,7 +8,6 @@
 #include <linux/module.h>
 #include <net/ipv6.h>
 #endif
-#include "bsr_int.h"
 #include "../bsr-headers/bsr_transport.h"
 
 

@@ -17,6 +17,7 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "../../../bsr/bsr_int.h"
 #include <wdm.h>
 #include <ntstrsafe.h>
 #include <ntddk.h>
@@ -27,7 +28,6 @@
 #include "bsrvfltmsg.h"
 #include "proto.h"
 
-#include "../../../bsr/bsr_int.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
 #ifdef _WIN_WPP

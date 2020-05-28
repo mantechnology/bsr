@@ -6,8 +6,8 @@
 #include <stdbool.h>
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #else
-	// BSR-581
-	// TODO add headers required for linux
+// BSR-581
+// add headers for linux
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include <linux/types.h>
 #include <linux/delay.h>

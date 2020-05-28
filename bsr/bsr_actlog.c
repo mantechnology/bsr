@@ -21,6 +21,7 @@
 
  */
 
+#include "bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
 #include "./bsr-kernel-compat/windows/bsr_wingenl.h"
@@ -32,7 +33,6 @@
 #include <linux/bsr_limits.h>
 #include <linux/dynamic_debug.h>
 #endif
-#include "bsr_int.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "../bsr-headers/bsr.h"
 

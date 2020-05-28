@@ -218,9 +218,19 @@
 
 #define BSR_C_MIN_RATE_MIN     0
 #define BSR_C_MIN_RATE_MAX     (4 << 20)
-
 #define BSR_C_MIN_RATE_DEF     250
 #define BSR_C_MIN_RATE_SCALE	'k'  /* kilobytes */
+
+// BSR-587
+#define BSR_OV_REQ_NUM_MIN     1
+#define BSR_OV_REQ_NUM_MAX     ((BSR_MAX_BIO_SIZE) >> 12)
+#define BSR_OV_REQ_NUM_DEF     10
+#define BSR_OV_REQ_NUM_SCALE	'1'  /* blocks */
+
+#define BSR_OV_REQ_INTERVAL_MIN     1
+#define BSR_OV_REQ_INTERVAL_MAX     5000
+#define BSR_OV_REQ_INTERVAL_DEF     100
+#define BSR_OV_REQ_INTERVAL_SCALE	'1'  /* milliseconds */
 
 #define BSR_CONG_FILL_MIN	0
 //#define BSR_CONG_FILL_MAX	(10<<21) /* 10GByte in sectors */

@@ -20,6 +20,7 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  */
+#include "../bsr/bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/bitops.h"
 #include "./bsr-kernel-compat/windows/seq_file.h" /* for seq_printf */
@@ -30,7 +31,6 @@
 #include <linux/string.h> /* for memset */
 #include <linux/seq_file.h> /* for seq_printf */
 #endif
-#include "../bsr/bsr_int.h"
 #include "./bsr-kernel-compat/bsr_wrappers.h"
 #include "./linux/lru_cache.h"
 

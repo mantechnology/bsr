@@ -152,8 +152,6 @@ int two_phase_commit_fail;
 extern spinlock_t g_inactive_lock;
 
 #ifdef _LIN
-unsigned int log_level = LOG_LV_DEFAULT;
-
 /* bitmap of enabled faults */
 module_param(enable_faults, int, 0664);
 /* fault rate % value - applies to all enabled faults */
@@ -163,20 +161,19 @@ module_param(fault_count, int, 0664);
 /* bitmap of devices to insert faults on */
 module_param(fault_devs, int, 0644);
 module_param(two_phase_commit_fail, int, 0644);
-module_param(log_level, int, 0644);
 #endif
 #endif
 
 // BSR-578
 struct log_idx_ring_buffer_t gLogBuf;
 atomic_t64 gLogCnt;
-#ifdef _LIN // BSR-577 TODO remove
-atomic_t64 	gTotalLogCnt = ATOMIC_INIT(0);
-char		gLogBuf_old[LOGBUF_MAXCNT][MAX_BSRLOG_BUF] = {{0,0},};
-#endif
 
 enum bsr_thread_state g_consumer_state;
+#ifdef _WIN
 PVOID g_consumer_thread;
+#else // _LIN
+struct task_struct *g_consumer_thread;
+#endif
 
 /* module parameter, defined */
 unsigned int minor_count = BSR_MINOR_COUNT_DEF;
@@ -252,7 +249,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	
 	if (err) {
 		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
-		return err;
+		return -1;
 	}
 
 	if (loggingMinLv.nType == LOGGING_TYPE_SYSLOG) {
@@ -270,9 +267,6 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	else {
 		bsr_warn(NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
 	}
-
-	// BSR-577 TODO save to file?
-	//err = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
 	
 	// DW-2008
 	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
@@ -281,20 +275,20 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
 				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
 				);
-	return err;
+	return Get_log_lv();
 }
 
 static int bsr_get_log(BSR_LOG __user *bsr_log) 
 {
 	int err;
 	
-	err = copy_to_user(&bsr_log->totalcnt, &gTotalLogCnt, (unsigned long) sizeof(gTotalLogCnt));
+	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
 
 	if (err) {
 		bsr_warn(NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
 		return err;
 	}
-	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf_old, (unsigned long) sizeof(gLogBuf_old));
+	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 	if (err) {
 		bsr_warn(NO_OBJECT, "gLogBuf copy to user failed.\n");
 	}
@@ -1615,7 +1609,7 @@ int bsr_send_peer_ack(struct bsr_connection *connection,
 
 int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 {
-	struct p_rs_param_95 *p;
+	struct p_rs_param_114 *p;
 	int size;
 	const int apv = peer_device->connection->agreed_pro_version;
 	enum bsr_packet cmd;
@@ -1629,7 +1623,8 @@ int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 		: apv == 88 ? (int)sizeof(struct p_rs_param)
 		+ (int)(strlen(nc->verify_alg) + 1)
 			: apv <= 94 ? (int)sizeof(struct p_rs_param_89)
-		: /* apv >= 95 */ (int)sizeof(struct p_rs_param_95);
+		: apv <= 113 ? (int)sizeof(struct p_rs_param_95)
+		: /* apv >= 114 */ (int)sizeof(struct p_rs_param_114);
 
 	cmd = apv >= 89 ? P_SYNC_PARAM89 : P_SYNC_PARAM;
 	rcu_read_unlock();
@@ -1655,6 +1650,8 @@ int bsr_send_sync_param(struct bsr_peer_device *peer_device)
 	p->c_delay_target = cpu_to_be32(pdc->c_delay_target);
 	p->c_fill_target = cpu_to_be32(pdc->c_fill_target);
 	p->c_max_rate = cpu_to_be32(pdc->c_max_rate);
+	p->ov_req_num = cpu_to_be32(pdc->ov_req_num);
+	p->ov_req_interval = cpu_to_be32(pdc->ov_req_interval);
 
 	if (apv >= 88)
 		strncpy(p->verify_alg, nc->verify_alg, sizeof(p->verify_alg) - 1);
@@ -2786,7 +2783,7 @@ int bsr_send_ov_request(struct bsr_peer_device *peer_device, sector_t sector, in
 	if (!p)
 		return -EIO;
 	p->sector = cpu_to_be64(sector);
-	p->block_id = ID_SYNCER /* unused */;
+	p->block_id = peer_device->ov_left; // BSR-118 initially send bitmap_total_weight of fast ov to the target
 	p->blksize = cpu_to_be32(size);
 	return bsr_send_command(peer_device, P_OV_REQUEST, DATA_STREAM);
 }
@@ -5016,8 +5013,12 @@ void bsr_put_connection(struct bsr_connection *connection)
 	kref_sub(&connection->kref, refs, bsr_destroy_connection);
 }
 
-// BSR-578 threads writing logs to a file 
+// BSR-578 threads writing logs to a file
+#ifdef _WIN
 void log_consumer_thread(PVOID param) 
+#else // _LIN
+int log_consumer_thread(void *unused) 
+#endif
 {
 	char* buffer = NULL;
 	bool started = false;
@@ -5078,7 +5079,30 @@ void log_consumer_thread(PVOID param)
 	}
 #else 
 	// BSR-581
-	// TODO creating a linux log file
+	// creating a linux log file
+	struct file *fd = NULL;
+	int err = 0;
+	size_t filesize = 0;
+	mm_segment_t oldfs;
+	char path[24] = "/var/log/bsr/bsrlog.txt"; 
+
+	// BSR-578 wait for file system (changed later..)
+	msleep(1000); // wait 1000ms relative
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	set_fs(oldfs);
+	if (fd == NULL || IS_ERR(fd))
+	{
+		gLogBuf.h.r_idx.has_consumer = false;
+		g_consumer_state = EXITING;
+		bsr_info(NO_OBJECT, "failed to create log file\n");
+		if (fd != NULL)
+			filp_close(fd, NULL);
+		
+		return 0;
+	}
 #endif
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
@@ -5099,8 +5123,7 @@ void log_consumer_thread(PVOID param)
 			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
 #else
-			// BSR-581
-			// TODO ..
+			bsr_info(NO_OBJECT, "bsrlog path : %s\n", path);
 #endif
 			started = true;
 		}
@@ -5111,6 +5134,7 @@ void log_consumer_thread(PVOID param)
 			continue;
 		}
 		chk_complete = false;
+
 #ifdef _WIN
 		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
 		if (!NT_SUCCESS(status)) {
@@ -5121,7 +5145,19 @@ void log_consumer_thread(PVOID param)
 		}
 #else
 		// BSR-581
-		// TODO writing linux log files
+		// writing linux log files		
+		filesize = strlen(buffer);
+		oldfs = get_fs();
+		set_fs(KERNEL_DS);
+		err = bsr_write(fd, buffer, filesize, &fd->f_pos);
+		set_fs(oldfs);
+
+		if (err < 0 || err != filesize) {
+			gLogBuf.h.r_idx.has_consumer = false;
+			g_consumer_state = EXITING;
+			bsr_info(NO_OBJECT, "failed to write log\n");
+			break;
+		}
 #endif
 		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
@@ -5133,25 +5169,33 @@ void log_consumer_thread(PVOID param)
 	}
 #else
 	// BSR-581
-	// TODO close linux log files?
+	// close linux log files
+	if (fd != NULL)
+		filp_close(fd, NULL);
 #endif
 
 	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = EXITING;
 	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
+
+#ifdef _LIN
+	return 0;
+#endif
 }
 
 void clean_logging(void)
 {
-#ifdef _WIN
 	g_consumer_state = EXITING;
+	
 	if (g_consumer_thread != NULL) {
+#ifdef _WIN
 		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
 		ObDereferenceObject(g_consumer_thread);
-	}
-#else
-	// linux
+#else // _LIN
+		kthread_stop(g_consumer_thread);
+		g_consumer_thread = NULL;
 #endif
+	}
 }
 
 void init_logging(void)
@@ -5160,7 +5204,6 @@ void init_logging(void)
 	atomic_set64(&gLogCnt, -1);
 	g_consumer_state = EXITING;
 	g_consumer_thread = NULL;
-
 #ifdef _WIN
 	// BSR-578 initializing log buffer
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -5191,7 +5234,23 @@ void init_logging(void)
 		ZwClose(hThread);
 #else
 	// BSR-581
-	// TOD generate logging threads
+	// generate logging threads
+
+	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
+
+	atomic_set64(&gLogBuf.h.max_count, LOGBUF_MAXCNT);
+	gLogBuf.h.r_idx.has_consumer = false;
+	g_consumer_state = RUNNING;
+	
+	g_consumer_thread = kthread_run(log_consumer_thread, NULL, "bsr_log_consumer");
+
+	if(!g_consumer_thread || IS_ERR(g_consumer_thread)) {
+		printk(KERN_ERR "bsr: bsr_log_consumer thread failed(%d)\n", (int)IS_ERR(g_consumer_thread));
+		g_consumer_state = EXITING;
+		g_consumer_thread = NULL;
+		return;
+	}
+
 #endif
 }
 
@@ -5227,12 +5286,6 @@ void bsr_cleanup(void)
 	idr_destroy(&bsr_devices);
 
 	bsr_info(NO_OBJECT, "module cleanup done.\n");
-
-#ifdef _LIN
-	//BSR-581
-	// TODO need to make sure it's in the right place to call
-	clean_logging();
-#endif
 }
 
 #ifdef _WIN
@@ -5242,12 +5295,6 @@ int bsr_init(void)
 #endif
 {
 	int err;
-
-#ifdef _LIN
-	//BSR-581
-	// TODO need to make sure it's in the right place to call
-	init_logging();
-#endif
 
 #ifdef _WIN
 	nl_policy_init_by_manual();
@@ -5371,8 +5418,12 @@ fail:
 		bsr_err(NO_OBJECT, "ran out of memory\n");
 	else
 		bsr_err(NO_OBJECT, "initialization failure\n");
-	return err;
+#ifdef _LIN
+	// BSR-581
+	clean_logging();
+#endif
 
+	return err;
 }
 
 
@@ -6938,7 +6989,101 @@ out:
 	return bRet;
 }
 
+// BSR-118
+int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
+	struct ov_work *fast_ov_work =
+		container_of(w, struct ov_work, w);
+	struct bsr_peer_device *peer_device =
+		container_of(fast_ov_work, struct bsr_peer_device, fast_ov_work);
+	struct bsr_device *device = peer_device->device;
+	enum bsr_repl_state side = peer_device->repl_state[NOW];
+	// DW-1317 to support fast sync from secondary sync source whose volume is NOT mounted.
+	bool bSecondary = false;
+	bool err = true;
+	PVOLUME_BITMAP_BUFFER pBitmap = NULL;
+	
+	UNREFERENCED_PARAMETER(cancel);
 
+	mutex_lock(&device->resource->vol_ctl_mutex);
+	
+	if (device->resource->role[NOW] == R_SECONDARY) {
+		// DW-1317 set read-only attribute and mount for temporary.
+		if (side == L_VERIFY_S) {
+			bsr_info(peer_device,"I am a secondary verify source, will mount volume for temporary to get allocated clusters.\n");
+			bSecondary = true;
+		}
+		else {
+			bsr_warn(peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
+			err = true;
+			goto out;
+		}
+	}
+
+	do {
+		if (bSecondary) {
+#ifdef _WIN
+			mutex_lock(&att_mod_mutex);
+			// set readonly attribute.
+			if (!ChangeVolumeReadonly(device->minor, true)) {
+				bsr_err(peer_device, "Could not change volume read-only attribute\n");
+				mutex_unlock(&att_mod_mutex);
+				bSecondary = false;
+				break;
+			}
+#endif
+			// allow mount within getting volume bitmap.
+			device->resource->bTempAllowMount = true;			
+		}
+
+		// Get volume bitmap which is converted into 4kb cluster unit.
+		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
+		
+		if (NULL == pBitmap) {
+			bsr_err(peer_device, "Could not get bitmap for bsr\n");
+			err = true;
+		}
+		
+		if (bSecondary) {
+			// prevent from mounting volume.
+			device->resource->bTempAllowMount = false;
+#ifdef _WIN
+			// dismount volume.
+			FsctlFlushDismountVolume(device->minor, false);
+
+			// clear readonly attribute
+			if (!ChangeVolumeReadonly(device->minor, false)) {
+				bsr_err(peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
+				if (device &&
+					get_ldev_if_state(device, D_NEGOTIATING))
+				{
+					set_bit(FORCE_DETACH, &device->flags);
+					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
+					put_ldev(device);
+				}
+			}
+			mutex_unlock(&att_mod_mutex);
+#endif
+		}
+
+	} while (false);
+
+	if (side == L_VERIFY_S) {
+		if (NULL != pBitmap) {
+			peer_device->fast_ov_bitmap = pBitmap;
+			err = false;
+		}
+		bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+			bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+			(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
+		     (unsigned long long) bsr_ov_bm_total_weight(peer_device));
+		mod_timer(&peer_device->resync_timer, jiffies);
+	}
+
+	mutex_unlock(&device->resource->vol_ctl_mutex);
+
+out:
+	return err;
+}
 
 /**
  * bsr_bmio_clear_all_n_write() - io_fn for bsr_queue_bitmap_io() or bsr_bitmap_io()

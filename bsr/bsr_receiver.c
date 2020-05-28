@@ -20,6 +20,7 @@
    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "bsr_int.h"
 #ifdef _WIN
 #include "./bsr-kernel-compat/windows/list.h"
 #include "./bsr-kernel-compat/windows/bsr_windows.h"
@@ -48,7 +49,6 @@
 
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_protocol.h"
-#include "bsr_int.h"
 #include "bsr_req.h"
 #include "bsr_vli.h"
 
@@ -4595,14 +4595,19 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
+			if (peer_device->connection->agreed_pro_version >= 114)
+				peer_device->ov_left = peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
+			else
+				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
 			peer_device->rs_total = peer_device->ov_left;
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
 			}
-			bsr_info(device, "Online Verify start sector: %llu\n",
-					(unsigned long long)sector);
+			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+						bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+						(unsigned long long) peer_device->ov_left << (BM_BLOCK_SHIFT-10),
+						(unsigned long long) peer_device->ov_left);
 		}
 		peer_req->w.cb = w_e_end_ov_req;
 		fault_type = BSR_FAULT_RS_RD;
@@ -5955,7 +5960,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 {
 	struct bsr_peer_device *peer_device;
 	struct bsr_device *device;
-	struct p_rs_param_95 *p;
+	struct p_rs_param_114 *p;
 	unsigned int header_size, data_size, exp_max_sz;
 	struct crypto_ahash *verify_tfm = NULL;
 	struct crypto_ahash *csums_tfm = NULL;
@@ -5976,7 +5981,8 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		    : apv == 88 ? sizeof(struct p_rs_param)
 					+ SHARED_SECRET_MAX
 		    : apv <= 94 ? sizeof(struct p_rs_param_89)
-		    : /* apv >= 95 */ sizeof(struct p_rs_param_95);
+		    : apv <= 113 ? sizeof(struct p_rs_param_95)
+			: /* apv >= 114 */ sizeof(struct p_rs_param_114);
 
 	if (pi->size > exp_max_sz) {
 		bsr_err(device, "SyncParam packet too long: received %u, expected <= %u bytes\n",
@@ -5991,8 +5997,12 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		header_size = sizeof(struct p_rs_param_89);
 		data_size = pi->size - header_size;
 		D_ASSERT(device, data_size == 0);
-	} else {
+	} else if (apv <= 113) {
 		header_size = sizeof(struct p_rs_param_95);
+		data_size = pi->size - header_size;
+		D_ASSERT(device, data_size == 0);
+	} else {
+		header_size = sizeof(struct p_rs_param_114);
 		data_size = pi->size - header_size;
 		D_ASSERT(device, data_size == 0);
 	}
@@ -6092,6 +6102,12 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			}
 		}
 
+		// BSR-587
+		if (apv >= 114 && new_peer_device_conf) {
+			new_peer_device_conf->ov_req_num = be32_to_cpu(p->ov_req_num);
+			new_peer_device_conf->ov_req_interval = be32_to_cpu(p->ov_req_interval);
+		}
+
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2DW');
 			if (!new_net_conf) {
@@ -6129,9 +6145,10 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n",
+		bsr_info(peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
-			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
+			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
+			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 		put_ldev(device);
 	}
@@ -9899,6 +9916,12 @@ void conn_disconnect(struct bsr_connection *connection)
 	
 		// DW-2076
 		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+
+		// BSR-118
+		if (NULL != peer_device->fast_ov_bitmap) {
+			kfree(peer_device->fast_ov_bitmap);
+			peer_device->fast_ov_bitmap = NULL;
+		}
 
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();

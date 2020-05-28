@@ -151,18 +151,25 @@ DWORD DeleteVolumeReg(TCHAR letter)
 
 	return lResult;
 }
-// DW-1921
+#endif
 
+
+// DW-1921
 //Print log_level through the current registry value.
-BOOL GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
+BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 {
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD logLevel = 0;
+#ifdef _WIN
 	HKEY hKey = NULL;
-	LONG lResult = ERROR_SUCCESS;
 	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
-	DWORD logLevel = 0;
+#else
+	FILE *fp;
+#endif
 
+#ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
 		return FALSE;
@@ -170,29 +177,39 @@ BOOL GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 
 	lResult = RegQueryValueEx(hKey, _T("log_level"), NULL, &type, (LPBYTE)&logLevel, &size);
 	RegCloseKey(hKey);
-
-	if (ERROR_SUCCESS != lResult) {
-		if (lResult == ERROR_FILE_NOT_FOUND) {
-			// DW-1921
-			//It is not an error that no key exists.Just set it to the default value.
-			*sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
-			*dbglog_lv = LOG_LV_DEFAULT_DBG;
-			*feature_lv = LOG_LV_DEFAULT_FEATURE;
-
-			return TRUE;
-		}
-		else
-			return TRUE;
+#else // _LIN
+	// BSR-584 read /etc/bsr.d/.log_level
+	fp = fopen(BSR_LOG_LEVEL_REG, "r");
+	if(fp != NULL) {
+		char buf[10] = {0};
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			logLevel = atoi(buf);
+		fclose(fp);
+	} else {
+		lResult = ERROR_FILE_NOT_FOUND;
 	}
+#endif
+
+	if (lResult == ERROR_FILE_NOT_FOUND || logLevel == 0) {
+		// DW-1921
+		//It is not an error that no key exists.Just set it to the default value.
+		*sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
+		*dbglog_lv = LOG_LV_DEFAULT_DBG;
+		*feature_lv = LOG_LV_DEFAULT_FEATURE;
+
+		return true;
+	} else if (lResult != ERROR_SUCCESS)
+		return true;
+
 
 	*sys_evtlog_lv = (logLevel >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK;
 	*dbglog_lv = (logLevel >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK;
 	*feature_lv = (logLevel >> LOG_LV_BIT_POS_FEATURELOG) & LOG_LV_MASK;
 
-	return TRUE;
+	return true;
+
 }
 
-#endif
 
 #ifdef _WIN
 DWORD main(int argc, char* argv [])
@@ -482,12 +499,21 @@ int main(int argc, char* argv [])
 		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
 	}
 	
-#ifdef _WIN
+	// DW-1921
+	if (GetLogLv) {
+		int sys_evt_lv = 0;
+		int dbglog_lv = 0;
+		int feature_lv = 0;
 
-	if (GetLog) {
-		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
+		// DW-2008
+		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
+			printf("system-lv : %s(%d)\ndebug-lv : %s(%d)\nfeature-lv : %d\n",
+				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
+		}
+		else
+			printf("Failed to get log level.\n");
 	}
-
+#ifdef _WIN
 	if (GetVolumeSizeFlag) {
 		MVOL_VOLUME_INFO	srcVolumeInfo;
 		LARGE_INTEGER		volumeSize;
@@ -633,21 +659,6 @@ int main(int argc, char* argv [])
 	if (HandlerUseFlag) {
 		res = MVOL_SetHandlerUse(&hInfo);
 	}
-	// DW-1921
-	if (GetLogLv) {
-		int sys_evt_lv = 0;
-		int dbglog_lv = 0;
-		int feature_lv = 0;
-
-		// DW-2008
-		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
-			printf("system-lv : %s(%d)\ndebug-lv : %s(%d)\nfeature-lv : %d\n",
-				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
-		}
-		else
-			printf("Failed to get log level.\n");
-	}
-
 #endif
 	return res;
 }

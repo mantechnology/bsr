@@ -17,6 +17,7 @@
 #define LPCTSTR			const char * 
 #define LPCSTR			const char *
 #define GetLastError()  errno
+#define ERROR_FILE_NOT_FOUND	2/*ENOENT*/
 #endif
 
 
@@ -96,6 +97,7 @@ enum
 #endif
 
 // BSR-577 TODO remove
+#define IDX_OPTION_LENGTH			0x01
 #define MAX_BSRLOG_BUF				512
 #define LOGBUF_MAXCNT				100000
 
@@ -110,7 +112,7 @@ typedef struct _BSR_LOG {
 	char		LogBuf[1]; // LOGBUF_MAXCNT*MAX_BSRLOG_BUF
 }BSR_LOG, *PBSR_LOG;
 
-#define BSR_LOG_SIZE				((LOGBUF_MAXCNT*MAX_BSRLOG_BUF) + sizeof(LONGLONG))
+#define BSR_LOG_SIZE				((LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) + sizeof(LONGLONG))
 
 
 #ifdef __KERNEL__
@@ -123,6 +125,11 @@ typedef struct _BSR_LOG {
 #define Get_log_lv() \
 	(atomic_read(&g_eventlog_lv_min) << LOG_LV_BIT_POS_EVENTLOG) | (atomic_read(&g_dbglog_lv_min) << LOG_LV_BIT_POS_DBG) | (atomic_read(&g_featurelog_flag) << LOG_LV_BIT_POS_FEATURELOG)
 
+#endif
+
+#ifdef _LIN
+// BSR-584
+#define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
 #endif
 
 #endif

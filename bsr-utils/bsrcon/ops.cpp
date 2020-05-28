@@ -1563,6 +1563,8 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	BOOL        ret = FALSE;
 #else // _LIN
 	int fd;
+	FILE *fp;
+	long log_level=0;
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
@@ -1597,7 +1599,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 #ifdef _WIN
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOGLV_MIN, pLml, sizeof(LOGGING_MIN_LV), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
-	if (ioctl(fd, IOCTL_MVOL_SET_LOGLV_MIN, pLml) != 0) {
+	if ((log_level = ioctl(fd, IOCTL_MVOL_SET_LOGLV_MIN, pLml)) < 0) {
 #endif
 		retVal = GetLastError();
 		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
@@ -1612,6 +1614,17 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 #else // _LIN
 	if (fd)
 		close(fd);
+
+	// BSR-584 write /etc/bsr.d/.log_level
+	fp = fopen(BSR_LOG_LEVEL_REG, "w");
+	if(fp != NULL) {
+		fprintf(fp, "%ld", log_level);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+			fprintf(stderr, "LOG_ERROR: %s: Failed create %s file. Err=%u\n",
+				__FUNCTION__, BSR_LOG_LEVEL_REG, retVal);
+	}
 #endif
 	return retVal;
 }
@@ -1689,7 +1702,6 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 			__FUNCTION__, retVal);
 	}	
 	else {
-
 #ifdef _WIN
 		HANDLE hLogFile = INVALID_HANDLE_VALUE;
 		hLogFile = CreateFileA(pszProviderName, GENERIC_ALL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -1700,15 +1712,15 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #endif
 			unsigned int loopcnt = min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
 			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
-				for (unsigned int i = 0; i <= (loopcnt*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {		
+				for (unsigned int i = 0; i <= (loopcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					else if (NULL != strstr(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1716,26 +1728,26 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 
 #ifdef _WIN
 					DWORD dwWritten;
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					WriteFile(hLogFile, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 #else // _LIN
-					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+					fprintf(fp, "%s", ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
 #endif
 				}
 			}
 			else { // pBsrLog->totalcnt > LOGBUF_MAXCNT
 				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
 				// BSR-578 log start point is calculated based on zero.
-				for (unsigned int i = pBsrLog->totalcnt*MAX_BSRLOG_BUF; i < (LOGBUF_MAXCNT*MAX_BSRLOG_BUF); i += MAX_BSRLOG_BUF) {
+				for (unsigned int i = pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i < (LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					else if (NULL != strstr(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1743,34 +1755,34 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 
 #ifdef _WIN
 					DWORD dwWritten;
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					WriteFile(hLogFile, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 #else // _LIN
-					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+					fprintf(fp, "%s", ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
 #endif
 				}
 
-				for (unsigned int i = 0; i < pBsrLog->totalcnt*MAX_BSRLOG_BUF; i += MAX_BSRLOG_BUF) {
+				for (unsigned int i = 0; i < pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, &pBsrLog->LogBuf[i]))
+					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _WIN_DEBUG_OOS
 					if (oosTrace)
-						ConvertCallStack(&pBsrLog->LogBuf[i]);
-					else if (NULL != strstr(&pBsrLog->LogBuf[i], OOS_TRACE_STRING)) {
+						ConvertCallStack(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					else if (NULL != strstr(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), OOS_TRACE_STRING)) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
 #endif
 #ifdef _WIN
 					DWORD dwWritten;
-					DWORD len = (DWORD)strlen(&pBsrLog->LogBuf[i]);
-					WriteFile(hLogFile, &pBsrLog->LogBuf[i], len - 1, &dwWritten, NULL);
+					DWORD len = (DWORD)strlen(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
+					WriteFile(hLogFile, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), len - 1, &dwWritten, NULL);
 					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 #else // _LIN
-					fprintf(fp, "%s", &pBsrLog->LogBuf[i]);
+					fprintf(fp, "%s", ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
 #endif
 				}
 			}

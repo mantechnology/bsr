@@ -163,25 +163,16 @@ void _printk(const char * func, const char * level, const char * format, ...)
 				logcnt = 0;
 			}
 		}
-#ifdef _WIN
-		totallogcnt = atomic_inc_return64(&gLogBuf.h.total_count);
-#else // BSR-577 TODO remove
-		totallogcnt = atomic_inc_return64(&gTotalLogCnt);
-#endif
 
-
-#ifdef _WIN
 		// BSR-583
 		buf = ((char*)gLogBuf.b + (logcnt * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
-#else // BSR-577 TODO remove
-		buf = gLogBuf_old[logcnt];
-#endif
+		totallogcnt = atomic_inc_return64(&gLogBuf.h.total_count);
 
 #ifdef _WIN
 		// BSR-583
 		RtlZeroMemory(buf, MAX_BSRLOG_BUF + IDX_OPTION_LENGTH);
 #else
-		memset(buf, 0, MAX_BSRLOG_BUF);
+		memset(buf, 0, MAX_BSRLOG_BUF + IDX_OPTION_LENGTH);
 #endif
 		// BSR-583
 		logbuf = buf + IDX_OPTION_LENGTH;
@@ -207,7 +198,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(buf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s]",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s]",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -248,7 +239,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 			// BSR-583
 			ret = _vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
 #else // _LIN
-			ret = vsnprintf(buf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
+			ret = vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
 #endif
 			va_end(args);
 		}
@@ -273,9 +264,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	}
 	
 #if defined(_WIN) && defined(_WIN_WPP)
-	DoTraceMessage(TRCINFO, "%s", buf);
-	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", buf);
-	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "bsr_info: [%s] %s", func, buf);
+	DoTraceMessage(TRCINFO, "%s", logbuf);
+	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", logbuf);
+	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "bsr_info: [%s] %s", func, logbuf);
 #else
 
 eventlog:

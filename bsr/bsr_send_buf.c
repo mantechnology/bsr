@@ -17,6 +17,7 @@
 	the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "bsr_int.h"
 #ifdef _WIN
 #include "bsr-kernel-compat/windows/bsr_windows.h"
 #include "../bsr-platform/windows/bsrvflt/wsk_wrapper.h"
@@ -30,7 +31,6 @@
 #include <linux/net.h>
 #include <net/sock.h>
 #endif
-#include "bsr_int.h"
 #include "../bsr-headers/linux/bsr_limits.h"
 
 #ifdef _SEND_BUF

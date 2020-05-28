@@ -23,8 +23,8 @@
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
 
-#include "../bsr-headers/bsr.h"
 #include "bsr_int.h"
+#include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_protocol.h"
 #include "bsr_req.h"
 #include "bsr_state_change.h"
@@ -3827,9 +3827,10 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	bsr_info(peer_device, "new, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n", 
+	bsr_info(peer_device, "new, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
-		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate);
+		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
+		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
 
 	rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 
@@ -3865,9 +3866,10 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	if (err)
 		return err;
 
-	bsr_info(peer_device, "default, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk\n",
+	bsr_info(peer_device, "default, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
-		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate);
+		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate,
+		conf->ov_req_num, conf->ov_req_interval);
 
 	peer_device->conf = conf;
 
@@ -6039,7 +6041,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	retcode = stable_change_repl_state(peer_device,
-		L_VERIFY_S, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
+		L_VERIFY_S, CS_VERBOSE | CS_SERIALIZE);
 	bsr_resume_io(device);
 
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
@@ -6210,13 +6212,13 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	// TODO node id -1??
 	if (res_opts.node_id < 0 || res_opts.node_id >= BSR_NODE_ID_MAX) {
 #endif
-		bsr_err(NO_OBJECT, "bsr: invalid node id (%d)\n", res_opts.node_id);
+		bsr_err(NO_OBJECT, "invalid node id (%d)\n", res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 #ifdef _LIN
 	if (!try_module_get(THIS_MODULE)) {
-		bsr_err(NO_OBJECT, "bsr: Could not get a module reference\n");
+		bsr_err(NO_OBJECT, "Could not get a module reference\n");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
