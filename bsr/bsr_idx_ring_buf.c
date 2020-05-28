@@ -59,15 +59,18 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 
 		// BSR-583 after an overflow occurs, it fails until more than 10% of space is left.
 		if (rb->r_idx.is_overflowing == true) {
-			if (acquired < disposed)
-				remaining = (acquired + atomic_read64(&rb->max_count)) - disposed;
-			else 
-				remaining = acquired - disposed;
-		
-			if (remaining < (atomic_read64(&rb->max_count) / 10))
-				return false;
+			if (acquired != disposed) {
+				if (acquired < disposed)
+					remaining = (acquired + atomic_read64(&rb->max_count)) - disposed;
+				else
+					remaining = acquired - disposed;
+
+				if (remaining < (atomic_read64(&rb->max_count) / 10)) {
+					return false;
+				}
+			}
 		}
-		// 100 < 500 
+
 		if (acquired < disposed) {
 			if (next < disposed) {
 				if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, next) != acquired)

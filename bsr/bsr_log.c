@@ -244,8 +244,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 			va_end(args);
 		}
 		else {
-			// BSr-583
-			ret = _vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+			// BSR-583 missing log count output
+			_snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
 		}
 
 		length = (int)strlen(logbuf);
