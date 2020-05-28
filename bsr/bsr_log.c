@@ -127,10 +127,11 @@ void _printk(const char * func, const char * level, const char * format, ...)
 					if (atomic_read64(&gLogBuf.missing_count)) {
 #ifdef _WIN
 						RtlZeroMemory(missingLog, MAX_BSRLOG_BUF);
+						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #else
 						memset(missingLog, 0, MAX_BSRLOG_BUF);
+						snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #endif
-						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 						level_index = KERN_WARNING_NUM;
 						atomic_set64(&gLogBuf.missing_count, 0);
 						bMissing = true;
@@ -138,7 +139,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 				}
 				else {
 					// BSR-583 
-					atomic_inc64(&gLogBuf.missing_count);
+					atomic_inc_return64(&gLogBuf.missing_count);
 					// BSR-583 
 					if (bEventLog)
 						goto eventlog;
@@ -245,7 +246,11 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		}
 		else {
 			// BSR-583 missing log count output
+#ifdef _WIN
 			_snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+#else // _LIN
+			snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+#endif
 		}
 
 		length = (int)strlen(logbuf);

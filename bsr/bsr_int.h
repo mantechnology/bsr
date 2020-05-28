@@ -69,7 +69,7 @@
 #include "bsr_send_buf.h"
 #endif
 
-#include "./bsr_idx_ring_buf.h"
+#include "./bsr_idx_ring.h"
 
 #define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
