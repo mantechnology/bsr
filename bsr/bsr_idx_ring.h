@@ -1,5 +1,5 @@
-#ifndef BSR_IDX_RING_BUF_H
-#define BSR_IDX_RING_BUF_H
+#ifndef BSR_IDX_RING_H
+#define BSR_IDX_RING_H
 
 #ifdef _WIN
 #include <ntddk.h>
