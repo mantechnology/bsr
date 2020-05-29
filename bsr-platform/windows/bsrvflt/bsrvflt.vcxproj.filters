@@ -109,10 +109,10 @@
     <ClCompile Include="..\..\..\bsr\bsr-kernel-compat\bsr_wrappers.c">
       <Filter>bsr\bsr-kernel-compat</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\bsr\bsr_idx_ring_buf.c">
+    <ClCompile Include="..\..\..\bsr\bsr_log.c">
       <Filter>bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\bsr\bsr_log.c">
+    <ClCompile Include="..\..\..\bsr\bsr_idx_ring.c">
       <Filter>bsr</Filter>
     </ClCompile>
   </ItemGroup>
@@ -288,7 +288,7 @@
     <ClInclude Include="..\..\..\bsr-headers\bsr.h">
       <Filter>bsr-headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr_idx_ring_buf.h">
+    <ClInclude Include="..\..\..\bsr\bsr_idx_ring.h">
       <Filter>bsr</Filter>
     </ClInclude>
   </ItemGroup>

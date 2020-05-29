@@ -51,6 +51,7 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 {
 	int acquired = 0, disposed = 0, next = 0;
 	LONGLONG remaining = 0;
+	LONGLONG max_count = atomic_read64(&rb->max_count);
 
 	while (true) {
 		acquired = atomic_read(&rb->r_idx.acquired);
@@ -59,16 +60,13 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 
 		// BSR-583 after an overflow occurs, it fails until more than 10% of space is left.
 		if (rb->r_idx.is_overflowing == true) {
-			if (acquired != disposed) {
-				if (acquired < disposed)
-					remaining = (acquired + atomic_read64(&rb->max_count)) - disposed;
-				else
-					remaining = acquired - disposed;
+			if (next < disposed) 
+				remaining = (next + max_count) - disposed;
+			else 
+				remaining = max_count - (next - disposed);
 
-				if (remaining < (atomic_read64(&rb->max_count) / 10)) {
-					return false;
-				}
-			}
+			if (remaining < (max_count / 10))
+				return false;
 		}
 
 		if (acquired < disposed) {
@@ -93,9 +91,9 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 			}
 		}
 		else {
-			if (next >= atomic_read64(&rb->max_count)) {
+			if (next >= max_count) {
 				if (disposed) {
-					if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % atomic_read64(&rb->max_count))) != acquired) {
+					if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % max_count)) != acquired) {
 						continue;
 					}
 					break;
@@ -103,7 +101,7 @@ bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx)
 				else {
 					// BSR-578 when the buffer is overflowing but there is no consumer
 					if (!rb->r_idx.has_consumer) {
-						if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % atomic_read64(&rb->max_count))) == acquired)
+						if (atomic_cmpxchg(&rb->r_idx.acquired, acquired, (next % max_count)) == acquired)
 							break;
 					}
 					else {

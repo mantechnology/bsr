@@ -22,7 +22,7 @@ struct ring_index_t {
 	// writable 
 	atomic_t acquired;
 	// write completed 
-	atomic_t committed;
+	//atomic_t committed;
 	// readable 
 	atomic_t consumed;
 	// next read 

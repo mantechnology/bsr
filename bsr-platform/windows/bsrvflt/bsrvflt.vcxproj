@@ -996,9 +996,9 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClCompile Include="..\..\..\bsr\bsr_actlog.c" />
     <ClCompile Include="..\..\..\bsr\bsr_bitmap.c" />
     <ClCompile Include="..\..\..\bsr\bsr_debugfs.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_idx_ring.c" />
     <ClCompile Include="..\..\..\bsr\bsr_interval.c" />
     <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c" />
-    <ClCompile Include="..\..\..\bsr\bsr_idx_ring_buf.c" />
     <ClCompile Include="..\..\..\bsr\bsr_log.c" />
     <ClCompile Include="..\..\..\bsr\bsr_main.c" />
     <ClCompile Include="..\..\..\bsr\bsr_nl.c" />
@@ -1062,10 +1062,10 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\spinlock.h" />
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\wait.h" />
     <ClInclude Include="..\..\..\bsr\bsr_debugfs.h" />
+    <ClInclude Include="..\..\..\bsr\bsr_idx_ring.h" />
     <ClInclude Include="..\..\..\bsr\bsr_int.h" />
     <ClInclude Include="..\..\..\bsr\bsr_interval.h" />
     <ClInclude Include="..\..\..\bsr\bsr_kref_debug.h" />
-    <ClInclude Include="..\..\..\bsr\bsr_idx_ring_buf.h" />
     <ClInclude Include="..\..\..\bsr\bsr_nla.h" />
     <ClInclude Include="..\..\..\bsr\bsr_req.h" />
     <ClInclude Include="..\..\..\bsr\bsr_state.h" />
