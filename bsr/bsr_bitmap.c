@@ -1743,7 +1743,7 @@ extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const U
 	if (bitnr >= (bitmapSize << 3))
 		ret = BSR_END_OF_BITMAP;
 	else
-		ret = (pByte[BM_SECT_TO_BIT(bitnr)] >> (BITS_PER_BYTE-(bitnr+1))) & 0x01;
+		ret = (pByte[BM_SECT_TO_BIT(bitnr)] >> (bitnr % BITS_PER_BYTE)) & 0x01;
 
 	return ret;
 }
@@ -1767,7 +1767,7 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 #endif
 
 	for(bit = peer_device->ov_bm_position; bit < (bitmapSize << 3); bit++) {
-		if (((pByte[BM_SECT_TO_BIT(bit)] >> (BITS_PER_BYTE-(bit+1))) & 0x01) == 1)
+		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
 			s++;
 	}
 
@@ -1795,7 +1795,7 @@ extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, 
 		if(bit >= (bitmapSize << 3))
 			break;
 
-		if (((pByte[BM_SECT_TO_BIT(bit)] >> (BITS_PER_BYTE-(bit+1))) & 0x01) == 1)
+		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
 			return bit;
 	}
 
@@ -1820,7 +1820,7 @@ extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *peer_device)
 #endif
 
 	for(bit = ((bitmapSize << 3) - 1); bit > 0; bit--) {
-		if (((pByte[BM_SECT_TO_BIT(bit)] >> (BITS_PER_BYTE-(bit+1))) & 0x01) == 1) {
+		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1) {
 			s++;
 			if (s == peer_device->ov_left)
 				return bit;
