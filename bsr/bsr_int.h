@@ -69,7 +69,7 @@
 #include "bsr_send_buf.h"
 #endif
 
-#include "./bsr_idx_ring_buf.h"
+#include "./bsr_idx_ring.h"
 
 #define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
@@ -123,7 +123,9 @@ extern char usermode_helper[];
 
 struct log_idx_ring_buffer_t {
 	struct idx_ring_buffer h;
-	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF];
+	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
+	atomic_t64 missing_count;
+	spinlock_t lock;
 };
 
 extern struct log_idx_ring_buffer_t gLogBuf;

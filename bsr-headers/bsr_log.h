@@ -97,6 +97,7 @@ enum
 #endif
 
 // BSR-577 TODO remove
+#define IDX_OPTION_LENGTH			0x01
 #define MAX_BSRLOG_BUF				512
 #define LOGBUF_MAXCNT				100000
 
@@ -111,7 +112,7 @@ typedef struct _BSR_LOG {
 	char		LogBuf[1]; // LOGBUF_MAXCNT*MAX_BSRLOG_BUF
 }BSR_LOG, *PBSR_LOG;
 
-#define BSR_LOG_SIZE				((LOGBUF_MAXCNT*MAX_BSRLOG_BUF) + sizeof(LONGLONG))
+#define BSR_LOG_SIZE				((LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) + sizeof(LONGLONG))
 
 
 #ifdef __KERNEL__

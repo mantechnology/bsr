@@ -1,5 +1,5 @@
-#ifndef BSR_IDX_RING_BUF_H
-#define BSR_IDX_RING_BUF_H
+#ifndef BSR_IDX_RING_H
+#define BSR_IDX_RING_H
 
 #ifdef _WIN
 #include <ntddk.h>
@@ -13,16 +13,16 @@
 #include <linux/delay.h>
 #endif
 
-struct acquire_data {
-	atomic_t prev;
-	atomic_t next;
-};
+#define IDX_DATA_RECORDING	0x00
+#define IDX_DATA_COMPLETION	0x01
+
+#define IDX_OPTION_LENGTH	0x01
 
 struct ring_index_t {
 	// writable 
 	atomic_t acquired;
 	// write completed 
-	atomic_t committed;
+	//atomic_t committed;
 	// readable 
 	atomic_t consumed;
 	// next read 
@@ -30,6 +30,8 @@ struct ring_index_t {
 	// it's a variable to determine whether a consumer exists or not.
 	// used to prevent infinite atmosphere in idx_ring_acquire().
 	bool has_consumer;
+	// BSR-583
+	bool is_overflowing;
 };
 
 struct idx_ring_buffer {
@@ -38,9 +40,11 @@ struct idx_ring_buffer {
 	atomic_t64 max_count;
 };
 
-bool idx_ring_commit(struct idx_ring_buffer *rb, struct acquire_data ad);
-bool idx_ring_dispose(struct idx_ring_buffer *rb);
-LONG idx_ring_acquire(struct idx_ring_buffer *rb, struct acquire_data* ad);
+// BSR-583 commit, only IDX_DATA_COMPLETION flag is set.
+void idx_ring_commit(struct idx_ring_buffer *rb, char* flags);
+// BSR-583 dispose, set the IDX_DATA_RECORDING flag.
+bool idx_ring_dispose(struct idx_ring_buffer *rb, char* flags);
+bool idx_ring_acquire(struct idx_ring_buffer *rb, LONGLONG *idx);
 bool idx_ring_consume(struct idx_ring_buffer *rb, atomic_t *consume);
 
 #endif

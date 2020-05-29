@@ -2094,7 +2094,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 		} else
 			peer_device->rs_total -= bit;
 		peer_device->ov_position = peer_device->ov_start_sector;
-		peer_device->ov_bm_position = BM_SECT_TO_BIT(peer_device->ov_position);
+		peer_device->ov_bm_position = (ULONG_PTR)BM_SECT_TO_BIT(peer_device->ov_position);
 	}
 	peer_device->ov_left = peer_device->rs_total;
 }

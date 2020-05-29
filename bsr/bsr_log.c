@@ -72,6 +72,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	int ret = 0;
 	va_list args;
 	char* buf = NULL;
+	// BSR-583
+	char* logbuf = NULL;
 	int length = 0;
 	char *ebuf = NULL;
 	int elength = 0;
@@ -86,6 +88,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	bool bDbgLog = false;
 	bool bOosLog = false;
 	bool bLatency = false;
+	// BSR-583
+	bool bMissing = false;
+	char missingLog[MAX_BSRLOG_BUF];
 #ifdef _WIN
 	LARGE_INTEGER systemTime, localTime;
 	TIME_FIELDS timeFields = {0,};
@@ -95,7 +100,6 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #endif
 	LONGLONG	totallogcnt = 0;
 	long 		offset = 0;
-	struct acquire_data ad = { {0}, };
 
 	D_ASSERT(NO_OBJECT, (level_index >= 0) && (level_index < KERN_NUM_END));
 
@@ -115,9 +119,33 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	if (bDbgLog || bOosLog || bLatency) {
 		// BSR-578 it should not be produced when it is not consumed thread.
 		if (g_consumer_state == RUNNING) {
-			logcnt = idx_ring_acquire(&gLogBuf.h, &ad);
+			bool is_acquire = idx_ring_acquire(&gLogBuf.h, &logcnt);
 			if (gLogBuf.h.r_idx.has_consumer) {
-				atomic_set64(&gLogCnt, logcnt);
+				if (is_acquire) {
+					atomic_set64(&gLogCnt, logcnt);
+					// BSR-583 
+					if (atomic_read64(&gLogBuf.missing_count)) {
+#ifdef _WIN
+						RtlZeroMemory(missingLog, MAX_BSRLOG_BUF);
+						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+#else
+						memset(missingLog, 0, MAX_BSRLOG_BUF);
+						snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+#endif
+						level_index = KERN_WARNING_NUM;
+						atomic_set64(&gLogBuf.missing_count, 0);
+						bMissing = true;
+					}
+				}
+				else {
+					// BSR-583 
+					atomic_inc_return64(&gLogBuf.missing_count);
+					// BSR-583 
+					if (bEventLog)
+						goto eventlog;
+					else
+						return;
+				}
 			}
 			else {
 				// BSR-578 consumer thread started but actual consumption did not start
@@ -137,14 +165,18 @@ void _printk(const char * func, const char * level, const char * format, ...)
 			}
 		}
 
+		// BSR-583
+		buf = ((char*)gLogBuf.b + (logcnt * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
 		totallogcnt = atomic_inc_return64(&gLogBuf.h.total_count);
-		buf = ((char*)gLogBuf.b + (logcnt * MAX_BSRLOG_BUF));
 
 #ifdef _WIN
-		RtlZeroMemory(buf, MAX_BSRLOG_BUF);
+		// BSR-583
+		RtlZeroMemory(buf, MAX_BSRLOG_BUF + IDX_OPTION_LENGTH);
 #else
-		memset(buf, 0, MAX_BSRLOG_BUF);
+		memset(buf, 0, MAX_BSRLOG_BUF + IDX_OPTION_LENGTH);
 #endif
+		// BSR-583
+		logbuf = buf + IDX_OPTION_LENGTH;
 		//#define TOTALCNT_OFFSET	(9)
 		//#define TIME_OFFSET		(TOTALCNT_OFFSET+24)	//"00001234 08/02/2016 13:24:13.123 "
 #ifdef _WIN
@@ -152,7 +184,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	    ExSystemTimeToLocalTime(&systemTime, &localTime);
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
-		offset = _snprintf(buf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
+		// BSR-583
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -166,7 +199,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(buf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s]",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s]",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -183,56 +216,75 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #define LEVEL_OFFSET	8
 		switch (level_index) {
 		case KERN_EMERG_NUM: case KERN_ALERT_NUM: case KERN_CRIT_NUM:
-			printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf + offset, "bsr_crit", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_ERROR_LEVEL; memcpy(logbuf + offset, "bsr_crit", LEVEL_OFFSET); break;
 		case KERN_ERR_NUM:
-			printLevel = DPFLTR_ERROR_LEVEL; memcpy(buf + offset, "bsr_erro", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_ERROR_LEVEL; memcpy(logbuf + offset, "bsr_erro", LEVEL_OFFSET); break;
 		case KERN_WARNING_NUM:
-			printLevel = DPFLTR_WARNING_LEVEL; memcpy(buf + offset, "bsr_warn", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_WARNING_LEVEL; memcpy(logbuf + offset, "bsr_warn", LEVEL_OFFSET); break;
 		case KERN_NOTICE_NUM: case KERN_INFO_NUM:
-			printLevel = DPFLTR_INFO_LEVEL; memcpy(buf + offset, "bsr_info", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_INFO_LEVEL; memcpy(logbuf + offset, "bsr_info", LEVEL_OFFSET); break;
 		case KERN_DEBUG_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_trac", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_trac", LEVEL_OFFSET); break;
 		case KERN_OOS_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_oos ", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_oos ", LEVEL_OFFSET); break;
 		case KERN_LATENCY_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_late", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_late", LEVEL_OFFSET); break;
 		default:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(buf + offset, "bsr_unkn", LEVEL_OFFSET); break;
+			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_unkn", LEVEL_OFFSET); break;
 		}
 
-		va_start(args, format);
+		// BSR-583
+		if (!bMissing) {
+			va_start(args, format);
 #ifdef _WIN
-		ret = _vsnprintf(buf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
+			// BSR-583
+			ret = _vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
 #else // _LIN
-		ret = vsnprintf(buf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
+			ret = vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
 #endif
-		va_end(args);
-		length = (int)strlen(buf);
+			va_end(args);
+		}
+		else {
+			// BSR-583 missing log count output
+#ifdef _WIN
+			_snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+#else // _LIN
+			snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+#endif
+		}
+
+		length = (int)strlen(logbuf);
 		if (length > MAX_BSRLOG_BUF) {
 			length = MAX_BSRLOG_BUF - 1;
-			buf[MAX_BSRLOG_BUF - 1] = 0;
+			logbuf[MAX_BSRLOG_BUF - 1] = 0;
 		}
 #ifdef _WIN
-		DbgPrintEx(FLTR_COMPONENT, printLevel, buf);
+		DbgPrintEx(FLTR_COMPONENT, printLevel, logbuf);
 #endif
 		// BSE-112 it should not be produced when it is not consumed.
-		if (!bEventLog && g_consumer_state == RUNNING)
-			idx_ring_commit(&gLogBuf.h, ad);
+		if (!bEventLog && g_consumer_state == RUNNING)  {
+			// BSR-583
+			idx_ring_commit(&gLogBuf.h, buf);
+		}
 	}
 	
 #if defined(_WIN) && defined(_WIN_WPP)
-	DoTraceMessage(TRCINFO, "%s", buf);
-	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", buf);
-	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "bsr_info: [%s] %s", func, buf);
+	DoTraceMessage(TRCINFO, "%s", logbuf);
+	WriteEventLogEntryData(msgids[level_index], 0, 0, 1, L"%S", logbuf);
+	DbgPrintEx(FLTR_COMPONENT, DPFLTR_INFO_LEVEL, "bsr_info: [%s] %s", func, logbuf);
 #else
-	
+
+eventlog:
 	if (bEventLog) {
-		if (buf) {
-			ebuf = buf + offset + LEVEL_OFFSET;
+		// BSR-583
+		if (logbuf) {
+			ebuf = logbuf + offset + LEVEL_OFFSET;
 			elength = length - (offset + LEVEL_OFFSET);
 			// BSE-578 it should not be produced when it is not consumed.
-			if (g_consumer_state == RUNNING)
-				idx_ring_commit(&gLogBuf.h, ad);
+			if (g_consumer_state == RUNNING) {
+				// BSR-583
+				idx_ring_commit(&gLogBuf.h, buf);
+			}
 		}
 		else {
 			char tbuf[MAX_BSRLOG_BUF] = {0,};
