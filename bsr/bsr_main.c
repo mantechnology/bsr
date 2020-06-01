@@ -5013,6 +5013,51 @@ void bsr_put_connection(struct bsr_connection *connection)
 	kref_sub(&connection->kref, refs, bsr_destroy_connection);
 }
 
+#ifdef _WIN
+NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile, WCHAR* fileName) 
+{
+	WCHAR temp[255] = { 0 };
+	NTSTATUS status;
+	IO_STATUS_BLOCK ioStatus;
+	PFILE_RENAME_INFORMATION pRenameInfo;
+	LARGE_INTEGER systemTime, localTime;
+	TIME_FIELDS timeFields = { 0, };
+
+	KeQuerySystemTime(&systemTime);
+	ExSystemTimeToLocalTime(&systemTime, &localTime);
+	RtlTimeToTimeFields(&localTime, &timeFields);
+
+	memset(temp, 0, sizeof(temp));
+
+	_snwprintf(temp, (sizeof(temp) / sizeof(wchar_t)) - 1, L"%ws_%02d%02d%04d_%02d%02d%02d%03d", fileName,
+																									timeFields.Month,
+																									timeFields.Day,
+																									timeFields.Year,
+																									timeFields.Hour,
+																									timeFields.Minute,
+																									timeFields.Second,
+																									timeFields.Milliseconds);
+	pRenameInfo = ExAllocatePool(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(temp));
+
+	pRenameInfo->ReplaceIfExists = false;
+	pRenameInfo->RootDirectory = NULL;
+	pRenameInfo->FileNameLength = (ULONG)(wcslen(temp) * sizeof(wchar_t));
+	RtlCopyMemory(pRenameInfo->FileName, temp, (wcslen(temp) * sizeof(wchar_t)));
+
+	status = ZwSetInformationFile(hFile,
+									&ioStatus,
+									(PFILE_RENAME_INFORMATION)pRenameInfo,
+									sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(temp) * sizeof(wchar_t)),
+									FileRenameInformation);
+
+	kfree2(pRenameInfo);
+	ZwClose(hFile);
+
+	return status;
+}
+#else // _LIN
+#endif
+
 // BSR-578 threads writing logs to a file
 #ifdef _WIN
 void log_consumer_thread(PVOID param) 
@@ -5060,16 +5105,16 @@ int log_consumer_thread(void *unused)
 	InitializeObjectAttributes(&obAttribute, &fileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
 
 	status = ZwCreateFile(&hFile,
-		FILE_APPEND_DATA,
-		&obAttribute,
-		&ioStatus,
-		NULL,
-		FILE_ATTRIBUTE_NORMAL,
-		FILE_SHARE_READ | FILE_SHARE_DELETE,
-		FILE_OPEN_IF,
-		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
-		NULL,
-		0);
+							FILE_APPEND_DATA,
+							&obAttribute,
+							&ioStatus,
+							NULL,
+							FILE_ATTRIBUTE_NORMAL,
+							FILE_SHARE_READ | FILE_SHARE_DELETE,
+							FILE_OPEN_IF,
+							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+							NULL,
+							0);
 
 	if (!NT_SUCCESS(status)) {
 		gLogBuf.h.r_idx.has_consumer = false;
@@ -5159,6 +5204,33 @@ int log_consumer_thread(void *unused)
 			break;
 		}
 #endif
+		//if (idx == (LOGBUF_MAXCNT - 1)) {
+		//	if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile, temp))) {
+		//		gLogBuf.h.r_idx.has_consumer = false;
+		//		g_consumer_state = EXITING;
+		//		bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
+		//		return;
+		//	}
+		//	status = ZwCreateFile(&hFile,
+		//		FILE_APPEND_DATA,
+		//		&obAttribute,
+		//		&ioStatus,
+		//		NULL,
+		//		FILE_ATTRIBUTE_NORMAL,
+		//		FILE_SHARE_READ | FILE_SHARE_DELETE,
+		//		FILE_OPEN_IF,
+		//		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+		//		NULL,
+		//		0);
+		//
+		//	if (!NT_SUCCESS(status)) {
+		//		gLogBuf.h.r_idx.has_consumer = false;
+		//		g_consumer_state = EXITING;
+		//		bsr_info(NO_OBJECT, "failed to new log file status(%x)\n", status);
+		//		return;
+		//	}
+		//}
+
 		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
 
