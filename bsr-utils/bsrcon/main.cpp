@@ -59,6 +59,7 @@ void usage()
 		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
 		"   /get_log [ProviderName] [ResourceName : Max Length 250][oos]\n"
 		"   /get_log_lv\n"
+		"   /rllog_lm [LogRollingLimit : 0 ~ 1000]\n"
 		"   /minlog_lv [sys, dbg] [Level : 0~7]\n");
 	// DW-2008
 	printf("\t level info,");
@@ -93,6 +94,7 @@ void usage()
 		"bsrcon /get_log_lv \n"
 		"bsrcon /minlog_lv dbg 6 \n"
 		"bsrcon /minlog_lv sys 3 \n"
+		"bsrcon /rllog_lm 5\n"
 		"bsrcon /minlog_lv feature 2\n"
 	);
 
@@ -153,6 +155,35 @@ DWORD DeleteVolumeReg(TCHAR letter)
 }
 #endif
 
+// BSR-579
+BOOLEAN GetLogRollingLimit(int *rolling_litmit)
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD log_rolling_limit = 0;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("log_rolling_limit"), NULL, &type, (LPBYTE)&log_rolling_limit, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || log_rolling_limit == 0)
+		log_rolling_limit = LOG_ROLLING_DEFAULT_LIMIT;
+#else // _LIN
+	// BSR-579 TODO get log_rlooing_limit
+#endif
+
+	*rolling_litmit = log_rolling_limit;
+
+	return true;
+}
 
 // DW-1921
 //Print log_level through the current registry value.
@@ -226,7 +257,9 @@ int main(int argc, char* argv [])
 	// DW-1921
 	char	GetLogLv = 0;
 	char	SetMinLogLv = 0;
+	char	SetLogRollingLimit = 0;
 	LOGGING_MIN_LV lml = { 0, };
+	int limit = 0;
 
 #ifdef _WIN
 
@@ -351,6 +384,12 @@ int main(int argc, char* argv [])
 			}
 			else
 				usage();
+		}
+		// BSR-579
+		else if (strcmp(argv[argIndex], "/rllog_lm") == 0) {
+			SetLogRollingLimit++;
+			argIndex++;
+			limit = atoi(argv[argIndex]);
 		}
 		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
 			GetLogLv++;
@@ -499,16 +538,28 @@ int main(int argc, char* argv [])
 		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
 	}
 	
+	// BSR-579
+	if (SetLogRollingLimit) {
+		res = MVOL_SetLogRollingLimit(limit);
+	}
+
 	// DW-1921
 	if (GetLogLv) {
 		int sys_evt_lv = 0;
 		int dbglog_lv = 0;
 		int feature_lv = 0;
+		int rolling_limit = 0;
 
 		// DW-2008
 		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
 			printf("system-lv : %s(%d)\ndebug-lv : %s(%d)\nfeature-lv : %d\n",
 				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
+
+			// BSR-579
+			if (GetLogRollingLimit(&rolling_limit)) 
+				printf("log rolling limt : %d\n", rolling_limit);
+			else
+				printf("Failed to get log rollong limit.\n");
 		}
 		else
 			printf("Failed to get log level.\n");

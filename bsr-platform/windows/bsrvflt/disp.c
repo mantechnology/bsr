@@ -69,6 +69,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     UNICODE_STRING      		nameUnicode, linkUnicode;
     ULONG				i;
 
+	KeInitializeMutex(&mvolMutex, 0);
 	init_logging();
 	// init logging system first
 	bsr_logger_init();
@@ -124,7 +125,6 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     RtlCopyMemory(RootExtension->PhysicalDeviceName, nameUnicode.Buffer, nameUnicode.Length);
 
     KeInitializeSpinLock(&mvolVolumeLock);
-    KeInitializeMutex(&mvolMutex, 0);
     KeInitializeMutex(&eventlogMutex, 0);
 	downup_rwlock_init(&transport_classes_lock); //init spinlock for transport 
 	// DW-1961 The frequency of the performance counter is fixed at system boot and is consistent across all processors. 
@@ -846,6 +846,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		case IOCTL_MVOL_SET_LOGLV_MIN:
 		{
 			status = IOCTL_SetMinimumLogLevel(DeviceObject, Irp); // Set minimum level of logging (system event log, service log)
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
+		// BSR-579
+		case IOCTL_MVOL_SET_LOG_ROLLING_LIMIT:
+		{
+			status = IOCTL_SetLogRollingLimit(DeviceObject, Irp); // Set log rolling limit
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		case IOCTL_MVOL_GET_BSR_LOG:

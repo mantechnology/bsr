@@ -298,6 +298,7 @@ typedef unsigned int                fmode_t;
 
 
 #define LOG_LV_REG_VALUE_NAME	L"log_level"
+#define LOG_ROLLING_LIMIT_REG_VALUE_NAME	L"log_rolling_limit"
 
 #define MAX_TEXT_BUF                256
 

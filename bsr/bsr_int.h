@@ -468,6 +468,9 @@ do {	\
 extern atomic_t g_eventlog_lv_min;
 extern atomic_t g_dbglog_lv_min;
 
+// BSR-579
+extern atomic_t g_log_rolling_limin;
+
 // DW-1961
 extern atomic_t g_featurelog_flag;
 #define FEATURELOG_FLAG_OOS 		(1 << 0)

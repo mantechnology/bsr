@@ -360,6 +360,41 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 
+// BSR-579
+NTSTATUS
+IOCTL_SetLogRollingLimit(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG inlen;
+	ULONG logRollingLimit = LOG_ROLLING_DEFAULT_LIMIT;
+	NTSTATUS status;
+
+	// DW-2041
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(ULONG)) {
+		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(NO_OBJECT, "buffer too small\n");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		logRollingLimit = *(ULONG*)Irp->AssociatedIrp.SystemBuffer;
+
+		status = SaveCurrentValue(LOG_ROLLING_LIMIT_REG_VALUE_NAME, logRollingLimit);
+		bsr_info(NO_OBJECT, "set log rolling limit %lu => %lu\n", atomic_read(&g_log_rolling_limin), logRollingLimit);
+		atomic_set(&g_log_rolling_limin, logRollingLimit);
+
+		if (status != STATUS_SUCCESS) {
+			return STATUS_UNSUCCESSFUL;
+		}
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {

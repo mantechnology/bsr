@@ -96,6 +96,15 @@
 #define BSR_RELEASE_RETURN int
 #endif
 
+#define BSR_LOG_FILE_NAME L"bsrlog.txt"
+// rolling file format, ex) bsrlog.txt_06022020_104543745
+#define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
+
+#define BSR_LOG_FILE_COUNT 0x00
+#define BSR_LOG_FILE_DELETE 0x01
+
+#define MAX_PATH 260
+
 #ifdef _WIN
 static int bsr_open(struct block_device *bdev, fmode_t mode);
 static BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
@@ -5014,9 +5023,160 @@ void bsr_put_connection(struct bsr_connection *connection)
 }
 
 #ifdef _WIN
-NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile, WCHAR* fileName) 
+// BSR-579 deletes files when the number of rolling files exceeds a specified number
+NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 {
-	WCHAR temp[255] = { 0 };
+	NTSTATUS status = STATUS_SUCCESS;
+	OBJECT_ATTRIBUTES obAttribute;
+	UNICODE_STRING usfilePath;
+	HANDLE hFindFile;
+	IO_STATUS_BLOCK ioStatus = { 0 };
+	ULONG currentSize = 0;
+	FILE_BOTH_DIR_INFORMATION *pFileBothDirInfo = NULL;
+	bool is_start = true;
+	int rolling_cnt = 0;
+	int running = BSR_LOG_FILE_COUNT;
+
+	RtlInitUnicodeString(&usfilePath, filePath);
+	InitializeObjectAttributes(&obAttribute, &usfilePath, OBJ_CASE_INSENSITIVE, 0, 0);
+
+	status = ZwOpenFile(&hFindFile,
+		FILE_LIST_DIRECTORY | SYNCHRONIZE,
+		&obAttribute, &ioStatus,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT);
+
+	if (!NT_SUCCESS(status)) {
+		bsr_err(NO_OBJECT, "failed to open log directory(%x)\n", status);
+		return status;
+	}
+
+	currentSize = sizeof(FILE_BOTH_DIR_INFORMATION);
+	pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
+	if (!pFileBothDirInfo){
+		bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+		ZwClose(hFindFile);
+		return STATUS_NO_MEMORY;
+	}
+
+	while (TRUE) {
+		RtlZeroMemory(pFileBothDirInfo, currentSize);
+		status = ZwQueryDirectoryFile(hFindFile,
+											NULL,
+											NULL,
+											NULL,
+											&ioStatus,
+											pFileBothDirInfo,
+											currentSize,
+											FileBothDirectoryInformation,
+											FALSE,
+											NULL,
+											is_start);
+
+		if (STATUS_BUFFER_OVERFLOW == status) {
+			kfree2(pFileBothDirInfo);
+			currentSize = currentSize * 2;
+			pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
+			if (pFileBothDirInfo == NULL) {
+				ZwClose(hFindFile);
+				bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+				return STATUS_NO_MEMORY;
+			}
+			continue;
+		}
+		else if (STATUS_NO_MORE_FILES == status)
+		{
+			if (running == BSR_LOG_FILE_COUNT) {
+				running = BSR_LOG_FILE_DELETE;
+				is_start = true;
+				continue;
+			}
+
+			kfree2(pFileBothDirInfo);
+			ZwClose(hFindFile);
+			return STATUS_SUCCESS;
+		}
+		else if (!NT_SUCCESS(status))
+		{
+			bsr_err(NO_OBJECT, "failed to query (%x)\n", status);
+			kfree2(pFileBothDirInfo);
+			ZwClose(hFindFile);
+			break;
+		}
+
+		if (is_start)
+			is_start = false;
+
+		while (TRUE)
+		{
+			WCHAR* filName = ExAllocatePool(PagedPool, pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
+
+			if (!filName) {
+				bsr_err(NO_OBJECT, "failed to allocation file anme (%d)\n", pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
+				kfree2(pFileBothDirInfo);
+				ZwClose(hFindFile);
+				return STATUS_NO_MEMORY;
+			}
+			memset(filName, 0, pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
+			memcpy(filName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
+
+			if (wcsstr(filName, BSR_LOG_ROLLING_FILE_NAME)) {
+				if (running == BSR_LOG_FILE_COUNT) {
+					rolling_cnt = rolling_cnt + 1;
+				}
+				else if (running == BSR_LOG_FILE_DELETE) {
+					if (rolling_cnt >= atomic_read(&g_log_rolling_limin)) {
+						HANDLE hFile;
+						WCHAR fileFullPath[255];
+						UNICODE_STRING usFilePullPath;
+						char buf[1] = { 0x01 };
+
+						memset(fileFullPath, 0, sizeof(fileFullPath));
+
+						_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, filName);
+
+						RtlInitUnicodeString(&usFilePullPath, fileFullPath);
+						InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
+
+						status = ZwOpenFile(&hFile,
+							DELETE,
+							&obAttribute,
+							&ioStatus,
+							FILE_SHARE_VALID_FLAGS,
+							FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_NON_DIRECTORY_FILE);
+
+						if (!NT_SUCCESS(status)) {
+							bsr_err(NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
+							continue;
+						}
+
+						status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
+						if (!NT_SUCCESS(status)) {
+							bsr_err(NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
+						}
+
+						ZwClose(hFile);
+						rolling_cnt -= 1;
+					}
+				}
+			}
+
+			kfree2(filName);
+
+			if (pFileBothDirInfo->NextEntryOffset == 0)
+				break;
+
+			pFileBothDirInfo += pFileBothDirInfo->NextEntryOffset;
+		}
+	}
+
+	return status;
+}
+
+// BSR-579 rename the file to the rolling file format and close the handle
+NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile) 
+{
+	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	NTSTATUS status;
 	IO_STATUS_BLOCK ioStatus;
 	PFILE_RENAME_INFORMATION pRenameInfo;
@@ -5027,27 +5187,28 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile, WCHAR* fileName)
 	ExSystemTimeToLocalTime(&systemTime, &localTime);
 	RtlTimeToTimeFields(&localTime, &timeFields);
 
-	memset(temp, 0, sizeof(temp));
+	memset(fileFullPath, 0, sizeof(fileFullPath));
 
-	_snwprintf(temp, (sizeof(temp) / sizeof(wchar_t)) - 1, L"%ws_%02d%02d%04d_%02d%02d%02d%03d", fileName,
-																									timeFields.Month,
-																									timeFields.Day,
-																									timeFields.Year,
-																									timeFields.Hour,
-																									timeFields.Minute,
-																									timeFields.Second,
-																									timeFields.Milliseconds);
-	pRenameInfo = ExAllocatePool(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(temp));
+	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%02d%02d%04d_%02d%02d%02d%03d", BSR_LOG_ROLLING_FILE_NAME,
+																		timeFields.Month,
+																		timeFields.Day,
+																		timeFields.Year,
+																		timeFields.Hour,
+																		timeFields.Minute,
+																		timeFields.Second,
+																		timeFields.Milliseconds);
+
+	pRenameInfo = ExAllocatePool(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath));
 
 	pRenameInfo->ReplaceIfExists = false;
 	pRenameInfo->RootDirectory = NULL;
-	pRenameInfo->FileNameLength = (ULONG)(wcslen(temp) * sizeof(wchar_t));
-	RtlCopyMemory(pRenameInfo->FileName, temp, (wcslen(temp) * sizeof(wchar_t)));
+	pRenameInfo->FileNameLength = (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t));
+	RtlCopyMemory(pRenameInfo->FileName, fileFullPath, (wcslen(fileFullPath) * sizeof(wchar_t)));
 
 	status = ZwSetInformationFile(hFile,
 									&ioStatus,
 									(PFILE_RENAME_INFORMATION)pRenameInfo,
-									sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(temp) * sizeof(wchar_t)),
+									sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t)),
 									FileRenameInformation);
 
 	kfree2(pRenameInfo);
@@ -5056,6 +5217,41 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile, WCHAR* fileName)
 	return status;
 }
 #else // _LIN
+	// BSR-579 TODO declaration  bsr_log_rolling_file_clean_up(), bsr_log_file_reanme_and_close() function
+#endif
+
+#ifdef _WIN
+// BSR-579
+void wait_for_add_device(WCHAR *path) 
+{
+	bool wait_device_add = true;
+
+	while (wait_device_add) {
+		MVOL_LOCK();
+		if (mvolRootDeviceObject != NULL) {
+			PROOT_EXTENSION r = mvolRootDeviceObject->DeviceExtension;
+			if (r != NULL) {
+				PVOLUME_EXTENSION v = r->Head;
+				if (v != NULL) {
+					while (v->Next != NULL) {
+						WCHAR letter[32] = { 0, };
+						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length * sizeof(WCHAR));
+						if (wcsstr(path, v->MountPoint.Buffer)) {
+							wait_device_add = false;
+							break;
+						}
+						v = v->Next;
+					}
+				}
+			}
+		}
+		MVOL_UNLOCK();
+		if (wait_device_add)
+			bsr_info(NO_OBJECT, "wait for device to be connected for log file generation.(%ws)\n", path);
+
+		msleep(1000);
+	}
+}
 #endif
 
 // BSR-578 threads writing logs to a file
@@ -5074,19 +5270,23 @@ int log_consumer_thread(void *unused)
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
 	OBJECT_ATTRIBUTES obAttribute;
-	UNICODE_STRING fileFullPath, regPath;
+	UNICODE_STRING usFileFullPath, usRegPath;
 	NTSTATUS status;
-	ULONG pathLength;
-	WCHAR filePath[255] = { 0 };
-	WCHAR temp[255] = { 0 };
+	ULONG uLength;
+	WCHAR filePath[MAX_PATH] = { 0 };
+	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
+	
+	// BSR-579
+	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
+	status = GetRegistryValue(L"log_rolling_limit", &uLength, (UCHAR*)&filePath, &usRegPath);
+	if (NT_SUCCESS(status))
+		atomic_set(&g_log_rolling_limin, *(int*)filePath);
+	else
+		bsr_info(NO_OBJECT, "failed to get bsr log rolling limit status(%x)\n", status);
 
-	// BSR-578 wait for file system (changed later..)
-	msleep(1000); // wait 1000ms relative
-
-	RtlInitUnicodeString(&regPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
-
-	status = GetRegistryValue(L"BSR_PATH", &pathLength, (UCHAR*)&filePath, &regPath);
+	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
+	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
 
 	if (!NT_SUCCESS(status)) {
 		gLogBuf.h.r_idx.has_consumer = false;
@@ -5099,10 +5299,18 @@ int log_consumer_thread(void *unused)
 	if (ptr != NULL)
 		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
 
-	_snwprintf(temp, sizeof(temp) - sizeof(WCHAR), L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+	// BSR-579
+	wait_for_add_device(filePath);
 
-	RtlInitUnicodeString(&fileFullPath, temp);
-	InitializeObjectAttributes(&obAttribute, &fileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
+	uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+
+	memcpy(filePath, fileFullPath, sizeof(fileFullPath));
+	ptr = wcsrchr(filePath, L'\\');
+	if (ptr != NULL)
+		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+
+	RtlInitUnicodeString(&usFileFullPath, fileFullPath);
+	InitializeObjectAttributes(&obAttribute, &usFileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
 
 	status = ZwCreateFile(&hFile,
 							FILE_APPEND_DATA,
@@ -5132,7 +5340,8 @@ int log_consumer_thread(void *unused)
 	char path[24] = "/var/log/bsr/bsrlog.txt"; 
 
 	// BSR-578 wait for file system (changed later..)
-	msleep(1000); // wait 1000ms relative
+	// msleep(1000); // wait 1000ms relative
+	// BSR_579 TODO 
 
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
@@ -5166,7 +5375,7 @@ int log_consumer_thread(void *unused)
 		if (!started) {
 #ifdef _WIN
 			// BSR-578 print out after consumption starts, not thread starts.
-			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", temp);
+			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
 #else
 			bsr_info(NO_OBJECT, "bsrlog path : %s\n", path);
 #endif
@@ -5204,32 +5413,40 @@ int log_consumer_thread(void *unused)
 			break;
 		}
 #endif
-		//if (idx == (LOGBUF_MAXCNT - 1)) {
-		//	if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile, temp))) {
-		//		gLogBuf.h.r_idx.has_consumer = false;
-		//		g_consumer_state = EXITING;
-		//		bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
-		//		return;
-		//	}
-		//	status = ZwCreateFile(&hFile,
-		//		FILE_APPEND_DATA,
-		//		&obAttribute,
-		//		&ioStatus,
-		//		NULL,
-		//		FILE_ATTRIBUTE_NORMAL,
-		//		FILE_SHARE_READ | FILE_SHARE_DELETE,
-		//		FILE_OPEN_IF,
-		//		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
-		//		NULL,
-		//		0);
-		//
-		//	if (!NT_SUCCESS(status)) {
-		//		gLogBuf.h.r_idx.has_consumer = false;
-		//		g_consumer_state = EXITING;
-		//		bsr_info(NO_OBJECT, "failed to new log file status(%x)\n", status);
-		//		return;
-		//	}
-		//}
+		// BSR-579
+		if (idx == (LOGBUF_MAXCNT - 1)) {
+
+#ifdef _WIN
+			bsr_log_rolling_file_clean_up(filePath);
+
+			if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile))) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
+				return;
+			}
+			status = ZwCreateFile(&hFile,
+									FILE_APPEND_DATA,
+									&obAttribute,
+									&ioStatus,
+									NULL,
+									FILE_ATTRIBUTE_NORMAL,
+									FILE_SHARE_READ | FILE_SHARE_DELETE,
+									FILE_OPEN_IF,
+									FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+									NULL,
+									0);
+		
+			if (!NT_SUCCESS(status)) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_info(NO_OBJECT, "failed to new log file status(%x)\n", status);
+				return;
+			}
+#else // _LIN
+			// BSR-579 TODO rolling and clean up
+#endif
+		}
 
 		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
