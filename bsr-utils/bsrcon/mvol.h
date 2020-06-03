@@ -73,7 +73,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);
 DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector);
 #endif

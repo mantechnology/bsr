@@ -1774,10 +1774,10 @@ static int bsr_process_write_request(struct bsr_request *req)
 		remote = bsr_should_do_remote(peer_device, NOW);
 		send_oos = bsr_should_send_out_of_sync(peer_device);
 
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		// DW-1153 Write log when process I/O
-		printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n", KERN_OOS,
-			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
+		_printk(__FUNCTION__, KERN_OOS, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n",
+			KERN_OOS, peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
 
 		if (!remote && !send_oos)

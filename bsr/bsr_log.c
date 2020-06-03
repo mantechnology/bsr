@@ -1,6 +1,11 @@
 #include <bsr_int.h>
 #include <bsr_log.h>
 
+#ifdef _LIN
+#include <linux/stacktrace.h>
+
+#endif
+
 // minimum levels of logging, below indicates default values. it can be changed when BSR receives IOCTL_MVOL_SET_LOGLV_MIN.
 atomic_t g_eventlog_lv_min = ATOMIC_INIT(LOG_LV_DEFAULT_EVENTLOG);
 atomic_t g_dbglog_lv_min = ATOMIC_INIT(LOG_LV_DEFAULT_DBG);
@@ -199,7 +204,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s]",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -320,3 +325,94 @@ eventlog:
 #endif
 }
 
+
+#ifdef _DEBUG_OOS
+static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
+{
+	USHORT usCaptured = 0;
+#ifdef _LIN
+	unsigned long entries[usFrameCount];
+	struct stack_trace trace = {
+		.entries = entries,
+		.max_entries = ARRAY_SIZE(entries),
+	};
+#endif
+
+	if (NULL == frames ||
+		0 == usFrameCount)
+	{
+		bsr_err(NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		return 0;
+	}
+#ifdef _WIN
+	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
+	if (0 == usCaptured) {
+		bsr_err(NO_OBJECT,"Captured frame count is 0\n");
+		return 0;
+	}
+#else // _LIN
+	// BSR-219 oos log linux porting
+	trace.nr_entries = 0;
+	trace.skip = 1; /* skip the last entries */
+	save_stack_trace(&trace);
+
+	for (usCaptured = 0; usCaptured < trace.nr_entries; usCaptured++)
+		frames[usCaptured] = (void *)trace.entries[usCaptured];
+#endif 
+	return usCaptured;	
+}
+
+// DW-1153 Write Out-of-sync trace specific log. it includes stack frame.
+void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode)
+{
+	PVOID* stackFrames = NULL;
+	USHORT frameCount = STACK_FRAME_CAPTURE_COUNT;
+	CHAR buf[MAX_BSRLOG_BUF] = { 0, };
+	int i;
+	// getting stack frames may overload with frequent bitmap operation, just return if oos trace is disabled.
+	if (!(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_OOS)) {
+		return;
+	}
+#ifdef _WIN
+	_snprintf(buf, sizeof(buf) - 1, "%s["OOS_TRACE_STRING"] %s %Iu bits for bitmap_index(%d), pos(%Iu ~ %Iu), sector(%Iu ~ %Iu)", KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
+	stackFrames = (PVOID*)ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * frameCount, '22DW');
+
+#else // _LIN
+	snprintf(buf, sizeof(buf), "%s["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
+			KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
+	stackFrames = (PVOID*)kmalloc(sizeof(PVOID) * frameCount, GFP_ATOMIC|__GFP_NOWARN, '');
+#endif
+
+	if (NULL == stackFrames) {
+		bsr_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
+		return;
+	}
+
+	frameCount = getStackFrames(stackFrames, frameCount);
+
+	for (i = 0; i < frameCount; i++) {
+		CHAR temp[60] = { 0, };
+#ifdef _WIN
+		_snprintf(temp, sizeof(temp) - 1, FRAME_DELIMITER"%p", stackFrames[i]);
+#else
+		if (stackFrames[i] == NULL)
+			break;
+		snprintf(temp, sizeof(temp), FRAME_DELIMITER"%pS", stackFrames[i]);
+#endif
+		strncat(buf, temp, sizeof(buf) - strlen(buf) - 1);
+	}
+	
+	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
+	
+	_printk(__FUNCTION__, KERN_OOS, buf);
+
+	if (NULL != stackFrames) {
+#ifdef _WIN
+		ExFreePool(stackFrames);
+#else // _LIN
+		kfree(stackFrames);
+#endif
+		stackFrames = NULL;
+	}
+}
+#endif

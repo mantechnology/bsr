@@ -5093,8 +5093,7 @@ int log_consumer_thread(void *unused)
 	set_fs(KERNEL_DS);
 	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
-	if (fd == NULL || IS_ERR(fd))
-	{
+	if (fd == NULL || IS_ERR(fd)) {
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
 		bsr_info(NO_OBJECT, "failed to create log file\n");

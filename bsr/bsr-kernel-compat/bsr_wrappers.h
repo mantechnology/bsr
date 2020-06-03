@@ -69,6 +69,7 @@
 #define PCHAR			char *
 #define CHAR			char
 #define PVOID			void *
+#define USHORT			unsigned short
 
 #define atomic_t64				atomic64_t
 #define atomic_add64			atomic64_add

@@ -1364,7 +1364,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	}
 
 	if (!get_ldev(device)) {
-#ifdef _WIN_DEBUG_OOS // DW-1153 add error log
+#ifdef _DEBUG_OOS // DW-1153 add error log
 		bsr_err(device, "%s => get_ldev failed, sector(%llu), mode(%u)\n", caller, sector, mode);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
@@ -1374,7 +1374,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	esector = sector + (size >> 9) - 1;
 
 	if (!expect(peer_device, sector < nr_sectors)) {
-#ifdef _WIN_DEBUG_OOS // DW-1153 add error log
+#ifdef _DEBUG_OOS // DW-1153 add error log
 		bsr_err(peer_device, "%s => unexpected error, sector(%llu) < nr_sectors(%llu)\n", caller, sector, nr_sectors);
 #endif
 		goto out;
@@ -1389,7 +1389,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 		 * we only clear full, aligned, BM_BLOCK_SIZE blocks. */
 		if (unlikely(esector < BM_SECT_PER_BIT-1)) {
 			// DW-1153 add error log
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 			// DW-1992 it is a normal operation, not an error, so it is output at the info level.
 			bsr_info(peer_device, "%s => not in sync because it is smaller than bitmap bit size, sector(%llu) ~ sector(%llu)\n", caller, sector, esector);
 #endif
@@ -1454,7 +1454,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 
 	if (!get_ldev(device)) {
 		// DW-1153 add error log
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		bsr_err(device, "get_ldev failed, sector(%llu)\n", sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
@@ -1467,7 +1467,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 
 	if (!expect(device, sector < nr_sectors)) {
 		// DW-1153 add error log
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		bsr_err(device, "unexpected error, sector(%llu) < nr_sectors(%llu)\n", sector, nr_sectors);
 #endif
 		goto out;
