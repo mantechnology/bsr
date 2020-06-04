@@ -7003,6 +7003,20 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	
 	UNREFERENCED_PARAMETER(cancel);
 
+	// BSR-590 freeze_bdev() performs I/O for meta flush, so pending check logic is added.
+	// There is a case where Ahead mode is changed before this function execution.
+	if (atomic_read(&device->pending_bitmap_work.n)) {
+		bsr_info(peer_device, "fast_ov canceled due to pending bitmap work.\n");
+		if (side == L_VERIFY_S) {
+			bsr_info(peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+				(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
+		     	(unsigned long long) bsr_ov_bm_total_weight(peer_device));
+			mod_timer(&peer_device->resync_timer, jiffies);
+		}
+		return err;
+	}
+
 	mutex_lock(&device->resource->vol_ctl_mutex);
 	
 	if (device->resource->role[NOW] == R_SECONDARY) {
