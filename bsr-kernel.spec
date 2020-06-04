@@ -72,6 +72,8 @@ for flavor in %flavors_to_build ; do
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
 done
 
+mkdir -p /var/log/bsr
+
 mkdir -p $RPM_BUILD_ROOT/etc/depmod.d
 echo "override bsr * weak-updates" \
     > $RPM_BUILD_ROOT/etc/depmod.d/bsr.conf

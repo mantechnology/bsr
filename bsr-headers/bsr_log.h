@@ -10,6 +10,7 @@
 
 #define ERROR_INVALID_PARAMETER 1
 #define ERROR_SUCCESS 	0
+#define ERROR_INVALID_DATA	-1
 #define MAX_PATH        260
 #define BOOLEAN			bool
 #define DWORD			unsigned int
@@ -26,9 +27,8 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
-#ifdef _WIN
-#define _WIN_DEBUG_OOS		// DW-1153 debug oos. // TODO : linux porting
-#endif
+// DW-1153 debug oos.
+#define _DEBUG_OOS
 
 #define LOGGING_TYPE_SYSLOG		0
 #define LOGGING_TYPE_DBGLOG		1
@@ -36,13 +36,13 @@ typedef struct _LOGGING_MIN_LV {
 #define LOGGING_TYPE_FEATURELOG 2
 
 // DW-2008 log level,type string
-static const char *g_default_lv_str[] = { "emerg", "alert", "criti", "err", "warning", "notice", "info", "debug" };
+static const char * const g_default_lv_str[] = { "emerg", "alert", "criti", "err", "warning", "notice", "info", "debug" };
 #ifdef __KERNEL__
-static const char *g_log_type_str[] = { "sys", "dbg", "feature" };
+static const char * const g_log_type_str[] = { "sys", "dbg", "feature" };
 #endif
 // DW-2099
 #ifndef __KERNEL__
-static const char *g_feature_lv_str[] = { "none", "oos", "latency", "verify" };
+static const char * const g_feature_lv_str[] = { "none", "oos", "latency", "verify" };
 #endif
 
 #define LOG_DEFAULT_MAX_LEVEL 8
@@ -87,7 +87,7 @@ enum
 
 //
 
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 #define FRAME_DELIMITER		"@"
 #define OOS_TRACE_STRING	"oos_trace"
 #define STACK_FRAME_CAPTURE_COUNT	(10)
@@ -96,7 +96,7 @@ enum
 #define MAX_FUNC_ADDR_LEN		(20)
 #endif
 
-// BSR-577 TODO remove
+// BSR-577
 #define IDX_OPTION_LENGTH			0x01
 #define MAX_BSRLOG_BUF				512
 #define LOGBUF_MAXCNT				100000

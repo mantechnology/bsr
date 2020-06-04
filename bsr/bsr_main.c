@@ -5093,14 +5093,10 @@ int log_consumer_thread(void *unused)
 	set_fs(KERNEL_DS);
 	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
-	if (fd == NULL || IS_ERR(fd))
-	{
+	if (fd == NULL || IS_ERR(fd)) {
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
 		bsr_info(NO_OBJECT, "failed to create log file\n");
-		if (fd != NULL)
-			filp_close(fd, NULL);
-		
 		return 0;
 	}
 #endif
@@ -5185,17 +5181,20 @@ int log_consumer_thread(void *unused)
 
 void clean_logging(void)
 {
+#ifdef _WIN
 	g_consumer_state = EXITING;
 	
 	if (g_consumer_thread != NULL) {
-#ifdef _WIN
 		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
 		ObDereferenceObject(g_consumer_thread);
-#else // _LIN
-		kthread_stop(g_consumer_thread);
-		g_consumer_thread = NULL;
-#endif
 	}
+#else // _LIN
+	if (g_consumer_state != EXITING) {
+		g_consumer_state = EXITING;
+		kthread_stop(g_consumer_thread);
+	}
+	g_consumer_thread = NULL;
+#endif
 }
 
 void init_logging(void)

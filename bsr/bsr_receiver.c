@@ -8439,7 +8439,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 				/* TODO: Since BSR9 we experience that SyncSource still has
 				   bits set... NEED TO UNDERSTAND AND FIX! */
 				if (bsr_bm_total_weight(peer_device) > peer_device->rs_failed)
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 				{
 					// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
 					bsr_info(peer_device, "SyncSource still sees bits set!! FIXME, total(%llu), failed(%llu)\n", bsr_bm_total_weight(peer_device), peer_device->rs_failed);
@@ -8455,7 +8455,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 							sector = BM_BIT_TO_SECT(bit);
 
-							printk("%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
+							_printk(__FUNCTION__, KERN_OOS, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;

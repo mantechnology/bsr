@@ -312,10 +312,6 @@ typedef unsigned int                fmode_t;
 extern void printk_init(void);
 extern void printk_cleanup(void);
 
-#ifdef _WIN_DEBUG_OOS
-extern VOID WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
-#endif
-
 #ifdef _WIN_EVENTLOG
 #define bsr_logger_init()		printk_init();
 #define bsr_logger_cleanup()	printk_cleanup();

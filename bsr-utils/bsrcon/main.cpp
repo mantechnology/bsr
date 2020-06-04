@@ -249,7 +249,7 @@ int main(int argc, char* argv [])
 	SIMULATION_DISK_IO_ERROR sdie = { 0, };
 	HANDLER_INFO hInfo = { 0, };
 #endif
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 	char	ConvertOosLog = 0;
 	char	*pSrcFilePath = NULL;	
 	char	SearchOosLog = 0;
@@ -274,7 +274,7 @@ int main(int argc, char* argv [])
 			for (int num = 0; num < 2; num++) {
 				if (argIndex < argc) {
 
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 					if (strcmp(argv[argIndex], "oos") == 0)
 						OosTrace++;
 					else if (!resourceName) {
@@ -296,7 +296,7 @@ int main(int argc, char* argv [])
 			}
 
 		}
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0) {
 			argIndex++;
 			ConvertOosLog++;
@@ -513,6 +513,14 @@ int main(int argc, char* argv [])
 		else
 			printf("Failed to get log level.\n");
 	}
+
+
+#ifdef _DEBUG_OOS
+	if (SearchOosLog) {
+		res = MVOL_SearchOosLog((LPCTSTR)pSrcFilePath, (LPCTSTR)sector);
+	}
+#endif
+
 #ifdef _WIN
 	if (GetVolumeSizeFlag) {
 		MVOL_VOLUME_INFO	srcVolumeInfo;
@@ -628,13 +636,9 @@ int main(int argc, char* argv [])
 		res = MVOL_SimulDiskIoError(&sdie);
 	}
 
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 	if (ConvertOosLog) {
 		res = MVOL_ConvertOosLog((LPCTSTR)pSrcFilePath);
-	}
-
-	if (SearchOosLog) {
-		res = MVOL_SearchOosLog((LPCTSTR)pSrcFilePath, (LPCTSTR)sector);
 	}
 #endif
 

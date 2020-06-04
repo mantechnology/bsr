@@ -64,6 +64,7 @@
 #include "../bsr-headers/linux/bsr_limits.h"
 #include "../bsr-headers/bsr_strings.h"
 #include "../bsr-headers/bsr.h"
+#include "../bsr-headers/bsr_log.h"
 
 #ifdef _SEND_BUF
 #include "bsr_send_buf.h"
@@ -117,9 +118,6 @@ extern int two_phase_commit_fail;
 #endif
 
 extern char usermode_helper[];
-// BSR-578 
-#define MAX_BSRLOG_BUF				512
-#define LOGBUF_MAXCNT				100000
 
 struct log_idx_ring_buffer_t {
 	struct idx_ring_buffer h;
@@ -187,12 +185,16 @@ struct bsr_connection;
 
 // BSR-577 Change to common method
 extern void _printk(const char * func, const char * level, const char * format, ...);
+extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 
 // BSR-237
 #ifdef _WIN
 #define NO_OBJECT
 #else  // _LIN
 #define NO_OBJECT NULL
+
+#define KERN_OOS				"<8>"	/* DW-1153: debug-oos */
+#define KERN_LATENCY			"<9>"	/* DW-1961 feature log */
 #endif
 /* I want to be able to grep for "bsr $resource_name"
  * and get all relevant log lines. */
@@ -398,7 +400,6 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_debug_conn(fmt, args...) //bsr_info(NO_OBJECT, fmt, ## args)
 #define bsr_debug_rs(fmt, args...)
 #define bsr_debug_al(fmt, args...)
-#define bsr_latency(obj, fmt, args...)
 
 #define bsr_emerg(obj, fmt, args...) \
 	bsr_printk(KERN_EMERG, obj, fmt, ## args)
@@ -414,6 +415,10 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_NOTICE, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
+#define bsr_oos(obj, fmt, args...) \
+	bsr_printk(KERN_OOS, obj, fmt, ## args)
+#define bsr_latency(obj, fmt, args...) \
+	bsr_printk(KERN_LATENCY, obj, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \

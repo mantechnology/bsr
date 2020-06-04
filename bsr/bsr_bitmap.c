@@ -500,7 +500,7 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 	ULONG_PTR word;
 	ULONG_PTR page;
 	unsigned int bit_in_page;
-#ifdef _WIN_DEBUG_OOS	
+#ifdef _DEBUG_OOS	
 	ULONG_PTR init_start = start;
 #endif
 	ULONG_PTR real_end = 0;
@@ -717,7 +717,7 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 	switch(op) {
 	case BM_OP_CLEAR:
 		if (total)
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		{
 			bitmap->bm_set[bitmap_index] -= total;
 			// DW-1153 Write log when clear bit.
@@ -730,7 +730,7 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 	case BM_OP_SET:
 	case BM_OP_MERGE:
 		if (total)
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		{
 			bitmap->bm_set[bitmap_index] += total;
 			// DW-1153 Write log when set bit.
@@ -764,14 +764,14 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 	if (!expect(device, bitmap))
 		// DW-1153 add error log
 	{
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		bsr_err(device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 1;
 	}
 	if (!expect(device, bitmap->bm_pages))
 	{
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		// DW-1153 add error log
 		bsr_err(device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
 #endif
@@ -780,7 +780,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 
 	if (!bitmap->bm_bits)
 	{
-#ifdef _WIN_DEBUG_OOS
+#ifdef _DEBUG_OOS
 		// DW-1153 add error log
 		bsr_err(device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
 #endif
