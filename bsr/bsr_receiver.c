@@ -4662,10 +4662,9 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	if (connection->agreed_pro_version >= 110) {
 		/* In BSR9 we may not sleep here in order to avoid deadlocks.
 		   Instruct the SyncSource to retry */
-		// DW-953 replace bsr_try_rs_begin_io with bsr_rs_begin_io like version 8.4.x for only L_VERIFY_T
+		// BSR-590 replace bsr_rs_begin_io with bsr_try_rs_begin_io due to wait problem with al.
 		if (peer_device->repl_state[NOW] == L_VERIFY_T) {
-			if (bsr_rs_begin_io(peer_device, sector)) 
-			{
+			if (bsr_try_rs_begin_io(peer_device, sector, false)) {
 				err = -EIO;
 				goto fail3;
 			}
