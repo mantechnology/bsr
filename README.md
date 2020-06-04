@@ -37,10 +37,11 @@ Improved disk I/O error handling logic to introduce a new policy called passthro
 ### Timeout
 drbd is implemented with strict processing logic that does not handle timeouts, causing hang issues in many cases. We have validated this problem with a number of operational cases and have stabilized it with exception code through proper timeouts.
 
-The commonality between the DRBD problems listed above, except for FastSync, is that there are a number of potential problems with DRBD, and still have this problem (9.0.19), and we do not know when these problems will improve. Just using bsr would be a smart choice.
+## Plan
+In the future, we intend to further develop bsr to remain a model for open source projects of block replication solutions. We look forward to your participation and support.
 
 ## Contributors
-Man Technology Inc.(http://www.mantech.co.kr/)
+Man Technology Inc.(http://www.mantech.co.kr/), bsr@mantech.co.kr
 
 ## License
 This project is licensed under the GPL v2
