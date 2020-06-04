@@ -162,17 +162,24 @@ case "$1" in
 
 	# BSR-5 set up the loop device at service start.
 	# _LIN_LOOP_META_SUPPORT
+	RES_LIST=""
 	for RES in `$BSRADM sh-resources-list`; do
-		MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
-		if [ -n "$MD_IDX" ]; then
-			if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
-				MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
-				$LOSETUP $MD_DEV $MD_IDX
+		# BSR-592 apply svc-autostart to linux
+		if ! $BSRADM sh-resource-option -n svc_autostart $RES | grep -w no &> /dev/null; then
+			
+			MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
+			if [ -n "$MD_IDX" ]; then
+				if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
+					MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
+					$LOSETUP $MD_DEV $MD_IDX
+				fi
 			fi
+			RES_LIST="${RES_LIST} ${RES}"
 		fi
+		
 	done
 
-	$BSRADM adjust-with-progress all
+	$BSRADM adjust-with-progress $RES_LIST
 	[[ $? -gt 1 ]] && exit 20
 
 	# make sure udev has time to create the device files
