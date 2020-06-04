@@ -5034,8 +5034,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	ULONG currentSize = 0;
 	FILE_BOTH_DIR_INFORMATION *pFileBothDirInfo = NULL;
 	bool is_start = true;
-	int rolling_cnt = 0;
-	int running = BSR_LOG_FILE_COUNT;
+	int log_file_max_count = 0;
+	int running_status = BSR_LOG_FILE_COUNT;
 
 	RtlInitUnicodeString(&usfilePath, filePath);
 	InitializeObjectAttributes(&obAttribute, &usfilePath, OBJ_CASE_INSENSITIVE, 0, 0);
@@ -5086,8 +5086,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		}
 		else if (STATUS_NO_MORE_FILES == status)
 		{
-			if (running == BSR_LOG_FILE_COUNT) {
-				running = BSR_LOG_FILE_DELETE;
+			if (running_status == BSR_LOG_FILE_COUNT) {
+				running_status = BSR_LOG_FILE_DELETE;
 				is_start = true;
 				continue;
 			}
@@ -5121,11 +5121,11 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			memcpy(filName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
 
 			if (wcsstr(filName, BSR_LOG_ROLLING_FILE_NAME)) {
-				if (running == BSR_LOG_FILE_COUNT) {
-					rolling_cnt = rolling_cnt + 1;
+				if (running_status == BSR_LOG_FILE_COUNT) {
+					log_file_max_count = log_file_max_count + 1;
 				}
-				else if (running == BSR_LOG_FILE_DELETE) {
-					if (rolling_cnt >= atomic_read(&g_log_rolling_limin)) {
+				else if (running_status == BSR_LOG_FILE_DELETE) {
+					if (log_file_max_count >= atomic_read(&g_log_file_max_count)) {
 						HANDLE hFile;
 						WCHAR fileFullPath[255];
 						UNICODE_STRING usFilePullPath;
@@ -5156,7 +5156,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 						}
 
 						ZwClose(hFile);
-						rolling_cnt -= 1;
+						log_file_max_count = log_file_max_count - 1;
 					}
 				}
 			}
@@ -5279,11 +5279,11 @@ int log_consumer_thread(void *unused)
 	
 	// BSR-579
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
-	status = GetRegistryValue(L"log_rolling_limit", &uLength, (UCHAR*)&filePath, &usRegPath);
+	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
-		atomic_set(&g_log_rolling_limin, *(int*)filePath);
+		atomic_set(&g_log_file_max_count, *(int*)filePath);
 	else
-		bsr_info(NO_OBJECT, "failed to get bsr log rolling limit status(%x)\n", status);
+		bsr_info(NO_OBJECT, "failed to get bsr log file max count, status(%x)\n", status);
 
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
 	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);

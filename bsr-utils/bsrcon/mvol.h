@@ -71,7 +71,7 @@ DWORD GetBsrlockStatus();
 
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 // BSR-579
-DWORD MVOL_SetLogRollingLimit(ULONG limit);
+DWORD MVOL_SetLogFileMaxCount(ULONG limit);
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 
 #ifdef _WIN_DEBUG_OOS

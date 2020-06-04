@@ -1630,7 +1630,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 }
 
 // BSR-579
-DWORD MVOL_SetLogRollingLimit(ULONG limit)
+DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
@@ -1645,7 +1645,7 @@ DWORD MVOL_SetLogRollingLimit(ULONG limit)
 
 	if (limit <= 0 ||limit > 1000)
 	{
-		fprintf(stderr, "LOG_LIMIT_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, limit);
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, limit);
 		return ERROR_INVALID_PARAMETER;
 	}
 
@@ -1655,7 +1655,7 @@ DWORD MVOL_SetLogRollingLimit(ULONG limit)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_LIMIT_ERROR: %s: Failed open bsr. Err=%u\n",
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
@@ -1665,12 +1665,12 @@ DWORD MVOL_SetLogRollingLimit(ULONG limit)
 
 	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
 #ifdef _WIN
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOG_ROLLING_LIMIT, &limit, sizeof(ULONG), NULL, 0, &dwReturned, NULL) == FALSE) {
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit, sizeof(ULONG), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
 	// BSR-579 TODO
 #endif
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_LIMIT_ERROR: %s: Failed IOCTL_MVOL_SET_LOG_ROLLING_LIMIT. Err=%u\n",
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT. Err=%u\n",
 			__FUNCTION__, retVal);
 	}
 

@@ -849,9 +849,9 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		// BSR-579
-		case IOCTL_MVOL_SET_LOG_ROLLING_LIMIT:
+		case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 		{
-			status = IOCTL_SetLogRollingLimit(DeviceObject, Irp); // Set log rolling limit
+			status = IOCTL_SetLogFileMaxCount(DeviceObject, Irp); // Set log file max count
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		case IOCTL_MVOL_GET_BSR_LOG:

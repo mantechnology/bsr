@@ -469,7 +469,7 @@ extern atomic_t g_eventlog_lv_min;
 extern atomic_t g_dbglog_lv_min;
 
 // BSR-579
-extern atomic_t g_log_rolling_limin;
+extern atomic_t g_log_file_max_count;
 
 // DW-1961
 extern atomic_t g_featurelog_flag;

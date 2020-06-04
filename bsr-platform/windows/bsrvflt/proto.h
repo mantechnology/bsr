@@ -102,7 +102,7 @@ NTSTATUS
 IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 // BSR-579
 NTSTATUS
-IOCTL_SetLogRollingLimit(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size);

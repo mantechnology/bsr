@@ -6,7 +6,7 @@ atomic_t g_eventlog_lv_min = ATOMIC_INIT(LOG_LV_DEFAULT_EVENTLOG);
 atomic_t g_dbglog_lv_min = ATOMIC_INIT(LOG_LV_DEFAULT_DBG);
 
 // BSR-579
-atomic_t g_log_rolling_limin = ATOMIC_INIT(LOG_ROLLING_DEFAULT_LIMIT);
+atomic_t g_log_file_max_count = ATOMIC_INIT(LOG_FILE_COUNT_DEFAULT);
 
 #ifdef _LIN
 #define DPFLTR_ERROR_LEVEL 0
