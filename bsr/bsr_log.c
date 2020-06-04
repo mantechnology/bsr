@@ -379,7 +379,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 
 #else // _LIN
 	snprintf(buf, sizeof(buf), "%s["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
-			KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
+			KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, (size_t)BM_BIT_TO_SECT(startBit), (size_t)(BM_BIT_TO_SECT(endBit) | 0x7));
 	stackFrames = (PVOID*)kmalloc(sizeof(PVOID) * frameCount, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 
