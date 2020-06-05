@@ -14,8 +14,9 @@ goto :eof
 REM ------------------------------------------------------------------------
 :start
 
-set log="%BSR_PATH%\..\log\rc_start.log"
-echo [%date%_%time%] rc.bat start. > %log%
+set start_log="%BSR_PATH%\..\log\rc_start.log"
+echo [%date%_%time%] rc.bat start. > %start_log%
+
 
 :bsr_attach_vhd
 
@@ -45,31 +46,32 @@ set /a adj_retry=0
 for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set ADJUST=0
 
-	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_autostart %%a`) do (
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_auto_up %%a`) do (
 
 		if /i "%%c" == "yes" (
 			@(set ADJUST=1)
 		) else if /i "%%c" == "no" (
 			@(set ADJUST=0)
+			echo [%date%_%time%] skip adjust %%a >> %start_log%
 		) else (
 			@(set ADJUST=1)
 		)		
 	)
 	if !ADJUST! == 1 (
-		echo [!date!_!time!] bsradm adjust %%a >> %log%
+		echo [!date!_!time!] bsradm adjust %%a >> %start_log%
 		bsradm -c /etc/bsr.conf adjust %%a
 		if !errorlevel! gtr 0 (
-			echo [!date!_!time!] Failed to bsradm adjust %%a. >> %log%
+			echo [!date!_!time!] Failed to bsradm adjust %%a. >> %start_log%
 			set /a adj_retry=adj_retry+1
 			REM Retry 10 times. If it fails more than 10 times, it may adjust fail.
 			if %adj_retry% gtr 10 (
-				echo [!date!_!time!] bsradm adjust %%a finally failed.>> %log%
+				echo [!date!_!time!] bsradm adjust %%a finally failed.>> %start_log%
 			) else (
 				timeout /t 3 /NOBREAK > nul
 				goto adjust_retry
 			)	
 		) else (
-			echo [!date!_!time!] bsradm adjust %%a success.>> %log%	
+			echo [!date!_!time!] bsradm adjust %%a success.>> %start_log%	
 		)
 		
 		timeout /t 3 /NOBREAK > nul
@@ -107,8 +109,40 @@ REM ------------------------------------------------------------------------
 
 @echo off
 
-echo Stopping all BSR resources
-bsradm down all
+set stop_log="%BSR_PATH%\..\log\rc_stop.log"
+echo [%date%_%time%] rc.bat stop. > %stop_log%
+echo [%date%_%time%] Stopping all BSR resources >> %stop_log%
+
+
+setlocal EnableDelayedExpansion
+REM BSR-593 auto-down by svc
+for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
+	set DOWN=0
+
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_auto_down %%a`) do (
+
+		if /i "%%c" == "yes" (
+			@(set DOWN=1)
+		) else if /i "%%c" == "no" (
+			@(set DOWN=0)
+			echo [%date%_%time%] skip down %%a >> %stop_log%
+		) else (
+			@(set DOWN=1)
+		)		
+	)
+	if !DOWN! == 1 (
+		echo [!date!_!time!] bsradm down %%a >> %stop_log%
+		bsradm down %%a
+		if !errorlevel! gtr 0 (
+			echo [!date!_!time!] Failed to bsradm down %%a. >> %stop_log%
+		) else (
+			echo [!date!_!time!] bsradm down %%a success.>> %stop_log%	
+		)
+	)
+)
+endlocal
+
+
 timeout /t 3 /NOBREAK > nul
 
 REM linux
@@ -143,17 +177,17 @@ goto :eof
 
 		REM Retry 10 times. If it fails more than 10 times, it may become diskless state.
 		if %retry% gtr 10 (
-			echo [%date%_%time%] Failed to attach the %1 >> %log%
+			echo [%date%_%time%] Failed to attach the %1 >> %start_log%
 			goto :eof
 		)
 
-		echo [%date%_%time%] Waiting for %1 to attach... retry = %retry% >> %log%
+		echo [%date%_%time%] Waiting for %1 to attach... retry = %retry% >> %start_log%
 
 		timeout /t 3 /NOBREAK > nul
 		goto check_vhd_status
 	)
 
 	del _check_volume
-	echo [%date%_%time%] %1 is mounted. >> %log%
+	echo [%date%_%time%] %1 is mounted. >> %start_log%
 
 	goto :eof

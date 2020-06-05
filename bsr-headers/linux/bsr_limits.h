@@ -273,7 +273,9 @@
 #define BSR_AUTO_PROMOTE_DEF	0 // BSR-465 auto-promote disable
 
 // DW-1249 auto-start by svc
-#define BSR_SVC_AUTOSTART_DEF 1
+#define BSR_SVC_AUTO_UP_DEF 1
+// BSR-593 auto-down by svc
+#define BSR_SVC_AUTO_DOWN_DEF 1
 
 #define BSR_NR_REQUESTS_MIN	4
 // DW-836 

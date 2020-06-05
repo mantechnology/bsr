@@ -1065,7 +1065,9 @@ struct context_def resource_options_ctx = {
 		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
 		// DW-1249 auto-start by svc
-		{ "svc-autostart", BOOLEAN(svc_autostart, SVC_AUTOSTART) },
+		{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },
+		// BSR-593 auto-down by svc
+		{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) },
 		{ } },
 };
 
