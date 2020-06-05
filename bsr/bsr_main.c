@@ -5319,6 +5319,7 @@ int log_consumer_thread(void *unused)
 	atomic_t idx;
 	// BSR-583
 	bool chk_complete = false;
+	LONG_PTR logFileSize = 0;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
@@ -5329,7 +5330,6 @@ int log_consumer_thread(void *unused)
 	WCHAR filePath[MAX_PATH] = { 0 };
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
-	LONG_PTR logFileSize = 0;
 	
 	// BSR-579
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
@@ -5476,7 +5476,7 @@ int log_consumer_thread(void *unused)
 		logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
 
 		// BSR-579 apply file size or log count based on rolling judgment
-		if (idx == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
+		if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
 			bsr_log_rolling_file_clean_up(filePath);
