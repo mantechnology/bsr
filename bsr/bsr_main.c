@@ -5059,7 +5059,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	}
 
 	currentSize = sizeof(FILE_BOTH_DIR_INFORMATION);
-	pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
+	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB');
 	if (!pFileBothDirInfo){
 		bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
 		status = STATUS_NO_MEMORY;
@@ -5083,7 +5084,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		if (STATUS_BUFFER_OVERFLOW == status) {
 			kfree2(pFileBothDirInfo);
 			currentSize = currentSize * 2;
-			pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
+			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
 			if (pFileBothDirInfo == NULL) {
 				bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
 				status = STATUS_NO_MEMORY;
@@ -5115,13 +5117,15 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
 				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
 				struct log_rolling_file_list *r;
-				r = ExAllocatePool(PagedPool, sizeof(struct log_rolling_file_list));
+				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '00RB');
 				if (!r) {
 					bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
-				r->fileName = ExAllocatePool(PagedPool, flength);
+				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '00RB');
 				if (!r) {
 					bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", flength);
 					status = STATUS_NO_MEMORY;
@@ -5228,7 +5232,8 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile)
 																		timeFields.Second,
 																		timeFields.Milliseconds);
 
-	pRenameInfo = ExAllocatePool(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath));
+	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '00RB');
 
 	pRenameInfo->ReplaceIfExists = false;
 	pRenameInfo->RootDirectory = NULL;
