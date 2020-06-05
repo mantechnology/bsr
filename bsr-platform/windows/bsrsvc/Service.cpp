@@ -100,7 +100,8 @@ VOID WriteLog(wchar_t* pMsg)
 
 // DW-1505 Return the oldest filename if the number of files 
 // with search names is NUMOFLOGS or greater  
-#define NUMOFLOGS 10
+// BSR-579
+#define NUMOFLOGS 3
 TCHAR* GetOldestFileName(TCHAR* FileAllPath)
 {
 	HANDLE hFind;

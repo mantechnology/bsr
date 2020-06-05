@@ -360,6 +360,41 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 
+// BSR-579
+NTSTATUS
+IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG inlen;
+	ULONG log_file_max_count = LOG_FILE_COUNT_DEFAULT;
+	NTSTATUS status;
+
+	// DW-2041
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(ULONG)) {
+		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(NO_OBJECT, "buffer too small\n");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		log_file_max_count = *(ULONG*)Irp->AssociatedIrp.SystemBuffer;
+
+		status = SaveCurrentValue(LOG_FILE_MAX_REG_VALUE_NAME, log_file_max_count);
+		bsr_info(NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
+		atomic_set(&g_log_file_max_count, log_file_max_count);
+
+		if (status != STATUS_SUCCESS) {
+			return STATUS_UNSUCCESSFUL;
+		}
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {

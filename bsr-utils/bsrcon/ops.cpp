@@ -1425,6 +1425,61 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	return retVal;
 }
 
+// BSR-579
+DWORD MVOL_SetLogFileMaxCount(ULONG limit)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+	BOOL        ret = FALSE;
+#else // _LIN
+	// BSR-579 TODO
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+
+
+	if (limit <= 0 ||limit > 1000)
+	{
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, limit);
+		return ERROR_INVALID_PARAMETER;
+	}
+
+
+	// 1. Open MVOL_DEVICE
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	// BSR-579 TODO
+#endif
+
+	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit, sizeof(ULONG), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+	// BSR-579 TODO
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	// 3. CloseHandle MVOL_DEVICE
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	// BSR-579 TODO
+#endif
+	return retVal;
+}
 
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
 {
