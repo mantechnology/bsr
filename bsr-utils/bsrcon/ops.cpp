@@ -818,9 +818,9 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie)
 
 #ifdef _DEBUG_OOS
 // DW-1153
-PVOID g_pBsrBaseAddr;		// base address of loaded bsr.sys
-ULONG g_ulBsrImageSize;		// image size of loaded bsr.sys
-DWORD64 g_ModuleBase;			// base address of loaded bsr.pdb
+PVOID g_pBsrBaseAddr;		// base address of loaded bsrvflt.sys
+ULONG g_ulBsrImageSize;		// image size of loaded bsrvflt.sys
+DWORD64 g_ModuleBase;			// base address of loaded bsrvflt.pdb
 
 // get base address and image size of loaded bsr.sys
 BOOLEAN queryBsrBase(VOID)
@@ -1029,7 +1029,7 @@ BOOLEAN InitOosTrace()
 			break;			
 		}
 
-		_tprintf(_T("bsr.sys(%p), imageSize(%x)\n"), g_pBsrBaseAddr, g_ulBsrImageSize);
+		_tprintf(_T("bsrvflt.sys(%p), imageSize(%x)\n"), g_pBsrBaseAddr, g_ulBsrImageSize);
 
 		DWORD Options = 0;
 
