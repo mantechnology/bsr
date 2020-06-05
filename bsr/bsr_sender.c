@@ -2282,22 +2282,22 @@ void bsr_ov_out_of_sync_found(struct bsr_peer_device *peer_device, sector_t sect
 }
 
 void verify_progress(struct bsr_peer_device *peer_device,
-        const sector_t sector, const unsigned int size)
+        sector_t sector, int size)
 {
-    bool stop_sector_reached =
-        (peer_device->repl_state[NOW] == L_VERIFY_S) &&
-        verify_can_do_stop_sector(peer_device) &&
-        (sector + (size>>9)) >= peer_device->ov_stop_sector;
+	bool stop_sector_reached =
+		(peer_device->repl_state[NOW] == L_VERIFY_S) &&
+		verify_can_do_stop_sector(peer_device) &&
+		(sector + (size>>9)) >= peer_device->ov_stop_sector;
 
 	// BSR-119
 	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x1ff) == 0)
-        bsr_advance_rs_marks(peer_device, peer_device->ov_left);
-
-    if (peer_device->ov_left == 0 || stop_sector_reached) {
-        bsr_peer_device_post_work(peer_device, RS_DONE);
+		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
+		
+	if (peer_device->ov_left == 0 || stop_sector_reached) {
+		bsr_peer_device_post_work(peer_device, RS_DONE);
 	}
 }
 
