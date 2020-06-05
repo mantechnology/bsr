@@ -259,7 +259,7 @@ int main(int argc, char* argv [])
 	char	SetMinLogLv = 0;
 	char	SetLogFileMaxCount = 0;
 	LOGGING_MIN_LV lml = { 0, };
-	int limit = 0;
+	int LogFileCount = 0;
 
 #ifdef _WIN
 
@@ -389,7 +389,7 @@ int main(int argc, char* argv [])
 		else if (strcmp(argv[argIndex], "/maxlogfile_cnt") == 0) {
 			SetLogFileMaxCount++;
 			argIndex++;
-			limit = atoi(argv[argIndex]);
+			LogFileCount = atoi(argv[argIndex]);
 		}
 		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
 			GetLogLv++;
@@ -540,7 +540,7 @@ int main(int argc, char* argv [])
 	
 	// BSR-579
 	if (SetLogFileMaxCount) {
-		res = MVOL_SetLogFileMaxCount(limit);
+		res = MVOL_SetLogFileMaxCount(LogFileCount);
 	}
 
 	// DW-1921
@@ -559,7 +559,7 @@ int main(int argc, char* argv [])
 			if (GetLogFileMaxCount(&log_max_count))
 				printf("log file max count : %d\n", log_max_count);
 			else
-				printf("Failed to get log rollong limit.\n");
+				printf("Failed to get log file max count\n");
 		}
 		else
 			printf("Failed to get log level.\n");
