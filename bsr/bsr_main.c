@@ -5291,6 +5291,24 @@ void wait_for_add_device(WCHAR *path)
 
 // BSR-578 threads writing logs to a file
 #ifdef _WIN
+LONG_PTR get_file_size(HANDLE hFile)
+{
+	NTSTATUS status;
+	IO_STATUS_BLOCK iosb;
+	FILE_STANDARD_INFORMATION fileBothDirInfo;
+
+	status = ZwQueryInformationFile(hFile,
+									&iosb,
+									&fileBothDirInfo,
+									sizeof(fileBothDirInfo),
+									FileStandardInformation);
+
+	if (NT_SUCCESS(status))
+		return fileBothDirInfo.EndOfFile.QuadPart;
+
+	return 0;
+}
+
 void log_consumer_thread(PVOID param) 
 #else // _LIN
 int log_consumer_thread(void *unused) 
@@ -5311,6 +5329,7 @@ int log_consumer_thread(void *unused)
 	WCHAR filePath[MAX_PATH] = { 0 };
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
+	LONG_PTR logFileSize = 0;
 	
 	// BSR-579
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
@@ -5393,6 +5412,12 @@ int log_consumer_thread(void *unused)
 		return 0;
 	}
 #endif
+
+#ifdef _WIN
+	logFileSize = get_file_size(hFile);
+#else // _LIN
+	// BSR-579 TODO get current file size
+#endif
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
 	atomic_set(&idx, 0);
@@ -5448,12 +5473,16 @@ int log_consumer_thread(void *unused)
 			break;
 		}
 #endif
-		// BSR-579
-		if (idx == (LOGBUF_MAXCNT - 1)) {
+		logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
+
+		// BSR-579 apply file size or log count based on rolling judgment
+		if (idx == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
 			bsr_log_rolling_file_clean_up(filePath);
 
+			// BSR-579 if the log file is larger than 50M, do file rolling.
+			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
 			if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile))) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
@@ -5481,6 +5510,7 @@ int log_consumer_thread(void *unused)
 #else // _LIN
 			// BSR-579 TODO rolling and clean up
 #endif
+			logFileSize = 0;
 		}
 
 		idx_ring_dispose(&gLogBuf.h, buffer);
