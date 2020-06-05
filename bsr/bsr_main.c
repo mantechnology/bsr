@@ -5023,6 +5023,11 @@ void bsr_put_connection(struct bsr_connection *connection)
 }
 
 #ifdef _WIN
+struct log_rolling_file_list {
+	struct list_head list;
+	WCHAR *fileName;
+};
+
 // BSR-579 deletes files when the number of rolling files exceeds a specified number
 NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 {
@@ -5035,7 +5040,9 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	FILE_BOTH_DIR_INFORMATION *pFileBothDirInfo = NULL;
 	bool is_start = true;
 	int log_file_max_count = 0;
-	int running_status = BSR_LOG_FILE_COUNT;
+	struct log_rolling_file_list rlist, *t, *tmp;
+
+	INIT_LIST_HEAD(&rlist.list);
 
 	RtlInitUnicodeString(&usfilePath, filePath);
 	InitializeObjectAttributes(&obAttribute, &usfilePath, OBJ_CASE_INSENSITIVE, 0, 0);
@@ -5055,8 +5062,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
 	if (!pFileBothDirInfo){
 		bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
-		ZwClose(hFindFile);
-		return STATUS_NO_MEMORY;
+		status = STATUS_NO_MEMORY;
+		goto out;
 	}
 
 	while (TRUE) {
@@ -5078,30 +5085,21 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			currentSize = currentSize * 2;
 			pFileBothDirInfo = ExAllocatePool(PagedPool, currentSize);
 			if (pFileBothDirInfo == NULL) {
-				ZwClose(hFindFile);
 				bsr_err(NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
-				return STATUS_NO_MEMORY;
+				status = STATUS_NO_MEMORY;
+				goto out;
 			}
 			continue;
 		}
 		else if (STATUS_NO_MORE_FILES == status)
 		{
-			if (running_status == BSR_LOG_FILE_COUNT) {
-				running_status = BSR_LOG_FILE_DELETE;
-				is_start = true;
-				continue;
-			}
-
-			kfree2(pFileBothDirInfo);
-			ZwClose(hFindFile);
-			return STATUS_SUCCESS;
+			status = STATUS_SUCCESS;
+			break;
 		}
 		else if (!NT_SUCCESS(status))
 		{
 			bsr_err(NO_OBJECT, "failed to query (%x)\n", status);
-			kfree2(pFileBothDirInfo);
-			ZwClose(hFindFile);
-			break;
+			goto out2;
 		}
 
 		if (is_start)
@@ -5109,65 +5107,97 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 
 		while (TRUE)
 		{
-			WCHAR* filName = ExAllocatePool(PagedPool, pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
+			WCHAR fileName[MAX_PATH];
 
-			if (!filName) {
-				bsr_err(NO_OBJECT, "failed to allocation file anme (%d)\n", pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
-				kfree2(pFileBothDirInfo);
-				ZwClose(hFindFile);
-				return STATUS_NO_MEMORY;
-			}
-			memset(filName, 0, pFileBothDirInfo->FileNameLength + sizeof(WCHAR));
-			memcpy(filName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
+			memset(fileName, 0, sizeof(fileName));
+			memcpy(fileName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
 
-			if (wcsstr(filName, BSR_LOG_ROLLING_FILE_NAME)) {
-				if (running_status == BSR_LOG_FILE_COUNT) {
-					log_file_max_count = log_file_max_count + 1;
+			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
+				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
+				struct log_rolling_file_list *r;
+				r = ExAllocatePool(PagedPool, sizeof(struct log_rolling_file_list));
+				if (!r) {
+					bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+					status = STATUS_NO_MEMORY;
+					goto out;
 				}
-				else if (running_status == BSR_LOG_FILE_DELETE) {
-					if (log_file_max_count >= atomic_read(&g_log_file_max_count)) {
-						HANDLE hFile;
-						WCHAR fileFullPath[255];
-						UNICODE_STRING usFilePullPath;
-						char buf[1] = { 0x01 };
+				r->fileName = ExAllocatePool(PagedPool, flength);
+				if (!r) {
+					bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", flength);
+					status = STATUS_NO_MEMORY;
+					goto out;
+				}
+				memset(r->fileName, 0, flength);
+				memcpy(r->fileName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
 
-						memset(fileFullPath, 0, sizeof(fileFullPath));
+				bool is_add = false;
 
-						_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, filName);
-
-						RtlInitUnicodeString(&usFilePullPath, fileFullPath);
-						InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
-
-						status = ZwOpenFile(&hFile,
-							DELETE,
-							&obAttribute,
-							&ioStatus,
-							FILE_SHARE_VALID_FLAGS,
-							FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_NON_DIRECTORY_FILE);
-
-						if (!NT_SUCCESS(status)) {
-							bsr_err(NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
-							continue;
-						}
-
-						status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
-						if (!NT_SUCCESS(status)) {
-							bsr_err(NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
-						}
-
-						ZwClose(hFile);
-						log_file_max_count = log_file_max_count - 1;
+				list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+					if (wcscmp(t->fileName, r->fileName) > 0) {
+						list_add(&r->list, &t->list);
+						is_add = true;
+						break;
 					}
 				}
-			}
 
-			kfree2(filName);
+				if (is_add == false)
+					list_add_tail(&r->list, &rlist.list);
+
+				log_file_max_count = log_file_max_count + 1;
+			}
 
 			if (pFileBothDirInfo->NextEntryOffset == 0)
 				break;
 
 			pFileBothDirInfo += pFileBothDirInfo->NextEntryOffset;
 		}
+	}
+
+	if (log_file_max_count >= atomic_read(&g_log_file_max_count)) {
+		HANDLE hFile;
+		UNICODE_STRING usFilePullPath;
+		WCHAR fileFullPath[MAX_PATH];
+		char buf[1] = { 0x01 };
+
+		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, t->fileName);
+
+			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
+			InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
+
+			status = ZwOpenFile(&hFile,
+				DELETE,
+				&obAttribute,
+				&ioStatus,
+				FILE_SHARE_VALID_FLAGS,
+				FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_NON_DIRECTORY_FILE);
+
+			if (!NT_SUCCESS(status)) {
+				bsr_err(NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
+				continue;
+			}
+
+			status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
+			if (!NT_SUCCESS(status)) {
+				bsr_err(NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
+			}
+			ZwClose(hFile);
+
+			log_file_max_count = log_file_max_count - 1;
+			if (log_file_max_count < atomic_read(&g_log_file_max_count))
+				break;
+		}
+	}
+out:
+	ZwClose(hFindFile);
+out2:
+	if (pFileBothDirInfo)
+		kfree2(pFileBothDirInfo);
+
+	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+		kfree2(t->fileName);
+		list_del(&t->list);
+		kfree2(t);
 	}
 
 	return status;
