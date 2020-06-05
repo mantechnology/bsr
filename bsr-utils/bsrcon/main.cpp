@@ -156,7 +156,7 @@ DWORD DeleteVolumeReg(TCHAR letter)
 #endif
 
 // BSR-579
-BOOLEAN GetLogFileMaxCount(int *rolling_litmit)
+BOOLEAN GetLogFileMaxCount(int *max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD log_file_max_count = 0;
@@ -180,7 +180,7 @@ BOOLEAN GetLogFileMaxCount(int *rolling_litmit)
 	// BSR-579 TODO get log_rlooing_limit
 #endif
 
-	*rolling_litmit = log_file_max_count;
+	*max = log_file_max_count;
 
 	return true;
 }

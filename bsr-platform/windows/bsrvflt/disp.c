@@ -69,6 +69,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     UNICODE_STRING      		nameUnicode, linkUnicode;
     ULONG				i;
 
+	// BSR-579 change location because it is used by log_consumer_thread()
 	KeInitializeMutex(&mvolMutex, 0);
 	init_logging();
 	// init logging system first
