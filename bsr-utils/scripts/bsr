@@ -164,8 +164,8 @@ case "$1" in
 	# _LIN_LOOP_META_SUPPORT
 	RES_LIST=""
 	for RES in `$BSRADM sh-resources-list`; do
-		# BSR-592 apply svc-autostart to linux
-		if ! $BSRADM sh-resource-option -n svc_autostart $RES | grep -w no &> /dev/null; then
+		# BSR-592 apply svc-auto-up to linux
+		if ! $BSRADM sh-resource-option -n svc_auto_up $RES | grep -w no &> /dev/null; then
 			
 			MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
 			if [ -n "$MD_IDX" ]; then
@@ -175,6 +175,8 @@ case "$1" in
 				fi
 			fi
 			RES_LIST="${RES_LIST} ${RES}"
+		else
+			echo skip adjust $RES
 		fi
 		
 	done
@@ -242,18 +244,22 @@ case "$1" in
 		# the current config file, or in case the current config file
 		# does not parse for some reason.
 		# BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
-		for d in /dev/bsr* ; do
-			[ -L "$d" ] && continue
-			[ -b "$d" ] || continue
-			M=$(umount "$d" 2>&1)
-			case $M in
-			*" not mounted") :;;
-			*) echo "$M" >&2 ;;
-			esac
-		done
-		
-		for res in $($BSRADM --stacked sh-resources) $($BSRADM sh-resources); do
-			$BSRSETUP down "$res"
+		for res in $($BSRADM sh-resources); do
+			# BSR-593 auto-down by svc
+			if ! $BSRADM sh-resource-option -n svc_auto_down $res | grep -w no &> /dev/null; then
+				for d in `$BSRADM sh-dev $res`; do
+					[ -L "$d" ] && continue
+					[ -b "$d" ] || continue
+					M=$(umount "$d" 2>&1)
+					case $M in
+					*" not mounted") :;;
+					*) echo "$M" >&2 ;;
+					esac
+				done
+				$BSRSETUP down "$res"
+			else
+				echo skip down $res
+			fi
 		done
 		_udev_settle &> /dev/null
 		if [ -d /sys/module/bsr/holders ]; then
