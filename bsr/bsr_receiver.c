@@ -4433,7 +4433,7 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 
 // BSR-595
 static void verify_skipped_block(struct bsr_peer_device *peer_device,
-        const sector_t sector, const unsigned int size)
+        sector_t sector, int size)
 {
     peer_device->ov_skipped += (size >> BM_BLOCK_SHIFT);
     if (peer_device->ov_last_skipped_start + peer_device->ov_last_skipped_size == sector) {
