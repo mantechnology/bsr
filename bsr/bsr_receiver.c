@@ -4431,6 +4431,21 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 	return false;
 }
 
+// BSR-595
+static void verify_skipped_block(struct bsr_peer_device *peer_device,
+        const sector_t sector, const unsigned int size)
+{
+    peer_device->ov_skipped += (size >> BM_BLOCK_SHIFT);
+    if (peer_device->ov_last_skipped_start + peer_device->ov_last_skipped_size == sector) {
+        peer_device->ov_last_skipped_size += size>>9;
+    } else {
+        ov_skipped_print(peer_device);
+        peer_device->ov_last_skipped_start = sector;
+        peer_device->ov_last_skipped_size = size>>9;
+    }    
+    verify_progress(peer_device, sector, size);
+}
+
 static int receive_DataRequest(struct bsr_connection *connection, struct packet_info *pi)
 {
 	struct bsr_peer_device *peer_device;
@@ -4603,6 +4618,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 				peer_device->ov_left = (ULONG_PTR)peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
 			else
 				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
+			peer_device->ov_skipped = 0;
 			peer_device->rs_total = peer_device->ov_left;
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
@@ -4666,7 +4682,8 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		// BSR-590 replace bsr_rs_begin_io with bsr_try_rs_begin_io due to wait problem with al.
 		if (peer_device->repl_state[NOW] == L_VERIFY_T) {
 			if (bsr_try_rs_begin_io(peer_device, sector, false)) {
-				err = -EIO;
+				verify_skipped_block(peer_device, sector, size);
+				err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
 				goto fail3;
 			}
 		}
@@ -10898,10 +10915,11 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			
 			break;
 		case P_RS_CANCEL:
-			mutex_lock(&device->bm_resync_fo_mutex);
 			// DW-1807 Ignore P_RS_CANCEL if peer_device is not in resync.
 			// DW-1846 receive data when synchronization is in progress.
 			if (is_sync_target(peer_device)) {
+				mutex_lock(&device->bm_resync_fo_mutex);
+
 				BSR_VERIFY_DATA("receive sync request cancellation\n");
 
 				bit = (ULONG_PTR)BM_SECT_TO_BIT(sector);
@@ -10910,8 +10928,14 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 
 				atomic_add(size >> 9, &peer_device->rs_sect_in);
 				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
+
+				mutex_unlock(&device->bm_resync_fo_mutex);
 			}
-			mutex_unlock(&device->bm_resync_fo_mutex);
+			else if(peer_device->repl_state[NOW] == L_VERIFY_S) {
+				BSR_VERIFY_DATA("receive verify request cancellation\n");
+
+				verify_skipped_block(peer_device, sector, size);
+			}
 			break;
 		default:
 			BUG();
@@ -10965,25 +10989,8 @@ static int got_OVResult(struct bsr_connection *connection, struct packet_info *p
 	bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
 	dec_rs_pending(peer_device);
 
-	// BSR-119
-	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
+	verify_progress(peer_device, sector, size);
 
-	/* let's advance progress step marks only for every other megabyte */
-	if ((peer_device->ov_left & 0x200) == 0x200)
-		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
-
-	if (peer_device->ov_left == 0) {
-        struct bsr_peer_device_work *dw = kmalloc(sizeof(*dw), GFP_NOIO, 'F2DW');
-		if (dw) {
-			dw->w.cb = w_ov_finished;
-			dw->peer_device = peer_device;
-			bsr_queue_work(&connection->sender_work, &dw->w);
-		} else {
-			bsr_err(device, "kmalloc(dw) failed.");
-			ov_out_of_sync_print(peer_device);
-			bsr_resync_finished(peer_device, D_MASK);
-		}
-	}
 	put_ldev(device);
 	return 0;
 }
