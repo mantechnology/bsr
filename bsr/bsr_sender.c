@@ -1783,9 +1783,14 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		goto out_unlock;
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 
+	// BSR-595
+	{
+	char tmp[sizeof(" but 01234567890123456789 4k blocks skipped")] = "";
+    if (verify_done && peer_device->ov_skipped)
+        snprintf(tmp, sizeof(tmp), " but %lu %dk blocks skipped", peer_device->ov_skipped, Bit2KB(1));
 #ifdef SPLIT_REQUEST_RESYNC
-	bsr_info(peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
-		verify_done ? "Online verify" : "Resync",
+	bsr_info(peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
+		verify_done ? "Online verify" : "Resync", tmp,
 		(unsigned long long)dt + peer_device->rs_paused, 
 		(unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt, 
 		(unsigned long long)device->h_insync_bb, 
@@ -1794,6 +1799,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	bsr_info(peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec)\n",
 		verify_done ? "Online verify" : "Resync", (unsigned long long)dt + peer_device->rs_paused, (unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt);
 #endif
+	}
 	n_oos = bsr_bm_total_weight(peer_device);
 
 	if (repl_state[NOW] == L_VERIFY_S || repl_state[NOW] == L_VERIFY_T) {
@@ -2275,6 +2281,26 @@ void bsr_ov_out_of_sync_found(struct bsr_peer_device *peer_device, sector_t sect
 	bsr_set_out_of_sync(peer_device, sector, size);
 }
 
+void verify_progress(struct bsr_peer_device *peer_device,
+        sector_t sector, int size)
+{
+	bool stop_sector_reached =
+		(peer_device->repl_state[NOW] == L_VERIFY_S) &&
+		verify_can_do_stop_sector(peer_device) &&
+		(sector + (size>>9)) >= peer_device->ov_stop_sector;
+
+	// BSR-119
+	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
+
+	/* let's advance progress step marks only for every other megabyte */
+	if ((peer_device->ov_left & 0x1ff) == 0)
+		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
+		
+	if (peer_device->ov_left == 0 || stop_sector_reached) {
+		bsr_peer_device_post_work(peer_device, RS_DONE);
+	}
+}
+
 int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 {
 	struct bsr_peer_request *peer_req = container_of(w, struct bsr_peer_request, w);
@@ -2286,7 +2312,6 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	unsigned int size = peer_req->i.size;
 	int digest_size;
 	int err, eq = 0;
-	bool stop_sector_reached = false;
 
 	if (unlikely(cancel)) {
 		bsr_free_peer_req(peer_req);
@@ -2330,20 +2355,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	dec_unacked(peer_device);
 
-	// BSR-119
-	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
-
-	/* let's advance progress step marks only for every other megabyte */
-	if ((peer_device->ov_left & 0x200) == 0x200)
-		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
-
-	stop_sector_reached = verify_can_do_stop_sector(peer_device) &&
-		(sector + (size>>9)) >= peer_device->ov_stop_sector;
-
-	if (peer_device->ov_left == 0 || stop_sector_reached) {
-		ov_out_of_sync_print(peer_device);
-		bsr_resync_finished(peer_device, D_MASK);
-	}
+	verify_progress(peer_device, sector, size);
 
 	return err;
 }
@@ -3107,7 +3119,14 @@ static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resy
 
 	bsr_bm_write_lazy(device, 0);
 
-	if (resync_done && is_sync_state(peer_device, NOW))
+	if (resync_done) {
+		if (is_verify_state(peer_device, NOW)) {
+			ov_out_of_sync_print(peer_device);
+			ov_skipped_print(peer_device);
+		} else 
+			resync_done = is_sync_state(peer_device, NOW);
+	}
+	if (resync_done)
 		bsr_resync_finished(peer_device, D_MASK);
 
 	/* update timestamp, in case it took a while to write out stuff */

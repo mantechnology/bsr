@@ -1829,6 +1829,10 @@ struct bsr_peer_device {
 	sector_t ov_last_oos_start;
 	/* size of out-of-sync range in sectors. */
 	sector_t ov_last_oos_size;
+	/* Start sector of skipped range (to merge printk reporting). */
+	sector_t ov_last_skipped_start;
+	/* size of skipped range in sectors. */
+	sector_t ov_last_skipped_size;
 	int c_sync_rate; /* current resync rate after syncer throttle magic */
 	struct fifo_buffer *rs_plan_s; /* correction values of resync planer (RCU, connection->conn_update) */
 	atomic_t rs_sect_in; /* for incoming resync data rate, SyncTarget */
@@ -1837,6 +1841,7 @@ struct bsr_peer_device {
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
 	ULONG_PTR ov_left; /* in bits */
+	ULONG_PTR ov_skipped; /* in bits */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
 
 	u64 current_uuid;
@@ -2649,6 +2654,9 @@ extern bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bs
 extern void resume_next_sg(struct bsr_device *device);
 extern void suspend_other_sg(struct bsr_device *device);
 extern int bsr_resync_finished(struct bsr_peer_device *, enum bsr_disk_state);
+// BSR-595
+extern void verify_progress(struct bsr_peer_device *peer_device,
+        sector_t sector, int size);
 /* maybe rather bsr_main.c ? */
 extern void *bsr_md_get_buffer(struct bsr_device *device, const char *intent);
 extern void bsr_md_put_buffer(struct bsr_device *device);
@@ -2676,6 +2684,15 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
 	peer_device->ov_last_oos_size = 0;
 }
 
+static inline void ov_skipped_print(struct bsr_peer_device *peer_device)
+{
+    if (peer_device->ov_last_skipped_size) {
+        bsr_info(peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+             (unsigned long long)peer_device->ov_last_skipped_start,
+             (unsigned long long)peer_device->ov_last_skipped_size);
+    }
+    peer_device->ov_last_skipped_size = 0;
+}
 
 extern void bsr_csum_bio(struct crypto_ahash *, struct bsr_request *, void *);
 
@@ -3503,6 +3520,13 @@ static inline bool is_sync_state(struct bsr_peer_device *peer_device,
 {
 	return is_sync_source_state(peer_device, which) ||
 		is_sync_target_state(peer_device, which);
+}
+
+static inline bool is_verify_state(struct bsr_peer_device *peer_device,
+				enum which_state which)
+{
+	enum bsr_repl_state repl_state = peer_device->repl_state[which];
+	return repl_state == L_VERIFY_S || repl_state == L_VERIFY_T;
 }
 
 static inline bool is_sync_source(struct bsr_peer_device *peer_device)
