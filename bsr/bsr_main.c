@@ -5277,13 +5277,12 @@ void wait_for_add_device(WCHAR *path)
 					// BSR-600 compare first entry
 					do {
 						WCHAR letter[32] = { 0, };
-						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length * sizeof(WCHAR));
+						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length);
 						if (wcsstr(path, letter)) {
 							wait_device_add = false;
 							break;
 						}
-						v = v->Next;
-					} while (v->Next != NULL);
+					} while ((v = v->Next) != NULL);
 				}
 			}
 		}
