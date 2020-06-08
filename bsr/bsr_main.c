@@ -5297,7 +5297,7 @@ void wait_for_add_device(WCHAR *path)
 
 // BSR-578 threads writing logs to a file
 #ifdef _WIN
-LONG_PTR get_file_size(HANDLE hFile)
+LONGLONG get_file_size(HANDLE hFile)
 {
 	NTSTATUS status;
 	IO_STATUS_BLOCK iosb;
@@ -5325,7 +5325,7 @@ int log_consumer_thread(void *unused)
 	atomic_t idx;
 	// BSR-583
 	bool chk_complete = false;
-	LONG_PTR logFileSize = 0;
+	LONGLONG logFileSize = 0;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
