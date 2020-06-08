@@ -5223,10 +5223,10 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile)
 
 	memset(fileFullPath, 0, sizeof(fileFullPath));
 
-	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%02d%02d%04d_%02d%02d%02d%03d", BSR_LOG_ROLLING_FILE_NAME,
+	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_ROLLING_FILE_NAME,
+																		timeFields.Year,
 																		timeFields.Month,
 																		timeFields.Day,
-																		timeFields.Year,
 																		timeFields.Hour,
 																		timeFields.Minute,
 																		timeFields.Second,
