@@ -5268,15 +5268,16 @@ void wait_for_add_device(WCHAR *path)
 			if (r != NULL) {
 				PVOLUME_EXTENSION v = r->Head;
 				if (v != NULL) {
-					while (v->Next != NULL) {
+					// BSR-600 compare first entry
+					do {
 						WCHAR letter[32] = { 0, };
 						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length * sizeof(WCHAR));
-						if (wcsstr(path, v->MountPoint.Buffer)) {
+						if (wcsstr(path, letter)) {
 							wait_device_add = false;
 							break;
 						}
 						v = v->Next;
-					}
+					} while (v->Next != NULL);
 				}
 			}
 		}
@@ -5331,8 +5332,9 @@ int log_consumer_thread(void *unused)
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
 	
+	// BSR-600 if the LOG_FILE_MAX_REG_VALUE_NAME value is not set at all, the key value does not exist and is a normal operation.
 	// BSR-579
-	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
+	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\bsr");
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
