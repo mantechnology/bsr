@@ -5084,6 +5084,12 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		if (STATUS_BUFFER_OVERFLOW == status) {
 			kfree2(pFileBothDirInfo);
 			currentSize = currentSize * 2;
+			// BSR-600 paths is long (extension path is not supported)
+			if (MAX_PATH < (currentSize / 2)) {
+				bsr_err(NO_OBJECT, "failed to long path (%u)\n", (currentSize / 2));
+				status = STATUS_OBJECT_PATH_INVALID;
+				goto out;
+			}
 			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
 			if (pFileBothDirInfo == NULL) {
@@ -5223,10 +5229,10 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile)
 
 	memset(fileFullPath, 0, sizeof(fileFullPath));
 
-	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%02d%02d%04d_%02d%02d%02d%03d", BSR_LOG_ROLLING_FILE_NAME,
+	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_ROLLING_FILE_NAME,
+																		timeFields.Year,
 																		timeFields.Month,
 																		timeFields.Day,
-																		timeFields.Year,
 																		timeFields.Hour,
 																		timeFields.Minute,
 																		timeFields.Second,
@@ -5268,15 +5274,15 @@ void wait_for_add_device(WCHAR *path)
 			if (r != NULL) {
 				PVOLUME_EXTENSION v = r->Head;
 				if (v != NULL) {
-					while (v->Next != NULL) {
+					// BSR-600 compare first entry
+					do {
 						WCHAR letter[32] = { 0, };
-						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length * sizeof(WCHAR));
-						if (wcsstr(path, v->MountPoint.Buffer)) {
+						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length);
+						if (wcsstr(path, letter)) {
 							wait_device_add = false;
 							break;
 						}
-						v = v->Next;
-					}
+					} while ((v = v->Next) != NULL);
 				}
 			}
 		}
@@ -5291,7 +5297,7 @@ void wait_for_add_device(WCHAR *path)
 
 // BSR-578 threads writing logs to a file
 #ifdef _WIN
-LONG_PTR get_file_size(HANDLE hFile)
+LONGLONG get_file_size(HANDLE hFile)
 {
 	NTSTATUS status;
 	IO_STATUS_BLOCK iosb;
@@ -5319,7 +5325,7 @@ int log_consumer_thread(void *unused)
 	atomic_t idx;
 	// BSR-583
 	bool chk_complete = false;
-	LONG_PTR logFileSize = 0;
+	LONGLONG logFileSize = 0;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
@@ -5331,8 +5337,9 @@ int log_consumer_thread(void *unused)
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
 	
+	// BSR-600 if the LOG_FILE_MAX_REG_VALUE_NAME value is not set at all, the key value does not exist and is a normal operation.
 	// BSR-579
-	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Service\\bsr");
+	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\bsr");
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
@@ -5475,11 +5482,17 @@ int log_consumer_thread(void *unused)
 		if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
-			bsr_log_rolling_file_clean_up(filePath);
+			status = bsr_log_rolling_file_clean_up(filePath);
+			if (!NT_SUCCESS(status)) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				return;
+			}
 
 			// BSR-579 if the log file is larger than 50M, do file rolling.
 			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
-			if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile))) {
+			status = bsr_log_file_reanme_and_close(hFile);
+			if (!NT_SUCCESS(status)) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
 				bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
