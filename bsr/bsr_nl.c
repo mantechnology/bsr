@@ -5091,6 +5091,21 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->adm_mutex);
 
+	if (info->attrs[BSR_NLA_INVALIDATE_PEER_PARMS]) {
+		struct invalidate_peer_parms inv = { 0, };
+		int err;
+
+		err = invalidate_peer_parms_from_attrs(&inv, info);
+		if (err) {
+			retcode = ERR_MANDATORY_TAG;
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			goto out_no_resume;
+		}
+
+		if(inv.use_current_oos)
+			set_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
+	}
+
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
@@ -5142,7 +5157,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			retcode = SS_SUCCESS;
 #endif
 	}	
-	
+out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
 	put_ldev(device);
 out:

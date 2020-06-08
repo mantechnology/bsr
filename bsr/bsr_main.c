@@ -6870,6 +6870,12 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	// DW-1293 queued bitmap work increases work count which may prevents io that we need to mount volume.
 	bool dec_bm_work_n = false;
 
+	// BSR-52 for sync only current oos after online verify.
+	if (test_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags)) {
+		clear_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
+		return nRet;
+	}
+
 	if (atomic_read(&device->pending_bitmap_work.n)) {
 		dec_bm_work_n = true;
 		atomic_dec(&device->pending_bitmap_work.n);

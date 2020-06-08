@@ -1140,6 +1140,9 @@ enum {
 
 	// BSR-118
 	OV_FAST_BM_SET_PENDING,
+
+	// BSR-52
+	USE_CURRENT_OOS_FOR_SYNC,
 };
 
 /* We could make these currently hardcoded constants configurable

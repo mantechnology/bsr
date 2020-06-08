@@ -1107,6 +1107,14 @@ struct context_def invalidate_ctx = {
 		{ } },
 };
 
+struct context_def invalidate_peer_ctx = {
+	NLA_POLICY(invalidate_peer_parms),
+	.nla_type = BSR_NLA_INVALIDATE_PEER_PARMS,
+	.fields = {
+		{ "use-current-oos", FLAG(use_current_oos) },
+		{ } },
+};
+
 struct context_def peer_device_options_ctx = {
 	NLA_POLICY(peer_device_conf),
 	.nla_type = BSR_NLA_PEER_DEVICE_OPTS,
