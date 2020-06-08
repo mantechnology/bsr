@@ -5084,6 +5084,12 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		if (STATUS_BUFFER_OVERFLOW == status) {
 			kfree2(pFileBothDirInfo);
 			currentSize = currentSize * 2;
+			// BSR-600 paths is long (extension path is not supported)
+			if (MAX_PATH < (currentSize / 2)) {
+				bsr_err(NO_OBJECT, "failed to long path (%u)\n", (currentSize / 2));
+				status = STATUS_OBJECT_PATH_INVALID;
+				goto out;
+			}
 			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
 			if (pFileBothDirInfo == NULL) {
@@ -5477,11 +5483,17 @@ int log_consumer_thread(void *unused)
 		if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
-			bsr_log_rolling_file_clean_up(filePath);
+			status = bsr_log_rolling_file_clean_up(filePath);
+			if (!NT_SUCCESS(status)) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				return;
+			}
 
 			// BSR-579 if the log file is larger than 50M, do file rolling.
 			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
-			if (!NT_SUCCESS(bsr_log_file_reanme_and_close(hFile))) {
+			status = bsr_log_file_reanme_and_close(hFile);
+			if (!NT_SUCCESS(status)) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
 				bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
