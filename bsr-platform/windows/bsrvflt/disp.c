@@ -60,6 +60,8 @@ _Dispatch_type_(IRP_MJ_PNP) DRIVER_DISPATCH mvolDispatchPnp;
 NTSTATUS
 mvolRunIrpSynchronous(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
+extern PULONG InitSafeBootMode;
+
 NTSTATUS
 DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 {
@@ -74,6 +76,11 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	init_logging();
 	// init logging system first
 	bsr_logger_init();
+	
+
+	if (*InitSafeBootMode > 0) 
+		bsr_info(NO_OBJECT, "booted to safe mode(%u)\n", *InitSafeBootMode);
+	
 
     bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
 
@@ -269,6 +276,15 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     PVOLUME_EXTENSION   VolumeExtension = NULL;
     ULONG               deviceType = 0;
 	static volatile LONG      IsEngineStart = FALSE;
+
+	// BSR-511 failure handling in safe mode
+	if (*InitSafeBootMode > 0) {
+		//1 :SAFEBOOT_MINIMAL
+		//2 :SAFEBOOT_NETWORK
+		//3 :SAFEBOOT_DSREPAIR
+		bsr_info(NO_OBJECT, "safe boot mode %d\n", *InitSafeBootMode);
+		return STATUS_UNSUCCESSFUL;
+	}
 
     if (FALSE == InterlockedCompareExchange(&IsEngineStart, TRUE, FALSE)) {
         HANDLE		hNetLinkThread = NULL;
