@@ -94,6 +94,6 @@ DiskId1                 = "bsrfsflt Device Installation Disk"
 ;Instances specific information.
 DefaultInstance         = "bsrfsflt Instance"
 Instance1.Name          = "bsrfsflt Instance"
-Instance1.Altitude      = "389090"
+Instance1.Altitude      = "389096" ; BSR-510
 Instance.Altitude       = "_TODO_Change_Altitude_appropriately_"
 Instance1.Flags         = 0x0              ; Allow all attachments
