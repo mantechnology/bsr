@@ -78,10 +78,6 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	bsr_logger_init();
 	
 
-	if (*InitSafeBootMode > 0) 
-		bsr_info(NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
-	
-
     bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
 
     initRegistry(RegistryPath);
@@ -89,16 +85,23 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
         DriverObject->MajorFunction[i] = mvolSendToNextDriver;
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = mvolClose;
-    DriverObject->MajorFunction[IRP_MJ_READ] = mvolRead;
-    DriverObject->MajorFunction[IRP_MJ_WRITE] = mvolWrite;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = mvolDeviceControl;
-    DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = mvolShutdown;
-    DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = mvolFlush;
-    DriverObject->MajorFunction[IRP_MJ_PNP] = mvolDispatchPnp;
-    DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = mvolSystemControl;
-    DriverObject->MajorFunction[IRP_MJ_POWER] = mvolDispatchPower;
+
+	// BSR-511 call mvolSendToNextdriver in safe mode
+	if (*InitSafeBootMode > 0) {
+		bsr_info(NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
+	}
+	else {
+		DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
+		DriverObject->MajorFunction[IRP_MJ_CLOSE] = mvolClose;
+		DriverObject->MajorFunction[IRP_MJ_READ] = mvolRead;
+		DriverObject->MajorFunction[IRP_MJ_WRITE] = mvolWrite;
+		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = mvolDeviceControl;
+		DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = mvolShutdown;
+		DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = mvolFlush;
+		DriverObject->MajorFunction[IRP_MJ_PNP] = mvolDispatchPnp;
+		DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = mvolSystemControl;
+		DriverObject->MajorFunction[IRP_MJ_POWER] = mvolDispatchPower;
+	}
 
     DriverObject->DriverExtension->AddDevice = mvolAddDevice;
     DriverObject->DriverUnload = mvolUnload;
