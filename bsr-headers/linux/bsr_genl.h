@@ -590,3 +590,9 @@ GENL_notification(
 	BSR_IO_ERROR, 49, events,
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_IO_ERROR, BSR_F_REQUIRED))
+
+GENL_op(
+	BSR_ADM_STOP_OV, 50,
+	GENL_doit(bsr_adm_stop_ov),
+	GENL_tla_expected(BSR_NLA_STOP_OV_PARMS, BSR_GENLA_F_MANDATORY)
+)

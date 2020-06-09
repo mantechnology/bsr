@@ -482,6 +482,8 @@ struct bsr_cmd commands[] = {
 	{"verify", CTX_PEER_DEVICE, BSR_ADM_START_OV, BSR_NLA_START_OV_PARMS, F_CONFIG_CMD,
 	 .ctx = &verify_cmd_ctx,
 	 .summary = "Verify the data on a lower-level device against a peer device." },
+	{"verify-stop", CTX_PEER_DEVICE, BSR_ADM_STOP_OV, NO_PAYLOAD, F_CONFIG_CMD,
+	 .summary = "Stop verify" },
 	{"down", CTX_RESOURCE | CTX_ALL, BSR_ADM_DOWN, NO_PAYLOAD, down_cmd,
 	 .missing_ok = true,
 	 .warn_on_missing = true,
@@ -668,6 +670,7 @@ static const char *error_messages[] = {
 	EM(ERR_SNDBUF_SIZE_TOO_SMALL) = "sndbuf-size must be at least 10M to use send buffer\n",
 	EM(ERR_CANT_CHANGE_SNDBUF_SIZE_WHEN_CONNECTED) = "Cannot change sndbuf-size when connected. Please disconnect first and change the attribute value with adjust command\n",
 	EM(ERR_CANT_CHANGE_SNDBUF_SIZE_WITHOUT_DEL_PEER) = "Cannot change sndbuf-size without del-peer command. Please run the 'del-peer' command first and change the attribute value with adjust command \n",
+	EM(ERR_VERIFY_NOT_RUNNING) = "Since verify is not running, it cannot be stopped.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 

@@ -35,6 +35,7 @@ extern int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_stop_ov(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_disconnect(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info);

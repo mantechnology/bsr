@@ -3544,9 +3544,14 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			/* Verify finished, or reached stop sector.  Peer did not know about
 			 * the stop sector, and we may even have changed the stop sector during
 			 * verify to interrupt/stop early.  Send the new state. */
-			if (repl_state[OLD] == L_VERIFY_S && repl_state[NEW] == L_ESTABLISHED
-			    && verify_can_do_stop_sector(peer_device))
+ 			if ((repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) && 
+				repl_state[NEW] == L_ESTABLISHED && verify_can_do_stop_sector(peer_device)) {
+				if (NULL != peer_device->fast_ov_bitmap) {
+					kfree(peer_device->fast_ov_bitmap);
+					peer_device->fast_ov_bitmap = NULL;
+				}
 				send_new_state_to_all_peer_devices(state_change, n_device);
+			}
 
 			if (disk_state[NEW] == D_DISKLESS &&
 			    cstate[NEW] == C_STANDALONE &&
