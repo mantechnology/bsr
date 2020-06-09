@@ -79,7 +79,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	
 
 	if (*InitSafeBootMode > 0) 
-		bsr_info(NO_OBJECT, "booted to safe mode(%u)\n", *InitSafeBootMode);
+		bsr_info(NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
 	
 
     bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
@@ -282,7 +282,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		//1 :SAFEBOOT_MINIMAL
 		//2 :SAFEBOOT_NETWORK
 		//3 :SAFEBOOT_DSREPAIR
-		bsr_info(NO_OBJECT, "safe boot mode %d\n", *InitSafeBootMode);
+		bsr_info(NO_OBJECT, "safe boot mode %u\n", *InitSafeBootMode);
 		return STATUS_UNSUCCESSFUL;
 	}
 
