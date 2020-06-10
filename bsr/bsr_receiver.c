@@ -8493,7 +8493,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	// BSR-52 stop verify by the peer
 	if((old_peer_state.conn == L_VERIFY_S || old_peer_state.conn == L_VERIFY_T) && 
-		peer_state.conn == L_ESTABLISHED)
+		peer_state.conn == L_ESTABLISHED && peer_device->ov_left)
 		new_repl_state = L_ESTABLISHED;
 
 	/* explicit verify finished notification, stop sector reached. */

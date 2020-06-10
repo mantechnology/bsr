@@ -2350,12 +2350,12 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	else
 		ov_out_of_sync_print(peer_device);
 
+	verify_progress(peer_device, sector, size);
+	
 	err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size,
 			       eq ? ID_IN_SYNC : ID_OUT_OF_SYNC);
 
 	dec_unacked(peer_device);
-
-	verify_progress(peer_device, sector, size);
 
 	return err;
 }
