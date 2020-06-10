@@ -5564,7 +5564,9 @@ void clean_logging(void)
 #endif
 }
 
+#ifdef _WIN
 extern PULONG InitSafeBootMode;
+#endif
 
 void init_logging(void)
 {

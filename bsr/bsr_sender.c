@@ -1520,21 +1520,6 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	return 1;
 }
 
-int w_ov_finished(struct bsr_work *w, int cancel)
-{
-	struct bsr_peer_device_work *dw =
-		container_of(w, struct bsr_peer_device_work, w);
-	struct bsr_peer_device *peer_device = dw->peer_device;
-
-	UNREFERENCED_PARAMETER(cancel);
-
-	kfree(dw);
-	ov_out_of_sync_print(peer_device);
-	bsr_resync_finished(peer_device, D_MASK);
-
-	return 0;
-}
-
 struct resync_finished_work {
 	struct bsr_peer_device_work pdw;
 	enum bsr_disk_state new_peer_disk_state;
@@ -2348,7 +2333,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	if (!eq)
 		bsr_ov_out_of_sync_found(peer_device, sector, size);
 	else
-		ov_out_of_sync_print(peer_device);
+		ov_out_of_sync_print(peer_device, false);
 
 	verify_progress(peer_device, sector, size);
 	
@@ -3121,8 +3106,8 @@ static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resy
 
 	if (resync_done) {
 		if (is_verify_state(peer_device, NOW)) {
-			ov_out_of_sync_print(peer_device);
-			ov_skipped_print(peer_device);
+			ov_out_of_sync_print(peer_device, true);
+			ov_skipped_print(peer_device, true);
 		} else 
 			resync_done = is_sync_state(peer_device, NOW);
 	}
