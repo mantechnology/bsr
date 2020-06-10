@@ -485,6 +485,7 @@ Return Value:
     UNREFERENCED_PARAMETER( Flags );
 }
 
+extern PULONG InitSafeBootMode;
 
 /*************************************************************************
     MiniFilter initialization and unload routines.
@@ -519,6 +520,14 @@ Return Value:
     NTSTATUS status;
 
     UNREFERENCED_PARAMETER( RegistryPath );
+
+	// BSR-511 failure handling in safe mode
+	if (*InitSafeBootMode > 0) {
+		//1 :SAFEBOOT_MINIMAL
+		//2 :SAFEBOOT_NETWORK
+		//3 :SAFEBOOT_DSREPAIR
+		return STATUS_UNSUCCESSFUL;
+	}
 
 	bsrlock_print_log("DriverEntry\n");
 	

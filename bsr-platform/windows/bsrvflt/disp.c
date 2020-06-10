@@ -60,6 +60,8 @@ _Dispatch_type_(IRP_MJ_PNP) DRIVER_DISPATCH mvolDispatchPnp;
 NTSTATUS
 mvolRunIrpSynchronous(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
+extern PULONG InitSafeBootMode;
+
 NTSTATUS
 DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 {
@@ -74,6 +76,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	init_logging();
 	// init logging system first
 	bsr_logger_init();
+	
 
     bsr_debug(NO_OBJECT,"MVF Driver Loading...\n");
 
@@ -82,16 +85,23 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
         DriverObject->MajorFunction[i] = mvolSendToNextDriver;
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = mvolClose;
-    DriverObject->MajorFunction[IRP_MJ_READ] = mvolRead;
-    DriverObject->MajorFunction[IRP_MJ_WRITE] = mvolWrite;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = mvolDeviceControl;
-    DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = mvolShutdown;
-    DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = mvolFlush;
-    DriverObject->MajorFunction[IRP_MJ_PNP] = mvolDispatchPnp;
-    DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = mvolSystemControl;
-    DriverObject->MajorFunction[IRP_MJ_POWER] = mvolDispatchPower;
+
+	// BSR-511 call mvolSendToNextdriver in safe mode
+	if (*InitSafeBootMode > 0) {
+		bsr_info(NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
+	}
+	else {
+		DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
+		DriverObject->MajorFunction[IRP_MJ_CLOSE] = mvolClose;
+		DriverObject->MajorFunction[IRP_MJ_READ] = mvolRead;
+		DriverObject->MajorFunction[IRP_MJ_WRITE] = mvolWrite;
+		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = mvolDeviceControl;
+		DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = mvolShutdown;
+		DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = mvolFlush;
+		DriverObject->MajorFunction[IRP_MJ_PNP] = mvolDispatchPnp;
+		DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = mvolSystemControl;
+		DriverObject->MajorFunction[IRP_MJ_POWER] = mvolDispatchPower;
+	}
 
     DriverObject->DriverExtension->AddDevice = mvolAddDevice;
     DriverObject->DriverUnload = mvolUnload;
@@ -269,6 +279,15 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     PVOLUME_EXTENSION   VolumeExtension = NULL;
     ULONG               deviceType = 0;
 	static volatile LONG      IsEngineStart = FALSE;
+
+	// BSR-511 failure handling in safe mode
+	if (*InitSafeBootMode > 0) {
+		//1 :SAFEBOOT_MINIMAL
+		//2 :SAFEBOOT_NETWORK
+		//3 :SAFEBOOT_DSREPAIR
+		bsr_info(NO_OBJECT, "safe boot mode %u\n", *InitSafeBootMode);
+		return STATUS_UNSUCCESSFUL;
+	}
 
     if (FALSE == InterlockedCompareExchange(&IsEngineStart, TRUE, FALSE)) {
         HANDLE		hNetLinkThread = NULL;

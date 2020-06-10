@@ -5564,6 +5564,8 @@ void clean_logging(void)
 #endif
 }
 
+extern PULONG InitSafeBootMode;
+
 void init_logging(void)
 {
 	// BSR-578 initialize to -1 for output from 0 array
@@ -5579,25 +5581,29 @@ void init_logging(void)
 
 	gLogBuf.h.max_count = LOGBUF_MAXCNT;
 	gLogBuf.h.r_idx.has_consumer = false;
-	g_consumer_state = RUNNING;
 
-	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
-		return;
+	// BSR-511 log consumer does not run in safe mode boot.
+	if (*InitSafeBootMode == 0) {
+		g_consumer_state = RUNNING;
+
+		status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
+		if (!NT_SUCCESS(status)) {
+			DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
+			return;
+		}
+
+		status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
+			&g_consumer_thread, NULL);
+
+		if (!NT_SUCCESS(status)) {
+			DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
+			g_consumer_thread = NULL;
+			return;
+		}
+
+		if (NULL != hThread)
+			ZwClose(hThread);
 	}
-
-	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
-		&g_consumer_thread, NULL);
-
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
-		g_consumer_thread = NULL;
-		return;
-	}
-
-	if (NULL != hThread)
-		ZwClose(hThread);
 #else
 	// BSR-581
 	// generate logging threads
