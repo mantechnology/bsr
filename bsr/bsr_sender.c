@@ -1771,8 +1771,9 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	// BSR-595
 	{
 	char tmp[sizeof(" but 01234567890123456789 4k blocks skipped")] = "";
-    if (verify_done && peer_device->ov_skipped)
-        snprintf(tmp, sizeof(tmp), " but %lu %dk blocks skipped", peer_device->ov_skipped, Bit2KB(1));
+	if (verify_done && peer_device->ov_skipped) {
+		snprintf(tmp, sizeof(tmp), " but %lu %dk blocks skipped", peer_device->ov_skipped, Bit2KB(1));
+	}
 #ifdef SPLIT_REQUEST_RESYNC
 	bsr_info(peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
 		verify_done ? "Online verify" : "Resync", tmp,
