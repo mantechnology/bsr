@@ -8491,6 +8491,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		}
 	}
 
+	// BSR-52 stop verify by the peer
+	if((old_peer_state.conn == L_VERIFY_S || old_peer_state.conn == L_VERIFY_T) && 
+		peer_state.conn == L_ESTABLISHED)
+		new_repl_state = L_ESTABLISHED;
+
 	/* explicit verify finished notification, stop sector reached. */
 	if (old_peer_state.conn == L_VERIFY_T && old_peer_state.disk == D_UP_TO_DATE &&
 	    peer_state.conn == C_CONNECTED && peer_disk_state == D_UP_TO_DATE) {

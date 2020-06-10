@@ -349,6 +349,10 @@ GENL_struct(BSR_NLA_IO_ERROR, 31, bsr_io_error_info,
 	__u8_field(6, BSR_GENLA_F_MANDATORY, is_cleared)
 )
 
+GENL_struct(BSR_NLA_INVALIDATE_PEER_PARMS, 32, invalidate_peer_parms,
+	__flg_field(1, BSR_GENLA_F_MANDATORY, use_current_oos)
+)
+
 /*
  * Notifications and commands (genlmsghdr->cmd)
  */
@@ -469,7 +473,9 @@ GENL_op(BSR_ADM_INVALIDATE,	19, GENL_doit(bsr_adm_invalidate),
 	GENL_tla_expected(BSR_NLA_INVALIDATE_PARMS, BSR_F_REQUIRED))
 
 GENL_op(BSR_ADM_INVAL_PEER,	20, GENL_doit(bsr_adm_invalidate_peer),
-	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED))
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_INVALIDATE_PEER_PARMS, BSR_F_REQUIRED))
+
 GENL_op(BSR_ADM_PAUSE_SYNC,	21, GENL_doit(bsr_adm_pause_sync),
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED))
 GENL_op(BSR_ADM_RESUME_SYNC,	22, GENL_doit(bsr_adm_resume_sync),
@@ -584,3 +590,9 @@ GENL_notification(
 	BSR_IO_ERROR, 49, events,
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_IO_ERROR, BSR_F_REQUIRED))
+
+GENL_op(
+	BSR_ADM_STOP_OV, 50,
+	GENL_doit(bsr_adm_stop_ov),
+	GENL_tla_expected(BSR_NLA_STOP_OV_PARMS, BSR_GENLA_F_MANDATORY)
+)

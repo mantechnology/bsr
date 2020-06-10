@@ -347,11 +347,12 @@ static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long
 static struct adm_cmd primary_cmd = {"primary", adm_bsrsetup, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, ACF1_MINOR_ONLY };
-static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, ACF1_PEER_DEVICE .takes_long = 1};
+static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, &invalidate_peer_ctx, ACF1_PEER_DEVICE .takes_long = 1};
 // DW-774
 static struct adm_cmd outdate_cmd = {"outdate", adm_outdate, ACF1_DEFAULT .backend_res_name = 0};
 /*  */ struct adm_cmd resize_cmd = {"resize", adm_resize, &resize_cmd_ctx, ACF1_DEFAULT .disk_required = 1};
 static struct adm_cmd verify_cmd = {"verify", adm_bsrsetup, &verify_cmd_ctx, ACF1_PEER_DEVICE};
+static struct adm_cmd verify_stop_cmd = {"verify-stop", adm_bsrsetup, ACF1_PEER_DEVICE};
 static struct adm_cmd pause_sync_cmd = {"pause-sync", adm_bsrsetup, ACF1_PEER_DEVICE};
 static struct adm_cmd resume_sync_cmd = {"resume-sync", adm_bsrsetup, ACF1_PEER_DEVICE};
 static struct adm_cmd adjust_cmd = { "adjust", adm_adjust, &adjust_ctx, ACF1_RESNAME.vol_id_optional = 1 };
@@ -453,6 +454,7 @@ struct adm_cmd *cmds[] = {
 	&outdate_cmd,
 	&resize_cmd,
 	&verify_cmd,
+	&verify_stop_cmd,
 	&pause_sync_cmd,
 	&resume_sync_cmd,
 	&adjust_cmd,
