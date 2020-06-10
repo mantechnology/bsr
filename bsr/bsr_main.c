@@ -5755,11 +5755,12 @@ int bsr_init(void)
 	INIT_LIST_HEAD(&retry.writes);
 
 #ifdef _WIN
+	// BSR-109 disable this feature as a change in how mount information is updated
 	// DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
-	if (!NT_SUCCESS(start_mnt_monitor())) {
-		bsr_err(NO_OBJECT,"could not start mount monitor\n");
-		goto fail;
-	}
+	//if (!NT_SUCCESS(start_mnt_monitor())) {
+	//	bsr_err(NO_OBJECT,"could not start mount monitor\n");
+	//	goto fail;
+	//}
 #endif
 
 #ifdef _LIN

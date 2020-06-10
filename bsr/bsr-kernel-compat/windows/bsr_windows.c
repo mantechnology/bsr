@@ -2761,12 +2761,13 @@ struct block_device *blkdev_get_by_link(UNICODE_STRING * name, bool bUpdatetarge
 		
 	MVOL_LOCK();
 	for (; pVExt; pVExt = pVExt->Next) {
-		
-		if(IsEmptyUnicodeString(&pVExt->VolumeGuid)) { // DW-1728 update the volume's GUID information again for a volume without a GUID (VHD).
-			update_targetdev(pVExt, TRUE);
-		} else {
-			update_targetdev(pVExt, FALSE);
-		}
+		// BSR-109 disable this feature as a change in how mount information is updated
+		// DW-1728 update the volume's GUID information again for a volume without a GUID (VHD).
+		//if(IsEmptyUnicodeString(&pVExt->VolumeGuid)) { 
+		//	update_targetdev(pVExt, TRUE);
+		//} else {
+		//	update_targetdev(pVExt, FALSE);
+		//}
 
 		UNICODE_STRING * plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
 			&pVExt->VolumeGuid : &pVExt->MountPoint;

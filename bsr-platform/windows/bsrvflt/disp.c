@@ -768,6 +768,68 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
+		// BSR-109 updated mount information as soon as IOCTL_MOUNTDEV_LINK_CREATED, IOCTL_MOUNTDEV_LINK_DELETED control code is received
+		case IOCTL_MOUNTDEV_LINK_CREATED:
+		{
+			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
+			PUNICODE_STRING link = NULL;
+			UNICODE_STRING d;
+
+			if (!name || name->NameLength == 0) 
+				break;
+
+			ucsdup(&d, name->Name, name->NameLength);
+
+			MVOL_LOCK();
+			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				FreeUnicodeString(&VolumeExtension->MountPoint);
+
+				d.Length = (USHORT)(strlen(" :") * sizeof(WCHAR));
+				d.Buffer += strlen("\\DosDevices\\");
+				VolumeExtension->Minor = (UCHAR)(d.Buffer[0] - 'C');
+
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u, minor %d\n", &d, d.Length, VolumeExtension->Minor);
+
+				link = &VolumeExtension->MountPoint;
+			
+			}
+			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
+				FreeUnicodeString(&VolumeExtension->VolumeGuid);
+
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u\n", &d, d.Length);
+				link = &VolumeExtension->VolumeGuid;
+			}
+
+			if (link)
+				ucsdup(link, d.Buffer, d.Length);
+			MVOL_UNLOCK();
+
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
+		}
+		case IOCTL_MOUNTDEV_LINK_DELETED:
+		{
+			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
+			UNICODE_STRING d;
+
+			if (!name || name->NameLength == 0)
+				break;
+
+			ucsdup(&d, name->Name, name->NameLength);
+
+			MVOL_LOCK();
+			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				FreeUnicodeString(&VolumeExtension->MountPoint);
+				VolumeExtension->Minor = 0;
+			}
+			else if (MOUNTMGR_IS_VOLUME_NAME(&d))
+				FreeUnicodeString(&VolumeExtension->VolumeGuid);
+			MVOL_UNLOCK();
+
+			bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &d, d.Length);
+
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
+		}
+
         case IOCTL_MVOL_GET_PROC_BSR:
         {
             PMVOL_VOLUME_INFO p = NULL;
