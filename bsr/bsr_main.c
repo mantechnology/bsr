@@ -5277,7 +5277,8 @@ void wait_for_add_device(WCHAR *path)
 					// BSR-600 compare first entry
 					do {
 						WCHAR letter[32] = { 0, };
-						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length);
+						// BSR-109
+						memcpy(letter, v->MountPoint, wcslen(v->MountPoint) * sizeof(WCHAR));
 						if (wcsstr(path, letter)) {
 							wait_device_add = false;
 							break;
@@ -5763,11 +5764,14 @@ int bsr_init(void)
 	INIT_LIST_HEAD(&retry.writes);
 
 #ifdef _WIN
-	// DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
+	// BSR-109 disable this feature as a change in how mount information is updated
+#if 0
+	 DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
 	if (!NT_SUCCESS(start_mnt_monitor())) {
 		bsr_err(NO_OBJECT,"could not start mount monitor\n");
 		goto fail;
 	}
+#endif
 #endif
 
 #ifdef _LIN
