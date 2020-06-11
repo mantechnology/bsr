@@ -759,6 +759,44 @@ skip:
 extern int seq_file_idx;
 extern int bsr_seq_show(struct seq_file *seq, void *v);
 
+#define BSR_MOUNTMGR_IS_DRIVE_LETTER(s) (   \
+    (s)->NameLength == 28 &&                \
+    (s)->Name[0] == '\\' &&           \
+    (s)->Name[1] == 'D' &&            \
+    (s)->Name[2] == 'o' &&            \
+    (s)->Name[3] == 's' &&            \
+    (s)->Name[4] == 'D' &&            \
+    (s)->Name[5] == 'e' &&            \
+    (s)->Name[6] == 'v' &&            \
+    (s)->Name[7] == 'i' &&            \
+    (s)->Name[8] == 'c' &&            \
+    (s)->Name[9] == 'e' &&            \
+    (s)->Name[10] == 's' &&           \
+    (s)->Name[11] == '\\' &&          \
+    (s)->Name[12] >= 'A' &&           \
+    (s)->Name[12] <= 'Z' &&           \
+    (s)->Name[13] == ':')
+
+#define BSR_MOUNTMGR_IS_VOLUME_NAME(s) (                                          \
+     ((s)->NameLength == 96 || ((s)->NameLength == 98 && (s)->Name[48] == '\\')) && \
+     (s)->Name[0] == '\\' &&                                                \
+     ((s)->Name[1] == '?' || (s)->Name[1] == '\\') &&                     \
+     (s)->Name[2] == '?' &&                                                 \
+     (s)->Name[3] == '\\' &&                                                \
+     (s)->Name[4] == 'V' &&                                                 \
+     (s)->Name[5] == 'o' &&                                                 \
+     (s)->Name[6] == 'l' &&                                                 \
+     (s)->Name[7] == 'u' &&                                                 \
+     (s)->Name[8] == 'm' &&                                                 \
+     (s)->Name[9] == 'e' &&                                                 \
+     (s)->Name[10] == '{' &&                                                \
+     (s)->Name[19] == '-' &&                                                \
+     (s)->Name[24] == '-' &&                                                \
+     (s)->Name[29] == '-' &&                                                \
+     (s)->Name[34] == '-' &&                                                \
+     (s)->Name[47] == '}'                                                   \
+    )
+
 NTSTATUS
 mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
@@ -772,60 +810,50 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		case IOCTL_MOUNTDEV_LINK_CREATED:
 		{
 			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
-			PUNICODE_STRING link = NULL;
-			UNICODE_STRING d;
 
 			if (!name || name->NameLength == 0) 
 				break;
 
-			ucsdup(&d, name->Name, name->NameLength);
-
 			MVOL_LOCK();
-			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+			if (BSR_MOUNTMGR_IS_DRIVE_LETTER(name)) {
 				FreeUnicodeString(&VolumeExtension->MountPoint);
+				VolumeExtension->Minor = (UCHAR)(name->Name[strlen("\\DosDevices\\")] - 'C');
+				ucsdup(&VolumeExtension->MountPoint, (name->Name + strlen("\\DosDevices\\")), (USHORT)(strlen(" :") * sizeof(WCHAR)));
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u, minor %d\n", &VolumeExtension->MountPoint, VolumeExtension->MountPoint.Length, VolumeExtension->Minor);
 
-				d.Length = (USHORT)(strlen(" :") * sizeof(WCHAR));
-				d.Buffer += strlen("\\DosDevices\\");
-				VolumeExtension->Minor = (UCHAR)(d.Buffer[0] - 'C');
-
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u, minor %d\n", &d, d.Length, VolumeExtension->Minor);
-
-				link = &VolumeExtension->MountPoint;
-			
 			}
-			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
+			else if (BSR_MOUNTMGR_IS_VOLUME_NAME(name)) {
 				FreeUnicodeString(&VolumeExtension->VolumeGuid);
-
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u\n", &d, d.Length);
-				link = &VolumeExtension->VolumeGuid;
+				ucsdup(&VolumeExtension->VolumeGuid, name->Name, name->NameLength);
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u\n", &VolumeExtension->VolumeGuid, VolumeExtension->VolumeGuid.Length);
 			}
 
-			if (link)
-				ucsdup(link, d.Buffer, d.Length);
 			MVOL_UNLOCK();
+
 
 			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
 		}
 		case IOCTL_MOUNTDEV_LINK_DELETED:
 		{
 			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
-			UNICODE_STRING d;
 
 			if (!name || name->NameLength == 0)
 				break;
 
-			ucsdup(&d, name->Name, name->NameLength);
 
 			MVOL_LOCK();
-			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+			if (BSR_MOUNTMGR_IS_DRIVE_LETTER(name)) {
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &VolumeExtension->MountPoint, VolumeExtension->MountPoint.Length);
 				FreeUnicodeString(&VolumeExtension->MountPoint);
 				VolumeExtension->Minor = 0;
 			}
-			else if (MOUNTMGR_IS_VOLUME_NAME(&d))
+			else if (BSR_MOUNTMGR_IS_VOLUME_NAME(name)) {
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &VolumeExtension->VolumeGuid, VolumeExtension->VolumeGuid.Length);
 				FreeUnicodeString(&VolumeExtension->VolumeGuid);
+			}
 			MVOL_UNLOCK();
 
-			bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &d, d.Length);
+
 
 			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
 		}
