@@ -1719,6 +1719,23 @@ struct ov_work {
 	struct completion done;
 };
 
+// BSR-52
+struct ov_oos_info {
+	struct list_head list;
+	/* Start sector of out of sync range (to merge printk reporting). */
+	sector_t ov_oos_start;
+	/* size of out-of-sync range in sectors. */
+	sector_t ov_oos_size;
+};
+
+struct ov_skipped_info {
+	struct list_head list;
+	/* Start sector of skipped range (to merge printk reporting). */
+	sector_t ov_skipped_start;
+	/* size of skipped range in sectors. */
+	sector_t ov_skipped_size;
+};
+
 struct bsr_peer_device {
 	struct list_head peer_devices;
 	struct bsr_device *device;
@@ -1836,6 +1853,10 @@ struct bsr_peer_device {
 	sector_t ov_last_skipped_start;
 	/* size of skipped range in sectors. */
 	sector_t ov_last_skipped_size;
+	// BSR-52 for report at ov done
+	struct list_head ov_oos_info_list;
+	struct list_head ov_skipped_info_list;
+
 	int c_sync_rate; /* current resync rate after syncer throttle magic */
 	struct fifo_buffer *rs_plan_s; /* correction values of resync planer (RCU, connection->conn_update) */
 	atomic_t rs_sect_in; /* for incoming resync data rate, SyncTarget */
@@ -2677,24 +2698,72 @@ extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
-static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device)
+static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, bool ov_done)
 {
 	if (peer_device->ov_last_oos_size) {
-		bsr_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
-		     (unsigned long long)peer_device->ov_last_oos_start,
-		     (unsigned long long)peer_device->ov_last_oos_size);
+		// BSR-52 add in the list for the report function.
+		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19DW');
+		if(ov_oos) {
+			INIT_LIST_HEAD(&ov_oos->list);
+			ov_oos->ov_oos_start = peer_device->ov_last_oos_start;
+			ov_oos->ov_oos_size = peer_device->ov_last_oos_size;
+
+			list_add_tail(&ov_oos->list, &peer_device->ov_oos_info_list);
+		}
+		else {
+			bsr_warn(peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
+			bsr_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
+				(unsigned long long)peer_device->ov_last_oos_start,
+				(unsigned long long)peer_device->ov_last_oos_size);
+		}
 	}
 	peer_device->ov_last_oos_size = 0;
+
+	if(ov_done) {
+		struct ov_oos_info *ov_oos, *tmp;
+		list_for_each_entry_safe_ex(struct ov_oos_info, ov_oos, tmp, &peer_device->ov_oos_info_list, list) {
+			bsr_err(peer_device, "Report out of sync: start=%llu, size=%llu (sectors)\n",
+				(unsigned long long)ov_oos->ov_oos_start,
+				(unsigned long long)ov_oos->ov_oos_size);
+
+			list_del(&ov_oos->list);
+			kfree(ov_oos);
+		}
+	}
 }
 
-static inline void ov_skipped_print(struct bsr_peer_device *peer_device)
+static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov_done)
 {
     if (peer_device->ov_last_skipped_size) {
-        bsr_info(peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
-             (unsigned long long)peer_device->ov_last_skipped_start,
-             (unsigned long long)peer_device->ov_last_skipped_size);
+		// BSR-52 add in the list for the report function.
+		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29DW');
+		if(ov_skipped) {
+			INIT_LIST_HEAD(&ov_skipped->list);
+			ov_skipped->ov_skipped_start = peer_device->ov_last_skipped_start;
+			ov_skipped->ov_skipped_size = peer_device->ov_last_skipped_size;
+
+			list_add_tail(&ov_skipped->list, &peer_device->ov_skipped_info_list);
+		}
+		else {
+			bsr_err(peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
+			bsr_info(peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+				(unsigned long long)peer_device->ov_last_skipped_start,
+				(unsigned long long)peer_device->ov_last_skipped_size);
+		}
     }
     peer_device->ov_last_skipped_size = 0;
+
+	if(ov_done) {
+		struct ov_skipped_info *ov_skipped, *tmp;
+		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
+			bsr_info(peer_device, "Report skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+				(unsigned long long)ov_skipped->ov_skipped_start,
+				(unsigned long long)ov_skipped->ov_skipped_size);
+
+			list_del(&ov_skipped->list);
+			kfree(ov_skipped);
+		}
+	}
 }
 
 extern void bsr_csum_bio(struct crypto_ahash *, struct bsr_request *, void *);
@@ -2707,7 +2776,6 @@ extern int w_e_end_rsdata_req(struct bsr_work *, int);
 extern int w_e_end_csum_rs_req(struct bsr_work *, int);
 extern int w_e_end_ov_reply(struct bsr_work *, int);
 extern int w_e_end_ov_req(struct bsr_work *, int);
-extern int w_ov_finished(struct bsr_work *, int);
 extern int w_resync_timer(struct bsr_work *, int);
 extern int w_send_dblock(struct bsr_work *, int);
 extern int w_send_read_req(struct bsr_work *, int);

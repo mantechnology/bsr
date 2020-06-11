@@ -5845,9 +5845,7 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 	if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T) {
 		s->peer_dev_ov_left = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
 	}
-	else {
-		s->peer_dev_out_of_sync = bsr_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
-	}
+	s->peer_dev_out_of_sync = bsr_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
 
 	s->peer_dev_resync_failed = peer_device->rs_failed << (BM_BLOCK_SHIFT - 9);
 	if (get_ldev(device)) {

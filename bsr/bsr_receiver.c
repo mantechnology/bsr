@@ -4439,7 +4439,7 @@ static void verify_skipped_block(struct bsr_peer_device *peer_device,
     if (peer_device->ov_last_skipped_start + peer_device->ov_last_skipped_size == sector) {
         peer_device->ov_last_skipped_size += size>>9;
     } else {
-        ov_skipped_print(peer_device);
+        ov_skipped_print(peer_device, false);
         peer_device->ov_last_skipped_start = sector;
         peer_device->ov_last_skipped_size = size>>9;
     }    
@@ -8493,13 +8493,14 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	// BSR-52 stop verify by the peer
 	if((old_peer_state.conn == L_VERIFY_S || old_peer_state.conn == L_VERIFY_T) && 
-		peer_state.conn == L_ESTABLISHED)
+		peer_state.conn == L_ESTABLISHED && peer_device->ov_left)
 		new_repl_state = L_ESTABLISHED;
 
 	/* explicit verify finished notification, stop sector reached. */
 	if (old_peer_state.conn == L_VERIFY_T && old_peer_state.disk == D_UP_TO_DATE &&
 	    peer_state.conn == C_CONNECTED && peer_disk_state == D_UP_TO_DATE) {
-		ov_out_of_sync_print(peer_device);
+		ov_out_of_sync_print(peer_device, true);
+		ov_skipped_print(peer_device, true);
 		bsr_resync_finished(peer_device, D_MASK);
 		peer_device->last_repl_state = peer_state.conn;
 		return 0;
@@ -10986,7 +10987,7 @@ static int got_OVResult(struct bsr_connection *connection, struct packet_info *p
 	if (be64_to_cpu(p->block_id) == ID_OUT_OF_SYNC)
 		bsr_ov_out_of_sync_found(peer_device, sector, size);
 	else
-		ov_out_of_sync_print(peer_device);
+		ov_out_of_sync_print(peer_device, false);
 
 	if (!get_ldev(device))
 		return 0;

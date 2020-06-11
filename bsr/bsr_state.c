@@ -2298,9 +2298,14 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				peer_device->ov_start_sector =
 					BM_BIT_TO_SECT(bsr_ov_bm_find_abort_bit(peer_device));
 
-				if (peer_device->ov_left)
+				if (peer_device->ov_left) {
+					// BSR-52
+					ov_out_of_sync_print(peer_device, true);
+					ov_skipped_print(peer_device, true);
+
 					bsr_info(peer_device, "Online Verify reached sector %llu\n",
 						  (unsigned long long)peer_device->ov_start_sector);
+				}
 			}
 
 			if ((repl_state[OLD] == L_PAUSED_SYNC_T || repl_state[OLD] == L_PAUSED_SYNC_S) &&
@@ -2351,6 +2356,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				peer_device->ov_last_oos_start = 0;
 				peer_device->ov_last_skipped_size = 0;
 				peer_device->ov_last_skipped_start = 0;
+				INIT_LIST_HEAD(&peer_device->ov_oos_info_list);
+				INIT_LIST_HEAD(&peer_device->ov_skipped_info_list);
 				for (i = 0; i < BSR_SYNC_MARKS; i++) {
 					peer_device->rs_mark_left[i] = peer_device->ov_left;
 					peer_device->rs_mark_time[i] = now;
