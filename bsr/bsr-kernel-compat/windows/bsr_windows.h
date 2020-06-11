@@ -1179,8 +1179,11 @@ extern bool ChangeVolumeReadonly(unsigned int minor, bool set);
 #endif
 
 extern KSTART_ROUTINE InitWskNetlink;
-//extern KSTART_ROUTINE monitor_mnt_change;
-//extern NTSTATUS start_mnt_monitor();
+// BSR-109
+#if 0
+extern KSTART_ROUTINE monitor_mnt_change;
+extern NTSTATUS start_mnt_monitor();
+#endif 
 
 extern
 NTSTATUS ReleaseWskNetlink();
