@@ -59,8 +59,6 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 
 		RtlCopyMemory(pventry->PhysicalDeviceName, pvext->PhysicalDeviceName, pvext->PhysicalDeviceNameLength);
 		// BSR-109
-		//RtlCopyMemory(pventry->MountPoint, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
-		//RtlCopyMemory(pventry->VolumeGuid, pvext->VolumeGuid.Buffer, pvext->VolumeGuid.Length);
 		RtlCopyMemory(pventry->MountPoint, pvext->MountPoint, wcslen(pvext->MountPoint) * sizeof(WCHAR));
 		RtlCopyMemory(pventry->VolumeGuid, pvext->VolumeGuid, wcslen(pvext->VolumeGuid) * sizeof(WCHAR));
 		pventry->ExtensionActive = pvext->Active;

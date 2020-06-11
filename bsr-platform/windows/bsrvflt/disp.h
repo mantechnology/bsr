@@ -89,9 +89,7 @@ typedef struct _VOLUME_EXTENSION
 	USHORT				PhysicalDeviceNameLength;
 	WCHAR				PhysicalDeviceName[MAXDEVICENAME];
 	UCHAR				Minor;
-	// BSR-109 Used as array of MountPoint and VolumeGuid WCHAR
-	//UNICODE_STRING		MountPoint;	// IoVolumeDeviceToDosName()
-	//UNICODE_STRING		VolumeGuid;
+	// BSR-109 used as array of MountPoint and VolumeGuid WCHAR
 	WCHAR MountPoint[32];
 	WCHAR VolumeGuid[128];
 #ifdef _WIN_MULTIVOL_THREAD

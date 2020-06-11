@@ -238,15 +238,11 @@ NTSTATUS _QueryVolumeNameRegistry(
 					memset(pvext->MountPoint, 0, sizeof(pvext->MountPoint));
 					memcpy(pvext->MountPoint, L" :", 4);
 					pvext->MountPoint[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
-					//ucsdup(&pvext->MountPoint, L" :", 4);
-					//pvext->MountPoint.Buffer[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
-					//pvext->Minor = (UCHAR)(pvext->MountPoint.Buffer[0] - 'C');
 				}
 				else if (wcsstr(key, L"\\??\\Volume")) {	// registry's style
 					// BSR-109
 					memset(pvext->VolumeGuid, 0, sizeof(pvext->VolumeGuid));
 					memcpy(pvext->VolumeGuid, key, valueInfo->NameLength);
-					//ucsdup(&pvext->VolumeGuid, key, valueInfo->NameLength);
 				}
 			}
 
