@@ -60,8 +60,7 @@ WCHAR g_ver[64];
 #define MAX_IDR_FREE (MAX_IDR_LEVEL * 2)
 
 KSTART_ROUTINE run_singlethread_workqueue;
-// BSR-109
-//KSTART_ROUTINE adjust_changes_to_volume;
+KSTART_ROUTINE adjust_changes_to_volume;
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError = {0,};
 
 // DW-1105 monitoring mount change thread state (FALSE : not working, TRUE : working)
@@ -2218,187 +2217,183 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 	return NULL;
 }
 
-// BSR-109 function disable
 /**
  * @brief
  *	Recreate the VOLUME_EXTENSION's MountPoint, Minor, block_device
  *	if it was changed
  */
-//void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
-//{
-//	unsigned long long 	d_size;
-//	UNICODE_STRING 		old_mount_point;
-//	NTSTATUS 			status;
-//	bool				bWasExist = FALSE;	
-//	if (!pvext) {
-//		bsr_warn(NO_OBJECT,"update_targetdev fail pvext is NULL\n");
-//		return;
-//	}
-//
-//	// DW-1681 Since there is a performance problem in update_targetdev, it is discriminated whether or not to update the mount point.
-//	if(bMountPointUpdate) {
-//		if(!IsEmptyUnicodeString(&pvext->MountPoint)) {
-//			ucsdup (&old_mount_point, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
-//			bWasExist = TRUE;
-//
-//			if (!IsEmptyUnicodeString(&old_mount_point))
-//				bsr_debug(NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
-//		}
-//		
-//		status = mvolUpdateMountPointInfoByExtension(pvext);
-//		if(NT_SUCCESS(status)) {
-//
-//			if (!IsEmptyUnicodeString(&pvext->MountPoint))
-//				bsr_debug(NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
-//
-//			// DW-1105 detach volume when replicating volume letter is changed.
-//			if (pvext->Active && bWasExist) {
-//				if(IsEmptyUnicodeString(&pvext->MountPoint) || 
-//					!RtlEqualUnicodeString(&pvext->MountPoint, &old_mount_point, TRUE) ) {
-//
-//					// DW-1300 get device and get reference.
-//					struct bsr_device *device = get_device_with_vol_ext(pvext, TRUE);
-//					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
-//						bsr_warn(NO_OBJECT,"replicating volume letter is changed, detaching\n");
-//						set_bit(FORCE_DETACH, &device->flags);
-//						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
-//						put_ldev(device);
-//					}
-//					// DW-1300 put device reference count when no longer use.
-//					if (device)
-//						kref_put(&device->kref, bsr_destroy_device);
-//				}
-//			}
-//		}
-//		
-//		if(bWasExist) {
-//			FreeUnicodeString (&old_mount_point);
-//		}
-//	} 
-//	
-//	// DW-1109 not able to get volume size in add device routine, get it here if no size is assigned.
-//	// DW-1469
-//	d_size = get_targetdev_volsize(pvext);
-//	
-//	if ( pvext->dev->bd_contains && (pvext->dev->bd_contains->d_size != d_size) ) {	
-//		pvext->dev->bd_contains->d_size = d_size;
-//		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
-//	}
-//	bsr_debug(NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
-//}
+void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
+{
+	unsigned long long 	d_size;
+	UNICODE_STRING 		old_mount_point;
+	NTSTATUS 			status;
+	bool				bWasExist = FALSE;	
+	if (!pvext) {
+		bsr_warn(NO_OBJECT,"update_targetdev fail pvext is NULL\n");
+		return;
+	}
 
-// BSR-109 function disable
+	// DW-1681 Since there is a performance problem in update_targetdev, it is discriminated whether or not to update the mount point.
+	if(bMountPointUpdate) {
+		if(!IsEmptyUnicodeString(&pvext->MountPoint)) {
+			ucsdup (&old_mount_point, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
+			bWasExist = TRUE;
+
+			if (!IsEmptyUnicodeString(&old_mount_point))
+				bsr_debug(NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
+		}
+		
+		status = mvolUpdateMountPointInfoByExtension(pvext);
+		if(NT_SUCCESS(status)) {
+
+			if (!IsEmptyUnicodeString(&pvext->MountPoint))
+				bsr_debug(NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
+
+			// DW-1105 detach volume when replicating volume letter is changed.
+			if (pvext->Active && bWasExist) {
+				if(IsEmptyUnicodeString(&pvext->MountPoint) || 
+					!RtlEqualUnicodeString(&pvext->MountPoint, &old_mount_point, TRUE) ) {
+
+					// DW-1300 get device and get reference.
+					struct bsr_device *device = get_device_with_vol_ext(pvext, TRUE);
+					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
+						bsr_warn(NO_OBJECT,"replicating volume letter is changed, detaching\n");
+						set_bit(FORCE_DETACH, &device->flags);
+						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
+						put_ldev(device);
+					}
+					// DW-1300 put device reference count when no longer use.
+					if (device)
+						kref_put(&device->kref, bsr_destroy_device);
+				}
+			}
+		}
+		
+		if(bWasExist) {
+			FreeUnicodeString (&old_mount_point);
+		}
+	} 
+	
+	// DW-1109 not able to get volume size in add device routine, get it here if no size is assigned.
+	// DW-1469
+	d_size = get_targetdev_volsize(pvext);
+	
+	if ( pvext->dev->bd_contains && (pvext->dev->bd_contains->d_size != d_size) ) {	
+		pvext->dev->bd_contains->d_size = d_size;
+		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
+	}
+	bsr_debug(NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
+}
+
 // DW-1105 refresh all volumes and handle changes.
-//void adjust_changes_to_volume(PVOID pParam)
-//{
-//	UNREFERENCED_PARAMETER(pParam);
-//	refresh_targetdev_list();
-//}
+void adjust_changes_to_volume(PVOID pParam)
+{
+	UNREFERENCED_PARAMETER(pParam);
+	refresh_targetdev_list();
+}
 
-// BSR-109 function disable
 // DW-1105 request mount manager to notify us whenever there is a change in the mount manager's persistent symbolic link name database.
-//void monitor_mnt_change(PVOID pParam)
-//{
-//	UNREFERENCED_PARAMETER(pParam);
-//
-//	OBJECT_ATTRIBUTES oaMntMgr = { 0, };
-//	UNICODE_STRING usMntMgr = { 0, };
-//	NTSTATUS status = STATUS_UNSUCCESSFUL;
-//	HANDLE hMntMgr = NULL;
-//	HANDLE hEvent = NULL;
-//	IO_STATUS_BLOCK iosb = { 0, };
-//	
-//	RtlInitUnicodeString(&usMntMgr, MOUNTMGR_DEVICE_NAME);
-//	InitializeObjectAttributes(&oaMntMgr, &usMntMgr, OBJ_CASE_INSENSITIVE, NULL, NULL);
-//
-//	do {
-//		status = ZwCreateFile(&hMntMgr,
-//			FILE_READ_DATA | FILE_WRITE_DATA,
-//			&oaMntMgr,
-//			&iosb,
-//			NULL,
-//			0,
-//			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-//			FILE_OPEN,
-//			FILE_NON_DIRECTORY_FILE,
-//			NULL,
-//			0);
-//
-//		if (!NT_SUCCESS(status)) {
-//			bsr_err(NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
-//			break;
-//		}
-//
-//		status = ZwCreateEvent(&hEvent, GENERIC_ALL, 0, NotificationEvent, FALSE);
-//		if (!NT_SUCCESS(status)) {
-//			bsr_err(NO_OBJECT,"could not create event, status : 0x%x\n", status);
-//			break;
-//		}
-//
-//		// DW-1105 set state as 'working', this can be set as 'not working' by stop_mnt_monitor.
-//		atomic_set(&g_monitor_mnt_working, TRUE);
-//
-//		MOUNTMGR_CHANGE_NOTIFY_INFO mcni1 = { 0, }, mcni2 = { 0, };
-//
-//		while (TRUE == atomic_read(&g_monitor_mnt_working)) {
-//			
-//			status = ZwDeviceIoControlFile(hMntMgr, hEvent, NULL, NULL, &iosb, IOCTL_MOUNTMGR_CHANGE_NOTIFY,
-//				&mcni1, sizeof(mcni1), &mcni2, sizeof(mcni2));
-//
-//			if (!NT_SUCCESS(status)) {
-//				bsr_err(NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
-//				break;
-//			} else if (STATUS_PENDING == status) {
-//				status = ZwWaitForSingleObject(hEvent, TRUE, NULL);
-//			}
-//
-//			// we've got notification, refresh all volume and adjust changes if necessary.
-//			HANDLE hVolRefresher = NULL;
-//			status = PsCreateSystemThread(&hVolRefresher, THREAD_ALL_ACCESS, NULL, NULL, NULL, adjust_changes_to_volume, NULL);
-//			if (!NT_SUCCESS(status)) {
-//				bsr_err(NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
-//				break;
-//			}
-//
-//			if (NULL != hVolRefresher) {
-//				ZwClose(hVolRefresher);
-//				hVolRefresher = NULL;
-//			}
-//			
-//			// prepare for next change.
-//			mcni1.EpicNumber = mcni2.EpicNumber;
-//		}
-//
-//	} while (0);
-//
-//	atomic_set(&g_monitor_mnt_working, FALSE);
-//
-//	if (NULL != hMntMgr) {
-//		ZwClose(hMntMgr);
-//		hMntMgr = NULL;
-//	}
-//}
+void monitor_mnt_change(PVOID pParam)
+{
+	UNREFERENCED_PARAMETER(pParam);
 
-// BSR-109 function disable
+	OBJECT_ATTRIBUTES oaMntMgr = { 0, };
+	UNICODE_STRING usMntMgr = { 0, };
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE hMntMgr = NULL;
+	HANDLE hEvent = NULL;
+	IO_STATUS_BLOCK iosb = { 0, };
+	
+	RtlInitUnicodeString(&usMntMgr, MOUNTMGR_DEVICE_NAME);
+	InitializeObjectAttributes(&oaMntMgr, &usMntMgr, OBJ_CASE_INSENSITIVE, NULL, NULL);
+
+	do {
+		status = ZwCreateFile(&hMntMgr,
+			FILE_READ_DATA | FILE_WRITE_DATA,
+			&oaMntMgr,
+			&iosb,
+			NULL,
+			0,
+			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE,
+			NULL,
+			0);
+
+		if (!NT_SUCCESS(status)) {
+			bsr_err(NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
+			break;
+		}
+
+		status = ZwCreateEvent(&hEvent, GENERIC_ALL, 0, NotificationEvent, FALSE);
+		if (!NT_SUCCESS(status)) {
+			bsr_err(NO_OBJECT,"could not create event, status : 0x%x\n", status);
+			break;
+		}
+
+		// DW-1105 set state as 'working', this can be set as 'not working' by stop_mnt_monitor.
+		atomic_set(&g_monitor_mnt_working, TRUE);
+
+		MOUNTMGR_CHANGE_NOTIFY_INFO mcni1 = { 0, }, mcni2 = { 0, };
+
+		while (TRUE == atomic_read(&g_monitor_mnt_working)) {
+			
+			status = ZwDeviceIoControlFile(hMntMgr, hEvent, NULL, NULL, &iosb, IOCTL_MOUNTMGR_CHANGE_NOTIFY,
+				&mcni1, sizeof(mcni1), &mcni2, sizeof(mcni2));
+
+			if (!NT_SUCCESS(status)) {
+				bsr_err(NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
+				break;
+			} else if (STATUS_PENDING == status) {
+				status = ZwWaitForSingleObject(hEvent, TRUE, NULL);
+			}
+
+			// we've got notification, refresh all volume and adjust changes if necessary.
+			HANDLE hVolRefresher = NULL;
+			status = PsCreateSystemThread(&hVolRefresher, THREAD_ALL_ACCESS, NULL, NULL, NULL, adjust_changes_to_volume, NULL);
+			if (!NT_SUCCESS(status)) {
+				bsr_err(NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
+				break;
+			}
+
+			if (NULL != hVolRefresher) {
+				ZwClose(hVolRefresher);
+				hVolRefresher = NULL;
+			}
+			
+			// prepare for next change.
+			mcni1.EpicNumber = mcni2.EpicNumber;
+		}
+
+	} while (0);
+
+	atomic_set(&g_monitor_mnt_working, FALSE);
+
+	if (NULL != hMntMgr) {
+		ZwClose(hMntMgr);
+		hMntMgr = NULL;
+	}
+}
+
 // DW-1105 start monitoring mount change thread.
-//NTSTATUS start_mnt_monitor()
-//{
-//	NTSTATUS status = STATUS_UNSUCCESSFUL;
-//	HANDLE	hVolMonitor = NULL;
-//
-//	status = PsCreateSystemThread(&hVolMonitor, THREAD_ALL_ACCESS, NULL, NULL, NULL, monitor_mnt_change, NULL);
-//	if (!NT_SUCCESS(status)) {
-//		bsr_err(NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
-//		return status;
-//	}
-//
-//	if (NULL != hVolMonitor) {
-//		ZwClose(hVolMonitor);
-//		hVolMonitor = NULL;
-//	}
-//
-//	return status;
-//}
+NTSTATUS start_mnt_monitor()
+{
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE	hVolMonitor = NULL;
+
+	status = PsCreateSystemThread(&hVolMonitor, THREAD_ALL_ACCESS, NULL, NULL, NULL, monitor_mnt_change, NULL);
+	if (!NT_SUCCESS(status)) {
+		bsr_err(NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
+		return status;
+	}
+
+	if (NULL != hVolMonitor) {
+		ZwClose(hVolMonitor);
+		hVolMonitor = NULL;
+	}
+
+	return status;
+}
 
 // DW-1105 stop monitoring mount change thread.
 void stop_mnt_monitor()
@@ -2406,21 +2401,20 @@ void stop_mnt_monitor()
 	atomic_set(&g_monitor_mnt_working, FALSE);
 }
 
-// BSR-109 function disable
 /**
  * @brief
  *	refresh all VOLUME_EXTENSION's values
  */
-//void refresh_targetdev_list()
-//{
-//    PROOT_EXTENSION proot = mvolRootDeviceObject->DeviceExtension;
-//
-//    MVOL_LOCK();
-//    for (PVOLUME_EXTENSION pvext = proot->Head; pvext; pvext = pvext->Next) {
-//        update_targetdev(pvext, TRUE);
-//    }
-//    MVOL_UNLOCK();
-//}
+void refresh_targetdev_list()
+{
+    PROOT_EXTENSION proot = mvolRootDeviceObject->DeviceExtension;
+
+    MVOL_LOCK();
+    for (PVOLUME_EXTENSION pvext = proot->Head; pvext; pvext = pvext->Next) {
+        update_targetdev(pvext, TRUE);
+    }
+    MVOL_UNLOCK();
+}
 
 /**
  * @brief
@@ -2685,28 +2679,27 @@ cleanup:
  *	- ignore if last character is '/', '\', ':'
  *	- '?' equal '\' in case windows  
  */
-// BSR-109 UNICODE_STRING, WCHAR comparison
 bool is_equal_volume_link(
 	_In_ UNICODE_STRING * lhs,
-	_In_ WCHAR * rhs,
+	_In_ UNICODE_STRING * rhs,
 	_In_ bool case_sensitive)
 {
 	WCHAR* l = lhs->Buffer;
-	size_t rlen = wcslen(rhs) * sizeof(WCHAR);
+	WCHAR* r = rhs->Buffer;
 	USHORT index = 0;
-	int gap = (int)(lhs->Length - rlen);
+	int gap = lhs->Length - rhs->Length;
 
-	if ( !l || !rhs || (abs(gap) > sizeof(WCHAR)) ) {
+	if ( !l || !r || (abs(gap) > sizeof(WCHAR)) ) {
 		return false;
 	}
 	
 
 
-	for (; index < min(lhs->Length, rlen); ++l, ++rhs, index += sizeof(WCHAR)) {
+	for (; index < min(lhs->Length, rhs->Length); ++l, ++r, index += sizeof(WCHAR)) {
 
-		if ((*l == *rhs) ||
-			(('/' == *l || '\\' == *l || '?' == *l) && ('/' == *rhs || '\\' == *rhs || '?' == *rhs)) ||
-			(case_sensitive ? false : toupper(*l) == toupper(*rhs))) {
+		if ((*l == *r) ||
+			(('/' == *l || '\\' == *l || '?' == *l) && ('/' == *r || '\\' == *r || '?' == *r)) ||
+			(case_sensitive ? false : toupper(*l) == toupper(*r))) {
 			continue;
 		}
 
@@ -2718,7 +2711,7 @@ bool is_equal_volume_link(
 	}
 
 	// if last character is '/', '\\', ':', then consider equal
-	WCHAR t = (gap > 0) ? *l : *rhs;
+	WCHAR t = (gap > 0) ? *l : *r;
 	if (('/' == t || '\\' == t || ':' == t)) {
 		return true;
 	}
@@ -2776,13 +2769,9 @@ struct block_device *blkdev_get_by_link(UNICODE_STRING * name, bool bUpdatetarge
 		//	update_targetdev(pVExt, FALSE);
 		//}
 
-		//UNICODE_STRING * plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
-		//	&pVExt->VolumeGuid : &pVExt->MountPoint;
-		//
-		//if (plink && is_equal_volume_link(name, plink, false)) {
-
-		WCHAR *plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
-			pVExt->VolumeGuid : pVExt->MountPoint;
+		UNICODE_STRING * plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
+			&pVExt->VolumeGuid : &pVExt->MountPoint;
+		
 		if (plink && is_equal_volume_link(name, plink, false)) {
 			// break;	
 			// DW-1702 fixup the logic to perform update_targetdev on all volumes at blkdev_get_by_link. Even if found VExt, no break;

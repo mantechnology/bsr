@@ -58,8 +58,8 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 		RtlZeroMemory(pventry, sizeof(BSR_VOLUME_ENTRY));
 
 		RtlCopyMemory(pventry->PhysicalDeviceName, pvext->PhysicalDeviceName, pvext->PhysicalDeviceNameLength);
-		RtlCopyMemory(pventry->MountPoint, pvext->MountPoint, wcslen(pvext->MountPoint) * sizeof(WCHAR));
-		RtlCopyMemory(pventry->VolumeGuid, pvext->VolumeGuid, wcslen(pvext->VolumeGuid) * sizeof(WCHAR));
+		RtlCopyMemory(pventry->MountPoint, pvext->MountPoint.Buffer, pvext->MountPoint.Length);
+		RtlCopyMemory(pventry->VolumeGuid, pvext->VolumeGuid.Buffer, pvext->VolumeGuid.Length);
 		pventry->ExtensionActive = pvext->Active;
 		pventry->Minor = pvext->Minor;
 #ifndef _WIN_MULTIVOL_THREAD
