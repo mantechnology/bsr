@@ -5277,7 +5277,9 @@ void wait_for_add_device(WCHAR *path)
 					// BSR-600 compare first entry
 					do {
 						WCHAR letter[32] = { 0, };
-						memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length);
+						// BSR-109
+						memcpy(letter, v->MountPoint, wcslen(v->MountPoint) * sizeof(WCHAR));
+						//memcpy(letter, v->MountPoint.Buffer, v->MountPoint.Length);
 						if (wcsstr(path, letter)) {
 							wait_device_add = false;
 							break;

@@ -189,8 +189,12 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
-	FreeUnicodeString(&VolumeExtension->MountPoint);
-	FreeUnicodeString(&VolumeExtension->VolumeGuid);
+	// BSR-109
+	memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
+	memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
+
+	//FreeUnicodeString(&VolumeExtension->MountPoint);
+	//FreeUnicodeString(&VolumeExtension->VolumeGuid);
 	
 	IoDetachDevice(VolumeExtension->TargetDeviceObject);
 
@@ -446,83 +450,84 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
 // 1. Get mount point by volume extension's PhysicalDeviceName
 // 2. If QueryMountPoint return SUCCESS, parse mount point to letter or GUID, and update volume extension's mount point info
 
-NTSTATUS
-mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
-{
-	ULONG mplen = pvext->PhysicalDeviceNameLength + sizeof(MOUNTMGR_MOUNT_POINT);
-	ULONG mpslen = 4096 * 2;
-
-	PCHAR inbuf = kmalloc(mplen, 0, '56DW');
-	PCHAR otbuf = kmalloc(mpslen, 0, '56DW');
-	if (!inbuf || !otbuf) {
-		if (inbuf)
-			kfree(inbuf);
-		if (otbuf)
-			kfree(otbuf);
-
-		return STATUS_MEMORY_NOT_ALLOCATED;
-	}
-
-	PMOUNTMGR_MOUNT_POINT	pmp = (PMOUNTMGR_MOUNT_POINT)inbuf;
-	PMOUNTMGR_MOUNT_POINTS	pmps = (PMOUNTMGR_MOUNT_POINTS)otbuf;
-	
-	pmp->DeviceNameLength = pvext->PhysicalDeviceNameLength;
-	pmp->DeviceNameOffset = sizeof(MOUNTMGR_MOUNT_POINT);
-	RtlCopyMemory(inbuf + pmp->DeviceNameOffset,
-		pvext->PhysicalDeviceName,
-		pvext->PhysicalDeviceNameLength);
-	
-	NTSTATUS status = QueryMountPoint(pmp, mplen, pmps, &mpslen);
-	if (!NT_SUCCESS(status)) {
-		goto cleanup;
-	}
-
-	FreeUnicodeString(&pvext->MountPoint);
-	FreeUnicodeString(&pvext->VolumeGuid);
-	pvext->Minor = 0;
-	
-	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
-	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
-
-		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
-		PUNICODE_STRING link = NULL;
-		UNICODE_STRING name = {
-			.Length = p->SymbolicLinkNameLength,
-			.MaximumLength = p->SymbolicLinkNameLength,
-			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
-
-		bsr_info(NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
-
-		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
-
-			name.Length = (USHORT)(strlen(" :") * sizeof(WCHAR));
-			name.Buffer += strlen("\\DosDevices\\");
-			pvext->Minor = (UCHAR)(name.Buffer[0] - 'C');
-
-			link = &pvext->MountPoint;
-			//FreeUnicodeString(link);
-			bsr_debug(NO_OBJECT,"Free letter link\n");
-		}
-		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
-
-			link = &pvext->VolumeGuid;
-			//FreeUnicodeString(link);
-			bsr_debug(NO_OBJECT,"Free volume guid link\n");
-		}
-
-		if(link) {
-			ucsdup(link, name.Buffer, name.Length);
-			bsr_debug(NO_OBJECT,"link alloc\n");
-		}
-		
-	}
-	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
-cleanup:
-	kfree(inbuf);
-	kfree(otbuf);
-	
-	return status;
-}
+// BSR-109
+//NTSTATUS
+//mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
+//{
+//	ULONG mplen = pvext->PhysicalDeviceNameLength + sizeof(MOUNTMGR_MOUNT_POINT);
+//	ULONG mpslen = 4096 * 2;
+//
+//	PCHAR inbuf = kmalloc(mplen, 0, '56DW');
+//	PCHAR otbuf = kmalloc(mpslen, 0, '56DW');
+//	if (!inbuf || !otbuf) {
+//		if (inbuf)
+//			kfree(inbuf);
+//		if (otbuf)
+//			kfree(otbuf);
+//
+//		return STATUS_MEMORY_NOT_ALLOCATED;
+//	}
+//
+//	PMOUNTMGR_MOUNT_POINT	pmp = (PMOUNTMGR_MOUNT_POINT)inbuf;
+//	PMOUNTMGR_MOUNT_POINTS	pmps = (PMOUNTMGR_MOUNT_POINTS)otbuf;
+//	
+//	pmp->DeviceNameLength = pvext->PhysicalDeviceNameLength;
+//	pmp->DeviceNameOffset = sizeof(MOUNTMGR_MOUNT_POINT);
+//	RtlCopyMemory(inbuf + pmp->DeviceNameOffset,
+//		pvext->PhysicalDeviceName,
+//		pvext->PhysicalDeviceNameLength);
+//	
+//	NTSTATUS status = QueryMountPoint(pmp, mplen, pmps, &mpslen);
+//	if (!NT_SUCCESS(status)) {
+//		goto cleanup;
+//	}
+//
+//	FreeUnicodeString(&pvext->MountPoint);
+//	FreeUnicodeString(&pvext->VolumeGuid);
+//	pvext->Minor = 0;
+//	
+//	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+//	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
+//
+//		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
+//		PUNICODE_STRING link = NULL;
+//		UNICODE_STRING name = {
+//			.Length = p->SymbolicLinkNameLength,
+//			.MaximumLength = p->SymbolicLinkNameLength,
+//			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
+//
+//		bsr_info(NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
+//
+//		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
+//
+//			name.Length = (USHORT)(strlen(" :") * sizeof(WCHAR));
+//			name.Buffer += strlen("\\DosDevices\\");
+//			pvext->Minor = (UCHAR)(name.Buffer[0] - 'C');
+//
+//			link = &pvext->MountPoint;
+//			//FreeUnicodeString(link);
+//			bsr_debug(NO_OBJECT,"Free letter link\n");
+//		}
+//		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
+//
+//			link = &pvext->VolumeGuid;
+//			//FreeUnicodeString(link);
+//			bsr_debug(NO_OBJECT,"Free volume guid link\n");
+//		}
+//
+//		if(link) {
+//			ucsdup(link, name.Buffer, name.Length);
+//			bsr_debug(NO_OBJECT,"link alloc\n");
+//		}
+//		
+//	}
+//	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+//cleanup:
+//	kfree(inbuf);
+//	kfree(otbuf);
+//	
+//	return status;
+//}
 
 #ifdef _WIN_GetDiskPerf
 NTSTATUS

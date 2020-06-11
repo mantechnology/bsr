@@ -1131,6 +1131,44 @@ extern union bsr_state g_mask;
 extern union bsr_state g_val;
 ///
 
+// BSR-109
+#define BSR_MOUNTMGR_IS_DRIVE_LETTER(s) (   \
+    (s)->NameLength == 28 &&                \
+    (s)->Name[0] == '\\' &&           \
+    (s)->Name[1] == 'D' &&            \
+    (s)->Name[2] == 'o' &&            \
+    (s)->Name[3] == 's' &&            \
+    (s)->Name[4] == 'D' &&            \
+    (s)->Name[5] == 'e' &&            \
+    (s)->Name[6] == 'v' &&            \
+    (s)->Name[7] == 'i' &&            \
+    (s)->Name[8] == 'c' &&            \
+    (s)->Name[9] == 'e' &&            \
+    (s)->Name[10] == 's' &&           \
+    (s)->Name[11] == '\\' &&          \
+    (s)->Name[12] >= 'A' &&           \
+    (s)->Name[12] <= 'Z' &&           \
+    (s)->Name[13] == ':')
+
+#define BSR_MOUNTMGR_IS_VOLUME_NAME(s) (                                          \
+     ((s)->NameLength == 96 || ((s)->NameLength == 98 && (s)->Name[48] == '\\')) && \
+     (s)->Name[0] == '\\' &&                                                \
+     ((s)->Name[1] == '?' || (s)->Name[1] == '\\') &&                     \
+     (s)->Name[2] == '?' &&                                                 \
+     (s)->Name[3] == '\\' &&                                                \
+     (s)->Name[4] == 'V' &&                                                 \
+     (s)->Name[5] == 'o' &&                                                 \
+     (s)->Name[6] == 'l' &&                                                 \
+     (s)->Name[7] == 'u' &&                                                 \
+     (s)->Name[8] == 'm' &&                                                 \
+     (s)->Name[9] == 'e' &&                                                 \
+     (s)->Name[10] == '{' &&                                                \
+     (s)->Name[19] == '-' &&                                                \
+     (s)->Name[24] == '-' &&                                                \
+     (s)->Name[29] == '-' &&                                                \
+     (s)->Name[34] == '-' &&                                                \
+     (s)->Name[47] == '}'                                                   \
+    )
 
 __inline bool IsDriveLetterMountPoint(UNICODE_STRING * s)
 {
@@ -1155,7 +1193,7 @@ __inline void FreeUnicodeString(UNICODE_STRING * s)
 
 extern bool is_equal_volume_link(
 	_In_ UNICODE_STRING * lhs,
-	_In_ UNICODE_STRING * rhs,
+	_In_ WCHAR * rhs,
 	_In_ bool case_sensitive);
 
 extern void dumpHex(const void *b, const size_t s, size_t w);	
@@ -1179,8 +1217,8 @@ extern bool ChangeVolumeReadonly(unsigned int minor, bool set);
 #endif
 
 extern KSTART_ROUTINE InitWskNetlink;
-extern KSTART_ROUTINE monitor_mnt_change;
-extern NTSTATUS start_mnt_monitor();
+//extern KSTART_ROUTINE monitor_mnt_change;
+//extern NTSTATUS start_mnt_monitor();
 
 extern
 NTSTATUS ReleaseWskNetlink();
