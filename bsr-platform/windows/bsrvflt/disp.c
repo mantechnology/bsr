@@ -234,12 +234,19 @@ NTSTATUS _QueryVolumeNameRegistry(
 
 			if (((SIZE_T)pmuid->UniqueIdLength == RtlCompareMemory(pmuid->UniqueId, (PCHAR)valueInfo + valueInfo->DataOffset, pmuid->UniqueIdLength))) {
 				if (wcsstr(key, L"\\DosDevices\\")) {
-					ucsdup(&pvext->MountPoint, L" :", 4);
-					pvext->MountPoint.Buffer[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
-					pvext->Minor = (UCHAR)(pvext->MountPoint.Buffer[0] - 'C');
+					// BSR-109
+					memset(pvext->MountPoint, 0, sizeof(pvext->MountPoint));
+					memcpy(pvext->MountPoint, L" :", 4);
+					pvext->MountPoint[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
+					//ucsdup(&pvext->MountPoint, L" :", 4);
+					//pvext->MountPoint.Buffer[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
+					//pvext->Minor = (UCHAR)(pvext->MountPoint.Buffer[0] - 'C');
 				}
 				else if (wcsstr(key, L"\\??\\Volume")) {	// registry's style
-					ucsdup(&pvext->VolumeGuid, key, valueInfo->NameLength);
+					// BSR-109
+					memset(pvext->VolumeGuid, 0, sizeof(pvext->VolumeGuid));
+					memcpy(pvext->VolumeGuid, key, valueInfo->NameLength);
+					//ucsdup(&pvext->VolumeGuid, key, valueInfo->NameLength);
 				}
 			}
 
@@ -782,19 +789,19 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 			MVOL_LOCK();
 			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
-				FreeUnicodeString(&VolumeExtension->MountPoint);
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
 				VolumeExtension->Minor = (UCHAR)(name->Name[strlen("\\DosDevices\\")] - 'C');
-				ucsdup(&VolumeExtension->MountPoint, (name->Name + strlen("\\DosDevices\\")), (USHORT)(strlen(" :") * sizeof(WCHAR)));
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u, minor %d\n", &VolumeExtension->MountPoint, VolumeExtension->MountPoint.Length, VolumeExtension->Minor);
-
+				memcpy(VolumeExtension->MountPoint, (name->Name + strlen("\\DosDevices\\")), (USHORT)(strlen(" :") * sizeof(WCHAR)));
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws, minor %d\n", VolumeExtension->MountPoint, VolumeExtension->Minor);
 			}
 			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
-				FreeUnicodeString(&VolumeExtension->VolumeGuid);
-				ucsdup(&VolumeExtension->VolumeGuid, name->Name, name->NameLength);
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %wZ, %u\n", &VolumeExtension->VolumeGuid, VolumeExtension->VolumeGuid.Length);
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->VolumeGuid));
+				memcpy(VolumeExtension->VolumeGuid, name->Name, name->NameLength);
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws\n", VolumeExtension->VolumeGuid);
 			}
 
 			MVOL_UNLOCK();
+
 
 			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
 		}
@@ -811,13 +818,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 			MVOL_LOCK();
 			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &VolumeExtension->MountPoint, VolumeExtension->MountPoint.Length);
-				FreeUnicodeString(&VolumeExtension->MountPoint);
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %ws\n", VolumeExtension->MountPoint);
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
 				VolumeExtension->Minor = 0;
 			}
-			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
-				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %wZ, %u\n", &VolumeExtension->VolumeGuid, VolumeExtension->VolumeGuid.Length);
-				FreeUnicodeString(&VolumeExtension->VolumeGuid);
+			else if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %ws\n", VolumeExtension->VolumeGuid);
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->VolumeGuid));
 			}
 			MVOL_UNLOCK();
 

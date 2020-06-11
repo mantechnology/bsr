@@ -1155,7 +1155,7 @@ __inline void FreeUnicodeString(UNICODE_STRING * s)
 
 extern bool is_equal_volume_link(
 	_In_ UNICODE_STRING * lhs,
-	_In_ UNICODE_STRING * rhs,
+	_In_ WCHAR * rhs,
 	_In_ bool case_sensitive);
 
 extern void dumpHex(const void *b, const size_t s, size_t w);	
@@ -1179,8 +1179,8 @@ extern bool ChangeVolumeReadonly(unsigned int minor, bool set);
 #endif
 
 extern KSTART_ROUTINE InitWskNetlink;
-extern KSTART_ROUTINE monitor_mnt_change;
-extern NTSTATUS start_mnt_monitor();
+//extern KSTART_ROUTINE monitor_mnt_change;
+//extern NTSTATUS start_mnt_monitor();
 
 extern
 NTSTATUS ReleaseWskNetlink();
