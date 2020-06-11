@@ -1418,7 +1418,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 		fclose(fp);
 	} else {
 		retVal = GetLastError();
-			fprintf(stderr, "LOG_ERROR: %s: Failed create %s file. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed create %s file. Err=%u\n",
 				__FUNCTION__, BSR_LOG_LEVEL_REG, retVal);
 	}
 #endif
@@ -1434,7 +1434,9 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	DWORD		dwControlCode = 0;
 	BOOL        ret = FALSE;
 #else // _LIN
-	// BSR-579 TODO
+	// BSR-597
+	int fd;
+	FILE *fp;
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
@@ -1456,7 +1458,11 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 		return retVal;
 	}
 #else // _LIN
-	// BSR-579 TODO
+	// BSR-597
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR))==-1) {
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
 #endif
 
 	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
@@ -1464,6 +1470,7 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit, sizeof(ULONG), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
 	// BSR-579 TODO
+	if (ioctl(fd, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit) != 0) {
 #endif
 		retVal = GetLastError();
 		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT. Err=%u\n",
@@ -1476,7 +1483,20 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 		CloseHandle(hDevice);
 	}
 #else // _LIN
-	// BSR-579 TODO
+	// BSR-597
+	if (fd)
+		close(fd);
+
+	// BSR-597 write /etc/bsr.d/.log_file_max_count
+	fp = fopen(BSR_LOG_FILE_MAXCNT_REG, "w");
+	if(fp != NULL) {
+		fprintf(fp, "%u", limit);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed create %s file. Err=%u\n",
+				__FUNCTION__, BSR_LOG_FILE_MAXCNT_REG, retVal);
+	}
 #endif
 	return retVal;
 }

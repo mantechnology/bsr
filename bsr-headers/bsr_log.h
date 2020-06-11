@@ -17,6 +17,7 @@
 #define UCHAR			unsigned char
 #define LPCTSTR			const char * 
 #define LPCSTR			const char *
+#define ULONG			unsigned int
 #define GetLastError()  errno
 #define ERROR_FILE_NOT_FOUND	2/*ENOENT*/
 #endif
@@ -119,6 +120,22 @@ typedef struct _BSR_LOG {
 
 
 #ifdef __KERNEL__
+
+
+#ifndef COMPAT_HAVE_TIME64_TO_TM
+#ifndef time64_to_tm
+#define time64_to_tm time_to_tm
+#endif
+#endif
+#ifndef COMPAT_HAVE_KTIME_TO_TIMESPEC64
+#ifndef ktime_to_timespec64
+#define ktime_to_timespec64 ktime_to_timespec
+#endif
+#ifndef timespec64
+#define timespec64 timespec
+#endif
+#endif
+
 #define Set_log_lv(log_level) \
 	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
 	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
@@ -133,6 +150,7 @@ typedef struct _BSR_LOG {
 #ifdef _LIN
 // BSR-584
 #define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
+#define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"
 #endif
 
 #endif

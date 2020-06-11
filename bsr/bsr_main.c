@@ -62,7 +62,7 @@
 #include <linux/vmalloc.h>
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
-
+#include <linux/namei.h>
 #include "../bsr-headers/linux/bsr_ioctl.h"
 #endif
 #include "../bsr-headers/bsr.h"
@@ -305,6 +305,25 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 	return err;
 }
 
+// BSR-597
+static int bsr_set_log_max_count(unsigned int __user * args)
+{
+	unsigned int log_file_max_count = LOG_FILE_COUNT_DEFAULT;
+	int err;
+
+	err = copy_from_user(&log_file_max_count, args, sizeof(unsigned int));
+
+	if (err) {
+		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		return err;
+	}
+
+	bsr_info(NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
+	atomic_set(&g_log_file_max_count, log_file_max_count);
+
+	return 0;
+}
+
 static long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
 {
 	int err = 0;
@@ -322,6 +341,10 @@ static long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	{
 		err = bsr_get_log((BSR_LOG __user *)pram);
 		break;
+	}
+	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
+	{
+		err = bsr_set_log_max_count((unsigned int __user *)pram);
 	}
 	default :
 		break;
@@ -5027,8 +5050,15 @@ struct log_rolling_file_list {
 	struct list_head list;
 	WCHAR *fileName;
 };
+#else // _LIN
+struct log_rolling_file_list {
+	struct list_head list;
+	char *fileName;
+};
+#endif
 
 // BSR-579 deletes files when the number of rolling files exceeds a specified number
+#ifdef _WIN
 NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 {
 	NTSTATUS status = STATUS_SUCCESS;
@@ -5212,9 +5242,55 @@ out2:
 
 	return status;
 }
+#else // LIN BSR-597
+static int printdir(struct dir_context *ctx, const char *name, int namelen,
+       loff_t offset, u64 ino, unsigned int d_type) {
+    printk("File: %.*s\n", namelen, name);
+	return 0;
+}
+int bsr_log_rolling_file_clean_up(char * filePath)
+{
+	struct file *fdir;
+	char path[256] = "/var/log/bsr";
+
+	struct dir_context ctx = { .actor = (void *)printdir };
+	mm_segment_t oldfs;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	
+	ctx.actor = (void *)printdir;
+	fdir = filp_open(path, O_RDONLY, 0);
+	if (fdir) {
+		printk("fd ? %s\n", fdir->f_path.dentry->d_name.name);
+		iterate_dir(fdir, &ctx);
+
+		filp_close(fdir, NULL);
+	} else {
+		printk("is err\n");
+	}
+	set_fs(oldfs);
+
+	
+//	if (fd)
+//		filp_close(fd, NULL);
+
+//	oldfs = get_fs();
+
+//	set_fs(KERNEL_DS);
+//	error = vfs_stat("/var/log/bsr", &stat);
+//	set_fs(oldfs);
+
+//	struct inode *parent_inode = hFile->f_path.dentry->d_parent->d_inode;	
+//	inode_lock(parent_inode);
+//	vfs_unlink(parent_inode, hFile->f_path.dentry, NULL);   
+//	inode_unlock(parent_inode);
+	return 0;
+}
+#endif
 
 // BSR-579 rename the file to the rolling file format and close the handle
-NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile) 
+#ifdef _WIN
+NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile) 
 {
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	NTSTATUS status;
@@ -5258,7 +5334,81 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile)
 	return status;
 }
 #else // _LIN
-	// BSR-579 TODO declaration  bsr_log_rolling_file_clean_up(), bsr_log_file_reanme_and_close() function
+int bsr_log_file_rename_and_close(struct file * fd) 
+{
+	char new_name[MAX_PATH];
+	char *old_name = (char *)NULL;
+	char temp[MAX_PATH];
+	struct timespec64 ts;
+	struct tm tm;
+	
+	struct inode *delegated_inode = NULL;
+	struct dentry *old_dentry, *new_dentry;
+	struct path old_path, new_path;
+
+	memset(temp, 0, sizeof(temp));
+	memset(new_name, 0, sizeof(new_name));
+
+	old_name = dentry_path_raw(fd->f_path.dentry, temp, MAX_PATH-1);
+	if (old_name == NULL) {
+		printk("oldname null \n");
+		return -1;
+	}
+	printk("oldname %s \n", old_name);
+	old_dentry = fd->f_path.dentry;
+	old_path = fd->f_path;
+
+
+	ts = ktime_to_timespec64(ktime_get_real());
+	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
+
+	
+	snprintf(new_name, MAX_PATH - 1, "%s_%02d%02d%04d_%02d%02d%02d%03d",
+									old_name,
+									(int)tm.tm_year+1900,
+									tm.tm_mon+1,
+									tm.tm_mday,
+									tm.tm_hour,
+									tm.tm_min,
+									tm.tm_sec,
+									(int)(ts.tv_nsec / NSEC_PER_MSEC));
+
+	printk("newname %s\n", new_name);
+	
+	new_dentry = kern_path_create(AT_FDCWD, new_name, &new_path, 0);
+
+	if (old_dentry && new_dentry)
+		printk("%s %s\n", old_dentry->d_name.name, new_dentry->d_name.name);
+	else {
+		printk("dentry null\n");
+		return -1;
+	}
+
+	done_path_create(&new_path, new_dentry);
+
+
+	if (d_inode(old_path.dentry) == NULL) {
+		printk("path dentry null\n");
+		return -1;
+	} else {
+		
+		printk("path %s %s\n", old_path.dentry->d_name.name, new_path.dentry->d_name.name);
+		lock_rename(new_path.dentry, old_path.dentry->d_parent);
+		printk("lock_rename\n");
+		vfs_rename(d_inode(old_path.dentry->d_parent), old_dentry,
+			d_inode(new_path.dentry), new_dentry,
+			&delegated_inode, 0);
+		printk("vfs_rename\n");
+		unlock_rename(new_path.dentry, old_path.dentry->d_parent);
+		printk("unlock_rename\n");
+	}
+
+
+	if (fd)
+		filp_close(fd, NULL);
+
+	return 0;
+}
 #endif
 
 #ifdef _WIN
@@ -5314,7 +5464,22 @@ LONGLONG get_file_size(HANDLE hFile)
 
 	return 0;
 }
+#else // _LIN
+long get_file_size(struct file * fd)
+{
+	long filesize;
+	mm_segment_t oldfs;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
+	set_fs(oldfs);
+	if (filesize > 0)
+		return filesize;
+	return 0;
+}
+#endif
 
+#ifdef _WIN
 void log_consumer_thread(PVOID param) 
 #else // _LIN
 int log_consumer_thread(void *unused) 
@@ -5394,11 +5559,11 @@ int log_consumer_thread(void *unused)
 #else 
 	// BSR-581
 	// creating a linux log file
-	struct file *fd = NULL;
+	struct file *hFile = NULL;
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	char path[24] = "/var/log/bsr/bsrlog.txt"; 
+	char filePath[24] = "/var/log/bsr/bsrlog.txt"; 
 
 	// BSR-578 wait for file system (changed later..)
 	// msleep(1000); // wait 1000ms relative
@@ -5406,9 +5571,9 @@ int log_consumer_thread(void *unused)
 
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
-	if (fd == NULL || IS_ERR(fd)) {
+	if (hFile == NULL || IS_ERR(hFile)) {
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
 		bsr_info(NO_OBJECT, "failed to create log file\n");
@@ -5416,11 +5581,8 @@ int log_consumer_thread(void *unused)
 	}
 #endif
 
-#ifdef _WIN
 	logFileSize = get_file_size(hFile);
-#else // _LIN
-	// BSR-579 TODO get current file size
-#endif
+
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
 	atomic_set(&idx, 0);
@@ -5432,7 +5594,6 @@ int log_consumer_thread(void *unused)
 				continue;
 			}
 		}
-;
 		chk_complete = true;
 
 		if (!started) {
@@ -5440,7 +5601,7 @@ int log_consumer_thread(void *unused)
 			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
 #else
-			bsr_info(NO_OBJECT, "bsrlog path : %s\n", path);
+			bsr_info(NO_OBJECT, "bsrlog path : %s\n", filePath);
 #endif
 			started = true;
 		}
@@ -5466,7 +5627,7 @@ int log_consumer_thread(void *unused)
 		filesize = strlen(buffer);
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
-		err = bsr_write(fd, buffer, filesize, &fd->f_pos);
+		err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
 		set_fs(oldfs);
 
 		if (err < 0 || err != filesize) {
@@ -5491,7 +5652,7 @@ int log_consumer_thread(void *unused)
 
 			// BSR-579 if the log file is larger than 50M, do file rolling.
 			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
-			status = bsr_log_file_reanme_and_close(hFile);
+			status = bsr_log_file_rename_and_close(hFile);
 			if (!NT_SUCCESS(status)) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
@@ -5517,25 +5678,50 @@ int log_consumer_thread(void *unused)
 				return;
 			}
 #else // _LIN
-			// BSR-579 TODO rolling and clean up
+			// BSR-579 rolling and clean up
+			if (bsr_log_rolling_file_clean_up(filePath) != 0) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				return 0;
+			}
+
+			// BSR-579 if the log file is larger than 50M, do file rolling.
+			bsr_info(NO_OBJECT, "log file length %lld\n", get_file_size(hFile));
+			if (bsr_log_file_rename_and_close(hFile) != 0) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_info(NO_OBJECT, "failed to rename log file\n");
+				return 0;
+			}
+			oldfs = get_fs();
+			set_fs(KERNEL_DS);
+			
+			hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+			set_fs(oldfs);
+			if (hFile == NULL || IS_ERR(hFile)) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_info(NO_OBJECT, "failed to new log file\n");
+				return 0;
+			}
+			
 #endif
 			logFileSize = 0;
+			
 		}
 
 		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
 
-#ifdef _WIN
 	if (hFile) {
+#ifdef _WIN
 		ZwClose(hFile);
-		hFile = NULL;
-	}
-#else
-	// BSR-581
-	// close linux log files
-	if (fd != NULL)
-		filp_close(fd, NULL);
+#else // _LIN
+		filp_close(hFile, NULL);
 #endif
+		hFile = NULL;
+
+	}
 
 	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = EXITING;
@@ -5563,9 +5749,9 @@ void clean_logging(void)
 	g_consumer_thread = NULL;
 #endif
 }
-
+#ifdef _WIN
 extern PULONG InitSafeBootMode;
-
+#endif
 void init_logging(void)
 {
 	// BSR-578 initialize to -1 for output from 0 array
