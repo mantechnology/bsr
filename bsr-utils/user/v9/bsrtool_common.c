@@ -514,8 +514,25 @@ void bsr_write_log(const char* program, const char* func, enum cli_log_level lev
 	char f[256];
 
 	memset(f, 0, sizeof(f));
+#ifdef _WIN
+	char *s;
+	char *ptr;
+
+	s = getenv("BSR_PATH");
+
 	snprintf(f, 256, "%s.log", program);
 
+	if (s != NULL) {
+		ptr = strrchr(s, L'\\');
+		if (s != NULL) {
+			memset(f, 0, sizeof(f));
+			s[strlen(s) - strlen(ptr)] = '\0';
+			snprintf(f, 256, "%s/log/%s.log", s, program);
+		}
+	}
+#else
+	snprintf(f, 256, "/var/log/bsr/%s.log", program);
+#endif
 	FILE *fp = fopen(f, "a");
 
 	if (fp == NULL) {
