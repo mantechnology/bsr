@@ -87,6 +87,7 @@ int     option_node_id = -1;
 unsigned option_al_stripes = 1;
 unsigned option_al_stripe_size_4k = 8;
 unsigned option_al_stripes_used = 0;
+char *progname = NULL;
 
 struct option metaopt[] = {
     { "ignore-sanity-checks",  no_argument, &ignore_sanity_checks, 1000 },
@@ -117,14 +118,14 @@ struct option metaopt[] = {
 #define d_expect(x) (x)
 #else
 #define ASSERT(x) do { if (!(x)) {				\
-	fprintf(stderr, "%s:%u:%s: ASSERT(%s) failed.\n",	\
+	CLI_ERRO_LOG_STDERR("%s:%u:%s: ASSERT(%s) failed.\n",	\
 		__FILE__ , __LINE__ , __func__ , #x );		\
 	abort(); }						\
 	} while (false)
 #define d_expect(x) ({						\
 	int _x = (x);						\
 	if (!_x)						\
-		fprintf(stderr, "%s:%u:%s: ASSERT(%s) failed.\n",\
+		CLI_ERRO_LOG_STDERR("%s:%u:%s: ASSERT(%s) failed.\n",\
 			__FILE__ , __LINE__ , __func__ , #x );	\
 	_x; })
 #endif
@@ -137,18 +138,18 @@ static int confirmed(const char *text)
 	size_t n = 0;
 	int ok;
 
-	fprintf(stderr, "\n%s\n", text);
+	CLI_ERRO_LOG_STDERR("\n%s\n", text);
 
 	if (force) {
-	    fprintf(stderr, "*** confirmation forced via --force option ***\n");
+	    CLI_ERRO_LOG_STDERR("*** confirmation forced via --force option ***\n");
 	    ok = 1;
 	}
 	else {
-	    fprintf(stderr, "[need to type '%s' to confirm] ", yes);
+	    CLI_ERRO_LOG_STDERR("[need to type '%s' to confirm] ", yes);
 	    ok = getline(&answer,&n,stdin) == N &&
 		strncmp(answer,yes,N-1) == 0;
 	    free(answer);
-	    fprintf(stderr, "\n");
+	    CLI_ERRO_LOG_STDERR("\n");
 	}
 	return ok;
 }
@@ -249,7 +250,6 @@ int opened_odirect = 1;
 void *on_disk_buffer = NULL;
 int global_argc;
 char **global_argv;
-char *progname = NULL;
 
 enum md_format {
 	BSR_V06,
@@ -421,7 +421,7 @@ void md_cpu_to_disk_06(struct md_on_disk_06 *disk, struct md_cpu *cpu)
 int v06_validate_md(struct format *cfg)
 {
 	if (cfg->md.magic != BSR_MD_MAGIC_06) {
-		fprintf(stderr, "v06 Magic number not found\n");
+		CLI_ERRO_LOG_STDERR("v06 Magic number not found\n");
 		return -1;
 	}
 	return 0;
@@ -492,23 +492,23 @@ int is_valid_md(enum md_format f,
 			  && md->magic != BSR_MD_MAGIC_84_UNCLEAN) ||
 	    (f == BSR_V09 && md->magic != BSR_MD_MAGIC_09)) {
 		if (verbose >= 1)
-			fprintf(stderr, "%s Magic number not found\n", v);
+			CLI_ERRO_LOG_STDERR("%s Magic number not found\n", v);
 		return 0;
 	}
 
 	if (md->max_peers < 1 || md->max_peers > BSR_PEERS_MAX) {
-		fprintf(stderr, "%s max-peers value %d out of bounds\n",
+		CLI_ERRO_LOG_STDERR("%s max-peers value %d out of bounds\n",
 			v, md->max_peers);
 		return 0;
 	}
 	if (md->node_id < -1 || md->node_id > BSR_PEERS_MAX + 1) {
-		fprintf(stderr, "%s device node-id value %d out of bounds\n",
+		CLI_ERRO_LOG_STDERR("%s device node-id value %d out of bounds\n",
 			v, md->node_id);
 		return 0;
 	}
 	for (n = 0; n < md->max_peers; n++) {
 		if (md->peers[n].bitmap_index < -1 || md->peers[n].bitmap_index > BSR_PEERS_MAX + 1) {
-			fprintf(stderr, "%s peer device %d node-id value %d out of bounds\n",
+			CLI_ERRO_LOG_STDERR("%s peer device %d node-id value %d out of bounds\n",
 				v, n, md->peers[n].bitmap_index);
 			return 0;
 		}
@@ -521,20 +521,20 @@ int is_valid_md(enum md_format f,
 	case BSR_MD_INDEX_INTERNAL:
 	case BSR_MD_INDEX_FLEX_EXT:
 		if (md->al_offset != MD_AL_OFFSET_07) {
-			fprintf(stderr, "%s Magic number (al_offset) not found\n", v);
-			fprintf(stderr, "\texpected: %d, found %d\n",
+			CLI_ERRO_LOG_STDERR("%s Magic number (al_offset) not found\n", v);
+			CLI_ERRO_LOG_STDERR("\texpected: %d, found %d\n",
 				MD_AL_OFFSET_07, md->al_offset);
 			return 0;
 		}
 		if (md->bm_offset != MD_AL_OFFSET_07 + al_size_sect) {
-			fprintf(stderr, "%s bm_offset: expected %d, found %d\n", v,
+			CLI_ERRO_LOG_STDERR("%s bm_offset: expected %d, found %d\n", v,
 				MD_AL_OFFSET_07 + al_size_sect, md->bm_offset);
 			return 0;
 		}
 		break;
 	case BSR_MD_INDEX_FLEX_INT:
 		if (md->al_offset != -al_size_sect) {
-			fprintf(stderr, "%s al_offset: expected %d, found %d\n", v,
+			CLI_ERRO_LOG_STDERR("%s al_offset: expected %d, found %d\n", v,
 				-al_size_sect, md->al_offset);
 			return 0;
 		}
@@ -546,12 +546,12 @@ int is_valid_md(enum md_format f,
 		md_size_sect += MD_AL_OFFSET_07 + al_size_sect;
 
 		if (md->bm_offset != -(int64_t)md_size_sect + MD_AL_OFFSET_07) {
-			fprintf(stderr, "strange bm_offset %d (expected: "D64")\n",
+			CLI_ERRO_LOG_STDERR("strange bm_offset %d (expected: "D64")\n",
 					md->bm_offset, -(int64_t)md_size_sect + MD_AL_OFFSET_07);
 			return 0;
 		};
 		if (md->md_size_sect != md_size_sect) {
-			fprintf(stderr, "strange md_size_sect %u (expected: "U64")\n",
+			CLI_ERRO_LOG_STDERR("strange md_size_sect %u (expected: "U64")\n",
 					md->md_size_sect, md_size_sect);
 			if (f == BSR_V08) return 0;
 			/* else not an error,
@@ -1093,7 +1093,7 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 {
 #ifdef _WIN_CLI_UPDATE
 	if(cfg->md_handle == INVALID_HANDLE_VALUE){
-		fprintf(stderr, " pread_or_die : unable to use handle \n");
+		CLI_ERRO_LOG_STDERR(" pread_or_die : unable to use handle \n");
 		exit(10); 
 	}
 	HANDLE fd = cfg->md_handle; 
@@ -1105,7 +1105,7 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 	err = ReadFile(cfg->md_handle, buf, count, &c, &ol);
 	
 	if(err == FALSE){
-		fprintf(stderr, "Unable to read from file.\n GetLastError=%08x\n", GetLastError()); 
+		CLI_ERRO_LOG_STDERR("Unable to read from file.\n GetLastError=%08x\n", GetLastError()); 
 		CloseHandle(cfg->md_handle);
 	}	
 #else 	
@@ -1114,12 +1114,12 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 #endif 
 	if (verbose >= 2) {
 		fflush(stdout);
-		fprintf(stderr, " %-26s: pread(%u, ...,%6lu,%12llu)\n", tag,
+		CLI_ERRO_LOG_STDERR(" %-26s: pread(%u, ...,%6lu,%12llu)\n", tag,
 			fd, (unsigned long)count, (unsigned long long)offset);
 		if (count & ((1<<12)-1))
-			fprintf(stderr, "\tcount will cause EINVAL on hard sect size != 512\n");
+			CLI_ERRO_LOG_STDERR("\tcount will cause EINVAL on hard sect size != 512\n");
 		if (offset & ((1<<12)-1))
-			fprintf(stderr, "\toffset will cause EINVAL on hard sect size != 512\n");
+			CLI_ERRO_LOG_STDERR("\toffset will cause EINVAL on hard sect size != 512\n");
 	}
 	if (c < 0) {
 		fprintf(stderr,"pread(%u,...,%lu,%llu) in %s failed: %s\n",
@@ -1148,15 +1148,15 @@ void validate_offsets_or_die(struct format *cfg, size_t count, off_t offset, con
 	off_t max_offset;
 
 	if (al_offset != cfg->al_offset)
-		fprintf(stderr, "%s: ambiguous al_offset: "U64" vs %llu\n",
+		CLI_ERRO_LOG_STDERR("%s: ambiguous al_offset: "U64" vs %llu\n",
 			tag, cfg->al_offset, (unsigned long long)al_offset);
 	if (bm_offset != cfg->bm_offset)
-		fprintf(stderr, "%s: ambiguous bm_offset: "U64" vs %llu\n",
+		CLI_ERRO_LOG_STDERR("%s: ambiguous bm_offset: "U64" vs %llu\n",
 			tag, cfg->bm_offset, (unsigned long long)bm_offset);
 	min_offset = min3(cfg->md_offset, al_offset, bm_offset);
 	max_offset = min_offset + cfg->md.md_size_sect * 512LL;
 	if (min_offset < 0)
-		fprintf(stderr, "%s: negative minimum offset: %lld\n", tag, (long long)min_offset);
+		CLI_ERRO_LOG_STDERR("%s: negative minimum offset: %lld\n", tag, (long long)min_offset);
 
 	/* If we wipe some old meta data block,
 	 * that hopefully falls outside the range of the current meta data.
@@ -1168,12 +1168,12 @@ void validate_offsets_or_die(struct format *cfg, size_t count, off_t offset, con
 			return;
 
 	if (offset < min_offset || (offset + count) > max_offset) {
-		fprintf(stderr, "%s: offset+count ("U64"+%zu) not in meta data area range ["U64"; "U64"], aborted\n",
+		CLI_ERRO_LOG_STDERR("%s: offset+count ("U64"+%zu) not in meta data area range ["U64"; "U64"], aborted\n",
 			tag, offset, count, min_offset, max_offset);
 		if (ignore_sanity_checks) {
-			fprintf(stderr, "Ignored due to --ignore-sanity-checks\n");
+			CLI_ERRO_LOG_STDERR("Ignored due to --ignore-sanity-checks\n");
 		} else {
-			fprintf(stderr, "If you want to force this, tell me to --ignore-sanity-checks\n");
+			CLI_ERRO_LOG_STDERR("If you want to force this, tell me to --ignore-sanity-checks\n");
 			exit(10);
 		}
 	}
@@ -1190,7 +1190,7 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 	ol.Offset = offset; 
 
 	if(cfg->md_handle == INVALID_HANDLE_VALUE){
-		fprintf(stderr, " pwrite_or_die : unable to use handle \n"); 
+		CLI_ERRO_LOG_STDERR(" pwrite_or_die : unable to use handle \n"); 
 		exit(10); 
 	}
 #else 	
@@ -1201,7 +1201,7 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 
 	++n_writes;
 	if (dry_run) {
-		fprintf(stderr, " %-26s: pwrite(%u, ...,%6lu,%12llu) SKIPPED DUE TO DRY-RUN\n",
+		CLI_ERRO_LOG_STDERR(" %-26s: pwrite(%u, ...,%6lu,%12llu) SKIPPED DUE TO DRY-RUN\n",
 			tag, fd, (unsigned long)count, (unsigned long long)offset);
 		if (verbose > 10)
 			fprintf_hex(stderr, offset, buf, count);
@@ -1211,7 +1211,7 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 	err = WriteFile(cfg->md_handle, buf, count, &c, &ol);
 	
 	if(err == FALSE){
-		fprintf(stderr, "Unable to write file. \n");
+		CLI_ERRO_LOG_STDERR("Unable to write file. \n");
 		CloseHandle(cfg->md_handle);	
 	}
 #else 	
@@ -1219,12 +1219,12 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 #endif 
 	if (verbose >= 2) {
 		fflush(stdout);
-		fprintf(stderr, " %-26s: pwrite(%u, ...,%6lu,%12llu)\n", tag,
+		CLI_ERRO_LOG_STDERR(" %-26s: pwrite(%u, ...,%6lu,%12llu)\n", tag,
 			fd, (unsigned long)count, (unsigned long long)offset);
 		if (count & ((1<<12)-1))
-			fprintf(stderr, "\tcount will cause EINVAL on hard sect size != 512\n");
+			CLI_ERRO_LOG_STDERR("\tcount will cause EINVAL on hard sect size != 512\n");
 		if (offset & ((1<<12)-1))
-			fprintf(stderr, "\toffset will cause EINVAL on hard sect size != 512\n");
+			CLI_ERRO_LOG_STDERR("\toffset will cause EINVAL on hard sect size != 512\n");
 	}
 	if (c < 0) {
 		fprintf(stderr,"pwrite(%u,...,%lu,%llu) in %s failed: %s\n",
@@ -1325,11 +1325,11 @@ int m_strsep_u32(char **s, uint32_t *val)
 			errno = 0;
 			v = strtoul(t, &e, 0);
 			if (*e != 0) {
-				fprintf(stderr, "'%s' is not a number.\n", *s);
+				CLI_ERRO_LOG_STDERR("'%s' is not a number.\n", *s);
 				exit(10);
 			}
 			if (errno) {
-				fprintf(stderr, "'%s': ", *s);
+				CLI_ERRO_LOG_STDERR("'%s': ", *s);
 				perror(0);
 				exit(10);
 			}
@@ -1357,11 +1357,11 @@ int m_strsep_u64(char **s, uint64_t *val)
 			errno = 0;
 			v = strto_u64(t, &e, 16);
 			if (*e != 0) {
-				fprintf(stderr, "'%s' is not a number.\n", *s);
+				CLI_ERRO_LOG_STDERR("'%s' is not a number.\n", *s);
 				exit(10);
 			}
 			if (errno) {
-				fprintf(stderr, "'%s': ", *s);
+				CLI_ERRO_LOG_STDERR("'%s': ", *s);
 				perror(0);
 				exit(10);
 			}
@@ -1382,7 +1382,7 @@ int m_strsep_bit(char **s, uint32_t *val, int mask)
 	rv = m_strsep_u32(s, &d);
 
 	if (d > 1) {
-		fprintf(stderr, "'%d' is not 0 or 1.\n", d);
+		CLI_ERRO_LOG_STDERR("'%d' is not 0 or 1.\n", d);
 		exit(10);
 	}
 
@@ -1462,7 +1462,7 @@ void m_set_v9_uuid(struct md_cpu *md, int node_id, char **argv, int argc __attri
 
 int m_outdate_gc(struct md_cpu *md __attribute((unused)))
 {
-	fprintf(stderr, "Can not outdate GC based meta data!\n");
+	CLI_ERRO_LOG_STDERR("Can not outdate GC based meta data!\n");
 
 	return 5;
 }
@@ -1536,18 +1536,18 @@ int v06_parse(struct format *cfg, char **argv, int argc, int *ai)
 	char *e;
 
 	if (argc < 1) {
-		fprintf(stderr, "Too few arguments for format\n");
+		CLI_ERRO_LOG_STDERR("Too few arguments for format\n");
 		exit(20);
 	}
 
 	e = argv[0];
 	minor = strtol(argv[0], &e, 0);
 	if (*e != 0 || minor > 255UL) {
-		fprintf(stderr, "'%s' is not a valid minor number.\n", argv[0]);
+		CLI_ERRO_LOG_STDERR("'%s' is not a valid minor number.\n", argv[0]);
 		exit(20);
 	}
 	if (asprintf(&e, "%s/bsr%lu", BSR_LIB_DIR, minor) <= 18) {
-		fprintf(stderr, "asprintf() failed.\n");
+		CLI_ERRO_LOG_STDERR("asprintf() failed.\n");
 		exit(20);
 	};
 	cfg->md_device_name = e;
@@ -1574,7 +1574,7 @@ int v06_md_open(struct format *cfg)
 	}
 
 	if (!S_ISREG(sb.st_mode)) {
-		fprintf(stderr, "'%s' is not a plain file!\n",
+		CLI_ERRO_LOG_STDERR("'%s' is not a plain file!\n",
 			cfg->md_device_name);
 		return NO_VALID_MD_FOUND;
 	}
@@ -1711,9 +1711,9 @@ void re_initialize_md_offsets(struct format *cfg)
 		md_size_sect = bm_bytes(&cfg->md, cfg->bd_size >> 9) >> 9;
 		md_size_sect = ALIGN(md_size_sect, 8);    /* align on 4K blocks */
 		if (md_size_sect > (MD_BM_MAX_BYTE_FLEX>>9)) {
-			fprintf(stderr, "Bitmap for that device got too large.\n");
+			CLI_ERRO_LOG_STDERR("Bitmap for that device got too large.\n");
 			if (BITS_PER_LONG == 32)
-				fprintf(stderr, "Maybe try a 64bit arch?\n");
+				CLI_ERRO_LOG_STDERR("Maybe try a 64bit arch?\n");
 			exit(10);
 		}
 		/* plus the "bsr meta data super block",
@@ -1776,7 +1776,7 @@ static void zeroout_bitmap(struct format *cfg)
 	range[0] = cfg->bm_offset; /* start offset */
 	range[1] = bitmap_bytes; /* len */
 
-	fprintf(stderr, "initializing bitmap (%u KB) to all zero\n",
+	CLI_ERRO_LOG_STDERR("initializing bitmap (%u KB) to all zero\n",
 		(unsigned int)(bitmap_bytes >> 10));
 
 #ifdef _LIN
@@ -1787,7 +1787,7 @@ static void zeroout_bitmap(struct format *cfg)
 	PERROR("ioctl(%s, BLKZEROOUT, [%llu, %llu]) failed", cfg->md_device_name,
 		(unsigned long long)range[0], (unsigned long long)range[1]);
 #endif
-	fprintf(stderr, "Using slow(er) fallback.\n");
+	CLI_ERRO_LOG_STDERR("Using slow(er) fallback.\n");
 	{
 		/* need to sector-align this for O_DIRECT.
 		 * "sector" here means hard-sect size, which may be != 512.
@@ -1835,7 +1835,7 @@ int md_initialize_common(struct format *cfg, int do_disk_writes)
 	/* do you want to initialize al to something more useful? */
 	printf("initializing activity log\n");
 	if (MD_AL_MAX_SECT_07 * 512 > buffer_size) {
-		fprintf(stderr, "%s:%u: LOGIC BUG\n", __FILE__, __LINE__);
+		CLI_ERRO_LOG_STDERR("%s:%u: LOGIC BUG\n", __FILE__, __LINE__);
 		exit(111);
 	}
 	initialize_al(cfg);
@@ -2074,7 +2074,7 @@ static int replay_al_07(struct format *cfg, uint32_t *hot_extent)
 	if (!found_valid) {
 		/* not even one transaction was valid.
 		 * Has this ever been initialized correctly? */
-		fprintf(stderr, "No usable activity log found.\n");
+		CLI_ERRO_LOG_STDERR("No usable activity log found.\n");
 		/* with up to 8.3 style activity log, this is NOT an error. */
 		return 0;
 	}
@@ -2082,8 +2082,8 @@ static int replay_al_07(struct format *cfg, uint32_t *hot_extent)
 	/* we do expect at most one corrupt transaction, and only in case
 	 * things went wrong during transaction write. */
 	if (found_valid != mx) {
-		fprintf(stderr, "%u corrupt or uninitialized AL transactions found\n", mx - found_valid);
-		fprintf(stderr, "You can safely ignore this if this node was cleanly stopped (no crash).\n");
+		CLI_ERRO_LOG_STDERR("%u corrupt or uninitialized AL transactions found\n", mx - found_valid);
+		CLI_ERRO_LOG_STDERR("You can safely ignore this if this node was cleanly stopped (no crash).\n");
 	}
 
 	/* Any other paranoia checks possible with this log format? */
@@ -2108,7 +2108,7 @@ static int replay_al_07(struct format *cfg, uint32_t *hot_extent)
 			if (al_cpu[idx].updates[i].extent == ~0U)
 				continue;
 			if (slot >= AL_EXTENTS_MAX) {
-				fprintf(stderr, "slot number out of range: tr:%u slot:%u\n",
+				CLI_ERRO_LOG_STDERR("slot number out of range: tr:%u slot:%u\n",
 						idx, slot);
 				continue;
 			}
@@ -2151,7 +2151,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 
 	al_cpu = calloc(mx, sizeof(*al_cpu));
 	if (!al_cpu) {
-		fprintf(stderr, "Could not calloc(%u, sizeof(*al_cpu))\n", mx);
+		CLI_ERRO_LOG_STDERR("Could not calloc(%u, sizeof(*al_cpu))\n", mx);
 		exit(30); /* FIXME sane exit codes */
 	}
 
@@ -2187,7 +2187,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 	if (!found_valid) {
 		/* not even one transaction was valid.
 		 * Has this ever been initialized correctly? */
-		fprintf(stderr, "No usable activity log found. Do you need to create-md?\n");
+		CLI_ERRO_LOG_STDERR("No usable activity log found. Do you need to create-md?\n");
 		free(al_cpu);
 		return -ENODATA;
 	}
@@ -2195,7 +2195,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 	/* we do expect at most one corrupt transaction, and only in case
 	 * things went wrong during transaction write. */
 	if (found_valid != mx)
-		fprintf(stderr, "%u corrupt AL transactions found\n", mx - found_valid);
+		CLI_ERRO_LOG_STDERR("%u corrupt AL transactions found\n", mx - found_valid);
 
 	if (!found_valid_updates) {
 		if (found_valid == mx)
@@ -2211,7 +2211,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 		 * Some are not.
 		 * This is not expected. */
 		/* FIXME how do we want to handle this? */
-		fprintf(stderr, "No valid AL update transaction found.\n");
+		CLI_ERRO_LOG_STDERR("No valid AL update transaction found.\n");
 		return -EINVAL;
 	}
 
@@ -2236,7 +2236,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 			if (al_cpu[idx].context[i] == UINT32_MAX && slot >= al_cpu[idx].context_size)
 				continue;
 			if (slot >= AL_EXTENTS_MAX) {
-				fprintf(stderr, "slot number out of range: tr:%u slot:%u\n",
+				CLI_ERRO_LOG_STDERR("slot number out of range: tr:%u slot:%u\n",
 						idx, slot);
 				continue;
 			}
@@ -2247,7 +2247,7 @@ int replay_al_84(struct format *cfg, uint32_t *hot_extent)
 			if (i >= al_cpu[idx].n_updates && slot == UINT16_MAX)
 				continue;
 			if (slot >= AL_EXTENTS_MAX) {
-				fprintf(stderr, "update slot number out of range: tr:%u slot:%u\n",
+				CLI_ERRO_LOG_STDERR("update slot number out of range: tr:%u slot:%u\n",
 						idx, slot);
 				continue;
 			}
@@ -2309,7 +2309,7 @@ void apply_al(struct format *cfg, uint32_t *hot_extent)
 
 		bm_pos = hot_extent[i] * extents_size;
 		if (bm_pos >= bm_bytes) {
-			fprintf(stderr, "extent %u beyond end of bitmap!\n", hot_extent[i]);
+			CLI_ERRO_LOG_STDERR("extent %u beyond end of bitmap!\n", hot_extent[i]);
 			/* could break or return error here,
 			 * but I'll just print a warning, and skip, each of them. */
 			continue;
@@ -2354,10 +2354,10 @@ void apply_al(struct format *cfg, uint32_t *hot_extent)
 		pwrite_or_die(cfg, on_disk_buffer, chunk,
 				bm_on_disk_off + bm_on_disk_pos,
 				"apply_al");
-		fprintf(stderr, "Marked additional %s as out-of-sync based on AL.\n",
+		CLI_ERRO_LOG_STDERR("Marked additional %s as out-of-sync based on AL.\n",
 			ppsize(ppb, additional_bits_set * 4));
 	} else
-		fprintf(stderr, "Nothing to do.\n");
+		CLI_ERRO_LOG_STDERR("Nothing to do.\n");
 }
 
 int need_to_apply_al(struct format *cfg)
@@ -2371,7 +2371,7 @@ int need_to_apply_al(struct format *cfg)
 	case BSR_V09:
 		return cfg->md.flags & MDF_PRIMARY_IND;
 	case BSR_UNKNOWN:
-		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
+		CLI_ERRO_LOG_STDERR("BUG in %s().\n", __FUNCTION__);
 	}
 	return 0;
 }
@@ -2387,10 +2387,10 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 	int err;
 
 	if (argc > 0)
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 
 	if (format_version(cfg) < BSR_V07) {
-		fprintf(stderr, "apply-al only implemented for BSR >= 0.7\n");
+		CLI_ERRO_LOG_STDERR("apply-al only implemented for BSR >= 0.7\n");
 		return -1;
 	}
 
@@ -2400,7 +2400,7 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 			err = cfg->ops->open(cfg);
 	}
 	if (err != VALID_MD_FOUND) {
-		fprintf(stderr, "No valid meta data found\n");
+		CLI_ERRO_LOG_STDERR("No valid meta data found\n");
 		return -1;
 	}
 
@@ -2456,7 +2456,7 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 				return 1;
 			return 2;
 		} else if (is_v08(cfg) || is_v09(cfg)) {
-			fprintf(stderr, "Error ignored, no need to apply the AL\n");
+			CLI_ERRO_LOG_STDERR("Error ignored, no need to apply the AL\n");
 			re_initialize_anyways = 1;
 		}
 	}
@@ -2505,7 +2505,7 @@ int meta_apply_al(struct format *cfg, char **argv __attribute((unused)), int arg
 		err = cfg->ops->md_cpu_to_disk(cfg);
 		err = cfg->ops->close(cfg) || err;
 		if (err)
-			fprintf(stderr, "update of super block flags failed\n");
+			CLI_ERRO_LOG_STDERR("update of super block flags failed\n");
 	}
 
 	return err;
@@ -2673,7 +2673,7 @@ void printf_bm(struct format *cfg)
 		}
 		break;
 	case BSR_UNKNOWN:
-		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
+		CLI_ERRO_LOG_STDERR("BUG in %s().\n", __FUNCTION__);
 	}
 }
 
@@ -2836,13 +2836,13 @@ static char * _get_win32_device_ns(const char * device_name)
 				case ERROR_NOT_A_REPARSE_POINT:	// pass through intentionally
 					break;
 				default:
-					//fprintf(stderr, "GetVolumeNameForVolumeMountPoint() failed err(%d)\n", err);
+					//CLI_ERRO_LOG_STDERR("GetVolumeNameForVolumeMountPoint() failed err(%d)\n", err);
 					return NULL;
 			}
 			// DW-1423 retrieve path.
 			wdn = (char*)malloc(strlen(temp) + 5);
 			if (!wdn) {
-				fprintf(stderr, "malloc failed while getting directory path for mounting point\n");
+				CLI_ERRO_LOG_STDERR("malloc failed while getting directory path for mounting point\n");
 				return NULL;
 			}
 			strcpy(wdn, "\\\\.\\");
@@ -2913,10 +2913,10 @@ int v07_style_md_open(struct format *cfg)
 			(F_OK == access(cfg->vhd_dev_path, R_OK))) {
 			if (!_attach_vhd_script(cfg->vhd_dev_path)) {
 				char * _argv[] = { "diskpart", "/s", "./"ATTACH_VHD_SCRIPT, (char *)0 };
-				fprintf(stderr, "Attaching %s for meta data\n", cfg->vhd_dev_path);
+				CLI_ERRO_LOG_STDERR("Attaching %s for meta data\n", cfg->vhd_dev_path);
 				if (_call_script(_argv)) {
 					remove("./"ATTACH_VHD_SCRIPT);
-					fprintf(stderr, "diskpart attach failed.\n");
+					CLI_ERRO_LOG_STDERR("diskpart attach failed.\n");
 					exit(20);
 				}
 				remove("./"ATTACH_VHD_SCRIPT);
@@ -2931,10 +2931,10 @@ int v07_style_md_open(struct format *cfg)
 			int devnr;
 			int err;
 
-			fprintf(stderr, "set up the loop device (%s)\n", cfg->md_device_name);
+			CLI_ERRO_LOG_STDERR("set up the loop device (%s)\n", cfg->md_device_name);
 			loopctlfd = open("/dev/loop-control", O_RDWR);
 			if (loopctlfd == -1) {
-				fprintf(stderr, "failed to open /dev/loop-control\n");
+				CLI_ERRO_LOG_STDERR("failed to open /dev/loop-control\n");
 				exit(20);
 			}
 			devnr = atoi(strtok(cfg->md_device_name, "/dev/loop"));
@@ -2943,7 +2943,7 @@ int v07_style_md_open(struct format *cfg)
 			err = ioctl(loopctlfd, LOOP_CTL_ADD, devnr);
 			close(loopctlfd);
 			if (err != devnr) {
-				fprintf(stderr, "failed to add the new loop device (%s)\n", cfg->md_device_name);
+				CLI_ERRO_LOG_STDERR("failed to add the new loop device (%s)\n", cfg->md_device_name);
 				exit(20);
 			}
 			goto retry;
@@ -2965,7 +2965,7 @@ int v07_style_md_open(struct format *cfg)
 			/* shoo. O_DIRECT is not supported?
 			 * retry, but remember this, so we can
 			 * BLKFLSBUF appropriately */
-			fprintf(stderr, "could not open with O_DIRECT, retrying without\n");
+			CLI_ERRO_LOG_STDERR("could not open with O_DIRECT, retrying without\n");
 			open_flags &= ~O_DIRECT;
 			opened_odirect = 0;
 			goto retry;
@@ -2980,13 +2980,13 @@ int v07_style_md_open(struct format *cfg)
 			int file_fd;
 			file_fd = open(cfg->loop_file_path, O_RDWR);
 			if (file_fd < 0) {
-				fprintf(stderr, "failed to open mete file (%s)\n", cfg->loop_file_path);
+				CLI_ERRO_LOG_STDERR("failed to open mete file (%s)\n", cfg->loop_file_path);
 				exit(20);
 			}
 
 			// associate the loop device with the open file.			
 			if (ioctl(cfg->md_fd, LOOP_SET_FD, file_fd) != 0) {
-				fprintf(stderr, "failed to associate the loop device (%s) with the meta file (%s)\n", 
+				CLI_ERRO_LOG_STDERR("failed to associate the loop device (%s) with the meta file (%s)\n", 
 						cfg->md_device_name, cfg->loop_file_path);
 				close(file_fd);
 				exit(20);
@@ -3004,7 +3004,7 @@ int v07_style_md_open(struct format *cfg)
 
 	if (!S_ISBLK(sb.st_mode)) {
 		if (!force) {
-			fprintf(stderr, "'%s' is not a block device!\n",
+			CLI_ERRO_LOG_STDERR("'%s' is not a block device!\n",
 				cfg->md_device_name);
 			exit(20);
 		}
@@ -3020,14 +3020,14 @@ int v07_style_md_open(struct format *cfg)
 	ioctl_err = ioctl(cfg->md_fd, BLKSSZGET, &hard_sect_size);
 #endif
 	if (ioctl_err) {
-		fprintf(stderr, "ioctl(md_fd, BLKSSZGET) returned %d, "
+		CLI_ERRO_LOG_STDERR("ioctl(md_fd, BLKSSZGET) returned %d, "
 			"assuming hard_sect_size is 512 Byte\n", ioctl_err);
 		cfg->md_hard_sect_size = 512;
 	}
 	else {
 		cfg->md_hard_sect_size = hard_sect_size;
 		if (verbose >= 2)
-			fprintf(stderr, "hard_sect_size is %d Byte\n",
+			CLI_ERRO_LOG_STDERR("hard_sect_size is %d Byte\n",
 			cfg->md_hard_sect_size);
 	}
 	
@@ -3041,7 +3041,7 @@ int v07_style_md_open(struct format *cfg)
 	 * so having less than that doesn't make sense.
 	 * It's only 68kB anyway! */
 	if (cfg->bd_size < SO_MUCH) {
-		fprintf(stderr, "%s is only %llu bytes. That's not enough.\n",
+		CLI_ERRO_LOG_STDERR("%s is only %llu bytes. That's not enough.\n",
 			cfg->md_device_name, (long long unsigned)cfg->bd_size);
 		exit(10);
 	}
@@ -3063,7 +3063,7 @@ int v07_style_md_open(struct format *cfg)
 		/* report error, but otherwise ignore.  we could not open
 		 * O_DIRECT, it is a "strange" device anyways. */
 		if (ioctl_err)
-			fprintf(stderr, "ioctl(md_fd, BLKFLSBUF) returned %d, "
+			CLI_ERRO_LOG_STDERR("ioctl(md_fd, BLKFLSBUF) returned %d, "
 					"we may read stale data\n", ioctl_err);
 	}
 #endif
@@ -3114,7 +3114,7 @@ int v07_parse(struct format *cfg, char **argv, int argc, int *ai)
 	char *e;
 
 	if (argc < 2) {
-		fprintf(stderr, "Too few arguments for format\n");
+		CLI_ERRO_LOG_STDERR("Too few arguments for format\n");
 		return -1;
 	}
 
@@ -3142,7 +3142,7 @@ int v07_parse(struct format *cfg, char **argv, int argc, int *ai)
 		errno = 0;
 		index = strtol(argv[1], &e, 0);
 		if (*e != 0 || 0 > index || index > 255 || errno != 0) {
-			fprintf(stderr, "'%s' is not a valid index number.\n", argv[1]);
+			CLI_ERRO_LOG_STDERR("'%s' is not a valid index number.\n", argv[1]);
 			return -1;
 		}
 	}
@@ -3201,16 +3201,16 @@ void v08_check_for_resize(struct format *cfg)
 	/* Do we know anything? Maybe it never was stored. */
 	if (lk_bdev_load(cfg->minor, &cfg->lk_bd)) {
 		if (verbose)
-			fprintf(stderr, "no last-known offset information available.\n");
+			CLI_ERRO_LOG_STDERR("no last-known offset information available.\n");
 		return;
 	}
 
 	if (verbose) {
-		fprintf(stderr, " last known info: %llu %s\n",
+		CLI_ERRO_LOG_STDERR(" last known info: %llu %s\n",
 			(unsigned long long)cfg->lk_bd.bd_size,
 			cfg->lk_bd.bd_name ?: "-unknown device name-");
 		if (cfg->lk_bd.bd_uuid)
-			fprintf(stderr, " last known uuid: "X64(016)"\n",
+			CLI_ERRO_LOG_STDERR(" last known uuid: "X64(016)"\n",
 				cfg->lk_bd.bd_uuid);
 	}
 
@@ -3236,33 +3236,33 @@ void v08_check_for_resize(struct format *cfg)
 	}
 
 	if (verbose) {
-		fprintf(stderr, "While checking for internal meta data for bsr%u on %s,\n"
+		CLI_ERRO_LOG_STDERR("While checking for internal meta data for bsr%u on %s,\n"
 				"it appears that it may have been relocated.\n"
 				"It used to be ", cfg->minor, cfg->md_device_name);
 		if (cfg->lk_bd.bd_name &&
 			strcmp(cfg->lk_bd.bd_name, cfg->md_device_name)) {
-			fprintf(stderr, "on %s ", cfg->lk_bd.bd_name);
+			CLI_ERRO_LOG_STDERR("on %s ", cfg->lk_bd.bd_name);
 		}
-		fprintf(stderr, "at byte offset %llu", (unsigned long long)flex_offset);
+		CLI_ERRO_LOG_STDERR("at byte offset %llu", (unsigned long long)flex_offset);
 
 		if (!found) {
-			fprintf(stderr, ", but I cannot find it now.\n");
+			CLI_ERRO_LOG_STDERR(", but I cannot find it now.\n");
 			if (flex_offset >= cfg->bd_size)
-				fprintf(stderr, "Device is too small now!\n");
+				CLI_ERRO_LOG_STDERR("Device is too small now!\n");
 		} else
-			fprintf(stderr, ", and seems to still be valid.\n");
+			CLI_ERRO_LOG_STDERR(", and seems to still be valid.\n");
 	}
 
 	if (found) {
 		if (cfg->lk_bd.bd_uuid && md_test.device_uuid != cfg->lk_bd.bd_uuid) {
-			fprintf(stderr, "Last known and found uuid differ!?\n"
+			CLI_ERRO_LOG_STDERR("Last known and found uuid differ!?\n"
 					X64(016)" != "X64(016)"\n",
 					cfg->lk_bd.bd_uuid, cfg->md.device_uuid);
 			if (!force) {
 				found = 0;
-				fprintf(stderr, "You may --force me to ignore that.\n");
+				CLI_ERRO_LOG_STDERR("You may --force me to ignore that.\n");
 			} else
-				fprintf(stderr, "You --force'ed me to ignore that.\n");
+				CLI_ERRO_LOG_STDERR("You --force'ed me to ignore that.\n");
 		}
 	}
 	if (found)
@@ -3405,7 +3405,7 @@ int v09_md_initialize(struct format *cfg, int do_disk_writes, int max_peers)
 int meta_get_gi(struct format *cfg, char **argv __attribute((unused)), int argc)
 {
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg))
@@ -3421,7 +3421,7 @@ int meta_show_gi(struct format *cfg, char **argv __attribute((unused)), int argc
 	char ppb[10];
 
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg))
@@ -3452,11 +3452,11 @@ int meta_show_gi(struct format *cfg, char **argv __attribute((unused)), int argc
 int meta_dstate(struct format *cfg, char **argv __attribute((unused)), int argc)
 {
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg)) {
-		fprintf(stderr, "No valid meta data found\n");
+		CLI_ERRO_LOG_STDERR("No valid meta data found\n");
 		return -1;
 	}
 
@@ -3482,10 +3482,10 @@ int meta_set_gi(struct format *cfg, char **argv, int argc)
 	int err;
 
 	if (argc > 1) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 	if (argc < 1) {
-		fprintf(stderr, "Required Argument missing\n");
+		CLI_ERRO_LOG_STDERR("Required Argument missing\n");
 		exit(10);
 	}
 
@@ -3509,7 +3509,7 @@ int meta_set_gi(struct format *cfg, char **argv, int argc)
 	err = cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg) || err;
 	if (err)
-		fprintf(stderr, "update failed\n");
+		CLI_ERRO_LOG_STDERR("update failed\n");
 
 	return err;
 }
@@ -3571,12 +3571,12 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	int i;
 
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	i = cfg->ops->open(cfg);
 	if (i == NO_VALID_MD_FOUND) {
-		fprintf(stderr, "No valid meta data found\n");
+		CLI_ERRO_LOG_STDERR("No valid meta data found\n");
 		return -1;
 	}
 
@@ -3585,7 +3585,7 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 		(cfg->md.flags & MDF_AL_CLEAN) != 0;
 
 	if (!al_is_clean) {
-		fprintf(stderr, "Found meta data is \"unclean\", please apply-al first\n");
+		CLI_ERRO_LOG_STDERR("Found meta data is \"unclean\", please apply-al first\n");
 		if (!force)
 			return -1;
 	}
@@ -3684,7 +3684,7 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 		printf("\n}\n");
 		break;
 	case BSR_UNKNOWN:
-		fprintf(stderr, "BUG in %s().\n", __FUNCTION__);
+		CLI_ERRO_LOG_STDERR("BUG in %s().\n", __FUNCTION__);
 	}
 
 	if (format_version(cfg) >= BSR_V07) {
@@ -3780,14 +3780,14 @@ void md_parse_error(int expected_token, int seen_token,const char *etext)
 
 	switch(seen_token) {
 	case 0:
-		fprintf(stderr, ", but end of file encountered\n"); break;
+		CLI_ERRO_LOG_STDERR(", but end of file encountered\n"); break;
 
 	case   1 ...  58: /* ord(';') == 58 */
 	case  60 ... 122: /* ord('{') == 123 */
 	case 124:         /* ord('}') == 125 */
 	case 126 ... 257:
 		/* oopsie. these should never be returned! */
-		fprintf(stderr, "; got token value %u (this should never happen!)\n", seen_token); break;
+		CLI_ERRO_LOG_STDERR("; got token value %u (this should never happen!)\n", seen_token); break;
 		break;
 
 	case TK_INVALID_CHAR:
@@ -3795,16 +3795,16 @@ void md_parse_error(int expected_token, int seen_token,const char *etext)
 			(unsigned char)yylval.txt[0], yylval.txt[0]);
 		break;
 	case ';': case '{': case '}':
-		fprintf(stderr, ", not '%c'\n", seen_token); break;
+		CLI_ERRO_LOG_STDERR(", not '%c'\n", seen_token); break;
 	case TK_NUM:
 	case TK_U32:
 	case TK_U64:
-		fprintf(stderr, ", not some number\n"); break;
+		CLI_ERRO_LOG_STDERR(", not some number\n"); break;
 	case TK_INVALID:
 		/* already reported by scanner */
 		fprintf(stderr,"\n"); break;
 	default:
-		fprintf(stderr, ", not '%s'\n", yylval.txt);
+		CLI_ERRO_LOG_STDERR(", not '%s'\n", yylval.txt);
 	}
 	exit(10);
 }
@@ -3847,7 +3847,7 @@ int parse_bitmap_window_one_peer(struct format *cfg, int window, int peer_nr, in
 		EXP(TK_BITMAP); EXP('[');
 		EXP(TK_NUM); EXP(']');
 		if (yylval.u64 != peer_nr) {
-			fprintf(stderr, "Parse error in line %u: "
+			CLI_ERRO_LOG_STDERR("Parse error in line %u: "
 				"Expected peer slot %d but found %d\n",
 				yylineno, i, (int)yylval.u64);
 			exit(10);
@@ -3957,7 +3957,7 @@ void parse_bitmap(struct format *cfg, int parse_only)
 				      bm_max_on_disk_off,
 				      "meta_restore_md");
 			if (s != c) {
-				fprintf(stderr, "Bitmap info too large, truncated!\n");
+				CLI_ERRO_LOG_STDERR("Bitmap info too large, truncated!\n");
 				/* If the bitmap info was truncated, there will
 				 * be garbage, still, and the EXP(0) below would
 				 * crap out.  "Drain" that garbage here,
@@ -3983,7 +3983,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	if (argc > 0) {
 		yyin = fopen(argv[0],"r");
 		if(yyin == NULL) {
-			fprintf(stderr, "open of '%s' failed.\n",argv[0]);
+			CLI_ERRO_LOG_STDERR("open of '%s' failed.\n",argv[0]);
 			exit(20);
 		}
 	}
@@ -4013,7 +4013,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 
 	cfg->ops->md_initialize(cfg, 0, new_max_peers);
 	if (!parse_only) {
-		fprintf(stderr, "reinitializing\n");
+		CLI_ERRO_LOG_STDERR("reinitializing\n");
 		if (old_max_peers < new_max_peers &&
 		    cfg->md_index != BSR_MD_INDEX_FLEX_INT) {
 			printf("Meta data needs more space now, since max_peers\n"
@@ -4061,13 +4061,13 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 				EXP(TK_NUM); EXP(']');
 				cur_slot = yylval.u64;
 				if (cur_slot < 0 || cur_slot >= BSR_NODE_ID_MAX) {
-					fprintf(stderr, "Parse error in line %u: "
+					CLI_ERRO_LOG_STDERR("Parse error in line %u: "
 						"Slot %d out of range\n",
 						yylineno, cur_slot);
 					exit(10);
 				}
 				if (slots_seen[cur_slot]) {
-					fprintf(stderr, "Parse error in line %u: "
+					CLI_ERRO_LOG_STDERR("Parse error in line %u: "
 						"Peer slot %d defined multiple times\n",
 						yylineno, cur_slot);
 					exit(10);
@@ -4102,7 +4102,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 		/* Check whether the value of bm_bytes_per_bit is
 		 * a power-of-two multiple of 4k. */
 		if (yylval.u64 < 4096 || (yylval.u64 & (yylval.u64 -1)) != 0) {
-			fprintf(stderr, "Invalid value for bm-byte-per-bit: "
+			CLI_ERRO_LOG_STDERR("Invalid value for bm-byte-per-bit: "
 				"value must be a power-of-two multiple of 4096\n");
 			exit(10);
 		}
@@ -4122,12 +4122,12 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	if (option_al_stripes != cfg->md.al_stripes ||
 	    option_al_stripe_size_4k != cfg->md.al_stripe_size_4k) {
 		if (option_al_stripes_used) {
-			fprintf(stderr, "override activity log striping from commandline\n");
+			CLI_ERRO_LOG_STDERR("override activity log striping from commandline\n");
 			cfg->md.al_stripes = option_al_stripes;
 			cfg->md.al_stripe_size_4k = option_al_stripe_size_4k;
 		}
 		if (verbose >= 2)
-			fprintf(stderr, "adjusting activity-log and bitmap offsets\n");
+			CLI_ERRO_LOG_STDERR("adjusting activity-log and bitmap offsets\n");
 		re_initialize_md_offsets(cfg);
 	}
 
@@ -4145,7 +4145,7 @@ int verify_dumpfile_or_restore(struct format *cfg, char **argv, int argc, int pa
 	err = cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg) || err;
 	if (err) {
-		fprintf(stderr, "Writing failed\n");
+		CLI_ERRO_LOG_STDERR("Writing failed\n");
 		return -1;
 	}
 
@@ -4217,7 +4217,7 @@ void md_convert_07_to_08(struct format *cfg)
 	re_initialize_md_offsets(cfg);
 
 	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
+		CLI_ERRO_LOG_STDERR("Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
 }
@@ -4260,7 +4260,7 @@ void md_convert_08_to_07(struct format *cfg)
 	re_initialize_md_offsets(cfg);
 
 	if (!is_valid_md(BSR_V07, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
+		CLI_ERRO_LOG_STDERR("Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
 }
@@ -4291,7 +4291,7 @@ void md_convert_08_to_09(struct format *cfg)
 	re_initialize_md_offsets(cfg);
 
 	if (!is_valid_md(BSR_V09, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
+		CLI_ERRO_LOG_STDERR("Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
 }
@@ -4312,7 +4312,7 @@ void md_convert_09_to_08(struct format *cfg)
 	re_initialize_md_offsets(cfg);
 
 	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		fprintf(stderr, "Conversion failed.\nThis is a bug :(\n");
+		CLI_ERRO_LOG_STDERR("Conversion failed.\nThis is a bug :(\n");
 		exit(111);
 	}
 }
@@ -4325,7 +4325,7 @@ void convert_md(struct format *cfg, enum md_format from)
 	default:
 	case BSR_UNKNOWN:
 	case BSR_V06:
-		fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
+		CLI_ERRO_LOG_STDERR("BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 		exit(10);
 	case BSR_V07:
 		switch(from) {
@@ -4338,7 +4338,7 @@ void convert_md(struct format *cfg, enum md_format from)
 		case BSR_V06:
 		case BSR_UNKNOWN:
 		default:
-			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
+			CLI_ERRO_LOG_STDERR("BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
 		}
 		break;
@@ -4347,7 +4347,7 @@ void convert_md(struct format *cfg, enum md_format from)
 		default:
 		case BSR_UNKNOWN:
 		case BSR_V06:
-			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
+			CLI_ERRO_LOG_STDERR("BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
 		case BSR_V07:
 			md_convert_07_to_08(cfg);
@@ -4362,7 +4362,7 @@ void convert_md(struct format *cfg, enum md_format from)
 		default:
 		case BSR_UNKNOWN:
 		case BSR_V06:
-			fprintf(stderr, "BUG in %s() %d.\n", __FUNCTION__, __LINE__);
+			CLI_ERRO_LOG_STDERR("BUG in %s() %d.\n", __FUNCTION__, __LINE__);
 			exit(10);
 		case BSR_V07:
 			md_convert_07_to_08(cfg);
@@ -4550,9 +4550,9 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 			char *b = buf_err[(err_lines + i) % N_ERR_LINES];
 			if (b[0] == 0)
 				continue;
-			fprintf(stderr, "pvs stderr:%s", b);
+			CLI_ERRO_LOG_STDERR("pvs stderr:%s", b);
 		}
-		fprintf(stderr, "\n");
+		CLI_ERRO_LOG_STDERR("\n");
 	}
 
 	i = 2;
@@ -4764,13 +4764,13 @@ void check_internal_md_flavours(struct format * cfg) {
 	if (have == BSR_UNKNOWN)
 		return;
 
-	fprintf(stderr, "You want me to create a %s%s style %s internal meta data block.\n",
+	CLI_ERRO_LOG_STDERR("You want me to create a %s%s style %s internal meta data block.\n",
 		cfg->ops->name,
 		(is_v07(cfg) && cfg->md_index == BSR_MD_INDEX_FLEX_INT) ? "(plus)" : "",
 		cfg->md_index == BSR_MD_INDEX_FLEX_INT ? "flexible-size" : "fixed-size");
 
 
-	fprintf(stderr, "There appears to be a %s %s internal meta data block\n"
+	CLI_ERRO_LOG_STDERR("There appears to be a %s %s internal meta data block\n"
 		"already in place on %s at byte offset %llu\n",
 		f_ops[have].name, fixed ? "fixed-size" : "flexible-size",
 		cfg->md_device_name,
@@ -4921,7 +4921,7 @@ int v08_move_internal_md_after_resize(struct format *cfg)
 	/* fix AL and bitmap offsets, populate byte offsets for the new location */
 	re_initialize_md_offsets(cfg);
 
-	fprintf(stderr, "Moving the internal meta data to its proper location\n");
+	CLI_ERRO_LOG_STDERR("Moving the internal meta data to its proper location\n");
 
 	if (verbose >= 2) {
 		fprintf(stderr,"old md_offset: "U64"\n", old_offset);
@@ -4987,7 +4987,7 @@ int v08_move_internal_md_after_resize(struct format *cfg)
 
 	err = cfg->ops->close(cfg) || err;
 	if (err)
-		fprintf(stderr, "operation failed\n");
+		CLI_ERRO_LOG_STDERR("operation failed\n");
 
 	return err;
 }
@@ -4999,19 +4999,19 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 
 	if (is_v09(cfg)) {
 		if (argc < 1) {
-			fprintf(stderr, "USAGE: %s MINOR v09 ... create-md MAX_PEERS\n"
+			CLI_ERRO_LOG_STDERR("USAGE: %s MINOR v09 ... create-md MAX_PEERS\n"
 				"\n"
 				"  MAX_PEERS argument missing\n", progname);
 			exit(20);
 		} else if (argc > 1)
-			fprintf(stderr, "Ignoring additional arguments\n");
+			CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 
 		max_peers = m_strtoll(argv[0], 1);
 	} else if (argc > 0)
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 
 	if (max_peers < 1 || max_peers > BSR_PEERS_MAX) {
-		fprintf(stderr, "MAX_PEERS argument not in allowed range 1 .. %d.\n", BSR_PEERS_MAX);
+		CLI_ERRO_LOG_STDERR("MAX_PEERS argument not in allowed range 1 .. %d.\n", BSR_PEERS_MAX);
 		exit(20);
 	}
 #ifdef _WIN_VHD_META_SUPPORT
@@ -5045,10 +5045,10 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		// Make temporarily creation_vhd_script and call diskpart command with script
 		if (!_create_vhd_script(cfg->vhd_dev_path, evsm, cfg->md_device_name)) {
 			char * _argv[] = { "diskpart", "/s", "./"CREATE_VHD_SCRIPT, (char *)0 };
-			fprintf(stderr, "Creating %s for meta data...\n", cfg->vhd_dev_path);
+			CLI_ERRO_LOG_STDERR("Creating %s for meta data...\n", cfg->vhd_dev_path);
 			if (_call_script(_argv)) {
 				remove("./"CREATE_VHD_SCRIPT);
-				fprintf(stderr, "diskpart create failed.\n");
+				CLI_ERRO_LOG_STDERR("diskpart create failed.\n");
 				exit(20);
 			}
 			remove("./"CREATE_VHD_SCRIPT);
@@ -5069,7 +5069,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		if (option_al_stripes_used) {
 			if (option_al_stripes != cfg->md.al_stripes
 			||  option_al_stripe_size_4k != cfg->md.al_stripe_size_4k) {
-				fprintf(stderr, "Cannot move after offline resize and change AL-striping at the same time, yet.\n");
+				CLI_ERRO_LOG_STDERR("Cannot move after offline resize and change AL-striping at the same time, yet.\n");
 				exit(20);
 			}
 		}
@@ -5132,8 +5132,9 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	if (!err)
 		wipe_after_convert(cfg);
 	err = cfg->ops->close(cfg)          || err; // <- close always
-	if (err)
-		fprintf(stderr, "operation failed\n");
+	if (err) {
+		CLI_ERRO_LOG_STDERR("operation failed\n");
+	}
 	else
 		printf("New bsr meta data block successfully created.\n");
 
@@ -5144,7 +5145,7 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 {
 	int virgin, err;
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	virgin = cfg->ops->open(cfg);
@@ -5154,7 +5155,7 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	}
 
 	if (!confirmed("Do you really want to wipe out the BSR meta data?")) {
-		printf("Operation cancelled.\n");
+		printf("Operation cancelled.\n"); 
 		exit(1);
 	}
 
@@ -5163,8 +5164,9 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	PWRITE(cfg, on_disk_buffer, 4096, cfg->md_offset);
 
 	err = cfg->ops->close(cfg);
-	if (err)
-		fprintf(stderr, "operation failed\n");
+	if (err) {
+		CLI_ERRO_LOG_STDERR("operation failed\n");
+	}
 	else
 		printf("BSR meta data block successfully wiped out.\n");
 
@@ -5179,21 +5181,21 @@ int meta_outdate(struct format *cfg, char **argv __attribute((unused)), int argc
 	int err;
 
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg))
 		return -1;
 
 	if (cfg->ops->outdate_gi(&cfg->md)) {
-		fprintf(stderr, "Device is inconsistent.\n");
+		CLI_ERRO_LOG_STDERR("Device is inconsistent.\n");
 		exit(5);
 	}
 
 	err = cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg)          || err; // <- close always
 	if (err)
-		fprintf(stderr, "update failed\n");
+		CLI_ERRO_LOG_STDERR("update failed\n");
 
 	return err;
 }
@@ -5203,7 +5205,7 @@ int meta_invalidate(struct format *cfg, char **argv __attribute((unused)), int a
 	int err;
 
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg))
@@ -5213,7 +5215,7 @@ int meta_invalidate(struct format *cfg, char **argv __attribute((unused)), int a
 	err = cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg)          || err; // <- close always
 	if (err)
-		fprintf(stderr, "update failed\n");
+		CLI_ERRO_LOG_STDERR("update failed\n");
 
 	return err;
 }
@@ -5221,7 +5223,7 @@ int meta_invalidate(struct format *cfg, char **argv __attribute((unused)), int a
 int meta_read_dev_uuid(struct format *cfg, char **argv __attribute((unused)), int argc)
 {
 	if (argc > 0) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 
 	if (cfg->ops->open(cfg))
@@ -5237,10 +5239,10 @@ int meta_write_dev_uuid(struct format *cfg, char **argv, int argc)
 	int err;
 
 	if (argc > 1) {
-		fprintf(stderr, "Ignoring additional arguments\n");
+		CLI_ERRO_LOG_STDERR("Ignoring additional arguments\n");
 	}
 	if (argc < 1) {
-		fprintf(stderr, "Required Argument missing\n");
+		CLI_ERRO_LOG_STDERR("Required Argument missing\n");
 		exit(10);
 	}
 
@@ -5252,7 +5254,7 @@ int meta_write_dev_uuid(struct format *cfg, char **argv, int argc)
 	err = cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg) || err;
 	if (err)
-		fprintf(stderr, "update failed\n");
+		CLI_ERRO_LOG_STDERR("update failed\n");
 
 	return err;
 }
@@ -5294,7 +5296,7 @@ int parse_format(struct format *cfg, char **argv, int argc, int *ai)
 	enum md_format f;
 
 	if (argc < 1) {
-		fprintf(stderr, "Format identifier missing\n");
+		CLI_ERRO_LOG_STDERR("Format identifier missing\n");
 		return -1;
 	}
 
@@ -5303,7 +5305,7 @@ int parse_format(struct format *cfg, char **argv, int argc, int *ai)
 			break;
 	}
 	if (f == BSR_UNKNOWN) {
-		fprintf(stderr, "Unknown format '%s'.\n", argv[0]);
+		CLI_ERRO_LOG_STDERR("Unknown format '%s'.\n", argv[0]);
 		return -1;
 	}
 
@@ -5335,7 +5337,7 @@ static enum bsr_disk_state bsr_str_disk(const char *str)
 	if (!strcmp(str, "Unconfigured"))
 		return D_DISKLESS;
 
-	fprintf(stderr, "Unexpected output from bsrsetup >%s<\n", str);
+	CLI_ERRO_LOG_STDERR("Unexpected output from bsrsetup >%s<\n", str);
 	exit(20);
 }
 
@@ -5364,13 +5366,13 @@ int is_attached(int minor)
 		FILE *f = freopen("/dev/null", "w", stderr);
 		if (!f)
 			// DW-1777 revert source and change error message
-			fprintf(stderr, "open null service failed\n");
+			CLI_ERRO_LOG_STDERR("open null service failed\n");
 
 		close(pipes[0]);
 		dup2(pipes[1], 1);
 
 		execvp(argv[0], argv);
-		fprintf(stderr, "Can not exec bsrsetup\n");
+		CLI_ERRO_LOG_STDERR("Can not exec bsrsetup\n");
 		exit(20);
 	}
 	close(pipes[1]);
@@ -5414,10 +5416,10 @@ int meta_chk_offline_resize(struct format *cfg, char **argv, int argc)
 		return cfg->ops->close(cfg);
 	} else if (err == NO_VALID_MD_FOUND) {
 		if (format_version(cfg) < BSR_V08 || cfg->md_index != BSR_MD_INDEX_FLEX_INT) {
-			fprintf(stderr, "Operation only supported for >= v8 internal meta data\n");
+			CLI_ERRO_LOG_STDERR("Operation only supported for >= v8 internal meta data\n");
 			return -1;
 		}
-		fprintf(stderr, "no suitable meta data found :(\n");
+		CLI_ERRO_LOG_STDERR("no suitable meta data found :(\n");
 		return -1; /* sorry :( */
 	}
 	/* VALID_MD_FOUND_AT_LAST_KNOWN_LOCATION */
@@ -5445,7 +5447,7 @@ int meta_forget_peer(struct format *cfg, char **argv, int argc)
 	cfg->ops->md_cpu_to_disk(cfg);
 	err = cfg->ops->close(cfg) || err;
 	if (err)
-		fprintf(stderr, "update failed\n");
+		CLI_ERRO_LOG_STDERR("update failed\n");
 
 	return err;
 }
@@ -5464,12 +5466,12 @@ struct format *new_cfg()
 	}
 	cfg = calloc(1, sizeof(struct format));
 	if (!cfg) {
-		fprintf(stderr, "could not calloc() cfg\n");
+		CLI_ERRO_LOG_STDERR("could not calloc() cfg\n");
 		exit(20);
 	}
 	err = posix_memalign(&on_disk_buffer, pagesize, ALIGN(buffer_size, pagesize));
 	if (err) {
-		fprintf(stderr, "could not posix_memalign() on_disk_buffer\n");
+		CLI_ERRO_LOG_STDERR("could not posix_memalign() on_disk_buffer\n");
 		exit(20);
 	}
 	return cfg;
@@ -5482,21 +5484,28 @@ int main(int argc, char **argv)
 	int ai, rv;
 	bool minor_attached = false;
 
+	if ((progname = strrchr(argv[0], '/'))) {
+		argv[0] = ++progname;
+	}
+	else {
+		progname = argv[0];
+	}
+
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
-		fprintf(stderr, "Where did you get this broken build!?\n"
+		CLI_ERRO_LOG_STDERR("Where did you get this broken build!?\n"
 				"sizeof(md_on_disk_07) == %lu, should be 4096\n",
 				(unsigned long)sizeof(struct md_on_disk_07));
 		exit(111);
 	}
 	if (sizeof(struct md_on_disk_08) != 4096) {
-		fprintf(stderr, "Where did you get this broken build!?\n"
+		CLI_ERRO_LOG_STDERR("Where did you get this broken build!?\n"
 				"sizeof(md_on_disk_08) == %lu, should be 4096\n",
 				(unsigned long)sizeof(struct md_on_disk_08));
 		exit(111);
 	}
 	if (sizeof(struct meta_data_on_disk_9) != 4096) {
-		fprintf(stderr, "Where did you get this broken build!?\n"
+		CLI_ERRO_LOG_STDERR("Where did you get this broken build!?\n"
 				"sizeof(meta_data_on_disk_9) == %lu, should be 4096\n",
 				(unsigned long)sizeof(struct meta_data_on_disk_9));
 		exit(111);
@@ -5509,12 +5518,6 @@ int main(int argc, char **argv)
 	exit(0);
 #endif
 #endif
-
-	if ((progname = strrchr(argv[0], '/'))) {
-		argv[0] = ++progname;
-	} else {
-		progname = argv[0];
-	}
 
 	if (argc < 4)
 		print_usage_and_exit();
@@ -5543,14 +5546,14 @@ int main(int argc, char **argv)
 		    option_peer_max_bio_size = m_strtoll(optarg, 1);
 		    if (option_peer_max_bio_size < 0 ||
 			option_peer_max_bio_size > 1024 * 1024) {
-			    fprintf(stderr, "peer-max-bio-size out of range (0...1M)\n");
+				CLI_ERRO_LOG_STDERR("peer-max-bio-size out of range (0...1M)\n");
 			    exit(10);
 		    }
 		    break;
 	    case 'i':
 		    option_node_id = m_strtoll(optarg, 1);
 		    if (option_node_id < 0 || option_node_id > (BSR_PEERS_MAX - 1)) {
-			    fprintf(stderr, "node-id out of range (0...%d)\n", BSR_PEERS_MAX - 1);
+				CLI_ERRO_LOG_STDERR("node-id out of range (0...%d)\n", BSR_PEERS_MAX - 1);
 			    exit(10);
 		    }
 		    break;
@@ -5580,7 +5583,7 @@ int main(int argc, char **argv)
 	}
 
 	if (ai >= argc) {
-		fprintf(stderr, "command missing\n");
+		CLI_ERRO_LOG_STDERR("command missing\n");
 		exit(20);
 	}
 
@@ -5591,7 +5594,7 @@ int main(int argc, char **argv)
 		}
 	}
 	if (command == NULL) {
-		fprintf(stderr, "Unknown command '%s'.\n", argv[ai]);
+		CLI_ERRO_LOG_STDERR("Unknown command '%s'.\n", argv[ai]);
 		exit(20);
 	}
 	ai++;
@@ -5603,7 +5606,7 @@ int main(int argc, char **argv)
 	if (strcmp(cfg->bsr_dev_name, "-")) {
 		cfg->minor = dt_minor_of_dev(cfg->bsr_dev_name);
 		if (cfg->minor < 0) {
-			fprintf(stderr, "Cannot determine minor device number of "
+			CLI_ERRO_LOG_STDERR("Cannot determine minor device number of "
 					"bsr device '%s'",
 				cfg->bsr_dev_name);
 			exit(20);
@@ -5613,7 +5616,7 @@ int main(int argc, char **argv)
 		/* check whether this is in use */
 		minor_attached = is_attached(cfg->minor);
 		if (minor_attached && command->modifies_md) {
-			fprintf(stderr, "Device '%s' is configured!\n",
+			CLI_ERRO_LOG_STDERR("Device '%s' is configured!\n",
 				cfg->bsr_dev_name);
 			exit(20);
 		}
@@ -5624,28 +5627,28 @@ int main(int argc, char **argv)
 
 	if (option_peer_max_bio_size &&
 	    command->function != &meta_create_md) {
-		fprintf(stderr, "The --peer-max-bio-size option is only allowed with create-md\n");
+		CLI_ERRO_LOG_STDERR("The --peer-max-bio-size option is only allowed with create-md\n");
 		exit(10);
 	}
 	if (option_al_stripes_used &&
 	    command->function != &meta_create_md &&
 	    command->function != &meta_restore_md) {
-		fprintf(stderr, "The --al-stripe* options are only allowed with create-md and restore-md\n");
+		CLI_ERRO_LOG_STDERR("The --al-stripe* options are only allowed with create-md and restore-md\n");
 		exit(10);
 	}
 
 	/* at some point I'd like to go for this: (16*1024*1024/4) */
 	if ((uint64_t)option_al_stripes * option_al_stripe_size_4k > (buffer_size/4096)) {
-		    fprintf(stderr, "invalid (too large) al-stripe* settings\n");
+		CLI_ERRO_LOG_STDERR("invalid (too large) al-stripe* settings\n");
 		    exit(10);
 	}
 	if (option_al_stripes * option_al_stripe_size_4k < 32/4) {
-		    fprintf(stderr, "invalid (too small) al-stripe* settings\n");
+		CLI_ERRO_LOG_STDERR("invalid (too small) al-stripe* settings\n");
 		    exit(10);
 	}
 
 	if (option_node_id != -1 && !command->node_id_required) {
-		fprintf(stderr, "The %s command does not accept the --node-id option\n",
+		CLI_ERRO_LOG_STDERR("The %s command does not accept the --node-id option\n",
 			command->name);
 		exit(10);
 	}
@@ -5655,18 +5658,18 @@ int main(int argc, char **argv)
 		if (option_node_id == -1)
 			option_node_id = 0;
 		else if (option_node_id != 0)
-			fprintf(stderr, "Not v09, implicitly set --node-id = 0\n");
+			CLI_ERRO_LOG_STDERR("Not v09, implicitly set --node-id = 0\n");
 	}
 
 	if (option_node_id == -1 && command->node_id_required) {
-		fprintf(stderr, "The %s command requires the --node-id option\n",
+		CLI_ERRO_LOG_STDERR("The %s command requires the --node-id option\n",
 			command->name);
 		exit(10);
 	}
 
 	rv = command->function(cfg, argv + ai, argc - ai);
 	if (minor_attached)
-		fprintf(stderr, "# Output might be stale, since minor %d is attached\n", cfg->minor);
+		CLI_ERRO_LOG_STDERR("# Output might be stale, since minor %d is attached\n", cfg->minor);
 
 	return rv;
 	/* and if we want an explicit free,
