@@ -99,9 +99,29 @@ extern void config_help_legacy(const char * const tool, const struct version * c
 extern void add_lib_bsr_to_path(void);
 extern uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length);
 
-
 #ifdef _WIN
 #define UTRACE(format, arg...) fprintf(stderr, "[%s|%d] "format, __FUNCTION__, __LINE__, ##arg)
 #endif
+
+// BSR-604
+#define LEVEL_OFFSET 9
+
+enum cli_log_level {
+	ERROR_LEVEL,
+	WARNING_LEVEL,
+	INFO_LEVEL,
+	TRACE_LEVEL
+};
+
+extern void bsr_write_log(const char* program, const char* func, enum cli_log_level level, const char* fmt, ...);
+
+#define CLI_ERRO_LOG(format, arg...) bsr_write_log(progname, __FUNCTION__, ERROR_LEVEL, format, ##arg) 
+#define CLI_WRAN_LOG(format, arg...) bsr_write_log(progname, __FUNCTION__, WARNING_LEVEL, format, ##arg)
+#define CLI_INFO_LOG(format, arg...) bsr_write_log(progname, __FUNCTION__, INFO_LEVEL, format, ##arg)
+#define CLI_TRAC_LOG(format, arg...) bsr_write_log(progname, __FUNCTION__, TRACE_LEVEL, format, ##arg)
+
+#define CLI_ERRO_LOG_STDERR(format, arg...) \
+		bsr_write_log(progname, __FUNCTION__, ERROR_LEVEL, format, ##arg); \
+		fprintf(stderr, format, ##arg)
 
 #endif

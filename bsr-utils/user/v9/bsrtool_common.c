@@ -502,3 +502,51 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 
 	return crc;
 }
+
+// BSR-604
+void bsr_write_log(const char* program, const char* func, enum cli_log_level level, const char* fmt, ...)
+{
+	char b[512];
+	long offset = 0;
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	va_list args;
+	char f[256];
+
+	memset(f, 0, sizeof(f));
+	snprintf(f, 256, "%s.log", program);
+
+	FILE *fp = fopen(f, "a");
+
+	if (fp == NULL) {
+		printf("failed to open file, %s\n", f);
+		return;
+	}
+
+	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d [%s] ",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec, func);
+
+	switch (level) {
+	case ERROR_LEVEL:
+		memcpy(b + offset, "bsr_erro ", LEVEL_OFFSET); break;
+	case WARNING_LEVEL:
+		memcpy(b + offset, "bsr_warn ", LEVEL_OFFSET); break;
+	case INFO_LEVEL:
+		memcpy(b + offset, "bsr_info ", LEVEL_OFFSET); break;
+	case TRACE_LEVEL:
+		memcpy(b + offset, "bsr_trac ", LEVEL_OFFSET); break;
+	default:
+		memcpy(b + offset, "bsr_unkn ", LEVEL_OFFSET); break;
+	}
+
+	offset += LEVEL_OFFSET;
+
+	va_start(args, fmt);
+	vsnprintf(b + offset, 512 - offset, fmt, args);
+	va_end(args);
+
+	fprintf(fp, "%s", b);
+
+	fclose(fp);
+}
