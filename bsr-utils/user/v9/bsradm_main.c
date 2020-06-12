@@ -1439,7 +1439,7 @@ int adm_resize(const struct cfg_ctx *ctx)
 	if (ex && target_size) {
 		new_size = read_bsr_dev_size(ctx->vol->device_minor);
 		if (new_size == target_size) {
-			fprintf(stderr, "Current size of bsr%u equals target size (%llu byte), exit code %d ignored.\n",
+			CLI_ERRO_LOG_STDERR(progname, "Current size of bsr%u equals target size (%llu byte), exit code %d ignored.\n",
 				ctx->vol->device_minor, (unsigned long long)new_size, ex);
 			ex = 0;
 		}

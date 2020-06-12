@@ -746,7 +746,7 @@ static int conv_block_dev(struct bsr_argument *ad, struct msg_buff *msg,
 	}
 
 	if(!S_ISBLK(sb.st_mode)) {
-		CLI_ERRO_LOG_STDERR("%s is not a block device!\n", arg);
+		CLI_ERRO_LOG_STDERR(progname, "%s is not a block device!\n", arg);
 		return OTHER_ERROR;
 	}
 
@@ -799,7 +799,7 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 
 	err = getaddrinfo(name, 0, &hints, &res);
 	if (err) {
-		CLI_ERRO_LOG_STDERR("getaddrinfo %s: %s\n", name, gai_strerror(err));
+		CLI_ERRO_LOG_STDERR(progname, "getaddrinfo %s: %s\n", name, gai_strerror(err));
 		exit(20);
 	}
 
@@ -813,7 +813,7 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 	if (false) { /* debug output */
 		char ip[INET6_ADDRSTRLEN];
 		inet_ntop(AF_INET6, &addr->sin6_addr, ip, sizeof(ip));
-		CLI_ERRO_LOG_STDERR("%s -> %02x %04x %08x %s %08x\n",
+		CLI_ERRO_LOG_STDERR(progname, "%s -> %02x %04x %08x %s %08x\n",
 				name,
 				addr->sin6_family,
 				addr->sin6_port,
@@ -831,7 +831,7 @@ static unsigned long resolv(const char* name)
 		struct hostent *he;
 		he = gethostbyname(name);
 		if (!he) {
-			CLI_ERRO_LOG_STDERR("can not resolve the hostname: gethostbyname(%s): %s\n",
+			CLI_ERRO_LOG_STDERR(progname, "can not resolve the hostname: gethostbyname(%s): %s\n",
 					name, hstrerror(h_errno));
 			exit(20);
 		}
@@ -846,7 +846,7 @@ static void split_ipv6_addr(char **address, int *port)
 	char *b = strrchr(*address,']');
 	if (address[0][0] != '[' || b == NULL ||
 		(b[1] != ':' && b[1] != '\0')) {
-		CLI_ERRO_LOG_STDERR("unexpected ipv6 format: %s\n",
+		CLI_ERRO_LOG_STDERR(progname, "unexpected ipv6 format: %s\n",
 				*address);
 		exit(20);
 	}
@@ -893,7 +893,7 @@ static void split_address(int *af, char** address, int* port)
 			/* compatibility handling of ipv6 addresses,
 			 * in the style expected before bsr 8.3.9.
 			 * may go wrong without explicit port */
-			CLI_ERRO_LOG_STDERR("interpreting ipv6:%s:%s as ipv6:[%s]:%s\n",
+			CLI_ERRO_LOG_STDERR(progname, "interpreting ipv6:%s:%s as ipv6:[%s]:%s\n",
 					*address, b+1, *address, b+1);
 		}
 		*port = m_strtoll(b+1,1);
@@ -942,7 +942,7 @@ static int conv_addr(struct bsr_argument *ad, struct msg_buff *msg,
 
 	addr_len = sockaddr_from_str(&x, arg);
 	if (addr_len == 0) {
-		CLI_ERRO_LOG_STDERR("does not look like an endpoint address '%s'", arg);
+		CLI_ERRO_LOG_STDERR(progname, "does not look like an endpoint address '%s'", arg);
 		return OTHER_ERROR;
 	}
 
@@ -972,7 +972,7 @@ static int get_af_ssocks(int warn_and_use_default)
 
 	if (fd < 0) {
 		if (warn_and_use_default) {
-			CLI_ERRO_LOG_STDERR("open(" PROC_NET_AF_SSOCKS_FAMILY ") "
+			CLI_ERRO_LOG_STDERR(progname, "open(" PROC_NET_AF_SSOCKS_FAMILY ") "
 				"failed: %m\n WARNING: assuming AF_SSOCKS = 27. "
 				"Socket creation may fail.\n");
 			af = 27;
@@ -987,7 +987,7 @@ static int get_af_ssocks(int warn_and_use_default)
 		af = m_strtoll(buf,1);
 	} else {
 		if (warn_and_use_default) {
-			CLI_ERRO_LOG_STDERR("read(" PROC_NET_AF_SSOCKS_FAMILY ") "
+			CLI_ERRO_LOG_STDERR(progname, "read(" PROC_NET_AF_SSOCKS_FAMILY ") "
 				"failed: %m\n WARNING: assuming AF_SSOCKS = 27. "
 				"Socket creation may fail.\n");
 			af = 27;
@@ -1088,30 +1088,31 @@ static int check_error(int err_no, char *desc)
 		return 0;
 
 	if (err_no == OTHER_ERROR) {
-		if (desc)
-			fprintf(stderr,"%s: %s\n", objname, desc);
+		if (desc) {
+			CLI_ERRO_LOG_STDERR(progname, "%s: %s\n", objname, desc);
+		}
 		return 20;
 	}
 
 	if ( ( err_no >= AFTER_LAST_ERR_CODE || err_no <= ERR_CODE_BASE ) &&
 	     ( err_no > SS_CW_NO_NEED || err_no <= SS_AFTER_LAST_ERROR) ) {
-		fprintf(stderr,"%s: Error code %d unknown.\n"
+		CLI_ERRO_LOG_STDERR(progname, "%s: Error code %d unknown.\n"
 			"You should update the bsr userland tools.\n",
 			objname, err_no);
 		rv = 20;
 	} else {
 		if(err_no > ERR_CODE_BASE ) {
-			fprintf(stderr,"%s: Failure: (%d) %s\n",
+			CLI_ERRO_LOG_STDERR(progname, "%s: Failure: (%d) %s\n",
 				objname, err_no, desc ?: error_to_string(err_no));
 			rv = 10;
 		} else if (err_no == SS_UNKNOWN_ERROR) {
-			fprintf(stderr,"%s: State change failed: (%d)"
+			CLI_ERRO_LOG_STDERR(progname, "%s: State change failed: (%d)"
 				"unknown error.\n", objname, err_no);
 			rv = 11;
 		} else if (err_no > SS_TWO_PRIMARIES) {
 			// Ignore SS_SUCCESS, SS_NOTHING_TO_DO, SS_CW_Success...
 		} else {
-			fprintf(stderr,"%s: State change failed: (%d) %s\n",
+			CLI_ERRO_LOG_STDERR(progname, "%s: State change failed: (%d) %s\n",
 				objname, err_no, bsr_set_st_err_str(err_no));
 			if (err_no == SS_NO_UP_TO_DATE_DISK) {
 				/* all available disks are inconsistent,
@@ -1137,10 +1138,10 @@ static int check_error(int err_no, char *desc)
 	    global_attrs[BSR_NLA_CFG_REPLY]->nla_len) {
 		struct nlattr *nla;
 		int rem;
-		CLI_ERRO_LOG_STDERR("additional info from kernel:\n");
+		CLI_ERRO_LOG_STDERR(progname, "additional info from kernel:\n");
 		nla_for_each_nested(nla, global_attrs[BSR_NLA_CFG_REPLY], rem) {
 			if (nla_type(nla) == __nla_type(T_info_text))
-				CLI_ERRO_LOG_STDERR("%s\n", (char*)nla_data(nla));
+				CLI_ERRO_LOG_STDERR(progname, "%s\n", (char*)nla_data(nla));
 		}
 	}
 	return rv;
@@ -1148,9 +1149,9 @@ static int check_error(int err_no, char *desc)
 
 static void warn_print_excess_args(int argc, char **argv, int i)
 {
-	CLI_ERRO_LOG_STDERR("Excess arguments:");
+	CLI_ERRO_LOG_STDERR(progname, "Excess arguments:");
 	for (; i < argc; i++)
-		CLI_ERRO_LOG_STDERR(" %s", argv[i]);
+		CLI_ERRO_LOG_STDERR(progname, " %s", argv[i]);
 	printf("\n");
 }
 
@@ -1163,7 +1164,7 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 }
 
 #define ASSERT(exp) if (!(exp)) \
-		fprintf(stderr,"ASSERT( " #exp " ) in %s:%d\n", __FILE__,__LINE__);
+		CLI_ERRO_LOG_STDERR(progname, "ASSERT( " #exp " ) in %s:%d\n", __FILE__,__LINE__);
 
 static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
@@ -1236,7 +1237,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				nla = nla_nest_start(smsg, cm->tla_id);
 			}
 			if (!field->ops->put(cm->ctx, field, smsg, optarg)) {
-				CLI_ERRO_LOG_STDERR("Option --%s: invalid "
+				CLI_ERRO_LOG_STDERR(progname, "Option --%s: invalid "
 					"argument '%s'\n",
 					field->name, optarg);
 				rv = OTHER_ERROR;
@@ -1252,7 +1253,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 
 	for (i = optind, ad = cm->bsr_args; ad && ad->name; i++) {
 		if (argc < i + 1) {
-			CLI_ERRO_LOG_STDERR("Missing argument '%s'\n", ad->name);
+			CLI_ERRO_LOG_STDERR(progname, "Missing argument '%s'\n", ad->name);
 			print_command_usage(cm, FULL);
 			rv = OTHER_ERROR;
 			goto error;
@@ -1317,7 +1318,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	}
 	if (rv == ERR_RES_NOT_KNOWN) {
 		if (cm->warn_on_missing && isatty(STDERR_FILENO))
-			CLI_ERRO_LOG_STDERR("Resource unknown\n");
+			CLI_ERRO_LOG_STDERR(progname, "Resource unknown\n");
 
 		if (cm->missing_ok)
 			rv = NO_ERROR;
@@ -1379,7 +1380,7 @@ static void print_options(struct nlattr *attr, struct context_def *ctx, const ch
 
 	if (bsr_nla_parse_nested(nested_attr_tb, ctx->nla_policy_size - 1,
 				  attr, ctx->nla_policy)) {
-		CLI_ERRO_LOG_STDERR("nla_policy violation for %s payload!\n", sect_name);
+		CLI_ERRO_LOG_STDERR(progname, "nla_policy violation for %s payload!\n", sect_name);
 		/* still, print those that validated ok */
 	}
 
@@ -1440,7 +1441,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 	if (0 < ctx->wfc_timeout &&
 	      (ctx->wfc_timeout < ctx->degr_wfc_timeout || ctx->degr_wfc_timeout == 0)) {
 		ctx->degr_wfc_timeout = ctx->wfc_timeout;
-		CLI_ERRO_LOG_STDERR("degr-wfc-timeout has to be shorter than wfc-timeout\n"
+		CLI_ERRO_LOG_STDERR(progname, "degr-wfc-timeout has to be shorter than wfc-timeout\n"
 				"degr-wfc-timeout implicitly set to wfc-timeout (%ds)\n",
 				ctx->degr_wfc_timeout);
 	}
@@ -1448,7 +1449,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 	if (0 < ctx->degr_wfc_timeout &&
 	    (ctx->degr_wfc_timeout < ctx->outdated_wfc_timeout || ctx->outdated_wfc_timeout == 0)) {
 		ctx->outdated_wfc_timeout = ctx->wfc_timeout;
-		CLI_ERRO_LOG_STDERR("outdated-wfc-timeout has to be shorter than degr-wfc-timeout\n"
+		CLI_ERRO_LOG_STDERR(progname, "outdated-wfc-timeout has to be shorter than degr-wfc-timeout\n"
 				"outdated-wfc-timeout implicitly set to degr-wfc-timeout (%ds)\n",
 				ctx->degr_wfc_timeout);
 	}
@@ -1502,7 +1503,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 error:
 	if (!desc)
 		desc = "error receiving netlink reply";
-	CLI_ERRO_LOG_STDERR("error determining which timeout to use: %s\n",
+	CLI_ERRO_LOG_STDERR(progname, "error determining which timeout to use: %s\n",
 			desc);
 	return 20;
 }
@@ -1706,7 +1707,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 				err = -*(int*)nlmsg_data(nlh);
 				if (err &&
 				    (err != ENODEV || !cm->missing_ok)) {
-					CLI_ERRO_LOG_STDERR("received netlink error reply: %s\n",
+					CLI_ERRO_LOG_STDERR(progname, "received netlink error reply: %s\n",
 						strerror(err));
 					err = 20;
 				}
@@ -1716,7 +1717,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 					continue;
 				if (!desc)
 					desc = strerror(errno);
-				CLI_ERRO_LOG_STDERR("received netlink error reply: %s\n",
+				CLI_ERRO_LOG_STDERR(progname, "received netlink error reply: %s\n",
 					       desc);
 				err = 20;
 				goto out2;
@@ -1841,7 +1842,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 
 						break;
 					default:
-						CLI_ERRO_LOG_STDERR("DRECK: %x\n", cm->ctx_key);
+						CLI_ERRO_LOG_STDERR(progname, "DRECK: %x\n", cm->ctx_key);
 						assert(0);
 					}
 				}
@@ -1901,7 +1902,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			timeo_ctx.wfc_timeout = m_strtoll(optarg, 1);
 			if(BSR_WFC_TIMEOUT_MIN > timeo_ctx.wfc_timeout ||
 			   timeo_ctx.wfc_timeout > BSR_WFC_TIMEOUT_MAX) {
-				CLI_ERRO_LOG_STDERR("wfc_timeout => %d"
+				CLI_ERRO_LOG_STDERR(progname, "wfc_timeout => %d"
 					" out of range [%d..%d]\n",
 					timeo_ctx.wfc_timeout,
 					BSR_WFC_TIMEOUT_MIN,
@@ -1913,7 +1914,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			timeo_ctx.degr_wfc_timeout = m_strtoll(optarg, 1);
 			if(BSR_DEGR_WFC_TIMEOUT_MIN > timeo_ctx.degr_wfc_timeout ||
 			   timeo_ctx.degr_wfc_timeout > BSR_DEGR_WFC_TIMEOUT_MAX) {
-				CLI_ERRO_LOG_STDERR("degr_wfc_timeout => %d"
+				CLI_ERRO_LOG_STDERR(progname, "degr_wfc_timeout => %d"
 					" out of range [%d..%d]\n",
 					timeo_ctx.degr_wfc_timeout,
 					BSR_DEGR_WFC_TIMEOUT_MIN,
@@ -1925,7 +1926,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			timeo_ctx.outdated_wfc_timeout = m_strtoll(optarg, 1);
 			if(BSR_OUTDATED_WFC_TIMEOUT_MIN > timeo_ctx.outdated_wfc_timeout ||
 			   timeo_ctx.outdated_wfc_timeout > BSR_OUTDATED_WFC_TIMEOUT_MAX) {
-				CLI_ERRO_LOG_STDERR("outdated_wfc_timeout => %d"
+				CLI_ERRO_LOG_STDERR(progname, "outdated_wfc_timeout => %d"
 					" out of range [%d..%d]\n",
 					timeo_ctx.outdated_wfc_timeout,
 					BSR_OUTDATED_WFC_TIMEOUT_MIN,
@@ -1991,7 +1992,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		if (!smsg || !iov.iov_base) {
 			msg_free(smsg);
 			free(iov.iov_base);
-			CLI_ERRO_LOG_STDERR("could not allocate netlink messages\n");
+			CLI_ERRO_LOG_STDERR(progname, "could not allocate netlink messages\n");
 			return 20;
 		}
 
@@ -2055,7 +2056,7 @@ static bool options_empty(struct nlattr *attr, struct context_def *ctx)
 
 	if (bsr_nla_parse_nested(nested_attr_tb, ctx->nla_policy_size - 1,
 				  attr, ctx->nla_policy)) {
-		CLI_ERRO_LOG_STDERR("nla_policy violation\n");
+		CLI_ERRO_LOG_STDERR(progname, "nla_policy violation\n");
 	}
 
 	for (field = ctx->fields; field->name; field++) {
@@ -2869,7 +2870,7 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 
 	free_resources(resources);
 	if (!found && strcmp(objname, "all")) {
-		CLI_ERRO_LOG_STDERR("%s: No such resource\n", objname);
+		CLI_ERRO_LOG_STDERR(progname, "%s: No such resource\n", objname);
 		return 10;
 	}
 	return 0;
@@ -2894,7 +2895,7 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_resources(resources);
 
 	if (ret != NO_ERROR) {
-		CLI_ERRO_LOG_STDERR("%s: %s\n", objname, error_to_string(ret));
+		CLI_ERRO_LOG_STDERR(progname, "%s: %s\n", objname, error_to_string(ret));
 		return 10;
 	}
 	return 0;
@@ -2917,7 +2918,7 @@ static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_connections(connections);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR("%s: No such connection\n", objname);
+		CLI_ERRO_LOG_STDERR(progname, "%s: No such connection\n", objname);
 		return 10;
 	}
 	return 0;
@@ -2952,7 +2953,7 @@ static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_devices(devices);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR("%s: No such device\n", objname);
+		CLI_ERRO_LOG_STDERR(progname, "%s: No such device\n", objname);
 		return 10;
 	}
 	return 0;
@@ -3425,7 +3426,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		found = true;
 
 		if (!device->disk_conf.backing_dev) {
-			CLI_ERRO_LOG_STDERR("Has no disk config, try with bsrmeta.\n");
+			CLI_ERRO_LOG_STDERR(progname, "Has no disk config, try with bsrmeta.\n");
 			ret = 1;
 			break;
 		}
@@ -3444,7 +3445,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 #endif
 		fd = open(device->disk_conf.backing_dev, O_RDONLY);
 		if (fd == -1) {
-			CLI_ERRO_LOG_STDERR("Could not open %s: %m.\n", device->disk_conf.backing_dev);
+			CLI_ERRO_LOG_STDERR(progname, "Could not open %s: %m.\n", device->disk_conf.backing_dev);
 			ret = 1;
 			break;
 		}
@@ -3468,7 +3469,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_devices(devices);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR("%s: No such device\n", objname);
+		CLI_ERRO_LOG_STDERR(progname, "%s: No such device\n", objname);
 		return 10;
 	}
 	return ret;
@@ -3500,7 +3501,7 @@ static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				goto found;
 		}
 	}
-	CLI_ERRO_LOG_STDERR("%s: No such peer device\n", objname);
+	CLI_ERRO_LOG_STDERR(progname, "%s: No such peer device\n", objname);
 	ret = 10;
 
 out:
@@ -3511,7 +3512,7 @@ out:
 found:
 	if (peer_device->info.peer_repl_state == L_OFF &&
 	    device->info.dev_disk_state == D_DISKLESS) {
-		CLI_ERRO_LOG_STDERR("Device is unconfigured\n");
+		CLI_ERRO_LOG_STDERR(progname, "Device is unconfigured\n");
 		ret = 1;
 		goto out;
 	}
@@ -3519,7 +3520,7 @@ found:
 		/* XXX we could print the exposed_data_uuid anyways: */
 		if (false)
 			printf(X64(016)"\n", (uint64_t)device->statistics.dev_exposed_data_uuid);
-		CLI_ERRO_LOG_STDERR("Device has no disk\n");
+		CLI_ERRO_LOG_STDERR(progname, "Device has no disk\n");
 		ret = 1;
 		goto out;
 	}
@@ -4062,7 +4063,7 @@ static int wait_for_family(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 			if (!wait_after_split_brain)
 				return -1;  /* done waiting */
 
-			CLI_ERRO_LOG_STDERR("\nbsr %s connection to peer-id %u ('%s') is %s, "
+			CLI_ERRO_LOG_STDERR(progname, "\nbsr %s connection to peer-id %u ('%s') is %s, "
 						"but I'm configured to wait anways (--wait-after-sb)\n",
 						ctx.ctx_resource_name, ctx.ctx_peer_node_id, ctx.ctx_conn_name,
 						bsr_conn_str(connection_info.conn_connection_state));
@@ -4292,7 +4293,7 @@ static int modprobe_bsr(void)
 	if (ret && errno == ENOENT) {
 		ret = system("/sbin/modprobe bsr");
 		if (ret != 0) {
-			CLI_ERRO_LOG_STDERR("Failed to modprobe bsr (%m)\n");
+			CLI_ERRO_LOG_STDERR(progname, "Failed to modprobe bsr (%m)\n");
 			return 0;
 		}
 		for(;;) {
@@ -4307,8 +4308,8 @@ static int modprobe_bsr(void)
 		}
 	}
 	if (ret) {
-		CLI_ERRO_LOG_STDERR("Could not stat /proc/bsr: %m\n");
-		CLI_ERRO_LOG_STDERR("Make sure that the BSR kernel module is installed "
+		CLI_ERRO_LOG_STDERR(progname, "Could not stat /proc/bsr: %m\n");
+		CLI_ERRO_LOG_STDERR(progname, "Make sure that the BSR kernel module is installed "
 				"and can be loaded!\n");
 	}
 	return ret == 0;
@@ -4327,7 +4328,7 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 
 		add_lib_bsr_to_path();
 		execvp(bsrsetup_83, argv);
-		CLI_ERRO_LOG_STDERR("execvp() failed to exec %s: %m\n", bsrsetup_83);
+		CLI_ERRO_LOG_STDERR(progname, "execvp() failed to exec %s: %m\n", bsrsetup_83);
 #else
 		config_help_legacy("bsrsetup", driver_version);
 
@@ -4341,7 +4342,7 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 
 		add_lib_bsr_to_path();
 		execvp(bsrsetup_84, argv);
-		CLI_ERRO_LOG_STDERR("execvp() failed to exec %s: %m\n", bsrsetup_84);
+		CLI_ERRO_LOG_STDERR(progname, "execvp() failed to exec %s: %m\n", bsrsetup_84);
 #else
 		config_help_legacy("bsrsetup", driver_version);
 #endif
@@ -4443,13 +4444,13 @@ int main(int argc, char **argv)
 	}
 	bsr_sock = genl_connect_to_family(&bsr_genl_family);
 	if (!bsr_sock) {
-		CLI_ERRO_LOG_STDERR("Could not connect to 'bsr' generic netlink family\n");
+		CLI_ERRO_LOG_STDERR(progname, "Could not connect to 'bsr' generic netlink family\n");
 		return 20;
 	}
 
 	if (bsr_genl_family.version != GENL_MAGIC_VERSION ||
 	    bsr_genl_family.hdrsize != sizeof(struct bsr_genlmsghdr)) {
-		CLI_ERRO_LOG_STDERR("API mismatch!\n\t"
+		CLI_ERRO_LOG_STDERR(progname, "API mismatch!\n\t"
 			"API version bsrsetup: %u kernel: %u\n\t"
 			"header size bsrsetup: %u kernel: %u\n",
 			GENL_MAGIC_VERSION, bsr_genl_family.version,
@@ -4469,7 +4470,7 @@ int main(int argc, char **argv)
 			objname = "all";
 			break;
 		} else if (argc <= optind) {
-			CLI_ERRO_LOG_STDERR("Missing argument %d to command\n", optind);
+			CLI_ERRO_LOG_STDERR(progname, "Missing argument %d to command\n", optind);
 			print_command_usage(cmd, FULL);
 			exit(20);
 		} else if (next_arg & (CTX_RESOURCE | CTX_MINOR | CTX_ALL)) {
@@ -4483,7 +4484,7 @@ int main(int argc, char **argv)
 			} else if (next_arg & CTX_MINOR) {
 				minor = dt_minor_of_dev(argv[optind]);
 				if (minor == -1U && next_arg == CTX_MINOR) {
-					CLI_ERRO_LOG_STDERR("Cannot determine minor device number of "
+					CLI_ERRO_LOG_STDERR(progname, "Cannot determine minor device number of "
 							"device '%s'\n",
 						argv[optind]);
 					exit(20);
@@ -4491,7 +4492,7 @@ int main(int argc, char **argv)
 				context |= CTX_MINOR;
 			} else /* not "all", and not a minor number/device name */ {
 				if (!(next_arg & CTX_RESOURCE)) {
-					CLI_ERRO_LOG_STDERR("command does not accept argument '%s'\n",
+					CLI_ERRO_LOG_STDERR(progname, "command does not accept argument '%s'\n",
 						objname);
 					print_command_usage(cmd, FULL);
 					exit(20);
