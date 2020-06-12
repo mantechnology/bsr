@@ -2358,6 +2358,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				peer_device->ov_last_skipped_start = 0;
 				INIT_LIST_HEAD(&peer_device->ov_oos_info_list);
 				INIT_LIST_HEAD(&peer_device->ov_skipped_info_list);
+				peer_device->ov_oos_info_list_cnt = 0;
+				peer_device->ov_oos_info_report_num = 0;
+				peer_device->ov_skipped_info_list_cnt = 0;
+				peer_device->ov_skipped_info_report_num = 0;
 				for (i = 0; i < BSR_SYNC_MARKS; i++) {
 					peer_device->rs_mark_left[i] = peer_device->ov_left;
 					peer_device->rs_mark_time[i] = now;
