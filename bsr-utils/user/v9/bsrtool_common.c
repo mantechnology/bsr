@@ -523,9 +523,9 @@ void bsr_write_log(const char* program, const char* func, enum cli_log_level lev
 		return;
 	}
 
-	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d [%s] ",
+	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d ",
 		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-		tm.tm_hour, tm.tm_min, tm.tm_sec, func);
+		tm.tm_hour, tm.tm_min, tm.tm_sec);
 
 	switch (level) {
 	case ERROR_LEVEL:
@@ -541,6 +541,7 @@ void bsr_write_log(const char* program, const char* func, enum cli_log_level lev
 	}
 
 	offset += LEVEL_OFFSET;
+	offset += snprintf(b + offset, 512 - offset, "[%s] ", func);
 
 	va_start(args, fmt);
 	vsnprintf(b + offset, 512 - offset, fmt, args);
