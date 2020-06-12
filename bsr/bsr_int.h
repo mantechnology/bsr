@@ -180,6 +180,9 @@ extern int log_consumer_thread(void *unused);
 // BSR-119
 #define OV_REQUEST_NUM_BLOCK 10
 
+// BSR-601
+#define OV_LIST_COUNT_LIMIT 5000
+
 struct bsr_device;
 struct bsr_connection;
 
@@ -1855,7 +1858,11 @@ struct bsr_peer_device {
 	sector_t ov_last_skipped_size;
 	// BSR-52 for report at ov done
 	struct list_head ov_oos_info_list;
+	int ov_oos_info_list_cnt;
+	int ov_oos_info_report_num;
 	struct list_head ov_skipped_info_list;
+	int ov_skipped_info_list_cnt;
+	int ov_skipped_info_report_num;
 
 	int c_sync_rate; /* current resync rate after syncer throttle magic */
 	struct fifo_buffer *rs_plan_s; /* correction values of resync planer (RCU, connection->conn_update) */
@@ -2709,6 +2716,11 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			ov_oos->ov_oos_size = peer_device->ov_last_oos_size;
 
 			list_add_tail(&ov_oos->list, &peer_device->ov_oos_info_list);
+			peer_device->ov_oos_info_list_cnt++;
+			if (peer_device->ov_oos_info_list_cnt >= OV_LIST_COUNT_LIMIT) {
+				peer_device->ov_oos_info_list_cnt = 0;
+				ov_done = true;
+			}
 		}
 		else {
 			bsr_warn(peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
@@ -2722,13 +2734,14 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 	if(ov_done) {
 		struct ov_oos_info *ov_oos, *tmp;
 		list_for_each_entry_safe_ex(struct ov_oos_info, ov_oos, tmp, &peer_device->ov_oos_info_list, list) {
-			bsr_err(peer_device, "Report out of sync: start=%llu, size=%llu (sectors)\n",
+			bsr_err(peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
 				(unsigned long long)ov_oos->ov_oos_start,
 				(unsigned long long)ov_oos->ov_oos_size);
 
 			list_del(&ov_oos->list);
 			kfree(ov_oos);
 		}
+		peer_device->ov_oos_info_report_num++;
 	}
 }
 
@@ -2743,6 +2756,11 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			ov_skipped->ov_skipped_size = peer_device->ov_last_skipped_size;
 
 			list_add_tail(&ov_skipped->list, &peer_device->ov_skipped_info_list);
+			peer_device->ov_skipped_info_list_cnt++;
+			if (peer_device->ov_skipped_info_list_cnt >= OV_LIST_COUNT_LIMIT) {
+				peer_device->ov_skipped_info_list_cnt = 0;
+				ov_done = true;
+			}
 		}
 		else {
 			bsr_err(peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
@@ -2756,13 +2774,14 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(peer_device, "Report skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+			bsr_info(peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
 
 			list_del(&ov_skipped->list);
 			kfree(ov_skipped);
 		}
+		peer_device->ov_skipped_info_report_num++;
 	}
 }
 

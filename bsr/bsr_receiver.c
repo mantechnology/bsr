@@ -10940,6 +10940,8 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			else if(peer_device->repl_state[NOW] == L_VERIFY_S) {
 				BSR_VERIFY_DATA("receive verify request cancellation\n");
 
+				atomic_add(size >> 9, &peer_device->rs_sect_in);
+				
 				verify_skipped_block(peer_device, sector, size);
 			}
 			break;
