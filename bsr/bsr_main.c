@@ -62,8 +62,8 @@
 #include <linux/vmalloc.h>
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
-#include <linux/namei.h>
-#include "../bsr-headers/linux/bsr_ioctl.h"
+
+#include <linux/list_sort.h>
 #endif
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/linux/bsr_limits.h"
@@ -96,10 +96,15 @@
 #define BSR_RELEASE_RETURN int
 #endif
 
+#ifdef _WIN
 #define BSR_LOG_FILE_NAME L"bsrlog.txt"
 // rolling file format, ex) bsrlog.txt_06022020_104543745
 #define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
-
+#else
+#define BSR_LOG_FILE_PATH "/var/log/bsr"
+#define BSR_LOG_FILE_NAME "bsrlog.txt"
+#define BSR_LOG_ROLLING_FILE_NAME "bsrlog.txt_"
+#endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
 
@@ -246,112 +251,6 @@ int          bsr_pp_vacant;
 wait_queue_head_t bsr_pp_wait;
 
 #ifdef _LIN
-
-// BSR-577
-static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
-{
-	LOGGING_MIN_LV loggingMinLv;
-	int previous_lv_min = 0;
-	int err;
-
-	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
-	
-	if (err) {
-		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
-		return -1;
-	}
-
-	if (loggingMinLv.nType == LOGGING_TYPE_SYSLOG) {
-		previous_lv_min = atomic_read(&g_eventlog_lv_min);
-		atomic_set(&g_eventlog_lv_min, loggingMinLv.nErrLvMin);
-	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_DBGLOG) {
-		previous_lv_min = atomic_read(&g_dbglog_lv_min);
-		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
-	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) {
-		previous_lv_min = atomic_read(&g_featurelog_flag);
-		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
-	}
-	else {
-		bsr_warn(NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
-	}
-	
-	// DW-2008
-	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
-				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
-				// DW-2041
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
-				);
-	return Get_log_lv();
-}
-
-static int bsr_get_log(BSR_LOG __user *bsr_log) 
-{
-	int err;
-	
-	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
-
-	if (err) {
-		bsr_warn(NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
-		return err;
-	}
-	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
-	if (err) {
-		bsr_warn(NO_OBJECT, "gLogBuf copy to user failed.\n");
-	}
-
-	return err;
-}
-
-// BSR-597
-static int bsr_set_log_max_count(unsigned int __user * args)
-{
-	unsigned int log_file_max_count = LOG_FILE_COUNT_DEFAULT;
-	int err;
-
-	err = copy_from_user(&log_file_max_count, args, sizeof(unsigned int));
-
-	if (err) {
-		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
-		return err;
-	}
-
-	bsr_info(NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
-	atomic_set(&g_log_file_max_count, log_file_max_count);
-
-	return 0;
-}
-
-static long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
-{
-	int err = 0;
-	
-	if ( _IOC_TYPE( cmd ) != BSR_IOCTL_MAGIC ) 
-		return -EINVAL;
-
-	switch (cmd) {
-	case IOCTL_MVOL_SET_LOGLV_MIN:
-	{
-		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)pram);
-		break;
-	}
-	case IOCTL_MVOL_GET_BSR_LOG:
-	{
-		err = bsr_get_log((BSR_LOG __user *)pram);
-		break;
-	}
-	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
-	{
-		err = bsr_set_log_max_count((unsigned int __user *)pram);
-	}
-	default :
-		break;
-	}
-	return err;
-}
-
 static const struct file_operations bsr_ctl_fops = {
 		.unlocked_ioctl = bsr_control_ioctl,
 };
@@ -5243,48 +5142,103 @@ out2:
 	return status;
 }
 #else // LIN BSR-597
+
+struct log_rolling_file_list rlist;
 static int printdir(struct dir_context *ctx, const char *name, int namelen,
        loff_t offset, u64 ino, unsigned int d_type) {
-    printk("File: %.*s\n", namelen, name);
-	return 0;
+
+	int err = 0;
+	struct log_rolling_file_list *r;
+	//printk("name %.*s\n", namelen, name);
+	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0) {
+	//	printk("skip bsrlog.txt name %s\n", name);
+		return 0;
+	}
+	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
+		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '00RB');
+		if (!r) {
+			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			err = -1;
+			goto out;
+		}
+		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '00RB');
+		if (!r) {
+			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
+			err = -1;
+			goto out;
+		}
+		memset(r->fileName, 0, namelen + 1);
+		snprintf(r->fileName, namelen + 1, "%s", name);
+		list_add_tail(&r->list, &rlist.list);
+
+	}
+out:
+	return err;
 }
+
+static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
+	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);
+	return strcmp(list_b->fileName, list_a->fileName);
+}
+
+
+
 int bsr_log_rolling_file_clean_up(char * filePath)
 {
 	struct file *fdir;
-	char path[256] = "/var/log/bsr";
+	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
+	int log_file_max_count = 0;
 
+	struct log_rolling_file_list *t, *tmp;
 	struct dir_context ctx = { .actor = (void *)printdir };
 	mm_segment_t oldfs;
+
+	int err = 0;
+	
+	INIT_LIST_HEAD(&rlist.list);
+
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	
 	ctx.actor = (void *)printdir;
 	fdir = filp_open(path, O_RDONLY, 0);
 	if (fdir) {
-		printk("fd ? %s\n", fdir->f_path.dentry->d_name.name);
 		iterate_dir(fdir, &ctx);
 
 		filp_close(fdir, NULL);
 	} else {
-		printk("is err\n");
+		bsr_err(NO_OBJECT, "failed to open log directory\n");
 	}
 	set_fs(oldfs);
 
+	list_sort(NULL, &rlist.list, name_cmp);
+
+	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+		char fileFullPath[MAX_PATH] = { 0 };
+
+		snprintf(fileFullPath, MAX_PATH - 1, "%s/%s", path, t->fileName);
+		
+		log_file_max_count++;
+		if (log_file_max_count < atomic_read(&g_log_file_max_count)) {
+			continue;
+		}
+
+		err = bsr_file_remove(fileFullPath);
+		if (err)
+			break;
+	}
 	
-//	if (fd)
-//		filp_close(fd, NULL);
-
-//	oldfs = get_fs();
-
-//	set_fs(KERNEL_DS);
-//	error = vfs_stat("/var/log/bsr", &stat);
-//	set_fs(oldfs);
-
-//	struct inode *parent_inode = hFile->f_path.dentry->d_parent->d_inode;	
-//	inode_lock(parent_inode);
-//	vfs_unlink(parent_inode, hFile->f_path.dentry, NULL);   
-//	inode_unlock(parent_inode);
-	return 0;
+	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+		kfree2(t->fileName);
+		list_del(&t->list);
+		kfree2(t);
+	}
+	
+	return err;
 }
 #endif
 
@@ -5334,30 +5288,24 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 	return status;
 }
 #else // _LIN
+
 int bsr_log_file_rename_and_close(struct file * fd) 
 {
 	char new_name[MAX_PATH];
-	char *old_name = (char *)NULL;
-	char temp[MAX_PATH];
+	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
+	char old_name[name_len];
 	struct timespec64 ts;
 	struct tm tm;
-	
-	struct inode *delegated_inode = NULL;
-	struct dentry *old_dentry, *new_dentry;
-	struct path old_path, new_path;
 
-	memset(temp, 0, sizeof(temp));
+	int err = 0;
+	snprintf(old_name, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	
 	memset(new_name, 0, sizeof(new_name));
 
-	old_name = dentry_path_raw(fd->f_path.dentry, temp, MAX_PATH-1);
-	if (old_name == NULL) {
-		printk("oldname null \n");
-		return -1;
-	}
 	printk("oldname %s \n", old_name);
-	old_dentry = fd->f_path.dentry;
-	old_path = fd->f_path;
-
+	
+	if (fd)
+		filp_close(fd, NULL);
 
 	ts = ktime_to_timespec64(ktime_get_real());
 	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
@@ -5374,40 +5322,10 @@ int bsr_log_file_rename_and_close(struct file * fd)
 									(int)(ts.tv_nsec / NSEC_PER_MSEC));
 
 	printk("newname %s\n", new_name);
-	
-	new_dentry = kern_path_create(AT_FDCWD, new_name, &new_path, 0);
 
-	if (old_dentry && new_dentry)
-		printk("%s %s\n", old_dentry->d_name.name, new_dentry->d_name.name);
-	else {
-		printk("dentry null\n");
-		return -1;
-	}
+	err = bsr_file_rename(old_name, new_name);
 
-	done_path_create(&new_path, new_dentry);
-
-
-	if (d_inode(old_path.dentry) == NULL) {
-		printk("path dentry null\n");
-		return -1;
-	} else {
-		
-		printk("path %s %s\n", old_path.dentry->d_name.name, new_path.dentry->d_name.name);
-		lock_rename(new_path.dentry, old_path.dentry->d_parent);
-		printk("lock_rename\n");
-		vfs_rename(d_inode(old_path.dentry->d_parent), old_dentry,
-			d_inode(new_path.dentry), new_dentry,
-			&delegated_inode, 0);
-		printk("vfs_rename\n");
-		unlock_rename(new_path.dentry, old_path.dentry->d_parent);
-		printk("unlock_rename\n");
-	}
-
-
-	if (fd)
-		filp_close(fd, NULL);
-
-	return 0;
+	return err;
 }
 #endif
 
@@ -5563,7 +5481,10 @@ int log_consumer_thread(void *unused)
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	char filePath[24] = "/var/log/bsr/bsrlog.txt"; 
+	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
+	char filePath[name_len]; 
+
+	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
 	// BSR-578 wait for file system (changed later..)
 	// msleep(1000); // wait 1000ms relative
