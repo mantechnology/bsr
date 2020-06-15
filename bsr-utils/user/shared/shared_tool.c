@@ -1052,7 +1052,9 @@ int err(const char *format, ...)
 	va_start(ap, format);
 
 	if (err_state.stderr_available) {
-		n = vfprintf(stderr, format, ap);
+		// BSR-604
+		//n = vfprintf(stderr, format, ap);
+		CLI_ERRO_VLOG_STDERR(format, ap);
 	} else {
 		vsyslog(LOG_ERR, format, ap);
 		n = 1;

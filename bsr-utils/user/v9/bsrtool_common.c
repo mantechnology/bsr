@@ -19,6 +19,7 @@
 #include <windows.h>
 #else // _LIN
 #include <linux/fs.h>           /* for BLKGETSIZE64 */
+#include <time.h>
 #endif
 #include <string.h>
 #include <netdb.h>
@@ -506,14 +507,10 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 }
 
 // BSR-604
-void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...)
+FILE *bsr_open_log()
 {
-	char b[512];
-	long offset = 0;
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	va_list args;
 	char f[256];
+	FILE* fp = NULL;
 
 	memset(f, 0, sizeof(f));
 #ifdef _WIN
@@ -537,14 +534,21 @@ void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, 
 	if (program)
 		snprintf(f, 256, "/var/log/bsr/%s.log", program);
 	else
-		snprintf(f, 256, "/var/log/bsr/bsrapp.log", program);
+		snprintf(f, 256, "/var/log/bsr/bsrapp.log");
 #endif
-	FILE *fp = fopen(f, "a");
-
-	if (fp == NULL) {
+	fp = fopen(f, "a");
+	if (fp == NULL)
 		printf("failed to open file, %s\n", f);
-		return;
-	}
+
+	return fp;
+}
+
+// BSR-604
+long bsr_log_format(char* b, const char* func, enum cli_log_level level)
+{
+	long offset = 0;
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
 
 	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d ",
 		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -566,9 +570,48 @@ void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, 
 	offset += LEVEL_OFFSET;
 	offset += snprintf(b + offset, 512 - offset, "[%s] ", func);
 
+	return offset;
+}
+
+// BSR-604
+void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...)
+{
+	char b[512];
+	long offset = 0;
+	va_list args;
+
+	FILE *fp = bsr_open_log();
+
+	if (fp == NULL) {
+		return;
+	}
+
+	offset = bsr_log_format(b, func, level);
+
 	va_start(args, fmt);
 	vsnprintf(b + offset, 512 - offset, fmt, args);
 	va_end(args);
+
+	fprintf(fp, "%s", b);
+
+	fclose(fp);
+}
+
+
+void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args)
+{
+	char b[512];
+	long offset = 0;
+
+	FILE *fp = bsr_open_log();
+
+	if (fp == NULL) {
+		return;
+	}
+
+	offset = bsr_log_format(b, func, level);
+
+	vsnprintf(b + offset, 512 - offset, fmt, args);
 
 	fprintf(fp, "%s", b);
 
