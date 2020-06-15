@@ -791,7 +791,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws, minor %d\n", VolumeExtension->MountPoint, VolumeExtension->Minor);
 			}
 			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
-				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->VolumeGuid));
+				memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
 				memcpy(VolumeExtension->VolumeGuid, name->Name, name->NameLength);
 				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws\n", VolumeExtension->VolumeGuid);
 			}
@@ -820,7 +820,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			}
 			else if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
 				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %ws\n", VolumeExtension->VolumeGuid);
-				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->VolumeGuid));
+				memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
 			}
 			MVOL_UNLOCK();
 
