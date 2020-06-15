@@ -31,7 +31,6 @@
 static struct version __bsr_driver_version = {};
 static struct version __bsr_utils_version = {};
 
-// BSR-604
 char *program = NULL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
@@ -506,7 +505,6 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 	return crc;
 }
 
-// BSR-604
 FILE *bsr_open_log()
 {
 	char f[256];
@@ -543,7 +541,6 @@ FILE *bsr_open_log()
 	return fp;
 }
 
-// BSR-604
 long bsr_log_format(char* b, const char* func, enum cli_log_level level)
 {
 	long offset = 0;
@@ -573,7 +570,6 @@ long bsr_log_format(char* b, const char* func, enum cli_log_level level)
 	return offset;
 }
 
-// BSR-604
 void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...)
 {
 	char b[512];

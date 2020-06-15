@@ -113,9 +113,12 @@ enum cli_log_level {
 	TRACE_LEVEL
 };
 
+// BSR-604 the executable name used as the log file name.
 char *program;
 
+// BSR-604 write log files
 extern void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...);
+extern void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args);
 
 #define CLI_ERRO_LOG(format, arg...) bsr_write_log(__FUNCTION__, ERROR_LEVEL, format, ##arg) 
 #define CLI_WRAN_LOG(format, arg...) bsr_write_log(__FUNCTION__, WARNING_LEVEL, format, ##arg)
