@@ -30,6 +30,8 @@
 static struct version __bsr_driver_version = {};
 static struct version __bsr_utils_version = {};
 
+// BSR-604
+char *program = NULL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -394,7 +396,7 @@ int version_equal(const struct version *rev1, const struct version *rev2)
 void config_help_legacy(const char * const tool,
 		const struct version * const driver_version)
 {
-	fprintf(stderr,
+	CLI_ERRO_LOG_STDERR(tool ,
 			"This %s was build without support for bsr kernel code (%d.%d).\n"
 			"Consider to rebuild your user land tools\n"
 			"and configure --with-%d%dsupport ...\n",
@@ -504,7 +506,7 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 }
 
 // BSR-604
-void bsr_write_log(const char* program, const char* func, enum cli_log_level level, const char* fmt, ...)
+void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...)
 {
 	char b[512];
 	long offset = 0;
@@ -520,18 +522,22 @@ void bsr_write_log(const char* program, const char* func, enum cli_log_level lev
 
 	s = getenv("BSR_PATH");
 
-	snprintf(f, 256, "%s.log", program);
-
 	if (s != NULL) {
 		ptr = strrchr(s, L'\\');
 		if (s != NULL) {
-			memset(f, 0, sizeof(f));
 			s[strlen(s) - strlen(ptr)] = '\0';
-			snprintf(f, 256, "%s/log/%s.log", s, program);
+
+			if (program)
+				snprintf(f, 256, "%s/log/%s.log", s, program);
+			else
+				snprintf(f, 256, "%s/log/bsrapp.log", s);
 		}
 	}
 #else
-	snprintf(f, 256, "/var/log/bsr/%s.log", program);
+	if (program)
+		snprintf(f, 256, "/var/log/bsr/%s.log", program);
+	else
+		snprintf(f, 256, "/var/log/bsr/bsrapp.log", program);
 #endif
 	FILE *fp = fopen(f, "a");
 

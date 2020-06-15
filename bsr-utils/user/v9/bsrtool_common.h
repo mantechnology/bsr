@@ -113,15 +113,17 @@ enum cli_log_level {
 	TRACE_LEVEL
 };
 
-extern void bsr_write_log(const char* program, const char* func, enum cli_log_level level, const char* fmt, ...);
+char *program;
+
+extern void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...);
 
 #define CLI_ERRO_LOG(_progname, format, arg...) bsr_write_log(_progname, __FUNCTION__, ERROR_LEVEL, format, ##arg) 
 #define CLI_WRAN_LOG(_progname, format, arg...) bsr_write_log(_progname, __FUNCTION__, WARNING_LEVEL, format, ##arg)
 #define CLI_INFO_LOG(_progname, format, arg...) bsr_write_log(_progname, __FUNCTION__, INFO_LEVEL, format, ##arg)
 #define CLI_TRAC_LOG(_progname, format, arg...) bsr_write_log(_progname, __FUNCTION__, TRACE_LEVEL, format, ##arg)
 
-#define CLI_ERRO_LOG_STDERR(_progname, format, arg...) \
-		bsr_write_log(_progname, __FUNCTION__, ERROR_LEVEL, format, ##arg); \
+#define CLI_ERRO_LOG_STDERR(format, arg...) \
+		bsr_write_log(__FUNCTION__, ERROR_LEVEL, format, ##arg); \
 		fprintf(stderr, format, ##arg)
 
 #endif

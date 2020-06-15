@@ -31,7 +31,6 @@
 #include "bsr_endian.h"
 #include "bsr.h"
 
-#include "bsrtool_common.h"
 #include "shared_tool.h"
 #include "shared_main.h"
 
@@ -147,7 +146,7 @@ const char *make_optstring(struct option *options)
 	while (opt->name) {
 		if (0 < opt->val && opt->val < 256) {
 			if (seen[opt->val]++) {
-				fprintf(stderr, "internal error: --%s has duplicate opt->val '%c'\n",
+				CLI_ERRO_LOG_STDERR("internal error: --%s has duplicate opt->val '%c'\n",
 						opt->name, opt->val);
 				abort();
 			}
@@ -280,7 +279,7 @@ DWORD _GetVolumeSize(LPSTR device_name, GET_LENGTH_INFORMATION * pgli)
 
 	if (INVALID_HANDLE_VALUE == hDevice) {
 		err = GetLastError();
-		fprintf(stderr, "Failed to CreateFile(%s). error_code=%d\n", device_name, err);
+		CLI_ERRO_LOG_STDERR("Failed to CreateFile(%s). error_code=%d\n", device_name, err);
 		return err;
 	}
 
@@ -293,7 +292,7 @@ DWORD _GetVolumeSize(LPSTR device_name, GET_LENGTH_INFORMATION * pgli)
 
 	if (!bResult) {
 		err = GetLastError();
-		fprintf(stderr, "Failed to IOCTL_DISK_GET_LENGTH_INFO(%s) error_code=%d\n", device_name, err);
+		CLI_ERRO_LOG_STDERR( "Failed to IOCTL_DISK_GET_LENGTH_INFO(%s) error_code=%d\n", device_name, err);
 		CloseHandle(hDevice);
 		return err;
 	}
@@ -325,7 +324,7 @@ DWORD _GetDriveGeometry(LPSTR device_name, DISK_GEOMETRY *pdg)
 
 	if (INVALID_HANDLE_VALUE == hDevice) {
 		err = GetLastError();
-		fprintf(stderr, "Failed to CreateFile(%s). error_code=%d\n", device_name, err);
+		CLI_ERRO_LOG_STDERR( "Failed to CreateFile(%s). error_code=%d\n", device_name, err);
 		return err;
 	}
 
@@ -338,7 +337,7 @@ DWORD _GetDriveGeometry(LPSTR device_name, DISK_GEOMETRY *pdg)
 
 	if (!bResult) {
 		err = GetLastError();
-		fprintf(stderr, "Failed to IOCTL_DISK_GET_DRIVE_GEOMETRY_EX(%s) error_code=%d\n", device_name, err);
+		CLI_ERRO_LOG_STDERR( "Failed to IOCTL_DISK_GET_DRIVE_GEOMETRY_EX(%s) error_code=%d\n", device_name, err);
 		CloseHandle(hDevice);
 		return err;
 	}
@@ -453,7 +452,7 @@ int lk_bdev_save(const unsigned minor, const struct bdev_info *bd)
  fail_no_fp:
 	if (ok <= 0)
 		/* MAYBE: unlink. But maybe partial info is better than no info? */
-		fprintf(stderr, "lk_bdev_save(%s) failed: %m\n", path);
+		CLI_ERRO_LOG_STDERR( "lk_bdev_save(%s) failed: %m\n", path);
 
 	free(path);
 	return ok <= 0 ? -1 : 0;
@@ -465,7 +464,7 @@ int lk_bdev_delete(const unsigned minor)
 	char *path = lk_bdev_path(minor);
 	int rc = unlink(path);
 	if (rc && errno != ENOENT)
-		fprintf(stderr, "lk_bdev_delete(%s) failed: %m\n", path);
+		CLI_ERRO_LOG_STDERR( "lk_bdev_delete(%s) failed: %m\n", path);
 	free(path);
 	return rc;
 }
@@ -489,7 +488,7 @@ int lk_bdev_load(const unsigned minor, struct bdev_info *bd)
 	fp = fopen(path, "r");
 	if (!fp) {
 		if (errno != ENOENT)
-			fprintf(stderr, "lk_bdev_load(%s) failed: %m\n", path);
+			CLI_ERRO_LOG_STDERR( "lk_bdev_load(%s) failed: %m\n", path);
 		goto out;
 	}
 
@@ -508,7 +507,7 @@ int lk_bdev_load(const unsigned minor, struct bdev_info *bd)
 	bd->bd_name = (rc >= 2) ? bd_name : NULL;
 	bd->bd_size = (rc >= 1) ? bd_size : 0;
 	if (rc < 1) {
-		fprintf(stderr, "lk_bdev_load(%s): parse error\n", path);
+		CLI_ERRO_LOG_STDERR( "lk_bdev_load(%s): parse error\n", path);
 		rc = -1;
 	} else
 		rc = 0;
@@ -548,7 +547,7 @@ bool random_by_dev_urandom(void *buffer, size_t len)
 	}
 	if (read(fd, buffer, len) != len) {
 		ok = false;
-		fprintf(stderr, "Reading from /dev/urandom failed\n");
+		CLI_ERRO_LOG_STDERR( "Reading from /dev/urandom failed\n");
 	}
 	close(fd);
 
@@ -585,7 +584,7 @@ int m_asprintf(char **strp, const char *fmt, ...)
 	va_end(ap);
 
 	if (r == -1) {
-		fprintf(stderr, "vasprintf() failed. Out of memory?\n");
+		CLI_ERRO_LOG_STDERR( "vasprintf() failed. Out of memory?\n");
 		exit(10);
 	}
 
@@ -656,7 +655,7 @@ void ensure_sanity_of_res_name(char *stg)
 {
     unsigned code;
     if (!*stg) {
-	fprintf(stderr, "Resource name is empty.\n");
+	CLI_ERRO_LOG_STDERR( "Resource name is empty.\n");
 	exit(1);
     }
 
@@ -666,7 +665,7 @@ void ensure_sanity_of_res_name(char *stg)
 	/* Only works for ASCII derived code sets. */
 	code = * (unsigned char*) stg;
 	if (code < ' ' || code == '\x7f') {
-	    fprintf(stderr, "Resource name is invalid - please don't use control characters.\n");
+	    CLI_ERRO_LOG_STDERR( "Resource name is invalid - please don't use control characters.\n");
 	    exit(1);
 	}
 
@@ -696,22 +695,22 @@ m_strtoll(const char *s, const char def_unit)
 	case MSE_OK:
 		return r;
 	case MSE_DEFAULT_UNIT:
-		fprintf(stderr, "unexpected default unit: %d\n",def_unit);
+		CLI_ERRO_LOG_STDERR( "unexpected default unit: %d\n",def_unit);
 		exit(100);
 	case MSE_MISSING_NUMBER:
-		fprintf(stderr, "missing number argument\n");
+		CLI_ERRO_LOG_STDERR( "missing number argument\n");
 		exit(100);
 	case MSE_INVALID_NUMBER:
-		fprintf(stderr, "%s is not a valid number\n", s);
+		CLI_ERRO_LOG_STDERR( "%s is not a valid number\n", s);
 		exit(20);
 	case MSE_INVALID_UNIT:
-		fprintf(stderr, "%s is not a valid number\n", s);
+		CLI_ERRO_LOG_STDERR( "%s is not a valid number\n", s);
 		exit(20);
 	case MSE_OUT_OF_RANGE:
-		fprintf(stderr, "%s: out of range\n", s);
+		CLI_ERRO_LOG_STDERR( "%s: out of range\n", s);
 		exit(20);
 	default:
-		fprintf(stderr, "m_stroll() is confused\n");
+		CLI_ERRO_LOG_STDERR( "m_stroll() is confused\n");
 		exit(20);
 	}
 }
@@ -746,7 +745,7 @@ int get_fd_lockfile_timeout(const char *path, int seconds)
 #ifdef _WIN
 	return 1;
 #else // _LIN
-	fprintf(stderr,"open(%s): %m\n",path);
+	CLI_ERRO_LOG_STDERR("open(%s): %m\n",path);
 	return -1;
 #endif
     }
@@ -771,13 +770,13 @@ int get_fd_lockfile_timeout(const char *path, int seconds)
     if (err != EINTR && err != EAGAIN) {
 	close(fd);
 	errno = err;
-	fprintf(stderr,"fcntl(%s,...): %m\n", path);
+	CLI_ERRO_LOG_STDERR("fcntl(%s,...): %m\n", path);
 	return -1;
     }
 
     /* do we want to know this? */
     if (!fcntl(fd,F_GETLK,&fl)) {
-	fprintf(stderr,"lock on %s currently held by pid:%u\n",
+	CLI_ERRO_LOG_STDERR("lock on %s currently held by pid:%u\n",
 		path, fl.l_pid);
     }
     close(fd);
