@@ -121,16 +121,21 @@ extern void bsr_write_log(const char* func, enum cli_log_level level, const char
 extern void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args);
 
 #define CLI_ERRO_LOG(format, arg...) bsr_write_log(__FUNCTION__, ERROR_LEVEL, format, ##arg) 
+#define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, ERROR_LEVEL, format, arg) 
 #define CLI_WRAN_LOG(format, arg...) bsr_write_log(__FUNCTION__, WARNING_LEVEL, format, ##arg)
 #define CLI_INFO_LOG(format, arg...) bsr_write_log(__FUNCTION__, INFO_LEVEL, format, ##arg)
 #define CLI_TRAC_LOG(format, arg...) bsr_write_log(__FUNCTION__, TRACE_LEVEL, format, ##arg)
 
 #define CLI_ERRO_LOG_STDERR(format, arg...) \
-		bsr_write_log(__FUNCTION__, ERROR_LEVEL, format, ##arg); \
-		fprintf(stderr, format, ##arg)
+		{	\
+			CLI_ERRO_LOG(format, ##arg); \
+			fprintf(stderr, format, ##arg); \
+		} while(false)
 
-#define CLI_ERRO_VLOG_STDERR(format, arg) \
-		bsr_write_vlog(__FUNCTION__, ERROR_LEVEL, format, arg); \
-		fprintf(stderr, format, arg)
+#define CLI_ERRO_VLOG_STDERR(format, arg)  \
+		{	\
+			CLI_ERRO_VLOG(format, arg); \
+			fprintf(stderr, format, arg); \
+		} while(false)
 
 #endif
