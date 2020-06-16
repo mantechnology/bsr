@@ -136,6 +136,8 @@ extern void bsr_write_vlog(const char* func, enum cli_log_level level, const cha
 #define CLI_ERRO_VLOG_STDERR(format, arg)  \
 		{	\
 			CLI_ERRO_VLOG(format, arg); \
+			va_end(arg);	\
+			va_start(arg, format); \
 			vfprintf(stderr, format, arg); \
 		} while(false)
 
