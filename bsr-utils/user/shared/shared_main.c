@@ -57,6 +57,7 @@
 #include "bsr_endian.h"
 #include "shared_main.h"
 #include "shared_tool.h"
+#include "bsrtool_common.h"
 
 extern struct ifreq *ifreq_list;
 
@@ -108,7 +109,7 @@ struct ifreq *get_ifreq(void) {
 		buf_size = ++num_ifaces * sizeof(struct ifreq);
 		ifc.ifc_len = buf_size;
 		if (NULL == (ifc.ifc_req = realloc(ifc.ifc_req, ifc.ifc_len))) {
-			fprintf(stderr, "Out of memory.\n");
+			CLI_ERRO_LOG_STDERR(false,  "Out of memory.\n");
 			return NULL;
 		}
 		if (ioctl(sockfd, SIOCGIFCONF, &ifc)) {
@@ -237,7 +238,7 @@ void substitute_deprecated_cmd(char **c, char *deprecated,
 				      char *substitution)
 {
 	if (!strcmp(*c, deprecated)) {
-		fprintf(stderr, "'%s %s' is deprecated, use '%s %s' instead.\n",
+		CLI_ERRO_LOG_STDERR(false,  "'%s %s' is deprecated, use '%s %s' instead.\n",
 			progname, deprecated, progname, substitution);
 		*c = substitution;
 	}
@@ -308,13 +309,13 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 	 * '*fd = pipe_fds[0];' */
 	if (pipe(pipe_fds) < 0) {
 		perror("pipe");
-		fprintf(stderr, "Error in pipe, giving up.\n");
+		CLI_ERRO_LOG_STDERR(false,  "Error in pipe, giving up.\n");
 		exit(E_EXEC_ERROR);
 	}
 
 	pid = my_fork();
 	if (pid == -1) {
-		fprintf(stderr, "Can not fork\n");
+		CLI_ERRO_LOG_STDERR(false,  "Can not fork\n");
 		exit(E_EXEC_ERROR);
 	}
 	if (pid == 0) {
@@ -335,7 +336,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			FILE *f = freopen("/dev/null", "w", stderr);
 			if (!f)
 				// DW-1777 revert source and change error message
-				fprintf(stderr, "reopen null service failed\n");
+				CLI_ERRO_LOG_STDERR(false,  "reopen null service failed\n");
 		}
 		if (argv[0]) {
 #ifdef _WIN
@@ -368,10 +369,10 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 #endif
 		}
 #ifdef _WIN
-		fprintf(stderr, "Can not exec %s\n", argv[0]);
+		CLI_ERRO_LOG_STDERR(false,  "Can not exec %s\n", argv[0]);
 		perror("Failed");
 #else // _LIN
-		fprintf(stderr, "Can not exec\n");
+		CLI_ERRO_LOG_STDERR(false,  "Can not exec\n");
 #endif
 		exit(E_EXEC_ERROR);
 	}
@@ -394,7 +395,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			timeout = global_options.cmd_timeout_long;
 			break;
 		default:
-			fprintf(stderr, "logic bug in %s:%d\n", __FILE__,
+			CLI_ERRO_LOG_STDERR(false,  "logic bug in %s:%d\n", __FILE__,
 				__LINE__);
 			exit(E_THINKO);
 		}
@@ -422,7 +423,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				rv = 0x100;
 				break;
 			} else {
-				fprintf(stderr, "logic bug in %s:%d\n",
+				CLI_ERRO_LOG_STDERR(false,  "logic bug in %s:%d\n",
 					__FILE__, __LINE__);
 				exit(E_EXEC_ERROR);
 			}
@@ -440,20 +441,18 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 	if (flags & SLEEPS_FINITE) {
 		if (rv >= 10
 		    && !(flags & (DONT_REPORT_FAILED | SUPRESS_STDERR))) {
-			fprintf(stderr, "Command '");
+			CLI_ERRO_LOG_STDERR(false,  "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
-				fprintf(stderr, "%s", *cmdline);
+				CLI_ERRO_LOG_STDERR(true, "%s", *cmdline);
 				if (cmdline[1])
 					fputc(' ', stderr);
 			}
 			if (alarm_raised) {
-				fprintf(stderr,
-					"' did not terminate within %u seconds\n",
-					timeout);
+				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds\n", timeout);
 				exit(E_EXEC_ERROR);
-			} else {
-				fprintf(stderr,
-					"' terminated with exit code %d\n", rv);
+			}
+			else {
+				CLI_ERRO_LOG_STDERR(true, "' terminated with exit code %d\n", rv);
 			}
 		}
 	}

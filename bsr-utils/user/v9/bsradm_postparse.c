@@ -1021,7 +1021,7 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 								break;
 
 							if (ep->res != res) {
-								fprintf(stderr, "%s:%d: in resource %s\n"
+								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s\n"
 									"    %s:%s:%s is also used %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
@@ -1033,7 +1033,7 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 							}
 							// BSR-167 check duplication of node and proxy network information in same resource
 							else if(j != 0) {
-								fprintf(stderr, "%s:%d: in resource %s\n"
+								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s\n"
 									"    %s:%s:%s is also used in proxy section %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
