@@ -5477,6 +5477,8 @@ struct format *new_cfg()
 	return cfg;
 }
 
+extern char *program;
+
 int main(int argc, char **argv)
 {
 	struct format *cfg;
@@ -5485,10 +5487,10 @@ int main(int argc, char **argv)
 	bool minor_attached = false;
 
 	if ((progname = strrchr(argv[0], '/'))) {
-		argv[0] = ++progname;
+		program = argv[0] = ++progname;
 	}
 	else {
-		progname = argv[0];
+		program = progname = argv[0];
 	}
 
 #if 1
