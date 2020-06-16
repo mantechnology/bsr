@@ -45,12 +45,12 @@ const struct block_device_operations bsr_ops = {
 
 
 // BSR-584 reading log level from /etc/bsr.d/.log_level file
-static long read_reg_file(char *file_path)
+static long read_reg_file(char *file_path, long default_val)
 {	
 	struct file *fd = NULL;
 	char *buffer = NULL;
 	int filesize = 0;
-	long log_level = LOG_LV_DEFAULT;
+	long log_level = default_val;
 	int err = 0;
 	mm_segment_t oldfs;
 
@@ -77,7 +77,7 @@ static long read_reg_file(char *file_path)
 
 	err = kstrtol(buffer, 0, &log_level);
 	if (err < 0 || log_level == 0)
-		log_level = LOG_LV_DEFAULT;
+		log_level = default_val;
 
 close:
 	if (buffer != NULL)
@@ -99,11 +99,11 @@ static int __init bsr_load(void)
 	init_logging();
 #endif
 
-	log_level = read_reg_file(BSR_LOG_LEVEL_REG);
+	log_level = read_reg_file(BSR_LOG_LEVEL_REG, LOG_LV_DEFAULT);
 	Set_log_lv(log_level);
 
 	// BSR-597 set max log count
-	atomic_set(&g_log_file_max_count, read_reg_file(BSR_LOG_FILE_MAXCNT_REG));
+	atomic_set(&g_log_file_max_count, read_reg_file(BSR_LOG_FILE_MAXCNT_REG, LOG_FILE_COUNT_DEFAULT));
 
 	bsr_info(NO_OBJECT, "bsr kernel driver load\n");
 	initialize_kref_debugging();

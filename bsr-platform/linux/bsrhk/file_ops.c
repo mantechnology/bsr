@@ -112,9 +112,19 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
 	return err;
 }
 
+/**
+ * basename - return the last part of a pathname.
+ *
+ * @path: path to extract the filename from.
+ */
+static inline const char *base_path(const char *path)
+{
+	const char *tail = strrchr(path, '/');
+	return tail ? tail + 1 : path;
+}
 
-
-/* based on linux/fs/namei.c - kern_path_locked() */
+// BSR-597
+// based on linux/fs/namei.c - kern_path_locked()
 static struct dentry * bsr_kern_path_locked(const char *name, struct path *path)
 {
 	struct path parent;
@@ -122,18 +132,18 @@ static struct dentry * bsr_kern_path_locked(const char *name, struct path *path)
 	const char *basename;
 	int err;
 
-	basename = kbasename(name);
+	basename = base_path(name);
 	err = kern_path(name, LOOKUP_PARENT, &parent);
 	if (err) {
 		return ERR_PTR(err);
 	}
 
-	inode_lock_nested(parent.dentry->d_inode, I_MUTEX_PARENT);
+	bsr_inode_lock_nested(parent.dentry->d_inode, I_MUTEX_PARENT);
 
 	dentry = lookup_one_len(basename, parent.dentry, strlen(basename));
 	
 	if (IS_ERR(dentry)) {
-		inode_unlock(parent.dentry->d_inode);
+		bsr_inode_unlock(parent.dentry->d_inode);
 		path_put(&parent);
 	} else {
 		*path = parent;
@@ -142,7 +152,8 @@ static struct dentry * bsr_kern_path_locked(const char *name, struct path *path)
 	return dentry;
 }
 
-/* based on linux/fs/namei.c - do_renameat2()*/
+// BSR-597
+// based on linux/fs/namei.c - do_renameat2()
 int bsr_file_rename(const char *oldname, const char *newname)
 {
 	struct dentry *old_dir, *new_dir;
@@ -157,14 +168,14 @@ int bsr_file_rename(const char *oldname, const char *newname)
 		goto exit;
 	}
 
-	inode_unlock(old_path.dentry->d_inode);
+	bsr_inode_unlock(old_path.dentry->d_inode);
 
 	new_dentry = bsr_kern_path_locked(newname, &new_path);
 	if (IS_ERR(new_dentry)) {
 		err = PTR_ERR(new_dentry);
 		goto exit2;
 	}
-	inode_unlock(new_path.dentry->d_inode);
+	bsr_inode_unlock(new_path.dentry->d_inode);
 
 	err = -EXDEV;
 	if (old_path.mnt != new_path.mnt) {
@@ -181,7 +192,7 @@ int bsr_file_rename(const char *oldname, const char *newname)
 	}
 	
 	/* unless the source is a directory trailing slashes give -ENOTDIR */
-	if (!d_is_dir(old_dentry)) {
+	if (!S_ISDIR(old_dentry->d_inode->i_mode)) {
 		err = -ENOTDIR;
 		if (old_dentry->d_name.name[old_dentry->d_name.len]) {
 			goto exit4;
@@ -217,8 +228,8 @@ exit:
 	return err;
 }
 
-
-/* based on linux/fs/namei.c - do_unlinkat() */
+// BSR-597
+// based on linux/fs/namei.c - do_unlinkat()
 int bsr_file_remove(const char *path)
 {
 	struct dentry *dentry;
@@ -246,7 +257,7 @@ exit:
 		return err;
 	}
 
-	inode_unlock(parent.dentry->d_inode);
+	bsr_inode_unlock(parent.dentry->d_inode);
 	if (inode)
 		iput(inode);    /* truncate the inode here */
 	inode = NULL;
@@ -254,9 +265,83 @@ exit:
 	return err;
 
 slashes:
-	if (d_is_dir(dentry))
+	if (S_ISDIR(dentry->d_inode->i_mode))
 		err = -EISDIR;
 	else 
 	 	err = -ENOTDIR;
 	goto exit;
+}
+
+#ifdef COMPAT_HAVE_ITERATE_DIR
+static int printdir(struct dir_context *ctx,const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
+#else
+static int printdir(void *rolling_list, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
+#endif
+{
+	struct log_rolling_file_list *rlist =
+#ifdef COMPAT_HAVE_ITERATE_DIR
+		container_of(ctx, struct log_rolling_file_list, ctx);
+#else
+		(struct log_rolling_file_list *)rolling_list;
+#endif
+		
+	int err = 0;
+	struct log_rolling_file_list *r;
+	printk("name %.*s\n", namelen, name);
+	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0) {
+	//	printk("skip bsrlog.txt name %s\n", name);
+		return 0;
+	}
+	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
+		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '00RB');
+		if (!r) {
+			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			err = -1;
+			goto out;
+		}
+		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
+		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '00RB');
+		if (!r) {
+			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
+			err = -1;
+			goto out;
+		}
+		memset(r->fileName, 0, namelen + 1);
+		snprintf(r->fileName, namelen + 1, "%s", name);
+		list_add_tail(&r->list, &rlist->list);
+
+	}
+out:
+	return err;
+}
+
+
+// BSR-597 read dir file list
+int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
+{
+	int err = 0;
+	struct file *fdir;
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	
+#ifdef COMPAT_HAVE_ITERATE_DIR
+	rlist->ctx.actor = (void *)printdir;
+#endif
+	fdir = filp_open(dir_path, O_RDONLY, 0);
+	if (fdir) {
+#ifdef COMPAT_HAVE_ITERATE_DIR
+		err = iterate_dir(fdir, &rlist->ctx);
+#else
+		err = vfs_readdir(fdir, printdir, rlist);
+#endif
+		filp_close(fdir, NULL);
+	} else {
+		bsr_err(NO_OBJECT, "failed to open log directory\n");
+	}
+	set_fs(oldfs);
+
+	return err;
 }

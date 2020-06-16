@@ -100,10 +100,6 @@
 #define BSR_LOG_FILE_NAME L"bsrlog.txt"
 // rolling file format, ex) bsrlog.txt_06022020_104543745
 #define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
-#else
-#define BSR_LOG_FILE_PATH "/var/log/bsr"
-#define BSR_LOG_FILE_NAME "bsrlog.txt"
-#define BSR_LOG_ROLLING_FILE_NAME "bsrlog.txt_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
@@ -4949,11 +4945,6 @@ struct log_rolling_file_list {
 	struct list_head list;
 	WCHAR *fileName;
 };
-#else // _LIN
-struct log_rolling_file_list {
-	struct list_head list;
-	char *fileName;
-};
 #endif
 
 // BSR-579 deletes files when the number of rolling files exceeds a specified number
@@ -5143,78 +5134,30 @@ out2:
 }
 #else // LIN BSR-597
 
-struct log_rolling_file_list rlist;
-static int printdir(struct dir_context *ctx, const char *name, int namelen,
-       loff_t offset, u64 ino, unsigned int d_type) {
-
-	int err = 0;
-	struct log_rolling_file_list *r;
-	//printk("name %.*s\n", namelen, name);
-	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0) {
-	//	printk("skip bsrlog.txt name %s\n", name);
-		return 0;
-	}
-	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
-		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '00RB');
-		if (!r) {
-			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
-			err = -1;
-			goto out;
-		}
-		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '00RB');
-		if (!r) {
-			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
-			err = -1;
-			goto out;
-		}
-		memset(r->fileName, 0, namelen + 1);
-		snprintf(r->fileName, namelen + 1, "%s", name);
-		list_add_tail(&r->list, &rlist.list);
-
-	}
-out:
-	return err;
-}
-
 static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
 {
 	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
 	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);
+
+	if (list_a == NULL || list_b == NULL || (list_a == list_b))
+					return 0;
+
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
 
-
 int bsr_log_rolling_file_clean_up(char * filePath)
 {
-	struct file *fdir;
 	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
 
-	struct log_rolling_file_list *t, *tmp;
-	struct dir_context ctx = { .actor = (void *)printdir };
-	mm_segment_t oldfs;
-
+	struct log_rolling_file_list rlist, *t, *tmp;
 	int err = 0;
 	
 	INIT_LIST_HEAD(&rlist.list);
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
 	
-	ctx.actor = (void *)printdir;
-	fdir = filp_open(path, O_RDONLY, 0);
-	if (fdir) {
-		iterate_dir(fdir, &ctx);
-
-		filp_close(fdir, NULL);
-	} else {
-		bsr_err(NO_OBJECT, "failed to open log directory\n");
-	}
-	set_fs(oldfs);
-
+	bsr_readdir(path, &rlist);
+	
 	list_sort(NULL, &rlist.list, name_cmp);
 
 	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
@@ -5309,9 +5252,8 @@ int bsr_log_file_rename_and_close(struct file * fd)
 
 	ts = ktime_to_timespec64(ktime_get_real());
 	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
-
 	
-	snprintf(new_name, MAX_PATH - 1, "%s_%02d%02d%04d_%02d%02d%02d%03d",
+	snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
 									old_name,
 									(int)tm.tm_year+1900,
 									tm.tm_mon+1,

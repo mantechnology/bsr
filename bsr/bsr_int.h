@@ -3986,6 +3986,7 @@ extern long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long
 // BSR-597
 extern int bsr_file_rename(const char *oldname, const char *newname);
 extern int bsr_file_remove(const char *path);
+extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 #endif
 
 #endif
