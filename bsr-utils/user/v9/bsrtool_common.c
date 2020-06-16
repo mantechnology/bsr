@@ -505,6 +505,38 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 	return crc;
 }
 
+// BSR-605
+#define CLI_LOG_FILE_MAX_SIZE (1024 * 1024 * 5)
+
+// BSR-605
+void bsr_log_rolling(FILE *fp, char* fielFullPath)
+{
+	int size;
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	fseek(fp, 0, SEEK_END);
+	size = ftell(fp);
+
+	if (CLI_LOG_FILE_MAX_SIZE < size) {
+		fclose(fp);
+
+		char fileName[512];
+		int res;
+
+		snprintf(fileName, 512, "%s_%04d-%02d-%02dT%02d%02d%02d",
+			fielFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+		res = rename(fielFullPath, fileName);
+		if (res == -1)
+			printf("failed to log file rename %s => %s\n", fielFullPath, fileName);
+
+		fp = bsr_open_log();
+	}
+
+	return 0;
+}
+
 FILE *bsr_open_log()
 {
 	char f[256];
@@ -536,6 +568,8 @@ FILE *bsr_open_log()
 	fp = fopen(f, "a");
 	if (!fp)
 		printf("log file open failed, %s\n", f);
+	else
+		bsr_log_rolling(fp, f);
 
 	return fp;
 }
@@ -606,9 +640,9 @@ void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt,
 	}
 
 	offset = bsr_log_format(b, func, level);
-
+	
 	vsnprintf(b + offset, 512 - offset, fmt, args);
-
+	
 	fprintf(fp, "%s", b);
 
 	fclose(fp);
