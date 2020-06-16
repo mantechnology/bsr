@@ -523,9 +523,9 @@ FILE *bsr_open_log()
 			s[strlen(s) - strlen(ptr)] = '\0';
 
 			if (program)
-				snprintf(f, 256, "%s/log/%s.log", s, program);
+				snprintf(f, 256, "%s\\log\\%s.log", s, program);
 			else
-				snprintf(f, 256, "%s/log/bsrapp.log", s);
+				snprintf(f, 256, "%s\\log\\bsrapp.log", s);
 		}
 	}
 #else
@@ -535,8 +535,6 @@ FILE *bsr_open_log()
 		snprintf(f, 256, "/var/log/bsr/bsrapp.log");
 #endif
 	fp = fopen(f, "a");
-	if (fp == NULL)
-		printf("failed to open file, %s\n", f);
 
 	return fp;
 }
