@@ -41,8 +41,8 @@ enum MetaDataIndex {
 #define PERROR(fmt, args...) \
 do { fprintf(stderr,fmt ": " , ##args); perror(0); } while (0)
 */
-#define PERROR(fmt, args...) CLI_ERRO_LOG_STDERR(fmt ": %m\n" , ##args); // fprintf(stderr, fmt ": %m\n" , ##args);
-#define WPRINTF(fmt, args...)	CLI_ERRO_LOG_STDERR("[%s] "fmt, __FUNCTION__, ##args); //fprintf(stderr, "[%s] "fmt, __FUNCTION__, ##args);
+#define PERROR(fmt, args...) CLI_ERRO_LOG_STDERR(false, fmt ": %m\n" , ##args); // fprintf(stderr, fmt ": %m\n" , ##args);
+#define WPRINTF(fmt, args...)	CLI_ERRO_LOG_STDERR(false, "[%s] "fmt, __FUNCTION__, ##args); //fprintf(stderr, "[%s] "fmt, __FUNCTION__, ##args);
 enum new_strtoll_errs {
 	MSE_OK,
 	MSE_DEFAULT_UNIT,

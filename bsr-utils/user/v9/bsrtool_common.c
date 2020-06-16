@@ -396,7 +396,7 @@ int version_equal(const struct version *rev1, const struct version *rev2)
 void config_help_legacy(const char * const tool,
 		const struct version * const driver_version)
 {
-	CLI_ERRO_LOG_STDERR(tool ,
+	CLI_ERRO_LOG_STDERR(false, tool ,
 			"This %s was build without support for bsr kernel code (%d.%d).\n"
 			"Consider to rebuild your user land tools\n"
 			"and configure --with-%d%dsupport ...\n",
@@ -520,12 +520,11 @@ FILE *bsr_open_log()
 	if (s != NULL) {
 		ptr = strrchr(s, L'\\');
 		if (s != NULL) {
-			s[strlen(s) - strlen(ptr)] = '\0';
-
+			memcpy(f, s, (ptr - s));
 			if (program)
-				snprintf(f, 256, "%s\\log\\%s.log", s, program);
+				snprintf(f, 256, "%s\\log\\%s.log", f, program);
 			else
-				snprintf(f, 256, "%s\\log\\bsrapp.log", s);
+				snprintf(f, 256, "%s\\log\\bsrapp.log", f);
 		}
 	}
 #else
@@ -535,6 +534,8 @@ FILE *bsr_open_log()
 		snprintf(f, 256, "/var/log/bsr/bsrapp.log");
 #endif
 	fp = fopen(f, "a");
+	if (!fp)
+		printf("log file open failed, %s\n", f);
 
 	return fp;
 }
@@ -568,7 +569,7 @@ long bsr_log_format(char* b, const char* func, enum cli_log_level level)
 	return offset;
 }
 
-void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, ...)
+void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...)
 {
 	char b[512];
 	long offset = 0;
@@ -580,7 +581,8 @@ void bsr_write_log(const char* func, enum cli_log_level level, const char* fmt, 
 		return;
 	}
 
-	offset = bsr_log_format(b, func, level);
+	if (!write_continued)
+		offset = bsr_log_format(b, func, level);
 
 	va_start(args, fmt);
 	vsnprintf(b + offset, 512 - offset, fmt, args);
