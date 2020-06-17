@@ -27,6 +27,11 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
+typedef struct _CLI_LOG_MAX_COUNT {
+	int			nType;
+	int			nMaxCount;
+}CLI_LOG_MAX_COUNT, *PCLI_LOG_MAX_COUNT;
+
 // DW-1153 debug oos.
 #define _DEBUG_OOS
 

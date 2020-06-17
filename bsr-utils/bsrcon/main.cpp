@@ -58,8 +58,9 @@ void usage()
 		// DW-1629
 		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
 		"   /get_log [ProviderName] [ResourceName : Max Length 250][oos]\n"
-		"   /get_log_lv\n"
+		"   /get_log_info\n"
 		"   /maxlogfile_cnt [LogFileMaxCount : 0 ~ 1000]\n"
+		"   /climaxlogfile_cnt [adm, setup, meta] [LogFileMaxCount : 0 ~ 255]\n"
 		"   /minlog_lv [sys, dbg] [Level : 0~7]\n");
 	// DW-2008
 	printf("\t level info,");
@@ -91,10 +92,11 @@ void usage()
 #endif
 		"bsrcon /get_log bsrService \n"
 		"bsrcon /get_log bsrService r0\n"
-		"bsrcon /get_log_lv \n"
+		"bsrcon /get_log_info \n"
 		"bsrcon /minlog_lv dbg 6 \n"
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /maxlogfile_cnt 5\n"
+		"bsrcon /climaxlogfile_cnt adm 2\n"
 		"bsrcon /minlog_lv feature 2\n"
 	);
 
@@ -185,6 +187,101 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	return true;
 }
 
+// BSR-605
+#define BSR_ADM_LOG_FILE_MAX_COUNT 0
+#define BSR_SETUP_LOG_FILE_MAX_COUNT 8
+#define BSR_META_LOG_FILE_MAX_COUNT 16
+
+#define LOG_MAX_FILE_COUNT_MASK 255
+
+BOOLEAN GetCliLogFileMaxCount(int *max)
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD cli_log_file_max_count = 0;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("cli_log_file_max_count"), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || cli_log_file_max_count == 0) {
+		cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
+		cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
+		cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
+	}
+#else // _LIN
+#endif
+
+	*max = cli_log_file_max_count;
+
+	return true;
+}
+
+
+// BSR-605
+BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD cli_log_file_max_count = 0;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD adm_max, setup_max, meta_max;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("cli_log_file_max_count"), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		adm_max = setup_max = meta_max = 2;
+	}
+	else if (lResult != ERROR_SUCCESS) {
+		RegCloseKey(hKey);
+		return FALSE;
+	}
+	else {
+		adm_max = ((cli_log_file_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		setup_max = ((cli_log_file_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		meta_max = ((cli_log_file_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+	}
+
+	if (cli_type == BSR_ADM_LOG_FILE_MAX_COUNT) {
+		adm_max = max;
+	}
+	else if (cli_type == BSR_SETUP_LOG_FILE_MAX_COUNT) {
+		setup_max = max;
+	}
+	else if (cli_type == BSR_META_LOG_FILE_MAX_COUNT) {
+		meta_max = max;
+	}
+
+	cli_log_file_max_count = ((adm_max << BSR_ADM_LOG_FILE_MAX_COUNT) | (setup_max << BSR_SETUP_LOG_FILE_MAX_COUNT) | (meta_max << BSR_META_LOG_FILE_MAX_COUNT));
+
+	lResult = RegSetValueEx(hKey, _T("cli_log_file_max_count"), 0, REG_DWORD, (LPBYTE)&cli_log_file_max_count, sizeof(cli_log_file_max_count));
+
+	if (ERROR_SUCCESS != lResult)
+		return FALSE;
+
+	RegCloseKey(hKey);
+#else // _LIN
+#endif
+
+	return true;
+}
+
 // DW-1921
 //Print log_level through the current registry value.
 BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
@@ -255,10 +352,12 @@ int main(int argc, char* argv [])
 	char	*ProviderName = NULL;
 	char	*resourceName = NULL;
 	// DW-1921
-	char	GetLogLv = 0;
+	char	GetLogInfo = 0;
 	char	SetMinLogLv = 0;
+	char	SetCliLogFileMaxCount = 0;
 	char	SetLogFileMaxCount = 0;
 	LOGGING_MIN_LV lml = { 0, };
+	CLI_LOG_MAX_COUNT lmc = { 0, };
 	int LogFileCount = 0;
 
 #ifdef _WIN
@@ -385,14 +484,40 @@ int main(int argc, char* argv [])
 			else
 				usage();
 		}
+		// BSR-605
+		else if (strcmp(argv[argIndex], "/climaxlogfile_cnt") == 0) {
+			argIndex++;
+			SetCliLogFileMaxCount++;
+			if (argIndex < argc) {
+				if (strcmp(argv[argIndex], "adm") == 0) {
+					lmc.nType = BSR_ADM_LOG_FILE_MAX_COUNT;
+				}
+				else if (strcmp(argv[argIndex], "setup") == 0) {
+					lmc.nType = BSR_SETUP_LOG_FILE_MAX_COUNT;
+				}
+				else if (strcmp(argv[argIndex], "meta") == 0) {
+					lmc.nType = BSR_META_LOG_FILE_MAX_COUNT;
+				}
+				else
+					usage();
+			}
+
+			argIndex++;
+			if (argIndex < argc) {
+				lmc.nMaxCount = atoi(argv[argIndex]);
+			}
+			else
+				usage();
+		}
+
 		// BSR-579
 		else if (strcmp(argv[argIndex], "/maxlogfile_cnt") == 0) {
 			SetLogFileMaxCount++;
 			argIndex++;
 			LogFileCount = atoi(argv[argIndex]);
 		}
-		else if (!strcmp(argv[argIndex], "/get_log_lv")) {
-			GetLogLv++;
+		else if (!strcmp(argv[argIndex], "/get_log_info")) {
+			GetLogInfo++;
 		}
 #ifdef _WIN
 		else if (strcmp(argv[argIndex], "/write_log") == 0) {
@@ -543,23 +668,41 @@ int main(int argc, char* argv [])
 		res = MVOL_SetLogFileMaxCount(LogFileCount);
 	}
 
+	// BSR-605
+	if (SetCliLogFileMaxCount) {
+		res = CLI_SetLogFileMaxCount(lmc.nType, lmc.nMaxCount);
+	}
+
 	// DW-1921
-	if (GetLogLv) {
+	if (GetLogInfo) {
 		int sys_evt_lv = 0;
 		int dbglog_lv = 0;
 		int feature_lv = 0;
 		int log_max_count = 0;
+		int cli_log_max_count = 0;
 
 		// DW-2008
 		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
-			printf("system-lv : %s(%d)\ndebug-lv : %s(%d)\nfeature-lv : %d\n",
+			printf("Current log level.\n");
+			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n    feature-lv : %d\n",
 				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
 
+			printf("Number of log files that can be saved.\n");
+			printf("Maximum size of one log file is 50M.\n"); 
 			// BSR-579
 			if (GetLogFileMaxCount(&log_max_count))
-				printf("log file max count : %d\n", log_max_count);
+				printf("    bsrdriver : %d\n", log_max_count);
 			else
 				printf("Failed to get log file max count\n");
+
+			// BSR-605
+			if (GetCliLogFileMaxCount(&cli_log_max_count)) {
+				printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
+				printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
+				printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
+			}
+			else
+				printf("Failed to get cli log file max count\n");
 		}
 		else
 			printf("Failed to get log level.\n");
