@@ -3126,8 +3126,12 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 				}
 			}
 		}
-		else
+		else {
+			// BSR-609 memory leak when not a split request
+			if (split_count)
+				kfree2(split_count);
 			goto all_out_of_sync;
+		}
 	}
 	else {
 	all_out_of_sync:
