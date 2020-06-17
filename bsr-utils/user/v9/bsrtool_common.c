@@ -24,6 +24,9 @@
 #include <string.h>
 #include <netdb.h>
 
+#include<dirent.h>
+#include<sys/types.h>
+
 #include "linux/bsr_config.h"
 #include "bsrtool_common.h"
 #include "config.h"
@@ -507,9 +510,79 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 
 // BSR-605
 #define CLI_LOG_FILE_MAX_SIZE (1024 * 1024 * 5)
+#define CLI_LOG_FILE_MAX_DEFAULT_COUNT 2
 
 // BSR-605
-void bsr_log_rolling(FILE *fp, char* fielFullPath)
+void sequential_sort(char buffer[][256], int count) 
+{
+	char temp[256];
+	int j = 0, i = 0;
+
+	for (i = 0; i < count; i++) {
+		for (j = i; j < count; j++) {
+			if (strcmp(buffer[i], buffer[j]) == -1) {
+				memset(temp, 0, sizeof(temp));
+				memcpy(temp, buffer[i], strlen(buffer[i]));
+				memset(buffer[i], 0, sizeof(buffer[i]));
+				memcpy(buffer[i], buffer[j], strlen(buffer[j]));
+				memcpy(buffer[j], temp, strlen(temp));
+			}
+		}
+	}
+}
+
+// BSR-605
+void bsr_max_log_file_check_and_delete(char* fileFullPath)
+{
+	DIR *dp = NULL;
+	struct dirent* entry = NULL;
+	char path[256];
+	char* ptr;
+	int i = 0;
+	
+	char fileName[256];
+	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT + 1;
+	char targetFiles[fileMaxCount][256];
+	char removeFileFullPath[256];
+
+	memset(path, 0, sizeof(path));
+	memset(fileName, 0, sizeof(fileName));
+
+	for (i = 0; i < fileMaxCount; i++)
+		memset(targetFiles[i], 0, sizeof(targetFiles[i]));
+
+	ptr = strrchr(fileFullPath, L'\\');
+	memcpy(path, fileFullPath, (ptr - fileFullPath));
+	memcpy(fileName, (ptr + 1), strlen(ptr));
+
+	snprintf(fileName, sizeof(fileName),"%s_", fileName);
+
+	if ((dp = opendir(path)) == NULL) {
+		printf("failed to open %s\n", path);
+	}
+	else {
+		int fileFindCount = 0;
+
+		while ((entry = readdir(dp)) != NULL) {
+			if (strstr(entry->d_name, fileName)) {
+				memcpy(targetFiles[fileFindCount], entry->d_name, sizeof(entry->d_name));
+				fileFindCount = fileFindCount + 1;
+				if (fileFindCount >= fileMaxCount) {
+					sequential_sort(targetFiles, fileMaxCount);
+					fileFindCount = fileFindCount - 1;
+					memset(removeFileFullPath, 0, sizeof(removeFileFullPath));
+					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, targetFiles[fileFindCount]);
+					remove(removeFileFullPath); 
+				}
+			}
+		}
+
+		closedir(dp);
+	}
+}
+
+// BSR-605
+void bsr_log_rolling(FILE *fp, char* fileFullPath)
 {
 	int size;
 	time_t t = time(NULL);
@@ -525,16 +598,19 @@ void bsr_log_rolling(FILE *fp, char* fielFullPath)
 		int res;
 
 		snprintf(fileName, 512, "%s_%04d-%02d-%02dT%02d%02d%02d",
-			fielFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+			fileFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-		res = rename(fielFullPath, fileName);
-		if (res == -1)
-			printf("failed to log file rename %s => %s\n", fielFullPath, fileName);
-
-		fp = bsr_open_log();
+		res = rename(fileFullPath, fileName);
+		if (res == -1) {
+			printf("failed to log file rename %s => %s\n", fileFullPath, fileName);
+			fp = NULL;
+		}
+		else {
+			fp = bsr_open_log();
+		}
 	}
 
-	return 0;
+	bsr_max_log_file_check_and_delete(fileFullPath);
 }
 
 FILE *bsr_open_log()
