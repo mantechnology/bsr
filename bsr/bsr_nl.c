@@ -3777,6 +3777,8 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 		rcu_assign_pointer(peer_device->rs_plan_s, new_plan);
 		if (pp_old_plan)
 			*pp_old_plan = old_plan;
+		else
+			kfree2(old_plan);
 	}
 
 	return 0;
