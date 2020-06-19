@@ -112,46 +112,6 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
 	return err;
 }
 
-/**
- * basename - return the last part of a pathname.
- *
- * @path: path to extract the filename from.
- */
-static inline const char *base_path(const char *path)
-{
-	const char *tail = strrchr(path, '/');
-	return tail ? tail + 1 : path;
-}
-
-// BSR-597
-// based on linux/fs/namei.c - kern_path_locked()
-static struct dentry * bsr_kern_path_locked(const char *name, struct path *path)
-{
-	struct path parent;
-	struct dentry *dentry;
-	const char *basename;
-	int err;
-
-	basename = base_path(name);
-	err = kern_path(name, LOOKUP_PARENT, &parent);
-	if (err) {
-		return ERR_PTR(err);
-	}
-
-	bsr_inode_lock_nested(parent.dentry->d_inode, I_MUTEX_PARENT);
-
-	dentry = lookup_one_len(basename, parent.dentry, strlen(basename));
-	
-	if (IS_ERR(dentry)) {
-		bsr_inode_unlock(parent.dentry->d_inode);
-		path_put(&parent);
-	} else {
-		*path = parent;
-	}
-	
-	return dentry;
-}
-
 // BSR-597
 // based on linux/fs/namei.c - do_renameat2()
 int bsr_file_rename(const char *oldname, const char *newname)
@@ -162,67 +122,83 @@ int bsr_file_rename(const char *oldname, const char *newname)
 	struct path old_path, new_path;
 	int err = 0;
 
-	old_dentry = bsr_kern_path_locked(oldname, &old_path);
-	if (IS_ERR(old_dentry)) {
-		err = PTR_ERR(old_dentry);
+	// get parent path
+	err = kern_path(BSR_LOG_FILE_PATH, 0, &old_path);
+	if (err)
 		goto exit;
-	}
 
-	bsr_inode_unlock(old_path.dentry->d_inode);
-
-	new_dentry = bsr_kern_path_locked(newname, &new_path);
-	if (IS_ERR(new_dentry)) {
-		err = PTR_ERR(new_dentry);
-		goto exit2;
-	}
-	bsr_inode_unlock(new_path.dentry->d_inode);
+	err = kern_path(BSR_LOG_FILE_PATH, 0, &new_path);
+	if (err)
+		goto exit1;
 
 	err = -EXDEV;
-	if (old_path.mnt != new_path.mnt) {
-		goto exit3;
-	}
+	if (old_path.mnt != new_path.mnt)
+		goto exit2;
+
+	err = mnt_want_write(old_path.mnt);
+
+	if (err)
+		goto exit2;
+
 	old_dir = old_path.dentry;
 	new_dir = new_path.dentry;
+
+	// parent inode lock
 	trap = lock_rename(new_dir, old_dir);
+
+	// get old file dentry
+	old_dentry = lookup_one_len(oldname, old_path.dentry, strlen(oldname));
+
+	if (IS_ERR(old_dentry)) {
+		err = PTR_ERR(old_dentry);
+		goto exit3;
+	}
+
+	// get new file dentry
+	new_dentry = lookup_one_len(newname, new_path.dentry, strlen(newname));
+	if (IS_ERR(new_dentry)) {
+		err = PTR_ERR(new_dentry);
+		goto exit4;
+	}
 
 	/* source should not be ancestor of target */
 	err = -EINVAL;
-	if (old_dentry == trap) {
-		goto exit4;
-	}
+	if (old_dentry == trap)
+		goto exit5;
 	
 	/* unless the source is a directory trailing slashes give -ENOTDIR */
 	if (!S_ISDIR(old_dentry->d_inode->i_mode)) {
 		err = -ENOTDIR;
-		if (old_dentry->d_name.name[old_dentry->d_name.len]) {
-			goto exit4;
-		}
-		if (new_dentry->d_name.name[new_dentry->d_name.len]) {
-			goto exit4;
-		}
+		if (old_dentry->d_name.name[old_dentry->d_name.len])
+			goto exit5;
+		if (new_dentry->d_name.name[new_dentry->d_name.len])
+			goto exit5;
 	}
 	
 	/* target should not be an ancestor of source */
 	err = -ENOTEMPTY;
-	if (new_dentry == trap) {
-		goto exit4;
-	}
+	if (new_dentry == trap)
+		goto exit5;
+
 	/* source must exist */
 	err = -ENOENT;
-	if (!old_dentry->d_inode) {
-		goto exit4;
-	}
+	if (!old_dentry->d_inode)
+		goto exit5;
 
+	// rename
 	err = bsr_rename(old_dir->d_inode, old_dentry,
 	    new_dir->d_inode, new_dentry);
 
-exit4:
-	unlock_rename(new_dir, old_dir);
-exit3:
+exit5:
 	dput(new_dentry);
-	path_put(&new_path);
-exit2:
+exit4:
 	dput(old_dentry);
+exit3:
+	unlock_rename(new_dir, old_dir);
+	mnt_drop_write(old_path.mnt);
+exit2:
+	path_put(&new_path);
+exit1:
 	path_put(&old_path);
 exit:
 	return err;
@@ -230,46 +206,60 @@ exit:
 
 // BSR-597
 // based on linux/fs/namei.c - do_unlinkat()
-int bsr_file_remove(const char *path)
+int bsr_file_remove(const char *filename)
 {
 	struct dentry *dentry;
 	struct path parent;
 	struct inode *inode = NULL;
 	int err = 0;
 
-	dentry = bsr_kern_path_locked(path, &parent);
+	// get parent path
+	err = kern_path(BSR_LOG_FILE_PATH, 0, &parent);
+	if (err)
+		return err;
 
+	err = mnt_want_write(parent.mnt);
+	if (err)
+		goto exit1;
+
+	// parent inode lock
+	bsr_inode_lock_nested(parent.dentry->d_inode, I_MUTEX_PARENT);
+
+	// get file dentry
+	dentry = lookup_one_len(filename, parent.dentry, strlen(filename));
+	err = PTR_ERR(dentry);
 	if (!IS_ERR(dentry)) {
 		if (parent.dentry->d_name.name[parent.dentry->d_name.len])
 			goto slashes;
 
 		inode = dentry->d_inode;
-		
+
 		if (inode)
 			ihold(inode);
 		else
 			goto slashes;
 
+		// unlink
 		err = bsr_unlink(parent.dentry->d_inode, dentry);
-exit:
+exit2:
 		dput(dentry);
-	} else {
-		return err;
 	}
 
 	bsr_inode_unlock(parent.dentry->d_inode);
 	if (inode)
 		iput(inode);    /* truncate the inode here */
 	inode = NULL;
+	mnt_drop_write(parent.mnt);
+exit1:
 	path_put(&parent);
 	return err;
 
 slashes:
 	if (S_ISDIR(dentry->d_inode->i_mode))
 		err = -EISDIR;
-	else 
+	else
 	 	err = -ENOTDIR;
-	goto exit;
+	goto exit2;
 }
 
 #ifdef COMPAT_HAVE_ITERATE_DIR
@@ -287,21 +277,16 @@ static int printdir(void *rolling_list, const char *name, int namelen, loff_t of
 		
 	int err = 0;
 	struct log_rolling_file_list *r;
-	printk("name %.*s\n", namelen, name);
-	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0) {
-	//	printk("skip bsrlog.txt name %s\n", name);
+	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0)
 		return 0;
-	}
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
-		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '00RB');
+		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
 			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
-		// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '00RB');
+		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
 			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
 			err = -1;

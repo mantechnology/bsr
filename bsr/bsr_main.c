@@ -5161,16 +5161,12 @@ int bsr_log_rolling_file_clean_up(char * filePath)
 	list_sort(NULL, &rlist.list, name_cmp);
 
 	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-		char fileFullPath[MAX_PATH] = { 0 };
-
-		snprintf(fileFullPath, MAX_PATH - 1, "%s/%s", path, t->fileName);
-		
 		log_file_max_count++;
 		if (log_file_max_count < atomic_read(&g_log_file_max_count)) {
 			continue;
 		}
 
-		err = bsr_file_remove(fileFullPath);
+		err = bsr_file_remove(t->fileName);
 		if (err)
 			break;
 	}
@@ -5245,8 +5241,6 @@ int bsr_log_file_rename_and_close(struct file * fd)
 	
 	memset(new_name, 0, sizeof(new_name));
 
-	printk("oldname %s \n", old_name);
-	
 	if (fd)
 		filp_close(fd, NULL);
 
@@ -5254,7 +5248,7 @@ int bsr_log_file_rename_and_close(struct file * fd)
 	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 	
 	snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
-									old_name,
+									BSR_LOG_FILE_NAME,
 									(int)tm.tm_year+1900,
 									tm.tm_mon+1,
 									tm.tm_mday,
@@ -5263,9 +5257,7 @@ int bsr_log_file_rename_and_close(struct file * fd)
 									tm.tm_sec,
 									(int)(ts.tv_nsec / NSEC_PER_MSEC));
 
-	printk("newname %s\n", new_name);
-
-	err = bsr_file_rename(old_name, new_name);
+	err = bsr_file_rename(BSR_LOG_FILE_NAME, new_name);
 
 	return err;
 }
@@ -5428,10 +5420,6 @@ int log_consumer_thread(void *unused)
 
 	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
-	// BSR-578 wait for file system (changed later..)
-	// msleep(1000); // wait 1000ms relative
-	// BSR_579 TODO 
-
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
@@ -5439,7 +5427,7 @@ int log_consumer_thread(void *unused)
 	if (hFile == NULL || IS_ERR(hFile)) {
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_info(NO_OBJECT, "failed to create log file\n");
+		bsr_warn(NO_OBJECT, "failed to create log file\n");
 		return 0;
 	}
 #endif
@@ -5496,7 +5484,7 @@ int log_consumer_thread(void *unused)
 		if (err < 0 || err != filesize) {
 			gLogBuf.h.r_idx.has_consumer = false;
 			g_consumer_state = EXITING;
-			bsr_info(NO_OBJECT, "failed to write log\n");
+			bsr_warn(NO_OBJECT, "failed to write log\n");
 			break;
 		}
 #endif
@@ -5545,6 +5533,7 @@ int log_consumer_thread(void *unused)
 			if (bsr_log_rolling_file_clean_up(filePath) != 0) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
+				bsr_warn(NO_OBJECT, "failed to remove log file\n");
 				return 0;
 			}
 
@@ -5553,7 +5542,7 @@ int log_consumer_thread(void *unused)
 			if (bsr_log_file_rename_and_close(hFile) != 0) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
-				bsr_info(NO_OBJECT, "failed to rename log file\n");
+				bsr_warn(NO_OBJECT, "failed to rename log file\n");
 				return 0;
 			}
 			oldfs = get_fs();
@@ -5564,7 +5553,7 @@ int log_consumer_thread(void *unused)
 			if (hFile == NULL || IS_ERR(hFile)) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
-				bsr_info(NO_OBJECT, "failed to new log file\n");
+				bsr_warn(NO_OBJECT, "failed to new log file\n");
 				return 0;
 			}
 			

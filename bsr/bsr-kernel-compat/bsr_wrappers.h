@@ -2315,13 +2315,13 @@ static inline struct inode *d_inode(struct dentry *dentry)
 #endif
 
 #ifdef COMPAT_HAVE_INODE_LOCK
-#define	bsr_inode_lock(i)					inode_lock(i)
-#define	bsr_inode_unlock(i)					inode_unlock(i)
-#define	bsr_inode_lock_nested(i, subclass)	inode_lock_nested(i, subclass)
+#define bsr_inode_lock(i)					inode_lock(i)
+#define bsr_inode_unlock(i)					inode_unlock(i)
+#define bsr_inode_lock_nested(i, subclass)	inode_lock_nested(i, subclass)
 #else
-#define	bsr_inode_lock(i)					mutex_lock(&(i)->i_mutex)
-#define	bsr_inode_unlock(i)					mutex_unlock(&(i)->i_mutex)
-#define	bsr_inode_lock_nested(i, subclass)	mutex_lock_nested(&(i)->i_mutex, subclass)
+#define bsr_inode_lock(i)					mutex_lock(&(i)->i_mutex)
+#define bsr_inode_unlock(i)					mutex_unlock(&(i)->i_mutex)
+#define bsr_inode_lock_nested(i, subclass)	mutex_lock_nested(&(i)->i_mutex, subclass)
 #endif
 
 
