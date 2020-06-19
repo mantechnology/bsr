@@ -1310,7 +1310,11 @@ static __printf(2, 3) void _bsr_state_err(struct change_context *context, const 
 #endif
 {
 	struct bsr_resource *resource = context->resource;
+#ifdef _WIN
+	char *err_str;
+#else // _LIN
 	const char *err_str;
+#endif 
 	va_list args;
 
 	va_start(args, fmt);
@@ -1332,7 +1336,11 @@ static void bsr_state_err(struct bsr_resource *resource, const char *fmt, ...)
 static __printf(2, 3) void bsr_state_err(struct bsr_resource *resource, const char *fmt, ...)
 #endif
 {
+#ifdef _WIN
+	char *err_str;
+#else // _LIN
 	const char *err_str;
+#endif 
 	va_list args;
 
 	va_start(args, fmt);
