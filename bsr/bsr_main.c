@@ -5422,6 +5422,15 @@ int log_consumer_thread(void *unused)
 
 	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
+	// BSR-610
+	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
+	if (err != 0 && err != -EEXIST) {
+		gLogBuf.h.r_idx.has_consumer = false;
+		g_consumer_state = EXITING;
+		bsr_warn(NO_OBJECT, "failed to create log directory\n");
+		return 0;
+	}
+
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
