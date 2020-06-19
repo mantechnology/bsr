@@ -63,7 +63,7 @@
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 
-#include "../bsr-headers/linux/bsr_ioctl.h"
+#include <linux/list_sort.h>
 #endif
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/linux/bsr_limits.h"
@@ -96,10 +96,11 @@
 #define BSR_RELEASE_RETURN int
 #endif
 
+#ifdef _WIN
 #define BSR_LOG_FILE_NAME L"bsrlog.txt"
 // rolling file format, ex) bsrlog.txt_06022020_104543745
 #define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
-
+#endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
 
@@ -246,89 +247,6 @@ int          bsr_pp_vacant;
 wait_queue_head_t bsr_pp_wait;
 
 #ifdef _LIN
-
-// BSR-577
-static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
-{
-	LOGGING_MIN_LV loggingMinLv;
-	int previous_lv_min = 0;
-	int err;
-
-	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
-	
-	if (err) {
-		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
-		return -1;
-	}
-
-	if (loggingMinLv.nType == LOGGING_TYPE_SYSLOG) {
-		previous_lv_min = atomic_read(&g_eventlog_lv_min);
-		atomic_set(&g_eventlog_lv_min, loggingMinLv.nErrLvMin);
-	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_DBGLOG) {
-		previous_lv_min = atomic_read(&g_dbglog_lv_min);
-		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
-	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) {
-		previous_lv_min = atomic_read(&g_featurelog_flag);
-		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
-	}
-	else {
-		bsr_warn(NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
-	}
-	
-	// DW-2008
-	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
-				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
-				// DW-2041
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
-				);
-	return Get_log_lv();
-}
-
-static int bsr_get_log(BSR_LOG __user *bsr_log) 
-{
-	int err;
-	
-	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
-
-	if (err) {
-		bsr_warn(NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
-		return err;
-	}
-	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
-	if (err) {
-		bsr_warn(NO_OBJECT, "gLogBuf copy to user failed.\n");
-	}
-
-	return err;
-}
-
-static long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
-{
-	int err = 0;
-	
-	if ( _IOC_TYPE( cmd ) != BSR_IOCTL_MAGIC ) 
-		return -EINVAL;
-
-	switch (cmd) {
-	case IOCTL_MVOL_SET_LOGLV_MIN:
-	{
-		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)pram);
-		break;
-	}
-	case IOCTL_MVOL_GET_BSR_LOG:
-	{
-		err = bsr_get_log((BSR_LOG __user *)pram);
-		break;
-	}
-	default :
-		break;
-	}
-	return err;
-}
-
 static const struct file_operations bsr_ctl_fops = {
 		.unlocked_ioctl = bsr_control_ioctl,
 };
@@ -5031,8 +4949,10 @@ struct log_rolling_file_list {
 	struct list_head list;
 	WCHAR *fileName;
 };
+#endif
 
 // BSR-579 deletes files when the number of rolling files exceeds a specified number
+#ifdef _WIN
 NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 {
 	NTSTATUS status = STATUS_SUCCESS;
@@ -5216,9 +5136,58 @@ out2:
 
 	return status;
 }
+#else // LIN BSR-597
+
+static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
+	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);
+
+	if (list_a == NULL || list_b == NULL || (list_a == list_b))
+					return 0;
+
+	return strcmp(list_b->fileName, list_a->fileName);
+}
+
+
+int bsr_log_rolling_file_clean_up(void)
+{
+	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
+	int log_file_max_count = 0;
+
+	struct log_rolling_file_list rlist, *t, *tmp;
+	int err = 0;
+	
+	INIT_LIST_HEAD(&rlist.list);
+	
+	bsr_readdir(path, &rlist);
+	
+	list_sort(NULL, &rlist.list, name_cmp);
+
+	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+		log_file_max_count++;
+		if (log_file_max_count < atomic_read(&g_log_file_max_count)) {
+			continue;
+		}
+
+		err = bsr_file_remove(t->fileName);
+		if (err)
+			break;
+	}
+	
+	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+		kfree2(t->fileName);
+		list_del(&t->list);
+		kfree2(t);
+	}
+	
+	return err;
+}
+#endif
 
 // BSR-579 rename the file to the rolling file format and close the handle
-NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile) 
+#ifdef _WIN
+NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile) 
 {
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	NTSTATUS status;
@@ -5262,7 +5231,37 @@ NTSTATUS bsr_log_file_reanme_and_close(PHANDLE hFile)
 	return status;
 }
 #else // _LIN
-	// BSR-579 TODO declaration  bsr_log_rolling_file_clean_up(), bsr_log_file_reanme_and_close() function
+
+int bsr_log_file_rename(void) 
+{
+	char new_name[MAX_PATH];
+	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
+	char old_name[name_len];
+	struct timespec64 ts;
+	struct tm tm;
+
+	int err = 0;
+	snprintf(old_name, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	
+	memset(new_name, 0, sizeof(new_name));
+
+	ts = ktime_to_timespec64(ktime_get_real());
+	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
+	
+	snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
+									BSR_LOG_FILE_NAME,
+									(int)tm.tm_year+1900,
+									tm.tm_mon+1,
+									tm.tm_mday,
+									tm.tm_hour,
+									tm.tm_min,
+									tm.tm_sec,
+									(int)(ts.tv_nsec / NSEC_PER_MSEC));
+
+	err = bsr_file_rename(BSR_LOG_FILE_NAME, new_name);
+
+	return err;
+}
 #endif
 
 #ifdef _WIN
@@ -5319,7 +5318,22 @@ LONGLONG get_file_size(HANDLE hFile)
 
 	return 0;
 }
+#else // _LIN
+long get_file_size(struct file * fd)
+{
+	long filesize;
+	mm_segment_t oldfs;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
+	set_fs(oldfs);
+	if (filesize > 0)
+		return filesize;
+	return 0;
+}
+#endif
 
+#ifdef _WIN
 void log_consumer_thread(PVOID param) 
 #else // _LIN
 int log_consumer_thread(void *unused) 
@@ -5399,33 +5413,29 @@ int log_consumer_thread(void *unused)
 #else 
 	// BSR-581
 	// creating a linux log file
-	struct file *fd = NULL;
+	struct file *hFile = NULL;
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	char path[24] = "/var/log/bsr/bsrlog.txt"; 
+	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
+	char filePath[name_len]; 
 
-	// BSR-578 wait for file system (changed later..)
-	// msleep(1000); // wait 1000ms relative
-	// BSR_579 TODO 
+	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	fd = filp_open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
-	if (fd == NULL || IS_ERR(fd)) {
+	if (hFile == NULL || IS_ERR(hFile)) {
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_info(NO_OBJECT, "failed to create log file\n");
+		bsr_warn(NO_OBJECT, "failed to create log file\n");
 		return 0;
 	}
 #endif
 
-#ifdef _WIN
 	logFileSize = get_file_size(hFile);
-#else // _LIN
-	// BSR-579 TODO get current file size
-#endif
+
 	// BSR-578 set before consumption starts.
 	gLogBuf.h.r_idx.has_consumer = true;
 	atomic_set(&idx, 0);
@@ -5437,7 +5447,6 @@ int log_consumer_thread(void *unused)
 				continue;
 			}
 		}
-;
 		chk_complete = true;
 
 		if (!started) {
@@ -5445,7 +5454,7 @@ int log_consumer_thread(void *unused)
 			// BSR-578 print out after consumption starts, not thread starts.
 			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
 #else
-			bsr_info(NO_OBJECT, "bsrlog path : %s\n", path);
+			bsr_info(NO_OBJECT, "bsrlog path : %s\n", filePath);
 #endif
 			started = true;
 		}
@@ -5471,13 +5480,13 @@ int log_consumer_thread(void *unused)
 		filesize = strlen(buffer);
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
-		err = bsr_write(fd, buffer, filesize, &fd->f_pos);
+		err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
 		set_fs(oldfs);
 
 		if (err < 0 || err != filesize) {
 			gLogBuf.h.r_idx.has_consumer = false;
 			g_consumer_state = EXITING;
-			bsr_info(NO_OBJECT, "failed to write log\n");
+			bsr_warn(NO_OBJECT, "failed to write log\n");
 			break;
 		}
 #endif
@@ -5496,7 +5505,7 @@ int log_consumer_thread(void *unused)
 
 			// BSR-579 if the log file is larger than 50M, do file rolling.
 			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
-			status = bsr_log_file_reanme_and_close(hFile);
+			status = bsr_log_file_rename_and_close(hFile);
 			if (!NT_SUCCESS(status)) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
@@ -5522,25 +5531,55 @@ int log_consumer_thread(void *unused)
 				return;
 			}
 #else // _LIN
-			// BSR-579 TODO rolling and clean up
+			// BSR-579 rolling and clean up
+			if (bsr_log_rolling_file_clean_up() != 0) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_warn(NO_OBJECT, "failed to remove log file\n");
+				return 0;
+			}
+
+			// BSR-579 if the log file is larger than 50M, do file rolling.
+			bsr_info(NO_OBJECT, "log file length %lld\n", get_file_size(hFile));
+			
+			if (hFile)
+				filp_close(hFile, NULL);
+
+			if (bsr_log_file_rename() != 0) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_warn(NO_OBJECT, "failed to rename log file\n");
+				return 0;
+			}
+			oldfs = get_fs();
+			set_fs(KERNEL_DS);
+			
+			hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+			set_fs(oldfs);
+			if (hFile == NULL || IS_ERR(hFile)) {
+				gLogBuf.h.r_idx.has_consumer = false;
+				g_consumer_state = EXITING;
+				bsr_warn(NO_OBJECT, "failed to new log file\n");
+				return 0;
+			}
+			
 #endif
 			logFileSize = 0;
+			
 		}
 
 		idx_ring_dispose(&gLogBuf.h, buffer);
 	}
 
-#ifdef _WIN
 	if (hFile) {
+#ifdef _WIN
 		ZwClose(hFile);
-		hFile = NULL;
-	}
-#else
-	// BSR-581
-	// close linux log files
-	if (fd != NULL)
-		filp_close(fd, NULL);
+#else // _LIN
+		filp_close(hFile, NULL);
 #endif
+		hFile = NULL;
+
+	}
 
 	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = EXITING;
@@ -5568,11 +5607,9 @@ void clean_logging(void)
 	g_consumer_thread = NULL;
 #endif
 }
-
 #ifdef _WIN
 extern PULONG InitSafeBootMode;
 #endif
-
 void init_logging(void)
 {
 	// BSR-578 initialize to -1 for output from 0 array

@@ -17,6 +17,7 @@
 #define UCHAR			unsigned char
 #define LPCTSTR			const char * 
 #define LPCSTR			const char *
+#define ULONG			unsigned int
 #define GetLastError()  errno
 #define ERROR_FILE_NOT_FOUND	2/*ENOENT*/
 #endif
@@ -119,6 +120,7 @@ typedef struct _BSR_LOG {
 
 
 #ifdef __KERNEL__
+
 #define Set_log_lv(log_level) \
 	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
 	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
@@ -133,6 +135,11 @@ typedef struct _BSR_LOG {
 #ifdef _LIN
 // BSR-584
 #define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
+#define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"
+// BSR-597
+#define BSR_LOG_FILE_PATH "/var/log/bsr"
+#define BSR_LOG_FILE_NAME "bsrlog.txt"
+#define BSR_LOG_ROLLING_FILE_NAME "bsrlog.txt_"
 #endif
 
 #endif

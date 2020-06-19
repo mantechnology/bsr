@@ -19,20 +19,6 @@ atomic_t g_log_file_max_count = ATOMIC_INIT(LOG_FILE_COUNT_DEFAULT);
 #define DPFLTR_TRACE_LEVEL 2
 #define DPFLTR_INFO_LEVEL 3
 
-#ifndef COMPAT_HAVE_TIME64_TO_TM
-#ifndef time64_to_tm
-#define time64_to_tm time_to_tm
-#endif
-#endif
-#ifndef COMPAT_HAVE_KTIME_TO_TIMESPEC64
-#ifndef ktime_to_timespec64
-#define ktime_to_timespec64 ktime_to_timespec
-#endif
-#ifndef timespec64
-#define timespec64 timespec
-#endif
-#endif
-
 #endif
 
 
