@@ -5146,7 +5146,7 @@ static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
 }
 
 
-int bsr_log_rolling_file_clean_up()
+int bsr_log_rolling_file_clean_up(void)
 {
 	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
@@ -5228,7 +5228,7 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 }
 #else // _LIN
 
-int bsr_log_file_rename_and_close(struct file * fd) 
+int bsr_log_file_rename(void) 
 {
 	char new_name[MAX_PATH];
 	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
@@ -5240,9 +5240,6 @@ int bsr_log_file_rename_and_close(struct file * fd)
 	snprintf(old_name, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 	
 	memset(new_name, 0, sizeof(new_name));
-
-	if (fd)
-		filp_close(fd, NULL);
 
 	ts = ktime_to_timespec64(ktime_get_real());
 	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
@@ -5540,7 +5537,11 @@ int log_consumer_thread(void *unused)
 
 			// BSR-579 if the log file is larger than 50M, do file rolling.
 			bsr_info(NO_OBJECT, "log file length %lld\n", get_file_size(hFile));
-			if (bsr_log_file_rename_and_close(hFile) != 0) {
+			
+			if (hFile)
+				filp_close(hFile, NULL);
+
+			if (bsr_log_file_rename() != 0) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
 				bsr_warn(NO_OBJECT, "failed to rename log file\n");
