@@ -1353,6 +1353,7 @@ out:
 		if (reply_skb)
 			bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
+		err_str = NULL;
 	}
 	return rv;
 }
@@ -3367,8 +3368,10 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 		retcode = ERR_INTR;
 out:
 	if (err_str) {
-		bsr_msg_put_info(reply_skb, err_str);
+		if (reply_skb)
+			bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
+		err_str = NULL;
 	}
 	return retcode;
 }
@@ -4481,8 +4484,10 @@ repeat:
 	}
 	
 	if (err_str) {
-		bsr_msg_put_info(reply_skb, err_str);
+		if (reply_skb)
+			bsr_msg_put_info(reply_skb, err_str);
 		kfree(err_str);
+		err_str = NULL;
 	}
 
 	return rv;

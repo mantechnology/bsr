@@ -1318,10 +1318,12 @@ static __printf(2, 3) void _bsr_state_err(struct change_context *context, const 
 	va_end(args);
 	if (!err_str)
 		return;
-	if (context->err_str)
-		*context->err_str = err_str;
 	if (context->flags & CS_VERBOSE)
 		bsr_err(resource, "%s\n", err_str);
+	if (context->err_str)
+		*context->err_str = err_str;
+	else
+		kfree2(err_str);
 }
 
 #ifdef _WIN
@@ -1338,10 +1340,12 @@ static __printf(2, 3) void bsr_state_err(struct bsr_resource *resource, const ch
 	va_end(args);
 	if (!err_str)
 		return;
-	if (resource->state_change_err_str)
-		*resource->state_change_err_str = err_str;
 	if (resource->state_change_flags & CS_VERBOSE)
 		bsr_err(resource, "%s\n", err_str);
+	if (resource->state_change_err_str)
+		*resource->state_change_err_str = err_str;
+	else
+		kfree2(err_str);
 }
 
 static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resource)
