@@ -130,7 +130,7 @@ void yypush_buffer_state (YY_BUFFER_STATE new_buffer )
 		return;
 
 	if ( include_stack_ptr >= MAX_INCLUDE_DEPTH ) {
-		fprintf( stderr, "Includes nested too deeply" );
+		CLI_ERRO_LOG_STDERR(false, "Includes nested too deeply" );
 		exit( 1 );
 	}
 
@@ -150,7 +150,7 @@ void yypop_buffer_state (void)
 		return;
 
 	if ( --include_stack_ptr < 0 ) {
-		fprintf( stderr, "error in flex compat code\n" );
+		CLI_ERRO_LOG_STDERR(false, "error in flex compat code\n" );
 		exit( 1 );
 	}
 

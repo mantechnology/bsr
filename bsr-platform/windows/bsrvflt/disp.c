@@ -244,12 +244,15 @@ NTSTATUS _QueryVolumeNameRegistry(
 
 			if (((SIZE_T)pmuid->UniqueIdLength == RtlCompareMemory(pmuid->UniqueId, (PCHAR)valueInfo + valueInfo->DataOffset, pmuid->UniqueIdLength))) {
 				if (wcsstr(key, L"\\DosDevices\\")) {
-					ucsdup(&pvext->MountPoint, L" :", 4);
-					pvext->MountPoint.Buffer[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
-					pvext->Minor = (UCHAR)(pvext->MountPoint.Buffer[0] - 'C');
+					// BSR-109
+					memset(pvext->MountPoint, 0, sizeof(pvext->MountPoint));
+					memcpy(pvext->MountPoint, L" :", 4);
+					pvext->MountPoint[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
 				}
 				else if (wcsstr(key, L"\\??\\Volume")) {	// registry's style
-					ucsdup(&pvext->VolumeGuid, key, valueInfo->NameLength);
+					// BSR-109
+					memset(pvext->VolumeGuid, 0, sizeof(pvext->VolumeGuid));
+					memcpy(pvext->VolumeGuid, key, valueInfo->NameLength);
 				}
 			}
 
@@ -787,6 +790,62 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
+		// BSR-109 updated mount information as soon as IOCTL_MOUNTDEV_LINK_CREATED, IOCTL_MOUNTDEV_LINK_DELETED control code is received
+		case IOCTL_MOUNTDEV_LINK_CREATED:
+		{
+			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
+			UNICODE_STRING d;
+
+			if (!name || name->NameLength == 0) 
+				break;
+
+			d.Buffer = name->Name;
+			d.Length = name->NameLength;
+
+			MVOL_LOCK();
+			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
+				VolumeExtension->Minor = (UCHAR)(name->Name[strlen("\\DosDevices\\")] - 'C');
+				memcpy(VolumeExtension->MountPoint, (name->Name + strlen("\\DosDevices\\")), (USHORT)(strlen(" :") * sizeof(WCHAR)));
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws, minor %d\n", VolumeExtension->MountPoint, VolumeExtension->Minor);
+			}
+			else if (MOUNTMGR_IS_VOLUME_NAME(&d)) {
+				memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
+				memcpy(VolumeExtension->VolumeGuid, name->Name, name->NameLength);
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_CREATED %ws\n", VolumeExtension->VolumeGuid);
+			}
+
+			MVOL_UNLOCK();
+
+
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
+		}
+		case IOCTL_MOUNTDEV_LINK_DELETED:
+		{
+			PMOUNTDEV_NAME name = (PMOUNTDEV_NAME)Irp->AssociatedIrp.SystemBuffer;
+			UNICODE_STRING d;
+
+			if (!name || name->NameLength == 0)
+				break;
+
+			d.Buffer = name->Name;
+			d.Length = name->NameLength;
+
+			MVOL_LOCK();
+			if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %ws\n", VolumeExtension->MountPoint);
+				memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
+				VolumeExtension->Minor = 0;
+			}
+			else if (MOUNTMGR_IS_DRIVE_LETTER(&d)) {
+				bsr_debug(NO_OBJECT, "IOCTL_MOUNTDEV_LINK_DELETED %ws\n", VolumeExtension->VolumeGuid);
+				memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
+			}
+			MVOL_UNLOCK();
+
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
+		}
+
         case IOCTL_MVOL_GET_PROC_BSR:
         {
             PMVOL_VOLUME_INFO p = NULL;

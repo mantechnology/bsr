@@ -19,6 +19,7 @@
 #include <windows.h>
 #else // _LIN
 #include <linux/fs.h>           /* for BLKGETSIZE64 */
+#include <time.h>
 #endif
 #include <string.h>
 #include <netdb.h>
@@ -30,6 +31,7 @@
 static struct version __bsr_driver_version = {};
 static struct version __bsr_utils_version = {};
 
+char *program = NULL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -394,7 +396,7 @@ int version_equal(const struct version *rev1, const struct version *rev2)
 void config_help_legacy(const char * const tool,
 		const struct version * const driver_version)
 {
-	fprintf(stderr,
+	CLI_ERRO_LOG_STDERR(false, tool ,
 			"This %s was build without support for bsr kernel code (%d.%d).\n"
 			"Consider to rebuild your user land tools\n"
 			"and configure --with-%d%dsupport ...\n",
@@ -501,4 +503,113 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 		crc = crc32c_table[(crc ^ *data++) & 0xFFL] ^ (crc >> 8);
 
 	return crc;
+}
+
+FILE *bsr_open_log()
+{
+	char f[256];
+	FILE* fp = NULL;
+
+	memset(f, 0, sizeof(f));
+#ifdef _WIN
+	char *s;
+	char *ptr;
+
+	s = getenv("BSR_PATH");
+
+	if (s != NULL) {
+		ptr = strrchr(s, L'\\');
+		if (s != NULL) {
+			memcpy(f, s, (ptr - s));
+			if (program)
+				snprintf(f, 256, "%s\\log\\%s.log", f, program);
+			else
+				snprintf(f, 256, "%s\\log\\bsrapp.log", f);
+		}
+	}
+#else
+	if (program)
+		snprintf(f, 256, "/var/log/bsr/%s.log", program);
+	else
+		snprintf(f, 256, "/var/log/bsr/bsrapp.log");
+#endif
+	fp = fopen(f, "a");
+	if (!fp)
+		printf("log file open failed, %s\n", f);
+
+	return fp;
+}
+
+long bsr_log_format(char* b, const char* func, enum cli_log_level level)
+{
+	long offset = 0;
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d ",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+	switch (level) {
+	case ERROR_LEVEL:
+		memcpy(b + offset, "bsr_erro ", LEVEL_OFFSET); break;
+	case WARNING_LEVEL:
+		memcpy(b + offset, "bsr_warn ", LEVEL_OFFSET); break;
+	case INFO_LEVEL:
+		memcpy(b + offset, "bsr_info ", LEVEL_OFFSET); break;
+	case TRACE_LEVEL:
+		memcpy(b + offset, "bsr_trac ", LEVEL_OFFSET); break;
+	default:
+		memcpy(b + offset, "bsr_unkn ", LEVEL_OFFSET); break;
+	}
+
+	offset += LEVEL_OFFSET;
+	offset += snprintf(b + offset, 512 - offset, "[%s] ", func);
+
+	return offset;
+}
+
+void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...)
+{
+	char b[512];
+	long offset = 0;
+	va_list args;
+
+	FILE *fp = bsr_open_log();
+
+	if (fp == NULL) {
+		return;
+	}
+
+	if (!write_continued)
+		offset = bsr_log_format(b, func, level);
+
+	va_start(args, fmt);
+	vsnprintf(b + offset, 512 - offset, fmt, args);
+	va_end(args);
+
+	fprintf(fp, "%s", b);
+
+	fclose(fp);
+}
+
+
+void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args)
+{
+	char b[512];
+	long offset = 0;
+
+	FILE *fp = bsr_open_log();
+
+	if (fp == NULL) {
+		return;
+	}
+
+	offset = bsr_log_format(b, func, level);
+
+	vsnprintf(b + offset, 512 - offset, fmt, args);
+
+	fprintf(fp, "%s", b);
+
+	fclose(fp);
 }

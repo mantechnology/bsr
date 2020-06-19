@@ -99,9 +99,46 @@ extern void config_help_legacy(const char * const tool, const struct version * c
 extern void add_lib_bsr_to_path(void);
 extern uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length);
 
-
 #ifdef _WIN
 #define UTRACE(format, arg...) fprintf(stderr, "[%s|%d] "format, __FUNCTION__, __LINE__, ##arg)
 #endif
+
+// BSR-604
+#define LEVEL_OFFSET 9
+
+enum cli_log_level {
+	ERROR_LEVEL,
+	WARNING_LEVEL,
+	INFO_LEVEL,
+	TRACE_LEVEL
+};
+
+// BSR-604 the executable name used as the log file name.
+char *program;
+
+// BSR-604 write log files
+extern void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...);
+extern void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args);
+
+#define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, ERROR_LEVEL, continued, format, ##arg) 
+#define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, WARNING_LEVEL, continued, format, ##arg)
+#define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, INFO_LEVEL, continued, format, ##arg)
+#define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, TRACE_LEVEL, continued, format, ##arg)
+
+#define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, ERROR_LEVEL, format, arg) 
+
+#define CLI_ERRO_LOG_STDERR(continued, format, arg...) \
+		{	\
+			CLI_ERRO_LOG(continued, format, ##arg); \
+			fprintf(stderr, format, ##arg); \
+		} while(false)
+
+#define CLI_ERRO_VLOG_STDERR(format, arg)  \
+		{	\
+			CLI_ERRO_VLOG(format, arg); \
+			va_end(arg);	\
+			va_start(arg, format); \
+			vfprintf(stderr, format, arg); \
+		} while(false)
 
 #endif

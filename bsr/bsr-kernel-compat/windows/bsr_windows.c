@@ -60,7 +60,10 @@ WCHAR g_ver[64];
 #define MAX_IDR_FREE (MAX_IDR_LEVEL * 2)
 
 KSTART_ROUTINE run_singlethread_workqueue;
+// BSR-109
+#if 0
 KSTART_ROUTINE adjust_changes_to_volume;
+#endif
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError = {0,};
 
 // DW-1105 monitoring mount change thread state (FALSE : not working, TRUE : working)
@@ -2217,7 +2220,8 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 	return NULL;
 }
 
-/**
+// BSR-109 function disable
+#if 0
  * @brief
  *	Recreate the VOLUME_EXTENSION's MountPoint, Minor, block_device
  *	if it was changed
@@ -2394,6 +2398,7 @@ NTSTATUS start_mnt_monitor()
 
 	return status;
 }
+#endif 
 
 // DW-1105 stop monitoring mount change thread.
 void stop_mnt_monitor()
@@ -2401,6 +2406,8 @@ void stop_mnt_monitor()
 	atomic_set(&g_monitor_mnt_working, FALSE);
 }
 
+// BSR-109 function disable
+#if 0
 /**
  * @brief
  *	refresh all VOLUME_EXTENSION's values
@@ -2415,6 +2422,7 @@ void refresh_targetdev_list()
     }
     MVOL_UNLOCK();
 }
+#endif
 
 /**
  * @brief
@@ -2679,27 +2687,28 @@ cleanup:
  *	- ignore if last character is '/', '\', ':'
  *	- '?' equal '\' in case windows  
  */
+// BSR-109 UNICODE_STRING, WCHAR comparison
 bool is_equal_volume_link(
 	_In_ UNICODE_STRING * lhs,
-	_In_ UNICODE_STRING * rhs,
+	_In_ WCHAR * rhs,
 	_In_ bool case_sensitive)
 {
 	WCHAR* l = lhs->Buffer;
-	WCHAR* r = rhs->Buffer;
+	size_t rlen = wcslen(rhs) * sizeof(WCHAR);
 	USHORT index = 0;
-	int gap = lhs->Length - rhs->Length;
+	int gap = (int)(lhs->Length - rlen);
 
-	if ( !l || !r || (abs(gap) > sizeof(WCHAR)) ) {
+	if ( !l || !rhs || (abs(gap) > sizeof(WCHAR)) ) {
 		return false;
 	}
 	
 
 
-	for (; index < min(lhs->Length, rhs->Length); ++l, ++r, index += sizeof(WCHAR)) {
+	for (; index < min(lhs->Length, rlen); ++l, ++rhs, index += sizeof(WCHAR)) {
 
-		if ((*l == *r) ||
-			(('/' == *l || '\\' == *l || '?' == *l) && ('/' == *r || '\\' == *r || '?' == *r)) ||
-			(case_sensitive ? false : toupper(*l) == toupper(*r))) {
+		if ((*l == *rhs) ||
+			(('/' == *l || '\\' == *l || '?' == *l) && ('/' == *rhs || '\\' == *rhs || '?' == *rhs)) ||
+			(case_sensitive ? false : toupper(*l) == toupper(*rhs))) {
 			continue;
 		}
 
@@ -2711,7 +2720,7 @@ bool is_equal_volume_link(
 	}
 
 	// if last character is '/', '\\', ':', then consider equal
-	WCHAR t = (gap > 0) ? *l : *r;
+	WCHAR t = (gap > 0) ? *l : *rhs;
 	if (('/' == t || '\\' == t || ':' == t)) {
 		return true;
 	}
@@ -2761,8 +2770,10 @@ struct block_device *blkdev_get_by_link(UNICODE_STRING * name, bool bUpdatetarge
 		
 	MVOL_LOCK();
 	for (; pVExt; pVExt = pVExt->Next) {
-		
-		if(IsEmptyUnicodeString(&pVExt->VolumeGuid)) { // DW-1728 update the volume's GUID information again for a volume without a GUID (VHD).
+		// BSR-109 disable this feature as a change in how mount information is updated
+#if 0
+		// DW-1728 update the volume's GUID information again for a volume without a GUID (VHD).
+		if(IsEmptyUnicodeString(&pVExt->VolumeGuid)) { 
 			update_targetdev(pVExt, TRUE);
 		} else {
 			update_targetdev(pVExt, FALSE);
@@ -2771,6 +2782,10 @@ struct block_device *blkdev_get_by_link(UNICODE_STRING * name, bool bUpdatetarge
 		UNICODE_STRING * plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
 			&pVExt->VolumeGuid : &pVExt->MountPoint;
 		
+		if (plink && is_equal_volume_link(name, plink, false)) {
+#endif
+		WCHAR *plink = MOUNTMGR_IS_VOLUME_NAME(name) ?
+			pVExt->VolumeGuid : pVExt->MountPoint;
 		if (plink && is_equal_volume_link(name, plink, false)) {
 			// break;	
 			// DW-1702 fixup the logic to perform update_targetdev on all volumes at blkdev_get_by_link. Even if found VExt, no break;

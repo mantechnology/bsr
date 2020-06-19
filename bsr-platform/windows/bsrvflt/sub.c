@@ -189,8 +189,9 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
-	FreeUnicodeString(&VolumeExtension->MountPoint);
-	FreeUnicodeString(&VolumeExtension->VolumeGuid);
+	// BSR-109
+	memset(VolumeExtension->MountPoint, 0, sizeof(VolumeExtension->MountPoint));
+	memset(VolumeExtension->VolumeGuid, 0, sizeof(VolumeExtension->VolumeGuid));
 	
 	IoDetachDevice(VolumeExtension->TargetDeviceObject);
 
@@ -446,6 +447,8 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
 // 1. Get mount point by volume extension's PhysicalDeviceName
 // 2. If QueryMountPoint return SUCCESS, parse mount point to letter or GUID, and update volume extension's mount point info
 
+// BSR-109
+#if 0
 NTSTATUS
 mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 {
@@ -523,6 +526,7 @@ cleanup:
 	
 	return status;
 }
+#endif
 
 #ifdef _WIN_GetDiskPerf
 NTSTATUS
