@@ -5146,7 +5146,7 @@ static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
 }
 
 
-int bsr_log_rolling_file_clean_up(char * filePath)
+int bsr_log_rolling_file_clean_up()
 {
 	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
@@ -5531,7 +5531,7 @@ int log_consumer_thread(void *unused)
 			}
 #else // _LIN
 			// BSR-579 rolling and clean up
-			if (bsr_log_rolling_file_clean_up(filePath) != 0) {
+			if (bsr_log_rolling_file_clean_up() != 0) {
 				gLogBuf.h.r_idx.has_consumer = false;
 				g_consumer_state = EXITING;
 				bsr_warn(NO_OBJECT, "failed to remove log file\n");
