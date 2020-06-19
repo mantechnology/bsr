@@ -1994,7 +1994,11 @@ int bsr_attach_peer_device(struct bsr_peer_device *peer_device) __must_hold(loca
     else
     	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ, '88DW');
 #else // _LIN
-	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ);
+	// BSR-180
+	resync_plan = rcu_dereference_protected(peer_device->rs_plan_s,
+		lockdep_is_held(&resource->conf_update));
+	if(!resync_plan)
+		resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ);
 #endif
 	if (!resync_plan)
 		goto out;
