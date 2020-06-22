@@ -684,6 +684,8 @@ __in  BOOLEAN	bRawIrp)
 	if (bRawIrp) {
 		*pIrp = ExAllocatePoolWithTag(NonPagedPool, IoSizeOfIrp(1), 'FFDW');
 		if (!*pIrp) {
+		// DW-2139
+		kfree2(param);
 			return STATUS_INSUFFICIENT_RESOURCES;
 		}
 		IoInitializeIrp(*pIrp, IoSizeOfIrp(1), 1);
@@ -693,12 +695,16 @@ __in  BOOLEAN	bRawIrp)
 	}
 
 	if (!*pIrp) {
+		// DW-2139
+		kfree2(param);
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
 	// DW-1758 Dynamic allocation of 'CompletionEvet', for resource management in completion routine
 	*CompletionEvent = ExAllocatePoolWithTag(NonPagedPool, sizeof(KEVENT), 'CFDW');
 	if (!*CompletionEvent) {
+		// DW-2139
+		kfree2(param);
 		return SOCKET_ERROR;
 	}
 
@@ -755,19 +761,6 @@ Send(
 		goto $Send_fail;
 	}
 
-	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
-	Status = InitWskSendData(&Irp,
-								&CompletionEvent,
-								DataBuffer,
-								WskBuffer,
-								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
-								FALSE);
-	if (!NT_SUCCESS(Status)) {
-		BytesSent = SOCKET_ERROR;
-		goto $Send_fail;
-	}
-
 	Flags |= WSK_FLAG_NODELAY;
 
 	nWaitTime = RtlConvertLongToLargeInteger(-1 * Timeout * 1000 * 10);
@@ -778,6 +771,20 @@ Send(
 		// Otherwise, a hang occurs.
 		bsr_info(NO_OBJECT,"%s, No Connect, Current state : %d(0x%p)\n", __FUNCTION__, pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
+		goto $Send_fail;
+	}
+
+	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
+	Status = InitWskSendData(&Irp,
+								&CompletionEvent,
+								DataBuffer,
+								WskBuffer,
+								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
+								FALSE);
+
+	if (!NT_SUCCESS(Status)) {
+		BytesSent = SOCKET_ERROR;
 		goto $Send_fail;
 	}
 
@@ -895,19 +902,6 @@ SendLocal(
 		goto $SendLoacl_fail;
 	}
 
-	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
-	Status = InitWskSendData(&Irp,
-								&CompletionEvent,
-								DataBuffer,
-								WskBuffer,
-								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
-								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
-		FALSE);
-	if (!NT_SUCCESS(Status)) {
-		BytesSent = SOCKET_ERROR;
-		goto $SendLoacl_fail;
-	}
-
 	// DW-1015 fix crash. WskSocket->Dispatch)->WskSend is NULL while machine is shutdowning
 	// DW-1029 to prevent possible contingency, check if dispatch table is valid.
 	if(gbShutdown || !WskSocket->Dispatch) { 
@@ -927,6 +921,20 @@ SendLocal(
 		goto $SendLoacl_fail;
 	}
 	
+
+	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
+	Status = InitWskSendData(&Irp,
+		&CompletionEvent,
+		DataBuffer,
+		WskBuffer,
+		&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
+		&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
+		FALSE);
+	if (!NT_SUCCESS(Status)) {
+		BytesSent = SOCKET_ERROR;
+		goto $SendLoacl_fail;
+	}
+
 	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskSend(
 																			WskSocket,
 																			WskBuffer,
