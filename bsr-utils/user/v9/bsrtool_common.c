@@ -551,18 +551,22 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	for (i = 0; i < fileMaxCount; i++)
 		memset(targetFiles[i], 0, sizeof(targetFiles[i]));
 
-	ptr = strrchr(fileFullPath, L'\\');
+#ifdef _WIN
+	ptr = strrchr(fileFullPath, '\\');
+#else // _LIN
+	ptr = strrchr(fileFullPath, '/');
+#endif
 	memcpy(path, fileFullPath, (ptr - fileFullPath));
 	memcpy(fileName, (ptr + 1), strlen(ptr));
-
+	
 	snprintf(fileName, sizeof(fileName),"%s_", fileName);
-
+	
 	if ((dp = opendir(path)) == NULL) {
 		printf("failed to open %s\n", path);
 	}
 	else {
 		int fileFindCount = 0;
-
+	
 		while ((entry = readdir(dp)) != NULL) {
 			if (strstr(entry->d_name, fileName)) {
 				memcpy(targetFiles[fileFindCount], entry->d_name, sizeof(entry->d_name));
@@ -571,12 +575,16 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 					sequential_sort(targetFiles, fileMaxCount);
 					fileFindCount = fileFindCount - 1;
 					memset(removeFileFullPath, 0, sizeof(removeFileFullPath));
+#ifdef _WIN
 					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, targetFiles[fileFindCount]);
+#else // _LIN
+					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s/%s", path, targetFiles[fileFindCount]);
+#endif
 					remove(removeFileFullPath); 
 				}
 			}
 		}
-
+	
 		closedir(dp);
 	}
 }
@@ -635,7 +643,7 @@ FILE *bsr_open_log()
 				snprintf(f, 256, "%s\\log\\bsrapp.log", f);
 		}
 	}
-#else
+#else // _LIN
 	if (program)
 		snprintf(f, 256, "/var/log/bsr/%s.log", program);
 	else

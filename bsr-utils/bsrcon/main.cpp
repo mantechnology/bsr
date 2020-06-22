@@ -198,18 +198,19 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	return true;
 }
 
-// BSR-605
+// BSR-605 the type of cli is determined by the offset position per bit.
 #define BSR_ADM_LOG_FILE_MAX_COUNT 0
 #define BSR_SETUP_LOG_FILE_MAX_COUNT 8
 #define BSR_META_LOG_FILE_MAX_COUNT 16
 
 #define LOG_MAX_FILE_COUNT_MASK 255
 
+// BSR-605
 BOOLEAN GetCliLogFileMaxCount(int *max)
 {
-	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
 #ifdef _WIN
+	DWORD lResult = ERROR_SUCCESS;
 	HKEY hKey = NULL;
 	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD type = REG_DWORD;
@@ -229,25 +230,37 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 		cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
 	}
 #else // _LIN
-#endif
+	// BSR-605 displays the default value in case of open or read failure.
+	cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
+	cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
+	cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
 
+	// /etc/bsr.d/.cli_log_file_max_count
+	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
+	if (fp != NULL) {
+		char buf[10] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) 
+			cli_log_file_max_count = atoi(buf);
+		fclose(fp);
+	}
+#endif
 	*max = cli_log_file_max_count;
 
 	return true;
 }
 
 
-// BSR-605
+// BSR-605 cli log maximum file count settings 
 BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
+	DWORD adm_max, setup_max, meta_max;
 #ifdef _WIN
 	HKEY hKey = NULL;
 	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
-	DWORD adm_max, setup_max, meta_max;
 
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
@@ -255,15 +268,35 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	}
 
 	lResult = RegQueryValueEx(hKey, _T("cli_log_file_max_count"), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
-
-	if (lResult == ERROR_FILE_NOT_FOUND) {
+#else // _LIN
+	// /etc/bsr.d/.cli_log_file_max_count
+	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
+	if (fp != NULL) {
+		char buf[10] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			cli_log_file_max_count = atoi(buf);
+		}
+		else {
+			// BSR-605 set the default value if the file fails to open or read.
+			lResult = (DWORD)ERROR_FILE_NOT_FOUND;
+		}
+		fclose(fp);
+	}
+	else {
+		// BSR-605 set the default value if the file fails to open or read.
+		lResult = (DWORD)ERROR_FILE_NOT_FOUND;
+	}
+#endif
+	if (lResult == (DWORD)ERROR_FILE_NOT_FOUND) {
 		adm_max = setup_max = meta_max = 2;
 	}
 	else if (lResult != ERROR_SUCCESS) {
+#ifdef _WIN
 		RegCloseKey(hKey);
-		return FALSE;
+#endif
+		return false;
 	}
-	else {
+	else { 
 		adm_max = ((cli_log_file_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
 		setup_max = ((cli_log_file_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
 		meta_max = ((cli_log_file_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
@@ -280,14 +313,27 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	}
 
 	cli_log_file_max_count = ((adm_max << BSR_ADM_LOG_FILE_MAX_COUNT) | (setup_max << BSR_SETUP_LOG_FILE_MAX_COUNT) | (meta_max << BSR_META_LOG_FILE_MAX_COUNT));
-
+#ifdef _WIN
 	lResult = RegSetValueEx(hKey, _T("cli_log_file_max_count"), 0, REG_DWORD, (LPBYTE)&cli_log_file_max_count, sizeof(cli_log_file_max_count));
-
-	if (ERROR_SUCCESS != lResult)
-		return FALSE;
-
-	RegCloseKey(hKey);
 #else // _LIN
+	// /etc/bsr.d/.cli_log_file_max_count
+	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "w+");
+	if (fp != NULL) {
+		char buf[10] = { 0 } ;
+		sprintf(buf, "%u", cli_log_file_max_count);
+		if (!fputs(buf, fp)) 
+			return false;
+		fclose(fp);
+	}
+	else
+		return false;
+
+#endif
+	if (ERROR_SUCCESS != lResult)
+		return false;
+
+#ifdef _WIN
+	RegCloseKey(hKey);
 #endif
 
 	return true;
