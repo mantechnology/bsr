@@ -884,8 +884,12 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 
 out:
 	if (err < 0) {
-		if (socket)
+		if (socket) {
 			sock_release(socket);
+			// DW-2139 socket may not be released after sock_release() call in case of connection failure
+			if (socket && !socket->sk)
+				kfree(socket);
+		}
 #ifdef _WIN
 		// DW-1272 : retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
 		if (err != -EAGAIN && err != -EINVALADDR)
