@@ -330,3 +330,36 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 
 	return err;
 }
+
+
+// BSR-610
+// based on linux/fs/namei.c - do_mkdirat()
+long bsr_mkdir(const char *pathname, umode_t mode)
+{
+	struct dentry *dentry;
+	int err;
+#ifdef COMPAT_HAVE_KERN_PATH_CREATE
+	struct path path;
+	dentry = kern_path_create(AT_FDCWD, pathname, &path, LOOKUP_DIRECTORY);
+	if (IS_ERR(dentry)) 
+		return PTR_ERR(dentry);
+	err = vfs_mkdir(d_inode(path.dentry), dentry, mode);
+	done_path_create(&path, dentry);
+#else
+	struct nameidata nd;
+	err = path_lookup(pathname, LOOKUP_PARENT, &nd);
+	if (err)
+		return err;
+
+	dentry = lookup_create(&nd, 1);
+	if (!IS_ERR(dentry)) {
+		err = vfs_mkdir(d_inode(nd.path.dentry), dentry, mode);
+		dput(dentry);
+	} else {
+		err = PTR_ERR(dentry);
+	}
+	mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
+	path_put(&nd.path);
+#endif
+	return err;
+}
