@@ -1548,11 +1548,6 @@ static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resourc
 					return SS_NO_VERIFY_ALG;
 			}
 
-			if (!(repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) &&
-			     (repl_state[NEW] == L_VERIFY_S || repl_state[NEW] == L_VERIFY_T) &&
-				  peer_device->connection->agreed_pro_version < 88)
-				return SS_NOT_SUPPORTED;
-
 			if (repl_state[OLD] == L_SYNC_SOURCE && repl_state[NEW] == L_WF_BITMAP_S)
 				return SS_RESYNC_RUNNING;
 
