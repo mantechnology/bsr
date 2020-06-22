@@ -2314,21 +2314,14 @@ static inline struct inode *d_inode(struct dentry *dentry)
 }
 #endif
 
-#ifndef COMPAT_HAVE_INODE_LOCK
-/* up to kernel 2.6.38 inclusive, there was a
- * linux/writeback.h:extern spinlock_t inode_lock;
- * which was implicitly included.
- * avoid error: 'inode_lock' redeclared as different kind of symbol */
-#define inode_lock(i) bsr_inode_lock(i)
-static inline void inode_lock(struct inode *inode)
-{
-	mutex_lock(&inode->i_mutex);
-}
-
-static inline void inode_unlock(struct inode *inode)
-{
-	mutex_unlock(&inode->i_mutex);
-}
+#ifdef COMPAT_HAVE_INODE_LOCK
+#define bsr_inode_lock(i)					inode_lock(i)
+#define bsr_inode_unlock(i)					inode_unlock(i)
+#define bsr_inode_lock_nested(i, subclass)	inode_lock_nested(i, subclass)
+#else
+#define bsr_inode_lock(i)					mutex_lock(&(i)->i_mutex)
+#define bsr_inode_unlock(i)					mutex_unlock(&(i)->i_mutex)
+#define bsr_inode_lock_nested(i, subclass)	mutex_lock_nested(&(i)->i_mutex, subclass)
 #endif
 
 
@@ -2390,6 +2383,55 @@ static inline ssize_t bsr_write(struct file *file, void *buf, size_t count, loff
 	return vfs_write(file, buf, count, pos);
 #endif
 }
+
+// BSR-597
+static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
+{
+#ifdef COMPAT_VFS_UNLINK_HAS_2_PARAMS
+		return vfs_unlink(dir, dentry);
+#else
+		return vfs_unlink(dir, dentry, NULL);
+#endif
+}
+
+//BSR-597
+static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
+	       struct inode *new_dir, struct dentry *new_dentry)
+{
+#if defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
+	return vfs_rename(old_dir, old_dentry,
+	    new_dir, new_dentry);
+#elif defined(COMPAT_VFS_RENAME_HAS_5_PARAMS)
+	return vfs_rename(old_dir, old_dentry,
+	    new_dir, new_dentry, NULL);
+#else
+	return vfs_rename(old_dir, old_dentry,
+	    new_dir, new_dentry, NULL, 0);
+#endif
+}
+
+
+#ifndef COMPAT_HAVE_TIME64_TO_TM
+#ifndef time64_to_tm
+#define time64_to_tm time_to_tm
+#endif
+#endif
+#ifndef COMPAT_HAVE_KTIME_TO_TIMESPEC64
+#ifndef ktime_to_timespec64
+#define ktime_to_timespec64 ktime_to_timespec
+#endif
+#ifndef timespec64
+#define timespec64 timespec
+#endif
+#endif
+
+struct log_rolling_file_list {
+#ifdef COMPAT_HAVE_ITERATE_DIR
+	struct dir_context ctx;
+#endif
+	struct list_head list;
+	char *fileName;
+};
 
 #endif
 

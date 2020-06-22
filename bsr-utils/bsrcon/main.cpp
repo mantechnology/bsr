@@ -176,11 +176,22 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	lResult = RegQueryValueEx(hKey, _T("log_file_max_count"), NULL, &type, (LPBYTE)&log_file_max_count, &size);
 	RegCloseKey(hKey);
 
+#else // _LIN
+	// BSR-597 get log_file_max_count
+	FILE *fp;
+	fp = fopen(BSR_LOG_FILE_MAXCNT_REG, "r");
+	if(fp != NULL) {
+		char buf[10] = {0};
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			log_file_max_count = atoi(buf);
+		fclose(fp);
+	} else {
+		lResult = ERROR_FILE_NOT_FOUND;
+	}
+#endif
+
 	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || log_file_max_count == 0)
 		log_file_max_count = LOG_FILE_COUNT_DEFAULT;
-#else // _LIN
-	// BSR-579 TODO get log_rlooing_limit
-#endif
 
 	*max = log_file_max_count;
 

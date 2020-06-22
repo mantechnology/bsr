@@ -1353,6 +1353,7 @@ out:
 		if (reply_skb)
 			bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
+		err_str = NULL;
 	}
 	return rv;
 }
@@ -3367,8 +3368,10 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 		retcode = ERR_INTR;
 out:
 	if (err_str) {
-		bsr_msg_put_info(reply_skb, err_str);
+		if (reply_skb)
+			bsr_msg_put_info(reply_skb, err_str);
 		kfree((void*)err_str);
+		err_str = NULL;
 	}
 	return retcode;
 }
@@ -3777,6 +3780,8 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 		rcu_assign_pointer(peer_device->rs_plan_s, new_plan);
 		if (pp_old_plan)
 			*pp_old_plan = old_plan;
+		else
+			kfree2(old_plan);
 	}
 
 	return 0;
@@ -4479,8 +4484,10 @@ repeat:
 	}
 	
 	if (err_str) {
-		bsr_msg_put_info(reply_skb, err_str);
+		if (reply_skb)
+			bsr_msg_put_info(reply_skb, err_str);
 		kfree(err_str);
+		err_str = NULL;
 	}
 
 	return rv;
