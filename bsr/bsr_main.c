@@ -5422,7 +5422,7 @@ int log_consumer_thread(void *unused)
 
 	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
-	// BSR-610
+	// BSR-610 mkdir /var/log/bsr
 	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
 	if (err != 0 && err != -EEXIST) {
 		gLogBuf.h.r_idx.has_consumer = false;
