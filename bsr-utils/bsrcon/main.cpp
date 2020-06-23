@@ -215,7 +215,7 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 		return FALSE;
 	}
 
-	lResult = RegQueryValueEx(hKey, _T(REG_CLI_LOG_FILE_MAX_COUT_VALUE), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	lResult = RegQueryValueEx(hKey, _T(BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
 	RegCloseKey(hKey);
 
 	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || cli_log_file_max_count == 0) {

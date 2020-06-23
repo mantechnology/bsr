@@ -525,7 +525,7 @@ DWORD get_cli_log_file_max_count()
 		return FALSE;
 	}
 
-	lResult = RegQueryValueEx(hKey, REG_CLI_LOG_FILE_MAX_COUT_VALUE, NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	lResult = RegQueryValueEx(hKey, BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG, NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
 	RegCloseKey(hKey);
 
 	if (lResult == ERROR_SUCCESS) {
