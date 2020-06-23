@@ -137,6 +137,17 @@ typedef struct _BSR_LOG {
 
 #endif
 
+// BSR-605
+#define CLI_LOG_FILE_MAX_SIZE (1024 * 1024 * 5)
+#define CLI_LOG_FILE_MAX_DEFAULT_COUNT 2
+
+// BSR-605 the type of cli is determined by the offset position per bit.
+#define BSR_ADM_LOG_FILE_MAX_COUNT 0
+#define BSR_SETUP_LOG_FILE_MAX_COUNT 8
+#define BSR_META_LOG_FILE_MAX_COUNT 16
+
+#define LOG_MAX_FILE_COUNT_MASK 255
+
 #ifdef _LIN
 // BSR-605
 #define BSR_CLI_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.cli_log_file_max_count"

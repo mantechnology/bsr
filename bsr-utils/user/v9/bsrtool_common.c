@@ -30,6 +30,7 @@
 #include "linux/bsr_config.h"
 #include "bsrtool_common.h"
 #include "config.h"
+#include "../../bsr-headers/bsr_log.h"
 
 static struct version __bsr_driver_version = {};
 static struct version __bsr_utils_version = {};
@@ -508,12 +509,50 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 	return crc;
 }
 
-// BSR-605
-#define CLI_LOG_FILE_MAX_SIZE (1024 * 1024 * 5)
-#define CLI_LOG_FILE_MAX_DEFAULT_COUNT 2
+DWORD get_cli_log_file_max_count()
+{
+	DWORD cli_log_file_max_count = 0;
 
-// BSR-605
-void sequential_sort(char buffer[][256], int count) 
+#ifdef _WIN
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, "cli_log_file_max_count", NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_SUCCESS) {
+		return cli_log_file_max_count;
+	}
+#else // _LIN
+	FILE *fp;
+
+	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
+	if (fp != NULL) {
+		char buf[10] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			cli_log_file_max_count = atoi(buf);
+			return cli_log_file_max_count;
+		}
+		fclose(fp);
+	}
+#endif
+	cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
+	cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
+	cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
+
+	return cli_log_file_max_count;
+}
+
+// BSR-605 sort sequentially by file name
+void sequential_sort(char buffer[][256], int count)
 {
 	char temp[256];
 	int j = 0, i = 0;
@@ -531,7 +570,7 @@ void sequential_sort(char buffer[][256], int count)
 	}
 }
 
-// BSR-605
+// BSR-605 delete if there are more saved files than the maximum number of files set.
 void bsr_max_log_file_check_and_delete(char* fileFullPath)
 {
 	DIR *dp = NULL;
@@ -541,15 +580,18 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	int i = 0;
 	
 	char fileName[256];
-	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT + 1;
-	char targetFiles[fileMaxCount][256];
 	char removeFileFullPath[256];
+	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT;
+
+	if (strstr(program, "bsradm"))
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+	else if (strstr(program, "bsrsetup"))
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+	else if (strstr(program, "bsrmeta")) 
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
 
 	memset(path, 0, sizeof(path));
 	memset(fileName, 0, sizeof(fileName));
-
-	for (i = 0; i < fileMaxCount; i++)
-		memset(targetFiles[i], 0, sizeof(targetFiles[i]));
 
 #ifdef _WIN
 	ptr = strrchr(fileFullPath, '\\');
@@ -565,8 +607,12 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 		printf("failed to open %s\n", path);
 	}
 	else {
+		char targetFiles[fileMaxCount][256];
 		int fileFindCount = 0;
-	
+
+		for (i = 0; i < fileMaxCount; i++)
+			memset(targetFiles[i], 0, sizeof(targetFiles[i]));
+
 		while ((entry = readdir(dp)) != NULL) {
 			if (strstr(entry->d_name, fileName)) {
 				memcpy(targetFiles[fileFindCount], entry->d_name, sizeof(entry->d_name));
@@ -589,7 +635,7 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	}
 }
 
-// BSR-605
+// BSR-605 if the file is larger than CLI_LOG_FILE_MAX_SIZE(50M), rename it and save it.
 void bsr_log_rolling(FILE *fp, char* fileFullPath)
 {
 	int size;
@@ -600,12 +646,13 @@ void bsr_log_rolling(FILE *fp, char* fileFullPath)
 	size = ftell(fp);
 
 	if (CLI_LOG_FILE_MAX_SIZE < size) {
-		fclose(fp);
 
 		char fileName[512];
 		int res;
 
-		snprintf(fileName, 512, "%s_%04d-%02d-%02dT%02d%02d%02d",
+		fclose(fp);
+
+		snprintf(fileName, sizeof(fileName), "%s_%04d-%02d-%02dT%02d%02d%02d",
 			fileFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
 		res = rename(fileFullPath, fileName);
@@ -638,16 +685,16 @@ FILE *bsr_open_log()
 		if (s != NULL) {
 			memcpy(f, s, (ptr - s));
 			if (program)
-				snprintf(f, 256, "%s\\log\\%s.log", f, program);
+				snprintf(f, sizeof(f), "%s\\log\\%s.log", f, program);
 			else
-				snprintf(f, 256, "%s\\log\\bsrapp.log", f);
+				snprintf(f, sizeof(f), "%s\\log\\bsrapp.log", f);
 		}
 	}
 #else // _LIN
 	if (program)
-		snprintf(f, 256, "/var/log/bsr/%s.log", program);
+		snprintf(f, sizeof(f), "/var/log/bsr/%s.log", program);
 	else
-		snprintf(f, 256, "/var/log/bsr/bsrapp.log");
+		snprintf(f, sizeof(f), "/var/log/bsr/bsrapp.log");
 #endif
 	fp = fopen(f, "a");
 	if (!fp)

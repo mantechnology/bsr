@@ -198,12 +198,6 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	return true;
 }
 
-// BSR-605 the type of cli is determined by the offset position per bit.
-#define BSR_ADM_LOG_FILE_MAX_COUNT 0
-#define BSR_SETUP_LOG_FILE_MAX_COUNT 8
-#define BSR_META_LOG_FILE_MAX_COUNT 16
-
-#define LOG_MAX_FILE_COUNT_MASK 255
 
 // BSR-605
 BOOLEAN GetCliLogFileMaxCount(int *max)
