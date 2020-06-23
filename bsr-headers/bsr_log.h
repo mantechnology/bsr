@@ -28,6 +28,11 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
+typedef struct _CLI_LOG_MAX_COUNT {
+	int			nType;
+	int			nMaxCount;
+}CLI_LOG_MAX_COUNT, *PCLI_LOG_MAX_COUNT;
+
 // DW-1153 debug oos.
 #define _DEBUG_OOS
 
@@ -132,7 +137,22 @@ typedef struct _BSR_LOG {
 
 #endif
 
+// BSR-605
+#define CLI_LOG_FILE_MAX_SIZE (1024 * 1024 * 5)
+#define CLI_LOG_FILE_MAX_DEFAULT_COUNT 2
+
+// BSR-605 the type of cli is determined by the offset position per bit.
+#define BSR_ADM_LOG_FILE_MAX_COUNT 0
+#define BSR_SETUP_LOG_FILE_MAX_COUNT 8
+#define BSR_META_LOG_FILE_MAX_COUNT 16
+
+#define BSR_LOG_MAX_FILE_COUNT_MASK 255
+#define BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG "cli_log_file_max_count"
+
 #ifdef _LIN
+// BSR-605
+#define BSR_CLI_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.cli_log_file_max_count"
+
 // BSR-584
 #define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
 #define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"

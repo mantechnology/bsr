@@ -120,6 +120,8 @@ char *program;
 extern void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...);
 extern void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args);
 
+FILE *bsr_open_log();
+
 #define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, ERROR_LEVEL, continued, format, ##arg) 
 #define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, WARNING_LEVEL, continued, format, ##arg)
 #define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, INFO_LEVEL, continued, format, ##arg)

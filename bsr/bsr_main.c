@@ -98,7 +98,7 @@
 
 #ifdef _WIN
 #define BSR_LOG_FILE_NAME L"bsrlog.txt"
-// rolling file format, ex) bsrlog.txt_06022020_104543745
+// rolling file format, ex) bsrlog.txt_2020-06-02T104543.745 
 #define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
