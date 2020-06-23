@@ -584,11 +584,11 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT;
 
 	if (strstr(program, "bsradm"))
-		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 	else if (strstr(program, "bsrsetup"))
-		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 	else if (strstr(program, "bsrmeta")) 
-		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 
 	memset(path, 0, sizeof(path));
 	memset(fileName, 0, sizeof(fileName));

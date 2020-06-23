@@ -291,9 +291,9 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 		return false;
 	}
 	else { 
-		adm_max = ((cli_log_file_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
-		setup_max = ((cli_log_file_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
-		meta_max = ((cli_log_file_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK);
+		adm_max = ((cli_log_file_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
+		setup_max = ((cli_log_file_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
+		meta_max = ((cli_log_file_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 	}
 
 	if (cli_type == BSR_ADM_LOG_FILE_MAX_COUNT) {
@@ -748,9 +748,9 @@ int main(int argc, char* argv [])
 
 			// BSR-605
 			if (GetCliLogFileMaxCount(&cli_log_max_count)) {
-				printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
-				printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
-				printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & LOG_MAX_FILE_COUNT_MASK));
+				printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
+				printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
+				printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
 			}
 			else
 				printf("Failed to get cli log file max count\n");
