@@ -147,6 +147,7 @@ typedef struct _BSR_LOG {
 #define BSR_META_LOG_FILE_MAX_COUNT 16
 
 #define LOG_MAX_FILE_COUNT_MASK 255
+#define REG_CLI_LOG_FILE_MAX_COUT_VALUE "cli_log_file_max_count"
 
 #ifdef _LIN
 // BSR-605

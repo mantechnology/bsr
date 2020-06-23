@@ -525,7 +525,7 @@ DWORD get_cli_log_file_max_count()
 		return FALSE;
 	}
 
-	lResult = RegQueryValueEx(hKey, "cli_log_file_max_count", NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	lResult = RegQueryValueEx(hKey, REG_CLI_LOG_FILE_MAX_COUT_VALUE, NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
 	RegCloseKey(hKey);
 
 	if (lResult == ERROR_SUCCESS) {
@@ -638,15 +638,14 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 // BSR-605 if the file is larger than CLI_LOG_FILE_MAX_SIZE(50M), rename it and save it.
 void bsr_log_rolling(FILE *fp, char* fileFullPath)
 {
-	int size;
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
+	off_t size;
 
-	fseek(fp, 0, SEEK_END);
-	size = ftell(fp);
+	fseeko(fp, 0, SEEK_END);
+	size = ftello(fp);
 
 	if (CLI_LOG_FILE_MAX_SIZE < size) {
-
 		char fileName[512];
 		int res;
 
