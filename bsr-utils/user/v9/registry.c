@@ -2,9 +2,9 @@
    bsradm_registry.c
 
    This file is part of BSR by Man Technology inc.
-   It was written by Man Technology inc <dev3@mantech.co.kr>
+   It was written by Man Technology inc <bsr@mantech.co.kr>
 
-   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
+   Copyright (C) 2007-2020, Man Technology inc <bsr@mantech.co.kr>.
 
    bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

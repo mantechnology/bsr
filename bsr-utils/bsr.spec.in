@@ -306,11 +306,11 @@ fi
 
 
 %changelog
-* Wed Jun 24 2020 Man Technology Inc. <dev3@mantech.co.kr> - 1.6.0-PREALPHA5
+* Wed Jun 24 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.0-PREALPHA5
 - New upstream release.
 
-* Wed May 06 2020 Man Technology Inc. <dev3@mantech.co.kr> - 1.6.0-PREALPHA4
+* Wed May 06 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.0-PREALPHA4
 - New upstream release.
 
-* Mon Jan 06 2020 Man Technology Inc. <dev3@mantech.co.kr> - 1.6.0-PREALPHA3
+* Mon Jan 06 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.0-PREALPHA3
 - New upstream release.

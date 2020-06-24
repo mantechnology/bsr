@@ -3,7 +3,7 @@
 
    This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2007-2020, Man Technology inc  <dev3@mantech.co.kr>
+   Copyright (C) 2007-2020, Man Technology inc  <bsr@mantech.co.kr>
 
    bsr is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

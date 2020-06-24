@@ -1,8 +1,8 @@
 Source: bsr-utils
 Section: admin
 Priority: extra
-Maintainer: Man Technology Inc. <dev3@mantech.co.kr>
-Uploaders: Man Technology Inc. <dev3@mantech.co.kr>
+Maintainer: Man Technology Inc. <bsr@mantech.co.kr>
+Uploaders: Man Technology Inc. <bsr@mantech.co.kr>
 Build-Depends: bash-completion,
                debhelper (>= 7),
                dh-systemd,

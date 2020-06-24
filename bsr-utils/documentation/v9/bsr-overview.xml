@@ -36,13 +36,13 @@ domain backing disks and libvirt instance disks respectively.
   </refsect1>
   <refsect1>
     <title>Author</title>
-    <simpara>Written by Man Technology inc <email>dev3@mantech.co.kr</email>.
+    <simpara>Written by Man Technology inc <email>bsr@mantech.co.kr</email>.
 	    Initial man-page contributed by Apollon Oikonomopoulos <email>apoikos@gmail.com</email>.
     </simpara>
   </refsect1>
   <refsect1>
     <title>Reporting Bugs</title>
-    <simpara>Report bugs to <email>dev3@mantech.co.kr</email>.
+    <simpara>Report bugs to <email>bsr@mantech.co.kr</email>.
   </simpara>
   </refsect1>
   <refsect1>

@@ -1,7 +1,7 @@
 # vim: set foldenable foldmethod=indent sw=4 ts=8 :
 
 # Copyright 2013 Man Technology inc
-# dev3@mantech.co.kr
+# bsr@mantech.co.kr
 
 TODO:
 	someone convert this into proper ascii doc please ;-)

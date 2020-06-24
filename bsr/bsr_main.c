@@ -3,7 +3,7 @@
 
    This file is part of BSR by Man Technology inc.
 
-   Copyright (C) 2007-2020, Man Technology inc <dev3@mantech.co.kr>.
+   Copyright (C) 2007-2020, Man Technology inc <bsr@mantech.co.kr>.
 
    Thanks to Carter Burden, Bart Grantham and Gennadiy Nerubayev
    from Logicworks, Inc. for making SDP replication support possible.
@@ -125,7 +125,7 @@ static void md_sync_timer_fn(BSR_TIMER_FN_ARG);
 static int w_bitmap_io(struct bsr_work *w, int unused);
 static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream bsr_stream);
 #ifdef _LIN
-MODULE_AUTHOR("Man Technology Inc. <dev3@mantech.co.kr>");
+MODULE_AUTHOR("Man Technology Inc. <bsr@mantech.co.kr>");
 MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
 MODULE_VERSION(REL_VERSION);
 MODULE_LICENSE("GPL");
