@@ -5149,13 +5149,17 @@ static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-
 int bsr_log_rolling_file_clean_up(void)
 {
 	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
 
-	struct log_rolling_file_list rlist, *t, *tmp;
+	struct log_rolling_file_list rlist = {
+#ifdef COMPAT_HAVE_ITERATE_DIR
+		.ctx.actor = printdir
+#endif
+	};
+	struct log_rolling_file_list *t, *tmp;
 	int err = 0;
 	
 	INIT_LIST_HEAD(&rlist.list);

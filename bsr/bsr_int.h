@@ -4073,6 +4073,11 @@ extern long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long
 // BSR-597
 extern int bsr_file_rename(const char *oldname, const char *newname);
 extern int bsr_file_remove(const char *filename);
+#ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
+extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type);
+#else
+extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type);
+#endif
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
 #endif

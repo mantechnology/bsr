@@ -262,17 +262,17 @@ slashes:
 	goto exit2;
 }
 
-#ifdef COMPAT_HAVE_ITERATE_DIR
-static int printdir(struct dir_context *ctx,const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
+#ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
+int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type)
 #else
-static int printdir(void *rolling_list, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
+int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
 #endif
 {
 	struct log_rolling_file_list *rlist =
-#ifdef COMPAT_HAVE_ITERATE_DIR
+#ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 		container_of(ctx, struct log_rolling_file_list, ctx);
 #else
-		(struct log_rolling_file_list *)rolling_list;
+		(struct log_rolling_file_list *)buf;
 #endif
 		
 	int err = 0;
@@ -312,9 +312,6 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	
-#ifdef COMPAT_HAVE_ITERATE_DIR
-	rlist->ctx.actor = (void *)printdir;
-#endif
 	fdir = filp_open(dir_path, O_RDONLY, 0);
 	if (fdir) {
 #ifdef COMPAT_HAVE_ITERATE_DIR
