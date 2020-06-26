@@ -2692,6 +2692,16 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 {
 	struct bsr_peer_request *split_peer_request;
 	struct bsr_transport *transport = &peer_device->connection->transport;
+#ifdef _LIN
+	// BSR-508
+	struct page *page = peer_request->page_chain.head;
+	struct page *split_req_page;
+	int req_page_offset = offset;
+	int req_page_idx = 0;
+	int page_cnt = 0;
+	int data_size = size;
+	void* data;
+#endif
 
 	split_peer_request = bsr_alloc_peer_req(peer_device, GFP_TRY);
 
@@ -2719,6 +2729,48 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 #ifdef _WIN
 	split_peer_request->peer_req_databuf = split_peer_request->page_chain.head;
 	memcpy(split_peer_request->peer_req_databuf, (char*)peer_request->peer_req_databuf + offset, split_peer_request->i.size);
+#else // _LIN
+	data = (void*)kmalloc(size, GFP_ATOMIC|__GFP_NOWARN);
+	if(!data) {
+		bsr_err(peer_device, "Failed to allocate buffer to get page data.\n");
+		goto alloc_fail;
+	}
+
+	// BSR-508 get serialized data into the buffer from the page of peer_req.
+	req_page_idx = (req_page_offset / PAGE_SIZE);
+	page_chain_for_each(page) {
+		if (page_cnt >= req_page_idx) {
+			void *req_data = kmap(page);
+			size_t len = min_t(int, data_size, PAGE_SIZE);
+			len = min_t(int, len, (PAGE_SIZE - (req_page_offset % PAGE_SIZE)));
+
+			memcpy(data + (req_page_offset - offset), req_data + (req_page_offset % PAGE_SIZE), len);
+			req_page_offset += len;
+			data_size -= len;
+			kunmap(page);
+
+			if(data_size == 0)
+				break;
+		}
+		page_cnt++;
+	}
+
+	// BSR-508 copy buffer to page of split_peer_req
+	data_size = size;
+	split_req_page = split_peer_request->page_chain.head;
+	page_chain_for_each(split_req_page) {
+		void *split_req_data = kmap(split_req_page);
+		size_t len = min_t(int, data_size, PAGE_SIZE);
+
+		memcpy(split_req_data, data + (size - data_size), len);
+		kunmap(split_req_page);
+		set_page_chain_offset(split_req_page, 0);
+		set_page_chain_size(split_req_page, len);
+		data_size -= len;
+	}
+
+	kfree2(data);
+alloc_fail:
 #endif
 	split_peer_request->count = split_count;
 	split_peer_request->s_bb = s_bb;
