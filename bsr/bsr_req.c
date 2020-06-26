@@ -2642,7 +2642,8 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 	const int rw = bio_data_dir(bio);
 	// BSR-458
-	if(rw == READ) {
+	// BSR-620 If the meta-disk err, device->ldev can be null.
+	if(rw == READ && device->ldev) {
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
 		MAKE_REQUEST_RETURN;
