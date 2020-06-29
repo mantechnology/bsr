@@ -106,10 +106,13 @@ all-obj := $(bsradm-obj) $(bsrsetup-obj) $(bsrmeta-obj)
 
 all: tools
 
+pre-build:
+	rm -f ../../../bsr-headers/bsr_strings.o
+
 ../shared_prereqs.mk: ;
 include ../shared_prereqs.mk
 
-tools: bsradm bsrmeta bsrsetup
+tools: pre-build bsradm bsrmeta bsrsetup
 
 bsradm: $(bsradm-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^
