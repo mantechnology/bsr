@@ -599,10 +599,9 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	ptr = strrchr(fileFullPath, '/');
 #endif
 	memcpy(path, fileFullPath, (ptr - fileFullPath));
-	memcpy(fileName, (ptr + 1), strlen(ptr));
-	
-	snprintf(fileName, sizeof(fileName),"%s_", fileName);
-	
+	// BSR-621 invalid rolling file name
+	snprintf(fileName, strlen(ptr) + 1, "%s_", ptr + 1);
+
 	if ((dp = opendir(path)) == NULL) {
 		printf("failed to open %s\n", path);
 	}
