@@ -268,12 +268,20 @@ static const char *CONCAT_(GENL_MAGIC_FAMILY, _genl_cmd_to_str)(__u8 cmd)
     .str = #op_name, \
 },
 #else // _LIN
+#ifndef COMPAT_HAVE_GENL_FAMILY_POLICY
 #define GENL_op(op_name, op_num, handler, tla_list)		\
 {								\
 	handler							\
 	.cmd = op_name,						\
 	.policy	= CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy),	\
 },
+#else
+#define GENL_op(op_name, op_num, handler, tla_list)		\
+{								\
+	handler							\
+	.cmd = op_name,						\
+},
+#endif
 #endif
 
 #define ZZZ_genl_ops		CONCAT_(GENL_MAGIC_FAMILY, _genl_ops)
@@ -334,6 +342,9 @@ static struct genl_family ZZZ_genl_family __read_mostly = {
 #endif
 #ifdef COMPAT_HAVE_GENL_FAMILY_PARALLEL_OPS
 	.parallel_ops = true,
+#endif
+#ifdef COMPAT_HAVE_GENL_FAMILY_POLICY
+	.policy = CONCAT_(GENL_MAGIC_FAMILY, _tla_nl_policy),
 #endif
 };
 
