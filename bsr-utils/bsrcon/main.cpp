@@ -565,7 +565,12 @@ int main(int argc, char* argv [])
 		else if (strcmp(argv[argIndex], "/maxlogfile_cnt") == 0) {
 			SetLogFileMaxCount++;
 			argIndex++;
-			LogFileCount = atoi(argv[argIndex]);
+			// BSR-618
+			if (argIndex < argc) {
+				LogFileCount = atoi(argv[argIndex]);
+			}
+			else
+				usage();
 		}
 		else if (!strcmp(argv[argIndex], "/get_log_info")) {
 			GetLogInfo++;
