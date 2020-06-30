@@ -35,7 +35,8 @@
 static struct version __bsr_driver_version = {};
 static struct version __bsr_utils_version = {};
 
-char *program = NULL;
+char *lprogram = NULL;
+char *lcmd = NULL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -583,11 +584,11 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	char removeFileFullPath[256];
 	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT;
 
-	if (strstr(program, "bsradm"))
+	if (strstr(lprogram, "bsradm"))
 		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
-	else if (strstr(program, "bsrsetup"))
+	else if (strstr(lprogram, "bsrsetup"))
 		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
-	else if (strstr(program, "bsrmeta")) 
+	else if (strstr(lprogram, "bsrmeta"))
 		fileMaxCount = ((get_cli_log_file_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 
 	memset(path, 0, sizeof(path));
@@ -682,15 +683,15 @@ FILE *bsr_open_log()
 		ptr = strrchr(s, L'\\');
 		if (s != NULL) {
 			memcpy(f, s, (ptr - s));
-			if (program)
-				snprintf(f, sizeof(f), "%s\\log\\%s.log", f, program);
+			if (lprogram)
+				snprintf(f, sizeof(f), "%s\\log\\%s.log", f, lprogram);
 			else
 				snprintf(f, sizeof(f), "%s\\log\\bsrapp.log", f);
 		}
 	}
 #else // _LIN
-	if (program)
-		snprintf(f, sizeof(f), "/var/log/bsr/%s.log", program);
+	if (lprogram)
+		snprintf(f, sizeof(f), "/var/log/bsr/%s.log", lprogram);
 	else
 		snprintf(f, sizeof(f), "/var/log/bsr/bsrapp.log");
 #endif
@@ -703,7 +704,7 @@ FILE *bsr_open_log()
 	return fp;
 }
 
-long bsr_log_format(char* b, const char* func, enum cli_log_level level)
+long bsr_log_format(char* b, const char* func, int line, enum cli_log_level level)
 {
 	long offset = 0;
 	time_t t = time(NULL);
@@ -727,12 +728,13 @@ long bsr_log_format(char* b, const char* func, enum cli_log_level level)
 	}
 
 	offset += LEVEL_OFFSET;
-	offset += snprintf(b + offset, 512 - offset, "[%s] ", func);
-
+	// BSR-622
+	offset += snprintf(b + offset, 512 - offset, "[pid:%d][func:%s][line:%d][cmd:%s] ", getpid(), func, line, ((lcmd == NULL) ? "NULL" : lcmd));
+	
 	return offset;
 }
 
-void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...)
+void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...)
 {
 	char b[512];
 	long offset = 0;
@@ -745,7 +747,7 @@ void bsr_write_log(const char* func, enum cli_log_level level, bool write_contin
 	}
 
 	if (!write_continued)
-		offset = bsr_log_format(b, func, level);
+		offset = bsr_log_format(b, func, line, level);
 
 	va_start(args, fmt);
 	vsnprintf(b + offset, 512 - offset, fmt, args);
@@ -757,7 +759,7 @@ void bsr_write_log(const char* func, enum cli_log_level level, bool write_contin
 }
 
 
-void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args)
+void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args)
 {
 	char b[512];
 	long offset = 0;
@@ -768,7 +770,7 @@ void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt,
 		return;
 	}
 
-	offset = bsr_log_format(b, func, level);
+	offset = bsr_log_format(b, func, line, level);
 	
 	vsnprintf(b + offset, 512 - offset, fmt, args);
 	

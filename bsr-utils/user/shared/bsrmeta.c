@@ -5477,7 +5477,8 @@ struct format *new_cfg()
 	return cfg;
 }
 
-extern char *program;
+extern char *lprogram;
+extern char *lcmd;
 
 int main(int argc, char **argv)
 {
@@ -5487,10 +5488,10 @@ int main(int argc, char **argv)
 	bool minor_attached = false;
 
 	if ((progname = strrchr(argv[0], '/'))) {
-		program = argv[0] = ++progname;
+		lprogram = argv[0] = ++progname;
 	}
 	else {
-		program = progname = argv[0];
+		lprogram = progname = argv[0];
 	}
 
 #if 1
@@ -5600,6 +5601,8 @@ int main(int argc, char **argv)
 		exit(20);
 	}
 	ai++;
+
+	lcmd = command->name;
 
 	/* does exit() unless we acquired the lock.
 	 * unlock happens implicitly when the process dies,
