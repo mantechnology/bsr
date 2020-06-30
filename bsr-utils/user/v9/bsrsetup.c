@@ -4350,7 +4350,7 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 	}
 }
 
-extern char* program;
+extern char* lprogram;
 
 int main(int argc, char **argv)
 {
@@ -4360,7 +4360,7 @@ int main(int argc, char **argv)
 	int c, rv = 0;
 	int longindex, first_optind;
 
-	program = progname = basename(argv[0]);
+	lprogram = progname = basename(argv[0]);
 
 	if (chdir("/")) {
 		/* highly unlikely, but gcc is picky */
@@ -4422,6 +4422,8 @@ int main(int argc, char **argv)
 	if (!cmd)
 		print_usage_and_exit("invalid command");
 
+	lcmd = cmd->cmd;
+	
 	/* Make argv[0] the command name so that getopt_long() will leave it in
 	 * the first position. */
 	argv++;

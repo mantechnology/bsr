@@ -3433,7 +3433,8 @@ void die_if_no_resources(void)
 	}
 }
 
-extern char* program;
+extern char* lprogram;
+extern char* lcmd;
 
 int main(int argc, char **argv)
 {
@@ -3448,7 +3449,7 @@ int main(int argc, char **argv)
 	int is_adjust;
 	struct cfg_ctx ctx = { };
 
-	program = basename(argv[0]);
+	lprogram = basename(argv[0]);
 
 	initialize_err();
 	initialize_deferred_cmds();
@@ -3492,6 +3493,8 @@ int main(int argc, char **argv)
 
 	if (rv)
 		return rv;
+
+	lcmd = cmd->name;
 
 	if (config_test && !cmd->test_config) {
 		err("The --config-to-test (-t) option is only allowed "

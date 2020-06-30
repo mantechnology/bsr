@@ -114,20 +114,21 @@ enum cli_log_level {
 };
 
 // BSR-604 the executable name used as the log file name.
-char *program;
+char *lprogram;
+char *lcmd;
 
 // BSR-604 write log files
-extern void bsr_write_log(const char* func, enum cli_log_level level, bool write_continued, const char* fmt, ...);
-extern void bsr_write_vlog(const char* func, enum cli_log_level level, const char *fmt, va_list args);
+extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...);
+extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args);
 
 FILE *bsr_open_log();
 
-#define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, ERROR_LEVEL, continued, format, ##arg) 
-#define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, WARNING_LEVEL, continued, format, ##arg)
-#define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, INFO_LEVEL, continued, format, ##arg)
-#define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, TRACE_LEVEL, continued, format, ##arg)
+#define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, ERROR_LEVEL, continued, format, ##arg) 
+#define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, WARNING_LEVEL, continued, format, ##arg)
+#define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, INFO_LEVEL, continued, format, ##arg)
+#define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, TRACE_LEVEL, continued, format, ##arg)
 
-#define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, ERROR_LEVEL, format, arg) 
+#define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, __LINE__, ERROR_LEVEL, format, arg) 
 
 #define CLI_ERRO_LOG_STDERR(continued, format, arg...) \
 		{	\
