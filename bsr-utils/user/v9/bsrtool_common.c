@@ -606,26 +606,33 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 		printf("failed to open %s\n", path);
 	}
 	else {
-		char targetFiles[fileMaxCount][256];
+		char targetFiles[fileMaxCount + 1][256];
 		int fileFindCount = 0;
 
-		for (i = 0; i < fileMaxCount; i++)
+		for (i = 0; i < fileMaxCount + 1; i++)
 			memset(targetFiles[i], 0, sizeof(targetFiles[i]));
 
 		while ((entry = readdir(dp)) != NULL) {
 			if (strstr(entry->d_name, fileName)) {
-				memcpy(targetFiles[fileFindCount], entry->d_name, sizeof(entry->d_name));
-				fileFindCount = fileFindCount + 1;
-				if (fileFindCount >= fileMaxCount) {
-					sequential_sort(targetFiles, fileMaxCount);
-					fileFindCount = fileFindCount - 1;
-					memset(removeFileFullPath, 0, sizeof(removeFileFullPath));
+				// BSR-618 delete all saved rolling files
+				if (fileMaxCount == 0) {
+					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, entry->d_name);
+					remove(removeFileFullPath);
+				}
+				else {
+					memcpy(targetFiles[fileFindCount], entry->d_name, sizeof(entry->d_name));
+					fileFindCount = fileFindCount + 1;
+					if (fileFindCount > fileMaxCount) {
+						sequential_sort(targetFiles, fileMaxCount);
+						fileFindCount = fileFindCount - 1;
+						memset(removeFileFullPath, 0, sizeof(removeFileFullPath));
 #ifdef _WIN
-					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, targetFiles[fileFindCount]);
+						snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, targetFiles[fileFindCount]);
 #else // _LIN
-					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s/%s", path, targetFiles[fileFindCount]);
+						snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s/%s", path, targetFiles[fileFindCount]);
 #endif
-					remove(removeFileFullPath); 
+						remove(removeFileFullPath);
+					}
 				}
 			}
 		}
