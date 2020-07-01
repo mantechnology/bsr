@@ -216,6 +216,18 @@ void bsr_bm_unlock(struct bsr_device *device)
 	mutex_unlock(&b->bm_change);
 }
 
+// BSR-616
+int bsr_bm_is_locked(struct bsr_device *device)
+{
+	struct bsr_bitmap *b = device->bitmap;
+	if (!b) {
+		bsr_err(device, "FIXME no bitmap in bsr_bm_unlock!?\n");
+		return 0;
+	}
+
+	return mutex_is_locked(&b->bm_change);
+}
+
 void bsr_bm_slot_unlock(struct bsr_peer_device *peer_device)
 {
 	bsr_bm_unlock(peer_device->device);

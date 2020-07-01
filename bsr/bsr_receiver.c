@@ -9062,6 +9062,9 @@ static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr
 			bsr_send_bitmap_exchange_state(peer_device, P_BM_EXCHANGE_STATE, B_COMPLETE);
 		}
 #endif
+		// BSR-616 fix potential deadlock between invalidate-remote and bsr_khelper
+		if (bsr_bm_is_locked(peer_device->device))
+			bsr_bm_slot_unlock(peer_device);
 		bsr_start_resync(peer_device, L_SYNC_SOURCE);
 	}
 	
@@ -9155,7 +9158,9 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 		err = 0;
 
 out:
-	bsr_bm_slot_unlock(peer_device);
+	// BSR-616
+	if (bsr_bm_is_locked(peer_device->device))
+		bsr_bm_slot_unlock(peer_device);
 	return err;
 }
 

@@ -2531,6 +2531,9 @@ extern void bsr_bm_lock(struct bsr_device *device, char *why, enum bm_flag flags
 extern void bsr_bm_unlock(struct bsr_device *device);
 extern void bsr_bm_slot_lock(struct bsr_peer_device *peer_device, char *why, enum bm_flag flags);
 extern void bsr_bm_slot_unlock(struct bsr_peer_device *peer_device);
+// BSR-616
+extern int bsr_bm_is_locked(struct bsr_device *device);
+
 #if 0
 extern void bsr_bm_copy_slot(struct bsr_device *device, unsigned int from_index, unsigned int to_index);
 #endif
