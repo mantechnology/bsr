@@ -117,6 +117,7 @@ extern int fault_devs;
 extern int two_phase_commit_fail;
 #endif
 
+extern int g_handler_use;
 extern char usermode_helper[];
 
 struct log_idx_ring_buffer_t {

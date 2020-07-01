@@ -204,6 +204,8 @@ bool debug_fast_sync = true;
 char usermode_helper[80] = "bsradm.exe";
 #else // _LIN
 char usermode_helper[80] = "/sbin/bsradm";
+// BSR-626 default value of handler_use is disable
+int g_handler_use = 0;
 #endif
 
 // DW-1961 feature log

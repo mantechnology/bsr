@@ -1193,44 +1193,6 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 }
 #endif
 
-DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
-{
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       retVal = ERROR_SUCCESS;
-	DWORD       dwReturned = 0;
-	DWORD		dwControlCode = 0;
-	BOOL        ret = FALSE;
-
-	if (pHandler == NULL || pHandler->use < 0 || pHandler->use > 1) {
-		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-		return ERROR_INVALID_PARAMETER;
-	}
-
-	// 1. Open MVOL_DEVICE
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-
-
-	// 2. DeviceIoControl with HANDLER_USE parameter
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_SET_HANDLER_USE, pHandler, sizeof(HANDLER_INFO), NULL, 0, &dwReturned, NULL);
-	if (ret == FALSE) {
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_SET_HANDLER_USE. Err=%u\n",
-			__FUNCTION__, retVal);
-	}
-
-	// 3. CloseHandle MVOL_DEVICE
-	if (hDevice != INVALID_HANDLE_VALUE) {
-		CloseHandle(hDevice);
-	}
-	return retVal;
-}
-
 VOID getVolumeBsrlockInfo(HANDLE hBsrlock, PWCHAR pszVolumeName)
 {
 	
@@ -1329,10 +1291,75 @@ DWORD GetBsrlockStatus()
 }
 
 
-
-
 #endif
 
+
+DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+	FILE *fp;
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+
+	if (pHandler == NULL) {
+		fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+		return ERROR_INVALID_PARAMETER;
+	}
+
+	// 1. Open MVOL_DEVICE
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "HANDLER_USE_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR))==-1) {
+		fprintf(stderr, "HANDLER_USE_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	// 2. DeviceIoControl with HANDLER_USE parameter
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_HANDLER_USE, pHandler, sizeof(HANDLER_INFO), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else
+	if (ioctl(fd, IOCTL_MVOL_SET_HANDLER_USE, pHandler) != 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "HANDLER_USE_ERROR: %s: Failed IOCTL_MVOL_SET_HANDLER_USE. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	// 3. CloseHandle MVOL_DEVICE
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+
+	// BSR-626 write /etc/bsr.d/.handler_use
+	fp = fopen(BSR_HANDLER_USE_REG, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%d", pHandler->use);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+		fprintf(stderr, "HANDLER_USE_ERROR: %s: Failed open %s file. Err=%u\n",
+				__FUNCTION__, BSR_HANDLER_USE_REG, retVal);
+	}
+#endif
+	return retVal;
+}
 
 
 // DW-1629
@@ -1356,7 +1383,6 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
 	DWORD		dwControlCode = 0;
-	BOOL        ret = FALSE;
 #else // _LIN
 	int fd;
 	FILE *fp;
@@ -1418,7 +1444,7 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 		fclose(fp);
 	} else {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed create %s file. Err=%u\n",
+		fprintf(stderr, "LOG_ERROR: %s: Failed open %s file. Err=%u\n",
 				__FUNCTION__, BSR_LOG_LEVEL_REG, retVal);
 	}
 #endif
@@ -1432,7 +1458,6 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
 	DWORD		dwControlCode = 0;
-	BOOL        ret = FALSE;
 #else // _LIN
 	// BSR-597
 	int fd;
@@ -1469,7 +1494,7 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 #ifdef _WIN
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit, sizeof(ULONG), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
-	// BSR-579 TODO
+	// BSR-579
 	if (ioctl(fd, IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT, &limit) != 0) {
 #endif
 		retVal = GetLastError();
@@ -1494,7 +1519,7 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 		fclose(fp);
 	} else {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed create %s file. Err=%u\n",
+		fprintf(stderr, "LOG_FILE_MAX_COUNT_ERROR: %s: Failed open %s file. Err=%u\n",
 				__FUNCTION__, BSR_LOG_FILE_MAXCNT_REG, retVal);
 	}
 #endif

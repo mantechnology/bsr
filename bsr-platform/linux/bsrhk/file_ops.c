@@ -84,7 +84,25 @@ static int bsr_set_log_max_count(unsigned int __user * args)
 	return 0;
 }
 
-long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
+// BSR-626
+static int bsr_set_handler_use(HANDLER_INFO __user *args)
+{
+	HANDLER_INFO h_info;
+	int err;
+
+	err = copy_from_user(&h_info, args, sizeof(HANDLER_INFO));
+	if (err) {
+		bsr_err(NO_OBJECT, "HANDLER_INFO copy from user failed.\n");
+		return -1;
+	}
+	
+	bsr_info(NO_OBJECT, "set handler_use %d => %d\n", g_handler_use, h_info.use);
+	g_handler_use = h_info.use;
+
+	return 0;
+}
+
+long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 {
 	int err = 0;
 	
@@ -94,17 +112,23 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram)
 	switch (cmd) {
 	case IOCTL_MVOL_SET_LOGLV_MIN:
 	{
-		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)pram);
+		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)param);
 		break;
 	}
 	case IOCTL_MVOL_GET_BSR_LOG:
 	{
-		err = bsr_get_log((BSR_LOG __user *)pram);
+		err = bsr_get_log((BSR_LOG __user *)param);
 		break;
 	}
 	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 	{
-		err = bsr_set_log_max_count((unsigned int __user *)pram);
+		err = bsr_set_log_max_count((unsigned int __user *)param);
+		break;
+	}
+	case IOCTL_MVOL_SET_HANDLER_USE:
+	{
+		err = bsr_set_handler_use((HANDLER_INFO __user *)param);
+		break;
 	}
 	default :
 		break;
