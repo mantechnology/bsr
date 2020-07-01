@@ -1306,7 +1306,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
-	if (pHandler == NULL || pHandler->use < 0 || pHandler->use > 1) {
+	if (pHandler == NULL) {
 		fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
 		return ERROR_INVALID_PARAMETER;
 	}

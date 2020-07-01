@@ -577,9 +577,14 @@ int main(int argc, char* argv [])
 			HandlerUseFlag++;
 			argIndex++;
 
-			if (argIndex < argc)
-				hInfo.use = atoi(argv[argIndex]);
-			else
+			if (argIndex < argc) {
+				int use = atoi(argv[argIndex]);
+				if (use < 0 || use > 1) {
+					fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+					usage();
+				} else 
+					hInfo.use = use;
+			} else
 				usage();
 		}
 #ifdef _WIN
