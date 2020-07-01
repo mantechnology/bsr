@@ -656,6 +656,10 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	char **envp;
 	int ret;
 
+	// BSR-626 skip if handler_use is disable
+	if (!g_handler_use)
+		return 0;
+
     enlarge_buffer:
 #ifdef _WIN
 	env.buffer = (char *)kmalloc(env.size, 0, '77DW');
@@ -764,14 +768,8 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	magic_printk(KERN_INFO, "helper command: %s %s\n", usermode_helper, cmd);
 #endif
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
-#ifdef _WIN_HANDLER_TIMEOUT
-	if (g_handler_use) {
-		ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
-	}
-	ret = 0;
-#else 
+
 	ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
-#endif
 
 #ifdef _LIN
 	magic_printk(ret ? KERN_WARNING : KERN_INFO,

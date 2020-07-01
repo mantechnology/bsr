@@ -46,7 +46,6 @@ void usage()
 		"   /nodelayedack [ip|guid]\n"
         "   /delayedack_enable [ip|guid]\n"
         "   /m [letter] : mount\n"
-		"   /handler_use [0,1]\n"
 		"   /bsrlock_status\n"
 		"   /info\n"
 		"   /status : bsr version\n"
@@ -54,6 +53,7 @@ void usage()
 );
 #endif
 	printf(
+		"   /handler_use [0,1]\n"
 		"   /get_log [ProviderName]\n"
 		// DW-1629
 		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
@@ -85,11 +85,11 @@ void usage()
 		"examples:\n"
         "bsrcon /nodelayedack 10.10.0.1 \n"
         "bsrcon /m F \n"
-		"bsrcon /handler_use 1 \n"	
 		"bsrcon /write_log bsrService \"Logging start\" \n"	
 #else
 		"examples:\n"
 #endif
+		"bsrcon /handler_use 1 \n"	
 		"bsrcon /get_log bsrService \n"
 		"bsrcon /get_log bsrService r0\n"
 		"bsrcon /get_log_info \n"
@@ -410,16 +410,15 @@ int main(int argc, char* argv [])
 	LOGGING_MIN_LV lml = { 0, };
 	CLI_LOG_MAX_COUNT lmc = { 0, };
 	int LogFileCount = 0;
-
+	char	HandlerUseFlag = 0;
+	HANDLER_INFO hInfo = { 0, };
 #ifdef _WIN
-
 	UCHAR	Letter = 'C';
 	char	GetVolumeSizeFlag = 0;
 	char	ProcBsrFlag = 0;
 	char	ProcBsrFlagWithLetter = 0;
     char    DelayedAckEnableFlag = 0;
     char    DelayedAckDisableFlag = 0;
-	char	HandlerUseFlag = 0;
     char    MountFlag = 0, DismountFlag = 0;
 	char	SimulDiskIoErrorFlag = 0;
     char    *addr = NULL;
@@ -430,7 +429,6 @@ int main(int argc, char* argv [])
 	char	Verbose = 0;
 	int     Force = 0;
 	SIMULATION_DISK_IO_ERROR sdie = { 0, };
-	HANDLER_INFO hInfo = { 0, };
 #endif
 #ifdef _DEBUG_OOS
 	char	ConvertOosLog = 0;
@@ -575,6 +573,15 @@ int main(int argc, char* argv [])
 		else if (!strcmp(argv[argIndex], "/get_log_info")) {
 			GetLogInfo++;
 		}
+		else if (strcmp(argv[argIndex], "/handler_use") == 0) {
+			HandlerUseFlag++;
+			argIndex++;
+
+			if (argIndex < argc)
+				hInfo.use = atoi(argv[argIndex]);
+			else
+				usage();
+		}
 #ifdef _WIN
 		else if (strcmp(argv[argIndex], "/write_log") == 0) {
 			argIndex++;
@@ -611,15 +618,6 @@ int main(int argc, char* argv [])
 
 			if (argIndex < argc)
 				addr = argv[argIndex];
-			else
-				usage();
-		}
-		else if (strcmp(argv[argIndex], "/handler_use") == 0) {
-			HandlerUseFlag++;
-			argIndex++;
-
-			if (argIndex < argc)
-				hInfo.use = atoi(argv[argIndex]);
 			else
 				usage();
 		}
@@ -771,6 +769,10 @@ int main(int argc, char* argv [])
 	}
 #endif
 
+	if (HandlerUseFlag) {
+		res = MVOL_SetHandlerUse(&hInfo);
+	}
+
 #ifdef _WIN
 	if (GetVolumeSizeFlag) {
 		MVOL_VOLUME_INFO	srcVolumeInfo;
@@ -910,9 +912,6 @@ int main(int argc, char* argv [])
 		res = GetBsrlockStatus();
 	}
 
-	if (HandlerUseFlag) {
-		res = MVOL_SetHandlerUse(&hInfo);
-	}
 #endif
 	return res;
 }
