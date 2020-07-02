@@ -5933,6 +5933,8 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 
 	if (mutex_lock_interruptible(&connection->resource->conf_update)) {
 		bsr_err(connection, "Interrupted while waiting for conf_update\n");
+		// BSR-628 memory deallocation
+		kfree(new_net_conf);
 		goto disconnect;
 	}
 
