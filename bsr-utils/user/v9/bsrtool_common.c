@@ -616,7 +616,11 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 			if (strstr(entry->d_name, fileName)) {
 				// BSR-618 delete all saved rolling files
 				if (fileMaxCount == 0) {
-					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, entry->d_name);
+#ifdef _WIN
+					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s\\%s", path, entry->d_name); 
+#else // _LIN
+					snprintf(removeFileFullPath, sizeof(removeFileFullPath), "%s/%s", path, entry->d_name);
+#endif
 					remove(removeFileFullPath);
 				}
 				else {
