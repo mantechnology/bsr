@@ -18,6 +18,7 @@
 #include <linux/dynamic_debug.h>
 #include <bsr_debugfs.h>
 #include <bsr_log.h>
+#include "../bsr-headers/linux/bsr_ioctl.h"
 
 MODULE_LICENSE("GPL");
 
@@ -44,13 +45,13 @@ const struct block_device_operations bsr_ops = {
 };
 
 
-// BSR-584 reading log level from /etc/bsr.d/.log_level file
+// BSR-584 reading /etc/bsr.d/.XXX file
 static long read_reg_file(char *file_path, long default_val)
 {	
 	struct file *fd = NULL;
 	char *buffer = NULL;
 	int filesize = 0;
-	long log_level = default_val;
+	long ret_val = default_val;
 	int err = 0;
 	mm_segment_t oldfs;
 
@@ -75,9 +76,9 @@ static long read_reg_file(char *file_path, long default_val)
 	if (err < 0 || err != filesize)
 		goto close;
 
-	err = kstrtol(buffer, 0, &log_level);
-	if (err < 0 || log_level == 0)
-		log_level = default_val;
+	err = kstrtol(buffer, 0, &ret_val);
+	if (err < 0 || ret_val == 0)
+		ret_val = default_val;
 
 close:
 	if (buffer != NULL)
@@ -86,7 +87,7 @@ close:
 		filp_close(fd, NULL);
 out:
 	set_fs(oldfs);
-	return log_level;
+	return ret_val;
 }
 
 
@@ -104,6 +105,9 @@ static int __init bsr_load(void)
 
 	// BSR-597 set max log count
 	atomic_set(&g_log_file_max_count, read_reg_file(BSR_LOG_FILE_MAXCNT_REG, LOG_FILE_COUNT_DEFAULT));
+
+	// BSR-626 porting handler_use to linux
+	g_handler_use = read_reg_file(BSR_HANDLER_USE_REG, g_handler_use);
 
 	bsr_info(NO_OBJECT, "bsr kernel driver load\n");
 	initialize_kref_debugging();

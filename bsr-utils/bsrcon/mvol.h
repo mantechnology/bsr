@@ -63,11 +63,11 @@ DWORD MVOL_DismountVolume(CHAR DriveLetter, int Force);
 */
 DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie);
 
-DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
-
 DWORD GetBsrlockStatus();
 
 #endif
+
+DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 // BSR-579
