@@ -5347,6 +5347,7 @@ void start_logging_thread()
 	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
+		g_consumer_state = EXITING;
 		return;
 	}
 
@@ -5355,6 +5356,7 @@ void start_logging_thread()
 
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
+		g_consumer_state = EXITING;
 		g_consumer_thread = NULL;
 		return;
 	}
@@ -5380,7 +5382,6 @@ int log_consumer_thread(void *unused)
 #endif
 {
 	char* buffer = NULL;
-	bool started = false;
 	atomic_t idx;
 	// BSR-583
 	bool chk_complete = false;
@@ -5402,8 +5403,6 @@ int log_consumer_thread(void *unused)
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
-	else
-		bsr_info(NO_OBJECT, "failed to get bsr log file max count, status(%x)\n", status);
 
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
 	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
@@ -5439,8 +5438,7 @@ int log_consumer_thread(void *unused)
 							&ioStatus,
 							NULL,
 							FILE_ATTRIBUTE_NORMAL,
-							// BSR-619
-							FILE_SHARE_READ,
+							FILE_SHARE_READ | FILE_SHARE_DELETE,
 							FILE_OPEN_IF,
 							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
 							NULL,
@@ -5495,16 +5493,6 @@ int log_consumer_thread(void *unused)
 			}
 			chk_complete = true;
 
-			if (!started) {
-#ifdef _WIN
-				// BSR-578 print out after consumption starts, not thread starts.
-				bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
-#else
-				bsr_info(NO_OBJECT, "bsrlog path : %s\n", filePath);
-#endif
-				started = true;
-			}
-
 			buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
 			if (*buffer == IDX_DATA_RECORDING) {
 				msleep(100); // wait 100ms relative
@@ -5554,8 +5542,7 @@ int log_consumer_thread(void *unused)
 										&ioStatus,
 										NULL,
 										FILE_ATTRIBUTE_NORMAL,
-										// BSR-619
-										FILE_SHARE_READ,
+										FILE_SHARE_READ | FILE_SHARE_DELETE,
 										FILE_OPEN_IF,
 										FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
 										NULL,
