@@ -5337,6 +5337,42 @@ long get_file_size(struct file * fd)
 }
 #endif
 
+// BSR-619
+void start_logging_thread()
+{
+#ifdef _WIN
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	HANDLE hThread = NULL;
+
+	status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
+		return;
+	}
+
+	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
+		&g_consumer_thread, NULL);
+
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
+		g_consumer_thread = NULL;
+		return;
+	}
+
+	if (NULL != hThread)
+		ZwClose(hThread);
+#else
+	g_consumer_thread = kthread_run(log_consumer_thread, NULL, "bsr_log_consumer");
+
+	if (!g_consumer_thread || IS_ERR(g_consumer_thread)) {
+		printk(KERN_ERR "bsr: bsr_log_consumer thread failed(%d)\n", (int)IS_ERR(g_consumer_thread));
+		g_consumer_state = EXITING;
+		g_consumer_thread = NULL;
+		return;
+	}
+#endif
+}
+
 #ifdef _WIN
 void log_consumer_thread(PVOID param) 
 #else // _LIN
@@ -5359,7 +5395,7 @@ int log_consumer_thread(void *unused)
 	WCHAR filePath[MAX_PATH] = { 0 };
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	WCHAR* ptr;
-	
+
 	// BSR-600 if the LOG_FILE_MAX_REG_VALUE_NAME value is not set at all, the key value does not exist and is a normal operation.
 	// BSR-579
 	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\bsr");
@@ -5373,6 +5409,7 @@ int log_consumer_thread(void *unused)
 	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
 
 	if (!NT_SUCCESS(status)) {
+		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
 		bsr_info(NO_OBJECT, "failed to get bsr path status(%x)\n", status);
@@ -5402,17 +5439,15 @@ int log_consumer_thread(void *unused)
 							&ioStatus,
 							NULL,
 							FILE_ATTRIBUTE_NORMAL,
-							FILE_SHARE_READ | FILE_SHARE_DELETE,
+							// BSR-619
+							FILE_SHARE_READ,
 							FILE_OPEN_IF,
 							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
 							NULL,
 							0);
 
 	if (!NT_SUCCESS(status)) {
-		gLogBuf.h.r_idx.has_consumer = false;
-		g_consumer_state = EXITING;
 		bsr_info(NO_OBJECT, "failed to create log file status(%x)\n", status);
-		return;
 	}
 #else 
 	// BSR-581
@@ -5429,6 +5464,7 @@ int log_consumer_thread(void *unused)
 	// BSR-610 mkdir /var/log/bsr
 	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
 	if (err != 0 && err != -EEXIST) {
+		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
 		bsr_warn(NO_OBJECT, "failed to create log directory\n");
@@ -5440,148 +5476,124 @@ int log_consumer_thread(void *unused)
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
-		gLogBuf.h.r_idx.has_consumer = false;
-		g_consumer_state = EXITING;
 		bsr_warn(NO_OBJECT, "failed to create log file\n");
-		return 0;
 	}
 #endif
+	else {
+		logFileSize = get_file_size(hFile);
 
-	logFileSize = get_file_size(hFile);
+		// BSR-578 set before consumption starts.
+		gLogBuf.h.r_idx.has_consumer = true;
+		atomic_set(&idx, 0);
 
-	// BSR-578 set before consumption starts.
-	gLogBuf.h.r_idx.has_consumer = true;
-	atomic_set(&idx, 0);
+		while (g_consumer_state == RUNNING) {
+			if (chk_complete == false) {
+				if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+					msleep(100); // wait 100ms relative
+					continue;
+				}
+			}
+			chk_complete = true;
 
-	while (g_consumer_state == RUNNING) {
-		if (chk_complete == false) {
-			if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+			if (!started) {
+#ifdef _WIN
+				// BSR-578 print out after consumption starts, not thread starts.
+				bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
+#else
+				bsr_info(NO_OBJECT, "bsrlog path : %s\n", filePath);
+#endif
+				started = true;
+			}
+
+			buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
+			if (*buffer == IDX_DATA_RECORDING) {
 				msleep(100); // wait 100ms relative
 				continue;
 			}
-		}
-		chk_complete = true;
+			chk_complete = false;
 
-		if (!started) {
 #ifdef _WIN
-			// BSR-578 print out after consumption starts, not thread starts.
-			bsr_info(NO_OBJECT, "bsrlog path : %ws\n", fileFullPath);
+			status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
+			if (!NT_SUCCESS(status)) {
+				bsr_info(NO_OBJECT, "failed to write log status(%x)\n", status);
+				break;
+			}
 #else
-			bsr_info(NO_OBJECT, "bsrlog path : %s\n", filePath);
-#endif
-			started = true;
-		}
-
-		buffer = ((char*)gLogBuf.b + (atomic_read(&idx) * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)));
-		if (*buffer == IDX_DATA_RECORDING) {
-			msleep(100); // wait 100ms relative
-			continue;
-		}
-		chk_complete = false;
-
-#ifdef _WIN
-		status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
-		if (!NT_SUCCESS(status)) {
-			gLogBuf.h.r_idx.has_consumer = false;
-			g_consumer_state = EXITING;
-			bsr_info(NO_OBJECT, "failed to write log status(%x)\n", status);
-			break;
-		}
-#else
-		// BSR-581
-		// writing linux log files		
-		filesize = strlen(buffer);
-		oldfs = get_fs();
-		set_fs(KERNEL_DS);
-		err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
-		set_fs(oldfs);
-
-		if (err < 0 || err != filesize) {
-			gLogBuf.h.r_idx.has_consumer = false;
-			g_consumer_state = EXITING;
-			bsr_warn(NO_OBJECT, "failed to write log\n");
-			break;
-		}
-#endif
-		logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
-
-		// BSR-579 apply file size or log count based on rolling judgment
-		if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
-
-#ifdef _WIN
-			status = bsr_log_rolling_file_clean_up(filePath);
-			if (!NT_SUCCESS(status)) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				return;
-			}
-
-			// BSR-579 if the log file is larger than 50M, do file rolling.
-			bsr_info(NO_OBJECT, "log file length %lld", get_file_size(hFile));
-			status = bsr_log_file_rename_and_close(hFile);
-			if (!NT_SUCCESS(status)) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
-				return;
-			}
-			status = ZwCreateFile(&hFile,
-									FILE_APPEND_DATA,
-									&obAttribute,
-									&ioStatus,
-									NULL,
-									FILE_ATTRIBUTE_NORMAL,
-									FILE_SHARE_READ | FILE_SHARE_DELETE,
-									FILE_OPEN_IF,
-									FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
-									NULL,
-									0);
-		
-			if (!NT_SUCCESS(status)) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				bsr_info(NO_OBJECT, "failed to new log file status(%x)\n", status);
-				return;
-			}
-#else // _LIN
-			// BSR-579 rolling and clean up
-			if (bsr_log_rolling_file_clean_up() != 0) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				bsr_warn(NO_OBJECT, "failed to remove log file\n");
-				return 0;
-			}
-
-			// BSR-579 if the log file is larger than 50M, do file rolling.
-			bsr_info(NO_OBJECT, "log file length %lld\n", get_file_size(hFile));
-			
-			if (hFile)
-				filp_close(hFile, NULL);
-
-			if (bsr_log_file_rename() != 0) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				bsr_warn(NO_OBJECT, "failed to rename log file\n");
-				return 0;
-			}
+			// BSR-581
+			// writing linux log files		
+			filesize = strlen(buffer);
 			oldfs = get_fs();
 			set_fs(KERNEL_DS);
-			
-			hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+			err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
 			set_fs(oldfs);
-			if (hFile == NULL || IS_ERR(hFile)) {
-				gLogBuf.h.r_idx.has_consumer = false;
-				g_consumer_state = EXITING;
-				bsr_warn(NO_OBJECT, "failed to new log file\n");
-				return 0;
-			}
-			
-#endif
-			logFileSize = 0;
-			
-		}
 
-		idx_ring_dispose(&gLogBuf.h, buffer);
+			if (err < 0 || err != filesize) {
+				bsr_warn(NO_OBJECT, "failed to write log\n");
+				break;
+			}
+#endif
+			logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
+
+			// BSR-579 apply file size or log count based on rolling judgment
+			if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
+
+#ifdef _WIN
+				status = bsr_log_rolling_file_clean_up(filePath);
+				if (!NT_SUCCESS(status))
+					break;
+
+				// BSR-579 if the log file is larger than 50M, do file rolling.
+				status = bsr_log_file_rename_and_close(hFile);
+				if (!NT_SUCCESS(status)) {
+					bsr_info(NO_OBJECT, "failed to rename log file status(%x)\n", status);
+					break;
+				}
+				status = ZwCreateFile(&hFile,
+										FILE_APPEND_DATA,
+										&obAttribute,
+										&ioStatus,
+										NULL,
+										FILE_ATTRIBUTE_NORMAL,
+										// BSR-619
+										FILE_SHARE_READ,
+										FILE_OPEN_IF,
+										FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+										NULL,
+										0);
+
+				if (!NT_SUCCESS(status)) {
+					bsr_info(NO_OBJECT, "failed to new log file status(%x)\n", status);
+					break;
+				}
+#else // _LIN
+				// BSR-579 rolling and clean up
+				if (bsr_log_rolling_file_clean_up() != 0) {
+					bsr_warn(NO_OBJECT, "failed to remove log file\n");
+					break;
+				}
+
+				// BSR-579 if the log file is larger than 50M, do file rolling.
+				if (hFile)
+					filp_close(hFile, NULL);
+
+				if (bsr_log_file_rename() != 0) {
+					bsr_warn(NO_OBJECT, "failed to rename log file\n");
+					break;
+				}
+				oldfs = get_fs();
+				set_fs(KERNEL_DS);
+
+				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+				set_fs(oldfs);
+				if (hFile == NULL || IS_ERR(hFile)) {
+					bsr_warn(NO_OBJECT, "failed to new log file\n");
+					break;
+				}
+#endif
+				logFileSize = 0;
+			}
+			idx_ring_dispose(&gLogBuf.h, buffer);
+		}
 	}
 
 	if (hFile) {
@@ -5591,12 +5603,17 @@ int log_consumer_thread(void *unused)
 		filp_close(hFile, NULL);
 #endif
 		hFile = NULL;
-
 	}
 
 	gLogBuf.h.r_idx.has_consumer = false;
-	g_consumer_state = EXITING;
-	bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
+
+	// BSR-619 if a failure occurs, try again if it is in RUNNING state.
+	if (g_consumer_state == RUNNING) {
+		msleep(1000);
+		start_logging_thread();
+	}
+	else 
+		bsr_info(NO_OBJECT, "log consumer thread has been terminated.");
 
 #ifdef _LIN
 	return 0;
@@ -5631,9 +5648,6 @@ void init_logging(void)
 	g_consumer_thread = NULL;
 #ifdef _WIN
 	// BSR-578 initializing log buffer
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
-	HANDLE hThread = NULL;
-
 	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
 
 	gLogBuf.h.max_count = LOGBUF_MAXCNT;
@@ -5642,44 +5656,18 @@ void init_logging(void)
 	// BSR-511 log consumer does not run in safe mode boot.
 	if (*InitSafeBootMode == 0) {
 		g_consumer_state = RUNNING;
-
-		status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, log_consumer_thread, NULL);
-		if (!NT_SUCCESS(status)) {
-			DbgPrint("PsCreateSystemThread for log consumer failed with status 0x%08X\n", status);
-			return;
-		}
-
-		status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode,
-			&g_consumer_thread, NULL);
-
-		if (!NT_SUCCESS(status)) {
-			DbgPrint("ObReferenceObjectByHandle for log consumer failed with status 0x%08X\n", status);
-			g_consumer_thread = NULL;
-			return;
-		}
-
-		if (NULL != hThread)
-			ZwClose(hThread);
+		start_logging_thread();
 	}
 #else
 	// BSR-581
 	// generate logging threads
-
 	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));
 
 	atomic_set64(&gLogBuf.h.max_count, LOGBUF_MAXCNT);
 	gLogBuf.h.r_idx.has_consumer = false;
 	g_consumer_state = RUNNING;
-	
-	g_consumer_thread = kthread_run(log_consumer_thread, NULL, "bsr_log_consumer");
 
-	if(!g_consumer_thread || IS_ERR(g_consumer_thread)) {
-		printk(KERN_ERR "bsr: bsr_log_consumer thread failed(%d)\n", (int)IS_ERR(g_consumer_thread));
-		g_consumer_state = EXITING;
-		g_consumer_thread = NULL;
-		return;
-	}
-
+	start_logging_thread();
 #endif
 }
 
