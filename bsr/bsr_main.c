@@ -5338,7 +5338,7 @@ long get_file_size(struct file * fd)
 #endif
 
 // BSR-619
-void start_logging_thread()
+void start_logging_thread(void)
 {
 #ifdef _WIN
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
