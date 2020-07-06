@@ -5518,6 +5518,12 @@ int log_consumer_thread(void *unused)
 				break;
 			}
 #else
+			// BSR-619 check log file exists
+			if (d_unlinked(hFile->f_path.dentry)) {
+				bsr_warn(NO_OBJECT, "log file not found.\n");
+				break;
+			}
+
 			// BSR-581
 			// writing linux log files		
 			filesize = strlen(buffer);
