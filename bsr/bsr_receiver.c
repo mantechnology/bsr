@@ -9022,9 +9022,13 @@ static enum bsr_disk_state read_disk_state(struct bsr_device *device)
 
 
 // DW-1981
-static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr_peer_device *peer_device)
+static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr_peer_device *peer_device, bool *unlocked)
 {
 	struct bsr_device *device = peer_device->device;
+
+	// BSR-632
+	*unlocked = false;
+
 	if (!device)
 		return -EIO;
 
@@ -9065,8 +9069,10 @@ static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr
 		}
 #endif
 		// BSR-616 fix potential deadlock between invalidate-remote and bsr_khelper
-		if (bsr_bm_is_locked(peer_device->device))
-			bsr_bm_slot_unlock(peer_device);
+		bsr_bm_slot_unlock(peer_device);
+		// BSR-632
+		*unlocked = true;
+
 		bsr_start_resync(peer_device, L_SYNC_SOURCE);
 	}
 	
@@ -9091,6 +9097,7 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 	struct bsr_device *device;
 	int err;
 	int res = 0;
+	bool unlocked = false;
 
 	peer_device = conn_peer_device(connection, pi->vnr);
 	if (!peer_device)
@@ -9153,16 +9160,16 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 	if (err <= 0) {
 		if (err < 0)
 			goto out;
-
-		err = receive_bitmap_finished(connection, peer_device);
+		err = receive_bitmap_finished(connection, peer_device, &unlocked);
 	}
 	else
 		err = 0;
 
 out:
-	// BSR-616
-	if (bsr_bm_is_locked(peer_device->device))
+	// BSR-632 check if receive_bitmap_finished() unlocks the lock.
+	if (unlocked == false)
 		bsr_bm_slot_unlock(peer_device);
+
 	return err;
 }
 
