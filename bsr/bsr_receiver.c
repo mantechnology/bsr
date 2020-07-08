@@ -799,8 +799,8 @@ int connect_work(struct bsr_work *work, int cancel)
 	} else if (rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG) {
 		if (connection->cstate[NOW] != C_CONNECTING)
 			goto out_put;
-		connection->connect_timer.expires = jiffies + HZ/20;
-		add_timer(&connection->connect_timer);
+		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+		mod_timer(&connection->connect_timer, jiffies + HZ/20);
 		return 0; /* Return early. Keep the reference on the connection! */
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
@@ -969,8 +969,8 @@ start:
 			timeout = twopc_retry_timeout(resource, 0);
 			bsr_debug(connection, "Waiting for %ums to avoid transaction "
 				   "conflicts\n", jiffies_to_msecs(timeout));
-			connection->connect_timer.expires = jiffies + timeout;
-			add_timer(&connection->connect_timer);
+			// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+			mod_timer(&connection->connect_timer, jiffies + timeout);
 		}
 		else {
 			bsr_debug(connection, "Skip connect_work\n");
@@ -10738,8 +10738,8 @@ static void try_change_ahead_to_sync_source(struct bsr_connection *connection)
 			(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
 			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
 			peer_device->start_resync_side = L_SYNC_SOURCE;
-			peer_device->start_resync_timer.expires = jiffies + HZ;
-			add_timer(&peer_device->start_resync_timer);
+			// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+			mod_timer(&peer_device->start_resync_timer, jiffies + HZ);
 		}
 	}
 	rcu_read_unlock();
