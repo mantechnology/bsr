@@ -2712,8 +2712,8 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 	}
 
 	if (retry_resync) {
-		peer_device->start_resync_timer.expires = jiffies + HZ / 10;
-		add_timer(&peer_device->start_resync_timer);
+		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+		mod_timer(&peer_device->start_resync_timer, jiffies + HZ / 10);
 		return;
 	}
 
@@ -2886,8 +2886,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		bsr_info(peer_device, "Retry later\n"); // DW-1518
 		set_bit(B_RS_H_DONE, &peer_device->flags);
 		peer_device->start_resync_side = side;
-		peer_device->start_resync_timer.expires = jiffies + HZ/5;
-		add_timer(&peer_device->start_resync_timer);
+		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+		mod_timer(&peer_device->start_resync_timer, jiffies + HZ/5);
 		return;
 	}
 
@@ -3724,8 +3724,8 @@ static int process_one_request(struct bsr_connection *connection)
 
 					bsr_info(peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state\n", (unsigned long long)bsr_bm_total_weight(peer_device)); 
 					peer_device->start_resync_side = L_SYNC_SOURCE;
-					peer_device->start_resync_timer.expires = jiffies + HZ;
-					add_timer(&peer_device->start_resync_timer);
+					// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+					mod_timer(&peer_device->start_resync_timer, jiffies + HZ);
 				}
 			}
 #endif
