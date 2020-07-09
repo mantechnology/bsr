@@ -7351,9 +7351,17 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 			device->resource->bTempAllowMount = true;			
 		}
 
+		// BSR-633 fix potential deadlock in bsr_uuid_detect_finished_resyncs()
+		if (!bitmap_lock)
+			bsr_bm_unlock(device);
+
 		// Get volume bitmap which is converted into 4kb cluster unit.
 		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
 		
+		// BSR-633
+		if (!bitmap_lock)
+			bsr_bm_lock(device, "Set out-of-sync for allocated cluster", BM_LOCK_CLEAR | BM_LOCK_BULK);
+
 		if (NULL == pBitmap) {
 			bsr_err(peer_device, "Could not get bitmap for bsr\n");
 		}
