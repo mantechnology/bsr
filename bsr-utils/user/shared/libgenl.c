@@ -336,6 +336,14 @@ int genl_recv_msgs(struct genl_sock *s, struct iovec *iov, char **err_desc, int 
 	}
 
 	nlh = (struct nlmsghdr*)iov->iov_base;
+
+	// DW-2144 if the length of the received genl is 0, it is treated as an invalid reception.
+	if (nlh->nlmsg_len == 0) {
+		if (err_desc)
+			*err_desc = "invalid data read (length 0)";
+		return -E_RCV_FAILED;
+	}
+
 	if (!nlmsg_ok(nlh, c)) {
 		if (err_desc)
 			*err_desc = "truncated message in netlink reply";
