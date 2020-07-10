@@ -558,8 +558,9 @@ void sequential_sort(char buffer[][256], int count)
 	char temp[256];
 	int j = 0, i = 0;
 
-	for (i = 0; i < count; i++) {
-		for (j = i; j < count; j++) {
+	// BSR-636 all elements must be sorted.
+	for (i = 0; i <= count; i++) {
+		for (j = i; j <= count; j++) {
 			if (strcmp(buffer[i], buffer[j]) == -1) {
 				memset(temp, 0, sizeof(temp));
 				memcpy(temp, buffer[i], strlen(buffer[i]));
