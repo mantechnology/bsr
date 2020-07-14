@@ -888,7 +888,7 @@ int main(int argc, char* argv [])
 		res = MVOL_MountVolume(Letter);
 		if (ERROR_SUCCESS == res) {
 			if (ERROR_SUCCESS == DeleteVolumeReg(Letter)) {
-				fprintf(stderr, "%c: is Mounted, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
+				fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
 			}
 		}
 	}
