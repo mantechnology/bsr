@@ -45,7 +45,8 @@ void usage()
 	printf(
 		"   /nodelayedack [ip|guid]\n"
         "   /delayedack_enable [ip|guid]\n"
-        "   /m [letter] : mount\n"
+		// BSR-232
+        "   /release_vol [letter] : release lock & delete replication volume\n"
 		"   /bsrlock_status\n"
 		"   /info\n"
 		"   /status : bsr version\n"
@@ -84,7 +85,8 @@ void usage()
 		"\n\n"
 		"examples:\n"
         "bsrcon /nodelayedack 10.10.0.1 \n"
-        "bsrcon /m F \n"
+		// BSR-232
+        "bsrcon /release_vol F \n"
 		"bsrcon /write_log bsrService \"Logging start\" \n"	
 #else
 		"examples:\n"
@@ -419,7 +421,7 @@ int main(int argc, char* argv [])
 	char	ProcBsrFlagWithLetter = 0;
     char    DelayedAckEnableFlag = 0;
     char    DelayedAckDisableFlag = 0;
-    char    MountFlag = 0, DismountFlag = 0;
+	char    ReleaseVolumeFlag = 0, DismountFlag = 0;
 	char	SimulDiskIoErrorFlag = 0;
     char    *addr = NULL;
 	char	WriteLog = 0;
@@ -663,8 +665,9 @@ int main(int argc, char* argv [])
                 usage();
         }
 		*/
-        else if (!_stricmp(argv[argIndex], "/m")) {
-            MountFlag++;
+		// BSR-232 rename /m to /release_vol
+        else if (!_stricmp(argv[argIndex], "/release_vol")) {
+            ReleaseVolumeFlag++;
             argIndex++;
 
             if (argIndex < argc)
@@ -881,11 +884,11 @@ int main(int argc, char* argv [])
         }
     }
 
-	if (MountFlag) {
+	if (ReleaseVolumeFlag) {
 		res = MVOL_MountVolume(Letter);
 		if (ERROR_SUCCESS == res) {
 			if (ERROR_SUCCESS == DeleteVolumeReg(Letter)) {
-				fprintf(stderr, "%c: is Mounted, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
+				fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
 			}
 		}
 	}
