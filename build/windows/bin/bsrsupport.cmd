@@ -181,9 +181,9 @@ exit /B 0
     if not exist "%STATUS_DIR%" ( mkdir "%STATUS_DIR%" )
 	
 	bsradm get-gi all > "%STATUS_DIR%\gi.txt"
-    bsradm dump > "%STATUS_DIR%\dump"
+    bsradm dump > "%STATUS_DIR%\dump.txt"
 	bsrsetup status --s --v all > "%STATUS_DIR%\status.txt"
-	bsrsetup show > "%STATUS_DIR%\show"
+	bsrsetup show > "%STATUS_DIR%\show.txt"
 exit /b 0
 
 :Archive
