@@ -5838,8 +5838,8 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 				      struct bsr_peer_device *peer_device)
 {
 	struct bsr_device *device = peer_device->device;
-	unsigned long now = jiffies;
-	unsigned long rs_left = 0;
+	ULONG_PTR now = jiffies;
+	ULONG_PTR rs_left = 0;
 	int i;
 
 	memset(s, 0, sizeof(*s));
