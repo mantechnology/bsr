@@ -56,6 +56,7 @@
       <mountPoint id="865" root="" location="bin" mode="755" />
       <mountPoint id="866" root="" location="etc" mode="755" />
       <mountPoint id="2061" root="" location="log" mode="755" />
+      <mountPoint id="2829" root="" location="support" mode="755" />
       <mountPoint id="867" root="584" location="bin" mode="755" />
       <mountPoint id="868" root="581" location="bin" mode="755" />
       <mountPoint id="613" root="586" location="" mode="755" />
@@ -74,6 +75,9 @@
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="866" file="../windows/etc" overwriteMode="4" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="false" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
+        <exclude />
+      </dirEntry>
+      <dirEntry mountPoint="2829" file="../windows/support" overwriteMode="4" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="false" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="867" file="../windows/x86/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
