@@ -8,7 +8,8 @@ echo Check environments...
 set OLDDIR=%CD%
 set SUPPORT_HOME=%BSR_PATH%\..\support
 set OUTPUT_HOME=%SUPPORT_HOME%\%COMPUTERNAME%
-set DUMP_PATH=%1
+set ARGC=0
+for %%x in (%*) do Set /A ARGC += 1
 
 if not exist "%OUTPUT_HOME%" (
     mkdir "%OUTPUT_HOME%"
@@ -21,10 +22,10 @@ if not %ERRORLEVEL% EQU 0 (
     exit -1
 )
 
-if "%DUMP_PATH%" == "" (
+if %ARGC% == 0 (
 	echo Skip collection of core file.
 ) else (
-	call :GetCoreDumpFile %DUMP_PATH%
+	call :GetCoreDumpFile %1
 )
 call :GetBSRInfo
 call :GetSystemInfo
