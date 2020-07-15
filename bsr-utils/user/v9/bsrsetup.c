@@ -2520,6 +2520,17 @@ void print_peer_device_statistics(int indent,
 				  struct peer_device_statistics *new,
 				  int (*wrap_printf)(int, const char *, ...))
 {
+	// BSR-191
+	double db, dt, rt;
+	uint64_t sectors_to_go = 0;
+	bool sync_details =
+		(new->peer_dev_rs_total != 0) &&
+		(new->peer_dev_rs_total != -1ULL);
+		
+	if (sync_details)
+		sectors_to_go = new->peer_dev_ov_left ?:
+			new->peer_dev_out_of_sync - new->peer_dev_resync_failed;
+
 	wrap_printf(indent, " received:" U64,
 		    (uint64_t)new->peer_dev_received / 2);
 	wrap_printf(indent, " sent:" U64,
@@ -2533,6 +2544,19 @@ void print_peer_device_statistics(int indent,
 		wrap_printf(indent, " unacked:" U32,
 			    new->peer_dev_unacked);
 	}
+
+	if (!sync_details)
+		return;
+
+	// BSR-191 sync progress
+	db = (int64_t) new->peer_dev_rs_db_sectors;
+	dt = new->peer_dev_rs_dt_ms ?: 1;
+	wrap_printf(indent, " speed:%.0f", db/dt *1000.0/2.0); /* KiB/s */
+	wrap_printf(indent, " want:%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+	/* estimate time-to-run, based on "db/dt" */
+	rt = db > 0 ? dt * 1e-3 * sectors_to_go / db : -1; /* seconds */
+	wrap_printf(indent, " eta:%lu:%02lu:%02lu", 
+		(unsigned long)rt / 3600, ((unsigned long)rt % 3600) / 60, (unsigned long)rt % 60);
 }
 
 void resource_status(struct resources_list *resource)

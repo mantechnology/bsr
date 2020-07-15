@@ -5838,6 +5838,9 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 				      struct bsr_peer_device *peer_device)
 {
 	struct bsr_device *device = peer_device->device;
+	ULONG_PTR now = jiffies;
+	ULONG_PTR rs_left = 0;
+	int i;
 
 	memset(s, 0, sizeof(*s));
 	s->peer_dev_received = peer_device->recv_cnt;
@@ -5846,13 +5849,31 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 			      atomic_read(&peer_device->rs_pending_cnt);
 	s->peer_dev_unacked = atomic_read(&peer_device->unacked_cnt);
 
-	// BSR-580
-	if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T) {
-		s->peer_dev_ov_left = peer_device->ov_left << (BM_BLOCK_SHIFT - 9);
-	}
-	s->peer_dev_out_of_sync = bsr_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT - 9);
+	s->peer_dev_out_of_sync = BM_BIT_TO_SECT(bsr_bm_total_weight(peer_device));
+	s->peer_dev_resync_failed = BM_BIT_TO_SECT(peer_device->rs_failed);
 
-	s->peer_dev_resync_failed = peer_device->rs_failed << (BM_BLOCK_SHIFT - 9);
+	// BSR-580
+	if (is_verify_state(peer_device, NOW)) {
+		rs_left = BM_BIT_TO_SECT(peer_device->ov_left);
+		s->peer_dev_ov_left = BM_BIT_TO_SECT(peer_device->ov_left);
+	}
+	else if (is_sync_state(peer_device, NOW)) {
+		rs_left = s->peer_dev_out_of_sync - BM_BIT_TO_SECT(peer_device->rs_failed);
+	}
+
+	// BSR-191 sync progress
+	if (rs_left) {
+		enum bsr_repl_state repl_state = peer_device->repl_state[NOW];
+		if (repl_state == L_SYNC_TARGET || repl_state == L_VERIFY_S)
+			s->peer_dev_rs_c_sync_rate = peer_device->c_sync_rate;
+
+		s->peer_dev_rs_total = BM_BIT_TO_SECT(peer_device->rs_total);
+
+		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
+		s->peer_dev_rs_dt_ms = jiffies_to_msecs(now - peer_device->rs_mark_time[i]);
+		s->peer_dev_rs_db_sectors = BM_BIT_TO_SECT(peer_device->rs_mark_left[i]) - rs_left;
+	}
+
 	if (get_ldev(device)) {
 		struct bsr_md *md = &device->ldev->md;
 		struct bsr_peer_md *peer_md = &md->peers[peer_device->node_id];
