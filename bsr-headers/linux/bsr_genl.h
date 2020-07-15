@@ -296,6 +296,11 @@ GENL_struct(BSR_NLA_PEER_DEVICE_STATISTICS, 22, peer_device_statistics,
 	__u32_field(9, 0, peer_dev_flags)
 	// BSR-580
 	__u64_field(10,0, peer_dev_ov_left) /* sectors */
+	// BSR-191 sync progress
+	__u64_field(11,0, peer_dev_rs_total)
+	__u64_field(12,0, peer_dev_rs_dt_ms)
+	__u64_field(13,0, peer_dev_rs_db_sectors)
+	__u32_field(14,0, peer_dev_rs_c_sync_rate)
 )
 
 GENL_struct(BSR_NLA_NOTIFICATION_HEADER, 23, bsr_notification_header,

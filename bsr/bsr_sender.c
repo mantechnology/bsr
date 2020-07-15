@@ -975,7 +975,14 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 	case L_VERIFY_S:
 		// BSR-118
 		if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags)) {
+			ULONG_PTR now = jiffies;
+			int i;
+
 			peer_device->ov_left = bsr_ov_bm_total_weight(peer_device);
+			for (i = 0; i < BSR_SYNC_MARKS; i++) {
+				peer_device->rs_mark_left[i] = peer_device->ov_left;
+				peer_device->rs_mark_time[i] = now;
+			}
 			clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 		}
 		make_ov_request(peer_device, cancel);
