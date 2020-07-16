@@ -121,6 +121,12 @@ char *lcmd;
 extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...);
 extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args);
 
+// BSR-614
+int llevel;
+
+extern void bsr_cmd_exec_log(int argc, char** argv);
+extern void bsr_cmd_quit_log(int rv);
+
 FILE *bsr_open_log();
 
 #define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, ERROR_LEVEL, continued, format, ##arg) 

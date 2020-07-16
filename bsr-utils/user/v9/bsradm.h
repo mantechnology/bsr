@@ -459,7 +459,6 @@ extern void *global_btree;
 
 extern int no_tty;
 extern int dry_run;
-extern bool trace_print;
 extern int verbose;
 extern int all_resources;
 extern int adjust_more_than_one_resource;

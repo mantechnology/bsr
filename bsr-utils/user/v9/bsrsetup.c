@@ -4375,6 +4375,8 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 }
 
 extern char* lprogram;
+// BSR-614
+extern int llevel;
 
 int main(int argc, char **argv)
 {
@@ -4385,6 +4387,8 @@ int main(int argc, char **argv)
 	int longindex, first_optind;
 
 	lprogram = progname = basename(argv[0]);
+
+	bsr_cmd_exec_log(argc, argv);
 
 	if (chdir("/")) {
 		/* highly unlikely, but gcc is picky */
@@ -4579,6 +4583,9 @@ int main(int argc, char **argv)
 
 	if ((context & CTX_MINOR) && !cmd->lockless)
 		dt_unlock_bsr(lock_fd);
+
+	bsr_cmd_quit_log(rv);
+
 	return rv;
 }
 #endif

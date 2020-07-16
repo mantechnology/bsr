@@ -5479,6 +5479,8 @@ struct format *new_cfg()
 
 extern char *lprogram;
 extern char *lcmd;
+// BSR-614
+extern int llevel;
 
 int main(int argc, char **argv)
 {
@@ -5493,6 +5495,8 @@ int main(int argc, char **argv)
 	else {
 		lprogram = progname = argv[0];
 	}
+
+	bsr_cmd_exec_log(argc, argv);
 
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
@@ -5675,6 +5679,8 @@ int main(int argc, char **argv)
 	rv = command->function(cfg, argv + ai, argc - ai);
 	if (minor_attached)
 		CLI_ERRO_LOG_STDERR(false, "# Output might be stale, since minor %d is attached\n", cfg->minor);
+
+	bsr_cmd_quit_log(rv);
 
 	return rv;
 	/* and if we want an explicit free,

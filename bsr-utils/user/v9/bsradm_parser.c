@@ -1132,7 +1132,7 @@ static void parse_host_section(struct d_resource *res,
 			m_asprintf(&fake_uname, "%s:%s", host->address.addr, host->address.port);
 
 		insert_head(&host->on_hosts, names_from_str(fake_uname));
-		TRACE_PRINT("BY_ADDRESS(TK_FLOATING), %s, %s\n", res->name, fake_uname);
+		CLI_TRAC_LOG(false, "BY_ADDRESS(TK_FLOATING), %s, %s\n", res->name, fake_uname);
 
 		token = yylex();
 		switch(token) {
@@ -1190,7 +1190,7 @@ static void parse_host_section(struct d_resource *res,
 				m_asprintf(&address, "ipv6 [%s]:%s", host->address.addr, host->address.port);
 			else
 				m_asprintf(&address, "%s:%s", host->address.addr, host->address.port);
-			TRACE_PRINT("%s, %s, %s\n", host->require_minor ? "TK_ON" : "TK__THIS_HOST", res->name, address);
+			CLI_TRAC_LOG(false, "%s, %s, %s\n", host->require_minor ? "TK_ON" : "TK__THIS_HOST", res->name, address);
 			break;
 		case TK_PROXY:
 			host->proxy_compat_only = parse_proxy_section();
@@ -1685,7 +1685,7 @@ static struct connection *parse_connection(enum pr_flags flags)
 			EXP(TK_INTEGER);
 			peer_device = parse_peer_device(atoi(yylval.txt));
 			peer_device->connection = conn;
-			TRACE_PRINT("INSERT_TAIL, peer_devcies, vnr : %d\n", peer_device->vnr);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, peer_devcies, vnr : %d\n", peer_device->vnr);
 			STAILQ_INSERT_TAIL(&conn->peer_devices, peer_device, connection_link);
 			break;
 		case TK__IS_STANDALONE:

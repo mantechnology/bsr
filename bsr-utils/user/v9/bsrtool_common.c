@@ -37,6 +37,7 @@ static struct version __bsr_utils_version = {};
 
 char *lprogram = NULL;
 char *lcmd = NULL;
+int llevel = INFO_LEVEL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -752,6 +753,10 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	long offset = 0;
 	va_list args;
 
+	// BSR-614
+	if (level > llevel)
+		return;
+
 	FILE *fp = bsr_open_log();
 
 	if (fp == NULL) {
@@ -769,7 +774,6 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 
 	fclose(fp);
 }
-
 
 void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args)
 {
@@ -789,4 +793,16 @@ void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const 
 	fprintf(fp, "%s", b);
 
 	fclose(fp);
+}
+
+void bsr_cmd_exec_log(int argc, char** argv)
+{
+	CLI_INFO_LOG(false, "cmd exec,");
+	for (int i = 0; i < argc; i++)
+		CLI_INFO_LOG(true, " %s", argv[i]);
+	CLI_INFO_LOG(true, "\n");
+}
+void bsr_cmd_quit_log(int rv)
+{
+	CLI_INFO_LOG(false, "cmd quit, rv(%d)\n", rv);
 }
