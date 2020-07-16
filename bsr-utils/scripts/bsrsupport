@@ -116,7 +116,7 @@ GetSystemInfo()
 	ip addr > ${SYS_DIR}/ifconfig_a
 	if [ -e "/usr/sbin/ethtool" ]; then
 		for i in `ip addr | egrep "*: eth*|*: bond*" | awk '{ print $2}' | awk -F':' '{ print $1}'`; do ethtool $i; done > ${SYS_DIR}/ethtoollog
-	elif [ -e "/usr/bin/lshw" ]; then
+	elif [ -e "/usr/bin/lshw" ] || [ -e "/usr/sbin/lshw" ]; then
 		lshw -class network > ${SYS_DIR}/ethtoollog
 	else
 		echo "ethtoollog doesn't exit" > ${SYS_DIR}/none_ethtoollog
@@ -225,6 +225,16 @@ GetSystemInfo()
 	ls -l /dev  > ${SYS_DIR}/deviceList
 	lsmod > ${SYS_DIR}/lsmodList
 
+	# disk Information
+	lsblk > ${SYS_DIR}/lsblk
+	mount > ${SYS_DIR}/mount
+	if [ -e "/usr/bin/lsscsi" ]; then
+		lsscsi > ${SYS_DIR}/lsscsi
+	fi
+	if [ -e "/usr/bin/lshw" ] || [ -e "/usr/sbin/lshw" ]; then
+		lshw -c disk > ${SYS_DIR}/lshw_disk
+	fi
+
 	# Process Information
 	ps -ALf > ${SYS_DIR}/processInfo
 
@@ -278,7 +288,7 @@ GetBSRStatus()
 
 	mkdir -p ${BSR_STATUS_DIR}
 
-	bsradm get-gi all > ${BSR_STATUS_DIR}/gi.txt
+	bsradm show-gi all > ${BSR_STATUS_DIR}/gi.txt
 	bsradm dump > ${BSR_STATUS_DIR}/dump.txt
 	bsrsetup status --s --v all > ${BSR_STATUS_DIR}/status.txt
 	bsrsetup show > ${BSR_STATUS_DIR}/show.txt
