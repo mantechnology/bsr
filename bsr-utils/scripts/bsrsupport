@@ -1,0 +1,343 @@
+#!/bin/bash
+#*******************************************************************************
+# Copyright(c)2007-2020 ManTechnology Co., LTD. All rights reserved.
+#*******************************************************************************
+
+##########################################################################################
+# Variable
+##########################################################################################
+echo "Check environments...";
+
+BSR_PATH=/opt/bsr
+HOSTNAME=`hostname`
+SUPPORT_HOME=${BSR_PATH}/support
+
+# Target directory path that collected BSR files are located. This is not a BSR home path.
+BSR_DIR=${SUPPORT_HOME}/${HOSTNAME}/bsr
+# Target directory path that collected system files are located.
+SYS_DIR=${SUPPORT_HOME}/${HOSTNAME}/System
+
+if [ ! ${BSR_PATH} ]; then
+	echo "BSR not installed"
+	exit -1
+fi
+
+if [ ! $BSR_CONF_FILE ]; then
+	echo " use default BSR configuration file"
+	BSR_CONF_FILE=/etc/bsr.conf
+else
+	echo " BSR configuration file: "$BSR_CONF_FILE
+fi
+
+##########################################################################################
+# Functions                                                                              #
+##########################################################################################
+GetBSRInfo()
+{
+	echo "Get BSR Information...";
+
+	BSR_CFG_DIR=${BSR_DIR}/conf
+	BSR_MOD_DIR=${BSR_DIR}/module
+	BSR_LOG_DIR=${BSR_DIR}/log
+
+	mkdir -p ${BSR_DIR}
+	mkdir -p ${BSR_CFG_DIR}
+	mkdir -p ${BSR_MOD_DIR}
+	mkdir -p ${BSR_LOG_DIR}
+
+	if [ -e /proc/bsr ]; then
+		cat /proc/bsr > ${BSR_DIR}/bsr_state
+		bsradm show-gi all > ${BSR_DIR}/GI_state
+		cp -rL /sys/module/bsr/* ${BSR_MOD_DIR} 2> /dev/null
+	else
+		echo " bsr module not found."
+	fi
+
+	cp -rL /etc/bsr.d/* ${BSR_CFG_DIR} && find ${BSR_CFG_DIR} -type f ! -iname "*.res" -delete
+	cp -L /etc/bsr.conf ${BSR_DIR}
+	if [ -f /etc/bsr.d/global_common.conf ]; then
+		cp -L /etc/bsr.d/global_common.conf ${BSR_CFG_DIR}
+	fi
+
+	if [ ! $BSR_CONF_FILE ]; then
+		bsradm dump > ${BSR_DIR}/dump
+	else
+		bsradm dump --config-file=$BSR_CONF_FILE > ${BSR_DIR}/dump
+	fi
+
+	if [ -d /var/log/bsr ]; then
+		cp -rL /var/log/bsr/* ${BSR_LOG_DIR}
+	else
+		echo " bsr log not found."
+	fi
+}
+
+GetSystemInfo()
+{
+	echo "Get System information..."
+
+	# Logs
+	mkdir -p ${SYS_DIR}
+	dmesg > ${SYS_DIR}/dmeg
+	if [ -e "/var/log/messages" ]; then
+		cp -L /var/log/messages* ${SYS_DIR}/
+	elif [ -e "/var/log/syslog" ]; then
+		cp -L /var/log/syslog ${SYS_DIR}/
+	else
+		echo "/var/log/systemlog doesn't exit" > ${SYS_DIR}/none_messages_syslog
+	fi
+	cp -L /var/log/*.log ${SYS_DIR}/
+
+	# Current states
+	w > ${SYS_DIR}/w
+	who -r > ${SYS_DIR}/who_r
+	last >> ${SYS_DIR}/lastlog
+	runlevel > ${SYS_DIR}/runlevel
+
+	# OS
+	uname -a > ${SYS_DIR}/uname_a
+	cat /etc/*release >> ${SYS_DIR}/os_release
+
+	# Hardware
+	cat /proc/cpuinfo > ${SYS_DIR}/cpuinfo
+	cat /proc/meminfo > ${SYS_DIR}/meminfo
+	dmidecode > ${SYS_DIR}/dmidecode
+	free -m > ${SYS_DIR}/free
+
+	if [ -e "/bin/rpm" ]; then				# Redhat RPM list
+		/bin/rpm -qa >  ${SYS_DIR}/rpm_list
+	elif [ -e "/usr/bin/dpkg" ]; then		# devian package list
+		dpkg -l >  ${SYS_DIR}/dpkg_list
+	else
+		echo "package manager doesn't exist" > ${SYS_DIR}/none_pkg_list;
+	fi
+
+	# Network Information
+	ip addr > ${SYS_DIR}/ifconfig_a
+	if [ -e "/usr/sbin/ethtool" ]; then
+		for i in `ip addr | egrep "*: eth*|*: bond*" | awk '{ print $2}' | awk -F':' '{ print $1}'`; do ethtool $i; done > ${SYS_DIR}/ethtoollog
+	elif [ -e "/usr/bin/lshw" ] || [ -e "/usr/sbin/lshw" ]; then
+		lshw -class network > ${SYS_DIR}/ethtoollog
+	else
+		echo "ethtoollog doesn't exit" > ${SYS_DIR}/none_ethtoollog
+	fi
+
+	if ( which route > /dev/null 2>&1 ); then
+		route -n > ${SYS_DIR}/route
+	else
+		ip -d route > ${SYS_DIR}/route
+	fi
+	if ( which netstat > /dev/null 2>&1 ); then
+		netstat -nap > ${SYS_DIR}/netstat
+		netstat -nr > ${SYS_DIR}/netstat_nr
+	else
+		ss -nap > ${SYS_DIR}/ss
+	fi
+
+	if [ -e "/etc/network/interfaces" ]; then			# devian
+		cp -L /etc/network/interfaces ${SYS_DIR}/sysconfignetworkfile
+	elif [ -e "/etc/sysconfig/network" ]; then			# redhat
+		cp -L /etc/sysconfig/network  ${SYS_DIR}/sysconfignetworkfile
+		cp -L /etc/sysconfig/network-scripts/*  ${SYS_DIR}/
+	else
+		echo "sysconfig-network doesn't exit" > ${SYS_DIR}/none_sysconfignetworkfile
+	fi
+
+	cp -L /etc/hosts ${SYS_DIR}/
+	cp -L /etc/host.conf ${SYS_DIR}/
+
+	if [ -e "/etc/hosts.deny" ]; then
+		cp -L /etc/hosts.deny ${SYS_DIR}/
+	else
+		echo "/etc/hosts.deny doesn't exit" > ${SYS_DIR}/none_hosts.deny
+	fi
+	if [ -e "/etc/hosts.allow" ]; then
+		cp -L /etc/hosts.allow ${SYS_DIR}/
+	else
+		echo "/etc/hosts.allow doesn't exit" > ${SYS_DIR}/none_hosts.allow
+	fi
+
+	# Bonding Information
+	BON_DIR="/proc/net/bonding"
+	if [ -e ${BON_DIR} ]; then
+		cp -rL ${BON_DIR} ${SYS_DIR}
+	fi
+
+	SKEL_DIR=${SYS_DIR}/skel
+	USR_DIR=${SYS_DIR}/User
+
+	mkdir -p ${SKEL_DIR}
+	mkdir -p ${USR_DIR}
+
+	# sshd_config
+	if [ -e /etc/ssh/sshd_config ]; then
+		cp -L /etc/ssh/sshd_config ${SYS_DIR}/
+	fi
+
+	# bash info
+	if [ -e "/etc/skel/.bash_logout" ]; then
+		cp -L /etc/skel/.bash_logout ${SKEL_DIR}/bash_logout
+	else
+		echo "/etc/skel/.bash_logout doesn't exit" > ${SKEL_DIR}/none_bash_logout
+	fi
+
+	if [ -e "/etc/skel/.bash_profile" ]; then				# redhat
+		cp -L /etc/skel/.bash_profile ${SKEL_DIR}/bash_profile
+	elif [ -e "/etc/skel/.profile" ]; then					# devian
+		cp -L /etc/skel/.profile ${SKEL_DIR}/profile
+	else
+		echo "bash profile doesn't exit" > ${SKEL_DIR}/none_bash_profile
+	fi
+
+	if [ -e "/etc/skel/.bashrc" ]; then
+		cp -L /etc/skel/.bashrc ${SKEL_DIR}/bash_bashrc
+	else
+		echo "/etc/skel/.bashrc doesn't exit" > ${SKEL_DIR}/none_bashrc
+	fi
+
+	if [ -e /root/.bash_profile ]; then					# redhat
+		cp -L /root/.bash_profile ${USR_DIR}/root_profile
+	elif [ -e /root/.profile ]; then					# devian
+		cp -L /root/.profile ${USR_DIR}/root_profile
+	else
+		echo "/root/.profile doesn't exit" > ${USR_DIR}/none_root_profile
+	fi
+
+	cp -L /root/.bashrc ${USR_DIR}/root_bashrc
+
+	# system config
+	ETC_CFG_DIR=${SYS_DIR}/etcConfig
+	RC_CFG_DIR=${SYS_DIR}/rcConfig
+	MODPROBE_DIR=${SYS_DIR}/modprobe.d
+	ETC_FSTAB_DIR=${SYS_DIR}/etcFstab
+
+	mkdir -p ${ETC_CFG_DIR}/
+	mkdir -p ${RC_CFG_DIR}/
+	mkdir -p ${MODPROBE_DIR}/
+	mkdir -p ${ETC_FSTAB_DIR}/
+
+	cp -rL /etc/*.conf ${ETC_CFG_DIR}/
+	cp -rnL /etc/rc*.d/* ${RC_CFG_DIR}/
+	cp -rL /etc/fstab* ${ETC_FSTAB_DIR}/
+
+	# device list
+	cp -L /etc/modprobe.d/*  ${MODPROBE_DIR}
+	ls -l /dev  > ${SYS_DIR}/deviceList
+	lsmod > ${SYS_DIR}/lsmodList
+
+	# disk Information
+	lsblk > ${SYS_DIR}/lsblk
+	mount > ${SYS_DIR}/mount
+	if [ -e "/usr/bin/lsscsi" ]; then
+		lsscsi > ${SYS_DIR}/lsscsi
+	fi
+	if [ -e "/usr/bin/lshw" ] || [ -e "/usr/sbin/lshw" ]; then
+		lshw -c disk > ${SYS_DIR}/lshw_disk
+	fi
+
+	# Process Information
+	ps -ALf > ${SYS_DIR}/processInfo
+
+	# sysctl Information
+	sysctl -a > ${SYS_DIR}/sysCtlInfo 2> /dev/null
+
+	# system configure
+	SELIX_DIR=${SYS_DIR}/selinux
+
+	mkdir -p ${SELIX_DIR}/
+
+	ps -ewwwf > ${SYS_DIR}/ps_output
+	uptime >  ${SYS_DIR}/uptime
+
+	if [ -e "/etc/selinux/config" ]; then
+		cp -L /etc/selinux/config ${SELIX_DIR}/
+	else
+		echo "/etc/selinux/config doesn't exit." > ${SELIX_DIR}/none_selinux_config
+	fi
+
+	# services
+	if ( which service > /dev/null 2>&1 ); then
+		service --status-all > ${SYS_DIR}/service_status_all
+	fi
+
+	if ( which chkconfig > /dev/null 2>&1 ); then
+		chkconfig --list > ${SYS_DIR}/chkconfig_list 2> /dev/null
+	fi
+
+	if ( which systemctl > /dev/null 2>&1 ); then
+		systemctl list-unit-files --type=service -q --no-pager >> ${SYS_DIR}/systemctl_list 
+	fi
+
+	# firewalls
+	if [ -f "/sbin/iptables" ]; then			# redhat 6, 7, devian
+		iptables -L  > ${SYS_DIR}/iptableList
+	fi
+
+	if [ -f "/usr/bin/firewall-cmd" ]; then			# redhat 7
+		firewall-cmd --list-all > ${SYS_DIR}/firewalld_list_all
+		firewall-cmd --zone=public --list-ports > ${SYS_DIR}/firewalld_public
+		firewall-cmd --permanent --zone=public --list-ports > ${SYS_DIR}/firewalld_permanent_public
+	fi
+}
+
+GetBSRStatus()
+{
+	echo "Get BSR Status information...";
+
+	BSR_STATUS_DIR=${BSR_DIR}/status
+
+	mkdir -p ${BSR_STATUS_DIR}
+
+	bsradm show-gi all > ${BSR_STATUS_DIR}/gi.txt
+	bsradm dump > ${BSR_STATUS_DIR}/dump.txt
+	bsrsetup status --s --v all > ${BSR_STATUS_DIR}/status.txt
+	bsrsetup show > ${BSR_STATUS_DIR}/show.txt
+}
+
+Archive()
+{
+	echo "Archive files..."
+
+	if [ -d ${SUPPORT_HOME}/${HOSTNAME} ]; then
+		dt=$(date '+%Y%m%d.%H%M%S');
+		ARCHIVE_NAME=${HOSTNAME}-$dt.tar.gz
+
+		cd ${SUPPORT_HOME}
+		tar --remove-files -zcvf "${SUPPORT_HOME}/${ARCHIVE_NAME}" ${HOSTNAME}
+
+		echo ""
+		echo "Saved to ${SUPPORT_HOME}/${ARCHIVE_NAME}"
+	else
+		echo "No gathered information."
+	fi
+}
+
+GetCoreDumpFile()
+{
+	if [ 0 -ne ${#1} ]; then
+		filename=$(basename ${1})
+		filepath=$(dirname ${1})
+
+		if [ ! -d "${BSR_DIR}" ]; then
+			/bin/mkdir -p "${BSR_DIR}";
+		fi
+
+		dst_core_filename="${BSR_DIR}/${filename}.tar.gz"
+		/bin/tar zcvf ${dst_core_filename} -C ${filepath} ${filename};
+
+		echo "core file has been compressed.";
+	else
+		echo "core file is not included.";
+	fi
+}
+
+##########################################################################################
+# Main                                                                                   #
+##########################################################################################
+
+# Get Informations.
+GetCoreDumpFile $1
+GetBSRInfo
+GetSystemInfo
+GetBSRStatus
+Archive
