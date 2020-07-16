@@ -1720,8 +1720,10 @@ void global_validate_maybe_expand_die_if_invalid(int expand, enum pp_flags flags
 	struct d_resource *res;
 	for_each_resource(res, &config) {
 		validate_resource(res, flags);
-		if (!config_valid)
+		if (!config_valid) {
+			// BSR-614
 			exit(E_CONFIG_INVALID);
+		}
 		if (expand) {
 			struct connection *conn;
 
@@ -1731,7 +1733,10 @@ void global_validate_maybe_expand_die_if_invalid(int expand, enum pp_flags flags
 			for_each_connection(conn, &res->connections)
 				convert_discard_opt(&conn->net_options);
 		}
-		if (!config_valid)
+		if (!config_valid) {
+
+			// BSR-614
 			exit(E_CONFIG_INVALID);
+		}
 	}
 }

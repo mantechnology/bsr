@@ -134,7 +134,7 @@ const char *get_hostname(void)
 		char hostname[HOST_NAME_MAX];
 
 		if (gethostname(hostname, sizeof(hostname))) {
-			perror(hostname);
+			CLI_ERRO_LOG_PEEROR(false, hostname);
 			exit(20);
 		}
 		s_hostname = strdup(hostname);

@@ -325,8 +325,10 @@ int vcheck_uniq_file_line(
 		}
 		f = NULL;
 	}
-	if (EXIT_ON_CONFLICT && f)
+	if (EXIT_ON_CONFLICT && f) {
+		// BSR-614
 		exit(E_CONFIG_INVALID);
+	}
 	return !f;
 }
 

@@ -591,7 +591,7 @@ void schedule_deferred_cmd(struct adm_cmd *cmd,
 
 	d = calloc(1, sizeof(struct deferred_cmd));
 	if (d == NULL) {
-		perror("calloc");
+		CLI_ERRO_LOG_PEEROR(false, "calloc");
 		exit(E_EXEC_ERROR);
 	}
 
@@ -630,8 +630,10 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 			CLI_TRAC_LOG(false, "tmp_ctx.function, %s\n", tmp_ctx.cmd->name);
 			rv = tmp_ctx.cmd->function(&tmp_ctx);
 			if (rv >= 20) {
-				if (on_error == EXIT_ON_FAIL)
+				if (on_error == EXIT_ON_FAIL) {
+					// BSR-614
 					exit(rv);
+				}
 			}
 
 		}
@@ -640,8 +642,10 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 		CLI_TRAC_LOG(false, "cmd->function, %s\n", ctx->cmd->name);
 		rv = ctx->cmd->function(ctx);
 		if (rv >= 20) {
-			if (on_error == EXIT_ON_FAIL)
+			if (on_error == EXIT_ON_FAIL) {
+				// BSR-614
 				exit(rv);
+			}
 		}
 	}
 	return rv;
@@ -2463,7 +2467,7 @@ static int childs_running(pid_t * pids, int opts)
 				pids[i] = 0;	// Child exited before ?
 				continue;
 			}
-			perror("waitpid");
+			CLI_ERRO_LOG_PEEROR(false, "waitpid");
 			exit(E_EXEC_ERROR);
 		}
 		if (wr == 0)
@@ -2523,7 +2527,7 @@ redo_without_fd:
 					continue;
 				goto out;	// pr = -1 here.
 			}
-			perror("poll");
+			CLI_ERRO_LOG_PEEROR(false, "poll");
 			exit(E_EXEC_ERROR);
 		}
 	} while (pr == -1);
@@ -2533,7 +2537,7 @@ redo_without_fd:
        * at least we check here and do not nullptr deref */
 		rr = read(fileno(stdin), s, size - 1);
 		if (rr == -1) {
-			perror("read");
+			CLI_ERRO_LOG_PEEROR(false, "read");
 			exit(E_EXEC_ERROR);
 		} else if (size > 1 && rr == 0) {
 			/* WTF. End-of-file... avoid busy loop. */
@@ -2596,19 +2600,19 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 			"WARN: stdin/stdout is not a TTY; using /dev/console");
 		saved_stdin = dup(fileno(stdin));
 		if (saved_stdin == -1)
-			perror("dup(stdin)");
+			CLI_ERRO_LOG_PEEROR(false, "dup(stdin)");
 		saved_stdout = dup(fileno(stdout));
 		if (saved_stdin == -1)
-			perror("dup(stdout)");
+			CLI_ERRO_LOG_PEEROR(false, "dup(stdout)");
 		fd = open("/dev/console", O_RDONLY);
 		if (fd == -1) {
-			perror("open('/dev/console, O_RDONLY)");
+			CLI_ERRO_LOG_PEEROR(false, "open('/dev/console, O_RDONLY)");
 			have_tty = 0;
 		} else {
 			dup2(fd, fileno(stdin));
 			fd = open("/dev/console", O_WRONLY);
 			if (fd == -1)
-				perror("open('/dev/console, O_WRONLY)");
+				CLI_ERRO_LOG_PEEROR(false, "open('/dev/console, O_WRONLY)");
 			dup2(fd, fileno(stdout));
 		}
 	}
@@ -2691,7 +2695,7 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 							continue;
 						break;
 					}
-					perror("poll");
+					CLI_ERRO_LOG_PEEROR(false, "poll");
 					exit(E_EXEC_ERROR);
 				}
 			} while (rr != -1);
@@ -2814,6 +2818,7 @@ static int hidden_cmds(const struct cfg_ctx *ignored __attribute((unused)))
 
 	printf("\n");
 
+	// BSR-614
 	exit(0);
 }
 
@@ -2879,6 +2884,7 @@ void print_usage_and_exit(struct adm_cmd *cmd, const char *addinfo, int status)
 	if (addinfo)
 		printf("\n%s\n", addinfo);
 
+	// BSR-614
 	exit(status);
 }
 
@@ -3221,6 +3227,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			printf("BSR_KERNEL_VERSION=%s\n", escaped_version_code_kernel());
 			printf("BSRADM_VERSION_CODE=0x%06x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
+			// BSR-614
 			exit(0);
 			break;
 		case 'P':
@@ -3316,6 +3323,7 @@ struct adm_cmd *find_cmd(char *cmdname)
 	if (!strcmp("hidden-commands", cmdname)) {
 		// before parsing the configuration file...
 		hidden_cmds(NULL);
+		// BSR-614
 		exit(0);
 	}
 
@@ -3567,6 +3575,7 @@ int main(int argc, char **argv)
 
 
 	if (!config_valid) {
+		// BSR-614
 		exit(E_CONFIG_INVALID);
 	}
 

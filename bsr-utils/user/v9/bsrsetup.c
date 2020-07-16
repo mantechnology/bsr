@@ -3049,16 +3049,20 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 
-		if (!r)
+		if (!r) {
+			// BSR-614
 			exit(20);
+		}
 
 		r->name = strdup(cfg.ctx_resource_name);
 		if (res_opts) {
 			int size;
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
-			if (res_opts->nla_len <= NLA_HDRLEN)
+			if (res_opts->nla_len <= NLA_HDRLEN) {
+				// BSR-614
 				exit(20);
+			}
 
 			size = nla_total_size((int)nla_len(res_opts));
 
@@ -3162,8 +3166,10 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 		struct devices_list *d = calloc(1, sizeof(*d));
 		struct nlattr *disk_conf_nl = global_attrs[BSR_NLA_DISK_CONF];
 
-		if (!d)
+		if (!d) {
+			// BSR-614
 			exit(20);
+		}
 
 		d->minor =  ((struct bsr_genlmsghdr*)(info->userhdr))->minor;
 		d->ctx = ctx;
@@ -3171,8 +3177,10 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 			int size;
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
-			if (disk_conf_nl->nla_len <= NLA_HDRLEN)
+			if (disk_conf_nl->nla_len <= NLA_HDRLEN) {
+				// BSR-614
 				exit(20);
+			}
 
 			size = nla_total_size((int)nla_len(disk_conf_nl));
 
@@ -3248,16 +3256,21 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		struct nlattr *net_conf = global_attrs[BSR_NLA_NET_CONF];
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
 
-		if (!c)
+		if (!c) {
+			// BSR-614
 			exit(20);
+		}
 
 		c->ctx = ctx;
 		if (net_conf) {
 			int size;
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
-			if (net_conf->nla_len <= NLA_HDRLEN)
+			if (net_conf->nla_len <= NLA_HDRLEN) {
+
+				// BSR-614
 				exit(20);
+			}
 
 			size = nla_total_size((int)nla_len(net_conf));
 
@@ -3364,16 +3377,20 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 	if (ctx.ctx_resource_name) {
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
-		if (!p)
+		if (!p) {
+			// BSR-614
 			exit(20);
+		}
 
 		p->ctx = ctx;
 		if (peer_device_conf) {
 			int size;
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
-			if (peer_device_conf->nla_len <= NLA_HDRLEN)
+			if (peer_device_conf->nla_len <= NLA_HDRLEN) {
+				// BSR-614
 				exit(20);
+			}
 
 			size = nla_total_size((int)nla_len(peer_device_conf));
 
@@ -3701,7 +3718,7 @@ static void *update_info(char **key, void *value, size_t size)
 	}
 
 fail:
-	perror(progname);
+	CLI_ERRO_LOG_PEEROR(false, progname);
 	exit(20);
 }
 
@@ -4033,7 +4050,7 @@ out:
 	return 0;
 
 fail:
-	perror(progname);
+	CLI_ERRO_LOG_PEEROR(false, progname);
 	exit(20);
 }
 
@@ -4304,6 +4321,7 @@ static void print_usage_and_exit(const char *addinfo)
 	if (addinfo)  /* FIXME: ?! */
 		printf("\n%s\n", addinfo);
 
+	// BSR-614
 	exit(20);
 }
 
@@ -4392,7 +4410,7 @@ int main(int argc, char **argv)
 
 	if (chdir("/")) {
 		/* highly unlikely, but gcc is picky */
-		perror("cannot chdir /");
+		CLI_ERRO_LOG_PEEROR(false, "cannot chdir /");
 		return -111;
 	}
 
@@ -4415,6 +4433,7 @@ int main(int argc, char **argv)
 			cmd = find_cmd_by_name(argv[2]);
 			if(cmd) {
 				print_command_usage(cmd, usage_type);
+				// BSR-614
 				exit(0);
 			} else
 				print_usage_and_exit("unknown command");
