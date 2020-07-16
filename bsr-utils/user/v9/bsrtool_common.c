@@ -648,43 +648,33 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 }
 
 // BSR-605 if the file is larger than CLI_LOG_FILE_MAX_SIZE(50M), rename it and save it.
-void bsr_log_rolling(FILE *fp, char* fileFullPath)
+bool bsr_log_rolling(char* fileFullPath)
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
-	off_t size;
 
-	fseeko(fp, 0, SEEK_END);
-	size = ftello(fp);
+	char fileName[512];
+	int res;
 
-	if (CLI_LOG_FILE_MAX_SIZE < size) {
-		char fileName[512];
-		int res;
+	snprintf(fileName, sizeof(fileName), "%s_%04d-%02d-%02dT%02d%02d%02d",
+		fileFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-		fclose(fp);
-
-		snprintf(fileName, sizeof(fileName), "%s_%04d-%02d-%02dT%02d%02d%02d",
-			fileFullPath, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-		res = rename(fileFullPath, fileName);
-		if (res == -1) {
-			printf("failed to log file rename %s => %s\n", fileFullPath, fileName);
-			fp = NULL;
-		}
-		else {
-			fp = bsr_open_log();
-		}
+	res = rename(fileFullPath, fileName);
+	if (res == -1) {
+		printf("failed to log file rename %s => %s\n", fileFullPath, fileName);
+		return false;
 	}
+	
+	return true;
 
-	bsr_max_log_file_check_and_delete(fileFullPath);
 }
 
 FILE *bsr_open_log()
 {
-	char f[256];
+	char fileFullPath[256];
 	FILE* fp = NULL;
 
-	memset(f, 0, sizeof(f));
+	memset(fileFullPath, 0, sizeof(fileFullPath));
 #ifdef _WIN
 	char *s;
 	char *ptr;
@@ -694,24 +684,39 @@ FILE *bsr_open_log()
 	if (s != NULL) {
 		ptr = strrchr(s, L'\\');
 		if (s != NULL) {
-			memcpy(f, s, (ptr - s));
+			memcpy(fileFullPath, s, (ptr - s));
 			if (lprogram)
-				snprintf(f, sizeof(f), "%s\\log\\%s.log", f, lprogram);
+				snprintf(fileFullPath, sizeof(fileFullPath), "%s\\log\\%s.log", fileFullPath, lprogram);
 			else
-				snprintf(f, sizeof(f), "%s\\log\\bsrapp.log", f);
+				snprintf(fileFullPath, sizeof(fileFullPath), "%s\\log\\bsrapp.log", fileFullPath);
 		}
 	}
 #else // _LIN
 	if (lprogram)
-		snprintf(f, sizeof(f), "/var/log/bsr/%s.log", lprogram);
+		snprintf(fileFullPath, sizeof(fileFullPath), "/var/log/bsr/%s.log", lprogram);
 	else
-		snprintf(f, sizeof(f), "/var/log/bsr/bsrapp.log");
+		snprintf(fileFullPath, sizeof(fileFullPath), "/var/log/bsr/bsrapp.log");
 #endif
-	fp = fopen(f, "a");
+
+	fp = fopen(fileFullPath, "a");
+
 	if (!fp)
-		printf("log file open failed, %s\n", f);
-	else
-		bsr_log_rolling(fp, f);
+		printf("log file open failed, %s\n", fileFullPath);
+	else {
+		off_t size;
+
+		fseeko(fp, 0, SEEK_END);
+		size = ftello(fp);
+
+		if (CLI_LOG_FILE_MAX_SIZE < size) {
+			fclose(fp);
+
+			if (bsr_log_rolling(fileFullPath))
+				fp = fopen(fileFullPath, "a");
+		}
+		
+		bsr_max_log_file_check_and_delete(fileFullPath);
+	}
 
 	return fp;
 }
