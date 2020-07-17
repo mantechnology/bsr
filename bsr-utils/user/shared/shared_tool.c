@@ -388,12 +388,12 @@ uint64_t bdev_size(int fd)
 			printf("INFO: falling back to BLKGETSIZE\n");
 			err = ioctl(fd, BLKGETSIZE, &size);
 			if (err) {
-				perror("ioctl(,BLKGETSIZE,) failed");
+				CLI_ERRO_LOG_PEEROR(false, "ioctl(,BLKGETSIZE,) failed");
 				exit(20);
 			}
 			size64 = (uint64_t)512 *size;
 		} else {
-			perror("ioctl(,BLKGETSIZE64,) failed");
+			CLI_ERRO_LOG_PEEROR(false, "ioctl(,BLKGETSIZE64,) failed");
 			exit(20);
 		}
 	}
@@ -542,7 +542,7 @@ bool random_by_dev_urandom(void *buffer, size_t len)
 	
 	fd = open("/dev/urandom", O_RDONLY);
 	if (fd == -1) {
-		perror("Open of /dev/urandom failed");
+		CLI_ERRO_LOG_PEEROR(false, "Open of /dev/urandom failed");
 		return false;
 	}
 	if (read(fd, buffer, len) != len) {
@@ -565,7 +565,7 @@ void get_random_bytes(void *buffer, size_t len)
 	if (ok)
 		return;
 
-	perror("Could not get random data from getentropy(). Fallback to /dev/urandom");
+	CLI_ERRO_LOG_PEEROR(false, "Could not get random data from getentropy(). Fallback to /dev/urandom");
 	/* fallback to /dev/urandom */
 #endif
 	ok = random_by_dev_urandom(buffer, len);
@@ -875,7 +875,7 @@ int dt_lock_bsr(int minor)
 	sz = asprintf(&lfname, BSR_LOCK_DIR "/bsr-%d-%d",
 		      LANANA_BSR_MAJOR, minor);
 	if (sz < 0) {
-		perror("");
+		CLI_ERRO_LOG_PEEROR(false, "failed to allocated string(20)");
 		exit(20);
 	}
 

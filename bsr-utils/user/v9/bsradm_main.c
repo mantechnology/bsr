@@ -631,7 +631,7 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 			rv = tmp_ctx.cmd->function(&tmp_ctx);
 			if (rv >= 20) {
 				if (on_error == EXIT_ON_FAIL) {
-					// BSR-614
+					CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
 					exit(rv);
 				}
 			}
@@ -643,7 +643,7 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 		rv = ctx->cmd->function(ctx);
 		if (rv >= 20) {
 			if (on_error == EXIT_ON_FAIL) {
-				// BSR-614
+				CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
 				exit(rv);
 			}
 		}
@@ -2818,7 +2818,7 @@ static int hidden_cmds(const struct cfg_ctx *ignored __attribute((unused)))
 
 	printf("\n");
 
-	// BSR-614
+	CLI_INFO_LOG(false, "hidden_cmds exit(0)\n");
 	exit(0);
 }
 
@@ -2884,7 +2884,7 @@ void print_usage_and_exit(struct adm_cmd *cmd, const char *addinfo, int status)
 	if (addinfo)
 		printf("\n%s\n", addinfo);
 
-	// BSR-614
+	CLI_WRAN_LOG(false, "print usage and exit(%d)\n", status);
 	exit(status);
 }
 
@@ -3227,7 +3227,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			printf("BSR_KERNEL_VERSION=%s\n", escaped_version_code_kernel());
 			printf("BSRADM_VERSION_CODE=0x%06x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
-			// BSR-614
+			bsr_cmd_quit_log(0);
 			exit(0);
 			break;
 		case 'P':
@@ -3323,7 +3323,6 @@ struct adm_cmd *find_cmd(char *cmdname)
 	if (!strcmp("hidden-commands", cmdname)) {
 		// before parsing the configuration file...
 		hidden_cmds(NULL);
-		// BSR-614
 		exit(0);
 	}
 
@@ -3575,7 +3574,7 @@ int main(int argc, char **argv)
 
 
 	if (!config_valid) {
-		// BSR-614
+		CLI_ERRO_LOG(false, "invalid config\n");
 		exit(E_CONFIG_INVALID);
 	}
 

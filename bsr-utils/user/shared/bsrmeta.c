@@ -2701,7 +2701,7 @@ static int _create_vhd_script(char * vhd_path, uint64_t size_mb, char * mount_po
 
 	FILE * fp = fopen("./"CREATE_VHD_SCRIPT, "w");
 	if (!fp) {
-		perror("fopen failed [%m]\n");
+		CLI_ERRO_LOG_PEEROR(false, "fopen failed [%m]\n");
 		return 1;
 	}
 
@@ -2741,7 +2741,7 @@ static int _attach_vhd_script(char * vhd_path)
 
 	FILE * fp = fopen("./"ATTACH_VHD_SCRIPT, "w");
 	if (!fp) {
-		perror("fopen failed [%m]\n");
+		CLI_ERRO_LOG_PEEROR(false, "fopen failed [%m]\n");
 		return 1;
 	}
 
@@ -2773,7 +2773,7 @@ static int _call_script(char **argv)
 
 		int ret = execvp(argv[0], argv);
 		if (-1 == ret) {
-			perror("child process execve failed [%m]\n");
+			CLI_ERRO_LOG_PEEROR(false, "child process execve failed [%m]\n");
 			return -2;
 		}
 	}
@@ -2955,7 +2955,7 @@ int v07_style_md_open(struct format *cfg)
 			if ((!force && command->function == &meta_apply_al) ||
 			    !confirmed("Exclusive open failed. Do it anyways?"))
 			{
-				printf("Operation canceled.\n");
+				CLI_WRAN_LOG_PRINT(false, "Operation canceled.(20)\n");
 				exit(20);
 			}
 			open_flags &= ~O_EXCL;
@@ -3500,7 +3500,7 @@ int meta_set_gi(struct format *cfg, char **argv, int argc)
 	cfg->ops->get_gi(&tmp, option_node_id);
 
 	if (!confirmed("Write new GI to disk?")) {
-		printf("Operation canceled.\n");
+		CLI_INFO_LOG_PRINT(false, "Operation canceled.(0)\n");
 		exit(0);
 	}
 
@@ -4510,6 +4510,7 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 
 		close(0); /* we do not use stdin */
 		execvp(argv[0], argv);
+		bsr_cmd_quit_log(0);
 		_exit(0);
 	}
 	/* parent */
@@ -4641,11 +4642,11 @@ void check_for_existing_data(struct format *cfg)
 				printf("\nIgnoring sanity check on user request.\n\n");
 				return;
 			}
-			printf(
-"If you want me to do this, you need to zero out the first part\n"
-"of the device (destroy the content).\n"
-"You should be very sure that you mean it.\n"
-"Operation refused.\n\n");
+			CLI_WRAN_LOG_PRINT(false,
+								"If you want me to do this, you need to zero out the first part\n"
+								"of the device (destroy the content).\n"
+								"You should be very sure that you mean it.\n"
+								"Operation refused.(40)\n\n");
 			exit(40); /* FIXME sane exit code! */
 		}
 
@@ -4665,25 +4666,27 @@ void check_for_existing_data(struct format *cfg)
 				printf("\nIgnoring sanity check on user request.\n\n");
 				return;
 			}
-			printf(
-"If you want me to do this, you need to zero out the first part\n"
-"of the device (destroy the content).\n"
-"You should be very sure that you mean it.\n"
-"Operation refused.\n\n");
+			CLI_WRAN_LOG_PRINT(false, 
+								"If you want me to do this, you need to zero out the first part\n"
+								"of the device (destroy the content).\n"
+								"You should be very sure that you mean it.\n"
+								"Operation refused.(40)\n\n");
+
 			exit(40); /* FIXME sane exit code! */
 		}
 
 		/* looks like file system data */
 		if (fs_kB > max_usable_kB) {
-			printf(
-"\nDevice size would be truncated, which\n"
-"would corrupt data and result in\n"
-"'access beyond end of device' errors.\n"
-"You need to either\n"
-"   * use external meta data (recommended)\n"
-"   * shrink that filesystem first\n"
-"   * zero out the device (destroy the filesystem)\n"
-"Operation refused.\n\n");
+			CLI_WRAN_LOG_PRINT(false,
+								"\nDevice size would be truncated, which\n"
+								"would corrupt data and result in\n"
+								"'access beyond end of device' errors.\n"
+								"You need to either\n"
+								"   * use external meta data (recommended)\n"
+								"   * shrink that filesystem first\n"
+								"   * zero out the device (destroy the filesystem)\n"
+								"Operation refused.(40)\n\n");
+
 			exit(40); /* FIXME sane exit code! */
 		} else {
 			printf(
@@ -4694,7 +4697,7 @@ void check_for_existing_data(struct format *cfg)
 		printf("\n ==> This might destroy existing data! <==\n");
 
 	if (!confirmed("Do you want to proceed?")) {
-		printf("Operation canceled.\n");
+		CLI_WRAN_LOG_PRINT(false, "Operation canceled.(1)\n");
 		exit(1); // 1 to avoid online resource counting
 	}
 }
@@ -4796,7 +4799,7 @@ void check_internal_md_flavours(struct format * cfg) {
 			}
 		}
 		if (!confirmed("Do you really want to overwrite the existing meta-data?")) {
-			printf("Operation cancelled.\n");
+			CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
 			exit(1); // 1 to avoid online resource counting
 		}
 		cfg->md.magic = 0;
@@ -4813,7 +4816,7 @@ void check_internal_md_flavours(struct format * cfg) {
 				 "with newly initialized %s meta-data?",
 				 f_ops[have].name, cfg->ops->name);
 			if (!confirmed(msg)) {
-				printf("Operation cancelled.\n");
+				CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
 				exit(1); // 1 to avoid online resource counting
 			}
 			cfg->md.magic = 0;
@@ -4859,7 +4862,7 @@ void check_external_md_flavours(struct format * cfg) {
 	if (cfg->md.magic) {
 		if (!confirmed("Valid meta data seems to be in place.\n"
 				"Do you really want to overwrite?")) {
-			printf("Operation cancelled.\n");
+			CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
 			exit(1);
 		}
 		cfg->md.magic = 0;
@@ -4886,7 +4889,7 @@ void check_external_md_flavours(struct format * cfg) {
 			return;
 		}
 
-		printf("Operation cancelled.\n");
+		CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
 		exit(1);
 	}
 }
@@ -5155,7 +5158,7 @@ int meta_wipe_md(struct format *cfg, char **argv __attribute((unused)), int argc
 	}
 
 	if (!confirmed("Do you really want to wipe out the BSR meta data?")) {
-		printf("Operation cancelled.\n"); 
+		CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
 		exit(1);
 	}
 
@@ -5288,6 +5291,7 @@ void print_usage_and_exit()
 		       cmds[i].args ? cmds[i].args : "");
 	}
 
+	CLI_WRAN_LOG(false, "print usage and exit(20)\n");
 	exit(20);
 }
 
@@ -5351,7 +5355,7 @@ int is_attached(int minor)
 	int rr, exitcode;
 
 	if (pipe(pipes)) {
-		perror("bsrsetup pipe");
+		CLI_ERRO_LOG_PEEROR(false, "bsrsetup pipe");
 		exit(20);
 	}
 
@@ -5359,7 +5363,7 @@ int is_attached(int minor)
 
 	pid = fork();
 	if (pid == -1) {
-		perror("fork for bsrsetup");
+		CLI_ERRO_LOG_PEEROR(false, "fork for bsrsetup");
 		exit(20);
 	}
 	if (pid == 0) {
@@ -5384,7 +5388,7 @@ int is_attached(int minor)
 		return 0; /* 20 == no module; 10 == no minor */
 
 	if (rr < 1) {
-		perror("read from bsrsetup\n");
+		CLI_ERRO_LOG_PEEROR(false, "read from bsrsetup\n");
 		exit(20);
 	}
 	result[rr-1] = 0;
@@ -5461,7 +5465,7 @@ struct format *new_cfg()
 	errno = 0;
 	pagesize = sysconf(_SC_PAGESIZE);
 	if (errno) {
-		perror("could not determine pagesize");
+		CLI_ERRO_LOG_PEEROR(false, "could not determine pagesize");
 		exit(20);
 	}
 	cfg = calloc(1, sizeof(struct format));

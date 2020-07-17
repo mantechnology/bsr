@@ -96,7 +96,7 @@ struct ifreq *get_ifreq(void) {
 	size_t buf_size;
 
 	if (0 > (sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))) {
-		perror("Cannot open socket");
+		CLI_ERRO_LOG_PEEROR(false, "Cannot open socket");
 		exit(EXIT_FAILURE);
 	}
 
@@ -113,7 +113,7 @@ struct ifreq *get_ifreq(void) {
 			return NULL;
 		}
 		if (ioctl(sockfd, SIOCGIFCONF, &ifc)) {
-			perror("ioctl SIOCFIFCONF");
+			CLI_ERRO_LOG_PEEROR(false, "ioctl SIOCFIFCONF");
 			free(ifc.ifc_req);
 			return NULL;
 		}
@@ -131,7 +131,7 @@ struct ifreq *get_ifreq(void) {
 		 */
 		struct ifreq ifr_for_flags = *ifr;	/* get a copy to work with */
 		if (ioctl(sockfd, SIOCGIFFLAGS, &ifr_for_flags) < 0) {
-			perror("ioctl SIOCGIFFLAGS");
+			CLI_ERRO_LOG_PEEROR(false, "ioctl SIOCGIFFLAGS");
 			ifr->ifr_addr.sa_family = -1;	/* what's wrong here? anyways: skip */
 			continue;
 		}
@@ -197,7 +197,7 @@ int have_ip_ipv6(const char *ip)
 	if_inet6 = fopen(PROC_IF_INET6, "r");
 	if (!if_inet6) {
 		if (errno != ENOENT)
-			perror("open of " PROC_IF_INET6 " failed:");
+			CLI_ERRO_LOG_PEEROR(false, "open of " PROC_IF_INET6 " failed:");
 #undef PROC_IF_INET6
 		return 0;
 	}

@@ -326,7 +326,7 @@ int vcheck_uniq_file_line(
 		f = NULL;
 	}
 	if (EXIT_ON_CONFLICT && f) {
-		// BSR-614
+		CLI_ERRO_LOG(false, "invalid config\n");
 		exit(E_CONFIG_INVALID);
 	}
 	return !f;
