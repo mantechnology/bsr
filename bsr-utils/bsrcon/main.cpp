@@ -371,7 +371,7 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 	}
 #endif
 
-	if (lResult == ERROR_FILE_NOT_FOUND || logLevel == 0) {
+	if (lResult == ERROR_FILE_NOT_FOUND) {
 		// DW-1921
 		//It is not an error that no key exists.Just set it to the default value.
 		*sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
@@ -380,7 +380,7 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 
 		return true;
 	} else if (lResult != ERROR_SUCCESS)
-		return true;
+		return false;
 
 
 	*sys_evtlog_lv = (logLevel >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK;
