@@ -45,52 +45,6 @@ const struct block_device_operations bsr_ops = {
 };
 
 
-// BSR-584 reading /etc/bsr.d/.XXX file
-static long read_reg_file(char *file_path, long default_val)
-{	
-	struct file *fd = NULL;
-	char *buffer = NULL;
-	int filesize = 0;
-	long ret_val = default_val;
-	int err = 0;
-	mm_segment_t oldfs;
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-	fd = filp_open(file_path, O_RDONLY, 0);
-
-	if (fd == NULL || IS_ERR(fd))
-		goto out;
-
-	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
-	if (filesize <= 0)
-		goto close;
-
-	buffer = kmalloc(filesize, GFP_ATOMIC|__GFP_NOWARN);
-
-	memset(buffer, 0, sizeof(filesize));
-	
-	if (fd->f_op->llseek(fd, 0, SEEK_SET) < 0)
-		goto close;
-	err = bsr_read(fd, buffer, filesize, &fd->f_pos);
-	if (err < 0 || err != filesize)
-		goto close;
-
-	err = kstrtol(buffer, 0, &ret_val);
-	if (err < 0 || ret_val == 0)
-		ret_val = default_val;
-
-close:
-	if (buffer != NULL)
-		kfree(buffer);
-	if (fd != NULL)
-		filp_close(fd, NULL);
-out:
-	set_fs(oldfs);
-	return ret_val;
-}
-
-
 static int __init bsr_load(void)
 {
 	long log_level = 0;

@@ -142,7 +142,6 @@ module_param(minor_count, uint, 0444);
 module_param(disable_sendpage, bool, 0644);
 module_param(allow_oos, bool, 0);
 #ifdef _LIN_FAST_SYNC
-module_param(use_fast_sync, bool, 0644);
 module_param(debug_fast_sync, bool, 0644);
 #endif
 #endif
@@ -195,7 +194,6 @@ bool disable_sendpage;
 #endif
 bool allow_oos = false;
 #ifdef _LIN_FAST_SYNC
-bool use_fast_sync = true;
 bool debug_fast_sync = true;
 #endif
 /* Module parameter for setting the user mode helper program
@@ -7130,7 +7128,8 @@ bool isFastInitialSync()
 
 #else // _LIN
 #ifdef _LIN_FAST_SYNC
-	bRet = use_fast_sync;
+	// BSR-643 read from file
+	bRet = read_reg_file("/etc/bsr.d/.use_fast_sync", 1);
 #else
 	bRet = false;
 #endif
