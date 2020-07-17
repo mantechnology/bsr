@@ -107,7 +107,6 @@ extern unsigned int minor_count;
 extern bool disable_sendpage;
 extern bool allow_oos;
 #ifdef _LIN_FAST_SYNC
-extern bool use_fast_sync; 
 extern bool debug_fast_sync; /* debugging log output to dmesg */
 #endif
 #ifdef CONFIG_BSR_FAULT_INJECTION
@@ -4082,6 +4081,7 @@ extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64
 #endif
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
+extern long read_reg_file(char *file_path, long default_val);
 #endif
 
 #endif
