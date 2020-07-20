@@ -1859,11 +1859,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				__cancel_other_resyncs(device);
 
 			if (stable_resync &&
-			    !test_bit(RECONCILIATION_RESYNC, &peer_device->flags) &&
-
 				// DW-1034 we've already had the newest one.
 				((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) &&
-
 			    peer_device->uuids_received) {
 				u64 newer = bsr_uuid_resync_finished(peer_device);
 
