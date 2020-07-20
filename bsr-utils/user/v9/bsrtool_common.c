@@ -795,14 +795,16 @@ void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const 
 	fclose(fp);
 }
 
-void bsr_cmd_exec_log(int argc, char** argv)
+void bsr_exec_log(int argc, char** argv)
 {
-	CLI_INFO_LOG(false, "cmd exec,");
-	for (int i = 0; i < argc; i++)
+	int i = 0;
+
+	CLI_INFO_LOG(false, "exec,");
+	for (i = 0; i < argc; i++)
 		CLI_INFO_LOG(true, " %s", argv[i]);
 	CLI_INFO_LOG(true, "\n");
 }
-void bsr_cmd_quit_log(int rv)
+void bsr_terminate_log(int rv)
 {
-	CLI_INFO_LOG(false, "cmd quit, rv(%d)\n", rv);
+	CLI_INFO_LOG(false, "terminate, rv(%d)\n", rv);
 }

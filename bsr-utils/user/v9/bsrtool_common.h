@@ -124,8 +124,8 @@ extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level,
 // BSR-614 default log level is info
 int llevel;
 
-extern void bsr_cmd_exec_log(int argc, char** argv);
-extern void bsr_cmd_exit_log(int rv);
+extern void bsr_exec_log(int argc, char** argv);
+extern void bsr_terminate_log(int rv);
 
 FILE *bsr_open_log();
 

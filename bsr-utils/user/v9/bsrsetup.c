@@ -4405,7 +4405,7 @@ int main(int argc, char **argv)
 
 	lprogram = progname = basename(argv[0]);
 
-	bsr_cmd_exec_log(argc, argv);
+	bsr_exec_log(argc, argv);
 
 	if (chdir("/")) {
 		/* highly unlikely, but gcc is picky */
@@ -4602,7 +4602,7 @@ int main(int argc, char **argv)
 	if ((context & CTX_MINOR) && !cmd->lockless)
 		dt_unlock_bsr(lock_fd);
 
-	bsr_cmd_quit_log(rv);
+	bsr_terminate_log(rv);
 
 	return rv;
 }

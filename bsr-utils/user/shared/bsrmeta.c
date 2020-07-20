@@ -138,18 +138,18 @@ static int confirmed(const char *text)
 	size_t n = 0;
 	int ok;
 
-	CLI_ERRO_LOG_STDERR(false, "\n%s\n", text);
+	fprintf(stderr, "\n%s\n", text);
 
 	if (force) {
-	    CLI_ERRO_LOG_STDERR(false, "*** confirmation forced via --force option ***\n");
+		fprintf(stderr, "*** confirmation forced via --force option ***\n");
 	    ok = 1;
 	}
 	else {
-	    CLI_ERRO_LOG_STDERR(false, "[need to type '%s' to confirm] ", yes);
+		fprintf(stderr, "[need to type '%s' to confirm] ", yes);
 	    ok = getline(&answer,&n,stdin) == N &&
 		strncmp(answer,yes,N-1) == 0;
 	    free(answer);
-	    CLI_ERRO_LOG_STDERR(false, "\n");
+		fprintf(stderr, "\n");
 	}
 	return ok;
 }
@@ -1811,7 +1811,7 @@ static void zeroout_bitmap(struct format *cfg)
 			i -= chunk;
 			percent_done = 100 * (bitmap_bytes - i) / bitmap_bytes;
 			if (percent_done != percent_last_report) {
-				CLI_ERRO_LOG_STDERR(false, "\r%u%%", percent_done);
+				CLI_ERRO_LOG_STDERR(false, "\r%u%%\n", percent_done);
 				percent_last_report = percent_done;
 			}
 		}
@@ -4510,7 +4510,7 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 
 		close(0); /* we do not use stdin */
 		execvp(argv[0], argv);
-		bsr_cmd_quit_log(0);
+		bsr_terminate_log(0);
 		_exit(0);
 	}
 	/* parent */
@@ -5500,7 +5500,7 @@ int main(int argc, char **argv)
 		lprogram = progname = argv[0];
 	}
 
-	bsr_cmd_exec_log(argc, argv);
+	bsr_exec_log(argc, argv);
 
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
@@ -5684,7 +5684,7 @@ int main(int argc, char **argv)
 	if (minor_attached)
 		CLI_ERRO_LOG_STDERR(false, "# Output might be stale, since minor %d is attached\n", cfg->minor);
 
-	bsr_cmd_quit_log(rv);
+	bsr_terminate_log(rv);
 
 	return rv;
 	/* and if we want an explicit free,

@@ -444,8 +444,8 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			CLI_ERRO_LOG_STDERR(false,  "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
 				CLI_ERRO_LOG_STDERR(true, "%s", *cmdline);
-				if (cmdline[1])
-					fputc(' ', stderr);
+				if (cmdline[1]) 
+					CLI_ERRO_LOG_STDERR(true, " ");
 			}
 			if (alarm_raised) {
 				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds\n", timeout);
