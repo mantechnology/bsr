@@ -121,6 +121,12 @@ char *lcmd;
 extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...);
 extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args);
 
+// BSR-614 default log level is info
+int llevel;
+
+extern void bsr_exec_log(int argc, char** argv);
+extern void bsr_terminate_log(int rv);
+
 FILE *bsr_open_log();
 
 #define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, ERROR_LEVEL, continued, format, ##arg) 
@@ -129,6 +135,25 @@ FILE *bsr_open_log();
 #define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, TRACE_LEVEL, continued, format, ##arg)
 
 #define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, __LINE__, ERROR_LEVEL, format, arg) 
+
+
+#define CLI_ERRO_LOG_PEEROR(continued, msg) \
+		{	\
+			CLI_ERRO_LOG(continued, msg); \
+			perror(msg); \
+		} while(false)
+
+#define CLI_INFO_LOG_PRINT(continued, format, arg...) \
+		{	\
+			CLI_INFO_LOG(continued, format, ##arg); \
+			printf(format, ##arg); \
+		} while(false)
+
+#define CLI_WRAN_LOG_PRINT(continued, format, arg...) \
+		{	\
+			CLI_WRAN_LOG(continued, format, ##arg); \
+			printf(format, ##arg); \
+		} while(false)
 
 #define CLI_ERRO_LOG_STDERR(continued, format, arg...) \
 		{	\

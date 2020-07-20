@@ -37,6 +37,7 @@ static struct version __bsr_utils_version = {};
 
 char *lprogram = NULL;
 char *lcmd = NULL;
+int llevel = INFO_LEVEL;
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -133,7 +134,7 @@ const char *get_hostname(void)
 		char hostname[HOST_NAME_MAX];
 
 		if (gethostname(hostname, sizeof(hostname))) {
-			perror(hostname);
+			CLI_ERRO_LOG_PEEROR(false, hostname);
 			exit(20);
 		}
 		s_hostname = strdup(hostname);
@@ -757,6 +758,10 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	long offset = 0;
 	va_list args;
 
+	// BSR-614
+	if (level > llevel)
+		return;
+
 	FILE *fp = bsr_open_log();
 
 	if (fp == NULL) {
@@ -774,7 +779,6 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 
 	fclose(fp);
 }
-
 
 void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args)
 {
@@ -794,4 +798,18 @@ void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const 
 	fprintf(fp, "%s", b);
 
 	fclose(fp);
+}
+
+void bsr_exec_log(int argc, char** argv)
+{
+	int i = 0;
+
+	CLI_INFO_LOG(false, "exec,");
+	for (i = 0; i < argc; i++)
+		CLI_INFO_LOG(true, " %s", argv[i]);
+	CLI_INFO_LOG(true, "\n");
+}
+void bsr_terminate_log(int rv)
+{
+	CLI_INFO_LOG(false, "terminate, rv(%d)\n", rv);
 }

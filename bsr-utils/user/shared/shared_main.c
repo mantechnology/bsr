@@ -96,7 +96,7 @@ struct ifreq *get_ifreq(void) {
 	size_t buf_size;
 
 	if (0 > (sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))) {
-		perror("Cannot open socket");
+		CLI_ERRO_LOG_PEEROR(false, "Cannot open socket");
 		exit(EXIT_FAILURE);
 	}
 
@@ -113,7 +113,7 @@ struct ifreq *get_ifreq(void) {
 			return NULL;
 		}
 		if (ioctl(sockfd, SIOCGIFCONF, &ifc)) {
-			perror("ioctl SIOCFIFCONF");
+			CLI_ERRO_LOG_PEEROR(false, "ioctl SIOCFIFCONF");
 			free(ifc.ifc_req);
 			return NULL;
 		}
@@ -131,7 +131,7 @@ struct ifreq *get_ifreq(void) {
 		 */
 		struct ifreq ifr_for_flags = *ifr;	/* get a copy to work with */
 		if (ioctl(sockfd, SIOCGIFFLAGS, &ifr_for_flags) < 0) {
-			perror("ioctl SIOCGIFFLAGS");
+			CLI_ERRO_LOG_PEEROR(false, "ioctl SIOCGIFFLAGS");
 			ifr->ifr_addr.sa_family = -1;	/* what's wrong here? anyways: skip */
 			continue;
 		}
@@ -145,7 +145,7 @@ struct ifreq *get_ifreq(void) {
 		if (ifr->ifr_addr.sa_family != AF_INET)
 			continue;
 
-		TRACE_PRINT("ipv4 %s\n", inet_ntoa(list_addr->sin_addr));
+		CLI_TRAC_LOG(false, "ipv4 %s\n", inet_ntoa(list_addr->sin_addr));
 	}
 	close(sockfd);
 	return ifc.ifc_req;
@@ -197,7 +197,7 @@ int have_ip_ipv6(const char *ip)
 	if_inet6 = fopen(PROC_IF_INET6, "r");
 	if (!if_inet6) {
 		if (errno != ENOENT)
-			perror("open of " PROC_IF_INET6 " failed:");
+			CLI_ERRO_LOG_PEEROR(false, "open of " PROC_IF_INET6 " failed:");
 #undef PROC_IF_INET6
 		return 0;
 	}
@@ -210,7 +210,7 @@ int have_ip_ipv6(const char *ip)
 			addr6.s6_addr32[i] = cpu_to_be32(b[i]);
 
 		inet_ntop(AF_INET6, (void *)&addr6, addr6_str, sizeof(addr6_str));
-		TRACE_PRINT("ipv6 %s\n", addr6_str);
+		CLI_TRAC_LOG(false, "ipv6 %s\n", addr6_str);
 
 		if (memcmp(&query_addr, &addr6, sizeof(struct in6_addr)) == 0) {
 			fclose(if_inet6);
@@ -223,7 +223,7 @@ int have_ip_ipv6(const char *ip)
 
 int have_ip(const char *af, const char *ip)
 {
-	TRACE_PRINT("af(%s), ip(%s)\n", af, ip);
+	CLI_TRAC_LOG(false, "af(%s), ip(%s)\n", af, ip);
 
 	if (!strcmp(af, "ipv4"))
 		return have_ip_ipv4(ip);
@@ -444,8 +444,8 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 			CLI_ERRO_LOG_STDERR(false,  "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
 				CLI_ERRO_LOG_STDERR(true, "%s", *cmdline);
-				if (cmdline[1])
-					fputc(' ', stderr);
+				if (cmdline[1]) 
+					CLI_ERRO_LOG_STDERR(true, " ");
 			}
 			if (alarm_raised) {
 				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds\n", timeout);

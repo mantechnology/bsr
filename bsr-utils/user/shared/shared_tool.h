@@ -39,7 +39,7 @@ enum MetaDataIndex {
 
 /*
 #define PERROR(fmt, args...) \
-do { fprintf(stderr,fmt ": " , ##args); perror(0); } while (0)
+do { fprintf(stderr,fmt ": " , ##args); CLI_ERRO_LOG_PEEROR(false, 0); } while (0)
 */
 #define PERROR(fmt, args...) CLI_ERRO_LOG_STDERR(false, fmt ": %m\n" , ##args); // fprintf(stderr, fmt ": %m\n" , ##args);
 #define WPRINTF(fmt, args...)	CLI_ERRO_LOG_STDERR(false, "[%s] "fmt, __FUNCTION__, ##args); //fprintf(stderr, "[%s] "fmt, __FUNCTION__, ##args);

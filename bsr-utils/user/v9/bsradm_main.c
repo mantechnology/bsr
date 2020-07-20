@@ -75,7 +75,7 @@ struct deferred_cmd {
 struct option general_admopt[] = {
 	{"stacked", no_argument, 0, 'S'},
 	{"dry-run", no_argument, 0, 'd' },
-	{"trace-print", no_argument, 0, 'T' },
+	{"log-level-trace", no_argument, 0, 'T' },
 	{"ignore-hostname", no_argument, 0, 'i'}, // DW-1719
 	{"verbose", no_argument, 0, 'v'},
 	{"config-file", required_argument, 0, 'c'},
@@ -164,8 +164,6 @@ int no_tty;
 int dry_run = 0;
 int ignore_hostname = 0; // DW-1719 Added option to ignore hostname check
 int verbose = 0;
-// DW-1744 trace print option add
-bool trace_print = false;
 int adjust_with_progress = 0;
 bool help;
 int do_verify_ips = 0;
@@ -593,14 +591,14 @@ void schedule_deferred_cmd(struct adm_cmd *cmd,
 
 	d = calloc(1, sizeof(struct deferred_cmd));
 	if (d == NULL) {
-		perror("calloc");
+		CLI_ERRO_LOG_PEEROR(false, "calloc");
 		exit(E_EXEC_ERROR);
 	}
 
 	d->ctx = *ctx;
 	d->ctx.cmd = cmd;
 
-	TRACE_PRINT("INSERT_TAIL, %s\n", d->ctx.cmd->name);
+	CLI_TRAC_LOG(false, "INSERT_TAIL, %s\n", d->ctx.cmd->name);
 	STAILQ_INSERT_TAIL(&deferred_cmds[stage], d, link);
 }
 
@@ -629,21 +627,25 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 
 		for_each_path(path, &tmp_ctx.conn->paths) {
 			tmp_ctx.path = path;
-			TRACE_PRINT("tmp_ctx.function, %s\n", tmp_ctx.cmd->name);
+			CLI_TRAC_LOG(false, "tmp_ctx.function, %s\n", tmp_ctx.cmd->name);
 			rv = tmp_ctx.cmd->function(&tmp_ctx);
 			if (rv >= 20) {
-				if (on_error == EXIT_ON_FAIL)
+				if (on_error == EXIT_ON_FAIL) {
+					CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
 					exit(rv);
+				}
 			}
 
 		}
 	}
 	else {
-		TRACE_PRINT("cmd->function, %s\n", ctx->cmd->name);
+		CLI_TRAC_LOG(false, "cmd->function, %s\n", ctx->cmd->name);
 		rv = ctx->cmd->function(ctx);
 		if (rv >= 20) {
-			if (on_error == EXIT_ON_FAIL)
+			if (on_error == EXIT_ON_FAIL) {
+				CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
 				exit(rv);
+			}
 		}
 	}
 	return rv;
@@ -2465,7 +2467,7 @@ static int childs_running(pid_t * pids, int opts)
 				pids[i] = 0;	// Child exited before ?
 				continue;
 			}
-			perror("waitpid");
+			CLI_ERRO_LOG_PEEROR(false, "waitpid");
 			exit(E_EXEC_ERROR);
 		}
 		if (wr == 0)
@@ -2525,7 +2527,7 @@ redo_without_fd:
 					continue;
 				goto out;	// pr = -1 here.
 			}
-			perror("poll");
+			CLI_ERRO_LOG_PEEROR(false, "poll");
 			exit(E_EXEC_ERROR);
 		}
 	} while (pr == -1);
@@ -2535,7 +2537,7 @@ redo_without_fd:
        * at least we check here and do not nullptr deref */
 		rr = read(fileno(stdin), s, size - 1);
 		if (rr == -1) {
-			perror("read");
+			CLI_ERRO_LOG_PEEROR(false, "read");
 			exit(E_EXEC_ERROR);
 		} else if (size > 1 && rr == 0) {
 			/* WTF. End-of-file... avoid busy loop. */
@@ -2598,19 +2600,19 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 			"WARN: stdin/stdout is not a TTY; using /dev/console");
 		saved_stdin = dup(fileno(stdin));
 		if (saved_stdin == -1)
-			perror("dup(stdin)");
+			CLI_ERRO_LOG_PEEROR(false, "dup(stdin)");
 		saved_stdout = dup(fileno(stdout));
 		if (saved_stdin == -1)
-			perror("dup(stdout)");
+			CLI_ERRO_LOG_PEEROR(false, "dup(stdout)");
 		fd = open("/dev/console", O_RDONLY);
 		if (fd == -1) {
-			perror("open('/dev/console, O_RDONLY)");
+			CLI_ERRO_LOG_PEEROR(false, "open('/dev/console, O_RDONLY)");
 			have_tty = 0;
 		} else {
 			dup2(fd, fileno(stdin));
 			fd = open("/dev/console", O_WRONLY);
 			if (fd == -1)
-				perror("open('/dev/console, O_WRONLY)");
+				CLI_ERRO_LOG_PEEROR(false, "open('/dev/console, O_WRONLY)");
 			dup2(fd, fileno(stdout));
 		}
 	}
@@ -2693,7 +2695,7 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 							continue;
 						break;
 					}
-					perror("poll");
+					CLI_ERRO_LOG_PEEROR(false, "poll");
 					exit(E_EXEC_ERROR);
 				}
 			} while (rr != -1);
@@ -2816,6 +2818,7 @@ static int hidden_cmds(const struct cfg_ctx *ignored __attribute((unused)))
 
 	printf("\n");
 
+	CLI_INFO_LOG(false, "hidden_cmds exit(0)\n");
 	exit(0);
 }
 
@@ -2881,6 +2884,7 @@ void print_usage_and_exit(struct adm_cmd *cmd, const char *addinfo, int status)
 	if (addinfo)
 		printf("\n%s\n", addinfo);
 
+	CLI_WRAN_LOG(false, "print usage and exit(%d)\n", status);
 	exit(status);
 }
 
@@ -3137,7 +3141,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			dry_run = 1;
 			break;
 		case 'T':
-			trace_print = true;
+			llevel = TRACE_LEVEL;
 			break;
 		case 'i': // DW-1719 Added option to ignore hostname check
 			ignore_hostname = 1;
@@ -3223,6 +3227,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			printf("BSR_KERNEL_VERSION=%s\n", escaped_version_code_kernel());
 			printf("BSRADM_VERSION_CODE=0x%06x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
+			bsr_terminate_log(0);
 			exit(0);
 			break;
 		case 'P':
@@ -3435,6 +3440,8 @@ void die_if_no_resources(void)
 
 extern char* lprogram;
 extern char* lcmd;
+// BSR-614
+extern int llevel;
 
 int main(int argc, char **argv)
 {
@@ -3450,6 +3457,8 @@ int main(int argc, char **argv)
 	struct cfg_ctx ctx = { };
 
 	lprogram = basename(argv[0]);
+
+	bsr_exec_log(argc, argv);
 
 	initialize_err();
 	initialize_deferred_cmds();
@@ -3474,7 +3483,7 @@ int main(int argc, char **argv)
 
 	assign_command_names_from_argv0(argv);
 
-	TRACE_PRINT("check deferred cmd bsrsetup(%s), bsrmeta(%s), bsr_proxy_ctl(%s)\n", 
+	CLI_TRAC_LOG(false, "check deferred cmd bsrsetup(%s), bsrmeta(%s), bsr_proxy_ctl(%s)\n", 
 					bsrsetup != NULL ? "true" : "false",
 					bsrmeta != NULL ? "true" : "false",
 					bsr_proxy_ctl != NULL ? "true" : "false");
@@ -3489,7 +3498,7 @@ int main(int argc, char **argv)
 	recognize_all_bsrsetup_options();
 	rv = parse_options(argc, argv, &cmd, &resource_names);
 
-	TRACE_PRINT("check parse_option (%d)\n", rv);
+	CLI_TRAC_LOG(false, "check parse_option (%d)\n", rv);
 
 	if (rv)
 		return rv;
@@ -3541,7 +3550,7 @@ int main(int argc, char **argv)
 	parse_file = config_file;
 
 	my_parse();
-	TRACE_PRINT("config_file(%s) => my_parse() called\n", config_file);
+	CLI_TRAC_LOG(false, "config_file(%s) => my_parse() called\n", config_file);
 
 	if (config_test) {
 		char *saved_config_file = config_file;
@@ -3552,7 +3561,7 @@ int main(int argc, char **argv)
 
 		fclose(yyin);
 		yyin = fopen(config_test, "r");
-		TRACE_PRINT("config_test file open(%s)\n", yyin != NULL ? "true" : "false");
+		CLI_TRAC_LOG(false, "config_test file open(%s)\n", yyin != NULL ? "true" : "false");
 		if (!yyin) {
 			err("Can not open '%s'.\n.", config_test);
 			exit(E_EXEC_ERROR);
@@ -3565,6 +3574,7 @@ int main(int argc, char **argv)
 
 
 	if (!config_valid) {
+		CLI_ERRO_LOG(false, "invalid config\n");
 		exit(E_CONFIG_INVALID);
 	}
 
@@ -3586,7 +3596,7 @@ int main(int argc, char **argv)
 	}
 
 	post_parse(&config, cmd->is_proxy_cmd ? MATCH_ON_PROXY : 0);
-	TRACE_PRINT("post_parse called : cmd->is_proxy_cmd(%s)\n", cmd->is_proxy_cmd ? "true" : "false");
+	CLI_TRAC_LOG(false, "post_parse called : cmd->is_proxy_cmd(%s)\n", cmd->is_proxy_cmd ? "true" : "false");
 
 	if (!is_dump || dry_run || verbose)
 		expand_common();
@@ -3640,7 +3650,7 @@ int main(int argc, char **argv)
 				}
 				ctx.res = res;
 				ctx.vol = NULL;
-				TRACE_PRINT("call cmd resource(%s), command(%s)\n", ctx.res->name, cmd->name);
+				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)\n", ctx.res->name, cmd->name);
 				r = call_cmd(cmd, &ctx, EXIT_ON_FAIL);	/* does exit for r >= 20! */
 				/* this super positioning of return values is soo ugly
 				 * anyone any better idea? */
@@ -3742,7 +3752,7 @@ int main(int argc, char **argv)
 				if (!is_dump && !config_valid)
 					exit(E_CONFIG_INVALID);
 
-				TRACE_PRINT("call cmd resource(%s), command(%s)\n", resource_names[i], cmd->name);
+				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)\n", resource_names[i], cmd->name);
 				r = call_cmd(cmd, &ctx, EXIT_ON_FAIL);	/* does exit for r >= 20! */
 				if (r > rv)
 					rv = r;
@@ -3753,7 +3763,7 @@ int main(int argc, char **argv)
 		 * which does not make sense for resource independent commands.
 		 * It does also not need to iterate over volumes: it does not even know the resource. */
 		 ctx.cmd = cmd;
-		 TRACE_PRINT("call cmd command(%s)\n", cmd->name);
+		 CLI_TRAC_LOG(false, "call cmd command(%s)\n", cmd->name);
 		rv = __call_cmd_fn(&ctx, KEEP_RUNNING);
 		if (rv >= 10) {	/* why do we special case the "generic sh-*" commands? */
 			err("command %s exited with code %d\n", cmd->name, rv);
@@ -3761,9 +3771,9 @@ int main(int argc, char **argv)
 		}
 	}
 
-	TRACE_PRINT("run deferred cmd(%s)\n", cmd->name);
+	CLI_TRAC_LOG(false, "run deferred cmd(%s)\n", cmd->name);
 	r = run_deferred_cmds();
-	TRACE_PRINT("run deferred cmd result(%d)\n", r);
+	CLI_TRAC_LOG(false, "run deferred cmd result(%d)\n", r);
 	if (r > rv)
 		rv = r;
 
@@ -3772,6 +3782,8 @@ int main(int argc, char **argv)
 	if (admopt != general_admopt)
 		free(admopt);
 	free_btrees();
+
+	bsr_terminate_log(rv);
 
 	return rv;
 }
