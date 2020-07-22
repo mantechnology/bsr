@@ -794,20 +794,12 @@ static __inline ULONG_PTR JIFFIES()
 {
 	LARGE_INTEGER Elapse, Qpc;
 
-	// BSR-38
+	// BSR-38 KeQueryPerformanceCounter() returns a 64-bit integer that represents the current value of a high-resolution monotonically nondecreasing counter.
 	Qpc = KeQueryPerformanceCounter(NULL);
+	// BSR-38 calculate in milli-seconds.
 	Elapse.QuadPart = Qpc.QuadPart * 1000 / g_frequency.QuadPart;
 
-	//LARGE_INTEGER Tick;
-	//LARGE_INTEGER Elapse;
-	//
-	//KeQueryTickCount(&Tick);
-	//t_Elapse.QuadPart = Tick.QuadPart * KeQueryTimeIncrement();
-	//t_Elapse.QuadPart /= (10000);
-	//return (ULONG_PTR)Elapse.QuadPart;
-
 	return (ULONG_PTR)Elapse.QuadPart;
-
 }
 
 #define jiffies				JIFFIES()
