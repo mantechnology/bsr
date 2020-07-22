@@ -174,16 +174,12 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		//#define TOTALCNT_OFFSET	(9)
 		//#define TIME_OFFSET		(TOTALCNT_OFFSET+24)	//"00001234 08/02/2016 13:24:13.123 "
 #ifdef _WIN
-		LARGE_INTEGER qpc;
-
 #if (NTDDI_VERSION < NTDDI_WIN8)
 		KeQuerySystemTime(&systemTime);
 #else
 		// BSR-38 if the current version is equal to or higher than NTDDI_WIN8, call KeQuerySystemTimePrecise().
 		KeQuerySystemTimePrecise(&systemTime);
 #endif
-		qpc = KeQueryPerformanceCounter(NULL);
-	
 	    ExSystemTimeToLocalTime(&systemTime, &localTime);
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
