@@ -184,7 +184,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
 		// BSR-583
-		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%08d [%s] ",
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -192,14 +192,14 @@ void _printk(const char * func, const char * level, const char * format, ...)
 											timeFields.Hour,
 											timeFields.Minute,
 											timeFields.Second,
-											// BSR-38 mark up to 10 nanoseconds.
-											(systemTime.QuadPart % 100000000),
+											// BSR-38 mark up to 100 nanoseconds.
+											(systemTime.QuadPart % 10000000),
 											func);
 #else // _LIN
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%08d [%s] ",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -207,8 +207,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 										tm.tm_hour,
 										tm.tm_min,
 										tm.tm_sec,
-										// BSR-38 mark up to 10 nanoseconds.
-										(int)(ts.tv_nsec / 10),
+										// BSR-38 mark up to 100 nanoseconds.
+										(int)(ts.tv_nsec / 100),
 										func);
 
 
