@@ -174,12 +174,17 @@ void _printk(const char * func, const char * level, const char * format, ...)
 		//#define TOTALCNT_OFFSET	(9)
 		//#define TIME_OFFSET		(TOTALCNT_OFFSET+24)	//"00001234 08/02/2016 13:24:13.123 "
 #ifdef _WIN
+#if (NTDDI_VERSION < NTDDI_WIN8)
 		KeQuerySystemTime(&systemTime);
+#else
+		// BSR-38 if the current version is equal to or higher than NTDDI_WIN8, call KeQuerySystemTimePrecise().
+		KeQuerySystemTimePrecise(&systemTime);
+#endif
 	    ExSystemTimeToLocalTime(&systemTime, &localTime);
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
 		// BSR-583
-		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -187,13 +192,14 @@ void _printk(const char * func, const char * level, const char * format, ...)
 											timeFields.Hour,
 											timeFields.Minute,
 											timeFields.Second,
-											timeFields.Milliseconds,
+											// BSR-38 mark up to 100 nanoseconds.
+											(systemTime.QuadPart % 10000000),
 											func);
 #else // _LIN
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%03d [%s] ",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -201,7 +207,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 										tm.tm_hour,
 										tm.tm_min,
 										tm.tm_sec,
-										(int)(ts.tv_nsec / NSEC_PER_MSEC),
+										// BSR-38 mark up to 100 nanoseconds.
+										(int)(ts.tv_nsec / 100),
 										func);
 
 

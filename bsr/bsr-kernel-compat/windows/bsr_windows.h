@@ -792,11 +792,13 @@ struct request_queue {
 
 static __inline ULONG_PTR JIFFIES()
 {
-	LARGE_INTEGER Tick;
-	LARGE_INTEGER Elapse;
-	KeQueryTickCount(&Tick);
-	Elapse.QuadPart = Tick.QuadPart * KeQueryTimeIncrement();
-	Elapse.QuadPart /= (10000);
+	LARGE_INTEGER Elapse, Qpc;
+
+	// BSR-38 KeQueryPerformanceCounter() returns a 64-bit integer that represents the current value of a high-resolution monotonically nondecreasing counter.
+	Qpc = KeQueryPerformanceCounter(NULL);
+	// BSR-38 calculate in milli-seconds.
+	Elapse.QuadPart = Qpc.QuadPart * 1000 / g_frequency.QuadPart;
+
 	return (ULONG_PTR)Elapse.QuadPart;
 }
 
