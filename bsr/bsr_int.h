@@ -2288,7 +2288,7 @@ extern int bsr_bmio_set_n_write(struct bsr_device *device, struct bsr_peer_devic
 
 
 // DW-844
-extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *, enum bsr_repl_state side, bool bitmap_lock) __must_hold(local);
+extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *, enum bsr_repl_state side, bool bitmap_lock, bool *bSync) __must_hold(local);
 extern bool isFastInitialSync(void);
 extern PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
 

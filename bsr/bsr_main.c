@@ -6938,6 +6938,8 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	int nRet = 0;
 	// DW-1293 queued bitmap work increases work count which may prevents io that we need to mount volume.
 	bool dec_bm_work_n = false;
+	// BSR-653
+	bool bSync = true;
 
 	// BSR-52 for sync only current oos after online verify.
 	if (test_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags)) {
@@ -6953,27 +6955,33 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
-			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false))
+			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false, &bSync))
 		{
-			bsr_warn(peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
-			if (dec_bm_work_n) {
-				atomic_inc(&device->pending_bitmap_work.n);
-				dec_bm_work_n = false;
+			// BSR-653 whole bitmap set is not performed if is not sync node.
+			if (bSync) {
+				bsr_warn(peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				if (dec_bm_work_n) {
+					atomic_inc(&device->pending_bitmap_work.n);
+					dec_bm_work_n = false;
+				}
+				nRet = bsr_bmio_set_n_write(device, peer_device);
 			}
-			nRet = bsr_bmio_set_n_write(device, peer_device);
 		}
 	}
 	else if (peer_device->repl_state[NOW] == L_STARTING_SYNC_T) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
-			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_TARGET, false))
+			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_TARGET, false, &bSync))
 		{
-			bsr_warn(peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
-			if (dec_bm_work_n) {
-				atomic_inc(&device->pending_bitmap_work.n);
-				dec_bm_work_n = false;
+			// BSR-653 whole bitmap set is not performed if is not sync node.
+			if (bSync) {
+				bsr_warn(peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				if (dec_bm_work_n) {
+					atomic_inc(&device->pending_bitmap_work.n);
+					dec_bm_work_n = false;
+				}
+				nRet = bsr_bmio_set_all_n_write(device, peer_device);
 			}
-			nRet = bsr_bmio_set_all_n_write(device, peer_device);
 		}
 	}
 	else {
@@ -7267,7 +7275,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 
 
 // set out-of-sync for allocated clusters.
-bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *peer_device, enum bsr_repl_state side, bool bitmap_lock)
+bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *peer_device, enum bsr_repl_state side, bool bitmap_lock, bool *bSync)
 {
 	bool bRet = false;
 	PVOLUME_BITMAP_BUFFER pBitmap = NULL;
@@ -7296,6 +7304,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 
+		*bSync = false;
 		return false;
 	}
 
@@ -7304,6 +7313,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bsr_warn(peer_device, "can't be %s\n", bsr_repl_str(side));
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
+		*bSync = false;
 		goto out;
 	}
 
