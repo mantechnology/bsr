@@ -5385,6 +5385,7 @@ static bool is_resync_running(struct bsr_device *device)
 static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int hg, int peer_node_id)
 {
 	struct bsr_device *device = peer_device->device;
+	bool bSync = true;
 	UNREFERENCED_PARAMETER(peer_node_id);
 
 	if (hg == 4) {
@@ -5432,11 +5433,14 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 		// DW-844 check if fast sync is enalbed every time we do initial sync.
 		// set out-of-sync for allocated clusters.
 		if (!isFastInitialSync() ||
-			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true)) {
-			bsr_info(peer_device, "Writing the whole bitmap, full sync required after bsr_sync_handshake.\n");			
-			if (bsr_bitmap_io(device, &bsr_bmio_set_n_write, "set_n_write from sync_handshake",
-				BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
-				return -1;			
+			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true, &bSync)) {
+			// BSR-653 whole bitmap set is not performed if is not sync node.
+			if (bSync) {
+				bsr_info(peer_device, "Writing the whole bitmap, full sync required after bsr_sync_handshake.\n");
+				if (bsr_bitmap_io(device, &bsr_bmio_set_n_write, "set_n_write from sync_handshake",
+					BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
+					return -1;
+			}
 		}
 	}
 	return 0;
