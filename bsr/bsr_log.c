@@ -61,7 +61,12 @@ void save_to_system_event(char * buf, int length, int level_index)
 #endif
 
 
+#ifdef _WIN
+// BSR-648
+void _printk(const char * func, int level, int category, const char * format, ...)
+#else
 void _printk(const char * func, const char * level, const char * format, ...)
+#endif
 {
 	int ret = 0;
 	va_list args;
@@ -73,7 +78,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	int elength = 0;
 	LONGLONG logcnt = 0;
 #ifdef _WIN
-	int level_index = format[1] - '0';
+	// BSR-648
+	int level_index = level;
 #else
 	int level_index = level[1]  - '0';
 #endif
@@ -94,7 +100,11 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #endif
 	LONGLONG	totallogcnt = 0;
 	long 		offset = 0;
-
+#ifdef _WIN
+	// BSR-648
+	if (level == -1)
+		level_index = format[1] - '0';
+#endif
 	D_ASSERT(NO_OBJECT, (level_index >= 0) && (level_index < KERN_NUM_END));
 
 	// to write system event log.
@@ -184,7 +194,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
 		// BSR-583
-		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -194,12 +204,15 @@ void _printk(const char * func, const char * level, const char * format, ...)
 											timeFields.Second,
 											// BSR-38 mark up to 100 nanoseconds.
 											(systemTime.QuadPart % 10000000),
-											func);
+											func,
+											// BSR-654
+											__log_category_names[category]);
+
 #else // _LIN
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -209,7 +222,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 										tm.tm_sec,
 										// BSR-38 mark up to 100 nanoseconds.
 										(int)(ts.tv_nsec / 100),
-										func);
+										func,
+										// BSR-654
+										__log_category_names[category]);
 
 
 #endif
@@ -400,7 +415,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
 	
-	_printk(__FUNCTION__, KERN_OOS, buf);
+	_printk(__FUNCTION__, KERN_OOS_NUM, BSR_LC_OUT_OF_SYNC, buf);
 
 	if (NULL != stackFrames) {
 #ifdef _WIN

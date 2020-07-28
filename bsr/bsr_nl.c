@@ -387,7 +387,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	/* some more paranoia, if the request was over-determined */
 	if (adm_ctx->device && adm_ctx->resource && adm_ctx->device->resource && 
 	    adm_ctx->device->resource != adm_ctx->resource) {
-		bsr_warn(NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s\n",
+		bsr_warn(BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->resource->name);
 		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
@@ -397,7 +397,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	if (adm_ctx->device && adm_ctx->device->resource && 
 	    adm_ctx->volume != VOLUME_UNSPECIFIED &&
 	    adm_ctx->volume != adm_ctx->device->vnr) {
-		bsr_warn(NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s\n",
+		bsr_warn(BSR_LC_GENL, NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s\n",
 				adm_ctx->minor, adm_ctx->volume,
 				adm_ctx->device->vnr,
 				adm_ctx->device->resource->name);
@@ -409,7 +409,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 		adm_ctx->resource && adm_ctx->resource->name &&
 	    adm_ctx->peer_device->device != adm_ctx->device) {
 		bsr_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
-		bsr_warn(NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device\n",
+		bsr_warn(BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device\n",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->vnr, adm_ctx->peer_node_id);
 		err = ERR_INVALID_REQUEST;
@@ -907,7 +907,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 		 * This is useful when an unconnected R_SECONDARY is asked to
 		 * become R_PRIMARY, but finds the other peer being active. */
 		ex_to_string = "peer is active";
-		bsr_warn(connection, "Peer is primary, outdating myself.\n");
+		bsr_warn(BSR_LC_GENL, connection, "Peer is primary, outdating myself.\n");
 		__change_disk_states(resource, D_OUTDATED);
 		break;
 	case P_FENCING:
@@ -1090,7 +1090,7 @@ retry:
 		wait_event_timeout_ex(resource->barrier_wait, !barrier_pending(resource), timeout, timeout);
 
 		if (!timeout){
-			bsr_warn(NO_OBJECT,"Failed to set secondary role due to barrier ack pending timeout(10s).\n");
+			bsr_warn(BSR_LC_GENL, NO_OBJECT, "Failed to set secondary role due to barrier ack pending timeout(10s).\n");
 			rv = SS_BARRIER_ACK_PENDING_TIMEOUT;
 			goto out;
 		}
@@ -1208,7 +1208,7 @@ retry:
 			up(&resource->state_sem); /* Allow connect while fencing */
 			for_each_connection_ref(connection, im, resource) {
 				if (!conn_try_outdate_peer(connection) && force) {
-					bsr_warn(connection, "Forced into split brain situation!\n");
+					bsr_warn(BSR_LC_GENL, connection, "Forced into split brain situation!\n");
 					with_force = true;
 				}
 			}
@@ -1256,7 +1256,7 @@ retry:
 		goto out;
 
 	if (forced)
-		bsr_warn(resource, "Forced to consider local data as UpToDate!\n");
+		bsr_warn(BSR_LC_GENL, resource, "Forced to consider local data as UpToDate!\n");
 
 	if (role == R_SECONDARY) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
@@ -1774,7 +1774,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		if (rs && u_size == 0) {
 			/* Remove "rs &&" later. This check should always be active, but
 			   right now the receiver expects the permissive behavior */
-			bsr_warn(device, "Implicit shrink not allowed. "
+			bsr_warn(BSR_LC_GENL, device, "Implicit shrink not allowed. "
 				 "Use --size=%llus for explicit shrink.\n",
 				 (unsigned long long)size);
 			rv = DS_ERROR_SHRINK;
@@ -2015,7 +2015,7 @@ bsr_new_dev_size(struct bsr_device *device,
 		DDUMP_LLU(device, la_size);
 		p_size = min_not_zero(p_size, m_size);
 		if (p_size > la_size)
-			bsr_warn(device, "Resize forced while not fully connected!\n");
+			bsr_warn(BSR_LC_GENL, device, "Resize forced while not fully connected!\n");
 	} else {
 		DDUMP_LLU(device, p_size);
 		DDUMP_LLU(device, m_size);
@@ -2359,7 +2359,7 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 	}
 
 	if (!bsr_al_try_lock(device)) {
-		bsr_warn(device, "Failed to lock al in %s()", __func__);
+		bsr_warn(BSR_LC_GENL, device, "Failed to lock al in %s()", __func__);
 		return;
 	}
 
@@ -2930,7 +2930,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	if (bsr_get_capacity(nbc->md_bdev) < min_md_device_sectors) {
 #endif
 		retcode = ERR_MD_DISK_TOO_SMALL;
-		bsr_warn(device, "refusing attach: md-device too small, "
+		bsr_warn(BSR_LC_GENL, device, "refusing attach: md-device too small, "
 		     "at least %llu sectors needed for this meta-disk type\n",
 		     (unsigned long long) min_md_device_sectors);
 		goto fail;
@@ -2951,11 +2951,11 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	nbc->known_size = bsr_get_capacity(nbc->backing_bdev);
 
 	if (nbc->known_size > max_possible_sectors) {
-		bsr_warn(device, "==> truncating very big lower level device "
+		bsr_warn(BSR_LC_GENL, device, "==> truncating very big lower level device "
 			"to currently maximum possible %llu sectors <==\n",
 			(unsigned long long) max_possible_sectors);
 		if (new_disk_conf->meta_dev_idx >= 0)
-			bsr_warn(device, "==>> using internal or flexible "
+			bsr_warn(BSR_LC_GENL, device, "==>> using internal or flexible "
 				      "meta data may help <<==\n");
 	}
 
@@ -3175,7 +3175,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	unsigned long long nsz = bsr_new_dev_size(device, 0, device->ldev->disk_conf->disk_size, 0);
 	unsigned long long eff = device->ldev->md.effective_size;
 	if (bsr_md_test_flag(device, MDF_CONSISTENT) && nsz < eff) {
-		bsr_warn(device,
+		bsr_warn(BSR_LC_GENL, device,
 			"refusing to truncate a consistent device (%llu < %llu)\n",
 			nsz, eff);		
 		retcode = ERR_DISK_TOO_SMALL;
@@ -6315,7 +6315,7 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 		NTSTATUS status;
 		status = mvolInitializeThread(&resource->WorkThreadInfo, mvolWorkThread);
 		if (!NT_SUCCESS(status)) {
-			bsr_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+			bsr_warn(BSR_LC_GENL, NO_OBJECT, "Failed to initialize WorkThread. status(0x%x)\n", status);
 		}
 #endif
 		

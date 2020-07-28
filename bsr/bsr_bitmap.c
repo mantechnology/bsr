@@ -168,7 +168,7 @@ _bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 	if (trylock_failed) {		
 		// DW-962 DW-1778 fix. bm_task can be NULL
 		struct task_struct *bm_task = b->bm_task;
-		bsr_warn(device, "%s[%d] going to '%s' but bitmap already locked for '%s' by %s[%d]\n",
+		bsr_warn(BSR_LC_BITMAP, device, "%s[%d] going to '%s' but bitmap already locked for '%s' by %s[%d]\n",
 			current->comm, 
 			task_pid_nr(current),
 			why, 
@@ -337,7 +337,7 @@ static void bm_free_pages(struct page **pages, ULONG_PTR number)
 
 	for (i = 0; i < number; i++) {
 		if (!pages[i]) {
-			bsr_alert(NO_OBJECT, "bm_free_pages tried to free a NULL pointer; i=%lu n=%lu\n",
+			bsr_alert(BSR_LC_BITMAP, NO_OBJECT, "bm_free_pages tried to free a NULL pointer; i=%lu n=%lu\n",
 				 i, number);
 			continue;
 		}
@@ -1268,7 +1268,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	if ((ctx->flags & BM_AIO_COPY_PAGES) == 0 &&
 	    !bm_test_page_unchanged(b->bm_pages[idx]))
-		bsr_warn(device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
+		bsr_warn(BSR_LC_BITMAP, device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
 
 	if (error) {
 		/* ctx error will hold the completed-last non-zero error code,
@@ -1358,7 +1358,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 
 	// DW-1617 bsr_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
 	if (len == 0){
-		bsr_warn(device, "If len is 0, change it to PAGE_SIZE.\n"); 
+		bsr_warn(BSR_LC_BITMAP, device, "If len is 0, change it to PAGE_SIZE.\n"); 
 		len = PAGE_SIZE; 
 	}
 
@@ -1580,7 +1580,7 @@ static int bm_rw_range(struct bsr_device *device,
 	}
 
 	if (ctx->error) {
-		bsr_alert(device, "we had at least one MD IO ERROR during bitmap IO\n");
+		bsr_alert(BSR_LC_BITMAP, device, "we had at least one MD IO ERROR during bitmap IO\n");
 		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 		err = -EIO; /* ctx->error ? */
 	}

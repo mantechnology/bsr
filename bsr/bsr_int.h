@@ -187,7 +187,12 @@ struct bsr_device;
 struct bsr_connection;
 
 // BSR-577 Change to common method
+#ifdef _WIN
+// BSR-648
+extern void _printk(const char * func, int level, int category, const char * format, ...);
+#else // _LIN
 extern void _printk(const char * func, const char * level, const char * format, ...);
+#endif 
 extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 
 // BSR-237
@@ -202,16 +207,16 @@ extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
 /* I want to be able to grep for "bsr $resource_name"
  * and get all relevant log lines. */
 #ifdef _WIN
-#define __bsr_printk_device(level, device, fmt, ...)		\
+#define __bsr_printk_device(category, level, device, fmt, ...)		\
     do {								\
         const struct bsr_device *__d = (device);		\
         const struct bsr_resource *__r = __d->resource;	\
-        printk(level "bsr %s/%u minor %u, ds(%s), dvflag(0x%x): " fmt,			\
-            __r->name, __d->vnr, __d->minor, bsr_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
+        _printk(__FUNCTION__, level, category, "<%d> bsr %s/%u minor %u, ds(%s), dvflag(0x%x): " fmt,			\
+             level, __r->name, __d->vnr, __d->minor, bsr_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
     } while (0)
 
 // DW-1494 (peer_device)->uuid_flags has caused a problem with the 32-bit operating system and therefore removed
-#define __bsr_printk_peer_device(level, peer_device, fmt, ...)	\
+#define __bsr_printk_peer_device(category, level, peer_device, fmt, ...)	\
     do {								\
         const struct bsr_device *__d;				\
         const struct bsr_connection *__c;			\
@@ -222,33 +227,33 @@ extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
         __c = (peer_device)->connection;			\
         __r = __d->resource;					\
         __cn = __c->peer_node_id;	\
-        printk(level "bsr %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
-            __r->name, __d->vnr, __d->minor, __cn, bsr_disk_str((peer_device)->disk_state[NOW]), bsr_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
+        _printk(__FUNCTION__, level,  category, "<%d> bsr %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
+             level, __r->name, __d->vnr, __d->minor, __cn, bsr_disk_str((peer_device)->disk_state[NOW]), bsr_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
         /*rcu_read_unlock();	_WIN32 // DW-938	*/		\
 	    } while (0)
 
-#define __bsr_printk_resource(level, resource, fmt, ...) \
-	printk(level "bsr %s, r(%s), f(0x%x), scf(0x%x): " fmt, (resource)->name, bsr_role_str((resource)->role[NOW]), (resource)->flags,(resource)->state_change_flags, __VA_ARGS__)
+#define __bsr_printk_resource(category, level, resource, fmt, ...) \
+	_printk(__FUNCTION__, level,  category, "<%d> bsr %s, r(%s), f(0x%x), scf(0x%x): " fmt, level,  (resource)->name, bsr_role_str((resource)->role[NOW]), (resource)->flags,(resource)->state_change_flags, __VA_ARGS__)
 
-#define __bsr_printk_connection(level, connection, fmt, ...) \
+#define __bsr_printk_connection(category, level, connection, fmt, ...) \
     do {	                    \
         /*rcu_read_lock();	_WIN32 // DW-938 */ \
-        printk(level "bsr %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, (connection)->resource->name,  \
+        _printk(__FUNCTION__, level,  category, "<%d> bsr %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, level, (connection)->resource->name,  \
         (connection)->peer_node_id, bsr_conn_str((connection)->cstate[NOW]), bsr_role_str((connection)->peer_role[NOW]), (connection)->flags,(connection)->resource->state_change_flags, __VA_ARGS__); \
         /*rcu_read_unlock(); _WIN32 // DW-938 */ \
 	    } while (0)
 
 // BSR-237 if object is empty (NO_OBJECT)
-#define __bsr_printk_(level, obj, fmt, ...) \
-	printk(level "[0x%p] " fmt, KeGetCurrentThread(), __VA_ARGS__)
+#define __bsr_printk_(category, level, obj, fmt, ...) \
+	_printk(__FUNCTION__, level,  category, "<%d> [0x%p] " fmt, level, KeGetCurrentThread(), __VA_ARGS__)
 
 void bsr_printk_with_wrong_object_type(void);
  
 #define __bsr_printk_if_same_type(obj, type, func, level, fmt, ...) 
 
-#define bsr_printk(level, obj, fmt, ...)   \
+#define bsr_printk(category, level, obj, fmt, ...)   \
     do {    \
-        __bsr_printk_##obj(level, obj, fmt, __VA_ARGS__);  \
+        __bsr_printk_##obj(category, level, obj, fmt, __VA_ARGS__);  \
     } while(0)
 
 #if defined(disk_to_dev)
@@ -259,7 +264,7 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
 #else
 #define bsr_dbg(obj, fmt, ...) \
-	do { if (false,false) bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__); } while(false)
+	do { if (false,false) bsr_printk(BSR_LC_ETC, KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__); } while(false)
 #endif
 
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
@@ -294,29 +299,34 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_info      __noop
 #endif
 
-#define bsr_crit(obj, fmt, ...) \
-	bsr_printk(KERN_CRIT, obj, fmt, __VA_ARGS__)
-#define bsr_emerg(obj, fmt, ...) \
-	bsr_printk(KERN_EMERG, obj, fmt, __VA_ARGS__)
-#define bsr_alert(obj, fmt, ...) \
-	bsr_printk(KERN_ALERT, obj, fmt, __VA_ARGS__)
+// BSR-648
+#define bsr_crit(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_CRIT_NUM, obj, fmt, __VA_ARGS__)
+#define bsr_emerg(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_EMERG_NUM, obj, fmt, __VA_ARGS__)
+#define bsr_alert(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_ALERT_NUM, obj, fmt, __VA_ARGS__)
+
 #define bsr_err(obj, fmt, ...) \
-	bsr_printk(KERN_ERR, obj, fmt, __VA_ARGS__)
-#define bsr_warn(obj, fmt, ...) \
-	bsr_printk(KERN_WARNING, obj, fmt, __VA_ARGS__)
-#define bsr_noti(obj, fmt, ...) \
-	bsr_printk(KERN_NOTICE, obj, fmt, __VA_ARGS__)
+	bsr_printk(BSR_LC_ETC, KERN_ERR_NUM, obj, fmt, __VA_ARGS__)
+#define bsr_warn(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_WARNING_NUM, obj, fmt, __VA_ARGS__)
+
+#define bsr_noti(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_NOTICE_NUM, obj, fmt, __VA_ARGS__)
+
 #define bsr_info(obj, fmt, ...) \
-	bsr_printk(KERN_INFO, obj, fmt, __VA_ARGS__)
-#define bsr_oos(obj, fmt, ...) \
-	bsr_printk(KERN_OOS, obj, fmt, __VA_ARGS__)
-#define bsr_latency(obj, fmt, ...) \
-	bsr_printk(KERN_LATENCY, obj, fmt, __VA_ARGS__)
+	bsr_printk(BSR_LC_ETC, KERN_INFO_NUM, obj, fmt, __VA_ARGS__)
+
+#define bsr_oos(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_OOS_NUM, obj, fmt, __VA_ARGS__)
+#define bsr_latency(category, obj, fmt, ...) \
+	bsr_printk(category, KERN_LATENCY_NUM, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(obj, fmt, ...) \
-	bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
+	bsr_printk(KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
 #else
-#define bsr_debug(obj, fmt, ...) bsr_printk(KERN_DEBUG, obj, fmt, __VA_ARGS__)
+#define bsr_debug(obj, fmt, ...) bsr_printk(BSR_LC_ETC, KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
 #endif
 #else  // _LIN
 
@@ -420,7 +430,7 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(KERN_INFO, obj, fmt, ## args)
 #define bsr_oos(obj, fmt, args...) \
 	bsr_printk(KERN_OOS, obj, fmt, ## args)
-#define bsr_latency(obj, fmt, args...) \
+#define bsr_latency(BSR_LC_LATENCY, obj, fmt, args...) \
 	bsr_printk(KERN_LATENCY, obj, fmt, ## args)
 
 #if defined(DEBUG)
@@ -434,19 +444,19 @@ void bsr_printk_with_wrong_object_type(void);
 // DW-2099
 #ifdef _WIN
 #define BSR_VERIFY_DATA(_m_, ...) \
-	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) printk(KERN_INFO "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) _printk(__FUNCTION__, KERN_INFO_NUM, BSR_LC_VERIFY, "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
 #else // _LIN
 #define BSR_VERIFY_DATA(fmt, args...) \
 	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
 #endif
 
 #ifdef _WIN
-#define BUG()   bsr_crit(NO_OBJECT,"warning: failure\n")
+#define BUG()   bsr_crit(BSR_LC_ETC, NO_OBJECT,"warning: failure\n")
 #define BUG_ON(_condition)	\
 	do {		\
 		if (_condition) {	\
 			\
-				bsr_crit(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_crit(BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
 						}	\
 			} while (false)
 
@@ -455,7 +465,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            bsr_crit(NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
+            bsr_crit(BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -486,6 +496,68 @@ extern atomic_t g_featurelog_flag;
 
 // DW-2099 flags for data verification
 #define FEATURELOG_FLAG_VERIFY 		(1 << 2)
+
+// BSR-648
+enum BSR_LOG_CATEGORY
+{
+	BSR_LC_VOLUME,
+	BSR_LC_IO,
+	BSR_LC_IO_ERROR,
+	BSR_LC_BITMAP,
+	BSR_LC_LRU,
+	BSR_LC_REQUEST,
+	BSR_LC_PEER_REQUEST,
+	BSR_LC_RESYNC_OV,
+	BSR_LC_REPLICATION,
+	BSR_LC_CONNECTION,
+	BSR_LC_UUID,
+	BSR_LC_TWOPC,
+	BSR_LC_THREAD,
+	BSR_LC_SEND_BUFFER,
+	BSR_LC_STATE,
+	BSR_LC_SOCKET,
+	BSR_LC_DRIVER,
+	BSR_LC_NETLINK,
+	BSR_LC_GENL,
+	BSR_LC_PROTOCOL,
+	BSR_LC_MEMORY,
+	BSR_LC_LOG,
+	BSR_LC_LATENCY,
+	BSR_LC_VERIFY,
+	BSR_LC_OUT_OF_SYNC,
+	BSR_LC_ETC = 31,
+};
+
+// BSR-648
+static const char * const __log_category_names[] = {
+	[BSR_LC_VOLUME] = "VOLUME",
+	[BSR_LC_IO] = "I/O",
+	[BSR_LC_IO_ERROR] = "I/O ERROR",
+	[BSR_LC_BITMAP] = "BITMAP",
+	[BSR_LC_LRU] = "LRU",
+	[BSR_LC_REQUEST] = "REQUEST",
+	[BSR_LC_PEER_REQUEST] = "PEER REQUEST",
+	[BSR_LC_RESYNC_OV] = "RESYNC/OV",
+	[BSR_LC_REPLICATION] = "REPLICATION",
+	[BSR_LC_CONNECTION] = "CONNECTION",
+	[BSR_LC_UUID] = "UUID",
+	[BSR_LC_TWOPC] = "TWOPC",
+	[BSR_LC_THREAD] = "THREAD",
+	[BSR_LC_SEND_BUFFER] = "SEND BUFFER",
+	[BSR_LC_STATE] = "STATE",
+	[BSR_LC_SOCKET] = "SOCKET",
+	[BSR_LC_DRIVER] = "DRIVER",
+	[BSR_LC_NETLINK] = "NETLINK",
+	[BSR_LC_GENL] = "CLI_GENL",
+	[BSR_LC_PROTOCOL] = "BLC_PROTOCOL",
+	[BSR_LC_MEMORY] = "MEMORY",
+	[BSR_LC_LOG] = "LOG",
+	[BSR_LC_LATENCY] = "LATENCY",
+	[BSR_LC_VERIFY] = "VERIFY",
+	[BSR_LC_OUT_OF_SYNC] = "OUT OF SYNC",
+	[BSR_LC_ETC] = "ETC",
+};
+
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
@@ -2103,7 +2175,7 @@ static inline unsigned bsr_req_state_by_peer_device(struct bsr_request *req,
 {
 	int idx = peer_device->node_id;
 	if (idx < 0 || idx >= BSR_NODE_ID_MAX) {
-		bsr_warn(peer_device, "FIXME: node_id: %d\n", idx);
+		bsr_warn(BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d\n", idx);
 		/* WARN(1, "bitmap_index: %d", idx); */
 		return 0;
 	}
@@ -2724,7 +2796,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
+			bsr_warn(BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
 			bsr_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
@@ -2935,7 +3007,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(NO_OBJECT,"Null argument\n");
+		bsr_warn(BSR_LC_VOLUME, NO_OBJECT,"Null argument\n");
 		return 0;
 	}
 	
@@ -3550,7 +3622,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3573,7 +3645,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
+		bsr_warn(BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
@@ -3828,7 +3900,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 		device->resource->breqbuf_overflow_alarm = true;
 	
 		if (bsr_ratelimit()) {
-			bsr_warn(device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
+			bsr_warn(BSR_LC_REPLICATION, device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
 				atomic_read(&device->resource->req_write_cnt),
 				max_req_write_cnt);
 		}

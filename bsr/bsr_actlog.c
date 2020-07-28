@@ -246,7 +246,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
 		device->md_io.io_complete_ts = timestamp();
-		bsr_latency(device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)\n", 
+		bsr_latency(BSR_LC_LATENCY, device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)\n", 
 				(op == REQ_OP_WRITE) ? "write" : "read",
 				timestamp_elapse(device->md_io.prepare_ts, device->md_io.io_request_ts), 
 				timestamp_elapse(device->md_io.io_request_ts, device->md_io.io_complete_ts));
@@ -301,7 +301,7 @@ int bsr_md_sync_page_io(struct bsr_device *device, struct bsr_backing_dev *bdev,
 
 	if (sector < bsr_md_first_sector(bdev) ||
 	    sector + 7 > bsr_md_last_sector(bdev))
-		bsr_alert(device, "%s [%d]:%s(,%llus,%s) out of range md access!\n",
+		bsr_alert(BSR_LC_IO, device, "%s [%d]:%s(,%llus,%s) out of range md access!\n",
 		     current->comm, current->pid, __func__,
 		     (unsigned long long)sector, 
 			 (op == REQ_OP_WRITE) ? "WRITE" : "READ");
@@ -782,7 +782,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 	// DW-1513 If the used value is greater than nr_elements, set available_update_slots to 0.
 	if (al->nr_elements < al->used)	{
 		available_update_slots = 0;
-		bsr_warn(device, "al->used is greater than nr_elements, set available_update_slots to 0.\n");
+		bsr_warn(BSR_LC_LRU, device, "al->used is greater than nr_elements, set available_update_slots to 0.\n");
 	} else {
 		available_update_slots = min(al->nr_elements - al->used,
 					al->max_pending_changes - al->pending_changes);
@@ -1091,7 +1091,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				ext->rs_failed += count;
 			if (ext->rs_left < ext->rs_failed) {
 				struct bsr_connection *connection = peer_device->connection;
-				bsr_warn(peer_device, "BAD! enr=%u rs_left=%d "
+				bsr_warn(BSR_LC_LRU, peer_device, "BAD! enr=%u rs_left=%d "
 				    "rs_failed=%d count=%d cstate=%s %s\n",
 				     ext->lce.lc_number, ext->rs_left,
 				     ext->rs_failed, count,
@@ -1115,14 +1115,14 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 			 */
 			int rs_left = bm_e_weight(peer_device, enr);
 			if (ext->flags != 0) {
-				bsr_warn(device, "changing resync lce: %u[%d;%02lx]"
+				bsr_warn(BSR_LC_LRU, device, "changing resync lce: %u[%d;%02lx]"
 				     " -> %u[%d;00]\n",
 				     ext->lce.lc_number, ext->rs_left,
 				     ext->flags, enr, rs_left);
 				ext->flags = 0;
 			}
 			if (ext->rs_failed) {
-				bsr_warn(device, "Kicking resync_lru element enr=%u "
+				bsr_warn(BSR_LC_LRU, device, "Kicking resync_lru element enr=%u "
 				     "out with rs_failed=%d\n",
 				     ext->lce.lc_number, ext->rs_failed);
 			}
@@ -1160,7 +1160,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				}
 				else {
 					if (bsr_ratelimit())
-						bsr_warn(peer_device, "kmalloc(udw) failed.\n");
+						bsr_warn(BSR_LC_LRU, peer_device, "kmalloc(udw) failed.\n");
 				}
 
 				ext->rs_failed = 0;
@@ -1572,7 +1572,7 @@ struct bm_extent *_bme_get(struct bsr_peer_device *peer_device, unsigned int enr
 
 	if (!bm_ext) {
 		if (rs_flags & LC_STARVING)
-			bsr_warn(peer_device, "Have to wait for element"
+			bsr_warn(BSR_LC_LRU, peer_device, "Have to wait for element"
 			     " (resync LRU too small?)\n");
 		BUG_ON(rs_flags & LC_LOCKED);
 	}
@@ -1718,7 +1718,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 			 
 			wake_up(&device->al_wait);
 		} else {
-			bsr_alert(device, "LOGIC BUG\n");
+			bsr_alert(BSR_LC_LRU, device, "LOGIC BUG\n");
 		}
 	}
 	/* TRY. */
@@ -1748,7 +1748,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 		if (!bm_ext) {
 			const ULONG_PTR rs_flags = peer_device->resync_lru->flags;
 			if (rs_flags & LC_STARVING)
-				bsr_warn(device, "Have to wait for element"
+				bsr_warn(BSR_LC_LRU, device, "Have to wait for element"
 				     " (resync LRU too small?)\n");
 			BUG_ON(rs_flags & LC_LOCKED);
 			goto try_again;

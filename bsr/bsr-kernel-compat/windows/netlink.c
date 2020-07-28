@@ -582,7 +582,7 @@ NetlinkWorkThread(PVOID context)
 		if( ((unsigned int)readcount != nlh->nlmsg_len) 
 			|| (nlh->nlmsg_type < NLMSG_MIN_TYPE) 
 			|| (nlh->nlmsg_pid != 0x5744) ) {
-			bsr_warn(NO_OBJECT,"Unrecognizable netlink command arrives and doesn't process...\n");
+			bsr_warn(BSR_LC_NETLINK, NO_OBJECT,"Unrecognizable netlink command arrives and doesn't process...\n");
 			bsr_debug(NO_OBJECT,"rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
             	readcount, nlh->nlmsg_len, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 			goto cleanup;
@@ -616,7 +616,7 @@ NetlinkWorkThread(PVOID context)
             struct bsr_conf * mdev = minor_to_device(minor);
             if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                bsr_warn(NO_OBJECT,"minor(%d) suspended\n", gmh->minor);
+                bsr_warn(BSR_LC_NETLINK, NO_OBJECT,"minor(%d) suspended\n", gmh->minor);
                 goto cleanup;
             }
         }

@@ -250,7 +250,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -355,7 +355,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -532,7 +532,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	if (error && bsr_ratelimit())
 #endif
-		bsr_warn(NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d\n",
+		bsr_warn(BSR_LC_PEER_REQUEST, NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d\n",
 		is_write ? (is_discard ? "discard" : "write")
 		: "read", error,
 		(unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -687,7 +687,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	*/
 	if (unlikely(req->rq_state[0] & RQ_LOCAL_ABORTED)) {
 		if (bsr_ratelimit())
-			bsr_emerg(device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
+			bsr_emerg(BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
 
 		if (!error)
 			bsr_panic_after_delayed_completion_of_aborted_request(device);
@@ -995,7 +995,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			// DW-1977
 			ts = timestamp_elapse(ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
-				bsr_warn(peer_device, "resync request takes a long time(%lldus)\n", ts);
+				bsr_warn(BSR_LC_RESYNC_OV, peer_device, "resync request takes a long time(%lldus)\n", ts);
 			}
 		}
 		else		
@@ -1803,7 +1803,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		}
 
 		if (n_oos) {
-			bsr_alert(peer_device, "Online verify found %lu %dk block out of sync!\n",
+			bsr_alert(BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!\n",
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}
@@ -2203,7 +2203,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	} else {
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 		if (bsr_ratelimit())
-			bsr_err(device, "Sending NegDReply. I guess it gets messy.\n");
+			bsr_err(device, "Sending NegRSDReply. I guess it gets messy.\n");
 		// BSR-448 fix bug that checksum synchronization stops when SyncSource io-error occurs continuously.
 		bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 	}
@@ -2705,7 +2705,7 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
 		atomic_read(&peer_device->wait_for_recv_bitmap)) {
-		bsr_warn(peer_device, "postponing start_resync ... unacked : %d, pending : %d\n", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d\n", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
 		retry_resync = true;
 	}
 
@@ -2967,7 +2967,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	// DW-1314 check stable sync source rules.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
-		bsr_warn(peer_device, "could not start resync.\n");
+		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "could not start resync.\n");
 
 		// turn back the replication state to L_ESTABLISHED
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
@@ -3189,7 +3189,7 @@ static void go_diskless(struct bsr_device *device)
 
 static int do_md_sync(struct bsr_device *device)
 {
-	bsr_warn(device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
+	bsr_warn(BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
 #ifdef BSR_DEBUG_MD_SYNC
 	bsr_warn(device, "last md_mark_dirty: %s:%u\n",
 		device->last_md_mark_dirty.func, device->last_md_mark_dirty.line);
@@ -3840,7 +3840,7 @@ int bsr_sender(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(connection, "Sender got an unexpected signal\n");
+				bsr_warn(BSR_LC_THREAD, connection, "Sender got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3928,7 +3928,7 @@ int bsr_worker(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(resource, "Worker got an unexpected signal\n");
+				bsr_warn(BSR_LC_THREAD, resource, "Worker got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3953,7 +3953,7 @@ int bsr_worker(struct bsr_thread *thi)
 				// DW-1953 logs are printed only once per work_list.
 				if (is_null_callback_print == false) {
 					// DW-1953 do not use "break" because you must call a non-null callback.
-					bsr_warn(resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
+					bsr_warn(BSR_LC_THREAD, resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
 					is_null_callback_print = true;
 				}
 			}

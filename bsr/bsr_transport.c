@@ -59,7 +59,7 @@ void bsr_unregister_transport_class(struct bsr_transport_class *transport_class)
 {
 	down_write(&transport_classes_lock);
 	if (!__find_transport_class(transport_class->name)) {
-		bsr_crit(NO_OBJECT, "unregistering unknown transport class '%s'\n",
+		bsr_crit(BSR_LC_SOCKET, NO_OBJECT, "unregistering unknown transport class '%s'\n",
 			transport_class->name);
 		BUG();
 	}

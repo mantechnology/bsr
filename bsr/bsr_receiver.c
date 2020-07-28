@@ -360,7 +360,7 @@ void* bsr_alloc_pages(struct bsr_transport *transport, unsigned int number, bool
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(connection, "bsr_alloc_pages interrupted!\n");
+			bsr_warn(BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
 			break;
 		}
 
@@ -475,7 +475,7 @@ void bsr_free_pages(struct bsr_transport *transport, struct page *page, int is_n
 #endif
 	i = atomic_sub_return(i, a);
 	if (i < 0) {
-		bsr_warn(connection, "ASSERTION FAILED: %s: %d < 0\n",
+		bsr_warn(BSR_LC_MEMORY, connection, "ASSERTION FAILED: %s: %d < 0\n",
 			is_net ? "pp_in_use_by_net" : "pp_in_use", i);
 		// DW-1239 If pp_in_use is negative, set to 0.
 		atomic_set(&connection->pp_in_use, 0);
@@ -697,7 +697,7 @@ static int bsr_recv_all_warn(struct bsr_connection *connection, void **buf, size
 
 	err = bsr_recv_all(connection, buf, size);
 	if (err && !signal_pending(current))
-		bsr_warn(connection, "short read (expected size %d)\n", (int)size);
+		bsr_warn(BSR_LC_PROTOCOL, connection, "short read (expected size %d)\n", (int)size);
 	return err;
 }
 
@@ -804,7 +804,7 @@ int connect_work(struct bsr_work *work, int cancel)
 		return 0; /* Return early. Keep the reference on the connection! */
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
+		bsr_alert(BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 	} else {
 		bsr_info(connection, "Failure to connect; retrying\n");
@@ -853,11 +853,11 @@ start:
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
-			bsr_warn(connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d\n", err);
+			bsr_warn(BSR_LC_CONNECTION, connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d\n", err);
 			goto retry;
 		}
 		else
-			bsr_warn(connection, "Failed to initiate connection, err=%d\n", err);
+			bsr_warn(BSR_LC_CONNECTION, connection, "Failed to initiate connection, err=%d\n", err);
 		goto abort;
 	}
 
@@ -938,9 +938,9 @@ start:
 		if (send_buffring)
 			bsr_info(connection, "send-buffering ok size(%llu) cong_fill(%llu)\n", nc->sndbuf_size, (nc->cong_fill));
 		else
-			bsr_warn(connection, "send-buffering disabled\n");
+			bsr_warn(BSR_LC_SEND_BUFFER, connection, "send-buffering disabled\n");
 	} else {
-		bsr_warn(connection, "send-buffering disabled nc->sndbuf_size:%llu\n",nc->sndbuf_size);
+		bsr_warn(BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu\n", nc->sndbuf_size);
 	}
 #endif
 
@@ -1001,7 +1001,7 @@ retry:
 	schedule_timeout_interruptible(HZ);
 	// DW-1176 retrying connection doesn't make sense while receiver's restarting, returning false lets bsr re-enters connection once receiver goes running.
 	if (get_t_state(&connection->receiver) == RESTARTING) {
-		bsr_warn(connection, "could not retry connection since receiver is restarting\n");
+		bsr_warn(BSR_LC_THREAD, connection, "could not retry connection since receiver is restarting\n");
 		return false;
 	}
 	goto start;
@@ -1182,7 +1182,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
-		bsr_latency(device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_latency(BSR_LC_LATENCY, device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
@@ -1243,7 +1243,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78DW');
 
 	if (!bio || !octx) {
-		bsr_warn(device, "Could not allocate a bio, CANNOT ISSUE FLUSH\n");
+		bsr_warn(BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH\n");
 		/* FIXME: what else can I do now?  disconnecting or detaching
 		 * really does not help to improve the state of the world, either.
 		 */
@@ -1343,7 +1343,7 @@ static enum finish_epoch bsr_flush_after_epoch(struct bsr_connection *connection
 			}
 #endif
 			if (ret == -BSR_SIGKILL) {
-				bsr_warn(resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d\n", 
+				bsr_warn(BSR_LC_IO, resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d\n", 
 					atomic_read(&resource->ctx_flush.pending), (long long)atomic_read64(&resource->ctx_flush.ctx_sync.barrier_nr), atomic_read(&resource->ctx_flush.ctx_sync.primary_node_id));
 			}
 		}
@@ -1498,7 +1498,7 @@ static enum finish_epoch bsr_may_finish_epoch(struct bsr_connection *connection,
 			fw->epoch = epoch;
 			bsr_queue_work(&resource->work, &fw->w);
 		} else {
-			bsr_warn(resource, "Could not kmalloc a flush_work obj\n");
+			bsr_warn(BSR_LC_IO, resource, "Could not kmalloc a flush_work obj\n");
 			set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &epoch->flags);
 			/* That is not a recursion, only one level */
 			bsr_may_finish_epoch(connection, epoch, EV_BARRIER_DONE);
@@ -2016,7 +2016,7 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 	UNREFERENCED_PARAMETER(cancel);
 
 	if (previous_epoch(peer_device->connection, peer_req->epoch))
-		bsr_warn(device, "Write ordering was not enforced (one time event)\n");
+		bsr_warn(BSR_LC_REPLICATION, device, "Write ordering was not enforced (one time event)\n");
 
 	/* we still have a local reference,
 	 * get_ldev was done in receive_Data. */
@@ -2104,7 +2104,7 @@ static int receive_Barrier(struct bsr_connection *connection, struct packet_info
 	 * avoid potential distributed deadlock */
 	epoch = kmalloc(sizeof(struct bsr_epoch), GFP_NOIO, '12DW');
 	if (!epoch) {
-		bsr_warn(connection, "Allocation of an epoch failed, slowing down\n");
+		bsr_warn(BSR_LC_REPLICATION, connection, "Allocation of an epoch failed, slowing down\n");
 		issue_flush = !test_and_set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &connection->current_epoch->flags);
 		conn_wait_ee_empty_or_disconnect(connection, &connection->active_ee);
 		if (issue_flush) {
@@ -2923,7 +2923,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	e_oos = 0;
 
 	if (d->bi_size < BM_BLOCK_SIZE) {
-		bsr_warn(peer_device, "bug FIMXME!! bi_size(%lu) < BM_BLOCK_SIZE\n", (unsigned long)d->bi_size);
+		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "bug FIMXME!! bi_size(%lu) < BM_BLOCK_SIZE\n", (unsigned long)d->bi_size);
 	}
 
 	// DW-1886
@@ -3811,7 +3811,7 @@ static int handle_write_conflicts(struct bsr_peer_request *peer_req)
 				       (i->size >> 9) >= sector + (size >> 9);
 
 			if (!equal)
-				bsr_alert(device, "Concurrent writes detected: "
+				bsr_alert(BSR_LC_ETC, device, "Concurrent writes detected: "
 					       "local=%llus +%u, remote=%llus +%u, "
 					       "assuming %s came first\n",
 					  (unsigned long long)i->sector, i->size,
@@ -3831,7 +3831,7 @@ static int handle_write_conflicts(struct bsr_peer_request *peer_req)
 				container_of(i, struct bsr_request, i);
 
 			if (!equal)
-				bsr_alert(device, "Concurrent writes detected: "
+				bsr_alert(BSR_LC_ETC, device, "Concurrent writes detected: "
 					       "local=%llus +%u, remote=%llus +%u\n",
 					  (unsigned long long)i->sector, i->size,
 					  (unsigned long long)sector, size);
@@ -4848,7 +4848,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 			break;
 		}
 		/* Else fall through to one of the other strategies... */
-		bsr_warn(peer_device, "Discard younger/older primary did not find a decision\n"
+		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision\n"
 			  "Using discard-least-changes instead\n");
 	case ASB_DISCARD_ZERO_CHG:
 		if (ch_peer == 0 && ch_self == 0) {
@@ -4930,7 +4930,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 			if (rv2 != SS_SUCCESS) {
 				bsr_khelper(device, connection, "pri-lost-after-sb");
 			} else {
-				bsr_warn(device, "Successfully gave up primary role.\n");
+				bsr_warn(BSR_LC_RESYNC_OV, device, "Successfully gave up primary role.\n");
 				rv = hg;
 			}
 		} else
@@ -4981,7 +4981,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 			if (rv2 != SS_SUCCESS) {
 				bsr_khelper(device, connection, "pri-lost-after-sb");
 			} else {
-				bsr_warn(device, "Successfully gave up primary role.\n");
+				bsr_warn(BSR_LC_RESYNC_OV, device, "Successfully gave up primary role.\n");
 				rv = hg;
 			}
 		} else
@@ -5653,11 +5653,11 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		disk_state = disk_state_from_md(device);
 
 	if (hg == -1000) {
-		bsr_alert(device, "Unrelated data, aborting!\n");
+		bsr_alert(BSR_LC_RESYNC_OV, device, "Unrelated data, aborting!\n");
 		return -1;
 	}
 	if (hg < -1000) {
-		bsr_alert(device, "To resolve this both sides have to support at least protocol %d\n", -hg - 1000);
+		bsr_alert(BSR_LC_RESYNC_OV, device, "To resolve this both sides have to support at least protocol %d\n", -hg - 1000);
 		return -1;
 	}
 
@@ -5698,11 +5698,11 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			break;
 		}
 		if (abs(hg) < 100) {
-			bsr_warn(device, "Split-Brain detected, %d primaries, "
+			bsr_warn(BSR_LC_CONNECTION, device, "Split-Brain detected, %d primaries, "
 			     "automatically solved. Sync from %s node\n",
 			     pcount, (hg < 0) ? "peer" : "this");
 			if (forced) {
-				bsr_warn(device, "Doing a full sync, since"
+				bsr_warn(BSR_LC_CONNECTION, device, "Doing a full sync, since"
 				     " UUIDs where ambiguous.\n");
 				hg = hg + (hg > 0 ? 1 : -1);
 			}
@@ -5726,7 +5726,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			hg = 2;
 
 		if (abs(hg) < 100)
-			bsr_warn(device, "Split-Brain detected, manually solved. "
+			bsr_warn(BSR_LC_CONNECTION, device, "Split-Brain detected, manually solved. "
 			     "Sync from %s node\n",
 			     (hg < 0) ? "peer" : "this");
 	}
@@ -5741,7 +5741,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	rcu_read_unlock();
 
 	if (hg == -100) {
-		bsr_alert(device, "Split-Brain detected but unresolved, dropping connection!\n");
+		bsr_alert(BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection!\n");
 		bsr_khelper(device, connection, "split-brain");
 		return -1;
 	}
@@ -5756,7 +5756,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_err(device, "I shall become SyncTarget, but I am primary!\n");
 			return -1;
 		case ASB_VIOLENTLY:
-			bsr_warn(device, "Becoming SyncTarget, violating the stable-data"
+			bsr_warn(BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
 			     "assumption\n");
 		}
 	}
@@ -6030,7 +6030,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
  */
 static int config_unknown_volume(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(connection, "%s packet received for volume %d, which is not configured locally\n",
+	bsr_warn(BSR_LC_VOLUME, connection, "%s packet received for volume %d, which is not configured locally\n",
 		  bsr_packet_name(pi->cmd), pi->vnr);
 	return ignore_remaining_packet(connection, pi->size);
 }
@@ -6286,7 +6286,7 @@ static void warn_if_differ_considerably(struct bsr_peer_device *peer_device,
 		return;
 	d = (a > b) ? (a - b) : (b - a);
 	if (d > (a>>3) || d > (b>>3))
-		bsr_warn(peer_device, "Considerable difference in %s: %llu bytes vs. %llu bytes\n", s,
+		bsr_warn(BSR_LC_VOLUME, peer_device, "Considerable difference in %s: %llu bytes vs. %llu bytes\n", s,
              (unsigned long long)(a<<9), (unsigned long long)(b<<9));
 }
 
@@ -6410,7 +6410,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
             (unsigned long long)(peer_device->max_size<<9));
 	
 	if ((p_size && p_csize > p_size) || (p_usize && p_csize > p_usize)) {
-		bsr_warn(peer_device, "Peer sent bogus sizes, disconnecting\n");
+		bsr_warn(BSR_LC_VOLUME, peer_device, "Peer sent bogus sizes, disconnecting\n");
 		goto disconnect;
 	}
 
@@ -6768,7 +6768,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 			bsr_uuid_received_new_current(peer_device, peer_device->current_uuid, node_mask);
 		}
 		else {
-			bsr_warn(peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
+			bsr_warn(BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
 		}
 
 		if (device->disk_state[NOW] > D_OUTDATED) {
@@ -8278,7 +8278,7 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
+		bsr_alert(BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}
@@ -8530,7 +8530,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 							sector = BM_BIT_TO_SECT(bit);
 
-							_printk(__FUNCTION__, KERN_OOS, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
+							_printk(__FUNCTION__, KERN_OOS_NUM, BSR_LC_OUT_OF_SYNC, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;
@@ -9149,7 +9149,7 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 		err = decode_bitmap_c(peer_device, p, &peer_device->bm_ctx, pi->size);
 	}
 	else {
-		bsr_warn(device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
+		bsr_warn(BSR_LC_BITMAP, device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
 		err = -EIO;
 		goto out;
 	}
@@ -9175,7 +9175,7 @@ out:
 
 static int receive_skip(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(connection, "skipping unknown optional packet type %d, l: %d!\n",
+	bsr_warn(BSR_LC_PROTOCOL, connection, "skipping unknown optional packet type %d, l: %d!\n",
 		 pi->cmd, pi->size);
 
 	return ignore_remaining_packet(connection, pi->size);
@@ -9577,13 +9577,13 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
 		if (connection->peer_role[NOW] == R_PRIMARY) {
-			bsr_warn(peer_device, "received new current UUID: %016llX "
+			bsr_warn(BSR_LC_UUID, peer_device, "received new current UUID: %016llX "
 				  "weak_nodes=%016llX\n", current_uuid, weak_nodes);
 			bsr_uuid_received_new_current(peer_device, current_uuid, weak_nodes);
 			bsr_md_sync_if_dirty(device);
 		}
 		else
-			bsr_warn(peer_device, "receive new current but not update UUID: %016llX "
+			bsr_warn(BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX "
 									"weak_nodes=%016llX\n", current_uuid, weak_nodes);
 
 		put_ldev(device);

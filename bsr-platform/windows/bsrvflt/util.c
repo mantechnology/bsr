@@ -576,7 +576,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		}
 #endif
 		default:
-			bsr_warn(NO_OBJECT,"The file system %hu is not supported\n", usFileSystemType);
+			bsr_warn(BSR_LC_DRIVER, NO_OBJECT, "The file system %hu is not supported\n", usFileSystemType);
 			break;
 		}
 
@@ -1015,7 +1015,7 @@ NTSTATUS QueryMountPoint(
 		0); // no EA buffer size...
 	if (!NT_SUCCESS(status) ||
 		!NT_SUCCESS(iosb.Status)) {
-		bsr_warn(NO_OBJECT,"Unable to open %wZ, error = 0x%x\n", &mmgrObjectName, status);
+		bsr_warn(BSR_LC_DRIVER, NO_OBJECT,"Unable to open %wZ, error = 0x%x\n", &mmgrObjectName, status);
 		return status;
 	}
 
@@ -1029,7 +1029,7 @@ NTSTATUS QueryMountPoint(
 		NotificationEvent,
 		FALSE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(NO_OBJECT,"Cannot create event (0x%x)\n", status);
+		bsr_warn(BSR_LC_DRIVER, NO_OBJECT,"Cannot create event (0x%x)\n", status);
 		return status;
 	}
 
@@ -1151,7 +1151,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 	PMOUNTDEV_UNIQUE_ID guid = QueryMountDUID(devObj);
 
     if (NULL == guid) {
-        bsr_warn(NO_OBJECT,"Volume GUID: NULL\n", 0);
+		bsr_warn(BSR_LC_VOLUME, NO_OBJECT, "Volume GUID: NULL\n", 0);
         return;
     }
 
@@ -1246,13 +1246,13 @@ NTSTATUS DeleteRegistryValueKey(__in PUNICODE_STRING preg_path, __in PUNICODE_ST
 
     status = ZwOpenKey(&hKey, DELETE, &attributes);
     if (!NT_SUCCESS(status)) {
-        bsr_warn(NO_OBJECT,"Failed to ZwOpenKey(). status(0x%x)\n", status);
+        bsr_warn(BSR_LC_DRIVER, NO_OBJECT,"Failed to ZwOpenKey(). status(0x%x)\n", status);
         goto cleanup;
     }
 
     status = ZwDeleteValueKey(hKey, pvalue_name);
     if (!NT_SUCCESS(status)) {
-        bsr_warn(NO_OBJECT,"Failed to ZwDeleteValueKey(). status(0x%x)\n", status);
+		bsr_warn(BSR_LC_DRIVER, NO_OBJECT, "Failed to ZwDeleteValueKey(). status(0x%x)\n", status);
         goto cleanup;
     }
 

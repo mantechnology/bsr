@@ -1245,7 +1245,7 @@ unsigned long _spin_lock_irqsave(spinlock_t *lock)
 	KIRQL	oldIrql = 0;
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) { 
-		bsr_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(BSR_LC_THREAD, NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &oldIrql);
 		lock->OwnerThread = curthread;
@@ -1271,7 +1271,7 @@ void spin_lock_irq(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {// DW-903 protect lock recursion
-		bsr_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1308,7 +1308,7 @@ void spin_lock_bh(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {
-		bsr_warn(NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		KeAcquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1531,7 +1531,7 @@ void kobject_put(struct kobject *kobj)
 void kobject_del(struct kobject *kobj)
 {
     if (!kobj) {
-        bsr_warn(NO_OBJECT,"kobj is null.\n");
+		bsr_warn(BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1686,7 +1686,7 @@ struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULON
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
 	list_add(&t->list, &ct_thread_list);
 	if (++ct_thread_num > CT_MAX_THREAD_LIST) {
-		bsr_warn(NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
+		bsr_warn(BSR_LC_THREAD, NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
     }
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
     return t;
@@ -1776,12 +1776,12 @@ int generic_make_request(struct bio *bio)
 			}
 		}
 		else {
-			bsr_warn(NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
+			bsr_warn(BSR_LC_IO, NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
 	else {
-		bsr_warn(NO_OBJECT,"IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
+		bsr_warn(BSR_LC_IO, NO_OBJECT, "IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
 		return -EIO;
 	}
 
@@ -2154,7 +2154,7 @@ int _BSR_ratelimit(struct ratelimit_state *rs, const char * func, const char * _
 
 	if (time_is_before_jiffies(rs->begin + rs->interval)){
 		if (rs->missed)
-			bsr_warn(NO_OBJECT,"%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
+			bsr_warn(BSR_LC_ETC, NO_OBJECT,"%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
 		rs->begin = jiffies;
 		rs->printed = 0;
 		rs->missed = 0;
@@ -2453,7 +2453,7 @@ LONGLONG get_targetdev_volsize(PVOLUME_EXTENSION VolumeExtension)
 	}
 	status = mvolGetVolumeSize(VolumeExtension->TargetDeviceObject, &volumeSize);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(NO_OBJECT,"get volume size error = 0x%x\n", status);
+		bsr_warn(BSR_LC_VOLUME, NO_OBJECT,"get volume size error = 0x%x\n", status);
 		volumeSize.QuadPart = 0;
 	}
 	return volumeSize.QuadPart;
@@ -2811,7 +2811,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlInitAnsiString(&apath, cpath);
 	NTSTATUS status = RtlAnsiStringToUnicodeString(&upath, &apath, TRUE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(NO_OBJECT,"Wrong path = %s\n", path);
+		bsr_warn(BSR_LC_VOLUME, NO_OBJECT,"Wrong path = %s\n", path);
 		return ERR_PTR(-EINVAL);
 	}
 
