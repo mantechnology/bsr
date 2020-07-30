@@ -65,7 +65,7 @@ void save_to_system_event(char * buf, int length, int level_index)
 // BSR-648
 void _printk(const char * func, int level, int category, const char * format, ...)
 #else
-void _printk(const char * func, const char * level, const char * format, ...)
+void _printk(const char * func, const char * level, int category, const char * format, ...)
 #endif
 {
 	int ret = 0;
@@ -385,12 +385,12 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 		return;
 	}
 #ifdef _WIN
-	_snprintf(buf, sizeof(buf) - 1, "%s["OOS_TRACE_STRING"] %s %Iu bits for bitmap_index(%d), pos(%Iu ~ %Iu), sector(%Iu ~ %Iu)", KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
+	_snprintf(buf, sizeof(buf) - 1, "["OOS_TRACE_STRING"] %s %Iu bits for bitmap_index(%d), pos(%Iu ~ %Iu), sector(%Iu ~ %Iu)", mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
 	stackFrames = (PVOID*)ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * frameCount, '22DW');
 
 #else // _LIN
-	snprintf(buf, sizeof(buf), "%s["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
-			KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, (size_t)BM_BIT_TO_SECT(startBit), (size_t)(BM_BIT_TO_SECT(endBit) | 0x7));
+	snprintf(buf, sizeof(buf), "["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
+			mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, (size_t)BM_BIT_TO_SECT(startBit), (size_t)(BM_BIT_TO_SECT(endBit) | 0x7));
 	stackFrames = (PVOID*)kmalloc(sizeof(PVOID) * frameCount, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 
@@ -414,9 +414,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	}
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	
-	_printk(__FUNCTION__, KERN_OOS_NUM, BSR_LC_OUT_OF_SYNC, buf);
-
+	bsr_oos(BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
 	if (NULL != stackFrames) {
 #ifdef _WIN
 		ExFreePool(stackFrames);

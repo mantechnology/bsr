@@ -8529,8 +8529,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 								break;
 
 							sector = BM_BIT_TO_SECT(bit);
-
-							_printk(__FUNCTION__, KERN_OOS_NUM, BSR_LC_OUT_OF_SYNC, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n", KERN_OOS,
+							bsr_oos(BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n",
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;

@@ -191,7 +191,7 @@ struct bsr_connection;
 // BSR-648
 extern void _printk(const char * func, int level, int category, const char * format, ...);
 #else // _LIN
-extern void _printk(const char * func, const char * level, const char * format, ...);
+extern void _printk(const char * func, const char * level, int category, const char * format, ...);
 #endif 
 extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 
@@ -330,15 +330,15 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 #else  // _LIN
 
-#define __bsr_printk_device(level, device, fmt, args...)		\
+#define __bsr_printk_device(category, level, device, fmt, args...)		\
 	({								\
 		const struct bsr_device *__d = (device);		\
 		const struct bsr_resource *__r = __d->resource;	\
-		_printk(__FUNCTION__, level, "<%c>bsr %s/%u bsr%u: " fmt,			\
+		_printk(__FUNCTION__, level, category, "<%c> bsr %s/%u bsr%u: " fmt,			\
 			(level)[1], __r->name, __d->vnr, __d->minor, ## args);	\
 	})
 
-#define __bsr_printk_peer_device(level, peer_device, fmt, args...)	\
+#define __bsr_printk_peer_device(category, level, peer_device, fmt, args...)	\
 	({								\
 		const struct bsr_device *__d;				\
 		const struct bsr_connection *__c;			\
@@ -349,17 +349,17 @@ void bsr_printk_with_wrong_object_type(void);
 		__c = (peer_device)->connection;			\
 		__r = __d->resource;					\
 		__cn = rcu_dereference(__c->transport.net_conf)->name;	\
-		_printk(__FUNCTION__, level, "<%c>bsr %s/%u bsr%u %s: " fmt,		\
+		_printk(__FUNCTION__, level, category, "<%c> bsr %s/%u bsr%u %s: " fmt,		\
 			(level)[1], __r->name, __d->vnr, __d->minor, __cn, ## args);\
 		rcu_read_unlock();					\
 	})
 
-#define __bsr_printk_resource(level, resource, fmt, args...) \
-	_printk(__FUNCTION__, level, "<%c>bsr %s: " fmt, level[1], (resource)->name, ## args)
+#define __bsr_printk_resource(category, level, resource, fmt, args...) \
+	_printk(__FUNCTION__, level, category, "<%c> bsr %s: " fmt, level[1], (resource)->name, ## args)
 
-#define __bsr_printk_connection(level, connection, fmt, args...) \
+#define __bsr_printk_connection(category, level, connection, fmt, args...) \
 	({	rcu_read_lock(); \
-		_printk(__FUNCTION__, level, "<%c>bsr %s %s: " fmt, (level)[1], (connection)->resource->name,  \
+		_printk(__FUNCTION__, level, category, "<%c> bsr %s %s: " fmt, (level)[1], (connection)->resource->name,  \
 		       rcu_dereference((connection)->transport.net_conf)->name, ## args); \
 		rcu_read_unlock(); \
 	})
@@ -367,38 +367,38 @@ void bsr_printk_with_wrong_object_type(void);
 void bsr_printk_with_wrong_object_type(void);
 
 // BSR-237 if object is empty or undefined (NO_OBJECT)
-#define __bsr_printk(level, fmt, args...) \
-	_printk(__FUNCTION__, level, "<%c>bsr " fmt, level[1], ## args)
+#define __bsr_printk(category, level, fmt, args...) \
+	_printk(__FUNCTION__, level, category, "<%c> bsr " fmt, level[1], ## args)
 
-#define __bsr_printk_if_same_type(obj, type, func, level, fmt, args...) \
+#define __bsr_printk_if_same_type(obj, type, func, category, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \
 	 __builtin_types_compatible_p(typeof(obj), const type)), \
-	func(level, (const type)(obj), fmt, ## args)
+	func(category, level, (const type)(obj), fmt, ## args)
 
-#define bsr_printk(level, obj, fmt, args...) \
+#define bsr_printk(category, level, obj, fmt, args...) \
 	__builtin_choose_expr( \
 	  __bsr_printk_if_same_type(obj, struct bsr_device *, \
-			     __bsr_printk_device, level, fmt, ## args), \
+			     __bsr_printk_device, category, level, fmt, ## args), \
 	  __builtin_choose_expr( \
 	    __bsr_printk_if_same_type(obj, struct bsr_resource *, \
-			       __bsr_printk_resource, level, fmt, ## args), \
+			       __bsr_printk_resource, category, level, fmt, ## args), \
 	    __builtin_choose_expr( \
 	      __bsr_printk_if_same_type(obj, struct bsr_connection *, \
-				 __bsr_printk_connection, level, fmt, ## args), \
+				 __bsr_printk_connection, category, level, fmt, ## args), \
 	      __builtin_choose_expr( \
 		__bsr_printk_if_same_type(obj, struct bsr_peer_device *, \
-				 __bsr_printk_peer_device, level, fmt, ## args), \
-	        __bsr_printk(level, fmt, ## args))))) 
+				 __bsr_printk_peer_device, category, level, fmt, ## args), \
+	        __bsr_printk(category, level, fmt, ## args))))) 
 
 #if defined(disk_to_dev)
 #define bsr_dbg(obj, fmt, args...) \
 	dev_dbg(disk_to_dev(obj->vdisk), fmt, ## args)
 #elif defined(DEBUG)
 #define bsr_dbg(obj, fmt, args...) \
-	bsr_printk(KERN_DEBUG, obj, fmt, ## args)
+	bsr_printk(BSR_LC_ETC, KERN_DEBUG, obj, fmt, ## args)
 #else
 #define bsr_dbg(obj, fmt, args...) \
-	do { if (0) bsr_printk(KERN_DEBUG, obj, fmt, ## args); } while (0)
+	do { if (0) bsr_printk(BSR_LC_ETC, KERN_DEBUG, obj, fmt, ## args); } while (0)
 #endif
 
 #if defined(dynamic_dev_dbg) && defined(disk_to_dev)
@@ -414,30 +414,31 @@ void bsr_printk_with_wrong_object_type(void);
 #define bsr_debug_rs(fmt, args...)
 #define bsr_debug_al(fmt, args...)
 
-#define bsr_emerg(obj, fmt, args...) \
-	bsr_printk(KERN_EMERG, obj, fmt, ## args)
-#define bsr_alert(obj, fmt, args...) \
-	bsr_printk(KERN_ALERT, obj, fmt, ## args)
-#define bsr_crit(obj, fmt, args...) \
-	bsr_printk(KERN_CRIT, obj, fmt, ## args)
+// BSR-648
+#define bsr_emerg(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_EMERG, obj, fmt, ## args)
+#define bsr_alert(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_ALERT, obj, fmt, ## args)
+#define bsr_crit(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_CRIT, obj, fmt, ## args)
 #define bsr_err(obj, fmt, args...) \
-	bsr_printk(KERN_ERR, obj, fmt, ## args)
-#define bsr_warn(obj, fmt, args...) \
-	bsr_printk(KERN_WARNING, obj, fmt, ## args)
-#define bsr_noti(obj, fmt, args...) \
-	bsr_printk(KERN_NOTICE, obj, fmt, ## args)
+	bsr_printk(BSR_LC_ETC, KERN_ERR, obj, fmt, ## args)
+#define bsr_warn(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_WARNING, obj, fmt, ## args)
+#define bsr_noti(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_NOTICE, obj, fmt, ## args)
 #define bsr_info(obj, fmt, args...) \
-	bsr_printk(KERN_INFO, obj, fmt, ## args)
-#define bsr_oos(obj, fmt, args...) \
-	bsr_printk(KERN_OOS, obj, fmt, ## args)
-#define bsr_latency(BSR_LC_LATENCY, obj, fmt, args...) \
-	bsr_printk(KERN_LATENCY, obj, fmt, ## args)
+	bsr_printk(BSR_LC_ETC, KERN_INFO, obj, fmt, ## args)
+#define bsr_oos(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_OOS, obj, fmt, ## args)
+#define bsr_latency(category, obj, fmt, args...) \
+	bsr_printk(category, KERN_LATENCY, obj, fmt, ## args)
 
 #if defined(DEBUG)
 #define bsr_debug(obj, fmt, args...) \
-	bsr_printk(KERN_DEBUG, obj, fmt, ## args)
+	bsr_printk(BSR_LC_ETC, KERN_DEBUG, obj, fmt, ## args)
 #else
-#define bsr_debug(obj, fmt, args...) bsr_printk(KERN_DEBUG, obj, fmt, ## args)
+#define bsr_debug(obj, fmt, args...) bsr_printk(BSR_LC_ETC, KERN_DEBUG, obj, fmt, ## args)
 #endif
 #endif
 
@@ -447,7 +448,7 @@ void bsr_printk_with_wrong_object_type(void);
 	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) _printk(__FUNCTION__, KERN_INFO_NUM, BSR_LC_VERIFY, "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
 #else // _LIN
 #define BSR_VERIFY_DATA(fmt, args...) \
-	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(KERN_INFO, NO_OBJECT, fmt, ## args)
+	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(BSR_LC_VERIFY, KERN_INFO, NO_OBJECT, fmt, ## args)
 #endif
 
 #ifdef _WIN

@@ -640,11 +640,11 @@ static char **make_envp(struct env *env)
 #else // _LIN
 #define magic_printk(level, fmt, args...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(BSR_LC_ETC, level, peer_device, fmt, args); \
 	else if (device)						\
-		__bsr_printk_device(level, device, fmt, args);		\
+		__bsr_printk_device(BSR_LC_ETC, level, device, fmt, args);		\
 	else								\
-		__bsr_printk_connection(level, connection, fmt, args);
+		__bsr_printk_connection(BSR_LC_ETC, level, connection, fmt, args);
 #endif
 
 int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)
