@@ -2244,14 +2244,14 @@ static void decide_on_write_same_support(struct bsr_device *device,
 		unsigned int me_lbs = queue_logical_block_size(q);
 
 		if (me_lbs_b != me_lbs) {
-			bsr_warn(device,
+			bsr_warn(BSR_LC_GENL, device,
 				"logical block size of local backend does not match (bsr:%u, backend:%u); was this a late attach?\n",
 				me_lbs, me_lbs_b);
 			/* rather disable write same than trigger some BUG_ON later in the scsi layer. */
 			can_do = false;
 		}
 		if (me_lbs_b != peer_lbs) {
-			bsr_warn(device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.\n",
+			bsr_warn(BSR_LC_GENL, device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.\n",
 				me_lbs, peer_lbs);
 			if (can_do) {
 				bsr_dbg(device, "logical block size mismatch: WRITE_SAME disabled.\n");
@@ -2264,9 +2264,9 @@ static void decide_on_write_same_support(struct bsr_device *device,
 			if (peer_lbs > me_lbs) {
 				if (device->resource->role[NOW] != R_PRIMARY) {
 					blk_queue_logical_block_size(q, peer_lbs);
-					bsr_warn(device, "logical block size set to %u\n", peer_lbs);
+					bsr_warn(BSR_LC_GENL, device, "logical block size set to %u\n", peer_lbs);
 				} else {
-					bsr_warn(device,
+					bsr_warn(BSR_LC_GENL, device,
 						"current Primary must NOT adjust logical block size (%u -> %u); hope for the best.\n",
 						me_lbs, peer_lbs);
 				}
@@ -3028,7 +3028,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 			else {
-				bsr_warn(NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+				bsr_warn(BSR_LC_GENL, NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
 			}
 #endif
 		}

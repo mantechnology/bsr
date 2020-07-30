@@ -4123,7 +4123,7 @@ int set_resource_options(struct bsr_resource *resource, struct res_opts *res_opt
 			if (zalloc_cpumask_var(&tmp_cpu_mask, GFP_KERNEL)) {
 				cpumask_setall(tmp_cpu_mask);
 				cpumask_and(new_cpu_mask, new_cpu_mask, tmp_cpu_mask);
-				bsr_warn(resource, "Overflow in bitmap_parse(%.12s%s), truncating to %u bits\n",
+				bsr_warn(BSR_LC_ETC, resource, "Overflow in bitmap_parse(%.12s%s), truncating to %u bits\n",
 					res_opts->cpu_mask,
 					strlen(res_opts->cpu_mask) > 12 ? "..." : "",
 					nr_cpu_ids);
@@ -4132,7 +4132,7 @@ int set_resource_options(struct bsr_resource *resource, struct res_opts *res_opt
 			}
 		}
 		if (err) {
-			bsr_warn(resource, "bitmap_parse() failed with %d\n", err);
+			bsr_warn(BSR_LC_ETC, resource, "bitmap_parse() failed with %d\n", err);
 			/* retcode = ERR_CPU_MASK_PARSE; */
 			goto fail;
 		}
@@ -5474,7 +5474,7 @@ int log_consumer_thread(void *unused)
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_warn(NO_OBJECT, "failed to create log directory\n");
+		bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to create log directory\n");
 		return 0;
 	}
 
@@ -5483,7 +5483,7 @@ int log_consumer_thread(void *unused)
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
-		bsr_warn(NO_OBJECT, "failed to create log file\n");
+		bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to create log file\n");
 	}
 #endif
 	else {
@@ -5518,7 +5518,7 @@ int log_consumer_thread(void *unused)
 #else
 			// BSR-619 check log file exists
 			if (d_unlinked(hFile->f_path.dentry)) {
-				bsr_warn(NO_OBJECT, "log file not found.\n");
+				bsr_warn(BSR_LC_LOG, NO_OBJECT, "log file not found.\n");
 				break;
 			}
 
@@ -5531,7 +5531,7 @@ int log_consumer_thread(void *unused)
 			set_fs(oldfs);
 
 			if (err < 0 || err != filesize) {
-				bsr_warn(NO_OBJECT, "failed to write log\n");
+				bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to write log\n");
 				break;
 			}
 #endif
@@ -5570,7 +5570,7 @@ int log_consumer_thread(void *unused)
 #else // _LIN
 				// BSR-579 rolling and clean up
 				if (bsr_log_rolling_file_clean_up() != 0) {
-					bsr_warn(NO_OBJECT, "failed to remove log file\n");
+					bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to remove log file\n");
 					break;
 				}
 
@@ -5579,7 +5579,7 @@ int log_consumer_thread(void *unused)
 					filp_close(hFile, NULL);
 
 				if (bsr_log_file_rename() != 0) {
-					bsr_warn(NO_OBJECT, "failed to rename log file\n");
+					bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to rename log file\n");
 					break;
 				}
 				oldfs = get_fs();
@@ -5588,7 +5588,7 @@ int log_consumer_thread(void *unused)
 				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
 				if (hFile == NULL || IS_ERR(hFile)) {
-					bsr_warn(NO_OBJECT, "failed to new log file\n");
+					bsr_warn(BSR_LC_LOG, NO_OBJECT, "failed to new log file\n");
 					break;
 				}
 #endif

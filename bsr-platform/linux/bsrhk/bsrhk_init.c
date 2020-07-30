@@ -66,7 +66,7 @@ static int __init bsr_load(void)
 	bsr_info(NO_OBJECT, "bsr kernel driver load\n");
 	initialize_kref_debugging();
 	if (bsr_debugfs_init())
-		bsr_noti(NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
+		bsr_noti(BSR_LC_DRIVER, NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
 
 	return bsr_init();	
 }

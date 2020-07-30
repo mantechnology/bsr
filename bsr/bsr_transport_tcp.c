@@ -2668,11 +2668,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
+				bsr_warn(BSR_LC_SEND_BUFFER, NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
 			}
 		}
 		else {
-			bsr_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
+			bsr_warn(BSR_LC_SEND_BUFFER, NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}
 	return;

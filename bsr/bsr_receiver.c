@@ -417,7 +417,7 @@ struct page *bsr_alloc_pages(struct bsr_transport *transport, unsigned int numbe
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(connection, "bsr_alloc_pages interrupted!\n");
+			bsr_warn(BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
 			break;
 		}
 
@@ -8539,7 +8539,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 					}
 				}
 #else
-					bsr_warn(peer_device, "SyncSource still sees bits set!! FIXME\n");
+					bsr_warn(BSR_LC_RESYNC_OV, peer_device, "SyncSource still sees bits set!! FIXME\n");
 #endif
 
 				bsr_resync_finished(peer_device, peer_state.disk);

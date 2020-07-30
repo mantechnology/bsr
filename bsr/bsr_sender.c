@@ -3191,7 +3191,7 @@ static int do_md_sync(struct bsr_device *device)
 {
 	bsr_warn(BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
 #ifdef BSR_DEBUG_MD_SYNC
-	bsr_warn(device, "last md_mark_dirty: %s:%u\n",
+	bsr_warn(BSR_LC_STATE, device, "last md_mark_dirty: %s:%u\n",
 		device->last_md_mark_dirty.func, device->last_md_mark_dirty.line);
 #endif
 	bsr_md_sync(device);
