@@ -267,7 +267,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	 * don't try again for ANY return value != 0 */
 	if (err && device->md_io.done && (bio->bi_opf & BSR_REQ_HARDBARRIER)) {
 		/* Try again with no barrier */
-		bsr_warn(0, device, "Barriers not supported on meta data device - disabling\n");
+		bsr_warn(74, BSR_LC_ETC, device, "Barriers not supported on meta data device - disabling\n");
 		set_bit(MD_NO_FUA, &device->flags);
 		op_flags &= ~BSR_REQ_HARDBARRIER;
 		bio_put(bio);

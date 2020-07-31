@@ -60,7 +60,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	RtlZeroMemory( nameInfo, MAXDEVICENAME * sizeof(WCHAR) );
 	status = ObQueryNameString( DeviceObject, nameInfo, MAXDEVICENAME, &size );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot get device name, err=0x%x\n", status);
+		bsr_err(96, BSR_LC_DRIVER, NO_OBJECT, "cannot get device name, err=0x%x\n", status);
 		ExFreePool( nameInfo );
 		return status;
 	}
@@ -156,7 +156,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
             &pVolumeFileObject,
             NULL);
         if (!NT_SUCCESS(status)) {
-            bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
+			bsr_err(53, BSR_LC_ETC, NO_OBJECT,"ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
             __leave;
         }
 #endif

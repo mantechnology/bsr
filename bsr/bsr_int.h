@@ -605,7 +605,7 @@ static inline int bsr_ratelimit(void)
 #define D_ASSERT(x, exp)							\
 	do {									\
 		if (!(exp))							\
-			bsr_err(0, BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(18, BSR_LC_ETC, x, "ASSERTION %s FAILED in %s\n",		\
 				 #exp, __func__);				\
 	} while (0)
 #endif
@@ -620,7 +620,7 @@ static inline int bsr_ratelimit(void)
 #define expect(x, exp) ({							\
 		bool _bool = (exp);						\
 		if (!_bool)							\
-			bsr_err(0, BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(19, BSR_LC_ETC, x, "ASSERTION %s FAILED in %s\n",		\
 			        #exp, __func__);				\
 		_bool;								\
 		})
@@ -3514,7 +3514,7 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 			bsr_queue_work(&device->resource->work, &w->w);
 		}
 		else {
-			bsr_err(0, BSR_LC_TEMP, device, "kmalloc failed.\n");
+			bsr_err(13, BSR_LC_MEMORY, device, "kmalloc failed.\n");
 		}
 	}
 }
@@ -4126,7 +4126,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "timestamp is invalid\n");
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "timestamp is invalid\n");
 		return -1;
 	}
 

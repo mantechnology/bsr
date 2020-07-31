@@ -477,7 +477,7 @@ struct page  *alloc_page(int flag)
 
 	struct page *p = kmalloc(sizeof(struct page),0, 'D3DW'); 
 	if (!p)	{
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"alloc_page struct page failed\n");
+		bsr_info(1, BSR_LC_MEMORY, NO_OBJECT,"alloc_page struct page failed\n");
 		return NULL;
 	}	
 	RtlZeroMemory(p, sizeof(struct page));
@@ -485,7 +485,7 @@ struct page  *alloc_page(int flag)
 	p->addr = kzalloc(PAGE_SIZE, 0, 'E3DW');
 	if (!p->addr)	{
 		kfree(p); 
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"alloc_page PAGE_SIZE failed\n");
+		bsr_info(2, BSR_LC_MEMORY, NO_OBJECT, "alloc_page PAGE_SIZE failed\n");
 		return NULL;
 	}
 	RtlZeroMemory(p->addr, PAGE_SIZE);
@@ -513,7 +513,7 @@ void kmem_cache_free(struct kmem_cache *cache, void * x)
 
 void bsr_bp(char *msg)
 {
-    bsr_err(1, BSR_LC_TEMP, NO_OBJECT,"breakpoint: msg(%s)\n", msg);
+    bsr_err(1, BSR_LC_ETC, NO_OBJECT,"breakpoint: msg(%s)\n", msg);
 }
 
 __inline void kfree(void * x)
@@ -631,7 +631,7 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 	}
 
 	if (!p) {
-		bsr_err(3, BSR_LC_TEMP, NO_OBJECT,"mempool_alloc failed");
+		bsr_err(3, BSR_LC_MEMORY, NO_OBJECT, "mempool_alloc failed");
 	}
 
 	return p;
@@ -675,7 +675,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
 	if (!p) {
-		bsr_err(4, BSR_LC_TEMP, NO_OBJECT,"kzalloc failed\n");
+		bsr_err(4, BSR_LC_MEMORY, NO_OBJECT, "kzalloc failed\n");
 		return 0;
 	}
 #ifdef _WIN64
@@ -743,7 +743,7 @@ struct bio *bio_alloc(gfp_t gfp_mask, int nr_iovecs, ULONG Tag)
 	bio->bi_vcnt = 0;
 
 	if (nr_iovecs > 256) {
-		bsr_err(5, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
+		bsr_err(5, BSR_LC_MEMORY, NO_OBJECT, "BSR_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
 		BUG();
 	}
 	return bio;
@@ -1509,7 +1509,7 @@ void kobject_put(struct kobject *kobj)
     if (kobj) 
     {
         if (kobj->name == NULL) {
-            //bsr_warn(0, NO_OBJECT,"%p name is null.\n", kobj);
+            //bsr_warn(68, BSR_LC_ETC,"%p name is null.\n", kobj);
             return;
         }
 
@@ -1523,7 +1523,7 @@ void kobject_put(struct kobject *kobj)
 		}
     }
     else {
-        //bsr_warn(0, NO_OBJECT,"kobj is null.\n");
+        //bsr_warn(69, BSR_LC_ETC,"kobj is null.\n");
         return;
     }
 }
@@ -1531,7 +1531,7 @@ void kobject_put(struct kobject *kobj)
 void kobject_del(struct kobject *kobj)
 {
     if (!kobj) {
-		bsr_warn(0, BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
+		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1543,7 +1543,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"kobj is null.\n");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
         return;
     }
 }
@@ -1583,7 +1583,7 @@ void del_gendisk(struct gendisk *disk)
 	status = CloseSocket(sock->sk); 
 	if (!NT_SUCCESS(status)) 
 	{
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"error=0x%x\n", status);
+		bsr_err(3, BSR_LC_ETC, NO_OBJECT,"error=0x%x\n", status);
 		return;
 	}
 #endif
@@ -1745,7 +1745,7 @@ void *crypto_alloc_tfm(char *name, u32 mask)
 {
 	UNREFERENCED_PARAMETER(mask);
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"request crypto name(%s) --> supported crc32c only.\n", name);
+	bsr_info(59, BSR_LC_PROTOCOL, NO_OBJECT, "request crypto name(%s) --> supported crc32c only.\n", name);
 	return (void *)1;
 }
 
@@ -2095,7 +2095,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 	skb->len  += len;
 
 	if (skb->tail > skb->end) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"bsr:skb_put: skb_over_panic\n");
+		bsr_err(66, BSR_LC_GENL, NO_OBJECT, "bsr:skb_put: skb_over_panic\n");
 	}
 
 	return tmp;
@@ -2154,7 +2154,7 @@ int _BSR_ratelimit(struct ratelimit_state *rs, const char * func, const char * _
 
 	if (time_is_before_jiffies(rs->begin + rs->interval)){
 		if (rs->missed)
-			bsr_warn(0, BSR_LC_ETC, NO_OBJECT,"%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
+			bsr_warn(71, BSR_LC_ETC, NO_OBJECT, "%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
 		rs->begin = jiffies;
 		rs->printed = 0;
 		rs->missed = 0;
@@ -2233,7 +2233,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 	NTSTATUS 			status;
 	bool				bWasExist = FALSE;	
 	if (!pvext) {
-		bsr_warn(0, NO_OBJECT,"update_targetdev fail pvext is NULL\n");
+		bsr_warn(72, BSR_LC_ETC,"update_targetdev fail pvext is NULL\n");
 		return;
 	}
 
@@ -2261,7 +2261,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 					// DW-1300 get device and get reference.
 					struct bsr_device *device = get_device_with_vol_ext(pvext, TRUE);
 					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
-						bsr_warn(0, NO_OBJECT,"replicating volume letter is changed, detaching\n");
+						bsr_warn(73, BSR_LC_ETC,"replicating volume letter is changed, detaching\n");
 						set_bit(FORCE_DETACH, &device->flags);
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
 						put_ldev(device);
@@ -2325,13 +2325,13 @@ void monitor_mnt_change(PVOID pParam)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
+			bsr_err(7, BSR_LC_ETC, NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
 			break;
 		}
 
 		status = ZwCreateEvent(&hEvent, GENERIC_ALL, 0, NotificationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"could not create event, status : 0x%x\n", status);
+			bsr_err(4, BSR_LC_ETC, NO_OBJECT,"could not create event, status : 0x%x\n", status);
 			break;
 		}
 
@@ -2598,7 +2598,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93DW');
     if (!new_reg_buf) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to ExAllocatePoolWithTag new_reg_buf\n", 0);
+		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to ExAllocatePoolWithTag new_reg_buf\n", 0);
         return FALSE;
     }
 
@@ -2629,7 +2629,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3DW');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to ExAllocatePoolWithTag() size(%u)\n", size);
+		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to ExAllocatePoolWithTag() size(%u)\n", size);
         goto cleanup;
     }
 
@@ -2643,7 +2643,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to ExAllocatePoolWithTag() valueInfoSize(%d)\n", valueInfoSize);
+		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to ExAllocatePoolWithTag() valueInfoSize(%d)\n", valueInfoSize);
         goto cleanup;
     }
 
@@ -2846,13 +2846,13 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 #endif
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
 	if (!sLine) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"sLine:kzalloc failed\n");
+		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "sLine:kzalloc failed\n");
 		return;
 	}
 
 	*(sLine + sLineSize - 1) = '\0';
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
+	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
 
 	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);
@@ -2878,7 +2878,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 			*(sLine + sCharAreaStartPos + i) = (sByte < 127 && sByte >= 0x20) ? (char) sByte : '.';
 		}
 		sPos += aWidth;
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"%s\n", sLine);
+		bsr_info(6, BSR_LC_ETC, NO_OBJECT, "%s\n", sLine);
 	}
 	kfree(sLine);
 }
@@ -2901,7 +2901,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW');
 	if (!pSock) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"call_usermodehelper kzalloc failed\n");
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "call_usermodehelper kzalloc failed\n");
 		return -1;
 	}
 #ifdef _WIN64
@@ -2910,7 +2910,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64DW');
 	if (!cmd_line) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"malloc(%d) failed\n", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "malloc(%d) failed\n", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -2918,7 +2918,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	}
 
 	_snprintf(cmd_line, leng - 1, "%s %s\0", argv[1], argv[2]); // except "bsradm.exe" string
-    bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
+	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
@@ -3089,10 +3089,10 @@ int bsr_backing_bdev_events(struct bsr_device *device)
 
 	status = mvolGetDiskPerf(mdev->ldev->backing_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, &diskPerf);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
+		bsr_err(8, BSR_LC_ETC, NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
 		return mdev->writ_cnt + mdev->read_cnt;
 	}
-	// bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld\n",
+	// bsr_info(9, BSR_LC_ETC, NO_OBJECT,"mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld\n",
 	//		mdev->read_cnt, mdev->writ_cnt, mdev->writ_cnt + mdev->read_cnt,
 	//		diskPerf.BytesRead.QuadPart/512, diskPerf.BytesWritten.QuadPart/512,
 	//		diskPerf.BytesRead.QuadPart/512 + diskPerf.BytesWritten.QuadPart/512);

@@ -2525,9 +2525,9 @@ static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long
 						
 						// kill DATA_STREAM thread
 						KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-						//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+						//bsr_info(47, BSR_LC_ETC, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 						KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-						//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+						//bsr_info(48, BSR_LC_ETC, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 						//ZwClose(attr->send_buf_thread_handle);
 						attr->send_buf_thread_handle = NULL;
 						
@@ -2634,9 +2634,9 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 
 			if (attr->send_buf_thread_handle != NULL) {
 				KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-				//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+				//bsr_info(49, BSR_LC_ETC, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 				KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-				//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+				//bsr_info(50, BSR_LC_ETC, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}

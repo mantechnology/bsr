@@ -360,7 +360,7 @@ void* bsr_alloc_pages(struct bsr_transport *transport, unsigned int number, bool
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(0, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
+			bsr_warn(14, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
 			break;
 		}
 
@@ -417,7 +417,7 @@ struct page *bsr_alloc_pages(struct bsr_transport *transport, unsigned int numbe
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(0, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
+			bsr_warn(15, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!\n");
 			break;
 		}
 
@@ -475,7 +475,7 @@ void bsr_free_pages(struct bsr_transport *transport, struct page *page, int is_n
 #endif
 	i = atomic_sub_return(i, a);
 	if (i < 0) {
-		bsr_warn(0, BSR_LC_MEMORY, connection, "ASSERTION FAILED: %s: %d < 0\n",
+		bsr_warn(16, BSR_LC_MEMORY, connection, "ASSERTION FAILED: %s: %d < 0\n",
 			is_net ? "pp_in_use_by_net" : "pp_in_use", i);
 		// DW-1239 If pp_in_use is negative, set to 0.
 		atomic_set(&connection->pp_in_use, 0);
@@ -697,7 +697,7 @@ static int bsr_recv_all_warn(struct bsr_connection *connection, void **buf, size
 
 	err = bsr_recv_all(connection, buf, size);
 	if (err && !signal_pending(current))
-		bsr_warn(0, BSR_LC_PROTOCOL, connection, "short read (expected size %d)\n", (int)size);
+		bsr_warn(64, BSR_LC_PROTOCOL, connection, "short read (expected size %d)\n", (int)size);
 	return err;
 }
 
@@ -1021,7 +1021,7 @@ int decode_header(struct bsr_connection *connection, void *header, struct packet
 	    *(__be32 *)header == cpu_to_be32(BSR_MAGIC_100)) {
 		struct p_header100 *h = header;
 		if (h->pad != 0) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Header padding is not zero\n");
+			bsr_err(3, BSR_LC_PROTOCOL, connection, "Header padding is not zero\n");
 			return -EINVAL;
 		}
 		pi->vnr = (s16)be16_to_cpu(h->volume);
@@ -1040,7 +1040,7 @@ int decode_header(struct bsr_connection *connection, void *header, struct packet
 		pi->size = be16_to_cpu(h->length);
 		pi->vnr = 0;
 	} else {
-		bsr_err(0, BSR_LC_TEMP, connection, "Wrong magic value 0x%08x in protocol version %d\n",
+		bsr_err(4, BSR_LC_PROTOCOL, connection, "Wrong magic value 0x%08x in protocol version %d\n",
 			 be32_to_cpu(*(__be32 *)header),
 			 connection->agreed_pro_version);
 		return -EINVAL;
@@ -1696,7 +1696,7 @@ struct bsr_peer_request *peer_req)
 	/* We should have never received this request!  At least not until we
 	 * implement an open-coded write-same equivalend submit loop, and tell
 	 * our peer we were write_same_capable. */
-	bsr_err(0, BSR_LC_TEMP, device, "received unsupported WRITE_SAME request\n");
+	bsr_err(5, BSR_LC_PROTOCOL, device, "received unsupported WRITE_SAME request\n");
 	peer_req->flags |= EE_WAS_ERROR;
 	bsr_endio_write_sec_final(peer_req);
 #else
@@ -5394,7 +5394,7 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 		if (from == -1 || peer_device->bitmap_index == -1)
 			return 0;
 
-		bsr_info(0, BSR_LC_TEMP, peer_device, "Peer synced up with node %d, copying bitmap\n", peer_node_id);
+		bsr_info(32, BSR_LC_ETC, peer_device, "Peer synced up with node %d, copying bitmap\n", peer_node_id);
 		bsr_suspend_io(device, WRITE_ONLY);
 		bsr_bm_slot_lock(peer_device, "bm_copy_slot from sync_handshake", BM_LOCK_BULK);
 		bsr_bm_copy_slot(device, from, peer_device->bitmap_index);
@@ -5405,7 +5405,7 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 	} else if (hg == -4) {
 
 #if 0 // DW-1099 copying bitmap has a defect, do sync whole out-of-sync until fixed.
-		bsr_info(0, BSR_LC_TEMP, peer_device, "synced up with node %d in the mean time\n", peer_node_id);
+		bsr_info(33, BSR_LC_ETC, peer_device, "synced up with node %d in the mean time\n", peer_node_id);
 		bsr_suspend_io(device, WRITE_ONLY);
 		bsr_bm_slot_lock(peer_device, "bm_clear_many_bits from sync_handshake", BM_LOCK_BULK);
 		bsr_bm_clear_many_bits(peer_device, 0, -1UL);
@@ -5669,7 +5669,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// It will not be used for a while because DW-1195 reproduced.
 	/*
 	if (hg == 100 && (!bsr_device_stable(device, NULL) || !(peer_device->uuid_flags & UUID_FLAG_STABLE))) {
-		bsr_warn(0, device, "Ignore Split-Brain, for now, at least one side unstable\n");
+		bsr_warn(77, BSR_LC_ETC, device, "Ignore Split-Brain, for now, at least one side unstable\n");
 		hg = 0;
 	}
 	*/
@@ -5849,40 +5849,40 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		nc = rcu_dereference(connection->transport.net_conf);
 
 		if (p_proto != (int)nc->wire_protocol) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "protocol");
+			bsr_err(6, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "protocol");
 			goto disconnect_rcu_unlock;
 		}
 
 		if (convert_after_sb(p_after_sb_0p) != (int)nc->after_sb_0p) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "after-sb-0pri");
+			bsr_err(7, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "after-sb-0pri");
 			goto disconnect_rcu_unlock;
 		}
 
 		if (convert_after_sb(p_after_sb_1p) != (int)nc->after_sb_1p) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "after-sb-1pri");
+			bsr_err(8, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "after-sb-1pri");
 			goto disconnect_rcu_unlock;
 		}
 
 		if (convert_after_sb(p_after_sb_2p) != (int)nc->after_sb_2p) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "after-sb-2pri");
+			bsr_err(9, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "after-sb-2pri");
 			goto disconnect_rcu_unlock;
 		}
 
 #if 0
 		// DW-1221 move to bsr_sync_handshake()
 		if (p_discard_my_data && test_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "discard-my-data");
+			bsr_err(10, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "discard-my-data");
 			goto disconnect_rcu_unlock;
 		}
 #endif
 
 		if (p_two_primaries != nc->two_primaries) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "allow-two-primaries");
+			bsr_err(11, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "allow-two-primaries");
 			goto disconnect_rcu_unlock;
 		}
 
 		if (strcmp(integrity_alg, nc->integrity_alg)) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "data-integrity-alg");
+			bsr_err(12, BSR_LC_PROTOCOL, connection, "incompatible %s settings\n", "data-integrity-alg");
 			goto disconnect_rcu_unlock;
 		}
 #ifdef _WIN
@@ -5911,7 +5911,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 #endif
 		if (IS_ERR(peer_integrity_tfm)) {
 			peer_integrity_tfm = NULL;
-			bsr_err(0, BSR_LC_TEMP, connection, "peer data-integrity-alg %s not supported\n",
+			bsr_err(13, BSR_LC_PROTOCOL, connection, "peer data-integrity-alg %s not supported\n",
 				 integrity_alg);
 			goto disconnect;
 		}
@@ -5920,19 +5920,19 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62DW');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72DW');
 		if (!(int_dig_in && int_dig_vv)) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Allocation of buffers for data integrity checking failed\n");
+			bsr_err(14, BSR_LC_PROTOCOL, connection, "Allocation of buffers for data integrity checking failed\n");
 			goto disconnect;
 		}
 	}
 
 	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82DW');
 	if (!new_net_conf) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Allocation of new net_conf failed\n");
+		bsr_err(15, BSR_LC_PROTOCOL, connection, "Allocation of new net_conf failed\n");
 		goto disconnect;
 	}
 
 	if (mutex_lock_interruptible(&connection->resource->conf_update)) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Interrupted while waiting for conf_update\n");
+		bsr_err(16, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for conf_update\n");
 		// BSR-628 memory deallocation
 		kfree(new_net_conf);
 		goto disconnect;
@@ -5966,7 +5966,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 	connection->int_dig_vv = int_dig_vv;
 
 	if (strcmp(old_net_conf->integrity_alg, integrity_alg))
-		bsr_info(0, BSR_LC_TEMP, connection, "peer data-integrity-alg: %s\n",
+		bsr_info(17, BSR_LC_PROTOCOL, connection, "peer data-integrity-alg: %s\n",
 			  integrity_alg[0] ? integrity_alg : "(none)");
 
 #ifdef _LIN // DW-656  
@@ -6010,7 +6010,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
 	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
 #endif
 	if (IS_ERR(tfm)) {
-		bsr_err(0, BSR_LC_TEMP, device, "Can not allocate \"%s\" as %s (reason: %ld)\n",
+		bsr_err(18, BSR_LC_PROTOCOL, device, "Can not allocate \"%s\" as %s (reason: %ld)\n",
 			alg, name, PTR_ERR(tfm));
 		return tfm;
 	}
@@ -6064,7 +6064,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			: /* apv >= 114 */ sizeof(struct p_rs_param_114);
 
 	if (pi->size > exp_max_sz) {
-		bsr_err(0, BSR_LC_TEMP, device, "SyncParam packet too long: received %u, expected <= %u bytes\n",
+		bsr_err(19, BSR_LC_PROTOCOL, device, "SyncParam packet too long: received %u, expected <= %u bytes\n",
 		    pi->size, exp_max_sz);
 		return -EIO;
 	}
@@ -6092,7 +6092,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 	err = mutex_lock_interruptible(&resource->conf_update);
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Interrupted while waiting for conf_update\n");
+		bsr_err(20, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for conf_update\n");
 		return err;
 	}
 	old_net_conf = connection->transport.net_conf;
@@ -6101,7 +6101,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (!new_peer_device_conf) {
 			put_ldev(device);
 			mutex_unlock(&resource->conf_update);
-			bsr_err(0, BSR_LC_TEMP, device, "Allocation of new peer_device_conf failed\n");
+			bsr_err(21, BSR_LC_PROTOCOL, device, "Allocation of new peer_device_conf failed\n");
 			return -ENOMEM;
 		}
 		/* With a non-zero new_peer_device_conf, we will call put_ldev() below.  */
@@ -6115,7 +6115,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	if (apv >= 88) {
 		if (apv == 88) {
 			if (data_size > SHARED_SECRET_MAX || data_size == 0) {
-				bsr_err(0, BSR_LC_TEMP, device, "verify-alg too long, "
+				bsr_err(22, BSR_LC_PROTOCOL, device, "verify-alg too long, "
 					 "peer wants %u, accepting only %u byte\n",
 					 data_size, SHARED_SECRET_MAX);
 				goto reconnect;
@@ -6133,7 +6133,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		if (strcmp(old_net_conf->verify_alg, p->verify_alg)) {
 			if (peer_device->repl_state[NOW] == L_OFF) {
-				bsr_err(0, BSR_LC_TEMP, device, "Different verify-alg settings. me=\"%s\" peer=\"%s\"\n",
+				bsr_err(23, BSR_LC_PROTOCOL, device, "Different verify-alg settings. me=\"%s\" peer=\"%s\"\n",
 				    old_net_conf->verify_alg, p->verify_alg);
 				goto disconnect;
 			}
@@ -6147,7 +6147,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		if (apv >= 89 && strcmp(old_net_conf->csums_alg, p->csums_alg)) {
 			if (peer_device->repl_state[NOW] == L_OFF) {
-				bsr_err(0, BSR_LC_TEMP, device, "Different csums-alg settings. me=\"%s\" peer=\"%s\"\n",
+				bsr_err(24, BSR_LC_PROTOCOL, device, "Different csums-alg settings. me=\"%s\" peer=\"%s\"\n",
 				    old_net_conf->csums_alg, p->csums_alg);
 				goto disconnect;
 			}
@@ -6175,7 +6175,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				new_plan = fifo_alloc(fifo_size);
 #endif
 				if (!new_plan) {
-					bsr_err(0, BSR_LC_TEMP, device, "kmalloc of fifo_buffer failed");
+					bsr_err(25, BSR_LC_PROTOCOL, device, "kmalloc of fifo_buffer failed");
 					goto disconnect;
 				}
 			}
@@ -6190,7 +6190,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2DW');
 			if (!new_net_conf) {
-				bsr_err(0, BSR_LC_TEMP, device, "Allocation of new net_conf failed\n");
+				bsr_err(26, BSR_LC_PROTOCOL, device, "Allocation of new net_conf failed\n");
 				goto disconnect;
 			}
 
@@ -6201,14 +6201,14 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				new_net_conf->verify_alg_len = (__u32)(strlen(p->verify_alg) + 1);
 				crypto_free_ahash(connection->verify_tfm);
 				connection->verify_tfm = verify_tfm;
-				bsr_info(0, BSR_LC_TEMP, device, "using verify-alg: \"%s\"\n", p->verify_alg);
+				bsr_info(27, BSR_LC_PROTOCOL, device, "using verify-alg: \"%s\"\n", p->verify_alg);
 			}
 			if (csums_tfm) {
 				strncpy(new_net_conf->csums_alg, p->csums_alg, sizeof(new_net_conf->csums_alg) - 1);
 				new_net_conf->csums_alg_len = (__u32)(strlen(p->csums_alg) + 1);
 				crypto_free_ahash(connection->csums_tfm);
 				connection->csums_tfm = csums_tfm;
-				bsr_info(0, BSR_LC_TEMP, device, "using csums-alg: \"%s\"\n", p->csums_alg);
+				bsr_info(28, BSR_LC_PROTOCOL, device, "using csums-alg: \"%s\"\n", p->csums_alg);
 			}
 #ifdef _WIN
 			synchronize_rcu_w32_wlock();
@@ -6224,7 +6224,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(0, BSR_LC_TEMP, peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n",
+		bsr_info(29, BSR_LC_PROTOCOL, peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums\n",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
@@ -6347,7 +6347,7 @@ static void maybe_trigger_resync(struct bsr_device *device, struct bsr_peer_devi
 		if (peer_device->disk_state[NOW] >= D_INCONSISTENT &&
 			device->disk_state[NOW] >= D_INCONSISTENT) {
 			if (skip)
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Resync of new storage suppressed with --assume-clean\n");
+				bsr_info(30, BSR_LC_PROTOCOL, peer_device, "Resync of new storage suppressed with --assume-clean\n");
 			else
 				resync_after_online_grow(peer_device);
 		} else
@@ -6380,7 +6380,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 
 	err = mutex_lock_interruptible(&connection->resource->conf_update);
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Interrupted while waiting for conf_update\n");
+		bsr_err(31, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for conf_update\n");
 		goto out;
 	}
 	have_mutex = true;
@@ -6402,8 +6402,8 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		peer_device->max_size = p_size;
 
 	cur_size = bsr_get_capacity(device->this_bdev);
-    bsr_info(0, BSR_LC_TEMP, device, "current_mydisk_size: %llu bytes\n", (unsigned long long)(cur_size<<9));
-    bsr_info(0, BSR_LC_TEMP, peer_device, "peer_current_size: %llu bytes peer_user_size: %llu bytes peer_disk_size: %llu bytes peer_max_size: %llu bytes\n",
+	bsr_info(32, BSR_LC_PROTOCOL, device, "current_mydisk_size: %llu bytes\n", (unsigned long long)(cur_size << 9));
+	bsr_info(33, BSR_LC_PROTOCOL, peer_device, "peer_current_size: %llu bytes peer_user_size: %llu bytes peer_disk_size: %llu bytes peer_max_size: %llu bytes\n",
             (unsigned long long)(p_csize<<9),
             (unsigned long long)(p_usize<<9),
             (unsigned long long)(p_size<<9),
@@ -6437,7 +6437,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		rcu_read_unlock();
 		
 		my_max_size = bsr_get_max_capacity(device->ldev);
-		        bsr_info(0, BSR_LC_TEMP, peer_device, "md_effective_size: %llu my_user_size: %llu my_max_size: %llu\n",
+		bsr_info(34, BSR_LC_PROTOCOL, peer_device, "md_effective_size: %llu my_user_size: %llu my_max_size: %llu\n",
 			(unsigned long long)device->ldev->md.effective_size,
 			(unsigned long long)my_usize,
 			(unsigned long long)my_max_size);
@@ -6468,14 +6468,14 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			// DW-1469 allowed if discard_my_data option.
 			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 		    peer_device->repl_state[NOW] < L_ESTABLISHED) {
-            bsr_err(0, BSR_LC_TEMP, peer_device, "The peer's disk size is too small! (%llu bytes < %llu bytes)\n",
+			bsr_err(35, BSR_LC_PROTOCOL, peer_device, "The peer's disk size is too small! (%llu bytes < %llu bytes)\n",
                     (unsigned long long)(new_size<<9), (unsigned long long)(cur_size<<9));
 			goto disconnect;
 		}
 
 		/* Disconnect, if we cannot grow to the peer's current size */
 		if (my_max_size < p_csize && !is_handshake) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Peer's size larger than my maximum capacity (%llu < %llu sectors)\n",
+			bsr_err(36, BSR_LC_PROTOCOL, peer_device, "Peer's size larger than my maximum capacity (%llu < %llu sectors)\n",
 				(unsigned long long)my_max_size, (unsigned long long)p_csize);
 			goto disconnect;
 		}
@@ -6484,7 +6484,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			struct disk_conf *old_disk_conf, *new_disk_conf;
 			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2DW');
 			if (!new_disk_conf) {
-				bsr_err(0, BSR_LC_TEMP, device, "Allocation of new disk_conf failed\n");
+				bsr_err(37, BSR_LC_PROTOCOL, device, "Allocation of new disk_conf failed\n");
 				err = -ENOMEM;
 				goto out;
 			}
@@ -6499,7 +6499,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			synchronize_rcu();
 			kfree(old_disk_conf);
 
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Peer sets u_size to %llu sectors\n",
+			bsr_info(38, BSR_LC_PROTOCOL, peer_device, "Peer sets u_size to %llu sectors\n",
 				(unsigned long long)p_usize);
 			/* Do not set should_send_sizes here. That might cause packet storms */
 		}
@@ -6511,7 +6511,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 	   bsr_determine_dev_size() no REQ_DISCARDs are in the queue. */
 	if (have_ldev) {
 		bsr_reconsider_queue_parameters(device, device->ldev, o);
-		bsr_info(0, BSR_LC_TEMP, peer_device, "calling bsr_determine_dev_size()\n");		
+		bsr_info(39, BSR_LC_PROTOCOL, peer_device, "calling bsr_determine_dev_size()\n");
 		dd = bsr_determine_dev_size(device, p_csize, ddsf, NULL);
 
 		if (dd == DS_GREW || dd == DS_SHRUNK)
@@ -6542,7 +6542,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			char ppb[10];
 			should_send_sizes = true;
 			bsr_set_my_capacity(device, size);
-			bsr_info(0, BSR_LC_TEMP, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(40, BSR_LC_PROTOCOL, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
 				(unsigned long long)size >> 1);
 		}
 	}
@@ -6550,7 +6550,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 	if (device->device_conf.max_bio_size > protocol_max_bio_size ||
 	    (connection->agreed_pro_version < 94 &&
 	     device->device_conf.max_bio_size > peer_device->max_bio_size)) {
-		bsr_err(0, BSR_LC_TEMP, device, "Peer cannot deal with requests bigger than %u. "
+		bsr_err(41, BSR_LC_PROTOCOL, device, "Peer cannot deal with requests bigger than %u. "
 			 "Please reduce max_bio_size in the configuration.\n",
 			 peer_device->max_bio_size);
 		goto disconnect;
@@ -7222,7 +7222,7 @@ static int receive_req_state(struct bsr_connection *connection, struct packet_in
 	int vnr = -1;
 
 	if (!expect(connection, connection->agreed_pro_version < 110)) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Packet %s not allowed in protocol version %d\n",
+		bsr_err(42, BSR_LC_PROTOCOL, connection, "Packet %s not allowed in protocol version %d\n",
 			 bsr_packet_name(pi->cmd),
 			 connection->agreed_pro_version);
 		return -EIO;
@@ -7257,7 +7257,7 @@ static int receive_req_state(struct bsr_connection *connection, struct packet_in
 	spin_unlock_irq(&resource->req_lock);
 
 	if (rv != SS_SUCCESS) {
-		bsr_info(0, BSR_LC_TEMP, connection, "Rejecting concurrent remote state change\n");
+		bsr_info(43, BSR_LC_PROTOCOL, connection, "Rejecting concurrent remote state change\n");
 		bsr_send_sr_reply(connection, vnr, rv);
 		return 0;
 	}
@@ -9174,7 +9174,7 @@ out:
 
 static int receive_skip(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(0, BSR_LC_PROTOCOL, connection, "skipping unknown optional packet type %d, l: %d!\n",
+	bsr_warn(65, BSR_LC_PROTOCOL, connection, "skipping unknown optional packet type %d, l: %d!\n",
 		 pi->cmd, pi->size);
 
 	return ignore_remaining_packet(connection, pi->size);
@@ -9735,7 +9735,7 @@ static void bsrd(struct bsr_connection *connection)
 #endif
 		cmd = &bsr_cmd_handler[pi.cmd];
 		if (unlikely(pi.cmd >= ARRAY_SIZE(bsr_cmd_handler) || !cmd->fn)) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Unexpected data packet %s (0x%04x)",
+			bsr_err(44, BSR_LC_PROTOCOL, connection, "Unexpected data packet %s (0x%04x)",
 				 bsr_packet_name(pi.cmd), pi.cmd);
 			goto err_out;
 		}
@@ -9744,12 +9744,12 @@ static void bsrd(struct bsr_connection *connection)
 		if (pi.cmd == P_SIZES && connection->agreed_features & BSR_FF_WSAME)
 			shs += sizeof(struct o_qlim);
 		if (pi.size > shs && !cmd->expect_payload) {
-			bsr_err(0, BSR_LC_TEMP, connection, "No payload expected %s l:%d\n",
+			bsr_err(45, BSR_LC_PROTOCOL, connection, "No payload expected %s l:%d\n",
 				 bsr_packet_name(pi.cmd), pi.size);
 			goto err_out;
 		}
 		if (pi.size < shs) {
-			bsr_err(0, BSR_LC_TEMP, connection, "%s: unexpected packet size, expected:%d received:%d\n",
+			bsr_err(46, BSR_LC_PROTOCOL, connection, "%s: unexpected packet size, expected:%d received:%d\n",
 				 bsr_packet_name(pi.cmd), (int)shs, pi.size);
 			goto err_out;
 		}
@@ -9766,7 +9766,7 @@ static void bsrd(struct bsr_connection *connection)
 		bsr_debug(0, BSR_LC_TEMP, connection, "receiving %s, size: %u vnr: %d\n", bsr_packet_name(pi.cmd), pi.size, pi.vnr);
 		err = cmd->fn(connection, &pi);
 		if (err) {
-			bsr_err(0, BSR_LC_TEMP, connection, "error receiving %s, e: %d l: %u!\n",
+			bsr_err(47, BSR_LC_PROTOCOL, connection, "error receiving %s, e: %d l: %u!\n",
 				 bsr_packet_name(pi.cmd), err, pi.size);
 			goto err_out;
 		}
@@ -10150,18 +10150,18 @@ int bsr_do_features(struct bsr_connection *connection)
 	if (err) {
 		bsr_debug_conn("fail bsr_recv_header \n");
 		if (err == -EAGAIN)
-			bsr_err(0, BSR_LC_TEMP, connection, "timeout while waiting for feature packet\n");
+			bsr_err(48, BSR_LC_PROTOCOL, connection, "timeout while waiting for feature packet\n");
 		return 0;
 	}
 	bsr_debug_conn("success bsr_recv_header\n");
 	if (pi.cmd != P_CONNECTION_FEATURES) {
-		bsr_err(0, BSR_LC_TEMP, connection, "expected ConnectionFeatures packet, received: %s (0x%04x)\n",
+		bsr_err(49, BSR_LC_PROTOCOL, connection, "expected ConnectionFeatures packet, received: %s (0x%04x)\n",
 			 bsr_packet_name(pi.cmd), pi.cmd);
 		return -1;
 	}
 
 	if (pi.size != (unsigned int)expect) {
-		bsr_err(0, BSR_LC_TEMP, connection, "expected ConnectionFeatures length: %u, received: %u\n",
+		bsr_err(50, BSR_LC_PROTOCOL, connection, "expected ConnectionFeatures length: %u, received: %u\n",
 		     expect, pi.size);
 		return -1;
 	}
@@ -10177,7 +10177,7 @@ int bsr_do_features(struct bsr_connection *connection)
 
 	if (PRO_VERSION_MAX < p->protocol_min ||
 	    PRO_VERSION_MIN > p->protocol_max) {
-		bsr_err(0, BSR_LC_TEMP, connection, "incompatible BSR dialects: "
+		bsr_err(51, BSR_LC_PROTOCOL, connection, "incompatible BSR dialects: "
 		    "I support %d-%d, peer supports %d-%d\n",
 		    PRO_VERSION_MIN, PRO_VERSION_MAX,
 		    p->protocol_min, p->protocol_max);
@@ -10200,7 +10200,7 @@ int bsr_do_features(struct bsr_connection *connection)
 		rcu_read_unlock();
 
 		if (multiple) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Peer supports protocols %d-%d, but "
+			bsr_err(52, BSR_LC_PROTOCOL, connection, "Peer supports protocols %d-%d, but "
 				 "multiple connections are only supported in protocol "
 				 "110 and above\n", p->protocol_min, p->protocol_max);
 			return -1;
@@ -10209,24 +10209,24 @@ int bsr_do_features(struct bsr_connection *connection)
 
 	if (connection->agreed_pro_version >= 110) {
 		if (be32_to_cpu(p->sender_node_id) != connection->peer_node_id) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Peer presented a node_id of %d instead of %d\n",
+			bsr_err(53, BSR_LC_PROTOCOL, connection, "Peer presented a node_id of %d instead of %d\n",
 				 be32_to_cpu(p->sender_node_id), connection->peer_node_id);
 			return 0;
 		}
 		if (be32_to_cpu(p->receiver_node_id) != resource->res_opts.node_id) {
-			bsr_err(0, BSR_LC_TEMP, connection, "Peer expects me to have a node_id of %d instead of %d\n",
+			bsr_err(54, BSR_LC_PROTOCOL, connection, "Peer expects me to have a node_id of %d instead of %d\n",
 				 be32_to_cpu(p->receiver_node_id), resource->res_opts.node_id);
 			return 0;
 		}
 	}
 
-	bsr_info(0, BSR_LC_TEMP, connection, "Handshake to peer %d successful: "
+	bsr_info(55, BSR_LC_PROTOCOL, connection, "Handshake to peer %d successful: "
 		  "Agreed network protocol version %d\n",
 		  connection->peer_node_id,
 		  connection->agreed_pro_version);
 
 
-	bsr_info(0, BSR_LC_TEMP, connection, "Feature flags enabled on protocol level: 0x%x%s%s%s.\n",
+	bsr_info(56, BSR_LC_PROTOCOL, connection, "Feature flags enabled on protocol level: 0x%x%s%s%s.\n",
 		  connection->agreed_features,
 		  connection->agreed_features & BSR_FF_TRIM ? " TRIM" : "",
 		  connection->agreed_features & BSR_FF_THIN_RESYNC ? " THIN_RESYNC" : "",
@@ -10283,7 +10283,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	rv = crypto_shash_setkey(connection->cram_hmac_tfm, (u8 *)secret, key_len);
 	if (rv) {
-		bsr_err(0, BSR_LC_TEMP, connection, "crypto_shash_setkey() failed with %d\n", rv);
+		bsr_err(34, BSR_LC_ETC, connection, "crypto_shash_setkey() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10308,21 +10308,21 @@ int bsr_do_auth(struct bsr_connection *connection)
 	}
 
 	if (pi.cmd != P_AUTH_CHALLENGE) {
-		bsr_err(0, BSR_LC_TEMP, connection, "expected AuthChallenge packet, received: %s (0x%04x)\n",
+		bsr_err(35, BSR_LC_ETC, connection, "expected AuthChallenge packet, received: %s (0x%04x)\n",
 			 bsr_packet_name(pi.cmd), pi.cmd);
 		rv = 0;
 		goto fail;
 	}
 
 	if (pi.size != sizeof(peers_ch->d)) {
-		bsr_err(0, BSR_LC_TEMP, connection, "unexpected AuthChallenge payload.\n");
+		bsr_err(36, BSR_LC_ETC, connection, "unexpected AuthChallenge payload.\n");
 		rv = -1;
 		goto fail;
 	}
 
 	peers_ch = kmalloc(sizeof(*peers_ch), GFP_NOIO, '98DW');
 	if (peers_ch == NULL) {
-		bsr_err(0, BSR_LC_TEMP, connection, "kmalloc of peers_ch failed\n");
+		bsr_err(37, BSR_LC_ETC, connection, "kmalloc of peers_ch failed\n");
 		rv = -1;
 		goto fail;
 	}
@@ -10334,7 +10334,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 	}
 
 	if (!memcmp(my_challenge.d, peers_ch->d, sizeof(my_challenge.d))) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Peer presented the same challenge!\n");
+		bsr_err(38, BSR_LC_ETC, connection, "Peer presented the same challenge!\n");
 		rv = -1;
 		goto fail;
 	}
@@ -10354,7 +10354,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	rv = crypto_shash_digest(desc, peers_ch->d, dig_size, response);
 	if (rv) {
-		bsr_err(0, BSR_LC_TEMP, connection, "crypto_shash_digest() failed with %d\n", rv);
+		bsr_err(39, BSR_LC_ETC, connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10370,14 +10370,14 @@ int bsr_do_auth(struct bsr_connection *connection)
 	}
 
 	if (pi.cmd != P_AUTH_RESPONSE) {
-		bsr_err(0, BSR_LC_TEMP, connection, "expected AuthResponse packet, received: %s (0x%04x)\n",
+		bsr_err(40, BSR_LC_ETC, connection, "expected AuthResponse packet, received: %s (0x%04x)\n",
 			 bsr_packet_name(pi.cmd), pi.cmd);
 		rv = 0;
 		goto fail;
 	}
 
 	if (pi.size != resp_size) {
-		bsr_err(0, BSR_LC_TEMP, connection, "expected AuthResponse payload of %u bytes, received %u\n",
+		bsr_err(41, BSR_LC_ETC, connection, "expected AuthResponse payload of %u bytes, received %u\n",
 				resp_size, pi.size);
 		rv = 0;
 		goto fail;
@@ -10391,7 +10391,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	right_response = kmalloc(resp_size, GFP_NOIO, 'A8DW' );
 	if (right_response == NULL) {
-		bsr_err(0, BSR_LC_TEMP, connection, "kmalloc of right_response failed\n");
+		bsr_err(42, BSR_LC_ETC, connection, "kmalloc of right_response failed\n");
 		rv = -1;
 		goto fail;
 	}
@@ -10404,7 +10404,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	rv = crypto_shash_digest(desc, my_challenge.d, dig_size, right_response);
 	if (rv) {
-		bsr_err(0, BSR_LC_TEMP, connection, "crypto_shash_digest() failed with %d\n", rv);
+		bsr_err(43, BSR_LC_ETC, connection, "crypto_shash_digest() failed with %d\n", rv);
 		rv = -1;
 		goto fail;
 	}
@@ -10412,7 +10412,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 	rv = !memcmp(response, right_response, resp_size);
 
 	if (rv)
-		bsr_info(0, BSR_LC_TEMP, connection, "Peer authenticated using %d bytes HMAC\n",
+		bsr_info(44, BSR_LC_ETC, connection, "Peer authenticated using %d bytes HMAC\n",
 		     resp_size);
 	else
 		rv = -1;
@@ -11364,7 +11364,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 #ifdef _LIN
 	rv = sched_setscheduler(current, SCHED_RR, &param);
 	if (rv < 0)
-		bsr_err(0, BSR_LC_TEMP, connection, "bsr_ack_receiver: ERROR set priority, ret=%d\n", rv);
+		bsr_err(60, BSR_LC_PROTOCOL, connection, "bsr_ack_receiver: ERROR set priority, ret=%d\n", rv);
 #endif
 
 	while (get_t_state(thi) == RUNNING) {
@@ -11449,7 +11449,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			 * and change the rcvtimeo */
 #ifdef _WIN
 			if (current->sig == SIGXCPU) {
-				//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"got SIGXCPU during rx.\n");
+				//bsr_info(46, BSR_LC_ETC, NO_OBJECT,"got SIGXCPU during rx.\n");
 			}
 #endif
 			flush_signals(current);
@@ -11465,13 +11465,13 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 
 			cmd = &ack_receiver_tbl[pi.cmd];
 			if (pi.cmd >= ARRAY_SIZE(ack_receiver_tbl) || !cmd->fn) {
-				bsr_err(0, BSR_LC_TEMP, connection, "Unexpected meta packet %s (0x%04x)\n",
+				bsr_err(57, BSR_LC_PROTOCOL, connection, "Unexpected meta packet %s (0x%04x)\n",
 					 bsr_packet_name(pi.cmd), pi.cmd);
 				goto disconnect;
 			}
 			expect = (int)(header_size + cmd->pkt_size);
 			if (pi.size != expect - header_size) {
-				bsr_err(0, BSR_LC_TEMP, connection, "Wrong packet size on meta (c: %d, l: %u)\n",
+				bsr_err(58, BSR_LC_PROTOCOL, connection, "Wrong packet size on meta (c: %d, l: %u)\n",
 					pi.cmd, pi.size);
 				goto reconnect;
 			}
@@ -11490,12 +11490,12 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			if (err) {
 #ifdef _WIN
 				if (err == -EINTR && current->sig == SIGXCPU) {
-					//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"got SIGXCPU during fn(%s)\n", bsr_packet_name(pi.cmd));
+					//bsr_info(55, BSR_LC_ETC, NO_OBJECT,"got SIGXCPU during fn(%s)\n", bsr_packet_name(pi.cmd));
 					flush_signals(current);
 					goto ignore_sig;
 				}
 #else // _LIN
-				bsr_err(0, BSR_LC_TEMP, connection, "%pf failed\n", cmd->fn);
+				bsr_err(61, BSR_LC_PROTOCOL, connection, "%pf failed\n", cmd->fn);
 #endif
 				goto reconnect;
 			}

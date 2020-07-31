@@ -46,7 +46,7 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 	PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 	ULONG outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 	if (outlen < (count * sizeof(BSR_VOLUME_ENTRY))) {
-		//bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(BSR_VOLUME_ENTRY)) );
+		//bsr_err(52, BSR_LC_ETC, NO_OBJECT,"IOCTL_GetAllVolumeInfo buffer too small outlen:%d required len:%d\n",outlen,(count * sizeof(BSR_VOLUME_ENTRY)) );
 		*ReturnLength = count * sizeof(BSR_VOLUME_ENTRY);
 		status = STATUS_BUFFER_TOO_SMALL;
 		goto out;

@@ -880,7 +880,7 @@ void _bsr_thread_stop(struct bsr_thread *thi, int restart, int wait)
 	/* may be called from state engine, holding the req lock irqsave */
 	spin_lock_irqsave(&thi->t_lock, flags);
 
-	//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"thi(%s) ns(%s) state(%d) waitflag(%d) event(%d)-------------------!\n", 
+	//bsr_info(21, BSR_LC_ETC, NO_OBJECT,"thi(%s) ns(%s) state(%d) waitflag(%d) event(%d)-------------------!\n", 
 	//	thi->name, (ns == RESTARTING) ? "RESTARTING" : "EXITING", thi->t_state, wait, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
 	if (thi->t_state == NONE) {
@@ -908,24 +908,24 @@ void _bsr_thread_stop(struct bsr_thread *thi, int restart, int wait)
 		if (thi->task != current)
 			force_sig(BSR_SIGKILL, thi->task);
 		else {
-		//	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
+		//	bsr_info(22, BSR_LC_ETC, NO_OBJECT,"cur=(%s) thi=(%s) stop myself\n", current->comm, thi->name ); 
 		}
 	}
 	spin_unlock_irqrestore(&thi->t_lock, flags);
 
 	if (wait) {
 #ifdef _WIN
-		// bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
+		// bsr_info(23, BSR_LC_ETC, NO_OBJECT,"(%s) wait_for_completion. signaled(%d)\n", current->comm, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
 		while (wait_for_completion(&thi->stop) == -BSR_SIGKILL) {
-			// bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"BSR_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
+			// bsr_info(24, BSR_LC_ETC, NO_OBJECT,"BSR_SIGKILL occurs. Ignore and wait for real event\n"); // not happened.
 		}
 #else // _LIN
 		wait_for_completion(&thi->stop);
 #endif
 	}
 
-	// bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event));
+	// bsr_info(25, BSR_LC_ETC, NO_OBJECT,"waitflag(%d) signaled(%d). sent stop sig done.\n", wait, KeReadStateEvent(&thi->stop.wait.wqh_event));
 
 }
 
@@ -1422,7 +1422,7 @@ int __send_command(struct bsr_connection *connection, int vnr,
 				connection->last_send_packet = cmd;
 			// DW-1977 last successful protocol may not be correct because it is a transfer to the buffer
 			else
-				bsr_info(0, BSR_LC_TEMP, connection, "last successful protocol %s\n", bsr_packet_name(cmd));
+				bsr_info(1, BSR_LC_PROTOCOL, connection, "last successful protocol %s\n", bsr_packet_name(cmd));
 		}
 	}
 
@@ -1597,7 +1597,7 @@ int __bsr_send_protocol(struct bsr_connection *connection, enum bsr_packet cmd)
 
 	if (test_bit(CONN_DRY_RUN, &connection->flags) && connection->agreed_pro_version < 92) {
 		clear_bit(CONN_DRY_RUN, &connection->flags);
-		bsr_err(0, BSR_LC_TEMP, connection, "--dry-run is not supported by peer");
+		bsr_err(2, BSR_LC_PROTOCOL, connection, "--dry-run is not supported by peer");
 		return -EOPNOTSUPP;
 	}
 
@@ -2198,7 +2198,7 @@ int bsr_send_peer_dagtag(struct bsr_connection *connection, struct bsr_connectio
 	p->dagtag = cpu_to_be64(lost_peer->last_dagtag_sector);
 	p->node_id = cpu_to_be32(lost_peer->peer_node_id);
 #ifdef _TRACE_PEER_DAGTAG
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"bsr_send_peer_dagtag lost_peer:%p lost_peer->last_dagtag_sector:%llx lost_peer->peer_node_id:%d\n",lost_peer,lost_peer->last_dagtag_sector,lost_peer->peer_node_id);
+	bsr_info(26, BSR_LC_ETC, NO_OBJECT,"bsr_send_peer_dagtag lost_peer:%p lost_peer->last_dagtag_sector:%llx lost_peer->peer_node_id:%d\n",lost_peer,lost_peer->last_dagtag_sector,lost_peer->peer_node_id);
 #endif	
 	return send_command(connection, -1, P_PEER_DAGTAG, DATA_STREAM);
 }
@@ -2379,7 +2379,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 				     P_COMPRESSED_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "error sending P_COMPRESSED_BITMAP, e: %d \n", err);
+			bsr_err(62, BSR_LC_PROTOCOL, peer_device, "error sending P_COMPRESSED_BITMAP, e: %d \n", err);
 		}
 		
 		c->packets[0]++;
@@ -2404,7 +2404,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 		err = __send_command(peer_device->connection, device->vnr, P_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "error sending P_BITMAP, e: %d \n", err);
+			bsr_err(63, BSR_LC_PROTOCOL, peer_device, "error sending P_BITMAP, e: %d \n", err);
 		}		
 
 		c->word_offset += num_words;
@@ -3955,7 +3955,7 @@ void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_
 	bsr_queue_work(work_queue, &completion_work.w);
 #ifdef _WIN
 	while (wait_for_completion_timeout(&completion_work.done, 100) == -BSR_SIGKILL) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
+		bsr_info(62, BSR_LC_ETC, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
 	}
 #else // _LIN
 	wait_for_completion_timeout(&completion_work.done, 100);
@@ -3967,7 +3967,7 @@ void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *w
 	struct completion_work completion_work;
 
 	if (get_t_state(&resource->worker) != RUNNING) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"bsr_flush_workqueue &resource->worker != RUNNING return resource:%p\n",resource);
+		bsr_info(63, BSR_LC_ETC, NO_OBJECT, "bsr_flush_workqueue &resource->worker != RUNNING return resource:%p\n", resource);
 		return;
 	}
 
@@ -3976,7 +3976,7 @@ void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *w
 	bsr_queue_work(work_queue, &completion_work.w);
 #ifdef _WIN
 	while (wait_for_completion(&completion_work.done) == -BSR_SIGKILL) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"BSR_SIGKILL occurs. Ignore and wait for real event\n");
+		bsr_info(64, BSR_LC_ETC, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
 	}
 #else // _LIN
 	wait_for_completion(&completion_work.done);
@@ -4123,7 +4123,7 @@ int set_resource_options(struct bsr_resource *resource, struct res_opts *res_opt
 			if (zalloc_cpumask_var(&tmp_cpu_mask, GFP_KERNEL)) {
 				cpumask_setall(tmp_cpu_mask);
 				cpumask_and(new_cpu_mask, new_cpu_mask, tmp_cpu_mask);
-				bsr_warn(0, BSR_LC_ETC, resource, "Overflow in bitmap_parse(%.12s%s), truncating to %u bits\n",
+				bsr_warn(75, BSR_LC_ETC, resource, "Overflow in bitmap_parse(%.12s%s), truncating to %u bits\n",
 					res_opts->cpu_mask,
 					strlen(res_opts->cpu_mask) > 12 ? "..." : "",
 					nr_cpu_ids);
@@ -4132,7 +4132,7 @@ int set_resource_options(struct bsr_resource *resource, struct res_opts *res_opt
 			}
 		}
 		if (err) {
-			bsr_warn(0, BSR_LC_ETC, resource, "bitmap_parse() failed with %d\n", err);
+			bsr_warn(76, BSR_LC_ETC, resource, "bitmap_parse() failed with %d\n", err);
 			/* retcode = ERR_CPU_MASK_PARSE; */
 			goto fail;
 		}
@@ -4987,7 +4987,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to open log directory(%x)\n", status);
+		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "failed to open log directory(%x)\n", status);
 		return status;
 	}
 
@@ -4995,7 +4995,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB');
 	if (!pFileBothDirInfo){
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
 		status = STATUS_NO_MEMORY;
 		goto out;
 	}
@@ -5019,14 +5019,14 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			currentSize = currentSize * 2;
 			// BSR-600 paths is long (extension path is not supported)
 			if (MAX_PATH < (currentSize / 2)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to long path (%u)\n", (currentSize / 2));
+				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "failed to long path (%u)\n", (currentSize / 2));
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
 			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
 			if (pFileBothDirInfo == NULL) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
 				status = STATUS_NO_MEMORY;
 				goto out;
 			}
@@ -5039,7 +5039,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		}
 		else if (!NT_SUCCESS(status))
 		{
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to query (%x)\n", status);
+			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "failed to query (%x)\n", status);
 			goto out2;
 		}
 
@@ -5059,7 +5059,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '00RB');
 				if (!r) {
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
@@ -5116,13 +5116,13 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_NON_DIRECTORY_FILE);
 
 			if (!NT_SUCCESS(status)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
+				bsr_err(8, BSR_LC_LOG, NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
 				continue;
 			}
 
 			status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
+				bsr_err(9, BSR_LC_LOG, NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
 			}
 			ZwClose(hFile);
 
@@ -5305,7 +5305,7 @@ void wait_for_add_device(WCHAR *path)
 		}
 		MVOL_UNLOCK();
 		if (wait_device_add)
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "wait for device to be connected for log file generation.(%ws)\n", path);
+			bsr_info(10, BSR_LC_LOG, NO_OBJECT, "wait for device to be connected for log file generation.(%ws)\n", path);
 
 		msleep(1000);
 	}
@@ -5420,7 +5420,7 @@ int log_consumer_thread(void *unused)
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "failed to get bsr path status(%x)\n", status);
+		bsr_info(11, BSR_LC_LOG, NO_OBJECT, "failed to get bsr path status(%x)\n", status);
 		return;
 	}
 
@@ -5454,7 +5454,7 @@ int log_consumer_thread(void *unused)
 							0);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "failed to create log file status(%x)\n", status);
+		bsr_info(12, BSR_LC_LOG, NO_OBJECT, "failed to create log file status(%x)\n", status);
 	}
 #else 
 	// BSR-581
@@ -5474,7 +5474,7 @@ int log_consumer_thread(void *unused)
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to create log directory\n");
+		bsr_warn(18, BSR_LC_LOG, NO_OBJECT, "failed to create log directory\n");
 		return 0;
 	}
 
@@ -5483,7 +5483,7 @@ int log_consumer_thread(void *unused)
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
-		bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to create log file\n");
+		bsr_warn(19, BSR_LC_LOG, NO_OBJECT, "failed to create log file\n");
 	}
 #endif
 	else {
@@ -5512,13 +5512,13 @@ int log_consumer_thread(void *unused)
 #ifdef _WIN
 			status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "failed to write log status(%x)\n", status);
+				bsr_info(13, BSR_LC_LOG, NO_OBJECT, "failed to write log status(%x)\n", status);
 				break;
 			}
 #else
 			// BSR-619 check log file exists
 			if (d_unlinked(hFile->f_path.dentry)) {
-				bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "log file not found.\n");
+				bsr_warn(20, BSR_LC_LOG, NO_OBJECT, "log file not found.\n");
 				break;
 			}
 
@@ -5531,7 +5531,7 @@ int log_consumer_thread(void *unused)
 			set_fs(oldfs);
 
 			if (err < 0 || err != filesize) {
-				bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to write log\n");
+				bsr_warn(21, BSR_LC_LOG, NO_OBJECT, "failed to write log\n");
 				break;
 			}
 #endif
@@ -5548,7 +5548,7 @@ int log_consumer_thread(void *unused)
 				// BSR-579 if the log file is larger than 50M, do file rolling.
 				status = bsr_log_file_rename_and_close(hFile);
 				if (!NT_SUCCESS(status)) {
-					bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "failed to rename log file status(%x)\n", status);
+					bsr_info(14, BSR_LC_LOG, NO_OBJECT, "failed to rename log file status(%x)\n", status);
 					break;
 				}
 				status = ZwCreateFile(&hFile,
@@ -5564,13 +5564,13 @@ int log_consumer_thread(void *unused)
 										0);
 
 				if (!NT_SUCCESS(status)) {
-					bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "failed to new log file status(%x)\n", status);
+					bsr_info(15, BSR_LC_LOG, NO_OBJECT, "failed to new log file status(%x)\n", status);
 					break;
 				}
 #else // _LIN
 				// BSR-579 rolling and clean up
 				if (bsr_log_rolling_file_clean_up() != 0) {
-					bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to remove log file\n");
+					bsr_warn(22, BSR_LC_LOG, NO_OBJECT, "failed to remove log file\n");
 					break;
 				}
 
@@ -5579,7 +5579,7 @@ int log_consumer_thread(void *unused)
 					filp_close(hFile, NULL);
 
 				if (bsr_log_file_rename() != 0) {
-					bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to rename log file\n");
+					bsr_warn(23, BSR_LC_LOG, NO_OBJECT, "failed to rename log file\n");
 					break;
 				}
 				oldfs = get_fs();
@@ -5588,7 +5588,7 @@ int log_consumer_thread(void *unused)
 				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
 				if (hFile == NULL || IS_ERR(hFile)) {
-					bsr_warn(0, BSR_LC_LOG, NO_OBJECT, "failed to new log file\n");
+					bsr_warn(24, BSR_LC_LOG, NO_OBJECT, "failed to new log file\n");
 					break;
 				}
 #endif
@@ -5615,7 +5615,7 @@ int log_consumer_thread(void *unused)
 		start_logging_thread();
 	}
 	else 
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "log consumer thread has been terminated.");
+		bsr_info(16, BSR_LC_LOG, NO_OBJECT, "log consumer thread has been terminated.");
 
 #ifdef _LIN
 	return 0;
@@ -6564,7 +6564,7 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 
 		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
 			_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
-			/* bsr_info(0, BSR_LC_TEMP, device, "bitmap[node_id=%d] = %llX\n", node_id, bitmap_uuid); */
+			/* bsr_info(10, BSR_LC_ETC, device, "bitmap[node_id=%d] = %llX\n", node_id, bitmap_uuid); */
 			peer_md[node_id].bitmap_uuid = bitmap_uuid;
 			peer_md[node_id].bitmap_dagtag =
 				bitmap_uuid ? device->resource->dagtag_sector : 0;
@@ -6660,7 +6660,7 @@ static void copy_bitmap(struct bsr_device *device, int from_id, int to_id) __mus
 	rcu_read_lock();
 	from_name = name_of_node_id(device->resource, from_id);
 	to_name = name_of_node_id(device->resource, to_id);
-	bsr_info(0, BSR_LC_TEMP, device, "Node %d (%s) synced up to node %d (%s). copying bitmap slot %d to %d.\n",
+	bsr_info(27, BSR_LC_ETC, device, "Node %d (%s) synced up to node %d (%s). copying bitmap slot %d to %d.\n",
 		  to_id, to_name, from_id, from_name, from_index, to_index);
 	rcu_read_unlock();
 	bsr_suspend_io(device, WRITE_ONLY);
@@ -6751,12 +6751,12 @@ found:
 	if (from_id == -1) {
 		if (peer_md[node_id1].bitmap_uuid == 0 && peer_md[node_id2].bitmap_uuid == 0)
 			return false;
-		bsr_err(0, BSR_LC_TEMP, peer_device, "unexpected\n");
-		bsr_err(0, BSR_LC_TEMP, peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
+		bsr_err(28, BSR_LC_ETC, peer_device, "unexpected\n");
+		bsr_err(29, BSR_LC_ETC, peer_device, "In UUIDs from node %d found equal UUID (%llX) for nodes %d %d\n",
 			 peer_device->node_id, peer_bm_uuid, node_id1, node_id2);
-		bsr_err(0, BSR_LC_TEMP, peer_device, "I have %llX for node_id=%d\n",
+		bsr_err(30, BSR_LC_ETC, peer_device, "I have %llX for node_id=%d\n",
 			 peer_md[node_id1].bitmap_uuid, node_id1);
-		bsr_err(0, BSR_LC_TEMP, peer_device, "I have %llX for node_id=%d\n",
+		bsr_err(31, BSR_LC_ETC, peer_device, "I have %llX for node_id=%d\n",
 			 peer_md[node_id2].bitmap_uuid, node_id2);
 		return false;
 	}
@@ -6857,7 +6857,7 @@ clear_flag:
 				    peer_md[from_node_id].bitmap_index != -1)
 					copy_bitmap(device, from_node_id, node_id);
 				else
-					bsr_info(0, BSR_LC_TEMP, device, "Node %d synced up to node %d.\n",
+					bsr_info(45, BSR_LC_ETC, device, "Node %d synced up to node %d.\n",
 						  node_id, from_node_id);
 				bsr_md_mark_dirty(device);
 

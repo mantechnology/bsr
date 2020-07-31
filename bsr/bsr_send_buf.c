@@ -509,7 +509,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 	buffering_attr->quit = FALSE;
 
 	//KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
-	//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"start send_buf_thread\n");
+	//bsr_info(51, BSR_LC_ETC, NO_OBJECT,"start send_buf_thread\n");
 
 	KeSetEvent(&buffering_attr->send_buf_thr_start_event, 0, FALSE);
 	nWaitTime = RtlConvertLongToLargeInteger(-10 * 1000 * 1000 * 10);

@@ -1146,7 +1146,7 @@ static int bsr_rs_controller(struct bsr_peer_device *peer_device, unsigned int s
          sect_in, peer_device->rs_in_flight, correction, cps, curr_corr, req_sect);
 #endif
 	/*
-	bsr_warn(0, device, "si=%u if=%d wa=%u co=%d st=%d cps=%d pl=%d cc=%d rs=%d\n",
+	bsr_warn(78, BSR_LC_ETC, device, "si=%u if=%d wa=%u co=%d st=%d cps=%d pl=%d cc=%d rs=%d\n",
 		 sect_in, peer_device->rs_in_flight, want, correction,
 		 steps, cps, peer_device->rs_planed, curr_corr, req_sect);
 	*/

@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot alloc Log Entry\n");
+		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"cannot alloc Log Entry\n");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
