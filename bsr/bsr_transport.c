@@ -36,18 +36,18 @@ int bsr_register_transport_class(struct bsr_transport_class *transport_class, in
 {
 	int rv = 0;
 	if (version != BSR_TRANSPORT_API_VERSION) {
-		bsr_err(NO_OBJECT, "BSR_TRANSPORT_API_VERSION not compatible\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "BSR_TRANSPORT_API_VERSION not compatible\n");
 		return -EINVAL;
 	}
 
 	if (bsr_transport_size != sizeof(struct bsr_transport)) {
-		bsr_err(NO_OBJECT, "sizeof(bsr_transport) not compatible\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "sizeof(bsr_transport) not compatible\n");
 		return -EINVAL;
 	}
 
 	down_write(&transport_classes_lock);
 	if (__find_transport_class(transport_class->name)) {
-		bsr_err(NO_OBJECT, "transport class '%s' already registered\n", transport_class->name);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "transport class '%s' already registered\n", transport_class->name);
 		rv = -EEXIST;
 	} else
 		list_add_tail(&transport_class->list, &transport_classes);
@@ -327,7 +327,7 @@ bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream 
 
 	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		bsr_err(connection, "[%s/%d] sending time expired, ko = %u\n",
+		bsr_err(BSR_LC_TEMP, connection, "[%s/%d] sending time expired, ko = %u\n",
 			 current->comm, current->pid, connection->transport.ko_count);
 		request_ping(connection);
 	}

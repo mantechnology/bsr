@@ -124,7 +124,7 @@ static void __bm_print_lock_info(struct bsr_device *device, const char *func)
 		return;
 	
 	// DW-898 at this point bm_task can be NULL.
-	bsr_err(device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
+	bsr_err(BSR_LC_TEMP, device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
 		current->comm,
 		task_pid_nr(current),
 		func,
@@ -154,7 +154,7 @@ _bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 	int trylock_failed;
 
 	if (!b) {
-		bsr_err(device, "FIXME no bitmap in bsr_bm_lock!?\n");
+		bsr_err(BSR_LC_TEMP, device, "FIXME no bitmap in bsr_bm_lock!?\n");
 		return;
 	}
 
@@ -178,7 +178,7 @@ _bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 		mutex_lock(&b->bm_change);
 	}
 	if (b->bm_flags & BM_LOCK_ALL)
-		bsr_err(device, "FIXME bitmap already locked in bm_lock\n");
+		bsr_err(BSR_LC_TEMP, device, "FIXME bitmap already locked in bm_lock\n");
 	// DW-1979
 	b->bm_flags |= ((flags & BM_LOCK_ALL) | (flags & BM_LOCK_POINTLESS));
 
@@ -201,12 +201,12 @@ void bsr_bm_unlock(struct bsr_device *device)
 {
 	struct bsr_bitmap *b = device->bitmap;
 	if (!b) {
-		bsr_err(device, "FIXME no bitmap in bsr_bm_unlock!?\n");
+		bsr_err(BSR_LC_TEMP, device, "FIXME no bitmap in bsr_bm_unlock!?\n");
 		return;
 	}
 
 	if (!(device->bitmap->bm_flags & BM_LOCK_ALL))
-		bsr_err(device, "FIXME bitmap not locked in bm_unlock\n");
+		bsr_err(BSR_LC_TEMP, device, "FIXME bitmap not locked in bm_unlock\n");
 
 	// DW-1979
 	b->bm_flags &= ~(BM_LOCK_ALL | BM_LOCK_POINTLESS);
@@ -765,7 +765,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 		// DW-1153 add error log
 	{
 #ifdef _DEBUG_OOS
-		bsr_err(device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
+		bsr_err(BSR_LC_TEMP, device, "unexpected error, could not get bitmap, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 1;
 	}
@@ -773,7 +773,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 	{
 #ifdef _DEBUG_OOS
 		// DW-1153 add error log
-		bsr_err(device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
+		bsr_err(BSR_LC_TEMP, device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -782,7 +782,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 	{
 #ifdef _DEBUG_OOS
 		// DW-1153 add error log
-		bsr_err(device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
+		bsr_err(BSR_LC_TEMP, device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -829,28 +829,28 @@ bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, ULO
 #ifdef BITMAP_DEBUG
 #define bm_op(device, bitmap_index, start, end, op, buffer) \
 	({ unsigned long ret; \
-	   bsr_info(device, "%s: bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(BSR_LC_TEMP, device, "%s: bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = bm_op(device, bitmap_index, start, end, op, buffer); \
-	   bsr_info(device, "= %lu\n", ret); \
+	   bsr_info(BSR_LC_TEMP, device, "= %lu\n", ret); \
 	   ret; })
 
 #define __bm_op(device, bitmap_index, start, end, op, buffer) \
 	({ unsigned long ret; \
-	   bsr_info(device, "%s: __bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(BSR_LC_TEMP, device, "%s: __bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = __bm_op(device, bitmap_index, start, end, op, buffer); \
-	   bsr_info(device, "= %lu\n", ret); \
+	   bsr_info(BSR_LC_TEMP, device, "= %lu\n", ret); \
 	   ret; })
 #endif
 
 #ifdef BITMAP_DEBUG
 #define ___bm_op(device, bitmap_index, start, end, op, buffer, km_type) \
 	({ unsigned long ret; \
-	   bsr_info(device, "%s: ___bm_op(..., %u, %lu, %lu, %u, %p)\n", \
+	   bsr_info(BSR_LC_TEMP, device, "%s: ___bm_op(..., %u, %lu, %lu, %u, %p)\n", \
 		     __func__, bitmap_index, start, end, op, buffer); \
 	   ret = ____bm_op(device, bitmap_index, start, end, op, buffer, km_type); \
-	   bsr_info(device, "= %lu\n", ret); \
+	   bsr_info(BSR_LC_TEMP, device, "= %lu\n", ret); \
 	   ret; })
 #else
 #define ___bm_op(device, bitmap_index, start, end, op, buffer, km_type) \
@@ -916,7 +916,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 
 	bsr_bm_lock(device, "resize", BM_LOCK_ALL);
 
-	bsr_info(device, "bsr_bm_resize called with capacity == %llu\n",
+	bsr_info(BSR_LC_TEMP, device, "bsr_bm_resize called with capacity == %llu\n",
 			(unsigned long long)capacity);
 
 	if (capacity == b->bm_dev_capacity)
@@ -949,7 +949,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		u64 bits_on_disk = bsr_md_on_disk_bits(device);
 		put_ldev(device);
 		if (bits > bits_on_disk) {
-			bsr_err(device, "Not enough space for bitmap: %llu > %llu\n",
+			bsr_err(BSR_LC_TEMP, device, "Not enough space for bitmap: %llu > %llu\n",
 				(unsigned long long)bits, bits_on_disk);
 			err = -ENOSPC;
 			goto out;
@@ -1014,7 +1014,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		kvfree(opages);
 	if (!growing)
 		bm_count_bits(device);
-	bsr_info(device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
+	bsr_info(BSR_LC_TEMP, device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
 
  out:
 	bsr_bm_unlock(device);
@@ -1105,7 +1105,7 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 	// DW-1870 If all nodes are not connected, it is not resolved.
 	if (total_count == 0 && !all_disconnected) {
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(device, "io-error has been cleared.\n");
+		bsr_info(BSR_LC_TEMP, device, "io-error has been cleared.\n");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
@@ -1142,7 +1142,7 @@ void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 	if (count == 0) {
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(peer_device, "io-error has been cleared.\n");
+		bsr_info(BSR_LC_TEMP, peer_device, "io-error has been cleared.\n");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
@@ -1229,7 +1229,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE4) {
 			if(IsDiskError()) {
-				bsr_err(NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%lu ErrorCount:%lu\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(BSR_LC_TEMP, NO_OBJECT,"SimulDiskIoError: Bitmap I/O Error type4.....ErrorFlag:%lu ErrorCount:%lu\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -1278,7 +1278,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		/* Not identical to on disk version of it.
 		 * Is BM_PAGE_IO_ERROR enough? */
 		if (bsr_ratelimit())
-			bsr_err(device, "IO ERROR %d on bitmap page idx %llu\n",
+			bsr_err(BSR_LC_TEMP, device, "IO ERROR %d on bitmap page idx %llu\n",
 					error, (unsigned long long)idx);
 	} else {
 		bm_clear_page_io_err(b->bm_pages[idx]);
@@ -1321,7 +1321,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef BSR_TRACE	
 	{
 		static int cnt = 0;
-		bsr_debug(NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
+		bsr_debug(BSR_LC_TEMP, NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
 	}
 #endif
 
@@ -1409,7 +1409,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	return 0;
 
 no_memory :
-	bsr_err(NO_OBJECT,"Unexpected logic: No memory!\n");
+	bsr_err(BSR_LC_TEMP, NO_OBJECT,"Unexpected logic: No memory!\n");
 	return -ENOMEM;
 }
 
@@ -1573,7 +1573,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (flags == 0 && count) {
 		unsigned int ms = jiffies_to_msecs(jiffies - now);
 		if (ms > 5) {
-			bsr_info(device, "bitmap %s of %llu pages took %u ms\n",
+			bsr_info(BSR_LC_TEMP, device, "bitmap %s of %llu pages took %u ms\n",
 				 (flags & BM_AIO_READ) ? "READ" : "WRITE",
 				 (unsigned long long)count, ms);
 		}
@@ -1591,7 +1591,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (flags & BM_AIO_READ) {
 		now = jiffies;
 		bm_count_bits(device);
-		bsr_info(device, "recounting of set bits took additional %ums\n",
+		bsr_info(BSR_LC_TEMP, device, "recounting of set bits took additional %ums\n",
 		     jiffies_to_msecs(jiffies - now));
 	}
 

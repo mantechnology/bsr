@@ -63,7 +63,7 @@ static int __init bsr_load(void)
 	// BSR-626 porting handler_use to linux
 	g_handler_use = read_reg_file(BSR_HANDLER_USE_REG, g_handler_use);
 
-	bsr_info(NO_OBJECT, "bsr kernel driver load\n");
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "bsr kernel driver load\n");
 	initialize_kref_debugging();
 	if (bsr_debugfs_init())
 		bsr_noti(BSR_LC_DRIVER, NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
@@ -76,7 +76,7 @@ static void bsr_unload(void)
 	bsr_cleanup();	
 	//  _WIN32_V9_DEBUGFS: minord is cleanup at this point, required to analyze it.
 	bsr_debugfs_cleanup();
-	bsr_info(NO_OBJECT, "bsr kernel driver unload done\n");
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "bsr kernel driver unload done\n");
 #ifdef _LIN
 	// BSR-581
 	clean_logging();
@@ -87,13 +87,13 @@ static void bsr_unload(void)
 
 static int bsr_mount(struct block_device *bdev, fmode_t mode)
 {
-	bsr_info(NO_OBJECT, "bsr_mount block_device:%p, mode:%d\n",bdev, mode);
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "bsr_mount block_device:%p, mode:%d\n",bdev, mode);
 	return bsr_open(bdev, mode);
 }
 
 static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 {
-	bsr_info(NO_OBJECT, "bsr_umount gendisk:%p, mode:%d\n",gd, mode);
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "bsr_umount gendisk:%p, mode:%d\n",gd, mode);
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
 #else

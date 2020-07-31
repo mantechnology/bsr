@@ -246,7 +246,7 @@ void bsr_req_destroy(struct kref *kref)
 		if (ns & RQ_NET_DONE)
 			continue;
 
-		bsr_err(device,
+		bsr_err(BSR_LC_TEMP, device,
 			"bsr_req_destroy: Logic BUG rq_state: (0:%x, %d:%x), completion_ref = %d\n",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		goto out;
@@ -255,7 +255,7 @@ void bsr_req_destroy(struct kref *kref)
 	/* more paranoia */
 	if ((req->master_bio && !(s & RQ_POSTPONED)) ||
 		atomic_read(&req->completion_ref) || (s & RQ_LOCAL_PENDING)) {
-		bsr_err(device, "bsr_req_destroy: Logic BUG rq_state: %x, completion_ref = %d\n",
+		bsr_err(BSR_LC_TEMP, device, "bsr_req_destroy: Logic BUG rq_state: %x, completion_ref = %d\n",
 				s, atomic_read(&req->completion_ref));
 		goto out;
 	}
@@ -278,7 +278,7 @@ void bsr_req_destroy(struct kref *kref)
 			root = &device->read_requests;
 		bsr_remove_request_interval(root, req);
 	} else if (s & (RQ_NET_MASK & ~RQ_NET_DONE) && req->i.size != 0)
-		bsr_err(device, "bsr_req_destroy: Logic BUG: interval empty, but: rq_state=0x%x, sect=%llu, size=%u\n",
+		bsr_err(BSR_LC_TEMP, device, "bsr_req_destroy: Logic BUG: interval empty, but: rq_state=0x%x, sect=%llu, size=%u\n",
 			s, (unsigned long long)req->i.sector, req->i.size);
 
 	if (s & RQ_WRITE) {
@@ -327,7 +327,7 @@ void bsr_req_destroy(struct kref *kref)
 						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct bsr_oos_no_req* send_oos = NULL;
 
-						bsr_info(peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
+						bsr_info(BSR_LC_TEMP, peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
 						if (send_oos) {
@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {
-							bsr_err(peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n", 
+							bsr_err(BSR_LC_TEMP, peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n", 
 								(unsigned long long)req->i.sector, req->i.size);
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
@@ -534,7 +534,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
-				bsr_err(NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
+				bsr_err(BSR_LC_TEMP, NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
 				BUG();
 			}
 
@@ -552,7 +552,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(NO_OBJECT, "MmGetSystemAddressForMdlSafe ERROR!\n");
+					bsr_err(BSR_LC_TEMP, NO_OBJECT, "MmGetSystemAddressForMdlSafe ERROR!\n");
 					BUG();
 				}
 				if (buffer) {
@@ -571,7 +571,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(NO_OBJECT, "splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
+					bsr_err(BSR_LC_TEMP, NO_OBJECT, "splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
 					BUG();
 				}
 				else {
@@ -675,7 +675,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		if (!(ns & (RQ_NET_PENDING|RQ_NET_QUEUED)))
 			continue;
 
-		bsr_err(device,
+		bsr_err(BSR_LC_TEMP, device,
 			"bsr_req_complete: Logic BUG rq_state: (0:%x, %d:%x), completion_ref = %d\n",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		return;
@@ -684,13 +684,13 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	/* more paranoia */
 	if (atomic_read(&req->completion_ref) ||
 	    ((s & RQ_LOCAL_PENDING) && !(s & RQ_LOCAL_ABORTED))) {
-		bsr_err(device, "bsr_req_complete: Logic BUG rq_state: %x, completion_ref = %d\n",
+		bsr_err(BSR_LC_TEMP, device, "bsr_req_complete: Logic BUG rq_state: %x, completion_ref = %d\n",
 				s, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	if (!req->master_bio) {
-		bsr_err(device, "bsr_req_complete: Logic BUG, master_bio == NULL!\n");
+		bsr_err(BSR_LC_TEMP, device, "bsr_req_complete: Logic BUG, master_bio == NULL!\n");
 		return;
 	}
 
@@ -772,13 +772,13 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 	D_ASSERT(req->device, m || (req->rq_state[0] & RQ_POSTPONED));
 #ifdef BSR_TRACE
 	if (put > 1) {
-        bsr_debug(NO_OBJECT,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
+        bsr_debug(BSR_LC_TEMP, NO_OBJECT,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
 	}
 #endif
 	if (!atomic_sub_and_test(put, &req->completion_ref))
 	{
 #ifdef BSR_TRACE
-		bsr_debug(NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
+		bsr_debug(BSR_LC_TEMP, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
 #endif
 		return 0;
 	}
@@ -792,7 +792,7 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 		return 0;
 	}
 #ifdef BSR_TRACE
-	bsr_debug(NO_OBJECT,"sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
+	bsr_debug(BSR_LC_TEMP, NO_OBJECT,"sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
 #endif
 	return 1;
 }
@@ -1074,7 +1074,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		int refcount = refcount_read(&req->kref.refcount);
 		
 		if (refcount < at_least)
-            bsr_err(device,
+            bsr_err(BSR_LC_TEMP, device,
             "mod_rq_state: Logic BUG: 0: %x -> %x, %d: %x -> %x: refcount = %d, should be >= %d\n",
             old_local, req->rq_state[0],
             idx, old_net, req->rq_state[idx],
@@ -1161,7 +1161,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	switch (what) {
 	default:
-		bsr_err(device, "LOGIC BUG in %s:%u\n", __FILE__ , __LINE__);
+		bsr_err(BSR_LC_TEMP, device, "LOGIC BUG in %s:%u\n", __FILE__ , __LINE__);
 		break;
 
 	/* does not happen...
@@ -1458,7 +1458,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			/* barrier came in before all requests were acked.
 			 * this is bad, because if the connection is lost now,
 			 * we won't be able to clean them up... */
-			bsr_err(device, "FIXME (BARRIER_ACKED but pending)\n");
+			bsr_err(BSR_LC_TEMP, device, "FIXME (BARRIER_ACKED but pending)\n");
 			mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
 		}
 		/* Allowed to complete requests, even while suspended.
@@ -1644,13 +1644,13 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 		//To accurately check when to enter AHEAD mode, you should consider the size of the synchronization data in the send buffer.
 		__u64 total_in_flight = atomic_read64(&connection->ap_in_flight) + atomic_read64(&connection->rs_in_flight);
 		if (total_in_flight >= nc->cong_fill) {
-			bsr_info(device, "Congestion-fill threshold reached %lluKB\n", total_in_flight >> 10 );
+			bsr_info(BSR_LC_TEMP, device, "Congestion-fill threshold reached %lluKB\n", total_in_flight >> 10 );
 			congested = true;
 		}
 	}
 
 	if (device->act_log->used >= nc->cong_extents) {
-		bsr_info(device, "Congestion-extents threshold reached\n");
+		bsr_info(BSR_LC_TEMP, device, "Congestion-extents threshold reached\n");
 		congested = true;
 	}
 
@@ -1909,7 +1909,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
-		bsr_err(device, "could not kmalloc() req\n");
+		bsr_err(BSR_LC_TEMP, device, "could not kmalloc() req\n");
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -2177,7 +2177,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 nodata:
 		if (bsr_ratelimit()) {
 			struct bsr_device * device = req->device;
-			bsr_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
+			bsr_err(BSR_LC_TEMP, device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
 				(unsigned long long)req->i.sector, req->i.size >> 9);
 		}
 		/* A write may have been queued for send_oos, however.
@@ -2223,7 +2223,7 @@ void __bsr_make_request(struct bsr_device *device, struct bio *bio, unsigned lon
 	//retry case in bsr_request_prepare. don't retrun STATUS_UNSUCCESSFUL.
 	if (IS_ERR_OR_NULL(req)) {
 		if (req)
-			bsr_err(device, "FIXME!!, bug!? failed to local request prepare, bio(%p), sector(%llu), size(%u)\n", bio, bio->bi_sector, bio->bi_size);
+			bsr_err(BSR_LC_TEMP, device, "FIXME!!, bug!? failed to local request prepare, bio(%p), sector(%llu), size(%u)\n", bio, bio->bi_sector, bio->bi_size);
 		return STATUS_SUCCESS;
 	}
 #else // _LIN
@@ -2527,7 +2527,7 @@ void do_submit(struct work_struct *ws)
 			prepare_al_transaction_nonblock(device, &wfa);
 			if (!wfa_lists_empty(&wfa, pending)) {
 				if(al_wait_count)
-					bsr_debug(device, "al_wait retry count : %llu\n", (unsigned long long)al_wait_count);
+					bsr_debug(BSR_LC_TEMP, device, "al_wait retry count : %llu\n", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
 				break;
 			}
@@ -2543,7 +2543,7 @@ void do_submit(struct work_struct *ws)
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
 #endif
 				struct bsr_peer_device *peer_device;
-				bsr_err(device, "al_wait timeout... disconnect, retry %llu\n", (unsigned long long)al_wait_count);
+				bsr_err(BSR_LC_TEMP, device, "al_wait timeout... disconnect, retry %llu\n", (unsigned long long)al_wait_count);
 				for_each_peer_device_rcu(peer_device, device) {
 					change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 				}

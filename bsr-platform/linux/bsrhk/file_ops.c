@@ -17,7 +17,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
 	
 	if (err) {
-		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
 		return -1;
 	}
 
@@ -38,7 +38,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	}
 	
 	// DW-2008
-	bsr_info(NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
+	bsr_info(BSR_LC_TEMP, NO_OBJECT,"set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n", 
 				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
 				// DW-2041
 				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
@@ -74,11 +74,11 @@ static int bsr_set_log_max_count(unsigned int __user * args)
 	err = copy_from_user(&log_file_max_count, args, sizeof(unsigned int));
 
 	if (err) {
-		bsr_err(NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
 		return err;
 	}
 
-	bsr_info(NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
 	atomic_set(&g_log_file_max_count, log_file_max_count);
 
 	return 0;
@@ -92,11 +92,11 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 
 	err = copy_from_user(&h_info, args, sizeof(HANDLER_INFO));
 	if (err) {
-		bsr_err(NO_OBJECT, "HANDLER_INFO copy from user failed.\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "HANDLER_INFO copy from user failed.\n");
 		return -1;
 	}
 	
-	bsr_info(NO_OBJECT, "set handler_use %d => %d\n", g_handler_use, h_info.use);
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "set handler_use %d => %d\n", g_handler_use, h_info.use);
 	g_handler_use = h_info.use;
 
 	return 0;
@@ -306,13 +306,13 @@ int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, u
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
 		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			bsr_err(BSR_LC_TEMP, NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
 		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
 			err = -1;
 			goto out;
 		}
@@ -345,7 +345,7 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 #endif
 		filp_close(fdir, NULL);
 	} else {
-		bsr_err(NO_OBJECT, "failed to open log directory\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT, "failed to open log directory\n");
 	}
 	set_fs(oldfs);
 

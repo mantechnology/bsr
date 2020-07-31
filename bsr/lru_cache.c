@@ -395,7 +395,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		bsr_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
 		return NULL;
 	}
 #else // _LIN

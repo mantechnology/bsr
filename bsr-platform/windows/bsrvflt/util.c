@@ -60,7 +60,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	RtlZeroMemory( nameInfo, MAXDEVICENAME * sizeof(WCHAR) );
 	status = ObQueryNameString( DeviceObject, nameInfo, MAXDEVICENAME, &size );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(NO_OBJECT,"cannot get device name, err=0x%x\n", status);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"cannot get device name, err=0x%x\n", status);
 		ExFreePool( nameInfo );
 		return status;
 	}
@@ -114,7 +114,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 	// DW-1303 No dismount for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(NO_OBJECT,"no dismount. volume(%wZ) already dismounted\n", &device_name);
+			bsr_info(BSR_LC_TEMP, NO_OBJECT,"no dismount. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_SUCCESS;
 		}
 	}
@@ -140,7 +140,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 NULL,
                 0);
             if (!NT_SUCCESS(status)) {
-                bsr_info(NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+                bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
                 __leave;
             }
         }
@@ -156,23 +156,23 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
             &pVolumeFileObject,
             NULL);
         if (!NT_SUCCESS(status)) {
-            bsr_err(NO_OBJECT,"ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
+            bsr_err(BSR_LC_TEMP, NO_OBJECT,"ObReferenceObjectByHandle Failed. status(0x%x)\n", status);
             __leave;
         }
 #endif
 		if (bFlush) {
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
+				bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
 			}
 		}
 		
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(NO_OBJECT,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
+            bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
             __leave;
         }
-        bsr_info(NO_OBJECT,"volume(%wZ) dismounted\n", &device_name);
+        bsr_info(BSR_LC_TEMP, NO_OBJECT,"volume(%wZ) dismounted\n", &device_name);
     }
     __finally
     {
@@ -220,7 +220,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 	// DW-1303 No lock for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(NO_OBJECT,"no lock. volume(%wZ) already dismounted\n", &device_name);
+			bsr_info(BSR_LC_TEMP, NO_OBJECT,"no lock. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}
@@ -245,7 +245,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
             NULL,
             0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -257,14 +257,14 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(NO_OBJECT,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
+            bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
             __leave;
         }
         
         pvext->LockHandle = hFile;
         hFile = NULL;
 
-        bsr_info(NO_OBJECT,"volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
+        bsr_info(BSR_LC_TEMP, NO_OBJECT,"volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
 
     }
     __finally
@@ -290,7 +290,7 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
     }
 
     if (!pvext->LockHandle) {
-        bsr_info(NO_OBJECT,"volume(%ws) not locked\n", pvext->PhysicalDeviceName);
+        bsr_info(BSR_LC_TEMP, NO_OBJECT,"volume(%ws) not locked\n", pvext->PhysicalDeviceName);
         return STATUS_NOT_LOCKED;
     }
 
@@ -301,11 +301,11 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
     {
         status = ZwFsControlFile(pvext->LockHandle, 0, 0, 0, &StatusBlock, FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(NO_OBJECT,"ZwFsControlFile Failed. status(0x%x)\n", status);
+            bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
-        bsr_info(NO_OBJECT,"volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
+        bsr_info(BSR_LC_TEMP, NO_OBJECT,"volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
     }
     __finally
     {
@@ -356,7 +356,7 @@ NTSTATUS FsctlFlushVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_info(NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -411,7 +411,7 @@ NTSTATUS FsctlCreateVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_err(NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
     }
@@ -428,7 +428,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 {
 	PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, FALSE);
 	if (!pvext) {
-		bsr_err(NO_OBJECT,"could not get volume extension from device minor(%u)\n", minor);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"could not get volume extension from device minor(%u)\n", minor);
 		return NULL;
 	}
 
@@ -459,7 +459,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			bsr_err(NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
 			return NULL;
 		}
 		
@@ -478,7 +478,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume, bool *retry)
     *retry = false;
 
 	if (NULL == hVolume) {
-		bsr_err(NO_OBJECT,"Invalid parameter\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Invalid parameter\n");
 		return 0;
 	}
 	
@@ -493,7 +493,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume, bool *retry)
 	if (fss.FileSystemType == 0 &&
 		!NT_SUCCESS(status))
 	{
-		bsr_err(NO_OBJECT,"ZwFsControlFile with FSCTL_FILESYSTEM_GET_STATISTICS failed, status(0x%x)\n", status);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile with FSCTL_FILESYSTEM_GET_STATISTICS failed, status(0x%x)\n", status);
 		return 0;
 	}
 	else
@@ -516,7 +516,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		bsr_err(NO_OBJECT,"Invalid parameter, hVolume(%p), pullTotalCluster(%p), pulBytesPerCluster(%p)\n", hVolume, pullTotalCluster, pulBytesPerCluster);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Invalid parameter, hVolume(%p), pullTotalCluster(%p), pulBytesPerCluster(%p)\n", hVolume, pullTotalCluster, pulBytesPerCluster);
 		return bRet;
 	}
 
@@ -526,7 +526,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
             if (retry) 
 				bRet = -EAGAIN;
 			else
-			    bsr_err(NO_OBJECT,"GetFileSystemTypeWithHandle returned invalid file system type\n");
+			    bsr_err(BSR_LC_TEMP, NO_OBJECT,"GetFileSystemTypeWithHandle returned invalid file system type\n");
 
 			break;		
 		}
@@ -534,7 +534,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		// getting fs volume data sometimes gets pended when it coincides with another peer's, need to wait until the operation's done.
 		status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(NO_OBJECT,"ZwCreateEvent failed, status : 0x%x\n", status);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwCreateEvent failed, status : 0x%x\n", status);
 			break;
 		}
 		
@@ -548,7 +548,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0, &nvdb, sizeof(nvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(NO_OBJECT,"ZwFsControlFile with FSCTL_GET_NTFS_VOLUME_DATA failed, status(%0x%x)\n", status);
+				bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile with FSCTL_GET_NTFS_VOLUME_DATA failed, status(%0x%x)\n", status);
 				break;
 			}
 
@@ -565,7 +565,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_REFS_VOLUME_DATA, NULL, 0, &rvdb, sizeof(rvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(NO_OBJECT,"ZwFsControlFile with FSCTL_GET_REFS_VOLUME_DATA failed, status(%0x%x)\n", status);
+				bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile with FSCTL_GET_REFS_VOLUME_DATA failed, status(%0x%x)\n", status);
 				break;
 			}
 
@@ -583,7 +583,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		if (0 == ullTotalCluster ||
 			0 == ulBytesPerCluster)
 		{
-			bsr_err(NO_OBJECT,"Cluster information is invalid, ullTotalCluster(%llu), ulBytesPerCluster(%u)\n", ullTotalCluster, ulBytesPerCluster);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"Cluster information is invalid, ullTotalCluster(%llu), ulBytesPerCluster(%u)\n", ullTotalCluster, ulBytesPerCluster);
 			break;
 		}
 
@@ -620,7 +620,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 	do {
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume) {
-			bsr_err(NO_OBJECT,"Could not get volume handle from minor(%u)\n", minor);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"Could not get volume handle from minor(%u)\n", minor);
 			break;
 		}
 		
@@ -629,14 +629,14 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_GET_GPT_ATTRIBUTES, NULL, 0, &vggai, sizeof(vggai));
 		if (status != STATUS_SUCCESS) {
-			bsr_err(NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_VOLUME_GET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_VOLUME_GET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
 			break;
 		}
 
 		if (vggai.GptAttributes & GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) {
 			if (set) {
 				// No additional setting attribute is required.
-				bsr_info(NO_OBJECT,"specified volume is read-only already.\n");				
+				bsr_info(BSR_LC_TEMP, NO_OBJECT,"specified volume is read-only already.\n");				
 				bRet = true;
 				break;
 			}
@@ -648,7 +648,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		else {
 			if (!set) {
 				// No additional setting attribute is required.
-				bsr_info(NO_OBJECT,"specified volume is writable already\n");
+				bsr_info(BSR_LC_TEMP, NO_OBJECT,"specified volume is writable already\n");
 				bRet = true;
 				break;
 			}
@@ -669,11 +669,11 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_DISK_GET_PARTITION_INFO_EX, NULL, 0, &partInfoEx, sizeof(partInfoEx));
 		if (status != STATUS_SUCCESS) {
-			bsr_err(NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)\n", status);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)\n", status);
 			break;
 		}
 		else {
-			bsr_debug(NO_OBJECT,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
+			bsr_debug(BSR_LC_TEMP, NO_OBJECT,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
 		}
 		
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -685,7 +685,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			vsgai.ApplyToAllConnectedVolumes = FALSE; 
 		} 
 		else {
-			bsr_err(NO_OBJECT,"This PartitionStyle is Raw (minor: %d)\n", minor);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"This PartitionStyle is Raw (minor: %d)\n", minor);
 		}
 #else
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -693,11 +693,11 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 #endif
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_SET_GPT_ATTRIBUTES, &vsgai, sizeof(vsgai), NULL, 0);
 		if (status != STATUS_SUCCESS) {
-			bsr_err(NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_VOLUME_SET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
+			bsr_err(BSR_LC_TEMP, NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_VOLUME_SET_GPT_ATTRIBUTES failed, status(0x%x)\n", status);
 			break;
 		}
 		else {
-			bsr_info(NO_OBJECT,"Read-only attribute for volume(minor: %d) has been %s\n", minor, set ? "set" : "cleared");
+			bsr_info(BSR_LC_TEMP, NO_OBJECT,"Read-only attribute for volume(minor: %d) has been %s\n", minor, set ? "set" : "cleared");
 		}
 		
 		bRet = true;
@@ -728,12 +728,12 @@ PVOID GetVolumeBitmap(struct bsr_device *device, PULONGLONG pullTotalCluster, PU
 	if (NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		bsr_err(device, "Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
+		bsr_err(BSR_LC_TEMP, device, "Invalid parameter, pullTotalCluster(%p), pulBytesPerCluster(%p)\n", pullTotalCluster, pulBytesPerCluster);
 		return NULL;
 	}
 
 	if (KeGetCurrentIrql() > PASSIVE_LEVEL) {
-		bsr_err(device, "Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
+		bsr_err(BSR_LC_TEMP, device, "Could not get volume bitmap because of high irql(%d)\n", KeGetCurrentIrql());
 		return NULL;
 	}
 
@@ -743,7 +743,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, PULONGLONG pullTotalCluster, PU
 retry:
 		hVolume = GetVolumeHandleFromDeviceMinor(device->minor);
 		if (NULL == hVolume) {
-			bsr_err(device, "Could not get volume handle from minor(%u)\n", device->minor);
+			bsr_err(BSR_LC_TEMP, device, "Could not get volume handle from minor(%u)\n", device->minor);
 			break;
 		}
 				
@@ -756,10 +756,10 @@ retry:
 					hVolume = NULL;
 				}
 				rtc++;
-				bsr_info(device, "handle retry (%d/%d), minor(%u)\n", rtc, RETRY_MAX_COUNT, device->minor);
+				bsr_info(BSR_LC_TEMP, device, "handle retry (%d/%d), minor(%u)\n", rtc, RETRY_MAX_COUNT, device->minor);
 				goto retry;
 			}
-			bsr_err(device, "Could not get cluster information\n");
+			bsr_err(BSR_LC_TEMP, device, "Could not get cluster information\n");
 			break;
 		}
 
@@ -767,14 +767,14 @@ retry:
 		
 		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16DW');
 		if (NULL == pVbb) {
-			bsr_err(device, "pVbb allocation failed\n");
+			bsr_err(BSR_LC_TEMP, device, "pVbb allocation failed\n");
 			break;
 		}
 				
 		slib.StartingLcn.QuadPart = 0;
 		status = ZwFsControlFile(hVolume, NULL, NULL, NULL, &ioStatus, FSCTL_GET_VOLUME_BITMAP, &slib, sizeof(slib), pVbb, ulBitmapSize);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(device, "ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
+			bsr_err(BSR_LC_TEMP, device, "ZwFsControlFile with FSCTL_GET_VOLUME_BITMAP failed, status(%0x%x)\n", status);
 			break;
 		}
 				
@@ -900,7 +900,7 @@ mvolGetDeviceCount()
 		VolumeExtension = VolumeExtension->Next;
 	}
 
-	bsr_debug(NO_OBJECT,"DeviceCount=%d\n", count);
+	bsr_debug(BSR_LC_TEMP, NO_OBJECT,"DeviceCount=%d\n", count);
 
 	return count;
 }
@@ -912,7 +912,7 @@ MVOL_LOCK()
 	
 	status = KeWaitForMutexObject( &mvolMutex, Executive, KernelMode, FALSE, NULL );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(NO_OBJECT,"cannot wait\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"cannot wait\n");
 	}
 }
 
@@ -929,7 +929,7 @@ COUNT_LOCK( PVOLUME_EXTENSION VolumeExtension )
 
 	status = KeWaitForMutexObject( &VolumeExtension->CountMutex, Executive, KernelMode, FALSE, NULL );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(NO_OBJECT,"cannot wait\n");
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"cannot wait\n");
 	}
 }
 
@@ -1096,7 +1096,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
 
         guid = (PMOUNTDEV_UNIQUE_ID)ExAllocatePoolWithTag(PagedPool, cbBuf, '08DW');
         if (NULL == guid) {
-            bsr_debug(NO_OBJECT,"Out of memory.\n");
+            bsr_debug(BSR_LC_TEMP, NO_OBJECT,"Out of memory.\n");
             return NULL;
         }
 
@@ -1134,7 +1134,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
 Finally:
     {
         if (!NT_SUCCESS(result)) {
-            bsr_debug(NO_OBJECT,"Failed to retrieve a GUID: 0x%lx", result);
+            bsr_debug(BSR_LC_TEMP, NO_OBJECT,"Failed to retrieve a GUID: 0x%lx", result);
             ExFreePool(guid);
             guid = NULL;
         }
@@ -1165,7 +1165,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 		strncat(pguid_text, " ", sizeof(pguid_text) - strlen(pguid_text) - 1);
     }
 
-    bsr_debug(NO_OBJECT,"device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
+    bsr_debug(BSR_LC_TEMP, NO_OBJECT,"device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
 
     ExFreePool(guid);
 }
@@ -1206,13 +1206,13 @@ GetDriverLetterByDeviceName(IN PUNICODE_STRING pDeviceName, OUT PUNICODE_STRING 
 		NULL);
 	if (Status != STATUS_SUCCESS) {
 		ZwClose(FileHandle);
-		bsr_err(NO_OBJECT,"ObReferenceObjectByHandle: %d\n", Status);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"ObReferenceObjectByHandle: %d\n", Status);
 		return Status;
 	}
 
 	Status = IoVolumeDeviceToDosName(pVolumeFileObject->DeviceObject, pDriveLetter);
 	if (Status != STATUS_SUCCESS) {
-		bsr_err(NO_OBJECT,"IoVolumeDeviceToDosName: %d\n", Status);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"IoVolumeDeviceToDosName: %d\n", Status);
 		// return Status;
 	}
 	ObDereferenceObject(pVolumeFileObject);
@@ -1428,8 +1428,8 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		RtlCopyMemory(g_ver, L"BSR", 4 * 2); 
 	}
 	// _WIN32_V9: proc_details is removed. 
-	bsr_info(NO_OBJECT, "registry_path[%wZ]\n", RegPath_unicode);
-	bsr_info(NO_OBJECT, "bypass_level=%d, read_filter=%d, use_volume_lock=%d, netlink_tcp_port=%d, daemon_tcp_port=%d, ver=%ws\n", g_bypass_level, g_read_filter,
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "registry_path[%wZ]\n", RegPath_unicode);
+	bsr_info(BSR_LC_TEMP, NO_OBJECT, "bypass_level=%d, read_filter=%d, use_volume_lock=%d, netlink_tcp_port=%d, daemon_tcp_port=%d, ver=%ws\n", g_bypass_level, g_read_filter,
 																																	g_use_volume_lock, g_netlink_tcp_port,
 																																	g_daemon_tcp_port, g_ver);
 
@@ -1458,7 +1458,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 		ObDereferenceObject(pCallbackObj);
 	}
 	else
-		bsr_err(NO_OBJECT,"Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
+		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Failed to open callback object for %ws, status : 0x%x\n", pszCallbackName, status);
 
 	return status;
 }
