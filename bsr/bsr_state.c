@@ -2310,14 +2310,14 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 					ov_out_of_sync_print(peer_device, true);
 					ov_skipped_print(peer_device, true);
 
-					bsr_info(0, BSR_LC_TEMP, peer_device, "Online Verify reached sector %llu\n",
+					bsr_info(147, BSR_LC_RESYNC_OV, peer_device, "Online Verify reached sector %llu\n",
 						  (unsigned long long)peer_device->ov_start_sector);
 				}
 			}
 
 			if ((repl_state[OLD] == L_PAUSED_SYNC_T || repl_state[OLD] == L_PAUSED_SYNC_S) &&
 			    (repl_state[NEW] == L_SYNC_TARGET  || repl_state[NEW] == L_SYNC_SOURCE)) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Syncer continues.\n");
+				bsr_info(148, BSR_LC_RESYNC_OV, peer_device, "Syncer continues.\n");
 				peer_device->rs_paused += (long)jiffies
 						  -(long)peer_device->rs_mark_time[peer_device->rs_last_mark];
 
@@ -2335,7 +2335,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 			if ((repl_state[OLD] == L_SYNC_TARGET  || repl_state[OLD] == L_SYNC_SOURCE) &&
 			    (repl_state[NEW] == L_PAUSED_SYNC_T || repl_state[NEW] == L_PAUSED_SYNC_S)) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Resync suspended\n");
+				bsr_info(149, BSR_LC_RESYNC_OV, peer_device, "Resync suspended\n");
 				peer_device->rs_mark_time[peer_device->rs_last_mark] = jiffies;
 			}
 
@@ -2382,7 +2382,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
-						bsr_info(0, BSR_LC_TEMP, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
 							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
@@ -2580,7 +2580,7 @@ static void abw_start_sync(struct bsr_device *device,
 	struct bsr_peer_device *pd;
 
 	if (rv) {
-		bsr_err(0, BSR_LC_TEMP, device, "Writing the bitmap failed not starting resync.\n");
+		bsr_err(151, BSR_LC_RESYNC_OV, device, "Writing the bitmap failed not starting resync.\n");
 		stable_change_repl_state(peer_device, L_ESTABLISHED, CS_VERBOSE);
 		return;
 	}
@@ -3638,7 +3638,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-1315 resync availability has been checked in finish_state_change(), abort resync here by changing replication state to L_ESTABLISHED.
 			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags)) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Resync will be aborted due to change of state.\n");
+				bsr_info(152, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted due to change of state.\n");
 
 				if (repl_state[NOW] > L_ESTABLISHED) {
 					unsigned long irq_flags;

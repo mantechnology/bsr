@@ -246,7 +246,7 @@ void bsr_req_destroy(struct kref *kref)
 		if (ns & RQ_NET_DONE)
 			continue;
 
-		bsr_err(0, BSR_LC_TEMP, device,
+		bsr_err(7, BSR_LC_REQUEST, device,
 			"bsr_req_destroy: Logic BUG rq_state: (0:%x, %d:%x), completion_ref = %d\n",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		goto out;
@@ -255,7 +255,7 @@ void bsr_req_destroy(struct kref *kref)
 	/* more paranoia */
 	if ((req->master_bio && !(s & RQ_POSTPONED)) ||
 		atomic_read(&req->completion_ref) || (s & RQ_LOCAL_PENDING)) {
-		bsr_err(0, BSR_LC_TEMP, device, "bsr_req_destroy: Logic BUG rq_state: %x, completion_ref = %d\n",
+		bsr_err(8, BSR_LC_REQUEST, device, "bsr_req_destroy: Logic BUG rq_state: %x, completion_ref = %d\n",
 				s, atomic_read(&req->completion_ref));
 		goto out;
 	}
@@ -278,7 +278,7 @@ void bsr_req_destroy(struct kref *kref)
 			root = &device->read_requests;
 		bsr_remove_request_interval(root, req);
 	} else if (s & (RQ_NET_MASK & ~RQ_NET_DONE) && req->i.size != 0)
-		bsr_err(0, BSR_LC_TEMP, device, "bsr_req_destroy: Logic BUG: interval empty, but: rq_state=0x%x, sect=%llu, size=%u\n",
+		bsr_err(9, BSR_LC_REQUEST, device, "bsr_req_destroy: Logic BUG: interval empty, but: rq_state=0x%x, sect=%llu, size=%u\n",
 			s, (unsigned long long)req->i.sector, req->i.size);
 
 	if (s & RQ_WRITE) {
@@ -327,7 +327,7 @@ void bsr_req_destroy(struct kref *kref)
 						//		 queueing sending out-of-sync into connection ack sender here guarantees that oos will be sent before peer ack does.
 						struct bsr_oos_no_req* send_oos = NULL;
 
-						bsr_info(0, BSR_LC_TEMP, peer_device,"found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
+						bsr_info(10, BSR_LC_REQUEST, peer_device, "found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))\n", (unsigned long long)req->i.sector, req->i.size);
 
 						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
 						if (send_oos) {
@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {
-							bsr_err(0, BSR_LC_TEMP, peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n", 
+							bsr_err(11, BSR_LC_REQUEST, peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection\n",
 								(unsigned long long)req->i.sector, req->i.size);
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
@@ -534,7 +534,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
+				bsr_err(12, BSR_LC_REQUEST, NO_OBJECT, "size 0x%x ERROR!\n", master_bio->bi_size);
 				BUG();
 			}
 
@@ -552,7 +552,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "MmGetSystemAddressForMdlSafe ERROR!\n");
+					bsr_err(13, BSR_LC_REQUEST, NO_OBJECT, "MmGetSystemAddressForMdlSafe ERROR!\n");
 					BUG();
 				}
 				if (buffer) {
@@ -571,7 +571,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
+					bsr_err(14, BSR_LC_REQUEST, NO_OBJECT, "splitIO: MmGetSystemAddressForMdlSafe ERROR!\n");
 					BUG();
 				}
 				else {
@@ -675,7 +675,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		if (!(ns & (RQ_NET_PENDING|RQ_NET_QUEUED)))
 			continue;
 
-		bsr_err(0, BSR_LC_TEMP, device,
+		bsr_err(15, BSR_LC_REQUEST, device,
 			"bsr_req_complete: Logic BUG rq_state: (0:%x, %d:%x), completion_ref = %d\n",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		return;
@@ -684,13 +684,13 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	/* more paranoia */
 	if (atomic_read(&req->completion_ref) ||
 	    ((s & RQ_LOCAL_PENDING) && !(s & RQ_LOCAL_ABORTED))) {
-		bsr_err(0, BSR_LC_TEMP, device, "bsr_req_complete: Logic BUG rq_state: %x, completion_ref = %d\n",
+		bsr_err(16, BSR_LC_REQUEST, device, "bsr_req_complete: Logic BUG rq_state: %x, completion_ref = %d\n",
 				s, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	if (!req->master_bio) {
-		bsr_err(0, BSR_LC_TEMP, device, "bsr_req_complete: Logic BUG, master_bio == NULL!\n");
+		bsr_err(17, BSR_LC_REQUEST, device, "bsr_req_complete: Logic BUG, master_bio == NULL!\n");
 		return;
 	}
 
@@ -1074,7 +1074,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		int refcount = refcount_read(&req->kref.refcount);
 		
 		if (refcount < at_least)
-            bsr_err(0, BSR_LC_TEMP, device,
+			bsr_err(18, BSR_LC_REQUEST, device,
             "mod_rq_state: Logic BUG: 0: %x -> %x, %d: %x -> %x: refcount = %d, should be >= %d\n",
             old_local, req->rq_state[0],
             idx, old_net, req->rq_state[idx],
@@ -1161,7 +1161,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	switch (what) {
 	default:
-		bsr_err(0, BSR_LC_TEMP, device, "LOGIC BUG in %s:%u\n", __FILE__ , __LINE__);
+		bsr_err(19, BSR_LC_REQUEST, device, "LOGIC BUG in %s:%u\n", __FILE__, __LINE__);
 		break;
 
 	/* does not happen...
@@ -1458,7 +1458,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			/* barrier came in before all requests were acked.
 			 * this is bad, because if the connection is lost now,
 			 * we won't be able to clean them up... */
-			bsr_err(0, BSR_LC_TEMP, device, "FIXME (BARRIER_ACKED but pending)\n");
+			bsr_err(20, BSR_LC_REQUEST, device, "FIXME (BARRIER_ACKED but pending)\n");
 			mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
 		}
 		/* Allowed to complete requests, even while suspended.
@@ -1909,7 +1909,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
-		bsr_err(0, BSR_LC_TEMP, device, "could not kmalloc() req\n");
+		bsr_err(21, BSR_LC_REQUEST, device, "could not kmalloc() req\n");
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -2223,7 +2223,7 @@ void __bsr_make_request(struct bsr_device *device, struct bio *bio, unsigned lon
 	//retry case in bsr_request_prepare. don't retrun STATUS_UNSUCCESSFUL.
 	if (IS_ERR_OR_NULL(req)) {
 		if (req)
-			bsr_err(0, BSR_LC_TEMP, device, "FIXME!!, bug!? failed to local request prepare, bio(%p), sector(%llu), size(%u)\n", bio, bio->bi_sector, bio->bi_size);
+			bsr_err(22, BSR_LC_REQUEST, device, "FIXME!!, bug!? failed to local request prepare, bio(%p), sector(%llu), size(%u)\n", bio, bio->bi_sector, bio->bi_size);
 		return STATUS_SUCCESS;
 	}
 #else // _LIN
@@ -2753,7 +2753,7 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 		return false;
 
 	if (net_req->rq_state[1 + peer_node_id] & RQ_NET_PENDING) {
-		bsr_warn(0, BSR_LC_REQUEST, device, "Remote failed to finish a request within %ums > ko-count (%u) * timeout (%u * 0.1s)\n",
+		bsr_warn(25, BSR_LC_REQUEST, device, "Remote failed to finish a request within %ums > ko-count (%u) * timeout (%u * 0.1s)\n",
 			jiffies_to_msecs(now - net_req->pre_send_jif[peer_node_id]), ko_count, timeout);
 		return true;
 	}
@@ -2763,7 +2763,7 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 	 * Check if we sent the barrier already.  We should not blame the peer
 	 * for being unresponsive, if we did not even ask it yet. */
 	if (net_req->epoch == connection->send.current_epoch_nr) {
-		bsr_warn(0, BSR_LC_REQUEST, device,
+		bsr_warn(26, BSR_LC_REQUEST, device,
 			"We did not send a P_BARRIER for %ums > ko-count (%u) * timeout (%u * 0.1s); bsr kernel thread blocked?\n",
 			jiffies_to_msecs(now - net_req->pre_send_jif[peer_node_id]), ko_count, timeout);
 		return false;
@@ -2786,7 +2786,7 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 	 * barrier packet is relevant enough.
 	 */
 	if (time_after(now, connection->send.last_sent_barrier_jif + ent)) {
-		bsr_warn(0, BSR_LC_REQUEST, device, "Remote failed to answer a P_BARRIER (sent at %lu jif; now=%lu jif) within %ums > ko-count (%u) * timeout (%u * 0.1s)\n",
+		bsr_warn(27, BSR_LC_REQUEST, device, "Remote failed to answer a P_BARRIER (sent at %lu jif; now=%lu jif) within %ums > ko-count (%u) * timeout (%u * 0.1s)\n",
 			connection->send.last_sent_barrier_jif, now,
 			jiffies_to_msecs(now - connection->send.last_sent_barrier_jif), ko_count, timeout);
 		return true;
@@ -2866,7 +2866,7 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 
 		if (time_after(now, oldest_submit_jif + dt) &&
 		    !time_in_range(now, device->last_reattach_jif, device->last_reattach_jif + dt)) {
-			bsr_warn(0, BSR_LC_REQUEST, device, "Local backing device failed to meet the disk-timeout\n");
+			bsr_warn(28, BSR_LC_REQUEST, device, "Local backing device failed to meet the disk-timeout\n");
 			__bsr_chk_io_error(device, BSR_FORCE_DETACH);
 		}
 	}

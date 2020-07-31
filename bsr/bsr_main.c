@@ -639,14 +639,14 @@ void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what)
 	tl_for_each_req_ref(req, r, &resource->transfer_log) {
 		// DW-689 temporary patch
 		if (NULL == req->device) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"req->device is null! ignore!"); 
+			bsr_err(2, BSR_LC_REQUEST, NO_OBJECT, "req->device is null! ignore!");
 			break; 
 		}
 		peer_device = conn_peer_device(connection, req->device->vnr);
 
 		// DW-689 temporary patch
 		if (NULL == peer_device) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "peer_device is null! ignore!");
+			bsr_err(1, BSR_LC_PEER_REQUEST, NO_OBJECT, "peer_device is null! ignore!");
 			break; 
 		}
 		_req_mod(req, what, peer_device);
@@ -2435,7 +2435,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 
 	// DW-2037 reconnect if the bitmap cannot be restored.
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "syncsource send bitmap failed err(%d)\n", err);
+		bsr_err(156, BSR_LC_RESYNC_OV, peer_device, "syncsource send bitmap failed err(%d)\n", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 }
@@ -2444,7 +2444,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
 {
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "synctarget send bitmap failed err(%d)\n", err);
+		bsr_err(157, BSR_LC_RESYNC_OV, peer_device, "synctarget send bitmap failed err(%d)\n", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 
@@ -2517,7 +2517,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 	bool incomp_sync = false;;
 
 	if (peer_device->bitmap_index == -1) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "No bitmap allocated in bsr_send_bitmap()!\n");
+		bsr_err(158, BSR_LC_RESYNC_OV, peer_device, "No bitmap allocated in bsr_send_bitmap()!\n");
 		return -EIO;
 	}
 
@@ -3057,7 +3057,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 			unsigned char digest[64];
 			bsr_csum_bio(peer_device->connection->integrity_tfm, req, digest);
 			if (memcmp(p + 1, digest, digest_size)) {
-				bsr_warn(0, BSR_LC_REQUEST, device,
+				bsr_warn(24, BSR_LC_REQUEST, device,
 					"Digest mismatch, buffer modified by upper layers during write: %llus +%u\n",
 					(unsigned long long)req->i.sector, req->i.size);
 			}
@@ -3779,7 +3779,7 @@ static void do_retry(struct work_struct *ws)
 			       (req->rq_state[0] & RQ_LOCAL_ABORTED) != 0);
 
 		if (!expected)
-			bsr_err(0, BSR_LC_TEMP, device, "req=%p completion_ref=%d rq_state=%x\n",
+			bsr_err(3, BSR_LC_REQUEST, device, "req=%p completion_ref=%d rq_state=%x\n",
 				req, atomic_read(&req->completion_ref),
 				req->rq_state[0]);
 
@@ -3815,7 +3815,7 @@ void bsr_restart_request(struct bsr_request *req)
 	unsigned long flags;
 	spin_lock_irqsave(&retry.lock, flags);
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
+	bsr_info(4, BSR_LC_REQUEST, NO_OBJECT, "req(%p) req->nq_ref (%d)\n", req, atomic_read(&req->nq_ref));
 
 #ifdef NETQUEUED_LOG
 	atomic_set(&req->nq_ref, 0);
@@ -4411,7 +4411,7 @@ void bsr_destroy_connection(struct kref *kref)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct bsr_peer_request *peer_req, *t;
-		bsr_info(0, BSR_LC_TEMP, connection, "inactive_ee count not completed:%d\n", atomic_read(&connection->inacitve_ee_cnt));
+		bsr_info(2, BSR_LC_PEER_REQUEST, connection, "inactive_ee count not completed:%d\n", atomic_read(&connection->inacitve_ee_cnt));
 		spin_lock(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
@@ -4941,11 +4941,11 @@ void bsr_put_connection(struct bsr_connection *connection)
 
 	rr = bsr_free_peer_reqs(connection->resource, &connection->done_ee, false);
 	if (rr)
-		bsr_err(0, BSR_LC_TEMP, connection, "%d EEs in done list found!\n", rr);
+		bsr_err(3, BSR_LC_PEER_REQUEST, connection, "%d EEs in done list found!\n", rr);
 
 	rr = bsr_free_peer_reqs(connection->resource, &connection->net_ee, true);
 	if (rr)
-		bsr_err(0, BSR_LC_TEMP, connection, "%d EEs in net list found!\n", rr);
+		bsr_err(4, BSR_LC_PEER_REQUEST, connection, "%d EEs in net list found!\n", rr);
 	bsr_transport_shutdown(connection, DESTROY_TRANSPORT);
 
 	kref_debug_sub(&connection->kref_debug, refs - 1, 3);
@@ -6955,7 +6955,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 			!isFastInitialSync() ||
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false))
 		{
-			bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
+			bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
 			if (dec_bm_work_n) {
 				atomic_inc(&device->pending_bitmap_work.n);
 				dec_bm_work_n = false;
@@ -6968,7 +6968,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 			!isFastInitialSync() ||
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_TARGET, false))
 		{
-			bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
+			bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)\n", peer_device->connection->agreed_pro_version, isFastInitialSync());
 			if (dec_bm_work_n) {
 				atomic_inc(&device->pending_bitmap_work.n);
 				dec_bm_work_n = false;
@@ -6977,7 +6977,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
-		bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
+		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
 	if (dec_bm_work_n) {
@@ -7134,7 +7134,7 @@ bool isFastInitialSync()
 	bRet = false;
 #endif
 #endif
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "Fast sync %s\n", bRet ? "enabled" : "disabled");
+	bsr_info(10, BSR_LC_RESYNC_OV, NO_OBJECT, "Fast sync %s\n", bRet ? "enabled" : "disabled");
 	
 	return bRet;
 }
@@ -7164,7 +7164,7 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 		NULL == pVbb->Buffer ||
 		NULL == pConverted)
 	{
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
+		bsr_err(11, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
 		return false;
 	}
 
@@ -7213,7 +7213,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 	do {
 		pVbb = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmap(device, &ullTotalCluster, &ulBytesPerCluster);
 		if (NULL == pVbb) {
-			bsr_err(0, BSR_LC_TEMP, device, "Could not get volume bitmap, minor(%u)\n", device->minor);
+			bsr_err(12, BSR_LC_RESYNC_OV, device, "Could not get volume bitmap, minor(%u)\n", device->minor);
 			break;
 		}
 			
@@ -7236,7 +7236,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(0, BSR_LC_TEMP, device, "pConvertedBitmap allocation failed\n");
+				bsr_err(13, BSR_LC_RESYNC_OV, device, "pConvertedBitmap allocation failed\n");
 				break;
 			}
 
@@ -7249,7 +7249,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			memset(pBsrBitmap->Buffer, 0, pBsrBitmap->BitmapSize);			
 #endif
 			if (!ConvertVolumeBitmap(pVbb, (char *)pBsrBitmap->Buffer, ulBytesPerCluster, ulBsrBitmapUnit)) {
-				bsr_err(0, BSR_LC_TEMP, device, "Could not convert bitmap, ulBytesPerCluster(%u), ulBsrBitmapUnit(%u)\n", ulBytesPerCluster, ulBsrBitmapUnit);
+				bsr_err(14, BSR_LC_RESYNC_OV, device, "Could not convert bitmap, ulBytesPerCluster(%u), ulBsrBitmapUnit(%u)\n", ulBytesPerCluster, ulBsrBitmapUnit);
 				kfree(pBsrBitmap);
 				pBsrBitmap = NULL;
 				break;
@@ -7289,9 +7289,9 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		(side != L_SYNC_SOURCE && side != L_SYNC_TARGET)) {
 		// DW-2017 change log output based on peer_device status
 		if (peer_device)
-			bsr_err(0, BSR_LC_TEMP, peer_device,"Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(15, BSR_LC_RESYNC_OV, peer_device, "Invalid parameter side(%s)\n", bsr_repl_str(side));
 		else
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(16, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter side(%s)\n", bsr_repl_str(side));
 
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
@@ -7301,7 +7301,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	// DW-1317 inspect resync side first, before get the allocated bitmap.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
-		bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "can't be %s\n", bsr_repl_str(side));
+		bsr_warn(164, BSR_LC_RESYNC_OV, peer_device, "can't be %s\n", bsr_repl_str(side));
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 		goto out;
@@ -7321,18 +7321,18 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE) {
-			bsr_info(0, BSR_LC_TEMP, peer_device,"I am a secondary sync source, will mount volume for temporary to get allocated clusters.\n");
+			bsr_info(17, BSR_LC_RESYNC_OV, peer_device, "I am a secondary sync source, will mount volume for temporary to get allocated clusters.\n");
 			bSecondary = true;
 		}
 		else if (side == L_SYNC_TARGET) {
-			bsr_info(0, BSR_LC_TEMP, peer_device,"I am a sync target, wait to receive source's bitmap\n");
+			bsr_info(18, BSR_LC_RESYNC_OV, peer_device, "I am a sync target, wait to receive source's bitmap\n");
 			bRet = true;
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			goto out;
 		}
 	}
 
-	bsr_info(0, BSR_LC_TEMP, peer_device, "Writing the bitmap for allocated clusters.\n");
+	bsr_info(19, BSR_LC_RESYNC_OV, peer_device, "Writing the bitmap for allocated clusters.\n");
 
 	do {
 		if (bSecondary) {
@@ -7340,7 +7340,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "Could not change volume read-only attribute\n");
+				bsr_err(20, BSR_LC_RESYNC_OV, peer_device, "Could not change volume read-only attribute\n");
 				mutex_unlock(&att_mod_mutex);
 				bSecondary = false;
 				break;
@@ -7362,7 +7362,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 			bsr_bm_lock(device, "Set out-of-sync for allocated cluster", BM_LOCK_CLEAR | BM_LOCK_BULK);
 
 		if (NULL == pBitmap) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Could not get bitmap for bsr\n");
+			bsr_err(21, BSR_LC_RESYNC_OV, peer_device, "Could not get bitmap for bsr\n");
 		}
 		
 		if (bSecondary) {
@@ -7374,7 +7374,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 			// clear readonly attribute
 			if (!ChangeVolumeReadonly(device->minor, false)) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
+				bsr_err(22, BSR_LC_RESYNC_OV, peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
 				if (device &&
 					get_ldev_if_state(device, D_NEGOTIATING))
 				{
@@ -7389,7 +7389,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	} while (false);
 
-	bsr_info(0, BSR_LC_TEMP, peer_device, "%llu bits(%llu KB) have been set as out-of-sync\n", 
+	bsr_info(23, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) have been set as out-of-sync\n",
 			(unsigned long long)bitmap->bm_set[bmi], (unsigned long long)(bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
 
 	// DW-1495 Change location due to deadlock(bm_change)
@@ -7404,11 +7404,11 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bsr_bm_unlock(device);
 
 	if (count == -1) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "Could not set bits from gotten bitmap\n");
+		bsr_err(24, BSR_LC_RESYNC_OV, peer_device, "Could not set bits from gotten bitmap\n");
 		bRet = false;
 	}
 	else{
-		bsr_info(0, BSR_LC_TEMP, peer_device, "%llu bits(%llu KB) are set as new out-of-sync\n", 
+		bsr_info(25, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) are set as new out-of-sync\n",
 				(unsigned long long)count, (unsigned long long)(count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
@@ -7444,9 +7444,9 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	// BSR-590 freeze_bdev() performs I/O for meta flush, so pending check logic is added.
 	// There is a case where Ahead mode is changed before this function execution.
 	if (atomic_read(&device->pending_bitmap_work.n)) {
-		bsr_info(0, BSR_LC_TEMP, peer_device, "fast_ov canceled due to pending bitmap work.\n");
+		bsr_info(26, BSR_LC_RESYNC_OV, peer_device, "fast_ov canceled due to pending bitmap work.\n");
 		if (side == L_VERIFY_S) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+			bsr_info(27, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
 				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 				(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 		     	(unsigned long long) bsr_ov_bm_total_weight(peer_device));
@@ -7460,11 +7460,11 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_VERIFY_S) {
-			bsr_info(0, BSR_LC_TEMP, peer_device,"I am a secondary verify source, will mount volume for temporary to get allocated clusters.\n");
+			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "I am a secondary verify source, will mount volume for temporary to get allocated clusters.\n");
 			bSecondary = true;
 		}
 		else {
-			bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
+			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s\n", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
 			goto out;
 		}
@@ -7476,7 +7476,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "Could not change volume read-only attribute\n");
+				bsr_err(29, BSR_LC_RESYNC_OV, peer_device, "Could not change volume read-only attribute\n");
 				mutex_unlock(&att_mod_mutex);
 				bSecondary = false;
 				break;
@@ -7490,7 +7490,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
 		
 		if (NULL == pBitmap) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Could not get bitmap for bsr\n");
+			bsr_err(30, BSR_LC_RESYNC_OV, peer_device, "Could not get bitmap for bsr\n");
 			err = true;
 		}
 		
@@ -7503,7 +7503,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 			// clear readonly attribute
 			if (!ChangeVolumeReadonly(device->minor, false)) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
+				bsr_err(31, BSR_LC_RESYNC_OV, peer_device, "Read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk\n", device->minor);
 				if (device &&
 					get_ldev_if_state(device, D_NEGOTIATING))
 				{
@@ -7523,7 +7523,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			peer_device->fast_ov_bitmap = pBitmap;
 			err = false;
 		}
-		bsr_info(0, BSR_LC_TEMP, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+		bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
 			bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 			(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 		     (unsigned long long) bsr_ov_bm_total_weight(peer_device));
@@ -7632,11 +7632,11 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 
 	// DW-1979 other threads are also used(bsr_receiver()), so i changed to the info level log to output
 	if (current == device->resource->worker.task)
-		bsr_info(0, BSR_LC_TEMP, device, "%s, worker.task(%p), current(%p)\n", why ? why : "?", device->resource->worker.task, current);
+		bsr_info(33, BSR_LC_RESYNC_OV, device, "%s, worker.task(%p), current(%p)\n", why ? why : "?", device->resource->worker.task, current);
 
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21DW');
 	if (!bm_io_work) {
-		bsr_err(0, BSR_LC_TEMP, device, "Could not allocate bm io work.\n");
+		bsr_err(34, BSR_LC_RESYNC_OV, device, "Could not allocate bm io work.\n");
 		done(device, peer_device, -ENOMEM);
 		return;
 	}

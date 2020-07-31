@@ -75,7 +75,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		bitmap_buf = read_xfs_bitmap(fd, xfs_sb);
 	}
 	else {
-		bsr_warn(0, BSR_LC_RESYNC_OV, device, "(%s) not supported for fast sync.\n", disk_name);
+		bsr_warn(174, BSR_LC_RESYNC_OV, device, "(%s) not supported for fast sync.\n", disk_name);
 	}
 
 close:

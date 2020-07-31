@@ -1830,13 +1830,13 @@ void bsr_rs_complete_io(struct bsr_peer_device *peer_device, sector_t sector, co
 	if (!bm_ext) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		if (bsr_ratelimit())
-			bsr_err(0, BSR_LC_TEMP, device, "%s => bsr_rs_complete_io() called, but extent not found\n", caller);
+			bsr_err(1, BSR_LC_RESYNC_OV, device, "%s => bsr_rs_complete_io() called, but extent not found\n", caller);
 		return;
 	}
 
 	if (bm_ext->lce.refcnt == 0) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
-		bsr_err(0, BSR_LC_TEMP, device, "%s => bsr_rs_complete_io(,%llu [=%llu], %llu) called, "
+		bsr_err(2, BSR_LC_RESYNC_OV, device, "%s => bsr_rs_complete_io(,%llu [=%llu], %llu) called, "
 		    "but refcnt is 0!?\n", 
 			caller, (unsigned long long)sector, (unsigned long long)enr, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
@@ -1892,7 +1892,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			if (bm_ext->lce.lc_number == LC_FREE)
 				continue;
 			if (bm_ext->lce.lc_number == peer_device->resync_wenr) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "dropping %u in bsr_rs_del_all, apparently"
+				bsr_info(3, BSR_LC_RESYNC_OV, peer_device, "dropping %u in bsr_rs_del_all, apparently"
 				     " got 'synced' by application io\n",
 				     peer_device->resync_wenr);
 				D_ASSERT(peer_device, !test_bit(BME_LOCKED, &bm_ext->flags));
@@ -1902,7 +1902,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 				lc_put(peer_device->resync_lru, &bm_ext->lce);
 			}
 			if (bm_ext->lce.refcnt != 0) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Retrying bsr_rs_del_all() later. number=%u, "
+				bsr_info(4, BSR_LC_RESYNC_OV, peer_device, "Retrying bsr_rs_del_all() later. number=%u, "
 				     "refcnt=%u\n", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
 				put_ldev(device);
 				spin_unlock_irq(&device->al_lock);

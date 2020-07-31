@@ -2175,7 +2175,7 @@ static inline unsigned bsr_req_state_by_peer_device(struct bsr_request *req,
 {
 	int idx = peer_device->node_id;
 	if (idx < 0 || idx >= BSR_NODE_ID_MAX) {
-		bsr_warn(0, BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d\n", idx);
+		bsr_warn(23, BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d\n", idx);
 		/* WARN(1, "bitmap_index: %d", idx); */
 		return 0;
 	}
@@ -2796,8 +2796,8 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
+			bsr_warn(159, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
+			bsr_err(5, BSR_LC_RESYNC_OV, peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
 		}
@@ -2807,7 +2807,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 	if(ov_done) {
 		struct ov_oos_info *ov_oos, *tmp;
 		list_for_each_entry_safe_ex(struct ov_oos_info, ov_oos, tmp, &peer_device->ov_oos_info_list, list) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
+			bsr_err(6, BSR_LC_RESYNC_OV, peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
 				(unsigned long long)ov_oos->ov_oos_start,
 				(unsigned long long)ov_oos->ov_oos_size);
 
@@ -2836,8 +2836,8 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			}
 		}
 		else {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+			bsr_err(7, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
+			bsr_info(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
 		}
@@ -2847,7 +2847,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
+			bsr_info(9, BSR_LC_RESYNC_OV, peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
 
@@ -3622,7 +3622,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3891,7 +3891,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 	max_req_write_cnt = device->resource->res_opts.max_req_write_cnt;   
 	if (max_req_write_cnt < BSR_MAX_REQ_WRITE_CNT_MIN ||
 		max_req_write_cnt > BSR_MAX_REQ_WRITE_CNT_MAX)	{
-		bsr_err(0, BSR_LC_TEMP, device, "got invalid max_req_write_cnt(%d), use default value(%d)\n", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
+		bsr_err(1, BSR_LC_REQUEST, device, "got invalid max_req_write_cnt(%d), use default value(%d)\n", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
 		max_req_write_cnt = (int)BSR_MAX_REQ_WRITE_CNT_DEF;    // use default if value is invalid.    
 	}
 
