@@ -776,7 +776,7 @@ void bio_endio(struct bio *bio, int error)
 			bsr_info(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
-			//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
+			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
 			bio->bi_bdev = NULL;
         	bio->bi_end_io((void*)error, (void*) bio, (void*) error);
 		}
@@ -1591,9 +1591,9 @@ void del_gendisk(struct gendisk *disk)
 	// DW-1493 WSK_EVENT_DISCONNECT disable
 	if (sock->sk){
 		status = SetEventCallbacks(sock, WSK_EVENT_DISCONNECT | WSK_EVENT_DISABLE);
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
+		bsr_debug(80, BSR_LC_SOCKET, NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
 		if (!NT_SUCCESS(status)) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WSK_EVENT_DISABLE failed (sock = 0x%p)\n", sock);
+			bsr_debug(81, BSR_LC_SOCKET, NO_OBJECT, "WSK_EVENT_DISABLE failed (sock = 0x%p)\n", sock);
 		}
 	}
 
@@ -1813,7 +1813,7 @@ int generic_make_request(struct bio *bio)
 	}
 
 #ifdef BSR_TRACE
-    bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:\n", 
+    bsr_debug(47, BSR_LC_IO, NO_OBJECT,"(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:\n", 
 		current->comm, (io == IRP_MJ_READ) ? "READ" : "WRITE", 
 		offset.QuadPart / 512, bio->bi_size, KeGetCurrentIrql(), &offset, buffer, q->backing_dev_info.pDeviceExtension->Letter);
 #endif
@@ -2244,14 +2244,14 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 			bWasExist = TRUE;
 
 			if (!IsEmptyUnicodeString(&old_mount_point))
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
+				bsr_debug(49, BSR_LC_VOLUME, NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
 		}
 		
 		status = mvolUpdateMountPointInfoByExtension(pvext);
 		if(NT_SUCCESS(status)) {
 
 			if (!IsEmptyUnicodeString(&pvext->MountPoint))
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
+				bsr_debug(50, BSR_LC_VOLUME, NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
 
 			// DW-1105 detach volume when replicating volume letter is changed.
 			if (pvext->Active && bWasExist) {
@@ -2286,7 +2286,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 		pvext->dev->bd_contains->d_size = d_size;
 		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
 	}
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
+	bsr_debug(51, BSR_LC_VOLUME, NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
 }
 
 // DW-1105 refresh all volumes and handle changes.
@@ -2486,13 +2486,13 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to allocate gendisk NonPagedMemory\n");
+		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate gendisk NonPagedMemory\n");
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to allocate request_queue NonPagedMemory\n");
+		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate request_queue NonPagedMemory\n");
 		goto request_queue_failed;
 	}
 		
@@ -2966,9 +2966,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		LONG readcount;
 		char hello[2];
 		memset(hello, 0, sizeof(hello));
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Wait Hi\n");
+		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi\n");
 		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout)) == 2) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"recv HI!!! \n");
+			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! \n");
 		} else {
 			if (readcount == -EAGAIN) {
 				bsr_info(5, BSR_LC_SOCKET, NO_OBJECT, "error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
@@ -2989,7 +2989,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		}
 
 		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout)) > 0) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"recv val=0x%x\n", ret);
+			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x\n", ret);
 		} else {
 			if (readcount == -EAGAIN) {
 				bsr_info(8, BSR_LC_SOCKET, NO_OBJECT, "recv retval timeout(%d)!\n", g_handler_timeout);
@@ -3005,7 +3005,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "send bye fail stat=0x%x\n", Status); // ignore!
 		}
 
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Disconnect:shutdown...\n", Status);
+		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...\n", Status);
 		Disconnect(pSock);
 
 #if 0

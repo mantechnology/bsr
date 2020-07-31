@@ -208,7 +208,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 	pVolumeInfo = (PMVOL_VOLUME_INFO) Irp->AssociatedIrp.SystemBuffer;
 	
 	if( DeviceObject == mvolRootDeviceObject ) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Root Device IOCTL\n");
+		bsr_debug(114, BSR_LC_DRIVER, NO_OBJECT, "Root Device IOCTL\n");
 
 		MVOL_LOCK();
 		VolumeExtension = mvolSearchDevice( pVolumeInfo->PhysicalDeviceName );
@@ -253,7 +253,7 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 
 	pVolumeInfo = (PMVOL_VOLUME_INFO) Irp->AssociatedIrp.SystemBuffer;
 	if( DeviceObject == mvolRootDeviceObject ) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Root Device IOCTL\n");
+		bsr_debug(115, BSR_LC_DRIVER, NO_OBJECT, "Root Device IOCTL\n");
 
 		MVOL_LOCK();
 		VolumeExtension = mvolSearchDevice( pVolumeInfo->PhysicalDeviceName );
@@ -451,7 +451,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 		SaveCurrentValue(L"handler_use", g_handler_use);
 
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"IOCTL_MVOL_SET_HANDLER_USE : %d \n", g_handler_use);
+		bsr_debug(116, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_USE : %d \n", g_handler_use);
 	}
 	else {
 		return STATUS_INVALID_PARAMETER;

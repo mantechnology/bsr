@@ -772,13 +772,13 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 	D_ASSERT(req->device, m || (req->rq_state[0] & RQ_POSTPONED));
 #ifdef BSR_TRACE
 	if (put > 1) {
-        bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
+        bsr_debug(31, BSR_LC_REQUEST, NO_OBJECT,"(%s) completion_ref: put=%d !!!\n", current->comm, put);
 	}
 #endif
 	if (!atomic_sub_and_test(put, &req->completion_ref))
 	{
 #ifdef BSR_TRACE
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
+		bsr_debug(32, BSR_LC_REQUEST, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d\n", current->comm, req->completion_ref, req->i.sector, req->i.size);
 #endif
 		return 0;
 	}
@@ -792,7 +792,7 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 		return 0;
 	}
 #ifdef BSR_TRACE
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
+	bsr_debug(33, BSR_LC_REQUEST, NO_OBJECT,"sect=0x%llx sz=%d done!!!\n", req->i.sector, req->i.size);
 #endif
 	return 1;
 }
@@ -2527,7 +2527,7 @@ void do_submit(struct work_struct *ws)
 			prepare_al_transaction_nonblock(device, &wfa);
 			if (!wfa_lists_empty(&wfa, pending)) {
 				if(al_wait_count)
-					bsr_debug(0, BSR_LC_TEMP, device, "al_wait retry count : %llu\n", (unsigned long long)al_wait_count);
+					bsr_debug(29, BSR_LC_LRU, device, "al_wait retry count : %llu\n", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
 				break;
 			}

@@ -142,7 +142,6 @@ static bool push_msocket_entry(void * ptr)
     MvfAcquireResourceExclusive(&genl_multi_socket_res_lock);
 
     PushEntryList(&gSocketList.slink, &(entry->slink));
-    //bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Added entry(0x%p), slink(0x%p), socket(0x%p)\n", entry, entry->slink, entry->ptr);
 
     MvfReleaseResource(&genl_multi_socket_res_lock);
 
@@ -162,7 +161,6 @@ static void pop_msocket_entry(void * ptr)
         PPTR_ENTRY socket_entry = (PPTR_ENTRY)CONTAINING_RECORD(iter->Next, PTR_ENTRY, slink);
 
         if (socket_entry && socket_entry->ptr == ptr) {
-            //bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"socket_entry(0x%p), slink(0x%p), socket(0x%p) found in list\n", socket_entry, socket_entry->slink, socket_entry->ptr);
             iter->Next = PopEntryList(iter->Next);
 
             ExFreePool(socket_entry);
@@ -198,7 +196,6 @@ int bsr_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
         PPTR_ENTRY socket_entry = (PPTR_ENTRY)CONTAINING_RECORD(iter->Next, PTR_ENTRY, slink);
 
         if (socket_entry) {
-            //bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"send socket(0x%p), data(0x%p), len(%d)\n", socket_entry->ptr, skb->data, skb->len);
 			int sent = SendLocal(socket_entry->ptr, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100));
             if (sent != skb->len) {
                 bsr_info(1, BSR_LC_NETLINK, NO_OBJECT,"Failed to send socket(0x%x)\n", socket_entry->ptr);
@@ -260,7 +257,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
 		err = -1;
 	}
 
-    bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"send_reply(%d) seq(%d)\n", err, cb->nlh->nlmsg_seq);
+    bsr_debug(87, BSR_LC_GENL, NO_OBJECT,"send_reply(%d) seq(%d)\n", err, cb->nlh->nlmsg_seq);
 
     return err;
 }
@@ -529,7 +526,7 @@ NetlinkWorkThread(PVOID context)
 	// set thread priority
 	KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
 
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
+	bsr_debug(27, BSR_LC_NETLINK, NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
     
     netlink_work_thread_cnt++;
 
@@ -552,7 +549,7 @@ NetlinkWorkThread(PVOID context)
         readcount = Receive(pSock, psock_buf, NLMSG_GOODSIZE, 0, 0);
 
         if (readcount == 0) {
-            bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Receive done...\n");
+			bsr_debug(28, BSR_LC_NETLINK, NO_OBJECT, "Receive done...\n");
             goto cleanup;
         } else if(readcount < 0) {
             bsr_info(15, BSR_LC_NETLINK, NO_OBJECT,"Receive error = 0x%x\n", readcount);
@@ -564,7 +561,7 @@ NetlinkWorkThread(PVOID context)
 		
 		// bsrsetup events2
         if (strstr(psock_buf, BSR_EVENT_SOCKET_STRING)) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BSR_EVENT_SOCKET_STRING received. socket(0x%p)\n", socket);
+			bsr_debug(29, BSR_LC_NETLINK, NO_OBJECT, "BSR_EVENT_SOCKET_STRING received. socket(0x%p)\n", socket);
 			if (!push_msocket_entry(pSock)) {
 				goto cleanup;
 			}
@@ -583,7 +580,7 @@ NetlinkWorkThread(PVOID context)
 			|| (nlh->nlmsg_type < NLMSG_MIN_TYPE) 
 			|| (nlh->nlmsg_pid != 0x5744) ) {
 			bsr_warn(25, BSR_LC_NETLINK, NO_OBJECT, "Unrecognizable netlink command arrives and doesn't process...\n");
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+			bsr_debug(30, BSR_LC_NETLINK, NO_OBJECT, "rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
             	readcount, nlh->nlmsg_len, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 			goto cleanup;
 		}
@@ -606,7 +603,7 @@ NetlinkWorkThread(PVOID context)
             goto cleanup;
         }
 
-        bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+		bsr_debug(31, BSR_LC_NETLINK, NO_OBJECT, "rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
             readcount, nlh->nlmsg_len, pinfo->genlhdr->cmd, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 
         // check whether resource suspended
@@ -633,7 +630,7 @@ NetlinkWorkThread(PVOID context)
 			cli_info(gmh->minor, "Command (%s:%u)\n", pops->str, cmd);
 			
             if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
+				bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
             } else {
 				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
             }
@@ -667,7 +664,7 @@ NetlinkWorkThread(PVOID context)
 					errcnt++;
 				}
 				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-					bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt-1);
+					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt - 1);
 				} else {
 					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt - 1);
 				}
@@ -705,7 +702,7 @@ cleanup:
     if (errcnt) {
 		bsr_err(23, BSR_LC_NETLINK, NO_OBJECT, "NetlinkWorkThread:%p done. error occured %d times\n", KeGetCurrentThread(), errcnt);
     } else {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"NetlinkWorkThread:%p done...\n",KeGetCurrentThread());
+		bsr_debug(34, BSR_LC_NETLINK, NO_OBJECT, "NetlinkWorkThread:%p done...\n", KeGetCurrentThread());
     }
 }
 // Listening socket callback which is invoked whenever a new connection arrives.
@@ -745,7 +742,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
     SOCKADDR_IN * pRemote = (SOCKADDR_IN *)RemoteAddress;
     SOCKADDR_IN * pLocal = (SOCKADDR_IN *)LocalAddress;
 
-    bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected\n",
+	bsr_debug(35, BSR_LC_NETLINK, NO_OBJECT, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected\n",
 					        pRemote->sin_addr.S_un.S_un_b.s_b1,
 					        pRemote->sin_addr.S_un.S_un_b.s_b2,
 					        pRemote->sin_addr.S_un.S_un_b.s_b3,
@@ -759,7 +756,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
 
 	// DW-1701 Only allow to local loopback netlink command
 	if(pRemote->sin_addr.S_un.S_un_b.s_b1 != 0x7f) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"External connection attempt was made and blocked.\n");		
+		bsr_debug(36, BSR_LC_NETLINK, NO_OBJECT, "External connection attempt was made and blocked.\n");
 		return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 

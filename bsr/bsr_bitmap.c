@@ -1321,7 +1321,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef BSR_TRACE	
 	{
 		static int cnt = 0;
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
+		bsr_debug(48, BSR_LC_IO, NO_OBJECT,"bm_async_io_complete done.(%d).................!!!\n", cnt++);
 	}
 #endif
 

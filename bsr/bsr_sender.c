@@ -99,7 +99,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
     }
 
 	if (!bio) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"null bio\n");
+		bsr_debug(49, BSR_LC_IO, NO_OBJECT, "null bio\n");
 		BIO_ENDIO_FN_RETURN;
 	}
 
@@ -146,7 +146,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
 		put_ldev(device);
 	else
-		bsr_debug(0, BSR_LC_TEMP, device, "ldev null\n");
+		bsr_debug(50, BSR_LC_IO, device, "ldev null\n");
 	
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		if (Irp->MdlAddress != NULL) {
@@ -479,7 +479,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio *bio = NULL;
 	int error = 0;
 	static int peer_request_endio_cnt = 0;
-	//bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
+	//bsr_debug(51, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		error = Irp->IoStatus.Status;
@@ -571,7 +571,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 			bsr_endio_read_sec_final(peer_req);
 	}
 
-	//bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+	//bsr_debug(52, BSR_LC_IO, NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
 
 	BIO_ENDIO_FN_RETURN;
 }
@@ -606,7 +606,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio *bio = NULL;
 	int error = 0;
 
-	//bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
+	//bsr_debug(53, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		bio = (struct bio *)Context;
@@ -626,7 +626,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 
 	if (!bio) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"null bio\n");
+		bsr_debug(54, BSR_LC_IO, NO_OBJECT, "null bio\n");
 		BIO_ENDIO_FN_RETURN;
 	}
 
@@ -742,7 +742,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef BSR_TRACE	
 	{
 		static int cnt = 0;
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"bsr_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
+		bsr_debug(55, BSR_LC_IO, NO_OBJECT,"bsr_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
 	}
 #endif
 #endif
@@ -769,7 +769,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 #ifdef _WIN
 #ifdef BSR_TRACE	
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"(%s) bsr_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	bsr_debug(56, BSR_LC_IO, NO_OBJECT,"(%s) bsr_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 #endif
 	__req_mod(req, what, NULL, &m);
@@ -2711,7 +2711,7 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 
 	// DW-2076
 	if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags) && atomic_read(&peer_device->rq_pending_oos_cnt)) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "postponing start_resync ... pending oos : %d\n", atomic_read(&peer_device->rq_pending_oos_cnt)); 
+		bsr_debug(187, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... pending oos : %d\n", atomic_read(&peer_device->rq_pending_oos_cnt));
 		retry_resync = true;
 	}
 

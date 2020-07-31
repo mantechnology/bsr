@@ -4022,7 +4022,7 @@ bool cluster_wide_reply_ready(struct bsr_resource *resource)
 			continue;
 		if(test_bit(TWOPC_NO, &connection->flags) ||
 			test_bit(TWOPC_RETRY, &connection->flags)) {
-			bsr_debug(0, BSR_LC_TEMP, connection, "Reply not ready yet\n");
+			bsr_debug(55, BSR_LC_TWOPC, connection, "Reply not ready yet\n");
 			ready = true;
 			break;
 		}
@@ -4801,7 +4801,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	// release req_lock.
 	spin_unlock_irq(&resource->req_lock);
 
-    bsr_debug(0, BSR_LC_TEMP, resource, "Nested state change %u result: %s\n", twopc_reply.tid, bsr_packet_name(cmd));
+    bsr_debug(56, BSR_LC_TWOPC, resource, "Nested state change %u result: %s\n", twopc_reply.tid, bsr_packet_name(cmd));
 
 	for (i = 0; i < connectionCount; i++) {
 		twopc_parent = connections[i];	
@@ -5002,7 +5002,7 @@ void __change_disk_state(struct bsr_device *device, enum bsr_disk_state disk_sta
 {
 	device->disk_state[NEW] = disk_state;
 	if (caller != NULL && device->disk_state[NEW] != device->disk_state[NOW]) {
-		bsr_debug(0, BSR_LC_TEMP, device, "%s, disk_state : %s\n", caller, bsr_disk_str(device->disk_state[NEW]));
+		bsr_debug(48, BSR_LC_STATE, device, "%s, disk_state : %s\n", caller, bsr_disk_str(device->disk_state[NEW]));
 	}
 }
 
@@ -5357,7 +5357,7 @@ void __change_peer_role(struct bsr_connection *connection, enum bsr_role peer_ro
 {
 	connection->peer_role[NEW] = peer_role;
 	if (caller != NULL && connection->peer_role[NEW] != connection->peer_role[NOW]) {
-		bsr_debug(0, BSR_LC_TEMP, connection, "%s, peer_role : %s\n", caller, bsr_role_str(connection->peer_role[NEW]));
+		bsr_debug(49, BSR_LC_STATE, connection, "%s, peer_role : %s\n", caller, bsr_role_str(connection->peer_role[NEW]));
 	}
 }
 
@@ -5365,7 +5365,7 @@ void __change_cstate_state(struct bsr_connection *connection, enum bsr_conn_stat
 {
 	connection->cstate[NEW] = cstate;
 	if (caller != NULL && connection->cstate[NEW] != connection->cstate[NOW]) {
-		bsr_debug(0, BSR_LC_TEMP, connection, "%s, cstate : %s\n", caller, bsr_conn_str(connection->cstate[NEW]));
+		bsr_debug(50, BSR_LC_STATE, connection, "%s, cstate : %s\n", caller, bsr_conn_str(connection->cstate[NEW]));
 	}
 }
 
@@ -5373,7 +5373,7 @@ void __change_repl_state(struct bsr_peer_device *peer_device, enum bsr_repl_stat
 {
 	peer_device->repl_state[NEW] = repl_state;
 	if (caller != NULL && peer_device->repl_state[NEW] != peer_device->repl_state[NOW]) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, repl_state : %s\n", caller, bsr_repl_str(peer_device->repl_state[NEW]));
+		bsr_debug(51, BSR_LC_STATE, peer_device, "%s, repl_state : %s\n", caller, bsr_repl_str(peer_device->repl_state[NEW]));
 	}
 }
 
@@ -5442,7 +5442,7 @@ void __change_peer_disk_state(struct bsr_peer_device *peer_device, enum bsr_disk
 {
 	peer_device->disk_state[NEW] = disk_state;
 	if (caller != NULL && peer_device->disk_state[NEW] != peer_device->disk_state[NOW]) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, disk_state : %s\n", caller, bsr_disk_str(peer_device->disk_state[NEW]));
+		bsr_debug(52, BSR_LC_STATE, peer_device, "%s, disk_state : %s\n", caller, bsr_disk_str(peer_device->disk_state[NEW]));
 	}
 }
 
@@ -5475,7 +5475,7 @@ void __change_resync_susp_user(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_user[NEW] = value;
 	if (peer_device->resync_susp_user[NOW] != peer_device->resync_susp_user[NEW] && caller != NULL) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, resync_susp_user : %s\n", caller, peer_device->resync_susp_user[NEW] ? "true" : "false");
+		bsr_debug(53, BSR_LC_STATE, peer_device, "%s, resync_susp_user : %s\n", caller, peer_device->resync_susp_user[NEW] ? "true" : "false");
 	}
 }
 
@@ -5497,7 +5497,7 @@ void __change_resync_susp_peer(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_peer[NEW] = value;
 	if (peer_device->resync_susp_peer[NOW] != peer_device->resync_susp_peer[NEW] && caller != NULL) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, resync_susp_peer : %s\n", caller, peer_device->resync_susp_peer[NEW] ? "true" : "false");
+		bsr_debug(54, BSR_LC_STATE, peer_device, "%s, resync_susp_peer : %s\n", caller, peer_device->resync_susp_peer[NEW] ? "true" : "false");
 	}
 }
 
@@ -5506,7 +5506,7 @@ void __change_resync_susp_dependency(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_dependency[NEW] = value;
 	if (peer_device->resync_susp_dependency[NOW] != peer_device->resync_susp_dependency[NEW] && caller != NULL) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, resync_susp_dependency : %s\n", caller, peer_device->resync_susp_dependency[NEW] ? "true" : "false");
+		bsr_debug(55, BSR_LC_STATE, peer_device, "%s, resync_susp_dependency : %s\n", caller, peer_device->resync_susp_dependency[NEW] ? "true" : "false");
 	}
 }
 
@@ -5515,6 +5515,6 @@ void __change_resync_susp_other_c(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_other_c[NEW] = value;
 	if (peer_device->resync_susp_other_c[NOW] != peer_device->resync_susp_other_c[NEW] && caller != NULL) {
-		bsr_debug(0, BSR_LC_TEMP, peer_device, "%s, resync_susp_other_c : %s\n", caller, peer_device->resync_susp_other_c[NEW] ? "true" : "false");
+		bsr_debug(56, BSR_LC_STATE, peer_device, "%s, resync_susp_other_c : %s\n", caller, peer_device->resync_susp_other_c[NEW] ? "true" : "false");
 	}
 }

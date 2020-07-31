@@ -406,7 +406,7 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 
 
-#define bsr_debug_conn(fmt, args...) //bsr_info(0, BSR_LC_TEMP, NO_OBJECT, fmt, ## args)
+#define bsr_debug_conn(fmt, args...) //bsr_info(0, BSR_LC_ETC, NO_OBJECT, fmt, ## args)
 #define bsr_debug_rs(fmt, args...)
 #define bsr_debug_al(fmt, args...)
 
@@ -475,7 +475,7 @@ void bsr_printk_with_wrong_object_type(void);
 do {	\
 		if (_condition) {\
 				\
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_debug(79, BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
 				}	\
 } while (false)
 
@@ -522,8 +522,6 @@ enum BSR_LOG_CATEGORY
 	BSR_LC_LATENCY,
 	BSR_LC_VERIFY,
 	BSR_LC_OUT_OF_SYNC,
-	// BSR-648 remove after completing adding a log category
-	BSR_LC_TEMP,
 	BSR_LC_ETC = 31,
 };
 
@@ -554,7 +552,6 @@ static const char * const __log_category_names[] = {
 	[BSR_LC_LATENCY] = "LATENCY",
 	[BSR_LC_VERIFY] = "VERIFY",
 	[BSR_LC_OUT_OF_SYNC] = "OUT OF SYNC",
-	[BSR_LC_TEMP] = "TEMP",
 	[BSR_LC_ETC] = "ETC",
 };
 

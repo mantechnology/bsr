@@ -818,7 +818,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		bm_ext = find_active_resync_extent(&al_ctx);
 		if (unlikely(bm_ext != NULL)) {
 			set_bme_priority(&al_ctx);
-			bsr_debug(0, BSR_LC_TEMP, device, "active resync extent enr : %llu\n", (unsigned long long)enr);
+			bsr_debug(28, BSR_LC_LRU, device, "active resync extent enr : %llu\n", (unsigned long long)enr);
 			if (al_ctx.wake_up)
 				return -EBUSY;
 			return -EWOULDBLOCK;

@@ -673,7 +673,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			break;
 		}
 		else {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
+			bsr_debug(118, BSR_LC_DRIVER, NO_OBJECT,"success to get PARTITION_FORMATION_EX for volume(minor: %d) PartitionStyle = %d\n", minor, partInfoEx.PartitionStyle);
 		}
 		
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -900,7 +900,7 @@ mvolGetDeviceCount()
 		VolumeExtension = VolumeExtension->Next;
 	}
 
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"DeviceCount=%d\n", count);
+	bsr_debug(119, BSR_LC_DRIVER, NO_OBJECT, "DeviceCount=%d\n", count);
 
 	return count;
 }
@@ -1096,7 +1096,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
 
         guid = (PMOUNTDEV_UNIQUE_ID)ExAllocatePoolWithTag(PagedPool, cbBuf, '08DW');
         if (NULL == guid) {
-            bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Out of memory.\n");
+			bsr_debug(55, BSR_LC_VOLUME, NO_OBJECT, "Out of memory.\n");
             return NULL;
         }
 
@@ -1134,7 +1134,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
 Finally:
     {
         if (!NT_SUCCESS(result)) {
-            bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Failed to retrieve a GUID: 0x%lx", result);
+			bsr_debug(56, BSR_LC_VOLUME, NO_OBJECT, "Failed to retrieve a GUID: 0x%lx", result);
             ExFreePool(guid);
             guid = NULL;
         }
@@ -1165,7 +1165,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 		strncat(pguid_text, " ", sizeof(pguid_text) - strlen(pguid_text) - 1);
     }
 
-    bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
+	bsr_debug(57, BSR_LC_VOLUME, NO_OBJECT, "device object(0x%x), Volume GUID(%s)\n", devObj, pguid_text);
 
     ExFreePool(guid);
 }

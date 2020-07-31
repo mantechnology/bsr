@@ -1404,12 +1404,12 @@ int __send_command(struct bsr_connection *connection, int vnr,
 		       sbuf->allocated_size + sbuf->additional_size);
 
 	if (corked && !flush) {
-		bsr_debug(0, BSR_LC_TEMP, connection, "send buff %s, size: %d vnr: %d, stream : %s\n", bsr_packet_name(cmd), (sbuf->allocated_size + sbuf->additional_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
+		bsr_debug(32, BSR_LC_SEND_BUFFER, connection, "send buff %s, size: %d vnr: %d, stream : %s\n", bsr_packet_name(cmd), (sbuf->allocated_size + sbuf->additional_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		sbuf->pos += sbuf->allocated_size;
 		sbuf->allocated_size = 0;
 		err = 0;
 	} else {
-		bsr_debug(0, BSR_LC_TEMP, connection, "sending %s, size: %d vnr: %d, stream : %s\n", bsr_packet_name(cmd), (sbuf->pos - sbuf->unsent + sbuf->allocated_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
+		bsr_debug(33, BSR_LC_SEND_BUFFER, connection, "sending %s, size: %d vnr: %d, stream : %s\n", bsr_packet_name(cmd), (sbuf->pos - sbuf->unsent + sbuf->allocated_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		err = flush_send_buffer(connection, bsr_stream);
 
 		/* BSR protocol "pings" are latency critical.
@@ -2121,7 +2121,7 @@ int conn_send_twopc_request(struct bsr_connection *connection, int vnr, enum bsr
 {
 	struct p_twopc_request *p;
 
-	bsr_debug(0, BSR_LC_TEMP, connection, "Sending %s request for state change %u\n",
+	bsr_debug(50, BSR_LC_TWOPC, connection, "Sending %s request for state change %u\n",
 		   bsr_packet_name(cmd),
 		   be32_to_cpu(request->tid));
 
@@ -2677,7 +2677,7 @@ int bsr_send_drequest(struct bsr_peer_device *peer_device, int cmd,
 	struct p_block_req *p;
 
 #ifdef BSR_TRACE
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"sz=%d sector=%lld\n", size, sector);
+	bsr_debug(175, BSR_LC_RESYNC_OV, NO_OBJECT,"sz=%d sector=%lld\n", size, sector);
 #endif
 	p = bsr_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
 	if (!p)
@@ -3607,7 +3607,7 @@ void bsr_destroy_device(struct kref *kref)
 	struct bsr_resync_pending_sectors *pending_st, *rpt;
 #endif
 
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"%s\n", __FUNCTION__);
+	bsr_debug(97, BSR_LC_DRIVER, NO_OBJECT,"%s\n", __FUNCTION__);
 
 #ifdef SPLIT_REQUEST_RESYNC
 	// BSR-625
@@ -3679,7 +3679,7 @@ void bsr_destroy_resource(struct kref *kref)
 {
 	struct bsr_resource *resource = container_of(kref, struct bsr_resource, kref);
 
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"%s\n", __FUNCTION__);
+	bsr_debug(98, BSR_LC_DRIVER, NO_OBJECT, "%s\n", __FUNCTION__);
 
 	idr_destroy(&resource->devices);
 #ifdef _LIN
@@ -5066,7 +5066,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '00RB');
 				if (!r) {
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "failed to allocation file list size(%d)\n", flength);
+					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "failed to allocation file list size(%d)\n", flength);
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}

@@ -718,16 +718,16 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	what = "create-connect";
 
 	if (my_addr.ss_family == AF_INET6) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
+		bsr_debug(86, BSR_LC_SOCKET, NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
 	} else {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
+		bsr_debug(87, BSR_LC_SOCKET, NO_OBJECT, "dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 	}
 
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
 
 	if (!NT_SUCCESS(status)) {
 		err = status;
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
+		bsr_debug(88, BSR_LC_SOCKET, NO_OBJECT, "dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n", status, socket->sk);
 		switch (status) {
 		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
 		// DW-1272
@@ -1046,9 +1046,9 @@ static void unregister_state_change(struct sock *sock, struct dtt_listener *list
 
 	// DW-1483 WSK_EVENT_ACCEPT disable	
 	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
+	bsr_debug(89, BSR_LC_SOCKET, NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
 	if (!NT_SUCCESS(status)) {
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
+		bsr_debug(90, BSR_LC_SOCKET, NO_OBJECT, "WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
 	}
 #else // _LIN
 	write_lock_bh(&sock->sk_callback_lock);
@@ -1818,10 +1818,10 @@ static int dtt_connect(struct bsr_transport *transport)
 #if 0// _WIN
 		{		
 			if (path->path.my_addr.ss_family == AF_INET6) {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
+				bsr_debug(91, BSR_LC_SOCKET, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
 			}
 			else {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
+				bsr_debug(92, BSR_LC_SOCKET, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
 			}
 		}
 #endif
@@ -1847,9 +1847,9 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN
         {
 		if (bsr_path->my_addr.ss_family == AF_INET6) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&bsr_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&bsr_path->peer_addr));
+			bsr_debug(93, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: bsr_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&bsr_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&bsr_path->peer_addr));
 		} else {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&bsr_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&bsr_path->peer_addr));
+			bsr_debug(94, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: bsr_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&bsr_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&bsr_path->peer_addr));
 		}
 	}
 #endif
@@ -1862,9 +1862,9 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN
 	{
 		if(connect_to_path->path.my_addr.ss_family == AF_INET6) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+			bsr_debug(95, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 		} else {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+			bsr_debug(96, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 		}
 	}
 #endif
@@ -1883,9 +1883,9 @@ static int dtt_connect(struct bsr_transport *transport)
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(97, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(98, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}
 #endif
 			}
@@ -1961,9 +1961,9 @@ retry:
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(99, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(100, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}				
 #endif				
 			}

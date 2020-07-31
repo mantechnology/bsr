@@ -130,7 +130,7 @@ mvolWorkThread(PVOID arg)
 	DeviceObject = pThreadInfo->DeviceObject;
 	VolumeExtension = DeviceObject->DeviceExtension;
 	
-    bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
+	bsr_debug(32, BSR_LC_THREAD, NO_OBJECT,"WorkThread [%ws]: handle 0x%x start\n", VolumeExtension->PhysicalDeviceName, KeGetCurrentThread());
 #endif
 
 	for (;;) {
@@ -141,7 +141,7 @@ mvolWorkThread(PVOID arg)
 #ifdef _WIN_MULTIVOL_THREAD
 			bsr_info(20, BSR_LC_THREAD, NO_OBJECT, "Terminating mvolWorkThread\n");
 #else
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
+			bsr_debug(33, BSR_LC_THREAD, NO_OBJECT,"WorkThread [%ws]: Terminate Thread\n", VolumeExtension->PhysicalDeviceName);
 #endif
 			PsTerminateSystemThread(STATUS_SUCCESS);
 		}
@@ -160,7 +160,7 @@ mvolWorkThread(PVOID arg)
 
 #ifdef BSR_TRACE	
 			DbgPrint("\n");
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
+			bsr_debug(34, BSR_LC_THREAD, NO_OBJECT,"I/O Thread:IRQL(%d) start I/O(%s) loop(%d) .......................!\n", 
 				KeGetCurrentIrql(), (irpSp->MajorFunction == IRP_MJ_WRITE)? "Write" : "Read", loop);
 #endif
 

@@ -143,11 +143,11 @@ static void bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
         struct nlmsghdr * pnlh = (struct nlmsghdr *)skb->data;
         struct genlmsghdr * pgenlh = nlmsg_data(pnlh);
 
-        bsr_debug(0, BSR_LC_GENL, NO_OBJECT,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
+        bsr_debug(88, BSR_LC_GENL, NO_OBJECT,"len(%d), type(0x%x), flags(0x%x), seq(%d), pid(%d), cmd(%d), version(%d)\n",
             pnlh->nlmsg_len, pnlh->nlmsg_type, pnlh->nlmsg_flags, pnlh->nlmsg_seq, pnlh->nlmsg_pid, pgenlh->cmd, pgenlh->version);
 
         if (pnlh->nlmsg_flags & NLM_F_ECHO) {
-            bsr_debug(0, BSR_LC_GENL, NO_OBJECT,"done\n", 0);
+            bsr_debug(89, BSR_LC_GENL, NO_OBJECT,"done\n", 0);
             return 0;
         }
     }

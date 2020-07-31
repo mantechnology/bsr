@@ -145,7 +145,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #else
 	if (VolumeExtension->WorkThreadInfo.Active) {
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
-		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
+		bsr_debug(117, BSR_LC_DRIVER, NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
 	}
 #endif
 
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot get volume information, err=0x%x\n", status);
+		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "cannot get volume information, err=0x%x\n", status);
         return status;
     }
 
@@ -504,18 +504,18 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 
 			link = &pvext->MountPoint;
 			//FreeUnicodeString(link);
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Free letter link\n");
+			bsr_debug(52, BSR_LC_VOLUME, NO_OBJECT,"Free letter link\n");
 		}
 		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
 
 			link = &pvext->VolumeGuid;
 			//FreeUnicodeString(link);
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Free volume guid link\n");
+			bsr_debug(53, BSR_LC_VOLUME, NO_OBJECT,"Free volume guid link\n");
 		}
 
 		if(link) {
 			ucsdup(link, name.Buffer, name.Length);
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"link alloc\n");
+			bsr_debug(54, BSR_LC_VOLUME, NO_OBJECT,"link alloc\n");
 		}
 		
 	}

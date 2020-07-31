@@ -953,7 +953,7 @@ SendLocal(
 				// Status or Irp->IoStatus.Status  
 
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				bsr_info(54, BSR_LC_TEMP, NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
+				bsr_info(54, BSR_LC_SOCKET, NO_OBJECT,"%s, Timeout(%dms), Current state : %d(0x%p)\n", __FUNCTION__, Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 				return -EAGAIN;
@@ -975,7 +975,7 @@ SendLocal(
 			BytesSent = -ECONNRESET;
 			break;
 		default:
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Send error, default state(%s) wsk(0x%p)\n", GetSockErrorString(SendStatus), WskSocket);
+			bsr_info(105, BSR_LC_SOCKET, NO_OBJECT, "Send error, default state(%s) wsk(0x%p)\n", GetSockErrorString(SendStatus), WskSocket);
 			BytesSent = -ECONNRESET;
 			break;
 		}
@@ -1486,7 +1486,7 @@ Accept(
 		}
 	} else {
 		if (Status != STATUS_SUCCESS) {
-			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Accept Error Status=0x%x\n", Status);
+			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Accept Error Status=0x%x\n", Status);
 		}
 	}
 
@@ -1571,11 +1571,11 @@ GetRemoteAddress(
 
 		if (Status != STATUS_SUCCESS) {
 			if (Status != STATUS_INVALID_DEVICE_STATE) {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"STATUS_INVALID_DEVICE_STATE....\n");
+				bsr_debug(102, BSR_LC_SOCKET, NO_OBJECT, "STATUS_INVALID_DEVICE_STATE....\n");
 			} else if (Status != STATUS_FILE_FORCED_CLOSED) {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"STATUS_FILE_FORCED_CLOSED....\n");
+				bsr_debug(103, BSR_LC_SOCKET, NO_OBJECT, "STATUS_FILE_FORCED_CLOSED....\n");
 			} else {
-				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Status 0x%x\n", Status);
+				bsr_debug(104, BSR_LC_SOCKET, NO_OBJECT, "Status 0x%x\n", Status);
 			}
 		}
 	}
