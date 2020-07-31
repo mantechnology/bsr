@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot remove device, status=0x%x\n", status);
+		bsr_err(35, BSR_LC_VOLUME, NO_OBJECT,"cannot remove device, status=0x%x\n", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -178,15 +178,15 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	// DW-1277 check volume type we marked when bsr attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(31, BSR_LC_VOLUME, NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(12, BSR_LC_VOLUME, NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(13, BSR_LC_VOLUME, NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
 	// BSR-109
@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"HOOKER malloc fail!!!\n");
+					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"HOOKER malloc fail!!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"HOOKER rest malloc fail!!\n");
+					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT,"HOOKER rest malloc fail!!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -398,7 +398,7 @@ fail_put_dev:
 		kref_put(&device->kref, bsr_destroy_device);
 
 fail:
-	bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"failed. status=0x%x\n", status);
+	bsr_err(38, BSR_LC_VOLUME, NO_OBJECT,"failed. status=0x%x\n", status);
 	return status;
 }
 
@@ -416,7 +416,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
+        bsr_err(39, BSR_LC_VOLUME, NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -424,7 +424,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot alloc new IRP\n");
+        bsr_err(40, BSR_LC_VOLUME, NO_OBJECT,"cannot alloc new IRP\n");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -484,7 +484,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	FreeUnicodeString(&pvext->VolumeGuid);
 	pvext->Minor = 0;
 	
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+	bsr_info(32, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
 	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
 
 		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
@@ -494,7 +494,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 			.MaximumLength = p->SymbolicLinkNameLength,
 			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
 
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
+		bsr_info(33, BSR_LC_VOLUME, NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
 
 		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
 
@@ -519,7 +519,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 		}
 		
 	}
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+	bsr_info(34, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
 cleanup:
 	kfree(inbuf);
 	kfree(otbuf);

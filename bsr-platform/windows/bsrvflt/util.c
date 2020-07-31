@@ -114,7 +114,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 	// DW-1303 No dismount for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"no dismount. volume(%wZ) already dismounted\n", &device_name);
+			bsr_info(15, BSR_LC_VOLUME, NO_OBJECT,"no dismount. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_SUCCESS;
 		}
 	}
@@ -140,7 +140,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 NULL,
                 0);
             if (!NT_SUCCESS(status)) {
-                bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+                bsr_info(16, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
                 __leave;
             }
         }
@@ -163,16 +163,16 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 		if (bFlush) {
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
+				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
 			}
 		}
 		
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
+            bsr_info(18, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)\n", status);
             __leave;
         }
-        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"volume(%wZ) dismounted\n", &device_name);
+        bsr_info(19, BSR_LC_VOLUME, NO_OBJECT,"volume(%wZ) dismounted\n", &device_name);
     }
     __finally
     {
@@ -220,7 +220,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 	// DW-1303 No lock for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"no lock. volume(%wZ) already dismounted\n", &device_name);
+			bsr_info(20, BSR_LC_VOLUME, NO_OBJECT,"no lock. volume(%wZ) already dismounted\n", &device_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}
@@ -245,7 +245,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
             NULL,
             0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(21, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -257,14 +257,14 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
             __leave;
         }
         
         pvext->LockHandle = hFile;
         hFile = NULL;
 
-        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
+        bsr_info(23, BSR_LC_VOLUME, NO_OBJECT,"volume(%wZ) locked. handle(0x%p)\n", &device_name, pvext->LockHandle);
 
     }
     __finally
@@ -290,7 +290,7 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
     }
 
     if (!pvext->LockHandle) {
-        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"volume(%ws) not locked\n", pvext->PhysicalDeviceName);
+        bsr_info(24, BSR_LC_VOLUME, NO_OBJECT,"volume(%ws) not locked\n", pvext->PhysicalDeviceName);
         return STATUS_NOT_LOCKED;
     }
 
@@ -301,11 +301,11 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
     {
         status = ZwFsControlFile(pvext->LockHandle, 0, 0, 0, &StatusBlock, FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x)\n", status);
+            bsr_info(25, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
-        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
+        bsr_info(26, BSR_LC_VOLUME, NO_OBJECT,"volume(%ws) unlocked\n", pvext->PhysicalDeviceName);
     }
     __finally
     {
@@ -356,7 +356,7 @@ NTSTATUS FsctlFlushVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(27, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
 
@@ -411,7 +411,7 @@ NTSTATUS FsctlCreateVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_err(28, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
             __leave;
         }
     }
@@ -428,7 +428,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 {
 	PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, FALSE);
 	if (!pvext) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"could not get volume extension from device minor(%u)\n", minor);
+		bsr_err(29, BSR_LC_VOLUME, NO_OBJECT,"could not get volume extension from device minor(%u)\n", minor);
 		return NULL;
 	}
 
@@ -459,7 +459,7 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+			bsr_err(30, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
 			return NULL;
 		}
 		
@@ -1151,7 +1151,7 @@ void PrintVolumeDuid(PDEVICE_OBJECT devObj)
 	PMOUNTDEV_UNIQUE_ID guid = QueryMountDUID(devObj);
 
     if (NULL == guid) {
-		bsr_warn(0, BSR_LC_VOLUME, NO_OBJECT, "Volume GUID: NULL\n", 0);
+		bsr_warn(45, BSR_LC_VOLUME, NO_OBJECT, "Volume GUID: NULL\n", 0);
         return;
     }
 
