@@ -300,33 +300,34 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 
 // BSR-648
-#define bsr_crit(category, obj, fmt, ...) \
+#define bsr_crit(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_CRIT_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_emerg(category, obj, fmt, ...) \
+#define bsr_emerg(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_EMERG_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_alert(category, obj, fmt, ...) \
+#define bsr_alert(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_ALERT_NUM, obj, fmt, __VA_ARGS__)
 
-#define bsr_err(category, obj, fmt, ...) \
+#define bsr_err(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_ERR_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_warn(category, obj, fmt, ...) \
+
+#define bsr_warn(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_WARNING_NUM, obj, fmt, __VA_ARGS__)
 
-#define bsr_noti(category, obj, fmt, ...) \
+#define bsr_noti(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_NOTICE_NUM, obj, fmt, __VA_ARGS__)
 
-#define bsr_info(category, obj, fmt, ...) \
+#define bsr_info(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_INFO_NUM, obj, fmt, __VA_ARGS__)
 
-#define bsr_oos(category, obj, fmt, ...) \
+#define bsr_oos(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_OOS_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_latency(category, obj, fmt, ...) \
+#define bsr_latency(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_LATENCY_NUM, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
-#define bsr_debug(BSR_LC_TEMP, obj, fmt, ...) \
+#define bsr_debug(0, BSR_LC_TEMP, obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
 #else
-#define bsr_debug(category, obj, fmt, ...) bsr_printk(category, KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
+#define bsr_debug(index, category, obj, fmt, ...) bsr_printk(category, KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
 #endif
 #else  // _LIN
 
@@ -410,35 +411,35 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 
 
-#define bsr_debug_conn(fmt, args...) //bsr_info(BSR_LC_TEMP, NO_OBJECT, fmt, ## args)
+#define bsr_debug_conn(fmt, args...) //bsr_info(0, BSR_LC_TEMP, NO_OBJECT, fmt, ## args)
 #define bsr_debug_rs(fmt, args...)
 #define bsr_debug_al(fmt, args...)
 
 // BSR-648
-#define bsr_emerg(category, obj, fmt, args...) \
+#define bsr_emerg(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_EMERG, obj, fmt, ## args)
-#define bsr_alert(category, obj, fmt, args...) \
+#define bsr_alert(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_ALERT, obj, fmt, ## args)
-#define bsr_crit(category, obj, fmt, args...) \
+#define bsr_crit(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_CRIT, obj, fmt, ## args)
-#define bsr_err(category, obj, fmt, args...) \
+#define bsr_err(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_ERR, obj, fmt, ## args)
-#define bsr_warn(category, obj, fmt, args...) \
+#define bsr_warn(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_WARNING, obj, fmt, ## args)
-#define bsr_noti(category, obj, fmt, args...) \
+#define bsr_noti(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_NOTICE, obj, fmt, ## args)
-#define bsr_info(category, obj, fmt, args...) \
+#define bsr_info(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_INFO, obj, fmt, ## args)
-#define bsr_oos(category, obj, fmt, args...) \
+#define bsr_oos(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_OOS, obj, fmt, ## args)
-#define bsr_latency(category, obj, fmt, args...) \
+#define bsr_latency(index, category, obj, fmt, args...) \
 	bsr_printk(category, KERN_LATENCY, obj, fmt, ## args)
 
 #if defined(DEBUG)
-#define bsr_debug(category, obj, fmt, args...) \
+#define bsr_debug(0, category, obj, fmt, args...) \
 	bsr_printk(BSR_LC_ETC, KERN_DEBUG, obj, fmt, ## args)
 #else
-#define bsr_debug(category, obj, fmt, args...) bsr_printk(category, KERN_DEBUG, obj, fmt, ## args)
+#define bsr_debug(index, category, obj, fmt, args...) bsr_printk(category, KERN_DEBUG, obj, fmt, ## args)
 #endif
 #endif
 
@@ -452,12 +453,12 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 
 #ifdef _WIN
-#define BUG()   bsr_crit(BSR_LC_ETC, NO_OBJECT,"warning: failure\n")
+#define BUG()   bsr_crit(15, BSR_LC_ETC, NO_OBJECT,"warning: failure\n")
 #define BUG_ON(_condition)	\
 	do {		\
 		if (_condition) {	\
 			\
-				bsr_crit(BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_crit(16, BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
 						}	\
 			} while (false)
 
@@ -466,7 +467,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            bsr_crit(BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
+            bsr_crit(17, BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -479,7 +480,7 @@ void bsr_printk_with_wrong_object_type(void);
 do {	\
 		if (_condition) {\
 				\
-				bsr_debug(BSR_LC_TEMP, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
 				}	\
 } while (false)
 
@@ -609,7 +610,7 @@ static inline int bsr_ratelimit(void)
 #define D_ASSERT(x, exp)							\
 	do {									\
 		if (!(exp))							\
-			bsr_err(BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(0, BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
 				 #exp, __func__);				\
 	} while (0)
 #endif
@@ -624,7 +625,7 @@ static inline int bsr_ratelimit(void)
 #define expect(x, exp) ({							\
 		bool _bool = (exp);						\
 		if (!_bool)							\
-			bsr_err(BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(0, BSR_LC_TEMP, x, "ASSERTION %s FAILED in %s\n",		\
 			        #exp, __func__);				\
 		_bool;								\
 		})
@@ -662,7 +663,7 @@ bsr_insert_fault(struct bsr_device *device, unsigned int type) {
 		_bsr_insert_fault(device, type);
 
     if (ret) {
-        bsr_info(BSR_LC_TEMP, NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
+        bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
     }
     return ret;
 #else // _LIN
@@ -2179,7 +2180,7 @@ static inline unsigned bsr_req_state_by_peer_device(struct bsr_request *req,
 {
 	int idx = peer_device->node_id;
 	if (idx < 0 || idx >= BSR_NODE_ID_MAX) {
-		bsr_warn(BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d\n", idx);
+		bsr_warn(0, BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d\n", idx);
 		/* WARN(1, "bitmap_index: %d", idx); */
 		return 0;
 	}
@@ -2800,8 +2801,8 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
-			bsr_err(BSR_LC_TEMP, peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
+			bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
+			bsr_err(0, BSR_LC_TEMP, peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
 		}
@@ -2811,7 +2812,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 	if(ov_done) {
 		struct ov_oos_info *ov_oos, *tmp;
 		list_for_each_entry_safe_ex(struct ov_oos_info, ov_oos, tmp, &peer_device->ov_oos_info_list, list) {
-			bsr_err(BSR_LC_TEMP, peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
+			bsr_err(0, BSR_LC_TEMP, peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
 				(unsigned long long)ov_oos->ov_oos_start,
 				(unsigned long long)ov_oos->ov_oos_size);
 
@@ -2840,8 +2841,8 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			}
 		}
 		else {
-			bsr_err(BSR_LC_TEMP, peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
-			bsr_info(BSR_LC_TEMP, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+			bsr_err(0, BSR_LC_TEMP, peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
+			bsr_info(0, BSR_LC_TEMP, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
 		}
@@ -2851,7 +2852,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(BSR_LC_TEMP, peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
+			bsr_info(0, BSR_LC_TEMP, peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
 
@@ -2991,7 +2992,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		bsr_err(BSR_LC_TEMP, NO_OBJECT,"md block_device is null.\n");
+		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"md block_device is null.\n");
 		return 0;
 	}
 
@@ -3001,7 +3002,7 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 		return bdev->d_size >> 9;
 	}
 	else {
-		bsr_err(BSR_LC_TEMP, NO_OBJECT,"bd_disk is null.\n");
+		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"bd_disk is null.\n");
 		return 0;
 	}
 }
@@ -3011,7 +3012,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(BSR_LC_VOLUME, NO_OBJECT,"Null argument\n");
+		bsr_warn(0, BSR_LC_VOLUME, NO_OBJECT,"Null argument\n");
 		return 0;
 	}
 	
@@ -3081,7 +3082,7 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
-		bsr_err(BSR_LC_TEMP, device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
+		bsr_err(0, BSR_LC_TEMP, device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
@@ -3242,7 +3243,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
 			if (bsr_ratelimit())
-				bsr_err(BSR_LC_TEMP, device, "Local IO failed in %s.\n", where);
+				bsr_err(0, BSR_LC_TEMP, device, "Local IO failed in %s.\n", where);
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -3280,7 +3281,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-			bsr_err(BSR_LC_TEMP, device, "Local IO failed in %s. Detaching...\n", where);
+			bsr_err(0, BSR_LC_TEMP, device, "Local IO failed in %s. Detaching...\n", where);
 		}
 		break;
 	// DW-1755
@@ -3298,9 +3299,9 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			}
 
 			if (df == BSR_META_IO_ERROR)
-				bsr_err(BSR_LC_TEMP, device, "IO error occurred on meta-disk in %s. Detaching...\n", where);
+				bsr_err(0, BSR_LC_TEMP, device, "IO error occurred on meta-disk in %s. Detaching...\n", where);
 			else
-				bsr_err(BSR_LC_TEMP, device, "Force-detaching in %s\n", where);
+				bsr_err(0, BSR_LC_TEMP, device, "Force-detaching in %s\n", where);
 		}
 		else {
 		// DW-1814 
@@ -3308,7 +3309,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
 		// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
 			if (atomic_read(&device->io_error_count) == 1)
-				bsr_err(BSR_LC_TEMP, device, "%s IO error occurred on repl-disk. Passthrough...\n", (df == BSR_READ_ERROR) ? "Read" : "Write");
+				bsr_err(0, BSR_LC_TEMP, device, "%s IO error occurred on repl-disk. Passthrough...\n", (df == BSR_READ_ERROR) ? "Read" : "Write");
 		}
 
 		break;
@@ -3518,7 +3519,7 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 			bsr_queue_work(&device->resource->work, &w->w);
 		}
 		else {
-			bsr_err(BSR_LC_TEMP, device, "kmalloc failed.\n");
+			bsr_err(0, BSR_LC_TEMP, device, "kmalloc failed.\n");
 		}
 	}
 }
@@ -3626,7 +3627,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(0, BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3649,7 +3650,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
+		bsr_warn(0, BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
@@ -3895,7 +3896,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 	max_req_write_cnt = device->resource->res_opts.max_req_write_cnt;   
 	if (max_req_write_cnt < BSR_MAX_REQ_WRITE_CNT_MIN ||
 		max_req_write_cnt > BSR_MAX_REQ_WRITE_CNT_MAX)	{
-		bsr_err(BSR_LC_TEMP, device, "got invalid max_req_write_cnt(%d), use default value(%d)\n", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
+		bsr_err(0, BSR_LC_TEMP, device, "got invalid max_req_write_cnt(%d), use default value(%d)\n", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
 		max_req_write_cnt = (int)BSR_MAX_REQ_WRITE_CNT_DEF;    // use default if value is invalid.    
 	}
 
@@ -3904,7 +3905,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 		device->resource->breqbuf_overflow_alarm = true;
 	
 		if (bsr_ratelimit()) {
-			bsr_warn(BSR_LC_REPLICATION, device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
+			bsr_warn(0, BSR_LC_REPLICATION, device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
 				atomic_read(&device->resource->req_write_cnt),
 				max_req_write_cnt);
 		}
@@ -4130,7 +4131,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(BSR_LC_TEMP, NO_OBJECT, "timestamp is invalid\n");
+		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "timestamp is invalid\n");
 		return -1;
 	}
 

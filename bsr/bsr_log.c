@@ -352,13 +352,13 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	if (NULL == frames ||
 		0 == usFrameCount)
 	{
-		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
 		return 0;
 	}
 #ifdef _WIN
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
 	if (0 == usCaptured) {
-		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Captured frame count is 0\n");
+		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Captured frame count is 0\n");
 		return 0;
 	}
 #else // _LIN
@@ -395,7 +395,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 #endif
 
 	if (NULL == stackFrames) {
-		bsr_err(BSR_LC_TEMP, NO_OBJECT,"Failed to allcate pool for stackFrames\n");
+		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to allcate pool for stackFrames\n");
 		return;
 	}
 
@@ -414,7 +414,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	}
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	bsr_oos(BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
+	bsr_oos(0, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
 	if (NULL != stackFrames) {
 #ifdef _WIN
 		ExFreePool(stackFrames);
