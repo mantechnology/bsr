@@ -513,7 +513,7 @@ void kmem_cache_free(struct kmem_cache *cache, void * x)
 
 void bsr_bp(char *msg)
 {
-    bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"breakpoint: msg(%s)\n", msg);
+    bsr_err(1, BSR_LC_TEMP, NO_OBJECT,"breakpoint: msg(%s)\n", msg);
 }
 
 __inline void kfree(void * x)
@@ -631,7 +631,7 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 	}
 
 	if (!p) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"mempool_alloc failed");
+		bsr_err(3, BSR_LC_TEMP, NO_OBJECT,"mempool_alloc failed");
 	}
 
 	return p;
@@ -675,7 +675,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
 	if (!p) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"kzalloc failed\n");
+		bsr_err(4, BSR_LC_TEMP, NO_OBJECT,"kzalloc failed\n");
 		return 0;
 	}
 #ifdef _WIN64
@@ -743,7 +743,7 @@ struct bio *bio_alloc(gfp_t gfp_mask, int nr_iovecs, ULONG Tag)
 	bio->bi_vcnt = 0;
 
 	if (nr_iovecs > 256) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
+		bsr_err(5, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: bio_alloc: nr_iovecs too big = %d. check over 1MB.\n", nr_iovecs);
 		BUG();
 	}
 	return bio;
@@ -773,7 +773,7 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
+			bsr_info(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
 			//bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
@@ -808,7 +808,7 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 	struct bio_vec *bvec = &bio->bi_io_vec[bio->bi_vcnt++];
 		
 	if (bio->bi_vcnt > 1) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: bio->bi_vcn=%d. multi page occured!\n", bio->bi_vcnt);
+		bsr_err(2, BSR_LC_IO, NO_OBJECT,"BSR_PANIC: bio->bi_vcn=%d. multi page occured!\n", bio->bi_vcnt);
         BUG();
 	}
 
@@ -1771,17 +1771,17 @@ int generic_make_request(struct bio *bio)
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension) {
 			status = IoAcquireRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"IoAcquireRemoveLock bio->bi_bdev->bd_disk->pDeviceExtension:%p fail. status(0x%x)\n", bio->bi_bdev->bd_disk->pDeviceExtension, status);
+				bsr_err(5, BSR_LC_IO, NO_OBJECT,"IoAcquireRemoveLock bio->bi_bdev->bd_disk->pDeviceExtension:%p fail. status(0x%x)\n", bio->bi_bdev->bd_disk->pDeviceExtension, status);
 				return -EIO;
 			}
 		}
 		else {
-			bsr_warn(0, BSR_LC_IO, NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
+			bsr_warn(39, BSR_LC_IO, NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
 	else {
-		bsr_warn(0, BSR_LC_IO, NO_OBJECT, "IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
+		bsr_warn(40, BSR_LC_IO, NO_OBJECT, "IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
 		return -EIO;
 	}
 
@@ -1828,7 +1828,7 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"IoBuildAsynchronousFsdRequest: cannot alloc new IRP\n");
+		bsr_err(3, BSR_LC_IO, NO_OBJECT,"IoBuildAsynchronousFsdRequest: cannot alloc new IRP\n");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -1857,7 +1857,7 @@ int generic_make_request(struct bio *bio)
 	//
 	if (gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE0) {
 		if (IsDiskError()) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+			bsr_err(4, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 			// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 			if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 				IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -2448,12 +2448,12 @@ LONGLONG get_targetdev_volsize(PVOLUME_EXTENSION VolumeExtension)
 	NTSTATUS		status;
 
 	if (VolumeExtension->TargetDeviceObject == NULL) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"TargetDeviceObject is null!\n");
+		bsr_err(1, BSR_LC_VOLUME, NO_OBJECT,"TargetDeviceObject is null!\n");
 		return (LONGLONG)0;
 	}
 	status = mvolGetVolumeSize(VolumeExtension->TargetDeviceObject, &volumeSize);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(0, BSR_LC_VOLUME, NO_OBJECT,"get volume size error = 0x%x\n", status);
+		bsr_warn(42, BSR_LC_VOLUME, NO_OBJECT,"get volume size error = 0x%x\n", status);
 		volumeSize.QuadPart = 0;
 	}
 	return volumeSize.QuadPart;
@@ -2474,13 +2474,13 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
     if (!dev) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to allocate block_device NonPagedMemory\n");
+        bsr_err(2, BSR_LC_VOLUME, NO_OBJECT,"Failed to allocate block_device NonPagedMemory\n");
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5DW');
 	if (!dev->bd_contains) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to allocate block_device NonPagedMemory\n");
+		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate block_device NonPagedMemory\n");
         return NULL;
     }
 
@@ -2547,7 +2547,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 
 	// DW-1381 dev is set as NULL when block device is destroyed.
 	if (!pvext->dev) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"failed to get bsr device since pvext->dev is NULL\n");
+		bsr_err(4, BSR_LC_VOLUME, NO_OBJECT,"failed to get bsr device since pvext->dev is NULL\n");
 		return NULL;		
 	}
 
@@ -2555,7 +2555,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
 		if (!NT_SUCCESS(status)) {
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
+			bsr_info(5, BSR_LC_VOLUME, NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
 			return NULL;
 		}
 	}
@@ -2811,7 +2811,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlInitAnsiString(&apath, cpath);
 	NTSTATUS status = RtlAnsiStringToUnicodeString(&upath, &apath, TRUE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(0, BSR_LC_VOLUME, NO_OBJECT,"Wrong path = %s\n", path);
+		bsr_warn(43, BSR_LC_VOLUME, NO_OBJECT,"Wrong path = %s\n", path);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -3028,7 +3028,7 @@ error:
 
 void panic(char *msg)
 {
-    bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"%s\n", msg);
+    bsr_err(9, BSR_LC_IO_ERROR, NO_OBJECT,"%s\n", msg);
 #ifdef _WIN_EVENTLOG
 	WriteEventLogEntryData((ULONG) DEV_ERR_3003, 0, 0, 1, L"%S", msg);
 #endif
@@ -3207,9 +3207,9 @@ int bsr_resize(struct bsr_device *device)
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED)
-			bsr_err(0, BSR_LC_TEMP, device, "Resize not allowed during resync. Disconnecting...\n");
+			bsr_err(6, BSR_LC_VOLUME, device, "Resize not allowed during resync. Disconnecting...\n");
 		else if (peer_device->repl_state[NOW] == L_ESTABLISHED)
-			bsr_err(0, BSR_LC_TEMP, device, "Connection is establised, resize not allowed. Disconnecting...\n");
+			bsr_err(7, BSR_LC_VOLUME, device, "Connection is establised, resize not allowed. Disconnecting...\n");
 		else
 			continue;
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);

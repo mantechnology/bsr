@@ -804,7 +804,7 @@ int connect_work(struct bsr_work *work, int cancel)
 		return 0; /* Return early. Keep the reference on the connection! */
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(0, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
+		bsr_alert(2, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 	} else {
 		bsr_info(0, BSR_LC_TEMP, connection, "Failure to connect; retrying\n");
@@ -1182,7 +1182,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
-		bsr_latency(0, BSR_LC_LATENCY, device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_latency(2, BSR_LC_LATENCY, device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
@@ -1190,7 +1190,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 		if (ctx)
 			ctx->error = error;
-		bsr_err(0, BSR_LC_TEMP, device, "local disk FLUSH FAILED with status %08X\n", error);
+		bsr_err(11, BSR_LC_VOLUME, device, "local disk FLUSH FAILED with status %08X\n", error);
 	}
 
 #ifdef _WIN // DW-1117 patch flush io memory leak
@@ -1243,7 +1243,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78DW');
 
 	if (!bio || !octx) {
-		bsr_warn(0, BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH\n");
+		bsr_warn(44, BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH\n");
 		/* FIXME: what else can I do now?  disconnecting or detaching
 		 * really does not help to improve the state of the world, either.
 		 */
@@ -1343,7 +1343,7 @@ static enum finish_epoch bsr_flush_after_epoch(struct bsr_connection *connection
 			}
 #endif
 			if (ret == -BSR_SIGKILL) {
-				bsr_warn(0, BSR_LC_IO, resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d\n", 
+				bsr_warn(45, BSR_LC_IO, resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d\n", 
 					atomic_read(&resource->ctx_flush.pending), (long long)atomic_read64(&resource->ctx_flush.ctx_sync.barrier_nr), atomic_read(&resource->ctx_flush.ctx_sync.primary_node_id));
 			}
 		}
@@ -1498,7 +1498,7 @@ static enum finish_epoch bsr_may_finish_epoch(struct bsr_connection *connection,
 			fw->epoch = epoch;
 			bsr_queue_work(&resource->work, &fw->w);
 		} else {
-			bsr_warn(0, BSR_LC_IO, resource, "Could not kmalloc a flush_work obj\n");
+			bsr_warn(46, BSR_LC_IO, resource, "Could not kmalloc a flush_work obj\n");
 			set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &epoch->flags);
 			/* That is not a recursion, only one level */
 			bsr_may_finish_epoch(connection, epoch, EV_BARRIER_DONE);
@@ -1568,7 +1568,7 @@ enum write_ordering_e wo) __must_hold(local)
 
 	resource->write_ordering = wo;
 	if (pwo != resource->write_ordering || wo == WO_BIO_BARRIER)
-		bsr_info(0, BSR_LC_TEMP, resource, "Method to ensure write ordering: %s\n", write_ordering_str[resource->write_ordering]);
+		bsr_info(12, BSR_LC_VOLUME, resource, "Method to ensure write ordering: %s\n", write_ordering_str[resource->write_ordering]);
 }
 
 
@@ -1910,7 +1910,7 @@ next_bio:
 		len = page_chain_size(page);
 
 		if (off > PAGE_SIZE || len > PAGE_SIZE - off || len > data_size || len == 0) {
-			bsr_err(0, BSR_LC_TEMP, device, "invalid page chain: offset %u size %u remaining data_size %u\n",
+			bsr_err(12, BSR_LC_IO, device, "invalid page chain: offset %u size %u remaining data_size %u\n",
 				off, len, data_size);
 			err = -EINVAL;
 			goto fail;
@@ -1922,7 +1922,7 @@ next_bio:
 			 * But in case it fails anyways,
 			 * we deal with it, and complain (below). */
 			if (bio->bi_vcnt == 0) {
-				bsr_err(0, BSR_LC_TEMP, device,
+				bsr_err(13, BSR_LC_IO, device,
 					"bio_add_page(%p, %p, %u, %u): %d (bi_vcnt %u bi_max_vecs %u bi_sector %llu, bi_flags 0x%lx)\n",
 					bio, page, len, off, res, bio->bi_vcnt, bio->bi_max_vecs, (uint64_t)BSR_BIO_BI_SECTOR(bio),
 					(unsigned long)bio->bi_flags);
@@ -3325,10 +3325,10 @@ static int receive_bm_exchange_state(struct bsr_connection *connection, struct p
 	switch (state) {
 	case B_COMPLETE:
 		atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
-		bsr_info(0, BSR_LC_TEMP, peer_device, "bitmap exchange complete\n");
+		bsr_info(44, BSR_LC_BITMAP, peer_device, "bitmap exchange complete\n");
 		break;
 	default:
-		bsr_err(0, BSR_LC_TEMP, peer_device, "unknown error(%u)\n", state);
+		bsr_err(45, BSR_LC_BITMAP, peer_device, "unknown error(%u)\n", state);
 		break;
 	}
 	return 0;
@@ -3811,7 +3811,7 @@ static int handle_write_conflicts(struct bsr_peer_request *peer_req)
 				       (i->size >> 9) >= sector + (size >> 9);
 
 			if (!equal)
-				bsr_alert(0, BSR_LC_ETC, device, "Concurrent writes detected: "
+				bsr_alert(66, BSR_LC_ETC, device, "Concurrent writes detected: "
 					       "local=%llus +%u, remote=%llus +%u, "
 					       "assuming %s came first\n",
 					  (unsigned long long)i->sector, i->size,
@@ -3831,7 +3831,7 @@ static int handle_write_conflicts(struct bsr_peer_request *peer_req)
 				container_of(i, struct bsr_request, i);
 
 			if (!equal)
-				bsr_alert(0, BSR_LC_ETC, device, "Concurrent writes detected: "
+				bsr_alert(67, BSR_LC_ETC, device, "Concurrent writes detected: "
 					       "local=%llus +%u, remote=%llus +%u\n",
 					  (unsigned long long)i->sector, i->size,
 					  (unsigned long long)sector, size);
@@ -5653,11 +5653,11 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		disk_state = disk_state_from_md(device);
 
 	if (hg == -1000) {
-		bsr_alert(0, BSR_LC_RESYNC_OV, device, "Unrelated data, aborting!\n");
+		bsr_alert(85, BSR_LC_RESYNC_OV, device, "Unrelated data, aborting!\n");
 		return -1;
 	}
 	if (hg < -1000) {
-		bsr_alert(0, BSR_LC_RESYNC_OV, device, "To resolve this both sides have to support at least protocol %d\n", -hg - 1000);
+		bsr_alert(86, BSR_LC_RESYNC_OV, device, "To resolve this both sides have to support at least protocol %d\n", -hg - 1000);
 		return -1;
 	}
 
@@ -5741,7 +5741,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	rcu_read_unlock();
 
 	if (hg == -100) {
-		bsr_alert(0, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection!\n");
+		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection!\n");
 		bsr_khelper(device, connection, "split-brain");
 		return -1;
 	}
@@ -6030,7 +6030,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
  */
 static int config_unknown_volume(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(0, BSR_LC_VOLUME, connection, "%s packet received for volume %d, which is not configured locally\n",
+	bsr_warn(46, BSR_LC_VOLUME, connection, "%s packet received for volume %d, which is not configured locally\n",
 		  bsr_packet_name(pi->cmd), pi->vnr);
 	return ignore_remaining_packet(connection, pi->size);
 }
@@ -6286,7 +6286,7 @@ static void warn_if_differ_considerably(struct bsr_peer_device *peer_device,
 		return;
 	d = (a > b) ? (a - b) : (b - a);
 	if (d > (a>>3) || d > (b>>3))
-		bsr_warn(0, BSR_LC_VOLUME, peer_device, "Considerable difference in %s: %llu bytes vs. %llu bytes\n", s,
+		bsr_warn(47, BSR_LC_VOLUME, peer_device, "Considerable difference in %s: %llu bytes vs. %llu bytes\n", s,
              (unsigned long long)(a<<9), (unsigned long long)(b<<9));
 }
 
@@ -6410,7 +6410,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
             (unsigned long long)(peer_device->max_size<<9));
 	
 	if ((p_size && p_csize > p_size) || (p_usize && p_csize > p_usize)) {
-		bsr_warn(0, BSR_LC_VOLUME, peer_device, "Peer sent bogus sizes, disconnecting\n");
+		bsr_warn(48, BSR_LC_VOLUME, peer_device, "Peer sent bogus sizes, disconnecting\n");
 		goto disconnect;
 	}
 
@@ -8278,7 +8278,7 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(0, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
+		bsr_alert(29, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}
@@ -8529,7 +8529,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 								break;
 
 							sector = BM_BIT_TO_SECT(bit);
-							bsr_oos(0, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n",
+							bsr_oos(5, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining\n",
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;
@@ -8844,7 +8844,7 @@ receive_bitmap_plain(struct bsr_peer_device *peer_device, unsigned int size,
 
 
 	if (want != size) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "%s:want (%llu) != size (%llu)\n", __func__, (unsigned long long)want,  (unsigned long long)size);
+		bsr_err(46, BSR_LC_BITMAP, peer_device, "%s:want (%llu) != size (%llu)\n", __func__, (unsigned long long)want,  (unsigned long long)size);
 		return -EIO;
 	}
 	if (want == 0)
@@ -8914,14 +8914,14 @@ recv_bm_rle_bits(struct bsr_peer_device *peer_device,
 		if (toggle) {
 			e = s + (ULONG_PTR)rl -1;
 			if (e >= c->bm_bits) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "bitmap overflow (e:%lu) while decoding bm RLE packet\n", e);
+				bsr_err(47, BSR_LC_BITMAP, peer_device, "bitmap overflow (e:%lu) while decoding bm RLE packet\n", e);
 				return -EIO;
 			}
 			bsr_bm_set_many_bits(peer_device, s, e);
 		}
 
 		if (have < bits) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "bitmap decoding error: h:%d b:%d la:0x%08llx l:%u/%u\n",
+			bsr_err(48, BSR_LC_BITMAP, peer_device, "bitmap decoding error: h:%d b:%d la:0x%08llx l:%u/%u\n",
 				have, bits, look_ahead,
 				(unsigned int)(bs.cur.b - p->code),
 				(unsigned int)bs.buf_len);
@@ -8966,7 +8966,7 @@ decode_bitmap_c(struct bsr_peer_device *peer_device,
 	 * but have been dropped as this one turned out to be "best"
 	 * during all our tests. */
 
-	bsr_err(0, BSR_LC_TEMP, peer_device, "receive_bitmap_c: unknown encoding %u\n", p->encoding);
+	bsr_err(49, BSR_LC_BITMAP, peer_device, "receive_bitmap_c: unknown encoding %u\n", p->encoding);
 	change_cstate_ex(peer_device->connection, C_PROTOCOL_ERROR, CS_HARD);
 	return -EIO;
 }
@@ -8999,7 +8999,7 @@ void INFO_bm_xfer_stats(struct bsr_peer_device *peer_device,
 		r = 1000;
 
 	r = 1000 - r;
-	bsr_info(0, BSR_LC_TEMP, peer_device, "%s bitmap stats [Bytes(packets)]: plain %u(%u), RLE %u(%u), "
+	bsr_info(50, BSR_LC_BITMAP, peer_device, "%s bitmap stats [Bytes(packets)]: plain %u(%u), RLE %u(%u), "
 		"total %llu; compression: %llu.%llu%%\n",
 			direction,
 			c->bytes[1], c->packets[1],
@@ -9049,7 +9049,7 @@ static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr
 		peer_device->repl_state[NOW] != L_AHEAD) {
 		/* admin may have requested C_DISCONNECTING,
 		 * other threads may have noticed network errors */
-		bsr_info(0, BSR_LC_TEMP, peer_device, "unexpected repl_state (%s) in receive_bitmap\n",
+		bsr_info(51, BSR_LC_BITMAP, peer_device, "unexpected repl_state (%s) in receive_bitmap\n",
 			bsr_repl_str(peer_device->repl_state[NOW]));
 		// DW-1613 Reconnect the UUID because it might not be received properly due to a synchronization issue.
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
@@ -9063,7 +9063,7 @@ static int receive_bitmap_finished(struct bsr_connection *connection, struct bsr
 #ifdef SPLIT_REQUEST_RESYNC
 		if (connection->agreed_pro_version >= 113) {
 			// DW-2124 resync process after sending bitmap exchange state
-			bsr_info(0, BSR_LC_TEMP, peer_device, "send that bitmap exchange has been completed\n");
+			bsr_info(52, BSR_LC_BITMAP, peer_device, "send that bitmap exchange has been completed\n");
 			bsr_send_bitmap_exchange_state(peer_device, P_BM_EXCHANGE_STATE, B_COMPLETE);
 		}
 #endif
@@ -9102,7 +9102,7 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 	if (!peer_device)
 		return -EIO;
 	if (peer_device->bitmap_index == -1) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "No bitmap allocated in receive_bitmap()!\n");
+		bsr_err(53, BSR_LC_BITMAP, peer_device, "No bitmap allocated in receive_bitmap()!\n");
 		return -EIO;
 	}
 	device = peer_device->device;
@@ -9133,12 +9133,12 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 		struct p_compressed_bm *p;
 
 		if (pi->size > BSR_SOCKET_BUFFER_SIZE - bsr_header_size(connection)) {
-			bsr_err(0, BSR_LC_TEMP, device, "ReportCBitmap packet too large\n");
+			bsr_err(54, BSR_LC_BITMAP, device, "ReportCBitmap packet too large\n");
 			err = -EIO;
 			goto out;
 		}
 		if (pi->size <= sizeof(*p)) {
-			bsr_err(0, BSR_LC_TEMP, device, "ReportCBitmap packet too small (l:%u)\n", pi->size);
+			bsr_err(55, BSR_LC_BITMAP, device, "ReportCBitmap packet too small (l:%u)\n", pi->size);
 			err = -EIO;
 			goto out;
 		}
@@ -9148,7 +9148,7 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 		err = decode_bitmap_c(peer_device, p, &peer_device->bm_ctx, pi->size);
 	}
 	else {
-		bsr_warn(0, BSR_LC_BITMAP, device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
+		bsr_warn(63, BSR_LC_BITMAP, device, "receive_bitmap: cmd neither ReportBitMap nor ReportCBitMap (is 0x%x)", pi->cmd);
 		err = -EIO;
 		goto out;
 	}
@@ -9374,7 +9374,7 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 
 		break; 
 	default:
-		bsr_info(0, BSR_LC_TEMP, device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind\n",
+		bsr_info(56, BSR_LC_BITMAP, device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind\n",
 				bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
@@ -9385,7 +9385,7 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 
 	// MODIFIED_BY_MANTECH DW-1354: new out-of-sync has been set and resync timer has been expired, 
 	if (bResetTimer) {
-		bsr_info(0, BSR_LC_TEMP, peer_device, "received out-of-sync has been set after resync timer has been expired, restart timer to send rs request for rest\n");
+		bsr_info(57, BSR_LC_BITMAP, peer_device, "received out-of-sync has been set after resync timer has been expired, restart timer to send rs request for rest\n");
 		mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
 	}
 

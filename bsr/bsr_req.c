@@ -367,7 +367,7 @@ void bsr_req_destroy(struct kref *kref)
 				was_last_ref = bsr_al_complete_io(device, &req->i);
 				put_ldev(device);
 			} else if (bsr_ratelimit()) {
-				bsr_warn(0, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
+				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
 					  "but my Disk seems to have failed :(\n",
 					  (unsigned long long) req->i.sector, req->i.size);
 
@@ -377,7 +377,7 @@ void bsr_req_destroy(struct kref *kref)
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(0, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)\n",
+		bsr_latency(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)\n",
 			req, req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
 			timestamp_elapse(req->created_ts, req->io_request_ts), timestamp_elapse(req->io_request_ts, req->io_complete_ts), timestamp_elapse(req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
@@ -1050,7 +1050,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		// DW-1961 Calculate and Log IO Latency
 		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
 			req->net_done_ts[peer_device->node_id] = timestamp();
-			bsr_latency(0, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)\n",
+			bsr_latency(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)\n",
 				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
 				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
 		}
@@ -1108,7 +1108,7 @@ static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *r
 		write_log = false;
 
 	if (write_log) {
-		bsr_warn(0, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %s\n",
+		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %s\n",
 			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
 			(unsigned long long)req->i.sector,
 			req->i.size >> 9,
@@ -1650,7 +1650,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	}
 
 	if (device->act_log->used >= nc->cong_extents) {
-		bsr_info(0, BSR_LC_TEMP, device, "Congestion-extents threshold reached\n");
+		bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached\n");
 		congested = true;
 	}
 
@@ -1776,7 +1776,7 @@ static int bsr_process_write_request(struct bsr_request *req)
 
 #ifdef _DEBUG_OOS
 		// DW-1153 Write log when process I/O
-		bsr_oos(0, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n",
+		bsr_oos(6, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)\n",
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
 
@@ -2177,7 +2177,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 nodata:
 		if (bsr_ratelimit()) {
 			struct bsr_device * device = req->device;
-			bsr_err(0, BSR_LC_TEMP, device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
+			bsr_err(7, BSR_LC_IO, device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
 				(unsigned long long)req->i.sector, req->i.size >> 9);
 		}
 		/* A write may have been queued for send_oos, however.
@@ -2543,7 +2543,7 @@ void do_submit(struct work_struct *ws)
 			if(!schedule_timeout(AL_WAIT_TIMEOUT)) {
 #endif
 				struct bsr_peer_device *peer_device;
-				bsr_err(0, BSR_LC_TEMP, device, "al_wait timeout... disconnect, retry %llu\n", (unsigned long long)al_wait_count);
+				bsr_err(14, BSR_LC_LRU, device, "al_wait timeout... disconnect, retry %llu\n", (unsigned long long)al_wait_count);
 				for_each_peer_device_rcu(peer_device, device) {
 					change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 				}
@@ -2618,7 +2618,7 @@ void do_submit(struct work_struct *ws)
 		if (device->resource->role[NOW] == R_SECONDARY && ts != 0) {
 			ts = timestamp_elapse(ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
-				bsr_warn(0, BSR_LC_LRU, device, "actlog commit takes a long time(%lldus)\n", ts);
+				bsr_warn(27, BSR_LC_LRU, device, "actlog commit takes a long time(%lldus)\n", ts);
 			}
 		}
 

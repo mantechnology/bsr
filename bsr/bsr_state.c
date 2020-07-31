@@ -2073,7 +2073,7 @@ static void sanitize_state(struct bsr_resource *resource)
 void bsr_resume_al(struct bsr_device *device)
 {
 	if (test_and_clear_bit(AL_SUSPENDED, &device->flags))
-		bsr_info(0, BSR_LC_TEMP, device, "Resumed AL updates\n");
+		bsr_info(15, BSR_LC_LRU, device, "Resumed AL updates\n");
 }
 
 static void set_ov_position(struct bsr_peer_device *peer_device,

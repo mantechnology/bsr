@@ -79,7 +79,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
     int error = 0;
 	static int md_endio_cnt = 0;
     
-	bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
+	bsr_debug(14, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
         error = Irp->IoStatus.Status;
@@ -89,7 +89,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE3) {
 			if(IsDiskError()) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(38, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -250,7 +250,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(0, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(5, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -355,7 +355,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(0, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(6, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -489,7 +489,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE2) {
 			if(IsDiskError()) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(8, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -579,7 +579,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
 {
 #ifdef _WIN
-	bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
+	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
 	panic("potential random memory corruption caused by delayed completion of aborted local request\n");
 #else // _LIN
 	panic("bsr%u %s/%u potential random memory corruption caused by delayed completion of aborted local request\n",
@@ -616,7 +616,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE1) {
 			if(IsDiskError()) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
+				bsr_err(10, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -687,7 +687,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	*/
 	if (unlikely(req->rq_state[0] & RQ_LOCAL_ABORTED)) {
 		if (bsr_ratelimit())
-			bsr_emerg(0, BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
+			bsr_emerg(11, BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
 
 		if (!error)
 			bsr_panic_after_delayed_completion_of_aborted_request(device);
@@ -1803,7 +1803,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		}
 
 		if (n_oos) {
-			bsr_alert(0, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!\n",
+			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!\n",
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}

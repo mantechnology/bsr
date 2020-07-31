@@ -414,7 +414,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	}
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	bsr_oos(0, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
+	bsr_oos(7, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
 	if (NULL != stackFrames) {
 #ifdef _WIN
 		ExFreePool(stackFrames);

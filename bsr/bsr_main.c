@@ -2286,7 +2286,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		/* paranoia: catch zero runlength.
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
-			bsr_warn(0, BSR_LC_BITMAP, peer_device, "unexpected zero runlength while encoding bitmap "
+			bsr_warn(61, BSR_LC_BITMAP, peer_device, "unexpected zero runlength while encoding bitmap "
 			    "t:%u bo:%llu\n", toggle, (unsigned long long)c->bit_offset);
 			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
 			if (toggle == 0) {
@@ -2294,7 +2294,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 				continue;
 			}
 			else {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "unexpected out-of-sync has occurred\n");
+				bsr_err(30, BSR_LC_BITMAP, peer_device, "unexpected out-of-sync has occurred\n");
 				return -1;
 			}
 		}
@@ -2303,7 +2303,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		if (bits == -ENOBUFS) /* buffer full */
 			break;
 		if (bits <= 0) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "error while encoding bitmap: %d\n", bits);
+			bsr_err(31, BSR_LC_BITMAP, peer_device, "error while encoding bitmap: %d\n", bits);
 			return 0;
 		}
 
@@ -2351,14 +2351,14 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, '70DW');
 
 	if (!tpc) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "allocate failed\n");
+		bsr_err(32, BSR_LC_BITMAP, peer_device, "allocate failed\n");
 		return -ENOMEM;
 	}
 
 	len = fill_bitmap_rle_bits(peer_device, tpc,
 			BSR_SOCKET_BUFFER_SIZE - header_size - sizeof(*tpc), c);
 	if (len < 0) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "unexpected len : %d \n", len);
+		bsr_err(33, BSR_LC_BITMAP, peer_device, "unexpected len : %d \n", len);
 		return -EIO;
 	}
 
@@ -2474,19 +2474,19 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	int err;
 
 	if (!expect(device, device->bitmap)) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "bitmap is NULL!\n");
+		bsr_err(27, BSR_LC_IO, peer_device, "bitmap is NULL!\n");
 		return false;
 	}
 
 	if (get_ldev(device)) {
 		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
-			bsr_info(0, BSR_LC_TEMP, device, "Writing the whole bitmap, MDF_FullSync was set.\n");
+			bsr_info(28, BSR_LC_IO, device, "Writing the whole bitmap, MDF_FullSync was set.\n");
 			bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 			if (bsr_bm_write(device, NULL)) {
 				/* write_bm did fail! Leave full sync flag set in Meta P_DATA
 				 * but otherwise process as per normal - need to tell other
 				 * side that a full resync is required! */
-				bsr_err(0, BSR_LC_TEMP, device, "Failed to write bitmap to disk!\n");
+				bsr_err(29, BSR_LC_IO, device, "Failed to write bitmap to disk!\n");
 			} else {
 				bsr_md_clear_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 				bsr_md_sync(device);
@@ -2545,13 +2545,13 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			ULONG_PTR word_offset;
 
 			if (bb == NULL) {
-				bsr_err(0, BSR_LC_TEMP, peer_device, "bitmap bit buffer allocate failed\n");
+				bsr_err(34, BSR_LC_BITMAP, peer_device, "bitmap bit buffer allocate failed\n");
 				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 			}
 			else {
 				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
 
-				bsr_info(0, BSR_LC_TEMP, peer_device, "bitmap merge, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n",
+				bsr_info(35, BSR_LC_BITMAP, peer_device, "bitmap merge, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n",
 					incomp_sync_source->bitmap_index, (unsigned long long)bsr_bm_total_weight(incomp_sync_source),
 					peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 
@@ -2573,7 +2573,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 					current_offset = offset;
 				}
 
-				bsr_info(0, BSR_LC_TEMP, peer_device, "finished bitmap merge, to index(%d) out of sync (%llu)\n", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+				bsr_info(36, BSR_LC_BITMAP, peer_device, "finished bitmap merge, to index(%d) out of sync (%llu)\n", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 				kfree2(bb);
 				
 			}
@@ -3836,7 +3836,7 @@ void bsr_restart_request(struct bsr_request *req)
 #ifdef _WIN
 void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 {
-    bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)\n",
+    bsr_info(8, BSR_LC_VOLUME, NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)\n",
         KeGetCurrentIrql(), VolumeExtension->PhysicalDeviceName, &VolumeExtension->MountPoint);
 
     if (retry.wq)
@@ -4642,7 +4642,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);
 	if (!pvext) {
 		err = ERR_NO_DISK;
-		bsr_err(0, BSR_LC_TEMP, device, "%d: Device has no disk.\n", err);
+		bsr_err(9, BSR_LC_VOLUME, device, "%d: Device has no disk.\n", err);
 		goto out_no_disk;
 	}
 #endif
@@ -4685,7 +4685,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	// DW-1406 max_hw_sectors must be valued as number of maximum sectors.
 	// DW-1510 recalculate this_bdev->d_size
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"device:%p q->max_hw_sectors: %llu sectors, device->this_bdev->d_size: %llu bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
+	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"device:%p q->max_hw_sectors: %llu sectors, device->this_bdev->d_size: %llu bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
 	
@@ -5821,7 +5821,7 @@ int bsr_init(void)
 #ifdef _LIN
 #if 0 // moved to bsr_load()
 	if (bsr_debugfs_init())
-		bsr_noti(0, NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
+		bsr_noti(76, NO_OBJECT, "failed to initialize debugfs -- will not be available\n");
 #endif
 #endif
 
@@ -5895,7 +5895,7 @@ void bsr_md_write(struct bsr_device *device, void *b)
 
 	if (bsr_md_sync_page_io(device, device->ldev, sector, REQ_OP_WRITE)) {
 		/* this was a try anyways ... */
-		bsr_err(0, BSR_LC_TEMP, device, "meta data update failed!\n");
+		bsr_err(30, BSR_LC_IO, device, "meta data update failed!\n");
 		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 	}
 }
@@ -5985,7 +5985,7 @@ static int check_activity_log_stripe_size(struct bsr_device *device,
 
 	return 0;
 err:
-	bsr_err(0, BSR_LC_TEMP, device, "invalid activity log striping: al_stripes=%u, al_stripe_size_4k=%u\n",
+	bsr_err(12, BSR_LC_LRU, device, "invalid activity log striping: al_stripes=%u, al_stripe_size_4k=%u\n",
 			al_stripes, al_stripe_size_4k);
 	return -EINVAL;
 }
@@ -6005,7 +6005,7 @@ static int check_offsets_and_sizes(struct bsr_device *device,
 	s32 on_disk_bm_sect;
 
 	if (max_peers > BSR_PEERS_MAX) {
-		bsr_err(0, BSR_LC_TEMP, device, "bm_max_peers too high\n");
+		bsr_err(37, BSR_LC_BITMAP, device, "bm_max_peers too high\n");
 		goto err;
 	}
 	device->bitmap->bm_max_peers = max_peers;
@@ -6076,7 +6076,7 @@ static int check_offsets_and_sizes(struct bsr_device *device,
 	return 0;
 
 err:
-	bsr_err(0, BSR_LC_TEMP, device, "meta data offsets don't make sense: idx=%d "
+	bsr_err(31, BSR_LC_IO, device, "meta data offsets don't make sense: idx=%d "
 			"al_s=%u, al_sz4k=%u, al_offset=%d, bm_offset=%d, "
 			"md_size_sect=%u, la_size=%llu, md_capacity=%llu\n",
 			in_core->meta_dev_idx,
@@ -6128,7 +6128,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 		REQ_OP_READ)) {
 		/* NOTE: can't do normal error processing here as this is
 		   called BEFORE disk is attached */
-		bsr_err(0, BSR_LC_TEMP, device, "Error while reading metadata.\n");
+		bsr_err(32, BSR_LC_IO, device, "Error while reading metadata.\n");
 		rv = ERR_IO_MD_DISK;
 		goto err;
 	}
@@ -6137,7 +6137,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	flags = be32_to_cpu(buffer->flags);
 	if (magic == BSR_MD_MAGIC_09 && !(flags & MDF_AL_CLEAN)) {
 			/* btw: that's Activity Log clean, not "all" clean. */
-		bsr_err(0, BSR_LC_TEMP, device, "Found unclean meta data. Did you \"bsradm apply-al\"?\n");
+		bsr_err(33, BSR_LC_IO, device, "Found unclean meta data. Did you \"bsradm apply-al\"?\n");
 		rv = ERR_MD_UNCLEAN;
 		goto err;
 	}
@@ -6146,14 +6146,14 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 		if (magic == BSR_MD_MAGIC_07 ||
 		    magic == BSR_MD_MAGIC_08 ||
 		    magic == BSR_MD_MAGIC_84_UNCLEAN)
-			bsr_err(0, BSR_LC_TEMP, device, "Found old meta data magic. Did you \"bsradm create-md\"?\n");
+			bsr_err(34, BSR_LC_IO, device, "Found old meta data magic. Did you \"bsradm create-md\"?\n");
 		else
-			bsr_err(0, BSR_LC_TEMP, device, "Meta data magic not found. Did you \"bsradm create-md\"?\n");
+			bsr_err(35, BSR_LC_IO, device, "Meta data magic not found. Did you \"bsradm create-md\"?\n");
 		goto err;
 	}
 
 	if (be32_to_cpu(buffer->bm_bytes_per_bit) != BM_BLOCK_SIZE) {
-		bsr_err(0, BSR_LC_TEMP, device, "unexpected bm_bytes_per_bit: %u (expected %u)\n",
+		bsr_err(36, BSR_LC_IO, device, "unexpected bm_bytes_per_bit: %u (expected %u)\n",
 		    be32_to_cpu(buffer->bm_bytes_per_bit), BM_BLOCK_SIZE);
 		goto err;
 	}
@@ -6173,7 +6173,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	bdev->md.node_id = be32_to_cpu(buffer->node_id);
 
 	if (bdev->md.node_id != -1 && bdev->md.node_id != my_node_id) {
-		bsr_err(0, BSR_LC_TEMP, device, "ambiguous node id: meta-data: %d, config: %d\n",
+		bsr_err(37, BSR_LC_IO, device, "ambiguous node id: meta-data: %d, config: %d\n",
 			bdev->md.node_id, my_node_id);
 		goto err;
 	}
@@ -6190,13 +6190,13 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 		if (peer_md->bitmap_index == -1)
 			continue;
 		if (i == my_node_id) {
-			bsr_warn(0, BSR_LC_IO, device, "my own node id (%d) should not have a bitmap index (%d)\n",
+			bsr_warn(41, BSR_LC_IO, device, "my own node id (%d) should not have a bitmap index (%d)\n",
 				my_node_id, peer_md->bitmap_index);
 			goto err;
 		}
 
 		if (peer_md->bitmap_index < -1 || peer_md->bitmap_index >= (int)max_peers) {
-			bsr_warn(0, BSR_LC_IO, device, "peer node id %d: bitmap index (%d) exceeds allocated bitmap slots (%d)\n",
+			bsr_warn(42, BSR_LC_IO, device, "peer node id %d: bitmap index (%d) exceeds allocated bitmap slots (%d)\n",
 				i, peer_md->bitmap_index, max_peers);
 			goto err;
 		}
@@ -6826,7 +6826,7 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 						isForgettableReplState(found_peer->repl_state[NOW])
 						&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 						// DW-955 print log to recognize where forget_bitmap is called.
-						bsr_info(0, BSR_LC_TEMP, device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%llx)\n",
+						bsr_info(38, BSR_LC_BITMAP, device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%llx)\n",
 							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned long long)found_peer->flags);
 						forget_bitmap(device, node_id);
 					}					
@@ -6891,7 +6891,7 @@ clear_flag:
 			_bsr_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%d)\n", device->disk_state[NOW]);
+			bsr_info(39, BSR_LC_BITMAP, peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%d)\n", device->disk_state[NOW]);
 			forget_bitmap(device, peer_node_id);
 		}
 		bsr_md_mark_dirty(device);
@@ -6910,7 +6910,7 @@ clear_flag:
 			_bsr_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1 
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "bitmap will be cleared because peer has consistent disk with primary's\n");
+			bsr_info(40, BSR_LC_BITMAP, peer_device, "bitmap will be cleared because peer has consistent disk with primary's\n");
 			forget_bitmap(device, peer_node_id);
 		}
 		bsr_md_mark_dirty(device);
@@ -6999,7 +6999,7 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 	rcu_read_lock();
 	for_each_peer_device_rcu(p, device) {
 		if (!update_sync_bits(p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
-			bsr_err(0, BSR_LC_TEMP, device, "no sync bit has been set for peer(%d), set whole bits without updating resync extent instead.\n", p->node_id);
+			bsr_err(41, BSR_LC_BITMAP, device, "no sync bit has been set for peer(%d), set whole bits without updating resync extent instead.\n", p->node_id);
 			bsr_bm_set_many_bits(p, 0, BSR_END_OF_BITMAP);
 		}
 	}
@@ -7023,7 +7023,7 @@ int bsr_bmio_set_n_write(struct bsr_device *device,
 	bsr_md_sync(device);
 	// DW-1333 set whole bits and update resync extent.
 	if (!update_sync_bits(peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
-		bsr_err(0, BSR_LC_TEMP, peer_device, "no sync bit has been set, set whole bits without updating resync extent instead.\n");
+		bsr_err(42, BSR_LC_BITMAP, peer_device, "no sync bit has been set, set whole bits without updating resync extent instead.\n");
 		bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 	}
 
@@ -7056,7 +7056,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 		NULL == pBitmap->Buffer ||
 		NULL == peer_device)
 	{
-		bsr_err(0, BSR_LC_TEMP, peer_device, "Invalid parameter, pBitmap(0x%p), pBitmap->Buffer(0x%p) peer_device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
+		bsr_err(43, BSR_LC_BITMAP, peer_device, "Invalid parameter, pBitmap(0x%p), pBitmap->Buffer(0x%p) peer_device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
 #ifdef _WIN
 		return UINT64_MAX;
 #else	// _LIN
@@ -8008,7 +8008,7 @@ _bsr_insert_fault(struct bsr_device *device, unsigned int type)
 		fault_count++;
 
 		if (bsr_ratelimit())
-			bsr_warn(0, BSR_LC_IO, device, "***Simulating %s failure\n",
+			bsr_warn(43, BSR_LC_IO, device, "***Simulating %s failure\n",
 				_bsr_fault_str(type));
 	}
 
