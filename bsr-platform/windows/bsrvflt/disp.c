@@ -93,7 +93,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 
 	// BSR-511 call mvolSendToNextdriver in safe mode
 	if (*InitSafeBootMode > 0) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
+		bsr_info(82, BSR_LC_DRIVER, NO_OBJECT, "booted to safe mode %u\n", *InitSafeBootMode);
 	}
 	else {
 		DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
@@ -117,14 +117,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     status = IoCreateDevice(DriverObject, sizeof(ROOT_EXTENSION),
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
     if (!NT_SUCCESS(status)) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Can't create root, err=%x\n", status);
+		bsr_err(2, BSR_LC_DRIVER, NO_OBJECT, "Can't create root, err=%x\n", status);
         return status;
     }
 
     RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolCntl");
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
     if (!NT_SUCCESS(status)) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot create symbolic link, err=%x\n", status);
+		bsr_err(3, BSR_LC_DRIVER, NO_OBJECT, "cannot create symbolic link, err=%x\n", status);
         IoDeleteDevice(deviceObject);
         return status;
     }
@@ -153,7 +153,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     // Init BSR engine
     bsr_init();
 
-    bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"MVF Driver loaded.\n");
+	bsr_info(4, BSR_LC_DRIVER, NO_OBJECT, "MVF Driver loaded.\n");
 
     return STATUS_SUCCESS;
 }
@@ -290,7 +290,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		//1 :SAFEBOOT_MINIMAL
 		//2 :SAFEBOOT_NETWORK
 		//3 :SAFEBOOT_DSREPAIR
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "safe boot mode %u\n", *InitSafeBootMode);
+		bsr_info(5, BSR_LC_DRIVER, NO_OBJECT, "safe boot mode %u\n", *InitSafeBootMode);
 		return STATUS_UNSUCCESSFUL;
 	}
 
@@ -301,7 +301,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         // Init WSK and StartNetLinkServer
 		Status = PsCreateSystemThread(&hNetLinkThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, InitWskNetlink, NULL);
         if (!NT_SUCCESS(Status)) {
-            bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", Status);
+			bsr_err(6, BSR_LC_DRIVER, NO_OBJECT, "PsCreateSystemThread failed with status 0x%08X\n", Status);
             return Status;
         }
 
@@ -309,7 +309,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		ZwClose(hNetLinkThread);
 
         if (!NT_SUCCESS(Status)) {
-            bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
+			bsr_err(7, BSR_LC_DRIVER, NO_OBJECT, "ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
             return Status;
         }
     }
@@ -322,7 +322,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
     if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"cannot create device, err=0x%x\n", status);
+		bsr_err(8, BSR_LC_DRIVER, NO_OBJECT, "cannot create device, err=0x%x\n", status);
         return status;
     }
 
@@ -373,7 +373,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 #ifndef _WIN_MULTIVOL_THREAD
         status = mvolInitializeThread(VolumeExtension, &VolumeExtension->WorkThreadInfo, mvolWorkThread);
         if (!NT_SUCCESS(status)) {
-            bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
+			bsr_err(9, BSR_LC_DRIVER, NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)\n", status);
             //return status;
         }
 #endif
@@ -907,11 +907,11 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
 			if (!NT_SUCCESS(status)) {
-				bsr_warn(0, BSR_LC_DRIVER, NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
+				bsr_warn(84, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)\n",
 					&VolumeExtension->MountPoint, status);
 			}
 			else if (!size) {	// ok
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
+				bsr_info(10, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted\n",
 					&VolumeExtension->MountPoint);
 			}
 

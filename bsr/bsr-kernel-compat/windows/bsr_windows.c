@@ -954,7 +954,7 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
                 break;
 
             default:
-                bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: KeWaitForMultipleObjects done! default status=0x%x\n", status);
+				bsr_err(67, BSR_LC_DRIVER, NO_OBJECT, "BSR_PANIC: KeWaitForMultipleObjects done! default status=0x%x\n", status);
                 BUG();
                 break;
             }
@@ -1031,7 +1031,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	HANDLE hThread = NULL;
 	NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
+		bsr_err(1, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread failed with status 0x%08X\n", status);
 		kfree(wq);
 		return NULL;
 	}
@@ -1039,7 +1039,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
 	ZwClose(hThread);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ObReferenceObjectByHandle failed with status 0x%08X\n", status);
+		bsr_err(2, BSR_LC_THREAD, NO_OBJECT, "ObReferenceObjectByHandle failed with status 0x%08X\n", status);
 		kfree(wq);
 		return NULL;
 	}
@@ -1108,7 +1108,7 @@ int mutex_lock_interruptible(struct mutex *m)
 		break;
 	default:
 		err = -EIO;
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"KeWaitForMultipleObjects returned unexpected status(0x%x)", status);
+		bsr_err(66, BSR_LC_DRIVER, NO_OBJECT, "KeWaitForMultipleObjects returned unexpected status(0x%x)", status);
 		break;
 	}
 
@@ -1245,7 +1245,7 @@ unsigned long _spin_lock_irqsave(spinlock_t *lock)
 	KIRQL	oldIrql = 0;
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) { 
-		bsr_warn(0, BSR_LC_THREAD, NO_OBJECT,"thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(24, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &oldIrql);
 		lock->OwnerThread = curthread;
@@ -1271,7 +1271,7 @@ void spin_lock_irq(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {// DW-903 protect lock recursion
-		bsr_warn(0, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(25, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1308,7 +1308,7 @@ void spin_lock_bh(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {
-		bsr_warn(0, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(26, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
 	} else {
 		KeAcquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1574,7 +1574,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"socket is null.\n");
+		bsr_info(1, BSR_LC_SOCKET, NO_OBJECT,"socket is null.\n");
 		return;
 	}
 
@@ -1664,7 +1664,7 @@ static void __delete_thread(struct task_struct *t)
 
     // logic check
     if (ct_thread_num < 0) {
-        bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
+		bsr_err(3, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC:unexpected ct_thread_num(%d)\n", ct_thread_num);
         BUG();
     }
 }
@@ -1686,7 +1686,7 @@ struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULON
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
 	list_add(&t->list, &ct_thread_list);
 	if (++ct_thread_num > CT_MAX_THREAD_LIST) {
-		bsr_warn(0, BSR_LC_THREAD, NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
+		bsr_warn(27, BSR_LC_THREAD, NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
     }
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
     return t;
@@ -2346,7 +2346,7 @@ void monitor_mnt_change(PVOID pParam)
 				&mcni1, sizeof(mcni1), &mcni2, sizeof(mcni2));
 
 			if (!NT_SUCCESS(status)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
+				bsr_err(1, BSR_LC_DRIVER, NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
 				break;
 			} else if (STATUS_PENDING == status) {
 				status = ZwWaitForSingleObject(hEvent, TRUE, NULL);
@@ -2356,7 +2356,7 @@ void monitor_mnt_change(PVOID pParam)
 			HANDLE hVolRefresher = NULL;
 			status = PsCreateSystemThread(&hVolRefresher, THREAD_ALL_ACCESS, NULL, NULL, NULL, adjust_changes_to_volume, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
+				bsr_err(4, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
 				break;
 			}
 
@@ -2387,7 +2387,7 @@ NTSTATUS start_mnt_monitor()
 
 	status = PsCreateSystemThread(&hVolMonitor, THREAD_ALL_ACCESS, NULL, NULL, NULL, monitor_mnt_change, NULL);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
+		bsr_err(5, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
 		return status;
 	}
 
@@ -2922,7 +2922,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"CreateSocket() returned NULL\n");
+		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "CreateSocket() returned NULL\n");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -2950,11 +2950,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
+		bsr_info(3, BSR_LC_SOCKET, NO_OBJECT, "Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
 		goto error;
 	}
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n", 
+	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n",
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b1,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b2,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b3,
@@ -2971,9 +2971,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"recv HI!!! \n");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
+				bsr_info(5, BSR_LC_SOCKET, NO_OBJECT, "error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"error recv status=0x%x\n", readcount);
+				bsr_info(6, BSR_LC_SOCKET, NO_OBJECT, "error recv status=0x%x\n", readcount);
 			}
 			ret = -1;
 
@@ -2983,7 +2983,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"send command fail stat=0x%x\n", Status);
+			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "send command fail stat=0x%x\n", Status);
 			ret = -1;
 			goto error;
 		}
@@ -2992,9 +2992,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"recv val=0x%x\n", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"recv retval timeout(%d)!\n", g_handler_timeout);
+				bsr_info(8, BSR_LC_SOCKET, NO_OBJECT, "recv retval timeout(%d)!\n", g_handler_timeout);
 			} else {
-				bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"recv status=0x%x\n", readcount);
+				bsr_info(9, BSR_LC_SOCKET, NO_OBJECT, "recv status=0x%x\n", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3002,7 +3002,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"send bye fail stat=0x%x\n", Status); // ignore!
+			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "send bye fail stat=0x%x\n", Status); // ignore!
 		}
 
 		bsr_debug(0, BSR_LC_TEMP, NO_OBJECT,"Disconnect:shutdown...\n", Status);
@@ -3010,9 +3010,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 #if 0
 		if ((readcount = Receive(Socket, &ret, 1, 0, 0)) > 0) {
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"recv dummy  val=0x%x\n", ret);// ignore!
+			bsr_info(11, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  val=0x%x\n", ret);// ignore!
 		} else {
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"recv dummy  status=%d\n", readcount);// ignore!
+			bsr_info(12, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  status=%d\n", readcount);// ignore!
 		}
 #endif
 	}

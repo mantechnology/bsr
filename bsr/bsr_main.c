@@ -574,18 +574,18 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 
 	/* first some paranoia code */
 	if (req == NULL) {
-		bsr_err(0, BSR_LC_TEMP, connection, "BAD! BarrierAck #%u received, but no epoch in tl!?\n",
+		bsr_err(1, BSR_LC_REPLICATION, connection, "BAD! BarrierAck #%u received, but no epoch in tl!?\n",
 			 (unsigned int)barrier_nr);
 		goto bail;
 	}
 	if (expect_epoch != barrier_nr) {
-		bsr_err(0, BSR_LC_TEMP, connection, "BAD! BarrierAck #%u received, expected #%u!\n",
+		bsr_err(2, BSR_LC_REPLICATION, connection, "BAD! BarrierAck #%u received, expected #%u!\n",
 			(unsigned int)barrier_nr, (unsigned int)expect_epoch);
 		goto bail;
 	}
 
 	if (expect_size != set_size) {
-		bsr_err(0, BSR_LC_TEMP, connection, "BAD! BarrierAck #%u received with n_writes=%u, expected n_writes=%u!\n",
+		bsr_err(3, BSR_LC_REPLICATION, connection, "BAD! BarrierAck #%u received with n_writes=%u, expected n_writes=%u!\n",
 			(unsigned int)barrier_nr, set_size, expect_size);
 		goto bail;
 	}
@@ -711,7 +711,7 @@ static int bsr_thread_setup(void *arg)
 #ifdef _WIN
 	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
 	if (!thi->nt) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"BSR_PANIC: ct_add_thread faild.\n");
+		bsr_err(6, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: ct_add_thread faild.\n");
 		PsTerminateSystemThread(STATUS_SUCCESS);
 	}
 
@@ -736,9 +736,9 @@ restart:
 
 	if (thi->t_state == RESTARTING) {
 		if (connection)
-			bsr_info(0, BSR_LC_TEMP, connection, "Restarting %s thread\n", thi->name);
+			bsr_info(7, BSR_LC_THREAD, connection, "Restarting %s thread\n", thi->name);
 		else
-			bsr_info(0, BSR_LC_TEMP, resource, "Restarting %s thread\n", thi->name);
+			bsr_info(8, BSR_LC_THREAD, resource, "Restarting %s thread\n", thi->name);
 		thi->t_state = RUNNING;
 		spin_unlock_irqrestore(&thi->t_lock, flags);
 		goto restart;
@@ -751,9 +751,9 @@ restart:
 	smp_mb();
 
 	if (connection)
-		bsr_info(0, BSR_LC_TEMP, connection, "Terminating %s thread\n", thi->name);
+		bsr_info(9, BSR_LC_THREAD, connection, "Terminating %s thread\n", thi->name);
 	else
-		bsr_info(0, BSR_LC_TEMP, resource, "Terminating %s thread\n", thi->name);
+		bsr_info(10, BSR_LC_THREAD, resource, "Terminating %s thread\n", thi->name);
 
 	complete(&thi->stop);
 	spin_unlock_irqrestore(&thi->t_lock, flags);
@@ -794,10 +794,10 @@ int bsr_thread_start(struct bsr_thread *thi)
 	switch (thi->t_state) {
 	case NONE:
 		if (connection)
-			bsr_info(0, BSR_LC_TEMP, connection, "Starting %s thread (from %s [%d])\n",
+			bsr_info(11, BSR_LC_THREAD, connection, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
 		else
-			bsr_info(0, BSR_LC_TEMP, resource, "Starting %s thread (from %s [%d])\n",
+			bsr_info(12, BSR_LC_THREAD, resource, "Starting %s thread (from %s [%d])\n",
 				 thi->name, current->comm, current->pid);
 		init_completion(&thi->stop);
 		D_ASSERT(resource, thi->task == NULL);
@@ -830,9 +830,9 @@ int bsr_thread_start(struct bsr_thread *thi)
 
 		if (IS_ERR(nt)) {
 			if (connection)
-				bsr_err(0, BSR_LC_TEMP, connection, "Couldn't start thread\n");
+				bsr_err(13, BSR_LC_THREAD, connection, "Couldn't start thread\n");
 			else
-				bsr_err(0, BSR_LC_TEMP, resource, "Couldn't start thread\n");
+				bsr_err(14, BSR_LC_THREAD, resource, "Couldn't start thread\n");
 
 			return false;
 		}
@@ -854,10 +854,10 @@ int bsr_thread_start(struct bsr_thread *thi)
 	case EXITING:
 		thi->t_state = RESTARTING;
 		if (connection)
-			bsr_info(0, BSR_LC_TEMP, connection, "Restarting %s thread (from %s [%d])\n",
+			bsr_info(15, BSR_LC_THREAD, connection, "Restarting %s thread (from %s [%d])\n",
 					thi->name, current->comm, current->pid);
 		else
-			bsr_info(0, BSR_LC_TEMP, resource, "Restarting %s thread (from %s [%d])\n",
+			bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])\n",
 					thi->name, current->comm, current->pid);
 		/* fall through */
 	case RUNNING:
@@ -1286,7 +1286,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 	int header_size;
 
 	if (!transport->ops->stream_ok(transport, bsr_stream)) {
-		bsr_err(0, BSR_LC_TEMP, connection, "socket not allocate\n");
+		bsr_err(13, BSR_LC_SOCKET, connection, "socket not allocate\n");
 		return NULL;
 	}
 
@@ -1294,7 +1294,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 #ifdef _WIN
 	void *p = (char *)alloc_send_buffer(connection, header_size + size, bsr_stream) + header_size;
 	if(!p) {
-		bsr_err(0, BSR_LC_TEMP, connection, "failed allocate send buffer\n");
+		bsr_err(1, BSR_LC_SEND_BUFFER, connection, "failed allocate send buffer\n");
 	}
 	return p;
 #else // _LIN
@@ -1845,7 +1845,7 @@ void bsr_print_uuids(struct bsr_peer_device *peer_device, const char *text, cons
 	struct bsr_device *device = peer_device->device;
 
 	if (get_ldev_if_state(device, D_NEGOTIATING)) {
-		bsr_info(0, BSR_LC_TEMP, peer_device, "%s, %s %016llX:%016llX:%016llX:%016llX\n",
+		bsr_info(1, BSR_LC_UUID, peer_device, "%s, %s %016llX:%016llX:%016llX:%016llX\n",
 			caller, text,
 			  (unsigned long long)bsr_current_uuid(device),
 			  (unsigned long long)bsr_bitmap_uuid(peer_device),
@@ -1853,7 +1853,7 @@ void bsr_print_uuids(struct bsr_peer_device *peer_device, const char *text, cons
 			  (unsigned long long)bsr_history_uuid(device, 1));
 		put_ldev(device);
 	} else {
-		bsr_info(0, BSR_LC_TEMP, device, "%s, %s effective data uuid: %016llX\n",
+		bsr_info(2, BSR_LC_UUID, device, "%s, %s effective data uuid: %016llX\n",
 			caller, text, 
 			(unsigned long long)device->exposed_data_uuid);
 	}
@@ -2915,7 +2915,7 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 		unsigned l = min_t(unsigned, len, PAGE_SIZE);
 		if (page_chain_offset(page) != 0 ||
 		    page_chain_size(page) != l) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "FIXME page %p offset %u len %u\n",
+			bsr_err(78, BSR_LC_SOCKET, peer_device, "FIXME page %p offset %u len %u\n",
 				page, page_chain_offset(page), page_chain_size(page));
 		}
 
@@ -3253,7 +3253,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			if (resource->role[NOW] == R_SECONDARY) {
 				rv = try_to_promote(device);
 				if (rv < SS_SUCCESS)
-					bsr_info(0, BSR_LC_TEMP, resource, "Auto-promote failed: %s\n",
+					bsr_info(32, BSR_LC_STATE, resource, "Auto-promote failed: %s\n",
 					bsr_set_st_err_str(rv));
 			}
 		}
@@ -3355,7 +3355,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
 			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);
 			if (rv < SS_SUCCESS)
-				bsr_warn(0, BSR_LC_DRIVER, resource, "Auto-demote failed: %s\n",
+				bsr_warn(83, BSR_LC_DRIVER, resource, "Auto-demote failed: %s\n",
 					  bsr_set_st_err_str(rv));
 		}
 	}
@@ -4401,10 +4401,10 @@ void bsr_destroy_connection(struct kref *kref)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
-	bsr_info(0, BSR_LC_TEMP, connection, "%s\n", __FUNCTION__);
+	bsr_info(1, BSR_LC_CONNECTION, connection, "%s\n", __FUNCTION__);
 
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
-		bsr_err(0, BSR_LC_TEMP, connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
+		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
 
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
@@ -5704,7 +5704,7 @@ void bsr_cleanup(void)
 
 	idr_destroy(&bsr_devices);
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "module cleanup done.\n");
+	bsr_info(68, BSR_LC_DRIVER, NO_OBJECT, "module cleanup done.\n");
 }
 
 #ifdef _WIN
@@ -5735,7 +5735,7 @@ int bsr_init(void)
 #endif
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "invalid minor_count (%u)\n", minor_count);
+		bsr_err(69, BSR_LC_DRIVER, NO_OBJECT, "invalid minor_count (%u)\n", minor_count);
 #ifdef MODULE
 		return -EINVAL;
 #else
@@ -5746,14 +5746,14 @@ int bsr_init(void)
 #ifdef _LIN
 	err = register_blkdev(BSR_MAJOR, "bsr");
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "unable to register block device major %d\n", BSR_MAJOR);
+		bsr_err(70, BSR_LC_DRIVER, NO_OBJECT, "unable to register block device major %d\n", BSR_MAJOR);
 		return err;
 	}
 
 	// BSR-577
 	err = misc_register(&bsr_misc);
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "unable to register bsr-control device\n");
+		bsr_err(71, BSR_LC_DRIVER, NO_OBJECT, "unable to register bsr-control device\n");
 		return err;
 	}
 
@@ -5779,7 +5779,7 @@ int bsr_init(void)
 #ifdef _LIN
 	err = bsr_genl_register();
 	if (err) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "unable to register generic netlink family\n");
+		bsr_err(72, BSR_LC_DRIVER, NO_OBJECT, "unable to register generic netlink family\n");
 		goto fail;
 	}
 #endif
@@ -5792,14 +5792,14 @@ int bsr_init(void)
 #ifdef _LIN
 	bsr_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &bsr_proc_fops, NULL);
 	if (!bsr_proc)	{
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "unable to register proc file\n");
+		bsr_err(73, BSR_LC_DRIVER, NO_OBJECT, "unable to register proc file\n");
 		goto fail;
 	}
 #endif
 
 	retry.wq = create_singlethread_workqueue("bsr-reissue");
 	if (!retry.wq) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "unable to create retry workqueue\n");
+		bsr_err(74, BSR_LC_DRIVER, NO_OBJECT, "unable to create retry workqueue\n");
 		goto fail;
 	}
 
@@ -5812,7 +5812,7 @@ int bsr_init(void)
 #if 0
 	 DW-1105 need to detect changing volume letter and adjust it to VOLUME_EXTENSION.	
 	if (!NT_SUCCESS(start_mnt_monitor())) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT,"could not start mount monitor\n");
+		bsr_err(75, BSR_LC_DRIVER, NO_OBJECT,"could not start mount monitor\n");
 		goto fail;
 	}
 #endif
@@ -5825,11 +5825,11 @@ int bsr_init(void)
 #endif
 #endif
 
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "initialized. "
+	bsr_info(77, BSR_LC_DRIVER, NO_OBJECT, "initialized. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)\n",
 	       GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "%s\n", bsr_buildtag());
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT, "registered as block device major %d\n", BSR_MAJOR);
+	bsr_info(78, BSR_LC_DRIVER, NO_OBJECT, "%s\n", bsr_buildtag());
+	bsr_info(79, BSR_LC_DRIVER, NO_OBJECT, "registered as block device major %d\n", BSR_MAJOR);
 
 
 	return 0; /* Success! */
@@ -5837,9 +5837,9 @@ int bsr_init(void)
 fail:
 	bsr_cleanup();
 	if (err == -ENOMEM)
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "ran out of memory\n");
+		bsr_err(80, BSR_LC_DRIVER, NO_OBJECT, "ran out of memory\n");
 	else
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "initialization failure\n");
+		bsr_err(81, BSR_LC_DRIVER, NO_OBJECT, "initialization failure\n");
 #ifdef _LIN
 	// BSR-581
 	clean_logging();
@@ -6428,7 +6428,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	__bsr_uuid_set_current(device, val);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
-	bsr_info(0, BSR_LC_TEMP, device, "%s, new current UUID: %016llX weak: %016llX\n", caller,
+	bsr_info(3, BSR_LC_UUID, device, "%s, new current UUID: %016llX weak: %016llX\n", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
 	/* get it to stable storage _now_ */
@@ -6462,7 +6462,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* ca
 		get_random_bytes(&current_uuid, sizeof(u64));
 		current_uuid &= ~UUID_PRIMARY;
 		bsr_set_exposed_data_uuid(device, current_uuid);
-		bsr_info(0, BSR_LC_TEMP, device, "%s, sending new current UUID: %016llX\n", caller, current_uuid);
+		bsr_info(4, BSR_LC_UUID, device, "%s, sending new current UUID: %016llX\n", caller, current_uuid);
 
 		weak_nodes = bsr_weak_nodes_device(device);
 		for_each_peer_device(peer_device, device) {
@@ -6534,7 +6534,7 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 		bsr_md_mark_dirty(device);
 	}
 	else
-		bsr_warn(0, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
+		bsr_warn(15, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
 
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 
@@ -6637,7 +6637,7 @@ void forget_bitmap(struct bsr_device *device, int node_id) __must_hold(local) //
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	rcu_read_lock();
 	name = name_of_node_id(device->resource, node_id);
-	bsr_info(0, BSR_LC_TEMP, device, "clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)\n",
+	bsr_info(5, BSR_LC_UUID, device, "clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)\n",
 		  (unsigned long long)_bsr_bm_total_weight(device, bitmap_index), node_id, name, bitmap_index);
 	rcu_read_unlock();
 	bsr_suspend_io(device, WRITE_ONLY);
@@ -6832,7 +6832,7 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 					}					
 				}
 				else
-					bsr_info(0, BSR_LC_TEMP, device, "Clearing bitmap UUID for node %d\n",
+					bsr_info(6, BSR_LC_UUID, device, "Clearing bitmap UUID for node %d\n",
 						  node_id);
 				bsr_md_mark_dirty(device);
 // DW-979
@@ -7730,7 +7730,7 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, device, "ldev is null.\n");
+		bsr_warn(33, BSR_LC_STATE, device, "ldev is null.\n");
 		return;
 	}
 
@@ -7746,7 +7746,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, peer_device, "ldev is null.\n");
+		bsr_warn(34, BSR_LC_STATE, peer_device, "ldev is null.\n");
 		return;
 	}
 
@@ -7760,7 +7760,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, device, "ldev is null.\n");
+		bsr_warn(35, BSR_LC_STATE, device, "ldev is null.\n");
 		return;
 	}
 
@@ -7776,7 +7776,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, peer_device, "ldev is null.\n");
+		bsr_warn(36, BSR_LC_STATE, peer_device, "ldev is null.\n");
 		return;
 	}
 
@@ -7790,7 +7790,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, device, "ldev is null.\n");
+		bsr_warn(37, BSR_LC_STATE, device, "ldev is null.\n");
 		return 0;
 	}
 
@@ -7802,7 +7802,7 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(0, BSR_LC_STATE, peer_device, "ldev is null.\n");
+		bsr_warn(38, BSR_LC_STATE, peer_device, "ldev is null.\n");
 		return false;
 	}
 

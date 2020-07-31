@@ -2017,7 +2017,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Sending NegDReply. sector=%llus.\n",
+			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Sending NegDReply. sector=%llus.\n",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_DREPLY, peer_req);
@@ -2028,7 +2028,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(0, BSR_LC_TEMP, peer_device, "bsr_send_block() failed\n");
+		bsr_err(22, BSR_LC_REPLICATION, peer_device, "bsr_send_block() failed\n");
 	return err;
 }
 
@@ -3189,9 +3189,9 @@ static void go_diskless(struct bsr_device *device)
 
 static int do_md_sync(struct bsr_device *device)
 {
-	bsr_warn(0, BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
+	bsr_warn(39, BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
 #ifdef BSR_DEBUG_MD_SYNC
-	bsr_warn(0, BSR_LC_STATE, device, "last md_mark_dirty: %s:%u\n",
+	bsr_warn(43, BSR_LC_STATE, device, "last md_mark_dirty: %s:%u\n",
 		device->last_md_mark_dirty.func, device->last_md_mark_dirty.line);
 #endif
 	bsr_md_sync(device);
@@ -3840,7 +3840,7 @@ int bsr_sender(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(0, BSR_LC_THREAD, connection, "Sender got an unexpected signal\n");
+				bsr_warn(29, BSR_LC_THREAD, connection, "Sender got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3928,7 +3928,7 @@ int bsr_worker(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(0, BSR_LC_THREAD, resource, "Worker got an unexpected signal\n");
+				bsr_warn(30, BSR_LC_THREAD, resource, "Worker got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3953,7 +3953,7 @@ int bsr_worker(struct bsr_thread *thi)
 				// DW-1953 logs are printed only once per work_list.
 				if (is_null_callback_print == false) {
 					// DW-1953 do not use "break" because you must call a non-null callback.
-					bsr_warn(0, BSR_LC_THREAD, resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
+					bsr_warn(31, BSR_LC_THREAD, resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
 					is_null_callback_print = true;
 				}
 			}

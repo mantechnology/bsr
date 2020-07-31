@@ -1644,7 +1644,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 		//To accurately check when to enter AHEAD mode, you should consider the size of the synchronization data in the send buffer.
 		__u64 total_in_flight = atomic_read64(&connection->ap_in_flight) + atomic_read64(&connection->rs_in_flight);
 		if (total_in_flight >= nc->cong_fill) {
-			bsr_info(0, BSR_LC_TEMP, device, "Congestion-fill threshold reached %lluKB\n", total_in_flight >> 10 );
+			bsr_info(20, BSR_LC_REPLICATION, device, "Congestion-fill threshold reached %lluKB\n", total_in_flight >> 10);
 			congested = true;
 		}
 	}

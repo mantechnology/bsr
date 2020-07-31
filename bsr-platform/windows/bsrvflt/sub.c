@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(35, BSR_LC_VOLUME, NO_OBJECT,"cannot remove device, status=0x%x\n", status);
+		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "cannot remove device, status=0x%x\n", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -678,7 +678,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 #if 0
     if (KeGetCurrentIrql() > PASSIVE_LEVEL) // BSR_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
         // BSR_DOC: you should consider to process EVENTLOG
-        bsr_warn(0, NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
+		bsr_warn(87, BSR_LC_DRIVER, NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
         return 1;
     }
 #endif

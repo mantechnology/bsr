@@ -638,9 +638,9 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 
 	if (rv < 0) {
 		if (rv == -ECONNRESET)
-			bsr_info(0, BSR_LC_TEMP, connection, "sock was reset by peer\n");
+			bsr_info(14, BSR_LC_SOCKET, connection, "sock was reset by peer\n");
 		else if (rv != -ERESTARTSYS)
-			bsr_info(0, BSR_LC_TEMP, connection, "sock_recvmsg returned %d\n", rv);
+			bsr_info(15, BSR_LC_SOCKET, connection, "sock_recvmsg returned %d\n", rv);
 	} else if (rv == 0) {
 		if (test_bit(DISCONNECT_EXPECTED, &connection->flags)) {
 			long t;
@@ -653,7 +653,7 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 			if (t)
 				goto out;
 		}
-		bsr_info(0, BSR_LC_TEMP, connection, "sock was shut down by peer\n");
+		bsr_info(16, BSR_LC_SOCKET, connection, "sock was shut down by peer\n");
 	}
 
 	if (rv != (int)size)
@@ -807,7 +807,7 @@ int connect_work(struct bsr_work *work, int cancel)
 		bsr_alert(2, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 	} else {
-		bsr_info(0, BSR_LC_TEMP, connection, "Failure to connect; retrying\n");
+		bsr_info(3, BSR_LC_CONNECTION, connection, "Failure to connect; retrying\n");
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 
@@ -853,11 +853,11 @@ start:
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
-			bsr_warn(0, BSR_LC_CONNECTION, connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d\n", err);
+			bsr_warn(17, BSR_LC_CONNECTION, connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d\n", err);
 			goto retry;
 		}
 		else
-			bsr_warn(0, BSR_LC_CONNECTION, connection, "Failed to initiate connection, err=%d\n", err);
+			bsr_warn(18, BSR_LC_CONNECTION, connection, "Failed to initiate connection, err=%d\n", err);
 		goto abort;
 	}
 
@@ -890,10 +890,10 @@ start:
 	if (connection->cram_hmac_tfm) {
 		switch (bsr_do_auth(connection)) {
 		case -1:
-			bsr_err(0, BSR_LC_TEMP, connection, "Authentication of peer failed\n");
+			bsr_err(4, BSR_LC_CONNECTION, connection, "Authentication of peer failed\n");
 			goto abort;
 		case 0:
-			bsr_err(0, BSR_LC_TEMP, connection, "Authentication of peer failed, trying again.\n");
+			bsr_err(5, BSR_LC_CONNECTION, connection, "Authentication of peer failed, trying again.\n");
 			goto retry;
 		}
 	}
@@ -936,11 +936,11 @@ start:
 
 		send_buffring = transport->ops->start_send_buffring(transport, nc->sndbuf_size);
 		if (send_buffring)
-			bsr_info(0, BSR_LC_TEMP, connection, "send-buffering ok size(%llu) cong_fill(%llu)\n", nc->sndbuf_size, (nc->cong_fill));
+			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)\n", nc->sndbuf_size, (nc->cong_fill));
 		else
-			bsr_warn(0, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled\n");
+			bsr_warn(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled\n");
 	} else {
-		bsr_warn(0, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu\n", nc->sndbuf_size);
+		bsr_warn(27, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu\n", nc->sndbuf_size);
 	}
 #endif
 
@@ -957,7 +957,7 @@ start:
 #endif
 #endif
 	if (!connection->ack_sender) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Failed to create workqueue ack_sender\n");
+		bsr_err(17, BSR_LC_THREAD, connection, "Failed to create workqueue ack_sender\n");
 		goto abort;
 	}
 
@@ -1001,7 +1001,7 @@ retry:
 	schedule_timeout_interruptible(HZ);
 	// DW-1176 retrying connection doesn't make sense while receiver's restarting, returning false lets bsr re-enters connection once receiver goes running.
 	if (get_t_state(&connection->receiver) == RESTARTING) {
-		bsr_warn(0, BSR_LC_THREAD, connection, "could not retry connection since receiver is restarting\n");
+		bsr_warn(28, BSR_LC_THREAD, connection, "could not retry connection since receiver is restarting\n");
 		return false;
 	}
 	goto start;
@@ -1814,7 +1814,7 @@ struct bsr_peer_request *peer_req,
 	
 	// DW-1598 Do not submit peer_req if there is no connection
 	if (test_bit(CONNECTION_ALREADY_FREED, &peer_req->peer_device->flags)) {
-		bsr_info(0, BSR_LC_TEMP, device, "node-id : %d, flag : CONNECTION_ALREADY_FREED\n", peer_req->peer_device->node_id);
+		bsr_info(6, BSR_LC_CONNECTION, device, "node-id : %d, flag : CONNECTION_ALREADY_FREED\n", peer_req->peer_device->node_id);
 		return 0;
 	}
 
@@ -2016,7 +2016,7 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 	UNREFERENCED_PARAMETER(cancel);
 
 	if (previous_epoch(peer_device->connection, peer_req->epoch))
-		bsr_warn(0, BSR_LC_REPLICATION, device, "Write ordering was not enforced (one time event)\n");
+		bsr_warn(29, BSR_LC_REPLICATION, device, "Write ordering was not enforced (one time event)\n");
 
 	/* we still have a local reference,
 	 * get_ldev was done in receive_Data. */
@@ -2104,7 +2104,7 @@ static int receive_Barrier(struct bsr_connection *connection, struct packet_info
 	 * avoid potential distributed deadlock */
 	epoch = kmalloc(sizeof(struct bsr_epoch), GFP_NOIO, '12DW');
 	if (!epoch) {
-		bsr_warn(0, BSR_LC_REPLICATION, connection, "Allocation of an epoch failed, slowing down\n");
+		bsr_warn(30, BSR_LC_REPLICATION, connection, "Allocation of an epoch failed, slowing down\n");
 		issue_flush = !test_and_set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &connection->current_epoch->flags);
 		conn_wait_ee_empty_or_disconnect(connection, &connection->active_ee);
 		if (issue_flush) {
@@ -2341,7 +2341,7 @@ static int recv_dless_read(struct bsr_peer_device *peer_device, struct bsr_reque
 	if (digest_size) {
 		bsr_csum_bio(peer_device->connection->peer_integrity_tfm, req, dig_vv);
 		if (memcmp(dig_in, dig_vv, digest_size)) {
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Digest integrity check FAILED. Broken NICs?\n");
+			bsr_err(24, BSR_LC_REPLICATION, peer_device, "Digest integrity check FAILED. Broken NICs?\n");
 			return -EINVAL;
 		}
 	}
@@ -3699,7 +3699,7 @@ static int wait_for_and_update_peer_seq(struct bsr_peer_device *peer_device, con
 		spin_lock(&peer_device->peer_seq_lock);
 		if (!timeout) {
 			ret = -ETIMEDOUT;
-			bsr_err(0, BSR_LC_TEMP, peer_device, "Timed out waiting for missing ack packets; disconnecting\n");
+			bsr_err(5, BSR_LC_REPLICATION, peer_device, "Timed out waiting for missing ack packets; disconnecting\n");
 			break;
 		}
 	}
@@ -4074,7 +4074,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 
 	// DW-1502 bump the mirrored data after the ack_receiver has terminated.
 	if(get_t_state(&connection->ack_receiver) != RUNNING) {
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"ack_receiver is not running... bump mirrored data\n");
+		bsr_info(6, BSR_LC_REPLICATION, NO_OBJECT, "ack_receiver is not running... bump mirrored data\n");
 		return 0;
 	}
 
@@ -4276,7 +4276,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			err = bsr_al_begin_io_for_peer(peer_device, &peer_req->i);
 			if (err) {
 				// DW-1499 Decrease unacked_cnt when returning an error. 
-				bsr_err(0, BSR_LC_TEMP, peer_device, "disconnect during al begin io (err = %d)\n", err);
+				bsr_err(7, BSR_LC_REPLICATION, peer_device, "disconnect during al begin io (err = %d)\n", err);
 				if (peer_req->flags & EE_SEND_WRITE_ACK) {
 					dec_unacked(peer_device);
 				}
@@ -4360,13 +4360,13 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		}
 
 #ifdef _TRACE_PEER_DAGTAG
-		bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"receive_Data connection->last_dagtag_sector:%llx ack_receiver thread state:%d\n",connection->last_dagtag_sector, get_t_state(&connection->ack_receiver));
+		bsr_info(8, BSR_LC_REPLICATION, NO_OBJECT,"receive_Data connection->last_dagtag_sector:%llx ack_receiver thread state:%d\n",connection->last_dagtag_sector, get_t_state(&connection->ack_receiver));
 #endif
 		return err;
 	}
 
 	/* don't care for the reason here */
-	bsr_err(0, BSR_LC_TEMP, peer_device, "submit failed, triggering re-connect\n");
+	bsr_err(9, BSR_LC_REPLICATION, peer_device, "submit failed, triggering re-connect\n");
 	bsr_al_complete_io(device, &peer_req->i);
 
 disconnect_during_al_begin_io:
@@ -4395,7 +4395,7 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
 	struct bsr_connection *connection = peer_device->connection;
 
 	if (bsr_ratelimit())
-		bsr_err(0, BSR_LC_TEMP, peer_device, "submit failed, triggering re-connect\n");
+		bsr_err(10, BSR_LC_REPLICATION, peer_device, "submit failed, triggering re-connect\n");
 
 	bsr_al_complete_io(device, &peer_req->i);
 
@@ -4527,12 +4527,12 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	size   = be32_to_cpu(p->blksize);
 
 	if (size <= 0 || !IS_ALIGNED(size, 512) || size > BSR_MAX_BIO_SIZE) {
-		bsr_err(0, BSR_LC_TEMP, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
+		bsr_err(11, BSR_LC_REPLICATION, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
 				(unsigned long long)sector, size);
 		return -EINVAL;
 	}
 	if (sector + (size>>9) > capacity) {
-		bsr_err(0, BSR_LC_TEMP, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
+		bsr_err(12, BSR_LC_REPLICATION, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
 				(unsigned long long)sector, size);
 		return -EINVAL;
 	}
@@ -4560,7 +4560,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			BUG();
 		}
 		if (verb && bsr_ratelimit())
-			bsr_err(0, BSR_LC_TEMP, device, "Can not satisfy peer's read request, "
+			bsr_err(13, BSR_LC_REPLICATION, device, "Can not satisfy peer's read request, "
 			    "no local data.\n");
 
 		/* drain possibly payload */
@@ -5698,11 +5698,11 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			break;
 		}
 		if (abs(hg) < 100) {
-			bsr_warn(0, BSR_LC_CONNECTION, device, "Split-Brain detected, %d primaries, "
+			bsr_warn(19, BSR_LC_CONNECTION, device, "Split-Brain detected, %d primaries, "
 			     "automatically solved. Sync from %s node\n",
 			     pcount, (hg < 0) ? "peer" : "this");
 			if (forced) {
-				bsr_warn(0, BSR_LC_CONNECTION, device, "Doing a full sync, since"
+				bsr_warn(20, BSR_LC_CONNECTION, device, "Doing a full sync, since"
 				     " UUIDs where ambiguous.\n");
 				hg = hg + (hg > 0 ? 1 : -1);
 			}
@@ -5713,7 +5713,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		// DW-1221 If DISCARD_MY_DATA bit is set on both nodes, dropping connection.
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 			(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
-			bsr_err(0, BSR_LC_TEMP, connection, "incompatible %s settings\n", "discard-my-data");
+			bsr_err(7, BSR_LC_CONNECTION, connection, "incompatible %s settings\n", "discard-my-data");
 			rcu_read_unlock();
 			return -1;
 		}
@@ -5726,7 +5726,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			hg = 2;
 
 		if (abs(hg) < 100)
-			bsr_warn(0, BSR_LC_CONNECTION, device, "Split-Brain detected, manually solved. "
+			bsr_warn(21, BSR_LC_CONNECTION, device, "Split-Brain detected, manually solved. "
 			     "Sync from %s node\n",
 			     (hg < 0) ? "peer" : "this");
 	}
@@ -5756,7 +5756,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_err(97, BSR_LC_RESYNC_OV, device, "I shall become SyncTarget, but I am primary!\n");
 			return -1;
 		case ASB_VIOLENTLY:
-			bsr_warn(0, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
+			bsr_warn(22, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
 			     "assumption\n");
 		}
 	}
@@ -6734,7 +6734,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 		(peer_device->current_uuid & ~UUID_PRIMARY);
 
 	if (peer_device->connection->agreed_pro_version < 110 && bad_server) {
-		bsr_err(0, BSR_LC_TEMP, device, "Can only connect to data with current UUID=%016llX\n",
+		bsr_err(7, BSR_LC_UUID, device, "Can only connect to data with current UUID=%016llX\n",
 		    (unsigned long long)device->exposed_data_uuid);
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 		return -EIO;
@@ -6749,7 +6749,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 		if (skip_initial_sync) {
 			unsigned long irq_flags;
 
-			bsr_info(0, BSR_LC_TEMP, device, "Accepted new current UUID, preparing to skip initial sync\n");
+			bsr_info(8, BSR_LC_UUID, device, "Accepted new current UUID, preparing to skip initial sync\n");
 			bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 					"clear_n_write from receive_uuids",
 					BM_LOCK_SET | BM_LOCK_CLEAR | BM_LOCK_BULK, NULL);
@@ -6764,11 +6764,11 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 		}
 
 		if (peer_device->uuid_flags & UUID_FLAG_NEW_DATAGEN) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "received new current UUID: %016llX\n", peer_device->current_uuid);
+			bsr_info(9, BSR_LC_UUID, peer_device, "received new current UUID: %016llX\n", peer_device->current_uuid);
 			bsr_uuid_received_new_current(peer_device, peer_device->current_uuid, node_mask);
 		}
 		else {
-			bsr_warn(0, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
+			bsr_warn(16, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX\n", peer_device->current_uuid);
 		}
 
 		if (device->disk_state[NOW] > D_OUTDATED) {
@@ -6796,7 +6796,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 
 		spin_lock_irq(&resource->req_lock);
 		if (resource->state_change_flags) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Delaying update of exposed data uuid\n");
+			bsr_info(10, BSR_LC_UUID, peer_device, "Delaying update of exposed data uuid\n");
 			device->next_exposed_data_uuid = peer_device->current_uuid;
 		} else
 			updated_uuids = bsr_set_exposed_data_uuid(device, peer_device->current_uuid);
@@ -6961,7 +6961,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 		if (!bsr_inspect_resync_side(peer_device, peer_device->repl_state[NOW], NOW, false)) {
 			unsigned long irq_flags;
 			
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Resync will be aborted since peer goes unsyncable.\n");
+			bsr_info(11, BSR_LC_UUID, peer_device, "Resync will be aborted since peer goes unsyncable.\n");
 			begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 			end_state_change(device->resource, &irq_flags, __FUNCTION__);
@@ -7063,7 +7063,7 @@ __change_connection_state(struct bsr_connection *connection,
 		__change_peer_role(connection, val.peer, __FUNCTION__);
 	}
 	if (mask.i) {
-		bsr_info(0, BSR_LC_TEMP, connection, "Remote state change: request %u/%u not "
+		bsr_info(1, BSR_LC_STATE, connection, "Remote state change: request %u/%u not "
 		"understood\n", mask.i, val.i & mask.i);
 		return SS_NOT_SUPPORTED;
 	}
@@ -7107,7 +7107,7 @@ __change_peer_device_state(struct bsr_peer_device *peer_device,
 		__change_resync_susp_dependency(peer_device, val.aftr_isp, __FUNCTION__);
 	}
 	if (mask.i) {
-		bsr_info(0, BSR_LC_TEMP, peer_device, "Remote state change: request %u/%u not "
+		bsr_info(2, BSR_LC_STATE, peer_device, "Remote state change: request %u/%u not "
 		"understood\n", mask.i, val.i & mask.i);
 		return SS_NOT_SUPPORTED;
 	}
@@ -7340,7 +7340,7 @@ void twopc_timer_fn(BSR_TIMER_FN_ARG)
 
 	spin_lock_irqsave(&resource->req_lock, irq_flags);
 	if (resource->twopc_work.cb == NULL) {
-		bsr_err(0, BSR_LC_TEMP, resource, "Two-phase commit %u timeout\n",
+		bsr_err(1, BSR_LC_TWOPC, resource, "Two-phase commit %u timeout\n",
 			   resource->twopc_reply.tid);
 		resource->twopc_work.cb = abort_nested_twopc_work;
 		bsr_queue_work(&resource->work, &resource->twopc_work);
@@ -7449,31 +7449,31 @@ check_concurrent_transactions(struct bsr_resource *resource, struct twopc_reply 
 
 	if (new_r->initiator_node_id < ongoing->initiator_node_id) {
 		if ((unsigned int)ongoing->initiator_node_id == resource->res_opts.node_id) {
-			bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC] CSC_ABORT_LOCAL! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
+			bsr_info(2, BSR_LC_TWOPC, resource, "[TWOPC] CSC_ABORT_LOCAL! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
 			return CSC_ABORT_LOCAL;
 		}
 		else {
-			bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC] CSC_QUEUE! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
+			bsr_info(3, BSR_LC_TWOPC, resource, "[TWOPC] CSC_QUEUE! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
 			return CSC_QUEUE;
 		}
 	} else if (new_r->initiator_node_id > ongoing->initiator_node_id) {
 		// DW-1894 if the old request is disconnected, remove it and process the new request.
 		if (ongoing->is_disconnect && new_r->tid != ongoing->tid) {
-			bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC] CSC_UPDATE! new_r->initiator_node_id (%d), new_r->tid (%u)\n",
+			bsr_info(4, BSR_LC_TWOPC, resource, "[TWOPC] CSC_UPDATE! new_r->initiator_node_id (%d), new_r->tid (%u)\n",
 				new_r->initiator_node_id, new_r->tid);
 			del_timer(&resource->twopc_timer);
 			clear_remote_state_change_without_lock(resource);
 			return CSC_UPDATE;
 		}
-		bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC] CSC_REJECT! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
+		bsr_info(5, BSR_LC_TWOPC, resource, "[TWOPC] CSC_REJECT! new_r->initiator_node_id (%d) ongoing->initiator_node_id (%d)\n",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
 
 		return CSC_REJECT;
 	}
 	if (new_r->tid != ongoing->tid) {
-		bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC] CSC_TID_MISS! new_r->tid (%u) ongoing->tid (%u)\n",
+		bsr_info(6, BSR_LC_TWOPC, resource, "[TWOPC] CSC_TID_MISS! new_r->tid (%u) ongoing->tid (%u)\n",
 					new_r->tid, ongoing->tid);
 		return CSC_TID_MISS;
 	}
@@ -7587,7 +7587,7 @@ static int queued_twopc_work(struct bsr_work *w, int cancel)
 	while (true) {
 		if (jiffies - q->start_jif >= t || cancel) {
 			if (!cancel)
-				bsr_info(0, BSR_LC_TEMP, connection, "Rejecting concurrent "
+				bsr_info(7, BSR_LC_TWOPC, connection, "Rejecting concurrent "
 				"remote state change %u because of "
 				"state change %u takes too long\n",
 				q->reply.tid,
@@ -7793,7 +7793,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         char ppb[10];
 
 		bsr_set_my_capacity(device, tr->new_size);
-		bsr_info(0, BSR_LC_TEMP, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
+		bsr_info(8, BSR_LC_TWOPC, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
 			(unsigned long long)tr->new_size >> 1);
         return DS_UNCHANGED; /* Not entirely true, but we are diskless... */
     }
@@ -7806,7 +7806,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         struct disk_conf *old_disk_conf, *new_disk_conf;
 		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7DW');
         if (!new_disk_conf) {
-            bsr_err(0, BSR_LC_TEMP, device, "Allocation of new disk_conf failed\n");
+			bsr_err(9, BSR_LC_TWOPC, device, "Allocation of new disk_conf failed\n");
 			device->ldev->disk_conf->disk_size = tr->user_size;
             goto cont;
         }
@@ -7822,7 +7822,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         synchronize_rcu();
         kfree(old_disk_conf);
 
-        bsr_info(0, BSR_LC_TEMP, device, "New u_size %llu sectors\n",
+		bsr_info(10, BSR_LC_TWOPC, device, "New u_size %llu sectors\n",
 			(unsigned long long)tr->user_size);
     }
 cont:
@@ -7939,7 +7939,7 @@ static int process_twopc(struct bsr_connection *connection,
 
 
 	if (connection == NULL)
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "process_twopc connection is null\n");
+		bsr_err(11, BSR_LC_TWOPC, NO_OBJECT, "process_twopc connection is null\n");
 	
 	resource = connection->resource;
 	
@@ -7948,7 +7948,7 @@ static int process_twopc(struct bsr_connection *connection,
 	
 	csc_rv = check_concurrent_transactions(resource, reply);
 
-	bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
+	bsr_info(12, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%llu) pi->cmd (%s)\n",
 					reply->tid, reply->target_node_id, csc_rv, reply->primary_nodes, bsr_packet_name(pi->cmd));
 	if (csc_rv == CSC_CLEAR && pi->cmd != P_TWOPC_ABORT) {
 		if (!is_prepare(pi->cmd)) {
@@ -7961,7 +7961,7 @@ static int process_twopc(struct bsr_connection *connection,
 			if(resource->role[NEW] == R_SECONDARY && reply->primary_nodes != 0 ) {
 				struct bsr_device *device;
 				int vnr;
-				bsr_info(0, BSR_LC_TEMP, resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] target_node_id (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
+				bsr_info(13, BSR_LC_TWOPC, resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] target_node_id (%d) primary_nodes (%llu) pi->cmd (%s)\n",
 					reply->tid, reply->target_node_id, reply->primary_nodes, bsr_packet_name(pi->cmd));
 				idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 					if(get_ldev_if_state(device, D_NEGOTIATING)) {
@@ -7969,7 +7969,7 @@ static int process_twopc(struct bsr_connection *connection,
 						put_ldev(device);		
 						bsr_md_sync_if_dirty(device);
 					} else {
-						bsr_info(0, BSR_LC_TEMP, resource, "LastPrimary got it! But disk state is diskless or failed device->disk_state:%d\n",device->disk_state[NEW]);
+						bsr_info(14, BSR_LC_TWOPC, resource, "LastPrimary got it! But disk state is diskless or failed device->disk_state:%d\n", device->disk_state[NEW]);
 					}
 				} 
 			}
@@ -7981,7 +7981,7 @@ static int process_twopc(struct bsr_connection *connection,
 							
 				if (reply->target_node_id == (int)resource->res_opts.node_id &&
 					mask.conn == conn_MASK && val.conn == L_STARTING_SYNC_S) {
-					bsr_err(0, BSR_LC_TEMP, connection, "[TWOPC:%u] target_node_id (%d) unexpected packet \n",
+					bsr_err(15, BSR_LC_TWOPC, connection, "[TWOPC:%u] target_node_id (%d) unexpected packet \n",
 							reply->tid, reply->target_node_id);
 
 					return -EIO;
@@ -8005,7 +8005,7 @@ static int process_twopc(struct bsr_connection *connection,
 
 		if (test_and_set_bit(TWOPC_EXECUTED, &resource->flags)) {
 			spin_unlock_irq(&resource->req_lock);
-			bsr_info(0, BSR_LC_TEMP, connection, "Ignoring redundant %s packet %u.\n",
+			bsr_info(16, BSR_LC_TWOPC, connection, "Ignoring redundant %s packet %u.\n",
 					bsr_packet_name(pi->cmd),
 					reply->tid);
 			return 0;
@@ -8013,7 +8013,7 @@ static int process_twopc(struct bsr_connection *connection,
 	} else if (csc_rv == CSC_ABORT_LOCAL && is_prepare(pi->cmd)) {
 		enum alt_rv alt_rv;
 
-		bsr_info(0, BSR_LC_TEMP, connection, "Aborting local state change %u to yield to remote "
+		bsr_info(17, BSR_LC_TWOPC, connection, "Aborting local state change %u to yield to remote "
 			  "state change %u.\n",
 			  resource->twopc_reply.tid,
 			  reply->tid);
@@ -8023,7 +8023,7 @@ static int process_twopc(struct bsr_connection *connection,
 			goto match; 
 		} else if (alt_rv == ALT_TIMEOUT){
 			/* abort_local_transaction() comes back unlocked in this case ... */
-			bsr_info(0, BSR_LC_TEMP, connection, "Aborting local state change %u "
+			bsr_info(18, BSR_LC_TWOPC, connection, "Aborting local state change %u "
 				  "failed. Rejecting remote state change %u.\n",
 				  resource->twopc_reply.tid,
 				  reply->tid);
@@ -8050,12 +8050,12 @@ static int process_twopc(struct bsr_connection *connection,
 		if (err) {
 			err = abort_queued_twopc(resource, reply);
 			if (err)
-				bsr_info(0, BSR_LC_TEMP, connection, "Ignoring %s packet %u.\n",
+				bsr_info(19, BSR_LC_TWOPC, connection, "Ignoring %s packet %u.\n",
 					  bsr_packet_name(pi->cmd),
 					  reply->tid);
 		}
 
-		bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC:%u] target_node_id (%d) abort_starting_twopc \n", 
+		bsr_info(20, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id (%d) abort_starting_twopc \n",
 					reply->tid, reply->target_node_id);
 		nested_twopc_abort(resource, pi->vnr, pi->cmd, p);
 		return 0;
@@ -8064,7 +8064,7 @@ static int process_twopc(struct bsr_connection *connection,
 
 		if (csc_rv == CSC_REJECT) {
 		reject:
-			bsr_info(0, BSR_LC_TEMP, connection, "Rejecting concurrent "
+			bsr_info(21, BSR_LC_TWOPC, connection, "Rejecting concurrent "
 				  "remote state change %u because of "
 				  "state change %u\n",
 				  reply->tid,
@@ -8097,7 +8097,7 @@ static int process_twopc(struct bsr_connection *connection,
 							&resource->twopc_parents);
 					}
 					else {
-						bsr_info(0, BSR_LC_TEMP, connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
+						bsr_info(22, BSR_LC_TWOPC, connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
 						kref_debug_put(&connection->kref_debug, 9);
 						kref_put(&connection->kref, bsr_destroy_connection);
 					}
@@ -8129,7 +8129,7 @@ static int process_twopc(struct bsr_connection *connection,
 				}
 			}
 		} else {
-			bsr_info(0, BSR_LC_TEMP, connection, "Ignoring %s packet %u "
+			bsr_info(23, BSR_LC_TWOPC, connection, "Ignoring %s packet %u "
 				  "current processing state change %u\n",
 				  bsr_packet_name(pi->cmd),
 				  reply->tid,
@@ -8219,7 +8219,7 @@ static int process_twopc(struct bsr_connection *connection,
 
 	switch(pi->cmd) {
 	case P_TWOPC_PREPARE:
-		bsr_info(0, BSR_LC_TEMP, connection, "Preparing remote state change %u "
+		bsr_info(24, BSR_LC_TWOPC, connection, "Preparing remote state change %u "
 			  "(primary_nodes=%lX, weak_nodes=%lX)\n",
 			  reply->tid,
 			  (unsigned long)reply->primary_nodes,
@@ -8227,25 +8227,25 @@ static int process_twopc(struct bsr_connection *connection,
 		flags |= CS_PREPARE;
 		break;
 	case P_TWOPC_PREP_RSZ:
-		bsr_info(0, BSR_LC_TEMP, connection, "Preparing remote state change %u "
+		bsr_info(25, BSR_LC_TWOPC, connection, "Preparing remote state change %u "
 			"(local_max_size = %llu KiB)\n",
 			reply->tid, (unsigned long long)reply->max_possible_size >> 1);
 		flags |= CS_PREPARE;
 		break;
 	case P_TWOPC_ABORT:
-		bsr_info(0, BSR_LC_TEMP, connection, "Aborting remote state change %u\n",
+		bsr_info(26, BSR_LC_TWOPC, connection, "Aborting remote state change %u\n",
 			  reply->tid);
 		flags |= CS_ABORT;
 		break;
 	case P_TWOPC_COMMIT:
-		bsr_info(0, BSR_LC_TEMP, connection, "Committing remote state change %u\n",
+		bsr_info(27, BSR_LC_TWOPC, connection, "Committing remote state change %u\n",
 			  reply->tid);
 		break;
 	default:
 		BUG();
 	}
 
-	bsr_info(0, BSR_LC_TEMP, resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n",
+	bsr_info(28, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n",
 				reply->tid,
 				reply->target_node_id,
 				mask.conn == conn_MASK ? bsr_conn_str(val.conn) : "-",
@@ -8278,7 +8278,7 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(29, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
+		bsr_alert(29, BSR_LC_TWOPC, connection, "Split-Brain since more primaries than allowed; dropping connection!\n");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}
@@ -8292,7 +8292,7 @@ static int process_twopc(struct bsr_connection *connection,
 			list_add(&connection->twopc_parent_list, &resource->twopc_parents);
 		}
 		else {
-			bsr_info(0, BSR_LC_TEMP, connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
+			bsr_info(30, BSR_LC_TWOPC, connection, "twopc_parent_list(%p) already added.\n", &connection->twopc_parent_list);
 			kref_debug_put(&connection->kref_debug, 9);
 			kref_put(&connection->kref, bsr_destroy_connection);
 		}
@@ -8333,7 +8333,7 @@ static int process_twopc(struct bsr_connection *connection,
 		if( (resource->role[NEW] != R_PRIMARY) && (reply->primary_nodes != 0) ) {
 			struct bsr_device *device;
 			int vnr;
-			bsr_info(0, BSR_LC_TEMP, resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] after clear_remote_state_change target_node_id (%d) primary_nodes (%llu) pi->cmd (%s)\n", 
+			bsr_info(31, BSR_LC_TWOPC, resource, "Peer node is Primary. LastPrimary flag set [TWOPC:%u] after clear_remote_state_change target_node_id (%d) primary_nodes (%llu) pi->cmd (%s)\n",
 				reply->tid, reply->target_node_id, reply->primary_nodes, bsr_packet_name(pi->cmd));
 			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 				if(get_ldev_if_state(device, D_NEGOTIATING)) {
@@ -8341,7 +8341,7 @@ static int process_twopc(struct bsr_connection *connection,
 					put_ldev(device);
 					bsr_md_sync_if_dirty(device);
 				} else {
-					bsr_info(0, BSR_LC_TEMP, resource, "LastPrimary got it! But disk state is diskless or failed device->disk_state:%d\n", device->disk_state[NEW]);
+					bsr_info(32, BSR_LC_TWOPC, resource, "LastPrimary got it! But disk state is diskless or failed device->disk_state:%d\n", device->disk_state[NEW]);
 				}
 			}
 		}
@@ -8385,7 +8385,7 @@ static void try_to_get_resynced(struct bsr_device *device)
 		int hg, rule_nr, peer_node_id;
 		if (peer_device->disk_state[NOW] == D_UP_TO_DATE) {
 			hg = bsr_uuid_compare(peer_device, &rule_nr, &peer_node_id);
-			bsr_info(0, BSR_LC_TEMP, peer_device, "hg = %d\n", hg);
+			bsr_info(3, BSR_LC_STATE, peer_device, "hg = %d\n", hg);
 			if (hg <= 0 && hg > best_hg) {
 				best_hg = hg;
 				best_peer_device = peer_device;
@@ -8450,11 +8450,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	if (peer_state.disk == D_NEGOTIATING) {
 		peer_disk_state = peer_device->uuid_flags & UUID_FLAG_INCONSISTENT ?
 			D_INCONSISTENT : D_CONSISTENT;
-		bsr_info(0, BSR_LC_TEMP, device, "real peer disk state = %s\n", bsr_disk_str(peer_disk_state));
+		bsr_info(4, BSR_LC_STATE, device, "real peer disk state = %s\n", bsr_disk_str(peer_disk_state));
 	}
 	// DW-2054 if state is received in D_ATTACHING condition, it induces re-connection.
 	else if (device->disk_state[NOW] == D_ATTACHING) {
-		bsr_info(0, BSR_LC_TEMP, device, "reconnect because initialization packets were received in D_ATTACHING state");
+		bsr_info(5, BSR_LC_STATE, device, "reconnect because initialization packets were received in D_ATTACHING state");
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 		return 0;
 	}
@@ -8589,7 +8589,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	if (peer_state.conn == L_AHEAD) {
 		if (old_peer_state.conn != L_BEHIND) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "peer is Ahead. change to Behind mode\n"); // DW-1518
+			bsr_info(23, BSR_LC_REPLICATION, peer_device, "peer is Ahead. change to Behind mode\n"); // DW-1518
 		}
 		// DW-2104 When the Ahead node is demoted, Behind state is changed to Established.
 		if (peer_state.role == R_SECONDARY)
@@ -8620,7 +8620,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 		// DW-1093 detour 2-primary SB
 		if( (peer_state.role == R_PRIMARY) && (device->resource->role[NOW] == R_PRIMARY) ) {
-			bsr_err(0, BSR_LC_TEMP, device, "2 primary is not allowed.\n");
+			bsr_err(31, BSR_LC_STATE, device, "2 primary is not allowed.\n");
 			put_ldev(device);
 			goto fail;
 		}
@@ -8642,7 +8642,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 				new_repl_state = L_NEG_NO_RESULT;
 			} else if (peer_state.disk == D_NEGOTIATING) {
 				if (connection->agreed_pro_version < 110) {
-					bsr_err(0, BSR_LC_TEMP, device, "Disk attach process on the peer node was aborted.\n");
+					bsr_err(6, BSR_LC_STATE, device, "Disk attach process on the peer node was aborted.\n");
 					peer_state.disk = D_DISKLESS;
 					peer_disk_state = D_DISKLESS;
 				} else {
@@ -8671,7 +8671,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		device->disk_state[NOW] >= D_NEGOTIATING && device->disk_state[NOW] < D_UP_TO_DATE) {
 		/* I got connected to a diskless primary */
 		if (peer_device->current_uuid == bsr_current_uuid(device)) {
-			bsr_info(0, BSR_LC_TEMP, peer_device, "Upgrading local disk to D_UP_TO_DATE since current UUID matches.\n");
+			bsr_info(7, BSR_LC_STATE, peer_device, "Upgrading local disk to D_UP_TO_DATE since current UUID matches.\n");
 			new_disk_state = D_UP_TO_DATE;
 		}
 		else {
@@ -8680,7 +8680,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		}
 	}
 
-	bsr_info(0, BSR_LC_TEMP, peer_device, "receive new repl state \"%s\"\n", bsr_repl_str(new_repl_state));
+	bsr_info(8, BSR_LC_STATE, peer_device, "receive new repl state \"%s\"\n", bsr_repl_str(new_repl_state));
 
 	spin_lock_irq(&resource->req_lock);
 	begin_state_change_locked(resource, CS_VERBOSE);
@@ -8713,7 +8713,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		abort_state_change_locked(resource, false, __FUNCTION__);
 		spin_unlock_irq(&resource->req_lock);
 
-		bsr_err(0, BSR_LC_TEMP, device, "Aborting Connect, can not thaw IO with an only Consistent peer\n");
+		bsr_err(9, BSR_LC_STATE, device, "Aborting Connect, can not thaw IO with an only Consistent peer\n");
 		tl_clear(connection);
 		mutex_lock(&resource->conf_update);
 		bsr_uuid_new_current(device, false, __FUNCTION__);
@@ -8740,7 +8740,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		// DISCONNECTING makes cstate STANDALONE
 		// DW-1888 if the return value is SS_NEED_CONNECTION, reconnect it.
 		if (connection->cstate[NOW] == C_CONNECTING || rv == SS_NEED_CONNECTION){
-			bsr_info(0, BSR_LC_TEMP, peer_device, "connection->cstate[OLD] == C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING\n");
+			bsr_info(10, BSR_LC_STATE, peer_device, "connection->cstate[OLD] == C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING\n");
 			goto fail_network_failure;
 		}
 		goto fail;
@@ -8819,7 +8819,7 @@ static int receive_sync_uuid(struct bsr_connection *connection, struct packet_in
 
 		put_ldev(device);
 	} else
-		bsr_err(0, BSR_LC_TEMP, device, "Ignoring SyncUUID packet!\n");
+		bsr_err(12, BSR_LC_UUID, device, "Ignoring SyncUUID packet!\n");
 
 	return 0;
 }
@@ -9479,10 +9479,10 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 				goto out;
 
 #ifdef _TRACE_PEER_DAGTAG
-		bsr_info(0, BSR_LC_TEMP, connection, "Reconciliation resync because \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
+		bsr_info(25, BSR_LC_REPLICATION, connection, "Reconciliation resync because \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
 			  lost_peer->transport.net_conf->name, (int)dagtag_offset, lost_peer, lost_peer->last_dagtag_sector, be64_to_cpu(p->dagtag));
 #else
-		bsr_info(0, BSR_LC_TEMP, connection, "Reconciliation resync because \'%s\' disappeared. (o=%d)\n",
+		bsr_info(11, BSR_LC_STATE, connection, "Reconciliation resync because \'%s\' disappeared. (o=%d)\n",
  				lost_peer->transport.net_conf->name, (int)dagtag_offset);
 #endif
 
@@ -9504,10 +9504,10 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 		}
 	} else {
 #ifdef _TRACE_PEER_DAGTAG	
-		bsr_info(0, BSR_LC_TEMP, connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
+		bsr_info(26, BSR_LC_REPLICATION, connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d) lost_peer:%p lost_peer->last_dagtag_sector:0x%llx be64_to_cpu(p->dagtag):%llx\n",
 			  lost_peer->transport.net_conf->name, (int)dagtag_offset, lost_peer, lost_peer->last_dagtag_sector, be64_to_cpu(p->dagtag));
 #else
-		bsr_info(0, BSR_LC_TEMP, connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d)\n",
+		bsr_info(12, BSR_LC_STATE, connection, "No reconciliation resync even though \'%s\' disappeared. (o=%d)\n",
 			lost_peer->transport.net_conf->name, (int)dagtag_offset);
 #endif
 
@@ -9521,7 +9521,7 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 				bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
 				put_ldev (peer_device->device);
 			} else {
-				bsr_info(0, BSR_LC_TEMP, connection, "No bsr_bm_clear_many_bits, disk_state:%d peer disk_state:%d\n",
+				bsr_info(13, BSR_LC_STATE, connection, "No bsr_bm_clear_many_bits, disk_state:%d peer disk_state:%d\n",
 							peer_device->device->disk_state[NOW], peer_device->disk_state[NOW]);
 			}
 		}
@@ -9563,7 +9563,7 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 		if (bsr_current_uuid(device) != 0 && device->ldev) {
 			struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
 			if (peer_md->bitmap_uuid != 0) {
-				bsr_info(0, BSR_LC_TEMP, peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)\n", current_uuid, peer_md->bitmap_uuid);
+				bsr_info(13, BSR_LC_UUID, peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)\n", current_uuid, peer_md->bitmap_uuid);
 				bsr_uuid_set_bitmap(peer_device, 0);
 			}
 		}
@@ -9576,13 +9576,13 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
 		if (connection->peer_role[NOW] == R_PRIMARY) {
-			bsr_warn(0, BSR_LC_UUID, peer_device, "received new current UUID: %016llX "
+			bsr_warn(17, BSR_LC_UUID, peer_device, "received new current UUID: %016llX "
 				  "weak_nodes=%016llX\n", current_uuid, weak_nodes);
 			bsr_uuid_received_new_current(peer_device, current_uuid, weak_nodes);
 			bsr_md_sync_if_dirty(device);
 		}
 		else
-			bsr_warn(0, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX "
+			bsr_warn(18, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX "
 									"weak_nodes=%016llX\n", current_uuid, weak_nodes);
 
 		put_ldev(device);
@@ -10049,11 +10049,11 @@ void conn_disconnect(struct bsr_connection *connection)
 
 	if (!list_empty(&connection->current_epoch->list)) {
 		struct bsr_epoch *epoch;
-		bsr_err(0, BSR_LC_TEMP, connection, "ASSERTION FAILED: connection->current_epoch->list not empty\n");
+		bsr_err(14, BSR_LC_REPLICATION, connection, "ASSERTION FAILED: connection->current_epoch->list not empty\n");
 
 		// DW-1812 if the epoch list is not empty, remove it.
 		list_for_each_entry_ex(struct bsr_epoch, epoch, &connection->current_epoch->list, list) {
-			bsr_info(0, BSR_LC_TEMP, connection, "ASSERTION FAILED: remove epoch barrier_nr : %u, epochs:%u\n", epoch->barrier_nr, connection->epochs);
+			bsr_info(15, BSR_LC_REPLICATION, connection, "ASSERTION FAILED: remove epoch barrier_nr : %u, epochs:%u\n", epoch->barrier_nr, connection->epochs);
 			list_del(&epoch->list);
 			kfree(epoch);
 			connection->epochs--;
@@ -10079,7 +10079,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	// DW-2035
 	clear_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags); 
 
-	bsr_info(0, BSR_LC_TEMP, connection, "Connection closed\n");
+	bsr_info(9, BSR_LC_CONNECTION, connection, "Connection closed\n");
 
 	if (resource->role[NOW] == R_PRIMARY && conn_highest_pdsk(connection) >= D_UNKNOWN)
 		conn_try_outdate_peer_async(connection);
@@ -10239,8 +10239,8 @@ int bsr_do_features(struct bsr_connection *connection)
 #if !defined(CONFIG_CRYPTO_HMAC) && !defined(CONFIG_CRYPTO_HMAC_MODULE)
 int bsr_do_auth(struct bsr_connection *connection)
 {
-	bsr_err(0, BSR_LC_TEMP, connection, "This kernel was build without CONFIG_CRYPTO_HMAC.\n");
-	bsr_err(0, BSR_LC_TEMP, connection, "You need to disable 'cram-hmac-alg' in bsr.conf.\n");
+	bsr_err(10, BSR_LC_CONNECTION, connection, "This kernel was build without CONFIG_CRYPTO_HMAC.\n");
+	bsr_err(11, BSR_LC_CONNECTION, connection, "You need to disable 'cram-hmac-alg' in bsr.conf.\n");
 	return -1;
 }
 #else
@@ -10943,7 +10943,7 @@ static int got_NegDReply(struct bsr_connection *connection, struct packet_info *
 
 	update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
-	bsr_err(0, BSR_LC_TEMP, device, "Got NegDReply; Sector %llus, len %u.\n",
+	bsr_err(16, BSR_LC_REPLICATION, device, "Got NegDReply; Sector %llus, len %u.\n",
 		 (unsigned long long)sector, be32_to_cpu(p->blksize));
 
 	return validate_req_change_req_state(peer_device, p->block_id, sector,
@@ -11162,7 +11162,7 @@ static int got_peer_ack(struct bsr_connection *connection, struct packet_info *p
 	dagtag = be64_to_cpu(p->dagtag);
 	in_sync = be64_to_cpu(p->mask);
 #ifdef _TRACE_PEER_DAGTAG    
-	bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"got_peer_ack dagtag:%llx in_sync:%llx\n", dagtag, in_sync);
+	bsr_info(17, BSR_LC_REPLICATION, NO_OBJECT,"got_peer_ack dagtag:%llx in_sync:%llx\n", dagtag, in_sync);
 #endif
 	
 	spin_lock_irq(&resource->req_lock);
@@ -11172,7 +11172,7 @@ static int got_peer_ack(struct bsr_connection *connection, struct packet_info *p
 	}
 	spin_unlock_irq(&resource->req_lock);
 
-	bsr_err(0, BSR_LC_TEMP, connection, "peer request with dagtag %llu not found\n", dagtag);
+	bsr_err(18, BSR_LC_REPLICATION, connection, "peer request with dagtag %llu not found\n", dagtag);
 	return -EIO;
 
 found:
@@ -11195,7 +11195,7 @@ found:
 			bsr_set_sync(device, peer_req->i.sector,
 				peer_req->i.size, ~(ULONG_PTR)in_sync_b, (ULONG_PTR)set_sync_mask);
 #ifdef _TRACE_PEER_DAGTAG			
-			bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"got_peer_ack bsr_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
+			bsr_info(19, BSR_LC_REPLICATION, NO_OBJECT,"got_peer_ack bsr_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx\n", 
 				device, (u64)peer_req->i.sector, peer_req->i.size, (u64)in_sync_b, (u64)set_sync_mask);
 #endif
 			bsr_al_complete_io(device, &peer_req->i);
@@ -11386,11 +11386,11 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			if (ping_ret) {
 #ifdef _WIN
 				if (ping_ret == -EINTR && current->sig == SIGXCPU) {
-					bsr_info(0, BSR_LC_TEMP, NO_OBJECT,"got SIGXCPU during ping\n");
+					bsr_info(12, BSR_LC_CONNECTION, NO_OBJECT, "got SIGXCPU during ping\n");
 					flush_signals(current);
 				}
 #endif
-				bsr_err(0, BSR_LC_TEMP, connection, "bsr_send_ping has failed (%d)\n", ping_ret);
+				bsr_err(13, BSR_LC_CONNECTION, connection, "bsr_send_ping has failed (%d)\n", ping_ret);
 				goto reconnect;
 			}
 			set_ping_timeout(connection);
@@ -11429,7 +11429,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 				if (t)
 					break;
 			}
-			bsr_err(0, BSR_LC_TEMP, connection, "meta connection shut down by peer.\n");
+			bsr_err(14, BSR_LC_CONNECTION, connection, "meta connection shut down by peer.\n");
 			goto reconnect;
 		} else if (rv == -EAGAIN) {
 			/* If the data socket received something meanwhile,
@@ -11438,7 +11438,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			if (time_after(connection->last_received, pre_recv_jif))
 				continue;
 			if (ping_timeout_active) {
-				bsr_err(0, BSR_LC_TEMP, connection, "PingAck did not arrive in time.\n");
+				bsr_err(15, BSR_LC_CONNECTION, connection, "PingAck did not arrive in time.\n");
 				goto reconnect;
 			}
 			set_bit(SEND_PING, &connection->flags);
@@ -11455,7 +11455,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			flush_signals(current);
 			continue;
 		} else {
-			bsr_err(0, BSR_LC_TEMP, connection, "sock_recvmsg returned %d\n", rv);
+			bsr_err(17, BSR_LC_SOCKET, connection, "sock_recvmsg returned %d\n", rv);
 			goto reconnect;
 		}
 
@@ -11525,7 +11525,7 @@ disconnect:
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 	}
 
-	bsr_info(0, BSR_LC_TEMP, connection, "ack_receiver terminated\n");
+	bsr_info(16, BSR_LC_CONNECTION, connection, "ack_receiver terminated\n");
 
 	return 0;
 }

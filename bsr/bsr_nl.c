@@ -153,7 +153,7 @@ static void bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
     }
 #endif
 	if (genlmsg_reply(skb, info)) {
-		bsr_err(0, BSR_LC_TEMP, NO_OBJECT, "error sending genl reply\n");
+		bsr_err(1, BSR_LC_GENL, NO_OBJECT, "error sending genl reply\n");
 #ifdef _WIN
 		return -1;
 #endif
@@ -441,7 +441,7 @@ static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *
 {
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
-		bsr_err(0, BSR_LC_TEMP, resource, "cmd(%u) error: %s\n", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
+		bsr_err(2, BSR_LC_GENL, resource, "cmd(%u) error: %s\n", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
 	}
 
 	if (adm_ctx->device) {
@@ -792,7 +792,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	return ret;
 
     out_err:
-	bsr_err(0, BSR_LC_TEMP, resource, "Could not call %s user-space helper: error %d"
+	bsr_err(3, BSR_LC_GENL, resource, "Could not call %s user-space helper: error %d"
 		 "out of memory\n", cmd, ret);
 	return 0;
 }
@@ -848,7 +848,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 
 	spin_lock_irq(&resource->req_lock);
 	if (connection->cstate[NOW] >= C_CONNECTED) {
-		bsr_err(0, BSR_LC_TEMP, connection, "Expected cstate < C_CONNECTED\n");
+		bsr_err(4, BSR_LC_GENL, connection, "Expected cstate < C_CONNECTED\n");
 		spin_unlock_irq(&resource->req_lock);
 		return false;
 	}
@@ -914,18 +914,18 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 		/* THINK: do we need to handle this
 		 * like case 4 P_OUTDATED, or more like case 5 P_DOWN? */
 		if (fencing_policy != FP_STONITH)
-			bsr_err(0, BSR_LC_TEMP, connection, "fence-peer() = 7 && fencing != Stonith !!!\n");
+			bsr_err(5, BSR_LC_GENL, connection, "fence-peer() = 7 && fencing != Stonith !!!\n");
 		ex_to_string = "peer was stonithed";
 		__change_peer_disk_states(connection, D_OUTDATED);
 		break;
 	default:
 		/* The script is broken ... */
-		bsr_err(0, BSR_LC_TEMP, connection, "fence-peer helper broken, returned %d\n", (r>>8)&0xff);
+		bsr_err(6, BSR_LC_GENL, connection, "fence-peer helper broken, returned %d\n", (r >> 8) & 0xff);
 		abort_state_change(resource, &irq_flags, __FUNCTION__);
 		return false; /* Eventually leave IO frozen */
 	}
 
-	bsr_info(0, BSR_LC_TEMP, connection, "fence-peer helper returned %d (%s)\n",
+	bsr_info(7, BSR_LC_GENL, connection, "fence-peer helper returned %d (%s)\n",
 		  r, ex_to_string);
 
 	if (connection->cstate[NOW] >= C_CONNECTED ||
@@ -936,7 +936,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 	if (connection->last_reconnect_jif != last_reconnect_jif) {
 		/* In case the connection was established and dropped
 		   while the fence-peer handler was running, ignore it */
-		bsr_info(0, BSR_LC_TEMP, connection, "Ignoring fence-peer exit code\n");
+		bsr_info(8, BSR_LC_GENL, connection, "Ignoring fence-peer exit code\n");
 		goto abort;
 	}
 

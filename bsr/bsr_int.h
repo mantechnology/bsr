@@ -3645,7 +3645,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(0, BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
+		bsr_warn(27, BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
@@ -3900,7 +3900,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 		device->resource->breqbuf_overflow_alarm = true;
 	
 		if (bsr_ratelimit()) {
-			bsr_warn(0, BSR_LC_REPLICATION, device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
+			bsr_warn(28, BSR_LC_REPLICATION, device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n",
 				atomic_read(&device->resource->req_write_cnt),
 				max_req_write_cnt);
 		}
