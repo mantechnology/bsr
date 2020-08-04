@@ -48,6 +48,8 @@ void usage()
 		// BSR-232
         "   /release_vol [letter] : release lock & delete replication volume\n"
 		"   /bsrlock_status\n"
+		// BSR-71
+		"   /bsrlock_use [0,1]]\n"
 		"   /info\n"
 		"   /status : bsr version\n"
 		"   /write_log [ProviderName] \"[LogData]\" \n"
@@ -87,6 +89,8 @@ void usage()
         "bsrcon /nodelayedack 10.10.0.1 \n"
 		// BSR-232
         "bsrcon /release_vol F \n"
+		// BSR-71
+		"bsrcon /bsrlock_use 0\n"
 		"bsrcon /write_log bsrService \"Logging start\" \n"	
 #else
 		"examples:\n"
@@ -423,6 +427,7 @@ int main(int argc, char* argv [])
     char    DelayedAckDisableFlag = 0;
 	char    ReleaseVolumeFlag = 0, DismountFlag = 0;
 	char	SimulDiskIoErrorFlag = 0;
+	char	BsrlockUse = 0;
     char    *addr = NULL;
 	char	WriteLog = 0;
 	char	*LoggingData = NULL;
@@ -431,6 +436,7 @@ int main(int argc, char* argv [])
 	char	Verbose = 0;
 	int     Force = 0;
 	SIMULATION_DISK_IO_ERROR sdie = { 0, };
+	int		bBsrlock = 0;
 #endif
 #ifdef _DEBUG_OOS
 	char	ConvertOosLog = 0;
@@ -590,6 +596,20 @@ int main(int argc, char* argv [])
 				usage();
 		}
 #ifdef _WIN
+		// BSR-71
+		else if (strcmp(argv[argIndex], "/bsrlock_use") == 0) {
+			BsrlockUse++;
+			argIndex++;
+
+			if (argIndex < argc) {
+				bBsrlock = atoi(argv[argIndex]);
+				if (bBsrlock < 0 || bBsrlock > 1) {
+					fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+					usage();
+				}
+			} else
+				usage();
+		}
 		else if (strcmp(argv[argIndex], "/write_log") == 0) {
 			argIndex++;
 			WriteLog++;
@@ -782,6 +802,12 @@ int main(int argc, char* argv [])
 	}
 
 #ifdef _WIN
+
+	// BSR-71
+	if (BsrlockUse) {
+		res = MVOL_BsrlockUse(bBsrlock);
+	}
+
 	if (GetVolumeSizeFlag) {
 		MVOL_VOLUME_INFO	srcVolumeInfo;
 		LARGE_INTEGER		volumeSize;
