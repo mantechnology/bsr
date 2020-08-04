@@ -221,7 +221,7 @@ int dtt_init(struct bsr_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09DW');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			bsr_warn(NO_OBJECT,"dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM" );
+			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "dtt_init kzalloc %s allocation fail\n", i ? "CONTROL_STREAM" : "DATA_STREAM");
 			goto fail;
 		}
 #else  // _LIN
@@ -523,7 +523,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 	}
 	else if (err != (int)size) {
 		// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-		bsr_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)size, err);
+		bsr_err(23, BSR_LC_SOCKET, NO_OBJECT, "Wrong data (expected size:%d, received size:%d)\n", (int)size, err);
 		err = -EIO;		
 		
 		goto fail;
@@ -542,7 +542,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 		}
 		else if (err != (int)len) {
 			// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-			bsr_err(NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)len, err);
+			bsr_err(24, BSR_LC_SOCKET, NO_OBJECT,"Wrong data (expected size:%d, received size:%d)\n", (int)len, err);
 			err = -EIO;
 			goto fail;
 		}
@@ -718,16 +718,16 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	what = "create-connect";
 
 	if (my_addr.ss_family == AF_INET6) {
-		bsr_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
+		bsr_debug(86, BSR_LC_SOCKET, NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
 	} else {
-		bsr_debug(NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
+		bsr_debug(87, BSR_LC_SOCKET, NO_OBJECT, "dtt_try_connect: Connecting: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&peer_addr));
 	}
 
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
 
 	if (!NT_SUCCESS(status)) {
 		err = status;
-		bsr_debug(NO_OBJECT,"dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n",status,socket->sk);
+		bsr_debug(88, BSR_LC_SOCKET, NO_OBJECT, "dtt_try_connect: CreateSocketConnect fail status:%x socket->sk:%p\n", status, socket->sk);
 		switch (status) {
 		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
 		// DW-1272
@@ -738,7 +738,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		case STATUS_HOST_UNREACHABLE: err = -EHOSTUNREACH; break;
 		case STATUS_IO_TIMEOUT: err = -ETIMEDOUT; break;
 		default: 
-			bsr_err(NO_OBJECT,"create-connect failed with status 0x%08X \n", status);
+			bsr_err(25, BSR_LC_SOCKET, NO_OBJECT, "create-connect failed with status 0x%08X \n", status);
 			err = -EINVAL; 
 			break;
 		}
@@ -825,7 +825,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	}
 	status = Bind(socket->sk, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&LocalAddressV4 : (PSOCKADDR)&LocalAddressV6 );
 	if (!NT_SUCCESS(status)) {
-		bsr_err(NO_OBJECT,"Bind() failed with status 0x%08X \n", status);
+		bsr_err(26, BSR_LC_SOCKET, NO_OBJECT,"Bind() failed with status 0x%08X \n", status);
 		err = -EINVAL;
 		goto out;
 	}
@@ -903,7 +903,7 @@ out:
 #ifdef _WIN
 		status = SetEventCallbacks(socket, WSK_EVENT_DISCONNECT);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(NO_OBJECT,"Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
+			bsr_err(27, BSR_LC_SOCKET, NO_OBJECT, "Failed to set WSK_EVENT_DISCONNECT. err(0x%x)\n", status);
 			err = -1;
 			goto out;
 		}
@@ -1046,9 +1046,9 @@ static void unregister_state_change(struct sock *sock, struct dtt_listener *list
 
 	// DW-1483 WSK_EVENT_ACCEPT disable	
 	NTSTATUS status = SetEventCallbacks(listener->s_listen, WSK_EVENT_ACCEPT | WSK_EVENT_DISABLE);
-	bsr_debug(NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
+	bsr_debug(89, BSR_LC_SOCKET, NO_OBJECT,"WSK_EVENT_DISABLE (listener = 0x%p)\n", listener);
 	if (!NT_SUCCESS(status)) {
-		bsr_debug(NO_OBJECT,"WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
+		bsr_debug(90, BSR_LC_SOCKET, NO_OBJECT, "WSK_EVENT_DISABLE failed (listener = 0x%p)\n", listener);
 	}
 #else // _LIN
 	write_lock_bh(&sock->sk_callback_lock);
@@ -1453,7 +1453,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("if(path) path->socket = s_estab\n");
 		if (path2->socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(resource, "accept socket(0x%p) exists. \n", path2->socket);
+			bsr_info(28, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists. \n", path2->socket);
 			goto not_accept;
 		}
 		else {
@@ -1464,7 +1464,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("else listener->paccept_socket = AccceptSocket\n");
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
+			bsr_info(29, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists.\n", listener2->paccept_socket);
 			goto not_accept;
 		}
 		else {
@@ -1610,7 +1610,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	LONG InputBuffer = 1;
     status = ControlSocket(s_listen, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        bsr_err(NO_OBJECT,"ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(30, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
         err = -1;
         goto out;
     }
@@ -1638,9 +1638,9 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
-			bsr_err(NO_OBJECT,"AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],(UCHAR)my_addr.__data[0],(UCHAR)my_addr.__data[1]);
+			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
     	} else {
-			bsr_err(NO_OBJECT,"AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2],(UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4],(UCHAR)my_addr.__data[5],
+			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
 																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
 																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
 																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
@@ -1691,7 +1691,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	// DW-845 fix crash issue(EventCallback is called when listener is not initialized, then reference to invalid Socketcontext at dtt_inspect_incoming.)
 	status = SetEventCallbacks(s_listen, WSK_EVENT_ACCEPT);
     if (!NT_SUCCESS(status)) {
-        bsr_err(NO_OBJECT,"Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
+		bsr_err(33, BSR_LC_SOCKET, NO_OBJECT, "Failed to set WSK_EVENT_ACCEPT. err(0x%x)\n", status);
     	err = -1;
         goto out;
     }
@@ -1777,7 +1777,7 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN // TODO
 	NTSTATUS status;
 	if (transport == NULL) {
-		bsr_err(NO_OBJECT,"dtt_connect transport is null.\n");
+		bsr_err(34, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect transport is null.\n");
 		return -EDESTADDRREQ;
 	}
 #endif
@@ -1818,10 +1818,10 @@ static int dtt_connect(struct bsr_transport *transport)
 #if 0// _WIN
 		{		
 			if (path->path.my_addr.ss_family == AF_INET6) {
-				bsr_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
+				bsr_debug(91, BSR_LC_SOCKET, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip6(sbuf, (struct sockaddr_in6*)&path->path.my_addr), get_ip6(dbuf, (struct sockaddr_in6*)&path->path.peer_addr));
 			}
 			else {
-				bsr_debug(NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
+				bsr_debug(92, BSR_LC_SOCKET, NO_OBJECT,"dtt_connect: dtt_connect: path: %s -> %s.\n", get_ip4(sbuf, (struct sockaddr_in*)&path->path.my_addr), get_ip4(dbuf, (struct sockaddr_in*)&path->path.peer_addr));
 			}
 		}
 #endif
@@ -1847,9 +1847,9 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN
         {
 		if (bsr_path->my_addr.ss_family == AF_INET6) {
-			bsr_debug(NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&bsr_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&bsr_path->peer_addr));
+			bsr_debug(93, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: bsr_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&bsr_path->my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&bsr_path->peer_addr));
 		} else {
-			bsr_debug(NO_OBJECT,"dtt_connect: bsr_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&bsr_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&bsr_path->peer_addr));
+			bsr_debug(94, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: bsr_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&bsr_path->my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&bsr_path->peer_addr));
 		}
 	}
 #endif
@@ -1862,9 +1862,9 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN
 	{
 		if(connect_to_path->path.my_addr.ss_family == AF_INET6) {
-			bsr_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+			bsr_debug(95, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: connect_to_path: %s -> %s \n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 		} else {
-			bsr_debug(NO_OBJECT,"dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+			bsr_debug(96, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: connect_to_path: %s -> %s \n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 		}
 	}
 #endif
@@ -1883,9 +1883,9 @@ static int dtt_connect(struct bsr_transport *transport)
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					bsr_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(97, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: Connected: %s -> %s\n", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					bsr_debug(NO_OBJECT,"dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(98, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect: Connected: %s -> %s\n", get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}
 #endif
 			}
@@ -1924,7 +1924,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				dsocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
-					bsr_err(NO_OBJECT,"failed to send first packet, dsocket (%p)\n", dsocket->sk);
+					bsr_err(35, BSR_LC_SOCKET, NO_OBJECT, "failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
@@ -1934,7 +1934,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				csocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
-					bsr_err(NO_OBJECT,"failed to send first packet, csocket (%p)\n", csocket->sk);
+					bsr_err(36, BSR_LC_SOCKET, NO_OBJECT, "failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
@@ -1961,9 +1961,9 @@ retry:
 			{
 #ifdef _WIN
 				if (connect_to_path->path.my_addr.ss_family == AF_INET6) {
-					bsr_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
+					bsr_debug(99, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&connect_to_path->path.my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&connect_to_path->path.peer_addr));
 				} else {
-					bsr_debug(NO_OBJECT,"dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
+					bsr_debug(100, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect:(%p) Accepted:  %s <- %s\n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&connect_to_path->path.my_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)&connect_to_path->path.peer_addr));
 				}				
 #endif				
 			}
@@ -2039,7 +2039,7 @@ randomize:
     LONG InputBuffer = 1;
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        bsr_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(37, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		// DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
@@ -2050,7 +2050,7 @@ randomize:
 
     status = ControlSocket(csocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-        bsr_err(NO_OBJECT,"ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(38, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
 		err = status;
         goto out;
     }
@@ -2525,9 +2525,9 @@ static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long
 						
 						// kill DATA_STREAM thread
 						KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-						//bsr_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+						//bsr_info(47, BSR_LC_ETC, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 						KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-						//bsr_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+						//bsr_info(48, BSR_LC_ETC, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 						//ZwClose(attr->send_buf_thread_handle);
 						attr->send_buf_thread_handle = NULL;
 						
@@ -2634,18 +2634,18 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 
 			if (attr->send_buf_thread_handle != NULL) {
 				KeSetEvent(&attr->send_buf_kill_event, 0, FALSE);
-				//bsr_info(NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
+				//bsr_info(49, BSR_LC_ETC, NO_OBJECT,"wait for send_buffering_data_thread(%s) ack\n", tcp_transport->stream[i]->name);
 				KeWaitForSingleObject(&attr->send_buf_killack_event, Executive, KernelMode, FALSE, NULL);
-				//bsr_info(NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
+				//bsr_info(50, BSR_LC_ETC, NO_OBJECT,"send_buffering_data_thread(%s) acked\n", tcp_transport->stream[i]->name);
 				//ZwClose(attr->send_buf_thread_handle);
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(NO_OBJECT,"No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
+				bsr_warn(28, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(%s)\n", tcp_transport->stream[i]->name);
 			}
 		}
 		else {
-			bsr_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
+			bsr_warn(29, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)\n", i);
 		}
 	}
 	return;
@@ -2668,11 +2668,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
+				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT,"No send_buffering thread(channel:%d)\n", i);
 			}
 		}
 		else {
-			bsr_warn(NO_OBJECT,"No stream(channel:%d)\n", i);
+			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT,"No stream(channel:%d)\n", i);
 		}
 	}
 	return;

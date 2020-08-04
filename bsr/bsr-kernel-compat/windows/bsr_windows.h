@@ -316,8 +316,9 @@ extern void printk_cleanup(void);
 #ifdef _WIN_EVENTLOG
 #define bsr_logger_init()		printk_init();
 #define bsr_logger_cleanup()	printk_cleanup();
+// BSR-648	
 #define printk(format, ...)   \
-    _printk(__FUNCTION__, 0/*not used*/, format, __VA_ARGS__)
+    _printk(__FUNCTION__, -1/*not used*/, BSR_LC_ETC, format, __VA_ARGS__)
 #else
 #define printk(format, ...)
 #endif

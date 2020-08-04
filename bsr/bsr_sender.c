@@ -79,7 +79,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
     int error = 0;
 	static int md_endio_cnt = 0;
     
-	bsr_debug(NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
+	bsr_debug(14, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_md_io_complete IRQL(%d) .............\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
         error = Irp->IoStatus.Status;
@@ -89,7 +89,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE3) {
 			if(IsDiskError()) {
-				bsr_err(NO_OBJECT,"SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(38, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Meta Data I/O Error type3.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -99,7 +99,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
     }
 
 	if (!bio) {
-		bsr_debug(NO_OBJECT,"null bio\n");
+		bsr_debug(49, BSR_LC_IO, NO_OBJECT, "null bio\n");
 		BIO_ENDIO_FN_RETURN;
 	}
 
@@ -146,7 +146,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
 		put_ldev(device);
 	else
-		bsr_debug(device, "ldev null\n");
+		bsr_debug(50, BSR_LC_IO, device, "ldev null\n");
 	
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		if (Irp->MdlAddress != NULL) {
@@ -203,7 +203,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(NO_OBJECT, "destroy, read lost inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, read lost inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			bsr_free_peer_req(peer_req);
 			return;
 		}
@@ -217,7 +217,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 			//DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 			list_for_each_entry_safe_ex(struct bsr_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 				if (peer_req == p_req) {
-					bsr_info(device, "destroy, read inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+					bsr_info(21, BSR_LC_PEER_REQUEST, device, "destroy, read inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
 					if (peer_req->flags & EE_WAS_ERROR) {
@@ -250,7 +250,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(5, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -303,7 +303,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(NO_OBJECT, "destroy, wrtie inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, wrtie inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			bsr_free_peer_req(peer_req); 
 		}
 		else {
@@ -318,13 +318,13 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls bsr_al_complete_io() upon completion of the write.
 						bsr_al_complete_io(device, &peer_req->i);
-						bsr_info(device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(23, BSR_LC_PEER_REQUEST, device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {
 						//DW-1965 in inactive_ee, the resync data calls bsr_rs_complete_io() upon completion of the write.
 						if (!(peer_req->flags & EE_SPLIT_REQ)) 
 							bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-						bsr_info(device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(24, BSR_LC_PEER_REQUEST, device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
@@ -355,7 +355,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
+		bsr_latency(6, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)\n",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
@@ -479,7 +479,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio *bio = NULL;
 	int error = 0;
 	static int peer_request_endio_cnt = 0;
-	//bsr_debug(NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
+	//bsr_debug(51, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_peer_request_endio: IRQL(%d) ..............\n",  current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		error = Irp->IoStatus.Status;
@@ -489,7 +489,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE2) {
 			if(IsDiskError()) {
-				bsr_err(NO_OBJECT,"SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+				bsr_err(8, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Peer Request I/O Error type2.....ErrorFlag:%d ErrorCount:%d\n", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -532,7 +532,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	if (error && bsr_ratelimit())
 #endif
-		bsr_warn(NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d\n",
+		bsr_warn(30, BSR_LC_PEER_REQUEST, NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d\n",
 		is_write ? (is_discard ? "discard" : "write")
 		: "read", error,
 		(unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -571,7 +571,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 			bsr_endio_read_sec_final(peer_req);
 	}
 
-	//bsr_debug(NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
+	//bsr_debug(52, BSR_LC_IO, NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!\n", peer_request_endio_cnt++);
 
 	BIO_ENDIO_FN_RETURN;
 }
@@ -579,7 +579,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
 {
 #ifdef _WIN
-	bsr_err(NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
+	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
 	panic("potential random memory corruption caused by delayed completion of aborted local request\n");
 #else // _LIN
 	panic("bsr%u %s/%u potential random memory corruption caused by delayed completion of aborted local request\n",
@@ -606,7 +606,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio *bio = NULL;
 	int error = 0;
 
-	//bsr_debug(NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
+	//bsr_debug(53, BSR_LC_IO, NO_OBJECT,"BIO_ENDIO_FN_START:Thread(%s) bsr_request_endio: IRQL(%d) ................\n", current->comm, KeGetCurrentIrql());
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		bio = (struct bio *)Context;
@@ -616,7 +616,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		//
 		if(gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE1) {
 			if(IsDiskError()) {
-				bsr_err(NO_OBJECT,"SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
+				bsr_err(10, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: Local I/O Error type1.....ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag,gSimulDiskIoError.ErrorCount);
 				error = STATUS_UNSUCCESSFUL;
 			}
 		}
@@ -626,7 +626,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 
 	if (!bio) {
-		bsr_debug(NO_OBJECT,"null bio\n");
+		bsr_debug(54, BSR_LC_IO, NO_OBJECT, "null bio\n");
 		BIO_ENDIO_FN_RETURN;
 	}
 
@@ -687,7 +687,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	*/
 	if (unlikely(req->rq_state[0] & RQ_LOCAL_ABORTED)) {
 		if (bsr_ratelimit())
-			bsr_emerg(device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
+			bsr_emerg(11, BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
 
 		if (!error)
 			bsr_panic_after_delayed_completion_of_aborted_request(device);
@@ -742,7 +742,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef BSR_TRACE	
 	{
 		static int cnt = 0;
-		bsr_debug(NO_OBJECT,"bsr_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
+		bsr_debug(55, BSR_LC_IO, NO_OBJECT,"bsr_request_endio done.(%d).................IRQL(%d)!!!\n", cnt++, KeGetCurrentIrql());
 	}
 #endif
 #endif
@@ -769,7 +769,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 #ifdef _WIN
 #ifdef BSR_TRACE	
-	bsr_debug(NO_OBJECT,"(%s) bsr_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	bsr_debug(56, BSR_LC_IO, NO_OBJECT,"(%s) bsr_request_endio: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
 #endif
 #endif
 	__req_mod(req, what, NULL, &m);
@@ -891,7 +891,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 		peer_req = NULL;
 		err = bsr_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
-		bsr_err(peer_device, "kmalloc() of digest failed.\n");
+		bsr_err(154, BSR_LC_RESYNC_OV, peer_device, "kmalloc() of digest failed.\n");
 		err = -ENOMEM;
 	}
 
@@ -900,7 +900,7 @@ out:
 		bsr_free_peer_req(peer_req);
 
 	if (unlikely(err))
-		bsr_err(peer_device, "bsr_send_drequest(..., csum) failed\n");
+		bsr_err(155, BSR_LC_RESYNC_OV, peer_device, "bsr_send_drequest(..., csum) failed\n");
 	return err;
 }
 
@@ -915,7 +915,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 	/* Do not wait if no memory is immediately available.  */
 	peer_req = bsr_alloc_peer_req(peer_device, GFP_TRY & ~__GFP_RECLAIM);
 	if (!peer_req) {
-		bsr_err(peer_device, "failed to allocate peer request\n");
+		bsr_err(25, BSR_LC_PEER_REQUEST, peer_device, "failed to allocate peer request\n");
 		goto defer;
 	}
 
@@ -923,7 +923,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		bsr_alloc_page_chain(&peer_device->connection->transport,
 			&peer_req->page_chain, DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
 		if (!peer_req->page_chain.head) {
-			bsr_err(peer_device, "failed to allocate page chain\n");
+			bsr_err(26, BSR_LC_PEER_REQUEST, peer_device, "failed to allocate page chain\n");
 			goto defer2;
 		}
 #ifdef _WIN
@@ -947,7 +947,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		BSR_FAULT_RS_RD) == 0)
 		return 0;
 
-	bsr_err(peer_device, "failed to submit peer request\n");
+	bsr_err(27, BSR_LC_PEER_REQUEST, peer_device, "failed to submit peer request\n");
 	/* If it failed because of ENOMEM, retry should help.  If it failed
 	 * because bio_add_page failed (probably broken lower level driver),
 	 * retry may or may not help.
@@ -995,7 +995,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			// DW-1977
 			ts = timestamp_elapse(ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
-				bsr_warn(peer_device, "resync request takes a long time(%lldus)\n", ts);
+				bsr_warn(170, BSR_LC_RESYNC_OV, peer_device, "resync request takes a long time(%lldus)\n", ts);
 			}
 		}
 		else		
@@ -1003,7 +1003,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		break;
 	default:
 		// DW-1977
-		bsr_info(peer_device, "completed because it is not in the VERIFY_S or SYNC_TARGET replication state.\n");
+		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "completed because it is not in the VERIFY_S or SYNC_TARGET replication state.\n");
 		break;
 	}
 
@@ -1146,7 +1146,7 @@ static int bsr_rs_controller(struct bsr_peer_device *peer_device, unsigned int s
          sect_in, peer_device->rs_in_flight, correction, cps, curr_corr, req_sect);
 #endif
 	/*
-	bsr_warn(device, "si=%u if=%d wa=%u co=%d st=%d cps=%d pl=%d cc=%d rs=%d\n",
+	bsr_warn(78, BSR_LC_ETC, device, "si=%u if=%d wa=%u co=%d st=%d cps=%d pl=%d cc=%d rs=%d\n",
 		 sect_in, peer_device->rs_in_flight, want, correction,
 		 steps, cps, peer_device->rs_planed, curr_corr, req_sect);
 	*/
@@ -1210,13 +1210,13 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 #endif
 
 	if (unlikely(cancel)) {
-		bsr_info(peer_device, "resync cacnel.\n");
+		bsr_info(106, BSR_LC_RESYNC_OV, peer_device, "resync cacnel.\n");
 		return 0;
 	}
 
 	if (peer_device->rs_total == 0) {
 		/* empty resync? */
-		bsr_info(peer_device, "finished because it's rs_total empty\n");
+		bsr_info(107, BSR_LC_RESYNC_OV, peer_device, "finished because it's rs_total empty\n");
 		bsr_resync_finished(peer_device, D_MASK);
 		return 0;
 	}
@@ -1226,7 +1226,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 		   get_ldev_if_state(device,D_FAILED) would be sufficient, but
 		   to continue resync with a broken disk makes no sense at
 		   all */
-		bsr_err(device, "Disk broke down during resync!\n");
+		bsr_err(108, BSR_LC_RESYNC_OV, device, "Disk broke down during resync!\n");
 		return 0;
 	}
 
@@ -1292,7 +1292,7 @@ next_sector:
 
 			if (bit >= bsr_bm_bits(device)) {
 				device->bm_resync_fo = bsr_bm_bits(device);
-				bsr_info(peer_device, "BSR_END_OF_BITMAP(%llu), device->bm_resync_fo : %llu, bm_set : %llu\n", 
+				bsr_info(109, BSR_LC_RESYNC_OV, peer_device, "BSR_END_OF_BITMAP(%llu), device->bm_resync_fo : %llu, bm_set : %llu\n",
 						(unsigned long long)bit, (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
 				put_ldev(device);
 				return 0;
@@ -1395,7 +1395,7 @@ next_sector:
 						(size == (unsigned int)discard_granularity) ? P_RS_THIN_REQ : P_RS_DATA_REQUEST,
 						 sector, size, ID_SYNCER);
 			if (err) {
-				bsr_err(peer_device, "bsr_send_drequest() failed, aborting...\n");
+				bsr_err(110, BSR_LC_RESYNC_OV, peer_device, "bsr_send_drequest() failed, aborting...\n");
 				dec_rs_pending(peer_device);
 				put_ldev(device);
 				return err;
@@ -1412,7 +1412,7 @@ next_sector:
 		 * resync data block, and the last bit is cleared.
 		 * until then resync "work" is "inactive" ...
 		 */
-		bsr_info(peer_device, "P_RS_DATA_REPLY not received??,  device->bm_resync_fo : %llu, bm_set : %llu\n", (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
+		bsr_info(111, BSR_LC_RESYNC_OV, peer_device, "P_RS_DATA_REPLY not received??,  device->bm_resync_fo : %llu, bm_set : %llu\n", (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
 		put_ldev(device);
 		return 0;
 	}
@@ -1473,7 +1473,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			}
 
 			if (bit >= bsr_bm_bits(device)) {
-				bsr_info(peer_device, "BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu\n", 
+				bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu\n",
 						(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position);
 				peer_device->ov_bm_position = bsr_bm_bits(device);
 				peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
@@ -1661,7 +1661,7 @@ static void __cancel_other_resyncs(struct bsr_device *device)
 				_bsr_uuid_push_history(device, peer_bm_uuid);
 			if (peer_md[peer_node_id].bitmap_index != -1
 			 && !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-				bsr_info(peer_device, "bitmap will be cleared due to resync cancelation\n");
+				bsr_info(113, BSR_LC_RESYNC_OV, peer_device, "bitmap will be cleared due to resync cancelation\n");
 				forget_bitmap(device, peer_node_id);
 			}
 			bsr_md_mark_dirty(device);
@@ -1735,7 +1735,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			bsr_queue_work(&connection->sender_work, &rfw->pdw.w);
 			return 1;
 		}
-		bsr_err(peer_device, "Warn failed to kmalloc(dw).\n");
+		bsr_err(114, BSR_LC_RESYNC_OV, peer_device, "Warn failed to kmalloc(dw).\n");
 	}
 
 	dt = (jiffies - peer_device->rs_start - peer_device->rs_paused) / HZ;
@@ -1758,7 +1758,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
 	if (repl_state[NOW] == L_AHEAD) {
-		bsr_info(peer_device, "I am ahead, do not finish resync.\n"); // DW-1518
+		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "I am ahead, do not finish resync.\n"); // DW-1518
 		put_ldev(device);
 		spin_unlock_irq(&device->resource->req_lock);	
 		return 1;
@@ -1782,14 +1782,14 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		snprintf(tmp, sizeof(tmp), " but %lu %dk blocks skipped", peer_device->ov_skipped, Bit2KB(1));
 	}
 #ifdef SPLIT_REQUEST_RESYNC
-	bsr_info(peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
+	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)\n",
 		verify_done ? "Online verify" : "Resync", tmp,
 		(unsigned long long)dt + peer_device->rs_paused, 
 		(unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt, 
 		(unsigned long long)device->h_insync_bb, 
 		(unsigned long long)device->h_marked_bb);
 #else // _LIN
-	bsr_info(peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec)\n",
+	bsr_info(117, BSR_LC_RESYNC_OV, peer_device, "%s done (total %llu sec; paused %llu sec; %llu K/sec)\n",
 		verify_done ? "Online verify" : "Resync", (unsigned long long)dt + peer_device->rs_paused, (unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt);
 #endif
 	}
@@ -1803,7 +1803,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		}
 
 		if (n_oos) {
-			bsr_alert(peer_device, "Online verify found %lu %dk block out of sync!\n",
+			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!\n",
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}
@@ -1825,7 +1825,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			const ULONG_PTR ratio =
 				(t == 0)     ? 0 :
 			(t < 100000) ? ((s*100)/t) : (s/(t/100));
-			bsr_info(peer_device, "%llu %% had equal checksums, eliminated: %lluK; "
+			bsr_info(119, BSR_LC_RESYNC_OV, peer_device, "%llu %% had equal checksums, eliminated: %lluK; "
 			     "transferred %lluK total %lluK\n",
 			     (unsigned long long)ratio,
 			     (unsigned long long)Bit2KB(peer_device->rs_same_csum),
@@ -1835,7 +1835,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	}
 
 	if (peer_device->rs_failed) {
-		bsr_info(peer_device, "            %llu failed blocks (out of sync :%llu)\n", (unsigned long long)peer_device->rs_failed, (unsigned long long)n_oos);
+		bsr_info(120, BSR_LC_RESYNC_OV, peer_device, "            %llu failed blocks (out of sync :%llu)\n", (unsigned long long)peer_device->rs_failed, (unsigned long long)n_oos);
 
 		if (repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T) {
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -1872,10 +1872,10 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				__outdate_peer_disk_by_mask(device, newer);
 			} else {
 				if (!peer_device->uuids_received)
-					bsr_err(peer_device, "BUG: uuids were not received!\n");
+					bsr_err(121, BSR_LC_RESYNC_OV, peer_device, "BUG: uuids were not received!\n");
 
 				if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
-					bsr_info(peer_device, "Peer was unstable during resync\n");
+					bsr_info(122, BSR_LC_RESYNC_OV, peer_device, "Peer was unstable during resync\n");
 			}
 
 			if (stable_resync && peer_device->uuids_received) {
@@ -2017,7 +2017,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(peer_device, "Sending NegDReply. sector=%llus.\n",
+			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Sending NegDReply. sector=%llus.\n",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_DREPLY, peer_req);
@@ -2028,7 +2028,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(peer_device, "bsr_send_block() failed\n");
+		bsr_err(22, BSR_LC_REPLICATION, peer_device, "bsr_send_block() failed\n");
 	return err;
 }
 
@@ -2120,14 +2120,14 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 			}
 			else {
 				if (bsr_ratelimit())
-					bsr_err(peer_device, "Not sending RSDataReply, "
+					bsr_err(123, BSR_LC_RESYNC_OV, peer_device, "Not sending RSDataReply, "
 					"partner DISKLESS!\n");
 				err = 0;
 			}
 		}
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(peer_device, "Sending NegRSDReply. sector %llus.\n",
+			bsr_err(124, BSR_LC_RESYNC_OV, peer_device, "Sending NegRSDReply. sector %llus.\n",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
@@ -2141,7 +2141,7 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(peer_device, "bsr_send_block() failed\n");
+		bsr_err(125, BSR_LC_RESYNC_OV, peer_device, "bsr_send_block() failed\n");
 	return err;
 }
 
@@ -2157,7 +2157,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	int err, eq = 0;
 
 	if (unlikely(cancel)) {
-		bsr_info(peer_device, "cancel csum rs req, sector : %llu\n", (unsigned long long)peer_req->i.sector);
+		bsr_info(126, BSR_LC_RESYNC_OV, peer_device, "cancel csum rs req, sector : %llu\n", (unsigned long long)peer_req->i.sector);
 		bsr_free_peer_req(peer_req);
 		dec_unacked(peer_device);
 		return 0;
@@ -2203,7 +2203,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	} else {
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 		if (bsr_ratelimit())
-			bsr_err(device, "Sending NegDReply. I guess it gets messy.\n");
+			bsr_err(127, BSR_LC_RESYNC_OV, device, "Sending NegRSDReply. I guess it gets messy.\n");
 		// BSR-448 fix bug that checksum synchronization stops when SyncSource io-error occurs continuously.
 		bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 	}
@@ -2212,7 +2212,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(device, "bsr_send_block/ack() failed\n");
+		bsr_err(128, BSR_LC_RESYNC_OV, device, "bsr_send_block/ack() failed\n");
 	return err;
 }
 
@@ -2447,7 +2447,7 @@ static bool __bsr_may_sync_now(struct bsr_peer_device *peer_device)
 		    other_peer_device->resync_susp_dependency[NOW] ||
 		    other_peer_device->resync_susp_peer[NOW] ||
 		    other_peer_device->resync_susp_user[NOW]) {
-			bsr_info(peer_device, "another(node_id:%d) peer device is in progress for resync\n", other_peer_device->node_id);
+			bsr_info(129, BSR_LC_RESYNC_OV, peer_device, "another(node_id:%d) peer device is in progress for resync\n", other_peer_device->node_id);
 			ret = false;
 			break;
 		}
@@ -2646,7 +2646,7 @@ void start_resync_timer_fn(BSR_TIMER_FN_ARG)
 	if (peer_device == NULL)
 		return;
 
-	bsr_info(peer_device, "post RS_START to the peer_device work\n"); // DW-1518
+	bsr_info(130, BSR_LC_RESYNC_OV, peer_device, "post RS_START to the peer_device work\n"); // DW-1518
 	bsr_peer_device_post_work(peer_device, RS_START);
 }
 
@@ -2705,13 +2705,13 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
 		atomic_read(&peer_device->wait_for_recv_bitmap)) {
-		bsr_warn(peer_device, "postponing start_resync ... unacked : %d, pending : %d\n", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d\n", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
 		retry_resync = true;
 	}
 
 	// DW-2076
 	if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags) && atomic_read(&peer_device->rq_pending_oos_cnt)) {
-		bsr_debug(peer_device, "postponing start_resync ... pending oos : %d\n", atomic_read(&peer_device->rq_pending_oos_cnt)); 
+		bsr_debug(187, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... pending oos : %d\n", atomic_read(&peer_device->rq_pending_oos_cnt));
 		retry_resync = true;
 	}
 
@@ -2721,7 +2721,7 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 		return;
 	}
 
-	bsr_info(peer_device, "starting resync ...\n"); // DW-1518
+	bsr_info(131, BSR_LC_RESYNC_OV, peer_device, "starting resync ...\n"); // DW-1518
 	bsr_start_resync(peer_device, peer_device->start_resync_side);
 }
 
@@ -2750,7 +2750,7 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 
 	// no start resync if I haven't received uuid from peer.	
 	if (!peer_device->uuids_received) {
-		bsr_info(peer_device, "I have not yet received uuid from peer, can not be %s\n", bsr_repl_str(replState));
+		bsr_info(132, BSR_LC_RESYNC_OV, peer_device, "I have not yet received uuid from peer, can not be %s\n", bsr_repl_str(replState));
 		return false;
 	}
 
@@ -2774,33 +2774,33 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 			side = L_VERIFY_T;
 			break;
 		default:
-			bsr_info(peer_device, "unexpected repl_state (%s)\n", bsr_repl_str(replState));
+			bsr_info(133, BSR_LC_RESYNC_OV, peer_device, "unexpected repl_state (%s)\n", bsr_repl_str(replState));
 			return false;
 	}
 	
 	if (side == L_SYNC_TARGET || side == L_VERIFY_T) {
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE)) {
-			bsr_info(peer_device, "Sync source is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
+			bsr_info(134, BSR_LC_RESYNC_OV, peer_device, "Sync source is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;
 		}
 
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked) &&
 			!(NODE_MASK(peer_device->node_id) & authoritative)) {
-			bsr_info(peer_device, "I am unstable and sync source is not my authoritative node, can not be %s, authoritative(%llx)\n",
+			bsr_info(135, BSR_LC_RESYNC_OV, peer_device, "I am unstable and sync source is not my authoritative node, can not be %s, authoritative(%llx)\n",
 				bsr_repl_str(replState), authoritative);
 			return false;
 		}
 	}
 	else if (side == L_SYNC_SOURCE || side == L_VERIFY_S) {
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked)) {
-			bsr_info(peer_device, "I am unstable, can not be %s, authoritative(%llx)\n", bsr_repl_str(replState), authoritative);
+			bsr_info(136, BSR_LC_RESYNC_OV, peer_device, "I am unstable, can not be %s, authoritative(%llx)\n", bsr_repl_str(replState), authoritative);
 			return false;
 		}
 
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE) &&
 			!(NODE_MASK(device->resource->res_opts.node_id) & peer_device->uuid_authoritative_nodes)) {
-			bsr_info(peer_device, "Sync target is unstable and I am not its authoritative node, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
+			bsr_info(137, BSR_LC_RESYNC_OV, peer_device, "Sync target is unstable and I am not its authoritative node, can not be %s, uuid_flags(%llx), authoritative(%llx)\n",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;			
 		}
@@ -2832,11 +2832,11 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	spin_unlock_irq(&device->resource->req_lock);
 	if (repl_state < L_ESTABLISHED) {
 		/* Connection closed meanwhile. */
-		bsr_err(peer_device, "Unable to start resync since it is not connected\n"); // DW-1518
+		bsr_err(138, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync since it is not connected\n"); // DW-1518
 		return;
 	}
 	if (repl_state >= L_SYNC_SOURCE && repl_state < L_AHEAD) {
-		bsr_err(peer_device, "Resync already running!\n");
+		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Resync already running!\n");
 		return;
 	}
 
@@ -2857,7 +2857,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			r = (r >> 8) & 0xff;
 #endif
 			if (r > 0) {
-				bsr_info(device, "before-resync-target handler returned %d, "
+				bsr_info(140, BSR_LC_RESYNC_OV, device, "before-resync-target handler returned %d, "
 					 "dropping connection.\n", r);
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 				return;
@@ -2872,10 +2872,10 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 #endif
 			if (r > 0) {
 				if (r == 3) {
-					bsr_info(device, "before-resync-source handler returned %d, "
+					bsr_info(141, BSR_LC_RESYNC_OV, device, "before-resync-source handler returned %d, "
 						 "ignoring. Old userland tools?", r);
 				} else {
-					bsr_info(device, "before-resync-source handler returned %d, "
+					bsr_info(142, BSR_LC_RESYNC_OV, device, "before-resync-source handler returned %d, "
 						 "dropping connection.\n", r);
 					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 					return;
@@ -2887,7 +2887,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (down_trylock(&device->resource->state_sem)) {
 		/* Retry later and let the worker make progress in the
 		 * meantime; two-phase commits depend on that.  */
-		bsr_info(peer_device, "Retry later\n"); // DW-1518
+		bsr_info(143, BSR_LC_RESYNC_OV, peer_device, "Retry later\n"); // DW-1518
 		set_bit(B_RS_H_DONE, &peer_device->flags);
 		peer_device->start_resync_side = side;
 		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
@@ -2967,7 +2967,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	// DW-1314 check stable sync source rules.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
-		bsr_warn(peer_device, "could not start resync.\n");
+		bsr_warn(172, BSR_LC_RESYNC_OV, peer_device, "could not start resync.\n");
 
 		// turn back the replication state to L_ESTABLISHED
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED) {
@@ -3024,7 +3024,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			bsr_md_set_peer_flag (peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
 		}
 		
-		bsr_info(peer_device, "Began resync as %s (will sync %llu KB [%llu bits set]).\n",
+		bsr_info(144, BSR_LC_RESYNC_OV, peer_device, "Began resync as %s (will sync %llu KB [%llu bits set]).\n",
 		     bsr_repl_str(repl_state),
 		     (unsigned long long) peer_device->rs_total << (BM_BLOCK_SHIFT-10),
 		     (unsigned long long) peer_device->rs_total);
@@ -3089,7 +3089,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		bsr_md_sync_if_dirty(device);
 	}
 	else {
-		bsr_err(peer_device, "Unable to start resync as %s (err = %d)\n", bsr_repl_str(repl_state), r); // DW-1518
+		bsr_err(145, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync as %s (err = %d)\n", bsr_repl_str(repl_state), r); // DW-1518
 	}
 
 	put_ldev(device);
@@ -3189,9 +3189,9 @@ static void go_diskless(struct bsr_device *device)
 
 static int do_md_sync(struct bsr_device *device)
 {
-	bsr_warn(device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
+	bsr_warn(39, BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().\n");
 #ifdef BSR_DEBUG_MD_SYNC
-	bsr_warn(device, "last md_mark_dirty: %s:%u\n",
+	bsr_warn(43, BSR_LC_STATE, device, "last md_mark_dirty: %s:%u\n",
 		device->last_md_mark_dirty.func, device->last_md_mark_dirty.line);
 #endif
 	bsr_md_sync(device);
@@ -3726,7 +3726,7 @@ static int process_one_request(struct bsr_connection *connection)
 					peer_device->repl_state[NOW] == L_ESTABLISHED &&
 					bsr_bm_total_weight(peer_device)) {
 
-					bsr_info(peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state\n", (unsigned long long)bsr_bm_total_weight(peer_device)); 
+					bsr_info(146, BSR_LC_RESYNC_OV, peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state\n", (unsigned long long)bsr_bm_total_weight(peer_device));
 					peer_device->start_resync_side = L_SYNC_SOURCE;
 					// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
 					mod_timer(&peer_device->start_resync_timer, jiffies + HZ);
@@ -3840,7 +3840,7 @@ int bsr_sender(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(connection, "Sender got an unexpected signal\n");
+				bsr_warn(29, BSR_LC_THREAD, connection, "Sender got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3928,7 +3928,7 @@ int bsr_worker(struct bsr_thread *thi)
 		if (signal_pending(current)) {
 			flush_signals(current);
 			if (get_t_state(thi) == RUNNING) {
-				bsr_warn(resource, "Worker got an unexpected signal\n");
+				bsr_warn(30, BSR_LC_THREAD, resource, "Worker got an unexpected signal\n");
 				continue;
 			}
 			break;
@@ -3953,7 +3953,7 @@ int bsr_worker(struct bsr_thread *thi)
 				// DW-1953 logs are printed only once per work_list.
 				if (is_null_callback_print == false) {
 					// DW-1953 do not use "break" because you must call a non-null callback.
-					bsr_warn(resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
+					bsr_warn(31, BSR_LC_THREAD, resource, "worker got an null-callback list. resource name (%s), twopc_work(%p) : w(%p)\n", resource->name, &(resource->twopc_work), w);
 					is_null_callback_print = true;
 				}
 			}

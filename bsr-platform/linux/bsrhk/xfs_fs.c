@@ -61,7 +61,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
-		bsr_err(NO_OBJECT, "bitmap_buf allocation failed\n");
+		bsr_err(202, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap_buf allocation failed\n");
 		return NULL;
 	}
 
@@ -69,15 +69,15 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	memset(bitmap_buf->Buffer, 0xFF, bitmap_buf->BitmapSize);
 
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "=============================\n");
-		bsr_info(NO_OBJECT, "version : %d \n", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
-		bsr_info(NO_OBJECT, "ag_count : %d \n", ag_count);
-		bsr_info(NO_OBJECT, "total block count : %llu \n", total_block);	
-		bsr_info(NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
-		bsr_info(NO_OBJECT, "block size : %d \n", blk_size);
-		bsr_info(NO_OBJECT, "sector size : %d \n", sect_size);
-		bsr_info(NO_OBJECT, "bitmap size : %lld \n", bitmap_buf->BitmapSize);
-		bsr_info(NO_OBJECT, "=============================\n");
+		bsr_info(203, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================\n");
+		bsr_info(204, BSR_LC_RESYNC_OV, NO_OBJECT, "version : %d \n", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
+		bsr_info(205, BSR_LC_RESYNC_OV, NO_OBJECT, "ag_count : %d \n", ag_count);
+		bsr_info(206, BSR_LC_RESYNC_OV, NO_OBJECT, "total block count : %llu \n", total_block);	
+		bsr_info(207, BSR_LC_RESYNC_OV, NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
+		bsr_info(208, BSR_LC_RESYNC_OV, NO_OBJECT, "block size : %d \n", blk_size);
+		bsr_info(209, BSR_LC_RESYNC_OV, NO_OBJECT, "sector size : %d \n", sect_size);
+		bsr_info(210, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap size : %lld \n", bitmap_buf->BitmapSize);
+		bsr_info(211, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================\n");
 	}
 
 	for (ag_no = 0; ag_no < ag_count; ag_no++) {
@@ -92,14 +92,14 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		// Move position to btree first leaf block
 		offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + 1) * blk_size, SEEK_SET);
 		if (offset < 0) {
-			bsr_err(NO_OBJECT, "failed to lseek first leaf node of btree_block (err=%lld)\n", offset);
+			bsr_err(212, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to lseek first leaf node of btree_block (err=%lld)\n", offset);
 			goto fail_and_free;
 		}
 
 		// read free block btree first leaf block
 		ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
 		if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
-			bsr_err(NO_OBJECT, "failed to read first leaf node of btree_block (err=%d)\n", ret);
+			bsr_err(213, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read first leaf node of btree_block (err=%d)\n", ret);
 			goto fail_and_free;
 		}
 
@@ -108,40 +108,40 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			// offset is reduced if not version5 because the structure changed since version5.
 			offset = fd->f_op->llseek(fd, -XFS_BTREE_SHDR_ADDITIONAL_SIZE_TO_VERSION_5, SEEK_CUR);
 			if (offset < 0) {
-				bsr_err(NO_OBJECT, "failed to lseek reduced addition size of btree_block since version5(err=%lld)\n", offset);
+				bsr_err(214, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to lseek reduced addition size of btree_block since version5(err=%lld)\n", offset);
 				goto fail_and_free;
 			}
 		}
 
 		bb_level = be16_to_cpu(btsb.bb_level);
 		if(bb_level != 0) {
-			bsr_err(NO_OBJECT, "failed to read leaf node (err=%hd)\n", bb_level);
+			bsr_err(215, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read leaf node (err=%hd)\n", bb_level);
 			goto fail_and_free;
 		}
 		bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
 
 		if (debug_fast_sync) {
-			bsr_info(NO_OBJECT, "[ag_no:%d] first leaf node bb_level : %hd bb_numrecs : %hd\n", ag_no, bb_level, bb_numrecs);
+			bsr_info(215, BSR_LC_RESYNC_OV, NO_OBJECT, "[ag_no:%d] first leaf node bb_level : %hd bb_numrecs : %hd\n", ag_no, bb_level, bb_numrecs);
 		}
 
 		do {
 			if(bb_rightsib > 0) {
 				offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + bb_rightsib) * blk_size, SEEK_SET);
 				if (offset < 0) {
-					bsr_err(NO_OBJECT, "failed to lseek secondary btree_block (err=%lld)\n", offset);
+					bsr_err(216, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to lseek secondary btree_block (err=%lld)\n", offset);
 					goto fail_and_free;
 				}
 				
 				// read free block btree secondary leaf block
 				ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
 				if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
-					bsr_err(NO_OBJECT, "failed to read secondary btree_block (err=%d)\n", ret);
+					bsr_err(217, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read secondary btree_block (err=%d)\n", ret);
 					goto fail_and_free;
 				}
 
 				bb_level = be16_to_cpu(btsb.bb_level);
 				if(bb_level != 0) {
-					bsr_err(NO_OBJECT, "failed to read secondary leaf node (err=%hd)\n", bb_level);
+					bsr_err(218, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read secondary leaf node (err=%hd)\n", bb_level);
 					goto fail_and_free;
 				}
 				bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
@@ -159,7 +159,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 				// convert free block info to bitmap
 				for(bitcount_no = startbit ; bitcount_no < (blockcount + startbit) ; bitcount_no++) {
 					if(offset + (bitcount_no/BITS_PER_BYTE) >= bitmap_buf->BitmapSize) {
-						bsr_err(NO_OBJECT, "failed to read free block info, bitmap buffer overflow! (startblock:%d, blockcount:%d)\n", startblock, blockcount);
+						bsr_err(219, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read free block info, bitmap buffer overflow! (startblock:%d, blockcount:%d)\n", startblock, blockcount);
 						goto fail_and_free;
 					}
 					// set bitmap bit to '0' for free block
@@ -177,7 +177,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 
 	}
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "total free_blocks : %llu free_bits : %llu\n", free_blocks_co, free_bits_co);
+		bsr_info(220, BSR_LC_RESYNC_OV, NO_OBJECT, "total free_blocks : %llu free_bits : %llu\n", free_blocks_co, free_bits_co);
 	}
 
 	return bitmap_buf;

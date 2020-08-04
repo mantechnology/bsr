@@ -61,7 +61,12 @@ void save_to_system_event(char * buf, int length, int level_index)
 #endif
 
 
-void _printk(const char * func, const char * level, const char * format, ...)
+#ifdef _WIN
+// BSR-648
+void _printk(const char * func, int level, int category, const char * format, ...)
+#else
+void _printk(const char * func, const char * level, int category, const char * format, ...)
+#endif
 {
 	int ret = 0;
 	va_list args;
@@ -73,7 +78,8 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	int elength = 0;
 	LONGLONG logcnt = 0;
 #ifdef _WIN
-	int level_index = format[1] - '0';
+	// BSR-648
+	int level_index = level;
 #else
 	int level_index = level[1]  - '0';
 #endif
@@ -94,7 +100,11 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #endif
 	LONGLONG	totallogcnt = 0;
 	long 		offset = 0;
-
+#ifdef _WIN
+	// BSR-648
+	if (level == -1)
+		level_index = format[1] - '0';
+#endif
 	D_ASSERT(NO_OBJECT, (level_index >= 0) && (level_index < KERN_NUM_END));
 
 	// to write system event log.
@@ -184,7 +194,7 @@ void _printk(const char * func, const char * level, const char * format, ...)
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
 		// BSR-583
-		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -194,12 +204,15 @@ void _printk(const char * func, const char * level, const char * format, ...)
 											timeFields.Second,
 											// BSR-38 mark up to 100 nanoseconds.
 											(systemTime.QuadPart % 10000000),
-											func);
+											func,
+											// BSR-654
+											__log_category_names[category]);
+
 #else // _LIN
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] ",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -209,7 +222,9 @@ void _printk(const char * func, const char * level, const char * format, ...)
 										tm.tm_sec,
 										// BSR-38 mark up to 100 nanoseconds.
 										(int)(ts.tv_nsec / 100),
-										func);
+										func,
+										// BSR-654
+										__log_category_names[category]);
 
 
 #endif
@@ -337,13 +352,13 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	if (NULL == frames ||
 		0 == usFrameCount)
 	{
-		bsr_err(NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		bsr_err(80, BSR_LC_ETC, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
 		return 0;
 	}
 #ifdef _WIN
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
 	if (0 == usCaptured) {
-		bsr_err(NO_OBJECT,"Captured frame count is 0\n");
+		bsr_err(81, BSR_LC_ETC, NO_OBJECT, "Captured frame count is 0\n");
 		return 0;
 	}
 #else // _LIN
@@ -370,17 +385,17 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 		return;
 	}
 #ifdef _WIN
-	_snprintf(buf, sizeof(buf) - 1, "%s["OOS_TRACE_STRING"] %s %Iu bits for bitmap_index(%d), pos(%Iu ~ %Iu), sector(%Iu ~ %Iu)", KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
+	_snprintf(buf, sizeof(buf) - 1, "["OOS_TRACE_STRING"] %s %Iu bits for bitmap_index(%d), pos(%Iu ~ %Iu), sector(%Iu ~ %Iu)", mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, BM_BIT_TO_SECT(startBit), (BM_BIT_TO_SECT(endBit) | 0x7));
 	stackFrames = (PVOID*)ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * frameCount, '22DW');
 
 #else // _LIN
-	snprintf(buf, sizeof(buf), "%s["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
-			KERN_OOS, mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, (size_t)BM_BIT_TO_SECT(startBit), (size_t)(BM_BIT_TO_SECT(endBit) | 0x7));
+	snprintf(buf, sizeof(buf), "["OOS_TRACE_STRING"] %s %lu bits for bitmap_index(%d), pos(%lu ~ %lu), sector(%lu ~ %lu)", 
+			mode == SET_IN_SYNC ? "Clear" : "Set", bitsCount, bitmap_index, startBit, endBit, (size_t)BM_BIT_TO_SECT(startBit), (size_t)(BM_BIT_TO_SECT(endBit) | 0x7));
 	stackFrames = (PVOID*)kmalloc(sizeof(PVOID) * frameCount, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 
 	if (NULL == stackFrames) {
-		bsr_err(NO_OBJECT,"Failed to allcate pool for stackFrames\n");
+		bsr_err(82, BSR_LC_ETC, NO_OBJECT,"Failed to allcate pool for stackFrames\n");
 		return;
 	}
 
@@ -399,9 +414,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	}
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	
-	_printk(__FUNCTION__, KERN_OOS, buf);
-
+	bsr_oos(7, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
 	if (NULL != stackFrames) {
 #ifdef _WIN
 		ExFreePool(stackFrames);

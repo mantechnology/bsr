@@ -650,7 +650,7 @@ void bsr_debugfs_resource_add(struct bsr_resource *resource)
 
 fail:
 	bsr_debugfs_resource_cleanup(resource);
-	bsr_err(resource, "failed to create debugfs dentry\n");
+	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs dentry\n");
 }
 
 static void bsr_debugfs_remove(struct dentry **dp)
@@ -891,7 +891,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 
 fail:
 	bsr_debugfs_connection_cleanup(connection);
-	bsr_err(connection, "failed to create debugfs dentry\n");
+	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs dentry\n");
 }
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
@@ -1079,7 +1079,7 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 
 fail:
 	bsr_debugfs_device_cleanup(device);
-	bsr_err(device, "failed to create debugfs entries\n");
+	bsr_err(13, BSR_LC_ETC, device, "failed to create debugfs entries\n");
 }
 
 void bsr_debugfs_device_cleanup(struct bsr_device *device)
@@ -1472,7 +1472,7 @@ void bsr_debugfs_peer_device_add(struct bsr_peer_device *peer_device)
 
 fail:
 	bsr_debugfs_peer_device_cleanup(peer_device);
-	bsr_err(peer_device, "failed to create debugfs entries\n");
+	bsr_err(14, BSR_LC_ETC, peer_device, "failed to create debugfs entries\n");
 }
 
 void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_device)
