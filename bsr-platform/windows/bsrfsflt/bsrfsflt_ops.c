@@ -23,6 +23,9 @@ UNICODE_STRING g_usSymlinkName;
 PCALLBACK_OBJECT g_pCallbackObj;
 PVOID g_pCallbackReg;
 
+// BSR-71
+int gBsrlockUse = 1; // default enabled
+
 NTSTATUS
 bsrlockCreateControlDeviceObject(
 	IN PDRIVER_OBJECT pDrvObj
@@ -371,6 +374,43 @@ Return Value:
 	return status;
 }
 
+// BSR-71 add bsrlock bypass setting for testing and debugging
+NTSTATUS IOCTL_SetBsrlockUse(PIRP pIrp)
+{
+	PIO_STACK_LOCATION pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
+	
+	if (pIrpStack->Parameters.DeviceIoControl.InputBufferLength < sizeof(int)) {
+		bsrlock_print_log("invalid buffer length, input(%u)\n",
+			pIrpStack->Parameters.DeviceIoControl.InputBufferLength);
+		return STATUS_INVALID_PARAMETER;
+	}
+	
+	if (pIrp->AssociatedIrp.SystemBuffer) {
+		gBsrlockUse = *(int*)pIrp->AssociatedIrp.SystemBuffer;
+
+		bsrlock_print_log("set bsrlock use %d\n", gBsrlockUse);
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS IOCTL_GetBsrlockUse(PIRP pIrp, PULONG pulSize)
+{
+	PIO_STACK_LOCATION pIrpStack = IoGetCurrentIrpStackLocation(pIrp);	
+	
+	if (pIrpStack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(int)) {
+		bsrlock_print_log("invalid buffer length, output(%u)\n",
+			pIrpStack->Parameters.DeviceIoControl.OutputBufferLength);
+		return STATUS_INVALID_PARAMETER;
+	}
+	*(int*)(pIrp->AssociatedIrp.SystemBuffer) = gBsrlockUse;
+	*pulSize = sizeof(int);
+
+	return STATUS_SUCCESS;
+}
 NTSTATUS
 DeviceIoControlDispatch(
 	IN PDEVICE_OBJECT pDeviceObject,
@@ -406,7 +446,17 @@ Return Value:
 
 			break;
 		}
-
+		// BSR-71
+		case IOCTL_SET_BSRLOCK_USE:
+		{
+			status = IOCTL_SetBsrlockUse(pIrp);
+			break;
+		}
+		case IOCTL_GET_BSRLOCK_USE:
+		{
+			status = IOCTL_GetBsrlockUse(pIrp, &ulSize);
+			break;
+		}
 		default:
 		{
 			break;

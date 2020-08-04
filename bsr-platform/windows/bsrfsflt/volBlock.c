@@ -19,6 +19,8 @@ Environment:
 RTL_GENERIC_TABLE g_GenericTable;
 FAST_MUTEX g_GenericTableFMutex;
 extern PFLT_FILTER gFilterHandle;
+// BSR-71
+extern int gBsrlockUse;
 
 static RTL_GENERIC_COMPARE_RESULTS
 TableCompareRoutine(
@@ -246,6 +248,11 @@ Return Value:
 --*/
 {
 	BOOLEAN bRet = FALSE;
+
+	// BSR-71
+	if (!gBsrlockUse) {
+		return bRet;
+	}
 
 	ExAcquireFastMutex(&g_GenericTableFMutex);
 	bRet =  RtlLookupElementGenericTable(&g_GenericTable, &pVolume) != NULL ? TRUE : FALSE;

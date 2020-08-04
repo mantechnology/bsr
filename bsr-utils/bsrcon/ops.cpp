@@ -1243,7 +1243,7 @@ print_info:
 	printf("Mount point: %ws\n", wcslen(szLetter) >= 1 ? szLetter : L"None");
 	printf("Volume Guid: %ws\n", pTemp);
 	printf("Device Name: %ws\n", szDevName);
-	printf("Protected??: %s\n", bProtected ? "Protected" : "Not protected");
+	printf("    Locking: %s\n", bProtected ? "On" : "Off");
 	printf("\n");
 }
 
@@ -1253,6 +1253,7 @@ DWORD GetBsrlockStatus()
 	PWCHAR pTemp = NULL;
 	DWORD dwErr = ERROR_SUCCESS;
 	DWORD dwRet = 0;
+	int bBsrlock;
 	
 	do {
 		hDevice = OpenDevice(BSRLOCK_DEVICE_NAME_USER);
@@ -1262,7 +1263,7 @@ DWORD GetBsrlockStatus()
 			printf("Failed to open device(%s), err(%d)\n", BSRLOCK_DEVICE_NAME_USER, dwErr);
 			break;
 		}
-		
+
 		HANDLE FindHandle = INVALID_HANDLE_VALUE;
 		WCHAR VolumeName[MAX_PATH] = L"";
 		WCHAR DevName[MAX_PATH] = L"";
@@ -1279,6 +1280,14 @@ DWORD GetBsrlockStatus()
 		while (FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName))) {
 			getVolumeBsrlockInfo(hDevice, VolumeName);
 		}
+		
+		if (DeviceIoControl(hDevice, IOCTL_GET_BSRLOCK_USE, NULL, 0,  &bBsrlock, sizeof(int), &dwRet, NULL) == FALSE) {
+			dwErr = GetLastError();
+			printf("Failed IOCTL_GET_BSRLOCK_USE. err(%d)\n", dwErr);
+		}
+		if (!bBsrlock) {
+			printf("\n# bsrlock is disabled\n");
+		}
 
 	} while (false);	
 	
@@ -1290,6 +1299,32 @@ DWORD GetBsrlockStatus()
 	return dwErr;
 }
 
+// BSR-71 add bsrlock bypass setting for testing and debugging
+DWORD MVOL_BsrlockUse(int bBsrlock) {
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+	DWORD       retVal = ERROR_SUCCESS;
+
+	hDevice = OpenDevice(BSRLOCK_DEVICE_NAME_USER);\
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+
+	if (DeviceIoControl(hDevice, IOCTL_SET_BSRLOCK_USE, &bBsrlock, sizeof(int), NULL, 0, &dwReturned, NULL) == FALSE) {
+		retVal = GetLastError();
+		fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Failed IOCTL_SET_BSRLOCK_USE. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+	return retVal;
+}
 
 #endif
 

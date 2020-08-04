@@ -65,6 +65,9 @@ DWORD MVOL_SimulDiskIoError(SIMULATION_DISK_IO_ERROR* pSdie);
 
 DWORD GetBsrlockStatus();
 
+// BSR-71
+DWORD MVOL_BsrlockUse(int bBsrlock);
+
 #endif
 
 DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
