@@ -258,17 +258,18 @@ retry:
 
 	if (iov->iov_len < (unsigned)n ||
 	    msg.msg_flags & MSG_TRUNC) {
-		// DW-2071 MSG_TRUNC flag is treated as an error if the MSG_PEEK flag is not set.
-		if (flags == 0) {
-			// DW-2071 if you finish reading one nlmsghdr and body, complete it
-			if (nlh->nlmsg_len <= n) 
-				goto finished;
-
+		if ((msg.msg_flags != MSG_TRUNC) && (flags == 0)) {
 			dbg(3, "failed because the response(%u) length is greater than the requested(%u) length\n", (unsigned)iov->iov_len, (unsigned)n);
 			return -E_RCV_ENOBUFS;
 		}
 		// DW-2071 read one at a time.
 		size_t len = nlh->nlmsg_len;
+
+		// DW-2144 if nlmsg_len is 0, set to -E_RCV_FAILED.
+		if (len == 0) {
+			return -E_RCV_FAILED;
+		}
+
 		if (iov->iov_len < nlh->nlmsg_len) {
 			iov->iov_base = realloc(iov->iov_base, len);
 			if (!iov->iov_base)
@@ -282,6 +283,12 @@ retry:
 	} else if (flags != 0) {
 		/* Buffer is big enough, do the actual reading */
 		size_t len = nlh->nlmsg_len;
+
+		// DW-2144 if nlmsg_len is 0, set to -E_RCV_FAILED.
+		if (len == 0) {
+			return -E_RCV_FAILED;
+		}
+
 		// DW-2071 read one at a time.
 		if (iov->iov_len < nlh->nlmsg_len) {
 			iov->iov_base = realloc(iov->iov_base, len);
@@ -336,13 +343,6 @@ int genl_recv_msgs(struct genl_sock *s, struct iovec *iov, char **err_desc, int 
 	}
 
 	nlh = (struct nlmsghdr*)iov->iov_base;
-
-	// DW-2144 if the length of the received genl is 0, it is treated as an invalid reception.
-	if (nlh->nlmsg_len == 0) {
-		if (err_desc)
-			*err_desc = "invalid data read (length 0)";
-		return -E_RCV_FAILED;
-	}
 
 	if (!nlmsg_ok(nlh, c)) {
 		if (err_desc)
