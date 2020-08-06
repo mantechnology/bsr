@@ -75,8 +75,10 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 			if (pvext->dev->bd_contains) {
 				// BSR-617 get real size
 				unsigned long long d_size = get_targetdev_volsize(pvext);
-				if (pvext->dev->bd_contains->d_size != d_size)
+				if (pvext->dev->bd_contains->d_size != d_size) {
 					pvext->dev->bd_contains->d_size = d_size;
+					pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
+				}
 				pventry->Size = pvext->dev->bd_contains->d_size;
 			}
 		}
