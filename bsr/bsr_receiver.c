@@ -8775,6 +8775,10 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		}
 	}
 
+	// BSR-655 send uuids when sync of other secondary is done to resolve meaningless oos.
+	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.pdsk == D_UP_TO_DATE)
+		bsr_send_uuids(peer_device, 0, 0);
+
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 
 	if (try_to_get_resync)
