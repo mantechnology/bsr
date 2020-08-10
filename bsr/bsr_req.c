@@ -490,6 +490,11 @@ struct bio_and_error *m)
 	struct bsr_peer_device *peer_device;
 
 	int rw = bio_data_dir(m->bio);
+
+	// BSR-658
+	sector_t bi_sector = BSR_BIO_BI_SECTOR(m->bio);
+	int bi_size = BSR_BIO_BI_SIZE(m->bio);
+
 #ifdef _WIN
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> bsr_request_endio -> complete_master_bio -> bio_endio)
 #else // _LIN
@@ -501,8 +506,6 @@ struct bio_and_error *m)
 	if (m->bio->pMasterIrp) {
 		NTSTATUS status = m->error;
 		master_bio = m->bio; // if pMasterIrp is exist, bio is master bio.
-#else // _LIN
-	if (m->bio) {
 #endif
 		// In diskless mode, if irp was sent to peer,
 		// then would be completed success,
@@ -520,7 +523,7 @@ struct bio_and_error *m)
 			*/
 			for_each_peer_device(peer_device, device) {
 				if (peer_device) {
-					bsr_set_out_of_sync(peer_device, BSR_BIO_BI_SECTOR(m->bio), BSR_BIO_BI_SIZE(m->bio));
+					bsr_set_out_of_sync(peer_device, bi_sector, bi_size);
 					if (peer_device->connection->cstate[NOW] == C_CONNECTED)
 						bsr_md_set_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 				}
@@ -615,9 +618,7 @@ struct bio_and_error *m)
 	else {
 		panic("complete_master_bio ERRROR! pMasterIrp is NULL\n");
 	}
-#else // _LIN
-	}
-#endif	
+#endif
 	dec_ap_bio(device, rw);
 }
 
