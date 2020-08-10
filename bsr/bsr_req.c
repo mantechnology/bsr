@@ -491,7 +491,7 @@ struct bio_and_error *m)
 
 	int rw = bio_data_dir(m->bio);
 
-	// BSR-658
+	// BSR-658 get bi sector, size before bio free
 	sector_t bi_sector = BSR_BIO_BI_SECTOR(m->bio);
 	int bi_size = BSR_BIO_BI_SIZE(m->bio);
 
