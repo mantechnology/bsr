@@ -4613,7 +4613,9 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	case P_RS_DATA_REQUEST:
 		// DW-1857 If P_RS_DATA_REQUEST is received, send P_RS_CANCEL unless L_SYNC_SOURCE.
 		// DW-2055 primary is always the syncsource of resync, so send the resync data.
-		if (peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY) {
+		// BSR-657 WFBitMapS status always sends P_RS_CANCEL packet.
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || 
+			(peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY)) {
 			err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
 			/* If err is set, we will drop the connection... */
 			goto fail3;
