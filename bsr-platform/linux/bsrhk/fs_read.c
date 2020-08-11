@@ -18,7 +18,7 @@ static char * read_superblock(struct file *fd)
 	ret = bsr_read(fd, super_block, sizeof(super_block), &fd->f_pos);
 	
 	if (ret < 0 || ret != sizeof(super_block)) {
-		bsr_err(200, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read super_block (err=%ld)\n", ret);
+		bsr_err(200, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read super_block (err=%ld)\n", ret);
 		return NULL;
 	}
 

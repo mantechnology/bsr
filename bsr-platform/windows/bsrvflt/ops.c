@@ -415,14 +415,14 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
 	if(!size) {
-		bsr_err(26, BSR_LC_DRIVER, NO_OBJECT, "GetBsrLog Invalid parameter. size is NULL\n");
+		bsr_err(26, BSR_LC_DRIVER, NO_OBJECT, "Invalid parameter. size is NULL\n");
 		return STATUS_INVALID_PARAMETER;
 	}
 	*size = 0;	
 	
 	if (inlen < BSR_LOG_SIZE || outlen < BSR_LOG_SIZE) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(27, BSR_LC_DRIVER, NO_OBJECT, "GetBsrLog buffer too small\n");
+		bsr_err(27, BSR_LC_DRIVER, NO_OBJECT, "buffer too small\n");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -432,7 +432,7 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 				*size = BSR_LOG_SIZE;
 		} else {
-			bsr_err(28, BSR_LC_DRIVER, NO_OBJECT, "GetBsrLog Invalid parameter. pBsrLog->LogBuf is NULL\n");
+			bsr_err(28, BSR_LC_DRIVER, NO_OBJECT, "Invalid parameter. pBsrLog->LogBuf is NULL\n");
 			return STATUS_INVALID_PARAMETER;
 		}
 	}
@@ -500,7 +500,7 @@ Return Value:
 
 	if (pVolume == NULL) {
 		// invalid parameter.
-		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "pVolume is NULL\n");
+		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "volume control is NULL\n");
 		return;
 	}
 

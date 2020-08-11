@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "cannot remove device, status=0x%x\n", status);
+		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "cannot remove device, status(0x%x)\n", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"HOOKER malloc fail!!!\n");
+					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to allocate memory for hooker!\n");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT,"HOOKER rest malloc fail!!\n");
+					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate memory for reset hooker\n");
 					goto fail_put_dev;
 				}
 			}
@@ -398,7 +398,7 @@ fail_put_dev:
 		kref_put(&device->kref, bsr_destroy_device);
 
 fail:
-	bsr_err(38, BSR_LC_VOLUME, NO_OBJECT,"failed. status=0x%x\n", status);
+	bsr_err(38, BSR_LC_VOLUME, NO_OBJECT,"I/O failed. status(0x%x)\n", status);
 	return status;
 }
 
@@ -416,7 +416,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        bsr_err(39, BSR_LC_VOLUME, NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
+        bsr_err(39, BSR_LC_VOLUME, NO_OBJECT,"Cannot run IoBuildDeviceIoControlRequest becauseof IRQL(%d)\n", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -424,7 +424,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-        bsr_err(40, BSR_LC_VOLUME, NO_OBJECT,"cannot alloc new IRP\n");
+		bsr_err(40, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate IRP. status(%x)\n", ioStatus.Status);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "cannot get volume information, err=0x%x\n", status);
+		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Cannot get volume information, err=0x%x\n", status);
         return status;
     }
 
@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"cannot alloc Log Entry\n");
+		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"Failed to allocate Log entry\n");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);

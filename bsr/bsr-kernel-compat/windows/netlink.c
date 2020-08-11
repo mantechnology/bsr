@@ -284,7 +284,7 @@ struct genl_info * genl_info_new(struct nlmsghdr * nlh, struct socket* sock, str
     struct genl_info * pinfo = ExAllocateFromNPagedLookasideList(&genl_info_mempool);
 
     if (!pinfo) {
-		bsr_err(4, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate genl inforamtion memory. size(%d)\n",
+		bsr_err(4, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl inforamtion\n",
             sizeof(struct genl_info));
         return NULL;
     }
@@ -384,7 +384,7 @@ InitWskNetlink(void * pctx)
 	
 	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42DW');
 	if(!gpNetlinkServerSocket) {
-		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate socket memory. size(%d)\n", sizeof(struct socket));
+		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
 		return;
 	}
 	
@@ -532,7 +532,7 @@ NetlinkWorkThread(PVOID context)
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
 	if(!pSock) {
-		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate socket memory. size(%d)\n", sizeof(struct socket));
+		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
         goto cleanup;
 	}
 
@@ -541,7 +541,7 @@ NetlinkWorkThread(PVOID context)
 	
     psock_buf = ExAllocateFromNPagedLookasideList(&genl_msg_mempool);
     if (!psock_buf) {
-		bsr_err(14, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate socket buffer memory. size(%d)\n", NLMSG_GOODSIZE);
+		bsr_err(14, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket buffer\n", NLMSG_GOODSIZE);
         goto cleanup;
     }
 
@@ -593,7 +593,7 @@ NetlinkWorkThread(PVOID context)
 
 		pinfo = genl_info_new(nlh, pSock, local_attrs);
         if (!pinfo) {
-			bsr_err(16, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate genl informaiton memory. size(%d)\n", sizeof(struct genl_info));
+			bsr_err(16, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl informaiton\n", sizeof(struct genl_info));
             goto cleanup;
         }
 
@@ -764,7 +764,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
     PNETLINK_WORK_ITEM netlinkWorkItem = ExAllocateFromNPagedLookasideList(&bsr_workitem_mempool);
 
     if (!netlinkWorkItem) {
-		bsr_err(24, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate work item memory. size(%d)\n", sizeof(NETLINK_WORK_ITEM));
+		bsr_err(24, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for work item\n", sizeof(NETLINK_WORK_ITEM));
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 

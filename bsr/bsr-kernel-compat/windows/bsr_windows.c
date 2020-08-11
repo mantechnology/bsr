@@ -2476,25 +2476,25 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
     if (!dev) {
-		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate block device memory. size(%d)\n", sizeof(struct block_device));
+		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device\n", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5DW');
 	if (!dev->bd_contains) {
-		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate block device contains memory. size(%d)\n", sizeof(struct block_device));
+		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains\n", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate gendisk memory. size(%d)\n", sizeof(struct gendisk));
+		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for gendisk\n", sizeof(struct gendisk));
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate request queue memory. size(%d)\n", sizeof(struct request_queue));
+		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for request queue\n", sizeof(struct request_queue));
 		goto request_queue_failed;
 	}
 		
@@ -2631,7 +2631,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3DW');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate regestry key memory. size(%u)\n", size);
+		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry key\n", size);
         goto cleanup;
     }
 
@@ -2645,7 +2645,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate regestry value memory, size(%d)\n", valueInfoSize);
+		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u memory for regestry value\n", valueInfoSize);
         goto cleanup;
     }
 
@@ -2848,7 +2848,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 #endif
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
 	if (!sLine) {
-		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate line memory. size(%d)\n", sLineSize);
+		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for line\n", sLineSize);
 		return;
 	}
 
@@ -2903,7 +2903,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW');
 	if (!pSock) {
-		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate socket memory. size(%d)\n", sizeof(struct socket));
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
 		return -1;
 	}
 #ifdef _WIN64
@@ -2912,7 +2912,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64DW');
 	if (!cmd_line) {
-		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate commad line memory. size(%d)\n", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for command line\n", leng);
 		if(pSock) {
 			kfree(pSock);
 		}

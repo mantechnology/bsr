@@ -848,7 +848,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 
 	spin_lock_irq(&resource->req_lock);
 	if (connection->cstate[NOW] >= C_CONNECTED) {
-		bsr_err(4, BSR_LC_GENL, connection, "Expected cstate < C_CONNECTED\n");
+		bsr_err(4, BSR_LC_GENL, connection, "Not connected. cstate(%s)\n", bsr_conn_str(connection->cstate[NOW]));
 		spin_unlock_irq(&resource->req_lock);
 		return false;
 	}
@@ -1793,11 +1793,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 			/* currently there is only one error: ENOMEM! */
 			size = bsr_bm_capacity(device);
 			if (size == 0) {
-				bsr_err(11, BSR_LC_GENL, device, "OUT OF MEMORY! "
-				    "Could not allocate bitmap!\n");
+				bsr_err(11, BSR_LC_GENL, device, "Device is not assigned bitmap.\n");
 			} else {
-				bsr_err(12, BSR_LC_GENL, device, "BM resizing failed. "
-				    "Leaving size unchanged\n");
+				bsr_err(12, BSR_LC_GENL, device, "Bitmap resizing failed. Leaving size unchanged\n");
 			}
 			rv = DS_ERROR;
 		}
@@ -2079,7 +2077,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		dc->al_extents, sizeof(struct lc_element), 0);
 #endif
 	if (n == NULL) {
-		bsr_err(21, BSR_LC_GENL, device, "Cannot allocate act_log lru!\n");
+		bsr_err(21, BSR_LC_GENL, device, "Cannot allocate activity log LRU\n");
 		return -ENOMEM;
 	}
 	spin_lock_irq(&device->al_lock);
@@ -2087,8 +2085,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		for (i = 0; i < t->nr_elements; i++) {
 			e = lc_element_by_index(t, i);
 			if (e->refcnt)
-				bsr_err(22, BSR_LC_GENL, device, "refcnt(%u)==%u\n",
-				    e->lc_number, e->refcnt);
+				bsr_err(22, BSR_LC_GENL, device, "Reference count has non-zero element(%u), reference count(%u)\n", e->lc_number, e->refcnt);
 			in_use += e->refcnt;
 		}
 	}
@@ -2096,7 +2093,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		device->act_log = n;
 	spin_unlock_irq(&device->al_lock);
 	if (in_use) {
-		bsr_err(23, BSR_LC_GENL, device, "Activity log still in use!\n");
+		bsr_err(23, BSR_LC_GENL, device, "Activity log is already in use.\n");
 		lc_destroy(n);
 		return -EBUSY;
 	} else {
@@ -3772,7 +3769,7 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 		new_plan = fifo_alloc(fifo_size);
 #endif
 		if (!new_plan) {
-			bsr_err(43, BSR_LC_GENL, peer_device, "kmalloc of fifo_buffer failed");
+			bsr_err(43, BSR_LC_GENL, peer_device, "Failed to allocate %d size memory in kmalloc\n", fifo_size);
 			return -ENOMEM;
 		}
 		rcu_assign_pointer(peer_device->rs_plan_s, new_plan);
@@ -4193,7 +4190,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	if (err) {
 		struct bsr_connection * connection = adm_ctx->connection;
 		kref_put(&path->kref, bsr_destroy_path);
-		bsr_err(47, BSR_LC_GENL, connection, "add_path() failed with %d\n", err);
+		bsr_err(47, BSR_LC_GENL, connection, "Failed to get an listener. err(%d)\n", err);
 		bsr_msg_put_info(adm_ctx->reply_skb, "add_path on transport failed");
 		return ERR_INVALID_REQUEST;
 	}
@@ -4373,7 +4370,7 @@ adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 		return NO_ERROR;
 	}
 
-	bsr_err(48, BSR_LC_GENL, connection, "del_path() failed with %d\n", err);
+	bsr_err(48, BSR_LC_GENL, connection, "Failed to put an listener. err(%d)\n", err);
 	bsr_msg_put_info(adm_ctx->reply_skb,
 			  err == -ENOENT ? "no such path" : "del_path on transport failed");
 	return ERR_INVALID_REQUEST;
@@ -4514,9 +4511,7 @@ void del_connection(struct bsr_connection *connection)
 	 */
 	rv2 = change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD);
 	if (rv2 < SS_SUCCESS)
-		bsr_err(49, BSR_LC_GENL, connection,
-			"unexpected rv2=%d in del_connection()\n",
-			rv2);
+		bsr_err(49, BSR_LC_GENL, connection, "Failed to change status to STANDALONE. state(%d)\n", rv2);
 	/* Make sure the sender thread has actually stopped: state
 	 * handling only does bsr_thread_stop_nowait().
 	 */
@@ -5241,7 +5236,7 @@ int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef _WIN 
 	// DW-1361 disable bsr_adm_suspend_io
-	bsr_err(52, BSR_LC_GENL, resource, "cmd(%u) error: bsr_adm_suspend_io not support.\n", info->genlhdr->cmd);
+	bsr_err(52, BSR_LC_GENL, resource, "command suspend I/O(%d) is not supported.\n", info->genlhdr->cmd);
 	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN
@@ -5276,7 +5271,7 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	// DW-1361 disable bsr_adm_resume_io
 	resource = adm_ctx.device->resource;
-	bsr_err(53, BSR_LC_GENL, resource, "cmd(%u) error: bsr_adm_resume_io not support.\n", info->genlhdr->cmd);
+	bsr_err(53, BSR_LC_GENL, resource, "command resume I/O(%d) is not supported.\n", info->genlhdr->cmd);;
 	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN

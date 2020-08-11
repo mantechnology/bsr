@@ -2545,7 +2545,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			ULONG_PTR word_offset;
 
 			if (bb == NULL) {
-				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size memory\n", sizeof(ULONG_PTR) * allow_size);
+				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size memory for copy bitmap\n", sizeof(ULONG_PTR) * allow_size);
 				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 			}
 			else {
@@ -7243,7 +7243,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to allocated %d size converted bitmap memory\n", sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize);
+				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to allocated %d size memory for converted bitmap\n", sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize);
 				break;
 			}
 
@@ -7296,9 +7296,9 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		(side != L_SYNC_SOURCE && side != L_SYNC_TARGET)) {
 		// DW-2017 change log output based on peer_device status
 		if (peer_device)
-			bsr_err(15, BSR_LC_RESYNC_OV, peer_device, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(15, BSR_LC_RESYNC_OV, peer_device, "Invalid parameter. repl state(%s)\n", bsr_repl_str(side));
 		else
-			bsr_err(16, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(16, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter. repl state(%s)\n", bsr_repl_str(side));
 
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
@@ -7643,7 +7643,7 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21DW');
 	if (!bm_io_work) {
-		bsr_err(34, BSR_LC_RESYNC_OV, device, "Could not allocate bm io work.\n");
+		bsr_err(34, BSR_LC_RESYNC_OV, device, "Failed to allocate %d size memory for bitmap I/O work\n", sizeof(*bm_io_work));
 		done(device, peer_device, -ENOMEM);
 		return;
 	}

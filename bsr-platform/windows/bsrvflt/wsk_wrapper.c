@@ -244,7 +244,7 @@ InitWskBuffer(
 		IoFreeMdl(WskBuffer->Mdl);
 		WskBuffer->Mdl = NULL;
 
-		bsr_err(40, BSR_LC_SOCKET, NO_OBJECT, "MmProbeAndLockPages failed. exception code=0x%x\n", GetExceptionCode());
+		bsr_err(40, BSR_LC_SOCKET, NO_OBJECT, "Failed to load into kernel memory. exception code=0x%x\n", GetExceptionCode());
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 	return Status;
@@ -297,7 +297,7 @@ NTSTATUS NTAPI WskGetNPI()
 	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI done.\n"); // takes long time! msg out after MVL loaded.
 
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI() failed with status 0x%08X\n", Status);
+		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskCaptureProviderNPI(). status 0x%08X\n", Status);
 		WskDeregister(&g_WskRegistration);
 		InterlockedExchange(&g_WskState, DEINITIALIZED);
 		return Status;
@@ -657,7 +657,7 @@ __in  BOOLEAN	bWriteAccess
 		IoFreeMdl((*WskBuffer)->Mdl);
 		(*WskBuffer)->Mdl = NULL;
 
-		bsr_err(45, BSR_LC_SOCKET, NO_OBJECT, "MmProbeAndLockPages failed. exception code=0x%x\n", GetExceptionCode());
+		bsr_err(45, BSR_LC_SOCKET, NO_OBJECT, "Failed to load into kernel memory. exception code=0x%x\n", GetExceptionCode());
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 	return Status;
