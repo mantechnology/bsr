@@ -3108,7 +3108,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																		split_count, NULL);
 
 								if (!split_peer_req) {
-									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, %llu\n", (unsigned long long)i_bb);
+									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)\n", (unsigned long long)i_bb);
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
 										kfree(failed_unmarked);
@@ -5917,7 +5917,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62DW');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72DW');
 		if (!(int_dig_in && int_dig_vv)) {
-			bsr_err(14, BSR_LC_PROTOCOL, connection, "Memory allocation failed and  data integrity checking failed\n");
+			bsr_err(14, BSR_LC_PROTOCOL, connection, "Memory allocation failed and data integrity checking failed\n");
 			goto disconnect;
 		}
 	}
@@ -6472,7 +6472,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 
 		/* Disconnect, if we cannot grow to the peer's current size */
 		if (my_max_size < p_csize && !is_handshake) {
-			bsr_err(36, BSR_LC_PROTOCOL, peer_device, "Peer's size larger than my maximum capacity. local(%llu), peer(%llu) sectors)\n",
+			bsr_err(36, BSR_LC_PROTOCOL, peer_device, "Peer's size larger than my maximum capacity. local max(%llu), peer(%llu) sectors)\n",
 				(unsigned long long)my_max_size, (unsigned long long)p_csize);
 			goto disconnect;
 		}

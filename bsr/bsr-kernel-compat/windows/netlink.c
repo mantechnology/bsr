@@ -700,7 +700,7 @@ cleanup:
 		kfree(pSock);
 	
     if (errcnt) {
-		bsr_err(23, BSR_LC_NETLINK, NO_OBJECT, "error occurrence count(%d), thread:%p\n", KeGetCurrentThread(), errcnt);
+		bsr_err(23, BSR_LC_NETLINK, NO_OBJECT, "error occurrence thread:%p, count(%d)\n", KeGetCurrentThread(), errcnt);
     } else {
 		bsr_debug(34, BSR_LC_NETLINK, NO_OBJECT, "NetlinkWorkThread:%p done...\n", KeGetCurrentThread());
     }

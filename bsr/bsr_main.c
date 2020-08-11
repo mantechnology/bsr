@@ -2545,7 +2545,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			ULONG_PTR word_offset;
 
 			if (bb == NULL) {
-				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size memory for copy bitmap\n", sizeof(ULONG_PTR) * allow_size);
+				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size memory for copy bitmap\n", (sizeof(ULONG_PTR) * allow_size));
 				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 			}
 			else {
@@ -7063,7 +7063,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 		NULL == pBitmap->Buffer ||
 		NULL == peer_device)
 	{
-		bsr_err(43, BSR_LC_BITMAP, peer_device, "Invalid parameter, bitmap(0x%p), buffer(0x%p) peer(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
+		bsr_err(43, BSR_LC_BITMAP, peer_device, "Invalid parameter, bitmap(0x%p), buffer(0x%p) peer device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
 #ifdef _WIN
 		return UINT64_MAX;
 #else	// _LIN
@@ -7243,7 +7243,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to allocated %d size memory for converted bitmap\n", sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize);
+				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to allocated %d size memory for converted bitmap\n", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
 				break;
 			}
 

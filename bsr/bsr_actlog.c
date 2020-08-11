@@ -600,7 +600,7 @@ static int al_write_transaction(struct bsr_device *device)
 	int err;
 
 	if (!get_ldev(device)) {
-		bsr_err(2, BSR_LC_LRU, device, "Cannot start al transaction because it is in the state %s\n",
+		bsr_err(2, BSR_LC_LRU, device, "Cannot start activity log transaction because it is in the state %s\n",
 			bsr_disk_str(device->disk_state[NOW]));
 		return -EIO;
 	}
@@ -700,7 +700,7 @@ bool put_actlog(struct bsr_device *device, unsigned int first, unsigned int last
 		int lc_put_result;		
 		extent = lc_find(device->act_log, enr);
 		if (!extent || extent->refcnt <= 0) {
-			bsr_err(4, BSR_LC_LRU, device, "act log complete called on inactive extent %u\n", enr);
+			bsr_err(4, BSR_LC_LRU, device, "activity log complete called on inactive extent %u\n", enr);
 			continue;
 		}
 		bsr_debug_al("called lc_put extent->lc_number= %u, extent->refcnt = %u\n", extent->lc_number, extent->refcnt); 
@@ -1367,7 +1367,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!get_ldev(device)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(2, BSR_LC_BITMAP, device, "%s => Failed to set in %s state, sector(%llu), mode(%u)\n", bsr_disk_str(device->disk_state[NOW]), caller, sector, mode);
+		bsr_err(2, BSR_LC_BITMAP, device, "%s => Failed to set in %s state, sector(%llu), mode(%u)\n", caller, bsr_disk_str(device->disk_state[NOW]), sector, mode);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
@@ -1457,7 +1457,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!get_ldev(device)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(5, BSR_LC_BITMAP, device, "out of sync cannot be set in %s state., sector(%llu)\n", bsr_disk_str(device->disk_state[NOW]), sector);
+		bsr_err(5, BSR_LC_BITMAP, device, "out of sync cannot be set in %s state. sector(%llu)\n", bsr_disk_str(device->disk_state[NOW]), sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
 	}
@@ -1470,7 +1470,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!expect(device, sector < nr_sectors)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(6, BSR_LC_BITMAP, device, "unexpected error, The sector(%llu) is larger than the capacity(%llu).\n", sector, nr_sectors);
+		bsr_err(6, BSR_LC_BITMAP, device, "unexpected error, The sector(%llu) is larger than the capacity sector(%llu).\n", sector, nr_sectors);
 #endif
 		goto out;
 	}

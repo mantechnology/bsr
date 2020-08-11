@@ -626,13 +626,13 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 		} 
 
 		if (!p) 
-			bsr_err(3, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory in ExAllocateFromNPagedLookasideList()\n");
+			bsr_err(3, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory in ExAllocateFromNPagedLookasideList\n");
 		
 	} else {
 		// BSR-247
 		p = kzalloc(pool->p_cache->size, gfp_mask, pool->p_cache->tag);
 		if (!p) 
-			bsr_err(17, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc()\n", pool->p_cache);
+			bsr_err(17, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc\n", pool->p_cache->size);
 	}
 
 	return p;
@@ -676,7 +676,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
 	if (!p) {
-		bsr_err(4, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kmalloc()\n", sizeof(struct kmem_cache));
+		bsr_err(4, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kmalloc\n", sizeof(struct kmem_cache));
 		return 0;
 	}
 #ifdef _WIN64
@@ -738,7 +738,7 @@ struct bio *bio_alloc(gfp_t gfp_mask, int nr_iovecs, ULONG Tag)
 	
 	bio = kzalloc(sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec), gfp_mask, Tag);
 	if (!bio) {
-		bsr_err(18, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc()\n", (sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec)));
+		bsr_err(18, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc\n", (sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec)));
 		return 0;
 	}
 	bio->bi_max_vecs = nr_iovecs;
@@ -1041,7 +1041,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
 	ZwClose(hThread);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(2, BSR_LC_THREAD, NO_OBJECT, "Failed to get handle for thread. status(0x%08x)\n", wq->name, status);
+		bsr_err(2, BSR_LC_THREAD, NO_OBJECT, "Failed to get handle for thread. name(%s) status(0x%08x)\n", wq->name, status);
 		kfree(wq);
 		return NULL;
 	}
@@ -1830,7 +1830,7 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		bsr_err(3, BSR_LC_IO, NO_OBJECT, "allocation of IRP in IoBuildAsynchronousFsdRequest() failed.\n");
+		bsr_err(3, BSR_LC_IO, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.\n");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -2600,7 +2600,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93DW');
     if (!new_reg_buf) {
-		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate regestry memory. size(%d)\n", MAX_TEXT_BUF);
+		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size regestry memory.\n", MAX_TEXT_BUF);
         return FALSE;
     }
 
@@ -2645,7 +2645,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u memory for regestry value\n", valueInfoSize);
+		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry value\n", valueInfoSize);
         goto cleanup;
     }
 
