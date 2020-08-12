@@ -345,7 +345,7 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 #endif
 		filp_close(fdir, NULL);
 	} else {
-		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "failed to open log directory\n");
+		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to open log directory\n");
 	}
 	set_fs(oldfs);
 

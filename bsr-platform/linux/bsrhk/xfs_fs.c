@@ -61,7 +61,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
-		bsr_err(202, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap_buf allocation failed\n");
+		bsr_err(202, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to allocate %d size memory for bitmap buffer\n", (sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size));
 		return NULL;
 	}
 

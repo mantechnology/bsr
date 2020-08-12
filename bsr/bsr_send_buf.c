@@ -418,7 +418,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	int ret = 0;
 
 	if (bab == NULL) {
-		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "bab is null.\n");
+		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "bab is not allocate. bab is null.\n");
 		return 0;
 	}
 
@@ -457,7 +457,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 	int msg_flags = 0;
 
 	if (bab == NULL) {
-		bsr_err(19, BSR_LC_SEND_BUFFER, NO_OBJECT,"bab is null.\n");
+		bsr_err(19, BSR_LC_SEND_BUFFER, NO_OBJECT,"bab is not allocate. bab is null.\n");
 		return 0;
 	}
 

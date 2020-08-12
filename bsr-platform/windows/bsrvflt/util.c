@@ -929,7 +929,7 @@ COUNT_LOCK( PVOLUME_EXTENSION VolumeExtension )
 
 	status = KeWaitForMutexObject( &VolumeExtension->CountMutex, Executive, KernelMode, FALSE, NULL );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(60, BSR_LC_DRIVER, NO_OBJECT, "cannot wait\n");
+		bsr_err(60, BSR_LC_DRIVER, NO_OBJECT, "Failed to wait. status(%x)\n", status);
 	}
 }
 

@@ -38,7 +38,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 
 	fd = filp_open(disk_name, O_RDONLY, 0);
 	if (fd == NULL || IS_ERR(fd)) {
-		bsr_err(201, BSR_LC_RESYNC_OV, device, "%s open failed\n", disk_name);
+		bsr_err(201, BSR_LC_RESYNC_OV, device, "Failed to open %s\n", disk_name);
 		goto out;
 	}
 

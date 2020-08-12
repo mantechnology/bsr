@@ -8617,7 +8617,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 		// DW-1093 detour 2-primary SB
 		if( (peer_state.role == R_PRIMARY) && (device->resource->role[NOW] == R_PRIMARY) ) {
-			bsr_err(31, BSR_LC_STATE, device, "2 primary is not allowed.\n");
+			bsr_err(31, BSR_LC_STATE, device, "Failed to set primary. There are already primary node connected.\n");
 			put_ldev(device);
 			goto fail;
 		}
