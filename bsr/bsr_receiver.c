@@ -513,7 +513,7 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	peer_req = mempool_alloc(bsr_ee_mempool, gfp_mask & ~__GFP_HIGHMEM);
 	if (!peer_req) {
 		if (!(gfp_mask & __GFP_NOWARN))
-			bsr_err(5, BSR_LC_PEER_REQUEST, device, "%s: allocation failed\n", __func__);
+			bsr_err(5, BSR_LC_PEER_REQUEST, device, "Failed to allocate memory for peer request\n");
 		return NULL;
 	}
 
@@ -957,7 +957,7 @@ start:
 #endif
 #endif
 	if (!connection->ack_sender) {
-		bsr_err(17, BSR_LC_THREAD, connection, "Failed to create workqueue ack_sender\n");
+		bsr_err(17, BSR_LC_THREAD, connection, "Failed to create thread for workqueue ack_sender\n");
 		goto abort;
 	}
 
@@ -1182,7 +1182,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
-		bsr_latency(2, BSR_LC_LATENCY, device, "flush IO latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_latency(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus\n", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
@@ -1190,7 +1190,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 		if (ctx)
 			ctx->error = error;
-		bsr_err(11, BSR_LC_VOLUME, device, "local disk FLUSH FAILED with status %08X\n", error);
+		bsr_err(11, BSR_LC_VOLUME, device, "Flush of local disk failed. status(%08X)\n", error);
 	}
 
 #ifdef _WIN // DW-1117 patch flush io memory leak
@@ -1866,7 +1866,7 @@ next_bio:
 	* REQ_OP_SECURE_ERASE: I don't see how we could ever support that.
 	*/
 	if (!(op == REQ_OP_WRITE || op == REQ_OP_READ)) {
-		bsr_err(6, BSR_LC_PEER_REQUEST, device, "Invalid bio op received: 0x%x\n", op);
+		bsr_err(6, BSR_LC_PEER_REQUEST, device, "An unknown request has been received. 0x%x\n", op);
 		err = -EINVAL;
 		goto fail;
 	}
@@ -1877,7 +1877,7 @@ next_bio:
 	bio = bio_alloc(GFP_NOIO, nr_pages);
 #endif
 	if (!bio) {
-		bsr_err(7, BSR_LC_PEER_REQUEST, device, "submit_ee: Allocation of a bio failed (nr_pages=%u)\n", nr_pages);
+		bsr_err(7, BSR_LC_PEER_REQUEST, device, "Failed to allocate block I/O (pages=%u)\n", nr_pages);
 		goto fail;
 	}
 	/* > peer_req->i.sector, unless this is the first bio */
@@ -2045,7 +2045,7 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 		bsr_al_complete_io(device, &peer_req->i);
 		bsr_may_finish_epoch(peer_device->connection, peer_req->epoch, EV_PUT | EV_CLEANUP);
 		bsr_free_peer_req(peer_req);
-		bsr_err(8, BSR_LC_PEER_REQUEST, device, "submit failed, triggering re-connect\n");
+		bsr_err(8, BSR_LC_PEER_REQUEST, device, "Failed to submit I/O request, triggering re-connect\n");
 		return err;
 	}
 }
@@ -2198,8 +2198,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	/* even though we trust our peer,
 	 * we sometimes have to double check. */
 	if (d->sector + (d->bi_size >> 9) > capacity) {
-		bsr_err(9, BSR_LC_PEER_REQUEST, device, "request from peer beyond end of local disk: "
-			"capacity: %llus < sector: %llus + size: %u\n",
+		bsr_err(9, BSR_LC_PEER_REQUEST, device, "request from peer beyond end of local disk, capacity(%llus), sector(%llus) + size(%u)\n",
 			capacity, d->sector, d->bi_size);
 		return NULL;
 	}
@@ -2233,7 +2232,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 #else // _LIN
 		struct page *page;
 		unsigned long *data;
-		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Fault injection: Corrupting data on receive, sector %llu\n",
+		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Fault injection: Corrupting data on receive, sector(%llu)\n",
 			d->sector);
 		page = peer_req->page_chain.head;
 		data = kmap(page) + page_chain_offset(page);
@@ -2245,7 +2244,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	if (d->digest_size) {
 		bsr_csum_pages(peer_device->connection->peer_integrity_tfm, peer_req, dig_vv);
 		if (memcmp(dig_in, dig_vv, d->digest_size)) {
-			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Digest integrity check FAILED: %llus +%u\n",
+			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Digest integrity check FAILED, sector(%llus) size(%u)\n",
 				d->sector, d->bi_size);
 			goto fail;
 		}
@@ -2511,7 +2510,7 @@ static int split_request_complete(struct bsr_peer_device* peer_device, struct bs
 					//DW-1601 If out of sync is found within range, it is set as a failure.
 					peer_req->i.sector = BM_BIT_TO_SECT(s_bb);
 					peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(i_bb - s_bb) << 9;
-					bsr_err(38, BSR_LC_RESYNC_OV, peer_device, "--set failed to I/O, bitmap bit start : %llu, range : %llu ~ %llu, size %llu\n",
+					bsr_err(38, BSR_LC_RESYNC_OV, peer_device, "Failed to write resync data. bitmap start(%llu), range(%llu ~ %llu), size(%llu)\n",
 						(unsigned long long)peer_req->s_bb, (unsigned long long)s_bb, (unsigned long long)(i_bb - 1), (unsigned long long)(BM_BIT_TO_SECT(i_bb - s_bb) << 9));
 					if (i_bb == e_next_bb)
 						peer_req->block_id = ID_SYNCER_SPLIT_DONE;
@@ -2908,7 +2907,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 	peer_req = read_in_block(peer_device, d);
 	if (!peer_req) {
-		bsr_err(39, BSR_LC_RESYNC_OV, peer_device, "failed to allocate peer_req\n");
+		bsr_err(39, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate peer request\n");
 		return -EIO;
 	}
 
@@ -2939,7 +2938,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		atomic_t *split_count;
 		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 		if (!split_count) {
-			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "failed to allocate split count\n");
+			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate %d size memory for split count\n", sizeof(atomic_t));
 			return -ENOMEM;
 		}
 
@@ -3012,12 +3011,12 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																split_count, NULL);
 
 						if (!split_peer_req) {
-							bsr_err(41, BSR_LC_RESYNC_OV, peer_device, "failed to alloc split_peer_req, %llu\n", (unsigned long long)i_bb);
+							bsr_err(41, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, bitmap offset(%llu)\n", (unsigned long long)i_bb);
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
 
-						BSR_VERIFY_DATA("%s, split, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+						BSR_VERIFY_DATA("%s => sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)\n",
 							__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
 
 						spin_lock_irq(&device->resource->req_lock);
@@ -3045,7 +3044,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						if (!bsr_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, BSR_FAULT_RS_WR) == 0) {
 							err = -EIO;
-							bsr_err(43, BSR_LC_RESYNC_OV, device, "submit failed, triggering re-connect\n");
+							bsr_err(43, BSR_LC_RESYNC_OV, device, "Failed to submit I/O request, triggering re-connect\n");
 						error_clear:
 							spin_lock_irq(&device->resource->req_lock);
 							list_del(&split_peer_req->w.list);
@@ -3076,14 +3075,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 						if (!unmarked_count) {
-							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "failed to allocate unmakred_count\n");
+							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for unmakred count\n");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
 						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
 						if (!failed_unmarked) {
-							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "failed to allocate failed_unmarked\n");
+							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for failed unmarked\n");
 							kfree(unmarked_count);
 							// DW-1923
 							err = -ENOMEM;
@@ -3109,7 +3108,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																		split_count, NULL);
 
 								if (!split_peer_req) {
-									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "failed to allocate split_peer_req, %llu\n", (unsigned long long)i_bb);
+									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)\n", (unsigned long long)i_bb);
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
 										kfree(failed_unmarked);
@@ -3119,7 +3118,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 									goto split_error_clear;
 								}
 
-								BSR_VERIFY_DATA("%s, marked, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)\n",
+								BSR_VERIFY_DATA("%s => marked, sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)\n",
 									__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
 
 								split_peer_req->unmarked_count = unmarked_count;
@@ -3138,7 +3137,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 									(unsigned long long)marked_rl->bb, 
 									(unsigned long long)BM_BIT_TO_SECT(marked_rl->bb) + i, i, atomic_read(unmarked_count));
 								if (!bsr_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, BSR_FAULT_RS_WR) == 0) {
-									bsr_err(47, BSR_LC_RESYNC_OV, device, "unmarked, submit failed, triggering re-connect\n");
+									bsr_err(47, BSR_LC_RESYNC_OV, device, "Failed to submit I/O request, triggering re-connect\n");
 									// DW-1923 for interparameter synchronization, an additional 1 was added for the remaining count and modified to use atomic_dec_return.
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
@@ -3227,7 +3226,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 			BSR_FAULT_RS_WR) == 0)
 			return 0;
 
-		bsr_err(49, BSR_LC_RESYNC_OV, device, "submit failed, triggering re-connect\n");
+		bsr_err(49, BSR_LC_RESYNC_OV, device, "Failed to submit I/O request, triggering re-connect\n");
 		/* don't care for the reason here */
 		spin_lock_irq(&device->resource->req_lock);
 		list_del(&peer_req->w.list);
@@ -3285,7 +3284,7 @@ static int recv_resync_read(struct bsr_peer_device *peer_device,
 		return 0;
 
 	/* don't care for the reason here */
-	bsr_err(50, BSR_LC_RESYNC_OV, device, "submit failed, triggering re-connect\n");
+	bsr_err(50, BSR_LC_RESYNC_OV, device, "Failed to submit I/O request, triggering re-connect\n");
 	spin_lock_irq(&device->resource->req_lock);
 	list_del(&peer_req->w.list);
 	spin_unlock_irq(&device->resource->req_lock);
@@ -3306,7 +3305,7 @@ find_request(struct bsr_device *device, struct rb_root *root, u64 id,
 	if (bsr_contains_interval(root, sector, &req->i) && req->i.local)
 		return req;
 	if (!missing_ok) {
-		bsr_err(5, BSR_LC_REQUEST, device, "%s: failed to find request 0x%llx, sector %llus\n", func,
+		bsr_err(5, BSR_LC_REQUEST, device, "%s => Failed to find request 0x%llx, sector %llus\n", func,
 			(unsigned long long)id, (unsigned long long)sector);
 	}
 	return NULL;
@@ -3328,7 +3327,7 @@ static int receive_bm_exchange_state(struct bsr_connection *connection, struct p
 		bsr_info(44, BSR_LC_BITMAP, peer_device, "bitmap exchange complete\n");
 		break;
 	default:
-		bsr_err(45, BSR_LC_BITMAP, peer_device, "unknown error(%u)\n", state);
+		bsr_err(45, BSR_LC_BITMAP, peer_device, "Unknown error. state(%u)\n", state);
 		break;
 	}
 	return 0;
@@ -3435,7 +3434,7 @@ static int receive_RSDataReply(struct bsr_connection *connection, struct packet_
 			put_ldev(device);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(51, BSR_LC_RESYNC_OV, device, "Can not write resync data to local disk.\n");
+			bsr_err(51, BSR_LC_RESYNC_OV, device, "Cannot write resync data because the disk state is %s\n", device->disk_state[NOW]);
 
 		err = ignore_remaining_packet(connection, pi->size);
 
@@ -3699,7 +3698,7 @@ static int wait_for_and_update_peer_seq(struct bsr_peer_device *peer_device, con
 		spin_lock(&peer_device->peer_seq_lock);
 		if (!timeout) {
 			ret = -ETIMEDOUT;
-			bsr_err(5, BSR_LC_REPLICATION, peer_device, "Timed out waiting for missing ack packets; disconnecting\n");
+			bsr_err(5, BSR_LC_REPLICATION, peer_device, "Timed out waiting for missing ack packets. disconnecting\n");
 			break;
 		}
 	}
@@ -3912,7 +3911,7 @@ static int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (!pending_st) {
-				bsr_err(53, BSR_LC_RESYNC_OV, peer_device, "failed to resync pending bits allocate, sector : %llu ~ %llu\n", (unsigned long long)sst, (unsigned long long)est);
+				bsr_err(53, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for resync pending bits, sector(%llu ~ %llu)\n", (unsigned long long)sst, (unsigned long long)est);
 				mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
 				return -ENOMEM;
 			}
@@ -3996,7 +3995,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(s_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(58, BSR_LC_RESYNC_OV, peer_device, "failed to marked replicate allocate, bit : %llu\n", (unsigned long long)s_bb);
+					bsr_err(58, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for marked replicate. bitmap bit(%llu)\n", (unsigned long long)s_bb);
 					return -ENOMEM;
 				}
 			}
@@ -4028,7 +4027,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(e_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(59, BSR_LC_RESYNC_OV, peer_device, "failed to marked replicate allocate, bit : %llu\n", (unsigned long long)e_bb);
+					bsr_err(59, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for marked replicate. bitmap bit(%llu)\n", (unsigned long long)e_bb);
 					return -ENOMEM;
 				}
 			}
@@ -4276,7 +4275,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			err = bsr_al_begin_io_for_peer(peer_device, &peer_req->i);
 			if (err) {
 				// DW-1499 Decrease unacked_cnt when returning an error. 
-				bsr_err(7, BSR_LC_REPLICATION, peer_device, "disconnect during al begin io (err = %d)\n", err);
+				bsr_err(7, BSR_LC_REPLICATION, peer_device, "Failed to acquire activity log. Shut down the connection. conn_state(%s) err(%d)\n", bsr_conn_str(peer_device->connection->cstate[NOW]), err);
 				if (peer_req->flags & EE_SEND_WRITE_ACK) {
 					dec_unacked(peer_device);
 				}
@@ -4366,7 +4365,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	}
 
 	/* don't care for the reason here */
-	bsr_err(9, BSR_LC_REPLICATION, peer_device, "submit failed, triggering re-connect\n");
+	bsr_err(9, BSR_LC_REPLICATION, peer_device, "Failed to submit I/O request, triggering re-connect\n");
 	bsr_al_complete_io(device, &peer_req->i);
 
 disconnect_during_al_begin_io:
@@ -4395,7 +4394,7 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
 	struct bsr_connection *connection = peer_device->connection;
 
 	if (bsr_ratelimit())
-		bsr_err(10, BSR_LC_REPLICATION, peer_device, "submit failed, triggering re-connect\n");
+		bsr_err(10, BSR_LC_REPLICATION, peer_device, "Failed to submit I/O request, triggering re-connect\n");
 
 	bsr_al_complete_io(device, &peer_req->i);
 
@@ -4527,13 +4526,11 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	size   = be32_to_cpu(p->blksize);
 
 	if (size <= 0 || !IS_ALIGNED(size, 512) || size > BSR_MAX_BIO_SIZE) {
-		bsr_err(11, BSR_LC_REPLICATION, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
-				(unsigned long long)sector, size);
+		bsr_err(11, BSR_LC_REPLICATION, device, "Invalid block I/O size received. sector(%llus), size(%d)\n", (unsigned long long)sector, size);
 		return -EINVAL;
 	}
 	if (sector + (size>>9) > capacity) {
-		bsr_err(12, BSR_LC_REPLICATION, device, "%s:%d: sector: %llus, size: %d\n", __FILE__, __LINE__,
-				(unsigned long long)sector, size);
+		bsr_err(12, BSR_LC_REPLICATION, device, "Receives a sector over capacity. sector(%llus), size(%d)\n", (unsigned long long)sector, size);
 		return -EINVAL;
 	}
 
@@ -4784,7 +4781,7 @@ submit:
 		return 0;
 
 	/* don't care for the reason here */
-	bsr_err(61, BSR_LC_RESYNC_OV, device, "submit failed, triggering re-connect\n");
+	bsr_err(61, BSR_LC_RESYNC_OV, device, "Failed to submit I/O request, triggering re-connect\n");
 	err = -EIO;
 
 fail3:
@@ -4824,7 +4821,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_SECONDARY:
 	case ASB_CALL_HELPER:
 	case ASB_VIOLENTLY:
-		bsr_err(62, BSR_LC_RESYNC_OV, peer_device, "Configuration error.\n");
+		bsr_err(62, BSR_LC_RESYNC_OV, peer_device, "Error setting split-brain recovery.\n");
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4902,7 +4899,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_LOCAL:
 	case ASB_DISCARD_REMOTE:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(63, BSR_LC_RESYNC_OV, device, "Configuration error.\n");
+		bsr_err(63, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery.\n");
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4962,7 +4959,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_CONSENSUS:
 	case ASB_DISCARD_SECONDARY:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(64, BSR_LC_RESYNC_OV, device, "Configuration error.\n");
+		bsr_err(64, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery.\n");
 		break;
 	case ASB_VIOLENTLY:
 		rv = bsr_asb_recover_0p(peer_device);
@@ -5920,19 +5917,19 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62DW');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72DW');
 		if (!(int_dig_in && int_dig_vv)) {
-			bsr_err(14, BSR_LC_PROTOCOL, connection, "Allocation of buffers for data integrity checking failed\n");
+			bsr_err(14, BSR_LC_PROTOCOL, connection, "Memory allocation failed and data integrity checking failed\n");
 			goto disconnect;
 		}
 	}
 
 	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82DW');
 	if (!new_net_conf) {
-		bsr_err(15, BSR_LC_PROTOCOL, connection, "Allocation of new net_conf failed\n");
+		bsr_err(15, BSR_LC_PROTOCOL, connection, "Faild to allocate %d size memory for net configure\n", sizeof(struct net_conf));
 		goto disconnect;
 	}
 
 	if (mutex_lock_interruptible(&connection->resource->conf_update)) {
-		bsr_err(16, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for conf_update\n");
+		bsr_err(16, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for configure update\n");
 		// BSR-628 memory deallocation
 		kfree(new_net_conf);
 		goto disconnect;
@@ -6064,8 +6061,8 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			: /* apv >= 114 */ sizeof(struct p_rs_param_114);
 
 	if (pi->size > exp_max_sz) {
-		bsr_err(19, BSR_LC_PROTOCOL, device, "SyncParam packet too long: received %u, expected <= %u bytes\n",
-		    pi->size, exp_max_sz);
+		bsr_err(19, BSR_LC_PROTOCOL, device, "sync param packet too long. max(%u), received(%u) bytes\n",
+			exp_max_sz, pi->size);
 		return -EIO;
 	}
 
@@ -6092,7 +6089,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 	err = mutex_lock_interruptible(&resource->conf_update);
 	if (err) {
-		bsr_err(20, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for conf_update\n");
+		bsr_err(20, BSR_LC_PROTOCOL, connection, "Interrupted while waiting for configure update\n");
 		return err;
 	}
 	old_net_conf = connection->transport.net_conf;
@@ -6101,7 +6098,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (!new_peer_device_conf) {
 			put_ldev(device);
 			mutex_unlock(&resource->conf_update);
-			bsr_err(21, BSR_LC_PROTOCOL, device, "Allocation of new peer_device_conf failed\n");
+			bsr_err(21, BSR_LC_PROTOCOL, device, "Failed to allocate %d size memory for peer device configure\n", sizeof(struct peer_device_conf));
 			return -ENOMEM;
 		}
 		/* With a non-zero new_peer_device_conf, we will call put_ldev() below.  */
@@ -6133,7 +6130,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		if (strcmp(old_net_conf->verify_alg, p->verify_alg)) {
 			if (peer_device->repl_state[NOW] == L_OFF) {
-				bsr_err(23, BSR_LC_PROTOCOL, device, "Different verify-alg settings. me=\"%s\" peer=\"%s\"\n",
+				bsr_err(23, BSR_LC_PROTOCOL, device, "Different verify-alg settings. local=\"%s\" peer=\"%s\"\n",
 				    old_net_conf->verify_alg, p->verify_alg);
 				goto disconnect;
 			}
@@ -6147,7 +6144,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		if (apv >= 89 && strcmp(old_net_conf->csums_alg, p->csums_alg)) {
 			if (peer_device->repl_state[NOW] == L_OFF) {
-				bsr_err(24, BSR_LC_PROTOCOL, device, "Different csums-alg settings. me=\"%s\" peer=\"%s\"\n",
+				bsr_err(24, BSR_LC_PROTOCOL, device, "Different csums-alg settings. local=\"%s\" peer=\"%s\"\n",
 				    old_net_conf->csums_alg, p->csums_alg);
 				goto disconnect;
 			}
@@ -6175,7 +6172,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				new_plan = fifo_alloc(fifo_size);
 #endif
 				if (!new_plan) {
-					bsr_err(25, BSR_LC_PROTOCOL, device, "kmalloc of fifo_buffer failed");
+					bsr_err(25, BSR_LC_PROTOCOL, device, "Failed to allocate memory for fifo buffer");
 					goto disconnect;
 				}
 			}
@@ -6190,7 +6187,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2DW');
 			if (!new_net_conf) {
-				bsr_err(26, BSR_LC_PROTOCOL, device, "Allocation of new net_conf failed\n");
+				bsr_err(26, BSR_LC_PROTOCOL, device, "Failed to allocate %d size memory for net configure\n", sizeof(struct net_conf));
 				goto disconnect;
 			}
 
@@ -6468,14 +6465,14 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			// DW-1469 allowed if discard_my_data option.
 			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 		    peer_device->repl_state[NOW] < L_ESTABLISHED) {
-			bsr_err(35, BSR_LC_PROTOCOL, peer_device, "The peer's disk size is too small! (%llu bytes < %llu bytes)\n",
+			bsr_err(35, BSR_LC_PROTOCOL, peer_device, "The peer's disk size is too small. new(%llu), current(%llu) bytes\n",
                     (unsigned long long)(new_size<<9), (unsigned long long)(cur_size<<9));
 			goto disconnect;
 		}
 
 		/* Disconnect, if we cannot grow to the peer's current size */
 		if (my_max_size < p_csize && !is_handshake) {
-			bsr_err(36, BSR_LC_PROTOCOL, peer_device, "Peer's size larger than my maximum capacity (%llu < %llu sectors)\n",
+			bsr_err(36, BSR_LC_PROTOCOL, peer_device, "Peer's size larger than my maximum capacity. local max(%llu), peer(%llu) sectors)\n",
 				(unsigned long long)my_max_size, (unsigned long long)p_csize);
 			goto disconnect;
 		}
@@ -6484,7 +6481,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			struct disk_conf *old_disk_conf, *new_disk_conf;
 			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2DW');
 			if (!new_disk_conf) {
-				bsr_err(37, BSR_LC_PROTOCOL, device, "Allocation of new disk_conf failed\n");
+				bsr_err(37, BSR_LC_PROTOCOL, device, "Failed to allocate %d size memory for disk configure\n", sizeof(struct disk_conf));
 				err = -ENOMEM;
 				goto out;
 			}
@@ -7806,7 +7803,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         struct disk_conf *old_disk_conf, *new_disk_conf;
 		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7DW');
         if (!new_disk_conf) {
-			bsr_err(9, BSR_LC_TWOPC, device, "Allocation of new disk_conf failed\n");
+			bsr_err(9, BSR_LC_TWOPC, device, "Failed to allocate %d size memory for disk configure\n", sizeof(struct disk_conf));
 			device->ldev->disk_conf->disk_size = tr->user_size;
             goto cont;
         }
@@ -7939,7 +7936,7 @@ static int process_twopc(struct bsr_connection *connection,
 
 
 	if (connection == NULL)
-		bsr_err(11, BSR_LC_TWOPC, NO_OBJECT, "process_twopc connection is null\n");
+		bsr_err(11, BSR_LC_TWOPC, NO_OBJECT, "Cannot process twopc because connection is null.\n");
 	
 	resource = connection->resource;
 	
@@ -8620,7 +8617,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 		// DW-1093 detour 2-primary SB
 		if( (peer_state.role == R_PRIMARY) && (device->resource->role[NOW] == R_PRIMARY) ) {
-			bsr_err(31, BSR_LC_STATE, device, "2 primary is not allowed.\n");
+			bsr_err(31, BSR_LC_STATE, device, "Failed to set primary. There are already primary node connected.\n");
 			put_ldev(device);
 			goto fail;
 		}
@@ -8819,7 +8816,7 @@ static int receive_sync_uuid(struct bsr_connection *connection, struct packet_in
 
 		put_ldev(device);
 	} else
-		bsr_err(12, BSR_LC_UUID, device, "Ignoring SyncUUID packet!\n");
+		bsr_err(12, BSR_LC_UUID, device, "Ignore packets because they are in %s disk state.\n", bsr_disk_str(device->disk_state[NOW]));
 
 	return 0;
 }
@@ -8844,7 +8841,7 @@ receive_bitmap_plain(struct bsr_peer_device *peer_device, unsigned int size,
 
 
 	if (want != size) {
-		bsr_err(46, BSR_LC_BITMAP, peer_device, "%s:want (%llu) != size (%llu)\n", __func__, (unsigned long long)want,  (unsigned long long)size);
+		bsr_err(46, BSR_LC_BITMAP, peer_device, "The bitmap size is different from the actual size. want(%llu), size(%llu)\n", (unsigned long long)want,  (unsigned long long)size);
 		return -EIO;
 	}
 	if (want == 0)
@@ -8966,7 +8963,7 @@ decode_bitmap_c(struct bsr_peer_device *peer_device,
 	 * but have been dropped as this one turned out to be "best"
 	 * during all our tests. */
 
-	bsr_err(49, BSR_LC_BITMAP, peer_device, "receive_bitmap_c: unknown encoding %u\n", p->encoding);
+	bsr_err(49, BSR_LC_BITMAP, peer_device, "unknown encoding %u\n", p->encoding);
 	change_cstate_ex(peer_device->connection, C_PROTOCOL_ERROR, CS_HARD);
 	return -EIO;
 }
@@ -9102,7 +9099,7 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 	if (!peer_device)
 		return -EIO;
 	if (peer_device->bitmap_index == -1) {
-		bsr_err(53, BSR_LC_BITMAP, peer_device, "No bitmap allocated in receive_bitmap()!\n");
+		bsr_err(53, BSR_LC_BITMAP, peer_device, "Bitmap index is not set.\n");
 		return -EIO;
 	}
 	device = peer_device->device;
@@ -9133,12 +9130,12 @@ static int receive_bitmap(struct bsr_connection *connection, struct packet_info 
 		struct p_compressed_bm *p;
 
 		if (pi->size > BSR_SOCKET_BUFFER_SIZE - bsr_header_size(connection)) {
-			bsr_err(54, BSR_LC_BITMAP, device, "ReportCBitmap packet too large\n");
+			bsr_err(54, BSR_LC_BITMAP, device, "Received long compressed bitmap packet length. received length(%d)\n", pi->size);
 			err = -EIO;
 			goto out;
 		}
 		if (pi->size <= sizeof(*p)) {
-			bsr_err(55, BSR_LC_BITMAP, device, "ReportCBitmap packet too small (l:%u)\n", pi->size);
+			bsr_err(55, BSR_LC_BITMAP, device, "Received short compressed bitmap packet length. received length(%d)\n", pi->size);
 			err = -EIO;
 			goto out;
 		}
@@ -9284,7 +9281,7 @@ static int list_add_resync_pending(struct bsr_device* device, sector_t sst, sect
 #endif
 
 		if (!pending_st) {
-			bsr_err(100, BSR_LC_RESYNC_OV, device, "failed to resync pending bits allocate, sector : %llu ~ %llu\n", (unsigned long long)sst, (unsigned long long)est);
+			bsr_err(100, BSR_LC_RESYNC_OV, device, "Failed to resync pending bits allocate, sector(%llu ~ %llu)\n", (unsigned long long)sst, (unsigned long long)est);
 			mutex_unlock(&device->resync_pending_fo_mutex);
 			return -ENOMEM;
 		}
@@ -10026,16 +10023,16 @@ void conn_disconnect(struct bsr_connection *connection)
 
 	i = bsr_free_peer_reqs(resource, &connection->read_ee, true);
 	if (i)
-		bsr_err(14, BSR_LC_PEER_REQUEST, connection, "read_ee not empty, killed %d entries\n", i);
+		bsr_err(14, BSR_LC_PEER_REQUEST, connection, "read peer request not empty, killed %d entries\n", i);
 	i = bsr_free_peer_reqs(resource, &connection->active_ee, true);
 	if (i)
-		bsr_err(15, BSR_LC_PEER_REQUEST, connection, "active_ee not empty, killed %d entries\n", i);
+		bsr_err(15, BSR_LC_PEER_REQUEST, connection, "active peer request not empty, killed %d entries\n", i);
 	i = bsr_free_peer_reqs(resource, &connection->sync_ee, true);
 	if (i)
-		bsr_err(16, BSR_LC_PEER_REQUEST, connection, "sync_ee not empty, killed %d entries\n", i);
+		bsr_err(16, BSR_LC_PEER_REQUEST, connection, "sync peer request not empty, killed %d entries\n", i);
 	i = bsr_free_peer_reqs(resource, &connection->net_ee, true);
 	if (i)
-		bsr_err(17, BSR_LC_PEER_REQUEST, connection, "net_ee not empty, killed %d entries\n", i);
+		bsr_err(17, BSR_LC_PEER_REQUEST, connection, "net request not empty, killed %d entries\n", i);
 
 	cleanup_unacked_peer_requests(connection);
 	cleanup_peer_ack_list(connection);
@@ -10049,11 +10046,11 @@ void conn_disconnect(struct bsr_connection *connection)
 
 	if (!list_empty(&connection->current_epoch->list)) {
 		struct bsr_epoch *epoch;
-		bsr_err(14, BSR_LC_REPLICATION, connection, "ASSERTION FAILED: connection->current_epoch->list not empty\n");
+		bsr_err(14, BSR_LC_REPLICATION, connection, "ASSERTION FAILED, Replication epoch list is not empty.\n");
 
 		// DW-1812 if the epoch list is not empty, remove it.
 		list_for_each_entry_ex(struct bsr_epoch, epoch, &connection->current_epoch->list, list) {
-			bsr_info(15, BSR_LC_REPLICATION, connection, "ASSERTION FAILED: remove epoch barrier_nr : %u, epochs:%u\n", epoch->barrier_nr, connection->epochs);
+			bsr_info(15, BSR_LC_REPLICATION, connection, "ASSERTION FAILED, remove epoch barrier_nr : %u, epochs:%u\n", epoch->barrier_nr, connection->epochs);
 			list_del(&epoch->list);
 			kfree(epoch);
 			connection->epochs--;
@@ -10943,7 +10940,7 @@ static int got_NegDReply(struct bsr_connection *connection, struct packet_info *
 
 	update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
-	bsr_err(16, BSR_LC_REPLICATION, device, "Got NegDReply; Sector %llus, len %u.\n",
+	bsr_err(16, BSR_LC_REPLICATION, device, "Failed to request and write data to peer disk. sector %llus, len %u\n",
 		 (unsigned long long)sector, be32_to_cpu(p->blksize));
 
 	return validate_req_change_req_state(peer_device, p->block_id, sector,
@@ -11374,7 +11371,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 
 		// DW-1539 alarm req-buf overflow and disconnect
 		if (connection->resource->breqbuf_overflow_alarm) {
-			bsr_err(6, BSR_LC_REQUEST, connection, "bsr_req overflow alarm\n");
+			bsr_err(6, BSR_LC_REQUEST, connection, "Request Buffer Overflow Occurred\n");
 			// DW-1925 DISCONNECT or not based on on-req-write-congestion
 			if (connection->resource->res_opts.on_req_write_congestion == ORWC_DISCONNECT) 	
 				goto reconnect;
@@ -11390,7 +11387,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 					flush_signals(current);
 				}
 #endif
-				bsr_err(13, BSR_LC_CONNECTION, connection, "bsr_send_ping has failed (%d)\n", ping_ret);
+				bsr_err(13, BSR_LC_CONNECTION, connection, "Failed to send bsr ping(%d)\n", ping_ret);
 				goto reconnect;
 			}
 			set_ping_timeout(connection);
@@ -11438,7 +11435,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			if (time_after(connection->last_received, pre_recv_jif))
 				continue;
 			if (ping_timeout_active) {
-				bsr_err(15, BSR_LC_CONNECTION, connection, "PingAck did not arrive in time.\n");
+				bsr_err(15, BSR_LC_CONNECTION, connection, "Ping response did not arrive within the specified time.\n");
 				goto reconnect;
 			}
 			set_bit(SEND_PING, &connection->flags);
@@ -11455,7 +11452,7 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 			flush_signals(current);
 			continue;
 		} else {
-			bsr_err(17, BSR_LC_SOCKET, connection, "sock_recvmsg returned %d\n", rv);
+			bsr_err(17, BSR_LC_SOCKET, connection, "receiving error %d\n", rv);
 			goto reconnect;
 		}
 

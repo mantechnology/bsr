@@ -1610,7 +1610,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	LONG InputBuffer = 1;
     status = ControlSocket(s_listen, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(30, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: s_listen socket SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(30, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR). status(0x%x)\n", status);
         err = -1;
         goto out;
     }
@@ -1638,9 +1638,9 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
-			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "AF_INET Failed to socket Bind(). err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
+			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "AF_INET Failed to socket bind. err(0x%x) %02X.%02X.%02X.%02X:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
     	} else {
-			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "AF_INET6 Failed to socket Bind(). err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
+			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "AF_INET6 Failed to socket bind. err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X\n", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
 																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
 																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
 																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
@@ -1924,7 +1924,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				dsocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
-					bsr_err(35, BSR_LC_SOCKET, NO_OBJECT, "failed to send first packet, dsocket (%p)\n", dsocket->sk);
+					bsr_err(35, BSR_LC_SOCKET, NO_OBJECT, "Failed to send first packet, dsocket (%p)\n", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
@@ -1934,7 +1934,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				csocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
-					bsr_err(36, BSR_LC_SOCKET, NO_OBJECT, "failed to send first packet, csocket (%p)\n", csocket->sk);
+					bsr_err(36, BSR_LC_SOCKET, NO_OBJECT, "Failed to send first packet, csocket (%p)\n", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
@@ -2039,7 +2039,7 @@ randomize:
     LONG InputBuffer = 1;
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(37, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(37, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR).status(0x%x)\n", status);
 		// DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
@@ -2050,7 +2050,7 @@ randomize:
 
     status = ControlSocket(csocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(38, BSR_LC_SOCKET, NO_OBJECT, "ControlSocket: SO_REUSEADDR: failed=0x%x\n", status);
+		bsr_err(38, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR).status(0x%x)\n", status);
 		err = status;
         goto out;
     }

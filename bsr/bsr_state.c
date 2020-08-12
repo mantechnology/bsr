@@ -1760,7 +1760,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				else if (nr == L_WF_BITMAP_T)
 					target++;
 				else if (nr != L_ESTABLISHED && nr != L_WF_BITMAP_S)
-					bsr_err(25, BSR_LC_STATE, peer_device, "Unexpected nr = %s\n", bsr_repl_str(nr));
+					bsr_err(25, BSR_LC_STATE, peer_device, "Unexpected negotiation result(%s)\n", bsr_repl_str(nr));
 			}
 
 			/* negotiation finished */
@@ -4768,7 +4768,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	// get connection count from twopc_parent_list.
 	list_for_each_entry_safe_ex(struct bsr_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
 		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next) {
-			bsr_err(47, BSR_LC_TWOPC, resource, "twopc_parent_list is invalid\n");
+			bsr_err(47, BSR_LC_TWOPC, resource, "Connection connected to twopc not found\n");
 			// DW-1480
 			list_del(&twopc_parent->twopc_parent_list);
 			spin_unlock_irq(&resource->req_lock);
@@ -4788,7 +4788,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8DW');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		bsr_err(48, BSR_LC_TWOPC, resource, "failed to allocate memory for connections\n");
+		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to allocate memory for connections\n");
 		return;
 	}
 

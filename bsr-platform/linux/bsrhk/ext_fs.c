@@ -134,7 +134,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
-		bsr_err(225, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap_buf allocation failed\n");
+		bsr_err(225, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to allocate %d size memory for bitmap buffer\n", (sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size));
 		return NULL;
 	}
 
@@ -177,14 +177,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 		offset = fd->f_op->llseek(fd, group_desc_offset + group_no * desc_size, SEEK_SET);
 		if (offset < 0) {
-			bsr_err(235, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to lseek group_descriptor (err=%lld)\n", offset);
+			bsr_err(235, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to lseek group_descriptor (err=%lld)\n", offset);
 			goto fail_and_free;
 		}
 
 		// read group descriptor
 		ret = bsr_read(fd, (char *)&group_desc, desc_size, &fd->f_pos);
 		if (ret < 0 || ret != desc_size) {
-			bsr_err(236, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read group_descriptor (err=%ld)\n", ret);
+			bsr_err(236, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read group_descriptor (err=%ld)\n", ret);
 			goto fail_and_free;
 		}	
 		
@@ -192,7 +192,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		bg_block_bitmap = ext_block_bitmap(ext_sb, &group_desc);
 
 		if (!bg_block_bitmap) {
-			bsr_err(237, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read bg_block_bitmap\n");
+			bsr_err(237, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read bg_block_bitmap\n");
 			goto fail_and_free;
 		}
 		
@@ -218,14 +218,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		// Move position to bitmap block
 		offset = fd->f_op->llseek(fd, bg_block_bitmap * bytes_per_block, SEEK_SET);
 		if (offset < 0) {
-			bsr_err(194, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to lseek bitmap_block (err=%lld)\n", offset);
+			bsr_err(194, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to lseek bitmap_block (err=%lld)\n", offset);
 			goto fail_and_free;
 		}
 
 		// read bitmap block
 		ret = bsr_read(fd, &bitmap_buf->Buffer[bytes_per_block * group_no], read_size, &fd->f_pos);
 		if (ret < 0 || ret != read_size) {
-			bsr_err(195, BSR_LC_RESYNC_OV, NO_OBJECT, "failed to read bitmap_block (err=%ld)\n", ret);
+			bsr_err(195, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read bitmap_block (err=%ld)\n", ret);
 			goto fail_and_free;
 		}
 

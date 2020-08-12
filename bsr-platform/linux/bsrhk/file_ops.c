@@ -306,13 +306,13 @@ int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, u
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
 		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(130, BSR_LC_DRIVER, NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			bsr_err(130, BSR_LC_DRIVER, NO_OBJECT, "Failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
 		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(131, BSR_LC_DRIVER, NO_OBJECT, "failed to allocation file list size(%d)\n", namelen);
+			bsr_err(131, BSR_LC_DRIVER, NO_OBJECT, "Failed to allocation file list size(%d)\n", namelen);
 			err = -1;
 			goto out;
 		}
@@ -345,7 +345,7 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 #endif
 		filp_close(fdir, NULL);
 	} else {
-		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "failed to open log directory\n");
+		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to open log directory\n");
 	}
 	set_fs(oldfs);
 

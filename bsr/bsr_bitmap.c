@@ -124,7 +124,7 @@ static void __bm_print_lock_info(struct bsr_device *device, const char *func)
 		return;
 	
 	// DW-898 at this point bm_task can be NULL.
-	bsr_err(8, BSR_LC_BITMAP, device, "FIXME %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
+	bsr_err(8, BSR_LC_BITMAP, device, "FIXME, %s[%d] in %s, bitmap locked for '%s' by %s[%d]\n",
 		current->comm,
 		task_pid_nr(current),
 		func,
@@ -154,7 +154,7 @@ _bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 	int trylock_failed;
 
 	if (!b) {
-		bsr_err(9, BSR_LC_BITMAP, device, "FIXME no bitmap in bsr_bm_lock!?\n");
+		bsr_err(9, BSR_LC_BITMAP, device, "FIXME, Unable to find lock information for bitmap\n");
 		return;
 	}
 
@@ -178,7 +178,7 @@ _bsr_bm_lock(struct bsr_device *device, struct bsr_peer_device *peer_device,
 		mutex_lock(&b->bm_change);
 	}
 	if (b->bm_flags & BM_LOCK_ALL)
-		bsr_err(10, BSR_LC_BITMAP, device, "FIXME bitmap already locked in bm_lock\n");
+		bsr_err(10, BSR_LC_BITMAP, device, "FIXME, bitmap already locked in bm_lock\n");
 	// DW-1979
 	b->bm_flags |= ((flags & BM_LOCK_ALL) | (flags & BM_LOCK_POINTLESS));
 
@@ -201,12 +201,12 @@ void bsr_bm_unlock(struct bsr_device *device)
 {
 	struct bsr_bitmap *b = device->bitmap;
 	if (!b) {
-		bsr_err(11, BSR_LC_BITMAP, device, "FIXME no bitmap in bsr_bm_unlock!?\n");
+		bsr_err(11, BSR_LC_BITMAP, device, "FIXME, No bitmap allocated.\n");
 		return;
 	}
 
 	if (!(device->bitmap->bm_flags & BM_LOCK_ALL))
-		bsr_err(12, BSR_LC_BITMAP, device, "FIXME bitmap not locked in bm_unlock\n");
+		bsr_err(12, BSR_LC_BITMAP, device, "FIXME, No lock is set on the bitmap.\n");
 
 	// DW-1979
 	b->bm_flags &= ~(BM_LOCK_ALL | BM_LOCK_POINTLESS);
@@ -773,7 +773,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 	{
 #ifdef _DEBUG_OOS
 		// DW-1153 add error log
-		bsr_err(15, BSR_LC_BITMAP, device, "unexpected error, could not get bitmap->bm_pages, start(%llu)\n", (unsigned long long)start);
+		bsr_err(15, BSR_LC_BITMAP, device, "unexpected error, could not get bitmap pages, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -782,7 +782,7 @@ __bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start, U
 	{
 #ifdef _DEBUG_OOS
 		// DW-1153 add error log
-		bsr_err(16, BSR_LC_BITMAP, device, "unexpected error, bitmap->bm_bits is 0, start(%llu)\n", (unsigned long long)start);
+		bsr_err(16, BSR_LC_BITMAP, device, "unexpected error, bitmap bits is 0, start(%llu)\n", (unsigned long long)start);
 #endif
 		return 0;
 	}
@@ -949,7 +949,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		u64 bits_on_disk = bsr_md_on_disk_bits(device);
 		put_ldev(device);
 		if (bits > bits_on_disk) {
-			bsr_err(24, BSR_LC_BITMAP, device, "Not enough space for bitmap: %llu > %llu\n",
+			bsr_err(24, BSR_LC_BITMAP, device, "Not enough space for bitmap. bitmap(%llu) space(%llu)\n",
 				(unsigned long long)bits, bits_on_disk);
 			err = -ENOSPC;
 			goto out;
@@ -1268,7 +1268,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	if ((ctx->flags & BM_AIO_COPY_PAGES) == 0 &&
 	    !bm_test_page_unchanged(b->bm_pages[idx]))
-		bsr_warn(59, BSR_LC_BITMAP, device, "bitmap page idx %llu changed during IO!\n", (unsigned long long)idx);
+		bsr_warn(59, BSR_LC_BITMAP, device, "bitmap page idx %llu changed during I/O\n", (unsigned long long)idx);
 
 	if (error) {
 		/* ctx error will hold the completed-last non-zero error code,
@@ -1278,7 +1278,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 		/* Not identical to on disk version of it.
 		 * Is BM_PAGE_IO_ERROR enough? */
 		if (bsr_ratelimit())
-			bsr_err(24, BSR_LC_IO, device, "IO ERROR %d on bitmap page idx %llu\n",
+			bsr_err(24, BSR_LC_IO, device, "I/O ERROR %d on bitmap page idx %llu\n",
 					error, (unsigned long long)idx);
 	} else {
 		bm_clear_page_io_err(b->bm_pages[idx]);

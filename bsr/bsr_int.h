@@ -2793,7 +2793,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(159, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
+			bsr_warn(159, BSR_LC_RESYNC_OV, peer_device, "Failed to add in ov_oos report list due to memory allocation fail\n");
 			bsr_err(5, BSR_LC_RESYNC_OV, peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
@@ -2833,7 +2833,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			}
 		}
 		else {
-			bsr_err(7, BSR_LC_RESYNC_OV, peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
+			bsr_err(7, BSR_LC_RESYNC_OV, peer_device, "Failed to add in ov_skipped report list due to memory allocation fail\n");
 			bsr_info(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
@@ -2984,7 +2984,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		bsr_err(25, BSR_LC_IO, NO_OBJECT,"md block_device is null.\n");
+		bsr_err(25, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because meta block device is not set.\n");
 		return 0;
 	}
 
@@ -2994,7 +2994,7 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 		return bdev->d_size >> 9;
 	}
 	else {
-		bsr_err(26, BSR_LC_IO, NO_OBJECT,"bd_disk is null.\n");
+		bsr_err(26, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because volume extension is not set.\n");
 		return 0;
 	}
 }
@@ -3074,7 +3074,7 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
-		bsr_err(6, BSR_LC_IO, device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
+		bsr_err(6, BSR_LC_IO, device, "Failed to I/O request because block device is not set.\n");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
@@ -3235,7 +3235,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
 			if (bsr_ratelimit())
-				bsr_err(2, BSR_LC_IO_ERROR, device, "Local IO failed in %s.\n", where);
+				bsr_err(2, BSR_LC_IO_ERROR, device, "Local I/O failed in %s.\n", where);
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -3273,7 +3273,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-			bsr_err(3, BSR_LC_IO_ERROR, device, "Local IO failed in %s. Detaching...\n", where);
+			bsr_err(3, BSR_LC_IO_ERROR, device, "Local I/O failed in %s. Detaching...\n", where);
 		}
 		break;
 	// DW-1755
@@ -3291,7 +3291,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			}
 
 			if (df == BSR_META_IO_ERROR)
-				bsr_err(8, BSR_LC_IO_ERROR, device, "IO error occurred on meta-disk in %s. Detaching...\n", where);
+				bsr_err(8, BSR_LC_IO_ERROR, device, "I/O error occurred on meta-disk in %s. Detaching...\n", where);
 			else
 				bsr_err(4, BSR_LC_IO_ERROR, device, "Force-detaching in %s\n", where);
 		}
@@ -3301,7 +3301,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
 		// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
 			if (atomic_read(&device->io_error_count) == 1)
-				bsr_err(5, BSR_LC_IO_ERROR, device, "%s IO error occurred on repl-disk. Passthrough...\n", (df == BSR_READ_ERROR) ? "Read" : "Write");
+				bsr_err(5, BSR_LC_IO_ERROR, device, "%s I/O error occurred on repl-disk. Passthrough...\n", (df == BSR_READ_ERROR) ? "Read" : "Write");
 		}
 
 		break;
@@ -3511,7 +3511,7 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 			bsr_queue_work(&device->resource->work, &w->w);
 		}
 		else {
-			bsr_err(13, BSR_LC_MEMORY, device, "kmalloc failed.\n");
+			bsr_err(13, BSR_LC_MEMORY, device, "Failed to allocated %d size memory in kmalloc\n", sizeof(*(w->io_error)));
 		}
 	}
 }

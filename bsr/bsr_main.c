@@ -574,7 +574,7 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 
 	/* first some paranoia code */
 	if (req == NULL) {
-		bsr_err(1, BSR_LC_REPLICATION, connection, "BAD! BarrierAck #%u received, but no epoch in tl!?\n",
+		bsr_err(1, BSR_LC_REPLICATION, connection, "BAD! BarrierAck #%u received, but no epoch in transfer log!?\n",
 			 (unsigned int)barrier_nr);
 		goto bail;
 	}
@@ -639,14 +639,14 @@ void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what)
 	tl_for_each_req_ref(req, r, &resource->transfer_log) {
 		// DW-689 temporary patch
 		if (NULL == req->device) {
-			bsr_err(2, BSR_LC_REQUEST, NO_OBJECT, "req->device is null! ignore!");
+			bsr_err(2, BSR_LC_REQUEST, NO_OBJECT, "Device request is null, so ignore it.");
 			break; 
 		}
 		peer_device = conn_peer_device(connection, req->device->vnr);
 
 		// DW-689 temporary patch
 		if (NULL == peer_device) {
-			bsr_err(1, BSR_LC_PEER_REQUEST, NO_OBJECT, "peer_device is null! ignore!");
+			bsr_err(1, BSR_LC_PEER_REQUEST, NO_OBJECT, "Peer device request is null, so ignore it.");
 			break; 
 		}
 		_req_mod(req, what, peer_device);
@@ -711,7 +711,7 @@ static int bsr_thread_setup(void *arg)
 #ifdef _WIN
 	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
 	if (!thi->nt) {
-		bsr_err(6, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: ct_add_thread faild.\n");
+		bsr_err(6, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: Failed to create %s thread.\n", thi->name);
 		PsTerminateSystemThread(STATUS_SUCCESS);
 	}
 
@@ -1286,7 +1286,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 	int header_size;
 
 	if (!transport->ops->stream_ok(transport, bsr_stream)) {
-		bsr_err(13, BSR_LC_SOCKET, connection, "socket not allocate\n");
+		bsr_err(13, BSR_LC_SOCKET, connection, "Socket is not allocate, stream(%s)\n", (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
 		return NULL;
 	}
 
@@ -1294,7 +1294,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 #ifdef _WIN
 	void *p = (char *)alloc_send_buffer(connection, header_size + size, bsr_stream) + header_size;
 	if(!p) {
-		bsr_err(1, BSR_LC_SEND_BUFFER, connection, "failed allocate send buffer\n");
+		bsr_err(1, BSR_LC_SEND_BUFFER, connection, "Failed to allocate %d size send buffer, stream(%s)\n", (header_size + size, bsr_stream), (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
 	}
 	return p;
 #else // _LIN
@@ -2303,7 +2303,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		if (bits == -ENOBUFS) /* buffer full */
 			break;
 		if (bits <= 0) {
-			bsr_err(31, BSR_LC_BITMAP, peer_device, "error while encoding bitmap: %d\n", bits);
+			bsr_err(31, BSR_LC_BITMAP, peer_device, "error while encoding bitmap. bits(%d)\n", bits);
 			return 0;
 		}
 
@@ -2351,14 +2351,14 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, '70DW');
 
 	if (!tpc) {
-		bsr_err(32, BSR_LC_BITMAP, peer_device, "allocate failed\n");
+		bsr_err(32, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size meory in kzalloc\n", BSR_SOCKET_BUFFER_SIZE);
 		return -ENOMEM;
 	}
 
 	len = fill_bitmap_rle_bits(peer_device, tpc,
 			BSR_SOCKET_BUFFER_SIZE - header_size - sizeof(*tpc), c);
 	if (len < 0) {
-		bsr_err(33, BSR_LC_BITMAP, peer_device, "unexpected len : %d \n", len);
+		bsr_err(33, BSR_LC_BITMAP, peer_device, "Bitmap length is invalid. len(%d) \n", len);
 		return -EIO;
 	}
 
@@ -2379,7 +2379,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 				     P_COMPRESSED_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(62, BSR_LC_PROTOCOL, peer_device, "error sending P_COMPRESSED_BITMAP, e: %d \n", err);
+			bsr_err(62, BSR_LC_PROTOCOL, peer_device, "Compression bitmap send failed. err(%d)\n", err);
 		}
 		
 		c->packets[0]++;
@@ -2404,7 +2404,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 		err = __send_command(peer_device->connection, device->vnr, P_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(63, BSR_LC_PROTOCOL, peer_device, "error sending P_BITMAP, e: %d \n", err);
+			bsr_err(63, BSR_LC_PROTOCOL, peer_device, "Bitmap send failed. err(%d)\n", err);
 		}		
 
 		c->word_offset += num_words;
@@ -2435,7 +2435,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 
 	// DW-2037 reconnect if the bitmap cannot be restored.
 	if (err) {
-		bsr_err(156, BSR_LC_RESYNC_OV, peer_device, "syncsource send bitmap failed err(%d)\n", err);
+		bsr_err(156, BSR_LC_RESYNC_OV, peer_device, "Failed to send bitmap from sync source. err(%d)\n", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 }
@@ -2444,7 +2444,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
 {
 	if (err) {
-		bsr_err(157, BSR_LC_RESYNC_OV, peer_device, "synctarget send bitmap failed err(%d)\n", err);
+		bsr_err(157, BSR_LC_RESYNC_OV, peer_device, "Failed to send bitmap from sync target. err(%d)\n", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 
@@ -2474,19 +2474,19 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	int err;
 
 	if (!expect(device, device->bitmap)) {
-		bsr_err(27, BSR_LC_IO, peer_device, "bitmap is NULL!\n");
+		bsr_err(27, BSR_LC_IO, peer_device, "Faild to bitmap transmission because bitmap is not set\n");
 		return false;
 	}
 
 	if (get_ldev(device)) {
 		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
-			bsr_info(28, BSR_LC_IO, device, "Writing the whole bitmap, MDF_FullSync was set.\n");
+			bsr_info(28, BSR_LC_IO, device, "Writing the whole bitmap, MDF_PEER_FULL_SYNC was set.\n");
 			bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 			if (bsr_bm_write(device, NULL)) {
 				/* write_bm did fail! Leave full sync flag set in Meta P_DATA
 				 * but otherwise process as per normal - need to tell other
 				 * side that a full resync is required! */
-				bsr_err(29, BSR_LC_IO, device, "Failed to write bitmap to disk!\n");
+				bsr_err(29, BSR_LC_IO, device, "Failed to write bitmap to disk.\n");
 			} else {
 				bsr_md_clear_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 				bsr_md_sync(device);
@@ -2517,7 +2517,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 	bool incomp_sync = false;;
 
 	if (peer_device->bitmap_index == -1) {
-		bsr_err(158, BSR_LC_RESYNC_OV, peer_device, "No bitmap allocated in bsr_send_bitmap()!\n");
+		bsr_err(158, BSR_LC_RESYNC_OV, peer_device, "Bitmap index is not assigned to peer device.\n");
 		return -EIO;
 	}
 
@@ -2545,7 +2545,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			ULONG_PTR word_offset;
 
 			if (bb == NULL) {
-				bsr_err(34, BSR_LC_BITMAP, peer_device, "bitmap bit buffer allocate failed\n");
+				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size memory for copy bitmap\n", (sizeof(ULONG_PTR) * allow_size));
 				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 			}
 			else {
@@ -2915,7 +2915,7 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 		unsigned l = min_t(unsigned, len, PAGE_SIZE);
 		if (page_chain_offset(page) != 0 ||
 		    page_chain_size(page) != l) {
-			bsr_err(78, BSR_LC_SOCKET, peer_device, "FIXME page %p offset %u len %u\n",
+			bsr_err(78, BSR_LC_SOCKET, peer_device, "FIXME, page %p offset %u len %u\n",
 				page, page_chain_offset(page), page_chain_size(page));
 		}
 
@@ -3779,7 +3779,7 @@ static void do_retry(struct work_struct *ws)
 			       (req->rq_state[0] & RQ_LOCAL_ABORTED) != 0);
 
 		if (!expected)
-			bsr_err(3, BSR_LC_REQUEST, device, "req=%p completion_ref=%d rq_state=%x\n",
+			bsr_err(3, BSR_LC_REQUEST, device, "req(%p) completion reference(%d) request state(%x)\n",
 				req, atomic_read(&req->completion_ref),
 				req->rq_state[0]);
 
@@ -4404,14 +4404,14 @@ void bsr_destroy_connection(struct kref *kref)
 	bsr_info(1, BSR_LC_CONNECTION, connection, "%s\n", __FUNCTION__);
 
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
-		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch_size:%d\n", atomic_read(&connection->current_epoch->epoch_size));
+		bsr_err(4, BSR_LC_REPLICATION, connection, "Size epoch is not zero. size(%d)\n", atomic_read(&connection->current_epoch->epoch_size));
 	kfree(connection->current_epoch);
 
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct bsr_peer_request *peer_req, *t;
-		bsr_info(2, BSR_LC_PEER_REQUEST, connection, "inactive_ee count not completed:%d\n", atomic_read(&connection->inacitve_ee_cnt));
+		bsr_info(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)\n", atomic_read(&connection->inacitve_ee_cnt));
 		spin_lock(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
@@ -4642,7 +4642,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);
 	if (!pvext) {
 		err = ERR_NO_DISK;
-		bsr_err(9, BSR_LC_VOLUME, device, "%d: Device has no disk.\n", err);
+		bsr_err(9, BSR_LC_VOLUME, device, "Device has no disk. error(%d)\n", err);
 		goto out_no_disk;
 	}
 	// BSR-617 set volume size
@@ -4948,11 +4948,11 @@ void bsr_put_connection(struct bsr_connection *connection)
 
 	rr = bsr_free_peer_reqs(connection->resource, &connection->done_ee, false);
 	if (rr)
-		bsr_err(3, BSR_LC_PEER_REQUEST, connection, "%d EEs in done list found!\n", rr);
+		bsr_err(3, BSR_LC_PEER_REQUEST, connection, "%d peer request in done list found!\n", rr);
 
 	rr = bsr_free_peer_reqs(connection->resource, &connection->net_ee, true);
 	if (rr)
-		bsr_err(4, BSR_LC_PEER_REQUEST, connection, "%d EEs in net list found!\n", rr);
+		bsr_err(4, BSR_LC_PEER_REQUEST, connection, "%d peer request in net list found!\n", rr);
 	bsr_transport_shutdown(connection, DESTROY_TRANSPORT);
 
 	kref_debug_sub(&connection->kref_debug, refs - 1, 3);
@@ -4994,7 +4994,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "failed to open log directory(%x)\n", status);
+		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "Failed to open log directory. status(%x)\n", status);
 		return status;
 	}
 
@@ -5002,7 +5002,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB');
 	if (!pFileBothDirInfo){
-		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "Failed to allocation query buffer. status(%u)\n", currentSize);
 		status = STATUS_NO_MEMORY;
 		goto out;
 	}
@@ -5026,14 +5026,14 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			currentSize = currentSize * 2;
 			// BSR-600 paths is long (extension path is not supported)
 			if (MAX_PATH < (currentSize / 2)) {
-				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "failed to long path (%u)\n", (currentSize / 2));
+				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "Extension paths are not supported. max path(%u), current path(%u)\n", MAX_PATH, (currentSize / 2));
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
 			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
 			if (pFileBothDirInfo == NULL) {
-				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "failed to allocation query buffer (%u)\n", currentSize);
+				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size query buffer memory.\n", currentSize);
 				status = STATUS_NO_MEMORY;
 				goto out;
 			}
@@ -5046,7 +5046,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		}
 		else if (!NT_SUCCESS(status))
 		{
-			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "failed to query (%x)\n", status);
+			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "Failed to query directory file. status(%x)\n", status);
 			goto out2;
 		}
 
@@ -5066,14 +5066,14 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '00RB');
 				if (!r) {
-					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory\n", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
 				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
 				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '00RB');
 				if (!r) {
-					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "failed to allocation file list size(%d)\n", flength);
+					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory\n", flength);
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
@@ -5123,13 +5123,13 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				FILE_OPEN_REPARSE_POINT | FILE_OPEN_FOR_BACKUP_INTENT | FILE_NON_DIRECTORY_FILE);
 
 			if (!NT_SUCCESS(status)) {
-				bsr_err(8, BSR_LC_LOG, NO_OBJECT, "failed to open file %ws(%x)\n", fileFullPath, status);
+				bsr_err(8, BSR_LC_LOG, NO_OBJECT, "Failed to open %ws file. status(%x)\n", fileFullPath, status);
 				continue;
 			}
 
 			status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(9, BSR_LC_LOG, NO_OBJECT, "failed to FileDispositionInformation %ws(%x)\n", fileFullPath, status);
+				bsr_err(9, BSR_LC_LOG, NO_OBJECT, "Failed to delete %ws file. status(%x)\n", fileFullPath, status);
 			}
 			ZwClose(hFile);
 
@@ -5742,7 +5742,7 @@ int bsr_init(void)
 #endif
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
-		bsr_err(69, BSR_LC_DRIVER, NO_OBJECT, "invalid minor_count (%u)\n", minor_count);
+		bsr_err(69, BSR_LC_DRIVER, NO_OBJECT, "Invalid minor count (%u)\n", minor_count);
 #ifdef MODULE
 		return -EINVAL;
 #else
@@ -5902,7 +5902,7 @@ void bsr_md_write(struct bsr_device *device, void *b)
 
 	if (bsr_md_sync_page_io(device, device->ldev, sector, REQ_OP_WRITE)) {
 		/* this was a try anyways ... */
-		bsr_err(30, BSR_LC_IO, device, "meta data update failed!\n");
+		bsr_err(30, BSR_LC_IO, device, "Failed to update meta data.\n");
 		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 	}
 }
@@ -6012,7 +6012,7 @@ static int check_offsets_and_sizes(struct bsr_device *device,
 	s32 on_disk_bm_sect;
 
 	if (max_peers > BSR_PEERS_MAX) {
-		bsr_err(37, BSR_LC_BITMAP, device, "bm_max_peers too high\n");
+		bsr_err(37, BSR_LC_BITMAP, device, "Maximum configurable peer exceeded. max(%u), config(%u)\n", BSR_PEERS_MAX, max_peers);
 		goto err;
 	}
 	device->bitmap->bm_max_peers = max_peers;
@@ -6160,7 +6160,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	}
 
 	if (be32_to_cpu(buffer->bm_bytes_per_bit) != BM_BLOCK_SIZE) {
-		bsr_err(36, BSR_LC_IO, device, "unexpected bm_bytes_per_bit: %u (expected %u)\n",
+		bsr_err(36, BSR_LC_IO, device, "The size of the bitmap block set on the meta disk is different. meta(%u) config(%u)\n",
 		    be32_to_cpu(buffer->bm_bytes_per_bit), BM_BLOCK_SIZE);
 		goto err;
 	}
@@ -6180,7 +6180,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	bdev->md.node_id = be32_to_cpu(buffer->node_id);
 
 	if (bdev->md.node_id != -1 && bdev->md.node_id != my_node_id) {
-		bsr_err(37, BSR_LC_IO, device, "ambiguous node id: meta-data: %d, config: %d\n",
+		bsr_err(37, BSR_LC_IO, device, "ambiguous node id. meta(%d), config(%d)\n",
 			bdev->md.node_id, my_node_id);
 		goto err;
 	}
@@ -7006,7 +7006,7 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 	rcu_read_lock();
 	for_each_peer_device_rcu(p, device) {
 		if (!update_sync_bits(p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
-			bsr_err(41, BSR_LC_BITMAP, device, "no sync bit has been set for peer(%d), set whole bits without updating resync extent instead.\n", p->node_id);
+			bsr_err(41, BSR_LC_BITMAP, device, "no sync bit has been set for peer node(%d), set whole bits without updating resync extent instead.\n", p->node_id);
 			bsr_bm_set_many_bits(p, 0, BSR_END_OF_BITMAP);
 		}
 	}
@@ -7063,7 +7063,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 		NULL == pBitmap->Buffer ||
 		NULL == peer_device)
 	{
-		bsr_err(43, BSR_LC_BITMAP, peer_device, "Invalid parameter, pBitmap(0x%p), pBitmap->Buffer(0x%p) peer_device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
+		bsr_err(43, BSR_LC_BITMAP, peer_device, "Invalid parameter, bitmap(0x%p), buffer(0x%p) peer device(0x%p)\n", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
 #ifdef _WIN
 		return UINT64_MAX;
 #else	// _LIN
@@ -7171,7 +7171,7 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 		NULL == pVbb->Buffer ||
 		NULL == pConverted)
 	{
-		bsr_err(11, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter, pVbb(0x%p), pVbb->Buffer(0x%p), pConverted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
+		bsr_err(11, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter, volume bitmap(0x%p), buffer(0x%p), converted(0x%p)\n", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
 		return false;
 	}
 
@@ -7243,7 +7243,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(13, BSR_LC_RESYNC_OV, device, "pConvertedBitmap allocation failed\n");
+				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to allocated %d size memory for converted bitmap\n", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
 				break;
 			}
 
@@ -7256,7 +7256,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			memset(pBsrBitmap->Buffer, 0, pBsrBitmap->BitmapSize);			
 #endif
 			if (!ConvertVolumeBitmap(pVbb, (char *)pBsrBitmap->Buffer, ulBytesPerCluster, ulBsrBitmapUnit)) {
-				bsr_err(14, BSR_LC_RESYNC_OV, device, "Could not convert bitmap, ulBytesPerCluster(%u), ulBsrBitmapUnit(%u)\n", ulBytesPerCluster, ulBsrBitmapUnit);
+				bsr_err(14, BSR_LC_RESYNC_OV, device, "Could not convert bitmap, Bytes Per Cluster(%u), Bsr Bitmap Unit(%u)\n", ulBytesPerCluster, ulBsrBitmapUnit);
 				kfree(pBsrBitmap);
 				pBsrBitmap = NULL;
 				break;
@@ -7296,9 +7296,9 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		(side != L_SYNC_SOURCE && side != L_SYNC_TARGET)) {
 		// DW-2017 change log output based on peer_device status
 		if (peer_device)
-			bsr_err(15, BSR_LC_RESYNC_OV, peer_device, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(15, BSR_LC_RESYNC_OV, peer_device, "Invalid parameter. repl state(%s)\n", bsr_repl_str(side));
 		else
-			bsr_err(16, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter side(%s)\n", bsr_repl_str(side));
+			bsr_err(16, BSR_LC_RESYNC_OV, NO_OBJECT, "Invalid parameter. repl state(%s)\n", bsr_repl_str(side));
 
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
@@ -7643,7 +7643,7 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21DW');
 	if (!bm_io_work) {
-		bsr_err(34, BSR_LC_RESYNC_OV, device, "Could not allocate bm io work.\n");
+		bsr_err(34, BSR_LC_RESYNC_OV, device, "Failed to allocate %d size memory for bitmap I/O work\n", sizeof(*bm_io_work));
 		done(device, peer_device, -ENOMEM);
 		return;
 	}

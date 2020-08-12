@@ -117,14 +117,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     status = IoCreateDevice(DriverObject, sizeof(ROOT_EXTENSION),
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
     if (!NT_SUCCESS(status)) {
-		bsr_err(2, BSR_LC_DRIVER, NO_OBJECT, "Can't create root, err=%x\n", status);
+		bsr_err(2, BSR_LC_DRIVER, NO_OBJECT, "Can't create root device, err(%x)\n", status);
         return status;
     }
 
     RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolCntl");
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
     if (!NT_SUCCESS(status)) {
-		bsr_err(3, BSR_LC_DRIVER, NO_OBJECT, "cannot create symbolic link, err=%x\n", status);
+		bsr_err(3, BSR_LC_DRIVER, NO_OBJECT, "Can't create symbolic link, err(%x)\n", status);
         IoDeleteDevice(deviceObject);
         return status;
     }
@@ -301,7 +301,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         // Init WSK and StartNetLinkServer
 		Status = PsCreateSystemThread(&hNetLinkThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, InitWskNetlink, NULL);
         if (!NT_SUCCESS(Status)) {
-			bsr_err(6, BSR_LC_DRIVER, NO_OBJECT, "PsCreateSystemThread failed with status 0x%08X\n", Status);
+			bsr_err(6, BSR_LC_DRIVER, NO_OBJECT, "Failed to create thread. status(0x%08X)\n", Status);
             return Status;
         }
 
@@ -309,7 +309,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		ZwClose(hNetLinkThread);
 
         if (!NT_SUCCESS(Status)) {
-			bsr_err(7, BSR_LC_DRIVER, NO_OBJECT, "ObReferenceObjectByHandle() failed with status 0x%08X\n", Status);
+			bsr_err(7, BSR_LC_DRIVER, NO_OBJECT, "Failed to create thread handle. status(0x%08X)\n", Status);
             return Status;
         }
     }
@@ -322,7 +322,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
     if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-		bsr_err(8, BSR_LC_DRIVER, NO_OBJECT, "cannot create device, err=0x%x\n", status);
+		bsr_err(8, BSR_LC_DRIVER, NO_OBJECT, "Can't create device, err(0x%x)\n", status);
         return status;
     }
 

@@ -36,12 +36,12 @@ int bsr_register_transport_class(struct bsr_transport_class *transport_class, in
 {
 	int rv = 0;
 	if (version != BSR_TRANSPORT_API_VERSION) {
-		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "BSR_TRANSPORT_API_VERSION not compatible\n");
+		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "transport version not compatible. current(%x), compatible(%x) \n", version, BSR_TRANSPORT_API_VERSION);
 		return -EINVAL;
 	}
 
 	if (bsr_transport_size != sizeof(struct bsr_transport)) {
-		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "sizeof(bsr_transport) not compatible\n");
+		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "sizeof(bsr_transport) not compatible. current(%x), compatible(%x)\n", bsr_transport_size, sizeof(struct bsr_transport));
 		return -EINVAL;
 	}
 
