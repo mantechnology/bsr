@@ -1110,7 +1110,7 @@ int mutex_lock_interruptible(struct mutex *m)
 		break;
 	default:
 		err = -EIO;
-		bsr_err(66, BSR_LC_DRIVER, NO_OBJECT, "BSR_PANIC: waiting is stopped for unknown reasons. status(0x%x)\n", status);
+		bsr_err(66, BSR_LC_DRIVER, NO_OBJECT, "waiting is stopped for unknown reasons. status(0x%x)\n", status);
 		break;
 	}
 

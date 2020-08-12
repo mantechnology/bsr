@@ -838,7 +838,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		struct lc_element *al_ext;
 		al_ext = lc_get_cumulative(device->act_log, (unsigned int)enr);
 		if (!al_ext)
-			bsr_err(6, BSR_LC_LRU, device, "LOGIC BUG, act log does not exist. enr=%llu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)\n",
+			bsr_err(6, BSR_LC_LRU, device, "LOGIC BUG, activity log does not exist. enr=%llu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)\n",
 						(unsigned long long)enr, 
 						test_bit(__LC_STARVING, &device->act_log->flags),
 						test_bit(__LC_LOCKED, &device->act_log->flags),

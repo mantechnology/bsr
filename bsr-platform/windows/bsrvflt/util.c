@@ -534,7 +534,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		// getting fs volume data sometimes gets pended when it coincides with another peer's, need to wait until the operation's done.
 		status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(40, BSR_LC_DRIVER, NO_OBJECT, "Failed to generate event. status(0x%x)\n", status);
+			bsr_err(40, BSR_LC_DRIVER, NO_OBJECT, "Failed to create event. status(0x%x)\n", status);
 			break;
 		}
 		
@@ -548,7 +548,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0, &nvdb, sizeof(nvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(41, BSR_LC_DRIVER, NO_OBJECT, "Failed to command FSCTL_GET_NTFS_VOLUME_DATA. status(0x%x)\n", status);
+				bsr_err(41, BSR_LC_DRIVER, NO_OBJECT, "Failed to fsctl code FSCTL_GET_NTFS_VOLUME_DATA. status(0x%x)\n", status);
 				break;
 			}
 
@@ -565,7 +565,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_REFS_VOLUME_DATA, NULL, 0, &rvdb, sizeof(rvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(42, BSR_LC_DRIVER, NO_OBJECT, "Failed to command FSCTL_GET_REFS_VOLUME_DATA. status(0x%x)\n", status); 
+				bsr_err(42, BSR_LC_DRIVER, NO_OBJECT, "Failed to fsctl code FSCTL_GET_REFS_VOLUME_DATA. status(0x%x)\n", status); 
 				break;
 			}
 
@@ -1206,7 +1206,7 @@ GetDriverLetterByDeviceName(IN PUNICODE_STRING pDeviceName, OUT PUNICODE_STRING 
 		NULL);
 	if (Status != STATUS_SUCCESS) {
 		ZwClose(FileHandle);
-		bsr_err(61, BSR_LC_DRIVER, NO_OBJECT, "Failed to create file handle. status(0x%08X)\n", Status);
+		bsr_err(61, BSR_LC_DRIVER, NO_OBJECT, "Failed to reference object file handle. status(0x%08X)\n", Status);
 		return Status;
 	}
 

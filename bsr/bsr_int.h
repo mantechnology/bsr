@@ -2984,7 +2984,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		bsr_err(25, BSR_LC_IO, NO_OBJECT,"meta block device is NULL.\n");
+		bsr_err(25, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because meta block device is not set.\n");
 		return 0;
 	}
 
@@ -2994,7 +2994,7 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 		return bdev->d_size >> 9;
 	}
 	else {
-		bsr_err(26, BSR_LC_IO, NO_OBJECT,"volume extension is null.\n");
+		bsr_err(26, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because volume extension is not set.\n");
 		return 0;
 	}
 }
@@ -3074,7 +3074,7 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
-		bsr_err(6, BSR_LC_IO, device, "block device is NULL.\n");
+		bsr_err(6, BSR_LC_IO, device, "Failed to I/O request because block device is not set.\n");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
