@@ -1686,6 +1686,8 @@ bool bsr_should_do_remote(struct bsr_peer_device *peer_device, enum which_state 
 	enum bsr_repl_state repl_state = peer_device->repl_state[which];
 
 	return peer_disk_state == D_UP_TO_DATE ||	
+		// BSR-660
+		repl_state == L_STARTING_SYNC_S ||
 		// DW-1979 add bsr_should_do-remote() allowed state
 		repl_state == L_WF_BITMAP_S ||
 		(peer_disk_state == D_INCONSISTENT &&
