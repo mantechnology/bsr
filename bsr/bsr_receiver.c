@@ -2732,8 +2732,10 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 #else // _LIN
 	data = (void*)kmalloc(size, GFP_ATOMIC|__GFP_NOWARN);
 	if(!data) {
-		bsr_err(peer_device, "Failed to allocate buffer to get page data.\n");
-		goto alloc_fail;
+		bsr_err(peer_device, "Failed to allocate buffer size(%u) to get page data.\n", size);
+		bsr_free_peer_req(split_peer_request);
+		bsr_free_page_chain(transport, &split_peer_request->page_chain, 0);
+		return NULL;
 	}
 
 	// BSR-508 get serialized data into the buffer from the page of peer_req.
@@ -2770,7 +2772,6 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 	}
 
 	kfree2(data);
-alloc_fail:
 #endif
 	split_peer_request->count = split_count;
 	split_peer_request->s_bb = s_bb;
