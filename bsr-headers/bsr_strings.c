@@ -181,7 +181,6 @@ static const char * const __packet_names[] = {
 	[P_RS_CANCEL]		= "P_RS_CANCEL",
 	[P_CONN_ST_CHG_REQ]	= "P_CONN_ST_CHG_REQ",
 	[P_CONN_ST_CHG_REPLY]	= "P_CONN_ST_CHG_REPLY",
-	[P_RETRY_WRITE]		= "P_RETRY_WRITE",
 	[P_PROTOCOL_UPDATE]	= "P_PROTOCOL_UPDATE",
 	[P_TWOPC_PREPARE]	= "P_TWOPC_PREPARE",
 	[P_TWOPC_ABORT]		= "P_TWOPC_ABORT",
@@ -195,6 +194,10 @@ static const char * const __packet_names[] = {
 	[P_TWOPC_YES]		= "P_TWOPC_YES",
 	[P_TWOPC_NO]		= "P_TWOPC_NO",
 	[P_TWOPC_RETRY]		= "P_TWOPC_RETRY",
+	[P_RS_THIN_REQ]		= "P_RS_THIN_REQ",
+	[P_RS_DEALLOCATED]	= "P_RS_DEALLOCATED",
+	[P_TWOPC_PREP_RSZ]	= "P_TWOPC_PREP_RSZ",
+	[P_BM_EXCHANGE_STATE]	= "P_BM_EXCHANGE_STATE",
 	/* enum bsr_packet, but not commands - obsoleted flags:
 	 *	P_MAY_IGNORE
 	 *	P_MAX_OPT_CMD
