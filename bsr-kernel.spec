@@ -1,3 +1,6 @@
+# Conditionals
+%bcond_with modsign
+
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.6
@@ -48,6 +51,11 @@ for flavor in %flavors_to_build; do
     cp -r bsr obj/$flavor
     #make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
     make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
+    # BSR-659 module sign for secure boot support
+    %if %{with modsign}
+    ln -s ../pki obj/
+    make -C obj/$flavor modsign
+    %endif
 done
 
 %install
@@ -71,6 +79,12 @@ for flavor in %flavors_to_build ; do
     mv obj/$flavor/.kernel.config.gz obj/k-config-$kernelrelease.gz
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
 done
+
+# BSR-659 install public key for secure boot support
+%if %{with modsign}
+%{__install} -d /etc/pki/mantech
+%{__install} -m 0644 pki/bsr_signing_key_pub.der /etc/pki/mantech
+%endif
 
 mkdir -p /var/log/bsr
 
