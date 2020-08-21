@@ -181,11 +181,11 @@ else
   # BSR-659 module sign for secure boot support
   modsign:
 	@if ! test -e ../pki/$(PRIVKEY)  ; then \
-		echo -e "    pki/bsr_signing_key.priv key generation required\n" ;\
+		echo -e "    pki/bsr_signing_key.priv key required\n" ;\
 		false;\
 	fi
 	@if ! test -e ../pki/$(PUBKEY)  ; then \
-		echo -e "    pki/bsr_signing_key_pub.der key generation required\n" ;\
+		echo -e "    pki/bsr_signing_key_pub.der key required\n" ;\
 		false;\
 	fi
 	/usr/src/kernels/$(KERNELRELEASE)/scripts/sign-file sha256 ../pki/$(PRIVKEY) ../pki/$(PUBKEY) bsr.ko

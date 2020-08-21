@@ -82,7 +82,7 @@ done
 
 # BSR-659 install public key for secure boot support
 %if %{with modsign}
-%{__install} -d /etc/pki/mantech
+mkdir -p /etc/pki/mantech
 %{__install} -m 0644 pki/bsr_signing_key_pub.der /etc/pki/mantech
 %endif
 

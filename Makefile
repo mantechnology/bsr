@@ -225,11 +225,11 @@ kmp-rpm: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 .PHONY: kmp-rpm-sign
 kmp-rpm-sign: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 	@if ! test -e pki/bsr_signing_key.priv  ; then \
-		echo -e "    pki/bsr_signing_key.priv key generation required\n" ;\
+		echo -e "    pki/bsr_signing_key.priv key required\n" ;\
 		false;\
 	fi
 	@if ! test -e pki/bsr_signing_key_pub.der  ; then \
-		echo -e "    pki/bsr_signing_key_pub.der key generation required\n" ;\
+		echo -e "    pki/bsr_signing_key_pub.der key required\n" ;\
 		false;\
 	fi
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
@@ -259,7 +259,6 @@ km-deb: distclean bsr/.bsr_git_revision
 endif
 
 modsign:
-	@echo "=====modsign"
 	$(MAKE) -C bsr modsign
 
 Makefile: ;
