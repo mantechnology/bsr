@@ -1,6 +1,10 @@
 # Conditionals
 %bcond_with modsign
 
+# BSR-659 disable debug pakage build
+%define debug_package %{nil}
+%define __strip /bin/true
+
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.6
@@ -82,11 +86,11 @@ done
 
 # BSR-659 install public key for secure boot support
 %if %{with modsign}
-mkdir -p /etc/pki/mantech
-%{__install} -m 0644 pki/bsr_signing_key_pub.der /etc/pki/mantech
+mkdir -p $RPM_BUILD_ROOT/etc/pki/mantech
+install -m 0644 pki/bsr_signing_key_pub.der $RPM_BUILD_ROOT/etc/pki/mantech
 %endif
 
-mkdir -p /var/log/bsr
+mkdir -p $RPM_BUILD_ROOT/var/log/bsr
 
 mkdir -p $RPM_BUILD_ROOT/etc/depmod.d
 echo "override bsr * weak-updates" \
