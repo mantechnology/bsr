@@ -10,7 +10,7 @@
 %if !0%(grep -q "release 6" /etc/redhat-release && echo 1)
 %dir /etc/pki/mantech
 /etc/pki/mantech/bsr_signing_key_pub.der
-%dir /var/log/bsr
 %endif
 %endif
 %config /etc/depmod.d/bsr.conf
+%dir /var/log/bsr
