@@ -6545,12 +6545,18 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		size = min_not_zero(size, p_usize);
 		size = min_not_zero(size, p_size);
 				
-		if (size != bsr_get_capacity(device->this_bdev)) {
-			char ppb[10];
-			should_send_sizes = true;
-			bsr_set_my_capacity(device, size);
-			bsr_info(device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
-				(unsigned long long)size >> 1);
+		if (size != cur_size) {
+			// DW-2153 Ignores the 0 size provided by the diskless peer.
+			if (p_size == 0) {
+				bsr_info(peer_device, "Ignored diskless peer device size.\n");
+			} else {
+				char ppb[10];
+				should_send_sizes = true;
+				bsr_set_my_capacity(device, size);
+				bsr_info(device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+					(unsigned long long)size >> 1);
+			}
+
 		}
 	}
 
