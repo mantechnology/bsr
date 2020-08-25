@@ -23,3 +23,6 @@ bsr/bsr_linux_buildtag.c
 bsr/modules.order
 bsr/linux/bsr_config.h
 bsr-platform/.*cmd
+
+pki/*.priv
+pki/*.der
