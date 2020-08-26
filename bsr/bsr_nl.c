@@ -1898,7 +1898,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
  * Check if all peer devices that have bitmap slots assigned in the metadata
  * are connected.
  */
-static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max) __must_hold(local)
+static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uint64_t min) __must_hold(local)
 {
 	int node_id;
 	bool all_known;
@@ -1945,7 +1945,11 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max) __m
 					// DW-1469 only for initial sync
 					*max = min_not_zero(*max, peer_device->c_size);
 				} else {
-					*max = min_not_zero(*max, peer_device->max_size);
+					// DW-2152 if the size of the connected nodes is 0, set the minimum size.
+					if (peer_device->max_size == 0)
+						*max = min_not_zero(*max, min);
+					else
+						*max = min_not_zero(*max, peer_device->max_size);
 				}
 				continue;
 			}
@@ -1997,7 +2001,8 @@ bsr_new_dev_size(struct bsr_device *device,
 		return resource->twopc_resize.new_size;
 
 	m_size = bsr_get_max_capacity(device->ldev);
-	all_known_connected = get_max_agreeable_size(device, &p_size);
+	// DW-2152 the minimum value is the last agreed size.
+	all_known_connected = get_max_agreeable_size(device, &p_size, la_size);
 
 	if (all_known_connected) {
 		/* If we currently can see all peer devices,

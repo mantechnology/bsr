@@ -2731,8 +2731,10 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 #else // _LIN
 	data = (void*)kmalloc(size, GFP_ATOMIC|__GFP_NOWARN);
 	if(!data) {
-		bsr_err(153, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate buffer to get page data.\n");
-		goto alloc_fail;
+		bsr_err(153, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate buffer size(%u) to get page data.\n", size);
+		bsr_free_peer_req(split_peer_request);
+		bsr_free_page_chain(transport, &split_peer_request->page_chain, 0);
+		return NULL;
 	}
 
 	// BSR-508 get serialized data into the buffer from the page of peer_req.
@@ -2769,7 +2771,6 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 	}
 
 	kfree2(data);
-alloc_fail:
 #endif
 	split_peer_request->count = split_count;
 	split_peer_request->s_bb = s_bb;
@@ -4610,7 +4611,9 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	case P_RS_DATA_REQUEST:
 		// DW-1857 If P_RS_DATA_REQUEST is received, send P_RS_CANCEL unless L_SYNC_SOURCE.
 		// DW-2055 primary is always the syncsource of resync, so send the resync data.
-		if (peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY) {
+		// BSR-657 WFBitMapS status always sends P_RS_CANCEL packet.
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || 
+			(peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY)) {
 			err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
 			/* If err is set, we will drop the connection... */
 			goto fail3;
@@ -5382,6 +5385,7 @@ static bool is_resync_running(struct bsr_device *device)
 static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int hg, int peer_node_id)
 {
 	struct bsr_device *device = peer_device->device;
+	bool bSync = true;
 	UNREFERENCED_PARAMETER(peer_node_id);
 
 	if (hg == 4) {
@@ -5429,11 +5433,14 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 		// DW-844 check if fast sync is enalbed every time we do initial sync.
 		// set out-of-sync for allocated clusters.
 		if (!isFastInitialSync() ||
-			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true)) {
-			bsr_info(188, BSR_LC_RESYNC_OV, peer_device, "Writing the whole bitmap, full sync required after bsr_sync_handshake.\n");			
-			if (bsr_bitmap_io(device, &bsr_bmio_set_n_write, "set_n_write from sync_handshake",
-				BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
-				return -1;			
+			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true, &bSync)) {
+			// BSR-653 whole bitmap set is not performed if is not sync node.
+			if (bSync) {
+				bsr_info(188, BSR_LC_RESYNC_OV, peer_device, "Writing the whole bitmap, full sync required after bsr_sync_handshake.\n");
+				if (bsr_bitmap_io(device, &bsr_bmio_set_n_write, "set_n_write from sync_handshake",
+					BM_LOCK_CLEAR | BM_LOCK_BULK, peer_device))
+					return -1;
+			}
 		}
 	}
 	return 0;
@@ -6534,13 +6541,18 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		size = p_csize;
 		size = min_not_zero(size, p_usize);
 		size = min_not_zero(size, p_size);
-				
-		if (size != bsr_get_capacity(device->this_bdev)) {
-			char ppb[10];
-			should_send_sizes = true;
-			bsr_set_my_capacity(device, size);
-			bsr_info(40, BSR_LC_PROTOCOL, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
-				(unsigned long long)size >> 1);
+
+		if (size != cur_size) {
+			// DW-2153 Ignores the 0 size provided by the diskless peer.
+			if (p_size == 0) {
+				bsr_info(69, BSR_LC_PROTOCOL, peer_device, "Ignored diskless peer device size.\n");
+			} else {
+				char ppb[10];
+				should_send_sizes = true;
+				bsr_set_my_capacity(device, size);
+				bsr_info(40, BSR_LC_PROTOCOL, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+					(unsigned long long)size >> 1);
+			}
 		}
 	}
 
@@ -8766,6 +8778,10 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			bsr_send_current_state(peer_device);
 		}
 	}
+
+	// BSR-655 send uuids when sync of other secondary is done to resolve meaningless oos.
+	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.pdsk == D_UP_TO_DATE)
+		bsr_send_uuids(peer_device, 0, 0);
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 
