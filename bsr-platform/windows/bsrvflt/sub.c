@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(NO_OBJECT,"cannot remove device, status=0x%x\n", status);
+		bsr_err(NO_OBJECT,"cannot remove device, status=0x%x", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -145,7 +145,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #else
 	if (VolumeExtension->WorkThreadInfo.Active) {
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
-		bsr_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
+		bsr_debug(NO_OBJECT,"[%ws]: WorkThread Terminate Completely",	VolumeExtension->PhysicalDeviceName);
 	}
 #endif
 
@@ -178,15 +178,15 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	// DW-1277 check volume type we marked when bsr attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
 	}
 	
 	// BSR-109
@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(NO_OBJECT,"HOOKER malloc fail!!!\n");
+					bsr_err(NO_OBJECT,"HOOKER malloc fail!!!");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(NO_OBJECT,"HOOKER rest malloc fail!!\n");
+					bsr_err(NO_OBJECT,"HOOKER rest malloc fail!!");
 					goto fail_put_dev;
 				}
 			}
@@ -398,7 +398,7 @@ fail_put_dev:
 		kref_put(&device->kref, bsr_destroy_device);
 
 fail:
-	bsr_err(NO_OBJECT,"failed. status=0x%x\n", status);
+	bsr_err(NO_OBJECT,"failed. status=0x%x", status);
 	return status;
 }
 
@@ -416,7 +416,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        bsr_err(NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)\n", KeGetCurrentIrql());
+        bsr_err(NO_OBJECT,"cannot run IoBuildDeviceIoControlRequest becauseof IRP(%d)", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -424,7 +424,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-        bsr_err(NO_OBJECT,"cannot alloc new IRP\n");
+        bsr_err(NO_OBJECT,"cannot alloc new IRP");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-        bsr_err(NO_OBJECT,"cannot get volume information, err=0x%x\n", status);
+        bsr_err(NO_OBJECT,"cannot get volume information, err=0x%x", status);
         return status;
     }
 
@@ -484,7 +484,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	FreeUnicodeString(&pvext->VolumeGuid);
 	pvext->Minor = 0;
 	
-	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p",pvext);
 	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
 
 		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
@@ -494,7 +494,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 			.MaximumLength = p->SymbolicLinkNameLength,
 			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
 
-		bsr_info(NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
+		bsr_info(NO_OBJECT,"SymbolicLink num:%lu %wZ",i,&name);
 
 		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
 
@@ -504,22 +504,22 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 
 			link = &pvext->MountPoint;
 			//FreeUnicodeString(link);
-			bsr_debug(NO_OBJECT,"Free letter link\n");
+			bsr_debug(NO_OBJECT,"Free letter link");
 		}
 		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
 
 			link = &pvext->VolumeGuid;
 			//FreeUnicodeString(link);
-			bsr_debug(NO_OBJECT,"Free volume guid link\n");
+			bsr_debug(NO_OBJECT,"Free volume guid link");
 		}
 
 		if(link) {
 			ucsdup(link, name.Buffer, name.Length);
-			bsr_debug(NO_OBJECT,"link alloc\n");
+			bsr_debug(NO_OBJECT,"link alloc");
 		}
 		
 	}
-	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+	bsr_info(NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............",pvext);
 cleanup:
 	kfree(inbuf);
 	kfree(otbuf);
@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(NO_OBJECT,"cannot alloc Log Entry\n");
+		bsr_err(NO_OBJECT,"cannot alloc Log Entry");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
@@ -678,7 +678,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 #if 0
     if (KeGetCurrentIrql() > PASSIVE_LEVEL) // BSR_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
         // BSR_DOC: you should consider to process EVENTLOG
-        bsr_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
+        bsr_warn(NO_OBJECT,"IRQL(%d) too high. Log canceled.", KeGetCurrentIrql());
         return 1;
     }
 #endif

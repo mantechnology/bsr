@@ -1201,7 +1201,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 
 #define _adjust_ra_pages(qrap, brap) do { \
 	if (qrap != brap) { \
-		bsr_info(device, "Adjusting my ra_pages to backing device's (%lu -> %lu)\n", qrap, brap); \
+		bsr_info(device, "Adjusting my ra_pages to backing device's (%lu -> %lu)", qrap, brap); \
 		qrap = brap; \
 		} \
 } while(0)

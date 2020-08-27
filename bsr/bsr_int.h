@@ -441,12 +441,12 @@ void bsr_printk_with_wrong_object_type(void);
 #endif
 
 #ifdef _WIN
-#define BUG()   bsr_crit(NO_OBJECT,"warning: failure\n")
+#define BUG()   bsr_crit(NO_OBJECT,"warning: failure")
 #define BUG_ON(_condition)	\
 	do {		\
 		if (_condition) {	\
 			\
-				bsr_crit(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_crit(NO_OBJECT,"BUG: failure [ %s ]", #_condition); \
 						}	\
 			} while (false)
 
@@ -455,7 +455,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            bsr_crit(NO_OBJECT,"BUG: failure [ %s ]\n", str_condition); \
+            bsr_crit(NO_OBJECT,"BUG: failure [ %s ]", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -468,7 +468,7 @@ void bsr_printk_with_wrong_object_type(void);
 do {	\
 		if (_condition) {\
 				\
-				bsr_debug(NO_OBJECT,"BUG: failure [ %s ]\n", #_condition); \
+				bsr_debug(NO_OBJECT,"BUG: failure [ %s ]", #_condition); \
 				}	\
 } while (false)
 
@@ -533,7 +533,7 @@ static inline int bsr_ratelimit(void)
 #define D_ASSERT(x, exp)							\
 	do {									\
 		if (!(exp))							\
-			bsr_err(x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(x, "ASSERTION %s FAILED in %s",		\
 				 #exp, __func__);				\
 	} while (0)
 #endif
@@ -548,7 +548,7 @@ static inline int bsr_ratelimit(void)
 #define expect(x, exp) ({							\
 		bool _bool = (exp);						\
 		if (!_bool)							\
-			bsr_err(x, "ASSERTION %s FAILED in %s\n",		\
+			bsr_err(x, "ASSERTION %s FAILED in %s",		\
 			        #exp, __func__);				\
 		_bool;								\
 		})
@@ -586,7 +586,7 @@ bsr_insert_fault(struct bsr_device *device, unsigned int type) {
 		_bsr_insert_fault(device, type);
 
     if (ret) {
-        bsr_info(NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d\n", type, ret);
+        bsr_info(NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d", type, ret);
     }
     return ret;
 #else // _LIN
@@ -2103,7 +2103,7 @@ static inline unsigned bsr_req_state_by_peer_device(struct bsr_request *req,
 {
 	int idx = peer_device->node_id;
 	if (idx < 0 || idx >= BSR_NODE_ID_MAX) {
-		bsr_warn(peer_device, "FIXME: node_id: %d\n", idx);
+		bsr_warn(peer_device, "FIXME: node_id: %d", idx);
 		/* WARN(1, "bitmap_index: %d", idx); */
 		return 0;
 	}
@@ -2724,8 +2724,8 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(peer_device, "failed to add in ov_oos report list due to memory allocation fail\n");
-			bsr_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)\n",
+			bsr_warn(peer_device, "failed to add in ov_oos report list due to memory allocation fail");
+			bsr_err(peer_device, "Out of sync: start=%llu, size=%llu (sectors)",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
 		}
@@ -2735,7 +2735,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 	if(ov_done) {
 		struct ov_oos_info *ov_oos, *tmp;
 		list_for_each_entry_safe_ex(struct ov_oos_info, ov_oos, tmp, &peer_device->ov_oos_info_list, list) {
-			bsr_err(peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)\n", peer_device->ov_oos_info_report_num,
+			bsr_err(peer_device, "Report(%d) out of sync: start=%llu, size=%llu (sectors)", peer_device->ov_oos_info_report_num,
 				(unsigned long long)ov_oos->ov_oos_start,
 				(unsigned long long)ov_oos->ov_oos_size);
 
@@ -2764,8 +2764,8 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			}
 		}
 		else {
-			bsr_err(peer_device, "failed to add in ov_skipped report list due to memory allocation fail\n");
-			bsr_info(peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+			bsr_err(peer_device, "failed to add in ov_skipped report list due to memory allocation fail");
+			bsr_info(peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
 		}
@@ -2775,7 +2775,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
+			bsr_info(peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
 
@@ -2915,7 +2915,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		bsr_err(NO_OBJECT,"md block_device is null.\n");
+		bsr_err(NO_OBJECT,"md block_device is null.");
 		return 0;
 	}
 
@@ -2925,7 +2925,7 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 		return bdev->d_size >> 9;
 	}
 	else {
-		bsr_err(NO_OBJECT,"bd_disk is null.\n");
+		bsr_err(NO_OBJECT,"bd_disk is null.");
 		return 0;
 	}
 }
@@ -2935,7 +2935,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(NO_OBJECT,"Null argument\n");
+		bsr_warn(NO_OBJECT,"Null argument");
 		return 0;
 	}
 	
@@ -3005,7 +3005,7 @@ static inline void bsr_generic_make_request(struct bsr_device *device,
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	if (!bio->bi_bdev) {
-		bsr_err(device, "bsr_generic_make_request: bio->bi_bdev == NULL\n");
+		bsr_err(device, "bsr_generic_make_request: bio->bi_bdev == NULL");
 		bsr_bio_endio(bio, -ENODEV);
 		return;
 	}
@@ -3166,7 +3166,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
 			if (bsr_ratelimit())
-				bsr_err(device, "Local IO failed in %s.\n", where);
+				bsr_err(device, "Local IO failed in %s.", where);
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -3204,7 +3204,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-			bsr_err(device, "Local IO failed in %s. Detaching...\n", where);
+			bsr_err(device, "Local IO failed in %s. Detaching...", where);
 		}
 		break;
 	// DW-1755
@@ -3222,9 +3222,9 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			}
 
 			if (df == BSR_META_IO_ERROR)
-				bsr_err(device, "IO error occurred on meta-disk in %s. Detaching...\n", where);
+				bsr_err(device, "IO error occurred on meta-disk in %s. Detaching...", where);
 			else
-				bsr_err(device, "Force-detaching in %s\n", where);
+				bsr_err(device, "Force-detaching in %s", where);
 		}
 		else {
 		// DW-1814 
@@ -3232,7 +3232,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
 		// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
 			if (atomic_read(&device->io_error_count) == 1)
-				bsr_err(device, "%s IO error occurred on repl-disk. Passthrough...\n", (df == BSR_READ_ERROR) ? "Read" : "Write");
+				bsr_err(device, "%s IO error occurred on repl-disk. Passthrough...", (df == BSR_READ_ERROR) ? "Read" : "Write");
 		}
 
 		break;
@@ -3442,7 +3442,7 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 			bsr_queue_work(&device->resource->work, &w->w);
 		}
 		else {
-			bsr_err(device, "kmalloc failed.\n");
+			bsr_err(device, "kmalloc failed.");
 		}
 	}
 }
@@ -3550,7 +3550,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3573,7 +3573,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(peer_device, "%s => %s, peer_device->unacked_cnt(%u)\n", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
+		bsr_warn(peer_device, "%s => %s, peer_device->unacked_cnt(%u)", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
@@ -3819,7 +3819,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 	max_req_write_cnt = device->resource->res_opts.max_req_write_cnt;   
 	if (max_req_write_cnt < BSR_MAX_REQ_WRITE_CNT_MIN ||
 		max_req_write_cnt > BSR_MAX_REQ_WRITE_CNT_MAX)	{
-		bsr_err(device, "got invalid max_req_write_cnt(%d), use default value(%d)\n", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
+		bsr_err(device, "got invalid max_req_write_cnt(%d), use default value(%d)", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
 		max_req_write_cnt = (int)BSR_MAX_REQ_WRITE_CNT_DEF;    // use default if value is invalid.    
 	}
 
@@ -3828,7 +3828,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 		device->resource->breqbuf_overflow_alarm = true;
 	
 		if (bsr_ratelimit()) {
-			bsr_warn(device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)\n", 
+			bsr_warn(device, "request count exceeds maximum, postponing I/O until we get enough memory. req_write_cnt(%d), max cnt(%d)", 
 				atomic_read(&device->resource->req_write_cnt),
 				max_req_write_cnt);
 		}
@@ -4054,7 +4054,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(NO_OBJECT, "timestamp is invalid\n");
+		bsr_info(NO_OBJECT, "timestamp is invalid");
 		return -1;
 	}
 

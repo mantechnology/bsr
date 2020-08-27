@@ -361,7 +361,7 @@ static inline int _req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	/* __req_mod possibly frees req, do not touch req after that! */
 #ifdef BSR_TRACE
-	bsr_debug(NO_OBJECT,"(%s) _req_mod: call __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	bsr_debug(NO_OBJECT,"(%s) _req_mod: call __req_mod! IRQL(%d) ", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	if (m.bio)
@@ -383,12 +383,12 @@ static inline int req_mod(struct bsr_request *req,
 
 	spin_lock_irq(&device->resource->req_lock);
 #ifdef BSR_TRACE	
-	bsr_debug(NO_OBJECT,"(%s) req_mod: before __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	bsr_debug(NO_OBJECT,"(%s) req_mod: before __req_mod! IRQL(%d) ", current->comm, KeGetCurrentIrql());
 #endif
 	rv = __req_mod(req, what, peer_device, &m);
 	spin_unlock_irq(&device->resource->req_lock);
 #ifdef BSR_TRACE	
-	bsr_debug(NO_OBJECT,"(%s) req_mod: after __req_mod! IRQL(%d) \n", current->comm, KeGetCurrentIrql());
+	bsr_debug(NO_OBJECT,"(%s) req_mod: after __req_mod! IRQL(%d) ", current->comm, KeGetCurrentIrql());
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);
