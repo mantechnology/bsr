@@ -1803,7 +1803,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		bsr_set_my_capacity(device, size);
 		if (effective_disk_size_determined(device)) {
 			md->effective_size = size;
-			bsr_info(13, BSR_LC_GENL, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(13, BSR_LC_GENL, device, "Update disk size %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
 			     (unsigned long long)size >> 1);
 		}
 	}
@@ -1862,7 +1862,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		bsr_md_write(device, buffer);
 
 		if (rs)
-			bsr_info(15, BSR_LC_GENL, device, "Changed AL layout to al-stripes = %u, al-stripe-size-kB = %u\n",
+			bsr_info(15, BSR_LC_GENL, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)\n",
 				 md->al_stripes, md->al_stripe_size_4k * 4);
 	}
 
@@ -1910,7 +1910,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		struct bsr_peer_device *peer_device;
 
 		if (device->ldev->md.node_id == node_id) {
-			bsr_info(16, BSR_LC_GENL, device, "my node_id: %u\n", node_id);
+			bsr_info(16, BSR_LC_GENL, device, "local node_id: %u\n", node_id);
 			continue; /* skip myself... */
 		}
 		/* Have we met this peer node id before? */
@@ -1919,7 +1919,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (peer_device) {
 			enum bsr_disk_state pdsk = peer_device->disk_state[NOW];
-			bsr_info(17, BSR_LC_GENL, peer_device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x max_size: %llu (%s)\n",
+			bsr_info(17, BSR_LC_GENL, peer_device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x) max size(%llu) disk state(%s)\n",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -1954,7 +1954,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 				continue;
 			}
 		} else {
-			bsr_info(18, BSR_LC_GENL, device, "node_id: %u idx: %u bm-uuid: 0x%llx flags: 0x%x (not currently reachable)\n",
+			bsr_info(18, BSR_LC_GENL, device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x). not currently reachable\n",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -2184,7 +2184,7 @@ static void decide_on_discard_support(struct bsr_device *device,
 
 	if (can_do && b && !queue_discard_zeroes_data(b) && !discard_zeroes_if_aligned) {
 		can_do = false;
-		bsr_info(24, BSR_LC_GENL, device, "discard_zeroes_data=0 and discard_zeroes_if_aligned=no: disabling discards\n");
+		bsr_info(24, BSR_LC_GENL, device, "discard zeroes data=0 and discard zeroes if aligned=no: disabling discards\n");
 	}
 	if (can_do && !(common_connection_features(device->resource) & BSR_FF_TRIM)) {
 		can_do = false;
@@ -3036,7 +3036,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 #endif
-	bsr_info(36, BSR_LC_GENL, device, "Maximum number of peer devices = %u\n",
+	bsr_info(36, BSR_LC_GENL, device, "Maximum number of bitmap peer devices %u\n",
 		  device->bitmap->bm_max_peers);
 	mutex_lock(&resource->conf_update);
 	have_conf_update = true;
@@ -3353,7 +3353,7 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
-	bsr_info(42, BSR_LC_GENL, NO_OBJECT,"wait_event_interruptible_timeout timeo:%ld device->disk_state[NOW]:%d\n", timeo, device->disk_state[NOW]);
+	bsr_info(42, BSR_LC_GENL, NO_OBJECT,"wait event interruptible timeout. time out(%ld) disk state(%s)\n", timeo, bsr_disk_str(device->disk_state[NOW]));
 	if (retcode >= SS_SUCCESS) {
 		int res;
 

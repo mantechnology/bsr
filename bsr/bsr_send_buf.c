@@ -81,7 +81,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 
 	do {
 		if(nconf->sndbuf_size < BSR_SNDBUF_SIZE_MIN ) {
-			bsr_info(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "alloc bab fail nconf->sndbuf_size < BSR_SNDBUF_SIZE_MIN connection->peer_node_id:%u nconf->sndbuf_size:%llu\n", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer because it is smaller than the minimum size. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 			goto $ALLOC_FAIL;
 		}
 #ifdef _WIN_SEND_BUF
@@ -95,14 +95,14 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_info(4, BSR_LC_SEND_BUFFER, NO_OBJECT, "alloc data bab fail connection->peer_node_id:%u nconf->sndbuf_size:%llu\n", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_err(4, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = nconf->sndbuf_size + 1;
 #ifdef _WIN_SEND_BUF
 		} __except(EXCEPTION_EXECUTE_HANDLER) {
-			bsr_info(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "EXCEPTION_EXECUTE_HANDLER alloc data bab fail connection->peer_node_id:%u nconf->sndbuf_size:%llu\n", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -122,7 +122,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_info(6, BSR_LC_SEND_BUFFER, NO_OBJECT, "alloc meta bab fail connection->peer_node_id:%u nconf->sndbuf_size:%llu\n", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_info(6, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
@@ -130,7 +130,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring->length = CONTROL_BUFF_SIZE + 1;
 #ifdef _WIN_SEND_BUF
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
-			bsr_info(7, BSR_LC_SEND_BUFFER, NO_OBJECT, "EXCEPTION_EXECUTE_HANDLER alloc meta bab fail connection->peer_node_id:%u nconf->sndbuf_size:%llu\n", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_info(7, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate meta send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -141,7 +141,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 		
 	} while (false);
 	
-	bsr_info(8, BSR_LC_SEND_BUFFER, NO_OBJECT, "alloc_bab ok connection->peer_node_id:%d nconf->sndbuf_size:%lld\n", connection->peer_node_id, nconf->sndbuf_size);
+	bsr_info(8, BSR_LC_SEND_BUFFER, NO_OBJECT, "send buffer allocation succeeded. peer node id(%u) send buffer size(%llu)\n", connection->peer_node_id, nconf->sndbuf_size);
 	return TRUE;
 
 $ALLOC_FAIL:
@@ -442,7 +442,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 				}
 				break;
 			} else {
-				bsr_info(18, BSR_LC_SEND_BUFFER, NO_OBJECT, "Tx mismatch. req(%d) sent(%d)\n", tx_sz, ret);
+				bsr_info(18, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send mismatch. req(%d) sent(%d)\n", tx_sz, ret);
 				// will be recovered by upper bsr protocol
 			}
 		}

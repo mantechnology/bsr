@@ -2834,7 +2834,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 		}
 		else {
 			bsr_err(7, BSR_LC_RESYNC_OV, peer_device, "Failed to add in ov_skipped report list due to memory allocation fail\n");
-			bsr_info(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy: start=%llu, size=%llu (sectors)\n",
+			bsr_info(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy. sector start(%llu), size(%llu)\n",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
 		}
@@ -2844,7 +2844,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(9, BSR_LC_RESYNC_OV, peer_device, "Report(%d) skipped verify, too busy: start=%llu, size=%llu (sectors)\n", peer_device->ov_skipped_info_report_num,
+			bsr_info(9, BSR_LC_RESYNC_OV, peer_device, "Report(%d) skipped verify, too busy. sectors start(%llu), size(%llu)\n", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
 

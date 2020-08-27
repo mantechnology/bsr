@@ -346,13 +346,13 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			atomic_set(&g_featurelog_flag, pLoggingMinLv->nErrLvMin);
 		}
 		else {
-			bsr_warn(86, BSR_LC_DRIVER, NO_OBJECT,"invalidate logging type(%d)\n", pLoggingMinLv->nType);
+			bsr_warn(86, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)\n", pLoggingMinLv->nType);
 		}
 
 		// DW-1432 Modified to see if command was successful 
 		Status = SaveCurrentValue(LOG_LV_REG_VALUE_NAME, Get_log_lv());
 		// DW-2008
-		bsr_info(24, BSR_LC_DRIVER, NO_OBJECT, "set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d), result : %lu\n",
+		bsr_info(24, BSR_LC_DRIVER, NO_OBJECT, "The log level has been updated, type : %s(%d), minumum level : %s(%d) => %s(%d), result : %lu\n",
 					g_log_type_str[pLoggingMinLv->nType], pLoggingMinLv->nType, 
 					// DW-2041
 					((pLoggingMinLv->nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
@@ -391,7 +391,7 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		log_file_max_count = *(ULONG*)Irp->AssociatedIrp.SystemBuffer;
 
 		status = SaveCurrentValue(LOG_FILE_MAX_REG_VALUE_NAME, log_file_max_count);
-		bsr_info(25, BSR_LC_DRIVER, NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
+		bsr_info(25, BSR_LC_DRIVER, NO_OBJECT, "Change the maximum number of log files stored %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
 		atomic_set(&g_log_file_max_count, log_file_max_count);
 
 		if (status != STATUS_SUCCESS) {

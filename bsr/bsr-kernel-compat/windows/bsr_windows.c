@@ -477,7 +477,7 @@ struct page  *alloc_page(int flag)
 
 	struct page *p = kmalloc(sizeof(struct page),0, 'D3DW'); 
 	if (!p)	{
-		bsr_info(1, BSR_LC_MEMORY, NO_OBJECT,"alloc_page struct page failed\n");
+		bsr_err(1, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page\n", sizeof(struct page));
 		return NULL;
 	}	
 	RtlZeroMemory(p, sizeof(struct page));
@@ -485,7 +485,7 @@ struct page  *alloc_page(int flag)
 	p->addr = kzalloc(PAGE_SIZE, 0, 'E3DW');
 	if (!p->addr)	{
 		kfree(p); 
-		bsr_info(2, BSR_LC_MEMORY, NO_OBJECT, "alloc_page PAGE_SIZE failed\n");
+		bsr_err(2, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page\n", PAGE_SIZE);
 		return NULL;
 	}
 	RtlZeroMemory(p->addr, PAGE_SIZE);
@@ -1576,7 +1576,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		bsr_info(1, BSR_LC_SOCKET, NO_OBJECT,"socket is null.\n");
+		bsr_info(1, BSR_LC_SOCKET, NO_OBJECT,"Unable to socket release because socket is not assigned.\n");
 		return;
 	}
 
@@ -1747,7 +1747,7 @@ void *crypto_alloc_tfm(char *name, u32 mask)
 {
 	UNREFERENCED_PARAMETER(mask);
 
-	bsr_info(59, BSR_LC_PROTOCOL, NO_OBJECT, "request crypto name(%s) --> supported crc32c only.\n", name);
+	bsr_info(59, BSR_LC_PROTOCOL, NO_OBJECT, "The hash algorithm supports only crc32c, and the received hash algorithm is %s.\n", name);
 	return (void *)1;
 }
 
@@ -2557,7 +2557,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
 		if (!NT_SUCCESS(status)) {
-			bsr_info(5, BSR_LC_VOLUME, NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
+			bsr_err(5, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire remove lock with status(0x%x)\n", status);
 			return NULL;
 		}
 	}
@@ -2854,7 +2854,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 
 	*(sLine + sLineSize - 1) = '\0';
 
-	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
+	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "Hex Dump Data addr(0x%p), size(%d). width(%d)\n", aBuffer, aBufferSize, aWidth);
 
 	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);
@@ -2920,7 +2920,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	}
 
 	_snprintf(cmd_line, leng - 1, "%s %s\0", argv[1], argv[2]); // except "bsradm.exe" string
-	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
+	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "command(%s), allocate length (%d)\n", cmd_line, leng);
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
@@ -2952,11 +2952,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_info(3, BSR_LC_SOCKET, NO_OBJECT, "Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
+		bsr_info(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect socket. IRQL(%d)\n", KeGetCurrentIrql());
 		goto error;
 	}
 
-	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n",
+	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u. status(0x%08X) IRQL(%d)\n",
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b1,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b2,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b3,
@@ -2973,9 +2973,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! \n");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(5, BSR_LC_SOCKET, NO_OBJECT, "error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
+				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Timeout(%d) occurred for receiving Hello. Retry(%d)\n", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_info(6, BSR_LC_SOCKET, NO_OBJECT, "error recv status=0x%x\n", readcount);
+				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)\n", readcount);
 			}
 			ret = -1;
 
@@ -2994,9 +2994,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x\n", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(8, BSR_LC_SOCKET, NO_OBJECT, "recv retval timeout(%d)!\n", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Receive timed out(%d)\n", g_handler_timeout);
 			} else {
-				bsr_info(9, BSR_LC_SOCKET, NO_OBJECT, "recv status=0x%x\n", readcount);
+				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)\n", readcount);
 			}
 			ret = -1;
 			goto error;

@@ -198,7 +198,7 @@ int bsr_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
         if (socket_entry) {
 			int sent = SendLocal(socket_entry->ptr, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100));
             if (sent != skb->len) {
-                bsr_info(1, BSR_LC_NETLINK, NO_OBJECT,"Failed to send socket(0x%x)\n", socket_entry->ptr);
+                bsr_err(1, BSR_LC_NETLINK, NO_OBJECT,"Failed to send %d size, socket(0x%x)\n",  skb->len, socket_entry->ptr);
             }
         }
         iter = iter->Next;
@@ -243,7 +243,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
     } else if (err < 0) {
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_ACK);
         // -ENODEV : occured by first bsradm adjust. response?
-		bsr_info(2, BSR_LC_NETLINK, NO_OBJECT, "bsr_adm_get_status_all err = %d\n", err);
+		bsr_info(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)\n", err);
     }
 
     if (nlh) {
@@ -273,7 +273,7 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
 	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100))) == (skb->len)) {
         return 0; // success
     } else {
-		bsr_info(3, BSR_LC_NETLINK, NO_OBJECT, "sent Error=0x%x. sock=%p, data=%p sz=%d\n", sent, info->pSock->sk, skb->data, skb->len);
+		bsr_info(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to send. status(0x%x) socket(%p) data(%p) size=%d\n", sent, info->pSock->sk, skb->data, skb->len);
         return -2; // return non-zero!
     }
 }
@@ -493,7 +493,7 @@ static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 
                 ret = _genl_dump(pops, skb, &ncb, pinfo);
 				if(cnt++ > 512) {
-					bsr_info(12, BSR_LC_NETLINK, NO_OBJECT, "_genl_dump exceed process break;\n");
+					bsr_err(12, BSR_LC_NETLINK, NO_OBJECT, "Failed to get object information within the specified number of times. count(%d)\n", cnt);
 					break;
 				}
             }
@@ -552,7 +552,7 @@ NetlinkWorkThread(PVOID context)
 			bsr_debug(28, BSR_LC_NETLINK, NO_OBJECT, "Receive done...\n");
             goto cleanup;
         } else if(readcount < 0) {
-            bsr_info(15, BSR_LC_NETLINK, NO_OBJECT,"Receive error = 0x%x\n", readcount);
+            bsr_err(15, BSR_LC_NETLINK, NO_OBJECT,"Failed to receive. status(0x%x)\n", readcount);
             goto cleanup;
         }
 		
@@ -670,7 +670,7 @@ NetlinkWorkThread(PVOID context)
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
-				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) Failed to acquire the mutex status: 0x%x\n", pops->str, cmd, status);
+				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) Failed to acquire the mutex status(0x%x)\n", pops->str, cmd, status);
 			}
 
         } else {

@@ -161,16 +161,16 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
         }
 #endif
 		if (bFlush) {
-			bsr_info(NO_OBJECT, "try flush volume(%wZ)\n", &device_name);
+			bsr_info(62, BSR_LC_VOLUME, NO_OBJECT, "try flush volume(%wZ)\n", &device_name);
 
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
 				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)\n", status);
 			}
-			bsr_info(NO_OBJECT, "volume(%wZ) flushed\n", &device_name);
+			bsr_info(63, BSR_LC_VOLUME, NO_OBJECT, "volume(%wZ) flushed\n", &device_name);
 		}
 
-		bsr_info(NO_OBJECT, "try dismount volume(%wZ)\n", &device_name);
+		bsr_info(64, BSR_LC_VOLUME, NO_OBJECT, "try dismount volume(%wZ)\n", &device_name);
 
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
@@ -250,17 +250,17 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
             NULL,
             0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(21, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(21, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume handle. status(0x%x)\n", status);
             __leave;
         }
 
-		bsr_info(NO_OBJECT, "try lock volume(%wZ)\n", &device_name);
+		bsr_info(65, BSR_LC_VOLUME, NO_OBJECT, "try lock volume(%wZ)\n", &device_name);
 		// DW-2149 only one attempt to acquire volume lock is made only once.
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_LOCK_VOLUME, 0, 0, 0, 0);            
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume lock(FSCTL_LOCK_VOLUME). status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)\n", status, &ObjectAttributes, hFile);
             __leave;
         }
         
@@ -302,10 +302,10 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
 
     __try
     {
-		bsr_info(NO_OBJECT, "unlock volume(%ws)\n", pvext->PhysicalDeviceName);
+		bsr_info(61, BSR_LC_VOLUME, NO_OBJECT, "unlock volume(%ws)\n", pvext->PhysicalDeviceName);
         status = ZwFsControlFile(pvext->LockHandle, 0, 0, 0, &StatusBlock, FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(25, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile Failed. status(0x%x)\n", status);
+            bsr_info(25, BSR_LC_VOLUME, NO_OBJECT,"Failed to unlock volume(FSCTL_UNLOCK_VOLUME). status(0x%x)\n", status);
             __leave;
         }
 
@@ -360,7 +360,7 @@ NTSTATUS FsctlFlushVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_info(27, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)\n", status);
+            bsr_info(27, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume handle. status(0x%x)\n", status);
             __leave;
         }
 
@@ -652,7 +652,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		else {
 			if (!set) {
 				// No additional setting attribute is required.
-				bsr_info(47, BSR_LC_DRIVER, NO_OBJECT, "specified volume is writable already\n");
+				bsr_info(47, BSR_LC_DRIVER, NO_OBJECT, "Specified volume is writable already\n");
 				bRet = true;
 				break;
 			}

@@ -203,7 +203,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, read lost inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, read lost inactive peer request(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			bsr_free_peer_req(peer_req);
 			return;
 		}
@@ -217,7 +217,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 			//DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 			list_for_each_entry_safe_ex(struct bsr_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 				if (peer_req == p_req) {
-					bsr_info(21, BSR_LC_PEER_REQUEST, device, "destroy, read inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+					bsr_info(21, BSR_LC_PEER_REQUEST, device, "destroy, read inactive peer request(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
 					if (peer_req->flags & EE_WAS_ERROR) {
@@ -318,13 +318,13 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls bsr_al_complete_io() upon completion of the write.
 						bsr_al_complete_io(device, &peer_req->i);
-						bsr_info(23, BSR_LC_PEER_REQUEST, device, "destroy, active_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(23, BSR_LC_PEER_REQUEST, device, "destroy, Inactive replication peer request(%p) completed. sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {
 						//DW-1965 in inactive_ee, the resync data calls bsr_rs_complete_io() upon completion of the write.
 						if (!(peer_req->flags & EE_SPLIT_REQ)) 
 							bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-						bsr_info(24, BSR_LC_PEER_REQUEST, device, "destroy, sync_ee => inactive_ee(%p), sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(24, BSR_LC_PEER_REQUEST, device, "destroy, Inactive resync peer request(%p) completed. sector(%llu), size(%u)\n", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.

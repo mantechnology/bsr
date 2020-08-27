@@ -1422,7 +1422,7 @@ int __send_command(struct bsr_connection *connection, int vnr,
 				connection->last_send_packet = cmd;
 			// DW-1977 last successful protocol may not be correct because it is a transfer to the buffer
 			else
-				bsr_info(1, BSR_LC_PROTOCOL, connection, "last successful protocol %s\n", bsr_packet_name(cmd));
+				bsr_info(1, BSR_LC_PROTOCOL, connection, "last successful protocol packet %s\n", bsr_packet_name(cmd));
 		}
 	}
 
@@ -2551,7 +2551,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			else {
 				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
 
-				bsr_info(35, BSR_LC_BITMAP, peer_device, "bitmap merge, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n",
+				bsr_info(35, BSR_LC_BITMAP, peer_device, "Merge bitmap, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)\n",
 					incomp_sync_source->bitmap_index, (unsigned long long)bsr_bm_total_weight(incomp_sync_source),
 					peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 
@@ -2573,7 +2573,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 					current_offset = offset;
 				}
 
-				bsr_info(36, BSR_LC_BITMAP, peer_device, "finished bitmap merge, to index(%d) out of sync (%llu)\n", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+				bsr_info(36, BSR_LC_BITMAP, peer_device, "Finished to merge bitmap, to index(%d) out of sync (%llu)\n", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 				kfree2(bb);
 				
 			}
@@ -3967,7 +3967,7 @@ void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *w
 	struct completion_work completion_work;
 
 	if (get_t_state(&resource->worker) != RUNNING) {
-		bsr_info(63, BSR_LC_ETC, NO_OBJECT, "bsr_flush_workqueue &resource->worker != RUNNING return resource:%p\n", resource);
+		bsr_info(63, BSR_LC_ETC, NO_OBJECT, "Flush Work Queue is not running. resource(%p)\n", resource);
 		return;
 	}
 
@@ -4411,7 +4411,7 @@ void bsr_destroy_connection(struct kref *kref)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct bsr_peer_request *peer_req, *t;
-		bsr_info(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)\n", atomic_read(&connection->inacitve_ee_cnt));
+		bsr_warn(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)\n", atomic_read(&connection->inacitve_ee_cnt));
 		spin_lock(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			list_del(&peer_req->w.list);
@@ -4692,7 +4692,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	// DW-1406 max_hw_sectors must be valued as number of maximum sectors.
 	// DW-1510 recalculate this_bdev->d_size
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
-	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"device:%p q->max_hw_sectors: %llu sectors, device->this_bdev->d_size: %llu bytes\n", device, q->max_hw_sectors, device->this_bdev->d_size);
+	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"device(%p) max sectors(%llu), size(%llu bytes)\n", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
 	
@@ -5312,7 +5312,7 @@ void wait_for_add_device(WCHAR *path)
 		}
 		MVOL_UNLOCK();
 		if (wait_device_add)
-			bsr_info(10, BSR_LC_LOG, NO_OBJECT, "wait for device to be connected for log file generation.(%ws)\n", path);
+			bsr_info(10, BSR_LC_LOG, NO_OBJECT, "Wait for device to be connected for log file generation.(%ws)\n", path);
 
 		msleep(1000);
 	}
@@ -5427,7 +5427,7 @@ int log_consumer_thread(void *unused)
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_info(11, BSR_LC_LOG, NO_OBJECT, "failed to get bsr path status(%x)\n", status);
+		bsr_err(11, BSR_LC_LOG, NO_OBJECT, "Failed to get 'BSR_PATH' environment variable. status(%x)\n", status);
 		return;
 	}
 
@@ -5461,7 +5461,7 @@ int log_consumer_thread(void *unused)
 							0);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_info(12, BSR_LC_LOG, NO_OBJECT, "failed to create log file status(%x)\n", status);
+		bsr_err(12, BSR_LC_LOG, NO_OBJECT, "Failed to create log file. status(%x)\n", status);
 	}
 #else 
 	// BSR-581
@@ -5481,7 +5481,7 @@ int log_consumer_thread(void *unused)
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
 		g_consumer_state = EXITING;
-		bsr_warn(18, BSR_LC_LOG, NO_OBJECT, "failed to create log directory\n");
+		bsr_err(18, BSR_LC_LOG, NO_OBJECT, "Failed to create log directory\n");
 		return 0;
 	}
 
@@ -5490,7 +5490,7 @@ int log_consumer_thread(void *unused)
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
-		bsr_warn(19, BSR_LC_LOG, NO_OBJECT, "failed to create log file\n");
+		bsr_err(19, BSR_LC_LOG, NO_OBJECT, "Failed to create log file\n");
 	}
 #endif
 	else {
@@ -5519,13 +5519,13 @@ int log_consumer_thread(void *unused)
 #ifdef _WIN
 			status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(13, BSR_LC_LOG, NO_OBJECT, "failed to write log status(%x)\n", status);
+				bsr_err(13, BSR_LC_LOG, NO_OBJECT, "Failed to write log. status(%x)\n", status);
 				break;
 			}
 #else
 			// BSR-619 check log file exists
 			if (d_unlinked(hFile->f_path.dentry)) {
-				bsr_warn(20, BSR_LC_LOG, NO_OBJECT, "log file not found.\n");
+				bsr_err(20, BSR_LC_LOG, NO_OBJECT, "Log file does not exist..\n");
 				break;
 			}
 
@@ -5538,7 +5538,7 @@ int log_consumer_thread(void *unused)
 			set_fs(oldfs);
 
 			if (err < 0 || err != filesize) {
-				bsr_warn(21, BSR_LC_LOG, NO_OBJECT, "failed to write log\n");
+				bsr_err(21, BSR_LC_LOG, NO_OBJECT, "Failed to write log. err(%d)\n", err);
 				break;
 			}
 #endif
@@ -5555,7 +5555,7 @@ int log_consumer_thread(void *unused)
 				// BSR-579 if the log file is larger than 50M, do file rolling.
 				status = bsr_log_file_rename_and_close(hFile);
 				if (!NT_SUCCESS(status)) {
-					bsr_info(14, BSR_LC_LOG, NO_OBJECT, "failed to rename log file status(%x)\n", status);
+					bsr_err(14, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file status(%x)\n", status);
 					break;
 				}
 				status = ZwCreateFile(&hFile,
@@ -5571,13 +5571,13 @@ int log_consumer_thread(void *unused)
 										0);
 
 				if (!NT_SUCCESS(status)) {
-					bsr_info(15, BSR_LC_LOG, NO_OBJECT, "failed to new log file status(%x)\n", status);
+					bsr_err(15, BSR_LC_LOG, NO_OBJECT, "Failed to new log file status(%x)\n", status);
 					break;
 				}
 #else // _LIN
 				// BSR-579 rolling and clean up
 				if (bsr_log_rolling_file_clean_up() != 0) {
-					bsr_warn(22, BSR_LC_LOG, NO_OBJECT, "failed to remove log file\n");
+					bsr_err(22, BSR_LC_LOG, NO_OBJECT, "Failed to remove log file\n");
 					break;
 				}
 
@@ -5586,7 +5586,7 @@ int log_consumer_thread(void *unused)
 					filp_close(hFile, NULL);
 
 				if (bsr_log_file_rename() != 0) {
-					bsr_warn(23, BSR_LC_LOG, NO_OBJECT, "failed to rename log file\n");
+					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file\n");
 					break;
 				}
 				oldfs = get_fs();
@@ -6833,8 +6833,8 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 						isForgettableReplState(found_peer->repl_state[NOW])
 						&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 						// DW-955 print log to recognize where forget_bitmap is called.
-						bsr_info(38, BSR_LC_BITMAP, device, "bitmap will be cleared due to other resync, pdisk(%d), prepl(%d), peerdirty(%llu), pdvflag(%llx)\n",
-							found_peer->disk_state[NOW], found_peer->repl_state[NOW], found_peer->dirty_bits, (unsigned long long)found_peer->flags);
+						bsr_info(38, BSR_LC_BITMAP, device, "bitmap will be cleared due to other resync. peer disk(%s), peer repl(%s), peer dirty(%llu), peer flags(%llx)\n",
+							bsr_disk_str(found_peer->disk_state[NOW]), bsr_repl_str(found_peer->repl_state[NOW]), found_peer->dirty_bits, (unsigned long long)found_peer->flags);
 						forget_bitmap(device, node_id);
 					}					
 				}
@@ -6898,7 +6898,7 @@ clear_flag:
 			_bsr_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-			bsr_info(39, BSR_LC_BITMAP, peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%d)\n", device->disk_state[NOW]);
+			bsr_info(39, BSR_LC_BITMAP, peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%s)\n", bsr_disk_str(device->disk_state[NOW]));
 			forget_bitmap(device, peer_node_id);
 		}
 		bsr_md_mark_dirty(device);
@@ -7338,11 +7338,11 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE) {
-			bsr_info(17, BSR_LC_RESYNC_OV, peer_device, "I am a secondary sync source, will mount volume for temporary to get allocated clusters.\n");
+			bsr_info(17, BSR_LC_RESYNC_OV, peer_device, "Sync source, will mount volume for temporary to get allocated clusters. current role(%s)\n", bsr_role_str(device->resource->role[NOW]));
 			bSecondary = true;
 		}
 		else if (side == L_SYNC_TARGET) {
-			bsr_info(18, BSR_LC_RESYNC_OV, peer_device, "I am a sync target, wait to receive source's bitmap\n");
+			bsr_info(18, BSR_LC_RESYNC_OV, peer_device, "Sync target, wait to receive source's bitmap. current role(%s)\n", bsr_role_str(device->resource->role[NOW]));
 			bRet = true;
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			goto out;
@@ -7463,7 +7463,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (atomic_read(&device->pending_bitmap_work.n)) {
 		bsr_info(26, BSR_LC_RESYNC_OV, peer_device, "fast_ov canceled due to pending bitmap work.\n");
 		if (side == L_VERIFY_S) {
-			bsr_info(27, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+			bsr_info(27, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).\n",
 				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 				(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 		     	(unsigned long long) bsr_ov_bm_total_weight(peer_device));
@@ -7477,7 +7477,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_VERIFY_S) {
-			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "I am a secondary verify source, will mount volume for temporary to get allocated clusters.\n");
+			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "verify source, will mount volume for temporary to get allocated clusters. current role(%s)\n", bsr_role_str(device->resource->role[NOW]));
 			bSecondary = true;
 		}
 		else {
@@ -7540,7 +7540,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			peer_device->fast_ov_bitmap = pBitmap;
 			err = false;
 		}
-		bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+		bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).\n",
 			bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 			(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 		     (unsigned long long) bsr_ov_bm_total_weight(peer_device));

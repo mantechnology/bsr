@@ -916,7 +916,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 
 	bsr_bm_lock(device, "resize", BM_LOCK_ALL);
 
-	bsr_info(23, BSR_LC_BITMAP, device, "bsr_bm_resize called with capacity == %llu\n",
+	bsr_info(23, BSR_LC_BITMAP, device, "bitmap resize called with capacity(%llu)\n",
 			(unsigned long long)capacity);
 
 	if (capacity == b->bm_dev_capacity)
@@ -1014,7 +1014,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		kvfree(opages);
 	if (!growing)
 		bm_count_bits(device);
-	bsr_info(25, BSR_LC_BITMAP, device, "resync bitmap: bits=%llu words=%llu pages=%llu\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
+	bsr_info(25, BSR_LC_BITMAP, device, "resize bitmap, bits(%llu) words(%llu) pages(%llu)\n", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
 
  out:
 	bsr_bm_unlock(device);
