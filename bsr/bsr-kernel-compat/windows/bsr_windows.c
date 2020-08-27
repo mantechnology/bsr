@@ -775,7 +775,7 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_info(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
+			bsr_warn(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
 			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
@@ -1576,7 +1576,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		bsr_info(1, BSR_LC_SOCKET, NO_OBJECT,"Unable to socket release because socket is not assigned.\n");
+		bsr_warn(1, BSR_LC_SOCKET, NO_OBJECT,"Unable to socket release because socket is not assigned.\n");
 		return;
 	}
 
@@ -2952,7 +2952,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_info(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect socket. IRQL(%d)\n", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect socket time-out. IRQL(%d)\n", KeGetCurrentIrql());
 		goto error;
 	}
 
