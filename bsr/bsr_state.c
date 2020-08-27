@@ -1164,11 +1164,27 @@ static void print_state_change(struct bsr_resource *resource, const char *prefix
 		enum bsr_disk_state *disk_state = device->disk_state;
 
 		if (disk_state[OLD] != disk_state[NEW])
-			bsr_info(20, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )\n",
-				  caller,
-				  prefix,
-				  bsr_disk_str(disk_state[OLD]),
-				  bsr_disk_str(disk_state[NEW]));
+		{
+			// BSR-649 The log is output at the error level when the status is changed to D_FAILED or D_DISKLESS.
+			if (disk_state[NEW] == D_FAILED ||
+					(disk_state[OLD] != D_DETACHING && disk_state[NEW] == D_DISKLESS))
+			{
+				bsr_err(61, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )\n",
+					caller,
+					prefix,
+					bsr_disk_str(disk_state[OLD]),
+					bsr_disk_str(disk_state[NEW]));
+			}
+			else
+			{
+				bsr_info(20, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )\n",
+					caller,
+					prefix,
+					bsr_disk_str(disk_state[OLD]),
+					bsr_disk_str(disk_state[NEW]));
+			}
+		}
+
 		for_each_peer_device(peer_device, device) {
 			enum bsr_disk_state *peer_disk_state = peer_device->disk_state;
 			enum bsr_repl_state *repl_state = peer_device->repl_state;
