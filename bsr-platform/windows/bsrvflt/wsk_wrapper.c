@@ -1518,7 +1518,7 @@ ControlSocket(
 
 	Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(71, BSR_LC_SOCKET, NO_OBJECT, "Failed to InitWskData. status(0x%08X)\n", Status);
+		bsr_err(71, BSR_LC_SOCKET, NO_OBJECT, "Failed to initialization wsk socket. status(0x%08X)\n", Status);
 		return SOCKET_ERROR;
 	}
 
@@ -1595,7 +1595,7 @@ InitWskEvent()
     
     status = WskRegister(&wskClientNpi, &gWskEventRegistration);
     if (!NT_SUCCESS(status)) {
-		bsr_err(72, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskRegister. status(0x%x)\n", status);
+		bsr_err(72, BSR_LC_SOCKET, NO_OBJECT, "Failed to register wsk register. status(0x%x)\n", status);
         return status;
     }
 
@@ -1603,7 +1603,7 @@ InitWskEvent()
         WSK_INFINITE_WAIT, &gWskEventProviderNPI);
 	
 	if (!NT_SUCCESS(status)) {
-		bsr_err(73, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskCaptureProviderNPI. status(0x%x)\n", status);
+		bsr_err(73, BSR_LC_SOCKET, NO_OBJECT, "Failed to provider NPI capture . status(0x%x)\n", status);
         WskDeregister(&gWskEventRegistration);
         return status;
     }
@@ -1645,7 +1645,7 @@ __in ULONG			Flags
         NULL);
     if (!NT_SUCCESS(status)) {
         IoFreeIrp(irp);
-		bsr_err(75, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskControlClient. status(0x%x)\n", status);
+		bsr_err(75, BSR_LC_SOCKET, NO_OBJECT, "Failed to control client object. status(0x%x)\n", status);
         return NULL;
     }
 
@@ -1669,7 +1669,7 @@ __in ULONG			Flags
     if (NT_SUCCESS(status)) {
         socket = (PWSK_SOCKET)irp->IoStatus.Information;
     } else {
-		bsr_err(76, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskSocket. status(0x%x)\n", status);
+		bsr_err(76, BSR_LC_SOCKET, NO_OBJECT, "Failed to create wsk socket. status(0x%x)\n", status);
     }
 
     IoFreeIrp(irp);
