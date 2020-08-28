@@ -685,8 +685,8 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			// then allow to lower device, so not try to send to peer
 			if (offset_sector + size_sector > vol_size_sector) {
 
-				bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x",
-					&VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount, Irp, Irp->Flags);	
+				bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%ws) sect(0x%llx+%u) VolumeExtension->IrpCount(%d) ......................Skipped Irp:%p Irp->Flags:%x",
+					VolumeExtension->MountPoint, offset_sector, size_sector, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 
 				unsigned long long saved_size = VolumeExtension->dev->bd_contains->d_size;
 				unsigned long long real_size = get_targetdev_volsize(VolumeExtension); 	

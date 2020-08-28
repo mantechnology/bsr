@@ -3836,8 +3836,8 @@ void bsr_restart_request(struct bsr_request *req)
 #ifdef _WIN
 void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 {
-    bsr_info(NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%wZ)",
-        KeGetCurrentIrql(), VolumeExtension->PhysicalDeviceName, &VolumeExtension->MountPoint);
+    bsr_info(NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%ws)",
+        KeGetCurrentIrql(), VolumeExtension->PhysicalDeviceName, VolumeExtension->MountPoint);
 
     if (retry.wq)
         destroy_workqueue(retry.wq);
