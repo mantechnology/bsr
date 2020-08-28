@@ -233,10 +233,14 @@ void _printk(const char * func, const char * level, const char * format, ...)
 #ifdef _WIN
 			// BSR-583
 			ret = _vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
-			memcpy(logbuf + strlen(logbuf), "\r\n", 2);
+			// BSR-671 Apply line break according to the operating system
+			if ((length + 2) <= MAX_BSRLOG_BUF)
+				memcpy(logbuf + strlen(logbuf), "\r\n", sizeof("\r\n"));
 #else // _LIN
 			ret = vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
-			memcpy(logbuf + strlen(logbuf), "\n", 1);
+			// BSR-671 Apply line break according to the operating system
+			if ((length + 1) <= MAX_BSRLOG_BUF)
+				memcpy(logbuf + strlen(logbuf), "\n", sizeof("\n"));
 #endif
 			va_end(args);
 		}

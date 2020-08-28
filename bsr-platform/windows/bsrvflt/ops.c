@@ -136,7 +136,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
     COUNT_LOCK(pvext);
 	
     if (!pvext->Active) {
-		_snprintf(Message, sizeof(Message) - 1, "%wZ is not a replication volume", &pvext->MountPoint);
+		_snprintf(Message, sizeof(Message) - 1, "%ws is not a replication volume", pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
 		bsr_err(NO_OBJECT,"%s", Message);
         //status = STATUS_INVALID_DEVICE_REQUEST;
@@ -151,8 +151,8 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	if (pvext->WorkThreadInfo.Active && device)
 #endif
 	{
-		_snprintf(Message, sizeof(Message) - 1, "%wZ volume is handling by bsr. Failed to release volume",
-			&pvext->MountPoint);
+		_snprintf(Message, sizeof(Message) - 1, "%ws volume is handling by bsr. Failed to release volume",
+			pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
 		bsr_err(NO_OBJECT,"%s", Message);
         //status = STATUS_VOLUME_DISMOUNTED;

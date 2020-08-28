@@ -384,13 +384,13 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 	// DW-1109 create block device in add device routine, it won't be destroyed at least we put ref in remove device routine.
 	VolumeExtension->dev = create_bsr_block_device(VolumeExtension);
 
-	bsr_info(NO_OBJECT,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%wZ) VolumeGUID(%wZ)",
+	bsr_info(NO_OBJECT,"VolumeExt(0x%p) Device(%ws) minor(%d) Active(%d) MountPoint(%ws) VolumeGUID(%ws)",
 		VolumeExtension,
 		VolumeExtension->PhysicalDeviceName,
 		VolumeExtension->Minor,
 		VolumeExtension->Active,
-		&VolumeExtension->MountPoint,
-		&VolumeExtension->VolumeGuid);
+		VolumeExtension->MountPoint,
+		VolumeExtension->VolumeGuid);
 
     return STATUS_SUCCESS;
 }
@@ -748,8 +748,8 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			if (device)
 				kref_put(&device->kref, bsr_destroy_device);
 
-			bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%wZ) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
-					&VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
+			bsr_debug(NO_OBJECT,"Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
+					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
 	
             Irp->IoStatus.Information = 0;
             Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
@@ -905,12 +905,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
 			if (!NT_SUCCESS(status)) {
-				bsr_warn(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume fail. status(0x%x)",
-					&VolumeExtension->MountPoint, status);
+				bsr_warn(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %ws Volume fail. status(0x%x)",
+					VolumeExtension->MountPoint, status);
 			}
 			else if (!size) {	// ok
-				bsr_info(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %wZ Volume is mounted",
-					&VolumeExtension->MountPoint);
+				bsr_info(NO_OBJECT,"IOCTL_MVOL_MOUNT_VOLUME. %ws Volume is mounted",
+					VolumeExtension->MountPoint);
 			}
 
 			MVOL_IOCOMPLETE_REQ(Irp, status, size);

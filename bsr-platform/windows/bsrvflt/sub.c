@@ -178,15 +178,15 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	// DW-1277 check volume type we marked when bsr attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Replication volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Replication volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(NO_OBJECT,"Meta volume:%p (%wZ) was removed", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(NO_OBJECT,"Meta volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	
 	// BSR-109
