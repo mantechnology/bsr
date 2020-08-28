@@ -67,7 +67,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		}
 		if (lc->flags)
 			private_strcat(print_lru, sizeof(print_lru), " flags= ", lc->flags);
-		bsr_crit(NO_OBJECT,"lru : %s\n", print_lru);
+		bsr_crit(NO_OBJECT,"lru : %s", print_lru);
 	}
 
 	if (e){
@@ -80,7 +80,7 @@ void lc_printf_stats(struct lru_cache *lc, struct lc_element *e){
 		if (e->lc_new_number)
 			private_strcat(print_ele, sizeof(print_ele), " lc_new_number= ", e->lc_new_number);
 
-		bsr_crit(NO_OBJECT,"element : %s\n", print_ele);
+		bsr_crit(NO_OBJECT,"element : %s", print_ele);
 	}
 }
 #endif 
@@ -395,7 +395,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		bsr_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.\n");
+		bsr_err(NO_OBJECT,"al is inaccessible, it could be not initialized or destroyed.");
 		return NULL;
 	}
 #else // _LIN
