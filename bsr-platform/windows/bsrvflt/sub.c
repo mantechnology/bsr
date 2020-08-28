@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "cannot remove device, status(0x%x)\n", status);
+		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "cannot remove device, status(0x%x)", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -145,7 +145,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 #else
 	if (VolumeExtension->WorkThreadInfo.Active) {
 		mvolTerminateThread(&VolumeExtension->WorkThreadInfo);
-		bsr_debug(117, BSR_LC_DRIVER, NO_OBJECT,"[%ws]: WorkThread Terminate Completely\n",	VolumeExtension->PhysicalDeviceName);
+		bsr_debug(117, BSR_LC_DRIVER, NO_OBJECT,"[%ws]: WorkThread Terminate Completely",	VolumeExtension->PhysicalDeviceName);
 	}
 #endif
 
@@ -178,15 +178,15 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	// DW-1277 check volume type we marked when bsr attaches.
 	// for normal volume.
 	if (!test_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag) && !test_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(31, BSR_LC_VOLUME, NO_OBJECT,"Volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(31, BSR_LC_VOLUME, NO_OBJECT,"Volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	// for replication volume.
 	if (test_and_clear_bit(VOLUME_TYPE_REPL, &VolumeExtension->Flag)) {
-		bsr_info(12, BSR_LC_VOLUME, NO_OBJECT,"Replication volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(12, BSR_LC_VOLUME, NO_OBJECT,"Replication volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	// for meta volume.
 	if (test_and_clear_bit(VOLUME_TYPE_META, &VolumeExtension->Flag)) {
-		bsr_info(13, BSR_LC_VOLUME, NO_OBJECT,"Meta volume:%p (%wZ) was removed\n", VolumeExtension, &VolumeExtension->MountPoint);
+		bsr_info(13, BSR_LC_VOLUME, NO_OBJECT,"Meta volume:%p (%ws) was removed", VolumeExtension, VolumeExtension->MountPoint);
 	}
 	
 	// BSR-109
@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to allocate memory for hooker!\n");
+					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to allocate memory for hooker!");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5DW');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate memory for reset hooker\n");
+					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate memory for reset hooker");
 					goto fail_put_dev;
 				}
 			}
@@ -398,7 +398,7 @@ fail_put_dev:
 		kref_put(&device->kref, bsr_destroy_device);
 
 fail:
-	bsr_err(38, BSR_LC_VOLUME, NO_OBJECT,"I/O failed. status(0x%x)\n", status);
+	bsr_err(38, BSR_LC_VOLUME, NO_OBJECT,"I/O failed. status(0x%x)", status);
 	return status;
 }
 
@@ -416,7 +416,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
     if (KeGetCurrentIrql() > APC_LEVEL) {
-        bsr_err(39, BSR_LC_VOLUME, NO_OBJECT,"Cannot run IoBuildDeviceIoControlRequest becauseof IRQL(%d)\n", KeGetCurrentIrql());
+        bsr_err(39, BSR_LC_VOLUME, NO_OBJECT,"Cannot run IoBuildDeviceIoControlRequest becauseof IRQL(%d)", KeGetCurrentIrql());
     }
 
     newIrp = IoBuildDeviceIoControlRequest(IOCTL_DISK_GET_LENGTH_INFO,
@@ -424,7 +424,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
         &li, sizeof(li),
         FALSE, &event, &ioStatus);
     if (!newIrp) {
-		bsr_err(40, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate IRP. status(%x)\n", ioStatus.Status);
+		bsr_err(40, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate IRP. status(%x)", ioStatus.Status);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Cannot get volume information, err=0x%x\n", status);
+		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Cannot get volume information, err=0x%x", status);
         return status;
     }
 
@@ -484,7 +484,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	FreeUnicodeString(&pvext->VolumeGuid);
 	pvext->Minor = 0;
 	
-	bsr_info(32, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p\n",pvext);
+	bsr_info(32, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p",pvext);
 	for (ULONG i = 0; i < pmps->NumberOfMountPoints; i++) {
 
 		PMOUNTMGR_MOUNT_POINT p = pmps->MountPoints + i;
@@ -494,7 +494,7 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 			.MaximumLength = p->SymbolicLinkNameLength,
 			.Buffer = (PWCH)(otbuf + p->SymbolicLinkNameOffset) };
 
-		bsr_info(33, BSR_LC_VOLUME, NO_OBJECT,"SymbolicLink num:%lu %wZ\n",i,&name);
+		bsr_info(33, BSR_LC_VOLUME, NO_OBJECT,"SymbolicLink num:%lu %wZ",i,&name);
 
 		if (MOUNTMGR_IS_DRIVE_LETTER(&name)) {
 
@@ -504,22 +504,22 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 
 			link = &pvext->MountPoint;
 			//FreeUnicodeString(link);
-			bsr_debug(52, BSR_LC_VOLUME, NO_OBJECT,"Free letter link\n");
+			bsr_debug(52, BSR_LC_VOLUME, NO_OBJECT,"Free letter link");
 		}
 		else if (MOUNTMGR_IS_VOLUME_NAME(&name)) {
 
 			link = &pvext->VolumeGuid;
 			//FreeUnicodeString(link);
-			bsr_debug(53, BSR_LC_VOLUME, NO_OBJECT,"Free volume guid link\n");
+			bsr_debug(53, BSR_LC_VOLUME, NO_OBJECT,"Free volume guid link");
 		}
 
 		if(link) {
 			ucsdup(link, name.Buffer, name.Length);
-			bsr_debug(54, BSR_LC_VOLUME, NO_OBJECT,"link alloc\n");
+			bsr_debug(54, BSR_LC_VOLUME, NO_OBJECT,"link alloc");
 		}
 		
 	}
-	bsr_info(34, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............\n",pvext);
+	bsr_info(34, BSR_LC_VOLUME, NO_OBJECT,"----------QueryMountPoint--------------------pvext:%p end..............",pvext);
 cleanup:
 	kfree(inbuf);
 	kfree(otbuf);
@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"Failed to allocate Log entry\n");
+		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"Failed to allocate Log entry");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
@@ -678,7 +678,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 #if 0
     if (KeGetCurrentIrql() > PASSIVE_LEVEL) // BSR_DOC: DV: skip api RtlStringCchPrintfW(PASSIVE_LEVEL) {
         // BSR_DOC: you should consider to process EVENTLOG
-		bsr_warn(87, BSR_LC_DRIVER, NO_OBJECT,"IRQL(%d) too high. Log canceled.\n", KeGetCurrentIrql());
+		bsr_warn(87, BSR_LC_DRIVER, NO_OBJECT,"IRQL(%d) too high. Log canceled.", KeGetCurrentIrql());
         return 1;
     }
 #endif

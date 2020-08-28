@@ -36,18 +36,18 @@ int bsr_register_transport_class(struct bsr_transport_class *transport_class, in
 {
 	int rv = 0;
 	if (version != BSR_TRANSPORT_API_VERSION) {
-		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "transport version not compatible. current(%x), compatible(%x) \n", version, BSR_TRANSPORT_API_VERSION);
+		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "transport version not compatible. current(%x), compatible(%x) ", version, BSR_TRANSPORT_API_VERSION);
 		return -EINVAL;
 	}
 
 	if (bsr_transport_size != sizeof(struct bsr_transport)) {
-		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "sizeof(bsr_transport) not compatible. current(%x), compatible(%x)\n", bsr_transport_size, sizeof(struct bsr_transport));
+		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "sizeof(bsr_transport) not compatible. current(%x), compatible(%x)", bsr_transport_size, sizeof(struct bsr_transport));
 		return -EINVAL;
 	}
 
 	down_write(&transport_classes_lock);
 	if (__find_transport_class(transport_class->name)) {
-		bsr_err(20, BSR_LC_SOCKET, NO_OBJECT, "transport class '%s' already registered\n", transport_class->name);
+		bsr_err(20, BSR_LC_SOCKET, NO_OBJECT, "transport class '%s' already registered", transport_class->name);
 		rv = -EEXIST;
 	} else
 		list_add_tail(&transport_class->list, &transport_classes);
@@ -59,7 +59,7 @@ void bsr_unregister_transport_class(struct bsr_transport_class *transport_class)
 {
 	down_write(&transport_classes_lock);
 	if (!__find_transport_class(transport_class->name)) {
-		bsr_crit(21, BSR_LC_SOCKET, NO_OBJECT, "unregistering unknown transport class '%s'\n",
+		bsr_crit(21, BSR_LC_SOCKET, NO_OBJECT, "unregistering unknown transport class '%s'",
 			transport_class->name);
 		BUG();
 	}
@@ -287,12 +287,12 @@ struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_S
 	}
 	list_for_each_entry_ex(struct bsr_path, path, &listener->waiters, listener_link) {
 #ifdef _WIN
-		//bsr_debug_co("[%p] bsr_find_waiter_by_addr: pathr=%p\n", KeGetCurrentThread(), path);
+		//bsr_debug_co("[%p] bsr_find_waiter_by_addr: pathr=%p", KeGetCurrentThread(), path);
 		char sbuf[128], dbuf[128];
 		if (path->peer_addr.ss_family == AF_INET6) {
-			bsr_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
+			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&path->peer_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)addr));
 		} else {
-			bsr_debug_co("[%p] path->peer:%s addr:%s \n", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
+			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
 #endif
 		if (addr_equal(&path->peer_addr, addr))
@@ -327,7 +327,7 @@ bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream 
 
 	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		bsr_err(22, BSR_LC_SOCKET, connection, "[%s/%d] sending time expired, ko = %u\n",
+		bsr_err(22, BSR_LC_SOCKET, connection, "[%s/%d] sending time expired, ko = %u",
 			 current->comm, current->pid, connection->transport.ko_count);
 		request_ping(connection);
 	}
