@@ -301,7 +301,7 @@ int bsr_md_sync_page_io(struct bsr_device *device, struct bsr_backing_dev *bdev,
 
 	if (sector < bsr_md_first_sector(bdev) ||
 	    sector + 7 > bsr_md_last_sector(bdev))
-		bsr_alert(20, BSR_LC_IO, device, "%s [%d]:%s(,%llus,%s) out of range md access!",
+		bsr_alert(20, BSR_LC_IO, device, "%s [%d]:%s(,%llus,%s) out of range meta disk access!",
 		     current->comm, current->pid, __func__,
 		     (unsigned long long)sector, 
 			 (op == REQ_OP_WRITE) ? "WRITE" : "READ");
@@ -1720,7 +1720,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 			 
 			wake_up(&device->al_wait);
 		} else {
-			bsr_alert(11, BSR_LC_LRU, device, "LOGIC BUG");
+			bsr_alert(11, BSR_LC_LRU, device, "LOGIC BUG, Failed to find bitmap extent information.");
 		}
 	}
 	/* TRY. */

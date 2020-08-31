@@ -5191,78 +5191,110 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 
 	*rule_nr = 10;
 	if (self == UUID_JUST_CREATED && peer == UUID_JUST_CREATED)
+	{
+		bsr_info(189, BSR_LC_RESYNC_OV, device, "Local and peer UUIDs are in the Initialization state. rule(%d), res(0)", *rule_nr);
 		return 0;
+	}
 
 	*rule_nr = 20;
 	if (self == UUID_JUST_CREATED)
+	{
+		bsr_info(190, BSR_LC_RESYNC_OV, device, "The local UUID is in the Initialization state. rule(%d), res(-3)", *rule_nr);
 		return -3;
+	}
 
 	*rule_nr = 30;
 	if (peer == UUID_JUST_CREATED)
+	{
+		bsr_info(191, BSR_LC_RESYNC_OV, device, "The peer UUID is in the Initialization state. rule(%d), res(3)", *rule_nr);
 		return 3;
+	}
 
 	if (self == peer) {
 		if (connection->agreed_pro_version < 110) {
 			int rv = uuid_fixup_resync_end(peer_device, rule_nr);
 			if (rv > -2000)
+			{
+				bsr_info(192, BSR_LC_RESYNC_OV, device, "Peer current uuid differs from local first history uuid. rule(%d), res(%d)", *rule_nr, rv);
 				return rv;
+			}
 		}
 
 		*rule_nr = 38;
 		/* This is a safety net for the following two clauses */
 		if (peer_device->uuid_flags & UUID_FLAG_RECONNECT &&
 			test_bit(RECONNECT, &peer_device->connection->flags))
+		{
+			bsr_info(193, BSR_LC_RESYNC_OV, device, "Reconnecting to peer UUID flag is set. rule(%d), res(0)", *rule_nr);
 			return 0;
+		}
 
 		/* Common power [off|failure]? */
 		*rule_nr = 40;
-		if (test_bit(CRASHED_PRIMARY, &device->flags) && 
+		if (test_bit(CRASHED_PRIMARY, &device->flags) &&
 			// BSR-175
 			bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
 			if ((peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) &&
-			    test_bit(RESOLVE_CONFLICTS, &connection->transport.flags))
+				test_bit(RESOLVE_CONFLICTS, &connection->transport.flags))
+			{
+				bsr_info(194, BSR_LC_RESYNC_OV, device, "Local and Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
 				return -1;
+			}
+			bsr_info(195, BSR_LC_RESYNC_OV, device, "Local is crashed primary. rule(%d), res(1)", *rule_nr);
 			return 1;
-		} else if (peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY)
-				return -1;
-		else
+		}
+		else if (peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) {
+			bsr_info(196, BSR_LC_RESYNC_OV, device, "Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
+			return -1;
+		}
+		else {
+			bsr_info(197, BSR_LC_RESYNC_OV, device, "Local and peer current UUIDs are the same. rule(%d), res(0)", *rule_nr);
 			return 0;
+		}
 	}
 
 	*rule_nr = 50;
 	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
-	if (self == peer)
+	if (self == peer) {
+		bsr_info(198, BSR_LC_RESYNC_OV, device, "The local current UUID is the same as the peer bitmap UUID. rule(%d), res(-2)", *rule_nr);
 		return -2;
+	}
 
 	*rule_nr = 52;
 	for (i = 0; i < BSR_PEERS_MAX; i++) {
 		peer = peer_device->bitmap_uuids[i] & ~UUID_PRIMARY;
 		if (self == peer) {
 			*peer_node_id = i;
+			bsr_info(199, BSR_LC_RESYNC_OV, device, "The local current UUID is the same as peer and UUID. peer node id(%d), rule(%d), res(-4)", *peer_node_id, *rule_nr);
 			return -4;
 		}
 	}
 
 	if (connection->agreed_pro_version < 110) {
 		int rv = uuid_fixup_resync_start1(peer_device, rule_nr);
-		if (rv > -2000)
+		if (rv > -2000) {
+			bsr_info(200, BSR_LC_RESYNC_OV, device, "Peer current uuid differs from local first history uuid. rule(%d), res(%d)", *rule_nr, rv);
 			return rv;
+		}
 	}
 
 	*rule_nr = 60;
 	self = bsr_current_uuid(device) & ~UUID_PRIMARY;
 	for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++) {
 		peer = peer_device->history_uuids[i] & ~UUID_PRIMARY;
-		if (self == peer)
+		if (self == peer) {
+			bsr_info(201, BSR_LC_RESYNC_OV, device, "Local current UUID is in peer history UUID. rule(%d), res(-3)", *rule_nr);
 			return -3;
+		}
 	}
 
 	*rule_nr = 70;
 	self = bsr_bitmap_uuid(peer_device) & ~UUID_PRIMARY;
 	peer = peer_device->current_uuid & ~UUID_PRIMARY;
-	if (self == peer)
+	if (self == peer) {
+		bsr_info(202, BSR_LC_RESYNC_OV, device, "Peer UUID and local bitmap UUID are the same. rule(%d), res(2)", *rule_nr);
 		return 2;
-
+	}
 	*rule_nr = 72;
 	for (i = 0; i < BSR_NODE_ID_MAX; i++) {
 		if (i == peer_device->node_id)
@@ -5278,37 +5310,46 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 		self = device->ldev->md.peers[i].bitmap_uuid & ~UUID_PRIMARY;
 		if (self == peer) {
 			*peer_node_id = i;
+			bsr_info(203, BSR_LC_RESYNC_OV, device, "The current UUID of the other peer is the same as the local bitmap UUID. rule(%d), res(4)", *rule_nr);
 			return 4;
 		}
 	}
 
 	if (connection->agreed_pro_version < 110) {
 		int rv = uuid_fixup_resync_start2(peer_device, rule_nr);
-		if (rv > -2000)
+		if (rv > -2000) {
+			bsr_info(204, BSR_LC_RESYNC_OV, device, "Peer current uuid differs from local first history uuid. rule(%d), res(%d)", *rule_nr, rv);
 			return rv;
+		}
 	}
 
 	*rule_nr = 80;
 	peer = peer_device->current_uuid & ~UUID_PRIMARY;
 	for (i = 0; i < HISTORY_UUIDS; i++) {
 		self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
-		if (self == peer)
+		if (self == peer) {
+			bsr_info(205, BSR_LC_RESYNC_OV, device, "The current UUID of the peer node is in the local UUID history. rule(%d), res(3)", *rule_nr);
 			return 3;
+		}
 	}
 
 	*rule_nr = 90;
 	self = bsr_bitmap_uuid(peer_device) & ~UUID_PRIMARY;
 	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
-	if (self == peer && self != ((u64)0))
+	if (self == peer && self != ((u64)0)) {
+		bsr_info(206, BSR_LC_RESYNC_OV, device, "Local and peer bitmap UUIDs are the same. rule(%d), res(100)", *rule_nr);
 		return 100;
+	}
 
 	*rule_nr = 100;
 	for (i = 0; i < HISTORY_UUIDS; i++) {
 		self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
 		for (j = 0; j < ARRAY_SIZE(peer_device->history_uuids); j++) {
 			peer = peer_device->history_uuids[j] & ~UUID_PRIMARY;
-			if (self == peer)
+			if (self == peer) {
+				bsr_info(207, BSR_LC_RESYNC_OV, device, "There is the same UUID in both node history. rule(%d), res(-100)", *rule_nr);
 				return -100;
+			}
 		}
 	}
 

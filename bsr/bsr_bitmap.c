@@ -337,7 +337,7 @@ static void bm_free_pages(struct page **pages, ULONG_PTR number)
 
 	for (i = 0; i < number; i++) {
 		if (!pages[i]) {
-			bsr_alert(13, BSR_LC_BITMAP, NO_OBJECT, "bm_free_pages tried to free a NULL pointer; i=%lu n=%lu",
+			bsr_alert(13, BSR_LC_BITMAP, NO_OBJECT, "The bitmap page you are trying to unassign does not exist. page index(%lu), total(%lu)",
 				 i, number);
 			continue;
 		}
@@ -1580,7 +1580,7 @@ static int bm_rw_range(struct bsr_device *device,
 	}
 
 	if (ctx->error) {
-		bsr_alert(28, BSR_LC_BITMAP, device, "we had at least one MD IO ERROR during bitmap IO");
+		bsr_alert(28, BSR_LC_BITMAP, device, "we had at least one meta disk IO ERROR during bitmap IO");
 		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 		err = -EIO; /* ctx->error ? */
 	}
