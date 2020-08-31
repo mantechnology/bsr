@@ -598,7 +598,7 @@ void schedule_deferred_cmd(struct adm_cmd *cmd,
 	d->ctx = *ctx;
 	d->ctx.cmd = cmd;
 
-	CLI_TRAC_LOG(false, "INSERT_TAIL, %s\n", d->ctx.cmd->name);
+	CLI_TRAC_LOG(false, "INSERT_TAIL, %s", d->ctx.cmd->name);
 	STAILQ_INSERT_TAIL(&deferred_cmds[stage], d, link);
 }
 
@@ -627,11 +627,11 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 
 		for_each_path(path, &tmp_ctx.conn->paths) {
 			tmp_ctx.path = path;
-			CLI_TRAC_LOG(false, "tmp_ctx.function, %s\n", tmp_ctx.cmd->name);
+			CLI_TRAC_LOG(false, "tmp_ctx.function, %s", tmp_ctx.cmd->name);
 			rv = tmp_ctx.cmd->function(&tmp_ctx);
 			if (rv >= 20) {
 				if (on_error == EXIT_ON_FAIL) {
-					CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
+					CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)", rv);
 					exit(rv);
 				}
 			}
@@ -639,11 +639,11 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 		}
 	}
 	else {
-		CLI_TRAC_LOG(false, "cmd->function, %s\n", ctx->cmd->name);
+		CLI_TRAC_LOG(false, "cmd->function, %s", ctx->cmd->name);
 		rv = ctx->cmd->function(ctx);
 		if (rv >= 20) {
 			if (on_error == EXIT_ON_FAIL) {
-				CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)\n", rv);
+				CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)", rv);
 				exit(rv);
 			}
 		}
@@ -1441,7 +1441,7 @@ int adm_resize(const struct cfg_ctx *ctx)
 	if (ex && target_size) {
 		new_size = read_bsr_dev_size(ctx->vol->device_minor);
 		if (new_size == target_size) {
-			CLI_ERRO_LOG_STDERR(false, "Current size of bsr%u equals target size (%llu byte), exit code %d ignored.\n",
+			CLI_ERRO_LOG_STDERR(false, "Current size of bsr%u equals target size (%llu byte), exit code %d ignored.",
 				ctx->vol->device_minor, (unsigned long long)new_size, ex);
 			ex = 0;
 		}
@@ -2818,7 +2818,7 @@ static int hidden_cmds(const struct cfg_ctx *ignored __attribute((unused)))
 
 	printf("\n");
 
-	CLI_INFO_LOG(false, "hidden_cmds exit(0)\n");
+	CLI_INFO_LOG(false, "hidden_cmds exit(0)");
 	exit(0);
 }
 
@@ -3483,7 +3483,7 @@ int main(int argc, char **argv)
 
 	assign_command_names_from_argv0(argv);
 
-	CLI_TRAC_LOG(false, "check deferred cmd bsrsetup(%s), bsrmeta(%s), bsr_proxy_ctl(%s)\n", 
+	CLI_TRAC_LOG(false, "check deferred cmd bsrsetup(%s), bsrmeta(%s), bsr_proxy_ctl(%s)", 
 					bsrsetup != NULL ? "true" : "false",
 					bsrmeta != NULL ? "true" : "false",
 					bsr_proxy_ctl != NULL ? "true" : "false");
@@ -3498,7 +3498,7 @@ int main(int argc, char **argv)
 	recognize_all_bsrsetup_options();
 	rv = parse_options(argc, argv, &cmd, &resource_names);
 
-	CLI_TRAC_LOG(false, "check parse_option (%d)\n", rv);
+	CLI_TRAC_LOG(false, "check parse_option (%d)", rv);
 
 	if (rv)
 		return rv;
@@ -3550,7 +3550,7 @@ int main(int argc, char **argv)
 	parse_file = config_file;
 
 	my_parse();
-	CLI_TRAC_LOG(false, "config_file(%s) => my_parse() called\n", config_file);
+	CLI_TRAC_LOG(false, "config_file(%s) => my_parse() called", config_file);
 
 	if (config_test) {
 		char *saved_config_file = config_file;
@@ -3561,7 +3561,7 @@ int main(int argc, char **argv)
 
 		fclose(yyin);
 		yyin = fopen(config_test, "r");
-		CLI_TRAC_LOG(false, "config_test file open(%s)\n", yyin != NULL ? "true" : "false");
+		CLI_TRAC_LOG(false, "config_test file open(%s)", yyin != NULL ? "true" : "false");
 		if (!yyin) {
 			err("Can not open '%s'.\n.", config_test);
 			exit(E_EXEC_ERROR);
@@ -3574,7 +3574,7 @@ int main(int argc, char **argv)
 
 
 	if (!config_valid) {
-		CLI_ERRO_LOG(false, "invalid config\n");
+		CLI_ERRO_LOG(false, "invalid config");
 		exit(E_CONFIG_INVALID);
 	}
 
@@ -3596,7 +3596,7 @@ int main(int argc, char **argv)
 	}
 
 	post_parse(&config, cmd->is_proxy_cmd ? MATCH_ON_PROXY : 0);
-	CLI_TRAC_LOG(false, "post_parse called : cmd->is_proxy_cmd(%s)\n", cmd->is_proxy_cmd ? "true" : "false");
+	CLI_TRAC_LOG(false, "post_parse called : cmd->is_proxy_cmd(%s)", cmd->is_proxy_cmd ? "true" : "false");
 
 	if (!is_dump || dry_run || verbose)
 		expand_common();
@@ -3650,7 +3650,7 @@ int main(int argc, char **argv)
 				}
 				ctx.res = res;
 				ctx.vol = NULL;
-				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)\n", ctx.res->name, cmd->name);
+				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)", ctx.res->name, cmd->name);
 				r = call_cmd(cmd, &ctx, EXIT_ON_FAIL);	/* does exit for r >= 20! */
 				/* this super positioning of return values is soo ugly
 				 * anyone any better idea? */
@@ -3752,7 +3752,7 @@ int main(int argc, char **argv)
 				if (!is_dump && !config_valid)
 					exit(E_CONFIG_INVALID);
 
-				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)\n", resource_names[i], cmd->name);
+				CLI_TRAC_LOG(false, "call cmd resource(%s), command(%s)", resource_names[i], cmd->name);
 				r = call_cmd(cmd, &ctx, EXIT_ON_FAIL);	/* does exit for r >= 20! */
 				if (r > rv)
 					rv = r;
@@ -3763,7 +3763,7 @@ int main(int argc, char **argv)
 		 * which does not make sense for resource independent commands.
 		 * It does also not need to iterate over volumes: it does not even know the resource. */
 		 ctx.cmd = cmd;
-		 CLI_TRAC_LOG(false, "call cmd command(%s)\n", cmd->name);
+		 CLI_TRAC_LOG(false, "call cmd command(%s)", cmd->name);
 		rv = __call_cmd_fn(&ctx, KEEP_RUNNING);
 		if (rv >= 10) {	/* why do we special case the "generic sh-*" commands? */
 			err("command %s exited with code %d\n", cmd->name, rv);
@@ -3771,9 +3771,9 @@ int main(int argc, char **argv)
 		}
 	}
 
-	CLI_TRAC_LOG(false, "run deferred cmd(%s)\n", cmd->name);
+	CLI_TRAC_LOG(false, "run deferred cmd(%s)", cmd->name);
 	r = run_deferred_cmds();
-	CLI_TRAC_LOG(false, "run deferred cmd result(%d)\n", r);
+	CLI_TRAC_LOG(false, "run deferred cmd result(%d)", r);
 	if (r > rv)
 		rv = r;
 
