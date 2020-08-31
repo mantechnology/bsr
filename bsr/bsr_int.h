@@ -316,8 +316,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(category, KERN_INFO_NUM, obj, fmt, __VA_ARGS__)
 #define bsr_oos(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_OOS_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_latency(index, category, obj, fmt, ...) \
-	bsr_printk(category, KERN_LATENCY_NUM, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(0, BSR_LC_TEMP, obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
@@ -436,15 +434,6 @@ void bsr_printk_with_wrong_object_type(void);
 #else
 #define bsr_debug(index, category, obj, fmt, args...) bsr_printk(category, KERN_DEBUG, obj, fmt, ## args)
 #endif
-#endif
-
-// DW-2099
-#ifdef _WIN
-#define BSR_VERIFY_DATA(_m_, ...) \
-	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) _printk(__FUNCTION__, KERN_INFO_NUM, BSR_LC_VERIFY, "[0x%p] "##_m_, KeGetCurrentThread(), __VA_ARGS__)
-#else // _LIN
-#define BSR_VERIFY_DATA(fmt, args...) \
-	if(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY) bsr_printk(BSR_LC_VERIFY, KERN_INFO, NO_OBJECT, fmt, ## args)
 #endif
 
 #ifdef _WIN

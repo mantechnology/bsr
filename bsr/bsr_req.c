@@ -377,7 +377,7 @@ void bsr_req_destroy(struct kref *kref)
 
 	// DW-1961
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
-		bsr_latency(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)",
+		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)",
 			req, req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
 			timestamp_elapse(req->created_ts, req->io_request_ts), timestamp_elapse(req->io_request_ts, req->io_complete_ts), timestamp_elapse(req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
@@ -1051,7 +1051,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		// DW-1961 Calculate and Log IO Latency
 		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
 			req->net_done_ts[peer_device->node_id] = timestamp();
-			bsr_latency(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)",
+			bsr_debug(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)",
 				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
 				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
 		}
@@ -2199,8 +2199,12 @@ out:
 	 * (e.g. remote read), req may already be invalid now.
 	 * That's why we cannot check on req->private_bio. */
 	if (submit_private_bio) {
-		BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)",
-			__FUNCTION__, (unsigned long long)req->i.sector, req->i.size, (unsigned long long)BM_SECT_TO_BIT(req->i.sector), (unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
+		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+			bsr_debug(14, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+																										(unsigned long long)req->i.sector,
+																										req->i.size, 
+																										(unsigned long long)BM_SECT_TO_BIT(req->i.sector),
+																										(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
 		bsr_submit_req_private_bio(req);
 	}
 #ifdef _LIN

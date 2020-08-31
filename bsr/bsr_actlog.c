@@ -246,7 +246,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) {
 		device->md_io.io_complete_ts = timestamp();
-		bsr_latency(1, BSR_LC_LATENCY, device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)", 
+		bsr_debug(1, BSR_LC_LATENCY, device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)",
 				(op == REQ_OP_WRITE) ? "write" : "read",
 				timestamp_elapse(device->md_io.prepare_ts, device->md_io.io_request_ts), 
 				timestamp_elapse(device->md_io.io_request_ts, device->md_io.io_complete_ts));

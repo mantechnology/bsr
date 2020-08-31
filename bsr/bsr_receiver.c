@@ -1182,7 +1182,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
-		bsr_latency(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
@@ -2608,8 +2608,12 @@ static bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, s
 		peer_req->i.sector = BM_BIT_TO_SECT(BM_SECT_TO_BIT(peer_req->i.sector));
 		peer_req->i.size = BM_SECT_PER_BIT << 9;
 
-		BSR_VERIFY_DATA("%s, finished unmarked sector(%llu), size(%u), bitmap(%llu ~ %llu)",
-			__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+			bsr_debug(1, BSR_LC_VERIFY, peer_device, "%s, finished unmarked sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+																															(unsigned long long)peer_req->i.sector, 
+																															peer_req->i.size, 
+																															(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																															(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 		kfree2(peer_req->unmarked_count);
 		if (peer_req->failed_unmarked)
@@ -2640,8 +2644,12 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 
 	bsr_debug(178, BSR_LC_RESYNC_OV, peer_device, "--bitmap bit : %llu ~ %llu", BM_SECT_TO_BIT(peer_req->i.sector), (BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)) - 1));
 
-	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)",
-		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+		bsr_debug(2, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+																									(unsigned long long)peer_req->i.sector, 
+																									peer_req->i.size, 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 	is_unmarked = check_unmarked_and_processing(peer_device, peer_req);
 
@@ -2967,8 +2975,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 						atomic_add64(d->bi_size, &peer_device->rs_written);
 						device->h_insync_bb += (e_next_bb - s_bb);
 
-						BSR_VERIFY_DATA("%s, all in sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)",
-							__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+						if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+							bsr_debug(3, BSR_LC_VERIFY, peer_device, "%s, all in sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)", __FUNCTION__, 
+																																								(unsigned long long)peer_req->i.sector, 
+																																								peer_req->i.size, 
+																																								(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector),
+																																								(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), 
+																																								(unsigned long long)device->s_rl_bb, 
+																																								(unsigned long long)device->e_rl_bb);
 
 						// DW-1601 all data is synced.						
 						bsr_debug(181, BSR_LC_RESYNC_OV, peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu",
@@ -3017,8 +3031,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 							goto split_error_clear;
 						}
 
-						BSR_VERIFY_DATA("%s => sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)",
-							__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+						if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+							bsr_debug(4, BSR_LC_VERIFY, peer_device, "%s => sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)", __FUNCTION__, 
+																																									(unsigned long long)split_peer_req->i.sector, 
+																																									split_peer_req->i.size, 
+																																									(unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), 
+																																									(unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), 
+																																									(unsigned long long)device->s_rl_bb, 
+																																									(unsigned long long)device->e_rl_bb);
 
 						spin_lock_irq(&device->resource->req_lock);
 						list_add_tail(&split_peer_req->w.list, &peer_device->connection->sync_ee);
@@ -3119,8 +3139,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 									goto split_error_clear;
 								}
 
-								BSR_VERIFY_DATA("%s => marked, sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)",
-									__FUNCTION__, (unsigned long long)split_peer_req->i.sector, split_peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+								if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+									bsr_debug(5, BSR_LC_VERIFY, peer_device, "%s => marked, sector(%llu), size(%u), bitmap(%llu ~ %llu), replication received area(%llu ~ %llu)", __FUNCTION__, 
+																																													(unsigned long long)split_peer_req->i.sector, 
+																																													split_peer_req->i.size,
+																																													(unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector),
+																																													(unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), 
+																																													(unsigned long long)device->s_rl_bb, 
+																																													(unsigned long long)device->e_rl_bb);
 
 								split_peer_req->unmarked_count = unmarked_count;
 								split_peer_req->failed_unmarked = failed_unmarked;
@@ -3187,8 +3213,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	}
 	else {
 	all_out_of_sync:
-		BSR_VERIFY_DATA("%s, all out of sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)",
-			__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
+		if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+			bsr_debug(6, BSR_LC_VERIFY, peer_device, "%s, all out of sync, sector(%llu), size(%u), bitmap(%llu ~ %llu), s_rl_bb(%llu), e_rl_bb(%llu)", __FUNCTION__, 
+																																						(unsigned long long)peer_req->i.sector, 
+																																						peer_req->i.size, 
+																																						(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																																						(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), 
+																																						(unsigned long long)device->s_rl_bb, 
+																																						(unsigned long long)device->e_rl_bb);
 
 		/* corresponding dec_unacked() in e_end_resync_block()
 		* respective _bsr_clear_done_ee */
@@ -3483,8 +3515,12 @@ static int e_end_block(struct bsr_work *w, int cancel)
 	struct bsr_epoch *epoch;
 	int err = 0, pcmd;
 
-	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)",
-		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+		bsr_debug(7, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+																									(unsigned long long)peer_req->i.sector, 
+																									peer_req->i.size, 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 	if (peer_req->flags & EE_IS_BARRIER) {
 		epoch = previous_epoch(peer_device->connection, peer_req->epoch);
@@ -4295,9 +4331,14 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 					goto disconnect_during_al_begin_io;
 				}
 				bsr_al_begin_io_commit(device);
-				BSR_VERIFY_DATA("%s, al commit(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)",
-					__FUNCTION__, bsr_repl_str(peer_device->repl_state[NOW]), (unsigned long long)peer_req->i.sector, peer_req->i.size, 
-					(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), atomic_read(&peer_device->wait_for_bitmp_exchange_complete) ? "true" : "false");
+				if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+					bsr_debug(8, BSR_LC_VERIFY, peer_device, "%s, al commit(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)", __FUNCTION__, 
+																																		bsr_repl_str(peer_device->repl_state[NOW]), 
+																																		(unsigned long long)peer_req->i.sector,
+																																		peer_req->i.size, 
+																																		(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																																		(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)),
+																																		atomic_read(&peer_device->wait_for_bitmp_exchange_complete) ? "true" : "false");
 			}
 			else {
 #endif
@@ -4309,7 +4350,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 #endif
 		}
 		else {
-			BSR_VERIFY_DATA("%s, al fastpath(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)",
+			bsr_debug(9, BSR_LC_VERIFY, peer_device, "%s, al fastpath(%s), sector(%llu), size(%u), bitmap(%llu ~ %llu), wait(%s)",
 				__FUNCTION__, bsr_repl_str(peer_device->repl_state[NOW]), (unsigned long long)peer_req->i.sector, peer_req->i.size, 
 				(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), atomic_read(&peer_device->wait_for_bitmp_exchange_complete) ? "true" : "false");
 		}
@@ -4749,7 +4790,8 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			if (peer_device->connection->agreed_pro_version >= 113) {
 				// DW-2082 send RS_CANCEL if bitmap replacement is not complete
 				if (atomic_read(&peer_device->wait_for_recv_bitmap)) {
-					BSR_VERIFY_DATA("cancels resync data until the bitmap operation is complete");
+					if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+						bsr_debug(10, BSR_LC_VERIFY, peer_device, "cancels resync data until the bitmap operation is complete");
 					err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
 					goto fail3;
 				}
@@ -4774,8 +4816,12 @@ submit_for_resync:
 	atomic_add(size >> 9, &device->rs_sect_ev);
 
 submit:
-	BSR_VERIFY_DATA("%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)",
-		__FUNCTION__, (unsigned long long)peer_req->i.sector, peer_req->i.size, (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), (unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
+	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+		bsr_debug(11, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+																									(unsigned long long)peer_req->i.sector, 
+																									peer_req->i.size, 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
+																									(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
 	update_receiver_timing_details(connection, bsr_submit_peer_request);
 	inc_unacked(peer_device);
@@ -11049,7 +11095,8 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			if (is_sync_target(peer_device)) {
 				mutex_lock(&device->bm_resync_fo_mutex);
 
-				BSR_VERIFY_DATA("receive sync request cancellation");
+				if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+					bsr_debug(12, BSR_LC_VERIFY, peer_device, "receive sync request cancellation");
 
 				bit = (ULONG_PTR)BM_SECT_TO_BIT(sector);
 
@@ -11061,7 +11108,8 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 				mutex_unlock(&device->bm_resync_fo_mutex);
 			}
 			else if(peer_device->repl_state[NOW] == L_VERIFY_S) {
-				BSR_VERIFY_DATA("receive verify request cancellation");
+				if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_VERIFY)
+					bsr_debug(13, BSR_LC_VERIFY, peer_device, "receive verify request cancellation");
 
 				atomic_add(size >> 9, &peer_device->rs_sect_in);
 				
