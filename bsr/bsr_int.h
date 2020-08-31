@@ -556,6 +556,36 @@ static const char * const __log_category_names[] = {
 };
 
 
+// BSR-649 Maximum index value being used for log values.
+// As the index value used in the log increases, the same increase must be made.
+#define BSR_LC_VOLUME_MAX_INDEX 65
+#define BSR_LC_IO_MAX_INDEX 57
+#define BSR_LC_IO_ERROR_MAX_INDEX 10
+#define BSR_LC_BITMAP_MAX_INDEX 63
+#define BSR_LC_LRU_MAX_INDEX 29
+#define BSR_LC_REQUEST_MAX_INDEX 36
+#define BSR_LC_PEER_REQUEST_MAX_INDEX 33
+#define BSR_LC_RESYNC_OV_MAX_INDEX 27
+#define BSR_LC_REPLICATION_MAX_INDEX 30
+#define BSR_LC_CONNECTION_MAX_INDEX 24
+#define BSR_LC_UUID_MAX_INDEX 18
+#define BSR_LC_TWOPC_MAX_INDEX 56
+#define BSR_LC_THREAD_MAX_INDEX 34
+#define BSR_LC_SEND_BUFFER_MAX_INDEX 33
+#define BSR_LC_STATE_MAX_INDEX 56
+#define BSR_LC_SOCKET_MAX_INDEX 105
+#define BSR_LC_DRIVER_MAX_INDEX 119
+#define BSR_LC_NETLINK_MAX_INDEX 36
+#define BSR_LC_GENL_MAX_INDEX 89
+#define BSR_LC_PROTOCOL_MAX_INDEX 69
+#define BSR_LC_MEMORY_MAX_INDEX 18
+#define BSR_LC_LOG_MAX_INDEX 25
+#define BSR_LC_LATENCY_MAX_INDEX 8
+#define BSR_LC_VERIFY_MAX_INDEX 0
+#define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
+#define BSR_LC_ETC_MAX_INDEX 82
+
+
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
 #define BUG_ON_UINT16_OVER(_value) DEBUG_BUG_ON(UINT16_MAX < _value)
 
