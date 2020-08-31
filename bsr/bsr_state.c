@@ -689,7 +689,7 @@ void state_change_lock(struct bsr_resource *resource, unsigned long *irq_flags, 
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
 #ifdef _WIN
-		bsr_warn(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
+		bsr_info(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
 #else // _LIN
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE\n");
@@ -1845,7 +1845,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
-					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be L_ESTABLISHED due to unsyncable stability");
+					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be Established due to unsyncable stability");
 					__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
 				}
@@ -4532,7 +4532,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		&& (rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG))	// DW-1705 set C_DISCONNECT when the result value is SS_CONCURRENT_ST_CHG
 		 
 	{
-		bsr_warn(49, BSR_LC_TWOPC, resource, "twopc timeout, no more retry");
+		bsr_warn(49, BSR_LC_TWOPC, resource, "twopc timeout occurred, no more retries");
 		
 		if (target_connection) {
 			kref_debug_put(&target_connection->kref_debug, 8);

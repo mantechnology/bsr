@@ -782,7 +782,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 	// DW-1513 If the used value is greater than nr_elements, set available_update_slots to 0.
 	if (al->nr_elements < al->used)	{
 		available_update_slots = 0;
-		bsr_warn(19, BSR_LC_LRU, device, "al->used is greater than nr_elements, set available_update_slots to 0.");
+		bsr_warn(19, BSR_LC_LRU, device, "No update slot is available");
 	} else {
 		available_update_slots = min(al->nr_elements - al->used,
 					al->max_pending_changes - al->pending_changes);
@@ -1091,8 +1091,8 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				ext->rs_failed += count;
 			if (ext->rs_left < ext->rs_failed) {
 				struct bsr_connection *connection = peer_device->connection;
-				bsr_warn(20, BSR_LC_LRU, peer_device, "BAD! enr=%u rs_left=%d "
-				    "rs_failed=%d count=%d cstate=%s %s",
+				bsr_warn(20, BSR_LC_LRU, peer_device, "BAD! rs_left < rs_failed "
+					"(enr=%u rs_left=%d rs_failed=%d count=%d cstate=%s %s)",
 				     ext->lce.lc_number, ext->rs_left,
 				     ext->rs_failed, count,
 				     bsr_conn_str(connection->cstate[NOW]),
@@ -1160,7 +1160,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				}
 				else {
 					if (bsr_ratelimit())
-						bsr_warn(23, BSR_LC_LRU, peer_device, "kmalloc(udw) failed.");
+						bsr_warn(23, BSR_LC_LRU, peer_device, "Failed to allocate %d size memory for update_peers_work", sizeof(struct update_peers_work));
 				}
 
 				ext->rs_failed = 0;

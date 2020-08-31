@@ -2202,7 +2202,7 @@ static inline unsigned bsr_req_state_by_peer_device(struct bsr_request *req,
 {
 	int idx = peer_device->node_id;
 	if (idx < 0 || idx >= BSR_NODE_ID_MAX) {
-		bsr_warn(23, BSR_LC_REQUEST, peer_device, "FIXME: node_id: %d", idx);
+		bsr_warn(23, BSR_LC_REQUEST, peer_device, "FIXME: unexpected node_id(%d)", idx);
 		/* WARN(1, "bitmap_index: %d", idx); */
 		return 0;
 	}
@@ -3034,7 +3034,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"Null argument");
+		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"block device is NULL");
 		return 0;
 	}
 	
@@ -3649,7 +3649,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s, peer_device->rs_pending_cnt(%u)", caller, __FUNCTION__, atomic_read(&peer_device->rs_pending_cnt));
+		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s, rs_pending_cnt is already 0", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3672,7 +3672,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(27, BSR_LC_REPLICATION, peer_device, "%s => %s, peer_device->unacked_cnt(%u)", caller, __FUNCTION__, atomic_read(&peer_device->unacked_cnt));
+		bsr_warn(27, BSR_LC_REPLICATION, peer_device, "%s => %s, unacked_cnt is already 0", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 

@@ -1358,7 +1358,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 
 	// DW-1617 bsr_bm_endio is not called if len is 0. If len is 0, change it to PAGE_SIZE.
 	if (len == 0){
-		bsr_warn(60, BSR_LC_BITMAP, device, "If len is 0, change it to PAGE_SIZE.");
+		bsr_warn(60, BSR_LC_BITMAP, device, "Last sector of metadata is less than on disk sector");
 		len = PAGE_SIZE; 
 	}
 

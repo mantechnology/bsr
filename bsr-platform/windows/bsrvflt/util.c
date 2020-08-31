@@ -1019,7 +1019,7 @@ NTSTATUS QueryMountPoint(
 		0); // no EA buffer size...
 	if (!NT_SUCCESS(status) ||
 		!NT_SUCCESS(iosb.Status)) {
-		bsr_warn(88, BSR_LC_DRIVER, NO_OBJECT,"Unable to open %wZ, error = 0x%x", &mmgrObjectName, status);
+		bsr_warn(88, BSR_LC_DRIVER, NO_OBJECT, "Unable to open %wZ, error = 0x%x", &mmgrObjectName, status);
 		return status;
 	}
 
@@ -1033,7 +1033,7 @@ NTSTATUS QueryMountPoint(
 		NotificationEvent,
 		FALSE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(89, BSR_LC_DRIVER, NO_OBJECT,"Cannot create event (0x%x)", status);
+		bsr_warn(89, BSR_LC_DRIVER, NO_OBJECT, "Failed to create event (0x%x)", status);
 		return status;
 	}
 
@@ -1250,13 +1250,13 @@ NTSTATUS DeleteRegistryValueKey(__in PUNICODE_STRING preg_path, __in PUNICODE_ST
 
     status = ZwOpenKey(&hKey, DELETE, &attributes);
     if (!NT_SUCCESS(status)) {
-        bsr_warn(90, BSR_LC_DRIVER, NO_OBJECT,"Failed to ZwOpenKey(). status(0x%x)", status);
+        bsr_warn(90, BSR_LC_DRIVER, NO_OBJECT, "Failed to open registry key. status(0x%x)", status);
         goto cleanup;
     }
 
     status = ZwDeleteValueKey(hKey, pvalue_name);
     if (!NT_SUCCESS(status)) {
-		bsr_warn(91, BSR_LC_DRIVER, NO_OBJECT, "Failed to ZwDeleteValueKey(). status(0x%x)", status);
+		bsr_warn(91, BSR_LC_DRIVER, NO_OBJECT, "Failed to delete registry key. status(0x%x)", status);
         goto cleanup;
     }
 

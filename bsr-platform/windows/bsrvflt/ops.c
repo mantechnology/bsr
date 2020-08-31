@@ -131,7 +131,8 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	}
 
 	if (!Irp->AssociatedIrp.SystemBuffer) {
-		bsr_warn(85, BSR_LC_DRIVER, NO_OBJECT,"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried");
+		bsr_warn(85, BSR_LC_DRIVER, NO_OBJECT, 
+			"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried");
 		return STATUS_INVALID_PARAMETER;
 	}
 
@@ -346,7 +347,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			atomic_set(&g_featurelog_flag, pLoggingMinLv->nErrLvMin);
 		}
 		else {
-			bsr_warn(86, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)", pLoggingMinLv->nType);
+			bsr_warn(86, BSR_LC_DRIVER, NO_OBJECT, "Invalidate logging type(%d)", pLoggingMinLv->nType);
 		}
 
 		// DW-1432 Modified to see if command was successful 

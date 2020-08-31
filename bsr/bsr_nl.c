@@ -387,7 +387,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	/* some more paranoia, if the request was over-determined */
 	if (adm_ctx->device && adm_ctx->resource && adm_ctx->device->resource && 
 	    adm_ctx->device->resource != adm_ctx->resource) {
-		bsr_warn(67, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s",
+		bsr_err(67, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->resource->name);
 		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
@@ -397,7 +397,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	if (adm_ctx->device && adm_ctx->device->resource && 
 	    adm_ctx->volume != VOLUME_UNSPECIFIED &&
 	    adm_ctx->volume != adm_ctx->device->vnr) {
-		bsr_warn(68, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s",
+		bsr_err(68, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s",
 				adm_ctx->minor, adm_ctx->volume,
 				adm_ctx->device->vnr,
 				adm_ctx->device->resource->name);
@@ -409,7 +409,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 		adm_ctx->resource && adm_ctx->resource->name &&
 	    adm_ctx->peer_device->device != adm_ctx->device) {
 		bsr_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
-		bsr_warn(69, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device",
+		bsr_err(69, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->vnr, adm_ctx->peer_node_id);
 		err = ERR_INVALID_REQUEST;
@@ -2361,7 +2361,7 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 	}
 
 	if (!bsr_al_try_lock(device)) {
-		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock al in %s()", __func__);
+		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock active log in %s()", __func__);
 		return;
 	}
 
@@ -2932,7 +2932,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	if (bsr_get_capacity(nbc->md_bdev) < min_md_device_sectors) {
 #endif
 		retcode = ERR_MD_DISK_TOO_SMALL;
-		bsr_warn(81, BSR_LC_GENL, device, "refusing attach: md-device too small, "
+		bsr_err(81, BSR_LC_GENL, device, "refusing attach: md-device too small, "
 		     "at least %llu sectors needed for this meta-disk type",
 		     (unsigned long long) min_md_device_sectors);
 		goto fail;
@@ -3030,7 +3030,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 			else {
-				bsr_warn(84, BSR_LC_GENL, NO_OBJECT,"Failed to initialize WorkThread. status(0x%x)", status);
+				bsr_warn(84, BSR_LC_GENL, NO_OBJECT, "Failed to initialize WorkThread. status(0x%x)", status);
 			}
 #endif
 		}
@@ -3177,7 +3177,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	unsigned long long nsz = bsr_new_dev_size(device, 0, device->ldev->disk_conf->disk_size, 0);
 	unsigned long long eff = device->ldev->md.effective_size;
 	if (bsr_md_test_flag(device, MDF_CONSISTENT) && nsz < eff) {
-		bsr_warn(85, BSR_LC_GENL, device,
+		bsr_err(85, BSR_LC_GENL, device,
 			"refusing to truncate a consistent device (%llu < %llu)",
 			nsz, eff);		
 		retcode = ERR_DISK_TOO_SMALL;

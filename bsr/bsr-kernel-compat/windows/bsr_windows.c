@@ -775,7 +775,7 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_warn(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.", current->comm, error);
+			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "thread(%s) bio_endio error with err=%d.", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
 			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.", current->comm, error);
@@ -1533,7 +1533,7 @@ void kobject_put(struct kobject *kobj)
 void kobject_del(struct kobject *kobj)
 {
     if (!kobj) {
-		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobj is null.");
+		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1545,7 +1545,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobj is null.");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
         return;
     }
 }
@@ -1576,7 +1576,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		bsr_warn(1, BSR_LC_SOCKET, NO_OBJECT,"Unable to socket release because socket is not assigned.");
+		bsr_warn(1, BSR_LC_SOCKET, NO_OBJECT, "Unable to socket release because socket is not assigned.");
 		return;
 	}
 
@@ -1688,7 +1688,7 @@ struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULON
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
 	list_add(&t->list, &ct_thread_list);
 	if (++ct_thread_num > CT_MAX_THREAD_LIST) {
-		bsr_warn(27, BSR_LC_THREAD, NO_OBJECT,"ct_thread too big(%s, %d)", name, ct_thread_num);
+		bsr_warn(27, BSR_LC_THREAD, NO_OBJECT, "too many ct_threads (name:%s, thread_num:%d)", name, ct_thread_num);
     }
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
     return t;
@@ -1778,12 +1778,12 @@ int generic_make_request(struct bio *bio)
 			}
 		}
 		else {
-			bsr_warn(39, BSR_LC_IO, NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null", KeGetCurrentIrql());
+			bsr_err(39, BSR_LC_IO, NO_OBJECT,"IRQL(%d), device extension is NULL", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
 	else {
-		bsr_warn(40, BSR_LC_IO, NO_OBJECT, "IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
+		bsr_err(40, BSR_LC_IO, NO_OBJECT, "Failed to IoAcquireRemoveLock, IRQL(%d) is too high. device extension(%p)", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
 		return -EIO;
 	}
 
@@ -2450,12 +2450,12 @@ LONGLONG get_targetdev_volsize(PVOLUME_EXTENSION VolumeExtension)
 	NTSTATUS		status;
 	
 	if (VolumeExtension->TargetDeviceObject == NULL) {
-		bsr_err(1, BSR_LC_VOLUME, NO_OBJECT,"Failed to get volume size due to volume information check failure.");
+		bsr_err(1, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to volume information check failure.");
 		return (LONGLONG)0;
 	}
 	status = mvolGetVolumeSize(VolumeExtension->TargetDeviceObject, &volumeSize);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(42, BSR_LC_VOLUME, NO_OBJECT,"get volume size error = 0x%x", status);
+		bsr_warn(42, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size (error = 0x%x)", status);
 		volumeSize.QuadPart = 0;
 	}
 	return volumeSize.QuadPart;
@@ -2813,7 +2813,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlInitAnsiString(&apath, cpath);
 	NTSTATUS status = RtlAnsiStringToUnicodeString(&upath, &apath, TRUE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(43, BSR_LC_VOLUME, NO_OBJECT,"Wrong path = %s", path);
+		bsr_warn(43, BSR_LC_VOLUME, NO_OBJECT, "Wrong path (%s)", path);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -2952,7 +2952,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect socket time-out. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Timeout, failed to connect socket. IRQL(%d)", KeGetCurrentIrql());
 		goto error;
 	}
 

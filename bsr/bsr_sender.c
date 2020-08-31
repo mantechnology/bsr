@@ -532,7 +532,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	if (error && bsr_ratelimit())
 #endif
-		bsr_warn(30, BSR_LC_PEER_REQUEST, NO_OBJECT, "%s: error=0x%08X sec=%llus size:%d",
+		bsr_warn(30, BSR_LC_PEER_REQUEST, NO_OBJECT, "Failed to %s: error=0x%08X sec=%llus size:%d",
 		is_write ? (is_discard ? "discard" : "write")
 		: "read", error,
 		(unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -1003,7 +1003,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		break;
 	default:
 		// DW-1977
-		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "completed because it is not in the VERIFY_S or SYNC_TARGET replication state.");
+		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "completed because it is not in the VerifyS or SyncTarget replication state.");
 		break;
 	}
 
@@ -3188,7 +3188,7 @@ static void go_diskless(struct bsr_device *device)
 
 static int do_md_sync(struct bsr_device *device)
 {
-	bsr_warn(39, BSR_LC_STATE, device, "md_sync_timer expired! Worker calls bsr_md_sync().");
+	bsr_warn(39, BSR_LC_STATE, device, "metadata sync timer expired! Worker calls bsr_md_sync().");
 #ifdef BSR_DEBUG_MD_SYNC
 	bsr_warn(43, BSR_LC_STATE, device, "last md_mark_dirty: %s:%u",
 		device->last_md_mark_dirty.func, device->last_md_mark_dirty.line);
