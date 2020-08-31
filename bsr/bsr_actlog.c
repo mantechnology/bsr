@@ -308,7 +308,7 @@ int bsr_md_sync_page_io(struct bsr_device *device, struct bsr_backing_dev *bdev,
 
 	err = _bsr_md_sync_page_io(device, bdev, sector, op);
 	if (err) {
-		bsr_err(21, BSR_LC_IO, device, "failed to %s meta disk sector(%llus). error(%d)",
+		bsr_err(21, BSR_LC_IO, device, "Failed to %s meta disk sector(%llus). error(%d)",
 			(op == REQ_OP_WRITE) ? "WRITE" : "READ",
 		    (unsigned long long)sector, err);
 	}
