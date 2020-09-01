@@ -4132,7 +4132,7 @@ int set_resource_options(struct bsr_resource *resource, struct res_opts *res_opt
 			}
 		}
 		if (err) {
-			bsr_warn(76, BSR_LC_ETC, resource, "bitmap_parse() failed with %d", err);
+			bsr_err(76, BSR_LC_ETC, resource, "Failed to bitmap parse. err(%d)", err);
 			/* retcode = ERR_CPU_MASK_PARSE; */
 			goto fail;
 		}
@@ -5595,7 +5595,7 @@ int log_consumer_thread(void *unused)
 				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
 				if (hFile == NULL || IS_ERR(hFile)) {
-					bsr_warn(24, BSR_LC_LOG, NO_OBJECT, "failed to new log file");
+					bsr_err(24, BSR_LC_LOG, NO_OBJECT, "Failed to create new log file");
 					break;
 				}
 #endif
@@ -6197,13 +6197,13 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 		if (peer_md->bitmap_index == -1)
 			continue;
 		if (i == my_node_id) {
-			bsr_warn(41, BSR_LC_IO, device, "my own node id (%d) should not have a bitmap index (%d)",
+			bsr_err(41, BSR_LC_IO, device, "my own node id (%d) should not have a bitmap index (%d)",
 				my_node_id, peer_md->bitmap_index);
 			goto err;
 		}
 
 		if (peer_md->bitmap_index < -1 || peer_md->bitmap_index >= (int)max_peers) {
-			bsr_warn(42, BSR_LC_IO, device, "peer node id %d: bitmap index (%d) exceeds allocated bitmap slots (%d)",
+			bsr_err(42, BSR_LC_IO, device, "peer node id %d: bitmap index (%d) exceeds allocated bitmap slots (%d)",
 				i, peer_md->bitmap_index, max_peers);
 			goto err;
 		}
@@ -6992,7 +6992,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
-		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
+		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "unexpected repliction state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
 	if (dec_bm_work_n) {
@@ -7481,7 +7481,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			bSecondary = true;
 		}
 		else {
-			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "unexpected repl state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
+			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "unexpected replication state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
 			goto out;
 		}
@@ -7747,7 +7747,7 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(33, BSR_LC_STATE, device, "ldev is null.");
+		bsr_warn(33, BSR_LC_STATE, device, "backing device is not assigned.");
 		return;
 	}
 
@@ -7763,7 +7763,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(34, BSR_LC_STATE, peer_device, "ldev is null.");
+		bsr_warn(34, BSR_LC_STATE, peer_device, "backing device is not assigned.");
 		return;
 	}
 
@@ -7777,7 +7777,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(35, BSR_LC_STATE, device, "ldev is null.");
+		bsr_warn(35, BSR_LC_STATE, device, "backing device is not assigned.");
 		return;
 	}
 
@@ -7793,7 +7793,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(36, BSR_LC_STATE, peer_device, "ldev is null.");
+		bsr_warn(36, BSR_LC_STATE, peer_device, "backing device is not assigned.");
 		return;
 	}
 
@@ -7807,7 +7807,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(37, BSR_LC_STATE, device, "ldev is null.");
+		bsr_warn(37, BSR_LC_STATE, device, "backing device is not assigned.");
 		return 0;
 	}
 
@@ -7819,7 +7819,7 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(38, BSR_LC_STATE, peer_device, "ldev is null.");
+		bsr_warn(38, BSR_LC_STATE, peer_device, "backing device is not assigned.");
 		return false;
 	}
 

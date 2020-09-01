@@ -613,7 +613,7 @@ NetlinkWorkThread(PVOID context)
             struct bsr_conf * mdev = minor_to_device(minor);
             if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT,"minor(%d) suspended", gmh->minor);
+                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "minor(%d) suspended", gmh->minor);
                 goto cleanup;
             }
         }

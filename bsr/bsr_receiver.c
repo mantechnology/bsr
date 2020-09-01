@@ -853,7 +853,7 @@ start:
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
-			bsr_warn(17, BSR_LC_CONNECTION, connection, "cstate is C_NETWORK_FAILURE or C_CONNECTING now goto retry, err=%d", err);
+			bsr_warn(17, BSR_LC_CONNECTION, connection, "connection state is %s now goto retry, err=%d", bsr_conn_str(connection->cstate[NOW]),  err);
 			goto retry;
 		}
 		else
@@ -938,7 +938,7 @@ start:
 		if (send_buffring)
 			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)", nc->sndbuf_size, (nc->cong_fill));
 		else
-			bsr_warn(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled");
+			bsr_info(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled");
 	} else {
 		bsr_warn(27, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu", nc->sndbuf_size);
 	}
@@ -1498,7 +1498,7 @@ static enum finish_epoch bsr_may_finish_epoch(struct bsr_connection *connection,
 			fw->epoch = epoch;
 			bsr_queue_work(&resource->work, &fw->w);
 		} else {
-			bsr_warn(46, BSR_LC_IO, resource, "Could not kmalloc a flush_work obj");
+			bsr_warn(46, BSR_LC_IO, resource, "Failed to allocate %d size memory for epoch flush", sizeof(*fw));
 			set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &epoch->flags);
 			/* That is not a recursion, only one level */
 			bsr_may_finish_epoch(connection, epoch, EV_BARRIER_DONE);
@@ -8634,7 +8634,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 					}
 				}
 #else
-					bsr_warn(173, BSR_LC_RESYNC_OV, peer_device, "SyncSource still sees bits set!! FIXME");
+					bsr_warn(173, BSR_LC_RESYNC_OV, peer_device, "FIXME!! SyncSource still sees bits set");
 #endif
 
 				bsr_resync_finished(peer_device, peer_state.disk);

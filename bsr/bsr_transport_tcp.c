@@ -221,7 +221,7 @@ int dtt_init(struct bsr_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09DW');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "dtt_init kzalloc %s allocation fail", i ? "CONTROL_STREAM" : "DATA_STREAM");
+			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
 			goto fail;
 		}
 #else  // _LIN
@@ -2668,11 +2668,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT,"No send_buffering thread(channel:%d)", i);
+				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(channel:%d)", i);
 			}
 		}
 		else {
-			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT,"No stream(channel:%d)", i);
+			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)", i);
 		}
 	}
 	return;

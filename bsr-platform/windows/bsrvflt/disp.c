@@ -907,7 +907,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
             status = IOCTL_MountVolume(DeviceObject, Irp, &size);
 			if (!NT_SUCCESS(status)) {
-				bsr_warn(84, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME. %ws Volume fail. status(0x%x)",
+				bsr_warn(84, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME failed. Volume(%ws) status(0x%x)",
 					VolumeExtension->MountPoint, status);
 			}
 			else if (!size) {	// ok
