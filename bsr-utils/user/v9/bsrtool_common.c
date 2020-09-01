@@ -752,7 +752,7 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	return offset;
 }
 
-void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...)
+void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, bool line_break, const char* fmt, ...)
 {
 	char b[514];
 	long offset = 0;
@@ -777,12 +777,15 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	vsnprintf(b + offset, 512 - offset, fmt, args);
 	va_end(args);
 
+	fprintf(fp, "%s", b);
 	// BSR-671
+	if (line_break) {
 #ifdef _WIN
-	fprintf(fp, "%s\r\n", b);
+		fprintf(fp, "\r\n", b);
 #else
-	fprintf(fp, "%s\n", b);
+		fprintf(fp, "\n", b);
 #endif
+	}
 
 	fclose(fp);
 }

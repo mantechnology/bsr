@@ -448,11 +448,11 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 					CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, " ");
 			}
 			if (alarm_raised) {
-				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "' did not terminate within %u seconds", timeout);
+				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds", timeout);
 				exit(E_EXEC_ERROR);
 			}
 			else {
-				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "' terminated with exit code %d", rv);
+				CLI_ERRO_LOG_STDERR(true, "' terminated with exit code %d", rv);
 			}
 		}
 	}
