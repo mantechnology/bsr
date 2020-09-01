@@ -5236,22 +5236,19 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 		peer = UUID_JUST_CREATED;
 
 	*rule_nr = 10;
-	if (self == UUID_JUST_CREATED && peer == UUID_JUST_CREATED)
-	{
+	if (self == UUID_JUST_CREATED && peer == UUID_JUST_CREATED) {
 		bsr_info(189, BSR_LC_RESYNC_OV, device, "Local and peer UUIDs are in the Initialization state. rule(%d), res(0)", *rule_nr);
 		return 0;
 	}
 
 	*rule_nr = 20;
-	if (self == UUID_JUST_CREATED)
-	{
+	if (self == UUID_JUST_CREATED) {
 		bsr_info(190, BSR_LC_RESYNC_OV, device, "The local UUID is in the Initialization state. rule(%d), res(-3)", *rule_nr);
 		return -3;
 	}
 
 	*rule_nr = 30;
-	if (peer == UUID_JUST_CREATED)
-	{
+	if (peer == UUID_JUST_CREATED) {
 		bsr_info(191, BSR_LC_RESYNC_OV, device, "The peer UUID is in the Initialization state. rule(%d), res(3)", *rule_nr);
 		return 3;
 	}
@@ -5259,8 +5256,7 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	if (self == peer) {
 		if (connection->agreed_pro_version < 110) {
 			int rv = uuid_fixup_resync_end(peer_device, rule_nr);
-			if (rv > -2000)
-			{
+			if (rv > -2000) {
 				bsr_info(192, BSR_LC_RESYNC_OV, device, "Peer current uuid differs from local first history uuid. rule(%d), res(%d)", *rule_nr, rv);
 				return rv;
 			}
@@ -5269,8 +5265,7 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 		*rule_nr = 38;
 		/* This is a safety net for the following two clauses */
 		if (peer_device->uuid_flags & UUID_FLAG_RECONNECT &&
-			test_bit(RECONNECT, &peer_device->connection->flags))
-		{
+			test_bit(RECONNECT, &peer_device->connection->flags)) {
 			bsr_info(193, BSR_LC_RESYNC_OV, device, "Reconnecting to peer UUID flag is set. rule(%d), res(0)", *rule_nr);
 			return 0;
 		}
@@ -5281,8 +5276,7 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 			// BSR-175
 			bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
 			if ((peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) &&
-				test_bit(RESOLVE_CONFLICTS, &connection->transport.flags))
-			{
+				test_bit(RESOLVE_CONFLICTS, &connection->transport.flags)) {
 				bsr_info(194, BSR_LC_RESYNC_OV, device, "Local and Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
 				return -1;
 			}
