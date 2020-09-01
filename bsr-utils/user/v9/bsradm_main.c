@@ -631,7 +631,7 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 			rv = tmp_ctx.cmd->function(&tmp_ctx);
 			if (rv >= 20) {
 				if (on_error == EXIT_ON_FAIL) {
-					CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)", rv);
+					CLI_ERRO_LOG(false, true, "error EXIT_ON_FAIL(%d)", rv);
 					exit(rv);
 				}
 			}
@@ -643,7 +643,7 @@ static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 		rv = ctx->cmd->function(ctx);
 		if (rv >= 20) {
 			if (on_error == EXIT_ON_FAIL) {
-				CLI_ERRO_LOG(false, "error EXIT_ON_FAIL(%d)", rv);
+				CLI_ERRO_LOG(false, true, "error EXIT_ON_FAIL(%d)", rv);
 				exit(rv);
 			}
 		}
@@ -3574,7 +3574,7 @@ int main(int argc, char **argv)
 
 
 	if (!config_valid) {
-		CLI_ERRO_LOG(false, "invalid config");
+		CLI_ERRO_LOG(false, true, "invalid config");
 		exit(E_CONFIG_INVALID);
 	}
 
