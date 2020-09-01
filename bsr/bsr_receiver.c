@@ -6515,8 +6515,8 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			should_send_sizes = true;
 
 		if (dd == DS_ERROR) {
-			err = -EIO;
-			goto out;
+			// BSR-95
+			goto disconnect;
 		}
 		bsr_md_sync_if_dirty(device);
 	} else {
