@@ -440,19 +440,19 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 
 	if (flags & SLEEPS_FINITE) {
 		if (rv >= 10
-		    && !(flags & (DONT_REPORT_FAILED | SUPRESS_STDERR))) {
-			CLI_ERRO_LOG_STDERR(false,  "Command '");
+			&& !(flags & (DONT_REPORT_FAILED | SUPRESS_STDERR))) {
+			CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(false, "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
-				CLI_ERRO_LOG_STDERR(true, "%s", *cmdline);
-				if (cmdline[1]) 
-					CLI_ERRO_LOG_STDERR(true, " ");
+				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "%s", *cmdline);
+				if (cmdline[1])
+					CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, " ");
 			}
 			if (alarm_raised) {
-				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds", timeout);
+				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "' did not terminate within %u seconds", timeout);
 				exit(E_EXEC_ERROR);
 			}
 			else {
-				CLI_ERRO_LOG_STDERR(true, "' terminated with exit code %d", rv);
+				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "' terminated with exit code %d", rv);
 			}
 		}
 	}
