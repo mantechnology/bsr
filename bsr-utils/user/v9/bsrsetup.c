@@ -3050,7 +3050,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 
 		if (!r) {
-			CLI_ERRO_LOG(false, "failed to allocate resources list(20)");
+			CLI_ERRO_LOG(false, true, "failed to allocate resources list(20)");
 			exit(20);
 		}
 
@@ -3060,7 +3060,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (res_opts->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3167,7 +3167,7 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 		struct nlattr *disk_conf_nl = global_attrs[BSR_NLA_DISK_CONF];
 
 		if (!d) {
-			CLI_ERRO_LOG(false, "failed to allocate devices list(20)");
+			CLI_ERRO_LOG(false, true, "failed to allocate devices list(20)");
 			exit(20);
 		}
 
@@ -3178,7 +3178,7 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (disk_conf_nl->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3257,7 +3257,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
 
 		if (!c) {
-			CLI_ERRO_LOG(false, "failed to allocate connections list (20)");
+			CLI_ERRO_LOG(false, true, "failed to allocate connections list (20)");
 			exit(20);
 		}
 
@@ -3267,7 +3267,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (net_conf->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3377,7 +3377,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
 		if (!p) {
-			CLI_ERRO_LOG(false, "failed to allocate peer devices list (20)");
+			CLI_ERRO_LOG(false, true, "failed to allocate peer devices list (20)");
 			exit(20);
 		}
 
@@ -3387,7 +3387,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (peer_device_conf->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
