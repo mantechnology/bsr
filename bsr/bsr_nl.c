@@ -630,13 +630,13 @@ static char **make_envp(struct env *env)
 
 /* Macro refers to local variables peer_device, device and connection! */
 #ifdef _WIN
-#define magic_printk(level, fmt, args, ...)				\
+#define magic_printk(level, fmt, ...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(BSR_LC_ETC, level, peer_device, fmt, __VA_ARGS__); \
 	else if (device)						\
-		__bsr_printk_device(level, device, fmt, args);		\
+		__bsr_printk_device(BSR_LC_ETC, level, device, fmt, __VA_ARGS__);		\
 	else								\
-		__bsr_printk_connection(level, connection, fmt, args);
+		__bsr_printk_connection(BSR_LC_ETC, level, connection, fmt, __VA_ARGS__);
 #else // _LIN
 #define magic_printk(level, fmt, args...)				\
 	if (peer_device)						\
@@ -764,16 +764,28 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	if (connection && device)
 		peer_device = conn_peer_device(connection, device->vnr);
 
-#ifdef _LIN
-	magic_printk(KERN_INFO, "helper command: %s %s\n", usermode_helper, cmd);
-#endif
+
+	magic_printk(KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
+
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
 
 	ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
 
-#ifdef _LIN
+#ifdef _WIN
+	if (ret) {
+		magic_printk(KERN_WARNING,
+				"helper command: %s %s exit code %u (0x%x)",
+				usermode_helper, cmd,
+				ret & 0xff, ret);
+	} else {
+		magic_printk(KERN_INFO,
+				"helper command: %s %s exit code %u (0x%x)",
+				usermode_helper, cmd,
+				ret & 0xff, ret);
+	}
+#elif _LIN
 	magic_printk(ret ? KERN_WARNING : KERN_INFO,
-		     "helper command: %s %s exit code %u (0x%x)\n",
+		     "helper command: %s %s exit code %u (0x%x)",
 		     usermode_helper, cmd,
 		     (ret >> 8) & 0xff, ret);
 #endif
