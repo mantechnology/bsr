@@ -562,7 +562,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_THREAD_MAX_INDEX 34
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 33
 #define BSR_LC_STATE_MAX_INDEX 56
-#define BSR_LC_SOCKET_MAX_INDEX 105
+#define BSR_LC_SOCKET_MAX_INDEX 106
 #define BSR_LC_DRIVER_MAX_INDEX 119
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 89
@@ -572,7 +572,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 0
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 82
+#define BSR_LC_ETC_MAX_INDEX 86
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)

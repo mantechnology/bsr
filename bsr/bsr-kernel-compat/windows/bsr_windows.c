@@ -2920,7 +2920,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	}
 
 	_snprintf(cmd_line, leng - 1, "%s %s\0", argv[1], argv[2]); // except "bsradm.exe" string
-	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "command(%s), allocate length (%d)", cmd_line, leng);
+	bsr_debug(12, BSR_LC_MEMORY, NO_OBJECT, "command(%s), allocate length (%d)", cmd_line, leng);
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
@@ -2950,13 +2950,16 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
+		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Connect not completed. IRQL(%d)", KeGetCurrentIrql());
+		ret = -1;
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
 		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
+		ret = -1;
 		goto error;
 	}
 
-	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u. status(0x%08X) IRQL(%d)",
+	bsr_debug(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u. status(0x%08X) IRQL(%d)",
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b1,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b2,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b3,
