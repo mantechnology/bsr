@@ -709,7 +709,7 @@ static int bsr_thread_setup(void *arg)
 	unsigned long flags;
 	int retval;
 #ifdef _WIN
-	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0DW');
+	thi->nt = ct_add_thread((int)PsGetCurrentThreadId(), thi->name, TRUE, 'B0SB');
 	if (!thi->nt) {
 		bsr_err(6, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: Failed to create %s thread.", thi->name);
 		PsTerminateSystemThread(STATUS_SUCCESS);
@@ -1910,7 +1910,7 @@ int bsr_attach_peer_device(struct bsr_peer_device *peer_device) __must_hold(loca
     if (peer_device->rs_plan_s)
         resync_plan = peer_device->rs_plan_s;
     else
-    	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ, '88DW');
+    	resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ, '88SB');
 #else // _LIN
 	// BSR-180
 	resync_plan = rcu_dereference_protected(peer_device->rs_plan_s,
@@ -2348,7 +2348,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	struct p_compressed_bm *pc, *tpc;
 	int len, err;
 
-	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, '70DW');
+	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
 
 	if (!tpc) {
 		bsr_err(32, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size meory in kzalloc", BSR_SOCKET_BUFFER_SIZE);
@@ -2538,7 +2538,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 
 			int allow_size = 512;
 #ifdef _WIN
-			ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8EDW');
+			ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
 #else // _LIN
 			ULONG_PTR *bb = kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -3497,15 +3497,15 @@ static int bsr_create_mempools(void)
 #ifdef _WIN
 
 	ExInitializeNPagedLookasideList(&bsr_bm_ext_cache, NULL, NULL,
-		0, sizeof(struct bm_extent), '28DW', 0);
+		0, sizeof(struct bm_extent), '28SB', 0);
 	ExInitializeNPagedLookasideList(&bsr_al_ext_cache, NULL, NULL,
-		0, sizeof(struct lc_element), '38DW', 0);
+		0, sizeof(struct lc_element), '38SB', 0);
 
-	bsr_request_mempool = mempool_create_slab_pool(sizeof(struct bsr_request), '48DW');
+	bsr_request_mempool = mempool_create_slab_pool(sizeof(struct bsr_request), '48SB');
 	if (bsr_request_mempool == NULL)
 		goto Enomem;
 
-	bsr_ee_mempool = mempool_create_slab_pool(sizeof(struct bsr_peer_request), '58DW');
+	bsr_ee_mempool = mempool_create_slab_pool(sizeof(struct bsr_peer_request), '58SB');
 	if (bsr_ee_mempool == NULL)
 		goto Enomem;
 
@@ -4170,7 +4170,7 @@ struct bsr_resource *bsr_create_resource(const char *name,
 {
 	struct bsr_resource *resource;
 
-	resource = kzalloc(sizeof(struct bsr_resource), GFP_KERNEL, 'A0DW');
+	resource = kzalloc(sizeof(struct bsr_resource), GFP_KERNEL, 'A0SB');
 #ifdef _WIN
 	resource->bPreSecondaryLock = FALSE;
 	resource->bPreDismountLock = FALSE;
@@ -4248,14 +4248,14 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	int size;
 
 	size = sizeof(*connection) - sizeof(connection->transport) + tc->instance_size;
-	connection = kzalloc(size, GFP_KERNEL, 'D0DW');
+	connection = kzalloc(size, GFP_KERNEL, 'D0SB');
 	if (!connection)
 		return NULL;
 
 	if (bsr_alloc_send_buffers(connection))
 		goto fail;
 
-	connection->current_epoch = kzalloc(sizeof(struct bsr_epoch), GFP_KERNEL, 'E0DW');
+	connection->current_epoch = kzalloc(sizeof(struct bsr_epoch), GFP_KERNEL, 'E0SB');
 	if (!connection->current_epoch)
 		goto fail;
 
@@ -4457,7 +4457,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 {
 	struct bsr_peer_device *peer_device;
 	int err;
-	peer_device = kzalloc(sizeof(struct bsr_peer_device), GFP_KERNEL, 'F0DW');
+	peer_device = kzalloc(sizeof(struct bsr_peer_device), GFP_KERNEL, 'F0SB');
 	if (!peer_device)
 		return NULL;
 
@@ -4575,7 +4575,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	/* GFP_KERNEL, we are outside of all write-out paths */
 
-	device = kzalloc(sizeof(struct bsr_device), GFP_KERNEL, '01DW');
+	device = kzalloc(sizeof(struct bsr_device), GFP_KERNEL, '01SB');
 	if (!device)
 		return ERR_NOMEM;
 	kref_init(&device->kref);
@@ -4999,8 +4999,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	}
 
 	currentSize = sizeof(FILE_BOTH_DIR_INFORMATION);
-	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB');
+	// BSR-579
+	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '3ASB');
 	if (!pFileBothDirInfo){
 		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "Failed to allocation query buffer. status(%u)", currentSize);
 		status = STATUS_NO_MEMORY;
@@ -5030,8 +5030,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
-			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
+			// BSR-579
+			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '4ASB'); 
 			if (pFileBothDirInfo == NULL) {
 				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size query buffer memory.", currentSize);
 				status = STATUS_NO_MEMORY;
@@ -5063,15 +5063,15 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
 				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
 				struct log_rolling_file_list *r;
-				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '00RB');
+				// BSR-579
+				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '5ASB');
 				if (!r) {
 					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
-				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '00RB');
+				// BSR-579
+				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '6ASB');
 				if (!r) {
 					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory", flength);
 					status = STATUS_NO_MEMORY;
@@ -5231,8 +5231,8 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 																		timeFields.Second,
 																		timeFields.Milliseconds);
 
-	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '00RB');
+	// BSR-579
+	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
 
 	pRenameInfo->ReplaceIfExists = false;
 	pRenameInfo->RootDirectory = NULL;
@@ -7246,7 +7246,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulBsrBitmapUnit;
 			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
 #ifdef _WIN
-			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56DW');			
+			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56SB');			
 #else // _LIN
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -7651,7 +7651,7 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 	if (current == device->resource->worker.task)
 		bsr_info(33, BSR_LC_RESYNC_OV, device, "%s, worker.task(%p), current(%p)", why ? why : "?", device->resource->worker.task, current);
 
-	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21DW');
+	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21SB');
 	if (!bm_io_work) {
 		bsr_err(34, BSR_LC_RESYNC_OV, device, "Failed to allocate %d size memory for bitmap I/O work", sizeof(*bm_io_work));
 		done(device, peer_device, -ENOMEM);

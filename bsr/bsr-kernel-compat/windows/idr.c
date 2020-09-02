@@ -83,7 +83,7 @@ int idr_pre_get(struct idr *idp, gfp_t gfp_mask)
 	while (idp->id_free_cnt < IDR_FREE_MAX) {
 		struct idr_layer *new = NULL;
 
-		new = kmem_cache_alloc(idr_layer_cache, gfp_mask, 'D4DW');
+		new = kmem_cache_alloc(idr_layer_cache, gfp_mask, 'D4SB');
 		if (new == NULL)
 			return (0);
 		free_layer(idp, new);
@@ -508,7 +508,7 @@ static void idr_cache_ctor(void * idr_layer, kmem_cache_t *idr_layer_cache, unsi
 static  int init_id_cache(void)
 {
 	if (!idr_layer_cache) {
-		idr_layer_cache = kmem_cache_create("idr_layer_cache", sizeof(struct idr_layer), 0, 0, NULL, 'E4DW');
+		idr_layer_cache = kmem_cache_create("idr_layer_cache", sizeof(struct idr_layer), 0, 0, NULL, 'E4SB');
 	}
 	return 0;
 }

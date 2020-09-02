@@ -244,7 +244,7 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 	unsigned int			nr_pages;
 
 	nr_pages = (length + PAGE_SIZE - 1) >> PAGE_SHIFT;
-	bio = bio_alloc(GFP_NOIO, nr_pages, '75DW');
+	bio = bio_alloc(GFP_NOIO, nr_pages, '75SB');
 	if (!bio) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
@@ -325,7 +325,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				splitted_io_count = loop;
 			}
 
-			splitInfo = kzalloc(sizeof(struct splitInfo), 0, '95DW');
+			splitInfo = kzalloc(sizeof(struct splitInfo), 0, '95SB');
 			if (!splitInfo) {
 				status = STATUS_NO_MEMORY;
 				goto fail_put_dev;
@@ -338,7 +338,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 #ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
-				newbuf = kzalloc(slice, 0, 'A5DW');
+				newbuf = kzalloc(slice, 0, 'A5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
 					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to allocate memory for hooker!");
@@ -365,7 +365,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 #ifdef _WIN_TMP_Win8_BUG_0x1a_61946
 			char *newbuf;
 			if (Io == IRP_MJ_READ) {
-				newbuf = kzalloc(rest, 0, 'B5DW');
+				newbuf = kzalloc(rest, 0, 'B5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
 					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate memory for reset hooker");
@@ -455,8 +455,8 @@ mvolUpdateMountPointInfoByExtension(PVOLUME_EXTENSION pvext)
 	ULONG mplen = pvext->PhysicalDeviceNameLength + sizeof(MOUNTMGR_MOUNT_POINT);
 	ULONG mpslen = 4096 * 2;
 
-	PCHAR inbuf = kmalloc(mplen, 0, '56DW');
-	PCHAR otbuf = kmalloc(mpslen, 0, '56DW');
+	PCHAR inbuf = kmalloc(mplen, 0, '56SB');
+	PCHAR otbuf = kmalloc(mpslen, 0, '56SB');
 	if (!inbuf || !otbuf) {
 		if (inbuf)
 			kfree(inbuf);

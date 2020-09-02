@@ -89,7 +89,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 #endif
 			sz = sizeof(*ring) + nconf->sndbuf_size;
 #ifdef _WIN_SEND_BUF
-			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ADW'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
+			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool|POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '0ASB'); //POOL_RAISE_IF_ALLOCATION_FAILURE flag is required for big pool
 #else // _LIN_SEND_BUF
 			// BSR-453 Exception handling when there is not enough memory available
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
@@ -116,7 +116,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 #endif
 			sz = sizeof(*ring) + CONTROL_BUFF_SIZE; // meta bab is about 5MB
 #ifdef _WIN_SEND_BUF
-			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ADW');
+			ring = (ring_buffer*)ExAllocatePoolWithTag(NonPagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE, (size_t)sz, '2ASB');
 #else // _LIN_SEND_BUF
 			// BSR-453 Exception handling when there is not enough memory available
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
@@ -167,7 +167,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		return NULL;
 	}
 
-	//ring = (ring_buffer *) ExAllocatePoolWithTag(NonPagedPool, sz, '0ADW');
+	//ring = (ring_buffer *) ExAllocatePoolWithTag(NonPagedPool, sz, '0ASB');
 	if(stream == DATA_STREAM) {
 		ring = connection->ptxbab[DATA_STREAM];
 	} else {
@@ -189,7 +189,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		INIT_LIST_HEAD(&ring->send_req_list);
 #endif
 #ifdef _WIN_SEND_BUF
-		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ADW');
+		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ASB');
 #else
 		// BSR-453 Exception handling when there is not enough memory available
 		ring->static_big_buf = (char *)bsr_kvmalloc(MAX_ONETIME_SEND_BUF, GFP_ATOMIC | __GFP_NOWARN);
@@ -504,7 +504,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 	LARGE_INTEGER nWaitTime;
 	LARGE_INTEGER *pTime;
 
-	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25DW');
+	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25SB');
 
 	buffering_attr->quit = FALSE;
 

@@ -279,7 +279,7 @@ static struct bsr_state_change *alloc_state_change(unsigned int n_devices, unsig
 	       n_connections * sizeof(struct bsr_connection_state_change) +
 	       n_devices * n_connections * sizeof(struct bsr_peer_device_state_change);
 
-	state_change = kmalloc(size, flags, '73DW');
+	state_change = kmalloc(size, flags, '73SB');
 	if (!state_change)
 		return NULL;
 	state_change->n_devices = n_devices;
@@ -2130,7 +2130,7 @@ static void queue_after_state_change_work(struct bsr_resource *resource,
 	struct after_state_change_work *work;
 	gfp_t gfp = GFP_ATOMIC;
 
-	work = kmalloc(sizeof(*work), gfp, '83DW');
+	work = kmalloc(sizeof(*work), gfp, '83SB');
 	if (work)
 		work->state_change = remember_state_change(resource, gfp);
 	
@@ -4801,7 +4801,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 
 	// allocate memory for connection pointers.
 	// BSR-427 fix hang. change GFP_KERNEL flag to GFP_ATOMIC
-	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8DW');
+	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8SB');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
 		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to allocate memory for connections");

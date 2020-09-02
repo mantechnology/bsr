@@ -213,17 +213,17 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 
 #ifdef _WIN
 	slot = (struct hlist_head *)ExAllocatePoolWithTag(NonPagedPool,
-		e_count * sizeof(struct hlist_head), 'F4DW');
+		e_count * sizeof(struct hlist_head), 'F4SB');
 	if (!slot)
 		goto out_fail;
 	RtlZeroMemory(slot, e_count * sizeof(struct hlist_head));
 	element = (struct lc_element **)ExAllocatePoolWithTag(NonPagedPool,
-		e_count * sizeof(struct lc_element *), '05DW');
+		e_count * sizeof(struct lc_element *), '05SB');
 	if (!element)
 		goto out_fail;
 	RtlZeroMemory(element, e_count * sizeof(struct lc_element *));
 	lc = (struct lru_cache *)ExAllocatePoolWithTag(NonPagedPool,
-		sizeof(struct lru_cache), '15DW');
+		sizeof(struct lru_cache), '15SB');
 	if (!lc)
 		goto out_fail;
 	RtlZeroMemory(lc, sizeof(struct lru_cache));

@@ -191,7 +191,7 @@ static void * __bsr_alloc_pages(unsigned int number)
 	* So what. It saves a spin_lock. */
 	
 	// DW-1457 checking bsr_pp_vacant has been removed, BSR has no allocated memory pool but allocates as it needs.
-	void * mem = kmalloc(number * PAGE_SIZE, 0, '17DW');
+	void * mem = kmalloc(number * PAGE_SIZE, 0, '07SB');
 	if (mem) {
 		spin_lock(&bsr_pp_lock);
 		bsr_pp_vacant -= (int)number;
@@ -1235,12 +1235,12 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 static void submit_one_flush(struct bsr_device *device, struct issue_flush_context *ctx)
 {
 #ifdef _WIN
-	struct bio *bio = bio_alloc(GFP_NOIO, 1, '77DW');
+	struct bio *bio = bio_alloc(GFP_NOIO, 1, '69SB');
 #else // _LIN
 	struct bio *bio = bio_alloc(GFP_NOIO, 0);
 #endif
 
-	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78DW');
+	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78SB');
 
 	if (!bio || !octx) {
 		bsr_warn(44, BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH");
@@ -1492,7 +1492,7 @@ static enum finish_epoch bsr_may_finish_epoch(struct bsr_connection *connection,
 	if (schedule_flush) {
 		struct flush_work *fw;
 
-		fw = kmalloc(sizeof(*fw), GFP_ATOMIC, 'F1DW');
+		fw = kmalloc(sizeof(*fw), GFP_ATOMIC, 'F1SB');
 		if (fw) {
 			fw->w.cb = w_flush;
 			fw->epoch = epoch;
@@ -1872,7 +1872,7 @@ next_bio:
 	}
 
 #ifdef _WIN
-	bio = bio_alloc(GFP_NOIO, nr_pages, '02DW');
+	bio = bio_alloc(GFP_NOIO, nr_pages, '02SB');
 #else // _LIN
 	bio = bio_alloc(GFP_NOIO, nr_pages);
 #endif
@@ -2102,7 +2102,7 @@ static int receive_Barrier(struct bsr_connection *connection, struct packet_info
 
 	/* receiver context, in the writeout path of the other node.
 	 * avoid potential distributed deadlock */
-	epoch = kmalloc(sizeof(struct bsr_epoch), GFP_NOIO, '12DW');
+	epoch = kmalloc(sizeof(struct bsr_epoch), GFP_NOIO, '12SB');
 	if (!epoch) {
 		bsr_warn(30, BSR_LC_REPLICATION, connection, "Allocation of an epoch failed, slowing down");
 		issue_flush = !test_and_set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &connection->current_epoch->flags);
@@ -2945,7 +2945,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		//the number of peer_requests in the bitmap area that are released when the bitmap is found in the synchronization data.
 		//the resyc data write complete routine determines that the active peer_request has completed when the corresponding split_count is zero. (ref. split_e_end_resync_block())
 		atomic_t *split_count;
-		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
+		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '39SB');
 		if (!split_count) {
 			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate %d size memory for split count", sizeof(atomic_t));
 			return -ENOMEM;
@@ -3094,14 +3094,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 						atomic_t *unmarked_count;
 						atomic_t *failed_unmarked;
 
-						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
+						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '49SB');
 						if (!unmarked_count) {
 							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for unmakred count");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
-						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFDW');
+						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, '59SB');
 						if (!failed_unmarked) {
 							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for failed unmarked");
 							kfree(unmarked_count);
@@ -3943,7 +3943,7 @@ static int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector
 
 			// adding it to the list because it will disperse when the middle is removed
 #ifdef _WIN
-			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'E9DW');
+			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'D9SB');
 #else // _LIN
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -4021,7 +4021,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 			bsr_bm_test_bit(peer_device, s_bb) == 1) {
 			if (!s_marked_rl) {
 #ifdef _WIN
-				s_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), 'E8DW');
+				s_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), 'E8SB');
 #else // _LIN
 				s_marked_rl = (struct bsr_marked_replicate *)kmalloc(sizeof(struct bsr_marked_replicate), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -4053,7 +4053,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 			bsr_bm_test_bit(peer_device, e_bb) == 1) {
 			if (!e_marked_rl) {
 #ifdef _WIN
-				e_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), 'E8DW');
+				e_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), '79SB');
 #else // _LIN
 				e_marked_rl = (struct bsr_marked_replicate *)kmalloc(sizeof(struct bsr_marked_replicate), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -4667,7 +4667,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	case P_CSUM_RS_REQUEST:
 		block_id = peer_req->block_id;
 		fault_type = BSR_FAULT_RS_RD;
-		di = kmalloc(sizeof(*di) + pi->size, GFP_NOIO, '42DW');
+		di = kmalloc(sizeof(*di) + pi->size, GFP_NOIO, '42SB');
 		err = -ENOMEM;
 		if (!di)
 			goto fail2;
@@ -5990,7 +5990,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		 * change.
 		 */
 #ifdef _WIN
-		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, CRYPTO_ALG_ASYNC, '52DW');
+		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, CRYPTO_ALG_ASYNC, '52SB');
 #else // _LIN
 		peer_integrity_tfm = crypto_alloc_ahash(integrity_alg, 0, CRYPTO_ALG_ASYNC);
 #endif
@@ -6002,15 +6002,15 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		}
 
 		hash_size = crypto_ahash_digestsize(peer_integrity_tfm);
-		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62DW');
-		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72DW');
+		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62SB');
+		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72SB');
 		if (!(int_dig_in && int_dig_vv)) {
 			bsr_err(14, BSR_LC_PROTOCOL, connection, "Memory allocation failed and data integrity checking failed");
 			goto disconnect;
 		}
 	}
 
-	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82DW');
+	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82SB');
 	if (!new_net_conf) {
 		bsr_err(15, BSR_LC_PROTOCOL, connection, "Faild to allocate %d size memory for net configure", sizeof(struct net_conf));
 		goto disconnect;
@@ -6090,7 +6090,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
 
 #ifdef _WIN
 	char* alg2 = (char*)alg;
-	tfm = crypto_alloc_hash(alg2, 0, CRYPTO_ALG_ASYNC, 'A6DW');
+	tfm = crypto_alloc_hash(alg2, 0, CRYPTO_ALG_ASYNC, 'A6SB');
 #else // _LIN
 	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
 #endif
@@ -6182,7 +6182,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	}
 	old_net_conf = connection->transport.net_conf;
 	if (get_ldev(device)) {
-		new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, 'A2DW');
+		new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, 'A2SB');
 		if (!new_peer_device_conf) {
 			put_ldev(device);
 			mutex_unlock(&resource->conf_update);
@@ -6255,7 +6255,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				lockdep_is_held(&resource->conf_update));
 			if (!old_plan || fifo_size != (int)old_plan->size) {
 #ifdef _WIN
-				new_plan = fifo_alloc(fifo_size, 'B2DW');
+				new_plan = fifo_alloc(fifo_size, 'B2SB');
 #else // _LIN
 				new_plan = fifo_alloc(fifo_size);
 #endif
@@ -6273,7 +6273,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		}
 
 		if (verify_tfm || csums_tfm) {
-			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2DW');
+			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2SB');
 			if (!new_net_conf) {
 				bsr_err(26, BSR_LC_PROTOCOL, device, "Failed to allocate %d size memory for net configure", sizeof(struct net_conf));
 				goto disconnect;
@@ -6567,7 +6567,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 
 		if (my_usize != p_usize) {
 			struct disk_conf *old_disk_conf, *new_disk_conf;
-			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2DW');
+			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2SB');
 			if (!new_disk_conf) {
 				bsr_err(37, BSR_LC_PROTOCOL, device, "Failed to allocate %d size memory for disk configure", sizeof(struct disk_conf));
 				err = -ENOMEM;
@@ -7635,7 +7635,7 @@ static int queue_twopc(struct bsr_connection *connection, struct twopc_reply *tw
 	if (already_queued)
 		return 0;
 
-	q = kmalloc(sizeof(*q), GFP_NOIO, 'E2DW');
+	q = kmalloc(sizeof(*q), GFP_NOIO, 'E2SB');
 	if (!q)
 		return -ENOMEM;
 
@@ -7894,7 +7894,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 
 	if (my_usize != tr->user_size) {
         struct disk_conf *old_disk_conf, *new_disk_conf;
-		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7DW');
+		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7SB');
         if (!new_disk_conf) {
 			bsr_err(9, BSR_LC_TWOPC, device, "Failed to allocate %d size memory for disk configure", sizeof(struct disk_conf));
 			device->ldev->disk_conf->disk_size = tr->user_size;
@@ -9372,7 +9372,7 @@ static int list_add_resync_pending(struct bsr_device* device, sector_t sst, sect
 		struct bsr_resync_pending_sectors *target;
 
 #ifdef _WIN
-			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'E9DW');
+			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'E9SB');
 #else // _LIN
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -10414,7 +10414,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 		goto fail;
 	}
 
-	peers_ch = kmalloc(sizeof(*peers_ch), GFP_NOIO, '98DW');
+	peers_ch = kmalloc(sizeof(*peers_ch), GFP_NOIO, '98SB');
 	if (peers_ch == NULL) {
 		bsr_err(37, BSR_LC_ETC, connection, "kmalloc of peers_ch failed");
 		rv = -1;
@@ -10483,7 +10483,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 		goto fail;
 	}
 
-	right_response = kmalloc(resp_size, GFP_NOIO, 'A8DW' );
+	right_response = kmalloc(resp_size, GFP_NOIO, 'A8SB' );
 	if (right_response == NULL) {
 		bsr_err(42, BSR_LC_ETC, connection, "kmalloc of right_response failed");
 		rv = -1;
