@@ -218,7 +218,7 @@ int dtt_init(struct bsr_transport *transport)
 	tcp_transport->transport.class = &tcp_transport_class;
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 #ifdef _WIN
-		void *buffer = kzalloc(4096, GFP_KERNEL, '09DW');
+		void *buffer = kzalloc(4096, GFP_KERNEL, '09SB');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
 			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
@@ -693,7 +693,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	what = "sock_create_kern";
 #ifdef _WSK_SOCKETCONNECT // DW-1007 replace wskconnect with wsksocketconnect for VIP source addressing problem	
 
-	socket = kzalloc(sizeof(struct socket), 0, '42DW');
+	socket = kzalloc(sizeof(struct socket), 0, '42SB');
 	if (!socket) {
 		err = -ENOMEM; 
 		goto out;
@@ -706,7 +706,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	socket->sk_state = WSK_DISCONNECTED; 
 #endif
  
-	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52DW');
+	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52SB');
 	if (!socket->sk_linux_attr) {
 		err = -ENOMEM;
 		goto out;
@@ -762,7 +762,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 #else 
 
 #ifdef _WIN
-	socket = kzalloc(sizeof(struct socket), 0, '42DW');
+	socket = kzalloc(sizeof(struct socket), 0, '42SB');
 	if (!socket) {
 		err = -ENOMEM; 
 		goto out;
@@ -784,7 +784,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		goto out;
 	}
 
-	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52DW');
+	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52SB');
 	if (!socket->sk_linux_attr) {
 		err = -ENOMEM;
 		goto out;
@@ -1406,7 +1406,7 @@ static void dtt_incoming_connection(struct sock *sock)
         return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
-    struct socket * s_estab = kzalloc(sizeof(struct socket), 0, 'E6DW');
+    struct socket * s_estab = kzalloc(sizeof(struct socket), 0, 'E6SB');
 
     if (!s_estab) {
     	spin_unlock_bh(&resource->listeners_lock);
@@ -1422,7 +1422,7 @@ static void dtt_incoming_connection(struct sock *sock)
 	SetEventCallbacks(s_estab, WSK_EVENT_DISCONNECT);		
 
 	_snprintf(s_estab->name, sizeof(s_estab->name) - 1, "estab_sock");
-    s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'C6DW');
+    s_estab->sk_linux_attr = kzalloc(sizeof(struct sock), 0, 'C6SB');
 
     if (s_estab->sk_linux_attr) {
         s_estab->sk_linux_attr->sk_sndbuf = BSR_SNDBUF_SIZE_DEF;
@@ -1566,7 +1566,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 
 	what = "sock_create_kern";
 #ifdef _WIN
-    s_listen = kzalloc(sizeof(struct socket), 0, '87DW');
+    s_listen = kzalloc(sizeof(struct socket), 0, '87SB');
     if (!s_listen) {
         err = -ENOMEM;
         goto out;
@@ -1574,7 +1574,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	_snprintf(s_listen->name, sizeof(s_listen->name) - 1, "listen_sock\0");
     s_listen->sk_linux_attr = 0;
     err = 0;
-	listener = kzalloc(sizeof(struct dtt_listener), 0, 'F6DW');
+	listener = kzalloc(sizeof(struct dtt_listener), 0, 'F6SB');
 	if (!listener) {
         err = -ENOMEM;
         goto out;
@@ -1592,7 +1592,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
         goto out;
     }
 	
-    s_listen->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '72DW');
+    s_listen->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '72SB');
     if (!s_listen->sk_linux_attr) {
         err = -ENOMEM;
         goto out;

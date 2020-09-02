@@ -2798,7 +2798,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 {
 	if (peer_device->ov_last_oos_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19DW');
+		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19SB');
 		if(ov_oos) {
 			INIT_LIST_HEAD(&ov_oos->list);
 			ov_oos->ov_oos_start = peer_device->ov_last_oos_start;
@@ -2838,7 +2838,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 {
     if (peer_device->ov_last_skipped_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29DW');
+		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29SB');
 		if(ov_skipped) {
 			INIT_LIST_HEAD(&ov_skipped->list);
 			ov_skipped->ov_skipped_start = peer_device->ov_last_skipped_start;
@@ -3515,9 +3515,9 @@ static inline void
 bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, unsigned char io_type, long error_code, sector_t sector, unsigned int size, bool is_cleared)
 {
 	struct bsr_io_error_work *w;
-	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
 	if (w) {
-		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2DW');
+		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2SB');
 		if (w->io_error) {
 			w->device = device;
 			w->w.cb = w_notify_io_error;

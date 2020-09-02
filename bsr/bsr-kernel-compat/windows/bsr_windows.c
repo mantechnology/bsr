@@ -460,7 +460,7 @@ char *kstrdup(const char *s, int gfp)
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(len);
 #endif
-	buf = kzalloc((int)len, gfp, 'C3DW');
+	buf = kzalloc((int)len, gfp, 'C3SB');
 	if (buf)
 		memcpy(buf, s, len);
 	return buf;
@@ -475,14 +475,14 @@ struct page  *alloc_page(int flag)
 {
 	UNREFERENCED_PARAMETER(flag);
 
-	struct page *p = kmalloc(sizeof(struct page),0, 'D3DW'); 
+	struct page *p = kmalloc(sizeof(struct page),0, 'D3SB'); 
 	if (!p)	{
 		bsr_err(1, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page", sizeof(struct page));
 		return NULL;
 	}	
 	RtlZeroMemory(p, sizeof(struct page));
 	
-	p->addr = kzalloc(PAGE_SIZE, 0, 'E3DW');
+	p->addr = kzalloc(PAGE_SIZE, 0, 'E3SB');
 	if (!p->addr)	{
 		kfree(p); 
 		bsr_err(2, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page", PAGE_SIZE);
@@ -540,7 +540,7 @@ mempool_t *mempool_create(int min_nr, void *alloc_fn, void *free_fn, void *pool_
 	if (!pool_data) {
 		return 0;
 	}
-	p_pool = kmalloc(sizeof(mempool_t), 0, 'F3DW');
+	p_pool = kmalloc(sizeof(mempool_t), 0, 'F3SB');
 	if (!p_pool) {
 		return 0;
 	}
@@ -578,13 +578,13 @@ mempool_t *mempool_create_page_pool(int min_nr, int order)
 	UNREFERENCED_PARAMETER(order);
 	UNREFERENCED_PARAMETER(min_nr);
 
-	mempool_t *p_pool = kmalloc(sizeof(mempool_t), 0, '04DW');
+	mempool_t *p_pool = kmalloc(sizeof(mempool_t), 0, '04SB');
 	if (!p_pool) {
 		return 0;
 	}
 	p_pool->page_alloc = 1; 
-	ExInitializeNPagedLookasideList(&p_pool->pageLS, NULL, NULL, 0, sizeof(struct page), 'B8DW', 0);
-	ExInitializeNPagedLookasideList(&p_pool->page_addrLS, NULL, NULL, 0, PAGE_SIZE, 'C8DW', 0);
+	ExInitializeNPagedLookasideList(&p_pool->pageLS, NULL, NULL, 0, sizeof(struct page), 'B8SB', 0);
+	ExInitializeNPagedLookasideList(&p_pool->page_addrLS, NULL, NULL, 0, PAGE_SIZE, 'C8SB', 0);
 	
 	return p_pool; 
 }
@@ -787,7 +787,7 @@ void bio_endio(struct bio *bio, int error)
 
 struct bio *bio_clone(struct bio * bio_src, int flag)
 {
-    struct bio *bio = bio_alloc(flag, bio_src->bi_max_vecs, '24DW');
+    struct bio *bio = bio_alloc(flag, bio_src->bi_max_vecs, '24SB');
 
     if (!bio) {
         return NULL;
@@ -970,7 +970,7 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 
 bool queue_work(struct workqueue_struct* queue, struct work_struct* work)
 {
-	struct work_struct_wrapper * wr = kmalloc(sizeof(struct work_struct_wrapper), 0, '68DW');
+	struct work_struct_wrapper * wr = kmalloc(sizeof(struct work_struct_wrapper), 0, '68SB');
 	// DW-1051 fix NULL dereference.
 	if(!wr) {
 		return false;
@@ -1018,7 +1018,7 @@ void run_singlethread_workqueue(PVOID StartContext)
 struct workqueue_struct *create_singlethread_workqueue(void * name)
 {
 
-	struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31DW');
+	struct workqueue_struct * wq = kzalloc(sizeof(struct workqueue_struct), 0, '31SB');
 	if (!wq) {
 		return NULL;
 	}
@@ -2045,7 +2045,7 @@ void list_add_tail_rcu(struct list_head *new, struct list_head *head)
 struct request_queue *blk_alloc_queue(gfp_t gfp_mask)
 {
 	UNREFERENCED_PARAMETER(gfp_mask);
- 	return kzalloc(sizeof(struct request_queue), 0, 'E5DW');
+ 	return kzalloc(sizeof(struct request_queue), 0, 'E5SB');
 }
 
 void blk_cleanup_queue(struct request_queue *q)
@@ -2056,7 +2056,7 @@ void blk_cleanup_queue(struct request_queue *q)
 struct gendisk *alloc_disk(int minors)
 {
 	UNREFERENCED_PARAMETER(minors);
-	struct gendisk *p = kzalloc(sizeof(struct gendisk), 0, '44DW');
+	struct gendisk *p = kzalloc(sizeof(struct gendisk), 0, '44SB');
 	return p;
 }
 
@@ -2474,13 +2474,13 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 	// DW-1109 need to increase reference count of device object to guarantee not to be freed while we're using.
 	ObReferenceObject(pvext->DeviceObject);
 
-    dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
+    dev = kmalloc(sizeof(struct block_device), 0, 'C5SB');
     if (!dev) {
 		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device", sizeof(struct block_device));
         return NULL;
     }
 
-	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5DW');
+	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5SB');
 	if (!dev->bd_contains) {
 		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
@@ -2598,7 +2598,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PAGED_CODE();
 
-    PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93DW');
+    PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93SB');
     if (!new_reg_buf) {
 		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size regestry memory.", MAX_TEXT_BUF);
         return FALSE;
@@ -2628,7 +2628,7 @@ BOOLEAN do_add_minor(unsigned int minor)
         goto cleanup;
     }
 
-    keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3DW');
+    keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3SB');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
 		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry key", size);
@@ -2642,7 +2642,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     count = keyInfo->Values;
 
-    valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
+    valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3SB');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
 		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry value", valueInfoSize);
@@ -2846,7 +2846,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(sLineSize);
 #endif
-	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
+	sLine = (char *) kmalloc((int)sLineSize, 0, '54SB');
 	if (!sLine) {
 		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for line", sLineSize);
 		return;
@@ -2901,7 +2901,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		return -1;
 	}
 
-	pSock = kzalloc(sizeof(struct socket), 0, '42DW');
+	pSock = kzalloc(sizeof(struct socket), 0, '42SB');
 	if (!pSock) {
 		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;
@@ -2910,7 +2910,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	BUG_ON_INT32_OVER(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 #endif
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
-	cmd_line = kcalloc(leng, 1, 0, '64DW');
+	cmd_line = kcalloc(leng, 1, 0, '64SB');
 	if (!cmd_line) {
 		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for command line", leng);
 		if(pSock) {
@@ -3227,7 +3227,7 @@ int bsr_resize(struct bsr_device *device)
 	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 	rcu_read_unlock();
 	if (u_size != (sector_t)rs.resize_size) {
-		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, 'C1DW');
+		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, 'C1SB');
 		if (!new_disk_conf) {
 			retcode = ERR_NOMEM;
 			goto fail_ldev;
@@ -3301,7 +3301,7 @@ char *kvasprintf(int flags, const char *fmt, va_list args)
 	const int size = 4096;
 	NTSTATUS status;
 
-	buffer = kzalloc(size, flags, 'AVDW');
+	buffer = kzalloc(size, flags, 'AVSB');
 	if (buffer) {
 		status = RtlStringCchVPrintfA(buffer, size, fmt, args);
 		if (status == STATUS_SUCCESS)

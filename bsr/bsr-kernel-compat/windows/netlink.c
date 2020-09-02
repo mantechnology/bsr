@@ -133,7 +133,7 @@ static bool push_msocket_entry(void * ptr)
         return FALSE;
     }
 
-    PPTR_ENTRY entry = (PPTR_ENTRY)ExAllocatePoolWithTag(NonPagedPool, sizeof(PTR_ENTRY), '57DW');
+    PPTR_ENTRY entry = (PPTR_ENTRY)ExAllocatePoolWithTag(NonPagedPool, sizeof(PTR_ENTRY), '57SB');
 	if (!entry) {
 		return FALSE;
 	}
@@ -335,7 +335,7 @@ struct sk_buff *genlmsg_new(size_t payload, gfp_t flags)
 #ifdef _WIN64
 		BUG_ON_INT32_OVER(sizeof(*skb) + payload);
 #endif
-        skb = kmalloc((int)(sizeof(*skb) + payload), GFP_KERNEL, '67DW');
+        skb = kmalloc((int)(sizeof(*skb) + payload), GFP_KERNEL, '67SB');
     }
 
     if (!skb)
@@ -382,7 +382,7 @@ InitWskNetlink(void * pctx)
 
 	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Netlink Server Start");
 	
-	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42DW');
+	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42SB');
 	if(!gpNetlinkServerSocket) {
 		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return;
@@ -412,13 +412,13 @@ InitWskNetlink(void * pctx)
     }
     
 	ExInitializeNPagedLookasideList(&bsr_workitem_mempool, NULL, NULL,
-        0, sizeof(struct _NETLINK_WORK_ITEM), '27DW', 0);
+        0, sizeof(struct _NETLINK_WORK_ITEM), '27SB', 0);
     ExInitializeNPagedLookasideList(&netlink_ctx_mempool, NULL, NULL,
-        0, sizeof(struct _NETLINK_CTX), '27DW', 0);
+        0, sizeof(struct _NETLINK_CTX), '27SB', 0);
     ExInitializeNPagedLookasideList(&genl_info_mempool, NULL, NULL,
-        0, sizeof(struct genl_info), '37DW', 0);
+        0, sizeof(struct genl_info), '37SB', 0);
     ExInitializeNPagedLookasideList(&genl_msg_mempool, NULL, NULL,
-        0, NLMSG_GOODSIZE, '47DW', 0);
+        0, NLMSG_GOODSIZE, '47SB', 0);
 
     ExInitializeResourceLite(&genl_multi_socket_res_lock);
 
@@ -530,7 +530,7 @@ NetlinkWorkThread(PVOID context)
     
     netlink_work_thread_cnt++;
 
-	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
+	pSock = kzalloc(sizeof(struct socket), 0, '42SB'); 
 	if(!pSock) {
 		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
         goto cleanup;

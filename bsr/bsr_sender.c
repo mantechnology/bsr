@@ -1732,7 +1732,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		bsr_kick_lo(device);
 		schedule_timeout_interruptible(HZ / 10);
 	queue_on_sender_workq:
-		rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC, '13DW');
+		rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC, '13SB');
 		if (rfw) {
 			rfw->pdw.w.cb = w_resync_finished;
 			rfw->pdw.peer_device = peer_device;
@@ -2186,7 +2186,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 			digest_size = crypto_ahash_digestsize(peer_device->connection->csums_tfm);
 			D_ASSERT(device, digest_size == di->digest_size);
 
-			digest = kmalloc(digest_size, GFP_NOIO, '23DW');
+			digest = kmalloc(digest_size, GFP_NOIO, '23SB');
 			if (digest) {
 				bsr_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
 				eq = !memcmp(digest, di->digest, digest_size);
@@ -2328,7 +2328,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 		digest_size = crypto_ahash_digestsize(peer_device->connection->verify_tfm);
-		digest = kmalloc(digest_size, GFP_NOIO, '33DW');
+		digest = kmalloc(digest_size, GFP_NOIO, '33SB');
 		if (digest) {
 			bsr_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
 			D_ASSERT(device, digest_size == di->digest_size);

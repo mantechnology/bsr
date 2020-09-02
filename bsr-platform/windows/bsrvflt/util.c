@@ -52,7 +52,7 @@ GetDeviceName( PDEVICE_OBJECT DeviceObject, PWCHAR Buffer, ULONG BufferLength )
 	POBJECT_NAME_INFORMATION	nameInfo=NULL;
 	ULONG						size;
 
-	nameInfo = (POBJECT_NAME_INFORMATION)ExAllocatePoolWithTag( NonPagedPool, MAXDEVICENAME*sizeof(WCHAR), '26DW' );
+	nameInfo = (POBJECT_NAME_INFORMATION)ExAllocatePoolWithTag( NonPagedPool, MAXDEVICENAME*sizeof(WCHAR), '26SB' );
 	if( !nameInfo ) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
@@ -769,7 +769,7 @@ retry:
 
 		ULONG ulBitmapSize = sizeof(VOLUME_BITMAP_BUFFER) + (ULONG)(*pullTotalCluster / BITS_PER_BYTE);
 		
-		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16DW');
+		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16SB');
 		if (NULL == pVbb) {
 			bsr_err(57, BSR_LC_DRIVER, device, "Failed to allocate %d size memory for bitmap buffer", ulBitmapSize);
 			break;
@@ -1098,7 +1098,7 @@ PMOUNTDEV_UNIQUE_ID QueryMountDUID(PDEVICE_OBJECT devObj)
 
         KeInitializeEvent(&evnt, NotificationEvent, FALSE);
 
-        guid = (PMOUNTDEV_UNIQUE_ID)ExAllocatePoolWithTag(PagedPool, cbBuf, '08DW');
+        guid = (PMOUNTDEV_UNIQUE_ID)ExAllocatePoolWithTag(PagedPool, cbBuf, '08SB');
         if (NULL == guid) {
 			bsr_debug(55, BSR_LC_VOLUME, NO_OBJECT, "Out of memory.");
             return NULL;
@@ -1293,7 +1293,7 @@ NTSTATUS GetRegistryValue(PCWSTR pwcsValueName, ULONG *pReturnLength, UCHAR *puc
         return status;
     }
 
-    pstKeyInfo = (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePoolWithTag(NonPagedPool, ulLength, '36DW');
+    pstKeyInfo = (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePoolWithTag(NonPagedPool, ulLength, '36SB');
     if (pstKeyInfo == NULL) {
         ZwClose(hKey);
         return status;
@@ -1496,7 +1496,7 @@ ULONG ucsdup(_Out_ UNICODE_STRING * dst, _In_ WCHAR * src, ULONG size)
 		return 0;
 	}
 
-    dst->Buffer = (WCHAR *)ExAllocatePoolWithTag(NonPagedPool, size + sizeof(UNICODE_NULL), '46DW');
+    dst->Buffer = (WCHAR *)ExAllocatePoolWithTag(NonPagedPool, size + sizeof(UNICODE_NULL), '46SB');
 	if (dst->Buffer) {
 		dst->Length = (USHORT)size;
 		dst->MaximumLength = (USHORT)(size + sizeof(UNICODE_NULL));

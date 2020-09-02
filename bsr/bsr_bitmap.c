@@ -370,7 +370,7 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 	 * we must not block on IO to ourselves.
 	 * Context is receiver thread or dmsetup. */
 	bytes = (unsigned int)(sizeof(struct page *)*want);
-	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60DW');
+	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60SB');
 
 	if (!new_pages) {
 #ifdef _LIN
@@ -410,7 +410,7 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 struct bsr_bitmap *bsr_bm_alloc(void)
 {
 	struct bsr_bitmap *b;
-	b = kzalloc(sizeof(struct bsr_bitmap), GFP_KERNEL, '70DW');
+	b = kzalloc(sizeof(struct bsr_bitmap), GFP_KERNEL, '70SB');
 	
 	if (!b)
 		return NULL;
@@ -1337,7 +1337,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	unsigned int op = (ctx->flags & BM_AIO_READ) ? REQ_OP_READ : REQ_OP_WRITE;
 	sector_t on_disk_sector;
 #ifdef _WIN
-	struct bio *bio = bio_alloc_bsr(GFP_NOIO, '50DW');
+	struct bio *bio = bio_alloc_bsr(GFP_NOIO, '50SB');
 #else // _LIN
 	struct bio *bio = bio_alloc_bsr(GFP_NOIO);
 #endif
@@ -1453,7 +1453,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (!expect(device, b->bm_number_of_pages))
 		return -ENODEV;
 
-	ctx = kmalloc(sizeof(struct bsr_bm_aio_ctx), GFP_NOIO, '80DW');
+	ctx = kmalloc(sizeof(struct bsr_bm_aio_ctx), GFP_NOIO, '80SB');
 	if (!ctx)
 		return -ENOMEM;
 

@@ -207,7 +207,7 @@ NTSTATUS _QueryVolumeNameRegistry(
 		goto cleanup;
 	}
 
-	keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, '00DW');
+	keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, '00SB');
 	if (!keyInfo) {
 		status = STATUS_INSUFFICIENT_RESOURCES;
 		goto cleanup;
@@ -220,7 +220,7 @@ NTSTATUS _QueryVolumeNameRegistry(
 
 	Count = keyInfo->Values;
 
-	valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, '10DW');
+	valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, '10SB');
 	if (!valueInfo) {
 		status = STATUS_INSUFFICIENT_RESOURCES;
 		goto cleanup;
@@ -237,7 +237,7 @@ NTSTATUS _QueryVolumeNameRegistry(
 		}
 
 		if (REG_BINARY == valueInfo->Type && pmuid->UniqueIdLength == valueInfo->DataLength) {
-			PWCHAR key = ExAllocatePoolWithTag(PagedPool, valueInfo->NameLength + sizeof(WCHAR), '20DW');
+			PWCHAR key = ExAllocatePoolWithTag(PagedPool, valueInfo->NameLength + sizeof(WCHAR), '20SB');
 			if (!key) {
 				goto cleanup;
 			}
