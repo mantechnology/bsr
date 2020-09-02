@@ -764,8 +764,11 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	if (connection && device)
 		peer_device = conn_peer_device(connection, device->vnr);
 
-
+#ifdef _WIN
+	magic_printk(KERN_INFO_NUM, "helper command: %s %s", usermode_helper, cmd);
+#elif _LIN
 	magic_printk(KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
+#endif
 
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
 
@@ -773,12 +776,12 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 
 #ifdef _WIN
 	if (ret) {
-		magic_printk(KERN_WARNING,
+		magic_printk(KERN_WARNING_NUM,
 				"helper command: %s %s exit code %u (0x%x)",
 				usermode_helper, cmd,
 				ret & 0xff, ret);
 	} else {
-		magic_printk(KERN_INFO,
+		magic_printk(KERN_INFO_NUM,
 				"helper command: %s %s exit code %u (0x%x)",
 				usermode_helper, cmd,
 				ret & 0xff, ret);
