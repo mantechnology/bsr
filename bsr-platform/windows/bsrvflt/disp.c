@@ -929,10 +929,15 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_SetMinimumLogLevel(DeviceObject, Irp); // Set minimum level of logging (system event log, service log)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
-		// BSR-579
 		case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 		{
 			status = IOCTL_SetLogFileMaxCount(DeviceObject, Irp); // Set log file max count
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
+		// BSR-649
+		case IOCTL_MVOL_SET_DEBUG_LOG_FILTER:
+		{
+			status = IOCTL_SetDebugLogFilter(DeviceObject, Irp); // Set debug log filter
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		case IOCTL_MVOL_GET_BSR_LOG:

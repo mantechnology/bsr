@@ -72,10 +72,11 @@ void usage()
 	}
 	printf("\n");
 
-	printf("   /minlog_lv feature [flag : 0,1,2,4]\n");
-	printf("\t level info,");
-	for (int i = 0; (1 << (i - 1)) < LOG_FEATURE_MAX_LEVEL; i++) {
-		printf(" %s(%d)", g_feature_lv_str[i], i == 0 ? 0 : 1 << (i - 1));
+	// BSR-654
+	printf("   /debuglog_filter [category]\n");
+	printf("\t debug log category info,");
+	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+		printf(" %s(%d)", g_debug_log_filter_str[i], 1 << i);
 	}
 	printf("\n");
 		
@@ -103,7 +104,7 @@ void usage()
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /maxlogfile_cnt 5\n"
 		"bsrcon /climaxlogfile_cnt adm 2\n"
-		"bsrcon /minlog_lv feature 2\n"
+		"bsrcon /debuglog_filter 11\n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -341,7 +342,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 
 // DW-1921
 //Print log_level through the current registry value.
-BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
+BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD logLevel = 0;
@@ -380,8 +381,6 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 		//It is not an error that no key exists.Just set it to the default value.
 		*sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
 		*dbglog_lv = LOG_LV_DEFAULT_DBG;
-		*feature_lv = LOG_LV_DEFAULT_FEATURE;
-
 		return true;
 	} else if (lResult != ERROR_SUCCESS)
 		return false;
@@ -389,7 +388,6 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 
 	*sys_evtlog_lv = (logLevel >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK;
 	*dbglog_lv = (logLevel >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK;
-	*feature_lv = (logLevel >> LOG_LV_BIT_POS_FEATURELOG) & LOG_LV_MASK;
 
 	return true;
 
@@ -413,9 +411,11 @@ int main(int argc, char* argv [])
 	char	SetMinLogLv = 0;
 	char	SetCliLogFileMaxCount = 0;
 	char	SetLogFileMaxCount = 0;
+	char	SetDebugLogFilter = 0;
 	LOGGING_MIN_LV lml = { 0, };
+	DEBUG_LOG_FILTER dlf = { 0, };
 	CLI_LOG_MAX_COUNT lmc = { 0, };
-	int LogFileCount = 0;
+	int		LogFileCount = 0;
 	char	HandlerUseFlag = 0;
 	HANDLER_INFO hInfo = { 0, };
 #ifdef _WIN
@@ -526,9 +526,6 @@ int main(int argc, char* argv [])
 				else if (strcmp(argv[argIndex], "dbg") == 0) {
 					lml.nType = LOGGING_TYPE_DBGLOG;
 				}
-				else if (strcmp(argv[argIndex], "feature") == 0) {
-					lml.nType = LOGGING_TYPE_FEATURELOG;
-				}
 				else
 					usage();				
 			}
@@ -577,6 +574,17 @@ int main(int argc, char* argv [])
 			}
 			else
 				usage();
+		}
+		// BSR-654
+		else if (strcmp(argv[argIndex], "/debuglog_filter") == 0)
+		{
+			SetDebugLogFilter++;
+			argIndex++; 
+			if (argIndex < argc) {
+				dlf.nFilter = atoi(argv[argIndex]);
+			}
+			else
+				usage(); 
 		}
 		else if (!strcmp(argv[argIndex], "/get_log_info")) {
 			GetLogInfo++;
@@ -755,19 +763,24 @@ int main(int argc, char* argv [])
 		res = CLI_SetLogFileMaxCount(lmc.nType, lmc.nMaxCount);
 	}
 
+	// BSR-654
+	if (SetDebugLogFilter)
+	{
+		res = MVOL_SetDebugLogFilter(&dlf);
+	}
+
 	// DW-1921
 	if (GetLogInfo) {
 		int sys_evt_lv = 0;
 		int dbglog_lv = 0;
-		int feature_lv = 0;
 		int log_max_count = 0;
 		int cli_log_max_count = 0;
 
 		// DW-2008
-		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
+		if (GetLogLevel(&sys_evt_lv, &dbglog_lv)) {
 			printf("Current log level.\n");
-			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n    feature-lv : %d\n",
-				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
+			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
+				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
 
 			printf("Number of log files that can be saved.\n");
 			printf("Maximum size of one log file is 50M.\n"); 

@@ -206,8 +206,8 @@ char usermode_helper[80] = "/sbin/bsradm";
 int g_handler_use = 0;
 #endif
 
-// DW-1961 feature log
-atomic_t g_featurelog_flag = ATOMIC_INIT(0);
+// BSR-654
+atomic_t g_debug_category_filter = ATOMIC_INIT(0);
 
 #ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);

@@ -476,17 +476,12 @@ extern atomic_t g_dbglog_lv_min;
 extern atomic_t g_log_file_max_count;
 
 // DW-1961
-extern atomic_t g_featurelog_flag;
-#define FEATURELOG_FLAG_OOS 		(1 << 0)
-#define FEATURELOG_FLAG_LATENCY 	(1 << 1)
-
-// DW-2099 flags for data verification
-#define FEATURELOG_FLAG_VERIFY 		(1 << 2)
+extern atomic_t g_debug_category_filter;
 
 // BSR-648
 enum BSR_LOG_CATEGORY
 {
-	BSR_LC_VOLUME,
+	BSR_LC_VOLUME = 0,
 	BSR_LC_IO,
 	BSR_LC_IO_ERROR,
 	BSR_LC_BITMAP,
@@ -563,14 +558,14 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 33
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 105
-#define BSR_LC_DRIVER_MAX_INDEX 119
+#define BSR_LC_DRIVER_MAX_INDEX 121
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 89
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
 #define BSR_LC_MEMORY_MAX_INDEX 18
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
-#define BSR_LC_VERIFY_MAX_INDEX 0
+#define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
 #define BSR_LC_ETC_MAX_INDEX 82
 

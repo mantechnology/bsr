@@ -1411,6 +1411,70 @@ BOOLEAN ExistsTargetString(char* target, char *msg)
 	return true;
 }
 
+// BSR-654
+DWORD MVOL_SetDebugLogFilter(PDEBUG_LOG_FILTER pDlf)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+	FILE *fp;
+	long filter_category = 0;
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+
+	// 1. Open MVOL_DEVICE
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "DEBUG_FILTER_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_DEBUG_LOG_FILTER, pDlf, sizeof(DEBUG_LOG_FILTER), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+	if ((filter_category = ioctl(fd, IOCTL_MVOL_SET_DEBUG_LOG_FILTER, pDlf)) < 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	// 3. CloseHandle MVOL_DEVICE
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+
+	// write /etc/bsr.d/.debug_log_filter
+	fp = fopen(BSR_DEBUG_LOG_FILTER_REG, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%lu", filter_category);
+		fclose(fp);
+	}
+	else {
+		retVal = GetLastError();
+		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed open %s file. Err=%u\n",
+			__FUNCTION__, BSR_DEBUG_LOG_FILTER_REG, retVal);
+	}
+#endif
+	return retVal;
+}
 
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 {	
@@ -1426,10 +1490,9 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml)
 	DWORD       retVal = ERROR_SUCCESS;
 
 
-	if (pLml == NULL ||
-		(pLml->nType < LOGGING_TYPE_SYSLOG || pLml->nType > LOGGING_TYPE_FEATURELOG) ||
-		((pLml->nType == LOGGING_TYPE_SYSLOG || pLml->nType == LOGGING_TYPE_DBGLOG) && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_DEFAULT_MAX_LEVEL)) ||
-		(pLml->nType == LOGGING_TYPE_FEATURELOG && (pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_FEATURE_MAX_LEVEL)))
+	if (pLml == NULL || pLml->nType < LOGGING_TYPE_SYSLOG ||
+		((pLml->nType == LOGGING_TYPE_SYSLOG || pLml->nType == LOGGING_TYPE_DBGLOG) && 
+		(pLml->nErrLvMin < 0 || pLml->nErrLvMin >= LOG_DEFAULT_MAX_LEVEL)) || pLml->nErrLvMin < 0)
 	{
 		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter(%d)\n", __FUNCTION__, pLml->nErrLvMin);
 		return ERROR_INVALID_PARAMETER;

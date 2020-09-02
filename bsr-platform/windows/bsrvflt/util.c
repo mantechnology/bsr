@@ -1373,6 +1373,15 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	}
 	Set_log_lv(log_level);
 
+	// BSR-654
+	int debug_log_filter = DEBUG_LOG_FILTER_DEFAULT;
+	status = GetRegistryValue(DEBUG_LOG_FILETER_REG_VALUE_NAME, &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
+	if (status == STATUS_SUCCESS){
+		debug_log_filter = *(int*)aucTemp;
+	}
+	atomic_set(&g_debug_category_filter, debug_log_filter);
+
+
 	// set g_netlink_tcp_port
 	status = GetRegistryValue(L"netlink_tcp_port", &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
