@@ -767,7 +767,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 #ifdef _WIN
 	magic_printk(83, BSR_LC_ETC, KERN_INFO_NUM, "helper command: %s %s", usermode_helper, cmd);
 #elif _LIN
-	magic_printk(83, BSR_LC_ETC, KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
+	magic_printk(84, BSR_LC_ETC, KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
 #endif
 
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
@@ -775,12 +775,12 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
 
 #ifdef _WIN
-	magic_printk(84, BSR_LC_ETC, ret ? KERN_WARNING_NUM : KERN_INFO_NUM,
+	magic_printk(85, BSR_LC_ETC, ret ? KERN_WARNING_NUM : KERN_INFO_NUM,
 			"helper command: %s %s exit code %u (0x%x)",
 			usermode_helper, cmd,
 			ret & 0xff, ret);
 #elif _LIN
-	magic_printk(84, BSR_LC_ETC, ret ? KERN_WARNING : KERN_INFO,
+	magic_printk(86, BSR_LC_ETC, ret ? KERN_WARNING : KERN_INFO,
 		     "helper command: %s %s exit code %u (0x%x)",
 		     usermode_helper, cmd,
 		     (ret >> 8) & 0xff, ret);
