@@ -3538,7 +3538,7 @@ alloc_shash(struct crypto_shash **tfm, char *tfm_name, int err_alg)
 	if (!tfm_name[0])
 		return NO_ERROR;
 #ifdef _WIN
-	*tfm = crypto_alloc_hash(tfm_name, 0, 0, '41SB');
+	*tfm = crypto_alloc_hash(tfm_name, 0, 0, '11SB');
 #else // _LIN
 	*tfm = crypto_alloc_shash(tfm_name, 0, 0);
 #endif

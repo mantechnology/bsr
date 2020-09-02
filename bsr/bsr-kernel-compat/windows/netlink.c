@@ -133,7 +133,7 @@ static bool push_msocket_entry(void * ptr)
         return FALSE;
     }
 
-    PPTR_ENTRY entry = (PPTR_ENTRY)ExAllocatePoolWithTag(NonPagedPool, sizeof(PTR_ENTRY), '57SB');
+    PPTR_ENTRY entry = (PPTR_ENTRY)ExAllocatePoolWithTag(NonPagedPool, sizeof(PTR_ENTRY), '14SB');
 	if (!entry) {
 		return FALSE;
 	}
@@ -382,7 +382,7 @@ InitWskNetlink(void * pctx)
 
 	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Netlink Server Start");
 	
-	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42SB');
+	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '32SB');
 	if(!gpNetlinkServerSocket) {
 		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return;
@@ -412,7 +412,7 @@ InitWskNetlink(void * pctx)
     }
     
 	ExInitializeNPagedLookasideList(&bsr_workitem_mempool, NULL, NULL,
-        0, sizeof(struct _NETLINK_WORK_ITEM), '27SB', 0);
+        0, sizeof(struct _NETLINK_WORK_ITEM), '17SB', 0);
     ExInitializeNPagedLookasideList(&netlink_ctx_mempool, NULL, NULL,
         0, sizeof(struct _NETLINK_CTX), '27SB', 0);
     ExInitializeNPagedLookasideList(&genl_info_mempool, NULL, NULL,
@@ -530,7 +530,7 @@ NetlinkWorkThread(PVOID context)
     
     netlink_work_thread_cnt++;
 
-	pSock = kzalloc(sizeof(struct socket), 0, '42SB'); 
+	pSock = kzalloc(sizeof(struct socket), 0, 'F2SB'); 
 	if(!pSock) {
 		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
         goto cleanup;

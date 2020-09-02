@@ -191,7 +191,7 @@ static void * __bsr_alloc_pages(unsigned int number)
 	* So what. It saves a spin_lock. */
 	
 	// DW-1457 checking bsr_pp_vacant has been removed, BSR has no allocated memory pool but allocates as it needs.
-	void * mem = kmalloc(number * PAGE_SIZE, 0, '17SB');
+	void * mem = kmalloc(number * PAGE_SIZE, 0, '07SB');
 	if (mem) {
 		spin_lock(&bsr_pp_lock);
 		bsr_pp_vacant -= (int)number;
@@ -1235,7 +1235,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 static void submit_one_flush(struct bsr_device *device, struct issue_flush_context *ctx)
 {
 #ifdef _WIN
-	struct bio *bio = bio_alloc(GFP_NOIO, 1, '77SB');
+	struct bio *bio = bio_alloc(GFP_NOIO, 1, '69SB');
 #else // _LIN
 	struct bio *bio = bio_alloc(GFP_NOIO, 0);
 #endif
@@ -2945,7 +2945,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		//the number of peer_requests in the bitmap area that are released when the bitmap is found in the synchronization data.
 		//the resyc data write complete routine determines that the active peer_request has completed when the corresponding split_count is zero. (ref. split_e_end_resync_block())
 		atomic_t *split_count;
-		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFSB');
+		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '39SB');
 		if (!split_count) {
 			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate %d size memory for split count", sizeof(atomic_t));
 			return -ENOMEM;
@@ -3094,14 +3094,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 						atomic_t *unmarked_count;
 						atomic_t *failed_unmarked;
 
-						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFSB');
+						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '49SB');
 						if (!unmarked_count) {
 							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for unmakred count");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
-						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, 'FFSB');
+						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, '59SB');
 						if (!failed_unmarked) {
 							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for failed unmarked");
 							kfree(unmarked_count);
@@ -3943,7 +3943,7 @@ static int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector
 
 			// adding it to the list because it will disperse when the middle is removed
 #ifdef _WIN
-			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'E9SB');
+			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'D9SB');
 #else // _LIN
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
@@ -4053,7 +4053,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 			bsr_bm_test_bit(peer_device, e_bb) == 1) {
 			if (!e_marked_rl) {
 #ifdef _WIN
-				e_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), 'E8SB');
+				e_marked_rl = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_marked_replicate), '79SB');
 #else // _LIN
 				e_marked_rl = (struct bsr_marked_replicate *)kmalloc(sizeof(struct bsr_marked_replicate), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif

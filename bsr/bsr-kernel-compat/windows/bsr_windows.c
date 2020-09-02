@@ -2480,7 +2480,7 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
         return NULL;
     }
 
-	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5SB');
+	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'D5SB');
 	if (!dev->bd_contains) {
 		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
@@ -2901,7 +2901,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		return -1;
 	}
 
-	pSock = kzalloc(sizeof(struct socket), 0, '42SB');
+	pSock = kzalloc(sizeof(struct socket), 0, 'C0SB');
 	if (!pSock) {
 		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;

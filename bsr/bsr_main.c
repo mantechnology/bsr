@@ -2348,7 +2348,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	struct p_compressed_bm *pc, *tpc;
 	int len, err;
 
-	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, '70SB');
+	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
 
 	if (!tpc) {
 		bsr_err(32, BSR_LC_BITMAP, peer_device, "Failed to allocate %d size meory in kzalloc", BSR_SOCKET_BUFFER_SIZE);
@@ -4999,8 +4999,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	}
 
 	currentSize = sizeof(FILE_BOTH_DIR_INFORMATION);
-	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB');
+	// BSR-579
+	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '3ASB');
 	if (!pFileBothDirInfo){
 		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "Failed to allocation query buffer. status(%u)", currentSize);
 		status = STATUS_NO_MEMORY;
@@ -5030,8 +5030,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
-			// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '00RB'); 
+			// BSR-579
+			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '4ASB'); 
 			if (pFileBothDirInfo == NULL) {
 				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size query buffer memory.", currentSize);
 				status = STATUS_NO_MEMORY;
@@ -5063,15 +5063,15 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
 				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
 				struct log_rolling_file_list *r;
-				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '00RB');
+				// BSR-579
+				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '5ASB');
 				if (!r) {
 					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
-				// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '00RB');
+				// BSR-579
+				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '6ASB');
 				if (!r) {
 					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "Failed to allocation %d size file list memory", flength);
 					status = STATUS_NO_MEMORY;
@@ -5231,8 +5231,8 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 																		timeFields.Second,
 																		timeFields.Milliseconds);
 
-	// BSR-579 TODO temporary Memory Tagging 00RB (BR00).. Fix Later
-	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '00RB');
+	// BSR-579
+	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
 
 	pRenameInfo->ReplaceIfExists = false;
 	pRenameInfo->RootDirectory = NULL;

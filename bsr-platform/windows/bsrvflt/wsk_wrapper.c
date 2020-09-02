@@ -192,7 +192,7 @@ InitWskNoWaitData(
 
 	// DW-1316 use raw irp.
 	if (bRawIrp) {
-		*pIrp = ExAllocatePoolWithTag(NonPagedPool, IoSizeOfIrp(1), 'FFSB');
+		*pIrp = ExAllocatePoolWithTag(NonPagedPool, IoSizeOfIrp(1), '9FSB');
 		if (!*pIrp) {
 			return STATUS_INSUFFICIENT_RESOURCES;
 		}
@@ -633,7 +633,7 @@ __in  BOOLEAN	bWriteAccess
 	}
 
 
-	(*WskBuffer) = ExAllocatePoolWithTag(NonPagedPool, sizeof(WSK_BUF), 'DFSB');
+	(*WskBuffer) = ExAllocatePoolWithTag(NonPagedPool, sizeof(WSK_BUF), 'EFSB');
 	if (!(*WskBuffer)) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
@@ -675,14 +675,14 @@ __in  BOOLEAN	bRawIrp)
 {
 	ASSERT(pIrp);
 
-	struct SendParameter *param = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct SendParameter), 'CFSB');
+	struct SendParameter *param = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct SendParameter), 'AFSB');
 
 	if (!param) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
 	if (bRawIrp) {
-		*pIrp = ExAllocatePoolWithTag(NonPagedPool, IoSizeOfIrp(1), 'FFSB');
+		*pIrp = ExAllocatePoolWithTag(NonPagedPool, IoSizeOfIrp(1), 'BFSB');
 		if (!*pIrp) {
 		// DW-2139
 		kfree2(param);
@@ -1787,13 +1787,13 @@ _Outptr_result_maybenull_ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDis
     if (AcceptSocket != NULL) {
 		bsr_info(77, BSR_LC_SOCKET, NO_OBJECT, "incoming connection on a listening socket.");
         struct accept_wait_data *ad = (struct accept_wait_data*)SocketContext;        
-        ad->s_accept = kzalloc(sizeof(struct socket), 0, '89DW');
+        ad->s_accept = kzalloc(sizeof(struct socket), 0, '89SB');
         if(!ad->s_accept) {
         	return STATUS_REQUEST_NOT_ACCEPTED;
         }
         ad->s_accept->sk = AcceptSocket;
 		_snprintf(ad->s_accept->name, sizeof(ad->s_accept->name) - 1, "estab_sock");
-        ad->s_accept->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '92DW');
+        ad->s_accept->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '92SB');
         if (!ad->s_accept->sk_linux_attr) {
             ExFreePool(ad->s_accept);
             return STATUS_REQUEST_NOT_ACCEPTED;

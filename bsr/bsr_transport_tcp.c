@@ -693,7 +693,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	what = "sock_create_kern";
 #ifdef _WSK_SOCKETCONNECT // DW-1007 replace wskconnect with wsksocketconnect for VIP source addressing problem	
 
-	socket = kzalloc(sizeof(struct socket), 0, '42SB');
+	socket = kzalloc(sizeof(struct socket), 0, 'D1SB');
 	if (!socket) {
 		err = -ENOMEM; 
 		goto out;
@@ -706,7 +706,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	socket->sk_state = WSK_DISCONNECTED; 
 #endif
  
-	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52SB');
+	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '35SB');
 	if (!socket->sk_linux_attr) {
 		err = -ENOMEM;
 		goto out;
@@ -762,7 +762,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 #else 
 
 #ifdef _WIN
-	socket = kzalloc(sizeof(struct socket), 0, '42SB');
+	socket = kzalloc(sizeof(struct socket), 0, 'D1SB');
 	if (!socket) {
 		err = -ENOMEM; 
 		goto out;
@@ -784,7 +784,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		goto out;
 	}
 
-	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '52SB');
+	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '45SB');
 	if (!socket->sk_linux_attr) {
 		err = -ENOMEM;
 		goto out;
@@ -1592,7 +1592,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
         goto out;
     }
 	
-    s_listen->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '72SB');
+    s_listen->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '03SB');
     if (!s_listen->sk_linux_attr) {
         err = -ENOMEM;
         goto out;
