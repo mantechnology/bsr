@@ -11,6 +11,10 @@ set OUTPUT_HOME=%SUPPORT_HOME%\%COMPUTERNAME%
 set ARGC=0
 for %%x in (%*) do Set /A ARGC += 1
 
+if exist "%OUTPUT_HOME%" (
+	del "%OUTPUT_HOME%"
+)
+	
 if not exist "%OUTPUT_HOME%" (
     mkdir "%OUTPUT_HOME%"
 )
@@ -28,6 +32,7 @@ if %ARGC% == 0 (
 	call :GetCoreDumpFile %1
 )
 call :GetBSRInfo
+call :GetDiskPart
 call :GetSystemInfo
 call :GetBSRStatus
 call :Archive
@@ -55,6 +60,84 @@ exit /B %ERRORLEVEL%
     ) else (
         echo core file compress failed. err(%ERRORLEVEL%)
 	)
+exit /B 0
+
+:GetDiskPart
+    set DISKPART_DIR=%OUTPUT_HOME%\DiskPart
+	
+    if not exist "%DISKPART_DIR%" ( mkdir "%DISKPART_DIR%" )
+	
+	@rem ===================================================================
+	@rem  Create a script file to be used by the for loops
+	@rem ===================================================================
+	echo list disk >> diskList.tmp
+	echo list volume >> volumeList.tmp
+
+
+	@rem ===================================================================
+	@rem  Diskpart's  Total Volume List 
+	@rem ===================================================================
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo --------------- Diskpart's total volume list information ------------  >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	diskpart /s volumeList.tmp >> "%DISKPART_DIR%\diskpartInfo.txt"
+	IF EXIST volumeList.tmp DEL volumeList.tmp
+
+	@rem ===================================================================
+	@rem  Diskpart's Total Disk List 
+	@rem ===================================================================
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo ---------------- Diskpart's total disk list information ------------ >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	diskpart /s diskList.tmp >> "%DISKPART_DIR%\diskpartInfo.txt"
+	IF EXIST diskList.tmp DEL diskList.tmp
+
+	@rem ===================================================================
+	@rem  Get the total number of lines in the file(diskpartInfo.txt)
+	@rem ===================================================================
+
+	set diskpartLINES=1
+	for /f "delims==" %%a in ('findstr /N .* "%DISKPART_DIR%\diskpartInfo.txt"') do ( 
+		set /a diskpartLINES=diskpartLINES+1
+	)
+
+	@rem ===================================================================
+	@rem  Print the last lines and Count disk drives
+	@rem ===================================================================
+	
+	@rem Because of more commnad, the last number - 2 = Last disk count 
+	set /a diskpartLINES=diskpartLINES-2 
+	more +%diskpartLINES% < "%DISKPART_DIR%\diskpartInfo.txt" > diskListCount.txt
+
+	for /f "tokens=2" %%b in (diskListCount.txt) do (
+		set DiskCount=%%b 
+	)
+	
+	
+	@rem ===================================================================
+	@rem  As the number of disks, diskpart command is used
+	@rem ===================================================================
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	for /l %%c in (0,1,%DiskCount%) do (
+		echo select disk=%%c >> diskList.tmp
+		echo detail disk >> diskList.tmp
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+		echo ---------------- Diskpart's %%c disk information ------------ >> "%DISKPART_DIR%\diskpartInfo.txt"
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+    
+		diskpart /s diskList.tmp >> "%DISKPART_DIR%\diskpartInfo.txt"
+		IF EXIST diskList.tmp DEL diskList.tmp
+		echo. >> "%DISKPART_DIR%\diskpartInfo.txt"
+	)
+	IF EXIST diskListCount.txt DEL diskListCount.txt
+
+	echo ---Complete dispart log collection--- >> "%DISKPART_DIR%\diskpartInfo.txt"
 exit /B 0
 
 :GetBSRInfo

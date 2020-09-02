@@ -1,7 +1,14 @@
+# Conditionals
+%bcond_with modsign
+
+# BSR-659 disable debug pakage build
+%define debug_package %{nil}
+%define __strip /bin/true
+
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.6
-Release: A2%{?dist}
+Release: A3%{?dist}
 
 # always require a suitable userland
 # Requires: 
@@ -48,6 +55,11 @@ for flavor in %flavors_to_build; do
     cp -r bsr obj/$flavor
     #make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
     make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
+    # BSR-659 module sign for secure boot support
+    %if %{with modsign}
+    ln -s ../pki obj/
+    make -C obj/$flavor modsign
+    %endif
 done
 
 %install
@@ -72,7 +84,13 @@ for flavor in %flavors_to_build ; do
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
 done
 
-mkdir -p /var/log/bsr
+# BSR-659 install public key for secure boot support
+%if %{with modsign}
+mkdir -p $RPM_BUILD_ROOT/etc/pki/mantech
+install -m 0644 pki/bsr_signing_key_pub.der $RPM_BUILD_ROOT/etc/pki/mantech
+%endif
+
+mkdir -p $RPM_BUILD_ROOT/var/log/bsr
 
 mkdir -p $RPM_BUILD_ROOT/etc/depmod.d
 echo "override bsr * weak-updates" \
@@ -82,6 +100,9 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
+* Tue Aug 25 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A3
+- New upstream release.
+
 * Mon Jul 13 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A2
 - New upstream release.
 

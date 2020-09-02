@@ -650,7 +650,7 @@ void bsr_debugfs_resource_add(struct bsr_resource *resource)
 
 fail:
 	bsr_debugfs_resource_cleanup(resource);
-	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs dentry\n");
+	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs dentry");
 }
 
 static void bsr_debugfs_remove(struct dentry **dp)
@@ -891,7 +891,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 
 fail:
 	bsr_debugfs_connection_cleanup(connection);
-	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs dentry\n");
+	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs dentry");
 }
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
@@ -985,9 +985,9 @@ static int device_io_frozen_show(struct seq_file *m, void *ignored)
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
 
-	seq_printf(m, "bsr_suspended(): %d\n", bsr_suspended(device));
+	seq_printf(m, "bsr_suspended(): %d", bsr_suspended(device));
 	seq_printf(m, "suspend_cnt: %d\n", atomic_read(&device->suspend_cnt));
-	seq_printf(m, "!bsr_state_is_stable(): %d\n", !bsr_state_is_stable(device));
+	seq_printf(m, "!bsr_state_is_stable(): %d", !bsr_state_is_stable(device));
 	seq_printf(m, "ap_bio_cnt[READ]: %d\n", atomic_read(&device->ap_bio_cnt[READ]));
 	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
 	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
@@ -1079,7 +1079,7 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 
 fail:
 	bsr_debugfs_device_cleanup(device);
-	bsr_err(13, BSR_LC_ETC, device, "failed to create debugfs entries\n");
+	bsr_err(13, BSR_LC_ETC, device, "failed to create debugfs entries");
 }
 
 void bsr_debugfs_device_cleanup(struct bsr_device *device)
@@ -1472,7 +1472,7 @@ void bsr_debugfs_peer_device_add(struct bsr_peer_device *peer_device)
 
 fail:
 	bsr_debugfs_peer_device_cleanup(peer_device);
-	bsr_err(14, BSR_LC_ETC, peer_device, "failed to create debugfs entries\n");
+	bsr_err(14, BSR_LC_ETC, peer_device, "failed to create debugfs entries");
 }
 
 void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_device)

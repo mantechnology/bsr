@@ -151,7 +151,7 @@ void yypop_buffer_state (void)
 		return;
 
 	if ( --include_stack_ptr < 0 ) {
-		CLI_ERRO_LOG_STDERR(false, "error in flex compat code\n" );
+		CLI_ERRO_LOG_STDERR(false, "error in flex compat code" );
 		exit( 1 );
 	}
 

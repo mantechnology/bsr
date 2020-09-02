@@ -34,7 +34,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
 	}
 	else {
-		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"invalidate logging type(%d)\n", loggingMinLv.nType);
+		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)\n", loggingMinLv.nType);
 	}
 	
 	// DW-2008
@@ -54,12 +54,12 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
 
 	if (err) {
-		bsr_warn(93, BSR_LC_DRIVER, NO_OBJECT, "gTotalLogCnt copy to user failed.\n");
+		bsr_warn(93, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy total log count to user\n");
 		return err;
 	}
 	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 	if (err) {
-		bsr_warn(94, BSR_LC_DRIVER, NO_OBJECT, "gLogBuf copy to user failed.\n");
+		bsr_warn(94, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy log buffer to user\n");
 	}
 
 	return err;

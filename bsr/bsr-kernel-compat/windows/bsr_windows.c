@@ -477,7 +477,7 @@ struct page  *alloc_page(int flag)
 
 	struct page *p = kmalloc(sizeof(struct page),0, 'D3DW'); 
 	if (!p)	{
-		bsr_info(1, BSR_LC_MEMORY, NO_OBJECT,"alloc_page struct page failed\n");
+		bsr_err(1, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page", sizeof(struct page));
 		return NULL;
 	}	
 	RtlZeroMemory(p, sizeof(struct page));
@@ -485,7 +485,7 @@ struct page  *alloc_page(int flag)
 	p->addr = kzalloc(PAGE_SIZE, 0, 'E3DW');
 	if (!p->addr)	{
 		kfree(p); 
-		bsr_info(2, BSR_LC_MEMORY, NO_OBJECT, "alloc_page PAGE_SIZE failed\n");
+		bsr_err(2, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for page", PAGE_SIZE);
 		return NULL;
 	}
 	RtlZeroMemory(p->addr, PAGE_SIZE);
@@ -513,7 +513,7 @@ void kmem_cache_free(struct kmem_cache *cache, void * x)
 
 void bsr_bp(char *msg)
 {
-    bsr_err(1, BSR_LC_ETC, NO_OBJECT,"breakpoint: msg(%s)\n", msg);
+    bsr_err(1, BSR_LC_ETC, NO_OBJECT,"breakpoint: msg(%s)", msg);
 }
 
 __inline void kfree(void * x)
@@ -626,13 +626,13 @@ void* mempool_alloc(mempool_t *pool, gfp_t gfp_mask)
 		} 
 
 		if (!p) 
-			bsr_err(3, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory in ExAllocateFromNPagedLookasideList\n");
+			bsr_err(3, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory in ExAllocateFromNPagedLookasideList");
 		
 	} else {
 		// BSR-247
 		p = kzalloc(pool->p_cache->size, gfp_mask, pool->p_cache->tag);
 		if (!p) 
-			bsr_err(17, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc\n", pool->p_cache->size);
+			bsr_err(17, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc", pool->p_cache->size);
 	}
 
 	return p;
@@ -676,7 +676,7 @@ struct kmem_cache *kmem_cache_create(char *name, size_t size, size_t align,
 
 	struct kmem_cache *p = kmalloc(sizeof(struct kmem_cache), 0, Tag);	
 	if (!p) {
-		bsr_err(4, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kmalloc\n", sizeof(struct kmem_cache));
+		bsr_err(4, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kmalloc", sizeof(struct kmem_cache));
 		return 0;
 	}
 #ifdef _WIN64
@@ -738,14 +738,14 @@ struct bio *bio_alloc(gfp_t gfp_mask, int nr_iovecs, ULONG Tag)
 	
 	bio = kzalloc(sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec), gfp_mask, Tag);
 	if (!bio) {
-		bsr_err(18, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc\n", (sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec)));
+		bsr_err(18, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory in kzalloc", (sizeof(struct bio) + nr_iovecs * sizeof(struct bio_vec)));
 		return 0;
 	}
 	bio->bi_max_vecs = nr_iovecs;
 	bio->bi_vcnt = 0;
 
 	if (nr_iovecs > 256) {
-		bsr_err(5, BSR_LC_MEMORY, NO_OBJECT, "BSR_PANIC: block I/O allocate too big, check over 1MB(%d)\n", nr_iovecs);
+		bsr_err(5, BSR_LC_MEMORY, NO_OBJECT, "BSR_PANIC: block I/O allocate too big, check over 1MB(%d)", nr_iovecs);
 		BUG();
 	}
 	return bio;
@@ -775,10 +775,10 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_info(1, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio error with err=%d.\n", current->comm, error);
+			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "thread(%s) bio_endio error with err=%d.", current->comm, error);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
-			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.\n", current->comm, error);
+			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.", current->comm, error);
 			bio->bi_bdev = NULL;
         	bio->bi_end_io((void*)error, (void*) bio, (void*) error);
 		}
@@ -810,7 +810,7 @@ int bio_add_page(struct bio *bio, struct page *page, unsigned int len,unsigned i
 	struct bio_vec *bvec = &bio->bi_io_vec[bio->bi_vcnt++];
 		
 	if (bio->bi_vcnt > 1) {
-		bsr_err(2, BSR_LC_IO, NO_OBJECT,"BSR_PANIC: block I/O multi-page not allowed. current page count %d\n", bio->bi_vcnt);
+		bsr_err(2, BSR_LC_IO, NO_OBJECT,"BSR_PANIC: block I/O multi-page not allowed. current page count %d", bio->bi_vcnt);
         BUG();
 	}
 
@@ -956,7 +956,7 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
                 break;
 
             default:
-				bsr_err(67, BSR_LC_DRIVER, NO_OBJECT, "BSR_PANIC: waiting is stopped for unknown reasons. status(0x%x)\n", status);
+				bsr_err(67, BSR_LC_DRIVER, NO_OBJECT, "BSR_PANIC: waiting is stopped for unknown reasons. status(0x%x)", status);
                 BUG();
                 break;
             }
@@ -1033,7 +1033,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	HANDLE hThread = NULL;
 	NTSTATUS status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, run_singlethread_workqueue, wq);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(1, BSR_LC_THREAD, NO_OBJECT, "Failed to create %s thread. status(0x%08x)\n", wq->name, status);
+		bsr_err(1, BSR_LC_THREAD, NO_OBJECT, "Failed to create %s thread. status(0x%08x)", wq->name, status);
 		kfree(wq);
 		return NULL;
 	}
@@ -1041,7 +1041,7 @@ struct workqueue_struct *create_singlethread_workqueue(void * name)
 	status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, &wq->pThread, NULL);
 	ZwClose(hThread);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(2, BSR_LC_THREAD, NO_OBJECT, "Failed to get handle for thread. name(%s) status(0x%08x)\n", wq->name, status);
+		bsr_err(2, BSR_LC_THREAD, NO_OBJECT, "Failed to get handle for thread. name(%s) status(0x%08x)", wq->name, status);
 		kfree(wq);
 		return NULL;
 	}
@@ -1110,7 +1110,7 @@ int mutex_lock_interruptible(struct mutex *m)
 		break;
 	default:
 		err = -EIO;
-		bsr_err(66, BSR_LC_DRIVER, NO_OBJECT, "waiting is stopped for unknown reasons. status(0x%x)\n", status);
+		bsr_err(66, BSR_LC_DRIVER, NO_OBJECT, "waiting is stopped for unknown reasons. status(0x%x)", status);
 		break;
 	}
 
@@ -1146,14 +1146,14 @@ void mutex_unlock(struct mutex *m)
 void sema_init(struct semaphore *s, int limit)
 {
     KeInitializeSemaphore(&s->sem, limit, limit);    
-    bsr_debug_sem("KeInitializeSemaphore!  KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    bsr_debug_sem("KeInitializeSemaphore!  KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
 }
 
 void down(struct semaphore *s)
 {
-    bsr_debug_sem("KeWaitForSingleObject before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    bsr_debug_sem("KeWaitForSingleObject before! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
     KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, NULL);
-    bsr_debug_sem("KeWaitForSingleObject after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+    bsr_debug_sem("KeWaitForSingleObject after! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
 }
 
 /**
@@ -1170,11 +1170,11 @@ int down_trylock(struct semaphore *s)
 	Timeout.QuadPart = 0; 
 
     if (KeWaitForSingleObject(&s->sem, Executive, KernelMode, FALSE, &Timeout) == STATUS_SUCCESS) {
-        bsr_debug_sem("success! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        bsr_debug_sem("success! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
         return 0;
     }
     else {
-        bsr_debug_sem("fail! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        bsr_debug_sem("fail! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
         return 1;
     }
 }
@@ -1182,14 +1182,14 @@ int down_trylock(struct semaphore *s)
 void up(struct semaphore *s)
 {
     if (KeReadStateSemaphore(&s->sem) < s->sem.Limit) {
-        bsr_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+        bsr_debug_sem("KeReleaseSemaphore before! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
 		// DW-1496 KeReleaseSemaphore raised an exception(STATUS_SEMAPHORE_LIMIT_EXCEEDED) and handled it in try/except syntax
 		try{
 			KeReleaseSemaphore(&s->sem, IO_NO_INCREMENT, 1, FALSE);
 		} except(EXCEPTION_EXECUTE_HANDLER){
-			bsr_debug_sem("KeReleaseSemaphore Exception occured!(ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED)) \n");
+			bsr_debug_sem("KeReleaseSemaphore Exception occured!(ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED)) ");
 		}
-		bsr_debug_sem("KeReleaseSemaphore after! KeReadStateSemaphore (%d)\n", KeReadStateSemaphore(&s->sem));
+		bsr_debug_sem("KeReleaseSemaphore after! KeReadStateSemaphore (%d)", KeReadStateSemaphore(&s->sem));
     }
 }
 
@@ -1247,7 +1247,7 @@ unsigned long _spin_lock_irqsave(spinlock_t *lock)
 	KIRQL	oldIrql = 0;
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) { 
-		bsr_warn(24, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(24, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &oldIrql);
 		lock->OwnerThread = curthread;
@@ -1273,7 +1273,7 @@ void spin_lock_irq(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {// DW-903 protect lock recursion
-		bsr_warn(25, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(25, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d", curthread, __FUNCTION__, __LINE__);
 	} else {
 		acquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1310,7 +1310,7 @@ void spin_lock_bh(spinlock_t *lock)
 {
 	PKTHREAD curthread = KeGetCurrentThread();
 	if( curthread == lock->OwnerThread) {
-		bsr_warn(26, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d\n", curthread, __FUNCTION__, __LINE__);
+		bsr_warn(26, BSR_LC_THREAD, NO_OBJECT, "thread:%p spinlock recursion is happened! function:%s line:%d", curthread, __FUNCTION__, __LINE__);
 	} else {
 		KeAcquireSpinLock(&lock->spinLock, &lock->saved_oldIrql);
 		lock->OwnerThread = curthread;
@@ -1479,7 +1479,7 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 	}
 
 #ifdef DBG
-	bsr_debug_tm("%s timer(0x%p) current(%d) expires(%d) gap(%d)\n",
+	bsr_debug_tm("%s timer(0x%p) current(%d) expires(%d) gap(%d)",
 		timer->name, timer, current_milisec, timer->expires, timer->expires - current_milisec);
 #endif
 	KeSetTimer(&timer->ktimer, nWaitTime, &timer->dpc);
@@ -1511,7 +1511,7 @@ void kobject_put(struct kobject *kobj)
     if (kobj) 
     {
         if (kobj->name == NULL) {
-            //bsr_warn(68, BSR_LC_ETC,"%p name is null.\n", kobj);
+            //bsr_warn(68, BSR_LC_ETC,"%p name is null.", kobj);
             return;
         }
 
@@ -1525,7 +1525,7 @@ void kobject_put(struct kobject *kobj)
 		}
     }
     else {
-        //bsr_warn(69, BSR_LC_ETC,"kobj is null.\n");
+        //bsr_warn(69, BSR_LC_ETC,"kobj is null.");
         return;
     }
 }
@@ -1533,7 +1533,7 @@ void kobject_put(struct kobject *kobj)
 void kobject_del(struct kobject *kobj)
 {
     if (!kobj) {
-		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
+		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1545,7 +1545,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobj is null.\n");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
         return;
     }
 }
@@ -1576,7 +1576,7 @@ void del_gendisk(struct gendisk *disk)
 	NTSTATUS status;
 	
 	if (!sock) {
-		bsr_info(1, BSR_LC_SOCKET, NO_OBJECT,"socket is null.\n");
+		bsr_warn(1, BSR_LC_SOCKET, NO_OBJECT, "Unable to socket release because socket is not assigned.");
 		return;
 	}
 
@@ -1585,7 +1585,7 @@ void del_gendisk(struct gendisk *disk)
 	status = CloseSocket(sock->sk); 
 	if (!NT_SUCCESS(status)) 
 	{
-		bsr_err(3, BSR_LC_ETC, NO_OBJECT,"error=0x%x\n", status);
+		bsr_err(3, BSR_LC_ETC, NO_OBJECT,"error=0x%x", status);
 		return;
 	}
 #endif
@@ -1593,9 +1593,9 @@ void del_gendisk(struct gendisk *disk)
 	// DW-1493 WSK_EVENT_DISCONNECT disable
 	if (sock->sk){
 		status = SetEventCallbacks(sock, WSK_EVENT_DISCONNECT | WSK_EVENT_DISABLE);
-		bsr_debug(80, BSR_LC_SOCKET, NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)\n", sock);
+		bsr_debug(80, BSR_LC_SOCKET, NO_OBJECT,"WSK_EVENT_DISABLE (sock = 0x%p)", sock);
 		if (!NT_SUCCESS(status)) {
-			bsr_debug(81, BSR_LC_SOCKET, NO_OBJECT, "WSK_EVENT_DISABLE failed (sock = 0x%p)\n", sock);
+			bsr_debug(81, BSR_LC_SOCKET, NO_OBJECT, "WSK_EVENT_DISABLE failed (sock = 0x%p)", sock);
 		}
 	}
 
@@ -1615,11 +1615,11 @@ void del_gendisk(struct gendisk *disk)
 		//kfree2(bab);
 	}
 	
-	bsr_debug_conn("sock_relese: called CloseSocket(%p)\n", sock->sk);
+	bsr_debug_conn("sock_relese: called CloseSocket(%p)", sock->sk);
 	status = CloseSocket(sock);
-	bsr_debug_conn("CloseSocket error(%p)\n", status);
+	bsr_debug_conn("CloseSocket error(%p)", status);
 	if (!NT_SUCCESS(status)) {
-		bsr_debug_conn("CloseSocket failed \n");
+		bsr_debug_conn("CloseSocket failed ");
 		return;
 	}
 #endif
@@ -1666,7 +1666,7 @@ static void __delete_thread(struct task_struct *t)
 
     // logic check
     if (ct_thread_num < 0) {
-		bsr_err(3, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: unexpected number of threads in operation has been set. number(%d)\n", ct_thread_num);
+		bsr_err(3, BSR_LC_THREAD, NO_OBJECT, "BSR_PANIC: unexpected number of threads in operation has been set. number(%d)", ct_thread_num);
         BUG();
     }
 }
@@ -1688,7 +1688,7 @@ struct task_struct * ct_add_thread(int id, const char *name, BOOLEAN event, ULON
     KeAcquireSpinLock(&ct_thread_list_lock, &ct_oldIrql);
 	list_add(&t->list, &ct_thread_list);
 	if (++ct_thread_num > CT_MAX_THREAD_LIST) {
-		bsr_warn(27, BSR_LC_THREAD, NO_OBJECT,"ct_thread too big(%s, %d)\n", name, ct_thread_num);
+		bsr_warn(27, BSR_LC_THREAD, NO_OBJECT, "too many ct_threads (name:%s, thread_num:%d)", name, ct_thread_num);
     }
     KeReleaseSpinLock(&ct_thread_list_lock, ct_oldIrql);
     return t;
@@ -1747,7 +1747,7 @@ void *crypto_alloc_tfm(char *name, u32 mask)
 {
 	UNREFERENCED_PARAMETER(mask);
 
-	bsr_info(59, BSR_LC_PROTOCOL, NO_OBJECT, "request crypto name(%s) --> supported crc32c only.\n", name);
+	bsr_info(59, BSR_LC_PROTOCOL, NO_OBJECT, "The hash algorithm supports only crc32c, and the received hash algorithm is %s.", name);
 	return (void *)1;
 }
 
@@ -1773,17 +1773,17 @@ int generic_make_request(struct bio *bio)
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension) {
 			status = IoAcquireRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(5, BSR_LC_IO, NO_OBJECT,"Failed to acquire device removal lock. device extension(%p), status(0x%x)\n", bio->bi_bdev->bd_disk->pDeviceExtension, status);
+				bsr_err(5, BSR_LC_IO, NO_OBJECT,"Failed to acquire device removal lock. device extension(%p), status(0x%x)", bio->bi_bdev->bd_disk->pDeviceExtension, status);
 				return -EIO;
 			}
 		}
 		else {
-			bsr_warn(39, BSR_LC_IO, NO_OBJECT,"IRQL(%d), bio->bi_bdev->bd_disk->pDeviceExtension null\n", KeGetCurrentIrql());
+			bsr_err(39, BSR_LC_IO, NO_OBJECT,"No I/O request disk or device information. IRQL(%d)", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
 	else {
-		bsr_warn(40, BSR_LC_IO, NO_OBJECT, "IoAcquireRemoveLock IRQL(%d) is too high, bio->pVolExt:%p fail\n", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
+		bsr_err(40, BSR_LC_IO, NO_OBJECT, "Failed to acquire remove lock, IRQL(%d) is too high. device extension(%p)", KeGetCurrentIrql(), bio->bi_bdev->bd_disk->pDeviceExtension);
 		return -EIO;
 	}
 
@@ -1815,7 +1815,7 @@ int generic_make_request(struct bio *bio)
 	}
 
 #ifdef BSR_TRACE
-    bsr_debug(47, BSR_LC_IO, NO_OBJECT,"(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:\n", 
+    bsr_debug(47, BSR_LC_IO, NO_OBJECT,"(%s)Local I/O(%s): sect=0x%llx sz=%d IRQL=%d buf=0x%p, off&=0x%llx target=%c:", 
 		current->comm, (io == IRP_MJ_READ) ? "READ" : "WRITE", 
 		offset.QuadPart / 512, bio->bi_size, KeGetCurrentIrql(), &offset, buffer, q->backing_dev_info.pDeviceExtension->Letter);
 #endif
@@ -1830,7 +1830,7 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		bsr_err(3, BSR_LC_IO, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.\n");
+		bsr_err(3, BSR_LC_IO, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -1859,7 +1859,7 @@ int generic_make_request(struct bio *bio)
 	//
 	if (gSimulDiskIoError.ErrorFlag && gSimulDiskIoError.ErrorType == SIMUL_DISK_IO_ERROR_TYPE0) {
 		if (IsDiskError()) {
-			bsr_err(4, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d\n",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
+			bsr_err(4, BSR_LC_IO, NO_OBJECT,"SimulDiskIoError: type0...............ErrorFlag:%d ErrorCount:%d",gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorCount);
 			// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 			if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 				IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -2097,7 +2097,7 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
 	skb->len  += len;
 
 	if (skb->tail > skb->end) {
-		bsr_err(66, BSR_LC_GENL, NO_OBJECT, "buffer size exceeds specified range. excess range(%d)\n", (skb->tail - skb->end));
+		bsr_err(66, BSR_LC_GENL, NO_OBJECT, "buffer size exceeds specified range. excess range(%d)", (skb->tail - skb->end));
 	}
 
 	return tmp;
@@ -2156,7 +2156,7 @@ int _BSR_ratelimit(struct ratelimit_state *rs, const char * func, const char * _
 
 	if (time_is_before_jiffies(rs->begin + rs->interval)){
 		if (rs->missed)
-			bsr_warn(71, BSR_LC_ETC, NO_OBJECT, "%s(%s@%d): %d callbacks suppressed\n", func, __FILE, __LINE, rs->missed);
+			bsr_warn(71, BSR_LC_ETC, NO_OBJECT, "%s(%s@%d): %d callbacks suppressed", func, __FILE, __LINE, rs->missed);
 		rs->begin = jiffies;
 		rs->printed = 0;
 		rs->missed = 0;
@@ -2235,7 +2235,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 	NTSTATUS 			status;
 	bool				bWasExist = FALSE;	
 	if (!pvext) {
-		bsr_warn(72, BSR_LC_ETC,"update_targetdev fail pvext is NULL\n");
+		bsr_warn(72, BSR_LC_ETC,"update_targetdev fail pvext is NULL");
 		return;
 	}
 
@@ -2246,14 +2246,14 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 			bWasExist = TRUE;
 
 			if (!IsEmptyUnicodeString(&old_mount_point))
-				bsr_debug(49, BSR_LC_VOLUME, NO_OBJECT,"old_mount_point:%wZ\n", &old_mount_point);
+				bsr_debug(49, BSR_LC_VOLUME, NO_OBJECT,"old_mount_point:%wZ", &old_mount_point);
 		}
 		
 		status = mvolUpdateMountPointInfoByExtension(pvext);
 		if(NT_SUCCESS(status)) {
 
 			if (!IsEmptyUnicodeString(&pvext->MountPoint))
-				bsr_debug(50, BSR_LC_VOLUME, NO_OBJECT,"new mount point:%wZ\n", &pvext->MountPoint);
+				bsr_debug(50, BSR_LC_VOLUME, NO_OBJECT,"new mount point:%wZ", &pvext->MountPoint);
 
 			// DW-1105 detach volume when replicating volume letter is changed.
 			if (pvext->Active && bWasExist) {
@@ -2263,7 +2263,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 					// DW-1300 get device and get reference.
 					struct bsr_device *device = get_device_with_vol_ext(pvext, TRUE);
 					if (device && get_ldev_if_state(device, D_NEGOTIATING)) {
-						bsr_warn(73, BSR_LC_ETC,"replicating volume letter is changed, detaching\n");
+						bsr_warn(73, BSR_LC_ETC,"replicating volume letter is changed, detaching");
 						set_bit(FORCE_DETACH, &device->flags);
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
 						put_ldev(device);
@@ -2288,7 +2288,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 		pvext->dev->bd_contains->d_size = d_size;
 		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
 	}
-	bsr_debug(51, BSR_LC_VOLUME, NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors\n", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
+	bsr_debug(51, BSR_LC_VOLUME, NO_OBJECT,"d_size: %lld bytes bd_contains->d_size: %lld bytes max_hw_sectors: %lld sectors", d_size, pvext->dev->bd_contains ? pvext->dev->bd_contains->d_size : 0, pvext->dev->bd_disk->queue->max_hw_sectors);
 }
 
 // DW-1105 refresh all volumes and handle changes.
@@ -2327,13 +2327,13 @@ void monitor_mnt_change(PVOID pParam)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			bsr_err(7, BSR_LC_ETC, NO_OBJECT,"could not open mount manager, status : 0x%x\n", status);
+			bsr_err(7, BSR_LC_ETC, NO_OBJECT,"could not open mount manager, status : 0x%x", status);
 			break;
 		}
 
 		status = ZwCreateEvent(&hEvent, GENERIC_ALL, 0, NotificationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(4, BSR_LC_ETC, NO_OBJECT,"could not create event, status : 0x%x\n", status);
+			bsr_err(4, BSR_LC_ETC, NO_OBJECT,"could not create event, status : 0x%x", status);
 			break;
 		}
 
@@ -2348,7 +2348,7 @@ void monitor_mnt_change(PVOID pParam)
 				&mcni1, sizeof(mcni1), &mcni2, sizeof(mcni2));
 
 			if (!NT_SUCCESS(status)) {
-				bsr_err(1, BSR_LC_DRIVER, NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x\n", status);
+				bsr_err(1, BSR_LC_DRIVER, NO_OBJECT,"ZwDeviceIoControl with IOCTL_MOUNTMGR_CHANGE_NOTIFY has been failed, status : 0x%x", status);
 				break;
 			} else if (STATUS_PENDING == status) {
 				status = ZwWaitForSingleObject(hEvent, TRUE, NULL);
@@ -2358,7 +2358,7 @@ void monitor_mnt_change(PVOID pParam)
 			HANDLE hVolRefresher = NULL;
 			status = PsCreateSystemThread(&hVolRefresher, THREAD_ALL_ACCESS, NULL, NULL, NULL, adjust_changes_to_volume, NULL);
 			if (!NT_SUCCESS(status)) {
-				bsr_err(4, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x\n", status);
+				bsr_err(4, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for adjust_changes_to_volume failed, status : 0x%x", status);
 				break;
 			}
 
@@ -2389,7 +2389,7 @@ NTSTATUS start_mnt_monitor()
 
 	status = PsCreateSystemThread(&hVolMonitor, THREAD_ALL_ACCESS, NULL, NULL, NULL, monitor_mnt_change, NULL);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(5, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X\n", status);
+		bsr_err(5, BSR_LC_THREAD, NO_OBJECT,"PsCreateSystemThread for monitor_mnt_change failed with status 0x%08X", status);
 		return status;
 	}
 
@@ -2450,12 +2450,12 @@ LONGLONG get_targetdev_volsize(PVOLUME_EXTENSION VolumeExtension)
 	NTSTATUS		status;
 	
 	if (VolumeExtension->TargetDeviceObject == NULL) {
-		bsr_err(1, BSR_LC_VOLUME, NO_OBJECT,"Failed to get volume size due to volume information check failure.\n");
+		bsr_err(1, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to volume information check failure.");
 		return (LONGLONG)0;
 	}
 	status = mvolGetVolumeSize(VolumeExtension->TargetDeviceObject, &volumeSize);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(42, BSR_LC_VOLUME, NO_OBJECT,"get volume size error = 0x%x\n", status);
+		bsr_warn(42, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size (error = 0x%x)", status);
 		volumeSize.QuadPart = 0;
 	}
 	return volumeSize.QuadPart;
@@ -2476,25 +2476,25 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5DW');
     if (!dev) {
-		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device\n", sizeof(struct block_device));
+		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'C5DW');
 	if (!dev->bd_contains) {
-		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains\n", sizeof(struct block_device));
+		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for gendisk\n", sizeof(struct gendisk));
+		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for gendisk", sizeof(struct gendisk));
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for request queue\n", sizeof(struct request_queue));
+		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for request queue", sizeof(struct request_queue));
 		goto request_queue_failed;
 	}
 		
@@ -2549,7 +2549,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 
 	// DW-1381 dev is set as NULL when block device is destroyed.
 	if (!pvext->dev) {
-		bsr_err(4, BSR_LC_VOLUME, NO_OBJECT,"Failed to get bsr device since block device is NULL\n");
+		bsr_err(4, BSR_LC_VOLUME, NO_OBJECT,"Failed to get bsr device since block device is NULL");
 		return NULL;		
 	}
 
@@ -2557,7 +2557,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
 		if (!NT_SUCCESS(status)) {
-			bsr_info(5, BSR_LC_VOLUME, NO_OBJECT,"failed to acquire remove lock with status:0x%x, return NULL\n", status);
+			bsr_err(5, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire remove lock with status(0x%x)", status);
 			return NULL;
 		}
 	}
@@ -2600,7 +2600,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93DW');
     if (!new_reg_buf) {
-		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size regestry memory.\n", MAX_TEXT_BUF);
+		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size regestry memory.", MAX_TEXT_BUF);
         return FALSE;
     }
 
@@ -2631,7 +2631,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3DW');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry key\n", size);
+		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry key", size);
         goto cleanup;
     }
 
@@ -2645,7 +2645,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3DW');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry value\n", valueInfoSize);
+		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry value", valueInfoSize);
         goto cleanup;
     }
 
@@ -2813,7 +2813,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode, void *ho
 	RtlInitAnsiString(&apath, cpath);
 	NTSTATUS status = RtlAnsiStringToUnicodeString(&upath, &apath, TRUE);
 	if (!NT_SUCCESS(status)) {
-		bsr_warn(43, BSR_LC_VOLUME, NO_OBJECT,"Wrong path = %s\n", path);
+		bsr_warn(43, BSR_LC_VOLUME, NO_OBJECT, "Failed to change path Unicode (%s)", path);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -2848,13 +2848,13 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 #endif
 	sLine = (char *) kmalloc((int)sLineSize, 0, '54DW');
 	if (!sLine) {
-		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for line\n", sLineSize);
+		bsr_err(9, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for line", sLineSize);
 		return;
 	}
 
 	*(sLine + sLineSize - 1) = '\0';
 
-	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "DUMP: addr=0x%p, sz=%d. width=%d\n", aBuffer, aBufferSize, aWidth);
+	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "Hex Dump Data addr(0x%p), size(%d). width(%d)", aBuffer, aBufferSize, aWidth);
 
 	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);
@@ -2880,7 +2880,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 			*(sLine + sCharAreaStartPos + i) = (sByte < 127 && sByte >= 0x20) ? (char) sByte : '.';
 		}
 		sPos += aWidth;
-		bsr_info(6, BSR_LC_ETC, NO_OBJECT, "%s\n", sLine);
+		bsr_info(6, BSR_LC_ETC, NO_OBJECT, "%s", sLine);
 	}
 	kfree(sLine);
 }
@@ -2903,7 +2903,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW');
 	if (!pSock) {
-		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;
 	}
 #ifdef _WIN64
@@ -2912,7 +2912,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64DW');
 	if (!cmd_line) {
-		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for command line\n", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for command line", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -2920,11 +2920,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	}
 
 	_snprintf(cmd_line, leng - 1, "%s %s\0", argv[1], argv[2]); // except "bsradm.exe" string
-	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "malloc len(%d) cmd_line(%s)\n", leng, cmd_line);
+	bsr_info(12, BSR_LC_MEMORY, NO_OBJECT, "command(%s), allocate length (%d)", cmd_line, leng);
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to create socket\n");
+		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to create socket");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -2952,11 +2952,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	if (!NT_SUCCESS(Status)) {
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_info(3, BSR_LC_SOCKET, NO_OBJECT, "Connect() timeout. IRQL(%d)\n", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
 		goto error;
 	}
 
-	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u  status:0x%08X IRQL(%d)\n",
+	bsr_info(4, BSR_LC_SOCKET, NO_OBJECT, "Connected to the %u.%u.%u.%u:%u. status(0x%08X) IRQL(%d)",
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b1,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b2,
 			RemoteAddress.sin_addr.S_un.S_un_b.s_b3,
@@ -2968,14 +2968,14 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		LONG readcount;
 		char hello[2];
 		memset(hello, 0, sizeof(hello));
-		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi\n");
+		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi");
 		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout)) == 2) {
-			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! \n");
+			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(5, BSR_LC_SOCKET, NO_OBJECT, "error rx hi timeout(%d) g_handler_retry(%d) !!!!\n", g_handler_timeout, g_handler_retry);
+				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_info(6, BSR_LC_SOCKET, NO_OBJECT, "error recv status=0x%x\n", readcount);
+				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 
@@ -2985,18 +2985,18 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to send command. status(0x%x)\n", Status);
+			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to send command. status(0x%x)", Status);
 			ret = -1;
 			goto error;
 		}
 
 		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout)) > 0) {
-			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x\n", ret);
+			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_info(8, BSR_LC_SOCKET, NO_OBJECT, "recv retval timeout(%d)!\n", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Receive timed out(%d)", g_handler_timeout);
 			} else {
-				bsr_info(9, BSR_LC_SOCKET, NO_OBJECT, "recv status=0x%x\n", readcount);
+				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3004,17 +3004,17 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to send finished. status(0x%x)\n", Status); // ignore!
+			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to send finished. status(0x%x)", Status); // ignore!
 		}
 
-		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...\n", Status);
+		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...", Status);
 		Disconnect(pSock);
 
 #if 0
 		if ((readcount = Receive(Socket, &ret, 1, 0, 0)) > 0) {
-			bsr_info(11, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  val=0x%x\n", ret);// ignore!
+			bsr_info(11, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  val=0x%x", ret);// ignore!
 		} else {
-			bsr_info(12, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  status=%d\n", readcount);// ignore!
+			bsr_info(12, BSR_LC_SOCKET, NO_OBJECT,"recv dummy  status=%d", readcount);// ignore!
 		}
 #endif
 	}
@@ -3030,7 +3030,7 @@ error:
 
 void panic(char *msg)
 {
-    bsr_err(9, BSR_LC_IO_ERROR, NO_OBJECT,"%s\n", msg);
+    bsr_err(9, BSR_LC_IO_ERROR, NO_OBJECT,"%s", msg);
 #ifdef _WIN_EVENTLOG
 	WriteEventLogEntryData((ULONG) DEV_ERR_3003, 0, 0, 1, L"%S", msg);
 #endif
@@ -3091,10 +3091,10 @@ int bsr_backing_bdev_events(struct bsr_device *device)
 
 	status = mvolGetDiskPerf(mdev->ldev->backing_bdev->bd_disk->pDeviceExtension->TargetDeviceObject, &diskPerf);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(8, BSR_LC_ETC, NO_OBJECT,"mvolGetDiskPerf status=0x%x\n", status);
+		bsr_err(8, BSR_LC_ETC, NO_OBJECT,"mvolGetDiskPerf status=0x%x", status);
 		return mdev->writ_cnt + mdev->read_cnt;
 	}
-	// bsr_info(9, BSR_LC_ETC, NO_OBJECT,"mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld\n",
+	// bsr_info(9, BSR_LC_ETC, NO_OBJECT,"mdev: %d + %d = %d, diskPerf: %lld + %lld = %lld",
 	//		mdev->read_cnt, mdev->writ_cnt, mdev->writ_cnt + mdev->read_cnt,
 	//		diskPerf.BytesRead.QuadPart/512, diskPerf.BytesWritten.QuadPart/512,
 	//		diskPerf.BytesRead.QuadPart/512 + diskPerf.BytesWritten.QuadPart/512);
@@ -3209,9 +3209,9 @@ int bsr_resize(struct bsr_device *device)
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED)
-			bsr_err(6, BSR_LC_VOLUME, device, "Unable to resize during resync. disconnecting..\n");
+			bsr_err(6, BSR_LC_VOLUME, device, "Unable to resize during resync. disconnecting..");
 		else if (peer_device->repl_state[NOW] == L_ESTABLISHED)
-			bsr_err(7, BSR_LC_VOLUME, device, "Unable to resize in establised state. disconnecting..\n");
+			bsr_err(7, BSR_LC_VOLUME, device, "Unable to resize in establised state. disconnecting..");
 		else
 			continue;
 		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);

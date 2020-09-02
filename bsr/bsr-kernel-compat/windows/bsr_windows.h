@@ -1257,38 +1257,38 @@ extern EX_SPIN_LOCK g_rcuLock;
 
 #define rcu_read_lock() \
     unsigned char oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    bsr_debug_rcu("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_lock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_unlock() \
     ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    bsr_debug_rcu("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_unlock : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define rcu_read_lock_w32_inner() \
 	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    bsr_debug_rcu("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
+    bsr_debug_rcu("rcu_read_lock_w32_inner : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock)
 
 #define synchronize_rcu_w32_wlock() \
 	unsigned char  oldIrql_wLock; \
 	oldIrql_wLock = ExAcquireSpinLockExclusive(&g_rcuLock);\
-    bsr_debug_rcu("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    bsr_debug_rcu("synchronize_rcu_w32_wlock : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define synchronize_rcu() \
 	ExReleaseSpinLockExclusive(&g_rcuLock, oldIrql_wLock);\
-    bsr_debug_rcu("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)\n", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
+    bsr_debug_rcu("synchronize_rcu : currentIrql(%d), oldIrql_wLock(%d:%x) g_rcuLock(%lu)", KeGetCurrentIrql(), oldIrql_wLock, &oldIrql_wLock, g_rcuLock)
 
 #define rcu_read_lock_check(locked) \
     unsigned char oldIrql_rLock = 0;\
     if (locked) {\
-		bsr_debug_rcu("rcu_read_lock_check : already locked. currentIrql(%d)\n", KeGetCurrentIrql());\
+		bsr_debug_rcu("rcu_read_lock_check : already locked. currentIrql(%d)", KeGetCurrentIrql());\
     } else {\
     	oldIrql_rLock = ExAcquireSpinLockShared(&g_rcuLock);\
-    	bsr_debug_rcu("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	bsr_debug_rcu("rcu_read_lock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
     }\
     
 #define rcu_read_unlock_check(locked) \
 	if (!locked) {\
     	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock);\
-    	bsr_debug_rcu("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)\n", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
+    	bsr_debug_rcu("rcu_read_unlock_check : currentIrql(%d), oldIrql_rLock(%d:%x) g_rcuLock(%d)", KeGetCurrentIrql(), oldIrql_rLock, &oldIrql_rLock, g_rcuLock);\
 	}\
 	
 extern void local_irq_disable();

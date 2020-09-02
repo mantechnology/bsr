@@ -198,7 +198,7 @@ int bsr_genl_multicast_events(struct sk_buff * skb, const struct sib_info *sib)
         if (socket_entry) {
 			int sent = SendLocal(socket_entry->ptr, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100));
             if (sent != skb->len) {
-                bsr_info(1, BSR_LC_NETLINK, NO_OBJECT,"Failed to send socket(0x%x)\n", socket_entry->ptr);
+                bsr_err(1, BSR_LC_NETLINK, NO_OBJECT,"Failed to send %d size, socket(0x%x)",  skb->len, socket_entry->ptr);
             }
         }
         iter = iter->Next;
@@ -243,7 +243,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
     } else if (err < 0) {
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_ACK);
         // -ENODEV : occured by first bsradm adjust. response?
-		bsr_info(2, BSR_LC_NETLINK, NO_OBJECT, "bsr_adm_get_status_all err = %d\n", err);
+		bsr_warn(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)", err);
     }
 
     if (nlh) {
@@ -257,7 +257,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
 		err = -1;
 	}
 
-    bsr_debug(87, BSR_LC_GENL, NO_OBJECT,"send_reply(%d) seq(%d)\n", err, cb->nlh->nlmsg_seq);
+    bsr_debug(87, BSR_LC_GENL, NO_OBJECT,"send_reply(%d) seq(%d)", err, cb->nlh->nlmsg_seq);
 
     return err;
 }
@@ -273,7 +273,7 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
 	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100))) == (skb->len)) {
         return 0; // success
     } else {
-		bsr_info(3, BSR_LC_NETLINK, NO_OBJECT, "sent Error=0x%x. sock=%p, data=%p sz=%d\n", sent, info->pSock->sk, skb->data, skb->len);
+		bsr_warn(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to send. status(0x%x) socket(%p) data(%p) size=%d", sent, info->pSock->sk, skb->data, skb->len);
         return -2; // return non-zero!
     }
 }
@@ -284,7 +284,7 @@ struct genl_info * genl_info_new(struct nlmsghdr * nlh, struct socket* sock, str
     struct genl_info * pinfo = ExAllocateFromNPagedLookasideList(&genl_info_mempool);
 
     if (!pinfo) {
-		bsr_err(4, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl inforamtion\n",
+		bsr_err(4, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl inforamtion",
             sizeof(struct genl_info));
         return NULL;
     }
@@ -370,7 +370,7 @@ InitWskNetlink(void * pctx)
     // Init WSK
     status = WskGetNPI();
     if (!NT_SUCCESS(status)) {
-		bsr_err(5, BSR_LC_NETLINK, NO_OBJECT, "Failed to init wsk. status(0x%x)\n", status);
+		bsr_err(5, BSR_LC_NETLINK, NO_OBJECT, "Failed to init wsk. status(0x%x)", status);
         return;
     }
 
@@ -380,11 +380,11 @@ InitWskNetlink(void * pctx)
         return;
     }
 
-	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Netlink Server Start\n");
+	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Netlink Server Start");
 	
 	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '42DW');
 	if(!gpNetlinkServerSocket) {
-		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
+		bsr_err(7, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
 		return;
 	}
 	
@@ -395,7 +395,7 @@ InitWskNetlink(void * pctx)
         WSK_FLAG_LISTEN_SOCKET);
 
     if (!netlink_socket) {
-		bsr_err(8, BSR_LC_NETLINK, NO_OBJECT, "Failed to create server socket\n");
+		bsr_err(8, BSR_LC_NETLINK, NO_OBJECT, "Failed to create server socket");
         goto end;
     }
 
@@ -407,7 +407,7 @@ InitWskNetlink(void * pctx)
 
     status = Bind(gpNetlinkServerSocket, (PSOCKADDR)&LocalAddress);
     if (!NT_SUCCESS(status)) {
-		bsr_err(9, BSR_LC_NETLINK, NO_OBJECT, "Failed to bind. status(0x%x)\n", status);
+		bsr_err(9, BSR_LC_NETLINK, NO_OBJECT, "Failed to bind. status(0x%x)", status);
         CloseSocket(gpNetlinkServerSocket);
     }
     
@@ -456,11 +456,11 @@ static int w_connect(struct bsr_work *w, int cancel)
 	timeout.QuadPart = (-1 * 10000 * 6000);   // wait 6000 ms relative
 
 	pcon_work->ops.doit(NULL, &pcon_work->info);
-	bsr_info(10, BSR_LC_NETLINK, NO_OBJECT,"w_connect:\n");
+	bsr_info(10, BSR_LC_NETLINK, NO_OBJECT,"w_connect:");
 
 	status = KeWaitForSingleObject(&resource->workerdone, Executive, KernelMode, FALSE, &timeout);
 	if (status == STATUS_TIMEOUT) {
-		bsr_info(11, BSR_LC_NETLINK, NO_OBJECT,"w_connect:KeWaitForSingleObject timeout\n");
+		bsr_info(11, BSR_LC_NETLINK, NO_OBJECT,"w_connect:KeWaitForSingleObject timeout");
 	}
 
 	kfree(pcon_work);
@@ -493,7 +493,7 @@ static int _genl_ops(struct genl_ops * pops, struct genl_info * pinfo)
 
                 ret = _genl_dump(pops, skb, &ncb, pinfo);
 				if(cnt++ > 512) {
-					bsr_info(12, BSR_LC_NETLINK, NO_OBJECT, "_genl_dump exceed process break;\n");
+					bsr_err(12, BSR_LC_NETLINK, NO_OBJECT, "Failed to get object information within the specified number of times. count(%d)", cnt);
 					break;
 				}
             }
@@ -526,13 +526,13 @@ NetlinkWorkThread(PVOID context)
 	// set thread priority
 	KeSetPriorityThread(KeGetCurrentThread(), HIGH_PRIORITY);
 
-	bsr_debug(27, BSR_LC_NETLINK, NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d\n",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
+	bsr_debug(27, BSR_LC_NETLINK, NO_OBJECT,"NetlinkWorkThread:%p begin...accept socket:%p remote port:%d",KeGetCurrentThread(),socket, HTON_SHORT(((PNETLINK_WORK_ITEM)context)->RemotePort));
     
     netlink_work_thread_cnt++;
 
 	pSock = kzalloc(sizeof(struct socket), 0, '42DW'); 
 	if(!pSock) {
-		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket\n", sizeof(struct socket));
+		bsr_err(13, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
         goto cleanup;
 	}
 
@@ -541,7 +541,7 @@ NetlinkWorkThread(PVOID context)
 	
     psock_buf = ExAllocateFromNPagedLookasideList(&genl_msg_mempool);
     if (!psock_buf) {
-		bsr_err(14, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket buffer\n", NLMSG_GOODSIZE);
+		bsr_err(14, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for socket buffer", NLMSG_GOODSIZE);
         goto cleanup;
     }
 
@@ -549,10 +549,10 @@ NetlinkWorkThread(PVOID context)
         readcount = Receive(pSock, psock_buf, NLMSG_GOODSIZE, 0, 0);
 
         if (readcount == 0) {
-			bsr_debug(28, BSR_LC_NETLINK, NO_OBJECT, "Receive done...\n");
+			bsr_debug(28, BSR_LC_NETLINK, NO_OBJECT, "Receive done...");
             goto cleanup;
         } else if(readcount < 0) {
-            bsr_info(15, BSR_LC_NETLINK, NO_OBJECT,"Receive error = 0x%x\n", readcount);
+            bsr_err(15, BSR_LC_NETLINK, NO_OBJECT,"Failed to receive. status(0x%x)", readcount);
             goto cleanup;
         }
 		
@@ -561,7 +561,7 @@ NetlinkWorkThread(PVOID context)
 		
 		// bsrsetup events2
         if (strstr(psock_buf, BSR_EVENT_SOCKET_STRING)) {
-			bsr_debug(29, BSR_LC_NETLINK, NO_OBJECT, "BSR_EVENT_SOCKET_STRING received. socket(0x%p)\n", socket);
+			bsr_debug(29, BSR_LC_NETLINK, NO_OBJECT, "BSR_EVENT_SOCKET_STRING received. socket(0x%p)", socket);
 			if (!push_msocket_entry(pSock)) {
 				goto cleanup;
 			}
@@ -579,8 +579,8 @@ NetlinkWorkThread(PVOID context)
 		if( ((unsigned int)readcount != nlh->nlmsg_len) 
 			|| (nlh->nlmsg_type < NLMSG_MIN_TYPE) 
 			|| (nlh->nlmsg_pid != 0x5744) ) {
-			bsr_warn(25, BSR_LC_NETLINK, NO_OBJECT, "Unrecognizable netlink command arrives and doesn't process...\n");
-			bsr_debug(30, BSR_LC_NETLINK, NO_OBJECT, "rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+			bsr_warn(25, BSR_LC_NETLINK, NO_OBJECT, "Unrecognizable netlink command arrives and doesn't process...");
+			bsr_debug(30, BSR_LC_NETLINK, NO_OBJECT, "rx(%d), len(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)",
             	readcount, nlh->nlmsg_len, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 			goto cleanup;
 		}
@@ -593,17 +593,17 @@ NetlinkWorkThread(PVOID context)
 
 		pinfo = genl_info_new(nlh, pSock, local_attrs);
         if (!pinfo) {
-			bsr_err(16, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl informaiton\n", sizeof(struct genl_info));
+			bsr_err(16, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for genl informaiton", sizeof(struct genl_info));
             goto cleanup;
         }
 
         bsr_tla_parse(nlh, local_attrs);
         if (!nlmsg_ok(nlh, readcount)) {
-			bsr_err(17, BSR_LC_NETLINK, NO_OBJECT, "message does not match the rest of the data. read count(%d)\n", readcount);
+			bsr_err(17, BSR_LC_NETLINK, NO_OBJECT, "message does not match the rest of the data. read count(%d)", readcount);
             goto cleanup;
         }
 
-		bsr_debug(31, BSR_LC_NETLINK, NO_OBJECT, "rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)\n",
+		bsr_debug(31, BSR_LC_NETLINK, NO_OBJECT, "rx readcount(%d), headerlen(%d), cmd(%d), flags(0x%x), type(0x%x), seq(%d), magic(%x)",
             readcount, nlh->nlmsg_len, pinfo->genlhdr->cmd, nlh->nlmsg_flags, nlh->nlmsg_type, nlh->nlmsg_seq, nlh->nlmsg_pid);
 
         // check whether resource suspended
@@ -613,7 +613,7 @@ NetlinkWorkThread(PVOID context)
             struct bsr_conf * mdev = minor_to_device(minor);
             if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT,"minor(%d) suspended\n", gmh->minor);
+                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "minor(%d) suspended", gmh->minor);
                 goto cleanup;
             }
         }
@@ -630,9 +630,9 @@ NetlinkWorkThread(PVOID context)
 			cli_info(gmh->minor, "Command (%s:%u)\n", pops->str, cmd);
 			
             if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-				bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
+				bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", pops->str, cmd);
             } else {
-				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->\n", pops->str, cmd);
+				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", pops->str, cmd);
             }
 			status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
 
@@ -660,21 +660,21 @@ NetlinkWorkThread(PVOID context)
 					mutex_unlock(&g_genl_run_cmd_mutex);
 
 				if (err) {
-					bsr_err(19, BSR_LC_NETLINK, NO_OBJECT, "command failed while operating. cmd(%u), error(%d)\n", cmd, err);
+					bsr_err(19, BSR_LC_NETLINK, NO_OBJECT, "command failed while operating. cmd(%u), error(%d)", cmd, err);
 					errcnt++;
 				}
 				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt - 1);
+					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
 				} else {
-					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-\n", pops->str, cmd, netlink_work_thread_cnt - 1);
+					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
-				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) Failed to acquire the mutex status: 0x%x\n", pops->str, cmd, status);
+				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) Failed to acquire the mutex status(0x%x)", pops->str, cmd, status);
 			}
 
         } else {
-			bsr_info(22, BSR_LC_NETLINK, NO_OBJECT, "Not validated cmd(%d)\n", cmd);
+			bsr_info(22, BSR_LC_NETLINK, NO_OBJECT, "Not validated cmd(%d)", cmd);
         }
     }
 
@@ -700,9 +700,9 @@ cleanup:
 		kfree(pSock);
 	
     if (errcnt) {
-		bsr_err(23, BSR_LC_NETLINK, NO_OBJECT, "error occurrence thread:%p, count(%d)\n", KeGetCurrentThread(), errcnt);
+		bsr_err(23, BSR_LC_NETLINK, NO_OBJECT, "error occurrence thread:%p, count(%d)", KeGetCurrentThread(), errcnt);
     } else {
-		bsr_debug(34, BSR_LC_NETLINK, NO_OBJECT, "NetlinkWorkThread:%p done...\n", KeGetCurrentThread());
+		bsr_debug(34, BSR_LC_NETLINK, NO_OBJECT, "NetlinkWorkThread:%p done...", KeGetCurrentThread());
     }
 }
 // Listening socket callback which is invoked whenever a new connection arrives.
@@ -742,7 +742,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
     SOCKADDR_IN * pRemote = (SOCKADDR_IN *)RemoteAddress;
     SOCKADDR_IN * pLocal = (SOCKADDR_IN *)LocalAddress;
 
-	bsr_debug(35, BSR_LC_NETLINK, NO_OBJECT, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected\n",
+	bsr_debug(35, BSR_LC_NETLINK, NO_OBJECT, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u connected",
 					        pRemote->sin_addr.S_un.S_un_b.s_b1,
 					        pRemote->sin_addr.S_un.S_un_b.s_b2,
 					        pRemote->sin_addr.S_un.S_un_b.s_b3,
@@ -756,7 +756,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
 
 	// DW-1701 Only allow to local loopback netlink command
 	if(pRemote->sin_addr.S_un.S_un_b.s_b1 != 0x7f) {
-		bsr_debug(36, BSR_LC_NETLINK, NO_OBJECT, "External connection attempt was made and blocked.\n");
+		bsr_debug(36, BSR_LC_NETLINK, NO_OBJECT, "External connection attempt was made and blocked.");
 		return STATUS_REQUEST_NOT_ACCEPTED;
 	}
 
@@ -764,7 +764,7 @@ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDispatch
     PNETLINK_WORK_ITEM netlinkWorkItem = ExAllocateFromNPagedLookasideList(&bsr_workitem_mempool);
 
     if (!netlinkWorkItem) {
-		bsr_err(24, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for work item\n", sizeof(NETLINK_WORK_ITEM));
+		bsr_err(24, BSR_LC_NETLINK, NO_OBJECT, "Failed to allocate %d size memory for work item", sizeof(NETLINK_WORK_ITEM));
         return STATUS_REQUEST_NOT_ACCEPTED;
     }
 

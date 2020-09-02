@@ -118,7 +118,7 @@ char *lprogram;
 char *lcmd;
 
 // BSR-604 write log files
-extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...);
+extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, bool line_break, const char* fmt, ...);
 extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args);
 
 // BSR-614 default log level is info
@@ -129,36 +129,46 @@ extern void bsr_terminate_log(int rv);
 
 FILE *bsr_open_log();
 
-#define CLI_ERRO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, ERROR_LEVEL, continued, format, ##arg) 
-#define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, WARNING_LEVEL, continued, format, ##arg)
-#define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, INFO_LEVEL, continued, format, ##arg)
-#define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, TRACE_LEVEL, continued, format, ##arg)
+#define CLI_ERRO_LOG(continued, linebreak, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, ERROR_LEVEL, continued, linebreak, format, ##arg) 
+#define CLI_WRAN_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, WARNING_LEVEL, continued, true, format, ##arg)
+#define CLI_INFO_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, INFO_LEVEL, continued, true, format, ##arg)
+#define CLI_TRAC_LOG(continued, format, arg...) bsr_write_log(__FUNCTION__, __LINE__, TRACE_LEVEL, continued, true, format, ##arg)
 
 #define CLI_ERRO_VLOG(format, arg...) bsr_write_vlog(__FUNCTION__, __LINE__, ERROR_LEVEL, format, arg) 
 
 
 #define CLI_ERRO_LOG_PEEROR(continued, msg) \
 		{	\
-			CLI_ERRO_LOG(continued, msg); \
+			CLI_ERRO_LOG(continued, true, msg); \
 			perror(msg); \
+			fprintf(stderr, "\n"); \
 		} while(false)
 
 #define CLI_INFO_LOG_PRINT(continued, format, arg...) \
 		{	\
 			CLI_INFO_LOG(continued, format, ##arg); \
 			printf(format, ##arg); \
+			printf("\n"); \
 		} while(false)
 
 #define CLI_WRAN_LOG_PRINT(continued, format, arg...) \
 		{	\
 			CLI_WRAN_LOG(continued, format, ##arg); \
 			printf(format, ##arg); \
+			printf("\n"); \
+		} while(false)
+
+#define CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(continued, format, arg...) \
+		{	\
+			CLI_ERRO_LOG(continued, false, format, ##arg); \
+			fprintf(stderr, format, ##arg); \
 		} while(false)
 
 #define CLI_ERRO_LOG_STDERR(continued, format, arg...) \
 		{	\
-			CLI_ERRO_LOG(continued, format, ##arg); \
+			CLI_ERRO_LOG(continued, true, format, ##arg); \
 			fprintf(stderr, format, ##arg); \
+			fprintf(stderr, "\n"); \
 		} while(false)
 
 #define CLI_ERRO_VLOG_STDERR(format, arg)  \
@@ -170,3 +180,4 @@ FILE *bsr_open_log();
 		} while(false)
 
 #endif
+

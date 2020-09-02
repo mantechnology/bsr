@@ -287,7 +287,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 	struct d_host_info *host;
 	struct connection *conn;
 
-	CLI_TRAC_LOG(false, "resource_name(%s), match_on_proxy(%s), hostname(%s)\n", res->name, match_on_proxy ? "true" : "false", hostname);
+	CLI_TRAC_LOG(false, "resource_name(%s), match_on_proxy(%s), hostname(%s)", res->name, match_on_proxy ? "true" : "false", hostname);
 	/* Determine the local host section */
 	for_each_host(host, &res->all_hosts) {
 		/* do we match  this host? */
@@ -331,7 +331,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 			    host->lower ? host->lower->name : names_to_str(&host->on_hosts));
 		}
 		res->me = host;
-		CLI_TRAC_LOG(false, "res->me(%s)\n", host->lower ? host->lower->name : names_to_str(&host->on_hosts));
+		CLI_TRAC_LOG(false, "res->me(%s)", host->lower ? host->lower->name : names_to_str(&host->on_hosts));
 		host->used_as_me = 1;
 		if (host->lower) {
 			res->stacked = 1;
@@ -790,13 +790,13 @@ static void create_implicit_connections(struct d_resource *res)
 				ha->faked_hostname = 1;
 				ha->parsed_address = 1; /* not true, but makes dump nicer */
 			}			
-			CLI_TRAC_LOG(false, "INSERT_TAIL, %s, hosts %s\n", res->name, ha->name);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, %s, hosts %s", res->name, ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 		}
 	}
 
 	if (hosts == 2) {
-		CLI_TRAC_LOG(false, "INSERT_TAIL, %s, hosts(2)\n", res->name);
+		CLI_TRAC_LOG(false, "INSERT_TAIL, %s, hosts(2)", res->name);
 		STAILQ_INSERT_TAIL(&res->connections, conn, link);
 	}
 	else
@@ -850,16 +850,16 @@ static void create_connections_from_mesh(struct d_resource *res, struct mesh *me
 			ha = alloc_hname_address();
 			ha->host_info = hi1;
 			ha->name = STAILQ_FIRST(&hi1->on_hosts)->name;
-			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts1, %s\n", ha->name);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts1, %s", ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 
 			ha = alloc_hname_address();
 			ha->host_info = hi2;
 			ha->name = STAILQ_FIRST(&hi2->on_hosts)->name;
-			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts2, %s\n", ha->name);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts2, %s", ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 
-			CLI_TRAC_LOG(false, "INSERT_TAIL, connections, %s\n", res->name);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, connections, %s", res->name);
 			STAILQ_INSERT_TAIL(&res->connections, conn, link);
 		skip:
 			hname2 = STAILQ_NEXT(hname2, link);
@@ -1021,7 +1021,7 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 								break;
 
 							if (ep->res != res) {
-								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s\n"
+								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s"
 									"    %s:%s:%s is also used %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
@@ -1033,7 +1033,7 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 							}
 							// BSR-167 check duplication of node and proxy network information in same resource
 							else if(j != 0) {
-								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s\n"
+								CLI_ERRO_LOG_STDERR(false, "%s:%d: in resource %s"
 									"    %s:%s:%s is also used in proxy section %s:%d (resource %s)\n",
 									e->res->config_file, ha1->config_line, e->res->name,
 									e->da->af, e->da->addr, e->da->port,
@@ -1147,7 +1147,7 @@ static void fixup_peer_devices(struct d_resource *res)
 			peer_device->vnr = vol->vnr;
 			peer_device->implicit = 1;
 			peer_device->connection = conn;
-			CLI_TRAC_LOG(false, "INSERT_TAIL, peer_devices, volume vnr : %d\n", vol->vnr);
+			CLI_TRAC_LOG(false, "INSERT_TAIL, peer_devices, volume vnr : %d", vol->vnr);
 			STAILQ_INSERT_TAIL(&conn->peer_devices, peer_device, connection_link);
 		}
 	}
@@ -1721,7 +1721,7 @@ void global_validate_maybe_expand_die_if_invalid(int expand, enum pp_flags flags
 	for_each_resource(res, &config) {
 		validate_resource(res, flags);
 		if (!config_valid) {
-			CLI_ERRO_LOG(false, "invalid config\n");
+			CLI_ERRO_LOG(false, true, "invalid config");
 			exit(E_CONFIG_INVALID);
 		}
 		if (expand) {
@@ -1734,7 +1734,7 @@ void global_validate_maybe_expand_die_if_invalid(int expand, enum pp_flags flags
 				convert_discard_opt(&conn->net_options);
 		}
 		if (!config_valid) {
-			CLI_ERRO_LOG(false, "invalid config\n");
+			CLI_ERRO_LOG(false, true, "invalid config");
 			exit(E_CONFIG_INVALID);
 		}
 	}

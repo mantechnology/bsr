@@ -166,6 +166,9 @@ endif
 	@[ -s .filelist ] # assert there is something in .filelist now
 	@echo bsr-$(DIST_VERSION)/.filelist               >> .filelist ; \
 	echo bsr-$(DIST_VERSION)/bsr/.bsr_git_revision >> .filelist ; \
+	if test -d pki ; then \
+		echo bsr-$(DIST_VERSION)/pki/bsr_signing_key.priv >> .filelist ; \
+		echo bsr-$(DIST_VERSION)/pki/bsr_signing_key_pub.der >> .filelist ; fi ; \
 	echo "./.filelist updated."
 
 # tgz will no longer automatically update .filelist,
@@ -219,6 +222,24 @@ kmp-rpm: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 	    bsr-kernel.spec
 	@echo "You have now:" ; find `rpm -E "%_rpmdir"` -name *.rpm
 
+.PHONY: kmp-rpm-sign
+kmp-rpm-sign: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
+	@if ! test -e pki/bsr_signing_key.priv  ; then \
+		echo -e "    pki/bsr_signing_key.priv key required\n" ;\
+		false;\
+	fi
+	@if ! test -e pki/bsr_signing_key_pub.der  ; then \
+		echo -e "    pki/bsr_signing_key_pub.der key required\n" ;\
+		false;\
+	fi
+	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
+	$(RPMBUILD) -bb \
+	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \
+	    $(RPMOPT) \
+	    --with modsign \
+	    bsr-kernel.spec
+	@echo "You have now:" ; find `rpm -E "%_rpmdir"` -name *.rpm
+
 .PHONY: srpm
 srpm: tgz
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
@@ -236,5 +257,8 @@ ifdef DEBBUILD
 km-deb: distclean bsr/.bsr_git_revision
 	$(DEBBUILD) -i -us -uc -b
 endif
+
+modsign:
+	$(MAKE) -C bsr modsign
 
 Makefile: ;

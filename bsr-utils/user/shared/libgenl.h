@@ -27,6 +27,12 @@
 #define SOL_NETLINK 270
 #endif
 
+// BSR-646
+#ifndef NLA_F_NESTED
+#define NLA_F_NESTED 0
+#endif
+
+
 #define DEBUG_LEVEL 1
 
 #define dbg(lvl, fmt, arg...)				\
@@ -851,7 +857,8 @@ static inline struct nlattr *nla_nest_start(struct msg_buff *msg, int attrtype)
 {
 	struct nlattr *start = (struct nlattr *)msg->tail;
 
-	if (nla_put(msg, attrtype, 0, NULL) < 0)
+	// BSR-646 add NLA_F_NESTED flag to nested attribute
+	if (nla_put(msg, attrtype | NLA_F_NESTED, 0, NULL) < 0)
 		return NULL;
 
 	return start;

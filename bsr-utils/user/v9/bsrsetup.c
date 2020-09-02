@@ -746,7 +746,7 @@ static int conv_block_dev(struct bsr_argument *ad, struct msg_buff *msg,
 	}
 
 	if(!S_ISBLK(sb.st_mode)) {
-		CLI_ERRO_LOG_STDERR(false, "%s is not a block device!\n", arg);
+		CLI_ERRO_LOG_STDERR(false, "%s is not a block device!", arg);
 		return OTHER_ERROR;
 	}
 
@@ -799,7 +799,7 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 
 	err = getaddrinfo(name, 0, &hints, &res);
 	if (err) {
-		CLI_ERRO_LOG_STDERR(false, "getaddrinfo %s: %s\n", name, gai_strerror(err));
+		CLI_ERRO_LOG_STDERR(false, "getaddrinfo %s: %s", name, gai_strerror(err));
 		exit(20);
 	}
 
@@ -813,7 +813,7 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 	if (false) { /* debug output */
 		char ip[INET6_ADDRSTRLEN];
 		inet_ntop(AF_INET6, &addr->sin6_addr, ip, sizeof(ip));
-		CLI_ERRO_LOG_STDERR(false, "%s -> %02x %04x %08x %s %08x\n",
+		CLI_ERRO_LOG_STDERR(false, "%s -> %02x %04x %08x %s %08x",
 				name,
 				addr->sin6_family,
 				addr->sin6_port,
@@ -831,7 +831,7 @@ static unsigned long resolv(const char* name)
 		struct hostent *he;
 		he = gethostbyname(name);
 		if (!he) {
-			CLI_ERRO_LOG_STDERR(false, "can not resolve the hostname: gethostbyname(%s): %s\n",
+			CLI_ERRO_LOG_STDERR(false, "can not resolve the hostname: gethostbyname(%s): %s",
 					name, hstrerror(h_errno));
 			exit(20);
 		}
@@ -846,7 +846,7 @@ static void split_ipv6_addr(char **address, int *port)
 	char *b = strrchr(*address,']');
 	if (address[0][0] != '[' || b == NULL ||
 		(b[1] != ':' && b[1] != '\0')) {
-		CLI_ERRO_LOG_STDERR(false, "unexpected ipv6 format: %s\n",
+		CLI_ERRO_LOG_STDERR(false, "unexpected ipv6 format: %s",
 				*address);
 		exit(20);
 	}
@@ -893,7 +893,7 @@ static void split_address(int *af, char** address, int* port)
 			/* compatibility handling of ipv6 addresses,
 			 * in the style expected before bsr 8.3.9.
 			 * may go wrong without explicit port */
-			CLI_ERRO_LOG_STDERR(false, "interpreting ipv6:%s:%s as ipv6:[%s]:%s\n",
+			CLI_ERRO_LOG_STDERR(false, "interpreting ipv6:%s:%s as ipv6:[%s]:%s",
 					*address, b+1, *address, b+1);
 		}
 		*port = m_strtoll(b+1,1);
@@ -1089,20 +1089,20 @@ static int check_error(int err_no, char *desc)
 
 	if (err_no == OTHER_ERROR) {
 		if (desc) {
-			CLI_ERRO_LOG_STDERR(false, "%s: %s\n", objname, desc);
+			CLI_ERRO_LOG_STDERR(false, "%s: %s", objname, desc);
 		}
 		return 20;
 	}
 
 	if ( ( err_no >= AFTER_LAST_ERR_CODE || err_no <= ERR_CODE_BASE ) &&
 	     ( err_no > SS_CW_NO_NEED || err_no <= SS_AFTER_LAST_ERROR) ) {
-		CLI_ERRO_LOG_STDERR(false, "%s: Error code %d unknown.\n"
+		CLI_ERRO_LOG_STDERR(false, "%s: Error code %d unknown."
 			"You should update the bsr userland tools.\n",
 			objname, err_no);
 		rv = 20;
 	} else {
 		if(err_no > ERR_CODE_BASE ) {
-			CLI_ERRO_LOG_STDERR(false, "%s: Failure: (%d) %s\n",
+			CLI_ERRO_LOG_STDERR(false, "%s: Failure: (%d) %s",
 				objname, err_no, desc ?: error_to_string(err_no));
 			rv = 10;
 		} else if (err_no == SS_UNKNOWN_ERROR) {
@@ -1112,7 +1112,7 @@ static int check_error(int err_no, char *desc)
 		} else if (err_no > SS_TWO_PRIMARIES) {
 			// Ignore SS_SUCCESS, SS_NOTHING_TO_DO, SS_CW_Success...
 		} else {
-			CLI_ERRO_LOG_STDERR(false, "%s: State change failed: (%d) %s\n",
+			CLI_ERRO_LOG_STDERR(false, "%s: State change failed: (%d) %s",
 				objname, err_no, bsr_set_st_err_str(err_no));
 			if (err_no == SS_NO_UP_TO_DATE_DISK) {
 				/* all available disks are inconsistent,
@@ -1138,10 +1138,10 @@ static int check_error(int err_no, char *desc)
 	    global_attrs[BSR_NLA_CFG_REPLY]->nla_len) {
 		struct nlattr *nla;
 		int rem;
-		CLI_ERRO_LOG_STDERR(false, "additional info from kernel:\n");
+		CLI_ERRO_LOG_STDERR(false, "additional info from kernel:");
 		nla_for_each_nested(nla, global_attrs[BSR_NLA_CFG_REPLY], rem) {
 			if (nla_type(nla) == __nla_type(T_info_text))
-				CLI_ERRO_LOG_STDERR(false, "%s\n", (char*)nla_data(nla));
+				CLI_ERRO_LOG_STDERR(false, "%s", (char*)nla_data(nla));
 		}
 	}
 	return rv;
@@ -1164,7 +1164,7 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 }
 
 #define ASSERT(exp) if (!(exp)) \
-		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d\n", __FILE__,__LINE__);
+		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
 static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
@@ -1253,7 +1253,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 
 	for (i = optind, ad = cm->bsr_args; ad && ad->name; i++) {
 		if (argc < i + 1) {
-			CLI_ERRO_LOG_STDERR(false, "Missing argument '%s'\n", ad->name);
+			CLI_ERRO_LOG_STDERR(false, "Missing argument '%s'", ad->name);
 			print_command_usage(cm, FULL);
 			rv = OTHER_ERROR;
 			goto error;
@@ -1318,7 +1318,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	}
 	if (rv == ERR_RES_NOT_KNOWN) {
 		if (cm->warn_on_missing && isatty(STDERR_FILENO))
-			CLI_ERRO_LOG_STDERR(false, "Resource unknown\n");
+			CLI_ERRO_LOG_STDERR(false, "Resource unknown");
 
 		if (cm->missing_ok)
 			rv = NO_ERROR;
@@ -1380,7 +1380,7 @@ static void print_options(struct nlattr *attr, struct context_def *ctx, const ch
 
 	if (bsr_nla_parse_nested(nested_attr_tb, ctx->nla_policy_size - 1,
 				  attr, ctx->nla_policy)) {
-		CLI_ERRO_LOG_STDERR(false, "nla_policy violation for %s payload!\n", sect_name);
+		CLI_ERRO_LOG_STDERR(false, "nla_policy violation for %s payload!", sect_name);
 		/* still, print those that validated ok */
 	}
 
@@ -1441,7 +1441,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 	if (0 < ctx->wfc_timeout &&
 	      (ctx->wfc_timeout < ctx->degr_wfc_timeout || ctx->degr_wfc_timeout == 0)) {
 		ctx->degr_wfc_timeout = ctx->wfc_timeout;
-		CLI_ERRO_LOG_STDERR(false, "degr-wfc-timeout has to be shorter than wfc-timeout\n"
+		CLI_ERRO_LOG_STDERR(false, "degr-wfc-timeout has to be shorter than wfc-timeout"
 				"degr-wfc-timeout implicitly set to wfc-timeout (%ds)\n",
 				ctx->degr_wfc_timeout);
 	}
@@ -1449,7 +1449,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 	if (0 < ctx->degr_wfc_timeout &&
 	    (ctx->degr_wfc_timeout < ctx->outdated_wfc_timeout || ctx->outdated_wfc_timeout == 0)) {
 		ctx->outdated_wfc_timeout = ctx->wfc_timeout;
-		CLI_ERRO_LOG_STDERR(false, "outdated-wfc-timeout has to be shorter than degr-wfc-timeout\n"
+		CLI_ERRO_LOG_STDERR(false, "outdated-wfc-timeout has to be shorter than degr-wfc-timeout"
 				"outdated-wfc-timeout implicitly set to degr-wfc-timeout (%ds)\n",
 				ctx->degr_wfc_timeout);
 	}
@@ -1503,7 +1503,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 error:
 	if (!desc)
 		desc = "error receiving netlink reply";
-	CLI_ERRO_LOG_STDERR(false, "error determining which timeout to use: %s\n",
+	CLI_ERRO_LOG_STDERR(false, "error determining which timeout to use: %s",
 			desc);
 	return 20;
 }
@@ -1707,7 +1707,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 				err = -*(int*)nlmsg_data(nlh);
 				if (err &&
 				    (err != ENODEV || !cm->missing_ok)) {
-					CLI_ERRO_LOG_STDERR(false, "received netlink error reply: %s\n",
+					CLI_ERRO_LOG_STDERR(false, "received netlink error reply: %s",
 						strerror(err));
 					err = 20;
 				}
@@ -1717,7 +1717,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 					continue;
 				if (!desc)
 					desc = strerror(errno);
-				CLI_ERRO_LOG_STDERR(false, "received netlink error reply: %s\n",
+				CLI_ERRO_LOG_STDERR(false, "received netlink error reply: %s",
 					       desc);
 				err = 20;
 				goto out2;
@@ -1842,7 +1842,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 
 						break;
 					default:
-						CLI_ERRO_LOG_STDERR(false, "DRECK: %x\n", cm->ctx_key);
+						CLI_ERRO_LOG_STDERR(false, "DRECK: %x", cm->ctx_key);
 						assert(0);
 					}
 				}
@@ -1992,7 +1992,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		if (!smsg || !iov.iov_base) {
 			msg_free(smsg);
 			free(iov.iov_base);
-			CLI_ERRO_LOG_STDERR(false, "could not allocate netlink messages\n");
+			CLI_ERRO_LOG_STDERR(false, "could not allocate netlink messages");
 			return 20;
 		}
 
@@ -2056,7 +2056,7 @@ static bool options_empty(struct nlattr *attr, struct context_def *ctx)
 
 	if (bsr_nla_parse_nested(nested_attr_tb, ctx->nla_policy_size - 1,
 				  attr, ctx->nla_policy)) {
-		CLI_ERRO_LOG_STDERR(false, "nla_policy violation\n");
+		CLI_ERRO_LOG_STDERR(false, "nla_policy violation");
 	}
 
 	for (field = ctx->fields; field->name; field++) {
@@ -2894,7 +2894,7 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 
 	free_resources(resources);
 	if (!found && strcmp(objname, "all")) {
-		CLI_ERRO_LOG_STDERR(false, "%s: No such resource\n", objname);
+		CLI_ERRO_LOG_STDERR(false, "%s: No such resource", objname);
 		return 10;
 	}
 	return 0;
@@ -2919,7 +2919,7 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_resources(resources);
 
 	if (ret != NO_ERROR) {
-		CLI_ERRO_LOG_STDERR(false, "%s: %s\n", objname, error_to_string(ret));
+		CLI_ERRO_LOG_STDERR(false, "%s: %s", objname, error_to_string(ret));
 		return 10;
 	}
 	return 0;
@@ -2942,7 +2942,7 @@ static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_connections(connections);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR(false, "%s: No such connection\n", objname);
+		CLI_ERRO_LOG_STDERR(false, "%s: No such connection", objname);
 		return 10;
 	}
 	return 0;
@@ -2977,7 +2977,7 @@ static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_devices(devices);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR(false, "%s: No such device\n", objname);
+		CLI_ERRO_LOG_STDERR(false, "%s: No such device", objname);
 		return 10;
 	}
 	return 0;
@@ -3050,7 +3050,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 
 		if (!r) {
-			CLI_ERRO_LOG(false, "failed to allocate resources list(20)\n");
+			CLI_ERRO_LOG(false, true, "failed to allocate resources list(20)");
 			exit(20);
 		}
 
@@ -3060,7 +3060,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (res_opts->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)\n");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3167,7 +3167,7 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 		struct nlattr *disk_conf_nl = global_attrs[BSR_NLA_DISK_CONF];
 
 		if (!d) {
-			CLI_ERRO_LOG(false, "failed to allocate devices list(20)\n");
+			CLI_ERRO_LOG(false, true, "failed to allocate devices list(20)");
 			exit(20);
 		}
 
@@ -3178,7 +3178,7 @@ static int remember_device(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (disk_conf_nl->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)\n");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3257,7 +3257,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
 
 		if (!c) {
-			CLI_ERRO_LOG(false, "failed to allocate connections list (20)\n");
+			CLI_ERRO_LOG(false, true, "failed to allocate connections list (20)");
 			exit(20);
 		}
 
@@ -3267,7 +3267,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (net_conf->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)\n");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3377,7 +3377,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
 		if (!p) {
-			CLI_ERRO_LOG(false, "failed to allocate peer devices list (20)\n");
+			CLI_ERRO_LOG(false, true, "failed to allocate peer devices list (20)");
 			exit(20);
 		}
 
@@ -3387,7 +3387,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 
 			// DW-2072 make sure that it is smaller than the NLA_HDRLEN
 			if (peer_device_conf->nla_len <= NLA_HDRLEN) {
-				CLI_ERRO_LOG(false, "make sure that it is smaller than the NLA_HDRLEN(20)\n");
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
 				exit(20);
 			}
 
@@ -3466,7 +3466,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		found = true;
 
 		if (!device->disk_conf.backing_dev) {
-			CLI_ERRO_LOG_STDERR(false, "Has no disk config, try with bsrmeta.\n");
+			CLI_ERRO_LOG_STDERR(false, "Has no disk config, try with bsrmeta.");
 			ret = 1;
 			break;
 		}
@@ -3485,7 +3485,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 #endif
 		fd = open(device->disk_conf.backing_dev, O_RDONLY);
 		if (fd == -1) {
-			CLI_ERRO_LOG_STDERR(false, "Could not open %s: %m.\n", device->disk_conf.backing_dev);
+			CLI_ERRO_LOG_STDERR(false, "Could not open %s: %m.", device->disk_conf.backing_dev);
 			ret = 1;
 			break;
 		}
@@ -3509,7 +3509,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	free_devices(devices);
 
 	if (!found) {
-		CLI_ERRO_LOG_STDERR(false, "%s: No such device\n", objname);
+		CLI_ERRO_LOG_STDERR(false, "%s: No such device", objname);
 		return 10;
 	}
 	return ret;
@@ -3541,7 +3541,7 @@ static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				goto found;
 		}
 	}
-	CLI_ERRO_LOG_STDERR(false, "%s: No such peer device\n", objname);
+	CLI_ERRO_LOG_STDERR(false, "%s: No such peer device", objname);
 	ret = 10;
 
 out:
@@ -3552,7 +3552,7 @@ out:
 found:
 	if (peer_device->info.peer_repl_state == L_OFF &&
 	    device->info.dev_disk_state == D_DISKLESS) {
-		CLI_ERRO_LOG_STDERR(false, "Device is unconfigured\n");
+		CLI_ERRO_LOG_STDERR(false, "Device is unconfigured");
 		ret = 1;
 		goto out;
 	}
@@ -3560,7 +3560,7 @@ found:
 		/* XXX we could print the exposed_data_uuid anyways: */
 		if (false)
 			printf(X64(016)"\n", (uint64_t)device->statistics.dev_exposed_data_uuid);
-		CLI_ERRO_LOG_STDERR(false, "Device has no disk\n");
+		CLI_ERRO_LOG_STDERR(false, "Device has no disk");
 		ret = 1;
 		goto out;
 	}
@@ -4334,7 +4334,7 @@ static int modprobe_bsr(void)
 	if (ret && errno == ENOENT) {
 		ret = system("/sbin/modprobe bsr");
 		if (ret != 0) {
-			CLI_ERRO_LOG_STDERR(false, "Failed to modprobe bsr (%m)\n");
+			CLI_ERRO_LOG_STDERR(false, "Failed to modprobe bsr (%m)");
 			return 0;
 		}
 		for(;;) {
@@ -4349,7 +4349,7 @@ static int modprobe_bsr(void)
 		}
 	}
 	if (ret) {
-		CLI_ERRO_LOG_STDERR(false, "Could not stat /proc/bsr: %m\n");
+		CLI_ERRO_LOG_STDERR(false, "Could not stat /proc/bsr: %m");
 		CLI_ERRO_LOG_STDERR(false, "Make sure that the BSR kernel module is installed "
 				"and can be loaded!\n");
 	}
@@ -4369,7 +4369,7 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 
 		add_lib_bsr_to_path();
 		execvp(bsrsetup_83, argv);
-		CLI_ERRO_LOG_STDERR(false, "execvp() failed to exec %s: %m\n", bsrsetup_83);
+		CLI_ERRO_LOG_STDERR(false, "execvp() failed to exec %s: %m", bsrsetup_83);
 #else
 		config_help_legacy("bsrsetup", driver_version);
 
@@ -4383,7 +4383,7 @@ static void maybe_exec_legacy_bsrsetup(char **argv)
 
 		add_lib_bsr_to_path();
 		execvp(bsrsetup_84, argv);
-		CLI_ERRO_LOG_STDERR(false, "execvp() failed to exec %s: %m\n", bsrsetup_84);
+		CLI_ERRO_LOG_STDERR(false, "execvp() failed to exec %s: %m", bsrsetup_84);
 #else
 		config_help_legacy("bsrsetup", driver_version);
 #endif
@@ -4432,7 +4432,7 @@ int main(int argc, char **argv)
 			cmd = find_cmd_by_name(argv[2]);
 			if(cmd) {
 				print_command_usage(cmd, usage_type);
-				CLI_INFO_LOG(false, "print command usage\n");
+				CLI_INFO_LOG(false, "print command usage");
 				exit(0);
 			} else
 				print_usage_and_exit("unknown command");
@@ -4494,7 +4494,7 @@ int main(int argc, char **argv)
 	}
 	bsr_sock = genl_connect_to_family(&bsr_genl_family);
 	if (!bsr_sock) {
-		CLI_ERRO_LOG_STDERR(false, "Could not connect to 'bsr' generic netlink family\n");
+		CLI_ERRO_LOG_STDERR(false, "Could not connect to 'bsr' generic netlink family");
 		return 20;
 	}
 
@@ -4520,7 +4520,7 @@ int main(int argc, char **argv)
 			objname = "all";
 			break;
 		} else if (argc <= optind) {
-			CLI_ERRO_LOG_STDERR(false, "Missing argument %d to command\n", optind);
+			CLI_ERRO_LOG_STDERR(false, "Missing argument %d to command", optind);
 			print_command_usage(cmd, FULL);
 			exit(20);
 		} else if (next_arg & (CTX_RESOURCE | CTX_MINOR | CTX_ALL)) {
@@ -4542,7 +4542,7 @@ int main(int argc, char **argv)
 				context |= CTX_MINOR;
 			} else /* not "all", and not a minor number/device name */ {
 				if (!(next_arg & CTX_RESOURCE)) {
-					CLI_ERRO_LOG_STDERR(false, "command does not accept argument '%s'\n",
+					CLI_ERRO_LOG_STDERR(false, "command does not accept argument '%s'",
 						objname);
 					print_command_usage(cmd, FULL);
 					exit(20);

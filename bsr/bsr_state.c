@@ -554,7 +554,7 @@ static void __begin_state_change(struct bsr_resource *resource)
 {
 #ifdef _WIN
 	// _WIN32_V9_RCU //(4) required to refactoring because lock, unlock position is diffrent, maybe global scope lock is needed 
-    bsr_debug_rcu("rcu_read_lock()\n");
+    bsr_debug_rcu("rcu_read_lock()");
 #else // _LIN
 	rcu_read_lock();
 #endif
@@ -605,7 +605,7 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 		rv = try_state_change(resource);
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
-			bsr_err(14, BSR_LC_STATE, resource, "State change failed: %s\n", bsr_set_st_err_str(rv));
+			bsr_err(14, BSR_LC_STATE, resource, "State change failed: %s", bsr_set_st_err_str(rv));
 			print_state_change(resource, "Failed: caller ", locked, caller);
 		}
 		goto out;
@@ -673,7 +673,7 @@ out:
 	// __begin_state_change aquire lock at the beginning
 	// unlock is processed other function scope. required to refactoring (maybe required global scope lock)
 	// _WIN32_V9_RCU //(5) temporary dummy.
-    bsr_debug_rcu("rcu_read_unlock()\n");
+    bsr_debug_rcu("rcu_read_unlock()");
 #else // _LIN
 	rcu_read_unlock();
 #endif
@@ -689,7 +689,7 @@ void state_change_lock(struct bsr_resource *resource, unsigned long *irq_flags, 
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
 #ifdef _WIN
-		bsr_warn(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p\n", current, resource->worker.task);
+		bsr_info(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
 #else // _LIN
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE\n");
@@ -710,7 +710,7 @@ static void __state_change_unlock(struct bsr_resource *resource, unsigned long *
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN
 	        while (wait_for_completion(done) == -BSR_SIGKILL) {
-				bsr_info(15, BSR_LC_STATE, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event\n");
+				bsr_info(15, BSR_LC_STATE, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event");
 	        }
 #else // _LIN
 			wait_for_completion(done);
@@ -1018,7 +1018,7 @@ static void set_resync_susp_other_c(struct bsr_peer_device *peer_device, bool va
 			__change_resync_susp_other_c(p, true, NULL);
 
 			if (p->resync_susp_other_c[NOW] != p->resync_susp_other_c[NEW])
-				bsr_info(16, BSR_LC_STATE, peer_device, "%s => node_id(%d), resync_susp_other_c : true\n", caller, p->node_id);
+				bsr_info(16, BSR_LC_STATE, peer_device, "%s => node_id(%d), resync_susp_other_c : true", caller, p->node_id);
 
 			if (start && p->disk_state[NEW] >= D_INCONSISTENT && r == L_ESTABLISHED)
 				__change_repl_state(p, L_PAUSED_SYNC_T, __FUNCTION__);
@@ -1035,7 +1035,7 @@ static void set_resync_susp_other_c(struct bsr_peer_device *peer_device, bool va
 			__change_resync_susp_other_c(p, false, NULL);
 
 			if (p->resync_susp_other_c[NOW] != p->resync_susp_other_c[NEW])
-				bsr_info(17, BSR_LC_STATE, peer_device, "%s => node_id(%d), resync_susp_other_c : false\n", caller, p->node_id);
+				bsr_info(17, BSR_LC_STATE, peer_device, "%s => node_id(%d), resync_susp_other_c : false", caller, p->node_id);
 
 			if (r == L_PAUSED_SYNC_T && !resync_suspended(p, NEW)) {
 				__change_repl_state(p, L_SYNC_TARGET, __FUNCTION__);
@@ -1136,7 +1136,7 @@ static void print_state_change(struct bsr_resource *resource, const char *prefix
 	}
 	if (b != buffer) {
 		*(b-1) = 0;
-		bsr_info(18, BSR_LC_STATE, resource, "%s, %s%s\n", caller, prefix, buffer);
+		bsr_info(18, BSR_LC_STATE, resource, "%s, %s%s", caller, prefix, buffer);
 	}
 
 	for_each_connection(connection, resource) {
@@ -1155,7 +1155,7 @@ static void print_state_change(struct bsr_resource *resource, const char *prefix
 
 		if (b != buffer) {
 			*(b-1) = 0;
-			bsr_info(19, BSR_LC_STATE, connection, "%s, %s%s\n", caller, prefix, buffer);
+			bsr_info(19, BSR_LC_STATE, connection, "%s, %s%s", caller, prefix, buffer);
 		}
 	}
 
@@ -1164,11 +1164,27 @@ static void print_state_change(struct bsr_resource *resource, const char *prefix
 		enum bsr_disk_state *disk_state = device->disk_state;
 
 		if (disk_state[OLD] != disk_state[NEW])
-			bsr_info(20, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )\n",
-				  caller,
-				  prefix,
-				  bsr_disk_str(disk_state[OLD]),
-				  bsr_disk_str(disk_state[NEW]));
+		{
+			// BSR-649 The log is output at the error level when the status is changed to D_FAILED or D_DISKLESS.
+			if (disk_state[NEW] == D_FAILED ||
+					(disk_state[OLD] != D_DETACHING && disk_state[NEW] == D_DISKLESS))
+			{
+				bsr_err(61, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )",
+					caller,
+					prefix,
+					bsr_disk_str(disk_state[OLD]),
+					bsr_disk_str(disk_state[NEW]));
+			}
+			else
+			{
+				bsr_info(20, BSR_LC_STATE, device, "%s, %sdisk( %s -> %s )",
+					caller,
+					prefix,
+					bsr_disk_str(disk_state[OLD]),
+					bsr_disk_str(disk_state[NEW]));
+			}
+		}
+
 		for_each_peer_device(peer_device, device) {
 			enum bsr_disk_state *peer_disk_state = peer_device->disk_state;
 			enum bsr_repl_state *repl_state = peer_device->repl_state;
@@ -1194,7 +1210,7 @@ static void print_state_change(struct bsr_resource *resource, const char *prefix
 
 			if (b != buffer) {
 				*(b-1) = 0;
-				bsr_info(21, BSR_LC_STATE, peer_device, "%s, %s%s\n", caller, prefix, buffer);
+				bsr_info(21, BSR_LC_STATE, peer_device, "%s, %s%s", caller, prefix, buffer);
 			}
 		}
 	}
@@ -1323,7 +1339,7 @@ static __printf(2, 3) void _bsr_state_err(struct change_context *context, const 
 	if (!err_str)
 		return;
 	if (context->flags & CS_VERBOSE)
-		bsr_err(22, BSR_LC_STATE, resource, "%s\n", err_str);
+		bsr_err(22, BSR_LC_STATE, resource, "%s", err_str);
 	if (context->err_str)
 		*context->err_str = err_str;
 	else
@@ -1349,7 +1365,7 @@ static __printf(2, 3) void bsr_state_err(struct bsr_resource *resource, const ch
 	if (!err_str)
 		return;
 	if (resource->state_change_flags & CS_VERBOSE)
-		bsr_err(23, BSR_LC_STATE, resource, "%s\n", err_str);
+		bsr_err(23, BSR_LC_STATE, resource, "%s", err_str);
 	if (resource->state_change_err_str)
 		*resource->state_change_err_str = err_str;
 	else
@@ -1660,7 +1676,7 @@ static enum bsr_state_rv is_valid_transition(struct bsr_resource *resource)
 			    peer_device->repl_state[NEW] >= L_ESTABLISHED)
 			{
 				// DW-1529 Eliminated stopped state of WFBitMapT. This node will try to reconnect after the state change fails. 
-				bsr_info(24, BSR_LC_STATE, connection, "return SS_NEED_CONNECTION!!! cs=%d repl=%d \n",
+				bsr_info(24, BSR_LC_STATE, connection, "return SS_NEED_CONNECTION!!! cs=%d repl=%d ",
 					connection->cstate[OLD], peer_device->repl_state[NEW]);
 				return SS_NEED_CONNECTION; 
 			}
@@ -1760,7 +1776,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				else if (nr == L_WF_BITMAP_T)
 					target++;
 				else if (nr != L_ESTABLISHED && nr != L_WF_BITMAP_S)
-					bsr_err(25, BSR_LC_STATE, peer_device, "Unexpected negotiation result(%s)\n", bsr_repl_str(nr));
+					bsr_err(25, BSR_LC_STATE, peer_device, "Unexpected negotiation result(%s)", bsr_repl_str(nr));
 			}
 
 			/* negotiation finished */
@@ -1787,7 +1803,7 @@ static void sanitize_state(struct bsr_resource *resource)
 					   role */
 					nr = L_PAUSED_SYNC_S;
 					__change_resync_susp_other_c(peer_device, true, NULL);
-					bsr_warn(41, BSR_LC_STATE, peer_device, "Finish me\n");
+					bsr_warn(41, BSR_LC_STATE, peer_device, "Finish me");
 				}
 				__change_repl_state(peer_device, nr, __FUNCTION__);
 			}
@@ -1829,7 +1845,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
-					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be L_ESTABLISHED due to unsyncable stability\n");
+					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be Established due to unsyncable stability");
 					__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
 				}
@@ -2073,7 +2089,7 @@ static void sanitize_state(struct bsr_resource *resource)
 void bsr_resume_al(struct bsr_device *device)
 {
 	if (test_and_clear_bit(AL_SUSPENDED, &device->flags))
-		bsr_info(15, BSR_LC_LRU, device, "Resumed AL updates\n");
+		bsr_info(15, BSR_LC_LRU, device, "Resumed AL updates");
 }
 
 static void set_ov_position(struct bsr_peer_device *peer_device,
@@ -2142,7 +2158,7 @@ static void queue_after_state_change_work(struct bsr_resource *resource,
 		bsr_queue_work(&resource->work, &work->w);
 	} else {
 		kfree(work);
-		bsr_err(26, BSR_LC_STATE, resource, "Could not allocate after state change work\n");
+		bsr_err(26, BSR_LC_STATE, resource, "Could not allocate after state change work");
 		if (done)
 			complete(done);
 	}
@@ -2255,7 +2271,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 		}
 
 		if (disk_state[OLD] == D_ATTACHING && disk_state[NEW] >= D_NEGOTIATING)
-			bsr_info(14, BSR_LC_UUID, device, "attached to current UUID: %016llX\n", device->ldev->md.current_uuid);
+			bsr_info(14, BSR_LC_UUID, device, "attached to current UUID: %016llX", device->ldev->md.current_uuid);
 
 		for_each_peer_device(peer_device, device) {
 			enum bsr_repl_state *repl_state = peer_device->repl_state;
@@ -2310,14 +2326,14 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 					ov_out_of_sync_print(peer_device, true);
 					ov_skipped_print(peer_device, true);
 
-					bsr_info(147, BSR_LC_RESYNC_OV, peer_device, "Online Verify reached sector %llu\n",
+					bsr_info(147, BSR_LC_RESYNC_OV, peer_device, "Online Verify reached sector %llu",
 						  (unsigned long long)peer_device->ov_start_sector);
 				}
 			}
 
 			if ((repl_state[OLD] == L_PAUSED_SYNC_T || repl_state[OLD] == L_PAUSED_SYNC_S) &&
 			    (repl_state[NEW] == L_SYNC_TARGET  || repl_state[NEW] == L_SYNC_SOURCE)) {
-				bsr_info(148, BSR_LC_RESYNC_OV, peer_device, "Syncer continues.\n");
+				bsr_info(148, BSR_LC_RESYNC_OV, peer_device, "Syncer continues.");
 				peer_device->rs_paused += (long)jiffies
 						  -(long)peer_device->rs_mark_time[peer_device->rs_last_mark];
 
@@ -2335,7 +2351,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 			if ((repl_state[OLD] == L_SYNC_TARGET  || repl_state[OLD] == L_SYNC_SOURCE) &&
 			    (repl_state[NEW] == L_PAUSED_SYNC_T || repl_state[NEW] == L_PAUSED_SYNC_S)) {
-				bsr_info(149, BSR_LC_RESYNC_OV, peer_device, "Resync suspended\n");
+				bsr_info(149, BSR_LC_RESYNC_OV, peer_device, "Resync suspended");
 				peer_device->rs_mark_time[peer_device->rs_last_mark] = jiffies;
 			}
 
@@ -2382,7 +2398,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
-						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).\n",
+						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
 							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
 							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
@@ -2580,7 +2596,7 @@ static void abw_start_sync(struct bsr_device *device,
 	struct bsr_peer_device *pd;
 
 	if (rv) {
-		bsr_err(151, BSR_LC_RESYNC_OV, device, "Writing the bitmap failed not starting resync.\n");
+		bsr_err(151, BSR_LC_RESYNC_OV, device, "Writing the bitmap failed not starting resync.");
 		stable_change_repl_state(peer_device, L_ESTABLISHED, CS_VERBOSE);
 		return;
 	}
@@ -3271,7 +3287,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				wait_event_timeout_ex(peer_device->state_initial_send_wait, test_bit(INITIAL_STATE_SENT, &peer_device->flags), HZ * 3, res);
 				if (!res) {
 					/* FIXME timeout when sending initial state? */
-					bsr_err(27, BSR_LC_STATE, peer_device, "state initial send timeout!\n");
+					bsr_err(27, BSR_LC_STATE, peer_device, "state initial send timeout!");
 				}
 			}
 
@@ -3412,7 +3428,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					send_state = true;
 				// DW-2026 if the status is not L_STARTING_SYNC_T, the status is not send.
 				else
-					bsr_info(28, BSR_LC_STATE, peer_device, "not sending state because of old repl_state(%s)\n", bsr_repl_str(repl_state[OLD]));
+					bsr_info(28, BSR_LC_STATE, peer_device, "not sending state because of old repl_state(%s)", bsr_repl_str(repl_state[OLD]));
 			}
 
 			if (peer_disk_state[NEW] < D_INCONSISTENT && get_ldev(device)) {
@@ -3638,7 +3654,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-1315 resync availability has been checked in finish_state_change(), abort resync here by changing replication state to L_ESTABLISHED.
 			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags)) {
-				bsr_info(152, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted due to change of state.\n");
+				bsr_info(152, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted due to change of state.");
 
 				if (repl_state[NOW] > L_ESTABLISHED) {
 					unsigned long irq_flags;
@@ -3690,7 +3706,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (device->ldev->md.effective_size != size) {
 				char ppb[10];
 
-				bsr_info(29, BSR_LC_STATE, device, "size = %s (%llu KB)\n", ppsize(ppb, sizeof(ppb), size >> 1),
+				bsr_info(29, BSR_LC_STATE, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 				     (unsigned long long)size >> 1);
 				device->ldev->md.effective_size = size;
 				bsr_md_mark_dirty(device);
@@ -3763,7 +3779,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			 * re-attach has to be serialized with this! */
 			if (device->disk_state[NOW] != D_DISKLESS)
 				bsr_err(30, BSR_LC_STATE, device,
-					"ASSERT FAILED: disk is %s while going diskless\n",
+					"ASSERT FAILED: disk is %s while going diskless",
 					bsr_disk_str(device->disk_state[NOW]));
 
 			/* we may need to cancel the md_sync timer */
@@ -3910,7 +3926,7 @@ static void complete_remote_state_change(struct bsr_resource *resource,
 
 			if (when_done_lock(resource, irq_flags)) {
 				bsr_info(33, BSR_LC_TWOPC, resource, "Two-phase commit: "
-					  "not woken up in time\n");
+					  "not woken up in time");
 				break;
 			}
 		}
@@ -4022,7 +4038,7 @@ bool cluster_wide_reply_ready(struct bsr_resource *resource)
 			continue;
 		if(test_bit(TWOPC_NO, &connection->flags) ||
 			test_bit(TWOPC_RETRY, &connection->flags)) {
-			bsr_debug(55, BSR_LC_TWOPC, connection, "Reply not ready yet\n");
+			bsr_debug(55, BSR_LC_TWOPC, connection, "Reply not ready yet");
 			ready = true;
 			break;
 		}
@@ -4382,14 +4398,14 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	request.mask = cpu_to_be32(context->mask.i);
 	request.val = cpu_to_be32(context->val.i);
 
-	bsr_info(34, BSR_LC_TWOPC, resource, "Preparing cluster-wide state change %u (%u->%d %u/%u)\n",
+	bsr_info(34, BSR_LC_TWOPC, resource, "Preparing cluster-wide state change %u (%u->%d %u/%u)",
 			be32_to_cpu(request.tid),
 		  	resource->res_opts.node_id,
 		  	context->target_node_id,
 		  	context->mask.i,
 		  	context->val.i);
 
-	bsr_info(35, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) \n",
+	bsr_info(35, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) conn(%s) repl(%s) disk(%s) pdsk(%s) role(%s) peer(%s) flags (%d) ",
 				be32_to_cpu(request.tid),
 				context->target_node_id,
 				context->mask.conn == conn_MASK ? bsr_conn_str(context->val.conn) : "-",
@@ -4435,7 +4451,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 								twopc_timeout(resource), t);
         if (t) {
 			rv = get_cluster_wide_reply(resource, context);
-			bsr_info(36, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) \n",
+			bsr_info(36, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) ",
 						reply->tid,
 						context->target_node_id, 
 						rv);
@@ -4460,7 +4476,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 					NODE_MASK(resource->res_opts.node_id);
 				reply->weak_nodes |= ~directly_reachable;
 			}
-			bsr_info(37, BSR_LC_TWOPC, resource, "State change %u: primary_nodes=%lX, weak_nodes=%lX\n",
+			bsr_info(37, BSR_LC_TWOPC, resource, "State change %u: primary_nodes=%lX, weak_nodes=%lX",
 				  reply->tid, (unsigned long)reply->primary_nodes,
 				  (unsigned long)reply->weak_nodes);
 			if (context->mask.role == role_MASK && context->val.role == R_PRIMARY)
@@ -4501,7 +4517,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 					int node_id = connection->peer_node_id;
 
 					if (node_id == context->target_node_id) {
-						bsr_info(38, BSR_LC_TWOPC, connection, "Cluster is now split\n");
+						bsr_info(38, BSR_LC_TWOPC, connection, "Cluster is now split");
 						break;
 					}
 				}
@@ -4516,7 +4532,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		&& (rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG))	// DW-1705 set C_DISCONNECT when the result value is SS_CONCURRENT_ST_CHG
 		 
 	{
-		bsr_warn(49, BSR_LC_TWOPC, resource, "twopc timeout, no more retry\n");
+		bsr_warn(49, BSR_LC_TWOPC, resource, "twopc timeout occurred, no more retries");
 		
 		if (target_connection) {
 			kref_debug_put(&target_connection->kref_debug, 8);
@@ -4556,14 +4572,14 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		set_bit(DISCONNECT_FLUSH, &target_connection->transport.flags);
 
 	if (rv >= SS_SUCCESS)
-		bsr_info(39, BSR_LC_TWOPC, resource, "Committing cluster-wide state change %u (%ums) (%u->%d)\n",
+		bsr_info(39, BSR_LC_TWOPC, resource, "Committing cluster-wide state change %u (%ums) (%u->%d)",
 			  be32_to_cpu(request.tid),
 			  jiffies_to_msecs(jiffies - start_time),
 			  resource->res_opts.node_id,
 			  context->target_node_id);
 
 	else
-		bsr_info(40, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) rv = %d (%u->%d)\n",
+		bsr_info(40, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) rv = %d (%u->%d)",
 			  be32_to_cpu(request.tid),
 			  jiffies_to_msecs(jiffies - start_time),
 			  rv,
@@ -4649,7 +4665,7 @@ retry:
 	state_change_unlock(resource, &irq_flags);
 
 	bsr_info(41, BSR_LC_TWOPC, resource, "Preparing cluster-wide state change %u "
-		"(local_max_size = %llu KB, user_cap = %llu KB)\n",
+		"(local_max_size = %llu KB, user_cap = %llu KB)",
 		be32_to_cpu(request.tid),
 		(unsigned long long)local_max_size >> 1,
 		(unsigned long long)new_user_size >> 1);
@@ -4671,7 +4687,7 @@ retry:
 		if (rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG) {
 			long timeout = twopc_retry_timeout(resource, retries++);
 
-			bsr_info(42, BSR_LC_TWOPC, resource, "Retrying cluster-wide state change after %ums\n",
+			bsr_info(42, BSR_LC_TWOPC, resource, "Retrying cluster-wide state change after %ums",
 				jiffies_to_msecs(timeout));
 
 			twopc_phase2(resource, device->vnr, 0, &request, reach_immediately);
@@ -4689,19 +4705,19 @@ retry:
 		if (commit_it) {
 			request.exposed_size = cpu_to_be64(new_size);
 			request.diskful_primary_nodes = cpu_to_be64(reply->diskful_primary_nodes);
-			bsr_info(43, BSR_LC_TWOPC, resource, "Committing cluster-wide state change %u (%ums)\n",
+			bsr_info(43, BSR_LC_TWOPC, resource, "Committing cluster-wide state change %u (%ums)",
 				be32_to_cpu(request.tid),
 				jiffies_to_msecs(jiffies - start_time));
 		}
 		else {
-			bsr_info(44, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) size unchanged\n",
+			bsr_info(44, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) size unchanged",
 				be32_to_cpu(request.tid),
 				jiffies_to_msecs(jiffies - start_time));
 		}
 	}
 	else {
 		commit_it = false;
-		bsr_info(45, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) rv = %d\n",
+		bsr_info(45, BSR_LC_TWOPC, resource, "Aborting cluster-wide state change %u (%ums) rv = %d",
 			be32_to_cpu(request.tid),
 			jiffies_to_msecs(jiffies - start_time),
 			rv);
@@ -4757,7 +4773,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	//spin_unlock_irq(&resource->req_lock);
 
 	if (!twopc_reply.tid){
-		bsr_info(46, BSR_LC_TWOPC, resource, "!twopc_reply.tid = %u result: %s\n", twopc_reply.tid, bsr_packet_name(cmd));
+		bsr_info(46, BSR_LC_TWOPC, resource, "!twopc_reply.tid = %u result: %s", twopc_reply.tid, bsr_packet_name(cmd));
 		// DW-1414
 		spin_unlock_irq(&resource->req_lock);
 
@@ -4768,7 +4784,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	// get connection count from twopc_parent_list.
 	list_for_each_entry_safe_ex(struct bsr_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
 		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next) {
-			bsr_err(47, BSR_LC_TWOPC, resource, "Connection connected to twopc not found\n");
+			bsr_err(47, BSR_LC_TWOPC, resource, "Connection connected to twopc not found");
 			// DW-1480
 			list_del(&twopc_parent->twopc_parent_list);
 			spin_unlock_irq(&resource->req_lock);
@@ -4788,7 +4804,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8DW');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to allocate memory for connections\n");
+		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to allocate memory for connections");
 		return;
 	}
 
@@ -4801,7 +4817,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	// release req_lock.
 	spin_unlock_irq(&resource->req_lock);
 
-    bsr_debug(56, BSR_LC_TWOPC, resource, "Nested state change %u result: %s\n", twopc_reply.tid, bsr_packet_name(cmd));
+    bsr_debug(56, BSR_LC_TWOPC, resource, "Nested state change %u result: %s", twopc_reply.tid, bsr_packet_name(cmd));
 
 	for (i = 0; i < connectionCount; i++) {
 		twopc_parent = connections[i];	
@@ -5002,7 +5018,7 @@ void __change_disk_state(struct bsr_device *device, enum bsr_disk_state disk_sta
 {
 	device->disk_state[NEW] = disk_state;
 	if (caller != NULL && device->disk_state[NEW] != device->disk_state[NOW]) {
-		bsr_debug(48, BSR_LC_STATE, device, "%s, disk_state : %s\n", caller, bsr_disk_str(device->disk_state[NEW]));
+		bsr_debug(48, BSR_LC_STATE, device, "%s, disk_state : %s", caller, bsr_disk_str(device->disk_state[NEW]));
 	}
 }
 
@@ -5357,7 +5373,7 @@ void __change_peer_role(struct bsr_connection *connection, enum bsr_role peer_ro
 {
 	connection->peer_role[NEW] = peer_role;
 	if (caller != NULL && connection->peer_role[NEW] != connection->peer_role[NOW]) {
-		bsr_debug(49, BSR_LC_STATE, connection, "%s, peer_role : %s\n", caller, bsr_role_str(connection->peer_role[NEW]));
+		bsr_debug(49, BSR_LC_STATE, connection, "%s, peer_role : %s", caller, bsr_role_str(connection->peer_role[NEW]));
 	}
 }
 
@@ -5365,7 +5381,7 @@ void __change_cstate_state(struct bsr_connection *connection, enum bsr_conn_stat
 {
 	connection->cstate[NEW] = cstate;
 	if (caller != NULL && connection->cstate[NEW] != connection->cstate[NOW]) {
-		bsr_debug(50, BSR_LC_STATE, connection, "%s, cstate : %s\n", caller, bsr_conn_str(connection->cstate[NEW]));
+		bsr_debug(50, BSR_LC_STATE, connection, "%s, cstate : %s", caller, bsr_conn_str(connection->cstate[NEW]));
 	}
 }
 
@@ -5373,7 +5389,7 @@ void __change_repl_state(struct bsr_peer_device *peer_device, enum bsr_repl_stat
 {
 	peer_device->repl_state[NEW] = repl_state;
 	if (caller != NULL && peer_device->repl_state[NEW] != peer_device->repl_state[NOW]) {
-		bsr_debug(51, BSR_LC_STATE, peer_device, "%s, repl_state : %s\n", caller, bsr_repl_str(peer_device->repl_state[NEW]));
+		bsr_debug(51, BSR_LC_STATE, peer_device, "%s, repl_state : %s", caller, bsr_repl_str(peer_device->repl_state[NEW]));
 	}
 }
 
@@ -5442,7 +5458,7 @@ void __change_peer_disk_state(struct bsr_peer_device *peer_device, enum bsr_disk
 {
 	peer_device->disk_state[NEW] = disk_state;
 	if (caller != NULL && peer_device->disk_state[NEW] != peer_device->disk_state[NOW]) {
-		bsr_debug(52, BSR_LC_STATE, peer_device, "%s, disk_state : %s\n", caller, bsr_disk_str(peer_device->disk_state[NEW]));
+		bsr_debug(52, BSR_LC_STATE, peer_device, "%s, disk_state : %s", caller, bsr_disk_str(peer_device->disk_state[NEW]));
 	}
 }
 
@@ -5475,7 +5491,7 @@ void __change_resync_susp_user(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_user[NEW] = value;
 	if (peer_device->resync_susp_user[NOW] != peer_device->resync_susp_user[NEW] && caller != NULL) {
-		bsr_debug(53, BSR_LC_STATE, peer_device, "%s, resync_susp_user : %s\n", caller, peer_device->resync_susp_user[NEW] ? "true" : "false");
+		bsr_debug(53, BSR_LC_STATE, peer_device, "%s, resync_susp_user : %s", caller, peer_device->resync_susp_user[NEW] ? "true" : "false");
 	}
 }
 
@@ -5497,7 +5513,7 @@ void __change_resync_susp_peer(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_peer[NEW] = value;
 	if (peer_device->resync_susp_peer[NOW] != peer_device->resync_susp_peer[NEW] && caller != NULL) {
-		bsr_debug(54, BSR_LC_STATE, peer_device, "%s, resync_susp_peer : %s\n", caller, peer_device->resync_susp_peer[NEW] ? "true" : "false");
+		bsr_debug(54, BSR_LC_STATE, peer_device, "%s, resync_susp_peer : %s", caller, peer_device->resync_susp_peer[NEW] ? "true" : "false");
 	}
 }
 
@@ -5506,7 +5522,7 @@ void __change_resync_susp_dependency(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_dependency[NEW] = value;
 	if (peer_device->resync_susp_dependency[NOW] != peer_device->resync_susp_dependency[NEW] && caller != NULL) {
-		bsr_debug(55, BSR_LC_STATE, peer_device, "%s, resync_susp_dependency : %s\n", caller, peer_device->resync_susp_dependency[NEW] ? "true" : "false");
+		bsr_debug(55, BSR_LC_STATE, peer_device, "%s, resync_susp_dependency : %s", caller, peer_device->resync_susp_dependency[NEW] ? "true" : "false");
 	}
 }
 
@@ -5515,6 +5531,6 @@ void __change_resync_susp_other_c(struct bsr_peer_device *peer_device,
 {
 	peer_device->resync_susp_other_c[NEW] = value;
 	if (peer_device->resync_susp_other_c[NOW] != peer_device->resync_susp_other_c[NEW] && caller != NULL) {
-		bsr_debug(56, BSR_LC_STATE, peer_device, "%s, resync_susp_other_c : %s\n", caller, peer_device->resync_susp_other_c[NEW] ? "true" : "false");
+		bsr_debug(56, BSR_LC_STATE, peer_device, "%s, resync_susp_other_c : %s", caller, peer_device->resync_susp_other_c[NEW] ? "true" : "false");
 	}
 }

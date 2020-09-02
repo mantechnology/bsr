@@ -752,9 +752,9 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	return offset;
 }
 
-void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, const char* fmt, ...)
+void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, bool line_break, const char* fmt, ...)
 {
-	char b[512];
+	char b[514];
 	long offset = 0;
 	va_list args;
 
@@ -768,6 +768,8 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 		return;
 	}
 
+	memset(b, 0, sizeof(b));
+
 	if (!write_continued)
 		offset = bsr_log_format(b, func, line, level);
 
@@ -776,13 +778,21 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	va_end(args);
 
 	fprintf(fp, "%s", b);
+	// BSR-671
+	if (line_break) {
+#ifdef _WIN
+		fprintf(fp, "\r\n", b);
+#else
+		fprintf(fp, "\n", b);
+#endif
+	}
 
 	fclose(fp);
 }
 
 void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args)
 {
-	char b[512];
+	char b[514];
 	long offset = 0;
 
 	FILE *fp = bsr_open_log();
@@ -791,25 +801,34 @@ void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const 
 		return;
 	}
 
-	offset = bsr_log_format(b, func, line, level);
-	
-	vsnprintf(b + offset, 512 - offset, fmt, args);
-	
-	fprintf(fp, "%s", b);
+	memset(b, 0, sizeof(b));
 
+	offset = bsr_log_format(b, func, line, level);
+
+	vsnprintf(b + offset, 512 - offset, fmt, args);
+
+	// BSR-671
+#ifdef _WIN
+	fprintf(fp, "%s\r\n", b);
+#else
+	fprintf(fp, "%s\n", b);
+#endif
 	fclose(fp);
 }
 
 void bsr_exec_log(int argc, char** argv)
 {
 	int i = 0;
+	char b[512];
+	int offset = 0;
 
-	CLI_INFO_LOG(false, "exec,");
+	memset(b, 0, sizeof(b));
+
 	for (i = 0; i < argc; i++)
-		CLI_INFO_LOG(true, " %s", argv[i]);
-	CLI_INFO_LOG(true, "\n");
+		offset += snprintf(b + offset, 512 - offset, " %s", argv[i]);
+	CLI_INFO_LOG(false, "execution command,%s", b);
 }
 void bsr_terminate_log(int rv)
 {
-	CLI_INFO_LOG(false, "terminate, rv(%d)\n", rv);
+	CLI_INFO_LOG(false, "terminate, rv(%d)", rv);
 }

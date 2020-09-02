@@ -131,10 +131,10 @@ void _printk(const char * func, const char * level, int category, const char * f
 					if (atomic_read64(&gLogBuf.missing_count)) {
 #ifdef _WIN
 						RtlZeroMemory(missingLog, MAX_BSRLOG_BUF);
-						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #else
 						memset(missingLog, 0, MAX_BSRLOG_BUF);
-						snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu\n", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+						snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #endif
 						level_index = KERN_WARNING_NUM;
 						atomic_set64(&gLogBuf.missing_count, 0);
@@ -255,17 +255,23 @@ void _printk(const char * func, const char * level, int category, const char * f
 #ifdef _WIN
 			// BSR-583
 			ret = _vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, format, args); // BSR_DOC: improve vsnprintf 
+			// BSR-671 Apply line break according to the operating system
+			if ((length + 2) <= MAX_BSRLOG_BUF)
+				memcpy(logbuf + strlen(logbuf), "\r\n", sizeof("\r\n"));
 #else // _LIN
 			ret = vsnprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET, format, args);
+			// BSR-671 Apply line break according to the operating system
+			if ((length + 1) <= MAX_BSRLOG_BUF)
+				memcpy(logbuf + strlen(logbuf), "\n", sizeof("\n"));
 #endif
 			va_end(args);
 		}
 		else {
 			// BSR-583 missing log count output
 #ifdef _WIN
-			_snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+			_snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s\r\n", missingLog);
 #else // _LIN
-			snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s", missingLog);
+			snprintf(logbuf + offset + LEVEL_OFFSET, MAX_BSRLOG_BUF - offset - LEVEL_OFFSET - 1, "%s\n", missingLog);
 #endif
 		}
 
@@ -352,13 +358,13 @@ static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
 	if (NULL == frames ||
 		0 == usFrameCount)
 	{
-		bsr_err(80, BSR_LC_ETC, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)\n", frames, usFrameCount);
+		bsr_err(80, BSR_LC_ETC, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)", frames, usFrameCount);
 		return 0;
 	}
 #ifdef _WIN
 	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
 	if (0 == usCaptured) {
-		bsr_err(81, BSR_LC_ETC, NO_OBJECT, "Captured frame count is 0\n");
+		bsr_err(81, BSR_LC_ETC, NO_OBJECT, "Captured frame count is 0");
 		return 0;
 	}
 #else // _LIN
@@ -395,7 +401,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 #endif
 
 	if (NULL == stackFrames) {
-		bsr_err(82, BSR_LC_ETC, NO_OBJECT,"Failed to allcate pool for stackFrames\n");
+		bsr_err(82, BSR_LC_ETC, NO_OBJECT,"Failed to allcate pool for stackFrames");
 		return;
 	}
 
