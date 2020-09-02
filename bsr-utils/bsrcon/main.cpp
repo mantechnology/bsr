@@ -73,10 +73,10 @@ void usage()
 	printf("\n");
 
 	// BSR-654
-	printf("   /debuglog_filter [category]\n");
-	printf("\t debug log category info,");
+	printf("   /debuglog_enable_category [category]\n");
+	printf("\t debug enable category info,");
 	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
-		printf(" %s(%d)", g_debug_log_filter_str[i], 1 << i);
+		printf(" %s(%d)", g_log_category_str[i], 1 << i);
 	}
 	printf("\n");
 		
@@ -104,7 +104,7 @@ void usage()
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /maxlogfile_cnt 5\n"
 		"bsrcon /climaxlogfile_cnt adm 2\n"
-		"bsrcon /debuglog_filter 11\n"
+		"bsrcon /debuglog_enable_category 11\n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -411,9 +411,9 @@ int main(int argc, char* argv [])
 	char	SetMinLogLv = 0;
 	char	SetCliLogFileMaxCount = 0;
 	char	SetLogFileMaxCount = 0;
-	char	SetDebugLogFilter = 0;
+	char	SetDebugLogCategoryEnable = 0;
 	LOGGING_MIN_LV lml = { 0, };
-	DEBUG_LOG_FILTER dlf = { 0, };
+	DEBUG_LOG_ENABLE_CATEGORY dlcE = { 0, };
 	CLI_LOG_MAX_COUNT lmc = { 0, };
 	int		LogFileCount = 0;
 	char	HandlerUseFlag = 0;
@@ -576,12 +576,12 @@ int main(int argc, char* argv [])
 				usage();
 		}
 		// BSR-654
-		else if (strcmp(argv[argIndex], "/debuglog_filter") == 0)
+		else if (strcmp(argv[argIndex], "/debuglog_enable_category") == 0)
 		{
-			SetDebugLogFilter++;
+			SetDebugLogCategoryEnable++;
 			argIndex++; 
 			if (argIndex < argc) {
-				dlf.nFilter = atoi(argv[argIndex]);
+				dlcE.nFilter = atoi(argv[argIndex]);
 			}
 			else
 				usage(); 
@@ -764,9 +764,9 @@ int main(int argc, char* argv [])
 	}
 
 	// BSR-654
-	if (SetDebugLogFilter)
+	if (SetDebugLogCategoryEnable)
 	{
-		res = MVOL_SetDebugLogFilter(&dlf);
+		res = MVOL_SetDebugLogCategoryEnable(&dlcE);
 	}
 
 	// DW-1921

@@ -476,7 +476,7 @@ extern atomic_t g_dbglog_lv_min;
 extern atomic_t g_log_file_max_count;
 
 // DW-1961
-extern atomic_t g_debug_category_filter;
+extern atomic_t g_debug_category_enable;
 
 // BSR-648
 enum BSR_LOG_CATEGORY
@@ -529,8 +529,8 @@ static const char * const __log_category_names[] = {
 	[BSR_LC_SOCKET] = "SOCKET",
 	[BSR_LC_DRIVER] = "DRIVER",
 	[BSR_LC_NETLINK] = "NETLINK",
-	[BSR_LC_GENL] = "CLI_GENL",
-	[BSR_LC_PROTOCOL] = "BLC_PROTOCOL",
+	[BSR_LC_GENL] = "CLI GENL",
+	[BSR_LC_PROTOCOL] = "PROTOCOL",
 	[BSR_LC_MEMORY] = "MEMORY",
 	[BSR_LC_LOG] = "LOG",
 	[BSR_LC_LATENCY] = "LATENCY",

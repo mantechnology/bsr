@@ -368,29 +368,29 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 // BSR-649
 NTSTATUS
-IOCTL_SetDebugLogFilter(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+IOCTL_SetDebugLogCategoryEnable(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG			inlen;
-	PDEBUG_LOG_FILTER pDebugLogFilter = NULL;
+	PDEBUG_LOG_ENABLE_CATEGORY pDebugLogEnableCategory = NULL;
 	NTSTATUS	Status;
 
 	int previous_filter = 0;
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 
-	if (inlen < sizeof(DEBUG_LOG_FILTER)) {
+	if (inlen < sizeof(DEBUG_LOG_ENABLE_CATEGORY)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
 		bsr_err(120, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
-		pDebugLogFilter = (PDEBUG_LOG_FILTER)Irp->AssociatedIrp.SystemBuffer;
-		previous_filter = atomic_read(&g_debug_category_filter);
-		atomic_set(&g_debug_category_filter, pDebugLogFilter->nFilter);
+		pDebugLogEnableCategory = (PDEBUG_LOG_ENABLE_CATEGORY)Irp->AssociatedIrp.SystemBuffer;
+		previous_filter = atomic_read(&g_debug_category_enable);
+		atomic_set(&g_debug_category_enable, pDebugLogEnableCategory->nFilter);
 
-		Status = SaveCurrentValue(DEBUG_LOG_FILETER_REG_VALUE_NAME, pDebugLogFilter->nFilter);
+		Status = SaveCurrentValue(DEBUG_LOG_ENABLE_CATEGORY_REG_VALUE_NAME, pDebugLogEnableCategory->nFilter);
 
-		bsr_info(121, BSR_LC_DRIVER, NO_OBJECT, "The debug log filter has been updated, %u => %u, status(%x)", previous_filter, atomic_read(&g_debug_category_filter), Status);
+		bsr_info(121, BSR_LC_DRIVER, NO_OBJECT, "The debug log filter has been updated, %u => %u, status(%x)", previous_filter, atomic_read(&g_debug_category_enable), Status);
 		if (Status != STATUS_SUCCESS) {
 			return STATUS_UNSUCCESSFUL;
 		}

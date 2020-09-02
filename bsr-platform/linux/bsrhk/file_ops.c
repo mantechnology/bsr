@@ -29,10 +29,6 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 		previous_lv_min = atomic_read(&g_dbglog_lv_min);
 		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
 	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) {
-		previous_lv_min = atomic_read(&g_featurelog_flag);
-		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
-	}
 	else {
 		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)\n", loggingMinLv.nType);
 	}
@@ -40,10 +36,9 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	// DW-2008
 	bsr_info(125, BSR_LC_DRIVER, NO_OBJECT, "set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n",
 				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
-				// DW-2041
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
-				);
+				g_default_lv_str[previous_lv_min], previous_lv_min, 
+				g_default_lv_str[loggingMinLv.nErrLvMin], loggingMinLv.nErrLvMin);
+
 	return Get_log_lv();
 }
 

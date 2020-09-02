@@ -935,9 +935,9 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		// BSR-649
-		case IOCTL_MVOL_SET_DEBUG_LOG_FILTER:
+		case IOCTL_MVOL_SET_DEBUG_LOG_ENABLE_CATEGORY:
 		{
-			status = IOCTL_SetDebugLogFilter(DeviceObject, Irp); // Set debug log filter
+			status = IOCTL_SetDebugLogCategoryEnable(DeviceObject, Irp); // Set debug log filter
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		case IOCTL_MVOL_GET_BSR_LOG:

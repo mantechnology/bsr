@@ -249,7 +249,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	connection = peer_device->connection;
 
 	// DW-1961
-	if (atomic_read(&g_debug_category_filter) & (1 << BSR_LC_LATENCY)) {
+	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY)) {
 		bsr_debug(5, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
@@ -354,7 +354,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	connection = peer_device->connection;
 
 	// DW-1961
-	if (atomic_read(&g_debug_category_filter) & (1 << BSR_LC_LATENCY)) {
+	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY)) {
 		bsr_debug(6, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
 			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
@@ -524,7 +524,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_START;
 	
 	// DW-1961 Save timestamp for IO latency measuremen
-	if (atomic_read(&g_debug_category_filter) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
 		peer_req->io_complete_ts = timestamp();
 
 #ifdef _WIN
@@ -657,7 +657,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 
 	// DW-1961 Calculate and Log IO Latency
-	if (atomic_read(&g_debug_category_filter) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
 		req->io_complete_ts = timestamp();
 
 	/* If this request was aborted locally before,

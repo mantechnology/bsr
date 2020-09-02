@@ -1412,7 +1412,7 @@ BOOLEAN ExistsTargetString(char* target, char *msg)
 }
 
 // BSR-654
-DWORD MVOL_SetDebugLogFilter(PDEBUG_LOG_FILTER pDlf)
+DWORD MVOL_SetDebugLogCategoryEnable(PDEBUG_LOG_ENABLE_CATEGORY pDlcE)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
@@ -1421,7 +1421,7 @@ DWORD MVOL_SetDebugLogFilter(PDEBUG_LOG_FILTER pDlf)
 #else // _LIN
 	int fd;
 	FILE *fp;
-	long filter_category = 0;
+	long enable_category = 0;
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
@@ -1430,25 +1430,25 @@ DWORD MVOL_SetDebugLogFilter(PDEBUG_LOG_FILTER pDlf)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed open bsr. Err=%u\n",
+		fprintf(stderr, "DEBUG_ENABLE_CATEGORY_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
 #else // _LIN
 	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
-		fprintf(stderr, "DEBUG_FILTER_ERROR: Can not open /dev/bsr-control\n");
+		fprintf(stderr, "DEBUG_ENABLE_CATEGORY_ERROR: Can not open /dev/bsr-control\n");
 		return -1;
 	}
 #endif
 
 	// 2. DeviceIoControl with LOGGING_MIN_LV parameter (DW-858)
 #ifdef _WIN
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_DEBUG_LOG_FILTER, pDlf, sizeof(DEBUG_LOG_FILTER), NULL, 0, &dwReturned, NULL) == FALSE) {
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_DEBUG_LOG_ENABLE_CATEGORY, pDlcE, sizeof(DEBUG_LOG_ENABLE_CATEGORY), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
-	if ((filter_category = ioctl(fd, IOCTL_MVOL_SET_DEBUG_LOG_FILTER, pDlf)) < 0) {
+	if ((enable_category = ioctl(fd, IOCTL_MVOL_SET_DEBUG_LOG_ENABLE_CATEGORY, pDlcE)) < 0) {
 #endif
 		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
+		fprintf(stderr, "DEBUG_ENABLE_CATEGORY_ERROR: %s: Failed IOCTL_MVOL_SET_LOGLV_MIN. Err=%u\n",
 			__FUNCTION__, retVal);
 	}
 
@@ -1461,16 +1461,16 @@ DWORD MVOL_SetDebugLogFilter(PDEBUG_LOG_FILTER pDlf)
 	if (fd)
 		close(fd);
 
-	// write /etc/bsr.d/.debug_log_filter
-	fp = fopen(BSR_DEBUG_LOG_FILTER_REG, "w");
+	// write /etc/bsr.d/.debuglog_enable_category
+	fp = fopen(BSR_DEBUG_LOG_ENABLE_CATEGORY_REG, "w");
 	if (fp != NULL) {
-		fprintf(fp, "%lu", filter_category);
+		fprintf(fp, "%lu", enable_category);
 		fclose(fp);
 	}
 	else {
 		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_FILTER_ERROR: %s: Failed open %s file. Err=%u\n",
-			__FUNCTION__, BSR_DEBUG_LOG_FILTER_REG, retVal);
+		fprintf(stderr, "DEBUG_ENABLE_CATEGORY_ERROR: %s: Failed open %s file. Err=%u\n",
+			__FUNCTION__, BSR_DEBUG_LOG_ENABLE_CATEGORY_REG, retVal);
 	}
 #endif
 	return retVal;
