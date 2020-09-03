@@ -170,7 +170,15 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 		} else if (ha->by_address) {
 			host_info = find_host_info_by_address(res, &ha->address);
 			/* The name will be used for nice comments only ... */
-			ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+			// BSR-479
+			if (!host_info) {
+				err("%s:%d: in resource %s a hostname is given\n"
+					"with a \"address\" keyword, and no matching host section\n",
+					res->config_file, ha->config_line, res->name, ha->name);
+				exit(E_CONFIG_INVALID);
+			} else {
+				ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+			}
 		} else {
 			host_info = find_host_info_by_name(res, ha->name);
 		}
@@ -180,15 +188,15 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 			else
 				continue; /* Old bsrsetup does not houtput a host section */
 		}
-
+		
 		if (!host_info) {
 			err("%s:%d: in resource %s a hostname (\"%s\") is given\n"
 			    "with a \"host\" keyword, has no \"address\" keyword, and no matching\n"
 			    "host section (\"on\" keyword)\n",
-			    config_file, ha->config_line, res->name, ha->name);
+			    res->config_file, ha->config_line, res->name, ha->name);
 			config_valid = 0;
 			/* Can't continue. */
-			return;
+			exit(E_CONFIG_INVALID);
 		}
 		ha->host_info = host_info;
 		if (!(ha->address.addr && ha->address.af && ha->address.port)) {
