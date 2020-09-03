@@ -191,7 +191,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	device->md_io.done = 0;
 	device->md_io.error = -ENODEV;
 #ifdef _WIN 
-	bio = bio_alloc_bsr(GFP_NOIO, '30DW');
+	bio = bio_alloc_bsr(GFP_NOIO, '30SB');
 #else	// _LIN
 	bio = bio_alloc_bsr(GFP_NOIO);
 #endif
@@ -1143,7 +1143,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				// DW-1873 change P_PEERS_IN_SYNC send conditions
 				is_sync_source(peer_device)) { //peer_device->repl_state[NOW] == L_SYNC_SOURCE){	
 				struct update_peers_work *upw;
-				upw = kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN, '40DW');
+				upw = kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN, '40SB');
 
 				if (upw) {
 					upw->enr = ext->lce.lc_number;

@@ -381,7 +381,7 @@ IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(DEBUG_LOG_CATEGORY)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(120, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(133, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -402,7 +402,7 @@ IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		atomic_set(&g_debug_output_category, categories);
 		Status = SaveCurrentValue(DEBUG_LOG_CATEGORY_REG_VALUE_NAME, categories);
 
-		bsr_info(121, BSR_LC_DRIVER, NO_OBJECT, "The debug log output has been updated, %u => %u, status(%x)", previous, atomic_read(&g_debug_output_category), Status);
+		bsr_info(134, BSR_LC_DRIVER, NO_OBJECT, "The debug log output has been updated, %u => %u, status(%x)", previous, atomic_read(&g_debug_output_category), Status);
 		if (Status != STATUS_SUCCESS) {
 			return STATUS_UNSUCCESSFUL;
 		}

@@ -76,7 +76,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 	memset(req, 0, sizeof(*req));
 #ifdef _WIN
-	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63DW');
+	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63SB');
 	if (!req->req_databuf) {
 		mempool_free(req, &bsr_request_mempool);
 		return NULL;
@@ -329,7 +329,7 @@ void bsr_req_destroy(struct kref *kref)
 
 						bsr_info(10, BSR_LC_REQUEST, peer_device, "found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))", (unsigned long long)req->i.sector, req->i.size);
 
-						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSDW');
+						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
 						if (send_oos) {
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
 							send_oos->sector = req->i.sector;

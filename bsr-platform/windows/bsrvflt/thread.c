@@ -218,7 +218,7 @@ mvolWorkThread(PVOID arg)
 #ifdef _WIN_MULTIVOL_THREAD
 VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
-    PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76DW');
+    PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76SB');
 
     if(!wr) {
 		bsr_err(23, BSR_LC_THREAD, NO_OBJECT, "Failed to allocate memory for work wrapper.");

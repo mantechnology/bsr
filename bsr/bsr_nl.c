@@ -630,21 +630,21 @@ static char **make_envp(struct env *env)
 
 /* Macro refers to local variables peer_device, device and connection! */
 #ifdef _WIN
-#define magic_printk(level, fmt, args, ...)				\
+#define magic_printk(index, category, level, fmt, ...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(category, level, peer_device, fmt, __VA_ARGS__); \
 	else if (device)						\
-		__bsr_printk_device(level, device, fmt, args);		\
+		__bsr_printk_device(category, level, device, fmt, __VA_ARGS__);		\
 	else								\
-		__bsr_printk_connection(level, connection, fmt, args);
+		__bsr_printk_connection(category, level, connection, fmt, __VA_ARGS__);
 #else // _LIN
-#define magic_printk(level, fmt, args...)				\
+#define magic_printk(index, category, level, fmt, args...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(BSR_LC_ETC, level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(category, level, peer_device, fmt, args); \
 	else if (device)						\
-		__bsr_printk_device(BSR_LC_ETC, level, device, fmt, args);		\
+		__bsr_printk_device(category, level, device, fmt, args);		\
 	else								\
-		__bsr_printk_connection(BSR_LC_ETC, level, connection, fmt, args);
+		__bsr_printk_connection(category, level, connection, fmt, args);
 #endif
 
 int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)
@@ -662,7 +662,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 
     enlarge_buffer:
 #ifdef _WIN
-	env.buffer = (char *)kmalloc(env.size, 0, '77DW');
+	env.buffer = (char *)kmalloc(env.size, 0, '77SB');
 #else // _LIN
 	env.buffer = (char *)__get_free_pages(GFP_NOIO, get_order(env.size));
 #endif
@@ -764,16 +764,24 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	if (connection && device)
 		peer_device = conn_peer_device(connection, device->vnr);
 
-#ifdef _LIN
-	magic_printk(KERN_INFO, "helper command: %s %s\n", usermode_helper, cmd);
+#ifdef _WIN
+	magic_printk(83, BSR_LC_ETC, KERN_INFO_NUM, "helper command: %s %s", usermode_helper, cmd);
+#elif _LIN
+	magic_printk(84, BSR_LC_ETC, KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
 #endif
+
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
 
 	ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
 
-#ifdef _LIN
-	magic_printk(ret ? KERN_WARNING : KERN_INFO,
-		     "helper command: %s %s exit code %u (0x%x)\n",
+#ifdef _WIN
+	magic_printk(85, BSR_LC_ETC, ret ? KERN_WARNING_NUM : KERN_INFO_NUM,
+			"helper command: %s %s exit code %u (0x%x)",
+			usermode_helper, cmd,
+			ret & 0xff, ret);
+#elif _LIN
+	magic_printk(86, BSR_LC_ETC, ret ? KERN_WARNING : KERN_INFO,
+		     "helper command: %s %s exit code %u (0x%x)",
 		     usermode_helper, cmd,
 		     (ret >> 8) & 0xff, ret);
 #endif
@@ -2486,7 +2494,7 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		goto out;
 	}
 
-	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51DW');
+	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51SB');
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
 		goto fail;
@@ -2824,7 +2832,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&resource->adm_mutex);
 
 	/* allocation not in the IO path, bsrsetup context */
-	nbc = kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61DW');
+	nbc = kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61SB');
 
 	if (!nbc) {
 		retcode = ERR_NOMEM;
@@ -2832,7 +2840,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 	spin_lock_init(&nbc->md.uuid_lock);
 
-	new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71DW');
+	new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71SB');
 
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
@@ -3538,7 +3546,7 @@ alloc_shash(struct crypto_shash **tfm, char *tfm_name, int err_alg)
 	if (!tfm_name[0])
 		return NO_ERROR;
 #ifdef _WIN
-	*tfm = crypto_alloc_hash(tfm_name, 0, 0, '41DW');
+	*tfm = crypto_alloc_hash(tfm_name, 0, 0, '11SB');
 #else // _LIN
 	*tfm = crypto_alloc_shash(tfm_name, 0, 0);
 #endif
@@ -3557,7 +3565,7 @@ alloc_ahash(struct crypto_ahash **tfm, char *tfm_name, int err_alg)
 	if (!tfm_name[0])
 		return NO_ERROR;
 #ifdef _WIN
-	*tfm = crypto_alloc_hash(tfm_name, 0, CRYPTO_ALG_ASYNC, '41DW');
+	*tfm = crypto_alloc_hash(tfm_name, 0, CRYPTO_ALG_ASYNC, '41SB');
 #else // _LIN
 	*tfm = crypto_alloc_ahash(tfm_name, 0, CRYPTO_ALG_ASYNC);
 #endif
@@ -3629,7 +3637,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	connection = adm_ctx.connection;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	
-	new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1DW');
+	new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1SB');
 	if (!new_net_conf) {
 		retcode = ERR_NOMEM;
 		goto out;
@@ -3769,7 +3777,7 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 			     lockdep_is_held(&peer_device->connection->resource->conf_update));
 	if (!old_plan || (unsigned int)fifo_size != old_plan->size) {
 #ifdef _WIN
-		new_plan = fifo_alloc(fifo_size, '81DW');
+		new_plan = fifo_alloc(fifo_size, '81SB');
 #else // _LIN
 		new_plan = fifo_alloc(fifo_size);
 #endif
@@ -3805,7 +3813,7 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	mutex_lock(&adm_ctx.resource->conf_update);
 
-	new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91DW');
+	new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91SB');
 	if (!new_peer_device_conf)
 		goto fail;
 
@@ -3863,7 +3871,7 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	struct peer_device_conf *conf;
 	int err;
 
-	conf = kzalloc(sizeof(*conf), GFP_KERNEL, 'B1DW');
+	conf = kzalloc(sizeof(*conf), GFP_KERNEL, 'B1SB');
 	if (!conf)
 		return -ENOMEM;
 
@@ -3941,7 +3949,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	}
 
 	/* allocation not in the IO path, bsrsetup / netlink process context */
-	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1DW');
+	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1SB');
 	if (!new_net_conf)
 		return ERR_NOMEM;
 
@@ -4180,7 +4188,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	if (retcode != NO_ERROR)
 		return retcode;
 
-	path = kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57DW');
+	path = kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57SB');
 	if (!path)
 		return ERR_NOMEM;
 
@@ -4629,7 +4637,7 @@ sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local)
 	struct bsr_backing_dev *tmp_bdev;
 	sector_t s;
 
-	tmp_bdev = kmalloc(sizeof(struct bsr_backing_dev), GFP_ATOMIC, '97DW');
+	tmp_bdev = kmalloc(sizeof(struct bsr_backing_dev), GFP_ATOMIC, '97SB');
 	if (!tmp_bdev)
 		return 0;
 

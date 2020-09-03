@@ -526,8 +526,8 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_THREAD_MAX_INDEX 34
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 33
 #define BSR_LC_STATE_MAX_INDEX 56
-#define BSR_LC_SOCKET_MAX_INDEX 105
-#define BSR_LC_DRIVER_MAX_INDEX 121
+#define BSR_LC_SOCKET_MAX_INDEX 106
+#define BSR_LC_DRIVER_MAX_INDEX 134
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 89
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
@@ -536,7 +536,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 82
+#define BSR_LC_ETC_MAX_INDEX 86
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -2762,7 +2762,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 {
 	if (peer_device->ov_last_oos_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19DW');
+		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19SB');
 		if(ov_oos) {
 			INIT_LIST_HEAD(&ov_oos->list);
 			ov_oos->ov_oos_start = peer_device->ov_last_oos_start;
@@ -2802,7 +2802,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 {
     if (peer_device->ov_last_skipped_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29DW');
+		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29SB');
 		if(ov_skipped) {
 			INIT_LIST_HEAD(&ov_skipped->list);
 			ov_skipped->ov_skipped_start = peer_device->ov_last_skipped_start;
@@ -3479,9 +3479,9 @@ static inline void
 bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, unsigned char io_type, long error_code, sector_t sector, unsigned int size, bool is_cleared)
 {
 	struct bsr_io_error_work *w;
-	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
 	if (w) {
-		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2DW');
+		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2SB');
 		if (w->io_error) {
 			w->device = device;
 			w->w.cb = w_notify_io_error;
