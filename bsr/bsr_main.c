@@ -207,7 +207,7 @@ int g_handler_use = 0;
 #endif
 
 // BSR-654
-atomic_t g_debug_category_enable = ATOMIC_INIT(0);
+atomic_t g_debug_output_category = ATOMIC_INIT(0);
 
 #ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);

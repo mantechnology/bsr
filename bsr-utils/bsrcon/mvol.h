@@ -78,7 +78,7 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit);
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 
 // BSR-654
-DWORD MVOL_SetDebugLogCategoryEnable(PDEBUG_LOG_ENABLE_CATEGORY pDlcE);
+DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE);
 
 #ifdef _DEBUG_OOS
 DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);

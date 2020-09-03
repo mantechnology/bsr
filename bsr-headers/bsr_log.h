@@ -28,10 +28,11 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
-typedef struct _DEBUG_LOG_ENABLE_CATEGORY {
-	int			nType;
-	int			nFilter;
-}DEBUG_LOG_ENABLE_CATEGORY, *PDEBUG_LOG_ENABLE_CATEGORY;
+// BSR-654
+typedef struct _DEBUG_LOG_CATEGORY {
+	int			nType; // 0 : enable, 1 : disable
+	int			nCategory;
+}DEBUG_LOG_CATEGORY, *PDEBUG_LOG_CATEGORY;
 
 typedef struct _CLI_LOG_MAX_COUNT {
 	int			nType;
@@ -52,11 +53,11 @@ static const char * const g_log_type_str[] = { "sys", "dbg" };
 // DW-2099
 #ifndef __KERNEL__
 static const char * const g_log_category_str[] = { 
-	"VOLUME", "IO", "IO ERROR", "BITMAP",
-	"LRU", "REQUEST", "PEER REQUEST", "RESYNC OV", "REPLICATION", 
-	"CONNECTION", "UUID", "TWOPC", "THREAD", "SEND BUFFER", "STATE", 
+	"VOLUME", "IO", "IO_ERROR", "BITMAP",
+	"LRU", "REQUEST", "PEER_REQUEST", "RESYNC_OV", "REPLICATION", 
+	"CONNECTION", "UUID", "TWOPC", "THREAD", "SEND_BUFFER", "STATE", 
 	"SOCKET", "DRIVER", "NETLINK", "GENL", "PROTOCOL", "MEMORY", "LOG", 
-	"LATENCY", "VERIFY", "OUT OF SYNC", "ETC" };
+	"LATENCY", "VERIFY", "OUT_OF_SYNC", "ETC" };
 #endif
 
 #define LOG_DEFAULT_MAX_LEVEL 8
@@ -98,8 +99,40 @@ enum
 
 #define LOG_LV_MASK			0x7
 
-// BSR-654
-#define DEBUG_LOG_ENABLE_CATEGORY_DEFAULT ((1 << BSR_LC_VOLUME) | (1 << BSR_LC_IO) | (1 << BSR_LC_IO_ERROR) | \
+
+// BSR-648
+enum BSR_LOG_CATEGORY
+{
+	BSR_LC_VOLUME = 0,
+	BSR_LC_IO,
+	BSR_LC_IO_ERROR,
+	BSR_LC_BITMAP,
+	BSR_LC_LRU,
+	BSR_LC_REQUEST,
+	BSR_LC_PEER_REQUEST,
+	BSR_LC_RESYNC_OV,
+	BSR_LC_REPLICATION,
+	BSR_LC_CONNECTION,
+	BSR_LC_UUID,
+	BSR_LC_TWOPC,
+	BSR_LC_THREAD,
+	BSR_LC_SEND_BUFFER,
+	BSR_LC_STATE,
+	BSR_LC_SOCKET,
+	BSR_LC_DRIVER,
+	BSR_LC_NETLINK,
+	BSR_LC_GENL,
+	BSR_LC_PROTOCOL,
+	BSR_LC_MEMORY,
+	BSR_LC_LOG,
+	BSR_LC_LATENCY,
+	BSR_LC_VERIFY,
+	BSR_LC_OUT_OF_SYNC,
+	BSR_LC_ETC,
+};
+
+// BSR-654 The default values are those excluding latency, verifi, and out of sync.
+#define DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT ((1 << BSR_LC_VOLUME) | (1 << BSR_LC_IO) | (1 << BSR_LC_IO_ERROR) | \
 									(1 << BSR_LC_BITMAP) | (1 << BSR_LC_LRU) | (1 << BSR_LC_REQUEST) | \
 									(1 << BSR_LC_PEER_REQUEST) | (1 << BSR_LC_RESYNC_OV) | (1 << BSR_LC_REPLICATION) | \
 									(1 << BSR_LC_CONNECTION) | (1 << BSR_LC_UUID) | (1 << BSR_LC_TWOPC) | \
@@ -171,7 +204,7 @@ typedef struct _BSR_LOG {
 #define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"
 
 // BSR-654
-#define BSR_DEBUG_LOG_ENABLE_CATEGORY_REG	"/etc/bsr.d/.debuglog_enable_category"
+#define BSR_DEBUG_LOG_CATEGORY_REG	"/etc/bsr.d/.debuglog_category"
 
 // BSR-597
 #define BSR_LOG_FILE_PATH "/var/log/bsr"

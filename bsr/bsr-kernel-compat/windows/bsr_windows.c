@@ -1794,7 +1794,7 @@ int generic_make_request(struct bio *bio)
 		offset.QuadPart = 0;
 
 		// DW-1961 Save timestamp for IO latency measurement
-		if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+		if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 			bio->flush_ts = timestamp();
 
 	} else {

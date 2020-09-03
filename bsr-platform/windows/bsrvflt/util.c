@@ -1373,14 +1373,13 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	}
 	Set_log_lv(log_level);
 
-	// BSR-654
-	int debug_log_category_enable = DEBUG_LOG_ENABLE_CATEGORY_DEFAULT;
-	status = GetRegistryValue(DEBUG_LOG_ENABLE_CATEGORY_REG_VALUE_NAME, &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
+	// BSR-654 set debug log out put category
+	int debug_log_category_enable = DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT;
+	status = GetRegistryValue(DEBUG_LOG_CATEGORY_REG_VALUE_NAME, &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
 		debug_log_category_enable = *(int*)aucTemp;
 	}
-	atomic_set(&g_debug_category_enable, debug_log_category_enable);
-
+	atomic_set(&g_debug_output_category, debug_log_category_enable);
 
 	// set g_netlink_tcp_port
 	status = GetRegistryValue(L"netlink_tcp_port", &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);

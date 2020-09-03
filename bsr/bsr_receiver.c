@@ -1181,7 +1181,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
@@ -1271,7 +1271,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 
 #ifdef _WIN
 	// DW-1961 Save timestamp for flush IO latency measurement
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		bio->flush_ts = timestamp();
 #endif
 
@@ -1944,7 +1944,7 @@ next_bio:
 	peer_req->submit_jif = jiffies;
 
 	// DW-1961 Save timestamp for IO latency measurement
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		peer_req->io_request_ts = timestamp();
 
 	peer_req->flags |= EE_SUBMITTED;
@@ -2212,7 +2212,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	peer_req->flags |= EE_WRITE;
 
 	// DW-1961 Save timestamp for IO latency measurement
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		peer_req->created_ts = timestamp();
 
 	if (d->length == 0)
@@ -2367,7 +2367,7 @@ static int e_end_resync_block(struct bsr_work *w, int unused)
 	D_ASSERT(peer_device, bsr_interval_empty(&peer_req->i));
 
 	// DW-1961 Calculate and Log IO Latency
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY)) {
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 		peer_req->io_complete_ts = timestamp();
 	}
 
@@ -2722,7 +2722,7 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 	split_peer_request->block_id = peer_request->block_id;
 
 	// DW-1961 Save timestamp for IO latency measurement
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		split_peer_request->created_ts = timestamp();
 
 	bsr_alloc_page_chain(transport, &split_peer_request->page_chain, DIV_ROUND_UP(split_peer_request->i.size, PAGE_SIZE), GFP_TRY);
@@ -4622,7 +4622,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	peer_req->block_id = p->block_id;
 
 	// DW-1961 Save timestamp for IO latency measuremen
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		peer_req->created_ts = timestamp();
 
 	/* no longer valid, about to call bsr_recv again for the digest... */
@@ -8599,7 +8599,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 				{
 					// DW-1199 print log for remaining out-of-sync to recogsize which sector has to be traced
 					bsr_info(94, BSR_LC_RESYNC_OV, peer_device, "SyncSource still sees bits set!! FIXME, total(%llu), failed(%llu)", bsr_bm_total_weight(peer_device), peer_device->rs_failed);
-					if (atomic_read(&g_debug_category_enable) & 1 << BSR_LC_OUT_OF_SYNC) {
+					if (atomic_read(&g_debug_output_category) & 1 << BSR_LC_OUT_OF_SYNC) {
 						ULONG_PTR bit = 0;
 						sector_t sector = 0;
 						ULONG_PTR bm_resync_fo = 0;

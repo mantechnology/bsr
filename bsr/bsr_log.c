@@ -112,9 +112,9 @@ void _printk(const char * func, const char * level, int category, const char * f
 	if (level_index <= atomic_read(&g_dbglog_lv_min))
 		bDbgLog = true;
 
-	// BSR-654
+	// BSR-654 If the log level is debug, the log is output only when it is a set category.
 	if (level_index == KERN_DEBUG_NUM && 
-		!(atomic_read(&g_debug_category_enable) & (1 << category)))
+		!(atomic_read(&g_debug_output_category) & (1 << category)))
 		return;
 
 	// DW-2034 if only eventlogs are to be recorded, they are not recorded in the log buffer.
@@ -385,7 +385,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	CHAR buf[MAX_BSRLOG_BUF] = { 0, };
 	int i;
 	// getting stack frames may overload with frequent bitmap operation, just return if oos trace is disabled.
-	if (!(atomic_read(&g_debug_category_enable) & 1 << BSR_LC_OUT_OF_SYNC)) {
+	if (!(atomic_read(&g_debug_output_category) & 1 << BSR_LC_OUT_OF_SYNC)) {
 		return;
 	}
 #ifdef _WIN

@@ -476,38 +476,7 @@ extern atomic_t g_dbglog_lv_min;
 extern atomic_t g_log_file_max_count;
 
 // DW-1961
-extern atomic_t g_debug_category_enable;
-
-// BSR-648
-enum BSR_LOG_CATEGORY
-{
-	BSR_LC_VOLUME = 0,
-	BSR_LC_IO,
-	BSR_LC_IO_ERROR,
-	BSR_LC_BITMAP,
-	BSR_LC_LRU,
-	BSR_LC_REQUEST,
-	BSR_LC_PEER_REQUEST,
-	BSR_LC_RESYNC_OV,
-	BSR_LC_REPLICATION,
-	BSR_LC_CONNECTION,
-	BSR_LC_UUID,
-	BSR_LC_TWOPC,
-	BSR_LC_THREAD,
-	BSR_LC_SEND_BUFFER,
-	BSR_LC_STATE,
-	BSR_LC_SOCKET,
-	BSR_LC_DRIVER,
-	BSR_LC_NETLINK,
-	BSR_LC_GENL,
-	BSR_LC_PROTOCOL,
-	BSR_LC_MEMORY,
-	BSR_LC_LOG,
-	BSR_LC_LATENCY,
-	BSR_LC_VERIFY,
-	BSR_LC_OUT_OF_SYNC,
-	BSR_LC_ETC = 31,
-};
+extern atomic_t g_debug_output_category;
 
 // BSR-648
 static const char * const __log_category_names[] = {

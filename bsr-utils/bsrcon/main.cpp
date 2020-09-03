@@ -73,10 +73,11 @@ void usage()
 	printf("\n");
 
 	// BSR-654
-	printf("   /debuglog_enable_category [category]\n");
-	printf("\t debug enable category info,");
+	printf("   /dbglog_ctgr enable [category]\n");
+	printf("   /dbglog_ctgr disable [category]\n");
+	printf("\t category info,");
 	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
-		printf(" %s(%d)", g_log_category_str[i], 1 << i);
+		printf(" %s", g_log_category_str[i]);
 	}
 	printf("\n");
 		
@@ -104,7 +105,8 @@ void usage()
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /maxlogfile_cnt 5\n"
 		"bsrcon /climaxlogfile_cnt adm 2\n"
-		"bsrcon /debuglog_enable_category 11\n"
+		"bsrcon /dbglog_ctgr enable NETLINK protocol\n"
+		"bsrcon /dbglog_ctgr disable netlink PROTOCOL\n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -394,6 +396,56 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 }
 
 
+// BSR-654
+BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD ctgr = 0;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+#else
+	FILE *fp;
+#endif
+
+#ifdef _WIN
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("debuglog_category"), NULL, &type, (LPBYTE)&ctgr, &size);
+	RegCloseKey(hKey);
+#else // _LIN
+	// BSR-584 read /etc/bsr.d/.log_level
+	fp = fopen(BSR_DEBUG_LOG_CATEGORY_REG, "r");
+	if (fp != NULL) {
+		char buf[10] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			ctgr = atoi(buf);
+		fclose(fp);
+	}
+	else {
+		lResult = ERROR_FILE_NOT_FOUND;
+	}
+#endif
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		*dbg_ctgr = DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT;
+		return true;
+	}
+	else if (lResult != ERROR_SUCCESS)
+		return false;
+
+	*dbg_ctgr = ctgr;
+
+	return true;
+
+}
+
+
 #ifdef _WIN
 DWORD main(int argc, char* argv [])
 #else
@@ -411,9 +463,9 @@ int main(int argc, char* argv [])
 	char	SetMinLogLv = 0;
 	char	SetCliLogFileMaxCount = 0;
 	char	SetLogFileMaxCount = 0;
-	char	SetDebugLogCategoryEnable = 0;
+	char	SetDebugLogCategory = 0;
 	LOGGING_MIN_LV lml = { 0, };
-	DEBUG_LOG_ENABLE_CATEGORY dlcE = { 0, };
+	DEBUG_LOG_CATEGORY dlc = { 0, };
 	CLI_LOG_MAX_COUNT lmc = { 0, };
 	int		LogFileCount = 0;
 	char	HandlerUseFlag = 0;
@@ -576,12 +628,40 @@ int main(int argc, char* argv [])
 				usage();
 		}
 		// BSR-654
-		else if (strcmp(argv[argIndex], "/debuglog_enable_category") == 0)
+		else if (strcmp(argv[argIndex], "/dbglog_ctgr") == 0)
 		{
-			SetDebugLogCategoryEnable++;
+			int i;
+
 			argIndex++; 
-			if (argIndex < argc) {
-				dlcE.nFilter = atoi(argv[argIndex]);
+			if ((argIndex + 1) < argc) {
+				if (strcmp(argv[argIndex], "enable") == 0)
+				{
+					SetDebugLogCategory++;
+					dlc.nType = 0;
+				}
+				else if (strcmp(argv[argIndex], "disable") == 0)
+				{
+					SetDebugLogCategory++;
+					dlc.nType = 1;
+				}
+				else
+					usage();
+
+				if (SetDebugLogCategory) {
+					for (; argIndex < argc; argIndex++) {
+						for (i = 0; i < LOG_CATEGORY_MAX; i++) {
+							if (_strcmpi(argv[argIndex], g_log_category_str[i]) == 0) {
+								dlc.nCategory += 1 << i;
+								break;
+							}
+							else if (_strcmpi(argv[argIndex], "all") == 0)
+							{
+								dlc.nCategory = -1;
+								break;
+							}
+						}
+					}
+				}
 			}
 			else
 				usage(); 
@@ -764,9 +844,9 @@ int main(int argc, char* argv [])
 	}
 
 	// BSR-654
-	if (SetDebugLogCategoryEnable)
+	if (SetDebugLogCategory)
 	{
-		res = MVOL_SetDebugLogCategoryEnable(&dlcE);
+		res = MVOL_SetDebugLogCategory(&dlc);
 	}
 
 	// DW-1921
@@ -775,6 +855,7 @@ int main(int argc, char* argv [])
 		int dbglog_lv = 0;
 		int log_max_count = 0;
 		int cli_log_max_count = 0;
+		int dbg_ctgr = 0;
 
 		// DW-2008
 		if (GetLogLevel(&sys_evt_lv, &dbglog_lv)) {
@@ -798,6 +879,18 @@ int main(int argc, char* argv [])
 			}
 			else
 				printf("Failed to get cli log file max count\n");
+
+			if (GetDebugLogEnableCategory(&dbg_ctgr)) {
+				printf("Output category during debug log.\n");
+				printf("    category :");
+				for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+					if (dbg_ctgr & (1 << i)) {
+						printf(" %s", g_log_category_str[i]);
+					}
+				}
+			}
+			else
+				printf("Failed to get debug log enable category\n");
 		}
 		else
 			printf("Failed to get log level.\n");
@@ -944,7 +1037,6 @@ int main(int argc, char* argv [])
 	if (WriteLog) {
 		res = WriteEventLog((LPCSTR)ProviderName, (LPCSTR)LoggingData);
 	}
-
 
 	if (VolumesInfoFlag) {
 		res = MVOL_GetVolumesInfo(Verbose);

@@ -366,31 +366,43 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
-// BSR-649
+// BSR-654 Sets which category is output during debug log.
 NTSTATUS
-IOCTL_SetDebugLogCategoryEnable(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG			inlen;
-	PDEBUG_LOG_ENABLE_CATEGORY pDebugLogEnableCategory = NULL;
+	PDEBUG_LOG_CATEGORY pDebugLogCategory = NULL;
 	NTSTATUS	Status;
 
-	int previous_filter = 0;
+	unsigned int previous = 0;
+	unsigned int categories = 0;
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 
-	if (inlen < sizeof(DEBUG_LOG_ENABLE_CATEGORY)) {
+	if (inlen < sizeof(DEBUG_LOG_CATEGORY)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
 		bsr_err(120, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
-		pDebugLogEnableCategory = (PDEBUG_LOG_ENABLE_CATEGORY)Irp->AssociatedIrp.SystemBuffer;
-		previous_filter = atomic_read(&g_debug_category_enable);
-		atomic_set(&g_debug_category_enable, pDebugLogEnableCategory->nFilter);
+		pDebugLogCategory = (PDEBUG_LOG_CATEGORY)Irp->AssociatedIrp.SystemBuffer;
 
-		Status = SaveCurrentValue(DEBUG_LOG_ENABLE_CATEGORY_REG_VALUE_NAME, pDebugLogEnableCategory->nFilter);
+		previous = atomic_read(&g_debug_output_category);
+		categories = pDebugLogCategory->nCategory;
 
-		bsr_info(121, BSR_LC_DRIVER, NO_OBJECT, "The debug log filter has been updated, %u => %u, status(%x)", previous_filter, atomic_read(&g_debug_category_enable), Status);
+		if (pDebugLogCategory->nType == 0) {
+			//enable
+			categories = (previous | categories);
+		}
+		else {
+			//disable
+			categories = previous - (previous & categories);
+		}
+
+		atomic_set(&g_debug_output_category, categories);
+		Status = SaveCurrentValue(DEBUG_LOG_CATEGORY_REG_VALUE_NAME, categories);
+
+		bsr_info(121, BSR_LC_DRIVER, NO_OBJECT, "The debug log output has been updated, %u => %u, status(%x)", previous, atomic_read(&g_debug_output_category), Status);
 		if (Status != STATUS_SUCCESS) {
 			return STATUS_UNSUCCESSFUL;
 		}

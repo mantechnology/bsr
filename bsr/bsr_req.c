@@ -970,7 +970,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			set_if_null_req_not_net_done(peer_device, req);
 
 			// DW-1961
-			if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 				req->net_sent_ts[peer_device->node_id] = timestamp();
 		}
 		if (req->rq_state[idx] & RQ_NET_PENDING)
@@ -1048,7 +1048,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			++k_put;
 
 		// DW-1961 Calculate and Log IO Latency
-		if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY)) {
+		if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 			req->net_done_ts[peer_device->node_id] = timestamp();
 			bsr_debug(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)",
 				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
@@ -1865,7 +1865,7 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 			bsr_process_discard_req(req);
 		else {
 			// DW-1961 Save timestamp for IO latency measuremen
-			if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 				req->io_request_ts = timestamp();
 
 #ifdef _WIN
@@ -1917,7 +1917,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 	}
 
 	// DW-1961 Save timestamp for IO latency measuremen
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		req->created_ts = timestamp();
 
 	req->start_jif = start_jif;

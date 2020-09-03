@@ -122,7 +122,7 @@ void *bsr_md_get_buffer(struct bsr_device *device, const char *intent)
 	long t = 0;
 
 	// DW-1961 Measure how long the metadisk waits for use
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		device->md_io.prepare_ts = timestamp();
 
 	wait_event_timeout_ex(device->misc_wait,
@@ -221,7 +221,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	atomic_inc(&device->md_io.in_use); /* bsr_md_put_buffer() is in the completion handler */
 
 	// DW-1961 Save timestamp for IO latency measurement
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY))
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		device->md_io.io_request_ts = timestamp();
 
 #ifdef _LIN
@@ -244,7 +244,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	wait_until_done_or_force_detached(device, bdev, &device->md_io.done);
 
 	// DW-1961 Calculate and Log IO Latency
-	if (atomic_read(&g_debug_category_enable) & (1 << BSR_LC_LATENCY)) {
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 		device->md_io.io_complete_ts = timestamp();
 		bsr_debug(1, BSR_LC_LATENCY, device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)",
 				(op == REQ_OP_WRITE) ? "write" : "read",
