@@ -28,6 +28,12 @@ typedef struct _LOGGING_MIN_LV {
 	int			nErrLvMin;
 }LOGGING_MIN_LV, *PLOGGING_MIN_LV;
 
+// BSR-654
+typedef struct _DEBUG_LOG_CATEGORY {
+	int			nType; // 0 : enable, 1 : disable
+	unsigned int			nCategory;
+}DEBUG_LOG_CATEGORY, *PDEBUG_LOG_CATEGORY;
+
 typedef struct _CLI_LOG_MAX_COUNT {
 	int			nType;
 	int			nMaxCount;
@@ -38,21 +44,24 @@ typedef struct _CLI_LOG_MAX_COUNT {
 
 #define LOGGING_TYPE_SYSLOG		0
 #define LOGGING_TYPE_DBGLOG		1
-// DW-1961 add logging type
-#define LOGGING_TYPE_FEATURELOG 2
 
 // DW-2008 log level,type string
 static const char * const g_default_lv_str[] = { "emerg", "alert", "criti", "err", "warning", "notice", "info", "debug" };
 #ifdef __KERNEL__
-static const char * const g_log_type_str[] = { "sys", "dbg", "feature" };
+static const char * const g_log_type_str[] = { "sys", "dbg" };
 #endif
 // DW-2099
 #ifndef __KERNEL__
-static const char * const g_feature_lv_str[] = { "none", "oos", "latency", "verify" };
+static const char * const g_log_category_str[] = { 
+	"VOLUME", "IO", "IO_ERROR", "BITMAP",
+	"LRU", "REQUEST", "PEER_REQUEST", "RESYNC_OV", "REPLICATION", 
+	"CONNECTION", "UUID", "TWOPC", "THREAD", "SEND_BUFFER", "STATE", 
+	"SOCKET", "DRIVER", "NETLINK", "GENL", "PROTOCOL", "MEMORY", "LOG", 
+	"LATENCY", "VERIFY", "OUT_OF_SYNC", "ETC" };
 #endif
 
 #define LOG_DEFAULT_MAX_LEVEL 8
-#define LOG_FEATURE_MAX_LEVEL (1 << 3)
+#define LOG_CATEGORY_MAX 26
 
 
 // DW-2008 move here from bsr_window.h
@@ -66,8 +75,6 @@ enum
 	KERN_NOTICE_NUM,
 	KERN_INFO_NUM,
 	KERN_DEBUG_NUM,
-	KERN_OOS_NUM,
-	KERN_LATENCY_NUM,
 	KERN_NUM_END
 };
 
@@ -76,16 +83,13 @@ enum
 00000000 00000000 00000000 00000000
 ||| 3 bit between 0 ~ 2 indicates system event log level (0 ~ 7)
 |||	   3 bit between 3 ~ 5 indicates debug print log level (0 ~ 7)
-||	   2 bit indicates feature log flag (0x01: oos trace, 0x02: latency)
 */
 #define LOG_LV_BIT_POS_EVENTLOG		(0)
 #define LOG_LV_BIT_POS_DBG			(LOG_LV_BIT_POS_EVENTLOG + 3)
-#define LOG_LV_BIT_POS_FEATURELOG	(LOG_LV_BIT_POS_DBG + 3)
 
 // Default values are used when log_level value doesn't exist.
 #define LOG_LV_DEFAULT_EVENTLOG	KERN_ERR_NUM
 #define LOG_LV_DEFAULT_DBG		KERN_INFO_NUM
-#define LOG_LV_DEFAULT_FEATURE		0
 #define LOG_LV_DEFAULT			(LOG_LV_DEFAULT_EVENTLOG << LOG_LV_BIT_POS_EVENTLOG) | (LOG_LV_DEFAULT_DBG << LOG_LV_BIT_POS_DBG) 
 
 // BSR-579
@@ -94,7 +98,48 @@ enum
 #define LOG_LV_MASK			0x7
 
 
-//
+// BSR-648
+enum BSR_LOG_CATEGORY
+{
+	BSR_LC_VOLUME = 0,
+	BSR_LC_IO,
+	BSR_LC_IO_ERROR,
+	BSR_LC_BITMAP,
+	BSR_LC_LRU,
+	BSR_LC_REQUEST,
+	BSR_LC_PEER_REQUEST,
+	BSR_LC_RESYNC_OV,
+	BSR_LC_REPLICATION,
+	BSR_LC_CONNECTION,
+	BSR_LC_UUID,
+	BSR_LC_TWOPC,
+	BSR_LC_THREAD,
+	BSR_LC_SEND_BUFFER,
+	BSR_LC_STATE,
+	BSR_LC_SOCKET,
+	BSR_LC_DRIVER,
+	BSR_LC_NETLINK,
+	BSR_LC_GENL,
+	BSR_LC_PROTOCOL,
+	BSR_LC_MEMORY,
+	BSR_LC_LOG,
+	BSR_LC_LATENCY,
+	BSR_LC_VERIFY,
+	BSR_LC_OUT_OF_SYNC,
+	BSR_LC_ETC,
+};
+
+// BSR-654 The default values are those excluding latency, verifi, and out of sync.
+#define DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT ((1 << BSR_LC_VOLUME) | (1 << BSR_LC_IO) | (1 << BSR_LC_IO_ERROR) | \
+									(1 << BSR_LC_BITMAP) | (1 << BSR_LC_LRU) | (1 << BSR_LC_REQUEST) | \
+									(1 << BSR_LC_PEER_REQUEST) | (1 << BSR_LC_RESYNC_OV) | (1 << BSR_LC_REPLICATION) | \
+									(1 << BSR_LC_CONNECTION) | (1 << BSR_LC_UUID) | (1 << BSR_LC_TWOPC) | \
+									(1 << BSR_LC_THREAD) | (1 << BSR_LC_SEND_BUFFER) | (1 << BSR_LC_STATE) | \
+									(1 << BSR_LC_SOCKET) | (1 << BSR_LC_DRIVER) | (1 << BSR_LC_NETLINK) | \
+									(1 << BSR_LC_GENL) | (1 << BSR_LC_PROTOCOL) | (1 << BSR_LC_MEMORY) | \
+									(1 << BSR_LC_LOG) | (1 << BSR_LC_ETC))
+// | (1 << BSR_LC_LATENCY) | (1 << BSR_LC_VERIFY) | (1 << BSR_LC_OUT_OF_SYNC) 
+
 
 #ifdef _DEBUG_OOS
 #define FRAME_DELIMITER		"@"
@@ -128,12 +173,11 @@ typedef struct _BSR_LOG {
 
 #define Set_log_lv(log_level) \
 	atomic_set(&g_eventlog_lv_min, (log_level >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK);	\
-	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	\
-	atomic_set(&g_featurelog_flag, (log_level >> LOG_LV_BIT_POS_FEATURELOG) & LOG_LV_MASK);
+	atomic_set(&g_dbglog_lv_min, (log_level >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK);	
 
 
 #define Get_log_lv() \
-	(atomic_read(&g_eventlog_lv_min) << LOG_LV_BIT_POS_EVENTLOG) | (atomic_read(&g_dbglog_lv_min) << LOG_LV_BIT_POS_DBG) | (atomic_read(&g_featurelog_flag) << LOG_LV_BIT_POS_FEATURELOG)
+	(atomic_read(&g_eventlog_lv_min) << LOG_LV_BIT_POS_EVENTLOG) | (atomic_read(&g_dbglog_lv_min) << LOG_LV_BIT_POS_DBG)
 
 #endif
 
@@ -156,6 +200,10 @@ typedef struct _BSR_LOG {
 // BSR-584
 #define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
 #define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"
+
+// BSR-654
+#define BSR_DEBUG_LOG_CATEGORY_REG	"/etc/bsr.d/.debuglog_category"
+
 // BSR-597
 #define BSR_LOG_FILE_PATH "/var/log/bsr"
 #define BSR_LOG_FILE_NAME "bsrlog.txt"

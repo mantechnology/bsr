@@ -342,10 +342,6 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			previous_lv_min = atomic_read(&g_dbglog_lv_min);
 			atomic_set(&g_dbglog_lv_min, pLoggingMinLv->nErrLvMin);
 		}
-		else if (pLoggingMinLv->nType == LOGGING_TYPE_FEATURELOG) {
-			previous_lv_min = atomic_read(&g_featurelog_flag);
-			atomic_set(&g_featurelog_flag, pLoggingMinLv->nErrLvMin);
-		}
 		else {
 			bsr_warn(86, BSR_LC_DRIVER, NO_OBJECT, "Invalidate logging type(%d)", pLoggingMinLv->nType);
 		}
@@ -355,10 +351,10 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		// DW-2008
 		bsr_info(24, BSR_LC_DRIVER, NO_OBJECT, "The log level has been updated, type : %s(%d), minumum level : %s(%d) => %s(%d), result : %lu",
 					g_log_type_str[pLoggingMinLv->nType], pLoggingMinLv->nType, 
-					// DW-2041
-					((pLoggingMinLv->nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
-					((pLoggingMinLv->nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[pLoggingMinLv->nErrLvMin]), pLoggingMinLv->nErrLvMin,
+					g_default_lv_str[previous_lv_min], previous_lv_min, 
+					g_default_lv_str[pLoggingMinLv->nErrLvMin], pLoggingMinLv->nErrLvMin,
 					Status);
+
 		if (Status != STATUS_SUCCESS) {
 			return STATUS_UNSUCCESSFUL; 
 		}
@@ -369,6 +365,55 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	return STATUS_SUCCESS;
 }
+
+// BSR-654 Sets which category is output during debug log.
+NTSTATUS
+IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG			inlen;
+	PDEBUG_LOG_CATEGORY pDebugLogCategory = NULL;
+	NTSTATUS	Status;
+
+	unsigned int previous = 0;
+	unsigned int categories = 0;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(DEBUG_LOG_CATEGORY)) {
+		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(133, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		pDebugLogCategory = (PDEBUG_LOG_CATEGORY)Irp->AssociatedIrp.SystemBuffer;
+
+		previous = atomic_read(&g_debug_output_category);
+		categories = pDebugLogCategory->nCategory;
+
+		if (pDebugLogCategory->nType == 0) {
+			//enable
+			categories = (previous | categories);
+		}
+		else {
+			//disable
+			categories = previous - (previous & categories);
+		}
+
+		atomic_set(&g_debug_output_category, categories);
+		Status = SaveCurrentValue(DEBUG_LOG_CATEGORY_REG_VALUE_NAME, categories);
+
+		bsr_info(134, BSR_LC_DRIVER, NO_OBJECT, "The debug log output has been updated, %u => %u, status(%x)", previous, atomic_read(&g_debug_output_category), Status);
+		if (Status != STATUS_SUCCESS) {
+			return STATUS_UNSUCCESSFUL;
+		}
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 
 
 // BSR-579

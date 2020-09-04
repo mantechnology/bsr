@@ -788,7 +788,7 @@ Send(
 		goto $Send_fail;
 	}
 
-	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		send_ts = timestamp();
 
 	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskSend(
@@ -820,7 +820,7 @@ Send(
 			goto $Send_fail;
 		}
 		else if (Status == STATUS_SUCCESS) {
-			if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 				bsr_debug(7, BSR_LC_LATENCY, NO_OBJECT, "SUCCESS, Current state : %d(0x%p) size(%lu) elapse(%lldus)", pSock->sk_state, WskSocket, BufferSize, timestamp_elapse(send_ts, timestamp()));
 		}
 	}
@@ -1224,7 +1224,7 @@ LONG NTAPI Receive(
 		return SOCKET_ERROR;
 	}
 
-	if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		recv_ts = timestamp();
 
 	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskReceive(
@@ -1256,7 +1256,7 @@ LONG NTAPI Receive(
             if (Irp->IoStatus.Status == STATUS_SUCCESS) {
                 BytesReceived = (LONG) Irp->IoStatus.Information;
 
-				if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
+				if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 					bsr_debug(8, BSR_LC_LATENCY, NO_OBJECT, "RECV(%s) wsk(0x%p) SUCCESS err(0x%x:%s) size(%lu) elapse(%lldus)", thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize, timestamp_elapse(recv_ts, timestamp()));
             } else {
 				bsr_info(66, BSR_LC_SOCKET, NO_OBJECT, "%s => Recv multiWait error. err(%s) wsk(0x%p) size(%lu)", thread->comm, GetSockErrorString(Irp->IoStatus.Status), WskSocket, BufferSize);

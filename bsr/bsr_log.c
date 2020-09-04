@@ -86,8 +86,6 @@ void _printk(const char * func, const char * level, int category, const char * f
 	int printLevel = 0;
 	bool bEventLog = false;
 	bool bDbgLog = false;
-	bool bOosLog = false;
-	bool bLatency = false;
 	// BSR-583
 	bool bMissing = false;
 	char missingLog[MAX_BSRLOG_BUF];
@@ -114,13 +112,13 @@ void _printk(const char * func, const char * level, int category, const char * f
 	if (level_index <= atomic_read(&g_dbglog_lv_min))
 		bDbgLog = true;
 
-	// DW-1961
-	if ((atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_OOS) && (level_index == KERN_OOS_NUM))
-		bOosLog = true;
-	if ((atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY) && (level_index == KERN_LATENCY_NUM))
-		bLatency = true;
+	// BSR-654 If the log level is debug, the log is output only when it is a set category.
+	if (level_index == KERN_DEBUG_NUM && 
+		!(atomic_read(&g_debug_output_category) & (1 << category)))
+		return;
+
 	// DW-2034 if only eventlogs are to be recorded, they are not recorded in the log buffer.
-	if (bDbgLog || bOosLog || bLatency) {
+	if (bDbgLog) {
 		// BSR-578 it should not be produced when it is not consumed thread.
 		if (g_consumer_state == RUNNING) {
 			bool is_acquire = idx_ring_acquire(&gLogBuf.h, &logcnt);
@@ -205,7 +203,7 @@ void _printk(const char * func, const char * level, int category, const char * f
 											// BSR-38 mark up to 100 nanoseconds.
 											(systemTime.QuadPart % 10000000),
 											func,
-											// BSR-654
+											// BSR-648
 											__log_category_names[category]);
 
 #else // _LIN
@@ -223,7 +221,7 @@ void _printk(const char * func, const char * level, int category, const char * f
 										// BSR-38 mark up to 100 nanoseconds.
 										(int)(ts.tv_nsec / 100),
 										func,
-										// BSR-654
+										// BSR-648
 										__log_category_names[category]);
 
 
@@ -241,10 +239,6 @@ void _printk(const char * func, const char * level, int category, const char * f
 			printLevel = DPFLTR_INFO_LEVEL; memcpy(logbuf + offset, "bsr_info", LEVEL_OFFSET); break;
 		case KERN_DEBUG_NUM:
 			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_trac", LEVEL_OFFSET); break;
-		case KERN_OOS_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_oos ", LEVEL_OFFSET); break;
-		case KERN_LATENCY_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_late", LEVEL_OFFSET); break;
 		default:
 			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_unkn", LEVEL_OFFSET); break;
 		}
@@ -387,7 +381,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	CHAR buf[MAX_BSRLOG_BUF] = { 0, };
 	int i;
 	// getting stack frames may overload with frequent bitmap operation, just return if oos trace is disabled.
-	if (!(atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_OOS)) {
+	if (!(atomic_read(&g_debug_output_category) & 1 << BSR_LC_OUT_OF_SYNC)) {
 		return;
 	}
 #ifdef _WIN
@@ -420,7 +414,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 	}
 	
 	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	bsr_oos(7, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
+	bsr_debug(7, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "%s", buf);
 	if (NULL != stackFrames) {
 #ifdef _WIN
 		ExFreePool(stackFrames);

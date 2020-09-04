@@ -314,8 +314,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(category, KERN_NOTICE_NUM, obj, fmt, __VA_ARGS__)
 #define bsr_info(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_INFO_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_oos(index, category, obj, fmt, ...) \
-	bsr_printk(category, KERN_OOS_NUM, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(0, BSR_LC_TEMP, obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)
@@ -476,43 +474,7 @@ extern atomic_t g_dbglog_lv_min;
 extern atomic_t g_log_file_max_count;
 
 // DW-1961
-extern atomic_t g_featurelog_flag;
-#define FEATURELOG_FLAG_OOS 		(1 << 0)
-#define FEATURELOG_FLAG_LATENCY 	(1 << 1)
-
-// DW-2099 flags for data verification
-#define FEATURELOG_FLAG_VERIFY 		(1 << 2)
-
-// BSR-648
-enum BSR_LOG_CATEGORY
-{
-	BSR_LC_VOLUME,
-	BSR_LC_IO,
-	BSR_LC_IO_ERROR,
-	BSR_LC_BITMAP,
-	BSR_LC_LRU,
-	BSR_LC_REQUEST,
-	BSR_LC_PEER_REQUEST,
-	BSR_LC_RESYNC_OV,
-	BSR_LC_REPLICATION,
-	BSR_LC_CONNECTION,
-	BSR_LC_UUID,
-	BSR_LC_TWOPC,
-	BSR_LC_THREAD,
-	BSR_LC_SEND_BUFFER,
-	BSR_LC_STATE,
-	BSR_LC_SOCKET,
-	BSR_LC_DRIVER,
-	BSR_LC_NETLINK,
-	BSR_LC_GENL,
-	BSR_LC_PROTOCOL,
-	BSR_LC_MEMORY,
-	BSR_LC_LOG,
-	BSR_LC_LATENCY,
-	BSR_LC_VERIFY,
-	BSR_LC_OUT_OF_SYNC,
-	BSR_LC_ETC = 31,
-};
+extern atomic_t g_debug_output_category;
 
 // BSR-648
 static const char * const __log_category_names[] = {
@@ -534,8 +496,8 @@ static const char * const __log_category_names[] = {
 	[BSR_LC_SOCKET] = "SOCKET",
 	[BSR_LC_DRIVER] = "DRIVER",
 	[BSR_LC_NETLINK] = "NETLINK",
-	[BSR_LC_GENL] = "CLI_GENL",
-	[BSR_LC_PROTOCOL] = "BLC_PROTOCOL",
+	[BSR_LC_GENL] = "CLI GENL",
+	[BSR_LC_PROTOCOL] = "PROTOCOL",
 	[BSR_LC_MEMORY] = "MEMORY",
 	[BSR_LC_LOG] = "LOG",
 	[BSR_LC_LATENCY] = "LATENCY",
@@ -563,14 +525,14 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 33
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 106
-#define BSR_LC_DRIVER_MAX_INDEX 119
+#define BSR_LC_DRIVER_MAX_INDEX 137
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 89
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
 #define BSR_LC_MEMORY_MAX_INDEX 18
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
-#define BSR_LC_VERIFY_MAX_INDEX 0
+#define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
 #define BSR_LC_ETC_MAX_INDEX 86
 

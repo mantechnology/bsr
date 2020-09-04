@@ -538,7 +538,7 @@ DWORD get_cli_log_file_max_count()
 
 	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
+		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			cli_log_file_max_count = atoi(buf);
 			return cli_log_file_max_count;

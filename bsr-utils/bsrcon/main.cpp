@@ -72,10 +72,12 @@ void usage()
 	}
 	printf("\n");
 
-	printf("   /minlog_lv feature [flag : 0,1,2,4]\n");
-	printf("\t level info,");
-	for (int i = 0; (1 << (i - 1)) < LOG_FEATURE_MAX_LEVEL; i++) {
-		printf(" %s(%d)", g_feature_lv_str[i], i == 0 ? 0 : 1 << (i - 1));
+	// BSR-654
+	printf("   /dbglog_ctgr enable [category]\n");
+	printf("   /dbglog_ctgr disable [category]\n");
+	printf("\t category info,");
+	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+		printf(" %s", g_log_category_str[i]);
 	}
 	printf("\n");
 		
@@ -103,7 +105,8 @@ void usage()
 		"bsrcon /minlog_lv sys 3 \n"
 		"bsrcon /maxlogfile_cnt 5\n"
 		"bsrcon /climaxlogfile_cnt adm 2\n"
-		"bsrcon /minlog_lv feature 2\n"
+		"bsrcon /dbglog_ctgr enable NETLINK protocol\n"
+		"bsrcon /dbglog_ctgr disable netlink PROTOCOL\n"
 	);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -187,7 +190,7 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	FILE *fp;
 	fp = fopen(BSR_LOG_FILE_MAXCNT_REG, "r");
 	if(fp != NULL) {
-		char buf[10] = {0};
+		char buf[11] = {0};
 		if (fgets(buf, sizeof(buf), fp) != NULL)
 			log_file_max_count = atoi(buf);
 		fclose(fp);
@@ -238,7 +241,7 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
+		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) 
 			cli_log_file_max_count = atoi(buf);
 		fclose(fp);
@@ -272,7 +275,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
+		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			cli_log_file_max_count = atoi(buf);
 		}
@@ -319,7 +322,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "w+");
 	if (fp != NULL) {
-		char buf[10] = { 0 } ;
+		char buf[11] = { 0 } ;
 		sprintf(buf, "%u", cli_log_file_max_count);
 		if (!fputs(buf, fp)) 
 			return false;
@@ -341,7 +344,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 
 // DW-1921
 //Print log_level through the current registry value.
-BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
+BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD logLevel = 0;
@@ -366,7 +369,7 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 	// BSR-584 read /etc/bsr.d/.log_level
 	fp = fopen(BSR_LOG_LEVEL_REG, "r");
 	if(fp != NULL) {
-		char buf[10] = {0};
+		char buf[11] = {0};
 		if (fgets(buf, sizeof(buf), fp) != NULL)
 			logLevel = atoi(buf);
 		fclose(fp);
@@ -380,8 +383,6 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 		//It is not an error that no key exists.Just set it to the default value.
 		*sys_evtlog_lv = LOG_LV_DEFAULT_EVENTLOG;
 		*dbglog_lv = LOG_LV_DEFAULT_DBG;
-		*feature_lv = LOG_LV_DEFAULT_FEATURE;
-
 		return true;
 	} else if (lResult != ERROR_SUCCESS)
 		return false;
@@ -389,7 +390,57 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 
 	*sys_evtlog_lv = (logLevel >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK;
 	*dbglog_lv = (logLevel >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK;
-	*feature_lv = (logLevel >> LOG_LV_BIT_POS_FEATURELOG) & LOG_LV_MASK;
+
+	return true;
+
+}
+
+
+// BSR-654
+BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD ctgr = 0;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+#else
+	FILE *fp;
+#endif
+
+#ifdef _WIN
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("debuglog_category"), NULL, &type, (LPBYTE)&ctgr, &size);
+	RegCloseKey(hKey);
+#else // _LIN
+	// BSR-584 read /etc/bsr.d/.debuglog_category
+	fp = fopen(BSR_DEBUG_LOG_CATEGORY_REG, "r");
+	if (fp != NULL) {
+		char buf[11] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			ctgr = atoi(buf);
+		}
+		fclose(fp);
+	}
+	else {
+		lResult = ERROR_FILE_NOT_FOUND;
+	}
+#endif
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		*dbg_ctgr = DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT;
+		return true;
+	}
+	else if (lResult != ERROR_SUCCESS)
+		return false;
+
+	*dbg_ctgr = ctgr;
 
 	return true;
 
@@ -413,9 +464,11 @@ int main(int argc, char* argv [])
 	char	SetMinLogLv = 0;
 	char	SetCliLogFileMaxCount = 0;
 	char	SetLogFileMaxCount = 0;
+	char	SetDebugLogCategory = 0;
 	LOGGING_MIN_LV lml = { 0, };
+	DEBUG_LOG_CATEGORY dlc = { 0, };
 	CLI_LOG_MAX_COUNT lmc = { 0, };
-	int LogFileCount = 0;
+	int		LogFileCount = 0;
 	char	HandlerUseFlag = 0;
 	HANDLER_INFO hInfo = { 0, };
 #ifdef _WIN
@@ -526,9 +579,6 @@ int main(int argc, char* argv [])
 				else if (strcmp(argv[argIndex], "dbg") == 0) {
 					lml.nType = LOGGING_TYPE_DBGLOG;
 				}
-				else if (strcmp(argv[argIndex], "feature") == 0) {
-					lml.nType = LOGGING_TYPE_FEATURELOG;
-				}
 				else
 					usage();				
 			}
@@ -577,6 +627,52 @@ int main(int argc, char* argv [])
 			}
 			else
 				usage();
+		}
+		// BSR-654
+		else if (strcmp(argv[argIndex], "/dbglog_ctgr") == 0)
+		{
+			int i;
+
+			argIndex++; 
+			if ((argIndex + 1) < argc) {
+				if (strcmp(argv[argIndex], "enable") == 0)
+				{
+					SetDebugLogCategory++;
+					dlc.nType = 0;
+				}
+				else if (strcmp(argv[argIndex], "disable") == 0)
+				{
+					SetDebugLogCategory++;
+					dlc.nType = 1;
+				}
+				else
+					usage();
+
+				if (SetDebugLogCategory) {
+					for (; argIndex < argc; argIndex++) {
+						for (i = 0; i < LOG_CATEGORY_MAX; i++) {
+#ifdef _WIN
+							if (_strcmpi(argv[argIndex], g_log_category_str[i]) == 0) {
+#else
+							if (strcasecmp(argv[argIndex], g_log_category_str[i]) == 0) {
+#endif
+								dlc.nCategory += 1 << i;
+								break;
+							}
+#ifdef _WIN
+							else if (_strcmpi(argv[argIndex], "all") == 0) {
+#else
+							else if (strcasecmp(argv[argIndex], "all") == 0) {
+#endif
+								dlc.nCategory = -1;
+								break;
+							}
+						}
+					}
+				}
+			}
+			else
+				usage(); 
 		}
 		else if (!strcmp(argv[argIndex], "/get_log_info")) {
 			GetLogInfo++;
@@ -755,19 +851,25 @@ int main(int argc, char* argv [])
 		res = CLI_SetLogFileMaxCount(lmc.nType, lmc.nMaxCount);
 	}
 
+	// BSR-654
+	if (SetDebugLogCategory)
+	{
+		res = MVOL_SetDebugLogCategory(&dlc);
+	}
+
 	// DW-1921
 	if (GetLogInfo) {
 		int sys_evt_lv = 0;
 		int dbglog_lv = 0;
-		int feature_lv = 0;
 		int log_max_count = 0;
 		int cli_log_max_count = 0;
+		int dbg_ctgr = 0;
 
 		// DW-2008
-		if (GetLogLevel(&sys_evt_lv, &dbglog_lv, &feature_lv)) {
+		if (GetLogLevel(&sys_evt_lv, &dbglog_lv)) {
 			printf("Current log level.\n");
-			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n    feature-lv : %d\n",
-				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv, feature_lv);
+			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
+				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
 
 			printf("Number of log files that can be saved.\n");
 			printf("Maximum size of one log file is 50M.\n"); 
@@ -785,6 +887,19 @@ int main(int argc, char* argv [])
 			}
 			else
 				printf("Failed to get cli log file max count\n");
+
+			if (GetDebugLogEnableCategory(&dbg_ctgr)) {
+				printf("Output category during debug log.\n");
+				printf("    category :");
+				for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+					if (dbg_ctgr & (1 << i)) {
+						printf(" %s", g_log_category_str[i]);
+					}
+				}
+				printf("\n");
+			}
+			else
+				printf("Failed to get debug log enable category\n");
 		}
 		else
 			printf("Failed to get log level.\n");
@@ -931,7 +1046,6 @@ int main(int argc, char* argv [])
 	if (WriteLog) {
 		res = WriteEventLog((LPCSTR)ProviderName, (LPCSTR)LoggingData);
 	}
-
 
 	if (VolumesInfoFlag) {
 		res = MVOL_GetVolumesInfo(Verbose);

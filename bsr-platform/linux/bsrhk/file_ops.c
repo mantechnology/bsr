@@ -29,10 +29,6 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 		previous_lv_min = atomic_read(&g_dbglog_lv_min);
 		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
 	}
-	else if (loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) {
-		previous_lv_min = atomic_read(&g_featurelog_flag);
-		atomic_set(&g_featurelog_flag, loggingMinLv.nErrLvMin);
-	}
 	else {
 		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)\n", loggingMinLv.nType);
 	}
@@ -40,10 +36,9 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	// DW-2008
 	bsr_info(125, BSR_LC_DRIVER, NO_OBJECT, "set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n",
 				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
-				// DW-2041
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[previous_lv_min]), previous_lv_min, 
-				((loggingMinLv.nType == LOGGING_TYPE_FEATURELOG) ? "" : g_default_lv_str[loggingMinLv.nErrLvMin]), loggingMinLv.nErrLvMin
-				);
+				g_default_lv_str[previous_lv_min], previous_lv_min, 
+				g_default_lv_str[loggingMinLv.nErrLvMin], loggingMinLv.nErrLvMin);
+
 	return Get_log_lv();
 }
 
@@ -95,11 +90,50 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 		bsr_err(128, BSR_LC_DRIVER, NO_OBJECT, "HANDLER_INFO copy from user failed.\n");
 		return -1;
 	}
-	
+
 	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d\n", g_handler_use, h_info.use);
 	g_handler_use = h_info.use;
 
 	return 0;
+}
+
+// BSR-654
+static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg_log_ctgr)
+{
+	unsigned int previous = 0;
+	unsigned int categories = 0;
+	int err;
+	DEBUG_LOG_CATEGORY dbg_log_ctgr;
+
+	previous = atomic_read(&g_debug_output_category);
+
+	err = copy_from_user(&dbg_log_ctgr, bsr_dbg_log_ctgr, sizeof(DEBUG_LOG_CATEGORY));
+	if (err) {
+		bsr_err(135, BSR_LC_DRIVER, NO_OBJECT, "DEBUG_LOG_CATEGORY copy from user failed.\n");
+		return -1;
+	}
+
+	categories = dbg_log_ctgr.nCategory;
+
+	if (dbg_log_ctgr.nType == 0) {
+		//enable
+		categories = (previous | categories);
+	}
+	else {
+		//disable
+		categories = previous - (previous & categories);
+	}
+
+	atomic_set(&g_debug_output_category, categories);
+	bsr_info(136, BSR_LC_DRIVER, NO_OBJECT, "The debug log output has been updated, %u => %u", previous, atomic_read(&g_debug_output_category));
+
+	err = copy_to_user(&bsr_dbg_log_ctgr->nCategory, &categories, sizeof(categories));
+
+	if (err) {
+		bsr_warn(137, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy debug log category to user\n");
+	}
+
+	return err;
 }
 
 long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
@@ -123,6 +157,12 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 	{
 		err = bsr_set_log_max_count((unsigned int __user *)param);
+		break;
+	}
+	// BSR-654
+	case IOCTL_MVOL_SET_DEBUG_LOG_CATEGORY:
+	{
+		err = bsr_set_debug_log_out_put_category((DEBUG_LOG_CATEGORY __user *)param);
 		break;
 	}
 	case IOCTL_MVOL_SET_HANDLER_USE:
