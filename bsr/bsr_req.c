@@ -1778,7 +1778,7 @@ static int bsr_process_write_request(struct bsr_request *req)
 
 #ifdef _DEBUG_OOS
 		// DW-1153 Write log when process I/O
-		bsr_oos(6, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)",
+		bsr_debug(6, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)",
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
 

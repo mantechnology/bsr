@@ -314,8 +314,6 @@ void bsr_printk_with_wrong_object_type(void);
 	bsr_printk(category, KERN_NOTICE_NUM, obj, fmt, __VA_ARGS__)
 #define bsr_info(index, category, obj, fmt, ...) \
 	bsr_printk(category, KERN_INFO_NUM, obj, fmt, __VA_ARGS__)
-#define bsr_oos(index, category, obj, fmt, ...) \
-	bsr_printk(category, KERN_OOS_NUM, obj, fmt, __VA_ARGS__)
 #if defined(DBG)
 #define bsr_debug(0, BSR_LC_TEMP, obj, fmt, ...) \
 	bsr_printk(KERN_DEBUG_NUM, obj, fmt, __VA_ARGS__)

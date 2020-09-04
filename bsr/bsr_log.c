@@ -239,10 +239,6 @@ void _printk(const char * func, const char * level, int category, const char * f
 			printLevel = DPFLTR_INFO_LEVEL; memcpy(logbuf + offset, "bsr_info", LEVEL_OFFSET); break;
 		case KERN_DEBUG_NUM:
 			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_trac", LEVEL_OFFSET); break;
-		case KERN_OOS_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_oos ", LEVEL_OFFSET); break;
-		case KERN_LATENCY_NUM:
-			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_late", LEVEL_OFFSET); break;
 		default:
 			printLevel = DPFLTR_TRACE_LEVEL; memcpy(logbuf + offset, "bsr_unkn", LEVEL_OFFSET); break;
 		}
