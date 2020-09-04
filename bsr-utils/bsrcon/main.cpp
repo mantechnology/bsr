@@ -425,7 +425,6 @@ BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
 		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			ctgr = atoi(buf);
-			printf("success debuglog_category, %u\n", ctgr);
 		}
 		fclose(fp);
 	}
