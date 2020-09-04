@@ -190,7 +190,7 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	FILE *fp;
 	fp = fopen(BSR_LOG_FILE_MAXCNT_REG, "r");
 	if(fp != NULL) {
-		char buf[10] = {0};
+		char buf[11] = {0};
 		if (fgets(buf, sizeof(buf), fp) != NULL)
 			log_file_max_count = atoi(buf);
 		fclose(fp);
@@ -241,7 +241,7 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
+		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) 
 			cli_log_file_max_count = atoi(buf);
 		fclose(fp);
@@ -275,7 +275,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
+		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			cli_log_file_max_count = atoi(buf);
 		}
@@ -322,7 +322,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "w+");
 	if (fp != NULL) {
-		char buf[10] = { 0 } ;
+		char buf[11] = { 0 } ;
 		sprintf(buf, "%u", cli_log_file_max_count);
 		if (!fputs(buf, fp)) 
 			return false;
@@ -369,7 +369,7 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 	// BSR-584 read /etc/bsr.d/.log_level
 	fp = fopen(BSR_LOG_LEVEL_REG, "r");
 	if(fp != NULL) {
-		char buf[10] = {0};
+		char buf[11] = {0};
 		if (fgets(buf, sizeof(buf), fp) != NULL)
 			logLevel = atoi(buf);
 		fclose(fp);
@@ -419,12 +419,14 @@ BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
 	lResult = RegQueryValueEx(hKey, _T("debuglog_category"), NULL, &type, (LPBYTE)&ctgr, &size);
 	RegCloseKey(hKey);
 #else // _LIN
-	// BSR-584 read /etc/bsr.d/.log_level
+	// BSR-584 read /etc/bsr.d/.debuglog_category
 	fp = fopen(BSR_DEBUG_LOG_CATEGORY_REG, "r");
 	if (fp != NULL) {
-		char buf[10] = { 0 };
-		if (fgets(buf, sizeof(buf), fp) != NULL)
+		char buf[11] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			ctgr = atoi(buf);
+			printf("success debuglog_category, %u\n", ctgr);
+		}
 		fclose(fp);
 	}
 	else {
