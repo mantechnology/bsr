@@ -650,12 +650,19 @@ int main(int argc, char* argv [])
 				if (SetDebugLogCategory) {
 					for (; argIndex < argc; argIndex++) {
 						for (i = 0; i < LOG_CATEGORY_MAX; i++) {
+#ifdef _WIN
 							if (_strcmpi(argv[argIndex], g_log_category_str[i]) == 0) {
+#else
+							if (strcasecmp(argv[argIndex], g_log_category_str[i]) == 0) {
+#endif
 								dlc.nCategory += 1 << i;
 								break;
 							}
-							else if (_strcmpi(argv[argIndex], "all") == 0)
-							{
+#ifdef _WIN
+							else if (_strcmpi(argv[argIndex], "all") == 0) {
+#else
+							else if (strcasecmp(argv[argIndex], "all") == 0) {
+#endif
 								dlc.nCategory = -1;
 								break;
 							}
@@ -888,6 +895,7 @@ int main(int argc, char* argv [])
 						printf(" %s", g_log_category_str[i]);
 					}
 				}
+				printf("\n");
 			}
 			else
 				printf("Failed to get debug log enable category\n");

@@ -1421,7 +1421,6 @@ DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE)
 #else // _LIN
 	int fd;
 	FILE *fp;
-	long enable_category = 0;
 #endif
 	DWORD       retVal = ERROR_SUCCESS;
 
@@ -1445,7 +1444,7 @@ DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE)
 #ifdef _WIN
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_DEBUG_LOG_CATEGORY, pDlcE, sizeof(DEBUG_LOG_CATEGORY), NULL, 0, &dwReturned, NULL) == FALSE) {
 #else // _LIN
-	if ((enable_category = ioctl(fd, IOCTL_MVOL_SET_DEBUG_LOG_CATEGORY, pDlcE)) < 0) {
+	if ((ioctl(fd, IOCTL_MVOL_SET_DEBUG_LOG_CATEGORY, pDlcE)) < 0) {
 #endif
 		retVal = GetLastError();
 		fprintf(stderr, "DEBUG_CATEGORY_ERROR: %s: Failed IOCTL_MVOL_SET_DEBUG_LOG_CATEGORY. Err=%u\n",
@@ -1464,7 +1463,7 @@ DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE)
 	// write /etc/bsr.d/.debuglog_category
 	fp = fopen(BSR_DEBUG_LOG_CATEGORY_REG, "w");
 	if (fp != NULL) {
-		fprintf(fp, "%lu", enable_category);
+		fprintf(fp, "%u", pDlcE->nCategory);
 		fclose(fp);
 	}
 	else {

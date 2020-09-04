@@ -48,6 +48,7 @@ const struct block_device_operations bsr_ops = {
 static int __init bsr_load(void)
 {
 	long log_level = 0;
+	unsigned int dbglog_ctrg = 0;
 
 #ifdef _LIN
 	// BSR-581
@@ -56,6 +57,10 @@ static int __init bsr_load(void)
 
 	log_level = read_reg_file(BSR_LOG_LEVEL_REG, LOG_LV_DEFAULT);
 	Set_log_lv(log_level);
+
+	// BSR-654
+	dbglog_ctrg = read_reg_file(BSR_DEBUG_LOG_CATEGORY_REG, DEBUG_LOG_OUT_PUT_CATEGORY_DEFAULT);
+	atomic_set(&g_debug_output_category, dbglog_ctrg);
 
 	// BSR-597 set max log count
 	atomic_set(&g_log_file_max_count, read_reg_file(BSR_LOG_FILE_MAXCNT_REG, LOG_FILE_COUNT_DEFAULT));

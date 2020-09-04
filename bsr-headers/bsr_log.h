@@ -31,7 +31,7 @@ typedef struct _LOGGING_MIN_LV {
 // BSR-654
 typedef struct _DEBUG_LOG_CATEGORY {
 	int			nType; // 0 : enable, 1 : disable
-	int			nCategory;
+	unsigned int			nCategory;
 }DEBUG_LOG_CATEGORY, *PDEBUG_LOG_CATEGORY;
 
 typedef struct _CLI_LOG_MAX_COUNT {
