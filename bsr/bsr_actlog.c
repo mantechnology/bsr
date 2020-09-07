@@ -131,7 +131,7 @@ void *bsr_md_get_buffer(struct bsr_device *device, const char *intent)
 							HZ * 10, t);
 
 	if (t == 0)
-		bsr_err(15, BSR_LC_IO, device, "Waited 10 Seconds for md_buffer! BUG?, %s", intent);
+		bsr_err(15, BSR_LC_IO, device, "Failed to get meta buffer in 10 seconds, %s", intent);
 
 	if (r)
 		return NULL;
@@ -166,7 +166,7 @@ void wait_until_done_or_force_detached(struct bsr_device *device, struct bsr_bac
 		*done || test_bit(FORCE_DETACH, &device->flags), dt, dt);
 
 	if (dt == 0) {
-		bsr_err(16, BSR_LC_IO, device, "meta data IO operation timed out");
+		bsr_err(16, BSR_LC_IO, device, "The meta-disk I/O timeout sets the detach state.");
 		bsr_chk_io_error(device, 1, BSR_FORCE_DETACH);
 	}
 }
@@ -212,7 +212,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 		;
 	else if (!get_ldev_if_state(device, D_ATTACHING)) {
 		/* Corresponding put_ldev in bsr_md_endio() */
-		bsr_err(17, BSR_LC_IO, device, "ASSERT FAILED: get_ldev_if_state() == 1 in _bsr_md_sync_page_io()");
+		bsr_err(17, BSR_LC_IO, device, "Meta-disk I/O cannot be performed in %s state.", bsr_disk_str(device->disk_state[NOW]));
 		err = -ENODEV;
 		goto out;
 	}
@@ -256,7 +256,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 #ifdef _WIN
     if(err == STATUS_NO_SUCH_DEVICE) {
 		// DW-1396 referencing bio causes BSOD as long as bio has already been freed once it's been submitted, we don't need volume device name which is already removed also.
-        bsr_err(18, BSR_LC_IO, device, "cannot find meta volume");
+        bsr_err(18, BSR_LC_IO, device, "Failed to I/O due to the meta volume could not be found");
         return err;
     }
 #endif
@@ -290,7 +290,7 @@ int bsr_md_sync_page_io(struct bsr_device *device, struct bsr_backing_dev *bdev,
 
 	if (!bdev->md_bdev) {
 		if (bsr_ratelimit())
-			bsr_err(19, BSR_LC_IO, device, "meta disk device information does not exist. md_dev(NULL)");
+			bsr_err(19, BSR_LC_IO, device, "Failed to I/O due to meta disk device information does not exist. md_dev(NULL)");
 		return -EIO;
 	}
 
@@ -600,7 +600,7 @@ static int al_write_transaction(struct bsr_device *device)
 	int err;
 
 	if (!get_ldev(device)) {
-		bsr_err(2, BSR_LC_LRU, device, "Cannot start activity log transaction because it is in the state %s",
+		bsr_err(2, BSR_LC_LRU, device, "Failed to write activity log due to cannot start transaction because it is in the state %s",
 			bsr_disk_str(device->disk_state[NOW]));
 		return -EIO;
 	}
@@ -608,7 +608,7 @@ static int al_write_transaction(struct bsr_device *device)
 	/* The bitmap write may have failed, causing a state change. */
 	if (device->disk_state[NOW] < D_INCONSISTENT) {
 		bsr_err(3, BSR_LC_LRU, device,
-			"Cannot write al because it is in the state %s",
+			"Failed to write activity log due to it is in the state %s",
 			bsr_disk_str(device->disk_state[NOW]));
 		put_ldev(device);
 		return -EIO;
@@ -617,7 +617,7 @@ static int al_write_transaction(struct bsr_device *device)
 	/* protects md_io_buffer, al_tr_cycle, ... */
 	buffer = bsr_md_get_buffer(device, __func__);
 	if (!buffer) {
-		bsr_err(22, BSR_LC_IO, device, "Failed to get meta I/O buffer.");
+		bsr_err(22, BSR_LC_IO, device, "Failed to write activity log due to failure to get meta I/O buffer.");
 		put_ldev(device);
 		return -ENODEV;
 	}
@@ -700,7 +700,7 @@ bool put_actlog(struct bsr_device *device, unsigned int first, unsigned int last
 		int lc_put_result;		
 		extent = lc_find(device->act_log, enr);
 		if (!extent || extent->refcnt <= 0) {
-			bsr_err(4, BSR_LC_LRU, device, "activity log complete called on inactive extent %u", enr);
+			bsr_err(4, BSR_LC_LRU, device, "Failed to put Activity log due to inactive extent %u", enr);
 			continue;
 		}
 		bsr_debug_al("called lc_put extent->lc_number= %u, extent->refcnt = %u", extent->lc_number, extent->refcnt); 
@@ -838,7 +838,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		struct lc_element *al_ext;
 		al_ext = lc_get_cumulative(device->act_log, (unsigned int)enr);
 		if (!al_ext)
-			bsr_err(6, BSR_LC_LRU, device, "LOGIC BUG, activity log does not exist. enr=%llu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)",
+			bsr_err(6, BSR_LC_LRU, device, "LOGIC BUG, Failed to get activity log due to not exist. enr=%llu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)",
 						(unsigned long long)enr, 
 						test_bit(__LC_STARVING, &device->act_log->flags),
 						test_bit(__LC_LOCKED, &device->act_log->flags),
@@ -1173,7 +1173,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 		}
 	} else if (mode != SET_OUT_OF_SYNC) {
 		/* be quiet if lc_find() did not find it. */
-		bsr_err(8, BSR_LC_LRU, device, "not found lru cache. enr(%u), locked(%u/%u) flags(%llu)",
+		bsr_err(8, BSR_LC_LRU, device, "Failed to get resync extent. enr(%u), locked(%u/%u) flags(%llu)",
 			enr,
 		    peer_device->resync_locked,
 		    peer_device->resync_lru->nr_elements,
@@ -1357,7 +1357,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 		return 0;
 
 	if (!plausible_request_size(size)) {
-		bsr_err(1, BSR_LC_BITMAP, device, "%s => request size is invalid. %s: sector(%llus) size(%u) nonsense!",
+		bsr_err(1, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to request size is invalid. %s: sector(%llus) size(%u) nonsense!",
 				caller,
 				bsr_change_sync_fname[mode],
 				(unsigned long long)sector, 
@@ -1367,7 +1367,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!get_ldev(device)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(2, BSR_LC_BITMAP, device, "%s => Failed to set in %s state, sector(%llu), mode(%u)", caller, bsr_disk_str(device->disk_state[NOW]), sector, mode);
+		bsr_err(2, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to in %s state, sector(%llu), mode(%u)", caller, bsr_disk_str(device->disk_state[NOW]), sector, mode);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
@@ -1377,7 +1377,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!expect(peer_device, sector < nr_sectors)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(3, BSR_LC_BITMAP, peer_device, "%s => unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, sector, nr_sectors);
+		bsr_err(3, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, sector, nr_sectors);
 #endif
 		goto out;
 	}
@@ -1393,7 +1393,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 			// DW-1153 add error log
 #ifdef _DEBUG_OOS
 			// DW-1992 it is a normal operation, not an error, so it is output at the info level.
-			bsr_warn(4, BSR_LC_BITMAP, peer_device, "%s => not in sync because it is smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
+			bsr_warn(4, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
 #endif
 			goto out;
 		}
@@ -1449,7 +1449,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	bool skip_clear = false;
 
 	if (size <= 0 || !IS_ALIGNED(size, 512)) {
-		bsr_err(7, BSR_LC_BITMAP, device, "%s => The setup size is invalid. sector(%llus), size(%d)",
+		bsr_err(7, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to size is invalid. sector(%llus), size(%d)",
 			 __func__, (unsigned long long)sector, size);
 		return false;
 	}
@@ -1457,7 +1457,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!get_ldev(device)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(5, BSR_LC_BITMAP, device, "out of sync cannot be set in %s state. sector(%llu)", bsr_disk_str(device->disk_state[NOW]), sector);
+		bsr_err(5, BSR_LC_BITMAP, device, "Failed to setup sync due to in %s state. sector(%llu)", bsr_disk_str(device->disk_state[NOW]), sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
 	}
@@ -1470,7 +1470,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!expect(device, sector < nr_sectors)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(6, BSR_LC_BITMAP, device, "unexpected error, The sector(%llu) is larger than the capacity sector(%llu).", sector, nr_sectors);
+		bsr_err(6, BSR_LC_BITMAP, device, "Failed to setup sync due to unexpected error, The sector(%llu) is larger than the capacity sector(%llu).", sector, nr_sectors);
 #endif
 		goto out;
 	}
@@ -1832,13 +1832,13 @@ void bsr_rs_complete_io(struct bsr_peer_device *peer_device, sector_t sector, co
 	if (!bm_ext) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		if (bsr_ratelimit())
-			bsr_err(1, BSR_LC_RESYNC_OV, device, "%s => resnyc LRU of enr(%u) was not found.", caller, enr);
+			bsr_err(1, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU of enr(%u) was not found.", caller, enr);
 		return;
 	}
 
 	if (bm_ext->lce.refcnt == 0) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
-		bsr_err(2, BSR_LC_RESYNC_OV, device, "%s => Because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)", 
+		bsr_err(2, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)", 
 			caller, (unsigned long long)enr, (unsigned long long)sector, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
 	}

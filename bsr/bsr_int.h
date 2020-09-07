@@ -2965,7 +2965,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
 	if (!bdev) {
-		bsr_err(25, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because meta block device is not set.");
+		bsr_err(25, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity because meta block device is not set.");
 		return 0;
 	}
 
@@ -2975,7 +2975,7 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 		return bdev->d_size >> 9;
 	}
 	else {
-		bsr_err(26, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity capacity because volume extension is not set.");
+		bsr_err(26, BSR_LC_IO, NO_OBJECT, "Failed to get meta disk capacity because volume extension is not set.");
 		return 0;
 	}
 }
@@ -3216,7 +3216,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
 			if (bsr_ratelimit())
-				bsr_err(2, BSR_LC_IO_ERROR, device, "Local I/O failed in %s.", where);
+				bsr_err(2, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s.", where);
 			if (device->disk_state[NOW] > D_INCONSISTENT) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
@@ -3254,7 +3254,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			begin_state_change_locked(device->resource, CS_HARD);
 			__change_disk_state(device, D_FAILED, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
-			bsr_err(3, BSR_LC_IO_ERROR, device, "Local I/O failed in %s. Detaching...", where);
+			bsr_err(3, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s. Detaching...", where);
 		}
 		break;
 	// DW-1755
@@ -3272,9 +3272,9 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			}
 
 			if (df == BSR_META_IO_ERROR)
-				bsr_err(8, BSR_LC_IO_ERROR, device, "I/O error occurred on meta-disk in %s. Detaching...", where);
+				bsr_err(8, BSR_LC_IO_ERROR, device, "PassThrough, Detaching due to I/O error occurred on meta-disk in %s.", where);
 			else
-				bsr_err(4, BSR_LC_IO_ERROR, device, "Force-detaching in %s", where);
+				bsr_err(4, BSR_LC_IO_ERROR, device, "PassThrough, Force-detaching in %s", where);
 		}
 		else {
 		// DW-1814 
@@ -3282,7 +3282,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
 		// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
 			if (atomic_read(&device->io_error_count) == 1)
-				bsr_err(5, BSR_LC_IO_ERROR, device, "%s I/O error occurred on repl-disk. Passthrough...", (df == BSR_READ_ERROR) ? "Read" : "Write");
+				bsr_err(5, BSR_LC_IO_ERROR, device, "PassThrough, Failed to %s replication-disk", (df == BSR_READ_ERROR) ? "Read" : "Write");
 		}
 
 		break;
@@ -3492,7 +3492,7 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 			bsr_queue_work(&device->resource->work, &w->w);
 		}
 		else {
-			bsr_err(13, BSR_LC_MEMORY, device, "Failed to allocated %d size memory in kmalloc", sizeof(*(w->io_error)));
+			bsr_err(13, BSR_LC_MEMORY, device, "Failed to notification I/O error event due to failure to allocated %d size memory in kmalloc", sizeof(*(w->io_error)));
 		}
 	}
 }
@@ -3869,7 +3869,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 	max_req_write_cnt = device->resource->res_opts.max_req_write_cnt;   
 	if (max_req_write_cnt < BSR_MAX_REQ_WRITE_CNT_MIN ||
 		max_req_write_cnt > BSR_MAX_REQ_WRITE_CNT_MAX)	{
-		bsr_err(1, BSR_LC_REQUEST, device, "got invalid max_req_write_cnt(%d), use default value(%d)", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
+		bsr_err(1, BSR_LC_REQUEST, device, "Set the default(%d) value because the max_req_write_cnt(%d) setting is incorrect.", max_req_write_cnt, (int)BSR_MAX_REQ_WRITE_CNT_DEF);
 		max_req_write_cnt = (int)BSR_MAX_REQ_WRITE_CNT_DEF;    // use default if value is invalid.    
 	}
 

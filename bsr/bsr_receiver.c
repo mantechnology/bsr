@@ -513,7 +513,7 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	peer_req = mempool_alloc(bsr_ee_mempool, gfp_mask & ~__GFP_HIGHMEM);
 	if (!peer_req) {
 		if (!(gfp_mask & __GFP_NOWARN))
-			bsr_err(5, BSR_LC_PEER_REQUEST, device, "Failed to allocate memory for peer request");
+			bsr_err(5, BSR_LC_PEER_REQUEST, device, "Failed to allocate peer request due to failed to allocate memory");
 		return NULL;
 	}
 
@@ -890,10 +890,10 @@ start:
 	if (connection->cram_hmac_tfm) {
 		switch (bsr_do_auth(connection)) {
 		case -1:
-			bsr_err(4, BSR_LC_CONNECTION, connection, "Authentication of peer failed");
+			bsr_err(4, BSR_LC_CONNECTION, connection, "Failed to connect due to failure to authentication of peer");
 			goto abort;
 		case 0:
-			bsr_err(5, BSR_LC_CONNECTION, connection, "Authentication of peer failed, trying again.");
+			bsr_err(5, BSR_LC_CONNECTION, connection, "Failed to connect due to failure authentication of peer, trying again.");
 			goto retry;
 		}
 	}
@@ -957,7 +957,7 @@ start:
 #endif
 #endif
 	if (!connection->ack_sender) {
-		bsr_err(17, BSR_LC_THREAD, connection, "Failed to create thread for workqueue ack_sender");
+		bsr_err(17, BSR_LC_THREAD, connection, "Failed to connect due to failure to create thread for work queue of ack sender");
 		goto abort;
 	}
 
@@ -1021,7 +1021,7 @@ int decode_header(struct bsr_connection *connection, void *header, struct packet
 	    *(__be32 *)header == cpu_to_be32(BSR_MAGIC_100)) {
 		struct p_header100 *h = header;
 		if (h->pad != 0) {
-			bsr_err(3, BSR_LC_PROTOCOL, connection, "Header padding is not zero");
+			bsr_err(3, BSR_LC_PROTOCOL, connection, "Failed to decode protocol header due to padding is not zero");
 			return -EINVAL;
 		}
 		pi->vnr = (s16)be16_to_cpu(h->volume);
@@ -1040,7 +1040,7 @@ int decode_header(struct bsr_connection *connection, void *header, struct packet
 		pi->size = be16_to_cpu(h->length);
 		pi->vnr = 0;
 	} else {
-		bsr_err(4, BSR_LC_PROTOCOL, connection, "Wrong magic value 0x%08x in protocol version %d",
+		bsr_err(4, BSR_LC_PROTOCOL, connection, "Failed to decode protocol header due to wrong magic value 0x%08x in protocol version %d",
 			 be32_to_cpu(*(__be32 *)header),
 			 connection->agreed_pro_version);
 		return -EINVAL;
@@ -1190,7 +1190,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 		if (ctx)
 			ctx->error = error;
-		bsr_err(11, BSR_LC_VOLUME, device, "Flush of local disk failed. status(%08X)", error);
+		bsr_err(11, BSR_LC_VOLUME, device, "Failed to flush of local disk due to error %08X", error);
 	}
 
 #ifdef _WIN // DW-1117 patch flush io memory leak
@@ -1696,7 +1696,7 @@ struct bsr_peer_request *peer_req)
 	/* We should have never received this request!  At least not until we
 	 * implement an open-coded write-same equivalend submit loop, and tell
 	 * our peer we were write_same_capable. */
-	bsr_err(5, BSR_LC_PROTOCOL, device, "received unsupported WRITE_SAME request");
+	bsr_err(5, BSR_LC_PROTOCOL, device, "Failed to write same option due to unsupported");
 	peer_req->flags |= EE_WAS_ERROR;
 	bsr_endio_write_sec_final(peer_req);
 #else
@@ -1866,7 +1866,7 @@ next_bio:
 	* REQ_OP_SECURE_ERASE: I don't see how we could ever support that.
 	*/
 	if (!(op == REQ_OP_WRITE || op == REQ_OP_READ)) {
-		bsr_err(6, BSR_LC_PEER_REQUEST, device, "An unknown request has been received. 0x%x", op);
+		bsr_err(6, BSR_LC_PEER_REQUEST, device, "Failed to submit peer request due to an unknown request has been received. 0x%x", op);
 		err = -EINVAL;
 		goto fail;
 	}
@@ -1877,7 +1877,7 @@ next_bio:
 	bio = bio_alloc(GFP_NOIO, nr_pages);
 #endif
 	if (!bio) {
-		bsr_err(7, BSR_LC_PEER_REQUEST, device, "Failed to allocate block I/O (pages=%u)", nr_pages);
+		bsr_err(7, BSR_LC_PEER_REQUEST, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
 		goto fail;
 	}
 	/* > peer_req->i.sector, unless this is the first bio */
@@ -6003,7 +6003,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 
 	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82SB');
 	if (!new_net_conf) {
-		bsr_err(15, BSR_LC_PROTOCOL, connection, "Faild to allocate %d size memory for net configure", sizeof(struct net_conf));
+		bsr_err(15, BSR_LC_PROTOCOL, connection, "Failed to allocate %d size memory for net configure", sizeof(struct net_conf));
 		goto disconnect;
 	}
 

@@ -2476,25 +2476,25 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5SB');
     if (!dev) {
-		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device", sizeof(struct block_device));
+		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'D5SB');
 	if (!dev->bd_contains) {
-		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for block device contains", sizeof(struct block_device));
+		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for gendisk", sizeof(struct gendisk));
+		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for gendisk", sizeof(struct gendisk));
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to allocate %d size memory for request queue", sizeof(struct request_queue));
+		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
 		goto request_queue_failed;
 	}
 		
@@ -2549,7 +2549,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 
 	// DW-1381 dev is set as NULL when block device is destroyed.
 	if (!pvext->dev) {
-		bsr_err(4, BSR_LC_VOLUME, NO_OBJECT,"Failed to get bsr device since block device is NULL");
+		bsr_err(4, BSR_LC_VOLUME, NO_OBJECT,"Failed to get bsr device due to no block device is assigned");
 		return NULL;		
 	}
 
@@ -2557,7 +2557,7 @@ struct bsr_device *get_device_with_vol_ext(PVOLUME_EXTENSION pvext, bool bCheckR
 	if (bCheckRemoveLock) {
 		NTSTATUS status = IoAcquireRemoveLock(&pvext->RemoveLock, NULL);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(5, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire remove lock with status(0x%x)", status);
+			bsr_err(5, BSR_LC_VOLUME, NO_OBJECT,"Failed to get bsr device due to failure to acquire remove lock with status(0x%x)", status);
 			return NULL;
 		}
 	}
@@ -2600,7 +2600,7 @@ BOOLEAN do_add_minor(unsigned int minor)
 
     PWCHAR new_reg_buf = (PWCHAR)ExAllocatePoolWithTag(PagedPool, MAX_TEXT_BUF, '93SB');
     if (!new_reg_buf) {
-		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size regestry memory.", MAX_TEXT_BUF);
+		bsr_err(6, BSR_LC_MEMORY, NO_OBJECT, "Failed to get a minor from the registry due to failure to allocate %d size regestry memory.", MAX_TEXT_BUF);
         return FALSE;
     }
 
@@ -2631,7 +2631,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     keyInfo = (PKEY_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, 'A3SB');
     if (!keyInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry key", size);
+		bsr_err(7, BSR_LC_MEMORY, NO_OBJECT, "Failed to get a minor from the registry due to failure to allocate %u size memory for regestry key", size);
         goto cleanup;
     }
 
@@ -2645,7 +2645,7 @@ BOOLEAN do_add_minor(unsigned int minor)
     valueInfo = (PKEY_VALUE_FULL_INFORMATION)ExAllocatePoolWithTag(PagedPool, valueInfoSize, 'B3SB');
     if (!valueInfo) {
         status = STATUS_INSUFFICIENT_RESOURCES;
-		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %u size memory for regestry value", valueInfoSize);
+		bsr_err(8, BSR_LC_MEMORY, NO_OBJECT, "Failed to get a minor from the registry due to failure to allocate %u size memory for regestry value", valueInfoSize);
         goto cleanup;
     }
 
@@ -2903,7 +2903,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, 'C0SB');
 	if (!pSock) {
-		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for socket", sizeof(struct socket));
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to user handler execution due to failure to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;
 	}
 #ifdef _WIN64
@@ -2912,7 +2912,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64SB');
 	if (!cmd_line) {
-		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate %d size memory for command line", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to user handler execution due to failure to allocate %d size memory for command line", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -2924,7 +2924,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to create socket");
+		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to create socket");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -2950,11 +2950,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
-		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Connect not completed. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to connect not completed. IRQL(%d)", KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	}
@@ -2976,9 +2976,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
+				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)", readcount);
+				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 
@@ -2988,7 +2988,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to send command. status(0x%x)", Status);
+			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to send command. status(0x%x)", Status);
 			ret = -1;
 			goto error;
 		}
@@ -2997,9 +2997,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Receive timed out(%d)", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to receive timed out(%d)", g_handler_timeout);
 			} else {
-				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive. status(0x%x)", readcount);
+				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3007,7 +3007,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to send finished. status(0x%x)", Status); // ignore!
+			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to send finished. status(0x%x)", Status); // ignore!
 		}
 
 		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...", Status);

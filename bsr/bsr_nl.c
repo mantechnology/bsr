@@ -153,7 +153,7 @@ static void bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info)
     }
 #endif
 	if (genlmsg_reply(skb, info)) {
-		bsr_err(1, BSR_LC_GENL, NO_OBJECT, "error sending genl reply");
+		bsr_err(1, BSR_LC_GENL, NO_OBJECT, "Failed to send reply genl due to error sending genl reply");
 #ifdef _WIN
 		return -1;
 #endif
@@ -266,7 +266,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	}
 
 	if (info->genlhdr->version != GENL_MAGIC_VERSION && (flags & BSR_ADM_IGNORE_VERSION) == 0) {
-		bsr_msg_put_info(adm_ctx->reply_skb, "Wrong API version, upgrade your bsr utils.");
+		bsr_msg_put_info(adm_ctx->reply_skb, "Failed to prepare bsradm due to wrong API version, upgrade your bsr utils.");
 		err = -EINVAL;
 		goto fail;
 	}
@@ -387,31 +387,31 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	/* some more paranoia, if the request was over-determined */
 	if (adm_ctx->device && adm_ctx->resource && adm_ctx->device->resource && 
 	    adm_ctx->device->resource != adm_ctx->resource) {
-		bsr_err(67, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s; but that minor belongs to resource %s",
+		bsr_err(67, BSR_LC_GENL, NO_OBJECT, "Failed to prepare bsradm due to minor exists in different resource, request: minor=%u, resource=%s; but that minor belongs to resource %s",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->resource->name);
-		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists in different resource");
+		bsr_msg_put_info(adm_ctx->reply_skb, "Failed to prepare bsradm due to minor exists in different resource");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
 	if (adm_ctx->device && adm_ctx->device->resource && 
 	    adm_ctx->volume != VOLUME_UNSPECIFIED &&
 	    adm_ctx->volume != adm_ctx->device->vnr) {
-		bsr_err(68, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, volume=%u; but that minor is volume %u in %s",
+		bsr_err(68, BSR_LC_GENL, NO_OBJECT, "Failed to prepare bsradm due to minor exists in different volume, request: minor=%u, volume=%u; but that minor is volume %u in %s",
 				adm_ctx->minor, adm_ctx->volume,
 				adm_ctx->device->vnr,
 				adm_ctx->device->resource->name);
-		bsr_msg_put_info(adm_ctx->reply_skb, "minor exists as different volume");
+		bsr_msg_put_info(adm_ctx->reply_skb, "Failed to prepare bsradm due to minor exists as different volume");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
 	if (adm_ctx->device && adm_ctx->peer_device &&
 		adm_ctx->resource && adm_ctx->resource->name &&
 	    adm_ctx->peer_device->device != adm_ctx->device) {
-		bsr_msg_put_info(adm_ctx->reply_skb, "peer_device->device != device");
-		bsr_err(69, BSR_LC_GENL, NO_OBJECT, "request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device",
+		bsr_err(69, BSR_LC_GENL, NO_OBJECT, "Failed to prepare bsradm due to device does not exist in peer device, request: minor=%u, resource=%s, volume=%u, peer_node=%u; device != peer_device->device",
 				adm_ctx->minor, adm_ctx->resource->name,
 				adm_ctx->device->vnr, adm_ctx->peer_node_id);
+		bsr_msg_put_info(adm_ctx->reply_skb, "Failed to prepare bsradm due to device does not exist in peer device");
 		err = ERR_INVALID_REQUEST;
 		goto finish;
 	}
@@ -441,7 +441,7 @@ static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *
 {
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
-		bsr_err(2, BSR_LC_GENL, resource, "cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
+		bsr_err(2, BSR_LC_GENL, resource, "Failed to finish bsradm due to cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
 	}
 
 	if (adm_ctx->device) {
@@ -856,7 +856,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 
 	spin_lock_irq(&resource->req_lock);
 	if (connection->cstate[NOW] >= C_CONNECTED) {
-		bsr_err(4, BSR_LC_GENL, connection, "Not connected. cstate(%s)", bsr_conn_str(connection->cstate[NOW]));
+		bsr_err(4, BSR_LC_GENL, connection, "Failed to set outdate peer due to not connected. cstate(%s)", bsr_conn_str(connection->cstate[NOW]));
 		spin_unlock_irq(&resource->req_lock);
 		return false;
 	}
@@ -1801,9 +1801,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 			/* currently there is only one error: ENOMEM! */
 			size = bsr_bm_capacity(device);
 			if (size == 0) {
-				bsr_err(11, BSR_LC_GENL, device, "Device is not assigned bitmap.");
+				bsr_err(11, BSR_LC_GENL, device, "Failed to determine device size due to device is not assigned bitmap.");
 			} else {
-				bsr_err(12, BSR_LC_GENL, device, "Bitmap resizing failed. Leaving size unchanged");
+				bsr_err(12, BSR_LC_GENL, device, "Failed to determine device size due to bitmap resizing failed. Leaving size unchanged");
 			}
 			rv = DS_ERROR;
 		}
@@ -2043,7 +2043,7 @@ bsr_new_dev_size(struct bsr_device *device,
 
 
 	if (size == 0)
-		bsr_err(19, BSR_LC_GENL, device, "All nodes diskless!");
+		bsr_err(19, BSR_LC_GENL, device, "Failed to get new device size due to all nodes diskless!");
 
 	if (flags & DDSF_IGNORE_PEER_CONSTRAINTS) {
 		if (current_size > size
@@ -2052,7 +2052,7 @@ bsr_new_dev_size(struct bsr_device *device,
 	}
 
 	if (user_capped_size > size)
-		bsr_err(20, BSR_LC_GENL, device, "Requested disk size is too big (%llu > %llu)kiB",
+		bsr_err(20, BSR_LC_GENL, device, "Failed to get new device size due to requested disk size is too big (%llu > %llu)kiB",
 		(unsigned long long)user_capped_size >> 1,
 		(unsigned long long)size >> 1);
 	else if (user_capped_size)
@@ -2090,7 +2090,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		dc->al_extents, sizeof(struct lc_element), 0);
 #endif
 	if (n == NULL) {
-		bsr_err(21, BSR_LC_GENL, device, "Cannot allocate activity log LRU");
+		bsr_err(21, BSR_LC_GENL, device, "Failed to check activity log size due to cannot allocate activity log LRU");
 		return -ENOMEM;
 	}
 	spin_lock_irq(&device->al_lock);
@@ -2098,7 +2098,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		for (i = 0; i < t->nr_elements; i++) {
 			e = lc_element_by_index(t, i);
 			if (e->refcnt)
-				bsr_err(22, BSR_LC_GENL, device, "Reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
+				bsr_err(22, BSR_LC_GENL, device, "Failed to check activity log size due to reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
 			in_use += e->refcnt;
 		}
 	}
@@ -2106,7 +2106,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		device->act_log = n;
 	spin_unlock_irq(&device->al_lock);
 	if (in_use) {
-		bsr_err(23, BSR_LC_GENL, device, "Activity log is already in use.");
+		bsr_err(23, BSR_LC_GENL, device, "Failed to check activity log size due to activity log is already in use.");
 		lc_destroy(n);
 		return -EBUSY;
 	} else {
@@ -2669,7 +2669,7 @@ struct bsr_backing_dev *nbc)
 			return 0;
 		}
 	}
-	bsr_err(31, BSR_LC_GENL, peer_device, "Not enough free bitmap slots");
+	bsr_err(31, BSR_LC_GENL, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
 	return -ENOSPC;
 }
 
@@ -2685,7 +2685,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
 #endif
 	if (IS_ERR(bdev)) {
-		bsr_err(32, BSR_LC_GENL, device, "open(\"%s\") failed with %ld",
+		bsr_err(32, BSR_LC_GENL, device, "Failed to open(\"%s\") backing device with %ld",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
@@ -2704,7 +2704,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 #endif
 	if (err) {
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
-		bsr_err(33, BSR_LC_GENL, device, "bd_link_disk_holder(\"%s\", ...) failed with %d",
+		bsr_err(33, BSR_LC_GENL, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
 	}
@@ -2917,7 +2917,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	sanitize_disk_conf(device, new_disk_conf, nbc);
 
 	if (bsr_get_max_capacity(nbc) < new_disk_conf->disk_size) {
-		bsr_err(34, BSR_LC_GENL, device, "max capacity %llu smaller than disk size %llu",
+		bsr_err(34, BSR_LC_GENL, device, "Failed to attach due to max capacity %llu smaller than disk size %llu",
 			(unsigned long long) bsr_get_max_capacity(nbc),
 			(unsigned long long) new_disk_conf->disk_size);
 		retcode = ERR_DISK_TOO_SMALL;
@@ -2940,7 +2940,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	if (bsr_get_capacity(nbc->md_bdev) < min_md_device_sectors) {
 #endif
 		retcode = ERR_MD_DISK_TOO_SMALL;
-		bsr_err(81, BSR_LC_GENL, device, "refusing attach: md-device too small, "
+		bsr_err(81, BSR_LC_GENL, device, "Failed to attach due to refusing attach: md-device too small, "
 		     "at least %llu sectors needed for this meta-disk type",
 		     (unsigned long long) min_md_device_sectors);
 		goto fail;
@@ -2951,7 +2951,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	if (bsr_get_max_capacity(nbc) <
 	    bsr_get_capacity(device->this_bdev)) {
 		bsr_err(35, BSR_LC_GENL, device,
-			"Current (diskless) capacity %llu, cannot attach smaller (%llu) disk",
+			"Failed to attach due to current (diskless) capacity %llu, cannot attach smaller (%llu) disk",
 			(unsigned long long)bsr_get_capacity(device->this_bdev),
 			(unsigned long long)bsr_get_max_capacity(nbc));
 		retcode = ERR_DISK_TOO_SMALL;
@@ -3051,7 +3051,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Make sure the local node id matches or is unassigned */
 	if (nbc->md.node_id != -1 && (unsigned int)nbc->md.node_id != resource->res_opts.node_id) {
-		bsr_err(37, BSR_LC_GENL, device, "Local node id %u differs from local "
+		bsr_err(37, BSR_LC_GENL, device, "Failed to attach due to local node id %u differs from local "
 			 "node id %d on device",
 			 resource->res_opts.node_id,
 			 nbc->md.node_id);
@@ -3061,7 +3061,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	/* Make sure no bitmap slot has our own node id */
 	if (nbc->md.peers[resource->res_opts.node_id].bitmap_index != -1) {
-		bsr_err(38, BSR_LC_GENL, device, "There is a bitmap for my own node id (%u)",
+		bsr_err(38, BSR_LC_GENL, device, "Failed to attach due to there is a bitmap for my own node id (%u)",
 			 resource->res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto force_diskless_dec;
@@ -3082,7 +3082,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		unsigned int slots_available = device->bitmap->bm_max_peers - used_bitmap_slots(nbc);
 
 		if (slots_needed > slots_available) {
-			bsr_err(39, BSR_LC_GENL, device, "Not enough free bitmap "
+			bsr_err(39, BSR_LC_GENL, device, "Failed to attach due to not enough free bitmap "
 				 "slots (available=%u, needed=%u)",
 				 slots_available,
 				 slots_needed);
@@ -3113,7 +3113,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				data_present = true;
 		}
 		if (!data_present) {
-			bsr_err(40, BSR_LC_GENL, device, "Can only attach to data with current UUID=%016llX",
+			bsr_err(40, BSR_LC_GENL, device, "Failed to attach due to no latest data among peer devices with current UUID=%016llX",
 				 (unsigned long long)device->exposed_data_uuid);
 			retcode = ERR_DATA_NOT_CURRENT;
 			goto force_diskless_dec;
@@ -3186,7 +3186,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	unsigned long long eff = device->ldev->md.effective_size;
 	if (bsr_md_test_flag(device, MDF_CONSISTENT) && nsz < eff) {
 		bsr_err(85, BSR_LC_GENL, device,
-			"refusing to truncate a consistent device (%llu < %llu)",
+			"Failed to attach due to refusing to truncate a consistent device (%llu < %llu)",
 			nsz, eff);		
 		retcode = ERR_DISK_TOO_SMALL;
 		goto force_diskless_dec;
@@ -3782,7 +3782,7 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 		new_plan = fifo_alloc(fifo_size);
 #endif
 		if (!new_plan) {
-			bsr_err(43, BSR_LC_GENL, peer_device, "Failed to allocate %d size memory in kmalloc", fifo_size);
+			bsr_err(43, BSR_LC_GENL, peer_device, "Failed to attach due to failure to allocate %d size memory in kmalloc", fifo_size);
 			return -ENOMEM;
 		}
 		rcu_assign_pointer(peer_device->rs_plan_s, new_plan);
@@ -3943,7 +3943,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	*ret_conn = NULL;
 	if (adm_ctx->connection) {
 		struct bsr_resource * resource = adm_ctx->resource;
-		bsr_err(46, BSR_LC_GENL, resource, "Connection for peer node id %u already exists",
+		bsr_err(46, BSR_LC_GENL, resource, "Failed to new connection due to peer node id %u already exists",
 			adm_ctx->peer_node_id);
 		return ERR_INVALID_REQUEST;
 	}
@@ -4203,8 +4203,8 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	if (err) {
 		struct bsr_connection * connection = adm_ctx->connection;
 		kref_put(&path->kref, bsr_destroy_path);
-		bsr_err(47, BSR_LC_GENL, connection, "Failed to get an listener. err(%d)", err);
-		bsr_msg_put_info(adm_ctx->reply_skb, "add_path on transport failed");
+		bsr_err(47, BSR_LC_GENL, connection, "Failed to add path due to failure to get an listener. err(%d)", err);
+		bsr_msg_put_info(adm_ctx->reply_skb, "Failed to add path due to failure to get an listener");
 		return ERR_INVALID_REQUEST;
 	}
 	notify_path(adm_ctx->connection, path, NOTIFY_CREATE);
@@ -4383,7 +4383,7 @@ adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 		return NO_ERROR;
 	}
 
-	bsr_err(48, BSR_LC_GENL, connection, "Failed to put an listener. err(%d)", err);
+	bsr_err(48, BSR_LC_GENL, connection, "Failed to delete path due to failure to put an listener. err(%d)", err);
 	bsr_msg_put_info(adm_ctx->reply_skb,
 			  err == -ENOENT ? "no such path" : "del_path on transport failed");
 	return ERR_INVALID_REQUEST;
@@ -4524,7 +4524,7 @@ void del_connection(struct bsr_connection *connection)
 	 */
 	rv2 = change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD);
 	if (rv2 < SS_SUCCESS)
-		bsr_err(49, BSR_LC_GENL, connection, "Failed to change status to STANDALONE. state(%d)", rv2);
+		bsr_err(49, BSR_LC_GENL, connection, "Failed to delete connection due to failure to change status to standalone. state(%d)", rv2);
 	/* Make sure the sender thread has actually stopped: state
 	 * handling only does bsr_thread_stop_nowait().
 	 */
@@ -4713,7 +4713,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	
 	local_max_size = bsr_local_max_size(device);
 	if (rs.resize_size && local_max_size < (sector_t)rs.resize_size) {
-		bsr_err(51, BSR_LC_GENL, device, "requested %llu sectors, backend seems only able to support %llu",
+		bsr_err(51, BSR_LC_GENL, device, "Failed to resize due to requested %llu sectors, backend seems only able to support %llu",
 			(unsigned long long)(sector_t)rs.resize_size,
 			(unsigned long long)local_max_size);
 		retcode = ERR_DISK_TOO_SMALL;
@@ -5249,7 +5249,7 @@ int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef _WIN 
 	// DW-1361 disable bsr_adm_suspend_io
-	bsr_err(52, BSR_LC_GENL, resource, "command suspend I/O(%d) is not supported.", info->genlhdr->cmd);
+	bsr_err(52, BSR_LC_GENL, resource, "Failed to I/O(%d) suspend due to not supported.", info->genlhdr->cmd);
 	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN
@@ -5284,7 +5284,7 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	// DW-1361 disable bsr_adm_resume_io
 	resource = adm_ctx.device->resource;
-	bsr_err(53, BSR_LC_GENL, resource, "command resume I/O(%d) is not supported.", info->genlhdr->cmd);;
+	bsr_err(53, BSR_LC_GENL, resource, "Failed to I/O(%d) resume due to not supported.", info->genlhdr->cmd);;
 	bsr_adm_finish(&adm_ctx, info, -ENOMSG);
 	return -ENOMSG;
 #else // _LIN
@@ -6195,7 +6195,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 		err = bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 			"clear_n_write from new_c_uuid", BM_LOCK_ALL, NULL);
 		if (err) {
-			bsr_err(55, BSR_LC_GENL, device, "Writing bitmap failed with %d",err);
+			bsr_err(55, BSR_LC_GENL, device, "Failed to create new uuid due to writing bitmap failed with %d",err);
 			retcode = ERR_IO_MD_DISK;
 		}
 		for_each_peer_device(peer_device, device) {
@@ -6292,13 +6292,13 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	// TODO node id -1??
 	if (res_opts.node_id < 0 || res_opts.node_id >= BSR_NODE_ID_MAX) {
 #endif
-		bsr_err(56, BSR_LC_GENL, NO_OBJECT, "invalid node id (%d)", res_opts.node_id);
+		bsr_err(56, BSR_LC_GENL, NO_OBJECT, "Failed to create new resource due to invalid node id (%d)", res_opts.node_id);
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
 #ifdef _LIN
 	if (!try_module_get(THIS_MODULE)) {
-		bsr_err(57, BSR_LC_GENL, NO_OBJECT, "Could not get a module reference");
+		bsr_err(57, BSR_LC_GENL, NO_OBJECT, "Failed to create new resource due to could not get a module reference");
 		retcode = ERR_INVALID_REQUEST;
 		goto out;
 	}
@@ -6802,7 +6802,7 @@ void notify_resource_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	bsr_err(59, BSR_LC_GENL, resource, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(59, BSR_LC_GENL, resource, "Failed to notification resource state. error %d, event seq:%u",
 			err, seq);
 }
 
@@ -6852,7 +6852,7 @@ void notify_device_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	bsr_err(60, BSR_LC_GENL, device, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(60, BSR_LC_GENL, device, "Failed to notification device state. error %d, event seq:%u",
 		 err, seq);
 }
 
@@ -6904,7 +6904,7 @@ void notify_connection_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	bsr_err(61, BSR_LC_GENL, connection, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(61, BSR_LC_GENL, connection, "Failed to notification connection state. error %d, event seq:%u",
 		 err, seq);
 }
 
@@ -6955,7 +6955,7 @@ void notify_peer_device_state(struct sk_buff *skb,
 nla_put_failure:
 	nlmsg_free(skb);
 failed:
-	bsr_err(62, BSR_LC_GENL, peer_device, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(62, BSR_LC_GENL, peer_device, "Failed to notification peer device state. error %d, event seq:%u",
 		 err, seq);
 }
 		  
@@ -7057,7 +7057,7 @@ fail:
 	// DW-1556 fix DV crash, NULL dereference
 	if(skb)
 		nlmsg_free(skb);
-	bsr_err(63, BSR_LC_GENL, resource, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(63, BSR_LC_GENL, resource, "Failed to notification path. error %d, event seq:%u",
 		 err, seq);
 }
 
@@ -7113,7 +7113,7 @@ fail:
 	// DW-1556 fix DV crash, NULL dereference
 	if(skb)
 		nlmsg_free(skb);
-	bsr_err(64, BSR_LC_GENL, resource, "Error %d while broadcasting event. Event seq:%u",
+	bsr_err(64, BSR_LC_GENL, resource, "Failed to notification helper. error %d, event seq:%u",
 		 err, seq);
 }
 
@@ -7136,7 +7136,7 @@ static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 
 nla_put_failure:
 	nlmsg_free(skb);
-	bsr_err(65, BSR_LC_GENL, NO_OBJECT, "Error %d sending event. Event seq:%u", err, seq);
+	bsr_err(65, BSR_LC_GENL, NO_OBJECT, "Failed to notification initial state. error %d, event seq:%u", err, seq);
 }
 
 static void free_state_changes(struct list_head *list)
