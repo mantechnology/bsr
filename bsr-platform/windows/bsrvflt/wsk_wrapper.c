@@ -244,7 +244,7 @@ InitWskBuffer(
 		IoFreeMdl(WskBuffer->Mdl);
 		WskBuffer->Mdl = NULL;
 
-		bsr_err(40, BSR_LC_SOCKET, NO_OBJECT, "Failed to load into kernel memory. exception code=0x%x", GetExceptionCode());
+		bsr_err(40, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk buffer due to failure to load into kernel memory. exception code=0x%x", GetExceptionCode());
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 	return Status;
@@ -297,7 +297,7 @@ NTSTATUS NTAPI WskGetNPI()
 	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI done."); // takes long time! msg out after MVL loaded.
 
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "Failed to WskCaptureProviderNPI. status 0x%08X", Status);
+		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "Failed to get wsk npi due to failure to wsk capture provider npi. status 0x%08X", Status);
 		WskDeregister(&g_WskRegistration);
 		InterlockedExchange(&g_WskState, DEINITIALIZED);
 		return Status;
@@ -657,7 +657,7 @@ __in  BOOLEAN	bWriteAccess
 		IoFreeMdl((*WskBuffer)->Mdl);
 		(*WskBuffer)->Mdl = NULL;
 
-		bsr_err(45, BSR_LC_SOCKET, NO_OBJECT, "Failed to load into kernel memory. exception code=0x%x", GetExceptionCode());
+		bsr_err(45, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk send buffer due to failure to load into kernel memory. exception code=0x%x", GetExceptionCode());
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 	return Status;
@@ -769,7 +769,7 @@ Send(
 	if(pSock->sk_state <= WSK_DISCONNECTING) {
 		// DW-1749 Do not call WskSend if socket is being disconnected or closed. The operation context will not be used any more.
 		// Otherwise, a hang occurs.
-		bsr_err(46, BSR_LC_SOCKET, NO_OBJECT, "Socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
+		bsr_err(46, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
 		goto $Send_fail;
 	}
@@ -828,17 +828,17 @@ Send(
 	if (SendStatus != STATUS_SUCCESS) {
 		switch (SendStatus) {
 		case STATUS_IO_TIMEOUT:
-			bsr_err(48, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out. wsk(0x%p) size(%lu)", WskSocket, BufferSize);
+			bsr_err(48, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to time-out. wsk(0x%p) size(%lu)", WskSocket, BufferSize);
 			BytesSent = -EAGAIN;
 			break;
 		case STATUS_INVALID_DEVICE_STATE:
 		case STATUS_FILE_FORCED_CLOSED:
-			bsr_err(49, BSR_LC_SOCKET, NO_OBJECT, "Send invalid WSK Socket. state (%s) wsk(0x%p) size(%lu)", GetSockErrorString(SendStatus), WskSocket, BufferSize);
+			bsr_err(49, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to invalid wsk socket. state (%s) wsk(0x%p) size(%lu)", GetSockErrorString(SendStatus), WskSocket, BufferSize);
 			pSock->sk_state = WSK_INVALID_DEVICE;
 			BytesSent = -ECONNRESET;
 			break;
 		default:
-			bsr_err(50, BSR_LC_SOCKET, NO_OBJECT, "Send error, err(%s) wsk(0x%p) size(%lu)", GetSockErrorString(SendStatus), WskSocket, BufferSize);
+			bsr_err(50, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to error, err(%s) wsk(0x%p) size(%lu)", GetSockErrorString(SendStatus), WskSocket, BufferSize);
 			BytesSent = -ECONNRESET;
 			break;
 		}
@@ -890,7 +890,7 @@ SendLocal(
 	PCHAR			DataBuffer = NULL;
 
 	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int) BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
-		bsr_err(51, BSR_LC_SOCKET, NO_OBJECT, "Socket status is not send(WSK_INVALID_DEVICE). WskSocket:%p", WskSocket);
+		bsr_err(51, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket status is not send(WSK_INVALID_DEVICE). WskSocket:%p", WskSocket);
 		return SOCKET_ERROR;
 	}
 
@@ -916,7 +916,7 @@ SendLocal(
 
 	if(pSock->sk_state <= WSK_DISCONNECTING) {
 		// DW-1749 
-		bsr_err(52, BSR_LC_SOCKET, NO_OBJECT, "Socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
+		bsr_err(52, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
 		goto $SendLoacl_fail;
 	}
@@ -946,14 +946,14 @@ SendLocal(
 		if(Status == STATUS_TIMEOUT) {
 			// DW-1679 if WSK_INVALID_DEVICE, we goto fail.
 			if(pSock->sk_state == WSK_INVALID_DEVICE) {
-				bsr_err(53, BSR_LC_SOCKET, NO_OBJECT, "Socket is not connected. current state WSK_INVALID_DEVICE(0x%p)", WskSocket);
+				bsr_err(53, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state WSK_INVALID_DEVICE(0x%p)", WskSocket);
 				BytesSent = -ECONNRESET;
 			} else {
 				// FIXME: cancel & completion's race condition may be occurred.
 				// Status or Irp->IoStatus.Status  
 
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
+				bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 				return -EAGAIN;
@@ -965,17 +965,17 @@ SendLocal(
 	if (SendStatus != STATUS_SUCCESS) {
 		switch (SendStatus) {
 		case STATUS_IO_TIMEOUT:
-			bsr_err(55, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out. wsk(0x%p)", WskSocket);
+			bsr_err(55, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out. wsk(0x%p)", WskSocket);
 			BytesSent = -EAGAIN;
 			break;
 		case STATUS_INVALID_DEVICE_STATE:
 		case STATUS_FILE_FORCED_CLOSED:
-			bsr_err(57, BSR_LC_SOCKET, NO_OBJECT, "Send invalid WSK Socket. state (%s) wsk(0x%p)", GetSockErrorString(SendStatus), WskSocket);
+			bsr_err(57, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to invalid wsk socket. state (%s) wsk(0x%p)", GetSockErrorString(SendStatus), WskSocket);
 			pSock->sk_state = WSK_INVALID_DEVICE;
 			BytesSent = -ECONNRESET;
 			break;
 		default:
-			bsr_err(105, BSR_LC_SOCKET, NO_OBJECT, "Send error, err(%s) wsk(0x%p)", GetSockErrorString(SendStatus), WskSocket);
+			bsr_err(105, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to error, err(%s) wsk(0x%p)", GetSockErrorString(SendStatus), WskSocket);
 			BytesSent = -ECONNRESET;
 			break;
 		}
@@ -1092,18 +1092,18 @@ $SendAsync_retry:
 				if (NT_SUCCESS(Irp->IoStatus.Status)) {
 					BytesSent = (LONG)Irp->IoStatus.Information;
 				} else {
-					bsr_err(60, BSR_LC_SOCKET, NO_OBJECT, "Send async error. err(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
+					bsr_err(60, BSR_LC_SOCKET, NO_OBJECT, "Failed to send async due to error. err(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
 					switch (Irp->IoStatus.Status) {
 						case STATUS_IO_TIMEOUT:
 							BytesSent = -EAGAIN;
 							break;
 						case STATUS_INVALID_DEVICE_STATE:
 							BytesSent = -ECONNRESET;
-							bsr_err(61, BSR_LC_SOCKET, NO_OBJECT, "Send async invalid WSK Socket. STATUS_INVALID_DEVICE_STATE(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
+							bsr_err(61, BSR_LC_SOCKET, NO_OBJECT, "Failed to send async due to invalid wsk socket. STATUS_INVALID_DEVICE_STATE(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
 							break;	
 						case STATUS_FILE_FORCED_CLOSED:
 							BytesSent = -ECONNRESET;
-							bsr_err(62, BSR_LC_SOCKET, NO_OBJECT, "Send async invalid WSK Socket. STATUS_FILE_FORCED_CLOSED(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
+							bsr_err(62, BSR_LC_SOCKET, NO_OBJECT, "Failed to send async due to invalid wsk socket. STATUS_FILE_FORCED_CLOSED(%s) wsk(0x%p)", GetSockErrorString(Irp->IoStatus.Status), WskSocket);
 							break;	
 						default:
 							BytesSent = -ECONNRESET;
@@ -1120,9 +1120,9 @@ $SendAsync_retry:
 	} else {
 		if (Status == STATUS_SUCCESS) {
 			BytesSent = (LONG) Irp->IoStatus.Information;
-			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => Send async no pendingbut sent(%d)", current->comm, BytesSent);
+			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no pending but sent(%d)", current->comm, BytesSent);
 		} else {
-			bsr_err(65, BSR_LC_SOCKET, NO_OBJECT, "%s => Send async no error(0x%x)", current->comm, Status);
+			bsr_err(65, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no error(0x%x)", current->comm, Status);
 			BytesSent = SOCKET_ERROR;
 		}
 	}
@@ -1480,12 +1480,12 @@ Accept(
 				break;
 
 			default:
-				bsr_err(70, BSR_LC_SOCKET, NO_OBJECT, "Unexpected Error Status=0x%x", Status);
+				bsr_err(70, BSR_LC_SOCKET, NO_OBJECT, "Failed to accept due to unexpected error. status(0x%x)", Status);
 				break;
 		}
 	} else {
 		if (Status != STATUS_SUCCESS) {
-			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Accept Error Status=0x%x", Status);
+			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Failed to send async due to error. status(0x%x)", Status);
 		}
 	}
 
@@ -1518,7 +1518,7 @@ ControlSocket(
 
 	Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(71, BSR_LC_SOCKET, NO_OBJECT, "Failed to initialization wsk socket. status(0x%08X)", Status);
+		bsr_err(71, BSR_LC_SOCKET, NO_OBJECT, "Failed to control socket due to initialization wsk socket. status(0x%08X)", Status);
 		return SOCKET_ERROR;
 	}
 
@@ -1595,7 +1595,7 @@ InitWskEvent()
     
     status = WskRegister(&wskClientNpi, &gWskEventRegistration);
     if (!NT_SUCCESS(status)) {
-		bsr_err(72, BSR_LC_SOCKET, NO_OBJECT, "Failed to register wsk register. status(0x%x)", status);
+		bsr_err(72, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk event due to failure to register wsk register. status(0x%x)", status);
         return status;
     }
 
@@ -1603,7 +1603,7 @@ InitWskEvent()
         WSK_INFINITE_WAIT, &gWskEventProviderNPI);
 	
 	if (!NT_SUCCESS(status)) {
-		bsr_err(73, BSR_LC_SOCKET, NO_OBJECT, "Failed to provider NPI capture . status(0x%x)", status);
+		bsr_err(73, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk event due to failure to provider NPI capture. status(0x%x)", status);
         WskDeregister(&gWskEventRegistration);
         return status;
     }
@@ -1645,7 +1645,7 @@ __in ULONG			Flags
         NULL);
     if (!NT_SUCCESS(status)) {
         IoFreeIrp(irp);
-		bsr_err(75, BSR_LC_SOCKET, NO_OBJECT, "Failed to control client object. status(0x%x)", status);
+		bsr_err(75, BSR_LC_SOCKET, NO_OBJECT, "Failed to create event socket due to failure to control client object. status(0x%x)", status);
         return NULL;
     }
 
@@ -1669,7 +1669,7 @@ __in ULONG			Flags
     if (NT_SUCCESS(status)) {
         socket = (PWSK_SOCKET)irp->IoStatus.Information;
     } else {
-		bsr_err(76, BSR_LC_SOCKET, NO_OBJECT, "Failed to create wsk socket. status(0x%x)", status);
+		bsr_err(76, BSR_LC_SOCKET, NO_OBJECT, "Failed to create event socket due to failure to create wsk socket. status(0x%x)", status);
     }
 
     IoFreeIrp(irp);

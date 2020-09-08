@@ -2158,7 +2158,7 @@ static void queue_after_state_change_work(struct bsr_resource *resource,
 		bsr_queue_work(&resource->work, &work->w);
 	} else {
 		kfree(work);
-		bsr_err(26, BSR_LC_STATE, resource, "Could not allocate after state change work");
+		bsr_err(26, BSR_LC_STATE, resource, "Failed to queue state change work due to failure to allocate memory for work");
 		if (done)
 			complete(done);
 	}
@@ -2596,7 +2596,7 @@ static void abw_start_sync(struct bsr_device *device,
 	struct bsr_peer_device *pd;
 
 	if (rv) {
-		bsr_err(151, BSR_LC_RESYNC_OV, device, "Writing the bitmap failed not starting resync.");
+		bsr_err(151, BSR_LC_RESYNC_OV, device, "Failed to starting resync due to failure to writing the bitmap.");
 		stable_change_repl_state(peer_device, L_ESTABLISHED, CS_VERBOSE);
 		return;
 	}
@@ -3287,7 +3287,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				wait_event_timeout_ex(peer_device->state_initial_send_wait, test_bit(INITIAL_STATE_SENT, &peer_device->flags), HZ * 3, res);
 				if (!res) {
 					/* FIXME timeout when sending initial state? */
-					bsr_err(27, BSR_LC_STATE, peer_device, "state initial send timeout!");
+					bsr_err(27, BSR_LC_STATE, peer_device, "Failed to send initial packet within timeout(3 second)");
 				}
 			}
 
@@ -4784,7 +4784,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	// get connection count from twopc_parent_list.
 	list_for_each_entry_safe_ex(struct bsr_connection, twopc_parent, tmp, &parents, twopc_parent_list) {
 		if (&twopc_parent->twopc_parent_list == twopc_parent->twopc_parent_list.next) {
-			bsr_err(47, BSR_LC_TWOPC, resource, "Connection connected to twopc not found");
+			bsr_err(47, BSR_LC_TWOPC, resource, "Failed to send twopc reply due to connected to twopc not found");
 			// DW-1480
 			list_del(&twopc_parent->twopc_parent_list);
 			spin_unlock_irq(&resource->req_lock);
@@ -4804,7 +4804,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8SB');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to allocate memory for connections");
+		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to send twopc reply due to failure to allocate memory for connections");
 		return;
 	}
 

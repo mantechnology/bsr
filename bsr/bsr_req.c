@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {
-							bsr_err(11, BSR_LC_REQUEST, peer_device, "could not allocate send_oos for sector(%llu), size(%u), dropping connection",
+							bsr_err(11, BSR_LC_REQUEST, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
@@ -536,7 +536,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
-				bsr_err(12, BSR_LC_REQUEST, NO_OBJECT, "Block I/O size is invalid. size(%d)", master_bio->bi_size);
+				bsr_err(12, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to block I/O size is invalid. size(%d)", master_bio->bi_size);
 				BUG();
 			}
 
@@ -554,7 +554,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(13, BSR_LC_REQUEST, NO_OBJECT, "Failed to get MDL for not split block I/o buffer");
+					bsr_err(13, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for not split block I/o buffer");
 					BUG();
 				}
 				if (buffer) {
@@ -573,7 +573,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(14, BSR_LC_REQUEST, NO_OBJECT, "Failed to get MDL for split block I/o buffer");
+					bsr_err(14, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for split block I/o buffer");
 					BUG();
 				}
 				else {
@@ -676,7 +676,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 			continue;
 
 		bsr_err(15, BSR_LC_REQUEST, device,
-			"request complete Logic BUG. request state(0:%x, %d:%x), completion reference (%d)",
+			"Failed to complete request due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		return;
 	}
@@ -684,13 +684,13 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	/* more paranoia */
 	if (atomic_read(&req->completion_ref) ||
 	    ((s & RQ_LOCAL_PENDING) && !(s & RQ_LOCAL_ABORTED))) {
-		bsr_err(16, BSR_LC_REQUEST, device, "request complete Logic BUG. request state(%x), completion reference(%d)",
+		bsr_err(16, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug. request state(%x), completion reference(%d)",
 				s, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	if (!req->master_bio) {
-		bsr_err(17, BSR_LC_REQUEST, device, "request complete Logic BUG, mster block I/O is NULL.");
+		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, mster block I/O is NULL.");
 		return;
 	}
 
@@ -1161,7 +1161,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	switch (what) {
 	default:
-		bsr_err(19, BSR_LC_REQUEST, device, "Request Status Modify Logic Bug. event(%d)", what);
+		bsr_err(19, BSR_LC_REQUEST, device, "Failed to modify requst status due to logic bug. event(%d)", what);
 		break;
 
 	/* does not happen...
@@ -1911,7 +1911,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
-		bsr_err(21, BSR_LC_REQUEST, device, "Failed to allocate memory for request");
+		bsr_err(21, BSR_LC_REQUEST, device, "Failed to prepare request due to failure to allocate memory for request");
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
