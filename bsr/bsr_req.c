@@ -2198,7 +2198,7 @@ out:
 	 * (e.g. remote read), req may already be invalid now.
 	 * That's why we cannot check on req->private_bio. */
 	if (submit_private_bio) {
-		bsr_debug(14, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+		bsr_debug(14, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
 																									(unsigned long long)req->i.sector,
 																									req->i.size, 
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector),
