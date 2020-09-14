@@ -172,7 +172,7 @@ static char *slurp_proc_bsr()
 	buffer = malloc(SLURP_SIZE);
 	if (!buffer)   return NULL;
 
-	hDevice = CreateFileA("\\\\.\\mvolCntl", GENERIC_READ, FILE_SHARE_READ,
+	hDevice = CreateFileA("\\\\.\\mvolBsrCtrl", GENERIC_READ, FILE_SHARE_READ,
 		NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		free(buffer);
