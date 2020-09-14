@@ -102,7 +102,7 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	if( DeviceObject == mvolRootDeviceObject ) {
 		mvolLogError( DeviceObject, 211,
 			MSG_ROOT_DEVICE_REQUEST, STATUS_INVALID_DEVICE_REQUEST );
-		bsr_err(11, BSR_LC_DRIVER, NO_OBJECT, "RootDevice");
+		bsr_err(11, BSR_LC_DRIVER, NO_OBJECT, "Failed to get volume info due to this is root device");
 		return STATUS_INVALID_DEVICE_REQUEST;
 	}
 
@@ -110,7 +110,7 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 	if( outlen < sizeof(MVOL_VOLUME_INFO) )	{
 		mvolLogError( DeviceObject, 212, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		bsr_err(12, BSR_LC_DRIVER, NO_OBJECT, "buffer too small out %d sizeof(MVOL_VOLUME_INFO) %d", outlen, sizeof(MVOL_VOLUME_INFO));
+		bsr_err(12, BSR_LC_DRIVER, NO_OBJECT, "Failed to get volume info due to buffer too small out %d sizeof(MVOL_VOLUME_INFO) %d", outlen, sizeof(MVOL_VOLUME_INFO));
 		*ReturnLength = sizeof(MVOL_VOLUME_INFO);
 		return STATUS_BUFFER_TOO_SMALL;
 	}
@@ -146,7 +146,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
     COUNT_LOCK(pvext);
 	
     if (!pvext->Active) {
-		_snprintf(Message, sizeof(Message) - 1, "%ws is not a replication volume", &pvext->MountPoint);
+		_snprintf(Message, sizeof(Message) - 1, "Failed to mount volume due to %ws is not a replication volume", &pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
 		bsr_err(13, BSR_LC_DRIVER, NO_OBJECT, "%s", Message);
         //status = STATUS_INVALID_DEVICE_REQUEST;
@@ -161,7 +161,7 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	if (pvext->WorkThreadInfo.Active && device)
 #endif
 	{
-		_snprintf(Message, sizeof(Message) - 1, "%ws volume is handling by bsr. Failed to release volume",
+		_snprintf(Message, sizeof(Message) - 1, "Failed to mount volume due to %ws volume is handling by bsr. Failed to release volume",
 			&pvext->MountPoint);
 		*ReturnLength = (ULONG)strlen(Message);
 		bsr_err(14, BSR_LC_DRIVER, NO_OBJECT, "%s", Message);
@@ -211,7 +211,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 	if( inlen < sizeof(MVOL_VOLUME_INFO) || outlen < sizeof(LARGE_INTEGER) ) {
 		mvolLogError( DeviceObject, 321, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
 
-		bsr_err(15, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(15, BSR_LC_DRIVER, NO_OBJECT, "Failed to get volume size due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
@@ -226,7 +226,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 
 		if( VolumeExtension == NULL ) {
 			mvolLogError( DeviceObject, 322, MSG_NO_DEVICE, STATUS_NO_SUCH_DEVICE );
-			bsr_err(16, BSR_LC_DRIVER, NO_OBJECT, "cannot find volume, PD=%ws", pVolumeInfo->PhysicalDeviceName);
+			bsr_err(16, BSR_LC_DRIVER, NO_OBJECT, "Failed to get volume size due to cannot find volume, PD=%ws", pVolumeInfo->PhysicalDeviceName);
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
@@ -238,7 +238,7 @@ IOCTL_GetVolumeSize( PDEVICE_OBJECT DeviceObject, PIRP Irp )
 	status = mvolGetVolumeSize( VolumeExtension->TargetDeviceObject, pVolumeSize );
 	if( !NT_SUCCESS(status) ) {
 		mvolLogError( VolumeExtension->DeviceObject, 323, MSG_CALL_DRIVER_ERROR, status );
-		bsr_err(17, BSR_LC_DRIVER, NO_OBJECT, "cannot get volume size, err=0x%x", status);
+		bsr_err(17, BSR_LC_DRIVER, NO_OBJECT, "Failed to get volume size due to cannot get volume size, err=0x%x", status);
 	}
 
 	return status;
@@ -257,7 +257,7 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 	if( inlen < sizeof(MVOL_VOLUME_INFO) || outlen < sizeof(MVOL_COUNT_INFO) ) {
 		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		bsr_err(18, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(18, BSR_LC_DRIVER, NO_OBJECT, "Failed to get count info due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
@@ -271,7 +271,7 @@ IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength )
 
 		if( VolumeExtension == NULL ) {
 			mvolLogError( DeviceObject, 352, MSG_NO_DEVICE, STATUS_NO_SUCH_DEVICE );
-			bsr_err(19, BSR_LC_DRIVER, NO_OBJECT, "cannot find volume, PD=%ws", pVolumeInfo->PhysicalDeviceName);
+			bsr_err(19, BSR_LC_DRIVER, NO_OBJECT, "Failed to get count info due to cannot find volume, PD=%ws", pVolumeInfo->PhysicalDeviceName);
 			return STATUS_NO_SUCH_DEVICE;
 		}
 	}
@@ -300,7 +300,7 @@ IOCTL_SetSimulDiskIoError( PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	if( inlen < sizeof(SIMULATION_DISK_IO_ERROR) || outlen < sizeof(SIMULATION_DISK_IO_ERROR) ) {
 		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		bsr_err(20, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(20, BSR_LC_DRIVER, NO_OBJECT, "Failed to set disk error dule to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if(Irp->AssociatedIrp.SystemBuffer) {
@@ -328,7 +328,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(LOGGING_MIN_LV)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(22, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(22, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minmum log level due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -381,7 +381,7 @@ IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(DEBUG_LOG_CATEGORY)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(133, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(133, BSR_LC_DRIVER, NO_OBJECT, "Failed to set debug log category due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -430,7 +430,7 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(ULONG)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(23, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(23, BSR_LC_DRIVER, NO_OBJECT, "Failed to set log file max count due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -461,14 +461,14 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
 	if(!size) {
-		bsr_err(26, BSR_LC_DRIVER, NO_OBJECT, "Invalid parameter. size is NULL");
+		bsr_err(26, BSR_LC_DRIVER, NO_OBJECT, "Failed to get bsr log due to invalid parameter. size is not allocate");
 		return STATUS_INVALID_PARAMETER;
 	}
 	*size = 0;	
 	
 	if (inlen < BSR_LOG_SIZE || outlen < BSR_LOG_SIZE) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(27, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(27, BSR_LC_DRIVER, NO_OBJECT, "Failed to get bsr log due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if (Irp->AssociatedIrp.SystemBuffer) {
@@ -478,7 +478,7 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 				*size = BSR_LOG_SIZE;
 		} else {
-			bsr_err(28, BSR_LC_DRIVER, NO_OBJECT, "Invalid parameter. pBsrLog->LogBuf is NULL");
+			bsr_err(28, BSR_LC_DRIVER, NO_OBJECT, "Failed to get bsr log due to invalid parameter. log buffer is not allocate");
 			return STATUS_INVALID_PARAMETER;
 		}
 	}
@@ -496,7 +496,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen < sizeof(HANDLER_INFO)) {
 		mvolLogError(DeviceObject, 356, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(29, BSR_LC_DRIVER, NO_OBJECT, "buffer too small");
+		bsr_err(29, BSR_LC_DRIVER, NO_OBJECT, "Failed to set handle use due to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	
@@ -546,7 +546,7 @@ Return Value:
 
 	if (pVolume == NULL) {
 		// invalid parameter.
-		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "volume control is NULL");
+		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to volume control is not allocate");
 		return;
 	}
 
@@ -555,7 +555,7 @@ Return Value:
 	PVOLUME_EXTENSION VolumeExtension = mvolSearchVolExtention(pDeviceObject);
 	
 	if (VolumeExtension == NULL) {
-		bsr_err(31, BSR_LC_DRIVER, NO_OBJECT, "cannot find volume, PDO=0x%p", pDeviceObject);
+		bsr_err(31, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to cannot find volume, PDO(0x%p)", pDeviceObject);
 		return;
 	}
 
@@ -581,7 +581,7 @@ Return Value:
 			err = bsr_resize(device);
 
 			if (err) {
-				bsr_err(33, BSR_LC_DRIVER, NO_OBJECT, "bsr resize failed. (err=%d)", err);
+				bsr_err(33, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to bsr resize failed. err(%d)", err);
 			}
 			bsr_resume_io(device);
 

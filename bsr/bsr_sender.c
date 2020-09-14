@@ -894,7 +894,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 		peer_req = NULL;
 		err = bsr_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
-		bsr_err(154, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for digest");
+		bsr_err(154, BSR_LC_RESYNC_OV, peer_device, "Failed to send csum checksum to failure to allocate memory for digest");
 		err = -ENOMEM;
 	}
 
@@ -903,7 +903,7 @@ out:
 		bsr_free_peer_req(peer_req);
 
 	if (unlikely(err))
-		bsr_err(155, BSR_LC_RESYNC_OV, peer_device, "checksum or send failure. err(%d)", err);
+		bsr_err(155, BSR_LC_RESYNC_OV, peer_device, "Failed to checksum or send. err(%d)", err);
 	return err;
 }
 
@@ -918,7 +918,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 	/* Do not wait if no memory is immediately available.  */
 	peer_req = bsr_alloc_peer_req(peer_device, GFP_TRY & ~__GFP_RECLAIM);
 	if (!peer_req) {
-		bsr_err(25, BSR_LC_PEER_REQUEST, peer_device, "Failed to allocate memory for peer request");
+		bsr_err(25, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for peer request");
 		goto defer;
 	}
 
@@ -926,7 +926,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		bsr_alloc_page_chain(&peer_device->connection->transport,
 			&peer_req->page_chain, DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
 		if (!peer_req->page_chain.head) {
-			bsr_err(26, BSR_LC_PEER_REQUEST, peer_device, "Failed to allocate memory for page chain");
+			bsr_err(26, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for page chain");
 			goto defer2;
 		}
 #ifdef _WIN
@@ -950,7 +950,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		BSR_FAULT_RS_RD) == 0)
 		return 0;
 
-	bsr_err(27, BSR_LC_PEER_REQUEST, peer_device, "Failed to submit peer request");
+	bsr_err(27, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to submit peer request");
 	/* If it failed because of ENOMEM, retry should help.  If it failed
 	 * because bio_add_page failed (probably broken lower level driver),
 	 * retry may or may not help.
@@ -1229,7 +1229,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 		   get_ldev_if_state(device,D_FAILED) would be sufficient, but
 		   to continue resync with a broken disk makes no sense at
 		   all */
-		bsr_err(108, BSR_LC_RESYNC_OV, device, "Disk broke down during resync!");
+		bsr_err(108, BSR_LC_RESYNC_OV, device, "Failed to make resync request due to disk broke down");
 		return 0;
 	}
 
@@ -1398,7 +1398,7 @@ next_sector:
 						(size == (unsigned int)discard_granularity) ? P_RS_THIN_REQ : P_RS_DATA_REQUEST,
 						 sector, size, ID_SYNCER);
 			if (err) {
-				bsr_err(110, BSR_LC_RESYNC_OV, peer_device, "Failed to send resync request failed, aborting...");
+				bsr_err(110, BSR_LC_RESYNC_OV, peer_device, "Failed to make resync request due to failure send, aborting...");
 				dec_rs_pending(peer_device);
 				put_ldev(device);
 				return err;
@@ -1738,7 +1738,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			bsr_queue_work(&connection->sender_work, &rfw->pdw.w);
 			return 1;
 		}
-		bsr_err(114, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for work item(resync finished)");
+		bsr_err(114, BSR_LC_RESYNC_OV, peer_device, "resync finished, but failure to allocate memory for work item(resync finished)");
 	}
 
 	dt = (jiffies - peer_device->rs_start - peer_device->rs_paused) / HZ;
@@ -1875,7 +1875,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				__outdate_peer_disk_by_mask(device, newer);
 			} else {
 				if (!peer_device->uuids_received)
-					bsr_err(121, BSR_LC_RESYNC_OV, peer_device, "BUG: uuids were not received!");
+					bsr_err(121, BSR_LC_RESYNC_OV, peer_device, "resync finished, but uuids were not received. maybe BUG");
 
 				if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 					bsr_info(122, BSR_LC_RESYNC_OV, peer_device, "Peer was unstable during resync");
@@ -2020,7 +2020,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Send protocol P_NEG_DREPLY due to write failure. sector(%llus).",
+			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure write. sector(%llus).",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_DREPLY, peer_req);
@@ -2031,7 +2031,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(22, BSR_LC_REPLICATION, peer_device, "Failed to send data response. err(%d)", err);
+		bsr_err(22, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due send. err(%d)", err);
 	return err;
 }
 
@@ -2126,13 +2126,13 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 			}
 			else {
 				if (bsr_ratelimit())
-					bsr_err(123, BSR_LC_RESYNC_OV, peer_device, "peer disk status %s does not send P_NEG_RS_DREPLY protocol.", bsr_disk_str(peer_device->disk_state[NOW]));
+					bsr_err(123, BSR_LC_RESYNC_OV, peer_device, "No response sent for resync request data due to peer disk status %s.", bsr_disk_str(peer_device->disk_state[NOW]));
 				err = 0;
 			}
 		}
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(124, BSR_LC_RESYNC_OV, peer_device, "Send protocol P_NEG_RS_DREPLY due to write failure. sector(%llus).",
+			bsr_err(124, BSR_LC_RESYNC_OV, peer_device, "Failed to response for request resync data due to failure write. sector(%llus).",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
@@ -2146,7 +2146,7 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(125, BSR_LC_RESYNC_OV, peer_device, "Failed to send resync data. err(%d)", err);
+		bsr_err(125, BSR_LC_RESYNC_OV, peer_device, "Failed to response for request resync data due send. err(%d)", err);
 	return err;
 }
 
@@ -2208,7 +2208,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	} else {
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 		if (bsr_ratelimit())
-			bsr_err(127, BSR_LC_RESYNC_OV, device, "Send P_NEG_RS_DREPLY because it is expected to be a mess.");
+			bsr_err(127, BSR_LC_RESYNC_OV, device, "Failed to response for request checksum resync data due to failure write.");
 		// BSR-448 fix bug that checksum synchronization stops when SyncSource io-error occurs continuously.
 		bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
 	}
@@ -2217,7 +2217,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	move_to_net_ee_or_free(peer_device->connection, peer_req);
 
 	if (unlikely(err))
-		bsr_err(128, BSR_LC_RESYNC_OV, device, "Failed to send checksum resync data. err(%d)", err);
+		bsr_err(128, BSR_LC_RESYNC_OV, device, "Failed to response for request checksum resync data due send. err(%d)", err);
 	return err;
 }
 
@@ -2837,11 +2837,11 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	spin_unlock_irq(&device->resource->req_lock);
 	if (repl_state < L_ESTABLISHED) {
 		/* Connection closed meanwhile. */
-		bsr_err(138, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync since it is not connected"); // DW-1518
+		bsr_err(138, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to not connected"); // DW-1518
 		return;
 	}
 	if (repl_state >= L_SYNC_SOURCE && repl_state < L_AHEAD) {
-		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Resync already running!");
+		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to resync already running!");
 		return;
 	}
 
@@ -3094,7 +3094,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		bsr_md_sync_if_dirty(device);
 	}
 	else {
-		bsr_err(145, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync as %s (err = %d)", bsr_repl_str(repl_state), r); // DW-1518
+		bsr_err(145, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to error. %s (err = %d)", bsr_repl_str(repl_state), r); // DW-1518
 	}
 
 	put_ldev(device);

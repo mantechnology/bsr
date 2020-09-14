@@ -56,7 +56,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	status = SeCreateClientSecurity( PsGetCurrentThread(), &se_quality_service,
 		FALSE, (PSECURITY_CLIENT_CONTEXT)&pThreadInfo->se_client_context);
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(18, BSR_LC_THREAD, NO_OBJECT, "Cannot create client security, err=0x%x", status);
+		bsr_err(18, BSR_LC_THREAD, NO_OBJECT, "Failed to initialize thread due to create client security, err=0x%x", status);
 		return status;
 	}
 
@@ -68,7 +68,7 @@ mvolInitializeThread( PVOLUME_EXTENSION VolumeExtension,
 	status = PsCreateSystemThread( &threadhandle, 0L, NULL, 0L, NULL,
 		(PKSTART_ROUTINE)ThreadRoutine, (PVOID)pThreadInfo );
 	if( !NT_SUCCESS(status) ) {
-		bsr_err(19, BSR_LC_THREAD, NO_OBJECT, "Failed to Create Thread, err(0x%x)", status);
+		bsr_err(19, BSR_LC_THREAD, NO_OBJECT, "Failed to initialize thread due to failure to create thread, err(0x%x)", status);
 		SeDeleteClientSecurity( &pThreadInfo->se_client_context );
 		return status;
 	}
@@ -191,7 +191,7 @@ mvolWorkThread(PVOID arg)
 				mvolSendToNextDriver(VolumeExtension->DeviceObject, irp);
 				break;
 			default:
-				bsr_err(21, BSR_LC_THREAD, NO_OBJECT, "Invalid IRP Major Function (0x%x)", irpSp->MajorFunction);
+				bsr_err(21, BSR_LC_THREAD, NO_OBJECT, "Failed to work thread due to invalid IRP major function (0x%x)", irpSp->MajorFunction);
 				irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 				IoCompleteRequest(irp, (CCHAR)(NT_SUCCESS(irp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
 				break;
@@ -221,7 +221,7 @@ VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP 
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76SB');
 
     if(!wr) {
-		bsr_err(23, BSR_LC_THREAD, NO_OBJECT, "Failed to allocate memory for work wrapper.");
+		bsr_err(23, BSR_LC_THREAD, NO_OBJECT, "Failed to queue work due to failure to allocate memory for work wrapper.");
         return;
     }
     

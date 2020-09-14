@@ -17,7 +17,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
 	
 	if (err) {
-		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to failure to copy from user.\n");
 		return -1;
 	}
 
@@ -69,7 +69,7 @@ static int bsr_set_log_max_count(unsigned int __user * args)
 	err = copy_from_user(&log_file_max_count, args, sizeof(unsigned int));
 
 	if (err) {
-		bsr_err(126, BSR_LC_DRIVER, NO_OBJECT, "LOGGING_MIN_LV copy from user failed.\n");
+		bsr_err(126, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to failure to copy from user.\n");
 		return err;
 	}
 
@@ -87,7 +87,7 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 
 	err = copy_from_user(&h_info, args, sizeof(HANDLER_INFO));
 	if (err) {
-		bsr_err(128, BSR_LC_DRIVER, NO_OBJECT, "HANDLER_INFO copy from user failed.\n");
+		bsr_err(128, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to copy from user.\n");
 		return -1;
 	}
 
@@ -109,7 +109,7 @@ static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg
 
 	err = copy_from_user(&dbg_log_ctgr, bsr_dbg_log_ctgr, sizeof(DEBUG_LOG_CATEGORY));
 	if (err) {
-		bsr_err(135, BSR_LC_DRIVER, NO_OBJECT, "DEBUG_LOG_CATEGORY copy from user failed.\n");
+		bsr_err(135, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to copy from user.\n");
 		return -1;
 	}
 
@@ -346,13 +346,13 @@ int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, u
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
 		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(130, BSR_LC_DRIVER, NO_OBJECT, "Failed to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			bsr_err(130, BSR_LC_DRIVER, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
 		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(131, BSR_LC_DRIVER, NO_OBJECT, "Failed to allocation file list size(%d)\n", namelen);
+			bsr_err(131, BSR_LC_DRIVER, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)\n", namelen);
 			err = -1;
 			goto out;
 		}
@@ -385,7 +385,7 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 #endif
 		filp_close(fdir, NULL);
 	} else {
-		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to open log directory\n");
+		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to read dir due to failure to open log directory\n");
 	}
 	set_fs(oldfs);
 

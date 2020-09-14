@@ -523,7 +523,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 	}
 	else if (err != (int)size) {
 		// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-		bsr_err(23, BSR_LC_SOCKET, NO_OBJECT, "Wrong data (expected size:%d, received size:%d)", (int)size, err);
+		bsr_err(23, BSR_LC_SOCKET, NO_OBJECT, "Failed to receive page due to wrong data (expected size:%d, received size:%d)", (int)size, err);
 		err = -EIO;		
 		
 		goto fail;
@@ -542,7 +542,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 		}
 		else if (err != (int)len) {
 			// DW-1502 If the size of the received data differs from the expected size, the consistency will be broken.
-			bsr_err(24, BSR_LC_SOCKET, NO_OBJECT,"Wrong data (expected size:%d, received size:%d)", (int)len, err);
+			bsr_err(24, BSR_LC_SOCKET, NO_OBJECT,"Failed to receive page due to wrong data (expected size:%d, received size:%d)", (int)len, err);
 			err = -EIO;
 			goto fail;
 		}
@@ -738,7 +738,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		case STATUS_HOST_UNREACHABLE: err = -EHOSTUNREACH; break;
 		case STATUS_IO_TIMEOUT: err = -ETIMEDOUT; break;
 		default: 
-			bsr_err(25, BSR_LC_SOCKET, NO_OBJECT, "create-connect failed with status 0x%08X ", status);
+			bsr_err(25, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect try due to error(0x%08X) to create connect ", status);
 			err = -EINVAL; 
 			break;
 		}
@@ -903,7 +903,7 @@ out:
 #ifdef _WIN
 		status = SetEventCallbacks(socket, WSK_EVENT_DISCONNECT);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(27, BSR_LC_SOCKET, NO_OBJECT, "Failed to set WSK_EVENT_DISCONNECT. err(0x%x)", status);
+			bsr_err(27, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect try due to failure to set wsk disconnect callback. err(0x%x)", status);
 			err = -1;
 			goto out;
 		}
@@ -1610,7 +1610,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	LONG InputBuffer = 1;
     status = ControlSocket(s_listen, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(30, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR). status(0x%x)", status);
+		bsr_err(30, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure set control socket(SO_REUSEADDR). status(0x%x)", status);
         err = -1;
         goto out;
     }
@@ -1638,9 +1638,9 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
-			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "AF_INET Failed to socket bind. err(0x%x) %02X.%02X.%02X.%02X:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
+			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) %02X.%02X.%02X.%02X:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
     	} else {
-			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "AF_INET6 Failed to socket bind. err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
+			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
 																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
 																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
 																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
@@ -1691,7 +1691,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	// DW-845 fix crash issue(EventCallback is called when listener is not initialized, then reference to invalid Socketcontext at dtt_inspect_incoming.)
 	status = SetEventCallbacks(s_listen, WSK_EVENT_ACCEPT);
     if (!NT_SUCCESS(status)) {
-		bsr_err(33, BSR_LC_SOCKET, NO_OBJECT, "Failed to set WSK_EVENT_ACCEPT. err(0x%x)", status);
+		bsr_err(33, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to set wsk accept callback. err(0x%x)", status);
     	err = -1;
         goto out;
     }
@@ -1777,7 +1777,7 @@ static int dtt_connect(struct bsr_transport *transport)
 #ifdef _WIN // TODO
 	NTSTATUS status;
 	if (transport == NULL) {
-		bsr_err(34, BSR_LC_SOCKET, NO_OBJECT, "dtt_connect transport is null.");
+		bsr_err(34, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect due to no assigned transport.");
 		return -EDESTADDRREQ;
 	}
 #endif
@@ -1924,7 +1924,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				dsocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, dsocket, P_INITIAL_DATA, DATA_STREAM) <= 0) {
-					bsr_err(35, BSR_LC_SOCKET, NO_OBJECT, "Failed to send first packet, dsocket (%p)", dsocket->sk);
+					bsr_err(35, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect due to failure to send first packet, dsocket (%p)", dsocket->sk);
 					sock_release(dsocket);
 					dsocket = NULL;
 					goto retry;
@@ -1934,7 +1934,7 @@ static int dtt_connect(struct bsr_transport *transport)
 				csocket = s;
 				// DW-1567 add error handling
 				if (dtt_send_first_packet(tcp_transport, csocket, P_INITIAL_META, CONTROL_STREAM) <= 0) {
-					bsr_err(36, BSR_LC_SOCKET, NO_OBJECT, "Failed to send first packet, csocket (%p)", csocket->sk);
+					bsr_err(36, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect due to failure to send first packet, csocket (%p)", csocket->sk);
 					sock_release(csocket);
 					csocket = NULL;
 					goto retry;
@@ -2039,7 +2039,7 @@ randomize:
     LONG InputBuffer = 1;
     status = ControlSocket(dsocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(37, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR).status(0x%x)", status);
+		bsr_err(37, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect due to failure to set socket control(SO_REUSEADDR).status(0x%x)", status);
 		// DW-1896 
 		//If no error code is returned, dtt_connect is considered successful.
 		//so the following code is executed to reference socket.
@@ -2050,7 +2050,7 @@ randomize:
 
     status = ControlSocket(csocket, WskSetOption, SO_REUSEADDR, SOL_SOCKET, sizeof(ULONG), &InputBuffer, 0, NULL, NULL);
     if (!NT_SUCCESS(status)) {
-		bsr_err(38, BSR_LC_SOCKET, NO_OBJECT, "Failed to set socket control(SO_REUSEADDR).status(0x%x)", status);
+		bsr_err(38, BSR_LC_SOCKET, NO_OBJECT, "Failed to connect due to failure to set socket control(SO_REUSEADDR).status(0x%x)", status);
 		err = status;
         goto out;
     }

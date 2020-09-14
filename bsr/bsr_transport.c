@@ -36,18 +36,18 @@ int bsr_register_transport_class(struct bsr_transport_class *transport_class, in
 {
 	int rv = 0;
 	if (version != BSR_TRANSPORT_API_VERSION) {
-		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "transport version not compatible. current(%x), compatible(%x) ", version, BSR_TRANSPORT_API_VERSION);
+		bsr_err(18, BSR_LC_SOCKET, NO_OBJECT, "Failed to initialization transport due to transport version not compatible. current(%x), compatible(%x) ", version, BSR_TRANSPORT_API_VERSION);
 		return -EINVAL;
 	}
 
 	if (bsr_transport_size != sizeof(struct bsr_transport)) {
-		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "sizeof(bsr_transport) not compatible. current(%x), compatible(%x)", bsr_transport_size, sizeof(struct bsr_transport));
+		bsr_err(19, BSR_LC_SOCKET, NO_OBJECT, "Failed to initialization transport due to sizeof(bsr_transport) not compatible. current(%x), compatible(%x)", bsr_transport_size, sizeof(struct bsr_transport));
 		return -EINVAL;
 	}
 
 	down_write(&transport_classes_lock);
 	if (__find_transport_class(transport_class->name)) {
-		bsr_err(20, BSR_LC_SOCKET, NO_OBJECT, "transport class '%s' already registered", transport_class->name);
+		bsr_err(20, BSR_LC_SOCKET, NO_OBJECT, "Failed to initialization transport due to transport class '%s' already registered", transport_class->name);
 		rv = -EEXIST;
 	} else
 		list_add_tail(&transport_class->list, &transport_classes);
@@ -327,7 +327,7 @@ bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream 
 
 	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		bsr_err(22, BSR_LC_SOCKET, connection, "[%s/%d] sending time expired, ko = %u",
+		bsr_err(22, BSR_LC_SOCKET, connection, "Failed to send stream due to [%s/%d] sending time expired, ko = %u",
 			 current->comm, current->pid, connection->transport.ko_count);
 		request_ping(connection);
 	}

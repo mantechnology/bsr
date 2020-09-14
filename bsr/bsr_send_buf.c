@@ -163,7 +163,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 	signed long long sz = sizeof(*ring) + length;
 
 	if (length == 0 || length > BSR_SNDBUF_SIZE_MAX) {
-		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
+		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
 
@@ -197,11 +197,11 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
-			bsr_err(11, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
+			bsr_err(11, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
 			return NULL;
 		}
 	} else {
-		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to get stream information. name(%s) size(%lld)", name, sz);
+		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to get stream information. name(%s) size(%lld)", name, sz);
 	}
 	return ring;
 }
@@ -299,7 +299,7 @@ $GO_BUFFERING:
 		ring->write_pos %= ring->length;
 	}
 	else {
-		bsr_err(302, BSR_LC_SEND_BUFFER, NO_OBJECT, "Buffering of bab failed for unknown reasons");
+		bsr_err(302, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to write ring buffer due to unknown reasons");
 		BUG();
 	}
 
@@ -418,7 +418,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	int ret = 0;
 
 	if (bab == NULL) {
-		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "bab is not allocate. bab is null.");
+		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send ring buffer due to ring buffer is not allocate.");
 		return 0;
 	}
 
@@ -457,7 +457,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 	int msg_flags = 0;
 
 	if (bab == NULL) {
-		bsr_err(19, BSR_LC_SEND_BUFFER, NO_OBJECT,"bab is not allocate. bab is null.");
+		bsr_err(19, BSR_LC_SEND_BUFFER, NO_OBJECT,"Failed to send ring buffer due to ring buffer is not allocate.");
 		return 0;
 	}
 
