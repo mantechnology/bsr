@@ -22,7 +22,8 @@
 
 #include "bsr_log.h"
 
-#define	MVOL_DEVICE		"\\\\.\\mvolCntl"
+// BSR-674 change device for distinguishing
+#define	MVOL_DEVICE		"\\\\.\\mvolBsrCtrl"
 
 //
 // IOCTL

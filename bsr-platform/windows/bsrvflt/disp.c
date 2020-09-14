@@ -113,7 +113,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 
 	gbShutdown = FALSE;
 		
-    RtlInitUnicodeString(&nameUnicode, L"\\Device\\mvolCntl");
+    RtlInitUnicodeString(&nameUnicode, L"\\Device\\mvolBsrCtrl");
     status = IoCreateDevice(DriverObject, sizeof(ROOT_EXTENSION),
         &nameUnicode, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject);
     if (!NT_SUCCESS(status)) {
@@ -121,7 +121,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
         return status;
     }
 
-    RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolCntl");
+    RtlInitUnicodeString(&linkUnicode, L"\\DosDevices\\mvolBsrCtrl");
     status = IoCreateSymbolicLink(&linkUnicode, &nameUnicode);
     if (!NT_SUCCESS(status)) {
 		bsr_err(3, BSR_LC_DRIVER, NO_OBJECT, "Failed to initialization bsr driver due to can't create symbolic link, err(%x)", status);
