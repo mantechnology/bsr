@@ -632,19 +632,19 @@ static char **make_envp(struct env *env)
 #ifdef _WIN
 #define magic_printk(index, category, level, fmt, ...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(category, level, peer_device, fmt, __VA_ARGS__); \
+		__bsr_printk_peer_device(category, index, level, peer_device, fmt, __VA_ARGS__); \
 	else if (device)						\
-		__bsr_printk_device(category, level, device, fmt, __VA_ARGS__);		\
+		__bsr_printk_device(category, index, level, device, fmt, __VA_ARGS__);		\
 	else								\
-		__bsr_printk_connection(category, level, connection, fmt, __VA_ARGS__);
+		__bsr_printk_connection(category, index, level, connection, fmt, __VA_ARGS__);
 #else // _LIN
 #define magic_printk(index, category, level, fmt, args...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(category, level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(category, index, level, peer_device, fmt, args); \
 	else if (device)						\
-		__bsr_printk_device(category, level, device, fmt, args);		\
+		__bsr_printk_device(category, index, level, device, fmt, args);		\
 	else								\
-		__bsr_printk_connection(category, level, connection, fmt, args);
+		__bsr_printk_connection(category, index, level, connection, fmt, args);
 #endif
 
 int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)

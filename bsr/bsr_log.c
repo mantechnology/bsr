@@ -63,9 +63,9 @@ void save_to_system_event(char * buf, int length, int level_index)
 
 #ifdef _WIN
 // BSR-648
-void _printk(const char * func, int level, int category, const char * format, ...)
+void _printk(const char * func, int index, int level, int category, const char * format, ...)
 #else
-void _printk(const char * func, const char * level, int category, const char * format, ...)
+void _printk(const char * func, int index, const char * level, int category, const char * format, ...)
 #endif
 {
 	int ret = 0;
@@ -192,7 +192,7 @@ void _printk(const char * func, const char * level, int category, const char * f
 	    RtlTimeToTimeFields(&localTime, &timeFields);
 
 		// BSR-583
-		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
+		offset = _snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s:%u] ",
 											totallogcnt,
 											timeFields.Month,
 											timeFields.Day,
@@ -204,13 +204,15 @@ void _printk(const char * func, const char * level, int category, const char * f
 											(systemTime.QuadPart % 10000000),
 											func,
 											// BSR-648
-											__log_category_names[category]);
+											__log_category_names[category],
+											// BSR-650
+											index);
 
 #else // _LIN
 		ts = ktime_to_timespec64(ktime_get_real());
 		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
 
-		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s] ",
+		offset = snprintf(logbuf, MAX_BSRLOG_BUF - 1, "%08lld %02d/%02d/%04d %02d:%02d:%02d.%07d [%s] [%s:%u] ",
 										totallogcnt,
 										tm.tm_mon+1,
 										tm.tm_mday,
@@ -222,7 +224,9 @@ void _printk(const char * func, const char * level, int category, const char * f
 										(int)(ts.tv_nsec / 100),
 										func,
 										// BSR-648
-										__log_category_names[category]);
+										__log_category_names[category],
+										// BSR-650
+										index);
 
 
 #endif
