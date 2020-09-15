@@ -28,6 +28,7 @@
 #include "bsrvfltmsg.h"
 #include "proto.h"
 
+#include "../../../bsr/bsr_debugfs.h"
 #include "../../../bsr/bsr-kernel-compat/bsr_wrappers.h"
 
 #ifdef _WIN_WPP
@@ -976,6 +977,16 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			Irp->IoStatus.Status = status;
 			IoCompleteRequest(Irp, IO_NO_INCREMENT);
 			return status;
+		}
+		// BSR-37 debugfs porting
+		case IOCTL_MVOL_GET_DEBUG_INFO:
+		{
+			MVOL_LOCK();
+			seq_file_idx = 0;
+			status = IOCTL_GetDebugInfo(Irp);
+			MVOL_UNLOCK();
+			irpSp->Parameters.DeviceIoControl.OutputBufferLength = sizeof(BSR_DEBUG_INFO);
+			MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(BSR_DEBUG_INFO));
 		}
     }
 

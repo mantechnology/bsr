@@ -1077,7 +1077,7 @@ struct retry_worker {
 
 #define current		    ct_find_thread((int)PsGetCurrentThreadId())
 
-#define MAX_PROC_BUF	2048
+#define MAX_SEQ_BUF	4096
 
 typedef struct crypto_tfm  crypto_tfm;
 
