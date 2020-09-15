@@ -23,6 +23,7 @@
 #include "disp.h"
 #include "proto.h"
 #include "../../../bsr/bsr_idx_ring.h"
+#include "../../../bsr/bsr_debugfs.h"
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
@@ -515,6 +516,127 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+
+NTSTATUS
+IOCTL_GetDebugInfo(PIRP Irp)
+{
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	PBSR_DEBUG_INFO p = NULL;
+	struct bsr_resource *resource = NULL;
+	struct bsr_connection *connection = NULL;
+	struct bsr_peer_device *peer_device = NULL;
+	struct bsr_device * device = NULL;
+	struct seq_file seq = { 0, };
+
+	if (!Irp->AssociatedIrp.SystemBuffer) {
+		bsr_warn(85, BSR_LC_DRIVER, NO_OBJECT,
+			"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried");
+		return STATUS_INVALID_PARAMETER;
+	}
+	
+	p = (PBSR_DEBUG_INFO)Irp->AssociatedIrp.SystemBuffer;
+
+	if (p->res_name && strlen(p->res_name)) {
+		resource = bsr_find_resource(p->res_name);
+		if (!resource) {
+			status = STATUS_INVALID_PARAMETER;
+			goto out;
+		}
+	}
+
+	if (p->peer_node_id != -1) {
+		connection = bsr_get_connection_by_node_id(resource, p->peer_node_id);
+		if (!connection) {
+			status = STATUS_INVALID_PARAMETER;
+			goto out;
+		}
+		if (p->vnr != -1) {
+			peer_device = conn_peer_device(connection, p->vnr);
+			if (!peer_device) {
+				status = STATUS_INVALID_PARAMETER;
+				goto out;
+			}
+		}
+	}
+	else if (p->vnr != -1) {
+		device = idr_find(&resource->devices, p->vnr);
+		if (!device) {
+			status = STATUS_INVALID_PARAMETER;
+			goto out;
+		}
+	}
+
+	switch (p->flags){
+	case DBG_BSR_VERSION:
+		bsr_version_show(&seq, 0);
+		break;
+	case DBG_RES_IN_FLIGHT_SUMMARY:
+		seq.private = resource;
+		resource_in_flight_summary_show(&seq, 0);
+		break;
+	case DBG_RES_STATE_TWOPC:
+		seq.private = resource;
+		resource_state_twopc_show(&seq, 0);
+		break;
+	case DBG_CONN_CALLBACK_HISTORY:
+		seq.private = connection;
+		connection_callback_history_show(&seq, 0);
+		break;
+	case DBG_CONN_DEBUG:
+		seq.private = connection;
+		connection_debug_show(&seq, 0);
+		break;
+	case DBG_CONN_OLDEST_REQUESTS:
+		seq.private = connection;
+		connection_oldest_requests_show(&seq, 0);
+		break;
+	case DBG_CONN_TRANSPORT:
+		seq.private = connection;
+		connection_transport_show(&seq, 0);
+		break;
+	case DBG_PEER_PROC_BSR:
+		seq.private = peer_device;
+		peer_device_proc_bsr_show(&seq, 0);
+		break;
+	case DBG_PEER_RESYNC_EXTENTS:
+		seq.private = peer_device;
+		peer_device_resync_extents_show(&seq, 0);
+		break;
+	case DBG_DEV_ACT_LOG_EXTENTS:
+		seq.private = device;
+		device_act_log_extents_show(&seq, 0);
+		break;
+	case DBG_DEV_DATA_GEN_ID:
+		seq.private = device;
+		device_data_gen_id_show(&seq, 0);
+		break;
+	case DBG_DEV_ED_GEN_ID:
+		seq.private = device;
+		device_ed_gen_id_show(&seq, 0);
+		break;
+	case DBG_DEV_IO_FROZEN:
+		seq.private = device;
+		device_io_frozen_show(&seq, 0);
+		break;
+	case DBG_DEV_OLDEST_REQUESTS:
+		seq.private = device;
+		device_oldest_requests_show(&seq, 0);
+		break;
+	default:
+		break;
+	}
+
+	RtlCopyMemory(p->buf, seq.buf, sizeof(seq.buf));
+	status = STATUS_SUCCESS;
+
+out:
+	if (resource)
+		kref_put(&resource->kref, bsr_destroy_resource);
+	if (connection)
+		kref_put(&connection->kref, bsr_destroy_connection);
+
+	return status;
+}
 
 VOID
 bsrCallbackFunc(

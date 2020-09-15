@@ -35,6 +35,41 @@ void disk_error_usage()
 	);
 	exit(ERROR_INVALID_PARAMETER);
 }
+
+void debug_usage()
+{
+	printf("usage: bsrcon /debug cmds options \n\n"
+		"cmds:\n");
+	printf(
+		"   version\n"
+		"   in_flight_summary {resource}\n"
+		"   state_twopc {resource}\n"
+		"   callback_history {resource} {peer_node_id}\n"
+		"   debug {resource} {peer_node_id}\n"
+		"   conn_oldest_requests {resource} {peer_node_id}\n"
+		"   transport {resource} {peer_node_id}\n"
+		"   proc_bsr {resource} {peer_node_id} {volume}\n"
+		"   resync_extents {resource} {peer_node_id} {volume}\n"
+		"   act_log_extents {resource} {volume}\n"
+		"   data_gen_id {resource} {volume}\n"
+		"   ed_gen_id {resource} {volume}\n"
+		"   io_frozen {resource} {volume}\n"
+		"   dev_oldest_requests {resource} {volume}\n"
+		);
+	printf("\n");
+
+	printf(
+		"\n\n"
+		"examples:\n"
+		"bsrcon /debug version \n"
+		"bsrcon /debug in_flight_summary r1 \n"
+		"bsrcon /debug transport r1 1\n"
+		"bsrcon /debug proc_bsr r1 1 0 \n"
+		"bsrcon /debug io_frozen r1 0 \n"
+		);
+
+	exit(ERROR_INVALID_PARAMETER);
+}
 #endif
 
 void usage()
@@ -164,6 +199,100 @@ DWORD DeleteVolumeReg(TCHAR letter)
 
 	return lResult;
 }
+
+
+// BSR-37
+enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
+{
+	if (!_strcmpi(str, "version")) return DBG_BSR_VERSION;
+	else if (!_strcmpi(str, "in_flight_summary")) return DBG_RES_IN_FLIGHT_SUMMARY;
+	else if (!_strcmpi(str, "state_twopc")) return DBG_RES_STATE_TWOPC;
+	else if (!_strcmpi(str, "callback_history")) return DBG_CONN_CALLBACK_HISTORY;
+	else if (!_strcmpi(str, "debug")) return DBG_CONN_DEBUG;
+	else if (!_strcmpi(str, "conn_oldest_requests")) return DBG_CONN_OLDEST_REQUESTS;
+	else if (!_strcmpi(str, "transport")) return DBG_CONN_TRANSPORT;
+	else if (!_strcmpi(str, "proc_bsr")) return DBG_PEER_PROC_BSR;
+	else if (!_strcmpi(str, "resync_extents")) return DBG_PEER_RESYNC_EXTENTS;
+	else if (!_strcmpi(str, "act_log_extents")) return DBG_DEV_ACT_LOG_EXTENTS;
+	else if (!_strcmpi(str, "data_gen_id")) return DBG_DEV_DATA_GEN_ID;
+	else if (!_strcmpi(str, "ed_gen_id")) return DBG_DEV_ED_GEN_ID;
+	else if (!_strcmpi(str, "io_frozen")) return DBG_DEV_IO_FROZEN;
+	else if (!_strcmpi(str, "dev_oldest_requests")) return DBG_DEV_OLDEST_REQUESTS;
+	return DBG_NO_FLAGS;
+}
+
+// BSR-37 debugfs porting
+int BsrDebug(int argc, char* argv[])
+{
+	DWORD	ret = ERROR_SUCCESS;
+	int  	argIndex = 0;
+	BSR_DEBUG_INFO debugInfo;
+	
+	memset(&debugInfo, 0, sizeof(BSR_DEBUG_INFO));
+	debugInfo.peer_node_id = -1;
+	debugInfo.vnr = -1;
+
+	debugInfo.flags = ConvertToBsrDebugFlags(argv[argIndex]);
+
+	if (!debugInfo.flags)
+		debug_usage();
+
+	if (debugInfo.flags != DBG_BSR_VERSION) {
+		argIndex++;
+		if (argIndex < argc)
+			strcpy_s(debugInfo.res_name, argv[argIndex]);
+		else
+			debug_usage();
+		argIndex++;
+		switch (debugInfo.flags) {
+		case DBG_RES_IN_FLIGHT_SUMMARY:
+		case DBG_RES_STATE_TWOPC:
+			break;
+		case DBG_CONN_CALLBACK_HISTORY:
+		case DBG_CONN_DEBUG:
+		case DBG_CONN_OLDEST_REQUESTS:
+		case DBG_CONN_TRANSPORT:
+			if (argIndex < argc)
+				debugInfo.peer_node_id = atoi(argv[argIndex]);
+			else
+				debug_usage();
+			break;
+		case DBG_PEER_PROC_BSR:
+		case DBG_PEER_RESYNC_EXTENTS:
+			if (argIndex < argc)
+				debugInfo.peer_node_id = atoi(argv[argIndex]);
+			else
+				debug_usage();
+			argIndex++;
+			if (argIndex < argc)
+				debugInfo.vnr= atoi(argv[argIndex]);
+			else
+				debug_usage();
+			break;
+		case DBG_DEV_ACT_LOG_EXTENTS:
+		case DBG_DEV_DATA_GEN_ID:
+		case DBG_DEV_ED_GEN_ID:
+		case DBG_DEV_IO_FROZEN:
+		case DBG_DEV_OLDEST_REQUESTS:
+			if (argIndex < argc)
+				debugInfo.vnr = atoi(argv[argIndex]);
+			else
+				debug_usage();
+			break;
+		default:
+			break;
+		}
+	}
+
+	ret = GetBsrDebugInfo(&debugInfo);
+	
+	if (ret == ERROR_SUCCESS) {
+		fprintf(stdout, "%s\n", debugInfo.buf);
+	}
+
+	return ret;
+}
+
 #endif
 
 // BSR-579
@@ -825,6 +954,15 @@ int main(int argc, char* argv [])
 		}
 		else if (!strcmp(argv[argIndex], "--verbose")) {
 			Verbose++;
+		}
+		// BSR-37
+		else if (!_stricmp(argv[argIndex], "/debug")) {
+			argIndex++;
+			if (argIndex < argc)
+				res = BsrDebug(argc - argIndex, &argv[argIndex]);
+			else
+				debug_usage();
+			break;
 		}
 #endif
 		else {

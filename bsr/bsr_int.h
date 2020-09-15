@@ -1485,6 +1485,10 @@ struct one_flush_context {
 	struct flush_context_sync ctx_sync;
 };
 
+#ifdef _WIN
+#define CONFIG_DEBUG_FS
+#endif
+
 struct bsr_resource {
 	char *name;
 #ifdef CONFIG_DEBUG_FS

@@ -1819,7 +1819,11 @@ static inline int __must_check kref_get_unless_zero(struct kref *kref)
 #else
 static __inline int kref_get_unless_zero(struct kref *kref)
 {
-	UNREFERENCED_PARAMETER(kref);
+	// BSR-37
+	if (atomic_read(&kref->refcount)) {
+		atomic_add(1, &kref->refcount);
+		return 1;
+	}
 
     return 0;
 }

@@ -3,7 +3,7 @@
 #include "bsr_windows.h"
 struct seq_file
 {
-    char buf[MAX_PROC_BUF];
+	char buf[MAX_SEQ_BUF];
     void * private;
 };
 
