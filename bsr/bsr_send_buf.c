@@ -181,6 +181,8 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		ring->deque = 0;
 		ring->seq = 0;
 		ring->name = name;
+		memset(ring->packet_cnt, 0, sizeof(ring->packet_cnt));
+		memset(ring->packet_size, 0, sizeof(ring->packet_size));
 
 		mutex_init(&ring->cs);
 
@@ -188,6 +190,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 #ifdef SENDBUF_TRACE
 		INIT_LIST_HEAD(&ring->send_req_list);
 #endif
+		INIT_LIST_HEAD(&ring->packet_list);
 #ifdef _WIN_SEND_BUF
 		ring->static_big_buf = (char *) ExAllocatePoolWithTag(NonPagedPool, MAX_ONETIME_SEND_BUF, '1ASB');
 #else
@@ -227,6 +230,70 @@ signed long long get_ring_buffer_size(ring_buffer *ring)
 	LeaveCriticalSection(&ring->cs);
 
 	return s;
+}
+
+// BSR-571
+void add_packet_list(ring_buffer *ring, const char *data, signed long long write_len)
+{
+	struct p_header80 *h80 = (struct p_header80*)data;
+	struct p_header95 *h95 = (struct p_header95*)data;
+	struct p_header100 *h100 = (struct p_header100*)data;
+	uint32_t length = 0;
+
+	if (be32_to_cpu(h80->magic) == BSR_MAGIC) {
+		ring->last_send_cmd = be16_to_cpu(h80->command);
+		length = sizeof(*h80) + be16_to_cpu(h80->length);
+	}
+	else if (be32_to_cpu(h95->magic) == BSR_MAGIC_BIG) {
+		ring->last_send_cmd = be16_to_cpu(h95->command);
+		length = sizeof(*h95) + be32_to_cpu(h95->length);
+	}
+	else if	(be32_to_cpu(h100->magic) == BSR_MAGIC_100) {
+		ring->last_send_cmd = be16_to_cpu(h100->command);
+		length = sizeof(*h100) + be32_to_cpu(h100->length);
+	}
+	// add list
+	if (length > 0) {
+		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '');
+		if (!temp) {
+			struct send_buf_packet_info *packet_info, *tmp;
+			bsr_warn(34, BSR_LC_SEND_BUFFER, NO_OBJECT, "memory alloc failed, initialize packet info in send buffer");
+			// BSR-571 if packet list add fails, it is not guaranteed that the current list is sequential, so all are initialized.
+			memset(ring->packet_cnt, 0, sizeof(ring->packet_cnt));
+			memset(ring->packet_size, 0, sizeof(ring->packet_size));
+			list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &ring->packet_list, list) {
+				list_del(&packet_info->list);
+				kfree(packet_info);
+			}
+			INIT_LIST_HEAD(&ring->packet_list);
+			return;
+		}
+		INIT_LIST_HEAD(&temp->list);
+		temp->cmd = ring->last_send_cmd;
+		temp->size = length;
+		list_add_tail(&temp->list, &ring->packet_list);
+		ring->packet_cnt[ring->last_send_cmd]++;
+	}
+	ring->packet_size[ring->last_send_cmd] += write_len;
+}
+
+void remove_packet_list(ring_buffer *ring, signed long long length)
+{
+	struct send_buf_packet_info *packet_info, *tmp;
+
+	list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &ring->packet_list, list) {
+		if (length >= packet_info->size) {
+			length -= packet_info->size;
+			ring->packet_cnt[packet_info->cmd]--;
+			ring->packet_size[packet_info->cmd] -= packet_info->size;
+			list_del(&packet_info->list);
+			kfree(packet_info);
+		} else {
+			packet_info->size -= length;
+			ring->packet_size[packet_info->cmd] -= length;
+			break;
+		}
+	}
 }
 
 signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_stream stream, ring_buffer *ring, const char *data, signed long long len, signed long long highwater, int retry)
@@ -297,6 +364,9 @@ $GO_BUFFERING:
 
 		ring->write_pos += len;
 		ring->write_pos %= ring->length;
+
+		// BSR-571
+		add_packet_list(ring, data, len);
 	}
 	else {
 		bsr_err(302, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to write ring buffer due to unknown reasons");
@@ -345,6 +415,9 @@ bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 	ring->read_pos %= ring->length;
 	ring->sk_wmem_queued = (ring->write_pos - ring->read_pos + ring->length) % ring->length;
 	*pLen = tx_sz;
+
+	// BSR-571
+	remove_packet_list(ring, tx_sz);
 	LeaveCriticalSection(&ring->cs);
 	
 	return 1;
