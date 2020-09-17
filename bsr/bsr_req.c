@@ -481,6 +481,22 @@ int w_notify_io_error(struct bsr_work *w, int cancel)
 	return ret;
 }
 
+// DW-676 
+int w_notify_updated_gi(struct bsr_work *w, int cancel)
+{
+	int ret = 0;
+	struct bsr_updated_gi_work *dw =
+		container_of(w, struct bsr_updated_gi_work, w);
+	UNREFERENCED_PARAMETER(cancel);
+
+	if (dw) {
+		notify_updated_gi(dw->device, dw->type);
+		kfree(dw);
+	}
+
+	return ret;
+}
+
 void complete_master_bio(struct bsr_device *device,
 struct bio_and_error *m)
 {

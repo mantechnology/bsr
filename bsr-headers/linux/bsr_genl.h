@@ -358,6 +358,11 @@ GENL_struct(BSR_NLA_INVALIDATE_PEER_PARMS, 32, invalidate_peer_parms,
 	__flg_field(1, BSR_GENLA_F_MANDATORY, use_current_oos)
 )
 
+// BSR-676
+GENL_struct(BSR_NLA_UPDATED_GI, 33, bsr_updated_gi_info,
+	__str_field(1, BSR_GENLA_F_MANDATORY, gi, 256) 
+)
+
 /*
  * Notifications and commands (genlmsghdr->cmd)
  */
@@ -599,5 +604,9 @@ GENL_notification(
 GENL_op(
 	BSR_ADM_STOP_OV, 50,
 	GENL_doit(bsr_adm_stop_ov),
-	GENL_tla_expected(BSR_NLA_STOP_OV_PARMS, BSR_GENLA_F_MANDATORY)
-)
+	GENL_tla_expected(BSR_NLA_STOP_OV_PARMS, BSR_GENLA_F_MANDATORY))
+
+GENL_notification(
+	BSR_UPDATED_GI, 51, events,
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_UPDATED_GI, BSR_F_REQUIRED))

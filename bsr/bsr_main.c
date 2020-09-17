@@ -1851,6 +1851,8 @@ void bsr_print_uuids(struct bsr_peer_device *peer_device, const char *text, cons
 			  (unsigned long long)bsr_bitmap_uuid(peer_device),
 			  (unsigned long long)bsr_history_uuid(device, 0),
 			  (unsigned long long)bsr_history_uuid(device, 1));
+		// BSR-676
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
 		put_ldev(device);
 	} else {
 		bsr_info(device, "%s, %s effective data uuid: %016llX",
@@ -6431,6 +6433,9 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	bsr_info(device, "%s, new current UUID: %016llX weak: %016llX", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
+	// BSR-676
+	bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
+
 	/* get it to stable storage _now_ */
 	bsr_md_sync(device);
 	if (!send)
@@ -7746,6 +7751,8 @@ void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(
 
 	if (((int)(device->ldev->md.flags) & flag) != flag) {
 		bsr_md_mark_dirty(device);
+		// BSR-676
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 		device->ldev->md.flags |= flag;
 	}
 }
@@ -7763,6 +7770,8 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	md = &device->ldev->md;
 	if (!(md->peers[peer_device->node_id].flags & flag)) {
 		bsr_md_mark_dirty(device);
+		// BSR-676
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 		md->peers[peer_device->node_id].flags |= flag;
 	}
 }
@@ -7776,6 +7785,8 @@ void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hol
 
 	if ((device->ldev->md.flags & flag) != 0) {
 		bsr_md_mark_dirty(device);
+		// BSR-676
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 		device->ldev->md.flags &= ~flag;
 	}
 }
@@ -7793,6 +7804,8 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	md = &device->ldev->md;
 	if (md->peers[peer_device->node_id].flags & flag) {
 		bsr_md_mark_dirty(device);
+		// BSR-676
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 		md->peers[peer_device->node_id].flags &= ~flag;
 	}
 }

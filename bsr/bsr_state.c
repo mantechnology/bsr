@@ -2257,6 +2257,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 		if (disk_state[OLD] == D_ATTACHING && disk_state[NEW] >= D_NEGOTIATING)
 			bsr_info(device, "attached to current UUID: %016llX", device->ldev->md.current_uuid);
 
+		// BSR-676
+		if (disk_state[NEW] == D_DETACHING)
+			bsr_info(device, "detaching to current UUID: %016llX", device->ldev->md.current_uuid);
+
 		for_each_peer_device(peer_device, device) {
 			enum bsr_repl_state *repl_state = peer_device->repl_state;
 			struct bsr_connection *connection = peer_device->connection;
@@ -2416,6 +2420,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						mdf |= MDF_PEER_FENCING;
 					if (mdf != device->ldev->md.peers[peer_device->node_id].flags) {
 						device->ldev->md.peers[peer_device->node_id].flags = mdf;
+						// BSR-676
+						bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 						bsr_md_mark_dirty(device);
 					}
 				}
@@ -2489,6 +2495,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			}
 			if (mdf != device->ldev->md.flags) {
 				device->ldev->md.flags = mdf;
+				// BSR-676
+				bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
 				bsr_md_mark_dirty(device);
 			}
 			if (disk_state[OLD] < D_CONSISTENT && disk_state[NEW] >= D_CONSISTENT)
