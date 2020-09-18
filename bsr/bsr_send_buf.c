@@ -254,7 +254,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 	}
 	
 	if (length > 0) {
-		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '');
+		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '8ASB');
 		if (!temp) {
 			struct send_buf_packet_info *packet_info, *tmp;
 			bsr_warn(34, BSR_LC_SEND_BUFFER, NO_OBJECT, "memory alloc failed, initialize packet info in send buffer");
@@ -289,7 +289,7 @@ void remove_packet_list(ring_buffer *ring, signed long long length)
 			list_del(&packet_info->list);
 			kfree(packet_info);
 		} else {
-			packet_info->size -= length;
+			packet_info->size -= (uint32_t)length;
 			ring->packet_size[packet_info->cmd] -= length;
 			break;
 		}

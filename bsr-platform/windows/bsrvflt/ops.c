@@ -594,6 +594,10 @@ IOCTL_GetDebugInfo(PIRP Irp)
 		seq.private = connection;
 		connection_transport_show(&seq, 0);
 		break;
+	case DBG_CONN_SEND_BUF:
+		seq.private = connection;
+		connection_send_buf_show(&seq, 0);
+		break;
 	case DBG_PEER_PROC_BSR:
 		seq.private = peer_device;
 		peer_device_proc_bsr_show(&seq, 0);

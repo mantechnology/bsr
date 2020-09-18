@@ -26,6 +26,8 @@
 #include "wsk2.h"
 #endif
 #endif
+#include "../bsr-headers/bsr_protocol.h"
+
 #define SENDER_IS_RECV			0
 #define SENDER_IS_ASEND			1
 #define SENDER_IS_WORKER		2

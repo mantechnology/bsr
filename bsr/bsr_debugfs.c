@@ -720,13 +720,13 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 		seq_printf(m, "%s stream\n", stream == DATA_STREAM ? "data" : "control");
 		if (ring) {
 			mutex_lock(&ring->cs);
-			seq_printf(m, "  send buffer size : %lld bytes\n", ring->length);
-			seq_printf(m, "  send buffer used : %lld bytes\n", ring->sk_wmem_queued);
+			seq_printf(m, "  send buffer size : %10lld bytes\n", ring->length);
+			seq_printf(m, "  send buffer used : %10lld bytes\n", ring->sk_wmem_queued);
 			if (ring->sk_wmem_queued)
 				seq_printf(m, "  [packets in buffer]\n");
 			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
 				if (ring->packet_cnt[i]) {
-					seq_printf(m, "  %-15s - cnt : %-5u size : %llu bytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
+					seq_printf(m, "  %-15s - cnt : %4u size : %10llu bytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
 				}
 			}
 			mutex_unlock(&ring->cs);
