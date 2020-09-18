@@ -341,6 +341,11 @@ struct bsr_state_change *remember_state_change(struct bsr_resource *resource, gf
 		if (test_and_clear_bit(HAVE_LDEV, &device->flags))
 			device_state_change->have_ldev = true;
 
+		// BSR-676
+		device_state_change->notify_flags = atomic_xchg(&device->notify_flags, 0);
+		if (device_state_change->notify_flags != 0)
+			atomic_inc(&device->local_cnt);
+
 		/* The peer_devices for each device have to be enumerated in
 		   the order of the connections. We may not use for_each_peer_device() here. */
 		for_each_connection(connection, resource) {
@@ -2422,7 +2427,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						device->ldev->md.peers[peer_device->node_id].flags = mdf;
 						bsr_md_mark_dirty(device);
 						// BSR-676 notify flag
-						bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
+						atomic_set(&device->notify_flags, (device->notify_flags | 1));
 					}
 				}
 
@@ -2497,7 +2502,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				device->ldev->md.flags = mdf;
 				bsr_md_mark_dirty(device);
 				// BSR-676 notify flag
-				bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
+				atomic_set(&device->notify_flags, (device->notify_flags | 1));
 			}
 			if (disk_state[OLD] < D_CONSISTENT && disk_state[NEW] >= D_CONSISTENT)
 				bsr_set_exposed_data_uuid(device, device->ldev->md.current_uuid);
@@ -3210,6 +3215,12 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		enum which_state which;
 		// DW-1315
 		u64 authoritative[2] = { 0, };
+
+		// BSR-676
+		if (device_state_change->notify_flags & 1) {
+			notify_updated_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+			atomic_dec(&device->local_cnt);
+		}
 
 		for (which = OLD; which <= NEW; which++)
 			// DW-1315 need changes of authoritative node to notify peers.

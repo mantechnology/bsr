@@ -6820,7 +6820,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 	if (updated_uuids) {
 		bsr_print_uuids(peer_device, "receiver updated UUIDs to", __FUNCTION__);
 		// BSR-676 notify uuid
-		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 	}
 
 	peer_device->uuid_authoritative_nodes =
@@ -8837,7 +8837,7 @@ static int receive_sync_uuid(struct bsr_connection *connection, struct packet_in
 
 		bsr_print_uuids(peer_device, "updated sync uuid", __FUNCTION__);
 		// BSR-676 notify uuid
-		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 
 		bsr_start_resync(peer_device, L_SYNC_TARGET);
 

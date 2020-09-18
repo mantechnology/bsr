@@ -13,6 +13,8 @@ struct bsr_device_state_change {
 	enum bsr_disk_state disk_state[2];
 	bool susp_quorum[2];
 	bool have_ldev;
+	// BSR-676
+	int notify_flags;
 };
 
 struct bsr_connection_state_change {

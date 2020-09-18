@@ -707,6 +707,7 @@ struct bsr_io_error_work {
 struct bsr_updated_gi_work {
 	struct bsr_work w;
 	struct bsr_device *device;
+	struct bsr_peer_device *peer_device;
 	int type;
 };
 
@@ -2051,6 +2052,8 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
+	// BSR-676
+	atomic_t notify_flags;
 };
 
 struct bsr_bm_aio_ctx {
@@ -3118,9 +3121,10 @@ extern void notify_path(struct bsr_connection *, struct bsr_path *,
 
 // BSR-676
 #define BSR_GI_NOTI_UUID 0x00
-#define BSR_GI_NOTI_FLAG 0x01
+#define BSR_GI_NOTI_DEVICE_FLAG 0x01
+#define BSR_GI_NOTI_PEER_DEVICE_FLAG 0x02
 
-extern void notify_updated_gi(struct bsr_device *device, int type);
+extern void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device* peer_device, int type);
 
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
@@ -3464,12 +3468,14 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 
 // BSR-676
 static inline void
-bsr_queue_notify_update_gi(struct bsr_device *device, int type)
+bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *peer_device, int type)
 {
 	struct bsr_updated_gi_work *w;
 	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
 	if (w) {
+		atomic_inc(&device->local_cnt);
 		w->device = device;
+		w->peer_device = peer_device;
 		w->type = type;
 		w->w.cb = w_notify_updated_gi;
 		bsr_queue_work(&device->resource->work, &w->w);
