@@ -252,7 +252,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 		ring->last_send_cmd = be16_to_cpu(h100->command);
 		length = sizeof(*h100) + be32_to_cpu(h100->length);
 	}
-	// add list
+	
 	if (length > 0) {
 		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '');
 		if (!temp) {

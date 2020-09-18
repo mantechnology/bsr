@@ -1599,6 +1599,7 @@ struct bsr_connection {
 	struct dentry *debugfs_conn_oldest_requests;
 	struct dentry *debugfs_conn_transport;
 	struct dentry *debugfs_conn_debug;
+	struct dentry *debugfs_conn_send_buf;
 #endif
 	struct kref kref;
 	struct kref_debug_info kref_debug;
