@@ -3740,7 +3740,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		[BSR_PEER_DEVICE_STATE] = "peer-device",
 		[BSR_HELPER] = "helper",
 		[BSR_PATH_STATE] = "path",
-		[BSR_IO_ERROR] = "io-error"
+		[BSR_IO_ERROR] = "io-error",
+		// BSR-676
+		[BSR_UPDATED_GI] = "gi"
 	};
 	static uint32_t last_seq;
 	static bool last_seq_known;
@@ -4035,6 +4037,14 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		}
 	}
 		break;
+	// BSR-676 UUID or flag information is output.
+	case BSR_UPDATED_GI:
+	{
+		struct bsr_updated_gi_info gi = { 0, };
+		if (!bsr_updated_gi_info_from_attrs(&gi, info)) {
+			printf(" %s", gi.gi);
+		}
+	}
 	case BSR_INITIAL_STATE_DONE:
 		break;
 	}

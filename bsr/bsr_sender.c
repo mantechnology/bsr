@@ -1885,6 +1885,9 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				int i;
 
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
+
 				peer_device->current_uuid = bsr_current_uuid(device);
 				peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
 				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
@@ -1897,6 +1900,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			if (peer_device->connection->agreed_pro_version < 110) {
 				bsr_uuid_set_bitmap(peer_device, 0UL);
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
 			}
 		}
 	}

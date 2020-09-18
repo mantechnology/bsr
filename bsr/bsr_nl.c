@@ -1863,6 +1863,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		}
 		bsr_md_write(device, buffer);
 
+		// BSR-676 notify flag
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
+
 		if (rs)
 			bsr_info(device, "Changed AL layout to al-stripes = %u, al-stripe-size-kB = %u",
 				 md->al_stripes, md->al_stripe_size_4k * 4);
@@ -2471,7 +2474,8 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_device *device;
 	struct bsr_resource *resource;
 	struct disk_conf *new_disk_conf, *old_disk_conf;
-	struct bsr_peer_device *peer_device;
+	struct bsr_peer_device *peer_device; 
+	u32 md_flags;
 	int err;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
@@ -2542,6 +2546,8 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&resource->conf_update);
 
+	md_flags = device->ldev->md.flags;
+
 	if (new_disk_conf->al_updates)
 		device->ldev->md.flags &= ~MDF_AL_DISABLED;
 	else
@@ -2560,6 +2566,11 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		bsr_reconsider_queue_parameters(device, device->ldev, NULL);
 
 	bsr_md_sync_if_dirty(device);
+
+	// BSR-676 notify flag
+	if ((md_flags & MDF_AL_DISABLED) != (device->ldev->md.flags & MDF_AL_DISABLED)) {
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
+	}
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED)
@@ -3267,6 +3278,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 #ifdef _WIN
 	unsigned char oldIrql_rLock1; // RCU_SPECIAL_CASE
+	u32 md_flags = device->ldev->md.flags;
 	oldIrql_rLock1 = ExAcquireSpinLockShared(&g_rcuLock);
 #else // _LIN
 	rcu_read_lock();
@@ -3299,6 +3311,11 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 
 	bsr_md_sync(device);
+
+	// BSR-676 notify flag
+	if ((md_flags & MDF_AL_DISABLED) != (device->ldev->md.flags & MDF_AL_DISABLED)) {
+		bsr_queue_notify_update_gi(device, BSR_GI_NOTI_FLAG);
+	}
 
 	bsr_kobject_uevent(device);
 	put_ldev(device);
@@ -6188,6 +6205,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 
 	if (args.clear_bm) {
 		unsigned long irq_flags;
+		bool updated_uuid = false;
 
 		err = bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 			"clear_n_write from new_c_uuid", BM_LOCK_ALL, NULL);
@@ -6201,8 +6219,15 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
 				_bsr_uuid_set_bitmap(peer_device, 0);
 				bsr_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
+				updated_uuid = true;
 			}
 		}
+
+		if (updated_uuid) {
+			// BSR-676 notify uuid
+			bsr_queue_notify_update_gi(device, BSR_GI_NOTI_UUID);
+		}
+
 		begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 		__change_disk_state(device, D_UP_TO_DATE, __FUNCTION__);
 		for_each_peer_device(peer_device, device) {
@@ -7008,7 +7033,7 @@ fail:
 		nlmsg_free(skb);
 }
 
-// BSR-676
+// BSR-676 notify when UUID or flag is changed.
 void notify_updated_gi(struct bsr_device *device, int type)
 {
 	struct bsr_updated_gi_info gi;
