@@ -707,6 +707,37 @@ int connection_transport_show(struct seq_file *m, void *ignored)
 
 	return 0;
 }
+
+// BSR-571
+int connection_send_buf_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	enum bsr_stream stream;
+	int i = 0;
+
+	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
+		struct ring_buffer *ring = connection->ptxbab[stream];
+		seq_printf(m, "%s stream\n", stream == DATA_STREAM ? "data" : "control");
+		if (ring) {
+			mutex_lock(&ring->cs);
+			seq_printf(m, "  send buffer size : %10lld bytes\n", ring->length);
+			seq_printf(m, "  send buffer used : %10lld bytes\n", ring->sk_wmem_queued);
+			if (ring->sk_wmem_queued)
+				seq_printf(m, "  [packets in buffer]\n");
+			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
+				if (ring->packet_cnt[i]) {
+					seq_printf(m, "  %-15s - cnt : %4u size : %10llu bytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
+				}
+			}
+			mutex_unlock(&ring->cs);
+			seq_printf(m, "\n");
+		} else
+			seq_printf(m, "  no send buffer\n\n");
+	}
+
+	return 0;
+}
+
 static void seq_printf_with_thousands_grouping(struct seq_file *seq, ULONG_PTR v)
 {
 	/* v is in kB/sec. We don't expect TiByte/sec yet. */
@@ -1264,6 +1295,7 @@ bsr_debugfs_connection_attr(oldest_requests)
 bsr_debugfs_connection_attr(callback_history)
 bsr_debugfs_connection_attr(transport)
 bsr_debugfs_connection_attr(debug)
+bsr_debugfs_connection_attr(send_buf)
 
 void bsr_debugfs_connection_add(struct bsr_connection *connection)
 {
@@ -1290,6 +1322,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(oldest_requests);
 	conn_dcf(transport);
 	conn_dcf(debug);
+	conn_dcf(send_buf);
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
@@ -1305,6 +1338,7 @@ fail:
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 {
+	bsr_debugfs_remove(&connection->debugfs_conn_send_buf);
 	bsr_debugfs_remove(&connection->debugfs_conn_debug);
 	bsr_debugfs_remove(&connection->debugfs_conn_transport);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);

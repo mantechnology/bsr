@@ -26,6 +26,8 @@
 #include "wsk2.h"
 #endif
 #endif
+#include "../bsr-headers/bsr_protocol.h"
+
 #define SENDER_IS_RECV			0
 #define SENDER_IS_ASEND			1
 #define SENDER_IS_WORKER		2
@@ -67,6 +69,11 @@ struct ring_buffer {
 #ifdef SENDBUF_TRACE
 	struct list_head send_req_list;
 #endif
+	// BSR-571
+	enum bsr_packet last_send_cmd;
+	uint32_t packet_cnt[P_MAY_IGNORE];
+	uint64_t packet_size[P_MAY_IGNORE];
+	struct list_head packet_list;
 };
 
 struct _buffering_attr {
@@ -86,6 +93,13 @@ struct _buffering_attr {
 #endif
 	struct ring_buffer *bab;
 	bool quit;
+};
+
+// BSR-571
+struct send_buf_packet_info {
+	enum bsr_packet cmd;
+	uint32_t size;
+	struct list_head list;
 };
 
 typedef struct net_conf net_conf;

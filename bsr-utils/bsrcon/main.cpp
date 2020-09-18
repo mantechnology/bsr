@@ -48,6 +48,7 @@ void debug_usage()
 		"   debug {resource} {peer_node_id}\n"
 		"   conn_oldest_requests {resource} {peer_node_id}\n"
 		"   transport {resource} {peer_node_id}\n"
+		"   send_buf {resource} {peer_node_id}\n"
 		"   proc_bsr {resource} {peer_node_id} {volume}\n"
 		"   resync_extents {resource} {peer_node_id} {volume}\n"
 		"   act_log_extents {resource} {volume}\n"
@@ -211,6 +212,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "debug")) return DBG_CONN_DEBUG;
 	else if (!_strcmpi(str, "conn_oldest_requests")) return DBG_CONN_OLDEST_REQUESTS;
 	else if (!_strcmpi(str, "transport")) return DBG_CONN_TRANSPORT;
+	else if (!_strcmpi(str, "send_buf")) return DBG_CONN_SEND_BUF;
 	else if (!_strcmpi(str, "proc_bsr")) return DBG_PEER_PROC_BSR;
 	else if (!_strcmpi(str, "resync_extents")) return DBG_PEER_RESYNC_EXTENTS;
 	else if (!_strcmpi(str, "act_log_extents")) return DBG_DEV_ACT_LOG_EXTENTS;
@@ -252,6 +254,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_CONN_DEBUG:
 		case DBG_CONN_OLDEST_REQUESTS:
 		case DBG_CONN_TRANSPORT:
+		case DBG_CONN_SEND_BUF:
 			if (argIndex < argc)
 				debugInfo.peer_node_id = atoi(argv[argIndex]);
 			else
