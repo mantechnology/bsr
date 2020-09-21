@@ -35,6 +35,7 @@ call :GetBSRInfo
 call :GetDiskPart
 call :GetSystemInfo
 call :GetBSRStatus
+call :GetBSRDebugInfo
 call :Archive
 
 exit /B %ERRORLEVEL%
@@ -268,6 +269,56 @@ exit /B 0
     bsradm dump > "%STATUS_DIR%\dump.txt"
 	bsrsetup status --s --v all > "%STATUS_DIR%\status.txt"
 	bsrsetup show > "%STATUS_DIR%\show.txt"
+exit /b 0
+
+@rem BSR-675 add debug info to support file
+:GetBSRDebugInfo
+
+setlocal EnableDelayedExpansion
+    echo Get BSR debug information...
+    set DEBUG_DIR=%OUTPUT_HOME%\Debuginfo
+
+    if not exist "%DEBUG_DIR%" ( mkdir "%DEBUG_DIR%" )
+	bsrcon /debug version > "%DEBUG_DIR%\version.txt"
+	for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
+		set res=%%a
+		set res_dir=!DEBUG_DIR!\!res!
+		if not exist "!res_dir!" ( mkdir "!res_dir!" )
+		echo !res_dir!
+		bsrcon /debug in_flight_summary %%a > "!res_dir!\in_flight_summary.txt" 2> nul
+		bsrcon /debug state_twopc %%a > "!res_dir!\state_twopc.txt" 2> nul
+		
+		for /f "usebackq tokens=*" %%b in (`bsradm sh-peer-node-id !res!`) do (
+			set conn=%%b
+			set conn_dir=!res_dir!\connections\!conn!
+			if not exist "!conn_dir!" ( mkdir "!conn_dir!" )
+			bsrcon /debug callback_history !res! !conn! > "!conn_dir!\callback_history.txt" 2> nul
+			bsrcon /debug debug !res! !conn! > "!conn_dir!\debug.txt" 2> nul
+			bsrcon /debug conn_oldest_requests !res! !conn! > "!conn_dir!\conn_oldest_requests.txt" 2> nul
+			bsrcon /debug transport !res! !conn! > "!conn_dir!\transport.txt" 2> nul
+			for /f "usebackq tokens=*" %%c in (`bsradm bsradm sh-dev-vnr !res!`) do (
+				set peer=%%c
+				set peer_dir=!conn_dir!\!peer!
+				if not exist "!peer_dir!" ( mkdir "!peer_dir!" )
+				bsrcon /debug proc_bsr !res! !conn! !peer! > "!peer_dir!\proc_bsr.txt" 2> nul
+				bsrcon /debug resync_extents !res! !conn! !peer! > "!peer_dir!\resync_extents.txt" 2> nul
+				
+			)
+		
+		)
+		
+		for /f "usebackq tokens=*" %%c in (`bsradm sh-dev-vnr !res!`) do (
+			set vnr=%%c
+			set vnr_dir=!res_dir!\volumes\!vnr!
+			if not exist "!vnr_dir!" ( mkdir "!vnr_dir!" )
+			bsrcon /debug act_log_extents !res! !vnr! > "!vnr_dir!\act_log_extents.txt" 2> nul
+			bsrcon /debug data_gen_id !res! !vnr! > "!vnr_dir!\data_gen_id.txt" 2> nul
+			bsrcon /debug ed_gen_id !res! !vnr! > "!vnr_dir!\ed_gen_id.txt" 2> nul
+			bsrcon /debug io_frozen !res! !vnr! > "!vnr_dir!\io_frozen.txt" 2> nul
+			bsrcon /debug dev_oldest_requests !res! !vnr! > "!vnr_dir!\dev_oldest_requests.txt" 2> nul
+		)	
+	)
+endlocal
 exit /b 0
 
 :Archive

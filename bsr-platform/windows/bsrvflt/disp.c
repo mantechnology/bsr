@@ -781,7 +781,6 @@ skip:
 	return status;
 }
 
-extern int seq_file_idx;
 extern int bsr_seq_show(struct seq_file *seq, void *v);
 
 NTSTATUS
@@ -851,17 +850,21 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
         case IOCTL_MVOL_GET_PROC_BSR:
         {
-            PMVOL_VOLUME_INFO p = NULL;
+			PMVOL_VOLUME_INFO p = NULL;
+			struct seq_file seq = {0,};
 
-            p = (PMVOL_VOLUME_INFO)Irp->AssociatedIrp.SystemBuffer;
+			p = (PMVOL_VOLUME_INFO)Irp->AssociatedIrp.SystemBuffer;
+			seq_alloc(&seq, MAX_SEQ_BUF);
 
-            MVOL_LOCK();
-            seq_file_idx = 0;
-            bsr_seq_show((struct seq_file *)&p->Seq, 0);
-            MVOL_UNLOCK();
+			MVOL_LOCK();
+			bsr_seq_show((struct seq_file *)&seq, 0);
+			MVOL_UNLOCK();
+			
+			RtlCopyMemory(p->Seq, seq.buf, seq.size);
+			seq_free(&seq);
 
-            irpSp->Parameters.DeviceIoControl.OutputBufferLength = sizeof(MVOL_VOLUME_INFO);
-            MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, sizeof(MVOL_VOLUME_INFO));
+			irpSp->Parameters.DeviceIoControl.OutputBufferLength = sizeof(MVOL_VOLUME_INFO);
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, sizeof(MVOL_VOLUME_INFO));
         }
 
         case IOCTL_MVOL_GET_VOLUME_COUNT:
@@ -981,12 +984,16 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// BSR-37 debugfs porting
 		case IOCTL_MVOL_GET_DEBUG_INFO:
 		{
-			MVOL_LOCK();
-			seq_file_idx = 0;
-			status = IOCTL_GetDebugInfo(Irp);
-			MVOL_UNLOCK();
-			irpSp->Parameters.DeviceIoControl.OutputBufferLength = sizeof(BSR_DEBUG_INFO);
-			MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(BSR_DEBUG_INFO));
+			ULONG size = 0;
+			
+			status = IOCTL_GetDebugInfo(Irp, &size);
+			if (status == STATUS_SUCCESS) {
+				MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(BSR_DEBUG_INFO) + size);
+			}
+			else {
+				MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+			}
+			
 		}
     }
 

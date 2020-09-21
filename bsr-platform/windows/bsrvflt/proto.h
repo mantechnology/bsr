@@ -114,7 +114,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 // BSR-37
 NTSTATUS
-IOCTL_GetDebugInfo(PIRP Irp);
+IOCTL_GetDebugInfo(PIRP Irp, ULONG * size);
 
 NTSTATUS 
 bsrStartupCallback();

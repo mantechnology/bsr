@@ -124,6 +124,9 @@ static int sh_lres(const struct cfg_ctx *);
 static int sh_ll_dev(const struct cfg_ctx *);
 static int sh_md_dev(const struct cfg_ctx *);
 static int sh_md_idx(const struct cfg_ctx *);
+// BSR-675
+static int sh_peer_node_id(const struct cfg_ctx *);
+static int sh_dev_vnr(const struct cfg_ctx *);
 static int adm_bsrmeta(const struct cfg_ctx *);
 static int adm_khelper(const struct cfg_ctx *);
 static int adm_setup_and_meta(const struct cfg_ctx *);
@@ -393,6 +396,9 @@ static struct adm_cmd sh_md_dev_cmd = {"sh-md-dev", sh_md_dev, ACF2_SHELL .disk_
 static struct adm_cmd sh_md_idx_cmd = {"sh-md-idx", sh_md_idx, ACF2_SHELL .disk_required = 1};
 static struct adm_cmd sh_ip_cmd = {"sh-ip", sh_ip, ACF2_SHELL};
 static struct adm_cmd sh_lr_of_cmd = {"sh-lr-of", sh_lres, ACF2_SHELL};
+// BSR-675 
+static struct adm_cmd sh_peer_node_id_cmd = {"sh-peer-node-id", sh_peer_node_id, ACF2_GEN_SHELL .need_peer = 1};
+static struct adm_cmd sh_dev_vnr_cmd = {"sh-dev-vnr", sh_dev_vnr, ACF2_SHELL};
 
 static struct adm_cmd proxy_up_cmd = {"proxy-up", adm_proxy_up, ACF2_PROXY};
 static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY};
@@ -494,6 +500,9 @@ struct adm_cmd *cmds[] = {
 	&sh_md_idx_cmd,
 	&sh_ip_cmd,
 	&sh_lr_of_cmd,
+	// BSR-675
+	&sh_peer_node_id_cmd,
+	&sh_dev_vnr_cmd,
 
 	&proxy_up_cmd,
 	&proxy_down_cmd,
@@ -1030,6 +1039,22 @@ static int sh_mod_parms(const struct cfg_ctx *ctx)
 			mc = BSR_MINOR_COUNT_DEF;
 	}
 	printf("minor_count=%d\n", mc);
+	return 0;
+}
+
+// BSR-675
+static int sh_peer_node_id(const struct cfg_ctx *ctx)
+{
+	struct d_resource *res = ctx->res;
+	struct connection *conn = ctx->conn;
+	printf("%s\n", ctx->conn->peer->node_id);
+	return 0;
+}
+static int sh_dev_vnr(const struct cfg_ctx *ctx)
+{
+	struct d_resource *res = ctx->res;
+	struct d_volume *vol = ctx->vol;
+	printf("%u\n", ctx->vol->vnr);
 	return 0;
 }
 

@@ -332,6 +332,19 @@ GetCoreDumpFile()
 	fi
 }
 
+# BSR-675 add debugfs info to support file
+GetBSRDebugfs()
+{
+	echo "Get BSR debugfs...";
+
+	DEBUGFS_DIR=${BSR_DIR}/debugfs
+	mkdir -p ${DEBUGFS_DIR}
+
+	if [ -d /sys/kernel/debug/bsr ]; then
+		cp -rL /sys/kernel/debug/bsr/* ${DEBUGFS_DIR}
+	fi
+}
+
 ##########################################################################################
 # Main                                                                                   #
 ##########################################################################################
@@ -341,4 +354,5 @@ GetCoreDumpFile $1
 GetBSRInfo
 GetSystemInfo
 GetBSRStatus
+GetBSRDebugfs
 Archive
