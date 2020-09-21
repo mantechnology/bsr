@@ -7036,10 +7036,79 @@ fail:
 		nlmsg_free(skb);
 }
 
-// BSR-676 notify when UUID or flag is changed.
-void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_device, int type)
+// BSR-676 notify when UUID is changed
+void notify_updated_gi_uuid(struct bsr_device *device)
 {
-	struct bsr_updated_gi_info gi;
+	struct bsr_updated_gi_uuid_info gi;
+	struct bsr_connection *connection = NULL;
+	unsigned int seq;
+	struct sk_buff *skb = NULL;
+	struct bsr_genlmsghdr *dh;
+	struct bsr_peer_device *peer_device;
+	int err;
+	int len = -1;
+
+	if (!device || !device->ldev)
+		return;
+
+	for_each_peer_device(peer_device, device) {
+		memset(gi.uuid, 0, sizeof(gi.uuid));
+
+		len = sprintf_s(gi.uuid, sizeof(gi.uuid), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", (unsigned long long)bsr_current_uuid(device),
+			(unsigned long long)bsr_bitmap_uuid(peer_device),
+			(unsigned long long)bsr_history_uuid(device, 0),
+			(unsigned long long)bsr_history_uuid(device, 1));
+
+		if (len == -1)
+			goto fail;
+
+		gi.uuid_len = len;
+
+		connection = peer_device->connection;
+
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+
+		err = -EMSGSIZE;
+		dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_UUID);
+
+		if (!dh)
+			goto fail;
+
+		dh->minor = UINT32_MAX;
+		dh->ret_code = NO_ERROR;
+		mutex_lock(&notification_mutex);
+
+		if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
+			nla_put_notification_header(skb, NOTIFY_CHANGE) ||
+			bsr_updated_gi_uuid_info_to_skb(skb, &gi, true))
+			goto unlock_fail;
+
+		genlmsg_end(skb, dh);
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		skb = NULL;
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto unlock_fail;
+		mutex_unlock(&notification_mutex);
+	}
+
+	return;
+
+unlock_fail:
+	mutex_unlock(&notification_mutex);
+fail:
+	if (skb)
+		nlmsg_free(skb);
+}
+
+// BSR-676 notify when device mdf flag is changed.
+void notify_updated_gi_device_mdf_flag(struct bsr_device *device)
+{
+	struct bsr_updated_gi_device_mdf_flag_info gi;
 	struct bsr_connection *connection = NULL;
 	unsigned int seq;
 	struct sk_buff *skb = NULL;
@@ -7050,82 +7119,18 @@ void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_d
 	if (!device || !device->ldev)
 		return;
 
-	if (type == BSR_GI_NOTI_UUID) {
-		struct bsr_peer_device *p;
-
-		for_each_peer_device(p, device) {
-			memset(gi.gi, 0, sizeof(gi.gi));
-
-			len = sprintf_s(gi.gi, sizeof(gi.gi), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", (unsigned long long)bsr_current_uuid(device),
-				(unsigned long long)bsr_bitmap_uuid(p),
-				(unsigned long long)bsr_history_uuid(device, 0),
-				(unsigned long long)bsr_history_uuid(device, 1));
-
-			if (len == -1)
-				goto fail;
-			gi.gi_len = len;
-
-			connection = p->connection;
-
-			seq = atomic_inc_return(&bsr_genl_seq);
-			skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
-			err = -ENOMEM;
-			if (!skb)
-				goto fail;
-
-			err = -EMSGSIZE;
-			dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI);
-
-			if (!dh)
-				goto fail;
-
-			dh->minor = UINT32_MAX;
-			dh->ret_code = NO_ERROR;
-			mutex_lock(&notification_mutex);
-
-			if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
-				nla_put_notification_header(skb, NOTIFY_CHANGE) ||
-				bsr_updated_gi_info_to_skb(skb, &gi, true))
-				goto unlock_fail;
-
-			genlmsg_end(skb, dh);
-			err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
-			skb = NULL;
-			/* skb has been consumed or freed in netlink_broadcast() */
-			if (err && err != -ESRCH)
-				goto unlock_fail;
-			mutex_unlock(&notification_mutex);
-		}
-
-		return;
-	}
-	else if (type == BSR_GI_NOTI_DEVICE_FLAG) {
-		len = sprintf_s(gi.gi, sizeof(gi.gi), "consistent:%d was-up-to-date:%d primary-ind:%d "
-			"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
-			device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0,
-			device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0,
-			device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0,
-			device->ldev->md.flags & MDF_AL_CLEAN ? 1 : 0,
-			device->ldev->md.flags & MDF_AL_DISABLED ? 1 : 0,
-			device->ldev->md.flags & MDF_LAST_PRIMARY ? 1 : 0);
-	}
-	else if (type == BSR_GI_NOTI_PEER_DEVICE_FLAG) {
-		u32 peer_flags;
-
-		if (!peer_device)
-			return;
-
-		peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
-		connection = peer_device->connection;
-		len = sprintf_s(gi.gi, sizeof(gi.gi), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
-				peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
-				peer_flags & MDF_PEER_FENCING ? 1 : 0,
-				peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
-	}
+	len = sprintf_s(gi.device_mdf, sizeof(gi.device_mdf), "consistent:%d was-up-to-date:%d primary-ind:%d "
+		"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
+		device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0,
+		device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0,
+		device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0,
+		device->ldev->md.flags & MDF_AL_CLEAN ? 1 : 0,
+		device->ldev->md.flags & MDF_AL_DISABLED ? 1 : 0,
+		device->ldev->md.flags & MDF_LAST_PRIMARY ? 1 : 0);
 
 	if (len == -1)
 		goto fail;
-	gi.gi_len = len;
+	gi.device_mdf_len = len;
 
 	seq = atomic_inc_return(&bsr_genl_seq);
 	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
@@ -7134,7 +7139,7 @@ void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_d
 		goto fail;
 
 	err = -EMSGSIZE;
-	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI);
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_DEVICE_MDF_FLAG);
 
 	if (!dh)
 		goto fail;
@@ -7145,7 +7150,7 @@ void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_d
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, NOTIFY_CHANGE) ||
-		bsr_updated_gi_info_to_skb(skb, &gi, true))
+		bsr_updated_gi_device_mdf_flag_info_to_skb(skb, &gi, true))
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
@@ -7164,6 +7169,77 @@ fail:
 	if (skb)
 		nlmsg_free(skb);
 }
+
+
+// BSR-676 notify when peer_device is changed.
+void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bsr_peer_device *peer_device)
+{
+	struct bsr_updated_gi_peer_device_mdf_flag_info gi;
+	struct bsr_connection *connection = NULL;
+	unsigned int seq;
+	struct sk_buff *skb = NULL;
+	struct bsr_genlmsghdr *dh;
+	int err;
+	int len = -1;
+	u32 peer_flags;
+
+	if (!device || !device->ldev)
+		return;
+
+	if (!peer_device)
+		return;
+
+	peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
+	connection = peer_device->connection;
+	len = sprintf_s(gi.peer_device_mdf, sizeof(gi.peer_device_mdf), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
+		peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
+		peer_flags & MDF_PEER_FENCING ? 1 : 0,
+		peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
+	
+
+	if (len == -1)
+		goto fail;
+	gi.peer_device_mdf_len = len;
+
+	seq = atomic_inc_return(&bsr_genl_seq);
+	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+	err = -ENOMEM;
+	if (!skb)
+		goto fail;
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG);
+
+	if (!dh)
+		goto fail;
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+	mutex_lock(&notification_mutex);
+
+	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
+		nla_put_notification_header(skb, NOTIFY_CHANGE) ||
+		bsr_updated_gi_peer_device_mdf_flag_info_to_skb(skb, &gi, true))
+		goto unlock_fail;
+
+	genlmsg_end(skb, dh);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+	skb = NULL;
+	/* skb has been consumed or freed in netlink_broadcast() */
+	if (err && err != -ESRCH)
+		goto unlock_fail;
+	mutex_unlock(&notification_mutex);
+
+	return;
+
+unlock_fail:
+	mutex_unlock(&notification_mutex);
+fail:
+	if (skb)
+		nlmsg_free(skb);
+}
+
+
 void notify_path(struct bsr_connection *connection, struct bsr_path *path,
 		 enum bsr_notification_type type)
 {

@@ -490,7 +490,12 @@ int w_notify_updated_gi(struct bsr_work *w, int cancel)
 	UNREFERENCED_PARAMETER(cancel);
 
 	if (dw) {
-		notify_updated_gi(dw->device, dw->peer_device, dw->type);
+		if (dw->type == BSR_GI_NOTI_UUID)
+			notify_updated_gi_uuid(dw->device);
+		else if (dw->type == BSR_GI_NOTI_DEVICE_FLAG)
+			notify_updated_gi_device_mdf_flag(dw->device);
+		else if (dw->type == BSR_GI_NOTI_PEER_DEVICE_FLAG)
+			notify_updated_gi_peer_device_mdf_flag(dw->device, dw->peer_device);
 		kfree(dw);
 	}
 

@@ -3127,7 +3127,9 @@ extern void notify_path(struct bsr_connection *, struct bsr_path *,
 #define BSR_GI_NOTI_DEVICE_FLAG 0x01
 #define BSR_GI_NOTI_PEER_DEVICE_FLAG 0x02
 
-extern void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device* peer_device, int type);
+extern void notify_updated_gi_uuid(struct bsr_device *device);
+extern void notify_updated_gi_device_mdf_flag(struct bsr_device *device);
+extern void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bsr_peer_device* peer_device);
 
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
