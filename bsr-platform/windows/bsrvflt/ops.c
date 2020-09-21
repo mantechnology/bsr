@@ -518,7 +518,7 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 
 NTSTATUS
-IOCTL_GetDebugInfo(PIRP Irp)
+IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	PBSR_DEBUG_INFO p = NULL;
@@ -526,15 +526,26 @@ IOCTL_GetDebugInfo(PIRP Irp)
 	struct bsr_connection *connection = NULL;
 	struct bsr_peer_device *peer_device = NULL;
 	struct bsr_device * device = NULL;
-	struct seq_file seq = { 0, };
+	struct seq_file seq;
+	ULONG inlen, outlen;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 
 	if (!Irp->AssociatedIrp.SystemBuffer) {
-		bsr_warn(85, BSR_LC_DRIVER, NO_OBJECT,
+		bsr_warn(138, BSR_LC_DRIVER, NO_OBJECT,
 			"SystemBuffer is NULL. Maybe older bsrcon was used or other access was tried");
 		return STATUS_INVALID_PARAMETER;
 	}
-	
+
 	p = (PBSR_DEBUG_INFO)Irp->AssociatedIrp.SystemBuffer;
+
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+
+	if (p->buf_size == 0 || 
+		inlen < sizeof(BSR_DEBUG_INFO) + p->buf_size || outlen < sizeof(BSR_DEBUG_INFO) + p->buf_size) {
+		bsr_err(139, BSR_LC_DRIVER, NO_OBJECT, "Failed to get bsr debug info due to buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
 
 	if (p->res_name && strlen(p->res_name)) {
 		resource = bsr_find_resource(p->res_name);
@@ -565,6 +576,8 @@ IOCTL_GetDebugInfo(PIRP Irp)
 			goto out;
 		}
 	}
+
+	seq_alloc(&seq, p->buf_size);
 
 	switch (p->flags){
 	case DBG_BSR_VERSION:
@@ -626,12 +639,22 @@ IOCTL_GetDebugInfo(PIRP Irp)
 		seq.private = device;
 		device_oldest_requests_show(&seq, 0);
 		break;
+
 	default:
 		break;
 	}
 
-	RtlCopyMemory(p->buf, seq.buf, sizeof(seq.buf));
-	status = STATUS_SUCCESS;
+	RtlCopyMemory(p->buf, seq.buf, seq.size);
+	*size = seq.size;
+
+	if (seq_has_overflowed(&seq)) {
+		status = STATUS_BUFFER_OVERFLOW;
+	}
+	else {
+		status = STATUS_SUCCESS;
+	}
+
+	seq_free(&seq);
 
 out:
 	if (resource)

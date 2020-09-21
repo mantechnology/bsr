@@ -226,27 +226,40 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 // BSR-37 debugfs porting
 int BsrDebug(int argc, char* argv[])
 {
-	DWORD	ret = ERROR_SUCCESS;
-	int  	argIndex = 0;
-	BSR_DEBUG_INFO debugInfo;
+	DWORD ret = ERROR_SUCCESS;
+	int argIndex = 0;
+	PBSR_DEBUG_INFO debugInfo = NULL;
+	int size = MAX_SEQ_BUF;
+	enum BSR_DEBUG_FLAGS flag;
 	
-	memset(&debugInfo, 0, sizeof(BSR_DEBUG_INFO));
-	debugInfo.peer_node_id = -1;
-	debugInfo.vnr = -1;
+	flag = ConvertToBsrDebugFlags(argv[argIndex]);
 
-	debugInfo.flags = ConvertToBsrDebugFlags(argv[argIndex]);
-
-	if (!debugInfo.flags)
+	if (!flag)
 		debug_usage();
 
-	if (debugInfo.flags != DBG_BSR_VERSION) {
+	if (flag == DBG_DEV_ACT_LOG_EXTENTS)
+		size <<= 10;  // 4M
+
+	debugInfo = (PBSR_DEBUG_INFO)malloc(sizeof(BSR_DEBUG_INFO) + size);
+	if (!debugInfo) {
+		fprintf(stderr, "DEBUG_ERROR: Failed to malloc BSR_DEBUG_INFO\n");
+		return  ERROR_NOT_ENOUGH_MEMORY;
+	}
+
+	memset(debugInfo, 0, sizeof(BSR_DEBUG_INFO) + size);
+	debugInfo->peer_node_id = -1;
+	debugInfo->vnr = -1;
+	debugInfo->buf_size = size;
+	debugInfo->flags = flag;
+
+	if (debugInfo->flags != DBG_BSR_VERSION) {
 		argIndex++;
 		if (argIndex < argc)
-			strcpy_s(debugInfo.res_name, argv[argIndex]);
+			strcpy_s(debugInfo->res_name, argv[argIndex]);
 		else
 			debug_usage();
 		argIndex++;
-		switch (debugInfo.flags) {
+		switch (debugInfo->flags) {
 		case DBG_RES_IN_FLIGHT_SUMMARY:
 		case DBG_RES_STATE_TWOPC:
 			break;
@@ -256,19 +269,19 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_CONN_TRANSPORT:
 		case DBG_CONN_SEND_BUF:
 			if (argIndex < argc)
-				debugInfo.peer_node_id = atoi(argv[argIndex]);
+				debugInfo->peer_node_id = atoi(argv[argIndex]);
 			else
 				debug_usage();
 			break;
 		case DBG_PEER_PROC_BSR:
 		case DBG_PEER_RESYNC_EXTENTS:
 			if (argIndex < argc)
-				debugInfo.peer_node_id = atoi(argv[argIndex]);
+				debugInfo->peer_node_id = atoi(argv[argIndex]);
 			else
 				debug_usage();
 			argIndex++;
 			if (argIndex < argc)
-				debugInfo.vnr= atoi(argv[argIndex]);
+				debugInfo->vnr= atoi(argv[argIndex]);
 			else
 				debug_usage();
 			break;
@@ -278,7 +291,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_DEV_IO_FROZEN:
 		case DBG_DEV_OLDEST_REQUESTS:
 			if (argIndex < argc)
-				debugInfo.vnr = atoi(argv[argIndex]);
+				debugInfo->vnr = atoi(argv[argIndex]);
 			else
 				debug_usage();
 			break;
@@ -287,10 +300,41 @@ int BsrDebug(int argc, char* argv[])
 		}
 	}
 
-	ret = GetBsrDebugInfo(&debugInfo);
 	
+	while ((ret = GetBsrDebugInfo(debugInfo)) != ERROR_SUCCESS) {
+		if (ret == ERROR_MORE_DATA) {
+			size <<= 1;
+
+			if (size > MAX_SEQ_BUF << 10) { // 4M
+				fprintf(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
+				fprintf(stderr, "buffer overflow.\n");
+				break;
+			}
+
+			// reallocate when buffer is insufficient
+			debugInfo = (PBSR_DEBUG_INFO)realloc(debugInfo, sizeof(BSR_DEBUG_INFO) + size);
+			if (!debugInfo) {
+				fprintf(stderr, "DEBUG_ERROR: Failed to realloc BSR_DEBUG_INFO\n");
+				break;
+			}
+			debugInfo->buf_size = size;
+		}
+		else {
+			fprintf(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
+			break;
+		}
+	}
+
 	if (ret == ERROR_SUCCESS) {
-		fprintf(stdout, "%s\n", debugInfo.buf);
+		fprintf(stdout, "%s\n", debugInfo->buf);
+	}
+	else if (ret == ERROR_INVALID_PARAMETER) {
+		fprintf(stderr, "invalid paramter.\n");
+	}
+
+	if (debugInfo) {
+		free(debugInfo);
+		debugInfo = NULL;
 	}
 
 	return ret;

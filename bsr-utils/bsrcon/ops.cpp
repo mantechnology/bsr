@@ -1342,13 +1342,10 @@ DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo)
 			__FUNCTION__, retVal);
 		return retVal;
 	}
-
 	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_DEBUG_INFO, 
-			pDebugInfo, sizeof(BSR_DEBUG_INFO), pDebugInfo, sizeof(BSR_DEBUG_INFO), &dwReturned, NULL);
+		pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, &dwReturned, NULL);
 	if (ret == FALSE) {
 		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_ERROR: %s: Failed IOCTL_MVOL_GET_DEBUG_INFO. Err=%u\n",
-			__FUNCTION__, retVal);
 	}
 
 	if (hDevice != INVALID_HANDLE_VALUE)   

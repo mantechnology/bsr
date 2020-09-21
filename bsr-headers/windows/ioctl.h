@@ -76,7 +76,7 @@ typedef struct _MVOL_VOLUME_INFO
 	WCHAR				PhysicalDeviceName[MAXDEVICENAME];		// src device
 	ULONG				PeerIp;
 	USHORT				PeerPort;
-	CHAR				Seq[MAX_SEQ_BUF]; // BSR_DW130: check enough? and chaneg to dynamically
+	CHAR				Seq[MAX_SEQ_BUF];
 } MVOL_VOLUME_INFO, *PMVOL_VOLUME_INFO;
 
 typedef struct _MVOL_COUNT_INFO
@@ -140,7 +140,8 @@ typedef struct _BSR_DEBUG_INFO
 	int						peer_node_id;
 	int						vnr;
 	enum BSR_DEBUG_FLAGS	flags;
-	CHAR					buf[MAX_SEQ_BUF];
+	int						buf_size;
+	char					buf[1];
 } BSR_DEBUG_INFO, *PBSR_DEBUG_INFO;
 
 #define SIMUL_DISK_IO_ERROR_FLAG0		0 // No Disk Error 
