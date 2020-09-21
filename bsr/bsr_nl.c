@@ -2832,6 +2832,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_peer_device *peer_device;
 	unsigned int slots_needed = 0;
 	bool have_conf_update = false;
+	unsigned int md_flags;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
@@ -3279,13 +3280,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	bsr_try_suspend_al(device); /* IO is still suspended here... */
 
+	
 #ifdef _WIN
 	unsigned char oldIrql_rLock1; // RCU_SPECIAL_CASE
-	u32 md_flags = device->ldev->md.flags;
 	oldIrql_rLock1 = ExAcquireSpinLockShared(&g_rcuLock);
 #else // _LIN
 	rcu_read_lock();
 #endif
+	md_flags = device->ldev->md.flags;
+
 	if (rcu_dereference(device->ldev->disk_conf)->al_updates)
 		device->ldev->md.flags &= ~MDF_AL_DISABLED;
 	else
@@ -7053,8 +7056,12 @@ void notify_updated_gi_uuid(struct bsr_device *device)
 
 	for_each_peer_device(peer_device, device) {
 		memset(gi.uuid, 0, sizeof(gi.uuid));
-
-		len = sprintf_s(gi.uuid, sizeof(gi.uuid), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", (unsigned long long)bsr_current_uuid(device),
+#ifdef _WIN
+		len = sprintf_s(gi.uuid, sizeof(gi.uuid), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", 
+#else // _LIN
+		len = sprintf(gi.uuid, "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX",
+#endif
+			(unsigned long long)bsr_current_uuid(device),
 			(unsigned long long)bsr_bitmap_uuid(peer_device),
 			(unsigned long long)bsr_history_uuid(device, 0),
 			(unsigned long long)bsr_history_uuid(device, 1));
@@ -7118,9 +7125,13 @@ void notify_updated_gi_device_mdf_flag(struct bsr_device *device)
 
 	if (!device || !device->ldev)
 		return;
-
+#ifdef _WIN
 	len = sprintf_s(gi.device_mdf, sizeof(gi.device_mdf), "consistent:%d was-up-to-date:%d primary-ind:%d "
-		"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
+#else // _LIN
+	len = sprintf(gi.device_mdf, "consistent:%d was-up-to-date:%d primary-ind:%d "
+#endif
+		"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", 
+		device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
 		device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0,
 		device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0,
 		device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0,
@@ -7191,7 +7202,12 @@ void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bs
 
 	peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
 	connection = peer_device->connection;
-	len = sprintf_s(gi.peer_device_mdf, sizeof(gi.peer_device_mdf), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
+#ifdef _WIN
+	len = sprintf_s(gi.peer_device_mdf, sizeof(gi.peer_device_mdf), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", 
+#else // _LIN
+	len = sprintf(gi.peer_device_mdf, "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d",
+#endif 
+		peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
 		peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
 		peer_flags & MDF_PEER_FENCING ? 1 : 0,
 		peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
