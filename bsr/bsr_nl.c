@@ -7065,6 +7065,8 @@ void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_d
 				goto fail;
 			gi.gi_len = len;
 
+			connection = p->connection;
+
 			seq = atomic_inc_return(&bsr_genl_seq);
 			skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 			err = -ENOMEM;
@@ -7120,6 +7122,10 @@ void notify_updated_gi(struct bsr_device *device, struct bsr_peer_device *peer_d
 				peer_flags & MDF_PEER_FENCING ? 1 : 0,
 				peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
 	}
+
+	if (len == -1)
+		goto fail;
+	gi.gi_len = len;
 
 	seq = atomic_inc_return(&bsr_genl_seq);
 	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);

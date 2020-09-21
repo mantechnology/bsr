@@ -343,8 +343,6 @@ struct bsr_state_change *remember_state_change(struct bsr_resource *resource, gf
 
 		// BSR-676
 		device_state_change->notify_flags = atomic_xchg(&device->notify_flags, 0);
-		if (device_state_change->notify_flags != 0)
-			atomic_inc(&device->local_cnt);
 
 		/* The peer_devices for each device have to be enumerated in
 		   the order of the connections. We may not use for_each_peer_device() here. */
@@ -367,7 +365,9 @@ struct bsr_state_change *remember_state_change(struct bsr_resource *resource, gf
 			       sizeof(peer_device->resync_susp_dependency));
 			memcpy(peer_device_state_change->resync_susp_other_c,
 			       peer_device->resync_susp_other_c,
-			       sizeof(peer_device->resync_susp_other_c));
+				   sizeof(peer_device->resync_susp_other_c));
+			// BSR-676
+			peer_device_state_change->notify_flags = atomic_xchg(&peer_device->notify_flags, 0);
 			peer_device_state_change++;
 		}
 		device_state_change++;
@@ -2427,7 +2427,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						device->ldev->md.peers[peer_device->node_id].flags = mdf;
 						bsr_md_mark_dirty(device);
 						// BSR-676 notify flag
-						atomic_set(&device->notify_flags, (device->notify_flags | 1));
+						atomic_set(&peer_device->notify_flags, (atomic_read(&peer_device->notify_flags) | 1));
 					}
 				}
 
@@ -2502,7 +2502,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				device->ldev->md.flags = mdf;
 				bsr_md_mark_dirty(device);
 				// BSR-676 notify flag
-				atomic_set(&device->notify_flags, (device->notify_flags | 1));
+				atomic_set(&device->notify_flags, (atomic_read(&device->notify_flags) | 1));
 			}
 			if (disk_state[OLD] < D_CONSISTENT && disk_state[NEW] >= D_CONSISTENT)
 				bsr_set_exposed_data_uuid(device, device->ldev->md.current_uuid);
@@ -3217,10 +3217,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		u64 authoritative[2] = { 0, };
 
 		// BSR-676
-		if (device_state_change->notify_flags & 1) {
+		if (device_state_change->notify_flags & 1)
 			notify_updated_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
-			atomic_dec(&device->local_cnt);
-		}
 
 		for (which = OLD; which <= NEW; which++)
 			// DW-1315 need changes of authoritative node to notify peers.
@@ -3260,6 +3258,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
 			}
+
+			// BSR-676
+			if (peer_device_state_change->notify_flags & 1)
+				notify_updated_gi(device, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 		}
 
 		for (n_connection = 0; n_connection < state_change->n_connections; n_connection++) {

@@ -1906,6 +1906,9 @@ struct bsr_peer_device {
 	} todo;
 	// DW-1981
 	struct bm_xfer_ctx bm_ctx;
+
+	// BSR-676
+	atomic_t notify_flags;
 };
 
 // DW-1911

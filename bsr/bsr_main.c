@@ -4514,6 +4514,8 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
 
+	// BSR-676
+	atomic_set(&peer_device->notify_flags, 0);
 
 	atomic_set64(&peer_device->s_resync_bb, 0);
 	atomic_set64(&peer_device->e_resync_bb, 0);

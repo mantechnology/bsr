@@ -32,6 +32,8 @@ struct bsr_peer_device_state_change {
 	bool resync_susp_peer[2];
 	bool resync_susp_dependency[2];
 	bool resync_susp_other_c[2];
+	// BSR-676
+	int notify_flags;
 };
 
 struct bsr_state_change {
