@@ -1817,7 +1817,8 @@ int generic_make_request(struct bio *bio)
 		current->comm, (io == IRP_MJ_READ) ? "READ" : "WRITE", 
 		offset.QuadPart / 512, bio->bi_size, KeGetCurrentIrql(), &offset, buffer, q->backing_dev_info.pDeviceExtension->Letter);
 #endif
-
+	int retry = 0;
+retry:
 	newIrp = IoBuildAsynchronousFsdRequest(
 				io,
 				bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject,
@@ -1828,6 +1829,17 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
+		// DW-2156 if the irp allocation fails, try again three times.
+		if (retry < 3) {
+			LARGE_INTEGER	delay;
+
+			delay.QuadPart = (-1 * 1000 * 10000);   //// wait 1000ms relative
+			KeDelayExecutionThread(KernelMode, FALSE, &delay);
+			retry++;
+			bsr_warn(NO_OBJECT, "IoBuildAsynchronousFsdRequest: cannot alloc new IRP, try again (%d/3)\n", retry);
+			goto retry;
+		}
+
 		bsr_err(NO_OBJECT,"IoBuildAsynchronousFsdRequest: cannot alloc new IRP");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
