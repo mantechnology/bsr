@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to read due to failure to allocate memory for read buffer");
+					bsr_err(19, BSR_LC_MEMORY, NO_OBJECT, "Failed to read due to failure to allocate memory for read buffer");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to read or write device due to failure to allocate memory for reset hooker");
+					bsr_err(24, BSR_LC_MEMORY, NO_OBJECT, "Failed to read due to failure to allocate memory for read buffer");
 					goto fail_put_dev;
 				}
 			}

@@ -221,7 +221,7 @@ VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP 
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76SB');
 
     if(!wr) {
-		bsr_err(23, BSR_LC_THREAD, NO_OBJECT, "Failed to queue work due to failure to allocate memory for work wrapper.");
+		bsr_err(44, BSR_LC_MEMORY, NO_OBJECT, "Failed to queue work due to failure to allocate memory for work wrapper.");
         return;
     }
     

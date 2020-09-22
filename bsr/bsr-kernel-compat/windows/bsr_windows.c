@@ -1778,7 +1778,7 @@ int generic_make_request(struct bio *bio)
 			}
 		}
 		else {
-			bsr_err(39, BSR_LC_IO, NO_OBJECT,"No I/O request disk or device information. IRQL(%d)", KeGetCurrentIrql());
+			bsr_err(39, BSR_LC_IO, NO_OBJECT, "Failed to I/O request due to failure to not found volume information. IRQL(%d)", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
@@ -2476,25 +2476,25 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5SB');
     if (!dev) {
-		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device", sizeof(struct block_device));
+		bsr_err(20, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'D5SB');
 	if (!dev->bd_contains) {
-		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device contains", sizeof(struct block_device));
+		bsr_err(21, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for gendisk", sizeof(struct gendisk));
+		bsr_err(22, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for gendisk", sizeof(struct gendisk));
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
+		bsr_err(23, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
 		goto request_queue_failed;
 	}
 		

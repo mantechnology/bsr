@@ -2158,7 +2158,7 @@ static void queue_after_state_change_work(struct bsr_resource *resource,
 		bsr_queue_work(&resource->work, &work->w);
 	} else {
 		kfree(work);
-		bsr_err(26, BSR_LC_STATE, resource, "Failed to queue state change work due to failure to allocate memory for work");
+		bsr_err(42, BSR_LC_MEMORY, resource, "Failed to queue state change work due to failure to allocate memory for work");
 		if (done)
 			complete(done);
 	}
@@ -4804,7 +4804,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8SB');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to send twopc reply due to failure to allocate memory for connections");
+		bsr_err(43, BSR_LC_MEMORY, resource, "Failed to send twopc reply due to failure to allocate memory for connections");
 		return;
 	}
 
