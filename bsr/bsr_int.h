@@ -509,7 +509,7 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 65
+#define BSR_LC_VOLUME_MAX_INDEX 66
 #define BSR_LC_IO_MAX_INDEX 57
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
 #define BSR_LC_BITMAP_MAX_INDEX 63

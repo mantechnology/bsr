@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to read or write device due to failure to allocate memory for hooker!");
+					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to read due to failure to allocate memory for read buffer");
 					goto fail_put_dev;
 				}
 			}
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to cannot get volume information, err=0x%x", status);
+		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to failure to IRP reuqest, err=0x%x", status);
         return status;
     }
 

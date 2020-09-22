@@ -1568,7 +1568,7 @@ enum write_ordering_e wo) __must_hold(local)
 
 	resource->write_ordering = wo;
 	if (pwo != resource->write_ordering || wo == WO_BIO_BARRIER)
-		bsr_info(12, BSR_LC_VOLUME, resource, "Method to ensure write ordering: %s", write_ordering_str[resource->write_ordering]);
+		bsr_info(66, BSR_LC_VOLUME, resource, "Method to ensure write ordering: %s", write_ordering_str[resource->write_ordering]);
 }
 
 

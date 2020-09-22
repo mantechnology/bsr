@@ -4642,7 +4642,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);
 	if (!pvext) {
 		err = ERR_NO_DISK;
-		bsr_err(9, BSR_LC_VOLUME, device, "Failed to disk create due to device has no disk. error(%d)", err);
+		bsr_err(9, BSR_LC_VOLUME, device, "Failed to device create due to device has no disk. error(%d), minor(%d)", err, minor);
 		goto out_no_disk;
 	}
 	// BSR-617 set volume size
