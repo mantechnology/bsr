@@ -1703,6 +1703,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	char *khelper_cmd = NULL;
 	int verify_done = 0;
 
+	bool uuid_updated = false;
 
 	if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 		/* Make sure all queued w_update_peers()/consider_sending_peers_in_sync()
@@ -1890,6 +1891,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
 					peer_device->history_uuids[i] =
 						bsr_history_uuid(device, i);
+				// DW-2160
+				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 			if (new_peer_disk_state != D_MASK)
@@ -1910,6 +1913,20 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 out_unlock:
 	end_state_change_locked(device->resource, false, __FUNCTION__);
+
+	// DW-2160 If the peer device and the current uuid of the device differ by receiving the UUID during synchronization completion, update it again.
+	if (uuid_updated && ((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY))) {
+		int i;
+
+		bsr_uuid_resync_finished(peer_device);
+		peer_device->current_uuid = bsr_current_uuid(device);
+		peer_device->bitmap_uuids[device->resource->res_opts.node_id] = bsr_bitmap_uuid(peer_device);
+		for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
+			peer_device->history_uuids[i] = bsr_history_uuid(device, i);
+
+		bsr_print_uuids(peer_device, "again updated UUIDs", __FUNCTION__);
+		bsr_md_mark_dirty(device);
+	}
 
 	put_ldev(device);
 
