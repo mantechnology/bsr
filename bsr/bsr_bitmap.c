@@ -1409,7 +1409,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	return 0;
 
 no_memory :
-	bsr_err(26, BSR_LC_BITMAP, NO_OBJECT,"Failed to I/O bitmap page due to no memory");
+	bsr_err(45, BSR_LC_MEMORY, NO_OBJECT,"Failed to I/O bitmap page due to no memory");
 	return -ENOMEM;
 }
 

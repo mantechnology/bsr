@@ -200,7 +200,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
-			bsr_err(11, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
+			bsr_err(37, BSR_LC_MEMORY, NO_OBJECT, "Failed to create ring buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
 			return NULL;
 		}
 	} else {

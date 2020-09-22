@@ -513,7 +513,7 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	peer_req = mempool_alloc(bsr_ee_mempool, gfp_mask & ~__GFP_HIGHMEM);
 	if (!peer_req) {
 		if (!(gfp_mask & __GFP_NOWARN))
-			bsr_err(5, BSR_LC_PEER_REQUEST, device, "Failed to allocate peer request due to failed to allocate memory");
+			bsr_err(25, BSR_LC_MEMORY, device, "Failed to allocate peer request due to failed to allocate memory");
 		return NULL;
 	}
 
@@ -1243,7 +1243,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78SB');
 
 	if (!bio || !octx) {
-		bsr_warn(44, BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH");
+		bsr_warn(46, BSR_LC_MEMORY, device, "Could not allocate a bio, CANNOT ISSUE FLUSH");
 		/* FIXME: what else can I do now?  disconnecting or detaching
 		 * really does not help to improve the state of the world, either.
 		 */
@@ -1877,7 +1877,7 @@ next_bio:
 	bio = bio_alloc(GFP_NOIO, nr_pages);
 #endif
 	if (!bio) {
-		bsr_err(7, BSR_LC_PEER_REQUEST, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
+		bsr_err(47, BSR_LC_MEMORY, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
 		goto fail;
 	}
 	/* > peer_req->i.sector, unless this is the first bio */
@@ -3023,7 +3023,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																split_count, NULL);
 
 						if (!split_peer_req) {
-							bsr_err(41, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for split peer request, bitmap offset(%llu)", (unsigned long long)i_bb);
+							bsr_err(26, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for split peer request, bitmap offset(%llu)", (unsigned long long)i_bb);
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
@@ -3092,14 +3092,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '49SB');
 						if (!unmarked_count) {
-							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for unmakred count");
+							bsr_err(27, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for unmakred count");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
 						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, '59SB');
 						if (!failed_unmarked) {
-							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for failed unmarked");
+							bsr_err(28, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for failed unmarked");
 							kfree(unmarked_count);
 							// DW-1923
 							err = -ENOMEM;
@@ -3125,7 +3125,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																		split_count, NULL);
 
 								if (!split_peer_req) {
-									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)", (unsigned long long)i_bb);
+									bsr_err(29, BSR_LC_MEMORY, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)", (unsigned long long)i_bb);
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
 										kfree(failed_unmarked);
@@ -3941,7 +3941,7 @@ static int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (!pending_st) {
-				bsr_err(53, BSR_LC_RESYNC_OV, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+				bsr_err(30, BSR_LC_MEMORY, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
 				mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
 				return -ENOMEM;
 			}
@@ -4025,7 +4025,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(s_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(58, BSR_LC_RESYNC_OV, peer_device, "Failed to add marked replicate due to failure to allocate memory. bitmap bit(%llu)", (unsigned long long)s_bb);
+					bsr_err(31, BSR_LC_MEMORY, peer_device, "Failed to add marked replicate due to failure to allocate memory. bitmap bit(%llu)", (unsigned long long)s_bb);
 					return -ENOMEM;
 				}
 			}
@@ -4057,7 +4057,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(e_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(59, BSR_LC_RESYNC_OV, peer_device, "Failed to add marked replicate due to failure to allocate memory for marked replicate. bitmap bit(%llu)", (unsigned long long)e_bb);
+					bsr_err(32, BSR_LC_MEMORY, peer_device, "Failed to add marked replicate due to failure to allocate memory for marked replicate. bitmap bit(%llu)", (unsigned long long)e_bb);
 					return -ENOMEM;
 				}
 			}
@@ -6251,7 +6251,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				new_plan = fifo_alloc(fifo_size);
 #endif
 				if (!new_plan) {
-					bsr_err(25, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate memory for fifo buffer");
+					bsr_err(33, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate memory for fifo buffer");
 					goto disconnect;
 				}
 			}
@@ -9369,7 +9369,7 @@ static int list_add_resync_pending(struct bsr_device* device, sector_t sst, sect
 #endif
 
 		if (!pending_st) {
-			bsr_err(100, BSR_LC_RESYNC_OV, device, "Failed to add resync pending due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+			bsr_err(34, BSR_LC_MEMORY, device, "Failed to add resync pending due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
 			mutex_unlock(&device->resync_pending_fo_mutex);
 			return -ENOMEM;
 		}

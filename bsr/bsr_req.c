@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {
-							bsr_err(11, BSR_LC_REQUEST, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
+							bsr_err(35, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
@@ -1911,7 +1911,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
-		bsr_err(21, BSR_LC_REQUEST, device, "Failed to prepare request due to failure to allocate memory for request");
+		bsr_err(36, BSR_LC_MEMORY, device, "Failed to prepare request due to failure to allocate memory for request");
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}

@@ -894,7 +894,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 		peer_req = NULL;
 		err = bsr_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
-		bsr_err(154, BSR_LC_RESYNC_OV, peer_device, "Failed to send csum checksum to failure to allocate memory for digest");
+		bsr_err(38, BSR_LC_MEMORY, peer_device, "Failed to send csum checksum to failure to allocate memory for digest");
 		err = -ENOMEM;
 	}
 
@@ -918,7 +918,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 	/* Do not wait if no memory is immediately available.  */
 	peer_req = bsr_alloc_peer_req(peer_device, GFP_TRY & ~__GFP_RECLAIM);
 	if (!peer_req) {
-		bsr_err(25, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for peer request");
+		bsr_err(39, BSR_LC_MEMORY, peer_device, "Failed to read checksum due to failure to allocate memory for peer request");
 		goto defer;
 	}
 
@@ -926,7 +926,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		bsr_alloc_page_chain(&peer_device->connection->transport,
 			&peer_req->page_chain, DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
 		if (!peer_req->page_chain.head) {
-			bsr_err(26, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for page chain");
+			bsr_err(40, BSR_LC_MEMORY, peer_device, "Failed to read checksum due to failure to allocate memory for page chain");
 			goto defer2;
 		}
 #ifdef _WIN
@@ -1738,7 +1738,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			bsr_queue_work(&connection->sender_work, &rfw->pdw.w);
 			return 1;
 		}
-		bsr_err(114, BSR_LC_RESYNC_OV, peer_device, "resync finished, but failure to allocate memory for work item(resync finished)");
+		bsr_err(41, BSR_LC_MEMORY, peer_device, "resync finished, but failure to allocate memory for work item(resync finished)");
 	}
 
 	dt = (jiffies - peer_device->rs_start - peer_device->rs_paused) / HZ;
