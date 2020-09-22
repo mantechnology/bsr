@@ -150,7 +150,7 @@ typedef struct _MVOL_VOLUME_INFO
 	WCHAR				PhysicalDeviceName[256];		// src device
 	ULONG				PeerIp;
 	USHORT				PeerPort;
-	CHAR				Seq[2048]; // BSR_DW130: check enough? and chaneg to dynamically
+	CHAR				Seq[4096];
 } MVOL_VOLUME_INFO, *PMVOL_VOLUME_INFO;
 
 #define	MVOL_TYPE		0x9800

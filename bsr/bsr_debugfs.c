@@ -1,8 +1,7 @@
-#ifdef CONFIG_DEBUG_FS
 #define pr_fmt(fmt)	KBUILD_MODNAME " debugfs: " fmt
 #ifdef _WIN
-#include "./bsr-kernel-compat/windows/seq_file.h"
-#include "./bsr-kernel-compat/windows/jiffies.h"
+//#include "./bsr-kernel-compat/windows/seq_file.h"
+//#include "./bsr-kernel-compat/windows/jiffies.h"
 #else // _LIN
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -23,6 +22,7 @@
  * Whenever you change the file format, remember to bump the version. *
  **********************************************************************/
 
+#ifdef CONFIG_DEBUG_FS
 static struct dentry *bsr_debugfs_root;
 static struct dentry *bsr_debugfs_version;
 static struct dentry *bsr_debugfs_resources;
@@ -195,8 +195,8 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 	seq_puts(m, "minor\tvnr\tage\t#waiting\n");
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
-		ULONG_PTR jif;
-		struct bsr_request *req;
+		ULONG_PTR jif = 0;
+		struct bsr_request *req = NULL;
 		int n = atomic_read(&device->ap_actlog_cnt);
 		if (n) {
 			spin_lock_irq(&device->resource->req_lock);
@@ -225,9 +225,9 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 static void seq_print_device_bitmap_io(struct seq_file *m, struct bsr_device *device, ULONG_PTR now)
 {
 	struct bsr_bm_aio_ctx *ctx;
-	ULONG_PTR start_jif;
-	unsigned int in_flight;
-	unsigned int flags;
+	ULONG_PTR start_jif = 0;
+	unsigned int in_flight = 0;
+	unsigned int flags = 0;
 	spin_lock_irq(&device->resource->req_lock);
 	ctx = list_first_entry_or_null(&device->pending_bitmap_io, struct bsr_bm_aio_ctx, list);
 	if (ctx && ctx->done)
@@ -415,7 +415,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 }
 
 /* TODO: transfer_log and friends should be moved to resource */
-static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
+int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 {
 	struct bsr_resource *resource = m->private;
 	struct bsr_connection *connection;
@@ -428,9 +428,9 @@ static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 	transport = &connection->transport;
 	/* This does not happen, actually.
 	 * But be robust and prepare for future code changes. */
-	if (!connection || !kref_get_unless_zero(&connection->kref))
+	if (!connection || !kref_get_unless_zero(&connection->kref)) {
 		return -ESTALE;
-
+	}
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
 
@@ -474,7 +474,7 @@ static int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 	return 0;
 }
 
-static int resource_state_twopc_show(struct seq_file *m, void *pos)
+int resource_state_twopc_show(struct seq_file *m, void *pos)
 {
 	struct bsr_resource *resource = m->private;
 	struct twopc_reply twopc = {0,};
@@ -542,6 +542,598 @@ static int resource_state_twopc_show(struct seq_file *m, void *pos)
 	}
 	spin_unlock_irq(&resource->queued_twopc_lock);
 
+	return 0;
+}
+
+int bsr_version_show(struct seq_file *m, void *ignored)
+{
+	seq_printf(m, "# %s\n", bsr_buildtag());
+	seq_printf(m, "VERSION=%s\n", REL_VERSION);
+	seq_printf(m, "API_VERSION=%u\n", GENL_MAGIC_VERSION);
+	seq_printf(m, "PRO_VERSION_MIN=%u\n", PRO_VERSION_MIN);
+	seq_printf(m, "PRO_VERSION_MAX=%u\n", PRO_VERSION_MAX);
+	return 0;
+}
+
+static void seq_print_one_timing_detail(struct seq_file *m,
+	const struct bsr_thread_timing_details *tdp,
+	ULONG_PTR now)
+{
+	struct bsr_thread_timing_details td;
+	/* No locking...
+	* use temporary assignment to get at consistent data. */
+	do {
+		td = *tdp;
+	} while (td.cb_nr != tdp->cb_nr);
+	if (!td.cb_addr)
+		return;
+	seq_printf(m, "%u\t%d\t%s:%u\t%ps\n",
+		td.cb_nr,
+		jiffies_to_msecs(now - td.start_jif),
+		td.caller_fn, td.line,
+		td.cb_addr);
+}
+
+static void seq_print_timing_details(struct seq_file *m,
+	const char *title,
+	unsigned int cb_nr, struct bsr_thread_timing_details *tdp, ULONG_PTR now)
+{
+	unsigned int start_idx;
+	unsigned int i;
+
+	seq_printf(m, "%s\n", title);
+	/* If not much is going on, this will result in natural ordering.
+	* If it is very busy, we will possibly skip events, or even see wrap
+	* arounds, which could only be avoided with locking.
+	*/
+	start_idx = cb_nr % BSR_THREAD_DETAILS_HIST;
+	for (i = start_idx; i < BSR_THREAD_DETAILS_HIST; i++)
+		seq_print_one_timing_detail(m, tdp + i, now);
+	for (i = 0; i < start_idx; i++)
+		seq_print_one_timing_detail(m, tdp + i, now);
+}
+
+int connection_callback_history_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_resource *resource = connection->resource;
+	ULONG_PTR jif = jiffies;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	seq_puts(m, "n\tage\tcallsite\tfn\n");
+	seq_print_timing_details(m, "sender", connection->s_cb_nr, connection->s_timing_details, jif);
+	seq_print_timing_details(m, "receiver", connection->r_cb_nr, connection->r_timing_details, jif);
+	seq_print_timing_details(m, "worker", resource->w_cb_nr, resource->w_timing_details, jif);
+	return 0;
+}
+
+int connection_debug_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_resource *resource = connection->resource;
+	ULONG_PTR flags = connection->flags;
+	unsigned int u1, u2;
+	unsigned long long ull1, ull2;
+	char sep = ' ';
+
+	seq_puts(m, "content and format of this will change without notice\n");
+
+	seq_printf(m, "flags: 0x%04lx :", flags);
+#define pretty_print_bit(n) \
+	seq_print_rq_state_bit(m, test_bit(n, &flags), &sep, #n);
+	pretty_print_bit(SEND_PING);
+	pretty_print_bit(GOT_PING_ACK);
+	pretty_print_bit(TWOPC_PREPARED);
+	pretty_print_bit(TWOPC_YES);
+	pretty_print_bit(TWOPC_NO);
+	pretty_print_bit(TWOPC_RETRY);
+	pretty_print_bit(CONN_DRY_RUN);
+	pretty_print_bit(CREATE_BARRIER);
+	pretty_print_bit(DISCONNECT_EXPECTED);
+	pretty_print_bit(BARRIER_ACK_PENDING);
+	pretty_print_bit(DATA_CORKED);
+	pretty_print_bit(CONTROL_CORKED);
+	pretty_print_bit(C_UNREGISTERED);
+	pretty_print_bit(RECONNECT);
+	pretty_print_bit(CONN_DISCARD_MY_DATA);
+#undef pretty_print_bit
+	seq_putc(m, '\n');
+
+	u1 = atomic_read(&resource->current_tle_nr);
+	u2 = connection->send.current_epoch_nr;
+	seq_printf(m, "resource->current_tle_nr: %u\n", u1);
+	seq_printf(m, "   send.current_epoch_nr: %u (%d)\n", u2, (int)(u2 - u1));
+
+	ull1 = resource->dagtag_sector;
+	ull2 = resource->last_peer_acked_dagtag;
+	seq_printf(m, " resource->dagtag_sector: %llu\n", ull1);
+	seq_printf(m, "  last_peer_acked_dagtag: %llu (%lld)\n", ull2, (long long)(ull2 - ull1));
+	ull2 = connection->send.current_dagtag_sector;
+	seq_printf(m, " send.current_dagtag_sec: %llu (%lld)\n", ull2, (long long)(ull2 - ull1));
+	ull2 = connection->last_dagtag_sector;
+	seq_printf(m, "      last_dagtag_sector: %llu\n", ull2);
+
+	return 0;
+}
+
+
+int connection_oldest_requests_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	ULONG_PTR now = jiffies;
+	struct bsr_request *r1, *r2;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	spin_lock_irq(&connection->resource->req_lock);
+	r1 = connection->todo.req_next;
+	if (r1)
+		seq_print_minor_vnr_req(m, r1, now);
+	r2 = connection->req_ack_pending;
+	if (r2 && r2 != r1) {
+		r1 = r2;
+		seq_print_minor_vnr_req(m, r1, now);
+	}
+	r2 = connection->req_not_net_done;
+	if (r2 && r2 != r1)
+		seq_print_minor_vnr_req(m, r2, now);
+	spin_unlock_irq(&connection->resource->req_lock);
+	return 0;
+}
+
+int connection_transport_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_transport *transport = &connection->transport;
+	struct bsr_transport_ops *tr_ops = transport->ops;
+	enum bsr_stream i;
+
+	seq_printf(m, "v: %u\n\n", 0);
+
+	for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
+		struct bsr_send_buffer *sbuf = &connection->send_buffer[i];
+		seq_printf(m, "%s stream\n", i == DATA_STREAM ? "data" : "control");
+		seq_printf(m, "  corked: %d\n", test_bit(CORKED + i, &connection->flags));
+		seq_printf(m, "  unsent: %ld bytes\n", (long)(sbuf->pos - sbuf->unsent));
+		seq_printf(m, "  allocated: %d bytes\n", sbuf->allocated_size);
+	}
+
+	seq_printf(m, "\ntransport_type: %s\n", transport->class->name);
+
+	tr_ops->debugfs_show(transport, m);
+
+	return 0;
+}
+
+// BSR-571
+int connection_send_buf_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	enum bsr_stream stream;
+	int i = 0;
+
+	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
+		struct ring_buffer *ring = connection->ptxbab[stream];
+		seq_printf(m, "%s stream\n", stream == DATA_STREAM ? "data" : "control");
+		if (ring) {
+			mutex_lock(&ring->cs);
+			seq_printf(m, "  send buffer size : %10lld bytes\n", ring->length);
+			seq_printf(m, "  send buffer used : %10lld bytes\n", ring->sk_wmem_queued);
+			if (ring->sk_wmem_queued)
+				seq_printf(m, "  [packets in buffer]\n");
+			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
+				if (ring->packet_cnt[i]) {
+					seq_printf(m, "  %-15s - cnt : %4u size : %10llu bytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
+				}
+			}
+			mutex_unlock(&ring->cs);
+			seq_printf(m, "\n");
+		} else
+			seq_printf(m, "  no send buffer\n\n");
+	}
+
+	return 0;
+}
+
+static void seq_printf_with_thousands_grouping(struct seq_file *seq, ULONG_PTR v)
+{
+	/* v is in kB/sec. We don't expect TiByte/sec yet. */
+	if (unlikely(v >= 1000000)) {
+		/* cool: > GiByte/s */
+		seq_printf(seq, "%ld,", v / 1000000);
+		v %= 1000000;
+		seq_printf(seq, "%03ld,%03ld", v / 1000, v % 1000);
+	}
+	else if (likely(v >= 1000))
+		seq_printf(seq, "%ld,%03ld", v / 1000, v % 1000);
+	else
+		seq_printf(seq, "%ld", v);
+}
+
+static void bsr_get_syncer_progress(struct bsr_peer_device *pd,
+enum bsr_repl_state repl_state, ULONG_PTR *rs_total,
+	ULONG_PTR *bits_left, unsigned int *per_mil_done)
+{
+	/* this is to break it at compile time when we change that, in case we
+	* want to support more than (1<<32) bits on a 32bit arch. */
+#ifdef _LIN
+	typecheck(unsigned long, pd->rs_total);
+#endif
+	*rs_total = pd->rs_total;
+
+	/* note: both rs_total and rs_left are in bits, i.e. in
+	* units of BM_BLOCK_SIZE.
+	* for the percentage, we don't care. */
+
+	if (repl_state == L_VERIFY_S || repl_state == L_VERIFY_T)
+		*bits_left = pd->ov_left;
+	else
+		*bits_left = bsr_bm_total_weight(pd) - pd->rs_failed;
+	/* >> 10 to prevent overflow,
+	* +1 to prevent division by zero */
+	if (*bits_left > *rs_total) {
+		/* D'oh. Maybe a logic bug somewhere.  More likely just a race
+		* between state change and reset of rs_total.
+		*/
+		*bits_left = *rs_total;
+		*per_mil_done = *rs_total ? 0 : 1000;
+	}
+	else {
+		/* Make sure the division happens in long context.
+		* We allow up to one petabyte storage right now,
+		* at a granularity of 4k per bit that is 2**38 bits.
+		* After shift right and multiplication by 1000,
+		* this should still fit easily into a 32bit long,
+		* so we don't need a 64bit division on 32bit arch.
+		* Note: currently we don't support such large bitmaps on 32bit
+		* arch anyways, but no harm done to be prepared for it here.
+		*/
+		unsigned int shift = *rs_total > UINT_MAX ? 16 : 10;
+		ULONG_PTR left = *bits_left >> shift;
+		ULONG_PTR total = 1UL + (*rs_total >> shift);
+		ULONG_PTR tmp = 1000UL - left * 1000UL / total;
+		*per_mil_done = (unsigned int)tmp;
+	}
+}
+
+static void bsr_syncer_progress(struct bsr_peer_device *pd, struct seq_file *seq,
+	enum bsr_repl_state repl_state)
+{
+	ULONG_PTR db, dt, dbdt, rt, rs_total, rs_left;
+	unsigned int res;
+	int i, x, y;
+	int stalled = 0;
+
+	bsr_get_syncer_progress(pd, repl_state, &rs_total, &rs_left, &res);
+
+	x = res / 50;
+	y = 20 - x;
+	seq_puts(seq, "\t[");
+	for (i = 1; i < x; i++)
+		seq_putc(seq, '=');
+	seq_putc(seq, '>');
+	for (i = 0; i < y; i++)
+		seq_printf(seq, ".");
+	seq_puts(seq, "] ");
+
+	if (repl_state == L_VERIFY_S || repl_state == L_VERIFY_T)
+		seq_puts(seq, "verified:");
+	else
+		seq_puts(seq, "sync'ed:");
+	seq_printf(seq, "%3u.%u%% ", res / 10, res % 10);
+
+	/* if more than a few GB, display in MB */
+	if (rs_total > (4UL << (30 - BM_BLOCK_SHIFT)))
+		seq_printf(seq, "(%lu/%lu)M",
+		(unsigned long)Bit2KB(rs_left >> 10),
+		(unsigned long)Bit2KB(rs_total >> 10));
+	else
+		seq_printf(seq, "(%lu/%lu)K",
+		(unsigned long)Bit2KB(rs_left),
+		(unsigned long)Bit2KB(rs_total));
+
+	seq_puts(seq, "\n\t");
+
+	/* see drivers/md/md.c
+	* We do not want to overflow, so the order of operands and
+	* the * 100 / 100 trick are important. We do a +1 to be
+	* safe against division by zero. We only estimate anyway.
+	*
+	* dt: time from mark until now
+	* db: blocks written from mark until now
+	* rt: remaining time
+	*/
+	/* Rolling marks. last_mark+1 may just now be modified.  last_mark+2 is
+	* at least (BSR_SYNC_MARKS-2)*BSR_SYNC_MARK_STEP old, and has at
+	* least BSR_SYNC_MARK_STEP time before it will be modified. */
+	/* ------------------------ ~18s average ------------------------ */
+	i = (pd->rs_last_mark + 2) % BSR_SYNC_MARKS;
+	dt = (jiffies - pd->rs_mark_time[i]) / HZ;
+	if (dt > 180)
+		stalled = 1;
+
+	if (!dt)
+		dt++;
+	db = pd->rs_mark_left[i] - rs_left;
+	rt = (dt * (rs_left / (db / 100 + 1))) / 100; /* seconds */
+
+	seq_printf(seq, "finish: %lu:%02lu:%02lu",
+		rt / 3600, (rt % 3600) / 60, rt % 60);
+
+	dbdt = Bit2KB(db / dt);
+	seq_puts(seq, " speed: ");
+	seq_printf_with_thousands_grouping(seq, dbdt);
+	seq_puts(seq, " (");
+	/* ------------------------- ~3s average ------------------------ */
+	if (1) {
+		/* this is what bsr_rs_should_slow_down() uses */
+		i = (pd->rs_last_mark + BSR_SYNC_MARKS - 1) % BSR_SYNC_MARKS;
+		dt = (jiffies - pd->rs_mark_time[i]) / HZ;
+		if (!dt)
+			dt++;
+		db = pd->rs_mark_left[i] - rs_left;
+		dbdt = Bit2KB(db / dt);
+		seq_printf_with_thousands_grouping(seq, dbdt);
+		seq_puts(seq, " -- ");
+	}
+
+	/* --------------------- long term average ---------------------- */
+	/* mean speed since syncer started
+	* we do account for PausedSync periods */
+	dt = (jiffies - pd->rs_start - pd->rs_paused) / HZ;
+	if (dt == 0)
+		dt = 1;
+	db = rs_total - rs_left;
+	dbdt = Bit2KB(db / dt);
+	seq_printf_with_thousands_grouping(seq, dbdt);
+	seq_putc(seq, ')');
+
+	if (repl_state == L_SYNC_TARGET ||
+		repl_state == L_VERIFY_S) {
+		seq_puts(seq, " want: ");
+		seq_printf_with_thousands_grouping(seq, pd->c_sync_rate);
+	}
+	seq_printf(seq, " K/sec%s\n", stalled ? " (stalled)" : "");
+
+	{
+		/* 64 bit:
+		* we convert to sectors in the display below. */
+		ULONG_PTR bm_bits = bsr_bm_bits(pd->device);
+		ULONG_PTR bit_pos;
+		unsigned long long stop_sector = 0;
+		if (repl_state == L_VERIFY_S ||
+			repl_state == L_VERIFY_T) {
+			bit_pos = bm_bits - pd->ov_left;
+			if (verify_can_do_stop_sector(pd))
+				stop_sector = pd->ov_stop_sector;
+		}
+		else
+			bit_pos = pd->device->bm_resync_fo;
+		/* Total sectors may be slightly off for oddly
+		* sized devices. So what. */
+		seq_printf(seq,
+			"\t%3d%% sector pos: %llu/%llu",
+			(int)(bit_pos / (bm_bits / 100 + 1)),
+			(unsigned long long)bit_pos * BM_SECT_PER_BIT,
+			(unsigned long long)bm_bits * BM_SECT_PER_BIT);
+		if (stop_sector != 0 && stop_sector != ULLONG_MAX)
+			seq_printf(seq, " stop sector: %llu", stop_sector);
+		seq_putc(seq, '\n');
+	}
+}
+
+int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_peer_device *peer_device = m->private;
+	struct bsr_device *device = peer_device->device;
+	union bsr_state state;
+	const char *sn;
+	struct net_conf *nc;
+	__u32 wp;
+
+	state.disk = device->disk_state[NOW];
+	state.pdsk = peer_device->disk_state[NOW];
+	state.conn = peer_device->repl_state[NOW];
+	state.role = device->resource->role[NOW];
+	state.peer = peer_device->connection->peer_role[NOW];
+
+	state.user_isp = peer_device->resync_susp_user[NOW];
+	state.peer_isp = peer_device->resync_susp_peer[NOW];
+	state.aftr_isp = peer_device->resync_susp_dependency[NOW];
+
+	sn = bsr_repl_str(state.conn);
+
+	rcu_read_lock();
+	{
+#ifdef _LIN
+		/* reset device->congestion_reason */
+		bdi_rw_congested(device->rq_queue->backing_dev_info);
+#endif
+
+		nc = rcu_dereference(peer_device->connection->transport.net_conf);
+		wp = nc ? nc->wire_protocol - BSR_PROT_A + 'A' : ' ';
+		seq_printf(m,
+			"%2d: cs:%s ro:%s/%s ds:%s/%s %c %c%c%c%c%c%c\n"
+			"    ns:%u nr:%u dw:%u dr:%u al:%u bm:%u "
+			"lo:%d pe:[%d;%d] ua:%d ap:[%d;%d] ep:%d wo:%d",
+			device->minor, sn,
+			bsr_role_str(state.role),
+			bsr_role_str(state.peer),
+			bsr_disk_str(state.disk),
+			bsr_disk_str(state.pdsk),
+			wp,
+			bsr_suspended(device) ? 's' : 'r',
+			state.aftr_isp ? 'a' : '-',
+			state.peer_isp ? 'p' : '-',
+			state.user_isp ? 'u' : '-',
+			'-' /* congestion reason... FIXME */,
+			test_bit(AL_SUSPENDED, &device->flags) ? 's' : '-',
+			peer_device->send_cnt/2,
+			peer_device->recv_cnt/2,
+			device->writ_cnt/2,
+			device->read_cnt/2,
+			device->al_writ_cnt,
+			device->bm_writ_cnt,
+			atomic_read(&device->local_cnt),
+			atomic_read(&peer_device->ap_pending_cnt),
+			atomic_read(&peer_device->rs_pending_cnt),
+			atomic_read(&peer_device->unacked_cnt),
+			atomic_read(&device->ap_bio_cnt[WRITE]),
+			atomic_read(&device->ap_bio_cnt[READ]),
+			peer_device->connection->epochs,
+			device->resource->write_ordering
+			);
+		seq_printf(m, " oos:%llu\n",
+			Bit2KB((unsigned long long)
+			bsr_bm_total_weight(peer_device)));
+	}
+	if (state.conn == L_SYNC_SOURCE ||
+		state.conn == L_SYNC_TARGET ||
+		state.conn == L_VERIFY_S ||
+		state.conn == L_VERIFY_T)
+		bsr_syncer_progress(peer_device, m, state.conn);
+
+	if (get_ldev_if_state(device, D_FAILED)) {
+		lc_seq_printf_stats(m, peer_device->resync_lru);
+		lc_seq_printf_stats(m, device->act_log);
+		put_ldev(device);
+	}
+
+	seq_printf(m, "\tblocked on activity log: %d\n", atomic_read(&device->ap_actlog_cnt));
+
+	rcu_read_unlock();
+
+	return 0;
+}
+
+static void resync_dump_detail(struct seq_file *m, struct lc_element *e)
+{
+	struct bm_extent *bme = lc_entry(e, struct bm_extent, lce);
+
+	seq_printf(m, "%5d %s %s %s", bme->rs_left,
+		test_bit(BME_NO_WRITES, &bme->flags) ? "NO_WRITES" : "---------",
+		test_bit(BME_LOCKED, &bme->flags) ? "LOCKED" : "------",
+		test_bit(BME_PRIORITY, &bme->flags) ? "PRIORITY" : "--------"
+		);
+}
+
+int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_peer_device *peer_device = m->private;
+	struct bsr_device *device = peer_device->device;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	if (get_ldev_if_state(device, D_FAILED)) {
+		lc_seq_printf_stats(m, peer_device->resync_lru);
+		lc_seq_dump_details(m, peer_device->resync_lru, "rs_left flags", resync_dump_detail);
+		put_ldev(device);
+	}
+	return 0;
+}
+
+int device_act_log_extents_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	if (get_ldev_if_state(device, D_FAILED)) {
+		lc_seq_printf_stats(m, device->act_log);
+		lc_seq_dump_details(m, device->act_log, "", NULL);
+		put_ldev(device);
+	}
+	return 0;
+}
+
+int device_oldest_requests_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	struct bsr_resource *resource = device->resource;
+	ULONG_PTR now = jiffies;
+	struct bsr_request *r1, *r2;
+	int i;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	seq_puts(m, RQ_HDR);
+	spin_lock_irq(&resource->req_lock);
+	/* WRITE, then READ */
+	for (i = 1; i >= 0; --i) {
+		r1 = list_first_entry_or_null(&device->pending_master_completion[i],
+		struct bsr_request, req_pending_master_completion);
+		r2 = list_first_entry_or_null(&device->pending_completion[i],
+		struct bsr_request, req_pending_local);
+		if (r1)
+			seq_print_one_request(m, r1, now);
+		if (r2 && r2 != r1)
+			seq_print_one_request(m, r2, now);
+	}
+	spin_unlock_irq(&resource->req_lock);
+	return 0;
+}
+
+int device_data_gen_id_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	struct bsr_md *md;
+	int node_id, i = 0;
+
+	if (!get_ldev_if_state(device, D_FAILED))
+		return -ENODEV;
+
+	md = &device->ldev->md;
+
+	spin_lock_irq(&md->uuid_lock);
+	seq_printf(m, "0x%016llX\n", bsr_current_uuid(device));
+
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		if (md->peers[node_id].bitmap_index == -1)
+			continue;
+		seq_printf(m, "%s[%d]0x%016llX", i++ ? " " : "", node_id,
+			md->peers[node_id].bitmap_uuid);
+	}
+	seq_putc(m, '\n');
+
+	for (i = 0; i < HISTORY_UUIDS; i++)
+		seq_printf(m, "0x%016llX\n", bsr_history_uuid(device, i));
+	spin_unlock_irq(&md->uuid_lock);
+	put_ldev(device);
+	return 0;
+}
+
+int device_io_frozen_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+
+	if (!get_ldev_if_state(device, D_FAILED))
+		return -ENODEV;
+
+	/* BUMP me if you change the file format/content/presentation */
+	seq_printf(m, "v: %u\n\n", 0);
+
+	seq_printf(m, "bsr_suspended(): %d", bsr_suspended(device));
+	seq_printf(m, "suspend_cnt: %d\n", atomic_read(&device->suspend_cnt));
+	seq_printf(m, "!bsr_state_is_stable(): %d", !bsr_state_is_stable(device));
+	seq_printf(m, "ap_bio_cnt[READ]: %d\n", atomic_read(&device->ap_bio_cnt[READ]));
+	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
+	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
+	seq_printf(m, "may_inc_ap_bio(): %d\n", may_inc_ap_bio(device));
+	put_ldev(device);
+
+	return 0;
+}
+
+int device_ed_gen_id_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	seq_printf(m, "0x%016llX\n", (unsigned long long)device->exposed_data_uuid);
 	return 0;
 }
 
@@ -676,158 +1268,6 @@ void bsr_debugfs_resource_cleanup(struct bsr_resource *resource)
 	bsr_debugfs_remove(&resource->debugfs_res);
 }
 
-static void seq_print_one_timing_detail(struct seq_file *m,
-	const struct bsr_thread_timing_details *tdp,
-	unsigned long now)
-{
-	struct bsr_thread_timing_details td;
-	/* No locking...
-	 * use temporary assignment to get at consistent data. */
-	do {
-		td = *tdp;
-	} while (td.cb_nr != tdp->cb_nr);
-	if (!td.cb_addr)
-		return;
-	seq_printf(m, "%u\t%d\t%s:%u\t%ps\n",
-			td.cb_nr,
-			jiffies_to_msecs(now - td.start_jif),
-			td.caller_fn, td.line,
-			td.cb_addr);
-}
-
-static void seq_print_timing_details(struct seq_file *m,
-		const char *title,
-		unsigned int cb_nr, struct bsr_thread_timing_details *tdp, unsigned long now)
-{
-	unsigned int start_idx;
-	unsigned int i;
-
-	seq_printf(m, "%s\n", title);
-	/* If not much is going on, this will result in natural ordering.
-	 * If it is very busy, we will possibly skip events, or even see wrap
-	 * arounds, which could only be avoided with locking.
-	 */
-	start_idx = cb_nr % BSR_THREAD_DETAILS_HIST;
-	for (i = start_idx; i < BSR_THREAD_DETAILS_HIST; i++)
-		seq_print_one_timing_detail(m, tdp+i, now);
-	for (i = 0; i < start_idx; i++)
-		seq_print_one_timing_detail(m, tdp+i, now);
-}
-
-static int connection_callback_history_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_connection *connection = m->private;
-	struct bsr_resource *resource = connection->resource;
-	unsigned long jif = jiffies;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	seq_puts(m, "n\tage\tcallsite\tfn\n");
-	seq_print_timing_details(m, "sender", connection->s_cb_nr, connection->s_timing_details, jif);
-	seq_print_timing_details(m, "receiver", connection->r_cb_nr, connection->r_timing_details, jif);
-	seq_print_timing_details(m, "worker", resource->w_cb_nr, resource->w_timing_details, jif);
-	return 0;
-}
-
-static int connection_oldest_requests_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_connection *connection = m->private;
-	unsigned long now = jiffies;
-	struct bsr_request *r1, *r2;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	spin_lock_irq(&connection->resource->req_lock);
-	r1 = connection->todo.req_next;
-	if (r1)
-		seq_print_minor_vnr_req(m, r1, now);
-	r2 = connection->req_ack_pending;
-	if (r2 && r2 != r1) {
-		r1 = r2;
-		seq_print_minor_vnr_req(m, r1, now);
-	}
-	r2 = connection->req_not_net_done;
-	if (r2 && r2 != r1)
-		seq_print_minor_vnr_req(m, r2, now);
-	spin_unlock_irq(&connection->resource->req_lock);
-	return 0;
-}
-
-static int connection_transport_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_connection *connection = m->private;
-	struct bsr_transport *transport = &connection->transport;
-	struct bsr_transport_ops *tr_ops = transport->ops;
-	enum bsr_stream i;
-
-	seq_printf(m, "v: %u\n\n", 0);
-
-	for (i = DATA_STREAM; i <= CONTROL_STREAM; i++) {
-		struct bsr_send_buffer *sbuf = &connection->send_buffer[i];
-		seq_printf(m, "%s stream\n", i == DATA_STREAM ? "data" : "control");
-		seq_printf(m, "  corked: %d\n", test_bit(CORKED + i, &connection->flags));
-		seq_printf(m, "  unsent: %ld bytes\n", (long)(sbuf->pos - sbuf->unsent));
-		seq_printf(m, "  allocated: %d bytes\n", sbuf->allocated_size);
-	}
-
-	seq_printf(m, "\ntransport_type: %s\n", transport->class->name);
-
-	tr_ops->debugfs_show(transport, m);
-
-	return 0;
-}
-
-static int connection_debug_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_connection *connection = m->private;
-	struct bsr_resource *resource = connection->resource;
-	unsigned long flags = connection->flags;
-	unsigned int u1, u2;
-	unsigned long long ull1, ull2;
-	char sep = ' ';
-
-	seq_puts(m, "content and format of this will change without notice\n");
-
-	seq_printf(m, "flags: 0x%04lx :", flags);
-#define pretty_print_bit(n) \
-	seq_print_rq_state_bit(m, test_bit(n, &flags), &sep, #n);
-	pretty_print_bit(SEND_PING);
-	pretty_print_bit(GOT_PING_ACK);
-	pretty_print_bit(TWOPC_PREPARED);
-	pretty_print_bit(TWOPC_YES);
-	pretty_print_bit(TWOPC_NO);
-	pretty_print_bit(TWOPC_RETRY);
-	pretty_print_bit(CONN_DRY_RUN);
-	pretty_print_bit(CREATE_BARRIER);
-	pretty_print_bit(DISCONNECT_EXPECTED);
-	pretty_print_bit(BARRIER_ACK_PENDING);
-	pretty_print_bit(DATA_CORKED);
-	pretty_print_bit(CONTROL_CORKED);
-	pretty_print_bit(C_UNREGISTERED);
-	pretty_print_bit(RECONNECT);
-	pretty_print_bit(CONN_DISCARD_MY_DATA);
-#undef pretty_print_bit
-	seq_putc(m, '\n');
-
-	u1 = atomic_read(&resource->current_tle_nr);
-	u2 = connection->send.current_epoch_nr;
-	seq_printf(m, "resource->current_tle_nr: %u\n", u1);
-	seq_printf(m, "   send.current_epoch_nr: %u (%d)\n", u2, (int)(u2 - u1));
-
-	ull1 = resource->dagtag_sector;
-	ull2 = resource->last_peer_acked_dagtag;
-	seq_printf(m, " resource->dagtag_sector: %llu\n", ull1);
-	seq_printf(m, "  last_peer_acked_dagtag: %llu (%lld)\n", ull2, (long long)(ull2 - ull1));
-	ull2 = connection->send.current_dagtag_sector;
-	seq_printf(m, " send.current_dagtag_sec: %llu (%lld)\n", ull2, (long long)(ull2 - ull1));
-	ull2 = connection->last_dagtag_sector;
-	seq_printf(m, "      last_dagtag_sector: %llu\n", ull2);
-
-	return 0;
-}
-
 static int connection_attr_release(struct inode *inode, struct file *file)
 {
 	struct bsr_connection *connection = inode->i_private;
@@ -855,6 +1295,7 @@ bsr_debugfs_connection_attr(oldest_requests)
 bsr_debugfs_connection_attr(callback_history)
 bsr_debugfs_connection_attr(transport)
 bsr_debugfs_connection_attr(debug)
+bsr_debugfs_connection_attr(send_buf)
 
 void bsr_debugfs_connection_add(struct bsr_connection *connection)
 {
@@ -881,6 +1322,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(oldest_requests);
 	conn_dcf(transport);
 	conn_dcf(debug);
+	conn_dcf(send_buf);
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
@@ -896,112 +1338,12 @@ fail:
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 {
+	bsr_debugfs_remove(&connection->debugfs_conn_send_buf);
 	bsr_debugfs_remove(&connection->debugfs_conn_debug);
 	bsr_debugfs_remove(&connection->debugfs_conn_transport);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
 	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
 	bsr_debugfs_remove(&connection->debugfs_conn);
-}
-
-static int device_act_log_extents_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_device *device = m->private;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	if (get_ldev_if_state(device, D_FAILED)) {
-		lc_seq_printf_stats(m, device->act_log);
-		lc_seq_dump_details(m, device->act_log, "", NULL);
-		put_ldev(device);
-	}
-	return 0;
-}
-
-static int device_oldest_requests_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_device *device = m->private;
-	struct bsr_resource *resource = device->resource;
-	unsigned long now = jiffies;
-	struct bsr_request *r1, *r2;
-	int i;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	seq_puts(m, RQ_HDR);
-	spin_lock_irq(&resource->req_lock);
-	/* WRITE, then READ */
-	for (i = 1; i >= 0; --i) {
-		r1 = list_first_entry_or_null(&device->pending_master_completion[i],
-			struct bsr_request, req_pending_master_completion);
-		r2 = list_first_entry_or_null(&device->pending_completion[i],
-			struct bsr_request, req_pending_local);
-		if (r1)
-			seq_print_one_request(m, r1, now);
-		if (r2 && r2 != r1)
-			seq_print_one_request(m, r2, now);
-	}
-	spin_unlock_irq(&resource->req_lock);
-	return 0;
-}
-
-static int device_data_gen_id_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_device *device = m->private;
-	struct bsr_md *md;
-	int node_id, i = 0;
-
-	if (!get_ldev_if_state(device, D_FAILED))
-		return -ENODEV;
-
-	md = &device->ldev->md;
-
-	spin_lock_irq(&md->uuid_lock);
-	seq_printf(m, "0x%016llX\n", bsr_current_uuid(device));
-
-	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
-		if (md->peers[node_id].bitmap_index == -1)
-			continue;
-		seq_printf(m, "%s[%d]0x%016llX", i++ ? " " : "", node_id,
-			   md->peers[node_id].bitmap_uuid);
-	}
-	seq_putc(m, '\n');
-
-	for (i = 0; i < HISTORY_UUIDS; i++)
-		seq_printf(m, "0x%016llX\n", bsr_history_uuid(device, i));
-	spin_unlock_irq(&md->uuid_lock);
-	put_ldev(device);
-	return 0;
-}
-
-static int device_io_frozen_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_device *device = m->private;
-
-	if (!get_ldev_if_state(device, D_FAILED))
-		return -ENODEV;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	seq_printf(m, "bsr_suspended(): %d", bsr_suspended(device));
-	seq_printf(m, "suspend_cnt: %d\n", atomic_read(&device->suspend_cnt));
-	seq_printf(m, "!bsr_state_is_stable(): %d", !bsr_state_is_stable(device));
-	seq_printf(m, "ap_bio_cnt[READ]: %d\n", atomic_read(&device->ap_bio_cnt[READ]));
-	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
-	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
-	seq_printf(m, "may_inc_ap_bio(): %d\n", may_inc_ap_bio(device));
-	put_ldev(device);
-
-	return 0;
-}
-
-static int device_ed_gen_id_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_device *device = m->private;
-	seq_printf(m, "0x%016llX\n", (unsigned long long)device->exposed_data_uuid);
-	return 0;
 }
 
 static int device_attr_release(struct inode *inode, struct file *file)
@@ -1133,297 +1475,6 @@ out:
 	return -ESTALE;
 }
 
-static void resync_dump_detail(struct seq_file *m, struct lc_element *e)
-{
-       struct bm_extent *bme = lc_entry(e, struct bm_extent, lce);
-
-       seq_printf(m, "%5d %s %s %s", bme->rs_left,
-		  test_bit(BME_NO_WRITES, &bme->flags) ? "NO_WRITES" : "---------",
-		  test_bit(BME_LOCKED, &bme->flags) ? "LOCKED" : "------",
-		  test_bit(BME_PRIORITY, &bme->flags) ? "PRIORITY" : "--------"
-		  );
-}
-
-static int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_peer_device *peer_device = m->private;
-	struct bsr_device *device = peer_device->device;
-
-	/* BUMP me if you change the file format/content/presentation */
-	seq_printf(m, "v: %u\n\n", 0);
-
-	if (get_ldev_if_state(device, D_FAILED)) {
-		lc_seq_printf_stats(m, peer_device->resync_lru);
-		lc_seq_dump_details(m, peer_device->resync_lru, "rs_left flags", resync_dump_detail);
-		put_ldev(device);
-	}
-	return 0;
-}
-
-static void seq_printf_with_thousands_grouping(struct seq_file *seq, long v)
-{
-	/* v is in kB/sec. We don't expect TiByte/sec yet. */
-	if (unlikely(v >= 1000000)) {
-		/* cool: > GiByte/s */
-		seq_printf(seq, "%ld,", v / 1000000);
-		v %= 1000000;
-		seq_printf(seq, "%03ld,%03ld", v/1000, v % 1000);
-	} else if (likely(v >= 1000))
-		seq_printf(seq, "%ld,%03ld", v/1000, v % 1000);
-	else
-		seq_printf(seq, "%ld", v);
-}
-
-static void bsr_get_syncer_progress(struct bsr_peer_device *pd,
-		enum bsr_repl_state repl_state, unsigned long *rs_total,
-		unsigned long *bits_left, unsigned int *per_mil_done)
-{
-	/* this is to break it at compile time when we change that, in case we
-	 * want to support more than (1<<32) bits on a 32bit arch. */
-	typecheck(unsigned long, pd->rs_total);
-	*rs_total = pd->rs_total;
-
-	/* note: both rs_total and rs_left are in bits, i.e. in
-	 * units of BM_BLOCK_SIZE.
-	 * for the percentage, we don't care. */
-
-	if (repl_state == L_VERIFY_S || repl_state == L_VERIFY_T)
-		*bits_left = pd->ov_left;
-	else
-		*bits_left = bsr_bm_total_weight(pd) - pd->rs_failed;
-	/* >> 10 to prevent overflow,
-	 * +1 to prevent division by zero */
-	if (*bits_left > *rs_total) {
-		/* D'oh. Maybe a logic bug somewhere.  More likely just a race
-		 * between state change and reset of rs_total.
-		 */
-		*bits_left = *rs_total;
-		*per_mil_done = *rs_total ? 0 : 1000;
-	} else {
-		/* Make sure the division happens in long context.
-		 * We allow up to one petabyte storage right now,
-		 * at a granularity of 4k per bit that is 2**38 bits.
-		 * After shift right and multiplication by 1000,
-		 * this should still fit easily into a 32bit long,
-		 * so we don't need a 64bit division on 32bit arch.
-		 * Note: currently we don't support such large bitmaps on 32bit
-		 * arch anyways, but no harm done to be prepared for it here.
-		 */
-		unsigned int shift = *rs_total > UINT_MAX ? 16 : 10;
-		unsigned long left = *bits_left >> shift;
-		unsigned long total = 1UL + (*rs_total >> shift);
-		unsigned long tmp = 1000UL - left * 1000UL/total;
-		*per_mil_done = tmp;
-	}
-}
-
-static void bsr_syncer_progress(struct bsr_peer_device *pd, struct seq_file *seq,
-		enum bsr_repl_state repl_state)
-{
-	unsigned long db, dt, dbdt, rt, rs_total, rs_left;
-	unsigned int res;
-	int i, x, y;
-	int stalled = 0;
-
-	bsr_get_syncer_progress(pd, repl_state, &rs_total, &rs_left, &res);
-
-	x = res/50;
-	y = 20-x;
-	seq_puts(seq, "\t[");
-	for (i = 1; i < x; i++)
-		seq_putc(seq, '=');
-	seq_putc(seq, '>');
-	for (i = 0; i < y; i++)
-		seq_printf(seq, ".");
-	seq_puts(seq, "] ");
-
-	if (repl_state == L_VERIFY_S || repl_state == L_VERIFY_T)
-		seq_puts(seq, "verified:");
-	else
-		seq_puts(seq, "sync'ed:");
-	seq_printf(seq, "%3u.%u%% ", res / 10, res % 10);
-
-	/* if more than a few GB, display in MB */
-	if (rs_total > (4UL << (30 - BM_BLOCK_SHIFT)))
-		seq_printf(seq, "(%lu/%lu)M",
-			    (unsigned long) Bit2KB(rs_left >> 10),
-			    (unsigned long) Bit2KB(rs_total >> 10));
-	else
-		seq_printf(seq, "(%lu/%lu)K",
-			    (unsigned long) Bit2KB(rs_left),
-			    (unsigned long) Bit2KB(rs_total));
-
-	seq_puts(seq, "\n\t");
-
-	/* see drivers/md/md.c
-	 * We do not want to overflow, so the order of operands and
-	 * the * 100 / 100 trick are important. We do a +1 to be
-	 * safe against division by zero. We only estimate anyway.
-	 *
-	 * dt: time from mark until now
-	 * db: blocks written from mark until now
-	 * rt: remaining time
-	 */
-	/* Rolling marks. last_mark+1 may just now be modified.  last_mark+2 is
-	 * at least (BSR_SYNC_MARKS-2)*BSR_SYNC_MARK_STEP old, and has at
-	 * least BSR_SYNC_MARK_STEP time before it will be modified. */
-	/* ------------------------ ~18s average ------------------------ */
-	i = (pd->rs_last_mark + 2) % BSR_SYNC_MARKS;
-	dt = (jiffies - pd->rs_mark_time[i]) / HZ;
-	if (dt > 180)
-		stalled = 1;
-
-	if (!dt)
-		dt++;
-	db = pd->rs_mark_left[i] - rs_left;
-	rt = (dt * (rs_left / (db/100+1)))/100; /* seconds */
-
-	seq_printf(seq, "finish: %lu:%02lu:%02lu",
-		rt / 3600, (rt % 3600) / 60, rt % 60);
-
-	dbdt = Bit2KB(db/dt);
-	seq_puts(seq, " speed: ");
-	seq_printf_with_thousands_grouping(seq, dbdt);
-	seq_puts(seq, " (");
-	/* ------------------------- ~3s average ------------------------ */
-	if (1) {
-		/* this is what bsr_rs_should_slow_down() uses */
-		i = (pd->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
-		dt = (jiffies - pd->rs_mark_time[i]) / HZ;
-		if (!dt)
-			dt++;
-		db = pd->rs_mark_left[i] - rs_left;
-		dbdt = Bit2KB(db/dt);
-		seq_printf_with_thousands_grouping(seq, dbdt);
-		seq_puts(seq, " -- ");
-	}
-
-	/* --------------------- long term average ---------------------- */
-	/* mean speed since syncer started
-	 * we do account for PausedSync periods */
-	dt = (jiffies - pd->rs_start - pd->rs_paused) / HZ;
-	if (dt == 0)
-		dt = 1;
-	db = rs_total - rs_left;
-	dbdt = Bit2KB(db/dt);
-	seq_printf_with_thousands_grouping(seq, dbdt);
-	seq_putc(seq, ')');
-
-	if (repl_state == L_SYNC_TARGET ||
-	    repl_state == L_VERIFY_S) {
-		seq_puts(seq, " want: ");
-		seq_printf_with_thousands_grouping(seq, pd->c_sync_rate);
-	}
-	seq_printf(seq, " K/sec%s\n", stalled ? " (stalled)" : "");
-
-	{
-		/* 64 bit:
-		 * we convert to sectors in the display below. */
-		unsigned long bm_bits = bsr_bm_bits(pd->device);
-		unsigned long bit_pos;
-		unsigned long long stop_sector = 0;
-		if (repl_state == L_VERIFY_S ||
-		    repl_state == L_VERIFY_T) {
-			bit_pos = bm_bits - pd->ov_left;
-			if (verify_can_do_stop_sector(pd))
-				stop_sector = pd->ov_stop_sector;
-		} else
-			bit_pos = pd->device->bm_resync_fo;
-		/* Total sectors may be slightly off for oddly
-		 * sized devices. So what. */
-		seq_printf(seq,
-			"\t%3d%% sector pos: %llu/%llu",
-			(int)(bit_pos / (bm_bits/100+1)),
-			(unsigned long long)bit_pos * BM_SECT_PER_BIT,
-			(unsigned long long)bm_bits * BM_SECT_PER_BIT);
-		if (stop_sector != 0 && stop_sector != ULLONG_MAX)
-			seq_printf(seq, " stop sector: %llu", stop_sector);
-		seq_putc(seq, '\n');
-	}
-}
-
-static int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
-{
-	struct bsr_peer_device *peer_device = m->private;
-	struct bsr_device *device = peer_device->device;
-	union bsr_state state;
-	const char *sn;
-	struct net_conf *nc;
-	char wp;
-
-	state.disk = device->disk_state[NOW];
-	state.pdsk = peer_device->disk_state[NOW];
-	state.conn = peer_device->repl_state[NOW];
-	state.role = device->resource->role[NOW];
-	state.peer = peer_device->connection->peer_role[NOW];
-
-	state.user_isp = peer_device->resync_susp_user[NOW];
-	state.peer_isp = peer_device->resync_susp_peer[NOW];
-	state.aftr_isp = peer_device->resync_susp_dependency[NOW];
-
-	sn = bsr_repl_str(state.conn);
-
-	rcu_read_lock();
-	{
-		/* reset device->congestion_reason */
-		bdi_rw_congested(device->rq_queue->backing_dev_info);
-
-		nc = rcu_dereference(peer_device->connection->transport.net_conf);
-		wp = nc ? nc->wire_protocol - BSR_PROT_A + 'A' : ' ';
-		seq_printf(m,
-		   "%2d: cs:%s ro:%s/%s ds:%s/%s %c %c%c%c%c%c%c\n"
-		   "    ns:%u nr:%u dw:%u dr:%u al:%u bm:%u "
-		   "lo:%d pe:[%d;%d] ua:%d ap:[%d;%d] ep:%d wo:%d",
-		   device->minor, sn,
-		   bsr_role_str(state.role),
-		   bsr_role_str(state.peer),
-		   bsr_disk_str(state.disk),
-		   bsr_disk_str(state.pdsk),
-		   wp,
-		   bsr_suspended(device) ? 's' : 'r',
-		   state.aftr_isp ? 'a' : '-',
-		   state.peer_isp ? 'p' : '-',
-		   state.user_isp ? 'u' : '-',
-		   '-' /* congestion reason... FIXME */,
-		   test_bit(AL_SUSPENDED, &device->flags) ? 's' : '-',
-		   peer_device->send_cnt/2,
-		   peer_device->recv_cnt/2,
-		   device->writ_cnt/2,
-		   device->read_cnt/2,
-		   device->al_writ_cnt,
-		   device->bm_writ_cnt,
-		   atomic_read(&device->local_cnt),
-		   atomic_read(&peer_device->ap_pending_cnt),
-		   atomic_read(&peer_device->rs_pending_cnt),
-		   atomic_read(&peer_device->unacked_cnt),
-		   atomic_read(&device->ap_bio_cnt[WRITE]),
-		   atomic_read(&device->ap_bio_cnt[READ]),
-		   peer_device->connection->epochs,
-		   device->resource->write_ordering
-		);
-		seq_printf(m, " oos:%llu\n",
-			   Bit2KB((unsigned long long)
-				   bsr_bm_total_weight(peer_device)));
-	}
-	if (state.conn == L_SYNC_SOURCE ||
-	    state.conn == L_SYNC_TARGET ||
-	    state.conn == L_VERIFY_S ||
-	    state.conn == L_VERIFY_T)
-		bsr_syncer_progress(peer_device, m, state.conn);
-
-	if (get_ldev_if_state(device, D_FAILED)) {
-		lc_seq_printf_stats(m, peer_device->resync_lru);
-		lc_seq_printf_stats(m, device->act_log);
-		put_ldev(device);
-	}
-
-	seq_printf(m, "\tblocked on activity log: %d\n", atomic_read(&device->ap_actlog_cnt));
-
-	rcu_read_unlock();
-
-	return 0;
-}
-
 #define bsr_debugfs_peer_device_attr(name)					\
 static int peer_device_ ## name ## _open(struct inode *inode, struct file *file)\
 {										\
@@ -1480,16 +1531,6 @@ void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_device)
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_proc_bsr);
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_resync_extents);
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev);
-}
-
-static int bsr_version_show(struct seq_file *m, void *ignored)
-{
-	seq_printf(m, "# %s\n", bsr_buildtag());
-	seq_printf(m, "VERSION=%s\n", REL_VERSION);
-	seq_printf(m, "API_VERSION=%u\n", GENL_MAGIC_VERSION);
-	seq_printf(m, "PRO_VERSION_MIN=%u\n", PRO_VERSION_MIN);
-	seq_printf(m, "PRO_VERSION_MAX=%u\n", PRO_VERSION_MAX);
-	return 0;
 }
 
 static int bsr_version_open(struct inode *inode, struct file *file)

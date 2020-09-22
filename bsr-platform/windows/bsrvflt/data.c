@@ -28,7 +28,5 @@ KMUTEX			mvolMutex;
 KMUTEX			eventlogMutex;
 PETHREAD		g_NetlinkServerThread;
 
-int				seq_file_idx		= 0;
-
 
 

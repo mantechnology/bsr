@@ -5693,8 +5693,7 @@ void bsr_cleanup(void)
 #ifdef _WIN
 	if (retry.wq)
 		destroy_workqueue(retry.wq);
-	bsr_debugfs_cleanup();
-
+	
 #else // _LIN
 	if (bsr_proc)
 		remove_proc_entry("bsr", NULL);
@@ -5848,6 +5847,7 @@ fail:
 	else
 		bsr_err(81, BSR_LC_DRIVER, NO_OBJECT, "bsr initialization failure");
 #ifdef _LIN
+	bsr_debugfs_cleanup();
 	// BSR-581
 	clean_logging();
 #endif

@@ -7,7 +7,7 @@
 #endif
 #include "bsr_int.h"
 
-#ifdef CONFIG_DEBUG_FS
+#if defined(CONFIG_DEBUG_FS) && defined(_LIN)
 int __init bsr_debugfs_init(void);
 void bsr_debugfs_cleanup(void);
 
@@ -59,3 +59,20 @@ static inline void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_
 }
 
 #endif
+
+
+int bsr_version_show(struct seq_file *m, void *ignored);
+int resource_in_flight_summary_show(struct seq_file *m, void *pos);
+int resource_state_twopc_show(struct seq_file *m, void *pos);
+int connection_callback_history_show(struct seq_file *m, void *ignored);
+int connection_debug_show(struct seq_file *m, void *ignored);
+int connection_oldest_requests_show(struct seq_file *m, void *ignored);
+int connection_transport_show(struct seq_file *m, void *ignored);
+int connection_send_buf_show(struct seq_file *m, void *ignored);
+int peer_device_proc_bsr_show(struct seq_file *m, void *ignored);
+int peer_device_resync_extents_show(struct seq_file *m, void *ignored);
+int device_act_log_extents_show(struct seq_file *m, void *ignored);
+int device_oldest_requests_show(struct seq_file *m, void *ignored);
+int device_data_gen_id_show(struct seq_file *m, void *ignored);
+int device_io_frozen_show(struct seq_file *m, void *ignored);
+int device_ed_gen_id_show(struct seq_file *m, void *ignored);
