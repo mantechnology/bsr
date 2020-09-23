@@ -579,7 +579,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
 {
 #ifdef _WIN
-	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
+	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr minor:%u resource:%s / vnr:%u", device->minor, device->resource->name, device->vnr);
 	panic("potential random memory corruption caused by delayed completion of aborted local request");
 #else // _LIN
 	panic("bsr%u %s/%u potential random memory corruption caused by delayed completion of aborted local request\n",

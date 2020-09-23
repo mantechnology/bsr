@@ -1830,7 +1830,7 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		bsr_err(3, BSR_LC_IO, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.");
+		bsr_err(48, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);

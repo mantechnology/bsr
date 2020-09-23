@@ -2351,7 +2351,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
 
 	if (!tpc) {
-		bsr_err(32, BSR_LC_BITMAP, peer_device, "Failed to send bitmap due to failure to allocate %d size meory in kzalloc", BSR_SOCKET_BUFFER_SIZE);
+		bsr_err(49, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size meory in kzalloc", BSR_SOCKET_BUFFER_SIZE);
 		return -ENOMEM;
 	}
 
@@ -2545,7 +2545,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			ULONG_PTR word_offset;
 
 			if (bb == NULL) {
-				bsr_err(34, BSR_LC_BITMAP, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
+				bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
 				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 			}
 			else {
@@ -7014,7 +7014,7 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 	rcu_read_lock();
 	for_each_peer_device_rcu(p, device) {
 		if (!update_sync_bits(p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
-			bsr_err(41, BSR_LC_BITMAP, device, "Failed to set all bit out of sync, no sync bit has been set for peer node(%d), set whole bits without updating resync extent instead.", p->node_id);
+			bsr_err(41, BSR_LC_BITMAP, device, "Failed to set range bit out of sync, no sync bit has been set for peer node(%d), set whole bits without updating resync extent instead.", p->node_id);
 			bsr_bm_set_many_bits(p, 0, BSR_END_OF_BITMAP);
 		}
 	}
@@ -7038,7 +7038,7 @@ int bsr_bmio_set_n_write(struct bsr_device *device,
 	bsr_md_sync(device);
 	// DW-1333 set whole bits and update resync extent.
 	if (!update_sync_bits(peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
-		bsr_err(42, BSR_LC_BITMAP, peer_device, "Failed to set all bit out of sync, no sync bit has been set, set whole bits without updating resync extent instead.");
+		bsr_err(42, BSR_LC_BITMAP, peer_device, "Failed to set range bit out of sync, no sync bit has been set, set whole bits without updating resync extent instead.");
 		bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 	}
 
