@@ -2198,7 +2198,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	/* even though we trust our peer,
 	 * we sometimes have to double check. */
 	if (d->sector + (d->bi_size >> 9) > capacity) {
-		bsr_err(9, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to request from peer beyond end of local disk, capacity(%llus), sector(%llus) + size(%u)",
+		bsr_err(9, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to request from peer beyond end of local disk, capacity(%llus), sector(%llus) + size(%u)",
 			capacity, d->sector, d->bi_size);
 		return NULL;
 	}
@@ -2232,7 +2232,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 #else // _LIN
 		struct page *page;
 		unsigned long *data;
-		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to fault injection. Corrupting data on receive, sector(%llu)",
+		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to fault injection. Corrupting data on receive, sector(%llu)",
 			d->sector);
 		page = peer_req->page_chain.head;
 		data = kmap(page) + page_chain_offset(page);
@@ -2244,7 +2244,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	if (d->digest_size) {
 		bsr_csum_pages(peer_device->connection->peer_integrity_tfm, peer_req, dig_vv);
 		if (memcmp(dig_in, dig_vv, d->digest_size)) {
-			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to digest integrity check failed, sector(%llus) size(%u)",
+			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to digest integrity check failed, sector(%llus) size(%u)",
 				d->sector, d->bi_size);
 			goto fail;
 		}

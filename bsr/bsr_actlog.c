@@ -1833,13 +1833,13 @@ void bsr_rs_complete_io(struct bsr_peer_device *peer_device, sector_t sector, co
 	if (!bm_ext) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		if (bsr_ratelimit())
-			bsr_err(1, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU of enr(%u) was not found.", caller, enr);
+			bsr_err(31, BSR_LC_LRU, device, "%s => Failed to put resync LRU of enr(%u) was not found.", caller, enr);
 		return;
 	}
 
 	if (bm_ext->lce.refcnt == 0) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
-		bsr_err(2, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)", 
+		bsr_err(32, BSR_LC_LRU, device, "%s => Failed to put resync LRU because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)",
 			caller, (unsigned long long)enr, (unsigned long long)sector, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
 	}

@@ -646,7 +646,7 @@ void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what)
 
 		// DW-689 temporary patch
 		if (NULL == peer_device) {
-			bsr_err(1, BSR_LC_PEER_REQUEST, NO_OBJECT, "Ignore restart transfer because of no peer device assigned");
+			bsr_err(37, BSR_LC_REQUEST, NO_OBJECT, "Ignore restart transfer because of no peer device assigned");
 			break; 
 		}
 		_req_mod(req, what, peer_device);
@@ -2435,7 +2435,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 
 	// DW-2037 reconnect if the bitmap cannot be restored.
 	if (err) {
-		bsr_err(156, BSR_LC_RESYNC_OV, peer_device, "Failed to send bitmap from sync source. err(%d)", err);
+		bsr_err(64, BSR_LC_BITMAP, peer_device, "Failed to send bitmap from sync source. err(%d)", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 }
@@ -2444,7 +2444,7 @@ void bsr_send_bitmap_source_complete(struct bsr_device *device, struct bsr_peer_
 void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_device *peer_device, int err)
 {
 	if (err) {
-		bsr_err(157, BSR_LC_RESYNC_OV, peer_device, "Failed to send bitmap from sync target. err(%d)", err);
+		bsr_err(65, BSR_LC_BITMAP, peer_device, "Failed to send bitmap from sync target. err(%d)", err);
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 	}
 
@@ -2474,7 +2474,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	int err;
 
 	if (!expect(device, device->bitmap)) {
-		bsr_err(27, BSR_LC_IO, peer_device, "Failed to send bitmap because bitmap is not set");
+		bsr_err(66, BSR_LC_BITMAP, peer_device, "Failed to send bitmap because bitmap is not set");
 		return false;
 	}
 
@@ -2517,7 +2517,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 	bool incomp_sync = false;;
 
 	if (peer_device->bitmap_index == -1) {
-		bsr_err(158, BSR_LC_RESYNC_OV, peer_device, "Failed to send bitmap due to bitmap index is not assigned to peer device.");
+		bsr_err(67, BSR_LC_BITMAP, peer_device, "Failed to send bitmap due to bitmap index is not assigned to peer device.");
 		return -EIO;
 	}
 
@@ -7179,7 +7179,7 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 		NULL == pVbb->Buffer ||
 		NULL == pConverted)
 	{
-		bsr_err(11, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to convert volume bitmap due to invalid parameter, volume bitmap(0x%p), buffer(0x%p), converted(0x%p)", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
+		bsr_err(68, BSR_LC_BITMAP, NO_OBJECT, "Failed to convert volume bitmap due to invalid parameter, volume bitmap(0x%p), buffer(0x%p), converted(0x%p)", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
 		return false;
 	}
 
@@ -7228,7 +7228,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 	do {
 		pVbb = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmap(device, &ullTotalCluster, &ulBytesPerCluster);
 		if (NULL == pVbb) {
-			bsr_err(12, BSR_LC_RESYNC_OV, device, "Failed to get bsr bitmap due to failure to get volume bitmap, minor(%u)", device->minor);
+			bsr_err(69, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to failure to get volume bitmap, minor(%u)", device->minor);
 			break;
 		}
 			
@@ -7251,7 +7251,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(13, BSR_LC_RESYNC_OV, device, "Failed to get bsr bitmap due to failure to allocated %d size memory for converted bitmap", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
+				bsr_err(54, BSR_LC_MEMORY, device, "Failed to get bsr bitmap due to failure to allocated %d size memory for converted bitmap", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
 				break;
 			}
 
@@ -7264,7 +7264,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			memset(pBsrBitmap->Buffer, 0, pBsrBitmap->BitmapSize);			
 #endif
 			if (!ConvertVolumeBitmap(pVbb, (char *)pBsrBitmap->Buffer, ulBytesPerCluster, ulBsrBitmapUnit)) {
-				bsr_err(14, BSR_LC_RESYNC_OV, device, "Failed to get bsr bitmap due to could not convert bitmap, Bytes Per Cluster(%u), Bsr Bitmap Unit(%u)", ulBytesPerCluster, ulBsrBitmapUnit);
+				bsr_err(70, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to could not convert bitmap, Bytes Per Cluster(%u), Bsr Bitmap Unit(%u)", ulBytesPerCluster, ulBsrBitmapUnit);
 				kfree(pBsrBitmap);
 				pBsrBitmap = NULL;
 				break;
@@ -7357,7 +7357,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
-				bsr_err(20, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate set out of sync due to could not change volume read-only attribute");
+				bsr_err(67, BSR_LC_VOLUME, peer_device, "Failed to allocate set out of sync due to could not change volume read-only attribute");
 				mutex_unlock(&att_mod_mutex);
 				bSecondary = false;
 				break;
@@ -7379,7 +7379,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 			bsr_bm_lock(device, "Set out-of-sync for allocated cluster", BM_LOCK_CLEAR | BM_LOCK_BULK);
 
 		if (NULL == pBitmap) {
-			bsr_err(21, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate set out of sync due to could not get bitmap for bsr");
+			bsr_err(71, BSR_LC_BITMAP, peer_device, "Failed to allocate set out of sync due to could not get bitmap for bsr");
 		}
 		
 		if (bSecondary) {
@@ -7391,7 +7391,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 			// clear readonly attribute
 			if (!ChangeVolumeReadonly(device->minor, false)) {
-				bsr_err(22, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate set out of sync due to read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk", device->minor);
+				bsr_err(68, BSR_LC_VOLUME, peer_device, "Failed to allocate set out of sync due to read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk", device->minor);
 				if (device &&
 					get_ldev_if_state(device, D_NEGOTIATING))
 				{
@@ -7421,7 +7421,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bsr_bm_unlock(device);
 
 	if (count == -1) {
-		bsr_err(24, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate set out of sync due to could not set bits from gotten bitmap");
+		bsr_err(72, BSR_LC_BITMAP, peer_device, "Failed to allocate set out of sync due to could not set bits from gotten bitmap");
 		bRet = false;
 	}
 	else{
@@ -7493,7 +7493,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			mutex_lock(&att_mod_mutex);
 			// set readonly attribute.
 			if (!ChangeVolumeReadonly(device->minor, true)) {
-				bsr_err(29, BSR_LC_RESYNC_OV, peer_device, "Failed to get fast ov bitmap due to could not change volume read-only attribute");
+				bsr_err(69, BSR_LC_VOLUME, peer_device, "Failed to get fast ov bitmap due to could not change volume read-only attribute");
 				mutex_unlock(&att_mod_mutex);
 				bSecondary = false;
 				break;
@@ -7507,7 +7507,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
 		
 		if (NULL == pBitmap) {
-			bsr_err(30, BSR_LC_RESYNC_OV, peer_device, "Failed to get fast ov bitmap due to could not get bitmap for bsr");
+			bsr_err(73, BSR_LC_BITMAP, peer_device, "Failed to get fast ov bitmap due to could not get bitmap for bsr");
 			err = true;
 		}
 		
@@ -7520,7 +7520,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 			// clear readonly attribute
 			if (!ChangeVolumeReadonly(device->minor, false)) {
-				bsr_err(31, BSR_LC_RESYNC_OV, peer_device, "Failed to get fast ov bitmap due to read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk", device->minor);
+				bsr_err(70, BSR_LC_VOLUME, peer_device, "Failed to get fast ov bitmap due to read-only attribute for volume(minor: %d) had been set, but can't be reverted. force detach bsr disk", device->minor);
 				if (device &&
 					get_ldev_if_state(device, D_NEGOTIATING))
 				{
@@ -7653,7 +7653,7 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 
 	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21SB');
 	if (!bm_io_work) {
-		bsr_err(34, BSR_LC_RESYNC_OV, device, "Failed to add bitmap I/O queue due to failure to allocate %d size memory for bitmap I/O work", sizeof(*bm_io_work));
+		bsr_err(55, BSR_LC_MEMORY, device, "Failed to add bitmap I/O queue due to failure to allocate %d size memory for bitmap I/O work", sizeof(*bm_io_work));
 		done(device, peer_device, -ENOMEM);
 		return;
 	}

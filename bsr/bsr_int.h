@@ -509,12 +509,12 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 66
+#define BSR_LC_VOLUME_MAX_INDEX 70
 #define BSR_LC_IO_MAX_INDEX 57
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
-#define BSR_LC_BITMAP_MAX_INDEX 63
+#define BSR_LC_BITMAP_MAX_INDEX 73
 #define BSR_LC_LRU_MAX_INDEX 30
-#define BSR_LC_REQUEST_MAX_INDEX 36
+#define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 27
 #define BSR_LC_REPLICATION_MAX_INDEX 30
@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 90
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 50
+#define BSR_LC_MEMORY_MAX_INDEX 55
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -2779,7 +2779,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 			}
 		}
 		else {
-			bsr_warn(159, BSR_LC_RESYNC_OV, peer_device, "Failed to add in ov_oos report list due to memory allocation fail");
+			bsr_err(52, BSR_LC_MEMORY, peer_device, "Failed to add in ov_oos report list due to memory allocation fail");
 			bsr_err(5, BSR_LC_RESYNC_OV, peer_device, "Out of sync: start=%llu, size=%llu (sectors)",
 				(unsigned long long)peer_device->ov_last_oos_start,
 				(unsigned long long)peer_device->ov_last_oos_size);
@@ -2819,8 +2819,8 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 			}
 		}
 		else {
-			bsr_err(7, BSR_LC_RESYNC_OV, peer_device, "Failed to add in ov_skipped report list due to memory allocation fail");
-			bsr_info(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy. sector start(%llu), size(%llu)",
+			bsr_err(53, BSR_LC_MEMORY, peer_device, "Failed to add in ov_skipped report list due to memory allocation fail");
+			bsr_err(8, BSR_LC_RESYNC_OV, peer_device, "Skipped verify, too busy. sector start(%llu), size(%llu)",
 				(unsigned long long)peer_device->ov_last_skipped_start,
 				(unsigned long long)peer_device->ov_last_skipped_size);
 		}

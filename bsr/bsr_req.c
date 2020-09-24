@@ -536,7 +536,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
-				bsr_err(12, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to block I/O size is invalid. size(%d)", master_bio->bi_size);
+				bsr_err(58, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to block I/O size is invalid. size(%d)", master_bio->bi_size);
 				BUG();
 			}
 
@@ -554,7 +554,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(13, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for not split block I/o buffer");
+					bsr_err(59, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for not split block I/o buffer");
 					BUG();
 				}
 				if (buffer) {
@@ -573,7 +573,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(14, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for split block I/o buffer");
+					bsr_err(60, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for split block I/o buffer");
 					BUG();
 				}
 				else {
@@ -690,7 +690,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	}
 
 	if (!req->master_bio) {
-		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, mster block I/O is NULL.");
+		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
 		return;
 	}
 
@@ -2228,7 +2228,7 @@ void __bsr_make_request(struct bsr_device *device, struct bio *bio, unsigned lon
 	//retry case in bsr_request_prepare. don't retrun STATUS_UNSUCCESSFUL.
 	if (IS_ERR_OR_NULL(req)) {
 		if (req)
-			bsr_err(22, BSR_LC_REQUEST, device, "FIXME, Failed to local request prepare, block I/O(%p), sector(%llu), size(%u)", bio, bio->bi_sector, bio->bi_size);
+			bsr_err(51, BSR_LC_MEMORY, device, "FIXME, Failed to local request prepare, block I/O(%p), sector(%llu), size(%u)", bio, bio->bi_sector, bio->bi_size);
 		return STATUS_SUCCESS;
 	}
 #else // _LIN
