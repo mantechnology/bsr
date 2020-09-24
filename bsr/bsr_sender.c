@@ -1229,7 +1229,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 		   get_ldev_if_state(device,D_FAILED) would be sufficient, but
 		   to continue resync with a broken disk makes no sense at
 		   all */
-		bsr_err(108, BSR_LC_RESYNC_OV, device, "Failed to make resync request due to disk broke down");
+		bsr_err(108, BSR_LC_RESYNC_OV, device, "Failed to make resync request due to disk broke down(%s)\n", bsr_disk_str(device->disk_state[NOW]));
 		return 0;
 	}
 

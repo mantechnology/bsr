@@ -2737,7 +2737,7 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 #else // _LIN
 	data = (void*)kmalloc(size, GFP_ATOMIC|__GFP_NOWARN);
 	if(!data) {
-		bsr_err(153, BSR_LC_RESYNC_OV, peer_device, "Failed to read in block split due to failure to allocate size(%u) memory to data.", size);
+		bsr_err(56, BSR_LC_MEMORY, peer_device, "Failed to read in block split due to failure to allocate size(%u) memory to data.", size);
 		bsr_free_peer_req(split_peer_request);
 		bsr_free_page_chain(transport, &split_peer_request->page_chain, 0);
 		return NULL;
@@ -2945,7 +2945,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		atomic_t *split_count;
 		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '39SB');
 		if (!split_count) {
-			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate %d size memory for split count", sizeof(atomic_t));
+			bsr_err(57, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate %d size memory for split count", sizeof(atomic_t));
 			return -ENOMEM;
 		}
 
@@ -4861,7 +4861,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_SECONDARY:
 	case ASB_CALL_HELPER:
 	case ASB_VIOLENTLY:
-		bsr_err(62, BSR_LC_RESYNC_OV, peer_device, "Error setting split-brain recovery. sb(%d)", after_sb_0p);
+		bsr_err(25, BSR_LC_CONNECTION, peer_device, "Error setting split-brain recovery. sb(%d)", after_sb_0p);
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4939,7 +4939,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_LOCAL:
 	case ASB_DISCARD_REMOTE:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(63, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
+		bsr_err(26, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4999,7 +4999,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_CONSENSUS:
 	case ASB_DISCARD_SECONDARY:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(64, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
+		bsr_err(27, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
 		break;
 	case ASB_VIOLENTLY:
 		rv = bsr_asb_recover_0p(peer_device);
@@ -5829,7 +5829,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_khelper(device, connection, "pri-lost");
 			/* fall through */
 		case ASB_DISCONNECT:
-			bsr_err(97, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			return -1;
 		case ASB_VIOLENTLY:
 			bsr_warn(22, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
@@ -5840,12 +5840,12 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// DW-1657 If an inconsistent node tries to become a SyncSource, it will disconnect.
 	if (hg == 3 && device->disk_state[NOW] < D_OUTDATED && 
 		bsr_current_uuid(peer_device->device) != UUID_JUST_CREATED) {
-		bsr_err(98, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+		bsr_err(29, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 		return -1;
 	}
 
 	if (hg == -3 && peer_device->uuid_flags & UUID_FLAG_INCONSISTENT) {
-		bsr_err(96, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+		bsr_err(30, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 		return -1;
 	}	
 

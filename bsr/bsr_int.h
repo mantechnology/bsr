@@ -509,16 +509,16 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 70
+#define BSR_LC_VOLUME_MAX_INDEX 71
 #define BSR_LC_IO_MAX_INDEX 57
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
-#define BSR_LC_BITMAP_MAX_INDEX 73
+#define BSR_LC_BITMAP_MAX_INDEX 102
 #define BSR_LC_LRU_MAX_INDEX 30
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 27
 #define BSR_LC_REPLICATION_MAX_INDEX 30
-#define BSR_LC_CONNECTION_MAX_INDEX 24
+#define BSR_LC_CONNECTION_MAX_INDEX 30
 #define BSR_LC_UUID_MAX_INDEX 18
 #define BSR_LC_TWOPC_MAX_INDEX 56
 #define BSR_LC_THREAD_MAX_INDEX 34
@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 90
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 55
+#define BSR_LC_MEMORY_MAX_INDEX 59
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
