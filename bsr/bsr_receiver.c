@@ -7887,7 +7887,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         struct disk_conf *old_disk_conf, *new_disk_conf;
 		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7SB');
         if (!new_disk_conf) {
-			bsr_err(9, BSR_LC_TWOPC, device, "Failed to change disk commit size due to failure allocate %d size memory for disk configure", sizeof(struct disk_conf));
+			bsr_err(60, BSR_LC_MEMORY, device, "Failed to change disk commit size due to failure allocate %d size memory for disk configure", sizeof(struct disk_conf));
 			device->ldev->disk_conf->disk_size = tr->user_size;
             goto cont;
         }

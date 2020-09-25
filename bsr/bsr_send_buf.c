@@ -81,7 +81,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 
 	do {
 		if(nconf->sndbuf_size < BSR_SNDBUF_SIZE_MIN ) {
-			bsr_err(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer because it is smaller than the minimum size. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data stream buffer because send-buffer is smaller than the minimum size. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			goto $ALLOC_FAIL;
 		}
 #ifdef _WIN_SEND_BUF
@@ -95,14 +95,14 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_err(4, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_err(62, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = nconf->sndbuf_size + 1;
 #ifdef _WIN_SEND_BUF
 		} __except(EXCEPTION_EXECUTE_HANDLER) {
-			bsr_err(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data stream buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -163,7 +163,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 	signed long long sz = sizeof(*ring) + length;
 
 	if (length == 0 || length > BSR_SNDBUF_SIZE_MAX) {
-		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
+		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create send buffer due to incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
 
@@ -200,11 +200,11 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
-			bsr_err(37, BSR_LC_MEMORY, NO_OBJECT, "Failed to create ring buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
+			bsr_err(37, BSR_LC_MEMORY, NO_OBJECT, "Failed to create stream buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
 			return NULL;
 		}
 	} else {
-		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to get stream information. name(%s) size(%lld)", name, sz);
+		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create send-buffer due to failure to get stream information. name(%s) size(%lld)", name, sz);
 	}
 	return ring;
 }
@@ -491,7 +491,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	int ret = 0;
 
 	if (bab == NULL) {
-		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send ring buffer due to ring buffer is not allocate.");
+		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send send-buffer due to send-buffer is not allocate.");
 		return 0;
 	}
 

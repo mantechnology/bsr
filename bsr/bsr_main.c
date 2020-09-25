@@ -1294,7 +1294,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 #ifdef _WIN
 	void *p = (char *)alloc_send_buffer(connection, header_size + size, bsr_stream) + header_size;
 	if(!p) {
-		bsr_err(1, BSR_LC_SEND_BUFFER, connection, "Failed to prepare send due to failure to allocate %d size send buffer, stream(%s)", (header_size + size, bsr_stream), (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
+		bsr_err(61, BSR_LC_MEMORY, connection, "Failed to prepare send due to failure to allocate %d size send buffer, stream(%s)", (header_size + size, bsr_stream), (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
 	}
 	return p;
 #else // _LIN
