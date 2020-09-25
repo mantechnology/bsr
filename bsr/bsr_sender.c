@@ -2020,7 +2020,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure write. sector(%llus).",
+			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure read. sector(%llus).",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_DREPLY, peer_req);
