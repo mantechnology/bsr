@@ -3475,15 +3475,18 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 static inline void
 bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *peer_device, int type)
 {
-	struct bsr_updated_gi_work *w;
-	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
-	if (w) {
-		atomic_inc(&device->local_cnt);
-		w->device = device;
-		w->peer_device = peer_device;
-		w->type = type;
-		w->w.cb = w_notify_updated_gi;
-		bsr_queue_work(&device->resource->work, &w->w);
+	if (device || peer_device) {
+		struct bsr_updated_gi_work *w;
+		w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+		if (w) {
+			w->device = device;
+			w->peer_device = peer_device;
+			w->type = type;
+			w->w.cb = w_notify_updated_gi;
+			if (!device)
+				device = peer_device->device;
+			bsr_queue_work(&device->resource->work, &w->w);
+		}
 	}
 }
 extern void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *work_queue);

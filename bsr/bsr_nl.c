@@ -7070,7 +7070,8 @@ void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_device *dev
 
 		gi.uuid_len = len;
 
-		connection = peer_device->connection;
+		if (peer_device->connection)
+			connection = peer_device->connection;
 
 		if (!skb) {
 			seq = atomic_inc_return(&bsr_genl_seq);
@@ -7089,27 +7090,23 @@ void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_device *dev
 
 		dh->minor = UINT32_MAX;
 		dh->ret_code = NO_ERROR;
-		mutex_lock(&notification_mutex);
 
 		if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 			nla_put_notification_header(skb, type) ||
 			bsr_updated_gi_uuid_info_to_skb(skb, &gi, true))
-			goto unlock_fail;
+			goto fail;
 
 		genlmsg_end(skb, dh);
 		if (multicast) {
 			err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 			/* skb has been consumed or freed in netlink_broadcast() */
 			if (err && err != -ESRCH)
-				goto unlock_fail;
+				goto fail;
 		}
-		mutex_unlock(&notification_mutex);
 	}
 
 	return;
 
-unlock_fail:
-	mutex_unlock(&notification_mutex);
 fail:
 	if (skb)
 		nlmsg_free(skb);
@@ -7162,12 +7159,11 @@ void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_
 
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
-	mutex_lock(&notification_mutex);
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
 		bsr_updated_gi_device_mdf_flag_info_to_skb(skb, &gi, true))
-		goto unlock_fail;
+		goto fail;
 
 	genlmsg_end(skb, dh);
 
@@ -7175,14 +7171,11 @@ void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_
 		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
-			goto unlock_fail;
+			goto fail;
 	}
-	mutex_unlock(&notification_mutex);
 
 	return;
 
-unlock_fail:
-	mutex_unlock(&notification_mutex);
 fail:
 	if (skb)
 		nlmsg_free(skb);
@@ -7202,12 +7195,17 @@ void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct
 	bool multicast = false;
 
 	if (!peer_device) {
+		bsr_info(NO_OBJECT, "!peer_device");
 		return;
 	}
 
 	device = peer_device->device;
 
 	if (!device || !device->ldev) {
+		if (!device)
+			bsr_info(NO_OBJECT, "!device");
+		else
+			bsr_info(NO_OBJECT, "!device->ldev");
 		return;
 	}
 
@@ -7244,27 +7242,24 @@ void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct
 
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
-	mutex_lock(&notification_mutex);
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
 		bsr_updated_gi_peer_device_mdf_flag_info_to_skb(skb, &gi, true))
-		goto unlock_fail;
+		goto fail;
 
 	genlmsg_end(skb, dh);
 	if (multicast) {
 		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
 		/* skb has been consumed or freed in netlink_broadcast() */
 		if (err && err != -ESRCH)
-			goto unlock_fail;
+			goto fail;
 	}
-	mutex_unlock(&notification_mutex);
 
 	return;
 
-unlock_fail:
-	mutex_unlock(&notification_mutex);
 fail:
+	bsr_info(NO_OBJECT, "fail");
 	if (skb)
 		nlmsg_free(skb);
 }

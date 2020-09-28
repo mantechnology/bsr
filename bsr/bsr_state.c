@@ -3217,8 +3217,11 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		u64 authoritative[2] = { 0, };
 
 		// BSR-676
-		if (device_state_change->notify_flags & 1)
+		if (device_state_change->notify_flags & 1) {
+			mutex_lock(&notification_mutex);
 			notify_gi_device_mdf_flag_state(NULL, 0, device, NOTIFY_CHANGE);
+			mutex_unlock(&notification_mutex);
+		}
 
 		for (which = OLD; which <= NEW; which++)
 			// DW-1315 need changes of authoritative node to notify peers.
@@ -3260,8 +3263,11 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			}
 
 			// BSR-676
-			if (peer_device_state_change->notify_flags & 1)
+			if (peer_device_state_change->notify_flags & 1) {
+				mutex_lock(&notification_mutex);
 				notify_gi_peer_device_mdf_flag_state(NULL, 0, peer_device, NOTIFY_CHANGE);
+				mutex_unlock(&notification_mutex);
+			}
 		}
 
 		for (n_connection = 0; n_connection < state_change->n_connections; n_connection++) {
