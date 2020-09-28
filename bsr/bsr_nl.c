@@ -7047,6 +7047,7 @@ void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device
 	struct bsr_updated_gi_uuid_info gi;
 	struct bsr_genlmsghdr *dh;
 	struct bsr_device *device;
+	struct bsr_connection *connection = NULL;
 	int err;
 	bool multicast = false;
 	int len = -1;
@@ -7055,8 +7056,9 @@ void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device
 		return;
 
 	device = peer_device->device;
+	connection = peer_device->connection;
 
-	if (!device || !device->ldev)
+	if (!connection || !device || !device->ldev)
 		return;
 
 	memset(gi.uuid, 0, sizeof(gi.uuid));
@@ -7093,7 +7095,7 @@ void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device
 	dh->minor = UINT32_MAX;
 	dh->ret_code = NO_ERROR;
 
-	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
+	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
 		bsr_updated_gi_uuid_info_to_skb(skb, &gi, true))
 		goto fail;
