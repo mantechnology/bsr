@@ -7040,15 +7040,14 @@ fail:
 }
 
 // BSR-676 notify when UUID is changed
-void notify_updated_gi_uuid(struct bsr_device *device)
+void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_uuid_info gi;
 	struct bsr_connection *connection = NULL;
-	unsigned int seq;
-	struct sk_buff *skb = NULL;
 	struct bsr_genlmsghdr *dh;
 	struct bsr_peer_device *peer_device;
 	int err;
+	bool multicast = false;
 	int len = -1;
 
 	if (!device || !device->ldev)
@@ -7073,11 +7072,14 @@ void notify_updated_gi_uuid(struct bsr_device *device)
 
 		connection = peer_device->connection;
 
-		seq = atomic_inc_return(&bsr_genl_seq);
-		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
-		err = -ENOMEM;
-		if (!skb)
-			goto fail;
+		if (!skb) {
+			seq = atomic_inc_return(&bsr_genl_seq);
+			skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+			err = -ENOMEM;
+			if (!skb)
+				goto fail;
+			multicast = true;
+		}
 
 		err = -EMSGSIZE;
 		dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_UUID);
@@ -7090,16 +7092,17 @@ void notify_updated_gi_uuid(struct bsr_device *device)
 		mutex_lock(&notification_mutex);
 
 		if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
-			nla_put_notification_header(skb, NOTIFY_CHANGE) ||
+			nla_put_notification_header(skb, type) ||
 			bsr_updated_gi_uuid_info_to_skb(skb, &gi, true))
 			goto unlock_fail;
 
 		genlmsg_end(skb, dh);
-		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
-		skb = NULL;
-		/* skb has been consumed or freed in netlink_broadcast() */
-		if (err && err != -ESRCH)
-			goto unlock_fail;
+		if (multicast) {
+			err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+			/* skb has been consumed or freed in netlink_broadcast() */
+			if (err && err != -ESRCH)
+				goto unlock_fail;
+		}
 		mutex_unlock(&notification_mutex);
 	}
 
@@ -7113,15 +7116,14 @@ fail:
 }
 
 // BSR-676 notify when device mdf flag is changed.
-void notify_updated_gi_device_mdf_flag(struct bsr_device *device)
+void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_device_mdf_flag_info gi;
 	struct bsr_connection *connection = NULL;
-	unsigned int seq;
-	struct sk_buff *skb = NULL;
 	struct bsr_genlmsghdr *dh;
 	int err;
 	int len = -1;
+	bool multicast = false;
 
 	if (!device || !device->ldev)
 		return;
@@ -7143,11 +7145,14 @@ void notify_updated_gi_device_mdf_flag(struct bsr_device *device)
 		goto fail;
 	gi.device_mdf_len = len;
 
-	seq = atomic_inc_return(&bsr_genl_seq);
-	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
-	err = -ENOMEM;
-	if (!skb)
-		goto fail;
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+		multicast = true;
+	}
 
 	err = -EMSGSIZE;
 	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_DEVICE_MDF_FLAG);
@@ -7160,16 +7165,18 @@ void notify_updated_gi_device_mdf_flag(struct bsr_device *device)
 	mutex_lock(&notification_mutex);
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
-		nla_put_notification_header(skb, NOTIFY_CHANGE) ||
+		nla_put_notification_header(skb, type) ||
 		bsr_updated_gi_device_mdf_flag_info_to_skb(skb, &gi, true))
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
-	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
-	skb = NULL;
-	/* skb has been consumed or freed in netlink_broadcast() */
-	if (err && err != -ESRCH)
-		goto unlock_fail;
+
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto unlock_fail;
+	}
 	mutex_unlock(&notification_mutex);
 
 	return;
@@ -7183,22 +7190,23 @@ fail:
 
 
 // BSR-676 notify when peer_device is changed.
-void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bsr_peer_device *peer_device)
+void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_peer_device_mdf_flag_info gi;
 	struct bsr_connection *connection = NULL;
-	unsigned int seq;
-	struct sk_buff *skb = NULL;
 	struct bsr_genlmsghdr *dh;
 	int err;
 	int len = -1;
 	u32 peer_flags;
+	bool multicast = false;
 
-	if (!device || !device->ldev)
+	if (!device || !device->ldev) {
 		return;
+	}
 
-	if (!peer_device)
+	if (!peer_device) {
 		return;
+	}
 
 	peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
 	connection = peer_device->connection;
@@ -7217,11 +7225,13 @@ void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bs
 		goto fail;
 	gi.peer_device_mdf_len = len;
 
-	seq = atomic_inc_return(&bsr_genl_seq);
-	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
-	err = -ENOMEM;
-	if (!skb)
-		goto fail;
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+	}
 
 	err = -EMSGSIZE;
 	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG);
@@ -7234,16 +7244,17 @@ void notify_updated_gi_peer_device_mdf_flag(struct bsr_device *device, struct bs
 	mutex_lock(&notification_mutex);
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
-		nla_put_notification_header(skb, NOTIFY_CHANGE) ||
+		nla_put_notification_header(skb, type) ||
 		bsr_updated_gi_peer_device_mdf_flag_info_to_skb(skb, &gi, true))
 		goto unlock_fail;
 
 	genlmsg_end(skb, dh);
-	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
-	skb = NULL;
-	/* skb has been consumed or freed in netlink_broadcast() */
-	if (err && err != -ESRCH)
-		goto unlock_fail;
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto unlock_fail;
+	}
 	mutex_unlock(&notification_mutex);
 
 	return;
@@ -7397,9 +7408,11 @@ static void free_state_changes(struct list_head *list)
 static unsigned int notifications_for_state_change(struct bsr_state_change *state_change)
 {
 	return 1 +
-	       state_change->n_connections +
-	       state_change->n_devices +
-	       state_change->n_devices * state_change->n_connections;
+		state_change->n_connections +
+		// BSR-676 added * 3 for GI information output
+		(state_change->n_devices * 3) +
+		// BSR-676 added * 2 for GI information output
+		((state_change->n_devices * state_change->n_connections) * 2);
 }
 
 static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
@@ -7426,26 +7439,56 @@ static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 	if (cb->args[4] < cb->args[3])
 		flags |= NOTIFY_CONTINUES;
 	if (n < 1) {
+		bsr_info(NO_OBJECT, "notify_resource_state_change args[3](%d), args[4](%d), args[5](%d), n(%d), len(%d)", cb->args[3], cb->args[4], cb->args[5], n, skb->len);
 		notify_resource_state_change(skb, (unsigned int)seq, state_change,
 					     NOTIFY_EXISTS | flags);
 		goto next;
 	}
+
 	n--;
+
 	if (n < state_change->n_connections) {
 		notify_connection_state_change(skb, (unsigned int)seq, &state_change->connections[n],
 					       NOTIFY_EXISTS | flags);
 		goto next;
 	}
 	n -= state_change->n_connections;
+
 	if (n < state_change->n_devices) {
 		notify_device_state_change(skb, (unsigned int)seq, &state_change->devices[n],
-					   NOTIFY_EXISTS | flags);
+			NOTIFY_EXISTS | flags);
 		goto next;
 	}
 	n -= state_change->n_devices;
+
+	if (n < state_change->n_devices) {
+		// BSR-676 
+		notify_gi_uuid_state(skb, (unsigned int)seq, (&state_change->devices[n])->device, 
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= state_change->n_devices;
+
+
+	if (n < state_change->n_devices) {
+		// BSR-676 
+		notify_gi_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->devices[n])->device, 
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= state_change->n_devices;
+
 	if (n < state_change->n_devices * state_change->n_connections) {
 		notify_peer_device_state_change(skb, (unsigned int)seq, &state_change->peer_devices[n],
-						NOTIFY_EXISTS | flags);
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= (state_change->n_devices * state_change->n_connections);
+	
+	if (n < state_change->n_devices * state_change->n_connections) {
+		// BSR-676 
+		notify_gi_peer_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->devices[0])->device, (&state_change->peer_devices[n])->peer_device, 
+			NOTIFY_EXISTS | flags);
 		goto next;
 	}
 

@@ -3218,7 +3218,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 		// BSR-676
 		if (device_state_change->notify_flags & 1)
-			notify_updated_gi_device_mdf_flag(device);
+			notify_gi_device_mdf_flag_state(NULL, 0, device, NOTIFY_CHANGE);
 
 		for (which = OLD; which <= NEW; which++)
 			// DW-1315 need changes of authoritative node to notify peers.
@@ -3261,7 +3261,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// BSR-676
 			if (peer_device_state_change->notify_flags & 1)
-				notify_updated_gi_peer_device_mdf_flag(device, peer_device);
+				notify_gi_peer_device_mdf_flag_state(NULL, 0, device, peer_device, NOTIFY_CHANGE);
 		}
 
 		for (n_connection = 0; n_connection < state_change->n_connections; n_connection++) {
