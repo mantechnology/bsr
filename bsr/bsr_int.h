@@ -3127,7 +3127,7 @@ extern void notify_path(struct bsr_connection *, struct bsr_path *,
 #define BSR_GI_NOTI_DEVICE_FLAG 0x01
 #define BSR_GI_NOTI_PEER_DEVICE_FLAG 0x02
 
-extern void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type);
+extern void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type);
 extern void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type);
 extern void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device* peer_device, enum bsr_notification_type type);
 
