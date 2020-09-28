@@ -3318,9 +3318,12 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	bsr_md_sync(device);
 
-	// BSR-676 notify UUID
+	// BSR-676 notify GI
 	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+	for_each_peer_device(peer_device, device) {
+		bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+	}
 
 	bsr_kobject_uevent(device);
 	put_ldev(device);
@@ -7191,20 +7194,13 @@ void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct
 	u32 peer_flags;
 	bool multicast = false;
 
-	if (!peer_device) {
-		bsr_info(NO_OBJECT, "!peer_device");
+	if (!peer_device)
 		return;
-	}
 
 	device = peer_device->device;
 
-	if (!device || !device->ldev) {
-		if (!device)
-			bsr_info(NO_OBJECT, "!device");
-		else
-			bsr_info(NO_OBJECT, "!device->ldev");
+	if (!device || !device->ldev) 
 		return;
-	}
 
 	peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
 
@@ -7231,6 +7227,7 @@ void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct
 		err = -ENOMEM;
 		if (!skb)
 			goto fail;
+		multicast = true;
 	}
 
 	err = -EMSGSIZE;
@@ -7258,7 +7255,6 @@ void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct
 	return;
 
 fail:
-	bsr_info(NO_OBJECT, "fail");
 	if (skb)
 		nlmsg_free(skb);
 }
