@@ -7042,7 +7042,7 @@ fail:
 }
 
 // BSR-676 notify when UUID is changed
-void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
+void notify_gi_uuid_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_uuid_info gi;
 	struct bsr_genlmsghdr *dh;
@@ -7116,7 +7116,7 @@ fail:
 }
 
 // BSR-676 notify when device mdf flag is changed.
-void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type)
+void notify_gi_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_device_mdf_flag_info gi;
 	struct bsr_genlmsghdr *dh;
@@ -7185,7 +7185,7 @@ fail:
 
 
 // BSR-676 notify when peer_device is changed.
-void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
+void notify_gi_peer_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_peer_device_mdf_flag_info gi;
 	struct bsr_connection *connection = NULL;
