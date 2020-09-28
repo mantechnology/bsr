@@ -7781,7 +7781,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 		md->peers[peer_device->node_id].flags |= flag;
 		// BSR-676 notify flag
 		if (flag == MDF_PEER_FULL_SYNC) {
-			bsr_queue_notify_update_gi(device, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 		}
 	}
 }
@@ -7819,7 +7819,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 		md->peers[peer_device->node_id].flags &= ~flag;
 		// BSR-676 notify flag
 		if (flag == MDF_PEER_FULL_SYNC) {
-			bsr_queue_notify_update_gi(device, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 		}
 	}
 }

@@ -495,7 +495,7 @@ int w_notify_updated_gi(struct bsr_work *w, int cancel)
 		else if (dw->type == BSR_GI_NOTI_DEVICE_FLAG)
 			notify_gi_device_mdf_flag_state(NULL, 0, dw->device, NOTIFY_CHANGE);
 		else if (dw->type == BSR_GI_NOTI_PEER_DEVICE_FLAG)
-			notify_gi_peer_device_mdf_flag_state(NULL, 0, dw->device, dw->peer_device, NOTIFY_CHANGE);
+			notify_gi_peer_device_mdf_flag_state(NULL, 0, dw->peer_device, NOTIFY_CHANGE);
 		kfree(dw);
 	}
 

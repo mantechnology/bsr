@@ -1866,7 +1866,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 
 		for_each_peer_device(peer_device, device) {
 			// BSR-676 notify flag
-			bsr_queue_notify_update_gi(device, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 		}
 
 		if (rs)
@@ -7190,21 +7190,24 @@ fail:
 
 
 // BSR-676 notify when peer_device is changed.
-void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
+void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
 {
 	struct bsr_updated_gi_peer_device_mdf_flag_info gi;
 	struct bsr_connection *connection = NULL;
 	struct bsr_genlmsghdr *dh;
+	struct bsr_device *device;
 	int err;
 	int len = -1;
 	u32 peer_flags;
 	bool multicast = false;
 
-	if (!device || !device->ldev) {
+	if (!peer_device) {
 		return;
 	}
 
-	if (!peer_device) {
+	device = peer_device->device;
+
+	if (!device || !device->ldev) {
 		return;
 	}
 
@@ -7487,7 +7490,7 @@ static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 	
 	if (n < state_change->n_devices * state_change->n_connections) {
 		// BSR-676 
-		notify_gi_peer_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->devices[0])->device, (&state_change->peer_devices[n])->peer_device, 
+		notify_gi_peer_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->peer_devices[n])->peer_device, 
 			NOTIFY_EXISTS | flags);
 		goto next;
 	}

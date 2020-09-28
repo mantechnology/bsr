@@ -3129,7 +3129,7 @@ extern void notify_path(struct bsr_connection *, struct bsr_path *,
 
 extern void notify_gi_uuid_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type);
 extern void notify_gi_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type);
-extern void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_device *device, struct bsr_peer_device* peer_device, enum bsr_notification_type type);
+extern void notify_gi_peer_device_mdf_flag_state(sk_buff *skb, unsigned int seq, struct bsr_peer_device* peer_device, enum bsr_notification_type type);
 
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
