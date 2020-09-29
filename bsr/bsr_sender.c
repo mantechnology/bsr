@@ -1886,11 +1886,15 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				int i;
 
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+
 				peer_device->current_uuid = bsr_current_uuid(device);
 				peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
 				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
 					peer_device->history_uuids[i] =
 						bsr_history_uuid(device, i);
+
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 				// DW-2160
 				uuid_updated = true;
 			}
@@ -1900,6 +1904,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			if (peer_device->connection->agreed_pro_version < 110) {
 				bsr_uuid_set_bitmap(peer_device, 0UL);
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
 		}
 	}

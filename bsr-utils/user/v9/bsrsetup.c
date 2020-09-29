@@ -3740,7 +3740,11 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		[BSR_PEER_DEVICE_STATE] = "peer-device",
 		[BSR_HELPER] = "helper",
 		[BSR_PATH_STATE] = "path",
-		[BSR_IO_ERROR] = "io-error"
+		[BSR_IO_ERROR] = "io-error",
+		// BSR-676
+		[BSR_UPDATED_GI_UUID] = "gi-uuid",
+		[BSR_UPDATED_GI_DEVICE_MDF_FLAG] = "gi-device-mdf-flag",
+		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag"
 	};
 	static uint32_t last_seq;
 	static bool last_seq_known;
@@ -4035,6 +4039,33 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		}
 	}
 		break;
+	// BSR-676 UUID information is output.
+	case BSR_UPDATED_GI_UUID:
+	{
+		struct bsr_updated_gi_uuid_info gi = { 0, };
+		if (!bsr_updated_gi_uuid_info_from_attrs(&gi, info)) {
+			printf(" %s", gi.uuid);
+		}
+		break;
+	}
+	// BSR-676 device mdf flag information is output.
+	case BSR_UPDATED_GI_DEVICE_MDF_FLAG:
+	{
+		struct bsr_updated_gi_device_mdf_flag_info gi = { 0, };
+		if (!bsr_updated_gi_device_mdf_flag_info_from_attrs(&gi, info)) {
+			printf(" %s", gi.device_mdf);
+		}
+		break;
+	}
+	// BSR-676 peer_device mdf flag information is output.
+	case BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG:
+	{
+		struct bsr_updated_gi_peer_device_mdf_flag_info gi = { 0, };
+		if (!bsr_updated_gi_peer_device_mdf_flag_info_from_attrs(&gi, info)) {
+			printf(" %s", gi.peer_device_mdf);
+		}
+		break;
+	}
 	case BSR_INITIAL_STATE_DONE:
 		break;
 	}
