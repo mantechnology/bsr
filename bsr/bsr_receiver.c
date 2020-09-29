@@ -6777,7 +6777,7 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 		}
 
 		if (peer_device->uuid_flags & UUID_FLAG_NEW_DATAGEN) {
-			bsr_info(peer_device, "received new current UUID: %016llX", peer_device->current_uuid);
+			bsr_info(peer_device, "received new current UUID: %016llX, node_mask : %016llX\n", peer_device->current_uuid, node_mask);
 			bsr_uuid_received_new_current(peer_device, peer_device->current_uuid, node_mask);
 		}
 		else {
