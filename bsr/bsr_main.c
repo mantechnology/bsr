@@ -5805,7 +5805,7 @@ int bsr_init(void)
 
 	retry.wq = create_singlethread_workqueue("bsr-reissue");
 	if (!retry.wq) {
-		bsr_err(74, BSR_LC_DRIVER, NO_OBJECT, "unable to create retry workqueue during bsr initialization ");
+		bsr_err(35, BSR_LC_THREAD, NO_OBJECT, "unable to create retry workqueue during bsr initialization ");
 		goto fail;
 	}
 
@@ -5843,7 +5843,7 @@ int bsr_init(void)
 fail:
 	bsr_cleanup();
 	if (err == -ENOMEM)
-		bsr_err(80, BSR_LC_DRIVER, NO_OBJECT, "ran out of memory during bsr initialization");
+		bsr_err(63, BSR_LC_MEMORY, NO_OBJECT, "ran out of memory during bsr initialization");
 	else
 		bsr_err(81, BSR_LC_DRIVER, NO_OBJECT, "bsr initialization failure");
 #ifdef _LIN

@@ -521,7 +521,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_CONNECTION_MAX_INDEX 30
 #define BSR_LC_UUID_MAX_INDEX 18
 #define BSR_LC_TWOPC_MAX_INDEX 56
-#define BSR_LC_THREAD_MAX_INDEX 34
+#define BSR_LC_THREAD_MAX_INDEX 36
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 34
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 106
@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 90
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 62
+#define BSR_LC_MEMORY_MAX_INDEX 63
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17

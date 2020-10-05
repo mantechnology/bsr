@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "Failed to remove device due to cannot remove device, status(0x%x)", status);
+		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "Failed to remove device. status(0x%x)", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
