@@ -465,7 +465,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 		msg.msg_controllen = 0;
 		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = kernel_sendmsg(socket, &msg, &iov, 1, size);
+		rv = bsr_kernel_sendmsg(&tcp_transport->transport, socket, &msg, &iov);
 		if (rv == -EAGAIN) {
 		}
 		return rv;
@@ -524,7 +524,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	return ret;
 }
 #else // _LIN_SEND_BUF
-int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
+int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
 	int msg_flags = 0;
@@ -552,7 +552,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 		msg.msg_controllen = 0;
 		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = kernel_sendmsg(socket, &msg, &iov, 1, (size_t)tx_sz);
+		rv = bsr_kernel_sendmsg(transport, socket, &msg, &iov);
 		if (rv == -EAGAIN) {
 		}
 		if (rv == -EINTR) {
@@ -651,7 +651,7 @@ int send_buf_thread(void *p)
 	while (!buffering_attr->send_buf_kill_event) {
 		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
-			do_send(socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
+			do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
 		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);
 	}
 

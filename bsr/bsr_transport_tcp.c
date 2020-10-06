@@ -161,6 +161,31 @@ static struct bsr_transport_ops dtt_ops = {
 	     path;						\
 	     path = __bsr_next_path_ref(path, transport))
 
+// BSR-683
+#ifdef _LIN
+int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, struct msghdr *msg, struct kvec *iov) {
+	int rv;
+
+	rv = kernel_sendmsg(socket, msg, iov, 1, iov->iov_len);
+	if (rv > 0) {
+		transport->sum_sent += rv;
+	}
+
+	return rv;
+}
+
+int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, struct msghdr *msg, struct kvec *iov) {
+	int rv;
+
+	rv = kernel_recvmsg(socket, msg, iov, 1, iov->iov_len, msg->msg_flags);
+	if (rv > 0) {
+		transport->sum_recv += rv;
+	}
+
+	return rv;
+}
+#endif
+
 /* This is save as long you use list_del_init() everytime something is removed
 from the list. */
 static struct bsr_path *__bsr_next_path_ref(struct bsr_path *bsr_path,
@@ -397,7 +422,7 @@ static int _dtt_send(struct bsr_tcp_transport *tcp_transport, struct socket *soc
 		rv = Send(socket, DataBuffer, iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, &tcp_transport->transport, 0);
 #endif
 #else  // _LIN
-		rv = kernel_sendmsg(socket, &msg, &iov, 1, size);
+		rv = bsr_kernel_sendmsg(&tcp_transport->transport, socket, &msg, &iov);
 		if (rv == -EAGAIN) {
 			struct bsr_transport *transport = &tcp_transport->transport;
 			enum bsr_stream stream =
@@ -432,7 +457,7 @@ static int _dtt_send(struct bsr_tcp_transport *tcp_transport, struct socket *soc
 	return sent;
 }
 
-static int dtt_recv_short(struct socket *socket, void *buf, size_t size, int flags)
+static int dtt_recv_short(struct bsr_transport *transport, struct socket *socket, void *buf, size_t size, int flags)
 {
 #ifdef _LIN
 	struct kvec iov = {
@@ -451,7 +476,7 @@ static int dtt_recv_short(struct socket *socket, void *buf, size_t size, int fla
 #endif
 	return Receive(socket, buf, (unsigned int)size, flags, socket->sk_linux_attr->sk_rcvtimeo);
 #else // _LIN
-	return kernel_recvmsg(socket, &msg, &iov, 1, size, msg.msg_flags);
+	return bsr_kernel_recvmsg(transport, socket, &msg, &iov);
 #endif
 }
 
@@ -472,16 +497,16 @@ static int dtt_recv(struct bsr_transport *transport, enum bsr_stream stream, voi
 
 	if (flags & CALLER_BUFFER) {
 		buffer = *buf;
-		rv = dtt_recv_short(socket, buffer, size, flags & ~CALLER_BUFFER);
+		rv = dtt_recv_short(transport, socket, buffer, size, flags & ~CALLER_BUFFER);
 	} else if (flags & GROW_BUFFER) {
 		TR_ASSERT(transport, *buf == tcp_transport->rbuf[stream].base);
 		buffer = tcp_transport->rbuf[stream].pos;
 		TR_ASSERT(transport, (buffer - (unsigned char*)*buf) + size <= PAGE_SIZE);//gcc void* pointer increment is based by 1 byte operation
-		rv = dtt_recv_short(socket, buffer, size, flags & ~GROW_BUFFER);
+		rv = dtt_recv_short(transport, socket, buffer, size, flags & ~GROW_BUFFER);
 	} else {
 		buffer = tcp_transport->rbuf[stream].base;
 
-		rv = dtt_recv_short(socket, buffer, size, flags);
+		rv = dtt_recv_short(transport, socket, buffer, size, flags);
 		if (rv > 0)
 			*buf = buffer;
 	}
@@ -516,7 +541,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 		return -ENOMEM;
 
 #ifdef _WIN
-	err = dtt_recv_short(socket, page, size, 0); // required to verify *peer_req_databuf pointer buffer , size value 's validity
+	err = dtt_recv_short(transport, socket, page, size, 0); // required to verify *peer_req_databuf pointer buffer , size value 's validity
 	bsr_debug_rs("kernel_recvmsg(%d) socket(0x%p) size(%d) all_pages(0x%p)", err, socket, (int)size, page);
 	if (err < 0) {
 		goto fail;
@@ -532,7 +557,7 @@ static int dtt_recv_pages(struct bsr_transport *transport, struct bsr_page_chain
 	page_chain_for_each(page) {
 		size_t len = min_t(int, size, PAGE_SIZE);
 		void *data = kmap(page);
-		err = dtt_recv_short(socket, data, len, 0);
+		err = dtt_recv_short(transport, socket, data, len, 0);
 		kunmap(page);
 		set_page_chain_offset(page, 0);
 		set_page_chain_size(page, len);
@@ -1336,7 +1361,7 @@ static int dtt_receive_first_packet(struct bsr_tcp_transport *tcp_transport, str
 #endif
 	rcu_read_unlock();
 
-	err = dtt_recv_short(socket, h, header_size, 0);
+	err = dtt_recv_short(transport, socket, h, header_size, 0);
 #ifdef _WIN
     bsr_debug_sk("socket(0x%p) err(%d) header_size(%u)", socket, err, header_size);
 #endif
