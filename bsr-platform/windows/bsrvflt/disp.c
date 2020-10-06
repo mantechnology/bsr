@@ -323,7 +323,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
     if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-		bsr_err(8, BSR_LC_DRIVER, NO_OBJECT, "Failed to add device due to can't create device, err(0x%x)", status);
+		bsr_err(72, BSR_LC_VOLUME, NO_OBJECT, "Failed to add volume due to can't create device, err(0x%x)", status);
         return status;
     }
 
