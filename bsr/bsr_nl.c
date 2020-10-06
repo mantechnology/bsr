@@ -989,7 +989,7 @@ void conn_try_outdate_peer_async(struct bsr_connection *connection)
 
 	Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, _try_outdate_peer_async, (void *)connection);
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(9, BSR_LC_GENL, NO_OBJECT, "PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X", Status);
+		bsr_err(37, BSR_LC_THREAD, NO_OBJECT, "PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X", Status);
 		kref_put(&connection->kref, bsr_destroy_connection);
 	}
 	else
@@ -1801,9 +1801,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 			/* currently there is only one error: ENOMEM! */
 			size = bsr_bm_capacity(device);
 			if (size == 0) {
-				bsr_err(11, BSR_LC_GENL, device, "Failed to determine device size due to device is not assigned bitmap.");
+				bsr_err(103, BSR_LC_BITMAP, device, "Failed to determine device size due to device is not assigned bitmap.");
 			} else {
-				bsr_err(12, BSR_LC_GENL, device, "Failed to determine device size due to bitmap resizing failed. Leaving size unchanged");
+				bsr_err(104, BSR_LC_BITMAP, device, "Failed to determine device size due to bitmap resizing failed. Leaving size unchanged");
 			}
 			rv = DS_ERROR;
 		}
@@ -2090,7 +2090,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		dc->al_extents, sizeof(struct lc_element), 0);
 #endif
 	if (n == NULL) {
-		bsr_err(21, BSR_LC_GENL, device, "Failed to check activity log size due to cannot allocate activity log LRU");
+		bsr_err(34, BSR_LC_LRU, device, "Failed to check activity log size due to cannot allocate activity log LRU");
 		return -ENOMEM;
 	}
 	spin_lock_irq(&device->al_lock);
@@ -2098,7 +2098,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		for (i = 0; i < t->nr_elements; i++) {
 			e = lc_element_by_index(t, i);
 			if (e->refcnt)
-				bsr_err(22, BSR_LC_GENL, device, "Failed to check activity log size due to reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
+				bsr_err(35, BSR_LC_LRU, device, "reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
 			in_use += e->refcnt;
 		}
 	}
@@ -2106,7 +2106,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		device->act_log = n;
 	spin_unlock_irq(&device->al_lock);
 	if (in_use) {
-		bsr_err(23, BSR_LC_GENL, device, "Failed to check activity log size due to activity log is already in use.");
+		bsr_err(36, BSR_LC_LRU, device, "Failed to check activity log size due to activity log is already in use.");
 		lc_destroy(n);
 		return -EBUSY;
 	} else {
@@ -2669,7 +2669,7 @@ struct bsr_backing_dev *nbc)
 			return 0;
 		}
 	}
-	bsr_err(31, BSR_LC_GENL, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
+	bsr_err(105, BSR_LC_BITMAP, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
 	return -ENOSPC;
 }
 
@@ -2685,7 +2685,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
 #endif
 	if (IS_ERR(bdev)) {
-		bsr_err(32, BSR_LC_GENL, device, "Failed to open(\"%s\") backing device with %ld",
+		bsr_err(104, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
@@ -2704,7 +2704,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 #endif
 	if (err) {
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
-		bsr_err(33, BSR_LC_GENL, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
+		bsr_err(141, BSR_LC_DRIVER, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
 	}
@@ -4524,7 +4524,7 @@ void del_connection(struct bsr_connection *connection)
 	 */
 	rv2 = change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD);
 	if (rv2 < SS_SUCCESS)
-		bsr_err(49, BSR_LC_GENL, connection, "Failed to delete connection due to failure to change status to standalone. state(%d)", rv2);
+		bsr_err(31, BSR_LC_CONNECTION, connection, "Failed to delete connection due to failure to change status to standalone. state(%d)", rv2);
 	/* Make sure the sender thread has actually stopped: state
 	 * handling only does bsr_thread_stop_nowait().
 	 */

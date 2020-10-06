@@ -2379,7 +2379,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 				     P_COMPRESSED_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(62, BSR_LC_PROTOCOL, peer_device, "Failed to send compressed bitmap. err(%d)", err);
+			bsr_err(106, BSR_LC_BITMAP, peer_device, "Failed to send compressed bitmap. err(%d)", err);
 		}
 		
 		c->packets[0]++;
@@ -5002,7 +5002,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	// BSR-579
 	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '3ASB');
 	if (!pFileBothDirInfo){
-		bsr_err(2, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to allocation query buffer. status(%u)", currentSize);
+		bsr_err(76, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation query buffer. status(%u)", currentSize);
 		status = STATUS_NO_MEMORY;
 		goto out;
 	}

@@ -5996,14 +5996,14 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62SB');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72SB');
 		if (!(int_dig_in && int_dig_vv)) {
-			bsr_err(14, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to failure allocation memory for integrity");
+			bsr_err(70, BSR_LC_MEMORY, connection, "Failed to receive protocol due to failure allocation memory for integrity");
 			goto disconnect;
 		}
 	}
 
 	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82SB');
 	if (!new_net_conf) {
-		bsr_err(15, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
+		bsr_err(71, BSR_LC_MEMORY, connection, "Failed to receive protocol due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
 		goto disconnect;
 	}
 
@@ -6086,7 +6086,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
 	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
 #endif
 	if (IS_ERR(tfm)) {
-		bsr_err(18, BSR_LC_PROTOCOL, device, "Failed to allocate \"%s\" as %s (reason: %ld) memory",
+		bsr_err(72, BSR_LC_MEMORY, device, "Failed to allocate \"%s\" as %s (reason: %ld) memory",
 			alg, name, PTR_ERR(tfm));
 		return tfm;
 	}
@@ -6177,7 +6177,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (!new_peer_device_conf) {
 			put_ldev(device);
 			mutex_unlock(&resource->conf_update);
-			bsr_err(21, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate %d size memory for peer device configure", sizeof(struct peer_device_conf));
+			bsr_err(73, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate %d size memory for peer device configure", sizeof(struct peer_device_conf));
 			return -ENOMEM;
 		}
 		/* With a non-zero new_peer_device_conf, we will call put_ldev() below.  */
@@ -6266,7 +6266,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2SB');
 			if (!new_net_conf) {
-				bsr_err(26, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
+				bsr_err(74, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
 				goto disconnect;
 			}
 
@@ -6560,7 +6560,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			struct disk_conf *old_disk_conf, *new_disk_conf;
 			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2SB');
 			if (!new_disk_conf) {
-				bsr_err(37, BSR_LC_PROTOCOL, device, "Failed receive sizes due to failure to allocate %d size memory for disk configure", sizeof(struct disk_conf));
+				bsr_err(75, BSR_LC_MEMORY, device, "Failed receive sizes due to failure to allocate %d size memory for disk configure", sizeof(struct disk_conf));
 				err = -ENOMEM;
 				goto out;
 			}
