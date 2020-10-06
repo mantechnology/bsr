@@ -6195,7 +6195,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 		err = bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 			"clear_n_write from new_c_uuid", BM_LOCK_ALL, NULL);
 		if (err) {
-			bsr_err(55, BSR_LC_GENL, device, "Failed to create new uuid due to writing bitmap failed with %d",err);
+			bsr_err(55, BSR_LC_GENL, device, "Failed to create new uuid due to writing bitmap failed with err %d",err);
 			retcode = ERR_IO_MD_DISK;
 		}
 		for_each_peer_device(peer_device, device) {

@@ -5033,7 +5033,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			// BSR-579
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '4ASB'); 
 			if (pFileBothDirInfo == NULL) {
-				bsr_err(4, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size query buffer memory.", currentSize);
+				bsr_err(77, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size query buffer memory.", currentSize);
 				status = STATUS_NO_MEMORY;
 				goto out;
 			}
@@ -5066,14 +5066,14 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				// BSR-579
 				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '5ASB');
 				if (!r) {
-					bsr_err(6, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
+					bsr_err(78, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
 				// BSR-579
 				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '6ASB');
 				if (!r) {
-					bsr_err(25, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", flength);
+					bsr_err(79, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", flength);
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}

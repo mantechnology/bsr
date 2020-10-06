@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"Failed to write error log due to failure to allocate Log entry");
+		bsr_err(80, BSR_LC_MEMORY, NO_OBJECT,"Failed to write error log due to failure to allocate Log entry");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);

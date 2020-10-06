@@ -399,7 +399,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 #endif
 
 	if (NULL == stackFrames) {
-		bsr_err(82, BSR_LC_ETC, NO_OBJECT,"Failed to allcate pool for stackFrames");
+		bsr_err(81, BSR_LC_MEMORY, NO_OBJECT,"Failed to allcate pool for stackFrames");
 		return;
 	}
 

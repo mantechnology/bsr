@@ -1242,7 +1242,7 @@ void bsr_debugfs_resource_add(struct bsr_resource *resource)
 
 fail:
 	bsr_debugfs_resource_cleanup(resource);
-	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs dentry");
+	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs entries");
 }
 
 static void bsr_debugfs_remove(struct dentry **dp)
@@ -1333,7 +1333,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 
 fail:
 	bsr_debugfs_connection_cleanup(connection);
-	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs dentry");
+	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs entries");
 }
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)

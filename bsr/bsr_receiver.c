@@ -10407,7 +10407,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	peers_ch = kmalloc(sizeof(*peers_ch), GFP_NOIO, '98SB');
 	if (peers_ch == NULL) {
-		bsr_err(37, BSR_LC_ETC, connection, "kmalloc of peers_ch failed");
+		bsr_err(82, BSR_LC_MEMORY, connection, "kmalloc of peers_ch failed");
 		rv = -1;
 		goto fail;
 	}
@@ -10476,7 +10476,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	right_response = kmalloc(resp_size, GFP_NOIO, 'A8SB' );
 	if (right_response == NULL) {
-		bsr_err(42, BSR_LC_ETC, connection, "kmalloc of right_response failed");
+		bsr_err(83, BSR_LC_MEMORY, connection, "kmalloc of right_response failed");
 		rv = -1;
 		goto fail;
 	}
