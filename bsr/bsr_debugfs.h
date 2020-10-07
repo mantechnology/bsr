@@ -76,3 +76,4 @@ int device_oldest_requests_show(struct seq_file *m, void *ignored);
 int device_data_gen_id_show(struct seq_file *m, void *ignored);
 int device_io_frozen_show(struct seq_file *m, void *ignored);
 int device_ed_gen_id_show(struct seq_file *m, void *ignored);
+int device_req_timing_show(struct seq_file *m, void *ignored);
