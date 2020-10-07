@@ -794,6 +794,15 @@ extern int w_notify_io_error(struct bsr_work *w, int cancel);
 	((s64)(a) - (s64)(b) > 0))
 #endif
 
+// BSR-682
+#ifdef _WIN
+union ktime {
+	ULONG_PTR tv64;
+};
+
+typedef union ktime ktime_t;
+#endif
+
 struct bsr_request {
 	struct bsr_device *device;
 
@@ -843,26 +852,29 @@ struct bsr_request {
 	struct list_head req_pending_master_completion;
 	struct list_head req_pending_local;
 
-	/* for generic IO accounting */
-    ULONG_PTR start_jif;
+	/* for generic IO accounting; "immutable" */
+	ULONG_PTR start_jif;
 
+	/* for request_timer_fn() */
+	ULONG_PTR pre_submit_jif;
+	ULONG_PTR pre_send_jif[BSR_PEERS_MAX];
+
+#ifdef CONFIG_BSR_TIMING_STATS
 	/* for BSR internal statistics */
-
-	/* Minimal set of time stamps to determine if we wait for activity log
-	 * transactions, local disk or peer.  32 bit "jiffies" are good enough,
-	 * we don't expect a BSR request to be stalled for several month.
-	 */
+	ktime_t start_kt;
 
 	/* before actual request processing */
-	ULONG_PTR in_actlog_jif;
+	ktime_t in_actlog_kt;
+
 	/* local disk */
-	ULONG_PTR pre_submit_jif;
+	ktime_t pre_submit_kt;
+
 	/* per connection */
-	ULONG_PTR pre_send_jif[BSR_PEERS_MAX];
-#ifdef _LIN
-	ULONG_PTR acked_jif[BSR_PEERS_MAX];
-	ULONG_PTR net_done_jif[BSR_PEERS_MAX];
+	ktime_t pre_send_kt[BSR_PEERS_MAX];
+	ktime_t acked_kt[BSR_PEERS_MAX];
+	ktime_t net_done_kt[BSR_PEERS_MAX];
 #endif
+
 
 	// DW-1961
 	bool	 do_submit;				// Whether do_submit logic passed
@@ -1947,6 +1959,11 @@ struct bsr_peer_device {
 	struct dentry *debugfs_peer_dev_resync_extents;
 	struct dentry *debugfs_peer_dev_proc_bsr;
 #endif
+#ifdef CONFIG_BSR_TIMING_STATS
+	ktime_t pre_send_kt;
+	ktime_t acked_kt;
+	ktime_t net_done_kt;
+#endif
 	struct {/* sender todo per peer_device */
 		bool was_ahead;
 	} todo;
@@ -2098,6 +2115,19 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
+#ifdef CONFIG_BSR_TIMING_STATS
+	spinlock_t timing_lock;
+	unsigned long reqs;
+	ktime_t in_actlog_kt;
+	ktime_t pre_submit_kt; /* sum over over all reqs */
+
+	ktime_t before_queue_kt; /* sum over all al_misses */
+	ktime_t before_al_begin_io_kt;
+
+	ktime_t al_before_bm_write_hinted_kt; /* sum over all al_writ_cnt */
+	ktime_t al_mid_kt;
+	ktime_t al_after_sync_page_kt;
+#endif
 };
 
 struct bsr_bm_aio_ctx {
@@ -2675,9 +2705,9 @@ extern void dtt_put_listeners(struct bsr_transport *);
 /* bsr_req */
 extern void do_submit(struct work_struct *ws);
 #ifdef _WIN
-extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ULONG_PTR);
+extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, ULONG_PTR);
 #else // _LIN
-extern void __bsr_make_request(struct bsr_device *, struct bio *, unsigned long);
+extern void __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, unsigned long);
 #endif
 
 extern MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio);
@@ -4137,6 +4167,61 @@ extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
 extern long read_reg_file(char *file_path, long default_val);
+#endif
+
+#ifdef _WIN
+// BSR-682
+static inline ktime_t ktime_get(void)
+{
+	ktime_t t;
+	LARGE_INTEGER p_counter = KeQueryPerformanceCounter(NULL);
+
+	t.tv64 = p_counter.QuadPart;
+	return t;
+}
+
+static inline s64 ktime_to_us(const ktime_t kt)
+{
+	return kt.tv64 * 1000000 / g_frequency.QuadPart;
+}
+
+static inline s64 ktime_to_ms(const ktime_t kt)
+{
+	return kt.tv64 * 1000 / g_frequency.QuadPart;
+}
+
+/* Subtract two ktime_t variables. rem = lhs -rhs: */
+static inline ktime_t ktime_sub(ktime_t lhs, ktime_t rhs)
+{
+	ktime_t t;
+	t.tv64 = lhs.tv64 - rhs.tv64;
+	return t;
+}
+
+/* Add two ktime_t variables. res = lhs + rhs: */
+static inline ktime_t ktime_add(ktime_t lhs, ktime_t rhs)
+{
+	ktime_t t;
+	t.tv64 = lhs.tv64 + rhs.tv64;
+	return t;
+}
+
+#endif
+
+#ifdef CONFIG_BSR_TIMING_STATS
+#define ktime_aggregate_delta(D, ST, M) D->M = ktime_add(D->M, ktime_sub(ktime_get(), ST))
+#define ktime_aggregate(D, R, M) D->M = ktime_add(D->M, ktime_sub(R->M, R->start_kt))
+#define ktime_aggregate_pd(P, N, R, M) P->M = ktime_add(P->M, ktime_sub(R->M[N], R->start_kt))
+#define ktime_get_accounting(V) V = ktime_get()
+#define ktime_get_accounting_assign(V, T) V = T
+#define ktime_var_for_accounting(V) ktime_t V = ktime_get()
+#else
+#define ktime_aggregate_delta(D, ST, M)
+#define ktime_aggregate(D, R, M)
+#define ktime_aggregate_pd(P, N, R, M)
+#define ktime_get_accounting(V)
+#define ktime_get_accounting_assign(V, T)
+#define ktime_var_for_accounting(V)
 #endif
 
 #endif

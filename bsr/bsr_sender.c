@@ -3678,6 +3678,7 @@ static int process_one_request(struct bsr_connection *connection)
 	enum bsr_req_event what;
 
 	req->pre_send_jif[peer_device->node_id] = jiffies;
+	ktime_get_accounting(req->pre_send_kt[peer_device->node_id]);
 	if (bsr_req_is_write(req)) {
 		/* If a WRITE does not expect a barrier ack,
 		 * we are supposed to only send an "out of sync" info packet */

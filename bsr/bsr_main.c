@@ -3771,6 +3771,7 @@ static void do_retry(struct work_struct *ws)
 		struct bio *bio = req->master_bio;
 		ULONG_PTR start_jif = req->start_jif;
 		bool expected;
+		ktime_get_accounting_assign(ktime_t start_kt, req->start_kt);
 
 		expected =
 			expect(device, atomic_read(&req->completion_ref) == 0) &&
@@ -3804,7 +3805,7 @@ static void do_retry(struct work_struct *ws)
 		/* We are not just doing generic_make_request(),
 		 * as we want to keep the start_time information. */
 		inc_ap_bio(device, bio_data_dir(bio));
-		__bsr_make_request(device, bio, start_jif);
+		__bsr_make_request(device, bio, start_kt, start_jif);
 	}
 }
 
@@ -4600,6 +4601,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set(&device->local_cnt, 0);
 	atomic_set(&device->rs_sect_ev, 0);
 	atomic_set(&device->md_io.in_use, 0);
+
+#ifdef CONFIG_BSR_TIMING_STATS
+	spin_lock_init(&device->timing_lock);
+#endif
 
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);
