@@ -152,7 +152,7 @@ struct bsr_transport {
 	// BSR-683
 	uint64_t sum_sent;
 	uint64_t sum_recv;
-	ULONG_PTR sum_time;
+	ULONG_PTR sum_start_time;
 	/* These members are intended to be updated by the transport: */
 	unsigned int ko_count;
 	ULONG_PTR flags;

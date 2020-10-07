@@ -485,7 +485,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 #endif
 
 #ifdef _WIN_SEND_BUF
-int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
+int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
 	int ret = 0;
@@ -506,7 +506,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 #endif
 		// DW-1095 SendAsync is only used on Async mode (adjust retry_count) 
 		//ret = SendAsync(socket, bab->static_big_buf, tx_sz, 0, timeout, NULL, 0);
-		ret = Send(socket, bab->static_big_buf, (ULONG)tx_sz, 0, timeout, NULL, NULL, 0);
+		ret = Send(socket, bab->static_big_buf, (ULONG)tx_sz, 0, timeout, NULL, transport, 0);
 		if (ret != tx_sz) {
 			if (ret < 0) {
 				if (ret != -EINTR) {
@@ -571,11 +571,18 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 #ifdef _WIN_SEND_BUF
 VOID NTAPI send_buf_thread(PVOID p)
 {
-	struct _buffering_attr *buffering_attr = (struct _buffering_attr *)p;
-	struct socket *socket = container_of(buffering_attr, struct socket, buffering_attr);
+	struct bsr_tcp_transport* tcp_transport = (struct bsr_tcp_transport *)p;
+	struct _buffering_attr *buffering_attr;
+	struct socket *socket;
 	NTSTATUS status;
 	LARGE_INTEGER nWaitTime;
 	LARGE_INTEGER *pTime;
+
+	if (test_bit(IDX_STREAM, &tcp_transport->flags))
+		buffering_attr = &tcp_transport->stream[CONTROL_STREAM]->buffering_attr;
+	else
+		buffering_attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
+	socket = container_of(buffering_attr, struct socket, buffering_attr);
 
 	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25SB');
 
@@ -604,7 +611,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
-			if (do_send(socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) == -EINTR) {
+			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) == -EINTR) {
 				goto done;
 			}
 			break;

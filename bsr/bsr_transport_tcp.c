@@ -167,9 +167,8 @@ int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, s
 	int rv;
 
 	rv = kernel_sendmsg(socket, msg, iov, 1, iov->iov_len);
-	if (rv > 0) {
+	if (rv > 0 && transport)
 		transport->sum_sent += rv;
-	}
 
 	return rv;
 }
@@ -178,9 +177,8 @@ int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, s
 	int rv;
 
 	rv = kernel_recvmsg(socket, msg, iov, 1, iov->iov_len, msg->msg_flags);
-	if (rv > 0) {
+	if (rv > 0 && transport)
 		transport->sum_recv += rv;
-	}
 
 	return rv;
 }
@@ -417,7 +415,7 @@ static int _dtt_send(struct bsr_tcp_transport *tcp_transport, struct socket *soc
 #ifdef _WIN
 #ifdef _WIN_SEND_BUF
 		 // _dtt_send is only used when dtt_connect is processed(dtt_send_first_packet), at this time send buffering is not done yet.
-		rv = Send(socket, DataBuffer, (ULONG)iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, NULL, 0);
+		rv = Send(socket, DataBuffer, (ULONG)iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, &tcp_transport->transport, 0);
 #else
 		rv = Send(socket, DataBuffer, iov_len, 0, socket->sk_linux_attr->sk_sndtimeo, NULL, &tcp_transport->transport, 0);
 #endif
@@ -474,7 +472,7 @@ static int dtt_recv_short(struct bsr_transport *transport, struct socket *socket
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(size);
 #endif
-	return Receive(socket, buf, (unsigned int)size, flags, socket->sk_linux_attr->sk_rcvtimeo);
+	return Receive(socket, buf, (unsigned int)size, flags, socket->sk_linux_attr->sk_rcvtimeo, transport);
 #else // _LIN
 	return bsr_kernel_recvmsg(transport, socket, &msg, &iov);
 #endif
@@ -2532,7 +2530,12 @@ static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long
 					KeInitializeEvent(&attr->send_buf_thr_start_event, SynchronizationEvent, FALSE);
 					KeInitializeEvent(&attr->ring_buf_event, SynchronizationEvent, FALSE);
 
-					NTSTATUS Status = PsCreateSystemThread(&attr->send_buf_thread_handle, THREAD_ALL_ACCESS, NULL, NULL, NULL, send_buf_thread, attr);
+					if (i == DATA_STREAM)
+						clear_bit(IDX_STREAM, &tcp_transport->flags);
+					else
+						set_bit(IDX_STREAM, &tcp_transport->flags);
+
+					NTSTATUS Status = PsCreateSystemThread(&attr->send_buf_thread_handle, THREAD_ALL_ACCESS, NULL, NULL, NULL, send_buf_thread, tcp_transport);
 					if (!NT_SUCCESS(Status)) {
 						tr_warn(transport, "send-buffering: create thread(%s) failed(0x%08X)", tcp_transport->stream[i]->name, Status);
 						destroy_ring_buffer(attr->bab);

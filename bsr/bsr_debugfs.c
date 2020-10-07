@@ -713,7 +713,7 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_connection *connection = m->private;
 	struct bsr_transport *transport = &connection->transport;
-	int period = DIV_ROUND_UP((jiffies - transport->sum_time) - HZ/2, HZ);
+	int period = (int)DIV_ROUND_UP((jiffies - transport->sum_start_time) - HZ/2, HZ);
 
 	if (period > 0) {
 		seq_printf(m, "SENT : %llu Byte/sec\n", transport->sum_sent / period);
@@ -721,7 +721,7 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 
 		transport->sum_sent = 0;
 		transport->sum_recv = 0;
-		transport->sum_time = jiffies;
+		transport->sum_start_time = jiffies;
 	}
 
 	return 0;
