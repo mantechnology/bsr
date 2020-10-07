@@ -579,10 +579,10 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
 {
 #ifdef _WIN
-	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr%u %s / %u", device->minor, device->resource->name, device->vnr);
+	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr minor:%u resource:%s / vnr:%u", device->minor, device->resource->name, device->vnr);
 	panic("potential random memory corruption caused by delayed completion of aborted local request");
 #else // _LIN
-	panic("bsr%u %s/%u potential random memory corruption caused by delayed completion of aborted local request\n",
+	panic("bsr%u %s/%u potential random memory corruption caused by delayed completion of aborted local request",
 		device->minor, device->resource->name, device->vnr);
 #endif
 }
@@ -894,7 +894,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 		peer_req = NULL;
 		err = bsr_send_command(peer_device, P_CSUM_RS_REQUEST, DATA_STREAM);
 	} else {
-		bsr_err(154, BSR_LC_RESYNC_OV, peer_device, "Failed to send csum checksum to failure to allocate memory for digest");
+		bsr_err(38, BSR_LC_MEMORY, peer_device, "Failed to send csum checksum to failure to allocate memory for digest");
 		err = -ENOMEM;
 	}
 
@@ -918,7 +918,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 	/* Do not wait if no memory is immediately available.  */
 	peer_req = bsr_alloc_peer_req(peer_device, GFP_TRY & ~__GFP_RECLAIM);
 	if (!peer_req) {
-		bsr_err(25, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for peer request");
+		bsr_err(39, BSR_LC_MEMORY, peer_device, "Failed to read checksum due to failure to allocate memory for peer request");
 		goto defer;
 	}
 
@@ -926,7 +926,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 		bsr_alloc_page_chain(&peer_device->connection->transport,
 			&peer_req->page_chain, DIV_ROUND_UP(size, PAGE_SIZE), GFP_TRY);
 		if (!peer_req->page_chain.head) {
-			bsr_err(26, BSR_LC_PEER_REQUEST, peer_device, "Failed to read checksum due to failure to allocate memory for page chain");
+			bsr_err(40, BSR_LC_MEMORY, peer_device, "Failed to read checksum due to failure to allocate memory for page chain");
 			goto defer2;
 		}
 #ifdef _WIN
@@ -1229,7 +1229,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 		   get_ldev_if_state(device,D_FAILED) would be sufficient, but
 		   to continue resync with a broken disk makes no sense at
 		   all */
-		bsr_err(108, BSR_LC_RESYNC_OV, device, "Failed to make resync request due to disk broke down");
+		bsr_err(108, BSR_LC_RESYNC_OV, device, "Failed to make resync request due to disk broke down(%s)\n", bsr_disk_str(device->disk_state[NOW]));
 		return 0;
 	}
 
@@ -1706,6 +1706,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	char *khelper_cmd = NULL;
 	int verify_done = 0;
 
+	bool uuid_updated = false;
 
 	if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 		/* Make sure all queued w_update_peers()/consider_sending_peers_in_sync()
@@ -1738,7 +1739,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			bsr_queue_work(&connection->sender_work, &rfw->pdw.w);
 			return 1;
 		}
-		bsr_err(114, BSR_LC_RESYNC_OV, peer_device, "resync finished, but failure to allocate memory for work item(resync finished)");
+		bsr_err(41, BSR_LC_MEMORY, peer_device, "resync finished, but failure to allocate memory for work item(resync finished)");
 	}
 
 	dt = (jiffies - peer_device->rs_start - peer_device->rs_paused) / HZ;
@@ -1893,6 +1894,11 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
 					peer_device->history_uuids[i] =
 						bsr_history_uuid(device, i);
+
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+				// DW-2160
+				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 			if (new_peer_disk_state != D_MASK)
@@ -1900,6 +1906,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 			if (peer_device->connection->agreed_pro_version < 110) {
 				bsr_uuid_set_bitmap(peer_device, 0UL);
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
 		}
 	}
@@ -1913,6 +1921,20 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 out_unlock:
 	end_state_change_locked(device->resource, false, __FUNCTION__);
+
+	// DW-2160 If the peer device and the current uuid of the device differ by receiving the UUID during synchronization completion, update it again.
+	if (uuid_updated && ((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY))) {
+		int i;
+
+		bsr_uuid_resync_finished(peer_device);
+		peer_device->current_uuid = bsr_current_uuid(device);
+		peer_device->bitmap_uuids[device->resource->res_opts.node_id] = bsr_bitmap_uuid(peer_device);
+		for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
+			peer_device->history_uuids[i] = bsr_history_uuid(device, i);
+
+		bsr_print_uuids(peer_device, "again updated UUIDs", __FUNCTION__);
+		bsr_md_mark_dirty(device);
+	}
 
 	put_ldev(device);
 
@@ -2020,7 +2042,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure write. sector(%llus).",
+			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure read. sector(%llus).",
 			    (unsigned long long)peer_req->i.sector);
 
 		err = bsr_send_ack(peer_device, P_NEG_DREPLY, peer_req);

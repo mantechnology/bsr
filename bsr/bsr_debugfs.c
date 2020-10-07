@@ -717,6 +717,25 @@ int connection_transport_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
+// BSR-683
+int connection_transport_speed_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_transport *transport = &connection->transport;
+	int period = (int)DIV_ROUND_UP((jiffies - transport->sum_start_time) - HZ/2, HZ);
+
+	if (period > 0) {
+		seq_printf(m, "SENT : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_sent) / period);
+		seq_printf(m, "RECV : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_recv) / period);
+
+		atomic_set64(&transport->sum_sent, 0);
+		atomic_set64(&transport->sum_recv, 0);
+		transport->sum_start_time = jiffies;
+	}
+
+	return 0;
+}
+
 // BSR-571
 int connection_send_buf_show(struct seq_file *m, void *ignored)
 {
@@ -1346,7 +1365,7 @@ void bsr_debugfs_resource_add(struct bsr_resource *resource)
 
 fail:
 	bsr_debugfs_resource_cleanup(resource);
-	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs dentry");
+	bsr_err(11, BSR_LC_ETC, resource, "failed to create debugfs entries");
 }
 
 static void bsr_debugfs_remove(struct dentry **dp)
@@ -1398,6 +1417,7 @@ static const struct file_operations connection_ ## name ## _fops = {	\
 bsr_debugfs_connection_attr(oldest_requests)
 bsr_debugfs_connection_attr(callback_history)
 bsr_debugfs_connection_attr(transport)
+bsr_debugfs_connection_attr(transport_speed)
 bsr_debugfs_connection_attr(debug)
 bsr_debugfs_connection_attr(send_buf)
 
@@ -1425,6 +1445,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(callback_history);
 	conn_dcf(oldest_requests);
 	conn_dcf(transport);
+	conn_dcf(transport_speed);
 	conn_dcf(debug);
 	conn_dcf(send_buf);
 
@@ -1437,7 +1458,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 
 fail:
 	bsr_debugfs_connection_cleanup(connection);
-	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs dentry");
+	bsr_err(12, BSR_LC_ETC, connection, "failed to create debugfs entries");
 }
 
 void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
@@ -1445,6 +1466,7 @@ void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 	bsr_debugfs_remove(&connection->debugfs_conn_send_buf);
 	bsr_debugfs_remove(&connection->debugfs_conn_debug);
 	bsr_debugfs_remove(&connection->debugfs_conn_transport);
+	bsr_debugfs_remove(&connection->debugfs_conn_transport_speed);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
 	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
 	bsr_debugfs_remove(&connection->debugfs_conn);

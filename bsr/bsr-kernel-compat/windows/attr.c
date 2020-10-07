@@ -153,8 +153,7 @@ int nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
     }
 
     if (unlikely(rem > 0))
-        printk(KERN_WARNING "netlink: %d bytes leftover after parsing "
-        "attributes.\n", rem);
+        bsr_warn(90, BSR_LC_GENL, NO_OBJECT,"netlink: %d bytes leftover after parsing attributes.\n", rem);
 
     err = 0;
 errout:

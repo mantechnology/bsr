@@ -81,7 +81,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 
 	do {
 		if(nconf->sndbuf_size < BSR_SNDBUF_SIZE_MIN ) {
-			bsr_err(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer because it is smaller than the minimum size. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(3, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data stream buffer because send-buffer is smaller than the minimum size. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			goto $ALLOC_FAIL;
 		}
 #ifdef _WIN_SEND_BUF
@@ -95,14 +95,14 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_err(4, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_err(62, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = nconf->sndbuf_size + 1;
 #ifdef _WIN_SEND_BUF
 		} __except(EXCEPTION_EXECUTE_HANDLER) {
-			bsr_err(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_err(5, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data stream buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -163,7 +163,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 	signed long long sz = sizeof(*ring) + length;
 
 	if (length == 0 || length > BSR_SNDBUF_SIZE_MAX) {
-		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
+		bsr_err(9, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create send buffer due to incorrect size. name(%s), max(%ld), size(%lld)", name, length, BSR_SNDBUF_SIZE_MAX);
 		return NULL;
 	}
 
@@ -200,11 +200,11 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		if (!ring->static_big_buf) {
 			//ExFreePool(ring);
 			//kfree2(ring);
-			bsr_err(11, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
+			bsr_err(37, BSR_LC_MEMORY, NO_OBJECT, "Failed to create stream buffer due to failure to allocate memory for static big buffer. name(%s), size(%d)", name, MAX_ONETIME_SEND_BUF);
 			return NULL;
 		}
 	} else {
-		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create ring buffer due to failure to get stream information. name(%s) size(%lld)", name, sz);
+		bsr_err(12, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to create send-buffer due to failure to get stream information. name(%s) size(%lld)", name, sz);
 	}
 	return ring;
 }
@@ -465,7 +465,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 		msg.msg_controllen = 0;
 		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = kernel_sendmsg(socket, &msg, &iov, 1, size);
+		rv = bsr_kernel_sendmsg(&tcp_transport->transport, socket, &msg, &iov);
 		if (rv == -EAGAIN) {
 		}
 		return rv;
@@ -485,13 +485,13 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 #endif
 
 #ifdef _WIN_SEND_BUF
-int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
+int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
 	int ret = 0;
 
 	if (bab == NULL) {
-		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send ring buffer due to ring buffer is not allocate.");
+		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send send-buffer due to send-buffer is not allocate.");
 		return 0;
 	}
 
@@ -506,7 +506,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 #endif
 		// DW-1095 SendAsync is only used on Async mode (adjust retry_count) 
 		//ret = SendAsync(socket, bab->static_big_buf, tx_sz, 0, timeout, NULL, 0);
-		ret = Send(socket, bab->static_big_buf, (ULONG)tx_sz, 0, timeout, NULL, NULL, 0);
+		ret = Send(socket, bab->static_big_buf, (ULONG)tx_sz, 0, timeout, NULL, transport, 0);
 		if (ret != tx_sz) {
 			if (ret < 0) {
 				if (ret != -EINTR) {
@@ -524,7 +524,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT 
 	return ret;
 }
 #else // _LIN_SEND_BUF
-int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
+int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
 	int msg_flags = 0;
@@ -552,7 +552,7 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 		msg.msg_controllen = 0;
 		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = kernel_sendmsg(socket, &msg, &iov, 1, (size_t)tx_sz);
+		rv = bsr_kernel_sendmsg(transport, socket, &msg, &iov);
 		if (rv == -EAGAIN) {
 		}
 		if (rv == -EINTR) {
@@ -571,11 +571,18 @@ int do_send(struct socket *socket, struct ring_buffer *bab, int timeout)
 #ifdef _WIN_SEND_BUF
 VOID NTAPI send_buf_thread(PVOID p)
 {
-	struct _buffering_attr *buffering_attr = (struct _buffering_attr *)p;
-	struct socket *socket = container_of(buffering_attr, struct socket, buffering_attr);
+	struct bsr_tcp_transport* tcp_transport = (struct bsr_tcp_transport *)p;
+	struct _buffering_attr *buffering_attr;
+	struct socket *socket;
 	NTSTATUS status;
 	LARGE_INTEGER nWaitTime;
 	LARGE_INTEGER *pTime;
+
+	if (test_bit(IDX_STREAM, &tcp_transport->flags))
+		buffering_attr = &tcp_transport->stream[CONTROL_STREAM]->buffering_attr;
+	else
+		buffering_attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
+	socket = container_of(buffering_attr, struct socket, buffering_attr);
 
 	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25SB');
 
@@ -604,7 +611,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
-			if (do_send(socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) == -EINTR) {
+			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) == -EINTR) {
 				goto done;
 			}
 			break;
@@ -651,7 +658,7 @@ int send_buf_thread(void *p)
 	while (!buffering_attr->send_buf_kill_event) {
 		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
-			do_send(socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
+			do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
 		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);
 	}
 

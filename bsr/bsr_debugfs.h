@@ -68,6 +68,7 @@ int connection_callback_history_show(struct seq_file *m, void *ignored);
 int connection_debug_show(struct seq_file *m, void *ignored);
 int connection_oldest_requests_show(struct seq_file *m, void *ignored);
 int connection_transport_show(struct seq_file *m, void *ignored);
+int connection_transport_speed_show(struct seq_file *m, void *ignored);
 int connection_send_buf_show(struct seq_file *m, void *ignored);
 int peer_device_proc_bsr_show(struct seq_file *m, void *ignored);
 int peer_device_resync_extents_show(struct seq_file *m, void *ignored);

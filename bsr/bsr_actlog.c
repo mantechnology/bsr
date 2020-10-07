@@ -1361,8 +1361,9 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 		return 0;
 
 	if (!plausible_request_size(size)) {
-		bsr_err(1, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to request size is invalid. %s: sector(%llus) size(%u) nonsense!",
+		bsr_err(1, BSR_LC_BITMAP, device, "%s => Failed to setup sync mode(%d) due to request size is invalid. %s: sector(%llus) size(%u) nonsense!",
 				caller,
+				mode,
 				bsr_change_sync_fname[mode],
 				(unsigned long long)sector, 
 				size);
@@ -1381,7 +1382,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!expect(peer_device, sector < nr_sectors)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(3, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, sector, nr_sectors);
+		bsr_err(3, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync mode(%d) due to unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, mode, sector, nr_sectors);
 #endif
 		goto out;
 	}
@@ -1836,13 +1837,13 @@ void bsr_rs_complete_io(struct bsr_peer_device *peer_device, sector_t sector, co
 	if (!bm_ext) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
 		if (bsr_ratelimit())
-			bsr_err(1, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU of enr(%u) was not found.", caller, enr);
+			bsr_err(31, BSR_LC_LRU, device, "%s => Failed to put resync LRU of enr(%u) was not found.", caller, enr);
 		return;
 	}
 
 	if (bm_ext->lce.refcnt == 0) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
-		bsr_err(2, BSR_LC_RESYNC_OV, device, "%s => Failed to put resync LRU because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)", 
+		bsr_err(32, BSR_LC_LRU, device, "%s => Failed to put resync LRU because reference count is 0, reference count of resync LRU cannot be reduced. enr(%u), sector(%llu), BM_BIT(%llu)",
 			caller, (unsigned long long)enr, (unsigned long long)sector, (unsigned long long)BM_SECT_TO_BIT(sector));
 		return;
 	}

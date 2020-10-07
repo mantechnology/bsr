@@ -302,17 +302,17 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         // Init WSK and StartNetLinkServer
 		Status = PsCreateSystemThread(&hNetLinkThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, InitWskNetlink, NULL);
         if (!NT_SUCCESS(Status)) {
-			bsr_err(6, BSR_LC_DRIVER, NO_OBJECT, "Failed to add device due to failure to create thread. status(0x%08X)", Status);
+			bsr_err(36, BSR_LC_THREAD, NO_OBJECT, "Failed to add device due to failure to create thread. status(0x%08X)", Status);
             return Status;
         }
 
 		//Status = ObReferenceObjectByHandle(hNetLinkThread, THREAD_ALL_ACCESS, NULL, KernelMode, &g_NetlinkServerThread, NULL);
 		ZwClose(hNetLinkThread);
 
-        if (!NT_SUCCESS(Status)) {
-			bsr_err(7, BSR_LC_DRIVER, NO_OBJECT, "Failed to add device due to failure to create thread handle. status(0x%08X)", Status);
-            return Status;
-        }
+        //if (!NT_SUCCESS(Status)) {
+		//	bsr_err(7, BSR_LC_DRIVER, NO_OBJECT, "Failed to add device due to failure to create thread handle. status(0x%08X)", Status);
+        //    return Status;
+        //}
     }
 
     ReferenceDeviceObject = IoGetAttachedDeviceReference(PhysicalDeviceObject);
@@ -323,7 +323,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         deviceType, FILE_DEVICE_SECURE_OPEN, FALSE, &AttachedDeviceObject);
     if (!NT_SUCCESS(status)) {
         mvolLogError(mvolRootDeviceObject, 102, MSG_ADD_DEVICE_ERROR, status);
-		bsr_err(8, BSR_LC_DRIVER, NO_OBJECT, "Failed to add device due to can't create device, err(0x%x)", status);
+		bsr_err(72, BSR_LC_VOLUME, NO_OBJECT, "Failed to add volume due to can't create device, err(0x%x)", status);
         return status;
     }
 

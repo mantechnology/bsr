@@ -513,7 +513,7 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	peer_req = mempool_alloc(bsr_ee_mempool, gfp_mask & ~__GFP_HIGHMEM);
 	if (!peer_req) {
 		if (!(gfp_mask & __GFP_NOWARN))
-			bsr_err(5, BSR_LC_PEER_REQUEST, device, "Failed to allocate peer request due to failed to allocate memory");
+			bsr_err(25, BSR_LC_MEMORY, device, "Failed to allocate peer request due to failed to allocate memory");
 		return NULL;
 	}
 
@@ -1243,7 +1243,7 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 	struct one_flush_context *octx = kmalloc(sizeof(*octx), GFP_NOIO, '78SB');
 
 	if (!bio || !octx) {
-		bsr_warn(44, BSR_LC_IO, device, "Could not allocate a bio, CANNOT ISSUE FLUSH");
+		bsr_warn(46, BSR_LC_MEMORY, device, "Could not allocate a bio, CANNOT ISSUE FLUSH");
 		/* FIXME: what else can I do now?  disconnecting or detaching
 		 * really does not help to improve the state of the world, either.
 		 */
@@ -1568,7 +1568,7 @@ enum write_ordering_e wo) __must_hold(local)
 
 	resource->write_ordering = wo;
 	if (pwo != resource->write_ordering || wo == WO_BIO_BARRIER)
-		bsr_info(12, BSR_LC_VOLUME, resource, "Method to ensure write ordering: %s", write_ordering_str[resource->write_ordering]);
+		bsr_info(66, BSR_LC_VOLUME, resource, "Method to ensure write ordering: %s", write_ordering_str[resource->write_ordering]);
 }
 
 
@@ -1877,7 +1877,7 @@ next_bio:
 	bio = bio_alloc(GFP_NOIO, nr_pages);
 #endif
 	if (!bio) {
-		bsr_err(7, BSR_LC_PEER_REQUEST, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
+		bsr_err(47, BSR_LC_MEMORY, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
 		goto fail;
 	}
 	/* > peer_req->i.sector, unless this is the first bio */
@@ -2198,7 +2198,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	/* even though we trust our peer,
 	 * we sometimes have to double check. */
 	if (d->sector + (d->bi_size >> 9) > capacity) {
-		bsr_err(9, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to request from peer beyond end of local disk, capacity(%llus), sector(%llus) + size(%u)",
+		bsr_err(9, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to request from peer beyond end of local disk, capacity(%llus), sector(%llus) + size(%u)",
 			capacity, d->sector, d->bi_size);
 		return NULL;
 	}
@@ -2232,7 +2232,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 #else // _LIN
 		struct page *page;
 		unsigned long *data;
-		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to fault injection. Corrupting data on receive, sector(%llu)",
+		bsr_err(28, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to fault injection. Corrupting data on receive, sector(%llu)",
 			d->sector);
 		page = peer_req->page_chain.head;
 		data = kmap(page) + page_chain_offset(page);
@@ -2244,7 +2244,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 	if (d->digest_size) {
 		bsr_csum_pages(peer_device->connection->peer_integrity_tfm, peer_req, dig_vv);
 		if (memcmp(dig_in, dig_vv, d->digest_size)) {
-			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Failed to read in blcok due to digest integrity check failed, sector(%llus) size(%u)",
+			bsr_err(29, BSR_LC_PEER_REQUEST, device, "Failed to read in block due to digest integrity check failed, sector(%llus) size(%u)",
 				d->sector, d->bi_size);
 			goto fail;
 		}
@@ -2737,7 +2737,7 @@ static struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer
 #else // _LIN
 	data = (void*)kmalloc(size, GFP_ATOMIC|__GFP_NOWARN);
 	if(!data) {
-		bsr_err(153, BSR_LC_RESYNC_OV, peer_device, "Failed to read in block split due to failure to allocate size(%u) memory to data.", size);
+		bsr_err(56, BSR_LC_MEMORY, peer_device, "Failed to read in block split due to failure to allocate size(%u) memory to data.", size);
 		bsr_free_peer_req(split_peer_request);
 		bsr_free_page_chain(transport, &split_peer_request->page_chain, 0);
 		return NULL;
@@ -2945,7 +2945,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		atomic_t *split_count;
 		split_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '39SB');
 		if (!split_count) {
-			bsr_err(40, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate %d size memory for split count", sizeof(atomic_t));
+			bsr_err(57, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate %d size memory for split count", sizeof(atomic_t));
 			return -ENOMEM;
 		}
 
@@ -3023,7 +3023,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																split_count, NULL);
 
 						if (!split_peer_req) {
-							bsr_err(41, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for split peer request, bitmap offset(%llu)", (unsigned long long)i_bb);
+							bsr_err(26, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for split peer request, bitmap offset(%llu)", (unsigned long long)i_bb);
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
@@ -3092,14 +3092,14 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						unmarked_count = kzalloc(sizeof(atomic_t), GFP_KERNEL, '49SB');
 						if (!unmarked_count) {
-							bsr_err(44, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for unmakred count");
+							bsr_err(27, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for unmakred count");
 							// DW-1923 to free allocation memory, go to the split_error_clean label.
 							err = -ENOMEM;
 							goto split_error_clear;
 						}
 						failed_unmarked = kzalloc(sizeof(atomic_t), GFP_KERNEL, '59SB');
 						if (!failed_unmarked) {
-							bsr_err(45, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate memory for failed unmarked");
+							bsr_err(28, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate memory for failed unmarked");
 							kfree(unmarked_count);
 							// DW-1923
 							err = -ENOMEM;
@@ -3125,7 +3125,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																		split_count, NULL);
 
 								if (!split_peer_req) {
-									bsr_err(46, BSR_LC_RESYNC_OV, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)", (unsigned long long)i_bb);
+									bsr_err(29, BSR_LC_MEMORY, peer_device, "Failed to allocate memory for split peer request, bitmap bit(%llu)", (unsigned long long)i_bb);
 									atomic_set(unmarked_count, atomic_read(unmarked_count) - (atomic_read(unmarked_count) - submit_count) + 1);
 									if (unmarked_count && 0 == atomic_dec_return(unmarked_count)) {
 										kfree(failed_unmarked);
@@ -3941,7 +3941,7 @@ static int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector
 			pending_st = (struct bsr_resync_pending_sectors *)kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			if (!pending_st) {
-				bsr_err(53, BSR_LC_RESYNC_OV, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+				bsr_err(30, BSR_LC_MEMORY, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
 				mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
 				return -ENOMEM;
 			}
@@ -4025,7 +4025,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(s_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(58, BSR_LC_RESYNC_OV, peer_device, "Failed to add marked replicate due to failure to allocate memory. bitmap bit(%llu)", (unsigned long long)s_bb);
+					bsr_err(31, BSR_LC_MEMORY, peer_device, "Failed to add marked replicate due to failure to allocate memory. bitmap bit(%llu)", (unsigned long long)s_bb);
 					return -ENOMEM;
 				}
 			}
@@ -4057,7 +4057,7 @@ static int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, se
 					list_add(&(e_marked_rl->marked_rl_list), &device->marked_rl_list);
 				}
 				else {
-					bsr_err(59, BSR_LC_RESYNC_OV, peer_device, "Failed to add marked replicate due to failure to allocate memory for marked replicate. bitmap bit(%llu)", (unsigned long long)e_bb);
+					bsr_err(32, BSR_LC_MEMORY, peer_device, "Failed to add marked replicate due to failure to allocate memory for marked replicate. bitmap bit(%llu)", (unsigned long long)e_bb);
 					return -ENOMEM;
 				}
 			}
@@ -4861,7 +4861,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_SECONDARY:
 	case ASB_CALL_HELPER:
 	case ASB_VIOLENTLY:
-		bsr_err(62, BSR_LC_RESYNC_OV, peer_device, "Error setting split-brain recovery. sb(%d)", after_sb_0p);
+		bsr_err(25, BSR_LC_CONNECTION, peer_device, "Error setting split-brain recovery. sb(%d)", after_sb_0p);
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4939,7 +4939,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_DISCARD_LOCAL:
 	case ASB_DISCARD_REMOTE:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(63, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
+		bsr_err(26, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
 		break;
 	case ASB_DISCONNECT:
 		break;
@@ -4999,7 +4999,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 	case ASB_CONSENSUS:
 	case ASB_DISCARD_SECONDARY:
 	case ASB_DISCARD_ZERO_CHG:
-		bsr_err(64, BSR_LC_RESYNC_OV, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
+		bsr_err(27, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
 		break;
 	case ASB_VIOLENTLY:
 		rv = bsr_asb_recover_0p(peer_device);
@@ -5829,7 +5829,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_khelper(device, connection, "pri-lost");
 			/* fall through */
 		case ASB_DISCONNECT:
-			bsr_err(97, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			return -1;
 		case ASB_VIOLENTLY:
 			bsr_warn(22, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
@@ -5840,12 +5840,12 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// DW-1657 If an inconsistent node tries to become a SyncSource, it will disconnect.
 	if (hg == 3 && device->disk_state[NOW] < D_OUTDATED && 
 		bsr_current_uuid(peer_device->device) != UUID_JUST_CREATED) {
-		bsr_err(98, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+		bsr_err(29, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 		return -1;
 	}
 
 	if (hg == -3 && peer_device->uuid_flags & UUID_FLAG_INCONSISTENT) {
-		bsr_err(96, BSR_LC_RESYNC_OV, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+		bsr_err(30, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 		return -1;
 	}	
 
@@ -5996,14 +5996,14 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62SB');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72SB');
 		if (!(int_dig_in && int_dig_vv)) {
-			bsr_err(14, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to failure allocation memory for integrity");
+			bsr_err(70, BSR_LC_MEMORY, connection, "Failed to receive protocol due to failure allocation memory for integrity");
 			goto disconnect;
 		}
 	}
 
 	new_net_conf = kmalloc(sizeof(struct net_conf), GFP_KERNEL, '82SB');
 	if (!new_net_conf) {
-		bsr_err(15, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
+		bsr_err(71, BSR_LC_MEMORY, connection, "Failed to receive protocol due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
 		goto disconnect;
 	}
 
@@ -6086,7 +6086,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
 	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
 #endif
 	if (IS_ERR(tfm)) {
-		bsr_err(18, BSR_LC_PROTOCOL, device, "Failed to allocate \"%s\" as %s (reason: %ld) memory",
+		bsr_err(72, BSR_LC_MEMORY, device, "Failed to allocate \"%s\" as %s (reason: %ld) memory",
 			alg, name, PTR_ERR(tfm));
 		return tfm;
 	}
@@ -6177,7 +6177,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (!new_peer_device_conf) {
 			put_ldev(device);
 			mutex_unlock(&resource->conf_update);
-			bsr_err(21, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate %d size memory for peer device configure", sizeof(struct peer_device_conf));
+			bsr_err(73, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate %d size memory for peer device configure", sizeof(struct peer_device_conf));
 			return -ENOMEM;
 		}
 		/* With a non-zero new_peer_device_conf, we will call put_ldev() below.  */
@@ -6251,7 +6251,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 				new_plan = fifo_alloc(fifo_size);
 #endif
 				if (!new_plan) {
-					bsr_err(25, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate memory for fifo buffer");
+					bsr_err(33, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate memory for fifo buffer");
 					goto disconnect;
 				}
 			}
@@ -6266,7 +6266,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 		if (verify_tfm || csums_tfm) {
 			new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'C2SB');
 			if (!new_net_conf) {
-				bsr_err(26, BSR_LC_PROTOCOL, device, "Failed receive sync param due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
+				bsr_err(74, BSR_LC_MEMORY, device, "Failed receive sync param due to failure to allocate %d size memory for net configure", sizeof(struct net_conf));
 				goto disconnect;
 			}
 
@@ -6560,7 +6560,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 			struct disk_conf *old_disk_conf, *new_disk_conf;
 			new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'D2SB');
 			if (!new_disk_conf) {
-				bsr_err(37, BSR_LC_PROTOCOL, device, "Failed receive sizes due to failure to allocate %d size memory for disk configure", sizeof(struct disk_conf));
+				bsr_err(75, BSR_LC_MEMORY, device, "Failed receive sizes due to failure to allocate %d size memory for disk configure", sizeof(struct disk_conf));
 				err = -ENOMEM;
 				goto out;
 			}
@@ -7887,7 +7887,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         struct disk_conf *old_disk_conf, *new_disk_conf;
 		new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, 'E7SB');
         if (!new_disk_conf) {
-			bsr_err(9, BSR_LC_TWOPC, device, "Failed to change disk commit size due to failure allocate %d size memory for disk configure", sizeof(struct disk_conf));
+			bsr_err(60, BSR_LC_MEMORY, device, "Failed to change disk commit size due to failure allocate %d size memory for disk configure", sizeof(struct disk_conf));
 			device->ldev->disk_conf->disk_size = tr->user_size;
             goto cont;
         }
@@ -9369,7 +9369,7 @@ static int list_add_resync_pending(struct bsr_device* device, sector_t sst, sect
 #endif
 
 		if (!pending_st) {
-			bsr_err(100, BSR_LC_RESYNC_OV, device, "Failed to add resync pending due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+			bsr_err(34, BSR_LC_MEMORY, device, "Failed to add resync pending due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
 			mutex_unlock(&device->resync_pending_fo_mutex);
 			return -ENOMEM;
 		}
@@ -10407,7 +10407,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	peers_ch = kmalloc(sizeof(*peers_ch), GFP_NOIO, '98SB');
 	if (peers_ch == NULL) {
-		bsr_err(37, BSR_LC_ETC, connection, "kmalloc of peers_ch failed");
+		bsr_err(82, BSR_LC_MEMORY, connection, "kmalloc of peers_ch failed");
 		rv = -1;
 		goto fail;
 	}
@@ -10476,7 +10476,7 @@ int bsr_do_auth(struct bsr_connection *connection)
 
 	right_response = kmalloc(resp_size, GFP_NOIO, 'A8SB' );
 	if (right_response == NULL) {
-		bsr_err(42, BSR_LC_ETC, connection, "kmalloc of right_response failed");
+		bsr_err(83, BSR_LC_MEMORY, connection, "kmalloc of right_response failed");
 		rv = -1;
 		goto fail;
 	}

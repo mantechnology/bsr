@@ -632,19 +632,19 @@ static char **make_envp(struct env *env)
 #ifdef _WIN
 #define magic_printk(index, category, level, fmt, ...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(category, level, peer_device, fmt, __VA_ARGS__); \
+		__bsr_printk_peer_device(category, index, level, peer_device, fmt, __VA_ARGS__); \
 	else if (device)						\
-		__bsr_printk_device(category, level, device, fmt, __VA_ARGS__);		\
+		__bsr_printk_device(category, index, level, device, fmt, __VA_ARGS__);		\
 	else								\
-		__bsr_printk_connection(category, level, connection, fmt, __VA_ARGS__);
+		__bsr_printk_connection(category, index, level, connection, fmt, __VA_ARGS__);
 #else // _LIN
 #define magic_printk(index, category, level, fmt, args...)				\
 	if (peer_device)						\
-		__bsr_printk_peer_device(category, level, peer_device, fmt, args); \
+		__bsr_printk_peer_device(category, index, level, peer_device, fmt, args); \
 	else if (device)						\
-		__bsr_printk_device(category, level, device, fmt, args);		\
+		__bsr_printk_device(category, index, level, device, fmt, args);		\
 	else								\
-		__bsr_printk_connection(category, level, connection, fmt, args);
+		__bsr_printk_connection(category, index, level, connection, fmt, args);
 #endif
 
 int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)
@@ -989,7 +989,7 @@ void conn_try_outdate_peer_async(struct bsr_connection *connection)
 
 	Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, _try_outdate_peer_async, (void *)connection);
 	if (!NT_SUCCESS(Status)) {
-		bsr_err(9, BSR_LC_GENL, NO_OBJECT, "PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X", Status);
+		bsr_err(37, BSR_LC_THREAD, NO_OBJECT, "PsCreateSystemThread(_try_outdate_peer_async) failed with status 0x%08X", Status);
 		kref_put(&connection->kref, bsr_destroy_connection);
 	}
 	else
@@ -1801,9 +1801,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 			/* currently there is only one error: ENOMEM! */
 			size = bsr_bm_capacity(device);
 			if (size == 0) {
-				bsr_err(11, BSR_LC_GENL, device, "Failed to determine device size due to device is not assigned bitmap.");
+				bsr_err(103, BSR_LC_BITMAP, device, "Failed to determine device size due to device is not assigned bitmap.");
 			} else {
-				bsr_err(12, BSR_LC_GENL, device, "Failed to determine device size due to bitmap resizing failed. Leaving size unchanged");
+				bsr_err(104, BSR_LC_BITMAP, device, "Failed to determine device size due to bitmap resizing failed. Leaving size unchanged");
 			}
 			rv = DS_ERROR;
 		}
@@ -1827,6 +1827,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		int i;
 		bool prev_al_disabled = 0;
 		u32 prev_peer_full_sync = 0;
+		struct bsr_peer_device* peer_device;
 
 		/* We do some synchronous IO below, which may take some time.
 		 * Clear the timer, to avoid scary "timer expired!" messages,
@@ -1868,6 +1869,11 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 				md->peers[i].flags &= ~MDF_PEER_FULL_SYNC;
 		}
 		bsr_md_write(device, buffer);
+
+		for_each_peer_device(peer_device, device) {
+			// BSR-676 notify flag
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+		}
 
 		if (rs)
 			bsr_info(15, BSR_LC_GENL, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)",
@@ -2090,7 +2096,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		dc->al_extents, sizeof(struct lc_element), 0);
 #endif
 	if (n == NULL) {
-		bsr_err(21, BSR_LC_GENL, device, "Failed to check activity log size due to cannot allocate activity log LRU");
+		bsr_err(34, BSR_LC_LRU, device, "Failed to check activity log size due to cannot allocate activity log LRU");
 		return -ENOMEM;
 	}
 	spin_lock_irq(&device->al_lock);
@@ -2098,7 +2104,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		for (i = 0; i < t->nr_elements; i++) {
 			e = lc_element_by_index(t, i);
 			if (e->refcnt)
-				bsr_err(22, BSR_LC_GENL, device, "Failed to check activity log size due to reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
+				bsr_err(35, BSR_LC_LRU, device, "reference count has non-zero element(%u), reference count(%u)", e->lc_number, e->refcnt);
 			in_use += e->refcnt;
 		}
 	}
@@ -2106,7 +2112,7 @@ static int bsr_check_al_size(struct bsr_device *device, struct disk_conf *dc)
 		device->act_log = n;
 	spin_unlock_irq(&device->al_lock);
 	if (in_use) {
-		bsr_err(23, BSR_LC_GENL, device, "Failed to check activity log size due to activity log is already in use.");
+		bsr_err(36, BSR_LC_LRU, device, "Failed to check activity log size due to activity log is already in use.");
 		lc_destroy(n);
 		return -EBUSY;
 	} else {
@@ -2476,7 +2482,8 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_device *device;
 	struct bsr_resource *resource;
 	struct disk_conf *new_disk_conf, *old_disk_conf;
-	struct bsr_peer_device *peer_device;
+	struct bsr_peer_device *peer_device; 
+	u32 md_flags;
 	int err;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
@@ -2547,6 +2554,8 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_unlock(&resource->conf_update);
 
+	md_flags = device->ldev->md.flags;
+
 	if (new_disk_conf->al_updates)
 		device->ldev->md.flags &= ~MDF_AL_DISABLED;
 	else
@@ -2565,6 +2574,11 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		bsr_reconsider_queue_parameters(device, device->ldev, NULL);
 
 	bsr_md_sync_if_dirty(device);
+
+	// BSR-676 notify flag
+	if ((md_flags & MDF_AL_DISABLED) != (device->ldev->md.flags & MDF_AL_DISABLED)) {
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+	}
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED)
@@ -2669,7 +2683,7 @@ struct bsr_backing_dev *nbc)
 			return 0;
 		}
 	}
-	bsr_err(31, BSR_LC_GENL, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
+	bsr_err(105, BSR_LC_BITMAP, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
 	return -ENOSPC;
 }
 
@@ -2685,7 +2699,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
 #endif
 	if (IS_ERR(bdev)) {
-		bsr_err(32, BSR_LC_GENL, device, "Failed to open(\"%s\") backing device with %ld",
+		bsr_err(104, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
@@ -2704,7 +2718,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 #endif
 	if (err) {
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
-		bsr_err(33, BSR_LC_GENL, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
+		bsr_err(141, BSR_LC_DRIVER, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
 	}
@@ -2823,6 +2837,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_peer_device *peer_device;
 	unsigned int slots_needed = 0;
 	bool have_conf_update = false;
+	unsigned int md_flags;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
 	if (!adm_ctx.reply_skb)
@@ -3270,12 +3285,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	bsr_try_suspend_al(device); /* IO is still suspended here... */
 
+	
 #ifdef _WIN
 	unsigned char oldIrql_rLock1; // RCU_SPECIAL_CASE
 	oldIrql_rLock1 = ExAcquireSpinLockShared(&g_rcuLock);
 #else // _LIN
 	rcu_read_lock();
 #endif
+	md_flags = device->ldev->md.flags;
+
 	if (rcu_dereference(device->ldev->disk_conf)->al_updates)
 		device->ldev->md.flags &= ~MDF_AL_DISABLED;
 	else
@@ -3304,6 +3322,13 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 
 	bsr_md_sync(device);
+
+	// BSR-676 notify GI
+	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+	for_each_peer_device(peer_device, device) {
+		bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+	}
 
 	bsr_kobject_uevent(device);
 	put_ldev(device);
@@ -4524,7 +4549,7 @@ void del_connection(struct bsr_connection *connection)
 	 */
 	rv2 = change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD);
 	if (rv2 < SS_SUCCESS)
-		bsr_err(49, BSR_LC_GENL, connection, "Failed to delete connection due to failure to change status to standalone. state(%d)", rv2);
+		bsr_err(31, BSR_LC_CONNECTION, connection, "Failed to delete connection due to failure to change status to standalone. state(%d)", rv2);
 	/* Make sure the sender thread has actually stopped: state
 	 * handling only does bsr_thread_stop_nowait().
 	 */
@@ -6191,11 +6216,12 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 
 	if (args.clear_bm) {
 		unsigned long irq_flags;
+		bool updated_uuid = false;
 
 		err = bsr_bitmap_io(device, &bsr_bmio_clear_all_n_write,
 			"clear_n_write from new_c_uuid", BM_LOCK_ALL, NULL);
 		if (err) {
-			bsr_err(55, BSR_LC_GENL, device, "Failed to create new uuid due to writing bitmap failed with %d",err);
+			bsr_err(55, BSR_LC_GENL, device, "Failed to create new uuid due to writing bitmap failed with err %d",err);
 			retcode = ERR_IO_MD_DISK;
 		}
 		for_each_peer_device(peer_device, device) {
@@ -6204,8 +6230,15 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
 				_bsr_uuid_set_bitmap(peer_device, 0);
 				bsr_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
+				updated_uuid = true;
 			}
 		}
+
+		if (updated_uuid) {
+			// BSR-676 notify uuid
+			bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+		}
+
 		begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 		__change_disk_state(device, D_UP_TO_DATE, __FUNCTION__);
 		for_each_peer_device(peer_device, device) {
@@ -7011,6 +7044,227 @@ fail:
 		nlmsg_free(skb);
 }
 
+// BSR-676 notify when UUID is changed
+void notify_gi_uuid_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
+{
+	struct bsr_updated_gi_uuid_info gi;
+	struct bsr_genlmsghdr *dh;
+	struct bsr_device *device;
+	struct bsr_connection *connection = NULL;
+	int err;
+	bool multicast = false;
+	int len = -1;
+
+	if (!peer_device)
+		return;
+
+	device = peer_device->device;
+	connection = peer_device->connection;
+
+	if (!connection || !device || !device->ldev)
+		return;
+
+	memset(gi.uuid, 0, sizeof(gi.uuid));
+#ifdef _WIN
+	len = sprintf_s(gi.uuid, sizeof(gi.uuid), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", 
+#else // _LIN
+	len = sprintf(gi.uuid, "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX",
+#endif
+		(unsigned long long)bsr_current_uuid(device),
+		(unsigned long long)bsr_bitmap_uuid(peer_device),
+		(unsigned long long)bsr_history_uuid(device, 0),
+		(unsigned long long)bsr_history_uuid(device, 1));
+
+	if (len == -1)
+		goto fail;
+		
+	gi.uuid_len = len;
+		
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+		multicast = true;
+	}
+		
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_UUID);
+		
+	if (!dh)
+		goto fail;
+		
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
+		nla_put_notification_header(skb, type) ||
+		bsr_updated_gi_uuid_info_to_skb(skb, &gi, true))
+		goto fail;
+		
+	genlmsg_end(skb, dh);
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto fail;
+	}
+
+	return;
+
+fail:
+	if (skb)
+		nlmsg_free(skb);
+}
+
+// BSR-676 notify when device mdf flag is changed.
+void notify_gi_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, struct bsr_device *device, enum bsr_notification_type type)
+{
+	struct bsr_updated_gi_device_mdf_flag_info gi;
+	struct bsr_genlmsghdr *dh;
+	int err;
+	int len = -1;
+	bool multicast = false;
+
+	if (!device || !device->ldev)
+		return;
+#ifdef _WIN
+	len = sprintf_s(gi.device_mdf, sizeof(gi.device_mdf), "consistent:%d was-up-to-date:%d primary-ind:%d "
+#else // _LIN
+	len = sprintf(gi.device_mdf, "consistent:%d was-up-to-date:%d primary-ind:%d "
+#endif
+		"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", 
+		device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
+		device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0,
+		device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0,
+		device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0,
+		device->ldev->md.flags & MDF_AL_CLEAN ? 1 : 0,
+		device->ldev->md.flags & MDF_AL_DISABLED ? 1 : 0,
+		device->ldev->md.flags & MDF_LAST_PRIMARY ? 1 : 0);
+
+	if (len == -1)
+		goto fail;
+	gi.device_mdf_len = len;
+
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+		multicast = true;
+	}
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_DEVICE_MDF_FLAG);
+
+	if (!dh)
+		goto fail;
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
+		nla_put_notification_header(skb, type) ||
+		bsr_updated_gi_device_mdf_flag_info_to_skb(skb, &gi, true))
+		goto fail;
+
+	genlmsg_end(skb, dh);
+
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto fail;
+	}
+
+	return;
+
+fail:
+	if (skb)
+		nlmsg_free(skb);
+}
+
+
+// BSR-676 notify when peer_device is changed.
+void notify_gi_peer_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer_device *peer_device, enum bsr_notification_type type)
+{
+	struct bsr_updated_gi_peer_device_mdf_flag_info gi;
+	struct bsr_connection *connection = NULL;
+	struct bsr_genlmsghdr *dh;
+	struct bsr_device *device;
+	int err;
+	int len = -1;
+	u32 peer_flags;
+	bool multicast = false;
+
+	if (!peer_device)
+		return;
+
+	device = peer_device->device;
+
+	if (!device || !device->ldev) 
+		return;
+
+	peer_flags = device->ldev->md.peers[peer_device->node_id].flags;
+
+	if (peer_device->connection)
+		connection = peer_device->connection;
+#ifdef _WIN
+	len = sprintf_s(gi.peer_device_mdf, sizeof(gi.peer_device_mdf), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", 
+#else // _LIN
+	len = sprintf(gi.peer_device_mdf, "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d",
+#endif 
+		peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
+		peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
+		peer_flags & MDF_PEER_FENCING ? 1 : 0,
+		peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
+	
+
+	if (len == -1)
+		goto fail;
+	gi.peer_device_mdf_len = len;
+
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto fail;
+		multicast = true;
+	}
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG);
+
+	if (!dh)
+		goto fail;
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
+		nla_put_notification_header(skb, type) ||
+		bsr_updated_gi_peer_device_mdf_flag_info_to_skb(skb, &gi, true))
+		goto fail;
+
+	genlmsg_end(skb, dh);
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto fail;
+	}
+
+	return;
+
+fail:
+	if (skb)
+		nlmsg_free(skb);
+}
+
+
 void notify_path(struct bsr_connection *connection, struct bsr_path *path,
 		 enum bsr_notification_type type)
 {
@@ -7152,9 +7406,11 @@ static void free_state_changes(struct list_head *list)
 static unsigned int notifications_for_state_change(struct bsr_state_change *state_change)
 {
 	return 1 +
-	       state_change->n_connections +
-	       state_change->n_devices +
-	       state_change->n_devices * state_change->n_connections;
+		state_change->n_connections +
+		// BSR-676 added * 2 for GI information output
+		(state_change->n_devices * 2) +
+		// BSR-676 added * 3 for GI information output
+		((state_change->n_devices * state_change->n_connections) * 3);
 }
 
 static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
@@ -7181,26 +7437,55 @@ static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 	if (cb->args[4] < cb->args[3])
 		flags |= NOTIFY_CONTINUES;
 	if (n < 1) {
+		bsr_info(91, BSR_LC_GENL, NO_OBJECT, "notify_resource_state_change args[3](%d), args[4](%d), args[5](%d), n(%d), len(%d)", cb->args[3], cb->args[4], cb->args[5], n, skb->len);
 		notify_resource_state_change(skb, (unsigned int)seq, state_change,
 					     NOTIFY_EXISTS | flags);
 		goto next;
 	}
+
 	n--;
+
 	if (n < state_change->n_connections) {
 		notify_connection_state_change(skb, (unsigned int)seq, &state_change->connections[n],
 					       NOTIFY_EXISTS | flags);
 		goto next;
 	}
 	n -= state_change->n_connections;
+
 	if (n < state_change->n_devices) {
 		notify_device_state_change(skb, (unsigned int)seq, &state_change->devices[n],
-					   NOTIFY_EXISTS | flags);
+			NOTIFY_EXISTS | flags);
 		goto next;
 	}
 	n -= state_change->n_devices;
+
+	if (n < state_change->n_devices * state_change->n_connections) {
+		// BSR-676 
+		notify_gi_uuid_state(skb, (unsigned int)seq, (&state_change->peer_devices[n])->peer_device,
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= (state_change->n_devices * state_change->n_connections);
+
+	if (n < state_change->n_devices) {
+		// BSR-676 
+		notify_gi_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->devices[n])->device, 
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= state_change->n_devices;
+
 	if (n < state_change->n_devices * state_change->n_connections) {
 		notify_peer_device_state_change(skb, (unsigned int)seq, &state_change->peer_devices[n],
-						NOTIFY_EXISTS | flags);
+			NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= (state_change->n_devices * state_change->n_connections);
+	
+	if (n < state_change->n_devices * state_change->n_connections) {
+		// BSR-676 
+		notify_gi_peer_device_mdf_flag_state(skb, (unsigned int)seq, (&state_change->peer_devices[n])->peer_device, 
+			NOTIFY_EXISTS | flags);
 		goto next;
 	}
 

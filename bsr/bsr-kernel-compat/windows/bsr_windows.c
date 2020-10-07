@@ -1778,7 +1778,7 @@ int generic_make_request(struct bio *bio)
 			}
 		}
 		else {
-			bsr_err(39, BSR_LC_IO, NO_OBJECT,"No I/O request disk or device information. IRQL(%d)", KeGetCurrentIrql());
+			bsr_err(39, BSR_LC_IO, NO_OBJECT, "Failed to I/O request due to failure to not found volume information. IRQL(%d)", KeGetCurrentIrql());
 			return -EIO;
 		}
 	}
@@ -1820,6 +1820,8 @@ int generic_make_request(struct bio *bio)
 		offset.QuadPart / 512, bio->bi_size, KeGetCurrentIrql(), &offset, buffer, q->backing_dev_info.pDeviceExtension->Letter);
 #endif
 
+	int retry = 0;
+retry:
 	newIrp = IoBuildAsynchronousFsdRequest(
 				io,
 				bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject,
@@ -1830,7 +1832,18 @@ int generic_make_request(struct bio *bio)
 				);
 
 	if (!newIrp) {
-		bsr_err(3, BSR_LC_IO, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.");
+		// DW-2156 if the irp allocation fails, try again three times.
+		if (retry < 3) {
+			LARGE_INTEGER	delay;
+
+			delay.QuadPart = (-1 * 1000 * 10000);   //// wait 1000ms relative
+			KeDelayExecutionThread(KernelMode, FALSE, &delay);
+			retry++;
+			bsr_warn(84, BSR_LC_MEMORY, NO_OBJECT, "IoBuildAsynchronousFsdRequest: cannot alloc new IRP, try again (%d/3)\n", retry);
+			goto retry;
+		}
+
+		bsr_err(48, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocation of IRP in IoBuildAsynchronousFsdRequest.");
 		// DW-1831 check whether bio->bi_bdev and bio->bi_bdev->bd_disk are null.
 		if (bio && bio->bi_bdev && bio->bi_bdev->bd_disk && bio->bi_bdev->bd_disk->pDeviceExtension)
 			IoReleaseRemoveLock(&bio->bi_bdev->bd_disk->pDeviceExtension->RemoveLock, NULL);
@@ -2476,25 +2489,25 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 
     dev = kmalloc(sizeof(struct block_device), 0, 'C5SB');
     if (!dev) {
-		bsr_err(2, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device", sizeof(struct block_device));
+		bsr_err(20, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_contains = kmalloc(sizeof(struct block_device), 0, 'D5SB');
 	if (!dev->bd_contains) {
-		bsr_err(3, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device contains", sizeof(struct block_device));
+		bsr_err(21, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for block device contains", sizeof(struct block_device));
         return NULL;
     }
 
 	dev->bd_disk = alloc_disk(0);
 	if (!dev->bd_disk) {
-		bsr_err(58, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for gendisk", sizeof(struct gendisk));
+		bsr_err(22, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for gendisk", sizeof(struct gendisk));
 		goto gendisk_failed;
 	}
 
 	dev->bd_disk->queue = blk_alloc_queue(0);
 	if (!dev->bd_disk->queue) {
-		bsr_err(59, BSR_LC_VOLUME, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
+		bsr_err(23, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
 		goto request_queue_failed;
 	}
 		
@@ -2903,7 +2916,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, 'C0SB');
 	if (!pSock) {
-		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to user handler execution due to failure to allocate %d size memory for socket", sizeof(struct socket));
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodephelper execution due to failure to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;
 	}
 #ifdef _WIN64
@@ -2912,7 +2925,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64SB');
 	if (!cmd_line) {
-		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to user handler execution due to failure to allocate %d size memory for command line", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodephelper execution due to failure to allocate %d size memory for command line", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -2924,7 +2937,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to create socket");
+		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to create socket");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -2950,11 +2963,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
-		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to connect not completed. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed. IRQL(%d)", KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	}
@@ -2972,13 +2985,13 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		char hello[2];
 		memset(hello, 0, sizeof(hello));
 		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi");
-		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout)) == 2) {
+		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout, NULL)) == 2) {
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
+				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to receive. status(0x%x)", readcount);
+				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 
@@ -2988,18 +3001,18 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to send command. status(0x%x)", Status);
+			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to send command. status(0x%x)", Status);
 			ret = -1;
 			goto error;
 		}
 
-		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout)) > 0) {
+		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout, NULL)) > 0) {
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to receive timed out(%d)", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to receive timed out(%d)", g_handler_timeout);
 			} else {
-				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to receive. status(0x%x)", readcount);
+				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3007,7 +3020,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to user handler execution due to failure to send finished. status(0x%x)", Status); // ignore!
+			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to send finished. status(0x%x)", Status); // ignore!
 		}
 
 		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...", Status);

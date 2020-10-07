@@ -341,6 +341,9 @@ struct bsr_state_change *remember_state_change(struct bsr_resource *resource, gf
 		if (test_and_clear_bit(HAVE_LDEV, &device->flags))
 			device_state_change->have_ldev = true;
 
+		// BSR-676
+		device_state_change->notify_flags = atomic_xchg(&device->notify_flags, 0);
+
 		/* The peer_devices for each device have to be enumerated in
 		   the order of the connections. We may not use for_each_peer_device() here. */
 		for_each_connection(connection, resource) {
@@ -363,6 +366,8 @@ struct bsr_state_change *remember_state_change(struct bsr_resource *resource, gf
 			memcpy(peer_device_state_change->resync_susp_other_c,
 			       peer_device->resync_susp_other_c,
 			       sizeof(peer_device->resync_susp_other_c));
+			// BSR-676
+			peer_device_state_change->notify_flags = atomic_xchg(&peer_device->notify_flags, 0);
 			peer_device_state_change++;
 		}
 		device_state_change++;
@@ -692,7 +697,7 @@ void state_change_lock(struct bsr_resource *resource, unsigned long *irq_flags, 
 		bsr_info(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
 #else // _LIN
 		WARN_ONCE(current == resource->worker.task,
-			"worker should not initiate state changes with CS_SERIALIZE\n");
+			"worker should not initiate state changes with CS_SERIALIZE");
 #endif
 		down(&resource->state_sem);
 	}
@@ -2158,7 +2163,7 @@ static void queue_after_state_change_work(struct bsr_resource *resource,
 		bsr_queue_work(&resource->work, &work->w);
 	} else {
 		kfree(work);
-		bsr_err(26, BSR_LC_STATE, resource, "Failed to queue state change work due to failure to allocate memory for work");
+		bsr_err(42, BSR_LC_MEMORY, resource, "Failed to queue state change work due to failure to allocate memory for work");
 		if (done)
 			complete(done);
 	}
@@ -2272,6 +2277,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 		if (disk_state[OLD] == D_ATTACHING && disk_state[NEW] >= D_NEGOTIATING)
 			bsr_info(14, BSR_LC_UUID, device, "attached to current UUID: %016llX", device->ldev->md.current_uuid);
+
+		// BSR-676 current UUID output when setting D_DETACHING state
+		if (disk_state[NEW] == D_DETACHING)
+			bsr_info(19, BSR_LC_UUID, device, "detaching to current UUID: %016llX", device->ldev->md.current_uuid);
 
 		for_each_peer_device(peer_device, device) {
 			enum bsr_repl_state *repl_state = peer_device->repl_state;
@@ -2433,6 +2442,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 					if (mdf != device->ldev->md.peers[peer_device->node_id].flags) {
 						device->ldev->md.peers[peer_device->node_id].flags = mdf;
 						bsr_md_mark_dirty(device);
+						// BSR-676 notify flag
+						atomic_set(&peer_device->notify_flags, (atomic_read(&peer_device->notify_flags) | 1));
 					}
 				}
 
@@ -2506,6 +2517,8 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			if (mdf != device->ldev->md.flags) {
 				device->ldev->md.flags = mdf;
 				bsr_md_mark_dirty(device);
+				// BSR-676 notify flag
+				atomic_set(&device->notify_flags, (atomic_read(&device->notify_flags) | 1));
 			}
 			if (disk_state[OLD] < D_CONSISTENT && disk_state[NEW] >= D_CONSISTENT)
 				bsr_set_exposed_data_uuid(device, device->ldev->md.current_uuid);
@@ -3219,6 +3232,13 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		// DW-1315
 		u64 authoritative[2] = { 0, };
 
+		// BSR-676
+		if (device_state_change->notify_flags & 1) {
+			mutex_lock(&notification_mutex);
+			notify_gi_device_mdf_flag_state(NULL, 0, device, NOTIFY_CHANGE);
+			mutex_unlock(&notification_mutex);
+		}
+
 		for (which = OLD; which <= NEW; which++)
 			// DW-1315 need changes of authoritative node to notify peers.
 			device_stable[which] = calc_device_stable_ex(state_change, n_device, which, &authoritative[which]);
@@ -3256,6 +3276,13 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 				if (peer_device->uuids_received)
 					peer_device->uuid_flags &= ~((u64)UUID_FLAG_CRASHED_PRIMARY);
+			}
+
+			// BSR-676
+			if (peer_device_state_change->notify_flags & 1) {
+				mutex_lock(&notification_mutex);
+				notify_gi_peer_device_mdf_flag_state(NULL, 0, peer_device, NOTIFY_CHANGE);
+				mutex_unlock(&notification_mutex);
 			}
 		}
 
@@ -4804,7 +4831,7 @@ void twopc_end_nested(struct bsr_resource *resource, enum bsr_packet cmd, bool a
 	connections = (struct bsr_connection**)kmalloc(sizeof(struct bsr_connection*) * connectionCount, GFP_ATOMIC, 'D8SB');
 	if (connections == NULL) {
 		spin_unlock_irq(&resource->req_lock);
-		bsr_err(48, BSR_LC_TWOPC, resource, "Failed to send twopc reply due to failure to allocate memory for connections");
+		bsr_err(43, BSR_LC_MEMORY, resource, "Failed to send twopc reply due to failure to allocate memory for connections");
 		return;
 	}
 

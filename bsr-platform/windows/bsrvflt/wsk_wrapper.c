@@ -734,8 +734,7 @@ Send(
 	__in enum			bsr_stream stream
 )
 {
-	UNREFERENCED_PARAMETER(send_buf_kill_event);
-	UNREFERENCED_PARAMETER(transport);
+	UNREFERENCED_PARAMETER(send_buf_kill_event);	
 	UNREFERENCED_PARAMETER(stream);
 
 	PWSK_SOCKET		WskSocket = pSock->sk;
@@ -846,6 +845,9 @@ Send(
 
 	ExFreePool(CompletionEvent);
 	IoFreeIrp(Irp);
+
+	if (BytesSent > 0 && transport)
+		atomic_add64(BytesSent, &transport->sum_sent);
 
 	return BytesSent;
 
@@ -1189,7 +1191,8 @@ LONG NTAPI Receive(
 	__out PVOID			Buffer,
 	__in  ULONG			BufferSize,
 	__in  ULONG			Flags,
-	__in ULONG			Timeout
+	__in ULONG			Timeout,
+	__in struct			bsr_transport *transport
 )
 {
 	PWSK_SOCKET		WskSocket = pSock->sk;
@@ -1313,6 +1316,9 @@ LONG NTAPI Receive(
 
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
+
+	if (BytesReceived > 0 && transport)
+		atomic_add64(BytesReceived, &transport->sum_recv);
 
 	return BytesReceived;
 }
