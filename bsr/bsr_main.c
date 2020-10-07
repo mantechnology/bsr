@@ -4316,6 +4316,9 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 
 	INIT_LIST_HEAD(&connection->transport.paths);
 	connection->transport.log_prefix = resource->name;
+	atomic_set64(&connection->transport.sum_sent, 0);
+	atomic_set64(&connection->transport.sum_recv, 0);
+	connection->transport.sum_start_time = jiffies;
 	if (tc->init(&connection->transport))
 		goto fail;
 

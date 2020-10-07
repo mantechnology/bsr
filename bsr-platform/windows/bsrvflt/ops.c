@@ -607,6 +607,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = connection;
 		connection_transport_show(&seq, 0);
 		break;
+	case DBG_CONN_TRANSPORT_SPEED:
+		seq.private = connection;
+		connection_transport_speed_show(&seq, 0);
+		break;
 	case DBG_CONN_SEND_BUF:
 		seq.private = connection;
 		connection_send_buf_show(&seq, 0);
