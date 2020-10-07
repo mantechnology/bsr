@@ -643,6 +643,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = device;
 		device_oldest_requests_show(&seq, 0);
 		break;
+	case DBG_DEV_REQ_TIMING:
+		seq.private = device;
+		device_req_timing_show(&seq, 0);
+		break;
 
 	default:
 		break;

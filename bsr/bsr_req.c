@@ -237,7 +237,26 @@ void bsr_req_destroy(struct kref *kref)
 	device = req->device;
 	s = req->rq_state[0];
 	destroy_next = req->destroy_next;
+#ifdef CONFIG_BSR_TIMING_STATS
+	if (s & RQ_WRITE) {
 
+		spin_lock(&device->timing_lock); /* local irq already disabled */
+		device->reqs++;
+		
+		ktime_aggregate(device, req, in_actlog_kt);
+		ktime_aggregate(device, req, pre_submit_kt);
+		for_each_peer_device(peer_device, device) {
+			int node_id = peer_device->node_id;
+			unsigned ns = bsr_req_state_by_peer_device(req, peer_device);
+			if (!(ns & RQ_NET_MASK))
+				continue;
+			ktime_aggregate_pd(peer_device, node_id, req, pre_send_kt);
+			ktime_aggregate_pd(peer_device, node_id, req, acked_kt);
+			ktime_aggregate_pd(peer_device, node_id, req, net_done_kt);
+		}
+		spin_unlock(&device->timing_lock);
+	}
+#endif
 	/* paranoia */
 	for_each_peer_device(peer_device, device) {
 		unsigned ns = bsr_req_state_by_peer_device(req, peer_device);
@@ -1045,9 +1064,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
 		++c_put;
-#ifdef _LIN
-		req->acked_jif[peer_device->node_id] = jiffies;
-#endif
+		ktime_get_accounting(req->acked_kt[peer_device->node_id]);
 		advance_conn_req_ack_pending(peer_device, req);
 	}
 
@@ -1086,9 +1103,9 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
 				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
 		}
-#ifdef _LIN
-		req->net_done_jif[peer_device->node_id] = jiffies;
-#endif
+
+		ktime_get_accounting(req->net_done_kt[peer_device->node_id]);
+
 		/* in ahead/behind mode, or just in case,
 		 * before we finally destroy this request,
 		 * the caching pointers must not reference it anymore */
@@ -1926,13 +1943,19 @@ static void bsr_queue_write(struct bsr_device *device, struct bsr_request *req)
 	wake_up(&device->al_wait);
 }
 
+static void bsr_req_in_actlog(struct bsr_request *req)
+{
+	req->rq_state[0] |= RQ_IN_ACT_LOG;
+	ktime_get_accounting(req->in_actlog_kt);
+}
+
 /* returns the new bsr_request pointer, if the caller is expected to
  * bsr_send_and_submit() it (to save latency), or NULL if we queued the
  * request on the submitter thread.
  * Returns ERR_PTR(-ENOMEM) if we cannot allocate a bsr_request.
  */
 static struct bsr_request *
-bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_jif)
+bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt, ULONG_PTR start_jif)
 {
 	const int rw = bio_data_dir(bio);
 	struct bsr_request *req;
@@ -1953,6 +1976,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		req->created_ts = timestamp();
 
 	req->start_jif = start_jif;
+	ktime_get_accounting_assign(req->start_kt, start_kt);
 
 	if (!get_ldev(device)) {
 		bio_put(req->private_bio);
@@ -1975,16 +1999,14 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		if (req->private_bio && !test_bit(AL_SUSPENDED, &device->flags)) {
 			if (!bsr_al_begin_io_fastpath(device, &req->i))
 				goto queue_for_submitter_thread;
-			req->rq_state[0] |= RQ_IN_ACT_LOG;
-#ifdef _LIN
-			req->in_actlog_jif = jiffies;
-#endif
+			bsr_req_in_actlog(req);
 		}
 	}
 	return req;
 
 queue_for_submitter_thread:
 	req->do_submit = true;
+	ktime_aggregate_delta(device, req->start_kt, before_queue_kt);
 	bsr_queue_write(device, req);
 	return NULL;
 }
@@ -2202,6 +2224,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	if (req->private_bio) {
 		/* needs to be marked within the same spinlock */
 		req->pre_submit_jif = jiffies;
+		ktime_get_accounting(req->pre_submit_kt);
 		list_add_tail(&req->req_pending_local,
 			&device->pending_completion[rw == WRITE]);
 		_req_mod(req, TO_BE_SUBMITTED, NULL);
@@ -2247,12 +2270,13 @@ out:
 }
 
 #ifdef _WIN
-NTSTATUS __bsr_make_request(struct bsr_device *device, struct bio *bio, ULONG_PTR start_jif)
+NTSTATUS __bsr_make_request(struct bsr_device *device, struct bio *bio, ktime_t start_kt, ULONG_PTR start_jif)
 #else // _LIN
-void __bsr_make_request(struct bsr_device *device, struct bio *bio, unsigned long start_jif)
+void __bsr_make_request(struct bsr_device *device, struct bio *bio, ktime_t start_kt,
+		unsigned long start_jif)
 #endif
 {
-	struct bsr_request *req = bsr_request_prepare(device, bio, start_jif);
+	struct bsr_request *req = bsr_request_prepare(device, bio, start_kt, start_jif);
 #ifdef _WIN
 	//only memory allocation fail case
 	if ((LONG_PTR)req == -ENOMEM)
@@ -2365,11 +2389,7 @@ static void submit_fast_path(struct bsr_device *device, struct waiting_for_act_l
 		&& !test_bit(AL_SUSPENDED, &device->flags)) {
 			if (!bsr_al_begin_io_fastpath(device, &req->i))
 				continue;
-
-			req->rq_state[0] |= RQ_IN_ACT_LOG;
-#ifdef _LIN
-			req->in_actlog_jif = jiffies;
-#endif
+			bsr_req_in_actlog(req);
 			atomic_dec(&device->ap_actlog_cnt);
 		}
 
@@ -2428,6 +2448,7 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 
 	req = wfa_next_request(wfa);
 	while (req) {
+		ktime_aggregate_delta(device, req->start_kt, before_al_begin_io_kt);
 		err = bsr_al_begin_io_nonblock(device, &req->i);
 		if (err == -ENOBUFS)
 			break;
@@ -2464,10 +2485,7 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 	}
 
 	list_for_each_entry_safe_ex(struct bsr_request, req, tmp, &wfa->requests.pending, tl_requests) {
-		req->rq_state[0] |= RQ_IN_ACT_LOG;
-#ifdef _LIN
-		req->in_actlog_jif = jiffies;
-#endif
+		bsr_req_in_actlog(req);
 		atomic_dec(&device->ap_actlog_cnt);
 		list_del_init(&req->tl_requests);
 		bsr_send_and_submit(device, req);
@@ -2672,6 +2690,9 @@ void do_submit(struct work_struct *ws)
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct bsr_device *device = (struct bsr_device *) q->queuedata;
+#ifdef CONFIG_BSR_TIMING_STATS
+	ktime_t start_kt;
+#endif
 	ULONG_PTR start_jif;
 #ifdef _WIN
 	NTSTATUS	status;
@@ -2706,15 +2727,15 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
  */
 	blk_queue_split(q, &bio, q->bio_split);
 #endif
-
+	ktime_get_accounting(start_kt);
 	start_jif = jiffies;
 	inc_ap_bio(device, bio_data_dir(bio));
 
 #ifdef _WIN
-	status = __bsr_make_request(device, bio, start_jif);
+	status = __bsr_make_request(device, bio, start_kt, start_jif);
 	return status;
 #else // _LIN
-	__bsr_make_request(device, bio, start_jif);
+	__bsr_make_request(device, bio, start_kt, start_jif);
 
 	MAKE_REQUEST_RETURN;
 #endif

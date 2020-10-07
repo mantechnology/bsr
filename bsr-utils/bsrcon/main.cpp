@@ -57,6 +57,7 @@ void debug_usage()
 		"   ed_gen_id {resource} {volume}\n"
 		"   io_frozen {resource} {volume}\n"
 		"   dev_oldest_requests {resource} {volume}\n"
+		"   dev_req_timing {resource} {volume}\n"
 		);
 	printf("\n");
 
@@ -222,6 +223,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "ed_gen_id")) return DBG_DEV_ED_GEN_ID;
 	else if (!_strcmpi(str, "io_frozen")) return DBG_DEV_IO_FROZEN;
 	else if (!_strcmpi(str, "dev_oldest_requests")) return DBG_DEV_OLDEST_REQUESTS;
+	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
 	return DBG_NO_FLAGS;
 }
 
@@ -293,6 +295,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_DEV_ED_GEN_ID:
 		case DBG_DEV_IO_FROZEN:
 		case DBG_DEV_OLDEST_REQUESTS:
+		case DBG_DEV_REQ_TIMING: // BSR-682 TODO move to bsrmon?
 			if (argIndex < argc)
 				debugInfo->vnr = atoi(argv[argIndex]);
 			else
