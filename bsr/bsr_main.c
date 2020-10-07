@@ -1887,6 +1887,8 @@ void bsr_gen_and_send_sync_uuid(struct bsr_peer_device *peer_device)
 		get_random_bytes(&uuid, sizeof(u64));
 	bsr_uuid_set_bitmap(peer_device, uuid);
 	bsr_print_uuids(peer_device, "updated sync UUID", __FUNCTION__);
+	// BSR-676 notify uuid
+	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 	bsr_md_sync(device);
 
 	p = bsr_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
@@ -4512,6 +4514,8 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
 
+	// BSR-676
+	atomic_set(&peer_device->notify_flags, 0);
 
 	atomic_set64(&peer_device->s_resync_bb, 0);
 	atomic_set64(&peer_device->e_resync_bb, 0);
@@ -4742,6 +4746,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	INIT_LIST_HEAD(&device->pending_bitmap_io);
 
 	atomic_set(&device->io_error_count, 0);
+	atomic_set(&device->notify_flags, 0);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
@@ -6438,6 +6443,9 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	bsr_info(3, BSR_LC_UUID, device, "%s, new current UUID: %016llX weak: %016llX", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
+	// BSR-676 notify uuid
+	bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+
 	/* get it to stable storage _now_ */
 	bsr_md_sync(device);
 	if (!send)
@@ -6821,8 +6829,11 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 					goto clear_flag;
 				_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
 				peer_md[node_id].bitmap_uuid = 0;
-				if (node_id == peer_device->node_id)
+				if (node_id == peer_device->node_id) {
 					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+					// BSR-676 notify uuid
+					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+				}
 				else if (peer_md[node_id].bitmap_index != -1) {
 					// DW-955 
 					// DW-1116
@@ -7754,6 +7765,10 @@ void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(
 	if (((int)(device->ldev->md.flags) & flag) != flag) {
 		bsr_md_mark_dirty(device);
 		device->ldev->md.flags |= flag;
+		// BSR-676 notify flag
+		if (flag == MDF_LAST_PRIMARY) {
+			bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+		}
 	}
 }
 
@@ -7771,6 +7786,10 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	if (!(md->peers[peer_device->node_id].flags & flag)) {
 		bsr_md_mark_dirty(device);
 		md->peers[peer_device->node_id].flags |= flag;
+		// BSR-676 notify flag
+		if (flag == MDF_PEER_FULL_SYNC) {
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+		}
 	}
 }
 
@@ -7784,6 +7803,10 @@ void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hol
 	if ((device->ldev->md.flags & flag) != 0) {
 		bsr_md_mark_dirty(device);
 		device->ldev->md.flags &= ~flag;
+		// BSR-676 notify flag
+		if (flag == MDF_LAST_PRIMARY) {
+			bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+		}
 	}
 }
 
@@ -7801,6 +7824,10 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	if (md->peers[peer_device->node_id].flags & flag) {
 		bsr_md_mark_dirty(device);
 		md->peers[peer_device->node_id].flags &= ~flag;
+		// BSR-676 notify flag
+		if (flag == MDF_PEER_FULL_SYNC) {
+			bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
+		}
 	}
 }
 

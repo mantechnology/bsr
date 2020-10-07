@@ -519,7 +519,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_RESYNC_OV_MAX_INDEX 27
 #define BSR_LC_REPLICATION_MAX_INDEX 30
 #define BSR_LC_CONNECTION_MAX_INDEX 31
-#define BSR_LC_UUID_MAX_INDEX 18
+#define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 56
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 35
@@ -527,7 +527,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SOCKET_MAX_INDEX 106
 #define BSR_LC_DRIVER_MAX_INDEX 140
 #define BSR_LC_NETLINK_MAX_INDEX 36
-#define BSR_LC_GENL_MAX_INDEX 90
+#define BSR_LC_GENL_MAX_INDEX 91
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
 #define BSR_LC_MEMORY_MAX_INDEX 83
 #define BSR_LC_LOG_MAX_INDEX 25
@@ -753,6 +753,14 @@ struct bsr_io_error_work {
 	struct bsr_io_error *io_error;
 };
 
+// BSR-676
+struct bsr_updated_gi_work {
+	struct bsr_work w;
+	struct bsr_device *device;
+	struct bsr_peer_device *peer_device;
+	int type;
+};
+
 struct bsr_peer_device_work {
 	struct bsr_work w;
 	struct bsr_peer_device *peer_device;
@@ -774,6 +782,7 @@ extern long twopc_retry_timeout(struct bsr_resource *, int);
 extern void twopc_connection_down(struct bsr_connection *);
 extern u64 directly_connected_nodes(struct bsr_resource *, enum which_state);
 extern int w_notify_io_error(struct bsr_work *w, int cancel);
+extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 /* sequence arithmetic for dagtag (data generation tag) sector numbers.
  * dagtag_newer_eq: true, if a is newer than b */
 #ifdef _WIN
@@ -1952,6 +1961,9 @@ struct bsr_peer_device {
 	} todo;
 	// DW-1981
 	struct bm_xfer_ctx bm_ctx;
+
+	// BSR-676
+	atomic_t notify_flags;
 };
 
 // DW-1911
@@ -2098,6 +2110,8 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
+	// BSR-676
+	atomic_t notify_flags;
 };
 
 struct bsr_bm_aio_ctx {
@@ -3163,6 +3177,15 @@ extern void notify_helper(enum bsr_notification_type, struct bsr_device *,
 extern void notify_path(struct bsr_connection *, struct bsr_path *,
 			enum bsr_notification_type);
 
+// BSR-676
+#define BSR_GI_NOTI_UUID 0x00
+#define BSR_GI_NOTI_DEVICE_FLAG 0x01
+#define BSR_GI_NOTI_PEER_DEVICE_FLAG 0x02
+
+extern void notify_gi_uuid_state(struct sk_buff*, unsigned int, struct bsr_peer_device *, enum bsr_notification_type);
+extern void notify_gi_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_device *, enum bsr_notification_type);
+extern void notify_gi_peer_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_peer_device*, enum bsr_notification_type);
+
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
 
@@ -3503,6 +3526,24 @@ bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, un
 }
 
 
+// BSR-676
+static inline void
+bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *peer_device, int type)
+{
+	if (device || peer_device) {
+		struct bsr_updated_gi_work *w;
+		w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+		if (w) {
+			w->device = device;
+			w->peer_device = peer_device;
+			w->type = type;
+			w->w.cb = w_notify_updated_gi;
+			if (!device)
+				device = peer_device->device;
+			bsr_queue_work(&device->resource->work, &w->w);
+		}
+	}
+}
 extern void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 extern void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 
