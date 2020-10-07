@@ -59,9 +59,9 @@
 #define tr_info(transport, fmt, ...) \
 	tr_printk(KERN_INFO, transport, fmt, ## __VA_ARGS__)
 #else // _LIN
-#define tr_printk(category, level, transport, fmt, args...)  ({		\
+#define tr_printk(category, index, level, transport, fmt, args...)  ({		\
 	rcu_read_lock();					\
-	_printk(__FUNCTION__, level, category, "<%c> bsr %s %s:%s: " fmt,			\
+	_printk(__FUNCTION__, index, level, category, "<%c> bsr %s %s:%s: " fmt,			\
 	       level[1],	\
 		   (transport)->log_prefix,				\
 	       (transport)->class->name,			\
@@ -71,11 +71,11 @@
 	})
 
 #define tr_err(transport, fmt, args...) \
-	tr_printk(BSR_LC_ETC, KERN_ERR, transport, fmt, ## args)
+	tr_printk(BSR_LC_ETC, -1, KERN_ERR, transport, fmt, ## args)
 #define tr_warn(transport, fmt, args...) \
-	tr_printk(BSR_LC_ETC, KERN_WARNING, transport, fmt, ## args)
+	tr_printk(BSR_LC_ETC, -1, KERN_WARNING, transport, fmt, ## args)
 #define tr_info(transport, fmt, args...) \
-	tr_printk(BSR_LC_ETC, KERN_INFO, transport, fmt, ## args)
+	tr_printk(BSR_LC_ETC, -1, KERN_INFO, transport, fmt, ## args)
 #endif
 
 #define TR_ASSERT(x, exp)							\

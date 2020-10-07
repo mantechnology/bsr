@@ -107,7 +107,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 	
 	if (ext_has_feature_meta_bg(ext_sb)) {
-		bsr_info(223, BSR_LC_RESYNC_OV, NO_OBJECT, "EXT_FEATURE_INCOMPAT_META_BG is set. fastsync not support \n");
+		bsr_info(74, BSR_LC_BITMAP, NO_OBJECT, "EXT_FEATURE_INCOMPAT_META_BG is set. fastsync not support \n");
 		// TODO : support MEAT_BG
 		return NULL;
 	}
@@ -115,7 +115,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	// get size of group descriptor
 	if (ext_has_feature_64bit(ext_sb)) {
 		if (!ext_sb->s_desc_size) {
-			bsr_err(224, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to wrong s_desc_size\n");
+			bsr_err(75, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to wrong s_desc_size\n");
 			return NULL;
 		}
 
@@ -134,7 +134,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	if (bitmap_buf == NULL) {
-		bsr_err(225, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to allocate %d size memory for bitmap buffer\n", (sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size));
+		bsr_err(58, BSR_LC_MEMORY, NO_OBJECT, "Failed to read ext bitmap due to failure to allocate %d size memory for bitmap buffer\n", (sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size));
 		return NULL;
 	}
 
@@ -177,14 +177,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 		offset = fd->f_op->llseek(fd, group_desc_offset + group_no * desc_size, SEEK_SET);
 		if (offset < 0) {
-			bsr_err(235, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to lseek group_descriptor (err=%lld)\n", offset);
+			bsr_err(76, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to lseek group_descriptor (err=%lld)\n", offset);
 			goto fail_and_free;
 		}
 
 		// read group descriptor
 		ret = bsr_read(fd, (char *)&group_desc, desc_size, &fd->f_pos);
 		if (ret < 0 || ret != desc_size) {
-			bsr_err(236, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to read group_descriptor (err=%ld)\n", ret);
+			bsr_err(77, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to read group_descriptor (err=%ld)\n", ret);
 			goto fail_and_free;
 		}	
 		
@@ -192,21 +192,21 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		bg_block_bitmap = ext_block_bitmap(ext_sb, &group_desc);
 
 		if (!bg_block_bitmap) {
-			bsr_err(237, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to read bg_block_bitmap\n");
+			bsr_err(78, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to read bg_block_bitmap\n");
 			goto fail_and_free;
 		}
 		
 		if (debug_fast_sync) {
-			bsr_info(189, BSR_LC_RESYNC_OV, NO_OBJECT, "Group %u (Blocks %u ~ %u) \n", group_no, first_block, last_block);
-			bsr_info(190, BSR_LC_RESYNC_OV, NO_OBJECT, "block bitmap : %llu\n", bg_block_bitmap);
-			bsr_info(191, BSR_LC_RESYNC_OV, NO_OBJECT, "block bitmap offset : %llu\n", bg_block_bitmap * bytes_per_block);
+			bsr_info(79, BSR_LC_BITMAP, NO_OBJECT, "Group %u (Blocks %u ~ %u) \n", group_no, first_block, last_block);
+			bsr_info(80, BSR_LC_BITMAP, NO_OBJECT, "block bitmap : %llu\n", bg_block_bitmap);
+			bsr_info(81, BSR_LC_BITMAP, NO_OBJECT, "block bitmap offset : %llu\n", bg_block_bitmap * bytes_per_block);
 		}
 
 
 		if (block_uninit) {
 			if (debug_fast_sync) {
-				bsr_info(192, BSR_LC_RESYNC_OV, NO_OBJECT, "skip BLOCK_UNINIT group\n");
-				bsr_info(193, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================\n");
+				bsr_info(82, BSR_LC_BITMAP, NO_OBJECT, "skip BLOCK_UNINIT group\n");
+				bsr_info(83, BSR_LC_BITMAP, NO_OBJECT, "=============================\n");
 				free_blocks_co += bytes_per_block * BITS_PER_BYTE;
 			}
 			continue;
@@ -218,37 +218,37 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		// Move position to bitmap block
 		offset = fd->f_op->llseek(fd, bg_block_bitmap * bytes_per_block, SEEK_SET);
 		if (offset < 0) {
-			bsr_err(194, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to lseek bitmap_block (err=%lld)\n", offset);
+			bsr_err(84, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to lseek bitmap_block (err=%lld)\n", offset);
 			goto fail_and_free;
 		}
 
 		// read bitmap block
 		ret = bsr_read(fd, &bitmap_buf->Buffer[bytes_per_block * group_no], read_size, &fd->f_pos);
 		if (ret < 0 || ret != read_size) {
-			bsr_err(195, BSR_LC_RESYNC_OV, NO_OBJECT, "Failed to read ext bitmap due to failure to read bitmap_block (err=%ld)\n", ret);
+			bsr_err(85, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to read bitmap_block (err=%ld)\n", ret);
 			goto fail_and_free;
 		}
 
 		if (debug_fast_sync) {
-			bsr_info(238, BSR_LC_RESYNC_OV, NO_OBJECT, "read bitmap_block (%ld)\n", ret);
+			bsr_info(86, BSR_LC_BITMAP, NO_OBJECT, "read bitmap_block (%ld)\n", ret);
 			used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
 							blocks_per_group,
 							first_data_block,
 							last_block - first_block + 1);
-			bsr_info(196, BSR_LC_RESYNC_OV, NO_OBJECT, "used block count : %d\n", used);
+			bsr_info(87, BSR_LC_BITMAP, NO_OBJECT, "used block count : %d\n", used);
 
 			free = ext_free_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
 							blocks_per_group,
 							first_data_block, 
 							last_block - first_block + 1);
-			bsr_info(197, BSR_LC_RESYNC_OV, NO_OBJECT, "free block count : %d\n", free);
-			bsr_info(198, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================\n");
+			bsr_info(88, BSR_LC_BITMAP, NO_OBJECT, "free block count : %d\n", free);
+			bsr_info(89, BSR_LC_BITMAP, NO_OBJECT, "=============================\n");
 			free_blocks_co += free;
 		}
 
 	}
 	if (debug_fast_sync) {
-		bsr_info(199, BSR_LC_RESYNC_OV, NO_OBJECT, "free_blocks : %lu\n", free_blocks_co);
+		bsr_info(90, BSR_LC_BITMAP, NO_OBJECT, "free_blocks : %lu\n", free_blocks_co);
 	}
 
 	return bitmap_buf;

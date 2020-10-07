@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
 						}
 						else {
-							bsr_err(11, BSR_LC_REQUEST, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
+							bsr_err(35, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
 							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
@@ -480,6 +480,38 @@ int w_notify_io_error(struct bsr_work *w, int cancel)
 	return ret;
 }
 
+// DW-676 
+int w_notify_updated_gi(struct bsr_work *w, int cancel)
+{
+	int ret = 0;
+	struct bsr_updated_gi_work *dw =
+		container_of(w, struct bsr_updated_gi_work, w);
+	UNREFERENCED_PARAMETER(cancel);
+
+	if (dw) {
+		struct bsr_device *device;
+		struct bsr_peer_device *peer_device;
+
+		mutex_lock(&notification_mutex);
+		if (dw->type == BSR_GI_NOTI_UUID) {
+			device = dw->device;
+			for_each_peer_device(peer_device, device) {
+				notify_gi_uuid_state(NULL, 0, peer_device, NOTIFY_CHANGE);
+			}
+		}
+		else if (dw->type == BSR_GI_NOTI_DEVICE_FLAG) {
+			notify_gi_device_mdf_flag_state(NULL, 0, dw->device, NOTIFY_CHANGE);
+		}
+		else if (dw->type == BSR_GI_NOTI_PEER_DEVICE_FLAG) {
+			notify_gi_peer_device_mdf_flag_state(NULL, 0, dw->peer_device, NOTIFY_CHANGE);
+		}
+		mutex_unlock(&notification_mutex);
+		kfree(dw);
+	}
+
+	return ret;
+}
+
 void complete_master_bio(struct bsr_device *device,
 struct bio_and_error *m)
 {
@@ -536,7 +568,7 @@ struct bio_and_error *m)
 #ifdef _WIN
 		if (!master_bio->splitInfo) {
 			if (master_bio->bi_size <= 0 || master_bio->bi_size > (1024 * 1024)) {
-				bsr_err(12, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to block I/O size is invalid. size(%d)", master_bio->bi_size);
+				bsr_err(58, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to block I/O size is invalid. size(%d)", master_bio->bi_size);
 				BUG();
 			}
 
@@ -554,7 +586,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(13, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for not split block I/o buffer");
+					bsr_err(59, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for not split block I/o buffer");
 					BUG();
 				}
 				if (buffer) {
@@ -573,7 +605,7 @@ struct bio_and_error *m)
 				PVOID	buffer = NULL;
 				buffer = MmGetSystemAddressForMdlSafe(master_bio->pMasterIrp->MdlAddress, NormalPagePriority);
 				if (buffer == NULL) {
-					bsr_err(14, BSR_LC_REQUEST, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for split block I/o buffer");
+					bsr_err(60, BSR_LC_IO, NO_OBJECT, "Failed to complete I/O due to failure to get MDL for split block I/o buffer");
 					BUG();
 				}
 				else {
@@ -690,7 +722,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	}
 
 	if (!req->master_bio) {
-		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, mster block I/O is NULL.");
+		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
 		return;
 	}
 
@@ -1911,7 +1943,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
-		bsr_err(21, BSR_LC_REQUEST, device, "Failed to prepare request due to failure to allocate memory for request");
+		bsr_err(36, BSR_LC_MEMORY, device, "Failed to prepare request due to failure to allocate memory for request");
 		bsr_bio_endio(bio, -ENOMEM);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -2228,7 +2260,7 @@ void __bsr_make_request(struct bsr_device *device, struct bio *bio, unsigned lon
 	//retry case in bsr_request_prepare. don't retrun STATUS_UNSUCCESSFUL.
 	if (IS_ERR_OR_NULL(req)) {
 		if (req)
-			bsr_err(22, BSR_LC_REQUEST, device, "FIXME, Failed to local request prepare, block I/O(%p), sector(%llu), size(%u)", bio, bio->bi_sector, bio->bi_size);
+			bsr_err(51, BSR_LC_MEMORY, device, "FIXME, Failed to local request prepare, block I/O(%p), sector(%llu), size(%u)", bio, bio->bi_sector, bio->bi_size);
 		return STATUS_SUCCESS;
 	}
 #else // _LIN

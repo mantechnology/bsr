@@ -395,7 +395,7 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 	if (!lc ||
 		!lc->nr_elements)
 	{
-		bsr_err(18, BSR_LC_BITMAP, NO_OBJECT,"Failed to find lc due to inaccessible, it could be not initialized or destroyed.");
+		bsr_err(30, BSR_LC_LRU, NO_OBJECT, "Failed to find lc due to inaccessible, it could be not initialized or destroyed.");
 		return NULL;
 	}
 #else // _LIN

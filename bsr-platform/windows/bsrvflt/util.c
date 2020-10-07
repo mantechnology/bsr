@@ -482,7 +482,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume, bool *retry)
     *retry = false;
 
 	if (NULL == hVolume) {
-		bsr_err(36, BSR_LC_DRIVER, NO_OBJECT, "Failed to get file system type with handle due to volume is not allocate");
+		bsr_err(84, BSR_LC_VOLUME, NO_OBJECT, "Failed to get file system type with handle due to volume is not allocate");
 		return 0;
 	}
 	
@@ -497,7 +497,7 @@ USHORT GetFileSystemTypeWithHandle(HANDLE hVolume, bool *retry)
 	if (fss.FileSystemType == 0 &&
 		!NT_SUCCESS(status))
 	{
-		bsr_err(37, BSR_LC_DRIVER, NO_OBJECT, "Failed to get file system type with handle due to failure to command FSCTL_FILESYSTEM_GET_STATISTICS. status(0x%x)", status);
+		bsr_err(85, BSR_LC_VOLUME, NO_OBJECT, "Failed to get file system type with handle due to failure to command FSCTL_FILESYSTEM_GET_STATISTICS. status(0x%x)", status);
 		return 0;
 	}
 	else
@@ -520,7 +520,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		bsr_err(38, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to invalid parameter. volume handle(%p), total cluster(%p), bytes per cluster(%p)", hVolume, pullTotalCluster, pulBytesPerCluster);
+		bsr_err(86, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to invalid parameter. volume handle(%p), total cluster(%p), bytes per cluster(%p)", hVolume, pullTotalCluster, pulBytesPerCluster);
 		return bRet;
 	}
 
@@ -530,7 +530,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
             if (retry) 
 				bRet = -EAGAIN;
 			else
-				bsr_err(39, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to get file system type. %d", usFileSystemType);
+				bsr_err(87, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to get file system type. %d", usFileSystemType);
 
 			break;		
 		}
@@ -538,7 +538,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		// getting fs volume data sometimes gets pended when it coincides with another peer's, need to wait until the operation's done.
 		status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, NULL, SynchronizationEvent, FALSE);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(40, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to create event. status(0x%x)", status);
+			bsr_err(88, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to create event. status(0x%x)", status);
 			break;
 		}
 		
@@ -552,7 +552,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0, &nvdb, sizeof(nvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(41, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to fsctl code FSCTL_GET_NTFS_VOLUME_DATA. status(0x%x)", status);
+				bsr_err(89, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to fsctl code FSCTL_GET_NTFS_VOLUME_DATA. status(0x%x)", status);
 				break;
 			}
 
@@ -569,7 +569,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 
 			status = ZwFsControlFile(hVolume, hEvent, NULL, NULL, &ioStatus, FSCTL_GET_REFS_VOLUME_DATA, NULL, 0, &rvdb, sizeof(rvdb));
 			if (!NT_SUCCESS(status)) {
-				bsr_err(42, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to fsctl code FSCTL_GET_REFS_VOLUME_DATA. status(0x%x)", status); 
+				bsr_err(90, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to failure to fsctl code FSCTL_GET_REFS_VOLUME_DATA. status(0x%x)", status); 
 				break;
 			}
 
@@ -587,7 +587,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		if (0 == ullTotalCluster ||
 			0 == ulBytesPerCluster)
 		{
-			bsr_err(43, BSR_LC_DRIVER, NO_OBJECT, "Failed to get cluster info with volume handle due to cluster information is invalid, total cluster(%llu), bytes per cluster(%u)", ullTotalCluster, ulBytesPerCluster);
+			bsr_err(91, BSR_LC_VOLUME, NO_OBJECT, "Failed to get cluster info with volume handle due to cluster information is invalid, total cluster(%llu), bytes per cluster(%u)", ullTotalCluster, ulBytesPerCluster);
 			break;
 		}
 
@@ -624,7 +624,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 	do {
 		hVolume = GetVolumeHandleFromDeviceMinor(minor);
 		if (NULL == hVolume) {
-			bsr_err(44, BSR_LC_DRIVER, NO_OBJECT, "Failed to change volume read only due to could not get volume handle from minor(%u)", minor);
+			bsr_err(73, BSR_LC_VOLUME, NO_OBJECT, "Failed to change volume read only due to could not get volume handle from minor(%u)", minor);
 			break;
 		}
 		
@@ -633,7 +633,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_GET_GPT_ATTRIBUTES, NULL, 0, &vggai, sizeof(vggai));
 		if (status != STATUS_SUCCESS) {
-			bsr_err(45, BSR_LC_DRIVER, NO_OBJECT, "Failed to change volume read only due to failure to ioctl code IOCTL_VOLUME_GET_GPT_ATTRIBUTES. status(0x%x)", status);
+			bsr_err(74, BSR_LC_VOLUME, NO_OBJECT, "Failed to change volume read only due to failure to ioctl code IOCTL_VOLUME_GET_GPT_ATTRIBUTES. status(0x%x)", status);
 			break;
 		}
 
@@ -673,7 +673,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 		
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_DISK_GET_PARTITION_INFO_EX, NULL, 0, &partInfoEx, sizeof(partInfoEx));
 		if (status != STATUS_SUCCESS) {
-			bsr_err(48, BSR_LC_DRIVER, NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)", status);
+			bsr_err(75, BSR_LC_VOLUME, NO_OBJECT,"ZwDeviceIoControlFile with IOCTL_DISK_GET_PARTITION_INFO_EX failed, status(0x%x)", status);
 			break;
 		}
 		else {
@@ -689,7 +689,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 			vsgai.ApplyToAllConnectedVolumes = FALSE; 
 		} 
 		else {
-			bsr_err(49, BSR_LC_DRIVER, NO_OBJECT,"This PartitionStyle is Raw (minor: %d)", minor);
+			bsr_err(76, BSR_LC_VOLUME, NO_OBJECT,"This PartitionStyle is Raw (minor: %d)", minor);
 		}
 #else
 		// documentation says that ApplyToAllConnectedVolumes is required to support MBR disk.
@@ -697,7 +697,7 @@ bool ChangeVolumeReadonly(unsigned int minor, bool set)
 #endif
 		status = ZwDeviceIoControlFile(hVolume, NULL, NULL, NULL, &iosb, IOCTL_VOLUME_SET_GPT_ATTRIBUTES, &vsgai, sizeof(vsgai), NULL, 0);
 		if (status != STATUS_SUCCESS) {
-			bsr_err(50, BSR_LC_DRIVER, NO_OBJECT, "Failed to change volume read only due to failure to ioctl code IOCTL_VOLUME_SET_GPT_ATTRIBUTES. status(0x%x)", status);
+			bsr_err(77, BSR_LC_VOLUME, NO_OBJECT, "Failed to change volume read only due to failure to ioctl code IOCTL_VOLUME_SET_GPT_ATTRIBUTES. status(0x%x)", status);
 			break;
 		}
 		else {
@@ -732,12 +732,12 @@ PVOID GetVolumeBitmap(struct bsr_device *device, PULONGLONG pullTotalCluster, PU
 	if (NULL == pullTotalCluster ||
 		NULL == pulBytesPerCluster)
 	{
-		bsr_err(52, BSR_LC_DRIVER, device, "Failed to get volume bitmap due to invalid parameter, total cluster(%p), bytes per cluster(%p)", pullTotalCluster, pulBytesPerCluster);
+		bsr_err(78, BSR_LC_VOLUME, device, "Failed to get volume bitmap due to invalid parameter, total cluster(%p), bytes per cluster(%p)", pullTotalCluster, pulBytesPerCluster);
 		return NULL;
 	}
 
 	if (KeGetCurrentIrql() > PASSIVE_LEVEL) {
-		bsr_err(53, BSR_LC_DRIVER, device, "Failed to get volume bitmap due to could not get volume bitmap because of high irql(%d)", KeGetCurrentIrql());
+		bsr_err(79, BSR_LC_VOLUME, device, "Failed to get volume bitmap due to could not get volume bitmap because of high irql(%d)", KeGetCurrentIrql());
 		return NULL;
 	}
 
@@ -747,7 +747,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, PULONGLONG pullTotalCluster, PU
 retry:
 		hVolume = GetVolumeHandleFromDeviceMinor(device->minor);
 		if (NULL == hVolume) {
-			bsr_err(54, BSR_LC_DRIVER, device, "Failed to get volume bitmap due to could not get volume handle from minor(%u)", device->minor);
+			bsr_err(80, BSR_LC_VOLUME, device, "Failed to get volume bitmap due to could not get volume handle from minor(%u)", device->minor);
 			break;
 		}
 				
@@ -763,7 +763,7 @@ retry:
 				bsr_info(55, BSR_LC_DRIVER, device, "handle retry (%d/%d), minor(%u)", rtc, RETRY_MAX_COUNT, device->minor);
 				goto retry;
 			}
-			bsr_err(56, BSR_LC_DRIVER, device, "Could not get cluster information");
+			bsr_err(81, BSR_LC_VOLUME, device, "Could not get cluster information");
 			break;
 		}
 
@@ -771,14 +771,14 @@ retry:
 		
 		pVbb = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, ulBitmapSize, '16SB');
 		if (NULL == pVbb) {
-			bsr_err(57, BSR_LC_DRIVER, device, "Failed to get volume bitmap due to failure to allocate %d size memory for bitmap buffer", ulBitmapSize);
+			bsr_err(64, BSR_LC_MEMORY, device, "Failed to get volume bitmap due to failure to allocate %d size memory for bitmap buffer", ulBitmapSize);
 			break;
 		}
 				
 		slib.StartingLcn.QuadPart = 0;
 		status = ZwFsControlFile(hVolume, NULL, NULL, NULL, &ioStatus, FSCTL_GET_VOLUME_BITMAP, &slib, sizeof(slib), pVbb, ulBitmapSize);
 		if (!NT_SUCCESS(status)) {
-			bsr_err(58, BSR_LC_DRIVER, device, "Failed to get volume bitmap due to failure to ioctl code FSCTL_GET_VOLUME_BITMAP. status(%0x%x)", status);
+			bsr_err(82, BSR_LC_VOLUME, device, "Failed to get volume bitmap due to failure to ioctl code FSCTL_GET_VOLUME_BITMAP. status(%0x%x)", status);
 			break;
 		}
 				

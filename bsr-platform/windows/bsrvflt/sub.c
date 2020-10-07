@@ -132,7 +132,7 @@ mvolRemoveDevice(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	
 	status = mvolRunIrpSynchronous(DeviceObject, Irp);
 	if (!NT_SUCCESS(status)) {
-		bsr_err(35, BSR_LC_DRIVER, NO_OBJECT, "Failed to remove device due to cannot remove device, status(0x%x)", status);
+		bsr_err(83, BSR_LC_VOLUME, NO_OBJECT, "Failed to remove device. status(0x%x)", status);
 	}
 
 	IoReleaseRemoveLockAndWait(&VolumeExtension->RemoveLock, NULL); //wait remove lock
@@ -341,7 +341,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(slice, 0, 'A5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(0, BSR_LC_VOLUME, NO_OBJECT,"Failed to read or write device due to failure to allocate memory for hooker!");
+					bsr_err(19, BSR_LC_MEMORY, NO_OBJECT, "Failed to read due to failure to allocate memory for read buffer");
 					goto fail_put_dev;
 				}
 			}
@@ -368,7 +368,7 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = kzalloc(rest, 0, 'B5SB');
 				if (!newbuf) {
 					status = STATUS_NO_MEMORY;
-					bsr_err(37, BSR_LC_VOLUME, NO_OBJECT, "Failed to read or write device due to failure to allocate memory for reset hooker");
+					bsr_err(24, BSR_LC_MEMORY, NO_OBJECT, "Failed to read due to failure to allocate memory for read buffer");
 					goto fail_put_dev;
 				}
 			}
@@ -435,7 +435,7 @@ mvolGetVolumeSize(PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize)
     }
 
     if (!NT_SUCCESS(status)) {
-		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to cannot get volume information, err=0x%x", status);
+		bsr_err(60, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume size due to failure to IRP reuqest, err=0x%x", status);
         return status;
     }
 
@@ -577,7 +577,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	len = sizeof(IO_ERROR_LOG_PACKET) + deviceNameLength + sizeof(WCHAR);
 	pLogEntry = (PIO_ERROR_LOG_PACKET) IoAllocateErrorLogEntry(mvolDriverObject, (UCHAR) len);
 	if (pLogEntry == NULL) {
-		bsr_err(17, BSR_LC_LOG, NO_OBJECT,"Failed to write error log due to failure to allocate Log entry");
+		bsr_err(80, BSR_LC_MEMORY, NO_OBJECT,"Failed to write error log due to failure to allocate Log entry");
 		return;
 	}
 	RtlZeroMemory(pLogEntry, len);
