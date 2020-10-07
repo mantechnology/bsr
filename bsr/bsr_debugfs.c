@@ -716,11 +716,11 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 	int period = (int)DIV_ROUND_UP((jiffies - transport->sum_start_time) - HZ/2, HZ);
 
 	if (period > 0) {
-		seq_printf(m, "SENT : %llu Byte/sec\n", transport->sum_sent / period);
-		seq_printf(m, "RECV : %llu Byte/sec\n", transport->sum_recv / period);
+		seq_printf(m, "SENT : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_sent) / period);
+		seq_printf(m, "RECV : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_recv) / period);
 
-		transport->sum_sent = 0;
-		transport->sum_recv = 0;
+		atomic_set64(&transport->sum_sent, 0);
+		atomic_set64(&transport->sum_recv, 0);
 		transport->sum_start_time = jiffies;
 	}
 

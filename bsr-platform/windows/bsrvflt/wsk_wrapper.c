@@ -847,7 +847,7 @@ Send(
 	IoFreeIrp(Irp);
 
 	if (BytesSent > 0 && transport)
-		transport->sum_sent += BytesSent;
+		atomic_add64(BytesSent, &transport->sum_sent);
 
 	return BytesSent;
 
@@ -1318,7 +1318,7 @@ LONG NTAPI Receive(
 	FreeWskBuffer(&WskBuffer);
 
 	if (BytesReceived > 0 && transport)
-		transport->sum_recv += BytesReceived;
+		atomic_add64(BytesReceived, &transport->sum_recv);
 
 	return BytesReceived;
 }

@@ -168,7 +168,7 @@ int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, s
 
 	rv = kernel_sendmsg(socket, msg, iov, 1, iov->iov_len);
 	if (rv > 0 && transport)
-		transport->sum_sent += rv;
+		atomic_add64(rv, &transport->sum_sent);
 
 	return rv;
 }
@@ -178,7 +178,7 @@ int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, s
 
 	rv = kernel_recvmsg(socket, msg, iov, 1, iov->iov_len, msg->msg_flags);
 	if (rv > 0 && transport)
-		transport->sum_recv += rv;
+		atomic_add64(rv, &transport->sum_recv);
 
 	return rv;
 }

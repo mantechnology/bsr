@@ -150,8 +150,8 @@ struct bsr_transport {
 	struct net_conf *net_conf;	/* content protected by rcu */
 
 	// BSR-683
-	uint64_t sum_sent;
-	uint64_t sum_recv;
+	atomic_t64 sum_sent;
+	atomic_t64 sum_recv;
 	ULONG_PTR sum_start_time;
 	/* These members are intended to be updated by the transport: */
 	unsigned int ko_count;
