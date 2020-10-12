@@ -722,15 +722,19 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_connection *connection = m->private;
 	struct bsr_transport *transport = &connection->transport;
-	int period = (int)DIV_ROUND_UP((jiffies - transport->sum_start_time) - HZ/2, HZ);
+	ULONG_PTR now = jiffies;
+	unsigned long long sent = (unsigned long long)atomic_xchg64(&transport->sum_sent, 0);
+	unsigned long long recv = (unsigned long long)atomic_xchg64(&transport->sum_recv, 0);
+	int period = (int)DIV_ROUND_UP((now - transport->sum_start_time) - HZ/2, HZ);
 
 	if (period > 0) {
-		seq_printf(m, "SENT : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_sent) / period);
-		seq_printf(m, "RECV : %llu Byte/sec\n", (unsigned long long)atomic_read64(&transport->sum_recv) / period);
+		seq_printf(m, "SENT:%llu\n", sent / period);
+		seq_printf(m, "RECV:%llu\n", recv / period);
 
-		atomic_set64(&transport->sum_sent, 0);
-		atomic_set64(&transport->sum_recv, 0);
-		transport->sum_start_time = jiffies;
+		transport->sum_start_time = now;
+	} else {
+		atomic_add64(sent, &transport->sum_sent);
+		atomic_add64(recv, &transport->sum_recv);
 	}
 
 	return 0;
