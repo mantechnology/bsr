@@ -410,6 +410,11 @@ int atomic_xchg(atomic_t *v, int n)
 	return InterlockedExchange((LONG*)v, n);
 }
 
+LONGLONG atomic_xchg64(atomic_t64 *v, LONGLONG n)
+{
+	return InterlockedExchange64((LONGLONG*)v, n);
+}
+
 int atomic_read(const atomic_t *v)
 {
 	return InterlockedAnd((LONG*)v, 0xffffffff);
