@@ -1485,7 +1485,7 @@ Accept(
 		}
 	} else {
 		if (Status != STATUS_SUCCESS) {
-			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Failed to send async due to error. status(0x%x)", Status);
+			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Failed to accept due to error. status(0x%x)", Status);
 		}
 	}
 
