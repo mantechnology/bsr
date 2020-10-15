@@ -60,21 +60,22 @@ AddReg           = BSR.AddRegistry
 
 [BSR.AddRegistry]
 HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00010008, bsr
-HKR,,"proc_details",0x00010001,0
-HKR,,"debug_level",0x00010001,0
-HKR,,"bypass_level",0x00010001,0
-HKR,,"read_filter",0x00010001,0
-HKR,,"flush_filter",0x00010001,1
-HKR,,"use_volume_lock",0x00010001,1
-HKR,,"use_fast_sync",0x00010001,1
-HKR,,"dbgwin_output",0x00010001,0
-HKR,,"loglink_tcp_port",0x00010001,5677
-HKR,,"loglink_usage",0x00010001,1
-HKR,,"netlink_tcp_port",0x00010001,5678
-HKR,,"daemon_tcp_port",0x00010001,5679
-HKR,,"handler_use",0x00010001,0
-HKR,,"handler_timeout",0x00010001,1
-HKR,,"handler_retry",0x00010001,0
+; DW-2165 Add non overwritten flag(0x02) if registry value exists 
+HKR,,"proc_details",0x00010003,0
+HKR,,"debug_level",0x00010003,0
+HKR,,"bypass_level",0x00010003,0
+HKR,,"read_filter",0x00010003,0
+HKR,,"flush_filter",0x00010003,1
+HKR,,"use_volume_lock",0x00010003,1
+HKR,,"use_fast_sync",0x00010003,1
+HKR,,"dbgwin_output",0x00010003,0
+HKR,,"loglink_tcp_port",0x00010003,5677
+HKR,,"loglink_usage",0x00010003,1
+HKR,,"netlink_tcp_port",0x00010003,5678
+HKR,,"daemon_tcp_port",0x00010003,5679
+HKR,,"handler_use",0x00010003,0
+HKR,,"handler_timeout",0x00010003,1
+HKR,,"handler_retry",0x00010003,0
 HKR,,"ver",0x00000000, "1.5"
 
 [BSR.DelRegistry]
