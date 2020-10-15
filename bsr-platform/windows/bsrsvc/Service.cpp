@@ -37,7 +37,7 @@ VOID AddEventSource(TCHAR * caPath, TCHAR * csApp);
 DWORD RemoveEventSource(TCHAR *caPath, TCHAR * csApp);
 DWORD RcBsrStart();
 DWORD RcBsrStop();
-
+int get_daemon_port();
 
 BOOL g_bProcessStarted = TRUE;
 
@@ -190,7 +190,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		// internal test only: no-daemon test
 
-		unsigned short servPort = BSR_DAEMON_TCP_PORT;
+		unsigned short servPort = get_daemon_port();
 		DWORD threadID;
 
 		if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) SockListener, &servPort, 0, (LPDWORD) &threadID) == NULL) {
@@ -455,6 +455,36 @@ VOID ExecuteSubProcess()
     }
 }
 
+// DW-2164 read daemon_tcp_port registry value (default DRBD_DAEMON_TCP_PORT)
+int get_daemon_port()
+
+{
+	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
+	DWORD status;
+	HKEY hKey;
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD value = BSR_DAEMON_TCP_PORT;
+	wchar_t pTemp[1024];
+
+
+	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS == status) {
+		status = RegQueryValueEx(hKey, TEXT("daemon_tcp_port"), NULL, &type, (LPBYTE)&value, &size);
+		if (status != ERROR_SUCCESS)  {
+			value = BSR_DAEMON_TCP_PORT;
+			wsprintf(pTemp, L"Failed to read the daemon_tcp_port registry value. error code = %x\n", status);
+			WriteLog(pTemp);
+		}
+	}
+	else {
+		wsprintf(pTemp, L"Failed to open the daemon_tcp_port registry key. error code = %x\n", status);
+		WriteLog(pTemp);
+	}
+
+	return value;
+}
+
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
     wchar_t pTemp[1024];
@@ -497,7 +527,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
         WriteLog(pTemp);
     }
 
-    unsigned short servPort = BSR_DAEMON_TCP_PORT;
+	unsigned short servPort = get_daemon_port();
     DWORD threadID;
 
     if (CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)SockListener, &servPort, 0, (LPDWORD)&threadID) == NULL) {
