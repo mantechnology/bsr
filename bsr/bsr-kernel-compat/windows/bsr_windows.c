@@ -1545,7 +1545,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "Failed to increase the reference count because no kobject are assigned.");
         return;
     }
 }
@@ -2867,7 +2867,7 @@ void dumpHex(const void *aBuffer, const size_t aBufferSize, size_t aWidth)
 
 	*(sLine + sLineSize - 1) = '\0';
 
-	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "Hex Dump Data addr(0x%p), size(%d). width(%d)", aBuffer, aBufferSize, aWidth);
+	bsr_info(5, BSR_LC_ETC, NO_OBJECT, "Dump changed to hexadecimal. addr(0x%p), size(%d). width(%d)", aBuffer, aBufferSize, aWidth);
 
 	while (sPos < aBufferSize) {
 		memset(sLine, ' ', sLineSize - 1);

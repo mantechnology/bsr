@@ -636,7 +636,7 @@ bsr_insert_fault(struct bsr_device *device, unsigned int type) {
 		_bsr_insert_fault(device, type);
 
     if (ret) {
-        bsr_info(7, BSR_LC_IO_ERROR, NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d", type, ret);
+        bsr_info(7, BSR_LC_IO_ERROR, NO_OBJECT,"Failed to test. type=0x%x fault=%d", type, ret);
     }
     return ret;
 #else // _LIN
@@ -4150,7 +4150,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "timestamp is invalid");
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timeestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
 		return -1;
 	}
 

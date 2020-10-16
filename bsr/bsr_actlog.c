@@ -808,7 +808,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		if (al->max_pending_changes - al->pending_changes < nr_al_extents)
 			bsr_dbg(device, "insufficient al_extent slots for 'pending_changes' nr_al_extents:%llu pending:%u", (unsigned long long)nr_al_extents, al->pending_changes);
 		else
-			bsr_info(5, BSR_LC_LRU, device, "insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, al->used);
+			bsr_info(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, al->used);
 		return -ENOBUFS;
 	}
 
@@ -1894,7 +1894,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			if (bm_ext->lce.lc_number == LC_FREE)
 				continue;
 			if (bm_ext->lce.lc_number == peer_device->resync_wenr) {
-				bsr_info(3, BSR_LC_RESYNC_OV, peer_device, "dropping %u in resync lru delete all, apparently"
+				bsr_info(3, BSR_LC_RESYNC_OV, peer_device, "Dropping %u in resync lru delete all, apparently"
 				     " got 'synced' by application io",
 				     peer_device->resync_wenr);
 				D_ASSERT(peer_device, !test_bit(BME_LOCKED, &bm_ext->flags));

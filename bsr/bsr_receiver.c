@@ -638,9 +638,9 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 
 	if (rv < 0) {
 		if (rv == -ECONNRESET)
-			bsr_info(14, BSR_LC_SOCKET, connection, "socket reset due to peer.");
+			bsr_info(14, BSR_LC_SOCKET, connection, "Data stream socket reset by peer.");
 		else if (rv != -ERESTARTSYS)
-			bsr_info(15, BSR_LC_SOCKET, connection, "socket data receive error(%d)", rv);
+			bsr_info(15, BSR_LC_SOCKET, connection, "Data stream socket receive error(%d)", rv);
 	} else if (rv == 0) {
 		if (test_bit(DISCONNECT_EXPECTED, &connection->flags)) {
 			long t;
@@ -653,7 +653,7 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 			if (t)
 				goto out;
 		}
-		bsr_info(16, BSR_LC_SOCKET, connection, "socket shut down due to peer");
+		bsr_info(16, BSR_LC_SOCKET, connection, "Data stream socket shut down due to peer");
 	}
 
 	if (rv != (int)size)

@@ -916,7 +916,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 
 	bsr_bm_lock(device, "resize", BM_LOCK_ALL);
 
-	bsr_info(23, BSR_LC_BITMAP, device, "bitmap resize called with capacity(%llu)",
+	bsr_info(23, BSR_LC_BITMAP, device, "Start resizing the bitmap size to disk capacity. capacity sector(%llu)",
 			(unsigned long long)capacity);
 
 	if (capacity == b->bm_dev_capacity)
@@ -1014,7 +1014,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		kvfree(opages);
 	if (!growing)
 		bm_count_bits(device);
-	bsr_info(25, BSR_LC_BITMAP, device, "resize bitmap, bits(%llu) words(%llu) pages(%llu)", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
+	bsr_info(25, BSR_LC_BITMAP, device, "The bitmap size has been resized to disk capacity. bits(%llu) words(%llu) pages(%llu)", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
 
  out:
 	bsr_bm_unlock(device);
@@ -1105,7 +1105,7 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 	// DW-1870 If all nodes are not connected, it is not resolved.
 	if (total_count == 0 && !all_disconnected) {
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(1, BSR_LC_IO_ERROR, device, "io-error has been cleared.");
+		bsr_info(1, BSR_LC_IO_ERROR, device, "I/O error has been cleared.");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
@@ -1142,7 +1142,7 @@ void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 	if (count == 0) {
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(6, BSR_LC_IO_ERROR, peer_device, "io-error has been cleared.");
+		bsr_info(6, BSR_LC_IO_ERROR, peer_device, "I/O error has been cleared.");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
@@ -1573,7 +1573,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (flags == 0 && count) {
 		unsigned int ms = jiffies_to_msecs(jiffies - now);
 		if (ms > 5) {
-			bsr_info(27, BSR_LC_BITMAP, device, "bitmap %s of %llu pages took %u ms",
+			bsr_info(27, BSR_LC_BITMAP, device, "Bitmap %s of %llu pages took %ums",
 				 (flags & BM_AIO_READ) ? "READ" : "WRITE",
 				 (unsigned long long)count, ms);
 		}
@@ -1591,7 +1591,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (flags & BM_AIO_READ) {
 		now = jiffies;
 		bm_count_bits(device);
-		bsr_info(29, BSR_LC_BITMAP, device, "recounting of set bits took additional %ums",
+		bsr_info(29, BSR_LC_BITMAP, device, "Recounting of set bits took additional %ums",
 		     jiffies_to_msecs(jiffies - now));
 	}
 
