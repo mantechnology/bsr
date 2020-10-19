@@ -169,4 +169,4 @@ typedef struct _HANDLER_INFO
 	BOOLEAN				use;
 } HANDLER_INFO, *PHANDLER_INFO;
 
-#endif __MVF_IOCTL_H__
+#endif // __MVF_IOCTL_H__

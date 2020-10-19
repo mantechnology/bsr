@@ -1326,34 +1326,6 @@ DWORD MVOL_BsrlockUse(int bBsrlock) {
 	return retVal;
 }
 
-
-
-DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo)
-{
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       retVal = ERROR_SUCCESS;
-	DWORD       dwReturned = 0;
-	BOOL        ret = FALSE;
-
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_ERROR: %s: Failed open bsr. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_DEBUG_INFO, 
-		pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, &dwReturned, NULL);
-	if (ret == FALSE) {
-		retVal = GetLastError();
-	}
-
-	if (hDevice != INVALID_HANDLE_VALUE)   
-		CloseHandle(hDevice);
-
-	return retVal;
-}
-
 #endif
 
 
