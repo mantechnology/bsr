@@ -3417,9 +3417,15 @@ static void bsr_set_defaults(struct bsr_device *device)
 void bsr_cleanup_device(struct bsr_device *device)
 {
 	device->al_writ_cnt = 0;
+	device->al_updates_cnt = 0;
 	device->bm_writ_cnt = 0;
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
+	// BSR-687 I/O throughput and latency measurement
+	atomic_set(&device->io_cnt[READ], 0);
+	atomic_set(&device->io_cnt[WRITE], 0);
+	atomic_set(&device->io_size[READ], 0);
+	atomic_set(&device->io_size[WRITE], 0);
 
 	if (device->bitmap) {
 		/* maybe never allocated. */

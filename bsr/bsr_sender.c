@@ -648,12 +648,22 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	req = bio->bi_private;
 	device = req->device;
 
+	// BSR-687
+	spin_lock(&device->timing_lock);
+#ifdef _WIN
+	ktime_aggregate_delta(device, bio->io_start_kt, local_complete_kt);
+#else // _LIN
+	ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
+#endif
+	device->local_complete_kt.cnt++;
+	spin_unlock(&device->timing_lock);
+
 	if (bio_data_dir(bio) & WRITE) {
 		bsr_debug(15, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
-																							(unsigned long long)req->i.sector, 
-																							req->i.size, 
-																							(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
-																							(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
+				(unsigned long long)req->i.sector, 
+				req->i.size, 
+				(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
+				(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
 	}
 
 	// DW-1961 Calculate and Log IO Latency

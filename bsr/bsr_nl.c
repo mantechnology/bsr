@@ -3227,6 +3227,12 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
+	// BSR-687 I/O throughput and latency measurement
+	atomic_set(&device->io_cnt[READ], 0);
+	atomic_set(&device->io_cnt[WRITE], 0);
+	atomic_set(&device->io_size[READ], 0);
+	atomic_set(&device->io_size[WRITE], 0);
+	device->aggregation_start_kt = ktime_get();
 
 	bsr_reconsider_queue_parameters(device, device->ldev, NULL);
 

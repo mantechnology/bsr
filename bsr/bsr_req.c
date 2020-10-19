@@ -239,23 +239,29 @@ void bsr_req_destroy(struct kref *kref)
 	destroy_next = req->destroy_next;
 #ifdef CONFIG_BSR_TIMING_STATS
 	if (s & RQ_WRITE) {
-
 		spin_lock(&device->timing_lock); /* local irq already disabled */
 		device->reqs++;
+		ktime_aggregate_delta(device, req->start_kt, req_destroy_kt);
 		
 		ktime_aggregate(device, req, in_actlog_kt);
+		ktime_aggregate(device, req, before_queue_kt);
+		ktime_aggregate(device, req, before_al_begin_io_kt);
 		ktime_aggregate(device, req, pre_submit_kt);
+		ktime_aggregate(device, req, post_submit_kt);
+
 		for_each_peer_device(peer_device, device) {
 			int node_id = peer_device->node_id;
 			unsigned ns = bsr_req_state_by_peer_device(req, peer_device);
 			if (!(ns & RQ_NET_MASK))
 				continue;
+			peer_device->reqs++;
 			ktime_aggregate_pd(peer_device, node_id, req, pre_send_kt);
 			ktime_aggregate_pd(peer_device, node_id, req, acked_kt);
 			ktime_aggregate_pd(peer_device, node_id, req, net_done_kt);
 		}
-		spin_unlock(&device->timing_lock);
-	}
+		
+		spin_unlock(&device->timing_lock);	
+	} 
 #endif
 	/* paranoia */
 	for_each_peer_device(peer_device, device) {
@@ -549,6 +555,10 @@ struct bio_and_error *m)
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> bsr_request_endio -> complete_master_bio -> bio_endio)
 #else // _LIN
 	bsr_bio_endio(m->bio, m->error);
+	spin_lock(&device->timing_lock);
+	ktime_aggregate_delta(device, m->io_start_kt, master_complete_kt);
+	device->master_complete_kt.cnt++;
+	spin_unlock(&device->timing_lock);
 #endif
 	peer_device = NULL;
 #ifdef _WIN
@@ -614,6 +624,11 @@ struct bio_and_error *m)
 			}
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
+			// BSR-687
+			spin_lock(&device->timing_lock);
+			ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
+			device->master_complete_kt.cnt++;
+			spin_unlock(&device->timing_lock);
 			// DW-1300 put reference when completing master irp.
 			kref_put(&device->kref, bsr_destroy_device);
 		}
@@ -651,6 +666,11 @@ struct bio_and_error *m)
 				}
 
 				IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
+				// BSR-687
+				spin_lock(&device->timing_lock);
+				ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
+				device->master_complete_kt.cnt++;
+				spin_unlock(&device->timing_lock);
 
 				kfree(master_bio->splitInfo);
 				// DW-1300 put reference when completing master irp.
@@ -799,6 +819,9 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 			m->error = ok ? 0 : (error ? error : -EIO);
 
 		m->bio = req->master_bio;
+#ifdef _LIN
+		m->io_start_kt = req->start_kt;
+#endif
 		req->master_bio = NULL;
 		/* We leave it in the tree, to be able to verify later
 		 * write-acks in protocol != C during resync.
@@ -1103,7 +1126,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
 				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
 		}
-
+		printk("ktime_get_accounting(req->net_done_kt[peer_device->node_id]);");
 		ktime_get_accounting(req->net_done_kt[peer_device->node_id]);
 
 		/* in ahead/behind mode, or just in case,
@@ -2006,7 +2029,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 
 queue_for_submitter_thread:
 	req->do_submit = true;
-	ktime_aggregate_delta(device, req->start_kt, before_queue_kt);
+	ktime_get_accounting(req->before_queue_kt);
 	bsr_queue_write(device, req);
 	return NULL;
 }
@@ -2259,6 +2282,7 @@ out:
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector),
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
 		bsr_submit_req_private_bio(req);
+		ktime_get_accounting(req->post_submit_kt);
 	}
 #ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.
@@ -2448,7 +2472,8 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 
 	req = wfa_next_request(wfa);
 	while (req) {
-		ktime_aggregate_delta(device, req->start_kt, before_al_begin_io_kt);
+		ktime_get_accounting(req->before_al_begin_io_kt);
+		
 		err = bsr_al_begin_io_nonblock(device, &req->i);
 		if (err == -ENOBUFS)
 			break;
@@ -2691,22 +2716,27 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct bsr_device *device = (struct bsr_device *) q->queuedata;
 #ifdef CONFIG_BSR_TIMING_STATS
-	ktime_t start_kt;
+	ktime_t start_kt = ktime_get();
 #endif
 	ULONG_PTR start_jif;
 #ifdef _WIN
 	NTSTATUS	status;
 #else // _LIN
-#ifdef READ_BYPASS_TO_BACKING_BDEV
 	const int rw = bio_data_dir(bio);
-	// BSR-458
 	// BSR-620 If the meta-disk err, device->ldev can be null.
-	if(rw == READ && device->ldev) {
+	if (rw == READ && device->ldev) {
+		atomic_inc(&device->io_cnt[READ]);
+		atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[READ]);
+// BSR-458
+#ifdef READ_BYPASS_TO_BACKING_BDEV
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
 		MAKE_REQUEST_RETURN;
-	}
 #endif
+	} else if (rw == WRITE && device->ldev) {
+		atomic_inc(&device->io_cnt[WRITE]);
+		atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[WRITE]);
+	}
 	/* We never supported BIO_RW_BARRIER.
 	 * We don't need to, anymore, either: starting with kernel 2.6.36,
 	 * we have REQ_FUA and REQ_PREFLUSH, which will be handled transparently
@@ -2727,7 +2757,6 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
  */
 	blk_queue_split(q, &bio, q->bio_split);
 #endif
-	ktime_get_accounting(start_kt);
 	start_jif = jiffies;
 	inc_ap_bio(device, bio_data_dir(bio));
 

@@ -237,7 +237,8 @@ mvolDeviceUsage(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 }
 
 int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, struct splitInfo *splitInfo,
-    long split_id, long split_total_id, long split_total_length, struct bsr_device *device, PVOID buffer, LARGE_INTEGER offset, ULONG length)
+    long split_id, long split_total_id, long split_total_length, struct bsr_device *device, PVOID buffer, LARGE_INTEGER offset, ULONG length,
+	ktime_t io_start_kt)
 {
 	NTSTATUS				status;
 	struct bio				*bio;
@@ -262,6 +263,7 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 	bio->bi_size = length;
 	// save original Master Irp's Stack Flags
 	bio->MasterIrpStackFlags = ((PIO_STACK_LOCATION)IoGetCurrentIrpStackLocation(upper_pirp))->Flags;
+	bio->io_start_kt = io_start_kt;
 
 	status = bsr_make_request(device->rq_queue, bio); // bsr local I/O entry point 
 	if (STATUS_SUCCESS != status) {
@@ -273,7 +275,7 @@ int DoSplitIo(PVOLUME_EXTENSION VolumeExtension, ULONG io, PIRP upper_pirp, stru
 }
 
 NTSTATUS
-mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
+mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io, ktime_t start)
 {
 	NTSTATUS					status = STATUS_INSUFFICIENT_RESOURCES;
 	PIO_STACK_LOCATION			irpSp;
@@ -349,9 +351,9 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = buffer;
 			}
 
-			if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, newbuf, offset, slice)) != 0)
+			if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, newbuf, offset, slice, start)) != 0)
 #else
-            if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, buffer, offset, slice)))
+            if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, buffer, offset, slice, start)))
 #endif
 			{
 				goto fail_put_dev;
@@ -376,9 +378,9 @@ mvolReadWriteDevice(PVOLUME_EXTENSION VolumeExtension, PIRP Irp, ULONG Io)
 				newbuf = buffer;
 			}
 
-			if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, newbuf, offset, rest)) != 0)
+			if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, newbuf, offset, rest, start)) != 0)
 #else
-            if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, buffer, offset, rest)))
+            if ((status = DoSplitIo(VolumeExtension, Io, Irp, splitInfo, io_id, splitted_io_count, length, device, buffer, offset, rest, start)))
 #endif
 			{
 				goto fail_put_dev;

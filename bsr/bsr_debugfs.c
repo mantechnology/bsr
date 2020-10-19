@@ -1170,55 +1170,116 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
-#define show_per_peer(M)						\
-	seq_printf(m, "%-16s", #M ":");					\
-	for_each_peer_device(peer_device, device) {			\
-		seq_printf(m, " %12lld", ktime_to_us(peer_device->M)); }\
-	seq_printf(m, "\n")
 
 #define PRId64 "lld"
 
+#define show_stat(NAME, M, NUM)						\
+	seq_printf(m, "    %-16s cur=%" PRId64 ", min=%" PRId64 ", max=%" PRId64 ", avg=%" PRId64,	\
+			NAME":",	\
+			ktime_to_us(M.last_val), \
+			ktime_to_us(M.min_val), ktime_to_us(M.max_val),	\
+			NUM > 0 ? ktime_to_us(M.total_val) / NUM : 0);	\
+	seq_printf(m, "\n")
+#define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
+#define show_al_stat(device, NAME, M)	show_stat(NAME, device->M, device->al_updates_cnt)
+
+
 #ifdef CONFIG_BSR_TIMING_STATS
+static void device_req_timing_reset(struct bsr_device * device)
+{
+	struct bsr_peer_device *peer_device;
+
+	device->reqs = 0;
+	device->al_updates_cnt = 0;
+
+	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
+	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
+
+	memset(&device->in_actlog_kt, 0, sizeof(struct timing_stat));
+	memset(&device->pre_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&device->post_submit_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->before_queue_kt, 0, sizeof(struct timing_stat));
+	memset(&device->before_al_begin_io_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->al_before_bm_write_hinted_kt, 0, sizeof(struct timing_stat));
+	memset(&device->al_after_bm_write_hinted_kt, 0, sizeof(struct timing_stat));
+	memset(&device->al_after_sync_page_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->req_destroy_kt, 0, sizeof(struct timing_stat));
+
+	for_each_peer_device(peer_device, device) {
+		peer_device->reqs = 0;
+		memset(&peer_device->pre_send_kt, 0, sizeof(struct timing_stat));
+		memset(&peer_device->acked_kt, 0, sizeof(struct timing_stat));
+		memset(&peer_device->net_done_kt, 0, sizeof(struct timing_stat));
+	}
+}
+
 int device_req_timing_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct bsr_peer_device *peer_device;
+	unsigned long flags;
+	ktime_t now = ktime_get();
+	unsigned int period = 0;
+	unsigned int read_io_cnt, write_io_cnt = 0;
+	unsigned int read_io_size, write_io_size = 0;
 
-	seq_printf(m,
-		   "timing values are microseconds "
-#ifdef _WIN
-		   "\n\n"
-#else // _LIN
-		   "(write an 'r' to reset all to 0)\n\n"
-#endif
-		   "requests:        %12lu\n"
-		   "before_queue:    %12" PRId64 "\n"
-		   "before_al_begin  %12" PRId64 "\n"
-		   "in_actlog:       %12" PRId64 "\n"
-		   "pre_submit:      %12" PRId64 "\n\n"
-		   "al_updates:      %12u\n"
-		   "before_bm_write  %12" PRId64 "\n"
-		   "mid              %12" PRId64 "\n"
-		   "after_sync_page  %12" PRId64 "\n",
-		   device->reqs,
-		   ktime_to_us(device->before_queue_kt),
-		   ktime_to_us(device->before_al_begin_io_kt),
-		   ktime_to_us(device->in_actlog_kt),
-		   ktime_to_us(device->pre_submit_kt),
-		   device->al_writ_cnt,
-		   ktime_to_us(device->al_before_bm_write_hinted_kt),
-		   ktime_to_us(device->al_mid_kt),
-		   ktime_to_us(device->al_after_sync_page_kt));
+	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
 
-	seq_puts(m, "\npeer:           ");
+	// output of aggregated data for more than 1 second
+	if (period == 0)
+		return 0;
+
+	read_io_cnt = atomic_xchg(&device->io_cnt[READ], 0);
+	write_io_cnt = atomic_xchg(&device->io_cnt[WRITE], 0);
+	read_io_size = atomic_xchg(&device->io_size[READ], 0);
+	write_io_size = atomic_xchg(&device->io_size[WRITE], 0);
+	
+	seq_printf(m, "timing values are microseconds \n\n");
+	seq_printf(m, "aggregation time=%dsec\n\n", period);
+	
+	// BSR-687 I/O throughput and latency
+	seq_printf(m, "IO:\n");
+	seq_printf(m, "    read:  IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n"
+				  "    write: IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n",
+				  read_io_cnt / period, read_io_cnt,
+				  read_io_size / period, read_io_size, 
+				  write_io_cnt / period, write_io_cnt,
+				  write_io_size / period, write_io_size);
+				
+	spin_lock_irqsave(&device->timing_lock, flags);
+	show_stat("  local_io_complete", device->local_complete_kt, device->local_complete_kt.cnt);
+	show_stat("  master_io_complete", device->master_complete_kt, device->master_complete_kt.cnt);
+
+	seq_printf(m, "\n%-20s %lu\n", "requests:", device->reqs);
+	show_req_stat(device, "before_queue", before_queue_kt);
+	show_req_stat(device, "before_al_begin", before_al_begin_io_kt);
+	show_req_stat(device, "in_actlog", in_actlog_kt);
+	show_req_stat(device, "pre_submit", pre_submit_kt);
+	show_req_stat(device, "post_submit", post_submit_kt);
+	show_req_stat(device, "destroy", req_destroy_kt);
+
+	seq_printf(m, "%-20s %u\n", "al_updates:", device->al_updates_cnt);
+	show_al_stat(device, "before_bm_write", al_before_bm_write_hinted_kt);
+	show_al_stat(device, "after_bm_write", al_after_bm_write_hinted_kt);
+	show_al_stat(device, "after_sync_page", al_after_sync_page_kt);
+
 	for_each_peer_device(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
-		seq_printf(m, " %12.12s", rcu_dereference(connection->transport.net_conf)->name);
+		seq_printf(m, "\n%-20s %s", "peer:", rcu_dereference(connection->transport.net_conf)->name);
+		seq_puts(m, "\n");
+		seq_printf(m, "  %-18s %lu\n", "send:", peer_device->reqs);
+		show_req_stat(peer_device, "pre_send", pre_send_kt);
+		show_req_stat(peer_device, "acked", acked_kt);
+		show_req_stat(peer_device, "net_done", net_done_kt);
 	}
-	seq_puts(m, "\n");
-	show_per_peer(pre_send_kt);
-	show_per_peer(acked_kt);
-	show_per_peer(net_done_kt);
+	
+	device->aggregation_start_kt = now;
+	device_req_timing_reset(device);
+
+	spin_unlock_irqrestore(&device->timing_lock, flags);
 
 	return 0;
 }
@@ -1226,45 +1287,6 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 
 
 #ifdef _LIN
-#ifdef CONFIG_BSR_TIMING_STATS
-static ssize_t device_req_timing_write(struct file *file, const char __user *ubuf,
-	size_t cnt, loff_t *ppos)
-{
-	struct bsr_device *device = file_inode(file)->i_private;
-	char buffer;
-
-	if (copy_from_user(&buffer, ubuf, 1))
-		return -EFAULT;
-
-	if (buffer == 'r' || buffer == 'R') {
-		struct bsr_peer_device *peer_device;
-		unsigned long flags;
-
-		spin_lock_irqsave(&device->timing_lock, flags);
-		device->reqs = 0;
-		device->in_actlog_kt = ns_to_ktime(0);
-		device->pre_submit_kt = ns_to_ktime(0);
-
-		device->before_queue_kt = ns_to_ktime(0);
-		device->before_al_begin_io_kt = ns_to_ktime(0);
-		device->al_writ_cnt = 0;
-		device->al_before_bm_write_hinted_kt = ns_to_ktime(0);
-		device->al_mid_kt = ns_to_ktime(0);
-		device->al_after_sync_page_kt = ns_to_ktime(0);
-
-		for_each_peer_device(peer_device, device) {
-			peer_device->pre_send_kt = ns_to_ktime(0);
-			peer_device->acked_kt = ns_to_ktime(0);
-			peer_device->net_done_kt = ns_to_ktime(0);
-		}
-		spin_unlock_irqrestore(&device->timing_lock, flags);
-	}
-
-	*ppos += cnt;
-	return cnt;
-}
-#endif
-
 /* make sure at *open* time that the respective object won't go away. */
 static int bsr_single_open(struct file *file, int (*show)(struct seq_file *, void *),
 		                void *data, struct kref *kref,
@@ -1506,11 +1528,7 @@ bsr_debugfs_device_attr(act_log_extents)
 bsr_debugfs_device_attr(data_gen_id)
 bsr_debugfs_device_attr(io_frozen)
 bsr_debugfs_device_attr(ed_gen_id)
-#ifdef CONFIG_BSR_TIMING_STATS
-#ifdef _LIN
-__bsr_debugfs_device_attr(req_timing, device_req_timing_write)
-#endif
-#endif
+bsr_debugfs_device_attr(req_timing)
 
 void bsr_debugfs_device_add(struct bsr_device *device)
 {
@@ -1549,7 +1567,7 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(io_frozen);
 	vol_dcf(ed_gen_id);
 #ifdef CONFIG_BSR_TIMING_STATS
-	bsr_dcf(device->debugfs_vol, device, req_timing);
+	vol_dcf(req_timing);
 #endif
 
 	/* Caller holds conf_update */
