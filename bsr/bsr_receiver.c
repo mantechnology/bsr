@@ -8466,7 +8466,7 @@ static void try_to_get_resynced(struct bsr_device *device)
 		int hg, rule_nr, peer_node_id;
 		if (peer_device->disk_state[NOW] == D_UP_TO_DATE) {
 			hg = bsr_uuid_compare(peer_device, &rule_nr, &peer_node_id);
-			bsr_info(3, BSR_LC_STATE, peer_device, "uuid_compare(%d) by rule %d", hg, *rule_nr);
+			bsr_info(3, BSR_LC_STATE, peer_device, "uuid_compare(%d) by rule %d", hg, rule_nr);
 			if (hg <= 0 && hg > best_hg) {
 				best_hg = hg;
 				best_peer_device = peer_device;
