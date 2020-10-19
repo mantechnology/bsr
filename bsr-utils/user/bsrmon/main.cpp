@@ -1,8 +1,11 @@
 #ifdef _WIN
 #include <windows.h>
-#include <stdio.h>
 #include "ioctl.h"
+#else // _LIN
+#include <stdlib.h>
+#include "../../../bsr-headers/linux/bsr_ioctl.h"
 #endif
+#include <stdio.h>
 
 #ifdef _WIN
 void debug_usage()
