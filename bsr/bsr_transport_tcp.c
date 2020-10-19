@@ -1453,7 +1453,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("if(path) path->socket = s_estab");
 		if (path2->socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(28, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists. ", path2->socket);
+			bsr_info(28, BSR_LC_SOCKET, resource, "The socket that was previously accept socket(0x%p) has not been removed yet. Do not accept socket until uninstallation.", path2->socket);
 			goto not_accept;
 		}
 		else {
@@ -1464,7 +1464,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("else listener->paccept_socket = AccceptSocket");
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(29, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists.", listener2->paccept_socket);
+			bsr_info(29, BSR_LC_SOCKET, resource, "The socket that was previously accept socket(0x%p) has not been removed yet. Do not accept socket until uninstallation.", listener2->paccept_socket);
 			goto not_accept;
 		}
 		else {

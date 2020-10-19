@@ -17,7 +17,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
 	
 	if (err) {
-		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to failure to copy from user");
+		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minimum log level due to failure to copy from user");
 		return -1;
 	}
 

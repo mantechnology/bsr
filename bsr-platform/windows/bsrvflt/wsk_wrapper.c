@@ -292,9 +292,9 @@ NTSTATUS NTAPI WskGetNPI()
 		return Status;
 	}
 
-	bsr_info(41, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI start.");
+	bsr_info(41, BSR_LC_SOCKET, NO_OBJECT, "wsk npi start.");
 	Status = WskCaptureProviderNPI(&g_WskRegistration, WSK_INFINITE_WAIT, &g_WskProvider);
-	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI done."); // takes long time! msg out after MVL loaded.
+	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "wsk npi done."); // takes long time! msg out after MVL loaded.
 
 	if (!NT_SUCCESS(Status)) {
 		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "Failed to get wsk npi due to failure to wsk capture provider npi. status 0x%08X", Status);
@@ -1785,7 +1785,7 @@ _Outptr_result_maybenull_ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDis
 
     // Check for a valid new socket
     if (AcceptSocket != NULL) {
-		bsr_info(77, BSR_LC_SOCKET, NO_OBJECT, "incoming connection on a listening socket.");
+		bsr_info(77, BSR_LC_SOCKET, NO_OBJECT, "Incoming connection on a listening socket.");
         struct accept_wait_data *ad = (struct accept_wait_data*)SocketContext;        
         ad->s_accept = kzalloc(sizeof(struct socket), 0, '89SB');
         if(!ad->s_accept) {
