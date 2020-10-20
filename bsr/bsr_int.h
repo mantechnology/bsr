@@ -1816,7 +1816,7 @@ struct timing_stat {
 	ktime_t total_val;
 	ktime_t max_val;
 	ktime_t min_val;
-	unsigned int cnt;
+	atomic_t cnt;
 };
 
 struct bsr_peer_device {
@@ -2149,7 +2149,7 @@ struct bsr_device {
 	struct timing_stat before_queue_kt; /* aggregate over all al_misses */
 	struct timing_stat before_al_begin_io_kt;
 	struct timing_stat req_destroy_kt;
-	unsigned int al_updates_cnt;
+	atomic_t al_updates_cnt;
 	struct timing_stat al_before_bm_write_hinted_kt; /* aggregate over all al_updates */
 	struct timing_stat al_after_bm_write_hinted_kt;
 	struct timing_stat al_after_sync_page_kt;
@@ -4340,6 +4340,10 @@ static inline ktime_t ktime_add(ktime_t lhs, ktime_t rhs)
 
 #define ktime_aggregate(D, R, M) \
 	D->M.last_val = ktime_after(R->M, R->start_kt) ? ktime_sub(R->M, R->start_kt) : ns_to_ktime(0); \
+	_ktime_aggregate(D, M)
+
+#define ktime_aggregate_st(D, ST, ED, M) \
+	D->M.last_val = ktime_after(ED, ST) ? ktime_sub(ED, ST) : ns_to_ktime(0); \
 	_ktime_aggregate(D, M)
 
 #define ktime_aggregate_pd(P, N, R, M) 	\

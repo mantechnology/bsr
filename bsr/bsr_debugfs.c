@@ -1181,7 +1181,6 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 			NUM > 0 ? ktime_to_us(M.total_val) / NUM : 0);	\
 	seq_printf(m, "\n")
 #define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
-#define show_al_stat(device, NAME, M)	show_stat(NAME, device->M, device->al_updates_cnt)
 
 
 #ifdef CONFIG_BSR_TIMING_STATS
@@ -1190,7 +1189,6 @@ static void device_req_timing_reset(struct bsr_device * device)
 	struct bsr_peer_device *peer_device;
 
 	device->reqs = 0;
-	device->al_updates_cnt = 0;
 
 	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
 	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
@@ -1225,6 +1223,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	unsigned int period = 0;
 	unsigned int read_io_cnt, write_io_cnt = 0;
 	unsigned int read_io_size, write_io_size = 0;
+	unsigned int al_cnt = 0;
 
 	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
 
@@ -1236,6 +1235,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	write_io_cnt = atomic_xchg(&device->io_cnt[WRITE], 0);
 	read_io_size = atomic_xchg(&device->io_size[READ], 0);
 	write_io_size = atomic_xchg(&device->io_size[WRITE], 0);
+	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
 	
 	seq_printf(m, "timing values are microseconds \n\n");
 	seq_printf(m, "aggregation time=%dsec\n\n", period);
@@ -1249,10 +1249,10 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 				  write_io_cnt / period, write_io_cnt,
 				  write_io_size / period, write_io_size);
 				
-	spin_lock_irqsave(&device->timing_lock, flags);
-	show_stat("  local_io_complete", device->local_complete_kt, device->local_complete_kt.cnt);
-	show_stat("  master_io_complete", device->master_complete_kt, device->master_complete_kt.cnt);
+	show_stat("  local_io_complete", device->local_complete_kt, atomic_read(&device->local_complete_kt.cnt));
+	show_stat("  master_io_complete", device->master_complete_kt, atomic_read(&device->master_complete_kt.cnt));
 
+	spin_lock_irqsave(&device->timing_lock, flags);
 	seq_printf(m, "\n%-20s %lu\n", "requests:", device->reqs);
 	show_req_stat(device, "before_queue", before_queue_kt);
 	show_req_stat(device, "before_al_begin", before_al_begin_io_kt);
@@ -1261,10 +1261,10 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_req_stat(device, "post_submit", post_submit_kt);
 	show_req_stat(device, "destroy", req_destroy_kt);
 
-	seq_printf(m, "%-20s %u\n", "al_updates:", device->al_updates_cnt);
-	show_al_stat(device, "before_bm_write", al_before_bm_write_hinted_kt);
-	show_al_stat(device, "after_bm_write", al_after_bm_write_hinted_kt);
-	show_al_stat(device, "after_sync_page", al_after_sync_page_kt);
+	seq_printf(m, "%-20s %u\n", "al_updates:", al_cnt);
+	show_stat("before_bm_write", device->al_before_bm_write_hinted_kt, al_cnt);
+	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
+	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
 
 	for_each_peer_device(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;

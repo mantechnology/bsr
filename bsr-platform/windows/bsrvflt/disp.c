@@ -600,11 +600,12 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
 		// DW-1363 prevent mounting volume when device is failed or below.
 		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE)) {
-			// BSR-687 I/O throughput and latency measurement
+			// BSR-687 aggregate I/O throughput and latency
+#ifdef CONFIG_BSR_TIMING_STATS
 			PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 			atomic_inc(&device->io_cnt[READ]);
 			atomic_add(irpSp->Parameters.Read.Length >> 10, &device->io_size[READ]);
-			
+#endif
 			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, bsr_destroy_device);
             if (g_read_filter) {
@@ -724,11 +725,12 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			//1. If IRQL is greater than or equal to DISPATCH LEVEL, Queue write I/O.
 			//2. Otherwise, Directly call mvolwritedispatch
 			if(KeGetCurrentIrql() < DISPATCH_LEVEL) {
-				// BSR-687 I/O throughput and latency measurement
+				// BSR-687 aggregate I/O throughput and latency
+#ifdef CONFIG_BSR_TIMING_STATS
 				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 				atomic_inc(&device->io_cnt[WRITE]);
 				atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
-
+#endif
 				status = mvolReadWriteDevice(VolumeExtension, Irp, IRP_MJ_WRITE, start_kt);
 				if (status != STATUS_SUCCESS) {
                 	mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
@@ -739,11 +741,12 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
                 	return status;
             	}	
 			} else {
-				// BSR-687 I/O throughput and latency measurement
+				// BSR-687 aggregate I/O throughput and latency
+#ifdef CONFIG_BSR_TIMING_STATS
 				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 				atomic_inc(&device->io_cnt[WRITE]);
 				atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
-
+#endif
 				mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp, start_kt);
 			}
 			
