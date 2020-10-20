@@ -645,7 +645,9 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		break;
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
+#ifdef CONFIG_BSR_TIMING_STATS
 		device_req_timing_show(&seq, 0);
+#endif
 		break;
 
 	default:

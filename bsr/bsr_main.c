@@ -3420,7 +3420,14 @@ void bsr_cleanup_device(struct bsr_device *device)
 	device->bm_writ_cnt = 0;
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
-
+	// BSR-687 aggregate I/O throughput and latency
+#ifdef CONFIG_BSR_TIMING_STATS
+	atomic_set(&device->al_updates_cnt, 0);
+	atomic_set(&device->io_cnt[READ], 0);
+	atomic_set(&device->io_cnt[WRITE], 0);
+	atomic_set(&device->io_size[READ], 0);
+	atomic_set(&device->io_size[WRITE], 0);
+#endif
 	if (device->bitmap) {
 		/* maybe never allocated. */
 		bsr_bm_resize(device, 0, 1);
@@ -3773,7 +3780,8 @@ static void do_retry(struct work_struct *ws)
 		struct bio *bio = req->master_bio;
 		ULONG_PTR start_jif = req->start_jif;
 		bool expected;
-		ktime_get_accounting_assign(ktime_t start_kt, req->start_kt);
+		ktime_t start_kt = ns_to_ktime(0);
+		ktime_get_accounting_assign(start_kt, req->start_kt);
 
 		expected =
 			expect(device, atomic_read(&req->completion_ref) == 0) &&

@@ -36,7 +36,7 @@ mvolRemoveDevice( IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp );
 NTSTATUS
 mvolDeviceUsage( IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp );
 NTSTATUS
-mvolReadWriteDevice( IN PVOLUME_EXTENSION VolumeExtension, IN PIRP Irp, IN ULONG Io );
+mvolReadWriteDevice( IN PVOLUME_EXTENSION VolumeExtension, IN PIRP Irp, IN ULONG Io, ktime_t);
 NTSTATUS
 mvolGetVolumeSize( PDEVICE_OBJECT TargetDeviceObject, PLARGE_INTEGER pVolumeSize );
 extern NTSTATUS
@@ -137,6 +137,6 @@ mvolTerminateThread( PMVOL_THREAD pThreadInfo );
 KSTART_ROUTINE mvolWorkThread;
 #ifdef _WIN_MULTIVOL_THREAD
 VOID
-mvolQueueWork(PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp);
+mvolQueueWork(PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp, ktime_t);
 #endif
 #endif __PROTO_H__

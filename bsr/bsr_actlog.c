@@ -583,13 +583,14 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 		write_al_updates = rcu_dereference(device->ldev->disk_conf)->al_updates;
 		rcu_read_unlock();
 		if (write_al_updates) {
-			ktime_aggregate_delta(device, start_kt, al_mid_kt);
+			ktime_aggregate_delta(device, start_kt, al_after_bm_write_hinted_kt);
 			if (bsr_md_sync_page_io(device, device->ldev, sector, REQ_OP_WRITE)) {
 				err = -EIO;
 				bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 			} else {
 				device->al_tr_number++;
 				device->al_writ_cnt++;
+				atomic_inc(&device->al_updates_cnt);
 			}
 			ktime_aggregate_delta(device, start_kt, al_after_sync_page_kt);
 		}

@@ -583,6 +583,7 @@ struct bio {
 	struct bio_vec			bi_io_vec[1]; // only one!!!
 	UCHAR					MasterIrpStackFlags; //Stack Location's Flag
 	LONGLONG				flush_ts;		// DW-1961
+	ktime_t					io_start_kt; // BSR-687
 };
 
 struct bio_set {
