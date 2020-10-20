@@ -1808,7 +1808,7 @@ static void sanitize_state(struct bsr_resource *resource)
 					   role */
 					nr = L_PAUSED_SYNC_S;
 					__change_resync_susp_other_c(peer_device, true, NULL);
-					bsr_warn(41, BSR_LC_STATE, peer_device, "Finish me");
+					bsr_warn(41, BSR_LC_STATE, peer_device, "Delay the sync source role");
 				}
 				__change_repl_state(peer_device, nr, __FUNCTION__);
 			}
@@ -1850,7 +1850,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
-					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be Established due to unsyncable stability");
+					bsr_warn(42, BSR_LC_STATE, peer_device, "Force it to be Established due to unsyncable stability");
 					__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
 				}

@@ -370,7 +370,6 @@ void bsr_req_destroy(struct kref *kref)
 				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
 					  "but my Disk seems to have failed :(",
 					  (unsigned long long) req->i.sector, req->i.size);
-
 			}
 		}
 	}
@@ -2655,7 +2654,7 @@ void do_submit(struct work_struct *ws)
 		if (device->resource->role[NOW] == R_SECONDARY && ts != 0) {
 			ts = timestamp_elapse(ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
-				bsr_warn(27, BSR_LC_LRU, device, "actlog commit takes a long time(%lldus)", ts);
+				bsr_warn(27, BSR_LC_LRU, device, "Activity log commit takes a long time(%lldus)", ts);
 			}
 		}
 

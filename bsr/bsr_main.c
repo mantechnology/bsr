@@ -2288,7 +2288,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		/* paranoia: catch zero runlength.
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
-			bsr_warn(61, BSR_LC_BITMAP, peer_device, "unexpected zero runlength while encoding bitmap "
+			bsr_warn(61, BSR_LC_BITMAP, peer_device, "Unexpected zero runlength while encoding bitmap "
 			    "t:%u bo:%llu", toggle, (unsigned long long)c->bit_offset);
 			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
 			if (toggle == 0) {
@@ -7758,7 +7758,7 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(33, BSR_LC_STATE, device, "backing device is not assigned.");
+		bsr_warn(33, BSR_LC_STATE, device, "Failed to set flag in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7778,7 +7778,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(34, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(34, BSR_LC_STATE, peer_device, "Failed to set flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7816,7 +7816,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(36, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(36, BSR_LC_STATE, peer_device, "Failed to clear flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7834,7 +7834,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(37, BSR_LC_STATE, device, "backing device is not assigned.");
+		bsr_warn(37, BSR_LC_STATE, device, "Failed to test flag in meta because no backing device is assigned.");
 		return 0;
 	}
 
@@ -7846,7 +7846,7 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(38, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(38, BSR_LC_STATE, peer_device, "Failed to test flag of peer in meta because no backing device is assigned.");
 		return false;
 	}
 

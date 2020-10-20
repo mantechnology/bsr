@@ -449,7 +449,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            bsr_crit(17, BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]", str_condition); \
+            bsr_crit(37, BSR_LC_LRU, NO_OBJECT,"BUG: failure [ %s ]", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -510,10 +510,10 @@ static const char * const __log_category_names[] = {
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 91
-#define BSR_LC_IO_MAX_INDEX 57
+#define BSR_LC_IO_MAX_INDEX 61
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
 #define BSR_LC_BITMAP_MAX_INDEX 106
-#define BSR_LC_LRU_MAX_INDEX 36
+#define BSR_LC_LRU_MAX_INDEX 38
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 27
@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
 #define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 85
+#define BSR_LC_MEMORY_MAX_INDEX 90
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -3004,7 +3004,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"block device is not assigned.");
+		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"Block device is not assigned.");
 		return 0;
 	}
 	
@@ -3669,7 +3669,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(27, BSR_LC_REPLICATION, peer_device, "%s => %s, No unprocessed replication requests and responses.", caller, __FUNCTION__);
+		bsr_warn(61, BSR_LC_IO, peer_device, "%s => %s, No response from unprocessed requests.", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 

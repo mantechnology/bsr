@@ -1268,7 +1268,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	if ((ctx->flags & BM_AIO_COPY_PAGES) == 0 &&
 	    !bm_test_page_unchanged(b->bm_pages[idx]))
-		bsr_warn(59, BSR_LC_BITMAP, device, "bitmap page idx %llu changed during I/O", (unsigned long long)idx);
+		bsr_warn(59, BSR_LC_BITMAP, device, "Bitmap page idx %llu changed during I/O", (unsigned long long)idx);
 
 	if (error) {
 		/* ctx error will hold the completed-last non-zero error code,
@@ -1580,7 +1580,7 @@ static int bm_rw_range(struct bsr_device *device,
 	}
 
 	if (ctx->error) {
-		bsr_alert(28, BSR_LC_BITMAP, device, "we had at least one meta disk IO ERROR during bitmap IO");
+		bsr_alert(28, BSR_LC_BITMAP, device, "Meta disk I/O error occurred during bitmap I/O");
 		bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 		err = -EIO; /* ctx->error ? */
 	}

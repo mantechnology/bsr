@@ -690,7 +690,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	*/
 	if (unlikely(req->rq_state[0] & RQ_LOCAL_ABORTED)) {
 		if (bsr_ratelimit())
-			bsr_emerg(11, BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive");
+			bsr_emerg(11, BSR_LC_IO, device, "Delayed completion of aborted local request; disk-timeout may be too aggressive");
 
 		if (!error)
 			bsr_panic_after_delayed_completion_of_aborted_request(device);
@@ -1807,7 +1807,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		}
 
 		if (n_oos) {
-			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!",
+			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync",
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}

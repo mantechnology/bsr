@@ -1216,7 +1216,7 @@ retry:
 			up(&resource->state_sem); /* Allow connect while fencing */
 			for_each_connection_ref(connection, im, resource) {
 				if (!conn_try_outdate_peer(connection) && force) {
-					bsr_warn(72, BSR_LC_GENL, connection, "Forced into split brain situation!");
+					bsr_warn(72, BSR_LC_GENL, connection, "Forced into split brain situation.");
 					with_force = true;
 				}
 			}
@@ -1264,7 +1264,7 @@ retry:
 		goto out;
 
 	if (forced)
-		bsr_warn(73, BSR_LC_GENL, resource, "Forced to consider local data as UpToDate!");
+		bsr_warn(73, BSR_LC_GENL, resource, "Forced to consider local data as UpToDate.");
 
 	if (role == R_SECONDARY) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
@@ -2032,7 +2032,7 @@ bsr_new_dev_size(struct bsr_device *device,
 		DDUMP_LLU(device, la_size);
 		p_size = min_not_zero(p_size, m_size);
 		if (p_size > la_size)
-			bsr_warn(75, BSR_LC_GENL, device, "Resize forced while not fully connected!");
+			bsr_warn(75, BSR_LC_GENL, device, "Resize the volume even if it is not connected to all peers.");
 	} else {
 		DDUMP_LLU(device, p_size);
 		DDUMP_LLU(device, m_size);
@@ -2261,13 +2261,13 @@ static void decide_on_write_same_support(struct bsr_device *device,
 
 		if (me_lbs_b != me_lbs) {
 			bsr_warn(76, BSR_LC_GENL, device,
-				"logical block size of local backend does not match (bsr:%u, backend:%u); was this a late attach?",
+				"Logical block size of local backend does not match (bsr:%u, backend:%u).",
 				me_lbs, me_lbs_b);
 			/* rather disable write same than trigger some BUG_ON later in the scsi layer. */
 			can_do = false;
 		}
 		if (me_lbs_b != peer_lbs) {
-			bsr_warn(77, BSR_LC_GENL, device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.",
+			bsr_warn(77, BSR_LC_GENL, device, "Logical block size mismatch between local and peer (me:%u, peer:%u). This may cause problems.",
 				me_lbs, peer_lbs);
 			if (can_do) {
 				bsr_dbg(device, "logical block size mismatch: WRITE_SAME disabled.");
@@ -2280,10 +2280,10 @@ static void decide_on_write_same_support(struct bsr_device *device,
 			if (peer_lbs > me_lbs) {
 				if (device->resource->role[NOW] != R_PRIMARY) {
 					blk_queue_logical_block_size(q, peer_lbs);
-					bsr_warn(78, BSR_LC_GENL, device, "logical block size set to %u", peer_lbs);
+					bsr_warn(78, BSR_LC_GENL, device, "Logical block size set to %u", peer_lbs);
 				} else {
 					bsr_warn(79, BSR_LC_GENL, device,
-						"current Primary must NOT adjust logical block size (%u -> %u); hope for the best.",
+						"Current Primary must NOT adjust logical block size (%u -> %u); hope for the best.",
 						me_lbs, peer_lbs);
 				}
 			}
@@ -2375,7 +2375,7 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 	}
 
 	if (!bsr_al_try_lock(device)) {
-		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock active log in %s()", __func__);
+		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock activity log in %s()", __func__);
 		return;
 	}
 
@@ -2976,12 +2976,12 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	nbc->known_size = bsr_get_capacity(nbc->backing_bdev);
 
 	if (nbc->known_size > max_possible_sectors) {
-		bsr_warn(82, BSR_LC_GENL, device, "==> truncating very big lower level device "
-			"to currently maximum possible %llu sectors <==",
+		bsr_warn(82, BSR_LC_GENL, device, "Truncating very big lower level device "
+			"to currently maximum possible %llu sectors",
 			(unsigned long long) max_possible_sectors);
 		if (new_disk_conf->meta_dev_idx >= 0)
-			bsr_warn(83, BSR_LC_GENL, device, "==>> using internal or flexible "
-				      "meta data may help <<==");
+			bsr_warn(83, BSR_LC_GENL, device, "Using internal or flexible "
+				      "meta data may help");
 	}
 
 	bsr_suspend_io(device, READ_AND_WRITE);

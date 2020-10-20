@@ -243,7 +243,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
     } else if (err < 0) {
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_ACK);
         // -ENODEV : occured by first bsradm adjust. response?
-		bsr_warn(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)", err);
+			bsr_warn(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)", err);
     }
 
     if (nlh) {
@@ -273,7 +273,7 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
 	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100))) == (skb->len)) {
         return 0; // success
     } else {
-		bsr_warn(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to send. status(0x%x) socket(%p) data(%p) size=%d", sent, info->pSock->sk, skb->data, skb->len);
+		bsr_warn(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to local send. status(0x%x) socket(%p) data(%p) size=%d", sent, info->pSock->sk, skb->data, skb->len);
         return -2; // return non-zero!
     }
 }
@@ -613,7 +613,7 @@ NetlinkWorkThread(PVOID context)
             struct bsr_conf * mdev = minor_to_device(minor);
             if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "minor(%d) suspended", gmh->minor);
+                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "Resource suspended, minor(%d)", gmh->minor);
                 goto cleanup;
             }
         }

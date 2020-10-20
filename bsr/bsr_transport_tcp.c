@@ -221,7 +221,7 @@ int dtt_init(struct bsr_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09SB');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
+			bsr_warn(87, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
 			goto fail;
 		}
 #else  // _LIN

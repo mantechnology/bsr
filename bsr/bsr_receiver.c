@@ -360,7 +360,7 @@ void* bsr_alloc_pages(struct bsr_transport *transport, unsigned int number, bool
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(14, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!");
+			bsr_warn(14, BSR_LC_MEMORY, connection, "Failed to allocate page for interrupted");
 			break;
 		}
 
@@ -417,7 +417,7 @@ struct page *bsr_alloc_pages(struct bsr_transport *transport, unsigned int numbe
 			break;
 
 		if (signal_pending(current)) {
-			bsr_warn(15, BSR_LC_MEMORY, connection, "bsr_alloc_pages interrupted!");
+			bsr_warn(15, BSR_LC_MEMORY, connection, "Failed to allocate page for interrupted");
 			break;
 		}
 
@@ -697,7 +697,7 @@ static int bsr_recv_all_warn(struct bsr_connection *connection, void **buf, size
 
 	err = bsr_recv_all(connection, buf, size);
 	if (err && !signal_pending(current))
-		bsr_warn(64, BSR_LC_PROTOCOL, connection, "short read (expected size %d)", (int)size);
+		bsr_warn(64, BSR_LC_PROTOCOL, connection, "Short read. expected size(%d), err(%d)", (int)size, err);
 	return err;
 }
 
@@ -853,7 +853,7 @@ start:
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
-			bsr_warn(17, BSR_LC_CONNECTION, connection, "connection state is %s now goto retry, err=%d", bsr_conn_str(connection->cstate[NOW]),  err);
+			bsr_warn(17, BSR_LC_CONNECTION, connection, "Connection state is %s now goto retry, err=%d", bsr_conn_str(connection->cstate[NOW]),  err);
 			goto retry;
 		}
 		else
@@ -1001,7 +1001,7 @@ retry:
 	schedule_timeout_interruptible(HZ);
 	// DW-1176 retrying connection doesn't make sense while receiver's restarting, returning false lets bsr re-enters connection once receiver goes running.
 	if (get_t_state(&connection->receiver) == RESTARTING) {
-		bsr_warn(28, BSR_LC_THREAD, connection, "could not retry connection since receiver is restarting");
+		bsr_warn(28, BSR_LC_THREAD, connection, "Could not retry connection since receiver is restarting");
 		return false;
 	}
 	goto start;
@@ -1343,7 +1343,7 @@ static enum finish_epoch bsr_flush_after_epoch(struct bsr_connection *connection
 			}
 #endif
 			if (ret == -BSR_SIGKILL) {
-				bsr_warn(45, BSR_LC_IO, resource, "thread signaled and no more wait pending:%d, barrier_nr:%lld, primary_node_id:%d", 
+				bsr_warn(45, BSR_LC_IO, resource, "thread signaled and no more flush wait pending:%d, barrier_nr:%lld, primary_node_id:%d", 
 					atomic_read(&resource->ctx_flush.pending), (long long)atomic_read64(&resource->ctx_flush.ctx_sync.barrier_nr), atomic_read(&resource->ctx_flush.ctx_sync.primary_node_id));
 			}
 		}
@@ -1498,7 +1498,7 @@ static enum finish_epoch bsr_may_finish_epoch(struct bsr_connection *connection,
 			fw->epoch = epoch;
 			bsr_queue_work(&resource->work, &fw->w);
 		} else {
-			bsr_warn(46, BSR_LC_IO, resource, "Failed to allocate %d size memory for epoch flush", sizeof(*fw));
+			bsr_warn(86, BSR_LC_MEMORY, resource, "Failed to allocate %d size memory for epoch flush", sizeof(*fw));
 			set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &epoch->flags);
 			/* That is not a recursion, only one level */
 			bsr_may_finish_epoch(connection, epoch, EV_BARRIER_DONE);
@@ -2104,7 +2104,7 @@ static int receive_Barrier(struct bsr_connection *connection, struct packet_info
 	 * avoid potential distributed deadlock */
 	epoch = kmalloc(sizeof(struct bsr_epoch), GFP_NOIO, '12SB');
 	if (!epoch) {
-		bsr_warn(30, BSR_LC_REPLICATION, connection, "Allocation of an epoch failed, slowing down");
+		bsr_warn(89, BSR_LC_MEMORY, connection, "Failed to allocate %d size memory for epoch", sizeof(struct bsr_epoch));
 		issue_flush = !test_and_set_bit(DE_BARRIER_IN_NEXT_EPOCH_ISSUED, &connection->current_epoch->flags);
 		conn_wait_ee_empty_or_disconnect(connection, &connection->active_ee);
 		if (issue_flush) {
@@ -5729,11 +5729,11 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		disk_state = disk_state_from_md(device);
 
 	if (hg == -1000) {
-		bsr_alert(85, BSR_LC_RESYNC_OV, device, "Unrelated data, aborting!");
+		bsr_alert(85, BSR_LC_RESYNC_OV, device, "Undefined UUID comparison result.");
 		return -1;
 	}
 	if (hg < -1000) {
-		bsr_alert(86, BSR_LC_RESYNC_OV, device, "To resolve this both sides have to support at least protocol %d", -hg - 1000);
+		bsr_alert(86, BSR_LC_RESYNC_OV, device, "The current protocol version does not support some UUID comparisons. %d version should be supported.", -hg - 1000);
 		return -1;
 	}
 
@@ -5817,7 +5817,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	rcu_read_unlock();
 
 	if (hg == -100) {
-		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection!");
+		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection");
 		bsr_khelper(device, connection, "split-brain");
 		return -1;
 	}
@@ -8359,7 +8359,7 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(29, BSR_LC_TWOPC, connection, "Split-Brain since more primaries than allowed; dropping connection!");
+		bsr_alert(29, BSR_LC_TWOPC, connection, "Split-Brain close the connection with two or more primary settings.");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}
@@ -9259,7 +9259,7 @@ out:
 
 static int receive_skip(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(65, BSR_LC_PROTOCOL, connection, "skipping unknown optional packet type %d, l: %d!",
+	bsr_warn(65, BSR_LC_PROTOCOL, connection, "Skipping unknown optional packet type %d, length: %d",
 		 pi->cmd, pi->size);
 
 	return ignore_remaining_packet(connection, pi->size);

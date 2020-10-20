@@ -775,7 +775,7 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "thread(%s) bio_endio error with err=%d.", current->comm, error);
+			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "block I/O error with err(%d), thread(%s)", error, current->comm);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
 			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.", current->comm, error);
@@ -1533,7 +1533,7 @@ void kobject_put(struct kobject *kobj)
 void kobject_del(struct kobject *kobj)
 {
     if (!kobj) {
-		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "kobject is NULL");
+		bsr_warn(70, BSR_LC_ETC, NO_OBJECT, "The kobj to be deleted has not been assigned.");
         return;
     }
     kobject_put(kobj->parent); 
@@ -1839,7 +1839,7 @@ retry:
 			delay.QuadPart = (-1 * 1000 * 10000);   //// wait 1000ms relative
 			KeDelayExecutionThread(KernelMode, FALSE, &delay);
 			retry++;
-			bsr_warn(84, BSR_LC_MEMORY, NO_OBJECT, "IoBuildAsynchronousFsdRequest: cannot alloc new IRP, try again (%d/3)\n", retry);
+			bsr_warn(90, BSR_LC_MEMORY, NO_OBJECT, "IoBuildAsynchronousFsdRequest: cannot alloc new IRP, try again (%d/3)\n", retry);
 			goto retry;
 		}
 
@@ -2963,7 +2963,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
-		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed. status(%x), IRQL(%d)", Status, KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {

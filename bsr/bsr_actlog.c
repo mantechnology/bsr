@@ -301,7 +301,7 @@ int bsr_md_sync_page_io(struct bsr_device *device, struct bsr_backing_dev *bdev,
 
 	if (sector < bsr_md_first_sector(bdev) ||
 	    sector + 7 > bsr_md_last_sector(bdev))
-		bsr_alert(20, BSR_LC_IO, device, "%s [%d]:%s(,%llus,%s) out of range meta disk access!",
+		bsr_alert(20, BSR_LC_IO, device, "%s [%d]:%s(,%llus,%s) out of range meta disk access",
 		     current->comm, current->pid, __func__,
 		     (unsigned long long)sector, 
 			 (op == REQ_OP_WRITE) ? "WRITE" : "READ");
@@ -1122,7 +1122,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				ext->flags = 0;
 			}
 			if (ext->rs_failed) {
-				bsr_warn(0, BSR_LC_LRU, device, "Kicking resync_lru element enr=%u "
+				bsr_warn(38, BSR_LC_LRU, device, "Kicking resync_lru element enr=%u "
 				     "out with rs_failed=%d",
 				     ext->lce.lc_number, ext->rs_failed);
 			}
@@ -1160,7 +1160,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				}
 				else {
 					if (bsr_ratelimit())
-						bsr_warn(23, BSR_LC_LRU, peer_device, "Failed to allocate %d size memory for send peer in sync", sizeof(struct update_peers_work));
+						bsr_warn(88, BSR_LC_MEMORY, peer_device, "Failed to allocate %d size memory for send peer in sync", sizeof(struct update_peers_work));
 				}
 
 				ext->rs_failed = 0;
@@ -1394,7 +1394,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 			// DW-1153 add error log
 #ifdef _DEBUG_OOS
 			// DW-1992 it is a normal operation, not an error, so it is output at the info level.
-			bsr_warn(4, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
+			bsr_info(4, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
 #endif
 			goto out;
 		}
@@ -1721,7 +1721,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 			 
 			wake_up(&device->al_wait);
 		} else {
-			bsr_alert(11, BSR_LC_LRU, device, "LOGIC BUG, Failed to find bitmap extent information.");
+			bsr_alert(11, BSR_LC_LRU, device, "LOGIC BUG, Failed to find bitmap extent information. resync_wenr(%d)", peer_device->resync_wenr);
 		}
 	}
 	/* TRY. */
