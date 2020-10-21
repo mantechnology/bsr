@@ -5832,7 +5832,7 @@ int bsr_init(void)
 #ifdef _LIN
 #if 0 // moved to bsr_load()
 	if (bsr_debugfs_init())
-		bsr_noti(76, NO_OBJECT, "failed to initialize debugfs -- will not be available");
+		bsr_noti(142, BSR_LC_DRIVER, NO_OBJECT, "Failed to initialize debugfs -- will not be available");
 #endif
 #endif
 
