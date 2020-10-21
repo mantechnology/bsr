@@ -509,7 +509,7 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 91
+#define BSR_LC_VOLUME_MAX_INDEX 92
 #define BSR_LC_IO_MAX_INDEX 61
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
 #define BSR_LC_BITMAP_MAX_INDEX 106
@@ -528,8 +528,8 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_DRIVER_MAX_INDEX 140
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
-#define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 90
+#define BSR_LC_PROTOCOL_MAX_INDEX 70
+#define BSR_LC_MEMORY_MAX_INDEX 91
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -3004,7 +3004,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"Block device is not assigned.");
+		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"Failed to get capacity beacuse block device is not assigned.");
 		return 0;
 	}
 	
@@ -3646,7 +3646,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s, No unprocessed resync requests and responses.", caller, __FUNCTION__);
+		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s,There are no incomplete resync requests, but completion of the request has been set.", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3669,7 +3669,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(61, BSR_LC_IO, peer_device, "%s => %s, No response from unprocessed requests.", caller, __FUNCTION__);
+		bsr_warn(61, BSR_LC_IO, peer_device, "%s => %s, There is no request being processed, but the request has been completed.", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 

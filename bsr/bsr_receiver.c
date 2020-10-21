@@ -2929,7 +2929,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	e_oos = 0;
 
 	if (d->bi_size < BM_BLOCK_SIZE) {
-		bsr_warn(166, BSR_LC_RESYNC_OV, peer_device, "bug FIMXME!! bi_size(%lu) < BM_BLOCK_SIZE", (unsigned long)d->bi_size);
+		bsr_warn(166, BSR_LC_RESYNC_OV, peer_device, "FIMXME! Resync data size(%lu) less than block size(%lu).", (unsigned long)d->bi_size, BM_BLOCK_SIZE);
 	}
 
 	// DW-1886
@@ -4885,7 +4885,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 			break;
 		}
 		/* Else fall through to one of the other strategies... */
-		bsr_warn(167, BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision"
+		bsr_warn(167, BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision "
 			  "Using discard-least-changes instead");
 	case ASB_DISCARD_ZERO_CHG:
 		if (ch_peer == 0 && ch_self == 0) {
@@ -4967,7 +4967,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 			if (rv2 != SS_SUCCESS) {
 				bsr_khelper(device, connection, "pri-lost-after-sb");
 			} else {
-				bsr_warn(168, BSR_LC_RESYNC_OV, device, "Successfully gave up primary role.");
+				bsr_warn(168, BSR_LC_RESYNC_OV, device, "The role changed from primary to secondary for recovery of split-brain.");
 				rv = hg;
 			}
 		} else
@@ -5018,7 +5018,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 			if (rv2 != SS_SUCCESS) {
 				bsr_khelper(device, connection, "pri-lost-after-sb");
 			} else {
-				bsr_warn(169, BSR_LC_RESYNC_OV, device, "Successfully gave up primary role.");
+				bsr_warn(169, BSR_LC_RESYNC_OV, device, "The role changed from primary to secondary for recovery of split-brain.");
 				rv = hg;
 			}
 		} else
@@ -6106,7 +6106,7 @@ static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device
  */
 static int config_unknown_volume(struct bsr_connection *connection, struct packet_info *pi)
 {
-	bsr_warn(46, BSR_LC_VOLUME, connection, "%s packet received for volume %d, which is not configured locally",
+	bsr_warn(70, BSR_LC_PROTOCOL, connection, "%s packet received for volume %d, which is not configured locally",
 		  bsr_packet_name(pi->cmd), pi->vnr);
 	return ignore_remaining_packet(connection, pi->size);
 }

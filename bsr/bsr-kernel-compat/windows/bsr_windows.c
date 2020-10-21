@@ -775,7 +775,7 @@ void bio_endio(struct bio *bio, int error)
 	if (bio->bi_end_io) {
 		if(error) {
 			bio->bi_bdev = NULL;
-			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "block I/O error with err(%d), thread(%s)", error, current->comm);
+			bsr_warn(1, BSR_LC_IO, NO_OBJECT, "block I/O request error with err(%d), thread(%s)", error, current->comm);
         	bio->bi_end_io((void*)FAULT_TEST_FLAG, (void*) bio, (void*) error);
 		} else { // if bio_endio is called with success(just in case)
 			//bsr_info(57, BSR_LC_IO, NO_OBJECT,"thread(%s) bio_endio with err=%d.", current->comm, error);

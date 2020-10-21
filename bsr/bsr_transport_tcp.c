@@ -2641,11 +2641,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(28, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(%s)", tcp_transport->stream[i]->name);
+				bsr_warn(28, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No send_buffering thread(%s)", tcp_transport->stream[i]->name);
 			}
 		}
 		else {
-			bsr_warn(29, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)", i);
+			bsr_warn(29, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No stream(channel:%d)", i);
 		}
 	}
 	return;
@@ -2668,11 +2668,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(channel:%d)", i);
+				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No send_buffering thread(%s)", i);
 			}
 		}
 		else {
-			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)", i);
+			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No stream(channel:%d)", i);
 		}
 	}
 	return;

@@ -3357,7 +3357,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
 			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);
 			if (rv < SS_SUCCESS)
-				bsr_warn(83, BSR_LC_DRIVER, resource, "Auto-demote failed: %s",
+				bsr_warn(83, BSR_LC_DRIVER, resource, "Failed to set secondary in auto-demote. err(%s)",
 					  bsr_set_st_err_str(rv));
 		}
 	}
@@ -6977,7 +6977,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
-				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
 					atomic_inc(&device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
@@ -6993,7 +6993,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
-				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
 					atomic_inc(&device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
@@ -7003,7 +7003,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
-		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "unexpected repliction state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
+		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
 	if (dec_bm_work_n) {
@@ -7328,7 +7328,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	// DW-1317 inspect resync side first, before get the allocated bitmap.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
-		bsr_warn(164, BSR_LC_RESYNC_OV, peer_device, "can't be %s", bsr_repl_str(side));
+		bsr_warn(164, BSR_LC_RESYNC_OV, peer_device, "Not a replication state(%s) to set out of sync", bsr_repl_str(side));
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 		*bSync = false;
@@ -7492,7 +7492,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 			bSecondary = true;
 		}
 		else {
-			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "The allocate cluster is not set because it is not in %s state.", bsr_repl_str(peer_device->repl_state[NOW]));
+			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "Cluster allocation is in a replication state(%s) that cannot be allocated.", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
 			goto out;
 		}

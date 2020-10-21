@@ -257,7 +257,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '8ASB');
 		if (!temp) {
 			struct send_buf_packet_info *packet_info, *tmp;
-			bsr_warn(34, BSR_LC_SEND_BUFFER, NO_OBJECT, "memory alloc failed, initialize packet info in send buffer");
+			bsr_warn(91, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory initialize packet info in send buffer");
 			// BSR-571 if packet list add fails, it is not guaranteed that the current list is sequential, so all are initialized.
 			memset(ring->packet_cnt, 0, sizeof(ring->packet_cnt));
 			memset(ring->packet_size, 0, sizeof(ring->packet_size));

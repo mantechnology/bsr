@@ -580,7 +580,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		}
 #endif
 		default:
-			bsr_warn(62, BSR_LC_BITMAP, NO_OBJECT, "The file system %u is not supported", usFileSystemType);
+			bsr_warn(92, BSR_LC_VOLUME, NO_OBJECT, "The file system %u is not supported", usFileSystemType);
 			break;
 		}
 
