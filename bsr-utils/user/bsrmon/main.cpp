@@ -3,9 +3,11 @@
 #include "ioctl.h"
 #else // _LIN
 #include <stdlib.h>
+#include <string.h>
 #include "../../../bsr-headers/linux/bsr_ioctl.h"
 #endif
 #include <stdio.h>
+#include "module_debug.h"
 
 #ifdef _WIN
 void debug_usage()
@@ -243,10 +245,18 @@ int BsrDebug(int argc, char* argv[])
 }
 #endif
 
+void PrintMonitor()
+{
+	struct resource* res = GetResourceInfo();
+	// TODO : print debugfs
+
+	freeResource(res);
+}
+
 #ifdef _WIN
-int main(int argc, char* argv [])
+int main(int argc, char* argv[])
 #else
-int main(int argc, char* argv [])
+int main(int argc, char* argv[])
 #endif
 {
 	int	res = ERROR_SUCCESS;
@@ -256,9 +266,24 @@ int main(int argc, char* argv [])
 		usage();
 
 	for (argIndex = 1; argIndex < argc; argIndex++) {
+		if (!strcmp(argv[argIndex], "/print")) {
+			argIndex++;
+			if (argIndex <= argc)
+				PrintMonitor();
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/file")) {
+			argIndex++;
+			if (argIndex <= argc) {
+				// TODO:MonitorToFile()
+			}
+			else
+				usage();
+		}
 #ifdef _WIN
 		// BSR-37
-		if (!_stricmp(argv[argIndex], "/debug")) {
+		else if (!_stricmp(argv[argIndex], "/debug")) {
 			argIndex++;
 			if (argIndex < argc)
 				res = BsrDebug(argc - argIndex, &argv[argIndex]);
@@ -266,10 +291,10 @@ int main(int argc, char* argv [])
 				debug_usage();
 			break;
 		}
+#endif
 		else {
 			printf("Please check undefined arg[%d]=(%s)\n", argIndex, argv[argIndex]);
 		}
-#endif
 	}
 
 	return res;
