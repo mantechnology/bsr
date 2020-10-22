@@ -69,15 +69,15 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	memset(bitmap_buf->Buffer, 0xFF, bitmap_buf->BitmapSize);
 
 	if (debug_fast_sync) {
-		bsr_info(203, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
-		bsr_info(204, BSR_LC_RESYNC_OV, NO_OBJECT, "version : %d ", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
-		bsr_info(205, BSR_LC_RESYNC_OV, NO_OBJECT, "ag_count : %d ", ag_count);
-		bsr_info(206, BSR_LC_RESYNC_OV, NO_OBJECT, "total block count : %llu ", total_block);	
-		bsr_info(207, BSR_LC_RESYNC_OV, NO_OBJECT, "blocks_per_ag : %ld ", (long int)ag_blocks_offset);
-		bsr_info(208, BSR_LC_RESYNC_OV, NO_OBJECT, "block size : %d ", blk_size);
-		bsr_info(209, BSR_LC_RESYNC_OV, NO_OBJECT, "sector size : %d ", sect_size);
-		bsr_info(210, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap size : %lld ", bitmap_buf->BitmapSize);
-		bsr_info(211, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
+		bsr_info(118, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
+		bsr_info(119, BSR_LC_RESYNC_OV, NO_OBJECT, "version : %d ", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
+		bsr_info(120, BSR_LC_RESYNC_OV, NO_OBJECT, "ag_count : %d ", ag_count);
+		bsr_info(121, BSR_LC_RESYNC_OV, NO_OBJECT, "total block count : %llu ", total_block);	
+		bsr_info(122, BSR_LC_RESYNC_OV, NO_OBJECT, "blocks_per_ag : %ld ", (long int)ag_blocks_offset);
+		bsr_info(123, BSR_LC_RESYNC_OV, NO_OBJECT, "block size : %d ", blk_size);
+		bsr_info(124, BSR_LC_RESYNC_OV, NO_OBJECT, "sector size : %d ", sect_size);
+		bsr_info(125, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap size : %lld ", bitmap_buf->BitmapSize);
+		bsr_info(126, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
 	}
 
 	for (ag_no = 0; ag_no < ag_count; ag_no++) {

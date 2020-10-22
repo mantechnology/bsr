@@ -2406,7 +2406,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 		err = __send_command(peer_device->connection, device->vnr, P_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(63, BSR_LC_PROTOCOL, peer_device, "Failed to send bitmap. err(%d)", err);
+			bsr_err(107, BSR_LC_BITMAP, peer_device, "Failed to send bitmap. err(%d)", err);
 		}		
 
 		c->word_offset += num_words;
@@ -7360,7 +7360,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		}
 	}
 
-	bsr_info(19, BSR_LC_RESYNC_OV, peer_device, "Proceed to Write the cluster assigned to the bitmap.");
+	bsr_info(19, BSR_LC_RESYNC_OV, peer_device, "Get bitmap information for the volume.");
 
 	do {
 		if (bSecondary) {
@@ -7488,7 +7488,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_VERIFY_S) {
-			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "The replication status is verify soruce and role is secondary, so you mount the temporary volume to get the allocate cluster.");
+			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "The replication status is verify source and role is secondary, so you mount the temporary volume to get the allocate cluster.");
 			bSecondary = true;
 		}
 		else {

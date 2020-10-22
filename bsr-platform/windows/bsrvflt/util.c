@@ -114,7 +114,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 	// DW-1303 No dismount for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(15, BSR_LC_VOLUME, NO_OBJECT,"no dismount. volume(%wZ) already dismounted", &device_name);
+			bsr_info(15, BSR_LC_VOLUME, NO_OBJECT,"No dismount. volume(%wZ) already dismounted", &device_name);
 			return STATUS_SUCCESS;
 		}
 	}

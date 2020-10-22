@@ -2474,7 +2474,7 @@ static bool __bsr_may_sync_now(struct bsr_peer_device *peer_device)
 		    other_peer_device->resync_susp_dependency[NOW] ||
 		    other_peer_device->resync_susp_peer[NOW] ||
 		    other_peer_device->resync_susp_user[NOW]) {
-			bsr_info(129, BSR_LC_RESYNC_OV, peer_device, "another(node_id:%d) peer device is in progress for resync", other_peer_device->node_id);
+			bsr_info(129, BSR_LC_RESYNC_OV, peer_device, "Another(node_id:%d) peer device is in progress for resync", other_peer_device->node_id);
 			ret = false;
 			break;
 		}
@@ -3753,7 +3753,7 @@ static int process_one_request(struct bsr_connection *connection)
 					peer_device->repl_state[NOW] == L_ESTABLISHED &&
 					bsr_bm_total_weight(peer_device)) {
 
-					bsr_info(146, BSR_LC_RESYNC_OV, peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state", (unsigned long long)bsr_bm_total_weight(peer_device));
+					bsr_info(146, BSR_LC_RESYNC_OV, peer_device, "Start resync again because there is out of sync(%llu) in L_ESTABLISHED state", (unsigned long long)bsr_bm_total_weight(peer_device));
 					peer_device->start_resync_side = L_SYNC_SOURCE;
 					// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
 					mod_timer(&peer_device->start_resync_timer, jiffies + HZ);

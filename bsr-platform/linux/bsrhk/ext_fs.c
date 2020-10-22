@@ -51,7 +51,7 @@ int ext_used_blocks(unsigned int group, char * bitmap,
 		}
 	}
 	
-	bsr_info(221, BSR_LC_RESYNC_OV, NO_OBJECT, "%s", buf);
+	bsr_info(127, BSR_LC_BITMAP, NO_OBJECT, "%s", buf);
 	return used;
 }
 
@@ -85,7 +85,7 @@ int ext_free_blocks(unsigned int group, char * bitmap,
 		}
 	}
 	
-	bsr_info(222, BSR_LC_RESYNC_OV, NO_OBJECT, "%s", buf);
+	bsr_info(108, BSR_LC_BITMAP, NO_OBJECT, "%s", buf);
 	return free;
 }
 
@@ -107,7 +107,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 	
 	if (ext_has_feature_meta_bg(ext_sb)) {
-		bsr_info(74, BSR_LC_BITMAP, NO_OBJECT, "EXT_FEATURE_INCOMPAT_META_BG is set. fastsync not support ");
+		bsr_info(74, BSR_LC_BITMAP, NO_OBJECT, "EXT_FEATURE_INCOMPAT_META_BG is set. fastsync not support");
 		// TODO : support MEAT_BG
 		return NULL;
 	}
@@ -143,15 +143,15 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	memset(bitmap_buf->Buffer, 0, bitmap_buf->BitmapSize);
 
 	if (debug_fast_sync) {
-		bsr_info(226, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
-		bsr_info(227, BSR_LC_RESYNC_OV, NO_OBJECT, "first_data_block : %lu ", first_data_block);
-		bsr_info(228, BSR_LC_RESYNC_OV, NO_OBJECT, "total block count : %llu ", total_block);	
-		bsr_info(229, BSR_LC_RESYNC_OV, NO_OBJECT, "blocks_per_group : %lu ", blocks_per_group);
-		bsr_info(230, BSR_LC_RESYNC_OV, NO_OBJECT, "group descriptor size : %u ", desc_size);
-		bsr_info(231, BSR_LC_RESYNC_OV, NO_OBJECT, "block size : %lu ", bytes_per_block);
-		bsr_info(232, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap size : %lld ", bitmap_size);
-		bsr_info(233, BSR_LC_RESYNC_OV, NO_OBJECT, "group count : %lu ", group_count);
-		bsr_info(234, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
+		bsr_info(109, BSR_LC_BITMAP, NO_OBJECT, "=============================");
+		bsr_info(110, BSR_LC_BITMAP, NO_OBJECT, "first_data_block : %lu ", first_data_block);
+		bsr_info(111, BSR_LC_BITMAP, NO_OBJECT, "total block count : %llu ", total_block);	
+		bsr_info(112, BSR_LC_BITMAP, NO_OBJECT, "blocks_per_group : %lu ", blocks_per_group);
+		bsr_info(113, BSR_LC_BITMAP, NO_OBJECT, "group descriptor size : %u ", desc_size);
+		bsr_info(114, BSR_LC_BITMAP, NO_OBJECT, "block size : %lu ", bytes_per_block);
+		bsr_info(115, BSR_LC_BITMAP, NO_OBJECT, "bitmap size : %lld ", bitmap_size);
+		bsr_info(116, BSR_LC_BITMAP, NO_OBJECT, "group count : %lu ", group_count);
+		bsr_info(117, BSR_LC_BITMAP, NO_OBJECT, "=============================");
 	}
 
 	group_desc_offset = bytes_per_block * (first_data_block + 1);

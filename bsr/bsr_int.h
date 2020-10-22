@@ -512,11 +512,11 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_VOLUME_MAX_INDEX 92
 #define BSR_LC_IO_MAX_INDEX 61
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
-#define BSR_LC_BITMAP_MAX_INDEX 106
-#define BSR_LC_LRU_MAX_INDEX 38
+#define BSR_LC_BITMAP_MAX_INDEX 127
+#define BSR_LC_LRU_MAX_INDEX 40
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 27
+#define BSR_LC_RESYNC_OV_MAX_INDEX 207
 #define BSR_LC_REPLICATION_MAX_INDEX 30
 #define BSR_LC_CONNECTION_MAX_INDEX 31
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -534,7 +534,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 86
+#define BSR_LC_ETC_MAX_INDEX 87
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -636,7 +636,7 @@ bsr_insert_fault(struct bsr_device *device, unsigned int type) {
 		_bsr_insert_fault(device, type);
 
     if (ret) {
-        bsr_info(7, BSR_LC_IO_ERROR, NO_OBJECT,"Failed to test. type=0x%x fault=%d", type, ret);
+        bsr_err(87, BSR_LC_ETC, NO_OBJECT,"Failed to test. type=0x%x fault=%d", type, ret);
     }
     return ret;
 #else // _LIN

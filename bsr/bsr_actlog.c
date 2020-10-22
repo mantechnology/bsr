@@ -1894,7 +1894,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			if (bm_ext->lce.lc_number == LC_FREE)
 				continue;
 			if (bm_ext->lce.lc_number == peer_device->resync_wenr) {
-				bsr_info(3, BSR_LC_RESYNC_OV, peer_device, "Dropping %u in resync lru delete all, apparently"
+				bsr_info(39, BSR_LC_LRU, peer_device, "Dropping %u in resync lru delete all, apparently"
 				     " got 'synced' by application io",
 				     peer_device->resync_wenr);
 				D_ASSERT(peer_device, !test_bit(BME_LOCKED, &bm_ext->flags));
@@ -1904,7 +1904,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 				lc_put(peer_device->resync_lru, &bm_ext->lce);
 			}
 			if (bm_ext->lce.refcnt != 0) {
-				bsr_info(4, BSR_LC_RESYNC_OV, peer_device, "Retrying resync lru delete all later. number=%u, "
+				bsr_info(40, BSR_LC_LRU, peer_device, "Retrying resync lru delete all later. number=%u, "
 				     "refcnt=%u", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
 				put_ldev(device);
 				spin_unlock_irq(&device->al_lock);
