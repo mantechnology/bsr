@@ -2,5 +2,9 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="module_debug.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="module_debug.h" />
   </ItemGroup>
 </Project>

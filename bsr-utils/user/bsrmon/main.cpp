@@ -56,75 +56,12 @@ void usage()
 #ifdef _WIN
 	printf(
 		"   /debug\n"
-	);
+		);
 #endif
 	exit(ERROR_INVALID_PARAMETER);
 }
 
 #ifdef _WIN
-HANDLE
-OpenDevice(PCHAR devicename)
-{
-	HANDLE		handle = INVALID_HANDLE_VALUE;
-
-	handle = CreateFileA(devicename, GENERIC_READ, FILE_SHARE_READ,
-		NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (handle == INVALID_HANDLE_VALUE) {
-		printf("LOG_ERROR: OpenDevice: cannot open %s\n", devicename);
-	}
-
-	return handle;
-}
-
-DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo)
-{
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       retVal = ERROR_SUCCESS;
-	DWORD       dwReturned = 0;
-	BOOL        ret = FALSE;
-
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		retVal = GetLastError();
-		fprintf(stderr, "DEBUG_ERROR: %s: Failed open bsr. Err=%u\n",
-			__FUNCTION__, retVal);
-		return retVal;
-	}
-	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_DEBUG_INFO,
-		pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, pDebugInfo, sizeof(BSR_DEBUG_INFO) + pDebugInfo->buf_size, &dwReturned, NULL);
-	if (ret == FALSE) {
-		retVal = GetLastError();
-	}
-
-	if (hDevice != INVALID_HANDLE_VALUE)
-		CloseHandle(hDevice);
-
-	return retVal;
-}
-
-// BSR-37
-enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
-{
-	if (!_strcmpi(str, "version")) return DBG_BSR_VERSION;
-	else if (!_strcmpi(str, "in_flight_summary")) return DBG_RES_IN_FLIGHT_SUMMARY;
-	else if (!_strcmpi(str, "state_twopc")) return DBG_RES_STATE_TWOPC;
-	else if (!_strcmpi(str, "callback_history")) return DBG_CONN_CALLBACK_HISTORY;
-	else if (!_strcmpi(str, "debug")) return DBG_CONN_DEBUG;
-	else if (!_strcmpi(str, "conn_oldest_requests")) return DBG_CONN_OLDEST_REQUESTS;
-	else if (!_strcmpi(str, "transport")) return DBG_CONN_TRANSPORT;
-	else if (!_strcmpi(str, "transport_speed")) return DBG_CONN_TRANSPORT_SPEED;
-	else if (!_strcmpi(str, "send_buf")) return DBG_CONN_SEND_BUF;
-	else if (!_strcmpi(str, "proc_bsr")) return DBG_PEER_PROC_BSR;
-	else if (!_strcmpi(str, "resync_extents")) return DBG_PEER_RESYNC_EXTENTS;
-	else if (!_strcmpi(str, "act_log_extents")) return DBG_DEV_ACT_LOG_EXTENTS;
-	else if (!_strcmpi(str, "data_gen_id")) return DBG_DEV_DATA_GEN_ID;
-	else if (!_strcmpi(str, "ed_gen_id")) return DBG_DEV_ED_GEN_ID;
-	else if (!_strcmpi(str, "io_frozen")) return DBG_DEV_IO_FROZEN;
-	else if (!_strcmpi(str, "dev_oldest_requests")) return DBG_DEV_OLDEST_REQUESTS;
-	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
-	return DBG_NO_FLAGS;
-}
-
 // BSR-37 debugfs porting
 int BsrDebug(int argc, char* argv[])
 {
@@ -246,9 +183,42 @@ int BsrDebug(int argc, char* argv[])
 #endif
 
 void PrintMonitor()
-{
-	struct resource* res = GetResourceInfo();
-	// TODO : print debugfs
+{	
+	char *buf = NULL;
+	struct resource* res;
+	
+	res = GetResourceInfo();
+	if (!res) {
+		fprintf(stderr, "failed GetResourceInfo\n");
+		return;
+	}
+
+	// print I/O monitoring status
+	printf("IO:\n");
+	buf = GetDebugToBuf(IO, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
+	// TODO : memory monitoring status
+	printf("Memory:\n");
+
+	// print network monitoring status
+	printf("Network:\n");
+	buf = GetDebugToBuf(NETWORK_SPEED, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+	buf = GetDebugToBuf(SEND_BUF, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
 
 	freeResource(res);
 }

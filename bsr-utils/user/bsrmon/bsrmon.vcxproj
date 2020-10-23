@@ -20,6 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="module_debug.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="module_debug.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E67DDF69-8AFE-43B1-B9B7-A4BD3FA02AE8}</ProjectGuid>
