@@ -1072,7 +1072,6 @@ $SendAsync_retry:
 				// DW-1095 adjust retry_count logic 
 				//if (!(++retry_count % 5)) {
 				if (!(++retry_count % 2)) {
-					bsr_info(58, BSR_LC_SOCKET, NO_OBJECT, "Send async not completed in time-out(%d ms). retry.", Timeout);// for trace
 					// DW-1524 fix infinite send retry on low-bandwith
 					IoCancelIrp(Irp);
 					KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
@@ -1080,7 +1079,7 @@ $SendAsync_retry:
 					BytesSent = -EAGAIN;
 					break;
 				} 
-
+				bsr_info(58, BSR_LC_SOCKET, NO_OBJECT, "Send async not completed in time-out(%d ms). retry.", Timeout);// for trace
 				goto $SendAsync_retry;
 				
 				//IoCancelIrp(Irp);
@@ -1120,7 +1119,7 @@ $SendAsync_retry:
 	} else {
 		if (Status == STATUS_SUCCESS) {
 			BytesSent = (LONG) Irp->IoStatus.Information;
-			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no pending but sent(%d)", current->comm, BytesSent);
+			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => send async due to no pending but sent(%d)", current->comm, BytesSent);
 		} else {
 			bsr_err(65, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no error(0x%x)", current->comm, Status);
 			BytesSent = SOCKET_ERROR;

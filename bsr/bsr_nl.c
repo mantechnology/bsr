@@ -1811,7 +1811,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		bsr_set_my_capacity(device, size);
 		if (effective_disk_size_determined(device)) {
 			md->effective_size = size;
-			bsr_info(13, BSR_LC_GENL, device, "The replication disk size has been updated to %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(96, BSR_LC_VOLUME, device, "The replication disk size has been updated to %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 			     (unsigned long long)size >> 1);
 		}
 	}
@@ -1853,7 +1853,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 
 		bsr_al_initialize(device, buffer);
 
-		bsr_info(14, BSR_LC_GENL, device, "Writing the whole bitmap, %s",
+		bsr_info(97, BSR_LC_VOLUME, device, "Writing the whole bitmap, %s",
 			 la_size_changed && md_moved ? "replication volume size changed and meta disk data moved" :
 			 la_size_changed ? "replication volume size changed" : "meta disk data moved");
 		/* next line implicitly does bsr_suspend_io()+bsr_resume_io() */
@@ -1876,7 +1876,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		}
 
 		if (rs)
-			bsr_info(15, BSR_LC_GENL, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)",
+			bsr_info(41, BSR_LC_LRU, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)",
 				 md->al_stripes, md->al_stripe_size_4k * 4);
 	}
 
@@ -1924,7 +1924,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		struct bsr_peer_device *peer_device;
 
 		if (device->ldev->md.node_id == node_id) {
-			bsr_info(16, BSR_LC_GENL, device, "Skip the replication volume size comparison because it is a local node id(%d)", node_id);
+			bsr_info(98, BSR_LC_VOLUME, device, "Skip the replication volume size comparison because it is a local node id(%d)", node_id);
 			continue; /* skip myself... */
 		}
 		/* Have we met this peer node id before? */
@@ -1933,7 +1933,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (peer_device) {
 			enum bsr_disk_state pdsk = peer_device->disk_state[NOW];
-			bsr_info(17, BSR_LC_GENL, peer_device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x) max size(%llu) disk state(%s)",
+			bsr_info(99, BSR_LC_VOLUME, peer_device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x) max size(%llu) disk state(%s)",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -1968,7 +1968,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 				continue;
 			}
 		} else {
-			bsr_info(18, BSR_LC_GENL, device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x). not currently reachable",
+			bsr_info(100, BSR_LC_VOLUME, device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x). not currently reachable",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -3869,7 +3869,7 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	bsr_info(44, BSR_LC_GENL, peer_device, "Set new disk in peer. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums", 
+	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
 		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
@@ -3908,7 +3908,7 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	if (err)
 		return err;
 
-	bsr_info(45, BSR_LC_GENL, peer_device, "Set the default disk for peer. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
+	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
 		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate,
 		conf->ov_req_num, conf->ov_req_interval);

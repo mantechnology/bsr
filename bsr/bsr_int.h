@@ -509,14 +509,14 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 92
+#define BSR_LC_VOLUME_MAX_INDEX 100
 #define BSR_LC_IO_MAX_INDEX 61
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
 #define BSR_LC_BITMAP_MAX_INDEX 127
-#define BSR_LC_LRU_MAX_INDEX 40
+#define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 207
+#define BSR_LC_RESYNC_OV_MAX_INDEX 208
 #define BSR_LC_REPLICATION_MAX_INDEX 30
 #define BSR_LC_CONNECTION_MAX_INDEX 31
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
-#define BSR_LC_MEMORY_MAX_INDEX 91
+#define BSR_LC_MEMORY_MAX_INDEX 93
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -4150,7 +4150,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timeestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
 		return -1;
 	}
 

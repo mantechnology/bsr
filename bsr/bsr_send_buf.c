@@ -122,7 +122,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_info(6, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_info(92, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
@@ -130,7 +130,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring->length = CONTROL_BUFF_SIZE + 1;
 #ifdef _WIN_SEND_BUF
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
-			bsr_info(7, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate meta send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_info(93, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate meta send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}

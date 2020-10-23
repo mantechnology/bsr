@@ -6299,7 +6299,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(29, BSR_LC_PROTOCOL, peer_device, "sync, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
+		bsr_info(29, BSR_LC_PROTOCOL, peer_device, "recv peer device option, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
@@ -6426,7 +6426,7 @@ static void maybe_trigger_resync(struct bsr_device *device, struct bsr_peer_devi
 			else
 				resync_after_online_grow(peer_device);
 		} else
-		set_bit(RESYNC_AFTER_NEG, &peer_device->flags);
+			set_bit(RESYNC_AFTER_NEG, &peer_device->flags);
 	}
 }
 
@@ -7041,7 +7041,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 		if (!bsr_inspect_resync_side(peer_device, peer_device->repl_state[NOW], NOW, false)) {
 			unsigned long irq_flags;
 			
-			bsr_info(11, BSR_LC_UUID, peer_device, "Resync will be aborted since peer goes unsyncable.");
+			bsr_info(208, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted since peer goes unsyncable.");
 			begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 			end_state_change(device->resource, &irq_flags, __FUNCTION__);
@@ -7873,7 +7873,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         char ppb[10];
 
 		bsr_set_my_capacity(device, tr->new_size);
-		bsr_info(8, BSR_LC_TWOPC, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
+		bsr_info(93, BSR_LC_VOLUME, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
 			(unsigned long long)tr->new_size >> 1);
         return DS_UNCHANGED; /* Not entirely true, but we are diskless... */
     }
@@ -7902,7 +7902,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         synchronize_rcu();
         kfree(old_disk_conf);
 
-		bsr_info(10, BSR_LC_TWOPC, device, "New user size %llu sectors",
+		bsr_info(94, BSR_LC_VOLUME, device, "New user size %llu sectors",
 			(unsigned long long)tr->user_size);
     }
 cont:

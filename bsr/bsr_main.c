@@ -6652,7 +6652,7 @@ void forget_bitmap(struct bsr_device *device, int node_id) __must_hold(local) //
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	rcu_read_lock();
 	name = name_of_node_id(device->resource, node_id);
-	bsr_info(5, BSR_LC_UUID, device, "clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)",
+	bsr_info(5, BSR_LC_UUID, device, "Clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)",
 		  (unsigned long long)_bsr_bm_total_weight(device, bitmap_index), node_id, name, bitmap_index);
 	rcu_read_unlock();
 	bsr_suspend_io(device, WRITE_ONLY);
