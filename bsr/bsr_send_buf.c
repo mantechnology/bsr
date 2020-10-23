@@ -98,6 +98,8 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 				bsr_err(62, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 				goto $ALLOC_FAIL;
 			}
+			memset(ring, 0, sizeof(ring_buffer));
+			mutex_init(&ring->cs);
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = nconf->sndbuf_size + 1;
 #ifdef _WIN_SEND_BUF
@@ -126,6 +128,8 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
+			memset(ring, 0, sizeof(ring_buffer));
+			mutex_init(&ring->cs);
 			// DW-1927 Sets the size value when the buffer is allocated.
 			ring->length = CONTROL_BUFF_SIZE + 1;
 #ifdef _WIN_SEND_BUF
@@ -181,6 +185,7 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 		ring->deque = 0;
 		ring->seq = 0;
 		ring->name = name;
+		ring->sk_wmem_queued = 0;
 		memset(ring->packet_cnt, 0, sizeof(ring->packet_cnt));
 		memset(ring->packet_size, 0, sizeof(ring->packet_size));
 
