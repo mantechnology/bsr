@@ -225,7 +225,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 	// DW-1303 No lock for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(20, BSR_LC_VOLUME, NO_OBJECT,"no lock. volume(%wZ) already dismounted", &device_name);
+			bsr_info(20, BSR_LC_VOLUME, NO_OBJECT,"No lock. volume(%wZ) already dismounted", &device_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}

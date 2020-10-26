@@ -3733,7 +3733,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (device->ldev->md.effective_size != size) {
 				char ppb[10];
 
-				bsr_info(95, BSR_LC_VOLUME, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+				bsr_info(95, BSR_LC_VOLUME, device, "Update the disk size in the meta. %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 				     (unsigned long long)size >> 1);
 				device->ldev->md.effective_size = size;
 				bsr_md_mark_dirty(device);

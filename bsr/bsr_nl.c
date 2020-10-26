@@ -1811,7 +1811,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		bsr_set_my_capacity(device, size);
 		if (effective_disk_size_determined(device)) {
 			md->effective_size = size;
-			bsr_info(96, BSR_LC_VOLUME, device, "The replication disk size has been updated to %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(96, BSR_LC_VOLUME, device, "Update the disk size in the meta. %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 			     (unsigned long long)size >> 1);
 		}
 	}

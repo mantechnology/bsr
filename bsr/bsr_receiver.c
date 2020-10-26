@@ -6621,7 +6621,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 				char ppb[10];
 				should_send_sizes = true;
 				bsr_set_my_capacity(device, size);
-				bsr_info(40, BSR_LC_PROTOCOL, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+				bsr_info(101, BSR_LC_VOLUME, device, "Changed to disk size received from peer nodes. %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 					(unsigned long long)size >> 1);
 			}
 		}
@@ -7873,7 +7873,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         char ppb[10];
 
 		bsr_set_my_capacity(device, tr->new_size);
-		bsr_info(93, BSR_LC_VOLUME, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
+		bsr_info(93, BSR_LC_VOLUME, device, "Update the disk size to the commit size. %s (%llu KB)", ppsize(ppb, sizeof(ppb), tr->new_size >> 1),
 			(unsigned long long)tr->new_size >> 1);
         return DS_UNCHANGED; /* Not entirely true, but we are diskless... */
     }
@@ -7902,7 +7902,7 @@ bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 n
         synchronize_rcu();
         kfree(old_disk_conf);
 
-		bsr_info(94, BSR_LC_VOLUME, device, "New user size %llu sectors",
+		bsr_info(94, BSR_LC_VOLUME, device, "The new user's disk size is prepare. %llu sectors",
 			(unsigned long long)tr->user_size);
     }
 cont:

@@ -1105,7 +1105,7 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 	// DW-1870 If all nodes are not connected, it is not resolved.
 	if (total_count == 0 && !all_disconnected) {
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(1, BSR_LC_IO_ERROR, device, "I/O error has been cleared.");
+		bsr_info(1, BSR_LC_IO_ERROR, device, "Primary I/O errors have been resolved.");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
@@ -1142,7 +1142,7 @@ void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 	if (count == 0) {
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR);
 		bsr_md_clear_flag(device, MDF_IO_ERROR);
-		bsr_info(6, BSR_LC_IO_ERROR, peer_device, "I/O error has been cleared.");
+		bsr_info(6, BSR_LC_IO_ERROR, peer_device, "Secondary I/O errors have been resolved.");
 		atomic_set(&device->io_error_count, 0);
 		bsr_queue_notify_io_error_cleared(device);
 	}
