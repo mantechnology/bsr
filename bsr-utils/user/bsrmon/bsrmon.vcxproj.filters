@@ -3,8 +3,10 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="module_debug.cpp" />
+    <ClCompile Include="monitor_collect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="module_debug.h" />
+    <ClInclude Include="monitor_collect.h" />
   </ItemGroup>
 </Project>

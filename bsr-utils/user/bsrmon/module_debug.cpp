@@ -90,10 +90,10 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 #endif
 		conn = (struct connection*)malloc(sizeof(struct connection));
 		if (!conn) {
-			fprintf(stderr, "conn malloc failed, size : %d\n", sizeof(struct connection));
+			fprintf(stderr, "conn malloc failed, size : %lu\n", sizeof(struct connection));
 			return NULL;
 		}
-		memset(conn, 0, sizeof(conn));
+		memset(conn, 0, sizeof(struct connection));
 	}
 	else if (info_type == VOLUME) {
 #ifdef _WIN
@@ -131,7 +131,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				if (!system(command2)) {
 					res = (struct resource*)malloc(sizeof(struct resource));
 					if (!res) {
-						fprintf(stderr, "res malloc failed, size : %d\n", sizeof(struct resource));
+						fprintf(stderr, "res malloc failed, size : %lu\n", sizeof(struct resource));
 						return NULL;
 					}
 					res->conn = NULL;
@@ -160,7 +160,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			else if (info_type == VOLUME) {
 				vol = (struct volume*)malloc(sizeof(struct volume));
 				if (!vol) {
-					fprintf(stderr, "vol malloc failed, size : %d\n", sizeof(struct volume));
+					fprintf(stderr, "vol malloc failed, size : %lu\n", sizeof(struct volume));
 					return NULL;
 				}
 				vol->vnr = atoi(buf);

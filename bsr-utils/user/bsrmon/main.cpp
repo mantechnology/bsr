@@ -8,6 +8,7 @@
 #endif
 #include <stdio.h>
 #include "module_debug.h"
+#include "monitor_collect.h"
 
 #ifdef _WIN
 void debug_usage()
@@ -58,6 +59,9 @@ void usage()
 		"   /debug\n"
 		);
 #endif
+	printf(
+		"   /print\n"
+		);
 	exit(ERROR_INVALID_PARAMETER);
 }
 
@@ -202,8 +206,14 @@ void PrintMonitor()
 		buf = NULL;
 	}
 
-	// TODO : memory monitoring status
+	// print memory monitoring status
 	printf("Memory:\n");
+	buf = GetBsrMemoryUsage();
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
 
 	// print network monitoring status
 	printf("Network:\n");
