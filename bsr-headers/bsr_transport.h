@@ -149,6 +149,10 @@ struct bsr_transport {
 	const char *log_prefix;		/* resource name */
 	struct net_conf *net_conf;	/* content protected by rcu */
 
+	// BSR-683
+	atomic_t64 sum_sent;
+	atomic_t64 sum_recv;
+	ULONG_PTR sum_start_time;
 	/* These members are intended to be updated by the transport: */
 	unsigned int ko_count;
 	ULONG_PTR flags;

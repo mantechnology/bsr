@@ -52,12 +52,19 @@ typedef struct _MVOL_THREAD
 	KEVENT						SplitIoDoneEvent;
 } MVOL_THREAD, *PMVOL_THREAD;
 
+
+// BSR-682
+#ifdef _WIN
+typedef s64	ktime_t;
+#endif
+
 #ifdef _WIN_MULTIVOL_THREAD
 typedef struct _MVOL_WORK_WRAPPER
 {
     PDEVICE_OBJECT                DeviceObject;
     PIRP                        Irp;
     LIST_ENTRY                    ListEntry;
+	ktime_t						IoStart; // BSR-687
 } MVOL_WORK_WRAPPER, *PMVOL_WORK_WRAPPER;
 #endif
 

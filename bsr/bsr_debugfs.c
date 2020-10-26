@@ -28,14 +28,15 @@ static struct dentry *bsr_debugfs_version;
 static struct dentry *bsr_debugfs_resources;
 static struct dentry *bsr_debugfs_minors;
 
-
-static void seq_print_age_or_dash(struct seq_file *m, bool valid, ULONG_PTR dt)
+#ifdef CONFIG_BSR_TIMING_STATS
+static void seq_print_age_or_dash(struct seq_file *m, bool valid, ktime_t dt)
 {
 	if (valid)
-		seq_printf(m, "\t%u", jiffies_to_msecs(dt));
+		seq_printf(m, "\t%d", (int)ktime_to_ms(dt));
 	else
 		seq_puts(m, "\t-");
 }
+#endif
 
 static void __seq_print_rq_state_bit(struct seq_file *m,
 	bool is_set, char *sep, const char *set_name, const char *unset_name)
@@ -106,25 +107,27 @@ static void seq_print_request_state(struct seq_file *m, struct bsr_request *req)
 
 #define memberat(PTR, TYPE, OFFSET) (*(TYPE *)((char *)PTR + OFFSET))
 
+#ifdef CONFIG_BSR_TIMING_STATS
 static void print_one_age_or_dash(struct seq_file *m, struct bsr_request *req,
 				  unsigned int set_mask, unsigned int clear_mask,
-				  unsigned long now, size_t offset)
+				  ktime_t now, size_t offset)
 {
 	struct bsr_device *device = req->device;
 	struct bsr_peer_device *peer_device;
 
 	for_each_peer_device(peer_device, device) {
-		unsigned int s = req->rq_state[1 + peer_device->node_id];
-
+		unsigned int s = bsr_req_state_by_peer_device(req, peer_device);
 		if (s & set_mask && !(s & clear_mask)) {
-			unsigned long jif = now - memberat(req, unsigned long, offset);
-			seq_printf(m, "\t[%d]%d", peer_device->node_id, jiffies_to_msecs(jif));
+			ktime_t ktime = ktime_sub(now, memberat(req, ktime_t, offset));
+			seq_printf(m, "\t[%d]%d", peer_device->node_id, (int)ktime_to_ms(ktime));
 			return;
 		}
 	}
 	seq_puts(m, "\t-");
 }
-static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, ULONG_PTR now)
+#endif
+
+static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, ktime_t now, ULONG_PTR jif)
 {
 	/* change anything here, fixup header below! */
 	unsigned int s = req->rq_state[0];
@@ -135,16 +138,20 @@ static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, U
 		(unsigned long long)req->i.sector, req->i.size >> 9,
 		(s & RQ_WRITE) ? "W" : "R");
 
+#ifdef CONFIG_BSR_TIMING_STATS
 #define RQ_HDR_2 "\tstart\tin AL\tsubmit"
-	seq_printf(m, "\t%u", jiffies_to_msecs(now - req->start_jif));
-	seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, now - req->in_actlog_jif);
-	seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, now - req->pre_submit_jif);
+	seq_printf(m, "\t%d", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
+	seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, ktime_sub(now, req->in_actlog_kt));
+	seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->pre_submit_kt));
 
 #define RQ_HDR_3 "\tsent\tacked\tdone"
-#ifdef _LIN
-	print_one_age_or_dash(m, req, RQ_NET_SENT, 0, now, offsetof(typeof(*req), pre_send_jif));
-	print_one_age_or_dash(m, req, RQ_NET_SENT, RQ_NET_PENDING, now, offsetof(typeof(*req), acked_jif));
-	print_one_age_or_dash(m, req, RQ_NET_DONE, 0, now, offsetof(typeof(*req), net_done_jif));
+	print_one_age_or_dash(m, req, RQ_NET_SENT, 0, now, offsetof(struct bsr_request, pre_send_kt));
+	print_one_age_or_dash(m, req, RQ_NET_SENT, RQ_NET_PENDING, now, offsetof(struct bsr_request, acked_kt));
+	print_one_age_or_dash(m, req, RQ_NET_DONE, 0, now, offsetof(struct bsr_request, net_done_kt));
+#else
+#define RQ_HDR_2 "\tstart"
+#define RQ_HDR_3 ""
+	seq_printf(m, "\t%d", (int)jiffies_to_msecs(jif - req->start_jif));
 #endif
 
 #define RQ_HDR_4 "\tstate\n"
@@ -153,10 +160,10 @@ static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, U
 #define RQ_HDR RQ_HDR_1 RQ_HDR_2 RQ_HDR_3 RQ_HDR_4
 
 
-static void seq_print_minor_vnr_req(struct seq_file *m, struct bsr_request *req, ULONG_PTR now)
+static void seq_print_minor_vnr_req(struct seq_file *m, struct bsr_request *req,  ktime_t now, ULONG_PTR jif)
 {
 	seq_printf(m, "%u\t%u\t", req->device->minor, req->device->vnr);
-	seq_print_one_request(m, req, now);
+	seq_print_one_request(m, req, now, jif);
 }
 
 static void seq_print_resource_pending_meta_io(struct seq_file *m, struct bsr_resource *resource, ULONG_PTR now)
@@ -187,7 +194,7 @@ static void seq_print_resource_pending_meta_io(struct seq_file *m, struct bsr_re
 
 
 
-static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *resource, ULONG_PTR now)
+static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *resource, ktime_t now, ULONG_PTR jif)
 {
 	struct bsr_device *device;
 	int i;
@@ -195,7 +202,6 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 	seq_puts(m, "minor\tvnr\tage\t#waiting\n");
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
-		ULONG_PTR jif = 0;
 		struct bsr_request *req = NULL;
 		int n = atomic_read(&device->ap_actlog_cnt);
 		if (n) {
@@ -204,17 +210,19 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 				struct bsr_request, req_pending_master_completion);
 			/* if the oldest request does not wait for the activity log
 			 * it is not interesting for us here */
-			if (req && !(req->rq_state[0] & RQ_IN_ACT_LOG))
-				jif = req->start_jif;
-			else
+			if (req && (req->rq_state[0] & RQ_IN_ACT_LOG))
 				req = NULL;
 			spin_unlock_irq(&device->resource->req_lock);
 		}
 		if (n) {
 			seq_printf(m, "%u\t%u\t", device->minor, device->vnr);
-			if (req)
-				seq_printf(m, "%u\t", jiffies_to_msecs(now - jif));
-			else
+			if (req) {
+#ifdef CONFIG_BSR_TIMING_STATS
+				seq_printf(m, "%d\t", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
+#else
+				seq_printf(m, "%d\t", (int)jiffies_to_msecs(jif - req->start_jif));
+#endif
+			} else
 				seq_puts(m, "-\t");
 			seq_printf(m, "%u\n", n);
 		}
@@ -350,7 +358,7 @@ static void seq_print_resource_pending_peer_requests(struct seq_file *m,
 static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 	struct bsr_resource *resource,
 	struct bsr_connection *connection,
-	ULONG_PTR now)
+	ktime_t now, ULONG_PTR jif)
 {
 	struct bsr_request *req;
 	unsigned int count = 0;
@@ -407,7 +415,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 			continue;
 		show_state |= tmp;
 		seq_printf(m, "%u\t", count);
-		seq_print_minor_vnr_req(m, req, now);
+		seq_print_minor_vnr_req(m, req, now, jif);
 		if (show_state == 0x1f)
 			break;
 	}
@@ -421,7 +429,7 @@ int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 	struct bsr_connection *connection;
 	struct bsr_transport *transport;
 	struct bsr_transport_stats transport_stats;
-
+	ktime_t now = ktime_get();
 	ULONG_PTR jif = jiffies;
 	UNREFERENCED_PARAMETER(pos);
 	connection = first_connection(resource);
@@ -460,11 +468,11 @@ int resource_in_flight_summary_show(struct seq_file *m, void *pos)
 	seq_putc(m, '\n');
 
 	seq_puts(m, "application requests waiting for activity log\n");
-	seq_print_waiting_for_AL(m, resource, jif);
+	seq_print_waiting_for_AL(m, resource, now, jif);
 	seq_putc(m, '\n');
 
 	seq_puts(m, "oldest application requests\n");
-	seq_print_resource_transfer_log_summary(m, resource, connection, jif);
+	seq_print_resource_transfer_log_summary(m, resource, connection, now, jif);
 	seq_putc(m, '\n');
 
 	jif = jiffies - jif;
@@ -662,7 +670,8 @@ int connection_debug_show(struct seq_file *m, void *ignored)
 int connection_oldest_requests_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_connection *connection = m->private;
-	ULONG_PTR now = jiffies;
+	ktime_t now = ktime_get();
+	ULONG_PTR jif = jiffies;
 	struct bsr_request *r1, *r2;
 
 	/* BUMP me if you change the file format/content/presentation */
@@ -671,15 +680,15 @@ int connection_oldest_requests_show(struct seq_file *m, void *ignored)
 	spin_lock_irq(&connection->resource->req_lock);
 	r1 = connection->todo.req_next;
 	if (r1)
-		seq_print_minor_vnr_req(m, r1, now);
+		seq_print_minor_vnr_req(m, r1, now, jif);
 	r2 = connection->req_ack_pending;
 	if (r2 && r2 != r1) {
 		r1 = r2;
-		seq_print_minor_vnr_req(m, r1, now);
+		seq_print_minor_vnr_req(m, r1, now, jif);
 	}
 	r2 = connection->req_not_net_done;
 	if (r2 && r2 != r1)
-		seq_print_minor_vnr_req(m, r2, now);
+		seq_print_minor_vnr_req(m, r2, now, jif);
 	spin_unlock_irq(&connection->resource->req_lock);
 	return 0;
 }
@@ -704,6 +713,29 @@ int connection_transport_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "\ntransport_type: %s\n", transport->class->name);
 
 	tr_ops->debugfs_show(transport, m);
+
+	return 0;
+}
+
+// BSR-683
+int connection_transport_speed_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_transport *transport = &connection->transport;
+	ULONG_PTR now = jiffies;
+	unsigned long long sent = (unsigned long long)atomic_xchg64(&transport->sum_sent, 0);
+	unsigned long long recv = (unsigned long long)atomic_xchg64(&transport->sum_recv, 0);
+	int period = (int)DIV_ROUND_UP((now - transport->sum_start_time) - HZ/2, HZ);
+
+	if (period > 0) {
+		seq_printf(m, "SENT:%llu\n", sent / period);
+		seq_printf(m, "RECV:%llu\n", recv / period);
+
+		transport->sum_start_time = now;
+	} else {
+		atomic_add64(sent, &transport->sum_sent);
+		atomic_add64(recv, &transport->sum_recv);
+	}
 
 	return 0;
 }
@@ -1055,7 +1087,8 @@ int device_oldest_requests_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct bsr_resource *resource = device->resource;
-	ULONG_PTR now = jiffies;
+	ktime_t now = ktime_get();
+	ULONG_PTR jif = jiffies;
 	struct bsr_request *r1, *r2;
 	int i;
 
@@ -1071,9 +1104,9 @@ int device_oldest_requests_show(struct seq_file *m, void *ignored)
 		r2 = list_first_entry_or_null(&device->pending_completion[i],
 		struct bsr_request, req_pending_local);
 		if (r1)
-			seq_print_one_request(m, r1, now);
+			seq_print_one_request(m, r1, now, jif);
 		if (r2 && r2 != r1)
-			seq_print_one_request(m, r2, now);
+			seq_print_one_request(m, r2, now, jif);
 	}
 	spin_unlock_irq(&resource->req_lock);
 	return 0;
@@ -1136,6 +1169,122 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "0x%016llX\n", (unsigned long long)device->exposed_data_uuid);
 	return 0;
 }
+
+
+#define PRId64 "lld"
+
+#define show_stat(NAME, M, NUM)						\
+	seq_printf(m, "    %-16s cur=%" PRId64 ", min=%" PRId64 ", max=%" PRId64 ", avg=%" PRId64,	\
+			NAME":",	\
+			ktime_to_us(M.last_val), \
+			ktime_to_us(M.min_val), ktime_to_us(M.max_val),	\
+			NUM > 0 ? ktime_to_us(M.total_val) / NUM : 0);	\
+	seq_printf(m, "\n")
+#define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
+
+
+#ifdef CONFIG_BSR_TIMING_STATS
+static void device_req_timing_reset(struct bsr_device * device)
+{
+	struct bsr_peer_device *peer_device;
+
+	device->reqs = 0;
+
+	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
+	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
+
+	memset(&device->in_actlog_kt, 0, sizeof(struct timing_stat));
+	memset(&device->pre_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&device->post_submit_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->before_queue_kt, 0, sizeof(struct timing_stat));
+	memset(&device->before_al_begin_io_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->al_before_bm_write_hinted_kt, 0, sizeof(struct timing_stat));
+	memset(&device->al_after_bm_write_hinted_kt, 0, sizeof(struct timing_stat));
+	memset(&device->al_after_sync_page_kt, 0, sizeof(struct timing_stat));
+	
+	memset(&device->req_destroy_kt, 0, sizeof(struct timing_stat));
+
+	for_each_peer_device(peer_device, device) {
+		peer_device->reqs = 0;
+		memset(&peer_device->pre_send_kt, 0, sizeof(struct timing_stat));
+		memset(&peer_device->acked_kt, 0, sizeof(struct timing_stat));
+		memset(&peer_device->net_done_kt, 0, sizeof(struct timing_stat));
+	}
+}
+
+int device_req_timing_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	struct bsr_peer_device *peer_device;
+	unsigned long flags;
+	ktime_t now = ktime_get();
+	unsigned int period = 0;
+	unsigned int read_io_cnt, write_io_cnt = 0;
+	unsigned int read_io_size, write_io_size = 0;
+	unsigned int al_cnt = 0;
+
+	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
+
+	// output of aggregated data for more than 1 second
+	if (period == 0)
+		return 0;
+
+	read_io_cnt = atomic_xchg(&device->io_cnt[READ], 0);
+	write_io_cnt = atomic_xchg(&device->io_cnt[WRITE], 0);
+	read_io_size = atomic_xchg(&device->io_size[READ], 0);
+	write_io_size = atomic_xchg(&device->io_size[WRITE], 0);
+	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
+	
+	seq_printf(m, "timing values are microseconds \n\n");
+	seq_printf(m, "aggregation time=%dsec\n\n", period);
+	
+	// BSR-687 I/O throughput and latency
+	seq_printf(m, "IO:\n");
+	seq_printf(m, "    read:  IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n"
+				  "    write: IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n",
+				  read_io_cnt / period, read_io_cnt,
+				  read_io_size / period, read_io_size, 
+				  write_io_cnt / period, write_io_cnt,
+				  write_io_size / period, write_io_size);
+				
+	show_stat("  local_io_complete", device->local_complete_kt, atomic_read(&device->local_complete_kt.cnt));
+	show_stat("  master_io_complete", device->master_complete_kt, atomic_read(&device->master_complete_kt.cnt));
+
+	spin_lock_irqsave(&device->timing_lock, flags);
+	seq_printf(m, "\n%-20s %lu\n", "requests:", device->reqs);
+	show_req_stat(device, "before_queue", before_queue_kt);
+	show_req_stat(device, "before_al_begin", before_al_begin_io_kt);
+	show_req_stat(device, "in_actlog", in_actlog_kt);
+	show_req_stat(device, "pre_submit", pre_submit_kt);
+	show_req_stat(device, "post_submit", post_submit_kt);
+	show_req_stat(device, "destroy", req_destroy_kt);
+
+	seq_printf(m, "%-20s %u\n", "al_updates:", al_cnt);
+	show_stat("before_bm_write", device->al_before_bm_write_hinted_kt, al_cnt);
+	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
+	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
+
+	for_each_peer_device(peer_device, device) {
+		struct bsr_connection *connection = peer_device->connection;
+		seq_printf(m, "\n%-20s %s", "peer:", rcu_dereference(connection->transport.net_conf)->name);
+		seq_puts(m, "\n");
+		seq_printf(m, "  %-18s %lu\n", "send:", peer_device->reqs);
+		show_req_stat(peer_device, "pre_send", pre_send_kt);
+		show_req_stat(peer_device, "acked", acked_kt);
+		show_req_stat(peer_device, "net_done", net_done_kt);
+	}
+	
+	device->aggregation_start_kt = now;
+	device_req_timing_reset(device);
+
+	spin_unlock_irqrestore(&device->timing_lock, flags);
+
+	return 0;
+}
+#endif
+
 
 #ifdef _LIN
 /* make sure at *open* time that the respective object won't go away. */
@@ -1294,6 +1443,7 @@ static const struct file_operations connection_ ## name ## _fops = {	\
 bsr_debugfs_connection_attr(oldest_requests)
 bsr_debugfs_connection_attr(callback_history)
 bsr_debugfs_connection_attr(transport)
+bsr_debugfs_connection_attr(transport_speed)
 bsr_debugfs_connection_attr(debug)
 bsr_debugfs_connection_attr(send_buf)
 
@@ -1321,6 +1471,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(callback_history);
 	conn_dcf(oldest_requests);
 	conn_dcf(transport);
+	conn_dcf(transport_speed);
 	conn_dcf(debug);
 	conn_dcf(send_buf);
 
@@ -1341,6 +1492,7 @@ void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 	bsr_debugfs_remove(&connection->debugfs_conn_send_buf);
 	bsr_debugfs_remove(&connection->debugfs_conn_debug);
 	bsr_debugfs_remove(&connection->debugfs_conn_transport);
+	bsr_debugfs_remove(&connection->debugfs_conn_transport_speed);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
 	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
 	bsr_debugfs_remove(&connection->debugfs_conn);
@@ -1353,7 +1505,7 @@ static int device_attr_release(struct inode *inode, struct file *file)
 	return single_release(inode, file);
 }
 
-#define bsr_debugfs_device_attr(name)						\
+#define __bsr_debugfs_device_attr(name, write_fn)						\
 static int device_ ## name ## _open(struct inode *inode, struct file *file)	\
 {										\
 	struct bsr_device *device = inode->i_private;				\
@@ -1363,16 +1515,20 @@ static int device_ ## name ## _open(struct inode *inode, struct file *file)	\
 static const struct file_operations device_ ## name ## _fops = {		\
 	.owner		= THIS_MODULE,						\
 	.open		= device_ ## name ## _open,				\
+	.write          = write_fn,						\
 	.read		= seq_read,						\
 	.llseek		= seq_lseek,						\
 	.release	= device_attr_release,					\
 };
+
+#define bsr_debugfs_device_attr(name) __bsr_debugfs_device_attr(name, NULL)
 
 bsr_debugfs_device_attr(oldest_requests)
 bsr_debugfs_device_attr(act_log_extents)
 bsr_debugfs_device_attr(data_gen_id)
 bsr_debugfs_device_attr(io_frozen)
 bsr_debugfs_device_attr(ed_gen_id)
+bsr_debugfs_device_attr(req_timing)
 
 void bsr_debugfs_device_add(struct bsr_device *device)
 {
@@ -1410,6 +1566,9 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(data_gen_id);
 	vol_dcf(io_frozen);
 	vol_dcf(ed_gen_id);
+#ifdef CONFIG_BSR_TIMING_STATS
+	vol_dcf(req_timing);
+#endif
 
 	/* Caller holds conf_update */
 	for_each_peer_device(peer_device, device) {
@@ -1432,6 +1591,9 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_vol_data_gen_id);
 	bsr_debugfs_remove(&device->debugfs_vol_io_frozen);
 	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
+#ifdef CONFIG_BSR_TIMING_STATS
+	bsr_debugfs_remove(&device->debugfs_vol_req_timing);
+#endif
 	bsr_debugfs_remove(&device->debugfs_vol);
 }
 

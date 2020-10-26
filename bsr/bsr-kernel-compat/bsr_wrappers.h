@@ -79,6 +79,7 @@
 #define atomic_sub64			atomic64_sub
 #define atomic_inc_return64		atomic64_inc_return
 #define atomic_dec_return64		atomic64_dec_return
+#define atomic_xchg64			atomic64_xchg
 
 #ifndef UNREFERENCED_PARAMETER 
 #define UNREFERENCED_PARAMETER(x)

@@ -140,7 +140,8 @@ Receive(
 	__out PVOID			Buffer,
 	__in  ULONG			BufferSize,
 	__in  ULONG			Flags,
-	__in ULONG			Timeout
+	__in ULONG			Timeout,
+	__in struct			bsr_transport *transport
 	);
 
 LONG

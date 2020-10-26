@@ -68,9 +68,6 @@ DWORD GetBsrlockStatus();
 // BSR-71
 DWORD MVOL_BsrlockUse(int bBsrlock);
 
-// BSR-37
-DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo);
-
 
 #endif
 

@@ -852,26 +852,32 @@ struct bsr_request {
 	struct list_head req_pending_master_completion;
 	struct list_head req_pending_local;
 
-	/* for generic IO accounting */
-    ULONG_PTR start_jif;
+	/* for generic IO accounting; "immutable" */
+	ULONG_PTR start_jif;
 
+	/* for request_timer_fn() */
+	ULONG_PTR pre_submit_jif;
+	ULONG_PTR pre_send_jif[BSR_PEERS_MAX];
+
+#ifdef CONFIG_BSR_TIMING_STATS
 	/* for BSR internal statistics */
-
-	/* Minimal set of time stamps to determine if we wait for activity log
-	 * transactions, local disk or peer.  32 bit "jiffies" are good enough,
-	 * we don't expect a BSR request to be stalled for several month.
-	 */
+	ktime_t start_kt;
 
 	/* before actual request processing */
-	ULONG_PTR in_actlog_jif;
+	ktime_t in_actlog_kt;
+	ktime_t before_queue_kt;
+	ktime_t before_al_begin_io_kt;
+	
 	/* local disk */
-	ULONG_PTR pre_submit_jif;
+	ktime_t pre_submit_kt;
+	ktime_t post_submit_kt;
+	
 	/* per connection */
-	ULONG_PTR pre_send_jif[BSR_PEERS_MAX];
-#ifdef _LIN
-	ULONG_PTR acked_jif[BSR_PEERS_MAX];
-	ULONG_PTR net_done_jif[BSR_PEERS_MAX];
+	ktime_t pre_send_kt[BSR_PEERS_MAX];
+	ktime_t acked_kt[BSR_PEERS_MAX];
+	ktime_t net_done_kt[BSR_PEERS_MAX];
 #endif
+
 
 	// DW-1961
 	bool	 do_submit;				// Whether do_submit logic passed
@@ -1607,6 +1613,7 @@ struct bsr_connection {
 	struct dentry *debugfs_conn_callback_history;
 	struct dentry *debugfs_conn_oldest_requests;
 	struct dentry *debugfs_conn_transport;
+	struct dentry *debugfs_conn_transport_speed;
 	struct dentry *debugfs_conn_debug;
 	struct dentry *debugfs_conn_send_buf;
 #endif
@@ -1803,6 +1810,15 @@ struct ov_skipped_info {
 	sector_t ov_skipped_size;
 };
 
+// BSR-687
+struct timing_stat {
+	ktime_t last_val;
+	ktime_t total_val;
+	ktime_t max_val;
+	ktime_t min_val;
+	atomic_t cnt;
+};
+
 struct bsr_peer_device {
 	struct list_head peer_devices;
 	struct bsr_device *device;
@@ -1956,6 +1972,12 @@ struct bsr_peer_device {
 	struct dentry *debugfs_peer_dev_resync_extents;
 	struct dentry *debugfs_peer_dev_proc_bsr;
 #endif
+#ifdef CONFIG_BSR_TIMING_STATS
+	unsigned long reqs;
+	struct timing_stat pre_send_kt;
+	struct timing_stat acked_kt;
+	struct timing_stat net_done_kt;
+#endif
 	struct {/* sender todo per peer_device */
 		bool was_ahead;
 	} todo;
@@ -2006,6 +2028,9 @@ struct bsr_device {
 	struct dentry *debugfs_vol_data_gen_id;
 	struct dentry *debugfs_vol_io_frozen;
 	struct dentry *debugfs_vol_ed_gen_id;
+#ifdef CONFIG_BSR_TIMING_STATS
+	struct dentry *debugfs_vol_req_timing;
+#endif
 #endif
 
 	unsigned int vnr;	/* volume number within the connection */
@@ -2036,8 +2061,10 @@ struct bsr_device {
 
 	enum bsr_disk_state disk_state[2];
 	wait_queue_head_t misc_wait;
-	unsigned int read_cnt;
-	unsigned int writ_cnt;
+	
+	unsigned int read_cnt; /*sectors*/
+	unsigned int writ_cnt; /*sectors*/
+
 	unsigned int al_writ_cnt;
 	unsigned int bm_writ_cnt;
 	atomic_t ap_bio_cnt[2];	 /* Requests we need to complete. [READ] and [WRITE] */
@@ -2110,6 +2137,29 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
+#ifdef CONFIG_BSR_TIMING_STATS
+	spinlock_t timing_lock;
+	ktime_t aggregation_start_kt;
+
+	/* request aggregation*/
+	unsigned long reqs;
+	struct timing_stat in_actlog_kt;
+	struct timing_stat pre_submit_kt; /* aggregate over all reqs */
+	struct timing_stat post_submit_kt;
+	struct timing_stat before_queue_kt; /* aggregate over all al_misses */
+	struct timing_stat before_al_begin_io_kt;
+	struct timing_stat req_destroy_kt;
+	atomic_t al_updates_cnt;
+	struct timing_stat al_before_bm_write_hinted_kt; /* aggregate over all al_updates */
+	struct timing_stat al_after_bm_write_hinted_kt;
+	struct timing_stat al_after_sync_page_kt;
+
+	/* IO aggregation. [READ] and [WRITE] */
+	atomic_t io_cnt[2];
+	atomic_t io_size[2]; /* bytes */
+	struct timing_stat local_complete_kt; /* bsr_request_endio time aggregation*/
+	struct timing_stat master_complete_kt; /* complete_master_bio time aggregation*/
+#endif
 	// BSR-676
 	atomic_t notify_flags;
 };
@@ -2689,9 +2739,9 @@ extern void dtt_put_listeners(struct bsr_transport *);
 /* bsr_req */
 extern void do_submit(struct work_struct *ws);
 #ifdef _WIN
-extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ULONG_PTR);
+extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, ULONG_PTR);
 #else // _LIN
-extern void __bsr_make_request(struct bsr_device *, struct bio *, unsigned long);
+extern void __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, unsigned long);
 #endif
 
 extern MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio);
@@ -4178,6 +4228,138 @@ extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
 extern long read_reg_file(char *file_path, long default_val);
+#endif
+
+#ifdef _WIN
+// BSR-682
+static inline ktime_t ktime_get(void)
+{
+	ktime_t t;
+	LARGE_INTEGER p_counter = KeQueryPerformanceCounter(NULL);
+
+	t = p_counter.QuadPart;
+	return t;
+}
+
+static inline s64 ktime_to_us(const ktime_t kt)
+{
+	return kt * 1000000 / g_frequency.QuadPart;
+}
+
+static inline s64 ktime_to_ms(const ktime_t kt)
+{
+	return kt * 1000 / g_frequency.QuadPart;
+}
+
+static inline ktime_t ns_to_ktime(u64 ns)
+{
+	return ns;
+}
+
+/**
+* ktime_compare - Compares two ktime_t variables for less, greater or equal
+* @cmp1:	comparable1
+* @cmp2:	comparable2
+*
+* Return: ...
+*   cmp1  < cmp2: return <0
+*   cmp1 == cmp2: return 0
+*   cmp1  > cmp2: return >0
+*/
+static inline int ktime_compare(const ktime_t cmp1, const ktime_t cmp2)
+{
+	if (cmp1 < cmp2)
+		return -1;
+	if (cmp1 > cmp2)
+		return 1;
+	return 0;
+}
+
+/**
+* ktime_after - Compare if a ktime_t value is bigger than another one.
+* @cmp1:	comparable1
+* @cmp2:	comparable2
+*
+* Return: true if cmp1 happened after cmp2.
+*/
+static inline bool ktime_after(const ktime_t cmp1, const ktime_t cmp2)
+{
+	return ktime_compare(cmp1, cmp2) > 0;
+}
+
+/**
+* ktime_before - Compare if a ktime_t value is smaller than another one.
+* @cmp1:	comparable1
+* @cmp2:	comparable2
+*
+* Return: true if cmp1 happened before cmp2.
+*/
+static inline bool ktime_before(const ktime_t cmp1, const ktime_t cmp2)
+{
+	return ktime_compare(cmp1, cmp2) < 0;
+}
+
+/* Subtract two ktime_t variables. rem = lhs -rhs: */
+static inline ktime_t ktime_sub(ktime_t lhs, ktime_t rhs)
+{
+	ktime_t t;
+	t = lhs - rhs;
+	return t;
+}
+
+/* Add two ktime_t variables. res = lhs + rhs: */
+static inline ktime_t ktime_add(ktime_t lhs, ktime_t rhs)
+{
+	ktime_t t;
+	t = lhs + rhs;
+	return t;
+}
+
+#endif
+
+#ifdef CONFIG_BSR_TIMING_STATS
+#define ktime_min(D, M)	\
+		if (ktime_to_us(D->M.min_val) == 0) \
+			D->M.min_val = D->M.last_val;	\
+		else if (ktime_before(D->M.last_val, D->M.min_val))	\
+			D->M.min_val = D->M.last_val
+#define ktime_max(D, M)	\
+		if (ktime_to_us(D->M.max_val) == 0) \
+			D->M.max_val = D->M.last_val;	\
+		else if (ktime_after(D->M.last_val, D->M.max_val))	\
+			D->M.max_val = D->M.last_val
+
+#define _ktime_aggregate(D, M) \
+	D->M.total_val = ktime_add(D->M.total_val, D->M.last_val);	\
+	ktime_min(D, M);	\
+	ktime_max(D, M);	\
+
+#define ktime_aggregate_delta(D, ST, M) \
+	D->M.last_val = ktime_sub(ktime_get(), ST);	\
+	_ktime_aggregate(D, M)
+
+#define ktime_aggregate(D, R, M) \
+	D->M.last_val = ktime_after(R->M, R->start_kt) ? ktime_sub(R->M, R->start_kt) : ns_to_ktime(0); \
+	_ktime_aggregate(D, M)
+
+#define ktime_aggregate_st(D, ST, ED, M) \
+	D->M.last_val = ktime_after(ED, ST) ? ktime_sub(ED, ST) : ns_to_ktime(0); \
+	_ktime_aggregate(D, M)
+
+#define ktime_aggregate_pd(P, N, R, M) 	\
+	P->M.last_val = ktime_after(R->M[N], R->start_kt) ? ktime_sub(R->M[N], R->start_kt) : ns_to_ktime(0);	\
+	_ktime_aggregate(P, M)
+
+#define ktime_get_accounting(V) V = ktime_get()
+#define ktime_get_accounting_assign(V, T) V = T
+#define ktime_var_for_accounting(V) ktime_t V = ktime_get()
+#else
+#define ktime_aggregate_delta(D, ST, M)
+#define ktime_aggregate(D, R, M)
+#define ktime_aggregate_pd(P, N, R, M)
+#define ktime_get_accounting(V)
+#define ktime_get_accounting_assign(V, T)
+#define ktime_var_for_accounting(V)
 #endif
 
 #endif

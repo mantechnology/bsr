@@ -648,12 +648,18 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	req = bio->bi_private;
 	device = req->device;
 
+#ifdef CONFIG_BSR_TIMING_STATS
+	// BSR-687
+	atomic_inc(&device->local_complete_kt.cnt);
+	ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
+#endif
+
 	if (bio_data_dir(bio) & WRITE) {
 		bsr_debug(15, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
-																							(unsigned long long)req->i.sector, 
-																							req->i.size, 
-																							(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
-																							(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
+				(unsigned long long)req->i.sector, 
+				req->i.size, 
+				(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
+				(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
 	}
 
 	// DW-1961 Calculate and Log IO Latency
@@ -3700,6 +3706,7 @@ static int process_one_request(struct bsr_connection *connection)
 	enum bsr_req_event what;
 
 	req->pre_send_jif[peer_device->node_id] = jiffies;
+	ktime_get_accounting(req->pre_send_kt[peer_device->node_id]);
 	if (bsr_req_is_write(req)) {
 		/* If a WRITE does not expect a barrier ack,
 		 * we are supposed to only send an "out of sync" info packet */

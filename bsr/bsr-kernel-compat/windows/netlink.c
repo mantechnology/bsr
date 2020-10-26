@@ -546,7 +546,7 @@ NetlinkWorkThread(PVOID context)
     }
 
     while (true) {
-        readcount = Receive(pSock, psock_buf, NLMSG_GOODSIZE, 0, 0);
+        readcount = Receive(pSock, psock_buf, NLMSG_GOODSIZE, 0, 0, NULL);
 
         if (readcount == 0) {
 			bsr_debug(28, BSR_LC_NETLINK, NO_OBJECT, "Receive done...");

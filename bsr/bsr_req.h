@@ -322,6 +322,9 @@ static inline bool bsr_req_is_write(struct bsr_request *req)
  * bio->bi_iter.bi_size, or similar. But that would be too ugly. */
 struct bio_and_error {
 	struct bio *bio;
+#ifdef _LIN
+	ktime_t io_start_kt; // BSR-687
+#endif
 	int error;
 };
 

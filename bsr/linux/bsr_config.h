@@ -56,6 +56,11 @@ extern const char *bsr_buildtag(void);
 #define CONFIG_BSR_FAULT_INJECTION 1
 #endif
 
+// BSR-682
+#ifndef CONFIG_BSR_TIMING_STATS
+#define CONFIG_BSR_TIMING_STATS 1
+#endif
+
 /* CONFIG_KREF_DEBUG has to be enabled in Kbuild */
 #ifdef _LIN
 #ifdef __KERNEL__

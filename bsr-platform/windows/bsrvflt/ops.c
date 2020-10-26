@@ -607,6 +607,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = connection;
 		connection_transport_show(&seq, 0);
 		break;
+	case DBG_CONN_TRANSPORT_SPEED:
+		seq.private = connection;
+		connection_transport_speed_show(&seq, 0);
+		break;
 	case DBG_CONN_SEND_BUF:
 		seq.private = connection;
 		connection_send_buf_show(&seq, 0);
@@ -638,6 +642,12 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 	case DBG_DEV_OLDEST_REQUESTS:
 		seq.private = device;
 		device_oldest_requests_show(&seq, 0);
+		break;
+	case DBG_DEV_REQ_TIMING:
+		seq.private = device;
+#ifdef CONFIG_BSR_TIMING_STATS
+		device_req_timing_show(&seq, 0);
+#endif
 		break;
 
 	default:

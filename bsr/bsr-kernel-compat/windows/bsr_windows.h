@@ -583,6 +583,7 @@ struct bio {
 	struct bio_vec			bi_io_vec[1]; // only one!!!
 	UCHAR					MasterIrpStackFlags; //Stack Location's Flag
 	LONGLONG				flush_ts;		// DW-1961
+	ktime_t					io_start_kt; // BSR-687
 };
 
 struct bio_set {
@@ -755,6 +756,7 @@ extern int atomic_cmpxchg(atomic_t *v, int old, int new);
 extern int atomic_read(const atomic_t *v);
 extern LONGLONG atomic_read64(const atomic_t64 *v);
 extern int atomic_xchg(atomic_t *v, int n);
+extern LONGLONG atomic_xchg64(atomic_t64 *v, LONGLONG n);
 
 extern LARGE_INTEGER g_frequency;
 

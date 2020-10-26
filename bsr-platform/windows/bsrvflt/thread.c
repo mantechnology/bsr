@@ -166,7 +166,7 @@ mvolWorkThread(PVOID arg)
 
 			switch (irpSp->MajorFunction) {
 				case IRP_MJ_WRITE:
-					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_WRITE);
+					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_WRITE, wr->IoStart);
 					if (status != STATUS_SUCCESS) {
 						mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
 
@@ -178,7 +178,7 @@ mvolWorkThread(PVOID arg)
 
 			case IRP_MJ_READ:
 				if (g_read_filter) {
-					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_READ);
+					status = mvolReadWriteDevice(VolumeExtension, irp, IRP_MJ_READ, wr->IoStart);
 					if (status != STATUS_SUCCESS) {
 						mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
 						irp->IoStatus.Information = 0;
@@ -216,7 +216,7 @@ mvolWorkThread(PVOID arg)
 
 
 #ifdef _WIN_MULTIVOL_THREAD
-VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp)
+VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP irp, ktime_t start)
 {
     PMVOL_WORK_WRAPPER wr = kmalloc(sizeof(struct _MVOL_WORK_WRAPPER), 0, '76SB');
 
@@ -227,6 +227,7 @@ VOID mvolQueueWork (PMVOL_THREAD pThreadInfo, PDEVICE_OBJECT DeviceObject, PIRP 
     
     wr->DeviceObject = DeviceObject;
     wr->Irp = irp;
+	wr->IoStart = start;
     ExInterlockedInsertTailList(&pThreadInfo->ListHead, &wr->ListEntry, &pThreadInfo->ListLock);
 
     IO_THREAD_SIG(pThreadInfo);

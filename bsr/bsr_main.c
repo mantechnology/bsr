@@ -3420,7 +3420,14 @@ void bsr_cleanup_device(struct bsr_device *device)
 	device->bm_writ_cnt = 0;
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
-
+	// BSR-687 aggregate I/O throughput and latency
+#ifdef CONFIG_BSR_TIMING_STATS
+	atomic_set(&device->al_updates_cnt, 0);
+	atomic_set(&device->io_cnt[READ], 0);
+	atomic_set(&device->io_cnt[WRITE], 0);
+	atomic_set(&device->io_size[READ], 0);
+	atomic_set(&device->io_size[WRITE], 0);
+#endif
 	if (device->bitmap) {
 		/* maybe never allocated. */
 		bsr_bm_resize(device, 0, 1);
@@ -3773,6 +3780,8 @@ static void do_retry(struct work_struct *ws)
 		struct bio *bio = req->master_bio;
 		ULONG_PTR start_jif = req->start_jif;
 		bool expected;
+		ktime_t start_kt = ns_to_ktime(0);
+		ktime_get_accounting_assign(start_kt, req->start_kt);
 
 		expected =
 			expect(device, atomic_read(&req->completion_ref) == 0) &&
@@ -3806,7 +3815,7 @@ static void do_retry(struct work_struct *ws)
 		/* We are not just doing generic_make_request(),
 		 * as we want to keep the start_time information. */
 		inc_ap_bio(device, bio_data_dir(bio));
-		__bsr_make_request(device, bio, start_jif);
+		__bsr_make_request(device, bio, start_kt, start_jif);
 	}
 }
 
@@ -4316,6 +4325,9 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 
 	INIT_LIST_HEAD(&connection->transport.paths);
 	connection->transport.log_prefix = resource->name;
+	atomic_set64(&connection->transport.sum_sent, 0);
+	atomic_set64(&connection->transport.sum_recv, 0);
+	connection->transport.sum_start_time = jiffies;
 	if (tc->init(&connection->transport))
 		goto fail;
 
@@ -4604,6 +4616,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set(&device->local_cnt, 0);
 	atomic_set(&device->rs_sect_ev, 0);
 	atomic_set(&device->md_io.in_use, 0);
+
+#ifdef CONFIG_BSR_TIMING_STATS
+	spin_lock_init(&device->timing_lock);
+#endif
 
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);

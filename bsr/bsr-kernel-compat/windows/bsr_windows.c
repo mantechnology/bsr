@@ -410,6 +410,11 @@ int atomic_xchg(atomic_t *v, int n)
 	return InterlockedExchange((LONG*)v, n);
 }
 
+LONGLONG atomic_xchg64(atomic_t64 *v, LONGLONG n)
+{
+	return InterlockedExchange64((LONGLONG*)v, n);
+}
+
 int atomic_read(const atomic_t *v)
 {
 	return InterlockedAnd((LONG*)v, 0xffffffff);
@@ -2985,7 +2990,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		char hello[2];
 		memset(hello, 0, sizeof(hello));
 		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi");
-		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout)) == 2) {
+		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout, NULL)) == 2) {
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
@@ -3006,7 +3011,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			goto error;
 		}
 
-		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout)) > 0) {
+		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout, NULL)) > 0) {
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
