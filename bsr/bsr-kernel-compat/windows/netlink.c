@@ -243,7 +243,7 @@ static int _genl_dump(struct genl_ops * pops, struct sk_buff * skb, struct netli
     } else if (err < 0) {
 		nlh = nlmsg_put(skb, cb->nlh->nlmsg_pid, cb->nlh->nlmsg_seq, NLMSG_DONE, GENL_HDRLEN, NLM_F_ACK);
         // -ENODEV : occured by first bsradm adjust. response?
-		bsr_warn(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)", err);
+			bsr_warn(2, BSR_LC_NETLINK, NO_OBJECT, "Failed to get the state of all objects. err(%d)", err);
     }
 
     if (nlh) {
@@ -273,7 +273,7 @@ int genlmsg_unicast(struct sk_buff *skb, struct genl_info *info)
 	if ((sent = SendLocal(info->pSock, skb->data, skb->len, 0, (BSR_TIMEOUT_DEF*100))) == (skb->len)) {
         return 0; // success
     } else {
-		bsr_warn(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to send. status(0x%x) socket(%p) data(%p) size=%d", sent, info->pSock->sk, skb->data, skb->len);
+		bsr_warn(3, BSR_LC_NETLINK, NO_OBJECT, "Failed to local send. status(0x%x) socket(%p) data(%p) size=%d", sent, info->pSock->sk, skb->data, skb->len);
         return -2; // return non-zero!
     }
 }
@@ -380,7 +380,7 @@ InitWskNetlink(void * pctx)
         return;
     }
 
-	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Netlink Server Start");
+	bsr_info(6, BSR_LC_NETLINK, NO_OBJECT, "Start server netlink");
 	
 	gpNetlinkServerSocket = kzalloc(sizeof(struct socket), 0, '32SB');
 	if(!gpNetlinkServerSocket) {
@@ -613,7 +613,7 @@ NetlinkWorkThread(PVOID context)
             struct bsr_conf * mdev = minor_to_device(minor);
             if (mdev && bsr_suspended(mdev)) {
                 reply_error(NLMSG_ERROR, NLM_F_MULTI, EIO, pinfo);
-                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "minor(%d) suspended", gmh->minor);
+                bsr_warn(26, BSR_LC_NETLINK, NO_OBJECT, "Resource suspended, minor(%d)", gmh->minor);
                 goto cleanup;
             }
         }
@@ -632,7 +632,7 @@ NetlinkWorkThread(PVOID context)
             if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
 				bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", pops->str, cmd);
             } else {
-				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", pops->str, cmd);
+				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", pops->str, cmd);
             }
 			status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
 
@@ -666,15 +666,15 @@ NetlinkWorkThread(PVOID context)
 				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
 					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
 				} else {
-					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
+					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution terminated. (pending command:%d)", pops->str, cmd, netlink_work_thread_cnt - 1);
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
-				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) Failed to acquire the mutex status(0x%x)", pops->str, cmd, status);
+				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "Failed to %s:%u command due to failure to acquire mutex status(0x%x)", pops->str, cmd, status);
 			}
 
         } else {
-			bsr_info(22, BSR_LC_NETLINK, NO_OBJECT, "Not validated cmd(%d)", cmd);
+			bsr_info(22, BSR_LC_NETLINK, NO_OBJECT, "Command %d is a non-existent command.", cmd);
         }
     }
 

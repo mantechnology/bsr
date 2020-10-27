@@ -1422,7 +1422,7 @@ int __send_command(struct bsr_connection *connection, int vnr,
 				connection->last_send_packet = cmd;
 			// DW-1977 last successful protocol may not be correct because it is a transfer to the buffer
 			else
-				bsr_info(1, BSR_LC_PROTOCOL, connection, "last successful protocol packet %s", bsr_packet_name(cmd));
+				bsr_info(1, BSR_LC_PROTOCOL, connection, "The last successful protocol is %s", bsr_packet_name(cmd));
 		}
 	}
 
@@ -2288,7 +2288,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		/* paranoia: catch zero runlength.
 		 * can only happen if bitmap is modified while we scan it. */
 		if (rl == 0) {
-			bsr_warn(61, BSR_LC_BITMAP, peer_device, "unexpected zero runlength while encoding bitmap "
+			bsr_warn(61, BSR_LC_BITMAP, peer_device, "Unexpected zero runlength while encoding bitmap "
 			    "t:%u bo:%llu", toggle, (unsigned long long)c->bit_offset);
 			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
 			if (toggle == 0) {
@@ -2406,7 +2406,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 		err = __send_command(peer_device->connection, device->vnr, P_BITMAP, DATA_STREAM);
 
 		if (err) {
-			bsr_err(63, BSR_LC_PROTOCOL, peer_device, "Failed to send bitmap. err(%d)", err);
+			bsr_err(107, BSR_LC_BITMAP, peer_device, "Failed to send bitmap. err(%d)", err);
 		}		
 
 		c->word_offset += num_words;
@@ -2482,7 +2482,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 
 	if (get_ldev(device)) {
 		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
-			bsr_info(28, BSR_LC_IO, device, "Writing the whole bitmap, MDF_PEER_FULL_SYNC was set.");
+			bsr_info(28, BSR_LC_IO, device, "Set all bitmap bit to out of sync because the peer has a full sync flag set.");
 			bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 			if (bsr_bm_write(device, NULL)) {
 				/* write_bm did fail! Leave full sync flag set in Meta P_DATA
@@ -2553,7 +2553,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 			else {
 				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
 
-				bsr_info(35, BSR_LC_BITMAP, peer_device, "Merge bitmap, from index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
+				bsr_info(35, BSR_LC_BITMAP, peer_device, "Proceed with bitmap merge for bitmap send, from bitmap index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
 					incomp_sync_source->bitmap_index, (unsigned long long)bsr_bm_total_weight(incomp_sync_source),
 					peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 
@@ -2575,7 +2575,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 					current_offset = offset;
 				}
 
-				bsr_info(36, BSR_LC_BITMAP, peer_device, "Finished to merge bitmap, to index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+				bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 				kfree2(bb);
 				
 			}
@@ -3255,7 +3255,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			if (resource->role[NOW] == R_SECONDARY) {
 				rv = try_to_promote(device);
 				if (rv < SS_SUCCESS)
-					bsr_info(32, BSR_LC_STATE, resource, "Auto-promote failed: %s",
+					bsr_info(32, BSR_LC_STATE, resource, "Failed to set automatic state when device is opened with write option. err(%s)",
 					bsr_set_st_err_str(rv));
 			}
 		}
@@ -3357,7 +3357,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
 			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);
 			if (rv < SS_SUCCESS)
-				bsr_warn(83, BSR_LC_DRIVER, resource, "Auto-demote failed: %s",
+				bsr_warn(83, BSR_LC_DRIVER, resource, "Failed to set secondary in auto-demote. err(%s)",
 					  bsr_set_st_err_str(rv));
 		}
 	}
@@ -3826,7 +3826,7 @@ void bsr_restart_request(struct bsr_request *req)
 	unsigned long flags;
 	spin_lock_irqsave(&retry.lock, flags);
 
-	bsr_info(4, BSR_LC_REQUEST, NO_OBJECT, "req(%p) req->nq_ref (%d)", req, atomic_read(&req->nq_ref));
+	bsr_info(4, BSR_LC_REQUEST, NO_OBJECT, "The request was not completed, so we proceeded with the request again. request(%p) request net queue reference (%d)", req, atomic_read(&req->nq_ref));
 
 #ifdef NETQUEUED_LOG
 	atomic_set(&req->nq_ref, 0);
@@ -3847,7 +3847,7 @@ void bsr_restart_request(struct bsr_request *req)
 #ifdef _WIN
 void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 {
-    bsr_info(8, BSR_LC_VOLUME, NO_OBJECT,"Shutdown: IRQL(%d) device(%ws) Name(%ws)",
+    bsr_info(8, BSR_LC_VOLUME, NO_OBJECT,"Proceed with volume shutdown. IRQL(%d) device(%ws) Name(%ws)",
         KeGetCurrentIrql(), VolumeExtension->PhysicalDeviceName, VolumeExtension->MountPoint);
 
     if (retry.wq)
@@ -3966,7 +3966,7 @@ void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_
 	bsr_queue_work(work_queue, &completion_work.w);
 #ifdef _WIN
 	while (wait_for_completion_timeout(&completion_work.done, 100) == -BSR_SIGKILL) {
-		bsr_info(62, BSR_LC_ETC, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event");
+		bsr_info(62, BSR_LC_ETC, NO_OBJECT, "Wait a limited time for the operator queue to flush.");
 	}
 #else // _LIN
 	wait_for_completion_timeout(&completion_work.done, 100);
@@ -3978,7 +3978,7 @@ void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *w
 	struct completion_work completion_work;
 
 	if (get_t_state(&resource->worker) != RUNNING) {
-		bsr_info(63, BSR_LC_ETC, NO_OBJECT, "Flush Work Queue is not running. resource(%p)", resource);
+		bsr_info(63, BSR_LC_ETC, NO_OBJECT, "The work queue is not flushed because it is not working.. resource(%p)", resource);
 		return;
 	}
 
@@ -3987,7 +3987,7 @@ void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *w
 	bsr_queue_work(work_queue, &completion_work.w);
 #ifdef _WIN
 	while (wait_for_completion(&completion_work.done) == -BSR_SIGKILL) {
-		bsr_info(64, BSR_LC_ETC, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event");
+		bsr_info(64, BSR_LC_ETC, NO_OBJECT, "Wait for worker queue flush to complete.");
 	}
 #else // _LIN
 	wait_for_completion(&completion_work.done);
@@ -4415,7 +4415,7 @@ void bsr_destroy_connection(struct kref *kref)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
-	bsr_info(1, BSR_LC_CONNECTION, connection, "%s", __FUNCTION__);
+	bsr_info(1, BSR_LC_CONNECTION, connection, "The connection object is removed.");
 
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
 		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch size is not zero. It is highly likely that replication has not been completed.. size(%d)", atomic_read(&connection->current_epoch->epoch_size));
@@ -4712,7 +4712,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	// DW-1406 max_hw_sectors must be valued as number of maximum sectors.
 	// DW-1510 recalculate this_bdev->d_size
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
-	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"device(%p) max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
+	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"The capacity of the create device(%p) is max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
 	
@@ -5643,7 +5643,7 @@ int log_consumer_thread(void *unused)
 		start_logging_thread();
 	}
 	else 
-		bsr_info(16, BSR_LC_LOG, NO_OBJECT, "log consumer thread has been terminated.");
+		bsr_info(16, BSR_LC_LOG, NO_OBJECT, "The thread writing the log to the file has been terminated.");
 
 #ifdef _LIN
 	return 0;
@@ -5731,7 +5731,7 @@ void bsr_cleanup(void)
 
 	idr_destroy(&bsr_devices);
 
-	bsr_info(68, BSR_LC_DRIVER, NO_OBJECT, "module cleanup done.");
+	bsr_info(68, BSR_LC_DRIVER, NO_OBJECT, "Cleanup of BSR module has been completed.");
 }
 
 #ifdef _WIN
@@ -5848,11 +5848,11 @@ int bsr_init(void)
 #ifdef _LIN
 #if 0 // moved to bsr_load()
 	if (bsr_debugfs_init())
-		bsr_noti(76, NO_OBJECT, "failed to initialize debugfs -- will not be available");
+		bsr_noti(142, BSR_LC_DRIVER, NO_OBJECT, "Failed to initialize debugfs -- will not be available");
 #endif
 #endif
 
-	bsr_info(77, BSR_LC_DRIVER, NO_OBJECT, "initialized. "
+	bsr_info(77, BSR_LC_DRIVER, NO_OBJECT, "BSR driver loaded and initialized successfully. "
 	       "Version: " REL_VERSION " (api:%d/proto:%d-%d)",
 	       GENL_MAGIC_VERSION, PRO_VERSION_MIN, PRO_VERSION_MAX);
 	bsr_info(78, BSR_LC_DRIVER, NO_OBJECT, "%s", bsr_buildtag());
@@ -6456,7 +6456,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	__bsr_uuid_set_current(device, val);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
-	bsr_info(3, BSR_LC_UUID, device, "%s, new current UUID: %016llX weak: %016llX", caller,
+	bsr_info(3, BSR_LC_UUID, device, "%s, %016llX UUID has been generated. weak nodes %016llX", caller,
 		  device->ldev->md.current_uuid, weak_nodes);
 
 	// BSR-676 notify uuid
@@ -6493,7 +6493,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* ca
 		get_random_bytes(&current_uuid, sizeof(u64));
 		current_uuid &= ~UUID_PRIMARY;
 		bsr_set_exposed_data_uuid(device, current_uuid);
-		bsr_info(4, BSR_LC_UUID, device, "%s, sending new current UUID: %016llX", caller, current_uuid);
+		bsr_info(4, BSR_LC_UUID, device, "%s, Sends a new current %016llX UUID.", caller, current_uuid);
 
 		weak_nodes = bsr_weak_nodes_device(device);
 		for_each_peer_device(peer_device, device) {
@@ -6668,7 +6668,7 @@ void forget_bitmap(struct bsr_device *device, int node_id) __must_hold(local) //
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	rcu_read_lock();
 	name = name_of_node_id(device->resource, node_id);
-	bsr_info(5, BSR_LC_UUID, device, "clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)",
+	bsr_info(5, BSR_LC_UUID, device, "Clearing bitmap UUID and content (%llu bits) for node %d (%s)(slot %d)",
 		  (unsigned long long)_bsr_bm_total_weight(device, bitmap_index), node_id, name, bitmap_index);
 	rcu_read_unlock();
 	bsr_suspend_io(device, WRITE_ONLY);
@@ -6860,7 +6860,7 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 						isForgettableReplState(found_peer->repl_state[NOW])
 						&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 						// DW-955 print log to recognize where forget_bitmap is called.
-						bsr_info(38, BSR_LC_BITMAP, device, "bitmap will be cleared due to other resync. peer disk(%s), peer repl(%s), peer dirty(%llu), peer flags(%llx)",
+						bsr_info(38, BSR_LC_BITMAP, device, "Bitmap will be cleared due to other resync. peer disk(%s), peer repl(%s), peer dirty(%llu), peer flags(%llx)",
 							bsr_disk_str(found_peer->disk_state[NOW]), bsr_repl_str(found_peer->repl_state[NOW]), found_peer->dirty_bits, (unsigned long long)found_peer->flags);
 						forget_bitmap(device, node_id);
 					}					
@@ -6925,7 +6925,7 @@ clear_flag:
 			_bsr_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-			bsr_info(39, BSR_LC_BITMAP, peer_device, "bitmap will be cleared due to inconsistent out-of-sync, disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			bsr_info(39, BSR_LC_BITMAP, peer_device, "Bitmap will be cleared due to inconsistent out-of-sync, disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			forget_bitmap(device, peer_node_id);
 		}
 		bsr_md_mark_dirty(device);
@@ -6944,7 +6944,7 @@ clear_flag:
 			_bsr_uuid_push_history(device, peer_bm_uuid);
 		if (peer_md[peer_node_id].bitmap_index != -1 
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-			bsr_info(40, BSR_LC_BITMAP, peer_device, "bitmap will be cleared because peer has consistent disk with primary's");
+			bsr_info(40, BSR_LC_BITMAP, peer_device, "Bitmap will be cleared because peer has consistent disk with primary's");
 			forget_bitmap(device, peer_node_id);
 		}
 		bsr_md_mark_dirty(device);
@@ -6993,7 +6993,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
-				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
 					atomic_inc(&device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
@@ -7009,7 +7009,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
-				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "can not perform fast invalidate(remote), protocol ver(%d), fastSyncOpt(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
+				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
 					atomic_inc(&device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
@@ -7019,7 +7019,7 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
-		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "unexpected repliction state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
+		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
 	if (dec_bm_work_n) {
@@ -7176,7 +7176,7 @@ bool isFastInitialSync()
 	bRet = false;
 #endif
 #endif
-	bsr_info(10, BSR_LC_RESYNC_OV, NO_OBJECT, "Fast sync %s", bRet ? "enabled" : "disabled");
+	bsr_info(10, BSR_LC_RESYNC_OV, NO_OBJECT, "Fast sync is %s on resync with the current connection.", bRet ? "enabled" : "disabled");
 	
 	return bRet;
 }
@@ -7344,7 +7344,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	// DW-1317 inspect resync side first, before get the allocated bitmap.
 	if (!bsr_inspect_resync_side(peer_device, side, NOW, false)) {
-		bsr_warn(164, BSR_LC_RESYNC_OV, peer_device, "can't be %s", bsr_repl_str(side));
+		bsr_warn(164, BSR_LC_RESYNC_OV, peer_device, "Not a replication state(%s) to set out of sync", bsr_repl_str(side));
 		if (!bitmap_lock)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 		*bSync = false;
@@ -7365,18 +7365,18 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE) {
-			bsr_info(17, BSR_LC_RESYNC_OV, peer_device, "Sync source, will mount volume for temporary to get allocated clusters. current role(%s)", bsr_role_str(device->resource->role[NOW]));
+			bsr_info(17, BSR_LC_RESYNC_OV, peer_device, "The replication status is syncsource and role is secondary, so you mount the temporary volume to get the allocate cluster.");
 			bSecondary = true;
 		}
 		else if (side == L_SYNC_TARGET) {
-			bsr_info(18, BSR_LC_RESYNC_OV, peer_device, "Sync target, wait to receive source's bitmap. current role(%s)", bsr_role_str(device->resource->role[NOW]));
+			bsr_info(18, BSR_LC_RESYNC_OV, peer_device, "The replication status is synctarget, so it waits for a bitmap of syncsource without obtaining an allocate cluster.");
 			bRet = true;
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			goto out;
 		}
 	}
 
-	bsr_info(19, BSR_LC_RESYNC_OV, peer_device, "Writing the bitmap for allocated clusters.");
+	bsr_info(19, BSR_LC_RESYNC_OV, peer_device, "Get bitmap information for the volume.");
 
 	do {
 		if (bSecondary) {
@@ -7433,7 +7433,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 
 	} while (false);
 
-	bsr_info(23, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) have been set as out-of-sync",
+	bsr_info(23, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) have been set as out-of-sync by the allocate cluster.",
 			(unsigned long long)bitmap->bm_set[bmi], (unsigned long long)(bitmap->bm_set[bmi] << (BM_BLOCK_SHIFT - 10)));
 
 	// DW-1495 Change location due to deadlock(bm_change)
@@ -7452,7 +7452,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		bRet = false;
 	}
 	else{
-		bsr_info(25, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) are set as new out-of-sync",
+		bsr_info(25, BSR_LC_RESYNC_OV, peer_device, "%llu bits(%llu KB) are set as new out-of-sync for bitmap",
 				(unsigned long long)count, (unsigned long long)(count << (BM_BLOCK_SHIFT - 10)));
 		bRet = true;
 	}
@@ -7488,7 +7488,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	// BSR-590 freeze_bdev() performs I/O for meta flush, so pending check logic is added.
 	// There is a case where Ahead mode is changed before this function execution.
 	if (atomic_read(&device->pending_bitmap_work.n)) {
-		bsr_info(26, BSR_LC_RESYNC_OV, peer_device, "fast_ov canceled due to pending bitmap work.");
+		bsr_info(26, BSR_LC_RESYNC_OV, peer_device, "Fast online verify canceled due to pending bitmap work.");
 		if (side == L_VERIFY_S) {
 			bsr_info(27, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).",
 				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
@@ -7504,11 +7504,11 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_VERIFY_S) {
-			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "verify source, will mount volume for temporary to get allocated clusters. current role(%s)", bsr_role_str(device->resource->role[NOW]));
+			bsr_info(28, BSR_LC_RESYNC_OV, peer_device, "The replication status is verify source and role is secondary, so you mount the temporary volume to get the allocate cluster.");
 			bSecondary = true;
 		}
 		else {
-			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "unexpected replication state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
+			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "Cluster allocation is in a replication state(%s) that cannot be allocated.", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
 			goto out;
 		}
@@ -7774,7 +7774,7 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(33, BSR_LC_STATE, device, "backing device is not assigned.");
+		bsr_warn(33, BSR_LC_STATE, device, "Failed to set flag in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7794,7 +7794,7 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(34, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(34, BSR_LC_STATE, peer_device, "Failed to set flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7832,7 +7832,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(36, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(36, BSR_LC_STATE, peer_device, "Failed to clear flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7850,7 +7850,7 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(37, BSR_LC_STATE, device, "backing device is not assigned.");
+		bsr_warn(37, BSR_LC_STATE, device, "Failed to test flag in meta because no backing device is assigned.");
 		return 0;
 	}
 
@@ -7862,7 +7862,7 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(38, BSR_LC_STATE, peer_device, "backing device is not assigned.");
+		bsr_warn(38, BSR_LC_STATE, peer_device, "Failed to test flag of peer in meta because no backing device is assigned.");
 		return false;
 	}
 

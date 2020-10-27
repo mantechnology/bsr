@@ -1216,7 +1216,7 @@ retry:
 			up(&resource->state_sem); /* Allow connect while fencing */
 			for_each_connection_ref(connection, im, resource) {
 				if (!conn_try_outdate_peer(connection) && force) {
-					bsr_warn(72, BSR_LC_GENL, connection, "Forced into split brain situation!");
+					bsr_warn(72, BSR_LC_GENL, connection, "Forced into split brain situation.");
 					with_force = true;
 				}
 			}
@@ -1264,7 +1264,7 @@ retry:
 		goto out;
 
 	if (forced)
-		bsr_warn(73, BSR_LC_GENL, resource, "Forced to consider local data as UpToDate!");
+		bsr_warn(73, BSR_LC_GENL, resource, "Forced to consider local data as UpToDate.");
 
 	if (role == R_SECONDARY) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
@@ -1811,7 +1811,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		bsr_set_my_capacity(device, size);
 		if (effective_disk_size_determined(device)) {
 			md->effective_size = size;
-			bsr_info(13, BSR_LC_GENL, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+			bsr_info(96, BSR_LC_VOLUME, device, "Update the disk size in the meta. %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 			     (unsigned long long)size >> 1);
 		}
 	}
@@ -1853,9 +1853,9 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 
 		bsr_al_initialize(device, buffer);
 
-		bsr_info(14, BSR_LC_GENL, device, "Writing the whole bitmap, %s",
-			 la_size_changed && md_moved ? "size changed and md moved" :
-			 la_size_changed ? "size changed" : "md moved");
+		bsr_info(97, BSR_LC_VOLUME, device, "Writing the whole bitmap, %s",
+			 la_size_changed && md_moved ? "replication volume size changed and meta disk data moved" :
+			 la_size_changed ? "replication volume size changed" : "meta disk data moved");
 		/* next line implicitly does bsr_suspend_io()+bsr_resume_io() */
 		bsr_bitmap_io(device, md_moved ? &bsr_bm_write_all : &bsr_bm_write,
 			       "size changed", BM_LOCK_ALL, NULL);
@@ -1876,7 +1876,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 		}
 
 		if (rs)
-			bsr_info(15, BSR_LC_GENL, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)",
+			bsr_info(41, BSR_LC_LRU, device, "Changed activity log layout to activity stripes(%u), activity stripe size(%ukB)",
 				 md->al_stripes, md->al_stripe_size_4k * 4);
 	}
 
@@ -1924,7 +1924,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		struct bsr_peer_device *peer_device;
 
 		if (device->ldev->md.node_id == node_id) {
-			bsr_info(16, BSR_LC_GENL, device, "local node_id: %u", node_id);
+			bsr_info(98, BSR_LC_VOLUME, device, "Skip the replication volume size comparison because it is a local node id(%d)", node_id);
 			continue; /* skip myself... */
 		}
 		/* Have we met this peer node id before? */
@@ -1933,7 +1933,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (peer_device) {
 			enum bsr_disk_state pdsk = peer_device->disk_state[NOW];
-			bsr_info(17, BSR_LC_GENL, peer_device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x) max size(%llu) disk state(%s)",
+			bsr_info(99, BSR_LC_VOLUME, peer_device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x) max size(%llu) disk state(%s)",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -1968,7 +1968,7 @@ static bool get_max_agreeable_size(struct bsr_device *device, uint64_t *max, uin
 				continue;
 			}
 		} else {
-			bsr_info(18, BSR_LC_GENL, device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x). not currently reachable",
+			bsr_info(100, BSR_LC_VOLUME, device, "node id(%u) bitmap index(%u) bitmap uuid(0x%llx) flags(0x%x). not currently reachable",
 					node_id,
 					peer_md->bitmap_index,
 					peer_md->bitmap_uuid,
@@ -2032,7 +2032,7 @@ bsr_new_dev_size(struct bsr_device *device,
 		DDUMP_LLU(device, la_size);
 		p_size = min_not_zero(p_size, m_size);
 		if (p_size > la_size)
-			bsr_warn(75, BSR_LC_GENL, device, "Resize forced while not fully connected!");
+			bsr_warn(75, BSR_LC_GENL, device, "Resize the volume even if it is not connected to all peers.");
 	} else {
 		DDUMP_LLU(device, p_size);
 		DDUMP_LLU(device, m_size);
@@ -2261,13 +2261,13 @@ static void decide_on_write_same_support(struct bsr_device *device,
 
 		if (me_lbs_b != me_lbs) {
 			bsr_warn(76, BSR_LC_GENL, device,
-				"logical block size of local backend does not match (bsr:%u, backend:%u); was this a late attach?",
+				"Logical block size of local backend does not match (bsr:%u, backend:%u).",
 				me_lbs, me_lbs_b);
 			/* rather disable write same than trigger some BUG_ON later in the scsi layer. */
 			can_do = false;
 		}
 		if (me_lbs_b != peer_lbs) {
-			bsr_warn(77, BSR_LC_GENL, device, "logical block sizes do not match (me:%u, peer:%u); this may cause problems.",
+			bsr_warn(77, BSR_LC_GENL, device, "Logical block size mismatch between local and peer (me:%u, peer:%u). This may cause problems.",
 				me_lbs, peer_lbs);
 			if (can_do) {
 				bsr_dbg(device, "logical block size mismatch: WRITE_SAME disabled.");
@@ -2280,10 +2280,10 @@ static void decide_on_write_same_support(struct bsr_device *device,
 			if (peer_lbs > me_lbs) {
 				if (device->resource->role[NOW] != R_PRIMARY) {
 					blk_queue_logical_block_size(q, peer_lbs);
-					bsr_warn(78, BSR_LC_GENL, device, "logical block size set to %u", peer_lbs);
+					bsr_warn(78, BSR_LC_GENL, device, "Logical block size set to %u", peer_lbs);
 				} else {
 					bsr_warn(79, BSR_LC_GENL, device,
-						"current Primary must NOT adjust logical block size (%u -> %u); hope for the best.",
+						"Current Primary must NOT adjust logical block size (%u -> %u); hope for the best.",
 						me_lbs, peer_lbs);
 				}
 			}
@@ -2375,7 +2375,7 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 	}
 
 	if (!bsr_al_try_lock(device)) {
-		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock active log in %s()", __func__);
+		bsr_warn(80, BSR_LC_GENL, device, "Failed to lock activity log in %s()", __func__);
 		return;
 	}
 
@@ -2452,7 +2452,7 @@ static void sanitize_disk_conf(struct bsr_device *device, struct disk_conf *disk
 	    (!queue_discard_zeroes_data(q) && !disk_conf->discard_zeroes_if_aligned)) {
 		if (disk_conf->rs_discard_granularity) {
 			disk_conf->rs_discard_granularity = 0; /* disable feature */
-			bsr_info(29, BSR_LC_GENL, device, "rs_discard_granularity feature disabled");
+			bsr_info(29, BSR_LC_GENL, device, "Disable rs-discard-granularity feature in disk configuration");
 		}
 	}
 
@@ -2470,8 +2470,8 @@ static void sanitize_disk_conf(struct bsr_device *device, struct disk_conf *disk
 			disk_conf->rs_discard_granularity = q->limits.max_discard_sectors << 9;
 
 		if (disk_conf->rs_discard_granularity != (unsigned int)orig_value)
-			bsr_info(30, BSR_LC_GENL, device, "rs_discard_granularity changed to %u",
-				  disk_conf->rs_discard_granularity);
+			bsr_info(30, BSR_LC_GENL, device, "changed the rs-discard-granularity setting %u to %u",
+					(unsigned int)orig_value, disk_conf->rs_discard_granularity);
 	}
 }
 
@@ -2699,7 +2699,7 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
 #endif
 	if (IS_ERR(bdev)) {
-		bsr_err(104, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
+		bsr_err(140, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
 				bdev_path, PTR_ERR(bdev));
 		return bdev;
 	}
@@ -2976,12 +2976,12 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	nbc->known_size = bsr_get_capacity(nbc->backing_bdev);
 
 	if (nbc->known_size > max_possible_sectors) {
-		bsr_warn(82, BSR_LC_GENL, device, "==> truncating very big lower level device "
-			"to currently maximum possible %llu sectors <==",
+		bsr_warn(82, BSR_LC_GENL, device, "Truncating very big lower level device "
+			"to currently maximum possible %llu sectors",
 			(unsigned long long) max_possible_sectors);
 		if (new_disk_conf->meta_dev_idx >= 0)
-			bsr_warn(83, BSR_LC_GENL, device, "==>> using internal or flexible "
-				      "meta data may help <<==");
+			bsr_warn(83, BSR_LC_GENL, device, "Using internal or flexible "
+				      "meta data may help");
 	}
 
 	bsr_suspend_io(device, READ_AND_WRITE);
@@ -3059,7 +3059,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 #endif
-	bsr_info(36, BSR_LC_GENL, device, "Maximum number of bitmap peer devices %u",
+	bsr_info(36, BSR_LC_GENL, device, "The maximum number of bitmap peer devices is %u.",
 		  device->bitmap->bm_max_peers);
 	mutex_lock(&resource->conf_update);
 	have_conf_update = true;
@@ -3280,8 +3280,8 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		if ((test_bit(CRASHED_PRIMARY, &device->flags) &&
 		     bsr_md_test_flag(device, MDF_AL_DISABLED)) ||
 		    bsr_md_test_peer_flag(peer_device, MDF_PEER_FULL_SYNC)) {
-			bsr_info(41, BSR_LC_GENL, peer_device, "Assuming that all blocks are out of sync "
-				  "(aka FullSync)");
+			bsr_info(41, BSR_LC_GENL, peer_device, "Set all out of sync because of %s.",
+				(test_bit(CRASHED_PRIMARY, &device->flags) && bsr_md_test_flag(device, MDF_AL_DISABLED)) ? "crashed primary setting and activity log disable" : "peer full sync is set");
 			if (bsr_bitmap_io(device, &bsr_bmio_set_n_write,
 				"set_n_write from attaching", BM_LOCK_ALL,
 				peer_device)) {
@@ -3394,7 +3394,10 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 	 wait_event_interruptible_timeout_ex(device->misc_wait,
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
-	bsr_info(42, BSR_LC_GENL, NO_OBJECT,"wait event interruptible timeout. time out(%ld) disk state(%s)", timeo, bsr_disk_str(device->disk_state[NOW]));
+
+	if (timeo == -ETIMEDOUT)
+		bsr_info(42, BSR_LC_GENL, NO_OBJECT, "Detach complete event wait timeout. time out(%ld) disk state(%s)", 3 * HZ, bsr_disk_str(device->disk_state[NOW]));
+
 	if (retcode >= SS_SUCCESS) {
 		int res;
 
@@ -3874,7 +3877,7 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	bsr_info(44, BSR_LC_GENL, peer_device, "new, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums", 
+	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
 		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
@@ -3913,7 +3916,7 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	if (err)
 		return err;
 
-	bsr_info(45, BSR_LC_GENL, peer_device, "default, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
+	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
 		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate,
 		conf->ov_req_num, conf->ov_req_interval);
@@ -6207,7 +6210,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 	for_each_peer_device(peer_device, device) {
 		if (args.clear_bm && should_skip_initial_sync(peer_device)) {
 			if (peer_device->disk_state[NOW] >= D_INCONSISTENT) {
-				bsr_info(54, BSR_LC_GENL, peer_device, "Preparing to skip initial sync");
+				bsr_info(54, BSR_LC_GENL, peer_device, "Skip initial resync due to peer node disk state(%s).", bsr_disk_str(peer_device->disk_state[NOW]));
 				diskfull |= NODE_MASK(peer_device->node_id);
 			}
 			nodes |= NODE_MASK(peer_device->node_id);
@@ -6724,7 +6727,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 			mutex_unlock(&resource->conf_update);
 		} else {
-			bsr_info(58, BSR_LC_GENL, connection, "conn_try_disconnect retcode : %d", retcode);
+			bsr_info(58, BSR_LC_GENL, connection, "Failed to disconnect during resource down. ret(%d)", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
 			kref_put(&connection->kref, bsr_destroy_connection);
 			goto out;

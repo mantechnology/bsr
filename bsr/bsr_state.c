@@ -694,7 +694,7 @@ void state_change_lock(struct bsr_resource *resource, unsigned long *irq_flags, 
 {
 	if ((flags & CS_SERIALIZE) && !(flags & (CS_ALREADY_SERIALIZED | CS_PREPARED))) {
 #ifdef _WIN
-		bsr_info(40, BSR_LC_STATE, NO_OBJECT, "worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
+		bsr_info(40, BSR_LC_STATE, NO_OBJECT, "Worker should not initiate state changes with CS_SERIALIZE current:%p resource->worker.task:%p", current, resource->worker.task);
 #else // _LIN
 		WARN_ONCE(current == resource->worker.task,
 			"worker should not initiate state changes with CS_SERIALIZE");
@@ -715,7 +715,7 @@ static void __state_change_unlock(struct bsr_resource *resource, unsigned long *
 		if (done && expect(resource, current != resource->worker.task)) {
 #ifdef _WIN
 	        while (wait_for_completion(done) == -BSR_SIGKILL) {
-				bsr_info(15, BSR_LC_STATE, NO_OBJECT, "BSR_SIGKILL occurs. Ignore and wait for real event");
+				bsr_info(15, BSR_LC_STATE, NO_OBJECT, "BSR_SIGKILL occurred instead of a wait event. Ignore and wait for real event");
 	        }
 #else // _LIN
 			wait_for_completion(done);
@@ -1681,7 +1681,7 @@ static enum bsr_state_rv is_valid_transition(struct bsr_resource *resource)
 			    peer_device->repl_state[NEW] >= L_ESTABLISHED)
 			{
 				// DW-1529 Eliminated stopped state of WFBitMapT. This node will try to reconnect after the state change fails. 
-				bsr_info(24, BSR_LC_STATE, connection, "return SS_NEED_CONNECTION!!! cs=%d repl=%d ",
+				bsr_info(24, BSR_LC_STATE, connection, "Must be connected when status change. return SS_NEED_CONNECTION. cs=%d repl=%d ",
 					connection->cstate[OLD], peer_device->repl_state[NEW]);
 				return SS_NEED_CONNECTION; 
 			}
@@ -1808,7 +1808,7 @@ static void sanitize_state(struct bsr_resource *resource)
 					   role */
 					nr = L_PAUSED_SYNC_S;
 					__change_resync_susp_other_c(peer_device, true, NULL);
-					bsr_warn(41, BSR_LC_STATE, peer_device, "Finish me");
+					bsr_warn(41, BSR_LC_STATE, peer_device, "Delay the sync source role");
 				}
 				__change_repl_state(peer_device, nr, __FUNCTION__);
 			}
@@ -1850,7 +1850,7 @@ static void sanitize_state(struct bsr_resource *resource)
 				if (((repl_state[NEW] != L_STARTING_SYNC_S && repl_state[NEW] != L_STARTING_SYNC_T) ||
 					repl_state[NOW] >= L_ESTABLISHED) &&
 					!bsr_inspect_resync_side(peer_device, repl_state[NEW], NOW, true)) {					
-					bsr_warn(42, BSR_LC_STATE, peer_device, "force it to be Established due to unsyncable stability");
+					bsr_warn(42, BSR_LC_STATE, peer_device, "Force it to be Established due to unsyncable stability");
 					__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
 					set_bit(UNSTABLE_TRIGGER_CP, &peer_device->flags); // DW-1341
 				}
@@ -2094,7 +2094,7 @@ static void sanitize_state(struct bsr_resource *resource)
 void bsr_resume_al(struct bsr_device *device)
 {
 	if (test_and_clear_bit(AL_SUSPENDED, &device->flags))
-		bsr_info(15, BSR_LC_LRU, device, "Resumed AL updates");
+		bsr_info(15, BSR_LC_LRU, device, "Resumed activity log updates");
 }
 
 static void set_ov_position(struct bsr_peer_device *peer_device,
@@ -2342,7 +2342,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 			if ((repl_state[OLD] == L_PAUSED_SYNC_T || repl_state[OLD] == L_PAUSED_SYNC_S) &&
 			    (repl_state[NEW] == L_SYNC_TARGET  || repl_state[NEW] == L_SYNC_SOURCE)) {
-				bsr_info(148, BSR_LC_RESYNC_OV, peer_device, "Syncer continues.");
+				bsr_info(148, BSR_LC_RESYNC_OV, peer_device, "The resync will resume.");
 				peer_device->rs_paused += (long)jiffies
 						  -(long)peer_device->rs_mark_time[peer_device->rs_last_mark];
 
@@ -3455,7 +3455,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					send_state = true;
 				// DW-2026 if the status is not L_STARTING_SYNC_T, the status is not send.
 				else
-					bsr_info(28, BSR_LC_STATE, peer_device, "not sending state because of old repl_state(%s)", bsr_repl_str(repl_state[OLD]));
+					bsr_info(28, BSR_LC_STATE, peer_device, "Not sending state because of old replication state(%s)", bsr_repl_str(repl_state[OLD]));
 			}
 
 			if (peer_disk_state[NEW] < D_INCONSISTENT && get_ldev(device)) {
@@ -3733,7 +3733,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (device->ldev->md.effective_size != size) {
 				char ppb[10];
 
-				bsr_info(29, BSR_LC_STATE, device, "Update disk size %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
+				bsr_info(95, BSR_LC_VOLUME, device, "Update the disk size in the meta. %s (%llu KB)", ppsize(ppb, sizeof(ppb), size >> 1),
 				     (unsigned long long)size >> 1);
 				device->ldev->md.effective_size = size;
 				bsr_md_mark_dirty(device);

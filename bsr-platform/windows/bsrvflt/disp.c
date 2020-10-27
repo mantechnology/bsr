@@ -94,7 +94,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 
 	// BSR-511 call mvolSendToNextdriver in safe mode
 	if (*InitSafeBootMode > 0) {
-		bsr_info(82, BSR_LC_DRIVER, NO_OBJECT, "booted to safe mode %u", *InitSafeBootMode);
+		bsr_info(82, BSR_LC_DRIVER, NO_OBJECT, "Booted to safe mode %u", *InitSafeBootMode);
 	}
 	else {
 		DriverObject->MajorFunction[IRP_MJ_CREATE] = mvolCreate;
@@ -154,7 +154,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
     // Init BSR engine
     bsr_init();
 
-	bsr_info(4, BSR_LC_DRIVER, NO_OBJECT, "MVF Driver loaded.");
+	bsr_info(4, BSR_LC_DRIVER, NO_OBJECT, "BSR MVF Driver loaded.");
 
     return STATUS_SUCCESS;
 }
@@ -291,7 +291,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
 		//1 :SAFEBOOT_MINIMAL
 		//2 :SAFEBOOT_NETWORK
 		//3 :SAFEBOOT_DSREPAIR
-		bsr_info(5, BSR_LC_DRIVER, NO_OBJECT, "safe boot mode %u", *InitSafeBootMode);
+		bsr_info(5, BSR_LC_DRIVER, NO_OBJECT, "Safe boot mode %u", *InitSafeBootMode);
 		return STATUS_UNSUCCESSFUL;
 	}
 

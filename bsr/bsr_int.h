@@ -449,7 +449,7 @@ void bsr_printk_with_wrong_object_type(void);
 #define AL_BUG_ON(_condition, str_condition, lc, e)	\
     do {	\
         if(_condition) { \
-            bsr_crit(17, BSR_LC_ETC, NO_OBJECT,"BUG: failure [ %s ]", str_condition); \
+            bsr_crit(37, BSR_LC_LRU, NO_OBJECT,"BUG: failure [ %s ]", str_condition); \
 			if(lc || e){	\
 				lc_printf_stats(lc, e);	\
 										}\
@@ -509,14 +509,14 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 91
-#define BSR_LC_IO_MAX_INDEX 57
+#define BSR_LC_VOLUME_MAX_INDEX 101
+#define BSR_LC_IO_MAX_INDEX 61
 #define BSR_LC_IO_ERROR_MAX_INDEX 10
-#define BSR_LC_BITMAP_MAX_INDEX 106
-#define BSR_LC_LRU_MAX_INDEX 36
+#define BSR_LC_BITMAP_MAX_INDEX 127
+#define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 27
+#define BSR_LC_RESYNC_OV_MAX_INDEX 208
 #define BSR_LC_REPLICATION_MAX_INDEX 30
 #define BSR_LC_CONNECTION_MAX_INDEX 31
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -525,16 +525,16 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 35
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 106
-#define BSR_LC_DRIVER_MAX_INDEX 140
+#define BSR_LC_DRIVER_MAX_INDEX 142
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
-#define BSR_LC_PROTOCOL_MAX_INDEX 69
-#define BSR_LC_MEMORY_MAX_INDEX 83
+#define BSR_LC_PROTOCOL_MAX_INDEX 70
+#define BSR_LC_MEMORY_MAX_INDEX 93
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 86
+#define BSR_LC_ETC_MAX_INDEX 87
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -636,7 +636,7 @@ bsr_insert_fault(struct bsr_device *device, unsigned int type) {
 		_bsr_insert_fault(device, type);
 
     if (ret) {
-        bsr_info(7, BSR_LC_IO_ERROR, NO_OBJECT,"FALUT_TEST: type=0x%x fault=%d", type, ret);
+        bsr_err(87, BSR_LC_ETC, NO_OBJECT,"Failed to test. type=0x%x fault=%d", type, ret);
     }
     return ret;
 #else // _LIN
@@ -3054,7 +3054,7 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
 	if (!bdev) {
-		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"block device is not assigned.");
+		bsr_warn(44, BSR_LC_VOLUME, NO_OBJECT,"Failed to get capacity beacuse block device is not assigned.");
 		return 0;
 	}
 	
@@ -3696,7 +3696,7 @@ static inline void inc_rs_pending(struct bsr_peer_device *peer_device)
 static inline int __dec_rs_pending(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->rs_pending_cnt) == 0)
-		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s, No unprocessed resync requests and responses.", caller, __FUNCTION__);
+		bsr_warn(160, BSR_LC_RESYNC_OV, peer_device, "%s => %s,There are no incomplete resync requests, but completion of the request has been set.", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->rs_pending_cnt);
 }
 
@@ -3719,7 +3719,7 @@ static inline void inc_unacked(struct bsr_peer_device *peer_device)
 static inline int __dec_unacked(struct bsr_peer_device *peer_device, const char* caller)
 {
 	if (atomic_read(&peer_device->unacked_cnt) == 0)
-		bsr_warn(27, BSR_LC_REPLICATION, peer_device, "%s => %s, No unprocessed replication requests and responses.", caller, __FUNCTION__);
+		bsr_warn(61, BSR_LC_IO, peer_device, "%s => %s, There is no request being processed, but the request has been completed.", caller, __FUNCTION__);
 	return atomic_dec_return(&peer_device->unacked_cnt);
 }
 
@@ -4200,7 +4200,7 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "timestamp is invalid");
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
 		return -1;
 	}
 

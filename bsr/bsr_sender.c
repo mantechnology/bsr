@@ -203,7 +203,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, read lost inactive peer request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost read request. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			bsr_free_peer_req(peer_req);
 			return;
 		}
@@ -217,7 +217,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 			//DW-1735 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 			list_for_each_entry_safe_ex(struct bsr_peer_request, p_req, t_inative, &connection->inactive_ee, w.list) {
 				if (peer_req == p_req) {
-					bsr_info(21, BSR_LC_PEER_REQUEST, device, "destroy, read inactive peer request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+					bsr_info(21, BSR_LC_PEER_REQUEST, device, "Inactive peer request completed. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
 					if (peer_req->flags & EE_WAS_ERROR) {
@@ -303,7 +303,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	spin_lock(&g_inactive_lock);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
 		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "destroy, wrtie inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost write request. inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			bsr_free_peer_req(peer_req); 
 		}
 		else {
@@ -318,13 +318,13 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls bsr_al_complete_io() upon completion of the write.
 						bsr_al_complete_io(device, &peer_req->i);
-						bsr_info(23, BSR_LC_PEER_REQUEST, device, "destroy, Inactive replication peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(23, BSR_LC_PEER_REQUEST, device, "Inactive replication peer request completed. peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {
 						//DW-1965 in inactive_ee, the resync data calls bsr_rs_complete_io() upon completion of the write.
 						if (!(peer_req->flags & EE_SPLIT_REQ)) 
 							bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-						bsr_info(24, BSR_LC_PEER_REQUEST, device, "destroy, Inactive resync peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+						bsr_info(24, BSR_LC_PEER_REQUEST, device, "Inactive resync peer request completed. peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 
 					//DW-1965 apply an I/O error when it is not __EE_WAS_LOST_REQ.
@@ -696,7 +696,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	*/
 	if (unlikely(req->rq_state[0] & RQ_LOCAL_ABORTED)) {
 		if (bsr_ratelimit())
-			bsr_emerg(11, BSR_LC_IO, device, "delayed completion of aborted local request; disk-timeout may be too aggressive");
+			bsr_emerg(11, BSR_LC_IO, device, "Delayed completion of aborted local request; disk-timeout may be too aggressive");
 
 		if (!error)
 			bsr_panic_after_delayed_completion_of_aborted_request(device);
@@ -1012,7 +1012,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		break;
 	default:
 		// DW-1977
-		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "completed because it is not in the VerifyS or SyncTarget replication state.");
+		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "The resync is complete because it is not in VerifyS or SyncTarget replication state.");
 		break;
 	}
 
@@ -1219,13 +1219,13 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 #endif
 
 	if (unlikely(cancel)) {
-		bsr_info(106, BSR_LC_RESYNC_OV, peer_device, "resync cacnel.");
+		bsr_info(106, BSR_LC_RESYNC_OV, peer_device, "Resync Stop is set to stop.");
 		return 0;
 	}
 
 	if (peer_device->rs_total == 0) {
 		/* empty resync? */
-		bsr_info(107, BSR_LC_RESYNC_OV, peer_device, "finished because it's rs_total empty");
+		bsr_info(107, BSR_LC_RESYNC_OV, peer_device, "Finished the resync. resync target area does not exist.");
 		bsr_resync_finished(peer_device, D_MASK);
 		return 0;
 	}
@@ -1301,7 +1301,7 @@ next_sector:
 
 			if (bit >= bsr_bm_bits(device)) {
 				device->bm_resync_fo = bsr_bm_bits(device);
-				bsr_info(109, BSR_LC_RESYNC_OV, peer_device, "BSR_END_OF_BITMAP(%llu), device->bm_resync_fo : %llu, bm_set : %llu",
+				bsr_info(109, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_BITMAP(%llu), device->bm_resync_fo : %llu, bm_set : %llu",
 						(unsigned long long)bit, (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
 				put_ldev(device);
 				return 0;
@@ -1421,7 +1421,7 @@ next_sector:
 		 * resync data block, and the last bit is cleared.
 		 * until then resync "work" is "inactive" ...
 		 */
-		bsr_info(111, BSR_LC_RESYNC_OV, peer_device, "P_RS_DATA_REPLY not received??,  device->bm_resync_fo : %llu, bm_set : %llu", (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
+		bsr_info(111, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent, but no resync response has been received yet.  device->bm_resync_fo : %llu, bm_set : %llu", (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
 		put_ldev(device);
 		return 0;
 	}
@@ -1482,7 +1482,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			}
 
 			if (bit >= bsr_bm_bits(device)) {
-				bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu",
+				bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu",
 						(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position);
 				peer_device->ov_bm_position = bsr_bm_bits(device);
 				peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
@@ -1670,7 +1670,7 @@ static void __cancel_other_resyncs(struct bsr_device *device)
 				_bsr_uuid_push_history(device, peer_bm_uuid);
 			if (peer_md[peer_node_id].bitmap_index != -1
 			 && !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
-				bsr_info(113, BSR_LC_RESYNC_OV, peer_device, "bitmap will be cleared due to resync cancelation");
+				bsr_info(113, BSR_LC_RESYNC_OV, peer_device, "Bitmap will be cleared due to resync cancelation");
 				forget_bitmap(device, peer_node_id);
 			}
 			bsr_md_mark_dirty(device);
@@ -1768,7 +1768,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
 	if (repl_state[NOW] == L_AHEAD) {
-		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "I am ahead, do not finish resync."); // DW-1518
+		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
 		put_ldev(device);
 		spin_unlock_irq(&device->resource->req_lock);	
 		return 1;
@@ -1813,7 +1813,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		}
 
 		if (n_oos) {
-			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync!",
+			bsr_alert(118, BSR_LC_RESYNC_OV, peer_device, "Online verify found %lu %dk block out of sync",
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}
@@ -2190,7 +2190,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 	int err, eq = 0;
 
 	if (unlikely(cancel)) {
-		bsr_info(126, BSR_LC_RESYNC_OV, peer_device, "cancel csum rs req, sector : %llu", (unsigned long long)peer_req->i.sector);
+		bsr_info(126, BSR_LC_RESYNC_OV, peer_device, "Cancels the checksum synchronization request response. sector : %llu", (unsigned long long)peer_req->i.sector);
 		bsr_free_peer_req(peer_req);
 		dec_unacked(peer_device);
 		return 0;
@@ -2480,7 +2480,7 @@ static bool __bsr_may_sync_now(struct bsr_peer_device *peer_device)
 		    other_peer_device->resync_susp_dependency[NOW] ||
 		    other_peer_device->resync_susp_peer[NOW] ||
 		    other_peer_device->resync_susp_user[NOW]) {
-			bsr_info(129, BSR_LC_RESYNC_OV, peer_device, "another(node_id:%d) peer device is in progress for resync", other_peer_device->node_id);
+			bsr_info(129, BSR_LC_RESYNC_OV, peer_device, "Another(node_id:%d) peer device is in progress for resync", other_peer_device->node_id);
 			ret = false;
 			break;
 		}
@@ -2754,7 +2754,7 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 		return;
 	}
 
-	bsr_info(131, BSR_LC_RESYNC_OV, peer_device, "starting resync ..."); // DW-1518
+	bsr_info(131, BSR_LC_RESYNC_OV, peer_device, "Starting resync."); // DW-1518
 	bsr_start_resync(peer_device, peer_device->start_resync_side);
 }
 
@@ -2783,7 +2783,7 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 
 	// no start resync if I haven't received uuid from peer.	
 	if (!peer_device->uuids_received) {
-		bsr_info(132, BSR_LC_RESYNC_OV, peer_device, "I have not yet received uuid from peer, can not be %s", bsr_repl_str(replState));
+		bsr_info(132, BSR_LC_RESYNC_OV, peer_device, "Not yet received UUID from peer and cannot be %s", bsr_repl_str(replState));
 		return false;
 	}
 
@@ -2807,33 +2807,33 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 			side = L_VERIFY_T;
 			break;
 		default:
-			bsr_info(133, BSR_LC_RESYNC_OV, peer_device, "unexpected repl_state (%s)", bsr_repl_str(replState));
+			bsr_info(133, BSR_LC_RESYNC_OV, peer_device, "Unexpected replication state (%s)", bsr_repl_str(replState));
 			return false;
 	}
 	
 	if (side == L_SYNC_TARGET || side == L_VERIFY_T) {
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE)) {
-			bsr_info(134, BSR_LC_RESYNC_OV, peer_device, "Sync source is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)",
+			bsr_info(134, BSR_LC_RESYNC_OV, peer_device, "SyncSource is unstable, can not be %s, uuid_flags(%llx), authoritative(%llx)",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;
 		}
 
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked) &&
 			!(NODE_MASK(peer_device->node_id) & authoritative)) {
-			bsr_info(135, BSR_LC_RESYNC_OV, peer_device, "I am unstable and sync source is not my authoritative node, can not be %s, authoritative(%llx)",
+			bsr_info(135, BSR_LC_RESYNC_OV, peer_device, "Unstable and SyncSource is not an authorized node, can not be %s, authoritative(%llx)",
 				bsr_repl_str(replState), authoritative);
 			return false;
 		}
 	}
 	else if (side == L_SYNC_SOURCE || side == L_VERIFY_S) {
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked)) {
-			bsr_info(136, BSR_LC_RESYNC_OV, peer_device, "I am unstable, can not be %s, authoritative(%llx)", bsr_repl_str(replState), authoritative);
+			bsr_info(136, BSR_LC_RESYNC_OV, peer_device, "Local is an unstable node, can not be %s, authoritative(%llx)", bsr_repl_str(replState), authoritative);
 			return false;
 		}
 
 		if (!(peer_device->uuid_flags & UUID_FLAG_STABLE) &&
 			!(NODE_MASK(device->resource->res_opts.node_id) & peer_device->uuid_authoritative_nodes)) {
-			bsr_info(137, BSR_LC_RESYNC_OV, peer_device, "Sync target is unstable and I am not its authoritative node, can not be %s, uuid_flags(%llx), authoritative(%llx)",
+			bsr_info(137, BSR_LC_RESYNC_OV, peer_device, "SyncTarget is unstable and not authorized node, can not be %s, uuid_flags(%llx), authoritative(%llx)",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;			
 		}
@@ -2920,7 +2920,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (down_trylock(&device->resource->state_sem)) {
 		/* Retry later and let the worker make progress in the
 		 * meantime; two-phase commits depend on that.  */
-		bsr_info(143, BSR_LC_RESYNC_OV, peer_device, "Retry later"); // DW-1518
+		bsr_info(143, BSR_LC_RESYNC_OV, peer_device, "The resync will resume later because another task is running."); // DW-1518
 		set_bit(B_RS_H_DONE, &peer_device->flags);
 		peer_device->start_resync_side = side;
 		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
@@ -3760,7 +3760,7 @@ static int process_one_request(struct bsr_connection *connection)
 					peer_device->repl_state[NOW] == L_ESTABLISHED &&
 					bsr_bm_total_weight(peer_device)) {
 
-					bsr_info(146, BSR_LC_RESYNC_OV, peer_device, "start resync again because there is out of sync(%llu) in L_ESTABLISHED state", (unsigned long long)bsr_bm_total_weight(peer_device));
+					bsr_info(146, BSR_LC_RESYNC_OV, peer_device, "Start resync again because there is out of sync(%llu) in L_ESTABLISHED state", (unsigned long long)bsr_bm_total_weight(peer_device));
 					peer_device->start_resync_side = L_SYNC_SOURCE;
 					// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
 					mod_timer(&peer_device->start_resync_timer, jiffies + HZ);

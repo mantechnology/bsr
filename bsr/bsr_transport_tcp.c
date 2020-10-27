@@ -244,7 +244,7 @@ int dtt_init(struct bsr_transport *transport)
 		void *buffer = kzalloc(4096, GFP_KERNEL, '09SB');
 		if (!buffer) {
 			tcp_transport->rbuf[i].base = NULL;
-			bsr_warn(79, BSR_LC_SOCKET, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
+			bsr_warn(87, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate 4096 size memory for %s", i ? "CONTROL_STREAM" : "DATA_STREAM");
 			goto fail;
 		}
 #else  // _LIN
@@ -1476,7 +1476,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("if(path) path->socket = s_estab");
 		if (path2->socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(28, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists. ", path2->socket);
+			bsr_info(28, BSR_LC_SOCKET, resource, "The socket that was previously accept socket(0x%p) has not been removed yet. Do not accept socket until uninstallation.", path2->socket);
 			goto not_accept;
 		}
 		else {
@@ -1487,7 +1487,7 @@ static void dtt_incoming_connection(struct sock *sock)
 		bsr_debug_conn("else listener->paccept_socket = AccceptSocket");
 		if (listener2->paccept_socket) // DW-1567 fix system handle leak
 		{
-			bsr_info(29, BSR_LC_SOCKET, resource, "accept socket(0x%p) exists.", listener2->paccept_socket);
+			bsr_info(29, BSR_LC_SOCKET, resource, "The socket that was previously accept socket(0x%p) has not been removed yet. Do not accept socket until uninstallation.", listener2->paccept_socket);
 			goto not_accept;
 		}
 		else {
@@ -2669,11 +2669,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(28, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(%s)", tcp_transport->stream[i]->name);
+				bsr_warn(28, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No send_buffering thread(%s)", tcp_transport->stream[i]->name);
 			}
 		}
 		else {
-			bsr_warn(29, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)", i);
+			bsr_warn(29, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No stream(channel:%d)", i);
 		}
 	}
 	return;
@@ -2696,11 +2696,11 @@ static void dtt_stop_send_buffring(struct bsr_transport *transport)
 				attr->send_buf_thread_handle = NULL;
 			}
 			else {
-				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT, "No send_buffering thread(channel:%d)", i);
+				bsr_warn(30, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No send_buffering thread(%s)", i);
 			}
 		}
 		else {
-			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT, "No stream(channel:%d)", i);
+			bsr_warn(31, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send_buffer, No stream(channel:%d)", i);
 		}
 	}
 	return;

@@ -124,7 +124,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring = (ring_buffer*)bsr_kvmalloc((size_t)sz, GFP_ATOMIC | __GFP_NOWARN);
 #endif
 			if(!ring) {
-				bsr_info(6, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+				bsr_info(92, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
@@ -134,7 +134,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 			ring->length = CONTROL_BUFF_SIZE + 1;
 #ifdef _WIN_SEND_BUF
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
-			bsr_info(7, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to allocate meta send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+			bsr_info(93, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate meta send buffer due to EXCEPTION_EXECUTE_HANDLER. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 			if(ring) {
 				ExFreePool(ring);
 			}
@@ -145,7 +145,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 		
 	} while (false);
 	
-	bsr_info(8, BSR_LC_SEND_BUFFER, NO_OBJECT, "send buffer allocation succeeded. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+	bsr_info(8, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send buffer allocation succeeded. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 	return TRUE;
 
 $ALLOC_FAIL:
@@ -262,7 +262,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '8ASB');
 		if (!temp) {
 			struct send_buf_packet_info *packet_info, *tmp;
-			bsr_warn(34, BSR_LC_SEND_BUFFER, NO_OBJECT, "memory alloc failed, initialize packet info in send buffer");
+			bsr_warn(91, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory initialize packet info in send buffer");
 			// BSR-571 if packet list add fails, it is not guaranteed that the current list is sequential, so all are initialized.
 			memset(ring->packet_cnt, 0, sizeof(ring->packet_cnt));
 			memset(ring->packet_size, 0, sizeof(ring->packet_size));
@@ -326,14 +326,14 @@ signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_str
 #ifdef _WIN_SEND_BUF
 				if (tcp_transport->stream[stream]) {
 					if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
-						bsr_info(13, BSR_LC_SEND_BUFFER, NO_OBJECT, "Stop send and quit");
+						bsr_info(13, BSR_LC_SEND_BUFFER, NO_OBJECT, "Quit the send buffer with the quit settings.");
 						return -EIO;
 					}
 				}
 #else // _LIN_SEND_BUF
 				if (tcp_transport) {
 					if (tcp_transport->buffering_attr[stream].quit == true)	{
-						bsr_info(14, BSR_LC_SEND_BUFFER, NO_OBJECT,"Stop send and quit");
+						bsr_info(14, BSR_LC_SEND_BUFFER, NO_OBJECT,"Quit the send buffer with the quit settings.");
 						return -EIO;
 					}
 				}
@@ -612,7 +612,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			break;
 
 		case STATUS_WAIT_0:
-			bsr_info(20, BSR_LC_SEND_BUFFER, NO_OBJECT, "response kill-ack-event");
+			bsr_info(20, BSR_LC_SEND_BUFFER, NO_OBJECT, "Response kill-ack-event");
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
@@ -622,15 +622,15 @@ VOID NTAPI send_buf_thread(PVOID p)
 			break;
 
 		default:
-			bsr_err(21, BSR_LC_SEND_BUFFER, NO_OBJECT, "unexpected wakeup case(0x%x). ignore.", status);
+			bsr_err(21, BSR_LC_SEND_BUFFER, NO_OBJECT, "Unexpected wakeup case(0x%x). ignore.", status);
 			goto done;
 		}
 	}
 
 done:
-	bsr_info(22, BSR_LC_SEND_BUFFER, NO_OBJECT, "send_buf_killack_event!");
+	bsr_info(22, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send buffer kill-ack-event");
 	KeSetEvent(&buffering_attr->send_buf_killack_event, 0, FALSE);
-	bsr_info(23, BSR_LC_SEND_BUFFER, NO_OBJECT, "sendbuf thread[%p] terminate!!", KeGetCurrentThread());
+	bsr_info(23, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send buffer thread[%p] terminate", KeGetCurrentThread());
 	ct_delete_thread((int)PsGetCurrentThreadId());
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
@@ -667,10 +667,10 @@ int send_buf_thread(void *p)
 		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);
 	}
 
-	bsr_info(24, BSR_LC_SEND_BUFFER, NO_OBJECT,"send_buf_killack_event!");
+	bsr_info(24, BSR_LC_SEND_BUFFER, NO_OBJECT,"Send buffer kill-ack-event");
 	set_bit(SEND_BUF_KILLACK, &buffering_attr->flags);
 	wake_up(&buffering_attr->send_buf_killack_event);
-	bsr_info(25, BSR_LC_SEND_BUFFER, NO_OBJECT,"sendbuf thread terminate!!");
+	bsr_info(25, BSR_LC_SEND_BUFFER, NO_OBJECT,"Send buffer thread terminate!!");
 	return 0;
 }
 #endif

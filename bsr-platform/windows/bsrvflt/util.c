@@ -114,7 +114,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 	// DW-1303 No dismount for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(15, BSR_LC_VOLUME, NO_OBJECT,"no dismount. volume(%wZ) already dismounted", &device_name);
+			bsr_info(15, BSR_LC_VOLUME, NO_OBJECT,"No dismount. volume(%wZ) already dismounted", &device_name);
 			return STATUS_SUCCESS;
 		}
 	}
@@ -140,7 +140,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 NULL,
                 0);
             if (!NT_SUCCESS(status)) {
-                bsr_info(16, BSR_LC_VOLUME, NO_OBJECT,"ZwCreateFile Failed. status(0x%x)", status);
+                bsr_info(16, BSR_LC_VOLUME, NO_OBJECT,"Failed to open volume. status(0x%x)", status);
                 __leave;
             }
         }
@@ -165,7 +165,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"ZwFlushBuffersFile Failed. status(0x%x)", status);
+				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"Failed to flush volume. status(0x%x)", status);
 			}
 			bsr_info(63, BSR_LC_VOLUME, NO_OBJECT, "volume(%wZ) flushed", &device_name);
 		}
@@ -174,7 +174,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(18, BSR_LC_VOLUME, NO_OBJECT,"ZwFsControlFile FSCTL_DISMOUNT_VOLUME Failed. status(0x%x)", status);
+            bsr_info(18, BSR_LC_VOLUME, NO_OBJECT,"Failed to volume dismount(FSCTL_DISMOUNT_VOLUME). status(0x%x)", status);
             __leave;
         }
         bsr_info(19, BSR_LC_VOLUME, NO_OBJECT,"volume(%wZ) dismounted", &device_name);
@@ -225,7 +225,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 	// DW-1303 No lock for already dismounted volume
 	if (pvext->PhysicalDeviceObject && pvext->PhysicalDeviceObject->Vpb) {
 		if (!(pvext->PhysicalDeviceObject->Vpb->Flags & VPB_MOUNTED)) {
-			bsr_info(20, BSR_LC_VOLUME, NO_OBJECT,"no lock. volume(%wZ) already dismounted", &device_name);
+			bsr_info(20, BSR_LC_VOLUME, NO_OBJECT,"No lock. volume(%wZ) already dismounted", &device_name);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}
@@ -580,7 +580,7 @@ int GetClusterInfoWithVolumeHandle(HANDLE hVolume, PULONGLONG pullTotalCluster, 
 		}
 #endif
 		default:
-			bsr_warn(62, BSR_LC_BITMAP, NO_OBJECT, "The file system %hu is not supported", usFileSystemType);
+			bsr_warn(92, BSR_LC_VOLUME, NO_OBJECT, "The file system %u is not supported", usFileSystemType);
 			break;
 		}
 
@@ -760,7 +760,7 @@ retry:
 					hVolume = NULL;
 				}
 				rtc++;
-				bsr_info(55, BSR_LC_DRIVER, device, "handle retry (%d/%d), minor(%u)", rtc, RETRY_MAX_COUNT, device->minor);
+				bsr_info(55, BSR_LC_DRIVER, device, "Retry to get volume handle (%d/%d), minor(%u)", rtc, RETRY_MAX_COUNT, device->minor);
 				goto retry;
 			}
 			bsr_err(81, BSR_LC_VOLUME, device, "Could not get cluster information");

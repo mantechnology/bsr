@@ -17,7 +17,7 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	err = copy_from_user(&loggingMinLv, args, sizeof (LOGGING_MIN_LV));
 	
 	if (err) {
-		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to failure to copy from user.\n");
+		bsr_err(124, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minimum log level due to failure to copy from user");
 		return -1;
 	}
 
@@ -30,11 +30,11 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 		atomic_set(&g_dbglog_lv_min, loggingMinLv.nErrLvMin);
 	}
 	else {
-		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)\n", loggingMinLv.nType);
+		bsr_warn(92, BSR_LC_DRIVER, NO_OBJECT,"Invalidate logging type(%d)", loggingMinLv.nType);
 	}
 	
 	// DW-2008
-	bsr_info(125, BSR_LC_DRIVER, NO_OBJECT, "set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)\n",
+	bsr_info(125, BSR_LC_DRIVER, NO_OBJECT, "set minimum log level, type : %s(%d), minumum level : %s(%d) => %s(%d)",
 				g_log_type_str[loggingMinLv.nType], loggingMinLv.nType, 
 				g_default_lv_str[previous_lv_min], previous_lv_min, 
 				g_default_lv_str[loggingMinLv.nErrLvMin], loggingMinLv.nErrLvMin);
@@ -49,12 +49,12 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 	err = copy_to_user(&bsr_log->totalcnt, &gLogBuf.h.total_count, (unsigned long) sizeof(gLogBuf.h.total_count));
 
 	if (err) {
-		bsr_warn(93, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy total log count to user\n");
+		bsr_warn(93, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy total log count to user");
 		return err;
 	}
 	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
 	if (err) {
-		bsr_warn(94, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy log buffer to user\n");
+		bsr_warn(94, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy log buffer to user");
 	}
 
 	return err;
@@ -69,11 +69,11 @@ static int bsr_set_log_max_count(unsigned int __user * args)
 	err = copy_from_user(&log_file_max_count, args, sizeof(unsigned int));
 
 	if (err) {
-		bsr_err(126, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to failure to copy from user.\n");
+		bsr_err(126, BSR_LC_DRIVER, NO_OBJECT, "Failed to set log max count due to failure to copy from user");
 		return err;
 	}
 
-	bsr_info(127, BSR_LC_DRIVER, NO_OBJECT, "set log file max count %lu => %lu\n", atomic_read(&g_log_file_max_count), log_file_max_count);
+	bsr_info(127, BSR_LC_DRIVER, NO_OBJECT, "set log file max count %lu => %lu", atomic_read(&g_log_file_max_count), log_file_max_count);
 	atomic_set(&g_log_file_max_count, log_file_max_count);
 
 	return 0;
@@ -87,11 +87,11 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 
 	err = copy_from_user(&h_info, args, sizeof(HANDLER_INFO));
 	if (err) {
-		bsr_err(128, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to copy from user.\n");
+		bsr_err(128, BSR_LC_DRIVER, NO_OBJECT, "Failed to set handler use due to copy from user");
 		return -1;
 	}
 
-	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d\n", g_handler_use, h_info.use);
+	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d", g_handler_use, h_info.use);
 	g_handler_use = h_info.use;
 
 	return 0;
@@ -109,7 +109,7 @@ static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg
 
 	err = copy_from_user(&dbg_log_ctgr, bsr_dbg_log_ctgr, sizeof(DEBUG_LOG_CATEGORY));
 	if (err) {
-		bsr_err(135, BSR_LC_DRIVER, NO_OBJECT, "Failed to set minlog level due to copy from user.\n");
+		bsr_err(135, BSR_LC_DRIVER, NO_OBJECT, "Failed to set debug log out put category due to copy from user");
 		return -1;
 	}
 
@@ -130,7 +130,7 @@ static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg
 	err = copy_to_user(&bsr_dbg_log_ctgr->nCategory, &categories, sizeof(categories));
 
 	if (err) {
-		bsr_warn(137, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy debug log category to user\n");
+		bsr_warn(137, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy debug log category to user");
 	}
 
 	return err;
@@ -346,13 +346,13 @@ int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, u
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
 		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(130, BSR_LC_DRIVER, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)\n", sizeof(struct log_rolling_file_list));
+			bsr_err(84, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
 		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(131, BSR_LC_DRIVER, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)\n", namelen);
+			bsr_err(85, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to failure to allocation file name size(%d)", namelen);
 			err = -1;
 			goto out;
 		}
@@ -385,7 +385,7 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 #endif
 		filp_close(fdir, NULL);
 	} else {
-		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to read dir due to failure to open log directory\n");
+		bsr_err(132, BSR_LC_DRIVER, NO_OBJECT, "Failed to read dir due to failure to open log directory");
 	}
 	set_fs(oldfs);
 

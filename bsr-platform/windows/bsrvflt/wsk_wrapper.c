@@ -292,9 +292,9 @@ NTSTATUS NTAPI WskGetNPI()
 		return Status;
 	}
 
-	bsr_info(41, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI start.");
+	bsr_info(41, BSR_LC_SOCKET, NO_OBJECT, "wsk npi start.");
 	Status = WskCaptureProviderNPI(&g_WskRegistration, WSK_INFINITE_WAIT, &g_WskProvider);
-	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "WskCaptureProviderNPI done."); // takes long time! msg out after MVL loaded.
+	bsr_info(42, BSR_LC_SOCKET, NO_OBJECT, "wsk npi done."); // takes long time! msg out after MVL loaded.
 
 	if (!NT_SUCCESS(Status)) {
 		bsr_err(43, BSR_LC_SOCKET, NO_OBJECT, "Failed to get wsk npi due to failure to wsk capture provider npi. status 0x%08X", Status);
@@ -1074,7 +1074,6 @@ $SendAsync_retry:
 				// DW-1095 adjust retry_count logic 
 				//if (!(++retry_count % 5)) {
 				if (!(++retry_count % 2)) {
-					bsr_info(58, BSR_LC_SOCKET, NO_OBJECT, "Send async not completed in time-out(%d ms). retry.", Timeout);// for trace
 					// DW-1524 fix infinite send retry on low-bandwith
 					IoCancelIrp(Irp);
 					KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
@@ -1082,7 +1081,7 @@ $SendAsync_retry:
 					BytesSent = -EAGAIN;
 					break;
 				} 
-
+				bsr_info(58, BSR_LC_SOCKET, NO_OBJECT, "Send async not completed in time-out(%d ms). retry.", Timeout);// for trace
 				goto $SendAsync_retry;
 				
 				//IoCancelIrp(Irp);
@@ -1122,7 +1121,7 @@ $SendAsync_retry:
 	} else {
 		if (Status == STATUS_SUCCESS) {
 			BytesSent = (LONG) Irp->IoStatus.Information;
-			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no pending but sent(%d)", current->comm, BytesSent);
+			bsr_info(64, BSR_LC_SOCKET, NO_OBJECT, "%s => send async due to no pending but sent(%d)", current->comm, BytesSent);
 		} else {
 			bsr_err(65, BSR_LC_SOCKET, NO_OBJECT, "%s => Failed to send async due to no error(0x%x)", current->comm, Status);
 			BytesSent = SOCKET_ERROR;
@@ -1491,7 +1490,7 @@ Accept(
 		}
 	} else {
 		if (Status != STATUS_SUCCESS) {
-			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Failed to send async due to error. status(0x%x)", Status);
+			bsr_debug(101, BSR_LC_SOCKET, NO_OBJECT,"Failed to accept due to error. status(0x%x)", Status);
 		}
 	}
 
@@ -1791,7 +1790,7 @@ _Outptr_result_maybenull_ CONST WSK_CLIENT_CONNECTION_DISPATCH **AcceptSocketDis
 
     // Check for a valid new socket
     if (AcceptSocket != NULL) {
-		bsr_info(77, BSR_LC_SOCKET, NO_OBJECT, "incoming connection on a listening socket.");
+		bsr_info(77, BSR_LC_SOCKET, NO_OBJECT, "Incoming connection on a listening socket.");
         struct accept_wait_data *ad = (struct accept_wait_data*)SocketContext;        
         ad->s_accept = kzalloc(sizeof(struct socket), 0, '89SB');
         if(!ad->s_accept) {
