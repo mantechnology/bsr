@@ -27,8 +27,6 @@
     <filesets>
       <fileset name="x86" id="583" customizedId="" />
       <fileset name="x64" id="580" customizedId="" />
-      <fileset name="Windows 7 x86" id="585" customizedId="" />
-      <fileset name="Windows 7 x64" id="557" customizedId="" />
       <fileset name="Windows 8 x86" id="587" customizedId="" />
       <fileset name="Windows 8 x64" id="559" customizedId="" />
       <fileset name="Windows 8.1 x86" id="1496" customizedId="" />
@@ -39,8 +37,6 @@
     <roots>
       <root id="584" fileset="583" location="" />
       <root id="581" fileset="580" location="" />
-      <root id="586" fileset="585" location="" />
-      <root id="558" fileset="557" location="" />
       <root id="588" fileset="587" location="" />
       <root id="560" fileset="559" location="" />
       <root id="1497" fileset="1496" location="" />
@@ -55,8 +51,6 @@
       <mountPoint id="2829" root="" location="support" mode="755" />
       <mountPoint id="867" root="584" location="bin" mode="755" />
       <mountPoint id="868" root="581" location="bin" mode="755" />
-      <mountPoint id="613" root="586" location="" mode="755" />
-      <mountPoint id="561" root="558" location="" mode="755" />
       <mountPoint id="626" root="588" location="" mode="755" />
       <mountPoint id="562" root="560" location="" mode="755" />
       <mountPoint id="1500" root="1497" location="" mode="755" />
@@ -78,12 +72,6 @@
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="868" file="../windows/x64/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
-      <dirEntry mountPoint="613" file="../windows/x86/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
-      <dirEntry mountPoint="561" file="../windows/x64/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="626" file="../windows/x86/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
