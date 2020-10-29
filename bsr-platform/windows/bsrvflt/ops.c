@@ -643,6 +643,18 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = device;
 		device_oldest_requests_show(&seq, 0);
 		break;
+	case DBG_DEV_IO_STAT:
+		seq.private = device;
+#ifdef CONFIG_BSR_TIMING_STATS
+		device_io_stat_show(&seq, 0);
+#endif
+		break;
+	case DBG_DEV_IO_COMPLETE:
+		seq.private = device;
+#ifdef CONFIG_BSR_TIMING_STATS
+		device_io_complete_show(&seq, 0);
+#endif
+		break;
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
 #ifdef CONFIG_BSR_TIMING_STATS

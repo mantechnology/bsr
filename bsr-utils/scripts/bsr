@@ -140,6 +140,26 @@ run_hook()
 	fi
 }
 
+# BSR-688
+run_bsrmon()
+{
+	case "$1" in
+		start)
+			mkdir /var/log/bsr/perfmon 2> /dev/null
+			nohup /lib/bsr/bsrmon-run > /dev/null &
+		;;
+		stop)
+			for pid in `pgrep -f bsrmon-run`
+			do
+				kill -TERM $pid >/dev/null 2>&1;
+			done
+		;;
+		*)
+		exit 1
+		;;
+	esac
+}
+
 case "$1" in
     start)
 	# no module, no BSR.
@@ -231,11 +251,15 @@ case "$1" in
 	    fi
 	fi
 
+	run_bsrmon start
 	;;
     stop)
 	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
 	log_daemon_msg "Stopping all BSR resources"
+
+	run_bsrmon stop
+
 	for try in 1 2; do
 	    if [ -e $PROC_BSR ] ; then
 		[[ $try = 2 ]] && echo "Retrying once..."
@@ -289,7 +313,10 @@ case "$1" in
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
 	log_daemon_msg  "Reloading BSR configuration"
 	
+	run_bsrmon stop	
 	$BSRADM adjust all
+	run_bsrmon start
+
 	run_hook reload
 	log_end_msg 0
 	;;

@@ -5,12 +5,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #ifdef _LIN
+#include <dirent.h>
 #define DEBUGFS_ROOT "/sys/kernel/debug/bsr"
 #endif
 
 #define MAX_DEBUG_BUF_SIZE 4096
+#define MAX_PATH 260
+
+#ifdef _WIN
+#define _SEPARATOR_ "\\"
+#else // _LIN
+#define _SEPARATOR_ "/"
+#endif
 
 enum get_info_type
 {
@@ -22,8 +31,11 @@ enum get_info_type
 enum get_debug_type
 {
 	IO,
+	IO_COMPLETE,
+	REQUEST,
 	NETWORK_SPEED,
 	SEND_BUF,
+	MEMORY,
 };
 
 struct volume {
@@ -43,6 +55,11 @@ struct resource {
 	struct resource* next;
 };
 
+#ifdef _LIN
+#define fopen_s(pFile, filename, mode) ((*pFile=fopen(filename, mode)) == NULL)
+#define sprintf_s sprintf
+#endif
+
 #ifdef _WIN
 HANDLE OpenDevice(PCHAR devicename);
 DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo);
@@ -58,3 +75,5 @@ struct resource* GetResourceInfo();
 PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int val);
 #endif
 char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res);
+int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char * respath, char * currtime);
+int GetMemInfoToFile(char *path, char * currtime);

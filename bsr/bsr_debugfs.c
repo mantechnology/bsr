@@ -728,8 +728,7 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 	int period = (int)DIV_ROUND_UP((now - transport->sum_start_time) - HZ/2, HZ);
 
 	if (period > 0) {
-		seq_printf(m, "SENT:%llu\n", sent / period);
-		seq_printf(m, "RECV:%llu\n", recv / period);
+		seq_printf(m, "sent=%llu, recv=%llu\n", sent / period, recv / period);
 
 		transport->sum_start_time = now;
 	} else {
@@ -749,22 +748,20 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
-		seq_printf(m, "%s stream\n", stream == DATA_STREAM ? "data" : "control");
+		seq_printf(m, "\t%-15s (bytes):", stream == DATA_STREAM ? "data stream" : "control stream");
 		if (ring) {
 			mutex_lock(&ring->cs);
-			seq_printf(m, "  send buffer size : %10lld bytes\n", ring->length);
-			seq_printf(m, "  send buffer used : %10lld bytes\n", ring->sk_wmem_queued);
+			seq_printf(m, " size=%lld, used=%lld\n", ring->length, ring->sk_wmem_queued);
 			if (ring->sk_wmem_queued)
-				seq_printf(m, "  [packets in buffer]\n");
+				seq_printf(m, "\t  [packets in buffer]\n");
 			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
 				if (ring->packet_cnt[i]) {
-					seq_printf(m, "  %-15s - cnt : %4u size : %10llu bytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
+					seq_printf(m, "\t  %-15s : cnt=%u, size=%llubytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
 				}
 			}
 			mutex_unlock(&ring->cs);
-			seq_printf(m, "\n");
 		} else
-			seq_printf(m, "  no send buffer\n\n");
+			seq_printf(m, "  no send buffer\n");
 	}
 
 	return 0;
@@ -1172,26 +1169,72 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 
 
 #define PRId64 "lld"
-
 #define show_stat(NAME, M, NUM)						\
-	seq_printf(m, "    %-16s cur=%" PRId64 ", min=%" PRId64 ", max=%" PRId64 ", avg=%" PRId64,	\
-			NAME":",	\
-			ktime_to_us(M.last_val), \
+	seq_printf(m, "\t%-18s (usec): min=%" PRId64 ", max=%" PRId64 ", avg=%" PRId64,	\
+			NAME,	\
 			ktime_to_us(M.min_val), ktime_to_us(M.max_val),	\
 			NUM > 0 ? ktime_to_us(M.total_val) / NUM : 0);	\
 	seq_printf(m, "\n")
+
 #define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
 
 
 #ifdef CONFIG_BSR_TIMING_STATS
+
+int device_io_complete_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+
+	show_stat("local_io_complete", device->local_complete_kt, atomic_read(&device->local_complete_kt.cnt));
+	show_stat("master_io_complete", device->master_complete_kt, atomic_read(&device->master_complete_kt.cnt));
+	
+	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
+	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
+
+	return 0;
+}
+
+int device_io_stat_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	ktime_t now = ktime_get();
+	unsigned int period = 0;
+	unsigned int read_io_cnt, write_io_cnt = 0;
+	unsigned int read_io_size, write_io_size = 0;
+
+	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
+
+	// output of aggregated data for more than 1 second
+	if (period == 0)
+		return 0;
+
+	read_io_cnt = atomic_xchg(&device->io_cnt[READ], 0);
+	write_io_cnt = atomic_xchg(&device->io_cnt[WRITE], 0);
+	read_io_size = atomic_xchg(&device->io_size[READ], 0);
+	write_io_size = atomic_xchg(&device->io_size[WRITE], 0);
+
+	// seq_printf(m, "aggregation time=%dsec\n\n", period);
+	
+	// BSR-687 I/O throughput and latency
+	seq_printf(m, "  %-5s: iops=%u, ios=%u, kb/s=%u, kb=%u\n",
+				  "read",
+				  read_io_cnt / period, read_io_cnt,
+				  read_io_size / period, read_io_size);
+	seq_printf(m, "  %-5s: iops=%u, ios=%u, kb/s=%u, kb=%u\n",
+				  "write",
+				  write_io_cnt / period, write_io_cnt,
+				  write_io_size / period, write_io_size);
+
+	device->aggregation_start_kt = now;
+	
+	return 0;
+}
+
 static void device_req_timing_reset(struct bsr_device * device)
 {
 	struct bsr_peer_device *peer_device;
 
 	device->reqs = 0;
-
-	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
-	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
 
 	memset(&device->in_actlog_kt, 0, sizeof(struct timing_stat));
 	memset(&device->pre_submit_kt, 0, sizeof(struct timing_stat));
@@ -1219,41 +1262,13 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	struct bsr_device *device = m->private;
 	struct bsr_peer_device *peer_device;
 	unsigned long flags;
-	ktime_t now = ktime_get();
-	unsigned int period = 0;
-	unsigned int read_io_cnt, write_io_cnt = 0;
-	unsigned int read_io_size, write_io_size = 0;
 	unsigned int al_cnt = 0;
 
-	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
-
-	// output of aggregated data for more than 1 second
-	if (period == 0)
-		return 0;
-
-	read_io_cnt = atomic_xchg(&device->io_cnt[READ], 0);
-	write_io_cnt = atomic_xchg(&device->io_cnt[WRITE], 0);
-	read_io_size = atomic_xchg(&device->io_size[READ], 0);
-	write_io_size = atomic_xchg(&device->io_size[WRITE], 0);
-	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
+	//seq_printf(m, "timing values are microseconds \n\n");
 	
-	seq_printf(m, "timing values are microseconds \n\n");
-	seq_printf(m, "aggregation time=%dsec\n\n", period);
-	
-	// BSR-687 I/O throughput and latency
-	seq_printf(m, "IO:\n");
-	seq_printf(m, "    read:  IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n"
-				  "    write: IOPS=%u (IOs=%u), BW=%uKb/s (%uKB)\n",
-				  read_io_cnt / period, read_io_cnt,
-				  read_io_size / period, read_io_size, 
-				  write_io_cnt / period, write_io_cnt,
-				  write_io_size / period, write_io_size);
-				
-	show_stat("  local_io_complete", device->local_complete_kt, atomic_read(&device->local_complete_kt.cnt));
-	show_stat("  master_io_complete", device->master_complete_kt, atomic_read(&device->master_complete_kt.cnt));
-
 	spin_lock_irqsave(&device->timing_lock, flags);
-	seq_printf(m, "\n%-20s %lu\n", "requests:", device->reqs);
+	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
+	seq_printf(m, "  %s: %lu\n", "requests", device->reqs);
 	show_req_stat(device, "before_queue", before_queue_kt);
 	show_req_stat(device, "before_al_begin", before_al_begin_io_kt);
 	show_req_stat(device, "in_actlog", in_actlog_kt);
@@ -1261,22 +1276,20 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_req_stat(device, "post_submit", post_submit_kt);
 	show_req_stat(device, "destroy", req_destroy_kt);
 
-	seq_printf(m, "%-20s %u\n", "al_updates:", al_cnt);
+	seq_printf(m, "  %s: %u\n", "al_updates", al_cnt);
 	show_stat("before_bm_write", device->al_before_bm_write_hinted_kt, al_cnt);
 	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
 	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
 
 	for_each_peer_device(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
-		seq_printf(m, "\n%-20s %s", "peer:", rcu_dereference(connection->transport.net_conf)->name);
+		seq_printf(m, "\n  %s: %s", "peer", rcu_dereference(connection->transport.net_conf)->name);
 		seq_puts(m, "\n");
-		seq_printf(m, "  %-18s %lu\n", "send:", peer_device->reqs);
 		show_req_stat(peer_device, "pre_send", pre_send_kt);
 		show_req_stat(peer_device, "acked", acked_kt);
 		show_req_stat(peer_device, "net_done", net_done_kt);
 	}
-	
-	device->aggregation_start_kt = now;
+
 	device_req_timing_reset(device);
 
 	spin_unlock_irqrestore(&device->timing_lock, flags);
@@ -1528,6 +1541,9 @@ bsr_debugfs_device_attr(act_log_extents)
 bsr_debugfs_device_attr(data_gen_id)
 bsr_debugfs_device_attr(io_frozen)
 bsr_debugfs_device_attr(ed_gen_id)
+
+bsr_debugfs_device_attr(io_stat)
+bsr_debugfs_device_attr(io_complete)
 bsr_debugfs_device_attr(req_timing)
 
 void bsr_debugfs_device_add(struct bsr_device *device)
@@ -1567,6 +1583,8 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(io_frozen);
 	vol_dcf(ed_gen_id);
 #ifdef CONFIG_BSR_TIMING_STATS
+	vol_dcf(io_stat);
+	vol_dcf(io_complete);
 	vol_dcf(req_timing);
 #endif
 
@@ -1592,6 +1610,8 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_vol_io_frozen);
 	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
 #ifdef CONFIG_BSR_TIMING_STATS
+	bsr_debugfs_remove(&device->debugfs_vol_io_stat);
+	bsr_debugfs_remove(&device->debugfs_vol_io_complete);
 	bsr_debugfs_remove(&device->debugfs_vol_req_timing);
 #endif
 	bsr_debugfs_remove(&device->debugfs_vol);

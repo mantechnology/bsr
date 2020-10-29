@@ -141,6 +141,7 @@ This packages includes the BSR administration tools.
 %{_prefix}/lib/bsr/notify-pri-lost.sh
 %{_prefix}/lib/bsr/notify-pri-on-incon-degr.sh
 %{_prefix}/lib/bsr/notify.sh
+%{_prefix}/lib/bsr/bsrmon-run
 %dir %{_var}/lib/bsr
 %ghost %dir %{_var}/run/bsr
 

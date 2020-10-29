@@ -4,9 +4,11 @@
 #else // _LIN
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "../../../bsr-headers/linux/bsr_ioctl.h"
 #endif
 #include <stdio.h>
+#include <time.h>
 #include "module_debug.h"
 #include "monitor_collect.h"
 
@@ -32,6 +34,8 @@ void debug_usage()
 		"   ed_gen_id {resource} {volume}\n"
 		"   io_frozen {resource} {volume}\n"
 		"   dev_oldest_requests {resource} {volume}\n"
+		"   dev_io_stat {resource} {volume}\n"
+		"   dev_io_complete {resource} {volume}\n"
 		"   dev_req_timing {resource} {volume}\n"
 		);
 	printf("\n");
@@ -61,6 +65,8 @@ void usage()
 #endif
 	printf(
 		"   /print\n"
+		"   /file\n"
+		"   /watch [all|resource]\n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
 }
@@ -134,7 +140,9 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_DEV_ED_GEN_ID:
 		case DBG_DEV_IO_FROZEN:
 		case DBG_DEV_OLDEST_REQUESTS:
-		case DBG_DEV_REQ_TIMING: // BSR-682 TODO move to bsrmon?
+		case DBG_DEV_IO_STAT:
+		case DBG_DEV_IO_COMPLETE:
+		case DBG_DEV_REQ_TIMING:
 			if (argIndex < argc)
 				debugInfo->vnr = atoi(argv[argIndex]);
 			else
@@ -206,6 +214,22 @@ void PrintMonitor()
 		buf = NULL;
 	}
 
+	printf("IO_COMPLETE:\n");
+	buf = GetDebugToBuf(IO_COMPLETE, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
+	printf("REQUEST:\n");
+	buf = GetDebugToBuf(REQUEST, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
 	// print memory monitoring status
 	printf("Memory:\n");
 	buf = GetBsrMemoryUsage();
@@ -239,6 +263,130 @@ void PrintMonitor()
 	freeResource(res);
 }
 
+// BSR-688 save aggregated data to file
+void MonitorToFile()
+{
+#ifdef _WIN
+	size_t path_size;
+	errno_t result;
+	char bsr_path[MAX_PATH] = {0,};
+#endif
+	char perfpath[MAX_PATH] = {0,};
+	struct resource* res;
+	time_t now = time(NULL);
+	struct tm base_date_local;
+	char curr_time[64] = {0,};
+	char mempath[MAX_PATH] = {0,};
+	FILE * mem_fp;
+
+	res = GetResourceInfo();
+	if (!res) {
+		fprintf(stderr, "failed GetResourceInfo\n");
+		return;
+	}
+#ifdef _WIN
+	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+	if (result) {
+		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+	}
+	strncpy_s(perfpath, bsr_path, strlen(bsr_path) - strlen("bin"));
+	strcat_s(perfpath, "log\\perfmon\\");
+
+	localtime_s(&base_date_local, &now);
+#else
+	sprintf(perfpath, "/var/log/bsr/perfmon/");
+
+	base_date_local = *localtime(&now);
+#endif	
+	sprintf_s(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d",
+		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
+		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec);
+
+
+	while (res) {
+		char respath[MAX_PATH] = {0,};
+		char lastfile[MAX_PATH] = { 0, };
+		FILE *last_fp;
+
+		sprintf_s(respath, "%s%s", perfpath, res->name);
+#ifdef _WIN
+		CreateDirectoryA(respath, NULL);
+#else // _LIN
+		
+		mkdir(respath, 0777);
+#endif
+
+		sprintf_s(lastfile, "%s"_SEPARATOR_"last", respath);
+		
+		if (fopen_s(&last_fp, lastfile, "w") != 0)
+			return;
+
+		fprintf(last_fp, "==> Resource %s <==\n\n", res->name);
+		fclose(last_fp);
+
+		// save monitoring status
+		GetDebugToFile(IO, res, respath, curr_time);
+		GetDebugToFile(IO_COMPLETE, res, respath, curr_time);
+		GetDebugToFile(REQUEST, res, respath, curr_time);
+		GetDebugToFile(NETWORK_SPEED, res, respath, curr_time);
+		GetDebugToFile(SEND_BUF, res, respath, curr_time);
+		res = res->next;
+	}
+
+	// save memory monitoring status
+	sprintf_s(mempath, "%slast", perfpath);
+	if (fopen_s(&mem_fp, mempath, "w") != 0)
+		return;
+	fprintf(mem_fp, "Memory:\n");
+	fclose(mem_fp);
+	GetMemInfoToFile(perfpath, curr_time);
+
+	freeResource(res);
+}
+
+// BSR-688 watching last file
+void Watch(char *resname)
+{
+	char cmd[MAX_PATH];
+#ifdef _WIN
+	char bsr_path[MAX_PATH] = {0,};
+	char perf_path[MAX_PATH] = {0,};
+	size_t path_size;
+	errno_t result;
+	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+	if (result) {
+		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+	}
+	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
+	strcat_s(perf_path, "log\\perfmon\\");
+
+	if (_stricmp(resname, "all") == 0)
+		return; // TODO watch all
+	else
+		sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
+	
+	system("cls");
+#else
+	if (strcasecmp(resname, "all") == 0)
+		sprintf(cmd, "cat /var/log/bsr/perfmon/*/last; cat /var/log/bsr/perfmon/last; ");
+	else
+		sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
+
+	system("clear");
+#endif
+	while (1) {
+		system(cmd);
+#ifdef _WIN
+		Sleep(1000);
+		system("cls");
+#else // _LIN
+		sleep(1);
+		system("clear");
+#endif
+
+	}
+}
+
 #ifdef _WIN
 int main(int argc, char* argv[])
 #else
@@ -262,8 +410,17 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/file")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				// TODO:MonitorToFile()
+				MonitorToFile();
 			}
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/watch")) {
+			argIndex++;
+			if (argIndex < argc)
+				Watch(argv[argIndex]);
+			else if (argIndex == argc)
+				Watch((char*)"all");
 			else
 				usage();
 		}

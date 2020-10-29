@@ -38,7 +38,7 @@ DWORD RemoveEventSource(TCHAR *caPath, TCHAR * csApp);
 DWORD RcBsrStart();
 DWORD RcBsrStop();
 
-
+HANDLE g_monThread = NULL;
 BOOL g_bProcessStarted = TRUE;
 
 TCHAR * ServiceName = _T("bsrService");
@@ -455,6 +455,38 @@ VOID ExecuteSubProcess()
     }
 }
 
+// BSR-688
+int RunBsrmon()
+{
+	TCHAR cmd[MAX_PATH] = { 0 };
+	char bsr_path[MAX_PATH] = { 0, };
+	char perf_path[MAX_PATH] = { 0, };
+	size_t path_size;
+	errno_t result;
+	
+	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+	if (result)
+		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+		
+	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
+	strcat_s(perf_path, "log\\perfmon\\");
+	
+	CreateDirectoryA(perf_path, NULL);
+	
+	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
+	while (TRUE) {
+		DWORD ret;
+		DWORD dwPID;
+		// run bsrmon
+		ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
+		if (ret)
+			return 0;
+		Sleep(1000);
+	}
+	return 0;
+
+}
+
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
     wchar_t pTemp[1024];
@@ -523,6 +555,12 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 #endif
 
     RcBsrStart();
+
+    // BSR-688
+	if ((g_monThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)RunBsrmon, 0, 0, (LPDWORD)&threadID)) == NULL) {
+		WriteLog(L"RunBsrmon pthread_create() failed\n");
+		return;
+	}
 
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
 	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStart.log"));
@@ -700,6 +738,11 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 				Sleep(3000); // enough
 			}
 #endif
+			if (g_monThread) {
+				TerminateThread(g_monThread, 0);
+				CloseHandle(g_monThread);
+				g_monThread = NULL;
+			}
             g_bProcessStarted = FALSE;
             g_tServiceStatus.dwWin32ExitCode = 0;
             g_tServiceStatus.dwCurrentState = SERVICE_STOPPED;
