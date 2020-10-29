@@ -27,28 +27,20 @@
     <filesets>
       <fileset name="x86" id="583" customizedId="" />
       <fileset name="x64" id="580" customizedId="" />
-      <fileset name="Windows 7 x86" id="585" customizedId="" />
-      <fileset name="Windows 7 x64" id="557" customizedId="" />
       <fileset name="Windows 8 x86" id="587" customizedId="" />
       <fileset name="Windows 8 x64" id="559" customizedId="" />
       <fileset name="Windows 8.1 x86" id="1496" customizedId="" />
       <fileset name="Windows 8.1 x64" id="1498" customizedId="" />
-      <fileset name="Windows Server 2008 x86" id="2241" customizedId="" />
-      <fileset name="Windows Server 2008 x64" id="2243" customizedId="" />
       <fileset name="Windows 10 x86" id="2571" customizedId="" />
       <fileset name="Windows 10 x64" id="2573" customizedId="" />
     </filesets>
     <roots>
       <root id="584" fileset="583" location="" />
       <root id="581" fileset="580" location="" />
-      <root id="586" fileset="585" location="" />
-      <root id="558" fileset="557" location="" />
       <root id="588" fileset="587" location="" />
       <root id="560" fileset="559" location="" />
       <root id="1497" fileset="1496" location="" />
       <root id="1499" fileset="1498" location="" />
-      <root id="2242" fileset="2241" location="" />
-      <root id="2244" fileset="2243" location="" />
       <root id="2572" fileset="2571" location="" />
       <root id="2574" fileset="2573" location="" />
     </roots>
@@ -59,14 +51,10 @@
       <mountPoint id="2829" root="" location="support" mode="755" />
       <mountPoint id="867" root="584" location="bin" mode="755" />
       <mountPoint id="868" root="581" location="bin" mode="755" />
-      <mountPoint id="613" root="586" location="" mode="755" />
-      <mountPoint id="561" root="558" location="" mode="755" />
       <mountPoint id="626" root="588" location="" mode="755" />
       <mountPoint id="562" root="560" location="" mode="755" />
       <mountPoint id="1500" root="1497" location="" mode="755" />
       <mountPoint id="1501" root="1499" location="" mode="755" />
-      <mountPoint id="2245" root="2242" location="" mode="755" />
-      <mountPoint id="2246" root="2244" location="" mode="755" />
       <mountPoint id="2575" root="2572" location="" mode="755" />
       <mountPoint id="2576" root="2574" location="" mode="755" />
     </mountPoints>
@@ -86,12 +74,6 @@
       <dirEntry mountPoint="868" file="../windows/x64/bin" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
-      <dirEntry mountPoint="613" file="../windows/x86/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
-      <dirEntry mountPoint="561" file="../windows/x64/Win7Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win7" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
       <dirEntry mountPoint="626" file="../windows/x86/Win8Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
@@ -102,12 +84,6 @@
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="1501" file="../windows/x64/Win8.1Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win8.1Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
-      <dirEntry mountPoint="2245" file="../windows/x86/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
-        <exclude />
-      </dirEntry>
-      <dirEntry mountPoint="2246" file="../windows/x64/Server2008Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Server2008Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
         <exclude />
       </dirEntry>
       <dirEntry mountPoint="2575" file="../windows/x86/Win10Release" overwriteMode="1" shared="false" fileMode="644" uninstallMode="0" overrideFileMode="false" overrideOverwriteMode="true" overrideUninstallMode="false" entryMode="direct" subDirectory="Win10Release" excludeSuffixes="" dirMode="755" overrideDirMode="false">
@@ -283,7 +259,7 @@ return false;
                         <object class="com.install4j.api.beans.ScriptProperty">
                           <void property="value">
                             <string>Float osVer = (Float)context.getVariable("os.floatver");
-if (osVer &lt; 6.1f)
+if (osVer &lt; 6.2f)
 {
     return false;
 }
