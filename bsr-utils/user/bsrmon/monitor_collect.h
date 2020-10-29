@@ -3,6 +3,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN
 #define SystemPoolTagInformation (DWORD)0x16
@@ -58,3 +59,4 @@ extern "C" NTSYSAPI NTSTATUS WINAPI ZwQuerySystemInformation(
 unsigned long long GetSlabMemoryUsage(enum slab_type slab);
 #endif
 char* GetBsrMemoryUsage(void);
+char* GetBsrUserMemoryUsage(void);

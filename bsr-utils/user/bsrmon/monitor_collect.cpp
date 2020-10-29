@@ -1,4 +1,8 @@
 #include "monitor_collect.h"
+#ifdef _WIN
+#include <Psapi.h>
+#include <TlHelp32.h>
+#endif
 
 #ifdef _LIN
 unsigned long long GetSlabMemoryUsage(enum slab_type slab)
@@ -164,4 +168,114 @@ fail:
 
 	return buffer;
 #endif
+}
+
+char* GetBsrUserMemoryUsage(void)
+{
+#ifdef _WIN
+	HANDLE process;
+	PROCESS_MEMORY_COUNTERS info = { 0 };
+	DWORD aProcesses[1024], cbNeeded, cProcesses;
+	TCHAR szProcessName[1024] = { 0, };
+	TCHAR fileName[128];
+	DWORD dwLen = 0;
+#else // _LIN
+	char command[128];
+	char buf[128] = { 0, };
+	unsigned int pid, rsz, vsz;
+	char *ptr, *save_ptr;
+	int idx = 0;
+	FILE *pipe;
+#endif
+	char *buffer;
+
+	buffer = (char*)malloc(MAX_BUF_SIZE);
+	if (!buffer) {
+		fprintf(stderr, "Failed to malloc buffer\n");
+		return NULL;
+	}
+	memset(buffer, 0, MAX_BUF_SIZE);
+
+#ifdef _WIN
+	info.cb = sizeof(info);
+	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)){
+		fprintf(stderr, "failed get processid list\n");
+		goto fail;
+	}
+	cProcesses = cbNeeded / sizeof(DWORD);
+
+	sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer),
+		"%11s %6s %15s %21s %23s %14s\n", "name", "pid", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
+	for (unsigned int i = 0; i < cProcesses; i++) {
+		process = OpenProcess(MAXIMUM_ALLOWED, false, aProcesses[i]);
+		if (NULL != process) {
+			dwLen = sizeof(szProcessName)/sizeof(TCHAR);
+			if (QueryFullProcessImageName(process, 0, szProcessName, &dwLen)) {
+				// Get file name from full path
+				_wsplitpath_s(szProcessName, NULL, 0, NULL, 0, fileName, 128, NULL, 0);
+			}
+		}
+
+		if (wcsncmp(fileName, L"bsr", 3))
+			continue;
+
+		GetProcessMemoryInfo(process, &info, sizeof(info));
+		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), 
+			"%11ws %6wu %15lu %21lu %23lu %14lu bytes\n",
+			fileName, aProcesses[i], info.WorkingSetSize, info.QuotaPagedPoolUsage, info.QuotaNonPagedPoolUsage, info.PagefileUsage);
+
+		CloseHandle(process);
+	}
+
+	return buffer;
+#else // _LIN
+	sprintf(command, "ps -eo pid,rsz,vsz,cmd | grep bsr");
+	pipe = popen(command, "r");
+	if (!pipe) {
+		fprintf(stderr, "popen failed, command : %s\n", command);
+		goto fail;
+	}
+
+	sprintf(buffer + strlen(buffer), "%9s %6s %10s %10s\n", "name", "pid", "rsz", "vsz");
+	while (!feof(pipe)) {
+		if (fgets(buf, 128, pipe) != NULL) {
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			idx = 0;
+
+			ptr = strtok_r(buf, " ", &save_ptr);
+
+			while(ptr) {
+				if (idx == 0)
+					pid = atoi(ptr);
+				else if (idx == 1)
+					rsz = atoi(ptr);
+				else if(idx == 2)
+					vsz = atoi(ptr);
+				else
+					break;
+				idx++;
+
+				ptr = strtok_r(NULL, " ", &save_ptr);
+			}
+
+			if (strncmp(ptr, "bsr", 3))
+				continue;
+
+			sprintf(buffer + strlen(buffer), "%9s %6d %10u %10u kbytes\n", ptr, pid, rsz, vsz);
+		}
+		else if (*buf == 0) {
+			fprintf(stderr, "exec failed, command : %s\n", command);
+		}
+	}
+	pclose(pipe);
+
+	return buffer;
+#endif
+fail:
+	if (buffer) {
+		free(buffer);
+		buffer = NULL;
+	}
+	return NULL;
 }

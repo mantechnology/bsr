@@ -214,6 +214,12 @@ void PrintMonitor()
 		free(buf);
 		buf = NULL;
 	}
+	buf = GetBsrUserMemoryUsage();
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
 
 	// print network monitoring status
 	printf("Network:\n");
