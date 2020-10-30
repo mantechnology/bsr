@@ -8,7 +8,7 @@
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.6
-Release: A4%{?dist}
+Release: A5%{?dist}
 
 # always require a suitable userland
 # Requires: 
