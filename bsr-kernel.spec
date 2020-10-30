@@ -100,6 +100,9 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
+* Fri Oct 30 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A5
+- New upstream release.
+
 * Mon Aug 31 2020 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A4
 - New upstream release.
 
