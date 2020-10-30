@@ -2029,6 +2029,8 @@ struct bsr_device {
 	struct dentry *debugfs_vol_io_frozen;
 	struct dentry *debugfs_vol_ed_gen_id;
 #ifdef CONFIG_BSR_TIMING_STATS
+	struct dentry *debugfs_vol_io_stat;
+	struct dentry *debugfs_vol_io_complete;
 	struct dentry *debugfs_vol_req_timing;
 #endif
 #endif

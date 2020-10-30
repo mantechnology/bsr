@@ -1,4 +1,5 @@
 #include "module_debug.h"
+#include "monitor_collect.h"
 
 #ifdef _WIN
 HANDLE
@@ -60,6 +61,8 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "ed_gen_id")) return DBG_DEV_ED_GEN_ID;
 	else if (!_strcmpi(str, "io_frozen")) return DBG_DEV_IO_FROZEN;
 	else if (!_strcmpi(str, "dev_oldest_requests")) return DBG_DEV_OLDEST_REQUESTS;
+	else if (!_strcmpi(str, "dev_io_stat")) return DBG_DEV_IO_STAT;
+	else if (!_strcmpi(str, "dev_io_complete")) return DBG_DEV_IO_COMPLETE;
 	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
 	return DBG_NO_FLAGS;
 }
@@ -299,7 +302,7 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 	debugInfo->flags = flag;
 
 	strcpy_s(debugInfo->res_name, res->name);
-	if (flag == DBG_DEV_REQ_TIMING)
+	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || flag == DBG_DEV_REQ_TIMING)
 		debugInfo->vnr = val;
 	else if (flag == DBG_CONN_TRANSPORT_SPEED || flag == DBG_CONN_SEND_BUF)
 		debugInfo->peer_node_id = val;
@@ -366,7 +369,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 	}
 	memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
 
-	if (debug_type == IO) {
+	if (debug_type <= REQUEST) {
 		struct volume *vol = res->vol;
 		if (!res->vol) {
 			fprintf(stderr, "Invalid res->vol object\n");
@@ -375,9 +378,14 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 
 		while (vol) {
 #ifdef _WIN		
-			flag = ConvertToBsrDebugFlags("dev_req_timing");
+			if (debug_type == IO)
+				flag = ConvertToBsrDebugFlags("dev_io_stat");
+			else if (debug_type == IO_COMPLETE)
+				flag = ConvertToBsrDebugFlags("dev_io_complete");
+			else if (debug_type == REQUEST)
+				flag = ConvertToBsrDebugFlags("dev_req_timing");
 
-			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
+			//sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
 
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
 			if (!debugInfo)
@@ -387,7 +395,12 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			free(debugInfo);
 			debugInfo = NULL;
 #else // _LIN
-			sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+			if (debug_type == IO)
+				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
+			if (debug_type == IO_COMPLETE)
+				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == REQUEST) 
+				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 
 			sprintf(buffer + strlen(buffer), "vnr(%d):\n", vol->vnr);
 			
@@ -517,4 +530,423 @@ fail:
 		buffer = NULL;
 	}
 	return NULL;
+}
+
+/*
+ * character removal 
+*/
+void eliminate(char *str, char ch)
+{
+	size_t len = strlen(str) + 1;
+	for (; *str != '\0'; str++, len--) {
+		if (*str == ch) {	
+#ifdef _WIN	
+			strcpy_s(str, len, str + 1);
+#else
+			strcpy(str, str + 1);
+#endif
+			str--;
+		}
+	}
+}
+
+FILE *perf_fileopen(char * filename, char * currtime)
+{
+	FILE *fp;
+	char new_filename[512];
+	int err;
+	off_t size;
+
+	if (fopen_s(&fp, filename, "a") != 0) {
+		fprintf(stderr, "Failed to open %s\n", filename);
+		return NULL;
+	}
+	
+	fseek(fp, 0, SEEK_END);
+	size = ftell(fp);
+
+	// TODO rolling size
+	if ((1024 * 1024 * 50) < size) {
+#ifdef _WIN
+		HANDLE hFind;
+		WIN32_FIND_DATA FindFileData;
+		WCHAR dir_path[512] = { 0, };
+		WCHAR find_file[512] = { 0, };
+#else //_LIN
+		DIR *dir_p = NULL;
+		struct dirent* entry = NULL;
+		char dir_path[512] = { 0, }; 
+		char find_file[512] = { 0, };
+#endif
+		char remove_file[512] = { 0, };
+		char r_time[64] = { 0, };
+		char* ptr;
+
+		fclose(fp);
+
+#ifdef _WIN
+		wsprintf(dir_path, L"%S*", filename);
+		ptr = strrchr(filename, '\\');
+		memcpy(remove_file, filename, (ptr - filename));
+		wsprintf(find_file, L"%S_", ptr + 1);
+		hFind = FindFirstFile(dir_path, &FindFileData);
+		if (hFind == INVALID_HANDLE_VALUE){
+			fprintf(stderr, "failed to open %s\n", dir_path);
+			return NULL;
+		}
+		
+		do{
+			// TODO rolling cnt
+			if (wcsstr(FindFileData.cFileName, find_file)) {
+				sprintf_s(remove_file, "%s"_SEPARATOR_"%ws", remove_file, FindFileData.cFileName);
+				remove(remove_file);
+			}
+		} while (FindNextFile(hFind, &FindFileData));
+
+		FindClose(hFind);
+#else // _LIN
+		ptr = strrchr(filename, '/');
+		memcpy(dir_path, filename, (ptr - filename));
+		snprintf(find_file, strlen(ptr) + 1, "%s_", ptr + 1);
+
+		if ((dir_p = opendir(dir_path)) == NULL) {
+			fprintf(stderr, "failed to open %s\n", dir_path);
+			return NULL;
+		}
+		// TODO rolling cnt
+		while ((entry = readdir(dir_p)) != NULL) {
+			if (strstr(entry->d_name, find_file)) {
+				sprintf_s(remove_file, "%s"_SEPARATOR_"%s", dir_path, entry->d_name);
+				remove(remove_file);
+			}
+		}
+		
+		closedir(dir_p);
+#endif
+		memcpy(r_time, currtime, strlen(currtime));
+		eliminate(r_time, ':');
+		printf("%s\n", r_time);
+		sprintf_s(new_filename, "%s_%s", filename, r_time);
+		err = rename(filename, new_filename);
+		if (err == -1) {
+			fprintf(stderr, "failed to log file rename %s => %s\n", filename, new_filename);
+			return NULL;
+		}
+		if (fopen_s(&fp, filename, "a") != 0) {
+			fprintf(stderr, "Failed to open %s\n", filename);
+			return NULL;
+		}
+	}
+
+	
+	return fp;
+
+}
+
+// BSR-688 save aggregated debugfs data to file
+int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *respath, char * currtime)
+{
+#ifdef _WIN
+	PBSR_DEBUG_INFO debugInfo = NULL;
+	enum BSR_DEBUG_FLAGS flag;
+#else // _LIN
+	char path[128];
+#endif
+
+	FILE *fp;
+	FILE *last_fp;
+	char lastfile[MAX_PATH];
+	char outfile[MAX_PATH];
+	
+	char *buffer;
+
+	int ret = -1;
+
+	if (!res) {
+		fprintf(stderr, "Invalid res object\n");
+		return -1;
+	}
+
+	sprintf_s(lastfile, "%s"_SEPARATOR_"last", respath);
+
+	if (fopen_s(&last_fp, lastfile, "a") != 0) {
+		fprintf(stderr, "Failed to open %s\n", respath);
+		return -1;
+	}
+
+	buffer = (char*)malloc(MAX_DEBUG_BUF_SIZE);
+	if (!buffer) {
+		fprintf(stderr, "Failed to malloc debug buffer\n");
+		return -1;
+	}
+	memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
+
+	if (debug_type <= REQUEST) {
+		struct volume *vol = res->vol;
+		if (!res->vol) {
+			fprintf(stderr, "Invalid res->vol object\n");
+			goto fail;
+		}
+
+		while (vol) {
+
+			if (debug_type == IO) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("dev_io_stat");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+				sprintf_s(outfile, "%s"_SEPARATOR_"vnr%d_IO", respath, vol->vnr);
+				fprintf(last_fp, "IO (vnr%d):\n", vol->vnr);
+			} else if (debug_type == IO_COMPLETE) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("dev_io_complete");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+				fprintf(last_fp, "IO complete latency (vnr%d):\n", vol->vnr);
+				sprintf_s(outfile, "%s"_SEPARATOR_"vnr%d_IO_COMPLETE", respath, vol->vnr);
+			} else if (debug_type == REQUEST) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("dev_req_timing");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+				fprintf(last_fp, "Request latency (vnr%d):\n", vol->vnr);
+				sprintf_s(outfile, "%s"_SEPARATOR_"request", respath);
+			}
+
+#ifdef _WIN
+			debugInfo = GetDebugInfo(flag, res, vol->vnr);
+			if (!debugInfo)
+				goto fail;
+
+			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+			free(debugInfo);
+			debugInfo = NULL;
+#else // _LIN
+			fp = fopen(path, "r");
+
+			if (!fp) {
+				fprintf(stderr, "fopen failed, path : %s\n", path);
+				goto fail;
+			}
+
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+#endif
+
+			fp = perf_fileopen(outfile, currtime);
+			if (fp == NULL) 
+				goto fail;
+
+			fprintf(fp, "%s\n", currtime);	
+			fprintf(fp, "%s", buffer);
+			fclose(fp);
+			
+			fprintf(last_fp, "%s\n", buffer);
+			memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
+
+			vol = vol->next;
+		}
+	}
+	else if (debug_type == NETWORK_SPEED) {
+		if (!res->conn) {
+			fprintf(stderr, "Invalid res->conn object\n");
+			return -1;
+		}
+#ifdef _WIN
+		flag = ConvertToBsrDebugFlags("transport_speed");
+
+		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s (byte/s): ", res->conn->name[0]);
+		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
+		if (!debugInfo)
+			goto fail;
+
+		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+		free(debugInfo);
+		debugInfo = NULL;
+
+		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s (byte/s): ", res->conn->name[1]);
+		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
+		if (!debugInfo)
+			goto fail;
+			
+		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+		free(debugInfo);
+		debugInfo = NULL;
+#else // _LIN
+		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+
+		sprintf(buffer + strlen(buffer), "  %s (byte/s): ", res->conn->name[0]);
+		fp = fopen(path, "r");
+		if (!fp) {
+			fprintf(stderr, "fopen failed, path : %s\n", path);
+			goto fail;
+		}
+
+		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+		fclose(fp);
+
+		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[1]);
+
+		sprintf(buffer + strlen(buffer), "  %s (byte/s): ", res->conn->name[1]);
+		fp = fopen(path, "r");
+		if (!fp) {
+			fprintf(stderr, "fopen failed, path : %s\n", path);
+			goto fail;
+		}
+
+		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+		fclose(fp);
+#endif
+		sprintf_s(outfile, "%s"_SEPARATOR_"network", respath);
+		
+		fp = perf_fileopen(outfile, currtime);
+		if (fp == NULL)
+			goto fail;
+
+		fprintf(fp, "%s\n", currtime);	
+		fprintf(fp, "%s", buffer);
+		fclose(fp);
+
+		fprintf(last_fp, "Network:\n%s\n", buffer);
+	}
+	else if (debug_type == SEND_BUF) {
+		if (!res->conn) {
+			fprintf(stderr, "Invalid res->conn object\n");
+			return -1;
+		}
+#ifdef _WIN
+		flag = ConvertToBsrDebugFlags("send_buf");
+
+		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s:\n", res->conn->name[0]);
+		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
+		if (!debugInfo)
+			goto fail;
+
+		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+		free(debugInfo);
+		debugInfo = NULL;
+
+		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s:\n", res->conn->name[1]);
+		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
+		if (!debugInfo)
+			goto fail;
+
+		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+		free(debugInfo);
+		debugInfo = NULL;
+#else // _LIN
+		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+
+		sprintf(buffer + strlen(buffer), "  %s:\n", res->conn->name[0]);
+		fp = fopen(path, "r");
+		if (!fp) {
+			fprintf(stderr, "fopen failed, path : %s\n", path);
+			goto fail;
+		}
+
+		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+		fclose(fp);
+
+		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[1]);
+
+		sprintf(buffer + strlen(buffer), "  %s:\n", res->conn->name[1]);
+		fp = fopen(path, "r");
+		if (!fp) {
+			fprintf(stderr, "fopen failed, path : %s\n", path);
+			goto fail;
+		}
+
+		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+		fclose(fp);
+#endif
+		sprintf_s(outfile, "%s"_SEPARATOR_"send_buffer", respath);
+
+		fp = perf_fileopen(outfile, currtime);
+		if (fp == NULL)
+			goto fail;
+
+		fprintf(fp, "%s\n", currtime);
+		fprintf(fp, "%s", buffer);
+		fclose(fp);
+
+		fprintf(last_fp, "Send buffer:\n%s\n", buffer);
+
+	}
+	else {
+		fprintf(stderr, "Invalid debug_type value\n");
+		goto fail;
+	}
+
+	ret = 0;
+
+fail:
+
+	if (last_fp) {
+		fclose(last_fp);
+	}
+	if (buffer) {
+		free(buffer);
+		buffer = NULL;
+	}
+	return ret;
+}
+
+// BSR-688 save memory info to file
+int GetMemInfoToFile(char *path, char * currtime)
+{
+	FILE *fp;
+	FILE *last_fp;
+	char lastfile[MAX_PATH] = {0,};
+	char outfile[MAX_PATH] = {0,};
+	char *buffer = NULL;
+	int ret = -1;
+
+	sprintf_s(lastfile, "%s"_SEPARATOR_"last", path);
+
+	if (fopen_s(&last_fp, lastfile, "a") != 0) {
+		fprintf(stderr, "Failed to open %s\n", path);
+		return -1;
+	}
+
+	sprintf_s(outfile, "%s"_SEPARATOR_"memory", path);
+
+	fp = perf_fileopen(outfile, currtime);
+	if (fp == NULL)
+		goto fail;
+
+	fprintf(fp, "%s\n", currtime);
+
+	buffer = GetBsrMemoryUsage();
+	if (buffer) {
+		fprintf(fp, "%s", buffer);
+		fprintf(last_fp, "%s\n", buffer);
+		free(buffer);
+		buffer = NULL;
+	}
+
+	buffer = GetBsrUserMemoryUsage();
+	if (buffer) {
+		fprintf(fp, "%s", buffer);
+		fprintf(last_fp, "%s\n", buffer);
+		free(buffer);
+		buffer = NULL;
+	}
+	
+	fclose(fp);
+
+	ret = 0;
+
+fail:
+
+	if (last_fp) {
+		fclose(last_fp);
+	}
+	if (buffer) {
+		free(buffer);
+		buffer = NULL;
+	}
+	return ret;
 }
