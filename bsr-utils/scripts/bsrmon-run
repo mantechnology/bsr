@@ -2,5 +2,10 @@
 while : ; do
     # run bsrmon
     bsrmon /file
-    sleep 1
+
+    period=`cat /etc/bsr.d/.bsrmon_period`
+    if [ $? -ne 0 ];then
+        period=1
+    fi
+    sleep $period
 done

@@ -23,6 +23,8 @@
 
 #define BATCH_TIMEOUT 60000
 #define BUFFER_SIZE 500
+// BSR-694
+#define DEFAULT_BSRMON_PERIOD 1
 
 DWORD Install(const TCHAR * full_path, const TCHAR * pName);
 DWORD UnInstall(const TCHAR * pName);
@@ -463,6 +465,14 @@ int RunBsrmon()
 	char perf_path[MAX_PATH] = { 0, };
 	size_t path_size;
 	errno_t result;
+
+	// BSR-694
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD period_value = 0;
 	
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
 	if (result)
@@ -474,17 +484,31 @@ int RunBsrmon()
 	CreateDirectoryA(perf_path, NULL);
 	
 	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
+
+	// BSR-694
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
 	while (TRUE) {
 		DWORD ret;
 		DWORD dwPID;
 		// run bsrmon
 		ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
-		if (ret)
+		if (ret) {
+			RegCloseKey(hKey);
 			return 0;
-		Sleep(1000);
-	}
-	return 0;
+		}
 
+		// get period
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&period_value, &size);
+		if (ERROR_SUCCESS != lResult) {
+			period_value = DEFAULT_BSRMON_PERIOD;
+		}
+		Sleep(period_value * 1000);
+	}
+	RegCloseKey(hKey);
+	return 0;
 }
 
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)

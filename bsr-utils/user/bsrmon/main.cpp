@@ -1,6 +1,7 @@
 #ifdef _WIN
 #include <windows.h>
 #include "ioctl.h"
+#include <tchar.h>
 #else // _LIN
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,15 @@
 #include <time.h>
 #include "module_debug.h"
 #include "monitor_collect.h"
+
+enum set_option_type
+{
+	PERIOD,
+};
+
+#ifdef _LIN
+#define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
+#endif
 
 #ifdef _WIN
 void debug_usage()
@@ -67,6 +77,7 @@ void usage()
 		"   /print\n"
 		"   /file\n"
 		"   /watch [all|resource]\n"
+		"   /set [period] [value]\n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
 }
@@ -387,6 +398,53 @@ void Watch(char *resname)
 	}
 }
 
+// BSR-694
+void SetOptionValue(enum set_option_type option_type, long value)
+{
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD lResult = ERROR_SUCCESS;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+		return;
+	}
+#else // _LIN
+	FILE *fp;
+#endif
+
+	if (option_type == PERIOD) {
+#ifdef _WIN
+		DWORD period_value = value;
+		lResult = RegSetValueEx(hKey, _T("bsrmon_period"), 0, REG_DWORD, (LPBYTE)&period_value, sizeof(period_value));
+
+		if (ERROR_SUCCESS != lResult)
+			fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
+
+		RegCloseKey(hKey);
+#else // _LIN
+		fp = fopen(PERIOD_OPTION_PATH, "w");
+		if (fp != NULL) {
+			fprintf(fp, "%ld", value);
+			fclose(fp);
+		}
+		else {
+			fprintf(stderr, "Failed open %s\n", PERIOD_OPTION_PATH);
+		}
+#endif
+	}
+	else {
+#ifdef _WIN
+		RegCloseKey(hKey);
+#endif
+		usage();
+	}
+}
+
 #ifdef _WIN
 int main(int argc, char* argv[])
 #else
@@ -421,6 +479,22 @@ int main(int argc, char* argv[])
 				Watch(argv[argIndex]);
 			else if (argIndex == argc)
 				Watch((char*)"all");
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/set")) {
+			argIndex++;
+
+			if (argIndex < argc) {
+				if (strcmp(argv[argIndex++], "period") == 0) {
+					if (argIndex < argc)
+						SetOptionValue(PERIOD, atoi(argv[argIndex]));
+					else
+						usage();
+				}
+				else
+					usage();
+			}
 			else
 				usage();
 		}
