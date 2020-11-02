@@ -417,7 +417,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	FILE *fp;
 #endif
 
-	if (option_type == PERIOD) {
+	if (option_type == PERIOD && value > 0) {
 #ifdef _WIN
 		DWORD period_value = value;
 		lResult = RegSetValueEx(hKey, _T("bsrmon_period"), 0, REG_DWORD, (LPBYTE)&period_value, sizeof(period_value));
