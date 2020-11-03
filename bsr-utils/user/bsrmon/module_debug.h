@@ -70,6 +70,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str);
 void* exec_pipe(enum get_info_type info_type, char *res_name);
 void freeResource(struct resource* res);
 struct resource* GetResourceInfo();
+int CheckResourceInfo(char* resname, int node_id, int vnr);
 
 #ifdef _WIN
 PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int val);

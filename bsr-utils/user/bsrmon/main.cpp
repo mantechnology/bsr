@@ -76,8 +76,19 @@ void usage()
 	printf(
 		"   /print\n"
 		"   /file\n"
-		"   /watch [all|resource]\n"
+		"   /watch [mem|resource] [type : 0~4] [vnr]\n"
+		"\t type info, IO(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
+		"\t vnr info, it is used only when type value is 0 or 1\n"
 		"   /set [period] [value]\n"
+		);
+
+	printf(
+		"\n\n"
+		"examples:\n"
+		"bsrmon /watch mem\n"
+		"bsrmon /watch r0\n"
+		"bsrmon /watch r0 0 0\n"
+		"bsrcon /watch r0 2\n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
 }
@@ -356,9 +367,10 @@ void MonitorToFile()
 }
 
 // BSR-688 watching last file
-void Watch(char *resname)
+void Watch(char *resname, int type = -1, int vnr = 0)
 {
 	char cmd[MAX_PATH];
+	bool watch_all_type = false;
 #ifdef _WIN
 	char bsr_path[MAX_PATH] = {0,};
 	char perf_path[MAX_PATH] = {0,};
@@ -370,23 +382,82 @@ void Watch(char *resname)
 	}
 	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
 	strcat_s(perf_path, "log\\perfmon\\");
+#endif
 
-	if (_stricmp(resname, "all") == 0)
-		return; // TODO watch all
-	else
-		sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
-	
+#ifdef _WIN
+	if (_stricmp(resname, "mem") == 0)
+		sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%smemory' -Wait -Tail 100\"", perf_path);
+#else // _LIN
+	if (strcasecmp(resname, "mem") == 0)
+		sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/memory");
+#endif
+	else {
+		int err = CheckResourceInfo(resname, 0, vnr);
+		if (err) {
+			fprintf(stderr, "Failed CheckResourceInfo, err=%d\n", err);
+			return;
+		}
+
+		if (type != -1) {
+			switch (type) {
+			case IO:
+#ifdef _WIN
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO' -Wait -Tail 100\"", perf_path, resname, vnr);
+#else // _LIN
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO", resname, vnr);
+#endif
+				break;
+			case IO_COMPLETE:
+#ifdef _WIN
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_COMPLETE' -Wait -Tail 100\"", perf_path, resname, vnr);
+#else // _LIN
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO_COMPLETE", resname, vnr);
+#endif
+				break;
+			case REQUEST:
+#ifdef _WIN
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\request' -Wait -Tail 100\"", perf_path, resname);
+#else // _LIN
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/request", resname);
+#endif
+				break;
+			case NETWORK_SPEED:
+#ifdef _WIN
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -Wait -Tail 100\"", perf_path, resname);
+#else // _LIN
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/network", resname);
+#endif
+				break;
+			case SEND_BUF:
+#ifdef _WIN
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\send_buffer' -Wait -Tail 100\"", perf_path, resname);
+#else // _LIN
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/send_buffer", resname);
+#endif
+				break;
+			default:
+				usage();
+			}
+		}
+		else {
+#ifdef _WIN
+			sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
+#else // _LIN
+			sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
+#endif
+			watch_all_type = true;
+		}
+	}
+#ifdef _WIN
 	system("cls");
-#else
-	if (strcasecmp(resname, "all") == 0)
-		sprintf(cmd, "cat /var/log/bsr/perfmon/*/last; cat /var/log/bsr/perfmon/last; ");
-	else
-		sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
-
+#else // _LIN
 	system("clear");
 #endif
+
 	while (1) {
 		system(cmd);
+		if (!watch_all_type)
+			break;
 #ifdef _WIN
 		Sleep(1000);
 		system("cls");
@@ -394,7 +465,6 @@ void Watch(char *resname)
 		sleep(1);
 		system("clear");
 #endif
-
 	}
 }
 
@@ -475,10 +545,19 @@ int main(int argc, char* argv[])
 		}
 		else if (!strcmp(argv[argIndex], "/watch")) {
 			argIndex++;
-			if (argIndex < argc)
-				Watch(argv[argIndex]);
-			else if (argIndex == argc)
-				Watch((char*)"all");
+			if (argIndex < argc) {
+				char *res_name = argv[argIndex++];
+				if (argIndex < argc) {
+					int type = atoi(argv[argIndex]);
+					argIndex++;
+					if (argIndex < argc)
+						Watch(res_name, type, atoi(argv[argIndex]));
+					else
+						Watch(res_name, type);
+				}
+				else
+					Watch(res_name);
+			}
 			else
 				usage();
 		}

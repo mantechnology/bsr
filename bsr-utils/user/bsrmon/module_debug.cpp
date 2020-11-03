@@ -283,6 +283,56 @@ struct resource* GetResourceInfo()
 	return res_head;
 }
 
+int CheckResourceInfo(char* resname, int node_id, int vnr)
+{
+	struct resource *res, *res_temp;
+	struct volume *vol;
+	int err = 0;
+
+	res = GetResourceInfo();
+	if (!res) {
+		fprintf(stderr, "failed GetResourceInfo\n");
+		return -1;
+	}
+
+	res_temp = res;
+	while (res_temp) {
+		// check resname
+		if (!strcmp(resname, res_temp->name)) {
+			// check node_id
+			if (node_id != 0 &&
+				node_id != res_temp->conn->node_id[0] &&
+				node_id != res_temp->conn->node_id[1]) {
+				err = -2;
+				goto ret;
+			}
+			
+			// check vnr
+			if (vnr != 0) {
+				vol = res_temp->vol;
+				while (vol) {
+					if (vnr == vol->vnr)
+						goto ret;
+					else
+						vol = vol->next;
+				}
+			}
+			else
+				goto ret;
+
+			err = -3;
+			goto ret;
+		}
+		else
+			res_temp = res_temp->next;	
+	}
+
+	err = -4;
+ret:
+	freeResource(res);
+	return err;
+}
+
 #ifdef _WIN
 PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int val)
 {
