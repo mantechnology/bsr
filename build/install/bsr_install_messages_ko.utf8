@@ -15,3 +15,5 @@ InstallationBitIsDifferent=64bit 운영체제에 32bit 윈도우즈 BSR를 설�
 FailedToInstallService=서비스 설치를 실패 했습니다.
 FailedToInstallEngine=엔진 설치를 실패 했습니다.
 NotSupportedOS=윈도우즈 BSR를 설치 할 수 없습니다. ${installer:os.fullName} 지원하지 않는 운영체제 입니다. 
+EngineHashNotMatch=엔진 해쉬 불일치로 설치를 실패했습니다.
+SetupEnginehashNotMatch=설치 엔진 해쉬 불일치로 설치를 실패했습니다.

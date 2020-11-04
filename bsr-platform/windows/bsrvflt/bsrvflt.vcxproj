@@ -905,16 +905,12 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(SolutionDir)
-
 set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
-
 mkdir %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
-
-copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrvflt.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|x64'">
@@ -934,16 +930,12 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(SolutionDir)
-
 set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
-
 mkdir %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
-
-copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrvflt.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Release|x64'">
@@ -963,16 +955,12 @@ copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
     </Link>
     <PostBuildEvent>
       <Command>cd $(SolutionDir)
-
 set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
-
 mkdir %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.sys" %25destdir%25
-
 copy /Y "$(OutputPath)\bsrvflt.inf" %25destdir%25
-
-copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)\bsrvflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrvflt.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

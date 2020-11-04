@@ -174,7 +174,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\$(PlatformTarget)\bin\"
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrservice.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrservice.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
