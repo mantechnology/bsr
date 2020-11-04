@@ -10,6 +10,7 @@
 #endif
 #include <stdio.h>
 #include <time.h>
+#include <sys/timeb.h>
 #include "module_debug.h"
 #include "monitor_collect.h"
 
@@ -295,8 +296,8 @@ void MonitorToFile()
 #endif
 	char perfpath[MAX_PATH] = {0,};
 	struct resource* res;
-	time_t now = time(NULL);
 	struct tm base_date_local;
+	struct timeb timer_msec;
 	char curr_time[64] = {0,};
 	char mempath[MAX_PATH] = {0,};
 	FILE * mem_fp;
@@ -314,15 +315,17 @@ void MonitorToFile()
 	strncpy_s(perfpath, bsr_path, strlen(bsr_path) - strlen("bin"));
 	strcat_s(perfpath, "log\\perfmon\\");
 
-	localtime_s(&base_date_local, &now);
+	ftime(&timer_msec);
+	localtime_s(&base_date_local, &timer_msec.time);
 #else
 	sprintf(perfpath, "/var/log/bsr/perfmon/");
 
-	base_date_local = *localtime(&now);
+	ftime(&timer_msec);
+	base_date_local = *localtime(&timer_msec.time);
 #endif	
-	sprintf_s(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d",
+	sprintf_s(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%d",
 		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
-		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec);
+		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, timer_msec.millitm);
 
 
 	while (res) {
