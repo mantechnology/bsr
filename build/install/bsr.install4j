@@ -1192,9 +1192,6 @@ return true;</string>
                           <string>bin/bsrcon.exe</string>
                         </object>
                       </void>
-                      <void property="wait">
-                        <boolean>true</boolean>
-                      </void>
                       <void property="workingDirectory">
                         <object class="java.io.File">
                           <string>bin</string>
@@ -1223,9 +1220,6 @@ return true;</string>
                         <object class="java.io.File">
                           <string>bin/bsrcon.exe</string>
                         </object>
-                      </void>
-                      <void property="wait">
-                        <boolean>true</boolean>
                       </void>
                       <void property="workingDirectory">
                         <object class="java.io.File">
