@@ -76,16 +76,16 @@ void usage()
 	printf(
 		"   /print\n"
 		"   /file\n"
-		"   /watch [mem|resource] [type : 0~4] [vnr]\n"
+		"   /watch [resource] [type : 0~4] [vnr]\n"
 		"\t type info, IO(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
 		"\t vnr info, it is used only when type value is 0 or 1\n"
+		"   /watchmem\n"
 		"   /set [period] [value]\n"
 		);
 
 	printf(
 		"\n\n"
 		"examples:\n"
-		"bsrmon /watch mem\n"
 		"bsrmon /watch r0\n"
 		"bsrmon /watch r0 0 0\n"
 		"bsrcon /watch r0 2\n"
@@ -384,11 +384,10 @@ void Watch(char *resname, int type = -1, int vnr = 0)
 	strcat_s(perf_path, "log\\perfmon\\");
 #endif
 
+	if (resname == NULL)
 #ifdef _WIN
-	if (_stricmp(resname, "mem") == 0)
 		sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%smemory' -Wait -Tail 100\"", perf_path);
 #else // _LIN
-	if (strcasecmp(resname, "mem") == 0)
 		sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/memory");
 #endif
 	else {
@@ -557,6 +556,14 @@ int main(int argc, char* argv[])
 				}
 				else
 					Watch(res_name);
+			}
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/watchmem")) {
+			argIndex++;
+			if (argIndex <= argc) {
+				Watch(NULL);
 			}
 			else
 				usage();
