@@ -1653,7 +1653,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 
 	for (;;) {
 		int received, rem, ret;
-		struct nlmsghdr *nlh = (struct nlmsghdr *)iov.iov_base;
+		struct nlmsghdr *nlh;
 		struct timeval before;
 		struct pollfd pollfds[2] = {
 			[0] = {
@@ -1680,6 +1680,10 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 			goto out2;
 
 		received = genl_recv_msgs(bsr_sock, &iov, &desc, -1);
+
+		// BSR-699 fix potential segmentation fault
+		nlh = (struct nlmsghdr *)iov.iov_base;
+
 		if (received < 0) {
 			switch(received) {
 			case E_RCV_TIMEDOUT:
@@ -1752,113 +1756,111 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 			}
 		}
 
-		/* There may be multiple messages in one datagram (for dump replies). */
-		nlmsg_for_each_msg(nlh, nlh, received, rem) {
-			struct bsr_genlmsghdr *dh = genlmsg_data(nlmsg_data(nlh));
-			struct genl_info info = (struct genl_info){
-				.seq = nlh->nlmsg_seq,
-				.nlhdr = nlh,
-				.genlhdr = nlmsg_data(nlh),
-				.userhdr = genlmsg_data(nlmsg_data(nlh)),
-				.attrs = global_attrs,
-			};
+		struct bsr_genlmsghdr *dh = genlmsg_data(nlmsg_data(nlh));
+		struct genl_info info = (struct genl_info){
+			.seq = nlh->nlmsg_seq,
+			.nlhdr = nlh,
+			.genlhdr = nlmsg_data(nlh),
+			.userhdr = genlmsg_data(nlmsg_data(nlh)),
+			.attrs = global_attrs,
+		};
 
-			dbg(3, "received type:%x\n", nlh->nlmsg_type);
-			if (nlh->nlmsg_type < NLMSG_MIN_TYPE) {
-				/* Ignore netlink control messages. */
-				continue;
-			}
-			if (nlh->nlmsg_type == GENL_ID_CTRL) {
+		dbg(3, "received type:%x\n", nlh->nlmsg_type);
+		if (nlh->nlmsg_type < NLMSG_MIN_TYPE) {
+			/* Ignore netlink control messages. */
+			continue;
+		}
+		if (nlh->nlmsg_type == GENL_ID_CTRL) {
 #ifdef HAVE_CTRL_CMD_DELMCAST_GRP
-				dbg(3, "received cmd:%x\n", info.genlhdr->cmd);
-				if (info.genlhdr->cmd == CTRL_CMD_DELMCAST_GRP) {
-					struct nlattr *nla =
-						nlmsg_find_attr(nlh, GENL_HDRLEN, CTRL_ATTR_FAMILY_ID);
-					if (nla && nla_get_u16(nla) == bsr_genl_family.id) {
-						/* FIXME: We could wait for the
-						   multicast group to be recreated ... */
-						goto out2;
-					}
+			dbg(3, "received cmd:%x\n", info.genlhdr->cmd);
+			if (info.genlhdr->cmd == CTRL_CMD_DELMCAST_GRP) {
+				struct nlattr *nla =
+					nlmsg_find_attr(nlh, GENL_HDRLEN, CTRL_ATTR_FAMILY_ID);
+				if (nla && nla_get_u16(nla) == bsr_genl_family.id) {
+					/* FIXME: We could wait for the
+						multicast group to be recreated ... */
+					goto out2;
 				}
+			}
 #endif
-				/* Ignore other generic netlink control messages. */
-				continue;
-			}
-			if (nlh->nlmsg_type != bsr_genl_family.id) {
-				/* Ignore messages for all other netlink families. */
-				continue;
-			}
+			/* Ignore other generic netlink control messages. */
+			continue;
+		}
+		if (nlh->nlmsg_type != bsr_genl_family.id) {
+			/* Ignore messages for all other netlink families. */
+			continue;
+		}
 
-			/* parse early, otherwise bsr_cfg_context_from_attrs
-			 * can not work */
-			if (bsr_tla_parse(nlh)) {
-				/* FIXME
-				 * should continuous_poll continue?
-				 */
-				desc = "reply did not validate - "
-					"do you need to upgrade your userland tools?";
-				rv = OTHER_ERROR;
-				goto out2;
-			}
-			if (cm->continuous_poll) {
-				struct bsr_cfg_context ctx;
-				/*
-				 * We will receive all events and have to
-				 * filter for what we want ourself.
-				 */
-				/* FIXME
-				 * Do we want to ignore broadcasts until the
-				 * initial get/dump requests is done? */
+		/* parse early, otherwise bsr_cfg_context_from_attrs
+			* can not work */
+		if (bsr_tla_parse(nlh)) {
+			/* FIXME
+				* should continuous_poll continue?
+				*/
+			desc = "reply did not validate - "
+				"do you need to upgrade your userland tools?";
+			rv = OTHER_ERROR;
+			goto out2;
+		}
+		if (cm->continuous_poll) {
+			struct bsr_cfg_context ctx;
+			/*
+				* We will receive all events and have to
+				* filter for what we want ourself.
+				*/
+			/* FIXME
+				* Do we want to ignore broadcasts until the
+				* initial get/dump requests is done? */
 
-				if (!bsr_cfg_context_from_attrs(&ctx, &info)) {
-					switch ((int)cm->ctx_key) {
-					case CTX_MINOR:
-						/* Assert that, for an unicast reply,
-						 * reply minor matches request minor.
-						 * "unsolicited" kernel broadcasts are "pid=0" (netlink "port id")
-						 * (and expected to be genlmsghdr.cmd == BSR_EVENT) */
-						if (minor != dh->minor) {
-							if (info.nlhdr->nlmsg_pid != 0)
-								dbg(1, "received netlink packet for minor %u, while expecting %u\n",
-									dh->minor, minor);
-							continue;
-						}
-						break;
-					case CTX_PEER_DEVICE:
-						if (ctx.ctx_volume != global_ctx.ctx_volume)
-							continue;
-						/* also needs to match the connection, of course */
-					case CTX_PEER_NODE:
-						if (ctx.ctx_peer_node_id != global_ctx.ctx_peer_node_id)
-							continue;
-						/* also needs to match the resource, of course */
-					case CTX_RESOURCE:
-					case CTX_RESOURCE | CTX_ALL:
-						if (!strcmp(objname, "all"))
-							break;
-
-						if (strcmp(objname, ctx.ctx_resource_name))
-							continue;
-
-						break;
-					default:
-						CLI_ERRO_LOG_STDERR(false, "DRECK: %x", cm->ctx_key);
-						assert(0);
+			if (!bsr_cfg_context_from_attrs(&ctx, &info)) {
+				switch ((int)cm->ctx_key) {
+				case CTX_MINOR:
+					/* Assert that, for an unicast reply,
+						* reply minor matches request minor.
+						* "unsolicited" kernel broadcasts are "pid=0" (netlink "port id")
+						* (and expected to be genlmsghdr.cmd == BSR_EVENT) */
+					if (minor != dh->minor) {
+						if (info.nlhdr->nlmsg_pid != 0)
+							dbg(1, "received netlink packet for minor %u, while expecting %u\n",
+								dh->minor, minor);
+						continue;
 					}
+					break;
+				case CTX_PEER_DEVICE:
+					if (ctx.ctx_volume != global_ctx.ctx_volume)
+						continue;
+					/* also needs to match the connection, of course */
+				case CTX_PEER_NODE:
+					if (ctx.ctx_peer_node_id != global_ctx.ctx_peer_node_id)
+						continue;
+					/* also needs to match the resource, of course */
+				case CTX_RESOURCE:
+				case CTX_RESOURCE | CTX_ALL:
+					if (!strcmp(objname, "all"))
+						break;
+
+					if (strcmp(objname, ctx.ctx_resource_name))
+						continue;
+
+					break;
+				default:
+					CLI_ERRO_LOG_STDERR(false, "DRECK: %x", cm->ctx_key);
+					assert(0);
 				}
-			}
-			rv = dh->ret_code;
-			if (rv == ERR_MINOR_INVALID && cm->missing_ok)
-				rv = NO_ERROR;
-			if (rv != NO_ERROR)
-				goto out2;
-			err = cm->show_function(cm, &info, u_ptr);
-			if (err) {
-				if (err < 0)
-					err = 0;
-				goto out2;
 			}
 		}
+		rv = dh->ret_code;
+		if (rv == ERR_MINOR_INVALID && cm->missing_ok)
+			rv = NO_ERROR;
+		if (rv != NO_ERROR)
+			goto out2;
+		err = cm->show_function(cm, &info, u_ptr);
+		if (err) {
+			if (err < 0)
+				err = 0;
+			goto out2;
+		}
+
 		if (!cm->continuous_poll && !(flags & NLM_F_DUMP)) {
 			/* There will be no more reply packets.  */
 			err = cm->show_function(cm, NULL, u_ptr);
