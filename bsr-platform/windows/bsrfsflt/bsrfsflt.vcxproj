@@ -534,7 +534,8 @@ set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
-copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrfsflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrfsflt.hash</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -551,7 +552,8 @@ set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
-copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrfsflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrfsflt.hash</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -585,7 +587,8 @@ set destdir="build\windows\$(PlatformTarget)\$(ConfigurationName)\bin"
 mkdir %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.sys" %25destdir%25
 copy /Y "$(OutputPath)bsrfsflt.inf" %25destdir%25
-copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25</Command>
+copy /Y "$(OutputPath)bsrfsflt.pdb" %25destdir%25
+certutil -hashfile %25destdir%25\bsrfsflt.sys md5  | find /v ":" &gt; %25destdir%25\bsrfsflt.hash</Command>
     </PostBuildEvent>
     <ClCompile>
       <AdditionalIncludeDirectories>%(AdditionalDependencies);$(DDK_LIB_PATH)\fltMgr.lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

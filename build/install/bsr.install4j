@@ -1109,20 +1109,87 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="install engine" id="1841" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="compare setup bsrfsflt driver hash" id="2929" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
                       <void property="arguments">
-                        <array class="java.lang.String" length="1">
+                        <array class="java.lang.String" length="2">
                           <void index="0">
-                            <string>${installer:sys.installationDir}\bin</string>
+                            <string>${installer:sys.installationDir}\bin\bsrfsflt.hash</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrfsflt.sys</string>
                           </void>
                         </array>
                       </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/bsrInstall.bat</string>
+                          <string>bin/compareHash.bat</string>
+                        </object>
+                      </void>
+                      <void property="wait">
+                        <boolean>true</boolean>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="compare setup bsrvflt hash" id="2930" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>${installer:sys.installationDir}\bin\bsrvflt.hash</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrvflt.sys</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/compareHash.bat</string>
+                        </object>
+                      </void>
+                      <void property="wait">
+                        <boolean>true</boolean>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="install bsrfsflt" id="1841" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>/driver_install</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrfsflt.inf</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/bsrcon.exe</string>
                         </object>
                       </void>
                       <void property="workingDirectory">
@@ -1135,13 +1202,109 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="" id="118" customizedId="" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" enabled="false" commentSet="false" comment="" actionElevationType="none" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="install bsrvflt" id="2926" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>/driver_install</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrvflt.inf</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/bsrcon.exe</string>
+                        </object>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="compare setup bsrfsflt driver hash" id="2928" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>${installer:sys.installationDir}\bin\bsrfsflt.hash</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.system32Dir}\drivers\bsrfsflt.sys</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/compareHash.bat</string>
+                        </object>
+                      </void>
+                      <void property="wait">
+                        <boolean>true</boolean>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="compare setup bsrvflt hash" id="2927" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="2" errorMessage="${i18n:FailedToInstallEngine}">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>${installer:sys.installationDir}\bin\bsrvflt.hash</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.system32Dir}\drivers\bsrvflt.sys</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/compareHash.bat</string>
+                        </object>
+                      </void>
+                      <void property="wait">
+                        <boolean>true</boolean>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="" id="118" customizedId="" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" enabled="true" commentSet="false" comment="" actionElevationType="none" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.finish.RebootAction" />
                   </java>
                 </serializedBean>
-                <condition />
+                <condition>if(context.isUnattended()) { 
+    return false;         
+}
+return true;</condition>
               </action>
             </actions>
             <formComponents />
@@ -1400,13 +1563,55 @@ return true;</string>
                 </serializedBean>
                 <condition />
               </action>
-              <action name="uninstall bsr engine" id="131" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+              <action name="uninstall bsrfsflt engine" id="2925" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
                 <serializedBean>
                   <java class="java.beans.XMLDecoder">
                     <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>/driver_uninstall</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrfsflt.inf</string>
+                          </void>
+                        </array>
+                      </void>
                       <void property="executable">
                         <object class="java.io.File">
-                          <string>bin/bsrUninstall.bat</string>
+                          <string>bin/bsrcon.exe</string>
+                        </object>
+                      </void>
+                      <void property="wait">
+                        <boolean>true</boolean>
+                      </void>
+                      <void property="workingDirectory">
+                        <object class="java.io.File">
+                          <string>bin</string>
+                        </object>
+                      </void>
+                    </object>
+                  </java>
+                </serializedBean>
+                <condition />
+              </action>
+              <action name="uninstall bsrvflt engine" id="131" customizedId="" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" enabled="true" commentSet="false" comment="" actionElevationType="elevated" rollbackBarrier="false" multiExec="false" failureStrategy="1" errorMessage="">
+                <serializedBean>
+                  <java class="java.beans.XMLDecoder">
+                    <object class="com.install4j.runtime.beans.actions.misc.RunExecutableAction">
+                      <void property="arguments">
+                        <array class="java.lang.String" length="2">
+                          <void index="0">
+                            <string>/driver_uninstall</string>
+                          </void>
+                          <void index="1">
+                            <string>${installer:sys.installationDir}\bin\bsrvflt.inf</string>
+                          </void>
+                        </array>
+                      </void>
+                      <void property="executable">
+                        <object class="java.io.File">
+                          <string>bin/bsrcon.exe</string>
                         </object>
                       </void>
                       <void property="wait">
@@ -1494,7 +1699,10 @@ return true;</string>
                     <object class="com.install4j.runtime.beans.actions.finish.RebootAction" />
                   </java>
                 </serializedBean>
-                <condition />
+                <condition>if(context.isUnattended()) { 
+    return false;         
+}
+return true;</condition>
               </action>
             </actions>
             <formComponents />
@@ -1546,7 +1754,6 @@ return true;</string>
     </windows>
   </mediaSets>
   <buildIds buildAll="false">
-    <mediaSet refId="194" />
     <mediaSet refId="572" />
   </buildIds>
   <buildOptions verbose="false" faster="false" disableSigning="false" debug="false" />

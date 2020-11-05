@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include "mvol.h"
 #include "LogManager.h"
+// DW-2166
+#include <setupapi.h>
+#include <stdlib.h>
+#include <Shlwapi.h>
 #else // _LIN
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +92,10 @@ void usage()
 		// BSR-232
         "bsrcon /release_vol F \n"
 		"bsrcon /write_log bsrService \"Logging start\" \n"	
+		// DW-2166
+		"bsrcon /driver_install \"inf file full path\""
+		"bsrcon /driver_uninstall \"inf file full path\""
+		"bsrcon /md5 \"target file full path\""
 #else
 		"examples:\n"
 #endif
@@ -391,6 +399,234 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv, int *feature_lv)
 
 }
 
+#ifdef _WIN
+struct cb_ctx {
+	PVOID cb_default_ctx;
+	bool need_reboot;
+	wchar_t err[255];
+};
+
+UINT QueueCallback(PVOID Context, UINT Notification, UINT_PTR Param1, UINT_PTR Param2)
+{
+	struct cb_ctx *ctx = (struct cb_ctx *)Context;
+	PFILEPATHS_W p;
+	PSOURCE_MEDIA_W m;
+	wchar_t path[255];
+
+	switch (Notification)
+	{
+	case SPFILENOTIFY_RENAMEERROR:
+		p = (PFILEPATHS_W)Param1;
+		swprintf_s(ctx->err, L"Failed to reanme from %ws to %ws. err(%d)\n", p->Source, p->Target, p->Win32Error);
+		return FILEOP_ABORT;
+	case SPFILENOTIFY_COPYERROR:
+		p = (PFILEPATHS_W)Param1;
+		swprintf_s(ctx->err, L"Failed to copy from %ws to %ws. err(%d)\n", p->Source, p->Target, p->Win32Error);
+		return FILEOP_ABORT;
+	case SPFILENOTIFY_DELETEERROR:
+		p = (PFILEPATHS_W)Param1;
+		swprintf_s(ctx->err, L"Failed to delete %ws. err(%x)\n", p->Target, p->Win32Error);
+		return FILEOP_SKIP;
+	case SPFILENOTIFY_NEEDMEDIA:
+		m = (PSOURCE_MEDIA_W)Param1;
+		swprintf_s(path, L"%ws\\%ws", m->SourcePath, m->SourceFile);
+		if (!PathFileExistsW(path)) {
+			swprintf_s(ctx->err, L"The copy destination file(%ws) does not exist.\n", path);
+			return FILEOP_ABORT;
+		}
+		return FILEOP_DOIT;
+	case SPFILENOTIFY_FILEOPDELAYED:
+		ctx->need_reboot = true;
+		break;
+	case SPFILENOTIFY_TARGETEXISTS:
+	case SPFILENOTIFY_TARGETNEWER:
+		return FILEOP_SKIP;
+	case SPFILENOTIFY_STARTCOPY:
+	case SPFILENOTIFY_ENDCOPY:
+	case SPFILENOTIFY_STARTDELETE:
+	case SPFILENOTIFY_ENDDELETE:
+	default:
+		return SetupDefaultQueueCallbackW(ctx->cb_default_ctx, Notification, Param1, Param2);
+	}
+
+	return 0;
+}
+
+// DW-2166 Run the driver install/uninstall via the inf file full path.
+int DriverInstallInf(wchar_t* session, char* fullPath)
+{
+	HANDLE handle;
+	struct cb_ctx ctx;
+	wchar_t service[32] = L"";
+	wchar_t fullPath16[255] = L"";
+	PSP_FILE_CALLBACK cb;
+
+	memset(service, 0, sizeof(wchar_t) * 32);
+	memset(fullPath16, 0, sizeof(wchar_t) * 255);
+	memset(ctx.err, 0, sizeof(wchar_t) * 255);
+
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, strlen(fullPath), fullPath16, 255);
+
+	// open inf file
+	handle = SetupOpenInfFileW(fullPath16, 0, INF_STYLE_WIN4, 0);
+
+	if (handle == NULL) {
+		wprintf(L"Failed to open. error(%d)\n", GetLastError());
+		return -1;
+	}
+
+	cb = (PSP_FILE_CALLBACK)QueueCallback;
+
+	ctx.cb_default_ctx = SetupInitDefaultQueueCallback(NULL);
+	ctx.need_reboot = false;
+
+	// install session
+	if (!SetupInstallFromInfSectionW(NULL, handle, session, SPINST_ALL, 0, 0, SP_COPY_NEWER, cb, (PVOID)&ctx, 0, 0)) {
+		SetupCloseInfFile(handle);
+		wprintf(L"Failed to %ws. %ws, error(%d)\n", session, ctx.err, GetLastError());
+		return -1;
+	}
+
+	swprintf_s(service, L"%ws.Services", session);
+
+	// install service
+	int res = SetupInstallServicesFromInfSectionW(handle, service, 0);
+	if (!res) {
+		SetupCloseInfFile(handle);
+		wprintf(L"Failed to create service. error(%ld)\n", GetLastError());
+		return -1;
+	}
+
+	if (res == ERROR_SUCCESS_REBOOT_REQUIRED)
+		ctx.need_reboot = true;
+
+	if (ctx.need_reboot) {
+		// need reboot
+		wprintf(L"Reboot is required to complete the driver installation.\n");
+		return 1;
+	}
+
+	SetupCloseInfFile(handle);
+
+	return 0;
+}
+
+#include <stdio.h>
+#include <windows.h>
+#include <Wincrypt.h>
+
+#define BUFSIZE 1024
+#define MD5LEN  16
+
+int generating_md5(char* fullPath)
+{
+	DWORD dwStatus = 0;
+	BOOL bResult = FALSE;
+	HCRYPTPROV hProv = 0;
+	HCRYPTHASH hHash = 0;
+	HANDLE hFile = NULL;
+	BYTE rgbFile[BUFSIZE];
+	DWORD cbRead = 0;
+	BYTE rgbHash[MD5LEN];
+	DWORD cbHash = 0;
+	CHAR rgbDigits[] = "0123456789abcdef";
+	wchar_t fullpath16[512];
+
+	memset(fullpath16, 0, sizeof(wchar_t) * 512);
+
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, strlen(fullPath), fullpath16, 255);
+
+	// Logic to check usage goes here.
+	hFile = CreateFileW(fullpath16,
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_SEQUENTIAL_SCAN,
+		NULL);
+
+	if (INVALID_HANDLE_VALUE == hFile)
+	{
+		dwStatus = GetLastError();
+		printf("Error opening file %s\nError: %d\n", fullPath, dwStatus);
+		return -1;
+	}
+
+	// Get handle to the crypto provider
+	if (!CryptAcquireContext(&hProv,
+		NULL,
+		NULL,
+		PROV_RSA_FULL,
+		CRYPT_VERIFYCONTEXT))
+	{
+		dwStatus = GetLastError();
+		printf("CryptAcquireContext failed: %d\n", dwStatus);
+		CloseHandle(hFile);
+		return -1;
+	}
+
+	if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
+	{
+		dwStatus = GetLastError();
+		printf("CryptAcquireContext failed: %d\n", dwStatus);
+		CloseHandle(hFile);
+		CryptReleaseContext(hProv, 0);
+		return -1;
+	}
+
+	while (bResult = ReadFile(hFile, rgbFile, BUFSIZE,
+		&cbRead, NULL))
+	{
+		if (0 == cbRead)
+		{
+			break;
+		}
+
+		if (!CryptHashData(hHash, rgbFile, cbRead, 0))
+		{
+			dwStatus = GetLastError();
+			printf("CryptHashData failed: %d\n", dwStatus);
+			CryptReleaseContext(hProv, 0);
+			CryptDestroyHash(hHash);
+			CloseHandle(hFile);
+			return -1;
+		}
+	}
+
+	if (!bResult)
+	{
+		dwStatus = GetLastError();
+		printf("ReadFile failed: %d\n", dwStatus);
+		CryptReleaseContext(hProv, 0);
+		CryptDestroyHash(hHash);
+		CloseHandle(hFile);
+		return -1;
+	}
+
+	cbHash = MD5LEN;
+	if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+	{
+		for (DWORD i = 0; i < cbHash; i++)
+		{
+			printf("%c%c", rgbDigits[rgbHash[i] >> 4],
+				rgbDigits[rgbHash[i] & 0xf]);
+		}
+		printf("\n");
+	}
+	else
+	{
+		dwStatus = GetLastError();
+		printf("CryptGetHashParam failed: %d\n", dwStatus);
+		return -1;
+	}
+
+	CryptDestroyHash(hHash);
+	CryptReleaseContext(hProv, 0);
+	CloseHandle(hFile);
+
+	return 0;
+}
+#endif
 
 #ifdef _WIN
 DWORD main(int argc, char* argv [])
@@ -709,6 +945,22 @@ int main(int argc, char* argv [])
 		}
 		else if (!strcmp(argv[argIndex], "--verbose")) {
 			Verbose++;
+		}
+		// DW-2166
+		else if (!strcmp(argv[argIndex], "/driver_install"))
+		{
+			argIndex++;
+			return DriverInstallInf(L"DefaultInstall", argv[argIndex]);
+		}
+		else if (!strcmp(argv[argIndex], "/driver_uninstall"))
+		{
+			argIndex++;
+			return DriverInstallInf(L"DefaultUninstall", argv[argIndex]);
+		}
+		else if (!strcmp(argv[argIndex], "/md5"))
+		{
+			argIndex++;
+			return generating_md5(argv[argIndex]);
 		}
 #endif
 		else {
