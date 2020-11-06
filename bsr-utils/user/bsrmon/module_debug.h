@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <set>
+#include <iostream>
 
 #ifdef _LIN
 #include <dirent.h>
@@ -14,6 +16,9 @@
 
 #define MAX_DEBUG_BUF_SIZE 4096
 #define MAX_PATH 260
+
+#define DEFAULT_FILE_ROLLING_SIZE 50
+#define DEFAULT_FILE_ROLLONG_CNT 3
 
 #ifdef _WIN
 #define _SEPARATOR_ "\\"

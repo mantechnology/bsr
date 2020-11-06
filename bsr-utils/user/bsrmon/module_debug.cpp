@@ -606,6 +606,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 	char new_filename[512];
 	int err;
 	off_t size;
+	long file_rolling_size;
 
 	if (fopen_s(&fp, filename, "a") != 0) {
 		fprintf(stderr, "Failed to open %s\n", filename);
@@ -615,13 +616,17 @@ FILE *perf_fileopen(char * filename, char * currtime)
 	fseek(fp, 0, SEEK_END);
 	size = ftell(fp);
 
-	// TODO rolling size
-	if ((1024 * 1024 * 50) < size) {
+	file_rolling_size = GetOptionValue(FILE_ROLLING_SIZE);
+	if (file_rolling_size <= 0)
+		file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;	
+
+	if ((1024 * 1024 * file_rolling_size) < size) {
 #ifdef _WIN
 		HANDLE hFind;
 		WIN32_FIND_DATA FindFileData;
 		WCHAR dir_path[512] = { 0, };
 		WCHAR find_file[512] = { 0, };
+		char remove_file_path[512] = { 0, };
 #else //_LIN
 		DIR *dir_p = NULL;
 		struct dirent* entry = NULL;
@@ -631,13 +636,24 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		char remove_file[512] = { 0, };
 		char r_time[64] = { 0, };
 		char* ptr;
+#ifdef _WIN
+		std::set<std::wstring> listFileName;
+		std::set<std::wstring>::reverse_iterator iter;
+#else // _LIN
+		std::set<std::string> listFileName;
+		std::set<std::string>::reverse_iterator iter;
+#endif
+		int file_cnt = 0;
+		int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
+		if (rolling_cnt <= 0)
+			rolling_cnt = DEFAULT_FILE_ROLLONG_CNT;
 
 		fclose(fp);
 
 #ifdef _WIN
 		wsprintf(dir_path, L"%S*", filename);
 		ptr = strrchr(filename, '\\');
-		memcpy(remove_file, filename, (ptr - filename));
+		memcpy(remove_file_path, filename, (ptr - filename));
 		wsprintf(find_file, L"%S_", ptr + 1);
 		hFind = FindFirstFile(dir_path, &FindFileData);
 		if (hFind == INVALID_HANDLE_VALUE){
@@ -646,14 +662,19 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		}
 		
 		do{
-			// TODO rolling cnt
 			if (wcsstr(FindFileData.cFileName, find_file)) {
-				sprintf_s(remove_file, "%s"_SEPARATOR_"%ws", remove_file, FindFileData.cFileName);
-				remove(remove_file);
+				listFileName.insert(FindFileData.cFileName);
 			}
 		} while (FindNextFile(hFind, &FindFileData));
-
 		FindClose(hFind);
+
+		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
+			file_cnt++;
+			if (file_cnt >= rolling_cnt) {
+				sprintf_s(remove_file, "%s"_SEPARATOR_"%ws", remove_file_path, iter->c_str());
+				remove(remove_file);
+			}
+		}
 #else // _LIN
 		ptr = strrchr(filename, '/');
 		memcpy(dir_path, filename, (ptr - filename));
@@ -663,15 +684,21 @@ FILE *perf_fileopen(char * filename, char * currtime)
 			fprintf(stderr, "failed to open %s\n", dir_path);
 			return NULL;
 		}
-		// TODO rolling cnt
+
 		while ((entry = readdir(dir_p)) != NULL) {
 			if (strstr(entry->d_name, find_file)) {
-				sprintf_s(remove_file, "%s"_SEPARATOR_"%s", dir_path, entry->d_name);
+				listFileName.insert(entry->d_name);
+			}
+		}
+		closedir(dir_p);
+
+		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
+			file_cnt++;
+			if (file_cnt >= rolling_cnt) {
+				sprintf_s(remove_file, "%s"_SEPARATOR_"%s", dir_path, iter->c_str());
 				remove(remove_file);
 			}
 		}
-		
-		closedir(dir_p);
 #endif
 		memcpy(r_time, currtime, strlen(currtime));
 		eliminate(r_time, ':');
