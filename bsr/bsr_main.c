@@ -6351,7 +6351,7 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			!(peer_md[node_id].flags & MDF_NODE_EXISTS)) {
 			// BSR-692 do not skip the node if UUID is in its initial state and no connecting object has been created.
 			if (!((device->ldev->md.current_uuid == UUID_JUST_CREATED) &&
-				list_empty(&device->resource->connections))) {
+				list_empty(&device->resource->connections))) 
 				continue;
 		}
 
