@@ -21,6 +21,13 @@
 #define _SEPARATOR_ "/"
 #endif
 
+enum set_option_type
+{
+	PERIOD,
+	FILE_ROLLING_SIZE,
+	FILE_ROLLING_CNT,
+};
+
 enum get_info_type
 {
 	RESOURCE,
@@ -78,3 +85,5 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res);
 int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char * respath, char * currtime);
 int GetMemInfoToFile(char *path, char * currtime);
+
+extern long GetOptionValue(enum set_option_type option_type);
