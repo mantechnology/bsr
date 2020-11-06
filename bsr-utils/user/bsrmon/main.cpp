@@ -75,7 +75,7 @@ void usage()
 		"   /print\n"
 		"   /file\n"
 		"   /watch [resource] [type : 0~4] [vnr]\n"
-		"\t type info, IO(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
+		"\t type info, IO_STAT(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
 		"\t vnr info, it is used only when type value is 0 or 1\n"
 		"   /watchmem\n"
 		"   /set [period, file_size, file_cnt] [value]\n"
@@ -226,8 +226,8 @@ void PrintMonitor()
 	}
 
 	// print I/O monitoring status
-	printf("IO:\n");
-	buf = GetDebugToBuf(IO, res);
+	printf("IO_STAT:\n");
+	buf = GetDebugToBuf(IO_STAT, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -347,7 +347,7 @@ void MonitorToFile()
 		fclose(last_fp);
 
 		// save monitoring status
-		GetDebugToFile(IO, res, respath, curr_time);
+		GetDebugToFile(IO_STAT, res, respath, curr_time);
 		GetDebugToFile(IO_COMPLETE, res, respath, curr_time);
 		GetDebugToFile(REQUEST, res, respath, curr_time);
 		GetDebugToFile(NETWORK_SPEED, res, respath, curr_time);
@@ -399,11 +399,11 @@ void Watch(char *resname, int type = -1, int vnr = 0)
 
 		if (type != -1) {
 			switch (type) {
-			case IO:
+			case IO_STAT:
 #ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO' -Wait -Tail 100\"", perf_path, resname, vnr);
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_STAT' -Wait -Tail 100\"", perf_path, resname, vnr);
 #else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO", resname, vnr);
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO_STAT", resname, vnr);
 #endif
 				break;
 			case IO_COMPLETE:

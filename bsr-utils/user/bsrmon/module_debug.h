@@ -37,7 +37,7 @@ enum get_info_type
 
 enum get_debug_type
 {
-	IO,
+	IO_STAT,
 	IO_COMPLETE,
 	REQUEST,
 	NETWORK_SPEED,

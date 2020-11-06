@@ -428,7 +428,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 
 		while (vol) {
 #ifdef _WIN		
-			if (debug_type == IO)
+			if (debug_type == IO_STAT)
 				flag = ConvertToBsrDebugFlags("dev_io_stat");
 			else if (debug_type == IO_COMPLETE)
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
@@ -445,7 +445,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			free(debugInfo);
 			debugInfo = NULL;
 #else // _LIN
-			if (debug_type == IO)
+			if (debug_type == IO_STAT)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 			if (debug_type == IO_COMPLETE)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
@@ -740,13 +740,13 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 		while (vol) {
 
-			if (debug_type == IO) {
+			if (debug_type == IO_STAT) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_io_stat");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_s(outfile, "%s"_SEPARATOR_"vnr%d_IO", respath, vol->vnr);
+				sprintf_s(outfile, "%s"_SEPARATOR_"vnr%d_IO_STAT", respath, vol->vnr);
 				fprintf(last_fp, "IO (vnr%d):\n", vol->vnr);
 			} else if (debug_type == IO_COMPLETE) {
 #ifdef _WIN
