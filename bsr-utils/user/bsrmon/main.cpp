@@ -14,13 +14,10 @@
 #include "module_debug.h"
 #include "monitor_collect.h"
 
-enum set_option_type
-{
-	PERIOD,
-};
-
 #ifdef _LIN
 #define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
+#define FILE_SIZE_OPTION_PATH "/etc/bsr.d/.bsrmon_file_size"
+#define FILE_CNT_OPTION_PATH "/etc/bsr.d/.bsrmon_file_cnt"
 #endif
 
 #ifdef _WIN
@@ -78,10 +75,10 @@ void usage()
 		"   /print\n"
 		"   /file\n"
 		"   /watch [resource] [type : 0~4] [vnr]\n"
-		"\t type info, IO(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
+		"\t type info, IO_STAT(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
 		"\t vnr info, it is used only when type value is 0 or 1\n"
 		"   /watchmem\n"
-		"   /set [period] [value]\n"
+		"   /set [period, file_size, file_cnt] [value]\n"
 		);
 
 	printf(
@@ -229,8 +226,8 @@ void PrintMonitor()
 	}
 
 	// print I/O monitoring status
-	printf("IO:\n");
-	buf = GetDebugToBuf(IO, res);
+	printf("IO_STAT:\n");
+	buf = GetDebugToBuf(IO_STAT, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -350,7 +347,7 @@ void MonitorToFile()
 		fclose(last_fp);
 
 		// save monitoring status
-		GetDebugToFile(IO, res, respath, curr_time);
+		GetDebugToFile(IO_STAT, res, respath, curr_time);
 		GetDebugToFile(IO_COMPLETE, res, respath, curr_time);
 		GetDebugToFile(REQUEST, res, respath, curr_time);
 		GetDebugToFile(NETWORK_SPEED, res, respath, curr_time);
@@ -402,11 +399,11 @@ void Watch(char *resname, int type = -1, int vnr = 0)
 
 		if (type != -1) {
 			switch (type) {
-			case IO:
+			case IO_STAT:
 #ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO' -Wait -Tail 100\"", perf_path, resname, vnr);
+				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_STAT' -Wait -Tail 100\"", perf_path, resname, vnr);
 #else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO", resname, vnr);
+				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO_STAT", resname, vnr);
 #endif
 				break;
 			case IO_COMPLETE:
@@ -479,6 +476,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
+	DWORD option_value = value;
 
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
@@ -489,32 +487,107 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	FILE *fp;
 #endif
 
-	if (option_type == PERIOD && value > 0) {
+	if (option_type == PERIOD && value > 0)
 #ifdef _WIN
-		DWORD period_value = value;
-		lResult = RegSetValueEx(hKey, _T("bsrmon_period"), 0, REG_DWORD, (LPBYTE)&period_value, sizeof(period_value));
-
-		if (ERROR_SUCCESS != lResult)
-			fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
-
-		RegCloseKey(hKey);
+		lResult = RegSetValueEx(hKey, _T("bsrmon_period"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
 #else // _LIN
 		fp = fopen(PERIOD_OPTION_PATH, "w");
-		if (fp != NULL) {
-			fprintf(fp, "%ld", value);
-			fclose(fp);
-		}
-		else {
-			fprintf(stderr, "Failed open %s\n", PERIOD_OPTION_PATH);
-		}
 #endif
-	}
+	else if (option_type == FILE_ROLLING_SIZE && value > 0)
+#ifdef _WIN
+		lResult = RegSetValueEx(hKey, _T("bsrmon_file_size"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+#else // _LIN
+		fp = fopen(FILE_SIZE_OPTION_PATH, "w");
+#endif
+	else if (option_type == FILE_ROLLING_CNT && value > 0)
+#ifdef _WIN
+		lResult = RegSetValueEx(hKey, _T("bsrmon_file_cnt"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+#else // _LIN
+		fp = fopen(FILE_CNT_OPTION_PATH, "w");
+#endif
 	else {
 #ifdef _WIN
 		RegCloseKey(hKey);
 #endif
 		usage();
 	}
+
+#ifdef _WIN
+	if (ERROR_SUCCESS != lResult)
+		fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
+
+	RegCloseKey(hKey);
+#else // _LIN
+	if (fp != NULL) {
+		fprintf(fp, "%ld", value);
+		fclose(fp);
+	}
+	else {
+		fprintf(stderr, "Failed open file(%d)\n", option_type);
+	}
+#endif
+}
+
+long GetOptionValue(enum set_option_type option_type)
+{
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD value;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+		return -1;
+	}
+#else // _LIN
+	FILE *fp;
+	long value;
+#endif
+
+	if (option_type == PERIOD)
+#ifdef _WIN
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&value, &size);
+#else // _LIN
+		fp = fopen(PERIOD_OPTION_PATH, "r");
+#endif
+	else if (option_type == FILE_ROLLING_SIZE)
+#ifdef _WIN
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_file_size"), NULL, &type, (LPBYTE)&value, &size);
+#else // _LIN
+		fp = fopen(FILE_SIZE_OPTION_PATH, "r");
+#endif
+	else if (option_type == FILE_ROLLING_CNT)
+#ifdef _WIN
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_file_cnt"), NULL, &type, (LPBYTE)&value, &size);
+#else // _LIN
+		fp = fopen(FILE_CNT_OPTION_PATH, "r");
+#endif
+	else {
+#ifdef _WIN
+		RegCloseKey(hKey);
+#endif
+		return -1;
+	}
+
+#ifdef _WIN
+	if (ERROR_SUCCESS != lResult) {
+		RegCloseKey(hKey);
+		return lResult;
+	}
+	RegCloseKey(hKey);
+	return value;
+#else // _LIN
+	if (fp != NULL) {
+		fscanf(fp, "%ld", &value);
+		fclose(fp);
+		return value;
+	}
+	return -1;
+#endif
 }
 
 #ifdef _WIN
@@ -575,9 +648,24 @@ int main(int argc, char* argv[])
 			argIndex++;
 
 			if (argIndex < argc) {
-				if (strcmp(argv[argIndex++], "period") == 0) {
+				if (strcmp(argv[argIndex], "period") == 0) {
+					argIndex++;
 					if (argIndex < argc)
 						SetOptionValue(PERIOD, atoi(argv[argIndex]));
+					else
+						usage();
+				}
+				else if (strcmp(argv[argIndex], "file_size") == 0) {
+					argIndex++;
+					if (argIndex < argc)
+						SetOptionValue(FILE_ROLLING_SIZE, atoi(argv[argIndex]));
+					else
+						usage();
+				}
+				else if (strcmp(argv[argIndex], "file_cnt") == 0) {
+					argIndex++;
+					if (argIndex < argc)
+						SetOptionValue(FILE_ROLLING_CNT, atoi(argv[argIndex]));
 					else
 						usage();
 				}
