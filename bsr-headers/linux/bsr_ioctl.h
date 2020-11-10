@@ -8,6 +8,7 @@
 #define BSR_CONTROL_DEV     "/dev/bsr-control"
 #define BSR_IOCTL_MAGIC     147
 #define BSR_HANDLER_USE_REG	"/etc/bsr.d/.handler_use"
+#define BSR_MON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
 
 typedef struct _HANDLER_INFO {
 	bool				use;

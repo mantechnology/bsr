@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include "../../../bsr-headers/linux/bsr_ioctl.h"
 #endif
 #include <stdio.h>
@@ -72,6 +73,8 @@ void usage()
 		);
 #endif
 	printf(
+		"   /start\n"
+		"   /stop\n"
 		"   /print\n"
 		"   /file\n"
 		"   /watch [resource] [type : 0~4] [vnr]\n"
@@ -590,6 +593,94 @@ long GetOptionValue(enum set_option_type option_type)
 #endif
 }
 
+// BSR-695
+static void save_bsrmon_run_reg(unsigned int run)
+{
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	DWORD lResult = ERROR_SUCCESS;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+		return;
+	}
+	lResult = RegSetValueEx(hKey, _T("bsrmon_run"), 0, REG_DWORD, (LPBYTE)&run, sizeof(run));
+	if (ERROR_SUCCESS != lResult)
+		fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
+
+	RegCloseKey(hKey);
+#else
+	int fd = 0;
+	FILE * fp;
+	// write /etc/bsr.d/.bsrmon_run
+	fp = fopen(BSR_MON_RUN_REG, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%d", run);
+		fclose(fp);
+	} 
+	else 
+		fprintf(stderr, "Failed open %s file\n", BSR_MON_RUN_REG);
+#endif
+	
+}
+
+#ifdef _LIN
+static pid_t get_running_pid() {
+	char buf[10] = {0,};
+	pid_t pid;
+	FILE *cmd_pipe = popen("pgrep -f bsrmon-run", "r");
+
+	fgets(buf, MAX_PATH, cmd_pipe);
+	pid = strtoul(buf, NULL, 10);
+	pclose(cmd_pipe);
+	return pid;
+}
+#endif
+
+static void start_mon()
+{
+	char buf[MAX_PATH] = {0,};
+#ifdef _LIN
+	pid_t pid = get_running_pid();
+	
+	if (pid > 0) {
+		fprintf(stderr, "Aleady running (pid=%d)\n", pid);
+		return;
+	}
+	sprintf(buf, "nohup /lib/bsr/bsrmon-run >/dev/null 2>&1 &");
+
+	if (system(buf) !=0) {
+		fprintf(stderr, "Failed \"%s\"\n", buf);
+		return;
+	}
+#endif
+
+	save_bsrmon_run_reg(1);
+
+}
+
+static void stop_mon()
+{
+	char buf[MAX_PATH] = {0,};
+#ifdef _LIN
+	pid_t pid = get_running_pid();
+
+	if (pid <= 0) 
+		fprintf(stderr, "bsrmon-run is not running\n");
+	
+	sprintf(buf, "kill -TERM %d >/dev/null 2>&1", pid);
+
+	if (system(buf) !=0) {
+		fprintf(stderr, "Failed \"%s\"\n", buf);
+	}
+#endif
+
+	save_bsrmon_run_reg(0);
+
+}
+
 #ifdef _WIN
 int main(int argc, char* argv[])
 #else
@@ -671,6 +762,22 @@ int main(int argc, char* argv[])
 				}
 				else
 					usage();
+			}
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/start")) {
+			argIndex++;
+			if (argIndex <= argc) {
+				start_mon();
+			}
+			else
+				usage();
+		}
+		else if (!strcmp(argv[argIndex], "/stop")) {
+			argIndex++;
+			if (argIndex <= argc) {
+				stop_mon();
 			}
 			else
 				usage();
