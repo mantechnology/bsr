@@ -145,8 +145,17 @@ run_bsrmon()
 {
 	case "$1" in
 		start)
-			mkdir /var/log/bsr/perfmon 2> /dev/null
-			nohup /lib/bsr/bsrmon-run > /dev/null &
+			# BSR-695
+			mon_file=/etc/bsr.d/.bsrmon_run
+			mon_run=1
+			if [ -f $mon_file ]; then
+				mon_run=`cat $mon_file`
+			fi
+			echo $mon_run
+			if [ $mon_run -eq 1 ] ; then
+				mkdir /var/log/bsr/perfmon 2> /dev/null
+				nohup /lib/bsr/bsrmon-run > /dev/null &
+			fi
 		;;
 		stop)
 			for pid in `pgrep -f bsrmon-run`

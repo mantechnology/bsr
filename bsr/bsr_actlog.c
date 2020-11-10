@@ -590,7 +590,9 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 			} else {
 				device->al_tr_number++;
 				device->al_writ_cnt++;
+#ifdef CONFIG_BSR_TIMING_STATS
 				atomic_inc(&device->al_updates_cnt);
+#endif
 			}
 			ktime_aggregate_delta(device, start_kt, al_after_sync_page_kt);
 		}

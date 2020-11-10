@@ -473,7 +473,7 @@ int RunBsrmon()
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD period_value = 0;
-	
+	DWORD run = 1;
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
 	if (result)
 		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
@@ -491,13 +491,22 @@ int RunBsrmon()
 		return FALSE;
 	}
 	while (TRUE) {
-		DWORD ret;
-		DWORD dwPID;
-		// run bsrmon
-		ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
-		if (ret) {
-			RegCloseKey(hKey);
-			return 0;
+		
+		// BSR-695
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_run"), NULL, &type, (LPBYTE)&run, &size);
+		if (ERROR_SUCCESS != lResult) {
+			run = 1;
+		}
+
+		if (run) {
+			DWORD ret;
+			DWORD dwPID;
+			// run bsrmon
+			ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
+			if (ret) {
+				RegCloseKey(hKey);
+				return 0;
+			}
 		}
 
 		// get period
