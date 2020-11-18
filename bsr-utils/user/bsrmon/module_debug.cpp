@@ -70,10 +70,10 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 
 void* exec_pipe(enum get_info_type info_type, char *res_name)
 {
-	char command[128], command2[128];
+	char command[128];
 	char buf[128] = { 0, };
 	struct resource *res_head = NULL, *res = NULL, *res_temp = NULL;
-	struct connection* conn = NULL;
+	struct connection* conn = NULL, *conn_head = NULL, *conn_temp = NULL;
 	struct volume *vol_head = NULL, *vol = NULL, *vol_temp = NULL;
 	int idx = 0;
 	FILE *pipe;
@@ -91,12 +91,6 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 #else // _LIN
 		sprintf(command, "bsradm sh-peer-node-name %s", res_name);
 #endif
-		conn = (struct connection*)malloc(sizeof(struct connection));
-		if (!conn) {
-			fprintf(stderr, "conn malloc failed, size : %lu\n", sizeof(struct connection));
-			return NULL;
-		}
-		memset(conn, 0, sizeof(struct connection));
 	}
 	else if (info_type == VOLUME) {
 #ifdef _WIN
@@ -125,40 +119,45 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			*(buf + (strlen(buf) - 1)) = 0;
 
 			if (info_type == RESOURCE) {
-#ifdef _WIN
-				sprintf_s(command2, "bsradm status %s >nul 2>&1", buf);
-#else // _LIN
-				sprintf(command2, "bsradm status %s &>/dev/null", buf);
-#endif
-				// check if resource up
-				if (!system(command2)) {
-					res = (struct resource*)malloc(sizeof(struct resource));
-					if (!res) {
-						fprintf(stderr, "res malloc failed, size : %lu\n", sizeof(struct resource));
-						return NULL;
-					}
-					res->conn = NULL;
-					res->vol = NULL;
-#ifdef _WIN
-					strcpy_s(res->name, buf);
-#else // _LIN
-					strcpy(res->name, buf);
-#endif
-					res->next = NULL;
-
-					if (!res_temp)
-						res_head = res;
-					else
-						res_temp->next = res;
-					res_temp = res;
+				res = (struct resource*)malloc(sizeof(struct resource));
+				if (!res) {
+					fprintf(stderr, "res malloc failed, size : %lu\n", sizeof(struct resource));
+					return NULL;
 				}
+				res->conn = NULL;
+				res->vol = NULL;
+#ifdef _WIN
+				strcpy_s(res->name, buf);
+#else // _LIN
+				strcpy(res->name, buf);
+#endif
+				res->next = NULL;
+
+				if (!res_temp)
+					res_head = res;
+				else
+					res_temp->next = res;
+				res_temp = res;
 			}
 			else if (info_type == CONNECTION) {
+				conn = (struct connection*)malloc(sizeof(struct connection));
+				if (!conn) {
+					fprintf(stderr, "conn malloc failed, size : %lu\n", sizeof(struct connection));
+					return NULL;
+				}
+				memset(conn, 0, sizeof(struct connection));
 #ifdef _WIN
-				strcpy_s(conn->name[idx++], buf);
+				strcpy_s(conn->name, buf);
 #else // _LIN
-				strcpy(conn->name[idx++], buf);
+				strcpy(conn->name, buf);
 #endif
+				conn->next = NULL;
+				if (!conn_temp)
+					conn_head = conn;
+				else
+					conn_temp->next = conn;
+				conn_temp = conn;
+
 			}
 			else if (info_type == VOLUME) {
 				vol = (struct volume*)malloc(sizeof(struct volume));
@@ -203,12 +202,19 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			fprintf(stderr, "popen failed, command : %s\n", command);
 			return NULL;
 		}
+
+		conn_temp = conn_head;
 		while (!feof(pipe)) {
 			if (fgets(buf, 128, pipe) != NULL) {
+				if (!conn_temp) {
+					fprintf(stderr, "Invalid conn object\n");
+					return NULL;
+				}
 				// remove EOL
 				*(buf + (strlen(buf) - 1)) = 0;
 
-				conn->node_id[idx++] = atoi(buf);
+				conn_temp->node_id = atoi(buf);
+				conn_temp = conn_temp->next;
 			}
 			else if (*buf == 0) {
 				fprintf(stderr, "exec failed, command : %s\n", command);
@@ -221,7 +227,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		pclose(pipe);
 #endif
 
-		return conn;
+		return conn_head;
 	}
 	else if (info_type == VOLUME) {
 		return vol_head;
@@ -231,15 +237,20 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 	}
 }
 
+
 void freeResource(struct resource* res)
 {
 	struct resource* res_temp;
 	struct volume* vol_temp;
+	struct connection* conn_temp;
 
 	while (res) {
-		if (res->conn) {
-			free(res->conn);
-			res->conn = NULL;
+		while (res->conn) {
+			conn_temp = res->conn;
+			res->conn = res->conn->next;
+
+			free(conn_temp);
+			conn_temp = NULL;
 		}
 
 		while (res->vol) {
@@ -287,6 +298,7 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 {
 	struct resource *res, *res_temp;
 	struct volume *vol;
+	struct connection *conn;
 	int err = 0;
 
 	res = GetResourceInfo();
@@ -300,11 +312,20 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 		// check resname
 		if (!strcmp(resname, res_temp->name)) {
 			// check node_id
-			if (node_id != 0 &&
-				node_id != res_temp->conn->node_id[0] &&
-				node_id != res_temp->conn->node_id[1]) {
-				err = -2;
-				goto ret;
+			if (node_id != 0) {
+				bool find_id = false;
+				conn = res_temp->conn;
+				while (conn) {
+					if (node_id == conn->node_id) {
+						find_id = true;
+						break;
+					} else
+						conn = conn->next;
+				}
+				if (!find_id) {
+					err = -2;
+					goto ret;
+				}
 			}
 			
 			// check vnr
@@ -406,6 +427,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 	FILE *fp;
 #endif
 	char *buffer;
+	int index = 0;
 
 	if (!res) {
 		fprintf(stderr, "Invalid res object\n");
@@ -467,6 +489,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 		}
 	}
 	else if (debug_type == NETWORK_SPEED) {
+		struct connection *conn = res->conn;
 		if (!res->conn) {
 			fprintf(stderr, "Invalid res->conn object\n");
 			return NULL;
@@ -474,50 +497,40 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 #ifdef _WIN
 		flag = ConvertToBsrDebugFlags("transport_speed");
 
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", res->conn->name[0]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
-		if (!debugInfo)
-			goto fail;
+		while (conn) {
+			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
+			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			if (!debugInfo)
+				goto fail;
 
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
+			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+			free(debugInfo);
+			debugInfo = NULL;
 
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", res->conn->name[1]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
-		if (!debugInfo)
-			goto fail;
-			
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
+			conn = conn->next;
+		}
+		
 #else // _LIN
-		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+		while (conn) {
+			sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, conn->name);
 
-		sprintf(buffer + strlen(buffer), "%s:\n", res->conn->name[0]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
+			sprintf(buffer + strlen(buffer), "%s:\n", conn->name);
+			fp = fopen(path, "r");
+			if (!fp) {
+				fprintf(stderr, "fopen failed, path : %s\n", path);
+				goto fail;
+			}
+
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+
+			conn = conn->next;
 		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
-
-		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[1]);
-
-		sprintf(buffer + strlen(buffer), "%s:\n", res->conn->name[1]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
-		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
+		
 #endif
 	}
 	else if (debug_type == SEND_BUF) {
+		struct connection *conn = res->conn;
 		if (!res->conn) {
 			fprintf(stderr, "Invalid res->conn object\n");
 			return NULL;
@@ -525,47 +538,37 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 #ifdef _WIN
 		flag = ConvertToBsrDebugFlags("send_buf");
 
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", res->conn->name[0]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
-		if (!debugInfo)
-			goto fail;
-
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
-
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", res->conn->name[1]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
-		if (!debugInfo)
-			goto fail;
+		while (conn) {
+			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
+			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			if (!debugInfo) {
+				fprintf(stderr, "send_buf res->conn object\n");
+				
+				goto fail;
+			}
+
+			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+			free(debugInfo);
+			debugInfo = NULL;
+			conn = conn->next;
+		}
+		printf("send_buf end\n");
 #else // _LIN
-		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+		while (conn) {
+			sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, conn->name);
 
-		sprintf(buffer + strlen(buffer), "%s:\n", res->conn->name[0]);	
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
+			sprintf(buffer + strlen(buffer), "%s:\n", conn->name);	
+			fp = fopen(path, "r");
+			if (!fp) {
+				fprintf(stderr, "fopen failed, path : %s\n", path);
+				goto fail;
+			}
+
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+			conn = conn->next;
 		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
-
-		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[1]);
-
-		sprintf(buffer + strlen(buffer), "%s:\n", res->conn->name[1]);	
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
-		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
 #endif
 	} else {
 		fprintf(stderr, "Invalid debug_type value\n");
@@ -736,7 +739,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 	char outfile[MAX_PATH];
 	
 	char *buffer;
-
+	int index = 0;
 	int ret = -1;
 
 	if (!res) {
@@ -828,6 +831,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		}
 	}
 	else if (debug_type == NETWORK_SPEED) {
+		struct connection *conn = res->conn;
 		if (!res->conn) {
 			fprintf(stderr, "Invalid res->conn object\n");
 			return -1;
@@ -835,47 +839,34 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #ifdef _WIN
 		flag = ConvertToBsrDebugFlags("transport_speed");
 
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s (byte/s): ", res->conn->name[0]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
-		if (!debugInfo)
-			goto fail;
+		while (conn) {
+			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s (byte/s): ", conn->name);
+			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			if (!debugInfo) {
+				fprintf(stderr, "transport_speed res->conn object\n");
+				goto fail;
+			}
 
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
-
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s (byte/s): ", res->conn->name[1]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
-		if (!debugInfo)
-			goto fail;
-			
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
+			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+			free(debugInfo);
+			debugInfo = NULL;
+			conn = conn->next;
+		}
 #else // _LIN
-		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+		while (conn) {
+			sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, conn->name);
 
-		sprintf(buffer + strlen(buffer), "  %s (byte/s): ", res->conn->name[0]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
+			sprintf(buffer + strlen(buffer), "  %s (byte/s): ", conn->name);
+			fp = fopen(path, "r");
+			if (!fp) {
+				fprintf(stderr, "fopen failed, path : %s\n", path);
+				goto fail;
+			}
+
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+			conn = conn->next;
 		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
-
-		sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, res->conn->name[1]);
-
-		sprintf(buffer + strlen(buffer), "  %s (byte/s): ", res->conn->name[1]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
-		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
 #endif
 		sprintf_s(outfile, "%s"_SEPARATOR_"network", respath);
 		
@@ -890,54 +881,43 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		fprintf(last_fp, "Network:\n%s\n", buffer);
 	}
 	else if (debug_type == SEND_BUF) {
+		struct connection *conn = res->conn;
 		if (!res->conn) {
 			fprintf(stderr, "Invalid res->conn object\n");
 			return -1;
 		}
 #ifdef _WIN
 		flag = ConvertToBsrDebugFlags("send_buf");
+		
+		while (conn) {
+			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s:\n", conn->name);
+			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			if (!debugInfo) {
+				fprintf(stderr, "send_buf res->conn object\n");
+				goto fail;
+			}
 
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s:\n", res->conn->name[0]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[0]);
-		if (!debugInfo)
-			goto fail;
+			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+			free(debugInfo);
+			debugInfo = NULL;
+			conn = conn->next;
 
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
-
-		sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "  %s:\n", res->conn->name[1]);
-		debugInfo = GetDebugInfo(flag, res, res->conn->node_id[1]);
-		if (!debugInfo)
-			goto fail;
-
-		memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-		free(debugInfo);
-		debugInfo = NULL;
+		}
 #else // _LIN
-		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[0]);
+		while (conn) {
+			sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, conn->name);
 
-		sprintf(buffer + strlen(buffer), "  %s:\n", res->conn->name[0]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
+			sprintf(buffer + strlen(buffer), "  %s:\n", conn->name);
+			fp = fopen(path, "r");
+			if (!fp) {
+				fprintf(stderr, "fopen failed, path : %s\n", path);
+				goto fail;
+			}
+
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+			conn = conn->next;
 		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
-
-		sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, res->conn->name[1]);
-
-		sprintf(buffer + strlen(buffer), "  %s:\n", res->conn->name[1]);
-		fp = fopen(path, "r");
-		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
-			goto fail;
-		}
-
-		fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-		fclose(fp);
 #endif
 		sprintf_s(outfile, "%s"_SEPARATOR_"send_buffer", respath);
 

@@ -56,8 +56,9 @@ struct volume {
 };
 
 struct connection {
-	char name[2][20];
-	int node_id[2];
+	char name[20];
+	int node_id;
+	struct connection* next;
 };
 
 struct resource {
