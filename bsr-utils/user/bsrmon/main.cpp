@@ -350,11 +350,17 @@ void MonitorToFile()
 		fclose(last_fp);
 
 		// save monitoring status
-		GetDebugToFile(IO_STAT, res, respath, curr_time);
-		GetDebugToFile(IO_COMPLETE, res, respath, curr_time);
-		GetDebugToFile(REQUEST, res, respath, curr_time);
-		GetDebugToFile(NETWORK_SPEED, res, respath, curr_time);
-		GetDebugToFile(SEND_BUF, res, respath, curr_time);
+		if (GetDebugToFile(IO_STAT, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(IO_COMPLETE, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(REQUEST, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(NETWORK_SPEED, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(SEND_BUF, res, respath, curr_time) != 0)
+			goto next;
+next:
 		res = res->next;
 	}
 

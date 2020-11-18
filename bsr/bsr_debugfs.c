@@ -750,7 +750,6 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 		struct ring_buffer *ring = connection->ptxbab[stream];
 		seq_printf(m, "\t%-15s (bytes):", stream == DATA_STREAM ? "data stream" : "control stream");
 		if (ring) {
-			mutex_lock(&ring->cs);
 			seq_printf(m, " size=%lld, used=%lld\n", ring->length, ring->sk_wmem_queued);
 			if (ring->sk_wmem_queued)
 				seq_printf(m, "\t  [packets in buffer]\n");
@@ -759,7 +758,6 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 					seq_printf(m, "\t  %-15s : cnt=%u, size=%llubytes\n", bsr_packet_name(i), ring->packet_cnt[i], ring->packet_size[i]);
 				}
 			}
-			mutex_unlock(&ring->cs);
 		} else
 			seq_printf(m, "  no send buffer\n");
 	}
