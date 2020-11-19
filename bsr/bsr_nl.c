@@ -4021,6 +4021,11 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 			       device->vnr, device->vnr + 1, GFP_KERNEL);
 		if (id < 0)
 			goto unlock_fail_free_connection;
+
+		// BSR-708 When attach is called and new-peer is called, notify current information of GI as an event.
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+		bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 	}
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
