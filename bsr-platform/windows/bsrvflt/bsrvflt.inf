@@ -80,17 +80,6 @@ HKR,,"ver",0x00000000, "1.5"
 
 [BSR.DelRegistry]
 HKLM, System\CurrentControlSet\Control\Class\{71A27CDD-812A-11D0-BEC7-08002BE2092F}, UpperFilters, 0x00018002, bsr
-HKR,,"proc_details"
-HKR,,"debug_level"
-HKR,,"bypass_level"
-HKR,,"read_filter"
-HKR,,"flush_filter"
-HKR,,"use_volume_lock"
-HKR,,"use_fast_sync"
-HKR,,"dbgwin_output"
-HKR,,"netlink_tcp_port"
-HKR,,"daemon_tcp_port"
-HKR,,"ver"
 ;
 ; Copy Files
 ;
