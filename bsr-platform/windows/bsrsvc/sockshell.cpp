@@ -275,17 +275,41 @@ int HandleTCPClient(int clntSocket)
 	memset(tmp, 0, 256);
 	memset(rxcmdbuf, 0, RCVBUFSIZE);
 
-	if ((ret = send(clntSocket, "HI", 2, 0)) != 2) {
-		wsprintf(tmp, L"HandleTCPClient: send HI (0x%x) failed", WSAGetLastError());
+	// DW-2170 sends "BSR_DAEMON" on first connection.
+	// "BSR_DAEMON" is the BSR_DAEMON_SOCKET_STRING defined by the driver.
+	if ((ret = send(clntSocket, "BSR_DAEMON", 10, 0)) != 10) {
+		wsprintf(tmp, L"HandleTCPClient: send socket string (0x%x) failed", WSAGetLastError());
 		WriteLog(tmp);
 		shutdown(clntSocket, 2);
 		closesocket(clntSocket);
 		return -1;
 	}
 
+	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, 10, 0)) < 0) {
+		wsprintf(tmp, L"HandleTCPClient: recv socket string failed(%d)\n", recvMsgSize);
+		WriteLog(tmp);
+		shutdown(clntSocket, 2);
+		closesocket(clntSocket);
+		return -1;
+
+	}
+
+	// DW-2170 the first data received is "BSR_DAEMON".
+	if (0 != memcmp(rxcmdbuf, "BSR_DAEMON", 10)) {
+		wsprintf(tmp, L"HandleTCPClient: this is not a daemon connection.\n");
+		WriteLog(tmp);
+		shutdown(clntSocket, 2);
+		closesocket(clntSocket);
+		return -1;
+	}
+
+	memset(rxcmdbuf, 0, RCVBUFSIZE);
+
 	if ((recvMsgSize = recv(clntSocket, rxcmdbuf, RCVBUFSIZE, 0)) < 0) {
 		wsprintf(tmp, L"HandleTCPClient: recv failed(%d)\n", recvMsgSize);
 		WriteLog(tmp);
+		shutdown(clntSocket, 2);
+		closesocket(clntSocket);
 		return -1;
 	}
 
