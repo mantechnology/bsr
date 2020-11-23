@@ -93,8 +93,8 @@ void usage()
         "bsrcon /release_vol F \n"
 		"bsrcon /write_log bsrService \"Logging start\" \n"	
 		// DW-2166
-		"bsrcon /driver_install \"inf file full path\""
-		"bsrcon /driver_uninstall \"inf file full path\""
+		"bsrcon /driver_install \"inf file full path\" \n"
+		"bsrcon /driver_uninstall \"inf file full path\" \n"
 		"bsrcon /md5 \"target file full path\""
 #else
 		"examples:\n"
