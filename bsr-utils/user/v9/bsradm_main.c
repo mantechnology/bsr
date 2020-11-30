@@ -3223,9 +3223,9 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 		case 'V':
 			printf("BSRADM_BUILDTAG=%s\n", shell_escape(bsr_buildtag()));
 			printf("BSRADM_API_VERSION=%u\n", API_VERSION);
-			printf("BSR_KERNEL_VERSION_CODE=0x%06x\n", version_code_kernel());
-			printf("BSR_KERNEL_VERSION=%s\n", escaped_version_code_kernel());
-			printf("BSRADM_VERSION_CODE=0x%06x\n", version_code_userland());
+			printf("BSR_KERNEL_VERSION_CODE=0x%08x\n", version_code_kernel());
+			printf("BSR_KERNEL_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
+			printf("BSRADM_VERSION_CODE=0x%08x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
 			bsr_terminate_log(0);
 			exit(0);

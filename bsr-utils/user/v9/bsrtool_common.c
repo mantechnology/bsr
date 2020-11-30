@@ -243,14 +243,22 @@ static void read_hex(char *dst, char *src, int dst_size, int src_size)
 static void version_from_str(struct version *rel, const char *token)
 {
 	char *dot;
-	long maj, min, sub;
+	long maj, min, sub, pat;
 	maj = strtol(token, &dot, 10);
 	if (*dot != '.')
 		return;
 	min = strtol(dot+1, &dot, 10);
-	if (*dot != '.')
-		return;
-	sub = strtol(dot+1, &dot, 10);
+	if (*dot != '.') {
+		// BSR-713 output as 0 if there is no sub version
+		sub = 0;
+	} else 
+		sub = strtol(dot+1, &dot, 10);
+	
+	if (*dot != '.') {
+		// BSR-713 output as 0 if there is no patch version
+		pat = 0;
+	} else
+		pat = strtol(dot+1, &dot, 10);
 	/* don't check on *dot == 0,
 	 * we may want to add some extraversion tag sometime
 	if (*dot != 0)
@@ -260,8 +268,9 @@ static void version_from_str(struct version *rel, const char *token)
 	rel->version.major = maj;
 	rel->version.minor = min;
 	rel->version.sublvl = sub;
+	rel->version.patch = pat;
 
-	rel->version_code = (maj << 16) + (min << 8) + sub;
+	rel->version_code = (maj << 24) + (min << 16) + (sub << 8) + pat;
 }
 
 static void parse_version(struct version *rel, const char *text)
@@ -273,7 +282,7 @@ static void parse_version(struct version *rel, const char *text)
 	while (sget_token(token, sizeof(token), &text) != EOF) {
 		switch(ex) {
 		case BEGIN:
-			if (!strcmp(token, "version:"))
+			if (!strcmp(token, "BSR:"))
 				ex = F_VER;
 			if (!strcmp(token, "SVN"))
 				ex = F_SVN;

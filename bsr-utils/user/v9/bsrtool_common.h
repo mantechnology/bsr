@@ -80,7 +80,7 @@ struct version {
 	uint32_t svn_revision;
 	char git_hash[GIT_HASH_BYTE];
 	struct {
-		unsigned major, minor, sublvl;
+		unsigned major, minor, sublvl, patch;
 	} version;
 	unsigned version_code;
 };
