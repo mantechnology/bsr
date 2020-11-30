@@ -248,9 +248,11 @@ static void version_from_str(struct version *rel, const char *token)
 	if (*dot != '.')
 		return;
 	min = strtol(dot+1, &dot, 10);
-	if (*dot != '.')
-		return;
-	sub = strtol(dot+1, &dot, 10);
+	if (*dot != '.') {
+		// BSR-713 output as 0 if there is no sub version
+		sub = 0;
+	} else 
+		sub = strtol(dot+1, &dot, 10);
 	/* don't check on *dot == 0,
 	 * we may want to add some extraversion tag sometime
 	if (*dot != 0)
@@ -273,7 +275,7 @@ static void parse_version(struct version *rel, const char *text)
 	while (sget_token(token, sizeof(token), &text) != EOF) {
 		switch(ex) {
 		case BEGIN:
-			if (!strcmp(token, "version:"))
+			if (!strcmp(token, "BSR:"))
 				ex = F_VER;
 			if (!strcmp(token, "SVN"))
 				ex = F_SVN;
