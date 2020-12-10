@@ -1784,7 +1784,9 @@ static void zeroout_bitmap(struct format *cfg)
 	err = ioctl(cfg->md_fd, BLKZEROOUT, &range);
 	if (!err)
 		return;
-	PERROR("ioctl(%s, BLKZEROOUT, [%llu, %llu]) failed", cfg->md_device_name,
+
+	// BSR-715 change the error message
+	CLI_ERRO_LOG_STDERR(false, "ioctl(%s, BLKZEROOUT, [%llu, %llu]) not support\n", cfg->md_device_name,
 		(unsigned long long)range[0], (unsigned long long)range[1]);
 #endif
 	CLI_ERRO_LOG_STDERR(false, "Using slow(er) fallback.");
