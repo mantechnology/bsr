@@ -137,9 +137,9 @@ $(obj)/bsr_linux_buildtag.c: $(filter-out bsr_linux_buildtag.o,$(bsr-y))
 	echo -e "const char *bsr_buildtag(void)\n{";				\
 	if test -e $(src)/../.git &&						\
 	   GITHEAD=$$(cd $(src) && git rev-parse HEAD); then			\
-		echo -e "\treturn REL_VERSION \" GIT-hash: $${GITHEAD:0:7}\"";		\
+		echo -e "\treturn TAG_VERSION \" GIT-hash: $${GITHEAD:0:7}\"";		\
 	elif test -e $(src)/.bsr_git_revision ; then				\
-		echo -e "\treturn \"$$(cat $(src)/.bsr_git_revision)\"";	\
+		echo -e "\treturn TAG_VERSION \" $$(cat $(src)/.bsr_git_revision)\"";	\
 	elif test -e $@ ; then							\
 		grep return $@ ;						\
 	else									\
