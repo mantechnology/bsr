@@ -151,7 +151,8 @@ check check_changelogs_up2date:
 .PHONY: bsr/.bsr_git_revision
 ifdef GITHEAD
 bsr/.bsr_git_revision:
-	@echo GIT-hash: $(GITHEAD) > $@
+	@git_head=$(GITHEAD); \
+	echo GIT-hash: $${git_head:0:7} > $@
 else
 bsr/.bsr_git_revision:
 	@echo >&2 "Need a git checkout to regenerate $@"; test -s $@

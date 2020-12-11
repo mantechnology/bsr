@@ -284,6 +284,11 @@ static void parse_version(struct version *rel, const char *text)
 		case BEGIN:
 			if (!strcmp(token, "BSR:"))
 				ex = F_VER;
+			// BSR-717
+			else if (!strncmp(token, "BSR:", 4)) {
+				version_from_str(rel, token + 4);
+				ex = BEGIN;
+			}
 			if (!strcmp(token, "SVN"))
 				ex = F_SVN;
 			if (!strcmp(token, "GIT-hash:"))
