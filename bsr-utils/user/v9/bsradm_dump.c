@@ -81,6 +81,15 @@ static void dump_peer_device_options(struct options *options)
 	}
 }
 
+
+static void dump_node_options(struct options *options)
+{
+	if (!STAILQ_EMPTY(options)) {
+		/* printI("# node options:\n"); */
+		__dump_options(options);
+	}
+}
+
 static void dump_options(char *name, struct options *options)
 {
 	dump_options2(name, options, NULL, NULL);
@@ -128,7 +137,9 @@ static void dump_common_info()
 	++indent;
 
 	fake_startup_options(common);
-	dump_options("options", &common->res_options);
+	// BSR-718
+	dump_options2("options", &common->res_options,
+			dump_node_options, &common->node_options);
 	dump_options("net", &common->net_options);
 	dump_options2("disk", &common->disk_options,
 		      dump_peer_device_options, &common->pd_options);
@@ -225,7 +236,8 @@ static void dump_host_info(struct d_host_info *hi)
 	}
 	printI("node-id %s;\n", hi->node_id);
 
-	dump_options("options", &hi->res_options);
+	// BSR-718
+	dump_options("options", &hi->node_options);
 
 	for_each_volume(vol, &hi->volumes) {
 		if (vol->parsed_device || vol->parsed_disk || vol->parsed_meta_disk || verbose)
@@ -341,6 +353,13 @@ static void dump_peer_device_options_xml(struct options *options)
 		__dump_options_xml(options);
 }
 
+
+static void dump_node_options_xml(struct options *options)
+{
+	if (!STAILQ_EMPTY(options))
+		__dump_options_xml(options);
+}
+
 static void dump_options_xml(char *name, struct options *options)
 {
 	dump_options_xml2(name, options, NULL, NULL);
@@ -379,6 +398,9 @@ static void dump_common_info_xml()
 	++indent;
 	fake_startup_options(common);
 	dump_options_xml("options", &common->res_options);
+	// BSR-718
+	dump_options_xml2("options", &common->res_options,
+			  dump_node_options_xml, &common->node_options);
 	dump_options_xml("net", &common->net_options);
 	dump_options_xml2("disk", &common->disk_options,
 			  dump_peer_device_options_xml, &common->pd_options);
@@ -446,7 +468,8 @@ static void dump_host_info_xml(struct d_host_info *hi)
 
 	++indent;
 
-	dump_options_xml("options", &hi->res_options);
+	// BSR-718
+	dump_options_xml("options", &hi->node_options);
 	for_each_volume(vol, &hi->volumes)
 		dump_volume_xml(vol);
 
@@ -592,7 +615,9 @@ int adm_dump(const struct cfg_ctx *ctx)
 		dump_mesh(res);
 
 	fake_startup_options(res);
-	dump_options("options", &res->res_options);
+	// BSR-718
+	dump_options2("options", &res->res_options,
+			dump_node_options, &res->node_options);
 	dump_options("net", &res->net_options);
 	dump_options2("disk", &res->disk_options,
 		      dump_peer_device_options, &res->pd_options);
@@ -631,7 +656,9 @@ int adm_dump_xml(const struct cfg_ctx *ctx)
 	for_each_connection(conn, &res->connections)
 		dump_connection_xml(conn);
 	fake_startup_options(res);
-	dump_options_xml("options", &res->res_options);
+	// BSR-718
+	dump_options_xml2("options", &res->res_options,
+			dump_node_options_xml, &res->node_options);
 	dump_options_xml("net", &res->net_options);
 	dump_options_xml2("disk", &res->disk_options,
 			  dump_peer_device_options_xml, &res->pd_options);

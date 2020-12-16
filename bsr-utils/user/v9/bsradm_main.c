@@ -113,6 +113,7 @@ static int sh_nop(const struct cfg_ctx *);
 static int sh_resources_list(const struct cfg_ctx *);
 // DW-1249 auto-start by svc
 static int sh_resource_option(const struct cfg_ctx *);
+static int sh_node_option(const struct cfg_ctx *);
 static int sh_resources(const struct cfg_ctx *);
 static int sh_resource(const struct cfg_ctx *);
 static int sh_mod_parms(const struct cfg_ctx *);
@@ -382,6 +383,8 @@ static struct adm_cmd sh_nop_cmd = {"sh-nop", sh_nop, ACF2_GEN_SHELL .uc_dialog 
 static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL };
 // DW-1249 auto-start by svc
 static struct adm_cmd sh_resource_option_cmd = { "sh-resource-option", sh_resource_option, ACF1_RESNAME };
+// BSR-718
+static struct adm_cmd sh_node_option_cmd = { "sh-node-option", sh_node_option, ACF1_RESNAME };
 static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL};
 static struct adm_cmd sh_resource_cmd = {"sh-resource", sh_resource, ACF2_SH_RESNAME};
 static struct adm_cmd sh_mod_parms_cmd = {"sh-mod-parms", sh_mod_parms, ACF2_GEN_SHELL};
@@ -482,7 +485,7 @@ struct adm_cmd *cmds[] = {
     &sh_resources_list_cmd,
 	// DW-1249 auto-start by svc
 	&sh_resource_option_cmd,
-
+	&sh_node_option_cmd,
 	&sh_resources_cmd,
 	&sh_resource_cmd,
 	&sh_mod_parms_cmd,
@@ -882,6 +885,35 @@ static int sh_resource_option(const struct cfg_ctx *ctx)
 			printf("%s\n\n", esc(opt->value));
 		}
 		else {			
+			printf("%s\n", esc("NULL"));
+		}
+	}
+
+	return 0;
+}
+
+// BSR-718 move svc-auto-xxx option to node option
+static int sh_node_option(const struct cfg_ctx *ctx)
+{
+	struct d_resource *res = ctx->res;
+	char optionName[64] = "";
+	
+	if (sh_varname) {
+		int len = 0;
+		strcpy(optionName, sh_varname);
+		len = strlen(optionName);
+
+		while (len--) {
+			if (optionName[len] == '_')
+				optionName[len] = '-';
+		}
+		
+		struct d_option* opt = find_opt(&res->me->node_options, optionName);
+
+		if (opt) {
+			printf("%s\n\n", esc(opt->value));
+		}
+		else {		
 			printf("%s\n", esc("NULL"));
 		}
 	}

@@ -673,6 +673,28 @@ static struct options parse_options(struct context_def *options_def)
 	return __parse_options(options_def, NULL, NULL);
 }
 
+// BSR-718
+static void insert_node_options_delegate(void *ctx)
+{
+	struct options *options = ctx;
+	struct field_def *field_def;
+	bool no_prefix;
+	char *value;
+
+	field_def = find_field(&no_prefix, &node_options_ctx, yytext);
+	if (!field_def)
+		pe_options(&node_options_ctx);
+	value = parse_option_value(field_def, no_prefix);
+	insert_tail(options, new_opt((char *)field_def->name, value));
+}
+// BSR-718
+static void parse_res_options(struct options *res_options, struct options *node_options)
+{
+	*res_options = __parse_options(&resource_options_ctx, 
+					insert_node_options_delegate, 
+					node_options);
+}
+
 static void insert_pd_options_delegate(void *ctx)
 {
 	struct options *options = ctx;
@@ -1114,7 +1136,8 @@ static void parse_host_section(struct d_resource *res,
 	fline = line;
 
 	host = calloc(1,sizeof(struct d_host_info));
-	STAILQ_INIT(&host->res_options);
+	// BSR-718
+	STAILQ_INIT(&host->node_options);
 	STAILQ_INIT(&host->volumes);
 	host->on_hosts = *on_hosts;
 	host->config_line = c_section_start;
@@ -1212,7 +1235,8 @@ static void parse_host_section(struct d_resource *res,
 			break;
 		case TK_OPTIONS:
 			EXP('{');
-			host->res_options = parse_options(&resource_options_ctx);
+			// BSR-718
+			host->node_options = parse_options(&node_options_ctx);
 			break;
 		case TK_SKIP:
 			parse_skip();
@@ -1264,7 +1288,8 @@ void parse_stacked_section(struct d_resource* res)
 	fline = line;
 
 	host = calloc(1, sizeof(struct d_host_info));
-	STAILQ_INIT(&host->res_options);
+	// BSR-718
+	STAILQ_INIT(&host->node_options);
 	STAILQ_INIT(&host->on_hosts);
 	STAILQ_INIT(&host->volumes);
 	insert_tail(&res->all_hosts, host);
@@ -1546,7 +1571,8 @@ static struct d_host_info *parse_peer_node_id(void)
 	struct d_host_info *host;
 
 	host = calloc(1,sizeof(struct d_host_info));
-	STAILQ_INIT(&host->res_options);
+	// BSR-718
+	STAILQ_INIT(&host->node_options);
 	STAILQ_INIT(&host->volumes);
 	STAILQ_INIT(&host->on_hosts);
 
@@ -1767,6 +1793,8 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 	STAILQ_INIT(&res->disk_options);
 	STAILQ_INIT(&res->pd_options);
 	STAILQ_INIT(&res->res_options);
+	// BSR-718
+	STAILQ_INIT(&res->node_options);
 	STAILQ_INIT(&res->startup_options);
 	STAILQ_INIT(&res->handlers);
 	STAILQ_INIT(&res->proxy_options);
@@ -1874,7 +1902,8 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 		case TK_OPTIONS:
 			check_upr("resource options section", "%s:res_options", res->name);
 			EXP('{');
-			options = parse_options(&resource_options_ctx);
+			// BSR-718
+			parse_res_options(&options, &res->node_options);
 			STAILQ_CONCAT(&res->res_options, &options);
 			break;
 		case TK_CONNECTION:

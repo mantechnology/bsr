@@ -146,10 +146,8 @@ GENL_struct(BSR_NLA_RESOURCE_OPTS, 4, res_opts,
 	__s32_field_def(11, 0 /* OPTIONAL */, quorum, BSR_QUORUM_DEF)
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, BSR_ON_NO_QUORUM_DEF)
 	__s32_field_def(13, 0 /* OPTIONAL */, max_req_write_cnt, BSR_MAX_REQ_WRITE_CNT_DEF)	// DW-1200 request buffer maximum size
-	__flg_field_def(14, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
-	__flg_field_def(15, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
-	__u32_field_def(16, 0 /* OPTIONAL */, max_req_write_MB, BSR_MAX_REQ_WRITE_MB_DEF)		// DW-1925
-	__u32_field_def(17, 0 /* OPTIONAL */, on_req_write_congestion, BSR_ON_REQ_WRITE_CONGESTION_DEF)	// DW-1925
+	__u32_field_def(14, 0 /* OPTIONAL */, max_req_write_MB, BSR_MAX_REQ_WRITE_MB_DEF)		// DW-1925
+	__u32_field_def(15, 0 /* OPTIONAL */, on_req_write_congestion, BSR_ON_REQ_WRITE_CONGESTION_DEF)	// DW-1925
 )
 
 GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
@@ -370,6 +368,13 @@ GENL_struct(BSR_NLA_UPDATED_GI_DEVICE_MDF_FLAG, 34, bsr_updated_gi_device_mdf_fl
 GENL_struct(BSR_NLA_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 35, bsr_updated_gi_peer_device_mdf_flag_info,
 	__str_field(1, BSR_GENLA_F_MANDATORY, peer_device_mdf, 256)
 )
+
+// BSR-718 move svc-auto-xxx option to node option
+GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
+	__flg_field_def(1, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
+	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
+)
+
 
 /*
  * Notifications and commands (genlmsghdr->cmd)

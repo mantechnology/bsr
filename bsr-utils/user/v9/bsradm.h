@@ -136,7 +136,8 @@ struct d_host_info
 	unsigned int by_address:1; /* Match to machines by address, not by names (=on_hosts) */
 	unsigned int used_as_me:1; /* May be set in set_me_in_resource() */
 	unsigned int require_minor:1; /* Requires device */
-	struct options res_options; /* Additional per host options */
+	// BSR-718
+	struct options node_options; /* Additional per host options */
 	char* node_id;
 };
 
@@ -225,6 +226,8 @@ struct d_resource
 	struct options disk_options;
 	struct options pd_options; /* peer device options */
 	struct options res_options;
+	// BSR-718
+	struct options node_options;
 	struct options startup_options;
 	struct options handlers;
 	struct options proxy_options;

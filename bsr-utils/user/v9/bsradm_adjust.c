@@ -736,21 +736,21 @@ adjust_net(const struct cfg_ctx *ctx, struct d_resource* running, int can_do_pro
 			}
 		}
 	}
-		for_each_connection(conn, &ctx->res->connections) {
+	for_each_connection(conn, &ctx->res->connections) {
 		struct connection *running_conn = NULL;
 		//struct path *path;
 		const struct cfg_ctx tmp_ctx = { .res = ctx->res, .conn = conn };
 		
-			if (conn->ignore)
-				continue;
-		
-			if (running)
-				running_conn = matching_conn(conn, &running->connections, false);
-			if (!running_conn) {
-				schedule_deferred_cmd(&new_peer_cmd, &tmp_ctx, CFG_NET_PREP_UP);
-				schedule_deferred_cmd(&new_path_cmd, &tmp_ctx, CFG_NET_PATH);
-				schedule_deferred_cmd(&connect_cmd, &tmp_ctx, CFG_NET_CONNECT);
-				schedule_peer_device_options(&tmp_ctx);
+		if (conn->ignore)
+			continue;
+	
+		if (running)
+			running_conn = matching_conn(conn, &running->connections, false);
+		if (!running_conn) {
+			schedule_deferred_cmd(&new_peer_cmd, &tmp_ctx, CFG_NET_PREP_UP);
+			schedule_deferred_cmd(&new_path_cmd, &tmp_ctx, CFG_NET_PATH);
+			schedule_deferred_cmd(&connect_cmd, &tmp_ctx, CFG_NET_CONNECT);
+			schedule_peer_device_options(&tmp_ctx);
 		}
 		else {
 			struct context_def *oc = &show_net_options_ctx;
