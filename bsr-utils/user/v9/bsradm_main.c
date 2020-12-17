@@ -99,6 +99,7 @@ extern FILE *yyin;
 static int adm_adjust(const struct cfg_ctx *ctx);
 static int adm_new_minor(const struct cfg_ctx *ctx);
 static int adm_resource(const struct cfg_ctx *);
+static int adm_node(const struct cfg_ctx *);
 static int adm_attach(const struct cfg_ctx *);
 static int adm_connect(const struct cfg_ctx *);
 static int adm_new_peer(const struct cfg_ctx *);
@@ -342,6 +343,7 @@ int adm_adjust_wp(const struct cfg_ctx *ctx)
 /*  */ struct adm_cmd disconnect_cmd = {"disconnect", adm_bsrsetup, &disconnect_cmd_ctx, ACF1_DISCONNECT};
 static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
 /*  */ struct adm_cmd res_options_cmd = {"resource-options", adm_resource, &resource_options_ctx, ACF1_RESNAME};
+/*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_ctx, ACF1_RESNAME};
 static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd primary_cmd = {"primary", adm_bsrsetup, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
@@ -446,6 +448,7 @@ struct adm_cmd *cmds[] = {
 	&disconnect_cmd,
 	&up_cmd,
 	&res_options_cmd,
+	&node_options_cmd,
 	&peer_device_options_cmd,
 	&down_cmd,
 	&primary_cmd,
@@ -531,6 +534,12 @@ struct adm_cmd *cmds[] = {
 	"resource-options",
 	adm_resource,
 	&resource_options_ctx,
+	ACF1_RESNAME
+};
+/*  */ struct adm_cmd node_options_defaults_cmd = {
+	"node-options",
+	adm_node,
+	&node_options_ctx,
 	ACF1_RESNAME
 };
 /*  */ struct adm_cmd disk_options_defaults_cmd = {
@@ -1389,6 +1398,27 @@ int adm_new_minor(const struct cfg_ctx *ctx)
 	return ex;
 }
 
+// BSR-718
+static int adm_node(const struct cfg_ctx *ctx)
+{
+	struct d_resource *res = ctx->res;
+	char *argv[MAX_ARGS];
+	int argc = 0;
+	bool reset = (ctx->cmd == &node_options_defaults_cmd);
+
+	argv[NA(argc)] = bsrsetup;
+	argv[NA(argc)] = (char *)ctx->cmd->name; /* "node-options"*/
+	argv[NA(argc)] = ssprintf("%s", res->name);
+	if (reset)
+		argv[NA(argc)] = "--set-defaults";
+	make_options(argv[NA(argc)], &res->me->node_options);
+	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
+	argv[NA(argc)] = NULL;
+
+	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+}
+
+
 static int adm_resource(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res = ctx->res;
@@ -2214,7 +2244,7 @@ static int adm_up(const struct cfg_ctx *ctx)
 	struct d_volume *vol;
 
 	schedule_deferred_cmd(&new_resource_cmd, ctx, CFG_PREREQ);
-
+	schedule_deferred_cmd(&node_options_defaults_cmd, ctx, CFG_RESOURCE);
 	set_peer_in_resource(ctx->res, true);
 	for_each_connection(conn, &ctx->res->connections) {
 		struct peer_device *peer_device;

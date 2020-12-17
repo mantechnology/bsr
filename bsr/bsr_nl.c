@@ -97,6 +97,8 @@ int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+// BSR-718
+int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info);
@@ -4915,6 +4917,37 @@ fail:
 	return 0;
 }
 
+int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
+{
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
+	struct node_opts node_opts;
+	int err;
+
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
+	if (!adm_ctx.reply_skb)
+		return retcode;
+
+	node_opts = adm_ctx.resource->node_opts;
+	if (should_set_defaults(info))
+		set_node_opts_defaults(&node_opts);
+
+	err = node_opts_from_attrs_for_change(&node_opts, info);
+	if (err && err != -ENOMSG) {
+		retcode = ERR_MANDATORY_TAG;
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		goto fail;
+	}
+
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+	adm_ctx.resource->node_opts = node_opts;
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
+
+fail:
+	bsr_adm_finish(&adm_ctx, info, retcode);
+	return 0;
+}
+
 static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 {
 	struct bsr_resource *resource = peer_device->connection->resource;
@@ -5479,6 +5512,11 @@ put_result:
 	if (err)
 		goto out;
 	err = res_opts_to_skb(skb, &resource->res_opts, !capable(CAP_SYS_ADMIN));
+	if (err)
+		goto out;
+
+	// BSR-718
+	err = node_opts_to_skb(skb, &resource->node_opts, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto out;
 
