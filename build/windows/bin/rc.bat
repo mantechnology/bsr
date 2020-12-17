@@ -46,7 +46,7 @@ set /a adj_retry=0
 for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set ADJUST=0
 
-	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_auto_up %%a`) do (
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-node-option -n svc_auto_up %%a`) do (
 
 		if /i "%%c" == "yes" (
 			@(set ADJUST=1)
@@ -119,7 +119,7 @@ REM BSR-593 auto-down by svc
 for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set DOWN=0
 
-	for /f "usebackq tokens=*" %%c in (`bsradm sh-resource-option -n svc_auto_down %%a`) do (
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-node-option -n svc_auto_down %%a`) do (
 
 		if /i "%%c" == "yes" (
 			@(set DOWN=1)

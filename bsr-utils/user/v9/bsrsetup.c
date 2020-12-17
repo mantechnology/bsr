@@ -285,6 +285,7 @@ struct resources_list {
 	struct resources_list *next;
 	char *name;
 	struct nlattr *res_opts;
+	struct nlattr *node_opts;
 	struct resource_info info;
 	struct resource_statistics statistics;
 };
@@ -451,6 +452,12 @@ struct bsr_cmd commands[] = {
 	 .set_defaults = true,
 	 .ctx = &resource_options_ctx,
 	 .summary = "Change the resource options of an existing resource." },
+
+	{"node-options", CTX_RESOURCE, BSR_ADM_NODE_OPTS, BSR_NLA_NODE_OPTS,
+		F_CONFIG_CMD,
+	 .set_defaults = true,
+	 .ctx = &node_options_ctx,
+	 .summary = "Change the node options of an existing resource." },
 
 	{"peer-device-options", CTX_PEER_DEVICE, BSR_ADM_CHG_PEER_DEVICE_OPTS,
 		BSR_NLA_PEER_DEVICE_OPTS, F_CONFIG_CMD,
@@ -2233,6 +2240,9 @@ static int show_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		for (device = devices; device; device = device->next)
 			show_volume(device);
 
+		// BSR-718
+		print_options(resource->node_opts, &node_options_ctx, "options");
+
 		--indent;
 		printI("}\n");
 
@@ -3050,6 +3060,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 	if (cfg.ctx_resource_name) {
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
+		struct nlattr *node_opts = global_attrs[BSR_NLA_NODE_OPTS];
 
 		if (!r) {
 			CLI_ERRO_LOG(false, true, "failed to allocate resources list(20)");
@@ -3071,6 +3082,22 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 			r->res_opts = malloc(size);
 			memcpy(r->res_opts, res_opts, size);
 		}
+
+		// BSR-718
+		if (node_opts) {
+			int size;
+
+			if (node_opts->nla_len <= NLA_HDRLEN) {
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				exit(20);
+			}
+
+			size = nla_total_size((int)nla_len(node_opts));
+
+			r->node_opts = malloc(size);
+			memcpy(r->node_opts, node_opts, size);
+		}
+
 		resource_info_from_attrs(&r->info, info);
 		memset(&r->statistics, -1, sizeof(r->statistics));
 		resource_statistics_from_attrs(&r->statistics, info);

@@ -1311,6 +1311,8 @@ void expand_common(void)
 			expand_opts(res, &proxy_options_ctx, &template->proxy_options, &res->proxy_options);
 			expand_opts(res, &handlers_ctx, &template->handlers, &res->handlers);
 			expand_opts(res, &resource_options_ctx, &template->res_options, &res->res_options);
+			// BSR-718
+			expand_opts(res, &node_options_ctx, &template->node_options, &res->node_options);
 
 			if (template->stacked_timeouts)
 				res->stacked_timeouts = 1;
@@ -1321,6 +1323,8 @@ void expand_common(void)
 		/* now that common disk options (if any) have been propagated to the
 		 * resource level, further propagate them to the volume level. */
 		for_each_host(h, &res->all_hosts) {
+			// BSR-718
+			expand_opts(res, &node_options_ctx, &res->node_options, &h->node_options);
 			for_each_volume(vol, &h->volumes) {
 				expand_opts(res, &disk_options_ctx, &res->disk_options, &vol->disk_options);
 				expand_opts(res, &peer_device_options_ctx, &res->pd_options, &vol->pd_options);

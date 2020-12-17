@@ -1459,6 +1459,7 @@ struct bsr_resource {
 	struct list_head connections;
 	struct list_head resources;
 	struct res_opts res_opts;
+	struct node_opts node_opts;
 	unsigned int max_node_id;
 	struct mutex conf_update;	/* for ready-copy-update of net_conf and disk_conf
 					   and devices, connection and peer_devices lists */

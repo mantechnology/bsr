@@ -136,7 +136,8 @@ struct d_host_info
 	unsigned int by_address:1; /* Match to machines by address, not by names (=on_hosts) */
 	unsigned int used_as_me:1; /* May be set in set_me_in_resource() */
 	unsigned int require_minor:1; /* Requires device */
-	struct options res_options; /* Additional per host options */
+	// BSR-718
+	struct options node_options; /* Additional per host options */
 	char* node_id;
 };
 
@@ -225,6 +226,8 @@ struct d_resource
 	struct options disk_options;
 	struct options pd_options; /* peer device options */
 	struct options res_options;
+	// BSR-718
+	struct options node_options;
 	struct options startup_options;
 	struct options handlers;
 	struct options proxy_options;
@@ -321,7 +324,9 @@ extern struct d_resource *running_res_by_name(const char *name, bool parse);
 extern struct adm_cmd new_minor_cmd;
 extern struct adm_cmd new_resource_cmd;
 extern struct adm_cmd res_options_cmd;
+extern struct adm_cmd node_options_cmd;
 extern struct adm_cmd res_options_defaults_cmd;
+extern struct adm_cmd node_options_defaults_cmd;
 extern struct adm_cmd attach_cmd;
 extern struct adm_cmd disk_options_cmd;
 extern struct adm_cmd disk_options_defaults_cmd;

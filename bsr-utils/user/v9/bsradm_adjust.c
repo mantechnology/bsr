@@ -736,21 +736,21 @@ adjust_net(const struct cfg_ctx *ctx, struct d_resource* running, int can_do_pro
 			}
 		}
 	}
-		for_each_connection(conn, &ctx->res->connections) {
+	for_each_connection(conn, &ctx->res->connections) {
 		struct connection *running_conn = NULL;
 		//struct path *path;
 		const struct cfg_ctx tmp_ctx = { .res = ctx->res, .conn = conn };
 		
-			if (conn->ignore)
-				continue;
-		
-			if (running)
-				running_conn = matching_conn(conn, &running->connections, false);
-			if (!running_conn) {
-				schedule_deferred_cmd(&new_peer_cmd, &tmp_ctx, CFG_NET_PREP_UP);
-				schedule_deferred_cmd(&new_path_cmd, &tmp_ctx, CFG_NET_PATH);
-				schedule_deferred_cmd(&connect_cmd, &tmp_ctx, CFG_NET_CONNECT);
-				schedule_peer_device_options(&tmp_ctx);
+		if (conn->ignore)
+			continue;
+	
+		if (running)
+			running_conn = matching_conn(conn, &running->connections, false);
+		if (!running_conn) {
+			schedule_deferred_cmd(&new_peer_cmd, &tmp_ctx, CFG_NET_PREP_UP);
+			schedule_deferred_cmd(&new_path_cmd, &tmp_ctx, CFG_NET_PATH);
+			schedule_deferred_cmd(&connect_cmd, &tmp_ctx, CFG_NET_CONNECT);
+			schedule_peer_device_options(&tmp_ctx);
 		}
 		else {
 			struct context_def *oc = &show_net_options_ctx;
@@ -920,6 +920,7 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	
 	/* necessary per resource actions */
 	int do_res_options = 0;
+	int do_node_options = 0;
 	
 	/* necessary per volume actions are flagged
 	 * in the vol->adj_* members. */
@@ -992,12 +993,16 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 
 	if (running) {
 		do_res_options = !opts_equal(&resource_options_ctx, &ctx->res->res_options, &running->res_options);
+		do_node_options = !opts_equal(&node_options_ctx, &ctx->res->me->node_options, &running->me->node_options);
 	} else {
 		schedule_deferred_cmd(&new_resource_cmd, ctx, CFG_PREREQ);
 	}
 
 	if (do_res_options)
 		schedule_deferred_cmd(&res_options_defaults_cmd, ctx, CFG_RESOURCE);
+
+	if (!running || do_node_options) 
+		schedule_deferred_cmd(&node_options_defaults_cmd, ctx, CFG_RESOURCE);
 
 	if (adjust_flags & ADJUST_NET)
 		adjust_net(ctx, running, can_do_proxy);
