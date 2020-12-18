@@ -25,33 +25,22 @@ unsigned long long ext_block_bitmap(struct ext_super_block *sb,
 int ext_used_blocks(unsigned int group, char * bitmap,
 			unsigned int nbytes, unsigned int offset, unsigned int count)
 {
-	int p = 0;
 	int used = 0;
 	unsigned int i;
 	unsigned int j;
-
-	static char buf[128];
-	int buf_offset;
 	
-	buf_offset = sprintf(buf, "used_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
 		if (test_bit_le(i, (void *)bitmap)) {
 			used++;
-			if (p)
-				buf_offset += sprintf(buf + buf_offset,", ");
-			buf_offset += sprintf(buf + buf_offset, "%u", i + offset);
 			for (j = ++i; j < count && test_bit_le(j, (void *)bitmap); j++)
 				used++;
 			if (--j != i) {
-				buf_offset += sprintf(buf + buf_offset, "-%u", j + offset);
 				i = j;
 			}
-			p = 1;
 		}
 	}
 	
-	bsr_info(NO_OBJECT, "%s\n", buf);
 	return used;
 }
 
@@ -59,33 +48,22 @@ int ext_used_blocks(unsigned int group, char * bitmap,
 int ext_free_blocks(unsigned int group, char * bitmap,
 			unsigned int nbytes, unsigned int offset, unsigned int count)
 {
-	int p = 0;
 	unsigned int i;
 	unsigned int j;
 	int free = 0;
 
-	static char buf[128];
-	int buf_offset;
-
-	buf_offset = sprintf(buf, "free_blocks : ");
 	offset += group * nbytes;
 	for (i = 0; i < count; i++) {
 		if (!test_bit_le(i, (void *)bitmap)) {
 			free++;
-			if (p)
-				buf_offset += sprintf(buf + buf_offset,", ");
-			buf_offset += sprintf(buf + buf_offset, "%u", i + offset);
 			for (j = ++i; j < count && !test_bit_le(j, (void *)bitmap); j++)
 				free++;
 			if (--j != i) {
-				buf_offset += sprintf(buf + buf_offset, "-%u", j + offset);
 				i = j;
 			}
-			p = 1;
 		}
 	}
 	
-	bsr_info(NO_OBJECT, "%s\n", buf);
 	return free;
 }
 
@@ -143,14 +121,14 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	memset(bitmap_buf->Buffer, 0, bitmap_buf->BitmapSize);
 
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "=============================\n");
-		bsr_info(NO_OBJECT, "first_data_block : %lu \n", first_data_block);
-		bsr_info(NO_OBJECT, "total block count : %llu \n", total_block);	
-		bsr_info(NO_OBJECT, "blocks_per_group : %lu \n", blocks_per_group);
-		bsr_info(NO_OBJECT, "group descriptor size : %u \n", desc_size);
-		bsr_info(NO_OBJECT, "block size : %lu \n", bytes_per_block);
-		bsr_info(NO_OBJECT, "bitmap size : %lld \n", bitmap_size);
-		bsr_info(NO_OBJECT, "group count : %lu \n", group_count);
+		bsr_info(NO_OBJECT, "=============================");
+		bsr_info(NO_OBJECT, "first_data_block : %lu", first_data_block);
+		bsr_info(NO_OBJECT, "total block count : %llu", total_block);	
+		bsr_info(NO_OBJECT, "blocks_per_group : %lu", blocks_per_group);
+		bsr_info(NO_OBJECT, "group descriptor size : %u", desc_size);
+		bsr_info(NO_OBJECT, "block size : %lu", bytes_per_block);
+		bsr_info(NO_OBJECT, "bitmap size : %lld", bitmap_size);
+		bsr_info(NO_OBJECT, "group count : %lu", group_count);
 		bsr_info(NO_OBJECT, "=============================\n");
 	}
 
@@ -197,16 +175,16 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}
 		
 		if (debug_fast_sync) {
-			bsr_info(NO_OBJECT, "Group %u (Blocks %u ~ %u) \n", group_no, first_block, last_block);
-			bsr_info(NO_OBJECT, "block bitmap : %llu\n", bg_block_bitmap);
-			bsr_info(NO_OBJECT, "block bitmap offset : %llu\n", bg_block_bitmap * bytes_per_block);
+			bsr_info(NO_OBJECT, "Group %u (Blocks %u ~ %u)", group_no, first_block, last_block);
+			bsr_info(NO_OBJECT, "block bitmap : %llu", bg_block_bitmap);
+			bsr_info(NO_OBJECT, "block bitmap offset : %llu", bg_block_bitmap * bytes_per_block);
 		}
 
 
 		if (block_uninit) {
 			if (debug_fast_sync) {
-				bsr_info(NO_OBJECT, "skip BLOCK_UNINIT group\n");
-				bsr_info(NO_OBJECT, "=============================\n");
+				bsr_info(NO_OBJECT, "skip BLOCK_UNINIT group");
+				bsr_info(NO_OBJECT, "=============================");
 				free_blocks_co += bytes_per_block * BITS_PER_BYTE;
 			}
 			continue;
@@ -230,25 +208,25 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}
 
 		if (debug_fast_sync) {
-			bsr_info(NO_OBJECT, "read bitmap_block (%ld)\n", ret);
+			bsr_info(NO_OBJECT, "read bitmap_block (%ld)", ret);
 			used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
 							blocks_per_group,
 							first_data_block,
 							last_block - first_block + 1);
-			bsr_info(NO_OBJECT, "used block count : %d\n", used);
+			bsr_info(NO_OBJECT, "used block count : %d", used);
 
 			free = ext_free_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
 							blocks_per_group,
 							first_data_block, 
 							last_block - first_block + 1);
-			bsr_info(NO_OBJECT, "free block count : %d\n", free);
-			bsr_info(NO_OBJECT, "=============================\n");
+			bsr_info(NO_OBJECT, "free block count : %d", free);
+			bsr_info(NO_OBJECT, "=============================");
 			free_blocks_co += free;
 		}
 
 	}
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "free_blocks : %lu\n", free_blocks_co);
+		bsr_info(NO_OBJECT, "free_blocks : %lu", free_blocks_co);
 	}
 
 	return bitmap_buf;

@@ -69,15 +69,15 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	memset(bitmap_buf->Buffer, 0xFF, bitmap_buf->BitmapSize);
 
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "=============================\n");
-		bsr_info(NO_OBJECT, "version : %d \n", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
-		bsr_info(NO_OBJECT, "ag_count : %d \n", ag_count);
-		bsr_info(NO_OBJECT, "total block count : %llu \n", total_block);	
-		bsr_info(NO_OBJECT, "blocks_per_ag : %ld \n", (long int)ag_blocks_offset);
-		bsr_info(NO_OBJECT, "block size : %d \n", blk_size);
-		bsr_info(NO_OBJECT, "sector size : %d \n", sect_size);
-		bsr_info(NO_OBJECT, "bitmap size : %lld \n", bitmap_buf->BitmapSize);
-		bsr_info(NO_OBJECT, "=============================\n");
+		bsr_info(NO_OBJECT, "=============================");
+		bsr_info(NO_OBJECT, "version : %d", be16_to_cpu(XFS_SB_VERSION_NUM(xfs_sb)));
+		bsr_info(NO_OBJECT, "ag_count : %d", ag_count);
+		bsr_info(NO_OBJECT, "total block count : %llu", total_block);	
+		bsr_info(NO_OBJECT, "blocks_per_ag : %ld", (long int)ag_blocks_offset);
+		bsr_info(NO_OBJECT, "block size : %d", blk_size);
+		bsr_info(NO_OBJECT, "sector size : %d", sect_size);
+		bsr_info(NO_OBJECT, "bitmap size : %lld", bitmap_buf->BitmapSize);
+		bsr_info(NO_OBJECT, "=============================");
 	}
 
 	for (ag_no = 0; ag_no < ag_count; ag_no++) {
@@ -121,7 +121,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
 
 		if (debug_fast_sync) {
-			bsr_info(NO_OBJECT, "[ag_no:%d] first leaf node bb_level : %hd bb_numrecs : %hd\n", ag_no, bb_level, bb_numrecs);
+			bsr_info(NO_OBJECT, "[ag_no:%d] first leaf node bb_level : %hd bb_numrecs : %hd", ag_no, bb_level, bb_numrecs);
 		}
 
 		do {
@@ -177,7 +177,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 
 	}
 	if (debug_fast_sync) {
-		bsr_info(NO_OBJECT, "total free_blocks : %llu free_bits : %llu\n", free_blocks_co, free_bits_co);
+		bsr_info(NO_OBJECT, "total free_blocks : %llu free_bits : %llu", free_blocks_co, free_bits_co);
 	}
 
 	return bitmap_buf;
