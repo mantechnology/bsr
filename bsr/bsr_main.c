@@ -194,7 +194,7 @@ bool disable_sendpage;
 #endif
 bool allow_oos = false;
 #ifdef _LIN_FAST_SYNC
-bool debug_fast_sync = true;
+bool debug_fast_sync = false;
 #endif
 /* Module parameter for setting the user mode helper program
  * to run. Default is /sbin/bsradm */
