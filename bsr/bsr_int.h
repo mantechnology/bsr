@@ -3237,8 +3237,9 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	// DW-1755
 	case EP_PASSTHROUGH:	
 		// BSR-720 force detach if io_error_count exceeds max_passthrough_count
-		if (max_passthrough_cnt && (atomic_read(&device->io_error_count) > max_passthrough_cnt)) {	
-			do_force_detach = true;
+		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
+			if (max_passthrough_cnt && (atomic_read(&device->io_error_count) > max_passthrough_cnt))
+				do_force_detach = true;
 		}
 		
 		// DW-1814 
