@@ -857,6 +857,7 @@ const struct en_map quorum_map[] = {
 #ifdef _WIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
+	{ "max-passthrough-count", NUMERIC(max_passthrough_count, MAX_PASSTHROUGH_COUNT) }, \
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
 	/*{ "disk-barrier", BOOLEAN(disk_barrier, DISK_BARRIER) }, */			\
 	{ "disk-flushes", BOOLEAN(disk_flushes, DISK_FLUSHES) }, 			\
@@ -878,6 +879,7 @@ const struct en_map quorum_map[] = {
 #else // _LIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
+	{ "max-passthrough-count", NUMERIC(max_passthrough_count, MAX_PASSTHROUGH_COUNT) }, \
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
 	{ "disk-barrier", BOOLEAN(disk_barrier, DISK_BARRIER) },			\
 	{ "disk-flushes", BOOLEAN(disk_flushes, DISK_FLUSHES) },			\
