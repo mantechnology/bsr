@@ -114,7 +114,7 @@ GENL_struct(BSR_NLA_DISK_CONF, 3, disk_conf,
 
 	__u32_field_def(6, BSR_GENLA_F_MANDATORY,	on_io_error, BSR_ON_IO_ERROR_DEF)
 	/*__u32_field_def(7, BSR_GENLA_F_MANDATORY,	fencing_policy, BSR_FENCING_DEF)*/
-
+	__u32_field_def(8, BSR_GENLA_F_MANDATORY,	max_passthrough_count, BSR_MAX_PASSTHROUGH_COUNT_DEF) // BSR-720 
 	__s32_field_def(9,	BSR_GENLA_F_MANDATORY,	resync_after, BSR_MINOR_NUMBER_DEF)
 	__u32_field_def(10,	BSR_GENLA_F_MANDATORY,	al_extents, BSR_AL_EXTENTS_DEF)
 
