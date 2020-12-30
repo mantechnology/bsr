@@ -950,17 +950,26 @@ int main(int argc, char* argv [])
 		else if (!strcmp(argv[argIndex], "/driver_install"))
 		{
 			argIndex++;
-			return DriverInstallInf(L"DefaultInstall", argv[argIndex]);
+			if (argIndex < argc)
+				return DriverInstallInf(L"DefaultInstall", argv[argIndex]);
+			else
+				usage();
 		}
 		else if (!strcmp(argv[argIndex], "/driver_uninstall"))
 		{
 			argIndex++;
-			return DriverInstallInf(L"DefaultUninstall", argv[argIndex]);
+			if (argIndex < argc)
+				return DriverInstallInf(L"DefaultUninstall", argv[argIndex]);
+			else
+				usage();
 		}
 		else if (!strcmp(argv[argIndex], "/md5"))
 		{
 			argIndex++;
-			return generating_md5(argv[argIndex]);
+			if (argIndex < argc)
+				return generating_md5(argv[argIndex]);
+			else
+				usage();
 		}
 #endif
 		else {
