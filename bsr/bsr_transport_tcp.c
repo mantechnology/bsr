@@ -879,6 +879,13 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		case -EHOSTDOWN:
 		case -EHOSTUNREACH:
 			err = -EAGAIN;
+			break;
+#ifdef _LIN
+		// BSR-721
+		case -EINVAL:
+			err = -EADDRNOTAVAIL;
+			break;
+#endif
 		}
 	}
 
@@ -896,7 +903,8 @@ out:
 		// DW-1272 : retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
 		if (err != -EAGAIN && err != -EINVALADDR)
 #else // _LIN
-		if (err != -EAGAIN)
+		// BSR-721
+		if (err != -EAGAIN && err != -EADDRNOTAVAIL)
 #endif
 			tr_err(transport, "%s failed, err = %d", what, err);
 	} else {
@@ -1706,7 +1714,11 @@ out:
 		sock_release(s_listen);
 
 	if (err < 0 &&
-	    err != -EAGAIN && err != -EINTR && err != -ERESTARTSYS && err != -EADDRINUSE)
+	    err != -EAGAIN && err != -EINTR && err != -ERESTARTSYS && err != -EADDRINUSE 
+#ifdef _LIN // BSR-721
+		&& err != -EADDRNOTAVAIL
+#endif
+		)
 		tr_err(transport, "%s failed, err = %d", what, err);
 
 	kfree(listener);
