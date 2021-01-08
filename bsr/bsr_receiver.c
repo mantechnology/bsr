@@ -829,6 +829,7 @@ static bool conn_connect(struct bsr_connection *connection)
 	struct net_conf *nc;
 	bool discard_my_data;
 	bool have_mutex;
+	bool no_addr = false;
 
 start:
 	
@@ -850,6 +851,30 @@ start:
 		if (connection->cstate[NOW] == C_DISCONNECTING)
 			return false;
 		goto retry;
+#ifdef _LIN
+	// BSR-721 modify to retry connection in Connecting state if there is no locally configured address
+	} else if (err == -EADDRNOTAVAIL) {
+		struct net_conf *nc;
+		int connect_int;
+		long t;
+
+		rcu_read_lock();
+		nc = rcu_dereference(transport->net_conf);
+		connect_int = nc ? nc->connect_int : 10;
+		rcu_read_unlock();
+
+		if (!no_addr) {
+			bsr_warn(connection,
+				  "Configured local address not found, retrying every %d sec, "
+				  "err=%d", connect_int, err);
+			no_addr = true;
+		}
+
+		t = schedule_timeout_interruptible(connect_int * HZ);
+		if (t || connection->cstate[NOW] == C_DISCONNECTING)
+			return false;
+		goto start;
+#endif
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){

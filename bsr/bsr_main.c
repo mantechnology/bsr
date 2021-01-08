@@ -741,6 +741,10 @@ restart:
 			bsr_info(resource, "Restarting %s thread", thi->name);
 		thi->t_state = RUNNING;
 		spin_unlock_irqrestore(&thi->t_lock, flags);
+#ifdef _LIN
+		// BSR-721
+		flush_signals(current); /* likely it got a signal to look at t_state... */
+#endif
 		goto restart;
 	}
 #ifdef _WIN
