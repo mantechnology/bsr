@@ -28,7 +28,6 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 {
 	unsigned int ag_count = 0;
 	unsigned int ag_no = 0;
-	//unsigned int agf_root = 0;
 	int blk_size = 0;
 	int sect_size = 0;
 	unsigned short bb_level = 0;
@@ -36,7 +35,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	int bb_numrecs_no = 0;
 	int bb_leftsib = 0;
 	int bb_rightsib = 0;
-	//xfs_agf_t agf;
+	xfs_agf_t agf;
 	struct xfs_btree_block btsb;
 	xfs_alloc_rec_t ar;
 	long long int bitmap_size;
@@ -89,8 +88,26 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		// read bitmap ptr node
 		// find first btree leaf block
 
+		/**
+		 * BSR-725 read xfs_agf
+		 * 
+		 * from xfs_format.h
+		 *
+		 * Super block
+		 * Fits into a sector-sized buffer at address 0 of each allocation group.
+		 * Only the first of these is ever updated except during growfs.
+		 *
+		 * Allocation group header
+		 * This is divided into three structures (agf, agi, agfl), placed in sequential 512-byte
+		 * buffers after a copy of the superblock (also in a 512-byte buffer).
+		 * 
+		 */		
+		offset = fd->f_op->llseek(fd, sect_size + (ag_blocks_offset * ag_no * blk_size), SEEK_SET);
+		ret = bsr_read(fd, (char *)&agf, sizeof(struct xfs_agf), &fd->f_pos);
+		
 		// Move position to btree first leaf block
-		offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + 1) * blk_size, SEEK_SET);
+		// BSR-725 fix to set the offset using agf_roots
+		offset = fd->f_op->llseek(fd, (ag_blocks_offset * ag_no + be32_to_cpu(agf.agf_roots[0])) * blk_size, SEEK_SET);
 		if (offset < 0) {
 			bsr_err(NO_OBJECT, "failed to lseek first leaf node of btree_block (err=%lld)\n", offset);
 			goto fail_and_free;
