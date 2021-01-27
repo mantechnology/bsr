@@ -2704,6 +2704,12 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #endif
 
 #ifdef _LIN
+	// BSR-730 prevent writing when device is failed or below.
+	if (device->disk_state[NOW] <= D_FAILED) {
+		bsr_bio_endio(bio, -ENODEV);
+		MAKE_REQUEST_RETURN;
+	}
+
 /* 54efd50 block: make generic_make_request handle arbitrarily sized bios
  * introduced blk_queue_split(), which is supposed to split (and put on the
  * current->bio_list bio chain) any bio that is violating the queue limits.
