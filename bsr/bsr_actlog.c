@@ -1365,7 +1365,8 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!get_ldev(device)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(device, "%s => get_ldev failed, sector(%llu), mode(%u)", caller, sector, mode);
+		if (bsr_ratelimit())
+			bsr_err(device, "%s => get_ldev failed, sector(%llu), mode(%u)", caller, sector, mode);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
@@ -1455,7 +1456,8 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!get_ldev(device)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(device, "get_ldev failed, sector(%llu)", sector);
+		if (bsr_ratelimit())
+				bsr_err(device, "get_ldev failed, sector(%llu)", sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
 	}

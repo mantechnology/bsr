@@ -7759,7 +7759,8 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(device, "ldev is null.");
 		return;
 	}
 
@@ -7779,7 +7780,8 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(peer_device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(peer_device, "ldev is null.");
 		return;
 	}
 
@@ -7797,7 +7799,8 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(device, "ldev is null.");
 		return;
 	}
 
@@ -7817,7 +7820,8 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(peer_device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(peer_device, "ldev is null.");
 		return;
 	}
 
@@ -7835,7 +7839,8 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(device, "ldev is null.");
 		return 0;
 	}
 
@@ -7847,7 +7852,8 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(peer_device, "ldev is null.");
+		if (bsr_ratelimit())
+			bsr_warn(peer_device, "ldev is null.");
 		return false;
 	}
 
