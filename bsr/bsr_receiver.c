@@ -4346,8 +4346,10 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		BSR_FAULT_DT_WR);
 	if (!err) {	// DW-1012 The data just received is the newest, ignore previously received out-of-sync.
 		// DW-1979 do not set "in sync" before starting resync.
+		// BSR-729 even in the behind state, do not set "in sync" before starting resync.
 		if (peer_device->repl_state[NOW] == L_WF_BITMAP_T ||
-			(peer_device->repl_state[NOW] == L_SYNC_TARGET && atomic_read(&peer_device->wait_for_bitmp_exchange_complete))) {
+			((peer_device->repl_state[NOW] == L_SYNC_TARGET || peer_device->repl_state[NOW] == L_BEHIND)
+			 && atomic_read(&peer_device->wait_for_bitmp_exchange_complete))) {
 			// DW-1979 set to D_INCONSISTENT when replication data occurs during resync start.
 			if (peer_device->device->disk_state[NOW] != D_INCONSISTENT &&
 				peer_device->device->disk_state[NEW] != D_INCONSISTENT) {
