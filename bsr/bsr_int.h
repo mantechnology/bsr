@@ -3183,7 +3183,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 {
 	enum bsr_io_error_p ep;
 	int max_passthrough_cnt = 0;
-	bool do_force_detach = false;
+	bool do_detach = false;
 
 	rcu_read_lock();
 	ep = rcu_dereference(device->ldev->disk_conf)->on_io_error;
@@ -3236,17 +3236,17 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		break;
 	// DW-1755
 	case EP_PASSTHROUGH:	
-		// BSR-720 force detach if io_error_count exceeds max_passthrough_count
+		// BSR-720 BSR-731 detach if io_error_count exceeds max_passthrough_count
 		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
 			if (max_passthrough_cnt && (atomic_read(&device->io_error_count) > max_passthrough_cnt))
-				do_force_detach = true;
+				do_detach = true;
 		}
 		
 		// DW-1814 
 		// If an error occurs in the meta volume, disk consistency can not be guaranteed and replication must be stopped in any case. 
-		if (df == BSR_FORCE_DETACH || do_force_detach)
+		if (df == BSR_FORCE_DETACH)
 			set_bit(FORCE_DETACH, &device->flags);
-		if (df == BSR_META_IO_ERROR || df == BSR_FORCE_DETACH || do_force_detach) {
+		if (df == BSR_META_IO_ERROR || df == BSR_FORCE_DETACH || do_detach) {
 			// DW-2033 Change to Failed even at Attaching
 			if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
 				begin_state_change_locked(device->resource, CS_HARD);
@@ -3254,8 +3254,8 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 				end_state_change_locked(device->resource, false, __FUNCTION__);
 				if (df == BSR_META_IO_ERROR)
 					bsr_err(device, "IO error occurred on meta-disk in %s. Detaching...", where);
-				else if (do_force_detach)
-					bsr_err(device, "IO error occurred more than %d times. Force-detaching...", max_passthrough_cnt);
+				else if (do_detach)
+					bsr_err(device, "IO error occurred more than %d times. Detaching...", max_passthrough_cnt);
 				else
 					bsr_err(device, "Force-detaching in %s", where);
 			}
