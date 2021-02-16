@@ -870,6 +870,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
         {
 			PMVOL_VOLUME_INFO p = NULL;
 			struct seq_file seq = {0,};
+			PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+
+			if (!Irp->AssociatedIrp.SystemBuffer)
+				return STATUS_INVALID_PARAMETER;
+
+			if (irpSp->Parameters.DeviceIoControl.OutputBufferLength < sizeof(MVOL_VOLUME_INFO))
+				return STATUS_BUFFER_TOO_SMALL;
 
 			p = (PMVOL_VOLUME_INFO)Irp->AssociatedIrp.SystemBuffer;
 			seq_alloc(&seq, MAX_SEQ_BUF);

@@ -1,9 +1,7 @@
 #ifdef _WIN
 #include <Shlwapi.h>
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "bsrmon.h"
 
 #ifdef _WIN
 #define SystemPoolTagInformation (DWORD)0x16
@@ -20,7 +18,6 @@ enum slab_type
 #define SLAB_ROOT "/sys/kernel/slab"
 #endif
 
-#define MAX_BUF_SIZE 4096
 
 #ifdef _WIN
 typedef struct _SYSTEM_POOLTAG

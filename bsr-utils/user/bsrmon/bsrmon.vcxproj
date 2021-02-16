@@ -22,10 +22,13 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="module_debug.cpp" />
     <ClCompile Include="monitor_collect.cpp" />
+    <ClCompile Include="read_stat.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bsrmon.h" />
     <ClInclude Include="module_debug.h" />
     <ClInclude Include="monitor_collect.h" />
+    <ClInclude Include="read_stat.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E67DDF69-8AFE-43B1-B9B7-A4BD3FA02AE8}</ProjectGuid>

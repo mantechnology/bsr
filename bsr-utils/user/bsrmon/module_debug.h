@@ -1,10 +1,3 @@
-#ifdef _WIN
-#include <windows.h>
-#include "ioctl.h"
-#endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <set>
 #include <iostream>
@@ -19,12 +12,6 @@
 
 #define DEFAULT_FILE_ROLLING_SIZE 50
 #define DEFAULT_FILE_ROLLONG_CNT 3
-
-#ifdef _WIN
-#define _SEPARATOR_ "\\"
-#else // _LIN
-#define _SEPARATOR_ "/"
-#endif
 
 enum set_option_type
 {
@@ -48,6 +35,7 @@ enum get_debug_type
 	NETWORK_SPEED,
 	SEND_BUF,
 	MEMORY,
+	ALL_STAT
 };
 
 struct volume {
@@ -67,11 +55,6 @@ struct resource {
 	struct volume *vol;
 	struct resource* next;
 };
-
-#ifdef _LIN
-#define fopen_s(pFile, filename, mode) ((*pFile=fopen(filename, mode)) == NULL)
-#define sprintf_s sprintf
-#endif
 
 #ifdef _WIN
 HANDLE OpenDevice(PCHAR devicename);

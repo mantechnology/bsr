@@ -1,19 +1,16 @@
 #ifdef _WIN
-#include <windows.h>
-#include "ioctl.h"
 #include <tchar.h>
 #else // _LIN
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include "../../../bsr-headers/linux/bsr_ioctl.h"
 #endif
-#include <stdio.h>
 #include <time.h>
 #include <sys/timeb.h>
+#include "bsrmon.h"
 #include "module_debug.h"
 #include "monitor_collect.h"
+#include "read_stat.h"
 
 #ifdef _LIN
 #define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
@@ -67,29 +64,30 @@ void usage()
 {
 	printf("usage: bsrmon cmds options \n\n"
 		"cmds:\n");
-#ifdef _WIN
-	printf(
-		"   /debug\n"
-		);
-#endif
+
 	printf(
 		"   /start\n"
 		"   /stop\n"
-		"   /print\n"
-		"   /file\n"
-		"   /watch [resource] [type : 0~4] [vnr]\n"
-		"\t type info, IO_STAT(0) IO_COMPLETE(1) REQUEST(2) NETWORK_SPEED(3) SEND_BUF(4)\n"
-		"\t vnr info, it is used only when type value is 0 or 1\n"
-		"   /watchmem\n"
-		"   /set [period, file_size, file_cnt] [value]\n"
+		//"   /print\n"
+		//"   /file\n"
+		"   /report {types} [/f {filename}] \n"
+		"   /watch {types}\n"
+		"   /set {period, file_size, file_cnt} {value}\n"
 		);
-
+#ifdef _WIN
+	printf(
+		"   /debug cmds options\n"
+		);
+#endif
 	printf(
 		"\n\n"
-		"examples:\n"
-		"bsrmon /watch r0\n"
-		"bsrmon /watch r0 0 0\n"
-		"bsrcon /watch r0 2\n"
+		"Types:\n"
+		"   iostat {resource} {vnr}\n"
+		"   ioclat {resource} {vnr}\n"
+		"   reqstat {resource} {vnr}\n"
+		"   network {resource}\n"
+		"   sendbuf {resource}\n"
+		"   memstat \n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
 }
@@ -323,7 +321,7 @@ void MonitorToFile()
 	ftime(&timer_msec);
 	base_date_local = *localtime(&timer_msec.time);
 #endif	
-	sprintf_s(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%d",
+	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%d",
 		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
 		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, timer_msec.millitm);
 
@@ -333,7 +331,7 @@ void MonitorToFile()
 		char lastfile[MAX_PATH] = { 0, };
 		FILE *last_fp;
 
-		sprintf_s(respath, "%s%s", perfpath, res->name);
+		sprintf_ex(respath, "%s%s", perfpath, res->name);
 #ifdef _WIN
 		CreateDirectoryA(respath, NULL);
 #else // _LIN
@@ -341,7 +339,7 @@ void MonitorToFile()
 		mkdir(respath, 0777);
 #endif
 
-		sprintf_s(lastfile, "%s"_SEPARATOR_"last", respath);
+		sprintf_ex(lastfile, "%s"_SEPARATOR_"last", respath);
 		
 		if (fopen_s(&last_fp, lastfile, "w") != 0)
 			return;
@@ -365,7 +363,7 @@ next:
 	}
 
 	// save memory monitoring status
-	sprintf_s(mempath, "%slast", perfpath);
+	sprintf_ex(mempath, "%slast", perfpath);
 	if (fopen_s(&mem_fp, mempath, "w") != 0)
 		return;
 	fprintf(mem_fp, "Memory:\n");
@@ -393,88 +391,211 @@ void Watch(char *resname, int type = -1, int vnr = 0)
 	strcat_s(perf_path, "log\\perfmon\\");
 #endif
 
-	if (resname == NULL)
-#ifdef _WIN
-		sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%smemory' -Wait -Tail 100\"", perf_path);
-#else // _LIN
-		sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/memory");
-#endif
-	else {
-		int err = CheckResourceInfo(resname, 0, vnr);
-		if (err) {
-			fprintf(stderr, "Failed CheckResourceInfo, err=%d\n", err);
-			return;
-		}
-
-		if (type != -1) {
-			switch (type) {
-			case IO_STAT:
-#ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_STAT' -Wait -Tail 100\"", perf_path, resname, vnr);
-#else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO_STAT", resname, vnr);
-#endif
-				break;
-			case IO_COMPLETE:
-#ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_COMPLETE' -Wait -Tail 100\"", perf_path, resname, vnr);
-#else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/vnr%d_IO_COMPLETE", resname, vnr);
-#endif
-				break;
-			case REQUEST:
-#ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\request' -Wait -Tail 100\"", perf_path, resname);
-#else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/request", resname);
-#endif
-				break;
-			case NETWORK_SPEED:
-#ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -Wait -Tail 100\"", perf_path, resname);
-#else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/network", resname);
-#endif
-				break;
-			case SEND_BUF:
-#ifdef _WIN
-				sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\send_buffer' -Wait -Tail 100\"", perf_path, resname);
-#else // _LIN
-				sprintf(cmd, "tail --follow=name /var/log/bsr/perfmon/%s/send_buffer", resname);
-#endif
-				break;
-			default:
-				usage();
-			}
-		}
-		else {
-#ifdef _WIN
-			sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
-#else // _LIN
-			sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
-#endif
-			watch_all_type = true;
-		}
-	}
 #ifdef _WIN
 	system("cls");
 #else // _LIN
 	system("clear");
 #endif
 
-	while (1) {
-		system(cmd);
-		if (!watch_all_type)
-			break;
-#ifdef _WIN
-		Sleep(1000);
-		system("cls");
-#else // _LIN
-		sleep(1);
-		system("clear");
-#endif
+	if (resname != NULL) {
+		int err = CheckResourceInfo(resname, 0, vnr);
+		if (err) {
+			fprintf(stderr, "Failed CheckResourceInfo, err=%d\n", err);
+			return;
+		}
 	}
+
+	if (type != -1) {
+		switch (type) {
+		case IO_STAT:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_STAT' -wait -Tail 1\"", perf_path, resname, vnr);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_IO_STAT", resname, vnr);
+#endif
+			watch_io_stat(cmd);
+			break;
+		case IO_COMPLETE:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_COMPLETE' -wait -Tail 1\"", perf_path, resname, vnr);
+#else // _LIN
+			sprintf(cmd, "tail  --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_IO_COMPLETE", resname, vnr);
+#endif
+			watch_io_complete(cmd);
+			break;
+		case REQUEST:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_request' -wait -Tail 1\"", perf_path, resname, vnr);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_request", resname, vnr);
+#endif
+			watch_req_stat(cmd);
+			break;
+		case NETWORK_SPEED:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -wait -Tail 1\"", perf_path, resname);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/network", resname);
+#endif
+			watch_network_speed(cmd);
+			break;
+		case SEND_BUF:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\send_buffer' -wait -Tail 1\"", perf_path, resname);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/send_buffer", resname);
+			
+#endif
+			watch_sendbuf(cmd);
+			break;
+		case MEMORY:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%smemory' -wait -Tail 1\"", perf_path);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/memory");
+#endif
+			watch_memory(cmd);
+			break;
+
+		default:
+			usage();
+		}
+	}
+	else {
+		// TODO watch all
+#ifdef _WIN
+		sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
+#else // _LIN
+		sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
+#endif
+		//watch_all_type = true;
+		
+	}
+
 }
+
+void Report(char *resname, char *file, int type = -1, int vnr = 0)
+{
+	char filepath[512] = {0,};
+	char perf_path[MAX_PATH] = {0,};
+	char command[128] = {0,};
+	char peer_name[64] = {0,};
+	FILE *pipe;
+	bool print_runtime = true;
+
+#ifdef _WIN
+	char bsr_path[MAX_PATH] = {0,};
+	size_t path_size;
+	errno_t result;
+	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+	if (result) {
+		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+	}
+	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
+	strcat_s(perf_path, "log\\perfmon");
+#else
+	sprintf(perf_path, "/var/log/bsr/perfmon");
+#endif
+	
+	if (resname)
+		printf("Report %s ", resname);
+	switch (type) {
+	case IO_STAT:
+		if (!file) {
+			printf("[IO STAT - vnr%u]\n", vnr);
+			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_IO_STAT", perf_path, resname, vnr);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		
+		read_io_stat_work(filepath);
+		break;
+	case IO_COMPLETE:
+		if (!file) {
+			printf("[IO COMPLETE - vnr%u]\n", vnr);
+			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_IO_COMPLETE", perf_path, resname, vnr);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		read_io_complete_work(filepath);
+		break;
+	case REQUEST:
+		if (!file) {
+			printf("[REQUEST STAT - vnr%u]\n", vnr);
+			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_request", perf_path, resname, vnr);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		read_req_stat_work(filepath);
+
+		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
+		if ((pipe = popen(command, "r")) == NULL)
+			return;
+		while (fgets(peer_name, 64, pipe) != NULL) {
+			*(peer_name + (strlen(peer_name) - 1)) = 0;
+			read_req_peer_stat_work(filepath, peer_name);
+		}
+		break;
+	case NETWORK_SPEED:
+		if (!file) {
+			printf("[NETWORK SPEED]\n");
+			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"network", perf_path, resname);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
+		if ((pipe = popen(command, "r")) == NULL)
+			return;
+		while (fgets(peer_name, 64, pipe) != NULL) {
+			*(peer_name + (strlen(peer_name) - 1)) = 0;
+			read_network_speed_work(filepath, peer_name, print_runtime);
+			if (print_runtime)
+				print_runtime = false;
+		}
+		
+		pclose(pipe);
+		break;
+	case SEND_BUF:
+		if (!file) {
+			printf("[SEND BUFFER]\n");
+			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"send_buffer", perf_path, resname);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
+		if ((pipe = popen(command, "r")) == NULL)
+			return;
+		while (fgets(peer_name, 64, pipe) != NULL) {
+			*(peer_name + (strlen(peer_name) - 1)) = 0;
+			read_sendbuf_work(filepath, peer_name, print_runtime);
+			if (print_runtime)
+				print_runtime = false;
+		}
+		
+		pclose(pipe);
+		break;
+	case MEMORY:
+		if (!file) {
+			sprintf_ex(filepath, "%s"_SEPARATOR_"memory", perf_path);
+			printf("Report [MEMORY]\n");
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("Report [%s]\n", filepath);
+		}
+		
+		read_memory_work(filepath);
+		break;
+	default:
+		usage();
+	}
+	
+}
+
 
 // BSR-694
 void SetOptionValue(enum set_option_type option_type, long value)
@@ -618,7 +739,6 @@ static void save_bsrmon_run_reg(unsigned int run)
 
 	RegCloseKey(hKey);
 #else
-	int fd = 0;
 	FILE * fp;
 	// write /etc/bsr.d/.bsrmon_run
 	fp = fopen(BSR_MON_RUN_REG, "w");
@@ -687,14 +807,35 @@ static void stop_mon()
 
 }
 
+int convert_type(char * type_name) 
+{
+	if (strcmp(type_name, "iostat") == 0)
+		return IO_STAT;
+	else if (strcmp(type_name, "ioclat") == 0)
+		return IO_COMPLETE;
+	else if (strcmp(type_name, "reqstat") == 0)
+		return REQUEST;
+	else if (strcmp(type_name, "network") == 0)
+		return NETWORK_SPEED;
+	else if (strcmp(type_name, "sendbuf") == 0)
+		return SEND_BUF;
+	else if (strcmp(type_name, "memstat") == 0)
+		return MEMORY;
+	else if (strcmp(type_name, "all") == 0)
+		return ALL_STAT;
+	
+	return -1;
+}
+
+
 #ifdef _WIN
 int main(int argc, char* argv[])
 #else
 int main(int argc, char* argv[])
 #endif
 {
-	int	res = ERROR_SUCCESS;
-	int  	argIndex = 0;
+	int res = ERROR_SUCCESS;
+	int argIndex = 0;
 
 	if (argc < 2)
 		usage();
@@ -716,31 +857,46 @@ int main(int argc, char* argv[])
 				usage();
 		}
 		else if (!strcmp(argv[argIndex], "/watch")) {
-			argIndex++;
-			if (argIndex < argc) {
-				char *res_name = argv[argIndex++];
-				if (argIndex < argc) {
-					int type = atoi(argv[argIndex]);
-					argIndex++;
-					if (argIndex < argc)
-						Watch(res_name, type, atoi(argv[argIndex]));
-					else
-						Watch(res_name, type);
+			int type = -1;
+			char *res_name = NULL;
+			int vol_num = 0;
+
+			if (++argIndex < argc) {
+				type = convert_type(argv[argIndex]);
+
+				if (type < 0) 
+					usage();
+			
+				if (++argIndex >= argc) {
+					if (type != MEMORY)
+						usage();
 				}
-				else
-					Watch(res_name);
-			}
-			else
+
+				if (type == MEMORY) {
+					Watch(NULL, MEMORY, -1);
+					break;
+				}
+
+				if (argIndex >= argc) 
+					usage();
+				res_name = argv[argIndex];
+				if (type == IO_STAT || type == IO_COMPLETE || type == REQUEST) {
+					if (++argIndex < argc) {
+						vol_num = atoi(argv[argIndex]);
+						Watch(res_name, type, vol_num);
+						break;
+					}
+					else
+						usage();
+				} else {
+					Watch(res_name, type, vol_num);
+					break;
+				}
+				
+			} else
 				usage();
 		}
-		else if (!strcmp(argv[argIndex], "/watchmem")) {
-			argIndex++;
-			if (argIndex <= argc) {
-				Watch(NULL);
-			}
-			else
-				usage();
-		}
+		
 		else if (!strcmp(argv[argIndex], "/set")) {
 			argIndex++;
 
@@ -786,6 +942,66 @@ int main(int argc, char* argv[])
 				stop_mon();
 			}
 			else
+				usage();
+		}
+		// BSR-709
+		else if (!strcmp(argv[argIndex], "/report")) {
+			int type = -1;
+			char *res_name = NULL;
+			char *file_name = NULL;
+			int vol_num = 0;
+
+			if (++argIndex < argc) {
+				type = convert_type(argv[argIndex]);
+
+				if (type < 0) 
+					usage();
+			
+				if (++argIndex >= argc) {
+					if (type != MEMORY)
+						usage();
+				}
+
+				if (type == MEMORY) {
+					if ((argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
+						if (++argIndex < argc)
+							file_name = argv[argIndex++];
+						else
+							usage();
+					}
+					Report(NULL, file_name, type, -1);
+					break;
+				}
+
+				if (argIndex >= argc) 
+					usage();
+				res_name = argv[argIndex];
+				if (type == IO_STAT || type == IO_COMPLETE || type == REQUEST) {
+					if (++argIndex < argc) {
+						vol_num = atoi(argv[argIndex]);
+						if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
+							if (++argIndex < argc)
+								file_name = argv[argIndex++];
+							else
+								usage();
+						}
+						Report(res_name, file_name, type, vol_num);
+						break;
+					}
+					else
+						usage();
+				} else {
+					if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
+						if (++argIndex < argc)
+							file_name = argv[argIndex++];
+						else
+							usage();
+					}
+					Report(res_name, file_name, type, vol_num);
+					break;
+				}
+				
+			} else
 				usage();
 		}
 #ifdef _WIN
