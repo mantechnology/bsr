@@ -4,9 +4,12 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="module_debug.cpp" />
     <ClCompile Include="monitor_collect.cpp" />
+    <ClCompile Include="read_stat.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="module_debug.h" />
     <ClInclude Include="monitor_collect.h" />
+    <ClInclude Include="read_stat.h" />
+    <ClInclude Include="bsrmon.h" />
   </ItemGroup>
 </Project>

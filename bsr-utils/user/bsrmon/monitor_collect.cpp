@@ -137,7 +137,8 @@ char* GetBsrMemoryUsage(void)
 		psysPoolTag++;
 	}
 
-	sprintf_s(buffer, MAX_BUF_SIZE, "TotalUsed: %13llu bytes\nNonPagedUsed: %10llu bytes\nPagedUsed: %13llu bytes\n", TotalUsed, NonPagedUsed, PagedUsed);
+	/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
+	sprintf_s(buffer, MAX_BUF_SIZE, "%llu %llu %llu ", TotalUsed, NonPagedUsed, PagedUsed);
 
 	if (NULL != pSysPoolTagInfo) {
 		free(pSysPoolTagInfo);
@@ -164,7 +165,9 @@ fail:
 	bm_usage = GetSlabMemoryUsage(BSR_BM);
 	ee_usage = GetSlabMemoryUsage(BSR_EE);
 
-	sprintf(buffer, "BSR_REQ: %10llu bytes\nBSR_AL: %11llu bytes\nBSR_BM: %11llu bytes\nBSR_EE: %11llu bytes\n", req_usage, al_usage, bm_usage, ee_usage);
+	/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
+	sprintf(buffer, "%llu %llu %llu %llu ", req_usage, al_usage, bm_usage, ee_usage);
+
 
 	return buffer;
 #endif
@@ -204,8 +207,6 @@ char* GetBsrUserMemoryUsage(void)
 	}
 	cProcesses = cbNeeded / sizeof(DWORD);
 
-	sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer),
-		"%11s %6s %15s %21s %23s %14s\n", "name", "pid", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
 	for (unsigned int i = 0; i < cProcesses; i++) {
 		process = OpenProcess(MAXIMUM_ALLOWED, false, aProcesses[i]);
 		if (NULL != process) {
@@ -220,8 +221,9 @@ char* GetBsrUserMemoryUsage(void)
 			continue;
 
 		GetProcessMemoryInfo(process, &info, sizeof(info));
+		/* name pid WorkingSetSize QuotaPagedPoolUsage QuotaNonPagedPoolUsage PagefileUsage (bytes)*/
 		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), 
-			"%11ws %6wu %15lu %21lu %23lu %14lu bytes\n",
+			"%ws %wu %lu %lu %lu %lu ",
 			fileName, aProcesses[i], info.WorkingSetSize, info.QuotaPagedPoolUsage, info.QuotaNonPagedPoolUsage, info.PagefileUsage);
 
 		CloseHandle(process);
@@ -236,7 +238,6 @@ char* GetBsrUserMemoryUsage(void)
 		goto fail;
 	}
 
-	sprintf(buffer + strlen(buffer), "%9s %6s %10s %10s\n", "name", "pid", "rsz", "vsz");
 	while (!feof(pipe)) {
 		if (fgets(buf, 128, pipe) != NULL) {
 			// remove EOL
@@ -261,8 +262,8 @@ char* GetBsrUserMemoryUsage(void)
 
 			if (strncmp(ptr, "bsr", 3))
 				continue;
-
-			sprintf(buffer + strlen(buffer), "%9s %6d %10u %10u kbytes\n", ptr, pid, rsz, vsz);
+			/* name pid rsz(kbytes) vsz(kbytes) */
+			sprintf(buffer + strlen(buffer), "%s %d %u %u ", ptr, pid, rsz, vsz);
 		}
 		else if (*buf == 0) {
 			fprintf(stderr, "exec failed, command : %s\n", command);
