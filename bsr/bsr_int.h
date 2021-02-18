@@ -3132,6 +3132,9 @@ extern void notify_gi_uuid_state(struct sk_buff*, unsigned int, struct bsr_peer_
 extern void notify_gi_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_device *, enum bsr_notification_type);
 extern void notify_gi_peer_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_peer_device*, enum bsr_notification_type);
 
+// BSR-734
+extern void notify_split_brain(struct bsr_connection *, char * recover_type);
+
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
 

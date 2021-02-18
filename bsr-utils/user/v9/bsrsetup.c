@@ -3760,7 +3760,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		[NOTIFY_CALL] = "call",
 		[NOTIFY_RESPONSE] = "response",
 		// DW-1755
-		[NOTIFY_ERROR] = "notify"
+		[NOTIFY_ERROR] = "notify",
+		// BSR-734
+		[NOTIFY_DETECT] = "detect"
 	};
 	static char *object_name[] = {
 		[BSR_RESOURCE_STATE] = "resource",
@@ -3773,7 +3775,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		// BSR-676
 		[BSR_UPDATED_GI_UUID] = "gi-uuid",
 		[BSR_UPDATED_GI_DEVICE_MDF_FLAG] = "gi-device-mdf-flag",
-		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag"
+		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag",
+		// BSR-734
+		[BSR_SPLIT_BRAIN] = "split-brain"
 	};
 	static uint32_t last_seq;
 	static bool last_seq_known;
@@ -4092,6 +4096,15 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		struct bsr_updated_gi_peer_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_peer_device_mdf_flag_info_from_attrs(&gi, info)) {
 			printf(" %s", gi.peer_device_mdf);
+		}
+		break;
+	}
+	// BSR-734
+	case BSR_SPLIT_BRAIN:
+	{
+		struct bsr_split_brain_info sb_info;
+		if (!bsr_split_brain_info_from_attrs(&sb_info, info)) {
+			printf(" recover:%s", sb_info.recover);
 		}
 		break;
 	}

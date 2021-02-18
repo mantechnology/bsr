@@ -7411,6 +7411,60 @@ fail:
 		 err, seq);
 }
 
+// BSR-734 notify by event when split-brain occurs
+void notify_split_brain(struct bsr_connection *connection, char * recover_type)
+{
+	struct bsr_split_brain_info sb_info;
+	unsigned int seq;
+	struct sk_buff *skb = NULL;
+	struct bsr_genlmsghdr *dh;
+	int err;
+	
+#ifdef _WIN
+	strncpy(sb_info.recover, recover_type, sizeof(sb_info.recover) - 1);
+	sb_info.recover[sizeof(sb_info.recover) - 1] = '\0';
+#else // _LIN
+	strlcpy(sb_info.recover, recover_type, sizeof(sb_info.recover));
+#endif
+	sb_info.recover_len = (__u32)(min(strlen(recover_type), sizeof(sb_info.recover)));
+	
+	seq = atomic_inc_return(&bsr_genl_seq);
+	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+	err = -ENOMEM;
+	if (!skb)
+		goto fail;
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_SPLIT_BRAIN);
+	
+	if (!dh)
+		goto fail;
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	mutex_lock(&notification_mutex);
+	if (nla_put_bsr_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
+		nla_put_notification_header(skb, NOTIFY_DETECT) ||
+		bsr_split_brain_info_to_skb(skb, &sb_info, true))
+		goto unlock_fail;
+
+	genlmsg_end(skb, dh);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+	skb = NULL;
+	/* skb has been consumed or freed in netlink_broadcast() */
+	if (err && err != -ESRCH)
+		goto unlock_fail;
+	mutex_unlock(&notification_mutex);
+	return;
+
+unlock_fail:
+	mutex_unlock(&notification_mutex);
+fail:
+	if(skb)
+		nlmsg_free(skb);
+}
+
 static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 {
 	struct bsr_genlmsghdr *dh;

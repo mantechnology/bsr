@@ -805,6 +805,8 @@ int connect_work(struct bsr_work *work, int cancel)
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 		bsr_alert(connection, "Split-Brain since more primaries than allowed; dropping connection!");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
 	} else {
 		bsr_info(connection, "Failure to connect; retrying");
@@ -5735,6 +5737,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_warn(device, "Split-Brain detected, %d primaries, "
 			     "automatically solved. Sync from %s node",
 			     pcount, (hg < 0) ? "peer" : "this");
+			// BSR-734
+			notify_split_brain(connection, "automatically");
 			if (forced) {
 				bsr_warn(device, "Doing a full sync, since"
 				     " UUIDs where ambiguous.");
@@ -5759,10 +5763,13 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		    (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA))
 			hg = 2;
 
-		if (abs(hg) < 100)
+		if (abs(hg) < 100) {
 			bsr_warn(device, "Split-Brain detected, manually solved. "
 			     "Sync from %s node",
 			     (hg < 0) ? "peer" : "this");
+			// BSR-734
+			notify_split_brain(connection, "manually");
+		}
 	}
 
 	// DW-1221 If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
@@ -5776,6 +5783,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 	if (hg == -100) {
 		bsr_alert(device, "Split-Brain detected but unresolved, dropping connection!");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(device, connection, "split-brain");
 		return -1;
 	}
@@ -8322,6 +8331,8 @@ static int process_twopc(struct bsr_connection *connection,
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 		bsr_alert(connection, "Split-Brain since more primaries than allowed; dropping connection!");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}

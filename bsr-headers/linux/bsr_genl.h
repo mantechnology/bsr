@@ -375,6 +375,11 @@ GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
 	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
 )
 
+// BSR-734
+GENL_struct(BSR_NLA_SPLIT_BRAIN, 37, bsr_split_brain_info,
+	__str_field(1, BSR_GENLA_F_MANDATORY, recover, 32)
+)
+
 
 /*
  * Notifications and commands (genlmsghdr->cmd)
@@ -640,4 +645,10 @@ GENL_notification(
 	BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 53, events,
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_UPDATED_GI, BSR_F_REQUIRED))
+
+
+GENL_notification(
+	BSR_SPLIT_BRAIN, 54, events,
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_SPLIT_BRAIN, BSR_F_REQUIRED))
 
