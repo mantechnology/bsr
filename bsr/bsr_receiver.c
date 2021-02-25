@@ -5770,8 +5770,27 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			// BSR-734
 			notify_split_brain(connection, "manually");
 		}
-	}
+	} 
+	// BSR-735 when executing discard-my-data, if peer is primary, it becomes SyncTarget even if it is not split-brain.
+	else if ((hg <= -2 || hg >= 2) &&
+		(device->resource->role[NOW] == R_PRIMARY || connection->peer_role[NOW] == R_PRIMARY)) {
+		if (connection->peer_role[NOW] == R_PRIMARY &&
+			test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
+		    !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+			bsr_info(device, "I shall become SyncTarget, because the discard_my_data flag is set and the peer is primary.");
+			hg = -2;
+		}
 
+		if (device->resource->role[NOW] == R_PRIMARY &&
+			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
+		    (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+
+			bsr_info(device, "I shall become SyncSource, because I am primary and the discard_my_data flag is set in the peer.");
+			hg = 2;
+
+			set_bit(NEW_CUR_UUID, &device->flags);
+		}
+	}
 	// DW-1221 If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
 	else {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
@@ -8799,6 +8818,15 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			goto fail_network_failure;
 		}
 		goto fail;
+	}
+
+	// BSR-735 creates a new current uuid when it becomes WFBitmapS
+	if ((device->resource->role[NOW] == R_PRIMARY) && (new_repl_state == L_WF_BITMAP_S) && 
+		(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA) && 
+		test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+		mutex_lock(&resource->conf_update);
+		bsr_uuid_new_current(device, false, __FUNCTION__);
+		mutex_unlock(&resource->conf_update);
 	}
 
 	// DW-1341 if UNSTABLE_TRIGGER_CP bit is set , send uuids(unstable node triggering for Crashed primary wiered case).
