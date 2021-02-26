@@ -273,7 +273,7 @@ void read_req_stat_work(char *path)
 	print_stat("    pre_submit      (usec)", &pre_submit);
 	print_stat("    post_submit     (usec)", &post_submit);
 	print_stat("    destroy         (usec)", &destroy);
-	printf("  al_uptate (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", al.min, al.max, stat_avg(al.sum, al.cnt), al.sum);
+	printf("  al_update (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", al.min, al.max, stat_avg(al.sum, al.cnt), al.sum);
 	print_stat("    before_bm_write (usec)", &before_bm_write);
 	print_stat("    after_bm_write  (usec)", &after_bm_write);
 	print_stat("    after_sync_page (usec)", &after_sync_page);
@@ -741,7 +741,7 @@ void watch_req_stat(char *cmd)
 			// al
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			t_cnt = atol(strtok_r(NULL, " ", &save_ptr));
-			printf("  al_uptate  : %lu\n", t_cnt);
+			printf("  al_update  : %lu\n", t_cnt);
 			print_req_stat(&save_ptr, "    before_bm_write (usec)");
 			print_req_stat(&save_ptr, "    after_bm_write  (usec)");
 			print_req_stat(&save_ptr, "    after_sync_page (usec)");

@@ -45,7 +45,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 
 		fp = fopen(path, "r");
 		if (!fp) {
-			fprintf(stderr, "fopen failed, path : %s\n", path);
+			fprintf(stderr, "Failed to open file, path : %s\n", path);
 			return -1;
 		}
 		fread(file_buf, 128, 1, fp);
@@ -202,7 +202,7 @@ char* GetBsrUserMemoryUsage(void)
 #ifdef _WIN
 	info.cb = sizeof(info);
 	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)){
-		fprintf(stderr, "failed get processid list\n");
+		fprintf(stderr, "Failed to get processid list\n");
 		goto fail;
 	}
 	cProcesses = cbNeeded / sizeof(DWORD);
@@ -234,7 +234,7 @@ char* GetBsrUserMemoryUsage(void)
 	sprintf(command, "ps -eo pid,rsz,vsz,cmd | grep bsr");
 	pipe = popen(command, "r");
 	if (!pipe) {
-		fprintf(stderr, "popen failed, command : %s\n", command);
+		fprintf(stderr, "Failed to execute command : %s\n", command);
 		goto fail;
 	}
 
@@ -266,7 +266,7 @@ char* GetBsrUserMemoryUsage(void)
 			sprintf(buffer + strlen(buffer), "%s %d %u %u ", ptr, pid, rsz, vsz);
 		}
 		else if (*buf == 0) {
-			fprintf(stderr, "exec failed, command : %s\n", command);
+			fprintf(stderr, "Failed to execute command : %s\n", command);
 		}
 	}
 	pclose(pipe);
