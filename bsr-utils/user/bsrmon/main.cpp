@@ -222,7 +222,7 @@ void PrintMonitor()
 	
 	res = GetResourceInfo();
 	if (!res) {
-		fprintf(stderr, "failed GetResourceInfo\n");
+		fprintf(stderr, "Failed to get resource info.\n");
 		return;
 	}
 
@@ -302,7 +302,7 @@ void MonitorToFile()
 
 	res = GetResourceInfo();
 	if (!res) {
-		fprintf(stderr, "failed GetResourceInfo\n");
+		fprintf(stderr, "Failed to get resource info.\n");
 		return;
 	}
 #ifdef _WIN
@@ -374,7 +374,7 @@ next:
 }
 
 // BSR-688 watching last file
-void Watch(char *resname, int type = -1, int vnr = 0)
+void Watch(char *resname, int type, int vnr)
 {
 	char cmd[MAX_PATH];
 	bool watch_all_type = false;
@@ -391,19 +391,18 @@ void Watch(char *resname, int type = -1, int vnr = 0)
 	strcat_s(perf_path, "log\\perfmon\\");
 #endif
 
+	if (resname != NULL) {
+		int err = CheckResourceInfo(resname, 0, vnr);
+		if (err) 
+			return;
+		
+	}
+
 #ifdef _WIN
 	system("cls");
 #else // _LIN
 	system("clear");
 #endif
-
-	if (resname != NULL) {
-		int err = CheckResourceInfo(resname, 0, vnr);
-		if (err) {
-			fprintf(stderr, "Failed CheckResourceInfo, err=%d\n", err);
-			return;
-		}
-	}
 
 	if (type != -1) {
 		switch (type) {
@@ -653,7 +652,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 		fclose(fp);
 	}
 	else {
-		fprintf(stderr, "Failed open file(%d)\n", option_type);
+		fprintf(stderr, "Failed to open file(%d)\n", option_type);
 	}
 #endif
 }
@@ -747,7 +746,7 @@ static void save_bsrmon_run_reg(unsigned int run)
 		fclose(fp);
 	} 
 	else 
-		fprintf(stderr, "Failed open %s file\n", BSR_MON_RUN_REG);
+		fprintf(stderr, "Failed to open %s file\n", BSR_MON_RUN_REG);
 #endif
 	
 }

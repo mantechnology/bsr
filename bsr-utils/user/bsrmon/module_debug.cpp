@@ -95,7 +95,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 	pipe = popen(command, "r");
 #endif
 	if (!pipe) {
-		fprintf(stderr, "popen failed, command : %s\n", command);
+		fprintf(stderr, "Failed to execute command : %s\n", command);
 		return NULL;
 	}
 	while (!feof(pipe)) {
@@ -106,7 +106,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			if (info_type == RESOURCE) {
 				res = (struct resource*)malloc(sizeof(struct resource));
 				if (!res) {
-					fprintf(stderr, "res malloc failed, size : %lu\n", sizeof(struct resource));
+					fprintf(stderr, "Failed to malloc resource, size : %lu\n", sizeof(struct resource));
 					return NULL;
 				}
 				res->conn = NULL;
@@ -127,7 +127,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			else if (info_type == CONNECTION) {
 				conn = (struct connection*)malloc(sizeof(struct connection));
 				if (!conn) {
-					fprintf(stderr, "conn malloc failed, size : %lu\n", sizeof(struct connection));
+					fprintf(stderr, "Failed to malloc connection, size : %lu\n", sizeof(struct connection));
 					return NULL;
 				}
 				memset(conn, 0, sizeof(struct connection));
@@ -147,7 +147,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			else if (info_type == VOLUME) {
 				vol = (struct volume*)malloc(sizeof(struct volume));
 				if (!vol) {
-					fprintf(stderr, "vol malloc failed, size : %lu\n", sizeof(struct volume));
+					fprintf(stderr, "Failed to malloc volume, size : %lu\n", sizeof(struct volume));
 					return NULL;
 				}
 				vol->vnr = atoi(buf);
@@ -161,7 +161,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 			}
 		}
 		else if (*buf == 0) {
-			fprintf(stderr, "exec failed, command : %s\n", command);
+			fprintf(stderr, "Failed to execute command : %s\n", command);
 			return NULL;
 		}
 	}
@@ -178,7 +178,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		sprintf_ex(command, "bsradm sh-peer-node-id %s", res_name);
 		pipe = popen(command, "r");
 		if (!pipe) {
-			fprintf(stderr, "popen failed, command : %s\n", command);
+			fprintf(stderr, "Failed to execute command : %s\n", command);
 			return NULL;
 		}
 
@@ -196,7 +196,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				conn_temp = conn_temp->next;
 			}
 			else if (*buf == 0) {
-				fprintf(stderr, "exec failed, command : %s\n", command);
+				fprintf(stderr, "Failed to execute command : %s\n", command);
 				return NULL;
 			}
 		}
@@ -282,7 +282,7 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 
 	res = GetResourceInfo();
 	if (!res) {
-		fprintf(stderr, "failed GetResourceInfo\n");
+		fprintf(stderr, "Failed in CheckResourceInfo(), not found resource %s\n", resname);
 		return -1;
 	}
 
@@ -302,32 +302,30 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 						conn = conn->next;
 				}
 				if (!find_id) {
-					err = -2;
+					err = -1;
+					fprintf(stderr, "Failed in CheckResourceInfo(), not found node-id:%d\n", node_id);
 					goto ret;
 				}
 			}
 			
 			// check vnr
-			if (vnr != 0) {
-				vol = res_temp->vol;
-				while (vol) {
-					if (vnr == vol->vnr)
-						goto ret;
-					else
-						vol = vol->next;
-				}
+			vol = res_temp->vol;
+			while (vol) {
+				if (vnr == vol->vnr)
+					goto ret;
+				else
+					vol = vol->next;
 			}
-			else
-				goto ret;
-
-			err = -3;
+			fprintf(stderr, "Failed in CheckResourceInfo(), not found vnr:%d\n", vnr);
+			err = -1;
 			goto ret;
 		}
 		else
 			res_temp = res_temp->next;	
 	}
 
-	err = -4;
+	fprintf(stderr, "Failed in CheckResourceInfo(), not found resource %s\n", resname);
+	err = -1;
 ret:
 	freeResource(res);
 	return err;
@@ -456,7 +454,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			
 			fp = fopen(path, "r");
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
@@ -495,7 +493,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			sprintf(buffer + strlen(buffer), "%s:\n", conn->name);
 			fp = fopen(path, "r");
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
@@ -520,18 +518,14 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) {
-				fprintf(stderr, "send_buf res->conn object\n");
-				
+			if (!debugInfo) 
 				goto fail;
-			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
 			debugInfo = NULL;
 			conn = conn->next;
 		}
-		printf("send_buf end\n");
 #else // _LIN
 		while (conn) {
 			sprintf(path, "%s/resources/%s/connections/%s/send_buf", DEBUGFS_ROOT, res->name, conn->name);
@@ -539,7 +533,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			sprintf(buffer + strlen(buffer), "%s:\n", conn->name);	
 			fp = fopen(path, "r");
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
@@ -643,7 +637,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		wsprintf(find_file, L"%S_", ptr + 1);
 		hFind = FindFirstFile(dir_path, &FindFileData);
 		if (hFind == INVALID_HANDLE_VALUE){
-			fprintf(stderr, "failed to open %s\n", dir_path);
+			fprintf(stderr, "Failed to open %s\n", dir_path);
 			return NULL;
 		}
 		
@@ -667,7 +661,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		snprintf(find_file, strlen(ptr) + 1, "%s_", ptr + 1);
 
 		if ((dir_p = opendir(dir_path)) == NULL) {
-			fprintf(stderr, "failed to open %s\n", dir_path);
+			fprintf(stderr, "Failed to open %s\n", dir_path);
 			return NULL;
 		}
 
@@ -692,7 +686,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		sprintf_ex(new_filename, "%s_%s", filename, r_time);
 		err = rename(filename, new_filename);
 		if (err == -1) {
-			fprintf(stderr, "failed to log file rename %s => %s\n", filename, new_filename);
+			fprintf(stderr, "Failed to log file rename %s => %s\n", filename, new_filename);
 			return NULL;
 		}
 #ifdef _WIN
@@ -795,7 +789,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			fp = fopen(path, "r");
 
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
@@ -828,10 +822,8 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) {
-				fprintf(stderr, "transport_speed res->conn object\n");
+			if (!debugInfo) 
 				goto fail;
-			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -845,7 +837,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			sprintf(buffer + strlen(buffer), "%s ", conn->name);
 			fp = fopen(path, "r");
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
@@ -877,10 +869,8 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) {
-				fprintf(stderr, "send_buf res->conn object\n");
+			if (!debugInfo) 
 				goto fail;
-			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -895,7 +885,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			sprintf(buffer + strlen(buffer), "%s ", conn->name);
 			fp = fopen(path, "r");
 			if (!fp) {
-				fprintf(stderr, "fopen failed, path : %s\n", path);
+				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
