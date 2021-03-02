@@ -606,14 +606,22 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD option_value = value;
+#else // _LIN
+	FILE *fp;
+#endif
 
+
+	if (value <= 0) {
+		fprintf(stderr, "Failed to set option value %d\n", value);
+		return;
+	}
+
+#ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
 		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
 		return;
 	}
-#else // _LIN
-	FILE *fp;
 #endif
 
 	if (option_type == PERIOD && value > 0)
@@ -703,10 +711,9 @@ long GetOptionValue(enum set_option_type option_type)
 	}
 
 #ifdef _WIN
-	if (ERROR_SUCCESS != lResult) {
-		RegCloseKey(hKey);
-		return lResult;
-	}
+	if (ERROR_SUCCESS != lResult)
+		value = -1;
+
 	RegCloseKey(hKey);
 	return value;
 #else // _LIN
