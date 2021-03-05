@@ -1,6 +1,7 @@
 #ifdef _WIN
 #include <tchar.h>
 #else // _LIN
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include "../../../bsr-headers/linux/bsr_ioctl.h"
@@ -283,6 +284,34 @@ void PrintMonitor()
 
 	freeResource(res);
 }
+
+// BSR-740 init performance data
+void InitMonitor()
+{
+	struct resource* res;
+
+	res = GetResourceInfo();
+	if (!res) {
+		fprintf(stderr, "Failed to get resource info.\n");
+		return;
+	}
+
+	while (res) {
+		if (InitPerfType(IO_STAT, res) != 0)
+			goto next;
+		if (InitPerfType(IO_COMPLETE, res) != 0)
+			goto next;
+		if (InitPerfType(REQUEST, res) != 0)
+			goto next;
+		if (InitPerfType(NETWORK_SPEED, res) != 0)
+			goto next;
+next:
+		res = res->next;
+	}
+
+	freeResource(res);
+}
+
 
 // BSR-688 save aggregated data to file
 void MonitorToFile()
@@ -612,7 +641,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 
 
 	if (value <= 0) {
-		fprintf(stderr, "Failed to set option value %d\n", value);
+		fprintf(stderr, "Failed to set option value %ld\n", value);
 		return;
 	}
 
@@ -727,25 +756,49 @@ long GetOptionValue(enum set_option_type option_type)
 }
 
 // BSR-695
-static void save_bsrmon_run_reg(unsigned int run)
+static void SetBsrmonRun(unsigned int run)
 {
 #ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
 	HKEY hKey = NULL;
 	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
 	DWORD lResult = ERROR_SUCCESS;
+#else // _LIN
+	FILE * fp;
+	int fd = 0;
+#endif
 
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		fprintf(stderr, "Failed to open bsr\n");
 		return;
 	}
-	lResult = RegSetValueEx(hKey, _T("bsrmon_run"), 0, REG_DWORD, (LPBYTE)&run, sizeof(run));
-	if (ERROR_SUCCESS != lResult)
-		fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
+	// BSR-740 send to bsr engine
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &run, sizeof(unsigned int), NULL, 0, &dwReturned, NULL) == FALSE) {
+		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
+		return;
+	}
 
-	RegCloseKey(hKey);
-#else
-	FILE * fp;
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "Can not open /dev/bsr-control\n");
+		return;
+	}
+	// BSR-740 send to bsr engine
+ 	if (ioctl(fd, IOCTL_MVOL_SET_BSRMON_RUN, &run) != 0) {
+		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
+		return;
+	}
+	if (fd)
+		close(fd);
+
 	// write /etc/bsr.d/.bsrmon_run
 	fp = fopen(BSR_MON_RUN_REG, "w");
 	if (fp != NULL) {
@@ -759,7 +812,7 @@ static void save_bsrmon_run_reg(unsigned int run)
 }
 
 #ifdef _LIN
-static pid_t get_running_pid() {
+static pid_t GetRunningPid() {
 	char buf[10] = {0,};
 	pid_t pid;
 	FILE *cmd_pipe = popen("pgrep -f bsrmon-run", "r");
@@ -771,11 +824,19 @@ static pid_t get_running_pid() {
 }
 #endif
 
-static void start_mon()
+static void StartMonitor()
 {
-	char buf[MAX_PATH] = {0,};
+	
 #ifdef _LIN
-	pid_t pid = get_running_pid();
+	char buf[MAX_PATH] = {0,};
+	pid_t pid;
+#endif
+
+	InitMonitor();
+	SetBsrmonRun(1);
+
+#ifdef _LIN
+	pid = GetRunningPid();
 	
 	if (pid > 0) {
 		fprintf(stderr, "Aleady running (pid=%d)\n", pid);
@@ -789,31 +850,28 @@ static void start_mon()
 	}
 #endif
 
-	save_bsrmon_run_reg(1);
-
 }
 
-static void stop_mon()
+static void StopMonitor()
 {
-	char buf[MAX_PATH] = {0,};
 #ifdef _LIN
-	pid_t pid = get_running_pid();
+	char buf[MAX_PATH] = {0,};
+	pid_t pid = GetRunningPid();
 
-	if (pid <= 0) 
-		fprintf(stderr, "bsrmon-run is not running\n");
-	
-	sprintf(buf, "kill -TERM %d >/dev/null 2>&1", pid);
+	if (pid <= 0) {
+		fprintf(stdout, "bsrmon-run is not running\n");
+	} else {
+		sprintf(buf, "kill -TERM %d >/dev/null 2>&1", pid);
 
-	if (system(buf) !=0) {
-		fprintf(stderr, "Failed \"%s\"\n", buf);
+		if (system(buf) !=0)
+			fprintf(stderr, "Failed \"%s\"\n", buf);
 	}
 #endif
 
-	save_bsrmon_run_reg(0);
-
+	SetBsrmonRun(0);
 }
 
-int convert_type(char * type_name) 
+int ConvertType(char * type_name) 
 {
 	if (strcmp(type_name, "iostat") == 0)
 		return IO_STAT;
@@ -865,10 +923,9 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/watch")) {
 			int type = -1;
 			char *res_name = NULL;
-			int vol_num = 0;
 
 			if (++argIndex < argc) {
-				type = convert_type(argv[argIndex]);
+				type = ConvertType(argv[argIndex]);
 
 				if (type < 0) 
 					usage();
@@ -888,14 +945,13 @@ int main(int argc, char* argv[])
 				res_name = argv[argIndex];
 				if (type == IO_STAT || type == IO_COMPLETE || type == REQUEST) {
 					if (++argIndex < argc) {
-						vol_num = atoi(argv[argIndex]);
-						Watch(res_name, type, vol_num);
+						Watch(res_name, type, atoi(argv[argIndex]));
 						break;
 					}
 					else
 						usage();
 				} else {
-					Watch(res_name, type, vol_num);
+					Watch(res_name, type, -1);
 					break;
 				}
 				
@@ -937,7 +993,7 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/start")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				start_mon();
+				StartMonitor();
 			}
 			else
 				usage();
@@ -945,7 +1001,7 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/stop")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				stop_mon();
+				StopMonitor();
 			}
 			else
 				usage();
@@ -958,7 +1014,7 @@ int main(int argc, char* argv[])
 			int vol_num = 0;
 
 			if (++argIndex < argc) {
-				type = convert_type(argv[argIndex]);
+				type = ConvertType(argv[argIndex]);
 
 				if (type < 0) 
 					usage();

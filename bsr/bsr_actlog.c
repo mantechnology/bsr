@@ -498,7 +498,10 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 	unsigned crc = 0;
 	int err = 0;
 	unsigned short i;
-	ktime_var_for_accounting(start_kt);
+	ktime_t start_kt = ns_to_ktime(0);
+
+	if (atomic_read(&g_bsrmon_run))
+		start_kt = ktime_get();
 
 	memset(buffer, 0, sizeof(*buffer));
 	buffer->magic = cpu_to_be32(BSR_AL_MAGIC);
@@ -573,8 +576,8 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 	crc = crc32c(0, buffer, 4096);
 #endif
 	buffer->crc32c = cpu_to_be32(crc);
-
-	ktime_aggregate_delta(device, start_kt, al_before_bm_write_hinted_kt);
+	if (ktime_to_ms(start_kt))
+		ktime_aggregate_delta(device, start_kt, al_before_bm_write_hinted_kt);
 	if (bsr_bm_write_hinted(device))
 		err = -EIO;
 	else {
@@ -583,18 +586,19 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 		write_al_updates = rcu_dereference(device->ldev->disk_conf)->al_updates;
 		rcu_read_unlock();
 		if (write_al_updates) {
-			ktime_aggregate_delta(device, start_kt, al_after_bm_write_hinted_kt);
+			if (ktime_to_ms(start_kt))
+				ktime_aggregate_delta(device, start_kt, al_after_bm_write_hinted_kt);
 			if (bsr_md_sync_page_io(device, device->ldev, sector, REQ_OP_WRITE)) {
 				err = -EIO;
 				bsr_chk_io_error(device, 1, BSR_META_IO_ERROR);
 			} else {
 				device->al_tr_number++;
 				device->al_writ_cnt++;
-#ifdef CONFIG_BSR_TIMING_STATS
-				atomic_inc(&device->al_updates_cnt);
-#endif
+				if (ktime_to_ms(start_kt))
+					atomic_inc(&device->al_updates_cnt);
 			}
-			ktime_aggregate_delta(device, start_kt, al_after_sync_page_kt);
+			if (ktime_to_ms(start_kt))
+				ktime_aggregate_delta(device, start_kt, al_after_sync_page_kt);
 		}
 	}
 

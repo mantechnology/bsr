@@ -1,4 +1,4 @@
-/*
+﻿/*
 	Copyright(C) 2007-2016, ManTechnology Co., LTD.
 	Copyright(C) 2007-2016, bsr@mantech.co.kr
 
@@ -491,7 +491,14 @@ int RunBsrmon()
 		return FALSE;
 	}
 	while (TRUE) {
-		
+
+		// get period
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&period_value, &size);
+		if (ERROR_SUCCESS != lResult) {
+			period_value = DEFAULT_BSRMON_PERIOD;
+		}
+		Sleep(period_value * 1000);
+
 		// BSR-695
 		lResult = RegQueryValueEx(hKey, _T("bsrmon_run"), NULL, &type, (LPBYTE)&run, &size);
 		if (ERROR_SUCCESS != lResult) {
@@ -509,12 +516,6 @@ int RunBsrmon()
 			}
 		}
 
-		// get period
-		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&period_value, &size);
-		if (ERROR_SUCCESS != lResult) {
-			period_value = DEFAULT_BSRMON_PERIOD;
-		}
-		Sleep(period_value * 1000);
 	}
 	RegCloseKey(hKey);
 	return 0;

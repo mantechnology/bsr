@@ -119,6 +119,9 @@ extern int two_phase_commit_fail;
 extern int g_handler_use;
 extern char usermode_helper[];
 
+// BSR-740
+extern atomic_t g_bsrmon_run;
+
 struct log_idx_ring_buffer_t {
 	struct idx_ring_buffer h;
 	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
@@ -859,7 +862,6 @@ struct bsr_request {
 	ULONG_PTR pre_submit_jif;
 	ULONG_PTR pre_send_jif[BSR_PEERS_MAX];
 
-#ifdef CONFIG_BSR_TIMING_STATS
 	/* for BSR internal statistics */
 	ktime_t start_kt;
 
@@ -876,8 +878,6 @@ struct bsr_request {
 	ktime_t pre_send_kt[BSR_PEERS_MAX];
 	ktime_t acked_kt[BSR_PEERS_MAX];
 	ktime_t net_done_kt[BSR_PEERS_MAX];
-#endif
-
 
 	// DW-1961
 	bool	 do_submit;				// Whether do_submit logic passed
@@ -1972,12 +1972,10 @@ struct bsr_peer_device {
 	struct dentry *debugfs_peer_dev_resync_extents;
 	struct dentry *debugfs_peer_dev_proc_bsr;
 #endif
-#ifdef CONFIG_BSR_TIMING_STATS
 	unsigned long reqs;
 	struct timing_stat pre_send_kt;
 	struct timing_stat acked_kt;
 	struct timing_stat net_done_kt;
-#endif
 	struct {/* sender todo per peer_device */
 		bool was_ahead;
 	} todo;
@@ -2028,11 +2026,9 @@ struct bsr_device {
 	struct dentry *debugfs_vol_data_gen_id;
 	struct dentry *debugfs_vol_io_frozen;
 	struct dentry *debugfs_vol_ed_gen_id;
-#ifdef CONFIG_BSR_TIMING_STATS
 	struct dentry *debugfs_vol_io_stat;
 	struct dentry *debugfs_vol_io_complete;
 	struct dentry *debugfs_vol_req_timing;
-#endif
 #endif
 
 	unsigned int vnr;	/* volume number within the connection */
@@ -2139,7 +2135,6 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
-#ifdef CONFIG_BSR_TIMING_STATS
 	spinlock_t timing_lock;
 	ktime_t aggregation_start_kt;
 
@@ -2161,7 +2156,6 @@ struct bsr_device {
 	atomic_t io_size[2]; /* bytes */
 	struct timing_stat local_complete_kt; /* bsr_request_endio time aggregation*/
 	struct timing_stat master_complete_kt; /* complete_master_bio time aggregation*/
-#endif
 	// BSR-676
 	atomic_t notify_flags;
 };
@@ -4319,7 +4313,6 @@ static inline ktime_t ktime_add(ktime_t lhs, ktime_t rhs)
 
 #endif
 
-#ifdef CONFIG_BSR_TIMING_STATS
 #define ktime_min(D, M)	\
 		if (ktime_to_us(D->M.min_val) == 0) \
 			D->M.min_val = D->M.last_val;	\
@@ -4355,13 +4348,5 @@ static inline ktime_t ktime_add(ktime_t lhs, ktime_t rhs)
 #define ktime_get_accounting(V) V = ktime_get()
 #define ktime_get_accounting_assign(V, T) V = T
 #define ktime_var_for_accounting(V) ktime_t V = ktime_get()
-#else
-#define ktime_aggregate_delta(D, ST, M)
-#define ktime_aggregate(D, R, M)
-#define ktime_aggregate_pd(P, N, R, M)
-#define ktime_get_accounting(V)
-#define ktime_get_accounting_assign(V, T)
-#define ktime_var_for_accounting(V)
-#endif
 
 #endif

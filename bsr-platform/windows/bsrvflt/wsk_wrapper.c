@@ -846,7 +846,7 @@ Send(
 	ExFreePool(CompletionEvent);
 	IoFreeIrp(Irp);
 
-	if (BytesSent > 0 && transport)
+	if (atomic_read(&g_bsrmon_run) && (BytesSent > 0) && transport)
 		atomic_add64(BytesSent, &transport->sum_sent);
 
 	return BytesSent;
@@ -1316,7 +1316,7 @@ LONG NTAPI Receive(
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
 
-	if (BytesReceived > 0 && transport)
+	if (atomic_read(&g_bsrmon_run) && (BytesReceived > 0) && transport)
 		atomic_add64(BytesReceived, &transport->sum_recv);
 
 	return BytesReceived;

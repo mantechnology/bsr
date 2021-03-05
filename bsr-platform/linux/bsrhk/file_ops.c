@@ -97,6 +97,25 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 	return 0;
 }
 
+static int bsr_set_bsrmon_run(unsigned int __user * args)
+{
+	unsigned int run = 1;
+	int err;
+
+	err = copy_from_user(&run, args, sizeof(unsigned int));
+
+	if (err) {
+		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to set bsrmon run due to failure to copy from user");
+		return err;
+	}
+
+	bsr_debug(144, BSR_LC_DRIVER, NO_OBJECT, "set bsrmon_run %u => %u", atomic_read(&g_bsrmon_run), run);
+	atomic_set(&g_bsrmon_run, run);
+
+	return 0;
+}
+
+
 // BSR-654
 static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg_log_ctgr)
 {
@@ -168,6 +187,12 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_SET_HANDLER_USE:
 	{
 		err = bsr_set_handler_use((HANDLER_INFO __user *)param);
+		break;
+	}
+	// BSR-740
+	case IOCTL_MVOL_SET_BSRMON_RUN:
+	{
+		err = bsr_set_bsrmon_run((unsigned int __user *)param);
 		break;
 	}
 	default :

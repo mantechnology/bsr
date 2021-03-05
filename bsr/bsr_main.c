@@ -208,6 +208,8 @@ int g_handler_use = 0;
 
 // BSR-654
 atomic_t g_debug_output_category = ATOMIC_INIT(0);
+// BSR-740 default value of bsrmon_run is enable
+atomic_t g_bsrmon_run = ATOMIC_INIT(1);
 
 #ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);
@@ -3421,13 +3423,11 @@ void bsr_cleanup_device(struct bsr_device *device)
 	device->read_cnt = 0;
 	device->writ_cnt = 0;
 	// BSR-687 aggregate I/O throughput and latency
-#ifdef CONFIG_BSR_TIMING_STATS
 	atomic_set(&device->al_updates_cnt, 0);
 	atomic_set(&device->io_cnt[READ], 0);
 	atomic_set(&device->io_cnt[WRITE], 0);
 	atomic_set(&device->io_size[READ], 0);
 	atomic_set(&device->io_size[WRITE], 0);
-#endif
 	if (device->bitmap) {
 		/* maybe never allocated. */
 		bsr_bm_resize(device, 0, 1);
@@ -3780,8 +3780,11 @@ static void do_retry(struct work_struct *ws)
 		struct bio *bio = req->master_bio;
 		ULONG_PTR start_jif = req->start_jif;
 		bool expected;
-		ktime_t start_kt = ns_to_ktime(0);
-		ktime_get_accounting_assign(start_kt, req->start_kt);
+		ktime_t start_kt;
+		if (atomic_read(&g_bsrmon_run))
+			ktime_get_accounting_assign(start_kt, req->start_kt);
+		else
+			start_kt = ns_to_ktime(0);
 
 		expected =
 			expect(device, atomic_read(&req->completion_ref) == 0) &&
@@ -4617,9 +4620,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set(&device->rs_sect_ev, 0);
 	atomic_set(&device->md_io.in_use, 0);
 
-#ifdef CONFIG_BSR_TIMING_STATS
 	spin_lock_init(&device->timing_lock);
-#endif
 
 	spin_lock_init(&device->al_lock);
 	mutex_init(&device->bm_resync_fo_mutex);

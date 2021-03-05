@@ -452,6 +452,36 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+// BSR-740
+NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	unsigned int inlen;
+	unsigned int run = 1;
+	NTSTATUS status;
+
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(unsigned int))
+		return STATUS_BUFFER_TOO_SMALL;
+		
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		run = *(unsigned int*)Irp->AssociatedIrp.SystemBuffer;
+		status = SaveCurrentValue(L"bsrmon_run", run);
+		if (status != STATUS_SUCCESS) {
+			return STATUS_UNSUCCESSFUL;
+		}
+
+		bsr_debug(145, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_BSRMON_RUN %u => %u", atomic_read(&g_bsrmon_run), run);
+		atomic_set(&g_bsrmon_run, run);
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {
@@ -645,21 +675,15 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		break;
 	case DBG_DEV_IO_STAT:
 		seq.private = device;
-#ifdef CONFIG_BSR_TIMING_STATS
 		device_io_stat_show(&seq, 0);
-#endif
 		break;
 	case DBG_DEV_IO_COMPLETE:
 		seq.private = device;
-#ifdef CONFIG_BSR_TIMING_STATS
 		device_io_complete_show(&seq, 0);
-#endif
 		break;
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
-#ifdef CONFIG_BSR_TIMING_STATS
 		device_req_timing_show(&seq, 0);
-#endif
 		break;
 
 	default:

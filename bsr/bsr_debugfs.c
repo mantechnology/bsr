@@ -28,7 +28,6 @@ static struct dentry *bsr_debugfs_version;
 static struct dentry *bsr_debugfs_resources;
 static struct dentry *bsr_debugfs_minors;
 
-#ifdef CONFIG_BSR_TIMING_STATS
 static void seq_print_age_or_dash(struct seq_file *m, bool valid, ktime_t dt)
 {
 	if (valid)
@@ -36,7 +35,6 @@ static void seq_print_age_or_dash(struct seq_file *m, bool valid, ktime_t dt)
 	else
 		seq_puts(m, "\t-");
 }
-#endif
 
 static void __seq_print_rq_state_bit(struct seq_file *m,
 	bool is_set, char *sep, const char *set_name, const char *unset_name)
@@ -107,7 +105,6 @@ static void seq_print_request_state(struct seq_file *m, struct bsr_request *req)
 
 #define memberat(PTR, TYPE, OFFSET) (*(TYPE *)((char *)PTR + OFFSET))
 
-#ifdef CONFIG_BSR_TIMING_STATS
 static void print_one_age_or_dash(struct seq_file *m, struct bsr_request *req,
 				  unsigned int set_mask, unsigned int clear_mask,
 				  ktime_t now, size_t offset)
@@ -125,39 +122,39 @@ static void print_one_age_or_dash(struct seq_file *m, struct bsr_request *req,
 	}
 	seq_puts(m, "\t-");
 }
-#endif
 
 static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, ktime_t now, ULONG_PTR jif)
 {
 	/* change anything here, fixup header below! */
 	unsigned int s = req->rq_state[0];
 
-#define RQ_HDR_1 "epoch\tsector\tsize\trw"
+#define RQ_HDR_ "epoch\tsector\tsize\trw"
 	seq_printf(m, "0x%x\t%llu\t%u\t%s",
 		req->epoch,
 		(unsigned long long)req->i.sector, req->i.size >> 9,
 		(s & RQ_WRITE) ? "W" : "R");
 
-#ifdef CONFIG_BSR_TIMING_STATS
-#define RQ_HDR_2 "\tstart\tin AL\tsubmit"
-	seq_printf(m, "\t%d", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
-	seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, ktime_sub(now, req->in_actlog_kt));
-	seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->pre_submit_kt));
+#define RQ_HDR_START "\tstart"
+#define RQ_HDR_AL "\tin AL"
+#define RQ_HDR_SUBMIT "\tsubmit"
+#define RQ_HDR_PEER "\tsent\tacked\tdone"
+	if (atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "\t%d", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
+		seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, ktime_sub(now, req->in_actlog_kt));
+		seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->pre_submit_kt));
 
-#define RQ_HDR_3 "\tsent\tacked\tdone"
-	print_one_age_or_dash(m, req, RQ_NET_SENT, 0, now, offsetof(struct bsr_request, pre_send_kt));
-	print_one_age_or_dash(m, req, RQ_NET_SENT, RQ_NET_PENDING, now, offsetof(struct bsr_request, acked_kt));
-	print_one_age_or_dash(m, req, RQ_NET_DONE, 0, now, offsetof(struct bsr_request, net_done_kt));
-#else
-#define RQ_HDR_2 "\tstart"
-#define RQ_HDR_3 ""
-	seq_printf(m, "\t%d", (int)jiffies_to_msecs(jif - req->start_jif));
-#endif
+		print_one_age_or_dash(m, req, RQ_NET_SENT, 0, now, offsetof(struct bsr_request, pre_send_kt));
+		print_one_age_or_dash(m, req, RQ_NET_SENT, RQ_NET_PENDING, now, offsetof(struct bsr_request, acked_kt));
+		print_one_age_or_dash(m, req, RQ_NET_DONE, 0, now, offsetof(struct bsr_request, net_done_kt));
+	} else {
+		seq_printf(m, "\t%d", (int)jiffies_to_msecs(jif - req->start_jif));
+	}
 
-#define RQ_HDR_4 "\tstate\n"
+#define RQ_HDR_STATE "\tstate\n"
 	seq_print_request_state(m, req);
 }
-#define RQ_HDR RQ_HDR_1 RQ_HDR_2 RQ_HDR_3 RQ_HDR_4
+#define RQ_HDR RQ_HDR_ RQ_HDR_START RQ_HDR_STATE
+#define RQ_HDR_TIMING_STAT RQ_HDR_ RQ_HDR_START RQ_HDR_AL RQ_HDR_SUBMIT RQ_HDR_PEER RQ_HDR_STATE
 
 
 static void seq_print_minor_vnr_req(struct seq_file *m, struct bsr_request *req,  ktime_t now, ULONG_PTR jif)
@@ -217,11 +214,10 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 		if (n) {
 			seq_printf(m, "%u\t%u\t", device->minor, device->vnr);
 			if (req) {
-#ifdef CONFIG_BSR_TIMING_STATS
-				seq_printf(m, "%d\t", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
-#else
-				seq_printf(m, "%d\t", (int)jiffies_to_msecs(jif - req->start_jif));
-#endif
+				if (atomic_read(&g_bsrmon_run))
+					seq_printf(m, "%d\t", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
+				else
+					seq_printf(m, "%d\t", (int)jiffies_to_msecs(jif - req->start_jif));
 			} else
 				seq_puts(m, "-\t");
 			seq_printf(m, "%u\n", n);
@@ -365,8 +361,10 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 	unsigned int show_state = 0;
 
 	UNREFERENCED_PARAMETER(connection);
-
-	seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
+	if (atomic_read(&g_bsrmon_run)) 
+		seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR_TIMING_STAT);
+	else
+		seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
 	spin_lock_irq(&resource->req_lock);
 	list_for_each_entry_ex(struct bsr_request, req, &resource->transfer_log, tl_requests) {
 		struct bsr_device *device = req->device;
@@ -727,6 +725,13 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 	unsigned long long recv = (unsigned long long)atomic_xchg64(&transport->sum_recv, 0);
 	int period = (int)DIV_ROUND_UP((now - transport->sum_start_time) - HZ/2, HZ);
 
+	// BSR-740 init sum_start_time
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		transport->sum_start_time = now;
+		return 0;
+	}
+	
 	if (period > 0) {
 		/* sent_byte/s recv_byte/s */
 		seq_printf(m, "%llu %llu ", sent / period, recv / period);
@@ -1093,7 +1098,10 @@ int device_oldest_requests_show(struct seq_file *m, void *ignored)
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
 
-	seq_puts(m, RQ_HDR);
+	if (atomic_read(&g_bsrmon_run)) 
+		seq_puts(m, RQ_HDR_TIMING_STAT);
+	else
+		seq_puts(m, RQ_HDR); 
 	spin_lock_irq(&resource->req_lock);
 	/* WRITE, then READ */
 	for (i = 1; i >= 0; --i) {
@@ -1178,14 +1186,19 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 
 #define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
 
-
-#ifdef CONFIG_BSR_TIMING_STATS
-
 int device_io_complete_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct timing_stat local;
 	struct timing_stat master;
+
+	// BSR-740 init perf data
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
+		memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
+		return 0;
+	}
 
 	local = device->local_complete_kt;
 	master = device->master_complete_kt;
@@ -1214,6 +1227,16 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 	unsigned int read_io_cnt, write_io_cnt = 0;
 	unsigned int read_io_size, write_io_size = 0;
 
+	// BSR-740 init perf data
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		atomic_set(&device->io_cnt[READ], 0);
+		atomic_set(&device->io_cnt[WRITE], 0);
+		atomic_set(&device->io_size[READ], 0);
+		atomic_set(&device->io_size[WRITE], 0);
+		device->aggregation_start_kt = now;
+		return 0;
+	}
 	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
 
 	// output of aggregated data for more than 1 second
@@ -1271,6 +1294,14 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	unsigned long flags;
 	unsigned int al_cnt = 0;
 
+	// BSR-740 init perf data
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		device_req_timing_reset(device);
+		atomic_set(&device->al_updates_cnt, 0);
+		return 0;
+	}
+
 	spin_lock_irqsave(&device->timing_lock, flags);
 
 	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
@@ -1304,8 +1335,6 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 
 	return 0;
 }
-#endif
-
 
 #ifdef _LIN
 /* make sure at *open* time that the respective object won't go away. */
@@ -1590,11 +1619,9 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(data_gen_id);
 	vol_dcf(io_frozen);
 	vol_dcf(ed_gen_id);
-#ifdef CONFIG_BSR_TIMING_STATS
 	vol_dcf(io_stat);
 	vol_dcf(io_complete);
 	vol_dcf(req_timing);
-#endif
 
 	/* Caller holds conf_update */
 	for_each_peer_device(peer_device, device) {
@@ -1617,11 +1644,9 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_vol_data_gen_id);
 	bsr_debugfs_remove(&device->debugfs_vol_io_frozen);
 	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
-#ifdef CONFIG_BSR_TIMING_STATS
 	bsr_debugfs_remove(&device->debugfs_vol_io_stat);
 	bsr_debugfs_remove(&device->debugfs_vol_io_complete);
 	bsr_debugfs_remove(&device->debugfs_vol_req_timing);
-#endif
 	bsr_debugfs_remove(&device->debugfs_vol);
 }
 

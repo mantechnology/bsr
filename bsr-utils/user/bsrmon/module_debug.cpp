@@ -309,15 +309,18 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 			}
 			
 			// check vnr
-			vol = res_temp->vol;
-			while (vol) {
-				if (vnr == vol->vnr)
-					goto ret;
-				else
-					vol = vol->next;
+			if (vnr >= 0) {
+				vol = res_temp->vol;
+				while (vol) {
+					if (vnr == vol->vnr)
+						goto ret;
+					else
+						vol = vol->next;
+				}
+				fprintf(stderr, "Failed in CheckResourceInfo(), not found vnr:%d\n", vnr);
+				err = -1;
 			}
-			fprintf(stderr, "Failed in CheckResourceInfo(), not found vnr:%d\n", vnr);
-			err = -1;
+			
 			goto ret;
 		}
 		else
@@ -374,16 +377,12 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 			debugInfo->buf_size = size;
 		}
 		else {
-			fprintf(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
 			break;
 		}
 	}
 
 	if (ret == ERROR_SUCCESS) {
 		return debugInfo;
-	}
-	else if (ret == ERROR_INVALID_PARAMETER) {
-		fprintf(stderr, "invalid paramter.\n");
 	}
 
 	if (debugInfo) {
@@ -436,8 +435,10 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			//sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
 
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
-			if (!debugInfo)
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -476,8 +477,10 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo)
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -518,8 +521,10 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) 
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -705,6 +710,108 @@ FILE *perf_fileopen(char * filename, char * currtime)
 
 }
 
+// BSR-740
+int InitPerfType(enum get_debug_type debug_type, struct resource *res)
+{
+#ifdef _WIN
+	PBSR_DEBUG_INFO debugInfo = NULL;
+	enum BSR_DEBUG_FLAGS flag;
+#else // _LIN
+	char path[128];
+	FILE *fp;
+#endif	
+	int ret = -1;
+	char *buffer;
+
+	buffer = (char*)malloc(MAX_DEBUG_BUF_SIZE);
+	if (!buffer) {
+		fprintf(stderr, "Failed to malloc debug buffer\n");
+		return -1;
+	}
+	memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
+
+	if (debug_type <= REQUEST) {
+		struct volume *vol = res->vol;
+		if (!res->vol)
+			goto fail;
+
+		while (vol) {
+#ifdef _WIN
+			if (debug_type == IO_STAT)
+				flag = ConvertToBsrDebugFlags("dev_io_stat");
+			else if (debug_type == IO_COMPLETE)
+				flag = ConvertToBsrDebugFlags("dev_io_complete");
+			else if (debug_type == REQUEST)
+				flag = ConvertToBsrDebugFlags("dev_req_timing");
+#else // _LIN 
+			if (debug_type == IO_STAT)
+				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == IO_COMPLETE)
+				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == REQUEST)
+				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+
+			
+
+#ifdef _WIN
+			debugInfo = GetDebugInfo(flag, res, vol->vnr);
+			if (!debugInfo)
+				goto fail;
+			free(debugInfo);
+			debugInfo = NULL;
+#else // _LIN
+			fp = fopen(path, "r");
+			if (!fp) 
+				goto fail;
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+#endif
+			vol = vol->next;
+		}
+	} else if (debug_type == NETWORK_SPEED) {
+		struct connection *conn = res->conn;
+		if (!res->conn) 
+			return -1;
+#ifdef _WIN
+		flag = ConvertToBsrDebugFlags("transport_speed");
+
+		while (conn) {
+			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			if (!debugInfo) 
+				goto fail;
+
+			free(debugInfo);
+			debugInfo = NULL;
+			conn = conn->next;
+		}
+#else // _LIN
+		while (conn) {
+			sprintf(path, "%s/resources/%s/connections/%s/transport_speed", DEBUGFS_ROOT, res->name, conn->name);
+
+			fp = fopen(path, "r");
+			if (!fp) {
+				goto fail;
+			}
+			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			fclose(fp);
+			conn = conn->next;
+		}
+#endif
+	} else {
+		goto fail;
+	}
+
+	ret = 0;
+
+fail:
+	if (buffer) {
+		free(buffer);
+		buffer = NULL;
+	}
+	return ret;
+}
+
 // BSR-688 save aggregated debugfs data to file
 int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *respath, char * currtime)
 {
@@ -779,8 +886,10 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 #ifdef _WIN
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
-			if (!debugInfo)
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -822,8 +931,10 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) 
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
@@ -869,8 +980,10 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) 
+			if (!debugInfo) {
+				fprintf(stderr, "Failed to get bsr debuginfo.\n");
 				goto fail;
+			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
 			free(debugInfo);
