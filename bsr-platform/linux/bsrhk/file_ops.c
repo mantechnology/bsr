@@ -97,6 +97,7 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 	return 0;
 }
 
+// BSR-740
 static int bsr_set_bsrmon_run(unsigned int __user * args)
 {
 	unsigned int run = 1;

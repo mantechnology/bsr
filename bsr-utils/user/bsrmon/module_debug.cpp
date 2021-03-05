@@ -710,7 +710,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 
 }
 
-// BSR-740
+// BSR-740 before enable bsrmon_run, read the debugfs file once and initialize it.
 int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 {
 #ifdef _WIN
