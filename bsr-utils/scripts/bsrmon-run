@@ -1,11 +1,12 @@
 #!/bin/bash
 while : ; do
-    # run bsrmon
-    bsrmon /file
 
     period=`cat /etc/bsr.d/.bsrmon_period`
     if [ $? -ne 0 ];then
         period=1
     fi
     sleep $period
+
+    # run bsrmon
+    bsrmon /file
 done

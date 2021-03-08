@@ -75,4 +75,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res);
 int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char * respath, char * currtime);
 int GetMemInfoToFile(char *path, char * currtime);
 
+// BSR-740
+int InitPerfType(enum get_debug_type debug_type, struct resource *res);
+
+
 extern long GetOptionValue(enum set_option_type option_type);

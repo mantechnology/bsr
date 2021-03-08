@@ -601,11 +601,11 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// DW-1363 prevent mounting volume when device is failed or below.
 		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE)) {
 			// BSR-687 aggregate I/O throughput and latency
-#ifdef CONFIG_BSR_TIMING_STATS
-			PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-			atomic_inc(&device->io_cnt[READ]);
-			atomic_add(irpSp->Parameters.Read.Length >> 10, &device->io_size[READ]);
-#endif
+			if (atomic_read(&g_bsrmon_run)) {
+				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
+				atomic_inc(&device->io_cnt[READ]);
+				atomic_add(irpSp->Parameters.Read.Length >> 10, &device->io_size[READ]);
+			}
 			// DW-1300 put device reference count when no longer use.
 			kref_put(&device->kref, bsr_destroy_device);
             if (g_read_filter) {
@@ -726,11 +726,11 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			//2. Otherwise, Directly call mvolwritedispatch
 			if(KeGetCurrentIrql() < DISPATCH_LEVEL) {
 				// BSR-687 aggregate I/O throughput and latency
-#ifdef CONFIG_BSR_TIMING_STATS
-				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-				atomic_inc(&device->io_cnt[WRITE]);
-				atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
-#endif
+				if (atomic_read(&g_bsrmon_run)) {
+					PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
+					atomic_inc(&device->io_cnt[WRITE]);
+					atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
+				}
 				status = mvolReadWriteDevice(VolumeExtension, Irp, IRP_MJ_WRITE, start_kt);
 				if (status != STATUS_SUCCESS) {
                 	mvolLogError(VolumeExtension->DeviceObject, 111, MSG_WRITE_ERROR, status);
@@ -742,11 +742,11 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             	}	
 			} else {
 				// BSR-687 aggregate I/O throughput and latency
-#ifdef CONFIG_BSR_TIMING_STATS
-				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
-				atomic_inc(&device->io_cnt[WRITE]);
-				atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
-#endif
+				if (atomic_read(&g_bsrmon_run)) {
+					PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
+					atomic_inc(&device->io_cnt[WRITE]);
+					atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
+				}
 				mvolQueueWork(VolumeExtension->WorkThreadInfo, DeviceObject, Irp, start_kt);
 			}
 			
@@ -1019,6 +1019,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 			}
 			
+		}
+		// BSR-740
+		case IOCTL_MVOL_SET_BSRMON_RUN:
+		{
+			status = IOCTL_SetBsrmonRun(DeviceObject, Irp);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
     }
 

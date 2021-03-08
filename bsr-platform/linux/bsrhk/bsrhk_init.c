@@ -68,6 +68,9 @@ static int __init bsr_load(void)
 	// BSR-626 porting handler_use to linux
 	g_handler_use = read_reg_file(BSR_HANDLER_USE_REG, g_handler_use);
 
+	// BSR-740
+	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 0));
+
 	bsr_info(120, BSR_LC_DRIVER, NO_OBJECT, "bsr kernel driver load");
 	initialize_kref_debugging();
 	if (bsr_debugfs_init())
