@@ -120,6 +120,11 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG * size);
 NTSTATUS
 IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
+// BSR-741
+NTSTATUS
+IOCTL_GetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+
+
 NTSTATUS 
 bsrStartupCallback();
 VOID

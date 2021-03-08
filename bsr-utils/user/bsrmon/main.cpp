@@ -13,11 +13,6 @@
 #include "monitor_collect.h"
 #include "read_stat.h"
 
-#ifdef _LIN
-#define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
-#define FILE_SIZE_OPTION_PATH "/etc/bsr.d/.bsrmon_file_size"
-#define FILE_CNT_OPTION_PATH "/etc/bsr.d/.bsrmon_file_cnt"
-#endif
 
 #ifdef _WIN
 void debug_usage()
@@ -69,6 +64,7 @@ void usage()
 	printf(
 		"   /start\n"
 		"   /stop\n"
+		"   /status\n"
 		//"   /print\n"
 		//"   /file\n"
 		"   /report {types} [/f {filename}] \n"
@@ -402,6 +398,57 @@ next:
 	freeResource(res);
 }
 
+// BSR-741 checking the performance monitor status
+static bool is_running()
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+#else // _LIN
+	int fd = 0;
+#endif
+	unsigned int run = 0;
+	int err = 0;
+
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		fprintf(stderr, "Failed to open bsr\n");
+		return false;
+	}
+	
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_GET_BSRMON_RUN, NULL, 0, &run, sizeof(unsigned int), &dwReturned, NULL) == FALSE)
+		err = 1;
+	
+	if (hDevice != INVALID_HANDLE_VALUE)
+		CloseHandle(hDevice);
+
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "Can not open /dev/bsr-control\n");
+		return false;
+	}
+	if (ioctl(fd, IOCTL_MVOL_GET_BSRMON_RUN, &run) != 0)
+		err = 1;
+
+	if (fd)
+		close(fd);
+
+#endif
+
+	if (err){
+		fprintf(stderr, "Failed to IOCTL_MVOL_GET_BSRMON_RUN\n");
+		return false;
+	} else if (run) {
+		fprintf(stdout, "bsr performance monitor is running.\n");
+		return true;
+	} else {
+		fprintf(stdout, "bsr performance monitor is not running.\n");
+		return false;
+	}
+
+}
+
 // BSR-688 watching last file
 void Watch(char *resname, int type, int vnr)
 {
@@ -419,6 +466,9 @@ void Watch(char *resname, int type, int vnr)
 	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
 	strcat_s(perf_path, "log\\perfmon\\");
 #endif
+
+	if (!is_running())
+		return;
 
 	if (resname != NULL) {
 		int err = CheckResourceInfo(resname, 0, vnr);
@@ -761,10 +811,6 @@ static void SetBsrmonRun(unsigned int run)
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
-	DWORD		dwControlCode = 0;
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
-	DWORD lResult = ERROR_SUCCESS;
 #else // _LIN
 	FILE * fp;
 	int fd = 0;
@@ -779,7 +825,6 @@ static void SetBsrmonRun(unsigned int run)
 	// BSR-740 send to bsr engine
 	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &run, sizeof(unsigned int), NULL, 0, &dwReturned, NULL) == FALSE) {
 		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
-		return;
 	}
 
 	if (hDevice != INVALID_HANDLE_VALUE) {
@@ -794,7 +839,6 @@ static void SetBsrmonRun(unsigned int run)
 	// BSR-740 send to bsr engine
  	if (ioctl(fd, IOCTL_MVOL_SET_BSRMON_RUN, &run) != 0) {
 		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
-		return;
 	}
 	if (fd)
 		close(fd);
@@ -1002,6 +1046,15 @@ int main(int argc, char* argv[])
 			argIndex++;
 			if (argIndex <= argc) {
 				StopMonitor();
+			}
+			else
+				usage();
+		}
+		// BSR-741
+		else if (!strcmp(argv[argIndex], "/status")) {
+			argIndex++;
+			if (argIndex <= argc) {
+				is_running();
 			}
 			else
 				usage();

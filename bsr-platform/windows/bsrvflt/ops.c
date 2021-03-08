@@ -482,6 +482,33 @@ NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+// BSR-740
+NTSTATUS IOCTL_GetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG outlen;
+	unsigned int run = 0;
+
+	PIO_STACK_LOCATION    irpSp = IoGetCurrentIrpStackLocation(Irp);
+	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+
+	if (outlen < sizeof(unsigned int))
+		return STATUS_BUFFER_TOO_SMALL;
+		
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		run = atomic_read(&g_bsrmon_run);
+		RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer, &run, sizeof(unsigned int));
+		Irp->IoStatus.Information = sizeof(unsigned int);
+
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
+
+
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {

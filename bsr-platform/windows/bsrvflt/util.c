@@ -1430,6 +1430,14 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	}
 #endif
 
+    status = GetRegistryValue(L"bsrmon_run", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
+	if (status == STATUS_SUCCESS){
+		g_bsrmon_run = *(int*) aucTemp;
+	}
+	else {
+		g_bsrmon_run = 1;
+	}
+
 	// set ver
     // BSR_DOC: not used
 	status = GetRegistryValue(L"ver", &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
