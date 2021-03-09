@@ -116,6 +116,22 @@ static int bsr_set_bsrmon_run(unsigned int __user * args)
 	return 0;
 }
 
+ // BSR-740
+ static int bsr_get_bsrmon_run(unsigned int __user * args)
+{
+	int err;
+	unsigned int run = atomic_read(&g_bsrmon_run);
+
+	err = copy_to_user(args, &run, sizeof(unsigned int));
+
+	if (err) {
+		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy bsrmon_run due to failure to copy from user");
+		return err;
+	}
+	return 0;
+}
+
+
 
 // BSR-654
 static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg_log_ctgr)
@@ -194,6 +210,12 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_SET_BSRMON_RUN:
 	{
 		err = bsr_set_bsrmon_run((unsigned int __user *)param);
+		break;
+	}
+	// BSR-741
+	case IOCTL_MVOL_GET_BSRMON_RUN:
+	{
+		err = bsr_get_bsrmon_run((unsigned int __user *)param);
 		break;
 	}
 	default :

@@ -69,7 +69,7 @@ static int __init bsr_load(void)
 	g_handler_use = read_reg_file(BSR_HANDLER_USE_REG, g_handler_use);
 
 	// BSR-740
-	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 0));
+	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 1));
 
 	bsr_info(120, BSR_LC_DRIVER, NO_OBJECT, "bsr kernel driver load");
 	initialize_kref_debugging();

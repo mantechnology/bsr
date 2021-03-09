@@ -15,6 +15,13 @@
 #define _SEPARATOR_ "/"
 #endif
 
+
+#ifdef _LIN
+#define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
+#define FILE_SIZE_OPTION_PATH "/etc/bsr.d/.bsrmon_file_size"
+#define FILE_CNT_OPTION_PATH "/etc/bsr.d/.bsrmon_file_cnt"
+#endif
+
 #ifdef _WIN
 #define popen _popen
 #define pclose _pclose
