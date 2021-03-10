@@ -6971,6 +6971,9 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		atomic_dec(&device->pending_bitmap_work.n);
 	}
 
+// BSR-743
+retry:
+
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
@@ -7004,6 +7007,21 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
+		// BSR-743 If repl_state[NEW] is L_STARTING_SYNC_S or L_STARTING_SYNC_T, wait because repl_stat[NOW] will change soon.
+		if ((peer_device->repl_state[NEW] == L_STARTING_SYNC_S) || 
+			(peer_device->repl_state[NEW] == L_STARTING_SYNC_T)) {
+			long t = 0;
+			bsr_info(peer_device, "wait repl state: %s", bsr_repl_str(peer_device->repl_state[NEW]));
+			
+			wait_event_timeout_ex(device->resource->state_wait,
+				((peer_device->repl_state[NOW] == L_STARTING_SYNC_S) || 
+					(peer_device->repl_state[NOW] == L_STARTING_SYNC_T)),
+				HZ, t);
+			if (t)
+				goto retry;
+				
+		}
+	
 		bsr_warn(peer_device, "unexpected repl state: %s", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
