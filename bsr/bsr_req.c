@@ -2688,8 +2688,14 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	// BSR-458
 	// BSR-620 If the meta-disk err, device->ldev can be null.
 	if(rw == READ && device->ldev) {
+		// BSR-746 modify to bypass after checking with get_ldev() when read io occurs
+		if (!get_ldev(device)) {
+			bsr_bio_endio(bio, -ENODEV);
+			MAKE_REQUEST_RETURN;
+		}
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
+		put_ldev(device);
 		MAKE_REQUEST_RETURN;
 	}
 #endif
