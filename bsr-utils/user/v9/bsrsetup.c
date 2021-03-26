@@ -1173,6 +1173,52 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 #define ASSERT(exp) if (!(exp)) \
 		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
+
+#ifdef _LIN
+// BSR-747
+static int need_filesystem_recovery(char * dev_name)
+{
+	char cmd[256];
+	char fs_type[10];
+	int ret = 0;
+	FILE *fp;
+
+	memset(cmd, 0, sizeof(cmd));	
+	sprintf(cmd, "blkid -o value -s TYPE %s", dev_name);
+
+	// get filesystem type
+	fp = popen(cmd, "r");
+	if (!fp) 
+		return 0;
+
+	memset(fs_type, 0, sizeof(fs_type));
+	memset(cmd, 0, sizeof(cmd));
+
+	if (!fgets(fs_type, sizeof(fs_type), fp)) {
+		pclose(fp);
+		return 0;
+	}
+
+	pclose(fp);
+	
+	if (!strncmp(fs_type, "xfs", 3))
+		sprintf(cmd, "xfs_repair -n %s > /dev/null 2>&1", dev_name);
+	else if (!strncmp(fs_type, "ext", 3))
+		sprintf(cmd, "fsck -n %s > /dev/null 2>&1", dev_name);
+	else 
+		return 0;
+
+	// check if recovery is need
+	ret = system(cmd);
+	if (ret != 0) {
+		printf("%s: Filesystem has errors\n", dev_name);
+		ret = 1;
+	} 
+
+	return ret;
+}
+#endif
+
 static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
 	struct bsr_argument *ad;
@@ -1250,6 +1296,30 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				rv = OTHER_ERROR;
 				goto error;
 			}
+#ifdef _LIN
+			// BSR-747 check for filesystem errors before initial synchronization
+			if (!strcmp(cm->cmd, "primary") && !strcmp(field->name, "force")) {
+				if (!optarg || !strcmp(optarg, "yes")) {
+					struct devices_list *devices, *device;
+					int need_recovery = 0;
+
+					devices = list_devices(objname);
+					for (device = devices; device; device = device->next) {
+						if (device->statistics.dev_current_uuid != UUID_JUST_CREATED)
+							continue;
+						if (need_filesystem_recovery(device->disk_conf.backing_dev) && !need_recovery)
+							need_recovery = 1;
+					}
+					free_devices(devices);
+					if (need_recovery) {
+						desc = "Filesystem recovery is required.";
+						rv = OTHER_ERROR;
+						goto error;
+					}
+				}
+			}
+#endif
+
 		} else if (c == '(')
 			dhdr->flags |= BSR_GENL_F_SET_DEFAULTS;
 		else {
