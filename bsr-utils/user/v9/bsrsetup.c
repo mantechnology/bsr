@@ -1210,11 +1210,15 @@ static int need_filesystem_recovery(char * dev_name)
 
 	// check if recovery is need
 	ret = system(cmd);
-	if (ret != 0) {
-		printf("%s: Filesystem has errors\n", dev_name);
-		ret = 1;
-	} 
+	ret = WEXITSTATUS(ret);
 
+	if (ret == -1 || ret == 127)
+		printf("%s: could not be executed '%s'\n", dev_name, !strncmp(fs_type, "xfs", 3) ? "xfs_repair" : "fsck");
+	else if ((!strncmp(fs_type, "xfs", 3) && ret == 1) ||
+			(!strncmp(fs_type, "ext", 3) && ret == 4))
+		printf("%s: Filesystem has errors\n", dev_name);
+	else if (ret != 0)
+		printf("%s: '%s' exits with error (%d)\n", dev_name, cmd, ret);
 	return ret;
 }
 #endif
@@ -1312,7 +1316,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 					}
 					free_devices(devices);
 					if (need_recovery) {
-						desc = "Filesystem recovery is required.";
+						desc = "Filesystem check and recovery is required.";
 						rv = OTHER_ERROR;
 						goto error;
 					}
