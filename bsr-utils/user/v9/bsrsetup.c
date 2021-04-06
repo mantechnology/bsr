@@ -1181,8 +1181,20 @@ static int need_filesystem_recovery(char * dev_name)
 	char cmd[256];
 	char fs_type[10];
 	int ret = 0;
+	int fast_sync = 0;
 	FILE *fp;
 
+	// check fast sync settings
+	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
+
+	if (fp) {
+		ret = fscanf(fp, "%d", &fast_sync);	
+		fclose(fp);
+
+		// if full sync, skip filesystem check
+		if (ret == 1 && !fast_sync)
+			return 0;
+	} 
 	memset(cmd, 0, sizeof(cmd));	
 	sprintf(cmd, "blkid -o value -s TYPE %s", dev_name);
 
