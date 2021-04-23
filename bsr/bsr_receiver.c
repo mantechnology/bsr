@@ -832,7 +832,7 @@ static bool conn_connect(struct bsr_connection *connection)
 	bool discard_my_data;
 	bool have_mutex;
 	bool no_addr = false;
-
+	signed long long sndbuf_size, cong_fill;
 start:
 	
 	bsr_debug_conn("conn_connect"); 
@@ -952,22 +952,29 @@ start:
 		else
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
+	
+#ifdef _SEND_BUF
+	// DW-2174 prevents invalid memory references.
+	nc = rcu_dereference(connection->transport.net_conf);
+	sndbuf_size = nc->sndbuf_size;
+	cong_fill = nc->cong_fill;
+#endif
 	rcu_read_unlock();
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	have_mutex = false;
 
 #ifdef _SEND_BUF
 	// DW-1436 removing the protocol dependency of the send buffer thread
-	if (nc->sndbuf_size >= BSR_SNDBUF_SIZE_MIN) {
+	if (sndbuf_size >= BSR_SNDBUF_SIZE_MIN) {
 		bool send_buffring = false;
 
-		send_buffring = transport->ops->start_send_buffring(transport, nc->sndbuf_size);
+		send_buffring = transport->ops->start_send_buffring(transport, sndbuf_size);
 		if (send_buffring)
-			bsr_info(connection, "send-buffering ok size(%llu) cong_fill(%llu)", nc->sndbuf_size, (nc->cong_fill));
+			bsr_info(connection, "send-buffering ok size(%llu) cong_fill(%llu)", sndbuf_size, cong_fill);
 		else
 			bsr_warn(connection, "send-buffering disabled");
 	} else {
-		bsr_warn(connection, "send-buffering disabled nc->sndbuf_size:%llu",nc->sndbuf_size);
+		bsr_warn(connection, "send-buffering disabled sndbuf_size:%llu", sndbuf_size);
 	}
 #endif
 

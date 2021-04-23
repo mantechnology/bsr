@@ -1263,9 +1263,15 @@ ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 			c = (int)bsr_bm_set_bits(device, bmi, sbnr, tbnr);
 
 		if (c) {
-			spin_lock_irqsave(&device->al_lock, flags);
+#ifdef _WIN // DW-2174 if not locked, it acquires al_lock.
+			if (!locked)
+#endif
+				spin_lock_irqsave(&device->al_lock, flags);
 			cleared += update_rs_extent(peer_device, (unsigned int)BM_BIT_TO_EXT(sbnr), c, mode);
-			spin_unlock_irqrestore(&device->al_lock, flags);
+#ifdef _WIN // DW-2174
+			if (!locked)
+#endif
+				spin_unlock_irqrestore(&device->al_lock, flags);
 			count += c;
 		}
 		sbnr = tbnr + 1;
@@ -1442,7 +1448,9 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 
 	// DW-1191
 	unsigned long set_bits = 0;
-
+#ifdef _WIN
+	signed long flags;
+#endif
 	struct bsr_peer_device *peer_device;
 	// DW-1871
 	bool skip_clear = false;
@@ -1498,6 +1506,10 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 		else
 			clear_end -= 1;
 	}
+#ifdef _WIN
+	// DW-2174 acquire al_lock before rcu_read_lock() to avoid deadlock.
+	spin_lock_irqsave(&device->al_lock, flags);
+#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		int bitmap_index = peer_device->bitmap_index;
@@ -1519,6 +1531,10 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 			update_sync_bits(peer_device, clear_start, clear_end, SET_IN_SYNC, true);
 	}
 	rcu_read_unlock();
+#ifdef _WIN32 // DW-2174
+	spin_unlock_irqrestore(&device->al_lock, flags);
+#endif
+
 	if (mask) {
 		ULONG_PTR bitmap_index;
 		for_each_set_bit(bitmap_index, (ULONG_PTR*)&mask, BITS_PER_LONG) {
