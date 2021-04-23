@@ -7036,9 +7036,16 @@ retry:
 int bsr_bmio_set_all_n_write(struct bsr_device *device,
 			      struct bsr_peer_device *peer_device) __must_hold(local)
 {
+#ifdef _WIN
+	unsigned long flags;
+#endif
 	struct bsr_peer_device *p;
 	
 	UNREFERENCED_PARAMETER(peer_device);
+#ifdef _WIN
+	// DW-2174 acquire al_lock before rcu_read_lock() to avoid deadlock.
+	spin_lock_irqsave(&device->al_lock, flags);
+#endif
 	// DW-1333 set whole bits and update resync extent.
 	// BSR-444 add rcu_read_lock()
 	rcu_read_lock();
@@ -7049,7 +7056,9 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 		}
 	}
 	rcu_read_unlock();
-
+#ifdef _WIN
+	spin_unlock_irqrestore(&device->al_lock, flags);
+#endif
 	return bsr_bm_write(device, NULL);
 }
 
