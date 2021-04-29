@@ -274,61 +274,54 @@ MessageID		= 12021
 Severity		= Error
 SymbolicName	= PRINTK_EMERG
 Language		= English
-<0>%2
+%2
 .
 
 MessageID		= 12022
 Severity		= Warning
 SymbolicName	= PRINTK_ALERT
 Language		= English
-<1>%2
+%2
 .
 
 MessageID		= 12023
 Severity		= Error
 SymbolicName	= PRINTK_CRIT
 Language		= English
-<2>%2
+%2
 .
 
 MessageID		= 12024
 Severity		= Error
 SymbolicName	= PRINTK_ERR
 Language		= English
-<3>%2
+%2
 .
 
 MessageID		= 12025
 Severity		= Warning
 SymbolicName	= PRINTK_WARN
 Language		= English
-<4>%2
+%2
 .
 
 MessageID		= 12026
 Severity		= Informational
 SymbolicName	= PRINTK_NOTICE
 Language		= English
-<5>%2
+%2
 .
 
 MessageID		= 12027
 Severity		= Informational
 SymbolicName	= PRINTK_INFO
 Language		= English
-<6>%2
+%2
 .
 
 MessageID		= 12028
 Severity		= Informational
 SymbolicName	= PRINTK_DBG
-Language		= English
-<7>%2
-.
-
-MessageID		= 12029
-Severity		= Informational
-SymbolicName	= PRINTK_NON
 Language		= English
 %2
 .

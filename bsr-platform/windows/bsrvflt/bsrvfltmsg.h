@@ -383,7 +383,7 @@
 //
 // MessageText:
 //
-// <0>%2
+// %2
 //
 #define PRINTK_EMERG                     0xC0002EF5L
 
@@ -392,7 +392,7 @@
 //
 // MessageText:
 //
-// <1>%2
+// %2
 //
 #define PRINTK_ALERT                     0x80002EF6L
 
@@ -401,7 +401,7 @@
 //
 // MessageText:
 //
-// <2>%2
+// %2
 //
 #define PRINTK_CRIT                      0xC0002EF7L
 
@@ -410,7 +410,7 @@
 //
 // MessageText:
 //
-// <3>%2
+// %2
 //
 #define PRINTK_ERR                       0xC0002EF8L
 
@@ -419,7 +419,7 @@
 //
 // MessageText:
 //
-// <4>%2
+// %2
 //
 #define PRINTK_WARN                      0x80002EF9L
 
@@ -428,7 +428,7 @@
 //
 // MessageText:
 //
-// <5>%2
+// %2
 //
 #define PRINTK_NOTICE                    0x40002EFAL
 
@@ -437,7 +437,7 @@
 //
 // MessageText:
 //
-// <6>%2
+// %2
 //
 #define PRINTK_INFO                      0x40002EFBL
 
@@ -446,18 +446,9 @@
 //
 // MessageText:
 //
-// <7>%2
-//
-#define PRINTK_DBG                       0x40002EFCL
-
-//
-// MessageId: PRINTK_NON
-//
-// MessageText:
-//
 // %2
 //
-#define PRINTK_NON                       0x40002EFDL
+#define PRINTK_DBG                       0x40002EFCL
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //

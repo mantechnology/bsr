@@ -44,9 +44,6 @@ void save_to_system_event(char * buf, int length, int level_index)
 	DWORD msgid = msgids[level_index];
 
 	while (offset < length) {
-		if (offset != 3)
-			msgid = PRINTK_NON;
-
 		int line_sz = WriteEventLogEntryData(msgid, 0, 0, 1, L"%S", p);
 		if (line_sz > 0) {
 			offset = offset + (line_sz / 2);
