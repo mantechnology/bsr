@@ -95,6 +95,7 @@ extern struct context_def path_cmd_ctx;
 extern struct context_def disconnect_cmd_ctx;
 extern struct context_def resize_cmd_ctx;
 extern struct context_def resource_options_ctx;
+extern struct context_def node_options_ctx;
 extern struct context_def new_current_uuid_cmd_ctx;
 extern struct context_def verify_cmd_ctx;
 extern struct context_def device_options_ctx;

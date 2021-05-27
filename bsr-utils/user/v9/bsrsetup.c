@@ -285,6 +285,7 @@ struct resources_list {
 	struct resources_list *next;
 	char *name;
 	struct nlattr *res_opts;
+	struct nlattr *node_opts;
 	struct resource_info info;
 	struct resource_statistics statistics;
 };
@@ -451,6 +452,12 @@ struct bsr_cmd commands[] = {
 	 .set_defaults = true,
 	 .ctx = &resource_options_ctx,
 	 .summary = "Change the resource options of an existing resource." },
+
+	{"node-options", CTX_RESOURCE, BSR_ADM_NODE_OPTS, BSR_NLA_NODE_OPTS,
+		F_CONFIG_CMD,
+	 .set_defaults = true,
+	 .ctx = &node_options_ctx,
+	 .summary = "Change the node options of an existing resource." },
 
 	{"peer-device-options", CTX_PEER_DEVICE, BSR_ADM_CHG_PEER_DEVICE_OPTS,
 		BSR_NLA_PEER_DEVICE_OPTS, F_CONFIG_CMD,
@@ -1166,6 +1173,104 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 #define ASSERT(exp) if (!(exp)) \
 		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
+
+#ifdef _LIN
+// BSR-747
+static int need_filesystem_recovery(char * dev_name)
+{
+	char cmd[256], buf[256];
+	char fs_type[10];
+	int ret = 0;
+	int fast_sync = 0;
+	FILE *fp;
+
+	// check fast sync settings
+	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
+
+	if (fp) {
+		ret = fscanf(fp, "%d", &fast_sync);	
+		fclose(fp);
+
+		// if full sync, skip filesystem check
+		if (ret == 1 && !fast_sync)
+			return 0;
+	} 
+	memset(cmd, 0, sizeof(cmd));	
+	sprintf(cmd, "blkid -o value -s TYPE %s", dev_name);
+
+	// get filesystem type
+	fp = popen(cmd, "r");
+	if (!fp) 
+		return 0;
+
+	memset(fs_type, 0, sizeof(fs_type));
+	memset(cmd, 0, sizeof(cmd));
+
+	if (!fgets(fs_type, sizeof(fs_type), fp)) {
+		pclose(fp);
+		return 0;
+	}
+
+	pclose(fp);
+	
+	if (!strncmp(fs_type, "xfs", 3))
+		sprintf(cmd, "xfs_repair -n %s > /dev/null 2>&1", dev_name);
+	else if (!strncmp(fs_type, "ext", 3))
+		sprintf(cmd, "fsck -n %s > /dev/null 2>&1", dev_name);
+	else 
+		return 0;
+
+	// check if recovery is need
+	ret = system(cmd);
+	ret = WEXITSTATUS(ret);
+
+	if (ret == -1 || ret == 127) {
+		CLI_ERRO_LOG_STDERR(false, 
+			"%s: could not be executed '%s'", dev_name, !strncmp(fs_type, "xfs", 3) ? "xfs_repair" : "fsck");
+	} else if (!strncmp(fs_type, "xfs", 3)) {
+		if (ret != 0) {
+			CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
+		} else {
+			memset(cmd, 0, sizeof(cmd));	
+			sprintf(cmd, "xfs_logprint -t %s 2>&1", dev_name);
+			
+			fp = popen(cmd, "r");
+			if (!fp) {
+				CLI_ERRO_LOG_STDERR(false, "%s: could not be executed 'xfs_logprint'", dev_name);
+				return 1;
+			}
+			
+			while (fgets(buf, sizeof(buf), fp)) {
+				/**
+				 * check xfs log state. if <DIRTY>, recovery is required.
+				 * ex 1) log tail: 26 head: 32 state: <DIRTY>
+				 * ex 2) log tail: 2 head: 2 state: <CLEAN> 
+				*/
+				if (strstr(buf, "log tail:") != NULL) {
+					if (strstr(buf, "<DIRTY>") != NULL) {
+						CLI_ERRO_LOG_STDERR(false, "xfs_logprint:\n%s", buf);
+						pclose(fp);
+						return 1;
+					}
+					break;
+				}
+			}
+
+			ret = pclose(fp);
+			ret = WEXITSTATUS(ret);
+			if (ret != 0) {
+				CLI_ERRO_LOG_STDERR(false, "%s: '%s' exits with error (%d)", dev_name, cmd, ret);
+			}
+		}
+	} else if (!strncmp(fs_type, "ext", 3) && ret == 4) {
+		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
+	} else if (ret != 0) {
+		CLI_ERRO_LOG_STDERR(false, "%s: '%s' exits with error (%d)", dev_name, cmd, ret);
+	}
+	return ret;
+}
+#endif
+
 static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
 	struct bsr_argument *ad;
@@ -1243,6 +1348,30 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				rv = OTHER_ERROR;
 				goto error;
 			}
+#ifdef _LIN
+			// BSR-747 check for filesystem errors before initial synchronization
+			if (!strcmp(cm->cmd, "primary") && !strcmp(field->name, "force")) {
+				if (!optarg || !strcmp(optarg, "yes")) {
+					struct devices_list *devices, *device;
+					int need_recovery = 0;
+
+					devices = list_devices(objname);
+					for (device = devices; device; device = device->next) {
+						if (device->statistics.dev_current_uuid != UUID_JUST_CREATED)
+							continue;
+						if (need_filesystem_recovery(device->disk_conf.backing_dev) && !need_recovery)
+							need_recovery = 1;
+					}
+					free_devices(devices);
+					if (need_recovery) {
+						desc = "Filesystem check and recovery is required.";
+						rv = OTHER_ERROR;
+						goto error;
+					}
+				}
+			}
+#endif
+
 		} else if (c == '(')
 			dhdr->flags |= BSR_GENL_F_SET_DEFAULTS;
 		else {
@@ -1653,7 +1782,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 
 	for (;;) {
 		int received, rem, ret;
-		struct nlmsghdr *nlh = (struct nlmsghdr *)iov.iov_base;
+		struct nlmsghdr *nlh;
 		struct timeval before;
 		struct pollfd pollfds[2] = {
 			[0] = {
@@ -1680,6 +1809,10 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 			goto out2;
 
 		received = genl_recv_msgs(bsr_sock, &iov, &desc, -1);
+
+		// BSR-699 fix potential segmentation fault
+		nlh = (struct nlmsghdr *)iov.iov_base;
+
 		if (received < 0) {
 			switch(received) {
 			case E_RCV_TIMEDOUT:
@@ -1752,113 +1885,111 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 			}
 		}
 
-		/* There may be multiple messages in one datagram (for dump replies). */
-		nlmsg_for_each_msg(nlh, nlh, received, rem) {
-			struct bsr_genlmsghdr *dh = genlmsg_data(nlmsg_data(nlh));
-			struct genl_info info = (struct genl_info){
-				.seq = nlh->nlmsg_seq,
-				.nlhdr = nlh,
-				.genlhdr = nlmsg_data(nlh),
-				.userhdr = genlmsg_data(nlmsg_data(nlh)),
-				.attrs = global_attrs,
-			};
+		struct bsr_genlmsghdr *dh = genlmsg_data(nlmsg_data(nlh));
+		struct genl_info info = (struct genl_info){
+			.seq = nlh->nlmsg_seq,
+			.nlhdr = nlh,
+			.genlhdr = nlmsg_data(nlh),
+			.userhdr = genlmsg_data(nlmsg_data(nlh)),
+			.attrs = global_attrs,
+		};
 
-			dbg(3, "received type:%x\n", nlh->nlmsg_type);
-			if (nlh->nlmsg_type < NLMSG_MIN_TYPE) {
-				/* Ignore netlink control messages. */
-				continue;
-			}
-			if (nlh->nlmsg_type == GENL_ID_CTRL) {
+		dbg(3, "received type:%x\n", nlh->nlmsg_type);
+		if (nlh->nlmsg_type < NLMSG_MIN_TYPE) {
+			/* Ignore netlink control messages. */
+			continue;
+		}
+		if (nlh->nlmsg_type == GENL_ID_CTRL) {
 #ifdef HAVE_CTRL_CMD_DELMCAST_GRP
-				dbg(3, "received cmd:%x\n", info.genlhdr->cmd);
-				if (info.genlhdr->cmd == CTRL_CMD_DELMCAST_GRP) {
-					struct nlattr *nla =
-						nlmsg_find_attr(nlh, GENL_HDRLEN, CTRL_ATTR_FAMILY_ID);
-					if (nla && nla_get_u16(nla) == bsr_genl_family.id) {
-						/* FIXME: We could wait for the
-						   multicast group to be recreated ... */
-						goto out2;
-					}
+			dbg(3, "received cmd:%x\n", info.genlhdr->cmd);
+			if (info.genlhdr->cmd == CTRL_CMD_DELMCAST_GRP) {
+				struct nlattr *nla =
+					nlmsg_find_attr(nlh, GENL_HDRLEN, CTRL_ATTR_FAMILY_ID);
+				if (nla && nla_get_u16(nla) == bsr_genl_family.id) {
+					/* FIXME: We could wait for the
+						multicast group to be recreated ... */
+					goto out2;
 				}
+			}
 #endif
-				/* Ignore other generic netlink control messages. */
-				continue;
-			}
-			if (nlh->nlmsg_type != bsr_genl_family.id) {
-				/* Ignore messages for all other netlink families. */
-				continue;
-			}
+			/* Ignore other generic netlink control messages. */
+			continue;
+		}
+		if (nlh->nlmsg_type != bsr_genl_family.id) {
+			/* Ignore messages for all other netlink families. */
+			continue;
+		}
 
-			/* parse early, otherwise bsr_cfg_context_from_attrs
-			 * can not work */
-			if (bsr_tla_parse(nlh)) {
-				/* FIXME
-				 * should continuous_poll continue?
-				 */
-				desc = "reply did not validate - "
-					"do you need to upgrade your userland tools?";
-				rv = OTHER_ERROR;
-				goto out2;
-			}
-			if (cm->continuous_poll) {
-				struct bsr_cfg_context ctx;
-				/*
-				 * We will receive all events and have to
-				 * filter for what we want ourself.
-				 */
-				/* FIXME
-				 * Do we want to ignore broadcasts until the
-				 * initial get/dump requests is done? */
+		/* parse early, otherwise bsr_cfg_context_from_attrs
+			* can not work */
+		if (bsr_tla_parse(nlh)) {
+			/* FIXME
+				* should continuous_poll continue?
+				*/
+			desc = "reply did not validate - "
+				"do you need to upgrade your userland tools?";
+			rv = OTHER_ERROR;
+			goto out2;
+		}
+		if (cm->continuous_poll) {
+			struct bsr_cfg_context ctx;
+			/*
+				* We will receive all events and have to
+				* filter for what we want ourself.
+				*/
+			/* FIXME
+				* Do we want to ignore broadcasts until the
+				* initial get/dump requests is done? */
 
-				if (!bsr_cfg_context_from_attrs(&ctx, &info)) {
-					switch ((int)cm->ctx_key) {
-					case CTX_MINOR:
-						/* Assert that, for an unicast reply,
-						 * reply minor matches request minor.
-						 * "unsolicited" kernel broadcasts are "pid=0" (netlink "port id")
-						 * (and expected to be genlmsghdr.cmd == BSR_EVENT) */
-						if (minor != dh->minor) {
-							if (info.nlhdr->nlmsg_pid != 0)
-								dbg(1, "received netlink packet for minor %u, while expecting %u\n",
-									dh->minor, minor);
-							continue;
-						}
-						break;
-					case CTX_PEER_DEVICE:
-						if (ctx.ctx_volume != global_ctx.ctx_volume)
-							continue;
-						/* also needs to match the connection, of course */
-					case CTX_PEER_NODE:
-						if (ctx.ctx_peer_node_id != global_ctx.ctx_peer_node_id)
-							continue;
-						/* also needs to match the resource, of course */
-					case CTX_RESOURCE:
-					case CTX_RESOURCE | CTX_ALL:
-						if (!strcmp(objname, "all"))
-							break;
-
-						if (strcmp(objname, ctx.ctx_resource_name))
-							continue;
-
-						break;
-					default:
-						CLI_ERRO_LOG_STDERR(false, "DRECK: %x", cm->ctx_key);
-						assert(0);
+			if (!bsr_cfg_context_from_attrs(&ctx, &info)) {
+				switch ((int)cm->ctx_key) {
+				case CTX_MINOR:
+					/* Assert that, for an unicast reply,
+						* reply minor matches request minor.
+						* "unsolicited" kernel broadcasts are "pid=0" (netlink "port id")
+						* (and expected to be genlmsghdr.cmd == BSR_EVENT) */
+					if (minor != dh->minor) {
+						if (info.nlhdr->nlmsg_pid != 0)
+							dbg(1, "received netlink packet for minor %u, while expecting %u\n",
+								dh->minor, minor);
+						continue;
 					}
+					break;
+				case CTX_PEER_DEVICE:
+					if (ctx.ctx_volume != global_ctx.ctx_volume)
+						continue;
+					/* also needs to match the connection, of course */
+				case CTX_PEER_NODE:
+					if (ctx.ctx_peer_node_id != global_ctx.ctx_peer_node_id)
+						continue;
+					/* also needs to match the resource, of course */
+				case CTX_RESOURCE:
+				case CTX_RESOURCE | CTX_ALL:
+					if (!strcmp(objname, "all"))
+						break;
+
+					if (strcmp(objname, ctx.ctx_resource_name))
+						continue;
+
+					break;
+				default:
+					CLI_ERRO_LOG_STDERR(false, "DRECK: %x", cm->ctx_key);
+					assert(0);
 				}
-			}
-			rv = dh->ret_code;
-			if (rv == ERR_MINOR_INVALID && cm->missing_ok)
-				rv = NO_ERROR;
-			if (rv != NO_ERROR)
-				goto out2;
-			err = cm->show_function(cm, &info, u_ptr);
-			if (err) {
-				if (err < 0)
-					err = 0;
-				goto out2;
 			}
 		}
+		rv = dh->ret_code;
+		if (rv == ERR_MINOR_INVALID && cm->missing_ok)
+			rv = NO_ERROR;
+		if (rv != NO_ERROR)
+			goto out2;
+		err = cm->show_function(cm, &info, u_ptr);
+		if (err) {
+			if (err < 0)
+				err = 0;
+			goto out2;
+		}
+
 		if (!cm->continuous_poll && !(flags & NLM_F_DUMP)) {
 			/* There will be no more reply packets.  */
 			err = cm->show_function(cm, NULL, u_ptr);
@@ -2230,6 +2361,9 @@ static int show_cmd(struct bsr_cmd *cm, int argc, char **argv)
 
 		for (device = devices; device; device = device->next)
 			show_volume(device);
+
+		// BSR-718
+		print_options(resource->node_opts, &node_options_ctx, "options");
 
 		--indent;
 		printI("}\n");
@@ -3048,6 +3182,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 	if (cfg.ctx_resource_name) {
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
+		struct nlattr *node_opts = global_attrs[BSR_NLA_NODE_OPTS];
 
 		if (!r) {
 			CLI_ERRO_LOG(false, true, "failed to allocate resources list(20)");
@@ -3069,6 +3204,22 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 			r->res_opts = malloc(size);
 			memcpy(r->res_opts, res_opts, size);
 		}
+
+		// BSR-718
+		if (node_opts) {
+			int size;
+
+			if (node_opts->nla_len <= NLA_HDRLEN) {
+				CLI_ERRO_LOG(false, true, "make sure that it is smaller than the NLA_HDRLEN(20)");
+				exit(20);
+			}
+
+			size = nla_total_size((int)nla_len(node_opts));
+
+			r->node_opts = malloc(size);
+			memcpy(r->node_opts, node_opts, size);
+		}
+
 		resource_info_from_attrs(&r->info, info);
 		memset(&r->statistics, -1, sizeof(r->statistics));
 		resource_statistics_from_attrs(&r->statistics, info);
@@ -3731,7 +3882,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		[NOTIFY_CALL] = "call",
 		[NOTIFY_RESPONSE] = "response",
 		// DW-1755
-		[NOTIFY_ERROR] = "notify"
+		[NOTIFY_ERROR] = "notify",
+		// BSR-734
+		[NOTIFY_DETECT] = "detect"
 	};
 	static char *object_name[] = {
 		[BSR_RESOURCE_STATE] = "resource",
@@ -3744,7 +3897,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		// BSR-676
 		[BSR_UPDATED_GI_UUID] = "gi-uuid",
 		[BSR_UPDATED_GI_DEVICE_MDF_FLAG] = "gi-device-mdf-flag",
-		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag"
+		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag",
+		// BSR-734
+		[BSR_SPLIT_BRAIN] = "split-brain"
 	};
 	static uint32_t last_seq;
 	static bool last_seq_known;
@@ -4063,6 +4218,15 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		struct bsr_updated_gi_peer_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_peer_device_mdf_flag_info_from_attrs(&gi, info)) {
 			printf(" %s", gi.peer_device_mdf);
+		}
+		break;
+	}
+	// BSR-734
+	case BSR_SPLIT_BRAIN:
+	{
+		struct bsr_split_brain_info sb_info;
+		if (!bsr_split_brain_info_from_attrs(&sb_info, info)) {
+			printf(" recover:%s", sb_info.recover);
 		}
 		break;
 	}

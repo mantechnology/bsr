@@ -857,6 +857,7 @@ const struct en_map quorum_map[] = {
 #ifdef _WIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
+	{ "max-passthrough-count", NUMERIC(max_passthrough_count, MAX_PASSTHROUGH_COUNT) }, \
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
 	/*{ "disk-barrier", BOOLEAN(disk_barrier, DISK_BARRIER) }, */			\
 	{ "disk-flushes", BOOLEAN(disk_flushes, DISK_FLUSHES) }, 			\
@@ -878,6 +879,7 @@ const struct en_map quorum_map[] = {
 #else // _LIN
 #define CHANGEABLE_DISK_OPTIONS								\
 	{ "on-io-error", ENUM(on_io_error, ON_IO_ERROR) },				\
+	{ "max-passthrough-count", NUMERIC(max_passthrough_count, MAX_PASSTHROUGH_COUNT) }, \
 	/*{ "fencing", ENUM(fencing_policy, FENCING) },*/				\
 	{ "disk-barrier", BOOLEAN(disk_barrier, DISK_BARRIER) },			\
 	{ "disk-flushes", BOOLEAN(disk_flushes, DISK_FLUSHES) },			\
@@ -1064,6 +1066,14 @@ struct context_def resource_options_ctx = {
 		// DW-1925 number and size of request objects can be set
 		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
+		{ } },
+};
+
+// BSR-718 move svc-auto-xxx option to node option
+struct context_def node_options_ctx = {
+	NLA_POLICY(node_opts),
+	.nla_type = BSR_NLA_NODE_OPTS,
+	.fields = {
 		// DW-1249 auto-start by svc
 		{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },
 		// BSR-593 auto-down by svc

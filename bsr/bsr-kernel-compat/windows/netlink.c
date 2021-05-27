@@ -46,6 +46,7 @@ extern int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+extern int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 /* .dumpit */

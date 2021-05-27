@@ -902,6 +902,13 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		case -EHOSTDOWN:
 		case -EHOSTUNREACH:
 			err = -EAGAIN;
+			break;
+#ifdef _LIN
+		// BSR-721
+		case -EINVAL:
+			err = -EADDRNOTAVAIL;
+			break;
+#endif
 		}
 	}
 
@@ -919,7 +926,8 @@ out:
 		// DW-1272 : retry CreateSocketConnect if STATUS_INVALID_ADDRESS_COMPONENT
 		if (err != -EAGAIN && err != -EINVALADDR)
 #else // _LIN
-		if (err != -EAGAIN)
+		// BSR-721
+		if (err != -EAGAIN && err != -EADDRNOTAVAIL)
 #endif
 			tr_err(transport, "%s failed, err = %d", what, err);
 	} else {
@@ -1097,6 +1105,8 @@ static int dtt_wait_for_connect(struct bsr_transport *transport,
 	struct bsr_path *bsr_path2;
 	struct dtt_listener *listener = container_of(bsr_listener, struct dtt_listener, listener);
 	struct dtt_path *path = NULL;
+	int rcvbuf_size; 
+	signed long long sndbuf_size;
 
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
@@ -1206,8 +1216,15 @@ retry:
 		}
 	}
 
-#ifdef _WIN_SEND_BUF	
-	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
+#ifdef _WIN_SEND_BUF
+	// DW-2174 prevents invalid memory references.
+	rcu_read_lock_w32_inner();
+	nc = rcu_dereference(transport->net_conf);
+	sndbuf_size = nc->sndbuf_size;
+	rcvbuf_size = nc->rcvbuf_size;
+	rcu_read_unlock();
+
+	dtt_setbufsize(s_estab, sndbuf_size, rcvbuf_size);
 #endif
 		
 	bsr_debug_co("%p dtt_wait_for_connect ok done.", KeGetCurrentThread());
@@ -1236,6 +1253,8 @@ retry_locked:
 	struct bsr_path *bsr_path2;
 	struct dtt_listener *listener = container_of(bsr_listener, struct dtt_listener, listener);
 	struct dtt_path *path = NULL;
+	int rcvbuf_size; 
+	signed long long sndbuf_size;
 
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
@@ -1318,7 +1337,13 @@ retry:
 	}
 
 #ifdef _LIN_SEND_BUF	
-	dtt_setbufsize(s_estab, nc->sndbuf_size, nc->rcvbuf_size);
+	// DW-2174 prevents invalid memory references.
+	rcu_read_lock();
+	nc = rcu_dereference(transport->net_conf);
+	sndbuf_size = nc->sndbuf_size;
+	rcvbuf_size = nc->rcvbuf_size;
+	rcu_read_unlock();
+	dtt_setbufsize(s_estab, sndbuf_size, rcvbuf_size);
 #endif
 
 	spin_unlock_bh(&listener->listener.waiters_lock);
@@ -1729,7 +1754,11 @@ out:
 		sock_release(s_listen);
 
 	if (err < 0 &&
-	    err != -EAGAIN && err != -EINTR && err != -ERESTARTSYS && err != -EADDRINUSE)
+	    err != -EAGAIN && err != -EINTR && err != -ERESTARTSYS && err != -EADDRINUSE 
+#ifdef _LIN // BSR-721
+		&& err != -EADDRNOTAVAIL
+#endif
+		)
 		tr_err(transport, "%s failed, err = %d", what, err);
 
 	kfree(listener);

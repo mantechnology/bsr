@@ -114,7 +114,7 @@ GENL_struct(BSR_NLA_DISK_CONF, 3, disk_conf,
 
 	__u32_field_def(6, BSR_GENLA_F_MANDATORY,	on_io_error, BSR_ON_IO_ERROR_DEF)
 	/*__u32_field_def(7, BSR_GENLA_F_MANDATORY,	fencing_policy, BSR_FENCING_DEF)*/
-
+	__u32_field_def(8, BSR_GENLA_F_MANDATORY,	max_passthrough_count, BSR_MAX_PASSTHROUGH_COUNT_DEF) // BSR-720 
 	__s32_field_def(9,	BSR_GENLA_F_MANDATORY,	resync_after, BSR_MINOR_NUMBER_DEF)
 	__u32_field_def(10,	BSR_GENLA_F_MANDATORY,	al_extents, BSR_AL_EXTENTS_DEF)
 
@@ -146,10 +146,8 @@ GENL_struct(BSR_NLA_RESOURCE_OPTS, 4, res_opts,
 	__s32_field_def(11, 0 /* OPTIONAL */, quorum, BSR_QUORUM_DEF)
 	__u32_field_def(12, 0 /* OPTIONAL */, on_no_quorum, BSR_ON_NO_QUORUM_DEF)
 	__s32_field_def(13, 0 /* OPTIONAL */, max_req_write_cnt, BSR_MAX_REQ_WRITE_CNT_DEF)	// DW-1200 request buffer maximum size
-	__flg_field_def(14, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
-	__flg_field_def(15, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
-	__u32_field_def(16, 0 /* OPTIONAL */, max_req_write_MB, BSR_MAX_REQ_WRITE_MB_DEF)		// DW-1925
-	__u32_field_def(17, 0 /* OPTIONAL */, on_req_write_congestion, BSR_ON_REQ_WRITE_CONGESTION_DEF)	// DW-1925
+	__u32_field_def(14, 0 /* OPTIONAL */, max_req_write_MB, BSR_MAX_REQ_WRITE_MB_DEF)		// DW-1925
+	__u32_field_def(15, 0 /* OPTIONAL */, on_req_write_congestion, BSR_ON_REQ_WRITE_CONGESTION_DEF)	// DW-1925
 )
 
 GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
@@ -371,6 +369,18 @@ GENL_struct(BSR_NLA_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 35, bsr_updated_gi_peer_dev
 	__str_field(1, BSR_GENLA_F_MANDATORY, peer_device_mdf, 256)
 )
 
+// BSR-718 move svc-auto-xxx option to node option
+GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
+	__flg_field_def(1, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
+	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
+)
+
+// BSR-734
+GENL_struct(BSR_NLA_SPLIT_BRAIN, 37, bsr_split_brain_info,
+	__str_field(1, BSR_GENLA_F_MANDATORY, recover, 32)
+)
+
+
 /*
  * Notifications and commands (genlmsghdr->cmd)
  */
@@ -397,6 +407,13 @@ GENL_op(BSR_ADM_RESOURCE_OPTS, 9,
 	GENL_doit(bsr_adm_resource_opts),
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_RESOURCE_OPTS, BSR_GENLA_F_MANDATORY)
+)
+
+// BSR-718
+GENL_op(BSR_ADM_NODE_OPTS, 39,
+	GENL_doit(bsr_adm_node_opts),
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_NODE_OPTS, BSR_GENLA_F_MANDATORY)
 )
 
 GENL_op(BSR_ADM_NEW_PEER, 44, GENL_doit(bsr_adm_new_peer),
@@ -628,4 +645,10 @@ GENL_notification(
 	BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 53, events,
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_UPDATED_GI, BSR_F_REQUIRED))
+
+
+GENL_notification(
+	BSR_SPLIT_BRAIN, 54, events,
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_SPLIT_BRAIN, BSR_F_REQUIRED))
 

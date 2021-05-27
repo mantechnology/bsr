@@ -405,12 +405,17 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>Setupapi.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\$(PlatformTarget)\bin\"
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrcon.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrcon.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsradm.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsradm.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrsetup.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrsetup.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrmeta.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrmeta.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -432,12 +437,17 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>Setupapi.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>"$(SolutionDir)\build\windows\scripts\cygwinBuild.bat" "$(SolutionDir)\build\windows\scripts\buildCli.sh" $(PlatformTarget)</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\bin\"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\$(PlatformTarget)\bin\"
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrcon.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrcon.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsradm.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsradm.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrsetup.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrsetup.hash
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrmeta.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrmeta.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

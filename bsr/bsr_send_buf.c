@@ -662,9 +662,10 @@ int send_buf_thread(void *p)
 
 	while (!buffering_attr->send_buf_kill_event) {
 		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
-		if(test_bit(RING_BUF_EVENT, &buffering_attr->flags))
+		// BSR-750 fix potential hang when using send buffer in protocol c
+		// RING_BUF_EVENT flag setting race between send_buf_thread() and send_buf()
+		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags))
 			do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
-		clear_bit(RING_BUF_EVENT, &buffering_attr->flags);
 	}
 
 	bsr_info(24, BSR_LC_SEND_BUFFER, NO_OBJECT,"Send buffer kill-ack-event");

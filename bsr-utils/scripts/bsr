@@ -194,7 +194,7 @@ case "$1" in
 	RES_LIST=""
 	for RES in `$BSRADM sh-resources-list`; do
 		# BSR-592 apply svc-auto-up to linux
-		if ! $BSRADM sh-resource-option -n svc_auto_up $RES | grep -w no &> /dev/null; then
+		if ! $BSRADM sh-node-option -n svc_auto_up $RES | grep -w no &> /dev/null; then
 			
 			MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
 			if [ -n "$MD_IDX" ]; then
@@ -279,7 +279,7 @@ case "$1" in
 		# BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
 		for res in $($BSRADM sh-resources); do
 			# BSR-593 auto-down by svc
-			if ! $BSRADM sh-resource-option -n svc_auto_down $res | grep -w no &> /dev/null; then
+			if ! $BSRADM sh-node-option -n svc_auto_down $res | grep -w no &> /dev/null; then
 				for d in `$BSRADM sh-dev $res`; do
 					[ -L "$d" ] && continue
 					[ -b "$d" ] || continue

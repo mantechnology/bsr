@@ -97,6 +97,8 @@ int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+// BSR-718
+int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info);
@@ -4035,6 +4037,11 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 			       device->vnr, device->vnr + 1, GFP_KERNEL);
 		if (id < 0)
 			goto unlock_fail_free_connection;
+
+		// BSR-708 When attach is called and new-peer is called, notify current information of GI as an event.
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_DEVICE_FLAG);
+		bsr_queue_notify_update_gi(NULL, peer_device, BSR_GI_NOTI_PEER_DEVICE_FLAG);
 	}
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
@@ -4922,6 +4929,37 @@ fail:
 	return 0;
 }
 
+int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
+{
+	struct bsr_config_context adm_ctx;
+	enum bsr_ret_code retcode;
+	struct node_opts node_opts;
+	int err;
+
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
+	if (!adm_ctx.reply_skb)
+		return retcode;
+
+	node_opts = adm_ctx.resource->node_opts;
+	if (should_set_defaults(info))
+		set_node_opts_defaults(&node_opts);
+
+	err = node_opts_from_attrs_for_change(&node_opts, info);
+	if (err && err != -ENOMSG) {
+		retcode = ERR_MANDATORY_TAG;
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		goto fail;
+	}
+
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+	adm_ctx.resource->node_opts = node_opts;
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
+
+fail:
+	bsr_adm_finish(&adm_ctx, info, retcode);
+	return 0;
+}
+
 static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 {
 	struct bsr_resource *resource = peer_device->connection->resource;
@@ -5486,6 +5524,11 @@ put_result:
 	if (err)
 		goto out;
 	err = res_opts_to_skb(skb, &resource->res_opts, !capable(CAP_SYS_ADMIN));
+	if (err)
+		goto out;
+
+	// BSR-718
+	err = node_opts_to_skb(skb, &resource->node_opts, !capable(CAP_SYS_ADMIN));
 	if (err)
 		goto out;
 
@@ -7378,6 +7421,60 @@ fail:
 		nlmsg_free(skb);
 	bsr_err(64, BSR_LC_GENL, resource, "Failed to notification helper. error %d, event seq:%u",
 		 err, seq);
+}
+
+// BSR-734 notify by event when split-brain occurs
+void notify_split_brain(struct bsr_connection *connection, char * recover_type)
+{
+	struct bsr_split_brain_info sb_info;
+	unsigned int seq;
+	struct sk_buff *skb = NULL;
+	struct bsr_genlmsghdr *dh;
+	int err;
+	
+#ifdef _WIN
+	strncpy(sb_info.recover, recover_type, sizeof(sb_info.recover) - 1);
+	sb_info.recover[sizeof(sb_info.recover) - 1] = '\0';
+#else // _LIN
+	strlcpy(sb_info.recover, recover_type, sizeof(sb_info.recover));
+#endif
+	sb_info.recover_len = (__u32)(min(strlen(recover_type), sizeof(sb_info.recover)));
+	
+	seq = atomic_inc_return(&bsr_genl_seq);
+	skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+	err = -ENOMEM;
+	if (!skb)
+		goto fail;
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, BSR_SPLIT_BRAIN);
+	
+	if (!dh)
+		goto fail;
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	mutex_lock(&notification_mutex);
+	if (nla_put_bsr_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
+		nla_put_notification_header(skb, NOTIFY_DETECT) ||
+		bsr_split_brain_info_to_skb(skb, &sb_info, true))
+		goto unlock_fail;
+
+	genlmsg_end(skb, dh);
+	err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+	skb = NULL;
+	/* skb has been consumed or freed in netlink_broadcast() */
+	if (err && err != -ESRCH)
+		goto unlock_fail;
+	mutex_unlock(&notification_mutex);
+	return;
+
+unlock_fail:
+	mutex_unlock(&notification_mutex);
+fail:
+	if(skb)
+		nlmsg_free(skb);
 }
 
 static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)

@@ -47,6 +47,8 @@
 #define BSR_GENERIC_POOL_TAG       ((ULONG)'dbrd')
 
 #define BSR_EVENT_SOCKET_STRING	"BSR_EVENTS"		/// used in NETLINK
+// DW-2170
+#define BSR_DAEMON_SOCKET_STRING	"BSR_DAEMON"		/// used in DAEMON
 
 //#define _WIN_WPP
 #define _WIN_HANDLER_TIMEOUT	// call_usermodehelper timeout

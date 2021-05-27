@@ -514,20 +514,20 @@ static const char * const __log_category_names[] = {
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 101
 #define BSR_LC_IO_MAX_INDEX 61
-#define BSR_LC_IO_ERROR_MAX_INDEX 10
+#define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 127
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 208
+#define BSR_LC_RESYNC_OV_MAX_INDEX 209
 #define BSR_LC_REPLICATION_MAX_INDEX 30
-#define BSR_LC_CONNECTION_MAX_INDEX 31
+#define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 56
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 35
 #define BSR_LC_STATE_MAX_INDEX 56
-#define BSR_LC_SOCKET_MAX_INDEX 106
+#define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 142
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
@@ -1519,6 +1519,7 @@ struct bsr_resource {
 	struct list_head connections;
 	struct list_head resources;
 	struct res_opts res_opts;
+	struct node_opts node_opts;
 	unsigned int max_node_id;
 	struct mutex conf_update;	/* for ready-copy-update of net_conf and disk_conf
 					   and devices, connection and peer_devices lists */
@@ -3232,6 +3233,9 @@ extern void notify_gi_uuid_state(struct sk_buff*, unsigned int, struct bsr_peer_
 extern void notify_gi_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_device *, enum bsr_notification_type);
 extern void notify_gi_peer_device_mdf_flag_state(struct sk_buff*, unsigned int, struct bsr_peer_device*, enum bsr_notification_type);
 
+// BSR-734
+extern void notify_split_brain(struct bsr_connection *, char * recover_type);
+
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
 extern int bsr_open_ro_count(struct bsr_resource *resource);
 
@@ -3282,9 +3286,12 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 					const char *where)
 {
 	enum bsr_io_error_p ep;
+	int max_passthrough_cnt = 0;
+	bool do_detach = false;
 
 	rcu_read_lock();
 	ep = rcu_dereference(device->ldev->disk_conf)->on_io_error;
+	max_passthrough_cnt = rcu_dereference(device->ldev->disk_conf)->max_passthrough_count;
 	rcu_read_unlock();
 	switch (ep) {
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
@@ -3332,23 +3339,30 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		}
 		break;
 	// DW-1755
-	case EP_PASSTHROUGH:
+	case EP_PASSTHROUGH:	
+		// BSR-720 BSR-731 detach if io_error_count exceeds max_passthrough_count
+		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
+			if (max_passthrough_cnt && (atomic_read(&device->io_error_count) > max_passthrough_cnt))
+				do_detach = true;
+		}
+		
 		// DW-1814 
 		// If an error occurs in the meta volume, disk consistency can not be guaranteed and replication must be stopped in any case. 
 		if (df == BSR_FORCE_DETACH)
 			set_bit(FORCE_DETACH, &device->flags);
-		if (df == BSR_META_IO_ERROR || df == BSR_FORCE_DETACH) {
+		if (df == BSR_META_IO_ERROR || df == BSR_FORCE_DETACH || do_detach) {
 			// DW-2033 Change to Failed even at Attaching
 			if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
 				begin_state_change_locked(device->resource, CS_HARD);
 				__change_disk_state(device, D_FAILED, __FUNCTION__);
 				end_state_change_locked(device->resource, false, __FUNCTION__);
+				if (df == BSR_META_IO_ERROR)
+					bsr_err(8, BSR_LC_IO_ERROR, device, "PassThrough, Detaching due to I/O error occurred on meta-disk in %s.", where);
+				else if (do_detach)
+					bsr_err(11, BSR_LC_IO_ERROR, device, "PassThrough, Detaching due to I/O error occurred more than %d times. Detaching...", max_passthrough_cnt);
+				else
+					bsr_err(4, BSR_LC_IO_ERROR, device, "PassThrough, Force-detaching in %s", where);
 			}
-
-			if (df == BSR_META_IO_ERROR)
-				bsr_err(8, BSR_LC_IO_ERROR, device, "PassThrough, Detaching due to I/O error occurred on meta-disk in %s.", where);
-			else
-				bsr_err(4, BSR_LC_IO_ERROR, device, "PassThrough, Force-detaching in %s", where);
 		}
 		else {
 		// DW-1814 

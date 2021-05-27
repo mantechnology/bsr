@@ -15,3 +15,5 @@ InstallationBitIsDifferent=Cannot install 32bit Windows BSR on the 64 bit OS.
 FailedToInstallService=Failed to install service.
 FailedToInstallEngine=Failed to install engine.
 NotSupportedOS=Cannot install Windows BSR. Not supported ${installer:os.fullName}.
+EngineHashNotMatch=Failed to installation due to engine hash mismatch.
+SetupEnginehashNotMatch=Failed to installation because the hash did not match after engine installation.

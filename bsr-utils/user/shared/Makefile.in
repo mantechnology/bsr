@@ -39,6 +39,7 @@ BSR_LIB_DIR = @BSR_LIB_DIR@
 BSR_RUN_DIR = @BSR_RUN_DIR@
 BSR_LOCK_DIR = @BSR_LOCK_DIR@
 BSR_CONFIG_DIR = @BSR_CONFIG_DIR@
+PACKAGE_VERSION = @PACKAGE_VERSION@
 
 # features enabled or disabled by configure
 WITH_UDEV = @WITH_UDEV@
@@ -65,7 +66,7 @@ bsr_buildtag.c:
 	echo -e "#include <bsr.h>";					\
 	echo -e "const char *bsr_buildtag(void)\n{";				\
 	if test -e ../../../.git && GITHEAD=$$(git rev-parse HEAD); then		\
-		echo -e "\treturn \"GIT-hash: $$GITHEAD\"";		\
+		echo -e "\treturn \"$(PACKAGE_VERSION) GIT-hash: $${GITHEAD:0:7}\"";		\
 	elif ! test -e $@ ; then						\
 		echo >&2 "$@ not found.";					\
 		test -e ../../../.git &&						\

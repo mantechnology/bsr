@@ -2718,6 +2718,15 @@ void do_submit(struct work_struct *ws)
 #endif
 }
 
+// BSR-723 add compat code for blk_queue_split
+#ifndef COMPAT_HAVE_BLK_QUEUE_SPLIT_Q_BIO
+#if defined(COMPAT_HAVE_BLK_QUEUE_SPLIT_Q_BIO_BIOSET)
+#define blk_queue_split(q, bio) blk_queue_split(q, bio, q->bio_split)
+#else
+#define blk_queue_split(q, bio) do { } while (0)
+#endif
+#endif
+
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct bsr_device *device = (struct bsr_device *) q->queuedata;
@@ -2729,6 +2738,12 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	const int rw = bio_data_dir(bio);
 	// BSR-620 If the meta-disk err, device->ldev can be null.
 	if (rw == READ && device->ldev) {
+		// BSR-746 modify to bypass after checking with get_ldev() when read io occurs
+		if (!get_ldev(device)) {
+			bsr_bio_endio(bio, -ENODEV);
+			MAKE_REQUEST_RETURN;
+		}
+
 		if (atomic_read(&g_bsrmon_run)) {
 			atomic_inc(&device->io_cnt[READ]);
 			atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[READ]);
@@ -2737,6 +2752,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
+		put_ldev(device);
 		MAKE_REQUEST_RETURN;
 #endif
 	}
@@ -2754,7 +2770,13 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	}
 #endif
 
-#ifdef COMPAT_HAVE_BLK_QUEUE_SPLIT
+#ifdef _LIN
+	// BSR-730 prevent writing when device is failed or below.
+	if (device->disk_state[NOW] <= D_FAILED) {
+		bsr_bio_endio(bio, -ENODEV);
+		MAKE_REQUEST_RETURN;
+	}
+
 /* 54efd50 block: make generic_make_request handle arbitrarily sized bios
  * introduced blk_queue_split(), which is supposed to split (and put on the
  * current->bio_list bio chain) any bio that is violating the queue limits.
@@ -2762,7 +2784,8 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
  * would call our merge bvec function, and that should already be sufficient
  * to not violate queue limits.
  */
-	blk_queue_split(q, &bio, q->bio_split);
+	// BSR-723
+	blk_queue_split(q, &bio);
 #endif
 	start_jif = jiffies;
 	inc_ap_bio(device, bio_data_dir(bio));

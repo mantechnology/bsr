@@ -805,6 +805,8 @@ int connect_work(struct bsr_work *work, int cancel)
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 		bsr_alert(2, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed. dropping connection");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
 	} else {
 		bsr_info(3, BSR_LC_CONNECTION, connection, "Connection failed. Try again. status(%d)", rv);
@@ -829,7 +831,8 @@ static bool conn_connect(struct bsr_connection *connection)
 	struct net_conf *nc;
 	bool discard_my_data;
 	bool have_mutex;
-
+	bool no_addr = false;
+	signed long long sndbuf_size, cong_fill;
 start:
 	
 	bsr_debug_conn("conn_connect"); 
@@ -850,6 +853,30 @@ start:
 		if (connection->cstate[NOW] == C_DISCONNECTING)
 			return false;
 		goto retry;
+#ifdef _LIN
+	// BSR-721 modify to retry connection in Connecting state if there is no locally configured address
+	} else if (err == -EADDRNOTAVAIL) {
+		struct net_conf *nc;
+		int connect_int;
+		long t;
+
+		rcu_read_lock();
+		nc = rcu_dereference(transport->net_conf);
+		connect_int = nc ? nc->connect_int : 10;
+		rcu_read_unlock();
+
+		if (!no_addr) {
+			bsr_warn(connection,
+				  "Configured local address not found, retrying every %d sec, "
+				  "err=%d", connect_int, err);
+			no_addr = true;
+		}
+
+		t = schedule_timeout_interruptible(connect_int * HZ);
+		if (t || connection->cstate[NOW] == C_DISCONNECTING)
+			return false;
+		goto start;
+#endif
 	} else if (err < 0) {
 		// DW-1608 If cstate is already Networkfailure or Connecting, it will retry the connection.
 		if (connection->cstate[NOW] == C_NETWORK_FAILURE || connection->cstate[NOW] == C_CONNECTING){
@@ -925,22 +952,29 @@ start:
 		else
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
+	
+#ifdef _SEND_BUF
+	// DW-2174 prevents invalid memory references.
+	nc = rcu_dereference(connection->transport.net_conf);
+	sndbuf_size = nc->sndbuf_size;
+	cong_fill = nc->cong_fill;
+#endif
 	rcu_read_unlock();
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	have_mutex = false;
 
 #ifdef _SEND_BUF
 	// DW-1436 removing the protocol dependency of the send buffer thread
-	if (nc->sndbuf_size >= BSR_SNDBUF_SIZE_MIN) {
+	if (sndbuf_size >= BSR_SNDBUF_SIZE_MIN) {
 		bool send_buffring = false;
 
-		send_buffring = transport->ops->start_send_buffring(transport, nc->sndbuf_size);
+		send_buffring = transport->ops->start_send_buffring(transport, sndbuf_size);
 		if (send_buffring)
-			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)", nc->sndbuf_size, (nc->cong_fill));
+			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)", sndbuf_size, cong_fill);
 		else
 			bsr_info(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled");
 	} else {
-		bsr_warn(27, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu", nc->sndbuf_size);
+		bsr_warn(27, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled nc->sndbuf_size:%llu", sndbuf_size);
 	}
 #endif
 
@@ -4354,8 +4388,10 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		BSR_FAULT_DT_WR);
 	if (!err) {	// DW-1012 The data just received is the newest, ignore previously received out-of-sync.
 		// DW-1979 do not set "in sync" before starting resync.
+		// BSR-729 even in the behind state, do not set "in sync" before starting resync.
 		if (peer_device->repl_state[NOW] == L_WF_BITMAP_T ||
-			(peer_device->repl_state[NOW] == L_SYNC_TARGET && atomic_read(&peer_device->wait_for_bitmp_exchange_complete))) {
+			((peer_device->repl_state[NOW] == L_SYNC_TARGET || peer_device->repl_state[NOW] == L_BEHIND)
+			 && atomic_read(&peer_device->wait_for_bitmp_exchange_complete))) {
 			// DW-1979 set to D_INCONSISTENT when replication data occurs during resync start.
 			if (peer_device->device->disk_state[NOW] != D_INCONSISTENT &&
 				peer_device->device->disk_state[NEW] != D_INCONSISTENT) {
@@ -5776,6 +5812,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_warn(19, BSR_LC_CONNECTION, device, "Split-Brain detected, %d primaries, "
 			     "automatically solved. Sync from %s node",
 			     pcount, (hg < 0) ? "peer" : "this");
+			// BSR-734
+			notify_split_brain(connection, "automatically");
 			if (forced) {
 				bsr_warn(20, BSR_LC_CONNECTION, device, "Doing a full sync, since"
 				     " UUIDs where ambiguous.");
@@ -5800,12 +5838,34 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		    (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA))
 			hg = 2;
 
-		if (abs(hg) < 100)
+		if (abs(hg) < 100) {
 			bsr_warn(21, BSR_LC_CONNECTION, device, "Split-Brain detected, manually solved. "
 			     "Sync from %s node",
 			     (hg < 0) ? "peer" : "this");
-	}
+			// BSR-734
+			notify_split_brain(connection, "manually");
+		}
+	} 
+	// BSR-735 when executing discard-my-data, if peer is primary, it becomes SyncTarget even if it is not split-brain.
+	else if ((hg <= -2 || hg >= 2) &&
+		(device->resource->role[NOW] == R_PRIMARY || connection->peer_role[NOW] == R_PRIMARY)) {
+		if (connection->peer_role[NOW] == R_PRIMARY &&
+			test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
+		    !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+			bsr_info(32, BSR_LC_CONNECTION, device, "I shall become SyncTarget, because the discard_my_data flag is set and the peer is primary.");
+			hg = -2;
+		}
 
+		if (device->resource->role[NOW] == R_PRIMARY &&
+			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
+		    (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+
+			bsr_info(33, BSR_LC_CONNECTION, device, "I shall become SyncSource, because I am primary and the discard_my_data flag is set in the peer.");
+			hg = 2;
+
+			set_bit(NEW_CUR_UUID, &device->flags);
+		}
+	}
 	// DW-1221 If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
 	else {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
@@ -5817,6 +5877,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 	if (hg == -100) {
 		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(device, connection, "split-brain");
 		return -1;
 	}
@@ -8359,6 +8421,8 @@ static int process_twopc(struct bsr_connection *connection,
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 		bsr_alert(29, BSR_LC_TWOPC, connection, "Split-Brain close the connection with two or more primary settings.");
+		// BSR-734
+		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
 		return 0;
 	}
@@ -8824,6 +8888,15 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			goto fail_network_failure;
 		}
 		goto fail;
+	}
+
+	// BSR-735 creates a new current uuid when it becomes WFBitmapS
+	if ((device->resource->role[NOW] == R_PRIMARY) && (new_repl_state == L_WF_BITMAP_S) && 
+		(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA) && 
+		test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+		mutex_lock(&resource->conf_update);
+		bsr_uuid_new_current(device, false, __FUNCTION__);
+		mutex_unlock(&resource->conf_update);
 	}
 
 	// DW-1341 if UNSTABLE_TRIGGER_CP bit is set , send uuids(unstable node triggering for Crashed primary wiered case).

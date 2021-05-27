@@ -2987,16 +2987,20 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	{
 		LONG readcount;
-		char hello[2];
+		char hello[32];
 		memset(hello, 0, sizeof(hello));
-		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT,"Wait Hi");
-		if ((readcount = Receive(pSock, &hello, 2, 0, g_handler_timeout, NULL)) == 2) {
+
+		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT, "Wait Hi");
+
+		// DW-2170 the first received data after connection must be the same as DRBD_DAEMON_SOCKET_STRING.
+		if ((readcount = Receive(pSock, &hello, (long)strlen(BSR_DAEMON_SOCKET_STRING), 0, g_handler_timeout, NULL)) == (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
 				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
 			} else {
 				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to receive. status(0x%x)", readcount);
+
 			}
 			ret = -1;
 
@@ -3004,6 +3008,17 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			goto error;
 		}
 
+		if (0 != memcmp(hello, BSR_DAEMON_SOCKET_STRING, strlen(BSR_DAEMON_SOCKET_STRING))) {
+			bsr_err(107, BSR_LC_SOCKET, NO_OBJECT, "this is not a daemon connection.\n");
+			goto error;
+		}
+
+		// DW-2170 send DRBD_DAEMON_SOCKET_STRING.
+		if ((Status = SendLocal(pSock, BSR_DAEMON_SOCKET_STRING, (unsigned int)strlen(BSR_DAEMON_SOCKET_STRING), 0, g_handler_timeout)) != (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
+			bsr_err(108, BSR_LC_SOCKET, NO_OBJECT, "send socket string fail stat=0x%x\n", Status);
+			ret = -1;
+			goto error;
+		}
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
 			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to send command. status(0x%x)", Status);

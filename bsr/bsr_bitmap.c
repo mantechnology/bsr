@@ -1075,8 +1075,8 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return;
 
-	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
-	if (!bsr_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
+	// DW-1859 BSR-744 make sure the io-error is cleared only when MDF_IO_ERROR is set.
+	if (!bsr_md_test_flag(device, MDF_IO_ERROR)) {
 		put_ldev(device);
 		return;
 	}

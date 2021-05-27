@@ -194,7 +194,7 @@ bool disable_sendpage;
 #endif
 bool allow_oos = false;
 #ifdef _LIN_FAST_SYNC
-bool debug_fast_sync = true;
+bool debug_fast_sync = false;
 #endif
 /* Module parameter for setting the user mode helper program
  * to run. Default is /sbin/bsradm */
@@ -743,6 +743,10 @@ restart:
 			bsr_info(8, BSR_LC_THREAD, resource, "Restarting %s thread", thi->name);
 		thi->t_state = RUNNING;
 		spin_unlock_irqrestore(&thi->t_lock, flags);
+#ifdef _LIN
+		// BSR-721
+		flush_signals(current); /* likely it got a signal to look at t_state... */
+#endif
 		goto restart;
 	}
 #ifdef _WIN
@@ -6372,8 +6376,12 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 
 		// DW-1360 skip considering to rotate uuid for node which doesn't exist.
 		if (peer_md[node_id].bitmap_index == -1 &&
-			!(peer_md[node_id].flags & MDF_NODE_EXISTS))
-			continue;
+			!(peer_md[node_id].flags & MDF_NODE_EXISTS)) {
+			// BSR-692 do not skip the node if UUID is in its initial state and no connecting object has been created.
+			if (!((device->ldev->md.current_uuid == UUID_JUST_CREATED) &&
+				list_empty(&device->resource->connections))) 
+				continue;
+		}
 
 		bm_uuid = peer_md[node_id].bitmap_uuid;
 		if (bm_uuid)
@@ -6987,6 +6995,9 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		atomic_dec(&device->pending_bitmap_work.n);
 	}
 
+// BSR-743
+retry:
+
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
@@ -7020,7 +7031,22 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 		}
 	}
 	else {
-		bsr_warn(163, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
+		// BSR-743 If repl_state[NEW] is L_STARTING_SYNC_S or L_STARTING_SYNC_T, wait because repl_stat[NOW] will change soon.
+		if ((peer_device->repl_state[NEW] == L_STARTING_SYNC_S) || 
+			(peer_device->repl_state[NEW] == L_STARTING_SYNC_T)) {
+			long t = 0;
+			bsr_warn(209, BSR_LC_RESYNC_OV, peer_device, "wait replication state: %s", bsr_repl_str(peer_device->repl_state[NEW]));
+			
+			wait_event_timeout_ex(device->resource->state_wait,
+				((peer_device->repl_state[NOW] == L_STARTING_SYNC_S) || 
+					(peer_device->repl_state[NOW] == L_STARTING_SYNC_T)),
+				HZ, t);
+			if (t)
+				goto retry;
+				
+		}
+	
+		bsr_warn(208, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
 
 	if (dec_bm_work_n) {
@@ -7034,9 +7060,16 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 int bsr_bmio_set_all_n_write(struct bsr_device *device,
 			      struct bsr_peer_device *peer_device) __must_hold(local)
 {
+#ifdef _WIN
+	unsigned long flags;
+#endif
 	struct bsr_peer_device *p;
 	
 	UNREFERENCED_PARAMETER(peer_device);
+#ifdef _WIN
+	// DW-2174 acquire al_lock before rcu_read_lock() to avoid deadlock.
+	spin_lock_irqsave(&device->al_lock, flags);
+#endif
 	// DW-1333 set whole bits and update resync extent.
 	// BSR-444 add rcu_read_lock()
 	rcu_read_lock();
@@ -7047,7 +7080,9 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 		}
 	}
 	rcu_read_unlock();
-
+#ifdef _WIN
+	spin_unlock_irqrestore(&device->al_lock, flags);
+#endif
 	return bsr_bm_write(device, NULL);
 }
 
@@ -7775,7 +7810,8 @@ int bsr_bitmap_io(struct bsr_device *device,
 void bsr_md_set_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(33, BSR_LC_STATE, device, "Failed to set flag in meta because no backing device is assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(33, BSR_LC_STATE, device, "Failed to set flag in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7795,7 +7831,8 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(34, BSR_LC_STATE, peer_device, "Failed to set flag of peer in meta because no backing device is assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(34, BSR_LC_STATE, peer_device, "Failed to set flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7813,7 +7850,8 @@ void bsr_md_set_peer_flag(struct bsr_peer_device *peer_device,
 void bsr_md_clear_flag(struct bsr_device *device, enum mdf_flag flag) __must_hold(local)
 {
 	if (!device->ldev) {
-		bsr_warn(35, BSR_LC_STATE, device, "backing device is not assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(35, BSR_LC_STATE, device, "backing device is not assigned.");
 		return;
 	}
 
@@ -7833,7 +7871,8 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 	struct bsr_md *md;
 	struct bsr_device *device = peer_device->device;
 	if (!device->ldev) {
-		bsr_warn(36, BSR_LC_STATE, peer_device, "Failed to clear flag of peer in meta because no backing device is assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(36, BSR_LC_STATE, peer_device, "Failed to clear flag of peer in meta because no backing device is assigned.");
 		return;
 	}
 
@@ -7851,7 +7890,8 @@ void bsr_md_clear_peer_flag(struct bsr_peer_device *peer_device,
 int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag flag)
 {
 	if (!device->ldev) {
-		bsr_warn(37, BSR_LC_STATE, device, "Failed to test flag in meta because no backing device is assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(37, BSR_LC_STATE, device, "Failed to test flag in meta because no backing device is assigned.");
 		return 0;
 	}
 
@@ -7863,7 +7903,8 @@ bool bsr_md_test_peer_flag(struct bsr_peer_device *peer_device, enum mdf_peer_fl
 	struct bsr_md *md;
 
 	if (!peer_device->device->ldev) {
-		bsr_warn(38, BSR_LC_STATE, peer_device, "Failed to test flag of peer in meta because no backing device is assigned.");
+		if (bsr_ratelimit())
+			bsr_warn(38, BSR_LC_STATE, peer_device, "Failed to test flag of peer in meta because no backing device is assigned.");
 		return false;
 	}
 
