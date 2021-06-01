@@ -4402,6 +4402,13 @@ adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 				  "Can not delete last path, use disconnect first!");
 		return ERR_INVALID_REQUEST;
 	}
+
+	// BSR-762 fix BSOD due to path deletion during disconnecting
+	if (connection->cstate[NOW] == C_DISCONNECTING) {
+		bsr_msg_put_info(adm_ctx->reply_skb,
+				"Can not delete path during disconnecting, retry after reaching standalone state.");
+		return ERR_INVALID_REQUEST;
+	}
 	
 	err = -ENOENT;
 	list_for_each_entry_ex(struct bsr_path, path, &transport->paths, list) {
