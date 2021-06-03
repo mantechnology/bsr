@@ -248,6 +248,8 @@ NTSTATUS _QueryVolumeNameRegistry(
 					memset(pvext->MountPoint, 0, sizeof(pvext->MountPoint));
 					memcpy(pvext->MountPoint, L" :", 4);
 					pvext->MountPoint[0] = (WCHAR)toupper((CHAR)(*(key + wcslen(L"\\DosDevices\\"))));
+					// BSR-763 set minor value
+					pvext->Minor = (UCHAR)(pvext->MountPoint[0] - 'C');
 				}
 				else if (wcsstr(key, L"\\??\\Volume")) {	// registry's style
 					// BSR-109
