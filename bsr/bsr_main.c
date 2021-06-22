@@ -6548,6 +6548,8 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 		__bsr_uuid_set_current(device, val);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
+		// BSR-767 notify uuid When the new current uuid is received and changed
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 	}
 	else
 		bsr_warn(peer_device, "receive new current but not update UUID: %016llX", peer_device->current_uuid);
@@ -6832,8 +6834,6 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 				peer_md[node_id].bitmap_uuid = 0;
 				if (node_id == peer_device->node_id) {
 					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
-					// BSR-676 notify uuid
-					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 				}
 				else if (peer_md[node_id].bitmap_index != -1) {
 					// DW-955 
@@ -6854,6 +6854,10 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 					bsr_info(device, "Clearing bitmap UUID for node %d",
 						  node_id);
 				bsr_md_mark_dirty(device);
+
+				// BSR-767 notify uuid when bitmap_uuid is removed
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 // DW-979
 // DW-980
 clear_flag:
