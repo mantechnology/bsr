@@ -4191,8 +4191,26 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	if (pi->cmd == P_TRIM) {
 		D_ASSERT(peer_device, peer_req->i.size > 0);
 		D_ASSERT(peer_device, d.dp_flags & DP_DISCARD);
+		D_ASSERT(peer_device, op == REQ_OP_DISCARD);
 		D_ASSERT(peer_device, peer_req->page_chain.head == NULL);
 		D_ASSERT(peer_device, peer_req->page_chain.nr_pages == 0);
+		/* need to play safe: an older BSR sender
+		 * may mean zero-out while sending P_TRIM. */
+		if (0 == (connection->agreed_features & BSR_FF_WZEROES))
+			peer_req->flags |= EE_ZEROOUT;
+	} else if (pi->cmd == P_ZEROES) {
+		D_ASSERT(peer_device, peer_req->i.size > 0);
+		D_ASSERT(peer_device, d.dp_flags & DP_ZEROES);
+		D_ASSERT(peer_device, op == REQ_OP_WRITE_ZEROES);
+		D_ASSERT(peer_device, peer_req->page_chain.head == NULL);
+		D_ASSERT(peer_device, peer_req->page_chain.nr_pages == 0);
+		/* Do (not) pass down BLKDEV_ZERO_NOUNMAP? */
+		if (d.dp_flags & DP_DISCARD)
+			peer_req->flags |= EE_TRIM;
+	} else if (pi->cmd == P_WSAME) {
+		D_ASSERT(peer_device, peer_req->i.size > 0);
+		D_ASSERT(peer_device, op == REQ_OP_WRITE_SAME);
+		D_ASSERT(peer_device, peer_req->page_chain.head != NULL);
 	} else if (peer_req->page_chain.head == NULL) {
 		/* Actually, this must not happen anymore,
 		 * "empty" flushes are mapped to P_BARRIER,
@@ -9827,6 +9845,7 @@ static struct data_cmd bsr_cmd_handler[] = {
 	[P_CURRENT_UUID]    = { 0, sizeof(struct p_current_uuid), receive_current_uuid },
 	[P_TWOPC_COMMIT]    = { 0, sizeof(struct p_twopc_request), receive_twopc },
 	[P_TRIM]	    = { 0, sizeof(struct p_trim), receive_Data },
+	[P_ZEROES]	    = { 0, sizeof(struct p_trim), receive_Data },
 	[P_RS_DEALLOCATED]  = { 0, sizeof(struct p_block_desc), receive_rs_deallocated },
 	[P_WSAME]	    = { 1, sizeof(struct p_wsame), receive_Data },
 	// DW-2124
@@ -10345,12 +10364,12 @@ int bsr_do_features(struct bsr_connection *connection)
 		  connection->peer_node_id,
 		  connection->agreed_pro_version);
 
-
-	bsr_info(connection, "Feature flags enabled on protocol level: 0x%x%s%s%s.",
+	bsr_info(connection, "Feature flags enabled on protocol level: 0x%x%s%s%s%s.\n",
 		  connection->agreed_features,
 		  connection->agreed_features & BSR_FF_TRIM ? " TRIM" : "",
 		  connection->agreed_features & BSR_FF_THIN_RESYNC ? " THIN_RESYNC" : "",
-		  connection->agreed_features & BSR_FF_WSAME ? " WRITE_SAME" :
+		  connection->agreed_features & BSR_FF_WSAME ? " WRITE_SAME" : "",
+		  connection->agreed_features & BSR_FF_WZEROES ? " WRITE_ZEROES" :
 		  connection->agreed_features ? "" : " none");
 
 	return 1;
