@@ -132,6 +132,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 	req->rq_state[0] = (bio_data_dir(bio_src) == WRITE ? RQ_WRITE : 0)
 		| (bio_op(bio_src) == REQ_OP_WRITE_SAME ? RQ_WSAME : 0)
+		| (bio_op(bio_src) == REQ_OP_WRITE_ZEROES ? RQ_ZEROES : 0)
 		| (bio_op(bio_src) == REQ_OP_DISCARD ? RQ_UNMAP : 0);
 
 	for (i = 1; i < ARRAY_SIZE(req->rq_state); i++)
@@ -1863,10 +1864,10 @@ static int bsr_process_write_request(struct bsr_request *req)
 	return count;
 }
 
-static void bsr_process_discard_req(struct bsr_request *req)
+static void bsr_process_discard_or_zeroes_req(struct bsr_request *req, int flags)
 {
 	int err = bsr_issue_discard_or_zero_out(req->device,
-				req->i.sector, req->i.size >> 9, true);
+				req->i.sector, req->i.size >> 9, flags);
 	bsr_bio_endio(req->private_bio, err ? -EIO : 0);
 }
 
@@ -1894,8 +1895,11 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 	if (get_ldev(device)) {
 		if (bsr_insert_fault(device, type))
 			bsr_bio_endio(bio, -EIO);
-		else if (bio_op(bio) == REQ_OP_DISCARD)
-			bsr_process_discard_req(req);
+		else if (bio_op(bio) == REQ_OP_WRITE_ZEROES) {
+			bsr_process_discard_or_zeroes_req(req, EE_ZEROOUT |
+			    ((bio->bi_opf & REQ_NOUNMAP) ? 0 : EE_TRIM));
+		} else if (bio_op(bio) == REQ_OP_DISCARD)
+			bsr_process_discard_or_zeroes_req(req, EE_TRIM);
 		else {
 			// DW-1961 Save timestamp for IO latency measuremen
 			if (atomic_read(&g_featurelog_flag) & FEATURELOG_FLAG_LATENCY)
@@ -1964,7 +1968,8 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ULONG_PTR start_
 	_bsr_start_io_acct(device, req);
 
 	/* process discards always from our submitter thread */
-	if(bio_op(bio) == REQ_OP_DISCARD)
+	if ((bio_op(bio) == REQ_OP_WRITE_ZEROES) ||
+		(bio_op(bio) == REQ_OP_DISCARD))
 		goto queue_for_submitter_thread;
 
 	if (rw == WRITE && req->i.size) {
@@ -2321,10 +2326,6 @@ static void __bsr_submit_peer_request(struct bsr_peer_request *peer_req)
 	struct bsr_peer_device *peer_device = peer_req->peer_device;
 	struct bsr_device *device = peer_device->device;
 	int err;
-
-	D_ASSERT(peer_device,
-		0 == (peer_req->flags & (EE_IS_BARRIER | EE_IS_TRIM |
-		EE_IS_TRIM_USE_ZEROOUT | EE_WRITE_SAME)));
 
 	peer_req->flags |= EE_IN_ACTLOG;
 	atomic_dec(&peer_req->peer_device->wait_for_actlog);
