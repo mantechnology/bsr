@@ -2193,7 +2193,7 @@ static void p_req_detail_from_pi(struct bsr_connection *connection,
 struct bsr_peer_request_details *d, struct packet_info *pi)
 {
 	struct p_trim *p = pi->data;
-	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME;
+	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME || pi->cmd == P_ZEROES;
 	unsigned int digest_size =
 		pi->cmd != P_TRIM && connection->peer_integrity_tfm ?
 		crypto_ahash_digestsize(connection->peer_integrity_tfm) : 0;
