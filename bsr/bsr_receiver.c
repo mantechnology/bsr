@@ -2241,7 +2241,7 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 		return NULL;
 	
 	if (d->dp_flags & (DP_WSAME|DP_DISCARD|DP_ZEROES)) {
-		if (!expect(peer_device, d->bi_size <= (BSR_MAX_BIO_SIZE << 9)))
+		if (!expect(peer_device, d->bi_size <= (BSR_MAX_BBIO_SECTORS << 9)))
 			return NULL;
 	} else if (!expect(peer_device, d->bi_size <= BSR_MAX_BIO_SIZE))
 		return NULL;

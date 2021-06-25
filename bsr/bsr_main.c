@@ -2946,6 +2946,7 @@ static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
 			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
 			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
 			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
+			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
 			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
 				((connection->agreed_features & BSR_FF_WZEROES) ?
 				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
