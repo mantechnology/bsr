@@ -1122,13 +1122,9 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 #define BSR_REQ_DISCARD	0
 #endif
 
-#ifdef REQ_NOUNMAP
-#define BSR_REQ_NOUNMAP REQ_NOUNMAP
-#else
-#define BSR_REQ_NOUNMAP    0
+#ifndef COMPAT_HAVE_REQ_NOUNMAP
+#define REQ_NOUNMAP 0
 #endif
-
-
 
 /* this results in:
 	bi_opf   -> dp_flags
@@ -1242,6 +1238,10 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
  * but not enough to make it work for us without additional compat code.
  */
 #define COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES 1
+
+#ifndef COMPAT_HAVE_REQ_OP_WRITE_ZEROES
+#define REQ_OP_WRITE_ZEROES (-3u)
+#endif
 #endif
 #else /* !defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) */
 #define COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES 1
