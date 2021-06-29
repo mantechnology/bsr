@@ -2946,7 +2946,13 @@ static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
 			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
 			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
 			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
-			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0);
+			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
+			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
+				((connection->agreed_features & BSR_FF_WZEROES) ?
+				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
+				: DP_DISCARD)
+				: 0);
+		
 
 	/* else: we used to communicate one bit only in older BSR */
 	return bio->bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
@@ -2969,7 +2975,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
-	if (op == REQ_OP_DISCARD) {
+	if (op == REQ_OP_DISCARD || op == REQ_OP_WRITE_ZEROES) {
 		trim = bsr_prepare_command(peer_device, sizeof(*trim), DATA_STREAM);
 		if (!trim)
 			return -EIO;
@@ -3010,7 +3016,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	p->dp_flags = cpu_to_be32(dp_flags);
 
 	if (trim) {
-		err = __send_command(peer_device->connection, device->vnr, P_TRIM, DATA_STREAM);
+		err = __send_command(peer_device->connection, device->vnr,
+				(dp_flags & DP_ZEROES) ? P_ZEROES : P_TRIM, DATA_STREAM);
 		goto out;
 	}
 

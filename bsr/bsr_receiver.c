@@ -53,7 +53,7 @@
 #include "bsr_vli.h"
 
 
-#define PRO_FEATURES (BSR_FF_TRIM|BSR_FF_THIN_RESYNC|BSR_FF_WSAME)
+#define PRO_FEATURES (BSR_FF_TRIM|BSR_FF_THIN_RESYNC|BSR_FF_WSAME|BSR_FF_WZEROES)
 
 struct flush_work {
 	struct bsr_work w;
@@ -1609,7 +1609,7 @@ enum write_ordering_e wo) __must_hold(local)
 /*
  * We *may* ignore the discard-zeroes-data setting, if so configured.
  *
- * Assumption is that it "discard_zeroes_data=0" is only because the backend
+ * Assumption is that this "discard_zeroes_data=0" is only because the backend
  * may ignore partial unaligned discards.
  *
  * LVM/DM thin as of at least
@@ -1622,14 +1622,16 @@ enum write_ordering_e wo) __must_hold(local)
  * we zero-out the initial (and/or) trailing unaligned partial chunks,
  * but discard all the aligned full chunks.
  *
- * At least for LVM/DM thin, the result is effectively "discard_zeroes_data=1".
+ * At least for LVM/DM thin, with skip_block_zeroing=false,
+ * the result is effectively "discard_zeroes_data=1".
  */
-int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, unsigned int nr_sectors, bool discard)
+/* flags: EE_TRIM|EE_ZEROOUT */
+int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, unsigned int nr_sectors, int flags)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(start);
 	UNREFERENCED_PARAMETER(nr_sectors);
-	UNREFERENCED_PARAMETER(discard);
+	UNREFERENCED_PARAMETER(flags);
 	UNREFERENCED_PARAMETER(device);
 	return 0;
 #else // _LIN
@@ -1642,7 +1644,7 @@ int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, uns
 	unsigned int max_discard_sectors, granularity;
 	int alignment;
 #endif
-	if (!discard)
+	if ((flags & EE_ZEROOUT) || !(flags & EE_TRIM))
 		goto zero_out;
 
 	/* Zero-sector (unknown) and one-sector granularities are the same.  */
@@ -1666,19 +1668,34 @@ int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, uns
 		tmp = start + granularity - sector_div(tmp, granularity);
 
 		nr = tmp - start;
+		/* don't flag BLKDEV_ZERO_NOUNMAP, we don't know how many
+		 * layers are below us, some may have smaller granularity */
 		err |= blkdev_issue_zeroout(bdev, start, nr, GFP_NOIO, 0);
 		nr_sectors -= nr;
 		start = tmp;
 	}
-	while (nr_sectors >= granularity) {
-		nr = min_t(sector_t, nr_sectors, max_discard_sectors);
-		err |= blkdev_issue_discard(bdev, start, nr, GFP_NOIO, 0);
-		nr_sectors -= nr;
-		start += nr;
+	while (nr_sectors >= max_discard_sectors) {
+		err |= blkdev_issue_discard(bdev, start, max_discard_sectors, GFP_NOIO, 0);
+		nr_sectors -= max_discard_sectors;
+		start += max_discard_sectors;
+	}
+	if (nr_sectors) {
+		/* max_discard_sectors is unsigned int (and a multiple of
+		 * granularity, we made sure of that above already);
+		 * nr is < max_discard_sectors;
+		 * I don't need sector_div here, even though nr is sector_t */
+		nr = nr_sectors;
+		nr -= (unsigned int)nr % granularity;
+		if (nr) {
+			err |= blkdev_issue_discard(bdev, start, nr, GFP_NOIO, 0);
+			nr_sectors -= nr;
+			start += nr;
+		}
 	}
 zero_out:
 	if (nr_sectors) {
-		err |= blkdev_issue_zeroout(bdev, start, nr_sectors, GFP_NOIO, 0);
+		err |= blkdev_issue_zeroout(bdev, start, nr_sectors, GFP_NOIO,
+				(flags & EE_TRIM) ? 0 : BLKDEV_ZERO_NOUNMAP);
 	}
 
 	return err != 0;
@@ -1708,17 +1725,17 @@ static bool can_do_reliable_discards(struct bsr_device *device)
 #endif
 }
 
-static void bsr_issue_peer_discard(struct bsr_device *device, struct bsr_peer_request *peer_req)
+static void bsr_issue_peer_discard_or_zero_out(struct bsr_device *device, struct bsr_peer_request *peer_req)
 {
 	/* If the backend cannot discard, or does not guarantee
 	 * read-back zeroes in discarded ranges, we fall back to
 	 * zero-out.  Unless configuration specifically requested
 	 * otherwise. */
 	if (!can_do_reliable_discards(device))
-		peer_req->flags |= EE_IS_TRIM_USE_ZEROOUT;
+		peer_req->flags |= EE_ZEROOUT;
 
 	if (bsr_issue_discard_or_zero_out(device, peer_req->i.sector,
-		peer_req->i.size >> 9, !(peer_req->flags & EE_IS_TRIM_USE_ZEROOUT)))
+		peer_req->i.size >> 9, peer_req->flags & (EE_ZEROOUT|EE_TRIM)))
 		peer_req->flags |= EE_WAS_ERROR;
 	bsr_endio_write_sec_final(peer_req);
 }
@@ -1858,11 +1875,9 @@ struct bsr_peer_request *peer_req,
 	 * Correctness first, performance later.  Next step is to code an
 	 * asynchronous variant of the same.
 	 */
-	if (peer_req->flags & (EE_IS_TRIM | EE_WRITE_SAME)) {
+	if (peer_req->flags & (EE_TRIM|EE_WRITE_SAME|EE_ZEROOUT)) {
 		struct bsr_connection *connection = peer_req->peer_device->connection;
-		/* wait for all pending IO completions, before we start
-		 * zeroing things out. */
-		conn_wait_ee_empty(connection, &connection->active_ee);
+
 		/* add it to the active list now,
 		 * so we can find it to present it in debugfs */
 		peer_req->submit_jif = jiffies;
@@ -1876,8 +1891,8 @@ struct bsr_peer_request *peer_req,
 			spin_unlock_irq(&device->resource->req_lock);
 		}
 
-		if (peer_req->flags & EE_IS_TRIM)
-			bsr_issue_peer_discard(device, peer_req);
+		if (peer_req->flags & (EE_TRIM|EE_ZEROOUT))
+			bsr_issue_peer_discard_or_zero_out(device, peer_req);
 		else /* EE_WRITE_SAME */
 			bsr_issue_peer_wsame(device, peer_req);
 		return 0;
@@ -1894,7 +1909,7 @@ struct bsr_peer_request *peer_req,
 #ifdef _LIN
 next_bio:
 #endif
-	/* REQ_OP_WRITE_SAME and REQ_OP_DISCARD handled above.
+	/* REQ_OP_WRITE_SAME, _DISCARD, _WRITE_ZEROES handled above.
 	* REQ_OP_FLUSH (empty flush) not expected,
 	* should have been mapped to a "bsr protocol barrier".
 	* REQ_OP_SECURE_ERASE: I don't see how we could ever support that.
@@ -2178,7 +2193,7 @@ static void p_req_detail_from_pi(struct bsr_connection *connection,
 struct bsr_peer_request_details *d, struct packet_info *pi)
 {
 	struct p_trim *p = pi->data;
-	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME;
+	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME || pi->cmd == P_ZEROES;
 	unsigned int digest_size =
 		pi->cmd != P_TRIM && connection->peer_integrity_tfm ?
 		crypto_ahash_digestsize(connection->peer_integrity_tfm) : 0;
@@ -2224,9 +2239,11 @@ read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_detai
 
 	if (!expect(peer_device, IS_ALIGNED(d->bi_size, 512)))
 		return NULL;
-	/* All "normal" requests should be smaller than BSR_MAX_BIO_SIZE.
-	 * TRIM (does not carry any payload: d->length == 0) maybe be bigger. */
-	if (d->length && !expect(peer_device, d->bi_size <= BSR_MAX_BIO_SIZE))
+	
+	if (d->dp_flags & (DP_WSAME|DP_DISCARD|DP_ZEROES)) {
+		if (!expect(peer_device, d->bi_size <= (BSR_MAX_BBIO_SECTORS << 9)))
+			return NULL;
+	} else if (!expect(peer_device, d->bi_size <= BSR_MAX_BIO_SIZE))
 		return NULL;
 
 	/* even though we trust our peer,
@@ -3763,8 +3780,12 @@ static unsigned long wire_flags_to_bio_flags(struct bsr_connection *connection, 
 
 static int wire_flags_to_bio_op(u32 dpf)
 {
+	if (dpf & DP_ZEROES)
+		return REQ_OP_WRITE_ZEROES;
 	if (dpf & DP_DISCARD)
 		return REQ_OP_DISCARD;
+	if (dpf & DP_WSAME)
+		return REQ_OP_WRITE_SAME;
 	else
 		return REQ_OP_WRITE;
 }
@@ -4152,7 +4173,9 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		return -EIO;
 	}
 	if (pi->cmd == P_TRIM)
-		peer_req->flags |= EE_IS_TRIM;
+		peer_req->flags |= EE_TRIM;
+	else if (pi->cmd == P_ZEROES)
+		peer_req->flags |= EE_ZEROOUT;
 	else if (pi->cmd == P_WSAME)
 		peer_req->flags |= EE_WRITE_SAME;
 
@@ -4168,8 +4191,26 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	if (pi->cmd == P_TRIM) {
 		D_ASSERT(peer_device, peer_req->i.size > 0);
 		D_ASSERT(peer_device, d.dp_flags & DP_DISCARD);
+		D_ASSERT(peer_device, op == REQ_OP_DISCARD);
 		D_ASSERT(peer_device, peer_req->page_chain.head == NULL);
 		D_ASSERT(peer_device, peer_req->page_chain.nr_pages == 0);
+		/* need to play safe: an older BSR sender
+		 * may mean zero-out while sending P_TRIM. */
+		if (0 == (connection->agreed_features & BSR_FF_WZEROES))
+			peer_req->flags |= EE_ZEROOUT;
+	} else if (pi->cmd == P_ZEROES) {
+		D_ASSERT(peer_device, peer_req->i.size > 0);
+		D_ASSERT(peer_device, d.dp_flags & DP_ZEROES);
+		D_ASSERT(peer_device, op == REQ_OP_WRITE_ZEROES);
+		D_ASSERT(peer_device, peer_req->page_chain.head == NULL);
+		D_ASSERT(peer_device, peer_req->page_chain.nr_pages == 0);
+		/* Do (not) pass down BLKDEV_ZERO_NOUNMAP? */
+		if (d.dp_flags & DP_DISCARD)
+			peer_req->flags |= EE_TRIM;
+	} else if (pi->cmd == P_WSAME) {
+		D_ASSERT(peer_device, peer_req->i.size > 0);
+		D_ASSERT(peer_device, op == REQ_OP_WRITE_SAME);
+		D_ASSERT(peer_device, peer_req->page_chain.head != NULL);
 	} else if (peer_req->page_chain.head == NULL) {
 		/* Actually, this must not happen anymore,
 		 * "empty" flushes are mapped to P_BARRIER,
@@ -4272,7 +4313,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	 * we wait for all pending requests, respectively wait for
 	 * active_ee to become empty in bsr_submit_peer_request();
 	 * better not add ourselves here. */
-	if ((peer_req->flags & (EE_IS_TRIM|EE_WRITE_SAME)) == 0)
+	if ((peer_req->flags & (EE_TRIM|EE_WRITE_SAME|EE_ZEROOUT)) == 0)
 		list_add_tail(&peer_req->w.list, &connection->active_ee);
 	if (connection->agreed_pro_version >= 110)
 		list_add_tail(&peer_req->recv_order, &connection->peer_requests);
@@ -4307,7 +4348,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	    peer_device->disk_state[NOW] < D_INCONSISTENT) {
 		/* For now, it is easier to still handle some "special" requests
 		* "synchronously" from receiver context */
-		if (peer_req->flags & (EE_IS_TRIM | EE_WRITE_SAME | EE_IS_BARRIER)) {
+		if (peer_req->flags & (EE_TRIM|EE_ZEROOUT|EE_WRITE_SAME|EE_IS_BARRIER)) {
 			err = bsr_al_begin_io_for_peer(peer_device, &peer_req->i);
 			if (err) {
 				// DW-1499 Decrease unacked_cnt when returning an error. 
@@ -9727,7 +9768,7 @@ static int receive_rs_deallocated(struct bsr_connection *connection, struct pack
 #endif
 
 		peer_req->submit_jif = jiffies;
-		peer_req->flags |= EE_IS_TRIM;
+		peer_req->flags |= EE_TRIM;
 
 		spin_lock_irq(&device->resource->req_lock);
 		list_add_tail(&peer_req->w.list, &connection->sync_ee);
@@ -9804,6 +9845,7 @@ static struct data_cmd bsr_cmd_handler[] = {
 	[P_CURRENT_UUID]    = { 0, sizeof(struct p_current_uuid), receive_current_uuid },
 	[P_TWOPC_COMMIT]    = { 0, sizeof(struct p_twopc_request), receive_twopc },
 	[P_TRIM]	    = { 0, sizeof(struct p_trim), receive_Data },
+	[P_ZEROES]	    = { 0, sizeof(struct p_trim), receive_Data },
 	[P_RS_DEALLOCATED]  = { 0, sizeof(struct p_block_desc), receive_rs_deallocated },
 	[P_WSAME]	    = { 1, sizeof(struct p_wsame), receive_Data },
 	// DW-2124
@@ -10322,12 +10364,12 @@ int bsr_do_features(struct bsr_connection *connection)
 		  connection->peer_node_id,
 		  connection->agreed_pro_version);
 
-
-	bsr_info(connection, "Feature flags enabled on protocol level: 0x%x%s%s%s.",
+	bsr_info(connection, "Feature flags enabled on protocol level: 0x%x%s%s%s%s.\n",
 		  connection->agreed_features,
 		  connection->agreed_features & BSR_FF_TRIM ? " TRIM" : "",
 		  connection->agreed_features & BSR_FF_THIN_RESYNC ? " THIN_RESYNC" : "",
-		  connection->agreed_features & BSR_FF_WSAME ? " WRITE_SAME" :
+		  connection->agreed_features & BSR_FF_WSAME ? " WRITE_SAME" : "",
+		  connection->agreed_features & BSR_FF_WZEROES ? " WRITE_ZEROES" :
 		  connection->agreed_features ? "" : " none");
 
 	return 1;

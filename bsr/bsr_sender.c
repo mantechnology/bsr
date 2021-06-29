@@ -280,7 +280,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 
 static int is_failed_barrier(int ee_flags)
 {
-	return (ee_flags & (EE_IS_BARRIER|EE_WAS_ERROR|EE_RESUBMITTED|EE_IS_TRIM))
+	return (ee_flags & (EE_IS_BARRIER|EE_WAS_ERROR|EE_RESUBMITTED|EE_TRIM|EE_ZEROOUT))
 		== (EE_IS_BARRIER|EE_WAS_ERROR);
 }
 
@@ -440,7 +440,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 		do_wake = list_empty(&connection->active_ee);
 
 	/* FIXME do we want to detach for failed REQ_DISCARD?
-	* ((peer_req->flags & (EE_WAS_ERROR|EE_IS_TRIM)) == EE_WAS_ERROR) */
+	* ((peer_req->flags & (EE_WAS_ERROR|EE_TRIM)) == EE_WAS_ERROR) */
 	if (peer_flags & EE_WAS_ERROR)
 		__bsr_chk_io_error(device, BSR_WRITE_ERROR);
 
@@ -519,7 +519,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bsr_peer_request *peer_req = bio->bi_private;
 
 	bool is_write = bio_data_dir(bio) == WRITE;
-	bool is_discard = bio_op(bio) == REQ_OP_DISCARD;
+	bool is_discard = bio_op(bio) == REQ_OP_WRITE_ZEROES || bio_op(bio) == REQ_OP_DISCARD;
 
 	BIO_ENDIO_FN_START;
 	
@@ -701,6 +701,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if (unlikely(error)) {
 #endif
 		switch (bio_op(bio)) {
+		case REQ_OP_WRITE_ZEROES:
 		case REQ_OP_DISCARD:
 			if (error == -EOPNOTSUPP)
 				what = DISCARD_COMPLETED_NOTSUPP;

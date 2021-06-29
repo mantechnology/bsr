@@ -2230,6 +2230,23 @@ static void fixup_discard_if_not_supported(struct request_queue *q)
 	}
 }
 
+static void fixup_write_zeroes(struct bsr_device *device, struct request_queue *q)
+{
+#ifdef COMPAT_HAVE_REQ_OP_WRITE_ZEROES
+	/* Fixup max_write_zeroes_sectors after blk_stack_limits():
+	 * if we can handle "zeroes" efficiently on the protocol,
+	 * we want to do that, even if our backend does not announce
+	 * max_write_zeroes_sectors itself. */
+
+	/* If all peers announce WZEROES support, use it.  Otherwise, rather
+	 * send explicit zeroes than rely on some discard-zeroes-data magic. */
+	if (common_connection_features(device->resource) & BSR_FF_WZEROES)
+		q->limits.max_write_zeroes_sectors = BSR_MAX_BBIO_SECTORS;
+	else
+		q->limits.max_write_zeroes_sectors = 0;
+#endif
+}
+
 static void decide_on_write_same_support(struct bsr_device *device,
 			struct request_queue *q,
 			struct request_queue *b, struct o_qlim *o,
@@ -2335,6 +2352,7 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 		adjust_ra_pages(q, b);
 	}
 	fixup_discard_if_not_supported(q);
+	fixup_write_zeroes(device, q);
 #endif
 }
 
