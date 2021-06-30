@@ -394,8 +394,6 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 		strncat(buf, temp, sizeof(buf) - strlen(buf) - 1);
 	}
 	
-	strncat(buf, "\n", sizeof(buf) - strlen(buf) - 1);
-	
 	_printk(__FUNCTION__, KERN_OOS, buf);
 
 	if (NULL != stackFrames) {
