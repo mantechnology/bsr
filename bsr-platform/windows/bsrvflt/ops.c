@@ -68,8 +68,17 @@ IOCTL_GetAllVolumeInfo( PIRP Irp, PULONG ReturnLength )
 		pventry->ThreadExit = pvext->WorkThreadInfo.exit_thread;
 #endif
 		if (pvext->dev) {
-			pventry->AgreedSize = pvext->dev->d_size;
+			if (pvext->Active)
+				pventry->AgreedSize = pvext->dev->d_size;
+			else
+				pventry->AgreedSize = 0;
 			if (pvext->dev->bd_contains) {
+				// BSR-617 get real size
+				unsigned long long d_size = get_targetdev_volsize(pvext);
+				if (pvext->dev->bd_contains->d_size != d_size) {
+					pvext->dev->bd_contains->d_size = d_size;
+					pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
+				}
 				pventry->Size = pvext->dev->bd_contains->d_size;
 			}
 		}
@@ -510,7 +519,8 @@ Return Value:
 	
 	if (VolumeExtension->dev->bd_contains) {
 		VolumeExtension->dev->bd_contains->d_size = new_size;
-	}	
+		VolumeExtension->dev->bd_disk->queue->max_hw_sectors = new_size ? (new_size >> 9) : BSR_MAX_BIO_SIZE;
+	}
 	
 	if (VolumeExtension->Active) {	
 		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);

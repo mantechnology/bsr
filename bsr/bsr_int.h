@@ -2987,7 +2987,7 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 #ifdef _WIN
 	if (!device->this_bdev) {
 		return;
-}
+	}
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN

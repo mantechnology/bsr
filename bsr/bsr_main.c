@@ -4660,6 +4660,13 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 		bsr_err(device, "%d: Device has no disk.", err);
 		goto out_no_disk;
 	}
+	// BSR-617 set volume size
+	unsigned long long d_size = get_targetdev_volsize(pvext);
+	
+	if (pvext->dev->bd_contains && (pvext->dev->bd_contains->d_size != d_size) ) {	
+		pvext->dev->bd_contains->d_size = d_size;
+		pvext->dev->bd_disk->queue->max_hw_sectors = d_size ? (d_size >> 9) : BSR_MAX_BIO_SIZE;
+	}
 #endif
 	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in bsr_destroy_device.
 	q = blk_alloc_queue(GFP_KERNEL);
