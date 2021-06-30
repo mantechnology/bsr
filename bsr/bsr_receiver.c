@@ -5728,7 +5728,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	struct bsr_connection *connection = peer_device->connection;
 	enum bsr_disk_state disk_state;
 	struct net_conf *nc;
-	int hg, rule_nr, rr_conflict, peer_node_id = 0, r;
+	int hg, rule_nr, rr_conflict, always_asbp, peer_node_id = 0, r;
 
 	hg = bsr_handshake(peer_device, &rule_nr, &peer_node_id, true);
 
@@ -5764,8 +5764,12 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 	rcu_read_lock();
 	nc = rcu_dereference(connection->transport.net_conf);
+	always_asbp = nc->always_asbp;
+	rr_conflict = nc->rr_conflict;
+	// BSR-734 fix potential DV bugcheck occurrence 
+	rcu_read_unlock();
 
-	if (hg == 100 || (hg == -100 && nc->always_asbp)) {
+	if (hg == 100 || (hg == -100 && always_asbp)) {
 		int pcount = (device->resource->role[NOW] == R_PRIMARY)
 			   + (peer_role == R_PRIMARY);
 		int forced = (hg == -100);
@@ -5800,7 +5804,6 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 			(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
 			bsr_err(connection, "incompatible %s settings", "discard-my-data");
-			rcu_read_unlock();
 			return -1;
 		}
 
@@ -5845,8 +5848,6 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
 
-	rr_conflict = nc->rr_conflict;
-	rcu_read_unlock();
 
 	if (hg == -100) {
 		bsr_alert(device, "Split-Brain detected but unresolved, dropping connection!");
@@ -8651,7 +8652,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 							sector = BM_BIT_TO_SECT(bit);
 
-							_printk(__FUNCTION__, KERN_OOS, "%s["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining", KERN_OOS,
+							_printk(__FUNCTION__, KERN_OOS, ""KERN_OOS"["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d), out-of-sync for sector(%llu) is remaining",
 								peer_device->node_id, peer_device->bitmap_index, sector);
 
 							bm_resync_fo = bit + 1;
