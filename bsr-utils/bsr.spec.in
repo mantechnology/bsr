@@ -39,7 +39,7 @@
 Name: bsr
 Summary: BSR driver for Linux
 Version: 1.6
-Release: A12@RPM_DIST_TAG@
+Release: A13@RPM_DIST_TAG@
 %global tarball_version %(echo "%{version}-%{?release}" | sed -e "s,%{?dist}$,,")
 Source: bsr-utils-%{tarball_version}.tar.gz
 License: GPLv2+
@@ -307,6 +307,9 @@ fi
 
 
 %changelog
+* Mon Jul 5 2021 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A13
+- New upstream release.
+
 * Thu Jun 3 2021 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A12
 - New upstream release.
 
