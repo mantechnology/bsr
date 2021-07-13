@@ -597,7 +597,7 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 				if (ktime_to_ms(start_kt))
 					atomic_inc(&device->al_updates_cnt);
 			}
-			// BSR-764
+			// BSR-764 delay active log commit
 			if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE2)
 				force_delay(g_simul_perf.delay_time);
 			

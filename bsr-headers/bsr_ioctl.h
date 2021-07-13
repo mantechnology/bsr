@@ -15,7 +15,7 @@
 #define SIMUL_PERF_DELAY_TYPE0		0 // write I/O occurrence
 #define SIMUL_PERF_DELAY_TYPE1		1 // Master I/O completion
 #define SIMUL_PERF_DELAY_TYPE2		2 // Active log commit
-#define SIMUL_PERF_DELAY_TYPE3		3 // Submit
+#define SIMUL_PERF_DELAY_TYPE3		3 // bio submit
 #define SIMUL_PERF_DELAY_TYPE4		4 // socket send
 #define SIMUL_PERF_DELAY_TYPE5		5 // socket receive
 #define SIMUL_PERF_DELAY_TYPE6		6 // peer request submit

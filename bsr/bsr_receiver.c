@@ -1986,7 +1986,7 @@ next_bio:
 
 	peer_req->flags |= EE_SUBMITTED;
 
-	// BSR-764
+	// BSR-764 peer request submit
 	if (atomic_read(&g_bsrmon_run))
 		ktime_get_accounting(peer_req->p_pre_submit_kt);
 	

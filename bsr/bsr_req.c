@@ -553,7 +553,7 @@ struct bio_and_error *m)
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> bsr_request_endio -> complete_master_bio -> bio_endio)
 #else // _LIN
 	bsr_bio_endio(m->bio, m->error);
-	// BSR-764
+	// BSR-764 delay master I/O completion
 	if(g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1)) 
 		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run)) {
@@ -626,7 +626,7 @@ struct bio_and_error *m)
 			}
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
-			// BSR-764
+			// BSR-764 delay master I/O completion
 			if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 				force_delay(g_simul_perf.delay_time);
 			// BSR-687
@@ -671,7 +671,7 @@ struct bio_and_error *m)
 				}
 
 				IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
-				// BSR-764
+				// BSR-764 delay master I/O completion
 				if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 					force_delay(g_simul_perf.delay_time);
 				// BSR-687
@@ -2294,10 +2294,10 @@ out:
 																									req->i.size, 
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector),
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
-		// BSR-764
+		// BSR-764 delay bio Submit
 		if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE3)
 			force_delay(g_simul_perf.delay_time);
-			
+
 		bsr_submit_req_private_bio(req);
 		
 		if (atomic_read(&g_bsrmon_run))
@@ -2772,7 +2772,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #endif
 	}
 
-	// BSR-764
+	// BSR-764 delay write I/O occurrence
 	if (g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE0)) 
 		force_delay(g_simul_perf.delay_time);
 

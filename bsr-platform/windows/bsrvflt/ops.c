@@ -330,13 +330,13 @@ IOCTL_SetSimulPerfDegr(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	if( inlen < sizeof(SIMULATION_PERF_DEGR) || outlen < sizeof(SIMULATION_PERF_DEGR) ) {
 		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
-		bsr_err(20, BSR_LC_DRIVER, NO_OBJECT, "Failed to set performance test dule to buffer too small");
+		bsr_err(149, BSR_LC_DRIVER, NO_OBJECT, "Failed to set SIMULATION_PERF_DEGR dule to buffer too small");
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 	if(Irp->AssociatedIrp.SystemBuffer) {
 		pSPTest = (SIMULATION_PERF_DEGR*)Irp->AssociatedIrp.SystemBuffer;
 		RtlCopyMemory(&g_simul_perf, pSPTest, sizeof(SIMULATION_PERF_DEGR));
-		bsr_info(21, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR ErrorFlag:%d ErrorType:%d", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
+		bsr_info(150, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR ErrorFlag:%d ErrorType:%d", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
 	} else {
 		return STATUS_INVALID_PARAMETER;
 	}

@@ -125,7 +125,7 @@ static int bsr_set_bsrmon_run(unsigned int __user * args)
 	err = copy_to_user(args, &run, sizeof(unsigned int));
 
 	if (err) {
-		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy bsrmon_run due to failure to copy from user");
+		bsr_err(146, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy bsrmon_run due to failure to copy from user");
 		return err;
 	}
 	return 0;
@@ -180,13 +180,13 @@ static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
 
 	err = copy_from_user(&simul_perf, args, sizeof(SIMULATION_PERF_DEGR));
 	if (err) {
-		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_MVOL_SET_SIMUL_PERF_DEGR due to copy from user");
+		bsr_err(147, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_MVOL_SET_SIMUL_PERF_DEGR due to copy from user");
 		return -1;
 	}
 
 	g_simul_perf = simul_perf;
 
-	bsr_info(144, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR Flag:%d Type:%d", 
+	bsr_info(148, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR Flag:%d Type:%d", 
 					g_simul_perf.flag, g_simul_perf.type);
 
 	return 0;

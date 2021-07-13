@@ -846,7 +846,7 @@ Send(
 	ExFreePool(CompletionEvent);
 	IoFreeIrp(Irp);
 
-	// BSR-764
+	// BSR-764 delay socket send
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE4) 
 		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run) && (BytesSent > 0) && transport)
@@ -1319,7 +1319,7 @@ LONG NTAPI Receive(
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
 
-	// BSR-764
+	// BSR-764 delay socket receive
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE5) 
 		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run) && (BytesReceived > 0) && transport)

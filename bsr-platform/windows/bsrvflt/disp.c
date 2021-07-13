@@ -960,11 +960,11 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_SetSimulDiskIoError(DeviceObject, Irp); // Simulate Disk I/O Error IOCTL Handler
             MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
-
+		// BSR-764
 		case IOCTL_MVOL_SET_SIMUL_PERF_DEGR:
 		{
 			status = IOCTL_SetSimulPerfDegr(DeviceObject, Irp); // Simulate Performance Degradation Handler
-            MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 		case IOCTL_MVOL_SET_LOGLV_MIN:
 		{
