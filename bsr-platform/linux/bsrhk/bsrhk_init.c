@@ -18,7 +18,7 @@
 #include <linux/dynamic_debug.h>
 #include <bsr_debugfs.h>
 #include <bsr_log.h>
-#include "../bsr-headers/linux/bsr_ioctl.h"
+#include "../bsr-headers/bsr_ioctl.h"
 
 MODULE_LICENSE("GPL");
 

@@ -27,6 +27,11 @@ void set_min_max(perf_stat *stat, unsigned int min, unsigned int max)
 
 void set_min_max_val(perf_stat *stat, unsigned int val)
 {
+	/* Excluded from statistics if:
+		1. Current value is 0
+		2. Previous value is 0
+		3. Consecutive duplicate values
+	*/
 	if (val == 0 || stat->priv == 0 || (stat->priv == val && stat->duplicate)) {
 		stat->priv = val;
 		return;
@@ -54,7 +59,12 @@ void set_min_max_fp(FILE *fp, perf_stat *stat)
 	fscanf_ex(fp, "%lu %lu %lu", &t_min, &t_max, &t_avg);
 
 	if (t_min > 0) {
-		if (t_avg == 0 || stat->priv == 0 || stat->duplicate) {
+		/* Excluded from statistics if:
+			1. Current value is 0
+			2. Previous value is 0
+			3. Consecutive duplicate values
+		*/
+		if (t_avg == 0 || stat->priv == 0 || (stat->priv == t_avg && stat->duplicate)) {
 			stat->priv = t_avg;
 			return;
 		}
@@ -317,6 +327,57 @@ void read_req_peer_stat_work(char *path, char * peer_name)
 	print_stat("    pre_send (usec)", &pre_send);
 	print_stat("    acked    (usec)", &acked);
 	print_stat("    net_done (usec)", &net_done);
+}
+
+void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
+{
+	FILE *fp;
+	char tok[64] = {0,};
+	unsigned int t_cnt = 0;
+	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
+	struct perf_stat peer_req = {0,}, pre_submit = {0,}, post_submit = {0,}, complete = {0,};
+
+	if (fopen_s(&fp, path, "r") != 0)
+		return;
+
+	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+		if (strlen(start_t) == 0)
+			sprintf_ex(start_t, "%s", save_t);
+
+		/* peer_name */
+		while (EOF != fscanf_str(fp, "%s", tok, sizeof(tok))) {
+			if (tok != NULL && strlen(tok) !=0 && 
+				strcmp(tok, peer_name)) {
+				continue;
+			}
+
+			/* peer request cnt */
+			fscanf_ex(fp, "%u", &t_cnt);
+			
+			if (t_cnt > 0) {
+				set_min_max_val(&peer_req, t_cnt);
+
+				set_min_max_fp(fp, &pre_submit);
+				set_min_max_fp(fp, &post_submit);
+				set_min_max_fp(fp, &complete);
+			}
+
+			fscanf_ex(fp, "%*[^\n]");	
+			break;
+		}
+	}
+	
+	fclose(fp);
+
+	sprintf_ex(end_t, "%s", save_t);
+	if (print_runtime)
+		printf(" Run: %s - %s\n", start_t, end_t);
+	printf("  PEER %s:\n", peer_name);
+	printf("    peer requests  (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", 
+		peer_req.min, peer_req.max, stat_avg(peer_req.sum, peer_req.cnt), peer_req.sum);
+	print_stat("    pre_submit  (usec)", &pre_submit);
+	print_stat("    post_submit (usec)", &post_submit);
+	print_stat("    complete    (usec)", &complete);
 }
 
 /**
@@ -753,6 +814,58 @@ void watch_req_stat(char *cmd)
 				print_req_stat(&save_ptr, "    pre_send (usec)");
 				print_req_stat(&save_ptr, "    acked    (usec)");
 				print_req_stat(&save_ptr, "    net_done (usec)");
+				ptr = strtok_r(NULL, " ", &save_ptr);
+			}
+		} else {	
+#ifdef _WIN
+			Sleep(1000);
+#else // _LIN
+			sleep(1);
+#endif
+		}
+		continue;
+	}
+
+
+	pclose(fp);
+
+}
+
+void watch_peer_req_stat(char *cmd)
+{
+	FILE *fp;
+	
+	fp = popen(cmd, "r");
+	if (!fp)
+		return;
+
+
+	while(1) {
+		char buf[MAX_BUF_SIZE] = {0, };	
+		
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			char *ptr, *save_ptr;
+			unsigned long t_cnt = 0;
+
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			ptr = strtok_r(buf, " ", &save_ptr);
+			if (!ptr) 
+				continue;
+			printf("%s\n", ptr);
+
+
+			ptr = strtok_r(NULL, " ", &save_ptr);
+			while (ptr) {
+				/* peer name */
+				printf("  PEER %s:\n", ptr);
+				/* req cnt*/
+				t_cnt = atol(strtok_r(NULL, " ", &save_ptr));
+				printf("    peer requests : %lu\n", t_cnt);
+				print_req_stat(&save_ptr, "    pre_submit   (usec)");
+				print_req_stat(&save_ptr, "    post_submit  (usec)");
+				print_req_stat(&save_ptr, "    complete     (usec)");
+
 				ptr = strtok_r(NULL, " ", &save_ptr);
 			}
 		} else {	

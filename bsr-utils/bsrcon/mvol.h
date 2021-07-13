@@ -2,9 +2,9 @@
 #define __MVOL_H__
 
 #ifdef _WIN
-#include "ioctl.h"
+#include "bsr_ioctl.h"
 #else // _LIN
-#include "../../bsr-headers/linux/bsr_ioctl.h"
+#include "../../bsr-headers/bsr_ioctl.h"
 #endif
 
 #ifdef _WIN

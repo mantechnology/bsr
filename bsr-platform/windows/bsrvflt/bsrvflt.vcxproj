@@ -1012,6 +1012,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\bsr-headers\bsr.h" />
+    <ClInclude Include="..\..\..\bsr-headers\bsr_ioctl.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_meta_data.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_protocol.h" />
     <ClInclude Include="..\..\..\bsr-headers\bsr_strings.h" />
@@ -1020,6 +1021,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
     <ClInclude Include="..\..\..\bsr-headers\linux\bsr_genl.h" />
     <ClInclude Include="..\..\..\bsr-headers\linux\bsr_genl_api.h" />
     <ClInclude Include="..\..\..\bsr-headers\linux\bsr_limits.h" />
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr_linux_ioctl.h" />
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func-genl_register_family_with_ops_groups.h" />
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func-genl_register_mc_group.h" />
     <ClInclude Include="..\..\..\bsr-headers\linux\genl_magic_func.h" />

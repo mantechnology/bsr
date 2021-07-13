@@ -553,6 +553,9 @@ struct bio_and_error *m)
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> bsr_request_endio -> complete_master_bio -> bio_endio)
 #else // _LIN
 	bsr_bio_endio(m->bio, m->error);
+	// BSR-764
+	if(g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1)) 
+		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run)) {
 		atomic_inc(&device->master_complete_kt.cnt);
 		ktime_aggregate_delta(device, m->io_start_kt, master_complete_kt);
@@ -623,6 +626,9 @@ struct bio_and_error *m)
 			}
 #endif
 			IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
+			// BSR-764
+			if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
+				force_delay(g_simul_perf.delay_time);
 			// BSR-687
 			if (atomic_read(&g_bsrmon_run)) {
 				atomic_inc(&device->master_complete_kt.cnt);
@@ -665,6 +671,9 @@ struct bio_and_error *m)
 				}
 
 				IoCompleteRequest(master_bio->pMasterIrp, NT_SUCCESS(master_bio->pMasterIrp->IoStatus.Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
+				// BSR-764
+				if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
+					force_delay(g_simul_perf.delay_time);
 				// BSR-687
 				if (atomic_read(&g_bsrmon_run)) {
 					atomic_inc(&device->master_complete_kt.cnt);
@@ -2285,7 +2294,12 @@ out:
 																									req->i.size, 
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector),
 																									(unsigned long long)BM_SECT_TO_BIT(req->i.sector + (req->i.size >> 9)));
+		// BSR-764
+		if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE3)
+			force_delay(g_simul_perf.delay_time);
+			
 		bsr_submit_req_private_bio(req);
+		
 		if (atomic_read(&g_bsrmon_run))
 			ktime_get_accounting(req->post_submit_kt);
 	}
@@ -2730,10 +2744,11 @@ void do_submit(struct work_struct *ws)
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct bsr_device *device = (struct bsr_device *) q->queuedata;
-	ktime_t start_kt = ktime_get();
+	ktime_t start_kt;
 	ULONG_PTR start_jif;
 #ifdef _WIN
 	NTSTATUS	status;
+	start_kt = ktime_get();
 #else // _LIN
 	const int rw = bio_data_dir(bio);
 	// BSR-620 If the meta-disk err, device->ldev can be null.
@@ -2756,7 +2771,14 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 		MAKE_REQUEST_RETURN;
 #endif
 	}
-	else if (atomic_read(&g_bsrmon_run) && (rw == WRITE) && device->ldev) {
+
+	// BSR-764
+	if (g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE0)) 
+		force_delay(g_simul_perf.delay_time);
+
+	start_kt = ktime_get();
+
+	if (atomic_read(&g_bsrmon_run) && (rw == WRITE) && device->ldev) {
 		atomic_inc(&device->io_cnt[WRITE]);
 		atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[WRITE]);
 	}

@@ -1,18 +1,14 @@
-#ifndef __BSR_IOCTL_H__
-#define __BSR_IOCTL_H__
+#ifndef __BSR_LINUX_IOCTL_H__
+#define __BSR_LINUX_IOCTL_H__
 
 
 #include <linux/ioctl.h>
-#include "../bsr_log.h"
 
 #define BSR_CONTROL_DEV     "/dev/bsr-control"
 #define BSR_IOCTL_MAGIC     147
 #define BSR_HANDLER_USE_REG	"/etc/bsr.d/.handler_use"
 #define BSR_MON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
 
-typedef struct _HANDLER_INFO {
-	bool				use;
-} HANDLER_INFO, *PHANDLER_INFO;
 
 
 #define IOCTL_MVOL_SET_LOGLV_MIN			_IOWR(BSR_IOCTL_MAGIC, 1, LOGGING_MIN_LV)
@@ -25,5 +21,6 @@ typedef struct _HANDLER_INFO {
 #define IOCTL_MVOL_SET_BSRMON_RUN			_IOWR(BSR_IOCTL_MAGIC, 6, unsigned int)
 // BSR-741
 #define IOCTL_MVOL_GET_BSRMON_RUN			_IOWR(BSR_IOCTL_MAGIC, 7, unsigned int)
-
+// BSR-764
+#define IOCTL_MVOL_SET_SIMUL_PERF_DEGR		_IOWR(BSR_IOCTL_MAGIC, 8, SIMULATION_PERF_DEGR)
 #endif

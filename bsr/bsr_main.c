@@ -211,6 +211,9 @@ atomic_t g_debug_output_category = ATOMIC_INIT(0);
 // BSR-740 default value of bsrmon_run is enable
 atomic_t g_bsrmon_run = ATOMIC_INIT(1);
 
+// BSR-764
+SIMULATION_PERF_DEGR g_simul_perf = {0,};
+
 #ifdef _LIN
 module_param_string(usermode_helper, usermode_helper, sizeof(usermode_helper), 0644);
 #endif
@@ -4532,6 +4535,9 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+
+	// BSR-764
+	spin_lock_init(&peer_device->timing_lock);
 
 	// BSR-676
 	atomic_set(&peer_device->notify_flags, 0);

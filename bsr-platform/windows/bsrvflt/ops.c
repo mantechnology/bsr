@@ -27,6 +27,9 @@
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
 
+// BSR-764
+extern SIMULATION_PERF_DEGR g_simul_perf;
+
 CALLBACK_FUNCTION bsrCallbackFunc;
 PCALLBACK_OBJECT g_pCallbackObj;
 PVOID g_pCallbackReg;
@@ -308,6 +311,32 @@ IOCTL_SetSimulDiskIoError( PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		pSDError = (SIMULATION_DISK_IO_ERROR*)Irp->AssociatedIrp.SystemBuffer;
 		RtlCopyMemory(&gSimulDiskIoError, pSDError, sizeof(SIMULATION_DISK_IO_ERROR));
 		bsr_info(21, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_DISKIO_ERROR ErrorFlag:%d ErrorType:%d", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
+	} else {
+		return STATUS_INVALID_PARAMETER;
+	}
+	
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS
+IOCTL_SetSimulPerfDegr(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG			inlen, outlen;
+	SIMULATION_PERF_DEGR* pSPTest = NULL;
+	
+	PIO_STACK_LOCATION	irpSp=IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+	
+	if( inlen < sizeof(SIMULATION_PERF_DEGR) || outlen < sizeof(SIMULATION_PERF_DEGR) ) {
+		mvolLogError( DeviceObject, 351, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL );
+		bsr_err(20, BSR_LC_DRIVER, NO_OBJECT, "Failed to set performance test dule to buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+	if(Irp->AssociatedIrp.SystemBuffer) {
+		pSPTest = (SIMULATION_PERF_DEGR*)Irp->AssociatedIrp.SystemBuffer;
+		RtlCopyMemory(&g_simul_perf, pSPTest, sizeof(SIMULATION_PERF_DEGR));
+		bsr_info(21, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR ErrorFlag:%d ErrorType:%d", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
 	} else {
 		return STATUS_INVALID_PARAMETER;
 	}
@@ -711,6 +740,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
 		device_req_timing_show(&seq, 0);
+		break;
+	case DBG_DEV_PEER_REQ_TIMING:
+		seq.private = device;
+		device_peer_req_timing_show(&seq, 0);
 		break;
 
 	default:

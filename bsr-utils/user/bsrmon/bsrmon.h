@@ -1,6 +1,6 @@
 #ifdef _WIN
 #include <windows.h>
-#include "ioctl.h"
+#include "bsr_ioctl.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>

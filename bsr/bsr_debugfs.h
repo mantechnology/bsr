@@ -80,3 +80,4 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored);
 int device_io_stat_show(struct seq_file *m, void *ignored);
 int device_io_complete_show(struct seq_file *m, void *ignored);
 int device_req_timing_show(struct seq_file *m, void *ignored);
+int device_peer_req_timing_show(struct seq_file *m, void *ignored);

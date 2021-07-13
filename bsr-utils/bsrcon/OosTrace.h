@@ -5,7 +5,7 @@
 
 #include <DbgHelp.h>
 #include <Windows.h>
-#include "ioctl.h"
+#include "bsr_ioctl.h"
 
 #pragma comment( lib, "ntdll.lib" )
 #pragma comment( lib, "dbghelp.lib" )
