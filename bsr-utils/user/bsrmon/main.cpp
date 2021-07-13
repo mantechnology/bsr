@@ -74,7 +74,6 @@ void perf_test_usage()
 		"   4: socket send\n"
 		"   5: socket receive\n"
 		"   6: peer request submit\n"
-		"   7: peer request completion\n"
 		"\n\n"
 
 		"delay time:\n"
@@ -1256,7 +1255,6 @@ int main(int argc, char* argv[])
 				// get parameter 2 (type)
 				if (argIndex < argc) {
 					pt.type = atoi(argv[argIndex]);
-					SetPerfSimulFlag(&pt);
 					argIndex++;
 					// get parameter 3 (time)
 					if (argIndex < argc) {

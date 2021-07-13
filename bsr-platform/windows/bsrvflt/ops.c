@@ -336,7 +336,7 @@ IOCTL_SetSimulPerfDegr(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	if(Irp->AssociatedIrp.SystemBuffer) {
 		pSPTest = (SIMULATION_PERF_DEGR*)Irp->AssociatedIrp.SystemBuffer;
 		RtlCopyMemory(&g_simul_perf, pSPTest, sizeof(SIMULATION_PERF_DEGR));
-		bsr_info(150, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR ErrorFlag:%d ErrorType:%d", gSimulDiskIoError.ErrorFlag, gSimulDiskIoError.ErrorType);
+		bsr_info(150, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR flag:%d type:%d", g_simul_perf.flag, g_simul_perf.type);
 	} else {
 		return STATUS_INVALID_PARAMETER;
 	}
