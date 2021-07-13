@@ -291,6 +291,12 @@
     <ClInclude Include="..\..\..\bsr\bsr_idx_ring.h">
       <Filter>bsr</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\linux\bsr_linux_ioctl.h">
+      <Filter>bsr-headers\linux</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr-headers\bsr_ioctl.h">
+      <Filter>bsr-headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bsr">

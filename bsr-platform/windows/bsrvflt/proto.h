@@ -98,6 +98,9 @@ NTSTATUS
 IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength);
 NTSTATUS
 IOCTL_SetSimulDiskIoError( PDEVICE_OBJECT DeviceObject, PIRP Irp);
+// BSR-764
+NTSTATUS
+IOCTL_SetSimulPerfDegr(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS
 IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 // BSR-579

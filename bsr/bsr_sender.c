@@ -572,6 +572,21 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 
 	//bsr_debug(52, BSR_LC_IO, NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!", peer_request_endio_cnt++);
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(peer_req->p_complete_kt);
+
+	// BSR-764
+	if (atomic_read(&g_bsrmon_run)) {
+		struct bsr_peer_device *peer_device = peer_req->peer_device;
+		spin_lock(&peer_device->timing_lock);
+		peer_device->p_reqs++;		
+
+		ktime_aggregate(peer_device, peer_req, p_pre_submit_kt);
+		ktime_aggregate(peer_device, peer_req, p_post_submit_kt);
+		ktime_aggregate(peer_device, peer_req, p_complete_kt);
+		
+		spin_unlock(&peer_device->timing_lock);	
+	} 	
 
 	BIO_ENDIO_FN_RETURN;
 }

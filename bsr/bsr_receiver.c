@@ -524,6 +524,9 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	INIT_LIST_HEAD(&peer_req->wait_for_actlog);
 	peer_req->submit_jif = jiffies;
 	peer_req->peer_device = peer_device;
+	// BSR-764
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(peer_req->start_kt);
 
 	return peer_req;
 }
@@ -866,7 +869,7 @@ start:
 		rcu_read_unlock();
 
 		if (!no_addr) {
-			bsr_warn(connection,
+			bsr_warn(32, BSR_LC_CONNECTION, connection,
 				  "Configured local address not found, retrying every %d sec, "
 				  "err=%d", connect_int, err);
 			no_addr = true;
@@ -1982,6 +1985,14 @@ next_bio:
 		peer_req->io_request_ts = timestamp();
 
 	peer_req->flags |= EE_SUBMITTED;
+
+	// BSR-764 peer request submit
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(peer_req->p_pre_submit_kt);
+	
+	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE6)
+		force_delay(g_simul_perf.delay_time);
+
 	do {
 		bio = bios;
 		bios = bios->bi_next;
@@ -1998,6 +2009,10 @@ next_bio:
 			bios->bi_opf &= ~BSR_REQ_PREFLUSH;
 	} while (bios);
 	maybe_kick_lo(device);
+
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(peer_req->p_post_submit_kt);
+
 	return 0;
 
 fail:

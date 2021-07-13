@@ -65,6 +65,7 @@
 #include "../bsr-headers/bsr_strings.h"
 #include "../bsr-headers/bsr.h"
 #include "../bsr-headers/bsr_log.h"
+#include "../bsr-headers/bsr_ioctl.h"
 
 #ifdef _SEND_BUF
 #include "bsr_send_buf.h"
@@ -121,6 +122,9 @@ extern char usermode_helper[];
 
 // BSR-740
 extern atomic_t g_bsrmon_run;
+
+// BSR-764
+extern SIMULATION_PERF_DEGR g_simul_perf;
 
 struct log_idx_ring_buffer_t {
 	struct idx_ring_buffer h;
@@ -1022,6 +1026,15 @@ struct bsr_peer_request {
 		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
 		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 
 	};
+
+	
+	// BSR-764
+	/* peer request aggregation */
+	ktime_t start_kt;
+	ktime_t p_pre_submit_kt;
+	ktime_t p_post_submit_kt;
+	ktime_t p_complete_kt;
+	
 };
 
 // DW-1755 passthrough policy
@@ -1977,6 +1990,14 @@ struct bsr_peer_device {
 	struct timing_stat pre_send_kt;
 	struct timing_stat acked_kt;
 	struct timing_stat net_done_kt;
+
+	/* peer request aggregation */
+	spinlock_t timing_lock;
+	unsigned long p_reqs;
+	struct timing_stat p_pre_submit_kt;
+	struct timing_stat p_post_submit_kt;
+	struct timing_stat p_complete_kt;
+
 	struct {/* sender todo per peer_device */
 		bool was_ahead;
 	} todo;
@@ -2030,6 +2051,7 @@ struct bsr_device {
 	struct dentry *debugfs_vol_io_stat;
 	struct dentry *debugfs_vol_io_complete;
 	struct dentry *debugfs_vol_req_timing;
+	struct dentry *debugfs_vol_peer_req_timing;
 #endif
 
 	unsigned int vnr;	/* volume number within the connection */
@@ -4224,7 +4246,17 @@ static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
 	return microsec_elapse;
 }
 
-
+// BSR-764
+static inline void force_delay(int t) 
+{
+#ifdef _WIN
+	if (KeGetCurrentIrql() < DISPATCH_LEVEL)
+		msleep(t);
+#else // _LIN
+	msleep(t);
+#endif
+		
+}
 #ifdef _LIN
 extern long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram);
 // BSR-597

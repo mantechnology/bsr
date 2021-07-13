@@ -167,6 +167,9 @@ int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, s
 	int rv;
 
 	rv = kernel_sendmsg(socket, msg, iov, 1, iov->iov_len);
+	// BSR-764 delay socket send
+	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE4) 
+		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run) && (rv > 0) && transport)
 		atomic_add64(rv, &transport->sum_sent);
 
@@ -177,6 +180,9 @@ int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, s
 	int rv;
 
 	rv = kernel_recvmsg(socket, msg, iov, 1, iov->iov_len, msg->msg_flags);
+	// BSR-764 delay socket receive
+	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE5) 
+		force_delay(g_simul_perf.delay_time);
 	if (atomic_read(&g_bsrmon_run) && (rv > 0) && transport)
 		atomic_add64(rv, &transport->sum_recv);
 

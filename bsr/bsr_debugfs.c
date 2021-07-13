@@ -1185,6 +1185,8 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 	seq_printf(m, " ")
 
 #define show_req_stat(device, NAME, M)	show_stat(NAME, device->M, device->reqs)
+#define show_peer_req_stat(peer_device, NAME, M)	show_stat(NAME, peer_device->M, peer_device->p_reqs)
+
 
 int device_io_complete_show(struct seq_file *m, void *ignored)
 {
@@ -1332,6 +1334,50 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	device_req_timing_reset(device);
 
 	spin_unlock_irqrestore(&device->timing_lock, flags);
+
+	return 0;
+}
+
+
+static void peer_req_timing_reset(struct bsr_peer_device * peer_device)
+{
+	peer_device->p_reqs = 0;
+
+	memset(&peer_device->p_pre_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&peer_device->p_post_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&peer_device->p_complete_kt, 0, sizeof(struct timing_stat));
+}
+
+// BSR-764 peer request latency	
+int device_peer_req_timing_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+	struct bsr_peer_device *peer_device;
+	unsigned long flags;
+
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		return 0;
+	}
+
+	for_each_peer_device(peer_device, device) {
+		struct bsr_connection *connection = peer_device->connection;
+		spin_lock_irqsave(&peer_device->timing_lock, flags);
+		/* peer name */
+		seq_printf(m, "%s ", rcu_dereference(connection->transport.net_conf)->name);
+		/* req count */
+		seq_printf(m, "%lu ", peer_device->p_reqs); 
+		show_peer_req_stat(peer_device, "pre_submit", p_pre_submit_kt);
+		show_peer_req_stat(peer_device, "post_submit", p_post_submit_kt);
+		show_peer_req_stat(peer_device, "complete", p_complete_kt);
+		peer_req_timing_reset(peer_device);
+		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
+	}
+
+	seq_printf(m, "\n");
+	
+
+	
 
 	return 0;
 }
@@ -1582,6 +1628,7 @@ bsr_debugfs_device_attr(ed_gen_id)
 bsr_debugfs_device_attr(io_stat)
 bsr_debugfs_device_attr(io_complete)
 bsr_debugfs_device_attr(req_timing)
+bsr_debugfs_device_attr(peer_req_timing)
 
 void bsr_debugfs_device_add(struct bsr_device *device)
 {
@@ -1622,6 +1669,8 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(io_stat);
 	vol_dcf(io_complete);
 	vol_dcf(req_timing);
+	vol_dcf(peer_req_timing);
+	
 
 	/* Caller holds conf_update */
 	for_each_peer_device(peer_device, device) {
@@ -1647,6 +1696,7 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_vol_io_stat);
 	bsr_debugfs_remove(&device->debugfs_vol_io_complete);
 	bsr_debugfs_remove(&device->debugfs_vol_req_timing);
+	bsr_debugfs_remove(&device->debugfs_vol_peer_req_timing);
 	bsr_debugfs_remove(&device->debugfs_vol);
 }
 

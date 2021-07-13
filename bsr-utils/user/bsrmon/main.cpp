@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include "../../../bsr-headers/linux/bsr_ioctl.h"
+#include "../../../bsr-headers/bsr_ioctl.h"
 #endif
 #include <time.h>
 #include <sys/timeb.h>
@@ -39,6 +39,7 @@ void debug_usage()
 		"   dev_io_stat {resource} {volume}\n"
 		"   dev_io_complete {resource} {volume}\n"
 		"   dev_req_timing {resource} {volume}\n"
+		"   dev_peer_req_timing {resource} {volume}\n"
 		);
 	printf("\n");
 
@@ -56,6 +57,32 @@ void debug_usage()
 }
 #endif
 
+void perf_test_usage()
+{
+	printf("I/O performance degradation simulation. Absolutely only for testing purposes!\n"
+		"usage: bsrmon /io_delay_test {flag} {delay point} {delay time} \n\n"
+		"flag:\n"
+		"   0: disable\n"
+		"   1: enable\n"
+		"\n\n"
+
+		"delay point:\n"
+		"   0: write I/O occurrence\n"
+		"   1: master I/O completion\n"
+		"   2: active log commit\n"
+		"   3: submit\n"
+		"   4: socket send\n"
+		"   5: socket receive\n"
+		"   6: peer request submit\n"
+		"\n\n"
+
+		"delay time:\n"
+		"   0 ~ 500 ms\n"
+
+		);
+	exit(ERROR_INVALID_PARAMETER);
+}
+
 void usage()
 {
 	printf("usage: bsrmon cmds options \n\n"
@@ -67,9 +94,10 @@ void usage()
 		"   /status\n"
 		//"   /print\n"
 		//"   /file\n"
-		"   /report {types} [/f {filename}] \n"
 		"   /watch {types}\n"
+		"   /report {types} [/f {filename}] \n"
 		"   /set {period, file_size, file_cnt} {value}\n"
+		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
 #ifdef _WIN
 	printf(
@@ -82,6 +110,7 @@ void usage()
 		"   iostat {resource} {vnr}\n"
 		"   ioclat {resource} {vnr}\n"
 		"   reqstat {resource} {vnr}\n"
+		"   peer_reqstat {resource} {vnr}\n"
 		"   network {resource}\n"
 		"   sendbuf {resource}\n"
 		"   memstat \n"
@@ -161,6 +190,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_DEV_IO_STAT:
 		case DBG_DEV_IO_COMPLETE:
 		case DBG_DEV_REQ_TIMING:
+		case DBG_DEV_PEER_REQ_TIMING:
 			if (argIndex < argc)
 				debugInfo->vnr = atoi(argv[argIndex]);
 			else
@@ -248,6 +278,14 @@ void PrintMonitor()
 		buf = NULL;
 	}
 
+	printf("PEER_REQUEST:\n");
+	buf = GetDebugToBuf(PEER_REQUEST, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
 	// print memory monitoring status
 	printf("Memory:\n");
 	buf = GetBsrMemoryUsage();
@@ -299,6 +337,8 @@ void InitMonitor()
 			goto next;
 		if (InitPerfType(REQUEST, res) != 0)
 			goto next;
+		if (InitPerfType(PEER_REQUEST, res) != 0)
+			goto next;
 		if (InitPerfType(NETWORK_SPEED, res) != 0)
 			goto next;
 next:
@@ -322,7 +362,7 @@ void MonitorToFile()
 	struct tm base_date_local;
 	struct timeb timer_msec;
 	char curr_time[64] = {0,};
-	char mempath[MAX_PATH] = {0,};
+	char mempath[MAX_PATH+10] = {0,};
 	FILE * mem_fp;
 
 	res = GetResourceInfo();
@@ -352,8 +392,8 @@ void MonitorToFile()
 
 
 	while (res) {
-		char respath[MAX_PATH] = {0,};
-		char lastfile[MAX_PATH] = { 0, };
+		char respath[MAX_PATH+10] = {0,};
+		char lastfile[MAX_PATH+20] = { 0, };
 		FILE *last_fp;
 
 		sprintf_ex(respath, "%s%s", perfpath, res->name);
@@ -364,7 +404,7 @@ void MonitorToFile()
 		mkdir(respath, 0777);
 #endif
 
-		sprintf_ex(lastfile, "%s"_SEPARATOR_"last", respath);
+		sprintf_ex(lastfile, "%s%slast", respath, _SEPARATOR_);
 		
 		if (fopen_s(&last_fp, lastfile, "w") != 0)
 			return;
@@ -378,6 +418,8 @@ void MonitorToFile()
 		if (GetDebugToFile(IO_COMPLETE, res, respath, curr_time) != 0)
 			goto next;
 		if (GetDebugToFile(REQUEST, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(PEER_REQUEST, res, respath, curr_time) != 0)
 			goto next;
 		if (GetDebugToFile(NETWORK_SPEED, res, respath, curr_time) != 0)
 			goto next;
@@ -509,6 +551,14 @@ void Watch(char *resname, int type, int vnr)
 #endif
 			watch_req_stat(cmd);
 			break;
+		case PEER_REQUEST:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_peer_request' -wait -Tail 1\"", perf_path, resname, vnr);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_peer_request", resname, vnr);
+#endif
+			watch_peer_req_stat(cmd);
+			break;
 		case NETWORK_SPEED:
 #ifdef _WIN
 			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -wait -Tail 1\"", perf_path, resname);
@@ -581,7 +631,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 	case IO_STAT:
 		if (!file) {
 			printf("[IO STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_IO_STAT", perf_path, resname, vnr);
+			sprintf_ex(filepath, "%s%s%s%svnr%d_IO_STAT", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
@@ -592,7 +642,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 	case IO_COMPLETE:
 		if (!file) {
 			printf("[IO COMPLETE - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_IO_COMPLETE", perf_path, resname, vnr);
+			sprintf_ex(filepath, "%s%s%s%svnr%d_IO_COMPLETE", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
@@ -602,7 +652,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 	case REQUEST:
 		if (!file) {
 			printf("[REQUEST STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"vnr%d_request", perf_path, resname, vnr);
+			sprintf_ex(filepath, "%s%s%s%svnr%d_request", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
@@ -617,10 +667,28 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			read_req_peer_stat_work(filepath, peer_name);
 		}
 		break;
+	case PEER_REQUEST:
+		if (!file) {
+			printf("[PEER REQUEST STAT - vnr%u]\n", vnr);
+			sprintf_ex(filepath, "%s%s%s%svnr%d_peer_request", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
+		if ((pipe = popen(command, "r")) == NULL)
+			return;
+		while (fgets(peer_name, 64, pipe) != NULL) {
+			*(peer_name + (strlen(peer_name) - 1)) = 0;
+			read_peer_req_stat_work(filepath, peer_name, print_runtime);
+			if (print_runtime)
+				print_runtime = false;
+		}
+		break;
 	case NETWORK_SPEED:
 		if (!file) {
 			printf("[NETWORK SPEED]\n");
-			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"network", perf_path, resname);
+			sprintf_ex(filepath, "%s%s%s%snetwork", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
@@ -640,7 +708,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 	case SEND_BUF:
 		if (!file) {
 			printf("[SEND BUFFER]\n");
-			sprintf_ex(filepath, "%s"_SEPARATOR_"%s"_SEPARATOR_"send_buffer", perf_path, resname);
+			sprintf_ex(filepath, "%s%s%s%ssend_buffer", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
@@ -659,7 +727,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 		break;
 	case MEMORY:
 		if (!file) {
-			sprintf_ex(filepath, "%s"_SEPARATOR_"memory", perf_path);
+			sprintf_ex(filepath, "%s%smemory", perf_path, _SEPARATOR_);
 			printf("Report [MEMORY]\n");
 		} else {
 			sprintf_ex(filepath, "%s", file);
@@ -915,6 +983,59 @@ static void StopMonitor()
 	SetBsrmonRun(0);
 }
 
+// BSR-764
+static int SetPerfSimulFlag(SIMULATION_PERF_DEGR* pt)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       retVal = ERROR_SUCCESS;
+	DWORD       dwReturned = 0;
+	BOOL        ret = FALSE;
+#else // _LIN
+	int fd = 0;
+#endif
+
+	int err = 0;
+
+	if (pt == NULL) {
+		fprintf(stderr, "LOG_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+		return -1;
+	}
+#ifdef _WIN
+	// 1. Open MVOL_DEVICE
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		fprintf(stderr, "Failed to open bsr\n");
+		return -1;
+	}
+
+	ret = DeviceIoControl(hDevice, IOCTL_MVOL_SET_SIMUL_PERF_DEGR,
+		pt, sizeof(SIMULATION_PERF_DEGR), pt, sizeof(SIMULATION_PERF_DEGR), &dwReturned, NULL);
+	if (ret == FALSE) {
+		fprintf(stderr, "Failed to IOCTL_MVOL_SET_SIMUL_PERF_DEGR\n");
+		err = -1;
+	}
+
+	// 3. CloseHandle MVOL_DEVICE
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "Can not open /dev/bsr-control\n");
+		return -1;
+	}
+	if (ioctl(fd, IOCTL_MVOL_SET_SIMUL_PERF_DEGR, pt) != 0)
+		err = 1;
+
+	if (fd)
+		close(fd);
+
+#endif
+
+	return err;
+}
+
 int ConvertType(char * type_name) 
 {
 	if (strcmp(type_name, "iostat") == 0)
@@ -923,6 +1044,8 @@ int ConvertType(char * type_name)
 		return IO_COMPLETE;
 	else if (strcmp(type_name, "reqstat") == 0)
 		return REQUEST;
+	else if (strcmp(type_name, "peer_reqstat") == 0)
+		return PEER_REQUEST;
 	else if (strcmp(type_name, "network") == 0)
 		return NETWORK_SPEED;
 	else if (strcmp(type_name, "sendbuf") == 0)
@@ -987,7 +1110,7 @@ int main(int argc, char* argv[])
 				if (argIndex >= argc) 
 					usage();
 				res_name = argv[argIndex];
-				if (type == IO_STAT || type == IO_COMPLETE || type == REQUEST) {
+				if (type <= REQUEST) {
 					if (++argIndex < argc) {
 						Watch(res_name, type, atoi(argv[argIndex]));
 						break;
@@ -1091,7 +1214,8 @@ int main(int argc, char* argv[])
 				if (argIndex >= argc) 
 					usage();
 				res_name = argv[argIndex];
-				if (type == IO_STAT || type == IO_COMPLETE || type == REQUEST) {
+				if (type <= REQUEST) {
+					// IO_STAT, IO_COMPLETE, PEER_REQUEST, REQUEST need vnr
 					if (++argIndex < argc) {
 						vol_num = atoi(argv[argIndex]);
 						if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
@@ -1118,6 +1242,41 @@ int main(int argc, char* argv[])
 				
 			} else
 				usage();
+		}
+		// BSR-764 add I/O performance degradation simulation
+		else if (!strcmp(argv[argIndex], "/io_delay_test"))
+		{
+			SIMULATION_PERF_DEGR pt;
+			argIndex++;
+			// get parameter 1 (flag)
+			if (argIndex < argc) {
+				pt.flag = atoi(argv[argIndex]);
+				argIndex++;
+				// get parameter 2 (type)
+				if (argIndex < argc) {
+					pt.type = atoi(argv[argIndex]);
+					argIndex++;
+					// get parameter 3 (time)
+					if (argIndex < argc) {
+						pt.delay_time = atoi(argv[argIndex]);
+						if (pt.delay_time >= 0 && pt.delay_time <= 500) // 0~500 ms
+							SetPerfSimulFlag(&pt);
+					}
+					else {
+						perf_test_usage();
+					}
+				}
+				else if (pt.flag == 0) {
+					SetPerfSimulFlag(&pt);
+				}
+				else {
+					perf_test_usage();
+				}
+			}
+			else {
+				perf_test_usage();
+			}
+
 		}
 #ifdef _WIN
 		// BSR-37

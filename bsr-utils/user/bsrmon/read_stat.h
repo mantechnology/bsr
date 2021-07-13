@@ -52,6 +52,8 @@ void read_req_peer_stat_work(char *path, char *peer_name);
 void read_network_speed_work(char *path, char *peer_name, bool);
 void read_sendbuf_work(char *path, char *peer_name, bool);
 void read_memory_work(char *path);
+// BSR-764
+void read_peer_req_stat_work(char *path, char *peer_name, bool);
 
 // for watch
 void watch_io_stat(char *cmd);
@@ -60,3 +62,5 @@ void watch_req_stat(char *cmd);
 void watch_network_speed(char *cmd);
 void watch_sendbuf(char *cmd);
 void watch_memory(char *cmd);
+// BSR-764
+void watch_peer_req_stat(char *cmd);

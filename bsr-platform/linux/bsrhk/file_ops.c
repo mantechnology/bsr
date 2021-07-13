@@ -4,7 +4,7 @@
 #include <linux/dcache.h>
 #include <linux/path.h>
 #include "bsr_int.h"
-#include "../bsr-headers/linux/bsr_ioctl.h"
+#include "../bsr-headers/bsr_ioctl.h"
 
 
 // BSR-577
@@ -125,7 +125,7 @@ static int bsr_set_bsrmon_run(unsigned int __user * args)
 	err = copy_to_user(args, &run, sizeof(unsigned int));
 
 	if (err) {
-		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy bsrmon_run due to failure to copy from user");
+		bsr_err(146, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy bsrmon_run due to failure to copy from user");
 		return err;
 	}
 	return 0;
@@ -172,6 +172,28 @@ static int bsr_set_debug_log_out_put_category(DEBUG_LOG_CATEGORY __user *bsr_dbg
 	return err;
 }
 
+// BSR-764
+static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
+{
+	SIMULATION_PERF_DEGR simul_perf;
+	int err;
+
+	err = copy_from_user(&simul_perf, args, sizeof(SIMULATION_PERF_DEGR));
+	if (err) {
+		bsr_err(147, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_MVOL_SET_SIMUL_PERF_DEGR due to copy from user");
+		return -1;
+	}
+
+	g_simul_perf = simul_perf;
+
+	bsr_info(148, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_SIMUL_PERF_DEGR Flag:%d Type:%d", 
+					g_simul_perf.flag, g_simul_perf.type);
+
+	return 0;
+}
+
+
+
 long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 {
 	int err = 0;
@@ -216,6 +238,12 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_GET_BSRMON_RUN:
 	{
 		err = bsr_get_bsrmon_run((unsigned int __user *)param);
+		break;
+	}
+	// BSR-764
+	case IOCTL_MVOL_SET_SIMUL_PERF_DEGR:
+	{
+		err = bsr_set_simul_perf_degrade((SIMULATION_PERF_DEGR __user *)param);
 		break;
 	}
 	default :

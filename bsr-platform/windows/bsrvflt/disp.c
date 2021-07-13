@@ -674,7 +674,13 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 {
 	NTSTATUS status = STATUS_SUCCESS;
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
-	ktime_t start_kt = ktime_get();
+	ktime_t start_kt;
+
+	// BSR-764
+	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE0) 
+		force_delay(g_simul_perf.delay_time);
+	start_kt = ktime_get();
+
     if (DeviceObject == mvolRootDeviceObject) {
         Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -954,7 +960,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_SetSimulDiskIoError(DeviceObject, Irp); // Simulate Disk I/O Error IOCTL Handler
             MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
-
+		// BSR-764
+		case IOCTL_MVOL_SET_SIMUL_PERF_DEGR:
+		{
+			status = IOCTL_SetSimulPerfDegr(DeviceObject, Irp); // Simulate Performance Degradation Handler
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
 		case IOCTL_MVOL_SET_LOGLV_MIN:
 		{
 			status = IOCTL_SetMinimumLogLevel(DeviceObject, Irp); // Set minimum level of logging (system event log, service log)

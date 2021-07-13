@@ -65,6 +65,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "dev_io_stat")) return DBG_DEV_IO_STAT;
 	else if (!_strcmpi(str, "dev_io_complete")) return DBG_DEV_IO_COMPLETE;
 	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
+	else if (!_strcmpi(str, "dev_peer_req_timing")) return DBG_DEV_PEER_REQ_TIMING;
 	return DBG_NO_FLAGS;
 }
 #endif
@@ -353,7 +354,7 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 	debugInfo->flags = flag;
 
 	strcpy_s(debugInfo->res_name, res->name);
-	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || flag == DBG_DEV_REQ_TIMING)
+	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || flag == DBG_DEV_REQ_TIMING || flag == DBG_DEV_PEER_REQ_TIMING)
 		debugInfo->vnr = val;
 	else if (flag == DBG_CONN_TRANSPORT_SPEED || flag == DBG_CONN_SEND_BUF)
 		debugInfo->peer_node_id = val;
@@ -431,6 +432,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
 			else if (debug_type == REQUEST)
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
+			else if (debug_type == PEER_REQUEST)
+				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
 
 			//sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
 
@@ -450,6 +453,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == REQUEST) 
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == PEER_REQUEST) 
+				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 
 			sprintf(buffer + strlen(buffer), "vnr(%d):\n", vol->vnr);
 			
@@ -609,16 +614,16 @@ FILE *perf_fileopen(char * filename, char * currtime)
 #ifdef _WIN
 		HANDLE hFind;
 		WIN32_FIND_DATA FindFileData;
-		WCHAR dir_path[512] = { 0, };
-		WCHAR find_file[512] = { 0, };
-		char remove_file_path[512] = { 0, };
+		WCHAR dir_path[MAX_PATH] = { 0, };
+		WCHAR find_file[MAX_PATH] = { 0, };
+		char remove_file_path[MAX_PATH] = { 0, };
 #else //_LIN
 		DIR *dir_p = NULL;
 		struct dirent* entry = NULL;
-		char dir_path[512] = { 0, }; 
-		char find_file[512] = { 0, };
+		char dir_path[MAX_PATH] = { 0, }; 
+		char find_file[MAX_PATH] = { 0, };
 #endif
-		char remove_file[512] = { 0, };
+		char remove_file[MAX_PATH+20] = { 0, };
 		char r_time[64] = { 0, };
 		char* ptr;
 #ifdef _WIN
@@ -656,7 +661,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 			file_cnt++;
 			if (file_cnt >= rolling_cnt) {
-				sprintf_s(remove_file, "%s"_SEPARATOR_"%ws", remove_file_path, iter->c_str());
+				sprintf_s(remove_file, "%s%s%ws", remove_file_path, _SEPARATOR_, iter->c_str());
 				remove(remove_file);
 			}
 		}
@@ -680,7 +685,7 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 			file_cnt++;
 			if (file_cnt >= rolling_cnt) {
-				sprintf_ex(remove_file, "%s"_SEPARATOR_"%s", dir_path, iter->c_str());
+				sprintf_ex(remove_file, "%s%s%s", dir_path, _SEPARATOR_, iter->c_str());
 				remove(remove_file);
 			}
 		}
@@ -743,6 +748,8 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
 			else if (debug_type == REQUEST)
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
+			else if (debug_type == PEER_REQUEST)
+				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
 #else // _LIN 
 			if (debug_type == IO_STAT)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
@@ -750,6 +757,8 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == REQUEST)
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == PEER_REQUEST)
+				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 
 			
@@ -835,7 +844,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		return -1;
 	}
 
-	sprintf_ex(lastfile, "%s"_SEPARATOR_"last", respath);
+	sprintf_ex(lastfile, "%s%slast", respath, _SEPARATOR_);
 
 	if (fopen_s(&last_fp, lastfile, "a") != 0) {
 		fprintf(stderr, "Failed to open %s\n", respath);
@@ -864,7 +873,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_ex(outfile, "%s"_SEPARATOR_"vnr%d_IO_STAT", respath, vol->vnr);
+				sprintf_ex(outfile, "%s%svnr%d_IO_STAT", respath, _SEPARATOR_, vol->vnr);
 				fprintf(last_fp, "IO (vnr%d):\n", vol->vnr);
 			} else if (debug_type == IO_COMPLETE) {
 #ifdef _WIN
@@ -873,7 +882,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 				fprintf(last_fp, "IO complete latency (vnr%d):\n", vol->vnr);
-				sprintf_ex(outfile, "%s"_SEPARATOR_"vnr%d_IO_COMPLETE", respath, vol->vnr);
+				sprintf_ex(outfile, "%s%svnr%d_IO_COMPLETE", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == REQUEST) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
@@ -881,8 +890,17 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 				fprintf(last_fp, "Request latency (vnr%d):\n", vol->vnr);
-				sprintf_ex(outfile, "%s"_SEPARATOR_"vnr%d_request", respath, vol->vnr);
+				sprintf_ex(outfile, "%s%svnr%d_request", respath, _SEPARATOR_, vol->vnr);
+			} else if (debug_type == PEER_REQUEST) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+				fprintf(last_fp, "Peer Request latency (vnr%d):\n", vol->vnr);
+				sprintf_ex(outfile, "%s%svnr%d_peer_request", respath, _SEPARATOR_, vol->vnr);
 			}
+
 
 #ifdef _WIN
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
@@ -957,7 +975,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			conn = conn->next;
 		}
 #endif
-		sprintf_ex(outfile, "%s"_SEPARATOR_"network", respath);
+		sprintf_ex(outfile, "%s%snetwork", respath, _SEPARATOR_);
 		
 		fp = perf_fileopen(outfile, currtime);
 		if (fp == NULL)
@@ -1007,7 +1025,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			conn = conn->next;
 		}
 #endif
-		sprintf_ex(outfile, "%s"_SEPARATOR_"send_buffer", respath);
+		sprintf_ex(outfile, "%s%ssend_buffer", respath, _SEPARATOR_);
 
 		fp = perf_fileopen(outfile, currtime);
 		if (fp == NULL)
@@ -1048,7 +1066,7 @@ int GetMemInfoToFile(char *path, char * currtime)
 	char *buffer = NULL;
 	int ret = -1;
 
-	sprintf_ex(lastfile, "%s"_SEPARATOR_"last", path);
+	sprintf_ex(lastfile, "%s%slast", path, _SEPARATOR_);
 
 #ifdef _WIN
 	if (fopen_s(&last_fp, lastfile, "a") != 0) {
@@ -1060,7 +1078,7 @@ int GetMemInfoToFile(char *path, char * currtime)
 		return -1;
 	}
 
-	sprintf_ex(outfile, "%s"_SEPARATOR_"memory", path);
+	sprintf_ex(outfile, "%s%smemory", path, _SEPARATOR_);
 
 	fp = perf_fileopen(outfile, currtime);
 	if (fp == NULL)
