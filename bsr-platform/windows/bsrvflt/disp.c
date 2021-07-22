@@ -676,7 +676,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     PVOLUME_EXTENSION VolumeExtension = DeviceObject->DeviceExtension;
 	ktime_t start_kt;
 
-	// BSR-764
+	// BSR-764 delay write I/O occurrence
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE0) 
 		force_delay(g_simul_perf.delay_time);
 	start_kt = ktime_get();

@@ -73,6 +73,7 @@ int connection_send_buf_show(struct seq_file *m, void *ignored);
 int peer_device_proc_bsr_show(struct seq_file *m, void *ignored);
 int peer_device_resync_extents_show(struct seq_file *m, void *ignored);
 int device_act_log_extents_show(struct seq_file *m, void *ignored);
+int device_act_log_stat_show(struct seq_file *m, void *ignored); // BSR-765
 int device_oldest_requests_show(struct seq_file *m, void *ignored);
 int device_data_gen_id_show(struct seq_file *m, void *ignored);
 int device_io_frozen_show(struct seq_file *m, void *ignored);

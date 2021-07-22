@@ -58,28 +58,34 @@ void set_min_max_fp(FILE *fp, perf_stat *stat)
 	unsigned long t_min = 0, t_max = 0, t_avg = 0;
 	fscanf_ex(fp, "%lu %lu %lu", &t_min, &t_max, &t_avg);
 
-	if (t_min > 0) {
-		/* Excluded from statistics if:
-			1. Current value is 0
-			2. Previous value is 0
-			3. Consecutive duplicate values
-		*/
-		if (t_avg == 0 || stat->priv == 0 || (stat->priv == t_avg && stat->duplicate)) {
-			stat->priv = t_avg;
-			return;
-		}
-		
+	
+	/* Excluded from statistics if:
+		1. Current value is 0
+		2. Previous value is 0
+		3. Consecutive duplicate values
+	*/
+	if (t_avg == 0 || stat->priv == 0 || (stat->priv == t_avg && stat->duplicate)) {
+		stat->priv = t_avg;
+		return;
+	}
+	if (t_min > 0) 
 		set_min_max(stat, t_min, t_max);
 
-		if (stat->priv == t_avg)
-			stat->duplicate = true;
-		else 
-			stat->duplicate = false;
+	if (stat->priv == t_avg)
+		stat->duplicate = true;
+	else 
+		stat->duplicate = false;
 
-		stat->priv = t_avg;
-		stat->sum += t_avg;
-		stat->cnt ++;
-	}
+	stat->priv = t_avg;
+	stat->sum += t_avg;
+	stat->cnt ++;
+}
+
+unsigned int read_val_fp(FILE *fp)
+{
+	unsigned int val = 0;
+	fscanf_ex(fp, "%u", &val);
+	return val;
 }
 
 void print_stat(const char * name, perf_stat *s)
@@ -221,8 +227,9 @@ void read_req_stat_work(char *path)
 	char tok[64] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	unsigned int t_cnt = 0;
-	struct perf_stat req = {0,}, before_queue = {0,}, before_al_begin = {0,}, in_actlog = {0,}, pre_submit = {0,}, post_submit = {0,}, destroy = {0,};
-	struct perf_stat al = {0,}, before_bm_write = {0,}, after_bm_write = {0,}, after_sync_page = {0,};
+	ULONG_PTR req_total = 0, al_total= 0;
+	struct perf_stat before_queue = {0,}, before_al_begin = {0,}, in_actlog = {0,}, pre_submit = {0,}, post_submit = {0,}, destroy = {0,};
+	struct perf_stat before_bm_write = {0,}, after_bm_write = {0,}, after_sync_page = {0,};
 
 	if (fopen_s(&fp, path, "r") != 0)
 		return;
@@ -242,8 +249,7 @@ void read_req_stat_work(char *path)
 		}
 		
 		if (t_cnt > 0) {
-			set_min_max_val(&req, t_cnt);
-
+			req_total += t_cnt;
 			set_min_max_fp(fp, &before_queue);
 			set_min_max_fp(fp, &before_al_begin);
 			set_min_max_fp(fp, &in_actlog);
@@ -263,7 +269,7 @@ void read_req_stat_work(char *path)
 		}
 		
 		if (t_cnt > 0) {
-			set_min_max_val(&al, t_cnt);
+			al_total += t_cnt;
 			set_min_max_fp(fp, &before_bm_write);
 			set_min_max_fp(fp, &after_bm_write);
 			set_min_max_fp(fp, &after_sync_page);
@@ -276,14 +282,14 @@ void read_req_stat_work(char *path)
 	sprintf_ex(end_t, "%s", save_t);
 
 	printf(" Run: %s - %s\n", start_t, end_t);
-	printf("  requests  (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", req.min, req.max, stat_avg(req.sum, req.cnt), req.sum);
+	printf("  requests  : total=%lu\n", req_total);
 	print_stat("    before_queue    (usec)", &before_queue);
 	print_stat("    before_al_begin (usec)", &before_al_begin);
 	print_stat("    in_actlog       (usec)", &in_actlog);
 	print_stat("    pre_submit      (usec)", &pre_submit);
 	print_stat("    post_submit     (usec)", &post_submit);
 	print_stat("    destroy         (usec)", &destroy);
-	printf("  al_update (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", al.min, al.max, stat_avg(al.sum, al.cnt), al.sum);
+	printf("  al_update : total=%lu\n", al_total);
 	print_stat("    before_bm_write (usec)", &before_bm_write);
 	print_stat("    after_bm_write  (usec)", &after_bm_write);
 	print_stat("    after_sync_page (usec)", &after_sync_page);
@@ -334,8 +340,9 @@ void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
 	FILE *fp;
 	char tok[64] = {0,};
 	unsigned int t_cnt = 0;
+	ULONG_PTR peer_req_total = 0;
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
-	struct perf_stat peer_req = {0,}, pre_submit = {0,}, post_submit = {0,}, complete = {0,};
+	struct perf_stat pre_submit = {0,}, post_submit = {0,}, complete = {0,};
 
 	if (fopen_s(&fp, path, "r") != 0)
 		return;
@@ -355,8 +362,7 @@ void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
 			fscanf_ex(fp, "%u", &t_cnt);
 			
 			if (t_cnt > 0) {
-				set_min_max_val(&peer_req, t_cnt);
-
+				peer_req_total += t_cnt;
 				set_min_max_fp(fp, &pre_submit);
 				set_min_max_fp(fp, &post_submit);
 				set_min_max_fp(fp, &complete);
@@ -373,11 +379,125 @@ void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
 	if (print_runtime)
 		printf(" Run: %s - %s\n", start_t, end_t);
 	printf("  PEER %s:\n", peer_name);
-	printf("    peer requests  (per sec): min=%lu, max=%lu, avg=%lu (total=%lu)\n", 
-		peer_req.min, peer_req.max, stat_avg(peer_req.sum, peer_req.cnt), peer_req.sum);
+	printf("    peer requests : total=%lu\n", peer_req_total);
 	print_stat("    pre_submit  (usec)", &pre_submit);
 	print_stat("    post_submit (usec)", &post_submit);
 	print_stat("    complete    (usec)", &complete);
+}
+
+// BSR-765 add al stat reporting
+void read_al_stat_work(char *path)
+{
+	FILE *fp;
+	int n;
+	char save_t[64] = {0,}, start_t[64] = {0,}; 
+	unsigned int t_cnt = 0, t_max = 0, t_total = 0, nr_elements = 0;;
+	unsigned int all_slot_used_cnt = 0;
+	struct al_stat al;
+
+	memset(&al, 0, sizeof(struct al_stat));
+
+	if (fopen_s(&fp, path, "r") != 0)
+		return;
+
+	for (;;) {
+		n = fscanf_str(fp, "%s", save_t, sizeof(save_t));
+
+		if (strlen(start_t) == 0)
+			sprintf_ex(start_t, "%s", save_t);
+
+		/* nr_elements */
+		fscanf_ex(fp, "%u", &nr_elements);
+		if ((n <= 0) || (al.nr_elements && (nr_elements != al.nr_elements))) {
+			// changed nr_elements
+			// print stat and reset
+			printf(" Run: %s - %s\n", start_t, save_t);
+			printf("  al_extents : %u\n", al.nr_elements);
+			printf("    used     : max=%lu(all_slot_used=%u), avg=%lu\n", 
+						al.used.max, all_slot_used_cnt, al.used.sum ? al.used.sum / al.used.cnt : 0);
+			printf("    hits     : total=%lu\n", al.hits);
+			printf("    misses   : total=%lu\n", al.misses);
+			printf("    starving : total=%lu\n", al.starving);
+			printf("    locked   : total=%lu\n", al.locked);
+			printf("    changed  : total=%lu\n", al.changed);
+			printf("    al_wait retry count : max=%lu, total=%lu\n", al.wait.max, al.wait.sum);
+			printf("    pending_changes     : max=%lu, total=%lu\n", al.pending.max, al.pending.sum);
+			printf("    error : total=%u\n", 
+							al.e_starving + al.e_pending + al.e_used + al.e_busy + al.e_wouldblock);
+			printf("      NOBUFS - starving     : total=%u\n", al.e_starving);
+			printf("             - pending slot : total=%u\n", al.e_pending);
+			printf("             - used    slot : total=%u\n", al.e_used);
+			printf("      BUSY       : total=%u\n", al.e_busy);
+			printf("      WOULDBLOCK : total=%u\n", al.e_wouldblock);
+
+			// EOF
+			if (n <= 0)
+				break;
+			else {
+				sprintf_ex(start_t, "%s", save_t);
+				memset(&al, 0, sizeof(struct al_stat));
+				all_slot_used_cnt = 0;
+			}
+		}
+
+		al.nr_elements = nr_elements;
+		
+
+		/* used used_max */
+		
+		fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
+		if (t_cnt > 0) {
+			al.used.sum += t_cnt;
+			al.used.cnt++;
+		} 
+		
+		if (al.used.max < t_max)
+			al.used.max = t_max;
+
+		if (al.nr_elements == t_max)
+			all_slot_used_cnt++;
+
+		/* hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
+		al.hits += read_val_fp(fp);
+		read_val_fp(fp);
+		al.misses += read_val_fp(fp);
+		read_val_fp(fp);
+		al.starving += read_val_fp(fp);
+		read_val_fp(fp);
+		al.locked += read_val_fp(fp);
+		read_val_fp(fp);
+		al.changed += read_val_fp(fp);
+		read_val_fp(fp);
+
+		/* al_wait_retry_cnt al_wait_retry_total al_wait_retry_max*/
+		fscanf_ex(fp, "%u %u %u", &t_cnt, &t_total, &t_max);
+		if (t_total > 0) {
+			al.wait.sum += t_total;
+			if (al.wait.max < t_max)
+				al.wait.max = t_max;
+		}
+
+		/* pending_changes max_pending_changes */
+		fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
+		if (t_cnt > 0) {
+			al.pending.sum += t_cnt;
+			al.pending.cnt++;
+			if (al.pending.max < t_max)
+				al.pending.max = t_max;
+		} 
+
+		/* e_al_starving e_al_pending e_al_used e_al_busy e_al_wouldblock */
+		al.e_starving += read_val_fp(fp);
+		al.e_pending += read_val_fp(fp);
+		al.e_used += read_val_fp(fp);
+		al.e_busy += read_val_fp(fp);
+		al.e_wouldblock += read_val_fp(fp);
+
+		fscanf_ex(fp, "%*[^\n]");
+	}
+
+	fclose(fp);
+
 }
 
 /**
@@ -883,7 +1003,106 @@ void watch_peer_req_stat(char *cmd)
 
 }
 
+void print_al_stat(char ** save_ptr, const char * name) 
+{	
+	unsigned long t_now = 0, t_total = 0;
+	t_now = atol(strtok_r(NULL, " ", save_ptr));
+	t_total = atol(strtok_r(NULL, " ", save_ptr));
+	printf("%s: %10lu (total=%lu)\n", name, t_now, t_total);
+}
 
+
+// BSR-765 add al stat watching
+void watch_al_stat(char *cmd)
+{
+	FILE *fp;
+
+	fp = popen(cmd, "r");
+	if (!fp)
+		return;
+
+	while(1) {
+		char buf[MAX_BUF_SIZE] = {0, };		
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			char *ptr, *save_ptr;
+			unsigned cnt, max, total;
+			unsigned e_starving, e_pending, e_used, e_busy, e_wouldblock, e_cnt;
+
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			ptr = strtok_r(buf, " ", &save_ptr);
+			if (!ptr) 
+				continue;
+
+			/* time */
+			printf("%s\n", ptr);
+			
+			ptr = strtok_r(NULL, " ", &save_ptr);
+			if (!ptr) 
+				continue;
+			/* nr_elements used used_max */
+			total = atol(ptr);
+			cnt = atol(strtok_r(NULL, " ", &save_ptr));
+			max = atol(strtok_r(NULL, " ", &save_ptr));
+
+			printf("  used    : %10u/%u (max=%u)\n", cnt, total, max);
+
+			/* hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
+			print_al_stat(&save_ptr, "  hits    ");
+			print_al_stat(&save_ptr, "  misses  ");
+			print_al_stat(&save_ptr, "  starving");
+			print_al_stat(&save_ptr, "  locked  ");
+			print_al_stat(&save_ptr, "  changed ");
+
+			/* al_wait_retry_cnt al_wait_retry_total al_wait_retry_max*/
+			cnt = atol(strtok_r(NULL, " ", &save_ptr));
+			total = atol(strtok_r(NULL, " ", &save_ptr));
+			max = atol(strtok_r(NULL, " ", &save_ptr));
+			printf("  al_wait : %10u (total=%u, max=%u)\n", cnt, total, max);
+				
+			/* pending_changes max_pending_changes */
+			cnt = atol(strtok_r(NULL, " ", &save_ptr));
+			total = atol(strtok_r(NULL, " ", &save_ptr));
+			printf("  pending_changes : %2u/%u\n", cnt, total);
+
+			/* e_al_starving e_al_pending e_al_used e_al_busy e_al_wouldblock */
+			e_starving = atoi(strtok_r(NULL, " ", &save_ptr));
+			e_pending = atoi(strtok_r(NULL, " ", &save_ptr));
+			e_used = atoi(strtok_r(NULL, " ", &save_ptr));
+			e_busy = atoi(strtok_r(NULL, " ", &save_ptr));
+			e_wouldblock = atoi(strtok_r(NULL, " ", &save_ptr));
+			e_cnt = e_starving + e_pending + e_used + e_busy + e_wouldblock;
+			
+			printf("  error   : %u\n", e_cnt);
+			printf("    NOBUFS - starving : %u\n", e_starving);
+			printf("           - pending slot : %u\n", e_pending);
+			printf("           - used slot : %u\n", e_used);
+			printf("    BUSY : %u\n", e_busy);
+			printf("    WOULDBLOCK : %u\n", e_wouldblock);
+
+			
+			/* flags ... */
+			ptr = strtok_r(NULL, " ", &save_ptr);
+			if (ptr)
+				printf("  flags   : %s %s\n", ptr, save_ptr);
+			else 
+				printf("  flags   : NONE\n");
+			
+		} else {	
+#ifdef _WIN
+			Sleep(1000);
+#else // _LIN
+			sleep(1);
+#endif
+		}
+
+		continue;
+		
+	}
+	
+	pclose(fp);
+	
+}
 
 void watch_network_speed(char *cmd)
 {
@@ -964,6 +1183,7 @@ void watch_sendbuf(char *cmd)
 					strtok_r(NULL, " ", &save_ptr);
 					strtok_r(NULL, " ", &save_ptr);
 					printf("    no send buffer\n");
+					type = strtok_r(NULL, " ", &save_ptr);
 					continue;
 				}
 				else if (!strcmp(type, "data") || !strcmp(type, "control")) {

@@ -44,6 +44,31 @@ struct umem_perf_stat {
 };
 #endif
 
+
+// BSR-765 add AL performance aggregation
+struct al_perf_stat {
+	unsigned long cnt;
+	unsigned long max;
+	ULONG_PTR sum;
+};
+
+struct al_stat {
+	unsigned int nr_elements;
+	struct al_perf_stat used;
+	ULONG_PTR hits;
+	ULONG_PTR misses;
+	ULONG_PTR starving;
+	ULONG_PTR locked;
+	ULONG_PTR changed;
+	struct al_perf_stat wait;
+	struct al_perf_stat pending;
+	unsigned int e_starving;
+	unsigned int e_pending;
+	unsigned int e_used;
+	unsigned int e_busy;
+	unsigned int e_wouldblock;
+};
+
 // for report
 void read_io_stat_work(char *path);
 void read_io_complete_work(char *path);
@@ -54,6 +79,8 @@ void read_sendbuf_work(char *path, char *peer_name, bool);
 void read_memory_work(char *path);
 // BSR-764
 void read_peer_req_stat_work(char *path, char *peer_name, bool);
+// BSR-765
+void read_al_stat_work(char *path);
 
 // for watch
 void watch_io_stat(char *cmd);
@@ -64,3 +91,6 @@ void watch_sendbuf(char *cmd);
 void watch_memory(char *cmd);
 // BSR-764
 void watch_peer_req_stat(char *cmd);
+// BSR-765
+void watch_al_stat(char *cmd);
+

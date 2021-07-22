@@ -58,6 +58,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "proc_bsr")) return DBG_PEER_PROC_BSR;
 	else if (!_strcmpi(str, "resync_extents")) return DBG_PEER_RESYNC_EXTENTS;
 	else if (!_strcmpi(str, "act_log_extents")) return DBG_DEV_ACT_LOG_EXTENTS;
+	else if (!_strcmpi(str, "act_log_stat")) return DBG_DEV_ACT_LOG_STAT;
 	else if (!_strcmpi(str, "data_gen_id")) return DBG_DEV_DATA_GEN_ID;
 	else if (!_strcmpi(str, "ed_gen_id")) return DBG_DEV_ED_GEN_ID;
 	else if (!_strcmpi(str, "io_frozen")) return DBG_DEV_IO_FROZEN;
@@ -354,7 +355,8 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 	debugInfo->flags = flag;
 
 	strcpy_s(debugInfo->res_name, res->name);
-	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || flag == DBG_DEV_REQ_TIMING || flag == DBG_DEV_PEER_REQ_TIMING)
+	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || 
+			flag == DBG_DEV_REQ_TIMING || flag == DBG_DEV_PEER_REQ_TIMING || flag == DBG_DEV_ACT_LOG_STAT)
 		debugInfo->vnr = val;
 	else if (flag == DBG_CONN_TRANSPORT_SPEED || flag == DBG_CONN_SEND_BUF)
 		debugInfo->peer_node_id = val;
@@ -434,6 +436,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
 			else if (debug_type == PEER_REQUEST)
 				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
+			else if (debug_type == AL_STAT)
+				flag = ConvertToBsrDebugFlags("act_log_stat");
 
 			//sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
 
@@ -455,6 +459,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == PEER_REQUEST) 
 				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == AL_STAT) 
+				sprintf(path, "%s/resources/%s/volumes/%d/act_log_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 
 			sprintf(buffer + strlen(buffer), "vnr(%d):\n", vol->vnr);
 			
@@ -750,6 +756,8 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
 			else if (debug_type == PEER_REQUEST)
 				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
+			else if (debug_type == AL_STAT)
+				flag = ConvertToBsrDebugFlags("act_log_stat");
 #else // _LIN 
 			if (debug_type == IO_STAT)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
@@ -759,6 +767,8 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == PEER_REQUEST)
 				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
+			else if (debug_type == AL_STAT)
+				sprintf(path, "%s/resources/%s/volumes/%d/act_log_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 
 			
@@ -899,6 +909,14 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #endif
 				fprintf(last_fp, "Peer Request latency (vnr%d):\n", vol->vnr);
 				sprintf_ex(outfile, "%s%svnr%d_peer_request", respath, _SEPARATOR_, vol->vnr);
+			} else if (debug_type == AL_STAT) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("act_log_stat");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/act_log_stat", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+				fprintf(last_fp, "Active Log (vnr%d):\n", vol->vnr);
+				sprintf_ex(outfile, "%s%svnr%d_al_stat", respath, _SEPARATOR_, vol->vnr);
 			}
 
 

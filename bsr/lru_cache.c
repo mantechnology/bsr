@@ -529,6 +529,9 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 	PARANOIA_ENTRY();
 	if (test_bit(__LC_STARVING, &lc->flags)) {
 		++lc->starving;
+		if (atomic_read(&g_bsrmon_run))
+			lc->starving_cnt++;
+
 		RETURN(NULL);
 	}
 
@@ -549,18 +552,29 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 			 * probably preparing a cumulative transaction. */
 			++e->refcnt;
 			++lc->hits;
+			if (atomic_read(&g_bsrmon_run))
+				lc->hits_cnt++;
 			RETURN(e);
 		}
 		/* else: lc_new_number == lc_number; a real hit. */
 		++lc->hits;
-		if (e->refcnt++ == 0)
+		if (atomic_read(&g_bsrmon_run))
+				lc->hits_cnt++;
+
+		if (e->refcnt++ == 0) {
 			lc->used++;
+			
+			if (atomic_read(&g_bsrmon_run))
+				lc->used_max = max(lc->used_max, lc->used);
+		}
 		list_move(&e->list, &lc->in_use); /* Not evictable... */
 		RETURN(e);
 	}
 	/* e == NULL */
 
 	++lc->misses;
+	if (atomic_read(&g_bsrmon_run))
+		lc->misses_cnt++;
 	if (!(flags & LC_GET_MAY_CHANGE))
 		RETURN(NULL);
 
@@ -573,6 +587,8 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 	 */
 	if (test_bit(__LC_LOCKED, &lc->flags)) {
 		++lc->locked;
+		if (atomic_read(&g_bsrmon_run))
+			lc->starving_cnt++;
 		RETURN(NULL);
 	}
 
@@ -606,6 +622,8 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 	BUG_ON(++e->refcnt != 1);
 #endif 
 	lc->used++;
+	if (atomic_read(&g_bsrmon_run))
+		lc->used_max = max(lc->used_max, lc->used);
 	lc->pending_changes++;
 
 	RETURN(e);
@@ -716,6 +734,8 @@ void lc_committed(struct lru_cache *lc)
 	list_for_each_entry_safe_ex(struct lc_element, e, tmp, &lc->to_be_changed, list) {
 		/* count number of changes, not number of transactions */
 		++lc->changed;
+		if (atomic_read(&g_bsrmon_run))
+			lc->changed_cnt++;
 		e->lc_number = e->lc_new_number;
 		list_move(&e->list, &lc->in_use);
 	}

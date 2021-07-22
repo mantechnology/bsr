@@ -2629,9 +2629,17 @@ void do_submit(struct work_struct *ws)
 				if(al_wait_count)
 					bsr_debug(29, BSR_LC_LRU, device, "al_wait retry count : %llu", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
+				if (atomic_read(&g_bsrmon_run))
+					device->al_wait_retry_cnt = 0;
 				break;
 			}
 			al_wait_count += 1;
+			if (atomic_read(&g_bsrmon_run)) {
+				device->al_wait_retry_cnt++;
+				device->al_wait_retry_total++;
+				device->al_wait_retry_max = max(device->al_wait_retry_max, device->al_wait_retry_cnt);
+			}
+			
 #ifdef _LIN 
 			// DW-691 windows skipped 3d552f8 commit(linux bsr)
 			bsr_kick_lo(device);

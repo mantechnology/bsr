@@ -31,6 +31,7 @@ enum get_debug_type
 {
 	IO_STAT,
 	IO_COMPLETE,
+	AL_STAT,
 	PEER_REQUEST,
 	REQUEST,
 	NETWORK_SPEED,

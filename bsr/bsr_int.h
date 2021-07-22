@@ -2045,6 +2045,7 @@ struct bsr_device {
 	struct dentry *debugfs_vol;
 	struct dentry *debugfs_vol_oldest_requests;
 	struct dentry *debugfs_vol_act_log_extents;
+	struct dentry *debugfs_vol_act_log_stat; // BSR-765
 	struct dentry *debugfs_vol_data_gen_id;
 	struct dentry *debugfs_vol_io_frozen;
 	struct dentry *debugfs_vol_ed_gen_id;
@@ -2173,6 +2174,10 @@ struct bsr_device {
 	struct timing_stat al_before_bm_write_hinted_kt; /* aggregate over all al_updates */
 	struct timing_stat al_after_bm_write_hinted_kt;
 	struct timing_stat al_after_sync_page_kt;
+
+	// BSR-765 add AL performance aggregation
+	unsigned e_al_starving, e_al_pending, e_al_used, e_al_busy, e_al_wouldblock;
+	unsigned al_wait_retry_cnt, al_wait_retry_total, al_wait_retry_max;
 
 	/* IO aggregation. [READ] and [WRITE] */
 	atomic_t io_cnt[2];

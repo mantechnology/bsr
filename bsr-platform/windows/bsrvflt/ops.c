@@ -713,6 +713,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = device;
 		device_act_log_extents_show(&seq, 0);
 		break;
+	case DBG_DEV_ACT_LOG_STAT:
+		seq.private = device;
+		device_act_log_stat_show(&seq, 0);
+		break;
 	case DBG_DEV_DATA_GEN_ID:
 		seq.private = device;
 		device_data_gen_id_show(&seq, 0);

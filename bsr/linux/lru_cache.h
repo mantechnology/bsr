@@ -264,6 +264,10 @@ struct lru_cache {
 	/* nr_elements there */
 	struct hlist_head *lc_slot;
 	struct lc_element **lc_element;
+	
+	// BSR-765 add AL performance aggregation
+	unsigned used_max;
+	ULONG_PTR hits_cnt, misses_cnt, starving_cnt, locked_cnt, changed_cnt;
 };
 
 
