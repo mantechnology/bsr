@@ -32,6 +32,7 @@ void debug_usage()
 		"   proc_bsr {resource} {peer_node_id} {volume}\n"
 		"   resync_extents {resource} {peer_node_id} {volume}\n"
 		"   act_log_extents {resource} {volume}\n"
+		"   act_log_stat {resource} {volume}\n"
 		"   data_gen_id {resource} {volume}\n"
 		"   ed_gen_id {resource} {volume}\n"
 		"   io_frozen {resource} {volume}\n"
@@ -111,6 +112,7 @@ void usage()
 		"   ioclat {resource} {vnr}\n"
 		"   reqstat {resource} {vnr}\n"
 		"   peer_reqstat {resource} {vnr}\n"
+		"   alstat {resource} {vnr}\n"
 		"   network {resource}\n"
 		"   sendbuf {resource}\n"
 		"   memstat \n"
@@ -183,6 +185,7 @@ int BsrDebug(int argc, char* argv[])
 				debug_usage();
 			break;
 		case DBG_DEV_ACT_LOG_EXTENTS:
+		case DBG_DEV_ACT_LOG_STAT:
 		case DBG_DEV_DATA_GEN_ID:
 		case DBG_DEV_ED_GEN_ID:
 		case DBG_DEV_IO_FROZEN:
@@ -286,6 +289,14 @@ void PrintMonitor()
 		buf = NULL;
 	}
 
+	printf("AL_STAT:\n");
+	buf = GetDebugToBuf(AL_STAT, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
 	// print memory monitoring status
 	printf("Memory:\n");
 	buf = GetBsrMemoryUsage();
@@ -338,6 +349,8 @@ void InitMonitor()
 		if (InitPerfType(REQUEST, res) != 0)
 			goto next;
 		if (InitPerfType(PEER_REQUEST, res) != 0)
+			goto next;
+		if (InitPerfType(AL_STAT, res) != 0)
 			goto next;
 		if (InitPerfType(NETWORK_SPEED, res) != 0)
 			goto next;
@@ -420,6 +433,8 @@ void MonitorToFile()
 		if (GetDebugToFile(REQUEST, res, respath, curr_time) != 0)
 			goto next;
 		if (GetDebugToFile(PEER_REQUEST, res, respath, curr_time) != 0)
+			goto next;
+		if (GetDebugToFile(AL_STAT, res, respath, curr_time) != 0)
 			goto next;
 		if (GetDebugToFile(NETWORK_SPEED, res, respath, curr_time) != 0)
 			goto next;
@@ -559,6 +574,14 @@ void Watch(char *resname, int type, int vnr)
 #endif
 			watch_peer_req_stat(cmd);
 			break;
+		case AL_STAT:
+#ifdef _WIN
+			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_al_stat' -wait -Tail 1\"", perf_path, resname, vnr);
+#else // _LIN
+			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_al_stat", resname, vnr);
+#endif
+			watch_al_stat(cmd);
+			break;
 		case NETWORK_SPEED:
 #ifdef _WIN
 			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -wait -Tail 1\"", perf_path, resname);
@@ -684,6 +707,16 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			if (print_runtime)
 				print_runtime = false;
 		}
+		break;
+	case AL_STAT:
+		if (!file) {
+			printf("[AL STAT - vnr%u]\n", vnr);
+			sprintf_ex(filepath, "%s%s%s%svnr%d_al_stat", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("[%s]\n", filepath);
+		}
+		read_al_stat_work(filepath);
 		break;
 	case NETWORK_SPEED:
 		if (!file) {
@@ -1046,6 +1079,8 @@ int ConvertType(char * type_name)
 		return REQUEST;
 	else if (strcmp(type_name, "peer_reqstat") == 0)
 		return PEER_REQUEST;
+	else if (strcmp(type_name, "alstat") == 0)
+		return AL_STAT;
 	else if (strcmp(type_name, "network") == 0)
 		return NETWORK_SPEED;
 	else if (strcmp(type_name, "sendbuf") == 0)
@@ -1215,7 +1250,7 @@ int main(int argc, char* argv[])
 					usage();
 				res_name = argv[argIndex];
 				if (type <= REQUEST) {
-					// IO_STAT, IO_COMPLETE, PEER_REQUEST, REQUEST need vnr
+					// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
 					if (++argIndex < argc) {
 						vol_num = atoi(argv[argIndex]);
 						if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {

@@ -1188,6 +1188,89 @@ int device_ed_gen_id_show(struct seq_file *m, void *ignored)
 #define show_peer_req_stat(peer_device, NAME, M)	show_stat(NAME, peer_device->M, peer_device->p_reqs)
 
 
+#define show_al_stat(V1, V2) \
+	seq_printf(m, "%lu %lu ", device->act_log->V1, device->act_log->V2)
+
+static void device_act_log_stat_reset(struct bsr_device * device)
+{
+	device->act_log->used_max = 0;
+	device->act_log->hits_cnt = 0;
+	device->act_log->misses_cnt = 0;
+	device->act_log->starving_cnt = 0;
+	device->act_log->locked_cnt = 0;
+	device->act_log->starving_cnt = 0;
+	device->act_log->changed_cnt = 0;
+
+	device->e_al_starving = 0;
+	device->e_al_pending = 0;
+	device->e_al_used = 0;
+	device->e_al_busy = 0;
+	device->e_al_wouldblock = 0;
+	
+	device->al_wait_retry_total = 0;
+	device->al_wait_retry_max = 0;
+}
+
+// BSR-765 add AL performance aggregation
+int device_act_log_stat_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "bsr performance monitor is not running.\n\n");
+		device_act_log_stat_reset(device);
+		return 0;
+	}
+
+	spin_lock_irq(&device->al_lock);
+	/* nr_elements used used_max*/
+	seq_printf(m, "%u %u %u ",
+		device->act_log->nr_elements, device->act_log->used, device->act_log->used_max);
+
+	/*hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
+	show_al_stat(hits_cnt, hits);
+	show_al_stat(misses_cnt, misses);
+	show_al_stat(starving_cnt, starving);
+	show_al_stat(locked_cnt, locked);
+	show_al_stat(changed_cnt, changed);
+
+	/* al_wait_retry_cnt al_wait_retry_total al_wait_retry_max*/
+	seq_printf(m, "%u %u %u ",
+		device->al_wait_retry_cnt, 
+		device->al_wait_retry_total, 
+		device->al_wait_retry_max);
+
+	/* pending_changes max_pending_changes*/
+	seq_printf(m, "%u %u ",
+		device->act_log->pending_changes, device->act_log->max_pending_changes);
+
+	/* e_al_starving  e_al_pending e_al_used e_al_busy e_al_wouldblock */
+	seq_printf(m, "%u %u %u %u %u ",
+		device->e_al_starving, 
+		device->e_al_pending, 
+		device->e_al_used, 
+		device->e_al_busy, 
+		device->e_al_wouldblock);
+	
+	/* flags ... */
+	if(test_bit(__LC_PARANOIA, &device->act_log->flags))
+		seq_printf(m, "__LC_PARANOIA ");
+	if(test_bit(__LC_DIRTY, &device->act_log->flags))
+		seq_printf(m, "__LC_DIRTY ");
+	if(test_bit(__LC_LOCKED, &device->act_log->flags))
+		seq_printf(m, "__LC_LOCKED ");
+	if(test_bit(__LC_STARVING, &device->act_log->flags))
+		seq_printf(m, "__LC_STARVING ");
+
+	device_act_log_stat_reset(device);
+
+	spin_unlock_irq(&device->al_lock);
+	
+	seq_printf(m, "\n");
+	return 0;
+}
+
+
 int device_io_complete_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
@@ -1621,6 +1704,7 @@ static const struct file_operations device_ ## name ## _fops = {		\
 
 bsr_debugfs_device_attr(oldest_requests)
 bsr_debugfs_device_attr(act_log_extents)
+bsr_debugfs_device_attr(act_log_stat) // BSR-765
 bsr_debugfs_device_attr(data_gen_id)
 bsr_debugfs_device_attr(io_frozen)
 bsr_debugfs_device_attr(ed_gen_id)
@@ -1663,6 +1747,7 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	/* debugfs create file */
 	vol_dcf(oldest_requests);
 	vol_dcf(act_log_extents);
+	vol_dcf(act_log_stat); // BSR-765
 	vol_dcf(data_gen_id);
 	vol_dcf(io_frozen);
 	vol_dcf(ed_gen_id);
@@ -1690,6 +1775,7 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_minor);
 	bsr_debugfs_remove(&device->debugfs_vol_oldest_requests);
 	bsr_debugfs_remove(&device->debugfs_vol_act_log_extents);
+	bsr_debugfs_remove(&device->debugfs_vol_act_log_stat); // BSR-765
 	bsr_debugfs_remove(&device->debugfs_vol_data_gen_id);
 	bsr_debugfs_remove(&device->debugfs_vol_io_frozen);
 	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
