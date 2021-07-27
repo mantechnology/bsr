@@ -38,3 +38,12 @@
 #define fscanf_str(fp, format, buf, size) fscanf(fp, format, buf)
 #define fscanf_ex fscanf
 #endif
+
+static inline void clear_screen()
+{
+#ifdef _WIN
+	system("cls");
+#else // _LIN
+	system("clear");
+#endif
+}
