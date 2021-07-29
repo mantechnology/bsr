@@ -95,7 +95,7 @@ void usage()
 		"   /status\n"
 		//"   /print\n"
 		//"   /file\n"
-		"   /watch {types}\n"
+		"   /watch {types} [/scroll]\n"
 		"   /report {types} [/f {filename}] \n"
 		"   /set {period, file_size, file_cnt} {value}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
@@ -507,13 +507,14 @@ static bool is_running()
 }
 
 // BSR-688 watching last file
-void Watch(char *resname, int type, int vnr)
+void Watch(char *resname, int type, int vnr, bool scroll)
 {
-	char cmd[MAX_PATH];
+	char watch_path[512] = {0,};
 	bool watch_all_type = false;
+	
+	char perf_path[MAX_PATH] = {0,};
 #ifdef _WIN
 	char bsr_path[MAX_PATH] = {0,};
-	char perf_path[MAX_PATH] = {0,};
 	size_t path_size;
 	errno_t result;
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
@@ -522,6 +523,8 @@ void Watch(char *resname, int type, int vnr)
 	}
 	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
 	strcat_s(perf_path, "log\\perfmon\\");
+#else // _LIN
+	sprintf(perf_path, "/var/log/bsr/perfmon/");
 #endif
 
 	if (!is_running())
@@ -534,78 +537,41 @@ void Watch(char *resname, int type, int vnr)
 		
 	}
 
-#ifdef _WIN
-	system("cls");
-#else // _LIN
-	system("clear");
-#endif
+	clear_screen();
 
 	if (type != -1) {
 		switch (type) {
 		case IO_STAT:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_STAT' -wait -Tail 1\"", perf_path, resname, vnr);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_IO_STAT", resname, vnr);
-#endif
-			watch_io_stat(cmd);
+			sprintf_ex(watch_path, "%s%s%svnr%d_IO_STAT", perf_path, resname, _SEPARATOR_, vnr);
+			watch_io_stat(watch_path, scroll);
 			break;
 		case IO_COMPLETE:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_IO_COMPLETE' -wait -Tail 1\"", perf_path, resname, vnr);
-#else // _LIN
-			sprintf(cmd, "tail  --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_IO_COMPLETE", resname, vnr);
-#endif
-			watch_io_complete(cmd);
+			sprintf_ex(watch_path, "%s%s%svnr%d_IO_COMPLETE", perf_path, resname, _SEPARATOR_,vnr);
+			watch_io_complete(watch_path, scroll);
 			break;
 		case REQUEST:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_request' -wait -Tail 1\"", perf_path, resname, vnr);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_request", resname, vnr);
-#endif
-			watch_req_stat(cmd);
+			sprintf_ex(watch_path, "%s%s%svnr%d_request", perf_path, resname, _SEPARATOR_,vnr);
+			watch_req_stat(watch_path, scroll);
 			break;
 		case PEER_REQUEST:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_peer_request' -wait -Tail 1\"", perf_path, resname, vnr);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_peer_request", resname, vnr);
-#endif
-			watch_peer_req_stat(cmd);
+			sprintf_ex(watch_path, "%s%s%svnr%d_peer_request", perf_path, resname, _SEPARATOR_,vnr);
+			watch_peer_req_stat(watch_path, scroll);
 			break;
 		case AL_STAT:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\vnr%d_al_stat' -wait -Tail 1\"", perf_path, resname, vnr);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/vnr%d_al_stat", resname, vnr);
-#endif
-			watch_al_stat(cmd);
+			sprintf_ex(watch_path, "%s%s%svnr%d_al_stat", perf_path, resname, _SEPARATOR_,vnr);
+			watch_al_stat(watch_path, scroll);
 			break;
 		case NETWORK_SPEED:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\network' -wait -Tail 1\"", perf_path, resname);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/network", resname);
-#endif
-			watch_network_speed(cmd);
+			sprintf_ex(watch_path, "%s%s%snetwork", perf_path, resname, _SEPARATOR_);
+			watch_network_speed(watch_path, scroll);
 			break;
 		case SEND_BUF:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%s%s\\send_buffer' -wait -Tail 1\"", perf_path, resname);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/%s/send_buffer", resname);
-			
-#endif
-			watch_sendbuf(cmd);
+			sprintf_ex(watch_path, "%s%s%ssend_buffer", perf_path, resname, _SEPARATOR_);
+			watch_sendbuf(watch_path, scroll);
 			break;
 		case MEMORY:
-#ifdef _WIN
-			sprintf_s(cmd, "Powershell.exe -command \"Get-Content '%smemory' -wait -Tail 1\"", perf_path);
-#else // _LIN
-			sprintf(cmd, "tail --follow=name -n 1 /var/log/bsr/perfmon/memory");
-#endif
-			watch_memory(cmd);
+			sprintf_ex(watch_path, "%smemory", perf_path);
+			watch_memory(watch_path, scroll);
 			break;
 
 		default:
@@ -615,9 +581,9 @@ void Watch(char *resname, int type, int vnr)
 	else {
 		// TODO watch all
 #ifdef _WIN
-		sprintf_s(cmd, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
+		sprintf_s(watch_path, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
 #else // _LIN
-		sprintf(cmd, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
+		sprintf(watch_path, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
 #endif
 		//watch_all_type = true;
 		
@@ -1122,9 +1088,13 @@ int main(int argc, char* argv[])
 			else
 				usage();
 		}
+		// BSR-772 when the /scroll option is used, the output is scrolled.
+		//		default is fixed screen output.
 		else if (!strcmp(argv[argIndex], "/watch")) {
 			int type = -1;
 			char *res_name = NULL;
+			bool b_scroll = false;
+			int vnr = -1;
 
 			if (++argIndex < argc) {
 				type = ConvertType(argv[argIndex]);
@@ -1138,7 +1108,13 @@ int main(int argc, char* argv[])
 				}
 
 				if (type == MEMORY) {
-					Watch(NULL, MEMORY, -1);
+					if (argIndex < argc) {
+						if (!strcmp(argv[argIndex], "/scroll"))
+							b_scroll = true;
+						else
+						usage();
+					}
+					Watch(NULL, MEMORY, -1, b_scroll);
 					break;
 				}
 
@@ -1146,17 +1122,21 @@ int main(int argc, char* argv[])
 					usage();
 				res_name = argv[argIndex];
 				if (type <= REQUEST) {
-					if (++argIndex < argc) {
-						Watch(res_name, type, atoi(argv[argIndex]));
-						break;
-					}
+					if (++argIndex < argc)
+						vnr = atoi(argv[argIndex]);
 					else
 						usage();
-				} else {
-					Watch(res_name, type, -1);
-					break;
+				} 
+
+				if (++argIndex < argc) {
+					if (!strcmp(argv[argIndex], "/scroll"))
+						b_scroll = true;
+					else
+						usage();
 				}
-				
+
+				Watch(res_name, type, vnr, b_scroll);
+				break;
 			} else
 				usage();
 		}

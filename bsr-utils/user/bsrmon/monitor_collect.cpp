@@ -1,3 +1,4 @@
+#include "bsrmon.h"
 #include "monitor_collect.h"
 #ifdef _WIN
 #include <Psapi.h>

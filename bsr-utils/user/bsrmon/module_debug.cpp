@@ -600,11 +600,11 @@ FILE *perf_fileopen(char * filename, char * currtime)
 	long file_rolling_size;
 
 #ifdef _WIN
-	if (fopen_s(&fp, filename, "a") != 0) {
+	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
 	fp = fopen(filename, "a");
-	if (fp == NULL) {
 #endif
+	if (fp == NULL) {
 		fprintf(stderr, "Failed to open %s\n", filename);
 		return NULL;
 	}
@@ -706,11 +706,11 @@ FILE *perf_fileopen(char * filename, char * currtime)
 			return NULL;
 		}
 #ifdef _WIN
-		if (fopen_s(&fp, filename, "a") != 0) {
+		fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
 		fp = fopen(filename, "a");
-		if (fp == NULL) {
 #endif
+		if (fp == NULL) {
 			fprintf(stderr, "Failed to open %s\n", filename);
 			return NULL;
 		}

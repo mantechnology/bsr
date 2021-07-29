@@ -1,7 +1,26 @@
+#include "bsrmon.h"
 #include "read_stat.h"
-#ifdef _LIN
+#ifdef _WIN
+#include <share.h>
+#else //_LIN
 #include <unistd.h>
 #endif
+
+
+// BSR-772
+static FILE* open_readonly(char *filename)
+{
+	FILE * fp;
+
+#ifdef _WIN
+	// Opens a stream with file sharing
+	fp = _fsopen(filename, "r", _SH_DENYNO);
+#else // _LIN
+	fp = fopen(filename, "r");
+#endif
+
+	return fp;
+}
 
 ULONG_PTR stat_avg(ULONG_PTR sum, unsigned long cnt)
 {
@@ -142,7 +161,8 @@ void read_io_stat_work(char *path)
 	memset(&start_t, 0, 64);
 	memset(&end_t, 0, 64);
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
@@ -195,7 +215,8 @@ void read_io_complete_work(char *path)
 	memset(&start_t, 0, 64);
 	memset(&end_t, 0, 64);
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
@@ -231,7 +252,8 @@ void read_req_stat_work(char *path)
 	struct perf_stat before_queue = {0,}, before_al_begin = {0,}, in_actlog = {0,}, pre_submit = {0,}, post_submit = {0,}, destroy = {0,};
 	struct perf_stat before_bm_write = {0,}, after_bm_write = {0,}, after_sync_page = {0,};
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
@@ -302,7 +324,8 @@ void read_req_peer_stat_work(char *path, char * peer_name)
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	struct perf_stat pre_send = {0,}, acked = {0,}, net_done = {0,};
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
@@ -344,7 +367,8 @@ void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	struct perf_stat pre_submit = {0,}, post_submit = {0,}, complete = {0,};
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
@@ -397,7 +421,8 @@ void read_al_stat_work(char *path)
 
 	memset(&al, 0, sizeof(struct al_stat));
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	for (;;) {
@@ -511,7 +536,8 @@ void read_network_speed_work(char *path, char *peer_name, bool print_runtime)
 	char read_name[64] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	memset(&send, 0, sizeof(struct perf_stat));
@@ -561,7 +587,8 @@ void read_sendbuf_work(char *path, char *peer_name, bool print_runtime)
 	char type[10];
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	memset(&data, 0, sizeof(struct perf_stat));
@@ -660,7 +687,8 @@ void read_memory_work(char *path)
 	struct umem_perf_stat *temp = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	
-	if (fopen_s(&fp, path, "r") != 0)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
 	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
@@ -773,16 +801,23 @@ void read_memory_work(char *path)
 }
 
 
-void watch_io_stat(char *cmd)
+void watch_io_stat(char *path, bool scroll)
 {
 	FILE *fp;
+	int offset = 0;
 
-	fp = popen(cmd, "r");
-	if (!fp)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
+
+	fseek(fp, 0, SEEK_END);
 	while(1) {
-		char buf[MAX_BUF_SIZE] = {0, };		
+		char buf[MAX_BUF_SIZE] = {0, };	
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
+
 		/* time riops rios rkbs rkb wiops wios rkbs rkb */
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
@@ -795,6 +830,8 @@ void watch_io_stat(char *cmd)
 			if (!ptr) 
 				continue;
 
+			if (!scroll) 
+				clear_screen();
 			printf("%s\n", ptr);
 			r_iops = atol(strtok_r(NULL, " ", &save_ptr));
 			r_ios = atol(strtok_r(NULL, " ", &save_ptr));
@@ -810,7 +847,7 @@ void watch_io_stat(char *cmd)
 			printf("  write: IOPS=%lu (IOs=%lu), BW=%lukb/s (%luKB)\n", 
 						w_iops, w_ios, w_kbs, w_kb);	
 			
-		} else {	
+		} else {
 #ifdef _WIN
 			Sleep(1000);
 #else // _LIN
@@ -823,21 +860,26 @@ void watch_io_stat(char *cmd)
 	}
 
 	
-	pclose(fp);
+	fclose(fp);
 	
 }
 
 
-void watch_io_complete(char *cmd)
+void watch_io_complete(char *path, bool scroll)
 {
 	FILE *fp;
+	int offset = 0;
 
-	fp = popen(cmd, "r");
-	if (!fp)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };	
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		
 		/* time local_min local_max local_avg master_min master_max master_avg */
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
@@ -849,6 +891,9 @@ void watch_io_complete(char *cmd)
 			ptr = strtok_r(buf, " ", &save_ptr);
 			if (!ptr) 
 				continue;
+
+			if (!scroll) 
+				clear_screen();
 			printf("%s\n", ptr);
 			local_min = atol(strtok_r(NULL, " ", &save_ptr));
 			local_max = atol(strtok_r(NULL, " ", &save_ptr));
@@ -869,7 +914,7 @@ void watch_io_complete(char *cmd)
 	}
 	
 
-	pclose(fp);
+	fclose(fp);
 	
 }
 
@@ -884,17 +929,21 @@ void print_req_stat(char ** save_ptr, const char * name)
 	printf("%s: min=%lu, max=%lu, avg=%lu\n", name, t_min, t_max, t_avg);
 }
 
-void watch_req_stat(char *cmd)
+void watch_req_stat(char *path, bool scroll)
 {
 	FILE *fp;
+	int offset = 0;
 	
-	fp = popen(cmd, "r");
-	if (!fp)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
-
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };	
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
@@ -905,8 +954,11 @@ void watch_req_stat(char *cmd)
 			ptr = strtok_r(buf, " ", &save_ptr);
 			if (!ptr) 
 				continue;
-			printf("%s\n", ptr);
 
+			if (!scroll) 
+				clear_screen();
+
+			printf("%s\n", ptr);
 
 			// req
 			ptr = strtok_r(NULL, " ", &save_ptr);
@@ -947,22 +999,25 @@ void watch_req_stat(char *cmd)
 	}
 
 
-	pclose(fp);
+	fclose(fp);
 
 }
 
-void watch_peer_req_stat(char *cmd)
+void watch_peer_req_stat(char *path, bool scroll)
 {
 	FILE *fp;
-	
-	fp = popen(cmd, "r");
-	if (!fp)
+	int offset = 0;
+
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
-
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };	
 		
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
 			unsigned long t_cnt = 0;
@@ -972,8 +1027,10 @@ void watch_peer_req_stat(char *cmd)
 			ptr = strtok_r(buf, " ", &save_ptr);
 			if (!ptr) 
 				continue;
-			printf("%s\n", ptr);
 
+			if (!scroll) 
+				clear_screen();
+			printf("%s\n", ptr);
 
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
@@ -999,7 +1056,7 @@ void watch_peer_req_stat(char *cmd)
 	}
 
 
-	pclose(fp);
+	fclose(fp);
 
 }
 
@@ -1013,16 +1070,21 @@ void print_al_stat(char ** save_ptr, const char * name)
 
 
 // BSR-765 add al stat watching
-void watch_al_stat(char *cmd)
+void watch_al_stat(char *path, bool scroll)
 {
 	FILE *fp;
-
-	fp = popen(cmd, "r");
-	if (!fp)
+	int offset = 0;
+	
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
+	fseek(fp, 0, SEEK_END);
 	while(1) {
-		char buf[MAX_BUF_SIZE] = {0, };		
+		char buf[MAX_BUF_SIZE] = {0, };	
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);	
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
 			unsigned cnt, max, total;
@@ -1034,6 +1096,8 @@ void watch_al_stat(char *cmd)
 			if (!ptr) 
 				continue;
 
+			if (!scroll) 
+				clear_screen();
 			/* time */
 			printf("%s\n", ptr);
 			
@@ -1058,7 +1122,7 @@ void watch_al_stat(char *cmd)
 			cnt = atol(strtok_r(NULL, " ", &save_ptr));
 			total = atol(strtok_r(NULL, " ", &save_ptr));
 			max = atol(strtok_r(NULL, " ", &save_ptr));
-			printf("  al_wait : %10u (total=%u, max=%u)\n", cnt, total, max);
+			printf("  al_wait retry : %10u (total=%u, max=%u)\n", cnt, total, max);
 				
 			/* pending_changes max_pending_changes */
 			cnt = atol(strtok_r(NULL, " ", &save_ptr));
@@ -1100,31 +1164,39 @@ void watch_al_stat(char *cmd)
 		
 	}
 	
-	pclose(fp);
+	fclose(fp);
 	
 }
 
-void watch_network_speed(char *cmd)
+void watch_network_speed(char *path, bool scroll)
 {
 	FILE *fp;
-
-	fp = popen(cmd, "r");
-	if (!fp)
+	int offset = 0;
+	
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
+
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {	
 			char *ptr, *save_ptr;
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
 			ptr = strtok_r(buf, " ", &save_ptr);
 
-			if (ptr)
-				printf("%s\n", ptr); // time
-			else
+			if (!ptr)
 				continue;
-			ptr = strtok_r(NULL, " ", &save_ptr);
 
+			if (!scroll)
+				clear_screen();
+			
+			printf("%s\n", ptr); // time
+			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
 				printf("  PEER %s:\n", ptr); // peer_name
 				printf("    send (byte/s): %lu\n", 
@@ -1143,23 +1215,27 @@ void watch_network_speed(char *cmd)
 		}
 		continue;
 	}
-	pclose(fp);
+	fclose(fp);
 
 }
 
 
-void watch_sendbuf(char *cmd)
+void watch_sendbuf(char *path, bool scroll)
 {
 	FILE *fp;
-
 	char *peer_name, *type;
+	int offset = 0;
 	
-	fp = popen(cmd, "r");
-	if (!fp)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
 			unsigned long s_size = 0, s_used = 0;
@@ -1169,13 +1245,14 @@ void watch_sendbuf(char *cmd)
 			*(buf + (strlen(buf) - 1)) = 0;
 			ptr = strtok_r(buf, " ", &save_ptr);
 
-			if (ptr)
-				printf("%s\n", ptr); // time
-			else
+			if (!ptr)
 				continue;
+			if (!scroll) 
+				clear_screen();
+			
+			printf("%s\n", ptr); // time
 
 			type = strtok_r(NULL, " ", &save_ptr);
-
 			while (type) {
 				
 				if (!strcmp(type, "no")) {
@@ -1224,30 +1301,35 @@ void watch_sendbuf(char *cmd)
 		continue;
 	}
 
-	pclose(fp);
+	fclose(fp);
 }
 
-void watch_memory(char *cmd)
+void watch_memory(char *path, bool scroll)
 {
 	FILE *fp;
+	int offset = 0;
 	
-	fp = popen(cmd, "r");
-	if (!fp)
+	fp = open_readonly(path);
+	if (fp == NULL)
 		return;
 
+	fseek(fp, 0, SEEK_END);
 	while(1) {
 		char buf[MAX_BUF_SIZE] = {0, };
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr, *app_name;
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
 			ptr = strtok_r(buf, " ", &save_ptr);
 
-			if (ptr)
-				printf("%s\n", ptr); // time
-			else
+			if (!ptr)
 				continue;
-
+			if (!scroll) 
+				clear_screen();
+			printf("%s\n", ptr); // time
 			printf("  module (bytes)\n");
 	#ifdef _WIN
 			/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
@@ -1298,6 +1380,6 @@ void watch_memory(char *cmd)
 		continue;
 	}
 
-	pclose(fp);
+	fclose(fp);
 
 }

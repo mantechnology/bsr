@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "bsrmon.h"
 
 
 struct perf_stat {
@@ -83,14 +82,14 @@ void read_peer_req_stat_work(char *path, char *peer_name, bool);
 void read_al_stat_work(char *path);
 
 // for watch
-void watch_io_stat(char *cmd);
-void watch_io_complete(char *cmd);
-void watch_req_stat(char *cmd);
-void watch_network_speed(char *cmd);
-void watch_sendbuf(char *cmd);
-void watch_memory(char *cmd);
+void watch_io_stat(char *path, bool scroll);
+void watch_io_complete(char *path, bool scroll);
+void watch_req_stat(char *path, bool scroll);
+void watch_network_speed(char *path, bool scroll);
+void watch_sendbuf(char *path, bool scroll);
+void watch_memory(char *path, bool scroll);
 // BSR-764
-void watch_peer_req_stat(char *cmd);
+void watch_peer_req_stat(char *path, bool scroll);
 // BSR-765
-void watch_al_stat(char *cmd);
+void watch_al_stat(char *path, bool scroll);
 

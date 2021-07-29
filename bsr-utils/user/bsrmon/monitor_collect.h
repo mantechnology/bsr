@@ -1,7 +1,6 @@
 #ifdef _WIN
 #include <Shlwapi.h>
 #endif
-#include "bsrmon.h"
 
 #ifdef _WIN
 #define SystemPoolTagInformation (DWORD)0x16
