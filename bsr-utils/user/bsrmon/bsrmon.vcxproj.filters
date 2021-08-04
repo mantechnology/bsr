@@ -5,6 +5,7 @@
     <ClCompile Include="module_debug.cpp" />
     <ClCompile Include="monitor_collect.cpp" />
     <ClCompile Include="read_stat.cpp" />
+    <ClCompile Include="bsrmon_common.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="module_debug.h" />

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bsrmon_common.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="module_debug.cpp" />
     <ClCompile Include="monitor_collect.cpp" />

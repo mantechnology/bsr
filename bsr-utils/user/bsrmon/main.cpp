@@ -96,7 +96,7 @@ void usage()
 		//"   /print\n"
 		//"   /file\n"
 		"   /watch {types} [/scroll]\n"
-		"   /report {types} [/f {filename}] \n"
+		"   /report {types} [/f {filename}] [/d {YYYY-MM-DD}] [/s {hh:mm[:ss]}] [/e {hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
@@ -591,15 +591,10 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 
 }
 
-void Report(char *resname, char *file, int type = -1, int vnr = 0)
+void Report(char *resname, char *file, int type, int vnr, struct time_filter *tf)
 {
 	char filepath[512] = {0,};
 	char perf_path[MAX_PATH] = {0,};
-	char command[128] = {0,};
-	char peer_name[64] = {0,};
-	FILE *pipe;
-	bool print_runtime = true;
-
 #ifdef _WIN
 	char bsr_path[MAX_PATH] = {0,};
 	size_t path_size;
@@ -626,7 +621,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			printf("[%s]\n", filepath);
 		}
 		
-		read_io_stat_work(filepath);
+		read_io_stat_work(filepath, tf);
 		break;
 	case IO_COMPLETE:
 		if (!file) {
@@ -636,7 +631,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		read_io_complete_work(filepath);
+		read_io_complete_work(filepath, tf);
 		break;
 	case REQUEST:
 		if (!file) {
@@ -646,15 +641,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		read_req_stat_work(filepath);
-
-		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
-		if ((pipe = popen(command, "r")) == NULL)
-			return;
-		while (fgets(peer_name, 64, pipe) != NULL) {
-			*(peer_name + (strlen(peer_name) - 1)) = 0;
-			read_req_peer_stat_work(filepath, peer_name);
-		}
+		read_req_stat_work(filepath, resname, tf);
 		break;
 	case PEER_REQUEST:
 		if (!file) {
@@ -664,15 +651,8 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
-		if ((pipe = popen(command, "r")) == NULL)
-			return;
-		while (fgets(peer_name, 64, pipe) != NULL) {
-			*(peer_name + (strlen(peer_name) - 1)) = 0;
-			read_peer_req_stat_work(filepath, peer_name, print_runtime);
-			if (print_runtime)
-				print_runtime = false;
-		}
+		read_peer_stat_work(filepath, resname, PEER_REQUEST, tf);
+		
 		break;
 	case AL_STAT:
 		if (!file) {
@@ -682,7 +662,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		read_al_stat_work(filepath);
+		read_al_stat_work(filepath, tf);
 		break;
 	case NETWORK_SPEED:
 		if (!file) {
@@ -692,17 +672,8 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
-		if ((pipe = popen(command, "r")) == NULL)
-			return;
-		while (fgets(peer_name, 64, pipe) != NULL) {
-			*(peer_name + (strlen(peer_name) - 1)) = 0;
-			read_network_speed_work(filepath, peer_name, print_runtime);
-			if (print_runtime)
-				print_runtime = false;
-		}
-		
-		pclose(pipe);
+		read_peer_stat_work(filepath, resname, NETWORK_SPEED, tf);
+
 		break;
 	case SEND_BUF:
 		if (!file) {
@@ -712,17 +683,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			sprintf_ex(filepath, "%s", file);
 			printf("[%s]\n", filepath);
 		}
-		sprintf_ex(command, "bsradm sh-peer-node-name %s", resname);
-		if ((pipe = popen(command, "r")) == NULL)
-			return;
-		while (fgets(peer_name, 64, pipe) != NULL) {
-			*(peer_name + (strlen(peer_name) - 1)) = 0;
-			read_sendbuf_work(filepath, peer_name, print_runtime);
-			if (print_runtime)
-				print_runtime = false;
-		}
-		
-		pclose(pipe);
+		read_peer_stat_work(filepath, resname, SEND_BUF, tf);
 		break;
 	case MEMORY:
 		if (!file) {
@@ -733,7 +694,7 @@ void Report(char *resname, char *file, int type = -1, int vnr = 0)
 			printf("Report [%s]\n", filepath);
 		}
 		
-		read_memory_work(filepath);
+		read_memory_work(filepath, tf);
 		break;
 	default:
 		usage();
@@ -1202,7 +1163,10 @@ int main(int argc, char* argv[])
 			int type = -1;
 			char *res_name = NULL;
 			char *file_name = NULL;
-			int vol_num = 0;
+			int vol_num = -1;
+			struct time_filter tf;
+
+			memset(&tf, 0, sizeof(struct time_filter));
 
 			if (++argIndex < argc) {
 				type = ConvertType(argv[argIndex]);
@@ -1210,50 +1174,50 @@ int main(int argc, char* argv[])
 				if (type < 0) 
 					usage();
 			
-				if (++argIndex >= argc) {
-					if (type != MEMORY)
-						usage();
-				}
 
-				if (type == MEMORY) {
-					if ((argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
-						if (++argIndex < argc)
-							file_name = argv[argIndex++];
+				if (type != MEMORY) {
+					if (++argIndex >= argc) 
+						usage();
+					res_name = argv[argIndex];
+					if (type <= REQUEST) {
+						// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
+						if (++argIndex < argc) {
+							vol_num = atoi(argv[argIndex]);
+						}
 						else
 							usage();
 					}
-					Report(NULL, file_name, type, -1);
-					break;
 				}
 
-				if (argIndex >= argc) 
-					usage();
-				res_name = argv[argIndex];
-				if (type <= REQUEST) {
-					// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
-					if (++argIndex < argc) {
-						vol_num = atoi(argv[argIndex]);
-						if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
-							if (++argIndex < argc)
-								file_name = argv[argIndex++];
-							else
-								usage();
+				// BSR-771 add date and time option to /report command
+				for (argIndex++; argIndex < argc; argIndex++) {
+					if (!strncmp(argv[argIndex], "/", 1)) {
+						int c = *(argv[argIndex] + 1);
+						if (++argIndex >= argc)
+							usage();
+						switch (c) {
+						case 'f':
+							file_name = argv[argIndex];
+							break;
+						case 'd':
+							tf.date = argv[argIndex];
+							break;
+						case 's':
+							parse_timestamp(argv[argIndex], &tf.start_time, DEF_START_TIME);
+							break;
+						case 'e':
+							parse_timestamp(argv[argIndex], &tf.end_time, DEF_END_TIME);
+							break;
+						default:
+							usage();
 						}
-						Report(res_name, file_name, type, vol_num);
-						break;
 					}
 					else
 						usage();
-				} else {
-					if ((++argIndex < argc) && (strcmp(argv[argIndex], "/f") == 0)) {
-						if (++argIndex < argc)
-							file_name = argv[argIndex++];
-						else
-							usage();
-					}
-					Report(res_name, file_name, type, vol_num);
-					break;
 				}
+
+				Report(res_name, file_name, type, vol_num, &tf);
+				break;
 				
 			} else
 				usage();

@@ -44,6 +44,26 @@ struct umem_perf_stat {
 #endif
 
 
+struct io_perf_stat {
+	struct perf_stat iops;
+	struct perf_stat kbs;
+	ULONG_PTR ios;
+	ULONG_PTR kb;
+};
+
+struct req_perf_stat {
+	struct perf_stat before_queue;
+	struct perf_stat before_al_begin;
+	struct perf_stat in_actlog;
+	struct perf_stat pre_submit;
+	struct perf_stat post_submit;
+	struct perf_stat destroy;
+	struct perf_stat before_bm_write;
+	struct perf_stat after_bm_write;
+	struct perf_stat after_sync_page;
+};
+
+
 // BSR-765 add AL performance aggregation
 struct al_perf_stat {
 	unsigned long cnt;
@@ -69,17 +89,14 @@ struct al_stat {
 };
 
 // for report
-void read_io_stat_work(char *path);
-void read_io_complete_work(char *path);
-void read_req_stat_work(char *path);
-void read_req_peer_stat_work(char *path, char *peer_name);
-void read_network_speed_work(char *path, char *peer_name, bool);
-void read_sendbuf_work(char *path, char *peer_name, bool);
-void read_memory_work(char *path);
+void read_io_stat_work(char *path, struct time_filter *tf);
+void read_io_complete_work(char *path, struct time_filter *tf);
+void read_req_stat_work(char *path, char *resname, struct time_filter *tf);
+void read_memory_work(char *path, struct time_filter *tf);
 // BSR-764
-void read_peer_req_stat_work(char *path, char *peer_name, bool);
+void read_peer_stat_work(char *path, char *resname, int type, struct time_filter *tf);
 // BSR-765
-void read_al_stat_work(char *path);
+void read_al_stat_work(char *path, struct time_filter *tf);
 
 // for watch
 void watch_io_stat(char *path, bool scroll);
