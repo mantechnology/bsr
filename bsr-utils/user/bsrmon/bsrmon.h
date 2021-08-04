@@ -39,6 +39,24 @@
 #define fscanf_ex fscanf
 #endif
 
+
+#define DEF_START_TIME	"00:00:00"
+#define DEF_END_TIME	"23:59:59"
+
+struct time_stamp {
+	int t_sec;
+	int t_min;
+	int t_hour;
+	int use;
+};
+
+// BSR-771
+struct time_filter {
+	char * date;
+	struct time_stamp start_time;
+	struct time_stamp end_time;
+};
+
 static inline void clear_screen()
 {
 #ifdef _WIN
@@ -47,3 +65,7 @@ static inline void clear_screen()
 	system("clear");
 #endif
 }
+
+// BSR-771
+int parse_timestamp(char *str, struct time_stamp *ts, const char *def_timestamp);
+int datecmp(char *curr, struct time_stamp *ts);

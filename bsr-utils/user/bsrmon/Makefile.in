@@ -22,7 +22,7 @@
 
 # variables set by configure
 CXX             = g++
-OBJECTS         = main.o module_debug.o monitor_collect.o read_stat.o
+OBJECTS         = main.o module_debug.o monitor_collect.o read_stat.o bsrmon_common.o
 TARGET          = bsrmon
 CXXFLAGS        = -D_LIN -I. -I../../../bsr-header -Wall
 

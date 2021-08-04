@@ -1,5 +1,6 @@
 #include "bsrmon.h"
 #include "read_stat.h"
+#include "module_debug.h"
 #ifdef _WIN
 #include <share.h>
 #else //_LIN
@@ -8,7 +9,7 @@
 
 
 // BSR-772
-static FILE* open_readonly(char *filename)
+static FILE* open_shared(char *filename)
 {
 	FILE * fp;
 
@@ -65,6 +66,22 @@ void set_min_max_val(perf_stat *stat, unsigned int val)
 		stat->duplicate = true;
 	else 
 		stat->duplicate = false;
+
+	stat->priv = val;
+	stat->sum += val;
+	stat->cnt++;
+
+}
+
+void set_min_max_allval(perf_stat *stat, unsigned int val)
+{
+	/* all data statistics */
+	if (!stat->max){
+		stat->max = stat->min = val;
+	} else if (stat->max < val) 
+		stat->max = val;
+	else if (stat->min > val)
+		stat->min = val;
 
 	stat->priv = val;
 	stat->sum += val;
@@ -142,301 +159,578 @@ void print_umem(const char * name, struct umem_perf_stat *s)
 
 }
 
+
+/*
+ * BSR-771
+ *
+ * Compare the save timestamp with the filter timestamp.
+ * Returns 0 if the save time is earlier or later than the filter time.
+ */
+static int check_record_time(char * save_t, struct time_filter *tf)
+{
+	/* compare yyyy-mm-dd*/
+	if (tf->date && strncmp(save_t, tf->date, strlen(tf->date))) {
+		return 0;
+	}
+
+	/* compare hh:mm:ss (escape yyyy-mm-dd_) */		
+	if ((tf->start_time.use && (datecmp(&save_t[11], &tf->start_time) < 0)) ||
+		(tf->end_time.use && (datecmp(&save_t[11], &tf->end_time) > 0))) {
+		
+		return 0;
+	}
+	
+	return 1;
+
+}
+
 /**
  * Reports statistics of io performance.
  */
-void read_io_stat_work(char *path)
+void read_io_stat_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
-	char line[256];
-	char save_t[64], start_t[64], end_t[64]; 
+	char line[256] = {0,};
+	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
 	unsigned long r_iops, r_ios, r_kbs, r_kb, w_iops, w_ios, w_kbs, w_kb;
-	struct perf_stat read_iops, read_kbs, write_iops, write_kbs;
+	struct io_perf_stat read_io, write_io;
 	int i = 0;
+	bool do_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	char filter_s[64], filter_e[64];
 
-	memset(&read_iops, 0, sizeof(struct perf_stat));
-	memset(&read_kbs, 0, sizeof(struct perf_stat));
-	memset(&write_iops, 0, sizeof(struct perf_stat));
-	memset(&write_kbs, 0, sizeof(struct perf_stat));
-	memset(&start_t, 0, 64);
-	memset(&end_t, 0, 64);
+	memset(&read_io, 0, sizeof(struct io_perf_stat));
+	memset(&write_io, 0, sizeof(struct io_perf_stat));
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
 
-	fp = open_readonly(path);
-	if (fp == NULL)
+	if (fopen_s(&fp, path, "r") != 0)
 		return;
 
-	while (fgets(line, sizeof(line), fp) != NULL) {
-		/* time riops rios rkbs rkb wiops wios rkbs rkb */
-#ifdef _WIN
-		i = sscanf_s(line, "%s %lu %lu %lu %lu %lu %lu %lu %lu",
-			save_t, sizeof(save_t), &r_iops, &r_ios, &r_kbs, &r_kb, &w_iops, &w_ios, &w_kbs, &w_kb);
-#else // _LIN
-		i = sscanf(line, "%s %lu %lu %lu %lu %lu %lu %lu %lu",
-			   save_t, &r_iops, &r_ios, &r_kbs, &r_kb, &w_iops, &w_ios, &w_kbs, &w_kb);
-#endif
-		if (i != 9)
-			continue;
+	while (!feof(fp)) {
+		if (fgets(line, sizeof(line), fp) != NULL) {
+			/* time riops rios rkbs rkb wiops wios rkbs rkb */
+	#ifdef _WIN
+			i = sscanf_s(line, "%s %lu %lu %lu %lu %lu %lu %lu %lu",
+				save_t, sizeof(save_t), &r_iops, &r_ios, &r_kbs, &r_kb, &w_iops, &w_ios, &w_kbs, &w_kb);
+	#else // _LIN
+			i = sscanf(line, "%s %lu %lu %lu %lu %lu %lu %lu %lu",
+				save_t, &r_iops, &r_ios, &r_kbs, &r_kb, &w_iops, &w_ios, &w_kbs, &w_kb);
+	#endif
+			if (i != 9)
+				continue;
 
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
+			if (strlen(start_t) == 0)
+            	sprintf_ex(start_t, "%s", save_t);
 
-		set_min_max_val(&read_iops, r_iops);
-		set_min_max_val(&read_kbs, r_kbs);
-		set_min_max_val(&write_iops, w_iops);
-		set_min_max_val(&write_kbs, w_kbs);
+			if (check_record_time(save_t, tf)) {
+				if(!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
+				
+				set_min_max_val(&read_io.iops, r_iops);
+				read_io.ios += r_ios;
+				set_min_max_val(&read_io.kbs, r_kbs);
+				read_io.kb += r_kb;
+				set_min_max_val(&write_io.iops, w_iops);
+				write_io.ios += w_ios;
+				set_min_max_val(&write_io.kbs, w_kbs);
+				write_io.kb += w_kb;
+				sprintf_ex(filter_e, "%s", save_t);
+
+				continue;
+			}
+			
+		} 
+
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+
+		if (do_print) {
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+			printf("  read : ios=%lu, bw=%lukbyte\n", read_io.ios, read_io.kb);
+			print_stat("    IOPS        ", &read_io.iops);
+			print_stat("    BW (kbyte/s)", &read_io.kbs);
+			printf("  write: ios=%lu, bw=%lukbyte\n", write_io.ios, write_io.kb);
+			print_stat("    IOPS        ", &write_io.iops);
+			print_stat("    BW (kbyte/s)", &write_io.kbs);
+
+
+			memset(&read_io, 0, sizeof(struct io_perf_stat));
+			memset(&write_io, 0, sizeof(struct io_perf_stat));
+			memset(&filter_s, 0, 64);
+			memset(&filter_e, 0, 64);
+			do_print = false;
+			find_date = true;
+		}
 	
 	}
+
 	fclose(fp);
 
 	sprintf_ex(end_t, "%s", save_t);
-	
-	printf(" Run: %s - %s\n", start_t, end_t);
-	printf("  read: IOPS=%lu, BW=%lukb/s samples=%lu\n", 
-				stat_avg(read_iops.sum, read_iops.cnt), stat_avg(read_kbs.sum, read_kbs.cnt), read_iops.cnt);
-	printf("    iops        : min=%lu, max=%lu\n", read_iops.min, read_iops.max);
-	printf("    bw (kbyte/s): min=%lu, max=%lu\n", read_kbs.min, read_kbs.max);
-	printf(" write: IOPS=%lu, BW=%lukb/s samples=%lu\n", 
-				stat_avg(write_iops.sum, write_iops.cnt), stat_avg(write_kbs.sum, write_iops.cnt), write_iops.cnt);
-	printf("    iops        : min=%lu, max=%lu\n", write_iops.min, write_iops.max);
-	printf("    bw (kbyte/s): min=%lu, max=%lu\n", write_kbs.min, write_kbs.max);	
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
 }
 
 /**
  * Reports statistics of io_complete_latency
  */
-void read_io_complete_work(char *path)
+void read_io_complete_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
-	char save_t[64], start_t[64], end_t[64];
+	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
 	struct perf_stat local, master;
+	bool do_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	char filter_s[64], filter_e[64];
 
 	memset(&local, 0, sizeof(struct perf_stat));
 	memset(&master, 0, sizeof(struct perf_stat));
-	memset(&start_t, 0, 64);
-	memset(&end_t, 0, 64);
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
 
-	fp = open_readonly(path);
-	if (fp == NULL)
+	if (fopen_s(&fp, path, "r") != 0)
 		return;
 
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
-		
-		/* local_min local_max local_avg master_min master_max master_avg */
-		set_min_max_fp(fp, &local);
-		set_min_max_fp(fp, &master);
+	while (!feof(fp)) {
+		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+			if (strlen(start_t) == 0)
+            	sprintf_ex(start_t, "%s", save_t);
 
-		fscanf_ex(fp, "%*[^\n]");	
+			if (check_record_time(save_t, tf)) {
+				if(!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
+				
+				/* local_min local_max local_avg master_min master_max master_avg */
+				set_min_max_fp(fp, &local);
+				set_min_max_fp(fp, &master);
+				sprintf_ex(filter_e, "%s", save_t);
+
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+
+			}
+			fscanf_ex(fp, "%*[^\n]");
+		}
+		
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+
+		if (do_print) {	
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+			print_stat("  local clat  (usec)", &local);
+			print_stat("  master clat (usec)", &master);
+
+			memset(&local, 0, sizeof(struct perf_stat));
+			memset(&master, 0, sizeof(struct perf_stat));
+			do_print = false;
+			find_date = true;
+		}
+		
 	}
 
 	fclose(fp);
 
 	sprintf_ex(end_t, "%s", save_t);
-	
-	printf(" Run: %s - %s\n", start_t, end_t);
-	print_stat("  local clat  (usec)", &local);
-	print_stat("  master clat (usec)", &master);
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
+}
+
+void read_peer_ack_stat(FILE *fp, char * peer_name, struct time_filter *tf, int start_offset, int end_offset)
+{
+	char tok[64] = {0,};
+	char save_t[64] = {0,}, filter_s[64] = {0,}, filter_e[64] = {0,}; 
+	struct perf_stat pre_send, acked, net_done;
+	bool do_collect = false;
+	bool do_print = false;
+
+	memset(&pre_send, 0, sizeof(struct perf_stat));
+	memset(&acked, 0, sizeof(struct perf_stat));
+	memset(&net_done, 0, sizeof(struct perf_stat));
+
+	fseek(fp, start_offset, SEEK_SET);
+
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (check_record_time(save_t, tf)) {
+				if (!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
+
+				/* peer_name */
+				while (EOF != fscanf_str(fp, "%s", tok, sizeof(tok))) {
+					if (tok != NULL && strlen(tok) !=0 && strcmp(tok, peer_name))
+						continue;
+					
+					set_min_max_fp(fp, &pre_send);
+					set_min_max_fp(fp, &acked);
+					set_min_max_fp(fp, &net_done);	
+					sprintf_ex(filter_e, "%s", save_t);
+					break;
+				}
+				
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+				
+			}
+			fscanf_ex(fp, "%*[^\n]");
+		}
+
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+		if (do_print) {
+			printf("  PEER %s:\n", peer_name);
+			print_stat("    pre_send (usec)", &pre_send);
+			print_stat("    acked    (usec)", &acked);
+			print_stat("    net_done (usec)", &net_done);
+
+			memset(&pre_send, 0, sizeof(struct perf_stat));
+			memset(&acked, 0, sizeof(struct perf_stat));
+			memset(&net_done, 0, sizeof(struct perf_stat));
+			do_print = false;
+		}
+
+		if (ftell(fp) >= end_offset)
+			break;
+	}
 }
 
 /**
  * Reports statistics of request performance.
  */
-void read_req_stat_work(char *path)
+void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 {
-	FILE *fp;
+	FILE *fp, *pipe;
+	char cmd[128] = {0,};
+	char peer_name[64] = {0,};
 	char tok[64] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	unsigned int t_cnt = 0;
 	ULONG_PTR req_total = 0, al_total= 0;
-	struct perf_stat before_queue = {0,}, before_al_begin = {0,}, in_actlog = {0,}, pre_submit = {0,}, post_submit = {0,}, destroy = {0,};
-	struct perf_stat before_bm_write = {0,}, after_bm_write = {0,}, after_sync_page = {0,};
+	struct req_perf_stat req_stat;
+	bool do_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	long read_offset, start_offset, end_offset;
+	char filter_s[64] = {0,}, filter_e[64] = {0,}; 
 
-	fp = open_readonly(path);
-	if (fp == NULL)
+	memset(&req_stat, 0, sizeof(struct req_perf_stat));
+
+	if (fopen_s(&fp, path, "r") != 0)
 		return;
 
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
+	// get file size
+	start_offset = 0;
+	fseek(fp, 0, SEEK_END);
+	end_offset = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
 
-		/* req cnt */
-		fscanf_str(fp, "%s", tok, sizeof(tok));
-		fscanf_ex(fp, "%u", &t_cnt);
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (strlen(start_t) == 0)
+            	sprintf_ex(start_t, "%s", save_t);
+			if (check_record_time(save_t, tf)) {
+				if(!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
 
-		if (tok != NULL && strlen(tok) !=0 && 
-			strcmp(tok, "req")) {
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
-		}
-		
-		if (t_cnt > 0) {
-			req_total += t_cnt;
-			set_min_max_fp(fp, &before_queue);
-			set_min_max_fp(fp, &before_al_begin);
-			set_min_max_fp(fp, &in_actlog);
-			set_min_max_fp(fp, &pre_submit);
-			set_min_max_fp(fp, &post_submit);
-			set_min_max_fp(fp, &destroy);
-		}
+				sprintf_ex(filter_e, "%s", save_t);
 
-		/* al_update cnt*/
-		fscanf_str(fp, "%s", tok, sizeof(tok));
-		fscanf_ex(fp, "%u", &t_cnt);
+				/* req cnt */
+				fscanf_str(fp, "%s", tok, sizeof(tok));
+				fscanf_ex(fp, "%u", &t_cnt);
 
-		if (tok != NULL && strlen(tok) !=0 && 
-			strcmp(tok, "al")) {
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
-		}
-		
-		if (t_cnt > 0) {
-			al_total += t_cnt;
-			set_min_max_fp(fp, &before_bm_write);
-			set_min_max_fp(fp, &after_bm_write);
-			set_min_max_fp(fp, &after_sync_page);
-		}	
-		fscanf_ex(fp, "%*[^\n]");	
-	}
-	
-	fclose(fp);
+				if (tok != NULL && strlen(tok) !=0 && 
+					strcmp(tok, "req")) {
+					fscanf_ex(fp, "%*[^\n]");
+					continue;
+				}
+								
+				if (t_cnt > 0) {
+					req_total += t_cnt;
+					set_min_max_fp(fp, &req_stat.before_queue);
+					set_min_max_fp(fp, &req_stat.before_al_begin);
+					set_min_max_fp(fp, &req_stat.in_actlog);
+					set_min_max_fp(fp, &req_stat.pre_submit);
+					set_min_max_fp(fp, &req_stat.post_submit);
+					set_min_max_fp(fp, &req_stat.destroy);
+				}
+				else {
+					fscanf_ex(fp, "%*[^\n]");
+					continue;
+				}
 
-	sprintf_ex(end_t, "%s", save_t);
+				/* al_update cnt*/
+				fscanf_str(fp, "%s", tok, sizeof(tok));
+				fscanf_ex(fp, "%u", &t_cnt);
+				
 
-	printf(" Run: %s - %s\n", start_t, end_t);
-	printf("  requests  : total=%lu\n", req_total);
-	print_stat("    before_queue    (usec)", &before_queue);
-	print_stat("    before_al_begin (usec)", &before_al_begin);
-	print_stat("    in_actlog       (usec)", &in_actlog);
-	print_stat("    pre_submit      (usec)", &pre_submit);
-	print_stat("    post_submit     (usec)", &post_submit);
-	print_stat("    destroy         (usec)", &destroy);
-	printf("  al_update : total=%lu\n", al_total);
-	print_stat("    before_bm_write (usec)", &before_bm_write);
-	print_stat("    after_bm_write  (usec)", &after_bm_write);
-	print_stat("    after_sync_page (usec)", &after_sync_page);
-}
-
-void read_req_peer_stat_work(char *path, char * peer_name)
-{
-	FILE *fp;
-	char tok[64] = {0,};
-	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
-	struct perf_stat pre_send = {0,}, acked = {0,}, net_done = {0,};
-
-	fp = open_readonly(path);
-	if (fp == NULL)
-		return;
-
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
-
-		/* peer_name */
-		while (EOF != fscanf_str(fp, "%s", tok, sizeof(tok))) {
-			if (tok != NULL && strlen(tok) !=0 && 
-				strcmp(tok, peer_name)) {
+				if (tok != NULL && strlen(tok) !=0 && strcmp(tok, "al")) {
+					fscanf_ex(fp, "%*[^\n]");
+					continue;
+				}
+				
+				if (t_cnt > 0) {
+					al_total += t_cnt;
+					set_min_max_fp(fp, &req_stat.before_bm_write);
+					set_min_max_fp(fp, &req_stat.after_bm_write);
+					set_min_max_fp(fp, &req_stat.after_sync_page);
+				}	
+				fscanf_ex(fp, "%*[^\n]");
 				continue;
 			}
-
-			set_min_max_fp(fp, &pre_send);
-			set_min_max_fp(fp, &acked);
-			set_min_max_fp(fp, &net_done);
 			fscanf_ex(fp, "%*[^\n]");	
-			break;
 		}
+
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+
+		if (do_print) {
+			
+			find_date = true;
+
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+			printf("  requests  : total=%lu\n", req_total);
+			print_stat("    before_queue    (usec)", &req_stat.before_queue);
+			print_stat("    before_al_begin (usec)", &req_stat.before_al_begin);
+			print_stat("    in_actlog       (usec)", &req_stat.in_actlog);
+			print_stat("    pre_submit      (usec)", &req_stat.pre_submit);
+			print_stat("    post_submit     (usec)", &req_stat.post_submit);
+			print_stat("    destroy         (usec)", &req_stat.destroy);
+			printf("  al_update : total=%lu\n", al_total);
+			print_stat("    before_bm_write (usec)", &req_stat.before_bm_write);
+			print_stat("    after_bm_write  (usec)", &req_stat.after_bm_write);
+			print_stat("    after_sync_page (usec)", &req_stat.after_sync_page);
+			
+			read_offset = ftell(fp);
+			/* read peer stat */	
+			sprintf_ex(cmd, "bsradm sh-peer-node-name %s", resname);
+			if ((pipe = popen(cmd, "r")) != NULL) {
+				while (fgets(peer_name, 64, pipe) != NULL) {
+					*(peer_name + (strlen(peer_name) - 1)) = 0;
+
+					read_peer_ack_stat(fp, peer_name, tf, start_offset, read_offset);
+				}
+				pclose(pipe);
+			
+			}
+			
+			memset(&req_stat, 0, sizeof(struct req_perf_stat));
+			do_print = false;
+			fseek(fp, read_offset, SEEK_SET);
+			start_offset = read_offset;
+		}
+		
+		if (ftell(fp) >= end_offset)
+			break;
 	}
+
 	
 	fclose(fp);
 
 	sprintf_ex(end_t, "%s", save_t);
-	
-	//printf(" Run: %s - %s\n", start_t, end_t);
-	printf("  PEER %s:\n", peer_name);
-	print_stat("    pre_send (usec)", &pre_send);
-	print_stat("    acked    (usec)", &acked);
-	print_stat("    net_done (usec)", &net_done);
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
 }
 
-void read_peer_req_stat_work(char *path, char * peer_name, bool print_runtime)
+
+void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
 {
-	FILE *fp;
 	char tok[64] = {0,};
 	unsigned int t_cnt = 0;
 	ULONG_PTR peer_req_total = 0;
-	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
-	struct perf_stat pre_submit = {0,}, post_submit = {0,}, complete = {0,};
+	char save_t[64] = {0,}, filter_s[64] = {0,}, filter_e[64] = {0,}; 
+	struct perf_stat pre_submit, post_submit, complete;
 
-	fp = open_readonly(path);
-	if (fp == NULL)
-		return;
+	memset(&pre_submit, 0, sizeof(struct perf_stat));
+	memset(&post_submit, 0, sizeof(struct perf_stat));
+	memset(&complete, 0, sizeof(struct perf_stat));
 
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (check_record_time(save_t, tf)) {
+				if (strlen(filter_s) == 0)
+					sprintf_ex(filter_s, "%s", save_t);
 
-		/* peer_name */
-		while (EOF != fscanf_str(fp, "%s", tok, sizeof(tok))) {
-			if (tok != NULL && strlen(tok) !=0 && 
-				strcmp(tok, peer_name)) {
+				/* peer_name */
+				while (EOF != fscanf_str(fp, "%s", tok, sizeof(tok))) {
+					if (tok != NULL && strlen(tok) !=0 && 
+						strcmp(tok, peer_name)) {
+						continue;
+					}
+
+					/* peer request cnt */
+					fscanf_ex(fp, "%u", &t_cnt);
+					
+					if (t_cnt > 0) {
+						peer_req_total += t_cnt;
+						set_min_max_fp(fp, &pre_submit);
+						set_min_max_fp(fp, &post_submit);
+						set_min_max_fp(fp, &complete);
+					}
+
+					fscanf_ex(fp, "%*[^\n]");	
+					break;
+				}
+
+				sprintf_ex(filter_e, "%s", save_t);
 				continue;
+			} else {
+				fscanf_ex(fp, "%*[^\n]");	
+				break;
 			}
 
-			/* peer request cnt */
-			fscanf_ex(fp, "%u", &t_cnt);
-			
-			if (t_cnt > 0) {
-				peer_req_total += t_cnt;
-				set_min_max_fp(fp, &pre_submit);
-				set_min_max_fp(fp, &post_submit);
-				set_min_max_fp(fp, &complete);
-			}
-
-			fscanf_ex(fp, "%*[^\n]");	
-			break;
 		}
+		if (ftell(fp) >= end_offset)
+			break;
 	}
-	
-	fclose(fp);
 
-	sprintf_ex(end_t, "%s", save_t);
 	if (print_runtime)
-		printf(" Run: %s - %s\n", start_t, end_t);
+		printf(" Run: %s - %s\n", filter_s, filter_e);
 	printf("  PEER %s:\n", peer_name);
 	printf("    peer requests : total=%lu\n", peer_req_total);
 	print_stat("    pre_submit  (usec)", &pre_submit);
 	print_stat("    post_submit (usec)", &post_submit);
 	print_stat("    complete    (usec)", &complete);
+
+	
 }
 
 // BSR-765 add al stat reporting
-void read_al_stat_work(char *path)
+void read_al_stat_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
-	int n;
-	char save_t[64] = {0,}, start_t[64] = {0,}; 
+	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	unsigned int t_cnt = 0, t_max = 0, t_total = 0, nr_elements = 0;;
 	unsigned int all_slot_used_cnt = 0;
 	struct al_stat al;
+	bool do_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	char filter_s[64], filter_e[64];
+	bool change_nr = false, print_new_nr = false;
+
 
 	memset(&al, 0, sizeof(struct al_stat));
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
 
-	fp = open_readonly(path);
-	if (fp == NULL)
+	if (fopen_s(&fp, path, "r") != 0)
 		return;
 
-	for (;;) {
-		n = fscanf_str(fp, "%s", save_t, sizeof(save_t));
+	while (!feof(fp)) {
+		if (change_nr || (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (strlen(start_t) == 0)
+				sprintf_ex(start_t, "%s", save_t);
+			if (check_record_time(save_t, tf)) {
+				if(!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
 
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
+				/* nr_elements */
+				if (!change_nr)
+					fscanf_ex(fp, "%u", &nr_elements);
+				if (al.nr_elements && (nr_elements != al.nr_elements)) {
+					// changed nr_elements, print stat and reset
+					do_print = true;
+					change_nr = true;
+				} 
+				else {
+					al.nr_elements = nr_elements;
+					/* used used_max */
+					fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
+					if (t_cnt > 0) {
+						al.used.sum += t_cnt;
+						al.used.cnt++;
+					} 
+					
+					if (al.used.max < t_max)
+						al.used.max = t_max;
 
-		/* nr_elements */
-		fscanf_ex(fp, "%u", &nr_elements);
-		if ((n <= 0) || (al.nr_elements && (nr_elements != al.nr_elements))) {
-			// changed nr_elements
-			// print stat and reset
-			printf(" Run: %s - %s\n", start_t, save_t);
+					if (al.nr_elements == t_max)
+						all_slot_used_cnt++;
+
+					/* hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
+					al.hits += read_val_fp(fp);
+					read_val_fp(fp);
+					al.misses += read_val_fp(fp);
+					read_val_fp(fp);
+					al.starving += read_val_fp(fp);
+					read_val_fp(fp);
+					al.locked += read_val_fp(fp);
+					read_val_fp(fp);
+					al.changed += read_val_fp(fp);
+					read_val_fp(fp);
+
+					/* al_wait_retry_cnt al_wait_retry_total al_wait_retry_max*/
+					fscanf_ex(fp, "%u %u %u", &t_cnt, &t_total, &t_max);
+					if (t_total > 0) {
+						al.wait.sum += t_total;
+						if (al.wait.max < t_max)
+							al.wait.max = t_max;
+					}
+
+					/* pending_changes max_pending_changes */
+					fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
+					if (t_cnt > 0) {
+						al.pending.sum += t_cnt;
+						al.pending.cnt++;
+						if (al.pending.max < t_max)
+							al.pending.max = t_max;
+					} 
+
+					/* e_al_starving e_al_pending e_al_used e_al_busy e_al_wouldblock */
+					al.e_starving += read_val_fp(fp);
+					al.e_pending += read_val_fp(fp);
+					al.e_used += read_val_fp(fp);
+					al.e_busy += read_val_fp(fp);
+					al.e_wouldblock += read_val_fp(fp);
+
+					fscanf_ex(fp, "%*[^\n]");
+					sprintf_ex(filter_e, "%s", save_t);
+					continue;
+
+				}
+			}
+			fscanf_ex(fp, "%*[^\n]");
+		} 
+
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+
+		if (do_print) {
+			if (print_new_nr) {
+				printf(" -> al_extents changed \n");
+				print_new_nr = false;
+			}
+			printf(" Run: %s - %s\n", filter_s, filter_e);
 			printf("  al_extents : %u\n", al.nr_elements);
 			printf("    used     : max=%lu(all_slot_used=%u), avg=%lu\n", 
 						al.used.max, all_slot_used_cnt, al.used.sum ? al.used.sum / al.used.cnt : 0);
@@ -455,120 +749,94 @@ void read_al_stat_work(char *path)
 			printf("      BUSY       : total=%u\n", al.e_busy);
 			printf("      WOULDBLOCK : total=%u\n", al.e_wouldblock);
 
-			// EOF
-			if (n <= 0)
-				break;
-			else {
-				sprintf_ex(start_t, "%s", save_t);
-				memset(&al, 0, sizeof(struct al_stat));
-				all_slot_used_cnt = 0;
-			}
+			
+			sprintf_ex(filter_s, "%s", save_t);
+			memset(&al, 0, sizeof(struct al_stat));
+			all_slot_used_cnt = 0;
+
+			if (change_nr) {
+				al.nr_elements = nr_elements;
+				print_new_nr = true;
+				change_nr = false;
+			}	
+
+			do_print = false;
+			find_date = true;
 		}
-
-		al.nr_elements = nr_elements;
-		
-
-		/* used used_max */
-		
-		fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
-		if (t_cnt > 0) {
-			al.used.sum += t_cnt;
-			al.used.cnt++;
-		} 
-		
-		if (al.used.max < t_max)
-			al.used.max = t_max;
-
-		if (al.nr_elements == t_max)
-			all_slot_used_cnt++;
-
-		/* hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
-		al.hits += read_val_fp(fp);
-		read_val_fp(fp);
-		al.misses += read_val_fp(fp);
-		read_val_fp(fp);
-		al.starving += read_val_fp(fp);
-		read_val_fp(fp);
-		al.locked += read_val_fp(fp);
-		read_val_fp(fp);
-		al.changed += read_val_fp(fp);
-		read_val_fp(fp);
-
-		/* al_wait_retry_cnt al_wait_retry_total al_wait_retry_max*/
-		fscanf_ex(fp, "%u %u %u", &t_cnt, &t_total, &t_max);
-		if (t_total > 0) {
-			al.wait.sum += t_total;
-			if (al.wait.max < t_max)
-				al.wait.max = t_max;
-		}
-
-		/* pending_changes max_pending_changes */
-		fscanf_ex(fp, "%u %u", &t_cnt, &t_max);
-		if (t_cnt > 0) {
-			al.pending.sum += t_cnt;
-			al.pending.cnt++;
-			if (al.pending.max < t_max)
-				al.pending.max = t_max;
-		} 
-
-		/* e_al_starving e_al_pending e_al_used e_al_busy e_al_wouldblock */
-		al.e_starving += read_val_fp(fp);
-		al.e_pending += read_val_fp(fp);
-		al.e_used += read_val_fp(fp);
-		al.e_busy += read_val_fp(fp);
-		al.e_wouldblock += read_val_fp(fp);
-
-		fscanf_ex(fp, "%*[^\n]");
 	}
 
 	fclose(fp);
+
+
+	sprintf_ex(end_t, "%s", save_t);
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
 
 }
 
 /**
  * Reports statistics of network performance.
  */
-void read_network_speed_work(char *path, char *peer_name, bool print_runtime)
+void read_network_stat(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
 {
-	FILE *fp;
-	unsigned int t_send, t_recv;
 	struct perf_stat send, recv;
-	char read_name[64] = {0,};
-	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
-
-	fp = open_readonly(path);
-	if (fp == NULL)
-		return;
+	char save_t[64] = {0,}, filter_s[64] = {0,}, filter_e[64] = {0,}; 
 
 	memset(&send, 0, sizeof(struct perf_stat));
 	memset(&recv, 0, sizeof(struct perf_stat));
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {	
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
+	
 
-		/* peer */
-		fscanf_str(fp, "%s", read_name, sizeof(read_name));
-		if (read_name != NULL && strlen(read_name) !=0 && 
-			strcmp(read_name, peer_name)) {
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (check_record_time(save_t, tf)) {
+				char buf[MAX_BUF_SIZE];
+				char *ptr, *save_ptr;
+
+				if (strlen(filter_s) == 0)
+					sprintf_ex(filter_s, "%s", save_t);
+
+				if (fgets(buf, sizeof(buf), fp) != NULL) {
+					// remove EOL
+					*(buf + (strlen(buf) - 1)) = 0;
+					/* peer */
+					ptr = strtok_r(buf, " ", &save_ptr);
+					
+					while (ptr) {
+						if (strcmp(ptr, peer_name)) {
+							// next peer
+							ptr = strtok_r(NULL, " ", &save_ptr);
+							continue;
+						}
+
+						/* send_byte/s recv_byte/s */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&send, atoi(ptr));
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&recv, atoi(ptr));
+						break;
+					}
+				}
+
+				sprintf_ex(filter_e, "%s", save_t);
+				continue;
+			} 
+			
+			fscanf_ex(fp, "%*[^\n]");	
+			break;
+
 		}
 
-		/* send_byte/s recv_byte/s */
-		fscanf_ex(fp, "%u %u", &t_send, &t_recv);
-
-		set_min_max_val(&send, t_send);
-		set_min_max_val(&recv, t_recv);
-		
-		fscanf_ex(fp, "%*[^\n]");
+		if (ftell(fp) >= end_offset)
+			break;
 	}
 
-	fclose(fp);
-
-	sprintf_ex(end_t, "%s", save_t);
-
 	if (print_runtime)
-		printf(" Run: %s - %s\n", start_t, end_t);
+		printf(" Run: %s - %s\n", filter_s, filter_e);
 	printf("  PEER %s: send=%lubyte/s, receive=%lubyte/s\n", peer_name,  stat_avg(send.sum, send.cnt), stat_avg(recv.sum, recv.cnt));
 	print_stat("    send (byte/s)", &send);
 	print_stat("    recv (byte/s)", &recv);
@@ -577,100 +845,213 @@ void read_network_speed_work(char *path, char *peer_name, bool print_runtime)
 /**
  * Reports statistics of sendbuf performance.
  */
-void read_sendbuf_work(char *path, char *peer_name, bool print_runtime)
+void read_sendbuf_stat(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
 {
-	FILE *fp;
+	
 	unsigned int t_size = 0, t_used = 0;
-	unsigned int d_buf_size = 0, c_buf_size = 0;
+	unsigned int d_buf_size, c_buf_size;
 	struct perf_stat data, control;
-	char read_name[64] = {0,};
-	char type[10];
-	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
+	char *read_name;
+	char *type;
+	char save_t[64] = {0,}, filter_s[64], filter_e[64]; 
+	bool change_bufsize = false;
+	bool do_reset = false;
 
-	fp = open_readonly(path);
-	if (fp == NULL)
-		return;
-
+reset:
+	d_buf_size = 0;
+	c_buf_size = 0;
 	memset(&data, 0, sizeof(struct perf_stat));
 	memset(&control, 0, sizeof(struct perf_stat));
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
 
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
-		fscanf_str(fp, "%s", read_name, sizeof(read_name));
-		if (read_name != NULL && strlen(read_name) !=0 &&
-			strcmp(read_name, peer_name)) {
-			continue;
-		}
-		
-		/* datasock size used */
-		fscanf_str(fp, "%s", type, sizeof(type));
-		fscanf_ex(fp, "%u %u", &t_size, &t_used);
+	while (!feof(fp)) {
+		if (!do_reset && (ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			if (check_record_time(save_t, tf)) {
+				char buf[MAX_BUF_SIZE];
+				char *save_ptr;
 
-		if (type == NULL || strlen(type) == 0) {
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
-		}
+				if (strlen(filter_s) == 0)
+					sprintf_ex(filter_s, "%s", save_t);
 
-		if (!strcmp(type, "no")) {
-			if (d_buf_size != 0) {
-				d_buf_size = c_buf_size = 0;
-				memset(&data, 0, sizeof(struct perf_stat));
-				memset(&control, 0, sizeof(struct perf_stat));
-			}
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
-		}
+				if (fgets(buf, sizeof(buf), fp) != NULL) {
+					// remove EOL
+					*(buf + (strlen(buf) - 1)) = 0;
+					/* peer */
+					read_name = strtok_r(buf, " ", &save_ptr);
+					
+					while (read_name) {
+						
+						if (strcmp(read_name, peer_name)) {
+							// next peer
+							read_name = strtok_r(NULL, " ", &save_ptr);
+							continue;
+						}
+						
+						/* datasock size used */
+						type = strtok_r(NULL, " ", &save_ptr);
+						
+						if (type == NULL || strlen(type) == 0) {
+							break;
+						}
+							
+						if (!strcmp(type, "no")) {
+							if (d_buf_size != 0) {
+								d_buf_size = c_buf_size = 0;
+								memset(&data, 0, sizeof(struct perf_stat));
+								memset(&control, 0, sizeof(struct perf_stat));
+							}
+							break;
+						}
 
-		if (!strcmp(type, "data")) {
-			if (d_buf_size == 0 || d_buf_size != t_size) {
-				d_buf_size = t_size;
-				memset(&data, 0, sizeof(struct perf_stat));
-				memset(&control, 0, sizeof(struct perf_stat));
-			}
-			
-			set_min_max_val(&data, t_used);
-			
-		} else {
-			fscanf_ex(fp, "%*[^\n]");
-			continue;
-		}
-		
-		while (EOF != fscanf_str(fp, "%s", type, sizeof(type))) {
-			/* control sock */
-			if (!strcmp(type, "control")) {
-				/* size used */
-				fscanf_ex(fp, "%u %u", &t_size, &t_used);
-				if (c_buf_size == 0 || c_buf_size != t_size) {
-					c_buf_size = t_size;
-					memset(&control, 0, sizeof(struct perf_stat));
+						t_size = atoi(strtok_r(NULL, " ", &save_ptr));
+						t_used = atoi(strtok_r(NULL, " ", &save_ptr));
+
+						if (!strcmp(type, "data")) {
+							if (d_buf_size == 0) {
+								d_buf_size = t_size;
+							} 
+							else if (d_buf_size != t_size) {
+								do_reset = true;
+								break;
+							}
+							
+							set_min_max_val(&data, t_used);
+							
+						} 
+						else 
+							break;
+
+						while ((type = strtok_r(NULL, " ", &save_ptr)) != NULL) {
+							/* control sock */
+							if (!strcmp(type, "control")) {
+								/* size used */
+								t_size = atoi(strtok_r(NULL, " ", &save_ptr));
+								t_used = atoi(strtok_r(NULL, " ", &save_ptr));
+								if (c_buf_size == 0 || c_buf_size != t_size) {
+									c_buf_size = t_size;
+									memset(&control, 0, sizeof(struct perf_stat));
+								}
+								
+								set_min_max_val(&control, t_used);
+								break;
+							} else {
+								// skip packet
+								strtok_r(NULL, " ", &save_ptr);
+								strtok_r(NULL, " ", &save_ptr);
+							}
+						}
+						
+						break;
+					}
 				}
-				
-				set_min_max_val(&control, t_used);
-				
-				fscanf_ex(fp, "%*[^\n]");
-				break;
-			} else
-				fscanf_ex(fp, "%*u %*u");
+				sprintf_ex(filter_e, "%s", save_t);
+
+				if (do_reset)
+					break;
+
+				continue;
+			} 
 			
+			fscanf_ex(fp, "%*[^\n]");
+			break;
+
 		}
+
+
+		if (ftell(fp) >= end_offset)
+			break;
 	}
 
-	fclose(fp);
-	sprintf_ex(end_t, "%s", save_t);
-
-	if (print_runtime)
-		printf(" Run: %s - %s\n", start_t, end_t);
+	if (change_bufsize) {
+		printf(" -> %s send buffer size changed\n", peer_name);
+		printf(" Run: %s - %s\n", filter_s, filter_e);
+		change_bufsize = false;
+	} else  {
+		if (print_runtime || do_reset)
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+	}	
 	printf("  PEER %s: data stream size=%ubyte, control stream size=%ubyte\n", peer_name, d_buf_size, c_buf_size);
 	print_stat("    data-used (bytes)", &data);
 	print_stat("    cntl-used (bytes)", &control);
+
+	if (do_reset) {
+		do_reset = false;
+		change_bufsize = true;
+		goto reset;
+	}
+}
+
+
+void read_peer_stat_work(char *path, char * resname, int type, struct time_filter *tf)
+{
+	FILE *fp, *pipe;
+	char save_t[64] = {0,};
+	char start_t[64] = {0,}, end_t[64] = {0,};
+	bool find_date = false;
+	long read_offset, end_offset;
+	
+	char cmd[128] = {0,};
+	char peer_name[64] = {0,};
+
+	if (fopen_s(&fp, path, "r") != 0)
+		return;
+
+	fseek(fp, 0, SEEK_END);
+	end_offset = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	while (!feof(fp)) {
+		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+			if (strlen(start_t) == 0)
+				sprintf_ex(start_t, "%s", save_t);
+			if (check_record_time(save_t, tf)) {
+				bool print_runtime = true;
+				
+				read_offset = ftell(fp) - (long)strlen(save_t);
+				sprintf_ex(cmd, "bsradm sh-peer-node-name %s", resname);
+				if ((pipe = popen(cmd, "r")) == NULL)
+					return;
+				
+				while (fgets(peer_name, 64, pipe) != NULL) {
+					*(peer_name + (strlen(peer_name) - 1)) = 0;
+					fseek(fp, read_offset, SEEK_SET);
+					if (type == PEER_REQUEST)
+						read_peer_req_stat(fp, peer_name, tf, end_offset, print_runtime);
+					else if (type == NETWORK_SPEED)
+						read_network_stat(fp, peer_name, tf, end_offset, print_runtime);
+					else if (type == SEND_BUF)
+						read_sendbuf_stat(fp, peer_name, tf, end_offset, print_runtime);
+					if (print_runtime)
+						print_runtime = false;
+					
+				}
+				pclose(pipe);
+
+				find_date = true;
+			} else {
+				fscanf_ex(fp, "%*[^\n]");	
+			}
+
+		}
+		if (ftell(fp) >= end_offset)
+			break;
+	}
+
+	fclose(fp);
+
+	sprintf_ex(end_t, "%s", save_t);
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
+
 }
 
 
 /**
  * Reports statistics of memory performance.
  */
-void read_memory_work(char *path)
+void read_memory_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
 	struct kmem_perf_stat kmem = {0,};
@@ -686,117 +1067,158 @@ void read_memory_work(char *path)
 #endif
 	struct umem_perf_stat *temp = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
+	bool do_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	char filter_s[64] = {0,}, filter_e[64] = {0,}; 
 	
-	fp = open_readonly(path);
-	if (fp == NULL)
+	if (fopen_s(&fp, path, "r") != 0)
 		return;
 
-	while (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-		char *ptr, *save_ptr;
-		char buf[MAX_BUF_SIZE];
-		if (strlen(start_t) == 0)
-			sprintf_ex(start_t, "%s", save_t);
-#ifdef _WIN
-		/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
-		fscanf_ex(fp, "%u %u %u", &t_used, &np_used, &p_use);
-		set_min_max_val(&kmem.total, t_used);
-		set_min_max_val(&kmem.npused, np_used);
-		set_min_max_val(&kmem.pused, p_use);
-#else // LIN
-		/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
-		fscanf_ex(fp, "%u %u %u %u", &t_req, &t_al, &t_bm, &t_ee);
-		set_min_max_val(&kmem.req, t_req);
-		set_min_max_val(&kmem.al, t_al);
-		set_min_max_val(&kmem.bm, t_bm);
-		set_min_max_val(&kmem.ee, t_ee);
-#endif
+	while (!feof(fp)) {
+		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+			if (strlen(start_t) == 0)
+				sprintf_ex(start_t, "%s", save_t);
 
-		if (fgets(buf, sizeof(buf), fp) != NULL) {
-			// remove EOL
-			*(buf + (strlen(buf) - 1)) = 0;
-			ptr = strtok_r(buf, " ", &save_ptr);
-			
-			while (ptr) {
-				/* app name */
-				if (!strcmp(ptr, "bsrmon"))
-					temp = &bsrmon_stat;
-				else if (!strcmp(ptr, "bsradm"))
-					temp = &bsradm_stat;
-				else if (!strcmp(ptr, "bsrsetup"))
-					temp = &bsrsetup_stat;
-				else if (!strcmp(ptr, "bsrmeta"))
-					temp = &bsrmeta_stat;
-#ifdef _WIN
-				else if (!strcmp(ptr, "bsrservice"))
-					temp = &bsrservice_stat;
-#endif
-				else
-					break;
-				
+			if (check_record_time(save_t, tf)) {
+				char *ptr, *save_ptr;
+				char buf[MAX_BUF_SIZE];
+				if(!do_collect) {
+					do_collect = true;
+					do_print = false;
+					sprintf_ex(filter_s, "%s", save_t);
+				}
 
-				/* pid - skip */
-				ptr = strtok_r(NULL, " ", &save_ptr);
+		#ifdef _WIN
+				/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
+				fscanf_ex(fp, "%u %u %u", &t_used, &np_used, &p_use);
+				set_min_max_val(&kmem.total, t_used);
+				set_min_max_val(&kmem.npused, np_used);
+				set_min_max_val(&kmem.pused, p_use);
+		#else // LIN
+				/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
+				fscanf_ex(fp, "%u %u %u %u", &t_req, &t_al, &t_bm, &t_ee);
+				set_min_max_val(&kmem.req, t_req);
+				set_min_max_val(&kmem.al, t_al);
+				set_min_max_val(&kmem.bm, t_bm);
+				set_min_max_val(&kmem.ee, t_ee);
+		#endif
 
-#ifdef _WIN
-				/* WorkingSetSize(bytes) */ 
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->wss, atol(ptr));
-				/* QuotaPagedPoolUsage(bytes) */
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->qpp, atol(ptr));
-				/* QuotaNonPagedPoolUsage(bytes) */
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->qnpp, atol(ptr));
-				/* PagefileUsage(bytes) */
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->pfu, atol(ptr));
-#else // _LIN	
-				/* rsz(kbytes) */ 
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->rsz, atol(ptr));
-				/* vsz(kbytes) */
-				ptr = strtok_r(NULL, " ", &save_ptr);
-				set_min_max_val(&temp->vsz, atol(ptr));
-#endif
-				// next app
-				ptr = strtok_r(NULL, " ", &save_ptr);
+				if (fgets(buf, sizeof(buf), fp) != NULL) {
+					// remove EOL
+					*(buf + (strlen(buf) - 1)) = 0;
+					ptr = strtok_r(buf, " ", &save_ptr);
+					
+					while (ptr) {
+						/* app name */
+						if (!strcmp(ptr, "bsrmon"))
+							temp = &bsrmon_stat;
+						else if (!strcmp(ptr, "bsradm"))
+							temp = &bsradm_stat;
+						else if (!strcmp(ptr, "bsrsetup"))
+							temp = &bsrsetup_stat;
+						else if (!strcmp(ptr, "bsrmeta"))
+							temp = &bsrmeta_stat;
+		#ifdef _WIN
+						else if (!strcmp(ptr, "bsrservice"))
+							temp = &bsrservice_stat;
+		#endif
+						else
+							break;
+						
+
+						/* pid - skip */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+
+		#ifdef _WIN
+						/* WorkingSetSize(bytes) */ 
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->wss, atol(ptr));
+						/* QuotaPagedPoolUsage(bytes) */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->qpp, atol(ptr));
+						/* QuotaNonPagedPoolUsage(bytes) */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->qnpp, atol(ptr));
+						/* PagefileUsage(bytes) */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->pfu, atol(ptr));
+		#else // _LIN	
+						/* rsz(kbytes) */ 
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->rsz, atol(ptr));
+						/* vsz(kbytes) */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						set_min_max_val(&temp->vsz, atol(ptr));
+		#endif
+						// next app
+						ptr = strtok_r(NULL, " ", &save_ptr);
+					}
+				}
+
+				sprintf_ex(filter_e, "%s", save_t);
+				continue;
 			}
+			fscanf_ex(fp, "%*[^\n]");
+		} 
+
+		if (do_collect) {
+			do_collect = false;
+			do_print = true;
+		}
+
+
+		if (do_print) {
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+			printf(" module (bytes)\n");
+		#ifdef _WIN
+			/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
+			print_range("  TotalUsed   : ", &kmem.total, "\n");
+			print_range("  NonPagedUsed: ", &kmem.npused, "\n");
+			print_range("  PagedUsed   : ", &kmem.pused, "\n");
+		#else
+			/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
+			print_range("  BSR_REQ: ", &kmem.req, "\n");
+			print_range("  BSR_AL : ", &kmem.al, "\n");
+			print_range("  BSR_BM : ", &kmem.bm, "\n");
+			print_range("  BSR_EE : ", &kmem.ee, "\n");
+		#endif
+
+		#ifdef _WIN
+			printf(" user (bytes)\n");
+			printf("  %-13s %-23s %-23s %-23s %s\n", "name", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
+		#else // _LIN
+			printf(" user (kbytes)\n");
+			printf("  %-13s %-23s %s\n", "name", "rsz", "vsz");
+		#endif
+
+			print_umem("bsradm", &bsradm_stat);
+			print_umem("bsrsetup", &bsrsetup_stat);
+			print_umem("bsrmeta", &bsrmeta_stat);
+			print_umem("bsrmon", &bsrmon_stat);
+		#ifdef _WIN
+			print_umem("bsrservice", &bsrservice_stat);
+		#endif
+			do_print = false;
+			find_date = true;
+
+			memset(&kmem, 0, sizeof(struct kmem_perf_stat));
+			memset(&bsradm_stat, 0, sizeof(struct umem_perf_stat));
+			memset(&bsrsetup_stat, 0, sizeof(struct umem_perf_stat));
+			memset(&bsrmeta_stat, 0, sizeof(struct umem_perf_stat));
+			memset(&bsrmon_stat, 0, sizeof(struct umem_perf_stat));
+#ifdef _WIN
+			memset(&bsrservice_stat, 0, sizeof(struct umem_perf_stat));
+#endif
+
 		}
 	}
 
 	fclose(fp);
 
 	sprintf_ex(end_t, "%s", save_t);
-	printf(" Run: %s - %s\n", start_t, end_t);
-	printf(" module (bytes)\n");
-#ifdef _WIN
-	/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
-	print_range("  TotalUsed   : ", &kmem.total, "\n");
-	print_range("  NonPagedUsed: ", &kmem.npused, "\n");
-	print_range("  PagedUsed   : ", &kmem.pused, "\n");
-#else
-	/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
-	print_range("  BSR_REQ: ", &kmem.req, "\n");
-	print_range("  BSR_AL : ", &kmem.al, "\n");
-	print_range("  BSR_BM : ", &kmem.bm, "\n");
-	print_range("  BSR_EE : ", &kmem.ee, "\n");
-#endif
-
-#ifdef _WIN
-	printf(" user (bytes)\n");
-	printf("  %-13s %-23s %-23s %-23s %s\n", "name", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
-#else // _LIN
-	printf(" user (kbytes)\n");
-	printf("  %-13s %-23s %s\n", "name", "rsz", "vsz");
-#endif
-
-	print_umem("bsradm", &bsradm_stat);
-	print_umem("bsrsetup", &bsrsetup_stat);
-	print_umem("bsrmeta", &bsrmeta_stat);
-	print_umem("bsrmon", &bsrmon_stat);
-#ifdef _WIN
-	print_umem("bsrservice", &bsrservice_stat);
-#endif
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
 
 }
 
@@ -806,7 +1228,7 @@ void watch_io_stat(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -870,7 +1292,7 @@ void watch_io_complete(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -934,7 +1356,7 @@ void watch_req_stat(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 	
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -1008,7 +1430,7 @@ void watch_peer_req_stat(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -1075,7 +1497,7 @@ void watch_al_stat(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 	
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -1173,7 +1595,7 @@ void watch_network_speed(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 	
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -1226,7 +1648,7 @@ void watch_sendbuf(char *path, bool scroll)
 	char *peer_name, *type;
 	int offset = 0;
 	
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
@@ -1309,7 +1731,7 @@ void watch_memory(char *path, bool scroll)
 	FILE *fp;
 	int offset = 0;
 	
-	fp = open_readonly(path);
+	fp = open_shared(path);
 	if (fp == NULL)
 		return;
 
