@@ -615,6 +615,7 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 	struct seq_file seq;
 	ULONG inlen, outlen;
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	int ret = 0; 
 
 	if (!Irp->AssociatedIrp.SystemBuffer) {
 		bsr_warn(138, BSR_LC_DRIVER, NO_OBJECT,
@@ -715,7 +716,7 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		break;
 	case DBG_DEV_ACT_LOG_STAT:
 		seq.private = device;
-		device_act_log_stat_show(&seq, 0);
+		ret = device_act_log_stat_show(&seq, 0);
 		break;
 	case DBG_DEV_DATA_GEN_ID:
 		seq.private = device;
@@ -735,24 +736,28 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		break;
 	case DBG_DEV_IO_STAT:
 		seq.private = device;
-		device_io_stat_show(&seq, 0);
+		ret = device_io_stat_show(&seq, 0);
 		break;
 	case DBG_DEV_IO_COMPLETE:
 		seq.private = device;
-		device_io_complete_show(&seq, 0);
+		ret = device_io_complete_show(&seq, 0);
 		break;
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
-		device_req_timing_show(&seq, 0);
+		ret = device_req_timing_show(&seq, 0);
 		break;
 	case DBG_DEV_PEER_REQ_TIMING:
 		seq.private = device;
-		device_peer_req_timing_show(&seq, 0);
+		ret = device_peer_req_timing_show(&seq, 0);
 		break;
 
 	default:
 		break;
 	}
+
+	// BSR-776 returns null if ENODEV
+	if (ret == -ENODEV)
+		goto seq_free;
 
 	RtlCopyMemory(p->buf, seq.buf, seq.size);
 	*size = seq.size;
@@ -764,6 +769,7 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		status = STATUS_SUCCESS;
 	}
 
+seq_free:
 	seq_free(&seq);
 
 out:
