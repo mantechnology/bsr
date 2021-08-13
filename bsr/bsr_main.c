@@ -2951,7 +2951,13 @@ static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
 			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
 			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
 			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
-			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0);
+			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
+			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
+				((connection->agreed_features & BSR_FF_WZEROES) ?
+				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
+				: DP_DISCARD)
+				: 0);
+		
 
 	/* else: we used to communicate one bit only in older BSR */
 	return bio->bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
@@ -2974,7 +2980,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
-	if (op == REQ_OP_DISCARD) {
+	if (op == REQ_OP_DISCARD || op == REQ_OP_WRITE_ZEROES) {
 		trim = bsr_prepare_command(peer_device, sizeof(*trim), DATA_STREAM);
 		if (!trim)
 			return -EIO;
@@ -3015,7 +3021,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	p->dp_flags = cpu_to_be32(dp_flags);
 
 	if (trim) {
-		err = __send_command(peer_device->connection, device->vnr, P_TRIM, DATA_STREAM);
+		err = __send_command(peer_device->connection, device->vnr,
+				(dp_flags & DP_ZEROES) ? P_ZEROES : P_TRIM, DATA_STREAM);
 		goto out;
 	}
 
@@ -6578,6 +6585,8 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 		__bsr_uuid_set_current(device, val);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
+		// BSR-767 notify uuid When the new current uuid is received and changed
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 	}
 	else
 		bsr_warn(15, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX", peer_device->current_uuid);
@@ -6862,8 +6871,6 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 				peer_md[node_id].bitmap_uuid = 0;
 				if (node_id == peer_device->node_id) {
 					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
-					// BSR-676 notify uuid
-					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 				}
 				else if (peer_md[node_id].bitmap_index != -1) {
 					// DW-955 
@@ -6884,6 +6891,10 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 					bsr_info(6, BSR_LC_UUID, device, "Clearing bitmap UUID for node %d",
 						  node_id);
 				bsr_md_mark_dirty(device);
+
+				// BSR-767 notify uuid when bitmap_uuid is removed
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 // DW-979
 // DW-980
 clear_flag:

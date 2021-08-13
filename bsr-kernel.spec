@@ -8,7 +8,7 @@
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.6
-Release: A11%{?dist}
+Release: A13%{?dist}
 
 # always require a suitable userland
 # Requires: 
@@ -100,6 +100,12 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
+* Mon Jul 5 2021 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A13
+- New upstream release.
+
+* Thu Jun 3 2021 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A12
+- New upstream release.
+
 * Wed May 26 2021 Man Technology Inc. <bsr@mantech.co.kr> - 1.6-A11
 - New upstream release.
 

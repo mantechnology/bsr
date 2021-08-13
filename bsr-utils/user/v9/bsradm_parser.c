@@ -574,17 +574,20 @@ static char *parse_option_value(struct field_def *field_def, bool no_prefix)
 {
 	char *value;
 	int token;
+	enum check_codes e;
 
+	// BSR-768 fix to not fill blank values with yes (or no)
 	token = yylex();
+	
+	if (!field_def->checked_in_postparse) {
+		e = field_def->ops->check(field_def, yytext);
+		if (e != CC_OK)
+			pe_field(field_def, e, yytext);
+	}
+	
 	if (token == ';') {
-		value = strdup(no_prefix ? "no" : "yes");
+		value = NULL;
 	} else {
-		enum check_codes e;
-		if (!field_def->checked_in_postparse) {
-			e = field_def->ops->check(field_def, yytext);
-			if (e != CC_OK)
-				pe_field(field_def, e, yytext);
-		}
 		value = strdup(yytext);
 		EXP(';');
 	}
