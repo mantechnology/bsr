@@ -937,10 +937,18 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 				fprintf(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
-
 			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			
+			ret = errno;
+
 			fclose(fp);
+
+			if (ret == ENODEV)
+				goto fail;
 #endif
+			// BSR-776 do not write error messages to the performance file.
+			if (!strncmp(buffer, "err reading", 11))
+				goto fail;
 
 			fp = perf_fileopen(outfile, currtime);
 			if (fp == NULL) 
@@ -993,6 +1001,10 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			conn = conn->next;
 		}
 #endif
+		// BSR-776 do not write error messages to the performance file.
+		if (!strncmp(buffer, "err reading", 11))
+			goto fail;
+
 		sprintf_ex(outfile, "%s%snetwork", respath, _SEPARATOR_);
 		
 		fp = perf_fileopen(outfile, currtime);
@@ -1043,6 +1055,9 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			conn = conn->next;
 		}
 #endif
+		// BSR-776 do not write error messages to the performance file.
+		if (!strncmp(buffer, "err reading", 11))
+			goto fail;
 		sprintf_ex(outfile, "%s%ssend_buffer", respath, _SEPARATOR_);
 
 		fp = perf_fileopen(outfile, currtime);
