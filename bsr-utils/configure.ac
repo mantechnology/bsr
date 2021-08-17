@@ -194,18 +194,6 @@ if test -z $FLEX; then
    AC_MSG_ERROR([Cannot build utils without flex.])
 fi
 
-if [[ $WITH_BSRMON == "yes" ]] ; then
-   AC_PROG_CXX
-   AX_CXX_COMPILE_STDCXX_11(, optional)
-   dnl RCK: c++ testing is "special", CXX might be guessed to g++ even if not installed
-   dnl we have to check the undocumented "$ac_ct_CXX"
-   dnl https://lists.gnu.org/archive/html/bug-autoconf/2010-05/msg00001.html
-   if test -z "$ac_ct_CXX" -o "$HAVE_CXX11" = "0"; then
-      AC_MSG_WARN([No C++11 compiler found, disabling bsrmon build.])
-      WITH_BSRMON=no
-   fi
-fi
-
 if test -z $RPMBUILD; then
    AC_MSG_WARN([No rpmbuild found, building RPM packages is disabled.])
 fi

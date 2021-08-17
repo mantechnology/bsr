@@ -1054,13 +1054,13 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 void read_memory_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
-	struct kmem_perf_stat kmem = {0,};
-	struct umem_perf_stat bsrmon_stat = {0,};
-	struct umem_perf_stat bsradm_stat = {0,};
-	struct umem_perf_stat bsrsetup_stat = {0,};
-	struct umem_perf_stat bsrmeta_stat = {0,};
+	struct kmem_perf_stat kmem = {};
+	struct umem_perf_stat bsrmon_stat = {};
+	struct umem_perf_stat bsradm_stat = {};
+	struct umem_perf_stat bsrsetup_stat = {};
+	struct umem_perf_stat bsrmeta_stat = {};
 #ifdef _WIN
-	struct umem_perf_stat bsrservice_stat = {0,};
+	struct umem_perf_stat bsrservice_stat = {};
 	unsigned int t_used = 0, np_used = 0, p_use = 0;
 #else // _LIN
 	unsigned int t_req = 0, t_al = 0, t_bm = 0, t_ee = 0;

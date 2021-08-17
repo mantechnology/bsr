@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "bsrmon.h"
 #include "module_debug.h"
 #include "monitor_collect.h"
