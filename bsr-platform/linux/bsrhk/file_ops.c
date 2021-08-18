@@ -523,9 +523,10 @@ long read_reg_file(char *file_path, long default_val)
 	if (filesize <= 0)
 		goto close;
 
-	buffer = kmalloc(filesize, GFP_ATOMIC|__GFP_NOWARN);
+	// BSR-778 fix debuglog_category file read error due to incorrect buffer size allocation
+	buffer = kmalloc(filesize + 1, GFP_ATOMIC|__GFP_NOWARN);
 
-	memset(buffer, 0, sizeof(filesize));
+	memset(buffer, 0, filesize + 1);
 	
 	if (fd->f_op->llseek(fd, 0, SEEK_SET) < 0)
 		goto close;
