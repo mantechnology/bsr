@@ -771,6 +771,8 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	char b[514];
 	long offset = 0;
 	va_list args;
+	// BSR-773 save the original error number before opening the log file
+	int origin_errno = errno; 
 
 	// BSR-614
 	if (level > llevel)
@@ -782,6 +784,8 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 		return;
 	}
 
+	// BSR-773
+	errno = origin_errno;
 	memset(b, 0, sizeof(b));
 
 	if (!write_continued)
