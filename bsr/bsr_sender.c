@@ -522,7 +522,9 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bool is_discard = bio_op(bio) == REQ_OP_WRITE_ZEROES || bio_op(bio) == REQ_OP_DISCARD;
 
 	BIO_ENDIO_FN_START;
-	
+	// BSR-779
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(peer_req->p_bio_endio_kt);
 	// DW-1961 Save timestamp for IO latency measuremen
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
 		peer_req->io_complete_ts = timestamp();
@@ -572,21 +574,6 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 
 	//bsr_debug(52, BSR_LC_IO, NO_OBJECT,"bsr_peer_request_endio done.(%d).............!!!", peer_request_endio_cnt++);
-	if (atomic_read(&g_bsrmon_run))
-		ktime_get_accounting(peer_req->p_complete_kt);
-
-	// BSR-764
-	if (atomic_read(&g_bsrmon_run)) {
-		struct bsr_peer_device *peer_device = peer_req->peer_device;
-		spin_lock(&peer_device->timing_lock);
-		peer_device->p_reqs++;		
-
-		ktime_aggregate(peer_device, peer_req, p_pre_submit_kt);
-		ktime_aggregate(peer_device, peer_req, p_post_submit_kt);
-		ktime_aggregate(peer_device, peer_req, p_complete_kt);
-		
-		spin_unlock(&peer_device->timing_lock);	
-	} 	
 
 	BIO_ENDIO_FN_RETURN;
 }
@@ -663,11 +650,9 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	req = bio->bi_private;
 	device = req->device;
 
-	// BSR-687
-	if (atomic_read(&g_bsrmon_run)) {
-		atomic_inc(&device->local_complete_kt.cnt);
-		ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
-	}
+	// BSR-779 change req->post_submit_kt to req->bio_endio_kt
+	if (atomic_read(&g_bsrmon_run))
+		ktime_get_accounting(req->bio_endio_kt);
 
 	if (bio_data_dir(bio) & WRITE) {
 		bsr_debug(15, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
@@ -772,6 +757,13 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 #endif
 	bio_put(req->private_bio);
+
+	// BSR-687
+	if (atomic_read(&g_bsrmon_run)) {
+		atomic_inc(&device->local_complete_kt.cnt);
+		ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
+	}
+
 	req->private_bio = ERR_PTR(error);
 
 	/* not req_mod(), we need irqsave here! */
