@@ -141,7 +141,7 @@ static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, k
 	if (atomic_read(&g_bsrmon_run)) {
 		seq_printf(m, "\t%d", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
 		seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, ktime_sub(now, req->in_actlog_kt));
-		seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->pre_submit_kt));
+		seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->submit_kt));
 
 		print_one_age_or_dash(m, req, RQ_NET_SENT, 0, now, offsetof(struct bsr_request, pre_send_kt));
 		print_one_age_or_dash(m, req, RQ_NET_SENT, RQ_NET_PENDING, now, offsetof(struct bsr_request, acked_kt));
@@ -1371,8 +1371,8 @@ static void device_req_timing_reset(struct bsr_device * device)
 	device->reqs = 0;
 
 	memset(&device->in_actlog_kt, 0, sizeof(struct timing_stat));
-	memset(&device->pre_submit_kt, 0, sizeof(struct timing_stat));
-	memset(&device->post_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&device->submit_kt, 0, sizeof(struct timing_stat));
+	memset(&device->bio_endio_kt, 0, sizeof(struct timing_stat));
 	
 	memset(&device->before_queue_kt, 0, sizeof(struct timing_stat));
 	memset(&device->before_al_begin_io_kt, 0, sizeof(struct timing_stat));
@@ -1420,8 +1420,8 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_req_stat(device, "before_queue", before_queue_kt);
 	show_req_stat(device, "before_al_begin", before_al_begin_io_kt);
 	show_req_stat(device, "in_actlog", in_actlog_kt);
-	show_req_stat(device, "pre_submit", pre_submit_kt);
-	show_req_stat(device, "post_submit", post_submit_kt);
+	show_req_stat(device, "submit", submit_kt);
+	show_req_stat(device, "bio_endio", bio_endio_kt);
 	show_req_stat(device, "destroy", req_destroy_kt);
 
 	seq_printf(m, "%s %u ", "al", al_cnt);
@@ -1451,9 +1451,9 @@ static void peer_req_timing_reset(struct bsr_peer_device * peer_device)
 {
 	peer_device->p_reqs = 0;
 
-	memset(&peer_device->p_pre_submit_kt, 0, sizeof(struct timing_stat));
-	memset(&peer_device->p_post_submit_kt, 0, sizeof(struct timing_stat));
-	memset(&peer_device->p_complete_kt, 0, sizeof(struct timing_stat));
+	memset(&peer_device->p_submit_kt, 0, sizeof(struct timing_stat));
+	memset(&peer_device->p_bio_endio_kt, 0, sizeof(struct timing_stat));
+	memset(&peer_device->p_destroy_kt, 0, sizeof(struct timing_stat));
 }
 
 // BSR-764 peer request latency	
@@ -1480,9 +1480,9 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		seq_printf(m, "%s ", rcu_dereference(connection->transport.net_conf)->name);
 		/* req count */
 		seq_printf(m, "%lu ", peer_device->p_reqs); 
-		show_peer_req_stat(peer_device, "pre_submit", p_pre_submit_kt);
-		show_peer_req_stat(peer_device, "post_submit", p_post_submit_kt);
-		show_peer_req_stat(peer_device, "complete", p_complete_kt);
+		show_peer_req_stat(peer_device, "submit", p_submit_kt);
+		show_peer_req_stat(peer_device, "bio_endio", p_bio_endio_kt);
+		show_peer_req_stat(peer_device, "destroy", p_destroy_kt);
 		peer_req_timing_reset(peer_device);
 		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
 	}

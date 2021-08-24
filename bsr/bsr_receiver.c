@@ -554,6 +554,17 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 		bsr_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
 	}
 	
+	// BSR-764
+	if (atomic_read(&g_bsrmon_run)) {
+		spin_lock(&peer_device->timing_lock);
+		peer_device->p_reqs++;	
+		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	
+		ktime_aggregate(peer_device, peer_req, p_submit_kt);
+		ktime_aggregate(peer_device, peer_req, p_bio_endio_kt);
+		
+		spin_unlock(&peer_device->timing_lock);	
+	} 	
+
 	mempool_free(peer_req, bsr_ee_mempool);
 }
 
@@ -2003,8 +2014,8 @@ next_bio:
 
 	// BSR-764 peer request submit
 	if (atomic_read(&g_bsrmon_run))
-		ktime_get_accounting(peer_req->p_pre_submit_kt);
-	
+		ktime_get_accounting(peer_req->p_submit_kt);
+
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE6)
 		force_delay(g_simul_perf.delay_time);
 
@@ -2024,9 +2035,6 @@ next_bio:
 			bios->bi_opf &= ~BSR_REQ_PREFLUSH;
 	} while (bios);
 	maybe_kick_lo(device);
-
-	if (atomic_read(&g_bsrmon_run))
-		ktime_get_accounting(peer_req->p_post_submit_kt);
 
 	return 0;
 

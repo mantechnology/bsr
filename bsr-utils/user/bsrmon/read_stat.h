@@ -55,8 +55,8 @@ struct req_perf_stat {
 	struct perf_stat before_queue;
 	struct perf_stat before_al_begin;
 	struct perf_stat in_actlog;
-	struct perf_stat pre_submit;
-	struct perf_stat post_submit;
+	struct perf_stat submit;
+	struct perf_stat bio_endio;
 	struct perf_stat destroy;
 	struct perf_stat before_bm_write;
 	struct perf_stat after_bm_write;

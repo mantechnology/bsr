@@ -875,8 +875,8 @@ struct bsr_request {
 	ktime_t before_al_begin_io_kt;
 	
 	/* local disk */
-	ktime_t pre_submit_kt;
-	ktime_t post_submit_kt;
+	ktime_t submit_kt;
+	ktime_t bio_endio_kt;
 	
 	/* per connection */
 	ktime_t pre_send_kt[BSR_PEERS_MAX];
@@ -1031,9 +1031,9 @@ struct bsr_peer_request {
 	// BSR-764
 	/* peer request aggregation */
 	ktime_t start_kt;
-	ktime_t p_pre_submit_kt;
-	ktime_t p_post_submit_kt;
-	ktime_t p_complete_kt;
+	ktime_t p_submit_kt;
+	ktime_t p_bio_endio_kt;
+	ktime_t p_destroy_kt;
 	
 };
 
@@ -1995,9 +1995,9 @@ struct bsr_peer_device {
 	/* peer request aggregation */
 	spinlock_t timing_lock;
 	unsigned long p_reqs;
-	struct timing_stat p_pre_submit_kt;
-	struct timing_stat p_post_submit_kt;
-	struct timing_stat p_complete_kt;
+	struct timing_stat p_submit_kt;
+	struct timing_stat p_bio_endio_kt;
+	struct timing_stat p_destroy_kt;
 
 	struct {/* sender todo per peer_device */
 		bool was_ahead;
@@ -2166,8 +2166,8 @@ struct bsr_device {
 	/* request aggregation*/
 	unsigned long reqs;
 	struct timing_stat in_actlog_kt;
-	struct timing_stat pre_submit_kt; /* aggregate over all reqs */
-	struct timing_stat post_submit_kt;
+	struct timing_stat submit_kt; /* aggregate over all reqs */
+	struct timing_stat bio_endio_kt;
 	struct timing_stat before_queue_kt; /* aggregate over all al_misses */
 	struct timing_stat before_al_begin_io_kt;
 	struct timing_stat req_destroy_kt;

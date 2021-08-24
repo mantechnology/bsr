@@ -246,8 +246,8 @@ void bsr_req_destroy(struct kref *kref)
 		ktime_aggregate(device, req, in_actlog_kt);
 		ktime_aggregate(device, req, before_queue_kt);
 		ktime_aggregate(device, req, before_al_begin_io_kt);
-		ktime_aggregate(device, req, pre_submit_kt);
-		ktime_aggregate(device, req, post_submit_kt);
+		ktime_aggregate(device, req, submit_kt);
+		ktime_aggregate(device, req, bio_endio_kt);
 
 		for_each_peer_device(peer_device, device) {
 			int node_id = peer_device->node_id;
@@ -2265,7 +2265,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		/* needs to be marked within the same spinlock */
 		req->pre_submit_jif = jiffies;
 		if (atomic_read(&g_bsrmon_run))
-			ktime_get_accounting(req->pre_submit_kt);
+			ktime_get_accounting(req->submit_kt);
 		list_add_tail(&req->req_pending_local,
 			&device->pending_completion[rw == WRITE]);
 		_req_mod(req, TO_BE_SUBMITTED, NULL);
@@ -2304,9 +2304,6 @@ out:
 			force_delay(g_simul_perf.delay_time);
 
 		bsr_submit_req_private_bio(req);
-		
-		if (atomic_read(&g_bsrmon_run))
-			ktime_get_accounting(req->post_submit_kt);
 	}
 #ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.

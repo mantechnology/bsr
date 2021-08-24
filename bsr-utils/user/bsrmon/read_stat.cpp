@@ -104,7 +104,7 @@ void set_min_max_fp(FILE *fp, perf_stat *stat)
 		stat->priv = t_avg;
 		return;
 	}
-	if (t_min > 0) 
+	if (t_max > 0) 
 		set_min_max(stat, t_min, t_max);
 
 	if (stat->priv == t_avg)
@@ -466,19 +466,14 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 					continue;
 				}
 								
-				if (t_cnt > 0) {
-					req_total += t_cnt;
-					set_min_max_fp(fp, &req_stat.before_queue);
-					set_min_max_fp(fp, &req_stat.before_al_begin);
-					set_min_max_fp(fp, &req_stat.in_actlog);
-					set_min_max_fp(fp, &req_stat.pre_submit);
-					set_min_max_fp(fp, &req_stat.post_submit);
-					set_min_max_fp(fp, &req_stat.destroy);
-				}
-				else {
-					fscanf_ex(fp, "%*[^\n]");
-					continue;
-				}
+				req_total += t_cnt;
+				set_min_max_fp(fp, &req_stat.before_queue);
+				set_min_max_fp(fp, &req_stat.before_al_begin);
+				set_min_max_fp(fp, &req_stat.in_actlog);
+				set_min_max_fp(fp, &req_stat.submit);
+				set_min_max_fp(fp, &req_stat.bio_endio);
+				set_min_max_fp(fp, &req_stat.destroy);
+				
 
 				/* al_update cnt*/
 				fscanf_str(fp, "%s", tok, sizeof(tok));
@@ -490,12 +485,11 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 					continue;
 				}
 				
-				if (t_cnt > 0) {
-					al_total += t_cnt;
-					set_min_max_fp(fp, &req_stat.before_bm_write);
-					set_min_max_fp(fp, &req_stat.after_bm_write);
-					set_min_max_fp(fp, &req_stat.after_sync_page);
-				}	
+				al_total += t_cnt;
+				set_min_max_fp(fp, &req_stat.before_bm_write);
+				set_min_max_fp(fp, &req_stat.after_bm_write);
+				set_min_max_fp(fp, &req_stat.after_sync_page);
+				
 				fscanf_ex(fp, "%*[^\n]");
 				continue;
 			}
@@ -516,8 +510,8 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 			print_stat("    before_queue    (usec)", &req_stat.before_queue);
 			print_stat("    before_al_begin (usec)", &req_stat.before_al_begin);
 			print_stat("    in_actlog       (usec)", &req_stat.in_actlog);
-			print_stat("    pre_submit      (usec)", &req_stat.pre_submit);
-			print_stat("    post_submit     (usec)", &req_stat.post_submit);
+			print_stat("    submit          (usec)", &req_stat.submit);
+			print_stat("    bio_endio       (usec)", &req_stat.bio_endio);
 			print_stat("    destroy         (usec)", &req_stat.destroy);
 			printf("  al_update : total=%lu\n", al_total);
 			print_stat("    before_bm_write (usec)", &req_stat.before_bm_write);
@@ -562,11 +556,11 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 	unsigned int t_cnt = 0;
 	ULONG_PTR peer_req_total = 0;
 	char save_t[64] = {0,}, filter_s[64] = {0,}, filter_e[64] = {0,}; 
-	struct perf_stat pre_submit, post_submit, complete;
+	struct perf_stat submit, bio_endio, destroy;
 
-	memset(&pre_submit, 0, sizeof(struct perf_stat));
-	memset(&post_submit, 0, sizeof(struct perf_stat));
-	memset(&complete, 0, sizeof(struct perf_stat));
+	memset(&submit, 0, sizeof(struct perf_stat));
+	memset(&bio_endio, 0, sizeof(struct perf_stat));
+	memset(&destroy, 0, sizeof(struct perf_stat));
 
 	while (!feof(fp)) {
 		if ((ftell(fp) < end_offset) &&
@@ -584,13 +578,11 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 
 					/* peer request cnt */
 					fscanf_ex(fp, "%u", &t_cnt);
-					
-					if (t_cnt > 0) {
-						peer_req_total += t_cnt;
-						set_min_max_fp(fp, &pre_submit);
-						set_min_max_fp(fp, &post_submit);
-						set_min_max_fp(fp, &complete);
-					}
+
+					peer_req_total += t_cnt;
+					set_min_max_fp(fp, &submit);
+					set_min_max_fp(fp, &bio_endio);
+					set_min_max_fp(fp, &destroy);
 
 					fscanf_ex(fp, "%*[^\n]");	
 					break;
@@ -612,9 +604,9 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 		printf(" Run: %s - %s\n", filter_s, filter_e);
 	printf("  PEER %s:\n", peer_name);
 	printf("    peer requests : total=%lu\n", peer_req_total);
-	print_stat("    pre_submit  (usec)", &pre_submit);
-	print_stat("    post_submit (usec)", &post_submit);
-	print_stat("    complete    (usec)", &complete);
+	print_stat("    submit    (usec)", &submit);
+	print_stat("    bio_endio (usec)", &bio_endio);
+	print_stat("    destroy   (usec)", &destroy);
 
 	
 }
@@ -1389,8 +1381,8 @@ void watch_req_stat(char *path, bool scroll)
 			print_req_stat(&save_ptr, "    before_queue    (usec)");
 			print_req_stat(&save_ptr, "    before_al_begin (usec)");
 			print_req_stat(&save_ptr, "    in_actlog       (usec)");
-			print_req_stat(&save_ptr, "    pre_submit      (usec)");
-			print_req_stat(&save_ptr, "    post_submit     (usec)");
+			print_req_stat(&save_ptr, "    submit          (usec)");
+			print_req_stat(&save_ptr, "    bio_endio       (usec)");
 			print_req_stat(&save_ptr, "    destroy         (usec)");
 
 			// al
@@ -1461,9 +1453,9 @@ void watch_peer_req_stat(char *path, bool scroll)
 				/* req cnt*/
 				t_cnt = atol(strtok_r(NULL, " ", &save_ptr));
 				printf("    peer requests : %lu\n", t_cnt);
-				print_req_stat(&save_ptr, "    pre_submit   (usec)");
-				print_req_stat(&save_ptr, "    post_submit  (usec)");
-				print_req_stat(&save_ptr, "    complete     (usec)");
+				print_req_stat(&save_ptr, "    submit    (usec)");
+				print_req_stat(&save_ptr, "    bio_endio (usec)");
+				print_req_stat(&save_ptr, "    destroy   (usec)");
 
 				ptr = strtok_r(NULL, " ", &save_ptr);
 			}
