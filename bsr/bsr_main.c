@@ -3023,6 +3023,12 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	if (trim) {
 		err = __send_command(peer_device->connection, device->vnr,
 				(dp_flags & DP_ZEROES) ? P_ZEROES : P_TRIM, DATA_STREAM);
+				
+		// BSR-782 apply DW-1012 (Remove out of sync when data is sent, this is the newest one.)
+		// also remove oos when P_TRIM or P_ZEROES is sent.
+		if (!err)
+			bsr_set_in_sync(peer_device, req->i.sector, req->i.size);
+
 		goto out;
 	}
 

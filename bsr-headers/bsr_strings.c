@@ -198,6 +198,7 @@ static const char * const __packet_names[] = {
 	[P_RS_DEALLOCATED]	= "P_RS_DEALLOCATED",
 	[P_TWOPC_PREP_RSZ]	= "P_TWOPC_PREP_RSZ",
 	[P_BM_EXCHANGE_STATE]	= "P_BM_EXCHANGE_STATE",
+	[P_ZEROES]		= "P_ZEROES",
 	/* enum bsr_packet, but not commands - obsoleted flags:
 	 *	P_MAY_IGNORE
 	 *	P_MAX_OPT_CMD
