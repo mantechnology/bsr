@@ -1,4 +1,4 @@
-obj-m := bsr.o # bsr_transport_tcp.o
+obj-m += bsr.o # bsr_transport_tcp.o
 
 clean-files := compat.h .config.timestamp
 
@@ -65,10 +65,9 @@ ifndef DISABLE_KREF_DEBUGGING_HERE
       bsr-y += kref_debug.o bsr_kref_debug.o
 endif
 
-$(patsubst %,$(obj)/%,$(bsr-y)): $(obj)/compat.h
-#$(patsubst %,$(obj)/%,bsr_transport_tcp.o): $(obj)/compat.h
+$(addprefix $(obj)/,$(drbd-y)): $(obj)/compat.h
 
-obj-$(CONFIG_BLK_DEV_BSR)     += bsr.o
+#obj-$(CONFIG_BLK_DEV_BSR)     += bsr.o
 
 # ======================================================================
 
@@ -128,7 +127,7 @@ endif
 # and not in e.g. dash. I'm too lazy to fix it to be compatible.
 SHELL=/bin/bash
 
-$(obj)/bsr_linux_buildtag.c: $(filter-out bsr_linux_buildtag.o,$(bsr-y))
+$(obj)/bsr_linux_buildtag.c: $(addprefix $(obj)/, $(filter-out bsr_linux_buildtag.o,$(bsr-y)))
 	@$(kecho) '  GEN     $@ $(echo-why)'
 	@set -e; exec > $@.new;							\
 	echo -e "/* automatically generated. DO NOT EDIT. */";			\

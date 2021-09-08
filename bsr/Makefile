@@ -105,9 +105,7 @@ else
 
   kbuild:
 	@rm -f .bsr_kernelrelease*
-    # previous to 2.6.6 (suse: 2.6.5-dunno), this should be:
-	$(MAKE) -C $(KDIR)  $(if $(O),O=$(O),) SUBDIRS=$(BSRSRC) $(ARCH_UM) modules
-# $(MAKE) -C $(KDIR) M=$(BSRSRC) $(ARCH_UM) modules
+	$(MAKE) -C $(KDIR)  $(if $(O),O=$(O),) M=$(BSRSRC) $(ARCH_UM) modules
 	-mv .bsr_kernelrelease.new .bsr_kernelrelease
 	@echo -n "Memorizing module configuration ... "
 	@config=$$( (for x in $(KDIR)/.config $(O)/.config ; do \
