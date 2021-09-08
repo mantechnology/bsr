@@ -10503,7 +10503,9 @@ int bsr_do_auth(struct bsr_connection *connection)
 	rcu_read_unlock();
 
 	desc->tfm = connection->cram_hmac_tfm;
+#ifdef COMPAT_HAVE_SHASH_DESC_FLAGS
 	desc->flags = 0;
+#endif
 
 	rv = crypto_shash_setkey(connection->cram_hmac_tfm, (u8 *)secret, key_len);
 	if (rv) {
