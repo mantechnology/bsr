@@ -915,7 +915,7 @@ void _bsr_thread_stop(struct bsr_thread *thi, int restart, int wait)
 		smp_mb();
 		init_completion(&thi->stop);
 		if (thi->task != current)
-			force_sig(BSR_SIGKILL, thi->task);
+			bsr_force_sig(BSR_SIGKILL, thi->task);
 		else {
 		//	bsr_info(22, BSR_LC_ETC, NO_OBJECT,"cur=(%s) thi=(%s) stop myself", current->comm, thi->name ); 
 		}

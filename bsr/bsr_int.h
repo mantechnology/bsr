@@ -3635,6 +3635,13 @@ bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *pe
 extern void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 extern void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 
+// BSR-784
+#if defined(_WIN) || defined(COMPAT_FORCE_SIG_HAS_2_PARAMS)
+#define bsr_force_sig(sig, task) force_sig(sig, task)
+#else
+#define bsr_force_sig(sig, task) force_sig(sig)
+#endif
+
 /* To get the ack_receiver out of the blocking network stack,
  * so it can change its sk_rcvtimeo from idle- to ping-timeout,
  * and send a ping, we need to send a signal.
@@ -3643,7 +3650,7 @@ static inline void wake_ack_receiver(struct bsr_connection *connection)
 {
 	struct task_struct *task = connection->ack_receiver.task;
 	if (task && get_t_state(&connection->ack_receiver) == RUNNING)
-		force_sig(SIGXCPU, task);
+		bsr_force_sig(SIGXCPU, task);
 }
 
 static inline void request_ping(struct bsr_connection *connection)
