@@ -2100,7 +2100,8 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 		peer_req->w.cb = w_e_reissue;
 		bsr_queue_work(&peer_device->connection->sender_work,
 			&peer_req->w);
-		/* retry later; fall through */
+		/* retry later;*/
+		/* Fall through */
 	case 0:
 		/* keep worker happy and connection up */
 		return 0;
@@ -4742,6 +4743,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		   then we would do something smarter here than reading
 		   the block... */
 		peer_req->flags |= EE_RS_THIN_REQ;
+		/* Fall through */
 	case P_RS_DATA_REQUEST:
 		// DW-1857 If P_RS_DATA_REQUEST is received, send P_RS_CANCEL unless L_SYNC_SOURCE.
 		// DW-2055 primary is always the syncsource of resync, so send the resync data.
@@ -4975,6 +4977,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 			break;
 		}
 		/* Else fall through to one of the other strategies... */
+		/* Fall through */
 	case ASB_DISCARD_OLDER_PRI:
 		if (self == 0 && peer == 1) {
 			rv = 2;
@@ -4987,6 +4990,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 		/* Else fall through to one of the other strategies... */
 		bsr_warn(167, BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision "
 			  "Using discard-least-changes instead");
+		/* Fall through */
 	case ASB_DISCARD_ZERO_CHG:
 		if (ch_peer == 0 && ch_self == 0) {
 			rv = test_bit(RESOLVE_CONFLICTS, &peer_device->connection->transport.flags)
@@ -4998,6 +5002,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 		}
 		if (after_sb_0p == ASB_DISCARD_ZERO_CHG)
 			break;
+		/* Fall through */
 	case ASB_DISCARD_LEAST_CHG:
 		if	(ch_self < ch_peer)
 			rv = -2;

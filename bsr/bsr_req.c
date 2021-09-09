@@ -1531,7 +1531,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			break;
 		}
 		/* else, fall through to BARRIER_ACKED */
-
+		/* Fall through */
 	case BARRIER_ACKED:
 		/* barrier ack for READ requests does not make sense */
 		if (!(req->rq_state[0] & RQ_WRITE))

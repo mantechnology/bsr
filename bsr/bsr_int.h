@@ -3334,6 +3334,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			break;
 		}
 		/* NOTE fall through for BSR_META_IO_ERROR or BSR_FORCE_DETACH */
+		/* Fall through */
 	case EP_DETACH:
 	case EP_CALL_HELPER:
 		/* Remember whether we saw a READ or WRITE error.
