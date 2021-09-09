@@ -65,7 +65,7 @@ ifndef DISABLE_KREF_DEBUGGING_HERE
       bsr-y += kref_debug.o bsr_kref_debug.o
 endif
 
-$(addprefix $(obj)/,$(drbd-y)): $(obj)/compat.h
+$(addprefix $(obj)/,$(bsr-y)): $(obj)/compat.h
 
 #obj-$(CONFIG_BLK_DEV_BSR)     += bsr.o
 

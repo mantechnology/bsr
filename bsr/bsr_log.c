@@ -339,37 +339,43 @@ eventlog:
 
 
 #ifdef _DEBUG_OOS
-static USHORT getStackFrames(PVOID *frames, USHORT usFrameCount)
+static USHORT getStackFrames(PVOID *frames)
 {
 	USHORT usCaptured = 0;
 #ifdef _LIN
-	unsigned long entries[usFrameCount];
+	unsigned long entries[STACK_FRAME_CAPTURE_COUNT];
+	unsigned int nr_entries = 0;
+#if defined(CONFIG_STACKTRACE) && defined(COMPAT_HAVE_STRUCT_STACK_TRACE)
 	struct stack_trace trace = {
 		.entries = entries,
 		.max_entries = ARRAY_SIZE(entries),
 	};
 #endif
+#endif
 
-	if (NULL == frames ||
-		0 == usFrameCount)
+	if (NULL == frames)
 	{
-		bsr_err(80, BSR_LC_ETC, NO_OBJECT,"Invalid Parameter, frames(%p), usFrameCount(%d)", frames, usFrameCount);
+		bsr_err(80, BSR_LC_ETC, NO_OBJECT,"Invalid Parameter, frames(%p)", frames);
 		return 0;
 	}
 #ifdef _WIN
-	usCaptured = RtlCaptureStackBackTrace(2, usFrameCount, frames, NULL);	
+	usCaptured = RtlCaptureStackBackTrace(2, STACK_FRAME_CAPTURE_COUNT, frames, NULL);	
 	if (0 == usCaptured) {
 		bsr_err(81, BSR_LC_ETC, NO_OBJECT, "Captured frame count is 0");
 		return 0;
 	}
-#else // _LIN
+#elif defined(CONFIG_STACKTRACE) // _LIN
 	// BSR-219 oos log linux porting
+#ifdef COMPAT_HAVE_STRUCT_STACK_TRACE
 	trace.nr_entries = 0;
 	trace.skip = 1; /* skip the last entries */
 	save_stack_trace(&trace);
-
-	for (usCaptured = 0; usCaptured < trace.nr_entries; usCaptured++)
-		frames[usCaptured] = (void *)trace.entries[usCaptured];
+	nr_entries = trace.nr_entries;
+#else
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(entries), 1);
+#endif
+	for (usCaptured = 0; usCaptured < nr_entries; usCaptured++)
+			frames[usCaptured] = (void *)entries[usCaptured];
 #endif 
 	return usCaptured;	
 }
@@ -400,7 +406,7 @@ void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, UL
 		return;
 	}
 
-	frameCount = getStackFrames(stackFrames, frameCount);
+	frameCount = getStackFrames(stackFrames);
 
 	for (i = 0; i < frameCount; i++) {
 		CHAR temp[60] = { 0, };
