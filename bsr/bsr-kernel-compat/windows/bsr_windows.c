@@ -2060,12 +2060,6 @@ void list_add_tail_rcu(struct list_head *new, struct list_head *head)
      __list_add_rcu(new, head->prev, head);
 }
 
-struct request_queue *blk_alloc_queue(gfp_t gfp_mask)
-{
-	UNREFERENCED_PARAMETER(gfp_mask);
- 	return kzalloc(sizeof(struct request_queue), 0, 'E5SB');
-}
-
 void blk_cleanup_queue(struct request_queue *q)
 {
 	kfree2(q);
@@ -2510,7 +2504,7 @@ struct block_device * create_bsr_block_device(IN OUT PVOLUME_EXTENSION pvext)
 		goto gendisk_failed;
 	}
 
-	dev->bd_disk->queue = blk_alloc_queue(0);
+	dev->bd_disk->queue = bsr_blk_alloc_queue();
 	if (!dev->bd_disk->queue) {
 		bsr_err(23, BSR_LC_MEMORY, NO_OBJECT, "Failed to create bsr block device due to failure to allocate %d size memory for request queue", sizeof(struct request_queue));
 		goto request_queue_failed;

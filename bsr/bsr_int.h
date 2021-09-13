@@ -2850,6 +2850,22 @@ extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
+
+static inline struct request_queue *bsr_blk_alloc_queue(void) 
+{
+#ifdef _WIN
+	return kzalloc(sizeof(struct request_queue), 0, 'E5SB');
+#else // _LIN
+#if defined(COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST)
+	return blk_alloc_queue(GFP_KERNEL);
+#elif defined(COMPAT_BLK_ALLOC_QUEUE_HAS_2_PARAMS)
+	return blk_alloc_queue(bsr_make_request, NUMA_NO_NODE);
+#else
+	return blk_alloc_queue(NUMA_NO_NODE);
+#endif
+#endif
+}
+
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, bool ov_done)
 {
 	if (peer_device->ov_last_oos_size) {

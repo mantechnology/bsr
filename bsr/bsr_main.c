@@ -4698,7 +4698,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	}
 #endif
 	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in bsr_destroy_device.
-	q = blk_alloc_queue(GFP_KERNEL);
+	q = bsr_blk_alloc_queue();
 	if (!q)
 		goto out_no_q;
 	device->rq_queue = q;
@@ -4739,8 +4739,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"The capacity of the create device(%p) is max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
-	
+
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
 	blk_queue_make_request(q, bsr_make_request);
+#endif
     blk_queue_write_cache(q, true, true);
 
 #ifdef _LIN
