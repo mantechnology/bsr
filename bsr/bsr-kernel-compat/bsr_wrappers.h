@@ -31,6 +31,10 @@
 #include <linux/completion.h>
 #include <linux/proc_fs.h>
 #include <linux/blkdev.h>
+
+#ifdef COMPAT_HAVE_PART_STAT_READ_ACCUM
+#include <linux/part_stat.h>
+#endif
 #endif
 
 
@@ -535,12 +539,14 @@ static inline void bsr_plug_device(struct request_queue *q)
 #ifdef _LIN
 static inline int bsr_backing_bdev_events(struct gendisk *disk)
 {
-#if defined(__disk_stat_inc)
-	/* older kernel */
-	return (int)disk_stat_read(disk, sectors[0])
-	     + (int)disk_stat_read(disk, sectors[1]);
-#else
+#ifdef COMPAT_HAVE_PART_STAT_READ_ACCUM
 	/* recent kernel */
+#ifdef COMPAT_PART_STAT_READ_TAKES_BLOCK_DEVICE
+	return (int)part_stat_read_accum(disk->part0, sectors);
+#else
+	return (int)part_stat_read_accum(&disk->part0, sectors);
+#endif
+#else
 	return (int)part_stat_read(&disk->part0, sectors[0])
 	     + (int)part_stat_read(&disk->part0, sectors[1]);
 #endif
@@ -2084,11 +2090,13 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
 
 typedef struct hd_struct  hd_struct;
 
+#if defined(COMPAT_HAVE_BIO_START_IO_ACCT)
+	/* good, newest version */
+#else
 #ifdef COMPAT_HAVE_GENERIC_START_IO_ACCT
 #define generic_start_io_acct(Q, RW, S, P)  (void) Q; generic_start_io_acct(RW, S, P)
 #define generic_end_io_acct(Q, RW, P, J)  (void) Q; generic_end_io_acct(RW, P, J)
 #elif !defined(COMPAT_HAVE_GENERIC_START_IO_ACCT_W_QUEUE)
-#ifndef __disk_stat_inc
 static inline void generic_start_io_acct(struct request_queue *q, int rw, unsigned long sectors,
 					 struct hd_struct *part)
 {
@@ -2135,9 +2143,8 @@ static inline void generic_end_io_acct(struct request_queue *q, int rw, struct h
 	part_stat_unlock();
 #endif
 }
-#endif /* __disk_stat_inc */
 #endif /* COMPAT_HAVE_GENERIC_START_IO_ACCT */
-
+#endif /* !COMPAT_HAVE_BIO_START_IO_ACCT */
 
 #ifndef COMPAT_SOCK_CREATE_KERN_HAS_FIVE_PARAMETERS
 #define sock_create_kern(N,F,T,P,S) sock_create_kern(F,T,P,S)
