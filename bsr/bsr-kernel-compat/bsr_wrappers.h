@@ -1308,6 +1308,10 @@ static inline int op_from_rq_bits(u64 flags)
 }
 #endif
 
+#ifdef COMPAT_HAVE_SUBMIT_BIO_NOACCT
+#define generic_make_request(bio)	submit_bio_noacct(bio)
+#endif
+
 #ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
 #define bi_opf	bi_rw
 #ifdef _LIN
