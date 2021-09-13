@@ -2169,6 +2169,11 @@ static inline int simple_positive(struct dentry *dentry)
 #endif
 #endif
 
+#ifdef COMPAT___VMALLOC_HAS_2_PARAMS
+#define __vmalloc(s, g, p) __vmalloc(s, g)
+#endif
+
+
 #ifndef COMPAT_HAVE_IS_VMALLOC_ADDR
 static inline int is_vmalloc_addr(const void *x)
 {
