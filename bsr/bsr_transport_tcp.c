@@ -231,8 +231,12 @@ static void dtt_nodelay(struct socket *socket)
 	UNREFERENCED_PARAMETER(socket);
 	// nagle disable is supported (registry configuration)
 #else // _LIN
+#ifdef COMPAT_HAVE_TCP_SOCK_SET_NODELAY
+    tcp_sock_set_nodelay(socket->sk);
+#else
 	int val = 1;
 	(void) kernel_setsockopt(socket, SOL_TCP, TCP_NODELAY, (char *)&val, sizeof(val));
+#endif
 #endif
 }
 
@@ -2353,8 +2357,12 @@ static void dtt_cork(struct socket *socket)
 	UNREFERENCED_PARAMETER(socket);
 	// not support.
 #else // _LIN
+#ifdef COMPAT_HAVE_TCP_SOCK_SET_CORK
+    tcp_sock_set_cork(socket->sk, true);
+#else
 	int val = 1;
 	(void) kernel_setsockopt(socket, SOL_TCP, TCP_CORK, (char *)&val, sizeof(val));
+#endif
 #endif
 }
 
@@ -2364,8 +2372,12 @@ static void dtt_uncork(struct socket *socket)
 	UNREFERENCED_PARAMETER(socket);
 	// not support.
 #else // _LIN
+#ifdef COMPAT_HAVE_TCP_SOCK_SET_CORK
+	tcp_sock_set_cork(socket->sk, false);
+#else
 	int val = 0;
 	(void) kernel_setsockopt(socket, SOL_TCP, TCP_CORK, (char *)&val, sizeof(val));
+#endif
 #endif
 }
 
@@ -2375,8 +2387,12 @@ static void dtt_quickack(struct socket *socket)
 	UNREFERENCED_PARAMETER(socket);
 	// not support.
 #else // _LIN
+#ifdef COMPAT_HAVE_TCP_SOCK_SET_QUICKACK
+    tcp_sock_set_quickack(socket->sk, 2);
+#else
 	int val = 2;
 	(void) kernel_setsockopt(socket, SOL_TCP, TCP_QUICKACK, (char *)&val, sizeof(val));
+#endif
 #endif
 }
 
