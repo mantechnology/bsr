@@ -607,10 +607,6 @@ struct hash_desc {
 #ifdef _WIN
 static inline struct crypto_hash *
 crypto_alloc_hash(char *alg_name, u32 type, u32 mask, ULONG Tag)
-#else // _LIN
-static inline struct crypto_hash *
-crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
-#endif
 {
 	UNREFERENCED_PARAMETER(type);
 	UNREFERENCED_PARAMETER(mask);
@@ -649,6 +645,7 @@ crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
 
 	return ch;
 }
+#endif
 
 static inline int
 crypto_hash_setkey(struct crypto_hash *hash, const u8 *key, unsigned int keylen)
@@ -734,23 +731,11 @@ static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
 }
 
 #ifdef _WIN
-
-#define crypto_ahash crypto_hash
 #define crypto_shash crypto_hash
-
-static inline void crypto_free_ahash(struct crypto_ahash *tfm)
-{
-	crypto_free_hash(tfm);
-}
 
 static inline void crypto_free_shash(struct crypto_shash *tfm)
 {
 	crypto_free_hash(tfm);
-}
-
-static inline unsigned int crypto_ahash_digestsize(struct crypto_ahash *tfm)
-{
-	return crypto_hash_digestsize(tfm);
 }
 #endif
 
@@ -2340,8 +2325,7 @@ static inline struct inode *d_inode(struct dentry *dentry)
 #endif
 
 
-#if !(defined(COMPAT_HAVE_AHASH_REQUEST_ON_STACK) && \
-      defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
+#if !(defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
       defined(COMPAT_HAVE_SHASH_DESC_ZERO))
 #include <crypto/hash.h>
 
@@ -2352,23 +2336,10 @@ static inline struct inode *d_inode(struct dentry *dentry)
 	struct ahash_request *name = (void *)__##name##_desc
 #endif
 
-#ifndef COMPAT_HAVE_SHASH_DESC_ON_STACK
-#define SHASH_DESC_ON_STACK(shash, ctx)				  \
-	char __##shash##_desc[sizeof(struct shash_desc) +	  \
-		crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
-	struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
-#endif
-
 #ifndef COMPAT_HAVE_SHASH_DESC_ZERO
 #ifndef barrier_data
 #define barrier_data(ptr) barrier()
 #endif
-static inline void ahash_request_zero(struct ahash_request *req)
-{
-	/* memzero_explicit(...) */
-	memset(req, 0, sizeof(*req) + crypto_ahash_reqsize(crypto_ahash_reqtfm(req)));
-	barrier_data(req);
-}
 
 static inline void shash_desc_zero(struct shash_desc *desc)
 {

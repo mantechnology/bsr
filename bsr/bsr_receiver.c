@@ -2220,7 +2220,7 @@ struct bsr_peer_request_details *d, struct packet_info *pi)
 	bool is_trim_or_wsame = pi->cmd == P_TRIM || pi->cmd == P_WSAME || pi->cmd == P_ZEROES;
 	unsigned int digest_size =
 		pi->cmd != P_TRIM && connection->peer_integrity_tfm ?
-		crypto_ahash_digestsize(connection->peer_integrity_tfm) : 0;
+		crypto_shash_digestsize(connection->peer_integrity_tfm) : 0;
 
 	d->sector = be64_to_cpu(p->p_data.sector);
 	d->block_id = p->p_data.block_id;
@@ -2376,7 +2376,7 @@ static int recv_dless_read(struct bsr_peer_device *peer_device, struct bsr_reque
 
 	digest_size = 0;
 	if (peer_device->connection->peer_integrity_tfm) {
-		digest_size = crypto_ahash_digestsize(peer_device->connection->peer_integrity_tfm);
+		digest_size = crypto_shash_digestsize(peer_device->connection->peer_integrity_tfm);
 		err = bsr_recv_into(peer_device->connection, dig_in, digest_size);
 		if (err)
 			return err;
@@ -6018,7 +6018,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 	int p_proto, p_discard_my_data, p_two_primaries, cf;
 	struct net_conf *nc, *old_net_conf, *new_net_conf = NULL;
 	char integrity_alg[SHARED_SECRET_MAX] = "";
-	struct crypto_ahash *peer_integrity_tfm = NULL;
+	struct crypto_shash *peer_integrity_tfm = NULL;
 	void *int_dig_in = NULL, *int_dig_vv = NULL;
 
 #ifdef _WIN
@@ -6112,9 +6112,9 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 		 * change.
 		 */
 #ifdef _WIN
-		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, CRYPTO_ALG_ASYNC, '52SB');
+		peer_integrity_tfm = crypto_alloc_hash(integrity_alg, 0, 0, '52SB');
 #else // _LIN
-		peer_integrity_tfm = crypto_alloc_ahash(integrity_alg, 0, CRYPTO_ALG_ASYNC);
+		peer_integrity_tfm = crypto_alloc_shash(integrity_alg, 0, 0);
 #endif
 		if (IS_ERR(peer_integrity_tfm)) {
 			peer_integrity_tfm = NULL;
@@ -6123,7 +6123,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 			goto disconnect;
 		}
 
-		hash_size = crypto_ahash_digestsize(peer_integrity_tfm);
+		hash_size = crypto_shash_digestsize(peer_integrity_tfm);
 		int_dig_in = kmalloc(hash_size, GFP_KERNEL, '62SB');
 		int_dig_vv = kmalloc(hash_size, GFP_KERNEL, '72SB');
 		if (!(int_dig_in && int_dig_vv)) {
@@ -6165,7 +6165,7 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	mutex_unlock(&connection->resource->conf_update);
 
-	crypto_free_ahash(connection->peer_integrity_tfm);
+	crypto_free_shash(connection->peer_integrity_tfm);
 	kfree(connection->int_dig_in);
 	kfree(connection->int_dig_vv);
 	connection->peer_integrity_tfm = peer_integrity_tfm;
@@ -6190,7 +6190,7 @@ disconnect_rcu_unlock:
 	rcu_read_unlock();
 #endif
 disconnect:
-	crypto_free_ahash(peer_integrity_tfm);
+	crypto_free_shash(peer_integrity_tfm);
 	kfree(int_dig_in);
 	kfree(int_dig_vv);
 	change_cstate_ex(connection, C_DISCONNECTING, CS_HARD); 
@@ -6202,19 +6202,19 @@ disconnect:
  * return: NULL (alg name was "")
  *         ERR_PTR(error) if something goes wrong
  *         or the crypto hash ptr, if it worked out ok. */
-static struct crypto_ahash *bsr_crypto_alloc_digest_safe(const struct bsr_device *device,
+static struct crypto_shash *bsr_crypto_alloc_digest_safe(const struct bsr_device *device,
 		const char *alg, const char *name)
 {
-	struct crypto_ahash *tfm;
+	struct crypto_shash *tfm;
 
 	if (!alg[0])
 		return NULL;
 
 #ifdef _WIN
 	char* alg2 = (char*)alg;
-	tfm = crypto_alloc_hash(alg2, 0, CRYPTO_ALG_ASYNC, 'A6SB');
+	tfm = crypto_alloc_hash(alg2, 0, 0, 'A6SB');
 #else // _LIN
-	tfm = crypto_alloc_ahash(alg, 0, CRYPTO_ALG_ASYNC);
+	tfm = crypto_alloc_shash(alg, 0, 0);
 #endif
 	if (IS_ERR(tfm)) {
 		bsr_err(72, BSR_LC_MEMORY, device, "Failed to allocate \"%s\" as %s (reason: %ld) memory",
@@ -6248,8 +6248,8 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	struct bsr_device *device;
 	struct p_rs_param_114 *p;
 	unsigned int header_size, data_size, exp_max_sz;
-	struct crypto_ahash *verify_tfm = NULL;
-	struct crypto_ahash *csums_tfm = NULL;
+	struct crypto_shash *verify_tfm = NULL;
+	struct crypto_shash *csums_tfm = NULL;
 	struct net_conf *old_net_conf, *new_net_conf = NULL;
 	struct peer_device_conf *old_peer_device_conf = NULL, *new_peer_device_conf = NULL;
 	const int apv = connection->agreed_pro_version;
@@ -6406,14 +6406,14 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			if (verify_tfm) {
 				strncpy(new_net_conf->verify_alg, p->verify_alg, sizeof(new_net_conf->verify_alg) - 1);
 				new_net_conf->verify_alg_len = (__u32)(strlen(p->verify_alg) + 1);
-				crypto_free_ahash(connection->verify_tfm);
+				crypto_free_shash(connection->verify_tfm);
 				connection->verify_tfm = verify_tfm;
 				bsr_info(27, BSR_LC_PROTOCOL, device, "using verify-alg: \"%s\"", p->verify_alg);
 			}
 			if (csums_tfm) {
 				strncpy(new_net_conf->csums_alg, p->csums_alg, sizeof(new_net_conf->csums_alg) - 1);
 				new_net_conf->csums_alg_len = (__u32)(strlen(p->csums_alg) + 1);
-				crypto_free_ahash(connection->csums_tfm);
+				crypto_free_shash(connection->csums_tfm);
 				connection->csums_tfm = csums_tfm;
 				bsr_info(28, BSR_LC_PROTOCOL, device, "using csums-alg: \"%s\"", p->csums_alg);
 			}
@@ -6469,9 +6469,9 @@ disconnect:
 	mutex_unlock(&resource->conf_update);
 	/* just for completeness: actually not needed,
 	 * as this is not reached if csums_tfm was ok. */
-	crypto_free_ahash(csums_tfm);
+	crypto_free_shash(csums_tfm);
 	/* but free the verify_tfm again, if csums_tfm did not work out */
-	crypto_free_ahash(verify_tfm);
+	crypto_free_shash(verify_tfm);
 	change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 	return -EIO;
 }
