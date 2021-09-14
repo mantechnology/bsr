@@ -2353,7 +2353,7 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 	decide_on_write_same_support(device, q, b, o, disable_write_same);
 
 	if (b) {
-		blk_queue_stack_limits(q, b);
+		blk_stack_limits(&q->limits, &b->limits, 0);
 		adjust_ra_pages(q, b);
 	}
 	fixup_discard_if_not_supported(q);
