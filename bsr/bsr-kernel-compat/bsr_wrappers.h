@@ -2425,6 +2425,9 @@ struct log_rolling_file_list {
 #define set_fs(fs)	force_uaccess_end(fs)
 #endif
 
+#ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS
+#define thaw_bdev(bdev, sb)	thaw_bdev(bdev)
+#endif
 #endif
 
 #endif
