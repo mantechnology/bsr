@@ -1449,7 +1449,6 @@ static inline unsigned int queue_io_min(struct request_queue *q)
 
 
 #define do_div(n, base)		(n = n / base)
-#define uninitialized_var(x)	x = NULL
 
 static inline void copy_highpage(struct page *to, struct page *from)
 {
