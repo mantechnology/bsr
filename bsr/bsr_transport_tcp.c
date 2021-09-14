@@ -2273,7 +2273,7 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 
 	msg_flags |= MSG_NOSIGNAL;
 	dtt_update_congested(tcp_transport);
-#ifdef _LIN
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
 #endif
 	do {

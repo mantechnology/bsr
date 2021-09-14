@@ -5388,7 +5388,9 @@ long get_file_size(struct file * fd)
 	long filesize;
 	mm_segment_t oldfs;
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
 	set_fs(oldfs);
 	if (filesize > 0)
@@ -5530,7 +5532,9 @@ int log_consumer_thread(void *unused)
 	}
 
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
@@ -5577,7 +5581,9 @@ int log_consumer_thread(void *unused)
 			// writing linux log files		
 			filesize = strlen(buffer);
 			oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 			set_fs(KERNEL_DS);
+#endif
 			err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
 			set_fs(oldfs);
 
@@ -5634,7 +5640,9 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 				oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 				set_fs(KERNEL_DS);
+#endif
 
 				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);

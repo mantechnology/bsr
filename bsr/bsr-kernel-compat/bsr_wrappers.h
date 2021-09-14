@@ -2419,6 +2419,12 @@ struct log_rolling_file_list {
 	char *fileName;
 };
 
+
+#ifndef COMPAT_HAVE_SET_FS
+#define get_fs()	force_uaccess_begin()	
+#define set_fs(fs)	force_uaccess_end(fs)
+#endif
+
 #endif
 
 #endif
