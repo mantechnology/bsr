@@ -36,17 +36,7 @@
 
 // windows replaced with MVF ioctl
 #ifdef _LIN
-static int bsr_proc_open(struct inode *inode, struct file *file);
-static int bsr_proc_release(struct inode *inode, struct file *file);
-
 struct proc_dir_entry *bsr_proc;
-const struct file_operations bsr_proc_fops = {
-	.owner		= THIS_MODULE,
-	.open		= bsr_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= bsr_proc_release,
-};
 #endif
 
 // DW-826
@@ -62,24 +52,3 @@ int bsr_seq_show(struct seq_file *seq, void *v)
 
 	return 0;
 }
-
-#ifdef _LIN
-static int bsr_proc_open(struct inode *inode, struct file *file)
-{
-	int err;
-
-	if (try_module_get(THIS_MODULE)) {
-		err = single_open(file, bsr_seq_show, NULL);
-		if (err)
-			module_put(THIS_MODULE);
-		return err;
-	}
-	return -ENODEV;
-}
-
-static int bsr_proc_release(struct inode *inode, struct file *file)
-{
-	module_put(THIS_MODULE);
-	return single_release(inode, file);
-}
-#endif

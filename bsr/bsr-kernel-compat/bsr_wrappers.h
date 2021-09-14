@@ -930,27 +930,10 @@ static inline int backport_bitmap_parse(const char *buf, unsigned int buflen,
 #define BDI_sync_congested  BDI_read_congested
 #endif
 
-/* see upstream commits
- * 2d3a4e3666325a9709cc8ea2e88151394e8f20fc (in 2.6.25-rc1)
- * 59b7435149eab2dd06dd678742faff6049cb655f (in 2.6.26-rc1)
- * this "backport" does not close the race that lead to the API change,
- * but only provides an equivalent function call.
- */
-#ifndef COMPAT_HAVE_PROC_CREATE_DATA
-#ifdef _LIN
-static inline struct proc_dir_entry *proc_create_data(const char *name,
-	mode_t mode, struct proc_dir_entry *parent,
-	struct file_operations *proc_fops, void *data)
-{
-	struct proc_dir_entry *pde = create_proc_entry(name, mode, parent);
-	if (pde) {
-		pde->proc_fops = proc_fops;
-		pde->data = data;
-	}
-	return pde;
-}
-#endif
-
+#ifndef COMPAT_HAVE_PROC_CREATE_SINGLE
+extern struct proc_dir_entry *proc_create_single(const char *name, umode_t mode,
+        struct proc_dir_entry *parent,
+        int (*show)(struct seq_file *, void *));
 #endif
 
 #ifndef COMPAT_HAVE_BLK_QUEUE_MAX_HW_SECTORS

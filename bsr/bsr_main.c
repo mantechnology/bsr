@@ -5843,7 +5843,7 @@ int bsr_init(void)
 
 	err = -ENOMEM; // Used when bsr_proc and retry.wq creation failed.
 #ifdef _LIN
-	bsr_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &bsr_proc_fops, NULL);
+	bsr_proc = proc_create_single("bsr", S_IFREG | S_IRUGO , NULL, bsr_seq_show);
 	if (!bsr_proc)	{
 		bsr_err(73, BSR_LC_DRIVER, NO_OBJECT, "unable to register proc file during bsr initialization ");
 		goto fail;

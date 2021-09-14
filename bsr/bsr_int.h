@@ -3197,6 +3197,7 @@ extern void connect_timer_fn(BSR_TIMER_FN_ARG);
 /* bsr_proc.c */
 extern struct proc_dir_entry *bsr_proc;
 extern const struct file_operations bsr_proc_fops;
+int bsr_seq_show(struct seq_file *seq, void *v);
 #endif
 
 typedef enum { RECORD_RS_FAILED, SET_OUT_OF_SYNC, SET_IN_SYNC } update_sync_bits_mode;
