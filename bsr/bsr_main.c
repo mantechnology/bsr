@@ -5302,13 +5302,10 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 int bsr_log_file_rename(void) 
 {
 	char new_name[MAX_PATH];
-	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
-	char old_name[name_len];
 	struct timespec64 ts;
 	struct tm tm;
 
 	int err = 0;
-	snprintf(old_name, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 	
 	memset(new_name, 0, sizeof(new_name));
 
@@ -5517,10 +5514,10 @@ int log_consumer_thread(void *unused)
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
-	char filePath[name_len]; 
+	char filePath[sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1]; 
 
-	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	snprintf(filePath, sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1, 
+			"%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
 	// BSR-610 mkdir /var/log/bsr
 	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
