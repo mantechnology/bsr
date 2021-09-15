@@ -816,9 +816,9 @@ void bsr_csum_pages(struct crypto_shash *tfm, struct bsr_peer_request *peer_req,
 		unsigned off = page_chain_offset(page);
 		unsigned len = page_chain_size(page);
 		u8 *src;
-        src = kmap_atomic(page);
+        src = bsr_kmap_atomic(page, KM_USER0);
         crypto_shash_update(desc, src + off, len);
-        kunmap_atomic(src);
+        bsr_kunmap_atomic(src, KM_USER0);
 	}
 	crypto_shash_final(desc, digest);
     shash_desc_zero(desc);
@@ -849,9 +849,9 @@ void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *d
 
 	bio_for_each_segment(bvec, bio, iter) {
         u8 *src;
-        src = kmap_atomic(bvec.bv_page);
-        crypto_shash_update(desc, src + bvec.bv_offset, bvec.bv_len);
-        kunmap_atomic(src);
+        src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+        crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
+        bsr_kunmap_atomic(src, KM_USER0);
 		/* WRITE_SAME has only one segment,
 		 * checksum the payload only once. */
 		if (bio_op(bio) == REQ_OP_WRITE_SAME)

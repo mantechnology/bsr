@@ -5634,7 +5634,7 @@ int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource;	
 	int minor = 0, err = 0, retcode = 0;
-	struct bsr_device *device;
+	struct bsr_device *device = NULL;
 	struct bsr_genlmsghdr *dh;
 	struct device_info device_info;
 	struct device_statistics device_statistics;
@@ -5780,7 +5780,7 @@ int bsr_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource = NULL, *next_resource;
-	struct bsr_connection *connection;
+	struct bsr_connection *connection = NULL;
 	int err = 0, retcode;
 	struct bsr_genlmsghdr *dh;
 	struct connection_info connection_info;
@@ -5986,7 +5986,7 @@ int bsr_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource;
-	struct bsr_device *device;
+	struct bsr_device *device = NULL;
 	struct bsr_peer_device *peer_device = NULL;
 	int minor = 0, err = 0, retcode = 0;
 	

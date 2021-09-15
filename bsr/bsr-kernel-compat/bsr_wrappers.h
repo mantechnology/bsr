@@ -2329,11 +2329,11 @@ static inline struct inode *d_inode(struct dentry *dentry)
       defined(COMPAT_HAVE_SHASH_DESC_ZERO))
 #include <crypto/hash.h>
 
-#ifndef COMPAT_HAVE_AHASH_REQUEST_ON_STACK
-#define AHASH_REQUEST_ON_STACK(name, ahash)			   \
-	char __##name##_desc[sizeof(struct ahash_request) +	   \
-		crypto_ahash_reqsize(ahash)] CRYPTO_MINALIGN_ATTR; \
-	struct ahash_request *name = (void *)__##name##_desc
+#ifndef COMPAT_HAVE_SHASH_DESC_ON_STACK
+#define SHASH_DESC_ON_STACK(shash, ctx)                  \
+    char __##shash##_desc[sizeof(struct shash_desc) +      \
+        crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
+    struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
 #endif
 
 #ifndef COMPAT_HAVE_SHASH_DESC_ZERO
