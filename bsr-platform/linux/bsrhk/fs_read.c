@@ -34,7 +34,9 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	mm_segment_t old_fs = get_fs();
 	
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 
 	fd = filp_open(disk_name, O_RDONLY, 0);
 	if (fd == NULL || IS_ERR(fd)) {

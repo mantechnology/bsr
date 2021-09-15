@@ -915,7 +915,7 @@ void _bsr_thread_stop(struct bsr_thread *thi, int restart, int wait)
 		smp_mb();
 		init_completion(&thi->stop);
 		if (thi->task != current)
-			force_sig(BSR_SIGKILL, thi->task);
+			bsr_force_sig(BSR_SIGKILL, thi->task);
 		else {
 		//	bsr_info(22, BSR_LC_ETC, NO_OBJECT,"cur=(%s) thi=(%s) stop myself", current->comm, thi->name ); 
 		}
@@ -1925,7 +1925,7 @@ int bsr_attach_peer_device(struct bsr_peer_device *peer_device) __must_hold(loca
 #else // _LIN
 	// BSR-180
 	resync_plan = rcu_dereference_protected(peer_device->rs_plan_s,
-		lockdep_is_held(&resource->conf_update));
+		lockdep_is_held(&peer_device->device->resource->conf_update));
 	if(!resync_plan)
 		resync_plan = fifo_alloc((pdc->c_plan_ahead * 10 * SLEEP_TIME) / HZ);
 #endif
@@ -2988,7 +2988,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		trim->size = cpu_to_be32(req->i.size);
 	} else {
 		if (peer_device->connection->integrity_tfm)
-			digest_size = crypto_ahash_digestsize(peer_device->connection->integrity_tfm);
+			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
 
 		if (op == REQ_OP_WRITE_SAME) {
 			wsame = bsr_prepare_command(peer_device, sizeof(*wsame) + digest_size, DATA_STREAM);
@@ -3107,7 +3107,7 @@ int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	int digest_size;
 
 	digest_size = peer_device->connection->integrity_tfm ?
-		      crypto_ahash_digestsize(peer_device->connection->integrity_tfm) : 0;
+		      crypto_shash_digestsize(peer_device->connection->integrity_tfm) : 0;
 
 	p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
 
@@ -4106,11 +4106,11 @@ static void peer_ack_timer_fn(BSR_TIMER_FN_ARG)
 
 void conn_free_crypto(struct bsr_connection *connection)
 {
-	crypto_free_ahash(connection->csums_tfm);
-	crypto_free_ahash(connection->verify_tfm);
+	crypto_free_shash(connection->csums_tfm);
+	crypto_free_shash(connection->verify_tfm);
 	crypto_free_shash(connection->cram_hmac_tfm);
-	crypto_free_ahash(connection->integrity_tfm);
-	crypto_free_ahash(connection->peer_integrity_tfm);
+	crypto_free_shash(connection->integrity_tfm);
+	crypto_free_shash(connection->peer_integrity_tfm);
 	kfree(connection->int_dig_in);
 	kfree(connection->int_dig_vv);
 
@@ -4698,7 +4698,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	}
 #endif
 	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in bsr_destroy_device.
-	q = blk_alloc_queue(GFP_KERNEL);
+	q = bsr_blk_alloc_queue();
 	if (!q)
 		goto out_no_q;
 	device->rq_queue = q;
@@ -4739,8 +4739,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"The capacity of the create device(%p) is max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
-	
+
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
 	blk_queue_make_request(q, bsr_make_request);
+#endif
     blk_queue_write_cache(q, true, true);
 
 #ifdef _LIN
@@ -5300,13 +5302,10 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 int bsr_log_file_rename(void) 
 {
 	char new_name[MAX_PATH];
-	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
-	char old_name[name_len];
 	struct timespec64 ts;
 	struct tm tm;
 
 	int err = 0;
-	snprintf(old_name, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 	
 	memset(new_name, 0, sizeof(new_name));
 
@@ -5389,7 +5388,9 @@ long get_file_size(struct file * fd)
 	long filesize;
 	mm_segment_t oldfs;
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
 	set_fs(oldfs);
 	if (filesize > 0)
@@ -5515,10 +5516,10 @@ int log_consumer_thread(void *unused)
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	int name_len = sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1;
-	char filePath[name_len]; 
+	char filePath[sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1]; 
 
-	snprintf(filePath, name_len, "%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	snprintf(filePath, sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1, 
+			"%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
 
 	// BSR-610 mkdir /var/log/bsr
 	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
@@ -5531,7 +5532,9 @@ int log_consumer_thread(void *unused)
 	}
 
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
@@ -5578,7 +5581,9 @@ int log_consumer_thread(void *unused)
 			// writing linux log files		
 			filesize = strlen(buffer);
 			oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 			set_fs(KERNEL_DS);
+#endif
 			err = bsr_write(hFile, buffer, filesize, &hFile->f_pos);
 			set_fs(oldfs);
 
@@ -5635,7 +5640,9 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 				oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 				set_fs(KERNEL_DS);
+#endif
 
 				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
@@ -5841,7 +5848,7 @@ int bsr_init(void)
 
 	err = -ENOMEM; // Used when bsr_proc and retry.wq creation failed.
 #ifdef _LIN
-	bsr_proc = proc_create_data("bsr", S_IFREG | S_IRUGO , NULL, &bsr_proc_fops, NULL);
+	bsr_proc = proc_create_single("bsr", S_IFREG | S_IRUGO , NULL, bsr_seq_show);
 	if (!bsr_proc)	{
 		bsr_err(73, BSR_LC_DRIVER, NO_OBJECT, "unable to register proc file during bsr initialization ");
 		goto fail;

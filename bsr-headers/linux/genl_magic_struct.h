@@ -34,6 +34,11 @@
 #include "compat.h"
 #endif
 
+#ifdef __KERNEL__
+#ifdef COMPAT_HAVE_NLA_STRSCPY
+#define nla_strlcpy nla_strscpy
+#endif
+#endif
 
 #define CONCAT__(a,b)	a ## b
 #define CONCAT_(a,b)	CONCAT__(a,b)

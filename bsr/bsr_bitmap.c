@@ -34,7 +34,6 @@
 #include <bsr.h>
 #include <linux/slab.h>
 #include <linux/dynamic_debug.h>
-#include <asm/kmap_types.h>
 #endif
 
 /* See the ifdefs and comments inside that header file.

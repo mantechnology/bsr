@@ -2353,7 +2353,7 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 	decide_on_write_same_support(device, q, b, o, disable_write_same);
 
 	if (b) {
-		blk_queue_stack_limits(q, b);
+		blk_stack_limits(&q->limits, &b->limits, 0);
 		adjust_ra_pages(q, b);
 	}
 	fixup_discard_if_not_supported(q);
@@ -3588,10 +3588,10 @@ check_net_options(struct bsr_connection *connection, struct net_conf *new_net_co
 }
 
 struct crypto {
-	struct crypto_ahash *verify_tfm;
-	struct crypto_ahash *csums_tfm;
+	struct crypto_shash *verify_tfm;
+	struct crypto_shash *csums_tfm;
 	struct crypto_shash *cram_hmac_tfm;
-	struct crypto_ahash *integrity_tfm;
+	struct crypto_shash *integrity_tfm;
 };
 
 static int
@@ -3612,25 +3612,6 @@ alloc_shash(struct crypto_shash **tfm, char *tfm_name, int err_alg)
 	return NO_ERROR;
 }
 
-
-static int
-alloc_ahash(struct crypto_ahash **tfm, char *tfm_name, int err_alg)
-{
-	if (!tfm_name[0])
-		return NO_ERROR;
-#ifdef _WIN
-	*tfm = crypto_alloc_hash(tfm_name, 0, CRYPTO_ALG_ASYNC, '41SB');
-#else // _LIN
-	*tfm = crypto_alloc_ahash(tfm_name, 0, CRYPTO_ALG_ASYNC);
-#endif
-	if (IS_ERR(*tfm)) {
-		*tfm = NULL;
-		return err_alg;
-	}
-
-	return NO_ERROR;
-}
-
 static enum bsr_ret_code
 alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 {
@@ -3640,15 +3621,15 @@ alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 	char hmac_name[CRYPTO_MAX_ALG_NAME];
 	enum bsr_ret_code rv;
 
-	rv = alloc_ahash(&crypto->csums_tfm, new_net_conf->csums_alg,
+	rv = alloc_shash(&crypto->csums_tfm, new_net_conf->csums_alg,
 		       ERR_CSUMS_ALG);
 	if (rv != NO_ERROR)
 		return rv;
-	rv = alloc_ahash(&crypto->verify_tfm, new_net_conf->verify_alg,
+	rv = alloc_shash(&crypto->verify_tfm, new_net_conf->verify_alg,
 		       ERR_VERIFY_ALG);
 	if (rv != NO_ERROR)
 		return rv;
-	rv = alloc_ahash(&crypto->integrity_tfm, new_net_conf->integrity_alg,
+	rv = alloc_shash(&crypto->integrity_tfm, new_net_conf->integrity_alg,
 		       ERR_INTEGRITY_ALG);
 	if (rv != NO_ERROR)
 		return rv;
@@ -3669,9 +3650,9 @@ alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 static void free_crypto(struct crypto *crypto)
 {
 	crypto_free_shash(crypto->cram_hmac_tfm);
-	crypto_free_ahash(crypto->integrity_tfm);
-	crypto_free_ahash(crypto->csums_tfm);
-	crypto_free_ahash(crypto->verify_tfm);
+	crypto_free_shash(crypto->integrity_tfm);
+	crypto_free_shash(crypto->csums_tfm);
+	crypto_free_shash(crypto->verify_tfm);
 }
 
 int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
@@ -3771,17 +3752,17 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 #endif
 
 	if (!rsr) {
-		crypto_free_ahash(connection->csums_tfm);
+		crypto_free_shash(connection->csums_tfm);
 		connection->csums_tfm = crypto.csums_tfm;
 		crypto.csums_tfm = NULL;
 	}
 	if (!ovr) {
-		crypto_free_ahash(connection->verify_tfm);
+		crypto_free_shash(connection->verify_tfm);
 		connection->verify_tfm = crypto.verify_tfm;
 		crypto.verify_tfm = NULL;
 	}
 
-	crypto_free_ahash(connection->integrity_tfm);
+	crypto_free_shash(connection->integrity_tfm);
 	connection->integrity_tfm = crypto.integrity_tfm;
 	if (connection->cstate[NOW] >= C_CONNECTED && connection->agreed_pro_version >= 100)
 		/* Do this without trying to take connection->data.mutex again.  */
@@ -5653,7 +5634,7 @@ int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource;	
 	int minor = 0, err = 0, retcode = 0;
-	struct bsr_device *uninitialized_var(device);
+	struct bsr_device *device = NULL;
 	struct bsr_genlmsghdr *dh;
 	struct device_info device_info;
 	struct device_statistics device_statistics;
@@ -5799,7 +5780,7 @@ int bsr_adm_dump_connections(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource = NULL, *next_resource;
-	struct bsr_connection *uninitialized_var(connection);
+	struct bsr_connection *connection = NULL;
 	int err = 0, retcode;
 	struct bsr_genlmsghdr *dh;
 	struct connection_info connection_info;
@@ -6005,7 +5986,7 @@ int bsr_adm_dump_peer_devices(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct nlattr *resource_filter;
 	struct bsr_resource *resource;
-	struct bsr_device *uninitialized_var(device);
+	struct bsr_device *device = NULL;
 	struct bsr_peer_device *peer_device = NULL;
 	int minor = 0, err = 0, retcode = 0;
 	

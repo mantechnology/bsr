@@ -450,7 +450,9 @@ int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	
 	fdir = filp_open(dir_path, O_RDONLY, 0);
 	if (fdir) {
@@ -513,7 +515,9 @@ long read_reg_file(char *file_path, long default_val)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
+#endif
 	fd = filp_open(file_path, O_RDONLY, 0);
 
 	if (fd == NULL || IS_ERR(fd))

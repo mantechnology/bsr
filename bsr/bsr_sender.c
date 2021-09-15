@@ -799,38 +799,34 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_RETURN;
 }
 
-void bsr_csum_pages(struct crypto_ahash *tfm, struct bsr_peer_request *peer_req, void *digest)
+void bsr_csum_pages(struct crypto_shash *tfm, struct bsr_peer_request *peer_req, void *digest)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
 	*(uint32_t *)digest = crc32c(0, peer_req->peer_req_databuf, peer_req->i.size);
 #else // _LIN 
-	AHASH_REQUEST_ON_STACK(req, tfm);
-	struct scatterlist sg;
+	SHASH_DESC_ON_STACK(desc, tfm);
 	struct page *page = peer_req->page_chain.head;
 
-	ahash_request_set_tfm(req, tfm);
-	ahash_request_set_callback(req, 0, NULL, NULL);
+	desc->tfm = tfm;
 
-	sg_init_table(&sg, 1);
-	crypto_ahash_init(req);
+	crypto_shash_init(desc);
 
 	page_chain_for_each(page) {
 		unsigned off = page_chain_offset(page);
 		unsigned len = page_chain_size(page);
-		sg_set_page(&sg, page, len, off);
-		ahash_request_set_crypt(req, &sg, NULL, sg.length);
-		crypto_ahash_update(req);
+		u8 *src;
+        src = bsr_kmap_atomic(page, KM_USER0);
+        crypto_shash_update(desc, src + off, len);
+        bsr_kunmap_atomic(src, KM_USER0);
 	}
-	ahash_request_set_crypt(req, NULL, digest, 0);
-	crypto_ahash_final(req);
-	ahash_request_zero(req);
-
+	crypto_shash_final(desc, digest);
+    shash_desc_zero(desc);
 #endif
 }
 
 
-void bsr_csum_bio(struct crypto_ahash *tfm, struct bsr_request *request, void *digest)
+void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *digest)
 {
 #ifdef _WIN
 	UNREFERENCED_PARAMETER(tfm);
@@ -838,8 +834,7 @@ void bsr_csum_bio(struct crypto_ahash *tfm, struct bsr_request *request, void *d
 #else // _LIN
 	BSR_BIO_VEC_TYPE bvec;
 	BSR_ITER_TYPE iter;
-	struct scatterlist sg;
-	AHASH_REQUEST_ON_STACK(req, tfm);
+	SHASH_DESC_ON_STACK(desc, tfm);
 	struct bio *bio = request->master_bio;
 #endif
 
@@ -848,24 +843,22 @@ void bsr_csum_bio(struct crypto_ahash *tfm, struct bsr_request *request, void *d
 		crypto_hash_update(&desc, (struct scatterlist *)request->req_databuf, request->i.size);
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
-	ahash_request_set_tfm(req, tfm);
-	ahash_request_set_callback(req, 0, NULL, NULL);
+    desc->tfm = tfm;
 
-	sg_init_table(&sg, 1);
-	crypto_ahash_init(req);
+    crypto_shash_init(desc);
 
 	bio_for_each_segment(bvec, bio, iter) {
-		sg_set_page(&sg, bvec BVD bv_page, bvec BVD bv_len, bvec BVD bv_offset);
-		ahash_request_set_crypt(req, &sg, NULL, sg.length);
-		crypto_ahash_update(req);
+        u8 *src;
+        src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+        crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
+        bsr_kunmap_atomic(src, KM_USER0);
 		/* WRITE_SAME has only one segment,
 		 * checksum the payload only once. */
 		if (bio_op(bio) == REQ_OP_WRITE_SAME)
 			break;
 	}
-	ahash_request_set_crypt(req, NULL, digest, 0);
-	crypto_ahash_final(req);
-	ahash_request_zero(req);
+    crypto_shash_final(desc, digest);
+    shash_desc_zero(desc);
 #endif
 }
 
@@ -892,7 +885,7 @@ static int w_e_send_csum(struct bsr_work *w, int cancel)
 			goto out;
 	}
 
-	digest_size = crypto_ahash_digestsize(peer_device->connection->csums_tfm);
+	digest_size = crypto_shash_digestsize(peer_device->connection->csums_tfm);
 	digest = bsr_prepare_drequest_csum(peer_req, digest_size);
 	if (digest) {
 		bsr_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
@@ -2216,7 +2209,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 		 * a real fix would be much more involved,
 		 * introducing more locking mechanisms */
 		if (peer_device->connection->csums_tfm) {
-			digest_size = crypto_ahash_digestsize(peer_device->connection->csums_tfm);
+			digest_size = crypto_shash_digestsize(peer_device->connection->csums_tfm);
 			D_ASSERT(device, digest_size == di->digest_size);
 
 			digest = kmalloc(digest_size, GFP_NOIO, '23SB');
@@ -2268,7 +2261,7 @@ int w_e_end_ov_req(struct bsr_work *w, int cancel)
 	if (unlikely(cancel))
 		goto out;
 
-	digest_size = crypto_ahash_digestsize(peer_device->connection->verify_tfm);
+	digest_size = crypto_shash_digestsize(peer_device->connection->verify_tfm);
 	/* FIXME if this allocation fails, online verify will not terminate! */
 	digest = bsr_prepare_drequest_csum(peer_req, digest_size);
 	if (!digest) {
@@ -2360,7 +2353,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	di = peer_req->digest;
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
-		digest_size = crypto_ahash_digestsize(peer_device->connection->verify_tfm);
+		digest_size = crypto_shash_digestsize(peer_device->connection->verify_tfm);
 		digest = kmalloc(digest_size, GFP_NOIO, '33SB');
 		if (digest) {
 			bsr_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);

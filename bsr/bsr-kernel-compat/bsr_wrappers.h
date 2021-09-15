@@ -31,6 +31,10 @@
 #include <linux/completion.h>
 #include <linux/proc_fs.h>
 #include <linux/blkdev.h>
+
+#ifdef COMPAT_HAVE_PART_STAT_READ_ACCUM
+#include <linux/part_stat.h>
+#endif
 #endif
 
 
@@ -535,12 +539,14 @@ static inline void bsr_plug_device(struct request_queue *q)
 #ifdef _LIN
 static inline int bsr_backing_bdev_events(struct gendisk *disk)
 {
-#if defined(__disk_stat_inc)
-	/* older kernel */
-	return (int)disk_stat_read(disk, sectors[0])
-	     + (int)disk_stat_read(disk, sectors[1]);
-#else
+#ifdef COMPAT_HAVE_PART_STAT_READ_ACCUM
 	/* recent kernel */
+#ifdef COMPAT_PART_STAT_READ_TAKES_BLOCK_DEVICE
+	return (int)part_stat_read_accum(disk->part0, sectors);
+#else
+	return (int)part_stat_read_accum(&disk->part0, sectors);
+#endif
+#else
 	return (int)part_stat_read(&disk->part0, sectors[0])
 	     + (int)part_stat_read(&disk->part0, sectors[1]);
 #endif
@@ -601,10 +607,6 @@ struct hash_desc {
 #ifdef _WIN
 static inline struct crypto_hash *
 crypto_alloc_hash(char *alg_name, u32 type, u32 mask, ULONG Tag)
-#else // _LIN
-static inline struct crypto_hash *
-crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
-#endif
 {
 	UNREFERENCED_PARAMETER(type);
 	UNREFERENCED_PARAMETER(mask);
@@ -643,6 +645,7 @@ crypto_alloc_hash(char *alg_name, u32 type, u32 mask)
 
 	return ch;
 }
+#endif
 
 static inline int
 crypto_hash_setkey(struct crypto_hash *hash, const u8 *key, unsigned int keylen)
@@ -728,23 +731,16 @@ static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
 }
 
 #ifdef _WIN
-
-#define crypto_ahash crypto_hash
 #define crypto_shash crypto_hash
-
-static inline void crypto_free_ahash(struct crypto_ahash *tfm)
-{
-	crypto_free_hash(tfm);
-}
 
 static inline void crypto_free_shash(struct crypto_shash *tfm)
 {
 	crypto_free_hash(tfm);
 }
 
-static inline unsigned int crypto_ahash_digestsize(struct crypto_ahash *tfm)
+static inline unsigned int crypto_shash_digestsize(struct crypto_shash *tfm)
 {
-	return crypto_hash_digestsize(tfm);
+    return crypto_hash_digestsize(tfm);
 }
 #endif
 
@@ -924,27 +920,12 @@ static inline int backport_bitmap_parse(const char *buf, unsigned int buflen,
 #define BDI_sync_congested  BDI_read_congested
 #endif
 
-/* see upstream commits
- * 2d3a4e3666325a9709cc8ea2e88151394e8f20fc (in 2.6.25-rc1)
- * 59b7435149eab2dd06dd678742faff6049cb655f (in 2.6.26-rc1)
- * this "backport" does not close the race that lead to the API change,
- * but only provides an equivalent function call.
- */
-#ifndef COMPAT_HAVE_PROC_CREATE_DATA
+#ifndef COMPAT_HAVE_PROC_CREATE_SINGLE
 #ifdef _LIN
-static inline struct proc_dir_entry *proc_create_data(const char *name,
-	mode_t mode, struct proc_dir_entry *parent,
-	struct file_operations *proc_fops, void *data)
-{
-	struct proc_dir_entry *pde = create_proc_entry(name, mode, parent);
-	if (pde) {
-		pde->proc_fops = proc_fops;
-		pde->data = data;
-	}
-	return pde;
-}
+extern struct proc_dir_entry *proc_create_single(const char *name, umode_t mode,
+        struct proc_dir_entry *parent,
+        int (*show)(struct seq_file *, void *));
 #endif
-
 #endif
 
 #ifndef COMPAT_HAVE_BLK_QUEUE_MAX_HW_SECTORS
@@ -1300,6 +1281,10 @@ static inline int op_from_rq_bits(u64 flags)
 	else
 		return REQ_OP_READ;
 }
+#endif
+
+#ifdef COMPAT_HAVE_SUBMIT_BIO_NOACCT
+#define generic_make_request(bio)	submit_bio_noacct(bio)
 #endif
 
 #ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
@@ -2084,11 +2069,13 @@ static inline void blk_set_stacking_limits(struct queue_limits *lim)
 
 typedef struct hd_struct  hd_struct;
 
+#if defined(COMPAT_HAVE_BIO_START_IO_ACCT)
+	/* good, newest version */
+#else
 #ifdef COMPAT_HAVE_GENERIC_START_IO_ACCT
 #define generic_start_io_acct(Q, RW, S, P)  (void) Q; generic_start_io_acct(RW, S, P)
 #define generic_end_io_acct(Q, RW, P, J)  (void) Q; generic_end_io_acct(RW, P, J)
 #elif !defined(COMPAT_HAVE_GENERIC_START_IO_ACCT_W_QUEUE)
-#ifndef __disk_stat_inc
 static inline void generic_start_io_acct(struct request_queue *q, int rw, unsigned long sectors,
 					 struct hd_struct *part)
 {
@@ -2135,9 +2122,8 @@ static inline void generic_end_io_acct(struct request_queue *q, int rw, struct h
 	part_stat_unlock();
 #endif
 }
-#endif /* __disk_stat_inc */
 #endif /* COMPAT_HAVE_GENERIC_START_IO_ACCT */
-
+#endif /* !COMPAT_HAVE_BIO_START_IO_ACCT */
 
 #ifndef COMPAT_SOCK_CREATE_KERN_HAS_FIVE_PARAMETERS
 #define sock_create_kern(N,F,T,P,S) sock_create_kern(F,T,P,S)
@@ -2157,6 +2143,11 @@ static inline int simple_positive(struct dentry *dentry)
 }
 #endif
 #endif
+
+#ifdef COMPAT___VMALLOC_HAS_2_PARAMS
+#define __vmalloc(s, g, p) __vmalloc(s, g)
+#endif
+
 
 #ifndef COMPAT_HAVE_IS_VMALLOC_ADDR
 static inline int is_vmalloc_addr(const void *x)
@@ -2341,35 +2332,21 @@ static inline struct inode *d_inode(struct dentry *dentry)
 #endif
 
 
-#if !(defined(COMPAT_HAVE_AHASH_REQUEST_ON_STACK) && \
-      defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
+#if !(defined(COMPAT_HAVE_SHASH_DESC_ON_STACK) &&    \
       defined(COMPAT_HAVE_SHASH_DESC_ZERO))
 #include <crypto/hash.h>
 
-#ifndef COMPAT_HAVE_AHASH_REQUEST_ON_STACK
-#define AHASH_REQUEST_ON_STACK(name, ahash)			   \
-	char __##name##_desc[sizeof(struct ahash_request) +	   \
-		crypto_ahash_reqsize(ahash)] CRYPTO_MINALIGN_ATTR; \
-	struct ahash_request *name = (void *)__##name##_desc
-#endif
-
 #ifndef COMPAT_HAVE_SHASH_DESC_ON_STACK
-#define SHASH_DESC_ON_STACK(shash, ctx)				  \
-	char __##shash##_desc[sizeof(struct shash_desc) +	  \
-		crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
-	struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
+#define SHASH_DESC_ON_STACK(shash, ctx)                  \
+    char __##shash##_desc[sizeof(struct shash_desc) +      \
+        crypto_shash_descsize(ctx)] CRYPTO_MINALIGN_ATTR; \
+    struct shash_desc *shash = (struct shash_desc *)__##shash##_desc
 #endif
 
 #ifndef COMPAT_HAVE_SHASH_DESC_ZERO
 #ifndef barrier_data
 #define barrier_data(ptr) barrier()
 #endif
-static inline void ahash_request_zero(struct ahash_request *req)
-{
-	/* memzero_explicit(...) */
-	memset(req, 0, sizeof(*req) + crypto_ahash_reqsize(crypto_ahash_reqtfm(req)));
-	barrier_data(req);
-}
 
 static inline void shash_desc_zero(struct shash_desc *desc)
 {
@@ -2449,6 +2426,15 @@ struct log_rolling_file_list {
 	char *fileName;
 };
 
+
+#ifndef COMPAT_HAVE_SET_FS
+#define get_fs()	force_uaccess_begin()	
+#define set_fs(fs)	force_uaccess_end(fs)
+#endif
+
+#ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS
+#define thaw_bdev(bdev, sb)	thaw_bdev(bdev)
+#endif
 #endif
 
 #endif

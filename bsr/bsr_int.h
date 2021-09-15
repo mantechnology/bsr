@@ -1660,10 +1660,10 @@ struct bsr_connection {
 	struct timer_list connect_timer;
 
 	struct crypto_shash *cram_hmac_tfm;
-	struct crypto_ahash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
-	struct crypto_ahash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
-	struct crypto_ahash *csums_tfm;
-	struct crypto_ahash *verify_tfm;
+	struct crypto_shash *integrity_tfm;  /* checksums we compute, updates protected by connection->mutex[DATA_STREAM] */
+	struct crypto_shash *peer_integrity_tfm;  /* checksums we verify, only accessed from receiver thread  */
+	struct crypto_shash *csums_tfm;
+	struct crypto_shash *verify_tfm;
 	void *int_dig_in;
 	void *int_dig_vv;
 
@@ -2850,6 +2850,22 @@ extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
+
+static inline struct request_queue *bsr_blk_alloc_queue(void) 
+{
+#ifdef _WIN
+	return kzalloc(sizeof(struct request_queue), 0, 'E5SB');
+#else // _LIN
+#if defined(COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST)
+	return blk_alloc_queue(GFP_KERNEL);
+#elif defined(COMPAT_BLK_ALLOC_QUEUE_HAS_2_PARAMS)
+	return blk_alloc_queue(bsr_make_request, NUMA_NO_NODE);
+#else
+	return blk_alloc_queue(NUMA_NO_NODE);
+#endif
+#endif
+}
+
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, bool ov_done)
 {
 	if (peer_device->ov_last_oos_size) {
@@ -2930,9 +2946,9 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 	}
 }
 
-extern void bsr_csum_bio(struct crypto_ahash *, struct bsr_request *, void *);
+extern void bsr_csum_bio(struct crypto_shash *, struct bsr_request *, void *);
 
-extern void bsr_csum_pages(struct crypto_ahash *, struct bsr_peer_request *, void *);
+extern void bsr_csum_pages(struct crypto_shash *, struct bsr_peer_request *, void *);
 
 /* worker callbacks */
 extern int w_e_end_data_req(struct bsr_work *, int);
@@ -3181,6 +3197,7 @@ extern void connect_timer_fn(BSR_TIMER_FN_ARG);
 /* bsr_proc.c */
 extern struct proc_dir_entry *bsr_proc;
 extern const struct file_operations bsr_proc_fops;
+int bsr_seq_show(struct seq_file *seq, void *v);
 #endif
 
 typedef enum { RECORD_RS_FAILED, SET_OUT_OF_SYNC, SET_IN_SYNC } update_sync_bits_mode;
@@ -3334,6 +3351,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			break;
 		}
 		/* NOTE fall through for BSR_META_IO_ERROR or BSR_FORCE_DETACH */
+		/* Fall through */
 	case EP_DETACH:
 	case EP_CALL_HELPER:
 		/* Remember whether we saw a READ or WRITE error.
@@ -3635,6 +3653,13 @@ bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *pe
 extern void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 extern void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 
+// BSR-784
+#if defined(_WIN) || defined(COMPAT_FORCE_SIG_HAS_2_PARAMS)
+#define bsr_force_sig(sig, task) force_sig(sig, task)
+#else
+#define bsr_force_sig(sig, task) force_sig(sig)
+#endif
+
 /* To get the ack_receiver out of the blocking network stack,
  * so it can change its sk_rcvtimeo from idle- to ping-timeout,
  * and send a ping, we need to send a signal.
@@ -3643,7 +3668,7 @@ static inline void wake_ack_receiver(struct bsr_connection *connection)
 {
 	struct task_struct *task = connection->ack_receiver.task;
 	if (task && get_t_state(&connection->ack_receiver) == RUNNING)
-		force_sig(SIGXCPU, task);
+		bsr_force_sig(SIGXCPU, task);
 }
 
 static inline void request_ping(struct bsr_connection *connection)

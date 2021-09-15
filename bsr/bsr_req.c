@@ -28,42 +28,30 @@
 
 static bool bsr_may_do_local_read(struct bsr_device *device, sector_t sector, int size);
 
-#ifndef __disk_stat_inc
 /* Update disk stats at start of I/O request */
 static void _bsr_start_io_acct(struct bsr_device *device, struct bsr_request *req)
 {
+#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
+	req->start_jif = bio_start_io_acct(req->master_bio);
+#else
 	struct request_queue *q = device->rq_queue;
-
 	generic_start_io_acct(q, bio_data_dir(req->master_bio), req->i.size >> 9,
 		(struct hd_struct*)&device->vdisk->part0);
+#endif
 }
 
 /* Update disk stats when completing request upwards */
 static void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
-{
+{	
+#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
+	bio_end_io_acct(req->master_bio, req->start_jif);
+#else
 	struct request_queue *q = device->rq_queue;
 	generic_end_io_acct(q, bio_data_dir(req->master_bio),
 		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
-}
-#else
-static void _bsr_start_io_acct(struct bsr_device *device, struct bsr_request *req)
-{
-	const int rw = bio_data_dir(req->master_bio);
-	BUILD_BUG_ON(sizeof(atomic_t) != sizeof(device->vdisk->in_flight));
-	disk_stat_inc(device->vdisk, ios[rw]);
-	disk_stat_add(device->vdisk, sectors[rw], req->i.size >> 9);
-	disk_round_stats(device->vdisk);
-	atomic_inc((atomic_t*)&device->vdisk->in_flight);
-}
-static void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
-{
-	const int rw = bio_data_dir(req->master_bio);
-	unsigned long duration = jiffies - req->start_jif;
-	disk_stat_add(device->vdisk, ticks[rw], duration);
-	disk_round_stats(device->vdisk);
-	atomic_dec((atomic_t*)&device->vdisk->in_flight);
-}
 #endif
+}
+
 
 static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bio_src)
 {
@@ -1531,7 +1519,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			break;
 		}
 		/* else, fall through to BARRIER_ACKED */
-
+		/* Fall through */
 	case BARRIER_ACKED:
 		/* barrier ack for READ requests does not make sense */
 		if (!(req->rq_state[0] & RQ_WRITE))
