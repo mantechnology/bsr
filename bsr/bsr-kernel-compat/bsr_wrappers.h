@@ -737,6 +737,11 @@ static inline void crypto_free_shash(struct crypto_shash *tfm)
 {
 	crypto_free_hash(tfm);
 }
+
+static inline unsigned int crypto_shash_digestsize(struct crypto_shash *tfm)
+{
+    return crypto_hash_digestsize(tfm);
+}
 #endif
 
 #endif
@@ -916,9 +921,11 @@ static inline int backport_bitmap_parse(const char *buf, unsigned int buflen,
 #endif
 
 #ifndef COMPAT_HAVE_PROC_CREATE_SINGLE
+#ifdef _LIN
 extern struct proc_dir_entry *proc_create_single(const char *name, umode_t mode,
         struct proc_dir_entry *parent,
         int (*show)(struct seq_file *, void *));
+#endif
 #endif
 
 #ifndef COMPAT_HAVE_BLK_QUEUE_MAX_HW_SECTORS
