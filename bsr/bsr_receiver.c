@@ -9792,6 +9792,8 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 			if (peer_md->bitmap_uuid != 0) {
 				bsr_info(13, BSR_LC_UUID, peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)", current_uuid, peer_md->bitmap_uuid);
 				bsr_uuid_set_bitmap(peer_device, 0);
+				// BSR-785 notify uuid when bitmap_uuid is removed
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
 		}
 
