@@ -294,9 +294,14 @@ struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_S
 		} else {
 			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
-#endif
+		// BSR-787 skip if path is established
+		if (addr_equal(&path->peer_addr, addr) && !path->established)
+			return path;
+#else // _LIN
 		if (addr_equal(&path->peer_addr, addr))
 			return path;
+#endif
+		
 	}
 
 	return NULL;
