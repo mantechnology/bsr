@@ -98,6 +98,7 @@ void usage()
 		"   /watch {types} [/scroll]\n"
 		"   /report {types} [/f {filename}] [/d {YYYY-MM-DD}] [/s {hh:mm[:ss]}] [/e {hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
+		"   /get {all, period, file_size, file_cnt}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
 #ifdef _WIN
@@ -833,6 +834,38 @@ long GetOptionValue(enum set_option_type option_type)
 #endif
 }
 
+// BSR-788 print bsrmon options value
+static void PrintOptionValue(char * option)
+{
+	bool print_all = false;
+	long value = 0;
+	if (strcmp(option, "all") == 0) {
+		print_all = true;
+	} 
+	
+	if (print_all || strcmp(option, "period") == 0) {
+		value = GetOptionValue(PERIOD);
+		if (value <= 0)
+			value = DEFAULT_BSRMON_PERIOD;
+		printf("period : %ld sec\n", value);
+	}
+	if (print_all || strcmp(option, "file_size") == 0) {
+		value = GetOptionValue(FILE_ROLLING_SIZE);
+		if (value <= 0)
+			value = DEFAULT_FILE_ROLLING_SIZE;
+		printf("file_size : %ld MB\n", value);
+	}
+	if (print_all || strcmp(option, "file_cnt") == 0) {
+		value = GetOptionValue(FILE_ROLLING_CNT);
+		if (value <= 0)
+			value = DEFAULT_FILE_ROLLONG_CNT;
+		printf("file_cnt : %ld\n", value);
+	}
+
+	if (!value)
+		usage();
+}
+
 // BSR-695
 static void SetBsrmonRun(unsigned int run)
 {
@@ -1129,6 +1162,16 @@ int main(int argc, char* argv[])
 				}
 				else
 					usage();
+			}
+			else
+				usage();
+		}
+		// BSR-788
+		else if (!strcmp(argv[argIndex], "/get")) {
+			argIndex++;
+
+			if (argIndex < argc) {
+				PrintOptionValue(argv[argIndex]);
 			}
 			else
 				usage();
