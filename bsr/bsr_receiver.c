@@ -8782,8 +8782,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		// DW-1085 fix resync stop in the state of 'PausedSyncS/Behind'.
 		// L_PAUSED_SYNC_S also call bsr_start_resync(). L_BEHIND will transition to L_PAUSED_SYNC_T.
 		(peer_state.conn == L_SYNC_SOURCE || peer_state.conn == L_PAUSED_SYNC_S) &&
-		// DW-2003 resync is also initiated when the current status is L_ESTABLISHED.
-		(old_peer_state.conn == L_ESTABLISHED || old_peer_state.conn == L_BEHIND)) {
+		(old_peer_state.conn == L_BEHIND)) {
 		bsr_info(95, BSR_LC_RESYNC_OV, peer_device, "Peer is SyncSource. change to SyncTarget"); // DW-1518
 		bsr_start_resync(peer_device, L_SYNC_TARGET);
 		return 0;

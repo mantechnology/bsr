@@ -1768,8 +1768,10 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	spin_lock_irq(&device->resource->req_lock);
 
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
-	if (repl_state[NOW] == L_AHEAD) {
-		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
+	// BSR-789 also keep the L_BEHIND state. fix DW-2003 (prevent resync stuck in SyncSource/Established)
+	if (repl_state[NOW] == L_AHEAD || repl_state[NOW] == L_BEHIND) {
+		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, 
+			"Resync does not finished because the replication status is %s.", bsr_repl_str(repl_state[NOW])); // DW-1518
 		put_ldev(device);
 		spin_unlock_irq(&device->resource->req_lock);	
 		return 1;
