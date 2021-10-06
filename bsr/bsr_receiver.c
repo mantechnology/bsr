@@ -8784,9 +8784,18 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		(peer_state.conn == L_SYNC_SOURCE || peer_state.conn == L_PAUSED_SYNC_S) &&
 		// DW-2003 resync is also initiated when the current status is L_ESTABLISHED.
 		(old_peer_state.conn == L_ESTABLISHED || old_peer_state.conn == L_BEHIND)) {
-		bsr_info(95, BSR_LC_RESYNC_OV, peer_device, "Peer is SyncSource. change to SyncTarget"); // DW-1518
-		bsr_start_resync(peer_device, L_SYNC_TARGET);
-		return 0;
+
+		// BSR-789 resync starts only when the peer's replication state changes from Ahead to SyncSource.
+		// TODO temporary fix. the conditions sufficient? 
+		if (peer_device->last_repl_state == L_AHEAD) {
+			bsr_info(95, BSR_LC_RESYNC_OV, peer_device, "Peer is SyncSource. change to SyncTarget"); // DW-1518
+			bsr_start_resync(peer_device, L_SYNC_TARGET);
+			peer_device->last_repl_state = peer_state.conn;
+			return 0;
+		} else {
+			bsr_info(210, BSR_LC_RESYNC_OV, peer_device, 
+				"peer is SyncSource, but not change to SyncTarget because peer's old replication state is not Ahead.");
+		}
 	}
 
 	/* peer says his disk is inconsistent, while we think it is uptodate,
