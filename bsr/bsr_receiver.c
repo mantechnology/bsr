@@ -4777,14 +4777,16 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		if (err)
 			goto fail2;
 
-		// BSR-448 Check for io failure on the SyncTarget.
-		if(block_id == ID_CSUM_SYNC_IO_ERROR) {
-			bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
-			goto fail2;
-		}
-
 		if (pi->cmd == P_CSUM_RS_REQUEST) {
 			D_ASSERT(device, connection->agreed_pro_version >= 89);
+
+			// BSR-448 Check for io failure on the SyncTarget.
+			// BSR-791 Check only when P_CSUM_RS_REQUEST
+			if(block_id == ID_CSUM_SYNC_IO_ERROR) {
+				bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
+				goto fail2;
+			}
+
 			peer_req->w.cb = w_e_end_csum_rs_req;
 			/* remember to report stats in bsr_resync_finished */
 			peer_device->use_csums = true;
