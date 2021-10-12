@@ -153,8 +153,13 @@ run_bsrmon()
 			fi
 			echo $mon_run
 			if [ $mon_run -eq 1 ] ; then
-				mkdir /var/log/bsr/perfmon 2> /dev/null
-				nohup /lib/bsr/bsrmon-run > /dev/null &
+				if [ ! -d /var/log/bsr/perfmon ] ; then
+					mkdir /var/log/bsr/perfmon 2> /dev/null
+				fi
+				check_ps=`ps -ef | grep bsrmon-run | grep -v grep | wc -l`
+				if [ $check_ps == "0" ]; then
+					nohup /lib/bsr/bsrmon-run > /dev/null &
+				fi
 			fi
 		;;
 		stop)
@@ -270,6 +275,7 @@ case "$1" in
 	run_bsrmon stop
 
 	for try in 1 2; do
+		stop_failed=0
 	    if [ -e $PROC_BSR ] ; then
 		[[ $try = 2 ]] && echo "Retrying once..."
 		# bypass bsradm and bsr config file and everything,
@@ -289,16 +295,21 @@ case "$1" in
 					*) echo "$M" >&2 ;;
 					esac
 				done
-				$BSRSETUP down "$res"
+				$BSRSETUP down "$res" || stop_failed=1
 			else
 				echo skip down $res
 			fi
 		done
 		_udev_settle &> /dev/null
-		if [ -d /sys/module/bsr/holders ]; then
-			(cd /sys/module/bsr/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
-		fi
-		$RMMOD bsr && break
+		
+		# BSR-792 disable kernel module unload
+		# if [ -d /sys/module/bsr/holders ]; then
+		#	(cd /sys/module/bsr/holders; for tr in *; do [ -d ${tr} ] && ${RMMOD} ${tr}; done)
+		# fi
+		# if grep -qw drbd /proc/modules; then
+		#	$RMMOD bsr || stop_failed=1
+		# fi
+		[ $stop_failed = 0 ] && break
 	    fi
 	done
 	run_hook stop
