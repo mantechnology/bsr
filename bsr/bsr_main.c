@@ -722,6 +722,10 @@ static int bsr_thread_setup(void *arg)
 
 	KeSetEvent(&thi->start_event, 0, FALSE);
 	KeWaitForSingleObject(&thi->wait_event, Executive, KernelMode, FALSE, NULL);
+#else // _LIN
+	// BSR-793 at the start of the thread to explicitly allow the desired signals
+	allow_kernel_signal(BSR_SIGKILL);
+	allow_kernel_signal(SIGXCPU);
 #endif
 
 restart:
@@ -915,7 +919,7 @@ void _bsr_thread_stop(struct bsr_thread *thi, int restart, int wait)
 		smp_mb();
 		init_completion(&thi->stop);
 		if (thi->task != current)
-			bsr_force_sig(BSR_SIGKILL, thi->task);
+			send_sig(BSR_SIGKILL, thi->task, 1); // BSR-793 use send_sig not force_sig
 		else {
 		//	bsr_info(22, BSR_LC_ETC, NO_OBJECT,"cur=(%s) thi=(%s) stop myself", current->comm, thi->name ); 
 		}
