@@ -3653,11 +3653,9 @@ bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *pe
 extern void bsr_flush_workqueue(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 extern void bsr_flush_workqueue_timeout(struct bsr_resource* resource, struct bsr_work_queue *work_queue);
 
-// BSR-784
-#if defined(_WIN) || defined(COMPAT_FORCE_SIG_HAS_2_PARAMS)
-#define bsr_force_sig(sig, task) force_sig(sig, task)
-#else
-#define bsr_force_sig(sig, task) force_sig(sig)
+// BSR-793
+#ifdef _WIN
+#define send_sig(sig, task, n) force_sig(sig, task)
 #endif
 
 #ifdef _LIN
