@@ -151,19 +151,18 @@ run_bsrmon()
 			if [ -f $mon_file ]; then
 				mon_run=`cat $mon_file`
 			fi
-			echo $mon_run
 			if [ $mon_run -eq 1 ] ; then
 				if [ ! -d /var/log/bsr/perfmon ] ; then
 					mkdir /var/log/bsr/perfmon 2> /dev/null
 				fi
 				check_ps=`ps -ef | grep bsrmon-run | grep -v grep | wc -l`
 				if [ $check_ps == "0" ]; then
-					nohup /lib/bsr/bsrmon-run > /dev/null &
+					nohup bsrmon-run > /dev/null 2>&1 &
 				fi
 			fi
 		;;
 		stop)
-			for pid in `pgrep -f bsrmon-run`
+			for pid in `pgrep bsrmon-run`
 			do
 				kill -TERM $pid >/dev/null 2>&1;
 			done
@@ -215,54 +214,28 @@ case "$1" in
 		
 	done
 
-	$BSRADM adjust-with-progress $RES_LIST
-	[[ $? -gt 1 ]] && exit 20
+	if [ -n "$RES_LIST" ]; then
+		$BSRADM adjust-with-progress $RES_LIST
+		[[ $? -gt 1 ]] && exit 20
 
-	# make sure udev has time to create the device files
-	# FIXME this probably should, on platforms that have it,
-	# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
+		# make sure udev has time to create the device files
+		# FIXME this probably should, on platforms that have it,
+		# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
 
-	for DEVICE in `$BSRADM sh-dev all`; do
-	    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
-	    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
-		sleep 1
-		UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
-	    done
-	done
-
-
-	[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
-	run_hook start_before-wait
-	$BSRADM wait-con-int # User interruptible version of wait-connect all
-	run_hook start
-	
-	# Now handle stacked devices, if any
-	STACKED_RESOURCES=""
-	# no point trying stacking, if we don't have at least one primary.
-	if grep -w Primary /proc/bsr &> /dev/null; then
-	    # heuristic: don't mess with dinosaurs # :-(
-	    if ! grep -Ee '\<bsrdisk|bsrupper\>' /etc/ha.d/haresources &> /dev/null; then
-		STACKED_RESOURCES=`$BSRADM -S sh-resources`
-	    fi
-	fi
-	if [[ $STACKED_RESOURCES ]] ; then
-	    log_daemon_msg "Starting stacked BSR resources"
-	    DEVICES=`$BSRADM -S sh-dev all`
-	    $BSRADM -S adjust-with-progress all
-	    if [[ $? -gt 1 ]] ; then
-		log_end_msg 1
-	    else
-		for DEVICE in $DEVICES; do
-		    UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
-		    while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
+		for DEVICE in `$BSRADM sh-dev "$RES_LIST"`; do
+			UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
+			while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
 			sleep 1
 			UDEV_TIMEOUT_LOCAL=$(( $UDEV_TIMEOUT_LOCAL-1 ))
-		    done
+			done
 		done
-		$BSRADM -S wait-con-int # User interruptible version of wait-connect all
-		$BSRADM -S sh-b-pri all || true
-		log_end_msg 0
-	    fi
+
+
+		[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
+		run_hook start_before-wait
+		$BSRADM wait-con-int # User interruptible version of wait-connect all
+		run_hook start
+		
 	fi
 
 	run_bsrmon start

@@ -498,10 +498,10 @@ static bool is_running()
 		fprintf(stderr, "Failed to IOCTL_MVOL_GET_BSRMON_RUN\n");
 		return false;
 	} else if (run) {
-		fprintf(stdout, "bsr performance monitor is running.\n");
+		fprintf(stdout, "bsr performance monitor is enabled.\n");
 		return true;
 	} else {
-		fprintf(stdout, "bsr performance monitor is not running.\n");
+		fprintf(stdout, "bsr performance monitor is disabled.\n");
 		return false;
 	}
 
@@ -920,8 +920,10 @@ static void SetBsrmonRun(unsigned int run)
 static pid_t GetRunningPid() {
 	char buf[10] = {0,};
 	pid_t pid;
-	FILE *cmd_pipe = popen("pgrep -f bsrmon-run", "r");
+	FILE *cmd_pipe = popen("pgrep bsrmon-run", "r");
 
+	if (!cmd_pipe)
+		return 0;
 	fgets(buf, MAX_PATH, cmd_pipe);
 	pid = strtoul(buf, NULL, 10);
 	pclose(cmd_pipe);
@@ -944,10 +946,10 @@ static void StartMonitor()
 	pid = GetRunningPid();
 	
 	if (pid > 0) {
-		fprintf(stderr, "Aleady running (pid=%d)\n", pid);
+		fprintf(stderr, "Already running (pid=%d)\n", pid);
 		return;
 	}
-	sprintf(buf, "nohup /lib/bsr/bsrmon-run >/dev/null 2>&1 &");
+	sprintf(buf, "nohup bsrmon-run >/dev/null 2>&1 &");
 
 	if (system(buf) !=0) {
 		fprintf(stderr, "Failed \"%s\"\n", buf);
@@ -1196,7 +1198,17 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/status")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				is_running();
+				if (is_running()) {
+#ifdef _LIN
+					// BSR-796 print whether the bsrmon-run script is running
+					pid_t pid = GetRunningPid();
+					if (pid > 0)
+						fprintf(stderr, "bsrmon-run script is running (pid=%d)\n", pid);
+					else
+						fprintf(stdout, "bsrmon-run script is not running\n");
+
+#endif					
+				}
 			}
 			else
 				usage();
