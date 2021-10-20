@@ -128,6 +128,7 @@ This packages includes the BSR administration tools.
 %{_sbindir}/bsr-overview
 %{_sbindir}/bsrwatch
 %{_sbindir}/bsrsupport
+%{_sbindir}/bsrmon-run
 %dir %{_prefix}/lib/bsr
 %{_prefix}/lib/bsr/outdate-peer.sh
 %{_prefix}/lib/bsr/snapshot-resync-target-lvm.sh
@@ -141,7 +142,6 @@ This packages includes the BSR administration tools.
 %{_prefix}/lib/bsr/notify-pri-lost.sh
 %{_prefix}/lib/bsr/notify-pri-on-incon-degr.sh
 %{_prefix}/lib/bsr/notify.sh
-%{_prefix}/lib/bsr/bsrmon-run
 %dir %{_var}/lib/bsr
 %ghost %dir %{_var}/run/bsr
 
