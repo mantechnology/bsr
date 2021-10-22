@@ -11599,16 +11599,18 @@ int bsr_ack_receiver(struct bsr_thread *thi)
 	unsigned int header_size = bsr_header_size(connection);
 	int expect   = header_size;
 	bool ping_timeout_active = false;
-#ifdef _LIN
-	struct sched_param param = { .sched_priority = 2 };
-#endif
 	struct bsr_transport *transport = &connection->transport;
 	struct bsr_transport_ops *tr_ops = transport->ops;
 
 #ifdef _LIN
+#ifdef COMPAT_HAVE_SCHED_SET_FIFO
+	sched_set_fifo_low(current);
+#else 
+	struct sched_param param = { .sched_priority = 2 };
 	rv = sched_setscheduler(current, SCHED_RR, &param);
 	if (rv < 0)
 		bsr_err(60, BSR_LC_PROTOCOL, connection, "bsr_ack_receiver: ERROR set priority, ret=%d", rv);
+#endif
 #endif
 
 	while (get_t_state(thi) == RUNNING) {
