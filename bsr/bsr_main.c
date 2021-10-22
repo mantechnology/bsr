@@ -4732,7 +4732,11 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #endif
 	disk->private_data = device;
 #ifdef _LIN
-	device->this_bdev = bdget(MKDEV(BSR_MAJOR, minor));
+#ifdef COMPAT_HAVE_HD_STRUCT
+	device->this_bdev = bdget_disk(device->vdisk, 0);
+#else
+	device->this_bdev = bdgrab(device->vdisk->part0);
+#endif
 #endif
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);
