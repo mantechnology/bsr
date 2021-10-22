@@ -2648,7 +2648,7 @@ void bsr_rs_controller_reset(struct bsr_peer_device *peer_device)
 		bsr_backing_bdev_events(peer_device->device);
 #else // _LIN
 	peer_device->rs_last_events =
-		bsr_backing_bdev_events(peer_device->device->ldev->backing_bdev->bd_contains->bd_disk);
+		bsr_backing_bdev_events(peer_device->device->ldev->backing_bdev->bd_disk);
 #endif
 
 	/* Updating the RCU protected object in place is necessary since

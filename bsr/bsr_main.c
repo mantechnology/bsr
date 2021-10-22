@@ -4730,8 +4730,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	disk->private_data = device;
 #ifdef _LIN
 	device->this_bdev = bdget(MKDEV(BSR_MAJOR, minor));
-	/* we have no partitions. we contain only ourselves. */
-	device->this_bdev->bd_contains = device->this_bdev;
 #endif
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);

@@ -4587,7 +4587,7 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 	curr_events = bsr_backing_bdev_events(device)
 		- atomic_read(&device->rs_sect_ev);
 #else // _LIN
-	curr_events = bsr_backing_bdev_events(device->ldev->backing_bdev->bd_contains->bd_disk)
+	curr_events = bsr_backing_bdev_events(device->ldev->backing_bdev->bd_disk)
 		    - atomic_read(&device->rs_sect_ev);
 #endif
 
