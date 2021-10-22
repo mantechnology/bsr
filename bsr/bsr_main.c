@@ -3884,6 +3884,8 @@ void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 	gbShutdown = TRUE;
 }
 #endif
+
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 /**
  * bsr_congested() - Callback for the flusher thread
  * @congested_data:	User data
@@ -3948,6 +3950,7 @@ out:
 	return r;
 #endif
 }
+#endif
 
 static void bsr_init_workqueue(struct bsr_work_queue* wq)
 {
@@ -4740,7 +4743,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
 	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"The capacity of the create device(%p) is max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
+#endif
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
 	blk_queue_make_request(q, bsr_make_request);
