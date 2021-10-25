@@ -1209,7 +1209,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 	struct bsr_transport *transport = &peer_device->connection->transport;
 	ULONG_PTR bit;
 	sector_t sector;
-	const sector_t capacity = bsr_get_capacity(device->this_bdev);
+	const sector_t capacity = bsr_get_vdisk_capacity(device);
 	unsigned int max_bio_size, size;
 	int number, rollback_i;
 	int align, requeue = 0;
@@ -1440,7 +1440,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	int number, i, size;
 	ULONG_PTR bit;
 	sector_t sector;
-	const sector_t capacity = bsr_get_capacity(device->this_bdev);
+	const sector_t capacity = bsr_get_vdisk_capacity(device);
 	bool stop_sector_reached = false;
 	struct peer_device_conf *pdc;
 

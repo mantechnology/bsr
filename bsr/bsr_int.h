@@ -2069,7 +2069,9 @@ struct bsr_device {
 	struct bsr_backing_dev *ldev __protected_by(local);
 
 	struct request_queue *rq_queue;
+#ifdef _WIN
 	struct block_device *this_bdev;
+#endif
 	struct gendisk	    *vdisk;
 
 	ULONG_PTR last_reattach_jif;
@@ -3091,6 +3093,15 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 }
 #endif
 
+static __inline sector_t bsr_get_vdisk_capacity(struct bsr_device *device)
+{
+#ifdef _WIN
+	return bsr_get_capacity(device->this_bdev);
+#else // _LIN
+	return get_capacity(device->vdisk);
+#endif
+}
+
 static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
@@ -3135,9 +3146,16 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN
-	/* set_capacity(device->this_bdev->bd_disk, size); */
+#ifdef COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY
+	set_capacity_and_notify(device->vdisk, size);
+#else
 	set_capacity(device->vdisk, size);
-	device->this_bdev->bd_inode->i_size = (loff_t)size << 9;
+#ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
+	revalidate_disk_size(device->vdisk, false);
+#else
+	revalidate_disk(device->vdisk);
+#endif
+#endif
 #endif
 }
 

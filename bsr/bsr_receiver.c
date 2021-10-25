@@ -2247,7 +2247,7 @@ static struct bsr_peer_request *
 read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request_details *d) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	const uint64_t capacity = bsr_get_capacity(device->this_bdev);
+	const uint64_t capacity = bsr_get_vdisk_capacity(device);
 	struct bsr_peer_request *peer_req;
 	int err;
 	void *dig_in = peer_device->connection->int_dig_in;
@@ -4656,7 +4656,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	if (!peer_device)
 		return -EIO;
 	device = peer_device->device;
-	capacity = bsr_get_capacity(device->this_bdev);
+	capacity = bsr_get_vdisk_capacity(device);
 
 	sector = be64_to_cpu(p->sector);
 	size   = be32_to_cpu(p->blksize);
@@ -6610,7 +6610,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 	if (p_size)
 		peer_device->max_size = p_size;
 
-	cur_size = bsr_get_capacity(device->this_bdev);
+	cur_size = bsr_get_vdisk_capacity(device);
 	bsr_info(32, BSR_LC_PROTOCOL, device, "current_mydisk_size: %llu bytes", (unsigned long long)(cur_size << 9));
 	bsr_info(33, BSR_LC_PROTOCOL, peer_device, "peer_current_size: %llu bytes peer_user_size: %llu bytes peer_disk_size: %llu bytes peer_max_size: %llu bytes",
             (unsigned long long)(p_csize<<9),
@@ -6779,7 +6779,7 @@ static int receive_sizes(struct bsr_connection *connection, struct packet_info *
 		bsr_setup_order_type(device, be16_to_cpu(p->queue_order_type));
 	}
 
-	cur_size = bsr_get_capacity(device->this_bdev);
+	cur_size = bsr_get_vdisk_capacity(device);
 	
 	for_each_peer_device_ref(peer_device_it, im, device) {
 		struct bsr_connection *con_it = peer_device_it->connection;

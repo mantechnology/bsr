@@ -1578,7 +1578,7 @@ static bool bsr_may_do_local_read(struct bsr_device *device, sector_t sector, in
 	if (device->disk_state[NOW] != D_INCONSISTENT)
 		return false;
 	esector = sector + (size >> 9) - 1;
-	nr_sectors = bsr_get_capacity(device->this_bdev);
+	nr_sectors = bsr_get_vdisk_capacity(device);
 	D_ASSERT(device, sector  < nr_sectors);
 	D_ASSERT(device, esector < nr_sectors);
 
@@ -2296,7 +2296,7 @@ out:
 #ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.
 	 * we plug after submit, so we won't miss an unplug event */
-	bsr_plug_device(bdev_get_queue(device->this_bdev));
+	bsr_plug_device(device->vdisk->queue);
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);

@@ -988,7 +988,7 @@ consider_sending_peers_in_sync(struct bsr_peer_device *peer_device, unsigned int
 	}
 
 	size_sect = (int)(min(BM_SECT_PER_EXT,
-			bsr_get_capacity(device->this_bdev) - BM_EXT_TO_SECT(rs_enr)));
+			bsr_get_vdisk_capacity(device) - BM_EXT_TO_SECT(rs_enr)));
 
 	for_each_peer_device_ref(p, im, device) {
 		if (mask & NODE_MASK(p->node_id))
@@ -1409,7 +1409,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
 
-	nr_sectors = bsr_get_capacity(device->this_bdev);
+	nr_sectors = bsr_get_vdisk_capacity(device);
 	esector = sector + (size >> 9) - 1;
 
 	if (!expect(peer_device, sector < nr_sectors)) {
@@ -1504,7 +1504,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 
 	mask &= (1 << device->bitmap->bm_max_peers) - 1;
 
-	nr_sectors = bsr_get_capacity(device->this_bdev);
+	nr_sectors = bsr_get_vdisk_capacity(device);
 	esector = sector + (size >> 9) - 1;
 
 	if (!expect(device, sector < nr_sectors)) {

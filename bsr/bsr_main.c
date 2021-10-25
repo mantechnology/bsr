@@ -2058,7 +2058,7 @@ int bsr_send_sizes(struct bsr_peer_device *peer_device,
 		p->c_size = 0;	
 	} 	
 	else {
-		p->c_size = cpu_to_be64(bsr_get_capacity(device->this_bdev));
+		p->c_size = cpu_to_be64(bsr_get_vdisk_capacity(device));
 	}
 	
 	p->max_bio_size = cpu_to_be32(max_bio_size);
@@ -3660,8 +3660,8 @@ void bsr_destroy_device(struct kref *kref)
 
 	/* cleanup stuff that may have been allocated during
 	 * device (re-)configuration or state changes */
-	if (device->this_bdev) {
 #ifdef _WIN
+	if (device->this_bdev) {
 		// DW-1109 put bdev when device is being destroyed.
 		// DW-1300 nullify bsr_device of volume extention when destroy bsr device.
 		PVOLUME_EXTENSION pvext = device->this_bdev->bd_disk->pDeviceExtension;
@@ -3673,10 +3673,8 @@ void bsr_destroy_device(struct kref *kref)
 
 		blkdev_put(device->this_bdev, 0);
 		device->this_bdev = NULL;
-#else // _LIN
-		bdput(device->this_bdev);
-#endif
 	}
+#endif
 
 	bsr_backing_dev_free(device, device->ldev);
 	device->ldev = NULL;
@@ -4732,11 +4730,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #endif
 	disk->private_data = device;
 #ifdef _LIN
-#ifdef COMPAT_HAVE_HD_STRUCT
-	device->this_bdev = bdget_disk(device->vdisk, 0);
-#else
-	device->this_bdev = bdgrab(device->vdisk->part0);
-#endif
 #endif
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);
