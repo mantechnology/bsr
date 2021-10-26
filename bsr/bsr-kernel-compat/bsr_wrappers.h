@@ -2255,7 +2255,9 @@ bsr_ib_create_cq(struct ib_device *device,
 
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
+#ifndef bio_set_dev
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
+#endif
 #endif
 
 #ifdef COMPAT_HAVE_TIMER_SETUP

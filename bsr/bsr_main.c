@@ -4750,7 +4750,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     blk_queue_write_cache(q, true, true);
 
 #ifdef _LIN
-	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 	blk_queue_merge_bvec(q, bsr_merge_bvec);
 #endif
