@@ -2393,7 +2393,15 @@ static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
 	       struct inode *new_dir, struct dentry *new_dentry)
 {
-#if defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
+#if defined(COMPAT_HAVE_STRUCT_RENAMEDATA)
+	struct renamedata rd = {
+			.old_dir	= old_dir,
+			.old_dentry	= old_dentry,
+			.new_dir	= new_dir,
+			.new_dentry	= new_dentry,
+	}
+	return vfs_rename(&rd);
+#elif defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
 	return vfs_rename(old_dir, old_dentry,
 	    new_dir, new_dentry);
 #elif defined(COMPAT_VFS_RENAME_HAS_5_PARAMS)
