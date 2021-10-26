@@ -2399,7 +2399,7 @@ static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
 			.old_dentry	= old_dentry,
 			.new_dir	= new_dir,
 			.new_dentry	= new_dentry,
-	}
+	};
 	return vfs_rename(&rd);
 #elif defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
 	return vfs_rename(old_dir, old_dentry,
