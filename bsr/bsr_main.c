@@ -5204,7 +5204,7 @@ out2:
 }
 #else // LIN BSR-597
 
-static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
+static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 {
 	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
 	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);

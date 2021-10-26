@@ -2451,6 +2451,12 @@ struct log_rolling_file_list {
 #ifndef COMPAT_HAVE_BIO_MAX_VECS
 #define BIO_MAX_VECS BIO_MAX_PAGES
 #endif
+
+#ifdef COMPAT_LIST_SORT_USE_CONST_PTR
+#define list_cmp_t const struct list_head
+#else
+#define list_cmp_t struct list_head
+#endif
 #endif
 
 #endif
