@@ -2597,8 +2597,9 @@ __bsr_next_peer_device_ref(u64 *, struct bsr_peer_device *, struct bsr_device *)
  * A followup commit may allow even bigger BIO sizes,
  * once we thought that through. */
 #ifdef _LIN
-#if BSR_MAX_BIO_SIZE > (BIO_MAX_PAGES << PAGE_SHIFT)
-#error Architecture not supported: BSR_MAX_BIO_SIZE > (BIO_MAX_PAGES << PAGE_SHIFT)
+#define BSR_BIO_MAX_PAGES (BIO_MAX_VECS << PAGE_SHIFT)
+#if BSR_MAX_BIO_SIZE > BSR_BIO_MAX_PAGES
+#error Architecture not supported: BSR_MAX_BIO_SIZE > (BIO_MAX_VECS << PAGE_SHIFT)
 #endif
 #endif
 #define BSR_MAX_SIZE_H80_PACKET (1U << 15) /* Header 80 only allows packets up to 32KiB data */

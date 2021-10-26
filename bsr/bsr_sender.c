@@ -3676,7 +3676,7 @@ static void re_init_if_first_write(struct bsr_connection *connection, int epoch)
 		connection->send.current_epoch_writes = 0;
 		connection->send.last_sent_barrier_jif = jiffies;
 		connection->send.current_dagtag_sector =
-			connection->resource->dagtag_sector - ((BIO_MAX_PAGES << PAGE_SHIFT) >> 9) - 1;
+			connection->resource->dagtag_sector - ((BIO_MAX_VECS << PAGE_SHIFT) >> 9) - 1;
 	}
 }
 

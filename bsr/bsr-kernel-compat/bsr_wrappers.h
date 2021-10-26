@@ -2435,6 +2435,10 @@ struct log_rolling_file_list {
 #ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS
 #define thaw_bdev(bdev, sb)	thaw_bdev(bdev)
 #endif
+
+#ifndef COMPAT_HAVE_BIO_MAX_VECS
+#define BIO_MAX_VECS BIO_MAX_PAGES
+#endif
 #endif
 
 #endif

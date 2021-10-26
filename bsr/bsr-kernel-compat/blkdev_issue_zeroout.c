@@ -51,7 +51,7 @@ int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 	ret = 0;
 	while (nr_sects != 0) {
 		bio = bio_alloc(gfp_mask,
-				min(nr_sects, (sector_t)BIO_MAX_PAGES));
+				min(nr_sects, (sector_t)BIO_MAX_VECS));
 		if (!bio) {
 			ret = -ENOMEM;
 			break;
