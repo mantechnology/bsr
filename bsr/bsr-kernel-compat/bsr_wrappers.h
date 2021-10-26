@@ -2380,7 +2380,9 @@ static inline ssize_t bsr_write(struct file *file, void *buf, size_t count, loff
 // BSR-597
 static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 {
-#ifdef COMPAT_VFS_UNLINK_HAS_2_PARAMS
+#if defined(COMPAT_VFS_UNLINK_HAS_NS_PARAMS)
+		return vfs_unlink(&init_user_ns, dir, dentry, NULL);
+#elif defined(COMPAT_VFS_UNLINK_HAS_2_PARAMS)
 		return vfs_unlink(dir, dentry);
 #else
 		return vfs_unlink(dir, dentry, NULL);
