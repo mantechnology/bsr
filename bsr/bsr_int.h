@@ -3094,15 +3094,6 @@ static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 }
 #endif
 
-static __inline sector_t bsr_get_vdisk_capacity(struct bsr_device *device)
-{
-#ifdef _WIN
-	return bsr_get_capacity(device->this_bdev);
-#else // _LIN
-	return get_capacity(device->vdisk);
-#endif
-}
-
 static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 {
 #ifdef _WIN
@@ -3133,6 +3124,15 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 #else // _LIN
 	/* return bdev ? get_capacity(bdev->bd_disk) : 0; */
 	return bdev ? i_size_read(bdev->bd_inode) >> 9 : 0;
+#endif
+}
+
+static __inline sector_t bsr_get_vdisk_capacity(struct bsr_device *device)
+{
+#ifdef _WIN
+	return bsr_get_capacity(device->this_bdev);
+#else // _LIN
+	return get_capacity(device->vdisk);
 #endif
 }
 
