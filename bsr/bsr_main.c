@@ -4707,7 +4707,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	if (!q)
 		goto out_no_q;
 	device->rq_queue = q;
+#if defined(COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC) || defined(blk_queue_plugged)
 	q->queuedata   = device;
+#endif
 	disk = alloc_disk(1);
 	if (!disk)
 		goto out_no_disk;

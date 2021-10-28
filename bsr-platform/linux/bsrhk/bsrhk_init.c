@@ -40,6 +40,9 @@ static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode);
 
 const struct block_device_operations bsr_ops = {
 	.owner =   THIS_MODULE,
+#ifdef COMPAT_HAVE_SUBMIT_BIO
+	.submit_bio = bsr_submit_bio,
+#endif
 	.open =    bsr_mount,
 	.release = bsr_umount,
 };

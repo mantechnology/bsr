@@ -2772,7 +2772,11 @@ extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, U
 extern void __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, unsigned long);
 #endif
 
+#ifdef COMPAT_HAVE_SUBMIT_BIO
+extern blk_qc_t bsr_submit_bio(struct bio *bio);
+#else
 extern MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio);
+#endif
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 extern int bsr_merge_bvec(struct request_queue *, struct bvec_merge_data *, struct bio_vec *);
 #endif

@@ -979,10 +979,7 @@ int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
 
 	rcu_read_lock();
 	{
-#ifdef _LIN
 		/* reset device->congestion_reason */
-		bdi_rw_congested(device->rq_queue->backing_dev_info);
-#endif
 
 		nc = rcu_dereference(peer_device->connection->transport.net_conf);
 		wp = nc ? nc->wire_protocol - BSR_PROT_A + 'A' : ' ';
