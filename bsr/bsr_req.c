@@ -2746,7 +2746,7 @@ blk_qc_t bsr_submit_bio(struct bio *bio)
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #endif
 {
-#ifdef COMPAT_HAVE_BIO_BI_BDEV
+#if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 	struct bsr_device *device = bio->bi_bdev->bd_disk->private_data;
 #else
 	struct bsr_device *device = bio->bi_disk->private_data;
