@@ -91,6 +91,7 @@ install -m 0644 pki/bsr_signing_key_pub.der $RPM_BUILD_ROOT/etc/pki/mantech
 %endif
 
 mkdir -p $RPM_BUILD_ROOT/var/log/bsr
+mkdir -p $RPM_BUILD_ROOT/var/log/bsr/perfmon
 
 mkdir -p $RPM_BUILD_ROOT/etc/depmod.d
 echo "override bsr * weak-updates" \

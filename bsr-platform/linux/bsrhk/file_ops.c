@@ -482,9 +482,14 @@ long bsr_mkdir(const char *pathname, umode_t mode)
 	dentry = kern_path_create(AT_FDCWD, pathname, &path, LOOKUP_DIRECTORY);
 	if (IS_ERR(dentry)) 
 		return PTR_ERR(dentry);
-	err = vfs_mkdir(d_inode(path.dentry), dentry, mode);
-	done_path_create(&path, dentry);
+#ifdef COMPAT_VFS_MKDIR_HAS_NS_PARAMS
+	err = vfs_mkdir(&init_user_ns, d_inode(path.dentry), dentry, mode);
+
 #else
+	err = vfs_mkdir(d_inode(path.dentry), dentry, mode);
+#endif
+	done_path_create(&path, dentry);
+#else // old kernel (version < 3.1)
 	struct nameidata nd;
 	err = path_lookup(pathname, LOOKUP_PARENT, &nd);
 	if (err)

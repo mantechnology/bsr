@@ -14,3 +14,4 @@
 %endif
 %config /etc/depmod.d/bsr.conf
 %dir /var/log/bsr
+%dir /var/log/bsr/perfmon

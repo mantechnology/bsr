@@ -32,6 +32,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	char * super_block = NULL;
 	char disk_name[512] = {0};
 	mm_segment_t old_fs = get_fs();
+	struct block_device *bdev = NULL;
 	
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
 #ifdef COMPAT_HAVE_SET_FS
@@ -44,13 +45,21 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		goto out;
 	}
 
-	if(device->this_bdev->bd_super) {
+#ifdef COMPAT_HAVE_HD_STRUCT
+	bdev = bdget_disk(device->vdisk, 0);
+#else
+	bdev = bdgrab(device->vdisk->part0);
+#endif
+	if (bdev == NULL)
+		goto out;
+	
+	if(bdev->bd_super) {
 		// journal log flush
-		freeze_bdev(device->this_bdev);
+		freeze_bdev(bdev);
 	
 		// meta flush
-		fsync_bdev(device->this_bdev);
-		invalidate_bdev(device->this_bdev);
+		fsync_bdev(bdev);
+		invalidate_bdev(bdev);
 	}
 
 	super_block = read_superblock(fd);
@@ -84,9 +93,12 @@ close:
 	filp_close(fd, NULL);
 	set_fs(old_fs);
 
-	if(device->this_bdev->bd_super) {
-		thaw_bdev(device->this_bdev, device->this_bdev->bd_super);
+	if(bdev->bd_super) {
+		thaw_bdev(bdev, bdev->bd_super);
 	}
+	
+	if (bdev)
+		bdput(bdev);
 
 out:
 	if (bitmap_buf)

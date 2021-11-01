@@ -2255,7 +2255,9 @@ bsr_ib_create_cq(struct ib_device *device,
 
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
+#ifndef bio_set_dev
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
+#endif
 #endif
 
 #ifdef COMPAT_HAVE_TIMER_SETUP
@@ -2380,7 +2382,9 @@ static inline ssize_t bsr_write(struct file *file, void *buf, size_t count, loff
 // BSR-597
 static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 {
-#ifdef COMPAT_VFS_UNLINK_HAS_2_PARAMS
+#if defined(COMPAT_VFS_UNLINK_HAS_NS_PARAMS)
+		return vfs_unlink(&init_user_ns, dir, dentry, NULL);
+#elif defined(COMPAT_VFS_UNLINK_HAS_2_PARAMS)
 		return vfs_unlink(dir, dentry);
 #else
 		return vfs_unlink(dir, dentry, NULL);
@@ -2391,7 +2395,15 @@ static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
 	       struct inode *new_dir, struct dentry *new_dentry)
 {
-#if defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
+#if defined(COMPAT_HAVE_STRUCT_RENAMEDATA)
+	struct renamedata rd = {
+			.old_dir	= old_dir,
+			.old_dentry	= old_dentry,
+			.new_dir	= new_dir,
+			.new_dentry	= new_dentry,
+	};
+	return vfs_rename(&rd);
+#elif defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)
 	return vfs_rename(old_dir, old_dentry,
 	    new_dir, new_dentry);
 #elif defined(COMPAT_VFS_RENAME_HAS_5_PARAMS)
@@ -2434,6 +2446,16 @@ struct log_rolling_file_list {
 
 #ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS
 #define thaw_bdev(bdev, sb)	thaw_bdev(bdev)
+#endif
+
+#ifndef COMPAT_HAVE_BIO_MAX_VECS
+#define BIO_MAX_VECS BIO_MAX_PAGES
+#endif
+
+#ifdef COMPAT_LIST_SORT_USE_CONST_PTR
+#define list_cmp_t const struct list_head
+#else
+#define list_cmp_t struct list_head
 #endif
 #endif
 

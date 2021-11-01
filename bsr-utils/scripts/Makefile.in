@@ -134,6 +134,7 @@ endif
 	rm -f $(DESTDIR)$(sbindir)/bsr-overview
 	rm -f $(DESTDIR)$(sbindir)/bsrwatch
 	rm -f $(DESTDIR)$(sbindir)/bsrsupport
+	rm -f $(DESTDIR)$(sbindir)/bsrmon-run
 
 .PHONY: install uninstall clean distclean
 ../../configure:

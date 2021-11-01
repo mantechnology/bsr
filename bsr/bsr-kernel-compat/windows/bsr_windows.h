@@ -1379,8 +1379,8 @@ typedef struct _PTR_ENTRY
 #define PAGE_CACHE_SHIFT	PAGE_SHIFT
 
 // Bio.h
-#define BIO_MAX_PAGES		256
-#define BIO_MAX_SIZE		(BIO_MAX_PAGES << PAGE_CACHE_SHIFT)
+#define BIO_MAX_VECS		256
+#define BIO_MAX_SIZE		(BIO_MAX_VECS << PAGE_CACHE_SHIFT)
 
 //asm-x86 , asm-generic 
 #define	EDESTADDRREQ	89	/* Destination address required */

@@ -170,6 +170,7 @@ else
       endif
     endif
 	install -d /var/log/bsr
+	install -d /var/log/bsr/perfmon
   else
     install:
 	@echo "No .bsr_kernelrelease found. Do you need to 'make' the module first?"

@@ -2069,7 +2069,9 @@ struct bsr_device {
 	struct bsr_backing_dev *ldev __protected_by(local);
 
 	struct request_queue *rq_queue;
+#ifdef _WIN
 	struct block_device *this_bdev;
+#endif
 	struct gendisk	    *vdisk;
 
 	ULONG_PTR last_reattach_jif;
@@ -2595,8 +2597,9 @@ __bsr_next_peer_device_ref(u64 *, struct bsr_peer_device *, struct bsr_device *)
  * A followup commit may allow even bigger BIO sizes,
  * once we thought that through. */
 #ifdef _LIN
-#if BSR_MAX_BIO_SIZE > (BIO_MAX_PAGES << PAGE_SHIFT)
-#error Architecture not supported: BSR_MAX_BIO_SIZE > (BIO_MAX_PAGES << PAGE_SHIFT)
+#define BSR_BIO_MAX_PAGES (BIO_MAX_VECS << PAGE_SHIFT)
+#if BSR_MAX_BIO_SIZE > BSR_BIO_MAX_PAGES
+#error Architecture not supported: BSR_MAX_BIO_SIZE > (BIO_MAX_VECS << PAGE_SHIFT)
 #endif
 #endif
 #define BSR_MAX_SIZE_H80_PACKET (1U << 15) /* Header 80 only allows packets up to 32KiB data */
@@ -2769,7 +2772,11 @@ extern NTSTATUS __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, U
 extern void __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, unsigned long);
 #endif
 
+#ifdef COMPAT_HAVE_SUBMIT_BIO
+extern blk_qc_t bsr_submit_bio(struct bio *bio);
+#else
 extern MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio);
+#endif
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 extern int bsr_merge_bvec(struct request_queue *, struct bvec_merge_data *, struct bio_vec *);
 #endif
@@ -3124,6 +3131,15 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 #endif
 }
 
+static __inline sector_t bsr_get_vdisk_capacity(struct bsr_device *device)
+{
+#ifdef _WIN
+	return bsr_get_capacity(device->this_bdev);
+#else // _LIN
+	return get_capacity(device->vdisk);
+#endif
+}
+
 /* sets the number of 512 byte sectors of our virtual device */
 static inline void bsr_set_my_capacity(struct bsr_device *device,
 					sector_t size)
@@ -3135,9 +3151,16 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN
-	/* set_capacity(device->this_bdev->bd_disk, size); */
+#ifdef COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY
+	set_capacity_and_notify(device->vdisk, size);
+#else
 	set_capacity(device->vdisk, size);
-	device->this_bdev->bd_inode->i_size = (loff_t)size << 9;
+#ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
+	revalidate_disk_size(device->vdisk, false);
+#else
+	revalidate_disk(device->vdisk);
+#endif
+#endif
 #endif
 }
 

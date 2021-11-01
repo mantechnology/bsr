@@ -2058,7 +2058,7 @@ int bsr_send_sizes(struct bsr_peer_device *peer_device,
 		p->c_size = 0;	
 	} 	
 	else {
-		p->c_size = cpu_to_be64(bsr_get_capacity(device->this_bdev));
+		p->c_size = cpu_to_be64(bsr_get_vdisk_capacity(device));
 	}
 	
 	p->max_bio_size = cpu_to_be32(max_bio_size);
@@ -3660,8 +3660,8 @@ void bsr_destroy_device(struct kref *kref)
 
 	/* cleanup stuff that may have been allocated during
 	 * device (re-)configuration or state changes */
-	if (device->this_bdev) {
 #ifdef _WIN
+	if (device->this_bdev) {
 		// DW-1109 put bdev when device is being destroyed.
 		// DW-1300 nullify bsr_device of volume extention when destroy bsr device.
 		PVOLUME_EXTENSION pvext = device->this_bdev->bd_disk->pDeviceExtension;
@@ -3673,10 +3673,8 @@ void bsr_destroy_device(struct kref *kref)
 
 		blkdev_put(device->this_bdev, 0);
 		device->this_bdev = NULL;
-#else // _LIN
-		bdput(device->this_bdev);
-#endif
 	}
+#endif
 
 	bsr_backing_dev_free(device, device->ldev);
 	device->ldev = NULL;
@@ -3884,6 +3882,8 @@ void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 	gbShutdown = TRUE;
 }
 #endif
+
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 /**
  * bsr_congested() - Callback for the flusher thread
  * @congested_data:	User data
@@ -3948,6 +3948,7 @@ out:
 	return r;
 #endif
 }
+#endif
 
 static void bsr_init_workqueue(struct bsr_work_queue* wq)
 {
@@ -4706,7 +4707,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	if (!q)
 		goto out_no_q;
 	device->rq_queue = q;
+#if defined(COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC) || defined(blk_queue_plugged) || defined(_WIN)
 	q->queuedata   = device;
+#endif
 	disk = alloc_disk(1);
 	if (!disk)
 		goto out_no_disk;
@@ -4729,9 +4732,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #endif
 	disk->private_data = device;
 #ifdef _LIN
-	device->this_bdev = bdget(MKDEV(BSR_MAJOR, minor));
-	/* we have no partitions. we contain only ourselves. */
-	device->this_bdev->bd_contains = device->this_bdev;
 #endif
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);
@@ -4742,7 +4742,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	q->max_hw_sectors = ( device->this_bdev->d_size = get_targetdev_volsize(pvext) ) >> 9;
 	bsr_info(10, BSR_LC_VOLUME, NO_OBJECT,"The capacity of the create device(%p) is max sectors(%llu), size(%llu bytes)", device, q->max_hw_sectors, device->this_bdev->d_size);
 #endif
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 	init_bdev_info(q->backing_dev_info, bsr_congested, device);
+#endif
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
 	blk_queue_make_request(q, bsr_make_request);
@@ -4750,7 +4752,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     blk_queue_write_cache(q, true, true);
 
 #ifdef _LIN
-	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 	blk_queue_merge_bvec(q, bsr_merge_bvec);
 #endif
@@ -5205,7 +5206,7 @@ out2:
 }
 #else // LIN BSR-597
 
-static int name_cmp(void *priv, struct list_head *a, struct list_head *b)
+static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 {
 	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
 	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);

@@ -114,15 +114,15 @@ enum cli_log_level {
 };
 
 // BSR-604 the executable name used as the log file name.
-char *lprogram;
-char *lcmd;
+extern char *lprogram;
+extern char *lcmd;
 
 // BSR-604 write log files
 extern void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, bool line_break, const char* fmt, ...);
 extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const char *fmt, va_list args);
 
 // BSR-614 default log level is info
-int llevel;
+extern int llevel;
 
 extern void bsr_exec_log(int argc, char** argv);
 extern void bsr_terminate_log(int rv);

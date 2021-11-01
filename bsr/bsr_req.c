@@ -1578,7 +1578,7 @@ static bool bsr_may_do_local_read(struct bsr_device *device, sector_t sector, in
 	if (device->disk_state[NOW] != D_INCONSISTENT)
 		return false;
 	esector = sector + (size >> 9) - 1;
-	nr_sectors = bsr_get_capacity(device->this_bdev);
+	nr_sectors = bsr_get_vdisk_capacity(device);
 	D_ASSERT(device, sector  < nr_sectors);
 	D_ASSERT(device, esector < nr_sectors);
 
@@ -2296,7 +2296,7 @@ out:
 #ifdef _LIN
 	/* we need to plug ALWAYS since we possibly need to kick lo_dev.
 	 * we plug after submit, so we won't miss an unplug event */
-	bsr_plug_device(bdev_get_queue(device->this_bdev));
+	bsr_plug_device(device->vdisk->queue);
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);
@@ -2727,17 +2727,32 @@ void do_submit(struct work_struct *ws)
 }
 
 // BSR-723 add compat code for blk_queue_split
+
 #ifndef COMPAT_HAVE_BLK_QUEUE_SPLIT_Q_BIO
-#if defined(COMPAT_HAVE_BLK_QUEUE_SPLIT_Q_BIO_BIOSET)
+#if defined(COMPAT_HAVE_BLK_QUEUE_SPLIT_BIO)
+	/* version (>=5.9) with only 1 argument. nothing to do */
+	#define blk_queue_split(q, bio) blk_queue_split(bio)
+#elif defined(COMPAT_HAVE_BLK_QUEUE_SPLIT_Q_BIO_BIOSET)
 #define blk_queue_split(q, bio) blk_queue_split(q, bio, q->bio_split)
 #else
 #define blk_queue_split(q, bio) do { } while (0)
 #endif
 #endif
 
+
+#ifdef COMPAT_HAVE_SUBMIT_BIO
+blk_qc_t bsr_submit_bio(struct bio *bio)
+#else
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
+#endif
 {
+#if defined(COMPAT_HAVE_BIO_BI_BDEV)
+	struct bsr_device *device = bio->bi_bdev->bd_disk->private_data;
+#elif defined(_WIN)
 	struct bsr_device *device = (struct bsr_device *) q->queuedata;
+#else
+	struct bsr_device *device = bio->bi_disk->private_data;
+#endif
 	ktime_t start_kt;
 	ULONG_PTR start_jif;
 #ifdef _WIN

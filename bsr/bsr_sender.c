@@ -1209,7 +1209,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 	struct bsr_transport *transport = &peer_device->connection->transport;
 	ULONG_PTR bit;
 	sector_t sector;
-	const sector_t capacity = bsr_get_capacity(device->this_bdev);
+	const sector_t capacity = bsr_get_vdisk_capacity(device);
 	unsigned int max_bio_size, size;
 	int number, rollback_i;
 	int align, requeue = 0;
@@ -1440,7 +1440,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	int number, i, size;
 	ULONG_PTR bit;
 	sector_t sector;
-	const sector_t capacity = bsr_get_capacity(device->this_bdev);
+	const sector_t capacity = bsr_get_vdisk_capacity(device);
 	bool stop_sector_reached = false;
 	struct peer_device_conf *pdc;
 
@@ -2648,7 +2648,7 @@ void bsr_rs_controller_reset(struct bsr_peer_device *peer_device)
 		bsr_backing_bdev_events(peer_device->device);
 #else // _LIN
 	peer_device->rs_last_events =
-		bsr_backing_bdev_events(peer_device->device->ldev->backing_bdev->bd_contains->bd_disk);
+		bsr_backing_bdev_events(peer_device->device->ldev->backing_bdev->bd_disk);
 #endif
 
 	/* Updating the RCU protected object in place is necessary since
@@ -3676,7 +3676,7 @@ static void re_init_if_first_write(struct bsr_connection *connection, int epoch)
 		connection->send.current_epoch_writes = 0;
 		connection->send.last_sent_barrier_jif = jiffies;
 		connection->send.current_dagtag_sector =
-			connection->resource->dagtag_sector - ((BIO_MAX_PAGES << PAGE_SHIFT) >> 9) - 1;
+			connection->resource->dagtag_sector - ((BIO_MAX_VECS << PAGE_SHIFT) >> 9) - 1;
 	}
 }
 

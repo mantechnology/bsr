@@ -1795,7 +1795,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 			goto err_out;
 	}
 
-	if (bsr_get_capacity(device->this_bdev) != size ||
+	if (bsr_get_vdisk_capacity(device) != size ||
 	    bsr_bm_capacity(device) != size) {
 		int err;
 		err = bsr_bm_resize(device, size, !(flags & DDSF_NO_RESYNC));
@@ -2984,10 +2984,10 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	/* Make sure the new disk is big enough
 	 * (we may currently be R_PRIMARY with no local disk...) */
 	if (bsr_get_max_capacity(nbc) <
-	    bsr_get_capacity(device->this_bdev)) {
+	    bsr_get_vdisk_capacity(device)) {
 		bsr_err(35, BSR_LC_GENL, device,
 			"Failed to attach due to current (diskless) capacity %llu, cannot attach smaller (%llu) disk",
-			(unsigned long long)bsr_get_capacity(device->this_bdev),
+			(unsigned long long)bsr_get_vdisk_capacity(device),
 			(unsigned long long)bsr_get_max_capacity(nbc));
 		retcode = ERR_DISK_TOO_SMALL;
 		goto fail;
@@ -5596,7 +5596,7 @@ static void device_to_statistics(struct device_statistics *s,
 #endif
 		put_ldev(device);
 	}
-	s->dev_size = bsr_get_capacity(device->this_bdev);
+	s->dev_size = bsr_get_vdisk_capacity(device);
 	s->dev_read = device->read_cnt;
 	s->dev_write = device->writ_cnt;
 	s->dev_al_writes = device->al_writ_cnt;
