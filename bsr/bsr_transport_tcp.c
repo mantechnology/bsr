@@ -1027,11 +1027,8 @@ static bool dtt_connection_established(struct bsr_transport *transport,
 
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
-#ifdef _WIN // TODO - need sock check timeo?
-	timeout = (nc->sock_check_timeo ? nc->sock_check_timeo : nc->ping_timeo) * HZ / 10;
-#else // _LIN
-	timeout = (nc->sock_check_timeo ?: nc->ping_timeo) * HZ / 10;
-#endif
+	// BSR-798 It's too long to use ping-timeout. Use sock-check-timeout to set it short.
+	timeout = nc->sock_check_timeo * HZ / 10;
 	rcu_read_unlock();
 	schedule_timeout_interruptible(timeout);
 
@@ -1387,10 +1384,12 @@ static int dtt_receive_first_packet(struct bsr_tcp_transport *tcp_transport, str
 		rcu_read_unlock();
 		return -EIO;
 	}
+	
+	// BSR-798 It's too long to use ping-timeout. Use sock-check-timeout to set it short.
 #ifdef _WIN
-	socket->sk_linux_attr->sk_rcvtimeo = nc->ping_timeo * 4 * HZ / 10;
+	socket->sk_linux_attr->sk_rcvtimeo = nc->sock_check_timeo * 4 * HZ / 10;
 #else // _LIN
-	socket->sk->sk_rcvtimeo = nc->ping_timeo * 4 * HZ / 10;
+	socket->sk->sk_rcvtimeo = nc->sock_check_timeo * 4 * HZ / 10;
 #endif
 	rcu_read_unlock();
 
