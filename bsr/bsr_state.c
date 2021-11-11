@@ -4079,7 +4079,7 @@ bool cluster_wide_reply_ready(struct bsr_resource *resource)
 }
 
 static enum bsr_state_rv get_cluster_wide_reply(struct bsr_resource *resource,
-struct change_context *context)
+struct change_context *context, bool bDisconnecting)
 {
 	struct bsr_connection *connection, *failed_by = NULL;
 	enum bsr_state_rv rv = SS_CW_SUCCESS;
@@ -4092,8 +4092,16 @@ struct change_context *context)
 		if (!test_bit(TWOPC_PREPARED, &connection->flags))
 			continue;
 		if (test_bit(TWOPC_NO, &connection->flags)) {
-			failed_by = connection;
-			rv = SS_CW_FAILED_BY_PEER;
+			// BSR-797 if a connection error occurs during connection termination twopc processing, TOWPC_NO is ignored..
+			// this is because when all nodes are terminated at the same time, the other node is terminated first during the twopc process and causes an error.
+			if (!(bDisconnecting && 
+				connection->cstate[NOW] <= C_TEAR_DOWN && connection->cstate[NOW] >= C_TIMEOUT)) {
+				failed_by = connection;
+				rv = SS_CW_FAILED_BY_PEER;
+			}
+			else {
+				bsr_info(57, BSR_LC_TWOPC, connection, "ignore the connection with the connection error among the twopc results of disconnecting.");
+			}
 		}
 		if (test_bit(TWOPC_RETRY, &connection->flags)) {
 			rv = SS_CONCURRENT_ST_CHG;
@@ -4478,7 +4486,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 								cluster_wide_reply_ready(resource),
 								twopc_timeout(resource), t);
         if (t) {
-			rv = get_cluster_wide_reply(resource, context);
+			rv = get_cluster_wide_reply(resource, context, bDisconnecting);
 			bsr_info(36, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) ",
 						reply->tid,
 						context->target_node_id, 
@@ -4708,7 +4716,7 @@ retry:
 									cluster_wide_reply_ready(resource),
 									twopc_timeout(resource), t);
 		if (t)
-			rv = get_cluster_wide_reply(resource, NULL);
+			rv = get_cluster_wide_reply(resource, NULL, false);
 		else
 			rv = SS_TIMEOUT;
 
@@ -4876,7 +4884,7 @@ int nested_twopc_work(struct bsr_work *work, int cancel)
 
 	UNREFERENCED_PARAMETER(cancel);
 
-	rv = get_cluster_wide_reply(resource, NULL);
+	rv = get_cluster_wide_reply(resource, NULL, false);
 	if (rv >= SS_SUCCESS)
 		cmd = P_TWOPC_YES;
 	else if (rv == SS_CONCURRENT_ST_CHG)
