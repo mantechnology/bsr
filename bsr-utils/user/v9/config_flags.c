@@ -935,7 +935,8 @@ const struct en_map quorum_map[] = {
 						CSUMS_AFTER_CRASH_ONLY) },		\
 	{ "verify-alg", STRING(verify_alg) },						\
 	{ "use-rle", BOOLEAN(use_rle, USE_RLE) },					\
-	{ "socket-check-timeout", NUMERIC(sock_check_timeo, SOCKET_CHECK_TIMEO) },	\
+	{ "socket-check-timeout", NUMERIC(sock_check_timeo, SOCKET_CHECK_TIMEO),				\
+          .unit = "1/10 seconds" },							\
 	{ "fencing", ENUM(fencing_policy, FENCING) },					\
 	{ "max-buffers", NUMERIC(max_buffers, MAX_BUFFERS) },				\
 	{ "_name", STRING(name) }

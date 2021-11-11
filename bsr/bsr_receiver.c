@@ -840,7 +840,7 @@ static bool conn_connect(struct bsr_connection *connection)
 {
 	struct bsr_transport *transport = &connection->transport;
 	struct bsr_resource *resource = connection->resource;
-	int ping_timeo, ping_int, h, err, vnr, timeout;
+	int sock_check_timeo, ping_int, h, err, vnr, timeout;
 	struct bsr_peer_device *peer_device;
 	struct net_conf *nc;
 	bool discard_my_data;
@@ -906,7 +906,7 @@ start:
 
 	rcu_read_lock();
 	nc = rcu_dereference(connection->transport.net_conf);
-	ping_timeo = nc->ping_timeo;
+	sock_check_timeo = nc->sock_check_timeo;
 	ping_int = nc->ping_int;
 	rcu_read_unlock();
 
@@ -919,7 +919,8 @@ start:
 	* or the challenge respons authentication could be garbled. */
 	mutex_lock(&connection->mutex[DATA_STREAM]);
 	have_mutex = true;
-	transport->ops->set_rcvtimeo(transport, DATA_STREAM, ping_timeo * 4 * HZ/10);
+	// BSR-798 It's too long to use ping-timeout. Use sock-check-timeout to set it short.
+	transport->ops->set_rcvtimeo(transport, DATA_STREAM, sock_check_timeo * 4 * HZ/10);
 	transport->ops->set_rcvtimeo(transport, CONTROL_STREAM, ping_int * HZ);
 
 	h = bsr_do_features(connection);
