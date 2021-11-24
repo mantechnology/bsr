@@ -872,6 +872,7 @@ static void SetBsrmonRun(unsigned int run)
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
+	unsigned int pre_value;
 #else // _LIN
 	FILE * fp;
 	int fd = 0;
@@ -883,13 +884,22 @@ static void SetBsrmonRun(unsigned int run)
 		fprintf(stderr, "Failed to open bsr\n");
 		return;
 	}
+
 	// BSR-740 send to bsr engine
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &run, sizeof(unsigned int), NULL, 0, &dwReturned, NULL) == FALSE) {
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &run, sizeof(unsigned int), &pre_value, sizeof(unsigned int), &dwReturned, NULL) == FALSE) {
 		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
 	}
 
 	if (hDevice != INVALID_HANDLE_VALUE) {
 		CloseHandle(hDevice);
+	}
+
+	// BSR-801 if it is the same as the previous value, an error is output
+	if (pre_value == run) {
+		if (run)
+			fprintf(stderr, "Already running\n");
+		else
+			fprintf(stderr, "bsrmon is not running\n");
 	}
 
 #else // _LIN

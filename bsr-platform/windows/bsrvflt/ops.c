@@ -484,25 +484,32 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 // BSR-740
 NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-	unsigned int inlen;
-	unsigned int run = 1;
+	unsigned int inlen, outlen;
+	unsigned int new_value = 1;
+	unsigned int pre_value;
 	NTSTATUS status;
 
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
-	if (inlen < sizeof(unsigned int))
+	if (inlen < sizeof(unsigned int) || outlen < sizeof(unsigned int))
 		return STATUS_BUFFER_TOO_SMALL;
 		
 	if (Irp->AssociatedIrp.SystemBuffer) {
-		run = *(unsigned int*)Irp->AssociatedIrp.SystemBuffer;
-		status = SaveCurrentValue(L"bsrmon_run", run);
-		if (status != STATUS_SUCCESS) {
-			return STATUS_UNSUCCESSFUL;
-		}
+		new_value = *(unsigned int*)Irp->AssociatedIrp.SystemBuffer;
+		pre_value = atomic_read(&g_bsrmon_run);
+		if (pre_value != new_value) {
+			status = SaveCurrentValue(L"bsrmon_run", new_value);
+			if (status != STATUS_SUCCESS) {
+				return STATUS_UNSUCCESSFUL;
+			}
 
-		bsr_debug(145, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_BSRMON_RUN %u => %u", atomic_read(&g_bsrmon_run), run);
-		atomic_set(&g_bsrmon_run, run);
+			bsr_debug(145, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_BSRMON_RUN %u => %u", pre_value, new_value);
+			atomic_set(&g_bsrmon_run, new_value);
+		}
+		// BSR-801 return previous value
+		RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer, &pre_value, sizeof(unsigned int));
 	}
 	else {
 		return STATUS_INVALID_PARAMETER;
