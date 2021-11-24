@@ -1037,7 +1037,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		case IOCTL_MVOL_SET_BSRMON_RUN:
 		{
 			status = IOCTL_SetBsrmonRun(DeviceObject, Irp);
-			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+			MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(unsigned int));
 		}
 		// BSR-741
 		case IOCTL_MVOL_GET_BSRMON_RUN:
