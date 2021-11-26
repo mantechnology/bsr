@@ -145,6 +145,10 @@ This packages includes the BSR administration tools.
 %dir %{_var}/lib/bsr
 %ghost %dir %{_var}/run/bsr
 
+# BSR-802 create perf log directory when bsr-utils rpm install
+%dir %{_var}/log/bsr
+%dir %{_var}/log/bsr/perfmon
+
 %defattr(-,root,root,-)
 %if %{initscripttype} == "systemd"
 %{_unitdir}/bsr.service

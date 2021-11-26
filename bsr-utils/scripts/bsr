@@ -152,9 +152,6 @@ run_bsrmon()
 				mon_run=`cat $mon_file`
 			fi
 			if [ $mon_run -eq 1 ] ; then
-				if [ ! -d /var/log/bsr/perfmon ] ; then
-					mkdir /var/log/bsr/perfmon 2> /dev/null
-				fi
 				check_ps=`ps -ef | grep bsrmon-run | grep -v grep | wc -l`
 				if [ $check_ps == "0" ]; then
 					nohup bsrmon-run > /dev/null 2>&1 &
