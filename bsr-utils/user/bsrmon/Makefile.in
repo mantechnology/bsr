@@ -40,6 +40,8 @@ $(TARGET) : $(OBJECTS)
 
 install:
 	install -m 755 bsrmon $(DESTDIR)$(sbindir) ;
+	# BSR-802 create perf log directory when bsrmon make-install
+	install -d $(DESTDIR)/var/log/bsr/perfmon ;
 
 uninstall:
 	rm -f $(DESTDIR)$(sbindir)/bsrmon
