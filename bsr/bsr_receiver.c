@@ -3537,7 +3537,7 @@ static int receive_RSDataReply(struct bsr_connection *connection, struct packet_
 			put_ldev(device);
 	} else {
 		if (bsr_ratelimit())
-			bsr_err(51, BSR_LC_RESYNC_OV, device, "Failed to receive resync data reply due to disk state is %s", device->disk_state[NOW]);
+			bsr_err(51, BSR_LC_RESYNC_OV, device, "Failed to receive resync data reply due to disk state is %s", bsr_disk_str(device->disk_state[NOW]));
 
 		err = ignore_remaining_packet(connection, pi->size);
 
