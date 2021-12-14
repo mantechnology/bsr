@@ -376,7 +376,6 @@ void MonitorToFile()
 	struct tm base_date_local;
 	struct timeb timer_msec;
 	char curr_time[64] = {0,};
-	char mempath[MAX_PATH+10] = {0,};
 	
 	res = GetResourceInfo();
 	if (!res) {

@@ -137,9 +137,9 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				memset(conn, 0, sizeof(struct connection));
 				
 #ifdef _WIN
-				sscanf_s(buf, "%d %s", &conn->node_id, &conn->name, sizeof(conn->name));
+				sscanf_s(buf, "%d %s", &conn->node_id, conn->name, sizeof(conn->name));
 #else // _LIN
-				sscanf(buf, "%d %s", &conn->node_id, &conn->name);
+				sscanf(buf, "%d %s", &conn->node_id, conn->name);
 #endif
 
 				conn->next = NULL;
