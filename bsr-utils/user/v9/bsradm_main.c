@@ -131,6 +131,8 @@ static int sh_peer_node_id(const struct cfg_ctx *);
 static int sh_dev_vnr(const struct cfg_ctx *);
 // BSR-688
 static int sh_peer_node_name(const struct cfg_ctx *);
+// BSR-808
+static int sh_peer_nodes(const struct cfg_ctx *);
 static int adm_bsrmeta(const struct cfg_ctx *);
 static int adm_khelper(const struct cfg_ctx *);
 static int adm_setup_and_meta(const struct cfg_ctx *);
@@ -361,8 +363,8 @@ static struct adm_cmd verify_cmd = {"verify", adm_bsrsetup, &verify_cmd_ctx, ACF
 static struct adm_cmd verify_stop_cmd = {"verify-stop", adm_bsrsetup, ACF1_PEER_DEVICE};
 static struct adm_cmd pause_sync_cmd = {"pause-sync", adm_bsrsetup, ACF1_PEER_DEVICE};
 static struct adm_cmd resume_sync_cmd = {"resume-sync", adm_bsrsetup, ACF1_PEER_DEVICE};
-static struct adm_cmd adjust_cmd = { "adjust", adm_adjust, &adjust_ctx, ACF1_RESNAME.vol_id_optional = 1 };
-static struct adm_cmd adjust_wp_cmd = {"adjust-with-progress", adm_adjust_wp, ACF1_RESNAME};
+static struct adm_cmd adjust_cmd = { "adjust", adm_adjust, &adjust_ctx, ACF1_RESNAME.vol_id_optional = 1, .parse_show = 0};
+static struct adm_cmd adjust_wp_cmd = {"adjust-with-progress", adm_adjust_wp, ACF1_RESNAME .parse_show = 0};
 static struct adm_cmd wait_c_cmd = {"wait-connect", adm_wait_c, ACF1_WAIT};
 static struct adm_cmd wait_sync_cmd = {"wait-sync", adm_wait_c, ACF1_WAIT};
 static struct adm_cmd wait_ci_cmd = {"wait-con-int", adm_wait_ci, .show_in_usage = 1,.verify_ips = 1,};
@@ -387,12 +389,12 @@ static struct adm_cmd forget_peer_cmd = {"forget-peer", adm_forget_peer, ACF1_DI
 static struct adm_cmd hidden_cmd = {"hidden-commands", hidden_cmds,.show_in_usage = 1,};
 
 static struct adm_cmd sh_nop_cmd = {"sh-nop", sh_nop, ACF2_GEN_SHELL .uc_dialog = 1, .test_config = 1};
-static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL };
+static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL .need_peer = 1, .parse_show = 0};
 // DW-1249 auto-start by svc
 static struct adm_cmd sh_resource_option_cmd = { "sh-resource-option", sh_resource_option, ACF1_RESNAME };
 // BSR-718
 static struct adm_cmd sh_node_option_cmd = { "sh-node-option", sh_node_option, ACF1_RESNAME };
-static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL};
+static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL .need_peer = 1};
 static struct adm_cmd sh_resource_cmd = {"sh-resource", sh_resource, ACF2_SH_RESNAME};
 static struct adm_cmd sh_mod_parms_cmd = {"sh-mod-parms", sh_mod_parms, ACF2_GEN_SHELL};
 static struct adm_cmd sh_dev_cmd = {"sh-dev", sh_dev, ACF2_SHELL};
@@ -404,10 +406,12 @@ static struct adm_cmd sh_md_idx_cmd = {"sh-md-idx", sh_md_idx, ACF2_SHELL .disk_
 static struct adm_cmd sh_ip_cmd = {"sh-ip", sh_ip, ACF2_SHELL};
 static struct adm_cmd sh_lr_of_cmd = {"sh-lr-of", sh_lres, ACF2_SHELL};
 // BSR-675 
-static struct adm_cmd sh_peer_node_id_cmd = {"sh-peer-node-id", sh_peer_node_id, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1};
-static struct adm_cmd sh_dev_vnr_cmd = {"sh-dev-vnr", sh_dev_vnr, ACF2_SHELL};
+static struct adm_cmd sh_peer_node_id_cmd = {"sh-peer-node-id", sh_peer_node_id, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .parse_show = 0};
+static struct adm_cmd sh_dev_vnr_cmd = {"sh-dev-vnr", sh_dev_vnr, ACF2_SHELL .need_peer = 1, .parse_show = 0};
 // BSR-688
-static struct adm_cmd sh_peer_node_name_cmd = {"sh-peer-node-name", sh_peer_node_name, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1};
+static struct adm_cmd sh_peer_node_name_cmd = {"sh-peer-node-name", sh_peer_node_name, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .parse_show = 0};
+// BSR-808
+static struct adm_cmd sh_peer_nodes_cmd = {"sh-peer-nodes", sh_peer_nodes, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .parse_show = 0};
 
 static struct adm_cmd proxy_up_cmd = {"proxy-up", adm_proxy_up, ACF2_PROXY};
 static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY};
@@ -515,6 +519,8 @@ struct adm_cmd *cmds[] = {
 	&sh_dev_vnr_cmd,
 	// BSR-688
 	&sh_peer_node_name_cmd,
+	// BSR-808
+	&sh_peer_nodes_cmd,
 
 	&proxy_up_cmd,
 	&proxy_down_cmd,
@@ -1110,6 +1116,14 @@ static int sh_peer_node_name(const struct cfg_ctx *ctx)
 	printf("%s\n", ctx->conn->peer->on_hosts.stqh_first->name);
 	return 0;
 }
+
+// BSR-808 look up the peer's node-id and name list
+static int sh_peer_nodes(const struct cfg_ctx *ctx)
+{
+	printf("%s %s\n", ctx->conn->peer->node_id, ctx->conn->peer->on_hosts.stqh_first->name);
+	return 0;
+}
+
 
 static void free_volume(struct d_volume *vol)
 {
@@ -3681,7 +3695,7 @@ int main(int argc, char **argv)
 	// BSR-446 fix adjust-with-progress segfault
 	// exclude adjust_cmd and adjust_wp_cmd. it will be run in _adm_adjust().
 	// BSR-721 exclude the cmd with need_peer set. it will output "invalid host" error.
-	if (!cmd->need_peer && cmd != &adjust_cmd && cmd != &adjust_wp_cmd) {
+	if (!cmd->need_peer && cmd->parse_show) {
 		char *temp_file = config_file;
 		int temp_config_valid = config_valid;
 		if (!resource_names[0] || !strcmp(resource_names[0], "all")) {	

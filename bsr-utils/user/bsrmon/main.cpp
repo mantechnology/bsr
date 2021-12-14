@@ -377,13 +377,13 @@ void MonitorToFile()
 	struct timeb timer_msec;
 	char curr_time[64] = {0,};
 	char mempath[MAX_PATH+10] = {0,};
-	FILE * mem_fp;
-
+	
 	res = GetResourceInfo();
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
 	}
+
 #ifdef _WIN
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
 	if (result) {
@@ -407,8 +407,6 @@ void MonitorToFile()
 
 	while (res) {
 		char respath[MAX_PATH+10] = {0,};
-		char lastfile[MAX_PATH+20] = { 0, };
-		FILE *last_fp;
 
 		sprintf_ex(respath, "%s%s", perfpath, res->name);
 #ifdef _WIN
@@ -417,14 +415,6 @@ void MonitorToFile()
 		
 		mkdir(respath, 0777);
 #endif
-
-		sprintf_ex(lastfile, "%s%slast", respath, _SEPARATOR_);
-		
-		if (fopen_s(&last_fp, lastfile, "w") != 0)
-			return;
-
-		fprintf(last_fp, "==> Resource %s <==\n\n", res->name);
-		fclose(last_fp);
 
 		// save monitoring status
 		if (GetDebugToFile(IO_STAT, res, respath, curr_time) != 0)
@@ -446,11 +436,6 @@ next:
 	}
 
 	// save memory monitoring status
-	sprintf_ex(mempath, "%slast", perfpath);
-	if (fopen_s(&mem_fp, mempath, "w") != 0)
-		return;
-	fprintf(mem_fp, "Memory:\n");
-	fclose(mem_fp);
 	GetMemInfoToFile(perfpath, curr_time);
 
 	freeResource(res);
@@ -507,7 +492,7 @@ static bool is_running()
 
 }
 
-// BSR-688 watching last file
+// BSR-688 watching perf file
 void Watch(char *resname, int type, int vnr, bool scroll)
 {
 	char watch_path[512] = {0,};
@@ -581,11 +566,6 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 	}
 	else {
 		// TODO watch all
-#ifdef _WIN
-		sprintf_s(watch_path, "type \"%s%s\\last\" & type \"%slast\" ", perf_path, resname, perf_path);
-#else // _LIN
-		sprintf(watch_path, "cat /var/log/bsr/perfmon/%s/last; cat /var/log/bsr/perfmon/last; ", resname);
-#endif
 		//watch_all_type = true;
 		
 	}

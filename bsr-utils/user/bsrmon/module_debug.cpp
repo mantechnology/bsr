@@ -84,7 +84,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 	if (info_type == RESOURCE)
 		sprintf_ex(command, "bsradm sh-resources-list");
 	else if (info_type == CONNECTION)
-		sprintf_ex(command, "bsradm sh-peer-node-name %s", res_name);
+		sprintf_ex(command, "bsradm sh-peer-nodes %s", res_name);
 	else if (info_type == VOLUME)
 		sprintf_ex(command, "bsradm sh-dev-vnr %s", res_name);
 	else {
@@ -101,6 +101,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		fprintf(stderr, "Failed to execute command : %s\n", command);
 		return NULL;
 	}
+
 	while (!feof(pipe)) {
 		if (fgets(buf, 128, pipe) != NULL) {
 			// remove EOL
@@ -134,11 +135,13 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 					return NULL;
 				}
 				memset(conn, 0, sizeof(struct connection));
+				
 #ifdef _WIN
-				strcpy_s(conn->name, buf);
+				sscanf_s(buf, "%d %s", &conn->node_id, &conn->name, sizeof(conn->name));
 #else // _LIN
-				strcpy(conn->name, buf);
+				sscanf(buf, "%d %s", &conn->node_id, &conn->name);
 #endif
+
 				conn->next = NULL;
 				if (!conn_temp)
 					conn_head = conn;
@@ -178,37 +181,6 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		return res_head;
 	}
 	else if (info_type == CONNECTION) {
-		sprintf_ex(command, "bsradm sh-peer-node-id %s", res_name);
-		pipe = popen(command, "r");
-		if (!pipe) {
-			fprintf(stderr, "Failed to execute command : %s\n", command);
-			return NULL;
-		}
-
-		conn_temp = conn_head;
-		while (!feof(pipe)) {
-			if (fgets(buf, 128, pipe) != NULL) {
-				if (!conn_temp) {
-					fprintf(stderr, "Invalid conn object\n");
-					return NULL;
-				}
-				// remove EOL
-				*(buf + (strlen(buf) - 1)) = 0;
-
-				conn_temp->node_id = atoi(buf);
-				conn_temp = conn_temp->next;
-			}
-			else if (*buf == 0) {
-				fprintf(stderr, "Failed to execute command : %s\n", command);
-				return NULL;
-			}
-		}
-#ifdef _WIN
-		_pclose(pipe);
-#else // _LIN
-		pclose(pipe);
-#endif
-
 		return conn_head;
 	}
 	else if (info_type == VOLUME) {
@@ -218,7 +190,6 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		return NULL;
 	}
 }
-
 
 void freeResource(struct resource* res)
 {
@@ -843,8 +814,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #endif
 
 	FILE *fp;
-	FILE *last_fp;
-	char lastfile[MAX_PATH];
 	char outfile[MAX_PATH];
 	
 	char *buffer;
@@ -855,12 +824,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		return -1;
 	}
 
-	sprintf_ex(lastfile, "%s%slast", respath, _SEPARATOR_);
-
-	if (fopen_s(&last_fp, lastfile, "a") != 0) {
-		fprintf(stderr, "Failed to open %s\n", respath);
-		return -1;
-	}
 
 	buffer = (char*)malloc(MAX_DEBUG_BUF_SIZE);
 	if (!buffer) {
@@ -885,14 +848,12 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 				sprintf_ex(outfile, "%s%svnr%d_IO_STAT", respath, _SEPARATOR_, vol->vnr);
-				fprintf(last_fp, "IO (vnr%d):\n", vol->vnr);
 			} else if (debug_type == IO_COMPLETE) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				fprintf(last_fp, "IO complete latency (vnr%d):\n", vol->vnr);
 				sprintf_ex(outfile, "%s%svnr%d_IO_COMPLETE", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == REQUEST) {
 #ifdef _WIN
@@ -900,7 +861,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				fprintf(last_fp, "Request latency (vnr%d):\n", vol->vnr);
 				sprintf_ex(outfile, "%s%svnr%d_request", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == PEER_REQUEST) {
 #ifdef _WIN
@@ -908,7 +868,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				fprintf(last_fp, "Peer Request latency (vnr%d):\n", vol->vnr);
 				sprintf_ex(outfile, "%s%svnr%d_peer_request", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == AL_STAT) {
 #ifdef _WIN
@@ -916,7 +875,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/act_log_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				fprintf(last_fp, "Active Log (vnr%d):\n", vol->vnr);
 				sprintf_ex(outfile, "%s%svnr%d_al_stat", respath, _SEPARATOR_, vol->vnr);
 			}
 
@@ -958,7 +916,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			fprintf(fp, "%s %s", currtime, buffer);	
 			fclose(fp);
 			
-			fprintf(last_fp, "%s\n", buffer);
 			memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
 
 			vol = vol->next;
@@ -1015,7 +972,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		fprintf(fp, "%s %s\n", currtime, buffer);	
 		fclose(fp);
 
-		fprintf(last_fp, "Network:\n%s\n", buffer);
 	}
 	else if (debug_type == SEND_BUF) {
 		struct connection *conn = res->conn;
@@ -1068,8 +1024,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		fprintf(fp, "%s %s\n", currtime, buffer);
 		fclose(fp);
 
-		fprintf(last_fp, "Send buffer:\n%s\n", buffer);
-
 	}
 	else {
 		fprintf(stderr, "Invalid debug_type value\n");
@@ -1080,9 +1034,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 fail:
 
-	if (last_fp) {
-		fclose(last_fp);
-	}
 	if (buffer) {
 		free(buffer);
 		buffer = NULL;
@@ -1094,23 +1045,10 @@ fail:
 int GetMemInfoToFile(char *path, char * currtime)
 {
 	FILE *fp;
-	FILE *last_fp;
-	char lastfile[MAX_PATH] = {0,};
 	char outfile[MAX_PATH] = {0,};
 	char *buffer = NULL;
 	int ret = -1;
 
-	sprintf_ex(lastfile, "%s%slast", path, _SEPARATOR_);
-
-#ifdef _WIN
-	if (fopen_s(&last_fp, lastfile, "a") != 0) {
-#else // _LIN
-	last_fp = fopen(lastfile, "a");
-	if (last_fp == NULL) {
-#endif
-		fprintf(stderr, "Failed to open %s\n", path);
-		return -1;
-	}
 
 	sprintf_ex(outfile, "%s%smemory", path, _SEPARATOR_);
 
@@ -1123,7 +1061,6 @@ int GetMemInfoToFile(char *path, char * currtime)
 	buffer = GetBsrMemoryUsage();
 	if (buffer) {
 		fprintf(fp, "%s", buffer);
-		fprintf(last_fp, "%s", buffer);
 		free(buffer);
 		buffer = NULL;
 	}
@@ -1131,21 +1068,15 @@ int GetMemInfoToFile(char *path, char * currtime)
 	buffer = GetBsrUserMemoryUsage();
 	if (buffer) {
 		fprintf(fp, "%s", buffer);
-		fprintf(last_fp, "%s", buffer);
 		free(buffer);
 		buffer = NULL;
 	}
 	fprintf(fp, "\n");
-	fprintf(last_fp, "\n");
 	fclose(fp);
 
 	ret = 0;
 
 fail:
-
-	if (last_fp) {
-		fclose(last_fp);
-	}
 	if (buffer) {
 		free(buffer);
 		buffer = NULL;
