@@ -58,16 +58,6 @@ struct bsr_tcp_transport {
 #ifdef _LIN_SEND_BUF
 #define FALSE false;
 #define TRUE true;
-
-void *bsr_kvmalloc(size_t size, gfp_t flags)
-{
-	void *ret;
-
-	ret = kmalloc(size, flags | __GFP_NOWARN, '');
-	if (!ret)
-		ret = __vmalloc(size, flags, PAGE_KERNEL);
-	return ret;
-}
 #endif
 
 bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf) 

@@ -4266,7 +4266,19 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 
 #ifdef _LIN
 // BSR-453
-extern void *bsr_kvmalloc(size_t size, gfp_t flags);
+static inline void *bsr_kvmalloc(size_t size, gfp_t flags)
+{
+	void *ret;
+
+	ret = kmalloc(size, flags | __GFP_NOWARN, '');
+	if (!ret) {
+		// BSR-818 check interrupt context
+		if (in_interrupt())
+			return NULL;
+		ret = __vmalloc(size, flags, PAGE_KERNEL);
+	}
+	return ret;
+}
 #endif
 
 

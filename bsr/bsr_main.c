@@ -7363,7 +7363,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 #endif
 			if (!ConvertVolumeBitmap(pVbb, (char *)pBsrBitmap->Buffer, ulBytesPerCluster, ulBsrBitmapUnit)) {
 				bsr_err(70, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to could not convert bitmap, Bytes Per Cluster(%u), Bsr Bitmap Unit(%u)", ulBytesPerCluster, ulBsrBitmapUnit);
-				kfree(pBsrBitmap);
+				kvfree(pBsrBitmap);
 				pBsrBitmap = NULL;
 				break;
 			}
@@ -7371,7 +7371,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 	} while (false);
 
 	if (NULL != pVbb) {
-		kfree(pVbb);
+		kvfree(pVbb);
 		pVbb = NULL;
 	}
 
@@ -7530,7 +7530,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		
 
 	if (pBitmap) {
-		kfree(pBitmap);
+		kvfree(pBitmap);
 		pBitmap = NULL;
 	}
 
