@@ -109,7 +109,8 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 	group_count = (total_block - first_data_block + blocks_per_group - 1) / blocks_per_group;
 
 	bitmap_size = ALIGN(total_block, BITS_PER_BYTE) / BITS_PER_BYTE;
-	bitmap_buf = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN, '');
+	// BSR-818 fix to execute vmalloc() when kmalloc() fails
+	bitmap_buf = (PVOLUME_BITMAP_BUFFER)bsr_kvmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN);
 
 	if (bitmap_buf == NULL) {
 		bsr_err(58, BSR_LC_MEMORY, NO_OBJECT, "Failed to read ext bitmap due to failure to allocate %d size memory for bitmap buffer", (sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size));
@@ -233,7 +234,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 fail_and_free:
 	if (bitmap_buf != NULL) {
-		kfree(bitmap_buf);
+		kvfree(bitmap_buf);
 		bitmap_buf = NULL;
 	}
 	
