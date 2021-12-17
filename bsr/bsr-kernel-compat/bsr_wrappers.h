@@ -31,7 +31,7 @@
 #include <linux/completion.h>
 #include <linux/proc_fs.h>
 #include <linux/blkdev.h>
-
+#include <linux/vmalloc.h>
 #ifdef COMPAT_HAVE_PART_STAT_READ_ACCUM
 #include <linux/part_stat.h>
 #endif
