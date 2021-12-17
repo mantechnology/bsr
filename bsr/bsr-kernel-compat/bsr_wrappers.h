@@ -2149,6 +2149,23 @@ static inline int simple_positive(struct dentry *dentry)
 #endif
 
 
+#ifdef _LIN
+// BSR-453
+static inline void *bsr_kvmalloc(size_t size, gfp_t flags)
+{
+	void *ret;
+
+	ret = kmalloc(size, flags | __GFP_NOWARN, '');
+	if (!ret) {
+		// BSR-818 check interrupt context
+		if (in_interrupt())
+			return NULL;
+		ret = __vmalloc(size, flags, PAGE_KERNEL);
+	}
+	return ret;
+}
+#endif
+
 #ifndef COMPAT_HAVE_IS_VMALLOC_ADDR
 static inline int is_vmalloc_addr(const void *x)
 {

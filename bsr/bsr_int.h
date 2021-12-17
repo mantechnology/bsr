@@ -4264,24 +4264,6 @@ static __inline bool list_add_valid(struct list_head *new, struct list_head *pre
 	return true;
 }
 
-#ifdef _LIN
-// BSR-453
-static inline void *bsr_kvmalloc(size_t size, gfp_t flags)
-{
-	void *ret;
-
-	ret = kmalloc(size, flags | __GFP_NOWARN, '');
-	if (!ret) {
-		// BSR-818 check interrupt context
-		if (in_interrupt())
-			return NULL;
-		ret = __vmalloc(size, flags, PAGE_KERNEL);
-	}
-	return ret;
-}
-#endif
-
-
 // DW-1961
 static inline LONGLONG timestamp(void)
 {
