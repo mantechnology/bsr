@@ -1178,11 +1178,12 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
-	char cmd[256], buf[256];
-	char fs_type[10];
+	char cmd[256], buf[1024];
 	int ret = 0;
 	int fast_sync = 0;
 	FILE *fp;
+	bool journal_recovery = false;
+	bool xfs_fs = false;
 
 	// check fast sync settings
 	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
@@ -1203,70 +1204,95 @@ static int need_filesystem_recovery(char * dev_name)
 	if (!fp) 
 		return 0;
 
-	memset(fs_type, 0, sizeof(fs_type));
+	memset(buf, 0, sizeof(buf));
 	memset(cmd, 0, sizeof(cmd));
 
-	if (!fgets(fs_type, sizeof(fs_type), fp)) {
+	if (!fgets(buf, sizeof(buf), fp)) {
 		pclose(fp);
 		return 0;
 	}
 
 	pclose(fp);
-	
-	if (!strncmp(fs_type, "xfs", 3))
-		sprintf(cmd, "xfs_repair -n %s > /dev/null 2>&1", dev_name);
-	else if (!strncmp(fs_type, "ext", 3))
-		sprintf(cmd, "fsck -n %s > /dev/null 2>&1", dev_name);
-	else 
+
+	if (!strncmp(buf, "xfs", 3))
+		xfs_fs = true;
+	else if (!strncmp(buf, "ext", 3))
+		xfs_fs = false;
+	else
 		return 0;
 
-	// check if recovery is need
+	// 1. Check if journal recovery is required.
+
+	memset(cmd, 0, sizeof(cmd));
+	memset(buf, 0, sizeof(buf));
+
+	if (xfs_fs)
+		sprintf(cmd, "xfs_logprint -t %s 2>&1", dev_name);
+	else
+		sprintf(cmd, "tune2fs -l %s 2>&1", dev_name);
+
+	fp = popen(cmd, "r");
+	if (!fp) {
+		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
+		return 1;
+	}
+
+	if (xfs_fs) {
+		while (fgets(buf, sizeof(buf), fp)) {
+			/**
+			* check xfs log state. if <DIRTY>, journal recovery is required.
+			* ex 1) log tail: 26 head: 32 state: <DIRTY>
+			* ex 2) log tail: 2 head: 2 state: <CLEAN>
+			*/
+			if (strstr(buf, "log tail:") != NULL) {
+				if (strstr(buf, "<DIRTY>") != NULL)
+					journal_recovery = true;
+				break;
+			}
+		}
+	}
+	else {
+		// BSR-821 for ext filesystems
+		while (fgets(buf, sizeof(buf), fp)) {
+			// check filesystem features. if needs_recovery is set, journal recovery is required.
+			if (strstr(buf, "Filesystem features:") != NULL) {
+				if (strstr(buf, "needs_recovery") != NULL)
+					journal_recovery = true;
+				break;
+			}
+		}
+	}
+
+	ret = pclose(fp);
+	if (journal_recovery) {
+		CLI_ERRO_LOG_STDERR(false, "%s: needs journal recovery", dev_name);
+		return 1;
+	}
+
+	ret = WEXITSTATUS(ret);
+	if (ret != 0) {
+		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
+		return 1;
+	}
+
+
+	// 2. Check if filesystem recovery is required.
+	if (xfs_fs)
+		sprintf(cmd, "xfs_repair -n %s > /dev/null 2>&1", dev_name);
+	else
+		sprintf(cmd, "fsck -n %s > /dev/null 2>&1", dev_name);
+
 	ret = system(cmd);
 	ret = WEXITSTATUS(ret);
 
 	if (ret == -1 || ret == 127) {
-		CLI_ERRO_LOG_STDERR(false, 
-			"%s: could not be executed '%s'", dev_name, !strncmp(fs_type, "xfs", 3) ? "xfs_repair" : "fsck");
-	} else if (!strncmp(fs_type, "xfs", 3)) {
-		if (ret != 0) {
-			CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
-		} else {
-			memset(cmd, 0, sizeof(cmd));	
-			sprintf(cmd, "xfs_logprint -t %s 2>&1", dev_name);
-			
-			fp = popen(cmd, "r");
-			if (!fp) {
-				CLI_ERRO_LOG_STDERR(false, "%s: could not be executed 'xfs_logprint'", dev_name);
-				return 1;
-			}
-			
-			while (fgets(buf, sizeof(buf), fp)) {
-				/**
-				 * check xfs log state. if <DIRTY>, recovery is required.
-				 * ex 1) log tail: 26 head: 32 state: <DIRTY>
-				 * ex 2) log tail: 2 head: 2 state: <CLEAN> 
-				*/
-				if (strstr(buf, "log tail:") != NULL) {
-					if (strstr(buf, "<DIRTY>") != NULL) {
-						CLI_ERRO_LOG_STDERR(false, "xfs_logprint:\n%s", buf);
-						pclose(fp);
-						return 1;
-					}
-					break;
-				}
-			}
-
-			ret = pclose(fp);
-			ret = WEXITSTATUS(ret);
-			if (ret != 0) {
-				CLI_ERRO_LOG_STDERR(false, "%s: '%s' exits with error (%d)", dev_name, cmd, ret);
-			}
-		}
-	} else if (!strncmp(fs_type, "ext", 3) && ret == 4) {
-		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
-	} else if (ret != 0) {
-		CLI_ERRO_LOG_STDERR(false, "%s: '%s' exits with error (%d)", dev_name, cmd, ret);
+		CLI_ERRO_LOG_STDERR(false,
+			"could not be executed '%s'", cmd);
 	}
+	else if (ret != 0) {
+		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
+	}
+
 	return ret;
 }
 #endif
