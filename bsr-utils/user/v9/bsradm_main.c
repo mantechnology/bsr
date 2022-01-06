@@ -144,6 +144,8 @@ static int adm_invalidate(const struct cfg_ctx *);
 static int __adm_bsrsetup_silent(const struct cfg_ctx *ctx);
 static int adm_forget_peer(const struct cfg_ctx *);
 static int adm_peer_device(const struct cfg_ctx *);
+// BSR-823
+static int adm_primary(const struct cfg_ctx *);
 
 int ctx_by_name(struct cfg_ctx *ctx, const char *id, checks check);
 int was_file_already_seen(char *fn);
@@ -192,7 +194,9 @@ char *sh_varname = NULL;
 struct names backend_options = STAILQ_HEAD_INITIALIZER(backend_options);
 
 char *connect_to_host = NULL;
-
+#ifdef _LIN
+bool force_primary = false;
+#endif
 STAILQ_HEAD(deferred_cmds, deferred_cmd) deferred_cmds[__CFG_LAST];
 
 int adm_adjust_wp(const struct cfg_ctx *ctx)
@@ -352,7 +356,8 @@ static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
 /*  */ struct adm_cmd res_options_cmd = {"resource-options", adm_resource, &resource_options_ctx, ACF1_RESNAME};
 /*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_ctx, ACF1_RESNAME};
 static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
-static struct adm_cmd primary_cmd = {"primary", adm_bsrsetup, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
+// BSR-823
+static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, ACF1_MINOR_ONLY };
 static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, &invalidate_peer_ctx, ACF1_PEER_DEVICE .takes_long = 1};
@@ -1689,6 +1694,50 @@ static int _adm_bsrsetup(const struct cfg_ctx *ctx, int flags)
 
 static int adm_bsrsetup(const struct cfg_ctx *ctx)
 {
+	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
+}
+
+// BSR-823
+static int adm_primary(const struct cfg_ctx *ctx)
+{
+#ifdef _LIN
+	const char *opt_name = "--skip-check-fs";
+	struct d_name *opt;
+	opt = find_backend_option(opt_name);
+
+	if (force_primary) {
+		bool do_check_fs = true;
+
+		if (opt) {
+			if (strlen(opt->name) > strlen(opt_name)) {
+				char *opt_val = NULL;
+				opt_val = ssprintf("%s", opt->name + strlen(opt_name) + 1);
+				if (opt_val && strcmp(opt_val, "false"))
+					do_check_fs = false;
+			} else {
+				do_check_fs = false;
+			}
+		}
+		// run bsrsetup check-fs if --force primary and no --skip-check-fs option
+		if (do_check_fs) {
+			char *argv[4] = {bsrsetup, "check-fs", NULL, NULL};
+			struct d_volume *vol = ctx->vol;
+			struct cfg_ctx tmp_ctx = *ctx;
+			int rv = 0;
+			
+			for_each_volume(vol, &ctx->res->me->volumes) {
+				tmp_ctx.vol = vol;
+				argv[2] = ssprintf("%d", tmp_ctx.vol->device_minor);
+				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name);
+				if (rv)
+					return rv;
+			}	
+		}
+	}
+
+	if (opt)
+		STAILQ_REMOVE(&backend_options, opt, d_name, link);
+#endif
 	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
 }
 
@@ -3218,7 +3267,9 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 	struct names backend_options_check;
 	struct d_name *b_opt;
 	int longindex, first_arg_index;
-
+#ifdef _LIN
+	bool force_opt = false;
+#endif
 	STAILQ_INIT(&backend_options_check);
 	*cmd = NULL;
 	*resource_names = calloc(argc + 1, sizeof(char *));
@@ -3236,7 +3287,13 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			{
 				struct option *option = &admopt[longindex];
 				char *opt;
-
+#ifdef _LIN
+				// BSR-823
+				if (!strcmp(option->name, "force")) {
+					if (!optarg || (optarg && !strcmp(option->name, "true")))
+						force_opt = true;
+				}
+#endif				
 				if (optarg)
 					opt = ssprintf("--%s=%s", option->name, optarg);
 				else
@@ -3418,6 +3475,12 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 		}
 	}
 	STAILQ_CONCAT(&backend_options, &backend_options_check);
+
+#ifdef _LIN
+	// BSR-823
+	if (!strcmp((*cmd)->name, "primary") && force_opt)
+		force_primary = true;
+#endif
 
 	return 0;
 

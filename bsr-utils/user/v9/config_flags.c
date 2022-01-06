@@ -962,6 +962,9 @@ struct context_def primary_cmd_ctx = {
 	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
+#ifdef _LIN
+		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
+#endif
 		{ } },
 };
 
