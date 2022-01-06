@@ -225,6 +225,9 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 			free_blocks_co += free;
 		}
 
+		// BSR-823 cpu occupancy prevention
+		cond_resched();
+
 	}
 	if (debug_fast_sync) {
 		bsr_info(90, BSR_LC_BITMAP, NO_OBJECT, "free_blocks : %lu", free_blocks_co);

@@ -77,6 +77,9 @@
 #include <linux/bsr_genl_api.h>
 #include <linux/bsr_limits.h>
 #include "bsrtool_common.h"
+#ifdef _LIN
+#include <sys/prctl.h>
+#endif
 #include <linux/genl_magic_func.h>
 #include "bsr_strings.h"
 #include "registry.h"
@@ -262,6 +265,10 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv);
+#ifdef _LIN
+// BSR-823
+static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv);
+#endif
 static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv);
 
 // sub commands for generic_get_cmd
@@ -521,6 +528,12 @@ struct bsr_cmd commands[] = {
 	{"check-resize", CTX_MINOR, 0, NO_PAYLOAD, check_resize_cmd,
 	 .lockless = true,
 	 .summary = "Remember the current size of a lower-level device." },
+#ifdef _LIN
+	// BSR-823
+	{"check-fs", CTX_MINOR, 0, NO_PAYLOAD, check_fs_cmd,
+	 .lockless = true,
+	 .summary = "Check a filesystem of a backing device." },
+#endif
 	{"events2", CTX_RESOURCE | CTX_ALL, F_NEW_EVENTS_CMD(print_notifications),
 	 .options = events_cmd_options,
 	 .missing_ok = true,
@@ -1175,6 +1188,61 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 
 
 #ifdef _LIN
+// BSR-823 run filesystem check command
+int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
+{
+	pid_t pid;
+	int status, rv = -1;
+
+	fflush(stdout);
+	fflush(stderr);
+
+	pid = fork();
+	
+	if (pid == -1) {
+		CLI_ERRO_LOG_STDERR(false,  "Can not fork");
+		exit(20);
+	}
+	if (pid == 0) {
+		FILE *f_out;
+		prctl(PR_SET_PDEATHSIG, SIGKILL);
+
+		f_out = freopen(output_file, "w", stdout);
+		if (!f_out) {
+			CLI_ERRO_LOG_STDERR(false,  "reopen stdout to %s failed", output_file);
+			exit(20);
+		}
+
+		dup2(fileno(stdout), fileno(stderr));
+
+		if (argv[0]) {
+			execvp(argv[0], argv);
+		}
+		CLI_ERRO_LOG_STDERR(false,  "Can not exec %s", argv[0]);
+		exit(20);
+	}
+
+	if (kid)
+		*kid = pid;
+
+	while (1) {
+		if (waitpid(pid, &status, 0) == -1) {
+			if (errno != EINTR)
+				break;
+		} else {
+			if (WIFEXITED(status)) {
+				rv = WEXITSTATUS(status);
+				break;
+			}
+		}
+	}
+
+	fflush(stdout);
+	fflush(stderr);
+
+	return rv;
+}
+
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
@@ -1184,6 +1252,10 @@ static int need_filesystem_recovery(char * dev_name)
 	FILE *fp;
 	bool journal_recovery = false;
 	bool xfs_fs = false;
+	char *argv[] = { NULL, NULL, NULL, NULL };
+	char  *n_dev_name, *ptr;
+	char fs_check_log[256];
+	char journal_check_log[256];
 
 	// check fast sync settings
 	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
@@ -1205,13 +1277,10 @@ static int need_filesystem_recovery(char * dev_name)
 		return 0;
 
 	memset(buf, 0, sizeof(buf));
-	memset(cmd, 0, sizeof(cmd));
-
 	if (!fgets(buf, sizeof(buf), fp)) {
 		pclose(fp);
 		return 0;
 	}
-
 	pclose(fp);
 
 	if (!strncmp(buf, "xfs", 3))
@@ -1221,19 +1290,54 @@ static int need_filesystem_recovery(char * dev_name)
 	else
 		return 0;
 
-	// 1. Check if journal recovery is required.
+	// convert dev_name for use in log file names
+	// ex) /dev/sdb1 -> _dev_sdb1
+	n_dev_name = malloc(strlen(dev_name));
+	strcpy(n_dev_name, dev_name);
+	ptr = strchr(n_dev_name, '/');
+	while (ptr != NULL) {
+		*ptr = '_';
+		ptr = strchr(ptr + 1, '/');
+	}
+	
+	memset(journal_check_log, 0, sizeof(journal_check_log));	
+	memset(fs_check_log, 0, sizeof(fs_check_log));
+	if (xfs_fs) {
+		sprintf(journal_check_log, "/var/log/bsr/xfs_logprint%s.log", n_dev_name);
+		sprintf(fs_check_log, "/var/log/bsr/xfs_repair%s.log", n_dev_name);
+	} else {
+		sprintf(journal_check_log, "/var/log/bsr/tune2fs%s.log", n_dev_name);
+		sprintf(fs_check_log, "/var/log/bsr/fsck%s.log", n_dev_name);
+	}
+	// remove old log files
+	remove(journal_check_log);
+	remove(fs_check_log);
 
-	memset(cmd, 0, sizeof(cmd));
+
+	/*
+	* start file system check
+	*/
+
+	// 1. Check if journal recovery is required.	
+	if (xfs_fs) {
+		argv[0] = "xfs_logprint";
+		argv[1] = "-t";
+	} else {
+		argv[0] = "tune2fs";
+		argv[1] = "-l";
+	}
+	argv[2] = dev_name;
+	ret = run_check_fs(argv, NULL, NULL, journal_check_log);
+
+	if (ret != 0) {
+		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
+		return 1;
+	}
+
 	memset(buf, 0, sizeof(buf));
-
-	if (xfs_fs)
-		sprintf(cmd, "xfs_logprint -t %s 2>&1", dev_name);
-	else
-		sprintf(cmd, "tune2fs -l %s 2>&1", dev_name);
-
-	fp = popen(cmd, "r");
+	fp = fopen(journal_check_log, "r");
 	if (!fp) {
-		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
+		CLI_ERRO_LOG_STDERR(false, "could not read '%s'", argv[0]);
 		return 1;
 	}
 
@@ -1263,27 +1367,23 @@ static int need_filesystem_recovery(char * dev_name)
 		}
 	}
 
-	ret = pclose(fp);
+	fclose(fp);
 	if (journal_recovery) {
 		CLI_ERRO_LOG_STDERR(false, "%s: needs journal recovery", dev_name);
 		return 1;
 	}
-
-	ret = WEXITSTATUS(ret);
-	if (ret != 0) {
-		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
-		return 1;
-	}
-
-
+	
 	// 2. Check if filesystem recovery is required.
-	if (xfs_fs)
-		sprintf(cmd, "xfs_repair -n %s > /dev/null 2>&1", dev_name);
-	else
-		sprintf(cmd, "fsck -n %s > /dev/null 2>&1", dev_name);
+	memset(argv, 0, sizeof(argv));
 
-	ret = system(cmd);
-	ret = WEXITSTATUS(ret);
+	if (xfs_fs) {
+		argv[0] = "xfs_repair";
+	} else {
+		argv[0] = "fsck";
+	}
+	argv[1] = "-n";
+	argv[2] = dev_name;
+	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
 
 	if (ret == -1 || ret == 127) {
 		CLI_ERRO_LOG_STDERR(false,
@@ -1374,29 +1474,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				rv = OTHER_ERROR;
 				goto error;
 			}
-#ifdef _LIN
-			// BSR-747 check for filesystem errors before initial synchronization
-			if (!strcmp(cm->cmd, "primary") && !strcmp(field->name, "force")) {
-				if (!optarg || !strcmp(optarg, "yes")) {
-					struct devices_list *devices, *device;
-					int need_recovery = 0;
 
-					devices = list_devices(objname);
-					for (device = devices; device; device = device->next) {
-						if (device->statistics.dev_current_uuid != UUID_JUST_CREATED)
-							continue;
-						if (need_filesystem_recovery(device->disk_conf.backing_dev) && !need_recovery)
-							need_recovery = 1;
-					}
-					free_devices(devices);
-					if (need_recovery) {
-						desc = "Filesystem check and recovery is required.";
-						rv = OTHER_ERROR;
-						goto error;
-					}
-				}
-			}
-#endif
 
 		} else if (c == '(')
 			dhdr->flags |= BSR_GENL_F_SET_DEFAULTS;
@@ -3691,6 +3769,34 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	}
 	return ret;
 }
+
+#ifdef _LIN
+// BSR-823
+static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
+{
+	// BSR-747 check for filesystem errors before initial synchronization
+	struct devices_list *devices, *device;
+	int need_recovery = 0;
+	int ret = 0;
+
+	devices = list_devices(NULL);
+	for (device = devices; device; device = device->next) {
+		if (device->minor != minor)
+			continue;
+		if (device->statistics.dev_current_uuid != UUID_JUST_CREATED)
+			continue;
+		if (need_filesystem_recovery(device->disk_conf.backing_dev) && !need_recovery)
+			need_recovery = 1;
+	}
+	free_devices(devices);
+	if (need_recovery) {
+		CLI_ERRO_LOG_STDERR(false, "Filesystem check and recovery is required.");
+		ret = 10;
+	}
+
+	return ret;
+}
+#endif
 
 static bool peer_device_ctx_match(struct bsr_cfg_context *a, struct bsr_cfg_context *b)
 {
