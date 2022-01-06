@@ -7208,6 +7208,10 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 				continue;
 			}
 		}
+#ifdef _LIN
+		// BSR-823 cpu occupancy prevention
+		cond_resched();
+#endif
 	}
 
 	// met last bit while finding zero bit.

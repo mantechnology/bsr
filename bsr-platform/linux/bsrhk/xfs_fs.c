@@ -191,6 +191,9 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			bb_leftsib = be32_to_cpu(btsb.bb_u.s.bb_leftsib);
 			bb_rightsib = be32_to_cpu(btsb.bb_u.s.bb_rightsib);
 
+			// BSR-823 cpu occupancy prevention
+			cond_resched();
+
 		} while(bb_rightsib > 0);
 
 	}
