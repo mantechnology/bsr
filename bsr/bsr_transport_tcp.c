@@ -2292,7 +2292,7 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #else // _LIN
 #ifdef _LIN_SEND_BUF
 		// BSR-12
-		sent = send_buf(tcp_transport, stream, socket, (void *)((unsigned char *)(page_address(page)) +offset), len);
+		sent = send_buf(tcp_transport, stream, socket, (void *)((unsigned char *)(page_address(page)) +offset), len, msg_flags);
 #else		
 		sent = socket->ops->sendpage(socket, page, offset, len, msg_flags);
 #endif

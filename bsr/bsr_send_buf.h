@@ -122,7 +122,7 @@ extern bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed lo
 extern int send_buf(struct bsr_transport *transport, enum bsr_stream stream, socket *socket, PVOID buf, LONG size);
 #else // _LIN_SEND_BUF
 extern bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen);
-extern int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, socket *socket, void *buf, size_t size);
+extern int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, socket *socket, void *buf, size_t size, unsigned msg_flags);
 #endif
 #ifdef _LIN
 extern int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, struct msghdr *msg, struct kvec *iov);

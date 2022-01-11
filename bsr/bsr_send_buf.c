@@ -439,7 +439,7 @@ int send_buf(struct bsr_transport *transport, enum bsr_stream stream, socket *so
 	return (int)size;
 }
 #else // _LIN_SEND_BUF
-int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, struct socket *socket, void *buf, size_t size)
+int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, struct socket *socket, void *buf, size_t size, unsigned msg_flags)
 {
 	struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
 	signed long long tmp;
@@ -449,7 +449,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 	if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
 		struct kvec iov;
 		struct msghdr msg;
-		int rv, msg_flags = 0;;
+		int rv;
 
 		iov.iov_base = buf;
 		iov.iov_len  = size;

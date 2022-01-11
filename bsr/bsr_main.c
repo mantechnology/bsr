@@ -1299,7 +1299,8 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 	int header_size;
 
 	if (!transport->ops->stream_ok(transport, bsr_stream)) {
-		bsr_err(13, BSR_LC_SOCKET, connection, "Failed to prepare send due to socket is not allocate, stream(%s)", (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
+		if (bsr_ratelimit())
+			bsr_err(13, BSR_LC_SOCKET, connection, "Failed to prepare send due to socket is not allocate, stream(%s)", (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
 		return NULL;
 	}
 
