@@ -1375,10 +1375,12 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 		rcu_read_unlock();
 	}
 
+	msg_flags = sbuf->additional_size ? MSG_MORE : 0;
+#ifdef _LIN
 	// BSR-819 during disconnection, use MSG_DONTWAIT 
 	// to avoid delaying state changes due to socket timeouts.
-	msg_flags = (connection->cstate[NOW] < C_CONNECTING ? MSG_DONTWAIT : 0) |
-		(sbuf->additional_size ? MSG_MORE : 0);
+	msg_flags |= connection->cstate[NOW] < C_CONNECTING ? MSG_DONTWAIT : 0;
+#endif
 	offset = sbuf->unsent - (char *)page_address(sbuf->page);
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(offset);
