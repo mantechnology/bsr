@@ -1299,7 +1299,8 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 	int header_size;
 
 	if (!transport->ops->stream_ok(transport, bsr_stream)) {
-		bsr_err(13, BSR_LC_SOCKET, connection, "Failed to prepare send due to socket is not allocate, stream(%s)", (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
+		if (bsr_ratelimit())
+			bsr_err(13, BSR_LC_SOCKET, connection, "Failed to prepare send due to socket is not allocate, stream(%s)", (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
 		return NULL;
 	}
 
@@ -1375,6 +1376,11 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	}
 
 	msg_flags = sbuf->additional_size ? MSG_MORE : 0;
+#ifdef _LIN
+	// BSR-819 during disconnection, use MSG_DONTWAIT 
+	// to avoid delaying state changes due to socket timeouts.
+	msg_flags |= connection->cstate[NOW] < C_CONNECTING ? MSG_DONTWAIT : 0;
+#endif
 	offset = sbuf->unsent - (char *)page_address(sbuf->page);
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(offset);
