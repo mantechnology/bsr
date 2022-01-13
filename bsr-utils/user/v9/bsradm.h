@@ -288,7 +288,7 @@ struct adm_cmd {
 	unsigned int test_config:1; /* Allow -t option */
 	unsigned int disk_required:1; /* cmd needs vol->disk or vol->meta_[disk|index] */
 	unsigned int iterate_paths:1; /* cmd needs path set, eventually iterate over all */
-	unsigned int parse_show:1; /* BSR-808 cmd needs parsing of bsrsetup show results */ 
+	unsigned int exclude_parse_show:1; /* BSR-824 BSR-808 cmd excludes parsing of bsrsetup show results */ 
 };
 
 struct cfg_ctx {
