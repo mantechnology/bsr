@@ -305,6 +305,8 @@ struct mutex att_mod_mutex;
 // DW-1998
 u8 g_genl_run_cmd;
 struct mutex g_genl_run_cmd_mutex;
+// BSR-822
+struct mutex handler_mutex;
 #endif
 
 #ifdef _WIN
@@ -5801,6 +5803,9 @@ int bsr_init(void)
 	ratelimit_state_init(&bsr_ratelimit_state, DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 
 	ct_init_thread_list();
+
+	// BSR-822
+	mutex_init(&handler_mutex);
 #endif
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
