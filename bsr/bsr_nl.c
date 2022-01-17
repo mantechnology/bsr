@@ -126,6 +126,7 @@ atomic_t bsr_genl_seq = ATOMIC_INIT(2); /* two. */
 #ifdef _WIN 
 // noti mutex 
 struct mutex notification_mutex;
+extern struct mutex handler_mutex;
 #else // _LIN
 DEFINE_MUTEX(notification_mutex);
 #endif
@@ -774,7 +775,14 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 
 	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
 
+#ifdef _WIN
+	// BSR-822 fix to serializes handler operations
+	mutex_lock(&handler_mutex);
+#endif
 	ret = call_usermodehelper(usermode_helper, argv, envp, UMH_WAIT_PROC);
+#ifdef _WIN
+	mutex_unlock(&handler_mutex);
+#endif
 
 #ifdef _WIN
 	magic_printk(85, BSR_LC_ETC, ret ? KERN_WARNING_NUM : KERN_INFO_NUM,
