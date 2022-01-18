@@ -3778,17 +3778,31 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	struct devices_list *devices, *device;
 	int need_recovery = 0;
 	int ret = 0;
+	struct peer_devices_list *peer_devices = NULL, *peer_device;
 
 	devices = list_devices(NULL);
 	for (device = devices; device; device = device->next) {
 		if (device->minor != minor)
 			continue;
 		if (device->statistics.dev_current_uuid != UUID_JUST_CREATED)
-			continue;
-		if (need_filesystem_recovery(device->disk_conf.backing_dev) && !need_recovery)
-			need_recovery = 1;
+			goto out;
+
+		peer_devices = list_peer_devices(device->ctx.ctx_resource_name);
+		for (peer_device = peer_devices; peer_device; peer_device = peer_device->next) {
+			// BSR-830 fix not to check filesystem if Inconsistent/SyncTarget state
+			if (device->ctx.ctx_volume == peer_device->ctx.ctx_volume
+				&& peer_device->info.peer_repl_state > L_ESTABLISHED)
+				goto out;
+		}
+		
+		need_recovery = need_filesystem_recovery(device->disk_conf.backing_dev);
+		break;
 	}
+
+out:
 	free_devices(devices);
+	free_peer_devices(peer_devices);
+
 	if (need_recovery) {
 		CLI_ERRO_LOG_STDERR(false, "Filesystem check and recovery is required.");
 		ret = 10;
