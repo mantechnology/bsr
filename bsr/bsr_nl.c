@@ -5234,30 +5234,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	}
 	bsr_resume_io(device);
 
-	if (retcode >= SS_SUCCESS) {
-		// DW-1391 wait for bm_io_work to complete, then run the next invalidate peer. 
-		wait_event_interruptible_timeout_ex(resource->state_wait,
-				peer_device->repl_state[NOW] != L_STARTING_SYNC_S,
-				timeo, retcode);
-#ifdef _WIN
-		if (-BSR_SIGKILL == retcode) { 
-			retcode = SS_INTERRUPTED;
-		}
-		else if (-ETIMEDOUT == retcode) {
-			retcode = SS_TIMEOUT;
-		}
-		else {
-			retcode = SS_SUCCESS;
-		}
-#else // _LIN
-		if (retcode == 0)
-			retcode = SS_TIMEOUT;
-		else if (retcode < 0)
-			retcode = SS_UNKNOWN_ERROR;
-		else
-			retcode = SS_SUCCESS;
-#endif
-	}	
+	
 out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
 	put_ldev(device);
