@@ -7029,6 +7029,9 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	bool dec_bm_work_n = false;
 	// BSR-653
 	bool bSync = true;
+	// BSR-832
+	int pending_bm_work_n = 0;
+
 
 	// BSR-52 for sync only current oos after online verify.
 	if (test_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags)) {
@@ -7038,8 +7041,13 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 
 	if (atomic_read(&device->pending_bitmap_work.n)) {
 		dec_bm_work_n = true;
-		atomic_dec(&device->pending_bitmap_work.n);
+		// BSR-832 fix potential deadlock when invalidate-remote in multi-node
+		// If the pending_bitmap_work.n value is not 0, IO pending occurs in inc_ap_bio().
+		pending_bm_work_n = atomic_xchg(&device->pending_bitmap_work.n, 0);
+		// possibly waiting after bsr_suspend_io() in bsr_adm_invalidate_peer()
+		wake_up(&device->misc_wait);
 	}
+
 
 // BSR-743
 retry:
@@ -7053,7 +7061,8 @@ retry:
 			if (bSync) {
 				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
-					atomic_inc(&device->pending_bitmap_work.n);
+					// BSR-832
+					atomic_add(pending_bm_work_n, &device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
 				}
 				nRet = bsr_bmio_set_n_write(device, peer_device);
@@ -7069,7 +7078,8 @@ retry:
 			if (bSync) {
 				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
 				if (dec_bm_work_n) {
-					atomic_inc(&device->pending_bitmap_work.n);
+					// BSR-832
+					atomic_add(pending_bm_work_n, &device->pending_bitmap_work.n);
 					dec_bm_work_n = false;
 				}
 				nRet = bsr_bmio_set_all_n_write(device, peer_device);
@@ -7094,9 +7104,11 @@ retry:
 	
 		bsr_warn(208, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
 	}
+	
 
 	if (dec_bm_work_n) {
-		atomic_inc(&device->pending_bitmap_work.n);
+		// BSR-832
+		atomic_add(pending_bm_work_n, &device->pending_bitmap_work.n);
 		dec_bm_work_n = false;
 	}
 
