@@ -2744,8 +2744,9 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 	}
 
 	// DW-2076
-	if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags) && atomic_read(&peer_device->rq_pending_oos_cnt)) {
-		bsr_debug(187, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... pending oos : %d", atomic_read(&peer_device->rq_pending_oos_cnt));
+	// BSR-842
+	if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags) && (atomic_read(&peer_device->rq_pending_oos_cnt) && !atomic_read(&peer_device->rq_send_oos_cnt))) {
+		bsr_debug(187, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... pending oos : %d, send oos : %d", atomic_read(&peer_device->rq_pending_oos_cnt), atomic_read(&peer_device->rq_send_oos_cnt));
 		retry_resync = true;
 	}
 

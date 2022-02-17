@@ -1898,6 +1898,7 @@ struct bsr_peer_device {
 
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
+	atomic_t rq_send_oos_cnt;
 
 	// DW-2119 this variables in the device were moved to the peer_device.
 	// DW-1904 resync start bitmap offset

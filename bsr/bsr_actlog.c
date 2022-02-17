@@ -1828,6 +1828,14 @@ check_al:
 			}
 		}
 	}
+	// BSR-842
+#ifdef SPLIT_REQUEST_RESYNC
+	else {
+		if (atomic_read(&peer_device->rq_pending_oos_cnt)) {
+			goto try_again;
+		}
+	}
+#endif
 	set_bit(BME_LOCKED, &bm_ext->flags);
 proceed:
 	bsr_debug_al("proceed sector = %llu, enr = %llu", sector, (unsigned long long)enr);

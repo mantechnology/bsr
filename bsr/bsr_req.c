@@ -1107,6 +1107,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
 				// DW-2076 
 				atomic_dec(&peer_device->rq_pending_oos_cnt);
+				// BSR-842
+				atomic_inc(&peer_device->rq_send_oos_cnt);
 			}
 		}
 #endif
@@ -1730,7 +1732,8 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 
 		/* start a new epoch for non-mirrored writes */
 		start_new_tl_epoch(resource);
-
+		// BSR-842
+		atomic_set(&peer_device->rq_send_oos_cnt, 0);
 		begin_state_change_locked(resource, CS_VERBOSE | CS_HARD);
 		if (on_congestion == OC_PULL_AHEAD)
 			__change_repl_state_and_auto_cstate(peer_device, L_AHEAD, __FUNCTION__);
