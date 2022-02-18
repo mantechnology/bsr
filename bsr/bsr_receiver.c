@@ -10257,8 +10257,8 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// BSR-118
 		if (NULL != peer_device->fast_ov_bitmap) {
-			kfree(peer_device->fast_ov_bitmap);
-			peer_device->fast_ov_bitmap = NULL;
+			// BSR-835
+			kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 		}
 
 		kref_put(&device->kref, bsr_destroy_device);

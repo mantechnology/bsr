@@ -523,7 +523,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 210
+#define BSR_LC_RESYNC_OV_MAX_INDEX 213
 #define BSR_LC_REPLICATION_MAX_INDEX 30
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -1939,6 +1939,8 @@ struct bsr_peer_device {
 
 	/* where does the admin want us to start? (sector) */
 	sector_t ov_start_sector;
+	/* BSR-835 sector of last received the ov result */
+	sector_t ov_acked_sector;
 	sector_t ov_stop_sector;
 	ULONG_PTR ov_bm_position; /* bit offset for bsr_ov_bm_find_next */
 	/* where are we now? (sector) */
@@ -1969,6 +1971,9 @@ struct bsr_peer_device {
 	ULONG_PTR ov_left; /* in bits */
 	ULONG_PTR ov_skipped; /* in bits */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
+
+	// BSR-835 ov bitmap buffer reference count management
+	struct kref ov_bm_ref;
 
 	u64 current_uuid;
 	u64 bitmap_uuids[BSR_PEERS_MAX];
@@ -2649,6 +2654,8 @@ extern sector_t      bsr_bm_capacity(struct bsr_device *device);
 #define RANGE_FIND_NEXT_BIT 25000000
 extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 
+// BSR-835
+extern void bsr_free_ov_bm(struct kref *kref);
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);
