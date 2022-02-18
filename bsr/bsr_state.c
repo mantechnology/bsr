@@ -2107,6 +2107,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 	peer_device->rs_total = bsr_bm_bits(device);
 	peer_device->ov_bm_position = 0;
 	peer_device->ov_position = 0;
+	peer_device->ov_acked_sector = 0;
 	if (repl_state == L_VERIFY_T) {
 		/* starting online verify from an arbitrary position
 		 * does not fit well into the existing protocol.
@@ -2328,9 +2329,9 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			if ((repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) &&
 			    repl_state[NEW] <= L_ESTABLISHED) {
 				// BSR-118
-				peer_device->ov_start_sector =
-					BM_BIT_TO_SECT(bsr_ov_bm_find_abort_bit(peer_device));
-
+				// BSR-835
+				if (peer_device->ov_acked_sector)
+					peer_device->ov_start_sector = peer_device->ov_acked_sector;
 				if (peer_device->ov_left) {
 					// BSR-52
 					ov_out_of_sync_print(peer_device, true);
@@ -2382,7 +2383,12 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				int i;
 
 				set_ov_position(peer_device, repl_state[NEW]);
-				peer_device->fast_ov_bitmap = NULL;
+				// init
+				if (NULL != peer_device->fast_ov_bitmap) {
+					// BSR-835
+					kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
+				}
+
 				peer_device->rs_start = now;
 				peer_device->rs_last_sect_ev = 0;
 				peer_device->ov_last_oos_size = 0;
@@ -2408,10 +2414,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					}
 					else {
+						ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
 						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
 							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
-							(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
-							(unsigned long long) bsr_ov_bm_total_weight(peer_device));
+							(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
+							(unsigned long long)ov_tw);
 
 						mod_timer(&peer_device->resync_timer, jiffies);
 					}
@@ -3608,9 +3615,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			 * verify to interrupt/stop early.  Send the new state. */
  			if ((repl_state[OLD] == L_VERIFY_S || repl_state[OLD] == L_VERIFY_T) && 
 				repl_state[NEW] == L_ESTABLISHED && verify_can_do_stop_sector(peer_device)) {
+				// ov stop
 				if (NULL != peer_device->fast_ov_bitmap) {
-					kfree(peer_device->fast_ov_bitmap);
-					peer_device->fast_ov_bitmap = NULL;
+					// BSR-835
+					kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 				}
 				send_new_state_to_all_peer_devices(state_change, n_device);
 			}

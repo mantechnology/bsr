@@ -6188,10 +6188,13 @@ int bsr_adm_stop_ov(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+	// BSR-835 acquire volume control mutex, verify-stop does not run while getting bitmap
+	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
 	retcode = stable_change_repl_state(peer_device,
 		L_ESTABLISHED, CS_VERBOSE | CS_SERIALIZE);
 
+	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 out:
 	bsr_adm_finish(&adm_ctx, info, retcode);

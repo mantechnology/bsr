@@ -7588,10 +7588,11 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	if (atomic_read(&device->pending_bitmap_work.n)) {
 		bsr_info(26, BSR_LC_RESYNC_OV, peer_device, "Fast online verify canceled due to pending bitmap work.");
 		if (side == L_VERIFY_S) {
+			ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
 			bsr_info(27, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).",
 				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
-				(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
-		     	(unsigned long long) bsr_ov_bm_total_weight(peer_device));
+				(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
+				(unsigned long long)ov_tw);
 			mod_timer(&peer_device->resync_timer, jiffies);
 		}
 		return err;
@@ -7660,19 +7661,51 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 	} while (false);
 
-	if (side == L_VERIFY_S) {
-		if (NULL != pBitmap) {
-			peer_device->fast_ov_bitmap = pBitmap;
-			err = false;
-		}
-		bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).",
-			bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
-			(unsigned long long) bsr_ov_bm_total_weight(peer_device) << (BM_BLOCK_SHIFT-10),
-		     (unsigned long long) bsr_ov_bm_total_weight(peer_device));
-		mod_timer(&peer_device->resync_timer, jiffies);
-	}
 
+	// BSR-835 move to before execution of bsr_ov_bm_total_weight()
 	mutex_unlock(&device->resource->vol_ctl_mutex);
+
+
+	if (side == L_VERIFY_S) {
+		ULONG_PTR ov_tw = 0;
+		// BSR-835 cancel ov if not Connected or VerifyS
+		if (peer_device->connection->cstate[NOW] < C_CONNECTED || peer_device->repl_state[NOW] != L_VERIFY_S) {
+			if (pBitmap) {
+				kvfree(pBitmap);
+				pBitmap = NULL;
+			}
+			err = true;
+		} 
+		else {			
+			if (NULL != pBitmap) {
+				peer_device->fast_ov_bitmap = pBitmap;
+				// BSR-835 fix to manage ov bitmap buffer with kref
+				kref_init(&peer_device->ov_bm_ref);
+				bsr_info(212, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been allocated.");
+				err = false;
+			}
+			ov_tw = bsr_ov_bm_total_weight(peer_device);
+			if (ov_tw == 0)
+				err = true;
+		}
+
+		if (err) {
+			bsr_info(211, BSR_LC_RESYNC_OV, peer_device, "Online verify canceled.");
+		} 
+		else {
+			bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).",
+				bsr_repl_str(peer_device->repl_state[NOW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+				(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
+				(unsigned long long)ov_tw);
+
+			// BSR-835 set ov_left value
+			if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags))
+				peer_device->ov_left = ov_tw;
+			
+			mod_timer(&peer_device->resync_timer, jiffies);
+		}
+
+	}
 
 out:
 	return err;

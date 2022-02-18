@@ -988,7 +988,6 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			ULONG_PTR now = jiffies;
 			int i;
 
-			peer_device->ov_left = bsr_ov_bm_total_weight(peer_device);
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
@@ -1808,9 +1807,10 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	if (repl_state[NOW] == L_VERIFY_S || repl_state[NOW] == L_VERIFY_T) {
 		// BSR-118
+		// ov done
 		if (NULL != peer_device->fast_ov_bitmap) {
-			kfree(peer_device->fast_ov_bitmap);
-			peer_device->fast_ov_bitmap = NULL;
+			// BSR-835
+			kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 		}
 
 		if (n_oos) {
@@ -2315,6 +2315,8 @@ void verify_progress(struct bsr_peer_device *peer_device,
 
 	// BSR-119
 	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
+	// BSR-835 set last acked sector
+	peer_device->ov_acked_sector = sector;
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x1ff) == 0)
