@@ -72,10 +72,28 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 }
 #endif
 
+/*
+ * character removal 
+*/
+void eliminate(char *str, char ch)
+{
+	size_t len = strlen(str) + 1;
+	for (; *str != '\0'; str++, len--) {
+		if (*str == ch) {	
+#ifdef _WIN	
+			strcpy_s(str, len, str + 1);
+#else
+			strcpy(str, str + 1);
+#endif
+			str--;
+		}
+	}
+}
+
 void* exec_pipe(enum get_info_type info_type, char *res_name)
 {
-	char command[128];
-	char buf[128] = { 0, };
+	char command[256];
+	char buf[256] = { 0, };
 	struct resource *res_head = NULL, *res = NULL, *res_temp = NULL;
 	struct connection* conn = NULL, *conn_head = NULL, *conn_temp = NULL;
 	struct volume *vol_head = NULL, *vol = NULL, *vol_temp = NULL;
@@ -103,7 +121,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 	}
 
 	while (!feof(pipe)) {
-		if (fgets(buf, 128, pipe) != NULL) {
+		if (fgets(buf, 256, pipe) != NULL) {
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
 
@@ -115,6 +133,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				}
 				res->conn = NULL;
 				res->vol = NULL;
+				eliminate(buf, '"');
 #ifdef _WIN
 				strcpy_s(res->name, buf);
 #else // _LIN
@@ -374,7 +393,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 	PBSR_DEBUG_INFO debugInfo = NULL;
 	enum BSR_DEBUG_FLAGS flag;
 #else // _LIN
-	char path[128];
+	char path[MAX_PATH];
 	FILE *fp;
 #endif
 	char *buffer;
@@ -415,7 +434,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
@@ -461,7 +480,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
@@ -505,7 +524,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 			
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
@@ -543,24 +562,6 @@ fail:
 		buffer = NULL;
 	}
 	return NULL;
-}
-
-/*
- * character removal 
-*/
-void eliminate(char *str, char ch)
-{
-	size_t len = strlen(str) + 1;
-	for (; *str != '\0'; str++, len--) {
-		if (*str == ch) {	
-#ifdef _WIN	
-			strcpy_s(str, len, str + 1);
-#else
-			strcpy(str, str + 1);
-#endif
-			str--;
-		}
-	}
 }
 
 FILE *perf_fileopen(char * filename, char * currtime)
@@ -700,7 +701,7 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 	PBSR_DEBUG_INFO debugInfo = NULL;
 	enum BSR_DEBUG_FLAGS flag;
 #else // _LIN
-	char path[128];
+	char path[MAX_PATH];
 	FILE *fp;
 #endif	
 	int ret = -1;
@@ -810,7 +811,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 	PBSR_DEBUG_INFO debugInfo = NULL;
 	enum BSR_DEBUG_FLAGS flag;
 #else // _LIN
-	char path[128];
+	char path[MAX_PATH];
 #endif
 
 	FILE *fp;
@@ -882,7 +883,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 #ifdef _WIN
 			debugInfo = GetDebugInfo(flag, res, vol->vnr);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
@@ -934,7 +935,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
@@ -986,7 +987,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 			debugInfo = GetDebugInfo(flag, res, conn->node_id);
 			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo.\n");
+				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
 			}
 
