@@ -1293,6 +1293,9 @@ static int need_filesystem_recovery(char * dev_name)
 	// convert dev_name for use in log file names
 	// ex) /dev/sdb1 -> _dev_sdb1
 	n_dev_name = calloc(strlen(dev_name) + 1, sizeof(char));
+	if (!n_dev_name)
+		return 0;
+
 	strcpy(n_dev_name, dev_name);
 	ptr = strchr(n_dev_name, '/');
 	while (ptr != NULL) {
