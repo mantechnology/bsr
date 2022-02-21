@@ -405,7 +405,7 @@ void MonitorToFile()
 
 
 	while (res) {
-		char respath[MAX_PATH+10] = {0,};
+		char respath[MAX_PATH+RESOURCE_NAME_MAX] = {0,};
 
 		sprintf_ex(respath, "%s%s", perfpath, res->name);
 #ifdef _WIN

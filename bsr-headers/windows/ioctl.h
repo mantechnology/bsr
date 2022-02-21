@@ -146,7 +146,7 @@ enum BSR_DEBUG_FLAGS
 
 typedef struct _BSR_DEBUG_INFO
 {
-	CHAR					res_name[64];
+	CHAR					res_name[128];
 	int						peer_node_id;
 	int						vnr;
 	enum BSR_DEBUG_FLAGS	flags;
