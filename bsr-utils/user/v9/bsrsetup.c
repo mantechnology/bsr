@@ -1292,7 +1292,7 @@ static int need_filesystem_recovery(char * dev_name)
 
 	// convert dev_name for use in log file names
 	// ex) /dev/sdb1 -> _dev_sdb1
-	n_dev_name = malloc(strlen(dev_name));
+	n_dev_name = calloc(strlen(dev_name) + 1, sizeof(char));
 	strcpy(n_dev_name, dev_name);
 	ptr = strchr(n_dev_name, '/');
 	while (ptr != NULL) {
@@ -1309,6 +1309,9 @@ static int need_filesystem_recovery(char * dev_name)
 		sprintf(journal_check_log, "/var/log/bsr/tune2fs%s.log", n_dev_name);
 		sprintf(fs_check_log, "/var/log/bsr/fsck%s.log", n_dev_name);
 	}
+
+	free(n_dev_name)
+
 	// remove old log files
 	remove(journal_check_log);
 	remove(fs_check_log);
