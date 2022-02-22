@@ -7373,7 +7373,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 #ifdef _WIN
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56SB');			
 #else // _LIN
-			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)kmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN, '');
+			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)bsr_kvmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if (NULL == pBsrBitmap) {
 				bsr_err(54, BSR_LC_MEMORY, device, "Failed to get bsr bitmap due to failure to allocated %d size memory for converted bitmap", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
