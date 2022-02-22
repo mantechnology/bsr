@@ -1726,7 +1726,7 @@ extern void bsr_free_ov_bm(struct kref *kref)
 {
 	struct bsr_peer_device *peer_device = container_of(kref, struct bsr_peer_device, ov_bm_ref);
 	if (peer_device->fast_ov_bitmap != NULL) {
-		kfree(peer_device->fast_ov_bitmap);
+		kvfree(peer_device->fast_ov_bitmap);
 		peer_device->fast_ov_bitmap = NULL;
 		bsr_info(213, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been removed.");
 	}
