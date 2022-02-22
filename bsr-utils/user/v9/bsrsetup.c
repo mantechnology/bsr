@@ -1313,7 +1313,7 @@ static int need_filesystem_recovery(char * dev_name)
 		sprintf(fs_check_log, "/var/log/bsr/fsck%s.log", n_dev_name);
 	}
 
-	free(n_dev_name)
+	free(n_dev_name);
 
 	// remove old log files
 	remove(journal_check_log);
