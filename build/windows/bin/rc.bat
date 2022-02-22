@@ -43,10 +43,10 @@ setlocal EnableDelayedExpansion
 
 set /a adj_retry=0
 :adjust_retry
-for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
+for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all -T`) do (
 	set ADJUST=0
-
-	for /f "usebackq tokens=*" %%c in (`bsradm sh-node-option -n svc_auto_up %%a`) do (
+	echo [%date%_%time%] check resource %%a >> %start_log%
+	for /f "usebackq tokens=*" %%c in (`bsradm sh-node-option -n svc_auto_up %%a -T`) do (
 
 		if /i "%%c" == "yes" (
 			@(set ADJUST=1)
@@ -59,7 +59,7 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	)
 	if !ADJUST! == 1 (
 		echo [!date!_!time!] bsradm adjust %%a >> %start_log%
-		bsradm -c /etc/bsr.conf adjust %%a
+		bsradm -c /etc/bsr.conf adjust %%a -T
 		if !errorlevel! gtr 0 (
 			echo [!date!_!time!] Failed to bsradm adjust %%a. >> %start_log%
 			set /a adj_retry=adj_retry+1
@@ -67,14 +67,14 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 			if %adj_retry% gtr 10 (
 				echo [!date!_!time!] bsradm adjust %%a finally failed.>> %start_log%
 			) else (
-				timeout /t 3 /NOBREAK > nul
+				waitfor bsrAdjust /t 3 > NUL 2>&1
 				goto adjust_retry
 			)	
 		) else (
 			echo [!date!_!time!] bsradm adjust %%a success.>> %start_log%	
 		)
 		
-		timeout /t 3 /NOBREAK > nul
+		waitfor bsrAdjust /t 3 > NUL 2>&1
 	)
 )
 endlocal
@@ -142,9 +142,8 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 )
 endlocal
 
-
-timeout /t 3 /NOBREAK > nul
-
+waitfor bsrStop /t 3 > NUL 2>&1
+		
 REM linux
 REM for res in $(bsrsetup all show | sed -ne 's/^resource \(.*\) {$/\1/p'); do
 REM	  bsrsetup "$res" down
@@ -183,7 +182,7 @@ goto :eof
 
 		echo [%date%_%time%] Waiting for %1 to attach... retry = %retry% >> %start_log%
 
-		timeout /t 3 /NOBREAK > nul
+		waitfor bsrVhdStatus /t 3 > NUL 2>&1
 		goto check_vhd_status
 	)
 
