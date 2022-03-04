@@ -5157,8 +5157,6 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_device *device;
 	struct bsr_peer_device *temp_peer_device;
 	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
-	// DW-1391
-	long timeo = 5*HZ;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
