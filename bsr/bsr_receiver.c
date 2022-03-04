@@ -4372,14 +4372,19 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		list_add_tail(&peer_req->recv_order, &connection->peer_requests);
 	spin_unlock_irq(&device->resource->req_lock);
 
-// BSR-846 fix potential write issue when SyncTarget node received P_RS_DATA_REPLY and P_DATA for same sector
-#if 0
-	if (connection->agreed_pro_version < 110) {
-#endif
-		/* If the peer is BSR 8, a sync target may need to drain
-		* (overlapping) in-flight resync requests first.
-		* With BSR 9, the mutually exclusive references in resync lru
-		* and activity log takes care of that already. */
+	// BSR-846 fix potential write issue when SyncTarget node received P_RS_DATA_REPLY and P_DATA for same sector
+	if ((connection->agreed_pro_version < 110) || (connection->agreed_pro_version >= 113)) {
+
+		/* The implementation of drbd9's I/O mutual exclusion through 
+		* resync LRU is an advanced implementation compared to drbd8, 
+		* but if synchronization and replication I/O are concentrated in the same section, 
+		* local I/O delay may intensify at a specific point in time.
+		*  To solve this problem, we excluded the interdependent implementation of Resync LRU and AL, 
+		* and improved to separate processing by marking the same section I/O area.
+		*  However, even with this processing, 
+		* it is necessary to avoid the data reorder problem of the I/O scheduler 
+		* that occurs when synchronization I/O and replication I/O are concurrently submitted from the target. 
+		*  So it activates the lower version of the waiting code. */
 	
 		// DW-1250 wait until there's no resync on same sector, to prevent overlapped write.
 		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET) {
@@ -4392,9 +4397,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 				goto timeout_ee_wait;
 			}
 		}
-#if 0
 	}
-#endif
 	/* If we would need to block on the activity log,
 	* we may queue this request for the submitter workqueue.
 	* Remember the op_flags. */
