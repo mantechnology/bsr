@@ -4391,7 +4391,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			// BSR-846 timeout if it takes more than 10 seconds
 			long timeo = EE_WAIT_TIMEOUT;
 			wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
-			if (timeo) {
+			if (timeo == 0) {
 				err = -EIO;
 				bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
 				goto timeout_ee_wait;
