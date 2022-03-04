@@ -378,5 +378,6 @@
 #define BSR_ON_NO_QUORUM_DEF ONQ_SUSPEND_IO
 
 #define AL_WAIT_TIMEOUT			10 * HZ // DW-1513 // DW-1761
+#define EE_WAIT_TIMEOUT			10 * HZ // BSR-846
 
 #endif

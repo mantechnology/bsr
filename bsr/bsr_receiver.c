@@ -4372,17 +4372,29 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		list_add_tail(&peer_req->recv_order, &connection->peer_requests);
 	spin_unlock_irq(&device->resource->req_lock);
 
+// BSR-846 fix potential write issue when SyncTarget node received P_RS_DATA_REPLY and P_DATA for same sector
+#if 0
 	if (connection->agreed_pro_version < 110) {
+#endif
 		/* If the peer is BSR 8, a sync target may need to drain
 		* (overlapping) in-flight resync requests first.
 		* With BSR 9, the mutually exclusive references in resync lru
 		* and activity log takes care of that already. */
 	
 		// DW-1250 wait until there's no resync on same sector, to prevent overlapped write.
-		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET)
-			wait_event(connection->ee_wait, !overlapping_resync_write(connection, peer_req));
+		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET) {
+			// BSR-846 timeout if it takes more than 10 seconds
+			long timeo = EE_WAIT_TIMEOUT;
+			wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
+			if (timeo) {
+				err = -EIO;
+				bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
+				goto timeout_ee_wait;
+			}
+		}
+#if 0
 	}
-
+#endif
 	/* If we would need to block on the activity log,
 	* we may queue this request for the submitter workqueue.
 	* Remember the op_flags. */
@@ -4505,6 +4517,8 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	bsr_err(9, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to failure to submit I/O request, triggering re-connect");
 	bsr_al_complete_io(device, &peer_req->i);
 
+// BSR-846
+timeout_ee_wait:
 disconnect_during_al_begin_io:
 	spin_lock_irq(&device->resource->req_lock);
 	list_del(&peer_req->w.list);
