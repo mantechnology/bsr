@@ -11031,10 +11031,16 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			if (device->resource->role[NOW] == R_PRIMARY || 
-				is_sync_source(peer_device) || 
-				peer_device->repl_state[NOW] == L_AHEAD) {
-				bsr_set_in_sync(peer_device, sector, blksize);
+			if (device->resource->role[NOW] == R_PRIMARY || is_sync_source(peer_device)) {
+				// BSR-848
+				if (peer_device->repl_state[NOW] == L_AHEAD) {
+					struct bsr_interval i;
+					i.sector = sector;
+					i.size = blksize;
+					bsr_send_out_of_sync(peer_device, &i);
+				} else {
+					bsr_set_in_sync(peer_device, sector, blksize);
+				}
 			}
 
 			// DW-1601 add DW-1859
