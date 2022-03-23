@@ -748,13 +748,19 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 	enum bsr_stream stream;
 	int i = 0;
 
+	// BSR-839 passing in_flight_cnt as sendbuf performance data
+	/* ap_in_flight size_bytes cnt */
+	seq_printf(m, "ap %lld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
+	/* rs_in_flight size_bytes cnt */
+	seq_printf(m, "rs %lld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
+
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
 		if (ring) {
 			seq_printf(m, "%s ", stream == DATA_STREAM ? "data" : "control");
 
 			/* size_byte used*/
-			seq_printf(m, "%lld %lld ", ring->length, ring->sk_wmem_queued);
+			seq_printf(m, "%lld %lld ", ring->length - 1, ring->sk_wmem_queued);
 			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
 				if (ring->packet_cnt[i]) {
 					/* packet_name cnt size_byte*/

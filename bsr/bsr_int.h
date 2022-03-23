@@ -524,7 +524,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 213
-#define BSR_LC_REPLICATION_MAX_INDEX 31
+#define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 57
@@ -1655,6 +1655,10 @@ struct bsr_connection {
 
 	atomic_t64 ap_in_flight; /* App bytes in flight (waiting for ack) */
 	atomic_t64 rs_in_flight; /* resync-data bytes in flight*/
+
+	// BSR-839 implement congestion-highwater
+	atomic_t ap_in_flight_cnt; /* App cnt in flight (waiting for ack) */
+	atomic_t rs_in_flight_cnt; /* resync-data cnt in flight*/
 
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
@@ -3738,6 +3742,47 @@ static inline void bsr_thread_restart_nowait(struct bsr_thread *thi)
 {
 	_bsr_thread_stop(thi, true, false);
 }
+
+static inline void set_ap_in_flight(struct bsr_connection *connection, unsigned int i)
+{
+	atomic_set64(&connection->ap_in_flight, i);
+	// BSR-839
+	atomic_set(&connection->ap_in_flight_cnt, i);
+}
+static inline void add_ap_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	atomic_add64(size, &connection->ap_in_flight);
+	// BSR-839
+	atomic_inc(&connection->ap_in_flight_cnt);
+}
+static inline void sub_ap_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	if (atomic_sub_return64(size, &connection->ap_in_flight) < 0)
+		atomic_set64(&connection->ap_in_flight, 0);
+	
+	if (atomic_dec_return(&connection->ap_in_flight_cnt) < 0)
+		atomic_set(&connection->ap_in_flight_cnt, 0);
+}
+static inline void set_rs_in_flight(struct bsr_connection *connection, unsigned int i)
+{
+	atomic_set64(&connection->rs_in_flight, i);
+	// BSR-839
+	atomic_set(&connection->rs_in_flight_cnt, i);
+}
+static inline void add_rs_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	atomic_add64(size, &connection->rs_in_flight);
+	// BSR-839
+	atomic_inc(&connection->rs_in_flight_cnt);
+}
+static inline void sub_rs_in_flight(unsigned int size, struct bsr_connection *connection, bool sync_done)
+{
+	if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
+		atomic_set64(&connection->rs_in_flight, 0);
+	if (sync_done && (atomic_dec_return(&connection->rs_in_flight_cnt) < 0))
+		atomic_set(&connection->rs_in_flight_cnt, 0);
+}
+
 
 /* counts how many answer packets packets we expect from our peer,
  * for either explicit application requests,

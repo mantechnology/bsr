@@ -309,6 +309,13 @@
 #define BSR_MAX_REQ_WRITE_MB_MAX        10240
 #define BSR_MAX_REQ_WRITE_MB_SCALE        '1'
 
+// BSR-839 implement congestion-highwater
+#define BSR_CONG_HIGHWATER_MIN	0
+#define BSR_CONG_HIGHWATER_MAX	BSR_MAX_REQ_WRITE_CNT_MAX
+#define BSR_CONG_HIGHWATER_DEF	20000
+#define BSR_CONG_HIGHWATER_SCALE '1'
+
+
 #define BSR_NODE_ID_DEF		0
 #define BSR_NODE_ID_MIN		0
 #ifndef BSR_NODE_ID_MAX /* Is also defined in bsr.h */
