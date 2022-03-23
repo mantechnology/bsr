@@ -2133,7 +2133,8 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 				inc_rs_pending(peer_device);
 				// DW-1817
 				//Add the data size to rs_in_flight before sending the resync data.
-				atomic_add64(peer_req->i.size, &peer_device->connection->rs_in_flight);
+				// BSR-839
+				add_rs_in_flight(peer_req->i.size, peer_device->connection);
 
 				bsr_debug(17, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
 																												(unsigned long long)peer_req->i.sector, 
@@ -2149,7 +2150,8 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 				// BSR-428 fix potential rs_in_flight incorrect calculation
 				if (err) {
 					dec_rs_pending(peer_device);
-					atomic_sub64(peer_req->i.size, &peer_device->connection->rs_in_flight);
+					// BSR-839
+					sub_rs_in_flight(peer_req->i.size, peer_device->connection, true);
 				}
 
 			}

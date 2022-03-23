@@ -4,11 +4,11 @@
 
 
 struct perf_stat {
-	unsigned long priv;
-	unsigned long min;
-	unsigned long max;
+	unsigned long long priv;
+	unsigned long long min;
+	unsigned long long max;
+	unsigned long long sum;
 	unsigned long cnt;
-	ULONG_PTR sum;
 	bool duplicate;
 };
 

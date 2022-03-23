@@ -777,8 +777,9 @@ void conn_connect2(struct bsr_connection *connection)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
-	atomic_set64(&connection->ap_in_flight, 0);
-	atomic_set64(&connection->rs_in_flight, 0);
+	// BSR-839
+	set_ap_in_flight(connection, 0);
+	set_rs_in_flight(connection, 0);
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -847,6 +848,7 @@ static bool conn_connect(struct bsr_connection *connection)
 	bool have_mutex;
 	bool no_addr = false;
 	signed long long sndbuf_size, cong_fill;
+	int cong_highwater;
 start:
 	
 	bsr_debug_conn("conn_connect"); 
@@ -973,6 +975,8 @@ start:
 	nc = rcu_dereference(connection->transport.net_conf);
 	sndbuf_size = nc->sndbuf_size;
 	cong_fill = nc->cong_fill;
+	// BSR-839
+	cong_highwater = nc->cong_highwater;
 #endif
 	rcu_read_unlock();
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
@@ -985,7 +989,7 @@ start:
 
 		send_buffring = transport->ops->start_send_buffring(transport, sndbuf_size);
 		if (send_buffring)
-			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)", sndbuf_size, cong_fill);
+			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu) cong_highwater(%d)", sndbuf_size, cong_fill, cong_highwater);
 		else
 			bsr_info(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled");
 	} else {
@@ -11052,9 +11056,9 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			if (p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);
 
-			// DW-1601 add DW-1817
-			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// DW-1601 add DW-1817 	
+			// BSR-839
+			sub_rs_in_flight(blksize, connection, p->block_id == ID_SYNCER_SPLIT_DONE);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11079,8 +11083,8 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			dec_rs_pending(peer_device);
 			// DW-1817 
 			//At this point, it means that the synchronization data has been removed from the send buffer because the synchronization transfer is complete.
-			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(blksize, connection, true);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11145,8 +11149,8 @@ static int got_NegAck(struct bsr_connection *connection, struct packet_info *pi)
 				dec_rs_pending(peer_device);
 
 			// DW-1601 add DW-1817
-			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(size, connection, p->block_id == ID_SYNCER_SPLIT_DONE);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11169,8 +11173,8 @@ static int got_NegAck(struct bsr_connection *connection, struct packet_info *pi)
 
 			// DW-1817
 			//This means that the resync data is definitely free from send-buffer.
-			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(size, connection, true);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);

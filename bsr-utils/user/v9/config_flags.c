@@ -930,6 +930,8 @@ const struct en_map quorum_map[] = {
 	{ "congestion-fill", NUMERIC(cong_fill, CONG_FILL),				\
           .unit = "bytes" },								\
 	{ "congestion-extents", NUMERIC(cong_extents, CONG_EXTENTS) },			\
+	/* BSR-839 implement congestion-highwater */ \
+	{ "congestion-highwater", NUMERIC(cong_highwater, CONG_HIGHWATER) },			\
 	{ "csums-alg", STRING(csums_alg) },						\
 	{ "csums-after-crash-only", BOOLEAN(csums_after_crash_only,			\
 						CSUMS_AFTER_CRASH_ONLY) },		\

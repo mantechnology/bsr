@@ -1038,7 +1038,9 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_SENT) && (set & RQ_NET_SENT)) {
 		/* potentially already completed in the ack_receiver thread */
 		if (!(old_net & RQ_NET_DONE)) {
-			atomic_add64(req->i.size, &peer_device->connection->ap_in_flight);
+			// BSR-839
+			add_ap_in_flight(req->i.size, peer_device->connection);
+			
 			set_if_null_req_not_net_done(peer_device, req);
 
 			// DW-1961
@@ -1111,8 +1113,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		}
 #endif
 		if (old_net & RQ_NET_SENT) {
-			if (atomic_sub_return64(req->i.size, &peer_device->connection->ap_in_flight) < 0)
-				atomic_set64(&peer_device->connection->ap_in_flight, 0);
+			// BSR-839
+			sub_ap_in_flight(req->i.size, peer_device->connection);
 		}
 
 		if (old_net & RQ_EXP_BARR_ACK)
@@ -1719,6 +1721,17 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 			congested = true;
 		}
 	}
+
+	// BSR-839 implement congestion-highwater
+	// congestion detection based on the number of in_flight data
+	if (nc->cong_highwater) {
+		unsigned int total_in_flight_cnt = atomic_read(&connection->ap_in_flight_cnt) + atomic_read(&connection->rs_in_flight_cnt);
+		if (total_in_flight_cnt >= nc->cong_highwater) {
+			bsr_info(32, BSR_LC_REPLICATION, device, "Congestion-highwater threshold reached %u", total_in_flight_cnt);
+			congested = true;
+		}
+	}
+
 
 	if (device->act_log->used >= nc->cong_extents) {
 		bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached");
