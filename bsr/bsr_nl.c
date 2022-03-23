@@ -3884,10 +3884,10 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums", 
+	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, resync_ratio : %d%", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
 		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
-		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
+		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval, new_peer_device_conf->resync_ratio);
 
 	rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 
@@ -3923,10 +3923,10 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	if (err)
 		return err;
 
-	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
+	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, resync_ratio : %d%",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
 		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate,
-		conf->ov_req_num, conf->ov_req_interval);
+		conf->ov_req_num, conf->ov_req_interval, conf->resync_ratio);
 
 	peer_device->conf = conf;
 

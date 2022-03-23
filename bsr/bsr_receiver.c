@@ -6451,10 +6451,11 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 	synchronize_rcu_w32_wlock();
 #endif
 	if (new_peer_device_conf) {
-		bsr_info(29, BSR_LC_PROTOCOL, peer_device, "recv peer device option, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
+		bsr_info(29, BSR_LC_PROTOCOL, peer_device, "recv peer device option, resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, resync_ratio : %d%",
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
-			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
+			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval, new_peer_device_conf->resync_ratio);
+
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 		put_ldev(device);
 	}

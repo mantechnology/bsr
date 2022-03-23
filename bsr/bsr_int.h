@@ -1968,6 +1968,9 @@ struct bsr_peer_device {
 	int rs_last_events;  /* counter of read or write "events" (unit sectors)
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
+	// BSR-838 
+	ULONG_PTR rs_in_flight_mark_time;
+
 	ULONG_PTR ov_left; /* in bits */
 	ULONG_PTR ov_skipped; /* in bits */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
@@ -2012,6 +2015,14 @@ struct bsr_peer_device {
 
 	// BSR-676
 	atomic_t notify_flags;
+
+	// BSR-838
+	atomic_t64 cur_resync_sended;
+	atomic_t64 cur_repl_sended;
+	atomic_t64 last_resync_sended;
+	atomic_t64 last_repl_sended;
+
+	struct timer_list sended_timer;
 };
 
 // DW-1911

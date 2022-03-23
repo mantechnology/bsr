@@ -1168,17 +1168,25 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 	struct net_conf *nc;
 	unsigned int sect_in;  /* Number of sectors that came in since the last turn */
 	int number, mxb;
+	ULONG_PTR now = jiffies;
 
-	sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
-	peer_device->rs_in_flight -= sect_in;
-	
 	rcu_read_lock();
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
 	mxb = nc ? nc->max_buffers : 0;
 	if (rcu_dereference(peer_device->rs_plan_s)->size) {
+		sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
+		peer_device->rs_in_flight -= sect_in;
+
 		number = bsr_rs_controller(peer_device, sect_in) >> (BM_BLOCK_SHIFT - 9);
 		peer_device->c_sync_rate = number * HZ * (BM_BLOCK_SIZE / 1024) / SLEEP_TIME;
-	} else {
+	}
+	else {
+		// BSR-838
+		if (time_after_eq(now, peer_device->rs_in_flight_mark_time + HZ)) {
+			peer_device->rs_in_flight = 0;
+			peer_device->rs_in_flight_mark_time = now;
+		}
+
 		peer_device->c_sync_rate = rcu_dereference(peer_device->conf)->resync_rate;
 		number = SLEEP_TIME * peer_device->c_sync_rate  / ((BM_BLOCK_SIZE / 1024) * HZ);
 	}
@@ -1193,8 +1201,13 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 	 * mxb (as used here, and in bsr_alloc_pages on the peer) is
 	 * "number of pages" (typically also 4k),
 	 * but "rs_in_flight" is in "sectors" (512 Byte). */
-	if (mxb - peer_device->rs_in_flight/8 < number)
-		number = mxb - peer_device->rs_in_flight/8;
+
+	// BSR-838
+	if (rcu_dereference(peer_device->rs_plan_s)->size) {
+		if (mxb - peer_device->rs_in_flight / 8 < number) {
+			number = mxb - peer_device->rs_in_flight / 8;
+		}
+	}
 
 	return number;
 }
@@ -1317,6 +1330,7 @@ next_sector:
 		sector = BM_BIT_TO_SECT(bit);
 
 		if (bsr_try_rs_begin_io(peer_device, sector, true)) {
+			bsr_info(1, BSR_LC_ETC, peer_device, "retry %d", peer_device->rs_in_flight);
 			device->bm_resync_fo = bit;
 			goto requeue;
 		}
@@ -1979,6 +1993,8 @@ out:
 	if (old_repl_state == L_SYNC_SOURCE || old_repl_state == L_PAUSED_SYNC_S) {
 		// DW-1874
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
+		// BSR-838
+		del_timer_sync(&peer_device->sended_timer);
 	}
 
 	bsr_md_sync_if_dirty(device);
@@ -2141,10 +2157,13 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 																												(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
 																												(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
-				if (peer_req->flags & EE_RS_THIN_REQ && all_zero(peer_req))
+				if (peer_req->flags & EE_RS_THIN_REQ && all_zero(peer_req)) {
 					err = bsr_send_rs_deallocated(peer_device, peer_req);
-				else
+				} else {
 					err = bsr_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
+					// BSR-838
+					atomic_add64(peer_req->i.size, &peer_device->cur_resync_sended);
+				}
 
 				// BSR-428 fix potential rs_in_flight incorrect calculation
 				if (err) {
@@ -3070,10 +3089,22 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			device->bm_resync_fo = 0;
 			mutex_unlock(&device->bm_resync_fo_mutex);
 			peer_device->use_csums = use_checksum_based_resync(connection, device);
+
+			// BSR-838
+			peer_device->rs_in_flight_mark_time = jiffies;
 		} else {
 			peer_device->use_csums = false;
 			// DW-1874
 			bsr_md_set_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
+			// BSR-838
+			atomic_set64(&peer_device->cur_repl_sended, 0);
+			atomic_set64(&peer_device->cur_resync_sended, 0);
+			atomic_set64(&peer_device->last_repl_sended, 0);
+			atomic_set64(&peer_device->last_resync_sended, 0);
+
+			if (rcu_dereference(peer_device->conf)->resync_ratio) {
+				mod_timer(&peer_device->sended_timer, jiffies);
+			}
 		}
 
 		if ((side == L_SYNC_TARGET || side == L_PAUSED_SYNC_T) &&
@@ -3694,6 +3725,86 @@ static void maybe_send_barrier(struct bsr_connection *connection, int epoch)
 	}
 }
 
+// BSR-838
+#ifdef _WIN
+void sended_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
+#else // _LIN
+void sended_timer_fn(BSR_TIMER_FN_ARG)
+#endif
+{
+	LONG_PTR cur_repl_sended, cur_resync_sended;
+	//LONG_PTR  repl_sended, resync_sended, ratio_sended;
+#ifdef _WIN
+	UNREFERENCED_PARAMETER(SystemArgument1);
+	UNREFERENCED_PARAMETER(SystemArgument2);
+	UNREFERENCED_PARAMETER(Dpc);
+	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, sended_timer);
+#endif
+
+	if (peer_device == NULL)
+		return;
+
+	cur_repl_sended = atomic_read64(&peer_device->cur_repl_sended);
+	cur_resync_sended = atomic_read64(&peer_device->cur_resync_sended);
+	
+	// repl_sended = cur_repl_sended - atomic_read64(&peer_device->last_repl_sended);
+	// resync_sended = cur_resync_sended - atomic_read64(&peer_device->last_resync_sended);
+	// ratio_sended = 0;
+	// 
+	// if (resync_sended > 0 && repl_sended > 0) {
+	// 	int ratio;
+	// 
+	// 	rcu_read_lock();
+	// 	ratio = rcu_dereference(peer_device->conf)->resync_ratio;
+	// 	rcu_read_unlock();
+	// 
+	// 	ratio_sended = resync_sended / ((repl_sended + resync_sended) / 100);
+	// 	bsr_info(1, BSR_LC_ETC, peer_device, "repl %lld, resync %lld, raito sended %d:%lld", repl_sended, resync_sended, ratio, ratio_sended);
+	// }
+
+	atomic_set64(&peer_device->last_repl_sended, cur_repl_sended);
+	atomic_set64(&peer_device->last_resync_sended, cur_resync_sended);
+
+	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		mod_timer(&peer_device->sended_timer, jiffies + HZ);
+	}
+}
+
+// BSR-838
+static void check_repl_ratio_and_wait(struct bsr_peer_device *peer_device)
+{
+	LONG_PTR repl_sended, resync_sended, ratio_sended;
+	int ratio;
+
+	rcu_read_lock();
+	ratio = rcu_dereference(peer_device->conf)->resync_ratio;
+	rcu_read_unlock();
+
+	while (rcu_dereference(peer_device->conf)->resync_ratio && peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		repl_sended = atomic_read64(&peer_device->cur_repl_sended) - atomic_read64(&peer_device->last_repl_sended);
+		resync_sended = atomic_read64(&peer_device->cur_resync_sended) - atomic_read64(&peer_device->last_resync_sended);
+		ratio_sended = 0;
+
+		if (resync_sended > 0 && repl_sended > 0) {
+			ratio_sended = resync_sended / ((repl_sended + resync_sended) / 100);
+		} else {
+			break;
+		}
+
+		if (ratio_sended > ratio) {
+			break;
+		} else {
+			int c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
+			if (repl_sended / (c_min_rate / 100) < ratio) {
+				break;
+			}
+			msleep(1);
+		}
+	}
+}
+
 static int process_one_request(struct bsr_connection *connection)
 {
 	struct bio_and_error m;
@@ -3732,18 +3843,21 @@ static int process_one_request(struct bsr_connection *connection)
 				bsr_send_current_state(peer_device);
 			}
 
+			// BSR-838
+			check_repl_ratio_and_wait(peer_device);
+
 			err = bsr_send_dblock(peer_device, req);
 			what = err ? SEND_FAILED : HANDED_OVER_TO_NETWORK;
 
+			// BSR-838
+			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
 #ifdef _WIN
 			// DW-1237 data block has been sent(or failed), put request databuf ref.
 			if (0 == atomic_dec(&req->req_databuf_ref) &&
-				(req->rq_state[0] & RQ_LOCAL_COMPLETED))
-			{
+				(req->rq_state[0] & RQ_LOCAL_COMPLETED)) {
 				kfree2(req->req_databuf);
 			}
 #endif
-
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last

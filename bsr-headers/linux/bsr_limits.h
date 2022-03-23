@@ -242,6 +242,14 @@
 #define BSR_OV_REQ_INTERVAL_DEF     100
 #define BSR_OV_REQ_INTERVAL_SCALE	'1'  /* milliseconds */
 
+
+// BSR-838
+#define BSR_RESYNC_RATIO_MIN 0
+#define BSR_RESYNC_RATIO_MAX 50
+#define BSR_RESYNC_RATIO_DEF 0 
+#define BSR_RESYNC_RATIO_SCALE '1' /* percent  */
+
+
 #define BSR_CONG_FILL_MIN	0
 //#define BSR_CONG_FILL_MAX	(10<<21) /* 10GByte in sectors */
 #define BSR_CONG_FILL_MAX 	(0xFFFFFFFFFF)

@@ -1141,6 +1141,7 @@ struct context_def peer_device_options_ctx = {
 		{ "c-min-rate", NUMERIC(c_min_rate, C_MIN_RATE), .unit = "bytes/second" },
 		{ "ov-req-num", NUMERIC(ov_req_num, OV_REQ_NUM), .unit = "blocks" },
 		{ "ov-req-interval", NUMERIC(ov_req_interval, OV_REQ_INTERVAL), .unit = "milliseconds" },
+		{ "resync-ratio", NUMERIC(resync_ratio, RESYNC_RATIO), .unit = "percent" },
 		{ } },
 };
 
