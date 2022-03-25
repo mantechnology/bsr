@@ -709,6 +709,11 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = connection;
 		connection_send_buf_show(&seq, 0);
 		break;
+		// BSR-838
+	case DBG_CONN_RESYNC_RATIO:
+		seq.private = connection;
+		ret = connection_resync_ratio_show(&seq, 0);
+		break;
 	case DBG_PEER_PROC_BSR:
 		seq.private = peer_device;
 		peer_device_proc_bsr_show(&seq, 0);
@@ -757,7 +762,6 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = device;
 		ret = device_peer_req_timing_show(&seq, 0);
 		break;
-
 	default:
 		break;
 	}

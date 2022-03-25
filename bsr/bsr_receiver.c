@@ -4596,7 +4596,7 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 	rcu_read_lock();
 	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
 	rcu_read_unlock();
-
+	
 	/* feature disabled? */
 	if (c_min_rate == 0)
 		return false;
@@ -4615,8 +4615,7 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 
 		peer_device->rs_last_events = curr_events;
 
-		/* sync speed average over the last 2*BSR_SYNC_MARK_STEP,
-		 * approx. */
+		// sync speed average over the last 2*BSR_SYNC_MARK_STEP, approx.
 		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
 
 		if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T)
@@ -4774,6 +4773,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		}
 		peer_req->w.cb = w_e_end_rsdata_req;
 		fault_type = BSR_FAULT_RS_RD;
+		atomic_add64(peer_req->i.size, &peer_device->cur_resync_recevied);
 		break;
 
 	case P_OV_REPLY:
@@ -4954,6 +4954,9 @@ fail3:
 fail2:
 	bsr_free_peer_req(peer_req);
 fail:
+	if (pi->cmd == P_RS_DATA_REQUEST)
+		atomic_sub64(size, &peer_device->cur_resync_recevied);
+
 	put_ldev(device);
 	return err;
 }
@@ -10054,6 +10057,9 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 	peer_device->rs_failed = 0;
 	atomic_set(&peer_device->rs_pending_cnt, 0);
 	wake_up(&peer_device->device->misc_wait);
+
+	// BSR-838
+	del_timer_sync(&peer_device->sended_timer);
 
 	// DW-1663 When the "DPC function" is running, "del_timer_sync()" does not wait but cancels only the timer in the queue and releases the resource, resulting in "BSOD".
 	// Add the mutex so that "del_timer_sync()" can be called after terminating "DPC function".

@@ -766,6 +766,73 @@ void read_al_stat_work(char *path, struct time_filter *tf)
 
 }
 
+
+// BSR-838
+void read_peer_resync_ratio_work(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
+{
+	char save_t[64] = { 0, };
+	char filter_s[64], filter_e[64];
+	struct perf_stat repl_sended, resync_sended, resync_ratio;
+
+
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
+
+	memset(&repl_sended, 0, sizeof(struct perf_stat));
+	memset(&resync_sended, 0, sizeof(struct perf_stat));
+	memset(&resync_ratio, 0, sizeof(struct perf_stat));
+
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			 if (check_record_time(save_t, tf)) {
+				char buf[MAX_BUF_SIZE];
+				char *ptr, *save_ptr;
+
+				if (strlen(filter_s) == 0)
+					sprintf_ex(filter_s, "%s", save_t);
+
+				if (fgets(buf, sizeof(buf), fp) != NULL) {
+					// remove EOL
+					*(buf + (strlen(buf) - 1)) = 0;
+					/* peer */
+					ptr = strtok_r(buf, " ", &save_ptr);
+				
+					while (ptr) {
+						/* replication sended, resync sended, ratio */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&repl_sended, atoi(ptr));
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&resync_sended, atoi(ptr));
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&resync_ratio, atoi(ptr));
+					}
+				}
+
+				sprintf_ex(filter_e, "%s", save_t);
+				continue;
+			}
+
+			fscanf_ex(fp, "%*[^\n]");
+			break;
+
+		}
+
+		if (ftell(fp) >= end_offset)
+			break;
+	}
+
+	if (print_runtime)
+		printf(" Run: %s - %s\n", filter_s, filter_e);
+	printf("  PEER %s: replication sended=%lubyte/s, resync sended=%lubyte/s, resync ratio=%lu\n", peer_name, stat_avg(repl_sended.sum, repl_sended.cnt), stat_avg(resync_sended.sum, resync_sended.cnt), stat_avg(resync_ratio.sum, resync_ratio.cnt));
+}
+
 /**
  * Reports statistics of network performance.
  */
@@ -987,7 +1054,7 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 	char cmd[128] = {0,};
 	char peer_name[64] = {0,};
 
-	if (fopen_s(&fp, path, "r") != 0)
+	if (fopen_s(&fp, path, "r") != 0) 
 		return;
 
 	fseek(fp, 0, SEEK_END);
@@ -1015,6 +1082,9 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 						read_network_stat(fp, peer_name, tf, end_offset, print_runtime);
 					else if (type == SEND_BUF)
 						read_sendbuf_stat(fp, peer_name, tf, end_offset, print_runtime);
+					else if (type == RESYNC_RATIO) {
+						read_peer_resync_ratio_work(fp, peer_name, tf, end_offset, print_runtime);
+					}
 					if (print_runtime)
 						print_runtime = false;
 					
@@ -1038,7 +1108,6 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 		printf("  please enter between %s - %s\n", start_t, end_t);
 
 }
-
 
 /**
  * Reports statistics of memory performance.
@@ -1785,6 +1854,57 @@ void watch_memory(char *path, bool scroll)
 			}
 			
 		} else {	
+#ifdef _WIN
+			Sleep(1000);
+#else // _LIN
+			sleep(1);
+#endif
+		}
+		continue;
+	}
+
+	fclose(fp);
+
+}
+
+void watch_peer_resync_ratio(char *path, bool scroll)
+{
+	FILE *fp;
+	int offset = 0;
+
+	fp = open_shared(path);
+	if (fp == NULL)
+		return;
+
+	fseek(fp, 0, SEEK_END);
+	while (1) {
+		char buf[MAX_BUF_SIZE] = { 0, };
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			char *ptr, *save_ptr;
+			long repl_sended, resync_sended, resync_ratio;
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			ptr = strtok_r(buf, " ", &save_ptr);
+
+			if (!scroll)
+				clear_screen();
+			printf("%s\n", ptr); // time
+
+			ptr = strtok_r(NULL, " ", &save_ptr);
+			while (ptr) {
+				printf("%s\n", ptr); 
+
+				repl_sended = atol(strtok_r(NULL, " ", &save_ptr));
+				resync_sended = atol(strtok_r(NULL, " ", &save_ptr));
+				resync_ratio = atol(strtok_r(NULL, " ", &save_ptr));
+				printf("    replcation(%ldkb)/resync(%ldkb),  resync ratio %ld%%\n", repl_sended >> 10, resync_sended >> 10, resync_ratio);
+				ptr = strtok_r(NULL, " ", &save_ptr);
+			}
+		}
+		else {
 #ifdef _WIN
 			Sleep(1000);
 #else // _LIN

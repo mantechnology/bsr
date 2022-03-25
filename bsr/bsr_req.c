@@ -2137,6 +2137,42 @@ static void * bsr_check_plugged(struct bsr_resource *resource) { return NULL; };
 static void bsr_update_plug(struct bsr_plug_cb *plug, struct bsr_request *req) { };
 #endif
 
+// BSR-838 calculate the resync ratio and wait if it is lower than the set ratio.
+static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
+{
+	LONG_PTR repl_sended, resync_sended, ratio_sended;
+	int resync_ratio, c_min_rate;
+
+	rcu_read_lock();
+	resync_ratio = rcu_dereference(peer_device->conf)->resync_ratio;
+	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
+	rcu_read_unlock();
+
+	while (rcu_dereference(peer_device->conf)->resync_ratio && peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		repl_sended = atomic_read64(&peer_device->cur_repl_sended) - atomic_read64(&peer_device->last_repl_sended);
+		resync_sended = atomic_read64(&peer_device->cur_resync_sended) - atomic_read64(&peer_device->last_resync_sended);
+		ratio_sended = 0;
+
+		if (resync_sended > 0 && repl_sended > 0) {
+			ratio_sended = resync_sended / ((repl_sended + resync_sended) / 100);
+		} else {
+			break;
+		}
+
+		if (ratio_sended > resync_ratio) {
+			break;
+		} else {
+			LONG_PTR resync_received;
+
+			resync_received = atomic_read64(&peer_device->cur_resync_recevied) - atomic_read64(&peer_device->last_resync_recevied);
+			if (resync_received < c_min_rate) {
+				break;
+			}
+			msleep(1);
+		}
+	}
+}
+
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
 	struct bsr_resource *resource = device->resource;
@@ -2145,6 +2181,14 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	struct bio_and_error m = { NULL, };
 	bool no_remote = false;
 	bool submit_private_bio = false;
+
+
+	for_each_peer_device(peer_device, device) {
+		bool remote = bsr_should_do_remote(peer_device, NOW);
+		if (remote) {
+			check_resync_ratio_and_wait(peer_device);
+		}
+	}
 
 	spin_lock_irq(&resource->req_lock);
 	if (rw == WRITE) {

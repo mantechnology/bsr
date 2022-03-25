@@ -4583,6 +4583,12 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set64(&peer_device->last_repl_sended, 0);
 	atomic_set64(&peer_device->last_resync_sended, 0);
 
+	atomic_set64(&peer_device->cur_resync_recevied, 0);
+	atomic_set64(&peer_device->last_resync_recevied, 0);
+
+	atomic_set64(&peer_device->repl_sended, 0);
+	atomic_set64(&peer_device->resync_sended, 0);
+
 	bsr_timer_setup(peer_device, sended_timer, sended_timer_fn);
 	peer_device->rs_in_flight_mark_time = 0;
 
