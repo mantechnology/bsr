@@ -6630,13 +6630,13 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-#ifdef _WIN
+	// BSR-855 prevents abnormal termination when the down cmd is duplicated.
+	// if the worker is not running, it is already down.
 	if (get_t_state(&resource->worker) != RUNNING) {		
 		bsr_msg_put_info(adm_ctx.reply_skb, "resource already down");
 		retcode = SS_NOTHING_TO_DO;
 		goto out;
 	}
-#endif
 	
 	/* demote */
 #ifdef _WIN_MVFL
