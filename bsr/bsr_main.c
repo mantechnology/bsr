@@ -4466,8 +4466,6 @@ void bsr_destroy_connection(struct kref *kref)
 		bsr_warn(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)", atomic_read(&connection->inacitve_ee_cnt));
 		spin_lock(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
-			list_del(&peer_req->w.list);
-			bsr_free_peer_req(peer_req);
 			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
 		}
 		spin_unlock(&g_inactive_lock);
