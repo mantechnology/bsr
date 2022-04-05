@@ -2741,7 +2741,7 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 
 	// BSR-853 fix stuck in SyncSource/Established state
 	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
-		bsr_err(214, BSR_LC_RESYNC_OV, peer_device, "resync is already running. stop the resync timer.");
+		bsr_info(214, BSR_LC_RESYNC_OV, peer_device, "resync is already running. stop the resync timer.");
 		if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags))
 			clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
 		return;
