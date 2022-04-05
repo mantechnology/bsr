@@ -2739,6 +2739,14 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 {
 	bool retry_resync = false;
 
+	// BSR-853 fix stuck in SyncSource/Established state
+	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		bsr_err(214, BSR_LC_RESYNC_OV, peer_device, "resync is already running. stop the resync timer.");
+		if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags))
+			clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
+		return;
+	}
+
 	if (atomic_read(&peer_device->unacked_cnt) || 
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979

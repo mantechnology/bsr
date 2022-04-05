@@ -8810,8 +8810,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		(old_peer_state.conn == L_ESTABLISHED || old_peer_state.conn == L_BEHIND)) {
 
 		// BSR-789 resync starts only when the peer's replication state changes from Ahead to SyncSource.
-		// TODO temporary fix. the conditions sufficient? 
-		if (peer_device->last_repl_state == L_AHEAD) {
+		// BSR-853 resync starts even when oos is set (related to DW-2058)
+		if (peer_device->last_repl_state == L_AHEAD || bsr_bm_total_weight(peer_device)) {
 			bsr_info(95, BSR_LC_RESYNC_OV, peer_device, "Peer is SyncSource. change to SyncTarget"); // DW-1518
 			bsr_start_resync(peer_device, L_SYNC_TARGET);
 			peer_device->last_repl_state = peer_state.conn;
