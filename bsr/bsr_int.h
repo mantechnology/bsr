@@ -529,7 +529,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 57
 #define BSR_LC_THREAD_MAX_INDEX 37
-#define BSR_LC_SEND_BUFFER_MAX_INDEX 35
+#define BSR_LC_SEND_BUFFER_MAX_INDEX 37
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 142
