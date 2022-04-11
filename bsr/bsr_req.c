@@ -2140,36 +2140,48 @@ static void bsr_update_plug(struct bsr_plug_cb *plug, struct bsr_request *req) {
 // BSR-838 calculate the resync ratio and wait if it is lower than the set ratio.
 static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 {
-	LONG_PTR repl_sended, resync_sended, ratio_sended;
-	int resync_ratio, c_min_rate;
+	LONG_PTR repl_sended, resync_sended, resync_received, repl_ratio, resync_ratio;
+	LONG_PTR resync_sended_percent, resync_percent;
+	int c_min_rate;
 
 	rcu_read_lock();
-	resync_ratio = rcu_dereference(peer_device->conf)->resync_ratio;
 	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
 	rcu_read_unlock();
 
-	while (rcu_dereference(peer_device->conf)->resync_ratio && peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
-		repl_sended = atomic_read64(&peer_device->cur_repl_sended) - atomic_read64(&peer_device->last_repl_sended);
+	repl_ratio = atomic_read64(&peer_device->repl_ratio);
+	resync_ratio = atomic_read64(&peer_device->resync_ratio);
+
+	while (peer_device->repl_state[NOW] == L_SYNC_SOURCE && repl_ratio && resync_ratio) {
 		resync_sended = atomic_read64(&peer_device->cur_resync_sended) - atomic_read64(&peer_device->last_resync_sended);
-		ratio_sended = 0;
+		repl_sended = atomic_read64(&peer_device->cur_repl_sended) - atomic_read64(&peer_device->last_repl_sended);
+		resync_sended_percent = 0;
 
 		if (resync_sended > 0 && repl_sended > 0) {
-			ratio_sended = resync_sended / ((repl_sended + resync_sended) / 100);
-		} else {
-			break;
-		}
-
-		if (ratio_sended > resync_ratio) {
-			break;
-		} else {
-			LONG_PTR resync_received;
-
-			resync_received = atomic_read64(&peer_device->cur_resync_recevied) - atomic_read64(&peer_device->last_resync_recevied);
-			if (resync_received < c_min_rate) {
-				break;
+			if (c_min_rate && resync_sended < c_min_rate) {
+				msleep(1);
+				continue;
 			}
-			msleep(1);
+
+			if ((resync_sended * 100) < repl_sended)
+				resync_sended_percent = 100 - (repl_sended * 100 / (repl_sended + resync_sended));
+			else
+				resync_sended_percent = resync_sended * 100 / (repl_sended + resync_sended);
+
+			if ((resync_ratio * 100) < repl_ratio)
+				resync_percent = 100 - (repl_ratio * 100 / (repl_ratio + resync_ratio));
+			else
+				resync_percent = resync_ratio * 100 / (repl_ratio + resync_ratio);
+
+			if (resync_sended_percent < resync_percent) {
+				resync_received = atomic_read64(&peer_device->cur_resync_received) - atomic_read64(&peer_device->last_resync_received);
+				if (resync_received > resync_sended) {
+					msleep(1);
+					continue;
+				}
+			}
 		}
+
+		break;
 	}
 }
 

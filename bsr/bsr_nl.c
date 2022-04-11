@@ -3837,6 +3837,32 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 
 	return 0;
 }
+#ifdef _WIN
+bool string_to_long(char *data, ULONG *num)
+#else 
+bool string_to_long(char *data, long *num)
+#endif
+{
+#ifdef _WIN
+	ANSI_STRING a_token;
+	UNICODE_STRING u_token;
+	NTSTATUS status; 
+
+	RtlInitAnsiString(&a_token, data);
+	if ((status = RtlAnsiStringToUnicodeString(&u_token, &a_token, TRUE)) == STATUS_SUCCESS) {
+		status = RtlUnicodeStringToInteger(&u_token, 10, num);
+		RtlFreeUnicodeString(&u_token);
+	}
+
+	return (status == STATUS_SUCCESS ? true : false);
+#else
+	int err;
+	err = kstrtol(data, 10, &num);
+	if (err)
+		return false;
+	return true;
+#endif
+}
 
 int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 {
@@ -3846,6 +3872,12 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	struct peer_device_conf *old_peer_device_conf, *new_peer_device_conf = NULL;
 	struct fifo_buffer *old_plan = NULL;
 	int err;
+
+#ifdef _WIN
+	ULONG repl_ratio = 0, resync_ratio = 0;
+#else
+	long repl_ratio = 0, resync_ratio = 0;
+#endif
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
 	if (!adm_ctx.reply_skb)
@@ -3881,13 +3913,48 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	err = adjust_resync_fifo(peer_device, new_peer_device_conf, &old_plan);
 	if (err)
 		goto fail;
+
+	if (strlen(new_peer_device_conf->resync_ratio)) {
+		char *ptr = NULL, *token = NULL, c[64];
+#ifdef _WIN
+		memcpy(c, new_peer_device_conf->resync_ratio, 64);
+
+		token = strtok_s(c, ":", &ptr);
+		if (token) {
+			if (!string_to_long(token, &repl_ratio))
+				goto fail;
+
+			token = strtok_s(ptr, ":", &ptr);
+			if (token) {
+				if (!string_to_long(token, &resync_ratio))
+					goto fail;
+			}
+		}
+#else 
+		memcpy(c, new_peer_device_conf->resync_ratio, 64);
+		ptr = c;
+
+		token = strsep(&ptr, ":");
+		if (ptr) {
+			if (!string_to_long(token, &repl_ratio))
+				goto fail;
+
+			if (!string_to_long(token, &resync_ratio))
+				goto fail;
+		}
+#endif
+	}
+
+	atomic_set64(&peer_device->repl_ratio, repl_ratio);
+	atomic_set64(&peer_device->resync_ratio, resync_ratio);
+
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
-	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, resync_ratio : %d%", 
+	bsr_info(44, BSR_LC_GENL, peer_device, "new peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, repl_ratio : %u, resync_ratio : %u)", 
 		new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target, 
 		new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
-		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval, new_peer_device_conf->resync_ratio);
+		new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval, repl_ratio, resync_ratio);
 
 	rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 
@@ -3923,10 +3990,10 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	if (err)
 		return err;
 
-	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums, resync_ratio : %d%",
+	bsr_info(45, BSR_LC_GENL, peer_device, "default peer device option. resync_rate : %uk, c_plan_ahead : %uk, c_delay_target : %uk, c_fill_target : %us, c_max_rate : %uk, c_min_rate : %uk, ov_req_num : %ub, ov_req_interval : %ums",
 		conf->resync_rate, conf->c_plan_ahead, conf->c_delay_target,
 		conf->c_fill_target, conf->c_max_rate, conf->c_min_rate,
-		conf->ov_req_num, conf->ov_req_interval, conf->resync_ratio);
+		conf->ov_req_num, conf->ov_req_interval);
 
 	peer_device->conf = conf;
 

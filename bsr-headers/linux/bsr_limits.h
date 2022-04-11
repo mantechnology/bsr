@@ -89,6 +89,14 @@
 #define BSR_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #define BSR_PING_TIMEO_SCALE '1'
 
+// BSR-838 
+#define BSR_RATIO_LENGTH_MIN 3
+#define BSR_RATIO_LENGTH_MAX 12
+
+#define BSR_RATIO_MAX 10000
+#define BSR_RATIO_MIN 1
+#define BSR_RATIO_DEF 0
+
   /* max number of write requests between write barriers */
 #define BSR_MAX_EPOCH_SIZE_MIN 1
 #define BSR_MAX_EPOCH_SIZE_MAX 20000
@@ -241,14 +249,6 @@
 #define BSR_OV_REQ_INTERVAL_MAX     5000
 #define BSR_OV_REQ_INTERVAL_DEF     100
 #define BSR_OV_REQ_INTERVAL_SCALE	'1'  /* milliseconds */
-
-
-// BSR-838
-#define BSR_RESYNC_RATIO_MIN 0
-#define BSR_RESYNC_RATIO_MAX 50
-#define BSR_RESYNC_RATIO_DEF 0 
-#define BSR_RESYNC_RATIO_SCALE '1' /* percent  */
-
 
 #define BSR_CONG_FILL_MIN	0
 //#define BSR_CONG_FILL_MAX	(10<<21) /* 10GByte in sectors */

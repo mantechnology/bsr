@@ -1069,24 +1069,27 @@ int connection_resync_ratio_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_connection *connection = m->private;
 	struct bsr_peer_device *peer_device;
-	LONG_PTR cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, ratio_sended;
+	LONG_PTR cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, resync_sended_percent;
 
 	int vnr = 0;
 	
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
-		cur_repl_sended = cur_resync_sended = repl_sended = resync_sended = ratio_sended = 0;
+		cur_repl_sended = cur_resync_sended = repl_sended = resync_sended = resync_sended_percent = 0;
 
 		repl_sended = atomic_read64(&peer_device->repl_sended);
 		resync_sended = atomic_read64(&peer_device->resync_sended);
 
 		if (resync_sended > 0 && repl_sended > 0) {
-			ratio_sended = resync_sended / ((repl_sended + resync_sended) / 100);
+			if (resync_sended * 100 < repl_sended)
+				resync_sended_percent = 100 - (repl_sended * 100 / (repl_sended + resync_sended));
+			else
+				resync_sended_percent = resync_sended * 100 / (repl_sended + resync_sended);
 		} else if (resync_sended > 0 && repl_sended == 0) {
-			ratio_sended = 100;
+			resync_sended_percent = 100;
 		} 
 
-		seq_printf(m, "%ld %ld %ld ", repl_sended, resync_sended, ratio_sended);
+		seq_printf(m, "%ld %ld %ld ", repl_sended, resync_sended, resync_sended_percent);
 	}
 	rcu_read_unlock();
 

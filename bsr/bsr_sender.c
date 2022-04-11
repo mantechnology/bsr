@@ -3751,7 +3751,7 @@ void sended_timer_fn(BSR_TIMER_FN_ARG)
 	atomic_set64(&peer_device->last_repl_sended, atomic_read64(&peer_device->cur_repl_sended));
 	atomic_set64(&peer_device->last_resync_sended, atomic_read64(&peer_device->cur_resync_sended));
 
-	atomic_set64(&peer_device->last_resync_recevied, atomic_read64(&peer_device->cur_resync_recevied));
+	atomic_set64(&peer_device->last_resync_received, atomic_read64(&peer_device->cur_resync_received));
 
 	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
 		mod_timer(&peer_device->sended_timer, jiffies + HZ);
@@ -3760,6 +3760,9 @@ void sended_timer_fn(BSR_TIMER_FN_ARG)
 		atomic_set64(&peer_device->last_repl_sended, 0);
 		atomic_set64(&peer_device->cur_resync_sended, 0);
 		atomic_set64(&peer_device->last_resync_sended, 0);
+
+		atomic_set64(&peer_device->cur_resync_received, 0);
+		atomic_set64(&peer_device->last_resync_received, 0);
 
 		atomic_set64(&peer_device->repl_sended, 0);
 		atomic_set64(&peer_device->resync_sended, 0);
