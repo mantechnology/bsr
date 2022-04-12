@@ -654,12 +654,65 @@ static void string_describe_xml(struct field_def *field)
 	       field->name);
 }
 
+static enum check_codes get_ratio_char_to_int(char *str, int *num)
+{
+	long ratio;
+	char *end;
+
+	ratio = strtol(str, &end, 10);
+
+	if (str == end || str + strlen(str) != end)
+		return CC_NOT_A_RATIO;
+
+	*num = ratio;
+
+	return CC_OK;
+}
+
+static enum check_codes get_ratio_string_to_int(char *str, int *repl, int *resync)
+{
+	char *token = strtok(str, ":");
+	if (token) {
+		if (get_ratio_char_to_int(token, repl) == CC_OK) {
+			token = strtok(NULL, ":");
+			if (token) {
+				if (get_ratio_char_to_int(token, resync) == CC_OK) {
+					return CC_OK;
+				}
+			}
+		}
+	}
+
+	return CC_NOT_A_RATIO;
+}
+
 static enum check_codes string_check(struct field_def *field, const char *value)
 {
+	int len = strlen(value);
+
 	if (field->u.s.max_len) {
-		if (strlen(value) >= field->u.s.max_len)
+		if (len >= field->u.s.max_len)
 			return CC_STR_TOO_LONG;
 	}
+
+	// BSR-838
+	if (field->u.s.is_ratio) {
+		char data[BSR_RATIO_LENGTH_MAX] = { 0, };
+		int repl_ratio, resync_ratio, ret;
+
+		memcpy(data, value, strlen(value));
+
+		ret = get_ratio_string_to_int(data, &repl_ratio, &resync_ratio);
+		if (ret == CC_OK) {
+			if ((repl_ratio > BSR_RATIO_MAX || repl_ratio < BSR_RATIO_MIN) ||
+				(resync_ratio > BSR_RATIO_MAX || resync_ratio < BSR_RATIO_MIN)) {
+				return CC_NOT_A_RATIO;
+			}
+		} else {
+			return ret;
+		}
+	}
+
 	return CC_OK;
 }
 
@@ -745,11 +798,18 @@ struct field_class fc_string = {
 #define STRING(f)									\
 	.nla_type = T_ ## f,								\
 	.ops = &fc_string,								\
+	.u = { .s = { .is_ratio = false } },			\
 	.needs_double_quoting = true
+
+#define RATIO_STRING(f)									\
+     STRING(f),                                    \
+     .u = { .s = { .is_ratio = true, \
+					.max_len = BSR_RATIO_LENGTH_MAX } } 
 
 #define STRING_MAX_LEN(f, l)                                \
      STRING(f),                                    \
-     .u = { .s = { .max_len = l } } }
+     .u = { .s = { .is_ratio = false, \
+					.max_len = l } } }
 
 #define ENUM_NUM(f, d, num_min, num_max)            \
     .nla_type = T_ ## f,                    \
@@ -1143,6 +1203,7 @@ struct context_def peer_device_options_ctx = {
 		{ "c-min-rate", NUMERIC(c_min_rate, C_MIN_RATE), .unit = "bytes/second" },
 		{ "ov-req-num", NUMERIC(ov_req_num, OV_REQ_NUM), .unit = "blocks" },
 		{ "ov-req-interval", NUMERIC(ov_req_interval, OV_REQ_INTERVAL), .unit = "milliseconds" },
+		{ "resync-ratio", RATIO_STRING(resync_ratio) },
 		{ } },
 };
 
@@ -1178,20 +1239,20 @@ struct context_def adjust_ctx = {
 // only used by bsradm's config file parser:
 struct context_def handlers_ctx = {
 	.fields = {
-		{ "pri-on-incon-degr", .ops = &fc_string, .needs_double_quoting = true},
-		{ "pri-lost-after-sb", .ops = &fc_string, .needs_double_quoting = true},
-		{ "pri-lost", .ops = &fc_string, .needs_double_quoting = true},
-		{ "initial-split-brain", .ops = &fc_string, .needs_double_quoting = true},
-		{ "split-brain", .ops = &fc_string, .needs_double_quoting = true},
-		{ "outdate-peer", .ops = &fc_string, .needs_double_quoting = true},
-		{ "fence-peer", .ops = &fc_string, .needs_double_quoting = true},
-		{ "unfence-peer", .ops = &fc_string, .needs_double_quoting = true},
-		{ "local-io-error", .ops = &fc_string, .needs_double_quoting = true},
-		{ "before-resync-target", .ops = &fc_string, .needs_double_quoting = true},
-		{ "after-resync-target", .ops = &fc_string, .needs_double_quoting = true},
-		{ "before-resync-source", .ops = &fc_string, .needs_double_quoting = true},
-		{ "out-of-sync", .ops = &fc_string, .needs_double_quoting = true},
-		{ "quorum-lost", .ops = &fc_string, .needs_double_quoting = true },
+		{ "pri-on-incon-degr", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "pri-lost-after-sb", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "pri-lost", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "initial-split-brain", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "split-brain", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "outdate-peer", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "fence-peer", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "unfence-peer", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "local-io-error", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "before-resync-target", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "after-resync-target", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "before-resync-source", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "out-of-sync", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "quorum-lost", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ } },
 };
 

@@ -1631,6 +1631,7 @@ struct bsr_connection {
 	struct dentry *debugfs_conn_transport_speed;
 	struct dentry *debugfs_conn_debug;
 	struct dentry *debugfs_conn_send_buf;
+	struct dentry *debugfs_conn_resync_ratio;
 #endif
 	struct kref kref;
 	struct kref_debug_info kref_debug;
@@ -1972,6 +1973,9 @@ struct bsr_peer_device {
 	int rs_last_events;  /* counter of read or write "events" (unit sectors)
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
+	// BSR-838 save time every second to initialize rs_in_light to zero. 
+	ULONG_PTR rs_in_flight_mark_time;
+
 	ULONG_PTR ov_left; /* in bits */
 	ULONG_PTR ov_skipped; /* in bits */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
@@ -2016,6 +2020,22 @@ struct bsr_peer_device {
 
 	// BSR-676
 	atomic_t notify_flags;
+
+	// BSR-838 be used to set replication and resync ratios
+	atomic_t64 repl_ratio;
+	atomic_t64 resync_ratio;
+	atomic_t64 cur_resync_sended;
+	atomic_t64 cur_repl_sended;
+	atomic_t64 last_resync_sended;
+	atomic_t64 last_repl_sended;
+
+	atomic_t64 cur_resync_received;
+	atomic_t64 last_resync_received;
+
+	atomic_t64 resync_sended;
+	atomic_t64 repl_sended;
+
+	struct timer_list sended_timer;
 };
 
 // DW-1911

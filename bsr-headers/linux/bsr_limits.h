@@ -89,6 +89,14 @@
 #define BSR_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #define BSR_PING_TIMEO_SCALE '1'
 
+// BSR-838 
+#define BSR_RATIO_LENGTH_MIN 3
+#define BSR_RATIO_LENGTH_MAX 12
+
+#define BSR_RATIO_MAX 10000
+#define BSR_RATIO_MIN 1
+#define BSR_RATIO_DEF 0
+
   /* max number of write requests between write barriers */
 #define BSR_MAX_EPOCH_SIZE_MIN 1
 #define BSR_MAX_EPOCH_SIZE_MAX 20000

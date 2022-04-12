@@ -846,7 +846,6 @@ static bool conn_connect(struct bsr_connection *connection)
 	struct net_conf *nc;
 	bool discard_my_data;
 	bool have_mutex;
-	bool no_addr = false;
 	signed long long sndbuf_size, cong_fill;
 	int cong_highwater;
 start:
@@ -875,6 +874,7 @@ start:
 		struct net_conf *nc;
 		int connect_int;
 		long t;
+		bool no_addr = false;
 
 		rcu_read_lock();
 		nc = rcu_dereference(transport->net_conf);
@@ -4582,66 +4582,11 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
 bool bsr_rs_should_slow_down(struct bsr_peer_device *peer_device, sector_t sector,
 			      bool throttle_if_app_is_waiting)
 {
-	bool throttle = bsr_rs_c_min_rate_throttle(peer_device);
-
-	if (!throttle || throttle_if_app_is_waiting)
-		return throttle;
-
-	return !bsr_sector_has_priority(peer_device, sector);
-}
-
-bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
-{
-	struct bsr_device *device = peer_device->device;
-	unsigned long db, dt, dbdt;
-	unsigned int c_min_rate;
-	int curr_events = 0;
-
-	rcu_read_lock();
-	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
-	rcu_read_unlock();
-
-	/* feature disabled? */
-	if (c_min_rate == 0)
+	// BSR-838 c-min-rate is now used to ensure a minimum resync rate, and the code below is then removed.
+	if (throttle_if_app_is_waiting)
 		return false;
 
-#ifdef _WIN
-	curr_events = bsr_backing_bdev_events(device)
-		- atomic_read(&device->rs_sect_ev);
-#else // _LIN
-	curr_events = bsr_backing_bdev_events(device->ldev->backing_bdev->bd_disk)
-		    - atomic_read(&device->rs_sect_ev);
-#endif
-
-	if (atomic_read(&device->ap_actlog_cnt) || curr_events - peer_device->rs_last_events > 64) {
-		ULONG_PTR rs_left;
-		int i;
-
-		peer_device->rs_last_events = curr_events;
-
-		/* sync speed average over the last 2*BSR_SYNC_MARK_STEP,
-		 * approx. */
-		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
-
-		if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T)
-			rs_left = peer_device->ov_left;
-		else
-			rs_left = bsr_bm_total_weight(peer_device) - peer_device->rs_failed;
-
-		dt = ((long)jiffies - (long)peer_device->rs_mark_time[i]) / HZ;
-		if (!dt)
-			dt++;
-#ifdef _WIN
-		BUG_ON_UINT32_OVER(peer_device->rs_mark_left[i] - rs_left);
-#endif
-		db = (unsigned long)(peer_device->rs_mark_left[i] - rs_left);
-		dbdt = Bit2KB(db/dt);
-
-		if (dbdt > c_min_rate) {
-			return true;
-		}
-	}
-	return false;
+	return !bsr_sector_has_priority(peer_device, sector);
 }
 
 // BSR-595
@@ -4778,6 +4723,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		}
 		peer_req->w.cb = w_e_end_rsdata_req;
 		fault_type = BSR_FAULT_RS_RD;
+		atomic_add64(peer_req->i.size, &peer_device->cur_resync_received);
 		break;
 
 	case P_OV_REPLY:
@@ -4958,6 +4904,9 @@ fail3:
 fail2:
 	bsr_free_peer_req(peer_req);
 fail:
+	if (pi->cmd == P_RS_DATA_REQUEST)
+		atomic_sub64(size, &peer_device->cur_resync_received);
+
 	put_ldev(device);
 	return err;
 }
@@ -6339,8 +6288,6 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		old_peer_device_conf = peer_device->conf;
 		*new_peer_device_conf = *old_peer_device_conf;
-
-		new_peer_device_conf->resync_rate = be32_to_cpu(p->resync_rate);
 	}
 
 	if (apv >= 88) {
@@ -6459,6 +6406,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
+
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 		put_ldev(device);
 	}
@@ -10057,6 +10005,9 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 	peer_device->rs_failed = 0;
 	atomic_set(&peer_device->rs_pending_cnt, 0);
 	wake_up(&peer_device->device->misc_wait);
+
+	// BSR-838
+	del_timer_sync(&peer_device->sended_timer);
 
 	// DW-1663 When the "DPC function" is running, "del_timer_sync()" does not wait but cancels only the timer in the queue and releases the resource, resulting in "BSOD".
 	// Add the mutex so that "del_timer_sync()" can be called after terminating "DPC function".

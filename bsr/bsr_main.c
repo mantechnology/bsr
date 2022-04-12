@@ -119,8 +119,10 @@ static KDEFERRED_ROUTINE md_sync_timer_fn;
 static KDEFERRED_ROUTINE peer_ack_timer_fn;
 KSTART_ROUTINE bsr_thread_setup;
 extern void nl_policy_init_by_manual(void);
+extern KDEFERRED_ROUTINE sended_timer_fn;
 #else // _LIN
 static void md_sync_timer_fn(BSR_TIMER_FN_ARG);
+extern void sended_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 static int w_bitmap_io(struct bsr_work *w, int unused);
 static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream bsr_stream);
@@ -4574,6 +4576,21 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	peer_device->bitmap_index = -1;
 	peer_device->resync_wenr = LC_FREE;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
+
+	// BSR-838
+	atomic_set64(&peer_device->cur_repl_sended, 0);
+	atomic_set64(&peer_device->cur_resync_sended, 0);
+	atomic_set64(&peer_device->last_repl_sended, 0);
+	atomic_set64(&peer_device->last_resync_sended, 0);
+
+	atomic_set64(&peer_device->repl_sended, 0);
+	atomic_set64(&peer_device->resync_sended, 0);
+
+	atomic_set64(&peer_device->cur_resync_received, 0);
+	atomic_set64(&peer_device->last_resync_received, 0);
+
+	bsr_timer_setup(peer_device, sended_timer, sended_timer_fn);
+	peer_device->rs_in_flight_mark_time = 0;
 
 	return peer_device;
 }

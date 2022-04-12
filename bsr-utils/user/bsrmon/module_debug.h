@@ -38,6 +38,7 @@ enum get_debug_type
 	NETWORK_SPEED,
 	SEND_BUF,
 	MEMORY,
+	RESYNC_RATIO,
 	ALL_STAT
 };
 

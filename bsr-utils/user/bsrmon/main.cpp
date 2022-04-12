@@ -41,6 +41,7 @@ void debug_usage()
 		"   dev_io_complete {resource} {volume}\n"
 		"   dev_req_timing {resource} {volume}\n"
 		"   dev_peer_req_timing {resource} {volume}\n"
+		"	dev_peer_ratio {resource} {peer_node_id}\n"
 		);
 	printf("\n");
 
@@ -50,8 +51,9 @@ void debug_usage()
 		"bsrmon /debug version \n"
 		"bsrmon /debug in_flight_summary r1 \n"
 		"bsrmon /debug transport r1 1\n"
-		"bsrmon /debug proc_bsr r1 1 0 \n"
-		"bsrmon /debug io_frozen r1 0 \n"
+		"bsrmon /debug proc_bsr r1 1 0\n"
+		"bsrmon /debug io_frozen r1 0\n"
+		"bsrmon /debug resync_ratio r1\n"
 		);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -116,6 +118,7 @@ void usage()
 		"   alstat {resource} {vnr}\n"
 		"   network {resource}\n"
 		"   sendbuf {resource}\n"
+		"   resync_ratio {resource}\n"
 		"   memstat \n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
@@ -168,6 +171,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_CONN_TRANSPORT:
 		case DBG_CONN_TRANSPORT_SPEED:
 		case DBG_CONN_SEND_BUF:
+		case DBG_CONN_RESYNC_RATIO:
 			if (argIndex < argc)
 				debugInfo->peer_node_id = atoi(argv[argIndex]);
 			else
@@ -298,6 +302,15 @@ void PrintMonitor()
 		buf = NULL;
 	}
 
+	// BSR-838
+	printf("RESYNC_RATIO:\n");
+	buf = GetDebugToBuf(RESYNC_RATIO, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+
 	// print memory monitoring status
 	printf("Memory:\n");
 	buf = GetBsrMemoryUsage();
@@ -354,6 +367,8 @@ void InitMonitor()
 		if (InitPerfType(AL_STAT, res) != 0)
 			goto next;
 		if (InitPerfType(NETWORK_SPEED, res) != 0)
+			goto next;
+		if (InitPerfType(RESYNC_RATIO, res) != 0)
 			goto next;
 next:
 		res = res->next;
@@ -430,6 +445,8 @@ void MonitorToFile()
 			goto next;
 		if (GetDebugToFile(SEND_BUF, res, respath, curr_time) != 0)
 			goto next;
+		if (GetDebugToFile(RESYNC_RATIO, res, respath, curr_time) != 0)
+			goto next;
 next:
 		res = res->next;
 	}
@@ -495,7 +512,6 @@ static bool is_running()
 void Watch(char *resname, int type, int vnr, bool scroll)
 {
 	char watch_path[512] = {0,};
-	bool watch_all_type = false;
 	
 	char perf_path[MAX_PATH] = {0,};
 #ifdef _WIN
@@ -558,6 +574,10 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 			sprintf_ex(watch_path, "%smemory", perf_path);
 			watch_memory(watch_path, scroll);
 			break;
+		case RESYNC_RATIO:
+			sprintf_ex(watch_path, "%s%s%sresync_ratio", perf_path, resname, _SEPARATOR_);
+			watch_peer_resync_ratio(watch_path, scroll);
+			break;
 
 		default:
 			usage();
@@ -566,7 +586,6 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 	else {
 		// TODO watch all
 		//watch_all_type = true;
-		
 	}
 
 }
@@ -588,7 +607,7 @@ void Report(char *resname, char *file, int type, int vnr, struct time_filter *tf
 #else
 	sprintf(perf_path, "/var/log/bsr/perfmon");
 #endif
-	
+
 	if (resname)
 		printf("Report %s ", resname);
 	switch (type) {
@@ -675,6 +694,17 @@ void Report(char *resname, char *file, int type, int vnr, struct time_filter *tf
 		}
 		
 		read_memory_work(filepath, tf);
+		break;
+	case RESYNC_RATIO:
+		if (!file) {
+			sprintf_ex(filepath, "%s%s%s%sresync_ratio", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
+			printf("Report [RESYNC_RATIO]\n");
+		} else {
+			sprintf_ex(filepath, "%s", file);
+			printf("Report [%s]\n", filepath);
+		}
+
+		read_peer_stat_work(filepath, resname, RESYNC_RATIO, tf);
 		break;
 	default:
 		usage();
@@ -1038,6 +1068,9 @@ int ConvertType(char * type_name)
 		return SEND_BUF;
 	else if (strcmp(type_name, "memstat") == 0)
 		return MEMORY;
+	// BSR-838
+	else if (strcmp(type_name, "resync_ratio") == 0)
+		return RESYNC_RATIO;
 	else if (strcmp(type_name, "all") == 0)
 		return ALL_STAT;
 	
@@ -1215,21 +1248,22 @@ int main(int argc, char* argv[])
 			if (++argIndex < argc) {
 				type = ConvertType(argv[argIndex]);
 
-				if (type < 0) 
+				if (type < 0) {
 					usage();
+				}
 			
-
 				if (type != MEMORY) {
-					if (++argIndex >= argc) 
+					if (++argIndex >= argc) {
 						usage();
+					}
 					res_name = argv[argIndex];
 					if (type <= REQUEST) {
 						// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
 						if (++argIndex < argc) {
 							vol_num = atoi(argv[argIndex]);
-						}
-						else
+						} else {
 							usage();
+						}
 					}
 				}
 
@@ -1237,8 +1271,9 @@ int main(int argc, char* argv[])
 				for (argIndex++; argIndex < argc; argIndex++) {
 					if (!strncmp(argv[argIndex], "/", 1)) {
 						int c = *(argv[argIndex] + 1);
-						if (++argIndex >= argc)
+						if (++argIndex >= argc) {
 							usage();
+						}
 						switch (c) {
 						case 'f':
 							file_name = argv[argIndex];
@@ -1255,16 +1290,18 @@ int main(int argc, char* argv[])
 						default:
 							usage();
 						}
-					}
-					else
+					} else {
 						usage();
+					}
 				}
 
 				Report(res_name, file_name, type, vol_num, &tf);
 				break;
 				
-			} else
+			}
+			else {
 				usage();
+			}
 		}
 		// BSR-764 add I/O performance degradation simulation
 		else if (!strcmp(argv[argIndex], "/io_delay_test"))
