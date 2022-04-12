@@ -327,7 +327,7 @@ GENL_struct(BSR_NLA_PEER_DEVICE_OPTS, 27, peer_device_conf,
 	__u32_field_def(6,	BSR_GENLA_F_MANDATORY,	c_min_rate, BSR_C_MIN_RATE_DEF)
 	__u32_field_def(7,	BSR_GENLA_F_MANDATORY,	ov_req_num, BSR_OV_REQ_NUM_DEF)
 	__u32_field_def(8,	BSR_GENLA_F_MANDATORY,	ov_req_interval, BSR_OV_REQ_INTERVAL_DEF)
-	__str_field_def(9, BSR_GENLA_F_MANDATORY, resync_ratio, SHARED_SECRET_MAX)
+	__str_field_def(9, BSR_GENLA_F_MANDATORY, resync_ratio, 12)
 )
 
 GENL_struct(BSR_NLA_PATH_PARMS, 28, path_parms,

@@ -38,8 +38,6 @@ DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo)
 		retVal = GetLastError();
 	}
 
-	printf("data %s\n", pDebugInfo->buf);
-
 	if (hDevice != INVALID_HANDLE_VALUE)
 		CloseHandle(hDevice);
 
@@ -1144,7 +1142,6 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		if (!strncmp(buffer, "err reading", 11))
 			goto fail;
 		sprintf_ex(outfile, "%s%sresync_ratio", respath, _SEPARATOR_);
-		printf("outfile %s\n", outfile);
 
 		fp = perf_fileopen(outfile, currtime);
 		if (fp == NULL)

@@ -512,7 +512,6 @@ static bool is_running()
 void Watch(char *resname, int type, int vnr, bool scroll)
 {
 	char watch_path[512] = {0,};
-	// bool watch_all_type = false;
 	
 	char perf_path[MAX_PATH] = {0,};
 #ifdef _WIN
@@ -1069,9 +1068,9 @@ int ConvertType(char * type_name)
 		return SEND_BUF;
 	else if (strcmp(type_name, "memstat") == 0)
 		return MEMORY;
+	// BSR-838
 	else if (strcmp(type_name, "resync_ratio") == 0)
 		return RESYNC_RATIO;
-	// BSR-838
 	else if (strcmp(type_name, "all") == 0)
 		return ALL_STAT;
 	
