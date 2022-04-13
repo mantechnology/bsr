@@ -117,11 +117,15 @@ static struct d_host_info *find_host_info_by_address(struct d_resource* res, str
 {
 	struct d_host_info *host;
 
-	for_each_host(host, &res->all_hosts)
+	for_each_host(host, &res->all_hosts) {
+		if (!host->address.addr)
+			continue;
+
 		if (!strcmp(host->address.addr, address->addr) &&
-		    !strcmp(host->address.af, address->af) &&
-		    !strcmp(host->address.port, address->port))
+			!strcmp(host->address.af, address->af) &&
+			!strcmp(host->address.port, address->port))
 			return host;
+	}
 
 	return NULL;
 }
