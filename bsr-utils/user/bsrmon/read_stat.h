@@ -4,11 +4,11 @@
 
 
 struct perf_stat {
-	unsigned long priv;
-	unsigned long min;
-	unsigned long max;
+	unsigned long long priv;
+	unsigned long long min;
+	unsigned long long max;
+	unsigned long long sum;
 	unsigned long cnt;
-	ULONG_PTR sum;
 	bool duplicate;
 };
 
@@ -109,4 +109,6 @@ void watch_memory(char *path, bool scroll);
 void watch_peer_req_stat(char *path, bool scroll);
 // BSR-765
 void watch_al_stat(char *path, bool scroll);
+// BSR-838
+void watch_peer_resync_ratio(char *path, bool scroll);
 

@@ -89,6 +89,14 @@
 #define BSR_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #define BSR_PING_TIMEO_SCALE '1'
 
+// BSR-838 
+#define BSR_RATIO_LENGTH_MIN 3
+#define BSR_RATIO_LENGTH_MAX 12
+
+#define BSR_RATIO_MAX 10000
+#define BSR_RATIO_MIN 1
+#define BSR_RATIO_DEF 0
+
   /* max number of write requests between write barriers */
 #define BSR_MAX_EPOCH_SIZE_MIN 1
 #define BSR_MAX_EPOCH_SIZE_MAX 20000
@@ -309,6 +317,13 @@
 #define BSR_MAX_REQ_WRITE_MB_MAX        10240
 #define BSR_MAX_REQ_WRITE_MB_SCALE        '1'
 
+// BSR-839 implement congestion-highwater
+#define BSR_CONG_HIGHWATER_MIN	0
+#define BSR_CONG_HIGHWATER_MAX	BSR_MAX_REQ_WRITE_CNT_MAX
+#define BSR_CONG_HIGHWATER_DEF	20000
+#define BSR_CONG_HIGHWATER_SCALE '1'
+
+
 #define BSR_NODE_ID_DEF		0
 #define BSR_NODE_ID_MIN		0
 #ifndef BSR_NODE_ID_MAX /* Is also defined in bsr.h */
@@ -378,5 +393,6 @@
 #define BSR_ON_NO_QUORUM_DEF ONQ_SUSPEND_IO
 
 #define AL_WAIT_TIMEOUT			10 * HZ // DW-1513 // DW-1761
+#define EE_WAIT_TIMEOUT			10 * HZ // BSR-846
 
 #endif

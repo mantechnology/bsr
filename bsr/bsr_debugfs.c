@@ -748,13 +748,19 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 	enum bsr_stream stream;
 	int i = 0;
 
+	// BSR-839 passing in_flight_cnt as sendbuf performance data
+	/* ap_in_flight size_bytes cnt */
+	seq_printf(m, "ap %lld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
+	/* rs_in_flight size_bytes cnt */
+	seq_printf(m, "rs %lld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
+
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
 		if (ring) {
 			seq_printf(m, "%s ", stream == DATA_STREAM ? "data" : "control");
 
 			/* size_byte used*/
-			seq_printf(m, "%lld %lld ", ring->length, ring->sk_wmem_queued);
+			seq_printf(m, "%lld %lld ", ring->length - 1, ring->sk_wmem_queued);
 			for (i = 0 ; i < P_MAY_IGNORE ; i++) {
 				if (ring->packet_cnt[i]) {
 					/* packet_name cnt size_byte*/
@@ -1061,6 +1067,38 @@ int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
 		lc_seq_dump_details(m, peer_device->resync_lru, "rs_left flags", resync_dump_detail);
 		put_ldev(device);
 	}
+	return 0;
+}
+
+
+int connection_resync_ratio_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_connection *connection = m->private;
+	struct bsr_peer_device *peer_device;
+	LONG_PTR cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, resync_sended_percent;
+
+	int vnr = 0;
+	
+	rcu_read_lock();
+	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+		cur_repl_sended = cur_resync_sended = repl_sended = resync_sended = resync_sended_percent = 0;
+
+		repl_sended = atomic_read64(&peer_device->repl_sended);
+		resync_sended = atomic_read64(&peer_device->resync_sended);
+
+		if (resync_sended > 0 && repl_sended > 0) {
+			if (resync_sended * 100 < repl_sended)
+				resync_sended_percent = 100 - (repl_sended * 100 / (repl_sended + resync_sended));
+			else
+				resync_sended_percent = resync_sended * 100 / (repl_sended + resync_sended);
+		} else if (resync_sended > 0 && repl_sended == 0) {
+			resync_sended_percent = 100;
+		} 
+
+		seq_printf(m, "%ld %ld %ld ", repl_sended, resync_sended, resync_sended_percent);
+	}
+	rcu_read_unlock();
+
 	return 0;
 }
 
@@ -1652,6 +1690,7 @@ bsr_debugfs_connection_attr(transport)
 bsr_debugfs_connection_attr(transport_speed)
 bsr_debugfs_connection_attr(debug)
 bsr_debugfs_connection_attr(send_buf)
+bsr_debugfs_connection_attr(resync_ratio)
 
 void bsr_debugfs_connection_add(struct bsr_connection *connection)
 {
@@ -1680,6 +1719,7 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(transport_speed);
 	conn_dcf(debug);
 	conn_dcf(send_buf);
+	conn_dcf(resync_ratio);
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
@@ -1701,6 +1741,7 @@ void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 	bsr_debugfs_remove(&connection->debugfs_conn_transport_speed);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
 	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
+	bsr_debugfs_remove(&connection->debugfs_conn_resync_ratio);
 	bsr_debugfs_remove(&connection->debugfs_conn);
 }
 

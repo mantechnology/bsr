@@ -23,7 +23,7 @@ static FILE* open_shared(char *filename)
 	return fp;
 }
 
-ULONG_PTR stat_avg(ULONG_PTR sum, unsigned long cnt)
+unsigned long long stat_avg(unsigned long long sum, unsigned long cnt)
 {
 	if (cnt) {
 		// div round
@@ -45,7 +45,7 @@ void set_min_max(perf_stat *stat, unsigned int min, unsigned int max)
 		stat->min = min;
 }
 
-void set_min_max_val(perf_stat *stat, unsigned int val)
+void set_min_max_val(perf_stat *stat, unsigned long long val)
 {
 	/* Excluded from statistics if:
 		1. Current value is 0
@@ -126,18 +126,18 @@ unsigned int read_val_fp(FILE *fp)
 
 void print_stat(const char * name, perf_stat *s)
 {
-	printf("%s: min=%lu, max=%lu, avg=%lu, samples=%lu\n", 
+	printf("%s: min=%llu, max=%llu, avg=%llu, samples=%lu\n", 
 			name, s->min, s->max, stat_avg(s->sum, s->cnt), s->cnt);
 }
 
 void print_range(const char * name, struct perf_stat *s, const char * ws)
 {
 	if ((s->min == s->max) || s->max == 0)
-		printf("%s%-23lu%s", name, s->min, ws);
+		printf("%s%-23llu%s", name, s->min, ws);
 	else {
 		char temp[32] = {0,};
 
-		sprintf_ex(temp, "%lu - %lu", s->min, s->max);
+		sprintf_ex(temp, "%llu - %llu", s->min, s->max);
 		printf("%s%-23s%s", name, temp, ws);
 	}
 }
@@ -423,7 +423,7 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 	char tok[64] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
 	unsigned int t_cnt = 0;
-	ULONG_PTR req_total = 0, al_total= 0;
+	unsigned long long req_total = 0, al_total= 0;
 	struct req_perf_stat req_stat;
 	bool do_collect = false;
 	bool do_print = false;
@@ -506,14 +506,14 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 			find_date = true;
 
 			printf(" Run: %s - %s\n", filter_s, filter_e);
-			printf("  requests  : total=%lu\n", req_total);
+			printf("  requests  : total=%llu\n", req_total);
 			print_stat("    before_queue    (usec)", &req_stat.before_queue);
 			print_stat("    before_al_begin (usec)", &req_stat.before_al_begin);
 			print_stat("    in_actlog       (usec)", &req_stat.in_actlog);
 			print_stat("    submit          (usec)", &req_stat.submit);
 			print_stat("    bio_endio       (usec)", &req_stat.bio_endio);
 			print_stat("    destroy         (usec)", &req_stat.destroy);
-			printf("  al_update : total=%lu\n", al_total);
+			printf("  al_update : total=%llu\n", al_total);
 			print_stat("    before_bm_write (usec)", &req_stat.before_bm_write);
 			print_stat("    after_bm_write  (usec)", &req_stat.after_bm_write);
 			print_stat("    after_sync_page (usec)", &req_stat.after_sync_page);
@@ -554,7 +554,7 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 {
 	char tok[64] = {0,};
 	unsigned int t_cnt = 0;
-	ULONG_PTR peer_req_total = 0;
+	unsigned long long peer_req_total = 0;
 	char save_t[64] = {0,}, filter_s[64] = {0,}, filter_e[64] = {0,}; 
 	struct perf_stat submit, bio_endio, destroy;
 
@@ -603,7 +603,7 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 	if (print_runtime)
 		printf(" Run: %s - %s\n", filter_s, filter_e);
 	printf("  PEER %s:\n", peer_name);
-	printf("    peer requests : total=%lu\n", peer_req_total);
+	printf("    peer requests : total=%llu\n", peer_req_total);
 	print_stat("    submit    (usec)", &submit);
 	print_stat("    bio_endio (usec)", &bio_endio);
 	print_stat("    destroy   (usec)", &destroy);
@@ -766,6 +766,73 @@ void read_al_stat_work(char *path, struct time_filter *tf)
 
 }
 
+
+// BSR-838
+void read_peer_resync_ratio_work(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
+{
+	char save_t[64] = { 0, };
+	char filter_s[64], filter_e[64];
+	struct perf_stat repl_sended, resync_sended, resync_ratio;
+
+
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
+
+	memset(&repl_sended, 0, sizeof(struct perf_stat));
+	memset(&resync_sended, 0, sizeof(struct perf_stat));
+	memset(&resync_ratio, 0, sizeof(struct perf_stat));
+
+	while (!feof(fp)) {
+		if ((ftell(fp) < end_offset) &&
+			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			 if (check_record_time(save_t, tf)) {
+				char buf[MAX_BUF_SIZE];
+				char *ptr, *save_ptr;
+
+				if (strlen(filter_s) == 0)
+					sprintf_ex(filter_s, "%s", save_t);
+
+				if (fgets(buf, sizeof(buf), fp) != NULL) {
+					// remove EOL
+					*(buf + (strlen(buf) - 1)) = 0;
+					/* peer */
+					ptr = strtok_r(buf, " ", &save_ptr);
+				
+					while (ptr) {
+						/* replication sended, resync sended, ratio */
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&repl_sended, atoi(ptr));
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&resync_sended, atoi(ptr));
+						ptr = strtok_r(NULL, " ", &save_ptr);
+						if (!ptr)
+							break;
+						set_min_max_val(&resync_ratio, atoi(ptr));
+					}
+				}
+
+				sprintf_ex(filter_e, "%s", save_t);
+				continue;
+			}
+
+			fscanf_ex(fp, "%*[^\n]");
+			break;
+
+		}
+
+		if (ftell(fp) >= end_offset)
+			break;
+	}
+
+	if (print_runtime)
+		printf(" Run: %s - %s\n", filter_s, filter_e);
+	printf("  PEER %s: replication sended=%lubyte/s, resync sended=%lubyte/s, resync ratio=%lu\n", peer_name, stat_avg(repl_sended.sum, repl_sended.cnt), stat_avg(resync_sended.sum, resync_sended.cnt), stat_avg(resync_ratio.sum, resync_ratio.cnt));
+}
+
 /**
  * Reports statistics of network performance.
  */
@@ -829,7 +896,7 @@ void read_network_stat(FILE *fp, char * peer_name, struct time_filter *tf, int e
 
 	if (print_runtime)
 		printf(" Run: %s - %s\n", filter_s, filter_e);
-	printf("  PEER %s: send=%lubyte/s, receive=%lubyte/s\n", peer_name,  stat_avg(send.sum, send.cnt), stat_avg(recv.sum, recv.cnt));
+	printf("  PEER %s: send=%llubyte/s, receive=%llubyte/s\n", peer_name,  stat_avg(send.sum, send.cnt), stat_avg(recv.sum, recv.cnt));
 	print_stat("    send (byte/s)", &send);
 	print_stat("    recv (byte/s)", &recv);
 }
@@ -840,9 +907,10 @@ void read_network_stat(FILE *fp, char * peer_name, struct time_filter *tf, int e
 void read_sendbuf_stat(FILE *fp, char * peer_name, struct time_filter *tf, int end_offset, bool print_runtime)
 {
 	
-	unsigned int t_size = 0, t_used = 0;
-	unsigned int d_buf_size, c_buf_size;
+	long long t_size = 0, t_used = 0;
+	long long d_buf_size, c_buf_size;
 	struct perf_stat data, control;
+	struct perf_stat total_in_flight, highwater, ap_size, ap_cnt, rs_size, rs_cnt;
 	char *read_name;
 	char *type;
 	char save_t[64] = {0,}, filter_s[64], filter_e[64]; 
@@ -854,6 +922,12 @@ reset:
 	c_buf_size = 0;
 	memset(&data, 0, sizeof(struct perf_stat));
 	memset(&control, 0, sizeof(struct perf_stat));
+	memset(&total_in_flight, 0, sizeof(struct perf_stat));
+	memset(&highwater, 0, sizeof(struct perf_stat));
+	memset(&ap_size, 0, sizeof(struct perf_stat));
+	memset(&ap_cnt, 0, sizeof(struct perf_stat));
+	memset(&rs_size, 0, sizeof(struct perf_stat));
+	memset(&rs_cnt, 0, sizeof(struct perf_stat));
 	memset(&filter_s, 0, 64);
 	memset(&filter_e, 0, 64);
 
@@ -880,12 +954,39 @@ reset:
 							read_name = strtok_r(NULL, " ", &save_ptr);
 							continue;
 						}
-						
-						/* datasock size used */
+
 						type = strtok_r(NULL, " ", &save_ptr);
 						
 						if (type == NULL || strlen(type) == 0) {
 							break;
+						}
+
+						// BSR-839 print highwater
+						/* ap_in_flight size cnt */
+						if (!strcmp(type, "ap")) {
+							long long ap_s = 0, rs_s = 0;
+							int ap_c = 0, rs_c = 0;
+
+							ap_s = atoll(strtok_r(NULL, " ", &save_ptr));
+							ap_c = atoi(strtok_r(NULL, " ", &save_ptr));
+							
+							
+							/* rs_in_flight size cnt */
+							type = strtok_r(NULL, " ", &save_ptr);
+							if (strcmp(type, "rs"))
+								continue;
+							rs_s = atoll(strtok_r(NULL, " ", &save_ptr));
+							rs_c = atoi(strtok_r(NULL, " ", &save_ptr));
+							
+							set_min_max_val(&ap_size, ap_s);
+							set_min_max_val(&ap_cnt, ap_c);
+							set_min_max_val(&rs_size, rs_s);
+							set_min_max_val(&rs_cnt, rs_c);
+
+							set_min_max_val(&total_in_flight, ap_s + rs_s);
+							set_min_max_val(&highwater, ap_c + rs_c);
+
+							type = strtok_r(NULL, " ", &save_ptr);
 						}
 							
 						if (!strcmp(type, "no")) {
@@ -897,8 +998,9 @@ reset:
 							break;
 						}
 
-						t_size = atoi(strtok_r(NULL, " ", &save_ptr));
-						t_used = atoi(strtok_r(NULL, " ", &save_ptr));
+						/* datasock size used */
+						t_size = atoll(strtok_r(NULL, " ", &save_ptr));
+						t_used = atoll(strtok_r(NULL, " ", &save_ptr));
 
 						if (!strcmp(type, "data")) {
 							if (d_buf_size == 0) {
@@ -919,8 +1021,8 @@ reset:
 							/* control sock */
 							if (!strcmp(type, "control")) {
 								/* size used */
-								t_size = atoi(strtok_r(NULL, " ", &save_ptr));
-								t_used = atoi(strtok_r(NULL, " ", &save_ptr));
+								t_size = atoll(strtok_r(NULL, " ", &save_ptr));
+								t_used = atoll(strtok_r(NULL, " ", &save_ptr));
 								if (c_buf_size == 0 || c_buf_size != t_size) {
 									c_buf_size = t_size;
 									memset(&control, 0, sizeof(struct perf_stat));
@@ -964,15 +1066,23 @@ reset:
 		if (print_runtime || do_reset)
 			printf(" Run: %s - %s\n", filter_s, filter_e);
 	}	
-	printf("  PEER %s: data stream size=%ubyte, control stream size=%ubyte\n", peer_name, d_buf_size, c_buf_size);
+	printf("  PEER %s: data stream size=%lldbyte, control stream size=%lldbyte\n", peer_name, d_buf_size, c_buf_size);
 	print_stat("    data-used (bytes)", &data);
 	print_stat("    cntl-used (bytes)", &control);
+	// BSR-839 print highwater
+	print_stat("    highwater", &highwater);
+	print_stat("    fill (bytes)", &total_in_flight);
+	print_stat("       ap_in_flight (bytes)", &ap_size);
+	print_stat("                      (cnt)", &ap_cnt);
+	print_stat("       rs_in_flight (bytes)", &rs_size);
+	print_stat("                      (cnt)", &rs_cnt);
 
 	if (do_reset) {
 		do_reset = false;
 		change_bufsize = true;
 		goto reset;
 	}
+
 }
 
 
@@ -987,7 +1097,7 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 	char cmd[128] = {0,};
 	char peer_name[64] = {0,};
 
-	if (fopen_s(&fp, path, "r") != 0)
+	if (fopen_s(&fp, path, "r") != 0) 
 		return;
 
 	fseek(fp, 0, SEEK_END);
@@ -1015,6 +1125,9 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 						read_network_stat(fp, peer_name, tf, end_offset, print_runtime);
 					else if (type == SEND_BUF)
 						read_sendbuf_stat(fp, peer_name, tf, end_offset, print_runtime);
+					else if (type == RESYNC_RATIO) {
+						read_peer_resync_ratio_work(fp, peer_name, tf, end_offset, print_runtime);
+					}
 					if (print_runtime)
 						print_runtime = false;
 					
@@ -1038,7 +1151,6 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 		printf("  please enter between %s - %s\n", start_t, end_t);
 
 }
-
 
 /**
  * Reports statistics of memory performance.
@@ -1652,7 +1764,7 @@ void watch_sendbuf(char *path, bool scroll)
 		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
-			unsigned long s_size = 0, s_used = 0;
+			long long s_size = 0, s_used = 0;
 			unsigned long p_size = 0, p_cnt = 0;
 
 			// remove EOL
@@ -1683,15 +1795,35 @@ void watch_sendbuf(char *path, bool scroll)
 					s_used = atol(strtok_r(NULL, " ", &save_ptr));
 					
 					printf("    %s stream\n", type);
-					printf("        size (bytes): %lu\n", s_size);
-					printf("        used (bytes): %lu\n", s_used); 
+					printf("        size (bytes): %lld\n", s_size);
+					printf("        used (bytes): %lld\n", s_used); 
 					
+					type = strtok_r(NULL, " ", &save_ptr);
+				}
+				// BSR-839 print highwater
+				else if (!strcmp(type, "ap")) {
+					long long ap_in_flight = 0, rs_in_flight = 0;
+					int ap_cnt = 0, rs_cnt = 0;
+					/* ap_in_flight size_bytes cnt */
+					ap_in_flight = atoll(strtok_r(NULL, " ", &save_ptr));
+					ap_cnt = atoi(strtok_r(NULL, " ", &save_ptr));
+
+					type = strtok_r(NULL, " ", &save_ptr);
+					if (strcmp(type, "rs"))
+						continue;
+					/* rs_in_flight size_bytes cnt */
+					rs_in_flight = atoll(strtok_r(NULL, " ", &save_ptr));
+					rs_cnt = atoi(strtok_r(NULL, " ", &save_ptr));
+					
+					printf("    highwater: %d, fill: %lldbytes\n", ap_cnt + rs_cnt, ap_in_flight + rs_in_flight);
+					printf("        ap_in_flight: %d (%lldbytes)\n", ap_cnt, ap_in_flight);
+					printf("        rs_in_flight: %d (%lldbytes)\n", rs_cnt, rs_in_flight);
 					type = strtok_r(NULL, " ", &save_ptr);
 				}
 				else {
 					ptr = strtok_r(NULL, " ", &save_ptr);
 
-					if (!strcmp(ptr, "no") ||!strcmp(ptr, "data") || !strcmp(ptr, "control")) {
+					if (!strcmp(ptr, "no") ||!strcmp(ptr, "data") || !strcmp(ptr, "control") || !strcmp(ptr, "ap")) {
 						// peer_name
 						peer_name = type;
 						printf("  PEER %s:\n", peer_name); 
@@ -1700,7 +1832,7 @@ void watch_sendbuf(char *path, bool scroll)
 						// packet info
 						p_cnt = atol(ptr);
 						p_size = atol(strtok_r(NULL, " ", &save_ptr));
-						printf("         [%s]  -  cnt: %lu  size: %lu bytes\n", type, p_cnt, p_size);
+						printf("         [%s]  -  cnt: %lu  size: %lubytes\n", type, p_cnt, p_size);
 						type = strtok_r(NULL, " ", &save_ptr);
 					}
 				}
@@ -1785,6 +1917,57 @@ void watch_memory(char *path, bool scroll)
 			}
 			
 		} else {	
+#ifdef _WIN
+			Sleep(1000);
+#else // _LIN
+			sleep(1);
+#endif
+		}
+		continue;
+	}
+
+	fclose(fp);
+
+}
+
+void watch_peer_resync_ratio(char *path, bool scroll)
+{
+	FILE *fp;
+	int offset = 0;
+
+	fp = open_shared(path);
+	if (fp == NULL)
+		return;
+
+	fseek(fp, 0, SEEK_END);
+	while (1) {
+		char buf[MAX_BUF_SIZE] = { 0, };
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			char *ptr, *save_ptr;
+			long repl_sended, resync_sended, resync_ratio;
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			ptr = strtok_r(buf, " ", &save_ptr);
+
+			if (!scroll)
+				clear_screen();
+			printf("%s\n", ptr); // time
+
+			ptr = strtok_r(NULL, " ", &save_ptr);
+			while (ptr) {
+				printf("%s\n", ptr); 
+
+				repl_sended = atol(strtok_r(NULL, " ", &save_ptr));
+				resync_sended = atol(strtok_r(NULL, " ", &save_ptr));
+				resync_ratio = atol(strtok_r(NULL, " ", &save_ptr));
+				printf("    replcation(%ldkb)/resync(%ldkb),  resync ratio %ld%%\n", repl_sended >> 10, resync_sended >> 10, resync_ratio);
+				ptr = strtok_r(NULL, " ", &save_ptr);
+			}
+		}
+		else {
 #ifdef _WIN
 			Sleep(1000);
 #else // _LIN

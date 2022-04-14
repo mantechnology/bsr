@@ -492,6 +492,7 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 
 	while (true) {
 		long long tx_sz = 0;
+		int offset = 0;
 
 		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
 			break;
@@ -499,20 +500,21 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 #ifndef _WIN64
 		BUG_ON_UINT32_OVER(tx_sz);
 #endif
-		// DW-1095 SendAsync is only used on Async mode (adjust retry_count) 
-		//ret = SendAsync(socket, bab->static_big_buf, tx_sz, 0, timeout, NULL, 0);
-		ret = Send(socket, bab->static_big_buf, (ULONG)tx_sz, 0, timeout, NULL, transport, 0);
-		if (ret != tx_sz) {
+		while (tx_sz > 0) {
+			// DW-1095 SendAsync is only used on Async mode (adjust retry_count) 
+			//ret = SendAsync(socket, bab->static_big_buf, tx_sz, 0, timeout, NULL, 0);
+			ret = Send(socket, bab->static_big_buf + offset, (ULONG)tx_sz, 0, timeout, NULL, transport, 0);
+
 			if (ret < 0) {
-				if (ret != -EINTR) {
-					bsr_info(17, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send Error(%d)", ret);
+				bsr_info(17, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send Error(%d)", ret);
+				if (ret == -EINTR) {
+					flush_signals(current);
 					ret = 0;
 				}
-				break;
-			} else {
-				bsr_info(18, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send mismatch. req(%d) sent(%d)", tx_sz, ret);
-				// will be recovered by upper bsr protocol
+				return ret;
 			}
+			tx_sz -= ret;
+			offset += ret;
 		}
 	}
 
@@ -531,6 +533,7 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 
 	while (true) {
 		long long tx_sz = 0;
+		int offset = 0;
 		struct kvec iov;
 		struct msghdr msg;
 
@@ -538,21 +541,31 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 			break;
 		}
 
-		iov.iov_base = bab->static_big_buf;
-		iov.iov_len  = (unsigned long)tx_sz;
+		while(tx_sz > 0) {
+			iov.iov_base = bab->static_big_buf + offset;
+			iov.iov_len  = (unsigned long)tx_sz;
 
-		msg.msg_name       = NULL;
-		msg.msg_namelen    = 0;
-		msg.msg_control    = NULL;
-		msg.msg_controllen = 0;
-		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
+			msg.msg_name       = NULL;
+			msg.msg_namelen    = 0;
+			msg.msg_control    = NULL;
+			msg.msg_controllen = 0;
+			msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = bsr_kernel_sendmsg(transport, socket, &msg, &iov);
-		if (rv == -EAGAIN) {
-		}
-		if (rv == -EINTR) {
-			flush_signals(current);
-			rv = 0;
+			rv = bsr_kernel_sendmsg(transport, socket, &msg, &iov);
+
+			if (rv <= 0) {
+				if (rv == -EAGAIN) {
+					continue;
+				} else if (rv == -EINTR) {
+					flush_signals(current);
+					rv = 0;
+				} else {
+					bsr_err(36, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send Error(%d)", rv);
+					return rv;
+				}
+			}
+			tx_sz -= rv;
+			offset += rv;
 		}
 	}
 
@@ -606,7 +619,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
-			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) == -EINTR) {
+			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) < 0) {
 				goto done;
 			}
 			break;
@@ -654,8 +667,11 @@ int send_buf_thread(void *p)
 		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		// BSR-750 fix potential hang when using send buffer in protocol c
 		// RING_BUF_EVENT flag setting race between send_buf_thread() and send_buf()
-		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags))
-			do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo);
+		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags)) {
+			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo) < 0) {
+				break;
+			}
+		}
 	}
 
 	bsr_info(24, BSR_LC_SEND_BUFFER, NO_OBJECT,"Send buffer kill-ack-event");

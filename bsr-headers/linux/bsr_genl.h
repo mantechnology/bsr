@@ -186,6 +186,8 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 	__str_field_def(35, BSR_F_INVARIANT, transport_name, SHARED_SECRET_MAX)
 	// BSR-231 max_buffers is sufficient for int variables and better to operate with atmoic_t variables.
 	__s32_field_def(36, 0 /* OPTIONAL */, max_buffers, BSR_MAX_BUFFERS_DEF)
+	// BSR-839 implement congestion-highwater
+	__u32_field_def(37,	BSR_GENLA_F_MANDATORY,	cong_highwater, BSR_CONG_HIGHWATER_DEF)
 )
 
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,
@@ -327,6 +329,7 @@ GENL_struct(BSR_NLA_PEER_DEVICE_OPTS, 27, peer_device_conf,
 	__u32_field_def(6,	BSR_GENLA_F_MANDATORY,	c_min_rate, BSR_C_MIN_RATE_DEF)
 	__u32_field_def(7,	BSR_GENLA_F_MANDATORY,	ov_req_num, BSR_OV_REQ_NUM_DEF)
 	__u32_field_def(8,	BSR_GENLA_F_MANDATORY,	ov_req_interval, BSR_OV_REQ_INTERVAL_DEF)
+	__str_field_def(9, BSR_GENLA_F_MANDATORY, resync_ratio, 12)
 )
 
 GENL_struct(BSR_NLA_PATH_PARMS, 28, path_parms,

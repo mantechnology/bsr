@@ -988,7 +988,6 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			ULONG_PTR now = jiffies;
 			int i;
 
-			peer_device->ov_left = bsr_ov_bm_total_weight(peer_device);
 			for (i = 0; i < BSR_SYNC_MARKS; i++) {
 				peer_device->rs_mark_left[i] = peer_device->ov_left;
 				peer_device->rs_mark_time[i] = now;
@@ -1117,7 +1116,7 @@ static int bsr_rs_controller(struct bsr_peer_device *peer_device, unsigned int s
 	int cps; /* correction per invocation of bsr_rs_controller() */
 	int steps; /* Number of time steps to plan ahead */
 	int curr_corr;
-	int max_sect;
+	int max_sect, min_sect;
 	struct fifo_buffer *plan;
 
 	pdc = rcu_dereference(peer_device->conf);
@@ -1149,8 +1148,13 @@ static int bsr_rs_controller(struct bsr_peer_device *peer_device, unsigned int s
 		req_sect = 0;
 
 	max_sect = (pdc->c_max_rate * 2 * SLEEP_TIME) / HZ;
+	min_sect = (pdc->c_min_rate * 2 * SLEEP_TIME) / HZ;
 	if (req_sect > max_sect)
 		req_sect = max_sect;
+	// BSR-838 set the minimum resync size to c-min-rate.
+	else if (req_sect < min_sect)
+		req_sect = min_sect;
+
 #ifdef _WIN
     bsr_debug_tr("sect_in=%5u, %5d, corr(%d) cps(%d) curr_c(%d) rs(%d)",
          sect_in, peer_device->rs_in_flight, correction, cps, curr_corr, req_sect);
@@ -1168,18 +1172,24 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 {
 	struct net_conf *nc;
 	unsigned int sect_in;  /* Number of sectors that came in since the last turn */
-	int number, mxb;
+	int number;
+	ULONG_PTR now = jiffies;
 
-	sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
-	peer_device->rs_in_flight -= sect_in;
-	
 	rcu_read_lock();
 	nc = rcu_dereference(peer_device->connection->transport.net_conf);
-	mxb = nc ? nc->max_buffers : 0;
+
+	// BSR-838
+	if (time_after_eq(now, peer_device->rs_in_flight_mark_time + HZ)) {
+		peer_device->rs_in_flight = 0;
+		peer_device->rs_in_flight_mark_time = now;
+	}
+
 	if (rcu_dereference(peer_device->rs_plan_s)->size) {
+		sect_in = atomic_xchg(&peer_device->rs_sect_in, 0);
 		number = bsr_rs_controller(peer_device, sect_in) >> (BM_BLOCK_SHIFT - 9);
 		peer_device->c_sync_rate = number * HZ * (BM_BLOCK_SIZE / 1024) / SLEEP_TIME;
-	} else {
+	}
+	else {
 		peer_device->c_sync_rate = rcu_dereference(peer_device->conf)->resync_rate;
 		number = SLEEP_TIME * peer_device->c_sync_rate  / ((BM_BLOCK_SIZE / 1024) * HZ);
 	}
@@ -1194,8 +1204,14 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 	 * mxb (as used here, and in bsr_alloc_pages on the peer) is
 	 * "number of pages" (typically also 4k),
 	 * but "rs_in_flight" is in "sectors" (512 Byte). */
-	if (mxb - peer_device->rs_in_flight/8 < number)
-		number = mxb - peer_device->rs_in_flight/8;
+
+	// BSR-838 remove the max-buffers limit. request resync at resync-rate or c-min-rate per second.
+	/*
+	 mxb = nc ? nc->max_buffers : 0;
+	 if (mxb - peer_device->rs_in_flight / 8 < number) {
+	 	number = mxb - peer_device->rs_in_flight / 8;
+	 }
+	*/
 
 	return number;
 }
@@ -1808,9 +1824,10 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	if (repl_state[NOW] == L_VERIFY_S || repl_state[NOW] == L_VERIFY_T) {
 		// BSR-118
+		// ov done
 		if (NULL != peer_device->fast_ov_bitmap) {
-			kfree(peer_device->fast_ov_bitmap);
-			peer_device->fast_ov_bitmap = NULL;
+			// BSR-835
+			kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 		}
 
 		if (n_oos) {
@@ -2133,7 +2150,8 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 				inc_rs_pending(peer_device);
 				// DW-1817
 				//Add the data size to rs_in_flight before sending the resync data.
-				atomic_add64(peer_req->i.size, &peer_device->connection->rs_in_flight);
+				// BSR-839
+				add_rs_in_flight(peer_req->i.size, peer_device->connection);
 
 				bsr_debug(17, BSR_LC_VERIFY, peer_device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
 																												(unsigned long long)peer_req->i.sector, 
@@ -2141,15 +2159,19 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 																												(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector), 
 																												(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)));
 
-				if (peer_req->flags & EE_RS_THIN_REQ && all_zero(peer_req))
+				if (peer_req->flags & EE_RS_THIN_REQ && all_zero(peer_req)) {
 					err = bsr_send_rs_deallocated(peer_device, peer_req);
-				else
+				} else {
 					err = bsr_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
+					// BSR-838
+					atomic_add64(peer_req->i.size, &peer_device->cur_resync_sended);
+				}
 
 				// BSR-428 fix potential rs_in_flight incorrect calculation
 				if (err) {
 					dec_rs_pending(peer_device);
-					atomic_sub64(peer_req->i.size, &peer_device->connection->rs_in_flight);
+					// BSR-839
+					sub_rs_in_flight(peer_req->i.size, peer_device->connection, true);
 				}
 
 			}
@@ -2315,6 +2337,8 @@ void verify_progress(struct bsr_peer_device *peer_device,
 
 	// BSR-119
 	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
+	// BSR-835 set last acked sector
+	peer_device->ov_acked_sector = sector;
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x1ff) == 0)
@@ -2735,6 +2759,14 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 {
 	bool retry_resync = false;
 
+	// BSR-853 fix stuck in SyncSource/Established state
+	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		bsr_info(214, BSR_LC_RESYNC_OV, peer_device, "resync is already running. stop the resync timer.");
+		if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags))
+			clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
+		return;
+	}
+
 	if (atomic_read(&peer_device->unacked_cnt) || 
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
@@ -3028,8 +3060,11 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (side == L_SYNC_TARGET) {
 		__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
 		init_resync_stable_bits(peer_device);
-	} else /* side == L_SYNC_SOURCE */
+	} else /* side == L_SYNC_SOURCE */ {
 		__change_peer_disk_state(peer_device, D_INCONSISTENT, __FUNCTION__);
+		// BSR-838
+		mod_timer(&peer_device->sended_timer, jiffies);
+	}
 	finished_resync_pdsk = peer_device->resync_finished_pdsk;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
 	r = end_state_change_locked(device->resource, false, __FUNCTION__);
@@ -3069,6 +3104,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			device->bm_resync_fo = 0;
 			mutex_unlock(&device->bm_resync_fo_mutex);
 			peer_device->use_csums = use_checksum_based_resync(connection, device);
+
+			// BSR-838
+			peer_device->rs_in_flight_mark_time = jiffies;
 		} else {
 			peer_device->use_csums = false;
 			// DW-1874
@@ -3693,6 +3731,55 @@ static void maybe_send_barrier(struct bsr_connection *connection, int epoch)
 	}
 }
 
+// BSR-838
+#ifdef _WIN
+void sended_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
+#else // _LIN
+void sended_timer_fn(BSR_TIMER_FN_ARG)
+#endif
+{
+	LONGLONG cur_repl, last_repl, cur_resync, last_resync;
+#ifdef _WIN
+	UNREFERENCED_PARAMETER(SystemArgument1);
+	UNREFERENCED_PARAMETER(SystemArgument2);
+	UNREFERENCED_PARAMETER(Dpc);
+	struct bsr_peer_device *peer_device = (struct bsr_peer_device *) data;
+#else
+	struct bsr_peer_device *peer_device = BSR_TIMER_ARG2OBJ(peer_device, sended_timer);
+#endif
+
+	if (peer_device == NULL)
+		return;
+
+	cur_repl = atomic_read64(&peer_device->cur_repl_sended);
+	last_repl = atomic_read64(&peer_device->last_repl_sended);
+	cur_resync = atomic_read64(&peer_device->cur_resync_sended);
+	last_resync = atomic_read64(&peer_device->last_resync_sended);
+
+	atomic_set64(&peer_device->repl_sended, cur_repl - last_repl);
+	atomic_set64(&peer_device->resync_sended, cur_resync - last_resync);
+
+	atomic_set64(&peer_device->last_repl_sended, atomic_read64(&peer_device->cur_repl_sended));
+	atomic_set64(&peer_device->last_resync_sended, atomic_read64(&peer_device->cur_resync_sended));
+
+	atomic_set64(&peer_device->last_resync_received, atomic_read64(&peer_device->cur_resync_received));
+
+	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
+		mod_timer(&peer_device->sended_timer, jiffies + HZ);
+	} else {
+		atomic_set64(&peer_device->cur_repl_sended, 0);
+		atomic_set64(&peer_device->last_repl_sended, 0);
+		atomic_set64(&peer_device->cur_resync_sended, 0);
+		atomic_set64(&peer_device->last_resync_sended, 0);
+
+		atomic_set64(&peer_device->cur_resync_received, 0);
+		atomic_set64(&peer_device->last_resync_received, 0);
+
+		atomic_set64(&peer_device->repl_sended, 0);
+		atomic_set64(&peer_device->resync_sended, 0);
+	}
+}
+
 static int process_one_request(struct bsr_connection *connection)
 {
 	struct bio_and_error m;
@@ -3734,15 +3821,15 @@ static int process_one_request(struct bsr_connection *connection)
 			err = bsr_send_dblock(peer_device, req);
 			what = err ? SEND_FAILED : HANDED_OVER_TO_NETWORK;
 
+			// BSR-838
+			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
 #ifdef _WIN
 			// DW-1237 data block has been sent(or failed), put request databuf ref.
 			if (0 == atomic_dec(&req->req_databuf_ref) &&
-				(req->rq_state[0] & RQ_LOCAL_COMPLETED))
-			{
+				(req->rq_state[0] & RQ_LOCAL_COMPLETED)) {
 				kfree2(req->req_databuf);
 			}
 #endif
-
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last

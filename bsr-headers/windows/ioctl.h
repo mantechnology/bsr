@@ -142,11 +142,12 @@ enum BSR_DEBUG_FLAGS
 	DBG_DEV_IO_COMPLETE,
 	DBG_DEV_REQ_TIMING, // BSR-682
 	DBG_DEV_PEER_REQ_TIMING, // BSR-764
+	DBG_CONN_RESYNC_RATIO, // BSR-838
 };
 
 typedef struct _BSR_DEBUG_INFO
 {
-	CHAR					res_name[64];
+	CHAR					res_name[128];
 	int						peer_node_id;
 	int						vnr;
 	enum BSR_DEBUG_FLAGS	flags;

@@ -523,13 +523,13 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 210
-#define BSR_LC_REPLICATION_MAX_INDEX 30
+#define BSR_LC_RESYNC_OV_MAX_INDEX 214
+#define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 57
 #define BSR_LC_THREAD_MAX_INDEX 37
-#define BSR_LC_SEND_BUFFER_MAX_INDEX 35
+#define BSR_LC_SEND_BUFFER_MAX_INDEX 37
 #define BSR_LC_STATE_MAX_INDEX 56
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 142
@@ -1631,6 +1631,7 @@ struct bsr_connection {
 	struct dentry *debugfs_conn_transport_speed;
 	struct dentry *debugfs_conn_debug;
 	struct dentry *debugfs_conn_send_buf;
+	struct dentry *debugfs_conn_resync_ratio;
 #endif
 	struct kref kref;
 	struct kref_debug_info kref_debug;
@@ -1655,6 +1656,10 @@ struct bsr_connection {
 
 	atomic_t64 ap_in_flight; /* App bytes in flight (waiting for ack) */
 	atomic_t64 rs_in_flight; /* resync-data bytes in flight*/
+
+	// BSR-839 implement congestion-highwater
+	atomic_t ap_in_flight_cnt; /* App cnt in flight (waiting for ack) */
+	atomic_t rs_in_flight_cnt; /* resync-data cnt in flight*/
 
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
@@ -1940,6 +1945,8 @@ struct bsr_peer_device {
 
 	/* where does the admin want us to start? (sector) */
 	sector_t ov_start_sector;
+	/* BSR-835 sector of last received the ov result */
+	sector_t ov_acked_sector;
 	sector_t ov_stop_sector;
 	ULONG_PTR ov_bm_position; /* bit offset for bsr_ov_bm_find_next */
 	/* where are we now? (sector) */
@@ -1967,9 +1974,15 @@ struct bsr_peer_device {
 	int rs_last_events;  /* counter of read or write "events" (unit sectors)
 			      * on the lower level device when we last looked. */
 	int rs_in_flight; /* resync sectors in flight (to proxy, in proxy and from proxy) */
+	// BSR-838 save time every second to initialize rs_in_light to zero. 
+	ULONG_PTR rs_in_flight_mark_time;
+
 	ULONG_PTR ov_left; /* in bits */
 	ULONG_PTR ov_skipped; /* in bits */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
+
+	// BSR-835 ov bitmap buffer reference count management
+	struct kref ov_bm_ref;
 
 	u64 current_uuid;
 	u64 bitmap_uuids[BSR_PEERS_MAX];
@@ -2008,6 +2021,22 @@ struct bsr_peer_device {
 
 	// BSR-676
 	atomic_t notify_flags;
+
+	// BSR-838 be used to set replication and resync ratios
+	atomic_t64 repl_ratio;
+	atomic_t64 resync_ratio;
+	atomic_t64 cur_resync_sended;
+	atomic_t64 cur_repl_sended;
+	atomic_t64 last_resync_sended;
+	atomic_t64 last_repl_sended;
+
+	atomic_t64 cur_resync_received;
+	atomic_t64 last_resync_received;
+
+	atomic_t64 resync_sended;
+	atomic_t64 repl_sended;
+
+	struct timer_list sended_timer;
 };
 
 // DW-1911
@@ -2650,6 +2679,8 @@ extern sector_t      bsr_bm_capacity(struct bsr_device *device);
 #define RANGE_FIND_NEXT_BIT 25000000
 extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 
+// BSR-835
+extern void bsr_free_ov_bm(struct kref *kref);
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);
@@ -3732,6 +3763,47 @@ static inline void bsr_thread_restart_nowait(struct bsr_thread *thi)
 {
 	_bsr_thread_stop(thi, true, false);
 }
+
+static inline void set_ap_in_flight(struct bsr_connection *connection, unsigned int i)
+{
+	atomic_set64(&connection->ap_in_flight, i);
+	// BSR-839
+	atomic_set(&connection->ap_in_flight_cnt, i);
+}
+static inline void add_ap_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	atomic_add64(size, &connection->ap_in_flight);
+	// BSR-839
+	atomic_inc(&connection->ap_in_flight_cnt);
+}
+static inline void sub_ap_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	if (atomic_sub_return64(size, &connection->ap_in_flight) < 0)
+		atomic_set64(&connection->ap_in_flight, 0);
+	
+	if (atomic_dec_return(&connection->ap_in_flight_cnt) < 0)
+		atomic_set(&connection->ap_in_flight_cnt, 0);
+}
+static inline void set_rs_in_flight(struct bsr_connection *connection, unsigned int i)
+{
+	atomic_set64(&connection->rs_in_flight, i);
+	// BSR-839
+	atomic_set(&connection->rs_in_flight_cnt, i);
+}
+static inline void add_rs_in_flight(unsigned int size, struct bsr_connection *connection)
+{
+	atomic_add64(size, &connection->rs_in_flight);
+	// BSR-839
+	atomic_inc(&connection->rs_in_flight_cnt);
+}
+static inline void sub_rs_in_flight(unsigned int size, struct bsr_connection *connection, bool sync_done)
+{
+	if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
+		atomic_set64(&connection->rs_in_flight, 0);
+	if (sync_done && (atomic_dec_return(&connection->rs_in_flight_cnt) < 0))
+		atomic_set(&connection->rs_in_flight_cnt, 0);
+}
+
 
 /* counts how many answer packets packets we expect from our peer,
  * for either explicit application requests,

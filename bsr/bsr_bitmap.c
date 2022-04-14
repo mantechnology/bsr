@@ -1721,28 +1721,40 @@ ULONG_PTR bsr_bm_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start)
 		     BM_OP_FIND_BIT, NULL);
 }
 
+// BSR-835
+extern void bsr_free_ov_bm(struct kref *kref)
+{
+	struct bsr_peer_device *peer_device = container_of(kref, struct bsr_peer_device, ov_bm_ref);
+	if (peer_device->fast_ov_bitmap != NULL) {
+		kvfree(peer_device->fast_ov_bitmap);
+		peer_device->fast_ov_bitmap = NULL;
+		bsr_info(213, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been removed.");
+	}
+}
+
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const ULONG_PTR bitnr)
 {
 	PCHAR pByte;
-	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR ret;
 
 	// full ov
 	if(peer_device->fast_ov_bitmap == NULL)
 		return 1;
 
+	// BSR-835
+	if (!kref_get_unless_zero(&peer_device->ov_bm_ref))
+		return 0;
+
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
-#ifdef _WIN
-	bitmapSize = (ULONG_PTR)peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
-#else // _LIN
-	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
-#endif
 
 	if (bitnr >= bsr_bm_bits(peer_device->device))
 		ret = BSR_END_OF_BITMAP;
 	else
 		ret = (pByte[BM_SECT_TO_BIT(bitnr)] >> (bitnr % BITS_PER_BYTE)) & 0x01;
+
+	// BSR-835
+	kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 
 	return ret;
 }
@@ -1750,25 +1762,32 @@ extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const U
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 {
 	PCHAR pByte;
-	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 	ULONG_PTR s = 0;
 
 	// full ov
-	if(peer_device->fast_ov_bitmap == NULL)
+	if (peer_device->fast_ov_bitmap == NULL)
 		return bsr_bm_bits(peer_device->device);
+	
+	// BSR-835 if kref is 0, it has been freed by another thread
+	if (!kref_get_unless_zero(&peer_device->ov_bm_ref))
+		return 0;
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
-#ifdef _WIN
-	bitmapSize = (ULONG_PTR)peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
-#else // _LIN
-	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
-#endif
 
-	for(bit = peer_device->ov_bm_position; bit < bsr_bm_bits(peer_device->device); bit++) {
+	for (bit = peer_device->ov_bm_position; bit < bsr_bm_bits(peer_device->device); bit++) {
+		// BSR-835 if not Connected or VerifyS, stop checking the bit
+		if (peer_device->connection->cstate[NOW] < C_CONNECTED || peer_device->repl_state[NOW] != L_VERIFY_S) {
+			s = 0;
+			break;
+		}
+
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
 			s++;
 	}
+
+	// BSR-835 if kref is 0, the bitmap buffer needs to be freed
+	kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 
 	return s;
 }
@@ -1776,57 +1795,69 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end)
 {
 	PCHAR pByte;
-	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 
 	// full ov
 	if(peer_device->fast_ov_bitmap == NULL)
 		return start;
 
-	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
-#ifdef _WIN
-	bitmapSize = (ULONG_PTR)peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
-#else // _LIN
-	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
-#endif
+	// BSR-835
+	if (!kref_get_unless_zero(&peer_device->ov_bm_ref))
+		return start;
 
+	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
+	
 	for(bit = start; bit < end; bit++) {
+		// BSR-835
+		if (peer_device->connection->cstate[NOW] < C_CONNECTED || peer_device->repl_state[NOW] != L_VERIFY_S) {
+			bit = start; 
+			break;
+		}
+		
 		if(bit >= bsr_bm_bits(peer_device->device))
 			break;
 
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
-			return bit;
+			break;
 	}
+	
 
+	// BSR-835
+	kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
+	
 	return bit;
 }
 
+
+/*
+* caution: requires spinlock unlock, otherwise using it may cause DPC timeout.
+*/
 extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *peer_device)
 {
 	PCHAR pByte;
-	ULONG_PTR bitmapSize = 0;
 	ULONG_PTR bit;
 	ULONG_PTR s = 0;
 
 	if(peer_device->fast_ov_bitmap == NULL)
 		return bsr_bm_bits(peer_device->device) - peer_device->ov_left;
 
-	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
-#ifdef _WIN
-	bitmapSize = (ULONG_PTR)peer_device->fast_ov_bitmap->BitmapSize.QuadPart;
-#else // _LIN
-	bitmapSize = peer_device->fast_ov_bitmap->BitmapSize;
-#endif
+	// BSR-835
+	if (!kref_get_unless_zero(&peer_device->ov_bm_ref))
+		return 0;
 
-	for(bit = (bsr_bm_bits(peer_device->device) - 1); bit > 0; bit--) {
+	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
+
+	for (bit = (bsr_bm_bits(peer_device->device) - 1); bit > 0; bit--) {
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1) {
 			s++;
 			if (s == peer_device->ov_left)
-				return bit;
+				break;
 		}
 	}
+	// BSR-835
+	kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 
-	return 0;
+	return bit;
 }
 
 extern ULONG_PTR bsr_bm_range_find_next(struct bsr_peer_device *peer_device, ULONG_PTR start, ULONG_PTR end) 

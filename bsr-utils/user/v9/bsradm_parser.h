@@ -95,6 +95,7 @@ enum yytokentype {
 	TK_TEMPLATE_FILE,
 	TK_PATH,
 	TK_UDEV_ALWAYS_USE_VNR,
+	TK_LONG_INTEGER, // BSR-845
 };
 
 typedef struct YYSTYPE {

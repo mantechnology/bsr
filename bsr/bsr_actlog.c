@@ -1269,7 +1269,7 @@ ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 	 * alignment. Typically this loop will execute exactly once.
 	 */
 	struct bsr_device *device = peer_device->device;
-	unsigned long flags;
+	unsigned long flags = 0;
 	ULONG_PTR count = 0;
 	unsigned int cleared = 0;
 	while (sbnr <= ebnr) {

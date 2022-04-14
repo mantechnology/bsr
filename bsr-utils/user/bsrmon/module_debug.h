@@ -38,8 +38,12 @@ enum get_debug_type
 	NETWORK_SPEED,
 	SEND_BUF,
 	MEMORY,
+	RESYNC_RATIO,
 	ALL_STAT
 };
+
+#define RESOURCE_NAME_MAX 128
+#define CONNECTION_NAME_MAX 64
 
 struct volume {
 	int vnr;
@@ -47,13 +51,13 @@ struct volume {
 };
 
 struct connection {
-	char name[20];
+	char name[CONNECTION_NAME_MAX];
 	int node_id;
 	struct connection* next;
 };
 
 struct resource {
-	char name[10];
+	char name[RESOURCE_NAME_MAX];
 	struct connection *conn;
 	struct volume *vol;
 	struct resource* next;

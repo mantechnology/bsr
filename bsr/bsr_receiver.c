@@ -777,8 +777,9 @@ void conn_connect2(struct bsr_connection *connection)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
-	atomic_set64(&connection->ap_in_flight, 0);
-	atomic_set64(&connection->rs_in_flight, 0);
+	// BSR-839
+	set_ap_in_flight(connection, 0);
+	set_rs_in_flight(connection, 0);
 
 	rcu_read_lock();
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
@@ -845,8 +846,8 @@ static bool conn_connect(struct bsr_connection *connection)
 	struct net_conf *nc;
 	bool discard_my_data;
 	bool have_mutex;
-	bool no_addr = false;
 	signed long long sndbuf_size, cong_fill;
+	int cong_highwater;
 start:
 	
 	bsr_debug_conn("conn_connect"); 
@@ -873,6 +874,7 @@ start:
 		struct net_conf *nc;
 		int connect_int;
 		long t;
+		bool no_addr = false;
 
 		rcu_read_lock();
 		nc = rcu_dereference(transport->net_conf);
@@ -973,6 +975,8 @@ start:
 	nc = rcu_dereference(connection->transport.net_conf);
 	sndbuf_size = nc->sndbuf_size;
 	cong_fill = nc->cong_fill;
+	// BSR-839
+	cong_highwater = nc->cong_highwater;
 #endif
 	rcu_read_unlock();
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
@@ -985,7 +989,7 @@ start:
 
 		send_buffring = transport->ops->start_send_buffring(transport, sndbuf_size);
 		if (send_buffring)
-			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu)", sndbuf_size, cong_fill);
+			bsr_info(2, BSR_LC_SEND_BUFFER, connection, "send-buffering ok size(%llu) cong_fill(%llu) cong_highwater(%d)", sndbuf_size, cong_fill, cong_highwater);
 		else
 			bsr_info(26, BSR_LC_SEND_BUFFER, connection, "send-buffering disabled");
 	} else {
@@ -4372,17 +4376,32 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		list_add_tail(&peer_req->recv_order, &connection->peer_requests);
 	spin_unlock_irq(&device->resource->req_lock);
 
-	if (connection->agreed_pro_version < 110) {
-		/* If the peer is BSR 8, a sync target may need to drain
-		* (overlapping) in-flight resync requests first.
-		* With BSR 9, the mutually exclusive references in resync lru
-		* and activity log takes care of that already. */
+	// BSR-846 fix potential write issue when SyncTarget node received P_RS_DATA_REPLY and P_DATA for same sector
+	if ((connection->agreed_pro_version < 110) || (connection->agreed_pro_version >= 113)) {
+
+		/* The implementation of drbd9's I/O mutual exclusion through 
+		* resync LRU is an advanced implementation compared to drbd8, 
+		* but if synchronization and replication I/O are concentrated in the same section, 
+		* local I/O delay may intensify at a specific point in time.
+		*  To solve this problem, we excluded the interdependent implementation of Resync LRU and AL, 
+		* and improved to separate processing by marking the same section I/O area.
+		*  However, even with this processing, 
+		* it is necessary to avoid the data reorder problem of the I/O scheduler 
+		* that occurs when synchronization I/O and replication I/O are concurrently submitted from the target. 
+		*  So it activates the lower version of the waiting code. */
 	
 		// DW-1250 wait until there's no resync on same sector, to prevent overlapped write.
-		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET)
-			wait_event(connection->ee_wait, !overlapping_resync_write(connection, peer_req));
+		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET) {
+			// BSR-846 timeout if it takes more than 10 seconds
+			long timeo = EE_WAIT_TIMEOUT;
+			wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
+			if (timeo == 0) {
+				err = -EIO;
+				bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
+				goto timeout_ee_wait;
+			}
+		}
 	}
-
 	/* If we would need to block on the activity log,
 	* we may queue this request for the submitter workqueue.
 	* Remember the op_flags. */
@@ -4505,6 +4524,8 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	bsr_err(9, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to failure to submit I/O request, triggering re-connect");
 	bsr_al_complete_io(device, &peer_req->i);
 
+// BSR-846
+timeout_ee_wait:
 disconnect_during_al_begin_io:
 	spin_lock_irq(&device->resource->req_lock);
 	list_del(&peer_req->w.list);
@@ -4561,66 +4582,11 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
 bool bsr_rs_should_slow_down(struct bsr_peer_device *peer_device, sector_t sector,
 			      bool throttle_if_app_is_waiting)
 {
-	bool throttle = bsr_rs_c_min_rate_throttle(peer_device);
-
-	if (!throttle || throttle_if_app_is_waiting)
-		return throttle;
-
-	return !bsr_sector_has_priority(peer_device, sector);
-}
-
-bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
-{
-	struct bsr_device *device = peer_device->device;
-	unsigned long db, dt, dbdt;
-	unsigned int c_min_rate;
-	int curr_events = 0;
-
-	rcu_read_lock();
-	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
-	rcu_read_unlock();
-
-	/* feature disabled? */
-	if (c_min_rate == 0)
+	// BSR-838 c-min-rate is now used to ensure a minimum resync rate, and the code below is then removed.
+	if (throttle_if_app_is_waiting)
 		return false;
 
-#ifdef _WIN
-	curr_events = bsr_backing_bdev_events(device)
-		- atomic_read(&device->rs_sect_ev);
-#else // _LIN
-	curr_events = bsr_backing_bdev_events(device->ldev->backing_bdev->bd_disk)
-		    - atomic_read(&device->rs_sect_ev);
-#endif
-
-	if (atomic_read(&device->ap_actlog_cnt) || curr_events - peer_device->rs_last_events > 64) {
-		ULONG_PTR rs_left;
-		int i;
-
-		peer_device->rs_last_events = curr_events;
-
-		/* sync speed average over the last 2*BSR_SYNC_MARK_STEP,
-		 * approx. */
-		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
-
-		if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T)
-			rs_left = peer_device->ov_left;
-		else
-			rs_left = bsr_bm_total_weight(peer_device) - peer_device->rs_failed;
-
-		dt = ((long)jiffies - (long)peer_device->rs_mark_time[i]) / HZ;
-		if (!dt)
-			dt++;
-#ifdef _WIN
-		BUG_ON_UINT32_OVER(peer_device->rs_mark_left[i] - rs_left);
-#endif
-		db = (unsigned long)(peer_device->rs_mark_left[i] - rs_left);
-		dbdt = Bit2KB(db/dt);
-
-		if (dbdt > c_min_rate) {
-			return true;
-		}
-	}
-	return false;
+	return !bsr_sector_has_priority(peer_device, sector);
 }
 
 // BSR-595
@@ -4757,6 +4723,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		}
 		peer_req->w.cb = w_e_end_rsdata_req;
 		fault_type = BSR_FAULT_RS_RD;
+		atomic_add64(peer_req->i.size, &peer_device->cur_resync_received);
 		break;
 
 	case P_OV_REPLY:
@@ -4937,6 +4904,9 @@ fail3:
 fail2:
 	bsr_free_peer_req(peer_req);
 fail:
+	if (pi->cmd == P_RS_DATA_REQUEST)
+		atomic_sub64(size, &peer_device->cur_resync_received);
+
 	put_ldev(device);
 	return err;
 }
@@ -6318,8 +6288,6 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 
 		old_peer_device_conf = peer_device->conf;
 		*new_peer_device_conf = *old_peer_device_conf;
-
-		new_peer_device_conf->resync_rate = be32_to_cpu(p->resync_rate);
 	}
 
 	if (apv >= 88) {
@@ -6438,6 +6406,7 @@ static int receive_SyncParam(struct bsr_connection *connection, struct packet_in
 			new_peer_device_conf->resync_rate, new_peer_device_conf->c_plan_ahead, new_peer_device_conf->c_delay_target,
 			new_peer_device_conf->c_fill_target, new_peer_device_conf->c_max_rate, new_peer_device_conf->c_min_rate,
 			new_peer_device_conf->ov_req_num, new_peer_device_conf->ov_req_interval);
+
 		rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 		put_ldev(device);
 	}
@@ -8789,8 +8758,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		(old_peer_state.conn == L_ESTABLISHED || old_peer_state.conn == L_BEHIND)) {
 
 		// BSR-789 resync starts only when the peer's replication state changes from Ahead to SyncSource.
-		// TODO temporary fix. the conditions sufficient? 
-		if (peer_device->last_repl_state == L_AHEAD) {
+		// BSR-853 resync starts even when oos is set (related to DW-2058)
+		if (peer_device->last_repl_state == L_AHEAD || bsr_bm_total_weight(peer_device)) {
 			bsr_info(95, BSR_LC_RESYNC_OV, peer_device, "Peer is SyncSource. change to SyncTarget"); // DW-1518
 			bsr_start_resync(peer_device, L_SYNC_TARGET);
 			peer_device->last_repl_state = peer_state.conn;
@@ -10037,6 +10006,9 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 	atomic_set(&peer_device->rs_pending_cnt, 0);
 	wake_up(&peer_device->device->misc_wait);
 
+	// BSR-838
+	del_timer_sync(&peer_device->sended_timer);
+
 	// DW-1663 When the "DPC function" is running, "del_timer_sync()" does not wait but cancels only the timer in the queue and releases the resource, resulting in "BSOD".
 	// Add the mutex so that "del_timer_sync()" can be called after terminating "DPC function".
 	mutex_lock(&peer_device->device->bm_resync_fo_mutex);
@@ -10257,8 +10229,8 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// BSR-118
 		if (NULL != peer_device->fast_ov_bitmap) {
-			kfree(peer_device->fast_ov_bitmap);
-			peer_device->fast_ov_bitmap = NULL;
+			// BSR-835
+			kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 		}
 
 		kref_put(&device->kref, bsr_destroy_device);
@@ -11014,10 +10986,16 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
-			if (device->resource->role[NOW] == R_PRIMARY || 
-				is_sync_source(peer_device) || 
-				peer_device->repl_state[NOW] == L_AHEAD) {
-				bsr_set_in_sync(peer_device, sector, blksize);
+			if (device->resource->role[NOW] == R_PRIMARY || is_sync_source(peer_device)) {
+				// BSR-848
+				if (peer_device->repl_state[NOW] == L_AHEAD) {
+					struct bsr_interval i;
+					i.sector = sector;
+					i.size = blksize;
+					bsr_send_out_of_sync(peer_device, &i);
+				} else {
+					bsr_set_in_sync(peer_device, sector, blksize);
+				}
 			}
 
 			// DW-1601 add DW-1859
@@ -11029,9 +11007,9 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			if (p->block_id == ID_SYNCER_SPLIT_DONE)
 				dec_rs_pending(peer_device);
 
-			// DW-1601 add DW-1817
-			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// DW-1601 add DW-1817 	
+			// BSR-839
+			sub_rs_in_flight(blksize, connection, p->block_id == ID_SYNCER_SPLIT_DONE);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11056,8 +11034,8 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 			dec_rs_pending(peer_device);
 			// DW-1817 
 			//At this point, it means that the synchronization data has been removed from the send buffer because the synchronization transfer is complete.
-			if (atomic_sub_return64(blksize, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(blksize, connection, true);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11122,8 +11100,8 @@ static int got_NegAck(struct bsr_connection *connection, struct packet_info *pi)
 				dec_rs_pending(peer_device);
 
 			// DW-1601 add DW-1817
-			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(size, connection, p->block_id == ID_SYNCER_SPLIT_DONE);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);
@@ -11146,8 +11124,8 @@ static int got_NegAck(struct bsr_connection *connection, struct packet_info *pi)
 
 			// DW-1817
 			//This means that the resync data is definitely free from send-buffer.
-			if (atomic_sub_return64(size, &connection->rs_in_flight) < 0)
-				atomic_set64(&connection->rs_in_flight, 0);
+			// BSR-839
+			sub_rs_in_flight(size, connection, true);
 
 			// BSR-381 check the resync data in the ahead state.
 			try_change_ahead_to_sync_source(connection);

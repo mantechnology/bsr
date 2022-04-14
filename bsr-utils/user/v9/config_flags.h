@@ -17,6 +17,8 @@ enum check_codes {
 	CC_TOO_BIG,
 	CC_STR_TOO_LONG,
 	CC_NOT_AN_ENUM_NUM,
+	CC_STR_TOO_SHORT,
+	CC_NOT_A_RATIO,
 };
 
 struct field_class {
@@ -51,6 +53,7 @@ struct field_def {
 		} b;  /* BOOLEAN */
 		struct {
 			unsigned max_len;
+			bool is_ratio;
 		} s; /* string */
 		struct {
 			const struct en_map *map;
