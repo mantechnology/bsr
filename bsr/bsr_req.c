@@ -2166,8 +2166,8 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 
 	while (peer_device->repl_state[NOW] == L_SYNC_SOURCE && repl_ratio && resync_ratio) {
 		resync_received = atomic_read64(&peer_device->cur_resync_received) - atomic_read64(&peer_device->last_resync_received);
+		resync_sended = atomic_read64(&peer_device->cur_resync_sended) - atomic_read64(&peer_device->last_resync_sended);
 		if (resync_received > resync_sended) {
-			resync_sended = atomic_read64(&peer_device->cur_resync_sended) - atomic_read64(&peer_device->last_resync_sended);
 			repl_sended = atomic_read64(&peer_device->cur_repl_sended) - atomic_read64(&peer_device->last_repl_sended);
 			resync_sended_percent = 0;
 

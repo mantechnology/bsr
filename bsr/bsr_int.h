@@ -3077,7 +3077,6 @@ extern void bsr_send_peer_ack_wf(struct work_struct *ws);
 // DW-1191
 extern void bsr_send_out_of_sync_wf(struct work_struct *ws);
 
-extern bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *);
 extern bool bsr_rs_should_slow_down(struct bsr_peer_device *, sector_t,
 				     bool throttle_if_app_is_waiting);
 extern int bsr_submit_peer_request(struct bsr_device *,

@@ -1652,7 +1652,8 @@ int bsr_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector)
 	ULONG_PTR enr = (ULONG_PTR)BM_SECT_TO_EXT(sector);
 	struct bm_extent *bm_ext;
 	int i, sig = 0;
-	bool sa;
+	// BSR-838
+	bool sa = false;
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER((enr * AL_EXT_PER_BM_SECT + AL_EXT_PER_BM_SECT));
 #endif
@@ -1666,9 +1667,6 @@ retry:
 
 	if (test_bit(BME_LOCKED, &bm_ext->flags))
 		return 0;
-
-	/* step aside only while we are above c-min-rate; unless disabled. */
-	sa = bsr_rs_c_min_rate_throttle(peer_device);
 
 	for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
 		wait_event_interruptible_ex(device->al_wait,
