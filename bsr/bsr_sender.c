@@ -2757,8 +2757,6 @@ bool bsr_stable_sync_source_present(struct bsr_peer_device *except_peer_device, 
 
 static void do_start_resync(struct bsr_peer_device *peer_device)
 {
-	bool retry_resync = false;
-
 	// BSR-853 fix stuck in SyncSource/Established state
 	if (peer_device->repl_state[NOW] == L_SYNC_SOURCE) {
 		bsr_info(214, BSR_LC_RESYNC_OV, peer_device, "resync is already running. stop the resync timer.");
@@ -2771,22 +2769,12 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
 		atomic_read(&peer_device->wait_for_recv_bitmap)) {
-		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt));
-		retry_resync = true;
-	}
-
-	// DW-2076
-	// BSR-842
-	if (test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags) && (atomic_read(&peer_device->rq_pending_oos_cnt) && !atomic_read(&peer_device->rq_send_oos_cnt))) {
-		bsr_debug(187, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... pending oos : %d, send oos : %d", atomic_read(&peer_device->rq_pending_oos_cnt), atomic_read(&peer_device->rq_send_oos_cnt));
-		retry_resync = true;
-	}
-
-	if (retry_resync) {
-		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d, bitmap : %d, oos : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt),
+			atomic_read(&peer_device->wait_for_recv_bitmap), atomic_read(&peer_device->wait_for_out_of_sync));
 		mod_timer(&peer_device->start_resync_timer, jiffies + HZ / 10);
 		return;
 	}
+
 
 	bsr_info(131, BSR_LC_RESYNC_OV, peer_device, "Starting resync."); // DW-1518
 	bsr_start_resync(peer_device, peer_device->start_resync_side);
@@ -2904,6 +2892,12 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	}
 	if (repl_state >= L_SYNC_SOURCE && repl_state < L_AHEAD) {
 		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to resync already running!");
+		return;
+	}
+
+	// BSR-842
+	if (side == L_SYNC_TARGET && atomic_read(&peer_device->wait_for_out_of_sync)) {
+		bsr_info(215, BSR_LC_RESYNC_OV, peer_device, "resync will not start because out of sync has not been received completely");
 		return;
 	}
 
@@ -3087,13 +3081,31 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	unlock_all_resources();
 
+
 	if (r == SS_SUCCESS) {
 		// DW-1285 set MDF_PEER_INIT_SYNCT_BEGIN 
 		if( (side == L_SYNC_TARGET) 
 			&& (peer_device->device->ldev->md.current_uuid == UUID_JUST_CREATED) ) { 
 			bsr_md_set_peer_flag (peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
 		}
-		
+
+		// BSR-842
+		if (repl_state == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
+			struct bsr_oos_no_req* send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+			unsigned long flags;
+
+			if (send_oos) {
+				INIT_LIST_HEAD(&send_oos->oos_list_head);
+				send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+				spin_lock_irqsave(&peer_device->send_oos_lock, flags);
+				list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
+				spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
+				queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
+			} else {
+				bsr_err(95, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
+				change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+			}
+		}
 		bsr_info(144, BSR_LC_RESYNC_OV, peer_device, "Began resync as %s (will sync %llu KB [%llu bits set]).",
 		     bsr_repl_str(repl_state),
 		     (unsigned long long) peer_device->rs_total << (BM_BLOCK_SHIFT-10),

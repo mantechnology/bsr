@@ -8789,8 +8789,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		// DW-2104 When the Ahead node is demoted, Behind state is changed to Established.
 		if (peer_state.role == R_SECONDARY)
 			new_repl_state = L_ESTABLISHED;
-		else
+		else {
 			new_repl_state = L_BEHIND;
+			// BSR-842
+			atomic_set(&peer_device->wait_for_out_of_sync, 1);
+		}
 	}
 
 	if (peer_device->uuids_received &&
@@ -9546,13 +9549,20 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	
 	sector = be64_to_cpu(p->sector);
 
+	// BSR-842
+	if (peer_device->repl_state[NOW] == L_BEHIND && sector == ID_OUT_OF_SYNC_FINISHED) {
+		atomic_set(&peer_device->wait_for_out_of_sync, 0);
+		bsr_start_resync(peer_device, L_SYNC_TARGET);
+		return err;
+	}
+
 	mutex_lock(&device->bm_resync_fo_mutex);
 
 	switch (peer_device->repl_state[NOW]) {
 	case L_WF_SYNC_UUID:
 	case L_WF_BITMAP_T:
 	case L_BEHIND:
-		break; 
+		break;
 	case L_SYNC_TARGET: 
 		// DW-2042 resume resync using rs_failed
 		// DW-1354 I am a sync target and find offset points the end, does mean no more requeueing resync timer.
@@ -10216,6 +10226,8 @@ void conn_disconnect(struct bsr_connection *connection)
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 		atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+
+		atomic_set(&peer_device->wait_for_out_of_sync, 0);
 
 		// DW-1965 initialize values that need to be answered or set after completion of I/O.
 		atomic_set(&peer_device->unacked_cnt, 0);
