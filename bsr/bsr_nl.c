@@ -3857,7 +3857,7 @@ bool string_to_long(char *data, long *num)
 	return (status == STATUS_SUCCESS ? true : false);
 #else
 	int err;
-	err = kstrtol(data, 10, &num);
+	err = kstrtol(data, 10, num);
 	if (err)
 		return false;
 	return true;

@@ -8792,7 +8792,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		else {
 			new_repl_state = L_BEHIND;
 			// BSR-842
-			atomic_set(&peer_device->wait_for_out_of_sync, 1);
+#ifdef SPLIT_REQUEST_RESYNC
+			if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+				atomic_set(&peer_device->wait_for_out_of_sync, 1);
+			}
+#endif
 		}
 	}
 
@@ -9550,11 +9554,15 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	sector = be64_to_cpu(p->sector);
 
 	// BSR-842
-	if (peer_device->repl_state[NOW] == L_BEHIND && sector == ID_OUT_OF_SYNC_FINISHED) {
-		atomic_set(&peer_device->wait_for_out_of_sync, 0);
-		bsr_start_resync(peer_device, L_SYNC_TARGET);
-		return err;
+#ifdef SPLIT_REQUEST_RESYNC
+	if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+		if (peer_device->repl_state[NOW] == L_BEHIND && sector == ID_OUT_OF_SYNC_FINISHED) {
+			atomic_set(&peer_device->wait_for_out_of_sync, 0);
+			bsr_start_resync(peer_device, L_SYNC_TARGET);
+			return err;
+		}
 	}
+#endif
 
 	mutex_lock(&device->bm_resync_fo_mutex);
 
