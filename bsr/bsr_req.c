@@ -1109,6 +1109,26 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
 				// DW-2076 
 				atomic_dec(&peer_device->rq_pending_oos_cnt);
+				// BSR-842
+				if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
+						struct bsr_oos_no_req* send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+						unsigned long flags;
+
+						if (send_oos) {
+							INIT_LIST_HEAD(&send_oos->oos_list_head);
+							send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
+							list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
+							spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
+							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
+						}
+						else {
+							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
+							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+						}
+					}
+				}
 			}
 		}
 #endif
@@ -1743,7 +1763,6 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 
 		/* start a new epoch for non-mirrored writes */
 		start_new_tl_epoch(resource);
-
 		begin_state_change_locked(resource, CS_VERBOSE | CS_HARD);
 		if (on_congestion == OC_PULL_AHEAD)
 			__change_repl_state_and_auto_cstate(peer_device, L_AHEAD, __FUNCTION__);

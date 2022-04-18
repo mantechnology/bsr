@@ -4563,6 +4563,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+	atomic_set(&peer_device->wait_for_out_of_sync, 0);
 
 	// BSR-764
 	spin_lock_init(&peer_device->timing_lock);

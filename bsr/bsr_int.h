@@ -172,6 +172,10 @@ extern int log_consumer_thread(void *unused);
 #else // _LIN
 #define ID_SYNCER (-1ULL)
 #endif
+
+// BSR-842 when all out of snyc generated in L_AHEAD state is sended, the ID_OUT_OF_SYNC_FINISHED is sended.
+#define ID_OUT_OF_SYNC_FINISHED ID_SYNCER
+
 // DW-1601 Add define values for split peer request processing and already sync processing
 #define ID_SYNCER_SPLIT_DONE ID_SYNCER
 #define ID_SYNCER_SPLIT (ID_SYNCER - 1)
@@ -536,7 +540,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 91
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
-#define BSR_LC_MEMORY_MAX_INDEX 93
+#define BSR_LC_MEMORY_MAX_INDEX 95
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -1900,6 +1904,9 @@ struct bsr_peer_device {
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
+
+	// BSR-842 sart resync when 0 in L_BEHIND state. Set to 1 in L_BEHIND state and set to 0 when ID_OUT_OF_SYNC_FINISHED is received.
+	atomic_t wait_for_out_of_sync;
 
 	// DW-2058 number of incomplete write requests to send out of sync
 	atomic_t rq_pending_oos_cnt;
