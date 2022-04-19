@@ -280,3 +280,13 @@ const char *bsr_io_type_name(unsigned char type) {
 	}
 	return "unknown";
 }
+
+// BSR-859
+const char *bsr_host_type_name(char *node_name) {
+	if (!node_name || !strcmp(node_name, ""))
+		return "unknown";
+	if (strchr(node_name, ':'))
+		return "floating";
+	else
+		return "host";
+}

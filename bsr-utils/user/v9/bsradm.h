@@ -139,6 +139,8 @@ struct d_host_info
 	// BSR-718
 	struct options node_options; /* Additional per host options */
 	char* node_id;
+	// BSR-859
+	char* node_name;
 };
 
 STAILQ_HEAD(hosts, d_host_info);

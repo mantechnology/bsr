@@ -3329,6 +3329,15 @@ extern void notify_helper(enum bsr_notification_type, struct bsr_device *,
 extern void notify_path(struct bsr_connection *, struct bsr_path *,
 			enum bsr_notification_type);
 
+// BSR-859
+extern void notify_node_info(struct sk_buff *skb, 
+					 unsigned int,
+					 struct bsr_resource *resource,
+					 struct bsr_connection *connection, 
+					 char * node_name,
+					 __u8 cmd,
+					 enum bsr_notification_type type);
+
 // BSR-676
 #define BSR_GI_NOTI_UUID 0x00
 #define BSR_GI_NOTI_DEVICE_FLAG 0x01

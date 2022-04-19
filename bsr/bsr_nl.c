@@ -3750,6 +3750,15 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	if (retcode != NO_ERROR)
 		goto fail;
 
+	// BSR-859 notify by event when peer node name changes
+	if (strcmp(new_net_conf->peer_node_name, old_net_conf->peer_node_name)) {
+		mutex_lock(&notification_mutex);
+		notify_node_info(NULL, 0, adm_ctx.resource, connection, 
+				new_net_conf->peer_node_name, BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+		mutex_unlock(&notification_mutex);
+
+	}
+
 #ifdef _WIN
 	synchronize_rcu_w32_wlock();
 #endif
@@ -4173,6 +4182,11 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	flags = (peer_devices--) ? NOTIFY_CONTINUES : 0;
 	mutex_lock(&notification_mutex);
 	notify_connection_state(NULL, 0, connection, &connection_info, NOTIFY_CREATE | flags);
+
+	// BSR-859 notify by event when setting peer node name
+	notify_node_info(NULL, 0, adm_ctx->resource, connection, 
+				connection->transport.net_conf->peer_node_name, BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
 		struct peer_device_info peer_device_info;
 
@@ -5033,6 +5047,14 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+
+	// BSR-859 notify by event when setting node name
+	if (strcmp(adm_ctx.resource->node_opts.node_name, node_opts.node_name)) {
+		mutex_lock(&notification_mutex);
+		notify_node_info(NULL, 0, adm_ctx.resource, NULL, node_opts.node_name, BSR_NODE_INFO, NOTIFY_CHANGE);
+		mutex_unlock(&notification_mutex);
+	}
+
 	adm_ctx.resource->node_opts = node_opts;
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 
@@ -5496,6 +5518,29 @@ static int nla_put_bsr_cfg_context(struct sk_buff *skb,
 		nla_put(skb, T_ctx_my_addr, path->my_addr_len, &path->my_addr);
 		nla_put(skb, T_ctx_peer_addr, path->peer_addr_len, &path->peer_addr);
 	}
+	nla_nest_end(skb, nla);
+	return 0;
+
+nla_put_failure:
+	if (nla)
+		nla_nest_cancel(skb, nla);
+	return -EMSGSIZE;
+}
+
+// BSR-859 set node events context
+static int nla_put_bsr_node_cfg_context(struct sk_buff *skb,
+				    struct bsr_resource *resource,
+				    struct bsr_connection *connection)
+{
+	struct nlattr *nla;
+	nla = nla_nest_start(skb, BSR_NLA_CFG_CONTEXT);
+	if (!nla)
+		goto nla_put_failure;
+	if (resource)
+		nla_put_string(skb, T_ctx_resource_name, resource->name);
+	if (connection)
+		nla_put_u32(skb, T_ctx_peer_node_id, connection->peer_node_id);
+
 	nla_nest_end(skb, nla);
 	return 0;
 
@@ -7426,6 +7471,61 @@ fail:
 		 err, seq);
 }
 
+
+// BSR-859 notify by event when setting node name
+void notify_node_info(struct sk_buff *skb, unsigned int seq, struct bsr_resource *resource, struct bsr_connection *connection, 
+				char * node_name, __u8 cmd, enum bsr_notification_type type)
+{
+	struct bsr_node_info info;
+	struct bsr_genlmsghdr *dh;
+	bool multicast = false;
+	int err;
+
+	if (!skb) {
+		seq = atomic_inc_return(&bsr_genl_seq);
+		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
+		err = -ENOMEM;
+		if (!skb)
+			goto failed;
+		multicast = true;
+	}
+
+	err = -EMSGSIZE;
+	dh = genlmsg_put(skb, 0, seq, &bsr_genl_family, 0, cmd);
+	
+	if (!dh)
+		goto failed;
+
+#ifdef _WIN
+	strncpy(info._nodename, node_name, sizeof(info._nodename) - 1);
+	info._nodename[sizeof(info._nodename) - 1] = '\0';
+#else // _LIN
+	strlcpy(info._nodename, node_name, sizeof(info._nodename));
+#endif
+	info._nodename_len = (__u32)(min(strlen(node_name), sizeof(info._nodename)));
+
+	dh->minor = UINT32_MAX;
+	dh->ret_code = NO_ERROR;
+
+	if (nla_put_bsr_node_cfg_context(skb, resource, connection) ||
+		nla_put_notification_header(skb, type) ||
+		bsr_node_info_to_skb(skb, &info, true))
+		goto failed;
+
+	genlmsg_end(skb, dh);
+	if (multicast) {
+		err = bsr_genl_multicast_events(skb, GFP_NOWAIT);
+		/* skb has been consumed or freed in netlink_broadcast() */
+		if (err && err != -ESRCH)
+			goto failed;
+	}
+	return;
+
+failed:
+	if (skb)
+		nlmsg_free(skb);
+}
+
 void notify_helper(enum bsr_notification_type type,
 		   struct bsr_device *device, struct bsr_connection *connection,
 		   const char *name, int status)
@@ -7571,7 +7671,10 @@ static void free_state_changes(struct list_head *list)
 static unsigned int notifications_for_state_change(struct bsr_state_change *state_change)
 {
 	return 1 +
-		state_change->n_connections +
+		// BSR-859 added 1 for node name output
+		1 +
+		// BSR-859 added * 2 for peer node name output
+		(state_change->n_connections * 2) +
 		// BSR-676 added * 2 for GI information output
 		(state_change->n_devices * 2) +
 		// BSR-676 added * 3 for GI information output
@@ -7610,9 +7713,36 @@ static int get_initial_state(struct sk_buff *skb, struct netlink_callback *cb)
 
 	n--;
 
+	// BSR-859 for node events
+	if (n < 1) {
+		struct bsr_resource *resource = state_change->resource->resource;
+		notify_node_info(skb, (unsigned int)seq, resource, NULL,
+						 resource->node_opts.node_name,
+						 BSR_NODE_INFO,
+					     NOTIFY_EXISTS | flags);
+		goto next;
+	}
+
+	n--;
+
 	if (n < state_change->n_connections) {
 		notify_connection_state_change(skb, (unsigned int)seq, &state_change->connections[n],
 					       NOTIFY_EXISTS | flags);
+		goto next;
+	}
+	n -= state_change->n_connections;
+
+	// BSR-859 for peer node events
+	if (n < state_change->n_connections) {
+		struct bsr_connection * connection = (&state_change->connections[n])->connection;
+		char * node_name;
+		rcu_read_lock();
+		node_name = rcu_dereference(connection->transport.net_conf)->peer_node_name;
+		rcu_read_unlock();	
+		notify_node_info(skb, (unsigned int)seq, connection->resource, connection,
+						node_name,
+						BSR_PEER_NODE_INFO,
+						NOTIFY_EXISTS | flags);
 		goto next;
 	}
 	n -= state_change->n_connections;

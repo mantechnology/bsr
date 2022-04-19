@@ -1016,6 +1016,7 @@ struct context_def net_options_ctx = {
 	.nla_type = BSR_NLA_NET_CONF,
 	.fields = {
 		CHANGEABLE_NET_OPTIONS,
+		{ "peer-node-name", STRING(peer_node_name)}, // BSR-859
 		{ } },
 };
 
@@ -1058,6 +1059,7 @@ struct context_def new_peer_cmd_ctx = {
 	.fields = {
 		{ "transport", STRING(transport_name) },
 		CHANGEABLE_NET_OPTIONS,
+		{ "peer-node-name", STRING(peer_node_name)}, // BSR-859
 		{ } },
 };
 
@@ -1085,6 +1087,17 @@ struct context_def show_net_options_ctx = {
 	.fields = {
 		{ "transport", STRING(transport_name) },
 		CHANGEABLE_NET_OPTIONS,
+		{ } },
+};
+
+// BSR-859
+struct context_def adjust_net_options_ctx = {
+	NLA_POLICY(net_conf),
+	.nla_type = BSR_NLA_NET_CONF,
+	.fields = {
+		{ "transport", STRING(transport_name) },
+		CHANGEABLE_NET_OPTIONS,
+		{ "peer-node-name", STRING(peer_node_name)},
 		{ } },
 };
 
@@ -1135,15 +1148,29 @@ struct context_def resource_options_ctx = {
 		{ } },
 };
 
+
+
+#define CHANGEABLE_NODE_OPTIONS                    \
+    /* DW-1249 auto-start by svc */		\
+	{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },	\
+	/* BSR-593 auto-down by svc */		\
+	{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) }
 // BSR-718 move svc-auto-xxx option to node option
 struct context_def node_options_ctx = {
 	NLA_POLICY(node_opts),
 	.nla_type = BSR_NLA_NODE_OPTS,
 	.fields = {
-		// DW-1249 auto-start by svc
-		{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },
-		// BSR-593 auto-down by svc
-		{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) },
+		CHANGEABLE_NODE_OPTIONS,
+		{ } },
+};
+
+struct context_def node_options_cmd_ctx = {
+	NLA_POLICY(node_opts),
+	.nla_type = BSR_NLA_NODE_OPTS,
+	.fields = {
+		// BSR-859
+		{ "node-name", STRING(node_name) },
+		CHANGEABLE_NODE_OPTIONS, 
 		{ } },
 };
 

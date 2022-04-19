@@ -463,7 +463,7 @@ struct bsr_cmd commands[] = {
 	{"node-options", CTX_RESOURCE, BSR_ADM_NODE_OPTS, BSR_NLA_NODE_OPTS,
 		F_CONFIG_CMD,
 	 .set_defaults = true,
-	 .ctx = &node_options_ctx,
+	 .ctx = &node_options_cmd_ctx,
 	 .summary = "Change the node options of an existing resource." },
 
 	{"peer-device-options", CTX_PEER_DEVICE, BSR_ADM_CHG_PEER_DEVICE_OPTS,
@@ -1631,6 +1631,12 @@ static void print_options(struct nlattr *attr, struct context_def *ctx, const ch
 		nlattr = ntb(field->nla_type);
 		if (!nlattr)
 			continue;
+
+		// BSR-859 skip, output in another section
+		// node-name is output in the _this_host section
+		// peer-node-name is output in the connection section
+		if (!strcmp(field->name, "peer-node-name") || !strcmp(field->name, "node-name"))
+			continue;
 		str = field->ops->get(ctx, field, nlattr);
 		is_default = field->ops->is_default(field, str);
 		if (is_default && !show_defaults)
@@ -2364,10 +2370,15 @@ static void print_paths(struct connections_list *connection)
 static void show_connection(struct connections_list *connection, struct peer_devices_list *peer_devices)
 {
 	struct peer_devices_list *peer_device;
+	struct nlattr *nla;
 
 	printI("connection {\n");
 	++indent;
 	printI("_peer_node_id %d;\n", connection->ctx.ctx_peer_node_id);
+		
+	nla = nla_find_nested(connection->net_conf, __nla_type(T_peer_node_name));
+	if (nla)
+		printI("_peer_node_name\t\"%s\";\n", (char *)nla_data(nla));
 
 	print_paths(connection);
 	if (connection->info.conn_connection_state == C_STANDALONE)
@@ -2469,6 +2480,11 @@ static int show_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		if (nla)
 			printI("node-id\t\t\t%d;\n", *(uint32_t *)nla_data(nla));
 
+		// BSR-859
+		nla = nla_find_nested(resource->node_opts, __nla_type(T_node_name));
+		if (nla)
+		printI("node-name\t\t\"%s\";\n", (char *)nla_data(nla));
+		
 		for (device = devices; device; device = device->next)
 			show_volume(device);
 
@@ -4051,7 +4067,10 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		[BSR_UPDATED_GI_DEVICE_MDF_FLAG] = "gi-device-mdf-flag",
 		[BSR_UPDATED_GI_PEER_DEVICE_MDF_FLAG] = "gi-peer-device-mdf-flag",
 		// BSR-734
-		[BSR_SPLIT_BRAIN] = "split-brain"
+		[BSR_SPLIT_BRAIN] = "split-brain",
+		// BSR-859
+		[BSR_NODE_INFO] = "node",
+		[BSR_PEER_NODE_INFO] = "peer-node"
 	};
 	static uint32_t last_seq;
 	static bool last_seq_known;
@@ -4382,6 +4401,29 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		}
 		break;
 	}
+
+	// BSR-859
+	case BSR_NODE_INFO:
+	case BSR_PEER_NODE_INFO:
+	{
+		struct bsr_node_info new = {}, *old;
+	
+		if (bsr_node_info_from_attrs(&new, info)) {
+			dbg(1, "node info missing\n");
+			goto nl_out;
+		}
+		old = update_info(&key, &new, sizeof(new));
+
+		if (!old || old->_nodename != new._nodename) {
+			printf(" type:%s", bsr_host_type_name(new._nodename));
+			printf(" %s:%s", 
+				(info->genlhdr->cmd == BSR_NODE_INFO) ? "node-name" : "peer-node-name",
+				strcmp(new._nodename, "") ? new._nodename : "unknown");
+		}
+		free(old);
+		break;
+	}
+
 	case BSR_INITIAL_STATE_DONE:
 		break;
 	}

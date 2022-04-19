@@ -1244,6 +1244,13 @@ static void parse_host_section(struct d_resource *res,
 		case TK_SKIP:
 			parse_skip();
 			break;
+		// BSR-859 parsing node name from show output, set to node_name of host.
+		// this is necessary to know that the node name has changed.
+		case TK_NODE_NAME:
+			EXP(TK_STRING);
+			host->node_name = yylval.txt;
+			EXP(';');
+			break;
 		case '}':
 			in_braces = 0;
 			break;
@@ -1694,6 +1701,13 @@ static struct connection *parse_connection(enum pr_flags flags)
 			break;
 		case TK__PEER_NODE_ID:
 			conn->peer = parse_peer_node_id();
+			break;
+		// BSR-859 parsing peer node name from show output, set to node_name of peer host.
+		// this is necessary to know that the peer node name has changed.
+		case TK__PEER_NODE_NAME:
+			EXP(TK_STRING);
+			conn->peer->node_name = yylval.txt;
+			EXP(';');
 			break;
 		case TK_NET:
 			if (!STAILQ_EMPTY(&conn->net_options)) {
