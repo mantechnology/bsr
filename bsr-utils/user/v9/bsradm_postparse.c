@@ -294,6 +294,24 @@ static bool test_proxy_on_host(struct d_resource* res, struct d_host_info *host)
 	return false;
 }
 
+// BSR-859
+void create_node_name_options(struct d_host_info *host)
+{
+	char *value;
+
+	if (find_opt(&host->node_options, "node-name"))
+		return;
+
+	value = names_to_str(&host->on_hosts);
+	
+	if (!strcmp("_this_host", value)) {
+		value = host->node_name;
+	}
+
+	insert_head(&host->node_options, new_opt(strdup("node-name"), strdup(value)));
+}
+
+
 void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 {
 	struct d_host_info *host;
@@ -343,6 +361,9 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 			    host->lower ? host->lower->name : names_to_str(&host->on_hosts));
 		}
 		res->me = host;
+
+		create_node_name_options(res->me);
+		
 		CLI_TRAC_LOG(false, "res->me(%s)", host->lower ? host->lower->name : names_to_str(&host->on_hosts));
 		host->used_as_me = 1;
 		if (host->lower) {
@@ -471,6 +492,27 @@ void create_implicit_net_options(struct connection *conn)
 	insert_head(&conn->net_options, new_opt(strdup("_name"), strdup(value)));
 }
 
+void create_peer_node_name_options(struct connection *conn)
+{
+	char *value;
+
+	if (find_opt(&conn->net_options, "peer-node-name")) {
+		return;
+	}
+
+	if (conn->peer) {
+		if (conn->peer->node_name)
+			value = conn->peer->node_name;
+		else 
+			value = names_to_str(&conn->peer->on_hosts);
+	}
+	else {
+		return;
+	}
+
+	insert_head(&conn->net_options, new_opt(strdup("peer-node-name"), strdup(value)));
+}
+
 bool peer_diskless(struct peer_device *peer_device)
 {
 	struct d_volume *vol;
@@ -514,6 +556,8 @@ void set_peer_in_resource(struct d_resource* res, int peer_required)
 			if (!path->peer_address)
 				peers_addrs_set = 0;
 		}
+		// BSR-859
+		create_peer_node_name_options(conn);
 		create_implicit_net_options(conn);
 	}
 	res->peers_addrs_set = peers_addrs_set;

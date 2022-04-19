@@ -24,4 +24,6 @@ extern const char *bsr_packet_name(enum bsr_packet);
 // DW-1755
 extern const char *bsr_io_type_name(unsigned char type);
 extern const char *bsr_disk_type_name(unsigned char type);
+// BSR-859
+extern const char *bsr_host_type_name(char * node_name);
 #endif  /* __BSR_STRINGS_H */

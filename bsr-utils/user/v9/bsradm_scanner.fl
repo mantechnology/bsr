@@ -94,10 +94,12 @@ resource		{ DP; return TK_RESOURCE;		}
 meta-disk		{ DP; return TK_META_DISK;		}
 flexible-meta-disk	{ DP; return TK_FLEX_META_DISK;		}
 node-id			{ DP; return TK_NODE_ID;		}
+node-name			{ DP; CP; return TK_NODE_NAME;		}	/* BSR-859 */
 usage-count 		{ DP; return TK_USAGE_COUNT;		}
 _this_host 		{ DP; return TK__THIS_HOST;		}
 _remote_host 		{ DP; return TK__REMOTE_HOST;		}
 _peer_node_id 		{ DP; return TK__PEER_NODE_ID;		}
+_peer_node_name 	{ DP; return TK__PEER_NODE_NAME;		}	/* BSR-859 */
 _is_standalone		{ DP; return TK__IS_STANDALONE;		}
 template-file		{ DP; return TK_TEMPLATE_FILE;		}
 path			{ DP; return TK_PATH;			}

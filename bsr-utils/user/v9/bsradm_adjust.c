@@ -753,7 +753,8 @@ adjust_net(const struct cfg_ctx *ctx, struct d_resource* running, int can_do_pro
 			schedule_peer_device_options(&tmp_ctx);
 		}
 		else {
-			struct context_def *oc = &show_net_options_ctx;
+			// BSR-859
+			struct context_def *oc = &adjust_net_options_ctx;
 			struct options *conf_o = &conn->net_options;
 			struct options *runn_o = &running_conn->net_options;
 			bool connect = false, new_path = false;
@@ -993,7 +994,7 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 
 	if (running) {
 		do_res_options = !opts_equal(&resource_options_ctx, &ctx->res->res_options, &running->res_options);
-		do_node_options = !opts_equal(&node_options_ctx, &ctx->res->me->node_options, &running->me->node_options);
+		do_node_options = !opts_equal(&node_options_cmd_ctx, &ctx->res->me->node_options, &running->me->node_options);
 	} else {
 		schedule_deferred_cmd(&new_resource_cmd, ctx, CFG_PREREQ);
 	}

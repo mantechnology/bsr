@@ -354,7 +354,7 @@ int adm_adjust_wp(const struct cfg_ctx *ctx)
 /*  */ struct adm_cmd disconnect_cmd = {"disconnect", adm_bsrsetup, &disconnect_cmd_ctx, ACF1_DISCONNECT};
 static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
 /*  */ struct adm_cmd res_options_cmd = {"resource-options", adm_resource, &resource_options_ctx, ACF1_RESNAME};
-/*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_ctx, ACF1_RESNAME};
+/*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_cmd_ctx, ACF1_RESNAME};
 static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 // BSR-823
 static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
@@ -565,7 +565,7 @@ struct adm_cmd *cmds[] = {
 /*  */ struct adm_cmd node_options_defaults_cmd = {
 	"node-options",
 	adm_node,
-	&node_options_ctx,
+	&node_options_cmd_ctx,
 	ACF1_RESNAME
 };
 /*  */ struct adm_cmd disk_options_defaults_cmd = {
@@ -1103,16 +1103,14 @@ static int sh_mod_parms(const struct cfg_ctx *ctx)
 // BSR-675
 static int sh_peer_node_id(const struct cfg_ctx *ctx)
 {
-	struct d_resource *res = ctx->res;
 	struct connection *conn = ctx->conn;
-	printf("%s\n", ctx->conn->peer->node_id);
+	printf("%s\n", conn->peer->node_id);
 	return 0;
 }
 static int sh_dev_vnr(const struct cfg_ctx *ctx)
 {
-	struct d_resource *res = ctx->res;
 	struct d_volume *vol = ctx->vol;
-	printf("%u\n", ctx->vol->vnr);
+	printf("%u\n", vol->vnr);
 	return 0;
 }
 // BSR-688

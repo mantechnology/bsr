@@ -188,6 +188,8 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 	__s32_field_def(36, 0 /* OPTIONAL */, max_buffers, BSR_MAX_BUFFERS_DEF)
 	// BSR-839 implement congestion-highwater
 	__u32_field_def(37,	BSR_GENLA_F_MANDATORY,	cong_highwater, BSR_CONG_HIGHWATER_DEF)
+	// BSR-859
+	__str_field_def(38,	BSR_GENLA_F_MANDATORY, peer_node_name, SHARED_SECRET_MAX)
 )
 
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,
@@ -376,6 +378,7 @@ GENL_struct(BSR_NLA_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 35, bsr_updated_gi_peer_dev
 GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
 	__flg_field_def(1, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
 	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
+	__str_field_def(3, BSR_GENLA_F_MANDATORY, node_name, SHARED_SECRET_MAX) // BSR-859
 )
 
 // BSR-734
@@ -383,6 +386,10 @@ GENL_struct(BSR_NLA_SPLIT_BRAIN, 37, bsr_split_brain_info,
 	__str_field(1, BSR_GENLA_F_MANDATORY, recover, 32)
 )
 
+// BSR-859
+GENL_struct(BSR_NLA_NODE_INFO, 38, bsr_node_info,
+	__str_field_def(1, BSR_GENLA_F_MANDATORY, _nodename, SHARED_SECRET_MAX)
+)
 
 /*
  * Notifications and commands (genlmsghdr->cmd)
@@ -655,3 +662,13 @@ GENL_notification(
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_SPLIT_BRAIN, BSR_F_REQUIRED))
 
+// BSR-859
+GENL_notification(
+	BSR_NODE_INFO, 55, events,
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_NODE_INFO, BSR_F_REQUIRED))
+
+GENL_notification(
+	BSR_PEER_NODE_INFO, 56, events,
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_NODE_INFO, BSR_F_REQUIRED))
