@@ -8,11 +8,56 @@
 #ifdef _LIN
 unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 {
-	char path[128];
-	unsigned long long object_size, total_objects;
+	char buff[512];
 	FILE *fp;
-	char file_buf[128];
+	char path[128];
 	int i = 0;
+	unsigned long long object_size = 0, total_objects = 0;
+
+	fp = popen("cat /proc/slabinfo", "r");
+	if(NULL == fp) {
+		printf("popen error\n");
+		return -1;
+	}
+
+	while(fgets(buff, 1024, fp)) {
+		char *ptr = strtok(buff, " "); 
+		int index;
+
+		if (ptr != NULL) {
+			if (slab == BSR_REQ) {
+				if(strcmp(ptr, "bsr_req") != 0)
+					continue;
+			} else if (slab == BSR_AL) {
+				if(strcmp(ptr, "bsr_al") != 0)
+					continue;
+			} else if (slab == BSR_BM) {
+				if(strcmp(ptr, "bsr_bm") != 0)
+					continue;
+			} else if (slab == BSR_EE) {
+				if(strcmp(ptr, "bsr_ee") != 0)
+					continue;
+			} else {
+				fprintf(stderr, "Invalid slab type\n");
+				return -1;
+			}
+
+			index = 0;
+
+			while (ptr != NULL)              
+			{ 
+				if (index == 2) {
+					total_objects = atoi(ptr); 
+				}
+				else if (index == 3) {
+					object_size = atoi(ptr); 
+					return total_objects * object_size;
+				}   
+				ptr = strtok(NULL, " ");     
+				index++;
+			}
+		}
+	}
 
 	for (i = 0; i < 2; i++) {
 		if (slab == BSR_REQ) {
@@ -49,13 +94,13 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 			fprintf(stderr, "Failed to open file, path : %s\n", path);
 			return -1;
 		}
-		fread(file_buf, 128, 1, fp);
+		fread(buff, 128, 1, fp);
 		fclose(fp);
 
 		if (i == 0)
-			object_size = atoi(file_buf);
+			object_size = atoi(buff);
 		else
-			total_objects = atoi(file_buf);
+			total_objects = atoi(buff);
 	}
 
 	return object_size * total_objects;
