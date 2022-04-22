@@ -204,7 +204,7 @@ case "$1" in
 					$LOSETUP $MD_DEV $MD_IDX
 				fi
 			fi
-			RES_LIST="${RES_LIST} ${RES}"
+			RES_LIST="${RES_LIST}${RES}"
 		else
 			echo skip adjust $RES
 		fi
@@ -230,7 +230,8 @@ case "$1" in
 
 		[ -d /var/lock/subsys ] && touch /var/lock/subsys/bsr	# for RedHat
 		run_hook start_before-wait
-		$BSRADM wait-con-int # User interruptible version of wait-connect all
+		# BSR-864 excluded because it can be in infinite wait when the peer node is offline
+		#$BSRADM wait-con-int # User interruptible version of wait-connect all
 		run_hook start
 		
 	fi
