@@ -274,6 +274,9 @@ Sub FillRecordSet(sLog)
     
     WScript.DisconnectObject(oSWbemSink)  
     If bDebug Then oStdErr.WriteLine "Exited FillRecordSet For The " & sLog & " Log: " & Timer() - iStart
+	
+    oSWbemSink.Cancel
+	set oSWbemSink= Nothing
 End Sub
 
 
