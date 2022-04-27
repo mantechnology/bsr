@@ -8,6 +8,15 @@
 #endif
 
 
+static int collection_time(FILE *fp, char *d)
+{
+	char format[10] = { 0, };
+
+	sprintf(format, "%%%ds", COLLECTION_TIME_LENGTH);
+	return fscanf_str(fp, format, d, sizeof(d));
+}
+
+
 // BSR-772
 static FILE* open_shared(char *filename)
 {
@@ -300,7 +309,11 @@ void read_io_complete_work(char *path, struct time_filter *tf)
 		return;
 
 	while (!feof(fp)) {
-		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+		if (EOF != collection_time(fp, save_t)) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (strlen(start_t) == 0)
             	sprintf_ex(start_t, "%s", save_t);
 
@@ -364,7 +377,11 @@ void read_peer_ack_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 
 	while (!feof(fp)) {
 		if ((ftell(fp) < end_offset) &&
-			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			(EOF != collection_time(fp, save_t))) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (check_record_time(save_t, tf)) {
 				if (!do_collect) {
 					do_collect = true;
@@ -444,7 +461,11 @@ void read_req_stat_work(char *path, char *resname, struct time_filter *tf)
 
 	while (!feof(fp)) {
 		if ((ftell(fp) < end_offset) &&
-			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			(EOF != collection_time(fp, save_t))) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (strlen(start_t) == 0)
             	sprintf_ex(start_t, "%s", save_t);
 			if (check_record_time(save_t, tf)) {
@@ -563,8 +584,11 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 	memset(&destroy, 0, sizeof(struct perf_stat));
 
 	while (!feof(fp)) {
-		if ((ftell(fp) < end_offset) &&
-			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+		if ((ftell(fp) < end_offset) && (EOF != collection_time(fp, save_t))) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (check_record_time(save_t, tf)) {
 				if (strlen(filter_s) == 0)
 					sprintf_ex(filter_s, "%s", save_t);
@@ -615,7 +639,7 @@ void read_peer_req_stat(FILE *fp, char * peer_name, struct time_filter *tf, int 
 void read_al_stat_work(char *path, struct time_filter *tf)
 {
 	FILE *fp;
-	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
+	char save_t[64] = { 0, }, start_t[64] = { 0, }, end_t[64] = { 0, };
 	unsigned int t_cnt = 0, t_max = 0, t_total = 0, nr_elements = 0;;
 	unsigned int all_slot_used_cnt = 0;
 	struct al_stat al;
@@ -634,9 +658,14 @@ void read_al_stat_work(char *path, struct time_filter *tf)
 		return;
 
 	while (!feof(fp)) {
-		if (change_nr || (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+		if (change_nr || (EOF != collection_time(fp, save_t))) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (strlen(start_t) == 0)
 				sprintf_ex(start_t, "%s", save_t);
+
 			if (check_record_time(save_t, tf)) {
 				if(!do_collect) {
 					do_collect = true;
@@ -933,7 +962,11 @@ reset:
 
 	while (!feof(fp)) {
 		if (!do_reset && (ftell(fp) < end_offset) &&
-			(EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t)))) {
+			(EOF != collection_time(fp, save_t))) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (check_record_time(save_t, tf)) {
 				char buf[MAX_BUF_SIZE];
 				char *save_ptr;
@@ -1105,7 +1138,11 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 	fseek(fp, 0, SEEK_SET);
 
 	while (!feof(fp)) {
-		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
+		if (EOF != collection_time(fp, save_t)) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (strlen(start_t) == 0)
 				sprintf_ex(start_t, "%s", save_t);
 			if (check_record_time(save_t, tf)) {
@@ -1180,10 +1217,11 @@ void read_memory_work(char *path, struct time_filter *tf)
 		return;
 
 	while (!feof(fp)) {
-		if (EOF != fscanf_str(fp, "%s", save_t, sizeof(save_t))) {
-			if (strlen(start_t) == 0)
-				sprintf_ex(start_t, "%s", save_t);
-
+		if (EOF != collection_time(fp, save_t)) {
+			if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+				fscanf_ex(fp, "%*[^\n]");
+				continue;
+			}
 			if (check_record_time(save_t, tf)) {
 				char *ptr, *save_ptr;
 				char buf[MAX_BUF_SIZE];
