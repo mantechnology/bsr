@@ -1524,6 +1524,15 @@ int bsr_send_ping_ack(struct bsr_connection *connection)
 	return send_command(connection, -1, P_PING_ACK, CONTROL_STREAM);
 }
 
+// BSR-863
+int bsr_send_uuid_ack(struct bsr_connection *connection)
+{
+	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
+		return -EIO;
+	return send_command(connection, -1, P_UUID_ACK, CONTROL_STREAM);
+}
+
+
 int bsr_send_peer_ack(struct bsr_connection *connection,
 			      struct bsr_request *req)
 {
@@ -4327,6 +4336,8 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	connection->cstate[NOW] = C_STANDALONE;
 	connection->peer_role[NOW] = R_UNKNOWN;
 	init_waitqueue_head(&connection->ping_wait);
+	// BSR-863
+	init_waitqueue_head(&connection->uuid_wait);
 	idr_init(&connection->peer_devices);
 
 	bsr_init_workqueue(&connection->sender_work);

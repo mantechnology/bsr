@@ -4580,13 +4580,74 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
  * to have a short time average so we can react faster.
  */
 bool bsr_rs_should_slow_down(struct bsr_peer_device *peer_device, sector_t sector,
-			      bool throttle_if_app_is_waiting)
+	bool throttle_if_app_is_waiting)
 {
-	// BSR-838 c-min-rate is now used to ensure a minimum resync rate, and the code below is then removed.
-	if (throttle_if_app_is_waiting)
-		return false;
+	if (peer_device->connection->agreed_pro_version < 115) {
+		bool throttle = bsr_rs_c_min_rate_throttle(peer_device);
+
+		if (!throttle || throttle_if_app_is_waiting)
+			return throttle;
+	} else {
+		// BSR-838 c-min-rate is now used to ensure a minimum resync rate, and the code below is then removed.
+		if (throttle_if_app_is_waiting)
+			return false;
+	}
 
 	return !bsr_sector_has_priority(peer_device, sector);
+}
+
+bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
+{
+	struct bsr_device *device = peer_device->device;
+	unsigned long db, dt, dbdt;
+	unsigned int c_min_rate;
+	int curr_events = 0;
+
+	rcu_read_lock();
+	c_min_rate = rcu_dereference(peer_device->conf)->c_min_rate;
+	rcu_read_unlock();
+
+	/* feature disabled? */
+	if (c_min_rate == 0)
+		return false;
+
+#ifdef _WIN
+	curr_events = bsr_backing_bdev_events(device)
+		- atomic_read(&device->rs_sect_ev);
+#else // _LIN
+	curr_events = bsr_backing_bdev_events(device->ldev->backing_bdev->bd_disk)
+		- atomic_read(&device->rs_sect_ev);
+#endif
+
+	if (atomic_read(&device->ap_actlog_cnt) || curr_events - peer_device->rs_last_events > 64) {
+		ULONG_PTR rs_left;
+		int i;
+
+		peer_device->rs_last_events = curr_events;
+
+		/* sync speed average over the last 2*BSR_SYNC_MARK_STEP,
+		* approx. */
+		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS - 1) % BSR_SYNC_MARKS;
+
+		if (peer_device->repl_state[NOW] == L_VERIFY_S || peer_device->repl_state[NOW] == L_VERIFY_T)
+			rs_left = peer_device->ov_left;
+		else
+			rs_left = bsr_bm_total_weight(peer_device) - peer_device->rs_failed;
+
+		dt = ((long)jiffies - (long)peer_device->rs_mark_time[i]) / HZ;
+		if (!dt)
+			dt++;
+#ifdef _WIN
+		BUG_ON_UINT32_OVER(peer_device->rs_mark_left[i] - rs_left);
+#endif
+		db = (unsigned long)(peer_device->rs_mark_left[i] - rs_left);
+		dbdt = Bit2KB(db / dt);
+
+		if (dbdt > c_min_rate) {
+			return true;
+		}
+	}
+	return false;
 }
 
 // BSR-595
@@ -7168,6 +7229,11 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 				put_ldev(device);
 			}
 		}
+	}
+
+	// BSR-863
+	if (connection->agreed_pro_version >= 115 && !err) {
+		bsr_send_uuid_ack(connection);
 	}
 
 	return err;
@@ -11493,6 +11559,14 @@ static void cleanup_unacked_peer_requests(struct bsr_connection *connection)
 	}
 }
 
+
+static int got_uuid_ack(struct bsr_connection *connection, struct packet_info *pi)
+{
+	set_bit(GOT_UUID_ACK, &connection->flags);
+	wake_up(&connection->uuid_wait);
+	return 0;
+}
+
 static void destroy_request(struct kref *kref)
 {
 	struct bsr_request *req =
@@ -11583,7 +11657,8 @@ static struct meta_sock_cmd ack_receiver_tbl[] = {
 	[P_PEERS_IN_SYNC]   = { sizeof(struct p_peer_block_desc), got_peers_in_sync },
 	[P_TWOPC_YES]       = { sizeof(struct p_twopc_reply), got_twopc_reply },
 	[P_TWOPC_NO]        = { sizeof(struct p_twopc_reply), got_twopc_reply },
-	[P_TWOPC_RETRY]     = { sizeof(struct p_twopc_reply), got_twopc_reply },
+	[P_TWOPC_RETRY] = { sizeof(struct p_twopc_reply), got_twopc_reply },
+	[P_UUID_ACK] = { 0, got_uuid_ack },
 };
 
 int bsr_ack_receiver(struct bsr_thread *thi)

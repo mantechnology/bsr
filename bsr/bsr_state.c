@@ -3331,8 +3331,11 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			   That needs to go out before sending the new disk state
 			   (To avoid a race where the other node might downgrade our disk
 			   state due to old UUID valued) */
-			if (resync_finished && peer_disk_state[NEW] != D_UNKNOWN)
-				bsr_send_uuids(peer_device, 0, 0);
+			// BSR-863
+			if (connection->agreed_pro_version < 115) {
+				if (resync_finished && peer_disk_state[NEW] != D_UNKNOWN)
+					bsr_send_uuids(peer_device, 0, 0);
+			}
 
 			if (peer_disk_state[NEW] == D_UP_TO_DATE)
 				effective_disk_size_determined = true;
