@@ -1149,11 +1149,13 @@ static int bsr_rs_controller(struct bsr_peer_device *peer_device, unsigned int s
 
 	max_sect = (pdc->c_max_rate * 2 * SLEEP_TIME) / HZ;
 	min_sect = (pdc->c_min_rate * 2 * SLEEP_TIME) / HZ;
-	if (req_sect > max_sect)
+	if (req_sect > max_sect) {
 		req_sect = max_sect;
-	// BSR-838 set the minimum resync size to c-min-rate.
-	else if (req_sect < min_sect)
-		req_sect = min_sect;
+	} else if (peer_device->connection->agreed_pro_version >= 115) {
+		// BSR-838 set the minimum resync size to c-min-rate.
+		if (req_sect < min_sect)
+			req_sect = min_sect;
+	}
 
 #ifdef _WIN
     bsr_debug_tr("sect_in=%5u, %5d, corr(%d) cps(%d) curr_c(%d) rs(%d)",
@@ -1206,12 +1208,12 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 	 * but "rs_in_flight" is in "sectors" (512 Byte). */
 
 	// BSR-838 remove the max-buffers limit. request resync at resync-rate or c-min-rate per second.
-	/*
-	 mxb = nc ? nc->max_buffers : 0;
-	 if (mxb - peer_device->rs_in_flight / 8 < number) {
-	 	number = mxb - peer_device->rs_in_flight / 8;
-	 }
-	*/
+	if (peer_device->connection->agreed_pro_version < 115) {
+		int mxb = nc ? nc->max_buffers : 0;
+		if (mxb - peer_device->rs_in_flight / 8 < number) {
+			number = mxb - peer_device->rs_in_flight / 8;
+		}
+	}
 
 	return number;
 }
@@ -1572,6 +1574,16 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 	return 0;
 }
 
+// BSR-863
+void bsr_uuid_peer(struct bsr_peer_device *peer_device)
+{
+	clear_bit(GOT_UUID_ACK, &peer_device->connection->flags);
+	bsr_send_uuids(peer_device, 0, 0);
+	wait_event(peer_device->connection->uuid_wait,
+		test_bit(GOT_UUID_ACK, &peer_device->connection->flags) ||
+		peer_device->connection->cstate[NOW] < C_CONNECTED);
+}
+
 void bsr_ping_peer(struct bsr_connection *connection)
 {
 	clear_bit(GOT_PING_ACK, &connection->flags);
@@ -1730,6 +1742,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	int verify_done = 0;
 
 	bool uuid_updated = false;
+	bool stable_resync = false;
+	u64 newer = 0;
 
 	if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 		/* Make sure all queued w_update_peers()/consider_sending_peers_in_sync()
@@ -1779,18 +1793,53 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	if (!get_ldev(device))
 		goto out;
 
-	bsr_ping_peer(connection);
-
-	spin_lock_irq(&device->resource->req_lock);
-
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
 	if (repl_state[NOW] == L_AHEAD) {
 		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
 		put_ldev(device);
-		spin_unlock_irq(&device->resource->req_lock);	
 		return 1;
 	}
-	
+
+	bsr_ping_peer(connection);
+
+	if ((repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T)) {
+		stable_resync = was_resync_stable(peer_device);
+		if (!peer_device->rs_failed) {
+			if (connection->agreed_pro_version >= 115) {
+				// BSR-863 sync target sends the uuid to the sync source during the synchronization completion process and updates the uuid when it receives a response.
+				bsr_uuid_peer(peer_device);
+			}
+			// DW-1034 we've already had the newest one.
+			if (stable_resync) {
+				if (((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) &&
+					peer_device->uuids_received) {
+					newer = bsr_uuid_resync_finished(peer_device);
+				}
+
+				if (peer_device->uuids_received) {
+					/* Now the two UUID sets are equal, update what we
+					* know of the peer. */
+					const int node_id = device->resource->res_opts.node_id;
+					int i;
+
+					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+					peer_device->current_uuid = bsr_current_uuid(device);
+					peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
+					for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
+						peer_device->history_uuids[i] =
+						bsr_history_uuid(device, i);
+
+					// BSR-676 notify uuid
+					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+					// DW-2160
+					uuid_updated = true;
+				}
+			}
+		}
+	}
+
+	spin_lock_irq(&device->resource->req_lock);
+
 	begin_state_change_locked(device->resource, CS_VERBOSE);
 	old_repl_state = repl_state[NOW];
 
@@ -1890,7 +1939,6 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				// DW-1034 we've already had the newest one.
 				((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) &&
 			    peer_device->uuids_received) {
-				u64 newer = bsr_uuid_resync_finished(peer_device);
 
 				// DW-1216 no downgrade if uuid flags contains belows because
 				// 1. receiver updates newly created uuid unless it is being gotten sync, downgrading shouldn't(or might not) affect.
@@ -1904,25 +1952,6 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 				if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 					bsr_info(122, BSR_LC_RESYNC_OV, peer_device, "Peer was unstable during resync");
-			}
-
-			if (stable_resync && peer_device->uuids_received) {
-				/* Now the two UUID sets are equal, update what we
-				 * know of the peer. */
-				const int node_id = device->resource->res_opts.node_id;
-				int i;
-
-				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
-				peer_device->current_uuid = bsr_current_uuid(device);
-				peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
-				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
-					peer_device->history_uuids[i] =
-						bsr_history_uuid(device, i);
-
-				// BSR-676 notify uuid
-				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
-				// DW-2160
-				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 			if (new_peer_disk_state != D_MASK)
@@ -3079,7 +3108,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	} else /* side == L_SYNC_SOURCE */ {
 		__change_peer_disk_state(peer_device, D_INCONSISTENT, __FUNCTION__);
 		// BSR-838
-		mod_timer(&peer_device->sended_timer, jiffies);
+		if (peer_device->connection->agreed_features >= 115)
+			mod_timer(&peer_device->sended_timer, jiffies);
 	}
 	finished_resync_pdsk = peer_device->resync_finished_pdsk;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;

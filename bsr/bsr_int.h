@@ -1416,6 +1416,8 @@ enum {
 	SEND_STATE_AFTER_AHEAD_C,
 	// DW-2035 set only when command down is in role secondary
 	DISCONN_NO_WAIT_RESYNC,
+	// BSR-863
+	GOT_UUID_ACK,
 };
 
 /* flag bits per resource */
@@ -1650,6 +1652,8 @@ struct bsr_connection {
 
 	enum bsr_fencing_policy fencing_policy;
 	wait_queue_head_t ping_wait;	/* Woken upon reception of a ping, and a state change */
+	// BSR-863
+	wait_queue_head_t uuid_wait;	
 
 	struct bsr_send_buffer send_buffer[2];
 	struct mutex mutex[2]; /* Protect assembling of new packet until sending it (in send_buffer) */
@@ -3083,7 +3087,7 @@ extern void bsr_send_acks_wf(struct work_struct *ws);
 extern void bsr_send_peer_ack_wf(struct work_struct *ws);
 // DW-1191
 extern void bsr_send_out_of_sync_wf(struct work_struct *ws);
-
+extern bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *);
 extern bool bsr_rs_should_slow_down(struct bsr_peer_device *, sector_t,
 				     bool throttle_if_app_is_waiting);
 extern int bsr_submit_peer_request(struct bsr_device *,
@@ -3759,6 +3763,8 @@ extern int bsr_send_command(struct bsr_peer_device *, enum bsr_packet, enum bsr_
 
 extern int bsr_send_ping(struct bsr_connection *connection);
 extern int bsr_send_ping_ack(struct bsr_connection *connection);
+// BSR-863
+extern int bsr_send_uuid_ack(struct bsr_connection *connection);
 extern int conn_send_state_req(struct bsr_connection *, int vnr, enum bsr_packet, union bsr_state, union bsr_state);
 extern int conn_send_twopc_request(struct bsr_connection *, int vnr, enum bsr_packet, struct p_twopc_request *);
 extern int bsr_send_peer_ack(struct bsr_connection *, struct bsr_request *);

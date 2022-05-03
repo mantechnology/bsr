@@ -2224,7 +2224,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 
 	for_each_peer_device(peer_device, device) {
 		bool remote = bsr_should_do_remote(peer_device, NOW);
-		if (remote) {
+		if (peer_device->connection->agreed_pro_version >= 115 && remote) {
 			check_resync_ratio_and_wait(peer_device);
 		}
 	}

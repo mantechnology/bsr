@@ -1668,6 +1668,11 @@ retry:
 	if (test_bit(BME_LOCKED, &bm_ext->flags))
 		return 0;
 
+	if (peer_device->connection->agreed_pro_version < 115) {
+		/* step aside only while we are above c-min-rate; unless disabled. */
+		sa = bsr_rs_c_min_rate_throttle(peer_device);
+	}
+
 	for (i = 0; i < AL_EXT_PER_BM_SECT; i++) {
 		wait_event_interruptible_ex(device->al_wait,
 							!_is_in_al(device, (unsigned int)enr * AL_EXT_PER_BM_SECT + i) ||

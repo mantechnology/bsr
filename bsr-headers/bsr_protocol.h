@@ -103,6 +103,9 @@ enum bsr_packet {
 	// DW-2124
 	P_BM_EXCHANGE_STATE = 0x49, /* data sock: send status after bitmap echange is complete (now only status is sent for completion) */
 
+	// BSR-863
+	P_UUID_ACK = 0x50,
+
 	P_MAY_IGNORE	      = 0x100, /* Flag to test if (cmd > P_MAY_IGNORE) ... */
 
 	/* special command ids for handshake */
