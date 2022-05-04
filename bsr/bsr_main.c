@@ -6343,7 +6343,7 @@ void bsr_md_mark_dirty(struct bsr_device *device)
 }
 #endif
 
-void _bsr_uuid_push_history(struct bsr_device *device, u64 val) __must_hold(local)
+void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local)
 {
 	struct bsr_md *md = &device->ldev->md;
 	int i;
@@ -6357,12 +6357,17 @@ void _bsr_uuid_push_history(struct bsr_device *device, u64 val) __must_hold(loca
 			return;
 	}
 
+	// BSR-863
+	if (old_val) {
+		*old_val = md->history_uuids[ARRAY_SIZE(md->history_uuids) - 1];
+	}
+
 	for (i = ARRAY_SIZE(md->history_uuids) - 1; i > 0; i--)
 		md->history_uuids[i] = md->history_uuids[i - 1];
 	md->history_uuids[i] = val;
 }
 
-u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device) __must_hold(local)
+u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
 	struct bsr_md *md = &device->ldev->md;
@@ -6372,18 +6377,27 @@ u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device) __must_hold(loca
 	first_history_uuid = md->history_uuids[0];
 	for (i = 0; i < ARRAY_SIZE(md->history_uuids) - 1; i++)
 		md->history_uuids[i] = md->history_uuids[i + 1];
-	md->history_uuids[i] = 0;
+
+	if (val) {
+		md->history_uuids[i] = *val;
+	}
+	else {
+		md->history_uuids[i] = 0;
+	}
 
 	return first_history_uuid;
 }
 
-static void __bsr_uuid_set_current(struct bsr_device *device, u64 val)
+static void __bsr_uuid_set_current(struct bsr_device *device, u64 val, u64 *current_val)
 {
 	bsr_md_mark_dirty(device);
 	if (device->resource->role[NOW] == R_PRIMARY)
 		val |= UUID_PRIMARY;
 	else
 		val &= ~UUID_PRIMARY;
+
+	if (current_val)
+		*current_val = device->ldev->md.current_uuid;
 
 	device->ldev->md.current_uuid = val;
 	bsr_set_exposed_data_uuid(device, val);
@@ -6404,7 +6418,7 @@ void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local
 	unsigned long flags;
 
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
-	__bsr_uuid_set_current(device, val);
+	__bsr_uuid_set_current(device, val, NULL);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 }
 
@@ -6427,7 +6441,7 @@ void bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 uuid) __must_h
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 	previous_uuid = bsr_bitmap_uuid(peer_device);
 	if (previous_uuid)
-		_bsr_uuid_push_history(device, previous_uuid);
+		_bsr_uuid_push_history(device, previous_uuid, NULL);
 	__bsr_uuid_set_bitmap(peer_device, uuid);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 }
@@ -6533,7 +6547,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	}
 
 	get_random_bytes(&val, sizeof(u64));
-	__bsr_uuid_set_current(device, val);
+	__bsr_uuid_set_current(device, val, NULL);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
 	bsr_info(3, BSR_LC_UUID, device, "%s, %016llX UUID has been generated. weak nodes %016llX", caller,
@@ -6640,7 +6654,7 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 
 		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
-		__bsr_uuid_set_current(device, val);
+		__bsr_uuid_set_current(device, val, NULL);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
 		// BSR-767 notify uuid When the new current uuid is received and changed
@@ -6658,7 +6672,7 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 	bsr_propagate_uuids(device, got_new_bitmap_uuid);
 }
 
-static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device *peer_device, u64 do_nodes) __must_hold(local)
+static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 do_nodes) __must_hold(local)
 {
 	struct bsr_peer_md *peer_md = device->ldev->md.peers;
 	u64 modified = 0;
@@ -6676,7 +6690,13 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 			bitmap_uuid = peer_device->bitmap_uuids[node_id];
 
 		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
-			_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
+			// BSR-863
+			if (old_peer_md) {
+				old_peer_md[node_id].bitmap_uuid = peer_md[node_id].bitmap_uuid;
+				old_peer_md[node_id].bitmap_dagtag = peer_md[node_id].bitmap_dagtag;
+			}
+
+			_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid, NULL);
 			/* bsr_info(10, BSR_LC_ETC, device, "bitmap[node_id=%d] = %llX", node_id, bitmap_uuid); */
 			peer_md[node_id].bitmap_uuid = bitmap_uuid;
 			peer_md[node_id].bitmap_dagtag =
@@ -6707,7 +6727,7 @@ static u64 __test_bitmap_slots_of_peer(struct bsr_peer_device *peer_device) __mu
 }
 
 
-u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device) __must_hold(local)
+u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 *removed_history, u64 *before_uuid) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
 	u64 set_bitmap_slots, newer, equal;
@@ -6716,10 +6736,54 @@ u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device) __must_hold(lo
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 	set_bitmap_slots = __test_bitmap_slots_of_peer(peer_device);
 	// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
-	newer = __set_bitmap_slots(device, peer_device, set_bitmap_slots);
-	equal = __set_bitmap_slots(device, NULL, ~set_bitmap_slots);
-	_bsr_uuid_push_history(device, bsr_current_uuid(device));
-	__bsr_uuid_set_current(device, peer_device->current_uuid);
+	newer = __set_bitmap_slots(device, peer_device, old_peer_md, set_bitmap_slots);
+	equal = __set_bitmap_slots(device, NULL, old_peer_md, ~set_bitmap_slots);
+	_bsr_uuid_push_history(device, bsr_current_uuid(device), removed_history);
+	__bsr_uuid_set_current(device, peer_device->current_uuid, before_uuid);
+	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
+
+	return newer;
+}
+
+// BSR-863
+static u64 __rollback_bitmap_slots(struct bsr_device *device, struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 do_nodes) __must_hold(local)
+{
+	struct bsr_peer_md *peer_md = device->ldev->md.peers;
+	u64 modified = 0;
+	int node_id;
+	u64 bitmap_uuid = 0;
+
+	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++) {
+		if (node_id == device->ldev->md.node_id)
+			continue;
+		if (!(do_nodes & NODE_MASK(node_id)))
+			continue;
+
+		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
+			peer_md[node_id].bitmap_uuid = old_peer_md[node_id].bitmap_uuid;
+			peer_md[node_id].bitmap_dagtag = old_peer_md[node_id].bitmap_dagtag;
+			bsr_md_mark_dirty(device);
+			modified |= NODE_MASK(node_id);
+		}
+	}
+
+	return modified;
+}
+
+// BSR-863
+u64 bsr_uuid_resync_finished_rollback(struct bsr_peer_device *peer_device, u64 do_nodes, u64 uuid, struct bsr_peer_md *peer_md, u64 history) __must_hold(local)
+{
+	struct bsr_device *device = peer_device->device;
+	unsigned long flags;
+	u64 newer;
+
+	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
+
+	_bsr_uuid_pull_history(peer_device, &history);
+	newer = __rollback_bitmap_slots(device, peer_device, peer_md, do_nodes);
+	device->ldev->md.current_uuid = uuid;
+	bsr_set_exposed_data_uuid(device, uuid);
+	
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 
 	return newer;
@@ -6925,7 +6989,7 @@ void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __mus
 				// bitmap_uuid was already '0', just clear_flag and bsr_propagate_uuids().
 				if((peer_md[node_id].bitmap_uuid == 0) && (peer_md[node_id].flags & MDF_PEER_DIFF_CUR_UUID))
 					goto clear_flag;
-				_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
+				_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid, NULL);
 				peer_md[node_id].bitmap_uuid = 0;
 				if (node_id == peer_device->node_id) {
 					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
@@ -6968,7 +7032,7 @@ clear_flag:
 				peer_md[node_id].bitmap_uuid != 0 &&
 			    dagtag_newer(peer_md[from_node_id].bitmap_dagtag,
 					 peer_md[node_id].bitmap_dagtag)) {
-				_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid);
+				_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid, NULL);
 				peer_md[node_id].bitmap_uuid = peer_md[from_node_id].bitmap_uuid;
 				peer_md[node_id].bitmap_dagtag = peer_md[from_node_id].bitmap_dagtag;
 				if (peer_md[node_id].bitmap_index != -1 &&
@@ -7006,7 +7070,7 @@ clear_flag:
 		int peer_node_id = peer_device->node_id;
 		u64 peer_bm_uuid = peer_md[peer_node_id].bitmap_uuid;
 		if (peer_bm_uuid)
-			_bsr_uuid_push_history(device, peer_bm_uuid);
+			_bsr_uuid_push_history(device, peer_bm_uuid, NULL);
 		if (peer_md[peer_node_id].bitmap_index != -1
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 			bsr_info(39, BSR_LC_BITMAP, peer_device, "Bitmap will be cleared due to inconsistent out-of-sync, disk(%s)", bsr_disk_str(device->disk_state[NOW]));
@@ -7025,7 +7089,7 @@ clear_flag:
 		int peer_node_id = peer_device->node_id;
 		u64 peer_bm_uuid = peer_md[peer_node_id].bitmap_uuid;
 		if (peer_bm_uuid)
-			_bsr_uuid_push_history(device, peer_bm_uuid);
+			_bsr_uuid_push_history(device, peer_bm_uuid, NULL);
 		if (peer_md[peer_node_id].bitmap_index != -1 
 				&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 			bsr_info(40, BSR_LC_BITMAP, peer_device, "Bitmap will be cleared because peer has consistent disk with primary's");

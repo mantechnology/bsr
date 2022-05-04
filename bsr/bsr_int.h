@@ -2436,10 +2436,13 @@ extern void _bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) _
 extern void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local);
 extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, const char* caller);
 extern void bsr_uuid_new_current_by_user(struct bsr_device *device);
-extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val) __must_hold(local);
-extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device) __must_hold(local);
+extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local);
+extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must_hold(local);
 extern void __bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
-extern u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device) __must_hold(local);
+extern u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 *removed_history, u64 *before_uuid) __must_hold(local);
+// BSR-863
+u64 bsr_uuid_resync_finished_rollback(struct bsr_peer_device *peer_device, u64 do_nodes, u64 uuid, struct bsr_peer_md *peer_md, u64 history) __must_hold(local);
+
 // DW-955
 extern void forget_bitmap(struct bsr_device *device, int node_id) __must_hold(local);
 extern void bsr_uuid_detect_finished_resyncs(struct bsr_peer_device *peer_device) __must_hold(local);
