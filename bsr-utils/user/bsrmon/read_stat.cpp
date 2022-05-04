@@ -12,7 +12,11 @@ static int collection_time(FILE *fp, char *d)
 {
 	char format[10] = { 0, };
 
+#ifdef _WIN
+	sprintf_s(format, sizeof(format), "%%%ds", COLLECTION_TIME_LENGTH);
+#else
 	sprintf(format, "%%%ds", COLLECTION_TIME_LENGTH);
+#endif
 	return fscanf_str(fp, format, d, sizeof(d));
 }
 
