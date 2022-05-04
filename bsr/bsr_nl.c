@@ -3924,9 +3924,9 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 
 	if (strlen(new_peer_device_conf->resync_ratio)) {
-		char *ptr = NULL, *token = NULL, c[64];
+		char *ptr = NULL, *token = NULL, c[12];
 #ifdef _WIN
-		memcpy(c, new_peer_device_conf->resync_ratio, 64);
+		memcpy(c, new_peer_device_conf->resync_ratio, strlen(new_peer_device_conf->resync_ratio));
 
 		token = strtok_s(c, ":", &ptr);
 		if (token) {
@@ -3940,7 +3940,7 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 			}
 		}
 #else 
-		memcpy(c, new_peer_device_conf->resync_ratio, 64);
+		memcpy(c, new_peer_device_conf->resync_ratio, strlen(new_peer_device_conf->resync_ratio));
 		ptr = c;
 
 		token = strsep(&ptr, ":");
