@@ -5211,7 +5211,7 @@ static int uuid_fixup_resync_end(struct bsr_peer_device *peer_device, int *rule_
 			struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
 
 			bsr_info(67, BSR_LC_RESYNC_OV, device, "Was SyncSource, missed the resync finished event, corrected myself:");
-			_bsr_uuid_push_history(device, peer_md->bitmap_uuid);
+			_bsr_uuid_push_history(device, peer_md->bitmap_uuid, NULL);
 			peer_md->bitmap_uuid = 0;
 
 			bsr_uuid_dump_self(peer_device,
@@ -5316,7 +5316,7 @@ static int uuid_fixup_resync_start2(struct bsr_peer_device *peer_device, int *ru
 			if (peer_device->connection->agreed_pro_version < 91)
 				return -1091;
 
-			bitmap_uuid = _bsr_uuid_pull_history(peer_device);
+			bitmap_uuid = _bsr_uuid_pull_history(peer_device, NULL);
 			__bsr_uuid_set_bitmap(peer_device, bitmap_uuid);
 
 			bsr_info(72, BSR_LC_RESYNC_OV, device, "Last syncUUID did not get through, corrected:");
@@ -5812,7 +5812,7 @@ static void various_states_to_goodness(struct bsr_device *device,
 		bsr_info(82, BSR_LC_RESYNC_OV, peer_device, "FIXME, both nodes are UpToDate, but have inconsistent bits set. clear it without resync");
 
 		if (peer_bm_uuid)
-			_bsr_uuid_push_history(device, peer_bm_uuid);
+			_bsr_uuid_push_history(device, peer_bm_uuid, NULL);
 
 		if (peer_md[peer_node_id].bitmap_index != -1
 			&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {

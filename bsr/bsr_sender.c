@@ -1696,7 +1696,7 @@ static void __cancel_other_resyncs(struct bsr_device *device)
 			peer_bm_uuid = peer_md[peer_node_id].bitmap_uuid;
 
 			if (peer_bm_uuid)
-				_bsr_uuid_push_history(device, peer_bm_uuid);
+				_bsr_uuid_push_history(device, peer_bm_uuid, NULL);
 			if (peer_md[peer_node_id].bitmap_index != -1
 			 && !bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR)) {
 				bsr_info(113, BSR_LC_RESYNC_OV, peer_device, "Bitmap will be cleared due to resync cancelation");
@@ -1743,7 +1743,11 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	bool uuid_updated = false;
 	bool stable_resync = false;
+	bool uuid_resync_finished = false;
 	u64 newer = 0;
+
+	struct bsr_peer_md old_peers_md[BSR_NODE_ID_MAX];
+	u64 removed_history = 0, before_uuid = 0;
 
 	if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 		/* Make sure all queued w_update_peers()/consider_sending_peers_in_sync()
@@ -1802,38 +1806,23 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	bsr_ping_peer(connection);
 
+	// BSR-863
 	if ((repl_state[NOW] == L_SYNC_TARGET || repl_state[NOW] == L_PAUSED_SYNC_T)) {
+
 		stable_resync = was_resync_stable(peer_device);
 		if (!peer_device->rs_failed) {
-			if (connection->agreed_pro_version >= 115) {
-				// BSR-863 sync target sends the uuid to the sync source during the synchronization completion process and updates the uuid when it receives a response.
-				bsr_uuid_peer(peer_device);
-			}
 			// DW-1034 we've already had the newest one.
 			if (stable_resync) {
 				if (((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) &&
 					peer_device->uuids_received) {
-					newer = bsr_uuid_resync_finished(peer_device);
+					newer = bsr_uuid_resync_finished(peer_device, old_peers_md, &removed_history, &before_uuid);
+					uuid_resync_finished = true;
 				}
+			}
 
-				if (peer_device->uuids_received) {
-					/* Now the two UUID sets are equal, update what we
-					* know of the peer. */
-					const int node_id = device->resource->res_opts.node_id;
-					int i;
-
-					bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
-					peer_device->current_uuid = bsr_current_uuid(device);
-					peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
-					for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
-						peer_device->history_uuids[i] =
-						bsr_history_uuid(device, i);
-
-					// BSR-676 notify uuid
-					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
-					// DW-2160
-					uuid_updated = true;
-				}
+			if (connection->agreed_pro_version >= 115) {
+				// BSR-863 sync target sends the uuid to the sync source during the synchronization completion process and updates the uuid when it receives a response.
+				bsr_uuid_peer(peer_device);
 			}
 		}
 	}
@@ -1847,8 +1836,13 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	/* This protects us against multiple calls (that can happen in the presence
 	   of application IO), and against connectivity loss just before we arrive here. */
-	if (peer_device->repl_state[NOW] <= L_ESTABLISHED)
+	if (peer_device->repl_state[NOW] <= L_ESTABLISHED) {
+		// BSR-863
+		if (connection->agreed_pro_version >= 115 && uuid_resync_finished) {
+			bsr_uuid_resync_finished_rollback(peer_device, newer, before_uuid, old_peers_md, removed_history);
+		}
 		goto out_unlock;
+	}
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 
 	// BSR-595
@@ -1953,6 +1947,25 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 					bsr_info(122, BSR_LC_RESYNC_OV, peer_device, "Peer was unstable during resync");
 			}
+
+			if (peer_device->uuids_received) {
+				/* Now the two UUID sets are equal, update what we
+				* know of the peer. */
+				const int node_id = device->resource->res_opts.node_id;
+				int i;
+
+				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
+				peer_device->current_uuid = bsr_current_uuid(device);
+				peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
+				for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
+					peer_device->history_uuids[i] =
+					bsr_history_uuid(device, i);
+
+				// BSR-676 notify uuid
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+				// DW-2160
+				uuid_updated = true;
+			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
 			if (new_peer_disk_state != D_MASK)
 				__change_peer_disk_state(peer_device, new_peer_disk_state, __FUNCTION__);
@@ -1979,7 +1992,7 @@ out_unlock:
 	if (uuid_updated && ((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY))) {
 		int i;
 
-		bsr_uuid_resync_finished(peer_device);
+		bsr_uuid_resync_finished(peer_device, NULL, NULL, NULL);
 		peer_device->current_uuid = bsr_current_uuid(device);
 		peer_device->bitmap_uuids[device->resource->res_opts.node_id] = bsr_bitmap_uuid(peer_device);
 		for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++)
@@ -3108,8 +3121,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	} else /* side == L_SYNC_SOURCE */ {
 		__change_peer_disk_state(peer_device, D_INCONSISTENT, __FUNCTION__);
 		// BSR-838
-		if (peer_device->connection->agreed_features >= 115)
+		if (peer_device->connection->agreed_pro_version >= 115) {
 			mod_timer(&peer_device->sended_timer, jiffies);
+		}
 	}
 	finished_resync_pdsk = peer_device->resync_finished_pdsk;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
