@@ -3108,8 +3108,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	} else /* side == L_SYNC_SOURCE */ {
 		__change_peer_disk_state(peer_device, D_INCONSISTENT, __FUNCTION__);
 		// BSR-838
-		if (peer_device->connection->agreed_features >= 115)
+		if (peer_device->connection->agreed_pro_version >= 115) {
 			mod_timer(&peer_device->sended_timer, jiffies);
+		}
 	}
 	finished_resync_pdsk = peer_device->resync_finished_pdsk;
 	peer_device->resync_finished_pdsk = D_UNKNOWN;
