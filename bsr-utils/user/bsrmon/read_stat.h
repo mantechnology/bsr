@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define COLLECTION_TIME_LENGTH 22
+#define COLLECTION_TIME_LENGTH 23
 
 struct perf_stat {
 	unsigned long long priv;
