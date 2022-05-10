@@ -414,7 +414,7 @@ void MonitorToFile()
 	ftime(&timer_msec);
 	base_date_local = *localtime(&timer_msec.time);
 #endif	
-	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%d",
+	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%03d",
 		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
 		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, timer_msec.millitm);
 
