@@ -9622,7 +9622,11 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	// BSR-842
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-		if (peer_device->repl_state[NOW] == L_BEHIND && sector == ID_OUT_OF_SYNC_FINISHED) {
+		// BSR-873 fix stuck in SyncSource/Established state
+		// ID_OUT_OF_SYNC_FINISHED may be received even in established state
+		if ((peer_device->repl_state[NOW] == L_BEHIND || 
+				(peer_device->repl_state[NOW] == L_ESTABLISHED && atomic_read(&peer_device->wait_for_out_of_sync)))
+			&& sector == ID_OUT_OF_SYNC_FINISHED) {
 			atomic_set(&peer_device->wait_for_out_of_sync, 0);
 			bsr_start_resync(peer_device, L_SYNC_TARGET);
 			return err;
