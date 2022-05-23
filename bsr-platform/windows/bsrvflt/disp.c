@@ -62,6 +62,7 @@ NTSTATUS
 mvolRunIrpSynchronous(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 extern PULONG InitSafeBootMode;
+atomic_t64 g_untagged_mem_usage = 0;
 
 NTSTATUS
 DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
@@ -78,6 +79,8 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 	// DW-1961 The frequency of the performance counter is fixed at system boot and is consistent across all processors. 
 	// Therefore, driver cache the frequency of the performance counter during initialization.
 	KeQueryPerformanceCounter(&g_frequency);
+
+	atomic_set64(&g_untagged_mem_usage, 0);
 
 	init_logging();
 	// init logging system first
@@ -997,6 +1000,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_SetHandlerUse(DeviceObject, Irp); // Set handler_use value.
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}		
+		case IOCTL_MVOL_GET_UNTAG_MEM_USAGE:
+		{
+			ULONG size = 0;
+
+			status = IOCTL_GetUntagMemoryUsage(DeviceObject, Irp, &size);
+			MVOL_IOCOMPLETE_REQ(Irp, status, size);
+		}
 		case IOCTL_VOLUME_ONLINE:
 		{
 			// DW-1700
