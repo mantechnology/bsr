@@ -89,13 +89,6 @@
 #define UNREFERENCED_PARAMETER(x)
 #endif
 
-#ifndef kzalloc
-#define kzalloc(size, flags, args...) kzalloc(size, flags)
-#endif
-#ifndef kmalloc
-#define kmalloc(size, flags, args...) kmalloc(size, flags)
-#endif
-
 #ifndef rcu_read_lock_check
 #define rcu_read_lock_check(locked) rcu_read_lock()
 #endif
@@ -104,6 +97,73 @@
 #define rcu_read_unlock_check(locked) rcu_read_unlock()
 #endif
 
+#endif
+
+
+
+#ifdef _WIN
+#define bsr_kmalloc	kmalloc
+#define bsr_kzalloc	kzalloc
+#define bsr_kfree	kfree
+#else  // _LIN
+
+// BSR-875 collecting memory usage of BSR module
+struct bsr_mem_usage {
+	atomic_t64 kmalloc; // bytes
+	atomic_t64 vmalloc; // bytes
+	atomic_t64 data_pp; // pages
+	atomic_t64 bm_pp; // pages
+};
+
+extern struct bsr_mem_usage mem_usage;
+
+
+#ifndef bsr_kzalloc
+#define bsr_kzalloc(size, flags, args...) bsr_kzalloc(size, flags)
+#endif
+#ifndef bsr_kmalloc
+#define bsr_kmalloc(size, flags, args...) bsr_kmalloc(size, flags)
+#endif
+static inline void *bsr_kcalloc(size_t n, size_t size, gfp_t flags)
+{
+	void *objp;
+
+	objp = kcalloc(n, size, flags);
+	if (objp)
+		atomic_add64(ksize(objp), &mem_usage.kmalloc);
+	
+	return objp;
+}
+
+static inline void *bsr_kzalloc(size_t size, gfp_t flags)
+{
+	void *objp;
+
+	objp = kzalloc(size, flags);
+	if (objp)
+		atomic_add64(ksize(objp), &mem_usage.kmalloc);
+	
+	return objp;
+}
+
+static inline void *bsr_kmalloc(size_t size, gfp_t flags)
+{
+	void *objp;
+
+	objp = kmalloc(size, flags);
+	if (objp)
+		atomic_add64(ksize(objp), &mem_usage.kmalloc);
+	
+	return objp;
+}
+
+static inline void bsr_kfree(const void *objp)
+{
+	if (objp)
+		atomic_sub64(ksize(objp), &mem_usage.kmalloc);
+
+	kfree(objp);
+}
 #endif
 
 
@@ -680,7 +740,7 @@ static inline void crypto_free_hash(struct crypto_hash *tfm)
 #ifdef _LIN
 	crypto_free_tfm(tfm->base);
 #endif
-	kfree(tfm);
+	bsr_kfree(tfm);
 }
 
 static inline unsigned int crypto_hash_digestsize(struct crypto_hash *tfm)
@@ -2155,12 +2215,18 @@ static inline void *bsr_kvmalloc(size_t size, gfp_t flags)
 {
 	void *ret;
 
-	ret = kmalloc(size, flags | __GFP_NOWARN, '');
+	ret = kmalloc(size, flags | __GFP_NOWARN);
 	if (!ret) {
 		// BSR-818 check interrupt context
 		if (in_interrupt())
 			return NULL;
 		ret = __vmalloc(size, flags, PAGE_KERNEL);
+
+		if (ret)
+			atomic_add64(size, &mem_usage.vmalloc);
+	}
+	else {
+		atomic_add64(ksize(ret), &mem_usage.kmalloc);
 	}
 	return ret;
 }
@@ -2186,7 +2252,7 @@ static inline void kvfree(void /* intentionally discarded const */ *addr)
 	if (is_vmalloc_addr(addr))
 		vfree(addr);
 	else
-		kfree(addr);
+		bsr_kfree(addr);
 }
 #endif
 #endif

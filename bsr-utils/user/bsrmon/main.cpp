@@ -313,12 +313,30 @@ void PrintMonitor()
 
 	// print memory monitoring status
 	printf("Memory:\n");
+#ifdef _LIN
+	// BSR-875 
+	buf = GetSysMemoryUsage();
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+#endif
 	buf = GetBsrMemoryUsage();
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
 		buf = NULL;
 	}
+#ifdef _LIN
+	// BSR-875
+	buf = GetBsrModuleMemoryUsage();
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+#endif
 	buf = GetBsrUserMemoryUsage();
 	if (buf) {
 		printf("%s\n", buf);

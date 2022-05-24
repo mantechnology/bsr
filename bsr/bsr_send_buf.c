@@ -37,8 +37,6 @@
 #define EnterCriticalSection mutex_lock
 #define LeaveCriticalSection mutex_unlock
 
-#define MAX_ONETIME_SEND_BUF	(1024*1024*10) // 10MB
-
 struct buffer {
 	void *base;
 	void *pos;
@@ -115,6 +113,9 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 #endif
 			if(!ring) {
 				bsr_info(92, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate data send buffer. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
+#ifdef _LIN
+				sub_kvmalloc_mem_usage(connection->ptxbab[DATA_STREAM], sizeof(*ring) + nconf->sndbuf_size);
+#endif
 				kvfree2(connection->ptxbab[DATA_STREAM]); // fail, clean data bab
 				goto $ALLOC_FAIL;
 			}
@@ -134,7 +135,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 		connection->ptxbab[CONTROL_STREAM] = ring;
 		
 	} while (false);
-	
+
 	bsr_info(8, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send buffer allocation succeeded. peer node id(%u) send buffer size(%llu)", connection->peer_node_id, nconf->sndbuf_size);
 	return TRUE;
 
@@ -146,6 +147,10 @@ $ALLOC_FAIL:
 
 void destroy_bab(struct bsr_connection* connection)
 {
+#ifdef _LIN
+	sub_kvmalloc_mem_usage(connection->ptxbab[DATA_STREAM], sizeof(ring_buffer) + connection->transport.net_conf->sndbuf_size);
+	sub_kvmalloc_mem_usage(connection->ptxbab[CONTROL_STREAM], sizeof(ring_buffer) + CONTROL_BUFF_SIZE);
+#endif
 	kvfree2(connection->ptxbab[DATA_STREAM]);
 	kvfree2(connection->ptxbab[CONTROL_STREAM]);
 	return;
@@ -207,6 +212,9 @@ ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, s
 void destroy_ring_buffer(ring_buffer *ring)
 {
 	if (ring) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(ring->static_big_buf, MAX_ONETIME_SEND_BUF);
+#endif
 		kvfree2(ring->static_big_buf);
 		//ExFreePool(ring);
  		//kfree2(ring);
@@ -249,7 +257,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 	}
 	
 	if (length > 0) {
-		struct send_buf_packet_info* temp = kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '8ASB');
+		struct send_buf_packet_info* temp = bsr_kmalloc(sizeof(struct send_buf_packet_info), GFP_ATOMIC|__GFP_NOWARN, '8ASB');
 		if (!temp) {
 			struct send_buf_packet_info *packet_info, *tmp;
 			bsr_warn(91, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory initialize packet info in send buffer");
@@ -258,7 +266,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 			memset(ring->packet_size, 0, sizeof(ring->packet_size));
 			list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &ring->packet_list, list) {
 				list_del(&packet_info->list);
-				kfree(packet_info);
+				bsr_kfree(packet_info);
 			}
 			INIT_LIST_HEAD(&ring->packet_list);
 			return;
@@ -282,7 +290,7 @@ void remove_packet_list(ring_buffer *ring, signed long long length)
 			ring->packet_cnt[packet_info->cmd]--;
 			ring->packet_size[packet_info->cmd] -= packet_info->size;
 			list_del(&packet_info->list);
-			kfree(packet_info);
+			bsr_kfree(packet_info);
 		} else {
 			packet_info->size -= (uint32_t)length;
 			ring->packet_size[packet_info->cmd] -= length;

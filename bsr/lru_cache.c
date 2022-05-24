@@ -228,14 +228,14 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 		goto out_fail;
 	RtlZeroMemory(lc, sizeof(struct lru_cache));
 #else // _LIN
-	slot = kcalloc(e_count, sizeof(struct hlist_head), GFP_KERNEL);
+	slot = bsr_kcalloc(e_count, sizeof(struct hlist_head), GFP_KERNEL);
 	if (!slot)
 		goto out_fail;
-	element = kzalloc(e_count * sizeof(struct lc_element *), GFP_KERNEL, '');
+	element = bsr_kzalloc(e_count * sizeof(struct lc_element *), GFP_KERNEL, '');
 	if (!element)
 		goto out_fail;
 
-	lc = kzalloc(sizeof(*lc), GFP_KERNEL, '');
+	lc = bsr_kzalloc(sizeof(*lc), GFP_KERNEL, '');
 	if (!lc)
 		goto out_fail;
 #endif
@@ -284,10 +284,10 @@ struct lru_cache *lc_create(const char *name, struct kmem_cache *cache,
 		kmem_cache_free(cache, (unsigned char *)p - e_off);
 #endif
 	}
-	kfree(lc);
+	bsr_kfree(lc);
 out_fail:
-	kfree(element);
-	kfree(slot);
+	bsr_kfree(element);
+	bsr_kfree(slot);
 	return NULL;
 }
 
@@ -316,9 +316,9 @@ void lc_destroy(struct lru_cache *lc)
 		return;
 	for (i = 0; i < lc->nr_elements; i++)
 		lc_free_by_index(lc, i);
-	kfree(lc->lc_element);
-	kfree(lc->lc_slot);
-	kfree(lc);
+	bsr_kfree(lc->lc_element);
+	bsr_kfree(lc->lc_slot);
+	bsr_kfree(lc);
 }
 
 /**

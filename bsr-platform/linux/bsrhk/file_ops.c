@@ -420,13 +420,13 @@ int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, u
 	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0)
 		return 0;
 	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
-		r = kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
+		r = bsr_kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
 		if (!r) {
 			bsr_err(84, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)", sizeof(struct log_rolling_file_list));
 			err = -1;
 			goto out;
 		}
-		r->fileName = kmalloc(namelen + 1, GFP_ATOMIC, '');
+		r->fileName = bsr_kmalloc(namelen + 1, GFP_ATOMIC, '');
 		if (!r) {
 			bsr_err(85, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to failure to allocation file name size(%d)", namelen);
 			err = -1;
@@ -533,7 +533,7 @@ long read_reg_file(char *file_path, long default_val)
 		goto close;
 
 	// BSR-778 fix debuglog_category file read error due to incorrect buffer size allocation
-	buffer = kmalloc(filesize + 1, GFP_ATOMIC|__GFP_NOWARN);
+	buffer = bsr_kmalloc(filesize + 1, GFP_ATOMIC|__GFP_NOWARN, '');
 
 	memset(buffer, 0, filesize + 1);
 	
@@ -549,7 +549,7 @@ long read_reg_file(char *file_path, long default_val)
 
 close:
 	if (buffer != NULL)
-		kfree(buffer);
+		bsr_kfree(buffer);
 	if (fd != NULL)
 		filp_close(fd, NULL);
 out:

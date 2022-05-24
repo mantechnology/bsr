@@ -157,7 +157,7 @@ void print_range(const char * name, struct perf_stat *s, const char * ws)
 
 void print_umem(const char * name, struct umem_perf_stat *s)
 {
-	printf("  %-13s ", name);
+	printf("   %-13s ", name);
 #ifdef _WIN
 	print_range("", &s->wss, " ");
 	print_range("", &s->qpp, " ");
@@ -1193,6 +1193,36 @@ void read_peer_stat_work(char *path, char * resname, int type, struct time_filte
 
 }
 
+#ifdef _LIN
+// BSR-875
+void add_top_process_list(struct process_info *proc_info, struct process_info *proc)
+{
+	int i, insert_idx = 0;
+	bool insert = false;
+
+	for (i = 0; i < TOP_PROCESS_LIST_CNT; i++) {
+		if (proc_info[i].rsz == 0) {
+			memcpy(&proc_info[i], proc, sizeof(struct process_info));
+			return;
+		} else if (proc_info[i].rsz <= proc->rsz) {
+			insert = true;
+			insert_idx = i;
+			break;
+		}
+	}
+
+	if (!insert)
+		return;
+	
+	for (i = TOP_PROCESS_LIST_CNT - 2; i >= insert_idx; i--)
+		memcpy(&proc_info[i+1], &proc_info[i], sizeof(struct process_info));
+	
+	if (insert) 
+		memcpy(&proc_info[insert_idx], proc, sizeof(struct process_info));
+
+}	
+#endif	
+
 /**
  * Reports statistics of memory performance.
  */
@@ -1208,7 +1238,11 @@ void read_memory_work(char *path, struct time_filter *tf)
 	struct umem_perf_stat bsrservice_stat = {};
 	unsigned int t_used = 0, np_used = 0, p_use = 0;
 #else // _LIN
-	unsigned int t_req = 0, t_al = 0, t_bm = 0, t_ee = 0;
+	unsigned int t_req = 0, t_al = 0, t_bm = 0, t_ee = 0, t_bio_set = 0, t_kmalloc = 0, t_vmalloc = 0, t_pp = 0;
+	struct sys_mem_perf_stat sys_mem_stat = {0,};
+	unsigned int mem_total = 0, mem_used = 0, mem_free = 0, mem_buff_cache = 0;
+	struct process_info proc_list[TOP_PROCESS_LIST_CNT] = {0,};
+	struct process_info temp_proc = {0,};
 #endif
 	struct umem_perf_stat *temp = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,}; 
@@ -1216,6 +1250,7 @@ void read_memory_work(char *path, struct time_filter *tf)
 	bool do_print = false;
 	bool find_date = false;
 	char filter_s[64] = {0,}, filter_e[64] = {0,}; 
+	int index = 0;
 	
 	if (fopen_s(&fp, path, "r") != 0)
 		return;
@@ -1241,13 +1276,32 @@ void read_memory_work(char *path, struct time_filter *tf)
 				set_min_max_val(&kmem.total, t_used);
 				set_min_max_val(&kmem.npused, np_used);
 				set_min_max_val(&kmem.pused, p_use);
-		#else // LIN
+		#else // _LIN
+				/* MemTotal MemUsed MemFree buff/cache */
+				fscanf_ex(fp, "%u %u %u %u", &mem_total, &mem_used, &mem_free, &mem_buff_cache);
+				set_min_max_val(&sys_mem_stat.total, mem_total);
+				set_min_max_val(&sys_mem_stat.used, mem_used);
+				set_min_max_val(&sys_mem_stat.free, mem_free);
+				set_min_max_val(&sys_mem_stat.buff_cache, mem_buff_cache);
+				
 				/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
 				fscanf_ex(fp, "%u %u %u %u", &t_req, &t_al, &t_bm, &t_ee);
 				set_min_max_val(&kmem.req, t_req);
 				set_min_max_val(&kmem.al, t_al);
 				set_min_max_val(&kmem.bm, t_bm);
 				set_min_max_val(&kmem.ee, t_ee);
+
+				/* total_bio_set kmalloc vmalloc total_page_pool */
+				fscanf_ex(fp, "%u %u %u %u", &t_bio_set, &t_kmalloc, &t_vmalloc, &t_pp);
+				set_min_max_val(&kmem.bio_set, t_bio_set);
+				set_min_max_val(&kmem.kmalloc, t_kmalloc);
+				set_min_max_val(&kmem.vmalloc, t_vmalloc);
+				set_min_max_val(&kmem.page_pool, t_pp);
+
+				/* top 5 process */
+				fscanf_ex(fp, "%s %u %u %u", temp_proc.name, &temp_proc.pid, &temp_proc.rsz, &temp_proc.vsz);
+				strcpy(temp_proc._time, save_t);
+				add_top_process_list(proc_list, &temp_proc);
 		#endif
 
 				if (fgets(buf, sizeof(buf), fp) != NULL) {
@@ -1316,18 +1370,32 @@ void read_memory_work(char *path, struct time_filter *tf)
 
 		if (do_print) {
 			printf(" Run: %s - %s\n", filter_s, filter_e);
-			printf(" module (bytes)\n");
 		#ifdef _WIN
+			printf(" module (bytes)\n");
 			/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
 			print_range("  TotalUsed   : ", &kmem.total, "\n");
 			print_range("  NonPagedUsed: ", &kmem.npused, "\n");
 			print_range("  PagedUsed   : ", &kmem.pused, "\n");
 		#else
+			/* MemTotal MemUsed MemFree buff/cache */
+			print_range(" Total Memory (kbytes): ", &sys_mem_stat.total, "\n");
+			print_range("  used: ", &sys_mem_stat.used, "\n");
+			print_range("  free: ", &sys_mem_stat.free, "\n");
+			print_range("  buff/cache: ", &sys_mem_stat.buff_cache, "\n");
+
+
+			printf(" module (kytes)\n");
+			printf("  BSR Slab memory \n");
 			/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
-			print_range("  BSR_REQ: ", &kmem.req, "\n");
-			print_range("  BSR_AL : ", &kmem.al, "\n");
-			print_range("  BSR_BM : ", &kmem.bm, "\n");
-			print_range("  BSR_EE : ", &kmem.ee, "\n");
+			print_range("   bsr_req: ", &kmem.req, "\n");
+			print_range("   bsr_al : ", &kmem.al, "\n");
+			print_range("   bsr_bm : ", &kmem.bm, "\n");
+			print_range("   bsr_ee : ", &kmem.ee, "\n");
+			/* total_bio_set kmalloc vmalloc total_page_pool */
+			print_range("   bsr_bio_set : ", &kmem.bio_set, "\n");
+			print_range("   kmalloc  : ", &kmem.kmalloc, "\n");
+			print_range("  BSR Virtual memory : ", &kmem.vmalloc, "\n");
+			print_range("  BSR Pages memory : ", &kmem.page_pool, "\n");
 		#endif
 
 		#ifdef _WIN
@@ -1335,7 +1403,13 @@ void read_memory_work(char *path, struct time_filter *tf)
 			printf("  %-13s %-23s %-23s %-23s %s\n", "name", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
 		#else // _LIN
 			printf(" user (kbytes)\n");
-			printf("  %-13s %-23s %s\n", "name", "rsz", "vsz");
+			printf("  Top process\n");
+			printf("   %-23s %-13s %-23s\n", "time", "name", "rsz");
+			for (index = 0; index < TOP_PROCESS_LIST_CNT; index++)
+				printf("   %-23s %-13s %-23u\n", proc_list[index]._time, proc_list[index].name, proc_list[index].rsz);
+
+			printf("  BSR process\n");
+			printf("   %-13s %-23s %s\n", "name", "rsz", "vsz");
 		#endif
 
 			print_umem("bsradm", &bsradm_stat);
@@ -1918,47 +1992,71 @@ void watch_memory(char *path, bool scroll)
 			if (!scroll) 
 				clear_screen();
 			printf("%s\n", ptr); // time
+#ifdef _WIN
 			printf("  module (bytes)\n");
-	#ifdef _WIN
 			/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
 			printf("    TotalUsed    : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
 			printf("    NonPagedUsed : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
 			printf("    PagedUsed    : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-	#else // LIN
-			/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
-			printf("    BSR_REQ : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-			printf("    BSR_AL  : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-			printf("    BSR_BM  : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-			printf("    BSR_EE  : %lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-	#endif
 
-
-	#ifdef _WIN
 			printf("  user (bytes)\n");
 			printf("    %-11s %-6s %-15s %-21s %-23s %-14s\n", "name", "pid", "WorkingSetSize", "QuotaPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage");
-	#else // _LIN
-			printf("  user (kbytes)\n");
-			printf("    %-9s %-6s %-10s %-10s\n", "name", "pid", "rsz", "vsz");
-	#endif
+
 			app_name = strtok_r(NULL, " ", &save_ptr);
 			while (app_name) {
-	#ifdef _WIN
 				printf("    %-11s", app_name);
 				printf(" %-6lu", atol(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-15lu", atol(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-21lu", atol(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-23lu", atol(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-14lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-	#else // _LIN
-				printf("    %-9s", app_name);
-				printf(" %-6lu", atol(strtok_r(NULL, " ", &save_ptr)));
-				printf(" %-10lu", atol(strtok_r(NULL, " ", &save_ptr)));
-				printf(" %-10lu\n", atol(strtok_r(NULL, " ", &save_ptr)));
-	#endif
 				app_name = strtok_r(NULL, " ", &save_ptr);
 			}
 			
-		} else {	
+#else // LIN
+			/* MemTotal MemUsed MemFree buff/cache */
+			printf(" Total Memory (kbytes): %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    used: %s, ", strtok_r(NULL, " ", &save_ptr));
+			printf("free: %s, ", strtok_r(NULL, " ", &save_ptr));
+			printf("buff/cache: %s\n", strtok_r(NULL, " ", &save_ptr));
+
+			printf("  module (kbytes)\n");
+			/* total slab memory (kbytes)*/
+			//printf("    Total Slab memory (kbytes): %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    BSR Slab memory\n");
+			/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
+			printf("      bsr_req : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("      bsr_al  : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("      bsr_bm  : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("      bsr_ee  : %s\n", strtok_r(NULL, " ", &save_ptr));
+
+			/* total_bio_set kmalloc vmalloc total_page_pool */
+			printf("      bsr_bio_set : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("      kmalloc  : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    BSR Virtual memory : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    BSR Pages memory : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  user (kbytes)\n");
+			printf("    Top process\n");
+			printf("      %-9s %-6s %-10s %-10s\n", "name", "pid", "rsz", "vsz");
+			printf("      %-9s", strtok_r(NULL, " ", &save_ptr));
+			printf(" %-6s", strtok_r(NULL, " ", &save_ptr));
+			printf(" %-10s", strtok_r(NULL, " ", &save_ptr));
+			printf(" %-10s\n", strtok_r(NULL, " ", &save_ptr));
+
+			printf("    BSR process\n");
+			printf("      %-9s %-6s %-10s %-10s\n", "name", "pid", "rsz", "vsz");
+			app_name = strtok_r(NULL, " ", &save_ptr);
+			while (app_name) {
+				printf("      %-9s", app_name);
+				printf(" %-6s", strtok_r(NULL, " ", &save_ptr));
+				printf(" %-10s", strtok_r(NULL, " ", &save_ptr));
+				printf(" %-10s\n", strtok_r(NULL, " ", &save_ptr));
+
+				app_name = strtok_r(NULL, " ", &save_ptr);
+			}
+#endif
+		} 
+		else {	
 #ifdef _WIN
 			Sleep(1000);
 #else // _LIN

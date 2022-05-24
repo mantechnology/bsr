@@ -73,7 +73,7 @@
 
 #include "./bsr_idx_ring.h"
 
-#define kfree2(x) if((x)) {kfree((x)); (x)=NULL;}
+#define kfree2(x) if((x)) {bsr_kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
 
 #ifdef __CHECKER__
@@ -2902,6 +2902,19 @@ extern KDEFERRED_ROUTINE repost_up_to_date_fn;
 extern void repost_up_to_date_fn(BSR_TIMER_FN_ARG);
 #endif 
 
+#ifdef _LIN
+// BSR-875
+static inline void sub_kvmalloc_mem_usage(void * objp, size_t size)
+{
+	if (objp) {
+		if (is_vmalloc_addr(objp))
+			atomic_sub64(size, &mem_usage.vmalloc);
+		else 
+			atomic_sub64(ksize(objp), &mem_usage.kmalloc);
+	}
+}
+#endif
+
 
 static inline struct request_queue *bsr_blk_alloc_queue(void) 
 {
@@ -2922,7 +2935,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 {
 	if (peer_device->ov_last_oos_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_oos_info *ov_oos = kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19SB');
+		struct ov_oos_info *ov_oos = bsr_kzalloc(sizeof(struct ov_oos_info), GFP_KERNEL, '19SB');
 		if(ov_oos) {
 			INIT_LIST_HEAD(&ov_oos->list);
 			ov_oos->ov_oos_start = peer_device->ov_last_oos_start;
@@ -2952,7 +2965,7 @@ static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, boo
 				(unsigned long long)ov_oos->ov_oos_size);
 
 			list_del(&ov_oos->list);
-			kfree(ov_oos);
+			bsr_kfree(ov_oos);
 		}
 		peer_device->ov_oos_info_report_num++;
 	}
@@ -2962,7 +2975,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 {
     if (peer_device->ov_last_skipped_size) {
 		// BSR-52 add in the list for the report function.
-		struct ov_skipped_info *ov_skipped = kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29SB');
+		struct ov_skipped_info *ov_skipped = bsr_kzalloc(sizeof(struct ov_skipped_info), GFP_KERNEL, '29SB');
 		if(ov_skipped) {
 			INIT_LIST_HEAD(&ov_skipped->list);
 			ov_skipped->ov_skipped_start = peer_device->ov_last_skipped_start;
@@ -2992,7 +3005,7 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 				(unsigned long long)ov_skipped->ov_skipped_size);
 
 			list_del(&ov_skipped->list);
-			kfree(ov_skipped);
+			bsr_kfree(ov_skipped);
 		}
 		peer_device->ov_skipped_info_report_num++;
 	}
@@ -3687,9 +3700,9 @@ static inline void
 bsr_queue_notify_io_error(struct bsr_device *device, unsigned char disk_type, unsigned char io_type, long error_code, sector_t sector, unsigned int size, bool is_cleared)
 {
 	struct bsr_io_error_work *w;
-	w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
+	w = bsr_kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
 	if (w) {
-		w->io_error = kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2SB');
+		w->io_error = bsr_kmalloc(sizeof(*(w->io_error)), GFP_ATOMIC, 'W2SB');
 		if (w->io_error) {
 			w->device = device;
 			w->w.cb = w_notify_io_error;
@@ -3714,7 +3727,7 @@ bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *pe
 {
 	if (device || peer_device) {
 		struct bsr_updated_gi_work *w;
-		w = kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+		w = bsr_kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
 		if (w) {
 			w->device = device;
 			w->peer_device = peer_device;

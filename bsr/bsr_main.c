@@ -254,6 +254,11 @@ int          bsr_pp_vacant;
 wait_queue_head_t bsr_pp_wait;
 
 #ifdef _LIN
+// BSR-875
+struct bsr_mem_usage mem_usage = {0,};
+#endif
+
+#ifdef _LIN
 static const struct file_operations bsr_ctl_fops = {
 		.unlocked_ioctl = bsr_control_ioctl,
 };
@@ -971,7 +976,7 @@ static void bsr_calc_cpu_mask(cpumask_var_t *cpu_mask)
 {
 	unsigned int *resources_per_cpu, min_index = ~0;
 
-	resources_per_cpu = kzalloc(nr_cpu_ids * sizeof(*resources_per_cpu), GFP_KERNEL, '');
+	resources_per_cpu = bsr_kzalloc(nr_cpu_ids * sizeof(*resources_per_cpu), GFP_KERNEL, '');
 	if (resources_per_cpu) {
 		struct bsr_resource *resource;
 		unsigned int cpu, min = ~0;
@@ -988,7 +993,7 @@ static void bsr_calc_cpu_mask(cpumask_var_t *cpu_mask)
 				min_index = cpu;
 			}
 		}
-		kfree(resources_per_cpu);
+		bsr_kfree(resources_per_cpu);
 	}
 	if (min_index == ~0) {
 		cpumask_setall(*cpu_mask);
@@ -1971,8 +1976,8 @@ int bsr_attach_peer_device(struct bsr_peer_device *peer_device) __must_hold(loca
 
 out:
 	if (err) {
-		kfree(resync_lru);
-		kfree(resync_plan);
+		bsr_kfree(resync_lru);
+		bsr_kfree(resync_plan);
 	}
 	return err;
 }
@@ -2382,7 +2387,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	struct p_compressed_bm *pc, *tpc;
 	int len, err;
 
-	tpc = (struct p_compressed_bm *)kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
+	tpc = (struct p_compressed_bm *)bsr_kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
 
 	if (!tpc) {
 		bsr_err(49, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory in kzalloc", BSR_SOCKET_BUFFER_SIZE);
@@ -2404,7 +2409,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 
 	pc->encoding = tpc->encoding;
 	memcpy(pc->code, tpc->code, BSR_SOCKET_BUFFER_SIZE - header_size - sizeof(*pc));
-	kfree(tpc);
+	bsr_kfree(tpc);
 
 	if (len) {
 		dcbp_set_code(pc, RLE_VLI_Bits);
@@ -2574,7 +2579,7 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 #ifdef _WIN
 			ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
 #else // _LIN
-			ULONG_PTR *bb = kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC|__GFP_NOWARN, '');
+			ULONG_PTR *bb = bsr_kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 			ULONG_PTR word_offset;
 
@@ -3473,6 +3478,10 @@ void bsr_cleanup_device(struct bsr_device *device)
 	atomic_set(&device->io_size[WRITE], 0);
 	if (device->bitmap) {
 		/* maybe never allocated. */
+#ifdef _LIN
+		// BSR-875
+		atomic_sub64(device->bitmap->bm_number_of_pages, &mem_usage.bm_pp);
+#endif
 		bsr_bm_resize(device, 0, 1);
 		bsr_bm_free(device->bitmap);
 		device->bitmap = NULL;
@@ -3495,6 +3504,8 @@ static void bsr_destroy_mempools(void)
 		bsr_pp_pool = page_chain_next(page);
 		__free_page(page);
 		bsr_pp_vacant--;
+		// BSR-875
+		atomic_sub64(1, &mem_usage.data_pp);
 	}
 #endif
 	/* D_ASSERT(device, atomic_read(&bsr_pp_vacant)==0); */
@@ -3631,7 +3642,10 @@ static int bsr_create_mempools(void)
 #endif
 
 	bsr_pp_vacant = number;
-
+#ifdef _LIN
+	// BSR-875
+	atomic_set64(&mem_usage.data_pp, number);
+#endif
 	return 0;
 
 Enomem:
@@ -3642,9 +3656,9 @@ Enomem:
 static void free_peer_device(struct bsr_peer_device *peer_device)
 {
 	lc_destroy(peer_device->resync_lru);
-	kfree(peer_device->rs_plan_s);
-	kfree(peer_device->conf);
-	kfree(peer_device);
+	bsr_kfree(peer_device->rs_plan_s);
+	bsr_kfree(peer_device->conf);
+	bsr_kfree(peer_device);
 }
 
 /* caution. no locking. */
@@ -3673,7 +3687,7 @@ void bsr_destroy_device(struct kref *kref)
 	// DW-1911
 	list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, t, &(device->marked_rl_list), marked_rl_list) {
 		list_del(&marked_rl->marked_rl_list);
-		kfree(marked_rl);
+		bsr_kfree(marked_rl);
 	}
 #endif
 
@@ -3707,6 +3721,10 @@ void bsr_destroy_device(struct kref *kref)
 	}
 
 	if (device->bitmap) { /* should no longer be there. */
+#ifdef _LIN
+		// BSR-875
+		atomic_sub64(device->bitmap->bm_number_of_pages, &mem_usage.bm_pp);
+#endif
 		bsr_bm_free(device->bitmap);
 		device->bitmap = NULL;
 	}
@@ -3719,7 +3737,7 @@ void bsr_destroy_device(struct kref *kref)
 
 	kref_debug_destroy(&device->kref_debug);
 
-	kfree(device);
+	bsr_kfree(device);
 
 	kref_debug_put(&resource->kref_debug, 4);
 	kref_put(&resource->kref, bsr_destroy_resource);
@@ -3735,9 +3753,9 @@ void bsr_destroy_resource(struct kref *kref)
 #ifdef _LIN
 	free_cpumask_var(resource->cpu_mask);
 #endif
-	kfree(resource->name);
+	bsr_kfree(resource->name);
 	kref_debug_destroy(&resource->kref_debug);
-	kfree(resource);
+	bsr_kfree(resource);
 #ifdef _LIN
 	module_put(THIS_MODULE);
 #endif
@@ -3754,7 +3772,7 @@ void bsr_free_resource(struct bsr_resource *resource)
 	list_for_each_entry_safe_ex(struct queued_twopc, q, q1, &resource->queued_twopc, w.list) {
 		list_del(&q->w.list);
 		kref_put(&q->connection->kref, bsr_destroy_connection);
-		kfree(q);
+		bsr_kfree(q);
 	}
 	spin_unlock_irq(&resource->queued_twopc_lock);
 
@@ -4135,8 +4153,8 @@ void conn_free_crypto(struct bsr_connection *connection)
 	crypto_free_shash(connection->cram_hmac_tfm);
 	crypto_free_shash(connection->integrity_tfm);
 	crypto_free_shash(connection->peer_integrity_tfm);
-	kfree(connection->int_dig_in);
-	kfree(connection->int_dig_vv);
+	bsr_kfree(connection->int_dig_in);
+	bsr_kfree(connection->int_dig_vv);
 
 	connection->csums_tfm = NULL;
 	connection->verify_tfm = NULL;
@@ -4228,7 +4246,7 @@ struct bsr_resource *bsr_create_resource(const char *name,
 {
 	struct bsr_resource *resource;
 
-	resource = kzalloc(sizeof(struct bsr_resource), GFP_KERNEL, 'A0SB');
+	resource = bsr_kzalloc(sizeof(struct bsr_resource), GFP_KERNEL, 'A0SB');
 #ifdef _WIN
 	resource->bPreSecondaryLock = FALSE;
 	resource->bPreDismountLock = FALSE;
@@ -4291,9 +4309,9 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	return resource;
 
 fail_free_name:
-	kfree(resource->name);
+	bsr_kfree(resource->name);
 fail_free_resource:
-	kfree(resource);
+	bsr_kfree(resource);
 fail:
 	return NULL;
 }
@@ -4306,14 +4324,14 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	int size;
 
 	size = sizeof(*connection) - sizeof(connection->transport) + tc->instance_size;
-	connection = kzalloc(size, GFP_KERNEL, 'D0SB');
+	connection = bsr_kzalloc(size, GFP_KERNEL, 'D0SB');
 	if (!connection)
 		return NULL;
 
 	if (bsr_alloc_send_buffers(connection))
 		goto fail;
 
-	connection->current_epoch = kzalloc(sizeof(struct bsr_epoch), GFP_KERNEL, 'E0SB');
+	connection->current_epoch = bsr_kzalloc(sizeof(struct bsr_epoch), GFP_KERNEL, 'E0SB');
 	if (!connection->current_epoch)
 		goto fail;
 
@@ -4386,8 +4404,8 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 
 fail:
 	bsr_put_send_buffers(connection);
-	kfree(connection->current_epoch);
-	kfree(connection);
+	bsr_kfree(connection->current_epoch);
+	bsr_kfree(connection);
 
 	return NULL;
 }
@@ -4456,7 +4474,7 @@ void bsr_destroy_path(struct kref *kref)
 {
 	struct bsr_path *path = container_of(kref, struct bsr_path, kref);
 
-	kfree(path);
+	bsr_kfree(path);
 }
 
 void bsr_destroy_connection(struct kref *kref)
@@ -4470,7 +4488,7 @@ void bsr_destroy_connection(struct kref *kref)
 
 	if (atomic_read(&connection->current_epoch->epoch_size) !=  0)
 		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch size is not zero. It is highly likely that replication has not been completed.. size(%d)", atomic_read(&connection->current_epoch->epoch_size));
-	kfree(connection->current_epoch);
+	bsr_kfree(connection->current_epoch);
 
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
@@ -4500,7 +4518,7 @@ void bsr_destroy_connection(struct kref *kref)
 
 	idr_destroy(&connection->peer_devices);
 
-	kfree(connection->transport.net_conf);
+	bsr_kfree(connection->transport.net_conf);
 	bsr_put_send_buffers(connection);
 	conn_free_crypto(connection);
 	kref_debug_destroy(&connection->kref_debug);
@@ -4511,7 +4529,7 @@ void bsr_destroy_connection(struct kref *kref)
 	destroy_bab(connection);
 #endif
 
-	kfree(connection);
+	bsr_kfree(connection);
 	kref_debug_put(&resource->kref_debug, 3);
 	kref_put(&resource->kref, bsr_destroy_resource);
 }
@@ -4520,7 +4538,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 {
 	struct bsr_peer_device *peer_device;
 	int err;
-	peer_device = kzalloc(sizeof(struct bsr_peer_device), GFP_KERNEL, 'F0SB');
+	peer_device = bsr_kzalloc(sizeof(struct bsr_peer_device), GFP_KERNEL, 'F0SB');
 	if (!peer_device)
 		return NULL;
 
@@ -4536,7 +4554,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 
 	err = bsr_create_peer_device_default_config(peer_device);
 	if (err) {
-		kfree(peer_device);
+		bsr_kfree(peer_device);
 		return NULL;
 	}
 
@@ -4659,7 +4677,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	/* GFP_KERNEL, we are outside of all write-out paths */
 
-	device = kzalloc(sizeof(struct bsr_device), GFP_KERNEL, '01SB');
+	device = bsr_kzalloc(sizeof(struct bsr_device), GFP_KERNEL, '01SB');
 	if (!device)
 		return ERR_NOMEM;
 	kref_init(&device->kref);
@@ -4902,7 +4920,7 @@ out_remove_peer_device:
 			kref_put(&connection->kref, bsr_destroy_connection);
 			idr_remove(&connection->peer_devices, device->vnr);
 			list_del(&peer_device->peer_devices);
-			kfree(peer_device);
+			bsr_kfree(peer_device);
 		}
     }
 out_idr_remove_minor:
@@ -4918,9 +4936,11 @@ out_no_minor_idr:
 out_no_peer_device:
 	list_for_each_entry_safe_ex(struct bsr_peer_device, peer_device, tmp_peer_device, &peer_devices, peer_devices) {
 		list_del(&peer_device->peer_devices);
-		kfree(peer_device);
+		bsr_kfree(peer_device);
 	}
-
+#ifdef _LIN
+	atomic_sub64(device->bitmap->bm_number_of_pages, &mem_usage.bm_pp);
+#endif
 	bsr_bm_free(device->bitmap);
 out_no_bitmap:
 	__free_page(device->md_io.page);
@@ -4932,7 +4952,7 @@ out_no_disk:
 	blk_cleanup_queue(q);
 out_no_q:
 	kref_put(&resource->kref, bsr_destroy_resource);
-	kfree(device);
+	bsr_kfree(device);
 	return err;
 }
 
@@ -7483,6 +7503,9 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 #endif
 			if (!ConvertVolumeBitmap(pVbb, (char *)pBsrBitmap->Buffer, ulBytesPerCluster, ulBsrBitmapUnit)) {
 				bsr_err(70, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to could not convert bitmap, Bytes Per Cluster(%u), Bsr Bitmap Unit(%u)", ulBytesPerCluster, ulBsrBitmapUnit);
+#ifdef _LIN
+				sub_kvmalloc_mem_usage(pBsrBitmap, sizeof(VOLUME_BITMAP_BUFFER) + pBsrBitmap->BitmapSize);
+#endif
 				kvfree(pBsrBitmap);
 				pBsrBitmap = NULL;
 				break;
@@ -7491,6 +7514,9 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 	} while (false);
 
 	if (NULL != pVbb) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(pVbb, sizeof(VOLUME_BITMAP_BUFFER) + pVbb->BitmapSize);
+#endif
 		kvfree(pVbb);
 		pVbb = NULL;
 	}
@@ -7650,6 +7676,9 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		
 
 	if (pBitmap) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(pBitmap, sizeof(VOLUME_BITMAP_BUFFER) + pBitmap->BitmapSize);
+#endif
 		kvfree(pBitmap);
 		pBitmap = NULL;
 	}
@@ -7764,6 +7793,9 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 		// BSR-835 cancel ov if not Connected or VerifyS
 		if (peer_device->connection->cstate[NOW] < C_CONNECTED || peer_device->repl_state[NOW] != L_VERIFY_S) {
 			if (pBitmap) {
+#ifdef _LIN
+				sub_kvmalloc_mem_usage(pBitmap, sizeof(VOLUME_BITMAP_BUFFER) + pBitmap->BitmapSize);
+#endif
 				kvfree(pBitmap);
 				pBitmap = NULL;
 			}
@@ -7858,7 +7890,7 @@ static int w_bitmap_io(struct bsr_work *w, int unused)
 			wake_up(&device->misc_wait);
 	}
 
-	kfree(work);
+	bsr_kfree(work);
 
 	return 0;
 }
@@ -7902,7 +7934,7 @@ void bsr_queue_bitmap_io(struct bsr_device *device,
 	if (current == device->resource->worker.task)
 		bsr_info(33, BSR_LC_RESYNC_OV, device, "%s, worker.task(%p), current(%p)", why ? why : "?", device->resource->worker.task, current);
 
-	bm_io_work = kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21SB');
+	bm_io_work = bsr_kmalloc(sizeof(*bm_io_work), GFP_NOIO, '21SB');
 	if (!bm_io_work) {
 		bsr_err(55, BSR_LC_MEMORY, device, "Failed to add bitmap I/O queue due to failure to allocate %d size memory for bitmap I/O work", sizeof(*bm_io_work));
 		done(device, peer_device, -ENOMEM);

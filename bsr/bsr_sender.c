@@ -1096,7 +1096,7 @@ struct fifo_buffer *fifo_alloc(int fifo_size)
 #endif
 {
 	struct fifo_buffer *fb;
-	fb = kzalloc(sizeof(struct fifo_buffer) + sizeof(int) * fifo_size, GFP_NOIO, Tag);
+	fb = bsr_kzalloc(sizeof(struct fifo_buffer) + sizeof(int) * fifo_size, GFP_NOIO, Tag);
 	if (!fb)
 		return NULL;
 
@@ -1569,7 +1569,7 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 	UNREFERENCED_PARAMETER(cancel);
 
 	bsr_resync_finished(rfw->pdw.peer_device, rfw->new_peer_disk_state);
-	kfree(rfw);
+	bsr_kfree(rfw);
 
 	return 0;
 }
@@ -1772,7 +1772,7 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		bsr_kick_lo(device);
 		schedule_timeout_interruptible(HZ / 10);
 	queue_on_sender_workq:
-		rfw = kmalloc(sizeof(*rfw), GFP_ATOMIC, '13SB');
+		rfw = bsr_kmalloc(sizeof(*rfw), GFP_ATOMIC, '13SB');
 		if (rfw) {
 			rfw->pdw.w.cb = w_resync_finished;
 			rfw->pdw.peer_device = peer_device;
@@ -2276,11 +2276,11 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 			digest_size = crypto_shash_digestsize(peer_device->connection->csums_tfm);
 			D_ASSERT(device, digest_size == di->digest_size);
 
-			digest = kmalloc(digest_size, GFP_NOIO, '23SB');
+			digest = bsr_kmalloc(digest_size, GFP_NOIO, '23SB');
 			if (digest) {
 				bsr_csum_pages(peer_device->connection->csums_tfm, peer_req, digest);
 				eq = !memcmp(digest, di->digest, digest_size);
-				kfree(digest);
+				bsr_kfree(digest);
 			}
 		}
 
@@ -2295,7 +2295,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 			inc_rs_pending(peer_device);
 			peer_req->block_id = ID_SYNCER; /* By setting block_id, digest pointer becomes invalid! */
 			peer_req->flags &= ~EE_HAS_DIGEST; /* This peer request no longer has a digest pointer */
-			kfree(di);
+			bsr_kfree(di);
 			err = bsr_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
 		}
 	} else {
@@ -2420,12 +2420,12 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 		digest_size = crypto_shash_digestsize(peer_device->connection->verify_tfm);
-		digest = kmalloc(digest_size, GFP_NOIO, '33SB');
+		digest = bsr_kmalloc(digest_size, GFP_NOIO, '33SB');
 		if (digest) {
 			bsr_csum_pages(peer_device->connection->verify_tfm, peer_req, digest);
 			D_ASSERT(device, digest_size == di->digest_size);
 			eq = !memcmp(digest, di->digest, digest_size);
-			kfree(digest);
+			bsr_kfree(digest);
 		}
 	}
 
@@ -3159,7 +3159,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
 			if (repl_state == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
-				struct bsr_oos_no_req* send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+				struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
 				unsigned long flags;
 
 				if (send_oos) {

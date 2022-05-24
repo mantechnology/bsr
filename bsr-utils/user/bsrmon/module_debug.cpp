@@ -1182,12 +1182,30 @@ int GetMemInfoToFile(char *path, char * currtime)
 
 	fprintf(fp, "%s ", currtime);
 
+#ifdef _LIN
+	// BSR-875
+	buffer = GetSysMemoryUsage();
+	if (buffer) {
+		fprintf(fp, "%s", buffer);
+		free(buffer);
+		buffer = NULL;
+	}
+#endif
 	buffer = GetBsrMemoryUsage();
 	if (buffer) {
 		fprintf(fp, "%s", buffer);
 		free(buffer);
 		buffer = NULL;
 	}
+#ifdef _LIN
+	// BSR-875
+	buffer = GetBsrModuleMemoryUsage();
+	if (buffer) {
+		fprintf(fp, "%s", buffer);
+		free(buffer);
+		buffer = NULL;
+	}
+#endif
 
 	buffer = GetBsrUserMemoryUsage();
 	if (buffer) {

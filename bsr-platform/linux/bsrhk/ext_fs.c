@@ -237,6 +237,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 
 fail_and_free:
 	if (bitmap_buf != NULL) {
+		sub_kvmalloc_mem_usage(bitmap_buf, sizeof(VOLUME_BITMAP_BUFFER) + bitmap_buf->BitmapSize);
 		kvfree(bitmap_buf);
 		bitmap_buf = NULL;
 	}
