@@ -119,6 +119,7 @@
 #define BSR_SNDBUF_SIZE_MIN   (1024*1024*10)
 #endif
 
+#define MAX_ONETIME_SEND_BUF	(1024*1024*10) // 10MB
 
 #define BSR_SNDBUF_SIZE_SCALE '1'
 

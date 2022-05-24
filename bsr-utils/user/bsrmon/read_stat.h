@@ -29,12 +29,22 @@ struct umem_perf_stat {
 	struct perf_stat pfu;  /* PagefileUsage */
 };
 #else // _LIN
+struct sys_mem_perf_stat {
+	struct perf_stat total;
+	struct perf_stat used;
+	struct perf_stat free;
+	struct perf_stat buff_cache;
+};
 struct kmem_perf_stat {
 	/* bytes */
 	struct perf_stat req; /* BSR_REQ */ 
 	struct perf_stat al;  /* BSR_AL */ 
 	struct perf_stat bm;  /* BSR_BM */ 
 	struct perf_stat ee;  /* BSR_EE */ 
+	struct perf_stat bio_set;
+	struct perf_stat kmalloc;
+	struct perf_stat vmalloc;
+	struct perf_stat page_pool;
 };
 
 struct umem_perf_stat {
@@ -42,6 +52,17 @@ struct umem_perf_stat {
 	struct perf_stat rsz;
 	struct perf_stat vsz;
 };
+
+// BSR-875
+#define TOP_PROCESS_LIST_CNT 5
+struct process_info {
+	char name[64];
+	unsigned int pid;
+	unsigned int rsz;
+	unsigned int vsz;
+	char _time[64];
+};
+
 #endif
 
 
