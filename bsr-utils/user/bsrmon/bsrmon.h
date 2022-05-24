@@ -35,7 +35,7 @@
 #endif
 #define fopen_s(pFile, filename, mode) ((*pFile=fopen(filename, mode)) == NULL)
 #define sprintf_ex sprintf
-#define fscanf_str(fp, format, buf, size) fscanf(fp, format, buf)
+#define fscanf_str(fp, format, buf) fscanf(fp, format, buf)
 #define fscanf_ex fscanf
 #endif
 

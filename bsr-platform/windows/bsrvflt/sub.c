@@ -582,6 +582,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 		bsr_err(80, BSR_LC_MEMORY, NO_OBJECT,"Failed to write error log due to failure to allocate Log entry");
 		return;
 	}
+	add_untagged_mem_usage(len);
 	RtlZeroMemory(pLogEntry, len);
 
 	pLogEntry->ErrorCode = ErrorCode;
@@ -602,6 +603,7 @@ mvolLogError(PDEVICE_OBJECT DeviceObject, ULONG UniqID, NTSTATUS ErrorCode, NTST
 	}
 
 	IoWriteErrorLogEntry(pLogEntry);
+	sub_untagged_mem_usage(len);
 }
 
 
@@ -763,7 +765,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 
 	/* Check allocation */
 	if (l_pErrorLogEntry != NULL) { /* OK */
-
+		add_untagged_mem_usage(l_TotalSize);
 		/* Set the error log entry header */
 		l_pErrorLogEntry->ErrorCode = pi_ErrorCode;
 		l_pErrorLogEntry->DumpDataSize = 0;
@@ -781,6 +783,7 @@ Reference : http://git.etherboot.org/scm/mirror/winof/hw/mlx4/kernel/bus/core/l2
 
 		/* Write the packet */
 		IoWriteErrorLogEntry(l_pErrorLogEntry);
+		sub_untagged_mem_usage(l_TotalSize);
 
 		return l_Size;	// _WIN32_MULTILINE_LOG test!
 

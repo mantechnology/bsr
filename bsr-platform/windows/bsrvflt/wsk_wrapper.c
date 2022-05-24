@@ -144,6 +144,7 @@ NTAPI NoWaitCompletionRoutine(
 	UNREFERENCED_PARAMETER(Context);
 
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 	return STATUS_MORE_PROCESSING_REQUIRED;
 }
 #endif
@@ -174,7 +175,9 @@ InitWskData(
 	if (!*pIrp) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
-	
+
+	add_untagged_mem_usage(IoSizeOfIrp(1));
+
 	KeInitializeEvent(CompletionEvent, SynchronizationEvent, FALSE);
 	IoSetCompletionRoutine(*pIrp, CompletionRoutine, CompletionEvent, TRUE, TRUE, TRUE);
 
@@ -205,7 +208,8 @@ InitWskNoWaitData(
 	if (!*pIrp) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
-	
+
+	add_untagged_mem_usage(IoSizeOfIrp(1));
 	IoSetCompletionRoutine(*pIrp, NoWaitCompletionRoutine, NULL, TRUE, TRUE, TRUE);
 
 	return STATUS_SUCCESS;
@@ -235,6 +239,8 @@ InitWskBuffer(
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
+	add_untagged_mdl_mem_usage(Buffer, BufferSize);
+
     try {
 		// DW-1223 Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
 		// we need write access for receiver, since buffer will be filled.
@@ -243,6 +249,7 @@ InitWskBuffer(
     } except(EXCEPTION_EXECUTE_HANDLER) {
 		IoFreeMdl(WskBuffer->Mdl);
 		WskBuffer->Mdl = NULL;
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 		bsr_err(40, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk buffer due to failure to load into kernel memory. exception code=0x%x", GetExceptionCode());
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -366,6 +373,7 @@ CreateSocket(
 
 	WskSocket = NT_SUCCESS(Status) ? (PWSK_SOCKET) Irp->IoStatus.Information : NULL;
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 
 	return (PWSK_SOCKET) WskSocket;
 }
@@ -434,6 +442,8 @@ CloseSocket(
 	}
 
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
 	return Status;
 }
 #endif
@@ -470,6 +480,7 @@ Connect(
 	}
 
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 
 	if (NT_SUCCESS(Status)) {
 		// DW-1844 set connection status to WSK_ESTABLISHED
@@ -571,6 +582,7 @@ CreateSocketConnect(
 	pSock->sk_state = WSK_INITIALIZING;
 
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 	
 	return WskSocket;
 }
@@ -647,7 +659,9 @@ __in  BOOLEAN	bWriteAccess
 	if (!(*WskBuffer)->Mdl) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
-	
+
+	add_untagged_mdl_mem_usage(Buffer, BufferSize);
+
 	try {
 		// DW-1223 Locking with 'IoWriteAccess' affects buffer, which causes infinite I/O from ntfs when the buffer is from mdl of write IRP.
 		// we need write access for receiver, since buffer will be filled.
@@ -656,6 +670,7 @@ __in  BOOLEAN	bWriteAccess
 	} except(EXCEPTION_EXECUTE_HANDLER) {
 		IoFreeMdl((*WskBuffer)->Mdl);
 		(*WskBuffer)->Mdl = NULL;
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 		bsr_err(45, BSR_LC_SOCKET, NO_OBJECT, "Failed to init wsk send buffer due to failure to load into kernel memory. exception code=0x%x", GetExceptionCode());
 		return STATUS_INSUFFICIENT_RESOURCES;
@@ -699,6 +714,8 @@ __in  BOOLEAN	bRawIrp)
 		kfree2(param);
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
+
+	add_untagged_mem_usage(IoSizeOfIrp(1));
 
 	// DW-1758 Dynamic allocation of 'CompletionEvet', for resource management in completion routine
 	*CompletionEvent = ExAllocatePoolWithTag(NonPagedPool, sizeof(KEVENT), 'CFSB');
@@ -813,6 +830,8 @@ Send(
 				bsr_info(47, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out(%dms). current state %d(0x%p) size(%lu)",
 									Timeout, pSock->sk_state, WskSocket, BufferSize);
 				IoCancelIrp(Irp);
+				sub_untagged_mem_usage( IoSizeOfIrp(1));
+				sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 				return -EAGAIN;
 			}
@@ -845,6 +864,8 @@ Send(
 
 	ExFreePool(CompletionEvent);
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 	// BSR-764 delay socket send
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE4) 
@@ -867,9 +888,11 @@ $Send_fail:
 	if (CompletionEvent)
 		ExFreePool(CompletionEvent);
 
-	if (Irp)
+	if (Irp) {
 		IoFreeIrp(Irp);
-	
+		sub_untagged_mem_usage(IoSizeOfIrp(1));
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+	}
 	return BytesSent;
 }
 
@@ -877,11 +900,11 @@ $Send_fail:
 LONG
 NTAPI
 SendLocal(
-	__in struct socket* pSock,
-	__in PVOID			Buffer,
-	__in ULONG			BufferSize,
-	__in ULONG			Flags,
-	__in ULONG			Timeout // ms
+__in struct socket* pSock,
+__in PVOID			Buffer,
+__in ULONG			BufferSize,
+__in ULONG			Flags,
+__in ULONG			Timeout // ms
 )
 {
 	PWSK_SOCKET		WskSocket = pSock->sk;
@@ -894,7 +917,7 @@ SendLocal(
 	NTSTATUS		SendStatus = STATUS_UNSUCCESSFUL;
 	PCHAR			DataBuffer = NULL;
 
-	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int) BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
+	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int)BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
 		bsr_err(51, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket status is not send(WSK_INVALID_DEVICE). WskSocket:%p", WskSocket);
 		return SOCKET_ERROR;
 	}
@@ -909,7 +932,7 @@ SendLocal(
 
 	// DW-1015 fix crash. WskSocket->Dispatch)->WskSend is NULL while machine is shutdowning
 	// DW-1029 to prevent possible contingency, check if dispatch table is valid.
-	if(gbShutdown || !WskSocket->Dispatch) { 
+	if (gbShutdown || !WskSocket->Dispatch) {
 		BytesSent = SOCKET_ERROR;
 		goto $SendLoacl_fail;
 	}
@@ -919,13 +942,13 @@ SendLocal(
 	nWaitTime = RtlConvertLongToLargeInteger(-1 * Timeout * 1000 * 10);
 	pTime = &nWaitTime;
 
-	if(pSock->sk_state <= WSK_DISCONNECTING) {
+	if (pSock->sk_state <= WSK_DISCONNECTING) {
 		// DW-1749 
 		bsr_err(52, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
 		goto $SendLoacl_fail;
 	}
-	
+
 
 	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	Status = InitWskSendData(&Irp,
@@ -940,20 +963,21 @@ SendLocal(
 		goto $SendLoacl_fail;
 	}
 
-	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH) WskSocket->Dispatch)->WskSend(
-																			WskSocket,
-																			WskBuffer,
-																			Flags,
-																			Irp);
+	Status = ((PWSK_PROVIDER_CONNECTION_DISPATCH)WskSocket->Dispatch)->WskSend(
+		WskSocket,
+		WskBuffer,
+		Flags,
+		Irp);
 	if (Status == STATUS_PENDING) {
 		Status = KeWaitForSingleObject(CompletionEvent, Executive, KernelMode, FALSE, pTime);
 
-		if(Status == STATUS_TIMEOUT) {
+		if (Status == STATUS_TIMEOUT) {
 			// DW-1679 if WSK_INVALID_DEVICE, we goto fail.
-			if(pSock->sk_state == WSK_INVALID_DEVICE) {
+			if (pSock->sk_state == WSK_INVALID_DEVICE) {
 				bsr_err(53, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state WSK_INVALID_DEVICE(0x%p)", WskSocket);
 				BytesSent = -ECONNRESET;
-			} else {
+			}
+			else {
 				// FIXME: cancel & completion's race condition may be occurred.
 				// Status or Irp->IoStatus.Status  
 
@@ -961,6 +985,8 @@ SendLocal(
 				bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
+				sub_untagged_mem_usage(IoSizeOfIrp(1));
+				sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 				return -EAGAIN;
 			}
 			goto $SendLoacl_fail;
@@ -988,10 +1014,12 @@ SendLocal(
 
 	ExFreePool(CompletionEvent);
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 	return BytesSent;
-	
-$SendLoacl_fail:	
+
+$SendLoacl_fail:
 	if (WskBuffer) {
 		if (WskBuffer->Mdl)
 			FreeWskBuffer(WskBuffer);
@@ -1004,8 +1032,11 @@ $SendLoacl_fail:
 	if (CompletionEvent)
 		ExFreePool(CompletionEvent);
 
-	if (Irp)
+	if (Irp) {
 		IoFreeIrp(Irp);
+		sub_untagged_mem_usage(IoSizeOfIrp(1));
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+	}
 
 	return BytesSent;
 }
@@ -1044,6 +1075,7 @@ SendAsync(
 	Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	if (!NT_SUCCESS(Status)) {
 		FreeWskBuffer(&WskBuffer);
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		return SOCKET_ERROR;
 	}
 
@@ -1133,6 +1165,8 @@ $SendAsync_retry:
 
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 	return BytesSent;
 }
@@ -1165,6 +1199,7 @@ SendTo(
 	Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	if (!NT_SUCCESS(Status)) {
 		FreeWskBuffer(&WskBuffer);
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		return SOCKET_ERROR;
 	}
 
@@ -1185,6 +1220,9 @@ SendTo(
 
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+
 	return BytesSent;
 }
 
@@ -1226,6 +1264,7 @@ LONG NTAPI Receive(
 
 	if (!NT_SUCCESS(Status)) {
 		FreeWskBuffer(&WskBuffer);
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		return SOCKET_ERROR;
 	}
 
@@ -1319,6 +1358,9 @@ LONG NTAPI Receive(
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
 
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+
 	// BSR-764 delay socket receive
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE5) 
 		force_delay(g_simul_perf.delay_time);
@@ -1358,6 +1400,7 @@ ReceiveFrom(
 	Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	if (!NT_SUCCESS(Status)) {
 		FreeWskBuffer(&WskBuffer);
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		return SOCKET_ERROR;
 	}
 
@@ -1379,6 +1422,10 @@ ReceiveFrom(
 
 	IoFreeIrp(Irp);
 	FreeWskBuffer(&WskBuffer);
+
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+
 	return BytesReceived;
 }
 
@@ -1413,6 +1460,8 @@ Bind(
 		Status = Irp->IoStatus.Status;
 	}
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
 	return Status;
 }
 
@@ -1502,6 +1551,8 @@ Accept(
 
 	AcceptedSocket = (Status == STATUS_SUCCESS) ? (PWSK_SOCKET) Irp->IoStatus.Information : NULL;
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
 	return AcceptedSocket;
 }
 
@@ -1552,6 +1603,8 @@ ControlSocket(
 	}
 
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
 	return Status;
 }
 
@@ -1591,6 +1644,8 @@ GetRemoteAddress(
 	}
 	
 	IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
 	return Status;
 }
 
@@ -1684,6 +1739,7 @@ __in ULONG			Flags
     }
 
     IoFreeIrp(irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 
     return (PWSK_SOCKET)socket;
 }
@@ -1711,6 +1767,7 @@ CloseEventSocket()
     }
 
     IoFreeIrp(irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
 
     WskDeregister(&gWskEventRegistration);
 
@@ -1774,6 +1831,8 @@ SetEventCallbacks(
     }
 
     IoFreeIrp(Irp);
+	sub_untagged_mem_usage(IoSizeOfIrp(1));
+
     return Status;
 }
 

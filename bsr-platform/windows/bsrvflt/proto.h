@@ -127,6 +127,9 @@ IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS
 IOCTL_GetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
+// BSR-874
+NTSTATUS
+IOCTL_GetUntagMemoryUsage(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG *size);
 
 NTSTATUS 
 bsrStartupCallback();

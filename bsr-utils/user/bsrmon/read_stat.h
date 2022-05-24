@@ -19,6 +19,7 @@ struct kmem_perf_stat {
 	struct perf_stat total; /* TotalUsed */ 
 	struct perf_stat npused; /* NonPagedUsed */ 
 	struct perf_stat pused; /* PagedUsed */ 
+	struct perf_stat untnpused; /* UntagNonPagedUsed */
 };
 
 struct umem_perf_stat {

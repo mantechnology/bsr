@@ -1311,6 +1311,8 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 	//DeviceObjects points to FAULT_TEST_FLAG, and IRP variable points to bio instead of IRP.
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		if (Irp) {
+			PVOID buffer = NULL;
+
 			if (Irp->MdlAddress != NULL) {
 				PMDL mdl, nextMdl;
 				for (mdl = Irp->MdlAddress; mdl != NULL; mdl = nextMdl) {
@@ -1322,6 +1324,21 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 			}
 
 			IoFreeIrp(Irp);
+
+			if (bio->bi_rw != WRITE_FLUSH) {
+				if (bio->bio_databuf) {
+					buffer = bio->bio_databuf;
+				}
+				else {
+					if (bio->bi_max_vecs > 1) {
+						BUG(); 
+					}
+					buffer = (PVOID)bio->bi_io_vec[0].bv_page->addr;
+				}
+			}
+
+			sub_untagged_mdl_mem_usage(buffer, bio->bi_size);
+			sub_untagged_mem_usage(IoSizeOfIrp(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject->StackSize));
 		}
 	}
 #endif

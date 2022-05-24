@@ -1498,4 +1498,10 @@ extern char *kvasprintf(int flags, const char *fmt, va_list args);
 bool IsDiskError();
 void msleep(int millisecs);
 
+// BSR-874
+void add_untagged_mem_usage(LONGLONG a);
+void sub_untagged_mem_usage(LONGLONG a);
+
+void add_untagged_mdl_mem_usage(PVOID buf, ULONG size);
+void sub_untagged_mdl_mem_usage(PVOID buf, ULONG size);
 #endif // BSR_WINDOWS_H

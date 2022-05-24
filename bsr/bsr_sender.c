@@ -149,6 +149,8 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 		bsr_debug(50, BSR_LC_IO, device, "ldev null");
 	
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
+		PVOID buffer = NULL;
+
 		if (Irp->MdlAddress != NULL) {
 			PMDL mdl, nextMdl;
 			for (mdl = Irp->MdlAddress; mdl != NULL; mdl = nextMdl) {
@@ -159,6 +161,21 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 			Irp->MdlAddress = NULL;
 		}
 		IoFreeIrp(Irp);
+
+		if (bio->bi_rw != WRITE_FLUSH) {
+			if (bio->bio_databuf) {
+				buffer = bio->bio_databuf;
+			}
+			else {
+				if (bio->bi_max_vecs > 1) {
+					BUG(); 
+				}
+				buffer = (PVOID)bio->bi_io_vec[0].bv_page->addr;
+			}
+		}
+
+		sub_untagged_mdl_mem_usage(buffer, bio->bi_size);
+		sub_untagged_mem_usage(IoSizeOfIrp(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject->StackSize));
 	}
 
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
@@ -551,6 +568,8 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	}
 #ifdef _WIN
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
+		PVOID buffer = NULL;
+
 		if (Irp->MdlAddress != NULL) {
 			PMDL mdl, nextMdl;
 			for (mdl = Irp->MdlAddress; mdl != NULL; mdl = nextMdl) {
@@ -560,7 +579,22 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 			}
 			Irp->MdlAddress = NULL;
 		}
-		IoFreeIrp(Irp);
+		IoFreeIrp(Irp); 
+		
+		if (bio->bi_rw != WRITE_FLUSH) {
+			if (bio->bio_databuf) {
+				buffer = bio->bio_databuf;
+			}
+			else {
+				if (bio->bi_max_vecs > 1) {
+					BUG(); 
+				}
+				buffer = (PVOID)bio->bi_io_vec[0].bv_page->addr;
+			}
+		}
+
+		sub_untagged_mdl_mem_usage(buffer, bio->bi_size);
+		sub_untagged_mem_usage(IoSizeOfIrp(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject->StackSize));
 	}
 #endif
 
@@ -737,6 +771,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 #ifdef _WIN
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
+		PVOID buffer = NULL;
+
 		if (Irp->MdlAddress != NULL) {
 			PMDL mdl, nextMdl;
 			for (mdl = Irp->MdlAddress; mdl != NULL; mdl = nextMdl) {
@@ -747,6 +783,21 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 			Irp->MdlAddress = NULL;
 		}
 		IoFreeIrp(Irp);
+
+		if (bio->bi_rw != WRITE_FLUSH) {
+			if (bio->bio_databuf) {
+				buffer = bio->bio_databuf;
+			}
+			else {
+				if (bio->bi_max_vecs > 1) {
+					BUG();
+				}
+				buffer = (PVOID)bio->bi_io_vec[0].bv_page->addr;
+			}
+		}
+
+		sub_untagged_mdl_mem_usage(buffer, bio->bi_size);
+		sub_untagged_mem_usage(IoSizeOfIrp(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject->StackSize));
 	}
 
 #ifdef BSR_TRACE	

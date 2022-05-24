@@ -580,6 +580,30 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 	return STATUS_SUCCESS;
 }
 
+extern atomic_t64 g_untagged_mem_usage;
+
+NTSTATUS
+IOCTL_GetUntagMemoryUsage(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG *size)
+{
+	LONGLONG untagMemUsage;
+	ULONG outlen;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+	LONGLONG usage;
+
+	if (outlen < sizeof(LONGLONG)) {
+		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(143, BSR_LC_DRIVER, NO_OBJECT, "Failed to get untag memory due to buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+
+	*size = sizeof(LONGLONG);
+	untagMemUsage = atomic_read64(&g_untagged_mem_usage);
+	RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer, &untagMemUsage, *size);
+
+	return STATUS_SUCCESS;
+}
+
 NTSTATUS
 IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {

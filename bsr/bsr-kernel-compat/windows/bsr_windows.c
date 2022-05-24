@@ -1899,6 +1899,9 @@ retry:
 		}
 	}
 
+	add_untagged_mdl_mem_usage(buffer, bio->bi_size);
+	add_untagged_mem_usage(IoSizeOfIrp(bio->bi_bdev->bd_disk->pDeviceExtension->TargetDeviceObject->StackSize));
+
 	// DW-1495 If any volume is set to read only, all writes operations are paused temporarily. 
 	if (io == IRP_MJ_WRITE){
 		mutex_lock(&att_mod_mutex);
@@ -3361,4 +3364,45 @@ void msleep(int millisecs)
 	LARGE_INTEGER delay;
 	delay.QuadPart = (-1 * millisecs * 10000);
 	KeDelayExecutionThread(KernelMode, FALSE, &delay);
+}
+
+// BSR-874
+extern atomic_t64 g_untagged_mem_usage;
+
+void add_untagged_mem_usage(LONGLONG a)
+{
+	atomic_add64(a, &g_untagged_mem_usage);
+}
+
+void add_untagged_mdl_mem_usage(PVOID buf, ULONG size)
+{
+	int s = ADDRESS_AND_SIZE_TO_SPAN_PAGES(buf, size);
+	if (s > 23) {
+		s *= sizeof(PFN_NUMBER);
+		s += sizeof(MDL);
+	}
+	else {
+		s = (23 * sizeof(PFN_NUMBER)) + sizeof(MDL);
+	}
+
+	add_untagged_mem_usage(s);
+}
+
+void sub_untagged_mem_usage(LONGLONG a)
+{
+	atomic_sub64(a, &g_untagged_mem_usage);
+}
+
+void sub_untagged_mdl_mem_usage(PVOID buf, ULONG size)
+{
+	int s = ADDRESS_AND_SIZE_TO_SPAN_PAGES(buf, size);
+	if (s > 23) {
+		s *= sizeof(PFN_NUMBER);
+		s += sizeof(MDL);
+	}
+	else {
+		s = (23 * sizeof(PFN_NUMBER)) + sizeof(MDL);
+	}
+
+	sub_untagged_mem_usage(s);
 }

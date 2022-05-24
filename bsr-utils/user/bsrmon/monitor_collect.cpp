@@ -3,6 +3,7 @@
 #ifdef _WIN
 #include <Psapi.h>
 #include <TlHelp32.h>
+#include <tchar.h>
 #endif
 
 #ifdef _LIN
@@ -162,6 +163,32 @@ char* GetSysMemoryUsage(void)
 }
 #endif
 
+#ifdef _WIN
+#include "module_debug.h"
+#include "../../../bsr-headers/windows/ioctl.h"
+
+DWORD MVOL_GetUntagMemoryUsage(LONGLONG *untagMemUsage)
+{
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       retVal = ERROR_SUCCESS;
+	BOOL        ret = FALSE;
+	DWORD       dwReturned = 0;
+
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		return retVal;
+	}
+
+	ret = DeviceIoControl(hDevice, IOCTL_MVOL_GET_UNTAG_MEM_USAGE, NULL, 0, untagMemUsage, sizeof(*untagMemUsage), &dwReturned, NULL);
+	if (ret == FALSE) {
+		retVal = GetLastError();
+	}
+
+	return retVal;
+}
+
+#endif
 char* GetBsrMemoryUsage(void)
 {
 #ifdef _WIN
@@ -170,6 +197,7 @@ char* GetBsrMemoryUsage(void)
 	PSYSTEM_POOLTAG_INFORMATION pSysPoolTagInfo = NULL;
 	PSYSTEM_POOLTAG psysPoolTag = NULL;
 	ULONG_PTR NonPagedUsed = 0, PagedUsed = 0, TotalUsed = 0;
+	MEMORYSTATUSEX global;
 	int try_cnt = 0;
 #else // _LIN
 	unsigned long long req_usage = 0, al_usage = 0, bm_usage = 0, ee_usage = 0;
@@ -224,12 +252,13 @@ char* GetBsrMemoryUsage(void)
 			continue;
 		}
 
-		if (psysPoolTag->NonPagedAllocs != 0)
+		if (psysPoolTag->NonPagedUsed != 0)
 		{
 			NonPagedUsed += psysPoolTag->NonPagedUsed;
 			TotalUsed += psysPoolTag->NonPagedUsed;
 		}
-		else
+		
+		if (psysPoolTag->PagedUsed != 0)
 		{
 			PagedUsed += psysPoolTag->PagedUsed;
 			TotalUsed += psysPoolTag->PagedUsed;
@@ -238,8 +267,28 @@ char* GetBsrMemoryUsage(void)
 		psysPoolTag++;
 	}
 
+	LONGLONG UntagNonPagedUsed = 0;
+	DWORD ret;
+
+	ret = MVOL_GetUntagMemoryUsage(&UntagNonPagedUsed);
+	if (ret != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed to get untag memory usage, ret: %x\n", ret);
+		goto fail;
+	}
+
+	TotalUsed += UntagNonPagedUsed;
+
+	global.dwLength = sizeof(MEMORYSTATUSEX);
+	if (0 == GlobalMemoryStatusEx(&global)) {
+		fprintf(stderr, "Failed to global memory status\n");
+		return NULL;
+	}
+
+	// total memory, total memory usage
+	sprintf_s(buffer, MAX_BUF_SIZE, "%lld %lld ", global.ullTotalPhys, global.ullTotalPhys - global.ullAvailPhys);
+
 	/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
-	sprintf_s(buffer, MAX_BUF_SIZE, "%llu %llu %llu ", TotalUsed, NonPagedUsed, PagedUsed);
+	sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), "%llu %llu %llu %lld ", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
 
 	if (NULL != pSysPoolTagInfo) {
 		free(pSysPoolTagInfo);
@@ -313,6 +362,9 @@ char* GetBsrUserMemoryUsage(void)
 	TCHAR szProcessName[1024] = { 0, };
 	TCHAR fileName[128];
 	DWORD dwLen = 0;
+	SIZE_T usage = 0;
+	TCHAR szName[1024] = { 0, };
+	char topProcess[256] = { 0, };
 #else // _LIN
 	char command[128] = { 0, };;
 	char buf[128] = { 0, };
@@ -341,24 +393,33 @@ char* GetBsrUserMemoryUsage(void)
 	for (unsigned int i = 0; i < cProcesses; i++) {
 		process = OpenProcess(MAXIMUM_ALLOWED, false, aProcesses[i]);
 		if (NULL != process) {
-			dwLen = sizeof(szProcessName)/sizeof(TCHAR);
+			dwLen = sizeof(szProcessName) / sizeof(TCHAR);
 			if (QueryFullProcessImageName(process, 0, szProcessName, &dwLen)) {
 				// Get file name from full path
 				_wsplitpath_s(szProcessName, NULL, 0, NULL, 0, fileName, 128, NULL, 0);
 			}
 		}
 
+		GetProcessMemoryInfo(process, &info, sizeof(info));
+
+		if (usage < info.WorkingSetSize) {
+			usage = info.WorkingSetSize;
+			_tcsncpy_s(szName, _countof(szName), fileName, _countof(szName) - 1);
+		}
+
 		if (wcsncmp(fileName, L"bsr", 3))
 			continue;
-
-		GetProcessMemoryInfo(process, &info, sizeof(info));
 		/* name pid WorkingSetSize QuotaPagedPoolUsage QuotaNonPagedPoolUsage PagefileUsage (bytes)*/
-		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), 
-			"%ws %wu %lu %lu %lu %lu ",
+		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer),
+			"%ws %wu %llu %llu %llu %llu ",
 			fileName, aProcesses[i], info.WorkingSetSize, info.QuotaPagedPoolUsage, info.QuotaNonPagedPoolUsage, info.PagefileUsage);
 
 		CloseHandle(process);
 	}
+	// top process name, top process memory usage
+	sprintf_s(topProcess, sizeof(topProcess), "%ws %llu ", szName, usage);
+	memmove(buffer + strlen(topProcess), buffer, strlen(buffer));
+	memcpy(buffer, topProcess, strlen(topProcess));
 
 	return buffer;
 #else // _LIN
