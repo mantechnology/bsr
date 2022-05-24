@@ -27,6 +27,8 @@ static struct dentry *bsr_debugfs_root;
 static struct dentry *bsr_debugfs_version;
 static struct dentry *bsr_debugfs_resources;
 static struct dentry *bsr_debugfs_minors;
+// BSR-875
+static struct dentry *bsr_debugfs_alloc_mem;
 
 static void seq_print_age_or_dash(struct seq_file *m, bool valid, ktime_t dt)
 {
@@ -559,6 +561,31 @@ int bsr_version_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "PRO_VERSION_MAX=%u\n", PRO_VERSION_MAX);
 	return 0;
 }
+
+
+#ifdef _LIN
+// BSR-875 collecting memory usage of BSR module
+int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
+{
+	int pages = PAGE_SIZE / 1024; // kbytes
+	int io_bio_set = 0, md_io_bio_set = 0;
+	int page_pool = 0;
+
+	io_bio_set = bioset_initialized(&bsr_io_bio_set) ? BIO_POOL_SIZE * pages : 0;
+	md_io_bio_set = bioset_initialized(&bsr_md_io_bio_set) ? BSR_MIN_POOL_PAGES * pages : 0;
+
+	page_pool = atomic_read64(&mem_usage.data_pp) 
+				+ atomic_read64(&mem_usage.bm_pp) + BSR_MIN_POOL_PAGES;
+
+	/* total_bio_set kmalloc vmalloc total_page_pool */
+	seq_printf(m, "%d %lld %lld %d\n", 
+				io_bio_set + md_io_bio_set,
+				atomic_read64(&mem_usage.kmalloc) ? atomic_read64(&mem_usage.kmalloc) / 1024 : 0,
+				atomic_read64(&mem_usage.vmalloc) ? atomic_read64(&mem_usage.vmalloc) / 1024 : 0,
+				page_pool * pages);
+	return 0;
+}
+#endif
 
 static void seq_print_one_timing_detail(struct seq_file *m,
 	const struct bsr_thread_timing_details *tdp,
@@ -1957,9 +1984,24 @@ static int bsr_version_open(struct inode *inode, struct file *file)
 	return single_open(file, bsr_version_show, NULL);
 }
 
+// BSR-875
+static int bsr_alloc_mem_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, bsr_alloc_mem_show, NULL);
+}
+
 static const struct file_operations bsr_version_fops = {
 	.owner = THIS_MODULE,
 	.open = bsr_version_open,
+	.llseek = seq_lseek,
+	.read = seq_read,
+	.release = single_release,
+};
+
+// BSR-875
+static const struct file_operations bsr_alloc_mem_fops = {
+	.owner = THIS_MODULE,
+	.open = bsr_alloc_mem_open,
 	.llseek = seq_lseek,
 	.read = seq_read,
 	.release = single_release,
@@ -1969,6 +2011,8 @@ static const struct file_operations bsr_version_fops = {
  * from the module-load-failure path as well. */
 void bsr_debugfs_cleanup(void)
 {
+	// BSR-875
+	bsr_debugfs_remove(&bsr_debugfs_alloc_mem);
 	bsr_debugfs_remove(&bsr_debugfs_resources);
 	bsr_debugfs_remove(&bsr_debugfs_minors);
 	bsr_debugfs_remove(&bsr_debugfs_version);
@@ -1998,6 +2042,13 @@ int __init bsr_debugfs_init(void)
 	if (IS_ERR_OR_NULL(dentry))
 		goto fail;
 	bsr_debugfs_minors = dentry;
+
+	// BSR-875
+	dentry = debugfs_create_file("alloc_mem", 0444, bsr_debugfs_root, NULL, &bsr_alloc_mem_fops);
+	if (IS_ERR_OR_NULL(dentry))
+		goto fail;
+	bsr_debugfs_alloc_mem = dentry;
+
 	return 0;
 
 fail:

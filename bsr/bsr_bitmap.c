@@ -369,14 +369,17 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 	 * we must not block on IO to ourselves.
 	 * Context is receiver thread or dmsetup. */
 	bytes = (unsigned int)(sizeof(struct page *)*want);
-	new_pages = kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60SB');
+	new_pages = bsr_kzalloc(bytes, GFP_NOIO | __GFP_NOWARN, '60SB');
 
 	if (!new_pages) {
 #ifdef _LIN
 		new_pages = __vmalloc(bytes,
 				GFP_NOIO | __GFP_HIGHMEM | __GFP_ZERO,
 				PAGE_KERNEL);
-		if (!new_pages)
+		if (new_pages) {
+			atomic_add64(bytes, &mem_usage.vmalloc);
+		}
+		else
 #endif
 			return NULL;
 	}
@@ -388,6 +391,9 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 			page = alloc_page(GFP_NOIO | __GFP_HIGHMEM | __GFP_ZERO);
 			if (!page) {
 				bm_free_pages(new_pages + have, i - have);
+#ifdef _LIN
+				sub_kvmalloc_mem_usage(new_pages, bytes);				
+#endif
 				kvfree(new_pages);
 				return NULL;
 			}
@@ -409,8 +415,7 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 struct bsr_bitmap *bsr_bm_alloc(void)
 {
 	struct bsr_bitmap *b;
-	b = kzalloc(sizeof(struct bsr_bitmap), GFP_KERNEL, '70SB');
-	
+	b = bsr_kzalloc(sizeof(struct bsr_bitmap), GFP_KERNEL, '70SB');
 	if (!b)
 		return NULL;
 
@@ -434,7 +439,7 @@ void bsr_bm_free(struct bsr_bitmap *bitmap)
 {
 	bm_free_pages(bitmap->bm_pages, bitmap->bm_number_of_pages);
 	kvfree(bitmap->bm_pages);
-	kfree(bitmap);
+	bsr_kfree(bitmap);
 }
 
 enum bitmap_operations {
@@ -936,6 +941,9 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		b->bm_dev_capacity = 0;
 		spin_unlock_irq(&b->bm_lock);
 		bm_free_pages(opages, onpages);
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(opages, sizeof(struct page *)*onpages);
+#endif
 		kvfree(opages);
 		goto out;
 	}
@@ -1004,13 +1012,24 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 	}
 
 	if (want < have) {
+#ifdef _LIN
+		atomic_sub64(have - want, &mem_usage.bm_pp);
+#endif
 		/* implicit: (opages != NULL) && (opages != npages) */
 		bm_free_pages(opages + want, have - want);
+	} else {
+#ifdef _LIN
+		atomic_add64(want - have, &mem_usage.bm_pp);
+#endif
 	}
 
 	spin_unlock_irq(&b->bm_lock);
-	if (opages != npages)
+	if (opages != npages) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(opages, sizeof(struct page *)*have);
+#endif
 		kvfree(opages);
+	}
 	if (!growing)
 		bm_count_bits(device);
 	bsr_info(25, BSR_LC_BITMAP, device, "The bitmap size has been resized to disk capacity. bits(%llu) words(%llu) pages(%llu)", (unsigned long long)bits, (unsigned long long)words, (unsigned long long)want);
@@ -1206,7 +1225,7 @@ static void bsr_bm_aio_ctx_destroy(struct kref *kref)
 	list_del(&ctx->list);
 	spin_unlock_irqrestore(&ctx->device->resource->req_lock, flags);
 	put_ldev(ctx->device);
-	kfree(ctx);
+	bsr_kfree(ctx);
 }
 
 /* bv_page may be a copy, or may be the original */
@@ -1469,7 +1488,7 @@ static int bm_rw_range(struct bsr_device *device,
 	if (!expect(device, b->bm_number_of_pages))
 		return -ENODEV;
 
-	ctx = kmalloc(sizeof(struct bsr_bm_aio_ctx), GFP_NOIO, '80SB');
+	ctx = bsr_kmalloc(sizeof(struct bsr_bm_aio_ctx), GFP_NOIO, '80SB');
 	if (!ctx)
 		return -ENOMEM;
 
@@ -1484,7 +1503,7 @@ static int bm_rw_range(struct bsr_device *device,
 	};
 
 	if (!expect(device, get_ldev_if_state(device, D_ATTACHING))) {  /* put is in bsr_bm_aio_ctx_destroy() */
-		kfree(ctx);
+		bsr_kfree(ctx);
 		return -ENODEV;
 	}
 	/* Here, D_ATTACHING is sufficient because bsr_bm_read() is only
@@ -1743,6 +1762,9 @@ extern void bsr_free_ov_bm(struct kref *kref)
 {
 	struct bsr_peer_device *peer_device = container_of(kref, struct bsr_peer_device, ov_bm_ref);
 	if (peer_device->fast_ov_bitmap != NULL) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(peer_device->fast_ov_bitmap, sizeof(VOLUME_BITMAP_BUFFER) + peer_device->fast_ov_bitmap->BitmapSize);
+#endif
 		kvfree(peer_device->fast_ov_bitmap);
 		peer_device->fast_ov_bitmap = NULL;
 		bsr_info(213, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been removed.");

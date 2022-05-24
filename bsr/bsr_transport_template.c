@@ -71,7 +71,7 @@ static struct bsr_transport *xxx_create(struct bsr_connection* connection)
 		return NULL;
 #endif
 
-	xxx_transport = kzalloc(sizeof(struct bsr_xxx_transport), GFP_KERNEL);
+	xxx_transport = bsr_kzalloc(sizeof(struct bsr_xxx_transport), GFP_KERNEL);
 	if (!xxx_transport) {
 #ifndef _WIN32 // module_put is linux kernel func., THIS_MODULE is linux define
 		module_put(THIS_MODULE);
@@ -94,7 +94,7 @@ static void xxx_free(struct bsr_transport *transport, enum bsr_tr_free_op free_o
 	/* disconnect here */
 
 	if (free_op == DESTROY_TRANSPORT) {
-		kfree(xxx_transport);
+		bsr_kfree(xxx_transport);
 #ifndef _WIN32 // module_put is linux kernel func., THIS_MODULE is linux define
 		module_put(THIS_MODULE);
 #endif

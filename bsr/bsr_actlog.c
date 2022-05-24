@@ -1031,7 +1031,7 @@ static int w_update_peers(struct bsr_work *w, int unused)
 
 	consider_sending_peers_in_sync(peer_device, upw->enr);
 
-	kfree(upw);
+	bsr_kfree(upw);
 
 	kref_debug_put(&device->kref_debug, 5);
 	kref_put(&device->kref, bsr_destroy_device);
@@ -1172,7 +1172,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 				// DW-1873 change P_PEERS_IN_SYNC send conditions
 				is_sync_source(peer_device)) { //peer_device->repl_state[NOW] == L_SYNC_SOURCE){	
 				struct update_peers_work *upw;
-				upw = kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN, '40SB');
+				upw = bsr_kmalloc(sizeof(*upw), GFP_ATOMIC | __GFP_NOWARN, '40SB');
 
 				if (upw) {
 					upw->enr = ext->lce.lc_number;

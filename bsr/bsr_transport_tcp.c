@@ -313,6 +313,7 @@ static void dtt_free_one_sock(struct socket *socket, bool bFlush)
 			// BSR-12 its code present in sock_release() of bsr.
 			if(attr->bab) {
 				if(attr->bab->static_big_buf) {
+					sub_kvmalloc_mem_usage(attr->bab->static_big_buf, MAX_ONETIME_SEND_BUF);
 					kvfree(attr->bab->static_big_buf);
 				}
 			}
@@ -1287,7 +1288,7 @@ retry:
 	if (socket_c) {
 		s_estab = socket_c->socket;
 		list_del(&socket_c->list);
-		kfree(socket_c);
+		bsr_kfree(socket_c);
 	} else if (listener->listener.pending_accepts > 0) {
 		listener->listener.pending_accepts--;
 		spin_unlock_bh(&listener->listener.waiters_lock);
@@ -1328,7 +1329,7 @@ retry:
 			struct dtt_path *path2 =
 				container_of(bsr_path2, struct dtt_path, path);
 
-			socket_c = kmalloc(sizeof(*socket_c), GFP_ATOMIC, '');
+			socket_c = bsr_kmalloc(sizeof(*socket_c), GFP_ATOMIC, '');
 			if (!socket_c) {
 				tr_info(transport, /* path2->transport, */
 					"No mem, dropped an incoming connection");
@@ -1573,7 +1574,7 @@ static void dtt_destroy_listener(struct bsr_listener *generic_listener)
 #endif
 
 	sock_release(listener->s_listen);
-	kfree(listener);
+	bsr_kfree(listener);
 
 	// DW-1483
 	listener = NULL;
@@ -1718,7 +1719,7 @@ static int dtt_create_listener(struct bsr_transport *transport,
 
 	what = "kmalloc";
 #ifdef _LIN
-	listener = kmalloc(sizeof(*listener), GFP_KERNEL, '');
+	listener = bsr_kmalloc(sizeof(*listener), GFP_KERNEL, '');
 	if (!listener) {
 		err = -ENOMEM;
 		goto out;
@@ -1770,7 +1771,7 @@ out:
 		)
 		tr_err(transport, "%s failed, err = %d", what, err);
 
-	kfree(listener);
+	bsr_kfree(listener);
 
 	return err;
 }
@@ -1790,7 +1791,7 @@ static void dtt_cleanup_accepted_sockets(struct dtt_path *path)
 		list_del(&socket_c->list);
 		kernel_sock_shutdown(socket_c->socket, SHUT_RDWR);
 		sock_release(socket_c->socket);
-		kfree(socket_c);
+		bsr_kfree(socket_c);
 	}
 #endif
 }

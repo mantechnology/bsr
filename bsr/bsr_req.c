@@ -341,7 +341,7 @@ void bsr_req_destroy(struct kref *kref)
 
 						bsr_info(10, BSR_LC_REQUEST, peer_device, "Found disappeared out-of-sync, need to send new one(sector(%llu), size(%u))", (unsigned long long)req->i.sector, req->i.size);
 
-						send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+						send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
 						if (send_oos) {
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
 							send_oos->sector = req->i.sector;
@@ -485,8 +485,8 @@ int w_notify_io_error(struct bsr_work *w, int cancel)
 
 	if (dw && dw->io_error) {
 		notify_io_error(dw->device, dw->io_error);
-		kfree(dw->io_error);
-		kfree(dw);
+		bsr_kfree(dw->io_error);
+		bsr_kfree(dw);
 	}
 
 	return ret;
@@ -518,7 +518,7 @@ int w_notify_updated_gi(struct bsr_work *w, int cancel)
 			notify_gi_peer_device_mdf_flag_state(NULL, 0, dw->peer_device, NOTIFY_CHANGE);
 		}
 		mutex_unlock(&notification_mutex);
-		kfree(dw);
+		bsr_kfree(dw);
 	}
 
 	return ret;
@@ -1112,7 +1112,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 				// BSR-842
 				if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
 					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
-						struct bsr_oos_no_req* send_oos = kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+						struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
 						unsigned long flags;
 
 						if (send_oos) {
@@ -2115,7 +2115,7 @@ static void bsr_unplug(struct blk_plug_cb *cb, bool from_schedule)
 	struct bsr_resource *resource = plug->cb.data;
 	struct bsr_request *req = plug->most_recent_req;
 
-	kfree(cb);
+	bsr_kfree( cb);
 	if (!req)
 		return;
 
@@ -2140,8 +2140,12 @@ static struct bsr_plug_cb* bsr_check_plugged(struct bsr_resource *resource)
 	struct bsr_plug_cb *plug;
 	struct blk_plug_cb *cb = blk_check_plugged(bsr_unplug, resource, sizeof(*plug));
 
-	if (cb)
+	if (cb) {
 		plug = container_of(cb, struct bsr_plug_cb, cb);
+
+		// BSR-875
+		atomic_add64(ksize(cb), &mem_usage.kmalloc);
+	}
 	else
 		plug = NULL;
 	return plug;

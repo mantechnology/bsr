@@ -15,6 +15,7 @@ enum slab_type
 	BSR_EE,
 };
 #define SLAB_ROOT "/sys/kernel/slab"
+#define DEBUGFS_ROOT "/sys/kernel/debug/bsr"
 #endif
 
 
@@ -53,6 +54,8 @@ extern "C" NTSYSAPI NTSTATUS WINAPI ZwQuerySystemInformation(
 
 #ifdef _LIN
 unsigned long long GetSlabMemoryUsage(enum slab_type slab);
+char* GetSysMemoryUsage(void);
+char* GetBsrModuleMemoryUsage(void);
 #endif
 char* GetBsrMemoryUsage(void);
 char* GetBsrUserMemoryUsage(void);

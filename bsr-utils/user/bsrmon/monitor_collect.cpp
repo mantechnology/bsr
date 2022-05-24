@@ -52,7 +52,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 				}
 				else if (index == 3) {
 					object_size = atoi(ptr); 
-					return total_objects * object_size;
+					return total_objects * object_size / 1024;
 				}   
 				ptr = strtok(NULL, " ");     
 				index++;
@@ -104,7 +104,62 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 			total_objects = atoi(buff);
 	}
 
-	return object_size * total_objects;
+	return object_size * total_objects / 1024;
+}
+#endif
+
+#ifdef _LIN
+// BSR-875 collect system memory usage
+char* GetSysMemoryUsage(void)
+{
+	unsigned long long mem_total = 0, mem_free = 0, mem_buff_cache = 0, mem_used = 0;
+	char *buffer;
+	FILE *fp;
+	char line[128];
+
+	buffer = (char*)malloc(MAX_BUF_SIZE);
+	if (!buffer) {
+		fprintf(stderr, "Failed to malloc buffer\n");
+		return NULL;
+	}
+	memset(buffer, 0, MAX_BUF_SIZE);
+	
+	fp = popen("cat /proc/meminfo | awk '{print $1 $2}'", "r");
+
+	if(NULL == fp) {
+		printf("popen error\n");
+		return NULL;
+	}
+
+	while (fgets(line, sizeof(line), fp) != NULL){
+		char *name_ptr, *val_ptr;
+		name_ptr = strtok(line, ":");
+		val_ptr = strtok(NULL, " ");
+
+		if (strncmp(name_ptr, "MemTotal", 8) == 0)
+			mem_total = atoi(val_ptr);
+		else if (strncmp(name_ptr, "MemFree", 7) == 0)
+			mem_free = atoi(val_ptr);
+		else if (strncmp(name_ptr, "Buffer", 6) == 0)
+			mem_buff_cache += atoi(val_ptr);
+		else if (strncmp(name_ptr, "Cached", 6) == 0)
+			mem_buff_cache += atoi(val_ptr);
+		// cache : Memory used by the page cache and slabs (Cached and SReclaimable in /proc/meminfo)
+		else if (strncmp(name_ptr, "SReclaimable", 12) == 0)
+			mem_buff_cache += atoi(val_ptr);
+//		else if (strncmp(name_ptr, "Slab", 4) == 0)
+//			total_slab = atoi(val_ptr);
+	}
+	pclose(fp);
+
+	mem_used = mem_total - mem_free - mem_buff_cache;
+
+	/* MemTotal MemUsed MemFree buff/cache (kbytes) */
+	sprintf(buffer, "%llu %llu %llu %llu ", 
+			mem_total, mem_used, mem_free, mem_buff_cache);
+
+
+	return buffer;
 }
 #endif
 
@@ -154,7 +209,7 @@ char* GetBsrMemoryUsage(void)
 		fprintf(stderr, "Failed to malloc buffer\n");
 		return NULL;
 	}
-
+	memset(buffer, 0, MAX_BUF_SIZE);
 #ifdef _WIN
 	do{
 		status = ZwQuerySystemInformation(SystemPoolTagInformation, pSysPoolTagInfo, dwSize, &dwSize);
@@ -260,13 +315,43 @@ fail:
 	bm_usage = GetSlabMemoryUsage(BSR_BM);
 	ee_usage = GetSlabMemoryUsage(BSR_EE);
 
-	/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
+	/* BSR_REQ BSR_AL BSR_BM BSR_EE (kbytes) */
 	sprintf(buffer, "%llu %llu %llu %llu ", req_usage, al_usage, bm_usage, ee_usage);
 
 
 	return buffer;
 #endif
 }
+
+#ifdef _LIN
+// BSR-875
+char* GetBsrModuleMemoryUsage(void)
+{
+	char *buffer;
+	char path[128] = {0,};
+	FILE *fp;
+
+	buffer = (char*)malloc(MAX_BUF_SIZE);
+	if (!buffer) {
+		fprintf(stderr, "Failed to malloc buffer\n");
+		return NULL;
+	}
+	memset(buffer, 0, MAX_BUF_SIZE);
+		
+	sprintf(path, "%s/alloc_mem", DEBUGFS_ROOT);
+	fp = fopen(path, "r");
+	if (!fp) {
+		fprintf(stderr, "Failed to open file, path : %s\n", path);
+		return NULL;
+	}
+	fread(buffer, 128, 1, fp);
+	fclose(fp);
+	// remove EOL
+	*(buffer + (strlen(buffer) - 1)) = ' ';
+	return buffer;
+
+}
+#endif
 
 char* GetBsrUserMemoryUsage(void)
 {
@@ -281,7 +366,7 @@ char* GetBsrUserMemoryUsage(void)
 	TCHAR szName[1024] = { 0, };
 	char topProcess[256] = { 0, };
 #else // _LIN
-	char command[128];
+	char command[128] = { 0, };;
 	char buf[128] = { 0, };
 	unsigned int pid, rsz, vsz;
 	char *ptr, *save_ptr;
@@ -338,6 +423,27 @@ char* GetBsrUserMemoryUsage(void)
 
 	return buffer;
 #else // _LIN
+	// BSR-875 get top process
+	memset(command, 0, 128);
+	sprintf(command, "ps -eo comm,pid,rsz,vsz --sort -rsz --no-headers | head -1 | awk '{ gsub(/[ ]+/,\" \"); print }'");
+	pipe = popen(command, "r");
+	if (!pipe) {
+		fprintf(stderr, "Failed to execute command : %s\n", command);
+		goto fail;
+	}
+
+	while (!feof(pipe)) {
+		if (fgets(buf, 128, pipe) != NULL) {
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			
+			/* name pid rsz(kbytes) vsz(kbytes) */
+			sprintf(buffer + strlen(buffer), "%s ", buf);
+		}
+	}
+	pclose(pipe);
+
+	memset(command, 0, 128);
 	sprintf(command, "ps -eo pid,rsz,vsz,cmd | grep bsr");
 	pipe = popen(command, "r");
 	if (!pipe) {

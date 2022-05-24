@@ -1135,7 +1135,7 @@ retry:
 			flags |= CS_VERBOSE;
 
 		if (err_str) {
-			kfree((void*)err_str);
+			bsr_kfree((void*)err_str);
 			err_str = NULL;
 		}
 		// DW-1605
@@ -1368,7 +1368,7 @@ out:
 	if (err_str) {
 		if (reply_skb)
 			bsr_msg_put_info(reply_skb, err_str);
-		kfree((void*)err_str);
+		bsr_kfree((void*)err_str);
 		err_str = NULL;
 	}
 	return rv;
@@ -2529,7 +2529,7 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 		goto out;
 	}
 
-	new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51SB');
+	new_disk_conf = bsr_kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '51SB');
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
 		goto fail;
@@ -2617,14 +2617,14 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	// windows skip synchronize_rcu 
 	synchronize_rcu();
 #endif
-	kfree(old_disk_conf);
+	bsr_kfree(old_disk_conf);
 	mod_timer(&device->request_timer, jiffies + HZ);
 	goto success;
 
 fail_unlock:
 	mutex_unlock(&resource->conf_update);
  fail:
-	kfree(new_disk_conf);
+	bsr_kfree(new_disk_conf);
 success:
 #ifdef _LIN
     // windows skip synchronize_rcu 
@@ -2835,8 +2835,8 @@ void bsr_backing_dev_free(struct bsr_device *device, struct bsr_backing_dev *lde
 	close_backing_dev(device, ldev->md_bdev, ldev->md_bdev != ldev->backing_bdev);
 	close_backing_dev(device, ldev->backing_bdev, true);
 
-	kfree(ldev->disk_conf);
-	kfree(ldev);
+	bsr_kfree(ldev->disk_conf);
+	bsr_kfree(ldev);
 }
 
 static void discard_not_wanted_bitmap_uuids(struct bsr_device *device, struct bsr_backing_dev *ldev)
@@ -2875,7 +2875,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&resource->adm_mutex);
 
 	/* allocation not in the IO path, bsrsetup context */
-	nbc = kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61SB');
+	nbc = bsr_kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61SB');
 
 	if (!nbc) {
 		retcode = ERR_NOMEM;
@@ -2883,7 +2883,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 	spin_lock_init(&nbc->md.uuid_lock);
 
-	new_disk_conf = kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71SB');
+	new_disk_conf = bsr_kzalloc(sizeof(struct disk_conf), GFP_KERNEL, '71SB');
 
 	if (!new_disk_conf) {
 		retcode = ERR_NOMEM;
@@ -3440,7 +3440,7 @@ out:
 	if (err_str) {
 		if (reply_skb)
 			bsr_msg_put_info(reply_skb, err_str);
-		kfree((void*)err_str);
+		bsr_kfree((void*)err_str);
 		err_str = NULL;
 	}
 	return retcode;
@@ -3680,7 +3680,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	connection = adm_ctx.connection;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	
-	new_net_conf = kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1SB');
+	new_net_conf = bsr_kzalloc(sizeof(struct net_conf), GFP_KERNEL, 'A1SB');
 	if (!new_net_conf) {
 		retcode = ERR_NOMEM;
 		goto out;
@@ -3793,7 +3793,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 #ifdef _LIN
 	synchronize_rcu();
 #endif
-	kfree(old_net_conf);
+	bsr_kfree(old_net_conf);
 
 	if (connection->cstate[NOW] >= C_CONNECTED) {
 		struct bsr_peer_device *peer_device;
@@ -3809,7 +3809,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	mutex_unlock(&connection->mutex[DATA_STREAM]);
 	mutex_unlock(&connection->resource->conf_update);
 	free_crypto(&crypto);
-	kfree(new_net_conf);
+	bsr_kfree(new_net_conf);
  out:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
@@ -3897,7 +3897,7 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	mutex_lock(&adm_ctx.resource->conf_update);
 
-	new_peer_device_conf = kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91SB');
+	new_peer_device_conf = bsr_kzalloc(sizeof(struct peer_device_conf), GFP_KERNEL, '91SB');
 	if (!new_peer_device_conf)
 		goto fail;
 
@@ -3968,14 +3968,14 @@ int bsr_adm_peer_device_opts(struct sk_buff *skb, struct genl_info *info)
 	rcu_assign_pointer(peer_device->conf, new_peer_device_conf);
 
 	synchronize_rcu();
-	kfree(old_peer_device_conf);
-	kfree(old_plan);
+	bsr_kfree(old_peer_device_conf);
+	bsr_kfree(old_plan);
 
 	if (0) {
 fail:
 		retcode = ERR_NOMEM;
 fail_ret_set:
-		kfree(new_peer_device_conf);
+		bsr_kfree(new_peer_device_conf);
 	}
 
 	mutex_unlock(&adm_ctx.resource->conf_update);
@@ -3990,7 +3990,7 @@ int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device)
 	struct peer_device_conf *conf;
 	int err;
 
-	conf = kzalloc(sizeof(*conf), GFP_KERNEL, 'B1SB');
+	conf = bsr_kzalloc(sizeof(*conf), GFP_KERNEL, 'B1SB');
 	if (!conf)
 		return -ENOMEM;
 
@@ -4068,7 +4068,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	}
 
 	/* allocation not in the IO path, bsrsetup / netlink process context */
-	new_net_conf = kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1SB');
+	new_net_conf = bsr_kzalloc(sizeof(*new_net_conf), GFP_KERNEL, 'E1SB');
 	if (!new_net_conf)
 		return ERR_NOMEM;
 
@@ -4237,7 +4237,7 @@ fail_put_transport:
 #endif
 fail:
 	free_crypto(&crypto);
-	kfree(new_net_conf);
+	bsr_kfree(new_net_conf);
 
 	return retcode;
 }
@@ -4317,7 +4317,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	if (retcode != NO_ERROR)
 		return retcode;
 
-	path = kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57SB');
+	path = bsr_kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57SB');
 	if (!path)
 		return ERR_NOMEM;
 
@@ -4630,7 +4630,7 @@ repeat:
 	if (err_str) {
 		if (reply_skb)
 			bsr_msg_put_info(reply_skb, err_str);
-		kfree(err_str);
+		bsr_kfree(err_str);
 		err_str = NULL;
 	}
 
@@ -4773,14 +4773,14 @@ sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local)
 	struct bsr_backing_dev *tmp_bdev;
 	sector_t s;
 
-	tmp_bdev = kmalloc(sizeof(struct bsr_backing_dev), GFP_ATOMIC, '97SB');
+	tmp_bdev = bsr_kmalloc(sizeof(struct bsr_backing_dev), GFP_ATOMIC, '97SB');
 	if (!tmp_bdev)
 		return 0;
 
 	*tmp_bdev = *device->ldev;
 	bsr_md_set_sector_offsets(device, tmp_bdev);
 	s = bsr_get_max_capacity(tmp_bdev);
-	kfree(tmp_bdev);
+	bsr_kfree(tmp_bdev);
 
 	return s;
 }
@@ -4895,7 +4895,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	u_size = rcu_dereference(device->ldev->disk_conf)->disk_size;
 	rcu_read_unlock();
 	if (u_size != (sector_t)rs.resize_size) {
-		new_disk_conf = kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '');
+		new_disk_conf = bsr_kmalloc(sizeof(struct disk_conf), GFP_KERNEL, '');
 		if (!new_disk_conf) {
 			retcode = ERR_NOMEM;
 			goto fail_ldev;
@@ -4935,7 +4935,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 		rcu_assign_pointer(device->ldev->disk_conf, new_disk_conf);
 		mutex_unlock(&device->resource->conf_update);
 		synchronize_rcu();
-		kfree(old_disk_conf);
+		bsr_kfree(old_disk_conf);
 		new_disk_conf = NULL;
 	}
 	
@@ -4983,7 +4983,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 
  fail_ldev:
 	put_ldev(device);
-	kfree(new_disk_conf);
+	bsr_kfree(new_disk_conf);
 	goto fail;
 #endif	
 }
