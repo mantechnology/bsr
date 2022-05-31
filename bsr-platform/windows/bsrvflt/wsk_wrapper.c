@@ -615,10 +615,6 @@ __in PVOID			Context
 
 		KeSetEvent(SendParam->Event, IO_NO_INCREMENT, FALSE);
 	}
-	else {
-		ExFreePool(SendParam->Event);
-		IoFreeIrp(Irp);
-	}
 
 	ExFreePool(SendParam);
 
@@ -787,6 +783,7 @@ Send(
 		// Otherwise, a hang occurs.
 		bsr_err(46, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		goto $Send_fail;
 	}
 
@@ -800,6 +797,8 @@ Send(
 								FALSE);
 
 	if (!NT_SUCCESS(Status)) {
+		if (!Irp) 
+			sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		BytesSent = SOCKET_ERROR;
 		goto $Send_fail;
 	}
@@ -829,8 +828,12 @@ Send(
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
 				bsr_info(47, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out(%dms). current state %d(0x%p) size(%lu)",
 									Timeout, pSock->sk_state, WskSocket, BufferSize);
+	
 				IoCancelIrp(Irp);
-				sub_untagged_mem_usage( IoSizeOfIrp(1));
+				// BSR-879 CompletionEvent free from the location as there may be timing issues
+				ExFreePool(CompletionEvent);
+				IoFreeIrp(Irp);
+				sub_untagged_mem_usage(IoSizeOfIrp(1));
 				sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
 				return -EAGAIN;
@@ -934,6 +937,7 @@ __in ULONG			Timeout // ms
 	// DW-1029 to prevent possible contingency, check if dispatch table is valid.
 	if (gbShutdown || !WskSocket->Dispatch) {
 		BytesSent = SOCKET_ERROR;
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		goto $SendLoacl_fail;
 	}
 
@@ -946,6 +950,7 @@ __in ULONG			Timeout // ms
 		// DW-1749 
 		bsr_err(52, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state %d(0x%p)", pSock->sk_state, WskSocket);
 		BytesSent = -ECONNRESET;
+		sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		goto $SendLoacl_fail;
 	}
 
@@ -959,6 +964,8 @@ __in ULONG			Timeout // ms
 		&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
 		FALSE);
 	if (!NT_SUCCESS(Status)) {
+		if (!Irp)
+			sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 		BytesSent = SOCKET_ERROR;
 		goto $SendLoacl_fail;
 	}
@@ -984,6 +991,8 @@ __in ULONG			Timeout // ms
 				// DW-1758 release resource from the completion routine if IRP is cancelled 
 				bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
 				IoCancelIrp(Irp);
+				ExFreePool(CompletionEvent);
+				IoFreeIrp(Irp);
 				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 				sub_untagged_mem_usage(IoSizeOfIrp(1));
 				sub_untagged_mdl_mem_usage(Buffer, BufferSize);

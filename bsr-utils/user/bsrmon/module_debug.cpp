@@ -1191,7 +1191,7 @@ int GetMemInfoToFile(char *path, char * currtime)
 		buffer = NULL;
 	}
 #endif
-	buffer = GetBsrMemoryUsage();
+	buffer = GetBsrMemoryUsage(false);
 	if (buffer) {
 		fprintf(fp, "%s", buffer);
 		free(buffer);

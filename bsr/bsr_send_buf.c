@@ -145,12 +145,30 @@ $ALLOC_FAIL:
 	return FALSE;
 }
 
+void destroy_packet_list(struct bsr_connection* connection)
+{
+	struct send_buf_packet_info *packet_info, *tmp;
+
+	list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[DATA_STREAM]->packet_list, list) {
+		list_del(&packet_info->list);
+		bsr_kfree(packet_info);
+	}
+
+	list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[CONTROL_STREAM]->packet_list, list) {
+		list_del(&packet_info->list);
+		bsr_kfree(packet_info);
+	}
+}
+
 void destroy_bab(struct bsr_connection* connection)
 {
 #ifdef _LIN
 	sub_kvmalloc_mem_usage(connection->ptxbab[DATA_STREAM], sizeof(ring_buffer) + connection->transport.net_conf->sndbuf_size);
 	sub_kvmalloc_mem_usage(connection->ptxbab[CONTROL_STREAM], sizeof(ring_buffer) + CONTROL_BUFF_SIZE);
 #endif
+	// BSR-879 removed unsent packet information
+	destroy_packet_list(connection);
+
 	kvfree2(connection->ptxbab[DATA_STREAM]);
 	kvfree2(connection->ptxbab[CONTROL_STREAM]);
 	return;

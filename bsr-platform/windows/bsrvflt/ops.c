@@ -589,7 +589,6 @@ IOCTL_GetUntagMemoryUsage(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG *size)
 	ULONG outlen;
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	outlen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-	LONGLONG usage;
 
 	if (outlen < sizeof(LONGLONG)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
