@@ -569,7 +569,7 @@ int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
 {
 	int pages = PAGE_SIZE / 1024; // kbytes
 	int io_bio_set = 0, md_io_bio_set = 0;
-	int page_pool = 0;
+	long page_pool = 0;
 
 	io_bio_set = bioset_initialized(&bsr_io_bio_set) ? BIO_POOL_SIZE * pages : 0;
 	md_io_bio_set = bioset_initialized(&bsr_md_io_bio_set) ? BSR_MIN_POOL_PAGES * pages : 0;
@@ -578,7 +578,7 @@ int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
 				+ atomic_read64(&mem_usage.bm_pp) + BSR_MIN_POOL_PAGES;
 
 	/* total_bio_set kmalloc vmalloc total_page_pool */
-	seq_printf(m, "%d %lld %lld %d\n", 
+	seq_printf(m, "%d %ld %ld %ld\n", 
 				io_bio_set + md_io_bio_set,
 				atomic_read64(&mem_usage.kmalloc) ? atomic_read64(&mem_usage.kmalloc) / 1024 : 0,
 				atomic_read64(&mem_usage.vmalloc) ? atomic_read64(&mem_usage.vmalloc) / 1024 : 0,
@@ -777,9 +777,9 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 
 	// BSR-839 passing in_flight_cnt as sendbuf performance data
 	/* ap_in_flight size_bytes cnt */
-	seq_printf(m, "ap %lld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
+	seq_printf(m, "ap %ld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
 	/* rs_in_flight size_bytes cnt */
-	seq_printf(m, "rs %lld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
+	seq_printf(m, "rs %ld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
 
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
