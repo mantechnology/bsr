@@ -255,7 +255,7 @@ wait_queue_head_t bsr_pp_wait;
 
 #ifdef _LIN
 // BSR-875
-struct bsr_mem_usage mem_usage = {0,};
+struct bsr_mem_usage mem_usage = {ATOMIC_INIT(0),};
 #endif
 
 #ifdef _LIN

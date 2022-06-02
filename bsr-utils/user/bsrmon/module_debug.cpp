@@ -1204,6 +1204,9 @@ int GetMemInfoToFile(char *path, char * currtime)
 		fprintf(fp, "%s", buffer);
 		free(buffer);
 		buffer = NULL;
+	} else {
+		// BSR-881
+		fprintf(fp, "0 0 0 0 ");
 	}
 #endif
 

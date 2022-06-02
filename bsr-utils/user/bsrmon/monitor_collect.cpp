@@ -18,7 +18,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 	fp = popen("cat /proc/slabinfo", "r");
 	if(NULL == fp) {
 		printf("popen error\n");
-		return -1;
+		return 0;
 	}
 
 	while(fgets(buff, 1024, fp)) {
@@ -40,7 +40,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 					continue;
 			} else {
 				fprintf(stderr, "Invalid slab type\n");
-				return -1;
+				return 0;
 			}
 
 			index = 0;
@@ -87,13 +87,13 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 		}
 		else {
 			fprintf(stderr, "Invalid slab type\n");
-			return -1;
+			return 0;
 		}
 
 		fp = fopen(path, "r");
 		if (!fp) {
 			fprintf(stderr, "Failed to open file, path : %s\n", path);
-			return -1;
+			return 0;
 		}
 		fread(buff, 128, 1, fp);
 		fclose(fp);

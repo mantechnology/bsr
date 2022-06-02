@@ -2115,7 +2115,7 @@ static void bsr_unplug(struct blk_plug_cb *cb, bool from_schedule)
 	struct bsr_resource *resource = plug->cb.data;
 	struct bsr_request *req = plug->most_recent_req;
 
-	bsr_kfree( cb);
+	bsr_kfree(cb);
 	if (!req)
 		return;
 
@@ -2138,13 +2138,26 @@ static struct bsr_plug_cb* bsr_check_plugged(struct bsr_resource *resource)
 	/* A lot of text to say
 	 * return (struct bsr_plug_cb*)blk_check_plugged(); */
 	struct bsr_plug_cb *plug;
-	struct blk_plug_cb *cb = blk_check_plugged(bsr_unplug, resource, sizeof(*plug));
+	struct blk_plug_cb *cb;
+
+	bool new_plug_alloc = true;
+
+	// BSR-881 fix incorrect kmalloc memory usage collection
+	if (current->plug) {		
+		list_for_each_entry(cb, &current->plug->cb_list, list)
+			if (cb->callback == bsr_unplug && cb->data == (void *)resource) {
+				new_plug_alloc = false;
+			}
+	}
+	
+	cb = blk_check_plugged(bsr_unplug, resource, sizeof(*plug));
 
 	if (cb) {
 		plug = container_of(cb, struct bsr_plug_cb, cb);
 
 		// BSR-875
-		atomic_add64(ksize(cb), &mem_usage.kmalloc);
+		if (new_plug_alloc) // BSR-881 not currently on the callback list
+			atomic_add64(ksize(cb), &mem_usage.kmalloc);
 	}
 	else
 		plug = NULL;
