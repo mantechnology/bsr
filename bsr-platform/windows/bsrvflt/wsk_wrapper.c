@@ -35,6 +35,7 @@ struct SendParameter {
 	PWSK_BUF	WskBuffer;
 	PNTSTATUS	Status;
 	PLONG		BytesSent;
+	atomic_t	*CompletionRoutineCalled;
 };
 
 char *GetSockErrorString(NTSTATUS status)
@@ -614,6 +615,13 @@ __in PVOID			Context
 		}
 
 		KeSetEvent(SendParam->Event, IO_NO_INCREMENT, FALSE);
+	} 
+
+	// BSR-879 to prevent memory leaks and deduplication, the flag(CompletionRoutineCalled) is used to release the completion function and its last called logic
+	if (atomic_dec_and_test(SendParam->CompletionRoutineCalled)) {
+		ExFreePool(SendParam->Event);
+		ExFreePool(SendParam->CompletionRoutineCalled);
+		IoFreeIrp(Irp);
 	}
 
 	ExFreePool(SendParam);
@@ -682,6 +690,7 @@ __in  PCHAR		DataBuffer,
 __in  WSK_BUF*	WskBuffer,
 __in  LONG*		BytesSent,
 __in  NTSTATUS*	SendStatus,
+__in  atomic_t** CompletionRoutineCalled,
 __in  BOOLEAN	bRawIrp)
 {
 	ASSERT(pIrp);
@@ -726,6 +735,16 @@ __in  BOOLEAN	bRawIrp)
 	param->Event = *CompletionEvent;
 	param->Status = SendStatus;
 	param->WskBuffer = WskBuffer;
+	// BSR-879
+	*CompletionRoutineCalled = ExAllocatePoolWithTag(NonPagedPool, sizeof(atomic_t), 'CFSB');
+	if (!*CompletionRoutineCalled) {
+		kfree2(param);
+		kfree2(CompletionEvent);
+		return SOCKET_ERROR;
+	}
+
+	atomic_set(*CompletionRoutineCalled, 2);
+	param->CompletionRoutineCalled = *CompletionRoutineCalled;
 
 	KeInitializeEvent(*CompletionEvent, SynchronizationEvent, FALSE);
 	IoSetCompletionRoutine(*pIrp, SendCompletionRoutine, param, TRUE, TRUE, TRUE);
@@ -760,6 +779,7 @@ Send(
 	NTSTATUS		SendStatus = STATUS_UNSUCCESSFUL;
 	PCHAR			DataBuffer = NULL;
 	LONGLONG		send_ts = 0;
+	atomic_t		*CompletionRoutineCalled = NULL;
 
 	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int)BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
 		return SOCKET_ERROR;
@@ -794,6 +814,7 @@ Send(
 								WskBuffer,
 								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
 								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
+								&CompletionRoutineCalled,
 								FALSE);
 
 	if (!NT_SUCCESS(Status)) {
@@ -816,29 +837,34 @@ Send(
 		//Status = KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
 		Status = KeWaitForSingleObject(CompletionEvent, Executive, KernelMode, FALSE, pTime);
 		if(Status == STATUS_TIMEOUT) {
+			// DW-1749 Modified to remove WSK I/O cancel logic for occasional WSK I/O hang issues
+			// The transmission timeout depends on the WSK kernel, Remove the I/O cancel logic at the existing timeout.
+			//IoCancelIrp(Irp);
+			//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
+
+			// DW-1758 release resource from the completion routine if IRP is cancelled 
+			bsr_info(47, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out(%dms). current state %d(0x%p) size(%lu)",
+								Timeout, pSock->sk_state, WskSocket, BufferSize);
+
 			// DW-1679 if WSK_INVALID_DEVICE, we goto fail.
-			if(pSock->sk_state == WSK_INVALID_DEVICE) {
+			if (pSock->sk_state == WSK_INVALID_DEVICE) {
+				bsr_err(53, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state WSK_INVALID_DEVICE(0x%p)", WskSocket);
 				BytesSent = -ECONNRESET;
-			} else {
-				// DW-1749 Modified to remove WSK I/O cancel logic for occasional WSK I/O hang issues
-				// The transmission timeout depends on the WSK kernel, Remove the I/O cancel logic at the existing timeout.
-				//IoCancelIrp(Irp);
-				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
-
-				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				bsr_info(47, BSR_LC_SOCKET, NO_OBJECT, "Send not completed in time-out(%dms). current state %d(0x%p) size(%lu)",
-									Timeout, pSock->sk_state, WskSocket, BufferSize);
-	
-				IoCancelIrp(Irp);
-				// BSR-879 CompletionEvent free from the location as there may be timing issues
-				ExFreePool(CompletionEvent);
-				IoFreeIrp(Irp);
-				sub_untagged_mem_usage(IoSizeOfIrp(1));
-				sub_untagged_mdl_mem_usage(Buffer, BufferSize);
-
-				return -EAGAIN;
 			}
-			goto $Send_fail;
+			else {
+				IoCancelIrp(Irp);
+				BytesSent = -EAGAIN;
+			}
+			// BSR-879 to prevent memory leaks and deduplication, the flag(CompletionRoutineCalled) is used to release the completion function and its last called logic
+			if (atomic_dec_and_test(CompletionRoutineCalled)) {
+				ExFreePool(CompletionEvent);
+				ExFreePool(CompletionRoutineCalled);
+				IoFreeIrp(Irp);
+			}
+			sub_untagged_mem_usage(IoSizeOfIrp(1));
+			sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+
+			return BytesSent;
 		}
 		else if (Status == STATUS_SUCCESS) {
 			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
@@ -865,8 +891,11 @@ Send(
 		}
 	}
 
-	ExFreePool(CompletionEvent);
-	IoFreeIrp(Irp);
+	if (atomic_dec_and_test(CompletionRoutineCalled)) {
+		ExFreePool(CompletionEvent);
+		ExFreePool(CompletionRoutineCalled);
+		IoFreeIrp(Irp);
+	}
 	sub_untagged_mem_usage(IoSizeOfIrp(1));
 	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
@@ -884,6 +913,9 @@ $Send_fail:
 			FreeWskBuffer(WskBuffer);
 		ExFreePool(WskBuffer);
 	}
+
+	if (CompletionRoutineCalled)
+		ExFreePool(CompletionRoutineCalled);
 
 	if (DataBuffer)
 		ExFreePool(DataBuffer);
@@ -919,6 +951,7 @@ __in ULONG			Timeout // ms
 	LARGE_INTEGER	nWaitTime; LARGE_INTEGER	*pTime;
 	NTSTATUS		SendStatus = STATUS_UNSUCCESSFUL;
 	PCHAR			DataBuffer = NULL;
+	atomic_t		*CompletionRoutineCalled = NULL;
 
 	if (g_WskState != INITIALIZED || !WskSocket || !Buffer || ((int)BufferSize <= 0) || (pSock->sk_state == WSK_INVALID_DEVICE)) {
 		bsr_err(51, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket status is not send(WSK_INVALID_DEVICE). WskSocket:%p", WskSocket);
@@ -957,12 +990,13 @@ __in ULONG			Timeout // ms
 
 	//Status = InitWskData(&Irp, &CompletionEvent, FALSE);
 	Status = InitWskSendData(&Irp,
-		&CompletionEvent,
-		DataBuffer,
-		WskBuffer,
-		&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
-		&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
-		FALSE);
+								&CompletionEvent,
+								DataBuffer,
+								WskBuffer,
+								&BytesSent, // DW-1758 Get BytesSent (Irp->IoStatus.Information)
+								&SendStatus, // DW-1758 Get SendStatus (Irp->IoStatus.Status)
+								&CompletionRoutineCalled,
+								FALSE);
 	if (!NT_SUCCESS(Status)) {
 		if (!Irp)
 			sub_untagged_mdl_mem_usage(Buffer, BufferSize);
@@ -979,26 +1013,28 @@ __in ULONG			Timeout // ms
 		Status = KeWaitForSingleObject(CompletionEvent, Executive, KernelMode, FALSE, pTime);
 
 		if (Status == STATUS_TIMEOUT) {
+			// FIXME: cancel & completion's race condition may be occurred.
+			// Status or Irp->IoStatus.Status  
+
+			// DW-1758 release resource from the completion routine if IRP is cancelled 
+			bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
 			// DW-1679 if WSK_INVALID_DEVICE, we goto fail.
 			if (pSock->sk_state == WSK_INVALID_DEVICE) {
 				bsr_err(53, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to socket is not connected. current state WSK_INVALID_DEVICE(0x%p)", WskSocket);
 				BytesSent = -ECONNRESET;
-			}
-			else {
-				// FIXME: cancel & completion's race condition may be occurred.
-				// Status or Irp->IoStatus.Status  
-
-				// DW-1758 release resource from the completion routine if IRP is cancelled 
-				bsr_err(54, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out(%dms), current state %d(0x%p)", Timeout, pSock->sk_state, WskSocket);
+			} else {
 				IoCancelIrp(Irp);
-				ExFreePool(CompletionEvent);
-				IoFreeIrp(Irp);
-				//KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);
-				sub_untagged_mem_usage(IoSizeOfIrp(1));
-				sub_untagged_mdl_mem_usage(Buffer, BufferSize);
-				return -EAGAIN;
+				BytesSent = -EAGAIN;
 			}
-			goto $SendLoacl_fail;
+			// BSR-879 to prevent memory leaks and deduplication, the flag(CompletionRoutineCalled) is used to release the completion function and its last called logic
+			if (atomic_dec_and_test(CompletionRoutineCalled)) {
+				ExFreePool(CompletionEvent);
+				ExFreePool(CompletionRoutineCalled);
+				IoFreeIrp(Irp);
+			}
+			sub_untagged_mem_usage(IoSizeOfIrp(1));
+			sub_untagged_mdl_mem_usage(Buffer, BufferSize);
+			return BytesSent;
 		}
 	}
 
@@ -1021,8 +1057,12 @@ __in ULONG			Timeout // ms
 		}
 	}
 
-	ExFreePool(CompletionEvent);
-	IoFreeIrp(Irp);
+
+	if (atomic_dec_and_test(CompletionRoutineCalled)) {
+		ExFreePool(CompletionEvent);
+		ExFreePool(CompletionRoutineCalled);
+		IoFreeIrp(Irp);
+	}
 	sub_untagged_mem_usage(IoSizeOfIrp(1));
 	sub_untagged_mdl_mem_usage(Buffer, BufferSize);
 
@@ -1034,6 +1074,9 @@ $SendLoacl_fail:
 			FreeWskBuffer(WskBuffer);
 		ExFreePool(WskBuffer);
 	}
+
+	if (CompletionRoutineCalled)
+		ExFreePool(CompletionRoutineCalled);
 
 	if (DataBuffer)
 		ExFreePool(DataBuffer);
