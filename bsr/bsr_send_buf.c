@@ -149,14 +149,18 @@ void destroy_packet_list(struct bsr_connection* connection)
 {
 	struct send_buf_packet_info *packet_info, *tmp;
 
-	list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[DATA_STREAM]->packet_list, list) {
-		list_del(&packet_info->list);
-		bsr_kfree(packet_info);
+	if (connection->ptxbab[DATA_STREAM] != NULL) {
+		list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[DATA_STREAM]->packet_list, list) {
+			list_del(&packet_info->list);
+			bsr_kfree(packet_info);
+		}
 	}
 
-	list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[CONTROL_STREAM]->packet_list, list) {
-		list_del(&packet_info->list);
-		bsr_kfree(packet_info);
+	if (connection->ptxbab[CONTROL_STREAM] != NULL) {
+		list_for_each_entry_safe_ex(struct send_buf_packet_info, packet_info, tmp, &connection->ptxbab[CONTROL_STREAM]->packet_list, list) {
+			list_del(&packet_info->list);
+			bsr_kfree(packet_info);
+		}
 	}
 }
 

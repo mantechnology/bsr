@@ -4362,6 +4362,9 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	mutex_init(&connection->mutex[DATA_STREAM]);
 	mutex_init(&connection->mutex[CONTROL_STREAM]);
 
+	connection->ptxbab[DATA_STREAM] = NULL;
+	connection->ptxbab[CONTROL_STREAM] = NULL;
+
 	INIT_LIST_HEAD(&connection->connect_timer_work.list);
 	bsr_timer_setup(connection, connect_timer, connect_timer_fn);
 	
