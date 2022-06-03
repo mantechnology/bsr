@@ -57,5 +57,6 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab);
 char* GetSysMemoryUsage(void);
 char* GetBsrModuleMemoryUsage(void);
 #endif
-char* GetBsrMemoryUsage(void);
+
+char* GetBsrMemoryUsage(bool printTag);
 char* GetBsrUserMemoryUsage(void);

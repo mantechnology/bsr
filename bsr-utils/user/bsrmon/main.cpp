@@ -322,7 +322,7 @@ void PrintMonitor()
 		buf = NULL;
 	}
 #endif
-	buf = GetBsrMemoryUsage();
+	buf = GetBsrMemoryUsage(false);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -1111,10 +1111,25 @@ int main(int argc, char* argv[])
 	for (argIndex = 1; argIndex < argc; argIndex++) {
 		if (!strcmp(argv[argIndex], "/print")) {
 			argIndex++;
-			if (argIndex <= argc)
+#ifdef _WIN
+			if (argIndex == argc ||
+				!strcmp(argv[argIndex], "all")) {
 				PrintMonitor();
-			else
+			}
+			else if (argIndex < argc && !strcmp(argv[argIndex], "tag")) {
+				GetBsrMemoryUsage(true);
+			}
+			else {
 				usage();
+			}
+#else
+			if (argIndex <= argc) {
+				PrintMonitor();
+			}
+			else {
+				usage();
+			}
+#endif
 		}
 		else if (!strcmp(argv[argIndex], "/file")) {
 			argIndex++;

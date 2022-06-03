@@ -189,7 +189,7 @@ DWORD MVOL_GetUntagMemoryUsage(LONGLONG *untagMemUsage)
 }
 
 #endif
-char* GetBsrMemoryUsage(void)
+char* GetBsrMemoryUsage(bool printTag)
 {
 #ifdef _WIN
 	DWORD dwSize = 0;
@@ -202,14 +202,16 @@ char* GetBsrMemoryUsage(void)
 #else // _LIN
 	unsigned long long req_usage = 0, al_usage = 0, bm_usage = 0, ee_usage = 0;
 #endif
-	char *buffer;
+	char *buffer = NULL;
 
-	buffer = (char*)malloc(MAX_BUF_SIZE);
-	if (!buffer) {
-		fprintf(stderr, "Failed to malloc buffer\n");
-		return NULL;
+	if (!printTag) {
+		buffer = (char*)malloc(MAX_BUF_SIZE);
+		if (!buffer) {
+			fprintf(stderr, "Failed to malloc buffer\n");
+			return buffer;
+		}
+		memset(buffer, 0, MAX_BUF_SIZE);
 	}
-	memset(buffer, 0, MAX_BUF_SIZE);
 #ifdef _WIN
 	do{
 		status = ZwQuerySystemInformation(SystemPoolTagInformation, pSysPoolTagInfo, dwSize, &dwSize);
@@ -256,12 +258,16 @@ char* GetBsrMemoryUsage(void)
 		{
 			NonPagedUsed += psysPoolTag->NonPagedUsed;
 			TotalUsed += psysPoolTag->NonPagedUsed;
+			if (printTag)
+				printf("nonPaged:%s, allocate %lu, used %llu, free %lu\n", psysPoolTag->Tag, psysPoolTag->NonPagedAllocs, psysPoolTag->NonPagedUsed, psysPoolTag->NonPagedFrees);
 		}
 		
 		if (psysPoolTag->PagedUsed != 0)
 		{
 			PagedUsed += psysPoolTag->PagedUsed;
 			TotalUsed += psysPoolTag->PagedUsed;
+			if (printTag)
+				printf("paged:%s, allocate %lu, used %llu, free %lu\n", psysPoolTag->Tag, psysPoolTag->PagedAllocs, psysPoolTag->PagedUsed, psysPoolTag->PagedFrees);
 		}
 
 		psysPoolTag++;
@@ -281,14 +287,18 @@ char* GetBsrMemoryUsage(void)
 	global.dwLength = sizeof(MEMORYSTATUSEX);
 	if (0 == GlobalMemoryStatusEx(&global)) {
 		fprintf(stderr, "Failed to global memory status\n");
-		return NULL;
+		goto fail;
 	}
 
-	// total memory, total memory usage
-	sprintf_s(buffer, MAX_BUF_SIZE, "%lld %lld ", global.ullTotalPhys, global.ullTotalPhys - global.ullAvailPhys);
+	if (!printTag) {
+		// total memory, total memory usage
+		sprintf_s(buffer, MAX_BUF_SIZE, "%lld %lld ", global.ullTotalPhys, global.ullTotalPhys - global.ullAvailPhys);
 
-	/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
-	sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), "%llu %llu %llu %lld ", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
+		/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
+		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), "%llu %llu %llu %lld ", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
+	} else {
+		printf("total %llu, total nonpaged %llu, total paged %llu, total untaged %llu\n", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
+	}
 
 	if (NULL != pSysPoolTagInfo) {
 		free(pSysPoolTagInfo);
@@ -304,9 +314,11 @@ fail:
 		pSysPoolTagInfo = NULL;
 	}
 
-	if (buffer) {
-		free(buffer);
-		buffer = NULL;
+	if (!printTag) {
+		if (buffer) {
+			free(buffer);
+			buffer = NULL;
+		}
 	}
 	return NULL;
 #else // _LIN

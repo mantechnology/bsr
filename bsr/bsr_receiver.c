@@ -10392,6 +10392,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		}
 	}
 
+	// BSR-879 removed unsent packet information
+	destroy_packet_list(connection);
+
 	/* ok, no more ee's on the fly, it is safe to reset the epoch_size */
 	atomic_set(&connection->current_epoch->epoch_size, 0);
 

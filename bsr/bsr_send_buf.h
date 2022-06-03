@@ -111,6 +111,7 @@ typedef struct bsr_connection  bsr_connection;
 typedef struct bsr_tcp_transport  bsr_tcp_transport;
 
 extern bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf);
+extern void destroy_packet_list(struct bsr_connection* connection);
 extern void destroy_bab(struct bsr_connection* connection);
 extern ring_buffer *create_ring_buffer(struct bsr_connection* connection, char *name, signed long long length, enum bsr_stream stream);
 extern void destroy_ring_buffer(ring_buffer *ring);
