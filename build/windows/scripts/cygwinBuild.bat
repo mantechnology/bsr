@@ -14,5 +14,5 @@ if not defined CYGWIN_HOME (
 ) else (
 	set "path=%path%;%CYGWIN_HOME%\bin";
 	%CYGWIN_HOME%\bin\vi "+set ff=unix" +wq! %1
-	%CYGWIN_HOME%\bin\bash.exe %*
+	%CYGWIN_HOME%\bin\bash.exe --login %*
 )

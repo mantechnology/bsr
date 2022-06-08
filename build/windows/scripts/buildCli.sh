@@ -1,8 +1,12 @@
 #!/bin/bash
 arch=$1
-#cd -P "$( dirname "$0" )"
-#cd ../../..
-#cd bsrpkg/user
+
+script=$(readlink -f $0)
+scriptpath=`dirname $script`
+
+cd $scriptpath
+cd ../../../bsr-utils
+
 tr -d '\015' < autogen.sh > autogen_windows.sh
 chmod +x autogen_windows.sh
 ./autogen_windows.sh
