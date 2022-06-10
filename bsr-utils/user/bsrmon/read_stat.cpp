@@ -269,10 +269,10 @@ void read_io_stat_work(char *path, struct time_filter *tf)
 
 		if (do_print) {
 			printf(" Run: %s - %s\n", filter_s, filter_e);
-			printf("  read : ios=%lu, bw=%lukbyte\n", read_io.ios, read_io.kb);
+			printf("  read : ios=%llu, bw=%llukbyte\n", read_io.ios, read_io.kb);
 			print_stat("    IOPS        ", &read_io.iops);
 			print_stat("    BW (kbyte/s)", &read_io.kbs);
-			printf("  write: ios=%lu, bw=%lukbyte\n", write_io.ios, write_io.kb);
+			printf("  write: ios=%llu, bw=%llukbyte\n", write_io.ios, write_io.kb);
 			print_stat("    IOPS        ", &write_io.iops);
 			print_stat("    BW (kbyte/s)", &write_io.kbs);
 
@@ -760,15 +760,15 @@ void read_al_stat_work(char *path, struct time_filter *tf)
 			}
 			printf(" Run: %s - %s\n", filter_s, filter_e);
 			printf("  al_extents : %u\n", al.nr_elements);
-			printf("    used     : max=%lu(all_slot_used=%u), avg=%lu\n", 
+			printf("    used     : max=%lu(all_slot_used=%u), avg=%llu\n", 
 						al.used.max, all_slot_used_cnt, al.used.sum ? al.used.sum / al.used.cnt : 0);
-			printf("    hits     : total=%lu\n", al.hits);
-			printf("    misses   : total=%lu\n", al.misses);
-			printf("    starving : total=%lu\n", al.starving);
-			printf("    locked   : total=%lu\n", al.locked);
-			printf("    changed  : total=%lu\n", al.changed);
-			printf("    al_wait retry count : max=%lu, total=%lu\n", al.wait.max, al.wait.sum);
-			printf("    pending_changes     : max=%lu, total=%lu\n", al.pending.max, al.pending.sum);
+			printf("    hits     : total=%llu\n", al.hits);
+			printf("    misses   : total=%llu\n", al.misses);
+			printf("    starving : total=%llu\n", al.starving);
+			printf("    locked   : total=%llu\n", al.locked);
+			printf("    changed  : total=%llu\n", al.changed);
+			printf("    al_wait retry count : max=%lu, total=%llu\n", al.wait.max, al.wait.sum);
+			printf("    pending_changes     : max=%lu, total=%llu\n", al.pending.max, al.pending.sum);
 			printf("    error : total=%u\n", 
 							al.e_starving + al.e_pending + al.e_used + al.e_busy + al.e_wouldblock);
 			printf("      NOBUFS - starving     : total=%u\n", al.e_starving);
@@ -845,15 +845,15 @@ void read_peer_resync_ratio_work(FILE *fp, char * peer_name, struct time_filter 
 						ptr = strtok_r(NULL, " ", &save_ptr);
 						if (!ptr)
 							break;
-						set_min_max_val(&repl_sended, atoi(ptr));
+						set_min_max_val(&repl_sended, atoll(ptr));
 						ptr = strtok_r(NULL, " ", &save_ptr);
 						if (!ptr)
 							break;
-						set_min_max_val(&resync_sended, atoi(ptr));
+						set_min_max_val(&resync_sended, atoll(ptr));
 						ptr = strtok_r(NULL, " ", &save_ptr);
 						if (!ptr)
 							break;
-						set_min_max_val(&resync_ratio, atoi(ptr));
+						set_min_max_val(&resync_ratio, atoll(ptr));
 					}
 				}
 
@@ -872,7 +872,7 @@ void read_peer_resync_ratio_work(FILE *fp, char * peer_name, struct time_filter 
 
 	if (print_runtime)
 		printf(" Run: %s - %s\n", filter_s, filter_e);
-	printf("  PEER %s: replication sended=%lubyte/s, resync sended=%lubyte/s, resync ratio=%lu\n", peer_name, stat_avg(repl_sended.sum, repl_sended.cnt), stat_avg(resync_sended.sum, resync_sended.cnt), stat_avg(resync_ratio.sum, resync_ratio.cnt));
+	printf("  PEER %s: replication sended=%llubyte/s, resync sended=%llubyte/s, resync ratio=%llu\n", peer_name, stat_avg(repl_sended.sum, repl_sended.cnt), stat_avg(resync_sended.sum, resync_sended.cnt), stat_avg(resync_ratio.sum, resync_ratio.cnt));
 }
 
 /**
@@ -1998,8 +1998,8 @@ void watch_sendbuf(char *path, bool scroll)
 				}
 				else if (!strcmp(type, "data") || !strcmp(type, "control")) {
 					/* sock_type size used */
-					s_size = atol(strtok_r(NULL, " ", &save_ptr));
-					s_used = atol(strtok_r(NULL, " ", &save_ptr));
+					s_size = atoll(strtok_r(NULL, " ", &save_ptr));
+					s_used = atoll(strtok_r(NULL, " ", &save_ptr));
 					
 					printf("    %s stream\n", type);
 					printf("        size (bytes) : %lld\n", s_size);
@@ -2186,7 +2186,7 @@ void watch_peer_resync_ratio(char *path, bool scroll)
 		fseek(fp, offset, SEEK_SET);
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
-			long repl_sended, resync_sended, resync_ratio;
+			long long repl_sended, resync_sended, resync_ratio;
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
 			ptr = strtok_r(buf, " ", &save_ptr);
@@ -2199,10 +2199,10 @@ void watch_peer_resync_ratio(char *path, bool scroll)
 			while (ptr) {
 				printf("%s\n", ptr); 
 
-				repl_sended = atol(strtok_r(NULL, " ", &save_ptr));
-				resync_sended = atol(strtok_r(NULL, " ", &save_ptr));
-				resync_ratio = atol(strtok_r(NULL, " ", &save_ptr));
-				printf("    replcation(%ldkb)/resync(%ldkb),  resync ratio %ld%%\n", repl_sended >> 10, resync_sended >> 10, resync_ratio);
+				repl_sended = atoll(strtok_r(NULL, " ", &save_ptr));
+				resync_sended = atoll(strtok_r(NULL, " ", &save_ptr));
+				resync_ratio = atoll(strtok_r(NULL, " ", &save_ptr));
+				printf("    replcation(%lldkb)/resync(%lldkb),  resync ratio %lld%%\n", repl_sended >> 10, resync_sended >> 10, resync_ratio);
 				ptr = strtok_r(NULL, " ", &save_ptr);
 			}
 		}
