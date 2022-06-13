@@ -777,9 +777,9 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 
 	// BSR-839 passing in_flight_cnt as sendbuf performance data
 	/* ap_in_flight size_bytes cnt */
-	seq_printf(m, "ap %ld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
+	seq_printf(m, "ap %lld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
 	/* rs_in_flight size_bytes cnt */
-	seq_printf(m, "rs %ld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
+	seq_printf(m, "rs %lld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
 
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
@@ -1102,7 +1102,7 @@ int connection_resync_ratio_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_connection *connection = m->private;
 	struct bsr_peer_device *peer_device;
-	LONG_PTR cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, resync_sended_percent;
+	long long cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, resync_sended_percent;
 
 	int vnr = 0;
 	
@@ -1121,8 +1121,7 @@ int connection_resync_ratio_show(struct seq_file *m, void *ignored)
 		} else if (resync_sended > 0 && repl_sended == 0) {
 			resync_sended_percent = 100;
 		} 
-
-		seq_printf(m, "%ld %ld %ld ", repl_sended, resync_sended, resync_sended_percent);
+		seq_printf(m, "%lld %lld %lld ", repl_sended, resync_sended, resync_sended_percent);
 	}
 	rcu_read_unlock();
 
