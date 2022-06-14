@@ -2650,11 +2650,12 @@ static int split_request_complete(struct bsr_peer_device* peer_device, struct bs
 }
 
 // DW-2042 after the duplicate inspection, the bitmap setting and the results are sent.
-static void dup_verification_and_processing(struct bsr_peer_device* peer_device, struct bsr_peer_request *peer_req)
+static int dup_verification_and_processing(struct bsr_peer_device* peer_device, struct bsr_peer_request *peer_req)
 {
 	sector_t sst, offset, est = peer_req->i.sector + (peer_req->i.size >> 9);
 	struct bsr_peer_device* tmp = NULL;
 	enum bsr_packet cmd = P_RS_WRITE_ACK;
+	int err = 0; // BSR-883
 
 	sst = offset = peer_req->i.sector;
 
@@ -2684,12 +2685,16 @@ static void dup_verification_and_processing(struct bsr_peer_device* peer_device,
 		// send the result only when it is not a split request.
 		// (if it is a split request, set the bitmap only and send the result from the split_request_complet())
 		if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ)) {
-			_bsr_send_ack(peer_device, cmd, cpu_to_be64(sst), cpu_to_be32((int)(offset - sst) << 9),
+			// BSR-883 return bsr_send_ack result to reconnection in case of failure.
+			err = _bsr_send_ack(peer_device, cmd, cpu_to_be64(sst), cpu_to_be32((int)(offset - sst) << 9),
 				((offset == est) ? ID_SYNCER_SPLIT_DONE : ID_SYNCER_SPLIT));
+			if (err)
+				break;
 		}
 
 		sst = offset;
 	}
+	return err;
 }
 
 static bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req)
@@ -2762,7 +2767,7 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 		if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 			if (!is_unmarked) {
 				// DW-2042
-				dup_verification_and_processing(peer_device, peer_req);
+				err = dup_verification_and_processing(peer_device, peer_req);
 			}
 		}
 		else {
