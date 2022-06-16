@@ -1972,7 +1972,7 @@ void watch_sendbuf(char *path, bool scroll)
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
 			long long s_size = 0, s_used = 0;
-			unsigned long p_size = 0, p_cnt = 0;
+			long long p_size = 0, p_cnt = 0;
 
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
@@ -2037,9 +2037,9 @@ void watch_sendbuf(char *path, bool scroll)
 						type = ptr;
 					} else {
 						// packet info
-						p_cnt = atol(ptr);
-						p_size = atol(strtok_r(NULL, " ", &save_ptr));
-						printf("         [%s]  -  cnt : %lu  size : %lubytes\n", type, p_cnt, p_size);
+						p_cnt = atoll(ptr);
+						p_size = atoll(strtok_r(NULL, " ", &save_ptr));
+						printf("         [%s]  -  cnt : %lld  size : %lldbytes\n", type, p_cnt, p_size);
 						type = strtok_r(NULL, " ", &save_ptr);
 					}
 				}
@@ -2084,7 +2084,7 @@ void watch_memory(char *path, bool scroll)
 				clear_screen();
 			printf("%s\n", ptr); // time
 #ifdef _WIN
-			printf("Total Memory (kbytes) :%lld\n", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
+			printf("Total Memory (kbytes) : %lld\n", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
 			printf("  TotalUsed        : %lld\n", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
 			printf("  module (kbytes)\n");
 
@@ -2104,7 +2104,7 @@ void watch_memory(char *path, bool scroll)
 			app_name = strtok_r(NULL, " ", &save_ptr);
 			while (app_name) {
 				printf("    %-11s", app_name);
-				printf(" %-6lld", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
+				printf(" %-6ld", atol(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-15lld", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-21lld", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
 				printf(" %-23lld", STRING_TO_KBYTE(strtok_r(NULL, " ", &save_ptr)));
