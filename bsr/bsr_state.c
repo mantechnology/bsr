@@ -4288,6 +4288,56 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
 	}
 }
 
+#define TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF 100
+
+static bool waiting_for_status_for_connections(struct bsr_resource *resource, 
+												enum bsr_conn_state state, 
+												bool not_equal, 
+												u64 reach_immediately, 
+												u32 timeout /* milisecond */ ) {
+	struct bsr_connection *connection;
+	u64 im;
+	bool retry = true;
+	u32 max_retry = 1;
+	u32 retry_count = 0;
+
+	if (TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF < timeout)
+		max_retry = timeout / TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF;
+
+	while (retry) {
+		if (retry_count >= max_retry) 
+			return false;
+
+		retry = false;
+
+		for_each_connection_ref(connection, im, resource) {
+			u64 mask = NODE_MASK(connection->peer_node_id);
+
+			if (!(reach_immediately & mask))
+				continue;
+
+			if (not_equal) {
+				if (connection->cstate[NOW] == state) {
+					retry = true;
+					break;
+				}
+			}
+			else {
+				if (connection->cstate[NOW] != state) {
+					retry = true;
+					break;
+				}
+			}
+		}
+
+		if (retry) {
+			retry_count++;
+			msleep(TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF);
+		}
+	}
+
+	return true;
+}
 
 /**
  * change_cluster_wide_state  -  Cluster-wide two-phase commit
@@ -4633,8 +4683,15 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 			  resource->res_opts.node_id,
 			  context->target_node_id);
 
-	if (have_peers && context->change_local_state_last)
+	if (have_peers && context->change_local_state_last) {
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
+		if (bDisconnecting && rv >= SS_SUCCESS) {
+			// BSR-894 waiting for twopc commit receipt and connection termination on another node
+			if (!waiting_for_status_for_connections(resource, C_CONNECTED, true, reach_immediately, twopc_timeout(resource))) {
+				bsr_err(58, BSR_LC_TWOPC, resource, "Connection did not terminate within the timeout(%d) after committing connection termination", twopc_timeout(resource));
+			}
+		}
+	}
 	end_remote_state_change(resource, &irq_flags, context->flags | CS_TWOPC);
 	if (rv >= SS_SUCCESS) {
 		change(context, PH_COMMIT);
