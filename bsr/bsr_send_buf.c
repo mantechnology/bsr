@@ -101,6 +101,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 #endif
 		
 		connection->ptxbab[DATA_STREAM] = ring;
+		INIT_LIST_HEAD(&ring->packet_list);
 #ifdef _WIN_SEND_BUF
 		__try {
 #endif
@@ -133,6 +134,7 @@ bool alloc_bab(struct bsr_connection* connection, struct net_conf* nconf)
 		}
 #endif
 		connection->ptxbab[CONTROL_STREAM] = ring;
+		INIT_LIST_HEAD(&ring->packet_list);
 		
 	} while (false);
 
