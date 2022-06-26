@@ -365,6 +365,82 @@ char* GetBsrModuleMemoryUsage(void)
 }
 #endif
 
+#ifdef _LIN
+void read_top_mem_usage_process(FILE *pipe, char *buf, char *buffer) {
+	if (buf[strlen(buf) - 1] == '\n' || buf[strlen(buf) - 1] == ' ')
+		buf[strlen(buf) - 1] = 0;
+
+	/* name pid rsz(kbytes) vsz(kbytes) */
+	sprintf(buffer + strlen(buffer), "%s ", buf);
+} 
+
+void read_bsr_process(FILE *pipe, char *buf, char *buffer) {
+	unsigned int pid, rsz, vsz;
+	char *ptr, *save_ptr;
+	int idx = 0;
+
+	ptr = strtok_r(buf, " ", &save_ptr);
+
+	while(ptr) {
+		if (idx == 0)
+			pid = atoi(ptr);
+		else if (idx == 1)
+			rsz = atoi(ptr);
+		else if (idx == 2)
+			vsz = atoi(ptr);
+		else
+			break;
+		idx++;
+
+		ptr = strtok_r(NULL, " ", &save_ptr);
+	}
+
+	if (strncmp(ptr, "bsr", 3))
+		return;
+
+	if (ptr[strlen(ptr) - 1] == '\n' || ptr[strlen(ptr) - 1] == ' ')
+		ptr[strlen(ptr) - 1] = 0;
+
+	/* name pid rsz(kbytes) vsz(kbytes) */
+	sprintf(buffer + strlen(buffer), "%s %d %u %u ", ptr, pid, rsz, vsz);
+		
+}
+
+bool pipe_run(const char* command, char* buffer, void(*pp_read)(FILE *, char *, char *))
+{
+	FILE *pipe = popen(command, "r");
+	bool remained = false;
+	char buf[128] = { 0, };
+
+	if (!pipe) {
+		fprintf(stderr, "Failed to execute command : %s\n", command);
+		return false;
+	}
+
+	while (!feof(pipe)) {
+		if (remained) {
+			if (fgets(buf, sizeof(buf), pipe) != NULL) {
+				if (buf[strlen(buf) - 1] == '\n') {
+					remained = false;
+				}
+				continue;
+			}
+		}
+
+		memset(buf, 0, sizeof(buf));
+		if (fgets(buf, sizeof(buf), pipe) != NULL) {
+			if (buf[strlen(buf) - 1] != '\n') {
+				remained = true;
+			}
+			pp_read(pipe, buf, buffer);
+		}
+	}
+	pclose(pipe);
+
+	return true;
+}
+#endif 
+
 char* GetBsrUserMemoryUsage(void)
 {
 #ifdef _WIN
@@ -377,13 +453,6 @@ char* GetBsrUserMemoryUsage(void)
 	SIZE_T usage = 0;
 	TCHAR szName[1024] = { 0, };
 	char topProcess[256] = { 0, };
-#else // _LIN
-	char command[128] = { 0, };;
-	char buf[128] = { 0, };
-	unsigned int pid, rsz, vsz;
-	char *ptr, *save_ptr;
-	int idx = 0;
-	FILE *pipe;
 #endif
 	char *buffer;
 
@@ -435,66 +504,13 @@ char* GetBsrUserMemoryUsage(void)
 
 	return buffer;
 #else // _LIN
+
 	// BSR-875 get top process
-	memset(command, 0, 128);
-	sprintf(command, "ps -eo comm,pid,rsz,vsz --sort -rsz --no-headers | head -1 | awk '{ gsub(/[ ]+/,\" \"); print }'");
-	pipe = popen(command, "r");
-	if (!pipe) {
-		fprintf(stderr, "Failed to execute command : %s\n", command);
+	if (!pipe_run("ps -eo comm,pid,rsz,vsz --sort -rsz --no-headers | head -1 | awk '{ gsub(/[ ]+/,\" \"); print }'", buffer, read_top_mem_usage_process))
 		goto fail;
-	}
 
-	while (!feof(pipe)) {
-		if (fgets(buf, 128, pipe) != NULL) {
-			// remove EOL
-			*(buf + (strlen(buf) - 1)) = 0;
-			
-			/* name pid rsz(kbytes) vsz(kbytes) */
-			sprintf(buffer + strlen(buffer), "%s ", buf);
-		}
-	}
-	pclose(pipe);
-
-	memset(command, 0, 128);
-	sprintf(command, "ps -eo pid,rsz,vsz,cmd | grep bsr");
-	pipe = popen(command, "r");
-	if (!pipe) {
-		fprintf(stderr, "Failed to execute command : %s\n", command);
+	if (!pipe_run("ps -eo pid,rsz,vsz,cmd | grep bsr", buffer, read_bsr_process))
 		goto fail;
-	}
-
-	while (!feof(pipe)) {
-		if (fgets(buf, 128, pipe) != NULL) {
-			// remove EOL
-			*(buf + (strlen(buf) - 1)) = 0;
-			idx = 0;
-
-			ptr = strtok_r(buf, " ", &save_ptr);
-
-			while(ptr) {
-				if (idx == 0)
-					pid = atoi(ptr);
-				else if (idx == 1)
-					rsz = atoi(ptr);
-				else if(idx == 2)
-					vsz = atoi(ptr);
-				else
-					break;
-				idx++;
-
-				ptr = strtok_r(NULL, " ", &save_ptr);
-			}
-
-			if (strncmp(ptr, "bsr", 3))
-				continue;
-			/* name pid rsz(kbytes) vsz(kbytes) */
-			sprintf(buffer + strlen(buffer), "%s %d %u %u ", ptr, pid, rsz, vsz);
-		}
-		else if (*buf == 0) {
-			fprintf(stderr, "Failed to execute command : %s\n", command);
-		}
-	}
-	pclose(pipe);
 
 	return buffer;
 #endif
