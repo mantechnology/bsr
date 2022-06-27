@@ -4287,7 +4287,7 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
 		conn_send_twopc_request(connection, vnr, twopc_cmd, request);
 	}
 }
-
+#ifdef _WIN
 #define TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF 100
 
 static bool waiting_for_connection_status(struct bsr_resource *resource,
@@ -4330,6 +4330,7 @@ static bool waiting_for_connection_status(struct bsr_resource *resource,
 
 	return true;
 }
+#endif
 
 /**
  * change_cluster_wide_state  -  Cluster-wide two-phase commit
@@ -4677,6 +4678,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 
 	if (have_peers && context->change_local_state_last) {
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
+#ifdef _WIN
 		if (bDisconnecting && rv >= SS_SUCCESS) {
 			// BSR-894 wait for the other node to disconnect.
 			if (target_connection) {
@@ -4684,8 +4686,8 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 					bsr_err(58, BSR_LC_TWOPC, resource, "Connection did not terminate within the timeout(%d) after committing connection termination", twopc_timeout(resource));
 				}
 			}
-
 		}
+#endif
 	}
 	end_remote_state_change(resource, &irq_flags, context->flags | CS_TWOPC);
 	if (rv >= SS_SUCCESS) {
