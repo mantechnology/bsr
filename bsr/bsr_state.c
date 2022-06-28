@@ -4287,6 +4287,50 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
 		conn_send_twopc_request(connection, vnr, twopc_cmd, request);
 	}
 }
+#ifdef _WIN
+#define TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF 100
+
+static bool waiting_for_connection_status(struct bsr_resource *resource,
+												enum bsr_conn_state state, 
+												bool not_equal, 
+												u64 target_nodes, 
+												u32 timeout /* milisecond */ ) {
+	struct bsr_connection *connection;
+	u64 im;
+	bool retry = true;
+	u32 max_retry = 1;
+	u32 retry_count = 0;
+
+	if (TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF < timeout)
+		max_retry = timeout / TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF;
+
+	while (retry) {
+		if (retry_count >= max_retry) 
+			return false;
+
+		retry = false;
+
+		for_each_connection_ref(connection, im, resource) {
+			u64 mask = NODE_MASK(connection->peer_node_id);
+
+			if (!(target_nodes & mask))
+				continue;
+
+			if ((not_equal && connection->cstate[NOW] == state) || 
+				(!not_equal && connection->cstate[NOW] != state)) {
+				retry = true;
+			}
+		}
+
+		if (retry) {
+			retry_count++;
+			msleep(TIME_TO_WAIT_FOR_CONNECTION_STATUS_DEF);
+		}
+	}
+
+	return true;
+}
+#endif
 
 /**
  * change_cluster_wide_state  -  Cluster-wide two-phase commit
@@ -4634,6 +4678,16 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 
 	if (have_peers && context->change_local_state_last) {
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
+#ifdef _WIN
+		if (bDisconnecting && rv >= SS_SUCCESS) {
+			// BSR-894 wait for the other node to disconnect.
+			if (target_connection) {
+				if (!waiting_for_connection_status(resource, C_CONNECTED, true, NODE_MASK(target_connection->peer_node_id), twopc_timeout(resource))) {
+					bsr_err(58, BSR_LC_TWOPC, resource, "Connection did not terminate within the timeout(%d) after committing connection termination", twopc_timeout(resource));
+				}
+			}
+		}
+#endif
 	}
 	end_remote_state_change(resource, &irq_flags, context->flags | CS_TWOPC);
 	if (rv >= SS_SUCCESS) {
