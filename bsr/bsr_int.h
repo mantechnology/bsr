@@ -1418,6 +1418,8 @@ enum {
 	DISCONN_NO_WAIT_RESYNC,
 	// BSR-863
 	GOT_UUID_ACK,
+	// BSR-894
+	PRIMARY_DISCONNECT_EXPECTED,
 };
 
 /* flag bits per resource */

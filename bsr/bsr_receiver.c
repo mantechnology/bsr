@@ -679,9 +679,24 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 		bsr_info(16, BSR_LC_SOCKET, connection, "Data stream socket shut down due to peer");
 	}
 
-	if (rv != (int)size)
-		change_cstate_ex(connection, C_BROKEN_PIPE, CS_HARD);
+	if (rv != (int)size) {
+		change_cstate_ex(connection, C_BROKEN_PIPE, CS_HARD);		
+		// BSR-894 if the connection is terminated due to an error during disconnecting twopc prepare, change the disk state to the outdated state.
+#ifdef _WIN 
+		if (rv == -ECONNRESET) {
+			if (test_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags)) {
+				struct bsr_resource *resource = connection->resource;
+				unsigned long irq_flags;
+				
+				begin_state_change(resource, &irq_flags, flags);
+				__outdate_myself(resource);
+				end_state_change(resource, &irq_flags, __FUNCTION__);
 
+				clear_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags);
+			}
+		}
+#endif
+	}
 out:
 	return rv;
 }
@@ -864,6 +879,8 @@ start:
 	have_mutex = false;
 
 	clear_bit(DISCONNECT_EXPECTED, &connection->flags);
+	clear_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags);
+
 	if (change_cstate_ex(connection, C_CONNECTING, CS_VERBOSE) < SS_SUCCESS) {
 		/* We do not have a network config. */
 		return false;
@@ -8542,6 +8559,18 @@ static int process_twopc(struct bsr_connection *connection,
 		if (flags & CS_PREPARED)
 			reply->primary_nodes = be64_to_cpu(p->primary_nodes);
 
+		// BSR-894 
+#ifdef _WIN
+		if (reply->is_disconnect && affected_connection) {
+			if (pi->cmd == P_TWOPC_PREPARE) {
+				if (affected_connection->peer_role[NOW] == R_PRIMARY)
+					set_bit(PRIMARY_DISCONNECT_EXPECTED, &affected_connection->flags);
+			}
+			else {
+				clear_bit(PRIMARY_DISCONNECT_EXPECTED, &affected_connection->flags);
+			}
+		}
+#endif
 		if (peer_device)
 			rv = change_peer_device_state(peer_device, mask, val, flags);
 		else if (affected_connection)
