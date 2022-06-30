@@ -71,7 +71,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
-    <IntDir>$(ProjectDir)$(Configuration)</IntDir>
+    <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>bsrservice</TargetName>
     <TargetExt>.exe</TargetExt>
@@ -85,11 +85,11 @@
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
-    <IntDir>$(ProjectDir)$(Configuration)</IntDir>
+    <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
-    <IntDir>$(ProjectDir)$(Configuration)</IntDir>
+    <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
     <LinkIncremental>true</LinkIncremental>
     <TargetName>bsrservice</TargetName>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
@@ -101,7 +101,7 @@
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
-    <IntDir>$(ProjectDir)$(Configuration)</IntDir>
+    <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
