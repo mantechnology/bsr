@@ -6036,14 +6036,20 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// DW-1657 If an inconsistent node tries to become a SyncSource, it will disconnect.
 	if (hg == 3 && device->disk_state[NOW] < D_OUTDATED && 
 		bsr_current_uuid(peer_device->device) != UUID_JUST_CREATED) {
-		bsr_err(29, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
-		return -1;
+		// BSR-900 when it is unstable, resync does not proceed with logic afterwards, so the connection is disconnected only when it is in the stable state.
+		if (bsr_inspect_resync_side(peer_device, L_SYNC_SOURCE, NOW, false)) {
+			bsr_err(29, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncSource, but I am inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			return -1;
+		}
 	}
 
 	if (hg == -3 && peer_device->uuid_flags & UUID_FLAG_INCONSISTENT) {
-		bsr_err(30, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
-		return -1;
-	}	
+		// BSR-900
+		if (bsr_inspect_resync_side(peer_device, L_SYNC_TARGET, NOW, false)) {
+			bsr_err(30, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become SyncTarget, but peer is inconsistent. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			return -1;
+		}
+	}
 
 	if (test_bit(CONN_DRY_RUN, &connection->flags)) {
 		if (hg == 0)
