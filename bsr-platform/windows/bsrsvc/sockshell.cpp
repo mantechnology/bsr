@@ -25,9 +25,9 @@
 
 
 void DieWithError(wchar_t *errorMessage);
-int HandleTCPClient(int clntSocket); 
-int CreateTCPServerSocket(unsigned short port); 
-int AcceptTCPConnection(int servSock); 
+int HandleTCPClient(SOCKET clntSocket);
+SOCKET CreateTCPServerSocket(unsigned short port); 
+SOCKET AcceptTCPConnection(SOCKET servSock);
 void *ThreadMain(void *arg); 
 
 struct ThreadArgs
@@ -145,8 +145,8 @@ DWORD RunProcess(
 
 int SockListener(unsigned short *servPort)
 {
-	int servSock; /* Socket descriptor for server */
-	int clntSock; /* Socket descriptor for client */
+	SOCKET servSock; /* Socket descriptor for server */
+	SOCKET clntSock; /* Socket descriptor for client */
 	DWORD threadID; /* Thread ID from CreateThread() */
 	WSADATA wsaData; /* Structure for WinSock setup communication */
 	wchar_t tmp[TMPBUF];
@@ -208,9 +208,9 @@ void DieWithError(wchar_t *errorMessage)
 	WriteLog(tmp);
 }
 
-int CreateTCPServerSocket(unsigned short port)
+SOCKET CreateTCPServerSocket(unsigned short port)
 {
-	int sock; /* socket to create */
+	SOCKET sock; /* socket to create */
 	struct sockaddr_in svrAddr; /* Local address */
 	
 	/* Create socket for incoming connections */
@@ -247,9 +247,9 @@ int CreateTCPServerSocket(unsigned short port)
 	return sock;
 }
 
-int AcceptTCPConnection(int servSock)
+SOCKET AcceptTCPConnection(SOCKET servSock)
 {
-	int clntSock; 
+	SOCKET clntSock; 
 	struct sockaddr_in clientAddr;
 	unsigned int clntLen; 
 	
@@ -265,7 +265,7 @@ int AcceptTCPConnection(int servSock)
 	return clntSock;
 }
 
-int HandleTCPClient(int clntSocket)
+int HandleTCPClient(SOCKET clntSocket)
 {
 	char rxcmdbuf[RCVBUFSIZE]; 
 	int recvMsgSize; 

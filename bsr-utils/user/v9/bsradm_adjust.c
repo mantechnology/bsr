@@ -294,6 +294,7 @@ static int disk_equal(struct d_volume *conf, struct d_volume *running)
 	return eq;
 }
 
+#if 0
 /* The following is a cruel misuse of the cmd->name field. The whole proxy_reconf
    function should be rewritten in a sane way!
    It should schedule itself to get invoked later, and at the late point in time
@@ -324,6 +325,7 @@ static void schedule_deferred_proxy_reconf(const struct cfg_ctx *ctx, char *text
 	cmd->function = &do_proxy_reconf;
 	schedule_deferred_cmd(cmd, ctx, CFG_NET);
 }
+#endif 
 
 #define MAX_PLUGINS (10)
 #define MAX_PLUGIN_NAME (16)
@@ -365,7 +367,7 @@ bool _is_plugin_in_list(char *string,
 	return false;
 }
 
-
+#if 0
 static int proxy_reconf(const struct cfg_ctx *ctx, struct connection *running_conn)
 {
 	int reconn = 0;
@@ -488,6 +490,7 @@ redo_whole_conn:
 
 	return reconn;
 }
+#endif 
 
 int need_trigger_kobj_change(struct d_resource *res)
 {
