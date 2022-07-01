@@ -454,6 +454,7 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx);
 int do_proxy_conn_plugins(const struct cfg_ctx *ctx);
 struct peer_device *find_peer_device(struct connection *conn, int vnr);
 bool peer_diskless(struct peer_device *peer_device);
+struct d_resource *parse_bsrsetup_show(const char *name);
 
 extern char *config_file;
 extern char *config_save;

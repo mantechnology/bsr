@@ -24,6 +24,9 @@
 #ifdef _LIN
 #include <linux/fs.h>
 #endif
+#ifndef __KERNEL__
+#include <string.h>
+#endif
 #include "bsr_strings.h"
 #include "bsr_protocol.h"
 

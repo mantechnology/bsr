@@ -597,7 +597,7 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 	int i = 0;
 	
 	char fileName[256];
-	char removeFileFullPath[256];
+	char removeFileFullPath[513];
 	int fileMaxCount = CLI_LOG_FILE_MAX_DEFAULT_COUNT;
 
 	if (strstr(lprogram, "bsradm"))
@@ -799,9 +799,9 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	// BSR-671
 	if (line_break) {
 #ifdef _WIN
-		fprintf(fp, "\r\n", b);
+		fprintf(fp, "\r\n");
 #else
-		fprintf(fp, "\n", b);
+		fprintf(fp, "\n");
 #endif
 	}
 

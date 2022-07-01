@@ -1789,7 +1789,7 @@ static void zeroout_bitmap(struct format *cfg)
 	CLI_ERRO_LOG_STDERR(false, "ioctl(%s, BLKZEROOUT, [%llu, %llu]) not support\n", cfg->md_device_name,
 		(unsigned long long)range[0], (unsigned long long)range[1]);
 #endif
-	CLI_ERRO_LOG_STDERR(false, "Using slow(er) fallback.");
+	CLI_ERRO_LOG_STDERR(false, "Using slow(er) fallback.");;
 	{
 		/* need to sector-align this for O_DIRECT.
 		 * "sector" here means hard-sect size, which may be != 512.
@@ -1819,6 +1819,7 @@ static void zeroout_bitmap(struct format *cfg)
 		}
 		CLI_ERRO_LOG_STDERR(false, "\r100%%");	
 	}
+
 }
 
 /* MAYBE DOES DISK WRITES!! */
@@ -3718,6 +3719,8 @@ int meta_dump_md(struct format *cfg, char **argv __attribute((unused)), int argc
 
 void md_parse_error(int expected_token, int seen_token,const char *etext)
 {
+	char z[1] = { 0, };
+
 	if (!etext) {
 		switch(expected_token) {
 		/* leading space indicates to strip off "expected" below */
@@ -3782,14 +3785,14 @@ void md_parse_error(int expected_token, int seen_token,const char *etext)
 
 	switch(seen_token) {
 	case 0:
-		CLI_ERRO_LOG_STDERR(false, ", but end of file encountered"); break;
-
+		CLI_ERRO_LOG_STDERR(false, ", but end of file encountered"); 
+		break;
 	case   1 ...  58: /* ord(';') == 58 */
 	case  60 ... 122: /* ord('{') == 123 */
 	case 124:         /* ord('}') == 125 */
 	case 126 ... 257:
 		/* oopsie. these should never be returned! */
-		CLI_ERRO_LOG_STDERR(false, "; got token value %u (this should never happen!)", seen_token); break;
+		CLI_ERRO_LOG_STDERR(false, "; got token value %u (this should never happen!)", seen_token);
 		break;
 
 	case TK_INVALID_CHAR:
@@ -3797,14 +3800,17 @@ void md_parse_error(int expected_token, int seen_token,const char *etext)
 			(unsigned char)yylval.txt[0], yylval.txt[0]);
 		break;
 	case ';': case '{': case '}':
-		CLI_ERRO_LOG_STDERR(false, ", not '%c'", seen_token); break;
+		CLI_ERRO_LOG_STDERR(false, ", not '%c'", seen_token); 
+		break;
 	case TK_NUM:
 	case TK_U32:
 	case TK_U64:
-		CLI_ERRO_LOG_STDERR(false, ", not some number"); break;
+		CLI_ERRO_LOG_STDERR(false, ", not some number"); 
+		break;
 	case TK_INVALID:
 		/* already reported by scanner */
-		CLI_ERRO_LOG_STDERR(false, ""); break;
+		CLI_ERRO_LOG_STDERR(false, "%s", z); 
+		break;
 	default:
 		CLI_ERRO_LOG_STDERR(false, ", not '%s'", yylval.txt);
 	}
@@ -4549,13 +4555,15 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 		}
 	}
 	if (!ret) {
+		char z[1] = { 0, };
+
 		for (i = 0; i < N_ERR_LINES; i++) {
 			char *b = buf_err[(err_lines + i) % N_ERR_LINES];
 			if (b[0] == 0)
 				continue;
 			CLI_ERRO_LOG_STDERR(false, "pvs stderr:%s", b);
 		}
-		CLI_ERRO_LOG_STDERR(false, "");
+		CLI_ERRO_LOG_STDERR(false, "%s", z);
 	}
 
 	i = 2;
@@ -5612,7 +5620,7 @@ int main(int argc, char **argv)
 	}
 	ai++;
 
-	lcmd = command->name;
+	lcmd = (char *)command->name;
 
 	/* does exit() unless we acquired the lock.
 	 * unlock happens implicitly when the process dies,
@@ -5655,11 +5663,11 @@ int main(int argc, char **argv)
 	/* at some point I'd like to go for this: (16*1024*1024/4) */
 	if ((uint64_t)option_al_stripes * option_al_stripe_size_4k > (buffer_size/4096)) {
 		CLI_ERRO_LOG_STDERR(false, "invalid (too large) al-stripe* settings");
-		    exit(10);
+		exit(10);
 	}
 	if (option_al_stripes * option_al_stripe_size_4k < 32/4) {
 		CLI_ERRO_LOG_STDERR(false, "invalid (too small) al-stripe* settings");
-		    exit(10);
+		exit(10);
 	}
 
 	if (option_node_id != -1 && !command->node_id_required) {
