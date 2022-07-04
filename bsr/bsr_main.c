@@ -567,6 +567,12 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 				continue;
 			if (r->rq_state[idx] & RQ_NET_DONE)
 				continue;
+			
+			// BSR-901 requests for which RQ_EXP_BARR_ACK is not set are skipped
+			// when find oldest not yet barrier-acked write request.
+			if (!(r->rq_state[idx] & RQ_EXP_BARR_ACK))
+				continue;
+
 			req = r;
 			expect_epoch = req->epoch;
 			expect_size ++;
@@ -580,6 +586,11 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 			if (!(r->rq_state[idx] & RQ_NET_MASK))
 				continue;
 			if (r->rq_state[idx] & RQ_NET_DONE)
+				continue;
+
+			// BSR-901 requests for which RQ_EXP_BARR_ACK is not set are skipped
+			// when find oldest not yet barrier-acked write request.
+			if (!(r->rq_state[idx] & RQ_EXP_BARR_ACK))
 				continue;
 
 			expect_size++;
