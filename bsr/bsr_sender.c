@@ -3970,7 +3970,12 @@ static int process_one_request(struct bsr_connection *connection)
 			 * If it was sent, it was the closing barrier for the last
 			 * replicated epoch, before we went into AHEAD mode.
 			 * No more barriers will be sent, until we leave AHEAD mode again. */
-			maybe_send_barrier(connection, req->epoch);
+
+			// BSR-901 execute maybe_send_barrier() only in Ahead state when sending oos
+			// otherwise, if oos req from another epoch is sent during replication epoch processing, 
+			// current_epoch_nr will change and same barrier_nr may be sent duplicated.
+			if (peer_device->repl_state[NOW] == L_AHEAD)
+				maybe_send_barrier(connection, req->epoch);
 
 			if (!peer_device->todo.was_ahead) {
 				peer_device->todo.was_ahead = true;
