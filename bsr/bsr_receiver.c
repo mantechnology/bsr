@@ -8883,18 +8883,13 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		if (old_peer_state.conn != L_BEHIND) {
 			bsr_info(23, BSR_LC_REPLICATION, peer_device, "Peer is Ahead. change to Behind mode"); // DW-1518
 		}
-		// DW-2104 When the Ahead node is demoted, Behind state is changed to Established.
-		if (peer_state.role == R_SECONDARY)
-			new_repl_state = L_ESTABLISHED;
-		else {
-			new_repl_state = L_BEHIND;
-			// BSR-842
+		new_repl_state = L_BEHIND;
+		// BSR-842
 #ifdef SPLIT_REQUEST_RESYNC
-			if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-				atomic_set(&peer_device->wait_for_out_of_sync, 1);
-			}
-#endif
+		if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+			atomic_set(&peer_device->wait_for_out_of_sync, 1);
 		}
+#endif
 	}
 
 	if (peer_device->uuids_received &&
