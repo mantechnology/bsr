@@ -868,7 +868,7 @@ Send(
 		}
 		else if (Status == STATUS_SUCCESS) {
 			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
-				bsr_debug(7, BSR_LC_LATENCY, NO_OBJECT, "SUCCESS, Current state : %d(0x%p) size(%lu) elapse(%lldus)", pSock->sk_state, WskSocket, BufferSize, timestamp_elapse(send_ts, timestamp()));
+				bsr_debug(7, BSR_LC_LATENCY, NO_OBJECT, "SUCCESS, Current state : %d(0x%p) size(%lu) elapse(%lldus)", pSock->sk_state, WskSocket, BufferSize, timestamp_elapse(__FUNCTION__, send_ts, timestamp()));
 		}
 	}
 
@@ -1353,7 +1353,7 @@ LONG NTAPI Receive(
                 BytesReceived = (LONG) Irp->IoStatus.Information;
 
 				if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
-					bsr_debug(8, BSR_LC_LATENCY, NO_OBJECT, "RECV(%s) wsk(0x%p) SUCCESS err(0x%x:%s) size(%lu) elapse(%lldus)", thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize, timestamp_elapse(recv_ts, timestamp()));
+					bsr_debug(8, BSR_LC_LATENCY, NO_OBJECT, "RECV(%s) wsk(0x%p) SUCCESS err(0x%x:%s) size(%lu) elapse(%lldus)", thread->comm, WskSocket, Irp->IoStatus.Status, GetSockErrorString(Irp->IoStatus.Status), BufferSize, timestamp_elapse(__FUNCTION__, recv_ts, timestamp()));
             } else {
 				bsr_info(66, BSR_LC_SOCKET, NO_OBJECT, "%s => Recv multiWait error. err(%s) wsk(0x%p) size(%lu)", thread->comm, GetSockErrorString(Irp->IoStatus.Status), WskSocket, BufferSize);
 				if(Irp->IoStatus.Status) {

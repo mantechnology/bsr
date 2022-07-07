@@ -269,7 +269,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 		bsr_debug(5, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(read) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
-			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
+			timestamp_elapse(__FUNCTION__, peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(__FUNCTION__, peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
 
 	spin_lock_irqsave(&device->resource->req_lock, flags);
@@ -374,7 +374,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 		bsr_debug(6, BSR_LC_LATENCY, device, "peer_req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(write) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus)",
 			peer_req, peer_req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), peer_req->i.sector, peer_req->i.size,
-			timestamp_elapse(peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(peer_req->io_request_ts, peer_req->io_complete_ts));
+			timestamp_elapse(__FUNCTION__, peer_req->created_ts, peer_req->io_request_ts), timestamp_elapse(__FUNCTION__, peer_req->io_request_ts, peer_req->io_complete_ts));
 	}
 	/* if this is a failed barrier request, disable use of barriers,
 	 * and schedule for resubmission */
@@ -1053,7 +1053,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			mutex_unlock(&device->resource->vol_ctl_mutex);
 			make_resync_request(peer_device, cancel);
 			// DW-1977
-			ts = timestamp_elapse(ts, timestamp());
+			ts = timestamp_elapse(__FUNCTION__, ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
 				bsr_warn(170, BSR_LC_RESYNC_OV, peer_device, "resync request takes a long time(%lldus)", ts);
 			}

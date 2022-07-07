@@ -390,7 +390,7 @@ void bsr_req_destroy(struct kref *kref)
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
 		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)",
 			req, req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
-			timestamp_elapse(req->created_ts, req->io_request_ts), timestamp_elapse(req->io_request_ts, req->io_complete_ts), timestamp_elapse(req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
+			timestamp_elapse(__FUNCTION__, req->created_ts, req->io_request_ts), timestamp_elapse(__FUNCTION__, req->io_request_ts, req->io_complete_ts), timestamp_elapse(__FUNCTION__, req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
 
 	device_refs++; /* In both branches of the if the reference to device gets released */
@@ -1135,18 +1135,19 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		if (old_net & RQ_NET_SENT) {
 			// BSR-839
 			sub_ap_in_flight(req->i.size, peer_device->connection);
+
+			// DW-1961 Calculate and Log IO Latency
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
+				req->net_done_ts[peer_device->node_id] = timestamp();
+				bsr_debug(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)",
+					req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
+					req->i.sector, req->i.size, timestamp_elapse(__FUNCTION__, req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
+			}
 		}
 
 		if (old_net & RQ_EXP_BARR_ACK)
 			++k_put;
 
-		// DW-1961 Calculate and Log IO Latency
-		if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
-			req->net_done_ts[peer_device->node_id] = timestamp();
-			bsr_debug(4, BSR_LC_LATENCY, peer_device, "req(%p) NET latency : in_act(%d) node_id(%u) prpl(%s) type(%s) sector(%llu) size(%u) net(%lldus)",
-				req, req->do_submit, peer_device->node_id, bsr_repl_str((peer_device)->repl_state[NOW]), (req->rq_state[0] & RQ_WRITE) ? "write" : "read",
-				req->i.sector, req->i.size, timestamp_elapse(req->net_sent_ts[peer_device->node_id], req->net_done_ts[peer_device->node_id]));
-		}
 		if (atomic_read(&g_bsrmon_run))
 			ktime_get_accounting(req->net_done_kt[peer_device->node_id]);
 
@@ -2810,7 +2811,7 @@ void do_submit(struct work_struct *ws)
 
 		// DW-1977
 		if (device->resource->role[NOW] == R_SECONDARY && ts != 0) {
-			ts = timestamp_elapse(ts, timestamp());
+			ts = timestamp_elapse(__FUNCTION__, ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
 				bsr_warn(27, BSR_LC_LRU, device, "Activity log commit takes a long time(%lldus)", ts);
 			}

@@ -4388,12 +4388,12 @@ static inline LONGLONG timestamp(void)
 }
 
 
-static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
+static inline LONGLONG timestamp_elapse(const char* caller, LONGLONG begin_ts, LONGLONG end_ts)
 {
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "%s, The timestamp to compare is uncertain. begin(%lld), end(%lld)", caller, begin_ts, end_ts);
 		return -1;
 	}
 
