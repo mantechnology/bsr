@@ -248,8 +248,8 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 		device->md_io.io_complete_ts = timestamp();
 		bsr_debug(1, BSR_LC_LATENCY, device, "md IO latency : type(%s) prepare(%lldus) disk io(%lldus)",
 				(op == REQ_OP_WRITE) ? "write" : "read",
-				timestamp_elapse(device->md_io.prepare_ts, device->md_io.io_request_ts), 
-				timestamp_elapse(device->md_io.io_request_ts, device->md_io.io_complete_ts));
+				timestamp_elapse(__FUNCTION__, device->md_io.prepare_ts, device->md_io.io_request_ts), 
+				timestamp_elapse(__FUNCTION__, device->md_io.io_request_ts, device->md_io.io_complete_ts));
 	}
 
 	err = device->md_io.error;

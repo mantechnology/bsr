@@ -1244,7 +1244,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
-		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(__FUNCTION__, bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
