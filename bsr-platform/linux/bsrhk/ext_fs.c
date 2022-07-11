@@ -21,6 +21,15 @@ unsigned long long ext_block_bitmap(struct ext_super_block *sb,
 		 (unsigned long long)le32_to_cpu(bg->bg_block_bitmap_hi) << 32 : 0);
 }
 
+// BSR-903
+__u32 ext_free_blocks_count(struct ext_super_block *sb,
+			       struct ext_group_desc *bg)
+{
+	return le16_to_cpu(bg->bg_free_blocks_count_lo) |
+		(sb->s_desc_size >= EXT_MIN_DESC_SIZE_64BIT ?
+		 (__u32)le16_to_cpu(bg->bg_free_blocks_count_hi) << 16 : 0);
+}
+
 // for ext-fs debugging
 int ext_used_blocks(unsigned int group, char * bitmap,
 			unsigned int nbytes, unsigned int offset, unsigned int count)
@@ -144,14 +153,12 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		unsigned int last_block = 0;
 		bool block_uninit = false;
 		unsigned long long bg_block_bitmap;
+		unsigned int bg_free_blocks_count;
 		
-		
-		if (debug_fast_sync) {
-			first_block = group_no * blocks_per_group + first_data_block;
-			last_block = first_block + (blocks_per_group - 1);
-			if (last_block > total_block - 1) {
-				last_block = total_block - 1;
-			}
+		first_block = group_no * blocks_per_group + first_data_block;
+		last_block = first_block + (blocks_per_group - 1);
+		if (last_block > total_block - 1) {
+			last_block = total_block - 1;
 		}
 
 		offset = fd->f_op->llseek(fd, group_desc_offset + group_no * desc_size, SEEK_SET);
@@ -169,6 +176,8 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		
 		block_uninit = group_desc.bg_flags & cpu_to_le16(EXT_BG_BLOCK_UNINIT);
 		bg_block_bitmap = ext_block_bitmap(ext_sb, &group_desc);
+		// BSR-903
+		bg_free_blocks_count = ext_free_blocks_count(ext_sb, &group_desc);
 
 		if (!bg_block_bitmap) {
 			bsr_err(78, BSR_LC_BITMAP, NO_OBJECT, "Failed to read ext bitmap due to failure to read bg_block_bitmap");
@@ -208,21 +217,34 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 			goto fail_and_free;
 		}
 
-		if (debug_fast_sync) {
-			bsr_info(86, BSR_LC_BITMAP, NO_OBJECT, "read bitmap_block (%ld)", ret);
-			used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
-							blocks_per_group,
-							first_data_block,
-							last_block - first_block + 1);
-			bsr_info(87, BSR_LC_BITMAP, NO_OBJECT, "used block count : %d", used);
+		// BSR-903 compare the number of free blocks counted in block_bitmap with bg_free_blocks_count of group_desc.
+		// if the values are different, may be an error in the block bitmap. all blocks in this group must be synchronized.
+		free = ext_free_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
+						blocks_per_group,
+						first_data_block, 
+						last_block - first_block + 1);
 
-			free = ext_free_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
-							blocks_per_group,
-							first_data_block, 
-							last_block - first_block + 1);
-			bsr_info(88, BSR_LC_BITMAP, NO_OBJECT, "free block count : %d", free);
-			bsr_info(89, BSR_LC_BITMAP, NO_OBJECT, "=============================");
-			free_blocks_co += free;
+		if (free != bg_free_blocks_count) {
+			memset(&bitmap_buf->Buffer[bytes_per_block * group_no], 0xFF, read_size);
+
+			if (debug_fast_sync) {
+				bsr_info(88, BSR_LC_BITMAP, NO_OBJECT, "mismatch free block count : %d bg_free_blocks_count : %d", free, bg_free_blocks_count);
+				bsr_info(88, BSR_LC_BITMAP, NO_OBJECT, "all (%d) blocks in this group need to sync", bytes_per_block * BITS_PER_BYTE);
+				bsr_info(89, BSR_LC_BITMAP, NO_OBJECT, "=============================");
+			}
+		} 
+		else {
+			if (debug_fast_sync) {
+				bsr_info(86, BSR_LC_BITMAP, NO_OBJECT, "read bitmap_block (%ld)", ret);
+				used = ext_used_blocks(group_no, &bitmap_buf->Buffer[bytes_per_block * group_no],
+								blocks_per_group,
+								first_data_block,
+								last_block - first_block + 1);
+				bsr_info(87, BSR_LC_BITMAP, NO_OBJECT, "used block count : %d", used);
+				bsr_info(88, BSR_LC_BITMAP, NO_OBJECT, "free block count : %d", free);
+				bsr_info(89, BSR_LC_BITMAP, NO_OBJECT, "=============================");
+				free_blocks_co += free;
+			}
 		}
 
 		// BSR-823 cpu occupancy prevention
