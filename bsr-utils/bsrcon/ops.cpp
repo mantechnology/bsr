@@ -1636,7 +1636,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 	DWORD       retVal = ERROR_SUCCESS;
 	PBSR_LOG	pBsrLog = NULL;
 	// DW-1629
-	char tstr[MAX_PATH];
+	char tstr[MAX_PATH] = { 0, };
 
 #ifdef _WIN
 #ifdef _DEBUG_OOS

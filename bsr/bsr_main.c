@@ -3359,6 +3359,9 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			device->open_rw_cnt++;
 		else
 			device->open_ro_cnt++;
+#ifdef _LIN
+		device->this_bdev = bdev;
+#endif
 	}
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 	up(&resource->state_sem);
@@ -7178,10 +7181,13 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 
 // BSR-743
 retry:
-
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
+			// BSR-904 on linux, the sync source supports fast sync only when it is mounted.
+#ifdef _LIN
+			!isDeviceMounted(device) ||
+#endif
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false, &bSync))
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
@@ -7375,6 +7381,43 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 
 	return count;
 }
+
+// BSR-904
+#ifdef _LIN
+bool isDeviceMounted(struct bsr_device *device)
+{
+	struct block_device *bdev = device->this_bdev;
+	struct super_block *sb = NULL;
+	if (!bdev) {
+		bsr_err(216, BSR_LC_RESYNC_OV, device, "Fast sync is disable because bdev not set");
+		return false;
+	}
+	sb = bdev->bd_super;
+	if (sb && sb->s_root) {
+		bool mounted = false;
+
+		if (atomic_read(&sb->s_active) &&
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
+			(sb->s_flags & MS_ACTIVE))
+#else
+			((sb->s_flags & MS_BORN) && (sb->s_flags & MS_ACTIVE)))
+#endif
+#else
+			((sb->s_flags & SB_BORN) && (sb->s_flags & SB_ACTIVE)))
+#endif
+			mounted = true;
+		else 
+			bsr_warn(217, BSR_LC_RESYNC_OV, device, "Fast sync is disable because device not mounted, active(%d), flags(%d)", atomic_read(&sb->s_active), sb->s_flags);
+
+		return mounted;
+	}
+
+	bsr_warn(218, BSR_LC_RESYNC_OV, device, "Fast sync is disable because super block not set");
+
+	return false;
+}
+#endif
 
 bool isFastInitialSync()
 {

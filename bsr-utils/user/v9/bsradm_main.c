@@ -1698,6 +1698,8 @@ static int adm_bsrsetup(const struct cfg_ctx *ctx)
 // BSR-823
 static int adm_primary(const struct cfg_ctx *ctx)
 {
+// BSR-904 disable
+#if 0
 #ifdef _LIN
 	const char *opt_name = "--skip-check-fs";
 	struct d_name *opt;
@@ -1735,6 +1737,7 @@ static int adm_primary(const struct cfg_ctx *ctx)
 
 	if (opt)
 		STAILQ_REMOVE(&backend_options, opt, d_name, link);
+#endif
 #endif
 	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
 }
