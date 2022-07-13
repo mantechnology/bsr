@@ -4914,6 +4914,11 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 		if (connection->cstate[NOW] >= C_CONNECTED)
 			bsr_connected(peer_device);
 	}
+	
+	// BSR-904
+#ifdef _LIN
+	atomic_set(&device->mounted_cnt, 0);
+#endif 
 
 	bsr_debugfs_device_add(device);
 	*p_device = device;
@@ -7178,10 +7183,13 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 
 // BSR-743
 retry:
-
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
+			// BSR-904 on linux, the sync source supports fast sync only when it is mounted.
+#ifdef _LIN
+			!isDeviceMounted(device) ||
+#endif
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false, &bSync))
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
@@ -7375,6 +7383,22 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 
 	return count;
 }
+
+// BSR-904
+#ifdef _LIN
+bool isDeviceMounted(struct bsr_device *device)
+{
+	// if the UUID is UUID_JUST_CREATED at the time of promotion, it operates as fast sync regardless of whether it is mounted or not.
+	if(test_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags)) 
+		return true;
+
+	if(atomic_read(&device->mounted_cnt) > 0) 
+		return true;
+
+	bsr_warn(216, BSR_LC_RESYNC_OV, device, "Fast sync is disable because device not mounted");
+	return false;
+}
+#endif
 
 bool isFastInitialSync()
 {

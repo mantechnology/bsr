@@ -1283,6 +1283,10 @@ retry:
 				// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
 				clear_bit(__NEW_CUR_UUID, &device->flags);
 				clear_bit(NEW_CUR_UUID, &device->flags);
+				// BSR-904
+#ifdef _LIN
+				clear_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
+#endif
 				put_ldev(device);
 			}
 		}
@@ -1320,8 +1324,14 @@ retry:
 				}
 			} 
 
-			if (forced)
+			if (forced) {
+				// BSR-904
+#ifdef _LIN
+				if (UUID_JUST_CREATED == device->ldev->md.current_uuid) 
+					set_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
+#endif
 				bsr_uuid_new_current(device, true, __FUNCTION__);
+			}
 			else if (younger_primary) 
 				bsr_uuid_new_current(device, false, __FUNCTION__); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 			else
