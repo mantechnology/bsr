@@ -7388,6 +7388,10 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 #ifdef _LIN
 bool isDeviceMounted(struct bsr_device *device)
 {
+	// if the UUID is UUID_JUST_CREATED at the time of promotion, it operates as fast sync regardless of whether it is mounted or not.
+	if(test_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags)) 
+		return true;
+
 	if(atomic_read(&device->mounted_cnt) > 0) 
 		return true;
 

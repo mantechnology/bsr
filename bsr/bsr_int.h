@@ -1188,6 +1188,8 @@ enum {
 	HAVE_LDEV,
 	STABLE_RESYNC,		/* One peer_device finished the resync stable! */
 	READ_BALANCE_RR,
+	// BSR-904
+	UUID_WERE_INITIAL_BEFORE_PROMOTION,
 };
 
 /* flag bits per peer device */
@@ -2109,7 +2111,9 @@ struct bsr_device {
 	struct bsr_backing_dev *ldev __protected_by(local);
 
 	struct request_queue *rq_queue;
+#ifdef _WIN
 	struct block_device *this_bdev;
+#endif
 	struct gendisk	    *vdisk;
 
 	ULONG_PTR last_reattach_jif;
