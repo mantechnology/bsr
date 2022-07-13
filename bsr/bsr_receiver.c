@@ -5674,7 +5674,6 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 
 		// DW-844 check if fast sync is enalbed every time we do initial sync.
 		// set out-of-sync for allocated clusters.
-
 		if (!isFastInitialSync() ||
 			// BSR-904 on linux, the source node supports fast sync only when it is mounted.
 #ifdef _LIN

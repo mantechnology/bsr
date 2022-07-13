@@ -527,7 +527,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 218
+#define BSR_LC_RESYNC_OV_MAX_INDEX 216
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -2227,6 +2227,10 @@ struct bsr_device {
 	struct timing_stat master_complete_kt; /* complete_master_bio time aggregation*/
 	// BSR-676
 	atomic_t notify_flags;
+	// BSR-904
+#ifdef _LIN
+	atomic_t mounted_cnt;
+#endif
 };
 
 struct bsr_bm_aio_ctx {
@@ -2478,8 +2482,10 @@ extern int bsr_bmio_set_n_write(struct bsr_device *device, struct bsr_peer_devic
 extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *, enum bsr_repl_state side, bool bitmap_lock, bool *bSync) __must_hold(local);
 extern bool isFastInitialSync(void);
 extern PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
+#ifdef _LIN
 extern bool isDeviceMounted(struct bsr_device *device);
 
+#endif
 extern int bsr_bmio_clear_all_n_write(struct bsr_device *device, struct bsr_peer_device *) __must_hold(local);
 extern int bsr_bmio_set_all_n_write(struct bsr_device *device, struct bsr_peer_device *) __must_hold(local);
 // DW-1293
