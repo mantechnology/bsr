@@ -327,7 +327,7 @@ int bsr_file_rename(const char *oldname, const char *newname)
 
 	// rename
 	err = bsr_rename(old_dir->d_inode, old_dentry,
-	    new_dir->d_inode, new_dentry);
+	    new_dir->d_inode, new_dentry, old_path.mnt, new_path.mnt);
 
 exit5:
 	dput(new_dentry);
