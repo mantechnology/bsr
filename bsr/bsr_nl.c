@@ -4364,6 +4364,9 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
+	// BSR-919 fix potential deadlock occurs when connect is executed during down
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+
 	connection = adm_ctx.connection;
 	cstate = connection->cstate[NOW];
 	if (cstate != C_STANDALONE) {
@@ -4425,6 +4428,8 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	retcode = change_cstate_ex(connection, C_UNCONNECTED, CS_VERBOSE);
 
 out:
+	// BSR-919
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
