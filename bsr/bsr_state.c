@@ -2408,21 +2408,6 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 				bsr_rs_controller_reset(peer_device);
 
-				if (repl_state[NEW] == L_VERIFY_S) {
-					// BSR-118
-					if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
-						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
-					}
-					else {
-						ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
-						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
-							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
-							(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
-							(unsigned long long)ov_tw);
-
-						mod_timer(&peer_device->resync_timer, jiffies);
-					}
-				}
 			} else if (!(repl_state[OLD] >= L_SYNC_SOURCE && repl_state[OLD] <= L_PAUSED_SYNC_T) &&
 				   (repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 				initialize_resync(peer_device);
@@ -3608,8 +3593,17 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			// BSR-118
 			if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S) {
 				if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
+					set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					peer_device->fast_ov_work.w.cb = w_fast_ov_get_bm;
 					bsr_queue_work(&resource->work, &peer_device->fast_ov_work.w);
+				} else {
+					ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
+					bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
+						bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+						(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
+						(unsigned long long)ov_tw);
+
+					mod_timer(&peer_device->resync_timer, jiffies);
 				}
 			}
 
