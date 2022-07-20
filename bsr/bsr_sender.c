@@ -217,14 +217,9 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	struct bsr_connection *connection;
 
 	// BSR-438
-	spin_lock(&g_inactive_lock);
+	spin_lock_irqsave(&g_inactive_lock, flags);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
-		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost read request. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
-			bsr_free_peer_req(peer_req);
-			return;
-		}
-		else {
+		if (!test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
 			struct bsr_peer_request *p_req, *t_inative;
 
 			peer_device = peer_req->peer_device;
@@ -256,10 +251,14 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 				}
 			}
 		}
-		spin_unlock(&g_inactive_lock);
+		else {
+			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost read request. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_free_peer_req(peer_req);
+		}
+		spin_unlock_irqrestore(&g_inactive_lock, flags);
 		return;
 	}
-	spin_unlock(&g_inactive_lock);
+	spin_unlock_irqrestore(&g_inactive_lock, flags);
 
 	peer_device = peer_req->peer_device;
 	device = peer_device->device;
@@ -317,13 +316,9 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 
 	// DW-1696 In case of the same peer_request, destroy it in inactive_ee and exit the function.
 	// BSR-438
-	spin_lock(&g_inactive_lock);
+	spin_lock_irqsave(&g_inactive_lock, flags);
 	if (test_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags)) {
-		if (test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
-			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost write request. inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
-			bsr_free_peer_req(peer_req); 
-		}
-		else {
+		if (!test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
 			struct bsr_peer_request *p_req, *t_inative;
 
 			peer_device = peer_req->peer_device;
@@ -361,10 +356,14 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 				}
 			}
 		}
-		spin_unlock(&g_inactive_lock);
+		else {
+			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost write request. inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
+			bsr_free_peer_req(peer_req);
+		}
+		spin_unlock_irqrestore(&g_inactive_lock, flags);
 		return;
 	}
-	spin_unlock(&g_inactive_lock);
+	spin_unlock_irqrestore(&g_inactive_lock, flags);
 
 	peer_device = peer_req->peer_device;
 	device = peer_device->device;
