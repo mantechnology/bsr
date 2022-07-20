@@ -5182,6 +5182,12 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 				goto out_no_resume;
 			}
+
+			// BSR-917 if it is not connected, treat it as an error.
+			if (connection->cstate[NOW] != C_CONNECTED) {
+				retcode = SS_NEED_CONNECTION;
+				goto out_no_resume;
+			}
 			sync_from_peer_device = conn_peer_device(connection, device->vnr);
 		}
 	}
@@ -5204,6 +5210,12 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 			for_each_connection(connection, resource) {
 				struct bsr_peer_device *peer_device;
 
+				// BSR-917 ignore if not connected.
+				if (connection->cstate[NOW] != C_CONNECTED) {
+					retcode = SS_NEED_CONNECTION;
+					continue;
+				}
+
 				peer_device = conn_peer_device(connection, device->vnr);
 				retcode = invalidate_resync(peer_device);
 				if (retcode >= SS_SUCCESS)
@@ -5218,7 +5230,8 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				goto out;
 			}
 
-			if (retcode != SS_NEED_CONNECTION)
+			// BSR-917
+			if (retcode < SS_UNKNOWN_ERROR)
 				break;
 			
 			// BSR-174 not allow invalidate when disconnected
