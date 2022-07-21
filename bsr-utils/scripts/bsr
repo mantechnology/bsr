@@ -204,7 +204,11 @@ case "$1" in
 					$LOSETUP $MD_DEV $MD_IDX
 				fi
 			fi
-			RES_LIST="${RES_LIST}${RES}"
+			if [ -n "$RES_LIST" ]; then
+				RES_LIST="${RES_LIST} ${RES}"
+			else 
+				RES_LIST="${RES}"
+			fi
 		else
 			echo skip adjust $RES
 		fi
@@ -219,7 +223,7 @@ case "$1" in
 		# FIXME this probably should, on platforms that have it,
 		# use udevadm settle --timeout=X --exit-if-exists=$DEVICE
 
-		for DEVICE in `$BSRADM sh-dev "$RES_LIST"`; do
+		for DEVICE in `$BSRADM sh-dev $RES_LIST`; do
 			UDEV_TIMEOUT_LOCAL=$UDEV_TIMEOUT
 			while [ ! -e $DEVICE ] && [ $UDEV_TIMEOUT_LOCAL -gt 0 ] ; do
 			sleep 1
