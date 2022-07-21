@@ -565,13 +565,14 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 	
 	// BSR-764
 	if (atomic_read(&g_bsrmon_run)) {
-		spin_lock(&peer_device->timing_lock);
+		long flag = 0;
+		spin_lock_irqsave(&peer_device->timing_lock, flag);
 		peer_device->p_reqs++;	
 		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	
 		ktime_aggregate(peer_device, peer_req, p_submit_kt);
 		ktime_aggregate(peer_device, peer_req, p_bio_endio_kt);
 		
-		spin_unlock(&peer_device->timing_lock);	
+		spin_unlock_irqrestore(&peer_device->timing_lock, flag);
 	} 	
 
 	mempool_free(peer_req, bsr_ee_mempool);
