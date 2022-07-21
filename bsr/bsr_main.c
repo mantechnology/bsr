@@ -4509,11 +4509,11 @@ void bsr_destroy_connection(struct kref *kref)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct bsr_peer_request *peer_req, *t;
 		bsr_warn(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)", atomic_read(&connection->inacitve_ee_cnt));
-		spin_lock(&g_inactive_lock);
+		spin_lock_irq(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
 		}
-		spin_unlock(&g_inactive_lock);
+		spin_unlock_irq(&g_inactive_lock);
 	}
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {

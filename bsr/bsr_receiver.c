@@ -1858,11 +1858,11 @@ static void conn_wait_ee_empty_and_update_timeout(struct bsr_connection *connect
 		}
 		wait_cnt += 1;
 		ee_after_cnt = 0;
-		spin_lock(&connection->resource->req_lock);
+		spin_lock_irq(&connection->resource->req_lock);
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, head, w.list) {
 			ee_after_cnt++;
 		}
-		spin_unlock(&connection->resource->req_lock);
+		spin_unlock_irq(&connection->resource->req_lock);
 		if (ee_before_cnt == ee_after_cnt) {
 			bsr_debug(31, BSR_LC_PEER_REQUEST, connection, "ee not empty, count(%llu), wait time(%u)", (unsigned long long)ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
 			break;
@@ -10258,12 +10258,12 @@ void conn_disconnect(struct bsr_connection *connection)
 	drain_resync_activity(connection);
 
 	// DW-1696 Add the incomplete active_ee, sync_ee
-	spin_lock(&resource->req_lock);	
+	spin_lock_irq(&resource->req_lock);
 	// DW-1732 Initialization active_ee(bitmap, al) 
 
 	// DW-1920
 	// BSR-438
-	spin_lock(&g_inactive_lock);
+	spin_lock_irq(&g_inactive_lock);
 	if (!list_empty(&connection->active_ee)) {
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, &connection->active_ee, w.list) {
 			struct bsr_peer_device *peer_device = peer_req->peer_device;
@@ -10305,8 +10305,8 @@ void conn_disconnect(struct bsr_connection *connection)
 		atomic_inc(&connection->inacitve_ee_cnt);
 	}
 
-	spin_unlock(&g_inactive_lock);
-	spin_unlock(&resource->req_lock);
+	spin_unlock_irq(&g_inactive_lock);
+	spin_unlock_irq(&resource->req_lock);
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
 	* w_make_resync_request etc. which may still be on the worker queue
