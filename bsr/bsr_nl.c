@@ -4689,6 +4689,10 @@ void del_connection(struct bsr_connection *connection)
 	 * are queued: we want the "destroy" event to come last.
 	 */
 	bsr_flush_workqueue(resource, &resource->work);
+
+	// BSR-920 
+	// fix potential deadlock when executing bsr_flush_workqueue() with conf_update lock acquired
+	mutex_lock(&resource->conf_update);
 	
 	mutex_lock(&notification_mutex);
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
@@ -4700,6 +4704,10 @@ void del_connection(struct bsr_connection *connection)
 	//windows, (1) synchronize_rcu_w32_wlock() is disabled, because Assertion: *** DPC watchdog timeout
 	synchronize_rcu();
 #endif
+
+	// BSR-920
+	mutex_unlock(&resource->conf_update);
+
 	bsr_put_connection(connection);
 }
 
@@ -4729,9 +4737,10 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	rv = conn_try_disconnect(connection, parms.force_disconnect, false, adm_ctx.reply_skb);
 	if (rv >= SS_SUCCESS && destroy) {
-		mutex_lock(&connection->resource->conf_update);
+		// BSR-920 moved inside del_connection()
+		// mutex_lock(&connection->resource->conf_update);
 		del_connection(connection);
-		mutex_unlock(&connection->resource->conf_update);
+		// mutex_unlock(&connection->resource->conf_update);
 	}
 	if (rv < SS_SUCCESS)
 		retcode = rv;  /* FIXME: Type mismatch. */
@@ -6891,14 +6900,15 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		// DW-2035
 		retcode = conn_try_disconnect(connection, false, true, adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
-			mutex_lock(&resource->conf_update);
+			// BSR-920 moved inside del_connection()
+			// mutex_lock(&resource->conf_update);
 			// BSR-418 vol_ctl_mutex deadlock in function SetOOSAllocatedCluster()
 			mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 			del_connection(connection);
 			// BSR-418 
 			mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-			mutex_unlock(&resource->conf_update);
+			// mutex_unlock(&resource->conf_update);
 		} else {
 			bsr_info(58, BSR_LC_GENL, connection, "Failed to disconnect during resource down. ret(%d)", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
