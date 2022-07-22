@@ -565,13 +565,14 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 	
 	// BSR-764
 	if (atomic_read(&g_bsrmon_run)) {
-		spin_lock(&peer_device->timing_lock);
+		long flag = 0;
+		spin_lock_irqsave(&peer_device->timing_lock, flag);
 		peer_device->p_reqs++;	
 		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	
 		ktime_aggregate(peer_device, peer_req, p_submit_kt);
 		ktime_aggregate(peer_device, peer_req, p_bio_endio_kt);
 		
-		spin_unlock(&peer_device->timing_lock);	
+		spin_unlock_irqrestore(&peer_device->timing_lock, flag);
 	} 	
 
 	mempool_free(peer_req, bsr_ee_mempool);
@@ -10205,7 +10206,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
 	enum bsr_conn_state oc;
-	unsigned long irq_flags;
+	unsigned long irq_flags = 0;
 	int vnr, i;
 	struct bsr_peer_request *peer_req;	
 
@@ -10261,9 +10262,9 @@ void conn_disconnect(struct bsr_connection *connection)
 	spin_lock_irq(&resource->req_lock);
 	// DW-1732 Initialization active_ee(bitmap, al) 
 
-	// DW-1920
 	// BSR-438
-	spin_lock_irq(&g_inactive_lock);
+	spin_lock(&g_inactive_lock);
+	// DW-1920
 	if (!list_empty(&connection->active_ee)) {
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, &connection->active_ee, w.list) {
 			struct bsr_peer_device *peer_device = peer_req->peer_device;
@@ -10304,8 +10305,7 @@ void conn_disconnect(struct bsr_connection *connection)
 		set_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags);
 		atomic_inc(&connection->inacitve_ee_cnt);
 	}
-
-	spin_unlock_irq(&g_inactive_lock);
+	spin_unlock(&g_inactive_lock);
 	spin_unlock_irq(&resource->req_lock);
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
