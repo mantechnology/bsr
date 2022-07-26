@@ -1638,8 +1638,12 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		// not support
 		return false;
 #else // _LIN
+#ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
+		return bdi_read_congested(device->ldev->backing_bdev->bd_disk->bdi);
+#else 
 		bdi = bdi_from_device(device);
 		return bdi_read_congested(bdi);
+#endif
 #endif
 	case RB_LEAST_PENDING:
 		return atomic_read(&device->local_cnt) >
