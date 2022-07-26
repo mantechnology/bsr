@@ -60,9 +60,9 @@ void save_to_system_event(char * buf, int length, int level_index)
 
 #ifdef _WIN
 // BSR-648
-void _printk(const char * func, int index, int level, int category, const char * format, ...)
+void __printk(const char * func, int index, int level, int category, const char * format, ...)
 #else
-void _printk(const char * func, int index, const char * level, int category, const char * format, ...)
+void __printk(const char * func, int index, const char * level, int category, const char * format, ...)
 #endif
 {
 	int ret = 0;

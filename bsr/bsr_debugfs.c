@@ -578,7 +578,7 @@ int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
 				+ atomic_read64(&mem_usage.bm_pp) + BSR_MIN_POOL_PAGES;
 
 	/* total_bio_set kmalloc vmalloc total_page_pool */
-	seq_printf(m, "%d %ld %ld %ld\n", 
+	seq_printf(m, "%d %lld %lld %ld\n", 
 				io_bio_set + md_io_bio_set,
 				atomic_read64(&mem_usage.kmalloc) ? atomic_read64(&mem_usage.kmalloc) / 1024 : 0,
 				atomic_read64(&mem_usage.vmalloc) ? atomic_read64(&mem_usage.vmalloc) / 1024 : 0,
