@@ -2924,7 +2924,7 @@ static inline void sub_kvmalloc_mem_usage(void * objp, size_t size)
 }
 #endif
 
-
+#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 static inline struct request_queue *bsr_blk_alloc_queue(void) 
 {
 #ifdef _WIN
@@ -2939,6 +2939,7 @@ static inline struct request_queue *bsr_blk_alloc_queue(void)
 #endif
 #endif
 }
+#endif
 
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, bool ov_done)
 {

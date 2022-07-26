@@ -3740,8 +3740,12 @@ void bsr_destroy_device(struct kref *kref)
 		device->bitmap = NULL;
 	}
 	__free_page(device->md_io.page);
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	blk_cleanup_disk(device->vdisk);
+#else
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
+#endif	
 
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
@@ -4772,6 +4776,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	}
 #endif
 	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in bsr_destroy_device.
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	disk = blk_alloc_disk(NUMA_NO_NODE);
+#else
 	q = bsr_blk_alloc_queue();
 	if (!q)
 		goto out_no_q;
@@ -4779,7 +4786,8 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #if defined(COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC) || defined(blk_queue_plugged) || defined(_WIN)
 	q->queuedata   = device;
 #endif
-	disk = alloc_disk(1);
+	disk = alloc_disk(1);	
+#endif
 	if (!disk)
 		goto out_no_disk;
 
@@ -4792,6 +4800,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	disk->first_minor = minor;
 
 	disk->fops = &bsr_ops;
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	device->rq_queue = disk->queue;
+	disk->minors = 1;
+#endif
 #endif
 #ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "bsr%u", minor);
@@ -4965,10 +4977,16 @@ out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
 #ifdef _LIN 
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	blk_cleanup_disk(disk);
+#else
 	put_disk(disk);
 #endif
+#endif
 out_no_disk:
+#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 	blk_cleanup_queue(q);
+#endif
 out_no_q:
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);
