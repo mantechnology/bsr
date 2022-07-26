@@ -565,7 +565,7 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 	
 	// BSR-764
 	if (atomic_read(&g_bsrmon_run)) {
-		long flag = 0;
+		unsigned long flag = 0;
 		spin_lock_irqsave(&peer_device->timing_lock, flag);
 		peer_device->p_reqs++;	
 		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	

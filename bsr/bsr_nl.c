@@ -2372,7 +2372,13 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 
 	if (b) {
 		blk_stack_limits(&q->limits, &b->limits, 0);
+#if defined(COMPAT_HAVE_DISK_UPDATE_READAHEAD)
+		disk_update_readahead(device->vdisk);
+#elif defined(COMPAT_HAVE_BLK_QUEUE_UPDATE_READAHEAD)
+		blk_queue_update_readahead(q);
+#else
 		adjust_ra_pages(q, b);
+#endif
 	}
 	fixup_discard_if_not_supported(q);
 	fixup_write_zeroes(device, q);
