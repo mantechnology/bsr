@@ -4794,17 +4794,19 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	device->vdisk = disk;
 
 	set_disk_ro(disk, true);
-	disk->queue = q;
 #ifdef _LIN
 	disk->major = BSR_MAJOR;
 	disk->first_minor = minor;
-
 	disk->fops = &bsr_ops;
+#endif
+
 #ifdef COMPAT_HAVE_BLK_ALLOC_DISK
 	device->rq_queue = disk->queue;
 	disk->minors = 1;
+#else
+	disk->queue = q;
 #endif
-#endif
+
 #ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "bsr%u", minor);
 #else // _LIN
@@ -4812,8 +4814,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	sprintf(disk->disk_name, "bsr%d", minor);
 #endif
 	disk->private_data = device;
-#ifdef _LIN
-#endif
+
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);
 	device->this_bdev = pvext->dev;
@@ -4828,13 +4829,13 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #endif
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
-	blk_queue_make_request(q, bsr_make_request);
+	blk_queue_make_request(disk->queue, bsr_make_request);
 #endif
-    blk_queue_write_cache(q, true, true);
+    blk_queue_write_cache(disk->queue, true, true);
 
 #ifdef _LIN
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
-	blk_queue_merge_bvec(q, bsr_merge_bvec);
+	blk_queue_merge_bvec(disk->queue, bsr_merge_bvec);
 #endif
 #endif
 #ifdef blk_queue_plugged

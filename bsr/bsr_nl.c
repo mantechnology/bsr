@@ -210,6 +210,14 @@ static inline bool bsr_security_netlink_recv(struct sk_buff *skb, int cap)
 #endif
 #endif
 
+static bool need_sys_admin(u8 cmd)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(bsr_genl_ops); i++)
+		if (bsr_genl_ops[i].cmd == cmd)
+			return 0 != (bsr_genl_ops[i].flags & GENL_ADMIN_PERM);
+	return true;
+}
 
 static struct bsr_path *first_path(struct bsr_connection *connection)
 {
@@ -247,7 +255,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	 * set have CAP_NET_ADMIN; we also require CAP_SYS_ADMIN for
 	 * administrative commands.
 	 */
-	if ((bsr_genl_ops[cmd].flags & GENL_ADMIN_PERM) &&
+	if (need_sys_admin(cmd) &&
 	    bsr_security_netlink_recv(skb, CAP_SYS_ADMIN))
 		return -EPERM;
 #endif
