@@ -3430,6 +3430,7 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
 
+	 // BSR-925 returns an error if the detaching is not completed during the wait time.
 	if (get_disk_state(device) == D_DETACHING) {
 		bsr_info(42, BSR_LC_GENL, NO_OBJECT, "Detach complete event wait timeout. time out(%ld) disk state(%s)", 3 * HZ, bsr_disk_str(device->disk_state[NOW]));
 		retcode = ERR_INTR;;
@@ -6924,6 +6925,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 		retcode = adm_detach(device, 0, adm_ctx.reply_skb);
+		// BSR-925
 		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
 			kref_put(&device->kref, bsr_destroy_device);
