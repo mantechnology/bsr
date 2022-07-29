@@ -3485,12 +3485,13 @@ static void do_device_work(struct bsr_device *device, const ULONG_PTR todo)
 		bsr_ldev_destroy(device);
 }
 
-static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG_PTR todo)
+static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG_PTR todo, bool connected)
 {
 	if (test_bit(RS_DONE, &todo) ||
 	    test_bit(RS_PROGRESS, &todo))
-		update_on_disk_bitmap(peer_device, test_bit(RS_DONE, &todo));
-	if (test_bit(RS_START, &todo))
+		update_on_disk_bitmap(peer_device, test_bit(RS_DONE, &todo));		
+	// BSR-926 callback for resync is invoked, so it is not called if it is not connected.
+	if (test_bit(RS_START, &todo) && connected)
 		do_start_resync(peer_device);
 }
 
@@ -3543,7 +3544,7 @@ static void __do_unqueued_peer_device_work(struct bsr_connection *connection)
 
 		kref_get(&device->kref);
 		rcu_read_unlock();
-		do_peer_device_work(peer_device, todo);
+		do_peer_device_work(peer_device, todo, (connection->cstate[NOW] == C_CONNECTED));
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();
 	}
@@ -3555,7 +3556,7 @@ static void do_unqueued_peer_device_work(struct bsr_resource *resource)
 	struct bsr_connection *connection;
 	u64 im;
 
-	for_each_connection_ref(connection, im, resource)
+	for_each_connection_ref(connection, im, resource) 
 		__do_unqueued_peer_device_work(connection);
 }
 
