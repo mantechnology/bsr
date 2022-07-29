@@ -3408,7 +3408,6 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 	enum bsr_state_rv retcode;
 	long timeo = 3*HZ;
 	const char *err_str = NULL;
-	int ret = 0;
 
 	if (force) {
 		set_bit(FORCE_DETACH, &device->flags);
@@ -3431,21 +3430,23 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
 
-	if (timeo == -ETIMEDOUT)
+	 // BSR-925 returns an error if the detaching is not completed during the wait time.
+	if (get_disk_state(device) == D_DETACHING) {
 		bsr_info(42, BSR_LC_GENL, NO_OBJECT, "Detach complete event wait timeout. time out(%ld) disk state(%s)", 3 * HZ, bsr_disk_str(device->disk_state[NOW]));
-
-	if (retcode >= SS_SUCCESS) {
-		int res;
-
-		// BSR-439
-		/* wait for completion of bsr_ldev_destroy() */
-		wait_event_interruptible_ex(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags), res);
-		bsr_cleanup_device(device);
+		retcode = ERR_INTR;;
 	}
-	if (retcode == SS_IS_DISKLESS)
-		retcode = SS_NOTHING_TO_DO;
-	if (ret)
-		retcode = ERR_INTR;
+	else {
+		if (retcode >= SS_SUCCESS) {
+			int res;
+
+			// BSR-439
+			/* wait for completion of bsr_ldev_destroy() */
+			wait_event_interruptible_ex(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags), res);
+			bsr_cleanup_device(device);
+		}
+		if (retcode == SS_IS_DISKLESS)
+			retcode = SS_NOTHING_TO_DO;
+	}
 out:
 	if (err_str) {
 		if (reply_skb)
@@ -6924,14 +6925,16 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 		retcode = adm_detach(device, 0, adm_ctx.reply_skb);
+		// BSR-925
+		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
+			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
+			kref_put(&device->kref, bsr_destroy_device);
+			goto out;
+		}
 		mutex_lock(&resource->conf_update);
 		ret = adm_del_minor(device);
 		mutex_unlock(&resource->conf_update);
 		kref_put(&device->kref, bsr_destroy_device);
-		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
-			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
-			goto out;
-		}
 		if (ret != NO_ERROR) {
 			/* "can not happen" */
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");
