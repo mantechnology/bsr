@@ -565,7 +565,7 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 	
 	// BSR-764
 	if (atomic_read(&g_bsrmon_run)) {
-		long flag = 0;
+		unsigned long flag = 0;
 		spin_lock_irqsave(&peer_device->timing_lock, flag);
 		peer_device->p_reqs++;	
 		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	
@@ -1823,15 +1823,6 @@ static bool conn_wait_ee_cond(struct bsr_connection *connection, struct list_hea
 
 #define CONN_WAIT_TIMEOUT 3
 
-// DW-1682 Added 3 sec timeout for active_ee when disconnecting 
-static long conn_wait_ee_empty_timeout(struct bsr_connection *connection, struct list_head *head)
-{
-	long t, timeout;
-	t = timeout = CONN_WAIT_TIMEOUT * HZ; // 3 sec
-	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
-
-	return t;
-}
 
 static void conn_wait_ee_empty(struct bsr_connection *connection, struct list_head *head)
 {
@@ -1842,6 +1833,18 @@ static void conn_wait_ee_empty_or_disconnect(struct bsr_connection *connection, 
 {
 	wait_event(connection->ee_wait,
 		conn_wait_ee_cond(connection, head) || connection->cstate[NOW] < C_CONNECTED);
+}
+
+// BSR-930
+#ifdef _WIN
+// DW-1682 Added 3 sec timeout for active_ee when disconnecting 
+static long conn_wait_ee_empty_timeout(struct bsr_connection *connection, struct list_head *head)
+{
+	long t, timeout;
+	t = timeout = CONN_WAIT_TIMEOUT * HZ; // 3 sec
+	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
+
+	return t;
 }
 
 // DW-1954 if ee is not empty, wait for CONN_WAIT_TIMEOUT seconds.
@@ -1873,6 +1876,7 @@ static void conn_wait_ee_empty_and_update_timeout(struct bsr_connection *connect
 		ee_before_cnt = ee_after_cnt;
 	}
 }
+#endif
 
 /**
  * bsr_submit_peer_request()
@@ -10156,12 +10160,14 @@ static void drain_resync_activity(struct bsr_connection *connection)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
+	// BSR-930 linux does not use inactive_ee, so you must wait for sync_ee to complete.
+#ifdef _WIN
 	// DW-2035 if DISCONN_NO_WAIT_RESYNC is set, don't wait for sync_ee.
-	if (test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) {
+	if (!test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) 
+#endif
 		/* verify or resync related peer requests are read_ee or sync_ee,
 		* drain them first */
 		conn_wait_ee_empty(connection, &connection->sync_ee);
-	}
 	conn_wait_ee_empty(connection, &connection->read_ee);
 
 	rcu_read_lock();
@@ -10208,7 +10214,10 @@ void conn_disconnect(struct bsr_connection *connection)
 	enum bsr_conn_state oc;
 	unsigned long irq_flags = 0;
 	int vnr, i;
+	// BSR-930
+#ifdef _WIN
 	struct bsr_peer_request *peer_req;	
+#endif
 
 	bsr_debug_conn("conn_disconnect"); 
 
@@ -10249,15 +10258,21 @@ void conn_disconnect(struct bsr_connection *connection)
 		clear_remote_state_change(resource);
 	}
 
+
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
-
+#ifdef _WIN
 	// DW-1954 wait CONN_WAIT_TIMEOUT (default 3 seconds) and keep waiting if ee is not empty and ee is the same as before.
 	conn_wait_ee_empty_and_update_timeout(connection, &connection->active_ee);
-
+#else
+	// BSR-930 linux does not use inactive_ee, so you must wait for active_ee to complete.
+	conn_wait_ee_empty(connection, &connection->active_ee);
+#endif
 	// DW-1874 call after active_ee wait
 	drain_resync_activity(connection);
 
+	// BSR-930
+#ifdef _WIN
 	// DW-1696 Add the incomplete active_ee, sync_ee
 	spin_lock_irq(&resource->req_lock);
 	// DW-1732 Initialization active_ee(bitmap, al) 
@@ -10307,6 +10322,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	}
 	spin_unlock(&g_inactive_lock);
 	spin_unlock_irq(&resource->req_lock);
+#endif
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
 	* w_make_resync_request etc. which may still be on the worker queue
