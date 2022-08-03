@@ -4578,7 +4578,8 @@ int bsr_open_ro_count(struct bsr_resource *resource)
 
 static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, bool force,
 					      // DW-2035 no wait resync option (sync_ee)
-					      bool DISCONN_NO_WAIT_RESYNC,
+						  // BSR-930 
+					      bool no_wait_resync,
 					      struct sk_buff *reply_skb)
 {
 	struct bsr_resource *resource = connection->resource;
@@ -4594,7 +4595,7 @@ static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, 
 
 repeat:
 	// DW-2035
-	if (DISCONN_NO_WAIT_RESYNC)
+	if (no_wait_resync)
 		set_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags);
 
 	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, __FUNCTION__);

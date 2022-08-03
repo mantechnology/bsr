@@ -10160,12 +10160,14 @@ static void drain_resync_activity(struct bsr_connection *connection)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
+	// BSR-930 linux does not use inactive_ee, so you must wait for sync_ee to complete.
+#ifdef _WIN
 	// DW-2035 if DISCONN_NO_WAIT_RESYNC is set, don't wait for sync_ee.
-	if (test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) {
+	if (!test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) 
+#endif
 		/* verify or resync related peer requests are read_ee or sync_ee,
 		* drain them first */
 		conn_wait_ee_empty(connection, &connection->sync_ee);
-	}
 	conn_wait_ee_empty(connection, &connection->read_ee);
 
 	rcu_read_lock();
@@ -10259,13 +10261,12 @@ void conn_disconnect(struct bsr_connection *connection)
 
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
-	// BSR-930
 #ifdef _WIN
 	// DW-1954 wait CONN_WAIT_TIMEOUT (default 3 seconds) and keep waiting if ee is not empty and ee is the same as before.
 	conn_wait_ee_empty_and_update_timeout(connection, &connection->active_ee);
 #else
+	// BSR-930 linux does not use inactive_ee, so you must wait for active_ee to complete.
 	conn_wait_ee_empty(connection, &connection->active_ee);
-	conn_wait_ee_empty(connection, &connection->sync_ee);
 #endif
 	// DW-1874 call after active_ee wait
 	drain_resync_activity(connection);
