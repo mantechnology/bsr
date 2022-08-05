@@ -1572,7 +1572,9 @@ static int bsr_single_open(struct file *file, int (*show)(struct seq_file *, voi
 	if (!parent || !parent->d_inode)
 		goto out;
 	/* serialize with d_delete() */
-	bsr_inode_lock(d_inode(parent));
+	// BSR-935 fix deadlock between bsr_single_open() and debugfs_remove()
+	if (!bsr_inode_trylock(d_inode(parent)))
+		goto out;
 	/* Make sure the object is still alive */
 	if (simple_positive(file->f_path.dentry)
 	&& kref_get_unless_zero(kref))
@@ -1892,7 +1894,9 @@ static int bsr_single_open_peer_device(struct file *file,
 	parent = file->f_path.dentry->d_parent;
 	if (!parent || !parent->d_inode)
 		goto out;
-	bsr_inode_lock(d_inode(parent));
+	// BSR-935 fix deadlock between bsr_single_open() and debugfs_remove()
+	if (!bsr_inode_trylock(d_inode(parent)))
+		goto out;
 	if (!simple_positive(file->f_path.dentry))
 		goto out_unlock;
 
