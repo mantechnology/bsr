@@ -636,6 +636,8 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 
 		wake_up(&connection->ping_wait);
 		wake_up(&connection->ee_wait);
+		// BSR-928 avoid potential hung task panic in bsr_uuid_peer()
+		wake_up(&connection->uuid_wait);
 	}
 
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {

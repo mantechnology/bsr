@@ -4396,8 +4396,11 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	INIT_LIST_HEAD(&connection->read_ee);
 	INIT_LIST_HEAD(&connection->net_ee);
 	INIT_LIST_HEAD(&connection->done_ee);
+	// BSR-930
+#ifdef _WIN
 	INIT_LIST_HEAD(&connection->inactive_ee);	// DW-1696
 	atomic_set(&connection->inacitve_ee_cnt, 0); // BSR-438
+#endif
 	init_waitqueue_head(&connection->ee_wait);
 
 	kref_init(&connection->kref);
@@ -4508,6 +4511,8 @@ void bsr_destroy_connection(struct kref *kref)
 		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch size is not zero. It is highly likely that replication has not been completed.. size(%d)", atomic_read(&connection->current_epoch->epoch_size));
 	bsr_kfree(connection->current_epoch);
 
+	// BSR-930	
+#ifdef _WIN
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
@@ -4516,9 +4521,13 @@ void bsr_destroy_connection(struct kref *kref)
 		spin_lock_irq(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
+			// BSR-930	
+			if (!(peer_req->flags & EE_SPLIT_REQ))
+				put_ldev(peer_req->peer_device->device);
 		}
 		spin_unlock_irq(&g_inactive_lock);
 	}
+#endif
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
