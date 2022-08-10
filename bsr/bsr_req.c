@@ -142,8 +142,8 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 		    !(req->rq_state[1 + node_id] & RQ_NET_SENT))
 			continue;
 		// BSR-827 fix bsr_req memory leak (kernel >= v5.4)
-        if (!kref_get_unless_zero(&req->kref))
-            refcount_set(&req->kref.refcount, 1); /* was 0, instead of kref_get() */
+		if (!kref_get_unless_zero(&req->kref))
+			refcount_set(&req->kref.refcount, 1); /* was 0, instead of kref_get() */
 		req->rq_state[1 + node_id] |= RQ_PEER_ACK;
 		if (!queued) {
 			list_add_tail(&req->tl_requests, &resource->peer_ack_list);
