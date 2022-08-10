@@ -1240,6 +1240,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 
 #ifndef COMPAT_HAVE_REFCOUNT_INC
 #define refcount_inc(R) atomic_inc(R)
+#define refcount_set(R, V) atomic_set(R, V)
 #define refcount_read(R) atomic_read(R)
 #define refcount_dec_and_test(R) atomic_dec_and_test(R)
 #endif
