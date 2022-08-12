@@ -1091,7 +1091,7 @@ int w_send_uuids(struct bsr_work *w, int cancel)
 	    !test_bit(INITIAL_STATE_SENT, &peer_device->flags))
 		return 0;
 
-	bsr_send_uuids(peer_device, 0, 0);
+	bsr_send_uuids(peer_device, 0, 0, NOW);
 
 	return 0;
 }
@@ -1637,7 +1637,7 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 void bsr_uuid_peer(struct bsr_peer_device *peer_device)
 {
 	clear_bit(GOT_UUID_ACK, &peer_device->connection->flags);
-	bsr_send_uuids(peer_device, 0, 0);
+	bsr_send_uuids(peer_device, 0, 0, NOW);
 	wait_event(peer_device->connection->uuid_wait,
 		test_bit(GOT_UUID_ACK, &peer_device->connection->flags) ||
 		peer_device->connection->cstate[NOW] < C_CONNECTED);

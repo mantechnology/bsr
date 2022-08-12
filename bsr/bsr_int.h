@@ -2387,7 +2387,7 @@ extern void bsr_free_sock(struct bsr_connection *connection);
 
 extern int __bsr_send_protocol(struct bsr_connection *connection, enum bsr_packet cmd);
 extern int bsr_send_protocol(struct bsr_connection *connection);
-extern int bsr_send_uuids(struct bsr_peer_device *, u64 uuid_flags, u64 weak_nodes);
+extern int bsr_send_uuids(struct bsr_peer_device *, u64 uuid_flags, u64 weak_nodes, enum which_state which);
 extern void bsr_gen_and_send_sync_uuid(struct bsr_peer_device *);
 extern int bsr_attach_peer_device(struct bsr_peer_device *);
 extern int bsr_send_sizes(struct bsr_peer_device *, uint64_t u_size_diskless, enum dds_flags flags);
