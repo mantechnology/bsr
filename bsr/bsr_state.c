@@ -3321,7 +3321,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			// BSR-863
 			if (connection->agreed_pro_version < 115) {
 				if (resync_finished && peer_disk_state[NEW] != D_UNKNOWN)
-					bsr_send_uuids(peer_device, 0, 0);
+					bsr_send_uuids(peer_device, 0, 0, NOW);
 			}
 
 			if (peer_disk_state[NEW] == D_UP_TO_DATE)
@@ -3410,7 +3410,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				atomic_set(&peer_device->rs_pending_cnt, 0);
 				bsr_rs_cancel_all(peer_device);
 
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_state(peer_device, new_state);
 			}
 
@@ -3485,7 +3485,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (repl_state[NEW] >= L_ESTABLISHED &&
 			    disk_state[OLD] == D_ATTACHING && disk_state[NEW] >= D_NEGOTIATING) {
 				bsr_send_sizes(peer_device, 0, 0);  /* to start sync... */
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_state(peer_device, new_state);
 			}
 
@@ -3648,7 +3648,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 						bConsiderResync = true;
 				}
 				
-				bsr_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0);
+				bsr_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
 
 				put_ldev(device);
 			}
@@ -3666,7 +3666,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				   ... I was primary
 				   ... the peer that transitioned from primary to secondary
 				*/
-				bsr_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0);
+				// BSR-936 if device stable has been updated, send UUID information to "NEW"
+				bsr_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0, NEW);
 				put_ldev(device);
 			}
 			// DW-1315 notify peer that I got stable, no resync available in this case.
@@ -3674,7 +3675,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				repl_state[NEW] >= L_ESTABLISHED &&
 				get_ldev(device))
 			{
-				bsr_send_uuids(peer_device, 0, 0);
+				// BSR-936 if device stable has been updated, send UUID information to "NEW"
+				bsr_send_uuids(peer_device, 0, 0, NEW);
 				put_ldev(device);
 			}
 
@@ -3683,7 +3685,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				authoritative[OLD] != authoritative[NEW] &&
 				get_ldev(device)) {	
 				// DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE, and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC 
-				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0);
+				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
 				put_ldev(device);
 			}
 

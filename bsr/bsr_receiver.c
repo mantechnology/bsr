@@ -741,7 +741,7 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 	if (!err)
 		err = bsr_send_sizes(peer_device, 0, 0);
 	if (!err)
-		err = bsr_send_uuids(peer_device, 0, 0);
+		err = bsr_send_uuids(peer_device, 0, 0, NOW);
 	if (!err) {
 		err = bsr_send_current_state(peer_device);
 		// DW-1806
@@ -7221,7 +7221,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 			// Local status updates are sent from a separate thread to a peer and issues arise due to time differences.
 			// Send local state to peer before sending bsr_send_uids (UUID_FLAG_RESYNC, 0) for issue resolution.
 			bsr_send_state(peer_device, bsr_get_device_state(device, NOW));
-			bsr_send_uuids(peer_device, UUID_FLAG_RESYNC, 0);
+			bsr_send_uuids(peer_device, UUID_FLAG_RESYNC, 0, NOW);
 			bsr_resync(peer_device, AFTER_UNSTABLE);
 			put_ldev(device);
 		}
@@ -7264,7 +7264,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 			if (peer_device->repl_state[NOW] == L_ESTABLISHED &&
 				bsr_inspect_resync_side(peer_device, L_SYNC_SOURCE, NOW, false) &&
 				get_ldev(device)) {
-				bsr_send_uuids(peer_device, UUID_FLAG_AUTHORITATIVE | UUID_FLAG_RESYNC, 0);
+				bsr_send_uuids(peer_device, UUID_FLAG_AUTHORITATIVE | UUID_FLAG_RESYNC, 0, NOW);
 				bsr_resync_authoritative(peer_device, L_SYNC_SOURCE);
 				put_ldev(device);
 			}
@@ -8689,7 +8689,7 @@ static void try_to_get_resynced(struct bsr_device *device)
 
 	if (peer_device) {
 		bsr_resync(peer_device, DISKLESS_PRIMARY);
-		bsr_send_uuids(peer_device, UUID_FLAG_RESYNC | UUID_FLAG_DISKLESS_PRIMARY, 0);
+		bsr_send_uuids(peer_device, UUID_FLAG_RESYNC | UUID_FLAG_DISKLESS_PRIMARY, 0, NOW);
 	}
 	put_ldev(device);
 }
@@ -9063,7 +9063,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		struct bsr_device *device2 = peer_device->device;
 		struct bsr_peer_device *peer_device2;
 		u64 im;
-		bsr_send_uuids(peer_device, 0, 0);
+		bsr_send_uuids(peer_device, 0, 0, NOW);
 		for_each_peer_device_ref(peer_device2, im, device2) {
 			if (peer_device2->connection->cstate[NOW] == C_CONNECTED) {
 				bsr_send_current_state(peer_device2);
@@ -9077,14 +9077,14 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			/* we want resync, peer has not yet decided to sync... */
 			/* Nowadays only used when forcing a node into primary role and
 			   setting its disk to UpToDate with that */
-			bsr_send_uuids(peer_device, 0, 0);
+			bsr_send_uuids(peer_device, 0, 0, NOW);
 			bsr_send_current_state(peer_device);
 		}
 	}
 
 	// BSR-655 send uuids when sync of other secondary is done to resolve meaningless oos.
 	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.pdsk == D_UP_TO_DATE)
-		bsr_send_uuids(peer_device, 0, 0);
+		bsr_send_uuids(peer_device, 0, 0, NOW);
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 

@@ -1168,20 +1168,20 @@ out:
 
 
 // DW-1145 it returns true if my disk is consistent with primary's
-bool is_consistent_with_primary(struct bsr_device *device)
+bool is_consistent_with_primary(struct bsr_device *device, enum which_state which)
 {
 	struct bsr_peer_device *peer_device = NULL;
 	int node_id = -1;
 
-	if (device->disk_state[NOW] != D_UP_TO_DATE)
+	if (device->disk_state[which] != D_UP_TO_DATE)
 		return false;
 
 	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++){
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (!peer_device)
 			continue;
-		if (peer_device->connection->peer_role[NOW] == R_PRIMARY &&
-			peer_device->repl_state[NOW] >= L_ESTABLISHED &&
+		if (peer_device->connection->peer_role[which] == R_PRIMARY &&
+			peer_device->repl_state[which] >= L_ESTABLISHED &&
 			peer_device->uuids_received &&
 			bsr_bm_total_weight(peer_device) == 0)
 			return true;
@@ -1789,7 +1789,7 @@ static u64 __bitmap_uuid(struct bsr_device *device, int node_id) __must_hold(loc
 	return bitmap_uuid;
 }
 
-static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask)
+static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
 {
 	struct bsr_device *device = peer_device->device;
 	struct bsr_peer_md *peer_md;
@@ -1850,7 +1850,8 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 		uuid_flags |= UUID_FLAG_RECONNECT;
 	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
 		uuid_flags |= UUID_FLAG_PRIMARY_IO_ERROR;
-	if (bsr_device_stable(device, &authoritative_mask)) {
+	// BSR-936
+	if (bsr_device_stable_ex(device, &authoritative_mask, which, false)) {
 		uuid_flags |= UUID_FLAG_STABLE;
 		p->node_mask = cpu_to_be64(node_mask);
 	} else {
@@ -1862,7 +1863,8 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
 
 	// DW-1145 set UUID_FLAG_CONSISTENT_WITH_PRI if my disk is consistent with primary's
-	if (is_consistent_with_primary(device))
+	// BSR-936
+	if (is_consistent_with_primary(device, which))
 		uuid_flags |= UUID_FLAG_CONSISTENT_WITH_PRI;
 
 	// DW-1285 If MDF_PEER_INIT_SYNCT_BEGIN is on, send UUID_FLAG_INIT_SYNCT_BEGIN flag.
@@ -1880,10 +1882,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM);
 }
 
-int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask)
+int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
 {
 	if (peer_device->connection->agreed_pro_version >= 110)
-		return _bsr_send_uuids110(peer_device, uuid_flags, node_mask);
+		return _bsr_send_uuids110(peer_device, uuid_flags, node_mask, which);
 	else
 		return _bsr_send_uuids(peer_device, uuid_flags);
 }
@@ -6611,7 +6613,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED)
-			bsr_send_uuids(peer_device, forced ? 0 : UUID_FLAG_NEW_DATAGEN, weak_nodes);
+			bsr_send_uuids(peer_device, forced ? 0 : UUID_FLAG_NEW_DATAGEN, weak_nodes, NOW);
 	}
 }
 
@@ -7130,7 +7132,7 @@ clear_flag:
 	// DW-1145 clear bitmap if peer has consistent disk with primary's, peer will also clear bitmap.
 	if (bsr_bm_total_weight(peer_device) &&
 		peer_device->uuid_flags & UUID_FLAG_CONSISTENT_WITH_PRI &&
-		is_consistent_with_primary(device) &&
+		is_consistent_with_primary(device, NOW) &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==
 		(bsr_current_uuid(device) & ~UUID_PRIMARY))
 	{

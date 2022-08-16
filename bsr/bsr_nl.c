@@ -1356,7 +1356,7 @@ retry:
 			if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
 				/* if this was forced, we should consider sync */
 				if (forced) {
-					bsr_send_uuids(peer_device, 0, 0);
+					bsr_send_uuids(peer_device, 0, 0, NOW);
 					set_bit(CONSIDER_RESYNC, &peer_device->flags);
 				}
 				bsr_send_current_state(peer_device);
@@ -4996,7 +4996,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 			if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
 				if (dd == DS_GREW)
 					set_bit(RESIZE_PENDING, &peer_device->flags);
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_sizes(peer_device, rs.resize_size, ddsf);
 			}
 		}
@@ -6422,7 +6422,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 		for_each_peer_device(peer_device, device) {
 			if (NODE_MASK(peer_device->node_id) & nodes) {
 				if (NODE_MASK(peer_device->node_id) & diskfull)
-					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
+					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0, NOW);
 				_bsr_uuid_set_bitmap(peer_device, 0);
 				bsr_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
 				updated_uuid = true;
