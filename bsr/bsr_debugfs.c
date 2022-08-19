@@ -1443,13 +1443,16 @@ static void device_req_timing_reset(struct bsr_device * device)
 	memset(&device->al_after_sync_page_kt, 0, sizeof(struct timing_stat));
 	
 	memset(&device->req_destroy_kt, 0, sizeof(struct timing_stat));
-
-	for_each_peer_device(peer_device, device) {
+	
+	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+	rcu_read_lock();
+	for_each_peer_device_rcu(peer_device, device) {
 		peer_device->reqs = 0;
 		memset(&peer_device->pre_send_kt, 0, sizeof(struct timing_stat));
 		memset(&peer_device->acked_kt, 0, sizeof(struct timing_stat));
 		memset(&peer_device->net_done_kt, 0, sizeof(struct timing_stat));
 	}
+	rcu_read_unlock();
 }
 
 int device_req_timing_show(struct seq_file *m, void *ignored)
@@ -1490,13 +1493,16 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
 	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
 
-	for_each_peer_device(peer_device, device) {
+	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+	rcu_read_lock();
+	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
 		seq_printf(m, "%s ", rcu_dereference(connection->transport.net_conf)->name);
 		show_req_stat(peer_device, "pre_send", pre_send_kt);
 		show_req_stat(peer_device, "acked", acked_kt);
 		show_req_stat(peer_device, "net_done", net_done_kt);
 	}
+	rcu_read_unlock();
 
 	seq_printf(m, "\n");
 	device_req_timing_reset(device);
@@ -1534,7 +1540,9 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		return 0;
 	}
 
-	for_each_peer_device(peer_device, device) {
+	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+	rcu_read_lock();
+	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
 		spin_lock_irqsave(&peer_device->timing_lock, flags);
 		/* peer name */
@@ -1547,6 +1555,7 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		peer_req_timing_reset(peer_device);
 		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
 	}
+	rcu_read_unlock();
 
 	seq_printf(m, "\n");
 	
