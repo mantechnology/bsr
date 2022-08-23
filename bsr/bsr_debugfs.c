@@ -1428,6 +1428,9 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 static void device_req_timing_reset(struct bsr_device * device)
 {
 	struct bsr_peer_device *peer_device;
+#ifdef _LIN
+	unsigned long flags;
+#endif
 
 	device->reqs = 0;
 
@@ -1443,8 +1446,11 @@ static void device_req_timing_reset(struct bsr_device * device)
 	memset(&device->al_after_sync_page_kt, 0, sizeof(struct timing_stat));
 	
 	memset(&device->req_destroy_kt, 0, sizeof(struct timing_stat));
-	
-	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+
+	// BSR-938
+#ifdef _LIN
+	spin_lock_irqsave(&device->resource->req_lock, flags);
+#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		peer_device->reqs = 0;
@@ -1453,13 +1459,18 @@ static void device_req_timing_reset(struct bsr_device * device)
 		memset(&peer_device->net_done_kt, 0, sizeof(struct timing_stat));
 	}
 	rcu_read_unlock();
+#ifdef _LIN
+	spin_unlock_irqrestore(&device->resource->req_lock, flags);
+#endif
 }
 
 int device_req_timing_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct bsr_peer_device *peer_device;
+#ifdef _LIN
 	unsigned long flags;
+#endif
 	unsigned int al_cnt = 0;
 
 	// BSR-776 to avoid panic, check the device with get_ldev
@@ -1475,7 +1486,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 		return 0;
 	}
 
-	spin_lock_irqsave(&device->timing_lock, flags);
+	spin_lock_irq(&device->timing_lock);
 
 	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
 	/* req count */
@@ -1493,7 +1504,10 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
 	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
 
-	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+	// BSR-938 you can remove the list while forwarding it, so use rcu lock and linux use spinlock in addition.
+#ifdef _LIN
+	spin_lock_irqsave(&device->resource->req_lock, flags);
+#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
@@ -1503,11 +1517,14 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 		show_req_stat(peer_device, "net_done", net_done_kt);
 	}
 	rcu_read_unlock();
+#ifdef _LIN
+	spin_unlock_irqrestore(&device->resource->req_lock, flags);
+#endif
 
 	seq_printf(m, "\n");
 	device_req_timing_reset(device);
 
-	spin_unlock_irqrestore(&device->timing_lock, flags);
+	spin_unlock_irq(&device->timing_lock);
 	put_ldev(device);
 
 	return 0;
@@ -1540,7 +1557,10 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		return 0;
 	}
 
-	// BSR-938 added rcu_read_lock() for peer_device list synchronization
+	// BSR-938
+#ifdef _LIN
+	spin_lock_irq(&device->resource->req_lock);
+#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
@@ -1556,6 +1576,9 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
 	}
 	rcu_read_unlock();
+#ifdef _LIN
+	spin_unlock_irq(&device->resource->req_lock);
+#endif
 
 	seq_printf(m, "\n");
 	
