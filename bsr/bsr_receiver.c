@@ -10278,7 +10278,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	// DW-1732 Initialization active_ee(bitmap, al) 
 
 	// BSR-438
-	spin_lock(&g_inactive_lock);
+	spin_lock_irqsave(&g_inactive_lock, irq_flags);
 	// DW-1920
 	if (!list_empty(&connection->active_ee)) {
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, &connection->active_ee, w.list) {
@@ -10320,7 +10320,7 @@ void conn_disconnect(struct bsr_connection *connection)
 		set_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags);
 		atomic_inc(&connection->inacitve_ee_cnt);
 	}
-	spin_unlock(&g_inactive_lock);
+	spin_unlock_irqrestore(&g_inactive_lock, irq_flags);
 	spin_unlock_irq(&resource->req_lock);
 #endif
 

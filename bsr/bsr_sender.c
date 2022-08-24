@@ -3342,16 +3342,24 @@ static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resy
 
 static void bsr_ldev_destroy(struct bsr_device *device)
 {
-        struct bsr_peer_device *peer_device;
+    struct bsr_peer_device *peer_device;
 
-        rcu_read_lock();
-        for_each_peer_device_rcu(peer_device, device) {
-                lc_destroy(peer_device->resync_lru);
-                peer_device->resync_lru = NULL;
-        }
-        rcu_read_unlock();
-        lc_destroy(device->act_log);
-        device->act_log = NULL;
+	// BSR-938 add spinlock to linux for DW-1465 modification
+#ifdef _LIN
+	spin_lock_irq(&device->resource->req_lock);
+#endif
+    rcu_read_lock();
+    for_each_peer_device_rcu(peer_device, device) {
+            lc_destroy(peer_device->resync_lru);
+            peer_device->resync_lru = NULL;
+	}
+    rcu_read_unlock();
+#ifdef _LIN
+	spin_unlock_irq(&device->resource->req_lock);
+#endif
+
+    lc_destroy(device->act_log);
+    device->act_log = NULL;
 	__acquire(local);
 	bsr_backing_dev_free(device, device->ldev);
 	device->ldev = NULL;
