@@ -534,7 +534,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_TWOPC_MAX_INDEX 58
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
-#define BSR_LC_STATE_MAX_INDEX 56
+#define BSR_LC_STATE_MAX_INDEX 57
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 143
 #define BSR_LC_NETLINK_MAX_INDEX 36
@@ -1434,6 +1434,8 @@ enum {
 	NEGOTIATION_RESULT_TOUCHED,
 	TWOPC_ABORT_LOCAL,
 	TWOPC_EXECUTED,         /* Commited or aborted */
+	// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+	STATE_WORK_PENDING,		
 	DEVICE_WORK_PENDING,	/* tell worker that some device has pending work */
 	PEER_DEVICE_WORK_PENDING,/* tell worker that some peer_device has pending work */
 	RESOURCE_WORK_PENDING,  /* tell worker that some peer_device has pending work */
@@ -1564,6 +1566,8 @@ struct bsr_resource {
 
 	struct semaphore state_sem;
 	wait_queue_head_t state_wait;  /* upon each state change. */
+	// BSR-937
+	wait_queue_head_t state_work_wait;
 	enum chg_state_flags state_change_flags;
 	const char **state_change_err_str;
 	bool remote_state_change;  /* remote state change in progress */
