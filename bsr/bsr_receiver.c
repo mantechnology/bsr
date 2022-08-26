@@ -8993,7 +8993,16 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		spin_unlock_irq(&resource->req_lock);
 		goto retry;
 	}
-	clear_bit(CONSIDER_RESYNC, &peer_device->flags);
+
+	// BSR-937 init sync won't start because CONSIDER_RESYNC flag removed
+	// fix to not clear CONSIDER_RESYNC flag if the peer is the primary and the new current uuid has not been received
+	if ((peer_state.role == R_PRIMARY) && (new_repl_state == L_ESTABLISHED) 
+		&& ((peer_device->current_uuid & ~UUID_PRIMARY) == UUID_JUST_CREATED)) {
+		bsr_info(57, BSR_LC_STATE, peer_device, "Resync will start when new current UUID is received");
+		set_bit(CONSIDER_RESYNC, &peer_device->flags);
+	} else 
+		clear_bit(CONSIDER_RESYNC, &peer_device->flags);
+
 	if (new_disk_state != D_MASK)
 		__change_disk_state(device, new_disk_state, __FUNCTION__);
 	if (device->disk_state[NOW] != D_NEGOTIATING)

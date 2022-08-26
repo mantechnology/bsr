@@ -3653,9 +3653,22 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				put_ldev(device);
 			}
 
-			if (send_state) 
+			if (send_state) {
+				// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+				// set STATE_WORK_PENDING while sending state in w_after_state_change()
+				wait_event(resource->state_work_wait, !test_and_set_bit(STATE_WORK_PENDING, &resource->flags));
+				
+				// BSR-937 init sync won't start if secondary state send after twopc commit primary state
+				// fix to send role[NEW] state
+				if ((enum bsr_role)new_state.role != resource->role[NEW])
+					new_state.role = resource->role[NEW];
+				
 				bsr_send_state(peer_device, new_state);
 
+				// BSR-937
+				clear_bit(STATE_WORK_PENDING, &resource->flags);
+				wake_up(&resource->state_work_wait);
+			}
 			if (!device_stable[OLD] && device_stable[NEW] &&
 			    !(repl_state[OLD] == L_SYNC_TARGET || repl_state[OLD] == L_PAUSED_SYNC_T) &&
 			    !(peer_role[OLD] == R_PRIMARY) && disk_state[NEW] >= D_OUTDATED &&
@@ -4630,6 +4643,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 			  resource->res_opts.node_id,
 			  context->target_node_id);
 
+	// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+	// set STATE_WORK_PENDING while sending commits and changing local state
+	wait_event(resource->state_work_wait, !test_and_set_bit(STATE_WORK_PENDING, &resource->flags));
+
 	if (have_peers && context->change_local_state_last) {
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
 	}
@@ -4643,8 +4660,15 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				R_PRIMARY : R_SECONDARY;
 			__change_peer_role(target_connection, target_role, __FUNCTION__);
 		}
+		// BSR-937
+		clear_bit(STATE_WORK_PENDING, &resource->flags);
+		wake_up(&resource->state_work_wait);
+
 		rv = end_state_change(resource, &irq_flags, caller);
 	} else {
+		// BSR-937	
+		clear_bit(STATE_WORK_PENDING, &resource->flags);
+		wake_up(&resource->state_work_wait);
 		abort_state_change(resource, &irq_flags, caller);
 	}
 	if (have_peers && !context->change_local_state_last)

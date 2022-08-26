@@ -4301,6 +4301,8 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	INIT_LIST_HEAD(&resource->listeners);
 	spin_lock_init(&resource->listeners_lock);
 	init_waitqueue_head(&resource->state_wait);
+	// BSR-937
+	init_waitqueue_head(&resource->state_work_wait);
 	init_waitqueue_head(&resource->twopc_wait);
 	init_waitqueue_head(&resource->barrier_wait);
 	INIT_LIST_HEAD(&resource->twopc_parents);
