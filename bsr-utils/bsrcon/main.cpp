@@ -97,7 +97,7 @@ void usage()
         "bsrcon /release_vol F \n"
 		// BSR-71
 		"bsrcon /bsrlock_use 0\n"
-		"bsrcon /write_log bsrService \"Logging start\" \n"	
+		"bsrcon /write_log bsr \"Logging start\" \n"	
 		// DW-2166
 		"bsrcon /driver_install \"inf file full path\" \n"
 		"bsrcon /driver_uninstall \"inf file full path\" \n"
@@ -106,8 +106,8 @@ void usage()
 		"examples:\n"
 #endif
 		"bsrcon /handler_use 1 \n"	
-		"bsrcon /get_log bsrService \n"
-		"bsrcon /get_log bsrService r0\n"
+		"bsrcon /get_log bsr \n"
+		"bsrcon /get_log bsr r0\n"
 		"bsrcon /get_log_info \n"
 		"bsrcon /minlog_lv dbg 6 \n"
 		"bsrcon /minlog_lv sys 3 \n"

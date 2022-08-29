@@ -66,7 +66,7 @@
     </entries>
   </files>
   <launchers>
-    <launcher name="bsrService" id="88" external="true" excludeFromMenu="true" externalFile="bin\bsrService.exe" />
+    <launcher name="bsr" id="88" external="true" excludeFromMenu="true" externalFile="bin\bsr.exe" />
     <launcher name="engine install" id="91" external="true" excludeFromMenu="true" externalFile="bin\bsrInstall.bat" />
     <launcher name="engine uninstall" id="119" external="true" excludeFromMenu="true" externalFile="bin\bsrUninstall.bat" />
   </launchers>
@@ -197,6 +197,192 @@ return true;</property>
                   </property>
                 </serializedBean>
                 <condition>context.isUpdateInstallation()</condition>
+              </action>
+              <action name="Remove Previous Versions" id="2938" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" failureStrategy="quit">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+
+context.setVariable("findPreviousVersion","no");
+                    
+if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32)) {
+    Object value = WinRegistry.getValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "Type");
+    if(value != null) {
+        if(Integer.parseInt(value.toString()) == 1) {
+                String[] options = {"YES", "NO"};
+                int nResult = Util.showOptionDialog(context.getMessage("RebootForUpdate"),  options, JOptionPane.QUESTION_MESSAGE);
+                
+                if( nResult == 0 ) {
+                    context.setVariable("findPreviousVersion","yes");
+                } else  {
+                    return false;
+                }
+        }
+    } 
+} 
+return true;</property>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
+              <action name="Save previous bsrvflt engine registry" id="2936" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" failureStrategy="quit" errorMessage="${i18n:FailedToBackupForUpdate}">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+
+if(!WinRegistry.saveKey(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, context.getVariable("sys.installationDir").toString() + "\\bsrvflt")) {
+    return false;
+}
+
+return true;
+</property>
+                    </object>
+                  </property>
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+
+return false;
+
+                    </condition>
+              </action>
+              <action name="Stop previous service" id="2932" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" failureStrategy="quit" errorMessage="${i18n:FailedToServiceStopForUpdate}">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">String serviceName = "bsrService";
+try {
+    boolean isProcessActive = false;
+    Process p = Runtime.getRuntime().exec("sc query " + serviceName);
+    BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+    String line = reader.readLine();
+    while (line != null) {
+        if (line.contains("RUNNING") || line.contains("START_PENDING")) {
+            isProcessActive = true;
+            break;
+        }
+        line = reader.readLine();
+    }
+    p.waitFor();
+
+    Process p1 = Runtime.getRuntime().exec("sc stop " + serviceName);
+    p1.waitFor();
+
+    while (isProcessActive) {
+        Process p2 = Runtime.getRuntime().exec("sc query " + serviceName);
+        BufferedReader reader2 = new BufferedReader(new InputStreamReader(p2.getInputStream()));
+        String line2 = reader2.readLine();
+        while (line2 != null) {
+            if (line2.contains("STOPPED")) {
+                return true;
+            }
+            if (line2.contains("RUNNING")) {
+                p1 = Runtime.getRuntime().exec("sc stop " + serviceName);
+                p1.waitFor();
+            }
+            line2 = reader2.readLine();
+        }
+        p2.waitFor();
+        if (p2.exitValue() != 0)
+            return true;
+ 
+        Thread.sleep(1000);
+    }
+    return true;
+} catch (IOException ex) {
+    return false;
+} catch (InterruptedException ex) {
+    return false;
+}</property>
+                    </object>
+                  </property>
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+
+return false;</condition>
+              </action>
+              <action name="Uninstall previous service" id="2933" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" rollbackBarrierExitCode="0" failureStrategy="quit" errorMessage="${i18n:FailedToServiceUninstallForUpdate}">
+                <serializedBean>
+                  <property name="arguments" type="array" elementType="string" length="1">
+                    <element index="0">/c sc delete bsrService</element>
+                  </property>
+                  <property name="executable">
+                    <object class="java.io.File">
+                      <string>${installer:sys.windowsDir}/system32/cmd.exe</string>
+                    </object>
+                  </property>
+                  <property name="wait" type="boolean" value="true" />
+                  <property name="workingDirectory">
+                    <object class="java.io.File">
+                      <string>bin</string>
+                    </object>
+                  </property>
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+
+return false;</condition>
+              </action>
+              <action name="Uninstall previous bsrvflt engine" id="2937" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToEngineUninstallForUpdate}">
+                <serializedBean>
+                  <property name="arguments" type="array" elementType="string" length="2">
+                    <element index="0">/driver_uninstall</element>
+                    <element index="1">${installer:sys.installationDir}\bin\bsrvflt.inf</element>
+                  </property>
+                  <property name="executable">
+                    <object class="java.io.File">
+                      <string>bin/bsrcon.exe</string>
+                    </object>
+                  </property>
+                  <property name="wait" type="boolean" value="true" />
+                  <property name="workingDirectory">
+                    <object class="java.io.File">
+                      <string>bin</string>
+                    </object>
+                  </property>
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+
+return false;</condition>
+              </action>
+              <action id="2940" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" actionElevationType="none" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="askUser" type="boolean" value="false" />
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+
+return false;
+
+                    </condition>
+              </action>
+              <action name="Update finish" id="2943" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" failureStrategy="quit">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+if(!WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr", context.getVariable("sys.installerFile").toString())) {
+    Util.showMessage(context.getMessage("FailedToAutomaticRestart"));
+} 
+ return false;</property>
+                    </object>
+                  </property>
+                </serializedBean>
+                <condition>if (context.getVariable("findPreviousVersion").toString().equalsIgnoreCase("yes")) {
+    return true;
+} 
+return false;
+</condition>
               </action>
             </actions>
             <formComponents>
@@ -346,21 +532,21 @@ return console.askOkCancel(message, true);
                 <serializedBean>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="launcherId" type="null" />
-                  <property name="serviceName" type="string">bsrService</property>
+                  <property name="serviceName" type="string">bsr</property>
                 </serializedBean>
               </action>
-              <action name="uninstall a BSR daemon service if it is running." id="631" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall a BSR daemon service if it is running." id="631" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="1">
                     <element index="0">/u</element>
                   </property>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="workingDirectory">
@@ -434,7 +620,7 @@ else
                         <property name="runAsAdministrator" type="boolean" value="true" />
                         <property name="target">
                           <object class="java.io.File">
-                            <string>bin/bsrService.exe</string>
+                            <string>bin/bsr.exe</string>
                           </object>
                         </property>
                       </object>
@@ -446,7 +632,7 @@ else
                         <property name="runAsAdministrator" type="boolean" value="true" />
                         <property name="target">
                           <object class="java.io.File">
-                            <string>bin/bsrService.exe</string>
+                            <string>bin/bsr.exe</string>
                           </object>
                         </property>
                       </object>
@@ -458,7 +644,7 @@ else
                         <property name="runAsAdministrator" type="boolean" value="true" />
                         <property name="target">
                           <object class="java.io.File">
-                            <string>bin/bsrService.exe</string>
+                            <string>bin/bsr.exe</string>
                           </object>
                         </property>
                       </object>
@@ -470,7 +656,7 @@ else
                         <property name="runAsAdministrator" type="boolean" value="true" />
                         <property name="target">
                           <object class="java.io.File">
-                            <string>bin/bsrService.exe</string>
+                            <string>bin/bsr.exe</string>
                           </object>
                         </property>
                       </object>
@@ -591,7 +777,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                   </property>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="workingDirectory">
@@ -619,7 +805,7 @@ return true;</property>
                   </property>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="workingDirectory">
@@ -631,7 +817,7 @@ return true;</property>
               </action>
               <action id="2017" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated">
                 <serializedBean>
-                  <property name="keyName" type="string">SYSTEM\CurrentControlSet\Services\bsrService</property>
+                  <property name="keyName" type="string">SYSTEM\CurrentControlSet\Services\bsr</property>
                   <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
                   <property name="value" type="string">Tcpip</property>
                   <property name="valueName" type="string">DependOnService</property>
@@ -703,7 +889,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="backup rc.bat" id="2353" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
+              <action name="Backup rc.bat" id="2353" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="destinationFile">
                     <object class="java.io.File">
@@ -726,7 +912,7 @@ return true;</property>
                   </property>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="workingDirectory">
@@ -736,7 +922,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="restore rc.bat" id="2354" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
+              <action name="Restore rc.bat" id="2354" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="destinationFile">
                     <object class="java.io.File">
@@ -752,7 +938,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="compare setup bsrfsflt driver hash" id="2929" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrfsflt driver hash" id="2929" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrfsflt.hash</element>
@@ -771,7 +957,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="compare setup bsrvflt hash" id="2930" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrvflt hash" id="2930" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrvflt.hash</element>
@@ -790,7 +976,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="install bsrfsflt" id="1841" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Install bsrfsflt" id="1841" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_install</element>
@@ -808,7 +994,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_install</element>
@@ -826,7 +1012,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrfsflt.hash</element>
@@ -845,7 +1031,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrvflt.hash</element>
@@ -860,6 +1046,41 @@ return true;</property>
                   <property name="workingDirectory">
                     <object class="java.io.File">
                       <string>bin</string>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
+              <action name="Restore previous bsrvflt engine registry" id="2944" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+
+File b = new File(context.getVariable("sys.installationDir").toString() + "\\bsrvflt");
+
+if(b.exists()) {
+    if(!WinRegistry.restoreKey(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, context.getVariable("sys.installationDir").toString() + "\\bsrvflt")) {
+        Util.showMessage(context.getMessage("FailedToRegistryUpdate"));
+    } else {
+        if(!b.delete()) {
+            Util.showMessage(context.getMessage("FailedToRegistryBackupDelete"));
+        }
+    }
+}
+return true;
+</property>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
+              <action name="Remove reboot after auto run" id="2947" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+WinRegistry.deleteValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr");
+return true;</property>
                     </object>
                   </property>
                 </serializedBean>
@@ -933,11 +1154,11 @@ return console.askYesNo(message, true);
                 <serializedBean>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="launcherId" type="null" />
-                  <property name="serviceName" type="string">bsrService</property>
+                  <property name="serviceName" type="string">bsr</property>
                 </serializedBean>
               </action>
               <action id="2685" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" errorMessage="${installer:wipe_stderr}\n${i18n:FailWipeMd}">
@@ -976,14 +1197,14 @@ else
 }
 </condition>
               </action>
-              <action name="uninstall bsrService" id="636" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrService" id="636" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="1">
                     <element index="0">/u</element>
                   </property>
                   <property name="executable">
                     <object class="java.io.File">
-                      <string>bin/bsrService.exe</string>
+                      <string>bin/bsr.exe</string>
                     </object>
                   </property>
                   <property name="wait" type="boolean" value="true" />
@@ -996,7 +1217,7 @@ else
               </action>
               <action id="1598" beanClass="com.install4j.runtime.beans.actions.registry.DeleteRegistryItemAction" actionElevationType="elevated">
                 <serializedBean>
-                  <property name="keyName" type="string">SYSTEM\CurrentControlSet\Services\bsrService</property>
+                  <property name="keyName" type="string">SYSTEM\CurrentControlSet\Services\bsr</property>
                   <property name="onlyIfEmpty" type="boolean" value="false" />
                   <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
                 </serializedBean>
@@ -1005,7 +1226,7 @@ else
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\Application\\bsrService";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\Application\\bsr";
 
 if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -1017,7 +1238,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="uninstall bsrfsflt engine" id="2925" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrfsflt engine" id="2925" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_uninstall</element>
@@ -1036,7 +1257,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="uninstall bsrvflt engine" id="131" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrvflt engine" id="131" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_uninstall</element>

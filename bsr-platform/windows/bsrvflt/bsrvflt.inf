@@ -38,7 +38,7 @@ DelFiles            = BSR.DriverFiles
 DelReg              = BSR.DelRegistry
 
 [DefaultUninstall.Services]
-DelService = bsr,0x200      ; Flags note to stop service first
+DelService = bsrvflt,0x200      ; Flags note to stop service first
 
 ;
 ; Services Section
@@ -104,6 +104,7 @@ bsrvflt.sys = 1,,
 [Strings]
 Msft                = "bsr"
 ServiceDesc         = "bsr engine"
-ServiceName         = "bsr"
+;; BSR-941 rename bsrvflt service to bsrvflt
+ServiceName         = "bsrvflt"
 DiskId1             = "bsr Installation Disk"
 
