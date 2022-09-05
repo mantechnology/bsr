@@ -1429,9 +1429,6 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 static void device_req_timing_reset(struct bsr_device * device)
 {
 	struct bsr_peer_device *peer_device;
-#ifdef _LIN
-	unsigned long flags;
-#endif
 
 	device->reqs = 0;
 
