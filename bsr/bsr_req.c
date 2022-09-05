@@ -229,7 +229,8 @@ void bsr_req_destroy(struct kref *kref)
 	s = req->rq_state[0];
 	destroy_next = req->destroy_next;
 	if (atomic_read(&g_bsrmon_run) && (s & RQ_WRITE)) {
-		spin_lock(&device->timing_lock); /* local irq already disabled */
+		// BSR-946 remove device->timing_lock
+		// req_lock already acquired
 		device->reqs++;
 		ktime_aggregate_delta(device, req->start_kt, req_destroy_kt);
 		
@@ -249,8 +250,6 @@ void bsr_req_destroy(struct kref *kref)
 			ktime_aggregate_pd(peer_device, node_id, req, acked_kt);
 			ktime_aggregate_pd(peer_device, node_id, req, net_done_kt);
 		}
-		
-		spin_unlock(&device->timing_lock);	
 	} 
 	/* paranoia */
 	for_each_peer_device(peer_device, device) {
