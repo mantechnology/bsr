@@ -173,7 +173,7 @@ DWORD DeleteRegistryVolumes(__in list<WCHAR>& letter_list)
     WCHAR szRegLetter[MAX_PATH] = {0, };
     UCHAR volGuid[MAX_PATH] = {0, };
     DWORD cbRegLetter = MAX_PATH, cbVolGuid = MAX_PATH;
-    const WCHAR * szRegistryPath = L"System\\CurrentControlSet\\Services\\bsr\\volumes";
+    const WCHAR * szRegistryPath = L"System\\CurrentControlSet\\Services\\bsrvflt\\volumes";
 
     status = RegOpenKeyExW(HKEY_LOCAL_MACHINE, szRegistryPath, 0, KEY_ALL_ACCESS, &hKey);
     if (ERROR_SUCCESS != status) {

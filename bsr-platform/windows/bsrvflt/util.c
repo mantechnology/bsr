@@ -1228,7 +1228,7 @@ GetDriverLetterByDeviceName(IN PUNICODE_STRING pDeviceName, OUT PUNICODE_STRING 
 * @brief
 *   delete registry's value
 * @param
-*   preg_path - UNICODE_STRING type's path ex)"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\bsr\\volumes"
+*   preg_path - UNICODE_STRING type's path ex)"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\bsrvflt\\volumes"
 *   pvalue_name - UNICODE_STRING type's value
 * @return
 *   success : STATUS_SUCCESS 

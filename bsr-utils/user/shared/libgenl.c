@@ -64,7 +64,7 @@ int get_netlink_port()
 	DWORD status;
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
-	const CHAR * registryPath = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+	const CHAR * registryPath = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
 	if (status == ERROR_SUCCESS) {
 		status = RegQueryValueEx(hKey, TEXT("netlink_tcp_port"), NULL, &type, (LPBYTE)&value, &size);
