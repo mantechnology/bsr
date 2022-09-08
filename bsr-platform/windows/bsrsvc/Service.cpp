@@ -470,7 +470,7 @@ int RunBsrmon()
 
 	// BSR-694
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
@@ -527,7 +527,7 @@ int RunBsrmon()
 int get_daemon_port()
 
 {
-	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
+	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
 	DWORD status;
 	HKEY hKey;
 	DWORD type = REG_DWORD;

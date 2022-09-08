@@ -736,7 +736,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 {
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
@@ -804,7 +804,7 @@ long GetOptionValue(enum set_option_type option_type)
 {
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;

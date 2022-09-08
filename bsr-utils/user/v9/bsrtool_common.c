@@ -532,7 +532,7 @@ DWORD get_cli_log_file_max_count()
 #ifdef _WIN
 	DWORD lResult = ERROR_SUCCESS;
 	HKEY hKey = NULL;
-	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsr";
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 

@@ -1223,7 +1223,7 @@ static void find_bsrcmd(char **cmd, char **pathes)
 	exit(E_EXEC_ERROR);
 }
 #ifdef _WIN_MVFL
-const PCHAR gRegistryPath = "System\\CurrentControlSet\\Services\\bsr\\volumes";
+const PCHAR gRegistryPath = "System\\CurrentControlSet\\Services\\bsrvflt\\volumes";
 
 DWORD add_registry_volume(char * letter)
 {
