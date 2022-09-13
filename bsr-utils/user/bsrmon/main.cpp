@@ -365,7 +365,7 @@ void PrintMonitor()
 // BSR-740 init performance data
 void InitMonitor()
 {
-	struct resource* res;
+	struct resource *res, *res_head;
 
 	res = GetResourceInfo();
 	if (!res) {
@@ -373,6 +373,7 @@ void InitMonitor()
 		return;
 	}
 
+	res_head = res;
 	while (res) {
 		if (InitPerfType(IO_STAT, res) != 0)
 			goto next;
@@ -392,7 +393,7 @@ next:
 		res = res->next;
 	}
 
-	freeResource(res);
+	freeResource(res_head);
 }
 
 
@@ -405,7 +406,7 @@ void MonitorToFile()
 	char bsr_path[MAX_PATH] = {0,};
 #endif
 	char perfpath[MAX_PATH] = {0,};
-	struct resource* res;
+	struct resource *res, *res_head;
 	struct tm base_date_local;
 	struct timeb timer_msec;
 	char curr_time[64] = {0,};
@@ -436,7 +437,7 @@ void MonitorToFile()
 		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
 		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, timer_msec.millitm);
 
-
+	res_head = res;
 	while (res) {
 		char respath[MAX_PATH+RESOURCE_NAME_MAX] = {0,};
 
@@ -471,8 +472,7 @@ next:
 
 	// save memory monitoring status
 	GetMemInfoToFile(perfpath, curr_time);
-
-	freeResource(res);
+	freeResource(res_head);
 }
 
 // BSR-741 checking the performance monitor status
