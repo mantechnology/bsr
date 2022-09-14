@@ -1469,9 +1469,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	// BSR-740 init perf data
 	if (!atomic_read(&g_bsrmon_run)) {
 		seq_printf(m, "err reading 'req_timing': bsr performance monitor is not running\n");
-		spin_lock_irq(&device->resource->req_lock);
 		device_req_timing_reset(device);
-		spin_unlock_irq(&device->resource->req_lock);
 		atomic_set(&device->al_updates_cnt, 0);
 		put_ldev(device);
 		return 0;
@@ -1496,7 +1494,6 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_stat("before_bm_write", device->al_before_bm_write_hinted_kt, al_cnt);
 	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
 	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
-
 
 	// BSR-938 you can remove the list while forwarding it, so use rcu lock.
 	rcu_read_lock();
@@ -1546,9 +1543,6 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 	}
 
 	// BSR-938
-#ifdef _LIN
-	spin_lock_irq(&device->resource->req_lock);
-#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
@@ -1564,9 +1558,6 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
 	}
 	rcu_read_unlock();
-#ifdef _LIN
-	spin_unlock_irq(&device->resource->req_lock);
-#endif
 
 	seq_printf(m, "\n");
 	

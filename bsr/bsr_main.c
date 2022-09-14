@@ -5039,8 +5039,20 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 {
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
-	LIST_HEAD(work_list);
 	int vnr;
+
+	LIST_HEAD(work_list);
+#if _LIN
+	// BSR-947 create and add a separate list to ensure synchronization of the list reference of the peer_device in use in the critical area.
+	struct peer_device_list {
+		struct list_head list;
+		struct bsr_peer_device *peer_device;
+	};
+	struct peer_device_list peer_head;
+	struct peer_device_list *peer_list, *tmp;
+
+	INIT_LIST_HEAD(&peer_head.list);
+#endif
 
 	// BSR-426 repositioned req_lock to resolve deadlock.
 	// BSR-447 req_lock spinlock should precede the rcu lock.
@@ -5056,6 +5068,14 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		list_del_rcu(&peer_device->peer_devices);
+#ifdef _LIN
+		peer_list = bsr_kmalloc(sizeof(*peer_list), GFP_ATOMIC, '85SB');
+		if(peer_list) {
+			peer_list->peer_device = peer_device;
+			list_add(&peer_list->list, &peer_head.list);
+			continue;
+		}  
+#endif
 		list_add(&peer_device->peer_devices, &work_list);
 	}
 #ifdef _WIN
@@ -5065,6 +5085,16 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 	spin_unlock_irq(&resource->req_lock);
 	list_for_each_entry_ex(struct bsr_peer_device, peer_device, &work_list, peer_devices)
 		bsr_debugfs_peer_device_cleanup(peer_device);
+
+#ifdef _LIN
+	synchronize_rcu();
+	list_for_each_entry_safe_ex(struct peer_device_list, peer_list, tmp, &peer_head.list, list) {
+		bsr_debugfs_peer_device_cleanup(peer_list->peer_device);
+		list_del(&peer_list->list);
+		bsr_kfree(peer_list);
+	}
+#endif
+
 	bsr_debugfs_connection_cleanup(connection);
 }
 
