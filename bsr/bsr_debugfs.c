@@ -1460,6 +1460,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct bsr_peer_device *peer_device;
+	unsigned long flags;
 	unsigned int al_cnt = 0;
 
 	// BSR-776 to avoid panic, check the device with get_ldev
@@ -1469,17 +1470,13 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	// BSR-740 init perf data
 	if (!atomic_read(&g_bsrmon_run)) {
 		seq_printf(m, "err reading 'req_timing': bsr performance monitor is not running\n");
-		spin_lock_irq(&device->resource->req_lock);
 		device_req_timing_reset(device);
-		spin_unlock_irq(&device->resource->req_lock);
 		atomic_set(&device->al_updates_cnt, 0);
 		put_ldev(device);
 		return 0;
 	}
 
-	// BSR-946 fix BSR-938 causes deadlock between device->timing_lock and device->resource->req_lock.
-	// if req_lock is acquired, there is no need to use timing_lock. remove timing_lock and use req_lock.
-	spin_lock_irq(&device->resource->req_lock);
+	spin_lock_irqsave(&device->timing_lock, flags);
 
 	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
 	/* req count */
@@ -1497,7 +1494,6 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	show_stat("after_bm_write", device->al_after_bm_write_hinted_kt, al_cnt);
 	show_stat("after_sync_page", device->al_after_sync_page_kt, al_cnt);
 
-
 	// BSR-938 you can remove the list while forwarding it, so use rcu lock.
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
@@ -1512,7 +1508,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "\n");
 	device_req_timing_reset(device);
 
-	spin_unlock_irq(&device->resource->req_lock);
+	spin_unlock_irqrestore(&device->timing_lock, flags);
 	put_ldev(device);
 
 	return 0;
@@ -1546,9 +1542,6 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 	}
 
 	// BSR-938
-#ifdef _LIN
-	spin_lock_irq(&device->resource->req_lock);
-#endif
 	rcu_read_lock();
 	for_each_peer_device_rcu(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
@@ -1564,9 +1557,6 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 		spin_unlock_irqrestore(&peer_device->timing_lock, flags);
 	}
 	rcu_read_unlock();
-#ifdef _LIN
-	spin_unlock_irq(&device->resource->req_lock);
-#endif
 
 	seq_printf(m, "\n");
 	

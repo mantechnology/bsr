@@ -2212,6 +2212,7 @@ struct bsr_device {
 	the list counts will not increase in a large amount 
 	because they will occur only in a specific sector. */
 	atomic_t io_error_count;
+	spinlock_t timing_lock;
 	ktime_t aggregation_start_kt;
 
 	/* request aggregation*/
