@@ -1460,6 +1460,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
 	struct bsr_peer_device *peer_device;
+	unsigned long flags;
 	unsigned int al_cnt = 0;
 
 	// BSR-776 to avoid panic, check the device with get_ldev
@@ -1475,9 +1476,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 		return 0;
 	}
 
-	// BSR-946 fix BSR-938 causes deadlock between device->timing_lock and device->resource->req_lock.
-	// if req_lock is acquired, there is no need to use timing_lock. remove timing_lock and use req_lock.
-	spin_lock_irq(&device->resource->req_lock);
+	spin_lock_irqsave(&device->timing_lock, flags);
 
 	al_cnt = atomic_xchg(&device->al_updates_cnt, 0);
 	/* req count */
@@ -1509,7 +1508,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "\n");
 	device_req_timing_reset(device);
 
-	spin_unlock_irq(&device->resource->req_lock);
+	spin_unlock_irqrestore(&device->timing_lock, flags);
 	put_ldev(device);
 
 	return 0;
