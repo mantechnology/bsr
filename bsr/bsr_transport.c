@@ -207,7 +207,10 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 			new_listener = NULL;
 		}
 		if (listener) {
+			// BSR-951
+			spin_lock(&listener->waiters_lock);
 			list_add(&path->listener_link, &listener->waiters);
+			spin_unlock(&listener->waiters_lock);
 			path->listener = listener;
 		}
 		spin_unlock_bh(&resource->listeners_lock);
@@ -264,9 +267,11 @@ void bsr_put_listener(struct bsr_path *path)
 		return;
 
 	resource = listener->resource;
-	spin_lock_bh(&resource->listeners_lock);
+	// BSR-951 fix panic caused by list_del() while referencing path->listener_link
+	// changed to use waiters_lock same as reference logic.
+	spin_lock_bh(&listener->waiters_lock);
 	list_del(&path->listener_link);
-	spin_unlock_bh(&resource->listeners_lock);
+	spin_unlock_bh(&listener->waiters_lock);
 	kref_put(&listener->kref, bsr_listener_destroy);
 }
 
