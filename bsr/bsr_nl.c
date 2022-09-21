@@ -2874,7 +2874,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	enum determine_dev_size dd;
 	sector_t max_possible_sectors;
 	sector_t min_md_device_sectors;
-	struct bsr_backing_dev *nbc; /* new_backing_conf */
+	struct bsr_backing_dev *nbc = NULL; /* new_backing_conf */
 	struct disk_conf *new_disk_conf = NULL;
 	enum bsr_state_rv rv;
 	struct bsr_peer_device *peer_device;
@@ -2888,6 +2888,20 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	device = adm_ctx.device;
 	resource = device->resource;
 	mutex_lock(&resource->adm_mutex);
+
+#ifdef _LIN
+	// BSR-953 verify that device is valid.
+	if (adm_ctx.device) {
+		rcu_read_lock();
+		if (!minor_to_device(adm_ctx.minor)) {
+			rcu_read_unlock();
+			bsr_msg_put_info(adm_ctx.reply_skb, "unknown minor");
+			retcode = ERR_MINOR_INVALID;
+			goto fail;
+		}
+		rcu_read_unlock();
+	}
+#endif
 
 	/* allocation not in the IO path, bsrsetup context */
 	nbc = bsr_kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61SB');
