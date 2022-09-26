@@ -3074,11 +3074,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
 
+			// BSR-958 if uuid is initialized, set the following flag(bInitialAttaching) to true to write cache flush data
+			if (nbc->md.current_uuid == UUID_JUST_CREATED) {
+				pvext->bInitialAttaching = TRUE;
+			}
+			pvext->Active = TRUE;
 			FsctlLockVolume(dh->minor);
 
 			status = FsctlFlushDismountVolume(dh->minor, true);
-			// BSR-958 set the disk to lock after cache flush.
-			pvext->Active = TRUE;
+			pvext->bInitialAttaching = FALSE;
 
 			FsctlUnlockVolume(dh->minor);
 
@@ -3086,15 +3090,19 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				retcode = ERR_RES_NOT_KNOWN;
 				goto force_diskless_dec;
 			}
-			
 #else
 			status = mvolInitializeThread(pvext, &pvext->WorkThreadInfo, mvolWorkThread);
 			if (NT_SUCCESS(status)) {
+				// BSR-958
+				if (nbc->md.current_uuid == UUID_JUST_CREATED)
+					pvext->bInitialAttaching = TRUE;
+
+				pvext->Active = TRUE;
+
 				FsctlLockVolume(dh->minor);
 
 				status = FsctlFlushDismountVolume(dh->minor, true);
-				// BSR-958 set the disk to lock after cache flush.
-				pvext->Active = TRUE;
+				pvext->bInitialAttaching = FALSE;
 
 				FsctlUnlockVolume(dh->minor);
 

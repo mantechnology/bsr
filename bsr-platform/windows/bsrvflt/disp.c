@@ -336,6 +336,8 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
     AttachedDeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 
     VolumeExtension = AttachedDeviceObject->DeviceExtension;
+	// BSR-958
+	VolumeExtension->bInitialAttaching = FALSE;
     RtlZeroMemory(VolumeExtension, sizeof(VOLUME_EXTENSION));
     VolumeExtension->DeviceObject = AttachedDeviceObject;
     VolumeExtension->PhysicalDeviceObject = PhysicalDeviceObject;
@@ -780,14 +782,17 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			if (device)
 				kref_put(&device->kref, bsr_destroy_device);
 
-			bsr_debug(109, BSR_LC_DRIVER, NO_OBJECT, "Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
-					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
-	
-            Irp->IoStatus.Information = 0;
-            Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+			// BSR-958 if Active is in TRUE state, but it is being attaching after resource initialization, it is not treated as an error.
+			if (!VolumeExtension->bInitialAttaching) {
+				bsr_debug(109, BSR_LC_DRIVER, NO_OBJECT, "Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
+					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);
 
-            return STATUS_INVALID_DEVICE_REQUEST;
+				Irp->IoStatus.Information = 0;
+				Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
+				IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
+				return STATUS_INVALID_DEVICE_REQUEST;
+			}
         }
     }
 
