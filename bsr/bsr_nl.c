@@ -3076,8 +3076,9 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 			FsctlLockVolume(dh->minor);
 
-			pvext->Active = TRUE;
 			status = FsctlFlushDismountVolume(dh->minor, true);
+			// BSR-958 set the disk to lock after cache flush.
+			pvext->Active = TRUE;
 
 			FsctlUnlockVolume(dh->minor);
 
@@ -3091,8 +3092,9 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			if (NT_SUCCESS(status)) {
 				FsctlLockVolume(dh->minor);
 
-				pvext->Active = TRUE;
 				status = FsctlFlushDismountVolume(dh->minor, true);
+				// BSR-958 set the disk to lock after cache flush.
+				pvext->Active = TRUE;
 
 				FsctlUnlockVolume(dh->minor);
 
