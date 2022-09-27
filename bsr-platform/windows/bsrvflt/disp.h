@@ -106,9 +106,8 @@ typedef struct _VOLUME_EXTENSION
 #endif
 	struct block_device	*dev;
 
-	// BSR-958 if attaching after resource initialization is set to true.
-	// the resource initialization state means that uuid is UUID_JUST_CREATED(4).
-	bool bInitialAttaching;
+	// BSR-958 
+	bool bResynchronizedAfterResourceInitialization;
 } VOLUME_EXTENSION, *PVOLUME_EXTENSION;
 
 typedef struct _ROOT_EXTENSION

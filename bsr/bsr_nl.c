@@ -3074,15 +3074,27 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
 
-			// BSR-958 if uuid is initialized, set the following flag(bInitialAttaching) to true to write cache flush data
+			// BSR-958 uuid is UUID_JUST_CREATED and sets the flag to allow write cache flush if no resync has occurred before.
 			if (nbc->md.current_uuid == UUID_JUST_CREATED) {
-				pvext->bInitialAttaching = TRUE;
+				if (nbc->md.node_id == -1 || (unsigned int)nbc->md.node_id == resource->res_opts.node_id) {
+					BOOLEAN resync_already_progressed = FALSE;
+ 					for (int i = 0; i < BSR_NODE_ID_MAX; i++) {
+						if (nbc->md.peers[i].flags & MDF_PEER_INIT_SYNCT_BEGIN) {
+							resync_already_progressed = TRUE;
+							break;
+						}
+					}
+
+					if (!resync_already_progressed) {
+						pvext->bResynchronizedAfterResourceInitialization = FALSE;
+					}
+				}
 			}
 			pvext->Active = TRUE;
 			FsctlLockVolume(dh->minor);
 
 			status = FsctlFlushDismountVolume(dh->minor, true);
-			pvext->bInitialAttaching = FALSE;
+			pvext->bResynchronizedAfterResourceInitialization = TRUE;
 
 			FsctlUnlockVolume(dh->minor);
 
@@ -3094,15 +3106,28 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			status = mvolInitializeThread(pvext, &pvext->WorkThreadInfo, mvolWorkThread);
 			if (NT_SUCCESS(status)) {
 				// BSR-958
-				if (nbc->md.current_uuid == UUID_JUST_CREATED)
-					pvext->bInitialAttaching = TRUE;
+				if (nbc->md.current_uuid == UUID_JUST_CREATED) {
+					// BSR-958 
+					if (nbc->md.node_id != -1 && (unsigned int)nbc->md.node_id == resource->res_opts.node_id) {
+						BOOLEAN resync_already_progressed = FALSE;
+						for (int i = 0; i < BSR_NODE_ID_MAX; i++) {
+							if (nbc->md.peers[i].flags & MDF_PEER_INIT_SYNCT_BEGIN) {
+								resync_already_progressed = TRUE;
+							}
+						}
+
+						if (!resync_already_progressed) {
+							pvext->bResynchronizedAfterResourceInitialization = FALSE;
+						}
+					}
+				}
 
 				pvext->Active = TRUE;
 
 				FsctlLockVolume(dh->minor);
 
 				status = FsctlFlushDismountVolume(dh->minor, true);
-				pvext->bInitialAttaching = FALSE;
+				pvext->bResynchronizedAfterResourceInitialization = TRUE;
 
 				FsctlUnlockVolume(dh->minor);
 
