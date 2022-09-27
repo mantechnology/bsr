@@ -2864,6 +2864,32 @@ static void discard_not_wanted_bitmap_uuids(struct bsr_device *device, struct bs
 	}
 }
 
+#ifdef _WIN
+BOOLEAN is_volume_previously_resynced(struct bsr_backing_dev *nbc, unsigned int node_id)
+{
+	BOOLEAN bRet = TRUE;
+
+	// BSR-958 uuid is UUID_JUST_CREATED and sets the flag to allow write cache flush if no resync has occurred before.
+	if (nbc->md.current_uuid == UUID_JUST_CREATED) {
+		if (nbc->md.node_id == -1 || (unsigned int)nbc->md.node_id == node_id) {
+			BOOLEAN resync_already_progressed = FALSE;
+			for (int i = 0; i < BSR_NODE_ID_MAX; i++) {
+				if (nbc->md.peers[i].flags & MDF_PEER_INIT_SYNCT_BEGIN) {
+					resync_already_progressed = TRUE;
+					break;
+				}
+			}
+
+			if (!resync_already_progressed) {
+				bRet = FALSE;
+			}
+		}
+	}
+
+	return bRet;
+}
+#endif
+
 int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
@@ -3066,18 +3092,20 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MVFL
 	struct bsr_genlmsghdr *dh = info->userhdr;
 	if (do_add_minor(dh->minor)) {
-		NTSTATUS status = STATUS_UNSUCCESSFUL;
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(dh->minor, FALSE);
 		if (pvext) {
+			NTSTATUS status = STATUS_UNSUCCESSFUL;
 			// DW-1461 set volume protection when attaching.
 			SetBsrlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
-
+			// BSR-958
+			pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+			pvext->Active = TRUE;
 			FsctlLockVolume(dh->minor);
 
-			pvext->Active = TRUE;
 			status = FsctlFlushDismountVolume(dh->minor, true);
+			pvext->bPreviouslyResynced = TRUE;
 
 			FsctlUnlockVolume(dh->minor);
 
@@ -3085,14 +3113,16 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				retcode = ERR_RES_NOT_KNOWN;
 				goto force_diskless_dec;
 			}
-			
 #else
 			status = mvolInitializeThread(pvext, &pvext->WorkThreadInfo, mvolWorkThread);
 			if (NT_SUCCESS(status)) {
+				// BSR-958
+				pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+				pvext->Active = TRUE;
 				FsctlLockVolume(dh->minor);
 
-				pvext->Active = TRUE;
 				status = FsctlFlushDismountVolume(dh->minor, true);
+				pvext->bPreviouslyResynced = TRUE;
 
 				FsctlUnlockVolume(dh->minor);
 
