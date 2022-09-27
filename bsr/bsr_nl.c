@@ -2865,9 +2865,9 @@ static void discard_not_wanted_bitmap_uuids(struct bsr_device *device, struct bs
 }
 
 #ifdef _WIN
-NTSTATUS volume_flush_and_dismount_for_attachment(struct bsr_backing_dev *nbc, struct bsr_genlmsghdr *dh, PVOLUME_EXTENSION pvext, unsigned int node_id)
+BOOLEAN is_volume_previously_resynced(struct bsr_backing_dev *nbc, unsigned int node_id)
 {
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	BOOLEAN bRet = TRUE;
 
 	// BSR-958 uuid is UUID_JUST_CREATED and sets the flag to allow write cache flush if no resync has occurred before.
 	if (nbc->md.current_uuid == UUID_JUST_CREATED) {
@@ -2881,19 +2881,12 @@ NTSTATUS volume_flush_and_dismount_for_attachment(struct bsr_backing_dev *nbc, s
 			}
 
 			if (!resync_already_progressed) {
-				pvext->bResynchronizedAfterResourceInitialization = FALSE;
+				bRet = FALSE;
 			}
 		}
 	}
-	pvext->Active = TRUE;
-	FsctlLockVolume(dh->minor);
 
-	status = FsctlFlushDismountVolume(dh->minor, true);
-	pvext->bResynchronizedAfterResourceInitialization = TRUE;
-
-	FsctlUnlockVolume(dh->minor);
-
-	return status;
+	return bRet;
 }
 #endif
 
@@ -3107,7 +3100,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
 			// BSR-958
-			status = volume_flush_and_dismount_for_attachment(nbc, dh, pvext, resource->res_opts.node_id);
+			pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+			pvext->Active = TRUE;
+			FsctlLockVolume(dh->minor);
+
+			status = FsctlFlushDismountVolume(dh->minor, true);
+			pvext->bPreviouslyResynced = TRUE;
+
+			FsctlUnlockVolume(dh->minor);
+
 			if (!NT_SUCCESS(status)) {
 				retcode = ERR_RES_NOT_KNOWN;
 				goto force_diskless_dec;
@@ -3116,7 +3117,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			status = mvolInitializeThread(pvext, &pvext->WorkThreadInfo, mvolWorkThread);
 			if (NT_SUCCESS(status)) {
 				// BSR-958
-				status = volume_flush_and_dismount_for_attachment(nbc, dh, pvext, resource->res_opts.node_id);
+				pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+				pvext->Active = TRUE;
+				FsctlLockVolume(dh->minor);
+
+				status = FsctlFlushDismountVolume(dh->minor, true);
+				pvext->bPreviouslyResynced = TRUE;
+
+				FsctlUnlockVolume(dh->minor);
+
 				if (!NT_SUCCESS(status)) {
 					retcode = ERR_RES_NOT_KNOWN;
 					goto force_diskless_dec;

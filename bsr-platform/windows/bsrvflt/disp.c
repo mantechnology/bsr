@@ -350,7 +350,7 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         return STATUS_NO_SUCH_DEVICE;
 	}
 	// BSR-958
-	VolumeExtension->bResynchronizedAfterResourceInitialization = TRUE;
+	VolumeExtension->bPreviouslyResynced = TRUE;
 
 	IoInitializeRemoveLock(&VolumeExtension->RemoveLock, '00FS', 0, 0);
 	KeInitializeMutex(&VolumeExtension->CountMutex, 0);
@@ -783,7 +783,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				kref_put(&device->kref, bsr_destroy_device);
 
 			// BSR-958 
-			if (VolumeExtension->bResynchronizedAfterResourceInitialization) {
+			if (VolumeExtension->bPreviouslyResynced) {
 				bsr_debug(109, BSR_LC_DRIVER, NO_OBJECT, "Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
 					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);
 

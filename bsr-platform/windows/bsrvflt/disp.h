@@ -107,7 +107,7 @@ typedef struct _VOLUME_EXTENSION
 	struct block_device	*dev;
 
 	// BSR-958 
-	bool bResynchronizedAfterResourceInitialization;
+	bool bPreviouslyResynced;
 } VOLUME_EXTENSION, *PVOLUME_EXTENSION;
 
 typedef struct _ROOT_EXTENSION
