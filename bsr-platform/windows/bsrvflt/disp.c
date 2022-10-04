@@ -348,7 +348,9 @@ mvolAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceOb
         mvolLogError(mvolRootDeviceObject, 103, MSG_ADD_DEVICE_ERROR, STATUS_NO_SUCH_DEVICE);
         IoDeleteDevice(AttachedDeviceObject);
         return STATUS_NO_SUCH_DEVICE;
-    }
+	}
+	// BSR-958
+	VolumeExtension->bPreviouslyResynced = TRUE;
 
 	IoInitializeRemoveLock(&VolumeExtension->RemoveLock, '00FS', 0, 0);
 	KeInitializeMutex(&VolumeExtension->CountMutex, 0);
@@ -780,14 +782,17 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			if (device)
 				kref_put(&device->kref, bsr_destroy_device);
 
-			bsr_debug(109, BSR_LC_DRIVER, NO_OBJECT, "Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
-					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);	
-	
-            Irp->IoStatus.Information = 0;
-            Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+			// BSR-958 
+			if (VolumeExtension->bPreviouslyResynced) {
+				bsr_debug(109, BSR_LC_DRIVER, NO_OBJECT, "Upper driver WRITE vol(%ws) VolumeExtension->IrpCount(%d) STATUS_INVALID_DEVICE_REQUEST return Irp:%p Irp->Flags:%x",
+					VolumeExtension->MountPoint, VolumeExtension->IrpCount, Irp, Irp->Flags);
 
-            return STATUS_INVALID_DEVICE_REQUEST;
+				Irp->IoStatus.Information = 0;
+				Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
+				IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
+				return STATUS_INVALID_DEVICE_REQUEST;
+			}
         }
     }
 

@@ -1391,7 +1391,7 @@ void read_memory_work(char *path, struct time_filter *tf)
 						else if (!strcmp(ptr, "bsrmeta"))
 							temp = &bsrmeta_stat;
 		#ifdef _WIN
-						else if (!strcmp(ptr, "bsrservice"))
+						else if (!strcmp(ptr, "bsr") || !strcmp(ptr, "bsrService") )
 							temp = &bsrservice_stat;
 		#endif
 						else

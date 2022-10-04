@@ -44,7 +44,8 @@ HANDLE g_monThread = NULL;
 int get_daemon_port();
 BOOL g_bProcessStarted = TRUE;
 
-TCHAR * ServiceName = _T("bsrService");
+// BSR-941 rename the windows bsr service to bsr
+TCHAR * ServiceName = _T("bsr");
 TCHAR * ServiceDisplayName = _T("BSR for Windows");
 // DW-1741 ko
 TCHAR * DescriptionKO = _T("BSR의 Windows 버전으로 실시간 블럭레벨 복제를 제공합니다. 이 서비스를 중지하면 복제 서비스에 문제가 발생할 수 있습니다.");
@@ -210,7 +211,7 @@ int _tmain(int argc, _TCHAR* argv[])
 #endif
     else {
         TCHAR msg[256];
-        _stprintf_s(msg, _T("Usage: bsrService.exe [/i|/k|/u|/s]\n"));
+        _stprintf_s(msg, _T("Usage: bsr.exe [/i|/k|/u|/s]\n"));
         WriteLog(msg);
         return ERROR_INVALID_PARAMETER;
     }
@@ -469,7 +470,7 @@ int RunBsrmon()
 
 	// BSR-694
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD lResult = ERROR_SUCCESS;
@@ -526,7 +527,7 @@ int RunBsrmon()
 int get_daemon_port()
 
 {
-	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
+	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
 	DWORD status;
 	HKEY hKey;
 	DWORD type = REG_DWORD;

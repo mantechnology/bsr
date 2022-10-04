@@ -105,6 +105,9 @@ typedef struct _VOLUME_EXTENSION
 	MVOL_THREAD			WorkThreadInfo;
 #endif
 	struct block_device	*dev;
+
+	// BSR-958 
+	bool bPreviouslyResynced;
 } VOLUME_EXTENSION, *PVOLUME_EXTENSION;
 
 typedef struct _ROOT_EXTENSION

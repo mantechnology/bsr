@@ -1240,6 +1240,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 
 #ifndef COMPAT_HAVE_REFCOUNT_INC
 #define refcount_inc(R) atomic_inc(R)
+#define refcount_set(R, V) atomic_set(R, V)
 #define refcount_read(R) atomic_read(R)
 #define refcount_dec_and_test(R) atomic_dec_and_test(R)
 #endif
@@ -2410,10 +2411,12 @@ static inline struct inode *d_inode(struct dentry *dentry)
 #define bsr_inode_lock(i)					inode_lock(i)
 #define bsr_inode_unlock(i)					inode_unlock(i)
 #define bsr_inode_lock_nested(i, subclass)	inode_lock_nested(i, subclass)
+#define bsr_inode_trylock(i)				inode_trylock(i)
 #else
 #define bsr_inode_lock(i)					mutex_lock(&(i)->i_mutex)
 #define bsr_inode_unlock(i)					mutex_unlock(&(i)->i_mutex)
 #define bsr_inode_lock_nested(i, subclass)	mutex_lock_nested(&(i)->i_mutex, subclass)
+#define bsr_inode_trylock(i)				mutex_trylock(&(i)->i_mutex)
 #endif
 
 
@@ -2476,14 +2479,19 @@ static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 
 //BSR-597
 static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
-	       struct inode *new_dir, struct dentry *new_dentry)
+	       struct inode *new_dir, struct dentry *new_dentry, struct vfsmount *old_mnt, struct vfsmount *new_mnt)
 {
 #if defined(COMPAT_HAVE_STRUCT_RENAMEDATA)
+	struct inode *delegated_inode = NULL;
+
 	struct renamedata rd = {
 			.old_dir	= old_dir,
 			.old_dentry	= old_dentry,
+			.old_mnt_userns  = mnt_user_ns(old_mnt),
 			.new_dir	= new_dir,
 			.new_dentry	= new_dentry,
+			.new_mnt_userns  = mnt_user_ns(new_mnt),
+			.delegated_inode = &delegated_inode,
 	};
 	return vfs_rename(&rd);
 #elif defined(COMPAT_VFS_RENAME_HAS_4_PARAMS)

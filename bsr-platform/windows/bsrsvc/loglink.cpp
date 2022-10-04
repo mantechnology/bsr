@@ -69,7 +69,7 @@ void get_linklog_reg()
 	DWORD status;
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
-	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsr";
+	const WCHAR * registryPath = L"SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
 
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS == status) {

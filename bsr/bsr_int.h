@@ -527,14 +527,14 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 214
+#define BSR_LC_RESYNC_OV_MAX_INDEX 216
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
 #define BSR_LC_TWOPC_MAX_INDEX 58
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
-#define BSR_LC_STATE_MAX_INDEX 56
+#define BSR_LC_STATE_MAX_INDEX 57
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 143
 #define BSR_LC_NETLINK_MAX_INDEX 36
@@ -1188,6 +1188,8 @@ enum {
 	HAVE_LDEV,
 	STABLE_RESYNC,		/* One peer_device finished the resync stable! */
 	READ_BALANCE_RR,
+	// BSR-904
+	UUID_WERE_INITIAL_BEFORE_PROMOTION,
 };
 
 /* flag bits per peer device */
@@ -1432,6 +1434,8 @@ enum {
 	NEGOTIATION_RESULT_TOUCHED,
 	TWOPC_ABORT_LOCAL,
 	TWOPC_EXECUTED,         /* Commited or aborted */
+	// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+	STATE_WORK_PENDING,		
 	DEVICE_WORK_PENDING,	/* tell worker that some device has pending work */
 	PEER_DEVICE_WORK_PENDING,/* tell worker that some peer_device has pending work */
 	RESOURCE_WORK_PENDING,  /* tell worker that some peer_device has pending work */
@@ -1562,6 +1566,8 @@ struct bsr_resource {
 
 	struct semaphore state_sem;
 	wait_queue_head_t state_wait;  /* upon each state change. */
+	// BSR-937
+	wait_queue_head_t state_work_wait;
 	enum chg_state_flags state_change_flags;
 	const char **state_change_err_str;
 	bool remote_state_change;  /* remote state change in progress */
@@ -1706,8 +1712,12 @@ struct bsr_connection {
 	struct list_head net_ee;    /* zero-copy network send in progress */
 	struct list_head done_ee;   /* need to send P_WRITE_ACK */
 
+	// BSR-930 linux does not use inactive_ee, but only windows.
+#ifdef _WIN 
 	struct list_head inactive_ee;	// DW-1696 List of active_ee, sync_ee not processed at the end of the connection
 	atomic_t inacitve_ee_cnt; // BSR-438 inactive_ee count not completed until connection destroy
+#endif
+
 	atomic_t done_ee_cnt;
 	struct work_struct send_acks_work;
 	wait_queue_head_t ee_wait;
@@ -2229,6 +2239,10 @@ struct bsr_device {
 	struct timing_stat master_complete_kt; /* complete_master_bio time aggregation*/
 	// BSR-676
 	atomic_t notify_flags;
+	// BSR-904
+#ifdef _LIN
+	atomic_t mounted_cnt;
+#endif
 };
 
 struct bsr_bm_aio_ctx {
@@ -2377,7 +2391,7 @@ extern void bsr_free_sock(struct bsr_connection *connection);
 
 extern int __bsr_send_protocol(struct bsr_connection *connection, enum bsr_packet cmd);
 extern int bsr_send_protocol(struct bsr_connection *connection);
-extern int bsr_send_uuids(struct bsr_peer_device *, u64 uuid_flags, u64 weak_nodes);
+extern int bsr_send_uuids(struct bsr_peer_device *, u64 uuid_flags, u64 weak_nodes, enum which_state which);
 extern void bsr_gen_and_send_sync_uuid(struct bsr_peer_device *);
 extern int bsr_attach_peer_device(struct bsr_peer_device *);
 extern int bsr_send_sizes(struct bsr_peer_device *, uint64_t u_size_diskless, enum dds_flags flags);
@@ -2480,7 +2494,10 @@ extern int bsr_bmio_set_n_write(struct bsr_device *device, struct bsr_peer_devic
 extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *, enum bsr_repl_state side, bool bitmap_lock, bool *bSync) __must_hold(local);
 extern bool isFastInitialSync(void);
 extern PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
+#ifdef _LIN
+extern bool isDeviceMounted(struct bsr_device *device);
 
+#endif
 extern int bsr_bmio_clear_all_n_write(struct bsr_device *device, struct bsr_peer_device *) __must_hold(local);
 extern int bsr_bmio_set_all_n_write(struct bsr_device *device, struct bsr_peer_device *) __must_hold(local);
 // DW-1293
@@ -4388,12 +4405,12 @@ static inline LONGLONG timestamp(void)
 }
 
 
-static inline LONGLONG timestamp_elapse(LONGLONG begin_ts, LONGLONG end_ts)
+static inline LONGLONG timestamp_elapse(const char* caller, LONGLONG begin_ts, LONGLONG end_ts)
 {
 	LONGLONG microsec_elapse;
 
 	if (begin_ts > end_ts || begin_ts <= 0 || end_ts <= 0) {
-		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "The timestamp to compare is uncertain. begin(%lld), end(%lld)", begin_ts, end_ts);
+		bsr_info(20, BSR_LC_ETC, NO_OBJECT, "%s, The timestamp to compare is uncertain. begin(%lld), end(%lld)", caller, begin_ts, end_ts);
 		return -1;
 	}
 

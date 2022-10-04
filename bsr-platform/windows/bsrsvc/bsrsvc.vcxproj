@@ -73,14 +73,14 @@
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>bsrservice</TargetName>
+    <TargetName>bsr</TargetName>
     <TargetExt>.exe</TargetExt>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>bsrservice</TargetName>
+    <TargetName>bsr</TargetName>
     <TargetExt>.exe</TargetExt>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
@@ -91,13 +91,13 @@
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)</IntDir>
     <LinkIncremental>true</LinkIncremental>
-    <TargetName>bsrservice</TargetName>
+    <TargetName>bsr</TargetName>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <TargetName>bsrservice</TargetName>
+    <TargetName>bsr</TargetName>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ReferencePath>$(VC_ReferencesPath_x86);</ReferencePath>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
@@ -175,7 +175,7 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(TargetPath)" "$(SolutionDir)\build\windows\$(PlatformTarget)\bin\"
-certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrservice.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsrservice.hash</Command>
+certutil -hashfile $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsr.exe md5  | find /v ":" &gt; $(SolutionDir)\build\windows\$(PlatformTarget)\bin\bsr.hash</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

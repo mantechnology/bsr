@@ -796,7 +796,7 @@ NTSTATUS DeleteDriveLetterInRegistry(char letter)
     UNICODE_STRING reg_path, valuekey;
     wchar_t wszletter[] = L"A";
 	NTSTATUS status;
-    status = RtlUnicodeStringInit(&reg_path, L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\bsr\\volumes");
+    status = RtlUnicodeStringInit(&reg_path, L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\bsrvflt\\volumes");
 	if (!NT_SUCCESS(status))
 		return status;
 

@@ -97,7 +97,7 @@ void usage()
         "bsrcon /release_vol F \n"
 		// BSR-71
 		"bsrcon /bsrlock_use 0\n"
-		"bsrcon /write_log bsrService \"Logging start\" \n"	
+		"bsrcon /write_log bsr \"Logging start\" \n"	
 		// DW-2166
 		"bsrcon /driver_install \"inf file full path\" \n"
 		"bsrcon /driver_uninstall \"inf file full path\" \n"
@@ -106,8 +106,8 @@ void usage()
 		"examples:\n"
 #endif
 		"bsrcon /handler_use 1 \n"	
-		"bsrcon /get_log bsrService \n"
-		"bsrcon /get_log bsrService r0\n"
+		"bsrcon /get_log bsr \n"
+		"bsrcon /get_log bsr r0\n"
 		"bsrcon /get_log_info \n"
 		"bsrcon /minlog_lv dbg 6 \n"
 		"bsrcon /minlog_lv sys 3 \n"
@@ -121,7 +121,7 @@ void usage()
 }
 
 #ifdef _WIN
-const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsr\\volumes");
+const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsrvflt\\volumes");
 
 static
 DWORD DeleteVolumeReg(TCHAR letter)
@@ -182,7 +182,7 @@ BOOLEAN GetLogFileMaxCount(int *max)
 	DWORD log_file_max_count = 0;
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 
@@ -224,7 +224,7 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 #ifdef _WIN
 	DWORD lResult = ERROR_SUCCESS;
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 
@@ -270,7 +270,7 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 	DWORD adm_max, setup_max, meta_max;
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 
@@ -359,7 +359,7 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 	DWORD logLevel = 0;
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 #else
@@ -412,7 +412,7 @@ BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
 	DWORD ctgr = 0;
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsr");
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 #else

@@ -352,9 +352,14 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 			err = ERR_INVALID_REQUEST;
 			goto finish;
 		}
-		adm_ctx->connection = bsr_get_connection_by_node_id(adm_ctx->resource, adm_ctx->peer_node_id);
-		if (adm_ctx->connection)
-			kref_debug_get(&adm_ctx->connection->kref_debug, 2);
+
+		// BSR-939 fix avoid potential NULL pointer dereferences
+		// adm_ctx->resource can be NULL.
+		if (adm_ctx->resource) {
+			adm_ctx->connection = bsr_get_connection_by_node_id(adm_ctx->resource, adm_ctx->peer_node_id);
+			if (adm_ctx->connection)
+				kref_debug_get(&adm_ctx->connection->kref_debug, 2);
+		}
 	} else if (flags & BSR_ADM_NEED_PEER_NODE) {
 		bsr_msg_put_info(adm_ctx->reply_skb, "peer node id missing");
 		err = ERR_INVALID_REQUEST;
@@ -1283,6 +1288,10 @@ retry:
 				// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
 				clear_bit(__NEW_CUR_UUID, &device->flags);
 				clear_bit(NEW_CUR_UUID, &device->flags);
+				// BSR-904
+#ifdef _LIN
+				clear_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
+#endif
 				put_ldev(device);
 			}
 		}
@@ -1320,8 +1329,14 @@ retry:
 				}
 			} 
 
-			if (forced)
+			if (forced) {
+				// BSR-904
+#ifdef _LIN
+				if (UUID_JUST_CREATED == device->ldev->md.current_uuid) 
+					set_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
+#endif
 				bsr_uuid_new_current(device, true, __FUNCTION__);
+			}
 			else if (younger_primary) 
 				bsr_uuid_new_current(device, false, __FUNCTION__); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 			else
@@ -1346,7 +1361,7 @@ retry:
 			if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
 				/* if this was forced, we should consider sync */
 				if (forced) {
-					bsr_send_uuids(peer_device, 0, 0);
+					bsr_send_uuids(peer_device, 0, 0, NOW);
 					set_bit(CONSIDER_RESYNC, &peer_device->flags);
 				}
 				bsr_send_current_state(peer_device);
@@ -2849,6 +2864,32 @@ static void discard_not_wanted_bitmap_uuids(struct bsr_device *device, struct bs
 	}
 }
 
+#ifdef _WIN
+BOOLEAN is_volume_previously_resynced(struct bsr_backing_dev *nbc, unsigned int node_id)
+{
+	BOOLEAN bRet = TRUE;
+
+	// BSR-958 uuid is UUID_JUST_CREATED and sets the flag to allow write cache flush if no resync has occurred before.
+	if (nbc->md.current_uuid == UUID_JUST_CREATED) {
+		if (nbc->md.node_id == -1 || (unsigned int)nbc->md.node_id == node_id) {
+			BOOLEAN resync_already_progressed = FALSE;
+			for (int i = 0; i < BSR_NODE_ID_MAX; i++) {
+				if (nbc->md.peers[i].flags & MDF_PEER_INIT_SYNCT_BEGIN) {
+					resync_already_progressed = TRUE;
+					break;
+				}
+			}
+
+			if (!resync_already_progressed) {
+				bRet = FALSE;
+			}
+		}
+	}
+
+	return bRet;
+}
+#endif
+
 int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
@@ -2859,7 +2900,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	enum determine_dev_size dd;
 	sector_t max_possible_sectors;
 	sector_t min_md_device_sectors;
-	struct bsr_backing_dev *nbc; /* new_backing_conf */
+	struct bsr_backing_dev *nbc = NULL; /* new_backing_conf */
 	struct disk_conf *new_disk_conf = NULL;
 	enum bsr_state_rv rv;
 	struct bsr_peer_device *peer_device;
@@ -2873,6 +2914,20 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	device = adm_ctx.device;
 	resource = device->resource;
 	mutex_lock(&resource->adm_mutex);
+
+#ifdef _LIN
+	// BSR-953 verify that device is valid.
+	if (adm_ctx.device) {
+		rcu_read_lock();
+		if (!minor_to_device(adm_ctx.minor)) {
+			rcu_read_unlock();
+			bsr_msg_put_info(adm_ctx.reply_skb, "unknown minor");
+			retcode = ERR_MINOR_INVALID;
+			goto fail;
+		}
+		rcu_read_unlock();
+	}
+#endif
 
 	/* allocation not in the IO path, bsrsetup context */
 	nbc = bsr_kzalloc(sizeof(struct bsr_backing_dev), GFP_KERNEL, '61SB');
@@ -3037,18 +3092,20 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN_MVFL
 	struct bsr_genlmsghdr *dh = info->userhdr;
 	if (do_add_minor(dh->minor)) {
-		NTSTATUS status = STATUS_UNSUCCESSFUL;
 		PVOLUME_EXTENSION pvext = get_targetdev_by_minor(dh->minor, FALSE);
 		if (pvext) {
+			NTSTATUS status = STATUS_UNSUCCESSFUL;
 			// DW-1461 set volume protection when attaching.
 			SetBsrlockIoBlock(pvext, resource->role[NOW] == R_PRIMARY ? FALSE : TRUE);
 #ifdef _WIN_MULTIVOL_THREAD
 			pvext->WorkThreadInfo = &resource->WorkThreadInfo;
-
+			// BSR-958
+			pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+			pvext->Active = TRUE;
 			FsctlLockVolume(dh->minor);
 
-			pvext->Active = TRUE;
 			status = FsctlFlushDismountVolume(dh->minor, true);
+			pvext->bPreviouslyResynced = TRUE;
 
 			FsctlUnlockVolume(dh->minor);
 
@@ -3056,14 +3113,16 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 				retcode = ERR_RES_NOT_KNOWN;
 				goto force_diskless_dec;
 			}
-			
 #else
 			status = mvolInitializeThread(pvext, &pvext->WorkThreadInfo, mvolWorkThread);
 			if (NT_SUCCESS(status)) {
+				// BSR-958
+				pvext->bPreviouslyResynced = is_volume_previously_resynced(nbc, resource->res_opts.node_id);
+				pvext->Active = TRUE;
 				FsctlLockVolume(dh->minor);
 
-				pvext->Active = TRUE;
 				status = FsctlFlushDismountVolume(dh->minor, true);
+				pvext->bPreviouslyResynced = TRUE;
 
 				FsctlUnlockVolume(dh->minor);
 
@@ -3398,7 +3457,6 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 	enum bsr_state_rv retcode;
 	long timeo = 3*HZ;
 	const char *err_str = NULL;
-	int ret = 0;
 
 	if (force) {
 		set_bit(FORCE_DETACH, &device->flags);
@@ -3421,21 +3479,23 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 						 get_disk_state(device) != D_DETACHING,
 						 timeo, timeo);
 
-	if (timeo == -ETIMEDOUT)
+	 // BSR-925 returns an error if the detaching is not completed during the wait time.
+	if (get_disk_state(device) == D_DETACHING) {
 		bsr_info(42, BSR_LC_GENL, NO_OBJECT, "Detach complete event wait timeout. time out(%ld) disk state(%s)", 3 * HZ, bsr_disk_str(device->disk_state[NOW]));
-
-	if (retcode >= SS_SUCCESS) {
-		int res;
-
-		// BSR-439
-		/* wait for completion of bsr_ldev_destroy() */
-		wait_event_interruptible_ex(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags), res);
-		bsr_cleanup_device(device);
+		retcode = ERR_INTR;;
 	}
-	if (retcode == SS_IS_DISKLESS)
-		retcode = SS_NOTHING_TO_DO;
-	if (ret)
-		retcode = ERR_INTR;
+	else {
+		if (retcode >= SS_SUCCESS) {
+			int res;
+
+			// BSR-439
+			/* wait for completion of bsr_ldev_destroy() */
+			wait_event_interruptible_ex(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags), res);
+			bsr_cleanup_device(device);
+		}
+		if (retcode == SS_IS_DISKLESS)
+			retcode = SS_NOTHING_TO_DO;
+	}
 out:
 	if (err_str) {
 		if (reply_skb)
@@ -4354,6 +4414,9 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
+	// BSR-919 fix potential deadlock occurs when connect is executed during down
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+
 	connection = adm_ctx.connection;
 	cstate = connection->cstate[NOW];
 	if (cstate != C_STANDALONE) {
@@ -4415,6 +4478,8 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 	retcode = change_cstate_ex(connection, C_UNCONNECTED, CS_VERBOSE);
 
 out:
+	// BSR-919
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
@@ -4562,7 +4627,8 @@ int bsr_open_ro_count(struct bsr_resource *resource)
 
 static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, bool force,
 					      // DW-2035 no wait resync option (sync_ee)
-					      bool DISCONN_NO_WAIT_RESYNC,
+						  // BSR-930 
+					      bool no_wait_resync,
 					      struct sk_buff *reply_skb)
 {
 	struct bsr_resource *resource = connection->resource;
@@ -4578,7 +4644,7 @@ static enum bsr_state_rv conn_try_disconnect(struct bsr_connection *connection, 
 
 repeat:
 	// DW-2035
-	if (DISCONN_NO_WAIT_RESYNC)
+	if (no_wait_resync)
 		set_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags);
 
 	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, __FUNCTION__);
@@ -4674,6 +4740,10 @@ void del_connection(struct bsr_connection *connection)
 	 * are queued: we want the "destroy" event to come last.
 	 */
 	bsr_flush_workqueue(resource, &resource->work);
+
+	// BSR-920 
+	// fix potential deadlock when executing bsr_flush_workqueue() with conf_update lock acquired
+	mutex_lock(&resource->conf_update);
 	
 	mutex_lock(&notification_mutex);
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
@@ -4685,6 +4755,10 @@ void del_connection(struct bsr_connection *connection)
 	//windows, (1) synchronize_rcu_w32_wlock() is disabled, because Assertion: *** DPC watchdog timeout
 	synchronize_rcu();
 #endif
+
+	// BSR-920
+	mutex_unlock(&resource->conf_update);
+
 	bsr_put_connection(connection);
 }
 
@@ -4714,9 +4788,10 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	rv = conn_try_disconnect(connection, parms.force_disconnect, false, adm_ctx.reply_skb);
 	if (rv >= SS_SUCCESS && destroy) {
-		mutex_lock(&connection->resource->conf_update);
+		// BSR-920 moved inside del_connection()
+		// mutex_lock(&connection->resource->conf_update);
 		del_connection(connection);
-		mutex_unlock(&connection->resource->conf_update);
+		// mutex_unlock(&connection->resource->conf_update);
 	}
 	if (rv < SS_SUCCESS)
 		retcode = rv;  /* FIXME: Type mismatch. */
@@ -4970,7 +5045,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 			if (peer_device->repl_state[NOW] == L_ESTABLISHED) {
 				if (dd == DS_GREW)
 					set_bit(RESIZE_PENDING, &peer_device->flags);
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_sizes(peer_device, rs.resize_size, ddsf);
 			}
 		}
@@ -5172,6 +5247,12 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 				goto out_no_resume;
 			}
+
+			// BSR-917 if it is not connected, treat it as an error.
+			if (connection->cstate[NOW] != C_CONNECTED) {
+				retcode = SS_NEED_CONNECTION;
+				goto out_no_resume;
+			}
 			sync_from_peer_device = conn_peer_device(connection, device->vnr);
 		}
 	}
@@ -5194,6 +5275,12 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 			for_each_connection(connection, resource) {
 				struct bsr_peer_device *peer_device;
 
+				// BSR-917 ignore if not connected.
+				if (connection->cstate[NOW] != C_CONNECTED) {
+					retcode = SS_NEED_CONNECTION;
+					continue;
+				}
+
 				peer_device = conn_peer_device(connection, device->vnr);
 				retcode = invalidate_resync(peer_device);
 				if (retcode >= SS_SUCCESS)
@@ -5208,7 +5295,8 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				goto out;
 			}
 
-			if (retcode != SS_NEED_CONNECTION)
+			// BSR-917
+			if (retcode < SS_UNKNOWN_ERROR)
 				break;
 			
 			// BSR-174 not allow invalidate when disconnected
@@ -6383,7 +6471,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 		for_each_peer_device(peer_device, device) {
 			if (NODE_MASK(peer_device->node_id) & nodes) {
 				if (NODE_MASK(peer_device->node_id) & diskfull)
-					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0);
+					bsr_send_uuids(peer_device, UUID_FLAG_SKIP_INITIAL_SYNC, 0, NOW);
 				_bsr_uuid_set_bitmap(peer_device, 0);
 				bsr_print_uuids(peer_device, "cleared bitmap UUID", __FUNCTION__);
 				updated_uuid = true;
@@ -6863,14 +6951,15 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		// DW-2035
 		retcode = conn_try_disconnect(connection, false, true, adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
-			mutex_lock(&resource->conf_update);
+			// BSR-920 moved inside del_connection()
+			// mutex_lock(&resource->conf_update);
 			// BSR-418 vol_ctl_mutex deadlock in function SetOOSAllocatedCluster()
 			mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 			del_connection(connection);
 			// BSR-418 
 			mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-			mutex_unlock(&resource->conf_update);
+			// mutex_unlock(&resource->conf_update);
 		} else {
 			bsr_info(58, BSR_LC_GENL, connection, "Failed to disconnect during resource down. ret(%d)", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
@@ -6886,14 +6975,16 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		kref_get(&device->kref);
 		rcu_read_unlock();
 		retcode = adm_detach(device, 0, adm_ctx.reply_skb);
+		// BSR-925
+		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
+			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
+			kref_put(&device->kref, bsr_destroy_device);
+			goto out;
+		}
 		mutex_lock(&resource->conf_update);
 		ret = adm_del_minor(device);
 		mutex_unlock(&resource->conf_update);
 		kref_put(&device->kref, bsr_destroy_device);
-		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
-			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
-			goto out;
-		}
 		if (ret != NO_ERROR) {
 			/* "can not happen" */
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");

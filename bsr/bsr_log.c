@@ -85,7 +85,7 @@ void _printk(const char * func, int index, const char * level, int category, con
 	bool bDbgLog = false;
 	// BSR-583
 	bool bMissing = false;
-	char missingLog[MAX_BSRLOG_BUF];
+	char missingLog[MAX_BSR_MISSING_BUF];
 #ifdef _WIN
 	LARGE_INTEGER systemTime, localTime;
 	TIME_FIELDS timeFields = {0,};
@@ -125,11 +125,11 @@ void _printk(const char * func, int index, const char * level, int category, con
 					// BSR-583 
 					if (atomic_read64(&gLogBuf.missing_count)) {
 #ifdef _WIN
-						RtlZeroMemory(missingLog, MAX_BSRLOG_BUF);
-						_snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+						RtlZeroMemory(missingLog, MAX_BSR_MISSING_BUF);
+						_snprintf(missingLog, MAX_BSR_MISSING_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #else
-						memset(missingLog, 0, MAX_BSRLOG_BUF);
-						snprintf(missingLog, MAX_BSRLOG_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
+						memset(missingLog, 0, MAX_BSR_MISSING_BUF);
+						snprintf(missingLog, MAX_BSR_MISSING_BUF - 1, "missing log counter : %llu", (unsigned long long)atomic_read64(&gLogBuf.missing_count));
 #endif
 						level_index = KERN_WARNING_NUM;
 						atomic_set64(&gLogBuf.missing_count, 0);
@@ -332,8 +332,6 @@ eventlog:
 		printk("%s%s", level, ebuf);
 #endif
 	}
-	
-
 #endif
 }
 

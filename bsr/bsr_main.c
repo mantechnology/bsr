@@ -567,6 +567,12 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 				continue;
 			if (r->rq_state[idx] & RQ_NET_DONE)
 				continue;
+			
+			// BSR-901 requests for which RQ_EXP_BARR_ACK is not set are skipped
+			// when find oldest not yet barrier-acked write request.
+			if (!(r->rq_state[idx] & RQ_EXP_BARR_ACK))
+				continue;
+
 			req = r;
 			expect_epoch = req->epoch;
 			expect_size ++;
@@ -580,6 +586,11 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 			if (!(r->rq_state[idx] & RQ_NET_MASK))
 				continue;
 			if (r->rq_state[idx] & RQ_NET_DONE)
+				continue;
+
+			// BSR-901 requests for which RQ_EXP_BARR_ACK is not set are skipped
+			// when find oldest not yet barrier-acked write request.
+			if (!(r->rq_state[idx] & RQ_EXP_BARR_ACK))
 				continue;
 
 			expect_size++;
@@ -1157,20 +1168,20 @@ out:
 
 
 // DW-1145 it returns true if my disk is consistent with primary's
-bool is_consistent_with_primary(struct bsr_device *device)
+bool is_consistent_with_primary(struct bsr_device *device, enum which_state which)
 {
 	struct bsr_peer_device *peer_device = NULL;
 	int node_id = -1;
 
-	if (device->disk_state[NOW] != D_UP_TO_DATE)
+	if (device->disk_state[which] != D_UP_TO_DATE)
 		return false;
 
 	for (node_id = 0; node_id < BSR_NODE_ID_MAX; node_id++){
 		peer_device = peer_device_by_node_id(device, node_id);
 		if (!peer_device)
 			continue;
-		if (peer_device->connection->peer_role[NOW] == R_PRIMARY &&
-			peer_device->repl_state[NOW] >= L_ESTABLISHED &&
+		if (peer_device->connection->peer_role[which] == R_PRIMARY &&
+			peer_device->repl_state[which] >= L_ESTABLISHED &&
 			peer_device->uuids_received &&
 			bsr_bm_total_weight(peer_device) == 0)
 			return true;
@@ -1778,7 +1789,7 @@ static u64 __bitmap_uuid(struct bsr_device *device, int node_id) __must_hold(loc
 	return bitmap_uuid;
 }
 
-static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask)
+static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
 {
 	struct bsr_device *device = peer_device->device;
 	struct bsr_peer_md *peer_md;
@@ -1839,7 +1850,8 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 		uuid_flags |= UUID_FLAG_RECONNECT;
 	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_PRIMARY_IO_ERROR))
 		uuid_flags |= UUID_FLAG_PRIMARY_IO_ERROR;
-	if (bsr_device_stable(device, &authoritative_mask)) {
+	// BSR-936
+	if (bsr_device_stable_ex(device, &authoritative_mask, which, false)) {
 		uuid_flags |= UUID_FLAG_STABLE;
 		p->node_mask = cpu_to_be64(node_mask);
 	} else {
@@ -1851,7 +1863,8 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
 
 	// DW-1145 set UUID_FLAG_CONSISTENT_WITH_PRI if my disk is consistent with primary's
-	if (is_consistent_with_primary(device))
+	// BSR-936
+	if (is_consistent_with_primary(device, which))
 		uuid_flags |= UUID_FLAG_CONSISTENT_WITH_PRI;
 
 	// DW-1285 If MDF_PEER_INIT_SYNCT_BEGIN is on, send UUID_FLAG_INIT_SYNCT_BEGIN flag.
@@ -1869,10 +1882,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM);
 }
 
-int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask)
+int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
 {
 	if (peer_device->connection->agreed_pro_version >= 110)
-		return _bsr_send_uuids110(peer_device, uuid_flags, node_mask);
+		return _bsr_send_uuids110(peer_device, uuid_flags, node_mask, which);
 	else
 		return _bsr_send_uuids(peer_device, uuid_flags);
 }
@@ -4288,6 +4301,8 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	INIT_LIST_HEAD(&resource->listeners);
 	spin_lock_init(&resource->listeners_lock);
 	init_waitqueue_head(&resource->state_wait);
+	// BSR-937
+	init_waitqueue_head(&resource->state_work_wait);
 	init_waitqueue_head(&resource->twopc_wait);
 	init_waitqueue_head(&resource->barrier_wait);
 	INIT_LIST_HEAD(&resource->twopc_parents);
@@ -4381,8 +4396,11 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	INIT_LIST_HEAD(&connection->read_ee);
 	INIT_LIST_HEAD(&connection->net_ee);
 	INIT_LIST_HEAD(&connection->done_ee);
+	// BSR-930
+#ifdef _WIN
 	INIT_LIST_HEAD(&connection->inactive_ee);	// DW-1696
 	atomic_set(&connection->inacitve_ee_cnt, 0); // BSR-438
+#endif
 	init_waitqueue_head(&connection->ee_wait);
 
 	kref_init(&connection->kref);
@@ -4493,17 +4511,23 @@ void bsr_destroy_connection(struct kref *kref)
 		bsr_err(4, BSR_LC_REPLICATION, connection, "epoch size is not zero. It is highly likely that replication has not been completed.. size(%d)", atomic_read(&connection->current_epoch->epoch_size));
 	bsr_kfree(connection->current_epoch);
 
+	// BSR-930	
+#ifdef _WIN
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
 		struct bsr_peer_request *peer_req, *t;
 		bsr_warn(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)", atomic_read(&connection->inacitve_ee_cnt));
-		spin_lock(&g_inactive_lock);
+		spin_lock_irq(&g_inactive_lock);
 		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
 			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
+			// BSR-930	
+			if (!(peer_req->flags & EE_SPLIT_REQ))
+				put_ldev(peer_req->peer_device->device);
 		}
-		spin_unlock(&g_inactive_lock);
+		spin_unlock_irq(&g_inactive_lock);
 	}
+#endif
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
@@ -4903,6 +4927,11 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 		if (connection->cstate[NOW] >= C_CONNECTED)
 			bsr_connected(peer_device);
 	}
+	
+	// BSR-904
+#ifdef _LIN
+	atomic_set(&device->mounted_cnt, 0);
+#endif 
 
 	bsr_debugfs_device_add(device);
 	*p_device = device;
@@ -5012,8 +5041,20 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 {
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
-	LIST_HEAD(work_list);
 	int vnr;
+
+	LIST_HEAD(work_list);
+#if _LIN
+	// BSR-947 create and add a separate list to ensure synchronization of the list reference of the peer_device in use in the critical area.
+	struct peer_device_list {
+		struct list_head list;
+		struct bsr_peer_device *peer_device;
+	};
+	struct peer_device_list peer_head;
+	struct peer_device_list *peer_list, *tmp;
+
+	INIT_LIST_HEAD(&peer_head.list);
+#endif
 
 	// BSR-426 repositioned req_lock to resolve deadlock.
 	// BSR-447 req_lock spinlock should precede the rcu lock.
@@ -5029,6 +5070,14 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		list_del_rcu(&peer_device->peer_devices);
+#ifdef _LIN
+		peer_list = bsr_kmalloc(sizeof(*peer_list), GFP_ATOMIC, '85SB');
+		if(peer_list) {
+			peer_list->peer_device = peer_device;
+			list_add(&peer_list->list, &peer_head.list);
+			continue;
+		}  
+#endif
 		list_add(&peer_device->peer_devices, &work_list);
 	}
 #ifdef _WIN
@@ -5038,6 +5087,16 @@ void bsr_unregister_connection(struct bsr_connection *connection)
 	spin_unlock_irq(&resource->req_lock);
 	list_for_each_entry_ex(struct bsr_peer_device, peer_device, &work_list, peer_devices)
 		bsr_debugfs_peer_device_cleanup(peer_device);
+
+#ifdef _LIN
+	synchronize_rcu();
+	list_for_each_entry_safe_ex(struct peer_device_list, peer_list, tmp, &peer_head.list, list) {
+		bsr_debugfs_peer_device_cleanup(peer_list->peer_device);
+		list_del(&peer_list->list);
+		bsr_kfree(peer_list);
+	}
+#endif
+
 	bsr_debugfs_connection_cleanup(connection);
 }
 
@@ -5526,7 +5585,7 @@ int log_consumer_thread(void *unused)
 
 	// BSR-600 if the LOG_FILE_MAX_REG_VALUE_NAME value is not set at all, the key value does not exist and is a normal operation.
 	// BSR-579
-	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\bsr");
+	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
@@ -6586,7 +6645,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->repl_state[NOW] >= L_ESTABLISHED)
-			bsr_send_uuids(peer_device, forced ? 0 : UUID_FLAG_NEW_DATAGEN, weak_nodes);
+			bsr_send_uuids(peer_device, forced ? 0 : UUID_FLAG_NEW_DATAGEN, weak_nodes, NOW);
 	}
 }
 
@@ -7105,7 +7164,7 @@ clear_flag:
 	// DW-1145 clear bitmap if peer has consistent disk with primary's, peer will also clear bitmap.
 	if (bsr_bm_total_weight(peer_device) &&
 		peer_device->uuid_flags & UUID_FLAG_CONSISTENT_WITH_PRI &&
-		is_consistent_with_primary(device) &&
+		is_consistent_with_primary(device, NOW) &&
 		(peer_device->current_uuid & ~UUID_PRIMARY) ==
 		(bsr_current_uuid(device) & ~UUID_PRIMARY))
 	{
@@ -7167,10 +7226,13 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 
 // BSR-743
 retry:
-
 	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
+			// BSR-904 on linux, the sync source supports fast sync only when it is mounted.
+#ifdef _LIN
+			!isDeviceMounted(device) ||
+#endif
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false, &bSync))
 		{
 			// BSR-653 whole bitmap set is not performed if is not sync node.
@@ -7364,6 +7426,22 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 
 	return count;
 }
+
+// BSR-904
+#ifdef _LIN
+bool isDeviceMounted(struct bsr_device *device)
+{
+	// if the UUID is UUID_JUST_CREATED at the time of promotion, it operates as fast sync regardless of whether it is mounted or not.
+	if(test_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags)) 
+		return true;
+
+	if(atomic_read(&device->mounted_cnt) > 0) 
+		return true;
+
+	bsr_warn(216, BSR_LC_RESYNC_OV, device, "Fast sync is disable because device not mounted");
+	return false;
+}
+#endif
 
 bool isFastInitialSync()
 {

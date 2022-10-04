@@ -565,13 +565,14 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 	
 	// BSR-764
 	if (atomic_read(&g_bsrmon_run)) {
-		spin_lock(&peer_device->timing_lock);
+		unsigned long flag = 0;
+		spin_lock_irqsave(&peer_device->timing_lock, flag);
 		peer_device->p_reqs++;	
 		ktime_aggregate_delta(peer_device, peer_req->start_kt, p_destroy_kt);	
 		ktime_aggregate(peer_device, peer_req, p_submit_kt);
 		ktime_aggregate(peer_device, peer_req, p_bio_endio_kt);
 		
-		spin_unlock(&peer_device->timing_lock);	
+		spin_unlock_irqrestore(&peer_device->timing_lock, flag);
 	} 	
 
 	mempool_free(peer_req, bsr_ee_mempool);
@@ -740,7 +741,7 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 	if (!err)
 		err = bsr_send_sizes(peer_device, 0, 0);
 	if (!err)
-		err = bsr_send_uuids(peer_device, 0, 0);
+		err = bsr_send_uuids(peer_device, 0, 0, NOW);
 	if (!err) {
 		err = bsr_send_current_state(peer_device);
 		// DW-1806
@@ -1244,7 +1245,7 @@ static BIO_ENDIO_TYPE one_flush_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef _WIN
 	// DW-1961 Calculate and Log IO Latency
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
-		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(bio->flush_ts, timestamp()));
+		bsr_debug(2, BSR_LC_LATENCY, device, "flush I/O latency : minor(%u) %lldus", device->minor, timestamp_elapse(__FUNCTION__, bio->flush_ts, timestamp()));
 
 	if (NT_ERROR(error)) {
 #else // _LIN
@@ -1822,15 +1823,6 @@ static bool conn_wait_ee_cond(struct bsr_connection *connection, struct list_hea
 
 #define CONN_WAIT_TIMEOUT 3
 
-// DW-1682 Added 3 sec timeout for active_ee when disconnecting 
-static long conn_wait_ee_empty_timeout(struct bsr_connection *connection, struct list_head *head)
-{
-	long t, timeout;
-	t = timeout = CONN_WAIT_TIMEOUT * HZ; // 3 sec
-	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
-
-	return t;
-}
 
 static void conn_wait_ee_empty(struct bsr_connection *connection, struct list_head *head)
 {
@@ -1841,6 +1833,18 @@ static void conn_wait_ee_empty_or_disconnect(struct bsr_connection *connection, 
 {
 	wait_event(connection->ee_wait,
 		conn_wait_ee_cond(connection, head) || connection->cstate[NOW] < C_CONNECTED);
+}
+
+// BSR-930
+#ifdef _WIN
+// DW-1682 Added 3 sec timeout for active_ee when disconnecting 
+static long conn_wait_ee_empty_timeout(struct bsr_connection *connection, struct list_head *head)
+{
+	long t, timeout;
+	t = timeout = CONN_WAIT_TIMEOUT * HZ; // 3 sec
+	wait_event_timeout_ex(connection->ee_wait, conn_wait_ee_cond(connection, head), timeout, t);
+
+	return t;
 }
 
 // DW-1954 if ee is not empty, wait for CONN_WAIT_TIMEOUT seconds.
@@ -1858,11 +1862,11 @@ static void conn_wait_ee_empty_and_update_timeout(struct bsr_connection *connect
 		}
 		wait_cnt += 1;
 		ee_after_cnt = 0;
-		spin_lock(&connection->resource->req_lock);
+		spin_lock_irq(&connection->resource->req_lock);
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, head, w.list) {
 			ee_after_cnt++;
 		}
-		spin_unlock(&connection->resource->req_lock);
+		spin_unlock_irq(&connection->resource->req_lock);
 		if (ee_before_cnt == ee_after_cnt) {
 			bsr_debug(31, BSR_LC_PEER_REQUEST, connection, "ee not empty, count(%llu), wait time(%u)", (unsigned long long)ee_after_cnt, wait_cnt * CONN_WAIT_TIMEOUT);
 			break;
@@ -1872,6 +1876,7 @@ static void conn_wait_ee_empty_and_update_timeout(struct bsr_connection *connect
 		ee_before_cnt = ee_after_cnt;
 	}
 }
+#endif
 
 /**
  * bsr_submit_peer_request()
@@ -5675,6 +5680,10 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 		// DW-844 check if fast sync is enalbed every time we do initial sync.
 		// set out-of-sync for allocated clusters.
 		if (!isFastInitialSync() ||
+			// BSR-904 on linux, the source node supports fast sync only when it is mounted.
+#ifdef _LIN
+			(hg > 0 && !isDeviceMounted(device)) ||
+#endif
 			!SetOOSAllocatedCluster(device, peer_device, hg>0?L_SYNC_SOURCE:L_SYNC_TARGET, true, &bSync)) {
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
@@ -7218,7 +7227,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 			// Local status updates are sent from a separate thread to a peer and issues arise due to time differences.
 			// Send local state to peer before sending bsr_send_uids (UUID_FLAG_RESYNC, 0) for issue resolution.
 			bsr_send_state(peer_device, bsr_get_device_state(device, NOW));
-			bsr_send_uuids(peer_device, UUID_FLAG_RESYNC, 0);
+			bsr_send_uuids(peer_device, UUID_FLAG_RESYNC, 0, NOW);
 			bsr_resync(peer_device, AFTER_UNSTABLE);
 			put_ldev(device);
 		}
@@ -7261,7 +7270,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 			if (peer_device->repl_state[NOW] == L_ESTABLISHED &&
 				bsr_inspect_resync_side(peer_device, L_SYNC_SOURCE, NOW, false) &&
 				get_ldev(device)) {
-				bsr_send_uuids(peer_device, UUID_FLAG_AUTHORITATIVE | UUID_FLAG_RESYNC, 0);
+				bsr_send_uuids(peer_device, UUID_FLAG_AUTHORITATIVE | UUID_FLAG_RESYNC, 0, NOW);
 				bsr_resync_authoritative(peer_device, L_SYNC_SOURCE);
 				put_ldev(device);
 			}
@@ -8686,7 +8695,7 @@ static void try_to_get_resynced(struct bsr_device *device)
 
 	if (peer_device) {
 		bsr_resync(peer_device, DISKLESS_PRIMARY);
-		bsr_send_uuids(peer_device, UUID_FLAG_RESYNC | UUID_FLAG_DISKLESS_PRIMARY, 0);
+		bsr_send_uuids(peer_device, UUID_FLAG_RESYNC | UUID_FLAG_DISKLESS_PRIMARY, 0, NOW);
 	}
 	put_ldev(device);
 }
@@ -8889,18 +8898,13 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		if (old_peer_state.conn != L_BEHIND) {
 			bsr_info(23, BSR_LC_REPLICATION, peer_device, "Peer is Ahead. change to Behind mode"); // DW-1518
 		}
-		// DW-2104 When the Ahead node is demoted, Behind state is changed to Established.
-		if (peer_state.role == R_SECONDARY)
-			new_repl_state = L_ESTABLISHED;
-		else {
-			new_repl_state = L_BEHIND;
-			// BSR-842
+		new_repl_state = L_BEHIND;
+		// BSR-842
 #ifdef SPLIT_REQUEST_RESYNC
-			if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-				atomic_set(&peer_device->wait_for_out_of_sync, 1);
-			}
-#endif
+		if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+			atomic_set(&peer_device->wait_for_out_of_sync, 1);
 		}
+#endif
 	}
 
 	if (peer_device->uuids_received &&
@@ -8995,7 +8999,16 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		spin_unlock_irq(&resource->req_lock);
 		goto retry;
 	}
-	clear_bit(CONSIDER_RESYNC, &peer_device->flags);
+
+	// BSR-937 init sync won't start because CONSIDER_RESYNC flag removed
+	// fix to not clear CONSIDER_RESYNC flag if the peer is the primary and the new current uuid has not been received
+	if ((peer_state.role == R_PRIMARY) && (new_repl_state == L_ESTABLISHED) 
+		&& ((peer_device->current_uuid & ~UUID_PRIMARY) == UUID_JUST_CREATED)) {
+		bsr_info(57, BSR_LC_STATE, peer_device, "Resync will start when new current UUID is received");
+		set_bit(CONSIDER_RESYNC, &peer_device->flags);
+	} else 
+		clear_bit(CONSIDER_RESYNC, &peer_device->flags);
+
 	if (new_disk_state != D_MASK)
 		__change_disk_state(device, new_disk_state, __FUNCTION__);
 	if (device->disk_state[NOW] != D_NEGOTIATING)
@@ -9065,7 +9078,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		struct bsr_device *device2 = peer_device->device;
 		struct bsr_peer_device *peer_device2;
 		u64 im;
-		bsr_send_uuids(peer_device, 0, 0);
+		bsr_send_uuids(peer_device, 0, 0, NOW);
 		for_each_peer_device_ref(peer_device2, im, device2) {
 			if (peer_device2->connection->cstate[NOW] == C_CONNECTED) {
 				bsr_send_current_state(peer_device2);
@@ -9079,14 +9092,14 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			/* we want resync, peer has not yet decided to sync... */
 			/* Nowadays only used when forcing a node into primary role and
 			   setting its disk to UpToDate with that */
-			bsr_send_uuids(peer_device, 0, 0);
+			bsr_send_uuids(peer_device, 0, 0, NOW);
 			bsr_send_current_state(peer_device);
 		}
 	}
 
 	// BSR-655 send uuids when sync of other secondary is done to resolve meaningless oos.
 	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.pdsk == D_UP_TO_DATE)
-		bsr_send_uuids(peer_device, 0, 0);
+		bsr_send_uuids(peer_device, 0, 0, NOW);
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 
@@ -10162,12 +10175,14 @@ static void drain_resync_activity(struct bsr_connection *connection)
 	struct bsr_peer_device *peer_device;
 	int vnr;
 
+	// BSR-930 linux does not use inactive_ee, so you must wait for sync_ee to complete.
+#ifdef _WIN
 	// DW-2035 if DISCONN_NO_WAIT_RESYNC is set, don't wait for sync_ee.
-	if (test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) {
+	if (!test_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags)) 
+#endif
 		/* verify or resync related peer requests are read_ee or sync_ee,
 		* drain them first */
 		conn_wait_ee_empty(connection, &connection->sync_ee);
-	}
 	conn_wait_ee_empty(connection, &connection->read_ee);
 
 	rcu_read_lock();
@@ -10212,9 +10227,12 @@ void conn_disconnect(struct bsr_connection *connection)
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
 	enum bsr_conn_state oc;
-	unsigned long irq_flags;
+	unsigned long irq_flags = 0;
 	int vnr, i;
+	// BSR-930
+#ifdef _WIN
 	struct bsr_peer_request *peer_req;	
+#endif
 
 	bsr_debug_conn("conn_disconnect"); 
 
@@ -10255,22 +10273,28 @@ void conn_disconnect(struct bsr_connection *connection)
 		clear_remote_state_change(resource);
 	}
 
+
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
-
+#ifdef _WIN
 	// DW-1954 wait CONN_WAIT_TIMEOUT (default 3 seconds) and keep waiting if ee is not empty and ee is the same as before.
 	conn_wait_ee_empty_and_update_timeout(connection, &connection->active_ee);
-
+#else
+	// BSR-930 linux does not use inactive_ee, so you must wait for active_ee to complete.
+	conn_wait_ee_empty(connection, &connection->active_ee);
+#endif
 	// DW-1874 call after active_ee wait
 	drain_resync_activity(connection);
 
+	// BSR-930
+#ifdef _WIN
 	// DW-1696 Add the incomplete active_ee, sync_ee
-	spin_lock(&resource->req_lock);	
+	spin_lock_irq(&resource->req_lock);
 	// DW-1732 Initialization active_ee(bitmap, al) 
 
-	// DW-1920
 	// BSR-438
-	spin_lock(&g_inactive_lock);
+	spin_lock_irqsave(&g_inactive_lock, irq_flags);
+	// DW-1920
 	if (!list_empty(&connection->active_ee)) {
 		list_for_each_entry_ex(struct bsr_peer_request, peer_req, &connection->active_ee, w.list) {
 			struct bsr_peer_device *peer_device = peer_req->peer_device;
@@ -10311,9 +10335,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		set_bit(__EE_WAS_INACTIVE_REQ, &peer_req->flags);
 		atomic_inc(&connection->inacitve_ee_cnt);
 	}
-
-	spin_unlock(&g_inactive_lock);
-	spin_unlock(&resource->req_lock);
+	spin_unlock_irqrestore(&g_inactive_lock, irq_flags);
+	spin_unlock_irq(&resource->req_lock);
+#endif
 
 	/* wait for all w_e_end_data_req, w_e_end_rsdata_req, w_send_barrier,
 	* w_make_resync_request etc. which may still be on the worker queue

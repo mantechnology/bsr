@@ -154,6 +154,7 @@ enum BSR_LOG_CATEGORY
 #define IDX_OPTION_LENGTH			0x01
 #define MAX_BSRLOG_BUF				512
 #define LOGBUF_MAXCNT				100000
+#define MAX_BSR_MISSING_BUF			128
 
 #ifdef _LIN 
 #ifndef LONGLONG

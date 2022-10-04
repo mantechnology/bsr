@@ -636,6 +636,8 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 
 		wake_up(&connection->ping_wait);
 		wake_up(&connection->ee_wait);
+		// BSR-928 avoid potential hung task panic in bsr_uuid_peer()
+		wake_up(&connection->uuid_wait);
 	}
 
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
@@ -2408,21 +2410,6 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 
 				bsr_rs_controller_reset(peer_device);
 
-				if (repl_state[NEW] == L_VERIFY_S) {
-					// BSR-118
-					if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
-						set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
-					}
-					else {
-						ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
-						bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
-							bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
-							(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
-							(unsigned long long)ov_tw);
-
-						mod_timer(&peer_device->resync_timer, jiffies);
-					}
-				}
 			} else if (!(repl_state[OLD] >= L_SYNC_SOURCE && repl_state[OLD] <= L_PAUSED_SYNC_T) &&
 				   (repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T)) {
 				initialize_resync(peer_device);
@@ -3334,7 +3321,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			// BSR-863
 			if (connection->agreed_pro_version < 115) {
 				if (resync_finished && peer_disk_state[NEW] != D_UNKNOWN)
-					bsr_send_uuids(peer_device, 0, 0);
+					bsr_send_uuids(peer_device, 0, 0, NOW);
 			}
 
 			if (peer_disk_state[NEW] == D_UP_TO_DATE)
@@ -3423,7 +3410,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				atomic_set(&peer_device->rs_pending_cnt, 0);
 				bsr_rs_cancel_all(peer_device);
 
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_state(peer_device, new_state);
 			}
 
@@ -3498,7 +3485,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (repl_state[NEW] >= L_ESTABLISHED &&
 			    disk_state[OLD] == D_ATTACHING && disk_state[NEW] >= D_NEGOTIATING) {
 				bsr_send_sizes(peer_device, 0, 0);  /* to start sync... */
-				bsr_send_uuids(peer_device, 0, 0);
+				bsr_send_uuids(peer_device, 0, 0, NOW);
 				bsr_send_state(peer_device, new_state);
 			}
 
@@ -3608,8 +3595,17 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			// BSR-118
 			if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S) {
 				if (peer_device->connection->agreed_pro_version >= 114 && isFastInitialSync()) {
+					set_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 					peer_device->fast_ov_work.w.cb = w_fast_ov_get_bm;
 					bsr_queue_work(&resource->work, &peer_device->fast_ov_work.w);
+				} else {
+					ULONG_PTR ov_tw = bsr_ov_bm_total_weight(peer_device);
+					bsr_info(150, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap_index(%d) start_sector(%llu) (will verify %llu KB [%llu bits set]).",
+						bsr_repl_str(peer_device->repl_state[NEW]), peer_device->bitmap_index, (unsigned long long)peer_device->ov_start_sector,
+						(unsigned long long)ov_tw << (BM_BLOCK_SHIFT - 10),
+						(unsigned long long)ov_tw);
+
+					mod_timer(&peer_device->resync_timer, jiffies);
 				}
 			}
 
@@ -3652,14 +3648,27 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 						bConsiderResync = true;
 				}
 				
-				bsr_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0);
+				bsr_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
 
 				put_ldev(device);
 			}
 
-			if (send_state) 
+			if (send_state) {
+				// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+				// set STATE_WORK_PENDING while sending state in w_after_state_change()
+				wait_event(resource->state_work_wait, !test_and_set_bit(STATE_WORK_PENDING, &resource->flags));
+				
+				// BSR-937 init sync won't start if secondary state send after twopc commit primary state
+				// fix to send role[NEW] state
+				if ((enum bsr_role)new_state.role != resource->role[NEW])
+					new_state.role = resource->role[NEW];
+				
 				bsr_send_state(peer_device, new_state);
 
+				// BSR-937
+				clear_bit(STATE_WORK_PENDING, &resource->flags);
+				wake_up(&resource->state_work_wait);
+			}
 			if (!device_stable[OLD] && device_stable[NEW] &&
 			    !(repl_state[OLD] == L_SYNC_TARGET || repl_state[OLD] == L_PAUSED_SYNC_T) &&
 			    !(peer_role[OLD] == R_PRIMARY) && disk_state[NEW] >= D_OUTDATED &&
@@ -3670,7 +3679,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				   ... I was primary
 				   ... the peer that transitioned from primary to secondary
 				*/
-				bsr_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0);
+				// BSR-936 if device stable has been updated, send UUID information to "NEW"
+				bsr_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0, NEW);
 				put_ldev(device);
 			}
 			// DW-1315 notify peer that I got stable, no resync available in this case.
@@ -3678,7 +3688,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				repl_state[NEW] >= L_ESTABLISHED &&
 				get_ldev(device))
 			{
-				bsr_send_uuids(peer_device, 0, 0);
+				// BSR-936 if device stable has been updated, send UUID information to "NEW"
+				bsr_send_uuids(peer_device, 0, 0, NEW);
 				put_ldev(device);
 			}
 
@@ -3687,7 +3698,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				authoritative[OLD] != authoritative[NEW] &&
 				get_ldev(device)) {	
 				// DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE, and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC 
-				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0);
+				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
 				put_ldev(device);
 			}
 
@@ -4632,6 +4643,10 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 			  resource->res_opts.node_id,
 			  context->target_node_id);
 
+	// BSR-937 fix avoid state change races between change_cluster_wide_state() and w_after_state_change()
+	// set STATE_WORK_PENDING while sending commits and changing local state
+	wait_event(resource->state_work_wait, !test_and_set_bit(STATE_WORK_PENDING, &resource->flags));
+
 	if (have_peers && context->change_local_state_last) {
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
 	}
@@ -4645,8 +4660,15 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				R_PRIMARY : R_SECONDARY;
 			__change_peer_role(target_connection, target_role, __FUNCTION__);
 		}
+		// BSR-937
+		clear_bit(STATE_WORK_PENDING, &resource->flags);
+		wake_up(&resource->state_work_wait);
+
 		rv = end_state_change(resource, &irq_flags, caller);
 	} else {
+		// BSR-937	
+		clear_bit(STATE_WORK_PENDING, &resource->flags);
+		wake_up(&resource->state_work_wait);
 		abort_state_change(resource, &irq_flags, caller);
 	}
 	if (have_peers && !context->change_local_state_last)
