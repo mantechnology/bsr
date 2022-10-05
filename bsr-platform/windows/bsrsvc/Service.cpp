@@ -83,7 +83,7 @@ VOID WriteLog(wchar_t* pMsg)
 {
     HANDLE hEventLog = RegisterEventSource(NULL, ServiceName);
     PCTSTR aInsertions[] = {pMsg};
-	DWORD dwDataSize = 0;
+	size_t dwDataSize = 0;
 
 	dwDataSize = (wcslen(pMsg) + 1) * sizeof(WCHAR);
 
@@ -94,7 +94,7 @@ VOID WriteLog(wchar_t* pMsg)
         ONELINE_INFO,				// Event id
         NULL,                       // User's sid (NULL for none)
         1,                          // Number of insertion strings
-        dwDataSize,                 // Number of additional bytes, need to provide it to read event log data
+        (DWORD)dwDataSize,                 // Number of additional bytes, need to provide it to read event log data
         aInsertions,                // Array of insertion strings
         pMsg                        // Pointer to additional bytes, need to provide it to read event log data
         );
@@ -675,7 +675,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 
 	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\"));
 	// Change Preshutdown log name to date(eg. Preshutdown-YEAR-MONTH-DAY-HOUR-MINUTE.log)
-	_tcscat(szFullPath, PreShutdownTime);
+	_tcscat_s(szFullPath, MAX_PATH, PreShutdownTime);
 
 	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	if (ret) {
@@ -772,21 +772,19 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 			}
 			else {
 				TCHAR szFullPath[MAX_PATH] = { 0 };
-				DWORD ret;
 				TCHAR tmp[256] = { 0, }; 
-				DWORD dwPID;
 				TCHAR sPreShutdownTime[MAX_PATH], ePreShutdownTime[MAX_PATH];
 				SYSTEMTIME sTime;
 
 				// DW-1821 log before running RcBsrStop() when the system shuts down.
 				GetLocalTime(&sTime);
-				_stprintf(sPreShutdownTime, _T("Preshutdown-s-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
+				_stprintf_s(sPreShutdownTime, MAX_PATH, _T("Preshutdown-s-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
 				ExecPreShutDownLog(sPreShutdownTime, NULL);
 
 				RcBsrStop();
 
 				GetLocalTime(&sTime);
-				_stprintf(ePreShutdownTime, _T("Preshutdown-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
+				_stprintf_s(ePreShutdownTime, MAX_PATH, _T("Preshutdown-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
 				ExecPreShutDownLog(ePreShutdownTime, sPreShutdownTime);
 			}
 			
@@ -844,7 +842,7 @@ void AddEventSource(TCHAR * csPath, TCHAR * csApp)
     // Create the event source registry key
     dwError = RegCreateKey(HKEY_LOCAL_MACHINE, szPath, &hRegKey);
     GetModuleFileName(NULL, szPath, MAX_PATH);
-    dwError = RegSetValueEx(hRegKey, _T("EventMessageFile"), 0, REG_EXPAND_SZ, (PBYTE)szPath, (_tcslen(szPath) + 1) * sizeof TCHAR);
+    dwError = RegSetValueEx(hRegKey, _T("EventMessageFile"), 0, REG_EXPAND_SZ, (PBYTE)szPath, (DWORD)(_tcslen(szPath) + 1) * sizeof(TCHAR));
     DWORD dwTypes = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
     dwError = RegSetValueEx(hRegKey, _T("TypesSupported"), 0, REG_DWORD, (LPBYTE)&dwTypes, sizeof dwTypes);
 
@@ -871,13 +869,13 @@ DWORD RcBsrStart()
     DWORD dwPID;
     TCHAR tmp[1024];
     TCHAR szFullPath[MAX_PATH] = {0};
-    DWORD dwLength;
+    size_t dwLength;
     DWORD ret;
 
 	WriteLog(L"rc_bsr_start");
 
     if ((dwLength = wcslen(gServicePath) + wcslen(g_pbsrRcBat) + 4) > MAX_PATH) {
-        _stprintf_s(tmp, _T("Error: cmd too long(%d)\n"), dwLength);
+        _stprintf_s(tmp, _T("Error: cmd too long(%d)\n"), (DWORD)dwLength);
         WriteLog(tmp);
         return -1;
     }
@@ -897,7 +895,7 @@ DWORD RcBsrStop()
     DWORD dwPID;
     WCHAR szFullPath[MAX_PATH] = {0};
     WCHAR tmp[1024];
-    DWORD dwLength;
+    size_t dwLength;
     DWORD ret;
 	
 	WriteLog(L"rc_bsr_stop");

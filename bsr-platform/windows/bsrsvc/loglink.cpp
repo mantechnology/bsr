@@ -40,7 +40,7 @@ VOID WriteLog(wchar_t* pLogName, wchar_t* pMsg, WORD wType)
 
 	HANDLE hEventLog = RegisterEventSource(NULL, pLogName);
 	PCTSTR aInsertions [] = { pMsg };
-	DWORD dwDataSize = 0;
+	size_t dwDataSize = 0;
 
 	dwDataSize = (wcslen(pMsg) + 1) * sizeof(WCHAR);
 
@@ -51,7 +51,7 @@ VOID WriteLog(wchar_t* pLogName, wchar_t* pMsg, WORD wType)
 		ONELINE_INFO,				// Event id
 		NULL,                       // User's sid (NULL for none)
 		1,                          // Number of insertion strings
-		dwDataSize,                 // Number of additional bytes, need to provide it to read event log data
+		(DWORD)dwDataSize,                 // Number of additional bytes, need to provide it to read event log data
 		aInsertions,                // Array of insertion strings
 		pMsg                        // Pointer to additional bytes need to provide it to read event log data
 		);
@@ -94,6 +94,7 @@ void get_linklog_reg()
 	RegCloseKey(hKey);
 }
 
+#ifdef _WIN32_LOGLINK
 int LogLink_Daemon(unsigned short *port)
 {
 	wchar_t tmp[TMPBUF];
@@ -244,3 +245,4 @@ int LogLink_Daemon(unsigned short *port)
 
 	return 0;
 }
+#endif
