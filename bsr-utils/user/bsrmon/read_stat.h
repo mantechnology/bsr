@@ -111,6 +111,21 @@ struct al_stat {
 	unsigned int e_wouldblock;
 };
 
+
+extern char g_perf_path[MAX_PATH];
+
+// BSR-948
+struct title_field {
+	const char *name;
+	int nr; // Number of items 
+	int no_close_brace;
+};
+struct perf_field {
+	const char *name;
+	const char *unit;
+};
+
+
 // for report
 void read_io_stat_work(char *path, struct time_filter *tf);
 void read_io_complete_work(char *path, struct time_filter *tf);
@@ -135,3 +150,5 @@ void watch_al_stat(char *path, bool scroll);
 // BSR-838
 void watch_peer_resync_ratio(char *path, bool scroll);
 
+// for show
+void print_current(struct resource *res, int type_flags);

@@ -97,6 +97,7 @@ void usage()
 		"   /status\n"
 		//"   /print\n"
 		//"   /file\n"
+		"   /show [/t {types[,...]|all}] [/r {resource[,...]|all}]\n"
 		"   /watch {types} [/scroll]\n"
 		"   /report {types} [/f {filename}] [/d {YYYY-MM-DD}] [/s {hh:mm[:ss]}] [/e {hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
@@ -255,7 +256,7 @@ void PrintMonitor()
 	char *buf = NULL;
 	struct resource* res;
 	
-	res = GetResourceInfo();
+	res = GetResourceInfo(NULL);
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
@@ -367,7 +368,7 @@ void InitMonitor()
 {
 	struct resource *res, *res_head;
 
-	res = GetResourceInfo();
+	res = GetResourceInfo(NULL);
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
@@ -411,7 +412,7 @@ void MonitorToFile()
 	struct timeb timer_msec;
 	char curr_time[64] = {0,};
 	
-	res = GetResourceInfo();
+	res = GetResourceInfo(NULL);
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
@@ -476,7 +477,7 @@ next:
 }
 
 // BSR-741 checking the performance monitor status
-static bool is_running()
+static bool is_running(bool print_log)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
@@ -490,7 +491,8 @@ static bool is_running()
 #ifdef _WIN
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
-		fprintf(stderr, "Failed to open bsr\n");
+		if (print_log)
+			fprintf(stderr, "Failed to open bsr\n");
 		return false;
 	}
 	
@@ -502,7 +504,8 @@ static bool is_running()
 
 #else // _LIN
 	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
-		fprintf(stderr, "Can not open /dev/bsr-control\n");
+		if (print_log)
+			fprintf(stderr, "Can not open /dev/bsr-control\n");
 		return false;
 	}
 	if (ioctl(fd, IOCTL_MVOL_GET_BSRMON_RUN, &run) != 0)
@@ -514,17 +517,36 @@ static bool is_running()
 #endif
 
 	if (err){
-		fprintf(stderr, "Failed to IOCTL_MVOL_GET_BSRMON_RUN\n");
+		if (print_log)
+			fprintf(stderr, "Failed to IOCTL_MVOL_GET_BSRMON_RUN\n");
 		return false;
 	} else if (run) {
-		fprintf(stdout, "bsr performance monitor is enabled.\n");
+		if (print_log)
+			fprintf(stdout, "bsr performance monitor is enabled.\n");
 		return true;
 	} else {
-		fprintf(stdout, "bsr performance monitor is disabled.\n");
+		if (print_log)
+			fprintf(stdout, "bsr performance monitor is disabled.\n");
 		return false;
 	}
 
 }
+
+
+#ifdef _LIN
+static pid_t GetRunningPid() {
+	char buf[10] = {0,};
+	pid_t pid;
+	FILE *cmd_pipe = popen("pgrep bsrmon-run", "r");
+
+	if (!cmd_pipe)
+		return 0;
+	fgets(buf, MAX_PATH, cmd_pipe);
+	pid = strtoul(buf, NULL, 10);
+	pclose(cmd_pipe);
+	return pid;
+}
+#endif
 
 // BSR-688 watching perf file
 void Watch(char *resname, int type, int vnr, bool scroll)
@@ -546,8 +568,16 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 	sprintf(perf_path, "/var/log/bsr/perfmon/");
 #endif
 
-	if (!is_running())
+#ifdef _WIN
+	if (!is_running(true))
 		return;
+#else
+	pid_t pid = GetRunningPid();
+	if (pid <= 0) {
+		fprintf(stderr, "bsrmon-run script is not running\n");
+		return;
+	}
+#endif
 
 	if (resname != NULL) {
 		int err = CheckResourceInfo(resname, 0, vnr);
@@ -953,21 +983,6 @@ static void SetBsrmonRun(unsigned int run)
 	
 }
 
-#ifdef _LIN
-static pid_t GetRunningPid() {
-	char buf[10] = {0,};
-	pid_t pid;
-	FILE *cmd_pipe = popen("pgrep bsrmon-run", "r");
-
-	if (!cmd_pipe)
-		return 0;
-	fgets(buf, MAX_PATH, cmd_pipe);
-	pid = strtoul(buf, NULL, 10);
-	pclose(cmd_pipe);
-	return pid;
-}
-#endif
-
 static void StartMonitor()
 {
 	
@@ -1093,6 +1108,93 @@ int ConvertType(char * type_name)
 		return ALL_STAT;
 	
 	return -1;
+}
+
+// BSR-948
+void show_current(struct resource *res, int type_flags)
+{
+#ifdef _WIN
+	if (!is_running(false))
+		return;
+#else
+	pid_t pid = GetRunningPid();
+	if (pid <= 0) {
+		fprintf(stderr, "bsrmon-run script is not running\n");
+		return;
+	}
+#endif
+
+	get_perf_path();
+
+	if (!res)
+		res = GetResourceInfo(NULL);
+	if (!type_flags)
+		type_flags = (1 << ALL_STAT) -1;
+
+	if (!res) {
+		fprintf(stderr, "Failed to get resource info.\n");
+		return;
+	}
+
+	print_current(res, type_flags);
+}
+
+// BSR-948
+int get_types(char * types) {
+	int type_flags = 0;
+
+	char *ptr, *save_ptr;
+	ptr = strtok_r(types, ",", &save_ptr);
+	while (ptr) {
+		int type = ConvertType(ptr);
+		if (type == -1) {
+			fprintf(stderr, "bsrmon: Unknown types '%s'\n", ptr);
+			return type;
+		}
+		if (strcmp(ptr, "all") == 0)
+			type_flags = (1 << type) - 1;
+		else
+			type_flags |= 1 << type;
+
+		ptr = strtok_r(NULL, ",", &save_ptr);
+	}
+
+	return type_flags;
+}
+
+// BSR-948
+struct resource * get_res_list(char * res_list)
+{
+	char *ptr, *save_ptr;
+	struct resource *res_head = NULL, *res = NULL, *res_temp = NULL; 
+	ptr = strtok_r(res_list, ",", &save_ptr);
+	while (ptr) {
+		if (strcmp(ptr, "all") == 0) {
+			res_head = GetResourceInfo(NULL);
+			if (!res_head) {
+				fprintf(stderr, "Failed to get resource info.\n");
+			}
+			return res_head;
+		} else {
+			res = GetResourceInfo(ptr);
+			if (!res) {
+				fprintf(stderr, "Failed to get resource info.\n");
+				if (res_head)
+					free(res_head);
+				return NULL;
+			}
+			if (!res_temp)
+				res_head = res;
+			else
+				res_temp->next = res;
+			
+			res_temp = res;
+		}
+		
+		ptr = strtok_r(NULL, ",", &save_ptr);
+		
+	}
+	return res_head;
 }
 
 
@@ -1253,7 +1355,7 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/status")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				if (is_running()) {
+				if (is_running(true)) {
 #ifdef _LIN
 					// BSR-796 print whether the bsrmon-run script is running
 					pid_t pid = GetRunningPid();
@@ -1370,6 +1472,40 @@ int main(int argc, char* argv[])
 				perf_test_usage();
 			}
 
+		}
+		// BSR-948 print all last collected performance data for all resources
+		else if (!strcmp(argv[argIndex], "/show"))
+		{
+			int type_flags = 0;
+			struct resource *res_head = NULL;
+			for (argIndex++; argIndex < argc; argIndex++) {
+				if (!strncmp(argv[argIndex], "/", 1)) {
+					int c = *(argv[argIndex] + 1);
+					if (++argIndex >= argc) {
+						usage();
+					}
+					switch (c) {
+					case 't':
+						// types
+						type_flags = get_types(argv[argIndex]);
+						break;
+					case 'r':
+						//resource
+						res_head = get_res_list(argv[argIndex]);
+						if (!res_head)
+							exit(ERROR_INVALID_PARAMETER);
+						break;
+					default:
+						usage();
+					}
+				} else {
+					usage();
+				}
+			}
+			if (type_flags != -1)
+				show_current(res_head, type_flags);
+			
+			freeResource(res_head);
 		}
 #ifdef _WIN
 		// BSR-37

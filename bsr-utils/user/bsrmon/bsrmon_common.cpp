@@ -1,6 +1,8 @@
 #include "bsrmon.h"
 
 
+char g_perf_path[MAX_PATH];
+
 static int decode_timestamp(char timestamp[], struct time_stamp *ts)
 {
 	timestamp[2] = timestamp[5] = '\0';
@@ -94,4 +96,22 @@ int datecmp(char *curr, struct time_stamp *ts)
 	}
 	else
 		return (curr_ts.t_hour - ts->t_hour);
+}
+
+void get_perf_path()
+{
+#ifdef _WIN
+	char bsr_path[MAX_PATH] = {0,};
+	char _perf_path[MAX_PATH] = { 0, };
+	size_t path_size;
+	errno_t result;
+	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+	if (result) {
+		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+	}
+	strncpy_s(g_perf_path, (char *)bsr_path, strlen(bsr_path) - strlen("bin"));
+	strcat_s(g_perf_path, "log\\perfmon\\");
+#else // _LIN
+	sprintf(g_perf_path, "/var/log/bsr/perfmon/");
+#endif
 }

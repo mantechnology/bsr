@@ -8,6 +8,7 @@
 
 
 #define MAX_BUF_SIZE 4096
+#define MAX_PATH 260
 
 #ifdef _WIN
 #define _SEPARATOR_ "\\"
@@ -66,6 +67,8 @@ static inline void clear_screen()
 #endif
 }
 
+
 // BSR-771
 int parse_timestamp(char *str, struct time_stamp *ts, const char *def_timestamp);
 int datecmp(char *curr, struct time_stamp *ts);
+void get_perf_path();
