@@ -1646,7 +1646,8 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #endif
 
 	if (resourceName != NULL) {
-		memset(tstr, MAX_PATH, 0);
+		memset(tstr, 0, MAX_PATH);
+
 		// DW-1629 check logs for resource name and additional parsing data
 		//#define __bsr_printk_device ...
 		//#define __bsr_printk_peer_device ...

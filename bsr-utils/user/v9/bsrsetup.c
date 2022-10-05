@@ -1897,7 +1897,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 	bsr_sock->s_seq_expect = 0;
 
 	for (;;) {
-		int received, rem, ret;
+		int received, ret;
 		struct nlmsghdr *nlh;
 		struct timeval before;
 		struct pollfd pollfds[2] = {
@@ -4857,7 +4857,7 @@ int main(int argc, char **argv)
 	if (!cmd)
 		print_usage_and_exit("invalid command");
 
-	lcmd = cmd->cmd;
+	lcmd = (char *)cmd->cmd;
 	
 	/* Make argv[0] the command name so that getopt_long() will leave it in
 	 * the first position. */

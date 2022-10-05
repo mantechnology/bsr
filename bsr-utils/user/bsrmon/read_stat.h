@@ -70,8 +70,8 @@ struct process_info {
 struct io_perf_stat {
 	struct perf_stat iops;
 	struct perf_stat kbs;
-	ULONG_PTR ios;
-	ULONG_PTR kb;
+	unsigned long long ios;
+	unsigned long long kb;
 };
 
 struct req_perf_stat {
@@ -91,17 +91,17 @@ struct req_perf_stat {
 struct al_perf_stat {
 	unsigned long cnt;
 	unsigned long max;
-	ULONG_PTR sum;
+	unsigned long long sum;
 };
 
 struct al_stat {
 	unsigned int nr_elements;
 	struct al_perf_stat used;
-	ULONG_PTR hits;
-	ULONG_PTR misses;
-	ULONG_PTR starving;
-	ULONG_PTR locked;
-	ULONG_PTR changed;
+	unsigned long long hits;
+	unsigned long long misses;
+	unsigned long long starving;
+	unsigned long long locked;
+	unsigned long long changed;
 	struct al_perf_stat wait;
 	struct al_perf_stat pending;
 	unsigned int e_starving;
@@ -110,6 +110,21 @@ struct al_stat {
 	unsigned int e_busy;
 	unsigned int e_wouldblock;
 };
+
+
+extern char g_perf_path[MAX_PATH];
+
+// BSR-948
+struct title_field {
+	const char *name;
+	int nr; // Number of items 
+	int no_close_brace;
+};
+struct perf_field {
+	const char *name;
+	const char *unit;
+};
+
 
 // for report
 void read_io_stat_work(char *path, struct time_filter *tf);
@@ -135,3 +150,5 @@ void watch_al_stat(char *path, bool scroll);
 // BSR-838
 void watch_peer_resync_ratio(char *path, bool scroll);
 
+// for show
+void print_current(struct resource *res, int type_flags);

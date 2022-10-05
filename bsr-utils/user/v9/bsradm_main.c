@@ -3677,7 +3677,7 @@ int main(int argc, char **argv)
 	if (rv)
 		return rv;
 
-	lcmd = cmd->name;
+	lcmd = (char *)cmd->name;
 
 	if (config_test && !cmd->test_config) {
 		err("The --config-to-test (-t) option is only allowed "

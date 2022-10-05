@@ -8,7 +8,6 @@
 #endif
 
 #define MAX_DEBUG_BUF_SIZE 4096
-#define MAX_PATH 260
 
 #define DEFAULT_BSRMON_PERIOD 1
 #define DEFAULT_FILE_ROLLING_SIZE 50
@@ -72,7 +71,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str);
 
 void* exec_pipe(enum get_info_type info_type, char *res_name);
 void freeResource(struct resource* res);
-struct resource* GetResourceInfo();
+struct resource* GetResourceInfo(char * name);
 int CheckResourceInfo(char* resname, int node_id, int vnr);
 
 #ifdef _WIN

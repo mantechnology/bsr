@@ -242,13 +242,46 @@ void freeResource(struct resource* res)
 	}
 }
 
-struct resource* GetResourceInfo()
+struct resource* GetResourceInfo(char * name)
 {
 	struct resource *res_head = NULL, *res = NULL;
 
-	res = (struct resource*)exec_pipe(RESOURCE, NULL);
-	res_head = res;
-	while (res) {
+	if (!name) {
+		res = (struct resource*)exec_pipe(RESOURCE, NULL);
+		res_head = res;
+		while (res) {
+			res->conn = (struct connection*)exec_pipe(CONNECTION, res->name);
+			if (!res->conn) {
+				freeResource(res);
+				return NULL;
+			}
+
+			res->vol = (struct volume*)exec_pipe(VOLUME, res->name);
+			if (!res->vol) {
+				freeResource(res);
+				return NULL;
+			}
+
+			res = res->next;
+		}
+
+		return res_head;
+	}
+	else {
+		res = (struct resource*)malloc(sizeof(struct resource));
+		if (!res) {
+			fprintf(stderr, "Failed to malloc resource, size : %lu\n", sizeof(struct resource));
+			return NULL;
+		}
+		res->conn = NULL;
+		res->vol = NULL;
+#ifdef _WIN
+		strcpy_s(res->name, name);
+#else // _LIN
+		strcpy(res->name, name);
+#endif
+		res->next = NULL;
+
 		res->conn = (struct connection*)exec_pipe(CONNECTION, res->name);
 		if (!res->conn) {
 			freeResource(res);
@@ -261,10 +294,9 @@ struct resource* GetResourceInfo()
 			return NULL;
 		}
 
-		res = res->next;
+		return res;
 	}
-
-	return res_head;
+	
 }
 
 int CheckResourceInfo(char* resname, int node_id, int vnr)
@@ -274,7 +306,7 @@ int CheckResourceInfo(char* resname, int node_id, int vnr)
 	struct connection *conn;
 	int err = 0;
 
-	res = GetResourceInfo();
+	res = GetResourceInfo(NULL);
 	if (!res) {
 		fprintf(stderr, "Failed in CheckResourceInfo(), not found resource %s\n", resname);
 		return -1;

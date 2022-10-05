@@ -301,7 +301,6 @@ retry:
 		goto retry;
 	}
 
-finished:
 	//DW-2071 if less data is received than the requested data, it is treated as an error.
 	if (nlh->nlmsg_len > n) {
 		dbg(3, "failed because received a res(%u) smaller than req(%u)\n", n, nlh->nlmsg_len);
