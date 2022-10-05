@@ -4543,7 +4543,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 				rv = check_primaries_distances(resource);
 
 			// DW-1231 not allowed multiple primaries.
-			if (reply->primary_nodes & NODE_MASK(context->target_node_id)) {			
+			if (context->target_node_id != -1 && (reply->primary_nodes & NODE_MASK(context->target_node_id))) {
 				rcu_read_lock();
 				for_each_connection_rcu(connection, resource) {
 					if (connection->peer_node_id != (unsigned int)context->target_node_id) {

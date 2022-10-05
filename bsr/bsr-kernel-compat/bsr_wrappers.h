@@ -1256,6 +1256,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 		} \
 } while(0)
 
+#ifndef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
 #ifdef COMPAT_HAVE_POINTER_BACKING_DEV_INFO
 #define bdi_from_device(device) (device->ldev->backing_bdev->bd_disk->queue->backing_dev_info)
 #define init_bdev_info(bdev_info, bsr_congested, device) do { \
@@ -1272,6 +1273,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 	(bdev_info).congested_data = device; \
 } while(0)
 #define adjust_ra_pages(q, b) _adjust_ra_pages((q)->backing_dev_info.ra_pages, (b)->backing_dev_info.ra_pages)
+#endif
 #endif
 
 #if defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) /* compat for Linux before 4.8 {{{2 */

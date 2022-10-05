@@ -210,6 +210,14 @@ static inline bool bsr_security_netlink_recv(struct sk_buff *skb, int cap)
 #endif
 #endif
 
+static bool need_sys_admin(u8 cmd)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(bsr_genl_ops); i++)
+		if (bsr_genl_ops[i].cmd == cmd)
+			return 0 != (bsr_genl_ops[i].flags & GENL_ADMIN_PERM);
+	return true;
+}
 
 static struct bsr_path *first_path(struct bsr_connection *connection)
 {
@@ -247,7 +255,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	 * set have CAP_NET_ADMIN; we also require CAP_SYS_ADMIN for
 	 * administrative commands.
 	 */
-	if ((bsr_genl_ops[cmd].flags & GENL_ADMIN_PERM) &&
+	if (need_sys_admin(cmd) &&
 	    bsr_security_netlink_recv(skb, CAP_SYS_ADMIN))
 		return -EPERM;
 #endif
@@ -2377,7 +2385,13 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 
 	if (b) {
 		blk_stack_limits(&q->limits, &b->limits, 0);
+#if defined(COMPAT_HAVE_DISK_UPDATE_READAHEAD)
+		disk_update_readahead(device->vdisk);
+#elif defined(COMPAT_HAVE_BLK_QUEUE_UPDATE_READAHEAD)
+		blk_queue_update_readahead(q);
+#else
 		adjust_ra_pages(q, b);
+#endif
 	}
 	fixup_discard_if_not_supported(q);
 	fixup_write_zeroes(device, q);
@@ -5773,7 +5787,11 @@ static void device_to_statistics(struct device_statistics *s,
 		q = bdev_get_queue(device->ldev->backing_bdev);
 #ifdef _LIN
 		s->dev_lower_blocked =
+#ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
+			bdi_congested(device->ldev->backing_bdev->bd_disk->bdi,
+#else
 			bdi_congested(q->backing_dev_info,
+#endif
 				      (1 << WB_async_congested) |
 				      (1 << WB_sync_congested));
 #endif

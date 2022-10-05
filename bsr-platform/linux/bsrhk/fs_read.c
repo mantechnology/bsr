@@ -45,10 +45,12 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		goto out;
 	}
 
-#ifdef COMPAT_HAVE_HD_STRUCT
+#if defined(COMPAT_HAVE_HD_STRUCT)
 	bdev = bdget_disk(device->vdisk, 0);
-#else
+#elif defined(COMPAT_HAVE_BDGRAB)
 	bdev = bdgrab(device->vdisk->part0);
+#else // kernel >= v5.14
+	bdev = device->vdisk->part0;
 #endif
 	if (bdev == NULL)
 		goto out;
@@ -96,9 +98,11 @@ close:
 	if(bdev->bd_super) {
 		thaw_bdev(bdev, bdev->bd_super);
 	}
-	
+
+#if defined(COMPAT_HAVE_BDGRAB) || defined(COMPAT_HAVE_HD_STRUCT)
 	if (bdev)
 		bdput(bdev);
+#endif
 
 out:
 	if (bitmap_buf)

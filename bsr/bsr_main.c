@@ -3742,8 +3742,12 @@ void bsr_destroy_device(struct kref *kref)
 		device->bitmap = NULL;
 	}
 	__free_page(device->md_io.page);
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	blk_cleanup_disk(device->vdisk);
+#else
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
+#endif	
 
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
@@ -4785,6 +4789,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	}
 #endif
 	// DW-1109 don't get request queue and gendisk from volume extension, allocate new one. it will be destroyed in bsr_destroy_device.
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	disk = blk_alloc_disk(NUMA_NO_NODE);
+#else
 	q = bsr_blk_alloc_queue();
 	if (!q)
 		goto out_no_q;
@@ -4792,20 +4799,27 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #if defined(COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC) || defined(blk_queue_plugged) || defined(_WIN)
 	q->queuedata   = device;
 #endif
-	disk = alloc_disk(1);
+	disk = alloc_disk(1);	
+#endif
 	if (!disk)
 		goto out_no_disk;
 
 	device->vdisk = disk;
 
 	set_disk_ro(disk, true);
-	disk->queue = q;
 #ifdef _LIN
 	disk->major = BSR_MAJOR;
 	disk->first_minor = minor;
-
 	disk->fops = &bsr_ops;
 #endif
+
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	device->rq_queue = disk->queue;
+	disk->minors = 1;
+#else
+	disk->queue = q;
+#endif
+
 #ifdef _WIN
 	_snprintf(disk->disk_name, sizeof(disk->disk_name) - 1, "bsr%u", minor);
 #else // _LIN
@@ -4813,8 +4827,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	sprintf(disk->disk_name, "bsr%d", minor);
 #endif
 	disk->private_data = device;
-#ifdef _LIN
-#endif
+
 #ifdef _WIN
 	kref_get(&pvext->dev->kref);
 	device->this_bdev = pvext->dev;
@@ -4829,13 +4842,13 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #endif
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
-	blk_queue_make_request(q, bsr_make_request);
+	blk_queue_make_request(disk->queue, bsr_make_request);
 #endif
-    blk_queue_write_cache(q, true, true);
+    blk_queue_write_cache(disk->queue, true, true);
 
 #ifdef _LIN
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
-	blk_queue_merge_bvec(q, bsr_merge_bvec);
+	blk_queue_merge_bvec(disk->queue, bsr_merge_bvec);
 #endif
 #endif
 #ifdef blk_queue_plugged
@@ -4978,10 +4991,16 @@ out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
 #ifdef _LIN 
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+	blk_cleanup_disk(disk);
+#else
 	put_disk(disk);
 #endif
+#endif
 out_no_disk:
+#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 	blk_cleanup_queue(q);
+#endif
 out_no_q:
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);

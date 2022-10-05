@@ -200,9 +200,9 @@ struct bsr_connection;
 // BSR-577 Change to common method
 #ifdef _WIN
 // BSR-648
-extern void _printk(const char * func, int index, int level, int category, const char * format, ...);
+extern void __printk(const char * func, int index, int level, int category, const char * format, ...);
 #else // _LIN
-extern void _printk(const char * func, int index, const char * level, int category, const char * format, ...);
+extern void __printk(const char * func, int index, const char * level, int category, const char * format, ...);
 #endif 
 extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR endBit, ULONG_PTR bitsCount, unsigned int mode);
 
@@ -222,7 +222,7 @@ extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
     do {								\
         const struct bsr_device *__d = (device);		\
         const struct bsr_resource *__r = __d->resource;	\
-        _printk(__FUNCTION__, index, level, category, "<%d> bsr %s/%u minor %u, ds(%s), dvflag(0x%x): " fmt,			\
+        __printk(__FUNCTION__, index, level, category, "<%d> bsr %s/%u minor %u, ds(%s), dvflag(0x%x): " fmt,			\
              level, __r->name, __d->vnr, __d->minor, bsr_disk_str(__d->disk_state[NOW]), __d->flags, __VA_ARGS__);	\
     } while (0)
 
@@ -238,25 +238,25 @@ extern void WriteOOSTraceLog(int bitmap_index, ULONG_PTR startBit, ULONG_PTR end
         __c = (peer_device)->connection;			\
         __r = __d->resource;					\
         __cn = __c->peer_node_id;	\
-        _printk(__FUNCTION__, index, level,  category, "<%d> bsr %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
+        __printk(__FUNCTION__, index, level,  category, "<%d> bsr %s/%u minor %u pnode-id:%d, pdsk(%s), prpl(%s), pdvflag(0x%x): " fmt,		\
              level, __r->name, __d->vnr, __d->minor, __cn, bsr_disk_str((peer_device)->disk_state[NOW]), bsr_repl_str((peer_device)->repl_state[NOW]), (peer_device)->flags, __VA_ARGS__);\
         /*rcu_read_unlock();	_WIN32 // DW-938	*/		\
 	    } while (0)
 
 #define __bsr_printk_resource(category, index, level, resource, fmt, ...) \
-	_printk(__FUNCTION__, index, level,  category, "<%d> bsr %s, r(%s), f(0x%x), scf(0x%x): " fmt, level,  (resource)->name, bsr_role_str((resource)->role[NOW]), (resource)->flags,(resource)->state_change_flags, __VA_ARGS__)
+	__printk(__FUNCTION__, index, level,  category, "<%d> bsr %s, r(%s), f(0x%x), scf(0x%x): " fmt, level,  (resource)->name, bsr_role_str((resource)->role[NOW]), (resource)->flags,(resource)->state_change_flags, __VA_ARGS__)
 
 #define __bsr_printk_connection(category, index, level, connection, fmt, ...) \
     do {	                    \
         /*rcu_read_lock();	_WIN32 // DW-938 */ \
-        _printk(__FUNCTION__, index, level,  category, "<%d> bsr %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, level, (connection)->resource->name,  \
+        __printk(__FUNCTION__, index, level,  category, "<%d> bsr %s pnode-id:%d, cs(%s), prole(%s), cflag(0x%x), scf(0x%x): " fmt, level, (connection)->resource->name,  \
         (connection)->peer_node_id, bsr_conn_str((connection)->cstate[NOW]), bsr_role_str((connection)->peer_role[NOW]), (connection)->flags,(connection)->resource->state_change_flags, __VA_ARGS__); \
         /*rcu_read_unlock(); _WIN32 // DW-938 */ \
 	    } while (0)
 
 // BSR-237 if object is empty (NO_OBJECT)
 #define __bsr_printk_(category, index, level, obj, fmt, ...) \
-	_printk(__FUNCTION__, index, level, category, "<%d> [0x%p] " fmt, level, KeGetCurrentThread(), __VA_ARGS__)
+	__printk(__FUNCTION__, index, level, category, "<%d> [0x%p] " fmt, level, KeGetCurrentThread(), __VA_ARGS__)
 
 void bsr_printk_with_wrong_object_type(void);
  
@@ -337,7 +337,7 @@ void bsr_printk_with_wrong_object_type(void);
 	({								\
 		const struct bsr_device *__d = (device);		\
 		const struct bsr_resource *__r = __d->resource;	\
-		_printk(__FUNCTION__, index, level, category, "<%c> bsr %s/%u bsr%u: " fmt,			\
+		__printk(__FUNCTION__, index, level, category, "<%c> bsr %s/%u bsr%u: " fmt,			\
 			(level)[1], __r->name, __d->vnr, __d->minor, ## args);	\
 	})
 
@@ -352,17 +352,17 @@ void bsr_printk_with_wrong_object_type(void);
 		__c = (peer_device)->connection;			\
 		__r = __d->resource;					\
 		__cn = rcu_dereference(__c->transport.net_conf)->name;	\
-		_printk(__FUNCTION__, index, level, category, "<%c> bsr %s/%u bsr%u %s: " fmt,		\
+		__printk(__FUNCTION__, index, level, category, "<%c> bsr %s/%u bsr%u %s: " fmt,		\
 			(level)[1], __r->name, __d->vnr, __d->minor, __cn, ## args);\
 		rcu_read_unlock();					\
 	})
 
 #define __bsr_printk_resource(category, index, level, resource, fmt, args...) \
-	_printk(__FUNCTION__, index, level, category, "<%c> bsr %s: " fmt, level[1], (resource)->name, ## args)
+	__printk(__FUNCTION__, index, level, category, "<%c> bsr %s: " fmt, level[1], (resource)->name, ## args)
 
 #define __bsr_printk_connection(category, index, level, connection, fmt, args...) \
 	({	rcu_read_lock(); \
-		_printk(__FUNCTION__, index, level, category, "<%c> bsr %s %s: " fmt, (level)[1], (connection)->resource->name,  \
+		__printk(__FUNCTION__, index, level, category, "<%c> bsr %s %s: " fmt, (level)[1], (connection)->resource->name,  \
 		       rcu_dereference((connection)->transport.net_conf)->name, ## args); \
 		rcu_read_unlock(); \
 	})
@@ -371,7 +371,7 @@ void bsr_printk_with_wrong_object_type(void);
 
 // BSR-237 if object is empty or undefined (NO_OBJECT)
 #define __bsr_printk(category, index, level, fmt, args...) \
-	_printk(__FUNCTION__, index, level, category, "<%c> bsr " fmt, level[1], ## args)
+	__printk(__FUNCTION__, index, level, category, "<%c> bsr " fmt, level[1], ## args)
 
 #define __bsr_printk_if_same_type(obj, type, func, category, index, level, fmt, args...) \
 	(__builtin_types_compatible_p(typeof(obj), type) || \
@@ -2934,7 +2934,7 @@ static inline void sub_kvmalloc_mem_usage(void * objp, size_t size)
 }
 #endif
 
-
+#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 static inline struct request_queue *bsr_blk_alloc_queue(void) 
 {
 #ifdef _WIN
@@ -2949,6 +2949,7 @@ static inline struct request_queue *bsr_blk_alloc_queue(void)
 #endif
 #endif
 }
+#endif
 
 static inline void ov_out_of_sync_print(struct bsr_peer_device *peer_device, bool ov_done)
 {
