@@ -1081,6 +1081,8 @@ bool bsr_device_stable(struct bsr_device *device, u64 *authoritative_ptr)
 	for_each_connection_rcu(connection, resource) {
 		peer_device = conn_peer_device(connection, device->vnr);
 		switch (peer_device->repl_state[NOW]) {
+			// BSR-905 if the resync start is delayed in congestion when the relative node is demoted, it may be L_BEHIND.
+		case L_BEHIND:
 		case L_WF_BITMAP_T:
 		case L_SYNC_TARGET:
 		case L_PAUSED_SYNC_T:
@@ -1148,6 +1150,8 @@ bool bsr_device_stable_ex(struct bsr_device *device, u64 *authoritative, enum wh
 	for_each_connection_rcu(connection, resource) {
 		peer_device = conn_peer_device(connection, device->vnr);
 		switch (peer_device->repl_state[which]) {
+			// BSR-905 if the resync start is delayed in congestion when the relative node is demoted, it may be L_BEHIND.
+		case L_BEHIND:
 		case L_WF_BITMAP_T:
 		case L_SYNC_TARGET:
 		case L_PAUSED_SYNC_T:
