@@ -3,7 +3,7 @@
 # 3.10.0
 %define _rel_version %(echo %kernel_version | awk -F- '{print $1}')
 # 1160
-%define _patch_version %(echo %kernel_version | awk -F- '{print $2}' | awk -F. '{print $1}')
+%define _minor_fix %(echo %kernel_version | awk -F- '{print $2}' | awk -F. '{print $1}')
 # 1161
-%define _next_patch %(echo %_patch_version | awk '{sum = $1 + 1} {print sum}')
-Requires: kernel < %_rel_version-%_next_patch, kernel >= %_rel_version-%_patch_version
+%define _next_minor_fix %(echo %_minor_fix | awk '{sum = $1 + 1} {print sum}')
+Requires: kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
