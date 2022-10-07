@@ -1,0 +1,9 @@
+# BSR-962
+# ex) kernel_version 3.10.0-1160.66.1.el7.x86_64
+# 3.10.0
+%define _rel_version %(echo %kernel_version | awk -F- '{print $1}')
+# 1160
+%define _patch_version %(echo %kernel_version | awk -F- '{print $2}' | awk -F. '{print $1}')
+# 1161
+%define _next_patch %(echo %_patch_version | awk '{sum = $1 + 1} {print sum}')
+Requires: kernel < %_rel_version-%_next_patch, kernel >= %_rel_version-%_patch_version
