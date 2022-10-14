@@ -11,18 +11,13 @@
 // BSR-948
 char g_timestamp[64];
 int indent = 0;
+bool json = false;
 #define INDENT_WIDTH	4
 #ifdef _WIN
-#define printI(fmt, ...) printf("%*s" fmt,INDENT_WIDTH * indent,"" , __VA_ARGS__)
+#define printI(fmt, ...) printf("%*s" fmt,INDENT_WIDTH * indent,"", __VA_ARGS__)
 #else
-#define printI(fmt, args...) printf("%*s" fmt,INDENT_WIDTH * indent,"" , ## args )
+#define printI(fmt, args...) printf("%*s" fmt,INDENT_WIDTH * indent,"", ## args )
 #endif
-#define SET_MIN_MAX_AVG_FIELDS(name, _unit) {name"_min", _unit}, \
-		{name"_max", _unit}, \
-		{name"_avg", _unit}
-
-#define SET_CUR_TOTAL_FIELDS(name, _unit) {name, _unit}, \
-		{name"_total", _unit}
 
 
 #define BYTE_TO_KBYTE(x) x >> 10
@@ -2279,42 +2274,175 @@ char * read_last_line(char * res_name, int vnr, char * file_name)
 
 	return data;
 }
-static void print_data(char * data, const char * name, const char * unit)
+
+static void print_head(const char * name)
 {
-	if (unit)
-		printI("%s\t%s; # %s\n", name, data, unit);
-	else
-		printI("%s\t%s;\n", name, data);
+	if (json)
+		printf("\"%s\":{", name);
+	else {
+		printI("%s {\n", name);
+		++indent;
+	}
 }
 
+static void print_end(bool separator)
+{	
+	if (json)
+		 printf("}%s", separator ? "," : "");
+	else {
+		--indent;
+		printI("}\n");
+	}
+}
+
+
+static void print_list_head(const char * name)
+{
+	if (json)
+		printf("\"%s\":[{", name);
+	else {
+		printI("%s {\n", name);
+		++indent;
+	}
+}
+
+static void print_list_next()
+{	
+	if (json)
+		printf("},{");
+	else {
+		--indent;
+		printI("}\n");
+	}
+}
+
+static void print_list_end(bool separator)
+{
+	if (json)
+		printf("}]%s", separator ? "," : "");
+	else {
+		--indent;
+		printI("}\n");
+	}
+}
+
+static void print_data(const char * name, char * data, bool separator)
+{
+	if (json)
+		printf("\"%s\":\"%s\"%s", name, data, separator ? "," : "");
+	else {
+		printI("%s\t%s;\n", name, data);
+	}
+
+}
+
+static void print_data_unit(const char * name, char * data, const char * unit, bool separator)
+{
+	if (json)
+		printf("\"%s\":\"%s%s\"%s", name, data, unit ? unit : "", separator ? "," : "");
+	else {
+		if (unit)
+			printI("%s\t%s; # %s\n", name, data, unit);
+		else
+			printI("%s\t%s;\n", name, data);
+	}
+
+}
+
+static void print_digit(const char * name, long long val, bool separator)
+{
+	if (json)
+		printf("\"%s\":\"%lld\"%s", name, val, separator ? "," : "");
+	else {
+		printI("%s\t%lld;\n", name, val);
+	}
+
+}
+
+static void print_digit_unit(const char * name, long long val, const char * unit, bool separator)
+{
+	if (json)
+		printf("\"%s\":\"%lld%s\"%s", name, val, unit ? unit : "", separator ? "," : "");
+	else
+		printI("%s\t%lld; # %s\n", name, val, unit);
+}
 
 static void print_fields(char ** save_ptr, int nr, struct perf_field *field)
 {
 	char *ptr;
 	int i;
+
 	for (i = 0; i < nr; i++) {
+		if (json && i)
+			putchar(',');
 		ptr = strtok_r(NULL, " ", save_ptr);
 		if (!ptr)
 			break;
-		print_data(ptr, field->name, field->unit);
+		print_data_unit(field->name, ptr, field->unit, false);
 		field++;
 	}
 }
 
+static void print_sub_fields(char ** save_ptr, const char * name, const char * unit, bool sep)
+{
+	char *ptr;
+	ptr = strtok_r(NULL, " ", save_ptr);
+	if (!ptr)
+		return;
+	print_data_unit(name, ptr, unit, sep);
+}
 
-static void print_group(char ** save_ptr, struct title_field *group, struct perf_field *fields)
+static void print_2fields(char ** save_ptr, int nr, struct perf_field *field, 
+		const char * sub_name1, const char* sub_name2)
+{
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		if (json && i)
+			putchar(',');
+		print_head(field->name);
+		print_sub_fields(save_ptr, sub_name1, field->unit, true);
+		print_sub_fields(save_ptr, sub_name2, field->unit, false);
+		field++;
+		print_end(false);
+	}
+}
+
+static void print_3fields(char ** save_ptr, int nr, struct perf_field *field, 
+	const char * sub_name1, const char* sub_name2, const char * sub_name3)
+{
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		if (json && i)
+			putchar(',');
+		print_head(field->name);
+		print_sub_fields(save_ptr, sub_name1, field->unit, true);
+		print_sub_fields(save_ptr, sub_name2, field->unit, true);
+		print_sub_fields(save_ptr, sub_name3, field->unit, false);
+		field++;
+		print_end(false);
+	}
+}
+
+static void print_min_max_avg_group(char ** save_ptr, struct title_field *group, struct perf_field *field)
+{
+	print_head(group->name);
+	print_3fields(save_ptr, group->nr, field, "min", "max", "avg");
+	print_end(true);
+}
+
+static void print_group(char ** save_ptr, struct title_field *group, struct perf_field *fields, bool sep)
 {	
-	printI("%s {\n", group->name);
-	++indent;
+	print_head(group->name);
 	print_fields(save_ptr, group->nr, fields);
-	--indent;
-	printI("}\n");
+	print_end(sep);
 }
 
 
 static void print_timestamp()
 {
-	printI("timestamp %s;\n", g_timestamp);
+	print_data("timestamp", g_timestamp, false);
 }
 
 static void print_current_memstat()
@@ -2355,27 +2483,37 @@ static void print_current_memstat()
 	data = read_last_line(NULL, -1, (char *)"memory");
 	if (data) {
 		char *ptr, *save_ptr;
-		
-		printI("memory {\n");
-
+		bool first_proc = true;
+			
 		ptr = strtok_r(data, " ", &save_ptr);
 
 		if (!strlen(g_timestamp))
 			strcpy_s(g_timestamp, sizeof(g_timestamp), ptr);
+	
+		print_head("memory");
+		print_group(&save_ptr, &sys_stat, sys_fields, true);
+		print_group(&save_ptr, &module_stat, module_fields, true);
+		print_head("user");
+		print_group(&save_ptr, &top_process, top_process_fields, true);
 
-		++indent;
-		print_group(&save_ptr, &sys_stat, sys_fields);
-		print_group(&save_ptr, &module_stat, module_fields);
-		printI("user {\n");
-		++indent;
-		print_group(&save_ptr, &top_process, top_process_fields);
-		while (strlen(save_ptr))
-			print_group(&save_ptr, &bsr_process, bsr_process_fields);
-		--indent;
-		printI("}\n");
+		while (strlen(save_ptr)) {
+			if (first_proc) {
+				print_list_head(bsr_process.name);
+				first_proc = false;
+			}
+			else {
+				print_list_next();
+				if (!json)
+					print_list_head(bsr_process.name);
+			}
+			print_fields(&save_ptr, bsr_process.nr, bsr_process_fields);
+		}
+		if (!first_proc)
+			print_list_end(false);
+
+		print_end(true);
 		print_timestamp();
-		--indent;
-		printI("}\n");
+		print_end(false);
 		free(data);
 	}
 #else // _LIN
@@ -2418,32 +2556,41 @@ static void print_current_memstat()
 	data = read_last_line(NULL, -1, (char *)"memory");
 	if (data) {
 		char *ptr, *save_ptr;
-		
-		printI("memory {\n");
+		bool first_proc = true;
 
 		ptr = strtok_r(data, " ", &save_ptr);
 
 		if (!strlen(g_timestamp))
 			strcpy(g_timestamp, ptr); 
 
-		++indent;
-		print_group(&save_ptr, &sys_stat, sys_fields);
-		printI("%s {\n", module_stat.name);
-		++indent;
-		print_group(&save_ptr, &slab_stat, slab_fields);
+		print_head("memory");
+		print_group(&save_ptr, &sys_stat, sys_fields, true);
+		print_head(module_stat.name);
+		print_group(&save_ptr, &slab_stat, slab_fields, true);
 		print_fields(&save_ptr, module_stat.nr, module_fields);
-		--indent;
-		printI("}\n");
-		printI("user {\n");
-		++indent;
-		print_group(&save_ptr, &top_process, process_fields);
-		while (strlen(save_ptr))
-			print_group(&save_ptr, &bsr_process, process_fields);
-		--indent;
-		printI("}\n");
+		print_end(true);
+		print_head("user");
+		print_group(&save_ptr, &top_process, process_fields, true);
+
+		while (strlen(save_ptr)) {
+			if (first_proc) {
+				print_list_head(bsr_process.name);
+				first_proc = false;
+			}
+			else {
+				print_list_next();
+				if (!json)
+					print_list_head(bsr_process.name);
+			}
+			print_fields(&save_ptr, bsr_process.nr, process_fields);
+		}
+		if (!first_proc)
+			print_list_end(false);
+
+		print_end(true);
 		print_timestamp();
-		--indent;
-		printI("}\n");
+		print_end(false);
+		
 		free(data);
 	}
 #endif
@@ -2452,18 +2599,15 @@ static void print_current_memstat()
 static void print_current_iostat(char * name, int vnr)
 {
 	char *data = NULL;
-	struct title_field stat = {"iostat", 8};
-	
+	struct title_field read_stat = {"read", 4};
+	struct title_field write_stat = {"write", 4};
+
 	// 0 0 0 0 0 0 0 0
 	struct perf_field fields[] = {
-		{"read_iops", NULL},
-		{"read_iocnt", NULL}, 
-		{"read_kbs", "kbytes/second"},
-		{"read_kb", "kbytes"}, 
-		{"write_iops", NULL},
-		{"write_iocnt", NULL}, 
-		{"write_kbs", "kbytes/second"},
-		{"write_kb", "kbytes"}, 
+		{"iops", NULL},
+		{"iocnt", NULL}, 
+		{"kbs", "kbytes/second"},
+		{"kb", "kbytes"},
 	};
 
 	data = read_last_line(name, vnr, (char *)"IO_STAT");
@@ -2479,8 +2623,11 @@ static void print_current_iostat(char * name, int vnr)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		print_group(&save_ptr, &stat, fields);
-		
+
+		print_head("iostat");
+		print_group(&save_ptr, &read_stat, fields, true);
+		print_group(&save_ptr, &write_stat, fields, false);
+		print_end(true);
 		free(data);
 	}
 }
@@ -2488,12 +2635,12 @@ static void print_current_iostat(char * name, int vnr)
 static void print_current_ioclat(char * name, int vnr)
 {
 	char *data = NULL;
-	struct title_field stat = {"ioclat", 6};
+	struct title_field stat = {"ioclat", 2};
 	
 	// 0 0 0 0 0 0
-	struct perf_field fields[] = {
-		SET_MIN_MAX_AVG_FIELDS("local", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("master", "usec"),
+	struct perf_field fields[] = { // min, max, avg
+		{"local", "usec"},
+		{"master", "usec"},
 	};
 
 	data = read_last_line(name, vnr, (char *)"IO_COMPLETE");
@@ -2509,40 +2656,97 @@ static void print_current_ioclat(char * name, int vnr)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		print_group(&save_ptr, &stat, fields);
+			
+		print_min_max_avg_group(&save_ptr, &stat, fields);
 		free(data);
 	}
+}
+
+
+
+static void print_peer(struct connection *conn, const char *title, char **save_ptr, 
+	struct title_field *stat, struct perf_field *fields, bool sub_group)
+{
+	char * ptr = NULL;
+
+	if (title) {
+		printI("%s {\n", title);
+		++indent;
+	}
+	while (conn) {
+		ptr = strtok_r(NULL, " ", save_ptr);
+		if (ptr == NULL)
+			break;
+		printI("%s %s {\n", stat->name, ptr);
+		++indent;
+		if (sub_group)
+			print_3fields(save_ptr, stat->nr, fields, "min", "max", "avg");
+		else 
+			print_fields(save_ptr, stat->nr, fields);
+		--indent;
+		printI("}\n");
+		
+		conn = conn->next;
+	}
+	if (title) {
+		--indent;
+		printI("}\n");
+	}
+}
+
+static void print_peer_json(struct connection *conn, const char *title, char **save_ptr, 
+		struct title_field *stat, struct perf_field *fields, bool sub_group)
+{
+	bool first_conn = true;
+	char * ptr = NULL;
+
+	print_list_head(title);
+	while (conn) {
+		ptr = strtok_r(NULL, " ", save_ptr);
+		if (ptr == NULL)
+			break;
+		if (first_conn)
+			first_conn = false;
+		else
+			print_list_next();
+		print_data("peer", ptr, true);
+		if (sub_group)
+			print_3fields(save_ptr, stat->nr, fields, "min", "max", "avg");
+		else
+			print_fields(save_ptr, stat->nr, fields);			
+		
+		conn = conn->next;
+	}
+	print_list_end(false);
 }
 
 static void print_current_reqstat(char * name, int vnr, struct connection *conn)
 {
 	char *data = NULL;
-	struct title_field req_stat = {"requests", 19};
-	struct title_field al_stat = {"al_update", 10};
+	struct title_field req_stat = {"requests", 6};
+	struct title_field al_stat = {"al_update", 3};
 	
 	// req 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 al 0 0 0 0 0 0 0 0 0 0 cent79_03 0 0 0 0 0 0 0 0 0 cent79_02 0 0 0 0 0 0 0 0 0
-	struct perf_field req_fields[] = {
-		{"count", NULL},
-		SET_MIN_MAX_AVG_FIELDS("before_queue", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("before_al_begin", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("in_actlog", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("submit", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("bio_endio", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("destroy", "usec"),
+	struct perf_field req_fields[] = { // min, max, avg
+		{"before_queue", "usec"},
+		{"before_al_begin", "usec"},
+		{"in_actlog", "usec"},
+		{"submit", "usec"},
+		{"bio_endio", "usec"},
+		{"destroy", "usec"},
 	};
-	struct perf_field al_fields[] = {
-		{"count", NULL},
-		SET_MIN_MAX_AVG_FIELDS("before_bm_write", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("after_bm_write", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("after_sync_page", "usec"),
+	struct perf_field al_fields[] = { // min, max, avg
+		{"before_bm_write", "usec"},
+		{"after_bm_write", "usec"},
+		{"after_sync_page", "usec"},
 	};
 
 	
-	struct title_field peer_stat = {"peer", 9};
-	struct perf_field peer_fields[] = {
-		SET_MIN_MAX_AVG_FIELDS("pre_send", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("acked", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("net_done", "usec"),
+	struct title_field peer_stat = {"peer", 3};
+	struct perf_field peer_fields[] = { // min, max, avg
+		{"pre_send", "usec"},
+		{"acked", "usec"},
+		{"net_done", "usec"},
 	};
 
 	data = read_last_line(name, vnr, (char *)"request");
@@ -2550,7 +2754,6 @@ static void print_current_reqstat(char * name, int vnr, struct connection *conn)
 	if (data) {
 		char *ptr, *save_ptr;
 		
-		printI("reqstat {\n");
 		ptr = strtok_r(data, " ", &save_ptr);
 		if (!strlen(g_timestamp)) {
 #ifdef _WIN
@@ -2560,27 +2763,19 @@ static void print_current_reqstat(char * name, int vnr, struct connection *conn)
 #endif
 		}
 
-		++indent;
+		print_head("reqstat");
 		strtok_r(NULL, " ", &save_ptr); // req
-		print_group(&save_ptr, &req_stat, req_fields);
+		print_data("count", strtok_r(NULL, " ", &save_ptr), true); // req count
+		print_min_max_avg_group(&save_ptr, &req_stat, req_fields);
 		strtok_r(NULL, " ", &save_ptr); // al
-		print_group(&save_ptr, &al_stat, al_fields);
+		print_data("count", strtok_r(NULL, " ", &save_ptr), true); // al count
+		print_min_max_avg_group(&save_ptr, &al_stat, al_fields);
+		if (json)
+			print_peer_json(conn, "connections", &save_ptr, &peer_stat, peer_fields, true);
+		else 
+			print_peer(conn, NULL, &save_ptr, &peer_stat, peer_fields, true);
+		print_end(true);
 
-		while (conn) {
-			ptr = strtok_r(NULL, " ", &save_ptr);
-			if (ptr == NULL)
-				break;
-			printI("%s %s {\n", peer_stat.name, ptr);
-			++indent;
-			print_fields(&save_ptr, peer_stat.nr, peer_fields);
-			--indent;
-			printI("}\n");
-			
-			conn = conn->next;
-		}
-		--indent;
-
-		printI("}\n");
 		free(data);
 	}
 }
@@ -2588,22 +2783,21 @@ static void print_current_reqstat(char * name, int vnr, struct connection *conn)
 static void print_current_peer_reqstat(char * name, int vnr, struct connection *conn)
 {
 	char *data = NULL;
-	struct title_field stat = {"peer", 10};
+	struct title_field stat = {"peer", 3};
 	
 	// cent79_03 0 0 0 0 0 0 0 0 0 0 cent79_02 0 0 0 0 0 0 0 0 0 0 
-	struct perf_field fields[] = {
-		{"count", NULL},
-		SET_MIN_MAX_AVG_FIELDS("submit", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("bio_endio", "usec"),
-		SET_MIN_MAX_AVG_FIELDS("destroy", "usec"),
+	struct perf_field fields[] = { // min, max, avg
+		{"submit", "usec"},
+		{"bio_endio", "usec"},
+		{"destroy", "usec"},
 	};
 
 	data = read_last_line(name, vnr, (char *)"peer_request");
 	
 	if (data) {
 		char *ptr, *save_ptr;
+		bool first_conn = true;
 		
-		printI("peer_reqstat {\n");
 		ptr = strtok_r(data, " ", &save_ptr);
 		if (!strlen(g_timestamp)) {
 #ifdef _WIN
@@ -2612,23 +2806,33 @@ static void print_current_peer_reqstat(char * name, int vnr, struct connection *
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		
-		++indent;
+
+		print_list_head("peer_reqstat");
 		while (conn) {
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			if (ptr == NULL)
-				break;
-			printI("%s %s {\n", stat.name, ptr);
-			++indent;
-			print_fields(&save_ptr, stat.nr, fields);
-			--indent;
+			 	break;
+			if (json) {
+				if (first_conn) 
+					first_conn = false;
+				else  
+					print_list_next();
+			}
+			else {
+				printI("%s %s {\n", stat.name, ptr);
+				++indent;
+			}
+			if (json)
+				print_data("peer", ptr, true);				
+			print_data("count", strtok_r(NULL, " ", &save_ptr), true); // peer_req count
+			print_3fields(&save_ptr, stat.nr, fields, "min", "max", "avg");
 			
-			printI("}\n");
+			if (!json)
+				print_end(false);
+			
 			conn = conn->next;
 		}
-		--indent;
-
-		printI("}\n");
+		print_list_end(true);
 		free(data);
 	}
 }
@@ -2640,21 +2844,18 @@ static void print_current_alstat(char * name, int vnr)
 	struct title_field err_stat = {"error", 5};
 
 	// 6001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 64 0 0 0 0 0
-	struct perf_field al_fields[] = {
-		{"al-extents", NULL},
-		{"al_used", NULL},
-		{"al_used_max", NULL},
-		SET_CUR_TOTAL_FIELDS("hits", NULL),
-		SET_CUR_TOTAL_FIELDS("misses", NULL),
-		SET_CUR_TOTAL_FIELDS("starving", NULL),
-		SET_CUR_TOTAL_FIELDS("locked", NULL),
-		SET_CUR_TOTAL_FIELDS("changed", NULL),
-		{"al_wait_retry_cnt", NULL},
-		{"al_wait_total_retry_cnt", NULL},
-		{"al_wait_max_retry_cnt", NULL},
-		{"pending_changes", NULL},
-		{"max_pending_changes", NULL},
+	struct perf_field al_ext_fields = {"al-extents", NULL};
+	struct perf_field al_used_fields = {"al_used", NULL}; // cur, max
+	struct perf_field al_cur_total_fields[] = { // cur, total
+		{"hits", NULL},
+		{"misses", NULL},
+		{"starving", NULL},
+		{"locked", NULL},
+		{"changed", NULL},
 	};
+	struct perf_field al_wait_fields = {"al_wait_retry", NULL}; // cur, total, max
+	struct perf_field pending_changes_fields = {"pending_changes", NULL}; // cur, max
+
 	struct perf_field err_fields[] = {
 		{"nobufs_starving", NULL},
 		{"nobufs_pending_slot", NULL},
@@ -2677,22 +2878,39 @@ static void print_current_alstat(char * name, int vnr)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		printI("%s {\n", al_stat.name);
-		++indent;
-		print_fields(&save_ptr, al_stat.nr, al_fields);
-		print_group(&save_ptr, &err_stat, err_fields);
+
+		print_head(al_stat.name);
+		print_data(al_ext_fields.name, strtok_r(NULL, " ", &save_ptr), true);
+		print_2fields(&save_ptr, 1, &al_used_fields, "cur", "max");
+		if (json)
+			putchar(',');
+		print_2fields(&save_ptr, 5, al_cur_total_fields, "cur", "total");
+		if (json)
+			putchar(',');
+		print_3fields(&save_ptr, 1, &al_wait_fields, "cur", "total", "max");
+		if (json)
+			putchar(',');
+		print_2fields(&save_ptr, 1, &pending_changes_fields, "cur", "max");
+		if (json)
+			putchar(',');
+		print_group(&save_ptr, &err_stat, err_fields, true);
 		if (!strlen(save_ptr)) {
-			printI("flags\tNONE;\n");
+			print_data("flags", (char *)"NONE", false);
 		} else {
 			ptr = strtok_r(NULL, " ", &save_ptr);
-			printI("flags\t%s", ptr);
+			if (json)
+				printf("\"flags\":\"%s", ptr);
+			else
+				printI("flags\t%s", ptr);		
 			while((ptr = strtok_r(NULL, " ", &save_ptr)) != NULL) {
 				printf(",%s", ptr);
 			}
-			printf(";\n");
+			if (json)
+				printf("\"");
+			else
+				printf(";\n");
 		}
-		--indent;
-		printI("}\n");
+		print_end(true);
 
 		free(data);
 	}
@@ -2713,8 +2931,7 @@ static void print_current_network(char * name, struct connection *conn)
 	
 	if (data) {
 		char *ptr, *save_ptr;
-		
-		printI("network {\n");
+
 		ptr = strtok_r(data, " ", &save_ptr);
 		if (!strlen(g_timestamp)) {
 #ifdef _WIN
@@ -2723,22 +2940,14 @@ static void print_current_network(char * name, struct connection *conn)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		++indent;
-		while (conn) {
-			ptr = strtok_r(NULL, " ", &save_ptr);
-			if (ptr == NULL)
-				break;
-			printI("%s %s {\n", stat.name, ptr);
-			++indent;
-			print_fields(&save_ptr, stat.nr, fields);
-			--indent;
-			
-			printI("}\n");
-			conn = conn->next;
-		}
-		--indent;
 
-		printI("}\n");
+		if (json) {
+			print_peer_json(conn, "network", &save_ptr, &stat, fields, false);
+			putchar(',');
+		}
+		else
+			print_peer(conn, "network", &save_ptr, &stat, fields, false);
+		
 		free(data);
 	}
 }
@@ -2760,7 +2969,6 @@ static void print_current_resync_ratio(char * name, struct connection *conn)
 	if (data) {
 		char *ptr, *save_ptr;
 		
-		printI("resync_ratio {\n");
 		ptr = strtok_r(data, " ", &save_ptr);
 		if (!strlen(g_timestamp)) {
 #ifdef _WIN
@@ -2769,23 +2977,14 @@ static void print_current_resync_ratio(char * name, struct connection *conn)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		++indent;
-		while (conn) {
-			ptr = strtok_r(NULL, " ", &save_ptr);
-			if (ptr == NULL)
-				break;
-			printI("%s %s {\n", stat.name, ptr);
-			++indent;
-			print_fields(&save_ptr, stat.nr, fields);
-			--indent;
-			
-			printI("}\n");
-			
-			conn = conn->next;
-		}
-		--indent;		
 
-		printI("}\n");
+		if (json) {
+			print_peer_json(conn, "resync_ratio", &save_ptr, &stat, fields, false);
+			putchar(',');
+		}
+		else
+			print_peer(conn, "resync_ratio", &save_ptr, &stat, fields, false);
+	
 		free(data);
 	}
 }
@@ -2829,8 +3028,8 @@ static void print_current_sendbuf(char * name, struct connection *conn)
 	
 	if (data) {
 		char *ptr, *save_ptr;
-		
-		printI("sendbuf {\n");
+		bool first_conn = true;
+
 		ptr = strtok_r(data, " ", &save_ptr);
 		if (!strlen(g_timestamp)) {
 #ifdef _WIN
@@ -2839,48 +3038,73 @@ static void print_current_sendbuf(char * name, struct connection *conn)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-		
+
+
+		print_list_head("sendbuf");		
 		ptr = strtok_r(NULL, " ", &save_ptr);
-		++indent;
 		while (strlen(save_ptr)) {
 			long long fill = 0;
 			int highwater = 0;
 			int i, j;
 			bool no_buffer = false;
+			bool packet_data = false;
 
-			printI("peer %s {\n", ptr);
-			++indent;
-			for (i = 0; i < 2; i++) {
-				printI("%s {\n", in_flight_stat[i].name);
-				strtok_r(NULL, " ", &save_ptr); // type
+			
+			if (first_conn)
+				first_conn = false;
+			else
+				print_list_next();
+			
+		
+			if (json) 
+				print_data("peer", ptr, true);
+			else {
+				printI("peer %s {\n", ptr);
 				++indent;
+			}	
+			for (i = 0; i < 2; i++) {
+				print_head(in_flight_stat[i].name);
+				strtok_r(NULL, " ", &save_ptr); // type
 				// size
 				ptr = strtok_r(NULL, " ", &save_ptr);
-				print_data(ptr, "size", "bytes");
+				print_data_unit("size", ptr, "bytes", true);
 				fill += atoll(ptr);
 				// cnt
 				ptr = strtok_r(NULL, " ", &save_ptr);
-				print_data(ptr, "count", NULL);
+				print_data_unit("count", ptr, NULL, false);
 				highwater += atoi(ptr);
-				--indent;
-				printI("}\n");
+				print_end(true);
 			}
 
-			printI("highwater\t%d;\n", highwater);
-			printI("fill\t%lld; # bytes\n", fill);
+			print_digit("highwater", highwater, true);
+			print_digit_unit("fill", fill, "bytes", true);
 			
 			while((ptr = strtok_r(NULL, " ", &save_ptr)) != NULL) {
-				if (is_peer(ptr, conn))
+				if (is_peer(ptr, conn)) {
+					if (packet_data) {
+						packet_data = false;
+						print_list_end(false);
+					}
 					break;
+				}
 
-				if (!strcmp(ptr, "control"))
-					printI("}\n");
+				if (!strcmp(ptr, "control")) {
+					if (packet_data) {
+						packet_data = false;
+						print_list_end(false);
+					}
+					print_end(true);
+				}
 
 				if (!strcmp(ptr, "data") || !strcmp(ptr, "control")) {
-					printI("%s_stream {\n", ptr);
-					++indent;
+					char stream[15] = {0,};
+#ifdef _WIN
+					sprintf_s(stream, sizeof(stream), "%s_stream", ptr);
+#else
+					sprintf(stream, "%s_stream", ptr);
+#endif
+					print_head(stream);
 					print_fields(&save_ptr, 2, stream_fields);
-					--indent;
 				} else if (!strcmp(ptr, "no")) {
 					/* no send buffer */
 					strtok_r(NULL, " ", &save_ptr);
@@ -2889,65 +3113,101 @@ static void print_current_sendbuf(char * name, struct connection *conn)
 
 					continue;
 				} else {
-					++indent;
-					printI("packet {\n");
-					++indent;
-					printI("name\t%s\n", ptr);
+					if (!packet_data) {
+						if (json)
+							putchar(',');
+						print_list_head("packet");
+						packet_data = true;
+					}
+					else {
+						print_list_next();
+						if (!json)
+							print_list_head("packet");
+					}
+					print_data("name", ptr, true);
 					print_fields(&save_ptr, 2, packet_fields);
-					--indent;
-					printI("}\n");
-					--indent;
 				}
 			}
 
 			if (no_buffer) {
 				for (i = 0; i < 2; i++) {
-					printI("%s {\n", stream_stat[i].name);
-					++indent;
-					for(j = 0; j <2; j++)
-						print_data((char *)"0", stream_fields[j].name, stream_fields[j].unit);
-					--indent;
-					printI("}\n");
+					print_head(stream_stat[i].name);
+					for(j = 0; j <2; j++) {
+						if (json && j)
+							putchar(',');
+						print_data_unit(stream_fields[j].name, (char *)"0", stream_fields[j].unit, false);
+					}
+					print_end(!i);
 				}
-				--indent;
-				printI("}\n");
 			} else {
-				printI("}\n");
-				--indent;
-				printI("}\n");
+				if (packet_data) 
+					print_list_end(false);
+				print_end(false);
 			}
-	
 		}
 	
-		--indent;
-		printI("}\n");
+		if (!json)
+			print_end(false);
+		print_list_end(true);
 		free(data);
 	}
 }
 
 // BSR-948
-void print_current(struct resource *res, int type_flags)
+void print_current(struct resource *res, int type_flags, bool json_print)
 {
+	bool first_print = true;
 	indent = 0;
+	json = json_print;
 	memset(g_timestamp, 0, sizeof(g_timestamp));
-	
-	printI("bsrmon {\n");
-	++indent;
-	if (type_flags & (1 << MEMORY))
-		print_current_memstat();
 
+	printf("{");
+	if (!json) {
+		printf("\n");
+		++indent;
+	}
+	if (type_flags & (1 << MEMORY)) {
+		first_print = false;
+		print_current_memstat();
+	}
 
 	if (type_flags != (1 << MEMORY)) {
+		bool first_res = true;
 		while (res) {
 			struct volume *vol = res->vol;
-			printI("resource %s {\n", res->name);
+			if (json) {
+				if (first_res) {
+					first_res = false;
+					if (!first_print)
+						putchar(',');
+					printf("\"resource\":[{");
+				}
+				else
+					printf("},{");
+				printf("\"name\":\"%s\",", res->name);
+			}
+			else {
+				printI("resource %s {\n", res->name);
+				++indent;
+			}
 			memset(g_timestamp, 0, sizeof(g_timestamp));
-			++indent;
 
 			if (type_flags & ((1 << IO_STAT) | (1 << IO_COMPLETE) | (1 << REQUEST) | (1 << PEER_REQUEST) |(1 << AL_STAT))) {
-				while (vol) {	
-					printI("vnr %d {\n", vol->vnr);
-					++indent;
+				bool first_vnr = true;
+				while (vol) {
+					if (json) {
+						if (first_vnr) {
+							first_vnr = false;
+							printf("\"devices\":[{");
+						}
+						else
+							printf("},{");
+					}
+					else {
+						printI("vnr %d {\n", vol->vnr);
+						++indent;
+					}
+
 					if (type_flags & (1 << IO_STAT))
 						print_current_iostat(res->name, vol->vnr);
 					if (type_flags & (1 << IO_COMPLETE))
@@ -2958,11 +3218,22 @@ void print_current(struct resource *res, int type_flags)
 						print_current_peer_reqstat(res->name, vol->vnr, res->conn);
 					if (type_flags & (1 << AL_STAT))
 						print_current_alstat(res->name, vol->vnr);
-					--indent;
-					printI("}\n");
+
+					if (json) {
+						printf("\"vnr\":\"%d\"", vol->vnr);
+					}
+					else {
+						--indent;
+						printI("}\n");
+					}
 					vol = vol->next;
 				}
+				
+				if (!first_vnr) {
+					printf("}],");
+				}
 			}
+
 			
 			if (type_flags & (1 << NETWORK_SPEED))
 				print_current_network(res->name, res->conn);
@@ -2974,11 +3245,19 @@ void print_current(struct resource *res, int type_flags)
 			res = res->next;
 
 			print_timestamp();
-			--indent;			
-			printI("}\n");
+			if (!json) {
+				--indent;
+				printI("}\n");
+			}
 		}
+
+		if (!first_res)
+			printf("}]");
 	}
 
-	--indent;
+	if (!json)
+		--indent;
 	printI("}\n");
+
+
 }

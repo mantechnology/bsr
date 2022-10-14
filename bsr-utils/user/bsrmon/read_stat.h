@@ -151,4 +151,4 @@ void watch_al_stat(char *path, bool scroll);
 void watch_peer_resync_ratio(char *path, bool scroll);
 
 // for show
-void print_current(struct resource *res, int type_flags);
+void print_current(struct resource *res, int type_flags, bool json);

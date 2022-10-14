@@ -97,7 +97,7 @@ void usage()
 		"   /status\n"
 		//"   /print\n"
 		//"   /file\n"
-		"   /show [/t {types[,...]|all}] [/r {resource[,...]|all}]\n"
+		"   /show [/t {types[,...]|all}] [/r {resource[,...]|all}] [/j|/json]\n"
 		"   /watch {types} [/scroll]\n"
 		"   /report {types} [/f {filename}] [/d {YYYY-MM-DD}] [/s {hh:mm[:ss]}] [/e {hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
@@ -1111,7 +1111,7 @@ int ConvertType(char * type_name)
 }
 
 // BSR-948
-void show_current(struct resource *res, int type_flags)
+void show_current(struct resource *res, int type_flags, bool json)
 {
 #ifdef _WIN
 	if (!is_running(false))
@@ -1135,8 +1135,8 @@ void show_current(struct resource *res, int type_flags)
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
 	}
-
-	print_current(res, type_flags);
+	
+	print_current(res, type_flags, json);
 }
 
 // BSR-948
@@ -1477,9 +1477,12 @@ int main(int argc, char* argv[])
 		else if (!strcmp(argv[argIndex], "/show"))
 		{
 			int type_flags = 0;
+			bool json = false;
 			struct resource *res_head = NULL;
 			for (argIndex++; argIndex < argc; argIndex++) {
-				if (!strncmp(argv[argIndex], "/", 1)) {
+				if (!strcmp(argv[argIndex], "/j") || !strcmp(argv[argIndex], "/json"))
+					json = true;
+				else if (!strncmp(argv[argIndex], "/", 1)) {
 					int c = *(argv[argIndex] + 1);
 					if (++argIndex >= argc) {
 						usage();
@@ -1503,7 +1506,7 @@ int main(int argc, char* argv[])
 				}
 			}
 			if (type_flags != -1)
-				show_current(res_head, type_flags);
+				show_current(res_head, type_flags, json);
 			
 			freeResource(res_head);
 		}
