@@ -4532,13 +4532,14 @@ int bsr_adm_new_path(struct sk_buff *skb, struct genl_info *info)
 		return retcode;
 
 	/* remote transport endpoints need to be globaly unique */
-	mutex_lock(&resources_mutex);
+	// BSR-966 lock adm_mutex first when executing a command.
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+	mutex_lock(&resources_mutex);
 
 	retcode = adm_add_path(&adm_ctx, info);
 
-	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	mutex_unlock(&resources_mutex);
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
@@ -4614,13 +4615,14 @@ int bsr_adm_del_path(struct sk_buff *skb, struct genl_info *info)
 		return retcode;
 
 	/* remote transport endpoints need to be globaly unique */
-	mutex_lock(&resources_mutex);
+	// BSR-966 lock adm_mutex first when executing a command.
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+	mutex_lock(&resources_mutex);
 
 	retcode = adm_del_path(&adm_ctx, info);
 
-	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	mutex_unlock(&resources_mutex);
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
