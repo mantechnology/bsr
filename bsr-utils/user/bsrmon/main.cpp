@@ -31,6 +31,7 @@ void debug_usage()
 		"   send_buf {resource} {peer_node_id}\n"
 		"   proc_bsr {resource} {peer_node_id} {volume}\n"
 		"   resync_extents {resource} {peer_node_id} {volume}\n"
+		"   resync_ratio {resource} {peer_node_id} {volume}\n"
 		"   act_log_extents {resource} {volume}\n"
 		"   act_log_stat {resource} {volume}\n"
 		"   data_gen_id {resource} {volume}\n"
@@ -41,7 +42,6 @@ void debug_usage()
 		"   dev_io_complete {resource} {volume}\n"
 		"   dev_req_timing {resource} {volume}\n"
 		"   dev_peer_req_timing {resource} {volume}\n"
-		"	dev_peer_ratio {resource} {peer_node_id}\n"
 		);
 	printf("\n");
 
@@ -53,7 +53,7 @@ void debug_usage()
 		"bsrmon /debug transport r1 1\n"
 		"bsrmon /debug proc_bsr r1 1 0\n"
 		"bsrmon /debug io_frozen r1 0\n"
-		"bsrmon /debug resync_ratio r1\n"
+		"bsrmon /debug resync_ratio r1 1\n"
 		);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -117,9 +117,9 @@ void usage()
 		"   reqstat {resource} {vnr}\n"
 		"   peer_reqstat {resource} {vnr}\n"
 		"   alstat {resource} {vnr}\n"
+		"   resync_ratio {resource} {vnr}\n"
 		"   network {resource}\n"
 		"   sendbuf {resource}\n"
-		"   resync_ratio {resource}\n"
 		"   memstat \n"
 		);
 	exit(ERROR_INVALID_PARAMETER);
@@ -172,7 +172,6 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_CONN_TRANSPORT:
 		case DBG_CONN_TRANSPORT_SPEED:
 		case DBG_CONN_SEND_BUF:
-		case DBG_CONN_RESYNC_RATIO:
 			if (argIndex < argc)
 				debugInfo->peer_node_id = atoi(argv[argIndex]);
 			else
@@ -180,6 +179,7 @@ int BsrDebug(int argc, char* argv[])
 			break;
 		case DBG_PEER_PROC_BSR:
 		case DBG_PEER_RESYNC_EXTENTS:
+		case DBG_PEER_RESYNC_RATIO:
 			if (argIndex < argc)
 				debugInfo->peer_node_id = atoi(argv[argIndex]);
 			else
@@ -623,7 +623,7 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 			watch_memory(watch_path, scroll);
 			break;
 		case RESYNC_RATIO:
-			sprintf_ex(watch_path, "%s%s%sresync_ratio", perf_path, resname, _SEPARATOR_);
+			sprintf_ex(watch_path, "%s%s%svnr%d_resync_ratio", perf_path, resname, _SEPARATOR_, vnr);
 			watch_peer_resync_ratio(watch_path, scroll);
 			break;
 
@@ -745,8 +745,8 @@ void Report(char *resname, char *file, int type, int vnr, struct time_filter *tf
 		break;
 	case RESYNC_RATIO:
 		if (!file) {
-			sprintf_ex(filepath, "%s%s%s%sresync_ratio", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
-			printf("Report [RESYNC_RATIO]\n");
+			sprintf_ex(filepath, "%s%s%s%svnr%d_resync_ratio", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
+			printf("Report [RESYNC_RATIO - vnr%u]\n", vnr);
 		} else {
 			sprintf_ex(filepath, "%s", file);
 			printf("Report [%s]\n", filepath);
@@ -1292,7 +1292,7 @@ int main(int argc, char* argv[])
 				if (argIndex >= argc) 
 					usage();
 				res_name = argv[argIndex];
-				if (type <= REQUEST) {
+				if (type <= RESYNC_RATIO) {
 					if (++argIndex < argc)
 						vnr = atoi(argv[argIndex]);
 					else

@@ -1645,7 +1645,6 @@ struct bsr_connection {
 	struct dentry *debugfs_conn_transport_speed;
 	struct dentry *debugfs_conn_debug;
 	struct dentry *debugfs_conn_send_buf;
-	struct dentry *debugfs_conn_resync_ratio;
 #endif
 	struct kref kref;
 	struct kref_debug_info kref_debug;
@@ -2022,6 +2021,7 @@ struct bsr_peer_device {
 	struct dentry *debugfs_peer_dev;
 	struct dentry *debugfs_peer_dev_resync_extents;
 	struct dentry *debugfs_peer_dev_proc_bsr;
+	struct dentry *debugfs_peer_dev_resync_ratio;
 #endif
 	unsigned long reqs;
 	struct timing_stat pre_send_kt;

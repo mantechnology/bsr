@@ -68,7 +68,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "dev_io_complete")) return DBG_DEV_IO_COMPLETE;
 	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
 	else if (!_strcmpi(str, "dev_peer_req_timing")) return DBG_DEV_PEER_REQ_TIMING;
-	else if (!_strcmpi(str, "resync_ratio")) return DBG_CONN_RESYNC_RATIO;
+	else if (!_strcmpi(str, "resync_ratio")) return DBG_PEER_RESYNC_RATIO;
 	return DBG_NO_FLAGS;
 }
 #endif
@@ -361,7 +361,7 @@ ret:
 }
 
 #ifdef _WIN
-PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int val)
+PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int vnr, int peer_node_id)
 {
 	PBSR_DEBUG_INFO debugInfo;
 	int size = MAX_DEBUG_BUF_SIZE;
@@ -373,18 +373,12 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 		return NULL;
 	}
 	memset(debugInfo, 0, sizeof(BSR_DEBUG_INFO) + size);
-	debugInfo->peer_node_id = -1;
-	debugInfo->vnr = -1;
+	debugInfo->peer_node_id = peer_node_id;
+	debugInfo->vnr = vnr;
 	debugInfo->buf_size = size;
 	debugInfo->flags = flag;
 
 	strcpy_s(debugInfo->res_name, res->name);
-	if (flag == DBG_DEV_IO_STAT || flag == DBG_DEV_IO_COMPLETE || 
-			flag == DBG_DEV_REQ_TIMING || flag == DBG_DEV_PEER_REQ_TIMING || flag == DBG_DEV_ACT_LOG_STAT)
-		debugInfo->vnr = val;
-	else if (flag == DBG_CONN_TRANSPORT_SPEED || flag == DBG_CONN_SEND_BUF || flag == DBG_CONN_RESYNC_RATIO)
-		debugInfo->peer_node_id = val;
-
 	while ((ret = GetBsrDebugInfo(debugInfo)) != ERROR_SUCCESS) {
 		if (ret == ERROR_MORE_DATA) {
 			size <<= 1;
@@ -465,7 +459,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 
 			//sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "vnr(%d):\n", vol->vnr);
 
-			debugInfo = GetDebugInfo(flag, res, vol->vnr);
+			debugInfo = GetDebugInfo(flag, res, vol->vnr, -1);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -511,7 +505,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			debugInfo = GetDebugInfo(flag, res, -1, conn->node_id);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -555,7 +549,7 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
 			
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			debugInfo = GetDebugInfo(flag, res, -1, conn->node_id);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -585,44 +579,57 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 	}
 	// BSR-838
 	else if (debug_type == RESYNC_RATIO) {
-		struct connection *conn = res->conn;
-		if (!res->conn) {
-			fprintf(stderr, "Invalid res->conn object\n");
-			return NULL;
+		struct volume *vol = res->vol;
+		if (!res->vol) {
+			fprintf(stderr, "Invalid res->vol object\n");
+			goto fail;
 		}
+
+		while (vol) {
+			struct connection *conn = res->conn;
+			if (!res->conn) {
+				fprintf(stderr, "Invalid res->conn object\n");
+				return NULL;
+			}
 #ifdef _WIN
-		flag = ConvertToBsrDebugFlags("resync_ratio");
+			flag = ConvertToBsrDebugFlags("resync_ratio");
 
-		while (conn) {
-			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s:\n", conn->name);
+			while (conn) {
+				sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
 
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
-				goto fail;
+				debugInfo = GetDebugInfo(flag, res, vol->vnr, conn->node_id);
+				if (!debugInfo) {
+					fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
+					goto fail;
+				}
+
+				memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+				free(debugInfo);
+				debugInfo = NULL;
+				conn = conn->next;
 			}
-
-			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-			free(debugInfo);
-			debugInfo = NULL;
-			conn = conn->next;
-		}
 #else // _LIN
-		while (conn) {
-			sprintf(path, "%s/resources/%s/connections/%s/resync_ratio", DEBUGFS_ROOT, res->name, conn->name);
+			sprintf(buffer + strlen(buffer), "vnr(%d): ", vol->vnr);
 
-			sprintf(buffer + strlen(buffer), "%s:\n", conn->name);
-			fp = fopen(path, "r");
-			if (!fp) {
-				fprintf(stderr, "Failed to open file, path : %s\n", path);
-				goto fail;
+			while (conn) {
+				sprintf(path, "%s/resources/%s/connections/%s/%d/resync_ratio", 
+						DEBUGFS_ROOT, res->name, conn->name, vol->vnr);
+
+				sprintf(buffer + strlen(buffer), "%s ", conn->name);
+				fp = fopen(path, "r");
+				if (!fp) {
+					fprintf(stderr, "Failed to open file, path : %s\n", path);
+					goto fail;
+				}
+
+				fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+				fclose(fp);
+				conn = conn->next;
 			}
-
-			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-			fclose(fp);
-			conn = conn->next;
-		}
 #endif
+			vol = vol->next;
+		}
+		
 	} else {
 		fprintf(stderr, "Invalid debug_type value\n");
 		goto fail;
@@ -821,7 +828,7 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 			
 
 #ifdef _WIN
-			debugInfo = GetDebugInfo(flag, res, vol->vnr);
+			debugInfo = GetDebugInfo(flag, res, vol->vnr, -1);
 			if (!debugInfo)
 				goto fail;
 			free(debugInfo);
@@ -843,7 +850,7 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 		flag = ConvertToBsrDebugFlags("transport_speed");
 
 		while (conn) {
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			debugInfo = GetDebugInfo(flag, res, -1, conn->node_id);
 			if (!debugInfo) 
 				goto fail;
 
@@ -867,34 +874,43 @@ int InitPerfType(enum get_debug_type debug_type, struct resource *res)
 	}
 	// BSR-838 
 	else if (debug_type == RESYNC_RATIO) {
-		struct connection *conn = res->conn;
-		if (!res->conn)
+		struct volume *vol = res->vol;
+		if (!res->vol) 
 			return -1;
+
+		while (vol) {
+			
+			struct connection *conn = res->conn;
+			if (!res->conn)
+				return -1;
 #ifdef _WIN
-		flag = ConvertToBsrDebugFlags("resync_ratio");
+			flag = ConvertToBsrDebugFlags("resync_ratio");
 
-		while (conn) {
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo)
-				goto fail;
+			while (conn) {
+				debugInfo = GetDebugInfo(flag, res, vol->vnr, conn->node_id);
+				if (!debugInfo)
+					goto fail;
 
-			free(debugInfo);
-			debugInfo = NULL;
-			conn = conn->next;
-		}
-#else // _LIN
-		while (conn) {
-			sprintf(path, "%s/resources/%s/connections/%s/resync_ratio", DEBUGFS_ROOT, res->name, conn->name);
-
-			fp = fopen(path, "r");
-			if (!fp) {
-				goto fail;
+				free(debugInfo);
+				debugInfo = NULL;
+				conn = conn->next;
 			}
-			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
-			fclose(fp);
-			conn = conn->next;
-		}
+#else // _LIN
+			while (conn) {
+				sprintf(path, "%s/resources/%s/connections/%s/%d/resync_ratio", DEBUGFS_ROOT, res->name, conn->name, vol->vnr);
+
+				fp = fopen(path, "r");
+				if (!fp) {
+					goto fail;
+				}
+				fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+				fclose(fp);
+				conn = conn->next;
+			}
 #endif
+			memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
+			vol = vol->next;
+		}
 	} else {
 		goto fail;
 	}
@@ -986,7 +1002,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 
 #ifdef _WIN
-			debugInfo = GetDebugInfo(flag, res, vol->vnr);
+			debugInfo = GetDebugInfo(flag, res, vol->vnr, -1);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -1038,7 +1054,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			debugInfo = GetDebugInfo(flag, res, -1, conn->node_id);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -1090,7 +1106,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		
 		while (conn) {
 			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
+			debugInfo = GetDebugInfo(flag, res, -1, conn->node_id);
 			if (!debugInfo) {
 				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
 				goto fail;
@@ -1132,55 +1148,66 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 	}
 	// BSR-838 
 	else if (debug_type == RESYNC_RATIO) {
-		struct connection *conn = res->conn;
-		if (!res->conn) {
-			fprintf(stderr, "Invalid res->conn object\n");
-			return -1;
+		struct volume *vol = res->vol;
+		if (!res->vol) {
+			fprintf(stderr, "Invalid res->vol object\n");
+			goto fail;
 		}
+
+		while (vol) {
+			struct connection *conn = res->conn;
+			if (!res->conn) {
+				fprintf(stderr, "Invalid res->conn object\n");
+				return -1;
+			}
 #ifdef _WIN
-		flag = ConvertToBsrDebugFlags("resync_ratio");
+			flag = ConvertToBsrDebugFlags("resync_ratio");
 
-		while (conn) {
-			sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
-			debugInfo = GetDebugInfo(flag, res, conn->node_id);
-			if (!debugInfo) {
-				fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
-				goto fail;
+			while (conn) {
+				sprintf_s(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), "%s ", conn->name);
+				debugInfo = GetDebugInfo(flag, res, vol->vnr, conn->node_id);
+				if (!debugInfo) {
+					fprintf(stderr, "Failed to get bsr debuginfo(%d).\n", flag);
+					goto fail;
+				}
+
+				memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
+				free(debugInfo);
+				debugInfo = NULL;
+				conn = conn->next;
+
 			}
-
-			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
-			free(debugInfo);
-			debugInfo = NULL;
-			conn = conn->next;
-
-		}
 #else // _LIN
-		while (conn) {
-			sprintf(path, "%s/resources/%s/connections/%s/resync_ratio", DEBUGFS_ROOT, res->name, conn->name);
+			while (conn) {
+				sprintf(path, "%s/resources/%s/connections/%s/%d/resync_ratio", DEBUGFS_ROOT, res->name, conn->name, vol->vnr);
 
-			sprintf(buffer + strlen(buffer), "%s ", conn->name);
-			fp = fopen(path, "r");
-			if (!fp) {
-				fprintf(stderr, "Failed to open file, path : %s\n", path);
-				goto fail;
+				sprintf(buffer + strlen(buffer), "%s ", conn->name);
+				fp = fopen(path, "r");
+				if (!fp) {
+					fprintf(stderr, "Failed to open file, path : %s\n", path);
+					goto fail;
+				}
+
+				fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+				fclose(fp);
+				conn = conn->next;
 			}
+#endif	
+			// BSR-776 do not write error messages to the performance file.
+			if (!strncmp(buffer, "err reading", 11))
+				goto fail;
 
-			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
+			sprintf_ex(outfile, "%s%svnr%d_resync_ratio", respath, _SEPARATOR_, vol->vnr);
+
+			fp = perf_fileopen(outfile, currtime);
+			if (fp == NULL)
+				goto fail;
+
+			fprintf(fp, "%s %s\n", currtime, buffer);
 			fclose(fp);
-			conn = conn->next;
+			memset(buffer, 0, MAX_DEBUG_BUF_SIZE);
+			vol = vol->next;
 		}
-#endif
-		// BSR-776 do not write error messages to the performance file.
-		if (!strncmp(buffer, "err reading", 11))
-			goto fail;
-		sprintf_ex(outfile, "%s%sresync_ratio", respath, _SEPARATOR_);
-
-		fp = perf_fileopen(outfile, currtime);
-		if (fp == NULL)
-			goto fail;
-
-		fprintf(fp, "%s %s\n", currtime, buffer);
-		fclose(fp);
 	} else {
 		fprintf(stderr, "Invalid debug_type value\n");
 		goto fail;

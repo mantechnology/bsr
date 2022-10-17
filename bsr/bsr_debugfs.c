@@ -580,8 +580,8 @@ int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
 	/* total_bio_set kmalloc vmalloc total_page_pool */
 	seq_printf(m, "%d %lld %lld %ld\n", 
 				io_bio_set + md_io_bio_set,
-				atomic_read64(&mem_usage.kmalloc) ? atomic_read64(&mem_usage.kmalloc) / 1024 : 0,
-				atomic_read64(&mem_usage.vmalloc) ? atomic_read64(&mem_usage.vmalloc) / 1024 : 0,
+				(long long)(atomic_read64(&mem_usage.kmalloc) ? atomic_read64(&mem_usage.kmalloc) / 1024 : 0),
+				(long long)(atomic_read64(&mem_usage.vmalloc) ? atomic_read64(&mem_usage.vmalloc) / 1024 : 0),
 				page_pool * pages);
 	return 0;
 }
@@ -777,9 +777,9 @@ int connection_send_buf_show(struct seq_file *m, void *ignored)
 
 	// BSR-839 passing in_flight_cnt as sendbuf performance data
 	/* ap_in_flight size_bytes cnt */
-	seq_printf(m, "ap %lld %d ", atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
+	seq_printf(m, "ap %lld %d ", (long long)atomic_read64(&connection->ap_in_flight), atomic_read(&connection->ap_in_flight_cnt));
 	/* rs_in_flight size_bytes cnt */
-	seq_printf(m, "rs %lld %d ", atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
+	seq_printf(m, "rs %lld %d ", (long long)atomic_read64(&connection->rs_in_flight), atomic_read(&connection->rs_in_flight_cnt));
 
 	for (stream = DATA_STREAM; stream <= CONTROL_STREAM; stream++) {
 		struct ring_buffer *ring = connection->ptxbab[stream];
@@ -1097,33 +1097,33 @@ int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
-
-int connection_resync_ratio_show(struct seq_file *m, void *ignored)
+// BSR-970 change resync_ratio to peer_device's entry
+int peer_device_resync_ratio_show(struct seq_file *m, void *ignored)
 {
-	struct bsr_connection *connection = m->private;
-	struct bsr_peer_device *peer_device;
+	struct bsr_peer_device *peer_device = m->private;
+	struct bsr_device *device = peer_device->device;
+
 	long long cur_repl_sended, cur_resync_sended, repl_sended, resync_sended, resync_sended_percent;
 
-	int vnr = 0;
+	if (!get_ldev_if_state(device, D_FAILED)) 
+		return -ENODEV;
 	
-	rcu_read_lock();
-	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
-		cur_repl_sended = cur_resync_sended = repl_sended = resync_sended = resync_sended_percent = 0;
+	cur_repl_sended = cur_resync_sended = repl_sended = resync_sended = resync_sended_percent = 0;
 
-		repl_sended = atomic_read64(&peer_device->repl_sended);
-		resync_sended = atomic_read64(&peer_device->resync_sended);
+	repl_sended = atomic_read64(&peer_device->repl_sended);
+	resync_sended = atomic_read64(&peer_device->resync_sended);
 
-		if (resync_sended > 0 && repl_sended > 0) {
-			if (resync_sended * 100 < repl_sended)
-				resync_sended_percent = 100 - (repl_sended * 100 / (repl_sended + resync_sended));
-			else
-				resync_sended_percent = resync_sended * 100 / (repl_sended + resync_sended);
-		} else if (resync_sended > 0 && repl_sended == 0) {
-			resync_sended_percent = 100;
-		} 
-		seq_printf(m, "%lld %lld %lld ", repl_sended, resync_sended, resync_sended_percent);
-	}
-	rcu_read_unlock();
+	if (resync_sended > 0 && repl_sended > 0) {
+		if (resync_sended * 100 < repl_sended)
+			resync_sended_percent = 100 - (repl_sended * 100 / (repl_sended + resync_sended));
+		else
+			resync_sended_percent = resync_sended * 100 / (repl_sended + resync_sended);
+	} else if (resync_sended > 0 && repl_sended == 0) {
+		resync_sended_percent = 100;
+	} 
+	seq_printf(m, "%lld %lld %lld ", repl_sended, resync_sended, resync_sended_percent);
+
+	put_ldev(device);
 
 	return 0;
 }
@@ -1728,7 +1728,6 @@ bsr_debugfs_connection_attr(transport)
 bsr_debugfs_connection_attr(transport_speed)
 bsr_debugfs_connection_attr(debug)
 bsr_debugfs_connection_attr(send_buf)
-bsr_debugfs_connection_attr(resync_ratio)
 
 void bsr_debugfs_connection_add(struct bsr_connection *connection)
 {
@@ -1757,7 +1756,6 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 	conn_dcf(transport_speed);
 	conn_dcf(debug);
 	conn_dcf(send_buf);
-	conn_dcf(resync_ratio);
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		if (!peer_device->debugfs_peer_dev)
@@ -1779,7 +1777,6 @@ void bsr_debugfs_connection_cleanup(struct bsr_connection *connection)
 	bsr_debugfs_remove(&connection->debugfs_conn_transport_speed);
 	bsr_debugfs_remove(&connection->debugfs_conn_callback_history);
 	bsr_debugfs_remove(&connection->debugfs_conn_oldest_requests);
-	bsr_debugfs_remove(&connection->debugfs_conn_resync_ratio);
 	bsr_debugfs_remove(&connection->debugfs_conn);
 }
 
@@ -1958,6 +1955,7 @@ static const struct file_operations peer_device_ ## name ## _fops = {		\
 };
 
 bsr_debugfs_peer_device_attr(resync_extents)
+bsr_debugfs_peer_device_attr(resync_ratio)
 bsr_debugfs_peer_device_attr(proc_bsr)
 
 void bsr_debugfs_peer_device_add(struct bsr_peer_device *peer_device)
@@ -1977,6 +1975,7 @@ void bsr_debugfs_peer_device_add(struct bsr_peer_device *peer_device)
 
 	/* debugfs create file */
 	peer_dev_dcf(resync_extents);
+	peer_dev_dcf(resync_ratio);
 	peer_dev_dcf(proc_bsr);
 	return;
 
@@ -1989,6 +1988,7 @@ void bsr_debugfs_peer_device_cleanup(struct bsr_peer_device *peer_device)
 {
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_proc_bsr);
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_resync_extents);
+	bsr_debugfs_remove(&peer_device->debugfs_peer_dev_resync_ratio);
 	bsr_debugfs_remove(&peer_device->debugfs_peer_dev);
 }
 

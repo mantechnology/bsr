@@ -70,7 +70,7 @@ int connection_oldest_requests_show(struct seq_file *m, void *ignored);
 int connection_transport_show(struct seq_file *m, void *ignored);
 int connection_transport_speed_show(struct seq_file *m, void *ignored);
 int connection_send_buf_show(struct seq_file *m, void *ignored);
-int connection_resync_ratio_show(struct seq_file *m, void *ignored); // BSR-838
+int peer_device_resync_ratio_show(struct seq_file *m, void *ignored); // BSR-838
 int peer_device_proc_bsr_show(struct seq_file *m, void *ignored);
 int peer_device_resync_extents_show(struct seq_file *m, void *ignored);
 int device_act_log_extents_show(struct seq_file *m, void *ignored);
