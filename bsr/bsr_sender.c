@@ -1038,7 +1038,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		container_of(w, struct bsr_peer_device, resync_work);
 	struct bsr_device *device = peer_device->device;
 	LONGLONG ts = timestamp();
-	mutex_lock(&device->bm_resync_fo_mutex);
+	mutex_lock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 	switch (peer_device->repl_state[NOW]) {
 	case L_VERIFY_S:
@@ -1075,7 +1075,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		break;
 	}
 
-	mutex_unlock(&device->bm_resync_fo_mutex);
+	mutex_unlock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 	return 0;
 }
@@ -3068,14 +3068,20 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		}
 	}
 
+	// BSR-969
 	if (down_trylock(&device->resource->state_sem)) {
+		mutex_lock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 		/* Retry later and let the worker make progress in the
 		 * meantime; two-phase commits depend on that.  */
 		bsr_info(143, BSR_LC_RESYNC_OV, peer_device, "The resync will resume later because another task is running."); // DW-1518
-		set_bit(B_RS_H_DONE, &peer_device->flags);
-		peer_device->start_resync_side = side;
-		// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
-		mod_timer(&peer_device->start_resync_timer, jiffies + HZ/5);
+		// BSR-969 sets the resync timer only in the connected state.
+		if (connection->cstate[NOW] == C_CONNECTED) {
+			set_bit(B_RS_H_DONE, &peer_device->flags);
+			peer_device->start_resync_side = side;
+			// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
+			mod_timer(&peer_device->start_resync_timer, jiffies + HZ / 5);
+		}
+		mutex_unlock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 		return;
 	}
 
@@ -3243,9 +3249,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		     (unsigned long long) peer_device->rs_total);
 		if (side == L_SYNC_TARGET) {
 			// DW-1846 bm_resync_fo must be locked and set.
-			mutex_lock(&device->bm_resync_fo_mutex);
+			mutex_lock(&device->bm_resync_and_resync_timer_fo_mutex);
 			device->bm_resync_fo = 0;
-			mutex_unlock(&device->bm_resync_fo_mutex);
+			mutex_unlock(&device->bm_resync_and_resync_timer_fo_mutex);
 			peer_device->use_csums = use_checksum_based_resync(connection, device);
 
 			// BSR-838

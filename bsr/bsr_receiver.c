@@ -9713,7 +9713,7 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	}
 #endif
 
-	mutex_lock(&device->bm_resync_fo_mutex);
+	mutex_lock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 	switch (peer_device->repl_state[NOW]) {
 	case L_WF_SYNC_UUID:
@@ -9756,7 +9756,7 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 	// DW-2076  out of sync is set after adding resync pending list.
 	bsr_set_out_of_sync(peer_device, sector, be32_to_cpu(p->blksize));
 
-	mutex_unlock(&device->bm_resync_fo_mutex);
+	mutex_unlock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 	// MODIFIED_BY_MANTECH DW-1354: new out-of-sync has been set and resync timer has been expired, 
 	if (bResetTimer) {
@@ -10178,16 +10178,19 @@ static void cleanup_resync_leftovers(struct bsr_peer_device *peer_device)
 
 	// DW-1663 When the "DPC function" is running, "del_timer_sync()" does not wait but cancels only the timer in the queue and releases the resource, resulting in "BSOD".
 	// Add the mutex so that "del_timer_sync()" can be called after terminating "DPC function".
-	mutex_lock(&peer_device->device->bm_resync_fo_mutex);
+	mutex_lock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 	del_timer_sync(&peer_device->resync_timer);
-	mutex_unlock(&peer_device->device->bm_resync_fo_mutex);
+	mutex_unlock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 
 #ifdef _WIN
 	resync_timer_fn(NULL, (PVOID)peer_device, NULL, NULL);
 #else // _LIN
 	resync_timer_fn(BSR_TIMER_CALL_ARG(peer_device, resync_timer));
 #endif 
+	// BSR-969
+	mutex_lock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 	del_timer_sync(&peer_device->start_resync_timer);
+	mutex_unlock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 
 	// DW-1886
 	if (peer_device->rs_send_req != peer_device->rs_recv_res ||
@@ -11399,7 +11402,7 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 			// DW-1807 Ignore P_RS_CANCEL if peer_device is not in resync.
 			// DW-1846 receive data when synchronization is in progress.
 			if (is_sync_target(peer_device)) {
-				mutex_lock(&device->bm_resync_fo_mutex);
+				mutex_lock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 				bsr_debug(12, BSR_LC_VERIFY, peer_device, "receive sync request cancellation");
 
@@ -11410,7 +11413,7 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 				atomic_add(size >> 9, &peer_device->rs_sect_in);
 				mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
 
-				mutex_unlock(&device->bm_resync_fo_mutex);
+				mutex_unlock(&device->bm_resync_and_resync_timer_fo_mutex);
 			}
 			else if(peer_device->repl_state[NOW] == L_VERIFY_S) {
 				bsr_debug(13, BSR_LC_VERIFY, peer_device, "receive verify request cancellation");
