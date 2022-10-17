@@ -2271,6 +2271,10 @@ char * read_last_line(char * res_name, int vnr, char * file_name)
 	}
 
 	fclose(fp);
+	if (!strlen(data)) {
+		free(data);
+		data = NULL;
+	}
 
 	return data;
 }
@@ -2952,7 +2956,7 @@ static void print_current_network(char * name, struct connection *conn)
 	}
 }
 
-static void print_current_resync_ratio(char * name, struct connection *conn)
+static void print_current_resync_ratio(char * name, int vnr, struct connection *conn)
 {
 	char *data = NULL;
 	struct title_field stat = {"peer", 3};
@@ -2964,7 +2968,7 @@ static void print_current_resync_ratio(char * name, struct connection *conn)
 		{"resync_ratio", "percent"},
 	};
 
-	data = read_last_line(name, -1, (char *)"resync_ratio");
+	data = read_last_line(name, vnr, (char *)"resync_ratio");
 	
 	if (data) {
 		char *ptr, *save_ptr;
@@ -3192,7 +3196,7 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 			}
 			memset(g_timestamp, 0, sizeof(g_timestamp));
 
-			if (type_flags & ((1 << IO_STAT) | (1 << IO_COMPLETE) | (1 << REQUEST) | (1 << PEER_REQUEST) |(1 << AL_STAT))) {
+			if (type_flags & ~((1 << NETWORK_SPEED) | (1 << SEND_BUF))) {
 				bool first_vnr = true;
 				while (vol) {
 					if (json) {
@@ -3218,6 +3222,8 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 						print_current_peer_reqstat(res->name, vol->vnr, res->conn);
 					if (type_flags & (1 << AL_STAT))
 						print_current_alstat(res->name, vol->vnr);
+					if (type_flags & (1 << RESYNC_RATIO))
+						print_current_resync_ratio(res->name, vol->vnr, res->conn);
 
 					if (json) {
 						printf("\"vnr\":\"%d\"", vol->vnr);
@@ -3239,8 +3245,6 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 				print_current_network(res->name, res->conn);
 			if (type_flags & (1 << SEND_BUF))
 				print_current_sendbuf(res->name, res->conn);
-			if (type_flags & (1 << RESYNC_RATIO))
-				print_current_resync_ratio(res->name, res->conn);
 
 			res = res->next;
 

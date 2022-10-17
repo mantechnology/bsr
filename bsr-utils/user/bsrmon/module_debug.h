@@ -34,10 +34,10 @@ enum get_debug_type
 	AL_STAT,
 	PEER_REQUEST,
 	REQUEST,
+	RESYNC_RATIO,
 	NETWORK_SPEED,
 	SEND_BUF,
 	MEMORY,
-	RESYNC_RATIO,
 	ALL_STAT
 };
 
@@ -75,7 +75,7 @@ struct resource* GetResourceInfo(char * name);
 int CheckResourceInfo(char* resname, int node_id, int vnr);
 
 #ifdef _WIN
-PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int val);
+PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, int vnr, int peer_node_id);
 #endif
 char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res);
 int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char * respath, char * currtime);
