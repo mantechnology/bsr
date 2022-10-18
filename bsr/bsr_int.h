@@ -2160,7 +2160,8 @@ struct bsr_device {
 
 	struct bsr_bitmap *bitmap;
 	ULONG_PTR bm_resync_fo; /* bit offset for bsr_bm_find_next */
-	struct mutex bm_resync_fo_mutex;
+	// BSR-969 change the name above for use in resync timer settings as well (bm_resync_fo_mutex => bm_resync_and_resync_timer_fo_mutex)
+	struct mutex bm_resync_and_resync_timer_fo_mutex;
 #ifdef SPLIT_REQUEST_RESYNC
 	// DW-2042
 	struct list_head resync_pending_sectors;

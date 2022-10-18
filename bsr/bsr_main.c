@@ -4741,7 +4741,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	spin_lock_init(&device->timing_lock);
 
 	spin_lock_init(&device->al_lock);
-	mutex_init(&device->bm_resync_fo_mutex);
+	mutex_init(&device->bm_resync_and_resync_timer_fo_mutex);
 #ifdef SPLIT_REQUEST_RESYNC
 	mutex_init(&device->resync_pending_fo_mutex);
 	// DW-1901
