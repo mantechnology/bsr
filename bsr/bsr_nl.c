@@ -1293,9 +1293,15 @@ retry:
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
-				// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
-				clear_bit(__NEW_CUR_UUID, &device->flags);
-				clear_bit(NEW_CUR_UUID, &device->flags);
+				if (test_bit(__NEW_CUR_UUID, &device->flags)) {
+					// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
+					clear_bit(__NEW_CUR_UUID, &device->flags);
+					bsr_info(30, BSR_LC_UUID, device, "clear the UUID creation schedule flag due to secondary settings");
+				}
+				if (test_bit(NEW_CUR_UUID, &device->flags)) {
+					bsr_info(31, BSR_LC_UUID, device, "clear the UUID creation flag due to secondary settings");
+					clear_bit(NEW_CUR_UUID, &device->flags);
+				}
 				// BSR-904
 #ifdef _LIN
 				clear_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
@@ -1347,9 +1353,11 @@ retry:
 			}
 			else if (younger_primary) 
 				bsr_uuid_new_current(device, false, __FUNCTION__); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
-			else
+			else {
+				bsr_info(25, BSR_LC_UUID, device, "set UUID creation flag due to promotion");
 				set_bit(NEW_CUR_UUID, &device->flags);
-			
+			}
+
 			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
@@ -5546,8 +5554,10 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 	device = adm_ctx.device;
 	resource = device->resource;
-	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags))
+	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 		bsr_uuid_new_current(device, false, __FUNCTION__);
+		bsr_info(32, BSR_LC_UUID, device, "set UUID creation flag due to resume i/o");
+	}
 	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
 	__change_io_susp_user(resource, false);

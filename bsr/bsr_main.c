@@ -6493,7 +6493,7 @@ u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must
 	return first_history_uuid;
 }
 
-static void __bsr_uuid_set_current(struct bsr_device *device, u64 val, u64 *current_val)
+static void __bsr_uuid_set_current(struct bsr_device *device, u64 val, u64 *current_val, const char* caller)
 {
 	bsr_md_mark_dirty(device);
 	if (device->resource->role[NOW] == R_PRIMARY)
@@ -6505,6 +6505,7 @@ static void __bsr_uuid_set_current(struct bsr_device *device, u64 val, u64 *curr
 		*current_val = device->ldev->md.current_uuid;
 
 	device->ldev->md.current_uuid = val;
+	bsr_info(26, BSR_LC_UUID, device, "%s => update current UUID: %016llX", caller, device->ldev->md.current_uuid);
 	bsr_set_exposed_data_uuid(device, val);
 }
 
@@ -6523,7 +6524,7 @@ void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local
 	unsigned long flags;
 
 	spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
-	__bsr_uuid_set_current(device, val, NULL);
+	__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 }
 
@@ -6593,6 +6594,10 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			peer_md[node_id].bitmap_uuid =
 				device->ldev->md.current_uuid != UUID_JUST_CREATED ?
 				device->ldev->md.current_uuid : 0;
+
+			if (peer_md[node_id].bitmap_uuid) 
+				bsr_info(20, BSR_LC_UUID, peer_device, "rotate bitmap uuid %016llX", peer_md[node_id].bitmap_uuid);
+
 			if (peer_md[node_id].bitmap_uuid)
 				peer_md[node_id].bitmap_dagtag = dagtag;
 			bsr_md_mark_dirty(device);
@@ -6652,7 +6657,7 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 	}
 
 	get_random_bytes(&val, sizeof(u64));
-	__bsr_uuid_set_current(device, val, NULL);
+	__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
 	weak_nodes = bsr_weak_nodes_device(device);
 	bsr_info(3, BSR_LC_UUID, device, "%s, %016llX UUID has been generated. weak nodes %016llX", caller,
@@ -6759,7 +6764,7 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 
 		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
-		__bsr_uuid_set_current(device, val, NULL);
+		__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
 		// BSR-767 notify uuid When the new current uuid is received and changed
@@ -6844,7 +6849,7 @@ u64 bsr_uuid_resync_finished(struct bsr_peer_device *peer_device, struct bsr_pee
 	newer = __set_bitmap_slots(device, peer_device, old_peer_md, set_bitmap_slots);
 	equal = __set_bitmap_slots(device, NULL, old_peer_md, ~set_bitmap_slots);
 	_bsr_uuid_push_history(device, bsr_current_uuid(device), removed_history);
-	__bsr_uuid_set_current(device, peer_device->current_uuid, before_uuid);
+	__bsr_uuid_set_current(device, peer_device->current_uuid, before_uuid, __FUNCTION__);
 	spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 
 	return newer;

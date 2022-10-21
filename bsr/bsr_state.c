@@ -669,6 +669,7 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 		if (test_bit(__NEW_CUR_UUID, &device->flags)) {
 			clear_bit(__NEW_CUR_UUID, &device->flags);
 			set_bit(NEW_CUR_UUID, &device->flags);
+			bsr_info(28, BSR_LC_UUID, device, "clear the UUID creation schedule and set the UUID creation flag");
 		}
 
 		wake_up(&device->al_wait);
@@ -2465,24 +2466,32 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
 					// DW-892 Bumping uuid during starting resync seems to be inadequate, this is a stopgap work as long as the purpose of 'lost_contact_to_peer_data' is unclear.
 					(repl_state[NEW] != L_AHEAD && cstate[NEW] < C_CONNECTED) &&
-				    (disk_state[NEW] == D_UP_TO_DATE || one_peer_disk_up_to_date[NEW]))
+					(disk_state[NEW] == D_UP_TO_DATE || one_peer_disk_up_to_date[NEW])) {
+					bsr_info(21, BSR_LC_UUID, peer_device, "set UUID creation schedule flag due to lost peer data");
 					create_new_uuid = true;
+				}
 
 				if (connection->agreed_pro_version < 110 &&
-				    peer_role[NEW] == R_PRIMARY &&
-				    disk_state[NEW] >= D_UP_TO_DATE)
+					peer_role[NEW] == R_PRIMARY &&
+					disk_state[NEW] >= D_UP_TO_DATE) {
+					bsr_info(22, BSR_LC_UUID, peer_device, "set UUID creation schedule flag due to lost peer data");
 					create_new_uuid = true;
+				}
 			}
 			if (peer_returns_diskless(peer_device, peer_disk_state[OLD], peer_disk_state[NEW])) {
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
-					disk_state[NEW] == D_UP_TO_DATE)
+					disk_state[NEW] == D_UP_TO_DATE) {
+					bsr_info(23, BSR_LC_UUID, peer_device, "set UUID creation schedule flag due to the peer is diskless");
 					create_new_uuid = true;
+				}
 			}
 		}
 
 		if (disk_state[OLD] >= D_INCONSISTENT && disk_state[NEW] < D_INCONSISTENT &&
-		    role[NEW] == R_PRIMARY && one_peer_disk_up_to_date[NEW])
+			role[NEW] == R_PRIMARY && one_peer_disk_up_to_date[NEW]) {
+			bsr_info(24, BSR_LC_UUID, device, "set UUID creation schedule flag due to changing the disk state");
 			create_new_uuid = true;
+		}
 
 		if (create_new_uuid)
 			set_bit(__NEW_CUR_UUID, &device->flags);
@@ -3131,8 +3140,10 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 		mutex_lock(&resource->conf_update);
 		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			struct bsr_device *device = peer_device->device;
-			if (test_and_clear_bit(NEW_CUR_UUID, &device->flags))
+			if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+				bsr_info(36, BSR_LC_UUID, device, "clear the UUID creation flag because the disks on all nodes are outdate and attempt to create a UUID");
 				bsr_uuid_new_current(device, false, __FUNCTION__);
+			}
 		}
 		mutex_unlock(&resource->conf_update);
 		begin_state_change(resource, &irq_flags, CS_VERBOSE);
@@ -3145,7 +3156,10 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 		rcu_read_lock();
 		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			struct bsr_device *device = peer_device->device;
-			clear_bit(NEW_CUR_UUID, &device->flags);
+			if (test_bit(NEW_CUR_UUID, &device->flags)) {
+				clear_bit(NEW_CUR_UUID, &device->flags);
+				bsr_info(37, BSR_LC_UUID, device, "clear the UUID creation flag because all nodes are connected");
+			}
 		}
 		rcu_read_unlock();
 		begin_state_change(resource, &irq_flags, CS_VERBOSE);
@@ -3716,7 +3730,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			if (peer_disk_state[OLD] == D_UP_TO_DATE &&
 			    (peer_disk_state[NEW] == D_FAILED || peer_disk_state[NEW] == D_INCONSISTENT) &&
-			    test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+				test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+				bsr_info(38, BSR_LC_UUID, device, "clear the UUID creation flag with peer node disk settings and attempt to create a UUID");
 				/* When a peer disk goes from D_UP_TO_DATE to D_FAILED or D_INCONSISTENT
 				   we know that a write failed on that node. Therefore we need to create
 				   the new UUID right now (not wait for the next write to come in) */
@@ -3730,7 +3745,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				if (have_quorum) {
 					unsigned long irq_flags;
 
-					clear_bit(NEW_CUR_UUID, &device->flags);
+					if (test_bit(NEW_CUR_UUID, &device->flags)){
+						bsr_info(39, BSR_LC_UUID, device, "clear the UUID creation flag");
+						clear_bit(NEW_CUR_UUID, &device->flags);
+					}
 
 					begin_state_change(resource, &irq_flags, CS_VERBOSE);
 					_tl_restart(connection, RESEND);

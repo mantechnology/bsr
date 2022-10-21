@@ -2638,6 +2638,7 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 static void ensure_current_uuid(struct bsr_device *device)
 {
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+		bsr_info(35, BSR_LC_UUID, device, "clear the UUID creation flag with the current UUID verification and attempt to create a UUID");
 		// DW-2004 the function ensure_current_uuid() updates the uuid during replication, 
 		// so if uuid update is required in D_FAILED state, please update with other function.
 		if (device->disk_state[NOW] != D_FAILED) {
