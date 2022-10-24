@@ -3156,10 +3156,9 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 		rcu_read_lock();
 		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			struct bsr_device *device = peer_device->device;
-			if (test_bit(NEW_CUR_UUID, &device->flags)) {
-				clear_bit(NEW_CUR_UUID, &device->flags);
+			if (test_bit(NEW_CUR_UUID, &device->flags)) 
 				bsr_info(37, BSR_LC_UUID, device, "clear the UUID creation flag because all nodes are connected");
-			}
+			clear_bit(NEW_CUR_UUID, &device->flags);
 		}
 		rcu_read_unlock();
 		begin_state_change(resource, &irq_flags, CS_VERBOSE);
@@ -3747,8 +3746,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 					if (test_bit(NEW_CUR_UUID, &device->flags)){
 						bsr_info(39, BSR_LC_UUID, device, "clear the UUID creation flag");
-						clear_bit(NEW_CUR_UUID, &device->flags);
 					}
+					clear_bit(NEW_CUR_UUID, &device->flags);
 
 					begin_state_change(resource, &irq_flags, CS_VERBOSE);
 					_tl_restart(connection, RESEND);

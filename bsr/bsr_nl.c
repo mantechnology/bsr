@@ -1294,14 +1294,14 @@ retry:
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 				if (test_bit(__NEW_CUR_UUID, &device->flags)) {
-					// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
-					clear_bit(__NEW_CUR_UUID, &device->flags);
 					bsr_info(30, BSR_LC_UUID, device, "clear the UUID creation schedule flag due to secondary settings");
 				}
+				// DW-1985 remove NEW_CUR_UUID, __NEW_CUR_UUID when role is secondary.
+				clear_bit(__NEW_CUR_UUID, &device->flags);
 				if (test_bit(NEW_CUR_UUID, &device->flags)) {
 					bsr_info(31, BSR_LC_UUID, device, "clear the UUID creation flag due to secondary settings");
-					clear_bit(NEW_CUR_UUID, &device->flags);
 				}
+				clear_bit(NEW_CUR_UUID, &device->flags);
 				// BSR-904
 #ifdef _LIN
 				clear_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
@@ -5555,8 +5555,8 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	device = adm_ctx.device;
 	resource = device->resource;
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+		bsr_info(32, BSR_LC_UUID, device, "clear UUID creation flag due to resume i/o");
 		bsr_uuid_new_current(device, false, __FUNCTION__);
-		bsr_info(32, BSR_LC_UUID, device, "set UUID creation flag due to resume i/o");
 	}
 	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
