@@ -6026,6 +6026,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			bsr_info(33, BSR_LC_CONNECTION, device, "I shall become SyncSource, because I am primary and the discard_my_data flag is set in the peer.");
 			hg = 2;
 
+			bsr_info(29, BSR_LC_UUID, device, "set UUID creation flag due to discard_my_data flag is set in the peer");
 			set_bit(NEW_CUR_UUID, &device->flags);
 		}
 	}
@@ -9061,6 +9062,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		spin_unlock_irq(&resource->req_lock);
 
 		bsr_err(9, BSR_LC_STATE, device, "Aborting Connect, can not thaw I/O with an only Consistent peer");
+		bsr_info(33, BSR_LC_UUID, device, "clear the UUID creation flag and attempt to create a UUID");
 		tl_clear(connection);
 		mutex_lock(&resource->conf_update);
 		bsr_uuid_new_current(device, false, __FUNCTION__);
@@ -9097,6 +9099,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	if ((device->resource->role[NOW] == R_PRIMARY) && (new_repl_state == L_WF_BITMAP_S) && 
 		(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA) && 
 		test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
+		bsr_info(34, BSR_LC_UUID, device, "clear the UUID creation flag due to discard_my_data flag is set in the peer and attempt to create a UUID");
 		mutex_lock(&resource->conf_update);
 		bsr_uuid_new_current(device, false, __FUNCTION__);
 		mutex_unlock(&resource->conf_update);
@@ -9928,6 +9931,9 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 	// DW-977 Newly created uuid hasn't been updated for peer device, do it as soon as peer sends its uuid which means it was adopted for peer's current uuid.
 	peer_device->current_uuid = current_uuid;
 
+	bsr_info(27, BSR_LC_UUID, peer_device, "received new current UUID: %016llX "
+		"weak_nodes=%016llX", current_uuid, weak_nodes);
+
 	if (connection->peer_role[NOW] == R_UNKNOWN)
 		return 0;
 
@@ -9953,13 +9959,13 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
 		if (connection->peer_role[NOW] == R_PRIMARY) {
-			bsr_warn(17, BSR_LC_UUID, peer_device, "received new current UUID: %016llX "
+			bsr_warn(17, BSR_LC_UUID, peer_device, "Updated new UUID received, UUID : %016llX "
 				  "weak_nodes=%016llX", current_uuid, weak_nodes);
 			bsr_uuid_received_new_current(peer_device, current_uuid, weak_nodes);
 			bsr_md_sync_if_dirty(device);
 		}
 		else
-			bsr_warn(18, BSR_LC_UUID, peer_device, "receive new current but not update UUID: %016llX "
+			bsr_warn(18, BSR_LC_UUID, peer_device, "Not update new UUID received, UUID : %016llX "
 									"weak_nodes=%016llX", current_uuid, weak_nodes);
 
 		put_ldev(device);
