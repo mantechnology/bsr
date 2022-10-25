@@ -1349,10 +1349,12 @@ retry:
 				if (UUID_JUST_CREATED == device->ldev->md.current_uuid) 
 					set_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
 #endif
-				bsr_uuid_new_current(device, true, __FUNCTION__);
+				bsr_uuid_new_current(device, true, false, __FUNCTION__);
 			}
 			else if (younger_primary) 
-				bsr_uuid_new_current(device, false, __FUNCTION__); // BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
+				// BSR-967
+				// BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
+				bsr_uuid_new_current(device, false, true, __FUNCTION__); 
 			else {
 				bsr_info(25, BSR_LC_UUID, device, "set UUID creation flag due to promotion");
 				set_bit(NEW_CUR_UUID, &device->flags);
@@ -5556,7 +5558,7 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	resource = device->resource;
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 		bsr_info(32, BSR_LC_UUID, device, "clear UUID creation flag due to resume i/o");
-		bsr_uuid_new_current(device, false, __FUNCTION__);
+		bsr_uuid_new_current(device, false, false, __FUNCTION__);
 	}
 	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
