@@ -6758,7 +6758,9 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
 			target->repl_state[NOW] == L_BEHIND ||
-			target->repl_state[NOW] == L_WF_BITMAP_T) {
+			(target->repl_state[NOW] == L_WF_BITMAP_T &&
+			// BSR-974 If it is weak_node when L_WF_BITMAP_T state, it does not update the UUID.
+			NODE_MASK(device->resource->res_opts.node_id) & weak_nodes)) {
 			target->current_uuid = val;
 			set_current = false;
 		}
@@ -6766,7 +6768,9 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 
 	// DW-1340 do not update current uuid if my disk is outdated. the node sent uuid has my current uuid as bitmap uuid, and will start resync as soon as we do handshake.
 	if (device->disk_state[NOW] == D_OUTDATED) {
-		set_current = false;
+		// BSR-974 If it is weak_node when D_OUTDATED state, it does not update the UUID.
+		if (NODE_MASK(device->resource->res_opts.node_id) & weak_nodes) 
+			set_current = false;
 	}
 
 	if (set_current) {
