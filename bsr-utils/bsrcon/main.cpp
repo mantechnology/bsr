@@ -15,6 +15,8 @@
 #include "mvol.h"
 #endif
 
+static void usage();
+
 #ifdef _WIN
 void disk_error_usage()
 {
@@ -41,90 +43,89 @@ void disk_error_usage()
 }
 #endif
 
-void usage()
-{
-	printf("usage: bsrcon cmds options \n\n"
-		"cmds:\n");
 #ifdef _WIN
-	printf(
-		"   /nodelayedack [ip|guid]\n"
-        "   /delayedack_enable [ip|guid]\n"
-		// BSR-232
-        "   /release_vol [letter] : release lock & delete replication volume\n"
-		"   /bsrlock_status\n"
-		// BSR-71
-		"   /bsrlock_use [0,1]]\n"
-		"   /info\n"
-		"   /status : bsr version\n"
-		"   /write_log [ProviderName] \"[LogData]\" \n"
-);
+const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsrvflt\\volumes");
+const TCHAR gBsrRegistry[] = _T("System\\CurrentControlSet\\Services\\bsrvflt");
 #endif
-	printf(
-		"   /handler_use [0,1]\n"
-		"   /get_log [ProviderName]\n"
-		// DW-1629
-		"   /get_log [ProviderName] [ResourceName : Max Length 250|oos]\n"
-		"   /get_log [ProviderName] [ResourceName : Max Length 250][oos]\n"
-		"   /get_log_info\n"
-		"   /maxlogfile_cnt [LogFileMaxCount : 0 ~ 1000]\n"
-		"   /climaxlogfile_cnt [adm, setup, meta] [LogFileMaxCount : 0 ~ 255]\n"
-		"   /minlog_lv [sys, dbg] [Level : 0~7]\n");
-	// DW-2008
-	printf("\t level info,");
-	for (int i = 0; i < LOG_DEFAULT_MAX_LEVEL; i++) {
-		printf(" %s(%d)", g_default_lv_str[i], i);
-	}
-	printf("\n");
 
-	// BSR-654
-	printf("   /dbglog_ctgr enable [category]\n");
-	printf("   /dbglog_ctgr disable [category]\n");
-	printf("\t category info,");
-	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
-		printf(" %s", g_log_category_str[i]);
-	}
-	printf("\n");
-		
-	printf(
-		"\n\n"
 #ifdef _WIN
-		"options:\n"
-		"   /letter or /l : drive letter \n"
-		"\n\n"
-		"examples:\n"
-        "bsrcon /nodelayedack 10.10.0.1 \n"
-		// BSR-232
-        "bsrcon /release_vol F \n"
-		// BSR-71
-		"bsrcon /bsrlock_use 0\n"
-		"bsrcon /write_log bsr \"Logging start\" \n"	
-		// DW-2166
-		"bsrcon /driver_install \"inf file full path\" \n"
-		"bsrcon /driver_uninstall \"inf file full path\" \n"
-		"bsrcon /md5 \"target file full path\""
+DWORD get_value_of_vflt(TCHAR *target, DWORD *value)
 #else
-		"examples:\n"
+DWORD get_value_of_vflt(char *target, DWORD *value)
 #endif
-		"bsrcon /handler_use 1 \n"	
-		"bsrcon /get_log bsr \n"
-		"bsrcon /get_log bsr r0\n"
-		"bsrcon /get_log_info \n"
-		"bsrcon /minlog_lv dbg 6 \n"
-		"bsrcon /minlog_lv sys 3 \n"
-		"bsrcon /maxlogfile_cnt 5\n"
-		"bsrcon /climaxlogfile_cnt adm 2\n"
-		"bsrcon /dbglog_ctgr enable NETLINK protocol\n"
-		"bsrcon /dbglog_ctgr disable netlink PROTOCOL\n"
-	);
+{
+	DWORD lResult = ERROR_SUCCESS;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+#else
+	FILE *fp;
+#endif
 
-	exit(ERROR_INVALID_PARAMETER);
+#ifdef _WIN
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, target, NULL, &type, (LPBYTE)value, &size);
+	RegCloseKey(hKey);
+#else // _LIN
+	fp = fopen(target, "r");
+	if (fp != NULL) {
+		char buf[11] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			*value = atoi(buf);
+		fclose(fp);
+	}
+	else {
+		lResult = ERROR_FILE_NOT_FOUND;
+	}
+#endif
+
+	return lResult;
 }
 
 #ifdef _WIN
-const TCHAR gBsrRegistryPath[] = _T("System\\CurrentControlSet\\Services\\bsrvflt\\volumes");
+DWORD set_value_of_vflt(TCHAR *target, DWORD *value)
+#else
+DWORD set_value_of_vflt(char *target, DWORD *value)
+#endif
+{
+	DWORD lResult = ERROR_SUCCESS;
+#ifdef _WIN
+	HKEY hKey = NULL;
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+#else
+	FILE *fp;
+#endif
 
-static
-DWORD DeleteVolumeReg(TCHAR letter)
+#ifdef _WIN
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegSetValueEx(hKey, target, 0, REG_DWORD, (LPBYTE)value, sizeof(*value));
+	RegCloseKey(hKey);
+#else // _LIN
+	fp = fopen(target, "w+");
+	if (fp != NULL) {
+		char buf[11] = { 0 };
+		sprintf(buf, "%u", *value);
+		if (!fputs(buf, fp))
+			lResult = ERROR_INVALID_DATA;
+		fclose(fp);
+	}
+#endif
+
+	return lResult;
+}
+
+#ifdef _WIN
+static DWORD delete_volume_reg(TCHAR letter)
 {
 	HKEY hKey = NULL;
 	DWORD dwIndex = 0;
@@ -172,40 +173,18 @@ DWORD DeleteVolumeReg(TCHAR letter)
 
 	return lResult;
 }
-
 #endif
 
 // BSR-579
-BOOLEAN GetLogFileMaxCount(int *max)
+BOOLEAN get_log_file_max_count(int *max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD log_file_max_count = 0;
 #ifdef _WIN
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
-	}
-
-	lResult = RegQueryValueEx(hKey, _T("log_file_max_count"), NULL, &type, (LPBYTE)&log_file_max_count, &size);
-	RegCloseKey(hKey);
-
+	lResult = get_value_of_vflt(_T("log_file_max_count"), &log_file_max_count);
 #else // _LIN
 	// BSR-597 get log_file_max_count
-	FILE *fp;
-	fp = fopen(BSR_LOG_FILE_MAXCNT_REG, "r");
-	if(fp != NULL) {
-		char buf[11] = {0};
-		if (fgets(buf, sizeof(buf), fp) != NULL)
-			log_file_max_count = atoi(buf);
-		fclose(fp);
-	} else {
-		lResult = ERROR_FILE_NOT_FOUND;
-	}
+	lResult = get_value_of_vflt(BSR_LOG_FILE_MAXCNT_REG, &log_file_max_count);
 #endif
 
 	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || log_file_max_count == 0)
@@ -218,44 +197,24 @@ BOOLEAN GetLogFileMaxCount(int *max)
 
 
 // BSR-605
-BOOLEAN GetCliLogFileMaxCount(int *max)
+BOOLEAN get_cli_log_file_max_count(int *max)
 {
 	DWORD cli_log_file_max_count = 0;
 #ifdef _WIN
 	DWORD lResult = ERROR_SUCCESS;
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
 
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
-	}
-
-	lResult = RegQueryValueEx(hKey, _T(BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
-	RegCloseKey(hKey);
-
+	lResult = get_value_of_vflt(_T(BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG), &cli_log_file_max_count);
+#else // _LIN
+	// /etc/bsr.d/.cli_log_file_max_count
+	lResult = get_value_of_vflt(BSR_CLI_LOG_FILE_MAXCNT_REG, &cli_log_file_max_count);
+#endif
 	if (lResult == ERROR_FILE_NOT_FOUND || lResult != ERROR_SUCCESS || cli_log_file_max_count == 0) {
+		// BSR-605 displays the default value in case of open or read failure.
 		cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
 		cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
 		cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
 	}
-#else // _LIN
-	// BSR-605 displays the default value in case of open or read failure.
-	cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
-	cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
-	cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
 
-	// /etc/bsr.d/.cli_log_file_max_count
-	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
-	if (fp != NULL) {
-		char buf[11] = { 0 };
-		if (fgets(buf, sizeof(buf), fp) != NULL) 
-			cli_log_file_max_count = atoi(buf);
-		fclose(fp);
-	}
-#endif
 	*max = cli_log_file_max_count;
 
 	return true;
@@ -263,49 +222,21 @@ BOOLEAN GetCliLogFileMaxCount(int *max)
 
 
 // BSR-605 cli log maximum file count settings 
-BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
+BOOLEAN cli_set_log_file_max_count(int cli_type, int max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
 	DWORD adm_max, setup_max, meta_max;
 #ifdef _WIN
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
-	}
-
-	lResult = RegQueryValueEx(hKey, _T("cli_log_file_max_count"), NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
+	lResult = get_value_of_vflt(_T(BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG), &cli_log_file_max_count);
 #else // _LIN
 	// /etc/bsr.d/.cli_log_file_max_count
-	FILE *fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "r");
-	if (fp != NULL) {
-		char buf[11] = { 0 };
-		if (fgets(buf, sizeof(buf), fp) != NULL) {
-			cli_log_file_max_count = atoi(buf);
-		}
-		else {
-			// BSR-605 set the default value if the file fails to open or read.
-			lResult = (DWORD)ERROR_FILE_NOT_FOUND;
-		}
-		fclose(fp);
-	}
-	else {
-		// BSR-605 set the default value if the file fails to open or read.
-		lResult = (DWORD)ERROR_FILE_NOT_FOUND;
-	}
+	lResult = get_value_of_vflt(BSR_CLI_LOG_FILE_MAXCNT_REG, &cli_log_file_max_count);
 #endif
 	if (lResult == (DWORD)ERROR_FILE_NOT_FOUND) {
 		adm_max = setup_max = meta_max = 2;
 	}
 	else if (lResult != ERROR_SUCCESS) {
-#ifdef _WIN
-		RegCloseKey(hKey);
-#endif
 		return false;
 	}
 	else { 
@@ -326,40 +257,25 @@ BOOLEAN CLI_SetLogFileMaxCount(int cli_type, int max)
 
 	cli_log_file_max_count = ((adm_max << BSR_ADM_LOG_FILE_MAX_COUNT) | (setup_max << BSR_SETUP_LOG_FILE_MAX_COUNT) | (meta_max << BSR_META_LOG_FILE_MAX_COUNT));
 #ifdef _WIN
-	lResult = RegSetValueEx(hKey, _T("cli_log_file_max_count"), 0, REG_DWORD, (LPBYTE)&cli_log_file_max_count, sizeof(cli_log_file_max_count));
+	lResult = set_value_of_vflt(_T("cli_log_file_max_count"), &cli_log_file_max_count);
 #else // _LIN
 	// /etc/bsr.d/.cli_log_file_max_count
-	fp = fopen(BSR_CLI_LOG_FILE_MAXCNT_REG, "w+");
-	if (fp != NULL) {
-		char buf[11] = { 0 } ;
-		sprintf(buf, "%u", cli_log_file_max_count);
-		if (!fputs(buf, fp)) 
-			return false;
-		fclose(fp);
-	}
-	else
-		return false;
-
+	lResult = set_value_of_vflt(BSR_CLI_LOG_FILE_MAXCNT_REG, &cli_log_file_max_count);
 #endif
 	if (ERROR_SUCCESS != lResult)
 		return false;
-
-#ifdef _WIN
-	RegCloseKey(hKey);
-#endif
 
 	return true;
 }
 
 // DW-1921
 //Print log_level through the current registry value.
-BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
+BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD logLevel = 0;
 #ifdef _WIN
 	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 #else
@@ -367,24 +283,10 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 #endif
 
 #ifdef _WIN
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
-	}
-
-	lResult = RegQueryValueEx(hKey, _T("log_level"), NULL, &type, (LPBYTE)&logLevel, &size);
-	RegCloseKey(hKey);
+	get_value_of_vflt(_T("log_level"), &logLevel);
 #else // _LIN
 	// BSR-584 read /etc/bsr.d/.log_level
-	fp = fopen(BSR_LOG_LEVEL_REG, "r");
-	if(fp != NULL) {
-		char buf[11] = {0};
-		if (fgets(buf, sizeof(buf), fp) != NULL)
-			logLevel = atoi(buf);
-		fclose(fp);
-	} else {
-		lResult = ERROR_FILE_NOT_FOUND;
-	}
+	get_value_of_vflt(BSR_LOG_LEVEL_REG, &logLevel);
 #endif
 
 	if (lResult == ERROR_FILE_NOT_FOUND) {
@@ -396,50 +298,23 @@ BOOLEAN GetLogLevel(int *sys_evtlog_lv, int *dbglog_lv)
 	} else if (lResult != ERROR_SUCCESS)
 		return false;
 
-
 	*sys_evtlog_lv = (logLevel >> LOG_LV_BIT_POS_EVENTLOG) & LOG_LV_MASK;
 	*dbglog_lv = (logLevel >> LOG_LV_BIT_POS_DBG) & LOG_LV_MASK;
 
 	return true;
-
 }
 
-
 // BSR-654
-BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
+BOOLEAN get_debug_log_enable_category(int *dbg_ctgr)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD ctgr = 0;
-#ifdef _WIN
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-#else
-	FILE *fp;
-#endif
 
 #ifdef _WIN
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
-	}
-
-	lResult = RegQueryValueEx(hKey, _T("debuglog_category"), NULL, &type, (LPBYTE)&ctgr, &size);
-	RegCloseKey(hKey);
+	lResult = get_value_of_vflt(_T("debuglog_category"), &ctgr);
 #else // _LIN
 	// BSR-584 read /etc/bsr.d/.debuglog_category
-	fp = fopen(BSR_DEBUG_LOG_CATEGORY_REG, "r");
-	if (fp != NULL) {
-		char buf[11] = { 0 };
-		if (fgets(buf, sizeof(buf), fp) != NULL) {
-			ctgr = atoi(buf);
-		}
-		fclose(fp);
-	}
-	else {
-		lResult = ERROR_FILE_NOT_FOUND;
-	}
+	lResult = get_value_of_vflt(BSR_DEBUG_LOG_CATEGORY_REG, &ctgr);
 #endif
 
 	if (lResult == ERROR_FILE_NOT_FOUND) {
@@ -452,7 +327,6 @@ BOOLEAN GetDebugLogEnableCategory(int *dbg_ctgr)
 	*dbg_ctgr = ctgr;
 
 	return true;
-
 }
 
 #ifdef _WIN
@@ -462,7 +336,7 @@ struct cb_ctx {
 	wchar_t err[255];
 };
 
-UINT QueueCallback(PVOID Context, UINT Notification, UINT_PTR Param1, UINT_PTR Param2)
+UINT queue_callback(PVOID Context, UINT Notification, UINT_PTR Param1, UINT_PTR Param2)
 {
 	struct cb_ctx *ctx = (struct cb_ctx *)Context;
 	PFILEPATHS_W p;
@@ -509,7 +383,7 @@ UINT QueueCallback(PVOID Context, UINT Notification, UINT_PTR Param1, UINT_PTR P
 }
 
 // DW-2166 Run the driver install/uninstall via the inf file full path.
-int DriverInstallInf(wchar_t* session, char* fullPath)
+int driver_Install_Inf(wchar_t* session, char* fullPath)
 {
 	HANDLE handle;
 	struct cb_ctx ctx;
@@ -521,7 +395,7 @@ int DriverInstallInf(wchar_t* session, char* fullPath)
 	memset(fullPath16, 0, sizeof(wchar_t) * 255);
 	memset(ctx.err, 0, sizeof(wchar_t) * 255);
 
-	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, strlen(fullPath), fullPath16, 255);
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, (int)strlen(fullPath), fullPath16, 255);
 
 	// open inf file
 	handle = SetupOpenInfFileW(fullPath16, 0, INF_STYLE_WIN4, 0);
@@ -531,7 +405,7 @@ int DriverInstallInf(wchar_t* session, char* fullPath)
 		return -1;
 	}
 
-	cb = (PSP_FILE_CALLBACK)QueueCallback;
+	cb = (PSP_FILE_CALLBACK)queue_callback;
 
 	ctx.cb_default_ctx = SetupInitDefaultQueueCallback(NULL);
 	ctx.need_reboot = false;
@@ -590,7 +464,7 @@ int generating_md5(char* fullPath)
 
 	memset(fullpath16, 0, sizeof(wchar_t) * 512);
 
-	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, strlen(fullPath), fullpath16, 255);
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullPath, (int)strlen(fullPath), fullpath16, 255);
 
 	// Logic to check usage goes here.
 	hFile = CreateFileW(fullpath16,
@@ -684,645 +558,680 @@ int generating_md5(char* fullPath)
 }
 #endif
 
-#ifdef _WIN
-DWORD main(int argc, char* argv [])
+
+UCHAR letter = 'C';
+int verbose = 0;
+
+int cmd_get_log(int *index, int argc, char* argv[])
+{
+	char *providerName = NULL;
+	char *resourceName = NULL;
+	int oosTrace = 0;
+
+	(*index)++;
+
+	if (*index < argc)
+		providerName = argv[*index];
+	else
+		usage();
+	(*index)++;
+
+	// DW-1629
+	for (int num = 0; num < 2; num++) {
+		if (*index < argc) {
+
+#ifdef _DEBUG_OOS
+			if (strcmp(argv[*index], "oos") == 0)
+				oosTrace++;
+			else if (!resourceName) {
 #else
-int main(int argc, char* argv [])
+			if (!resourceName) {
+#endif
+				resourceName = argv[*index];
+				//6 additional parsing data length (">bsr ")
+				if (strlen(resourceName) > MAX_PATH - 6)
+					usage();
+			}
+			else
+				usage();
+
+			(*index)++;
+		}
+		else
+			break;
+	}
+
+	return MVOL_GetBsrLog(providerName, resourceName, oosTrace);
+}
+
+#ifdef _DEBUG_OOS
+int cmd_convert_oos_log(int *index, int argc, char* argv[])
+{
+	(*index)++;
+
+	// Get oos log path
+	if (*index < argc)
+		return MVOL_ConvertOosLog((LPCTSTR)argv[*index]);
+	else
+		usage();
+}
+
+
+int cmd_serch_oos_log(int *index, int argc, char* argv[])
+{
+	char *srcPath = NULL;
+	char *sector = NULL;
+	
+	(*index)++;
+
+	// Get oos log path
+	if (*index < argc)
+		srcPath = argv[*index];
+	else
+		usage();
+
+	// Get oos search sector
+	(*index)++;
+	if (*index < argc)
+		sector = argv[*index];
+	else
+		usage();
+
+	return MVOL_SearchOosLog((LPCTSTR)srcPath, (LPCTSTR)sector);
+}
+#endif
+
+int cmd_minlog_lv(int *index, int argc, char* argv[])
+{
+	LOGGING_MIN_LV lml = { 0, };
+	
+	(*index)++;
+
+	// first argument indicates logging type.
+	if (*index < argc) {
+		if (strcmp(argv[*index], "sys") == 0) {
+			lml.nType = LOGGING_TYPE_SYSLOG;
+		}
+		else if (strcmp(argv[*index], "dbg") == 0) {
+			lml.nType = LOGGING_TYPE_DBGLOG;
+		}
+		else
+			usage();
+	}
+
+	// second argument indicates minimum logging level.
+	(*index)++;
+	if (*index < argc) {
+		lml.nErrLvMin = atoi(argv[*index]);
+	}
+	else
+		usage();
+
+	return MVOL_SetMinimumLogLevel(&lml);
+}
+
+// BSR-605
+int cmd_climaxlogfile_cnt(int *index, int argc, char* argv[])
+{
+	CLI_LOG_MAX_COUNT lmc = { 0, };
+	
+	(*index)++;
+	if (*index < argc) {
+		if (strcmp(argv[*index], "adm") == 0) {
+			lmc.nType = BSR_ADM_LOG_FILE_MAX_COUNT;
+		}
+		else if (strcmp(argv[*index], "setup") == 0) {
+			lmc.nType = BSR_SETUP_LOG_FILE_MAX_COUNT;
+		}
+		else if (strcmp(argv[*index], "meta") == 0) {
+			lmc.nType = BSR_META_LOG_FILE_MAX_COUNT;
+		}
+		else
+			usage();
+	}
+
+	(*index)++;
+	if (*index < argc) {
+		lmc.nMaxCount = atoi(argv[*index]);
+	}
+	else
+		usage();
+
+	return cli_set_log_file_max_count(lmc.nType, lmc.nMaxCount);
+}
+
+// BSR-579
+int cmd_maxlogfile_cnt(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	// BSR-618
+	if (*index >= argc)
+		usage();
+
+	// BSR-579
+	return MVOL_SetLogFileMaxCount(atoi(argv[*index]));
+}
+
+// BSR-654
+int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
+{
+	DEBUG_LOG_CATEGORY dlc = { 0, };
+	int i;
+
+	(*index)++;
+	if ((*index + 1) < argc) {
+		if (!strcmp(argv[*index], "enable"))
+		{
+			dlc.nType = 0;
+		}
+		else if (!strcmp(argv[*index], "disable"))
+		{
+			dlc.nType = 1;
+		}
+		else
+			usage();
+
+		for (; *index < argc; (*index)++) {
+			for (i = 0; i < LOG_CATEGORY_MAX; i++) {
+#ifdef _WIN
+				if (_strcmpi(argv[*index], g_log_category_str[i]) == 0) {
+#else
+				if (strcasecmp(argv[argIndex], g_log_category_str[i]) == 0) {
+#endif
+					dlc.nCategory += 1 << i;
+					break;
+				}
+#ifdef _WIN
+				else if (_strcmpi(argv[*index], "all") == 0) {
+#else
+				else if (strcasecmp(argv[argIndex], "all") == 0) {
+#endif
+					dlc.nCategory = -1;
+					break;
+				}
+				}
+				}
+		return MVOL_SetDebugLogCategory(&dlc);
+			}
+	else
+		usage();
+		}
+
+int cmd_get_log_info(int *index, int argc, char* argv[])
+{
+	// DW-1921
+	int sys_evt_lv = 0;
+	int dbglog_lv = 0;
+	int log_max_count = 0;
+	int cli_log_max_count = 0;
+	int dbg_ctgr = 0;
+
+	// DW-2008
+	if (get_log_level(&sys_evt_lv, &dbglog_lv)) {
+		printf("Current log level.\n");
+		printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
+			g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
+
+		printf("Number of log files that can be saved.\n");
+		printf("Maximum size of one log file is 50M.\n");
+		// BSR-579
+		if (get_log_file_max_count(&log_max_count))
+			printf("    bsrdriver : %d\n", log_max_count);
+		else
+			printf("Failed to get log file max count\n");
+
+		// BSR-605
+		if (get_cli_log_file_max_count(&cli_log_max_count)) {
+			printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
+			printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
+			printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
+		}
+		else
+			printf("Failed to get cli log file max count\n");
+
+		if (get_debug_log_enable_category(&dbg_ctgr)) {
+			printf("Output category during debug log.\n");
+			printf("    category :");
+			for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+				if (dbg_ctgr & (1 << i)) {
+					printf(" %s", g_log_category_str[i]);
+				}
+			}
+			printf("\n");
+		}
+		else
+			printf("Failed to get debug log enable category\n");
+	}
+	else
+		printf("Failed to get log level.\n");
+
+	return 0;
+}
+
+int cmd_handler_use(int *index, int argc, char* argv[])
+{
+	HANDLER_INFO hInfo = { 0, };
+
+	(*index)++;
+	if (*index < argc) {
+		int use = atoi(argv[*index]);
+		if (use < 0 || use > 1) {
+			fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+			usage();
+		}
+		else {
+			if (use)
+				hInfo.use = true;
+		}
+	}
+	else
+		usage();
+
+	return  MVOL_SetHandlerUse(&hInfo);
+}
+#ifdef _WIN
+// BSR-71
+int cmd_bsrlock_use(int *index, int argc, char* argv[])
+{
+	int bBsrLock = 0;
+	
+	(*index)++;
+	if (*index < argc) {
+		bBsrLock = atoi(argv[*index]);
+		if (bBsrLock < 0 || bBsrLock > 1) {
+			fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+			usage();
+		}
+	}
+	else
+		usage();
+
+	return MVOL_BsrlockUse(bBsrLock);
+}
+
+int cmd_write_log(int *index, int argc, char* argv[])
+{
+	char *providerName = NULL;
+	char *loggingData = NULL;
+
+	(*index)++;
+	// Get eventlog provider name.
+	if (*index < argc)
+		providerName = argv[*index];
+	else
+		usage();
+
+	// Get eventlog data to be written.
+	(*index)++;
+	if (*index < argc)
+		loggingData = argv[*index];
+	else
+		usage();
+
+	return WriteEventLog((LPCSTR)providerName, (LPCSTR)loggingData);
+}
+
+int cmd_get_volume_size(int *index, int argc, char* argv[])
+{
+	MVOL_VOLUME_INFO	srcVolumeInfo;
+	LARGE_INTEGER		volumeSize;
+	int res;
+
+	printf("GET VOLUME SIZE\n");
+
+	memset(&srcVolumeInfo, 0, sizeof(MVOL_VOLUME_INFO));
+
+	res = MVOL_GetVolumeInfo(letter, &srcVolumeInfo);
+	if (res) {
+		printf("cannot get src volume info, Drive=%c:, err=%d\n",
+			letter, GetLastError());
+		return res;
+	}
+
+	volumeSize.QuadPart = 0;
+	res = MVOL_GetVolumeSize(srcVolumeInfo.PhysicalDeviceName, &volumeSize);
+	if (res) {
+		printf("cannot MVOL_GetVolumeSize, err=%d\n", res);
+		return res;
+	}
+	else
+		printf("VolumeSize = %I64d\n", volumeSize.QuadPart);
+
+	return res;
+}
+
+int cmd_delaydack_enable(int *index, int argc, char* argv[])
+{
+	char *addr = NULL;
+	int res;
+
+	(*index)++;
+	if (*index < argc)
+		addr = argv[*index];
+	else
+		usage();
+
+	res = MVOL_SetDelayedAck(addr, "enable");
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Cannot enable DelayedAck. Err=%u\n", res);
+	}
+
+	return res;
+}
+
+int cmd_nodelayedack(int *index, int argc, char* argv[])
+{
+	int res = 0;
+	char *addr;
+
+	(*index)++;
+	if (*index < argc)
+		addr = argv[*index];
+	else
+		usage();
+
+	res = MVOL_SetDelayedAck(addr, "disable");
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Cannot disable DelayedAck. Err=%u\n", res);
+	}
+
+	return res;
+}
+
+int cmd_letter(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc)
+		letter = (UCHAR)*argv[*index];
+	else
+		usage();
+
+	return 0;
+}
+
+
+int cmd_proc(int *index, int argc, char* argv[])
+{
+	MVOL_VOLUME_INFO VolumeInfo = { 0, };
+	int res;
+
+	res = MVOL_GetStatus(&VolumeInfo);
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed MVOL_GetStatus. Err=%u\n", res);
+	}
+	else {
+		fprintf(stdout, "%s\n", VolumeInfo.Seq);
+	}
+
+	return res;
+}
+
+int cmd_status(int *index, int argc, char* argv[])
+{
+	MVOL_VOLUME_INFO VolumeInfo = { 0, };
+	CHAR tmpSeq[sizeof(VolumeInfo.Seq)] = { NULL };
+	CHAR *line, *cline;
+	CHAR *context = NULL;
+	CHAR buffer[2] = { NULL };
+	int res;
+
+	res = MVOL_GetStatus(&VolumeInfo);
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed MVOL_GetStatus. Err=%u\n", res);
+	}
+	else {
+		int lineCount = 1;
+		line = strtok_s(VolumeInfo.Seq, "\n", &context);
+		while (line) {
+			if (strstr(line, ": cs:")) {
+				cline = (char *)malloc(strlen(line) + 1);
+				strcpy_s(cline, strlen(line) + 1, line);
+				buffer[0] = atoi(strtok_s(NULL, ":", &cline)) + 67;
+				buffer[1] = '\0';
+				strcat_s(tmpSeq, buffer);
+			}
+
+			strcat_s(tmpSeq, line);
+			strcat_s(tmpSeq, "\n");
+			line = strtok_s(NULL, "\n", &context);
+			if (lineCount == 2) strcat_s(tmpSeq, "\n");
+			lineCount++;
+		}
+		fprintf(stdout, "%s\n", tmpSeq);
+	}
+
+	return res;
+}
+
+int cmd_dismount(int *index, int argc, char* argv[])
+{
+	int force = 0;
+	int res;
+
+	(*index)++;
+	if (*index < argc)
+		letter = (UCHAR)*argv[*index];
+	else
+		usage();
+
+	res = MVOL_DismountVolume(letter, force);
+
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed MVOL_DismountVolume. Err=%u\n", res);
+	}
+
+	return res;
+}
+
+int cmd_release_vol(int *index, int argc, char* argv[])
+{
+	int res;
+
+	(*index)++;
+	if (*index < argc)
+		letter = (UCHAR)*argv[*index];
+	else
+		usage();
+
+	res = MVOL_MountVolume(letter);
+	if (ERROR_SUCCESS == res) {
+		if (ERROR_SUCCESS == delete_volume_reg(letter)) {
+			fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", letter);
+		}
+	}
+	return res;
+}
+
+int cmd_disk_error(int *index, int argc, char* argv[])
+{
+	SIMULATION_DISK_IO_ERROR sdie = { 0, };
+
+	(*index)++;
+	// get parameter 1 (DiskI/O error flag)
+	if (*index < argc) {
+		sdie.ErrorFlag = atoi(argv[*index]);
+		(*index)++;
+		// get parameter 2 (DiskI/O error Type)
+		if (*index < argc) {
+			sdie.ErrorType = atoi(argv[*index]);
+			(*index)++;
+			// get parameter 3 (DiskI/O error count)
+			if (*index < argc) {
+				sdie.ErrorCount = atoi(argv[*index]);
+			}
+			else {
+				disk_error_usage();
+			}
+		}
+		else {
+			disk_error_usage();
+		}
+	}
+	else {
+		disk_error_usage();
+	}
+	return MVOL_SimulDiskIoError(&sdie);
+}
+
+int cmd_bsrlock_status(int *index, int argc, char* argv[])
+{
+	return GetBsrlockStatus();
+}
+
+int cmd_info(int *index, int argc, char* argv[])
+{
+	int res = 0;
+
+	(*index)++;
+	if (!strcmp(argv[*index], "--verbose"))
+		verbose++;
+
+	res = MVOL_GetVolumesInfo(verbose);
+	if (res != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed MVOL_InitThread. Err=%u\n", res);
+
+	}
+	return res;
+}
+
+int cmd_driver_install(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc)
+		return driver_Install_Inf(L"DefaultInstall", argv[*index]);
+	else
+		usage();
+}
+
+int cmd_driver_uninstall(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc)
+		return driver_Install_Inf(L"DefaultUninstall", argv[*index]);
+	else
+		usage();
+}
+
+int cmd_md5(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc)
+		return generating_md5(argv[*index]);
+	else
+		usage();
+}
+#endif
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
+struct cmd_struct {
+	const char *cmd;
+	int(*fn) (int *, int, char **);
+	const char *options;
+	const char *desc;
+	const char *example;
+};
+
+static struct cmd_struct commands[] = {
+	{ "/get_log", cmd_get_log, "{provider name}\n\t\t{provider name} {resource name|out of sync}\n\t\t{provider name} {resource name} {out of sync}", "", "\"bsr\" or \"bsr r0\" or \"bsr r0 1\"" },
+#ifdef _DEBUG_OOS
+	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log" },
+	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000" },
+#endif
+	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"" },
+	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"" },
+	{ "/maxlogfile_cnt", cmd_maxlogfile_cnt, "{max file count}", "", "10" },
+	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{setting} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"" },
+	{ "/get_log_info", cmd_get_log_info, "", "", "" },
+	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"" },
+#ifdef _WIN
+	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"" },
+	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data" },
+	{ "/get_volume_size", cmd_get_volume_size, "", "", "" },
+	{ "/delaydack_enable", cmd_delaydack_enable, "{address}", "", "10.10.1.10" },
+	{ "/nodelayedack", cmd_nodelayedack, "{address}", "", "10.10.1.10" },
+	{ "/letter", cmd_letter, "{letter}", "", "E" },
+	{ "/l", cmd_letter, "{letter}", "", "E" },
+	{ "/proc/bsr", cmd_proc, "", "", "" },
+	{ "/status", cmd_status, "", "", "" },
+	{ "/s", cmd_status, "", "", "" },
+	{ "/dismount", cmd_dismount, "{letter}", "", "E" },
+	{ "/release_vol", cmd_release_vol, "{letter}", "", "E" },
+	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100" },
+	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "" },
+	{ "/info", cmd_info, "{verbose}", "", "--verbose" },
+	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.sys\"" },
+	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.sys\"" },
+	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"" }
+#endif
+};
+
+static void usage()
+{
+	int i;
+	printf("usage: bsrcon cmds options \n\n"
+		"cmds:\n");
+
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		printf("\t%s %s\n", commands[i].cmd, commands[i].options);
+		if (commands[i].cmd == "/minlog_lv") {
+			printf("\t\tlevel info,");
+			for (int i = 0; i < LOG_DEFAULT_MAX_LEVEL; i++) {
+				printf(" %s(%d)", g_default_lv_str[i], i);
+			}
+			printf("\n");
+		}
+		else if (commands[i].cmd == "/dbglog_ctgr") {
+			printf("\t\tcategory info,");
+			for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+				printf(" %s", g_log_category_str[i]);
+			}
+			printf("\n");
+		}
+	}
+
+	printf("examples:\n");
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		printf("\tbsrcon %s %s\n", commands[i].cmd, commands[i].example);
+	}
+
+	exit(ERROR_INVALID_PARAMETER);
+}
+
+#ifdef _WIN
+DWORD main(int argc, char* argv[])
+#else
+int main(int argc, char* argv[])
 #endif
 {
-	DWORD	res = ERROR_SUCCESS;
-	int  	argIndex = 0;
-	char	GetLog = 0;
-	char	OosTrace = 0;
-	char	*ProviderName = NULL;
-	char	*resourceName = NULL;
-	// DW-1921
-	char	GetLogInfo = 0;
-	char	SetMinLogLv = 0;
-	char	SetCliLogFileMaxCount = 0;
-	char	SetLogFileMaxCount = 0;
-	char	SetDebugLogCategory = 0;
-	LOGGING_MIN_LV lml = { 0, };
-	DEBUG_LOG_CATEGORY dlc = { 0, };
-	CLI_LOG_MAX_COUNT lmc = { 0, };
-	int		LogFileCount = 0;
-	char	HandlerUseFlag = 0;
-	HANDLER_INFO hInfo = { 0, };
-#ifdef _WIN
-	UCHAR	Letter = 'C';
-	char	GetVolumeSizeFlag = 0;
-	char	ProcBsrFlag = 0;
-	char	ProcBsrFlagWithLetter = 0;
-    char    DelayedAckEnableFlag = 0;
-    char    DelayedAckDisableFlag = 0;
-	char    ReleaseVolumeFlag = 0, DismountFlag = 0;
-	char	SimulDiskIoErrorFlag = 0;
-	char	BsrlockUse = 0;
-    char    *addr = NULL;
-	char	WriteLog = 0;
-	char	*LoggingData = NULL;
-	char	VolumesInfoFlag = 0;
-	char	Bsrlock_status = 0;
-	char	Verbose = 0;
-	int     Force = 0;
-	SIMULATION_DISK_IO_ERROR sdie = { 0, };
-	int		bBsrlock = 0;
-#endif
-#ifdef _DEBUG_OOS
-	char	ConvertOosLog = 0;
-	char	*pSrcFilePath = NULL;	
-	char	SearchOosLog = 0;
-	char	*sector = NULL;
-#endif
+	DWORD res = ERROR_SUCCESS;
+	int argIndex = 0, commandIndex = 0;
 
 	if (argc < 2)
 		usage();
 
+	struct cmd_struct *cmd = NULL;
+
 	for (argIndex = 1; argIndex < argc; argIndex++) {
-		if (strcmp(argv[argIndex], "/get_log") == 0) {
-			argIndex++;
-			GetLog++;
-
-			if (argIndex < argc)
-				ProviderName = argv[argIndex];
-			else
-				usage();
-			argIndex++;
-
-			// DW-1629
-			for (int num = 0; num < 2; num++) {
-				if (argIndex < argc) {
-
-#ifdef _DEBUG_OOS
-					if (strcmp(argv[argIndex], "oos") == 0)
-						OosTrace++;
-					else if (!resourceName) {
-#else
-					if (!resourceName) {
-#endif
-						resourceName = argv[argIndex];
-						//6 additional parsing data length (">bsr ")
-						if (strlen(resourceName) > MAX_PATH - 6)
-							usage();
-					}
-					else
-						usage();
-
-					argIndex++;
-				}
-				else
-					break;
-			}
-
-		}
-#ifdef _DEBUG_OOS
-		else if (strcmp(argv[argIndex], "/convert_oos_log") == 0) {
-			argIndex++;
-			ConvertOosLog++;
-
-			// Get oos log path
-			if (argIndex < argc)
-				pSrcFilePath = argv[argIndex];
-			else
-				usage();
-		}
-		else if (strcmp(argv[argIndex], "/search_oos_log") == 0) {
-			argIndex++;
-			SearchOosLog++;
-
-			// Get oos log path
-			if (argIndex < argc)
-				pSrcFilePath = argv[argIndex];
-			else
-				usage();
-
-			// Get oos search sector
-			argIndex++;
-			if (argIndex < argc)
-				sector = argv[argIndex];
-			else
-				usage();
-		}
-#endif
-		else if (strcmp(argv[argIndex], "/minlog_lv") == 0) {
-			argIndex++;
-			SetMinLogLv++;
-
-			// first argument indicates logging type.
-			if (argIndex < argc) {
-				if (strcmp(argv[argIndex], "sys") == 0) {
-					lml.nType = LOGGING_TYPE_SYSLOG;
-				}
-				else if (strcmp(argv[argIndex], "dbg") == 0) {
-					lml.nType = LOGGING_TYPE_DBGLOG;
-				}
-				else
-					usage();				
-			}
-
-			// second argument indicates minimum logging level.
-			argIndex++;
-			if (argIndex < argc) {
-				lml.nErrLvMin = atoi(argv[argIndex]);
-			}
-			else
-				usage();
-		}
-		// BSR-605
-		else if (strcmp(argv[argIndex], "/climaxlogfile_cnt") == 0) {
-			argIndex++;
-			SetCliLogFileMaxCount++;
-			if (argIndex < argc) {
-				if (strcmp(argv[argIndex], "adm") == 0) {
-					lmc.nType = BSR_ADM_LOG_FILE_MAX_COUNT;
-				}
-				else if (strcmp(argv[argIndex], "setup") == 0) {
-					lmc.nType = BSR_SETUP_LOG_FILE_MAX_COUNT;
-				}
-				else if (strcmp(argv[argIndex], "meta") == 0) {
-					lmc.nType = BSR_META_LOG_FILE_MAX_COUNT;
-				}
-				else
-					usage();
-			}
-
-			argIndex++;
-			if (argIndex < argc) {
-				lmc.nMaxCount = atoi(argv[argIndex]);
-			}
-			else
-				usage();
-		}
-
-		// BSR-579
-		else if (strcmp(argv[argIndex], "/maxlogfile_cnt") == 0) {
-			SetLogFileMaxCount++;
-			argIndex++;
-			// BSR-618
-			if (argIndex < argc) {
-				LogFileCount = atoi(argv[argIndex]);
-			}
-			else
-				usage();
-		}
-		// BSR-654
-		else if (strcmp(argv[argIndex], "/dbglog_ctgr") == 0)
-		{
-			int i;
-
-			argIndex++; 
-			if ((argIndex + 1) < argc) {
-				if (strcmp(argv[argIndex], "enable") == 0)
-				{
-					SetDebugLogCategory++;
-					dlc.nType = 0;
-				}
-				else if (strcmp(argv[argIndex], "disable") == 0)
-				{
-					SetDebugLogCategory++;
-					dlc.nType = 1;
-				}
-				else
-					usage();
-
-				if (SetDebugLogCategory) {
-					for (; argIndex < argc; argIndex++) {
-						for (i = 0; i < LOG_CATEGORY_MAX; i++) {
-#ifdef _WIN
-							if (_strcmpi(argv[argIndex], g_log_category_str[i]) == 0) {
-#else
-							if (strcasecmp(argv[argIndex], g_log_category_str[i]) == 0) {
-#endif
-								dlc.nCategory += 1 << i;
-								break;
-							}
-#ifdef _WIN
-							else if (_strcmpi(argv[argIndex], "all") == 0) {
-#else
-							else if (strcasecmp(argv[argIndex], "all") == 0) {
-#endif
-								dlc.nCategory = -1;
-								break;
-							}
-						}
-					}
+		for (commandIndex = 0; commandIndex < ARRAY_SIZE(commands); commandIndex++) {
+			if (!strcmp(commands[commandIndex].cmd, argv[argIndex])) {
+				cmd = &commands[commandIndex];
+				if (cmd) {
+					res = cmd->fn(&argIndex, argc, argv);
+					if (res)
+						return res;
 				}
 			}
-			else
-				usage(); 
 		}
-		else if (!strcmp(argv[argIndex], "/get_log_info")) {
-			GetLogInfo++;
-		}
-		else if (strcmp(argv[argIndex], "/handler_use") == 0) {
-			HandlerUseFlag++;
-			argIndex++;
 
-			if (argIndex < argc) {
-				int use = atoi(argv[argIndex]);
-				if (use < 0 || use > 1) {
-					fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-					usage();
-				} else 
-					hInfo.use = use;
-			} else
-				usage();
-		}
-#ifdef _WIN
-		// BSR-71
-		else if (strcmp(argv[argIndex], "/bsrlock_use") == 0) {
-			BsrlockUse++;
-			argIndex++;
-
-			if (argIndex < argc) {
-				bBsrlock = atoi(argv[argIndex]);
-				if (bBsrlock < 0 || bBsrlock > 1) {
-					fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-					usage();
-				}
-			} else
-				usage();
-		}
-		else if (strcmp(argv[argIndex], "/write_log") == 0) {
-			argIndex++;
-			WriteLog++;
-			
-			// Get eventlog provider name.
-			if (argIndex < argc)
-				ProviderName = argv[argIndex];
-			else
-				usage();
-
-			// Get eventlog data to be written.
-			argIndex++;
-			if (argIndex < argc)
-				LoggingData = argv[argIndex];
-			else
-				usage();
-		}
-		else if (strcmp(argv[argIndex], "/get_volume_size") == 0) {
-			GetVolumeSizeFlag++;
-		}
-		else if (strcmp(argv[argIndex], "/delayedack_enable") == 0) {
-			DelayedAckEnableFlag++;
-			argIndex++;
-
-			if (argIndex < argc)
-				addr = argv[argIndex];
-			else
-				usage();
-		}
-		else if (strcmp(argv[argIndex], "/nodelayedack") == 0) {
-			DelayedAckDisableFlag++;
-			argIndex++;
-
-			if (argIndex < argc)
-				addr = argv[argIndex];
-			else
-				usage();
-		}
-		else if (!_stricmp(argv[argIndex], "/letter") || !_stricmp(argv[argIndex], "/l")) {
-			argIndex++;
-
-			if (argIndex < argc)
-				Letter = (UCHAR) *argv[argIndex];
-			else
-				usage();
-		}
-		
-		else if (!strcmp(argv[argIndex], "/proc/bsr")) {
-			ProcBsrFlag++;
-		}
-		else if (!strcmp(argv[argIndex], "/status") || !strcmp(argv[argIndex], "/s")) {
-			ProcBsrFlagWithLetter++;
-		}
-		else if (!_stricmp(argv[argIndex], "/d")) {
-            DismountFlag++;
-            argIndex++;
-
-            if (argIndex < argc)
-                Letter = (UCHAR)*argv[argIndex];
-            else
-                usage();
-        }
-
-		/*
-		else if (!_stricmp(argv[argIndex], "/fd") || !_stricmp(argv[argIndex], "/df")) {
-            Force = 1;
-            DismountFlag++;
-            argIndex++;
-
-            if (argIndex < argc)
-                Letter = (UCHAR)*argv[argIndex];
-            else
-                usage();
-        }
-		*/
-		// BSR-232 rename /m to /release_vol
-        else if (!_stricmp(argv[argIndex], "/release_vol")) {
-            ReleaseVolumeFlag++;
-            argIndex++;
-
-            if (argIndex < argc)
-                Letter = (UCHAR)*argv[argIndex];
-            else
-                usage();
-        }
-		else if (!_stricmp(argv[argIndex], "/disk_error")) // Simulate Disk I/O Error
-		{
-			SimulDiskIoErrorFlag++;
-			argIndex++;
-			// get parameter 1 (DiskI/O error flag)
-			if (argIndex < argc) {
-				sdie.ErrorFlag = atoi(argv[argIndex]);
-				argIndex++;
-				// get parameter 2 (DiskI/O error Type)
-				if (argIndex < argc) {
-					sdie.ErrorType = atoi(argv[argIndex]);
-					argIndex++;
-					// get parameter 3 (DiskI/O error count)
-					if (argIndex < argc) {
-						sdie.ErrorCount = atoi(argv[argIndex]);
-					} else {
-						disk_error_usage();					
-					}
-				} else {
-					disk_error_usage();
-				}
-			} else {
-				disk_error_usage();
-			}
-			
-		}
-		else if (!strcmp(argv[argIndex], "/bsrlock_status")) {
-			Bsrlock_status++;
-		}
-		else if (!strcmp(argv[argIndex], "/info")) {
-			VolumesInfoFlag++;
-		}
-		else if (!strcmp(argv[argIndex], "--verbose")) {
-			Verbose++;
-		}
-		// DW-2166
-		else if (!strcmp(argv[argIndex], "/driver_install"))
-		{
-			argIndex++;
-			if (argIndex < argc)
-				return DriverInstallInf(L"DefaultInstall", argv[argIndex]);
-			else
-				usage();
-		}
-		else if (!strcmp(argv[argIndex], "/driver_uninstall"))
-		{
-			argIndex++;
-			if (argIndex < argc)
-				return DriverInstallInf(L"DefaultUninstall", argv[argIndex]);
-			else
-				usage();
-		}
-		else if (!strcmp(argv[argIndex], "/md5"))
-		{
-			argIndex++;
-			if (argIndex < argc)
-				return generating_md5(argv[argIndex]);
-			else
-				usage();
-		}
-#endif
-		else {
+		if (!cmd) {
 			printf("Please check undefined arg[%d]=(%s)\n", argIndex, argv[argIndex]);
-		}
-	}
-
-
-	if (SetMinLogLv) {
-		res = MVOL_SetMinimumLogLevel(&lml);
-	}
-
-	if (GetLog) {
-		res = MVOL_GetBsrLog(ProviderName, resourceName, OosTrace);
-	}
-	
-	// BSR-579
-	if (SetLogFileMaxCount) {
-		res = MVOL_SetLogFileMaxCount(LogFileCount);
-	}
-
-	// BSR-605
-	if (SetCliLogFileMaxCount) {
-		res = CLI_SetLogFileMaxCount(lmc.nType, lmc.nMaxCount);
-	}
-
-	// BSR-654
-	if (SetDebugLogCategory)
-	{
-		res = MVOL_SetDebugLogCategory(&dlc);
-	}
-
-	// DW-1921
-	if (GetLogInfo) {
-		int sys_evt_lv = 0;
-		int dbglog_lv = 0;
-		int log_max_count = 0;
-		int cli_log_max_count = 0;
-		int dbg_ctgr = 0;
-
-		// DW-2008
-		if (GetLogLevel(&sys_evt_lv, &dbglog_lv)) {
-			printf("Current log level.\n");
-			printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
-				g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
-
-			printf("Number of log files that can be saved.\n");
-			printf("Maximum size of one log file is 50M.\n"); 
-			// BSR-579
-			if (GetLogFileMaxCount(&log_max_count))
-				printf("    bsrdriver : %d\n", log_max_count);
-			else
-				printf("Failed to get log file max count\n");
-
-			// BSR-605
-			if (GetCliLogFileMaxCount(&cli_log_max_count)) {
-				printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
-				printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
-				printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
-			}
-			else
-				printf("Failed to get cli log file max count\n");
-
-			if (GetDebugLogEnableCategory(&dbg_ctgr)) {
-				printf("Output category during debug log.\n");
-				printf("    category :");
-				for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
-					if (dbg_ctgr & (1 << i)) {
-						printf(" %s", g_log_category_str[i]);
-					}
-				}
-				printf("\n");
-			}
-			else
-				printf("Failed to get debug log enable category\n");
-		}
-		else
-			printf("Failed to get log level.\n");
-	}
-
-
-#ifdef _DEBUG_OOS
-	if (SearchOosLog) {
-		res = MVOL_SearchOosLog((LPCTSTR)pSrcFilePath, (LPCTSTR)sector);
-	}
-#endif
-
-	if (HandlerUseFlag) {
-		res = MVOL_SetHandlerUse(&hInfo);
-	}
-
-#ifdef _WIN
-
-	// BSR-71
-	if (BsrlockUse) {
-		res = MVOL_BsrlockUse(bBsrlock);
-	}
-
-	if (GetVolumeSizeFlag) {
-		MVOL_VOLUME_INFO	srcVolumeInfo;
-		LARGE_INTEGER		volumeSize;
-
-		printf("GET VOLUME SIZE\n");
-
-		memset(&srcVolumeInfo, 0, sizeof(MVOL_VOLUME_INFO));
-
-		res = MVOL_GetVolumeInfo(Letter, &srcVolumeInfo);
-		if (res) {
-			printf("cannot get src volume info, Drive=%c:, err=%d\n",
-				Letter, GetLastError());
-			return res;
+			break;
 		}
 
-		volumeSize.QuadPart = 0;
-		res = MVOL_GetVolumeSize(srcVolumeInfo.PhysicalDeviceName, &volumeSize);
-		if (res) {
-			printf("cannot MVOL_GetVolumeSize, err=%d\n", res);
-			return res;
-		}
-		else
-			printf("VolumeSize = %I64d\n", volumeSize.QuadPart);
-
-		return res;
+		cmd = NULL;
 	}
 
-	if (ProcBsrFlag) {
-		MVOL_VOLUME_INFO VolumeInfo = {0,};
-
-		res = MVOL_GetStatus( &VolumeInfo );
-		if( res != ERROR_SUCCESS ) {
-			fprintf( stderr, "Failed MVOL_GetStatus. Err=%u\n", res );
-		}
-		else {
-			fprintf( stdout, "%s\n", VolumeInfo.Seq );
-		}
-
-		return res;
-	}
-
-	if (ProcBsrFlagWithLetter) {
-		MVOL_VOLUME_INFO VolumeInfo = { 0, };
-		CHAR tmpSeq[sizeof(VolumeInfo.Seq)] = { NULL };
-		CHAR *line, *cline;
-		CHAR *context = NULL;
-		CHAR buffer[2] = { NULL };
-
-		res = MVOL_GetStatus(&VolumeInfo);
-		if (res != ERROR_SUCCESS) {
-			fprintf(stderr, "Failed MVOL_GetStatus. Err=%u\n", res);
-		}
-		else {
-			int lineCount = 1;
-			line = strtok_s(VolumeInfo.Seq, "\n", &context);
-			while (line) {
-				if (strstr(line, ": cs:")) {
-					cline = (char *)malloc(strlen(line) + 1);
-					strcpy_s(cline, strlen(line) + 1, line);
-					buffer[0] = atoi(strtok_s(NULL, ":", &cline)) + 67;
-					buffer[1] = '\0';
-					strcat_s(tmpSeq, buffer);
-				}
-
-				strcat_s(tmpSeq, line);
-				strcat_s(tmpSeq, "\n");
-				line = strtok_s(NULL, "\n", &context);
-				if (lineCount == 2) strcat_s(tmpSeq, "\n");
-				lineCount++;
-			}
-			fprintf(stdout, "%s\n", tmpSeq);
-		}
-
-		return res;
-	}
-
-    if (DelayedAckEnableFlag) {	
-		res = MVOL_SetDelayedAck(addr, "enable");
-        if (res != ERROR_SUCCESS) {
-            fprintf(stderr, "Cannot enable DelayedAck. Err=%u\n", res);
-        }
-
-        return res;
-    }
-
-    if (DelayedAckDisableFlag) {
-        res = MVOL_SetDelayedAck(addr, "disable");
-        if (res != ERROR_SUCCESS) {
-            fprintf(stderr, "Cannot disable DelayedAck. Err=%u\n", res);
-        }
-
-        return res;
-    }
-
-    if (DismountFlag) {
-        res = MVOL_DismountVolume(Letter, Force);
-
-        if (res != ERROR_SUCCESS) {
-            fprintf(stderr, "Failed MVOL_DismountVolume. Err=%u\n", res);
-        }
-    }
-
-	if (ReleaseVolumeFlag) {
-		res = MVOL_MountVolume(Letter);
-		if (ERROR_SUCCESS == res) {
-			if (ERROR_SUCCESS == DeleteVolumeReg(Letter)) {
-				fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", Letter);
-			}
-		}
-	}
-	if (SimulDiskIoErrorFlag) {
-		res = MVOL_SimulDiskIoError(&sdie);
-	}
-
-#ifdef _DEBUG_OOS
-	if (ConvertOosLog) {
-		res = MVOL_ConvertOosLog((LPCTSTR)pSrcFilePath);
-	}
-#endif
-
-	if (WriteLog) {
-		res = WriteEventLog((LPCSTR)ProviderName, (LPCSTR)LoggingData);
-	}
-
-	if (VolumesInfoFlag) {
-		res = MVOL_GetVolumesInfo(Verbose);
-		if( res != ERROR_SUCCESS ) {
-			fprintf( stderr, "Failed MVOL_InitThread. Err=%u\n", res );
-		}
-
-		return res;
-	}
-
-	if (Bsrlock_status) {
-		res = GetBsrlockStatus();
-	}
-
-#endif
 	return res;
 }
 
