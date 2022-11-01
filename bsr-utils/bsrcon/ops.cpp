@@ -1145,7 +1145,7 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 			break;
 		}
 
-		if (!ReadFile(hFile, buff, liFileSize.QuadPart, &dwRead, NULL)) {
+		if (!ReadFile(hFile, buff, (DWORD)liFileSize.QuadPart, &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("ReadFile failed, %d \n"), dwRet);
 			break;
@@ -1165,7 +1165,7 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath)
 			strcpy_s(szLineBuf, pLine);
 			// convert callstack by line
 			ConvertCallStack(szLineBuf);
-			WriteFile(hConverted, szLineBuf, strlen(szLineBuf), &dwRead, NULL);
+			WriteFile(hConverted, szLineBuf, (DWORD)strlen(szLineBuf), &dwRead, NULL);
 			WriteFile(hConverted, "\r\n", 2, &dwRead, NULL);
 
 			// go next
@@ -1227,7 +1227,7 @@ VOID getVolumeBsrlockInfo(HANDLE hBsrlock, PWCHAR pszVolumeName)
 			return;
 		}
 
-		if (!DeviceIoControl(hBsrlock, IOCTL_BSRLOCK_GET_STATUS, szDevName, (wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, sizeof(bProtected), &dwRet, NULL)) {
+		if (!DeviceIoControl(hBsrlock, IOCTL_BSRLOCK_GET_STATUS, szDevName, (DWORD)(wcslen(szDevName) + 1) * sizeof(WCHAR), &bProtected, (DWORD)sizeof(bProtected), &dwRet, NULL)) {
 			dwErr = GetLastError();
 			printf("DeviceIoControl Failed for device(%ws), err(%d)\n", szDevName, dwErr);
 			return;
@@ -1239,7 +1239,7 @@ VOID getVolumeBsrlockInfo(HANDLE hBsrlock, PWCHAR pszVolumeName)
 		printf("err3\n");
 	}
 
-print_info:
+//print_info:
 	printf("Mount point: %ws\n", wcslen(szLetter) >= 1 ? szLetter : L"None");
 	printf("Volume Guid: %ws\n", pTemp);
 	printf("Device Name: %ws\n", szDevName);
@@ -1623,6 +1623,9 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	return retVal;
 }
 
+// BSR-973 Add real-time log file logging to disable function MVOL_GetBsrLog.
+// Also, the log format has changed, so modifications are required to use the function MVOL_GetBsrLog.
+#if 0
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
 {
 #ifdef _WIN
@@ -1706,7 +1709,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 		fp = fopen(pszProviderName ,"w");
 		if(fp != NULL) {
 #endif
-			unsigned int loopcnt = min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
+			unsigned int loopcnt = (unsigned int)min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
 			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
 				for (unsigned int i = 0; i <= (loopcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
@@ -1739,7 +1742,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 			else { // pBsrLog->totalcnt > LOGBUF_MAXCNT
 				pBsrLog->totalcnt = pBsrLog->totalcnt%LOGBUF_MAXCNT;
 				// BSR-578 log start point is calculated based on zero.
-				for (unsigned int i = pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i < (LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
+				for (unsigned int i = (unsigned int)pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i < (LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
 					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
@@ -1830,6 +1833,8 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 	return retVal;
 
 }
+#endif
+
 
 #ifdef _WIN
 DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long ullSearchSector)
@@ -1916,7 +1921,7 @@ int WriteSearchLogIfMatch(FILE *hResFile, char * pszLine, unsigned long long ull
 		
 		// write res file.
 #ifdef _WIN
-		if (!WriteFile(hResFile, pszLine, strlen(pszLine), &dwRead, NULL)) {
+		if (!WriteFile(hResFile, pszLine, (DWORD)strlen(pszLine), &dwRead, NULL)) {
 			dwRet = GetLastError();
 
 			_tprintf(_T("WriteFile1 failed, err : %d\n"), dwRet);
@@ -1992,7 +1997,7 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 			break;
 		}
 
-		if (!ReadFile(hSrcFile, buff, liFileSize.QuadPart, &dwRead, NULL)) {
+		if (!ReadFile(hSrcFile, buff, (DWORD)liFileSize.QuadPart, &dwRead, NULL)) {
 			dwRet = GetLastError();
 			_tprintf(_T("ReadFile failed, %d \n"), dwRet);
 			break;

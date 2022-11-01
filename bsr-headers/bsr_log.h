@@ -198,6 +198,9 @@ typedef struct _BSR_LOG {
 // BSR-605
 #define BSR_CLI_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.cli_log_file_max_count"
 
+// BSR-973
+#define BSR_FAST_SYNC_REG	"/etc/bsr.d/.use_fast_sync"
+
 // BSR-584
 #define BSR_LOG_LEVEL_REG		"/etc/bsr.d/.log_level"
 #define BSR_LOG_FILE_MAXCNT_REG	"/etc/bsr.d/.log_file_max_count"
