@@ -17,6 +17,8 @@
 
 static void usage();
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
 #ifdef _WIN
 void disk_error_usage()
 {
@@ -51,7 +53,7 @@ const TCHAR gBsrRegistry[] = _T("System\\CurrentControlSet\\Services\\bsrvflt");
 #ifdef _WIN
 DWORD get_value_of_vflt(TCHAR *target, DWORD *value)
 #else
-DWORD get_value_of_vflt(char *target, DWORD *value)
+DWORD get_value_of_vflt(const char *target, DWORD *value)
 #endif
 {
 	DWORD lResult = ERROR_SUCCESS;
@@ -90,7 +92,7 @@ DWORD get_value_of_vflt(char *target, DWORD *value)
 #ifdef _WIN
 DWORD set_value_of_vflt(TCHAR *target, DWORD *value)
 #else
-DWORD set_value_of_vflt(char *target, DWORD *value)
+DWORD set_value_of_vflt(const char *target, DWORD *value)
 #endif
 {
 	DWORD lResult = ERROR_SUCCESS;
@@ -199,9 +201,9 @@ BOOLEAN get_log_file_max_count(int *max)
 // BSR-605
 BOOLEAN get_cli_log_file_max_count(int *max)
 {
+	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
 #ifdef _WIN
-	DWORD lResult = ERROR_SUCCESS;
 
 	lResult = get_value_of_vflt(_T(BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG), &cli_log_file_max_count);
 #else // _LIN
@@ -220,9 +222,50 @@ BOOLEAN get_cli_log_file_max_count(int *max)
 	return true;
 }
 
+// BSR-973
+DWORD get_fast_sync()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD fast_sync = 1;
+
+#ifdef _WIN
+	lResult = get_value_of_vflt(_T("use_fast_sync"), &fast_sync);
+#else // _LIN
+	// /etc/bsr.d/.use_fast_sync
+	lResult = get_value_of_vflt(BSR_FAST_SYNC_REG, &fast_sync);
+#endif
+	if (ERROR_SUCCESS != lResult && ERROR_FILE_NOT_FOUND != lResult) {
+		return lResult;
+	}
+
+	printf("current fast sync %s (%d)\n", fast_sync ? "enable" : "disable", fast_sync);
+
+	return lResult;
+}
+
+
+// BSR-973
+DWORD set_fast_sync(DWORD fast_sync)
+{
+	DWORD lResult = ERROR_SUCCESS;
+
+#ifdef _WIN
+	lResult = set_value_of_vflt(_T("use_fast_sync"), &fast_sync);
+#else // _LIN
+	// /etc/bsr.d/.use_fast_sync
+	lResult = set_value_of_vflt(BSR_FAST_SYNC_REG, &fast_sync);
+#endif
+	if (ERROR_SUCCESS != lResult) {
+		printf("fast sync setup failed.\n");
+		return lResult;
+	}
+
+	printf("fast sync setup success.\n");
+	return lResult;
+}
 
 // BSR-605 cli log maximum file count settings 
-BOOLEAN cli_set_log_file_max_count(int cli_type, int max)
+DWORD cli_set_log_file_max_count(int cli_type, int max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
@@ -237,7 +280,8 @@ BOOLEAN cli_set_log_file_max_count(int cli_type, int max)
 		adm_max = setup_max = meta_max = 2;
 	}
 	else if (lResult != ERROR_SUCCESS) {
-		return false;
+		printf("cli log file max count setup failed (%d)\n", lResult);
+		return lResult;
 	}
 	else { 
 		adm_max = ((cli_log_file_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
@@ -262,10 +306,11 @@ BOOLEAN cli_set_log_file_max_count(int cli_type, int max)
 	// /etc/bsr.d/.cli_log_file_max_count
 	lResult = set_value_of_vflt(BSR_CLI_LOG_FILE_MAXCNT_REG, &cli_log_file_max_count);
 #endif
-	if (ERROR_SUCCESS != lResult)
-		return false;
+	if (ERROR_SUCCESS != lResult) {
+		printf("cli log file max count setup failed (%d)\n", lResult);
+	}
 
-	return true;
+	return lResult;
 }
 
 // DW-1921
@@ -274,13 +319,6 @@ BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD logLevel = 0;
-#ifdef _WIN
-	HKEY hKey = NULL;
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-#else
-	FILE *fp;
-#endif
 
 #ifdef _WIN
 	get_value_of_vflt(_T("log_level"), &logLevel);
@@ -562,6 +600,8 @@ int generating_md5(char* fullPath)
 UCHAR letter = 'C';
 int verbose = 0;
 
+// BSR-973
+#if 0
 int cmd_get_log(int *index, int argc, char* argv[])
 {
 	char *providerName = NULL;
@@ -602,42 +642,6 @@ int cmd_get_log(int *index, int argc, char* argv[])
 	}
 
 	return MVOL_GetBsrLog(providerName, resourceName, oosTrace);
-}
-
-#ifdef _DEBUG_OOS
-int cmd_convert_oos_log(int *index, int argc, char* argv[])
-{
-	(*index)++;
-
-	// Get oos log path
-	if (*index < argc)
-		return MVOL_ConvertOosLog((LPCTSTR)argv[*index]);
-	else
-		usage();
-}
-
-
-int cmd_serch_oos_log(int *index, int argc, char* argv[])
-{
-	char *srcPath = NULL;
-	char *sector = NULL;
-	
-	(*index)++;
-
-	// Get oos log path
-	if (*index < argc)
-		srcPath = argv[*index];
-	else
-		usage();
-
-	// Get oos search sector
-	(*index)++;
-	if (*index < argc)
-		sector = argv[*index];
-	else
-		usage();
-
-	return MVOL_SearchOosLog((LPCTSTR)srcPath, (LPCTSTR)sector);
 }
 #endif
 
@@ -732,11 +736,11 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 			usage();
 
 		for (; *index < argc; (*index)++) {
-			for (i = 0; i < LOG_CATEGORY_MAX; i++) {
+			for (i = 0; i < (int)ARRAY_SIZE(g_log_category_str); i++) {
 #ifdef _WIN
 				if (_strcmpi(argv[*index], g_log_category_str[i]) == 0) {
 #else
-				if (strcasecmp(argv[argIndex], g_log_category_str[i]) == 0) {
+				if (strcasecmp(argv[*index], g_log_category_str[i]) == 0) {
 #endif
 					dlc.nCategory += 1 << i;
 					break;
@@ -744,18 +748,20 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 #ifdef _WIN
 				else if (_strcmpi(argv[*index], "all") == 0) {
 #else
-				else if (strcasecmp(argv[argIndex], "all") == 0) {
+				else if (strcasecmp(argv[*index], "all") == 0) {
 #endif
 					dlc.nCategory = -1;
 					break;
 				}
-				}
-				}
-		return MVOL_SetDebugLogCategory(&dlc);
 			}
+		}
+		return MVOL_SetDebugLogCategory(&dlc);
+	}
 	else
 		usage();
-		}
+
+	return 0;
+}
 
 int cmd_get_log_info(int *index, int argc, char* argv[])
 {
@@ -830,6 +836,43 @@ int cmd_handler_use(int *index, int argc, char* argv[])
 	return  MVOL_SetHandlerUse(&hInfo);
 }
 #ifdef _WIN
+#ifdef _DEBUG_OOS
+int cmd_convert_oos_log(int *index, int argc, char* argv[])
+{
+	(*index)++;
+
+	// Get oos log path
+	if (*index < argc)
+		return MVOL_ConvertOosLog((LPCTSTR)argv[*index]);
+	else
+		usage();
+}
+
+
+int cmd_serch_oos_log(int *index, int argc, char* argv[])
+{
+	char *srcPath = NULL;
+	char *sector = NULL;
+
+	(*index)++;
+
+	// Get oos log path
+	if (*index < argc)
+		srcPath = argv[*index];
+	else
+		usage();
+
+	// Get oos search sector
+	(*index)++;
+	if (*index < argc)
+		sector = argv[*index];
+	else
+		usage();
+
+	return MVOL_SearchOosLog((LPCTSTR)srcPath, (LPCTSTR)sector);
+}
+#endif
+
 // BSR-71
 int cmd_bsrlock_use(int *index, int argc, char* argv[])
 {
@@ -1083,7 +1126,7 @@ int cmd_info(int *index, int argc, char* argv[])
 	int res = 0;
 
 	(*index)++;
-	if (!strcmp(argv[*index], "--verbose"))
+	if (*index < argc && !strcmp(argv[*index], "--verbose"))
 		verbose++;
 
 	res = MVOL_GetVolumesInfo(verbose);
@@ -1122,7 +1165,22 @@ int cmd_md5(int *index, int argc, char* argv[])
 }
 #endif
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+int cmd_set_fast_sync(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc)
+		return set_fast_sync(atoi(argv[*index]));
+	else
+		usage();
+
+	return 0;
+}
+
+int cmd_get_fast_sync(int *index, int argc, char* argv[])
+{
+	return get_fast_sync();
+}
+
 
 struct cmd_struct {
 	const char *cmd;
@@ -1133,18 +1191,21 @@ struct cmd_struct {
 };
 
 static struct cmd_struct commands[] = {
+	// BSR-973
+#if 0
 	{ "/get_log", cmd_get_log, "{provider name}\n\t\t{provider name} {resource name|out of sync}\n\t\t{provider name} {resource name} {out of sync}", "", "\"bsr\" or \"bsr r0\" or \"bsr r0 1\"" },
-#ifdef _DEBUG_OOS
-	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log" },
-	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000" },
 #endif
 	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"" },
 	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"" },
 	{ "/maxlogfile_cnt", cmd_maxlogfile_cnt, "{max file count}", "", "10" },
-	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{setting} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"" },
+	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"" },
 	{ "/get_log_info", cmd_get_log_info, "", "", "" },
 	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"" },
 #ifdef _WIN
+#ifdef _DEBUG_OOS
+	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log" },
+	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000" },
+#endif
 	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"" },
 	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data" },
 	{ "/get_volume_size", cmd_get_volume_size, "", "", "" },
@@ -1159,11 +1220,13 @@ static struct cmd_struct commands[] = {
 	{ "/release_vol", cmd_release_vol, "{letter}", "", "E" },
 	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100" },
 	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "" },
-	{ "/info", cmd_info, "{verbose}", "", "--verbose" },
-	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.sys\"" },
-	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.sys\"" },
-	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"" }
+	{ "/info", cmd_info, "", "", "" },
+	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"" },
+	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"" },
+	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"" },
 #endif
+	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"" },
+	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "" },
 };
 
 static void usage()
@@ -1172,16 +1235,16 @@ static void usage()
 	printf("usage: bsrcon cmds options \n\n"
 		"cmds:\n");
 
-	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+	for (i = 0; i < (int)ARRAY_SIZE(commands); i++) {
 		printf("\t%s %s\n", commands[i].cmd, commands[i].options);
-		if (commands[i].cmd == "/minlog_lv") {
+		if (!strcmp(commands[i].cmd, "/minlog_lv")) {
 			printf("\t\tlevel info,");
 			for (int i = 0; i < LOG_DEFAULT_MAX_LEVEL; i++) {
 				printf(" %s(%d)", g_default_lv_str[i], i);
 			}
 			printf("\n");
 		}
-		else if (commands[i].cmd == "/dbglog_ctgr") {
+		else if (!strcmp(commands[i].cmd, "/dbglog_ctgr")) {
 			printf("\t\tcategory info,");
 			for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
 				printf(" %s", g_log_category_str[i]);
@@ -1191,7 +1254,7 @@ static void usage()
 	}
 
 	printf("examples:\n");
-	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+	for (i = 0; i < (int)ARRAY_SIZE(commands); i++) {
 		printf("\tbsrcon %s %s\n", commands[i].cmd, commands[i].example);
 	}
 
@@ -1213,13 +1276,14 @@ int main(int argc, char* argv[])
 	struct cmd_struct *cmd = NULL;
 
 	for (argIndex = 1; argIndex < argc; argIndex++) {
-		for (commandIndex = 0; commandIndex < ARRAY_SIZE(commands); commandIndex++) {
+		for (commandIndex = 0; commandIndex < (int)ARRAY_SIZE(commands); commandIndex++) {
 			if (!strcmp(commands[commandIndex].cmd, argv[argIndex])) {
 				cmd = &commands[commandIndex];
 				if (cmd) {
 					res = cmd->fn(&argIndex, argc, argv);
 					if (res)
 						return res;
+					break;
 				}
 			}
 		}

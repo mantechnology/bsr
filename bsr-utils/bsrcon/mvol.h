@@ -76,7 +76,11 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 // BSR-579
 DWORD MVOL_SetLogFileMaxCount(ULONG limit);
+
+// BSR-973
+#if 0
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
+#endif
 
 // BSR-654
 DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE);

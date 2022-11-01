@@ -1623,6 +1623,9 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	return retVal;
 }
 
+// BSR-973 Add real-time log file logging to disable function MVOL_GetBsrLog.
+// Also, the log format has changed, so modifications are required to use the function MVOL_GetBsrLog.
+#if 0
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
 {
 #ifdef _WIN
@@ -1830,6 +1833,8 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 	return retVal;
 
 }
+#endif
+
 
 #ifdef _WIN
 DWORD WriteSearchLogIfMatch(HANDLE hResFile, PCHAR pszLine, unsigned long long ullSearchSector)
