@@ -3757,6 +3757,8 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	int ovr; /* online verify running */
 	int rsr; /* re-sync running */
 	struct crypto crypto = { 0 };
+	bool resched_req_timer = false;
+
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_CONNECTION);
 	if (!adm_ctx.reply_skb)
 		return retcode;
@@ -3815,6 +3817,10 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 #endif
+
+	// BSR-975 do reschedule request timer if ko_count enabled
+	if (old_net_conf->ko_count == 0 && new_net_conf->ko_count != 0)
+		resched_req_timer = true;
 
 	/* re-sync running */
 	rsr = conn_resync_running(connection);
@@ -3885,6 +3891,9 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 
 		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
 			bsr_send_sync_param(peer_device);
+			// BSR-975
+			if (resched_req_timer)
+				mod_timer(&peer_device->device->request_timer, jiffies + HZ);
 	}
 
 	goto out;
