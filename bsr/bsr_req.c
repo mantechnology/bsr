@@ -3129,6 +3129,22 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
         ULONG_PTR pre_send_jif = 0;
 		unsigned int ko_count = 0, timeout = 0;
 
+		rcu_read_lock();
+		nc = rcu_dereference(connection->transport.net_conf);
+		if (nc) {
+			/* effective timeout = ko_count * timeout */
+			if (connection->cstate[NOW] == C_CONNECTED) {
+				ko_count = nc->ko_count;
+				timeout = nc->timeout;
+				ent = timeout * HZ/10 * ko_count;
+			}
+		}
+		rcu_read_unlock();
+
+		// BSR-975
+		if (!ent)
+			continue;
+
 		/* maybe the oldest request waiting for the peer is in fact still
 		 * blocking in tcp sendmsg.  That's ok, though, that's handled via the
 		 * socket send timeout, requesting a ping, and bumping ko-count in
@@ -3144,34 +3160,21 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 		 * closing barrier ack. */
 		if (!req)
 			req = connection->req_not_net_done;
+		if (req)
+			pre_send_jif = req->pre_send_jif[connection->peer_node_id];
 
+		
+		et = min_not_zero(et, ent);
+		next_trigger_time = time_min_in_future(now,
+				next_trigger_time, pre_send_jif + ent);
+		restart_timer = true;
+
+		// BSR-975 reschedule the request timer even if there are no pending req
 		/* evaluate the oldest peer request only in one timer! */
 		if (req && req->device != device)
 			req = NULL;
 		if (!req)
 			continue;
-
-		rcu_read_lock();
-		nc = rcu_dereference(connection->transport.net_conf);
-		if (nc) {
-			/* effective timeout = ko_count * timeout */
-			if (connection->cstate[NOW] == C_CONNECTED) {
-				ko_count = nc->ko_count;
-				timeout = nc->timeout;
-			}
-		}
-		rcu_read_unlock();
-
-		if (!timeout)
-			continue;
-
-		pre_send_jif = req->pre_send_jif[connection->peer_node_id];
-
-		ent = timeout * HZ/10 * ko_count;
-		et = min_not_zero(et, ent);
-		next_trigger_time = time_min_in_future(now,
-				next_trigger_time, pre_send_jif + ent);
-		restart_timer = true;
 
 		if (net_timeout_reached(req, connection, now, ent, ko_count, timeout)) {
 			begin_state_change_locked(device->resource, CS_VERBOSE | CS_HARD);

@@ -1430,7 +1430,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 			// DW-1153 add error log
 #ifdef _DEBUG_OOS
 			// DW-1992 it is a normal operation, not an error, so it is output at the info level.
-			bsr_info(4, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
+			bsr_debug(4, BSR_LC_BITMAP, peer_device, "%s => Skip to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
 #endif
 			goto out;
 		}
