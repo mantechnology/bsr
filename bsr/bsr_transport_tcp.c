@@ -2302,6 +2302,16 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #ifdef _SEND_BUF
 			if (sent == -EAGAIN) 
 			{
+#ifdef _WIN
+				struct _buffering_attr *buffering_attr = &socket->buffering_attr;
+#else
+				struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
+#endif
+				// BSR-977 correct to resend if -EAGAIN error occurs when no send buffer is used
+				if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
+					if (!bsr_stream_send_timed_out(transport, stream)) 
+						continue;
+				}
 				break;
 			}
 #else
