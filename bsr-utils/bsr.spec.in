@@ -305,6 +305,12 @@ if [ $1 -eq 0 ]; then
 fi
 %endif
 
+# BSR-971 remove bsr modules before uninstall
+lsmod | grep bsr > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    rmmod bsr
+fi
+
 %if %{initscripttype} == "systemd"
 %postun utils
 %systemd_postun
