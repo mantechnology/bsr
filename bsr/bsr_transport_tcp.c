@@ -2254,6 +2254,8 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 	struct socket *socket = tcp_transport->stream[stream];
 	int len = (int)size;
 	int err = -EIO;
+	bool is_sendbuf = false;
+	struct _buffering_attr *buffering_attr;
 
 #ifdef _LIN
 	mm_segment_t oldfs;
@@ -2276,14 +2278,25 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
 #endif
+
+#ifdef _WIN
+	buffering_attr = &socket->buffering_attr;
+#else
+	buffering_attr = &tcp_transport->buffering_attr[stream];
+#endif
+
+	is_sendbuf = (buffering_attr->send_buf_thread_handle != NULL) && (buffering_attr->bab != NULL);
+
 	do {
 		int sent;
-#ifdef _WIN
-		if (stream == DATA_STREAM) {
+
+		// BSR-977 set ko_count only when using the send buffer before sending.
+		if (is_sendbuf) {
 			// ignore rcu_dereference
 			transport->ko_count = transport->net_conf->ko_count;
 		}
 
+#ifdef _WIN
 #ifdef _WIN_SEND_BUF
 		sent = send_buf(transport, stream, socket, (void *)((unsigned char *)(page) +offset), len);
 		// WIN32_SEND_ERR_FIX: move we_should_drop_the_connection to inside of send_buf, because retransmission occurred
@@ -2302,13 +2315,8 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #ifdef _SEND_BUF
 			if (sent == -EAGAIN) 
 			{
-#ifdef _WIN
-				struct _buffering_attr *buffering_attr = &socket->buffering_attr;
-#else
-				struct _buffering_attr *buffering_attr = &tcp_transport->buffering_attr[stream];
-#endif
 				// BSR-977 correct to resend if -EAGAIN error occurs when no send buffer is used
-				if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
+				if (!is_sendbuf) {
 					if (!bsr_stream_send_timed_out(transport, stream)) 
 						continue;
 				}
@@ -2329,6 +2337,11 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 		}
 		len    -= sent;
 		offset += sent;
+
+		// BSR-977 set ko_count if no send buffer is used on successful send.
+		if (!is_sendbuf)
+			transport->ko_count = transport->net_conf->ko_count;
+
 	} while (len > 0 /* THINK && peer_device->repl_state[NOW] >= L_ESTABLISHED */);
 #ifdef _LIN
 	set_fs(oldfs);
