@@ -6,4 +6,5 @@
 %define _minor_fix %(echo %kernel_version | awk -F- '{print $2}' | awk -F. '{print $1}')
 # 1161
 %define _next_minor_fix %(echo %_minor_fix | awk '{sum = $1 + 1} {print sum}')
-Requires: kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
+# BSR-971 kmod-bsr depends on bsr-utils
+Requires: bsr-utils, kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
