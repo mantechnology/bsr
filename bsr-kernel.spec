@@ -42,7 +42,7 @@ installed kernel.
 # and have yum/rpm figure out via dependencies, which kmod version should be installed.
 # This is a dirty hack, non generic, and should probably be enclosed in some "if-on-rhel6".
 %define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//;')
-%kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat
+%kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
 
 
 %build

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# BSR-971 stop bsr services and remove modules before uninstall
+
+. /usr/share/debconf/confmodule
+
+case $1 in upgrade|remove|deconfigure)
+	if [ command -v systemctl > /dev/null 2>&1 ]; then
+		systemctl --no-reload disable bsr > /dev/null 2>&1
+		systemctl stop bsr > /dev/null 2>&1
+		systemctl daemon-reload > /dev/null 2>&1
+	else
+		service bsr stop > /dev/null 2>&1
+		chkconfig --del bsr > /dev/null 2>&1
+	fi
+
+	lsmod | grep bsr > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		rmmod bsr
+		if [ $? -ne 0 ]; then
+			exit 1
+		fi	
+	fi
+esac
+if [ "$1" = "failed-upgrade" ] ; then
+	exit 1
+fi
+
+#DEBHELPER#
