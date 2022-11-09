@@ -3865,11 +3865,12 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 		struct bsr_peer_device *peer_device;
 		int vnr;
 
-		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 			bsr_send_sync_param(peer_device);
 			// BSR-975
 			if (resched_req_timer)
 				mod_timer(&peer_device->device->request_timer, jiffies + HZ);
+		}
 	}
 
 	goto out;
