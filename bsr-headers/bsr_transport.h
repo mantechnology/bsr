@@ -154,7 +154,8 @@ struct bsr_transport {
 	atomic_t64 sum_recv;
 	ULONG_PTR sum_start_time;
 	/* These members are intended to be updated by the transport: */
-	unsigned int ko_count;
+	// BSR-977 sets the ko_count based on the stream.
+	unsigned int ko_count[2];
 	ULONG_PTR flags;
 };
 

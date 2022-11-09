@@ -1388,12 +1388,11 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	size = sbuf->pos - sbuf->unsent + sbuf->allocated_size;
 	if (size == 0)
 		return 0;
-
-	if (bsr_stream == DATA_STREAM) {
-    	rcu_read_lock();
-		connection->transport.ko_count = rcu_dereference(connection->transport.net_conf)->ko_count;
-		rcu_read_unlock();
-	}
+	
+	// BSR-977
+    rcu_read_lock();
+	connection->transport.ko_count[bsr_stream] = rcu_dereference(connection->transport.net_conf)->ko_count;
+	rcu_read_unlock();
 
 	msg_flags = sbuf->additional_size ? MSG_MORE : 0;
 #ifdef _LIN
