@@ -11,7 +11,7 @@ Architecture: all
 Section: admin
 Depends: debhelper (>=7),
          dkms (>= 1.9.5),
-         bsr-utils,
+         bsr-utils (= ${binary:Version}),
          curl,
          ${misc:Depends}
 Conflicts: bsr-module-source

@@ -7,4 +7,4 @@
 # 1161
 %define _next_minor_fix %(echo %_minor_fix | awk '{sum = $1 + 1} {print sum}')
 # BSR-971 kmod-bsr depends on bsr-utils
-Requires: bsr-utils, kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
+Requires: bsr-utils = %{version}-%{?release}, kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
