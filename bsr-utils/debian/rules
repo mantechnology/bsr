@@ -48,11 +48,6 @@ override_dh_installinit:
 	dh_installinit -p bsr-utils --name=bsr \
 		--no-restart-on-upgrade --no-start
 
-override_dh_gencontrol:
-	# dh_gencontrol -Nbsr-utils
-	# Add the previous epoch to bsr8-utils
-	dh_gencontrol -pbsr-utils -- -v2:$(PKG_VERSION)
-
 .PHONY: override_dh_auto_configure override_dh_install \
 	override_dh_auto_clean override_dh_installinit \
-	override_dh_gencontrol override_dh_auto_install
+	override_dh_auto_install

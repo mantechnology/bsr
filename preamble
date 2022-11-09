@@ -1,2 +1,2 @@
 # BSR-971 kmod-bsr depends on bsr-utils
-Requires: bsr-utils
+Requires: bsr-utils = %{version}-%{?release}
