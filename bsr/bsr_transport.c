@@ -337,13 +337,13 @@ bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream 
 		return true;
 
 	// BSR-977
-	if (!connection->transport.ko_count)
+	if (!connection->transport.ko_count[stream])
 		return true;
+	drop_it = !--connection->transport.ko_count[stream];
 
-	drop_it = !--connection->transport.ko_count;
 	if (!drop_it) {
-		bsr_err(22, BSR_LC_SOCKET, connection, "Failed to send stream due to [%s/%d] sending time expired, ko = %u",
-			 current->comm, current->pid, connection->transport.ko_count);
+		bsr_err(22, BSR_LC_SOCKET, connection, "Failed to send %s stream due to [%s/%d] sending time expired, ko = %u",
+			stream == DATA_STREAM ? "data" : "meta", current->comm, current->pid, connection->transport.ko_count[stream]);
 		request_ping(connection);
 	}
 
