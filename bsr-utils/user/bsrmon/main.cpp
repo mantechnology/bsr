@@ -99,7 +99,10 @@ void usage()
 		//"   /file\n"
 		"   /show [/t {types[,...]|all}] [/r {resource[,...]|all}] [/j|/json] [/c|/continue]\n"
 		"   /watch {types} [/scroll]\n"
-		"   /report {types} [/f {filename}] [/d {YYYY-MM-DD}] [/s {hh:mm[:ss]}] [/e {hh:mm[:ss]}]\n"
+		"   /report {types} [/f {filename}] [/p {peer_name[,...]}]\n"
+		"                                   [/d {YYYY-MM-DD}]\n"
+		"                                   [/s {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
+		"                                   [/e {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
 		"   /get {all, period, file_size, file_cnt}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
@@ -401,12 +404,6 @@ next:
 // BSR-688 save aggregated data to file
 void MonitorToFile()
 {
-#ifdef _WIN
-	size_t path_size;
-	errno_t result;
-	char bsr_path[MAX_PATH] = {0,};
-#endif
-	char perfpath[MAX_PATH] = {0,};
 	struct resource *res, *res_head;
 	struct tm base_date_local;
 	struct timeb timer_msec;
@@ -418,20 +415,12 @@ void MonitorToFile()
 		return;
 	}
 
-#ifdef _WIN
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result) {
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
-	}
-	strncpy_s(perfpath, bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(perfpath, "log\\perfmon\\");
+	get_perf_path();
 
 	ftime(&timer_msec);
+#ifdef _WIN
 	localtime_s(&base_date_local, &timer_msec.time);
 #else
-	sprintf(perfpath, "/var/log/bsr/perfmon/");
-
-	ftime(&timer_msec);
 	base_date_local = *localtime(&timer_msec.time);
 #endif	
 	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%03d",
@@ -442,14 +431,13 @@ void MonitorToFile()
 	while (res) {
 		char respath[MAX_PATH+RESOURCE_NAME_MAX] = {0,};
 
-		sprintf_ex(respath, "%s%s", perfpath, res->name);
+		sprintf_ex(respath, "%s%s", g_perf_path, res->name);
 #ifdef _WIN
 		CreateDirectoryA(respath, NULL);
 #else // _LIN
 		
 		mkdir(respath, 0777);
 #endif
-
 		// save monitoring status
 		if (GetDebugToFile(IO_STAT, res, respath, curr_time) != 0)
 			goto next;
@@ -472,7 +460,7 @@ next:
 	}
 
 	// save memory monitoring status
-	GetMemInfoToFile(perfpath, curr_time);
+	GetMemInfoToFile(g_perf_path, curr_time);
 	freeResource(res_head);
 }
 
@@ -549,24 +537,11 @@ static pid_t GetRunningPid() {
 #endif
 
 // BSR-688 watching perf file
-void Watch(char *resname, int type, int vnr, bool scroll)
+void Watch(char *resname, enum get_debug_type type, int vnr, bool scroll)
 {
 	char watch_path[512] = {0,};
-	
-	char perf_path[MAX_PATH] = {0,};
-#ifdef _WIN
-	char bsr_path[MAX_PATH] = {0,};
-	size_t path_size;
-	errno_t result;
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result) {
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
-	}
-	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(perf_path, "log\\perfmon\\");
-#else // _LIN
-	sprintf(perf_path, "/var/log/bsr/perfmon/");
-#endif
+
+	get_perf_path();
 
 #ifdef _WIN
 	if (!is_running(true))
@@ -588,42 +563,43 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 
 	clear_screen();
 
+	if (vnr != -1)
+		sprintf_ex(watch_path, "%s%s%svnr%d_", g_perf_path, resname, _SEPARATOR_, vnr);
+	else if (resname)
+		sprintf_ex(watch_path, "%s%s%s", g_perf_path, resname, _SEPARATOR_);
+	else // memory
+		sprintf_ex(watch_path, "%s", g_perf_path);
+
+
+	sprintf_ex(watch_path, "%s%s", watch_path, perf_type_str(type));
+
 	if (type != -1) {
 		switch (type) {
 		case IO_STAT:
-			sprintf_ex(watch_path, "%s%s%svnr%d_IO_STAT", perf_path, resname, _SEPARATOR_, vnr);
 			watch_io_stat(watch_path, scroll);
 			break;
 		case IO_COMPLETE:
-			sprintf_ex(watch_path, "%s%s%svnr%d_IO_COMPLETE", perf_path, resname, _SEPARATOR_,vnr);
 			watch_io_complete(watch_path, scroll);
 			break;
 		case REQUEST:
-			sprintf_ex(watch_path, "%s%s%svnr%d_request", perf_path, resname, _SEPARATOR_,vnr);
 			watch_req_stat(watch_path, scroll);
 			break;
 		case PEER_REQUEST:
-			sprintf_ex(watch_path, "%s%s%svnr%d_peer_request", perf_path, resname, _SEPARATOR_,vnr);
 			watch_peer_req_stat(watch_path, scroll);
 			break;
 		case AL_STAT:
-			sprintf_ex(watch_path, "%s%s%svnr%d_al_stat", perf_path, resname, _SEPARATOR_,vnr);
 			watch_al_stat(watch_path, scroll);
 			break;
 		case NETWORK_SPEED:
-			sprintf_ex(watch_path, "%s%s%snetwork", perf_path, resname, _SEPARATOR_);
 			watch_network_speed(watch_path, scroll);
 			break;
 		case SEND_BUF:
-			sprintf_ex(watch_path, "%s%s%ssend_buffer", perf_path, resname, _SEPARATOR_);
 			watch_sendbuf(watch_path, scroll);
 			break;
 		case MEMORY:
-			sprintf_ex(watch_path, "%smemory", perf_path);
 			watch_memory(watch_path, scroll);
 			break;
 		case RESYNC_RATIO:
-			sprintf_ex(watch_path, "%s%s%svnr%d_resync_ratio", perf_path, resname, _SEPARATOR_, vnr);
 			watch_peer_resync_ratio(watch_path, scroll);
 			break;
 
@@ -631,133 +607,87 @@ void Watch(char *resname, int type, int vnr, bool scroll)
 			usage();
 		}
 	}
-	else {
-		// TODO watch all
-		//watch_all_type = true;
-	}
-
 }
 
-void Report(char *resname, char *file, int type, int vnr, struct time_filter *tf)
-{
-	char filepath[512] = {0,};
-	char perf_path[MAX_PATH] = {0,};
-#ifdef _WIN
-	char bsr_path[MAX_PATH] = {0,};
-	size_t path_size;
-	errno_t result;
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result) {
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
-	}
-	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(perf_path, "log\\perfmon");
-#else
-	sprintf(perf_path, "/var/log/bsr/perfmon");
-#endif
 
-	if (resname)
-		printf("Report %s ", resname);
+void Report(char *resname, char *rfile, enum get_debug_type type, int vnr, struct time_filter *tf, struct peer_stat *peer_list)
+{
+	char dirpath[512] = {0,};
+	char filename[32] = {0,};
+	std::set<std::string> filelist;
+	std::set<std::string>::iterator iter;
+
+	get_perf_path();
+
+	printf("Report %s ", resname ? resname : "");
+	
+	if (rfile) {
+		printf("[%s]\n", rfile);
+		filelist.insert(rfile);
+	} else {
+		if (resname) {
+			sprintf_ex(dirpath, "%s%s", g_perf_path, resname);
+		}
+		else {
+			sprintf_ex(dirpath, "%s", g_perf_path);
+		}
+		if (vnr != -1) {
+			printf("[%s - vnr%u]\n", perf_type_str(type), vnr);
+			sprintf_ex(filename, "vnr%d_%s", vnr, perf_type_str(type));	
+		}
+		else {
+			printf("[%s]\n", perf_type_str(type));
+			sprintf_ex(filename, "%s", perf_type_str(type));
+		}
+
+		// BSR-940 copy to performance data file tmp_* and get list
+		get_filelist(dirpath, filename, &filelist, true);
+
+		if (filelist.size() == 0) {
+			fprintf(stderr, "Fail to get bsr performance file list.\n");
+			return;
+		}
+	}
+
 	switch (type) {
 	case IO_STAT:
-		if (!file) {
-			printf("[IO STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s%s%s%svnr%d_IO_STAT", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		
-		read_io_stat_work(filepath, tf);
+		read_io_stat_work(filelist, tf);
 		break;
 	case IO_COMPLETE:
-		if (!file) {
-			printf("[IO COMPLETE - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s%s%s%svnr%d_IO_COMPLETE", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_io_complete_work(filepath, tf);
+		read_io_complete_work(filelist, tf);
 		break;
 	case REQUEST:
-		if (!file) {
-			printf("[REQUEST STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s%s%s%svnr%d_request", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_req_stat_work(filepath, resname, tf);
+		read_req_stat_work(filelist, resname, peer_list, tf);
 		break;
 	case PEER_REQUEST:
-		if (!file) {
-			printf("[PEER REQUEST STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s%s%s%svnr%d_peer_request", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_peer_stat_work(filepath, resname, PEER_REQUEST, tf);
-		
+		read_peer_req_stat_work(filelist, resname, peer_list, tf);
 		break;
 	case AL_STAT:
-		if (!file) {
-			printf("[AL STAT - vnr%u]\n", vnr);
-			sprintf_ex(filepath, "%s%s%s%svnr%d_al_stat", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_al_stat_work(filepath, tf);
-		break;
-	case NETWORK_SPEED:
-		if (!file) {
-			printf("[NETWORK SPEED]\n");
-			sprintf_ex(filepath, "%s%s%s%snetwork", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_peer_stat_work(filepath, resname, NETWORK_SPEED, tf);
-
-		break;
-	case SEND_BUF:
-		if (!file) {
-			printf("[SEND BUFFER]\n");
-			sprintf_ex(filepath, "%s%s%s%ssend_buffer", perf_path, _SEPARATOR_, resname, _SEPARATOR_);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("[%s]\n", filepath);
-		}
-		read_peer_stat_work(filepath, resname, SEND_BUF, tf);
-		break;
-	case MEMORY:
-		if (!file) {
-			sprintf_ex(filepath, "%s%smemory", perf_path, _SEPARATOR_);
-			printf("Report [MEMORY]\n");
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("Report [%s]\n", filepath);
-		}
-		
-		read_memory_work(filepath, tf);
+		read_al_stat_work(filelist, tf);
 		break;
 	case RESYNC_RATIO:
-		if (!file) {
-			sprintf_ex(filepath, "%s%s%s%svnr%d_resync_ratio", perf_path, _SEPARATOR_, resname, _SEPARATOR_, vnr);
-			printf("Report [RESYNC_RATIO - vnr%u]\n", vnr);
-		} else {
-			sprintf_ex(filepath, "%s", file);
-			printf("Report [%s]\n", filepath);
-		}
-
-		read_peer_stat_work(filepath, resname, RESYNC_RATIO, tf);
+		read_resync_ratio_work(filelist, resname, peer_list, tf);
 		break;
+	case NETWORK_SPEED:
+		read_network_stat_work(filelist, resname, peer_list, tf);
+		break;
+	case SEND_BUF:
+		read_sendbuf_stat_work(filelist, resname, peer_list, tf);
+		break;
+	case MEMORY:
+		read_memory_work(filelist, tf);
+		break;
+	
 	default:
 		usage();
 	}
-	
+
+	// BSR-940 remove tmp_* file
+	if (!rfile) {
+		for (iter = filelist.begin(); iter != filelist.end(); iter++)
+			remove(iter->c_str());
+	}
+
 }
 
 
@@ -1215,6 +1145,39 @@ struct resource * get_res_list(char * res_list)
 	return res_head;
 }
 
+// BSR-940 parse peer name list
+struct peer_stat * get_conn_list(char * conn_list)
+{
+	char *ptr, *save_ptr;
+	struct peer_stat *peer_head = NULL, *peer_cur = NULL, *peer_end = NULL;
+	ptr = strtok_r(conn_list, ",", &save_ptr);
+	while (ptr) {
+		peer_cur = (struct peer_stat *)malloc(sizeof(struct peer_stat));
+		if (!peer_cur) {
+			fprintf(stderr, "Failed to malloc peer_stat, size : %lu\n", sizeof(struct peer_stat));
+			return NULL;
+		}
+		memset(peer_cur, 0, sizeof(struct peer_stat));
+#ifdef _WIN
+		strcpy_s(peer_cur->name, ptr);
+#else // _LIN
+		strcpy(peer_cur->name, ptr);
+#endif		
+		peer_cur->next = NULL;
+		if (peer_head == NULL) {
+			peer_head = peer_end = peer_cur;
+		}
+		else {
+			peer_end->next = peer_cur;
+			peer_end = peer_cur;
+		}
+		
+		ptr = strtok_r(NULL, ",", &save_ptr);
+		
+	}
+	return peer_head;
+}
+
 
 #ifdef _WIN
 int main(int argc, char* argv[])
@@ -1227,6 +1190,8 @@ int main(int argc, char* argv[])
 
 	if (argc < 2)
 		usage();
+
+	init_perf_type_str();
 
 	for (argIndex = 1; argIndex < argc; argIndex++) {
 		if (!strcmp(argv[argIndex], "/print")) {
@@ -1306,7 +1271,7 @@ int main(int argc, char* argv[])
 						usage();
 				}
 
-				Watch(res_name, type, vnr, b_scroll);
+				Watch(res_name, (enum get_debug_type)type, vnr, b_scroll);
 				break;
 			} else
 				usage();
@@ -1395,6 +1360,7 @@ int main(int argc, char* argv[])
 			char *file_name = NULL;
 			int vol_num = -1;
 			struct time_filter tf;
+			struct peer_stat *peer_list = NULL;
 
 			memset(&tf, 0, sizeof(struct time_filter));
 
@@ -1410,7 +1376,7 @@ int main(int argc, char* argv[])
 						usage();
 					}
 					res_name = argv[argIndex];
-					if (type <= REQUEST) {
+					if (type <= RESYNC_RATIO) {
 						// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
 						if (++argIndex < argc) {
 							vol_num = atoi(argv[argIndex]);
@@ -1431,14 +1397,23 @@ int main(int argc, char* argv[])
 						case 'f':
 							file_name = argv[argIndex];
 							break;
+						case 'p': // BSR-940 peer_name list
+							peer_list = get_conn_list(argv[argIndex]);
+							break;
 						case 'd':
-							tf.date = argv[argIndex];
+#ifdef _WIN
+							strcpy_s(tf.start_date, argv[argIndex]);
+							strcpy_s(tf.end_date, argv[argIndex]);
+#else
+							strcpy(tf.start_date, argv[argIndex]);
+							strcpy(tf.end_date, argv[argIndex]);
+#endif
 							break;
 						case 's':
-							parse_timestamp(argv[argIndex], &tf.start_time, DEF_START_TIME);
+							parse_timestamp(argv[argIndex], tf.start_date, &tf.start_time);
 							break;
 						case 'e':
-							parse_timestamp(argv[argIndex], &tf.end_time, DEF_END_TIME);
+							parse_timestamp(argv[argIndex], tf.end_date, &tf.end_time);
 							break;
 						default:
 							usage();
@@ -1448,8 +1423,30 @@ int main(int argc, char* argv[])
 					}
 				}
 
-				Report(res_name, file_name, type, vol_num, &tf);
+				if (!(strlen(tf.start_date) && strlen(tf.end_date))) {
+					if (strlen(tf.start_date) || strlen(tf.end_date))
+						goto report_fail;
+				}
+
+				if (!(tf.start_time.t_hour && tf.end_time.t_hour)) {
+					if (tf.start_time.t_hour || tf.end_time.t_hour)
+						goto report_fail;
+				}
+
+
+				Report(res_name, file_name, (enum get_debug_type)type, vol_num, &tf, peer_list);
+
 				break;
+
+			report_fail:
+				printf("invalid parameters.\n"
+					"usage examples: \n"
+					"/s hh:mm[:ss] /e hh:mm[:ss] \n"
+					"/s YYYY-MM-DD /e YYYY-MM-DD \n"
+					"/s YYYY-MM-DD_hh:mm[:ss] /e YYYY-MM-DD_hh:mm[:ss] \n"
+					);
+				printf("\n");
+				exit(ERROR_INVALID_PARAMETER);
 				
 			}
 			else {

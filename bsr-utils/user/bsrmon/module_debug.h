@@ -27,19 +27,6 @@ enum get_info_type
 	VOLUME,
 };
 
-enum get_debug_type
-{
-	IO_STAT,
-	IO_COMPLETE,
-	AL_STAT,
-	PEER_REQUEST,
-	REQUEST,
-	RESYNC_RATIO,
-	NETWORK_SPEED,
-	SEND_BUF,
-	MEMORY,
-	ALL_STAT
-};
 
 #define RESOURCE_NAME_MAX 128
 #define CONNECTION_NAME_MAX 64
@@ -69,6 +56,8 @@ DWORD GetBsrDebugInfo(PBSR_DEBUG_INFO pDebugInfo);
 enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str);
 #endif
 
+// BSR-940
+void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file_list, bool copy);
 void* exec_pipe(enum get_info_type info_type, char *res_name);
 void freeResource(struct resource* res);
 struct resource* GetResourceInfo(char * name);

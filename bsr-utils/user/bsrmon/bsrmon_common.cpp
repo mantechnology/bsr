@@ -1,7 +1,42 @@
 #include "bsrmon.h"
 
-
 char g_perf_path[MAX_PATH];
+
+
+struct type_names {
+	const char * const *names;
+	unsigned int size;
+};
+
+
+// BSR-940 must be same as enum get_debug_type order
+static const char * const __type_names[] = {
+	"IO_STAT", 
+	"IO_COMPLETE", 
+	"al_stat", 
+	"peer_request",
+	"request",
+	"resync_ratio",
+	"network",
+	"send_buffer",
+	"memory",
+	"all",
+};
+
+struct type_names perf_type_names;
+
+void init_perf_type_str()
+{
+	perf_type_names.names = __type_names;
+	perf_type_names.size = sizeof __type_names / sizeof __type_names[0];
+}
+
+const char *perf_type_str(enum get_debug_type t)
+{
+	return (t < 0 || (unsigned int)t >= perf_type_names.size ||
+	        !perf_type_names.names[t]) ?
+	       "?" : perf_type_names.names[t];
+}
 
 static int decode_timestamp(char timestamp[], struct time_stamp *ts)
 {
@@ -20,11 +55,31 @@ static int decode_timestamp(char timestamp[], struct time_stamp *ts)
 	return 0;
 }
 
-int parse_timestamp(char *str, struct time_stamp *ts, const char * def_timestamp)
+int parse_timestamp(char *str, char *date, struct time_stamp *ts)
 {
 	char timestamp[9];
+	char * ptr;
 	if (str) {
-		switch (strlen(str)) {
+		// BSR-940 parse date
+		if (strstr(str, "_")) {
+			ptr = strtok_r(str, "_", &str);
+#ifdef _WIN
+			strcpy_s(date, strlen(ptr) + 1, ptr);
+#else // _LIN
+			strcpy(date, ptr);
+#endif	
+		} 
+		else if (strstr(str, "-")) {
+#ifdef _WIN
+			strcpy_s(date, strlen(str) + 1, str);
+#else // _LIN
+			strcpy(date, str);
+#endif	
+		}
+
+		// BSR-940 parse time
+		if (strstr(str, ":")) {
+			switch (strlen(str)) {
 			case 5:
 				// ex) 00:00
 #ifdef _WIN
@@ -50,23 +105,16 @@ int parse_timestamp(char *str, struct time_stamp *ts, const char * def_timestamp
 				break;
 
 			default:
-#ifdef _WIN
-				strncpy_s(timestamp, def_timestamp, 8);
-#else // _LIN
-				strncpy(timestamp, def_timestamp, 8);
-#endif
 				break;
-		}
-	} else {
-#ifdef _WIN
-		strncpy_s(timestamp, def_timestamp, 8);
-#else // _LIN
-		strncpy(timestamp, def_timestamp, 8);
-#endif
-	}
-	timestamp[8] = '\0';
+			}
+			timestamp[8] = '\0';
 
-	return decode_timestamp(timestamp, ts);
+			return decode_timestamp(timestamp, ts);
+		}
+	}
+
+	return 0;
+	
 }
 
 /*
