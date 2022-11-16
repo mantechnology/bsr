@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <set>
+#include <iostream>
+
 
 #define COLLECTION_TIME_LENGTH 23
-
+#define CONNECTION_NAME_MAX 64
 struct perf_stat {
 	unsigned long long priv;
 	unsigned long long min;
@@ -66,12 +69,23 @@ struct process_info {
 
 #endif
 
-
 struct io_perf_stat {
 	struct perf_stat iops;
 	struct perf_stat kbs;
 	unsigned long long ios;
 	unsigned long long kb;
+};
+
+struct peer_stat{
+	struct peer_stat *next;
+	char name[CONNECTION_NAME_MAX];
+	void * data;
+	int exist;
+};
+struct peer_ack_stat {
+	struct perf_stat pre_send;
+	struct perf_stat acked;
+	struct perf_stat net_done;
 };
 
 struct req_perf_stat {
@@ -86,6 +100,13 @@ struct req_perf_stat {
 	struct perf_stat after_sync_page;
 };
 
+
+struct peer_req_stat{
+	unsigned long long req_cnt;
+	struct perf_stat submit;
+	struct perf_stat bio_endio; 
+	struct perf_stat destroy;
+};
 
 // BSR-765 add AL performance aggregation
 struct al_perf_stat {
@@ -127,14 +148,16 @@ struct perf_field {
 
 
 // for report
-void read_io_stat_work(char *path, struct time_filter *tf);
-void read_io_complete_work(char *path, struct time_filter *tf);
-void read_req_stat_work(char *path, char *resname, struct time_filter *tf);
-void read_memory_work(char *path, struct time_filter *tf);
-// BSR-764
-void read_peer_stat_work(char *path, char *resname, int type, struct time_filter *tf);
+void read_io_stat_work(std::set<std::string> filelist, struct time_filter *tf);
+void read_io_complete_work(std::set<std::string> filelist, struct time_filter *tf);
+void read_req_stat_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
+void read_memory_work(std::set<std::string> filelist, struct time_filter *tf);
 // BSR-765
-void read_al_stat_work(char *path, struct time_filter *tf);
+void read_al_stat_work(std::set<std::string> filelist, struct time_filter *tf);
+void read_peer_req_stat_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
+void read_resync_ratio_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
+void read_network_stat_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
+void read_sendbuf_stat_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
 
 // for watch
 void watch_io_stat(char *path, bool scroll);

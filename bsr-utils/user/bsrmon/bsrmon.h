@@ -40,10 +40,6 @@
 #define fscanf_ex fscanf
 #endif
 
-
-#define DEF_START_TIME	"00:00:00"
-#define DEF_END_TIME	"23:59:59"
-
 struct time_stamp {
 	int t_sec;
 	int t_min;
@@ -53,9 +49,25 @@ struct time_stamp {
 
 // BSR-771
 struct time_filter {
-	char * date;
+	char start_date[11];
+	char end_date[11];
 	struct time_stamp start_time;
 	struct time_stamp end_time;
+};
+
+
+enum get_debug_type
+{
+	IO_STAT,
+	IO_COMPLETE,
+	AL_STAT,
+	PEER_REQUEST,
+	REQUEST,
+	RESYNC_RATIO,
+	NETWORK_SPEED,
+	SEND_BUF,
+	MEMORY,
+	ALL_STAT
 };
 
 static inline void clear_screen()
@@ -69,6 +81,11 @@ static inline void clear_screen()
 
 
 // BSR-771
-int parse_timestamp(char *str, struct time_stamp *ts, const char *def_timestamp);
+int parse_timestamp(char *str, char *date, struct time_stamp *ts);
 int datecmp(char *curr, struct time_stamp *ts);
 void get_perf_path();
+
+// BSR-940
+extern struct type_names perf_type_names;
+extern void init_perf_type_str();
+extern const char *perf_type_str(enum get_debug_type t);

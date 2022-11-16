@@ -2,7 +2,11 @@
 #include "bsrmon.h"
 #include "module_debug.h"
 #include "monitor_collect.h"
-
+#ifdef _WIN
+#include <tchar.h>
+#else
+#include <unistd.h>
+#endif
 #ifdef _WIN
 HANDLE
 OpenDevice(PCHAR devicename)
@@ -645,6 +649,84 @@ fail:
 	return NULL;
 }
 
+
+// BSR-940 get list of performance data files
+void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file_list, bool copy)
+{
+	char filename[MAX_PATH+20] = { 0, };
+	std::set<std::string>::iterator iter;
+#ifdef _WIN
+	WCHAR dir_path_w[MAX_PATH] = { 0, };
+	WCHAR find_file_w[MAX_PATH] = { 0, };
+	HANDLE hFind;
+	WIN32_FIND_DATA FindFileData;
+
+	wsprintf(dir_path_w, L"%S%S%S*", dir_path, _SEPARATOR_, find_file);
+	wsprintf(find_file_w, L"%S", find_file);
+
+	hFind = FindFirstFile(dir_path_w, &FindFileData);
+	if (hFind == INVALID_HANDLE_VALUE){
+		fprintf(stderr, "Failed to open %ws\n", dir_path_w);
+		return;
+	}
+	
+	do{
+		if (!wcsstr(FindFileData.cFileName, L"tmp_") && wcsstr(FindFileData.cFileName, find_file_w)) {
+			sprintf_s(filename, "%s%s%ws", dir_path, _SEPARATOR_, FindFileData.cFileName);
+			printf("file %s\n", filename);
+			if (copy) {
+				// BSR-940 copy to tmp_* files
+				char copy_file[MAX_PATH+25] = {0,};
+				WCHAR filename_w[MAX_PATH + 20] = { 0, };
+				WCHAR copyfile_w[MAX_PATH + 25] = { 0, };
+				
+				sprintf_ex(copy_file, "%s%stmp_%ws", dir_path, _SEPARATOR_, FindFileData.cFileName);
+				wsprintf(filename_w, L"%S", filename);
+				wsprintf(copyfile_w, L"%S", copy_file);
+				
+				if (CopyFile(filename_w, copyfile_w, false))
+					file_list->insert(copy_file);
+			} else {
+				file_list->insert(filename);
+			}
+		}
+	} while (FindNextFile(hFind, &FindFileData));
+	FindClose(hFind);
+#else // _LIN
+	DIR *dir_p = NULL;
+	struct dirent* entry = NULL;
+
+	if ((dir_p = opendir(dir_path)) == NULL) {
+		fprintf(stderr, "Failed to open %s\n", dir_path);
+		return;
+	}
+
+	while ((entry = readdir(dir_p)) != NULL) {
+		if (!strstr(entry->d_name, "tmp_") && strstr(entry->d_name, find_file)) {
+			sprintf_ex(filename, "%s%s%s", dir_path, _SEPARATOR_, entry->d_name);
+			printf("file %s\n", filename);
+			if (copy) {
+				// BSR-940 copy to tmp_* files
+				char copy_file[MAX_PATH+25] = {0,};
+				char cmd[MAX_PATH+28] = {0,};
+				int ret = 0;
+
+				sprintf_ex(copy_file, "%s%stmp_%s", dir_path, _SEPARATOR_, entry->d_name);
+				sprintf_ex(cmd, "cp -f %s %s > /dev/null 2>&1", filename, copy_file);
+
+				ret = system(cmd);
+				if (!ret)
+					file_list->insert(copy_file);
+			} 
+			else {
+				file_list->insert(filename);
+			}		
+		}
+	}
+	closedir(dir_p);
+#endif
+}
+
 FILE *perf_fileopen(char * filename, char * currtime)
 {
 	FILE *fp;
@@ -652,7 +734,6 @@ FILE *perf_fileopen(char * filename, char * currtime)
 	int err;
 	off_t size;
 	long file_rolling_size;
-
 #ifdef _WIN
 	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
@@ -668,31 +749,16 @@ FILE *perf_fileopen(char * filename, char * currtime)
 
 	file_rolling_size = GetOptionValue(FILE_ROLLING_SIZE);
 	if (file_rolling_size <= 0)
-		file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;	
+		file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;
 
 	if ((1024 * 1024 * file_rolling_size) < size) {
-#ifdef _WIN
-		HANDLE hFind;
-		WIN32_FIND_DATA FindFileData;
-		WCHAR dir_path[MAX_PATH] = { 0, };
-		WCHAR find_file[MAX_PATH] = { 0, };
-		char remove_file_path[MAX_PATH] = { 0, };
-#else //_LIN
-		DIR *dir_p = NULL;
-		struct dirent* entry = NULL;
 		char dir_path[MAX_PATH] = { 0, }; 
 		char find_file[MAX_PATH] = { 0, };
-#endif
-		char remove_file[MAX_PATH+20] = { 0, };
 		char r_time[64] = { 0, };
 		char* ptr;
-#ifdef _WIN
-		std::set<std::wstring> listFileName;
-		std::set<std::wstring>::reverse_iterator iter;
-#else // _LIN
 		std::set<std::string> listFileName;
 		std::set<std::string>::reverse_iterator iter;
-#endif
+
 		int file_cnt = 0;
 		int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
 		if (rolling_cnt <= 0)
@@ -701,55 +767,26 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		fclose(fp);
 
 #ifdef _WIN
-		wsprintf(dir_path, L"%S*", filename);
 		ptr = strrchr(filename, '\\');
-		memcpy(remove_file_path, filename, (ptr - filename));
-		wsprintf(find_file, L"%S_", ptr + 1);
-		hFind = FindFirstFile(dir_path, &FindFileData);
-		if (hFind == INVALID_HANDLE_VALUE){
-			fprintf(stderr, "Failed to open %s\n", dir_path);
-			return NULL;
-		}
-		
-		do{
-			if (wcsstr(FindFileData.cFileName, find_file)) {
-				listFileName.insert(FindFileData.cFileName);
-			}
-		} while (FindNextFile(hFind, &FindFileData));
-		FindClose(hFind);
-
-		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
-			file_cnt++;
-			if (file_cnt >= rolling_cnt) {
-				sprintf_s(remove_file, "%s%s%ws", remove_file_path, _SEPARATOR_, iter->c_str());
-				remove(remove_file);
-			}
-		}
-#else // _LIN
+		memcpy(dir_path, filename, (ptr - filename));
+		_snprintf_s(find_file, strlen(ptr) + 1, "%s_", ptr + 1);
+#else
 		ptr = strrchr(filename, '/');
 		memcpy(dir_path, filename, (ptr - filename));
 		snprintf(find_file, strlen(ptr) + 1, "%s_", ptr + 1);
-
-		if ((dir_p = opendir(dir_path)) == NULL) {
-			fprintf(stderr, "Failed to open %s\n", dir_path);
+#endif
+		get_filelist(dir_path, find_file, &listFileName, false);
+		if (listFileName.size() == 0) {
+			fprintf(stderr, "Fail to get bsr performance file list.\n");
 			return NULL;
 		}
 
-		while ((entry = readdir(dir_p)) != NULL) {
-			if (strstr(entry->d_name, find_file)) {
-				listFileName.insert(entry->d_name);
-			}
-		}
-		closedir(dir_p);
-
 		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 			file_cnt++;
-			if (file_cnt >= rolling_cnt) {
-				sprintf_ex(remove_file, "%s%s%s", dir_path, _SEPARATOR_, iter->c_str());
-				remove(remove_file);
-			}
+			if (file_cnt >= rolling_cnt)
+				remove(iter->c_str());
 		}
-#endif
+
 		memcpy(r_time, currtime, strlen(currtime));
 		eliminate(r_time, ':');
 		printf("%s\n", r_time);
@@ -963,41 +1000,38 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 
 		while (vol) {
 
+			sprintf_ex(outfile, "%s%svnr%d_%s", respath, _SEPARATOR_, vol->vnr, perf_type_str(debug_type));
+
 			if (debug_type == IO_STAT) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_io_stat");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
-#endif
-				sprintf_ex(outfile, "%s%svnr%d_IO_STAT", respath, _SEPARATOR_, vol->vnr);
+#endif				
 			} else if (debug_type == IO_COMPLETE) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_ex(outfile, "%s%svnr%d_IO_COMPLETE", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == REQUEST) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_ex(outfile, "%s%svnr%d_request", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == PEER_REQUEST) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("dev_peer_req_timing");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/peer_req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_ex(outfile, "%s%svnr%d_peer_request", respath, _SEPARATOR_, vol->vnr);
 			} else if (debug_type == AL_STAT) {
 #ifdef _WIN
 				flag = ConvertToBsrDebugFlags("act_log_stat");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/act_log_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
-				sprintf_ex(outfile, "%s%svnr%d_al_stat", respath, _SEPARATOR_, vol->vnr);
 			}
 
 
@@ -1085,7 +1119,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		if (!strncmp(buffer, "err reading", 11))
 			goto fail;
 
-		sprintf_ex(outfile, "%s%snetwork", respath, _SEPARATOR_);
+		sprintf_ex(outfile, "%s%s%s", respath, _SEPARATOR_, perf_type_str(debug_type));
 		
 		fp = perf_fileopen(outfile, currtime);
 		if (fp == NULL)
@@ -1137,7 +1171,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 		// BSR-776 do not write error messages to the performance file.
 		if (!strncmp(buffer, "err reading", 11))
 			goto fail;
-		sprintf_ex(outfile, "%s%ssend_buffer", respath, _SEPARATOR_);
+		sprintf_ex(outfile, "%s%s%s", respath, _SEPARATOR_, perf_type_str(debug_type));
 
 		fp = perf_fileopen(outfile, currtime);
 		if (fp == NULL)
@@ -1197,7 +1231,7 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 			if (!strncmp(buffer, "err reading", 11))
 				goto fail;
 
-			sprintf_ex(outfile, "%s%svnr%d_resync_ratio", respath, _SEPARATOR_, vol->vnr);
+			sprintf_ex(outfile, "%s%svnr%d_%s", respath, _SEPARATOR_, vol->vnr, perf_type_str(debug_type));
 
 			fp = perf_fileopen(outfile, currtime);
 			if (fp == NULL)
@@ -1233,7 +1267,7 @@ int GetMemInfoToFile(char *path, char * currtime)
 	int ret = -1;
 
 
-	sprintf_ex(outfile, "%s%smemory", path, _SEPARATOR_);
+	sprintf_ex(outfile, "%s%s", path, perf_type_str(MEMORY));
 
 	fp = perf_fileopen(outfile, currtime);
 	if (fp == NULL)
