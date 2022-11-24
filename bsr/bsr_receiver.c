@@ -5866,7 +5866,7 @@ static void various_states_to_goodness(struct bsr_device *device,
 		peer_node_id = peer_device->node_id;
 		peer_bm_uuid = peer_md[peer_node_id].bitmap_uuid;
 
-		bsr_info(82, BSR_LC_RESYNC_OV, peer_device, "FIXME, both nodes are UpToDate, but have inconsistent bits set. clear it without resync");
+		bsr_info(82, BSR_LC_RESYNC_OV, peer_device, "Both nodes are UpToDate, but have inconsistent bits set. clear it without resync");
 
 		if (peer_bm_uuid)
 			_bsr_uuid_push_history(device, peer_bm_uuid, NULL);
