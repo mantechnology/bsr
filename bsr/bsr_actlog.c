@@ -939,7 +939,9 @@ void bsr_al_shrink(struct bsr_device *device)
 static bool extent_in_sync(struct bsr_peer_device *peer_device, unsigned int rs_enr)
 {
 	// DW-2096 send peer_in_sync to Ahead node.
-	if (peer_device->repl_state[NOW] == L_ESTABLISHED || peer_device->repl_state[NOW] == L_AHEAD) {
+	if (peer_device->repl_state[NOW] == L_ESTABLISHED || peer_device->repl_state[NOW] == L_AHEAD || 
+		// BSR-980 if there is no oos bit, it is consistent, set as an in-sync node even if it is Off state
+	 	peer_device->repl_state[NOW] == L_OFF) {
 		if (bsr_bm_total_weight(peer_device) == 0)
 			return true;
 		if (bm_e_weight(peer_device, rs_enr) == 0)
@@ -991,8 +993,12 @@ consider_sending_peers_in_sync(struct bsr_peer_device *peer_device, unsigned int
 			bsr_get_vdisk_capacity(device) - BM_EXT_TO_SECT(rs_enr)));
 
 	for_each_peer_device_ref(p, im, device) {
-		if (mask & NODE_MASK(p->node_id))
+		if (mask & NODE_MASK(p->node_id)) {
+			// BSR-980 no send peers_in_sync to disconnected node
+			if (p->repl_state[NOW] == L_OFF)
+				continue;
 			bsr_send_peers_in_sync(p, mask, BM_EXT_TO_SECT(rs_enr), size_sect << 9);
+		}
 	}
 }
 
