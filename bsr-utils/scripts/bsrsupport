@@ -12,6 +12,18 @@ BSR_PATH=/opt/bsr
 HOSTNAME=`hostname`
 SUPPORT_HOME=${BSR_PATH}/support
 
+
+# BSR-976 add option to exclude system log collection to bsrsupport
+for arg in "$@"
+do
+	if [ "$arg" = "-exclude_systemlog" ]; then
+		EXCLUDE_SYSLOG=true
+	else
+		CORE_FILE_PATH=${arg}
+	fi
+
+done
+
 # Target directory path that collected BSR files are located. This is not a BSR home path.
 BSR_DIR=${SUPPORT_HOME}/${HOSTNAME}/bsr
 # Target directory path that collected system files are located.
@@ -350,9 +362,15 @@ GetBSRDebugfs()
 ##########################################################################################
 
 # Get Informations.
-GetCoreDumpFile $1
+GetCoreDumpFile "$CORE_FILE_PATH"
 GetBSRInfo
-GetSystemInfo
+
+# BSR-976 add option to exclude system log collection to bsrsupport
+if [ 0 -eq ${#EXCLUDE_SYSLOG} ]; then
+	GetSystemInfo
+else
+	echo skip collection of system log.
+fi
 GetBSRStatus
 GetBSRDebugfs
 Archive
