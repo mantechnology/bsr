@@ -8,10 +8,17 @@ echo Check environments...
 set OLDDIR=%CD%
 set SUPPORT_HOME=%BSR_PATH%\..\support
 set OUTPUT_HOME=%SUPPORT_HOME%\%COMPUTERNAME%
-set ARGC=0
-for %%x in (%*) do Set /A ARGC += 1
 
+@rem BSR-976 add option to exclude system log collection to bsrsupport
+for %%x in (%*) do (
+	if "%%x" == "-exclude_systemlog" (
+		set EXCLUDE_SYSLOG=true
+	) else (
+		set CORE_FILE_PATH=%%x
+	)
+)
 if exist "%OUTPUT_HOME%" (
+	echo remove exist file
 	del "%OUTPUT_HOME%"
 )
 	
@@ -26,14 +33,19 @@ if not %ERRORLEVEL% EQU 0 (
     exit -1
 )
 
-if %ARGC% == 0 (
+if "%CORE_FILE_PATH%" == "" (
 	echo Skip collection of core file.
 ) else (
-	call :GetCoreDumpFile %1
+	call :GetCoreDumpFile %CORE_FILE_PATH%
 )
 call :GetBSRInfo
-call :GetDiskPart
-call :GetSystemInfo
+@rem BSR-976 add option to exclude system log collection to bsrsupport
+if "%EXCLUDE_SYSLOG%" == "true" (
+	echo Skip collection of system log.
+) else (
+	call :GetDiskPart
+	call :GetSystemInfo
+)
 call :GetBSRStatus
 call :GetBSRDebugInfo
 call :Archive
