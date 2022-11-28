@@ -1050,6 +1050,33 @@ static bool barrier_pending(struct bsr_resource *resource)
 	return rv;
 }
 
+// BSR-988 check whether there is resync reply data waiting for send in the send buffer.
+static bool resync_reply_data_pending(struct bsr_resource *resource)
+{
+	struct bsr_connection *connection;
+	struct bsr_peer_device *peer_device;
+	LONGLONG rs_in_flight;
+	int vnr;
+	bool rv = false;
+	rcu_read_lock();
+	for_each_connection_rcu(connection, resource) {
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+			// BSR-988 check whether the sned buffer has resync reply data only when it is congested.
+			if (peer_device->repl_state[NOW] == L_AHEAD) {
+				rs_in_flight = atomic_read64(&connection->rs_in_flight);
+				if (rs_in_flight) {
+					rv = true;
+					break;
+				}
+			}
+		}
+		if (rv)
+			break;
+	}
+	rcu_read_unlock();
+	return rv;
+}
+
 // DW-1103 down from kernel with timeout
 static bool wait_for_peer_disk_updates_timeout(struct bsr_resource *resource)
 {
@@ -1123,6 +1150,14 @@ retry:
 		if (!timeout){
 			bsr_warn(71, BSR_LC_GENL, NO_OBJECT, "Failed to set secondary role due to barrier ack pending timeout(10s).");
 			rv = SS_BARRIER_ACK_PENDING_TIMEOUT;
+			goto out;
+		}
+
+		// BSR-988
+		wait_event_timeout(timeout, resource->resync_reply_wait, !resync_reply_data_pending(resource), timeout);
+		if (!timeout){
+			bsr_warn(92, BSR_LC_GENL, NO_OBJECT, "Failed to set secondary role due to resync reply data pending timeout(10s).\n");
+			rv = SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT;
 			goto out;
 		}
 

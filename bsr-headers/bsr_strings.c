@@ -130,7 +130,8 @@ static const char * const __error_messages[] = {
 	[-SS_CONNECTED_DISKLESS] = "Refusing to be Diskless while Connected",
 	[-SS_LOWER_THAN_OUTDATED_PEER] = "Peer disk state is lower than outdated",
 	[-SS_BARRIER_ACK_PENDING_TIMEOUT] = "Failed to set secondary role due to barrier ack pending timeout(10s). Retry to demote first(bsradm secondary r0). if demote timeout continues, disconnect and demote forcibly.",
-
+	// BSR-988
+	[-SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT] = "Failed to set secondary role due to resync reply data pending timeout(10s). Retry to demote first(drbdadm secondary r0). if demote timeout continues, disconnect and demote forcibly.",
 };
 
 struct state_names bsr_error_messages = {
