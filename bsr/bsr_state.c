@@ -3711,7 +3711,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				authoritative[OLD] != authoritative[NEW] &&
 				get_ldev(device)) {	
 				// DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE, and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC 
-				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
+				// BSR-990 set the UUID send criteria to NEW because the change criteria for the authoritative node is NEW
+				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0, NEW);
 				put_ldev(device);
 			}
 
