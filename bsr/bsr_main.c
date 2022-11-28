@@ -4312,6 +4312,10 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	init_waitqueue_head(&resource->state_work_wait);
 	init_waitqueue_head(&resource->twopc_wait);
 	init_waitqueue_head(&resource->barrier_wait);
+
+	// BSR-988
+	init_waitqueue_head(&resource->resync_reply_wait);
+
 	INIT_LIST_HEAD(&resource->twopc_parents);
 	bsr_timer_setup(resource, twopc_timer, twopc_timer_fn);
 	INIT_LIST_HEAD(&resource->twopc_work.list);

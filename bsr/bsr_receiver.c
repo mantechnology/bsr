@@ -11145,6 +11145,8 @@ static void try_change_ahead_to_sync_source(struct bsr_connection *connection)
 			// BSR-381
 			(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
 			!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+			// BSR-988
+			wake_up(&connection->resource->resync_reply_wait);
 			peer_device->start_resync_side = L_SYNC_SOURCE;
 			// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
 			mod_timer(&peer_device->start_resync_timer, jiffies + HZ);

@@ -538,7 +538,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 143
 #define BSR_LC_NETLINK_MAX_INDEX 36
-#define BSR_LC_GENL_MAX_INDEX 91
+#define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
 #define BSR_LC_MEMORY_MAX_INDEX 95
 #define BSR_LC_LOG_MAX_INDEX 25
@@ -1620,6 +1620,7 @@ struct bsr_resource {
 	unsigned int w_cb_nr; /* keeps counting up */
 	struct bsr_thread_timing_details w_timing_details[BSR_THREAD_DETAILS_HIST];
 	wait_queue_head_t barrier_wait;  /* upon each state change. */
+	wait_queue_head_t resync_reply_wait;
 #ifdef _WIN
 	bool bPreSecondaryLock;
 	bool bPreDismountLock; // DW-1286
