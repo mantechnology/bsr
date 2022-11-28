@@ -162,7 +162,9 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 	__u32_field_def(9,	BSR_GENLA_F_MANDATORY,	ping_int, BSR_PING_INT_DEF)
 	__u32_field_def(10,	BSR_GENLA_F_MANDATORY,	ping_timeo, BSR_PING_TIMEO_DEF)
 	//__u32_field_def(11,	BSR_GENLA_F_MANDATORY,	sndbuf_size, BSR_SNDBUF_SIZE_DEF)
-	__u64_field(11,	BSR_GENLA_F_MANDATORY,	sndbuf_size)
+	// BSR-989
+	__u64_field_def(11, BSR_GENLA_F_MANDATORY, sndbuf_size, BSR_SNDBUF_SIZE_DEF)
+	//__u64_field(11,	DRBD_GENLA_F_MANDATORY,	sndbuf_size)
 	__u32_field_def(12,	BSR_GENLA_F_MANDATORY,	rcvbuf_size, BSR_RCVBUF_SIZE_DEF)
 	__u32_field_def(13,	BSR_GENLA_F_MANDATORY,	ko_count, BSR_KO_COUNT_DEF)
 	__u32_field_def(15,	BSR_GENLA_F_MANDATORY,	max_epoch_size, BSR_MAX_EPOCH_SIZE_DEF)

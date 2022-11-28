@@ -3809,8 +3809,10 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	// DW-1927 If the send buffer is not NULL, the del-peer command has not been executed.
-	if (connection->ptxbab[DATA_STREAM] != NULL) {
-		if (old_net_conf->sndbuf_size != new_net_conf->sndbuf_size){
+	if (old_net_conf->sndbuf_size != new_net_conf->sndbuf_size) {
+		if (connection->ptxbab[DATA_STREAM] != NULL ||
+			// BSR-989 If the new send buffer size is different from the old send buffer size and the old send buffer size is 0, the del-peer command was not executed.
+			old_net_conf->sndbuf_size == 0) {
 			retcode = ERR_CANT_CHANGE_SNDBUF_SIZE_WITHOUT_DEL_PEER;
 			goto fail;
 			
