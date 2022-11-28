@@ -848,6 +848,8 @@ int bsr_thread_start(struct bsr_thread *thi)
 			KeInitializeEvent(&thi->wait_event, SynchronizationEvent, FALSE);
 			Status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, bsr_thread_setup, (void *) thi);
 			if (!NT_SUCCESS(Status)) {
+				// BSR-986 set the status to NONE because thread create failed.
+				thi->t_state = NONE;
 				return false;
 			}
 			ZwClose(hThread);
