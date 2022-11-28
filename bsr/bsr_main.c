@@ -4940,8 +4940,11 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 		connection = peer_device->connection;
 		peer_device->node_id = connection->peer_node_id;
 
-		if (connection->cstate[NOW] >= C_CONNECTED)
-			bsr_connected(peer_device);
+		if (connection->cstate[NOW] >= C_CONNECTED) {
+			// BSR-987
+			if (0 != bsr_connected(peer_device))
+				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+		}
 	}
 	
 	// BSR-904

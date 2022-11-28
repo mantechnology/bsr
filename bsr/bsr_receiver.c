@@ -768,7 +768,10 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 
 	clear_bit(USE_DEGR_WFC_T, &peer_device->flags);
 	clear_bit(RESIZE_PENDING, &peer_device->flags);
-	mod_timer(&device->request_timer, jiffies + HZ); /* just start it here. */
+
+	if (!err)
+		mod_timer(&device->request_timer, jiffies + HZ); /* just start it here. */
+
 	return err;
 }
 #ifdef _WIN
@@ -812,7 +815,9 @@ void conn_connect2(struct bsr_connection *connection)
 		kref_get(&device->kref);
 		/* connection cannot go away: caller holds a reference. */
 		rcu_read_unlock();
-		bsr_connected(peer_device);
+		// BSR-987 if the initial information send fails, reconnect because the abnormal connection is maintained.
+		if (0 != bsr_connected(peer_device))
+			change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
 		rcu_read_lock();
 		kref_put(&device->kref, bsr_destroy_device);
 	}
