@@ -128,6 +128,8 @@ static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 valu
 	__u32_field(attr_nr, attr_flag, name)
 #define __s32_field_def(attr_nr, attr_flag, name, default) \
 	__s32_field(attr_nr, attr_flag, name)
+#define __u64_field_def(attr_nr, attr_flag, name, default) \
+	__u64_field(attr_nr, attr_flag, name)
 #define __str_field_def(attr_nr, attr_flag, name, maxlen) \
 	__str_field(attr_nr, attr_flag, name, maxlen)
 #ifdef _WIN
