@@ -1038,6 +1038,8 @@ start:
 #endif
 	if (!connection->ack_sender) {
 		bsr_err(17, BSR_LC_THREAD, connection, "Failed to connect due to failure to create thread for work queue of ack sender");
+		// BSR-986 stops to start the ack_receiver thread on subsequent connections.
+		bsr_thread_stop(&connection->ack_receiver);
 		goto abort;
 	}
 
