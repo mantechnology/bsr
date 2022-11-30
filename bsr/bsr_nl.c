@@ -1154,7 +1154,7 @@ retry:
 		}
 
 		// BSR-988
-		wait_event_timeout(timeout, resource->resync_reply_wait, !resync_reply_data_pending(resource), timeout);
+		wait_event_timeout_ex(resource->resync_reply_wait, !resync_reply_data_pending(resource), timeout, timeout);
 		if (!timeout){
 			bsr_warn(92, BSR_LC_GENL, NO_OBJECT, "Failed to set secondary role due to resync reply data pending timeout(10s).\n");
 			rv = SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT;
