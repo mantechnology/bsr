@@ -104,18 +104,6 @@ Send(
 
 LONG
 NTAPI
-SendAsync(
-	__in struct socket* pSock,
-	__in PVOID			Buffer,
-	__in ULONG			BufferSize,
-	__in ULONG			Flags,
-	__in ULONG			Timeout,
-	__in struct			bsr_transport *transport,
-	__in enum			bsr_stream stream
-);
-
-LONG
-NTAPI
 SendLocal(
 	__in struct socket* pSock,
 	__in PVOID			Buffer,
@@ -124,14 +112,28 @@ SendLocal(
 	__in ULONG			Timeout
 );
 
+#if 0
+LONG
+NTAPI
+SendAsync(
+__in struct socket* pSock,
+__in PVOID			Buffer,
+__in ULONG			BufferSize,
+__in ULONG			Flags,
+__in ULONG			Timeout,
+__in struct			bsr_transport *transport,
+__in enum			bsr_stream stream
+);
+
 LONG
 NTAPI
 SendTo(
-	__in struct socket* pSock,
-	__in PVOID			Buffer,
-	__in ULONG			BufferSize,
-	__in_opt PSOCKADDR	RemoteAddress
-	);
+__in struct socket* pSock,
+__in PVOID			Buffer,
+__in ULONG			BufferSize,
+__in_opt PSOCKADDR	RemoteAddress
+);
+#endif
 
 LONG
 NTAPI

@@ -333,42 +333,41 @@ signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_str
 	ringbuf_size = (ring->write_pos - ring->read_pos + ring->length) % ring->length;
 
 	if ((ringbuf_size + len) > highwater) {
+		int loop = 0;
 
 		LeaveCriticalSection(&ring->cs);
 		// DW-764 remove debug print "kocount" when congestion is not occurred.
-		do {
-			int loop = 0;
-			for (loop = 0; loop < retry; loop++) {
-				struct bsr_tcp_transport *tcp_transport;
+		// BSR-983 removes a function to retry with kocount (bsr_stream_send_timed_out())
+		for (loop = 0; loop < retry; loop++) {
+			struct bsr_tcp_transport *tcp_transport;
 
-				msleep(100);
+			msleep(100);
 
-				tcp_transport =	container_of(transport, struct bsr_tcp_transport, transport);
+			tcp_transport =	container_of(transport, struct bsr_tcp_transport, transport);
 
 #ifdef _WIN_SEND_BUF
-				if (tcp_transport->stream[stream]) {
-					if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
-						bsr_info(13, BSR_LC_SEND_BUFFER, NO_OBJECT, "Quit the send buffer with the quit settings.");
-						return -EIO;
-					}
+			if (tcp_transport->stream[stream]) {
+				if (tcp_transport->stream[stream]->buffering_attr.quit == TRUE)	{
+					bsr_info(13, BSR_LC_SEND_BUFFER, NO_OBJECT, "Quit the send buffer with the quit settings.");
+					return -EIO;
 				}
-#else // _LIN_SEND_BUF
-				if (tcp_transport) {
-					if (tcp_transport->buffering_attr[stream].quit == true)	{
-						bsr_info(14, BSR_LC_SEND_BUFFER, NO_OBJECT,"Quit the send buffer with the quit settings.");
-						return -EIO;
-					}
-				}
-#endif
-				EnterCriticalSection(&ring->cs);
-				ringbuf_size = (ring->write_pos - ring->read_pos + ring->length) % ring->length;
-				if ((ringbuf_size + len) > highwater) {
-				} else {
-					goto $GO_BUFFERING;
-				}
-				LeaveCriticalSection(&ring->cs);
 			}
-		} while (!bsr_stream_send_timed_out(transport, stream));
+#else // _LIN_SEND_BUF
+			if (tcp_transport) {
+				if (tcp_transport->buffering_attr[stream].quit == true)	{
+					bsr_info(14, BSR_LC_SEND_BUFFER, NO_OBJECT,"Quit the send buffer with the quit settings.");
+					return -EIO;
+				}
+			}
+#endif
+			EnterCriticalSection(&ring->cs);
+			ringbuf_size = (ring->write_pos - ring->read_pos + ring->length) % ring->length;
+			if ((ringbuf_size + len) > highwater) {
+			} else {
+				goto $GO_BUFFERING;
+			}
+			LeaveCriticalSection(&ring->cs);
+		}
 		 		
 		return -EAGAIN;
 	}
@@ -492,10 +491,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 		msg.msg_controllen = 0;
 		msg.msg_flags      = msg_flags | MSG_NOSIGNAL;
 
-		rv = bsr_kernel_sendmsg(&tcp_transport->transport, socket, &msg, &iov);
-		if (rv == -EAGAIN) {
-		}
-		return rv;
+		return bsr_kernel_sendmsg(&tcp_transport->transport, socket, &msg, &iov);
 	}
 
 	tmp = (long long)buffering_attr->bab->length * 99;
@@ -512,7 +508,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 #endif
 
 #ifdef _WIN_SEND_BUF
-int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
+int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
 	int ret = 0;
@@ -532,17 +528,23 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 #ifndef _WIN64
 		BUG_ON_UINT32_OVER(tx_sz);
 #endif
+		// BSR-983
+		transport->ko_count[stream] = transport->net_conf->ko_count;
+
 		while (tx_sz > 0) {
+#if 0
 			// DW-1095 SendAsync is only used on Async mode (adjust retry_count) 
 			//ret = SendAsync(socket, bab->static_big_buf, tx_sz, 0, timeout, NULL, 0);
+#endif
 			ret = Send(socket, bab->static_big_buf + offset, (ULONG)tx_sz, 0, timeout, NULL, transport, 0);
-
 			if (ret < 0) {
-				bsr_info(17, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send Error(%d)", ret);
-				if (ret == -EINTR) {
-					flush_signals(current);
-					ret = 0;
+				if (ret == -EAGAIN) {
+					// BSR-983 limit resend to the following functions when sending send buffer data
+					if (!bsr_stream_send_timed_out(transport, stream))
+						continue;
 				}
+
+				bsr_info(17, BSR_LC_SEND_BUFFER, NO_OBJECT, "Send Error(%d)", ret);
 				return ret;
 			}
 			tx_sz -= ret;
@@ -553,7 +555,7 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 	return ret;
 }
 #else // _LIN_SEND_BUF
-int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_buffer *bab, int timeout)
+int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
 	int msg_flags = 0;
@@ -572,6 +574,9 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
 			break;
 		}
+		
+		// BSR-983
+		transport->ko_count[stream] = transport->net_conf->ko_count;
 
 		while(tx_sz > 0) {
 			iov.iov_base = bab->static_big_buf + offset;
@@ -587,8 +592,12 @@ int do_send(struct bsr_transport *transport, struct socket *socket, struct ring_
 
 			if (rv <= 0) {
 				if (rv == -EAGAIN) {
-					continue;
-				} else if (rv == -EINTR) {
+					// BSR-983 limit resend to the following functions when sending send buffer data
+					if(!bsr_stream_send_timed_out(transport, stream)) 
+						continue;
+				} 
+				
+				if (rv == -EINTR) {
 					flush_signals(current);
 					rv = 0;
 				} else {
@@ -617,11 +626,14 @@ VOID NTAPI send_buf_thread(PVOID p)
 	NTSTATUS status;
 	LARGE_INTEGER nWaitTime;
 	LARGE_INTEGER *pTime;
+	bsr_stream stream;
 
 	if (test_bit(IDX_STREAM, &tcp_transport->flags))
-		buffering_attr = &tcp_transport->stream[CONTROL_STREAM]->buffering_attr;
+		stream = CONTROL_STREAM;
 	else
-		buffering_attr = &tcp_transport->stream[DATA_STREAM]->buffering_attr;
+		stream = DATA_STREAM;
+
+	buffering_attr = &tcp_transport->stream[stream]->buffering_attr;
 	socket = container_of(buffering_attr, struct socket, buffering_attr);
 
 	ct_add_thread((int)PsGetCurrentThreadId(), "sendbuf", FALSE, '25SB');
@@ -651,7 +663,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 			goto done;
 
 		case (STATUS_WAIT_0 + 1) :
-			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) < 0) {
+			if (do_send(&tcp_transport->transport, stream, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) < 0) {
 				goto done;
 			}
 			break;
@@ -680,15 +692,13 @@ int send_buf_thread(void *p)
 	
 	long timeo = 1 * HZ;
 
-	if(test_bit(IDX_STREAM, &tcp_transport->flags)) {
-		socket = tcp_transport->stream[CONTROL_STREAM];
-		buffering_attr = &tcp_transport->buffering_attr[CONTROL_STREAM];
-	}
-	else {
-		socket = tcp_transport->stream[DATA_STREAM];
-		buffering_attr = &tcp_transport->buffering_attr[DATA_STREAM];
-	}
-	
+	if (test_bit(IDX_STREAM, &tcp_transport->flags)) 
+		stream = CONTROL_STREAM;
+	else
+		stream = DATA_STREAM;
+
+	socket = tcp_transport->stream[stream];
+	buffering_attr = &tcp_transport->buffering_attr[stream];
 
 	buffering_attr->quit = false;
 
@@ -700,7 +710,7 @@ int send_buf_thread(void *p)
 		// BSR-750 fix potential hang when using send buffer in protocol c
 		// RING_BUF_EVENT flag setting race between send_buf_thread() and send_buf()
 		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags)) {
-			if (do_send(&tcp_transport->transport, socket, buffering_attr->bab, socket->sk->sk_sndtimeo) < 0) {
+			if (do_send(&tcp_transport->transport, stream, socket, buffering_attr->bab, socket->sk->sk_sndtimeo) < 0) {
 				break;
 			}
 		}

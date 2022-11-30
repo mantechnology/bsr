@@ -853,7 +853,8 @@ Send(
 			}
 			else {
 				IoCancelIrp(Irp);
-				BytesSent = -EAGAIN;
+				// BSR-983
+				BytesSent = -ECONNRESET;
 			}
 			// BSR-879 to prevent memory leaks and deduplication, the flag(CompletionRoutineCalled) is used to release the completion function and its last called logic
 			if (atomic_dec_and_test(CompletionRoutineCalled)) {
@@ -876,7 +877,8 @@ Send(
 		switch (SendStatus) {
 		case STATUS_IO_TIMEOUT:
 			bsr_err(48, BSR_LC_SOCKET, NO_OBJECT, "Failed to send due to time-out. wsk(0x%p) size(%lu)", WskSocket, BufferSize);
-			BytesSent = -EAGAIN;
+			// BSR-983
+			BytesSent = -ECONNRESET;
 			break;
 		case STATUS_INVALID_DEVICE_STATE:
 		case STATUS_FILE_FORCED_CLOSED:
@@ -1024,7 +1026,8 @@ __in ULONG			Timeout // ms
 				BytesSent = -ECONNRESET;
 			} else {
 				IoCancelIrp(Irp);
-				BytesSent = -EAGAIN;
+				// BSR-983
+				BytesSent = -ECONNRESET;
 			}
 			// BSR-879 to prevent memory leaks and deduplication, the flag(CompletionRoutineCalled) is used to release the completion function and its last called logic
 			if (atomic_dec_and_test(CompletionRoutineCalled)) {
@@ -1042,7 +1045,8 @@ __in ULONG			Timeout // ms
 		switch (SendStatus) {
 		case STATUS_IO_TIMEOUT:
 			bsr_err(55, BSR_LC_SOCKET, NO_OBJECT, "Failed to send local due to time-out. wsk(0x%p)", WskSocket);
-			BytesSent = -EAGAIN;
+			// BSR-983
+			BytesSent = -ECONNRESET;
 			break;
 		case STATUS_INVALID_DEVICE_STATE:
 		case STATUS_FILE_FORCED_CLOSED:
@@ -1094,6 +1098,7 @@ $SendLoacl_fail:
 }
 
 
+#if 0
 LONG
 NTAPI
 SendAsync(
@@ -1223,7 +1228,6 @@ $SendAsync_retry:
 	return BytesSent;
 }
 
-
 LONG
 NTAPI
 SendTo(
@@ -1277,6 +1281,7 @@ SendTo(
 
 	return BytesSent;
 }
+#endif
 
 LONG NTAPI Receive(
 	__in struct socket* pSock,
