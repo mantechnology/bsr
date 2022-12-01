@@ -26,6 +26,9 @@
 
 #define API_VERSION 2
 
+// BSR-867 support multi platforms confiquration
+#define CONFIG_MULTI_PLATFORM 1
+
 struct d_name
 {
 	char *name;
@@ -104,6 +107,7 @@ struct d_volume
 	int v_device_line;
 	int v_disk_line;
 	int v_meta_disk_line;
+	char* platform; // BSR-867
 
 	/* Do not dump an explicit volume section */
 	unsigned int implicit :1 ;
@@ -141,6 +145,7 @@ struct d_host_info
 	char* node_id;
 	// BSR-859
 	char* node_name;
+	char* platform; // BSR-867
 };
 
 STAILQ_HEAD(hosts, d_host_info);

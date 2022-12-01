@@ -654,6 +654,7 @@ static void inherit_volumes(struct volumes *from, struct d_host_info *host)
 			t->v_device_line = s->v_device_line;
 			t->v_disk_line = s->v_disk_line;
 			t->v_meta_disk_line = s->v_meta_disk_line;
+			t->platform = s->platform;
 			insert_volume(&host->volumes, t);
 		}
 		if (!t->disk && s->disk) {

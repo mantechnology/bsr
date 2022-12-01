@@ -868,11 +868,36 @@ void parse_meta_disk(struct d_volume *vol)
 	}
 }
 
-static void check_minor_nonsense(const char *devname, const int explicit_minor)
+static void check_minor_nonsense(const char *devname, const int explicit_minor, char * platform)
 {
 	if (!devname)
 		return;
+#ifdef CONFIG_MULTI_PLATFORM
+	if (strcmp(platform, "linux") == 0) {
+		/* if devname is set, it starts with /dev/bsr */
+		// BSR-386 rename to be the same as name of major device due to pvcreate error
+		if (only_digits(devname + 8)) {
+			int m = strtol(devname + 8, NULL, 10);
+			if (m == explicit_minor)
+				return;
 
+			err("%s:%d: explicit minor number must match with device name\n"
+				"\tTry \"device /dev/bsr%u minor %u;\",\n"
+				"\tor leave off either device name or explicit minor.\n"
+				"\tArbitrary device names must start with /dev/bsr_\n"
+				"\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
+				config_file, fline, explicit_minor, explicit_minor);
+			config_valid = 0;
+			return;
+		} else if (devname[8] == '_')
+			return;
+
+		err("%s:%d: arbitrary device name must start with /dev/bsr_\n"
+			"\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
+			config_file, fline);
+		config_valid = 0;
+	}
+#else
 #ifdef _LIN
 	/* if devname is set, it starts with /dev/bsr */
 	// BSR-386 rename to be the same as name of major device due to pvcreate error
@@ -897,6 +922,7 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor)
 	    config_file, fline);
 	config_valid = 0;
 #endif
+#endif
 	return;
 }
 
@@ -913,6 +939,26 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 			free(yylval.txt);
 		} else
 			vol->device = yylval.txt;
+#ifdef CONFIG_MULTI_PLATFORM
+		if (strcmp(vol->platform, "linux") == 0) {
+			// BSR-386 rename to be the same as name of major device due to pvcreate error
+			if (strncmp("/dev/bsr", vol->device, 8)) {
+				err("%s:%d: device name must start with /dev/bsr\n"
+					"\t(/dev/ is optional, but bsr is required)\n",
+					config_file, fline);
+				config_valid = 0;
+				/* no goto out yet,
+				* as that would additionally throw a parse error */
+			}
+		}
+		else { // windows
+			if (strncmp("/dev", vol->device, 4) == 0) {
+				err("%s:%d: device name must be a drive letter\n",
+					config_file, fline);
+				config_valid = 0;
+			}
+		}
+#else
 #ifdef _LIN
 		// BSR-386 rename to be the same as name of major device due to pvcreate error
 		if (strncmp("/dev/bsr", vol->device, 8)) {
@@ -923,6 +969,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 			/* no goto out yet,
 			 * as that would additionally throw a parse error */
 		}
+#endif
 #endif
 		switch (yylex()) {
 		default:
@@ -947,7 +994,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 
 		/* if both device name and minor number are explicitly given,
 		 * force /dev/bsr<minor-number> or /dev/bsr_<arbitrary> */
-		check_minor_nonsense(vol->device, vol->device_minor);
+		check_minor_nonsense(vol->device, vol->device_minor, vol->platform);
 	}
 out:
 	if (!on_hosts)
@@ -979,7 +1026,7 @@ struct d_volume *alloc_volume(void)
 	return vol;
 }
 
-struct d_volume *volume0(struct volumes *volumes)
+struct d_volume *volume0(struct volumes *volumes, char *platform)
 {
 	struct d_volume *vol = STAILQ_FIRST(volumes);
 
@@ -987,6 +1034,17 @@ struct d_volume *volume0(struct volumes *volumes)
 		vol = alloc_volume();
 		vol->device_minor = -1;
 		vol->implicit = 1;
+#ifdef CONFIG_MULTI_PLATFORM
+		if (platform != NULL) {
+			vol->platform = platform;
+		} else {
+#ifdef _WIN
+			vol->platform = strdup("windows");
+#else // _LIN
+			vol->platform = strdup("linux");
+#endif
+		}
+#endif
 		insert_head(volumes, vol);
 		return vol;
 	} else {
@@ -1011,8 +1069,19 @@ int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 		switch (token) {
 		case TK_STRING:
 			vol->disk = yylval.txt;
+			// DW-1451 Device name and disk name must be the same in Windows.
+#ifdef CONFIG_MULTI_PLATFORM
+			if (strcmp(vol->platform, "windows") == 0) {
+				if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
+					err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
+					exit(E_CONFIG_INVALID);
+				}
+
+				vol->device = strdup(yylval.txt);
+				vol->device_minor = (yylval.txt[0] & ~0x20) - 'C';
+			}
+#else
 #ifdef _WIN
-			// DW-1451 Device name and disk name must be the same in Windows. 			
 			if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
 				err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
 				exit(E_CONFIG_INVALID);
@@ -1020,6 +1089,7 @@ int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 
             vol->device = strdup(yylval.txt);
             vol->device_minor = (yylval.txt[0] & ~0x20) - 'C';
+#endif
 #endif
 			EXP(';');
 			break;
@@ -1035,6 +1105,22 @@ int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 		break;
 	case TK_DEVICE:
 		parse_device(on_hosts, vol);
+		// DW-1451 Device name and disk name must be the same in Windows.
+#ifdef CONFIG_MULTI_PLATFORM
+		if (strcmp(vol->platform, "windows") == 0) {
+			if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
+				err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
+				exit(E_CONFIG_INVALID);
+			}
+		}
+#else
+#ifdef _WIN
+		if (vol->disk != NULL && vol->device != NULL && strcmp(vol->disk, vol->device) != 0){
+			err("The device(%s) and disk(%s) letters must be the same. Please check again.\n", vol->device, vol->disk);
+			exit(E_CONFIG_INVALID);
+		}
+#endif
+#endif
 		vol->parsed_device = 1;
 		vol->v_device_line = fline;
 		break;
@@ -1066,7 +1152,7 @@ int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 	return 1;
 }
 
-struct d_volume *parse_volume(int vnr, struct names* on_hosts)
+struct d_volume *parse_volume(int vnr, struct names* on_hosts, char * platform)
 {
 	struct d_volume *vol;
 	int token;
@@ -1075,6 +1161,17 @@ struct d_volume *parse_volume(int vnr, struct names* on_hosts)
 	vol->device_minor = -1;
 	vol->vnr = vnr;
 
+#ifdef CONFIG_MULTI_PLATFORM
+	if (platform != NULL) {
+		vol->platform = platform;
+	} else {
+#ifdef _WIN
+		vol->platform = strdup("windows");
+#else // _LIN
+		vol->platform = strdup("linux");
+#endif
+	}
+#endif
 	EXP('{');
 	while (1) {
 		token = yylex();
@@ -1129,7 +1226,8 @@ enum parse_host_section_flags {
 
 static void parse_host_section(struct d_resource *res,
 			       struct names *on_hosts,
-			       enum parse_host_section_flags flags)
+			       enum parse_host_section_flags flags,
+				   char *platform)
 {
 	struct d_host_info *host;
 	struct d_name *h;
@@ -1147,6 +1245,10 @@ static void parse_host_section(struct d_resource *res,
 	host->implicit = 0;
 	host->require_minor = flags & REQUIRE_MINOR ? 1 : 0;
 
+#ifdef CONFIG_MULTI_PLATFORM
+	if (platform != NULL)
+		host->platform = platform;
+#endif
 	if (flags & BY_ADDRESS) {
 		/* floating <address> {} */
 		char *fake_uname = NULL;
@@ -1225,7 +1327,7 @@ static void parse_host_section(struct d_resource *res,
 			break;
 		case TK_VOLUME:
 			EXP(TK_INTEGER);
-			insert_volume(&host->volumes, parse_volume(atoi(yylval.txt), on_hosts));
+			insert_volume(&host->volumes, parse_volume(atoi(yylval.txt), on_hosts, platform));
 			break;
 		case TK_NODE_ID:
 			EXP(TK_INTEGER);
@@ -1255,7 +1357,7 @@ static void parse_host_section(struct d_resource *res,
 			in_braces = 0;
 			break;
 		vol0stmt:
-			if (parse_volume_stmt(volume0(&host->volumes), on_hosts, token))
+			if (parse_volume_stmt(volume0(&host->volumes, host->platform), on_hosts, token))
 				break;
 			/* else fall through */
 		default:
@@ -1313,9 +1415,9 @@ void parse_stacked_section(struct d_resource* res)
 		case TK_DEVICE:
 			/* STAILQ_FOREACH(h, host->on_hosts)
 			  check_upr("device statement", "%s:%s:device", res->name, h->name); */
-			parse_device(&host->on_hosts, volume0(&host->volumes));
-			volume0(&host->volumes)->meta_disk = strdup("internal");
-			volume0(&host->volumes)->meta_index = strdup("internal");
+			parse_device(&host->on_hosts, volume0(&host->volumes, NULL));
+			volume0(&host->volumes, NULL)->meta_disk = strdup("internal");
+			volume0(&host->volumes, NULL)->meta_index = strdup("internal");
 			break;
 		case TK_ADDRESS:
 			STAILQ_FOREACH(h, &host->on_hosts, link)
@@ -1798,6 +1900,7 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 	struct names host_names;
 	struct options options;
 	int token;
+	char *platform = NULL;
 
 	check_upr_init();
 	check_uniq("resource section", res_name);
@@ -1824,6 +1927,7 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 	while(1) {
 		token = yylex();
 		fline = line;
+		platform = NULL;
 		switch (token) {
 		case TK_STRING:
 			if (strcmp(yylval.txt, "protocol"))
@@ -1833,10 +1937,18 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 			proto_v = parse_option_value(proto_f, false);
 			insert_tail(&res->net_options, new_opt((char *)proto_f->name, proto_v));
 			break;
+#ifdef CONFIG_MULTI_PLATFORM
+		case TK_ON_WINDOWS:
+			platform = strdup("windows");
+			goto parse_on_hosts;
+		case TK_ON_LINUX:
+			platform = strdup("linux");
+#endif
 		case TK_ON:
+		parse_on_hosts:
 			STAILQ_INIT(&host_names);
 			parse_hosts(&host_names, '{');
-			parse_host_section(res, &host_names, REQUIRE_MINOR);
+			parse_host_section(res, &host_names, REQUIRE_MINOR, platform);
 			break;
 		case TK_STACKED:
 			parse_stacked_section(res);
@@ -1845,17 +1957,25 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 			EXP('{');
 			STAILQ_INIT(&host_names);
 			insert_head(&host_names, names_from_str("_this_host"));
-			parse_host_section(res, &host_names, 0);
+			parse_host_section(res, &host_names, 0, NULL);
 			break;
+#ifdef CONFIG_MULTI_PLATFORM
+		case TK_FLOATING_WINDOWS:
+			platform = strdup("windows");
+			goto parse_floating_host;
+		case TK_FLOATING_LINUX:
+			platform = strdup("linux");
+#endif
 		case TK_FLOATING:
+		parse_floating_host:
 			STAILQ_INIT(&host_names);
-			parse_host_section(res, &host_names, REQUIRE_MINOR + BY_ADDRESS);
+			parse_host_section(res, &host_names, REQUIRE_MINOR + BY_ADDRESS, platform);
 			break;
 		case TK_DISK:
 			switch (token=yylex()) {
 			case TK_STRING:{
 				/* open coded parse_volume_stmt() */
-				struct d_volume *vol = volume0(&res->volumes);
+				struct d_volume *vol = volume0(&res->volumes, NULL);
 				vol->disk = yylval.txt;
 				vol->parsed_disk = 1;
 #ifdef _WIN   // DW-1451 Device name and disk name must be the same in Windows. 			
@@ -1910,11 +2030,11 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 			check_upr("device statement", "%s:device", res->name);
 		case TK_META_DISK:
 		case TK_FLEX_META_DISK:
-			parse_volume_stmt(volume0(&res->volumes), NULL, token);
+			parse_volume_stmt(volume0(&res->volumes, NULL), NULL, token);
 			break;
 		case TK_VOLUME:
 			EXP(TK_INTEGER);
-			insert_volume(&res->volumes, parse_volume(atoi(yylval.txt), NULL));
+			insert_volume(&res->volumes, parse_volume(atoi(yylval.txt), NULL, NULL));
 			break;
 		case TK_OPTIONS:
 			check_upr("resource options section", "%s:res_options", res->name);
@@ -1940,9 +2060,16 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 			goto exit_loop;
 		default:
 		goto_default:
+#ifdef CONFIG_MULTI_PLATFORM
+			pe_expected_got("protocol | disk | net | syncer |"
+					" on | on-windows | on-linux | floating | floating-on-windows | floating-on-linux |"
+					" startup | handlers | connection |"
+					" ignore-on | skip",token);
+#else
 			pe_expected_got("protocol | on | disk | net | syncer |"
 					" startup | handlers | connection |"
 					" ignore-on | stacked-on-top-of | skip",token);
+#endif
 		}
 	}
 

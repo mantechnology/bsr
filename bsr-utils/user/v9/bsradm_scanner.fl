@@ -55,8 +55,12 @@ LONG_STRING	[a-zA-Z0-9/._-]{129}
 {WS}			/* ignore whitespaces */
 {OPCHAR}		{ DP; return yytext[0];			}
 on			{ DP; return TK_ON;			}
+on-windows			{ DP; return TK_ON_WINDOWS;		}	/* BSR-867 */
+on-linux			{ DP; return TK_ON_LINUX;		}	/* BSR-867 */
 stacked-on-top-of	{ DP; return TK_STACKED;		}
 floating		{ DP; return TK_FLOATING;		}
+floating-on-windows		{ DP; return TK_FLOATING_WINDOWS;	}	/* BSR-867 */
+floating-on-linux		{ DP; return TK_FLOATING_LINUX;		}	/* BSR-867 */
 no			{ DP; return TK_NO;			}
 net			{ DP; return TK_NET;			}
 yes			{ DP; return TK_YES;			}

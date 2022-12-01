@@ -790,47 +790,49 @@ int dt_minor_of_dev(const char *device)
 	int digits_only = only_digits(device);
 	const char *c = device;
 
-#ifdef _WIN
-    if (!digits_only) {
-        if (1 == strlen(c)) {
-            return (*c & ~0x20) - 'C';
-        }
-        return -1;
-    }
-#else // _LIN
-	/* On udev/devfs based system the device nodes does not
-	 * exist before the bsr is created.
-	 *
-	 * If the device name starts with /dev/bsr followed by
-	 * only digits, or if only digits are given,
-	 * those digits are the minor number.
-	 *
-	 * Otherwise, we cannot reliably determine the minor number!
-	 *
-	 * We allow "arbitrary" device names in bsr.conf,
-	 * and those may well contain digits.
-	 * Interpreting any digits as minor number is dangerous!
-	 */
-	if (!digits_only) {
-		// BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
-		if (!strncmp("/dev/bsr", device, 8) &&
-		    only_digits(device + 8))
-			c = device + 8;
-
-		/* if the device node exists,
-		 * and is a block device with the correct major,
-		 * do not enforce further naming conventions.
-		 * people without udev, and not using bsradm
-		 * may do whatever they like. */
-		else if (!stat(device,&sb) &&
-			 S_ISBLK(sb.st_mode) &&
-			 major(sb.st_rdev) == LANANA_BSR_MAJOR)
-			return minor(sb.st_rdev);
-
-		else
+	// BSR-867 get minor value from device name regardless of platform
+	if (strstr(device, "bsr") == NULL) {
+		if (!digits_only) {
+			if (1 == strlen(c)) {
+				return (*c & ~0x20) - 'C';
+			}
 			return -1;
+		}
+	} else {
+		/* On udev/devfs based system the device nodes does not
+		* exist before the bsr is created.
+		*
+		* If the device name starts with /dev/bsr followed by
+		* only digits, or if only digits are given,
+		* those digits are the minor number.
+		*
+		* Otherwise, we cannot reliably determine the minor number!
+		*
+		* We allow "arbitrary" device names in bsr.conf,
+		* and those may well contain digits.
+		* Interpreting any digits as minor number is dangerous!
+		*/
+		if (!digits_only) {
+			// BSR-386 rename "bsr" to "bsr" to be the same as name of major device due to pvcreate error
+			if (!strncmp("/dev/bsr", device, 8) &&
+				only_digits(device + 8))
+				c = device + 8;
+
+			/* if the device node exists,
+			* and is a block device with the correct major,
+			* do not enforce further naming conventions.
+			* people without udev, and not using bsradm
+			* may do whatever they like. */
+			else if (!stat(device,&sb) &&
+				S_ISBLK(sb.st_mode) &&
+				major(sb.st_rdev) == LANANA_BSR_MAJOR)
+				return minor(sb.st_rdev);
+
+			else
+				return -1;
+		}
 	}
-#endif
+
 	/* ^[0-9]+$ or ^/dev/bsr[0-9]+$ */
 
 	errno = 0;

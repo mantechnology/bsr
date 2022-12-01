@@ -228,10 +228,34 @@ static void dump_host_info(struct d_host_info *hi)
 		++indent;
 		printI("# on %s \n", names_to_str(&hi->on_hosts));
 	} else if (hi->by_address) {
+#ifdef CONFIG_MULTI_PLATFORM
+		if (hi->platform != NULL) {
+			if (strcmp(hi->platform, "windows") == 0)
+				dump_address("floating-on-windows", &hi->address, " {\n");
+			else if (strcmp(hi->platform, "linux") == 0)
+				dump_address("floating-on-linux", &hi->address, " {\n");
+			else
+				dump_address("floating", &hi->address, " {\n");
+		} else
+			dump_address("floating", &hi->address, " {\n");
+#else
 		dump_address("floating", &hi->address, " {\n");
+#endif
 		++indent;
 	} else {
+#ifdef CONFIG_MULTI_PLATFORM
+		if (hi->platform != NULL) {
+			if (strcmp(hi->platform, "windows") == 0)
+				printI("on-windows %s {\n", names_to_str(&hi->on_hosts));
+			else if (strcmp(hi->platform, "linux") == 0)
+				printI("on-linux %s {\n", names_to_str(&hi->on_hosts));
+			else
+				printI("on %s {\n", names_to_str(&hi->on_hosts));
+		} else
+			printI("on %s {\n", names_to_str(&hi->on_hosts));
+#else
 		printI("on %s {\n", names_to_str(&hi->on_hosts));
+#endif
 		++indent;
 	}
 	printI("node-id %s;\n", hi->node_id);
@@ -461,10 +485,26 @@ static void dump_host_info_xml(struct d_host_info *hi)
 		return;
 	}
 
-	if (hi->by_address)
+	if (hi->by_address) {
+#ifdef CONFIG_MULTI_PLATFORM
+		if (hi->platform)
+			printI("<host floating=\"1\" platform=\"%s\">\n", hi->platform);
+		else
+			printI("<host floating=\"1\">\n");
+#else
 		printI("<host floating=\"1\">\n");
-	else
+#endif
+	}
+	else {
+#ifdef CONFIG_MULTI_PLATFORM
+		if (hi->platform)
+			printI("<host name=\"%s\" platform=\"%s\">\n", names_to_str(&hi->on_hosts), hi->platform);
+		else
+			printI("<host name=\"%s\">\n", names_to_str(&hi->on_hosts));
+#else	
 		printI("<host name=\"%s\">\n", names_to_str(&hi->on_hosts));
+#endif
+	}
 
 	++indent;
 
