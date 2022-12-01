@@ -2287,14 +2287,12 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 
 	is_sendbuf = (buffering_attr->send_buf_thread_handle != NULL) && (buffering_attr->bab != NULL);
 
+	// BSR-983
+	if (!is_sendbuf) 
+		transport->ko_count[stream] = transport->net_conf->ko_count;
+
 	do {
 		int sent;
-
-		// BSR-977 set ko_count only when using the send buffer before sending.
-		if (is_sendbuf) {
-			// ignore rcu_dereference
-			transport->ko_count[stream] = transport->net_conf->ko_count;
-		}
 
 #ifdef _WIN
 #ifdef _WIN_SEND_BUF
@@ -2320,13 +2318,11 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 					if (!bsr_stream_send_timed_out(transport, stream)) 
 						continue;
 				}
-				break;
 			}
 #else
 			if (sent == -EAGAIN) {
-				if (bsr_stream_send_timed_out(transport, stream))
-					break;
-				continue;
+				if (!bsr_stream_send_timed_out(transport, stream))
+					continue;
 			}
 #endif
 			tr_warn(transport, "%s: size=%d len=%d sent=%d",
@@ -2341,7 +2337,6 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 		// BSR-977 set ko_count if no send buffer is used on successful send.
 		if (!is_sendbuf)
 			transport->ko_count[stream] = transport->net_conf->ko_count;
-
 	} while (len > 0 /* THINK && peer_device->repl_state[NOW] >= L_ESTABLISHED */);
 #ifdef _LIN
 	set_fs(oldfs);
