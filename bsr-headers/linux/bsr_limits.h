@@ -283,7 +283,9 @@
 /* Some backends pretend to support WRITE SAME,
 * but fail such requests when they are actually submitted.
 * This is to tell BSR to not even try. */
-#define BSR_DISABLE_WRITE_SAME_DEF 0
+ 
+// BSR-985 set the default value to disable write same 
+#define BSR_DISABLE_WRITE_SAME_DEF 1
 
 #define BSR_ALLOW_TWO_PRIMARIES_DEF	0
 #define BSR_ALWAYS_ASBP_DEF	0

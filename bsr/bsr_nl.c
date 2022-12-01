@@ -2404,7 +2404,8 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 	struct request_queue *b = NULL;
 	struct disk_conf *dc;
 	bool discard_zeroes_if_aligned = true;
-	bool disable_write_same = false;
+	// BSR-985 set the default value to disable write same 
+	bool disable_write_same = true;
 
 	UNREFERENCED_PARAMETER(o);
 
