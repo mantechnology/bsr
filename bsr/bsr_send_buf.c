@@ -480,7 +480,6 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 	if (buffering_attr->send_buf_thread_handle == NULL || buffering_attr->bab == NULL) {
 		struct kvec iov;
 		struct msghdr msg;
-		int rv;
 
 		iov.iov_base = buf;
 		iov.iov_len  = size;
@@ -689,6 +688,7 @@ int send_buf_thread(void *p)
 	struct socket *socket;
 	struct _buffering_attr *buffering_attr;
 	int ret = 0;
+	bsr_stream stream;
 	
 	long timeo = 1 * HZ;
 
