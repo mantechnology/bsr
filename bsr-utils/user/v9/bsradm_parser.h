@@ -35,6 +35,8 @@ enum yytokentype {
 	TK_GLOBAL = 258,
 	TK_RESOURCE,
 	TK_ON,
+	TK_ON_WINDOWS,	/* BSR-867 add platform-based host keyword*/
+	TK_ON_LINUX,	/* BSR-867 */
 	TK_STACKED,
 	TK_NET,
 	TK_DISK,
@@ -83,6 +85,8 @@ enum yytokentype {
 	TK_INCLUDE,
 	TK_BWLIMIT,
 	TK_FLOATING,
+	TK_FLOATING_WINDOWS,	/* BSR-867 add platform-based host keyword*/
+	TK_FLOATING_LINUX,		/* BSR-867 */
 	TK_VOLUME,
 	TK_CMD_TIMEOUT_SHORT,
 	TK_CMD_TIMEOUT_MEDIUM,
