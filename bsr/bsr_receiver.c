@@ -9092,8 +9092,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	if (rv < SS_SUCCESS) {
 		// DW-1447
 		peer_device->last_repl_state = old_peer_state.conn;
-		// DW-1529 if old connection state is C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING
-		// DISCONNECTING makes cstate STANDALONE
+		// DW-1529 if old connection state is C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING (DISCONNECTING makes cstate STANDALONE)
 		// DW-1888 if the return value is SS_NEED_CONNECTION, reconnect it.
 		if (connection->cstate[NOW] == C_CONNECTING || rv == SS_NEED_CONNECTION){
 			bsr_info(10, BSR_LC_STATE, peer_device, "connection->cstate[OLD] == C_CONNECTING, change cstate to NETWORK_FAILURE instead of DISCONNECTING");
@@ -9136,8 +9135,9 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		}
 	}
 
-	// BSR-655 send uuids when sync of other secondary is done to resolve meaningless oos.
-	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.pdsk == D_UP_TO_DATE)
+	// BSR-655 the uuid is sent when the resync of another node is complete to resolve the meaningless oos.
+	// BSR-1000 change the confirmation criteria for resync completion of another node
+	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.disk == D_UP_TO_DATE)
 		bsr_send_uuids(peer_device, 0, 0, NOW);
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
