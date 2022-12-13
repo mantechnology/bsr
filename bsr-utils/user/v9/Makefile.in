@@ -79,7 +79,9 @@ ifdef is_win32
 		CFLAGS += -D_WIN32 
 	endif
 	CFLAGS += $(EXTRA_CFLAGS)
-
+	
+	# BSR-1002
+	LDLIBS += -liphlpapi
 else
 # _LIN
 CFLAGS += -Wall -I../../../bsr-headers -I.. -I. -I../shared
@@ -121,7 +123,7 @@ bsradm_scanner.c: bsradm_scanner.fl bsradm_parser.h
 	flex -s -obsradm_scanner.c bsradm_scanner.fl
 
 bsrsetup: $(bsrsetup-obj)
-	$(LINK.c) $(LDFLAGS) -o $@ $^
+	$(LINK.c) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 bsrmeta: $(bsrmeta-obj)
 	$(LINK.c) $(LDFLAGS) -o $@ $^

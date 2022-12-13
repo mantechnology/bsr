@@ -169,7 +169,8 @@ enum bsr_read_balancing {
 /* KEEP the order, do not delete or insert. Only append. */
 enum bsr_ret_code {
 	ERR_CODE_BASE		= 100,
-	NO_ERROR		= 101,
+	// BSR-1002 rename it because it overlaps with the ERR_NO defined in Windows.
+	ERR_NO		= 101,
 	ERR_LOCAL_ADDR		= 102,
 	ERR_PEER_ADDR		= 103,
 	ERR_OPEN_DISK		= 104,

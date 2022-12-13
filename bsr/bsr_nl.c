@@ -290,7 +290,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 		flags |= BSR_ADM_NEED_RESOURCE;
 
 	adm_ctx->reply_dh->minor = d_in->minor;
-	adm_ctx->reply_dh->ret_code = NO_ERROR;
+	adm_ctx->reply_dh->ret_code = ERR_NO;
 
 	adm_ctx->volume = VOLUME_UNSPECIFIED;
 	adm_ctx->peer_node_id = PEER_NODE_ID_UNSPECIFIED;
@@ -442,7 +442,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 		}
 	}
 
-	return NO_ERROR;
+	return ERR_NO;
 
 fail:
 	nlmsg_free(adm_ctx->reply_skb);
@@ -2640,7 +2640,7 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 
 	lock_all_resources();
 	retcode = bsr_resync_after_valid(device, new_disk_conf->resync_after);
-	if (retcode == NO_ERROR) {
+	if (retcode == ERR_NO) {
 #ifdef _WIN
 		synchronize_rcu_w32_wlock();
 #endif
@@ -2652,7 +2652,7 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 	unlock_all_resources();
 
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail_unlock;
 
 	mutex_unlock(&resource->conf_update);
@@ -2703,7 +2703,7 @@ fail_unlock:
 success:
 #ifdef _LIN
     // windows skip synchronize_rcu 
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		synchronize_rcu();
 #endif
 	put_ldev(device);
@@ -2875,7 +2875,7 @@ static int open_backing_devices(struct bsr_device *device,
 	set_bit(VOLUME_TYPE_META, &bdev->bd_disk->pDeviceExtension->Flag);
 	bdev->bd_disk->private_data = nbc;		// for removing
 #endif
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static void close_backing_dev(struct bsr_device *device, struct block_device *bdev,
@@ -3022,11 +3022,11 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	lock_all_resources();
 	retcode = bsr_resync_after_valid(device, new_disk_conf->resync_after);
 	unlock_all_resources();
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail;
 
 	retcode = open_backing_devices(device, new_disk_conf, nbc);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail;
 
 	if ((nbc->backing_bdev == nbc->md_bdev) !=
@@ -3068,7 +3068,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	/* Read our meta data super block early.
 	 * This also sets other on-disk offsets. */
 	retcode = bsr_md_read(device, nbc);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail;
 
 	discard_not_wanted_bitmap_uuids(device, nbc);
@@ -3326,7 +3326,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 
 	lock_all_resources();
 	retcode = bsr_resync_after_valid(device, device->ldev->disk_conf->resync_after);
-	if (retcode != NO_ERROR) {
+	if (retcode != ERR_NO) {
 		unlock_all_resources();
 		goto force_diskless_dec;
 	}
@@ -3688,7 +3688,7 @@ _check_net_options(struct bsr_connection *connection, struct net_conf *old_net_c
 		return ERR_SNDBUF_SIZE_TOO_SMALL;
 	}
 
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static enum bsr_ret_code
@@ -3726,7 +3726,7 @@ static int
 alloc_shash(struct crypto_shash **tfm, char *tfm_name, int err_alg)
 {
 	if (!tfm_name[0])
-		return NO_ERROR;
+		return ERR_NO;
 #ifdef _WIN
 	*tfm = crypto_alloc_hash(tfm_name, 0, 0, '11SB');
 #else // _LIN
@@ -3737,7 +3737,7 @@ alloc_shash(struct crypto_shash **tfm, char *tfm_name, int err_alg)
 		return err_alg;
 	}
 
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static enum bsr_ret_code
@@ -3751,15 +3751,15 @@ alloc_crypto(struct crypto *crypto, struct net_conf *new_net_conf)
 
 	rv = alloc_shash(&crypto->csums_tfm, new_net_conf->csums_alg,
 		       ERR_CSUMS_ALG);
-	if (rv != NO_ERROR)
+	if (rv != ERR_NO)
 		return rv;
 	rv = alloc_shash(&crypto->verify_tfm, new_net_conf->verify_alg,
 		       ERR_VERIFY_ALG);
-	if (rv != NO_ERROR)
+	if (rv != ERR_NO)
 		return rv;
 	rv = alloc_shash(&crypto->integrity_tfm, new_net_conf->integrity_alg,
 		       ERR_INTEGRITY_ALG);
-	if (rv != NO_ERROR)
+	if (rv != ERR_NO)
 		return rv;
 	if (new_net_conf->cram_hmac_alg[0] != 0) {
 #ifdef _WIN
@@ -3831,7 +3831,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	retcode = check_net_options(connection, new_net_conf);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail;
 
 
@@ -3875,7 +3875,7 @@ int bsr_adm_net_opts(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	retcode = alloc_crypto(&crypto, new_net_conf);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail;
 
 	// BSR-859 notify by event when peer node name changes
@@ -4231,11 +4231,11 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	tr_class = NULL;
 
 	retcode = check_net_options(connection, new_net_conf);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail_free_connection;
 
 	retcode = alloc_crypto(&crypto, new_net_conf);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto fail_free_connection;
 
 	((char *)new_net_conf->shared_secret)[SHARED_SECRET_MAX-1] = 0;
@@ -4350,7 +4350,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	bsr_debugfs_connection_add(connection); /* after ->net_conf was assigned */
 	bsr_thread_start(&connection->sender);
 	*ret_conn = connection;
-	return NO_ERROR;
+	return ERR_NO;
 
 unlock_fail_free_connection:
 	mutex_unlock(&adm_ctx->resource->conf_update);
@@ -4383,7 +4383,7 @@ static enum bsr_ret_code
 check_path_against_nla(const struct bsr_path *path,
 		       const struct nlattr *my_addr, const struct nlattr *peer_addr)
 {
-	enum bsr_ret_code ret = NO_ERROR;
+	enum bsr_ret_code ret = ERR_NO;
 
 	if (addr_eq_nla(&path->my_addr, path->my_addr_len, my_addr))
 		ret = ERR_LOCAL_ADDR;
@@ -4413,7 +4413,7 @@ check_path_usable(const struct bsr_config_context *adm_ctx,
 			struct bsr_path *path;
 			list_for_each_entry_ex(struct bsr_path, path, &connection->transport.paths, list) {
 				retcode = check_path_against_nla(path, my_addr, peer_addr);
-				if (retcode == NO_ERROR)
+				if (retcode == ERR_NO)
 					continue;
 				/* Within the same resource, it is ok to use
 				 * the same endpoint several times */
@@ -4424,7 +4424,7 @@ check_path_usable(const struct bsr_config_context *adm_ctx,
 			}
 		}
 	}
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static enum bsr_ret_code
@@ -4446,7 +4446,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	peer_addr = nested_attr_tb[__nla_type(T_peer_addr)];
 
 	retcode = check_path_usable(adm_ctx, my_addr, peer_addr);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		return retcode;
 
 	path = bsr_kzalloc(transport->class->path_instance_size, GFP_KERNEL, '57SB');
@@ -4469,7 +4469,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 		return ERR_INVALID_REQUEST;
 	}
 	notify_path(adm_ctx->connection, path, NOTIFY_CREATE);
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
@@ -4654,7 +4654,7 @@ adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 		INIT_LIST_HEAD(&path->list);
 		notify_path(connection, path, NOTIFY_DESTROY);
 		kref_put(&path->kref, bsr_destroy_path);
-		return NO_ERROR;
+		return ERR_NO;
 	}
 
 	bsr_err(48, BSR_LC_GENL, connection, "Failed to delete path due to failure to put an listener. err(%d)", err);
@@ -4870,7 +4870,7 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 	if (rv < SS_SUCCESS)
 		retcode = rv;  /* FIXME: Type mismatch. */
 	else
-		retcode = NO_ERROR;
+		retcode = ERR_NO;
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
  fail:
 	bsr_adm_finish(&adm_ctx, info, retcode);
@@ -5775,7 +5775,7 @@ put_result:
 	if (!dh)
 		goto out;
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 #ifdef _WIN
 	// BSR-421 modify deadlock of rcu_read_lock
@@ -5935,13 +5935,13 @@ int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb)
 	}
 
 //	idr_for_each_entry_continue_ex(struct bsr_device *, idr_to_search, device, minor) {
-//		retcode = NO_ERROR;
+//		retcode = ERR_NO;
 //		goto put_result;  /* only one iteration */
 //	}
 
 	device = (struct bsr_device *)idr_get_next((idr_to_search), &(minor));
 	if (device) {
-			retcode = NO_ERROR;
+			retcode = ERR_NO;
 			goto put_result;  /* only one iteration */
 	}
 
@@ -5958,7 +5958,7 @@ put_result:
 		goto out;
 	dh->ret_code = retcode;
 	dh->minor = UINT32_MAX;
-	if (retcode == NO_ERROR) {
+	if (retcode == ERR_NO) {
 		dh->minor = device->minor;
 
 #ifdef _WIN
@@ -6100,12 +6100,12 @@ found_connection:
 #ifdef _WIN
 	connection = list_entry_rcu(connection->connections.next, struct bsr_connection, connections);
 	if(&connection->connections != &(resource->connections)) {        
-		retcode = NO_ERROR;
+		retcode = ERR_NO;
 		goto put_result;  /* only one iteration */
 	}
 #else // _LIN
 	list_for_each_entry_continue_rcu_ex(struct bsr_connection, connection, &resource->connections, connections) {
-		retcode = NO_ERROR;
+		retcode = ERR_NO;
 		goto put_result;  /* only one iteration */
 	}
 #endif
@@ -6146,7 +6146,7 @@ put_result:
 		goto out;
 	dh->ret_code = retcode;
 	dh->minor = UINT32_MAX;
-	if (retcode == NO_ERROR) {
+	if (retcode == ERR_NO) {
 		struct net_conf *net_conf;
 
 #ifdef _WIN
@@ -6307,12 +6307,12 @@ found_peer_device:
 #ifdef _WIN
 	peer_device = list_entry_rcu(peer_device->peer_devices.next, struct bsr_peer_device, peer_devices);
 	if (&peer_device->peer_devices != &(device->peer_devices)) {
-		retcode = NO_ERROR;
+		retcode = ERR_NO;
 		goto put_result;  /* only one iteration */
 	}
 #else // _LIN
 	list_for_each_entry_continue_rcu_ex(struct bsr_peer_device, peer_device, &device->peer_devices, peer_devices) {
-		retcode = NO_ERROR;
+		retcode = ERR_NO;
 		goto put_result;  /* only one iteration */
 	}
 #endif
@@ -6328,7 +6328,7 @@ put_result:
 		goto out;
 	dh->ret_code = retcode;
 	dh->minor = UINT32_MAX;
-	if (retcode == NO_ERROR) {
+	if (retcode == ERR_NO) {
 		struct peer_device_info peer_device_info;
 		struct peer_device_statistics peer_device_statistics;
 		struct peer_device_conf *peer_device_conf;
@@ -6597,7 +6597,7 @@ bsr_check_resource_name(struct bsr_config_context *adm_ctx)
 		bsr_msg_put_info(adm_ctx->reply_skb, "invalid resource name");
 		return ERR_INVALID_REQUEST;
 	}
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static void resource_to_info(struct resource_info *info,
@@ -6638,7 +6638,7 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	retcode = bsr_check_resource_name(&adm_ctx);
-	if (retcode != NO_ERROR)
+	if (retcode != ERR_NO)
 		goto out;
 
 	if (adm_ctx.resource)
@@ -6753,7 +6753,7 @@ int bsr_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 			break;
 		/* Keep retrying until the memory allocations eventually succeed. */
 	}
-	if (retcode == NO_ERROR) {
+	if (retcode == ERR_NO) {
 		struct bsr_peer_device *peer_device;
 		struct device_info info;
 		unsigned int peer_devices = 0;
@@ -6793,13 +6793,13 @@ static enum bsr_ret_code adm_del_minor(struct bsr_device *device)
 	if (device->disk_state[NOW] == D_DISKLESS &&
 	    device->open_ro_cnt == 0 && device->open_rw_cnt == 0) {
 		set_bit(UNREGISTERED, &device->flags);
-		ret = NO_ERROR;
+		ret = ERR_NO;
 	} else {
 		ret = ERR_MINOR_CONFIGURED;
 	}
 	spin_unlock_irq(&resource->req_lock);
 
-	if (ret != NO_ERROR)
+	if (ret != ERR_NO)
 		return ret;
 
 	for_each_peer_device_ref(peer_device, im, device)
@@ -6869,7 +6869,7 @@ static int adm_del_resource(struct bsr_resource *resource)
 	err = ERR_RES_IN_USE;
 	if (!idr_is_empty(&resource->devices))
 		goto out;
-	err = NO_ERROR;
+	err = ERR_NO;
 
 	mutex_lock(&notification_mutex);
 	notify_resource_state(NULL, 0, resource, NULL, NOTIFY_DESTROY);
@@ -7056,7 +7056,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		rcu_read_unlock();
 		retcode = adm_detach(device, 0, adm_ctx.reply_skb);
 		// BSR-925
-		if (retcode < SS_SUCCESS || retcode > NO_ERROR) {
+		if (retcode < SS_SUCCESS || retcode > ERR_NO) {
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
 			kref_put(&device->kref, bsr_destroy_device);
 			goto out;
@@ -7065,7 +7065,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		ret = adm_del_minor(device);
 		mutex_unlock(&resource->conf_update);
 		kref_put(&device->kref, bsr_destroy_device);
-		if (ret != NO_ERROR) {
+		if (ret != ERR_NO) {
 			/* "can not happen" */
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");
 			goto out;
@@ -7138,7 +7138,7 @@ void notify_resource_state(struct sk_buff *skb,
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	if (nla_put_bsr_cfg_context(skb, resource, NULL, NULL, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
@@ -7192,7 +7192,7 @@ void notify_device_state(struct sk_buff *skb,
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = device->minor;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
@@ -7243,7 +7243,7 @@ void notify_connection_state(struct sk_buff *skb,
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	if (nla_put_bsr_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
@@ -7295,7 +7295,7 @@ void notify_peer_device_state(struct sk_buff *skb,
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	if (nla_put_bsr_cfg_context(skb, resource, peer_device->connection, peer_device->device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
 	    ((type & ~NOTIFY_FLAGS) != NOTIFY_DESTROY &&
@@ -7347,7 +7347,7 @@ void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error)
 		goto fail;
 
 	dh->minor = device->minor;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	mutex_lock(&notification_mutex);
 	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
 		nla_put_notification_header(skb, NOTIFY_ERROR) ||
@@ -7423,7 +7423,7 @@ void notify_gi_uuid_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer
 		goto fail;
 		
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
@@ -7490,7 +7490,7 @@ void notify_gi_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, stru
 		goto fail;
 
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, NULL, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
@@ -7569,7 +7569,7 @@ void notify_gi_peer_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq,
 		goto fail;
 
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 	if (nla_put_bsr_cfg_context(skb, device->resource, connection, device, NULL) ||
 		nla_put_notification_header(skb, type) ||
@@ -7616,7 +7616,7 @@ void notify_path(struct bsr_connection *connection, struct bsr_path *path,
 		goto fail;
 
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	mutex_lock(&notification_mutex);
 	if (nla_put_bsr_cfg_context(skb, resource, connection, NULL, path) ||
 	    nla_put_notification_header(skb, type) ||
@@ -7676,7 +7676,7 @@ void notify_node_info(struct sk_buff *skb, unsigned int seq, struct bsr_resource
 	info._nodename_len = (__u32)(min(strlen(node_name), sizeof(info._nodename)));
 
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 	if (nla_put_bsr_node_cfg_context(skb, resource, connection) ||
 		nla_put_notification_header(skb, type) ||
@@ -7728,7 +7728,7 @@ void notify_helper(enum bsr_notification_type type,
 	if (!dh)
 		goto fail;
 	dh->minor = device ? device->minor : -1;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	mutex_lock(&notification_mutex);
 	if (nla_put_bsr_cfg_context(skb, resource, connection, device, NULL) ||
 	    nla_put_notification_header(skb, type) ||
@@ -7783,7 +7783,7 @@ void notify_split_brain(struct bsr_connection *connection, char * recover_type)
 		goto fail;
 
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 
 	mutex_lock(&notification_mutex);
 	if (nla_put_bsr_cfg_context(skb, connection->resource, connection, NULL, NULL) ||
@@ -7818,7 +7818,7 @@ static void notify_initial_state_done(struct sk_buff *skb, unsigned int seq)
 	if (!dh)
 		goto nla_put_failure;
 	dh->minor = UINT32_MAX;
-	dh->ret_code = NO_ERROR;
+	dh->ret_code = ERR_NO;
 	if (nla_put_notification_header(skb, NOTIFY_EXISTS))
 		goto nla_put_failure;
 	genlmsg_end(skb, dh);

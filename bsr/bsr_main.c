@@ -4955,7 +4955,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	bsr_debugfs_device_add(device);
 	*p_device = device;
-	return NO_ERROR;
+	return ERR_NO;
 
 out_remove_peer_device:
     {
@@ -6306,7 +6306,7 @@ err:
  * @device:	BSR device.
  * @bdev:	Device from which the meta data should be read in.
  *
- * Return NO_ERROR on success, and an enum bsr_ret_code in case
+ * Return ERR_NO on success, and an enum bsr_ret_code in case
  * something goes wrong.
  *
  * Called exactly once during bsr_adm_attach(), while still being D_DISKLESS,
@@ -6316,7 +6316,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 {
 	struct meta_data_on_disk_9 *buffer;
 	u32 magic, flags;
-	int i, rv = NO_ERROR;
+	int i, rv = ERR_NO;
 	int my_node_id = device->resource->res_opts.node_id;
 	u32 max_peers;
 
@@ -6419,7 +6419,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	for (i = 0; i < ARRAY_SIZE(buffer->history_uuids); i++)
 		bdev->md.history_uuids[i] = be64_to_cpu(buffer->history_uuids[i]);
 
-	rv = NO_ERROR;
+	rv = ERR_NO;
  err:
 	bsr_md_put_buffer(device);
 
