@@ -2710,10 +2710,10 @@ void suspend_other_sg(struct bsr_device *device)
 enum bsr_ret_code bsr_resync_after_valid(struct bsr_device *device, int resync_after)
 {
 	struct bsr_device *other_device;
-	int rv = NO_ERROR;
+	int rv = ERR_NO;
 
 	if (resync_after == -1)
-		return NO_ERROR;
+		return ERR_NO;
 	if (resync_after < -1)
 		return ERR_RESYNC_AFTER;
 	other_device = minor_to_device(resync_after);

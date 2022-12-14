@@ -88,6 +88,11 @@
 #include "wrap_printf.h"
 #include "bsrsetup_colors.h"
 
+// BSR-1002
+#ifdef _WIN
+#include <iphlpapi.h>
+#endif
+
 char *progname;
 
 /* for parsing of messages */
@@ -604,7 +609,7 @@ bool wait_after_split_brain;
 
 /* The EM(123) are used for old error messages. */
 static const char *error_messages[] = {
-	EM(NO_ERROR) = "No further Information available.",
+	EM(ERR_NO) = "No further Information available.",
 	EM(ERR_LOCAL_ADDR) = "Local address(port) already in use.",
 	EM(ERR_PEER_ADDR) = "Remote address(port) already in use.",
 	EM(ERR_OPEN_DISK) = "Can not open backing device.",
@@ -745,7 +750,7 @@ static int conv_block_dev(struct bsr_argument *ad, struct msg_buff *msg,
 
 #ifdef _WIN
     nla_put_string(msg, ad->nla_type, arg);
-    return NO_ERROR;
+    return ERR_NO;
 #endif
 
 #ifdef _WIN
@@ -774,7 +779,7 @@ static int conv_block_dev(struct bsr_argument *ad, struct msg_buff *msg,
 
 	nla_put_string(msg, ad->nla_type, arg);
 
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static int conv_md_idx(struct bsr_argument *ad, struct msg_buff *msg,
@@ -794,7 +799,7 @@ static int conv_md_idx(struct bsr_argument *ad, struct msg_buff *msg,
 
 	nla_put_u32(msg, ad->nla_type, idx);
 
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static int conv_u32(struct bsr_argument *ad, struct msg_buff *msg,
@@ -804,7 +809,7 @@ static int conv_u32(struct bsr_argument *ad, struct msg_buff *msg,
 
 	nla_put_u32(msg, ad->nla_type, i);
 
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 static void resolv6(const char *name, struct sockaddr_in6 *addr)
@@ -860,8 +865,17 @@ static unsigned long resolv(const char* name)
 	return retval;
 }
 
-static void split_ipv6_addr(char **address, int *port)
+static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 {
+	// BSR-1002
+#ifdef _WIN
+	char *scopeId = NULL;
+	NET_LUID interfaceLuid;
+	NET_IFINDEX ifindex = 0;
+	char ifindex_str[32] = { 0, };
+	wchar_t* scopeId_w;
+	int len;
+#endif
 	/* ipv6:[fe80::0234:5678:9abc:def1]:8000; */
 	char *b = strrchr(*address,']');
 	if (address[0][0] != '[' || b == NULL ||
@@ -873,13 +887,64 @@ static void split_ipv6_addr(char **address, int *port)
 
 	*b = 0;
 	*address += 1; /* skip '[' */
+	*re_alloc = false;
+
 	if (b[1] == ':')
-		*port = m_strtoll(b+2,1); /* b+2: "]:" */
+		*port = m_strtoll(b + 2, 1); /* b+2: "]:" */
 	else
 		*port = 7788; /* will we ever get rid of that default port? */
+
+	// BSR-1002 bsr uses the alias as the default for ipv6 link-local
+#ifdef _WIN
+	scopeId = strrchr(*address, '%');
+	scopeId++;
+
+	len = mbstowcs(NULL, scopeId, 0);
+	if (len != -1) {
+		scopeId_w = (LPWSTR)malloc(sizeof(wchar_t) * len + 1);
+		if (scopeId_w) {
+			if (-1 != mbstowcs(scopeId_w, scopeId, len + 1)) {
+				if (NO_ERROR == ConvertInterfaceAliasToLuid(scopeId_w, &interfaceLuid) && 
+					NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex)) {
+					// BSR-1002 set to the index corresponding to the alias.
+					sprintf(ifindex_str, "%d", ifindex);
+					if (strlen(scopeId) < strlen(ifindex_str)) {
+						char *addr_new = (char*)calloc(strlen(*address) + strlen(ifindex_str) + 1, sizeof(char));
+						if (addr_new) {
+							memcpy(addr_new, *address, strlen(*address));
+							free(*address);
+							*address = addr_new;
+							*re_alloc = true;
+							scopeId = strrchr(*address, '%');
+							scopeId++;
+							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
+						} else {
+							CLI_ERRO_LOG(false, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
+						}
+					}
+					else {
+						memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
+					}
+				}
+				else {
+					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
+				}
+			} else {
+				CLI_ERRO_LOG(false, "failed to convert to multi-byte, (%s)", scopeId);
+			}
+			free(scopeId_w);
+		}
+		else {
+			CLI_ERRO_LOG(false, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
+		}
+	}
+	else {
+		CLI_ERRO_LOG(false, "failed to get multi-byte size, (%s)", scopeId);
+	}
+#endif
 }
 
-static void split_address(int *af, char** address, int* port)
+static char* split_address(int *af, char** address, int* port)
 {
 	static struct { char* text; int af; } afs[] = {
 		{ "ipv4:", AF_INET  },
@@ -890,6 +955,7 @@ static void split_address(int *af, char** address, int* port)
 
 	unsigned int i;
 	char *b;
+	char *a = *address;
 
 	*af=AF_INET;
 	for (i=0; i<ARRAY_SIZE(afs); i++) {
@@ -900,8 +966,15 @@ static void split_address(int *af, char** address, int* port)
 		}
 	}
 
-	if (*af == AF_INET6 && address[0][0] == '[')
-		return split_ipv6_addr(address, port);
+	if (*af == AF_INET6 && address[0][0] == '[') {
+		// BSR-1002
+		bool re_alloc = false;
+		split_ipv6_addr(address, port, &re_alloc);
+		if (re_alloc)
+			return *address;
+		else
+			return a;
+	}
 
 	if (*af == -1)
 		*af = get_af_ssocks(1);
@@ -919,20 +992,24 @@ static void split_address(int *af, char** address, int* port)
 		*port = m_strtoll(b+1,1);
 	} else
 		*port = 7788;
+
+	return a;
 }
 
 static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str)
 {
 	int af, port;
-	char *address = strdupa(str);
-
-	split_address(&af, &address, &port);
+	char *address = strdup(str);
+	// BSR-1002 
+	char *release_to = split_address(&af, &address, &port);
 	if (af == AF_INET6) {
 		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)storage;
 
 		memset(sin6, 0, sizeof(*sin6));
 		resolv6(address, sin6);
 		sin6->sin6_port = htons(port);
+		// BSR-1002
+		free(release_to);
 		/* sin6->sin6_len = sizeof(*sin6); */
 		return sizeof(*sin6);
 	} else {
@@ -944,8 +1021,13 @@ static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str)
 		sin->sin_port = htons(port);
 		sin->sin_family = af;
 		sin->sin_addr.s_addr = resolv(address);
+		// BSR-1002
+		free(release_to);
 		return sizeof(*sin);
 	}
+
+	// BSR-1002
+	free(release_to);
 	return 0;
 }
 
@@ -967,7 +1049,7 @@ static int conv_addr(struct bsr_argument *ad, struct msg_buff *msg,
 	}
 
 	nla_put(msg, ad->nla_type, addr_len, &x);
-	return NO_ERROR;
+	return ERR_NO;
 }
 
 
@@ -1104,7 +1186,7 @@ static int check_error(int err_no, char *desc)
 {
 	int rv = 0;
 
-	if (err_no == NO_ERROR || err_no == SS_SUCCESS)
+	if (err_no == ERR_NO || err_no == SS_SUCCESS)
 		return 0;
 
 	if (err_no == OTHER_ERROR) {
@@ -1502,7 +1584,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			nla = nla_nest_start(smsg, cm->tla_id);
 		}
 		rv = ad->convert_function(ad, smsg, dhdr, argv[i]);
-		if (rv != NO_ERROR)
+		if (rv != ERR_NO)
 			goto error;
 		ad++;
 	}
@@ -1560,7 +1642,7 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			CLI_ERRO_LOG_STDERR(false, "Resource unknown");
 
 		if (cm->missing_ok)
-			rv = NO_ERROR;
+			rv = ERR_NO;
 	}
 	bsr_tla_parse(nlh);
 
@@ -1730,7 +1812,7 @@ int choose_timeout(struct choose_timeout_ctx *ctx)
 			desc = "minor not available";
 			goto error;
 		}
-		if (rr != NO_ERROR)
+		if (rr != ERR_NO)
 			goto error;
 		if (bsr_tla_parse(nlh)
 		|| timeout_parms_from_attrs(&parms, &info)) {
@@ -1844,7 +1926,7 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 	struct msg_buff *smsg;
 	struct iovec iov;
 	int timeout_ms, flags;
-	int rv = NO_ERROR;
+	int rv = ERR_NO;
 	int err = 0;
 
 	/* pre allocate request message and reply buffer */
@@ -2096,8 +2178,8 @@ static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 		}
 		rv = dh->ret_code;
 		if (rv == ERR_MINOR_INVALID && cm->missing_ok)
-			rv = NO_ERROR;
-		if (rv != NO_ERROR)
+			rv = ERR_NO;
+		if (rv != ERR_NO)
 			goto out2;
 		err = cm->show_function(cm, &info, u_ptr);
 		if (err) {
@@ -2131,7 +2213,7 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		.degr_wfc_timeout = BSR_DEGR_WFC_TIMEOUT_DEF,
 		.outdated_wfc_timeout = BSR_OUTDATED_WFC_TIMEOUT_DEF,
 	};
-	int c, timeout_ms, err = NO_ERROR;
+	int c, timeout_ms, err = ERR_NO;
 	struct peer_devices_list *peer_devices = NULL;
 	struct option *options = cm->options ? cm->options : no_options;
 	const char *opts = make_optstring(options);
@@ -3172,13 +3254,13 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			continue;
 
 		printf("%s\n", bsr_role_str(resource->info.res_role));
-		ret = NO_ERROR;
+		ret = ERR_NO;
 		break;
 	}
 
 	free_resources(resources);
 
-	if (ret != NO_ERROR) {
+	if (ret != ERR_NO) {
 		CLI_ERRO_LOG_STDERR(false, "%s: %s", objname, error_to_string(ret));
 		return 10;
 	}
@@ -4091,7 +4173,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	dh = info->userhdr;
 	if (dh->ret_code == ERR_MINOR_INVALID && cm->missing_ok)
 		return 0;
-	if (dh->ret_code != NO_ERROR)
+	if (dh->ret_code != ERR_NO)
 		return dh->ret_code;
 
 	if (bsr_notification_header_from_attrs(&nh, info))
@@ -4471,7 +4553,7 @@ static int wait_for_family(struct bsr_cmd *cm, struct genl_info *info, void *u_p
 		return 0;
 
 	dh = info->userhdr;
-	if (dh->ret_code != NO_ERROR)
+	if (dh->ret_code != ERR_NO)
 		return dh->ret_code;
 
 	if ((nh.nh_type & ~NOTIFY_FLAGS) == NOTIFY_DESTROY)
