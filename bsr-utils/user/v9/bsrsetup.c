@@ -918,15 +918,28 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 							scopeId = strrchr(*address, '%');
 							scopeId++;
 							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
+						} else {
+							CLI_ERRO_LOG(false, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
 						}
 					}
 					else {
 						memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
 					}
 				}
+				else {
+					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
+				}
+			} else {
+				CLI_ERRO_LOG(false, "failed to convert to multi-byte, (%s)", scopeId);
 			}
 			free(scopeId_w);
 		}
+		else {
+			CLI_ERRO_LOG(false, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
+		}
+	}
+	else {
+		CLI_ERRO_LOG(false, "failed to get multi-byte size, (%s)", scopeId);
 	}
 #endif
 }
