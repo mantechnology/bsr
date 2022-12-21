@@ -1398,7 +1398,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 		return 0;
 
 	if (!plausible_request_size(size)) {
-		bsr_err(1, BSR_LC_BITMAP, device, "%s => Failed to setup sync mode(%d) due to request size is invalid. %s: sector(%llus) size(%u) nonsense!",
+		bsr_info(1, BSR_LC_BITMAP, device, "%s => Skipped to setup sync mode(%d) due to request size is invalid. %s: sector(%llus) size(%u) nonsense!",
 				caller,
 				mode,
 				bsr_change_sync_fname[mode],
@@ -1410,7 +1410,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	if (!get_ldev(device)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
 	if (bsr_ratelimit())
-		bsr_err(2, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to in %s state, sector(%llu), mode(%u)", caller, bsr_disk_str(device->disk_state[NOW]), sector, mode);
+		bsr_info(2, BSR_LC_BITMAP, device, "%s => Skipped to setup sync due to in %s state, sector(%llu), mode(%u)", caller, bsr_disk_str(device->disk_state[NOW]), sector, mode);
 #endif
 		return 0; /* no disk, no metadata, no bitmap to manipulate bits in */
 	}
@@ -1420,7 +1420,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	if (!expect(peer_device, sector < nr_sectors)) {
 #ifdef _DEBUG_OOS // DW-1153 add error log
-		bsr_err(3, BSR_LC_BITMAP, peer_device, "%s => Failed to setup sync mode(%d) due to unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, mode, sector, nr_sectors);
+		bsr_info(3, BSR_LC_BITMAP, peer_device, "%s => Skipped to setup sync mode(%d) due to unexpected error, The sector(%llu) is larger than the capacity(%llu).", caller, mode, sector, nr_sectors);
 #endif
 		goto out;
 	}
@@ -1436,7 +1436,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 			// DW-1153 add error log
 #ifdef _DEBUG_OOS
 			// DW-1992 it is a normal operation, not an error, so it is output at the info level.
-			bsr_debug(4, BSR_LC_BITMAP, peer_device, "%s => Skip to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
+			bsr_debug(4, BSR_LC_BITMAP, peer_device, "%s => Skipped to setup sync due to smaller than bitmap bit size, sector(%llu) ~ sector(%llu)", caller, sector, esector);
 #endif
 			goto out;
 		}
@@ -1494,7 +1494,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	bool skip_clear = false;
 
 	if (size <= 0 || !IS_ALIGNED(size, 512)) {
-		bsr_err(7, BSR_LC_BITMAP, device, "%s => Failed to setup sync due to size is invalid. sector(%llus), size(%d)",
+		bsr_info(7, BSR_LC_BITMAP, device, "%s => Skipped to setup sync due to size is invalid. sector(%llus), size(%d)",
 			 __func__, (unsigned long long)sector, size);
 		return false;
 	}
@@ -1503,7 +1503,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
 		if (bsr_ratelimit())
-			bsr_err(5, BSR_LC_BITMAP, device, "Failed to setup sync due to in %s state. sector(%llu)", bsr_disk_str(device->disk_state[NOW]), sector);
+			bsr_info(5, BSR_LC_BITMAP, device, "Skipped to setup sync due to in %s state. sector(%llu)", bsr_disk_str(device->disk_state[NOW]), sector);
 #endif
 		return false; /* no disk, no metadata, no bitmap to set bits in */
 	}
@@ -1516,7 +1516,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	if (!expect(device, sector < nr_sectors)) {
 		// DW-1153 add error log
 #ifdef _DEBUG_OOS
-		bsr_err(6, BSR_LC_BITMAP, device, "Failed to setup sync due to unexpected error, The sector(%llu) is larger than the capacity sector(%llu).", sector, nr_sectors);
+		bsr_info(6, BSR_LC_BITMAP, device, "Skipped to setup sync due to unexpected error, The sector(%llu) is larger than the capacity sector(%llu).", sector, nr_sectors);
 #endif
 		goto out;
 	}

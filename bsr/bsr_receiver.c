@@ -9137,8 +9137,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	// BSR-655 the uuid is sent when the resync of another node is complete to resolve the meaningless oos.
 	// BSR-1000 change the confirmation criteria for resync completion of another node
-	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.disk == D_UP_TO_DATE)
+	if (old_peer_state.pdsk == D_INCONSISTENT && peer_state.disk == D_UP_TO_DATE) {
+		// BSR-1001
+		check_remaining_out_of_sync(device);
 		bsr_send_uuids(peer_device, 0, 0, NOW);
+	}
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 

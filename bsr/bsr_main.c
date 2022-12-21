@@ -7471,6 +7471,22 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 	return count;
 }
 
+// BSR-1001
+void check_remaining_out_of_sync(struct bsr_device* device) {
+	struct bsr_peer_device *peer_device;
+	ULONG_PTR bm_total;
+
+	rcu_read_lock();
+	for_each_peer_device_rcu(peer_device, device) {
+		if (peer_device->disk_state[NOW] == D_UP_TO_DATE &&
+			peer_device->repl_state[NOW] == L_ESTABLISHED) {
+			bm_total = bsr_bm_total_weight(peer_device);
+			if (bm_total)
+				bsr_info(217, BSR_LC_RESYNC_OV, peer_device, "The remaining out of sync is %llu", bm_total);
+		}
+	}
+	rcu_read_unlock();
+}
 // BSR-904
 #ifdef _LIN
 bool isDeviceMounted(struct bsr_device *device)

@@ -2127,6 +2127,10 @@ out:
 			bsr_khelper(NULL, connection, "unfence-peer");
 	}
 
+	// BSR-1001
+	if (old_repl_state == L_SYNC_TARGET)
+		check_remaining_out_of_sync(device);
+
 	return 1;
 }
 
