@@ -527,7 +527,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 216
+#define BSR_LC_RESYNC_OV_MAX_INDEX 217
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -3342,6 +3342,8 @@ extern void bsr_al_shrink(struct bsr_device *device);
 extern bool bsr_sector_has_priority(struct bsr_peer_device *, sector_t);
 extern int bsr_al_initialize(struct bsr_device *, void *);
 
+// BSR-1001
+extern void check_remaining_out_of_sync(struct bsr_device* device);
 /* bsr_nl.c */
 
 extern struct mutex notification_mutex;

@@ -3570,8 +3570,20 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			/* sync target done with resync. Explicitly notify all peers. Our sync
 			   source should even know by himself, but the others need that info. */
-			if (disk_state[OLD] < D_UP_TO_DATE && repl_state[OLD] >= L_SYNC_SOURCE && repl_state[NEW] == L_ESTABLISHED)
+			if (disk_state[OLD] < D_UP_TO_DATE && repl_state[OLD] >= L_SYNC_SOURCE && repl_state[NEW] == L_ESTABLISHED) {
 				send_new_state_to_all_peer_devices(state_change, n_device);
+
+				// BSR-1001 send your uuid to another target node upon resync completion
+				if (repl_state[OLD] == L_SYNC_TARGET) {
+					struct bsr_peer_device *other_peer_device;
+
+					for_each_peer_device_rcu(other_peer_device, device) {
+						if (other_peer_device != peer_device) {
+							bsr_send_uuids(other_peer_device, 0, 0, NEW);
+						}
+					}
+				}
+			}
 
 			// DW-885
 			// DW-897
