@@ -2998,20 +2998,17 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_repl_state repl_state;
 	int r;
 
-	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
-	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
-
 	spin_lock_irq(&device->resource->req_lock);
 	repl_state = peer_device->repl_state[NOW];
 	spin_unlock_irq(&device->resource->req_lock);
 	if (repl_state < L_ESTABLISHED) {
 		/* Connection closed meanwhile. */
 		bsr_err(138, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to not connected"); // DW-1518
-		return;
+		goto clear_flag;
 	}
 	if (repl_state >= L_SYNC_SOURCE && repl_state < L_AHEAD) {
 		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to resync already running!");
-		return;
+		goto clear_flag;
 	}
 
 	// BSR-842
@@ -3019,7 +3016,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
 		if (side == L_SYNC_TARGET && atomic_read(&peer_device->wait_for_out_of_sync)) {
 			bsr_info(215, BSR_LC_RESYNC_OV, peer_device, "resync will not start because out of sync has not been received completely");
-			return;
+			goto clear_flag;
 		}
 	}
 #endif
@@ -3044,7 +3041,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				bsr_info(140, BSR_LC_RESYNC_OV, device, "before-resync-target handler returned %d, "
 					 "dropping connection.", r);
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-				return;
+				goto clear_flag;
 			}
 		} else /* L_SYNC_SOURCE */ {
 			r = bsr_khelper(device, connection, "before-resync-source");
@@ -3062,7 +3059,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 					bsr_info(142, BSR_LC_RESYNC_OV, device, "before-resync-source handler returned %d, "
 						 "dropping connection.", r);
 					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-					return;
+					goto clear_flag;
 				}
 			}
 		}
@@ -3082,7 +3079,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			mod_timer(&peer_device->start_resync_timer, jiffies + HZ / 5);
 		}
 		mutex_unlock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
-		return;
+		goto clear_flag;
 	}
 
 	// DW-2058
@@ -3315,10 +3312,17 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	}
 
 	put_ldev(device);
-    out:
+out:
 	up(&device->resource->state_sem);
 	if (finished_resync_pdsk != D_UNKNOWN)
 		bsr_resync_finished(peer_device, finished_resync_pdsk);
+
+clear_flag:
+	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
+	// BSR-998 fix stuck in SyncSource/Established state
+	// clear AHEAD_TO_SYNC_SOURCE bit after state change
+	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
+
 }
 
 static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resync_done)
