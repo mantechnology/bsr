@@ -336,7 +336,7 @@ static void bio_destructor_bsr(struct bio *bio)
 #ifdef _WIN
 struct bio *bio_alloc_bsr(gfp_t gfp_mask, ULONG Tag)
 #else // _LIN
-struct bio *bio_alloc_bsr(gfp_t gfp_mask)
+struct bio *bio_alloc_bsr(struct block_device *bdev, gfp_t gfp_mask, int op)
 #endif
 {
 #ifdef _WIN
@@ -344,10 +344,18 @@ struct bio *bio_alloc_bsr(gfp_t gfp_mask)
 #else // _LIN
 	struct bio *bio;
 
-	if (!bioset_initialized(&bsr_md_io_bio_set))
-		return bio_alloc(gfp_mask, 1);
-
+ 	if (!bioset_initialized(&bsr_md_io_bio_set)) {
+#ifdef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+ 		return bio_alloc(bdev, 1, op, gfp_mask);
+#else
+ 		return bio_alloc(gfp_mask, 1);
+#endif
+ 	}
+#ifdef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio = bio_alloc_bioset(bdev, 1, op, gfp_mask, &bsr_md_io_bio_set);
+#else
 	bio = bio_alloc_bioset(gfp_mask, 1, &bsr_md_io_bio_set);
+#endif
 	if (!bio)
 		return NULL;
 #ifdef COMPAT_HAVE_BIO_FREE
@@ -1999,23 +2007,39 @@ out:
 /* communicated if (agreed_features & BSR_FF_WSAME) */
 void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct request_queue *q)
 {
+#ifndef COMPAT_HAVE_QUEUE_ALIGMENT_OFFSET
+	struct block_device *bdev = device->ldev->backing_bdev;
+#endif
 	if (q) {
+#ifdef COMPAT_HAVE_QUEUE_ALIGMENT_OFFSET
 		p->qlim->physical_block_size = cpu_to_be32(queue_physical_block_size(q));
 		p->qlim->logical_block_size = cpu_to_be32(queue_logical_block_size(q));
 		p->qlim->alignment_offset = cpu_to_be32(queue_alignment_offset(q));
+#else
+		p->qlim->physical_block_size = cpu_to_be32(bdev_physical_block_size(bdev));
+		p->qlim->logical_block_size = cpu_to_be32(bdev_logical_block_size(bdev));
+		p->qlim->alignment_offset = cpu_to_be32(bdev_alignment_offset(bdev));
+#endif
 		p->qlim->io_min = cpu_to_be32(queue_io_min(q));
 		p->qlim->io_opt = cpu_to_be32(queue_io_opt(q));
 		p->qlim->discard_enabled = blk_queue_discard(q);
 		p->qlim->discard_zeroes_data = queue_discard_zeroes_data(q);
 #ifdef COMPAT_WRITE_SAME_CAPABLE
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		p->qlim->write_same_capable = !!q->limits.max_write_same_sectors;
+#endif
 #else
 		p->qlim->write_same_capable = 0;
 #endif
 	} else {
 		q = device->rq_queue;
+#ifdef COMPAT_HAVE_QUEUE_ALIGMENT_OFFSET
 		p->qlim->physical_block_size = cpu_to_be32(queue_physical_block_size(q));
 		p->qlim->logical_block_size = cpu_to_be32(queue_logical_block_size(q));
+#else
+		p->qlim->physical_block_size = cpu_to_be32(bdev_physical_block_size(bdev));
+		p->qlim->logical_block_size = cpu_to_be32(bdev_logical_block_size(bdev));
+#endif
 		p->qlim->alignment_offset = 0;
 		p->qlim->io_min = cpu_to_be32(queue_io_min(q));
 		p->qlim->io_opt = cpu_to_be32(queue_io_opt(q));
@@ -2885,10 +2909,11 @@ static int _bsr_send_bio(struct bsr_peer_device *peer_device, struct bio *bio)
 					 bio_iter_last(bvec, iter) ? 0 : MSG_MORE);
 		if (err)
 			return err;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		/* WRITE_SAME has only one segment */
 		if (bio_op(bio) == REQ_OP_WRITE_SAME)
 			break;
-
+#endif
 		peer_device->send_cnt += (bvec BVD bv_len) >> 9;
 	}
 #endif
@@ -2991,7 +3016,9 @@ static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
 			(bio->bi_opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
 			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
 			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
+#endif
 			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
 			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
 				((connection->agreed_features & BSR_FF_WZEROES) ?
@@ -3031,6 +3058,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		if (peer_device->connection->integrity_tfm)
 			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
 
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		if (op == REQ_OP_WRITE_SAME) {
 			wsame = bsr_prepare_command(peer_device, sizeof(*wsame) + digest_size, DATA_STREAM);
 			if (!wsame)
@@ -3039,11 +3067,14 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 			wsame->size = cpu_to_be32(req->i.size);
 			digest_out = wsame + 1;
 		} else {
+#endif
 			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
 			if (!p)
 				return -EIO;
 			digest_out = p + 1;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		}
+#endif
 	}
 
 	p->sector = cpu_to_be64(req->i.sector);

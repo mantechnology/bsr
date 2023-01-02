@@ -2328,6 +2328,7 @@ static void fixup_write_zeroes(struct bsr_device *device, struct request_queue *
 #endif
 }
 
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 static void decide_on_write_same_support(struct bsr_device *device,
 			struct request_queue *q,
 			struct request_queue *b, struct o_qlim *o,
@@ -2395,6 +2396,7 @@ static void decide_on_write_same_support(struct bsr_device *device,
 #endif
 }
 #endif
+#endif
 
 static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_dev *bdev,
 				   unsigned int max_bio_size, struct o_qlim *o)
@@ -2427,8 +2429,10 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 #ifdef _LIN
 	blk_queue_segment_boundary(q, PAGE_SIZE-1);
 	decide_on_discard_support(device, q, b, discard_zeroes_if_aligned);
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 	decide_on_write_same_support(device, q, b, o, disable_write_same);
 
+#endif
 	if (b) {
 		blk_stack_limits(&q->limits, &b->limits, 0);
 #if defined(COMPAT_HAVE_DISK_UPDATE_READAHEAD)

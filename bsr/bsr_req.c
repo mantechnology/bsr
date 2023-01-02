@@ -74,7 +74,11 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
 #endif
 
+#ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
+	if (bsr_req_make_private_bio(device, req, bio_src) == false) {
+#else
     if (bsr_req_make_private_bio(req, bio_src) == false) {
+#endif
 #ifdef _WIN
 		// DW-689
 		kfree2(req->req_databuf);
@@ -119,7 +123,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	kref_init(&req->kref);
 
 	req->rq_state[0] = (bio_data_dir(bio_src) == WRITE ? RQ_WRITE : 0)
-		| (bio_op(bio_src) == REQ_OP_WRITE_SAME ? RQ_WSAME : 0)
+		// | (bio_op(bio_src) == REQ_OP_WRITE_SAME ? RQ_WSAME : 0)
 		| (bio_op(bio_src) == REQ_OP_WRITE_ZEROES ? RQ_ZEROES : 0)
 		| (bio_op(bio_src) == REQ_OP_DISCARD ? RQ_UNMAP : 0);
 
@@ -2848,9 +2852,8 @@ void do_submit(struct work_struct *ws)
 #endif
 #endif
 
-
 #ifdef COMPAT_HAVE_SUBMIT_BIO
-blk_qc_t bsr_submit_bio(struct bio *bio)
+MAKE_REQUEST_TYPE bsr_submit_bio(struct bio *bio)
 #else
 MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #endif
@@ -2935,7 +2938,6 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	return status;
 #else // _LIN
 	__bsr_make_request(device, bio, start_kt, start_jif);
-
 	MAKE_REQUEST_RETURN;
 #endif
 }

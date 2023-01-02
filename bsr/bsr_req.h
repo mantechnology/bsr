@@ -293,11 +293,19 @@ enum bsr_req_state_bits {
 #define MR_READ        2
 
 // DW-689
+#ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
+static inline bool bsr_req_make_private_bio(struct bsr_device *device, struct bsr_request *req, struct bio *bio_src)
+#else
 static inline bool bsr_req_make_private_bio(struct bsr_request *req, struct bio *bio_src)
+#endif
 {
 	struct bio *bio;
-	bio = bio_clone_fast(bio_src, GFP_NOIO, &bsr_io_bio_set); /* XXX cannot fail?? */
 
+#ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
+	bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
+#else
+	bio = bio_clone_fast(bio_src, GFP_NOIO, &bsr_io_bio_set); /* XXX cannot fail?? */
+#endif
     if (!bio) {
         return false;
 	}

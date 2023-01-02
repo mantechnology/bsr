@@ -1341,7 +1341,12 @@ static void submit_one_flush(struct bsr_device *device, struct issue_flush_conte
 #ifdef _WIN
 	struct bio *bio = bio_alloc(GFP_NOIO, 1, '69SB');
 #else // _LIN
+#ifdef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	struct bio *bio = bio_alloc(device->ldev->backing_bdev, 0,
+		REQ_OP_FLUSH | REQ_PREFLUSH, GFP_NOIO); 
+#else
 	struct bio *bio = bio_alloc(GFP_NOIO, 0);
+#endif
 #endif
 
 	struct one_flush_context *octx = bsr_kmalloc(sizeof(*octx), GFP_NOIO, '78SB');
@@ -1745,7 +1750,11 @@ int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, uns
 		start = tmp;
 	}
 	while (nr_sectors >= max_discard_sectors) {
+#ifdef COMPAT_BLKDEV_ISSUE_DISCARD_HAS_4_PARAMS
+		err |= blkdev_issue_discard(bdev, start, max_discard_sectors, GFP_NOIO);
+#else
 		err |= blkdev_issue_discard(bdev, start, max_discard_sectors, GFP_NOIO, 0);
+#endif
 		nr_sectors -= max_discard_sectors;
 		start += max_discard_sectors;
 	}
@@ -1757,7 +1766,11 @@ int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, uns
 		nr = nr_sectors;
 		nr -= (unsigned int)nr % granularity;
 		if (nr) {
+#ifdef COMPAT_BLKDEV_ISSUE_DISCARD_HAS_4_PARAMS
+			err |= blkdev_issue_discard(bdev, start, nr, GFP_NOIO);
+#else
 			err |= blkdev_issue_discard(bdev, start, nr, GFP_NOIO, 0);
+#endif
 			nr_sectors -= nr;
 			start += nr;
 		}
@@ -1824,8 +1837,10 @@ struct bsr_peer_request *peer_req)
 	struct block_device *bdev = device->ldev->backing_bdev;
 	sector_t s = peer_req->i.sector;
 	sector_t nr = peer_req->i.size >> 9;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS 
 	if (blkdev_issue_write_same(bdev, s, nr, GFP_NOIO, peer_req->page_chain.head))
 		peer_req->flags |= EE_WAS_ERROR;
+#endif
 	bsr_endio_write_sec_final(peer_req);
 #endif
 }
@@ -1997,7 +2012,12 @@ next_bio:
 #ifdef _WIN
 	bio = bio_alloc(GFP_NOIO, nr_pages, '02SB');
 #else // _LIN
+#ifdef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio = bio_alloc(device->ldev->backing_bdev, nr_pages, REQ_OP_WRITE,
+		GFP_NOIO); 
+#else
 	bio = bio_alloc(GFP_NOIO, nr_pages);
+#endif
 #endif
 	if (!bio) {
 		bsr_err(47, BSR_LC_MEMORY, device, "Failed to submit peer request due to failure to allocate block I/O (pages=%u)", nr_pages);
@@ -3901,9 +3921,11 @@ static int wire_flags_to_bio_op(u32 dpf)
 		return REQ_OP_WRITE_ZEROES;
 	if (dpf & DP_DISCARD)
 		return REQ_OP_DISCARD;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS 
 	if (dpf & DP_WSAME)
 		return REQ_OP_WRITE_SAME;
 	else
+#endif
 		return REQ_OP_WRITE;
 }
 
@@ -4326,7 +4348,9 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			peer_req->flags |= EE_TRIM;
 	} else if (pi->cmd == P_WSAME) {
 		D_ASSERT(peer_device, peer_req->i.size > 0);
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS 
 		D_ASSERT(peer_device, op == REQ_OP_WRITE_SAME);
+#endif
 		D_ASSERT(peer_device, peer_req->page_chain.head != NULL);
 	} else if (peer_req->page_chain.head == NULL) {
 		/* Actually, this must not happen anymore,

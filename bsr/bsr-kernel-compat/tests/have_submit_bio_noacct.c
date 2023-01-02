@@ -4,7 +4,6 @@
 
 void foo(struct bio *bio)
 {
-	blk_qc_t result;
-
-	result = submit_bio_noacct(bio);
+	// BSR-1006 rhel 9.0 (5.14.0-70.13.1.el9_0.x86_64)
+	submit_bio_noacct(bio);
 }

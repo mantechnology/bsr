@@ -10,7 +10,13 @@
 #include <linux/errno.h>
 #include <linux/types.h> 
 #include <linux/vmalloc.h>
+#ifdef COMPAT_HAVE_REVALIDATE_DISK
 #include <linux/genhd.h>
+#else
+#ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
+#include <linux/genhd.h>
+#endif
+#endif
 #include <linux/blkdev.h>
 #include <linux/hdreg.h>
 #include <linux/kthread.h>
