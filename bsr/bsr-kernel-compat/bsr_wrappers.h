@@ -375,7 +375,15 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 }
 #endif
 
-
+#ifdef COMPAT_HAVE_SUBMIT_BIO
+#ifdef COMPAT_HAVE_BLK_QC_T_SUBMIT_BIO
+#define MAKE_REQUEST_TYPE blk_qc_t
+#define MAKE_REQUEST_RETURN return BLK_QC_T_NONE
+#else
+#define MAKE_REQUEST_TYPE void
+#define MAKE_REQUEST_RETURN return
+#endif
+#else
 #ifdef COMPAT_HAVE_BLK_QC_T_MAKE_REQUEST
 /* in Commit dece16353ef47d8d33f5302bc158072a9d65e26f
  * make_request() becomes type blk_qc_t. */
@@ -390,6 +398,7 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #else
 #define MAKE_REQUEST_TYPE int
 #define MAKE_REQUEST_RETURN return 0
+#endif
 #endif
 #endif
 
@@ -2340,8 +2349,9 @@ bsr_ib_create_cq(struct ib_device *device,
 #endif
 
 
+
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
-#ifndef bio_set_dev
+#if !defined(bio_set_dev) && !defined(COMPAT_HAVE_BIO_SET_DEV)
 #define bio_set_dev(bio, bdev) (bio)->bi_bdev = bdev
 #endif
 #endif

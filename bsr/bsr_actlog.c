@@ -193,19 +193,21 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 #ifdef _WIN 
 	bio = bio_alloc_bsr(GFP_NOIO, '30SB');
 #else	// _LIN
-	bio = bio_alloc_bsr(GFP_NOIO);
+	bio = bio_alloc_bsr(bdev->md_bdev, GFP_NOIO, op | op_flags);
 #endif
     if (!bio) {
         return -ENODEV;
     }
-	bio_set_dev(bio, bdev->md_bdev);
 	BSR_BIO_BI_SECTOR(bio) = sector;
 	err = -EIO;
 	if (bio_add_page(bio, device->md_io.page, size, 0) != size)
 		goto out;
 	bio->bi_private = device;
 	bio->bi_end_io = bsr_md_endio;
+#ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio_set_dev(bio, bdev->md_bdev);
 	bio_set_op_attrs(bio, op, op_flags);
+#endif
 
 	if (op != REQ_OP_WRITE && device->disk_state[NOW] == D_DISKLESS && device->ldev == NULL)
 		/* special case, bsr_md_read() during bsr_adm_attach(): no get_ldev */

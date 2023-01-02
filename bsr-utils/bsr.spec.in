@@ -94,7 +94,7 @@ Group: System Environment/Kernel
 # to be able to use this package with existing module packages.
 #
 
-%if %{initscripttype} == "sysv"
+%if "%{initscripttype}" == "sysv"
 @RPM_REQ_CHKCONFIG_POST@
 @RPM_REQ_CHKCONFIG_PREUN@
 %endif
@@ -122,7 +122,7 @@ This packages includes the BSR administration tools.
 %if %{with bsrcon}
 %{_sbindir}/bsrcon
 %endif
-%if %{initscripttype} == "sysv"
+%if "%{initscripttype}" == "sysv"
 %{_initddir}/bsr
 %endif
 %{_sbindir}/bsr-overview
@@ -150,7 +150,7 @@ This packages includes the BSR administration tools.
 %dir %{_var}/log/bsr/perfmon
 
 %defattr(-,root,root,-)
-%if %{initscripttype} == "systemd"
+%if "%{initscripttype}" == "systemd"
 %{_unitdir}/bsr.service
 %{_tmpfilesdir}/bsr.conf
 /lib/bsr/bsr
@@ -267,10 +267,10 @@ ln -sv ..%{_sbindir}/bsrsetup .
 rm -rf %{buildroot}
 
 %post utils
-%if %{initscripttype} == "systemd"
+%if "%{initscripttype}" == "systemd"
 %systemd_post bsr.service
 %endif
-%if %{initscripttype} == "sysv"
+%if "%{initscripttype}" == "sysv"
 chkconfig --add bsr
 %endif
 %if %{without manual}
@@ -295,10 +295,10 @@ for f in bsr bsradm bsrmeta bsrsetup; do
 done
 rm -f %{_mandir}/man5/bsr.conf.5.gz
 rm -f %{_mandir}/man8/bsrmon.8.gz
-%if %{initscripttype} == "systemd"
+%if "%{initscripttype}" == "systemd"
 %systemd_preun bsr.service
 %endif
-%if %{initscripttype} == "sysv"
+%if "%{initscripttype}" == "sysv"
 if [ $1 -eq 0 ]; then
         %{_initrddir}/bsr stop >/dev/null 2>&1
         /sbin/chkconfig --del bsr
@@ -311,9 +311,9 @@ if [ $? -eq 0 ]; then
     rmmod bsr
 fi
 
-%if %{initscripttype} == "systemd"
+%if "%{initscripttype}" == "systemd"
 %postun utils
-%systemd_postun
+%systemd_postun bsr.service
 %endif
 
 

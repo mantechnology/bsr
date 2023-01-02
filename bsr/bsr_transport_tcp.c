@@ -2363,8 +2363,10 @@ static int dtt_send_zc_bio(struct bsr_transport *transport, struct bio *bio)
 		if (err)
 			return err;
 
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		if (bio_op(bio) == REQ_OP_WRITE_SAME)
 			break;
+#endif
 	}
 	return 0;
 }

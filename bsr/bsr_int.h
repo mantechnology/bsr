@@ -46,7 +46,11 @@
 #include <linux/major.h>
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
+
+#if defined(COMPAT_HAVE_REVALIDATE_DISK) || defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
 #include <linux/genhd.h>
+#endif
+
 #include <linux/idr.h>
 #include <linux/prefetch.h>
 #include <linux/time.h>
@@ -2802,7 +2806,7 @@ extern struct BSR_BIO_SET bsr_io_bio_set;
 #ifdef _WIN
 extern struct bio *bio_alloc_bsr(gfp_t gfp_mask, ULONG Tag);
 #else // _LIN
-extern struct bio *bio_alloc_bsr(gfp_t gfp_mask);
+extern struct bio *bio_alloc_bsr(struct block_device *bdev, gfp_t gfp_mask, int op);
 #endif
 
 extern int conn_lowest_minor(struct bsr_connection *connection);
@@ -2840,7 +2844,7 @@ extern void __bsr_make_request(struct bsr_device *, struct bio *, ktime_t, unsig
 #endif
 
 #ifdef COMPAT_HAVE_SUBMIT_BIO
-extern blk_qc_t bsr_submit_bio(struct bio *bio);
+extern MAKE_REQUEST_TYPE bsr_submit_bio(struct bio *bio);
 #else
 extern MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio);
 #endif
@@ -3235,10 +3239,13 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 	set_capacity_and_notify(device->vdisk, size);
 #else
 	set_capacity(device->vdisk, size);
+
 #ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
 	revalidate_disk_size(device->vdisk, false);
 #else
+#ifdef COMPAT_HAVE_REVALIDATE_DISK
 	revalidate_disk(device->vdisk);
+#endif
 #endif
 #endif
 #endif

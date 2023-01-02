@@ -1374,7 +1374,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 #ifdef _WIN
 	struct bio *bio = bio_alloc_bsr(GFP_NOIO, '50SB');
 #else // _LIN
-	struct bio *bio = bio_alloc_bsr(GFP_NOIO);
+	struct bio *bio = bio_alloc_bsr(device->ldev->md_bdev, GFP_NOIO, op);
 #endif
 
     if (!bio) {
@@ -1413,14 +1413,16 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 		bm_store_page_idx(page, page_nr);
 	} else
 		page = b->bm_pages[page_nr];
-	bio_set_dev(bio, device->ldev->md_bdev);
 	BSR_BIO_BI_SECTOR(bio) = on_disk_sector;
 	/* bio_add_page of a single page to an empty bio will always succeed,
 	 * according to api.  Do we want to assert that? */
 	bio_add_page(bio, page, len, 0);
 	bio->bi_private = ctx;
 	bio->bi_end_io = bsr_bm_endio;
+#ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio_set_dev(bio, device->ldev->md_bdev);
 	bio_set_op_attrs(bio, op, 0);
+#endif
 	if (bsr_insert_fault(device, (op == REQ_OP_WRITE) ? BSR_FAULT_MD_WR : BSR_FAULT_MD_RD)) {
 		bsr_bio_endio(bio, -EIO);
 	} else {
