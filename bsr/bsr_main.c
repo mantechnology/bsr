@@ -6788,7 +6788,8 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 
 	for_each_peer_device(target, device) {
-		if (target->repl_state[NOW] == L_SYNC_TARGET ||
+		// BSR-1016 during resync that started without out of sync, the received UUId is updated.
+		if (((target->repl_state[NOW] == L_SYNC_TARGET) && target->rs_total) ||
 			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
 			target->repl_state[NOW] == L_BEHIND ||
