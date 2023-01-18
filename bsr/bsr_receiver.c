@@ -4735,10 +4735,10 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 }
 
 // BSR-595
-static void verify_skipped_block(struct bsr_peer_device *peer_device,
-        sector_t sector, int size)
+void verify_skipped_block(struct bsr_peer_device *peer_device,
+        sector_t sector, int size, bool acked)
 {
-    peer_device->ov_skipped += (size >> BM_BLOCK_SHIFT);
+    peer_device->ov_skipped += (size >> 9);
     if (peer_device->ov_last_skipped_start + peer_device->ov_last_skipped_size == sector) {
         peer_device->ov_last_skipped_size += size>>9;
     } else {
@@ -4746,7 +4746,7 @@ static void verify_skipped_block(struct bsr_peer_device *peer_device,
         peer_device->ov_last_skipped_start = sector;
         peer_device->ov_last_skipped_size = size>>9;
     }    
-    verify_progress(peer_device, sector, size);
+    verify_progress(peer_device, sector, size, acked);
 }
 
 static int receive_DataRequest(struct bsr_connection *connection, struct packet_info *pi)
@@ -4989,7 +4989,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		// BSR-590 replace bsr_rs_begin_io with bsr_try_rs_begin_io due to wait problem with al.
 		if (peer_device->repl_state[NOW] == L_VERIFY_T) {
 			if (bsr_try_rs_begin_io(peer_device, sector, false)) {
-				verify_skipped_block(peer_device, sector, size);
+				verify_skipped_block(peer_device, sector, size, true);
 				err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
 				goto fail3;
 			}
@@ -10456,6 +10456,18 @@ void conn_disconnect(struct bsr_connection *connection)
 			kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 		}
 
+		// BSR-997
+		spin_lock_irq(&peer_device->ov_lock);
+		if (!list_empty(&peer_device->ov_skip_sectors_list)) {
+			struct bsr_ov_skip_sectors *skipped, *skipped_tmp;
+			list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
+			{
+				list_del(&skipped->sector_list);
+				kfree2(skipped);
+			}
+		}
+		spin_unlock_irq(&peer_device->ov_lock);
+
 		kref_put(&device->kref, bsr_destroy_device);
 		rcu_read_lock();
 	}
@@ -11461,8 +11473,7 @@ static int got_NegRSDReply(struct bsr_connection *connection, struct packet_info
 				bsr_debug(13, BSR_LC_VERIFY, peer_device, "receive verify request cancellation");
 
 				atomic_add(size >> 9, &peer_device->rs_sect_in);
-				
-				verify_skipped_block(peer_device, sector, size);
+				verify_skipped_block(peer_device, sector, size, true);
 			}
 			break;
 		default:
@@ -11517,7 +11528,7 @@ static int got_OVResult(struct bsr_connection *connection, struct packet_info *p
 	bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
 	dec_rs_pending(peer_device);
 
-	verify_progress(peer_device, sector, size);
+	verify_progress(peer_device, sector, size, true);
 
 	put_ldev(device);
 	return 0;

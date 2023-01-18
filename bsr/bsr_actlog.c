@@ -198,6 +198,9 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
     if (!bio) {
         return -ENODEV;
     }
+#ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio_set_dev(bio, bdev->md_bdev);
+#endif
 	BSR_BIO_BI_SECTOR(bio) = sector;
 	err = -EIO;
 	if (bio_add_page(bio, device->md_io.page, size, 0) != size)
@@ -205,7 +208,6 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	bio->bi_private = device;
 	bio->bi_end_io = bsr_md_endio;
 #ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
-	bio_set_dev(bio, bdev->md_bdev);
 	bio_set_op_attrs(bio, op, op_flags);
 #endif
 
@@ -1727,6 +1729,8 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 	struct lc_element *e;
 	struct bm_extent *bm_ext;
 	int i;
+	unsigned long flags;
+
 
 	if (throttle)
 		throttle = bsr_rs_should_slow_down(peer_device, sector, true);
@@ -1743,7 +1747,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 	BUG_ON_UINT32_OVER(al_enr);
 #endif
 
-	spin_lock_irq(&device->al_lock);
+	spin_lock_irqsave(&device->al_lock, flags);
 	if (peer_device->resync_wenr != LC_FREE && peer_device->resync_wenr != enr) {
 		/* in case you have very heavy scattered io, it may
 		 * stall the syncer undefined if we give up the ref count
@@ -1843,7 +1847,7 @@ check_al:
 proceed:
 	bsr_debug_al("proceed sector = %llu, enr = %llu", sector, (unsigned long long)enr);
 	peer_device->resync_wenr = LC_FREE;
-	spin_unlock_irq(&device->al_lock);
+	spin_unlock_irqrestore(&device->al_lock, flags);
 	return 0;
 
 try_again:
@@ -1870,7 +1874,7 @@ try_again:
 			peer_device->resync_wenr = (unsigned int)enr;
 	}
 out:
-	spin_unlock_irq(&device->al_lock);
+	spin_unlock_irqrestore(&device->al_lock, flags);
 	return -EAGAIN;
 }
 

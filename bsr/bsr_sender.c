@@ -1522,6 +1522,8 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	const sector_t capacity = bsr_get_vdisk_capacity(device);
 	bool stop_sector_reached = false;
 	struct peer_device_conf *pdc;
+	struct bsr_request *req, *tmp;
+	sector_t offset = 0;
 
 	if (unlikely(cancel))
 		return 1;
@@ -1552,27 +1554,41 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 		size = 1024*1024; 
 		//size =  1024*256;  // for flowcontrol
 #endif
-		size = BM_BLOCK_SIZE;
+		// BSR-997 set split ov size and sectors
+		if (peer_device->ov_split_position) {
+			offset = (peer_device->ov_split_position - BM_BIT_TO_SECT(BM_SECT_TO_BIT(peer_device->ov_split_position)));
+			if (offset == 0)
+				size = BM_BLOCK_SIZE;
+			else
+				size = BM_BLOCK_SIZE - (int)(offset << 9);
 
-		// BSR-118 bitmap operation to use fast ov
-		for (;;) {
-			bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT);
-			if (bit < bsr_bm_bits(device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
-				break;
-			}
-
-			if (bit >= bsr_bm_bits(device)) {
-				bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu",
-						(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position);
-				peer_device->ov_bm_position = bsr_bm_bits(device);
-				peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
-				return 0;
-			}
-
-			peer_device->ov_bm_position = bit;
+			bit = peer_device->ov_bm_position;
+			sector = peer_device->ov_split_position;
 		}
+		else {
+			size = BM_BLOCK_SIZE;
 
-		sector = BM_BIT_TO_SECT(bit);
+			// BSR-118 bitmap operation to use fast ov
+			for (;;) {
+				bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT);
+				if (bit < bsr_bm_bits(device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
+					break;
+				}
+
+				if (bit >= bsr_bm_bits(device)) {
+					bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu left %llu",
+							(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position, (unsigned long long)peer_device->ov_left);
+					peer_device->ov_bm_position = bsr_bm_bits(device);
+					peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
+					return 0;
+				}
+
+				peer_device->ov_bm_position = bit;
+			}
+
+			sector = BM_BIT_TO_SECT(bit);
+
+		}
 
 		if (bsr_try_rs_begin_io(peer_device, sector, true)) {
 			peer_device->ov_position = sector;
@@ -1580,6 +1596,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 		}
 
 		peer_device->ov_bm_position = bit + 1;
+		peer_device->ov_split_position = 0; // BSR-997
 
 		// BSR-119 verify in OV_REQUEST_NUM_BLOCK unit to reduce disk I/O load.
 		while (i+1 < number) {
@@ -1598,14 +1615,70 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 		if (sector + (size >> 9) > capacity)
 			size = (unsigned int)(capacity - sector) << 9;
 
+		// BSR-997 check if the ov request range overlaps with an incomplete write request
+		spin_lock_irq(&device->resource->req_lock);
+		list_for_each_entry_safe_ex(struct bsr_request, req, tmp, &device->pending_master_completion[1], req_pending_master_completion) {			
+			if (req->i.sector > (sector + (size >> 9) - 1))
+				continue;
+			if ((req->i.sector + (req->i.size >> 9)) - 1 < sector)
+				continue;
+			
+			bsr_debug(219, BSR_LC_RESYNC_OV, peer_device, "pending IO, ov sector (%llu) size (%d) position (%d) bit (%d), req sector (%llu) size (%d)", 
+					sector, size >> 9, peer_device->ov_bm_position, bit, req->i.sector, req->i.size >> 9);
+			
+			// skipped all ov request sector
+			if ((req->i.sector <= sector) && (req->i.sector + (req->i.size >> 9) >= sector + (size >> 9)))
+				goto skipped;
+
+			// write request sector is larger than ov sector, 
+			// reduce ov request size
+			if ((req->i.sector > sector) && (req->i.sector < sector + (size >> 9))) {
+				if ((peer_device->ov_split_position == 0) || peer_device->ov_split_position > req->i.sector) {
+					size = (int)((req->i.sector - sector) << 9);
+					peer_device->ov_split_position = req->i.sector;			
+					bsr_debug(220, BSR_LC_RESYNC_OV, peer_device, "ov sector (%llu) reduce size (%d)", sector, size);
+				}
+				continue;
+			}
+
+			// ov sector is larger than the write request sector, 
+			// ov request start sector reset
+			if ((req->i.sector <= sector) && (req->i.sector + (req->i.size >> 9) > sector)) {
+				size = (int)(((req->i.sector + (req->i.size >> 9)) - sector) << 9);
+				peer_device->ov_split_position = req->i.sector + (req->i.size >> 9);
+				goto skipped;
+			}
+		}
+
+		atomic_set64(&peer_device->ov_req_sector, sector + (size >> 9) - 1);
+		spin_unlock_irq(&device->resource->req_lock);
+
 		inc_rs_pending(peer_device);
 		if (bsr_send_ov_request(peer_device, sector, size)) {
 			dec_rs_pending(peer_device);
 			return 0;
 		}
-		sector += (size >> 9);
-		if (size > BM_BLOCK_SIZE)
-			peer_device->ov_bm_position = bit + 1;
+		goto next_sector;
+
+skipped:
+		// BSR-997 set skipped block
+		spin_unlock_irq(&device->resource->req_lock);
+		bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
+		bsr_debug(221, BSR_LC_RESYNC_OV, peer_device, "skipped sector %llu size(%d)", sector, size >> 9);
+		verify_skipped_block(peer_device, sector, size, false);
+next_sector:
+		if (peer_device->ov_split_position) {			
+			peer_device->ov_position = peer_device->ov_split_position;
+			bit = BM_SECT_TO_BIT(peer_device->ov_split_position);
+			peer_device->ov_bm_position = bit;
+			bsr_debug(224, BSR_LC_RESYNC_OV, peer_device, "next sector (%llu) bm_position (%d)", 
+					peer_device->ov_split_position, peer_device->ov_bm_position);
+		} else {
+			sector += (size >> 9);
+			if (size > BM_BLOCK_SIZE) {
+				peer_device->ov_bm_position = bit + 1;
+			}
+		}
 	}
 	peer_device->ov_position = sector;
 
@@ -1908,9 +1981,9 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 
 	// BSR-595
 	{
-	char tmp[sizeof(" but 01234567890123456789 4k blocks skipped")] = "";
+	char tmp[sizeof(" but 01234567890123456789 sectors skipped")] = "";
 	if (verify_done && peer_device->ov_skipped) {
-		snprintf(tmp, sizeof(tmp), " but %lu %dk blocks skipped", peer_device->ov_skipped, Bit2KB(1));
+		snprintf(tmp, sizeof(tmp), " but %lu sectors skipped", peer_device->ov_skipped);
 	}
 #ifdef SPLIT_REQUEST_RESYNC
 	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)",
@@ -2090,7 +2163,7 @@ out_unlock:
 
 out:
 	/* reset start sector, if we reached end of device */
-	if (verify_done && peer_device->ov_left == 0)
+	if (verify_done && peer_device->ov_left_sectors == 0)
 		peer_device->ov_start_sector = 0;
 
 	// DW-2088
@@ -2435,25 +2508,188 @@ void bsr_ov_out_of_sync_found(struct bsr_peer_device *peer_device, sector_t sect
 }
 
 void verify_progress(struct bsr_peer_device *peer_device,
-        sector_t sector, int size)
+        sector_t sector, int size, bool acked)
 {
 	bool stop_sector_reached =
 		(peer_device->repl_state[NOW] == L_VERIFY_S) &&
 		verify_can_do_stop_sector(peer_device) &&
 		(sector + (size>>9)) >= peer_device->ov_stop_sector;
+	
+	// BSR-119 	
+	// BSR-997 store ov_left as sectors
+	//peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
+	peer_device->ov_left_sectors -= (size >> 9);
+	peer_device->ov_left = BM_SECT_TO_BIT(peer_device->ov_left_sectors);
 
-	// BSR-119
-	peer_device->ov_left -= (size >> BM_BLOCK_SHIFT);
 	// BSR-835 set last acked sector
-	peer_device->ov_acked_sector = sector;
+	if (acked)
+		peer_device->ov_acked_sector = sector;
 
 	/* let's advance progress step marks only for every other megabyte */
 	if ((peer_device->ov_left & 0x1ff) == 0)
 		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
 		
-	if (peer_device->ov_left == 0 || stop_sector_reached) {
+	// BSR-997 set RS_DONE if ov_left_sectors is 0 instead of ov_left
+	if (peer_device->ov_left_sectors == 0 || stop_sector_reached) {
 		bsr_peer_device_post_work(peer_device, RS_DONE);
 	}
+}
+
+// BSR-997
+static bool is_skipped_sectors(struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est)
+{
+	if ((skipped->sst >= sst && skipped->est <= est) ||
+		(skipped->sst <= est && skipped->est >= est) ||
+		(skipped->sst <= sst && skipped->est >= sst)) {
+		return true;
+	}
+
+	return false;
+}
+
+// BSR-997
+static int bsr_send_split_ov_request(struct bsr_peer_device *peer_device, sector_t sector, int size) 
+{
+	if (bsr_try_rs_begin_io(peer_device, sector, true)) {
+		return -1;
+	}
+
+	inc_rs_pending(peer_device);
+	if (bsr_send_ov_request(peer_device, sector, size)) {
+		dec_rs_pending(peer_device);
+		return -1;
+	}
+
+	return 0;
+}
+
+// BSR-997 resend ov request except for skipped sectors
+static sector_t make_split_ov_request(struct bsr_peer_device *peer_device, 
+	struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est, bool done)
+{
+	sector_t skip_sst = 0, skip_est = 0;
+	struct bsr_ov_skip_sectors *split_list;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&peer_device->ov_lock, flags);
+	if (skipped->sst >= sst) {
+		skip_sst = skipped->sst > sst ? skipped->sst : sst;
+		skip_est = skipped->est < est ? skipped->est : est;
+
+		if (skipped->est <= est) { 
+			list_del(&skipped->sector_list);
+			kfree2(skipped);
+		} else {
+			// skipped->est > est
+			skipped->sst = est;
+		}				
+	} 
+	else if (skipped->est <= est) {
+		// skipped->sst < sst
+		skip_sst = sst;
+		skip_est = skipped->est < est ? skipped->est : est;
+		skipped->est = sst;
+	} 
+	else {
+		// skipped->est > est
+		skip_sst = sst;
+		skip_est = est;
+
+#ifdef _WIN
+		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'E9SB');
+#else // _LIN
+		split_list = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
+#endif
+		if (!split_list) {
+			bsr_err(97, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", 
+				(unsigned long long)skip_sst, (unsigned long long)skip_est);
+			spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+			goto skip_sector;
+		}
+
+		split_list->sst = skip_est;
+		split_list->est = skipped->est;
+		skipped->est = skip_sst;
+		list_add(&split_list->sector_list, &peer_device->ov_skip_sectors_list);
+	}
+	
+
+	// send ov request sst ~ skip_sst
+	if (sst < skip_sst) {
+		atomic_set64(&peer_device->ov_split_req_sector, skip_sst - 1);
+		if (atomic_read64(&peer_device->ov_split_reply_sector) == 0) {
+			atomic_set64(&peer_device->ov_split_reply_sector, sst);
+		}
+		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, skip_sst - sst);
+		if (bsr_send_split_ov_request(peer_device, sst, (int)((skip_sst - sst) << 9)))
+			goto skip_sector;
+	}
+	else
+		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+	// check next skip list skip_est ~ est
+	if (skip_est <= est)
+		goto skip_sector;
+	return sst;
+
+skip_sector:
+	bsr_debug(222, BSR_LC_RESYNC_OV, peer_device, "skipped sector %llu size(%d)", skip_sst, skip_est - skip_sst);
+	verify_skipped_block(peer_device, skip_sst, (int)((skip_est - skip_sst) << 9), true);
+	return skip_est;
+}
+
+
+// BSR-997 check sectors in ov_skip_sectors_list
+static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+{
+	struct bsr_ov_skip_sectors *skipped, *tmp;
+	sector_t ret_sst = sst;	
+	bool is_skipped = false;
+	bool split_ov_done = false;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&peer_device->ov_lock, flags);
+	if (list_empty(&peer_device->ov_skip_sectors_list)) {
+		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		return false;
+	}
+
+	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
+	{
+		if (is_skipped_sectors(skipped, sst, est)) {
+			if (!is_skipped) {
+				is_skipped = true;
+				bsr_debug(226, BSR_LC_RESYNC_OV, peer_device, "ov reply sector %llu size(%d)", sst, est - sst);
+			}
+			spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+			ret_sst = make_split_ov_request(peer_device, skipped, sst, est, split_ov_done);
+			spin_lock_irqsave(&peer_device->ov_lock, flags);
+			if ((ret_sst == sst) || (ret_sst == est)) {
+				split_ov_done = true;
+				break;
+			}
+			sst = ret_sst;
+
+		}
+	}
+	
+	if (is_skipped && !split_ov_done) {
+		atomic_set64(&peer_device->ov_split_req_sector, est - 1);
+		if (atomic_read64(&peer_device->ov_split_reply_sector) == 0) {
+			atomic_set64(&peer_device->ov_split_reply_sector, sst);
+		}
+
+		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, est - sst);
+		if (bsr_send_split_ov_request(peer_device, sst, (int)((est - sst) << 9))) {
+			// send split failed
+			verify_skipped_block(peer_device, sst, (int)((est - sst) << 9), true);
+		}
+	}
+	else
+		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+
+	return is_skipped;
 }
 
 int w_e_end_ov_reply(struct bsr_work *w, int cancel)
@@ -2466,7 +2702,8 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	sector_t sector = peer_req->i.sector;
 	unsigned int size = peer_req->i.size;
 	int digest_size;
-	int err, eq = 0;
+	int err = 0, eq = 0;
+	bool is_skipped = false;
 
 	if (unlikely(cancel)) {
 		bsr_free_peer_req(peer_req);
@@ -2494,21 +2731,50 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 		}
 	}
 
+
+	// BSR-997 in case of inconsistent, check whether it is an ov skipped sector.
+	if (!eq) {
+		is_skipped = check_ov_skip_sectors(peer_device, sector, sector + (size >> 9));
+	}
+
 	/* Free peer_req and pages before send.
 	 * In case we block on congestion, we could otherwise run into
 	 * some distributed deadlock, if the other side blocks on
 	 * congestion as well, because our receiver blocks in
 	 * bsr_alloc_pages due to pp_in_use > max_buffers. */
 	bsr_free_peer_req(peer_req);
-	if (!eq)
-		bsr_ov_out_of_sync_found(peer_device, sector, size);
-	else
-		ov_out_of_sync_print(peer_device, false);
+	peer_req = NULL;
 
-	verify_progress(peer_device, sector, size);
+	// BSR-997
+	if (!is_skipped) {
+		if (!eq)
+			bsr_ov_out_of_sync_found(peer_device, sector, size);
+		else
+			ov_out_of_sync_print(peer_device, false);
+
+		verify_progress(peer_device, sector, size, true);
+		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size,
+				eq ? ID_IN_SYNC : ID_OUT_OF_SYNC);
+		
+		
+		if ((atomic_read64(&peer_device->ov_split_req_sector) != 0) &&
+			(sector >= (sector_t)atomic_read64(&peer_device->ov_split_reply_sector)) &&
+			(sector < (sector_t)atomic_read64(&peer_device->ov_split_req_sector))) {
+
+			atomic_set64(&peer_device->ov_split_reply_sector, sector + (size >> 9) - 1);
+			
+		}
+		else {
+			atomic_set64(&peer_device->ov_reply_sector, sector + (size >> 9) - 1);
+		}
 	
-	err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size,
-			       eq ? ID_IN_SYNC : ID_OUT_OF_SYNC);
+
+	}
+	else {
+		// peer needs to receive ack to execute bsr_rs_complete_io()
+		// send P_OV_RESULT for sector, set size to 0
+		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, 0, ID_IN_SYNC);
+	}
 
 	dec_unacked(peer_device);
 
