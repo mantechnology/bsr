@@ -2596,7 +2596,7 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		skip_est = est;
 
 #ifdef _WIN
-		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'E9SB');
+		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'AASB');
 #else // _LIN
 		split_list = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif

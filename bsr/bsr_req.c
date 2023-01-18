@@ -2352,7 +2352,7 @@ static int list_add_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_
 		else {
 			struct bsr_ov_skip_sectors *target;
 #ifdef _WIN
-				ov_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'E9SB');
+				ov_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), '9ASB');
 #else // _LIN
 				ov_st = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
