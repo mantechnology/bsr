@@ -4688,6 +4688,13 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	bsr_timer_setup(peer_device, sended_timer, sended_timer_fn);
 	peer_device->rs_in_flight_mark_time = 0;
 
+
+	// BSR-997
+	atomic_set64(&peer_device->ov_req_sector, 0);
+	atomic_set64(&peer_device->ov_reply_sector, 0);
+	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
+	spin_lock_init(&peer_device->ov_lock);
+
 	return peer_device;
 }
 
@@ -7997,8 +8004,11 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				(unsigned long long)ov_tw);
 
 			// BSR-835 set ov_left value
-			if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags))
+			if (test_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags)) {
 				peer_device->ov_left = ov_tw;
+				// BSR-997 store ov_left as sectors
+				peer_device->ov_left_sectors = BM_BIT_TO_SECT(ov_tw);
+			}
 			
 			mod_timer(&peer_device->resync_timer, jiffies);
 		}

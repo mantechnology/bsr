@@ -2241,6 +2241,163 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 	}
 }
 
+// BSR-997 validate that range is already (null return if not already)
+// similar to resync_pending_check_and_expand_dup()
+static struct bsr_ov_skip_sectors *ov_check_and_expand_dup(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+{
+	struct bsr_ov_skip_sectors *ov_st = NULL;
+
+	if (list_empty(&peer_device->ov_skip_sectors_list))
+		return NULL;
+
+	list_for_each_entry_ex(struct bsr_ov_skip_sectors, ov_st, &peer_device->ov_skip_sectors_list, sector_list) {
+		if (sst >= ov_st->sst && sst <= ov_st->est && est <= ov_st->est) {
+			// ignore them because they already have the all rangs.
+			return ov_st;
+		}
+
+		if (sst <= ov_st->sst && est >= ov_st->sst && est > ov_st->est) {
+			// update sst and est because it contains a larger range that already exists.
+			ov_st->sst = sst;
+			ov_st->est = est;
+			return ov_st;
+		}
+
+		if (sst >= ov_st->sst && sst <= ov_st->est && est > ov_st->est) {
+			// existing ranges include start ranges, but end ranges are larger, so update the est values.
+			ov_st->est = est;
+			return ov_st;
+		}
+
+		if (sst < ov_st->sst && est >= ov_st->sst && est <= ov_st->est) {
+			// existing ranges include end ranges, but start ranges are small, so update the sst values.
+			ov_st->sst = sst;
+			return ov_st;
+		}
+	}
+	// there is no equal range.
+	return NULL;
+}
+
+// BSR-997 if you already have a range, remove the duplicate entry. (all list item)
+// similar to resync_pending_list_all_check_and_dedup()
+static void ov_list_all_check_and_dedup(struct bsr_peer_device *peer_device, struct bsr_ov_skip_sectors *ov_st)
+{
+	struct bsr_ov_skip_sectors *target, *tmp;
+
+	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, target, tmp, &peer_device->ov_skip_sectors_list, sector_list) {
+		if (ov_st == target)
+			continue;
+
+		if (ov_st->sst <= target->sst && ov_st->est >= target->est) {
+			// remove all ranges as they are included.
+			list_del(&target->sector_list);
+			kfree2(target);
+			continue;
+		}
+		if (ov_st->sst > target->sst && ov_st->sst <= target->est) {
+			// the end range is included, so update the est.
+			target->est = ov_st->sst;
+		}
+
+		if (ov_st->sst <= target->sst && ov_st->est > target->sst) {
+			// the start range is included, so update the sst.
+			target->sst = ov_st->est;
+		}
+	}
+}
+
+// BSR-997 check whether the sector is within the ov progress range
+static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+{
+	sector_t s_ov_sector = (sector_t)atomic_read64(&peer_device->ov_reply_sector);
+	sector_t e_ov_sector = (sector_t)atomic_read64(&peer_device->ov_req_sector);
+	sector_t s_ov_split = (sector_t)atomic_read64(&peer_device->ov_split_reply_sector);
+	sector_t e_ov_split = (sector_t)atomic_read64(&peer_device->ov_split_req_sector);
+
+	if (e_ov_sector == 0)
+		return false;
+	// check ov in progress range
+	if ((s_ov_sector >= sst && e_ov_sector <= est) ||
+		(s_ov_sector <= est && e_ov_sector >= est) ||
+		(s_ov_sector <= sst && e_ov_sector >= sst))
+		return true;
+	if (e_ov_split == 0)
+		return false;
+	// check split ov in progress range
+	if ((s_ov_split >= sst && e_ov_split <= est) ||
+		(s_ov_split <= est && e_ov_split >= est) ||
+		(s_ov_split <= sst && e_ov_split >= sst))
+		return true;
+
+	return false;
+}
+
+// BSR-997 add ov skipped only when the range is not included. (sort and add)
+// simuilar to list_add_resync_pending()
+static int list_add_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+{
+	struct bsr_ov_skip_sectors *ov_st = NULL;
+	struct bsr_ov_skip_sectors *target = NULL;
+
+	int i = 0;
+
+	spin_lock_irq(&peer_device->ov_lock);
+	if (is_ov_in_progress(peer_device, sst, est - 1)) {
+		// remove duplicates from items you want to add.
+		ov_st = ov_check_and_expand_dup(peer_device, sst, est);
+		if (ov_st) {
+			ov_list_all_check_and_dedup(peer_device, ov_st);
+		}
+		else {
+			struct bsr_ov_skip_sectors *target;
+#ifdef _WIN
+				ov_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), '9ASB');
+#else // _LIN
+				ov_st = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
+#endif
+
+			if (!ov_st) {
+				bsr_err(96, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+				spin_unlock_irq(&peer_device->ov_lock);
+				return -ENOMEM;
+			}
+
+			ov_st->sst = sst;
+			ov_st->est = est;
+
+			// add to the list in sequential sort.
+			if (list_empty(&peer_device->ov_skip_sectors_list)) {
+				list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
+			}
+			else {
+				list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) {
+					if (ov_st->sst < target->sst) {
+						if (peer_device->ov_skip_sectors_list.next == &target->sector_list)
+							list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
+						else
+							list_add_tail(&ov_st->sector_list, &target->sector_list);
+
+						goto eof;
+					}
+				}
+				list_add_tail(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
+			}
+		}
+eof:
+		list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) 
+		{
+			bsr_debug(218, BSR_LC_RESYNC_OV, peer_device, "%d. ov skipped sector sst %llu est %llu  list %llu ~ %llu", 
+				i++, sst, est, (unsigned long long)target->sst, (unsigned long long)target->est);
+		}
+
+	}
+	spin_unlock_irq(&peer_device->ov_lock);
+
+	return 0;
+}
+
+
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
 	struct bsr_resource *resource = device->resource;
@@ -2255,6 +2412,15 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		bool remote = bsr_should_do_remote(peer_device, NOW);
 		if (peer_device->connection->agreed_pro_version >= 115 && remote) {
 			check_resync_ratio_and_wait(peer_device);
+		}
+	}
+
+	// BSR-997 add sectors overlapping write request and ov progress range to ov_skip_sectors_list
+	if (rw == WRITE && req->i.size) {
+		for_each_peer_device(peer_device, device) {
+			if (peer_device->repl_state[NOW] == L_VERIFY_S) {
+				list_add_ov_skip_sectors(peer_device, req->i.sector, req->i.sector + (req->i.size >> 9));
+			}
 		}
 	}
 

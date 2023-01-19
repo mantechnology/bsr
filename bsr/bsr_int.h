@@ -531,7 +531,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 217
+#define BSR_LC_RESYNC_OV_MAX_INDEX 226
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 19
@@ -544,7 +544,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
-#define BSR_LC_MEMORY_MAX_INDEX 95
+#define BSR_LC_MEMORY_MAX_INDEX 97
 #define BSR_LC_LOG_MAX_INDEX 25
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
@@ -1985,6 +1985,16 @@ struct bsr_peer_device {
 	sector_t ov_last_skipped_start;
 	/* size of skipped range in sectors. */
 	sector_t ov_last_skipped_size;
+
+	// BSR-997 
+	atomic_t64 ov_req_sector; // sector sent ov request
+	atomic_t64 ov_reply_sector; // sector waiting for ov reply
+	atomic_t64 ov_split_req_sector; // sector sent split ov request
+	atomic_t64 ov_split_reply_sector; // sector wating for split ov reply
+	sector_t ov_split_position; // sector to send split ov
+	struct list_head ov_skip_sectors_list;	// list of ov sectors skipped due to replication
+	spinlock_t ov_lock;
+
 	// BSR-52 for report at ov done
 	struct list_head ov_oos_info_list;
 	int ov_oos_info_list_cnt;
@@ -2004,7 +2014,9 @@ struct bsr_peer_device {
 	ULONG_PTR rs_in_flight_mark_time;
 
 	ULONG_PTR ov_left; /* in bits */
-	ULONG_PTR ov_skipped; /* in bits */
+	// BSR-997
+	sector_t ov_left_sectors; /* in sector */
+	sector_t ov_skipped; /* in sector */
 	PVOLUME_BITMAP_BUFFER fast_ov_bitmap;
 
 	// BSR-835 ov bitmap buffer reference count management
@@ -2065,6 +2077,15 @@ struct bsr_peer_device {
 
 	struct timer_list sended_timer;
 };
+
+
+// BSR-997
+struct bsr_ov_skip_sectors {
+	sector_t sst;	/* start sector number */
+	sector_t est;	/* end sector number */
+	struct list_head sector_list;
+};
+
 
 // DW-1911
 struct bsr_marked_replicate {
@@ -2910,7 +2931,9 @@ extern void suspend_other_sg(struct bsr_device *device);
 extern int bsr_resync_finished(struct bsr_peer_device *, enum bsr_disk_state);
 // BSR-595
 extern void verify_progress(struct bsr_peer_device *peer_device,
-        sector_t sector, int size);
+        sector_t sector, int size, bool acked);
+extern void verify_skipped_block(struct bsr_peer_device *peer_device,
+        sector_t sector, int size, bool acked);
 /* maybe rather bsr_main.c ? */
 extern void *bsr_md_get_buffer(struct bsr_device *device, const char *intent);
 extern void bsr_md_put_buffer(struct bsr_device *device);

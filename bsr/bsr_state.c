@@ -2109,7 +2109,15 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 		peer_device->ov_start_sector = 0;
 	peer_device->rs_total = bsr_bm_bits(device);
 	peer_device->ov_bm_position = 0;
+	atomic_set64(&peer_device->ov_req_sector, 0);
+	atomic_set64(&peer_device->ov_reply_sector, 0);
+	atomic_set64(&peer_device->ov_split_req_sector, 0);
+	atomic_set64(&peer_device->ov_split_reply_sector, 0);
+
+	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
+
 	peer_device->ov_position = 0;
+	peer_device->ov_split_position = 0;
 	peer_device->ov_acked_sector = 0;
 	if (repl_state == L_VERIFY_T) {
 		/* starting online verify from an arbitrary position
@@ -2128,8 +2136,12 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 			peer_device->rs_total -= bit;
 		peer_device->ov_position = peer_device->ov_start_sector;
 		peer_device->ov_bm_position = (ULONG_PTR)BM_SECT_TO_BIT(peer_device->ov_position);
+		atomic_set64(&peer_device->ov_req_sector, peer_device->ov_position);
+		atomic_set64(&peer_device->ov_reply_sector, peer_device->ov_position);
 	}
 	peer_device->ov_left = peer_device->rs_total;
+	// BSR-997 store ov_left as sectors
+	peer_device->ov_left_sectors = BM_BIT_TO_SECT(peer_device->rs_total);
 	peer_device->ov_skipped = 0;
 }
 
@@ -2335,7 +2347,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				// BSR-835
 				if (peer_device->ov_acked_sector)
 					peer_device->ov_start_sector = peer_device->ov_acked_sector;
-				if (peer_device->ov_left) {
+				if (peer_device->ov_left_sectors) {
 					// BSR-52
 					ov_out_of_sync_print(peer_device, true);
 					ov_skipped_print(peer_device, true);
@@ -3644,6 +3656,17 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					// BSR-835
 					kref_put(&peer_device->ov_bm_ref, bsr_free_ov_bm);
 				}
+				// BSR-997
+				spin_lock_irq(&peer_device->ov_lock);
+				if (!list_empty(&peer_device->ov_skip_sectors_list)) {
+					struct bsr_ov_skip_sectors *skipped, *skipped_tmp;
+					list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
+					{
+						list_del(&skipped->sector_list);
+						kfree2(skipped);
+					}
+				}
+				spin_unlock_irq(&peer_device->ov_lock);
 				send_new_state_to_all_peer_devices(state_change, n_device);
 			}
 

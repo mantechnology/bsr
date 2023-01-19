@@ -1731,6 +1731,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 	struct bm_extent *bm_ext;
 	int i;
 
+
 	if (throttle)
 		throttle = bsr_rs_should_slow_down(peer_device, sector, true);
 
