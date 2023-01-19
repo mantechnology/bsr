@@ -1413,6 +1413,11 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 		bm_store_page_idx(page, page_nr);
 	} else
 		page = b->bm_pages[page_nr];
+
+#ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio_set_dev(bio, device->ldev->md_bdev);
+#endif
+
 	BSR_BIO_BI_SECTOR(bio) = on_disk_sector;
 	/* bio_add_page of a single page to an empty bio will always succeed,
 	 * according to api.  Do we want to assert that? */
@@ -1420,7 +1425,6 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	bio->bi_private = ctx;
 	bio->bi_end_io = bsr_bm_endio;
 #ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
-	bio_set_dev(bio, device->ldev->md_bdev);
 	bio_set_op_attrs(bio, op, 0);
 #endif
 	if (bsr_insert_fault(device, (op == REQ_OP_WRITE) ? BSR_FAULT_MD_WR : BSR_FAULT_MD_RD)) {
