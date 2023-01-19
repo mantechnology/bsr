@@ -2015,6 +2015,14 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 				const int node_id = device->resource->res_opts.node_id;
 				int i;
 
+				// BSR-1017 renew if you received the uuid again during the end of resync.
+				if ((bsr_current_uuid(device) & ~UUID_PRIMARY) != (peer_device->current_uuid & ~UUID_PRIMARY)) {
+					// BSR-1017 notify if the uuid has been updated during resync completion.
+					if (uuid_resync_finished)
+						bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+					bsr_uuid_resync_finished(peer_device, NULL, NULL, NULL);
+				}
+
 				bsr_print_uuids(peer_device, "updated UUIDs", __FUNCTION__);
 				peer_device->current_uuid = bsr_current_uuid(device);
 				peer_device->bitmap_uuids[node_id] = bsr_bitmap_uuid(peer_device);
@@ -2060,6 +2068,9 @@ out_unlock:
 			peer_device->history_uuids[i] = bsr_history_uuid(device, i);
 
 		bsr_print_uuids(peer_device, "again updated UUIDs", __FUNCTION__);
+
+		// BSR-1017
+		bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 		bsr_md_mark_dirty(device);
 	}
 
