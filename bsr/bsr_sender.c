@@ -2646,11 +2646,10 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 	sector_t ret_sst = sst;	
 	bool is_skipped = false;
 	bool split_ov_done = false;
-	unsigned long flags = 0;
 
-	spin_lock_irqsave(&peer_device->ov_lock, flags);
+	spin_lock_irq(&peer_device->ov_lock);
 	if (list_empty(&peer_device->ov_skip_sectors_list)) {
-		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		spin_unlock_irq(&peer_device->ov_lock);
 		return false;
 	}
 
@@ -2661,9 +2660,9 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 				is_skipped = true;
 				bsr_debug(226, BSR_LC_RESYNC_OV, peer_device, "ov reply sector %llu size(%d)", sst, est - sst);
 			}
-			spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+			spin_unlock_irq(&peer_device->ov_lock);
 			ret_sst = make_split_ov_request(peer_device, skipped, sst, est, split_ov_done);
-			spin_lock_irqsave(&peer_device->ov_lock, flags);
+			spin_lock_irq(&peer_device->ov_lock);
 			if ((ret_sst == sst) || (ret_sst == est)) {
 				split_ov_done = true;
 				break;
@@ -2679,7 +2678,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 			atomic_set64(&peer_device->ov_split_reply_sector, sst);
 		}
 
-		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		spin_unlock_irq(&peer_device->ov_lock);
 		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, est - sst);
 		if (bsr_send_split_ov_request(peer_device, sst, (int)((est - sst) << 9))) {
 			// send split failed
@@ -2687,7 +2686,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 		}
 	}
 	else
-		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		spin_unlock_irq(&peer_device->ov_lock);
 
 	return is_skipped;
 }

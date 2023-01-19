@@ -1727,7 +1727,6 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 	struct lc_element *e;
 	struct bm_extent *bm_ext;
 	int i;
-	unsigned long flags;
 
 
 	if (throttle)
@@ -1745,7 +1744,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 	BUG_ON_UINT32_OVER(al_enr);
 #endif
 
-	spin_lock_irqsave(&device->al_lock, flags);
+	spin_lock_irq(&device->al_lock);
 	if (peer_device->resync_wenr != LC_FREE && peer_device->resync_wenr != enr) {
 		/* in case you have very heavy scattered io, it may
 		 * stall the syncer undefined if we give up the ref count
@@ -1845,7 +1844,7 @@ check_al:
 proceed:
 	bsr_debug_al("proceed sector = %llu, enr = %llu", sector, (unsigned long long)enr);
 	peer_device->resync_wenr = LC_FREE;
-	spin_unlock_irqrestore(&device->al_lock, flags);
+	spin_unlock_irq(&device->al_lock);
 	return 0;
 
 try_again:
@@ -1872,7 +1871,7 @@ try_again:
 			peer_device->resync_wenr = (unsigned int)enr;
 	}
 out:
-	spin_unlock_irqrestore(&device->al_lock, flags);
+	spin_unlock_irq(&device->al_lock);
 	return -EAGAIN;
 }
 
