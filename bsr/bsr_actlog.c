@@ -198,9 +198,6 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
     if (!bio) {
         return -ENODEV;
     }
-#ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
-	bio_set_dev(bio, bdev->md_bdev);
-#endif
 	BSR_BIO_BI_SECTOR(bio) = sector;
 	err = -EIO;
 	if (bio_add_page(bio, device->md_io.page, size, 0) != size)
@@ -208,6 +205,7 @@ static int _bsr_md_sync_page_io(struct bsr_device *device,
 	bio->bi_private = device;
 	bio->bi_end_io = bsr_md_endio;
 #ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
+	bio_set_dev(bio, bdev->md_bdev);
 	bio_set_op_attrs(bio, op, op_flags);
 #endif
 
