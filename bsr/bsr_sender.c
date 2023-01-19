@@ -2569,9 +2569,8 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 {
 	sector_t skip_sst = 0, skip_est = 0;
 	struct bsr_ov_skip_sectors *split_list;
-	unsigned long flags = 0;
 
-	spin_lock_irqsave(&peer_device->ov_lock, flags);
+	spin_lock_irq(&peer_device->ov_lock);
 	if (skipped->sst >= sst) {
 		skip_sst = skipped->sst > sst ? skipped->sst : sst;
 		skip_est = skipped->est < est ? skipped->est : est;
@@ -2603,7 +2602,7 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		if (!split_list) {
 			bsr_err(97, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", 
 				(unsigned long long)skip_sst, (unsigned long long)skip_est);
-			spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+			spin_unlock_irq(&peer_device->ov_lock);
 			goto skip_sector;
 		}
 
@@ -2620,13 +2619,13 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		if (atomic_read64(&peer_device->ov_split_reply_sector) == 0) {
 			atomic_set64(&peer_device->ov_split_reply_sector, sst);
 		}
-		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		spin_unlock_irq(&peer_device->ov_lock);
 		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, skip_sst - sst);
 		if (bsr_send_split_ov_request(peer_device, sst, (int)((skip_sst - sst) << 9)))
 			goto skip_sector;
 	}
 	else
-		spin_unlock_irqrestore(&peer_device->ov_lock, flags);
+		spin_unlock_irq(&peer_device->ov_lock);
 	// check next skip list skip_est ~ est
 	if (skip_est <= est)
 		goto skip_sector;
