@@ -4627,7 +4627,8 @@ adm_del_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	list_for_each_entry_ex(struct bsr_path, path, &transport->paths, list)
 		nr_paths++;
 
-	if (nr_paths == 1 && connection->cstate[NOW] >= C_CONNECTING) {
+	// BSR-1013 fix failed reconnect due to path deletion during Unconnected
+	if (nr_paths == 1 && connection->cstate[NOW] >= C_UNCONNECTED) {
 		bsr_msg_put_info(adm_ctx->reply_skb,
 				  "Can not delete last path, use disconnect first!");
 		return ERR_INVALID_REQUEST;
