@@ -7785,7 +7785,7 @@ enum csc_rv {
 };
 
 static enum csc_rv
-check_concurrent_transactions(struct bsr_resource *resource, struct twopc_reply *new_r)
+check_concurrent_transactions(struct bsr_resource *resource, struct bsr_connection *connection, struct twopc_reply *new_r, struct p_twopc_request *p)
 {
 	struct twopc_reply *ongoing = &resource->twopc_reply;
 
@@ -7817,10 +7817,21 @@ check_concurrent_transactions(struct bsr_resource *resource, struct twopc_reply 
 
 		return CSC_REJECT;
 	}
+	// BSR-1012 if a connection twopc prepare from a connected node is received from another node and then a connection twopc prepare from a connected node is received, the connection twopc prepare from the other node is erased.
 	if (new_r->tid != ongoing->tid) {
-		bsr_info(6, BSR_LC_TWOPC, resource, "[TWOPC] CSC_TID_MISS. new tid (%u), on going tid (%u)",
-					new_r->tid, ongoing->tid);
-		return CSC_TID_MISS;
+		union bsr_state val = { { 0, } };
+		val.i = be32_to_cpu(p->val);
+		if ((connection->cstate[NOW] == C_CONNECTING) && (new_r->initiator_node_id == ongoing->initiator_node_id) && (ongoing->target_node_id != (int)resource->res_opts.node_id) &&
+			(new_r->target_node_id == (int)resource->res_opts.node_id) && (val.conn == C_CONNECTED) && !ongoing->is_disconnect) {
+			bsr_info(59, BSR_LC_TWOPC, connection, "[TWOPC] CSC_CLEAR. new tid(%u), on going tid(%u)", new_r->tid, ongoing->tid);
+			// BSR-1012 clears connection twopc received from a node other than the connection node for quick connection.
+			return CSC_CLEAR;
+		}
+		else {
+			bsr_info(6, BSR_LC_TWOPC, resource, "[TWOPC] CSC_TID_MISS. new tid (%u), on going tid (%u)",
+				new_r->tid, ongoing->tid);
+			return CSC_TID_MISS;
+		}
 	}
 
 	return CSC_MATCH;
@@ -8291,7 +8302,7 @@ static int process_twopc(struct bsr_connection *connection,
 	/* Check for concurrent transactions and duplicate packets. */
 	spin_lock_irq(&resource->req_lock);
 	
-	csc_rv = check_concurrent_transactions(resource, reply);
+	csc_rv = check_concurrent_transactions(resource, connection, reply, p);
 
 	bsr_info(12, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id (%d) csc_rv (%d) primary_nodes (%llu) pi->cmd (%s)",
 					reply->tid, reply->target_node_id, csc_rv, reply->primary_nodes, bsr_packet_name(pi->cmd));
