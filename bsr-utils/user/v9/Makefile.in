@@ -117,7 +117,7 @@ include ../shared_prereqs.mk
 tools: pre-build bsradm bsrmeta bsrsetup
 
 bsradm: $(bsradm-obj)
-	$(LINK.c) $(LDFLAGS) -o $@ $^
+	$(LINK.c) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 bsradm_scanner.c: bsradm_scanner.fl bsradm_parser.h
 	flex -s -obsradm_scanner.c bsradm_scanner.fl

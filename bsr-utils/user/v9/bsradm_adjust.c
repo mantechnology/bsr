@@ -24,6 +24,10 @@
 #define _XOPEN_SOURCE 600
 #define _FILE_OFFSET_BITS 64
 
+#ifdef _WIN
+// BSR-1018
+#include <iphlpapi.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -191,13 +195,157 @@ opt_equal(struct context_def *ctx, const char *opt_name, struct options *conf, s
 	return 1; /* Both not set */
 }
 
+// BSR-1018 convert scopeid interface index to alias
+static char *convert_scopeid(char *scopeId)
+{
+#ifdef _WIN
+	wchar_t if_alias_w[IF_MAX_STRING_SIZE + 1] = { 0, };
+	NET_LUID if_luid;
+	int len = 0;
+#endif
+	long if_index = 0;
+	char *if_name = NULL;
+
+	if_index = strtol(scopeId, NULL, 10);
+	if (!if_index) {
+		// failed strtol, or scopeId is 0(null)
+		if_name = strdup(scopeId);
+	} 
+	else {
+#ifdef _WIN
+		if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
+			NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+			len = wcstombs(NULL, if_alias_w, 0);
+			if (len == -1) {
+				CLI_ERRO_LOG(false, true, "failed to get wc string size");
+				return NULL;
+			}
+
+			if_name = (char*)malloc(len + 1);
+			if (!if_name) {
+				CLI_ERRO_LOG(false, true, "failed to allocate if_name, size is %d", len + 1);
+				return NULL;
+			}
+
+			memset(if_name, 0, len + 1);
+
+			if (wcstombs(if_name, if_alias_w, len + 1) == -1) {
+				CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
+				free(if_name);
+				return NULL;
+			}
+			 
+		}
+		else {
+			// scopeId is interface name, no convert
+			if_name = strdup(scopeId);
+		}
+#else // _LIN
+		if_name = (char*)malloc(IFNAMSIZ);
+		if (!if_name) {
+			CLI_ERRO_LOG(false, true, "failed to allocate ifindex_str, size is %d", sizeof(char) * 32);
+			return NULL;
+		}
+		memset(if_name, 0, IFNAMSIZ);
+
+		// convert index to name
+		if_indextoname(if_index, if_name);
+		if (!if_name && (strlen(if_name) == 0)) {
+			// scopeId is interface name, no convert
+			sprintf(if_name, "%s", scopeId);
+		}
+#endif
+	}
+
+	return if_name;
+}
+
+// BSR-1018
+static int compare_scopeid(char *old_scopeid, char *new_scopeid) 
+{
+	int ret = 0;
+	char * convert_id = NULL;
+	
+	// scopeid is null (unique local address)
+	if ((!old_scopeid || strlen(old_scopeid) == 0) && 
+		(!new_scopeid || strlen(new_scopeid) == 0 || (strcmp(new_scopeid, "0") == 0)))
+		return 0;
+	// set new scopeid
+	if (!old_scopeid || strlen(old_scopeid) == 0)
+		return 1;
+	// remove new scopeid
+	if (!new_scopeid || strlen(new_scopeid) == 0)
+		return 1;
+
+	// old and new scopeid is same
+	if (strcmp(old_scopeid, new_scopeid) == 0)
+		return 0;
+
+	convert_id = convert_scopeid(new_scopeid);
+
+	if (convert_id == NULL)
+		goto out;
+
+	ret = strcmp(old_scopeid, convert_id);
+
+out:
+	if (convert_id)
+		free(convert_id);
+
+	return ret;
+}
+
+// BSR-1018
+static int addrs_compare(struct d_address *old_addr, struct d_address *new_addr)
+{
+	int ret;
+	// BSR-1018 compare when both addresses are ipv6
+	if (!strcmp(old_addr->af, "ipv6") && !strcmp(new_addr->af, "ipv6")) {
+		char *o_addr = strdup(old_addr->addr);
+		char *n_addr = strdup(new_addr->addr);
+		char *path_scopeid = NULL;
+		char *pattern_scopeid = NULL;
+		char *split_addr1 = strtok_r(o_addr, "%", &path_scopeid);
+		char *split_addr2 = strtok_r(n_addr, "%", &pattern_scopeid);
+
+		// compare addr
+		if ((ret = strcmp(split_addr1, split_addr2))) 
+			goto out;
+
+		// compare scopeid
+		if ((ret = compare_scopeid(path_scopeid, pattern_scopeid)))
+			goto out;
+out:
+		free(o_addr);
+		free(n_addr);
+		if (ret)
+			return ret;
+	}
+	else {
+		if ((ret = strcmp(old_addr->addr, new_addr->addr)))
+			return ret;
+	}
+
+	if ((ret = strcmp(old_addr->port, new_addr->port)))
+		return ret;
+
+	return strcmp(old_addr->af, new_addr->af);
+}
+
+// BSR-1018
+static bool find_addrs(struct d_address *path_addr, struct d_address *pattern_addr)
+{
+	return !addrs_compare(path_addr, pattern_addr);
+}
+
 static struct path *find_path_by_addrs(struct connection *conn, struct path *pattern)
 {
 	struct path *path;
 
 	for_each_path(path, &conn->paths) {
-		if (addresses_equal(path->my_address, pattern->my_address) &&
-			addresses_equal(path->connect_to, pattern->connect_to))
+		// BSR-1018
+		if (find_addrs(path->my_address, pattern->my_address) &&
+			find_addrs(path->connect_to, pattern->connect_to))
 			return path;
 	}
 

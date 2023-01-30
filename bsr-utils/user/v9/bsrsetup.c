@@ -897,6 +897,13 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 	// BSR-1002 bsr uses the alias as the default for ipv6 link-local
 #ifdef _WIN
 	scopeId = strrchr(*address, '%');
+
+	// BSR-1018 fix exception
+	if (!scopeId) {
+		// unique local address
+		return;
+	}
+		
 	scopeId++;
 
 	len = mbstowcs(NULL, scopeId, 0);
@@ -919,7 +926,7 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 							scopeId++;
 							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
 						} else {
-							CLI_ERRO_LOG(false, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
+							CLI_ERRO_LOG(false, true,"failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
 						}
 					}
 					else {
@@ -930,16 +937,16 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
 				}
 			} else {
-				CLI_ERRO_LOG(false, "failed to convert to multi-byte, (%s)", scopeId);
+				CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
 			}
 			free(scopeId_w);
 		}
 		else {
-			CLI_ERRO_LOG(false, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
+			CLI_ERRO_LOG(false, true, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
 		}
 	}
 	else {
-		CLI_ERRO_LOG(false, "failed to get multi-byte size, (%s)", scopeId);
+		CLI_ERRO_LOG(false, true, "failed to get multi-byte size, (%s)", scopeId);
 	}
 #endif
 }
@@ -3342,6 +3349,57 @@ static char *af_to_str(int af)
 	else return "unknown";
 }
 
+// BSR-1018
+#ifdef _WIN
+static void convert_scopeid_to_alias(char *address)
+{
+	char *scopeId = NULL;
+	wchar_t if_alias_w[IF_MAX_STRING_SIZE + 1] = { 0, };
+	NET_LUID if_luid;
+	NET_IFINDEX if_index = 0;
+	char *if_alias;
+	int len;
+
+	scopeId = strrchr(address, '%');
+
+	if (!scopeId) {
+		// unique local address
+		return;
+	}
+
+	scopeId++;
+	if_index = strtol(scopeId, NULL, 10);
+
+	if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
+		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+		
+		len = wcstombs(NULL, if_alias_w, 0);
+		if (len != -1) {
+			if_alias = (char*)malloc(len + 1);
+			if (if_alias) {
+				if (wcstombs(if_alias, if_alias_w, len + 1) != -1)
+					memcpy(scopeId, if_alias, len + 1);
+				else
+					CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
+
+				free(if_alias);
+
+			} 
+			else {
+				CLI_ERRO_LOG(false, true, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
+			}
+		} 
+		else {
+			CLI_ERRO_LOG(false, true, "failed to get wc string size");
+		}
+
+	}
+	else {
+		CLI_INFO_LOG(false, "no matching interface index found, (%s)", scopeId);
+	}
+}
+#endif
+
 static char *address_str(char *buffer, void* address, int addr_len)
 {
 	union {
@@ -3368,6 +3426,11 @@ static char *address_str(char *buffer, void* address, int addr_len)
 		/* inet_ntop does not include scope info */
 		getnameinfo(&a.addr, addr_len, buf2, sizeof(buf2),
 			NULL, 0, NI_NUMERICHOST|NI_NUMERICSERV);
+#ifdef _WIN
+		// BSR-1018 show by converting to scopeid interface alias
+		convert_scopeid_to_alias(buf2);
+#endif
+		
 		n = snprintf(buffer, ADDRESS_STR_MAX, "%s:[%s]:%u",
 		        af_to_str(a.addr6.sin6_family), buf2,
 		        ntohs(a.addr6.sin6_port));
