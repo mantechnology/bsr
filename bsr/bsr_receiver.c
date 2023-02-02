@@ -752,11 +752,15 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 	atomic_set(&peer_device->packet_seq, 0);
 	peer_device->peer_seq = 0;
 
+
 	err = bsr_send_sync_param(peer_device);
 	if (!err)
 		err = bsr_send_sizes(peer_device, 0, 0);
-	if (!err)
+	if (!err) {
+		// BSR-1019
+		clear_bit(UUID_DELAY_SEND, &peer_device->flags);
 		err = bsr_send_uuids(peer_device, 0, 0, NOW);
+	}
 	if (!err) {
 		err = bsr_send_current_state(peer_device);
 		// DW-1806
@@ -8782,7 +8786,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	struct p_state *p = pi->data;
 	union bsr_state old_peer_state, peer_state;
 	enum bsr_disk_state peer_disk_state, new_disk_state = D_MASK;
-	enum bsr_repl_state new_repl_state;
+	enum bsr_repl_state old_repl_state, new_repl_state;
 	bool peer_was_resync_target, try_to_get_resync = false;
 	int rv;
 
@@ -8834,6 +8838,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	spin_unlock_irq(&resource->req_lock);
  retry:
 	new_repl_state = max_t(enum bsr_repl_state, old_peer_state.conn, L_OFF);
+	// BSR-1019
+	old_repl_state = peer_device->repl_state[NOW];
 
 	/* If some other part of the code (ack_receiver thread, timeout)
 	 * already decided to close the connection again,
@@ -9118,11 +9124,19 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	// DW-1447 
 	peer_device->last_repl_state = peer_state.conn;
-	
+
 	rv = end_state_change_locked(resource, false, __FUNCTION__);
 	new_repl_state = peer_device->repl_state[NOW];
 	set_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 	spin_unlock_irq(&resource->req_lock);
+
+	// BSR-1019 send uuid if the flag is set when the replication state changes to the bitmap exchange state.
+	if (old_repl_state == L_OFF && new_repl_state == L_WF_BITMAP_S) {
+		if (test_and_clear_bit(UUID_DELAY_SEND, &peer_device->flags)) {
+			bsr_info(40, BSR_LC_UUID, peer_device, "sends the updated UUID at initial send before bitmap exchange");
+			bsr_send_uuids(peer_device, 0, 0, NOW);
+		}
+	}
 
 	if (rv < SS_SUCCESS) {
 		// DW-1447
