@@ -6717,12 +6717,17 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 			u64 uuid_flags = 0;
 			if (!forced) {
 				// BSR-967 younger primary sets UUID_FLAG_NEW_DATAGEN only when the peer node is not in D_INCONSISTENT state.
-				if (!younger || 
+				if (!younger ||
 					(younger && peer_device->disk_state[NOW] != D_INCONSISTENT)) {
 					uuid_flags = UUID_FLAG_NEW_DATAGEN;
 				}
 			}
+			clear_bit(UUID_DELAY_SEND, &peer_device->flags);
 			bsr_send_uuids(peer_device, uuid_flags, weak_nodes, NOW);
+		} else {
+			// BSR-1019 if connected, set the flag to send uuid before bitmap exchange.
+			if (peer_device->connection->cstate[NOW] == C_CONNECTED) 
+				set_bit(UUID_DELAY_SEND, &peer_device->flags);
 		}
 	}
 }

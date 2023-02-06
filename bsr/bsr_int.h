@@ -534,7 +534,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_RESYNC_OV_MAX_INDEX 226
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
-#define BSR_LC_UUID_MAX_INDEX 19
+#define BSR_LC_UUID_MAX_INDEX 40
 #define BSR_LC_TWOPC_MAX_INDEX 59
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
@@ -1235,6 +1235,10 @@ enum {
 
 	// BSR-52
 	USE_CURRENT_OOS_FOR_SYNC,
+
+	// BSR-1019
+	UUID_DELAY_SEND,
+
 };
 
 /* We could make these currently hardcoded constants configurable
