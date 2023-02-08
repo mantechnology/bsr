@@ -3278,6 +3278,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_disk_state finished_resync_pdsk = D_UNKNOWN;
 	enum bsr_repl_state repl_state;
 	int r;
+	ULONG_PTR last_reconnect_jif = 0;
 
 	spin_lock_irq(&device->resource->req_lock);
 	repl_state = peer_device->repl_state[NOW];
@@ -3304,6 +3305,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	// DW-955 clear resync aborted flag when just starting resync.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
+
+	// BSR-1015
+	last_reconnect_jif = connection->last_reconnect_jif;
 
 	if (!test_bit(B_RS_H_DONE, &peer_device->flags)) {
 		if (side == L_SYNC_TARGET) {
@@ -3361,6 +3365,14 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		}
 		mutex_unlock(&peer_device->device->bm_resync_and_resync_timer_fo_mutex);
 		goto clear_flag;
+	}
+
+	// BSR-1015 to stop bsr_start_resync() when reconnection occurs during handler operation
+	if (!connection->last_reconnect_jif ||
+		(connection->last_reconnect_jif != last_reconnect_jif)) {
+			bsr_info(227, BSR_LC_RESYNC_OV, connection, "The resync will resume later because reconnected");
+			up(&device->resource->state_sem);
+			goto clear_flag;
 	}
 
 	// DW-2058
