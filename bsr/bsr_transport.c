@@ -241,9 +241,13 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 static void bsr_listener_destroy(struct kref *kref)
 {
 	struct bsr_listener *listener = container_of(kref, struct bsr_listener, kref);
+	struct bsr_resource *resource = listener->resource;
 
 	// BSR-960 The reference to listener and synchronization to the release must obtain a lock from caller kref_put().
 	list_del(&listener->list);
+	// BSR-1029
+	spin_unlock_bh(&resource->listeners_lock);
+
 	listener->destroy(listener);
 }
 
@@ -272,8 +276,9 @@ void bsr_put_listener(struct bsr_path *path)
 
 	// BSR-960
 	spin_lock_bh(&resource->listeners_lock);
-	kref_put(&listener->kref, bsr_listener_destroy);
-	spin_unlock_bh(&resource->listeners_lock);
+	// BSR-1029 The bsr_listener_destroy() call adjusts the lockout range because it may cause a longer wait time.
+	if(!kref_put(&listener->kref, bsr_listener_destroy))
+		spin_unlock_bh(&resource->listeners_lock);
 }
 
 #ifdef _WIN
