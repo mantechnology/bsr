@@ -2918,7 +2918,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	pSock = kzalloc(sizeof(struct socket), 0, 'C0SB');
 	if (!pSock) {
-		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodephelper execution due to failure to allocate %d size memory for socket", sizeof(struct socket));
+		bsr_err(10, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodehelper execution due to failure to allocate %d size memory for socket", sizeof(struct socket));
 		return -1;
 	}
 #ifdef _WIN64
@@ -2927,7 +2927,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	leng = (int)(strlen(path) + 1 + strlen(argv[0]) + 1 + strlen(argv[1]) + 1 + strlen(argv[2]) + 1);
 	cmd_line = kcalloc(leng, 1, 0, '64SB');
 	if (!cmd_line) {
-		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodephelper execution due to failure to allocate %d size memory for command line", leng);
+		bsr_err(11, BSR_LC_MEMORY, NO_OBJECT, "Failed to usermodehelper execution due to failure to allocate %d size memory for command line", leng);
 		if(pSock) {
 			kfree(pSock);
 		}
@@ -2939,7 +2939,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
     pSock->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
 	if (pSock->sk == NULL) {
-		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to create socket");
+		bsr_err(2, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to create socket");
 		kfree(cmd_line);
 		if(pSock) {
 			kfree(pSock);
@@ -2965,11 +2965,11 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 	Status = Connect(pSock, (PSOCKADDR) &RemoteAddress);
 	if (!NT_SUCCESS(Status)) {
-		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed. status(%x), IRQL(%d)", Status, KeGetCurrentIrql());
+		bsr_warn(106, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to connect not completed. status(%x), IRQL(%d)", Status, KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	} else if (Status == STATUS_TIMEOUT) {
-		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
+		bsr_warn(3, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to connect not completed in time-out. IRQL(%d)", KeGetCurrentIrql());
 		ret = -1;
 		goto error;
 	}
@@ -2994,9 +2994,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
+				bsr_err(5, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to timeout(%d) occurred for receiving Hello. Retry(%d)", g_handler_timeout, g_handler_retry);
 			} else {
-				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to receive. status(0x%x)", readcount);
+				bsr_err(6, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to receive. status(0x%x)", readcount);
 
 			}
 			ret = -1;
@@ -3018,7 +3018,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		}
 
 		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
-			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to send command. status(0x%x)", Status);
+			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to send command. status(0x%x)", Status);
 			ret = -1;
 			goto error;
 		}
@@ -3027,9 +3027,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to receive timed out(%d)", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to receive timed out(%d)", g_handler_timeout);
 			} else {
-				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to receive. status(0x%x)", readcount);
+				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to receive. status(0x%x)", readcount);
 			}
 			ret = -1;
 			goto error;
@@ -3037,7 +3037,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 
 
 		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
-			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodephelper execution due to failure to send finished. status(0x%x)", Status); // ignore!
+			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to send finished. status(0x%x)", Status); // ignore!
 		}
 
 		bsr_debug(85, BSR_LC_SOCKET, NO_OBJECT, "Disconnect:shutdown...", Status);
