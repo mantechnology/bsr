@@ -865,11 +865,11 @@ static unsigned long resolv(const char* name)
 	return retval;
 }
 
-static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
+static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_peer)
 {
 	// BSR-1002
-#ifdef _WIN
 	char *scopeId = NULL;
+#ifdef _WIN
 	NET_LUID interfaceLuid;
 	NET_IFINDEX ifindex = 0;
 	char ifindex_str[32] = { 0, };
@@ -894,8 +894,6 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 	else
 		*port = 7788; /* will we ever get rid of that default port? */
 
-	// BSR-1002 bsr uses the alias as the default for ipv6 link-local
-#ifdef _WIN
 	scopeId = strrchr(*address, '%');
 
 	// BSR-1018 fix exception
@@ -903,7 +901,14 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 		// unique local address
 		return;
 	}
-		
+
+	// BSR-1026 remove scope_id if peer address
+	if (is_peer) {
+		*scopeId = 0;
+	}
+
+	// BSR-1002 bsr uses the alias as the default for ipv6 link-local
+#ifdef _WIN
 	scopeId++;
 
 	len = mbstowcs(NULL, scopeId, 0);
@@ -951,7 +956,7 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc)
 #endif
 }
 
-static char* split_address(int *af, char** address, int* port)
+static char* split_address(int *af, char** address, int* port, bool is_peer)
 {
 	static struct { char* text; int af; } afs[] = {
 		{ "ipv4:", AF_INET  },
@@ -976,7 +981,7 @@ static char* split_address(int *af, char** address, int* port)
 	if (*af == AF_INET6 && address[0][0] == '[') {
 		// BSR-1002
 		bool re_alloc = false;
-		split_ipv6_addr(address, port, &re_alloc);
+		split_ipv6_addr(address, port, &re_alloc, is_peer);
 		if (re_alloc)
 			return *address;
 		else
@@ -1003,12 +1008,12 @@ static char* split_address(int *af, char** address, int* port)
 	return a;
 }
 
-static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str)
+static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str, bool is_peer)
 {
 	int af, port;
 	char *address = strdup(str);
 	// BSR-1002 
-	char *release_to = split_address(&af, &address, &port);
+	char *release_to = split_address(&af, &address, &port, is_peer);
 	if (af == AF_INET6) {
 		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)storage;
 
@@ -1043,13 +1048,17 @@ static int conv_addr(struct bsr_argument *ad, struct msg_buff *msg,
 {
 	struct sockaddr_storage x;
 	int addr_len;
+	bool is_peer = false;
 
 	if (strncmp(arg, "local:", 6) == 0)
 		arg += 6;
 	else if (strncmp(arg, "peer:", 5) == 0)
 		arg += 5;
 
-	addr_len = sockaddr_from_str(&x, arg);
+	// BSR-1026
+	is_peer = (strcmp(ad->name, "remote-addr") == 0);
+	addr_len = sockaddr_from_str(&x, arg, is_peer);
+	
 	if (addr_len == 0) {
 		CLI_ERRO_LOG_STDERR(false, "does not look like an endpoint address '%s'", arg);
 		return OTHER_ERROR;
@@ -5096,7 +5105,7 @@ int main(int argc, char **argv)
 					str += 6;
 				assert(sizeof(global_ctx.ctx_my_addr) >= sizeof(*x));
 				x = (struct sockaddr_storage *)&global_ctx.ctx_my_addr;
-				global_ctx.ctx_my_addr_len = sockaddr_from_str(x, str);
+				global_ctx.ctx_my_addr_len = sockaddr_from_str(x, str, false);
 			} else if (next_arg == CTX_PEER_ADDR) {
 				const char *str = argv[optind];
 				struct sockaddr_storage *x;
@@ -5105,7 +5114,7 @@ int main(int argc, char **argv)
 					str += 5;
 				assert(sizeof(global_ctx.ctx_peer_addr) >= sizeof(*x));
 				x = (struct sockaddr_storage *)&global_ctx.ctx_peer_addr;
-				global_ctx.ctx_peer_addr_len = sockaddr_from_str(x, str);
+				global_ctx.ctx_peer_addr_len = sockaddr_from_str(x, str, true);
 			} else if (next_arg == CTX_VOLUME) {
 				global_ctx.ctx_volume = m_strtoll(argv[optind], 1);
 			} else if (next_arg == CTX_PEER_NODE_ID) {

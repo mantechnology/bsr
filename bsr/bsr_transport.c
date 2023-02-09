@@ -125,7 +125,7 @@ void bsr_print_transports_loaded(struct seq_file *seq)
 	up_read(&transport_classes_lock);
 }
 
-static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2)
+static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2, const SOCKADDR_STORAGE_EX *listen_addr)
 {
 	if (addr1->ss_family != addr2->ss_family)
 		return false;
@@ -144,7 +144,17 @@ static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_
 #else // _LIN
 		else if (ipv6_addr_type(&v6a1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
 #endif
-			return v6a1->sin6_scope_id == v6a2->sin6_scope_id;
+		{
+			// BSR-1026
+			if (listen_addr) {
+				const struct sockaddr_in6 *laddr = (const struct sockaddr_in6 *)listen_addr;
+				// scope_id set in peer_path(v6a1) is null
+				// compare the scope_id of the listen and accept(v6a2) addresses
+				return laddr->sin6_scope_id == v6a2->sin6_scope_id;
+			} else {
+				return v6a1->sin6_scope_id == v6a2->sin6_scope_id;
+			}
+		}
 		return true;
 	} else /* AF_INET, AF_SSOCKS, AF_SDP */ {
 		const struct sockaddr_in *v4a1 = (const struct sockaddr_in *)addr1;
@@ -156,7 +166,7 @@ static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_
 
 bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2)
 {
-	if (!addr_equal(addr1, addr2))
+	if (!addr_equal(addr1, addr2, NULL))
 		return false;
 
 	if (addr1->ss_family == AF_INET6) {
@@ -301,10 +311,10 @@ struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_S
 			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
 		// BSR-787 skip if path is established
-		if (addr_equal(&path->peer_addr, addr) && !path->established)
+		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr) && !path->established)
 			return path;
 #else // _LIN
-		if (addr_equal(&path->peer_addr, addr))
+		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr))
 			return path;
 #endif
 		
