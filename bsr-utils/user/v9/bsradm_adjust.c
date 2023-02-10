@@ -296,7 +296,7 @@ out:
 }
 
 // BSR-1018
-static int addrs_compare(struct d_address *old_addr, struct d_address *new_addr)
+static int addrs_compare(struct d_address *old_addr, struct d_address *new_addr, bool is_peer)
 {
 	int ret;
 	// BSR-1018 compare when both addresses are ipv6
@@ -312,9 +312,13 @@ static int addrs_compare(struct d_address *old_addr, struct d_address *new_addr)
 		if ((ret = strcmp(split_addr1, split_addr2))) 
 			goto out;
 
-		// compare scopeid
-		if ((ret = compare_scopeid(path_scopeid, pattern_scopeid)))
-			goto out;
+		// BSR-1026 don't compare scope_id if peer address
+		if (!is_peer) {
+			// compare scopeid
+			if ((ret = compare_scopeid(path_scopeid, pattern_scopeid)))
+				goto out;
+		}
+
 out:
 		free(o_addr);
 		free(n_addr);
@@ -333,9 +337,9 @@ out:
 }
 
 // BSR-1018
-static bool find_addrs(struct d_address *path_addr, struct d_address *pattern_addr)
+static bool find_addrs(struct d_address *path_addr, struct d_address *pattern_addr, bool is_peer)
 {
-	return !addrs_compare(path_addr, pattern_addr);
+	return !addrs_compare(path_addr, pattern_addr, is_peer);
 }
 
 static struct path *find_path_by_addrs(struct connection *conn, struct path *pattern)
@@ -344,8 +348,8 @@ static struct path *find_path_by_addrs(struct connection *conn, struct path *pat
 
 	for_each_path(path, &conn->paths) {
 		// BSR-1018
-		if (find_addrs(path->my_address, pattern->my_address) &&
-			find_addrs(path->connect_to, pattern->connect_to))
+		if (find_addrs(path->my_address, pattern->my_address, false) &&
+			find_addrs(path->connect_to, pattern->connect_to, true))
 			return path;
 	}
 
