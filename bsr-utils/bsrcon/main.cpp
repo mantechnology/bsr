@@ -1140,8 +1140,8 @@ int cmd_info(int *index, int argc, char* argv[])
 int cmd_driver_install(int *index, int argc, char* argv[])
 {
 	(*index)++;
-	if (*index < argc)
-		return driver_Install_Inf(L"DefaultInstall", argv[*index]);
+	if (*index < argc) // BSR-1030 apply the primary driver section to the inf file
+		return driver_Install_Inf(L"DefaultInstall.NTamd64", argv[*index]);
 	else
 		usage();
 }
@@ -1149,8 +1149,8 @@ int cmd_driver_install(int *index, int argc, char* argv[])
 int cmd_driver_uninstall(int *index, int argc, char* argv[])
 {
 	(*index)++;
-	if (*index < argc)
-		return driver_Install_Inf(L"DefaultUninstall", argv[*index]);
+	if (*index < argc) // BSR-1030
+		return driver_Install_Inf(L"DefaultUninstall.NTamd64", argv[*index]);
 	else
 		usage();
 }
