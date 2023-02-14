@@ -318,7 +318,9 @@ void bsr_req_destroy(struct kref *kref)
 
 				rq_state = req->rq_state[1 + node_id];
 				// Dw-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_QUEUED).
-				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_QUEUED))) {
+				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_QUEUED))
+					// BSR-1021 exclude from the destination bitmap because it has not been connected before and has already set out of sync.
+					|| rq_state & RQ_OOS_LOCAL_DONE) {
 					int bitmap_index = peer_md[node_id].bitmap_index;
 
 					if (bitmap_index == -1)
@@ -978,6 +980,9 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	set &= ~RQ_STATE_0_MASK;
 	clear &= ~RQ_STATE_0_MASK;
 
+	// BSR-1021 exclude from local settings because only the peer node is set.
+	set_local &= ~RQ_OOS_LOCAL_DONE;
+
 	if (!idx) {
 		/* do not try to manipulate net state bits
 		 * without an associated state slot! */
@@ -1005,10 +1010,15 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	req->rq_state[idx] &= ~clear;
 	req->rq_state[idx] |= set;
 
-
 	/* no change? */
 	if (req->rq_state[0] == old_local && req->rq_state[idx] == old_net)
 		return;
+
+	// BSR-1021 
+	if (!(old_net & RQ_OOS_LOCAL_DONE) && (set & RQ_OOS_LOCAL_DONE)) {
+		bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+		return;
+	}
 
 	/* intent: get references */
 
@@ -1580,6 +1590,11 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		for_each_peer_device(peer_device, device)
 			mod_rq_state(req, m, peer_device, 0, RQ_NET_OK|RQ_NET_DONE);
 		break;
+
+		// BSR-1021
+	case OOS_SET_TO_LOCAL:
+		mod_rq_state(req, m, peer_device, 0, RQ_OOS_LOCAL_DONE);
+		break;
 	};
 
 	return rv;
@@ -1896,9 +1911,12 @@ static int bsr_process_write_request(struct bsr_request *req)
 		bsr_debug(6, BSR_LC_OUT_OF_SYNC, NO_OBJECT, "["OOS_TRACE_STRING"] pnode-id(%d), bitmap_index(%d) req(%p), remote(%d), send_oos(%d), sector(%lu ~ %lu)",
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
-
-		if (!remote && !send_oos)
+		if (!remote && !send_oos) {
+			// BSR-1021 unconnected nodes set out of sync for the request area.
+			if (peer_device->connection->cstate[NOW] != C_CONNECTED)
+				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
 			continue;
+		}
 
 		D_ASSERT(device, !(remote && send_oos));
 

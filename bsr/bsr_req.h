@@ -124,6 +124,9 @@ enum bsr_req_event {
 	FAIL_FROZEN_DISK_IO,
 	RESTART_FROZEN_DISK_IO,
 	NOTHING_EVENT,
+
+	// BSR-1021 set when setting out of sync for an unconnected node. RQ_OOS_LOCAL_DONE is then set to state.
+	OOS_SET_TO_LOCAL,
 };
 
 /* encoding of request states for now.  we don't actually need that many bits.
@@ -244,6 +247,8 @@ enum bsr_req_state_bits {
 	__RQ_OOS_PENDING,
 	/* flag set to send out of sync when write is complete (__RQ_OOS_PENDING shall be previously set) */
 	__RQ_OOS_NET_QUEUED,
+
+	__RQ_OOS_LOCAL_DONE,
 };
 
 #define RQ_LOCAL_PENDING   (1UL << __RQ_LOCAL_PENDING)
@@ -276,6 +281,7 @@ enum bsr_req_state_bits {
 #define RQ_PEER_ACK	   (1UL << __RQ_PEER_ACK)
 #define RQ_OOS_PENDING (1UL << __RQ_OOS_PENDING)
 #define RQ_OOS_NET_QUEUED (1UL << __RQ_OOS_NET_QUEUED)
+#define RQ_OOS_LOCAL_DONE (1UL << __RQ_OOS_LOCAL_DONE)
 
 /* these flags go into rq_state[0],
  * orhter flags go into their respective rq_state[idx] */
