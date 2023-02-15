@@ -541,7 +541,7 @@ DWORD get_cli_log_file_max_count()
 
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		goto out;
 	}
 
 	lResult = RegQueryValueEx(hKey, BSR_CLI_LOG_FILE_MAX_COUT_VALUE_REG, NULL, &type, (LPBYTE)&cli_log_file_max_count, &size);
@@ -563,6 +563,7 @@ DWORD get_cli_log_file_max_count()
 		fclose(fp);
 	}
 #endif
+out:
 	cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
 	cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
 	cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
@@ -782,7 +783,7 @@ DWORD is_status_cmd_logging()
 
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		goto out;
 	}
 
 	lResult = RegQueryValueEx(hKey, TEXT("statuscmd_logging"), NULL, &type, (LPBYTE)&ret, &size);
@@ -805,6 +806,7 @@ DWORD is_status_cmd_logging()
 	}
 #endif
 
+out:
 	// default disable
 	ret = 0;
 

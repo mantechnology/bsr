@@ -490,7 +490,7 @@ int RunBsrmon()
 	// BSR-694
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		return 0;
 	}
 	while (TRUE) {
 

@@ -68,7 +68,7 @@ DWORD get_value_of_vflt(const char *target, DWORD *value)
 #ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		return lResult;
 	}
 
 	lResult = RegQueryValueEx(hKey, target, NULL, &type, (LPBYTE)value, &size);
@@ -107,7 +107,7 @@ DWORD set_value_of_vflt(const char *target, DWORD *value)
 #ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		return lResult;
 	}
 
 	lResult = RegSetValueEx(hKey, target, 0, REG_DWORD, (LPBYTE)value, sizeof(*value));
@@ -235,6 +235,7 @@ DWORD get_fast_sync()
 	lResult = get_value_of_vflt(BSR_FAST_SYNC_REG, &fast_sync);
 #endif
 	if (ERROR_SUCCESS != lResult && ERROR_FILE_NOT_FOUND != lResult) {
+		printf("failed to get fast sync settings (%d)\n", lResult);
 		return lResult;
 	}
 
@@ -321,10 +322,10 @@ BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 	DWORD logLevel = 0;
 
 #ifdef _WIN
-	get_value_of_vflt(_T("log_level"), &logLevel);
+	lResult = get_value_of_vflt(_T("log_level"), &logLevel);
 #else // _LIN
 	// BSR-584 read /etc/bsr.d/.log_level
-	get_value_of_vflt(BSR_LOG_LEVEL_REG, &logLevel);
+	lResult = get_value_of_vflt(BSR_LOG_LEVEL_REG, &logLevel);
 #endif
 
 	if (lResult == ERROR_FILE_NOT_FOUND) {
