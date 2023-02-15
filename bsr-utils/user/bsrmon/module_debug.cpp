@@ -776,15 +776,12 @@ FILE *perf_fileopen(char * filename, char * currtime)
 		snprintf(find_file, strlen(ptr) + 1, "%s_", ptr + 1);
 #endif
 		get_filelist(dir_path, find_file, &listFileName, false);
-		if (listFileName.size() == 0) {
-			fprintf(stderr, "Fail to get bsr performance file list.\n");
-			return NULL;
-		}
-
-		for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
-			file_cnt++;
-			if (file_cnt >= rolling_cnt)
-				remove(iter->c_str());
+		if (listFileName.size() != 0) {
+			for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
+				file_cnt++;
+				if (file_cnt >= rolling_cnt)
+					remove(iter->c_str());
+			}
 		}
 
 		memcpy(r_time, currtime, strlen(currtime));
