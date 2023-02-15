@@ -374,17 +374,17 @@ static struct adm_cmd wait_c_cmd = {"wait-connect", adm_wait_c, ACF1_WAIT};
 static struct adm_cmd wait_sync_cmd = {"wait-sync", adm_wait_c, ACF1_WAIT};
 static struct adm_cmd wait_ci_cmd = {"wait-con-int", adm_wait_ci, .show_in_usage = 1,.verify_ips = 1,};
 static struct adm_cmd role_cmd = {"role", adm_bsrsetup, ACF1_RESNAME};
-static struct adm_cmd cstate_cmd = {"cstate", adm_bsrsetup, ACF1_DISCONNECT};
-static struct adm_cmd dstate_cmd = {"dstate", adm_setup_and_meta, ACF1_MINOR_ONLY };
-static struct adm_cmd status_cmd = {"status", adm_bsrsetup, .show_in_usage = 1, .uc_dialog = 1, .backend_res_name=1};
+static struct adm_cmd cstate_cmd = {"cstate", adm_bsrsetup, ACF1_DISCONNECT .is_status_cmd=1};
+static struct adm_cmd dstate_cmd = {"dstate", adm_setup_and_meta, ACF1_MINOR_ONLY .is_status_cmd=1};
+static struct adm_cmd status_cmd = {"status", adm_bsrsetup, .show_in_usage = 1, .uc_dialog = 1, .backend_res_name=1, .is_status_cmd=1};
 static struct adm_cmd peer_device_options_cmd = {"peer-device-options", adm_peer_device,
 						 &peer_device_options_ctx, ACF1_PEER_DEVICE};
-static struct adm_cmd dump_cmd = {"dump", adm_dump, ACF1_DUMP};
-static struct adm_cmd dump_xml_cmd = {"dump-xml", adm_dump_xml, ACF1_DUMP};
+static struct adm_cmd dump_cmd = {"dump", adm_dump, ACF1_DUMP .is_status_cmd=1};
+static struct adm_cmd dump_xml_cmd = {"dump-xml", adm_dump_xml, ACF1_DUMP .is_status_cmd=1};
 
 static struct adm_cmd create_md_cmd = {"create-md", adm_create_md, &create_md_ctx, ACF1_MINOR_ONLY };
-static struct adm_cmd show_gi_cmd = {"show-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1};
-static struct adm_cmd get_gi_cmd = {"get-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1};
+static struct adm_cmd show_gi_cmd = {"show-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1, .is_status_cmd=1};
+static struct adm_cmd get_gi_cmd = {"get-gi", adm_setup_and_meta, ACF1_PEER_DEVICE .disk_required = 1, .is_status_cmd=1};
 static struct adm_cmd dump_md_cmd = {"dump-md", adm_bsrmeta, ACF1_MINOR_ONLY };
 // DW-1922 Added '--force' option to wipe-md command
 static struct adm_cmd wipe_md_cmd = { "wipe-md", adm_bsrmeta, &wipe_md_ctx, ACF1_MINOR_ONLY };
@@ -394,29 +394,29 @@ static struct adm_cmd forget_peer_cmd = {"forget-peer", adm_forget_peer, ACF1_DI
 static struct adm_cmd hidden_cmd = {"hidden-commands", hidden_cmds,.show_in_usage = 1,};
 
 static struct adm_cmd sh_nop_cmd = {"sh-nop", sh_nop, ACF2_GEN_SHELL .uc_dialog = 1, .test_config = 1};
-static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL .need_peer = 1, .exclude_parse_show = 1};
+static struct adm_cmd sh_resources_list_cmd = { "sh-resources-list", sh_resources_list, ACF2_GEN_SHELL .need_peer = 1, .exclude_parse_show = 1, .is_status_cmd=1};
 // DW-1249 auto-start by svc
 static struct adm_cmd sh_resource_option_cmd = { "sh-resource-option", sh_resource_option, ACF1_RESNAME };
 // BSR-718
 static struct adm_cmd sh_node_option_cmd = { "sh-node-option", sh_node_option, ACF1_RESNAME };
-static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL .need_peer = 1};
-static struct adm_cmd sh_resource_cmd = {"sh-resource", sh_resource, ACF2_SH_RESNAME};
-static struct adm_cmd sh_mod_parms_cmd = {"sh-mod-parms", sh_mod_parms, ACF2_GEN_SHELL};
-static struct adm_cmd sh_dev_cmd = {"sh-dev", sh_dev, ACF2_SHELL};
-static struct adm_cmd sh_udev_cmd = {"sh-udev", sh_udev, .vol_id_required = 1, ACF2_HOOK};
-static struct adm_cmd sh_minor_cmd = {"sh-minor", sh_minor, ACF2_SHELL};
-static struct adm_cmd sh_ll_dev_cmd = {"sh-ll-dev", sh_ll_dev, ACF2_SHELL .disk_required = 1};
-static struct adm_cmd sh_md_dev_cmd = {"sh-md-dev", sh_md_dev, ACF2_SHELL .disk_required = 1};
-static struct adm_cmd sh_md_idx_cmd = {"sh-md-idx", sh_md_idx, ACF2_SHELL .disk_required = 1};
-static struct adm_cmd sh_ip_cmd = {"sh-ip", sh_ip, ACF2_SHELL};
-static struct adm_cmd sh_lr_of_cmd = {"sh-lr-of", sh_lres, ACF2_SHELL};
+static struct adm_cmd sh_resources_cmd = {"sh-resources", sh_resources, ACF2_GEN_SHELL .need_peer = 1, .is_status_cmd=1};
+static struct adm_cmd sh_resource_cmd = {"sh-resource", sh_resource, ACF2_SH_RESNAME .is_status_cmd=1};
+static struct adm_cmd sh_mod_parms_cmd = {"sh-mod-parms", sh_mod_parms, ACF2_GEN_SHELL .is_status_cmd=1};
+static struct adm_cmd sh_dev_cmd = {"sh-dev", sh_dev, ACF2_SHELL .is_status_cmd=1};
+static struct adm_cmd sh_udev_cmd = {"sh-udev", sh_udev, .vol_id_required = 1, ACF2_HOOK .is_status_cmd=1};
+static struct adm_cmd sh_minor_cmd = {"sh-minor", sh_minor, ACF2_SHELL .is_status_cmd=1};
+static struct adm_cmd sh_ll_dev_cmd = {"sh-ll-dev", sh_ll_dev, ACF2_SHELL .disk_required = 1, .is_status_cmd=1};
+static struct adm_cmd sh_md_dev_cmd = {"sh-md-dev", sh_md_dev, ACF2_SHELL .disk_required = 1, .is_status_cmd=1};
+static struct adm_cmd sh_md_idx_cmd = {"sh-md-idx", sh_md_idx, ACF2_SHELL .disk_required = 1, .is_status_cmd=1};
+static struct adm_cmd sh_ip_cmd = {"sh-ip", sh_ip, ACF2_SHELL .is_status_cmd=1};
+static struct adm_cmd sh_lr_of_cmd = {"sh-lr-of", sh_lres, ACF2_SHELL .is_status_cmd=1};
 // BSR-675 
-static struct adm_cmd sh_peer_node_id_cmd = {"sh-peer-node-id", sh_peer_node_id, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1};
-static struct adm_cmd sh_dev_vnr_cmd = {"sh-dev-vnr", sh_dev_vnr, ACF2_SHELL .exclude_parse_show = 1};
+static struct adm_cmd sh_peer_node_id_cmd = {"sh-peer-node-id", sh_peer_node_id, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1,.is_status_cmd=1};
+static struct adm_cmd sh_dev_vnr_cmd = {"sh-dev-vnr", sh_dev_vnr, ACF2_SHELL .exclude_parse_show = 1, .is_status_cmd=1};
 // BSR-688
-static struct adm_cmd sh_peer_node_name_cmd = {"sh-peer-node-name", sh_peer_node_name, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1};
+static struct adm_cmd sh_peer_node_name_cmd = {"sh-peer-node-name", sh_peer_node_name, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1, .is_status_cmd=1};
 // BSR-808
-static struct adm_cmd sh_peer_nodes_cmd = {"sh-peer-nodes", sh_peer_nodes, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1};
+static struct adm_cmd sh_peer_nodes_cmd = {"sh-peer-nodes", sh_peer_nodes, ACF2_GEN_SHELL .need_peer = 1, .res_name_required = 1, .exclude_parse_show = 1, .is_status_cmd=1};
 
 static struct adm_cmd proxy_up_cmd = {"proxy-up", adm_proxy_up, ACF2_PROXY};
 static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY};
@@ -3616,6 +3616,9 @@ extern char* lprogram;
 extern char* lcmd;
 // BSR-614
 extern int llevel;
+// BSR-1031
+extern int lstatus;
+extern char execution_log[512];
 
 int main(int argc, char **argv)
 {
@@ -3632,7 +3635,8 @@ int main(int argc, char **argv)
 
 	lprogram = basename(argv[0]);
 
-	bsr_exec_log(argc, argv);
+	// BSR-1031 set execution_log, output on error
+	set_exec_log(argc, argv);
 
 	initialize_err();
 	initialize_deferred_cmds();
@@ -3678,6 +3682,10 @@ int main(int argc, char **argv)
 		return rv;
 
 	lcmd = (char *)cmd->name;
+	// BSR-1031
+	lstatus = cmd->is_status_cmd;
+	// execution_log output
+	bsr_exec_log();
 
 	if (config_test && !cmd->test_config) {
 		err("The --config-to-test (-t) option is only allowed "

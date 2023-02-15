@@ -68,7 +68,7 @@ DWORD get_value_of_vflt(const char *target, DWORD *value)
 #ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		return lResult;
 	}
 
 	lResult = RegQueryValueEx(hKey, target, NULL, &type, (LPBYTE)value, &size);
@@ -107,7 +107,7 @@ DWORD set_value_of_vflt(const char *target, DWORD *value)
 #ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		return FALSE;
+		return lResult;
 	}
 
 	lResult = RegSetValueEx(hKey, target, 0, REG_DWORD, (LPBYTE)value, sizeof(*value));
@@ -235,6 +235,7 @@ DWORD get_fast_sync()
 	lResult = get_value_of_vflt(BSR_FAST_SYNC_REG, &fast_sync);
 #endif
 	if (ERROR_SUCCESS != lResult && ERROR_FILE_NOT_FOUND != lResult) {
+		printf("failed to get fast sync settings (%d)\n", lResult);
 		return lResult;
 	}
 
@@ -321,10 +322,10 @@ BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 	DWORD logLevel = 0;
 
 #ifdef _WIN
-	get_value_of_vflt(_T("log_level"), &logLevel);
+	lResult = get_value_of_vflt(_T("log_level"), &logLevel);
 #else // _LIN
 	// BSR-584 read /etc/bsr.d/.log_level
-	get_value_of_vflt(BSR_LOG_LEVEL_REG, &logLevel);
+	lResult = get_value_of_vflt(BSR_LOG_LEVEL_REG, &logLevel);
 #endif
 
 	if (lResult == ERROR_FILE_NOT_FOUND) {
@@ -674,6 +675,63 @@ int cmd_minlog_lv(int *index, int argc, char* argv[])
 	return MVOL_SetMinimumLogLevel(&lml);
 }
 
+// BSR-1031
+DWORD set_statuscmd_logging(DWORD logging)
+{
+	DWORD lResult = ERROR_SUCCESS;
+
+#ifdef _WIN
+	lResult = set_value_of_vflt(_T("statuscmd_logging"), &logging);
+#else // _LIN
+	// /etc/bsr.d/.statuscmd_logging
+	lResult = set_value_of_vflt(BSR_STATUSCMD_LOGGING_REG, &logging);
+#endif
+	if (ERROR_SUCCESS != lResult) {
+		printf("status cmd logging setup failed.\n");
+		return lResult;
+	}
+
+	printf("status cmd logging setup success.\n");
+	return lResult;
+}
+
+DWORD get_statuscmd_logging()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD logging = 0;
+
+#ifdef _WIN
+	lResult = get_value_of_vflt(_T("statuscmd_logging"), &logging);
+#else // _LIN
+	// /etc/bsr.d/.statuscmd_logging
+	lResult = get_value_of_vflt(BSR_STATUSCMD_LOGGING_REG, &logging);
+#endif
+	if (ERROR_SUCCESS != lResult && ERROR_FILE_NOT_FOUND != lResult) {
+		printf("failed to get statuscmd_logging settings (%d)\n", lResult);
+		return lResult;
+	}
+
+	printf("Logging status command to the CLI log : %s (%d)\n", logging ? "enable" : "disable", logging);
+
+	return lResult;
+}
+
+// BSR-1031
+int cmd_statuscmd_logging(int *index, int argc, char* argv[])
+{
+	(*index)++;
+	if (*index < argc) {
+		if ((strcmp(argv[*index], "1") == 0) ||
+			(strcmp(argv[*index], "0") == 0))
+			return set_statuscmd_logging(atoi(argv[*index]));
+		else usage();
+	}
+	else
+		usage();
+
+	return 0;
+}
+
 // BSR-605
 int cmd_climaxlogfile_cnt(int *index, int argc, char* argv[])
 {
@@ -810,6 +868,9 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	}
 	else
 		printf("Failed to get log level.\n");
+
+	// BSR-1031
+	get_statuscmd_logging();
 
 	return 0;
 }
@@ -1196,6 +1257,7 @@ static struct cmd_struct commands[] = {
 	{ "/get_log", cmd_get_log, "{provider name}\n\t\t{provider name} {resource name|out of sync}\n\t\t{provider name} {resource name} {out of sync}", "", "\"bsr\" or \"bsr r0\" or \"bsr r0 1\"" },
 #endif
 	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"" },
+	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\""},
 	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"" },
 	{ "/maxlogfile_cnt", cmd_maxlogfile_cnt, "{max file count}", "", "10" },
 	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"" },

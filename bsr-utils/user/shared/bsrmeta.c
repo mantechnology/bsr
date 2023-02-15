@@ -1033,6 +1033,7 @@ struct meta_cmd {
 	int show_in_usage:1;
 	int node_id_required:1;
 	int modifies_md:1;
+	unsigned int is_status_cmd:1; // BSR-1031
 };
 /* Global command pointer, to be able to change behavior in helper functions
  * based on which top-level command is being processed. */
@@ -1057,28 +1058,28 @@ int meta_chk_offline_resize(struct format *cfg, char **argv, int argc);
 int meta_forget_peer(struct format *cfg, char **argv, int argc);
 
 struct meta_cmd cmds[] = {
-	{"get-gi", 0, meta_get_gi, 1, 1, 0},
-	{"show-gi", 0, meta_show_gi, 1, 1, 0},
-	{"dump-md", 0, meta_dump_md, 1, 0, 0},
-	{"restore-md", "file", meta_restore_md, 1, 0, 1},
-	{"verify-dump", "file", meta_verify_dump_file, 1, 0, 0},
-	{"apply-al", 0, meta_apply_al, 1, 0, 1},
-	{"wipe-md", 0, meta_wipe_md, 1, 0, 1},
-	{"outdate", 0, meta_outdate, 1, 0, 1},
-	{"invalidate", 0, meta_invalidate, 1, 0, 1},
-	{"dstate", 0, meta_dstate, 1, 0, 0},
-	{"read-dev-uuid", 0,  meta_read_dev_uuid, 0, 0, 0},
-	{"write-dev-uuid", "VAL", meta_write_dev_uuid, 0, 0, 1},
+	{"get-gi", 0, meta_get_gi, 1, 1, 0, 1},
+	{"show-gi", 0, meta_show_gi, 1, 1, 0, 1},
+	{"dump-md", 0, meta_dump_md, 1, 0, 0, 0},
+	{"restore-md", "file", meta_restore_md, 1, 0, 1, 0},
+	{"verify-dump", "file", meta_verify_dump_file, 1, 0, 0, 0},
+	{"apply-al", 0, meta_apply_al, 1, 0, 1, 0},
+	{"wipe-md", 0, meta_wipe_md, 1, 0, 1, 0},
+	{"outdate", 0, meta_outdate, 1, 0, 1, 0},
+	{"invalidate", 0, meta_invalidate, 1, 0, 1, 0},
+	{"dstate", 0, meta_dstate, 1, 0, 0, 1},
+	{"read-dev-uuid", 0,  meta_read_dev_uuid, 0, 0, 0, 0},
+	{"write-dev-uuid", "VAL", meta_write_dev_uuid, 0, 0, 1, 0},
 	/* FIXME: Get and set node and peer ids */
-	{"set-gi", ":::VAL:VAL:...", meta_set_gi, 0, 1, 1},
-	{"check-resize", 0, meta_chk_offline_resize, 1, 0, 1},
+	{"set-gi", ":::VAL:VAL:...", meta_set_gi, 0, 1, 1, 0},
+	{"check-resize", 0, meta_chk_offline_resize, 1, 0, 1, 0},
 	{"create-md",
 		"[--peer-max-bio-size {val}] "
 		"[--al-stripes {val}] "
 		"[--al-stripe-size-kB {val}] "
 		"{max_peers}",
-		meta_create_md, 1, 0, 1},
-	{"forget-peer", 0, meta_forget_peer, 1, 1, 1},
+		meta_create_md, 1, 0, 1, 0},
+	{"forget-peer", 0, meta_forget_peer, 1, 1, 1, 0},
 };
 
 /*
@@ -5495,6 +5496,9 @@ extern char *lprogram;
 extern char *lcmd;
 // BSR-614
 extern int llevel;
+// BSR-1031
+extern int lstatus;
+extern char execution_log[512];
 
 int main(int argc, char **argv)
 {
@@ -5510,7 +5514,8 @@ int main(int argc, char **argv)
 		lprogram = progname = argv[0];
 	}
 
-	bsr_exec_log(argc, argv);
+	// BSR-1031 set execution_log, output on error
+	set_exec_log(argc, argv);
 
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
@@ -5621,6 +5626,10 @@ int main(int argc, char **argv)
 	ai++;
 
 	lcmd = (char *)command->name;
+	// BSR-1031
+	lstatus = command->is_status_cmd;
+	// execution_log output
+	bsr_exec_log();
 
 	/* does exit() unless we acquired the lock.
 	 * unlock happens implicitly when the process dies,

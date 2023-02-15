@@ -291,6 +291,7 @@ struct adm_cmd {
 	/* need_peer could also be named iterate_peers */
 	unsigned int need_peer:1;
 	unsigned int is_proxy_cmd:1;
+	unsigned int is_status_cmd:1; /* BSR-1031 */
 	unsigned int uc_dialog:1; /* May show usage count dialog */
 	unsigned int test_config:1; /* Allow -t option */
 	unsigned int disk_required:1; /* cmd needs vol->disk or vol->meta_[disk|index] */
