@@ -707,6 +707,7 @@ DWORD get_statuscmd_logging()
 	lResult = get_value_of_vflt(BSR_STATUSCMD_LOGGING_REG, &logging);
 #endif
 	if (ERROR_SUCCESS != lResult && ERROR_FILE_NOT_FOUND != lResult) {
+		printf("failed to get statuscmd_logging settings (%d)\n", lResult);
 		return lResult;
 	}
 
