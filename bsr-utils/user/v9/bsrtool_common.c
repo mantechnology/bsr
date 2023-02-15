@@ -38,6 +38,9 @@ static struct version __bsr_utils_version = {};
 char *lprogram = NULL;
 char *lcmd = NULL;
 int llevel = INFO_LEVEL;
+// BSR-1031
+int lstatus = 0;
+char execution_log[512] = {0,};
 
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
@@ -766,6 +769,48 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	return offset;
 }
 
+DWORD is_status_cmd_logging()
+{
+	DWORD ret = 0;
+
+#ifdef _WIN
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return FALSE;
+	}
+
+	lResult = RegQueryValueEx(hKey, TEXT("statuscmd_logging"), NULL, &type, (LPBYTE)&ret, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_SUCCESS) {
+		return ret;
+	}
+#else // _LIN
+	FILE *fp;
+
+	fp = fopen(BSR_STATUSCMD_LOGGING_REG, "r");
+	if (fp != NULL) {
+		char buf[11] = { 0 };
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			ret = atoi(buf);
+			return ret;
+		}
+		fclose(fp);
+	}
+#endif
+
+	// default disable
+	ret = 0;
+
+	return ret;
+}
+
 void bsr_write_log(const char* func, int line, enum cli_log_level level, bool write_continued, bool line_break, const char* fmt, ...)
 {
 	char b[514];
@@ -777,6 +822,11 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	// BSR-614
 	if (level > llevel)
 		return;
+	
+	if (lstatus && !is_status_cmd_logging()) {
+		if (level > ERROR_LEVEL)
+			return;
+	}
 
 	FILE *fp = bsr_open_log();
 
@@ -787,6 +837,19 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	// BSR-773
 	errno = origin_errno;
 	memset(b, 0, sizeof(b));
+
+	if (execution_log != NULL && strlen(execution_log) != 0) {
+		offset = bsr_log_format(b, func, line, level);
+		offset += snprintf(b + offset, 512 - offset, "execution command,%s",execution_log);
+		
+		fprintf(fp, "%s", b);
+#ifdef _WIN
+		fprintf(fp, "\r\n");
+#else
+		fprintf(fp, "\n");
+#endif
+		memset(execution_log, 0, sizeof(execution_log));
+	}
 
 	if (!write_continued)
 		offset = bsr_log_format(b, func, line, level);
@@ -834,18 +897,29 @@ void bsr_write_vlog(const char* func, int line, enum cli_log_level level, const 
 	fclose(fp);
 }
 
-void bsr_exec_log(int argc, char** argv)
+// BSR-1031
+void set_exec_log(int argc, char** argv)
 {
 	int i = 0;
-	char b[512];
 	int offset = 0;
 
-	memset(b, 0, sizeof(b));
+	memset(execution_log, 0, sizeof(execution_log));
 
 	for (i = 0; i < argc; i++)
-		offset += snprintf(b + offset, 512 - offset, " %s", argv[i]);
-	CLI_INFO_LOG(false, "execution command,%s", b);
+		offset += snprintf(execution_log + offset, 512 - offset, " %s", argv[i]);
 }
+
+void bsr_exec_log()
+{
+	char exec_log[512];
+
+	memset(exec_log, 0, sizeof(exec_log));
+	snprintf(exec_log, 512, "execution command,%s",execution_log);
+	memset(execution_log, 0, sizeof(execution_log));
+
+	CLI_INFO_LOG(false, "%s", exec_log);
+}
+
 void bsr_terminate_log(int rv)
 {
 	CLI_INFO_LOG(false, "terminate, rv(%d)", rv);

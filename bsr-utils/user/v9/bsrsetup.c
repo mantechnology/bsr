@@ -247,6 +247,7 @@ struct bsr_cmd {
 	bool lockless;
 	struct context_def *ctx;
 	const char *summary;
+	bool is_status_cmd; // BSR-1031
 };
 
 // other functions
@@ -512,23 +513,29 @@ struct bsr_cmd commands[] = {
 	 .summary = "Show the current role of a resource." },
 	{"cstate", CTX_PEER_NODE, 0, NO_PAYLOAD, cstate_cmd,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the current state of a connection." },
 	{"dstate", CTX_MINOR, 0, NO_PAYLOAD, dstate_cmd,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the current disk state of a lower-level device." },
 	{"show-gi", CTX_PEER_DEVICE, 0, NO_PAYLOAD, show_or_get_gi_cmd,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the data generation identifiers for a device on a particular connection, with explanations." },
 	{"get-gi", CTX_PEER_DEVICE, 0, NO_PAYLOAD, show_or_get_gi_cmd,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the data generation identifiers for a device on a particular connection." },
 	{"show", CTX_RESOURCE | CTX_ALL, 0, 0, show_cmd,
 	 .options = show_cmd_options,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the current configuration of a resource, or of all resources." },
 	{"status", CTX_RESOURCE | CTX_ALL, 0, 0, status_cmd,
 	 .options = status_cmd_options,
 	 .lockless = true,
+	 .is_status_cmd = true,
 	 .summary = "Show the state of a resource, or of all resources." },
 	{"check-resize", CTX_MINOR, 0, NO_PAYLOAD, check_resize_cmd,
 	 .lockless = true,
@@ -4948,7 +4955,8 @@ int main(int argc, char **argv)
 
 	lprogram = progname = basename(argv[0]);
 
-	bsr_exec_log(argc, argv);
+	// BSR-1031 set execution_log, output on error
+	set_exec_log(argc, argv);
 
 	if (chdir("/")) {
 		/* highly unlikely, but gcc is picky */
@@ -5012,7 +5020,11 @@ int main(int argc, char **argv)
 		print_usage_and_exit("invalid command");
 
 	lcmd = (char *)cmd->cmd;
-	
+	// BSR-1031
+	lstatus = cmd->is_status_cmd ? 1 : 0;
+	// execution_log output
+	bsr_exec_log();
+
 	/* Make argv[0] the command name so that getopt_long() will leave it in
 	 * the first position. */
 	argv++;
