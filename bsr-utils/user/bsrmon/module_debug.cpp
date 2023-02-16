@@ -153,6 +153,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				res_temp = res;
 			}
 			else if (info_type == CONNECTION) {
+				char *id_ptr = NULL, *name_ptr = NULL;
 				conn = (struct connection*)malloc(sizeof(struct connection));
 				if (!conn) {
 					fprintf(stderr, "Failed to malloc connection, size : %lu\n", sizeof(struct connection));
@@ -160,12 +161,14 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				}
 				memset(conn, 0, sizeof(struct connection));
 				
+				// BSR-1032 peer name parsing (including ipv6)
+				id_ptr = strtok_r(buf, " ", &name_ptr);
+				conn->node_id = atoi(id_ptr);
 #ifdef _WIN
-				sscanf_s(buf, "%d %s", &conn->node_id, conn->name, sizeof(conn->name));
+				strcpy_s(conn->name, name_ptr);
 #else // _LIN
-				sscanf(buf, "%d %s", &conn->node_id, conn->name);
-#endif
-
+				strcpy(conn->name, name_ptr);
+#endif		
 				conn->next = NULL;
 				if (!conn_temp)
 					conn_head = conn;

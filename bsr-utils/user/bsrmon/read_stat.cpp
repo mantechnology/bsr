@@ -35,6 +35,22 @@ static int collection_time(FILE *fp, char *d)
 	return fscanf_str(fp, format, d);
 }
 
+// BSR-1032 check ipv6 floating peer
+bool is_ipv6(char * token)
+{
+	return strcmp(token, "ipv6") == 0;
+}
+
+// BSR-1032 get peer name (exclude ipv6)
+char * get_peer_name(char * name)
+{
+	char *p_name = strrchr(name, ' ');
+	if (!p_name)
+		p_name = name;
+	else
+		p_name++; // skip ipv6
+	return p_name;
+}
 
 // BSR-772
 static FILE* open_shared(char *filename)
@@ -471,7 +487,7 @@ read_continue:
 static void read_peer_ack_stat(FILE *fp, struct peer_stat * peer_head)
 {
 	char buf[MAX_BUF_SIZE] = {0,};
-	char * ptr, *save_ptr;
+	char * ptr = NULL, *save_ptr = NULL;
 
 	/* peer_name */
 	if (fgets(buf, MAX_BUF_SIZE, fp) != NULL) {
@@ -486,8 +502,14 @@ static void read_peer_ack_stat(FILE *fp, struct peer_stat * peer_head)
 			bool is_peer = false;
 			struct peer_ack_stat * peer_ack = NULL;
 			peer = peer_head;
+
+			// BSR-1032
+			if (is_ipv6(ptr))
+				ptr = strtok_r(NULL, " ", &save_ptr);
+
 			while (peer) {
-				if (!strcmp(ptr, peer->name)) {
+				// BSR-1032
+				if (strcmp(ptr, get_peer_name(peer->name)) == 0) {
 					peer->exist = 1;
 					is_peer = true;
 					break;
@@ -804,8 +826,13 @@ read_continue:
 						while (ptr) {
 							bool is_peer = false;
 							peer = peer_head;
+							// BSR-1032
+							if (is_ipv6(ptr))
+								ptr = strtok_r(NULL, " ", &save_ptr);
+
 							while (peer) {
-								if (!strcmp(ptr, peer->name)) {
+								// BSR-1032
+								if (strcmp(ptr, get_peer_name(peer->name)) == 0) {
 									is_peer = true;
 									peer->exist = 1;
 									break;
@@ -1165,8 +1192,13 @@ read_continue:
 						while (ptr) {					
 							bool is_peer = false;
 							peer = peer_head;
+							// BSR-1032
+							if (is_ipv6(ptr))
+								ptr = strtok_r(NULL, " ", &save_ptr);
+
 							while (peer) {
-								if (!strcmp(ptr, peer->name)) {
+								// BSR-1032
+								if (strcmp(ptr, get_peer_name(peer->name)) == 0) {
 									is_peer = true;
 									peer->exist = 1;
 									break;
@@ -1343,8 +1375,13 @@ read_continue:
 						while (ptr) {						
 							bool is_peer = false;
 							peer = peer_head;
+							// BSR-1032
+							if (is_ipv6(ptr))
+								ptr = strtok_r(NULL, " ", &save_ptr);
+
 							while (peer) {
-								if (!strcmp(ptr, peer->name)) {
+								// BSR-1032
+								if (strcmp(ptr, get_peer_name(peer->name)) == 0) {
 									is_peer = true;
 									peer->exist = 1;
 									break;
@@ -1528,8 +1565,14 @@ read_continue:
 							bool is_peer = false;
 							long long t_size = 0, t_used = 0;
 							peer = peer_head;
+
+							// BSR-1032
+							if (is_ipv6(ptr))
+								ptr = strtok_r(NULL, " ", &save_ptr);
+
 							while (peer) {
-								if (!strcmp(ptr, peer->name)) {
+								// BSR-1032
+								if (strcmp(ptr, get_peer_name(peer->name)) == 0) {
 									is_peer = true;
 									peer->exist = 1;
 									break;
@@ -2283,7 +2326,14 @@ void watch_req_stat(char *path, bool scroll)
 			/* peer_name */
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
-				printf("  PEER %s:\n", ptr); // peer_name
+				// BSR-1032
+				if (is_ipv6(ptr)) {
+					char *ipv6_addr = NULL;
+					ipv6_addr = strtok_r(NULL, " ", &save_ptr);
+					printf("  PEER %s %s:\n", ptr, ipv6_addr); // peer_name
+				} else {
+					printf("  PEER %s:\n", ptr); // peer_name
+				}
 				print_req_stat(&save_ptr, "    pre_send (usec)");
 				print_req_stat(&save_ptr, "    acked    (usec)");
 				print_req_stat(&save_ptr, "    net_done (usec)");
@@ -2336,7 +2386,14 @@ void watch_peer_req_stat(char *path, bool scroll)
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
 				/* peer name */
-				printf("  PEER %s:\n", ptr);
+				// BSR-1032
+				if (is_ipv6(ptr)) {
+					char *ipv6_addr = NULL;
+					ipv6_addr = strtok_r(NULL, " ", &save_ptr);
+					printf("  PEER %s %s:\n", ptr, ipv6_addr);
+				} else {
+					printf("  PEER %s:\n", ptr);
+				}
 				/* req cnt*/
 				t_cnt = atol(strtok_r(NULL, " ", &save_ptr));
 				printf("    peer requests : %lu\n", t_cnt);
@@ -2499,7 +2556,14 @@ void watch_network_speed(char *path, bool scroll)
 			printf("%s\n", ptr); // time
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
-				printf("  PEER %s:\n", ptr); // peer_name
+				// BSR-1032
+				if (is_ipv6(ptr)) {
+					char *ipv6_addr = NULL;
+					ipv6_addr = strtok_r(NULL, " ", &save_ptr);
+					printf("  PEER %s %s:\n", ptr, ipv6_addr); // peer_name
+				} else {
+					printf("  PEER %s:\n", ptr); // peer_name
+				}
 				printf("    send (byte/s) : %lu\n", 
 					atol(strtok_r(NULL, " ", &save_ptr)));
 				printf("    recv (byte/s) : %lu\n", 
@@ -2555,8 +2619,12 @@ void watch_sendbuf(char *path, bool scroll)
 
 			type = strtok_r(NULL, " ", &save_ptr);
 			while (type) {
-				
-				if (!strcmp(type, "no")) {
+				// BSR-1032
+				if (is_ipv6(type)) {
+					ptr = strtok_r(NULL, " ", &save_ptr);
+					printf("  PEER %s %s:\n", type, ptr); // peer_name
+					type = strtok_r(NULL, " ", &save_ptr);
+				} else if (!strcmp(type, "no")) {
 					/* no send buffer */
 					strtok_r(NULL, " ", &save_ptr);
 					strtok_r(NULL, " ", &save_ptr);
@@ -2765,7 +2833,14 @@ void watch_peer_resync_ratio(char *path, bool scroll)
 
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			while (ptr) {
-				printf("%s\n", ptr); 
+				// BSR-1032
+				if (is_ipv6(ptr)) {
+					char *ipv6_addr = NULL;
+					ipv6_addr = strtok_r(NULL, " ", &save_ptr);
+					printf("%s %s\n", ptr, ipv6_addr); // peer name
+				} else {
+					printf("%s\n", ptr); // peer name
+				}
 
 				repl_sended = atoll(strtok_r(NULL, " ", &save_ptr));
 				resync_sended = atoll(strtok_r(NULL, " ", &save_ptr));
