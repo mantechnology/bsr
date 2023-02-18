@@ -256,8 +256,8 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost read request. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 			
 		}
-		spin_unlock_irqrestore(&g_inactive_lock, flags);
 		bsr_free_peer_req(peer_req);
+		spin_unlock_irqrestore(&g_inactive_lock, flags);
 
 		return;
 	}
@@ -365,10 +365,10 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 		}
 		else {
 			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost write request. inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
-		}			
-		
-		spin_unlock_irqrestore(&g_inactive_lock, flags);
+		}			 
+
 		bsr_free_peer_req(peer_req);
+		spin_unlock_irqrestore(&g_inactive_lock, flags);
 		return;
 	}
 	spin_unlock_irqrestore(&g_inactive_lock, flags);

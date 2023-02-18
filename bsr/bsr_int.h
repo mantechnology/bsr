@@ -1727,6 +1727,7 @@ struct bsr_connection {
 	struct list_head inactive_ee;	// DW-1696 List of active_ee, sync_ee not processed at the end of the connection
 	atomic_t inacitve_ee_cnt; // BSR-438 inactive_ee count not completed until connection destroy
 #endif
+	struct list_head unacked_peer_requests; // BSR-1036 List of unacked peer_reqeust at connection termination
 
 	atomic_t done_ee_cnt;
 	struct work_struct send_acks_work;
