@@ -4440,6 +4440,7 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	INIT_LIST_HEAD(&connection->inactive_ee);	// DW-1696
 	atomic_set(&connection->inacitve_ee_cnt, 0); // BSR-438
 #endif
+	INIT_LIST_HEAD(&connection->unacked_peer_requests); // BSR-1036
 	init_waitqueue_head(&connection->ee_wait);
 
 	kref_init(&connection->kref);
@@ -4542,6 +4543,8 @@ void bsr_destroy_connection(struct kref *kref)
 	struct bsr_connection *connection = container_of(kref, struct bsr_connection, kref);
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
+	struct bsr_peer_request *peer_request;
+	unsigned long flags = 0;
 	int vnr;
 
 	bsr_info(1, BSR_LC_CONNECTION, connection, "The connection object is removed.");
@@ -4555,18 +4558,23 @@ void bsr_destroy_connection(struct kref *kref)
 	// BSR-438 if the inactive_ee is not removed, a memory leak may occur, but BSOD may occur when removing it, so do not remove it. (priority of BSOD is higher than memory leak.)
 	//	inacitve_ee processing logic not completed is required (cancellation, etc.)
 	if (atomic_read(&connection->inacitve_ee_cnt)) {
-		struct bsr_peer_request *peer_req, *t;
 		bsr_warn(2, BSR_LC_PEER_REQUEST, connection, "Inactive peer request remains uncompleted. count(%d)", atomic_read(&connection->inacitve_ee_cnt));
-		spin_lock_irq(&g_inactive_lock);
-		list_for_each_entry_safe_ex(struct bsr_peer_request, peer_req, t, &connection->inactive_ee, w.list) {
-			set_bit(__EE_WAS_LOST_REQ, &peer_req->flags);
+		spin_lock_irqsave(&g_inactive_lock, flags);
+		list_for_each_entry_ex(struct bsr_peer_request, peer_request, &connection->inactive_ee, w.list) {
+			set_bit(__EE_WAS_LOST_REQ, &peer_request->flags);
 			// BSR-930	
-			if (!(peer_req->flags & EE_SPLIT_REQ))
-				put_ldev(peer_req->peer_device->device);
+			if (!(peer_request->flags & EE_SPLIT_REQ))
+				put_ldev(peer_request->peer_device->device);
 		}
-		spin_unlock_irq(&g_inactive_lock);
+		spin_unlock_irqrestore(&g_inactive_lock, flags);
 	}
 #endif
+	// BSR-1036
+	spin_lock_irqsave(&g_inactive_lock, flags);
+	list_for_each_entry_ex(struct bsr_peer_request, peer_request, &connection->unacked_peer_requests, recv_order) {
+		set_bit(__EE_WAS_LOST_REQ, &peer_request->flags);
+	}
+	spin_unlock_irqrestore(&g_inactive_lock, flags);
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
@@ -5964,8 +5972,6 @@ int bsr_init(void)
 #ifdef _WIN
 	nl_policy_init_by_manual();
 	g_rcuLock = 0; // init RCU lock
-	// BSR-438
-	spin_lock_init(&g_inactive_lock);
 
 	mutex_init(&g_genl_mutex);
 	// DW-1998
@@ -5982,6 +5988,9 @@ int bsr_init(void)
 	// BSR-822
 	mutex_init(&handler_mutex);
 #endif
+	// BSR-1036
+	// BSR-438
+	spin_lock_init(&g_inactive_lock);
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
 		bsr_err(69, BSR_LC_DRIVER, NO_OBJECT, "Invalid minor count (%u) during bsr initialization", minor_count);
