@@ -11578,7 +11578,7 @@ static u64 node_ids_to_bitmap(struct bsr_device *device, u64 node_ids) __must_ho
 	return bitmap_bits;
 }
 
-
+extern spinlock_t g_unacked_lock;
 
 static int w_send_out_of_sync(struct bsr_work *w, int cancel)
 {
@@ -11608,7 +11608,7 @@ static int w_send_out_of_sync(struct bsr_work *w, int cancel)
 	}
 	rcu_read_unlock();
 	// BSR-1036 
-	spin_lock_irq(&g_inactive_lock);
+	spin_lock(&g_unacked_lock);
 	if (!test_bit(__EE_WAS_LOST_REQ, &peer_req->flags)) {
 		struct bsr_peer_request *peer_request;
 		list_for_each_entry_ex(struct bsr_peer_request, peer_request, &peer_req->peer_device->connection->unacked_peer_requests, recv_order) {
@@ -11619,12 +11619,12 @@ static int w_send_out_of_sync(struct bsr_work *w, int cancel)
 		}
 	}
 	bsr_free_peer_req(peer_req);
-	spin_unlock_irq(&g_inactive_lock);
+	spin_unlock(&g_unacked_lock);
 
 	return err;
 }
 
-static void notify_sync_targets_or_free(struct bsr_peer_request *peer_req, u64 in_sync, bool cleanup_unacked)
+static void notify_sync_targets_or_free(struct bsr_peer_request *peer_req, u64 in_sync)
 {
 	struct bsr_device *device = peer_req->peer_device->device;
 	struct bsr_peer_device *peer_device;
@@ -11639,11 +11639,9 @@ static void notify_sync_targets_or_free(struct bsr_peer_request *peer_req, u64 i
 			peer_req->send_oos_in_sync = in_sync;
 			peer_req->w.cb = w_send_out_of_sync;
 			// BSR-1036 set the flag and add unacked_peer_requests list because peer_device may have been destroy when calling callback.
-			if (cleanup_unacked) {
-				spin_lock_irq(&g_inactive_lock);
-				list_add_tail(&peer_req->recv_order, &peer_req->peer_device->connection->unacked_peer_requests);
-				spin_unlock_irq(&g_inactive_lock);
-			}
+			spin_lock(&g_unacked_lock);
+			list_add_tail(&peer_req->recv_order, &peer_req->peer_device->connection->unacked_peer_requests);
+			spin_unlock(&g_unacked_lock);
 			bsr_queue_work(&peer_device->connection->sender_work,
 				&peer_req->w);
 			return;
@@ -11705,7 +11703,7 @@ found:
 			put_ldev(device);
 		}
 		list_del(&peer_req->recv_order);
-		notify_sync_targets_or_free(peer_req, in_sync, false);
+		notify_sync_targets_or_free(peer_req, in_sync);
 	}
 
 	return 0;
@@ -11749,7 +11747,7 @@ static void cleanup_unacked_peer_requests(struct bsr_connection *connection)
 			put_ldev(device);
 		}
 		list_del(&peer_req->recv_order);
-		notify_sync_targets_or_free(peer_req, 0, true);
+		notify_sync_targets_or_free(peer_req, 0);
 	}
 }
 

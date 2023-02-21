@@ -63,6 +63,7 @@ static void process_io_error(sector_t sector, unsigned int size, bool write, str
 
 struct mutex resources_mutex;
 spinlock_t g_inactive_lock; // BSR-438
+spinlock_t g_unacked_lock; // BSR-1036
 
 /* used for synchronous meta data and bitmap IO
  * submitted by bsr_md_sync_page_io()
