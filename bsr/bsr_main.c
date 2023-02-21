@@ -161,6 +161,7 @@ int fault_devs = 0;     // minor number for test target
 static int fault_count = 0;
 int two_phase_commit_fail;
 extern spinlock_t g_inactive_lock;
+extern spinlock_t g_unacked_lock;
 
 #ifdef _LIN
 /* bitmap of enabled faults */
@@ -4570,11 +4571,11 @@ void bsr_destroy_connection(struct kref *kref)
 	}
 #endif
 	// BSR-1036
-	spin_lock_irqsave(&g_inactive_lock, flags);
+	spin_lock(&g_unacked_lock);
 	list_for_each_entry_ex(struct bsr_peer_request, peer_request, &connection->unacked_peer_requests, recv_order) {
 		set_bit(__EE_WAS_LOST_REQ, &peer_request->flags);
 	}
-	spin_unlock_irqrestore(&g_inactive_lock, flags);
+	spin_unlock(&g_unacked_lock);
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		kref_debug_put(&peer_device->device->kref_debug, 1);
@@ -5985,12 +5986,13 @@ int bsr_init(void)
 
 	ct_init_thread_list();
 
+	// BSR-438
+	spin_lock_init(&g_inactive_lock);
 	// BSR-822
 	mutex_init(&handler_mutex);
 #endif
 	// BSR-1036
-	// BSR-438
-	spin_lock_init(&g_inactive_lock);
+	spin_lock_init(&g_unacked_lock);
 
 	if (minor_count < BSR_MINOR_COUNT_MIN || minor_count > BSR_MINOR_COUNT_MAX) {
 		bsr_err(69, BSR_LC_DRIVER, NO_OBJECT, "Invalid minor count (%u) during bsr initialization", minor_count);
