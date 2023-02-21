@@ -353,6 +353,14 @@ static inline int bsr_always_getpeername(struct socket *sock, struct sockaddr *u
 }
 #endif
 
+
+#ifndef COMPAT_HAVE_BDEV_MAX_DISCARD_SECTORS
+static inline unsigned int bdev_max_discard_sectors(struct block_device *bdev)
+{
+	return bdev_get_queue(bdev)->limits.max_discard_sectors;
+}
+#endif
+
 #ifndef COMPAT_HAVE_BDEV_DISCARD_ALIGNMENT
 static inline int bdev_discard_alignment(struct block_device *bdev)
 {
@@ -2052,10 +2060,6 @@ static inline void genl_unlock(void)  { }
 			queue_flag_clear_unlocked(F, Q);	\
 	})
 #endif
-# ifndef blk_queue_discard
-#  define blk_queue_discard(q)   (false,false)
-#  define QUEUE_FLAG_DISCARD    (-1)
-# endif
 
 # ifndef blk_queue_secdiscard
 #  define blk_queue_secdiscard(q)   (false,false)
@@ -2348,7 +2352,9 @@ bsr_ib_create_cq(struct ib_device *device,
 #endif
 #endif
 
-
+#ifndef SECTOR_SHIFT
+#define SECTOR_SHIFT 9
+#endif
 
 #if defined(_WIN) || defined(COMPAT_HAVE_BIO_BI_BDEV)
 #if !defined(bio_set_dev) && !defined(COMPAT_HAVE_BIO_SET_DEV)

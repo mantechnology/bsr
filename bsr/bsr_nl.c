@@ -2272,7 +2272,7 @@ static void decide_on_discard_support(struct bsr_device *device,
 	 * b = backing device queue (device->ldev->backing_bdev->bd_disk->queue),
 	 *     or NULL if diskless
 	 */
-	bool can_do = b ? blk_queue_discard(b) : true;
+	bool can_do = b ? bdev_max_discard_sectors(device->ldev->backing_bdev) : true;
 
 	if (can_do && b && !queue_discard_zeroes_data(b) && !discard_zeroes_if_aligned) {
 		can_do = false;
@@ -2291,22 +2291,33 @@ static void decide_on_discard_support(struct bsr_device *device,
 		 * topology on all peers. */
 		blk_queue_discard_granularity(q, 512);
 		q->limits.max_discard_sectors = bsr_max_discard_sectors(device->resource);
+#ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
 		blk_queue_flag_set(QUEUE_FLAG_DISCARD, q);
+#endif
 	} else {
+#ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
 		blk_queue_flag_clear(QUEUE_FLAG_DISCARD, q);
+#endif
 		blk_queue_discard_granularity(q, 0);
 		q->limits.max_discard_sectors = 0;
 	}
 }
 
-static void fixup_discard_if_not_supported(struct request_queue *q)
+static void fixup_discard_if_not_supported(struct bsr_device *device, struct request_queue *q)
 {
 	/* To avoid confusion, if this queue does not support discard, clear
 	 * max_discard_sectors, which is what lsblk -D reports to the user.
 	 * Older kernels got this wrong in "stack limits".
 	 * */
-	if (!blk_queue_discard(q)) {
+
+	unsigned int max_discard = device->rq_queue->limits.max_discard_sectors;
+	unsigned int discard_granularity = device->rq_queue->limits.discard_granularity >> SECTOR_SHIFT;
+
+	if (discard_granularity > max_discard) {
 		blk_queue_max_discard_sectors(q, 0);
+#ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
+		blk_queue_flag_clear(QUEUE_FLAG_DISCARD, q);
+#endif
 		blk_queue_discard_granularity(q, 0);
 	}
 }
@@ -2443,7 +2454,7 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 		adjust_ra_pages(q, b);
 #endif
 	}
-	fixup_discard_if_not_supported(q);
+	fixup_discard_if_not_supported(device, q);
 	fixup_write_zeroes(device, q);
 #endif
 }
@@ -2555,7 +2566,7 @@ static void sanitize_disk_conf(struct bsr_device *device, struct disk_conf *disk
 	if (disk_conf->al_extents > bsr_al_extents_max(nbc))
 		disk_conf->al_extents = bsr_al_extents_max(nbc);
 
-	if (!blk_queue_discard(q) ||
+	if (!bdev_max_discard_sectors(nbc->backing_bdev) ||
 	    (!queue_discard_zeroes_data(q) && !disk_conf->discard_zeroes_if_aligned)) {
 		if (disk_conf->rs_discard_granularity) {
 			disk_conf->rs_discard_granularity = 0; /* disable feature */

@@ -1716,13 +1716,11 @@ int bsr_issue_discard_or_zero_out(struct bsr_device *device, sector_t start, uns
 #else // _LIN
 	struct block_device *bdev = device->ldev->backing_bdev;
 	int err = 0;
-
-#ifdef QUEUE_FLAG_DISCARD
 	struct request_queue *q = bdev_get_queue(bdev);
 	sector_t tmp, nr;
 	unsigned int max_discard_sectors, granularity;
 	int alignment;
-#endif
+
 	if ((flags & EE_ZEROOUT) || !(flags & EE_TRIM))
 		goto zero_out;
 
@@ -1791,25 +1789,25 @@ zero_out:
 
 static bool can_do_reliable_discards(struct bsr_device *device)
 {
-#ifdef QUEUE_FLAG_DISCARD
-	struct request_queue *q = bdev_get_queue(device->ldev->backing_bdev);
 	struct disk_conf *dc;
 	bool can_do;
+#ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
+	struct request_queue *q = bdev_get_queue(device->ldev->backing_bdev);
+#endif
 
-	if (!blk_queue_discard(q))
+	if (!bdev_max_discard_sectors(device->ldev->backing_bdev))
 		return false;
 
+#ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
 	if (queue_discard_zeroes_data(q))
 		return true;
+#endif
 
 	rcu_read_lock();
 	dc = rcu_dereference(device->ldev->disk_conf);
 	can_do = dc->discard_zeroes_if_aligned;
 	rcu_read_unlock();
 	return can_do;
-#else
-	return false;
-#endif
 }
 
 static void bsr_issue_peer_discard_or_zero_out(struct bsr_device *device, struct bsr_peer_request *peer_req)
