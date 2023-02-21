@@ -5,7 +5,6 @@ Maintainer: Man Technology Inc. <bsr@mantech.co.kr>
 Uploaders: Man Technology Inc. <bsr@mantech.co.kr>
 Build-Depends: bash-completion,
                debhelper (>= 7),
-               dh-systemd,
                docbook-xsl,
                flex,
                udev,
