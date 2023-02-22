@@ -9165,7 +9165,10 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		u64 im;
 		bsr_send_uuids(peer_device, 0, 0, NOW);
 		for_each_peer_device_ref(peer_device2, im, device2) {
-			if (peer_device2->connection->cstate[NOW] == C_CONNECTED) {
+			if (peer_device2->connection->cstate[NOW] == C_CONNECTED
+				// BSR-1007 the state must be sent after the UUID has been sent, so the status should not be sent unless the initial information has been sent.
+				&& test_bit(INITIAL_STATE_SENT, &peer_device2->flags)
+				) {
 				bsr_send_current_state(peer_device2);
 			}
 		}
