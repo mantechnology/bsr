@@ -3542,7 +3542,9 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				send_state = true;
 			}
 
-			if (repl_state[OLD] != L_AHEAD && repl_state[NEW] == L_AHEAD)
+			if (repl_state[OLD] != L_AHEAD && repl_state[NEW] == L_AHEAD &&
+				// BSR-968 also check the status of the peer_device to prevent sending the previous status.
+				peer_device->repl_state[NOW] == L_AHEAD)
 				send_state = true;
 
 			/* We are in the progress to start a full sync. SyncTarget sets all slots. */
