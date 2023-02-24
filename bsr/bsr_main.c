@@ -4544,7 +4544,6 @@ void bsr_destroy_connection(struct kref *kref)
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
 	struct bsr_peer_request *peer_request;
-	unsigned long flags = 0;
 	int vnr;
 
 	bsr_info(1, BSR_LC_CONNECTION, connection, "The connection object is removed.");

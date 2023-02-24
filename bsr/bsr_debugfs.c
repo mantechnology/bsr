@@ -1017,9 +1017,9 @@ int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
 		nc = rcu_dereference(peer_device->connection->transport.net_conf);
 		wp = nc ? nc->wire_protocol - BSR_PROT_A + 'A' : ' ';
 		seq_printf(m,
-			"%2d: cs:%s ro:%s/%s ds:%s/%s %c %c%c%c%c%c%c\n"
+			"%2u: cs:%s ro:%s/%s ds:%s/%s %c %c%c%c%c%c%c\n"
 			"    ns:%u nr:%u dw:%u dr:%u al:%u bm:%u "
-			"lo:%d pe:[%d;%d] ua:%d ap:[%d;%d] ep:%d wo:%d",
+			"lo:%d pe:[%d;%d] ua:%d ap:[%d;%d] ep:%d wo:%d pf:%lu",
 			device->minor, sn,
 			bsr_role_str(state.role),
 			bsr_role_str(state.peer),
@@ -1045,7 +1045,8 @@ int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
 			atomic_read(&device->ap_bio_cnt[WRITE]),
 			atomic_read(&device->ap_bio_cnt[READ]),
 			peer_device->connection->epochs,
-			device->resource->write_ordering
+			device->resource->write_ordering,
+			peer_device->flags
 			);
 		seq_printf(m, " oos:%llu\n",
 			Bit2KB((unsigned long long)
