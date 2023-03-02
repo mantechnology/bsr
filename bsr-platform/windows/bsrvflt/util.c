@@ -463,7 +463,8 @@ HANDLE GetVolumeHandleFromDeviceMinor(unsigned int minor)
 			0);
 
 		if (!NT_SUCCESS(status)) {
-			bsr_err(30, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume handle from device minor(%u) due to failue to create file for %wZ. status(0x%x)", &usPath, status);
+			// BSR-1045
+			bsr_err(30, BSR_LC_VOLUME, NO_OBJECT, "Failed to get volume handle from device minor(%u) due to failue to create file for %wZ. status(0x%x)", minor, &usPath, status);
 			return NULL;
 		}
 		
