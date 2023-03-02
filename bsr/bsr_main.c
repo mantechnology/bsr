@@ -6649,7 +6649,7 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 				device->ldev->md.current_uuid : 0;
 
 			if (peer_md[node_id].bitmap_uuid) 
-				bsr_info(20, BSR_LC_UUID, peer_device, "rotate bitmap uuid %016llX", peer_md[node_id].bitmap_uuid);
+				bsr_info(20, BSR_LC_UUID, device, "rotate bitmap uuid %016llX pnode-id(%d)", peer_md[node_id].bitmap_uuid, node_id);
 
 			if (peer_md[node_id].bitmap_uuid)
 				peer_md[node_id].bitmap_dagtag = dagtag;
