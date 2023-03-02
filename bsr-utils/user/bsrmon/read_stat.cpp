@@ -35,6 +35,22 @@ static int collection_time(FILE *fp, char *d)
 	return fscanf_str(fp, format, d);
 }
 
+// BSR-1047 fix bsrmon /show parsing error when using ipv6 address
+char * get_ipv6_name(char **save_ptr) 
+{
+	char * ptr = NULL;
+	char ipv6_name[CONNECTION_NAME_MAX] = {0,};
+	ptr = strtok_r(NULL, " ", save_ptr);
+	if (ptr == NULL)
+		return NULL;
+	sprintf_ex(ipv6_name, "ipv6 %s", ptr);
+#ifdef _WIN
+	return _strdup(ipv6_name);
+#else
+	return strdup(ipv6_name);
+#endif
+}
+
 // BSR-1032 check ipv6 floating peer
 bool is_ipv6(char * token)
 {
@@ -3309,10 +3325,17 @@ static void print_peer(struct connection *conn, const char *title, char **save_p
 		++indent;
 	}
 	while (conn) {
+		char *ipv6_addr = NULL;
 		ptr = strtok_r(NULL, " ", save_ptr);
 		if (ptr == NULL)
 			break;
+		if (is_ipv6(ptr)) {
+			ipv6_addr = get_ipv6_name(save_ptr);
+			ptr = ipv6_addr;
+		}
 		printI("%s %s {\n", stat->name, ptr);
+		if (ipv6_addr)
+			free(ipv6_addr);
 		++indent;
 		if (sub_group)
 			print_3fields(save_ptr, stat->nr, fields, "min", "max", "avg");
@@ -3337,6 +3360,7 @@ static void print_peer_json(struct connection *conn, const char *title, char **s
 
 	print_list_head(title);
 	while (conn) {
+		char *ipv6_addr = NULL;
 		ptr = strtok_r(NULL, " ", save_ptr);
 		if (ptr == NULL)
 			break;
@@ -3344,7 +3368,13 @@ static void print_peer_json(struct connection *conn, const char *title, char **s
 			first_conn = false;
 		else
 			print_list_next();
+		if (is_ipv6(ptr)) {
+			ipv6_addr = get_ipv6_name(save_ptr);
+			ptr = ipv6_addr;
+		}
 		print_data("peer", ptr, true);
+		if (ipv6_addr)
+			free(ipv6_addr);
 		if (sub_group)
 			print_3fields(save_ptr, stat->nr, fields, "min", "max", "avg");
 		else
@@ -3444,6 +3474,7 @@ static void print_current_peer_reqstat(char * name, int vnr, struct connection *
 
 		print_list_head("peer_reqstat");
 		while (conn) {
+			char *ipv6_addr = NULL;
 			ptr = strtok_r(NULL, " ", &save_ptr);
 			if (ptr == NULL)
 			 	break;
@@ -3454,11 +3485,22 @@ static void print_current_peer_reqstat(char * name, int vnr, struct connection *
 					print_list_next();
 			}
 			else {
+				if (is_ipv6(ptr)) {
+					ipv6_addr = get_ipv6_name(&save_ptr);
+					ptr = ipv6_addr;
+				}
 				printI("%s %s {\n", stat.name, ptr);
 				++indent;
 			}
-			if (json)
-				print_data("peer", ptr, true);				
+			if (json) {
+				if (is_ipv6(ptr)) {
+					ipv6_addr = get_ipv6_name(&save_ptr);
+					ptr = ipv6_addr;
+				}
+				print_data("peer", ptr, true);
+			}
+			if (ipv6_addr)
+				free(ipv6_addr);
 			print_data("count", strtok_r(NULL, " ", &save_ptr), true); // peer_req count
 			print_3fields(&save_ptr, stat.nr, fields, "min", "max", "avg");
 			
@@ -3627,7 +3669,7 @@ static void print_current_resync_ratio(char * name, int vnr, struct connection *
 static bool is_peer(char *ptr, struct connection *conn)
 {
 	while (conn) {
-		if (!strcmp(ptr, conn->name))
+		if (!strcmp(ptr, get_peer_name(conn->name)))
 			return true;
 		conn = conn->next;
 	}
@@ -3683,20 +3725,26 @@ static void print_current_sendbuf(char * name, struct connection *conn)
 			int i, j;
 			bool no_buffer = false;
 			bool packet_data = false;
+			char *ipv6_addr = NULL;
 
-			
 			if (first_conn)
 				first_conn = false;
 			else
 				print_list_next();
 			
 		
-			if (json) 
+			if (is_ipv6(ptr)) {
+				ipv6_addr = get_ipv6_name(&save_ptr);
+				ptr = ipv6_addr;
+			}
+			if (json)
 				print_data("peer", ptr, true);
 			else {
 				printI("peer %s {\n", ptr);
 				++indent;
-			}	
+			}
+			if (ipv6_addr)
+				free(ipv6_addr);
 			for (i = 0; i < 2; i++) {
 				print_head(in_flight_stat[i].name);
 				strtok_r(NULL, " ", &save_ptr); // type
@@ -3715,6 +3763,10 @@ static void print_current_sendbuf(char * name, struct connection *conn)
 			print_digit_unit("fill", fill, "bytes", true);
 			
 			while((ptr = strtok_r(NULL, " ", &save_ptr)) != NULL) {
+
+				if (is_ipv6(ptr))
+					ptr = strtok_r(NULL, " ", &save_ptr);
+
 				if (is_peer(ptr, conn)) {
 					if (packet_data) {
 						packet_data = false;
