@@ -628,6 +628,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 		return;
 	}
 
+	// BSR-1043
+#if 0
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
 	_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStart.log"));
 	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
@@ -635,6 +637,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 		_stprintf_s(tmp, _T("service start bsrlog fail:%d\n"), ret);
 		WriteLog(tmp);
 	}
+#endif
 
     while (g_bProcessStarted) {
         Sleep(3000);
@@ -645,6 +648,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
     //BsrSetStatus(SERVICE_STOPPED);
 }
 
+// BSR-1043
+#if 0
 VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 {
 	// DW-1505 Keep only NUMOFLOGS(10) Preshutdown logs 
@@ -697,6 +702,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 		}
 	}
 }
+#endif
 
 
 #ifdef SERVICE_HANDLER_EX
@@ -761,7 +767,8 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 			if (SERVICE_CONTROL_STOP == fdwControl) {
 
 				RcBsrStop();
-
+			// BSR-1043
+#if 0
 				TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
 				_stprintf_s(szFullPath, _T("\"%ws\\%ws\" %ws %ws"), gServicePath, _T("bsrcon"), _T("/get_log"), _T("..\\log\\ServiceStop.log"));
 				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
@@ -769,8 +776,12 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 					_stprintf_s(tmp, _T("service stop bsrlog fail:%d\n"), ret);
 					WriteLog(tmp);
 				}
+#endif
 			}
+
 			else {
+				// BSR-1043
+#if 0
 				TCHAR szFullPath[MAX_PATH] = { 0 };
 				TCHAR tmp[256] = { 0, }; 
 				TCHAR sPreShutdownTime[MAX_PATH], ePreShutdownTime[MAX_PATH];
@@ -780,12 +791,14 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 				GetLocalTime(&sTime);
 				_stprintf_s(sPreShutdownTime, MAX_PATH, _T("Preshutdown-s-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
 				ExecPreShutDownLog(sPreShutdownTime, NULL);
-
+#endif
 				RcBsrStop();
-
+				// BSR-1043
+#if 0
 				GetLocalTime(&sTime);
 				_stprintf_s(ePreShutdownTime, MAX_PATH, _T("Preshutdown-%02d-%02d-%02d-%02d-%02d.log"), sTime.wYear, sTime.wMonth, sTime.wDay, sTime.wHour, sTime.wMinute);
 				ExecPreShutDownLog(ePreShutdownTime, sPreShutdownTime);
+#endif
 			}
 			
 #ifdef _WIN32_LOGLINK
