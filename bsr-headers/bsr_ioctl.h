@@ -27,11 +27,15 @@ typedef struct _SIMULATION_PERF_DEGR {
 	ULONG		delay_time;     // delay time
 } SIMULATION_PERF_DEGR, *PSIMULATION_PERF_DEGR;
 
-
-
-typedef struct _HANDLER_INFO
-{
+typedef struct _HANDLER_INFO {
 	bool				use;
 } HANDLER_INFO, *PHANDLER_INFO;
+
+// BSR-1048
+typedef struct _WRITE_KERNEL_LOG {
+	int level;
+	int length;
+	char message[MAX_BSRLOG_BUF];
+} WRITE_KERNEL_LOG, *PWRITE_KERNEL_LOG;
 
 #endif

@@ -82,6 +82,9 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit);
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
 #endif
 
+// BSR-1048
+DWORD MVOL_WriteBsrKernelLog(int level, char* message);
+
 // BSR-654
 DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE);
 

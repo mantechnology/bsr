@@ -1242,6 +1242,19 @@ int cmd_get_fast_sync(int *index, int argc, char* argv[])
 	return get_fast_sync();
 }
 
+int cmd_write_kernel_log(int *index, int argc, char* argv[])
+{
+	int level = 0;
+	(*index)++;
+	if (*index < argc) {
+		level = atoi(argv[(*index)++]);
+		return MVOL_WriteBsrKernelLog(level, argv[*index]);
+	}
+	else
+		usage();
+
+	return 0;
+}
 
 struct cmd_struct {
 	const char *cmd;
@@ -1289,6 +1302,7 @@ static struct cmd_struct commands[] = {
 #endif
 	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"" },
 	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "" },
+	{ "/write_kernel_log", cmd_write_kernel_log, "", "", ""},
 };
 
 static void usage()

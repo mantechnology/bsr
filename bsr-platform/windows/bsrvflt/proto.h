@@ -109,9 +109,15 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 // BSR-649
 NTSTATUS
 IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+// BSR-1048
+NTSTATUS
+IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
+#if 0
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size);
+#endif
+
 NTSTATUS
 IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
