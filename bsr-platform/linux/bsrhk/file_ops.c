@@ -195,7 +195,7 @@ static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
 	return 0;
 }
 
-// BSR-1048
+// BSR-1048 wrtie the received message in the bsr kernel log.
 long bsr_write_log(WRITE_KERNEL_LOG __user * args) 
 {
 	int err;
@@ -209,7 +209,7 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 		return -1;
 	}
 	
-	if ((writeLog.length) <= 0 && (writeLog.length >= MAX_BSRLOG_BUF)) {
+	if ((writeLog.length <= 0) || (writeLog.length >= MAX_BSRLOG_BUF)) {
 		bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", writeLog.length);
 		return -1;
 	}

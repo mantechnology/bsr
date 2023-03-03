@@ -396,7 +396,7 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
-// BSR-1048
+// BSR-1048 wrtie the received message in the bsr kernel log.
 NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;
@@ -407,13 +407,13 @@ NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (inlen != sizeof(WRITE_KERNEL_LOG)) {
 		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
-		bsr_err(152, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid buffer size (%d, %d)", inlen, sizeof(WRITE_KERNEL_LOG));
+		bsr_err(152, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid buffer size(%d, %d)", inlen, sizeof(WRITE_KERNEL_LOG));
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
 	if (Irp->AssociatedIrp.SystemBuffer) {
 		pWriteLog = (PWRITE_KERNEL_LOG)Irp->AssociatedIrp.SystemBuffer;
-		if ((pWriteLog->length) <= 0 && (pWriteLog->length >= MAX_BSRLOG_BUF)) {
+		if ((pWriteLog->length <= 0) || (pWriteLog->length >= MAX_BSRLOG_BUF)) {
 			bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", pWriteLog->length);
 			return STATUS_INVALID_DEVICE_REQUEST;
 		}
