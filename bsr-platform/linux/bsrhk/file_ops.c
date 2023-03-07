@@ -196,11 +196,15 @@ static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
 }
 
 // BSR-1048 wrtie the received message in the bsr kernel log.
+LONG_PTR g_klog_last_time = 0;
+int g_skip_klog = 0;
 long bsr_write_log(WRITE_KERNEL_LOG __user * args) 
 {
 	int err;
 	WRITE_KERNEL_LOG writeLog;
 	char buf[MAX_BSRLOG_BUF];
+	char *lv = NULL;
+	LONG_PTR klog_current_time = jiffies;
 
 	err = copy_from_user(&writeLog, args, sizeof(WRITE_KERNEL_LOG));
 	
@@ -213,37 +217,58 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 		bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", writeLog.length);
 		return -1;
 	}
+	
+	if (writeLog.level < KERN_EMERG_NUM || writeLog.level >= KERN_NUM_END) {
+		bsr_err(154, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", writeLog.level);
+		return -1;
+	}
+	
+	if (g_klog_last_time != 0) {
+		if ((g_klog_last_time + HZ) > klog_current_time) {
+			g_skip_klog++;
+			return 0;
+		}
+	}
+
+	g_klog_last_time = klog_current_time;
 
 	memset(buf, 0, sizeof(buf));
 	memcpy(buf, writeLog.message, writeLog.length);
 
 	switch (writeLog.level) {
+	case KERN_EMERG_NUM:
+		lv = KERN_EMERG;
+		break;
 	case KERN_ALERT_NUM:
-		bsr_alert(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_ALERT;
 		break;
 	case KERN_CRIT_NUM:
-		bsr_crit(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_CRIT;
 		break;
 	case KERN_ERR_NUM:
-		bsr_err(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_ERR;
 		break;
 	case KERN_WARNING_NUM:
-		bsr_warn(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_WARNING;
 		break;
 	case KERN_NOTICE_NUM:
-		bsr_noti(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_NOTICE;
 		break;
 	case KERN_INFO_NUM:
-		bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_INFO;
 		break;
 	case KERN_DEBUG_NUM:
-		bsr_debug(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
+		lv = KERN_DEBUG;
 		break;
-	default:
-		bsr_err(154, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", writeLog.length);
-		return -1;
 	}
 
+	if (g_skip_klog)
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", buf, g_skip_klog);
+	else
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", buf);
+
+	g_skip_klog = 0;
+	
 	return 0;
 }
 

@@ -397,6 +397,9 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 // BSR-1048 wrtie the received message in the bsr kernel log.
+LONG_PTR g_klog_last_time = 0;
+int g_skip_klog = 0;
+
 NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;
@@ -412,41 +415,37 @@ NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	}
 
 	if (Irp->AssociatedIrp.SystemBuffer) {
+		LONG_PTR klog_current_time = jiffies;
+
 		pWriteLog = (PWRITE_KERNEL_LOG)Irp->AssociatedIrp.SystemBuffer;
 		if ((pWriteLog->length <= 0) || (pWriteLog->length >= MAX_BSRLOG_BUF)) {
 			bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", pWriteLog->length);
 			return STATUS_INVALID_DEVICE_REQUEST;
 		}
 
+		if (pWriteLog->level < KERN_EMERG_NUM || pWriteLog->level >= KERN_NUM_END) {
+			bsr_err(151, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", pWriteLog->level);
+			return STATUS_INVALID_DEVICE_REQUEST;
+		}
+
+		if (g_klog_last_time != 0) {
+			if ((g_klog_last_time + HZ) > klog_current_time) {
+				g_skip_klog++;
+				return STATUS_SUCCESS;
+			}
+		}
+
+		g_klog_last_time = klog_current_time;
+
 		memset(buf, 0, sizeof(buf));
 		memcpy(buf, pWriteLog->message, pWriteLog->length);
 
-		switch (pWriteLog->level) {
-		case KERN_ALERT_NUM:
-			bsr_alert(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_CRIT_NUM:
-			bsr_crit(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_ERR_NUM:
-			bsr_err(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_WARNING_NUM:
-			bsr_warn(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_NOTICE_NUM:
-			bsr_noti(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_INFO_NUM:
-			bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		case KERN_DEBUG_NUM:
-			bsr_debug(-1, BSR_LC_ETC, NO_OBJECT, "%s", buf);
-			break;
-		default:
-			bsr_err(151, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", pWriteLog->length);
-			return STATUS_INVALID_DEVICE_REQUEST;
-		}
+		if (g_skip_klog)
+			__bsr_printk_(BSR_LC_ETC, -1, pWriteLog->level, NO_OBJECT, "%s, skipped logs(%d)", buf, g_skip_klog);
+		else
+			__bsr_printk_(BSR_LC_ETC, -1, pWriteLog->level, NO_OBJECT, "%s", buf);
+
+		g_skip_klog = 0;
 	}
 
 	return STATUS_SUCCESS;
