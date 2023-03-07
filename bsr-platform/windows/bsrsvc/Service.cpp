@@ -553,6 +553,22 @@ int get_daemon_port()
 	return value;
 }
 
+// BSR-1048
+VOID WriteKernelLog(const TCHAR *message)
+{
+	TCHAR cmd[MAX_PATH] = { 0 };
+	TCHAR tmp[256] = { 0, };
+	DWORD ret;
+	DWORD dwPID;
+
+	_stprintf_s(cmd, _T("bsrcon /write_kernel_log 6 \"%ws\""), message);
+	ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
+	if (ret) {
+		_stprintf_s(tmp, _T("failed to write kernel log:%d\n"), ret);
+		WriteLog(tmp);
+	}
+}
+
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
     wchar_t pTemp[1024];
@@ -584,6 +600,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
         WriteLog(pTemp);
         return;
     }
+
+	WriteKernelLog(_T("bsr service start pending"));
 
     // Initialization complete - report running status 
     g_tServiceStatus.dwCurrentState = SERVICE_RUNNING;
@@ -638,6 +656,8 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 		WriteLog(tmp);
 	}
 #endif
+
+	WriteKernelLog(_T("bsr service start"));
 
     while (g_bProcessStarted) {
         Sleep(3000);
@@ -716,25 +736,30 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 
     switch (fdwControl) {
         case SERVICE_CONTROL_STOP:
-            wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_STOP\n");
+			wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_STOP\n");
+			WriteKernelLog(_T("bsr service handler stop"));
             WriteLog(pTemp);
             g_tServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
             break;
         case SERVICE_CONTROL_SHUTDOWN:
-            wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_SHUTDOWN\n");
+			wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_SHUTDOWN\n");
+			WriteKernelLog(_T("bsr service handler shutdown"));
             WriteLog(pTemp);
             g_tServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
             break;
         case SERVICE_CONTROL_PRESHUTDOWN:
-            wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_PRESHUTDOWN\n");
+			wsprintf(pTemp, L"ServiceHandler SERVICE_CONTROL_PRESHUTDOWN\n");
+			WriteKernelLog(_T("bsr service handler preshutdown"));
             WriteLog(pTemp);
             g_tServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
             break;
         case SERVICE_CONTROL_PAUSE:
-            g_tServiceStatus.dwCurrentState = SERVICE_PAUSED;
+			g_tServiceStatus.dwCurrentState = SERVICE_PAUSED;
+			WriteKernelLog(_T("bsr service handler paused"));
             break;
         case SERVICE_CONTROL_CONTINUE:
-            g_tServiceStatus.dwCurrentState = SERVICE_RUNNING;
+			g_tServiceStatus.dwCurrentState = SERVICE_RUNNING;
+			WriteKernelLog(_T("bsr service handler running"));
             break;
         case SERVICE_CONTROL_INTERROGATE:
             break;
@@ -833,6 +858,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
             }
             wsprintf(pTemp, L"ServiceHandler SERVICE_STOPPED done.\n");
             WriteLog(pTemp);
+			WriteKernelLog(_T("bsr service stop"));
     }
 #ifdef SERVICE_HANDLER_EX
 	return 0;

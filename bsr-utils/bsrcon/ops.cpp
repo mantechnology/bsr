@@ -1623,6 +1623,69 @@ DWORD MVOL_SetLogFileMaxCount(ULONG limit)
 	return retVal;
 }
 
+// BSR-1048
+DWORD MVOL_WriteBsrKernelLog(int level, char *message)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+	WRITE_KERNEL_LOG writeLog;
+
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "LOG_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	writeLog.level = level;
+	writeLog.length = strlen(message);
+	if (writeLog.length >= MAX_BSRLOG_BUF) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%d)\n",
+			__FUNCTION__, retVal, writeLog.length);
+	}
+	else {
+		memset(writeLog.message, 0, sizeof(writeLog.message));
+		memcpy(writeLog.message, message, strlen(message));
+
+#ifdef _WIN
+		if (DeviceIoControl(hDevice, IOCTL_MVOL_WRITE_LOG, &writeLog, sizeof(WRITE_KERNEL_LOG), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+		if (ioctl(fd, IOCTL_MVOL_WRITE_LOG, &writeLog) != 0) {
+#endif
+			retVal = GetLastError();
+			fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u\n",
+				__FUNCTION__, retVal);
+		}
+	}
+
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+#endif
+
+	return retVal;
+}
+
+
 // BSR-973 Add real-time log file logging to disable function MVOL_GetBsrLog.
 // Also, the log format has changed, so modifications are required to use the function MVOL_GetBsrLog.
 #if 0

@@ -42,6 +42,8 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	return Get_log_lv();
 }
 
+// BSR-1048 
+#if 0
 static int bsr_get_log(BSR_LOG __user *bsr_log) 
 {
 	int err;
@@ -59,6 +61,7 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 
 	return err;
 }
+#endif
 
 // BSR-597
 static int bsr_set_log_max_count(unsigned int __user * args)
@@ -192,7 +195,82 @@ static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
 	return 0;
 }
 
+// BSR-1048 wrtie the received message in the bsr kernel log.
+LONG_PTR g_klog_last_time = 0;
+int g_skip_klog = 0;
+long bsr_write_log(WRITE_KERNEL_LOG __user * args) 
+{
+	int err;
+	WRITE_KERNEL_LOG writeLog;
+	char buf[MAX_BSRLOG_BUF];
+	char *lv = NULL;
+	LONG_PTR klog_current_time = jiffies;
 
+	err = copy_from_user(&writeLog, args, sizeof(WRITE_KERNEL_LOG));
+	
+	if(err) {
+		bsr_err(152, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_WRITE_LOG due to copy from user");
+		return -1;
+	}
+	
+	if ((writeLog.length <= 0) || (writeLog.length >= MAX_BSRLOG_BUF)) {
+		bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", writeLog.length);
+		return -1;
+	}
+	
+	if (writeLog.level < KERN_EMERG_NUM || writeLog.level >= KERN_NUM_END) {
+		bsr_err(154, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", writeLog.level);
+		return -1;
+	}
+	
+	if (g_klog_last_time != 0) {
+		if ((g_klog_last_time + HZ) > klog_current_time) {
+			g_skip_klog++;
+			return 0;
+		}
+	}
+
+	g_klog_last_time = klog_current_time;
+
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, writeLog.message, writeLog.length);
+
+	switch (writeLog.level) {
+	case KERN_EMERG_NUM:
+		lv = KERN_EMERG;
+		break;
+	case KERN_ALERT_NUM:
+		lv = KERN_ALERT;
+		break;
+	case KERN_CRIT_NUM:
+		lv = KERN_CRIT;
+		break;
+	case KERN_ERR_NUM:
+		lv = KERN_ERR;
+		break;
+	case KERN_WARNING_NUM:
+		lv = KERN_WARNING;
+		break;
+	case KERN_NOTICE_NUM:
+		lv = KERN_NOTICE;
+		break;
+	case KERN_INFO_NUM:
+		lv = KERN_INFO;
+		break;
+	case KERN_DEBUG_NUM:
+		lv = KERN_DEBUG;
+		break;
+	}
+
+	if (g_skip_klog)
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", buf, g_skip_klog);
+	else
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", buf);
+
+	g_skip_klog = 0;
+	
+	return 0;
+}
 
 long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 {
@@ -207,11 +285,14 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)param);
 		break;
 	}
+// BSR-1048
+#if 0
 	case IOCTL_MVOL_GET_BSR_LOG:
 	{
 		err = bsr_get_log((BSR_LOG __user *)param);
 		break;
 	}
+#endif
 	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 	{
 		err = bsr_set_log_max_count((unsigned int __user *)param);
@@ -245,6 +326,11 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	{
 		err = bsr_set_simul_perf_degrade((SIMULATION_PERF_DEGR __user *)param);
 		break;
+	}
+	// BSR-1048
+	case IOCTL_MVOL_WRITE_LOG:
+	{
+		err = bsr_write_log((WRITE_KERNEL_LOG __user *)param);
 	}
 	default :
 		break;

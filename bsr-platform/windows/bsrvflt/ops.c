@@ -396,6 +396,62 @@ IOCTL_SetMinimumLogLevel(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+// BSR-1048 wrtie the received message in the bsr kernel log.
+LONG_PTR g_klog_last_time = 0;
+int g_skip_klog = 0;
+
+NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PWRITE_KERNEL_LOG pWriteLog = NULL;
+	char buf[MAX_BSRLOG_BUF];
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen != sizeof(WRITE_KERNEL_LOG)) {
+		mvolLogError(DeviceObject, 355, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(152, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid buffer size(%d, %d)", inlen, sizeof(WRITE_KERNEL_LOG));
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		LONG_PTR klog_current_time = jiffies;
+
+		pWriteLog = (PWRITE_KERNEL_LOG)Irp->AssociatedIrp.SystemBuffer;
+		if ((pWriteLog->length <= 0) || (pWriteLog->length >= MAX_BSRLOG_BUF)) {
+			bsr_err(153, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to invalid log length(%d)", pWriteLog->length);
+			return STATUS_INVALID_DEVICE_REQUEST;
+		}
+
+		if (pWriteLog->level < KERN_EMERG_NUM || pWriteLog->level >= KERN_NUM_END) {
+			bsr_err(151, BSR_LC_DRIVER, NO_OBJECT, "Failed to wrtie kernel log due to unknown log level(%d)", pWriteLog->level);
+			return STATUS_INVALID_DEVICE_REQUEST;
+		}
+
+		if (g_klog_last_time != 0) {
+			if ((g_klog_last_time + HZ) > klog_current_time) {
+				g_skip_klog++;
+				return STATUS_SUCCESS;
+			}
+		}
+
+		g_klog_last_time = klog_current_time;
+
+		memset(buf, 0, sizeof(buf));
+		memcpy(buf, pWriteLog->message, pWriteLog->length);
+
+		if (g_skip_klog)
+			__bsr_printk_(BSR_LC_ETC, -1, pWriteLog->level, NO_OBJECT, "%s, skipped logs(%d)", buf, g_skip_klog);
+		else
+			__bsr_printk_(BSR_LC_ETC, -1, pWriteLog->level, NO_OBJECT, "%s", buf);
+
+		g_skip_klog = 0;
+	}
+
+	return STATUS_SUCCESS;
+}
+
+
 // BSR-654 Sets which category is output during debug log.
 NTSTATUS
 IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp)
@@ -544,7 +600,7 @@ NTSTATUS IOCTL_GetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 
-
+#if 0
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {
@@ -579,6 +635,7 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 	
 	return STATUS_SUCCESS;
 }
+#endif
 
 extern atomic_t64 g_untagged_mem_usage;
 

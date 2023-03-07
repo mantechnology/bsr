@@ -24,6 +24,7 @@
 DEFAULTFILE="/etc/default/bsr"
 BSRADM="bsradm"
 BSRSETUP="bsrsetup"
+BSRCON="bsrcon"
 PROC_BSR="/proc/bsr"
 MODPROBE="/sbin/modprobe"
 RMMOD="/sbin/rmmod"
@@ -183,6 +184,7 @@ case "$1" in
 	# and every other command will fail.
 	out=$($BSRADM sh-nop 2>&1); ex=$?
 	[[ $ex = 127 ]] && exit 5 # LSB for "not installed"
+	$BSRCON /write_kernel_log 6 "service starting"
 	log_daemon_msg "Starting BSR resources"
 	if [[ $ex != 0 ]] ; then
 	    printf "\n%s\n" "$out" >&2
@@ -241,10 +243,12 @@ case "$1" in
 	fi
 
 	run_bsrmon start
+	$BSRCON /write_kernel_log 6 "service start"
 	;;
     stop)
 	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
+	$BSRCON /write_kernel_log 6 "service stopping"
 	log_daemon_msg "Stopping all BSR resources"
 
 	run_bsrmon stop
@@ -289,6 +293,7 @@ case "$1" in
 	done
 	run_hook stop
 	[ -f /var/lock/subsys/bsr ] && rm /var/lock/subsys/bsr
+	$BSRCON /write_kernel_log 6 "service stop"
 	log_end_msg 0
 	;;
     status)
@@ -306,6 +311,7 @@ case "$1" in
     reload)
 	$BSRADM sh-nop
 	[[ $? = 127 ]] && exit 5 # LSB for "not installed"
+	$BSRCON /write_kernel_log 6 "service reloading"
 	log_daemon_msg  "Reloading BSR configuration"
 	
 	run_bsrmon stop	
@@ -313,6 +319,7 @@ case "$1" in
 	run_bsrmon start
 
 	run_hook reload
+	$BSRCON /write_kernel_log 6 "service reload"
 	log_end_msg 0
 	;;
     restart|force-reload)
