@@ -2008,10 +2008,9 @@ out:
 /* communicated if (agreed_features & BSR_FF_WSAME) */
 void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct request_queue *q)
 {
-#ifndef COMPAT_HAVE_QUEUE_ALIGNMENT_OFFSET
-	struct block_device *bdev = device->ldev->backing_bdev;
-#endif
+	// BSR-1049 if request_queue is null then device->ldev is also null
 	if (q) {
+		struct block_device *bdev = device->ldev->backing_bdev;
 #ifdef COMPAT_HAVE_QUEUE_ALIGNMENT_OFFSET
 		p->qlim->physical_block_size = cpu_to_be32(queue_physical_block_size(q));
 		p->qlim->logical_block_size = cpu_to_be32(queue_logical_block_size(q));
@@ -2023,7 +2022,7 @@ void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct re
 #endif
 		p->qlim->io_min = cpu_to_be32(queue_io_min(q));
 		p->qlim->io_opt = cpu_to_be32(queue_io_opt(q));
-		p->qlim->discard_enabled = !!bdev_max_discard_sectors(device->ldev->backing_bdev);
+		p->qlim->discard_enabled = !!bdev_max_discard_sectors(bdev);
 		p->qlim->discard_zeroes_data = queue_discard_zeroes_data(q);
 #ifdef COMPAT_WRITE_SAME_CAPABLE
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
@@ -2034,13 +2033,8 @@ void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct re
 #endif
 	} else {
 		q = device->rq_queue;
-#ifdef COMPAT_HAVE_QUEUE_ALIGNMENT_OFFSET
 		p->qlim->physical_block_size = cpu_to_be32(queue_physical_block_size(q));
 		p->qlim->logical_block_size = cpu_to_be32(queue_logical_block_size(q));
-#else
-		p->qlim->physical_block_size = cpu_to_be32(bdev_physical_block_size(bdev));
-		p->qlim->logical_block_size = cpu_to_be32(bdev_logical_block_size(bdev));
-#endif
 		p->qlim->alignment_offset = 0;
 		p->qlim->io_min = cpu_to_be32(queue_io_min(q));
 		p->qlim->io_opt = cpu_to_be32(queue_io_opt(q));

@@ -9812,8 +9812,10 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 
 		break; 
 	default:
-		bsr_info(56, BSR_LC_BITMAP, device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind",
+		if (bsr_ratelimit()) {
+			bsr_info(56, BSR_LC_BITMAP, device, "ASSERT FAILED cstate = %s, expected: WFSyncUUID|WFBitMapT|Behind",
 				bsr_repl_str(peer_device->repl_state[NOW]));
+		}
 	}
 
 	// DW-2076  out of sync is set after adding resync pending list.
