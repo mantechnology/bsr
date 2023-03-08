@@ -1398,7 +1398,7 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 
 
 // DW-1629
-BOOLEAN ExistsTargetString(char* target, char *msg)
+BOOLEAN logfindstr(char* target, char *msg)
 {
 	if (target == NULL)
 		return false;
@@ -1686,10 +1686,9 @@ DWORD MVOL_WriteBsrKernelLog(int level, char *message)
 }
 
 
-// BSR-973 Add real-time log file logging to disable function MVOL_GetBsrLog.
-// Also, the log format has changed, so modifications are required to use the function MVOL_GetBsrLog.
-#if 0
-DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace)
+// BSR-1052 If an exception occurs while saving the real-time log, add the command again because you need another way to save the log.
+// BSR-973 Add real-time log file logging to disable function MVOL_GetBsrLog. also, the log format has changed, so modifications are required to use the function MVOL_GetBsrLog.
+DWORD MVOL_GetBsrLog(char* pszProviderName, char* resName, BOOLEAN oosTrace)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
@@ -1711,7 +1710,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #endif
 #endif
 
-	if (resourceName != NULL) {
+	if (resName != NULL) {
 		memset(tstr, 0, MAX_PATH);
 
 		// DW-1629 check logs for resource name and additional parsing data
@@ -1720,9 +1719,9 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 		//#define __bsr_printk_resource ...
 		//#define __bsr_printk_connection ...
 #ifdef _WIN
-		sprintf_s(tstr, ">bsr %s", resourceName);
+		sprintf_s(tstr, "> bsr %s", resName);
 #else // _LIN
-		sprintf(tstr, ">bsr %s", resourceName);
+		sprintf(tstr, "> bsr %s", resName);
 #endif
 	}
 	
@@ -1774,9 +1773,9 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #endif
 			unsigned int loopcnt = (unsigned int)min(pBsrLog->totalcnt, LOGBUF_MAXCNT);
 			if (pBsrLog->totalcnt <= LOGBUF_MAXCNT) {
-				for (unsigned int i = 0; i <= (loopcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
+				for (unsigned int i = 0; i < (loopcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
+					if (resName != NULL && !logfindstr(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _DEBUG_OOS
@@ -1786,7 +1785,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #else // _LIN
 						// skip
 #endif
-					} else if (NULL != strstr(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), OOS_TRACE_STRING)) {
+					} else if (logfindstr(OOS_TRACE_STRING, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH))) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1796,7 +1795,6 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 					DWORD dwWritten;
 					DWORD len = (DWORD)strlen(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
 					WriteFile(hLogFile, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), len - 1, &dwWritten, NULL);
-					WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
 #else // _LIN
 					fprintf(fp, "%s", ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH));
 #endif
@@ -1807,7 +1805,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 				// BSR-578 log start point is calculated based on zero.
 				for (unsigned int i = (unsigned int)pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i < (LOGBUF_MAXCNT*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
+					if (resName != NULL && !logfindstr(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _DEBUG_OOS
@@ -1817,7 +1815,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 #else // _LIN
 						// skip
 #endif
-					} else if (NULL != strstr(((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH), OOS_TRACE_STRING)) {
+					} else if (logfindstr(OOS_TRACE_STRING, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH))) {
 						// DW-1153 don't write out-of-sync trace log since user doesn't want to see..
 						continue;
 					}
@@ -1835,7 +1833,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 
 				for (unsigned int i = 0; i < pBsrLog->totalcnt*(MAX_BSRLOG_BUF + IDX_OPTION_LENGTH); i += (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH)) {
 					// DW-1629
-					if (resourceName != NULL && !ExistsTargetString(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
+					if (resName != NULL && !logfindstr(tstr, ((&pBsrLog->LogBuf[i]) + IDX_OPTION_LENGTH)))
 						continue;
 
 #ifdef _DEBUG_OOS
@@ -1896,7 +1894,6 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 	return retVal;
 
 }
-#endif
 
 
 #ifdef _WIN

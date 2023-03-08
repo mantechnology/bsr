@@ -42,8 +42,8 @@ static int bsr_set_minlog_lv(LOGGING_MIN_LV __user * args)
 	return Get_log_lv();
 }
 
+// BSR-1052
 // BSR-1048 
-#if 0
 static int bsr_get_log(BSR_LOG __user *bsr_log) 
 {
 	int err;
@@ -54,14 +54,13 @@ static int bsr_get_log(BSR_LOG __user *bsr_log)
 		bsr_warn(93, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy total log count to user");
 		return err;
 	}
-	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
+	err = copy_to_user(&bsr_log->LogBuf, &gLogBuf.b, LOGBUF_MAXCNT * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH));
 	if (err) {
 		bsr_warn(94, BSR_LC_DRIVER, NO_OBJECT, "Failed to copy log buffer to user");
 	}
 
 	return err;
 }
-#endif
 
 // BSR-597
 static int bsr_set_log_max_count(unsigned int __user * args)
@@ -285,14 +284,13 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 		err = bsr_set_minlog_lv((LOGGING_MIN_LV __user *)param);
 		break;
 	}
+// BSR-1052
 // BSR-1048
-#if 0
 	case IOCTL_MVOL_GET_BSR_LOG:
 	{
 		err = bsr_get_log((BSR_LOG __user *)param);
 		break;
 	}
-#endif
 	case IOCTL_MVOL_SET_LOG_FILE_MAX_COUNT:
 	{
 		err = bsr_set_log_max_count((unsigned int __user *)param);
