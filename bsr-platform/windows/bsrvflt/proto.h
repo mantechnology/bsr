@@ -113,10 +113,8 @@ IOCTL_SetDebugLogCategory(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS
 IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
-#if 0
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size);
-#endif
 
 NTSTATUS
 IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp);

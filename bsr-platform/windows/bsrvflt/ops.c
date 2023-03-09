@@ -600,7 +600,6 @@ NTSTATUS IOCTL_GetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 
-#if 0
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 {
@@ -625,7 +624,7 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 		pBsrLog = (BSR_LOG*)Irp->AssociatedIrp.SystemBuffer;
 		pBsrLog->totalcnt = InterlockedCompareExchange64(&gLogBuf.h.total_count, 0, 0);
 		if (pBsrLog->LogBuf) {
-			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf.b, MAX_BSRLOG_BUF*LOGBUF_MAXCNT);
+			RtlCopyMemory(pBsrLog->LogBuf, gLogBuf.b, LOGBUF_MAXCNT * (MAX_BSRLOG_BUF + IDX_OPTION_LENGTH));
 				*size = BSR_LOG_SIZE;
 		} else {
 			bsr_err(28, BSR_LC_DRIVER, NO_OBJECT, "Failed to get bsr log due to invalid parameter. log buffer is not allocate");
@@ -635,7 +634,6 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size)
 	
 	return STATUS_SUCCESS;
 }
-#endif
 
 extern atomic_t64 g_untagged_mem_usage;
 

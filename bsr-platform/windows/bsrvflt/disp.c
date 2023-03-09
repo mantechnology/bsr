@@ -997,7 +997,6 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 
 		}
-#if 0
 		case IOCTL_MVOL_GET_BSR_LOG:
 		{
 			ULONG size = 0;
@@ -1008,7 +1007,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 			}
 		}
-#endif
+
 		case IOCTL_MVOL_SET_HANDLER_USE:
 		{
 			status = IOCTL_SetHandlerUse(DeviceObject, Irp); // Set handler_use value.

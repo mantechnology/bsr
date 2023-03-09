@@ -77,10 +77,9 @@ DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 // BSR-579
 DWORD MVOL_SetLogFileMaxCount(ULONG limit);
 
+// BSR-1052
 // BSR-973
-#if 0
 DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace);
-#endif
 
 // BSR-1048
 DWORD MVOL_WriteBsrKernelLog(int level, char* message);

@@ -601,8 +601,8 @@ int generating_md5(char* fullPath)
 UCHAR letter = 'C';
 int verbose = 0;
 
+// BSR-1052
 // BSR-973
-#if 0
 int cmd_get_log(int *index, int argc, char* argv[])
 {
 	char *providerName = NULL;
@@ -644,7 +644,6 @@ int cmd_get_log(int *index, int argc, char* argv[])
 
 	return MVOL_GetBsrLog(providerName, resourceName, oosTrace);
 }
-#endif
 
 int cmd_minlog_lv(int *index, int argc, char* argv[])
 {
@@ -1265,10 +1264,9 @@ struct cmd_struct {
 };
 
 static struct cmd_struct commands[] = {
+	// BSR-1052 added /get_log command again
 	// BSR-973
-#if 0
-	{ "/get_log", cmd_get_log, "{provider name}\n\t\t{provider name} {resource name|out of sync}\n\t\t{provider name} {resource name} {out of sync}", "", "\"bsr\" or \"bsr r0\" or \"bsr r0 1\"" },
-#endif
+	{ "/get_log", cmd_get_log, "{save log file name}\n", "", "\"bsrsave.txt\" or \"C:\\Program Files\\bsr\\log\\bsrsave.txt\"" },
 	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"" },
 	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\""},
 	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"" },
