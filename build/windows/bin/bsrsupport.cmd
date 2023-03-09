@@ -4,6 +4,9 @@
 
 @echo off
 
+@rem BSR-1053
+setlocal EnableDelayedExpansion
+
 echo Check environments...
 set OLDDIR=%CD%
 set SUPPORT_HOME=%BSR_PATH%\..\support
@@ -19,7 +22,7 @@ for %%x in (%*) do (
 )
 if exist "%OUTPUT_HOME%" (
 	echo remove exist file
-	del "%OUTPUT_HOME%"
+	rmdir /s "%OUTPUT_HOME%"
 )
 	
 if not exist "%OUTPUT_HOME%" (
@@ -50,6 +53,7 @@ call :GetBSRStatus
 call :GetBSRDebugInfo
 call :Archive
 
+endlocal
 exit /B %ERRORLEVEL%
 
 @rem ##########################################################################################
