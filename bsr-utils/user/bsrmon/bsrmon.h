@@ -60,6 +60,7 @@ enum get_debug_type
 {
 	IO_STAT,
 	IO_COMPLETE,
+	IO_PENDING, // BSR-1054
 	AL_STAT,
 	PEER_REQUEST,
 	REQUEST,

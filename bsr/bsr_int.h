@@ -2135,6 +2135,7 @@ struct bsr_device {
 	struct dentry *debugfs_vol_ed_gen_id;
 	struct dentry *debugfs_vol_io_stat;
 	struct dentry *debugfs_vol_io_complete;
+	struct dentry *debugfs_vol_io_pending; // BSR-1054
 	struct dentry *debugfs_vol_req_timing;
 	struct dentry *debugfs_vol_peer_req_timing;
 #endif

@@ -132,6 +132,23 @@ struct al_stat {
 	unsigned int e_wouldblock;
 };
 
+// BSR-1054
+struct io_pending_perf_stat {
+	unsigned long max;
+	unsigned long long sum;
+};
+struct io_pending_stat {
+	struct io_pending_perf_stat upper_pending;
+	struct io_pending_perf_stat lower_pending;
+	unsigned long long al_suspended; 
+	struct io_pending_perf_stat al_pending_changes;
+	struct io_pending_perf_stat al_wait_req;
+	unsigned long long upper_blocked;
+	unsigned long long suspended;
+	struct io_pending_perf_stat suspend_cnt;
+	unsigned long long unstable;
+	struct io_pending_perf_stat pending_bitmap_work;
+};
 
 extern char g_perf_path[MAX_PATH];
 
@@ -150,6 +167,8 @@ struct perf_field {
 // for report
 void read_io_stat_work(std::set<std::string> filelist, struct time_filter *tf);
 void read_io_complete_work(std::set<std::string> filelist, struct time_filter *tf);
+// BSR-1054
+void read_io_pending_work(std::set<std::string> filelist, struct time_filter *tf);
 void read_req_stat_work(std::set<std::string> filelist, char *resname, struct peer_stat *peer, struct time_filter *tf);
 void read_memory_work(std::set<std::string> filelist, struct time_filter *tf);
 // BSR-765
@@ -162,6 +181,8 @@ void read_sendbuf_stat_work(std::set<std::string> filelist, char *resname, struc
 // for watch
 void watch_io_stat(char *path, bool scroll);
 void watch_io_complete(char *path, bool scroll);
+// BSR-1054
+void watch_io_pending(char *path, bool scroll);
 void watch_req_stat(char *path, bool scroll);
 void watch_network_speed(char *path, bool scroll);
 void watch_sendbuf(char *path, bool scroll);

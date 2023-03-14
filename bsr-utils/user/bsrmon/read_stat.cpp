@@ -180,9 +180,12 @@ bool set_min_max_ptr(char ** save_ptr, perf_stat *stat)
 
 unsigned int read_val_fp(FILE *fp)
 {
-	unsigned int val = 0;
-	fscanf_ex(fp, "%u", &val);
-	return val;
+	unsigned int val = 0, r = 0;
+	r = fscanf_ex(fp, "%u", &val);
+	if (r != 1)
+		return 0;
+	else
+		return val;
 }
 
 void print_stat(const char * name, perf_stat *s)
@@ -485,6 +488,133 @@ read_continue:
 
 			memset(&local, 0, sizeof(struct perf_stat));
 			memset(&master, 0, sizeof(struct perf_stat));
+			memset(&filter_s, 0, sizeof(filter_s));
+			memset(&filter_e, 0, sizeof(filter_e));
+			do_print = false;
+			find_date = true;
+			goto read_continue;
+		}
+
+		fclose(fp);
+	}
+
+	sprintf_ex(end_t, "%s", save_t);
+	if (!find_date)
+		printf("  please enter between %s - %s\n", start_t, end_t);
+}
+
+
+static void set_max_and_sum_fp(FILE *fp, struct io_pending_perf_stat *stat)
+{
+	unsigned int val = 0, r = 0;
+	r = fscanf_ex(fp, "%u", &val);
+	if (r == 1 && val > 0) {
+		stat->sum += val;
+		if (stat->max < val)
+			stat->max = val;
+	}
+}
+
+// BSR-1054 reports statistics of io_pending
+void read_io_pending_work(std::set<std::string> filelist, struct time_filter *tf)
+{
+	FILE *fp;
+	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
+	struct io_pending_stat io;
+
+	bool start_collect = false, end_collect = false;
+	bool do_print = false;
+	bool find_date = false;
+	char filter_s[64], filter_e[64];
+	unsigned int iter_index;
+	std::set<std::string>::iterator iter;
+
+	memset(&io, 0, sizeof(struct io_pending_stat));
+	memset(&filter_s, 0, 64);
+	memset(&filter_e, 0, 64);
+
+	// read current file at last 
+	iter = filelist.begin();
+	iter++;
+	for (iter_index = 0; iter_index < filelist.size(); iter_index++, iter++) {
+
+		if (iter == filelist.end())
+			iter = filelist.begin();
+
+
+		if (fopen_s(&fp, iter->c_str(), "r") != 0) {
+			fprintf(stderr, "Failed to open file(%s)\n", iter->c_str());
+			return;
+		}
+
+read_continue:
+		while (!feof(fp)) {
+			if (EOF != collection_time(fp, save_t)) {
+				if (strlen(save_t) != COLLECTION_TIME_LENGTH) {
+					fscanf_ex(fp, "%*[^\n]");
+					continue;
+				}
+				if (strlen(start_t) == 0)
+					sprintf_ex(start_t, "%s", save_t);
+
+				if (check_record_time(save_t, tf)) {
+					if(!start_collect) {
+						start_collect = true;
+						sprintf_ex(filter_s, "%s", save_t);
+					}
+					
+					// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+					set_max_and_sum_fp(fp, &io.upper_pending);
+					set_max_and_sum_fp(fp, &io.lower_pending);
+					io.al_suspended += read_val_fp(fp);
+					set_max_and_sum_fp(fp, &io.al_pending_changes);
+					set_max_and_sum_fp(fp, &io.al_wait_req);
+					io.upper_blocked += read_val_fp(fp);
+					io.suspended += read_val_fp(fp);
+					set_max_and_sum_fp(fp, &io.suspend_cnt);
+					io.unstable += read_val_fp(fp);
+					set_max_and_sum_fp(fp, &io.pending_bitmap_work);
+
+					sprintf_ex(filter_e, "%s", save_t);
+
+					fscanf_ex(fp, "%*[^\n]");
+					continue;
+
+				}
+				else {
+					if (start_collect)
+						end_collect = true;
+				}
+				fscanf_ex(fp, "%*[^\n]");
+			}
+
+			if (start_collect && end_collect) {
+				start_collect = end_collect = false;
+				do_print = true;
+				break;
+			}		
+		}
+
+		if (start_collect && !end_collect && (iter == filelist.begin())) {
+			start_collect = end_collect = false;
+			do_print = true;
+		}
+
+		if (do_print) {
+			printf(" Run: %s - %s\n", filter_s, filter_e);
+			// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+			printf("  upper_pending     : max=%lu, total=%llu\n", io.upper_pending.max, io.upper_pending.sum);
+			printf("  lower_pending     : max=%lu, total=%llu\n", io.lower_pending.max, io.lower_pending.sum);
+			printf("  al_suspended      : total=%llu\n", io.al_suspended);
+			printf("  al_pending_changes: max=%lu, total=%llu\n", io.al_pending_changes.max, io.al_pending_changes.sum);
+			printf("  al_wait_req       : max=%lu, total=%llu\n", io.al_wait_req.max, io.al_wait_req.sum);
+			printf("  upper_blocked     : total=%llu\n", io.upper_blocked);
+			printf("    suspended          : total=%llu\n", io.suspended);
+			printf("    suspend_cnt        : max=%lu, total=%llu\n", io.suspend_cnt.max, io.suspend_cnt.sum);
+			printf("    unstable           : total=%llu\n", io.unstable);
+			printf("    pending_bitmap_work: max=%lu, total=%llu\n", io.pending_bitmap_work.max, io.pending_bitmap_work.sum);
+
+			memset(&io, 0, sizeof(struct io_pending_stat));
 			memset(&filter_s, 0, sizeof(filter_s));
 			memset(&filter_e, 0, sizeof(filter_e));
 			do_print = false;
@@ -2278,6 +2408,60 @@ void watch_io_complete(char *path, bool scroll)
 	
 }
 
+// BSR-1054
+void watch_io_pending(char *path, bool scroll)
+{
+	FILE *fp;
+	int offset = 0;
+
+	fp = open_shared(path);
+	if (fp == NULL)
+		return;
+
+	fseek(fp, 0, SEEK_END);
+	while(1) {
+		char buf[MAX_BUF_SIZE] = {0, };	
+
+		offset = ftell(fp);
+		fseek(fp, offset, SEEK_SET);
+		
+		// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+		if (fgets(buf, sizeof(buf), fp) != NULL) {
+			char *ptr, *save_ptr;
+			// remove EOL
+			*(buf + (strlen(buf) - 1)) = 0;
+			ptr = strtok_r(buf, " ", &save_ptr);
+			if (!ptr) 
+				continue;
+
+			if (!scroll) 
+				clear_screen();
+			printf("%s\n", ptr);
+			printf("  upper_pending     : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  lower_pending     : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  al_suspended      : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  al_pending_changes: %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  al_wait_req       : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("  upper_blocked     : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    suspended          : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    suspend_cnt        : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    unstable           : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    pending_bitmap_work: %s\n", strtok_r(NULL, " ", &save_ptr));
+		} else {	
+#ifdef _WIN
+			Sleep(1000);
+#else // _LIN
+			sleep(1);
+#endif
+		}
+		continue;
+	}
+	
+
+	fclose(fp);
+	
+}
+
 
 void print_req_stat(char ** save_ptr, const char * name) 
 {	
@@ -3313,7 +3497,50 @@ static void print_current_ioclat(char * name, int vnr)
 	}
 }
 
+// BSR-1054
+static void print_current_io_pending(char * name, int vnr)
+{
+	char *data = NULL;
+	struct title_field io_pending_stat = {"io_pending", 5};
+	struct title_field blocked_stat = {"upper_blocked", 4};
+	// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+	struct perf_field pending_fields[] = {
+		{"upper_pending", NULL},
+		{"lower_pending", NULL},
+		{"al_suspended", NULL},
+		{"al_pending_changes", NULL},
+		{"al_wait_req", NULL},
+	};
+	struct perf_field blocked_fields[] = {
+		{"suspended", NULL},
+		{"suspend_cnt", NULL},
+		{"unstable", NULL},
+		{"pending_bitmap_work", NULL},
+	};
 
+	data = read_last_line(name, vnr, (char *)"IO_PENDING");
+	
+	if (data) {
+		char *ptr, *save_ptr;
+		
+		ptr = strtok_r(data, " ", &save_ptr);
+		if (!strlen(g_timestamp)) {
+#ifdef _WIN
+			strcpy_s(g_timestamp, sizeof(g_timestamp), ptr);
+#else
+			strcpy(g_timestamp, ptr);
+#endif
+		}
+		print_head(io_pending_stat.name);
+		print_fields(&save_ptr, io_pending_stat.nr, pending_fields);
+		if (json)
+			printf(",");
+		strtok_r(NULL, " ", &save_ptr); // upper_blocked
+		print_group(&save_ptr, &blocked_stat, blocked_fields, false);
+		print_end(true);
+		free(data);
+	}
+}
 
 static void print_peer(struct connection *conn, const char *title, char **save_ptr, 
 	struct title_field *stat, struct perf_field *fields, bool sub_group)
@@ -3899,6 +4126,8 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 						print_current_iostat(res->name, vol->vnr);
 					if (type_flags & (1 << IO_COMPLETE))
 						print_current_ioclat(res->name, vol->vnr);
+					if (type_flags & (1 << IO_PENDING))
+						print_current_io_pending(res->name, vol->vnr);
 					if (type_flags & (1 << REQUEST))
 						print_current_reqstat(res->name, vol->vnr, res->conn);
 					if (type_flags & (1 << PEER_REQUEST))

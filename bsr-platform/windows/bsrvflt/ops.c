@@ -833,6 +833,10 @@ IOCTL_GetDebugInfo(PIRP Irp, ULONG *size)
 		seq.private = device;
 		ret = device_io_complete_show(&seq, 0);
 		break;
+	case DBG_DEV_IO_PENDING:
+		seq.private = device;
+		ret = device_io_pending_show(&seq, 0);
+		break;
 	case DBG_DEV_REQ_TIMING:
 		seq.private = device;
 		ret = device_req_timing_show(&seq, 0);

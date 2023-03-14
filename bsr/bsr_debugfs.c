@@ -1426,6 +1426,38 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 	return 0;
 }
 
+// BSR-1054
+int device_io_pending_show(struct seq_file *m, void *ignored)
+{
+	struct bsr_device *device = m->private;
+
+	// to avoid panic, check the device with get_ldev
+	if (!get_ldev_if_state(device, D_FAILED)) 
+		return -ENODEV;
+	
+	if (!atomic_read(&g_bsrmon_run)) {
+		seq_printf(m, "err reading 'io_pending': bsr performance monitor is not running\n");
+		put_ldev(device);
+		return 0;
+	}
+
+	// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+	seq_printf(m, "%d %d %d %d %d %d %d %d %d %d\n",
+			atomic_read(&device->ap_bio_cnt[READ]) + atomic_read(&device->ap_bio_cnt[WRITE]),
+			atomic_read(&device->local_cnt) - 1,
+			test_bit(AL_SUSPENDED, &device->flags),
+			device->act_log->pending_changes,
+			atomic_read(&device->ap_actlog_cnt),
+			!may_inc_ap_bio(device),
+			bsr_suspended(device),
+			atomic_read(&device->suspend_cnt),
+			!bsr_state_is_stable(device),
+			atomic_read(&device->pending_bitmap_work.n));
+
+	put_ldev(device);
+	return 0;
+}
+
 /* must_hold resource->req_lock */
 static void device_req_timing_reset(struct bsr_device * device)
 {
@@ -1815,6 +1847,7 @@ bsr_debugfs_device_attr(ed_gen_id)
 
 bsr_debugfs_device_attr(io_stat)
 bsr_debugfs_device_attr(io_complete)
+bsr_debugfs_device_attr(io_pending) // BSR-1054
 bsr_debugfs_device_attr(req_timing)
 bsr_debugfs_device_attr(peer_req_timing)
 
@@ -1857,6 +1890,7 @@ void bsr_debugfs_device_add(struct bsr_device *device)
 	vol_dcf(ed_gen_id);
 	vol_dcf(io_stat);
 	vol_dcf(io_complete);
+	vol_dcf(io_pending); // BSR-1054
 	vol_dcf(req_timing);
 	vol_dcf(peer_req_timing);
 	
@@ -1885,6 +1919,7 @@ void bsr_debugfs_device_cleanup(struct bsr_device *device)
 	bsr_debugfs_remove(&device->debugfs_vol_ed_gen_id);
 	bsr_debugfs_remove(&device->debugfs_vol_io_stat);
 	bsr_debugfs_remove(&device->debugfs_vol_io_complete);
+	bsr_debugfs_remove(&device->debugfs_vol_io_pending); // BSR-1054
 	bsr_debugfs_remove(&device->debugfs_vol_req_timing);
 	bsr_debugfs_remove(&device->debugfs_vol_peer_req_timing);
 	bsr_debugfs_remove(&device->debugfs_vol);

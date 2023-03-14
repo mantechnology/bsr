@@ -12,7 +12,8 @@ struct type_names {
 // BSR-940 must be same as enum get_debug_type order
 static const char * const __type_names[] = {
 	"IO_STAT", 
-	"IO_COMPLETE", 
+	"IO_COMPLETE",
+	"IO_PENDING", // BSR-1054
 	"al_stat", 
 	"peer_request",
 	"request",
