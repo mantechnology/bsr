@@ -1301,7 +1301,9 @@ static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 	
 	if (sbuf->pos - page_start + size > PAGE_SIZE) {
 		bsr_debug_rs("(%s) stream(%d)! unsent(%ld) pos(%ld) size(%d)", current->comm, bsr_stream, (long)sbuf->unsent, (long)sbuf->pos, size);
-		flush_send_buffer(connection, bsr_stream);
+		// BSR-1058 check for send errors.
+		if (flush_send_buffer(connection, bsr_stream))
+			return 0;
 		new_or_recycle_send_buffer_page(sbuf);
 	}
 
@@ -1332,6 +1334,7 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 {
 	struct bsr_transport *transport = &connection->transport;
 	int header_size;
+	char *sb;
 
 	if (!transport->ops->stream_ok(transport, bsr_stream)) {
 		if (bsr_ratelimit())
@@ -1340,15 +1343,13 @@ void *__conn_prepare_command(struct bsr_connection *connection, int size,
 	}
 
 	header_size = bsr_header_size(connection);
-#ifdef _WIN
-	void *p = (char *)alloc_send_buffer(connection, header_size + size, bsr_stream) + header_size;
-	if(!p) {
-		bsr_err(35, BSR_LC_SEND_BUFFER, connection, "Failed to add send buffer for send data. size(%d), stream(%s)", (header_size + size, bsr_stream), (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
+	// BSR-1058
+	sb = alloc_send_buffer(connection, header_size + size, bsr_stream);
+	if(!sb) {
+		bsr_err(35, BSR_LC_SEND_BUFFER, connection, "Failed to add send buffer for send data. size(%d), stream(%s)", (header_size + size), (bsr_stream == DATA_STREAM) ? "DATA_STREAM" : "CONTROL_STREAM");
+		return NULL;
 	}
-	return p;
-#else // _LIN
-	return alloc_send_buffer(connection, header_size + size, bsr_stream) + header_size;
-#endif
+	return (void*)(sb + header_size);
 }
 
 /**
@@ -2417,6 +2418,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 	struct bsr_device *device = peer_device->device;
 	unsigned int header_size = bsr_header_size(peer_device->connection);
 	struct p_compressed_bm *pc, *tpc;
+	char *sb;
 	int len, err;
 
 	tpc = (struct p_compressed_bm *)bsr_kzalloc(BSR_SOCKET_BUFFER_SIZE, GFP_NOIO | __GFP_NOWARN, 'F8SB');
@@ -2435,9 +2437,14 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 
 	// DW-1979
 	mutex_lock(&peer_device->connection->mutex[DATA_STREAM]);
-
-	pc = (struct p_compressed_bm *)
-		(alloc_send_buffer(peer_device->connection, BSR_SOCKET_BUFFER_SIZE, DATA_STREAM) + header_size);
+	// BSR-1058
+	sb = alloc_send_buffer(peer_device->connection, BSR_SOCKET_BUFFER_SIZE, DATA_STREAM);
+	if (!sb) {
+		bsr_kfree(tpc);
+		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
+		return -EIO;
+	}
+	pc = (struct p_compressed_bm *)(sb + header_size);
 
 	pc->encoding = tpc->encoding;
 	memcpy(pc->code, tpc->code, BSR_SOCKET_BUFFER_SIZE - header_size - sizeof(*pc));
@@ -2842,7 +2849,11 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, void * buffer,
 	int err;
 
 	bsr_debug_rs("offset(%d) size(%d)", offset, size);
-	flush_send_buffer(connection, DATA_STREAM); 
+	// BSR-1058
+	err = flush_send_buffer(connection, DATA_STREAM); 
+	if (err) {
+		return err;
+	}
 	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, msg_flags);
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
@@ -2860,6 +2871,9 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
 	int err;
 
 	buffer2 = alloc_send_buffer(connection, size, DATA_STREAM);
+	// BSR-1058
+	if(!buffer2)
+		return -EIO;
 	from_base = bsr_kmap_atomic(page, KM_USER0);
 	memcpy(buffer2, from_base + offset, size);
 	bsr_kunmap_atomic(from_base, KM_USER0);
@@ -2883,8 +2897,10 @@ static int _bsr_send_bio(struct bsr_peer_device *peer_device, struct bio *bio)
 	BSR_BIO_VEC_TYPE bvec;
 	BSR_ITER_TYPE iter;
 #endif
+	// BSR-1058
 	/* Flush send buffer and make sure PAGE_SIZE is available... */
-	alloc_send_buffer(connection, PAGE_SIZE, DATA_STREAM);
+	if (!alloc_send_buffer(connection, PAGE_SIZE, DATA_STREAM))
+		return -EIO;
 	connection->send_buffer[DATA_STREAM].allocated_size = 0;
 
 #ifdef _WIN
@@ -2951,9 +2967,12 @@ static int _bsr_send_zc_bio(struct bsr_peer_device *peer_device, struct bio *bio
 		struct bsr_connection *connection = peer_device->connection;
 		struct bsr_transport *transport = &connection->transport;
 		struct bsr_transport_ops *tr_ops = transport->ops;
-		int err;
+		int err = 0;
 
-		flush_send_buffer(connection, DATA_STREAM);
+		// BSR-1058
+		err = flush_send_buffer(connection, DATA_STREAM);
+		if(err)
+			return err;
 
 		err = tr_ops->send_zc_bio(transport, bio);
 		if (!err)
@@ -2973,8 +2992,10 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 	unsigned len = peer_req->i.size;
 	int err;
 
-	flush_send_buffer(peer_device->connection, DATA_STREAM);
-
+	// BSR-1058
+	err = flush_send_buffer(peer_device->connection, DATA_STREAM);
+	if (err)
+		return err;
 #ifdef _WIN
 	// add bio-linked pointer to bsr_peer_request structure
 	// bio-linked pointer(peer_req_databuf) is used to replace with page structure buffers
