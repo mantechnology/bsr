@@ -2432,6 +2432,7 @@ send_bitmap_rle_or_plain(struct bsr_peer_device *peer_device, struct bm_xfer_ctx
 			BSR_SOCKET_BUFFER_SIZE - header_size - sizeof(*tpc), c);
 	if (len < 0) {
 		bsr_err(33, BSR_LC_BITMAP, peer_device, "Failed to send bitmap due to bitmap length is invalid. len(%d) ", len);
+		bsr_kfree(tpc);
 		return -EIO;
 	}
 
