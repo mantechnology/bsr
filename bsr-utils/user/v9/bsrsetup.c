@@ -895,7 +895,6 @@ static bool is_adapter_ip_addr(const char* address)
 			exit(20);
 		}
 
-		CLI_TRAC_LOG(false, "address (%s), adater address (%s)", address, host);
 		if (0 == strcmp(address, host)) {
 			CLI_INFO_LOG(false, "found adater (%s), address (%s)", ifa->ifa_name, host);
 			return true;
@@ -920,6 +919,22 @@ static void scope_id_from_alias_to_index(const char* scopeId, char **address, bo
 			if (-1 != mbstowcs(scopeId_w, scopeId, (len + 1))) {
 				if ((NO_ERROR == ConvertInterfaceAliasToLuid(scopeId_w, &interfaceLuid)) &&
 					(NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex))) {
+
+					// BSR-1057
+					wchar_t alias_w[IF_MAX_STRING_SIZE + 1];
+					
+					memset(alias_w, 0, sizeof(alias_w));
+					
+					if (NO_ERROR == ConvertInterfaceLuidToAlias(&interfaceLuid, alias_w, IF_MAX_STRING_SIZE + 1)) {
+						if (0 != wcscmp(scopeId_w, alias_w)) {
+							CLI_ERRO_LOG(false, true, "failed to find alias corresponding to scope id (%s)", scopeId);
+							exit(20);
+						}
+					} else {
+						CLI_ERRO_LOG(false, true, "failed to luid to alias (%s)", scopeId);
+						exit(20);
+					}
+
 					// BSR-1002 set to the index corresponding to the alias.
 					sprintf(ifindex_str, "%d", ifindex);
 					CLI_INFO_LOG(false, "matching aliases found, (%s => %s)", scopeId, ifindex_str);
@@ -1001,9 +1016,9 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_p
 	if (is_peer) {
 		*scopeId = 0;
 	}
+#ifdef _WIN
 	else {
 		// BSR-1002 bsr uses the alias as the default for ipv6 link-local
-#ifdef _WIN
 		// BSR-1057
 		if (!is_adapter_ip_addr(*address)) {
 			scopeId++;
