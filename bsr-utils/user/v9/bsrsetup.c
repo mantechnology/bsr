@@ -872,17 +872,120 @@ static unsigned long resolv(const char* name)
 	return retval;
 }
 
-static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_peer)
-{
-	// BSR-1002
-	char *scopeId = NULL;
 #ifdef _WIN
+#include <ifaddrs.h>
+// BSR-1057 verify that the specified address has the same address locally.
+static bool is_adapter_ip_addr(const char* address)
+{
+	char host[NI_MAXHOST];
+	struct ifaddrs *ifaddr, *ifa;
+	int s;
+	if (getifaddrs(&ifaddr) < 0) {
+		CLI_ERRO_LOG(false, true, "error %s", __FUNCTION__);
+		exit(20);
+	}
+	memset(host, 0, sizeof(host));
+	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr == NULL)
+			continue;
+		s = getnameinfo(ifa->ifa_addr, (ifa->ifa_addr->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+		if (s != 0) {
+			CLI_ERRO_LOG(false, true, "getnameinfo() failed: %s", gai_strerror(s));
+			freeifaddrs(ifaddr);
+			exit(20);
+		}
+
+		if (0 == strcmp(address, host)) {
+			CLI_INFO_LOG(false, "found adater (%s), address (%s)", ifa->ifa_name, host);
+			return true;
+		}
+	}
+	freeifaddrs(ifaddr);
+	return false;
+}
+
+static void scope_id_from_alias_to_index(const char* scopeId, char **address, bool *re_alloc)
+{
 	NET_LUID interfaceLuid;
 	NET_IFINDEX ifindex = 0;
 	char ifindex_str[32] = { 0, };
 	wchar_t* scopeId_w;
 	int len;
+
+	len = mbstowcs(NULL, scopeId, 0);
+	if (len != -1) {
+		scopeId_w = (LPWSTR)malloc(sizeof(wchar_t) * (len + 1));
+		if (scopeId_w) {
+			if (-1 != mbstowcs(scopeId_w, scopeId, (len + 1))) {
+				if ((NO_ERROR == ConvertInterfaceAliasToLuid(scopeId_w, &interfaceLuid)) &&
+					(NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex))) {
+
+					// BSR-1057
+					wchar_t alias_w[IF_MAX_STRING_SIZE + 1];
+					
+					memset(alias_w, 0, sizeof(alias_w));
+					
+					if (NO_ERROR == ConvertInterfaceLuidToAlias(&interfaceLuid, alias_w, IF_MAX_STRING_SIZE + 1)) {
+						if (0 != wcscmp(scopeId_w, alias_w)) {
+							CLI_ERRO_LOG(false, true, "failed to find alias corresponding to scope id (%s)", scopeId);
+							exit(20);
+						}
+					} else {
+						CLI_ERRO_LOG(false, true, "failed to luid to alias (%s)", scopeId);
+						exit(20);
+					}
+
+					// BSR-1002 set to the index corresponding to the alias.
+					sprintf(ifindex_str, "%d", ifindex);
+					CLI_INFO_LOG(false, "matching aliases found, (%s => %s)", scopeId, ifindex_str);
+					if (strlen(scopeId) <= strlen(ifindex_str)) {
+						char *addr_new = (char*)calloc(strlen(*address) + strlen(ifindex_str) + 1, sizeof(char));
+						if (addr_new) {
+							memcpy(addr_new, *address, strlen(*address));
+							free(*address);
+							*address = addr_new;
+							*re_alloc = true;
+							scopeId = strrchr(*address, '%');
+							scopeId++;
+							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
+						}
+						else {
+							CLI_ERRO_LOG(false, true, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
+							exit(20);
+						}
+					}
+					else {
+						memset(scopeId, 0, strlen(ifindex_str) + 1);
+						memcpy(scopeId, ifindex_str, strlen(ifindex_str));
+					}
+				}
+				else {
+					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
+				}
+			}
+			else {
+				CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
+				exit(20);
+			}
+			free(scopeId_w);
+		}
+		else {
+			CLI_ERRO_LOG(false, true, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
+			exit(20);
+		}
+	}
+	else {
+		CLI_ERRO_LOG(false, true, "failed to get multi-byte size, (%s)", scopeId);
+		exit(20);
+	}
+}
+
 #endif
+
+static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_peer)
+{
+	// BSR-1002
+	char *scopeId = NULL;
 	/* ipv6:[fe80::0234:5678:9abc:def1]:8000; */
 	char *b = strrchr(*address,']');
 	if (address[0][0] != '[' || b == NULL ||
@@ -908,57 +1011,19 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_p
 		// unique local address
 		return;
 	}
-
+	
 	// BSR-1026 remove scope_id if peer address
 	if (is_peer) {
 		*scopeId = 0;
 	}
-
-	// BSR-1002 bsr uses the alias as the default for ipv6 link-local
 #ifdef _WIN
-	scopeId++;
-
-	len = mbstowcs(NULL, scopeId, 0);
-	if (len != -1) {
-		scopeId_w = (LPWSTR)malloc(sizeof(wchar_t) * len + 1);
-		if (scopeId_w) {
-			if (-1 != mbstowcs(scopeId_w, scopeId, len + 1)) {
-				if (NO_ERROR == ConvertInterfaceAliasToLuid(scopeId_w, &interfaceLuid) && 
-					NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex)) {
-					// BSR-1002 set to the index corresponding to the alias.
-					sprintf(ifindex_str, "%d", ifindex);
-					if (strlen(scopeId) < strlen(ifindex_str)) {
-						char *addr_new = (char*)calloc(strlen(*address) + strlen(ifindex_str) + 1, sizeof(char));
-						if (addr_new) {
-							memcpy(addr_new, *address, strlen(*address));
-							free(*address);
-							*address = addr_new;
-							*re_alloc = true;
-							scopeId = strrchr(*address, '%');
-							scopeId++;
-							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
-						} else {
-							CLI_ERRO_LOG(false, true,"failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
-						}
-					}
-					else {
-						memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
-					}
-				}
-				else {
-					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
-				}
-			} else {
-				CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
-			}
-			free(scopeId_w);
-		}
-		else {
-			CLI_ERRO_LOG(false, true, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
-		}
-	}
 	else {
-		CLI_ERRO_LOG(false, true, "failed to get multi-byte size, (%s)", scopeId);
+		// BSR-1002 bsr uses the alias as the default for ipv6 link-local
+		// BSR-1057
+		if (!is_adapter_ip_addr(*address)) {
+			scopeId++;
+			scope_id_from_alias_to_index(scopeId, address, re_alloc);
+		}
 	}
 #endif
 }

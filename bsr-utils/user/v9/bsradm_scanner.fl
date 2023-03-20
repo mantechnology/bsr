@@ -38,7 +38,7 @@ LONG_NUM		[0-9]{9,128}
 SNUMB		[0-9]{1,3}
 IPV4ADDR	({SNUMB}"."){3}{SNUMB}
 HEX4            [0-9a-fA-F]{1,4}
-IPV6ADDR	((({HEX4}":"){0,5}{HEX4})?":"{HEX4}?":"({HEX4}(":"{HEX4}){0,5})?("%"{STRING})?)|("::"[fF]{4}":"{IPV4ADDR})
+IPV6ADDR	((({HEX4}":"){0,5}{HEX4})?":"{HEX4}?":"({HEX4}(":"{HEX4}){0,5})?("%"{SPACE_STRING})?)|("::"[fF]{4}":"{IPV4ADDR})
 WS		[ \t\r]
 OPCHAR		[{};\[\]:]
 /* BSR-124 */
@@ -47,6 +47,8 @@ LONG_DQSTRING	\"([^\"\\\n]|\\[^\"\n]){255}.
 ERR_DQSTRING	\"([^\"\\\n]|\\[^\"\n]){0,255}[\\][\n]
 STRING		[a-zA-Z0-9/._-]{1,128}
 LONG_STRING	[a-zA-Z0-9/._-]{129}
+/* BSR-1057 */
+SPACE_STRING [ a-zA-Z0-9/._-]{1,128}
 
 %%
 
