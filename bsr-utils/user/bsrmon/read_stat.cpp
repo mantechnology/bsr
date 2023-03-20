@@ -115,9 +115,14 @@ void set_min_max_val(perf_stat *stat, unsigned long long val)
 		stat->duplicate = false;
 
 	stat->priv = val;
+	// prevent overflow
+	if (stat->sum + val < stat->sum) {
+		stat->sum = stat->sum / stat->cnt;
+		stat->cnt = 0;
+	}
 	stat->sum += val;
 	stat->cnt++;
-
+	stat->samples++;
 }
 
 // TODO
@@ -147,9 +152,14 @@ void set_min_max_avg(unsigned long t_min, unsigned long t_max, unsigned long t_a
 		stat->duplicate = false;
 
 	stat->priv = t_avg;
+	// prevent overflow
+	if (stat->sum + t_avg < stat->sum) {
+		stat->sum = stat->sum / stat->cnt;
+		stat->cnt = 0;
+	}
 	stat->sum += t_avg;
-	stat->cnt ++;
-
+	stat->cnt++;
+	stat->samples++;
 }
 
 void set_min_max_fp(FILE *fp, perf_stat *stat)
@@ -191,7 +201,7 @@ unsigned int read_val_fp(FILE *fp)
 void print_stat(const char * name, perf_stat *s)
 {
 	printf("%s: min=%llu, max=%llu, avg=%llu, samples=%lu\n", 
-			name, s->min, s->max, stat_avg(s->sum, s->cnt), s->cnt);
+			name, s->min, s->max, stat_avg(s->sum, s->cnt), s->samples);
 }
 
 void print_range(const char * name, struct perf_stat *s, const char * ws)
@@ -504,14 +514,13 @@ read_continue:
 }
 
 
-static void set_max_and_sum_fp(FILE *fp, struct io_pending_perf_stat *stat)
+static void set_max_fp(FILE *fp, unsigned int *stat)
 {
 	unsigned int val = 0, r = 0;
 	r = fscanf_ex(fp, "%u", &val);
 	if (r == 1 && val > 0) {
-		stat->sum += val;
-		if (stat->max < val)
-			stat->max = val;
+		if (*stat < val)
+			*stat = val;
 	}
 }
 
@@ -521,7 +530,7 @@ void read_io_pending_work(std::set<std::string> filelist, struct time_filter *tf
 	FILE *fp;
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
 	struct io_pending_stat io;
-
+	unsigned long long pending_latency = 0;
 	bool start_collect = false, end_collect = false;
 	bool do_print = false;
 	bool find_date = false;
@@ -563,17 +572,19 @@ read_continue:
 						sprintf_ex(filter_s, "%s", save_t);
 					}
 					
-					// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
-					set_max_and_sum_fp(fp, &io.upper_pending);
-					set_max_and_sum_fp(fp, &io.lower_pending);
+					// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+					set_max_fp(fp, &io.upper_pending);
+					fscanf_ex(fp, "%lld", &pending_latency);
+					set_min_max_val(&io.pending_latency, pending_latency);
+					set_max_fp(fp, &io.lower_pending);
 					io.al_suspended += read_val_fp(fp);
-					set_max_and_sum_fp(fp, &io.al_pending_changes);
-					set_max_and_sum_fp(fp, &io.al_wait_req);
+					set_max_fp(fp, &io.al_pending_changes);
+					set_max_fp(fp, &io.al_wait_req);
 					io.upper_blocked += read_val_fp(fp);
 					io.suspended += read_val_fp(fp);
-					set_max_and_sum_fp(fp, &io.suspend_cnt);
+					io.suspend_cnt += read_val_fp(fp);
 					io.unstable += read_val_fp(fp);
-					set_max_and_sum_fp(fp, &io.pending_bitmap_work);
+					io.pending_bitmap_work += read_val_fp(fp);
 
 					sprintf_ex(filter_e, "%s", save_t);
 
@@ -602,17 +613,20 @@ read_continue:
 
 		if (do_print) {
 			printf(" Run: %s - %s\n", filter_s, filter_e);
-			// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
-			printf("  upper_pending     : max=%lu, total=%llu\n", io.upper_pending.max, io.upper_pending.sum);
-			printf("  lower_pending     : max=%lu, total=%llu\n", io.lower_pending.max, io.lower_pending.sum);
+			// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+			printf("  upper_pending     : max=%lu\n", io.upper_pending);
+			printf("    pending_latency (usec): min=%llu, max=%llu, avg=%llu, samples=%llu\n", 
+						io.pending_latency.min, io.pending_latency.max, 
+						stat_avg(io.pending_latency.sum, io.pending_latency.cnt), io.pending_latency.samples);
+			printf("  lower_pending     : max=%lu\n", io.lower_pending);
 			printf("  al_suspended      : total=%llu\n", io.al_suspended);
-			printf("  al_pending_changes: max=%lu, total=%llu\n", io.al_pending_changes.max, io.al_pending_changes.sum);
-			printf("  al_wait_req       : max=%lu, total=%llu\n", io.al_wait_req.max, io.al_wait_req.sum);
+			printf("  al_pending_changes: max=%lu\n", io.al_pending_changes);
+			printf("  al_wait_req       : max=%lu\n", io.al_wait_req);
 			printf("  upper_blocked     : total=%llu\n", io.upper_blocked);
 			printf("    suspended          : total=%llu\n", io.suspended);
-			printf("    suspend_cnt        : max=%lu, total=%llu\n", io.suspend_cnt.max, io.suspend_cnt.sum);
+			printf("    suspend_cnt        : total=%lu\n", io.suspend_cnt);
 			printf("    unstable           : total=%llu\n", io.unstable);
-			printf("    pending_bitmap_work: max=%lu, total=%llu\n", io.pending_bitmap_work.max, io.pending_bitmap_work.sum);
+			printf("    pending_bitmap_work: total=%llu\n", io.pending_bitmap_work);
 
 			memset(&io, 0, sizeof(struct io_pending_stat));
 			memset(&filter_s, 0, sizeof(filter_s));
@@ -2425,7 +2439,7 @@ void watch_io_pending(char *path, bool scroll)
 		offset = ftell(fp);
 		fseek(fp, offset, SEEK_SET);
 		
-		// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+		// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
 			// remove EOL
@@ -2438,6 +2452,7 @@ void watch_io_pending(char *path, bool scroll)
 				clear_screen();
 			printf("%s\n", ptr);
 			printf("  upper_pending     : %s\n", strtok_r(NULL, " ", &save_ptr));
+			printf("    pending_latency (usec): %s\n", strtok_r(NULL, " ", &save_ptr));
 			printf("  lower_pending     : %s\n", strtok_r(NULL, " ", &save_ptr));
 			printf("  al_suspended      : %s\n", strtok_r(NULL, " ", &save_ptr));
 			printf("  al_pending_changes: %s\n", strtok_r(NULL, " ", &save_ptr));
@@ -3501,11 +3516,12 @@ static void print_current_ioclat(char * name, int vnr)
 static void print_current_io_pending(char * name, int vnr)
 {
 	char *data = NULL;
-	struct title_field io_pending_stat = {"io_pending", 5};
+	struct title_field io_pending_stat = {"io_pending", 6};
 	struct title_field blocked_stat = {"upper_blocked", 4};
-	// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+	// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
 	struct perf_field pending_fields[] = {
 		{"upper_pending", NULL},
+		{"pending_latency", "usec"},
 		{"lower_pending", NULL},
 		{"al_suspended", NULL},
 		{"al_pending_changes", NULL},

@@ -14,6 +14,7 @@ struct perf_stat {
 	unsigned long long sum;
 	unsigned long cnt;
 	bool duplicate;
+	unsigned long samples;
 };
 
 #ifdef _WIN
@@ -133,21 +134,18 @@ struct al_stat {
 };
 
 // BSR-1054
-struct io_pending_perf_stat {
-	unsigned long max;
-	unsigned long long sum;
-};
 struct io_pending_stat {
-	struct io_pending_perf_stat upper_pending;
-	struct io_pending_perf_stat lower_pending;
+	unsigned int upper_pending;
+	struct perf_stat pending_latency;
+	unsigned int lower_pending;
 	unsigned long long al_suspended; 
-	struct io_pending_perf_stat al_pending_changes;
-	struct io_pending_perf_stat al_wait_req;
+	unsigned int al_pending_changes;
+	unsigned int al_wait_req;
 	unsigned long long upper_blocked;
 	unsigned long long suspended;
-	struct io_pending_perf_stat suspend_cnt;
+	unsigned long long suspend_cnt;
 	unsigned long long unstable;
-	struct io_pending_perf_stat pending_bitmap_work;
+	unsigned long long pending_bitmap_work;
 };
 
 extern char g_perf_path[MAX_PATH];

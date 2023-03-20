@@ -3729,6 +3729,15 @@ void bsr_destroy_device(struct kref *kref)
 	}
 #endif
 
+	// BSR-1054
+	if (atomic_read(&g_bsrmon_run)) {
+		struct io_pending_info *io_pending, *tmp;
+		list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
+			list_del(&io_pending->list);
+			kfree2(io_pending);
+		}
+	}
+
 	/* cleanup stuff that may have been allocated during
 	 * device (re-)configuration or state changes */
 #ifdef _WIN
@@ -3919,6 +3928,17 @@ static void do_retry(struct work_struct *ws)
 		/* We are not just doing generic_make_request(),
 		 * as we want to keep the start_time information. */
 		inc_ap_bio(device, bio_data_dir(bio));
+		// BSR-1054
+		if (atomic_read(&g_bsrmon_run)) {
+			struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'CASB');
+			INIT_LIST_HEAD(&io_pending->list);
+			spin_lock_irq(&device->io_pending_list_lock);
+			list_add_tail(&io_pending->list, &device->io_pending_list);
+			io_pending->bio = bio;
+			io_pending->io_start_kt = start_kt;
+			io_pending->complete_pending = 0;
+			spin_unlock_irq(&device->io_pending_list_lock);
+		}
 		__bsr_make_request(device, bio, start_kt, start_jif);
 	}
 }
@@ -3943,6 +3963,21 @@ void bsr_restart_request(struct bsr_request *req)
 	/* Drop the extra reference that would otherwise
 	 * have been dropped by complete_master_bio.
 	 * do_retry() needs to grab a new one. */
+
+	// BSR-1054
+	if (atomic_read(&g_bsrmon_run)) {
+		struct bsr_device *device = req->device;
+		struct io_pending_info *io_pending, *tmp;
+		spin_lock_irqsave(&device->io_pending_list_lock, flags);
+		list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
+			if (io_pending->bio == req->master_bio) {
+				list_del(&io_pending->list);
+				kfree2(io_pending);
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&device->io_pending_list_lock, flags);
+	}
 	dec_ap_bio(req->device, bio_data_dir(req->master_bio));
 
 	queue_work(retry.wq, &retry.worker);
@@ -4932,6 +4967,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	INIT_LIST_HEAD(&device->peer_devices);
 	INIT_LIST_HEAD(&device->pending_bitmap_io);
+	// BSR-1054
+	INIT_LIST_HEAD(&device->io_pending_list);
+	spin_lock_init(&device->io_pending_list_lock);
 
 	atomic_set(&device->io_error_count, 0);
 	atomic_set(&device->notify_flags, 0);

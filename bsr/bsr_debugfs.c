@@ -1430,6 +1430,9 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 int device_io_pending_show(struct seq_file *m, void *ignored)
 {
 	struct bsr_device *device = m->private;
+	struct io_pending_info *io_pending = NULL;
+	unsigned long flags;
+	ktime_t pending_latency;
 
 	// to avoid panic, check the device with get_ldev
 	if (!get_ldev_if_state(device, D_FAILED)) 
@@ -1441,9 +1444,22 @@ int device_io_pending_show(struct seq_file *m, void *ignored)
 		return 0;
 	}
 
-	// upper_pending lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
-	seq_printf(m, "%d %d %d %d %d %d %d %d %d %d\n",
+	spin_lock_irqsave(&device->io_pending_list_lock, flags);
+	pending_latency = device->io_pending_latency;
+	if (!ktime_to_us(pending_latency)) {
+		io_pending = list_first_entry_or_null(&device->io_pending_list, struct io_pending_info, list);
+		if (io_pending)
+			pending_latency = ktime_sub(ktime_get(), io_pending->io_start_kt);
+	} else {
+		// reset after reading io_pending_latency
+		device->io_pending_latency = ns_to_ktime(0);
+	}
+	spin_unlock_irqrestore(&device->io_pending_list_lock, flags);
+
+	// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
+	seq_printf(m, "%d %llu %d %d %d %d %d %d %d %d %d\n",
 			atomic_read(&device->ap_bio_cnt[READ]) + atomic_read(&device->ap_bio_cnt[WRITE]),
+			ktime_to_us(pending_latency),
 			atomic_read(&device->local_cnt) - 1,
 			test_bit(AL_SUSPENDED, &device->flags),
 			device->act_log->pending_changes,
