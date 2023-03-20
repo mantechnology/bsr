@@ -70,6 +70,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 	else if (!_strcmpi(str, "dev_oldest_requests")) return DBG_DEV_OLDEST_REQUESTS;
 	else if (!_strcmpi(str, "dev_io_stat")) return DBG_DEV_IO_STAT;
 	else if (!_strcmpi(str, "dev_io_complete")) return DBG_DEV_IO_COMPLETE;
+	else if (!_strcmpi(str, "dev_io_pending")) return DBG_DEV_IO_PENDING;
 	else if (!_strcmpi(str, "dev_req_timing")) return DBG_DEV_REQ_TIMING;
 	else if (!_strcmpi(str, "dev_peer_req_timing")) return DBG_DEV_PEER_REQ_TIMING;
 	else if (!_strcmpi(str, "resync_ratio")) return DBG_PEER_RESYNC_RATIO;
@@ -409,7 +410,7 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 		}
 	}
 
-	if (ret == ERROR_SUCCESS) {
+	if ((ret == ERROR_SUCCESS) && (strlen(debugInfo->buf) > 0)) {
 		return debugInfo;
 	}
 
@@ -457,6 +458,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				flag = ConvertToBsrDebugFlags("dev_io_stat");
 			else if (debug_type == IO_COMPLETE)
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
+			else if (debug_type == IO_PENDING)
+				flag = ConvertToBsrDebugFlags("dev_io_pending");
 			else if (debug_type == REQUEST)
 				flag = ConvertToBsrDebugFlags("dev_req_timing");
 			else if (debug_type == PEER_REQUEST)
@@ -480,6 +483,8 @@ char* GetDebugToBuf(enum get_debug_type debug_type, struct resource *res) {
 				sprintf(path, "%s/resources/%s/volumes/%d/io_stat", DEBUGFS_ROOT, res->name, vol->vnr);
 			if (debug_type == IO_COMPLETE)
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
+			if (debug_type == IO_PENDING)
+				sprintf(path, "%s/resources/%s/volumes/%d/io_pending", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == REQUEST) 
 				sprintf(path, "%s/resources/%s/volumes/%d/req_timing", DEBUGFS_ROOT, res->name, vol->vnr);
 			else if (debug_type == PEER_REQUEST) 
@@ -1013,6 +1018,12 @@ int GetDebugToFile(enum get_debug_type debug_type, struct resource *res, char *r
 				flag = ConvertToBsrDebugFlags("dev_io_complete");
 #else // _LIN
 				sprintf(path, "%s/resources/%s/volumes/%d/io_complete", DEBUGFS_ROOT, res->name, vol->vnr);
+#endif
+			} else if (debug_type == IO_PENDING) {
+#ifdef _WIN
+				flag = ConvertToBsrDebugFlags("dev_io_pending");
+#else // _LIN
+				sprintf(path, "%s/resources/%s/volumes/%d/io_pending", DEBUGFS_ROOT, res->name, vol->vnr);
 #endif
 			} else if (debug_type == REQUEST) {
 #ifdef _WIN

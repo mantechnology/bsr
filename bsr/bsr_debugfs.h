@@ -81,6 +81,7 @@ int device_io_frozen_show(struct seq_file *m, void *ignored);
 int device_ed_gen_id_show(struct seq_file *m, void *ignored);
 int device_io_stat_show(struct seq_file *m, void *ignored);
 int device_io_complete_show(struct seq_file *m, void *ignored);
+int device_io_pending_show(struct seq_file *m, void *ignored); // BSR-1054
 int device_req_timing_show(struct seq_file *m, void *ignored);
 int device_peer_req_timing_show(struct seq_file *m, void *ignored);
 int bsr_alloc_pages_show(struct seq_file *m, void *ignored); // BSR-875

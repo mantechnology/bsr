@@ -2116,6 +2116,14 @@ struct submit_worker {
 	struct list_head peer_writes;
 };
 
+// BSR-1054
+struct io_pending_info {
+	struct bio *bio;
+	ktime_t io_start_kt;
+	struct list_head list;
+	unsigned int complete_pending;
+};
+
 struct bsr_device {
 #ifdef PARANOIA
 	long magic;
@@ -2135,6 +2143,7 @@ struct bsr_device {
 	struct dentry *debugfs_vol_ed_gen_id;
 	struct dentry *debugfs_vol_io_stat;
 	struct dentry *debugfs_vol_io_complete;
+	struct dentry *debugfs_vol_io_pending; // BSR-1054
 	struct dentry *debugfs_vol_req_timing;
 	struct dentry *debugfs_vol_peer_req_timing;
 #endif
@@ -2180,6 +2189,11 @@ struct bsr_device {
 	atomic_t local_cnt;	 /* Waiting for local completion */
 	atomic_t suspend_cnt;
 
+	 // BSR-1054
+	struct list_head io_pending_list;
+	spinlock_t io_pending_list_lock;
+	ktime_t io_pending_latency;
+	
 	/* Interval trees of pending local requests */
 	struct rb_root read_requests;
 	struct rb_root write_requests;

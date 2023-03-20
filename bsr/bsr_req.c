@@ -546,6 +546,32 @@ struct bio_and_error *m)
 	// BSR-658 get bi sector, size before bio free
 	sector_t bi_sector = BSR_BIO_BI_SECTOR(m->bio);
 	int bi_size = BSR_BIO_BI_SIZE(m->bio);
+	struct io_pending_info *io_pending = NULL, *tmp = NULL;
+	unsigned long flags;
+
+	// BSR-1054
+	if (atomic_read(&g_bsrmon_run)) {
+		spin_lock_irqsave(&device->io_pending_list_lock, flags);
+		// calculate the latency as the first item in the list, otherwise just remove it.
+		// as long as the first item is still in the list, the latency continues to increase. This can be considered as IO pending.
+		io_pending = list_first_entry_or_null(&device->io_pending_list, struct io_pending_info, list);
+		if (io_pending) {
+			if ((io_pending->bio != m->bio) || io_pending->complete_pending) {
+				device->io_pending_latency = ns_to_ktime(0);
+				list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
+					if ((io_pending->bio == m->bio) && !io_pending->complete_pending) {
+						list_del(&io_pending->list);
+						kfree2(io_pending);
+						break;
+					}
+				}
+				io_pending = NULL;
+			} else {
+				io_pending->complete_pending = 1;
+			}
+		}
+		spin_unlock_irqrestore(&device->io_pending_list_lock, flags);
+	}
 
 #ifdef _WIN
 	ASSERT(m->bio->bi_end_io == NULL); //at this point, if bi_end_io_cb is not NULL, occurred to recusively call.(bio_endio -> bsr_request_endio -> complete_master_bio -> bio_endio)
@@ -695,6 +721,14 @@ struct bio_and_error *m)
 		panic("complete_master_bio ERRROR! pMasterIrp is NULL");
 	}
 #endif
+	// BSR-1054 calculate io_pending_latency if bio is complete
+	if (io_pending) {
+		spin_lock_irqsave(&device->io_pending_list_lock, flags);
+		device->io_pending_latency = ktime_sub(ktime_get(), io_pending->io_start_kt);
+		list_del(&io_pending->list);
+		kfree2(io_pending);
+		spin_unlock_irqrestore(&device->io_pending_list_lock, flags);
+	}
 	dec_ap_bio(device, rw);
 }
 
@@ -2057,6 +2091,19 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 	/* allocate outside of all locks; */
 	req = bsr_req_new(device, bio);
 	if (!req) {
+		// BSR-1054
+		if (atomic_read(&g_bsrmon_run)) {
+			struct io_pending_info *io_pending, *tmp;
+			spin_lock_irq(&device->io_pending_list_lock);
+			list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
+				if (io_pending->bio == bio) {
+					list_del(&io_pending->list);
+					kfree2(io_pending);
+					break;
+				}
+			}
+			spin_unlock_irq(&device->io_pending_list_lock);
+		}
 		dec_ap_bio(device, rw);
 		/* only pass the error to the upper layers.
 		 * if user cannot handle io errors, that's not our business. */
@@ -3121,6 +3168,19 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	blk_queue_split(q, &bio);
 #endif
 	start_jif = jiffies;
+
+	// BSR-1054 add bio to io_pending_list
+	if (atomic_read(&g_bsrmon_run)) {
+		struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'BASB');
+		INIT_LIST_HEAD(&io_pending->list);
+		spin_lock_irq(&device->io_pending_list_lock);
+		list_add_tail(&io_pending->list, &device->io_pending_list);
+		io_pending->bio = bio;
+		io_pending->io_start_kt = start_kt;
+		io_pending->complete_pending = 0;
+		spin_unlock_irq(&device->io_pending_list_lock);
+	}
+
 	inc_ap_bio(device, bio_data_dir(bio));
 
 #ifdef _WIN

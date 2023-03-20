@@ -117,6 +117,7 @@ void usage()
 		"Types:\n"
 		"   iostat {resource} {vnr}\n"
 		"   ioclat {resource} {vnr}\n"
+		"   io_pending {resource} {vnr}\n"
 		"   reqstat {resource} {vnr}\n"
 		"   peer_reqstat {resource} {vnr}\n"
 		"   alstat {resource} {vnr}\n"
@@ -201,6 +202,7 @@ int BsrDebug(int argc, char* argv[])
 		case DBG_DEV_OLDEST_REQUESTS:
 		case DBG_DEV_IO_STAT:
 		case DBG_DEV_IO_COMPLETE:
+		case DBG_DEV_IO_PENDING: // BSR-1054
 		case DBG_DEV_REQ_TIMING:
 		case DBG_DEV_PEER_REQ_TIMING:
 			if (argIndex < argc)
@@ -276,6 +278,14 @@ void PrintMonitor()
 
 	printf("IO_COMPLETE:\n");
 	buf = GetDebugToBuf(IO_COMPLETE, res);
+	if (buf) {
+		printf("%s\n", buf);
+		free(buf);
+		buf = NULL;
+	}
+	// BSR-1054
+	printf("IO_PENDING:\n");
+	buf = GetDebugToBuf(IO_PENDING, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -443,6 +453,8 @@ void MonitorToFile()
 			goto next;
 		if (GetDebugToFile(IO_COMPLETE, res, respath, curr_time) != 0)
 			goto next;
+		if (GetDebugToFile(IO_PENDING, res, respath, curr_time) != 0)
+			goto next;
 		if (GetDebugToFile(REQUEST, res, respath, curr_time) != 0)
 			goto next;
 		if (GetDebugToFile(PEER_REQUEST, res, respath, curr_time) != 0)
@@ -581,6 +593,9 @@ void Watch(char *resname, enum get_debug_type type, int vnr, bool scroll)
 		case IO_COMPLETE:
 			watch_io_complete(watch_path, scroll);
 			break;
+		case IO_PENDING:
+			watch_io_pending(watch_path, scroll);
+			break;
 		case REQUEST:
 			watch_req_stat(watch_path, scroll);
 			break;
@@ -655,6 +670,9 @@ void Report(char *resname, char *rfile, enum get_debug_type type, int vnr, struc
 		break;
 	case IO_COMPLETE:
 		read_io_complete_work(filelist, tf);
+		break;
+	case IO_PENDING:
+		read_io_pending_work(filelist, tf);
 		break;
 	case REQUEST:
 		read_req_stat_work(filelist, resname, peer_list, tf);
@@ -1019,6 +1037,8 @@ int ConvertType(char * type_name)
 		return IO_STAT;
 	else if (strcmp(type_name, "ioclat") == 0)
 		return IO_COMPLETE;
+	else if (strcmp(type_name, "io_pending") == 0)
+		return IO_PENDING;
 	else if (strcmp(type_name, "reqstat") == 0)
 		return REQUEST;
 	else if (strcmp(type_name, "peer_reqstat") == 0)
@@ -1377,7 +1397,7 @@ int main(int argc, char* argv[])
 					}
 					res_name = argv[argIndex];
 					if (type <= RESYNC_RATIO) {
-						// IO_STAT, IO_COMPLETE, AL_STAT, PEER_REQUEST, REQUEST need vnr
+						// IO_STAT, IO_COMPLETE, IO_PENDING, AL_STAT, PEER_REQUEST, REQUEST need vnr
 						if (++argIndex < argc) {
 							vol_num = atoi(argv[argIndex]);
 						} else {
