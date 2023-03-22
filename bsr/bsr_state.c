@@ -3738,8 +3738,9 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				repl_state[NEW] >= L_ESTABLISHED &&
 				get_ldev(device))
 			{
+				// BSR-1056
 				// BSR-936 if device stable has been updated, send UUID information to "NEW"
-				bsr_send_uuids(peer_device, 0, 0, NEW);
+				bsr_send_uuids(peer_device, (peer_device->disk_state[NOW] > D_UNKNOWN) ? UUID_FALG_SEND_IT_TO_ME : 0, 0, NEW);
 				put_ldev(device);
 			}
 
