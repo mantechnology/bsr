@@ -7297,6 +7297,16 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 		}
 	}
 
+	// BSR-1056
+	if (peer_device->uuid_flags & UUID_FALG_SEND_IT_TO_ME) {
+		if (bsr_device_stable(device, NULL) &&
+			!(peer_device->repl_state[NOW] == L_SYNC_TARGET || peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) &&
+			!(connection->peer_role[NOW] == R_PRIMARY) &&
+			peer_device->repl_state[NOW] >= L_ESTABLISHED && get_ldev(device)) {
+			bsr_send_uuids(peer_device, (peer_device->disk_state[NOW] == D_INCONSISTENT) ? UUID_FLAG_GOT_STABLE : 0, 0, NOW);
+			put_ldev(device);
+		}
+	}
 	// DW-1315 abort resync if peer gets unsyncable state.
 	if ((peer_device->repl_state[NOW] >= L_STARTING_SYNC_S && peer_device->repl_state[NOW] <= L_WF_BITMAP_T) ||
 		(peer_device->repl_state[NOW] >= L_SYNC_SOURCE && peer_device->repl_state[NOW] <= L_PAUSED_SYNC_T))	{
