@@ -1932,13 +1932,6 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	if (!get_ldev(device))
 		goto out;
 
-	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
-	if (repl_state[NOW] == L_AHEAD) {
-		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
-		put_ldev(device);
-		return 1;
-	}
-
 	bsr_ping_peer(connection);
 
 	// BSR-863
@@ -1963,6 +1956,15 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 	}
 
 	spin_lock_irq(&device->resource->req_lock);
+
+	// BSR-1065 checked congestion in req_lock area for synchronization with congestion setting and resynchronization completion
+	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
+	if (repl_state[NOW] == L_AHEAD) {
+		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
+		put_ldev(device); 
+		spin_unlock_irq(&device->resource->req_lock);
+		return 1;
+	}
 
 	begin_state_change_locked(device->resource, CS_VERBOSE);
 	old_repl_state = repl_state[NOW];
