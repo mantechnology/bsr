@@ -4645,6 +4645,14 @@ void bsr_destroy_connection(struct kref *kref)
 
 	idr_destroy(&connection->peer_devices);
 
+#ifdef _LIN
+	// BSR-1070 fix kernel panic caused by an unassigned net_conf reference
+	if (connection->transport.net_conf) {
+		sub_kvmalloc_mem_usage(connection->ptxbab[DATA_STREAM], sizeof(ring_buffer) + connection->transport.net_conf->sndbuf_size);
+		sub_kvmalloc_mem_usage(connection->ptxbab[CONTROL_STREAM], sizeof(ring_buffer) + CONTROL_BUFF_SIZE);
+	}
+#endif
+
 	bsr_kfree(connection->transport.net_conf);
 	bsr_put_send_buffers(connection);
 	conn_free_crypto(connection);
