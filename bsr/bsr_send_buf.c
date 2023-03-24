@@ -168,10 +168,6 @@ void destroy_packet_list(struct bsr_connection* connection)
 
 void destroy_bab(struct bsr_connection* connection)
 {
-#ifdef _LIN
-	sub_kvmalloc_mem_usage(connection->ptxbab[DATA_STREAM], sizeof(ring_buffer) + connection->transport.net_conf->sndbuf_size);
-	sub_kvmalloc_mem_usage(connection->ptxbab[CONTROL_STREAM], sizeof(ring_buffer) + CONTROL_BUFF_SIZE);
-#endif
 	// BSR-879 removed unsent packet information
 	destroy_packet_list(connection);
 
