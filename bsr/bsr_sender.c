@@ -182,27 +182,26 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 	if ((ULONG_PTR)DeviceObject != FAULT_TEST_FLAG) {
 		bio_put(bio);
 	}
-#endif
-	/* We grabbed an extra reference in _bsr_md_sync_page_io() to be able
-	 * to timeout on the lower level device, and eventually detach from it.
-	 * If this io completion runs after that timeout expired, this
-	 * bsr_md_put_buffer() may allow us to finally try and re-attach.
-	 * During normal operation, this only puts that extra reference
-	 * down to 1 again.
-	 * Make sure we first drop the reference, and only then signal
-	 * completion, or we may (in bsr_al_read_log()) cycle so fast into the
-	 * next bsr_md_sync_page_io(), that we trigger the
-	 * ASSERT(atomic_read(&mdev->md_io_in_use) == 1) there.
-	 */
-	bsr_md_put_buffer(device);
-	device->md_io.done = 1;
-	wake_up(&device->misc_wait);
-
-#ifdef _LIN // TODO windows call location different
+#else // _LIN
 	bio_put(bio);
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
 		put_ldev(device);
-#endif
+#endif	
+	/* We grabbed an extra reference in _bsr_md_sync_page_io() to be able
+		* to timeout on the lower level device, and eventually detach from it.
+		* If this io completion runs after that timeout expired, this
+		* bsr_md_put_buffer() may allow us to finally try and re-attach.
+		* During normal operation, this only puts that extra reference
+		* down to 1 again.
+		* Make sure we first drop the reference, and only then signal
+		* completion, or we may (in bsr_al_read_log()) cycle so fast into the
+		* next bsr_md_sync_page_io(), that we trigger the
+		* ASSERT(atomic_read(&mdev->md_io_in_use) == 1) there.
+		*/
+	bsr_md_put_buffer(device);
+	device->md_io.done = 1;
+	// BSR-1068 wake_up should be called at the end. (also call wake_up inside the bsr_md_put_buffer() above)
+	wake_up(&device->misc_wait);
 
 	BIO_ENDIO_FN_RETURN;
 }
