@@ -3246,6 +3246,11 @@ static ULONG_PTR time_min_in_future(ULONG_PTR now,
 	return time_after(t1, t2) ? t2 : t1;
 }
 
+extern atomic_t g_forced_kernel_panic;
+extern atomic_t g_panic_occurrence_time;
+
+#define SECONDS_TO_MILLISECONDS(x)	(x * 1000)
+
 static bool net_timeout_reached(struct bsr_request *net_req,
 		struct bsr_connection *connection,
 		ULONG_PTR now, ULONG_PTR ent,
@@ -3272,9 +3277,22 @@ static bool net_timeout_reached(struct bsr_request *net_req,
 	 * Check if we sent the barrier already.  We should not blame the peer
 	 * for being unresponsive, if we did not even ask it yet. */
 	if (net_req->epoch == connection->send.current_epoch_nr) {
-		bsr_warn(26, BSR_LC_REQUEST, device,
-			"We did not send a P_BARRIER for %ums > ko-count (%u) * timeout (%u * 0.1s); bsr kernel thread blocked?",
-			jiffies_to_msecs(now - net_req->pre_send_jif[peer_node_id]), ko_count, timeout);
+		unsigned int msecs = jiffies_to_msecs(now - net_req->pre_send_jif[peer_node_id]);
+
+ 		bsr_warn(26, BSR_LC_REQUEST, device,
+			"We did not send a P_BARRIER for %ums > ko-count (%u) * timeout (%u * 0.1s); bsr kernel thread blocked?", msecs, ko_count, timeout);
+
+		if (atomic_read(&g_forced_kernel_panic)) {
+			// BSR-1072 depending on the call cycle of net_timeout_reached(), the condition can be satisfied after the set time.
+			if (msecs > (unsigned int)SECONDS_TO_MILLISECONDS(atomic_read(&g_panic_occurrence_time))) {
+#ifdef _WIN
+				KeBugCheckEx(MANUALLY_INITIATED_CRASH1, (ULONG_PTR)connection->resource, (ULONG_PTR)connection, (ULONG_PTR)net_req, (ULONG_PTR)msecs);
+#else	// _LIN
+				panic("Panic due to did not send a P_BARRIER, resource %p, connection %p, request %p, time %d => %u", connection->resource, connection, net_req, atomic_read(&g_panic_occurrence_time), msecs);
+#endif
+			}
+		}
+
 		return false;
 	}
 
