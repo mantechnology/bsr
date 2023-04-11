@@ -451,6 +451,32 @@ NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+// BSR-1072
+extern atomic_t g_forced_kernel_panic;
+extern atomic_t g_panic_occurrence_time;
+
+NTSTATUS IOCTL_Panic(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PKERNEL_PANIC_INFO in = NULL;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		in = (PKERNEL_PANIC_INFO)Irp->AssociatedIrp.SystemBuffer;
+
+		if (in->force) 
+			KeBugCheckEx(MANUALLY_INITIATED_CRASH1, (ULONG_PTR)NULL, (ULONG_PTR)NULL, (ULONG_PTR)NULL, (ULONG_PTR)NULL);
+
+		bsr_info(155, BSR_LC_DRIVER, NO_OBJECT, "sets the bsr kernel panic, %s => %s ", atomic_read(&g_forced_kernel_panic) ? "enable" : "disable", in->enable ? "enable" : "disable");
+		atomic_set(&g_forced_kernel_panic, in->enable);
+
+		bsr_info(156, BSR_LC_DRIVER, NO_OBJECT, "sets the time at which bsr kernel panic occurs, %d => %d", atomic_read(&g_panic_occurrence_time), in->occurrence_time);
+		atomic_set(&g_panic_occurrence_time, in->occurrence_time);
+	}
+
+	return STATUS_SUCCESS;
+}
 
 // BSR-654 Sets which category is output during debug log.
 NTSTATUS
