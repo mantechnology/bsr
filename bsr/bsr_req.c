@@ -892,6 +892,10 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 #endif
 	if (!atomic_sub_and_test(put, &req->completion_ref))
 	{
+		// BSR-1072 log output if req->completion_ref is negative
+		if (atomic_read(&req->completion_ref) < 0) {
+			bsr_warn(32, BSR_LC_REQUEST, NO_OBJECT, "ASSERTION req->completion_ref (%d) < 0", atomic_read(&req->completion_ref));
+		}
 #ifdef BSR_TRACE
 		bsr_debug(32, BSR_LC_REQUEST, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d", current->comm, req->completion_ref, req->i.sector, req->i.size);
 #endif
