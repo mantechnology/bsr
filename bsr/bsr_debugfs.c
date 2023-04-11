@@ -1360,12 +1360,15 @@ int device_io_complete_show(struct seq_file *m, void *ignored)
 	memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
 	memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
 
-	/* local_min local_max local_avg master_min master_max master_avg */
-	seq_printf(m, "%lld %lld %lld %lld %lld %lld\n",
+	// BSR-1072 add completed local/master IO count data
+	/* local_cnt local_min local_max local_avg master_cnt master_min master_max master_avg */
+	seq_printf(m, "%u %lld %lld %lld %u %lld %lld %lld\n",
+			atomic_read(&local.cnt),
 			ktime_to_us(local.min_val), 
 			ktime_to_us(local.max_val), 
 			atomic_read(&local.cnt) > 0 ? 
 				ktime_to_us(local.total_val) / atomic_read(&local.cnt) : 0,
+			atomic_read(&master.cnt),
 			ktime_to_us(master.min_val), 
 			ktime_to_us(master.max_val), 
 			atomic_read(&master.cnt) > 0 ? 
