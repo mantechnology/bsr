@@ -340,7 +340,7 @@ read_continue:
 					if (fgets(line, sizeof(line), fp) != NULL) {
 						memset(&r, 0, sizeof(r));
 						memset(&w, 0, sizeof(w));
-						/* time riops rios rkbs rkb wiops wios rkbs rkb */
+						/* riops rios rkbs rkb wiops wios rkbs rkb */
 #ifdef _WIN
 						i = sscanf_s(line, "%lu %lu %lu %lu %lu %lu %lu %lu",
 							&r.iops, &r.ios, &r.kbs, &r.kb, &w.iops, &w.ios, &w.kbs, &w.kb);
@@ -419,13 +419,16 @@ read_continue:
 void read_io_complete_work(std::set<std::string> filelist, struct time_filter *tf)
 {
 	FILE *fp;
+	char line[256] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
+	int val[8] = {0};
 	struct perf_stat local, master;
+	unsigned long long total_l_cnt = 0, total_m_cnt= 0;
 	bool start_collect = false, end_collect = false;
 	bool do_print = false;
 	bool find_date = false;
 	char filter_s[64], filter_e[64];
-	unsigned int iter_index;
+	unsigned int i = 0, iter_index = 0;
 	std::set<std::string>::iterator iter;
 
 	memset(&local, 0, sizeof(struct perf_stat));
@@ -462,13 +465,36 @@ read_continue:
 						start_collect = true;
 						sprintf_ex(filter_s, "%s", save_t);
 					}
-					
-					/* local_min local_max local_avg master_min master_max master_avg */
-					set_min_max_fp(fp, &local);
-					set_min_max_fp(fp, &master);
-					sprintf_ex(filter_e, "%s", save_t);
 
-					fscanf_ex(fp, "%*[^\n]");
+					if (fgets(line, sizeof(line), fp) != NULL) {
+						memset(val, 0, sizeof(int) * 8);
+
+						/* local_cnt local_min local_max local_avg master_cnt master_min master_max master_avg*/
+#ifdef _WIN
+						i = sscanf_s(line, "%lu %lu %lu %lu %lu %lu %lu %lu",
+							&val[0], &val[1], &val[2], &val[3], &val[4], &val[5], &val[6], &val[7]);
+#else // _LIN
+						i = sscanf(line, "%lu %lu %lu %lu %lu %lu %lu %lu",
+						 	&val[0], &val[1], &val[2], &val[3], &val[4], &val[5], &val[6], &val[7]);
+#endif
+						
+
+						if (i < 6)
+							continue;
+
+						if (i == 8) {
+							// BSR-1072
+							total_l_cnt += val[0];
+							set_min_max_avg(val[1], val[2], val[3], &local);
+							total_m_cnt += val[4];
+							set_min_max_avg(val[5], val[6], val[7], &master);
+						} else {
+							set_min_max_avg(val[0], val[1], val[2], &local);
+							set_min_max_avg(val[3], val[4], val[5], &master);
+						}			
+						sprintf_ex(filter_e, "%s", save_t);
+
+					}
 					continue;
 
 				}
@@ -614,17 +640,17 @@ read_continue:
 		if (do_print) {
 			printf(" Run: %s - %s\n", filter_s, filter_e);
 			// upper_pending pending_latency lower_pending al_suspended al_pending_changes al_wait_req upper_blocked suspended suspend_cnt unstable pending_bitmap_work
-			printf("  upper_pending     : max=%lu\n", io.upper_pending);
-			printf("    pending_latency (usec): min=%llu, max=%llu, avg=%llu, samples=%llu\n", 
+			printf("  upper_pending     : max=%u\n", io.upper_pending);
+			printf("    pending_latency (usec): min=%llu, max=%llu, avg=%llu, samples=%lu\n", 
 						io.pending_latency.min, io.pending_latency.max, 
 						stat_avg(io.pending_latency.sum, io.pending_latency.cnt), io.pending_latency.samples);
-			printf("  lower_pending     : max=%lu\n", io.lower_pending);
+			printf("  lower_pending     : max=%u\n", io.lower_pending);
 			printf("  al_suspended      : total=%llu\n", io.al_suspended);
-			printf("  al_pending_changes: max=%lu\n", io.al_pending_changes);
-			printf("  al_wait_req       : max=%lu\n", io.al_wait_req);
+			printf("  al_pending_changes: max=%u\n", io.al_pending_changes);
+			printf("  al_wait_req       : max=%u\n", io.al_wait_req);
 			printf("  upper_blocked     : total=%llu\n", io.upper_blocked);
 			printf("    suspended          : total=%llu\n", io.suspended);
-			printf("    suspend_cnt        : total=%lu\n", io.suspend_cnt);
+			printf("    suspend_cnt        : total=%llu\n", io.suspend_cnt);
 			printf("    unstable           : total=%llu\n", io.unstable);
 			printf("    pending_bitmap_work: total=%llu\n", io.pending_bitmap_work);
 
@@ -2388,8 +2414,8 @@ void watch_io_complete(char *path, bool scroll)
 		/* time local_min local_max local_avg master_min master_max master_avg */
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
-			unsigned long local_min = 0, local_max = 0, local_avg = 0;
-			unsigned long master_min = 0, master_max = 0, master_avg = 0;
+			unsigned long local_cnt = 0, local_min = 0, local_max = 0, local_avg = 0;
+			unsigned long master_cnt = 0, master_min = 0, master_max = 0, master_avg = 0;
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
 			ptr = strtok_r(buf, " ", &save_ptr);
@@ -2399,14 +2425,18 @@ void watch_io_complete(char *path, bool scroll)
 			if (!scroll) 
 				clear_screen();
 			printf("%s\n", ptr);
+
+			local_cnt = atol(strtok_r(NULL, " ", &save_ptr));
 			local_min = atol(strtok_r(NULL, " ", &save_ptr));
 			local_max = atol(strtok_r(NULL, " ", &save_ptr));
 			local_avg = atol(strtok_r(NULL, " ", &save_ptr));
+			master_cnt = atol(strtok_r(NULL, " ", &save_ptr));
 			master_min = atol(strtok_r(NULL, " ", &save_ptr));
 			master_max = atol(strtok_r(NULL, " ", &save_ptr));
 			master_avg = atol(strtok_r(NULL, " ", &save_ptr));
-			printf("  local clat  (usec): min=%lu, max=%lu, avg=%lu\n", local_min, local_max, local_avg);
-			printf("  master clat (usec): min=%lu, max=%lu, avg=%lu\n", master_min, master_max, master_avg);
+			// BSR-1072 print completed local/master IO count data
+			printf("  local clat  (usec): complete_count=%lu, min=%lu, max=%lu, avg=%lu\n", local_cnt, local_min, local_max, local_avg);
+			printf("  master clat (usec): complete_count=%lu, min=%lu, max=%lu, avg=%lu\n", master_cnt, master_min, master_max, master_avg);
 		} else {	
 #ifdef _WIN
 			Sleep(1000);
@@ -3485,12 +3515,16 @@ static void print_current_iostat(char * name, int vnr)
 static void print_current_ioclat(char * name, int vnr)
 {
 	char *data = NULL;
-	struct title_field stat = {"ioclat", 2};
-	
-	// 0 0 0 0 0 0
-	struct perf_field fields[] = { // min, max, avg
-		{"local", "usec"},
-		{"master", "usec"},
+	struct title_field local = {"local", 4};
+	struct title_field master = {"master", 4};
+
+
+	// 0 0 0 0 0 0 0 0
+	struct perf_field fields[] = {
+		{"complete_count", NULL},
+		{"min", "usec"}, 
+		{"max", "usec"},
+		{"avg", "usec"},
 	};
 
 	data = read_last_line(name, vnr, (char *)"IO_COMPLETE");
@@ -3506,8 +3540,11 @@ static void print_current_ioclat(char * name, int vnr)
 			strcpy(g_timestamp, ptr);
 #endif
 		}
-			
-		print_min_max_avg_group(&save_ptr, &stat, fields);
+
+		print_head("ioclat");
+		print_group(&save_ptr, &local, fields, true);
+		print_group(&save_ptr, &master, fields, false);
+		print_end(true);
 		free(data);
 	}
 }
