@@ -358,11 +358,13 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_WRITE_LOG:
 	{
 		err = bsr_write_log((WRITE_KERNEL_LOG __user *)param);
+		break;
 	}
 	// BSR-1072
 	case IOCTL_MVOL_BSR_PANIC:
 	{
 		err = bsr_panic((KERNEL_PANIC_INFO __user *)param);
+		break;
 	}
 	default :
 		break;
