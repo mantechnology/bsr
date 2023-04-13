@@ -8009,6 +8009,10 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 		else {
 			bsr_warn(165, BSR_LC_RESYNC_OV, peer_device, "Cluster allocation is in a replication state(%s) that cannot be allocated.", bsr_repl_str(peer_device->repl_state[NOW]));
 			err = true;
+
+			// BSR-1064
+			mutex_unlock(&device->resource->vol_ctl_mutex);
+			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 			goto out;
 		}
 	}
