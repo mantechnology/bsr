@@ -4383,6 +4383,9 @@ struct bsr_resource *bsr_create_resource(const char *name,
 	// DW-1317
 	mutex_init(&resource->vol_ctl_mutex);
 
+	// BSR-1064
+	atomic_set(&resource->will_be_used_vol_ctl_mutex, 0);
+
 	spin_lock_init(&resource->req_lock);
 	INIT_LIST_HEAD(&resource->listeners);
 	spin_lock_init(&resource->listeners_lock);
@@ -7397,6 +7400,9 @@ retry:
 #endif
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_SOURCE, false, &bSync))
 		{
+			// BSR-1064
+			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
+
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
 				bsr_warn(161, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
@@ -7408,12 +7414,19 @@ retry:
 				nRet = bsr_bmio_set_n_write(device, peer_device);
 			}
 		}
+		else {
+			// BSR-1064
+			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
+		}
 	}
 	else if (peer_device->repl_state[NOW] == L_STARTING_SYNC_T) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_TARGET, false, &bSync))
 		{
+			// BSR-1064
+			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
+
 			// BSR-653 whole bitmap set is not performed if is not sync node.
 			if (bSync) {
 				bsr_warn(162, BSR_LC_RESYNC_OV, peer_device, "Performs a full sync because a fast sync cannot be performed. invalidate(remote), protocol ver(%d), fast sync result(%d)", peer_device->connection->agreed_pro_version, isFastInitialSync());
@@ -7424,6 +7437,10 @@ retry:
 				}
 				nRet = bsr_bmio_set_all_n_write(device, peer_device);
 			}
+		}
+		else {
+			// BSR-1064
+			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 		}
 	}
 	else {
@@ -7976,6 +7993,8 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				(unsigned long long)ov_tw);
 			mod_timer(&peer_device->resync_timer, jiffies);
 		}
+		// BSR-1064
+		atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 		return err;
 	}
 
@@ -8046,6 +8065,8 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 	// BSR-835 move to before execution of bsr_ov_bm_total_weight()
 	mutex_unlock(&device->resource->vol_ctl_mutex);
 
+	// BSR-1064
+	atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 
 	if (side == L_VERIFY_S) {
 		ULONG_PTR ov_tw = 0;

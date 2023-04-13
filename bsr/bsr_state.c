@@ -2330,6 +2330,18 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			if (repl_state[OLD] <= L_ESTABLISHED && repl_state[NEW] == L_WF_BITMAP_S)
 				starting_resync = true;
 
+			// BSR-1064
+			if ((repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) ||
+				(repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)) {
+				atomic_inc(&resource->will_be_used_vol_ctl_mutex);
+			}
+
+			// BSR-1064
+			if (peer_device->connection->agreed_pro_version >= 114) {
+				if (repl_state[OLD] != L_VERIFY_S && repl_state[NEW] == L_VERIFY_S && isFastInitialSync())
+					atomic_inc(&resource->will_be_used_vol_ctl_mutex);
+			}
+
 			// DW-1315 check resync availability as state changes, set RESYNC_ABORTED flag by going unsyncable, actual aborting will be occured in w_after_state_change().
 			if ((repl_state[NEW] >= L_STARTING_SYNC_S && repl_state[NEW] <= L_WF_BITMAP_T) ||
 				(repl_state[NEW] >= L_SYNC_SOURCE && repl_state[NEW] <= L_PAUSED_SYNC_T))

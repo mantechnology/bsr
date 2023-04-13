@@ -4565,6 +4565,9 @@ int bsr_worker(struct bsr_thread *thi)
 		 test_bit(DEVICE_WORK_PENDING, &resource->flags) ||
 		 test_bit(PEER_DEVICE_WORK_PENDING, &resource->flags));
 
+	// BSR-1064
+	atomic_set(&resource->will_be_used_vol_ctl_mutex, 0);
+
 	return 0;
 }
 

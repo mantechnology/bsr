@@ -1450,12 +1450,35 @@ static const char *from_attrs_err_to_txt(int err)
 		"invalid attribute value";
 }
 
+// BSR-1064
+bool wait_until_vol_ctl_mutex_is_used(struct bsr_resource *resource)
+{
+	int try_val = 0, max_tries = 30;
+	
+	// BSR-1064 wait up to 3 seconds for bsr_worker() to use vol_ctl_tx.
+	while (try_val++ < max_tries) {
+		if (atomic_read(&resource->will_be_used_vol_ctl_mutex) > 0)
+			msleep(100);
+		else
+			break;
+	}
+	
+	// BSR-1064 wait for 3 seconds and return an error if using vol_ctl_tx is not complete.
+	if (try_val > max_tries) {
+		return false;
+	}
+
+	return true;
+}
+
 int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
 	struct set_role_parms parms;
 	int err;
 	enum bsr_state_rv retcode;
+	int vnr;
+	struct bsr_device * device;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -1470,15 +1493,22 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			goto out;
 		}
 	}
+
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+
+	// BSR-1064
+	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
+		mutex_unlock(&adm_ctx.resource->adm_mutex);
+		retcode = ERR_NOT_READY;
+		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
+		goto out;
+	}
 
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
 	if (info->genlhdr->cmd == BSR_ADM_PRIMARY) {
 		// DW-839 not support diskless Primary
-		int vnr;
-		struct bsr_device * device;
 		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				retcode = SS_IS_DISKLESS;
@@ -1507,9 +1537,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	} else {
 #ifdef _WIN_MVFL
 #ifdef _WIN_MULTI_VOLUME        
-		int vnr;
 		retcode = SS_SUCCESS;
-		struct bsr_device * device;
 
 		// DW-1327 
 		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
@@ -6922,6 +6950,14 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	resource = adm_ctx.resource;
 
 	mutex_lock(&resource->adm_mutex);
+
+	// BSR-1064
+	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
+		mutex_unlock(&adm_ctx.resource->adm_mutex);
+		retcode = ERR_NOT_READY;
+		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
+		goto out;
+	}
 
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);

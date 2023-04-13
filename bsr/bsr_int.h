@@ -1559,6 +1559,7 @@ struct bsr_resource {
 					   and devices, connection and peer_devices lists */
 	struct mutex adm_mutex;		/* mutex to serialize administrative requests */
 	struct mutex vol_ctl_mutex;	// DW-1317 chaning role involves the volume for device is (dis)mounted, use this when the role change needs to be waited. 
+	atomic_t will_be_used_vol_ctl_mutex; // BSR-1064 variable to prevent vol_ctl_mutex deadlocks. if there is a function in the job queue that uses vol_ctl_mutex, it increases, and if you use vol_ctl_mutex in subsequent functions, it decreases.
 	spinlock_t req_lock;
 	u64 dagtag_sector;		/* Protected by req_lock.
 					 * See also dagtag_sector in
