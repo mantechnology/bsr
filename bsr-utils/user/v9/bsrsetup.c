@@ -703,6 +703,8 @@ static const char *error_messages[] = {
 	EM(ERR_CANT_CHANGE_SNDBUF_SIZE_WHEN_CONNECTED) = "Cannot change sndbuf-size when connected. Please disconnect first and change the attribute value with adjust command\n",
 	EM(ERR_CANT_CHANGE_SNDBUF_SIZE_WITHOUT_DEL_PEER) = "Cannot change sndbuf-size without del-peer command. Please run the 'del-peer' command first and change the attribute value with adjust command \n",
 	EM(ERR_VERIFY_NOT_RUNNING) = "Since verify is not running, it cannot be stopped.",
+	// BSR-1064
+	EM(ERR_VOL_LOCK_ACQUISITION_TIMEOUT) = "Failed due to timeout on volume lock acquisition. Please try the command again.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
