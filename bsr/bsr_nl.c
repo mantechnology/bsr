@@ -1499,7 +1499,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1064
 	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
 		mutex_unlock(&adm_ctx.resource->adm_mutex);
-		retcode = ERR_NOT_READY;
+		retcode = ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
 		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
 		goto out;
 	}
@@ -6954,7 +6954,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1064
 	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
 		mutex_unlock(&adm_ctx.resource->adm_mutex);
-		retcode = ERR_NOT_READY;
+		retcode = ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
 		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
 		goto out;
 	}
