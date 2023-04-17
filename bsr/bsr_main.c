@@ -1850,9 +1850,12 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 		uuid_flags |= UUID_FLAG_DISCARD_MY_DATA;
 
 	// BSR-175
-	if (test_bit(CRASHED_PRIMARY, &device->flags) && 
-		bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING))
-		uuid_flags |= UUID_FLAG_CRASHED_PRIMARY;
+	if (test_bit(CRASHED_PRIMARY, &device->flags) &&
+		bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
+		// BSR-1071 to prevent duplicate resync, the crashed primary applies only when resync is not in progress.
+		if (!is_sync_source(peer_device))
+			uuid_flags |= UUID_FLAG_CRASHED_PRIMARY;
+	}
 
 	if (!bsr_md_test_flag(device, MDF_CONSISTENT))
 		uuid_flags |= UUID_FLAG_INCONSISTENT;
