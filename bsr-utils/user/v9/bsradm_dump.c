@@ -195,13 +195,22 @@ static void dump_volume(int has_lower, struct d_volume *vol)
 		printA("disk", esc(vol->disk ? vol->disk : "none"));
 
 	if (!has_lower && (vol->parsed_meta_disk || verbose) && vol->disk) {
-		if (!strcmp(vol->meta_index, "flexible"))
-			printI(MDISK, "meta-disk", esc(vol->meta_disk));
+		// BSR-1055
+		if (!strcmp(vol->meta_index, "flexible")) {
+			if (strcmp(vol->platform, "windows") == 0)
+				printI(MDISK, "meta-disk", vol->meta_disk);
+			else
+				printI(MDISK, "meta-disk", esc(vol->meta_disk));
+		}
 		else if (!strcmp(vol->meta_index, "internal"))
 			printA("meta-disk", "internal");
-		else
-			printI(MDISKI, "meta-disk", esc(vol->meta_disk),
-			       vol->meta_index);
+		else {
+			// BSR-1055
+			if (strcmp(vol->platform, "windows") == 0)
+				printI(MDISKI, "meta-disk", vol->meta_disk, vol->meta_index);
+			else
+				printI(MDISKI, "meta-disk", esc(vol->meta_disk), vol->meta_index);
+		}
 	}
 
 	if (!vol->implicit) {
@@ -462,14 +471,20 @@ static void dump_volume_xml(struct d_volume *vol)
 
 	if (vol->meta_index) {
 		/* Stacked do not have this... */
-		if (!strcmp(vol->meta_index, "flexible"))
-			printI("<meta-disk>%s</meta-disk>\n",
-			       esc_xml(vol->meta_disk));
-		else if (!strcmp(vol->meta_index, "internal"))
+		// BSR-1055
+		if (!strcmp(vol->meta_index, "flexible")) {
+			if (strcmp(vol->platform, "windows") == 0)
+				printI("<meta-disk>%s</meta-disk>\n", vol->meta_disk);
+			else
+				printI("<meta-disk>%s</meta-disk>\n", esc_xml(vol->meta_disk));
+		} else if (!strcmp(vol->meta_index, "internal"))
 			printI("<meta-disk>internal</meta-disk>\n");
 		else {
-			printI("<meta-disk index=\"%s\">%s</meta-disk>\n",
-			       vol->meta_index, esc_xml(vol->meta_disk));
+			// BSR-1055
+			if (strcmp(vol->platform, "windows") == 0)
+				printI("<meta-disk index=\"%s\">%s</meta-disk>\n", vol->meta_index, vol->meta_disk);
+			else
+				printI("<meta-disk index=\"%s\">%s</meta-disk>\n", vol->meta_index, esc_xml(vol->meta_disk));
 		}
 	}
 	--indent;

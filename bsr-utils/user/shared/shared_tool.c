@@ -69,7 +69,7 @@ const char* shell_escape(const char* s)
 	return buffer;
 }
 
-
+int skip_unescape = 0;
 /* In-place unescape double quotes and backslash escape sequences from a
  * double quoted string. Note: backslash is only useful to quote itself, or
  * double quote, no special treatment to any c-style escape sequences. */
@@ -77,6 +77,12 @@ void unescape(char *txt)
 {
 	char *ue, *e;
 	e = ue = txt;
+	
+#ifdef _LIN
+	// BSR-1055
+	if (skip_unescape)
+		return;
+#endif
 	for (;;) {
 		if (*ue == '"') {
 			ue++;
