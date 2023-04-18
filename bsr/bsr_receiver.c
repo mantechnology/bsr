@@ -5488,25 +5488,28 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 
 		/* Common power [off|failure]? */
 		*rule_nr = 40;
-		if (test_bit(CRASHED_PRIMARY, &device->flags) &&
-			// BSR-175
-			bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
-			if ((peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) &&
-				test_bit(RESOLVE_CONFLICTS, &connection->transport.flags)) {
-				bsr_info(194, BSR_LC_RESYNC_OV, device, "Local and Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
+
+		// BSR-1071 to prevent duplicate resync, the crashed primary applies only when resync is not in progress.
+		if (!is_sync_source(peer_device)) {
+			if (test_bit(CRASHED_PRIMARY, &device->flags) &&
+				// BSR-175
+				bsr_md_test_peer_flag(peer_device, MDF_CRASHED_PRIMARY_WORK_PENDING)) {
+				if ((peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) &&
+					test_bit(RESOLVE_CONFLICTS, &connection->transport.flags)) {
+					bsr_info(194, BSR_LC_RESYNC_OV, device, "Local and Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
+					return -1;
+				}
+				bsr_info(195, BSR_LC_RESYNC_OV, device, "Local is crashed primary. rule(%d), res(1)", *rule_nr);
+				return 1;
+			}
+			else if (peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) {
+				bsr_info(196, BSR_LC_RESYNC_OV, device, "Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
 				return -1;
 			}
-			bsr_info(195, BSR_LC_RESYNC_OV, device, "Local is crashed primary. rule(%d), res(1)", *rule_nr);
-			return 1;
 		}
-		else if (peer_device->uuid_flags & UUID_FLAG_CRASHED_PRIMARY) {
-			bsr_info(196, BSR_LC_RESYNC_OV, device, "Peer is crashed primary. rule(%d), res(-1)", *rule_nr);
-			return -1;
-		}
-		else {
-			bsr_info(197, BSR_LC_RESYNC_OV, device, "Local and peer current UUIDs are the same. rule(%d), res(0)", *rule_nr);
-			return 0;
-		}
+		
+		bsr_info(197, BSR_LC_RESYNC_OV, device, "Local and peer current UUIDs are the same. rule(%d), res(0)", *rule_nr);
+		return 0;
 	}
 
 	*rule_nr = 50;
