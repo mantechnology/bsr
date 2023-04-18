@@ -836,6 +836,11 @@ static struct d_proxy_info *parse_proxy_section(void)
 
 void parse_meta_disk(struct d_volume *vol)
 {
+#ifdef _LIN
+	// BSR-1055 do not remove '\' character if windows meta-disk
+	if (strcmp(vol->platform, "windows") == 0)
+		skip_unescape = 1;
+#endif
 	EXP(TK_STRING);
 	vol->meta_disk = yylval.txt;
 	if (strcmp("internal", yylval.txt) == 0) {
@@ -866,6 +871,10 @@ void parse_meta_disk(struct d_volume *vol)
 			pe_expected("[ | ;");
 		}
 	}
+#ifdef _LIN
+	// BSR-1055
+	skip_unescape = 0;
+#endif
 }
 
 static void check_minor_nonsense(const char *devname, const int explicit_minor, char * platform)

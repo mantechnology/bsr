@@ -72,6 +72,8 @@ extern int fget_token(char *s, int size, FILE* stream);
 extern uint64_t bdev_size(int fd);
 #endif
 
+// BSR-1055
+extern int skip_unescape;
 /* In-place unescape double quotes and backslash escape sequences from a
  * double quoted string. Note: backslash is only useful to quote itself, or
  * double quote, no special treatment to any c-style escape sequences. */
