@@ -1255,6 +1255,31 @@ int cmd_write_kernel_log(int *index, int argc, char* argv[])
 	return 0;
 }
 
+
+// BSR-1072 a system panic will occur immediately.
+int cmd_forced_panic(int *index, int argc, char* argv[])
+{
+	return MVOL_BsrPanic(0, 0, 1);
+}
+
+// BSR-1072 generates a system panic based on the time specified.
+int cmd_bsr_panic(int *index, int argc, char* argv[])
+{
+	int panic_enable = 0;
+	int occurrence_time = 0;
+
+	(*index)++;
+	if ((*index + 1) < argc) {
+		panic_enable = atoi(argv[(*index)++]);
+		occurrence_time = atoi(argv[(*index)++]);
+		return MVOL_BsrPanic(panic_enable, occurrence_time, 0);
+	}
+	else
+		usage();
+
+	return 0;
+}
+
 struct cmd_struct {
 	const char *cmd;
 	int(*fn) (int *, int, char **);
@@ -1300,7 +1325,10 @@ static struct cmd_struct commands[] = {
 #endif
 	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"" },
 	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "" },
-	{ "/write_kernel_log", cmd_write_kernel_log, "", "", ""},
+	{ "/write_kernel_log", cmd_write_kernel_log, "", "", "" },
+	// BSR-1072
+	{ "/forced_panic", cmd_forced_panic, "", "", "" },
+	{ "/bsr_panic", cmd_bsr_panic, "", "", "" },
 };
 
 static void usage()

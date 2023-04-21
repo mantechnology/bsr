@@ -214,6 +214,11 @@ atomic_t g_debug_output_category = ATOMIC_INIT(0);
 // BSR-740 default value of bsrmon_run is enable
 atomic_t g_bsrmon_run = ATOMIC_INIT(1);
 
+// BSR-1072 the presence or absence of forced kernel panic is set. (0:disable, 1:enable)
+atomic_t g_forced_kernel_panic = ATOMIC_INIT(0);
+// BSR-1072 when forced kernel panic is set, panic occurs when the specified time is exceeded.
+atomic_t g_panic_occurrence_time = ATOMIC_INIT(180);
+
 // BSR-764
 SIMULATION_PERF_DEGR g_simul_perf = {0,};
 

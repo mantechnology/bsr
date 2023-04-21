@@ -38,4 +38,12 @@ typedef struct _WRITE_KERNEL_LOG {
 	char message[MAX_BSRLOG_BUF];
 } WRITE_KERNEL_LOG, *PWRITE_KERNEL_LOG;
 
+// BSR-1072
+typedef struct _KERNEL_PANIC_INFO {
+	int enable;
+	int occurrence_time;
+	// BSR-1072 as soon as force is set, it causes a system panic. 
+	int force;
+} KERNEL_PANIC_INFO, *PKERNEL_PANIC_INFO;
+
 #endif

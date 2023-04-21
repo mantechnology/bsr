@@ -271,6 +271,35 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 	return 0;
 }
 
+
+// BSR-1072
+extern atomic_t g_forced_kernel_panic;
+extern atomic_t g_panic_occurrence_time;
+
+long bsr_panic(KERNEL_PANIC_INFO __user * args) 
+{
+	int err;
+	KERNEL_PANIC_INFO in;
+
+	err = copy_from_user(&in, args, sizeof(KERNEL_PANIC_INFO));
+	
+	if(err) {
+		bsr_err(157, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_MVOL_BSR_PANIC due to copy from user");
+		return -1;
+	}
+	
+	if(in.force)
+		panic("User forced kernel panic.");
+	
+	bsr_info(155, BSR_LC_DRIVER, NO_OBJECT, "Sets the bsr kernel panic, %s => %s ", atomic_read(&g_forced_kernel_panic) ? "enable" : "disable", in.enable ? "enable" : "disable");
+	atomic_set(&g_forced_kernel_panic, in.enable);
+
+	bsr_info(156, BSR_LC_DRIVER, NO_OBJECT, "Sets the time at which bsr kernel panic occurs, %d => %d(sec)", atomic_read(&g_panic_occurrence_time), in.occurrence_time);
+	atomic_set(&g_panic_occurrence_time, in.occurrence_time);
+	
+	return 0;
+}
+
 long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 {
 	int err = 0;
@@ -329,6 +358,13 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_WRITE_LOG:
 	{
 		err = bsr_write_log((WRITE_KERNEL_LOG __user *)param);
+		break;
+	}
+	// BSR-1072
+	case IOCTL_MVOL_BSR_PANIC:
+	{
+		err = bsr_panic((KERNEL_PANIC_INFO __user *)param);
+		break;
 	}
 	default :
 		break;
