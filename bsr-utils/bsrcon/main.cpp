@@ -1286,49 +1286,50 @@ struct cmd_struct {
 	const char *options;
 	const char *desc;
 	const char *example;
+	bool hide;
 };
 
 static struct cmd_struct commands[] = {
 	// BSR-1052 added /get_log command again
 	// BSR-973
-	{ "/get_log", cmd_get_log, "{save log file name}\n", "", "\"bsrsave.txt\" or \"C:\\Program Files\\bsr\\log\\bsrsave.txt\"" },
-	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"" },
-	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\""},
-	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"" },
+	{ "/get_log", cmd_get_log, "{save log file name}\n", "", "\"bsrsave.txt\" or \"C:\\Program Files\\bsr\\log\\bsrsave.txt\"", false },
+	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"", false },
+	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\"", false },
+	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"", false },
 	{ "/maxlogfile_cnt", cmd_maxlogfile_cnt, "{max file count}", "", "10" },
-	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"" },
-	{ "/get_log_info", cmd_get_log_info, "", "", "" },
-	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"" },
+	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"", false },
+	{ "/get_log_info", cmd_get_log_info, "", "", "", false },
+	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"", false },
 #ifdef _WIN
 #ifdef _DEBUG_OOS
-	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log" },
-	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000" },
+	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", false },
+	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", false },
 #endif
-	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"" },
-	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data" },
-	{ "/get_volume_size", cmd_get_volume_size, "", "", "" },
-	{ "/delaydack_enable", cmd_delaydack_enable, "{address}", "", "10.10.1.10" },
-	{ "/nodelayedack", cmd_nodelayedack, "{address}", "", "10.10.1.10" },
-	{ "/letter", cmd_letter, "{letter}", "", "E" },
-	{ "/l", cmd_letter, "{letter}", "", "E" },
-	{ "/proc/bsr", cmd_proc, "", "", "" },
-	{ "/status", cmd_status, "", "", "" },
-	{ "/s", cmd_status, "", "", "" },
-	{ "/dismount", cmd_dismount, "{letter}", "", "E" },
-	{ "/release_vol", cmd_release_vol, "{letter}", "", "E" },
-	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100" },
-	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "" },
-	{ "/info", cmd_info, "", "", "" },
-	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"" },
-	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"" },
-	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"" },
+	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"", false },
+	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data", true },
+	{ "/get_volume_size", cmd_get_volume_size, "", "", "", false },
+	{ "/delaydack_enable", cmd_delaydack_enable, "{address}", "", "10.10.1.10", false },
+	{ "/nodelayedack", cmd_nodelayedack, "{address}", "", "10.10.1.10", false },
+	{ "/letter", cmd_letter, "{letter}", "", "E", false },
+	{ "/l", cmd_letter, "{letter}", "", "E", false },
+	{ "/proc/bsr", cmd_proc, "", "", "", false },
+	{ "/status", cmd_status, "", "", "", false },
+	{ "/s", cmd_status, "", "", "", false },
+	{ "/dismount", cmd_dismount, "{letter}", "", "E", false },
+	{ "/release_vol", cmd_release_vol, "{letter}", "", "E", false },
+	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100", false },
+	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "", false },
+	{ "/info", cmd_info, "", "", "", false },
+	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
+	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
+	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"", false },
 #endif
-	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"" },
-	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "" },
-	{ "/write_kernel_log", cmd_write_kernel_log, "", "", "" },
+	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"", false },
+	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "", false },
+	{ "/write_kernel_log", cmd_write_kernel_log, "", "", "", true },
 	// BSR-1072
-	{ "/forced_panic", cmd_forced_panic, "", "", "" },
-	{ "/bsr_panic", cmd_bsr_panic, "", "", "" },
+	{ "/forced_panic", cmd_forced_panic, "", "", "", true },
+	{ "/bsr_panic", cmd_bsr_panic, "", "", "", true },
 };
 
 static void usage()
@@ -1338,6 +1339,8 @@ static void usage()
 		"cmds:\n");
 
 	for (i = 0; i < (int)ARRAY_SIZE(commands); i++) {
+		if (commands[i].hide)
+			continue;
 		printf("\t%s %s\n", commands[i].cmd, commands[i].options);
 		if (!strcmp(commands[i].cmd, "/minlog_lv")) {
 			printf("\t\tlevel info,");
@@ -1357,6 +1360,8 @@ static void usage()
 
 	printf("examples:\n");
 	for (i = 0; i < (int)ARRAY_SIZE(commands); i++) {
+		if (commands[i].hide)
+			continue;
 		printf("\tbsrcon %s %s\n", commands[i].cmd, commands[i].example);
 	}
 
