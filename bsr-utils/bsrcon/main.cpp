@@ -820,6 +820,8 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 	return 0;
 }
 
+#define BToM(x) (x / 1024 / 1024)
+
 int cmd_get_log_info(int *index, int argc, char* argv[])
 {
 	// DW-1921
@@ -835,13 +837,9 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
 			g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
 
+		printf("\n");
+		printf("The maximum size of cli log file is %dM.\n", BToM(CLI_LOG_FILE_MAX_SIZE));
 		printf("Number of log files that can be saved.\n");
-		printf("Maximum size of one log file is 50M.\n");
-		// BSR-579
-		if (get_log_file_max_count(&log_max_count))
-			printf("    bsrdriver : %d\n", log_max_count);
-		else
-			printf("Failed to get log file max count\n");
 
 		// BSR-605
 		if (get_cli_log_file_max_count(&cli_log_max_count)) {
@@ -851,6 +849,15 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		}
 		else
 			printf("Failed to get cli log file max count\n");
+		printf("\n");
+		printf("The maximum size of driver log file is %dM or %d log count.\n", BToM(BSR_LOG_SIZE), LOGBUF_MAXCNT);
+		printf("Number of log files that can be saved.\n");
+
+		// BSR-579
+		if (get_log_file_max_count(&log_max_count))
+			printf("    bsrdriver : %d\n", log_max_count);
+		else
+			printf("Failed to get log file max count\n");
 
 		if (get_debug_log_enable_category(&dbg_ctgr)) {
 			printf("Output category during debug log.\n");
@@ -867,7 +874,7 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	}
 	else
 		printf("Failed to get log level.\n");
-
+	printf("\n");
 	// BSR-1031
 	get_statuscmd_logging();
 
