@@ -85,7 +85,7 @@ DWORD MVOL_GetBsrLog(char* pszProviderName, char* resourceName, BOOLEAN oosTrace
 DWORD MVOL_WriteBsrKernelLog(int level, char* message);
 
 // BSR-1072
-DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force);
+DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char *cert);
 
 // BSR-654
 DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE);

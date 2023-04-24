@@ -1266,7 +1266,14 @@ int cmd_write_kernel_log(int *index, int argc, char* argv[])
 // BSR-1072 a system panic will occur immediately.
 int cmd_forced_panic(int *index, int argc, char* argv[])
 {
-	return MVOL_BsrPanic(0, 0, 1);
+	char cert[MAX_PANIC_CERT_BUF];
+
+	(*index)++;
+
+	memset(cert, 0, MAX_PANIC_CERT_BUF);
+	fgets(cert, MAX_PANIC_CERT_BUF, stdin);
+
+	return MVOL_BsrPanic(0, 0, 1, cert);
 }
 
 // BSR-1072 generates a system panic based on the time specified.
@@ -1279,7 +1286,7 @@ int cmd_bsr_panic(int *index, int argc, char* argv[])
 	if ((*index + 1) < argc) {
 		panic_enable = atoi(argv[(*index)++]);
 		occurrence_time = atoi(argv[(*index)++]);
-		return MVOL_BsrPanic(panic_enable, occurrence_time, 0);
+		return MVOL_BsrPanic(panic_enable, occurrence_time, 0, NULL);
 	}
 	else
 		usage();
@@ -1293,6 +1300,7 @@ struct cmd_struct {
 	const char *options;
 	const char *desc;
 	const char *example;
+	// BSR-1073 set whether to hide commands.
 	bool hide;
 };
 

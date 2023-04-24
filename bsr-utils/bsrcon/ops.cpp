@@ -1654,7 +1654,11 @@ DWORD MVOL_WriteBsrKernelLog(int level, char *message)
 	writeLog.level = level;
 	writeLog.length = strlen(message);
 	if (writeLog.length >= MAX_BSRLOG_BUF) {
-		retVal = GetLastError();
+#ifdef _WIN
+		retVal = ERROR_BAD_FORMAT;
+#else
+		retVal = -1;
+#endif
 		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%d)\n",
 			__FUNCTION__, retVal, writeLog.length);
 	}
@@ -1685,9 +1689,8 @@ DWORD MVOL_WriteBsrKernelLog(int level, char *message)
 	return retVal;
 }
 
-
 // BSR-1072
-DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force)
+DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char* cert)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
@@ -1703,31 +1706,45 @@ DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force)
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
 		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed open bsr. Err=%u\n",
+		fprintf(stderr, "PANIC_ERROR: %s: Failed open bsr. Err=%u\n",
 			__FUNCTION__, retVal);
 		return retVal;
 	}
 #else // _LIN
 	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
-		fprintf(stderr, "LOG_ERROR: Can not open /dev/bsr-control\n");
+		fprintf(stderr, "PANIC_ERROR: Can not open /dev/bsr-control\n");
 		return -1;
 	}
 #endif
 
-	in.enable = panic_enable;
-	in.occurrence_time = occurrence_time;
-	in.force = force;
-
+	if (cert && strlen(cert) >= MAX_PANIC_CERT_BUF) {
 #ifdef _WIN
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_BSR_PANIC, &in, sizeof(KERNEL_PANIC_INFO), NULL, 0, &dwReturned, NULL) == FALSE) {
-#else // _LIN
-	if (ioctl(fd, IOCTL_MVOL_BSR_PANIC, &in) != 0) {
+		retVal = ERROR_BAD_FORMAT;
+#else
+		retVal = -1;
 #endif
-		retVal = GetLastError();
-		fprintf(stderr, "LOG_ERROR: %s: Failed IOCTL_MVOL_BSR_PANIC. Err=%u\n",
-			__FUNCTION__, retVal);
-	}
+		fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%d)\n",
+			__FUNCTION__, retVal, strlen(cert));
+	} else {
+		in.enable = panic_enable;
+		in.occurrence_time = occurrence_time;
+		in.force = force;
 
+		if (cert) {
+			memset(in.cert, 0, sizeof(in.cert));
+			// BSR-1073 remove the opening character of fgets()
+			memcpy(in.cert, cert, (strlen(cert) - 1));
+		}
+#ifdef _WIN
+		if (DeviceIoControl(hDevice, IOCTL_MVOL_BSR_PANIC, &in, sizeof(KERNEL_PANIC_INFO), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+		if (ioctl(fd, IOCTL_MVOL_BSR_PANIC, &in) != 0) {
+#endif
+			retVal = GetLastError();
+			fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_BSR_PANIC. Err=%u\n",
+				__FUNCTION__, retVal);
+		}
+	}
 #ifdef _WIN
 	if (hDevice != INVALID_HANDLE_VALUE) {
 		CloseHandle(hDevice);

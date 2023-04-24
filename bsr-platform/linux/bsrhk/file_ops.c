@@ -288,15 +288,20 @@ long bsr_panic(KERNEL_PANIC_INFO __user * args)
 		return -1;
 	}
 	
-	if(in.force)
-		panic("User forced kernel panic.");
-	
-	bsr_info(155, BSR_LC_DRIVER, NO_OBJECT, "Sets the bsr kernel panic, %s => %s ", atomic_read(&g_forced_kernel_panic) ? "enable" : "disable", in.enable ? "enable" : "disable");
-	atomic_set(&g_forced_kernel_panic, in.enable);
+	if(in.force) {
+		// BSR-1073
+		size_t len = strlen(in.cert);
+		if (len > 1 && len < MAX_PANIC_CERT_BUF) {
+			if(0 == strcmp(in.cert, "forcedkernelpanic"))
+				panic("User forced kernel panic.");
+		}
+	} else {	
+		bsr_info(155, BSR_LC_DRIVER, NO_OBJECT, "Sets the bsr kernel panic, %s => %s ", atomic_read(&g_forced_kernel_panic) ? "enable" : "disable", in.enable ? "enable" : "disable");
+		atomic_set(&g_forced_kernel_panic, in.enable);
 
-	bsr_info(156, BSR_LC_DRIVER, NO_OBJECT, "Sets the time at which bsr kernel panic occurs, %d => %d(sec)", atomic_read(&g_panic_occurrence_time), in.occurrence_time);
-	atomic_set(&g_panic_occurrence_time, in.occurrence_time);
-	
+		bsr_info(156, BSR_LC_DRIVER, NO_OBJECT, "Sets the time at which bsr kernel panic occurs, %d => %d(sec)", atomic_read(&g_panic_occurrence_time), in.occurrence_time);
+		atomic_set(&g_panic_occurrence_time, in.occurrence_time);
+	}
 	return 0;
 }
 
