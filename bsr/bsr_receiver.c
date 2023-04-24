@@ -8799,6 +8799,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	enum bsr_disk_state peer_disk_state, new_disk_state = D_MASK;
 	enum bsr_repl_state old_repl_state, new_repl_state;
 	bool peer_was_resync_target, try_to_get_resync = false;
+	// BSR-1074
+	bool consider_resync = true;
 	int rv;
 
 	if (pi->vnr != -1) {
@@ -8999,7 +9001,6 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	if (peer_device->uuids_received &&
 	    peer_state.disk >= D_NEGOTIATING &&
 	    get_ldev_if_state(device, D_NEGOTIATING)) {
-		bool consider_resync;
 
 		/* if we established a new connection */
 		consider_resync = (old_peer_state.conn < L_ESTABLISHED);
@@ -9031,6 +9032,9 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			new_repl_state = bsr_attach_handshake(peer_device, peer_disk_state);
 			if (new_repl_state == L_ESTABLISHED && device->disk_state[NOW] == D_UP_TO_DATE)
 				peer_disk_state = D_UP_TO_DATE;
+		} else {
+			// BSR-1074 
+			consider_resync = false;
 		}
 
 		put_ldev(device);
@@ -9095,9 +9099,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		&& ((peer_device->current_uuid & ~UUID_PRIMARY) == UUID_JUST_CREATED)) {
 		bsr_info(57, BSR_LC_STATE, peer_device, "Resync will start when new current UUID is received");
 		set_bit(CONSIDER_RESYNC, &peer_device->flags);
-	} else 
-		clear_bit(CONSIDER_RESYNC, &peer_device->flags);
-
+	} else {
+		// BSR-1074 add a condition that does not clear_bit() because CONSIDER_RESYNC may not be checked depending on the timing.
+		if (consider_resync)
+			clear_bit(CONSIDER_RESYNC, &peer_device->flags);
+	}
 	if (new_disk_state != D_MASK)
 		__change_disk_state(device, new_disk_state, __FUNCTION__);
 	if (device->disk_state[NOW] != D_NEGOTIATING)
