@@ -20,6 +20,7 @@
 #define SIMUL_PERF_DELAY_TYPE5		5 // socket receive
 #define SIMUL_PERF_DELAY_TYPE6		6 // peer request submit
 
+#define MAX_PANIC_CERT_BUF			40
 
 typedef struct _SIMULATION_PERF_DEGR {
 	ULONG 		flag;		    // 0: disable, 1: enable
@@ -37,5 +38,15 @@ typedef struct _WRITE_KERNEL_LOG {
 	int length;
 	char message[MAX_BSRLOG_BUF];
 } WRITE_KERNEL_LOG, *PWRITE_KERNEL_LOG;
+
+// BSR-1072
+typedef struct _KERNEL_PANIC_INFO {
+	int enable;
+	int occurrence_time;
+	// BSR-1072 as soon as force is set, it causes a system panic. 
+	int force;
+	// BSR-1073 saves a string for confirmation in the event of an arbitrary panic.
+	char cert[MAX_PANIC_CERT_BUF];
+} KERNEL_PANIC_INFO, *PKERNEL_PANIC_INFO;
 
 #endif

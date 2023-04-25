@@ -997,6 +997,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 
 		}
+		// BSR-1072
+		case IOCTL_MVOL_BSR_PANIC:
+		{
+			status = IOCTL_Panic(DeviceObject, Irp);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+
+		}
 		case IOCTL_MVOL_GET_BSR_LOG:
 		{
 			ULONG size = 0;

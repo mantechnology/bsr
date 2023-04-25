@@ -451,6 +451,56 @@ NTSTATUS IOCTL_WriteLog(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return STATUS_SUCCESS;
 }
 
+// BSR-1072
+extern atomic_t g_forced_kernel_panic;
+extern atomic_t g_panic_occurrence_time;
+
+// BSR-1073
+#include <devguid.h>
+char *guid_to_str(const GUID *id, char *out) 
+{
+	int i;
+	char *ret = out;
+	out += sprintf(out, "{%.8lx-%.4hx-%.4hx-", id->Data1, id->Data2, id->Data3);
+	for (i = 0; i < sizeof(id->Data4); ++i) {
+		out += sprintf(out, "%.2hhx", id->Data4[i]);
+		if (i == 1) *(out++) = '-';
+	}
+	*out = '}';
+
+	return ret;
+}
+
+NTSTATUS IOCTL_Panic(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PKERNEL_PANIC_INFO in = NULL;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		in = (PKERNEL_PANIC_INFO)Irp->AssociatedIrp.SystemBuffer;
+		if (in->force) {
+			// BSR-1073
+			size_t len = strlen(in->cert);
+			if (len > 1 && len < MAX_PANIC_CERT_BUF) {
+				char cert[39] = { 0, };
+				guid_to_str(&GUID_DEVCLASS_VOLUME, cert);
+				if (0 == strcmp(in->cert, cert))
+					KeBugCheckEx(MANUALLY_INITIATED_CRASH1, (ULONG_PTR)NULL, (ULONG_PTR)NULL, (ULONG_PTR)NULL, (ULONG_PTR)NULL);
+			}
+		}
+		else {
+			bsr_info(155, BSR_LC_DRIVER, NO_OBJECT, "sets the bsr kernel panic, %s => %s ", atomic_read(&g_forced_kernel_panic) ? "enable" : "disable", in->enable ? "enable" : "disable");
+			atomic_set(&g_forced_kernel_panic, in->enable);
+
+			bsr_info(156, BSR_LC_DRIVER, NO_OBJECT, "sets the time at which bsr kernel panic occurs, %d => %d", atomic_read(&g_panic_occurrence_time), in->occurrence_time);
+			atomic_set(&g_panic_occurrence_time, in->occurrence_time);
+		}
+	}
+
+	return STATUS_SUCCESS;
+}
 
 // BSR-654 Sets which category is output during debug log.
 NTSTATUS

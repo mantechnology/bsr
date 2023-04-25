@@ -1489,7 +1489,7 @@ int main(int argc, char* argv[])
 					// get parameter 3 (time)
 					if (argIndex < argc) {
 						pt.delay_time = atoi(argv[argIndex]);
-						if (pt.delay_time >= 0 && pt.delay_time <= 500) // 0~500 ms
+						if (pt.delay_time >= 0) 
 							SetPerfSimulFlag(&pt);
 					}
 					else {
