@@ -2540,7 +2540,7 @@ void bsr_send_bitmap_target_complete(struct bsr_device *device, struct bsr_peer_
 
 	if (peer_device->connection->agreed_pro_version < 110) {
 		enum bsr_state_rv rv;
-		rv = stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
+		rv = stable_change_repl_state(__FUNCTION__, peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
 		D_ASSERT(device, rv == SS_SUCCESS);
 	}
 	else {
@@ -4739,6 +4739,9 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
 	atomic_set(&peer_device->wait_for_out_of_sync, 0);
+	
+	// BSR-1067
+	peer_device->repl_state_on_bitmap_queuing = L_OFF;
 
 	// BSR-764
 	spin_lock_init(&peer_device->timing_lock);
@@ -7399,7 +7402,9 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 
 // BSR-743
 retry:
-	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S) {
+	if (peer_device->repl_state[NOW] == L_STARTING_SYNC_S ||
+		// BSR-1067
+		peer_device->repl_state_on_bitmap_queuing == L_STARTING_SYNC_S) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
 			// BSR-904 on linux, the sync source supports fast sync only when it is mounted.
@@ -7427,7 +7432,9 @@ retry:
 			atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 		}
 	}
-	else if (peer_device->repl_state[NOW] == L_STARTING_SYNC_T) {
+	else if (peer_device->repl_state[NOW] == L_STARTING_SYNC_T ||
+		// BSR-1067
+		peer_device->repl_state_on_bitmap_queuing == L_STARTING_SYNC_T) {
 		if (peer_device->connection->agreed_pro_version < 112 ||
 			!isFastInitialSync() ||
 			!SetOOSAllocatedCluster(device, peer_device, L_SYNC_TARGET, false, &bSync))
