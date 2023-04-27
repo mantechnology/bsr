@@ -1882,6 +1882,9 @@ struct bsr_peer_device {
 	struct peer_device_conf *conf; /* RCU, for updates: resource->conf_update */
 	enum bsr_disk_state disk_state[2];
 	enum bsr_repl_state repl_state[2];
+	// BSR-1067 when you add a bitmap queue, if the status is L_STARTING_SYNC_S or L_STARTING_SYNC_T, the latest replication status is set.
+	// used to prevent missing bitmap exchanges due to changes in replication status during invalidate(-remote) progress.
+	enum bsr_repl_state repl_state_on_bitmap_queuing;
 	bool resync_susp_user[2];
 	bool resync_susp_peer[2];
 	bool resync_susp_dependency[2];

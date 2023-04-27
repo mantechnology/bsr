@@ -2638,7 +2638,9 @@ static void abw_start_sync(struct bsr_device *device,
 
 	if (rv) {
 		bsr_err(151, BSR_LC_RESYNC_OV, device, "Failed to starting resync due to failure to writing the bitmap.");
-		stable_change_repl_state(peer_device, L_ESTABLISHED, CS_VERBOSE);
+		stable_change_repl_state(__FUNCTION__, peer_device, L_ESTABLISHED, CS_VERBOSE);
+		// BSR-1067
+		peer_device->repl_state_on_bitmap_queuing = L_OFF;
 		return;
 	}
 
@@ -2656,9 +2658,9 @@ static void abw_start_sync(struct bsr_device *device,
 
 		// DW-1293 peer's bitmap will be reflected on local device's bitmap to perform fast invalidate(remote).
 		if (peer_device->connection->agreed_pro_version >= 112)
-			stable_change_repl_state(peer_device, L_WF_BITMAP_T, CS_VERBOSE);
+			stable_change_repl_state(__FUNCTION__, peer_device, L_WF_BITMAP_T, CS_VERBOSE);
 		else if (peer_device->connection->agreed_pro_version < 110)
-			stable_change_repl_state(peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
+			stable_change_repl_state(__FUNCTION__, peer_device, L_WF_SYNC_UUID, CS_VERBOSE);
 		else
 			bsr_start_resync(peer_device, L_SYNC_TARGET);
 		break;
@@ -2668,13 +2670,23 @@ static void abw_start_sync(struct bsr_device *device,
 	case L_STARTING_SYNC_S:
 		// DW-1293 peer's bitmap will be reflected on local device's bitmap to perform fast invalidate(remote).
 		if (peer_device->connection->agreed_pro_version >= 112)
-			stable_change_repl_state(peer_device, L_WF_BITMAP_S, CS_VERBOSE);
+			stable_change_repl_state(__FUNCTION__, peer_device, L_WF_BITMAP_S, CS_VERBOSE);
 		else
 			bsr_start_resync(peer_device, L_SYNC_SOURCE);
 		break;
 	default:
+		// BSR-1067
+		if (peer_device->connection->agreed_pro_version >= 112) {
+			if (peer_device->repl_state_on_bitmap_queuing == L_STARTING_SYNC_S)
+				stable_change_repl_state(__FUNCTION__, peer_device, L_WF_BITMAP_S, CS_VERBOSE);
+			else if (peer_device->repl_state_on_bitmap_queuing == L_STARTING_SYNC_T)
+				stable_change_repl_state(__FUNCTION__, peer_device, L_WF_BITMAP_T, CS_VERBOSE);
+		} 
 		break;
 	}
+
+	// BSR-1067
+	peer_device->repl_state_on_bitmap_queuing = L_OFF;
 }
 
 int bsr_bitmap_io_from_worker(struct bsr_device *device,
@@ -3560,16 +3572,21 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				send_state = true;
 
 			/* We are in the progress to start a full sync. SyncTarget sets all slots. */
-			if (repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)
+			if (repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T) {
+				// BSR-1067
+				peer_device->repl_state_on_bitmap_queuing = repl_state[NEW];
 				bsr_queue_bitmap_io(device,
-				// DW-1293
+					// DW-1293
 					&bsr_bmio_set_all_or_fast, &abw_start_sync,
 					"set_n_write from StartingSync",
 					BM_LOCK_CLEAR | BM_LOCK_BULK,
 					peer_device);
+			}
 
 			/* We are in the progress to start a full sync. SyncSource one slot. */
 			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) {
+				// BSR-1067
+				peer_device->repl_state_on_bitmap_queuing = repl_state[NEW];
 				bsr_queue_bitmap_io(device,
 				// DW-1293
 					&bsr_bmio_set_all_or_fast, &abw_start_sync,
@@ -5559,7 +5576,7 @@ static bool do_change_repl_state(struct change_context *context, enum change_pha
 		  (new_repl_state == L_VERIFY_S || new_repl_state == L_OFF)));
 }
 
-enum bsr_state_rv change_repl_state(struct bsr_peer_device *peer_device,
+enum bsr_state_rv change_repl_state(const char* caller, struct bsr_peer_device *peer_device,
 				     enum bsr_repl_state new_repl_state,
 				     enum chg_state_flags flags)
 {
@@ -5577,17 +5594,17 @@ enum bsr_state_rv change_repl_state(struct bsr_peer_device *peer_device,
 		.peer_device = peer_device
 	};
 
-	return change_cluster_wide_state(do_change_repl_state, &repl_context.context, __FUNCTION__);
+	return change_cluster_wide_state(do_change_repl_state, &repl_context.context, caller);
 }
 
-enum bsr_state_rv stable_change_repl_state(struct bsr_peer_device *peer_device,
+enum bsr_state_rv stable_change_repl_state(const char* caller, struct bsr_peer_device *peer_device,
 					    enum bsr_repl_state repl_state,
 					    enum chg_state_flags flags)
 {
 	// DW-1605
 	enum bsr_state_rv rv = SS_SUCCESS;
 	stable_state_change(rv, peer_device->device->resource,
-		change_repl_state(peer_device, repl_state, flags));
+		change_repl_state(caller, peer_device, repl_state, flags));
 	return rv;
 }
 

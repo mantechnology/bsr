@@ -4954,7 +4954,7 @@ void resync_after_online_grow(struct bsr_peer_device *peer_device)
 	}
 
 	if (!sync_source && connection->agreed_pro_version < 110) {
-		stable_change_repl_state(peer_device, L_WF_SYNC_UUID,
+		stable_change_repl_state(__FUNCTION__, peer_device, L_WF_SYNC_UUID,
 					 CS_VERBOSE | CS_SERIALIZE);
 		return;
 	}
@@ -5264,10 +5264,10 @@ static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
 
-	rv = change_repl_state(peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
+	rv = change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
 	if (rv < SS_SUCCESS && rv != SS_NEED_CONNECTION)
-		rv = stable_change_repl_state(peer_device, L_STARTING_SYNC_T,
+		rv = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T,
 			CS_VERBOSE | CS_SERIALIZE);
 
 	wait_event_interruptible_ex(resource->state_wait,
@@ -5504,7 +5504,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
 	
-	retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
+	retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
 	if (retcode < SS_SUCCESS) {
 		// BSR-174 not allow invalidate-remote when disconnected
@@ -5522,7 +5522,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			}
 		} else
 #endif
-			retcode = stable_change_repl_state(peer_device, L_STARTING_SYNC_S,
+			retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S,
 							   CS_VERBOSE | CS_SERIALIZE);
 	}
 	bsr_resume_io(device);
@@ -6479,7 +6479,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	 * just being finished, wait for it before requesting a new resync. */
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
-	retcode = stable_change_repl_state(peer_device,
+	retcode = stable_change_repl_state(__FUNCTION__, peer_device,
 		L_VERIFY_S, CS_VERBOSE | CS_SERIALIZE);
 	bsr_resume_io(device);
 
@@ -6513,7 +6513,7 @@ int bsr_adm_stop_ov(struct sk_buff *skb, struct genl_info *info)
 	// BSR-835 acquire volume control mutex, verify-stop does not run while getting bitmap
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-	retcode = stable_change_repl_state(peer_device,
+	retcode = stable_change_repl_state(__FUNCTION__, peer_device,
 		L_ESTABLISHED, CS_VERBOSE | CS_SERIALIZE);
 
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
@@ -6847,7 +6847,7 @@ static enum bsr_ret_code adm_del_minor(struct bsr_device *device)
 		return ret;
 
 	for_each_peer_device_ref(peer_device, im, device)
-		stable_change_repl_state(peer_device, L_OFF,
+		stable_change_repl_state(__FUNCTION__, peer_device, L_OFF,
 					 CS_VERBOSE | CS_WAIT_COMPLETE);
 
 	// BSR-439

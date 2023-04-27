@@ -133,8 +133,8 @@ extern void __change_peer_disk_state(struct bsr_peer_device *, enum bsr_disk_sta
 extern void __change_disk_state(struct bsr_device *, enum bsr_disk_state, const char*);
 extern void __change_cstate_state(struct bsr_connection *, enum bsr_conn_state, const char*);
 
-extern enum bsr_state_rv change_repl_state(struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
-extern enum bsr_state_rv stable_change_repl_state(struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
+extern enum bsr_state_rv change_repl_state(const char* caller, struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
+extern enum bsr_state_rv stable_change_repl_state(const char* caller, struct bsr_peer_device *, enum bsr_repl_state, enum chg_state_flags);
 
 extern void __change_peer_disk_states(struct bsr_connection *, enum bsr_disk_state);
 extern void __outdate_myself(struct bsr_resource *resource);

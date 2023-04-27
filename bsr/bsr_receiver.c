@@ -6991,7 +6991,7 @@ static void bsr_resync(struct bsr_peer_device *peer_device,
 		return;
 	}
 
-	rv = change_repl_state(peer_device, new_repl_state, CS_VERBOSE);
+	rv = change_repl_state(__FUNCTION__, peer_device, new_repl_state, CS_VERBOSE);
 	if ((rv == SS_NOTHING_TO_DO || rv == SS_RESYNC_RUNNING) &&
 	    (new_repl_state == L_WF_BITMAP_S || new_repl_state == L_WF_BITMAP_T)) {
 		/* Those events might happen very quickly. In case we are still processing
@@ -7035,7 +7035,7 @@ static void bsr_resync_authoritative(struct bsr_peer_device *peer_device, enum b
 		}
 	}
 
-	rv = change_repl_state(peer_device, new_repl_state, CS_VERBOSE);
+	rv = change_repl_state(__FUNCTION__, peer_device, new_repl_state, CS_VERBOSE);
 	if (rv == SS_NOTHING_TO_DO || rv == SS_RESYNC_RUNNING) {
 		// DW-2026 remove unnecessary resync again
 		//peer_device->resync_again++;
@@ -10486,6 +10486,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
 
 		atomic_set(&peer_device->wait_for_out_of_sync, 0);
+
+		// BSR-1067
+		peer_device->repl_state_on_bitmap_queuing = L_OFF;
 
 		// DW-1965 initialize values that need to be answered or set after completion of I/O.
 		atomic_set(&peer_device->unacked_cnt, 0);
