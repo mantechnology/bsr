@@ -56,9 +56,10 @@ REL_VERSION := $(REL_VERSION)-$(GITHEAD)
 endif
 
 DIST_VERSION := $(REL_VERSION)
-ifeq ($(subst -,_,$(DIST_VERSION)),$(DIST_VERSION))
-    DIST_VERSION := $(DIST_VERSION)-1
-endif
+# BSR-1079
+# ifeq ($(subst -,_,$(DIST_VERSION)),$(DIST_VERSION))
+#     DIST_VERSION := $(DIST_VERSION)-1
+# endif
 FDIST_VERSION := $(shell test -s .filelist && sed -ne 's,^bsr-\([^/]*\)/.*,\1,p;q' < .filelist)
 ifeq ($(FDIST_VERSION),)
 FDIST_VERSION := $(DIST_VERSION)
@@ -120,14 +121,11 @@ uninstall:
 check check_changelogs_up2date:
 	@ up2date=true; dver_re=$(DIST_VERSION); dver_re=$${dver_re//./\\.};	\
 	dver=$${dver_re%[-~]*}; 						\
-	drel="$${dver_re#"$$dver"}"; drel="$${drel#[-~]}"; 			\
-	test -z "$$drel" && drel=1 && dver_re=$$dver_re"\(-1\| \|$$\)"; 	\
 	echo "checking for presence of $$dver_re in various changelog files"; 	\
 	for f in bsr-kernel.spec ; do 						\
 	v=$$(sed -ne 's/^Version: //p' $$f); 					\
-	r=$$(sed -ne 's/^Release: //p' $$f); 					\
-	if ! printf "%s-%s" "$$v" "$$r" | grep -H --label $$f "$$dver_re\>"; then \
-	   printf "\n\t%s Version/Release: tags need update\n" $$f; 		\
+	if ! printf "%s" "$$v" | grep -H --label $$f "$$dver_re\>"; then \
+	   printf "\n\t%s Version: tags need update\n" $$f; 		\
 	   grep -Hn "^Version: " $$f ; 						\
 	   up2date=false; fi ; 							\
 	in_changelog=$$(sed -n -e '0,/^%changelog/d' 			\
@@ -142,7 +140,7 @@ check check_changelogs_up2date:
 	   printf "\nChangeLog:3:\tneeds update\n"; 				\
 	   up2date=false; fi ; 							\
 	if test -e debian/changelog 						\
-	&& ! grep -H "^bsr ($$dver\(+mantech\)\?[-~]$$drel" debian/changelog; \
+	&& ! grep -H "^bsr ($$dver\(+mantech\)\?" debian/changelog; \
 	then 									\
 	   printf "\n\tdebian/changelog:1: needs update\n"; 			\
 	   up2date=false; fi ; 							\
