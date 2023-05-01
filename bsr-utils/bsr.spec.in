@@ -38,15 +38,16 @@
 
 Name: bsr
 Summary: BSR driver for Linux
-Version: 1.6.3.0
-Release: A4@RPM_DIST_TAG@
-%global tarball_version %(echo "%{version}-%{?release}" | sed -e "s,%{?dist}$,,")
+Version: 1.7.0.0
+# do not modify Release field
+Release: 1@RPM_DIST_TAG@
+%global tarball_version %(echo "%{version}" | sed -e "s,%{?dist}$,,")
 Source: bsr-utils-%{tarball_version}.tar.gz
 License: GPLv2+
 ExclusiveOS: linux
 Group: System Environment/Kernel
 # URL: 
-BuildRoot: %(mktemp -ud %{_tmppath}/bsr-utils-%{version}-%{release}-XXXXXX)
+BuildRoot: %(mktemp -ud %{_tmppath}/bsr-utils-%{version}-XXXXXX)
 BuildRequires: @RPM_BUILDREQ_DEFAULT@
 Requires: bsr-utils = %{version}
 %ifarch %{ix86} x86_64
@@ -318,6 +319,9 @@ fi
 
 
 %changelog
+* Fri Apr 28 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
+- New upstream release.
+
 * Fri Mar 24 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.3.0-A4
 - New upstream release.
 
