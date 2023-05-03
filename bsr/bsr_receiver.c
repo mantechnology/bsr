@@ -9144,6 +9144,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	rv = end_state_change_locked(resource, false, __FUNCTION__);
 	new_repl_state = peer_device->repl_state[NOW];
+	peer_disk_state = peer_device->disk_state[NOW];
 	set_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 	spin_unlock_irq(&resource->req_lock);
 
@@ -9153,6 +9154,15 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			bsr_info(40, BSR_LC_UUID, peer_device, "sends the updated UUID at initial send before bitmap exchange");
 			bsr_send_uuids(peer_device, 0, 0, NOW);
 		}
+	}
+
+	// BSR-1033 progress resync for out of sync set to replication during state setting
+	if (resource->role[NOW] == R_PRIMARY &&
+		(peer_disk_state == D_OUTDATED || (old_peer_state.pdsk == D_OUTDATED || peer_disk_state == D_UP_TO_DATE)) && new_repl_state == L_ESTABLISHED &&
+		bsr_bm_total_weight(peer_device)) {
+		bsr_info(228, BSR_LC_RESYNC_OV, peer_device, "Resync of the replication area that occurs while setting the relative node state is performed. (%llu)", bsr_bm_total_weight(peer_device));
+		peer_device->start_resync_side = L_SYNC_SOURCE;
+		mod_timer(&peer_device->start_resync_timer, jiffies + HZ);
 	}
 
 	if (rv < SS_SUCCESS) {
