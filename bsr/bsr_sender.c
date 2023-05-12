@@ -1392,6 +1392,8 @@ next_sector:
 				goto requeue;
 
 			device->bm_resync_fo = bit;
+			// BSR-1083
+			cond_resched();
 		}
 
 		sector = BM_BIT_TO_SECT(bit);
@@ -1584,6 +1586,8 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 				}
 
 				peer_device->ov_bm_position = bit;
+				// BSR-1083
+				cond_resched();
 			}
 
 			sector = BM_BIT_TO_SECT(bit);
@@ -3431,6 +3435,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				}
 
 				offset = tmp;
+				// BSR-1083
+				cond_resched();
 			}
 
 			// DW-2065

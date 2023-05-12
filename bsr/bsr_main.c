@@ -2346,6 +2346,8 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 			if (tmp >= c->bm_bits || tmp < (offset + RANGE_FIND_NEXT_BIT + 1))
 				break;
 			offset = tmp;
+			// BSR-1083 fix prevent disconnection due to CPU occupation
+			cond_resched();
 		}
 		if (tmp > c->bm_bits)
 			tmp = c->bm_bits;
@@ -2658,6 +2660,8 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 						break;
 					}
 					current_offset = offset;
+					// BSR-1083
+					cond_resched();
 				}
 
 				bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
