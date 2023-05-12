@@ -1043,6 +1043,8 @@ struct bsr_peer_request {
 	ktime_t p_bio_endio_kt;
 	ktime_t p_destroy_kt;
 	
+	// BSR-1039 resync sequence passed to the syncsource node.
+	int resync_seq;
 };
 
 // DW-1755 passthrough policy
@@ -1914,6 +1916,9 @@ struct bsr_peer_device {
 	struct bsr_work propagate_uuids_work;
 	struct ov_work fast_ov_work;
 
+	// BSR-1039 increase when changing from congestion to sync source.
+	atomic_t resync_seq;
+
 	/* Used to track operations of resync... */
 	struct lru_cache *resync_lru;
 	/* Number of locked elements in resync LRU */
@@ -2453,7 +2458,7 @@ extern int bsr_send_current_state(struct bsr_peer_device *);
 extern int bsr_send_sync_param(struct bsr_peer_device *);
 extern void bsr_send_b_ack(struct bsr_connection *connection, s32 barrier_nr, u32 set_size);
 extern int bsr_send_out_of_sync(struct bsr_peer_device *, struct bsr_interval *);
-extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet,
+extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet, int,
 			   struct bsr_peer_request *);
 extern int bsr_send_dblock(struct bsr_peer_device *, struct bsr_request *req);
 extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
@@ -2461,6 +2466,9 @@ extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 
 extern int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	u64 sector, u32 blksize, u64 block_id);
+
+extern int _bsr_send116_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+	u64 sector, u32 blksize, u64 block_id, int seq);
 
 extern int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state);
 

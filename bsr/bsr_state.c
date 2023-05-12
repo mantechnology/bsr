@@ -649,6 +649,15 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 		for_each_peer_device(peer_device, device) {
 			peer_device->disk_state[NOW] = peer_device->disk_state[NEW];
 
+			// BSR-1039
+			if ((peer_device->repl_state[NOW] != L_AHEAD) && (peer_device->repl_state[NEW] == L_AHEAD)) {
+				if (atomic_read(&peer_device->resync_seq) >= MAXINT32) {
+					atomic_set(&peer_device->resync_seq, 1);
+				} else {
+					atomic_inc(&peer_device->resync_seq);
+				}
+			}
+
 			// DW-1131 move to queue_after_state_change_work.
 			// BSR-439 keep the updates repl_state
 			peer_device->repl_state[NOW] = 

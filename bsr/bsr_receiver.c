@@ -2736,9 +2736,16 @@ static int dup_verification_and_processing(struct bsr_peer_device* peer_device, 
 		// send the result only when it is not a split request.
 		// (if it is a split request, set the bitmap only and send the result from the split_request_complet())
 		if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ)) {
-			// BSR-883 return bsr_send_ack result to reconnection in case of failure.
-			err = _bsr_send_ack(peer_device, cmd, cpu_to_be64(sst), cpu_to_be32((int)(offset - sst) << 9),
-				((offset == est) ? ID_SYNCER_SPLIT_DONE : ID_SYNCER_SPLIT));
+			// BSR-1039
+			if (peer_device->connection->agreed_pro_version >= 116 && cmd == P_RS_WRITE_ACK) {
+				err = _bsr_send116_ack(peer_device, P_RS_WRITE116_ACK, cpu_to_be64(sst), cpu_to_be32((int)(offset - sst) << 9),
+					((offset == est) ? ID_SYNCER_SPLIT_DONE : ID_SYNCER_SPLIT), peer_req->resync_seq);
+			}
+			else {
+				// BSR-883 return bsr_send_ack result to reconnection in case of failure.
+				err = _bsr_send_ack(peer_device, cmd, cpu_to_be64(sst), cpu_to_be32((int)(offset - sst) << 9),
+					((offset == est) ? ID_SYNCER_SPLIT_DONE : ID_SYNCER_SPLIT));
+			}
 			if (err)
 				break;
 		}
@@ -3080,6 +3087,9 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		return -EIO;
 	}
 
+	// BSR-1039
+	peer_req->resync_seq = d->peer_seq;
+
 	if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 		clear_bit(STABLE_RESYNC, &device->flags);
 
@@ -3198,6 +3208,9 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																																								(unsigned long long)device->s_rl_bb, 
 																																								(unsigned long long)device->e_rl_bb);
 
+						// BSR-1039
+						split_peer_req->resync_seq = d->peer_seq;
+
 						spin_lock_irq(&device->resource->req_lock);
 						list_add_tail(&split_peer_req->w.list, &peer_device->connection->sync_ee);
 						spin_unlock_irq(&device->resource->req_lock);
@@ -3304,6 +3317,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																																												(unsigned long long)BM_SECT_TO_BIT(split_peer_req->i.sector + (split_peer_req->i.size >> 9)), 
 																																												(unsigned long long)device->s_rl_bb, 
 																																												(unsigned long long)device->e_rl_bb);
+								// BSR-1039
+								split_peer_req->resync_seq = d->peer_seq;
 
 								split_peer_req->unmarked_count = unmarked_count;
 								split_peer_req->failed_unmarked = failed_unmarked;
@@ -3570,13 +3585,21 @@ static void bsr_send_ack_rp(struct bsr_peer_device *peer_device, enum bsr_packet
  * @cmd:	packet command code
  * @peer_req:	peer request
  */
-int bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
-		  struct bsr_peer_request *peer_req)
+int bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd, struct bsr_peer_request *peer_req)
 {
-	return _bsr_send_ack(peer_device, cmd,
-			      cpu_to_be64(peer_req->i.sector),
-			      cpu_to_be32(peer_req->i.size),
-			      peer_req->block_id);
+	if (peer_device->connection->agreed_pro_version >= 116 && cmd == P_RS_WRITE_ACK) {
+		return _bsr_send116_ack(peer_device, P_RS_WRITE116_ACK,
+			cpu_to_be64(peer_req->i.sector),
+			cpu_to_be32(peer_req->i.size),
+			peer_req->block_id,
+			peer_req->resync_seq);
+	}
+	else {
+		return _bsr_send_ack(peer_device, cmd,
+			cpu_to_be64(peer_req->i.sector),
+			cpu_to_be32(peer_req->i.size),
+			peer_req->block_id);
+	}
 }
 
 /* This function misuses the block_id field to signal if the blocks
@@ -10491,6 +10514,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		// DW-2026 Initialize resync_again
 		peer_device->resync_again = false;
 
+		// BSR-1039
+		atomic_set(&peer_device->resync_seq, 0);
+
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 		atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
@@ -11266,6 +11292,7 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 	struct bsr_peer_device *peer_device;
 	struct bsr_device *device;
 	struct p_block_ack *p = pi->data;
+	struct p_block116_ack *p116 = pi->data;
 	sector_t sector = be64_to_cpu(p->sector);
 	int blksize = be32_to_cpu(p->blksize);
 	enum bsr_req_event what = 0;
@@ -11288,12 +11315,16 @@ static int got_BlockAck(struct bsr_connection *connection, struct packet_info *p
 		if (p->block_id == ID_SYNCER_SPLIT || p->block_id == ID_SYNCER_SPLIT_DONE) {
 			if (device->resource->role[NOW] == R_PRIMARY || is_sync_source(peer_device)) {
 				// BSR-848
-				if (peer_device->repl_state[NOW] == L_AHEAD) {
+				if ((peer_device->repl_state[NOW] == L_AHEAD) ||
+					// BSR-1039 add the following conditions because you can remove AL OOS upon completion of delayed resync.
+					(peer_device->connection->agreed_pro_version >= 116 &&
+					p116->resync_seq && p116->resync_seq != atomic_read(&peer_device->resync_seq))) {
 					struct bsr_interval i;
 					i.sector = sector;
 					i.size = blksize;
 					bsr_send_out_of_sync(peer_device, &i);
-				} else {
+				}
+				else {
 					bsr_set_in_sync(peer_device, sector, blksize);
 				}
 			}
@@ -11888,6 +11919,8 @@ static struct meta_sock_cmd ack_receiver_tbl[] = {
 	[P_TWOPC_NO]        = { sizeof(struct p_twopc_reply), got_twopc_reply },
 	[P_TWOPC_RETRY] = { sizeof(struct p_twopc_reply), got_twopc_reply },
 	[P_UUID_ACK] = { 0, got_uuid_ack },
+	// BSR-1039
+	[P_RS_WRITE116_ACK] = { sizeof(struct p_block116_ack), got_BlockAck },
 };
 
 int bsr_ack_receiver(struct bsr_thread *thi)
