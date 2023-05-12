@@ -7,18 +7,19 @@
 
 Name: bsr-kernel
 Summary: Kernel driver for BSR
-Version: 1.6.3.0
-Release: A4%{?dist}
+Version: 1.6.4.0
+# do not modify Release field
+Release: 1%{?dist}
 
 # always require a suitable userland
 # Requires: 
 
-%global tarball_version %(echo "%{version}-%{?release}" | sed -e "s,%{?dist}$,,")
+%global tarball_version %(echo "%{version}" | sed -e "s,%{?dist}$,,")
 Source: bsr-%{tarball_version}.tar.gz
 License: GPLv2+
 Group: System Environment/Kernel
 # URL: 
-BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-XXXXXX)
 BuildRequires: redhat-rpm-config
 %if %{defined kernel_module_package_buildreqs}
 BuildRequires: %kernel_module_package_buildreqs
@@ -100,6 +101,9 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
+* Fri May 12 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.4.0
+- New upstream release.
+
 * Fri Mar 24 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.3.0-A4
 - New upstream release.
 

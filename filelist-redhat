@@ -8,8 +8,10 @@
 /lib/modules/%verrel%dotvariant
 %doc obj/k-config-%verrel%dotvariant.gz
 %if !0%(grep -q "release 6" /etc/redhat-release && echo 1)
+%if %{with modsign}
 %dir /etc/pki/mantech
 /etc/pki/mantech/bsr_signing_key_pub.der
+%endif
 %endif
 %endif
 %config /etc/depmod.d/bsr.conf
