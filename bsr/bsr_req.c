@@ -385,7 +385,7 @@ void bsr_req_destroy(struct kref *kref)
 		 */
 		if (s & RQ_IN_ACT_LOG) {
 			if (get_ldev_if_state(device, D_DETACHING)) {
-				was_last_ref = bsr_al_complete_io(device, &req->i);
+				was_last_ref = bsr_al_complete_io(__FUNCTION__, device, &req->i);
 				put_ldev(device);
 			} else if (bsr_ratelimit()) {
 				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "

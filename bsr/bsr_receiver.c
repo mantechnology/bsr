@@ -2197,7 +2197,7 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 		list_del(&peer_req->w.list);
 		bsr_remove_peer_req_interval(device, peer_req);
 		spin_unlock_irq(&device->resource->req_lock);
-		bsr_al_complete_io(device, &peer_req->i);
+		bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 		bsr_may_finish_epoch(peer_device->connection, peer_req->epoch, EV_PUT | EV_CLEANUP);
 		bsr_free_peer_req(peer_req);
 		bsr_err(8, BSR_LC_PEER_REQUEST, device, "Failed to reissue peer request due to failure to submit, triggering re-connect");
@@ -4530,7 +4530,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		/* For now, it is easier to still handle some "special" requests
 		* "synchronously" from receiver context */
 		if (peer_req->flags & (EE_TRIM|EE_ZEROOUT|EE_WRITE_SAME|EE_IS_BARRIER)) {
-			err = bsr_al_begin_io_for_peer(peer_device, &peer_req->i);
+			err = bsr_al_begin_io_for_peer(__FUNCTION__, peer_device, &peer_req->i);
 			if (err) {
 				// DW-1499 Decrease unacked_cnt when returning an error. 
 				bsr_err(7, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to failure to acquire activity log. Shut down the connection. conn_state(%s) err(%d)", bsr_conn_str(peer_device->connection->cstate[NOW]), err);
@@ -4631,7 +4631,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 
 	/* don't care for the reason here */
 	bsr_err(9, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to failure to submit I/O request, triggering re-connect");
-	bsr_al_complete_io(device, &peer_req->i);
+	bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 
 // BSR-846
 timeout_ee_wait:
@@ -4663,7 +4663,7 @@ void bsr_cleanup_after_failed_submit_peer_request(struct bsr_peer_request *peer_
 	if (bsr_ratelimit())
 		bsr_err(10, BSR_LC_REPLICATION, peer_device, "Failed to I/O submit peer request, triggering re-connect");
 
-	bsr_al_complete_io(device, &peer_req->i);
+	bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 
 	spin_lock_irq(&device->resource->req_lock);
 	list_del(&peer_req->w.list);
@@ -11767,7 +11767,7 @@ found:
 			bsr_info(19, BSR_LC_REPLICATION, NO_OBJECT,"got_peer_ack bsr_set_sync device:%p, peer_req->i.sector:%llx, peer_req->i.size:%d, in_sync_b:%llx, set_sync_mask:%llx", 
 				device, (u64)peer_req->i.sector, peer_req->i.size, (u64)in_sync_b, (u64)set_sync_mask);
 #endif
-			bsr_al_complete_io(device, &peer_req->i);
+			bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 			put_ldev(device);
 		}
 		list_del(&peer_req->recv_order);
@@ -11811,7 +11811,7 @@ static void cleanup_unacked_peer_requests(struct bsr_connection *connection)
 		if (get_ldev(device)) {
 			bsr_set_sync(device, peer_req->i.sector, peer_req->i.size,
 				mask, mask);
-			bsr_al_complete_io(device, &peer_req->i);
+			bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 			put_ldev(device);
 		}
 		list_del(&peer_req->recv_order);

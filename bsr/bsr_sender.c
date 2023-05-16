@@ -335,7 +335,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 				if (peer_req == p_req) {
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls bsr_al_complete_io() upon completion of the write.
-						bsr_al_complete_io(device, &peer_req->i);
+						bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 						bsr_info(23, BSR_LC_PEER_REQUEST, device, "Inactive replication peer request completed. peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {

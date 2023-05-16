@@ -351,7 +351,7 @@ find_active_resync_extent(struct get_activity_log_ref_ctx *al_ctx)
 					if (peer_device->resync_wenr == tmp->lc_number) {
 						int lc_put_result;						
 						peer_device->resync_wenr = LC_FREE;
-						lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+						lc_put_result = lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce);
 						if (lc_put_result == 0) {
 							bm_ext->flags = 0;
 							al_ctx->wake_up = true;
@@ -402,7 +402,7 @@ set_bme_priority(struct get_activity_log_ref_ctx *al_ctx)
 }
 
 static
-struct lc_element *__al_get(struct get_activity_log_ref_ctx *al_ctx)
+struct lc_element *__al_get(const char* caller, struct get_activity_log_ref_ctx *al_ctx)
 {
 	struct bsr_device *device = al_ctx->device;
 	struct lc_element *al_ext = NULL;
@@ -416,9 +416,9 @@ struct lc_element *__al_get(struct get_activity_log_ref_ctx *al_ctx)
 	}
 
 	if (al_ctx->nonblock)
-		al_ext = lc_try_get(device->act_log, al_ctx->enr);
+		al_ext = lc_try_get(caller, device->act_log, al_ctx->enr);
 	else
-		al_ext = lc_get(device->act_log, al_ctx->enr);
+		al_ext = lc_get(caller, device->act_log, al_ctx->enr);
 out: 
 	spin_unlock_irq(&device->al_lock);
 	if (al_ctx->wake_up)
@@ -427,19 +427,19 @@ out:
 }
 
 static
-struct lc_element *_al_get_nonblock(struct bsr_device *device, unsigned int enr)
+struct lc_element *_al_get_nonblock(const char* caller, struct bsr_device *device, unsigned int enr)
 {
 	struct get_activity_log_ref_ctx al_ctx =
 	{ .device = device, .enr = enr, .nonblock = true };
-	return __al_get(&al_ctx);
+	return __al_get(caller, &al_ctx);
 }
 
 static
-struct lc_element *_al_get(struct bsr_device *device, unsigned int enr)
+struct lc_element *_al_get(const char* caller, struct bsr_device *device, unsigned int enr)
 {
 	struct get_activity_log_ref_ctx al_ctx =
 	{ .device = device, .enr = enr, .nonblock = false };
-	return __al_get(&al_ctx);
+	return __al_get(caller, &al_ctx);
 }
 
 bool bsr_al_begin_io_fastpath(struct bsr_device *device, struct bsr_interval *i)
@@ -458,7 +458,7 @@ bool bsr_al_begin_io_fastpath(struct bsr_device *device, struct bsr_interval *i)
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(first);
 #endif
-	return _al_get_nonblock(device, (unsigned int)first) != NULL;
+	return _al_get_nonblock(__FUNCTION__, device, (unsigned int)first) != NULL;
 }
 
 
@@ -707,7 +707,7 @@ void bsr_al_begin_io_commit(struct bsr_device *device)
 	}
 }
 
-bool put_actlog(struct bsr_device *device, unsigned int first, unsigned int last)
+bool put_actlog(const char* caller, struct bsr_device *device, unsigned int first, unsigned int last)
 {
 	struct lc_element *extent;
 	unsigned long flags;
@@ -720,11 +720,11 @@ bool put_actlog(struct bsr_device *device, unsigned int first, unsigned int last
 		int lc_put_result;		
 		extent = lc_find(device->act_log, enr);
 		if (!extent || extent->refcnt <= 0) {
-			bsr_err(4, BSR_LC_LRU, device, "Failed to put Activity log due to inactive extent %u", enr);
+			bsr_err(4, BSR_LC_LRU, device, "%s => Failed to put Activity log due to inactive extent %u", caller, enr);
 			continue;
 		}
 		bsr_debug_al("called lc_put extent->lc_number= %u, extent->refcnt = %u", extent->lc_number, extent->refcnt); 
-		lc_put_result = lc_put(device->act_log, extent);
+		lc_put_result = lc_put(caller, device->act_log, extent);
 		if (lc_put_result == 0)
 			wake = true;
 	}
@@ -744,7 +744,7 @@ bool put_actlog(struct bsr_device *device, unsigned int first, unsigned int last
 * activity log. This function makes sure the area is not active by any
 * resync operation on any connection.
 */
-int bsr_al_begin_io_for_peer(struct bsr_peer_device *peer_device, struct bsr_interval *i)
+int bsr_al_begin_io_for_peer(const char* caller, struct bsr_peer_device *peer_device, struct bsr_interval *i)
 {
 	struct bsr_device *device = peer_device->device;
 	ULONG_PTR first = (ULONG_PTR)i->sector >> (AL_EXTENT_SHIFT - 9);
@@ -762,11 +762,11 @@ int bsr_al_begin_io_for_peer(struct bsr_peer_device *peer_device, struct bsr_int
 	for (enr = first; enr <= last; enr++) {
 		struct lc_element *al_ext;
 		wait_event(device->al_wait,
-				(al_ext = _al_get(device, (unsigned int)enr)) != NULL ||
+				(al_ext = _al_get(__FUNCTION__, device, (unsigned int)enr)) != NULL ||
 				peer_device->connection->cstate[NOW] < C_CONNECTED);
 		if (al_ext == NULL) {
 			if (enr > first)
-				put_actlog(device, (unsigned int)first, (unsigned int)(enr - 1));
+				put_actlog(caller, device, (unsigned int)first, (unsigned int)(enr - 1));
 			return -ECONNABORTED;
 		}
 		if (al_ext->lc_number != enr)
@@ -870,16 +870,16 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 	 * this has to be successful. */
 	for (enr = first; enr <= last; enr++) {
 		struct lc_element *al_ext;
-		al_ext = lc_get_cumulative(device->act_log, (unsigned int)enr);
+		al_ext = lc_get_cumulative(__FUNCTION__, device->act_log, (unsigned int)enr);
 		if (!al_ext)
 			bsr_err(6, BSR_LC_LRU, device, "LOGIC BUG, Failed to get activity log due to not exist. enr=%llu (LC_STARVING=%d LC_LOCKED=%d used=%u pending_changes=%u lc->free=%d lc->lru=%d)",
-						(unsigned long long)enr, 
-						test_bit(__LC_STARVING, &device->act_log->flags),
-						test_bit(__LC_LOCKED, &device->act_log->flags),
-						device->act_log->used,
-						device->act_log->pending_changes,
-						!list_empty(&device->act_log->free),
-						!list_empty(&device->act_log->lru)
+			(unsigned long long)enr,
+			test_bit(__LC_STARVING, &device->act_log->flags),
+			test_bit(__LC_LOCKED, &device->act_log->flags),
+			device->act_log->used,
+			device->act_log->pending_changes,
+			!list_empty(&device->act_log->free),
+			!list_empty(&device->act_log->lru)
 			);
 	}
 	return 0;
@@ -887,7 +887,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 
 /* put activity log extent references corresponding to interval i, return true
  * if at least one extent is now unreferenced. */
-bool bsr_al_complete_io(struct bsr_device *device, struct bsr_interval *i)
+bool bsr_al_complete_io(const char* caller, struct bsr_device *device, struct bsr_interval *i)
 {
 	/* for bios crossing activity log extent boundaries,
 	 * we may need to activate two extents in one go */
@@ -899,7 +899,7 @@ bool bsr_al_complete_io(struct bsr_device *device, struct bsr_interval *i)
 #endif
 	bsr_debug_al("first = %llu last = %llu i->size = %u", (unsigned long long)first, (unsigned long long)last, i->size);
 
-	return put_actlog(device, (unsigned int)first, (unsigned int)last);
+	return put_actlog(caller, device, (unsigned int)first, (unsigned int)last);
 }
 
 static int _try_lc_del(struct bsr_device *device, struct lc_element *al_ext)
@@ -1119,7 +1119,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 	if (mode == SET_OUT_OF_SYNC)
 		e = lc_find(peer_device->resync_lru, enr);
 	else
-		e = lc_get(peer_device->resync_lru, enr);
+		e = lc_get(__FUNCTION__, peer_device->resync_lru, enr);
 	if (e) {
 		struct bm_extent *ext = lc_entry(e, struct bm_extent, lce);
 		if (ext->lce.lc_number == enr) {
@@ -1173,7 +1173,7 @@ static bool update_rs_extent(struct bsr_peer_device *peer_device,
 			lc_committed(peer_device->resync_lru);
 		}
 		if (mode != SET_OUT_OF_SYNC)
-			lc_put(peer_device->resync_lru, &ext->lce);
+			lc_put(__FUNCTION__, peer_device->resync_lru, &ext->lce);
 		/* no race, we are within the al_lock! */
 
 		if (ext->rs_left <= ext->rs_failed) {
@@ -1613,7 +1613,7 @@ struct bm_extent *_bme_get(struct bsr_peer_device *peer_device, unsigned int enr
 		spin_unlock_irq(&device->al_lock);
 		return NULL;
 	}
-	e = lc_get(peer_device->resync_lru, enr);
+	e = lc_get(__FUNCTION__, peer_device->resync_lru, enr);
 	bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 	if (bm_ext) {
 		if (bm_ext->lce.lc_number != enr) {
@@ -1692,7 +1692,7 @@ retry:
 		if (sig || (sa && test_bit(BME_PRIORITY, &bm_ext->flags))) {
 			int lc_put_result;			
 			spin_lock_irq(&device->al_lock);
-			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0; /* clears BME_NO_WRITES and eventually BME_PRIORITY */
 				peer_device->resync_locked--;
@@ -1771,7 +1771,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 			D_ASSERT(device, test_bit(BME_NO_WRITES, &bm_ext->flags));
 			clear_bit(BME_NO_WRITES, &bm_ext->flags);
 			peer_device->resync_wenr = LC_FREE;
-			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0;
 				peer_device->resync_locked--;
@@ -1787,7 +1787,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 		}
 	}
 	/* TRY. */
-	e = lc_try_get(peer_device->resync_lru, (unsigned int)enr);
+	e = lc_try_get("", peer_device->resync_lru, (unsigned int)enr);
 	bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 	if (bm_ext) {
 		if (test_bit(BME_LOCKED, &bm_ext->flags))
@@ -1808,7 +1808,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 		if (peer_device->resync_locked > peer_device->resync_lru->nr_elements-3)
 			goto try_again;
 		/* Do or do not. There is no try. -- Yoda */
-		e = lc_get(peer_device->resync_lru, (unsigned int)enr);
+		e = lc_get(__FUNCTION__, peer_device->resync_lru, (unsigned int)enr);
 		bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 		if (!bm_ext) {
 			const ULONG_PTR rs_flags = peer_device->resync_lru->flags;
@@ -1860,7 +1860,7 @@ try_again:
 			clear_bit(BME_NO_WRITES, &bm_ext->flags);
 			clear_bit(BME_PRIORITY, &bm_ext->flags);
 			peer_device->resync_wenr = LC_FREE;
-			lc_put_result = lc_put(peer_device->resync_lru, &bm_ext->lce);
+			lc_put_result = lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce);
 			if (lc_put_result == 0) {
 				bm_ext->flags = 0;
 				peer_device->resync_locked--;
@@ -1906,7 +1906,7 @@ void bsr_rs_complete_io(struct bsr_peer_device *peer_device, sector_t sector, co
 		return;
 	}
 
-	if (lc_put(peer_device->resync_lru, &bm_ext->lce) == 0) {
+	if (lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce) == 0) {
 		bm_ext->flags = 0; /* clear BME_LOCKED, BME_NO_WRITES and BME_PRIORITY */
 		peer_device->resync_locked--;
 		wake_up(&device->al_wait);
@@ -1963,7 +1963,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 				D_ASSERT(peer_device, test_bit(BME_NO_WRITES, &bm_ext->flags));
 				clear_bit(BME_NO_WRITES, &bm_ext->flags);
 				peer_device->resync_wenr = LC_FREE;
-				lc_put(peer_device->resync_lru, &bm_ext->lce);
+				lc_put(__FUNCTION__, peer_device->resync_lru, &bm_ext->lce);
 			}
 			if (bm_ext->lce.refcnt != 0) {
 				bsr_info(40, BSR_LC_LRU, peer_device, "Retrying resync lru delete all later. number=%u, "
