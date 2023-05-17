@@ -1689,6 +1689,59 @@ DWORD MVOL_WriteBsrKernelLog(int level, char *message)
 	return retVal;
 }
 
+// BSR-1039
+DWORD MVOL_HoldState(int type, int state)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+#endif
+	DWORD       retVal = ERROR_SUCCESS;
+	HOLD_STATE in;
+
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "HOLD_STATE_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
+		fprintf(stderr, "HOLD_STATE_ERROR: Can not open /dev/bsr-control\n");
+		return -1;
+	}
+#endif
+
+	in.type = type;
+	in.state = state;
+
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_HOLD_STATE, &in, sizeof(HOLD_STATE), NULL, 0, &dwReturned, NULL) == FALSE) {
+#else // _LIN
+	if (ioctl(fd, IOCTL_MVOL_HOLD_STATE, &in) != 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "HOLD_STATE_ERROR: %s: Failed IOCTL_MVOL_HOLD_STATE. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+#endif
+
+	return retVal;
+}
+
 // BSR-1072
 DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char* cert)
 {

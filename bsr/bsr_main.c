@@ -219,6 +219,10 @@ atomic_t g_forced_kernel_panic = ATOMIC_INIT(0);
 // BSR-1072 when forced kernel panic is set, panic occurs when the specified time is exceeded.
 atomic_t g_panic_occurrence_time = ATOMIC_INIT(180);
 
+// BSR-1039
+atomic_t g_hold_state_type = ATOMIC_INIT(0);
+atomic_t g_hold_state = ATOMIC_INIT(0);
+
 // BSR-764
 SIMULATION_PERF_DEGR g_simul_perf = {0,};
 

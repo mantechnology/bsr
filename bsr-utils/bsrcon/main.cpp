@@ -1294,6 +1294,24 @@ int cmd_bsr_panic(int *index, int argc, char* argv[])
 	return 0;
 }
 
+// BSR-1039 holds or releases the specified state. (currently only supports L_AHEAD status.)
+int cmd_bsr_hold_state(int *index, int argc, char* argv[])
+{
+	int type = 0;
+	int state = 0;
+
+	(*index)++;
+	if ((*index + 1) < argc) {
+		type = atoi(argv[(*index)++]);
+		state = atoi(argv[(*index)++]);
+		return MVOL_HoldState(type, state);
+	}
+	else
+		usage();
+
+	return 0;
+}
+
 struct cmd_struct {
 	const char *cmd;
 	int(*fn) (int *, int, char **);
@@ -1345,6 +1363,8 @@ static struct cmd_struct commands[] = {
 	// BSR-1072
 	{ "/forced_panic", cmd_forced_panic, "", "", "", true },
 	{ "/bsr_panic", cmd_bsr_panic, "", "", "", true },
+	// BSR-1039
+	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
 };
 
 static void usage()

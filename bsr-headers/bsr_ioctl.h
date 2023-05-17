@@ -49,4 +49,15 @@ typedef struct _KERNEL_PANIC_INFO {
 	char cert[MAX_PANIC_CERT_BUF];
 } KERNEL_PANIC_INFO, *PKERNEL_PANIC_INFO;
 
+// BSR-1039
+#define HOLD_STATE_TYPE_UNKNOWN		0
+#define HOLD_STATE_TYPE_CONNECT		1
+#define HOLD_STATE_TYPE_REPL		2
+#define HOLD_STATE_TYPE_DISK		3
+
+typedef struct _HOLD_STATE {
+	int type; 
+	int state;
+} HOLD_STATE, *PHOLD_STATE;
+
 #endif

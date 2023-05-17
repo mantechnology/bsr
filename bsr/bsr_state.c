@@ -651,7 +651,7 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 
 			// BSR-1039
 			if ((peer_device->repl_state[NOW] != L_AHEAD) && (peer_device->repl_state[NEW] == L_AHEAD)) {
-				if (atomic_read(&peer_device->resync_seq) >= MAXINT32) {
+				if (atomic_read(&peer_device->resync_seq) >= INT32_MAX) {
 					atomic_set(&peer_device->resync_seq, 1);
 				} else {
 					atomic_inc(&peer_device->resync_seq);

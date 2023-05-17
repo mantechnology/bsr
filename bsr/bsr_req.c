@@ -2804,6 +2804,7 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 	struct bsr_peer_request *peer_req;
 	struct bsr_request *req = NULL;
 	bool made_progress = false;
+	struct bsr_peer_device *peer_device;
 	bool wake = false;
 	int err;
 
@@ -2838,7 +2839,6 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 		if (err == -ENOBUFS) {
 			// BSR-1039 set AL OOS because no AL is available in congestion.
 			spin_unlock_irq(&device->al_lock);
-			struct bsr_peer_device *peer_device;
 			err = 0;
 			for_each_peer_device(peer_device, device) {
 				if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
@@ -2871,7 +2871,6 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 		if (err)
 			list_move_tail(&req->tl_requests, &wfa->requests.later);
 		else {
-			bsr_info(-1, BSR_LC_ETC, device, "set device to RQ_IN_ACT_LOG, %llu ~ %llu", first, last);
 			list_move_tail(&req->tl_requests, &wfa->requests.pending);
 			made_progress = true;
 		}

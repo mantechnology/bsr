@@ -11260,11 +11260,20 @@ validate_req_change_req_state(struct bsr_peer_device *peer_device, u64 id, secto
 	return 0;
 }
 
+extern atomic_t g_hold_state_type;
+extern atomic_t g_hold_state;
+
 // BSR-381 
 static void try_change_ahead_to_sync_source(struct bsr_connection *connection)
 {
 	int vnr;
 	struct bsr_peer_device *peer_device;
+
+	// BSR-1039
+	if (atomic_read(&g_hold_state_type) == HOLD_STATE_TYPE_REPL &&
+		atomic_read(&g_hold_state) == L_AHEAD) {
+		return;
+	}
 
 	rcu_read_lock();
 	// BSR-381 check AHEAD_TO_SYNC_SOURCE in connection unit.
