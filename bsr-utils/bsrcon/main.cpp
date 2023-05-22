@@ -1312,6 +1312,21 @@ int cmd_bsr_hold_state(int *index, int argc, char* argv[])
 	return 0;
 }
 
+int cmd_bsr_fake_al_used(int *index, int argc, char* argv[])
+{
+	int al_used_count = 0;
+
+	(*index)++;
+	if (*index < argc) {
+		al_used_count = atoi(argv[(*index)++]);
+		return MVOL_FakeALUsed(al_used_count);
+	}
+	else
+		usage();
+
+	return 0;
+}
+
 struct cmd_struct {
 	const char *cmd;
 	int(*fn) (int *, int, char **);
@@ -1365,6 +1380,7 @@ static struct cmd_struct commands[] = {
 	{ "/bsr_panic", cmd_bsr_panic, "", "", "", true },
 	// BSR-1039
 	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
+	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", false },
 };
 
 static void usage()

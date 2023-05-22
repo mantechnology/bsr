@@ -223,6 +223,8 @@ atomic_t g_panic_occurrence_time = ATOMIC_INIT(180);
 atomic_t g_hold_state_type = ATOMIC_INIT(0);
 atomic_t g_hold_state = ATOMIC_INIT(0);
 
+atomic_t g_fake_al_used = ATOMIC_INIT(0);
+
 // BSR-764
 SIMULATION_PERF_DEGR g_simul_perf = {0,};
 

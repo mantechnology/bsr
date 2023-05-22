@@ -517,6 +517,25 @@ NTSTATUS IOCTL_HoldState(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	return 0;
 }
+
+extern atomic_t g_fake_al_used;
+
+long IOCTL_FakeALUsed(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	int al_used_count;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		al_used_count = *(int*)Irp->AssociatedIrp.SystemBuffer;
+		bsr_info(162, BSR_LC_DRIVER, NO_OBJECT, "sets the fake AL used, %d => %d", atomic_read(&g_fake_al_used), al_used_count);
+		atomic_set(&g_fake_al_used, al_used_count);
+	}
+
+	return 0;
+}
+
 NTSTATUS IOCTL_Panic(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;

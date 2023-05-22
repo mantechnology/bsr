@@ -3801,7 +3801,7 @@ static void print_current_alstat(char * name, int vnr)
 	struct title_field err_stat = {"error", 5};
 
 	// 6001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 64 0 0 0 0 0
-	struct perf_field al_ext_fields = {"al-extents", NULL};
+	struct perf_field al_ext_fields = {"al_extents", NULL};
 	struct perf_field al_used_fields = {"al_used", NULL}; // cur, max
 	struct perf_field al_cur_total_fields[] = { // cur, total
 		{"hits", NULL},

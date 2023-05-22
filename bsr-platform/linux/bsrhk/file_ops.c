@@ -353,6 +353,27 @@ long bsr_hold_state(HOLD_STATE __user * args)
 	return 0;
 }
 
+extern atomic_t g_fake_al_used;
+
+long bsr_fake_al_used(int __user * args) 
+{
+	
+	int err;
+	int al_used_count;
+
+	err = copy_from_user(&al_used_count, args, sizeof(int));
+	
+	if(err) {
+		bsr_err(161, BSR_LC_DRIVER, NO_OBJECT, "Failed to IOCTL_MVOL_FAKE_AL_USED due to copy from user");
+		return -1;
+	}
+	
+	bsr_info(162, BSR_LC_DRIVER, NO_OBJECT, "sets the fake AL used, %d => %d", atomic_read(&g_fake_al_used), al_used_count);
+	atomic_set(&g_fake_al_used, al_used_count);
+
+	return 0;
+}
+
 long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 {
 	int err = 0;
@@ -423,6 +444,11 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 	case IOCTL_MVOL_HOLD_STATE:
 	{
 		err = bsr_hold_state((HOLD_STATE __user *)param);
+		break;
+	}
+	case IOCTL_MVOL_FAKE_AL_USED:
+	{
+		err = bsr_fake_al_used((int __user *)param);
 		break;
 	}
 	default :

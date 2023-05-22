@@ -1268,6 +1268,8 @@ static void device_act_log_stat_reset(struct bsr_device * device)
 	device->al_wait_retry_max = 0;
 }
 
+extern atomic_t g_fake_al_used;
+
 // BSR-765 add AL performance aggregation
 int device_act_log_stat_show(struct seq_file *m, void *ignored)
 {
@@ -1288,7 +1290,7 @@ int device_act_log_stat_show(struct seq_file *m, void *ignored)
 	spin_lock_irq(&device->al_lock);
 	/* nr_elements used used_max*/
 	seq_printf(m, "%u %u %u ",
-		device->act_log->nr_elements, device->act_log->used, device->act_log->used_max);
+		device->act_log->nr_elements, (device->act_log->used + atomic_read(&g_fake_al_used)), device->act_log->used_max);
 
 	/*hits_cnt hits misses_cnt misses starving_cnt starving locked_cnt locked changed_cnt changed */
 	show_al_stat(hits_cnt, hits);

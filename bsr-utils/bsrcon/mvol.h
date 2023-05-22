@@ -89,6 +89,7 @@ DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char *cert
 
 // BSR-1039
 DWORD MVOL_HoldState(int type, int state);
+DWORD MVOL_FakeALUsed(int al_used_count);
 
 // BSR-654
 DWORD MVOL_SetDebugLogCategory(PDEBUG_LOG_CATEGORY pDlcE);

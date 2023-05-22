@@ -779,6 +779,8 @@ int bsr_al_begin_io_for_peer(const char* caller, struct bsr_peer_device *peer_de
 
 }
 
+extern atomic_t g_fake_al_used;
+
 int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 {
 	struct lru_cache *al = device->act_log;
@@ -800,11 +802,11 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 	nr_al_extents = 1 + last - first; /* worst case: all touched extends are cold. */
 
 	// DW-1513 If the used value is greater than nr_elements, set available_update_slots to 0.
-	if (al->nr_elements < al->used)	{
+	if (al->nr_elements < (al->used + atomic_read(&g_fake_al_used)))	{
 		available_update_slots = 0;
 		bsr_warn(19, BSR_LC_LRU, device, "No update slot is available");
 	} else {
-		available_update_slots = min(al->nr_elements - al->used,
+		available_update_slots = min(al->nr_elements - (al->used + atomic_read(&g_fake_al_used)),
 					al->max_pending_changes - al->pending_changes);
 	}
 
@@ -836,7 +838,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		else {
 			if (atomic_read(&g_bsrmon_run))
 				device->e_al_used++;
-			bsr_info(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, al->used);
+			bsr_info(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, (al->used + atomic_read(&g_fake_al_used)));
 		}
 		return -ENOBUFS;
 	}
