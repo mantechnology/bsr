@@ -1769,6 +1769,8 @@ static void complete_conflicting_writes(struct bsr_request *req)
 	finish_wait(&device->misc_wait, &wait);
 }
 
+extern atomic_t g_fake_al_used;
+
 /* called within req_lock and rcu_read_lock() */
 static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection *connection)
 {
@@ -1818,7 +1820,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	}
 
 
-	if (device->act_log->used >= nc->cong_extents) {
+	if ((device->act_log->used + atomic_read(&g_fake_al_used)) >= nc->cong_extents) {
 		bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached");
 		congested = true;
 	}
@@ -2797,6 +2799,8 @@ static struct bsr_peer_request *wfa_next_peer_request(struct waiting_for_act_log
 		&wfa->peer_requests.more_incoming : &wfa->peer_requests.incoming;
 	return list_first_entry_or_null(lh, struct bsr_peer_request, wait_for_actlog);
 }
+
+extern atomic_t g_fake_al_used;
 
 static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 						struct waiting_for_act_log *wfa)

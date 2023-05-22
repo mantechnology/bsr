@@ -1011,6 +1011,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 
 		}
+		// BSR-1039
 		case IOCTL_MVOL_FAKE_AL_USED:
 		{
 			status = IOCTL_FakeALUsed(DeviceObject, Irp);

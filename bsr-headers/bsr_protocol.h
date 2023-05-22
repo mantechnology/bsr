@@ -106,7 +106,8 @@ enum bsr_packet {
 	// BSR-863
 	P_UUID_ACK = 0x50,
 
-	// BSR-1039
+	// BSR-1039 protocol added to determine if resync occurred prior to congestion (L_AHEAD).
+	// unlike traditional P_RS_WRITE_ACK, sequence information is added during resync. 
 	P_RS_WRITE116_ACK = 0x51,
 
 	P_MAY_IGNORE	      = 0x100, /* Flag to test if (cmd > P_MAY_IGNORE) ... */

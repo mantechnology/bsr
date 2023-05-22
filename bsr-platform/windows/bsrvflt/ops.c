@@ -520,6 +520,7 @@ NTSTATUS IOCTL_HoldState(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 extern atomic_t g_fake_al_used;
 
+// BSR-1039
 long IOCTL_FakeALUsed(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;

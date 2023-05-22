@@ -1312,6 +1312,7 @@ int cmd_bsr_hold_state(int *index, int argc, char* argv[])
 	return 0;
 }
 
+// BSR-1039 sets the number of fake slots used by AL.
 int cmd_bsr_fake_al_used(int *index, int argc, char* argv[])
 {
 	int al_used_count = 0;
@@ -1380,6 +1381,7 @@ static struct cmd_struct commands[] = {
 	{ "/bsr_panic", cmd_bsr_panic, "", "", "", true },
 	// BSR-1039
 	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
+	// BSR-1039
 	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", false },
 };
 

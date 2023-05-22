@@ -838,7 +838,8 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		else {
 			if (atomic_read(&g_bsrmon_run))
 				device->e_al_used++;
-			bsr_info(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, (al->used + atomic_read(&g_fake_al_used)));
+
+			bsr_debug(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, (al->used + atomic_read(&g_fake_al_used)));
 		}
 		return -ENOBUFS;
 	}
@@ -878,7 +879,7 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 			(unsigned long long)enr,
 			test_bit(__LC_STARVING, &device->act_log->flags),
 			test_bit(__LC_LOCKED, &device->act_log->flags),
-			device->act_log->used,
+			device->act_log->used + atomic_read(&g_fake_al_used),
 			device->act_log->pending_changes,
 			!list_empty(&device->act_log->free),
 			!list_empty(&device->act_log->lru)
@@ -1370,7 +1371,7 @@ ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
 #endif
 				rcu_read_unlock();
 
-			if (device->act_log->used < nc->cong_extents)
+			if ((device->act_log->used + atomic_read(&g_fake_al_used)) < nc->cong_extents)
 				wake_up(&device->al_wait);
 		}
 	}
@@ -1789,7 +1790,7 @@ int bsr_try_rs_begin_io(struct bsr_peer_device *peer_device, sector_t sector, bo
 		}
 	}
 	/* TRY. */
-	e = lc_try_get("", peer_device->resync_lru, (unsigned int)enr);
+	e = lc_try_get(__FUNCTION__, peer_device->resync_lru, (unsigned int)enr);
 	bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 	if (bm_ext) {
 		if (test_bit(BME_LOCKED, &bm_ext->flags))
