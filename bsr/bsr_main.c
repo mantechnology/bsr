@@ -7376,6 +7376,8 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	// BSR-52 for sync only current oos after online verify.
 	if (test_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags)) {
 		clear_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
+		// BSR-1064
+		atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 		return nRet;
 	}
 
