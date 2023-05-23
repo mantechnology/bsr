@@ -6967,7 +6967,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	if (get_t_state(&resource->worker) != RUNNING) {		
 		bsr_msg_put_info(adm_ctx.reply_skb, "resource already down");
 		retcode = SS_NOTHING_TO_DO;
-		goto out;
+		goto fail;
 	}
 	
 	/* demote */
@@ -7034,7 +7034,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 		}
-		goto out;
+		goto fail;
 	}
 #else
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, i) {
@@ -7054,7 +7054,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 			if (!NT_SUCCESS(status)) {
 				retcode = ERR_RES_NOT_KNOWN;
 				resource->bPreDismountLock = FALSE;
-				goto out;
+				goto fail;
 			}
 
 			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
@@ -7063,11 +7063,11 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 			if (retcode < SS_SUCCESS) {
 				bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 				FsctlUnlockVolume(device->minor);
-				goto out;
+				goto fail;
 			}
 		} else {
 			retcode = ERR_RES_IN_USE;
-			goto out;
+			goto fail;
 		}
 	}
 #endif
@@ -7075,7 +7075,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 	if (retcode < SS_SUCCESS) {
 		bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
-		goto out;
+		goto fail;
 	}
 #endif
 
@@ -7096,7 +7096,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 			bsr_info(58, BSR_LC_GENL, connection, "Failed to disconnect during resource down. ret(%d)", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
 			kref_put(&connection->kref, bsr_destroy_connection);
-			goto out;
+			goto fail;
 		}
 	}
 
@@ -7111,7 +7111,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		if (retcode < SS_SUCCESS || retcode > ERR_NO) {
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to detach");
 			kref_put(&device->kref, bsr_destroy_device);
-			goto out;
+			goto fail;
 		}
 		mutex_lock(&resource->conf_update);
 		ret = adm_del_minor(device);
@@ -7120,7 +7120,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		if (ret != ERR_NO) {
 			/* "can not happen" */
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to delete volume");
-			goto out;
+			goto fail;
 		}
 		rcu_read_lock();
 	}
@@ -7130,10 +7130,11 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	retcode = adm_del_resource(resource);
 	/* holding a reference to resource in adm_crx until bsr_adm_finish() */
 	mutex_unlock(&resource->conf_update);
-out:
+fail:
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
 	mutex_unlock(&resource->adm_mutex);
+out:
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 }
