@@ -525,7 +525,7 @@ static const char * const __log_category_names[] = {
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 101
-#define BSR_LC_IO_MAX_INDEX 61
+#define BSR_LC_IO_MAX_INDEX 62
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 127
 #define BSR_LC_LRU_MAX_INDEX 42
@@ -1918,6 +1918,8 @@ struct bsr_peer_device {
 
 	// BSR-1039 increase when changing from congestion to sync source.
 	atomic_t resync_seq;
+	// BSR-1039
+	atomic_t al_oos_cnt;
 
 	/* Used to track operations of resync... */
 	struct lru_cache *resync_lru;

@@ -4767,6 +4767,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 
 	// BSR-1039
 	atomic_set(&peer_device->resync_seq, 0);
+	atomic_set(&peer_device->al_oos_cnt, 0);
 
 	// DW-2058
 	atomic_set(&peer_device->rq_pending_oos_cnt, 0);

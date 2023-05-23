@@ -10516,6 +10516,7 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// BSR-1039
 		atomic_set(&peer_device->resync_seq, 0);
+		atomic_set(&peer_device->al_oos_cnt, 0);
 
 		// DW-1979
 		atomic_set(&peer_device->wait_for_recv_bitmap, 1);

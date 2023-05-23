@@ -2802,13 +2802,45 @@ static struct bsr_peer_request *wfa_next_peer_request(struct waiting_for_act_log
 
 extern atomic_t g_fake_al_used;
 
+// BSR-1039
+static int bsr_al_oos_io_nonblock(struct bsr_device* device, struct bsr_request *req)
+{
+	struct bsr_peer_device *peer_device;
+
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
+			if (peer_device->connection->agreed_pro_version >= 116) {
+				if (peer_device->repl_state[NOW] == L_AHEAD) {
+					req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
+					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+				}
+				else {
+					return -ENOBUFS;
+				}
+			}
+			else {
+				return -ENOBUFS;
+			}
+		}
+	}
+
+	req->rq_state[0] |= RQ_IN_AL_OOS;
+
+	for_each_peer_device(peer_device, device) {
+		if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+			atomic_inc(&peer_device->al_oos_cnt);
+		}
+	}
+
+	return 0;
+}
+
 static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 						struct waiting_for_act_log *wfa)
 {
 	struct bsr_peer_request *peer_req;
 	struct bsr_request *req = NULL;
 	bool made_progress = false;
-	struct bsr_peer_device *peer_device;
 	bool wake = false;
 	int err;
 
@@ -2843,28 +2875,8 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 		if (err == -ENOBUFS) {
 			// BSR-1039 set AL OOS because no AL is available in congestion.
 			spin_unlock_irq(&device->al_lock);
-			err = 0;
-			for_each_peer_device(peer_device, device) {
-				if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
-					if (peer_device->connection->agreed_pro_version >= 116) {
-						if (peer_device->repl_state[NOW] == L_AHEAD) {
-							req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
-							bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-						}
-						else {
-							err = -ENOBUFS;
-							break;
-						}
-					}
-					else {
-						err = -ENOBUFS;
-						break;
-					}
-				}
-			}
-
+			err = bsr_al_oos_io_nonblock(device, req);
 			if (!err) {
-				req->rq_state[0] |= RQ_IN_AL_OOS;
 				list_move_tail(&req->tl_requests, &wfa->requests.pending);
 				made_progress = true;
 			}
