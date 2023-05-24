@@ -279,7 +279,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 
 DWORD UnInstall(const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+	TCHAR pTemp[1024];
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -314,7 +314,7 @@ DWORD UnInstall(const TCHAR * pName)
 
 DWORD KillService(const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+	TCHAR pTemp[1024];
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -397,7 +397,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 }
 DWORD RunService(const TCHAR * pName)
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024];
     DWORD err = ERROR_SUCCESS;
 
     // run service with given name
@@ -463,6 +463,7 @@ VOID ExecuteSubProcess()
 int RunBsrmon()
 {
 	TCHAR cmd[MAX_PATH] = { 0 };
+	TCHAR cmd_stop[MAX_PATH] = { 0 };
 	char bsr_path[MAX_PATH] = { 0, };
 	char perf_path[MAX_PATH] = { 0, };
 	size_t path_size;
@@ -476,6 +477,8 @@ int RunBsrmon()
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD period_value = 0;
 	DWORD run = 1;
+	wchar_t pTemp[1024];
+
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
 	if (result)
 		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
@@ -486,6 +489,7 @@ int RunBsrmon()
 	CreateDirectoryA(perf_path, NULL);
 
 	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
+	_stprintf_s(cmd_stop, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/stop"));
 
 	// BSR-694
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
@@ -510,12 +514,25 @@ int RunBsrmon()
 		if (run) {
 			DWORD ret;
 			DWORD dwPID;
+
 			// run bsrmon
 			ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 			if (ret) {
-				RegCloseKey(hKey);
-				return 0;
+				// BSR-1082 if an error occurs, log and stop the collection.
+				wsprintf(pTemp, L"Failed to execution bsrmon. error code = %x\n", ret);
+				WriteLog(pTemp);
+
+				// BSR-1082 stop bsrmon
+				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd_stop, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
+				if (ret) {
+					// BSR-1082 change only the registry value if the stop fails
+					RegSetValueEx(hKey, _T("bsrmon_run"), 0, REG_DWORD, (LPBYTE)&run, sizeof(run));
+
+					wsprintf(pTemp, L"Failed to stop bsrmon due to error. Please manually stop and restart. error code = %x\n", ret);
+					WriteLog(pTemp);
+				}
 			}
+			run = 0;
 		}
 
 	}
@@ -571,7 +588,7 @@ VOID WriteKernelLog(const TCHAR *message)
 
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024];
 
     g_tServiceStatus.dwServiceType = SERVICE_WIN32;
     g_tServiceStatus.dwCurrentState = SERVICE_START_PENDING;
@@ -732,7 +749,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 #endif
 
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024];
 
     switch (fdwControl) {
         case SERVICE_CONTROL_STOP:
