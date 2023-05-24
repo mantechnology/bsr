@@ -221,7 +221,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+    TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
@@ -279,7 +279,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 
 DWORD UnInstall(const TCHAR * pName)
 {
-	TCHAR pTemp[1024];
+	TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -314,7 +314,7 @@ DWORD UnInstall(const TCHAR * pName)
 
 DWORD KillService(const TCHAR * pName)
 {
-	TCHAR pTemp[1024];
+	TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -352,7 +352,7 @@ DWORD KillService(const TCHAR * pName)
 // DW-1741 add update service description
 DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 {
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 	DWORD err = ERROR_SUCCESS;
 
 	// run service with given name
@@ -397,7 +397,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 }
 DWORD RunService(const TCHAR * pName)
 {
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     // run service with given name
@@ -477,7 +477,7 @@ int RunBsrmon()
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD period_value = 0;
 	DWORD run = 1;
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
 	if (result)
@@ -550,7 +550,7 @@ int get_daemon_port()
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD value = BSR_DAEMON_TCP_PORT;
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
 
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
@@ -588,7 +588,7 @@ VOID WriteKernelLog(const TCHAR *message)
 
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
     g_tServiceStatus.dwServiceType = SERVICE_WIN32;
     g_tServiceStatus.dwCurrentState = SERVICE_START_PENDING;
@@ -749,7 +749,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 #endif
 
 {
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
     switch (fdwControl) {
         case SERVICE_CONTROL_STOP:
