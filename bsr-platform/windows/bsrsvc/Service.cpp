@@ -515,6 +515,7 @@ int RunBsrmon()
 			DWORD ret;
 			DWORD dwPID;
 
+			run = 0;
 			// run bsrmon
 			ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 			if (ret) {
@@ -532,7 +533,6 @@ int RunBsrmon()
 					WriteLog(pTemp);
 				}
 			}
-			run = 0;
 		}
 
 	}
