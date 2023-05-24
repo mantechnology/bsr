@@ -106,6 +106,10 @@ enum bsr_packet {
 	// BSR-863
 	P_UUID_ACK = 0x50,
 
+	// BSR-1039 protocol added to determine if resync occurred prior to congestion (L_AHEAD).
+	// unlike traditional P_RS_WRITE_ACK, sequence information is added during resync. 
+	P_RS_WRITE116_ACK = 0x51,
+
 	P_MAY_IGNORE	      = 0x100, /* Flag to test if (cmd > P_MAY_IGNORE) ... */
 
 	/* special command ids for handshake */
@@ -215,6 +219,15 @@ struct p_block_ack {
 	uint32_t blksize;
 	uint32_t seq_num;
 } __packed;
+
+struct p_block116_ack {
+	uint64_t sector;
+	uint64_t block_id;
+	uint32_t blksize;
+	uint32_t seq_num;
+	int32_t resync_seq;
+} __packed;
+
 
 struct p_block_req {
 	uint64_t sector;

@@ -471,6 +471,72 @@ char *guid_to_str(const GUID *id, char *out)
 	return ret;
 }
 
+extern atomic_t g_hold_state_type;
+extern atomic_t g_hold_state;
+
+// BSR-1039
+NTSTATUS IOCTL_HoldState(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PHOLD_STATE in = NULL;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		in = (PHOLD_STATE)Irp->AssociatedIrp.SystemBuffer;
+
+		if ((atomic_read(&g_hold_state_type) == HOLD_STATE_TYPE_REPL && atomic_read(&g_hold_state) == L_AHEAD) &&
+			(in->type != HOLD_STATE_TYPE_REPL || in->state != L_AHEAD)) {
+			struct bsr_resource *resource;
+			struct bsr_connection *connection;
+			struct bsr_peer_device *peer_device;
+			int vnr;
+			
+			rcu_read_lock();
+			for_each_resource_rcu(resource, &bsr_resources) {
+				for_each_connection_rcu(connection, resource) {
+					idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+						if (peer_device->repl_state[NOW] == L_AHEAD &&
+							(atomic_read64(&connection->rs_in_flight) + atomic_read64(&connection->ap_in_flight)) == 0 &&
+							!test_and_set_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+							wake_up(&connection->resource->resync_reply_wait);
+							peer_device->start_resync_side = L_SYNC_SOURCE;
+							mod_timer(&peer_device->start_resync_timer, jiffies + HZ);
+						}
+					}
+				}
+			}
+			rcu_read_unlock();
+		}
+		bsr_info(158, BSR_LC_DRIVER, NO_OBJECT, "sets the hold state type, %d => %d", atomic_read(&g_hold_state_type), in->type);
+		atomic_set(&g_hold_state_type, in->type);
+
+		bsr_info(159, BSR_LC_DRIVER, NO_OBJECT, "sets the hold state, %d => %d", atomic_read(&g_hold_state), in->state);
+		atomic_set(&g_hold_state, in->state);
+	}
+
+	return 0;
+}
+
+extern atomic_t g_fake_al_used;
+
+// BSR-1039
+long IOCTL_FakeALUsed(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	int al_used_count;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		al_used_count = *(int*)Irp->AssociatedIrp.SystemBuffer;
+		bsr_info(162, BSR_LC_DRIVER, NO_OBJECT, "sets the fake AL used, %d => %d", atomic_read(&g_fake_al_used), al_used_count);
+		atomic_set(&g_fake_al_used, al_used_count);
+	}
+
+	return 0;
+}
+
 NTSTATUS IOCTL_Panic(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;

@@ -385,7 +385,7 @@ void bsr_req_destroy(struct kref *kref)
 		 */
 		if (s & RQ_IN_ACT_LOG) {
 			if (get_ldev_if_state(device, D_DETACHING)) {
-				was_last_ref = bsr_al_complete_io(device, &req->i);
+				was_last_ref = bsr_al_complete_io(__FUNCTION__, device, &req->i);
 				put_ldev(device);
 			} else if (bsr_ratelimit()) {
 				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
@@ -1769,6 +1769,8 @@ static void complete_conflicting_writes(struct bsr_request *req)
 	finish_wait(&device->misc_wait, &wait);
 }
 
+extern atomic_t g_fake_al_used;
+
 /* called within req_lock and rcu_read_lock() */
 static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection *connection)
 {
@@ -1818,7 +1820,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	}
 
 
-	if (device->act_log->used >= nc->cong_extents) {
+	if ((device->act_log->used + atomic_read(&g_fake_al_used)) >= nc->cong_extents) {
 		bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached");
 		congested = true;
 	}
@@ -1992,7 +1994,8 @@ static int bsr_process_write_request(struct bsr_request *req)
 				_req_mod(req, QUEUE_FOR_PENDING_OOS, peer_device);
 			}
 			else {
-				if (c) {
+				// BSR-1039 send OOS to the node to be set up on AL OOS.
+				if (c || (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)) {
 					_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
 				}
 			}
@@ -2797,11 +2800,46 @@ static struct bsr_peer_request *wfa_next_peer_request(struct waiting_for_act_log
 	return list_first_entry_or_null(lh, struct bsr_peer_request, wait_for_actlog);
 }
 
+extern atomic_t g_fake_al_used;
+
+// BSR-1039
+static int bsr_al_oos_io_nonblock(struct bsr_device* device, struct bsr_request *req)
+{
+	struct bsr_peer_device *peer_device;
+
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
+			if (peer_device->connection->agreed_pro_version >= 116) {
+				if (peer_device->repl_state[NOW] == L_AHEAD) {
+					req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
+					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+				}
+				else {
+					return -ENOBUFS;
+				}
+			}
+			else {
+				return -ENOBUFS;
+			}
+		}
+	}
+
+	req->rq_state[0] |= RQ_IN_AL_OOS;
+
+	for_each_peer_device(peer_device, device) {
+		if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+			atomic_inc(&peer_device->al_oos_cnt);
+		}
+	}
+
+	return 0;
+}
+
 static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 						struct waiting_for_act_log *wfa)
 {
 	struct bsr_peer_request *peer_req;
-	struct bsr_request *req;
+	struct bsr_request *req = NULL;
 	bool made_progress = false;
 	bool wake = false;
 	int err;
@@ -2810,7 +2848,7 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 
 	/* Don't even try, if someone has it locked right now. */
 	if (test_bit(__LC_LOCKED, &device->act_log->flags))
-		goto out;
+		goto out_unlock;
 	
 	peer_req = wfa_next_peer_request(wfa);
 	while (peer_req) {
@@ -2834,8 +2872,16 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 			ktime_get_accounting(req->before_al_begin_io_kt);
 		
 		err = bsr_al_begin_io_nonblock(device, &req->i);
-		if (err == -ENOBUFS)
-			break;
+		if (err == -ENOBUFS) {
+			// BSR-1039 set AL OOS because no AL is available in congestion.
+			spin_unlock_irq(&device->al_lock);
+			err = bsr_al_oos_io_nonblock(device, req);
+			if (!err) {
+				list_move_tail(&req->tl_requests, &wfa->requests.pending);
+				made_progress = true;
+			}
+			goto out;
+		}
 		if (err == -EBUSY)
 			wake = true;
 		if (err)
@@ -2846,8 +2892,9 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 		}
 		req = wfa_next_request(wfa);
 	}
-out:
+out_unlock:
 	spin_unlock_irq(&device->al_lock);
+out:
 	if (wake)
 		wake_up(&device->al_wait);
 	return made_progress;
@@ -2860,7 +2907,8 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 #endif
 	struct bsr_request *req, *tmp;
 	struct bsr_peer_request *pr, *pr_tmp;
-
+	struct bsr_peer_device *peer_device;
+	bool is_bm_wrtie = false;
 #ifdef _LIN
 	blk_start_plug(&plug);
 #endif
@@ -2869,7 +2917,18 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 	}
 
 	list_for_each_entry_safe_ex(struct bsr_request, req, tmp, &wfa->requests.pending, tl_requests) {
-		bsr_req_in_actlog(req);
+		// BSR-1039 write the bitmap of node with AL OOS set in the meta.
+		if (req->rq_state[0] & RQ_IN_AL_OOS) {
+			if (!is_bm_wrtie) {
+				for_each_peer_device(peer_device, device) {
+					if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)
+						bsr_bm_write(device, peer_device);
+				}
+				is_bm_wrtie = true;
+			}
+		} else {
+			bsr_req_in_actlog(req);
+		}
 		atomic_dec(&device->ap_actlog_cnt);
 		list_del_init(&req->tl_requests);
 		bsr_send_and_submit(device, req);

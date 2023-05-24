@@ -219,6 +219,13 @@ atomic_t g_forced_kernel_panic = ATOMIC_INIT(0);
 // BSR-1072 when forced kernel panic is set, panic occurs when the specified time is exceeded.
 atomic_t g_panic_occurrence_time = ATOMIC_INIT(180);
 
+// BSR-1039
+atomic_t g_hold_state_type = ATOMIC_INIT(0);
+atomic_t g_hold_state = ATOMIC_INIT(0);
+
+// BSR-1039
+atomic_t g_fake_al_used = ATOMIC_INIT(0);
+
 // BSR-764
 SIMULATION_PERF_DEGR g_simul_perf = {0,};
 
@@ -2746,6 +2753,26 @@ int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	return bsr_send_command(peer_device, cmd, CONTROL_STREAM);
 }
 
+// BSR-1039
+int _bsr_send116_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+	u64 sector, u32 blksize, u64 block_id, int seq)
+{
+	struct p_block116_ack *p;
+
+	if (peer_device->repl_state[NOW] < L_ESTABLISHED)
+		return -EIO;
+
+	p = bsr_prepare_command(peer_device, sizeof(*p), CONTROL_STREAM);
+	if (!p)
+		return -EIO;
+	p->sector = sector;
+	p->block_id = block_id;
+	p->blksize = blksize;
+	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
+	p->resync_seq = seq;
+	return bsr_send_command(peer_device, cmd, CONTROL_STREAM);
+}
+
 // DW-2124
 int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state)
 {
@@ -3172,7 +3199,9 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 #endif
 
 		// DW-1012 Remove out of sync when data is sent, this is the newest one.
-		if (!err)
+		if (!err &&
+			// BSR-1039 set IS(in sync) according to rq_state to prevent removal of AL OOS.
+			!(req->rq_state[0] & RQ_IN_AL_OOS))
 			bsr_set_in_sync(peer_device, req->i.sector, req->i.size);
 
 		/* double check digest, sometimes buffers have been modified in flight. */
@@ -3200,7 +3229,7 @@ out:
  *  Peer       -> (diskless) R_PRIMARY   (P_DATA_REPLY)
  *  L_SYNC_SOURCE -> L_SYNC_TARGET         (P_RS_DATA_REPLY)
  */
-int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd, int seq,
 		    struct bsr_peer_request *peer_req)
 {
 	struct p_data *p;
@@ -3216,7 +3245,11 @@ int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 		return -EIO;
 	p->sector = cpu_to_be64(peer_req->i.sector);
 	p->block_id = peer_req->block_id;
-	p->seq_num = 0;  /* unused */
+	// BSR-1039 set resync seq for resync requests.
+	if ((cmd == P_RS_DATA_REPLY) && (peer_device->connection->agreed_pro_version >= 116))
+		p->seq_num = cpu_to_be32(seq);
+	else
+		p->seq_num = 0;  /* unused */
 	p->dp_flags = 0;
 	if (digest_size)
 		bsr_csum_pages(peer_device->connection->integrity_tfm, peer_req, p + 1);
@@ -4731,7 +4764,11 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	INIT_LIST_HEAD(&peer_device->send_oos_list);
 	INIT_WORK(&peer_device->send_oos_work, bsr_send_out_of_sync_wf);
 	spin_lock_init(&peer_device->send_oos_lock);
-	
+
+	// BSR-1039
+	atomic_set(&peer_device->resync_seq, 0);
+	atomic_set(&peer_device->al_oos_cnt, 0);
+
 	// DW-2058
 	atomic_set(&peer_device->rq_pending_oos_cnt, 0);
 

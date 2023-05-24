@@ -5870,6 +5870,8 @@ out:
 	return skb->len;
 }
 
+extern atomic_t g_fake_al_used;
+
 static void device_to_statistics(struct device_statistics *s,
 				 struct bsr_device *device)
 {
@@ -5916,7 +5918,7 @@ static void device_to_statistics(struct device_statistics *s,
 	// DW-1945 check status of Activity-Log
 	if (device->act_log) {
 		s->dev_al_pending_changes = device->act_log->pending_changes;
-		s->dev_al_used = device->act_log->used;
+		s->dev_al_used = device->act_log->used + atomic_read(&g_fake_al_used);
 	}
 }
 

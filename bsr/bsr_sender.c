@@ -335,7 +335,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 				if (peer_req == p_req) {
 					if (peer_req->block_id != ID_SYNCER) {
 						//DW-1920 in inactive_ee, the replication data calls bsr_al_complete_io() upon completion of the write.
-						bsr_al_complete_io(device, &peer_req->i);
+						bsr_al_complete_io(__FUNCTION__, device, &peer_req->i);
 						bsr_info(23, BSR_LC_PEER_REQUEST, device, "Inactive replication peer request completed. peer request(%p) completed. sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
 					}
 					else {
@@ -2260,7 +2260,7 @@ int w_e_end_data_req(struct bsr_work *w, int cancel)
 	}
 
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
-		err = bsr_send_block(peer_device, P_DATA_REPLY, peer_req);
+		err = bsr_send_block(peer_device, P_DATA_REPLY, 0, peer_req);
 	} else {
 		if (bsr_ratelimit())
 			bsr_err(21, BSR_LC_REPLICATION, peer_device, "Failed to response for request data due to failure read. sector(%llus).",
@@ -2359,7 +2359,7 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 				if (peer_req->flags & EE_RS_THIN_REQ && all_zero(peer_req)) {
 					err = bsr_send_rs_deallocated(peer_device, peer_req);
 				} else {
-					err = bsr_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
+					err = bsr_send_block(peer_device, P_RS_DATA_REPLY, atomic_read(&peer_device->resync_seq), peer_req);
 					// BSR-838
 					atomic_add64(peer_req->i.size, &peer_device->cur_resync_sended);
 				}
@@ -2451,7 +2451,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 			peer_req->block_id = ID_SYNCER; /* By setting block_id, digest pointer becomes invalid! */
 			peer_req->flags &= ~EE_HAS_DIGEST; /* This peer request no longer has a digest pointer */
 			bsr_kfree(di);
-			err = bsr_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
+			err = bsr_send_block(peer_device, P_RS_DATA_REPLY, atomic_read(&peer_device->resync_seq), peer_req);
 		}
 	} else {
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);

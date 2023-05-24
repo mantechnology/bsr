@@ -520,7 +520,7 @@ enum {
 	LC_GET_MAY_USE_UNCOMMITTED = 2,
 };
 
-static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsigned int flags)
+static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, unsigned int enr, unsigned int flags)
 {
 	struct lc_element *e;
 	if (lc == NULL)
@@ -551,6 +551,7 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 			/* ... unless the caller is aware of the implications,
 			 * probably preparing a cumulative transaction. */
 			++e->refcnt;
+			// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
 			++lc->hits;
 			if (atomic_read(&g_bsrmon_run))
 				lc->hits_cnt++;
@@ -563,7 +564,7 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 
 		if (e->refcnt++ == 0) {
 			lc->used++;
-			
+			// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
 			if (atomic_read(&g_bsrmon_run))
 				lc->used_max = max(lc->used_max, lc->used);
 		}
@@ -622,6 +623,7 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
 	BUG_ON(++e->refcnt != 1);
 #endif 
 	lc->used++;
+	// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
 	if (atomic_read(&g_bsrmon_run))
 		lc->used_max = max(lc->used_max, lc->used);
 	lc->pending_changes++;
@@ -669,9 +671,9 @@ static struct lc_element *__lc_get(struct lru_cache *lc, unsigned int enr, unsig
  * NOTE: The user needs to check the lc_number on EACH use, so he recognizes
  *       any cache set change.
  */
-struct lc_element *lc_get(struct lru_cache *lc, unsigned int enr)
+struct lc_element *lc_get(const char *caller, struct lru_cache *lc, unsigned int enr)
 {
-	return __lc_get(lc, enr, LC_GET_MAY_CHANGE);
+	return __lc_get(caller, lc, enr, LC_GET_MAY_CHANGE);
 }
 
 /**
@@ -689,9 +691,9 @@ struct lc_element *lc_get(struct lru_cache *lc, unsigned int enr)
  * Caller needs to make sure that the pending transaction is completed,
  * before proceeding to actually use this element.
  */
-struct lc_element *lc_get_cumulative(struct lru_cache *lc, unsigned int enr)
+struct lc_element *lc_get_cumulative(const char *caller, struct lru_cache *lc, unsigned int enr)
 {
-	return __lc_get(lc, enr, LC_GET_MAY_CHANGE|LC_GET_MAY_USE_UNCOMMITTED);
+	return __lc_get(caller, lc, enr, LC_GET_MAY_CHANGE|LC_GET_MAY_USE_UNCOMMITTED);
 }
 
 /**
@@ -710,9 +712,9 @@ struct lc_element *lc_get_cumulative(struct lru_cache *lc, unsigned int enr)
  *  pointer to the element with the REQUESTED element number.
  *     In this case, it can be used right away
  */
-struct lc_element *lc_try_get(struct lru_cache *lc, unsigned int enr)
+struct lc_element *lc_try_get(const char *caller, struct lru_cache *lc, unsigned int enr)
 {
-	return __lc_get(lc, enr, 0);
+	return __lc_get(caller, lc, enr, 0);
 }
 
 /**
@@ -757,7 +759,7 @@ void lc_committed(struct lru_cache *lc)
  * and a %LC_STARVING (if set) is cleared.
  * Returns the new (post-decrement) refcnt.
  */
-int lc_put(struct lru_cache *lc, struct lc_element *e)
+int lc_put(const char* caller, struct lru_cache *lc, struct lc_element *e)
 {
 	if (lc == NULL || e == NULL)
 		return -EINVAL;
@@ -775,6 +777,7 @@ int lc_put(struct lru_cache *lc, struct lc_element *e)
 		/* move it to the front of LRU. */
 		list_move(&e->list, &lc->lru);
 		lc->used--;
+		// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, e->lc_new_number, e->refcnt);
 		clear_bit_unlock(__LC_STARVING, &lc->flags);
 	}
 	RETURN(e->refcnt);

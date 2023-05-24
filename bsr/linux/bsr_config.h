@@ -39,8 +39,9 @@ extern const char *bsr_buildtag(void);
 // DW-1601 protocol version 113 remove association to act_log and resync_lru
 // BSR-118 protocol version 114 starts to support fast verify
 // BSR-842 protocol version 115 
+// BSR-1039 protocol version 116 starts to support AL OOS
 // PRO_VERSION_MAX is the maximum version allowed. If the protocol is changed or the feature is incompatible with the sub-version, you must increase that version.
-#define PRO_VERSION_MAX 115
+#define PRO_VERSION_MAX 116
 
 #ifndef __CHECKER__   /* for a sparse run, we need all STATICs */
 #define DBG_ALL_SYMBOLS /* no static functs, improves quality of OOPS traces */

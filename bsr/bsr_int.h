@@ -525,10 +525,10 @@ static const char * const __log_category_names[] = {
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 101
-#define BSR_LC_IO_MAX_INDEX 61
+#define BSR_LC_IO_MAX_INDEX 62
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 127
-#define BSR_LC_LRU_MAX_INDEX 41
+#define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 228
@@ -540,7 +540,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
 #define BSR_LC_STATE_MAX_INDEX 57
 #define BSR_LC_SOCKET_MAX_INDEX 108
-#define BSR_LC_DRIVER_MAX_INDEX 157
+#define BSR_LC_DRIVER_MAX_INDEX 162
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
@@ -1043,6 +1043,8 @@ struct bsr_peer_request {
 	ktime_t p_bio_endio_kt;
 	ktime_t p_destroy_kt;
 	
+	// BSR-1039 resync sequence passed to the syncsource node.
+	int resync_seq;
 };
 
 // DW-1755 passthrough policy
@@ -1914,6 +1916,11 @@ struct bsr_peer_device {
 	struct bsr_work propagate_uuids_work;
 	struct ov_work fast_ov_work;
 
+	// BSR-1039 increase when changing from congestion to sync source.
+	atomic_t resync_seq;
+	// BSR-1039
+	atomic_t al_oos_cnt;
+
 	/* Used to track operations of resync... */
 	struct lru_cache *resync_lru;
 	/* Number of locked elements in resync LRU */
@@ -2453,7 +2460,7 @@ extern int bsr_send_current_state(struct bsr_peer_device *);
 extern int bsr_send_sync_param(struct bsr_peer_device *);
 extern void bsr_send_b_ack(struct bsr_connection *connection, s32 barrier_nr, u32 set_size);
 extern int bsr_send_out_of_sync(struct bsr_peer_device *, struct bsr_interval *);
-extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet,
+extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet, int,
 			   struct bsr_peer_request *);
 extern int bsr_send_dblock(struct bsr_peer_device *, struct bsr_request *req);
 extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
@@ -2461,6 +2468,9 @@ extern int bsr_send_drequest(struct bsr_peer_device *, int cmd,
 
 extern int _bsr_send_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 	u64 sector, u32 blksize, u64 block_id);
+
+extern int _bsr_send116_ack(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
+	u64 sector, u32 blksize, u64 block_id, int seq);
 
 extern int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state);
 
@@ -3365,8 +3375,8 @@ extern bool bsr_al_try_lock_for_transaction(struct bsr_device *device);
 extern int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i);
 extern void bsr_al_begin_io_commit(struct bsr_device *device);
 extern bool bsr_al_begin_io_fastpath(struct bsr_device *device, struct bsr_interval *i);
-extern int bsr_al_begin_io_for_peer(struct bsr_peer_device *peer_device, struct bsr_interval *i);
-extern bool bsr_al_complete_io(struct bsr_device *device, struct bsr_interval *i);
+extern int bsr_al_begin_io_for_peer(const char* caller, struct bsr_peer_device *peer_device, struct bsr_interval *i);
+extern bool bsr_al_complete_io(const char* caller, struct bsr_device *device, struct bsr_interval *i);
 extern void bsr_rs_complete_io(struct bsr_peer_device *, sector_t, const char *);
 extern int bsr_rs_begin_io(struct bsr_peer_device *, sector_t);
 extern int bsr_try_rs_begin_io(struct bsr_peer_device *, sector_t, bool);
