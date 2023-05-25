@@ -2961,7 +2961,7 @@ extern bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bs
 
 extern void resume_next_sg(struct bsr_device *device);
 extern void suspend_other_sg(struct bsr_device *device);
-extern int bsr_resync_finished(struct bsr_peer_device *, enum bsr_disk_state);
+extern int bsr_resync_finished(const char* , struct bsr_peer_device *, enum bsr_disk_state);
 // BSR-595
 extern void verify_progress(struct bsr_peer_device *peer_device,
         sector_t sector, int size, bool acked);

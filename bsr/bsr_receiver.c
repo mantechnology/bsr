@@ -8953,7 +8953,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 					bsr_warn(173, BSR_LC_RESYNC_OV, peer_device, "FIXME, SyncSource still sees bits set");
 #endif
 
-				bsr_resync_finished(peer_device, peer_state.disk);
+				bsr_resync_finished(__FUNCTION__, peer_device, peer_state.disk);
 				peer_device->last_repl_state = peer_state.conn;
 			}
 			return 0;
@@ -8970,7 +8970,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	    peer_state.conn == C_CONNECTED && peer_disk_state == D_UP_TO_DATE) {
 		ov_out_of_sync_print(peer_device, true);
 		ov_skipped_print(peer_device, true);
-		bsr_resync_finished(peer_device, D_MASK);
+		bsr_resync_finished(__FUNCTION__, peer_device, D_MASK);
 		peer_device->last_repl_state = peer_state.conn;
 		return 0;
 	}
