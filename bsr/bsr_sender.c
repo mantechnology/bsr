@@ -1306,7 +1306,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 	if (peer_device->rs_total == 0) {
 		/* empty resync? */
 		bsr_info(107, BSR_LC_RESYNC_OV, peer_device, "Finished the resync. resync target area does not exist.");
-		bsr_resync_finished(peer_device, D_MASK);
+		bsr_resync_finished(__FUNCTION__, peer_device, D_MASK);
 		return 0;
 	}
 
@@ -1706,7 +1706,7 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 
 	UNREFERENCED_PARAMETER(cancel);
 
-	bsr_resync_finished(rfw->pdw.peer_device, rfw->new_peer_disk_state);
+	bsr_resync_finished(__FUNCTION__, rfw->pdw.peer_device, rfw->new_peer_disk_state);
 	bsr_kfree(rfw);
 
 	return 0;
@@ -1867,7 +1867,7 @@ static void init_resync_stable_bits(struct bsr_peer_device *first_target_pd)
 	clear_bit(STABLE_RESYNC, &device->flags);
 }
 
-int bsr_resync_finished(struct bsr_peer_device *peer_device,
+int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 			 enum bsr_disk_state new_peer_disk_state)
 {
 	struct bsr_device *device = peer_device->device;
@@ -1969,6 +1969,13 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		return 1;
 	}
 
+	// BSR-1085 when the resync is completed in a congested state(L_BEHIND), only the source node completes resync on the next resync.
+	if (peer_device->repl_state[NOW] == L_BEHIND) {
+		put_ldev(device);
+		spin_unlock_irq(&device->resource->req_lock);
+		return 1;
+	}
+
 	begin_state_change_locked(device->resource, CS_VERBOSE);
 	old_repl_state = repl_state[NOW];
 
@@ -1992,8 +1999,8 @@ int bsr_resync_finished(struct bsr_peer_device *peer_device,
 		snprintf(tmp, sizeof(tmp), " but %llu sectors skipped", peer_device->ov_skipped);
 	}
 #ifdef SPLIT_REQUEST_RESYNC
-	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)",
-		verify_done ? "Online verify" : "Resync", tmp,
+	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s => %s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)",
+		caller, verify_done ? "Online verify" : "Resync", tmp,
 		(unsigned long long)dt + peer_device->rs_paused, 
 		(unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt, 
 		(unsigned long long)device->h_insync_bb, 
@@ -3596,7 +3603,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				rcu_read_unlock();
 				schedule_timeout_interruptible(timeo);
 			}
-			bsr_resync_finished(peer_device, D_MASK);
+			bsr_resync_finished(__FUNCTION__, peer_device, D_MASK);
 		}
 
 		/* ns.conn may already be != peer_device->repl_state[NOW],
@@ -3616,7 +3623,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 out:
 	up(&device->resource->state_sem);
 	if (finished_resync_pdsk != D_UNKNOWN)
-		bsr_resync_finished(peer_device, finished_resync_pdsk);
+		bsr_resync_finished(__FUNCTION__, peer_device, finished_resync_pdsk);
 
 clear_flag:
 	// DW-1619 clear AHEAD_TO_SYNC_SOURCE bit when start resync.
@@ -3644,7 +3651,7 @@ static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resy
 			resync_done = is_sync_state(peer_device, NOW);
 	}
 	if (resync_done)
-		bsr_resync_finished(peer_device, D_MASK);
+		bsr_resync_finished(__FUNCTION__, peer_device, D_MASK);
 
 	/* update timestamp, in case it took a while to write out stuff */
 	peer_device->rs_last_writeout = jiffies;
