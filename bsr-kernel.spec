@@ -47,9 +47,9 @@ installed kernel.
 %if 0%{?suse_version} < 1110
 # We need to exclude some flavours on sles10 etc,
 # or we hit an rpm internal buffer limit.
-%suse_kernel_module_package -n bsr -f filelist-suse kdump kdumppae vmi vmipae um
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse kdump kdumppae vmi vmipae um
 %else
-%suse_kernel_module_package -n bsr -f filelist-suse
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse
 %endif
 %else
 # Concept stolen from sles kernel-module-subpackage:
