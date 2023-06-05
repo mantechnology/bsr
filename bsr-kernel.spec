@@ -77,8 +77,8 @@ for flavor in %flavors_to_build; do
     make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
     # BSR-659 module sign for secure boot support
     %if %{with modsign}
-    ln -s ../pki obj/
-    make -C obj/$flavor modsign
+    ln -s -f ../pki obj/
+    make -C obj/$flavor modsign KDIR=%{kernel_source $flavor}
     %endif
 done
 
@@ -114,12 +114,11 @@ done
 # %kernel_module_package_moddir is enough to give them priority over
 # shipped modules.
 rm -f bsr.conf
-%else
+%endif
 # BSR-659 install public key for secure boot support
 %if %{with modsign}
 mkdir -p $RPM_BUILD_ROOT/etc/pki/mantech
 install -m 0644 pki/bsr_signing_key_pub.der $RPM_BUILD_ROOT/etc/pki/mantech
-%endif
 %endif
 
 mkdir -p $RPM_BUILD_ROOT/var/log/bsr
