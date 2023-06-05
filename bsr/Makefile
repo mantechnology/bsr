@@ -191,7 +191,7 @@ else
 	@if test -e /usr/src/kernels/$(KERNELRELEASE)/scripts/sign-file; then \
 		SIGN_FILE_PATH=/usr/src/kernels/$(KERNELRELEASE)/scripts;\
 	else \
-		SIGN_FILE_PATH=/usr/src/linux-$(shell echo $(KERNELRELEASE) | sed -e 's/default/obj/g')/x86_64/default/scripts;\
+		SIGN_FILE_PATH=$(KDIR)/scripts;\
 	fi ;\
 	$$SIGN_FILE_PATH/sign-file sha256 ../pki/$(PRIVKEY) ../pki/$(PUBKEY) bsr.ko 
 
