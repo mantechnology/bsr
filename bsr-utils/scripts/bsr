@@ -50,10 +50,18 @@ assure_module_is_loaded()
 {
     [ -e "$PROC_BSR" ] && return
 
-    $MODPROBE -s bsr $ADD_MOD_PARAM || {
-	echo "Can not load the bsr module."$'\n'
-	exit 5 # LSB for "not installed"
-    }
+	# BSR-1089 for allow_unsupported_modules configuration, run modprobe with --allow-unsupported option
+    $MODPROBE --showconfig | grep allow_unsupported_modules > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        $MODPROBE -s --allow-unsupported bsr $ADD_MOD_PARAM
+    else
+        $MODPROBE -s bsr $ADD_MOD_PARAM
+    fi
+
+    if [ $? -ge 1 ]; then
+        echo "Can not load the bsr module."$'\n'
+        exit 5 # LSB for "not installed"
+    fi
     # tell klogd to reload module symbol information ...
     [ -e /var/run/klogd.pid ] && [ -x /sbin/klogd ] && /sbin/klogd -i
 }
