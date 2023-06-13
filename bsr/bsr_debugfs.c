@@ -1678,8 +1678,9 @@ static const struct file_operations resource_ ## name ## _fops = {	\
 bsr_debugfs_resource_attr(in_flight_summary)
 bsr_debugfs_resource_attr(state_twopc)
 
+// BSR-1096 change debugfs file permissions 0400 -> 0444
 #define bsr_dcf(top, obj, attr) do {		\
-	dentry = debugfs_create_file(#attr, S_IRUSR|S_IRUSR,	\
+	dentry = debugfs_create_file(#attr, S_IRUGO,	\
 			top, obj, &obj ## _ ## attr ## _fops);	\
 	if (IS_ERR_OR_NULL(dentry))				\
 		goto fail;					\
