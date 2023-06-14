@@ -187,7 +187,13 @@ else
 		echo -e "    pki/bsr_signing_key_pub.der key required\n" ;\
 		false;\
 	fi
-	/usr/src/kernels/$(KERNELRELEASE)/scripts/sign-file sha256 ../pki/$(PRIVKEY) ../pki/$(PUBKEY) bsr.ko
+	# BSR-1089
+	@if test -e /usr/src/kernels/$(KERNELRELEASE)/scripts/sign-file; then \
+		SIGN_FILE_PATH=/usr/src/kernels/$(KERNELRELEASE)/scripts;\
+	else \
+		SIGN_FILE_PATH=$(KDIR)/scripts;\
+	fi ;\
+	$$SIGN_FILE_PATH/sign-file sha256 ../pki/$(PRIVKEY) ../pki/$(PUBKEY) bsr.ko 
 
 endif
 
