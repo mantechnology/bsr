@@ -4,6 +4,8 @@
 # BSR-659 disable debug pakage build
 %define debug_package %{nil}
 %define __strip /bin/true
+# BSR-1089 use it temporarily. the cause must be determined and removed.
+%define _unpackaged_files_terminate_build 0
 
 Name: bsr-kernel
 Summary: Kernel driver for BSR
@@ -20,7 +22,10 @@ License: GPLv2+
 Group: System Environment/Kernel
 # URL: 
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-XXXXXX)
+# BSR-1089 support for suse
+%if ! %{defined suse_version}
 BuildRequires: redhat-rpm-config
+%endif
 %if %{defined kernel_module_package_buildreqs}
 BuildRequires: %kernel_module_package_buildreqs
 %endif
@@ -33,6 +38,20 @@ installed kernel.
 %prep
 %setup -q -n bsr-%{tarball_version}
 
+# BSR-1089 support for suse
+%if %{defined suse_kernel_module_package}
+# Support also sles10, where kernel_module_package was not yet defined.
+# In sles11, suse_k_m_p became a wrapper around k_m_p.
+
+# BSR-1089 support for suse
+%if 0%{?suse_version} < 1110
+# We need to exclude some flavours on sles10 etc,
+# or we hit an rpm internal buffer limit.
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse kdump kdumppae vmi vmipae um
+%else
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse
+%endif
+%else
 # Concept stolen from sles kernel-module-subpackage:
 # include the kernel version in the package version,
 # so we can have more than one kmod-bsr.
@@ -44,6 +63,7 @@ installed kernel.
 # This is a dirty hack, non generic, and should probably be enclosed in some "if-on-rhel6".
 %define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//;')
 %kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
+%endif
 
 %build
 rm -rf obj
@@ -57,8 +77,8 @@ for flavor in %flavors_to_build; do
     make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
     # BSR-659 module sign for secure boot support
     %if %{with modsign}
-    ln -s ../pki obj/
-    make -C obj/$flavor modsign
+    ln -s -f ../pki obj/
+    make -C obj/$flavor modsign KDIR=%{kernel_source $flavor}
     %endif
 done
 
@@ -68,7 +88,12 @@ export INSTALL_MOD_PATH=$RPM_BUILD_ROOT
 %if %{defined kernel_module_package_moddir}
 export INSTALL_MOD_DIR=%{kernel_module_package_moddir bsr}
 %else
+# BSR-1089 support for suse
+%if %{defined suse_kernel_module_package}
+export INSTALL_MOD_DIR=updates
+%else
 export INSTALL_MOD_DIR=extra/bsr
+%endif
 %endif
 
 # Very likely kernel_module_package_moddir did ignore the parameter,
@@ -83,7 +108,13 @@ for flavor in %flavors_to_build ; do
     mv obj/$flavor/.kernel.config.gz obj/k-config-$kernelrelease.gz
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
 done
-
+# BSR-1089 support for suse
+%if %{defined suse_kernel_module_package}
+# On SUSE, putting the modules into the default path determined by
+# %kernel_module_package_moddir is enough to give them priority over
+# shipped modules.
+rm -f bsr.conf
+%endif
 # BSR-659 install public key for secure boot support
 %if %{with modsign}
 mkdir -p $RPM_BUILD_ROOT/etc/pki/mantech

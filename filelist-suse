@@ -1,0 +1,9 @@
+%defattr(-,root,root)
+%doc COPYING
+%doc ChangeLog
+/lib/modules/%2-%1
+%doc obj/k-config-%2-%1.gz
+%if %{with modsign}
+%dir /etc/pki/mantech
+/etc/pki/mantech/bsr_signing_key_pub.der
+%endif
