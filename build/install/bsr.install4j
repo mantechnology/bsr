@@ -705,7 +705,7 @@ return !context.getBooleanVariable("sys.programGroupDisabled");</condition>
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -727,7 +727,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -1280,7 +1280,7 @@ return true;</property>
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
