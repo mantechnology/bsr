@@ -10531,7 +10531,10 @@ void conn_disconnect(struct bsr_connection *connection)
 		atomic_set(&peer_device->unacked_cnt, 0);
 		atomic_set(&peer_device->rs_pending_cnt, 0);
 		atomic_set(&peer_device->rs_sect_in, 0);
-		
+
+		// BSR-1100 clear INITIAL_STATE_SENT flag to resolve C_UNCONNECTED status setting error
+		clear_bit(INITIAL_STATE_SENT, &peer_device->flags);
+
 		peer_device_disconnected(peer_device);
 	
 		// DW-2076
