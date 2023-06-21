@@ -4947,8 +4947,8 @@ static int modprobe_bsr(void)
 
 	ret = stat("/proc/bsr", &sb);
 	if (ret && errno == ENOENT) {
-		// BSR-1089 for allow_unsupported_modules configuration, run modprobe with --allow-unsupported option
-		ret = system("/sbin/modprobe --showconfig | grep allow_unsupported_modules > /dev/null 2>&1");
+		// BSR-1089 BSR-1097 if modprobe provides the --allow-unsupported option, use it.
+		ret = system("/sbin/modprobe --dry-run --allow-unsupported bsr > /dev/null 2>&1");
 		if (ret == 0)
 			ret = system("/sbin/modprobe --allow-unsupported bsr");
 		else
