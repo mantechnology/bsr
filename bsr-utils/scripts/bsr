@@ -50,8 +50,8 @@ assure_module_is_loaded()
 {
     [ -e "$PROC_BSR" ] && return
 
-	# BSR-1089 for allow_unsupported_modules configuration, run modprobe with --allow-unsupported option
-    $MODPROBE --showconfig | grep allow_unsupported_modules > /dev/null 2>&1
+	# BSR-1089 BSR-1097 if modprobe provides the --allow-unsupported option, use it.
+    $MODPROBE --dry-run --allow-unsupported bsr > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         $MODPROBE -s --allow-unsupported bsr $ADD_MOD_PARAM
     else

@@ -306,6 +306,22 @@ try {
 
 return false;</condition>
               </action>
+              <action name="Delete bsr EventLog key in the Windows registry" id="2949" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+
+if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
+{
+    WinRegistry.deleteKey(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, false, RegistryView.BIT32);
+}
+
+return true;</property>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
               <action name="Uninstall previous service" id="2933" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" rollbackBarrierExitCode="0" failureStrategy="quit" errorMessage="${i18n:FailedToServiceUninstallForUpdate}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="1">
@@ -705,7 +721,7 @@ return !context.getBooleanVariable("sys.programGroupDisabled");</condition>
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -727,7 +743,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
@@ -1280,7 +1296,7 @@ return true;</property>
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
-                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsr";
+                      <property name="value" type="string">final String keyName = "SYSTEM\\CurrentControlSet\\services\\eventlog\\System\\bsrvflt";
 
 if (WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
 {
