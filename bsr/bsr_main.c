@@ -4108,7 +4108,12 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 
 	if (get_ldev(device)) {
 		q = bdev_get_queue(device->ldev->backing_bdev);
+		// BSR-1095
+#ifdef COMPAT_HAVE_BDI_CONGESTED
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
+#else
+		r = 0;
+#endif
 		put_ldev(device);
 	}
 

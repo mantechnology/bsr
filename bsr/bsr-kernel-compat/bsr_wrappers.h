@@ -410,7 +410,10 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #endif
 #endif
 
+// BSR-1095
+#ifndef __bitwise__
 #define __bitwise__
+#endif
 
 #ifndef COMPAT_HAVE_FMODE_T
 typedef unsigned __bitwise__ fmode_t;
@@ -2549,8 +2552,14 @@ struct log_rolling_file_list {
 
 
 #ifndef COMPAT_HAVE_SET_FS
+#ifdef COMPAT_HAVE_FORCE_UACCESS
 #define get_fs()	force_uaccess_begin()	
 #define set_fs(fs)	force_uaccess_end(fs)
+#else
+typedef int mm_segment_t;
+#define get_fs()	0	
+#define set_fs(fs)	
+#endif
 #endif
 
 #ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS

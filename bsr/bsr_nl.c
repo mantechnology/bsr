@@ -5894,14 +5894,19 @@ static void device_to_statistics(struct device_statistics *s,
 		s->dev_disk_flags = md->flags;
 		q = bdev_get_queue(device->ldev->backing_bdev);
 #ifdef _LIN
-		s->dev_lower_blocked =
+		s->dev_lower_blocked = 
+// BSR-1095
+#ifdef COMPAT_HAVE_BDI_CONGESTED
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
 			bdi_congested(device->ldev->backing_bdev->bd_disk->bdi,
 #else
 			bdi_congested(q->backing_dev_info,
 #endif
 				      (1 << WB_async_congested) |
-				      (1 << WB_sync_congested));
+					  (1 << WB_sync_congested));
+#else
+			0;
+#endif
 #endif
 		put_ldev(device);
 	}
