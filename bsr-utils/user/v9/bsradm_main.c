@@ -890,7 +890,8 @@ static int sh_resources_list(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res;
 	for_each_resource(res, &config) {
-		if (res->ignore)
+		// BSR-1099 get resource list without verifying hostname when using -i option
+		if (res->ignore && !ignore_hostname)
 			continue;
 		if (is_bsr_top != res->stacked)
 			continue;

@@ -203,26 +203,43 @@ case "$1" in
 	# BSR-5 set up the loop device at service start.
 	# _LIN_LOOP_META_SUPPORT
 	RES_LIST=""
-	for RES in `$BSRADM sh-resources-list`; do
-		# BSR-592 apply svc-auto-up to linux
-		if ! $BSRADM sh-node-option -n svc_auto_up $RES | grep -w no &> /dev/null; then
-			
-			MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
-			if [ -n "$MD_IDX" ]; then
-				if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
-					MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
-					$LOSETUP $MD_DEV $MD_IDX
+	echo ;
+	# BSR-1099 check svc_auto_up option, retry 10 times on failure
+	for RES in `$BSRADM sh-resources-list -i`; do
+		_retry=0
+		until [[ $_retry -gt 10 ]]
+		do
+			auto_up=$($BSRADM sh-node-option -n svc_auto_up $RES 2>&1);
+			if [ $? -eq 0 ]; then
+				# BSR-592 apply svc-auto-up to linux
+				if [[ "$auto_up" == "no" ]] ; then
+					echo skip adjust $RES
+				else
+					MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
+					if [ -n "$MD_IDX" ]; then
+						if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
+							MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
+							$LOSETUP $MD_DEV $MD_IDX
+						fi
+					fi
+					if [ -n "$RES_LIST" ]; then
+						RES_LIST="${RES_LIST} ${RES}"
+					else 
+						RES_LIST="${RES}"
+					fi
+				fi
+
+				break;
+			else
+				((_retry++))
+				if [ $_retry -gt 10 ]; then
+					echo $RES adjust failed. 
+				else 
+					echo $auto_up...retry $_retry
+					sleep 1;
 				fi
 			fi
-			if [ -n "$RES_LIST" ]; then
-				RES_LIST="${RES_LIST} ${RES}"
-			else 
-				RES_LIST="${RES}"
-			fi
-		else
-			echo skip adjust $RES
-		fi
-		
+		done
 	done
 
 	if [ -n "$RES_LIST" ]; then
