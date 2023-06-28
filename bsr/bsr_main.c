@@ -4108,8 +4108,8 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 
 	if (get_ldev(device)) {
 		q = bdev_get_queue(device->ldev->backing_bdev);
-		// BSR-1095
-#ifdef COMPAT_HAVE_BDI_CONGESTED
+// BSR-1095 5.18 and later kernel support
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
 #else
 		r = 0;

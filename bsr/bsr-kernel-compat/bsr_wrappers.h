@@ -410,7 +410,7 @@ static inline int bdev_discard_alignment(struct block_device *bdev)
 #endif
 #endif
 
-// BSR-1095
+// BSR-1095 5.18 and later kernel support
 #ifndef __bitwise__
 #define __bitwise__
 #endif

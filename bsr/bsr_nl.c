@@ -5896,7 +5896,7 @@ static void device_to_statistics(struct device_statistics *s,
 #ifdef _LIN
 		s->dev_lower_blocked = 
 // BSR-1095
-#ifdef COMPAT_HAVE_BDI_CONGESTED
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
 			bdi_congested(device->ldev->backing_bdev->bd_disk->bdi,
 #else
