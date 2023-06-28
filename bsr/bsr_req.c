@@ -1366,7 +1366,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
 		bsr_report_io_error(device, req);
 		__bsr_chk_io_error(device, BSR_READ_ERROR);
-		/* fall through. */
+		/* Fall through */
 	case READ_AHEAD_COMPLETED_WITH_ERROR:
 		/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
 		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
@@ -1688,7 +1688,9 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		enum bsr_read_balancing rbm)
 {
 #ifdef _LIN
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 	struct backing_dev_info *bdi;
+#endif
 #endif
 	int stripe_shift;
 

@@ -38,8 +38,7 @@ static int validate_nla(struct nlattr *nla, int maxtype,
 
             if (!minlen || memchr(nla_data(nla), '\0', minlen) == NULL)
                 return -EINVAL;
-            /* fall through */
-
+			/* Fall through */
         case NLA_STRING:
             if (attrlen < 1)
                 return -ERANGE;

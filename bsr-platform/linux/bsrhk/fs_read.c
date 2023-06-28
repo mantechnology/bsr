@@ -31,7 +31,9 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	PVOLUME_BITMAP_BUFFER bitmap_buf = NULL;
 	char * super_block = NULL;
 	char disk_name[512] = {0};
+#ifdef COMPAT_HAVE_SET_FS
 	mm_segment_t old_fs = get_fs();
+#endif
 	struct block_device *bdev = NULL;
 	
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
@@ -93,7 +95,9 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 
 close:
 	filp_close(fd, NULL);
+#ifdef COMPAT_HAVE_SET_FS
 	set_fs(old_fs);
+#endif
 
 	if(bdev->bd_super) {
 		thaw_bdev(bdev, bdev->bd_super);
