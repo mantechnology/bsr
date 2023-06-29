@@ -1,5 +1,7 @@
 #include <linux/stddef.h>
 #include <linux/bitops.h>
+// BSR-1095
+#include <linux/bitmap.h>
 
 unsigned long func(void)
 {

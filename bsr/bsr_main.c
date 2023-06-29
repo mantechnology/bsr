@@ -915,8 +915,9 @@ int bsr_thread_start(struct bsr_thread *thi)
 		else
 			bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])",
 					thi->name, current->comm, current->pid);
-		/* fall through */
+		/* Fall through */
 	case RUNNING:
+		/* Fall through */
 	case RESTARTING:
 	default:
 		spin_unlock_irqrestore(&thi->t_lock, flags);
@@ -4108,7 +4109,12 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 
 	if (get_ldev(device)) {
 		q = bdev_get_queue(device->ldev->backing_bdev);
+// BSR-1095 5.18 and later kernel support
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
+#else
+		r = 0;
+#endif
 		put_ldev(device);
 	}
 
@@ -5172,8 +5178,8 @@ out_no_io_page:
 out_no_disk:
 #ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 	blk_cleanup_queue(q);
-#endif
 out_no_q:
+#endif
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);
 	return err;
