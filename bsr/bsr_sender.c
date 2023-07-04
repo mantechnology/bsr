@@ -2459,6 +2459,8 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 			peer_req->flags &= ~EE_HAS_DIGEST; /* This peer request no longer has a digest pointer */
 			bsr_kfree(di);
 			err = bsr_send_block(peer_device, P_RS_DATA_REPLY, atomic_read(&peer_device->resync_seq), peer_req);
+			// BSR-1102 aggregation on sending resync data during hash resync
+			atomic_add64(peer_req->i.size, &peer_device->cur_resync_sended);
 		}
 	} else {
 		err = bsr_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
