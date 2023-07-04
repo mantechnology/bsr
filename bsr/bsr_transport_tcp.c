@@ -1548,17 +1548,25 @@ not_accept:
 	return STATUS_REQUEST_NOT_ACCEPTED;
 		
 #else // _LIN
-	struct dtt_listener *listener = sock->sk_user_data;
-	void (*state_change)(struct sock *sock);
+	struct dtt_listener *listener;
+	void(*state_change)(struct sock *sock);
 
-	state_change = listener->original_sk_state_change;
-	if (sock->sk_state == TCP_ESTABLISHED) {
-		spin_lock(&listener->listener.waiters_lock);
-		listener->listener.pending_accepts++;
-		spin_unlock(&listener->listener.waiters_lock);
-		wake_up(&listener->wait);
+	// BSR-1090 sock->sk_user_data is removed from unregister_state_change(), so a lock is added for synchronization
+	write_lock_bh(&sock->sk_callback_lock);
+	listener = sock->sk_user_data;
+	if (listener) {
+		state_change = listener->original_sk_state_change;
+		if (sock->sk_state == TCP_ESTABLISHED) {
+			spin_lock(&listener->listener.waiters_lock);
+			listener->listener.pending_accepts++;
+			spin_unlock(&listener->listener.waiters_lock);
+			wake_up(&listener->wait);
+		}
+		write_unlock_bh(&sock->sk_callback_lock);
+		state_change(sock);
+	} else {
+		write_unlock_bh(&sock->sk_callback_lock);
 	}
-	state_change(sock);
 #endif
 }
 
