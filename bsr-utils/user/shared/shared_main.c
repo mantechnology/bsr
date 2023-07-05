@@ -441,13 +441,11 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 	if (flags & SLEEPS_FINITE) {
 		if (rv >= 10
 			&& !(flags & (DONT_REPORT_FAILED | SUPRESS_STDERR))) {
-#ifdef _LIN
 			// BSR-823 added log output when filesystem check timeout occurs
 			if (alarm_raised && !strcmp(argv[1], "check-fs")) {
 				CLI_ERRO_LOG_STDERR(false, "Filesystem check takes a long time. Check it manually (see bsr log).");
 				CLI_ERRO_LOG_STDERR(false, "If there is no problem, you can ignore it with --skip-check-fs.");
 			}
-#endif
 			CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(false, "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
 				CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, "%s", *cmdline);

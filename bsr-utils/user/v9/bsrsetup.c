@@ -271,10 +271,8 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#ifdef _LIN
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#endif
 static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv);
 
 // sub commands for generic_get_cmd
@@ -540,12 +538,10 @@ struct bsr_cmd commands[] = {
 	{"check-resize", CTX_MINOR, 0, NO_PAYLOAD, check_resize_cmd,
 	 .lockless = true,
 	 .summary = "Remember the current size of a lower-level device." },
-#ifdef _LIN
 	// BSR-823
 	{"check-fs", CTX_MINOR, 0, NO_PAYLOAD, check_fs_cmd,
 	 .lockless = true,
 	 .summary = "Check a filesystem of a backing device." },
-#endif
 	{"events2", CTX_RESOURCE | CTX_ALL, F_NEW_EVENTS_CMD(print_notifications),
 	 .options = events_cmd_options,
 	 .missing_ok = true,
@@ -1359,7 +1355,7 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
 
-#ifdef _LIN
+
 // BSR-823 run filesystem check command
 int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 {
@@ -1377,7 +1373,9 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 	}
 	if (pid == 0) {
 		FILE *f_out;
+#ifdef _LIN
 		prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
 
 		f_out = freopen(output_file, "w", stdout);
 		if (!f_out) {
@@ -1414,7 +1412,72 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 
 	return rv;
 }
+#ifdef _WIN
+static int is_fastsync()
+{
+	DWORD use_fast_sync = 0;
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
 
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return lResult;
+	}
+
+	lResult = RegQueryValueEx(hKey, "use_fast_sync", NULL, &type, (LPBYTE)&use_fast_sync, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_SUCCESS) {
+		lResult = use_fast_sync;
+	}
+
+	return lResult;
+}
+
+// BSR-1066
+static int need_filesystem_recovery(char dev_letter)
+{
+	char cmd[10];
+	int ret = 0;
+	int fast_sync = 0;
+	FILE *fp;
+	bool journal_recovery = false;
+	bool xfs_fs = false;
+	char *argv[] = { "chkdsk", (char[3]){dev_letter, ':', '\0'}, NULL };
+	char fs_check_log[256];
+	char *s, *ptr;
+
+	// check fast sync settings
+	// if full sync, skip filesystem check
+	if (!is_fastsync()) {
+		return 0;
+	}
+
+	memset(fs_check_log, 0, sizeof(fs_check_log));
+	s = getenv("BSR_PATH");
+	if (s != NULL) {
+		ptr = strrchr(s, L'\\');
+		if (s != NULL) {
+			memcpy(fs_check_log, s, (ptr - s));
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s\\log\\chkdsk_%c.log", fs_check_log, dev_letter);
+		}
+	}
+	
+	// remove old log files
+	remove(fs_check_log);
+
+	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
+
+	if (ret != 0) {
+		CLI_ERRO_LOG_STDERR(false, "%c: Filesystem has errors (%d)", dev_letter, ret);
+	}
+	
+	return ret;
+}
+#else // _LIN
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
@@ -4020,14 +4083,46 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	return ret;
 }
 
-#ifdef _LIN
+#ifdef _WIN
+// BSR-1066
+static bool is_volume_mounted(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	BOOL ret = FALSE;
+
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, FSCTL_IS_VOLUME_MOUNTED, NULL, 0, NULL, 0, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+#endif
+
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
 	// BSR-747 check for filesystem errors before initial synchronization
-	struct devices_list *devices, *device;
 	int need_recovery = 0;
 	int ret = 0;
+#ifdef _WIN
+	bool need_chkdsk = false;
+	char letter;
+	letter = (char)('C' + minor);
+
+	// BSR-1066 run chkdsk if volume mount
+	if (is_volume_mounted(letter)) 
+		need_recovery = need_filesystem_recovery(letter);
+
+#else // _LIN
+	struct devices_list *devices, *device;
 	struct peer_devices_list *peer_devices = NULL, *peer_device;
 
 	devices = list_devices(NULL);
@@ -4052,6 +4147,7 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 out:
 	free_devices(devices);
 	free_peer_devices(peer_devices);
+#endif
 
 	if (need_recovery) {
 		CLI_ERRO_LOG_STDERR(false, "Filesystem check and recovery is required.");
@@ -4060,7 +4156,6 @@ out:
 
 	return ret;
 }
-#endif
 
 static bool peer_device_ctx_match(struct bsr_cfg_context *a, struct bsr_cfg_context *b)
 {

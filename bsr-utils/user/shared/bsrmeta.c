@@ -2760,7 +2760,7 @@ static int _attach_vhd_script(char * vhd_path)
 	return 0;
 }
 
-static int _call_script(char **argv)
+static int _call_script(bool print_output, char **argv)
 {
 	pid_t   my_pid;
 	int     status = 0;
@@ -2770,6 +2770,12 @@ static int _call_script(char **argv)
 		return -1;
 
 	if (0 == (my_pid = fork())) {
+		FILE *f = NULL;
+		if (!print_output) {
+			f = freopen("/dev/null", "w", stderr);
+			if (!f)
+				CLI_ERRO_LOG_STDERR(false, "reopen null service failed");
+		}
 		// child
 		close(pipes[0]); // close reading end
 		dup2(pipes[1], 1); // 1 = stdout
@@ -2918,7 +2924,7 @@ int v07_style_md_open(struct format *cfg)
 			if (!_attach_vhd_script(cfg->vhd_dev_path)) {
 				char * _argv[] = { "diskpart", "/s", "./"ATTACH_VHD_SCRIPT, (char *)0 };
 				CLI_ERRO_LOG_STDERR(false, "Attaching %s for meta data", cfg->vhd_dev_path);
-				if (_call_script(_argv)) {
+				if (_call_script(true, _argv)) {
 					remove("./"ATTACH_VHD_SCRIPT);
 					CLI_ERRO_LOG_STDERR(false, "diskpart attach failed.");
 					exit(20);
@@ -5060,7 +5066,7 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 		if (!_create_vhd_script(cfg->vhd_dev_path, evsm, cfg->md_device_name)) {
 			char * _argv[] = { "diskpart", "/s", "./"CREATE_VHD_SCRIPT, (char *)0 };
 			CLI_ERRO_LOG_STDERR(false, "Creating %s for meta data...", cfg->vhd_dev_path);
-			if (_call_script(_argv)) {
+			if (_call_script(true, _argv)) {
 				remove("./"CREATE_VHD_SCRIPT);
 				CLI_ERRO_LOG_STDERR(false, "diskpart create failed.");
 				exit(20);
@@ -5149,9 +5155,14 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	if (err) {
 		CLI_ERRO_LOG_STDERR(false, "operation failed");
 	}
-	else
+	else {
+#ifdef _WIN
+		// BSR-1066 release volume lock on meta initialization
+		char * bsrcon_argv[] = {"bsrcon", "/release_vol", (char[2]){'C' + (cfg->minor), '\0'}, NULL};
+		_call_script(false, bsrcon_argv);
+#endif
 		printf("New bsr meta data block successfully created.\n");
-
+	}
 	return err;
 }
 
