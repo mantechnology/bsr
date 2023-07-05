@@ -9188,6 +9188,14 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	set_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 	spin_unlock_irq(&resource->req_lock);
 
+#ifdef _WIN
+	// BSR-1066 when primary diskless occurs, set MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
+	if ((peer_state.role == R_PRIMARY) && 
+	 	(old_peer_state.pdsk == D_FAILED) && (peer_disk_state == D_DISKLESS)) {
+	 	bsr_md_set_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY);
+	}
+#endif
+
 	// BSR-1019 send uuid if the flag is set when the replication state changes to the bitmap exchange state.
 	if (old_repl_state == L_OFF && new_repl_state == L_WF_BITMAP_S) {
 		if (test_and_clear_bit(UUID_DELAY_SEND, &peer_device->flags)) {
@@ -9261,6 +9269,15 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		check_remaining_out_of_sync(device);
 		bsr_send_uuids(peer_device, 0, 0, NOW);
 	}
+
+#ifdef _WIN
+	// BSR-1066 If peer disk is UpToDated, clear MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
+	if (peer_state.disk == D_UP_TO_DATE) {
+		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY)) {
+			bsr_md_clear_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY);
+		}
+	}
+#endif
 
 	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 

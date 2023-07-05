@@ -2109,8 +2109,17 @@ static void sanitize_state(struct bsr_resource *resource)
 			__change_disk_state(device, disk_state_from_md(device), __FUNCTION__);
 
 		if (maybe_crashed_primary && !connected_primaries &&
-			disk_state[NEW] == D_UP_TO_DATE && role[NOW] == R_SECONDARY)
+			disk_state[NEW] == D_UP_TO_DATE && role[NOW] == R_SECONDARY) {
+#ifdef _WIN				
+			// BSR-1066 when crashed primary occurs, set MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
+			for_each_peer_device(peer_device, device) {
+				if (peer_device->connection->peer_role[OLD] == R_PRIMARY) {
+					bsr_md_set_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY);
+				}
+			}
+#endif
 			__change_disk_state(device, D_CONSISTENT, __FUNCTION__);
+		}
 	}
 	rcu_read_unlock();
 }

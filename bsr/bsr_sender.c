@@ -2140,6 +2140,13 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
 
+#ifdef _WIN
+	// BSR-1066 when resync finished, clear MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
+	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY)) {
+		bsr_md_clear_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY);
+	}
+#endif
+
 out_unlock:
 	end_state_change_locked(device->resource, false, __FUNCTION__);
 
