@@ -105,7 +105,7 @@ static void bsr_unload(void)
 static int bsr_mount(struct block_device *bdev, fmode_t mode)
 {
 	int ret;
-	bsr_info(122, BSR_LC_DRIVER, NO_OBJECT, "bsr mount block_device:%p, mode:%d", bdev, mode);
+	bsr_debug(122, BSR_LC_DRIVER, NO_OBJECT, "bsr mount block_device:%p, mode:%d", bdev, mode);
 	ret = bsr_open(bdev, mode);
 	if(!ret) {
 		struct bsr_device *device = bdev->bd_disk->private_data;
@@ -118,7 +118,7 @@ static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 {
 	struct bsr_device *device = gd->private_data;
 	
-	bsr_info(123, BSR_LC_DRIVER, NO_OBJECT, "bsr umount gendisk:%p, mode:%d", gd, mode);
+	bsr_debug(123, BSR_LC_DRIVER, NO_OBJECT, "bsr umount gendisk:%p, mode:%d", gd, mode);
 	atomic_dec(&device->mounted_cnt);
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
