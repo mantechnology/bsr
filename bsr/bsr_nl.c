@@ -7100,7 +7100,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 
 			// mutex_unlock(&resource->conf_update);
 		} else {
-			bsr_info(58, BSR_LC_GENL, connection, "Failed to disconnect during resource down. ret(%d)", retcode);
+			bsr_info(58, BSR_LC_GENL, connection, "Connection was not terminated during resource down. ret(%d)", retcode);
 			kref_debug_put(&connection->kref_debug, 13);
 			kref_put(&connection->kref, bsr_destroy_connection);
 			goto fail;

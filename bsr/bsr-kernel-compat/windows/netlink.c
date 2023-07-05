@@ -671,7 +671,7 @@ NetlinkWorkThread(PVOID context)
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
-				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "Failed to %s:%u command due to failure to acquire mutex status(0x%x)", pops->str, cmd, status);
+				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "Cannot execute command %s:%u because mutex is not returned and cannot be acquired. status(0x%x)", pops->str, cmd, status);
 			}
 
         } else {

@@ -3412,7 +3412,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			if (resource->role[NOW] == R_SECONDARY) {
 				rv = try_to_promote(device);
 				if (rv < SS_SUCCESS)
-					bsr_info(32, BSR_LC_STATE, resource, "Failed to set automatic state when device is opened with write option. err(%s)",
+					bsr_info(32, BSR_LC_STATE, resource, "Devices that you open with the write option cannot be set to automatic state. rv(%s)",
 					bsr_set_st_err_str(rv));
 			}
 		}

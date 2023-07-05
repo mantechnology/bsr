@@ -140,7 +140,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
                 NULL,
                 0);
             if (!NT_SUCCESS(status)) {
-                bsr_info(16, BSR_LC_VOLUME, NO_OBJECT,"Failed to open volume. status(0x%x)", status);
+                bsr_info(16, BSR_LC_VOLUME, NO_OBJECT,"Unable to open destination volume. status(0x%x)", status);
                 __leave;
             }
         }
@@ -165,7 +165,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 
 			status = ZwFlushBuffersFile(hFile, &StatusBlock);
 			if (!NT_SUCCESS(status)) {
-				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"Failed to flush volume. status(0x%x)", status);
+				bsr_info(17, BSR_LC_VOLUME, NO_OBJECT,"volume flush failed, but this does not affect behavior. status(0x%x)", status);
 			}
 			bsr_info(63, BSR_LC_VOLUME, NO_OBJECT, "volume(%wZ) flushed", &device_name);
 		}
@@ -174,7 +174,7 @@ NTSTATUS FsctlFlushDismountVolume(unsigned int minor, bool bFlush)
 
         status = ZwFsControlFile(hFile, 0, 0, 0, &StatusBlock, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(18, BSR_LC_VOLUME, NO_OBJECT,"Failed to volume dismount(FSCTL_DISMOUNT_VOLUME). status(0x%x)", status);
+            bsr_info(18, BSR_LC_VOLUME, NO_OBJECT,"volume dismount failed, but this does not affect behavior. status(0x%x)", status);
             __leave;
         }
         bsr_info(19, BSR_LC_VOLUME, NO_OBJECT,"volume(%wZ) dismounted", &device_name);
@@ -250,7 +250,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
             NULL,
             0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(21, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume handle. status(0x%x)", status);
+            bsr_info(21, BSR_LC_VOLUME, NO_OBJECT,"volume cannot be locked because the volume handle is not obtained. status(0x%x)", status);
             __leave;
         }
 
@@ -260,7 +260,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume lock(FSCTL_LOCK_VOLUME). status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock failed, but this does not affect behavior. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
             __leave;
         }
         
@@ -305,7 +305,7 @@ NTSTATUS FsctlUnlockVolume(unsigned int minor)
 		bsr_info(61, BSR_LC_VOLUME, NO_OBJECT, "unlock volume(%ws)", pvext->PhysicalDeviceName);
         status = ZwFsControlFile(pvext->LockHandle, 0, 0, 0, &StatusBlock, FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0);
         if (!NT_SUCCESS(status)) {
-            bsr_info(25, BSR_LC_VOLUME, NO_OBJECT,"Failed to unlock volume(FSCTL_UNLOCK_VOLUME). status(0x%x)", status);
+            bsr_info(25, BSR_LC_VOLUME, NO_OBJECT,"volume unlock failed, but this does not affect behavior. status(0x%x)", status);
             __leave;
         }
 
@@ -360,7 +360,7 @@ NTSTATUS FsctlFlushVolume(unsigned int minor)
             0);
 
         if (!NT_SUCCESS(status)) {
-            bsr_info(27, BSR_LC_VOLUME, NO_OBJECT,"Failed to acquire volume handle. status(0x%x)", status);
+            bsr_info(27, BSR_LC_VOLUME, NO_OBJECT,"volume cannot be flush because the volume handle is not obtained. status(0x%x)", status);
             __leave;
         }
 
