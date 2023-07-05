@@ -1550,7 +1550,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "Failed to increase the reference count because no kobject are assigned.");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "Reference count did not increase because no kobj were assigned.");
         return;
     }
 }
