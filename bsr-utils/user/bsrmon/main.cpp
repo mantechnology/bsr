@@ -256,12 +256,12 @@ int BsrDebug(int argc, char* argv[])
 }
 #endif
 
-void PrintMonitor()
+void PrintMonitor(char* res_name)
 {	
 	char *buf = NULL;
 	struct resource* res;
 	
-	res = GetResourceInfo(NULL);
+	res = GetResourceInfo(res_name);
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
 		return;
@@ -1217,19 +1217,21 @@ int main(int argc, char* argv[])
 		if (!strcmp(argv[argIndex], "/print")) {
 			argIndex++;
 #ifdef _WIN
-			if (argIndex == argc ||
-				!strcmp(argv[argIndex], "all")) {
-				PrintMonitor();
-			}
-			else if (argIndex < argc && !strcmp(argv[argIndex], "tag")) {
-				GetBsrMemoryUsage(true);
+			// BSR-1102
+			if (argIndex < argc) {
+				if (!strcmp(argv[argIndex], "tag")) {
+					GetBsrMemoryUsage(true);
+				}
+				else {
+					PrintMonitor(argv[argIndex]);
+				}
 			}
 			else {
 				usage();
 			}
 #else
-			if (argIndex <= argc) {
-				PrintMonitor();
+			if (argIndex < argc) {
+				PrintMonitor(argv[argIndex]);
 			}
 			else {
 				usage();
