@@ -7729,7 +7729,10 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 	do {
 		pVbb = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmap(device, &ullTotalCluster, &ulBytesPerCluster);
 		if (NULL == pVbb) {
+			// BSR-1105 the error log is output from the previous call function, so it is removed.
+#if 0
 			bsr_err(69, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to failure to get volume bitmap, minor(%u)", device->minor);
+#endif
 			break;
 		}
 			
@@ -8016,12 +8019,13 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 		// Get volume bitmap which is converted into 4kb cluster unit.
 		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
-		
+
+		// BSR-1105 the error log is output from the previous call function, so it is removed.
+#if 0
 		if (NULL == pBitmap) {
-			bsr_err(73, BSR_LC_BITMAP, peer_device, "Failed to get fast ov bitmap due to could not get bitmap for bsr");
-			err = true;
+			bsr_info(73, BSR_LC_BITMAP, peer_device, "Failed to get fast ov bitmap due to could not get bitmap for bsr");
 		}
-		
+#endif	
 		if (bSecondary) {
 			// prevent from mounting volume.
 			device->resource->bTempAllowMount = false;
@@ -8070,11 +8074,18 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				// BSR-835 fix to manage ov bitmap buffer with kref
 				kref_init(&peer_device->ov_bm_ref);
 				bsr_info(212, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been allocated.");
-				err = false;
+			} else {
+				// BSR-1105 if pBitmap is NULL, clear OV_FAST_BM_SET_PENDING because it must act as full o/v.
+				clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 			}
 			ov_tw = bsr_ov_bm_total_weight(peer_device);
-			if (ov_tw == 0)
+			if (ov_tw == 0) {
 				err = true;
+			}
+			else {
+				// BSR-1105 it operates as fast o/v or full o/v depending on whether pBitmap is set or not.
+				err = false;
+			}
 		}
 
 		if (err) {
