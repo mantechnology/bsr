@@ -4171,16 +4171,10 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
 	// BSR-747 check for filesystem errors before initial synchronization
+	struct devices_list *devices, *device;
 	int need_recovery = 0;
 	int ret = 0;
-	struct devices_list *devices, *device;
 	struct peer_devices_list *peer_devices = NULL, *peer_device;
-#ifdef _WIN
-	char dev_name = (char)('C' + minor);
-#else // _LIN
-	char * dev_name = device->disk_conf.backing_dev;
-#endif
-
 
 	devices = list_devices(NULL);
 	for (device = devices; device; device = device->next) {
@@ -4196,8 +4190,11 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				&& peer_device->info.peer_repl_state > L_ESTABLISHED)
 				goto out;
 		}
-		
-		need_recovery = need_filesystem_recovery(dev_name);
+#ifdef _WIN
+		need_recovery = need_filesystem_recovery((char)('C' + minor));
+#else // _LIN
+		need_recovery = need_filesystem_recovery(device->disk_conf.backing_dev);
+#endif
 		break;
 	}
 
