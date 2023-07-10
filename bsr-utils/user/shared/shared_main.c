@@ -441,10 +441,17 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 	if (flags & SLEEPS_FINITE) {
 		if (rv >= 10
 			&& !(flags & (DONT_REPORT_FAILED | SUPRESS_STDERR))) {
+			int chkdsk_timeout = 0;
+
 			// BSR-823 added log output when filesystem check timeout occurs
+#ifdef _WIN
+			if ((alarm_raised || rv == 20) && !strcmp(argv[1], "check-fs")) {
+#else //_LIN
 			if (alarm_raised && !strcmp(argv[1], "check-fs")) {
+#endif
 				CLI_ERRO_LOG_STDERR(false, "Filesystem check takes a long time. Check it manually (see bsr log).");
 				CLI_ERRO_LOG_STDERR(false, "If there is no problem, you can ignore it with --skip-check-fs.");
+				chkdsk_timeout = 1;
 			}
 			CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(false, "Command '");
 			for (cmdline = argv; *cmdline; cmdline++) {
@@ -452,7 +459,7 @@ void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd
 				if (cmdline[1])
 					CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(true, " ");
 			}
-			if (alarm_raised) {
+			if (alarm_raised || chkdsk_timeout) {
 				CLI_ERRO_LOG_STDERR(true, "' did not terminate within %u seconds", timeout);
 				exit(E_EXEC_ERROR);
 			}

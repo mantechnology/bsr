@@ -194,9 +194,7 @@ char *sh_varname = NULL;
 struct names backend_options = STAILQ_HEAD_INITIALIZER(backend_options);
 
 char *connect_to_host = NULL;
-#ifdef _LIN
 bool force_primary = false;
-#endif
 STAILQ_HEAD(deferred_cmds, deferred_cmd) deferred_cmds[__CFG_LAST];
 
 int adm_adjust_wp(const struct cfg_ctx *ctx)
@@ -352,17 +350,12 @@ int adm_adjust_wp(const struct cfg_ctx *ctx)
 /*  */ struct adm_cmd connect_cmd = {"connect", adm_connect, &connect_cmd_ctx, ACF1_CONNECT};
 /*  */ struct adm_cmd net_options_cmd = {"net-options", adm_new_peer, &net_options_ctx, ACF1_CONNECT};
 /*  */ struct adm_cmd disconnect_cmd = {"disconnect", adm_bsrsetup, &disconnect_cmd_ctx, ACF1_DISCONNECT};
-// BSR-1066
-#ifdef _WIN
-static struct adm_cmd up_cmd = {"up", adm_up, &up_cmd_ctx, ACF1_RESNAME };
-#else
 static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
-#endif
 /*  */ struct adm_cmd res_options_cmd = {"resource-options", adm_resource, &resource_options_ctx, ACF1_RESNAME};
 /*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_cmd_ctx, ACF1_RESNAME};
 static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 // BSR-823
-static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
+static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_adm_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, ACF1_MINOR_ONLY };
 static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, &invalidate_peer_ctx, ACF1_PEER_DEVICE .takes_long = 1};
@@ -426,7 +419,7 @@ static struct adm_cmd sh_peer_nodes_cmd = {"sh-peer-nodes", sh_peer_nodes, ACF2_
 static struct adm_cmd proxy_up_cmd = {"proxy-up", adm_proxy_up, ACF2_PROXY};
 static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY};
 
-/*  */ struct adm_cmd new_resource_cmd = {"new-resource", adm_resource, &new_resource_options_ctx, ACF2_SH_RESNAME};
+/*  */ struct adm_cmd new_resource_cmd = {"new-resource", adm_resource, &resource_options_ctx, ACF2_SH_RESNAME};
 /*  */ struct adm_cmd new_minor_cmd = {"new-minor", adm_new_minor, &device_options_ctx, ACF4_ADVANCED};
 /*  */ struct adm_cmd del_minor_cmd = { "del-minor", adm_bsrsetup, ACF1_MINOR_ONLY.show_in_usage = 4, .disk_required = 0, };
 
@@ -1478,47 +1471,6 @@ static int adm_node(const struct cfg_ctx *ctx)
 	return m_system_ex(argv, SLEEPS_SHORT, res->name);
 }
 
-
-static int do_check_fs_cmd(const struct cfg_ctx *ctx)
-{
-	const char *opt_name = "--skip-check-fs";
-	struct d_name *opt;
-	bool do_check_fs = true;
-
-	opt = find_backend_option(opt_name);
-
-	if (opt) {
-		if (strlen(opt->name) > strlen(opt_name)) {
-			char *opt_val = NULL;
-			opt_val = ssprintf("%s", opt->name + strlen(opt_name) + 1);
-			if (opt_val && strcmp(opt_val, "false"))
-				do_check_fs = false;
-		} else {
-			do_check_fs = false;
-		}
-		
-	}
-	// run bsrsetup check-fs if no --skip-check-fs option
-	if (do_check_fs) {
-		char *argv[4] = {bsrsetup, "check-fs", NULL, NULL};
-		struct d_volume *vol = ctx->vol;
-		struct cfg_ctx tmp_ctx = *ctx;
-		int rv = 0;
-		
-		for_each_volume(vol, &ctx->res->me->volumes) {
-			tmp_ctx.vol = vol;
-			argv[2] = ssprintf("%d", tmp_ctx.vol->device_minor);
-			rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name);
-			if (rv)
-				return rv;
-		}	
-	}
-	if (opt)
-		STAILQ_REMOVE(&backend_options, opt, d_name, link);
-
-	return 0;
-}
-
 static int adm_resource(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res = ctx->res;
@@ -1526,13 +1478,6 @@ static int adm_resource(const struct cfg_ctx *ctx)
 	int argc = 0, ex;
 	bool do_new_resource = (ctx->cmd == &new_resource_cmd);
 	bool reset = (ctx->cmd == &res_options_defaults_cmd);
-
-	// BSR-1066 add check-fs cmd before new-resource
-	if (do_new_resource) {
-		ex = do_check_fs_cmd(ctx);
-		if (ex)
-			return ex;
-	}
 
 	argv[NA(argc)] = bsrsetup;
 	argv[NA(argc)] = (char *)ctx->cmd->name; /* "new-resource" or "resource-options" */
@@ -1751,15 +1696,42 @@ static int adm_bsrsetup(const struct cfg_ctx *ctx)
 // BSR-823
 static int adm_primary(const struct cfg_ctx *ctx)
 {
-#ifdef _LIN
-	if (force_primary) {
-		int rv = 0;
+	const char *opt_name = "--skip-check-fs";
+	struct d_name *opt;
+	opt = find_backend_option(opt_name);
 
-		rv = do_check_fs_cmd(ctx);
-		if (rv)
-			return rv;
+	if (force_primary) {
+		bool do_check_fs = true;
+
+		if (opt) {
+			if (strlen(opt->name) > strlen(opt_name)) {
+				char *opt_val = NULL;
+				opt_val = ssprintf("%s", opt->name + strlen(opt_name) + 1);
+				if (opt_val && strcmp(opt_val, "false"))
+					do_check_fs = false;
+			} else {
+				do_check_fs = false;
+			}
+		}
+		// run bsrsetup check-fs if --force primary and no --skip-check-fs option
+		if (do_check_fs) {
+			char *argv[4] = {bsrsetup, "check-fs", NULL, NULL};
+			struct d_volume *vol = ctx->vol;
+			struct cfg_ctx tmp_ctx = *ctx;
+			int rv = 0;
+			
+			for_each_volume(vol, &ctx->res->me->volumes) {
+				tmp_ctx.vol = vol;
+				argv[2] = ssprintf("%d", tmp_ctx.vol->device_minor);
+				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name);
+				if (rv)
+					return rv;
+			}    
+		}
 	}
-#endif
+
+	if (opt)
+		STAILQ_REMOVE(&backend_options, opt, d_name, link);
 	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
 }
 
@@ -3289,9 +3261,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 	struct names backend_options_check;
 	struct d_name *b_opt;
 	int longindex, first_arg_index;
-#ifdef _LIN
 	bool force_opt = false;
-#endif
 	STAILQ_INIT(&backend_options_check);
 	*cmd = NULL;
 	*resource_names = calloc(argc + 1, sizeof(char *));
@@ -3309,13 +3279,11 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			{
 				struct option *option = &admopt[longindex];
 				char *opt;
-#ifdef _LIN
 				// BSR-823
 				if (!strcmp(option->name, "force")) {
 					if (!optarg || (optarg && !strcmp(option->name, "true")))
 						force_opt = true;
 				}
-#endif				
 				if (optarg)
 					opt = ssprintf("--%s=%s", option->name, optarg);
 				else
@@ -3498,11 +3466,9 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 	}
 	STAILQ_CONCAT(&backend_options, &backend_options_check);
 
-#ifdef _LIN
 	// BSR-823
 	if (!strcmp((*cmd)->name, "primary") && force_opt)
 		force_primary = true;
-#endif
 
 	return 0;
 

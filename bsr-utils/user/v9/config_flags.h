@@ -91,6 +91,7 @@ extern struct context_def net_options_ctx;
 extern struct context_def show_net_options_ctx;
 extern struct context_def adjust_net_options_ctx; // BSR-859
 extern struct context_def primary_cmd_ctx;
+extern struct context_def primary_adm_cmd_ctx;
 extern struct context_def attach_cmd_ctx;
 extern struct context_def detach_cmd_ctx;
 extern struct context_def connect_cmd_ctx;
@@ -99,7 +100,6 @@ extern struct context_def path_cmd_ctx;
 extern struct context_def disconnect_cmd_ctx;
 extern struct context_def resize_cmd_ctx;
 extern struct context_def resource_options_ctx;
-extern struct context_def new_resource_options_ctx; // BSR-1066
 extern struct context_def node_options_ctx;
 extern struct context_def node_options_cmd_ctx; // BSR-859
 extern struct context_def new_current_uuid_cmd_ctx;
@@ -115,7 +115,6 @@ extern struct context_def handlers_ctx;
 extern struct context_def proxy_options_ctx;
 extern struct context_def startup_options_ctx;
 extern struct context_def wildcard_ctx;
-extern struct context_def up_cmd_ctx; // BSR-1066
 
 extern const char *double_quote_string(const char *str);
 

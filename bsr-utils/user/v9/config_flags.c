@@ -1025,18 +1025,15 @@ struct context_def primary_cmd_ctx = {
 	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
-#ifdef _LIN
-		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
-#endif
 		{ } },
 };
 
-// BSR-1066
-struct context_def up_cmd_ctx = {
+struct context_def primary_adm_cmd_ctx = {
+	NLA_POLICY(set_role_parms),
+	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
-#ifdef _WIN
-		{ "skip-check-fs", .argument_is_optional = true },
-#endif
+		{ "force", FLAG(assume_uptodate) },
+		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
 		{ } },
 };
 
@@ -1131,46 +1128,31 @@ struct context_def resize_cmd_ctx = {
 		{ } },
 };
 
-#define CHANGEABLE_RESOURCE_OPTIONS                    \
-		{ "cpu-mask", STRING(cpu_mask) },	\
-		{ "on-no-data-accessible", ENUM(on_no_data, ON_NO_DATA) },	\
-		/* BSR-465 auto-promote disable	*/	\
-		/*{ "auto-promote", BOOLEAN(auto_promote, AUTO_PROMOTE) },*/	\
-		{ "peer-ack-window", NUMERIC(peer_ack_window, PEER_ACK_WINDOW), .unit = "bytes" },	\
-		{ "peer-ack-delay", NUMERIC(peer_ack_delay, PEER_ACK_DELAY),	\
-			.unit = "milliseconds" },	\
-		{ "twopc-timeout", NUMERIC(twopc_timeout, TWOPC_TIMEOUT), .unit = "1/10 seconds" },	\
-		{ "twopc-retry-timeout", NUMERIC(twopc_retry_timeout, TWOPC_RETRY_TIMEOUT),	\
-			.unit = "1/10 seconds" },	\
-		/* BSR-465 auto-promote disable */	\
-		/*{ "auto-promote-timeout", NUMERIC(auto_promote_timeout, AUTO_PROMOTE_TIMEOUT), .unit = "1/10 seconds" },*/ 	\
-		{ "max-io-depth", NUMERIC(nr_requests, NR_REQUESTS) },	\
-		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, BSR_PEERS_MAX) },	\
-		{ "on-no-quorum", ENUM(on_no_quorum, ON_NO_QUORUM) },	\
-		/* DW-1925 number and size of request objects can be set */ 	\
-		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },	\
-		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) }
-
 struct context_def resource_options_ctx = {
 	NLA_POLICY(res_opts),
 	.nla_type = BSR_NLA_RESOURCE_OPTS,
 	.fields = {
-		CHANGEABLE_RESOURCE_OPTIONS,
+		{ "cpu-mask", STRING(cpu_mask) },
+		{ "on-no-data-accessible", ENUM(on_no_data, ON_NO_DATA) },
+		// BSR-465 auto-promote disable
+		/*{ "auto-promote", BOOLEAN(auto_promote, AUTO_PROMOTE) },*/
+		{ "peer-ack-window", NUMERIC(peer_ack_window, PEER_ACK_WINDOW), .unit = "bytes" },
+		{ "peer-ack-delay", NUMERIC(peer_ack_delay, PEER_ACK_DELAY),
+			.unit = "milliseconds" },
+		{ "twopc-timeout", NUMERIC(twopc_timeout, TWOPC_TIMEOUT), .unit = "1/10 seconds" },
+		{ "twopc-retry-timeout", NUMERIC(twopc_retry_timeout, TWOPC_RETRY_TIMEOUT),
+			.unit = "1/10 seconds" },
+		// BSR-465 auto-promote disable
+		/*{ "auto-promote-timeout", NUMERIC(auto_promote_timeout, AUTO_PROMOTE_TIMEOUT),
+			.unit = "1/10 seconds" },*/
+		{ "max-io-depth", NUMERIC(nr_requests, NR_REQUESTS) },
+		{ "quorum", ENUM_NUM(quorum, QUORUM, 1, BSR_PEERS_MAX) },
+		{ "on-no-quorum", ENUM(on_no_quorum, ON_NO_QUORUM) },
+		// DW-1925 number and size of request objects can be set
+		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
+		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
 		{ } },
 };
-
-// BSR-1066
-struct context_def new_resource_options_ctx = {
-	NLA_POLICY(res_opts),
-	.nla_type = BSR_NLA_RESOURCE_OPTS,
-	.fields = {
-		CHANGEABLE_RESOURCE_OPTIONS,
-#ifdef _WIN
-		{ "skip-check-fs", .argument_is_optional=true },
-#endif
-		{ } },
-};
-
 
 #define CHANGEABLE_NODE_OPTIONS                    \
     /* DW-1249 auto-start by svc */		\
@@ -1280,9 +1262,6 @@ struct context_def adjust_ctx = {
 	.fields = {
 		{ "skip-disk", .argument_is_optional = true },
 		{ "skip-net", .argument_is_optional = true },
-#ifdef _WIN
-		{ "skip-check-fs", .argument_is_optional = true }, // BSR-1066
-#endif
 		CONNECT_CMD_OPTIONS,
 		{ } },
 };

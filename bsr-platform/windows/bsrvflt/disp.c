@@ -946,11 +946,24 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             MVOL_IOCOMPLETE_REQ(Irp, status, size);
         }
 
+		// BSR-1066
+		case IOCTL_MVOL_TEMP_MOUNT_VOLUME:
+		{
+			ULONG size = 0;
+			status = IOCTL_MountVolume(DeviceObject, Irp, &size, true);
+			MVOL_IOCOMPLETE_REQ(Irp, status, size);
+		}
+		case IOCTL_MVOL_DISMOUNT_VOLUME:
+		{
+			status = IOCTL_DismountVolume(DeviceObject);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
+
         case IOCTL_MVOL_MOUNT_VOLUME:
         {
 			ULONG size = 0;
 
-            status = IOCTL_MountVolume(DeviceObject, Irp, &size);
+            status = IOCTL_MountVolume(DeviceObject, Irp, &size, false);
 			if (!NT_SUCCESS(status)) {
 				bsr_warn(84, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME failed. Volume(%ws) status(0x%x)",
 					VolumeExtension->MountPoint, status);

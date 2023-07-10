@@ -127,8 +127,9 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	return STATUS_SUCCESS;
 }
 
+// BSR-1066 temp_mount is volume unlock for chkdsk in bsrsetup check-fs
 NTSTATUS
-IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
+IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength, int temp_mount)
 {
 	if (DeviceObject == mvolRootDeviceObject) {
 		return STATUS_INVALID_DEVICE_REQUEST;
@@ -160,9 +161,9 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	// DW-1300 get device and get reference.
 	device = get_device_with_vol_ext(pvext, TRUE);
 #ifdef _WIN_MULTIVOL_THREAD
-    if (device)
+    if (device && !temp_mount)
 #else
-	if (pvext->WorkThreadInfo.Active && device)
+	if (pvext->WorkThreadInfo.Active && device && !temp_mount)
 #endif
 	{
 		_snprintf(Message, sizeof(Message) - 1, "Failed to mount volume due to %ws volume is handling by bsr. Failed to release volume",
@@ -196,6 +197,38 @@ out:
 		memcpy((PCHAR)Irp->AssociatedIrp.SystemBuffer, Message, DecidedLength);
 		*((PCHAR)Irp->AssociatedIrp.SystemBuffer + DecidedLength) = '\0';
 	}
+
+    return status;
+}
+
+// BSR-1066 for volume lock after chkdsk in bsrsetup check-fs
+NTSTATUS
+IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+	PVOLUME_EXTENSION pvext = DeviceObject->DeviceExtension;
+	struct bsr_device *device = NULL;
+ 
+ 	if (DeviceObject == mvolRootDeviceObject) {
+		return STATUS_INVALID_DEVICE_REQUEST;
+	}
+
+    COUNT_LOCK(pvext);
+
+	device = get_device_with_vol_ext(pvext, TRUE);
+    if (device) {
+		SetBsrlockIoBlock(pvext, TRUE);
+		pvext->WorkThreadInfo = &device->resource->WorkThreadInfo;
+    	pvext->bPreviouslyResynced = FALSE;
+		pvext->Active = TRUE;
+		FsctlLockVolume(device->minor);
+		FsctlFlushDismountVolume(device->minor, true);
+		pvext->bPreviouslyResynced = TRUE;
+		FsctlUnlockVolume(device->minor);
+
+		kref_put(&device->kref, bsr_destroy_device);
+    } 
+    COUNT_UNLOCK(pvext);
 
     return status;
 }

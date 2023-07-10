@@ -102,6 +102,14 @@ static struct nlattr *global_attrs[128];
  * to check for presence of struct fields. */
 #define ntb(t)	nested_attr_tb[__nla_type(t)]
 
+#ifdef _WIN
+// BSR-1066
+#define MVOL_TYPE		0x9800
+#define IOCTL_MVOL_TEMP_MOUNT_VOLUME	CTL_CODE(MVOL_TYPE, 16, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_MVOL_DISMOUNT_VOLUME		CTL_CODE(MVOL_TYPE, 17, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define CMD_TIMEOUT_MEDIUM_DEF 121
+#endif
+
 #ifdef PRINT_NLMSG_LEN
 /* I'm to lazy to check the maximum possible nlmsg length by hand */
 int main(void)
@@ -1357,8 +1365,11 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 
 
 // BSR-823 run filesystem check command
-int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
+int run_check_fs(char **argv, char *output_file)
 {
+#ifdef _WIN
+	pid_t timeout_pid, exited_pid;
+#endif
 	pid_t pid;
 	int status, rv = -1;
 
@@ -1369,7 +1380,7 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 	
 	if (pid == -1) {
 		CLI_ERRO_LOG_STDERR(false,  "Can not fork");
-		exit(20);
+		return -1;
 	}
 	if (pid == 0) {
 		FILE *f_out;
@@ -1380,21 +1391,45 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 		f_out = freopen(output_file, "w", stdout);
 		if (!f_out) {
 			CLI_ERRO_LOG_STDERR(false,  "reopen stdout to %s failed", output_file);
-			exit(20);
+			exit(10);
 		}
 
 		dup2(fileno(stdout), fileno(stderr));
-
-		if (argv[0]) {
-			execvp(argv[0], argv);
-		}
+		execvp(argv[0], argv);
+		
 		CLI_ERRO_LOG_STDERR(false,  "Can not exec %s", argv[0]);
-		exit(20);
+		exit(10);
 	}
 
-	if (kid)
-		*kid = pid;
-
+#ifdef _WIN
+	// BSR-1066 timeout handling for chkdsk cmd
+	timeout_pid = fork();
+	if(timeout_pid == 0) {
+		sleep(CMD_TIMEOUT_MEDIUM_DEF);
+		exit(0);
+	}
+	
+	while (1) {
+		exited_pid = waitpid(-1, &status, 0);
+		if (exited_pid == -1) {
+			if (errno != EINTR) {
+				break;
+			}
+		} else if (exited_pid == timeout_pid) {
+			kill(pid, SIGKILL);
+			rv = 20; // EXIT_TIMED_OUT
+			break;
+		} else if (exited_pid == pid) {
+			kill(timeout_pid, SIGKILL);
+			if (WIFEXITED(status)) {
+				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
+				break;
+			}
+		}
+	}
+#else // _LIN
 	while (1) {
 		if (waitpid(pid, &status, 0) == -1) {
 			if (errno != EINTR)
@@ -1402,10 +1437,13 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 		} else {
 			if (WIFEXITED(status)) {
 				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
 				break;
 			}
 		}
 	}
+#endif
 
 	fflush(stdout);
 	fflush(stderr);
@@ -1413,6 +1451,47 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 	return rv;
 }
 #ifdef _WIN
+static bool unlock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	char MsgBuff[MAX_PATH] = { 0, };
+	BOOL ret = FALSE;
+
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_TEMP_MOUNT_VOLUME, NULL, 0, MsgBuff, MAX_PATH, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
+static bool lock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	BOOL ret = FALSE;
+
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
 static int is_fastsync()
 {
 	DWORD use_fast_sync = 0;
@@ -1469,9 +1548,14 @@ static int need_filesystem_recovery(char dev_letter)
 	// remove old log files
 	remove(fs_check_log);
 
-	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
-
-	if (ret != 0) {
+	/// BSR-1066 volume temporary mount to run chkdsk
+	unlock_volume(dev_letter);
+	ret = run_check_fs(argv, fs_check_log);
+	lock_volume(dev_letter);
+	
+	if (ret == -1) {
+		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
+	} else if (ret != 0 && ret != EXIT_TIMED_OUT) {
 		CLI_ERRO_LOG_STDERR(false, "%c: Filesystem has errors (%d)", dev_letter, ret);
 	}
 	
@@ -1568,7 +1652,7 @@ static int need_filesystem_recovery(char * dev_name)
 		argv[1] = "-l";
 	}
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, journal_check_log);
+	ret = run_check_fs(argv, journal_check_log);
 
 	if (ret != 0) {
 		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
@@ -1624,7 +1708,7 @@ static int need_filesystem_recovery(char * dev_name)
 	}
 	argv[1] = "-n";
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
+	ret = run_check_fs(argv, fs_check_log);
 
 	if (ret == -1 || ret == 127) {
 		CLI_ERRO_LOG_STDERR(false,
@@ -4083,47 +4167,20 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	return ret;
 }
 
-#ifdef _WIN
-// BSR-1066
-static bool is_volume_mounted(char dev_letter)
-{
-	DWORD dwReturned;
-	HANDLE handle = INVALID_HANDLE_VALUE;
-	CHAR letter[] = "\\\\.\\ :";
-	BOOL ret = FALSE;
-
-	letter[4] = dev_letter;
-	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-
-	if (handle == INVALID_HANDLE_VALUE)
-		return false;
-
-	ret = DeviceIoControl(handle, FSCTL_IS_VOLUME_MOUNTED, NULL, 0, NULL, 0, &dwReturned, NULL);
-
-	CloseHandle(handle);
-
-	return ret;
-}
-#endif
-
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
 	// BSR-747 check for filesystem errors before initial synchronization
 	int need_recovery = 0;
 	int ret = 0;
-#ifdef _WIN
-	bool need_chkdsk = false;
-	char letter;
-	letter = (char)('C' + minor);
-
-	// BSR-1066 run chkdsk if volume mount
-	if (is_volume_mounted(letter)) 
-		need_recovery = need_filesystem_recovery(letter);
-
-#else // _LIN
 	struct devices_list *devices, *device;
 	struct peer_devices_list *peer_devices = NULL, *peer_device;
+#ifdef _WIN
+	char dev_name = (char)('C' + minor);
+#else // _LIN
+	char * dev_name = device->disk_conf.backing_dev;
+#endif
+
 
 	devices = list_devices(NULL);
 	for (device = devices; device; device = device->next) {
@@ -4140,13 +4197,17 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				goto out;
 		}
 		
-		need_recovery = need_filesystem_recovery(device->disk_conf.backing_dev);
+		need_recovery = need_filesystem_recovery(dev_name);
 		break;
 	}
 
 out:
 	free_devices(devices);
 	free_peer_devices(peer_devices);
+
+#ifdef _WIN
+	if (need_recovery == EXIT_TIMED_OUT)
+		exit(EXIT_TIMED_OUT);
 #endif
 
 	if (need_recovery) {
