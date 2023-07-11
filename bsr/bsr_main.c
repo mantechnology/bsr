@@ -903,8 +903,9 @@ int bsr_thread_start(struct bsr_thread *thi)
 		else
 			bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])",
 					thi->name, current->comm, current->pid);
-		/* fall through */
+		/* Fall through */
 	case RUNNING:
+		/* Fall through */
 	case RESTARTING:
 	default:
 		spin_unlock_irqrestore(&thi->t_lock, flags);

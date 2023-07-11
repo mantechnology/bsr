@@ -1371,7 +1371,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
 		bsr_report_io_error(device, req);
 		__bsr_chk_io_error(device, BSR_READ_ERROR);
-		/* fall through. */
+		/* Fall through */
 	case READ_AHEAD_COMPLETED_WITH_ERROR:
 		/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
 		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);

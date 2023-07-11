@@ -127,9 +127,13 @@ static bool may_be_up_to_date(struct bsr_device *device) __must_hold(local)
 				continue;
 			/* Fall through */
 		case D_ATTACHING:
+			/* Fall through */
 		case D_DETACHING:
+			/* Fall through */
 		case D_FAILED:
+			/* Fall through */
 		case D_NEGOTIATING:
+			/* Fall through */
 		case D_UNKNOWN:
 			if (!want_bitmap)
 				continue;
@@ -137,9 +141,11 @@ static bool may_be_up_to_date(struct bsr_device *device) __must_hold(local)
 				continue;
 			break;
 		case D_INCONSISTENT:
+			/* Fall through */
 		case D_OUTDATED:
 			continue;
 		case D_CONSISTENT:
+			/* Fall through */
 		case D_UP_TO_DATE:
 			/* These states imply that there is a connection. If there is
 			a conneciton we do not need to insist that the peer was

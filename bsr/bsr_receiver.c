@@ -1836,10 +1836,10 @@ struct bsr_peer_request *peer_req)
 	peer_req->flags |= EE_WAS_ERROR;
 	bsr_endio_write_sec_final(peer_req);
 #else
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS 
 	struct block_device *bdev = device->ldev->backing_bdev;
 	sector_t s = peer_req->i.sector;
 	sector_t nr = peer_req->i.size >> 9;
-#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS 
 	if (blkdev_issue_write_same(bdev, s, nr, GFP_NOIO, peer_req->page_chain.head))
 		peer_req->flags |= EE_WAS_ERROR;
 #endif
@@ -2190,6 +2190,7 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 
 	case -ENOSPC:
 		/* no other error expected, but anyways: */
+		/* Fall through */
 	default:
 		/* forget the object,
 		 * and cause a "Network failure" */
@@ -4793,8 +4794,11 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			bsr_send_ack_rp(peer_device, P_NEG_DREPLY, p);
 			break;
 		case P_RS_THIN_REQ:
+			/* Fall through */
 		case P_RS_DATA_REQUEST:
+			/* Fall through */
 		case P_CSUM_RS_REQUEST:
+			/* Fall through */
 		case P_OV_REQUEST:
 			bsr_send_ack_rp(peer_device, P_NEG_RS_DREPLY , p);
 			break;
@@ -4874,6 +4878,7 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		break;
 
 	case P_OV_REPLY:
+		/* Fall through */
 	case P_CSUM_RS_REQUEST:
 		block_id = peer_req->block_id;
 		fault_type = BSR_FAULT_RS_RD;
@@ -5159,10 +5164,15 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 	rcu_read_unlock();
 	switch (after_sb_1p) {
 	case ASB_DISCARD_YOUNGER_PRI:
+		/* Fall through */
 	case ASB_DISCARD_OLDER_PRI:
+		/* Fall through */
 	case ASB_DISCARD_LEAST_CHG:
+		/* Fall through */
 	case ASB_DISCARD_LOCAL:
+		/* Fall through */
 	case ASB_DISCARD_REMOTE:
+		/* Fall through */
 	case ASB_DISCARD_ZERO_CHG:
 		bsr_err(26, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
 		break;
@@ -5217,12 +5227,19 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 	rcu_read_unlock();
 	switch (after_sb_2p) {
 	case ASB_DISCARD_YOUNGER_PRI:
+		/* Fall through */
 	case ASB_DISCARD_OLDER_PRI:
+		/* Fall through */
 	case ASB_DISCARD_LEAST_CHG:
+		/* Fall through */
 	case ASB_DISCARD_LOCAL:
+		/* Fall through */
 	case ASB_DISCARD_REMOTE:
+		/* Fall through */
 	case ASB_CONSENSUS:
+		/* Fall through */
 	case ASB_DISCARD_SECONDARY:
+		/* Fall through */
 	case ASB_DISCARD_ZERO_CHG:
 		bsr_err(27, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
 		break;
@@ -6083,7 +6100,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		switch (rr_conflict) {
 		case ASB_CALL_HELPER:
 			bsr_khelper(device, connection, "pri-lost");
-			/* fall through */
+			/* Fall through */
 		case ASB_DISCONNECT:
 			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			return -1;

@@ -974,7 +974,7 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 		switch (yylex()) {
 		default:
 			pe_expected("minor | ;");
-			/* fall through */
+			/* Fall through */
 		case ';':
 			m = dt_minor_of_dev(vol->device);
 			if (m < 0) {
