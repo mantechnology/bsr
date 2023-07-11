@@ -3803,7 +3803,11 @@ void bsr_destroy_device(struct kref *kref)
 	}
 	__free_page(device->md_io.page);
 #ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+#ifdef COMPAT_HAVE_BLK_CLEANUP_DISK
 	blk_cleanup_disk(device->vdisk);
+#else
+	put_disk(device->vdisk);
+#endif
 #else
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
@@ -5117,7 +5121,7 @@ out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
 #ifdef _LIN 
-#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+#if defined(COMPAT_HAVE_BLK_ALLOC_DISK) && defined(COMPAT_HAVE_BLK_CLEANUP_DISK)
 	blk_cleanup_disk(disk);
 #else
 	put_disk(disk);
@@ -5126,8 +5130,8 @@ out_no_io_page:
 out_no_disk:
 #ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 	blk_cleanup_queue(q);
-#endif
 out_no_q:
+#endif
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);
 	return err;
