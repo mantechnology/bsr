@@ -5151,7 +5151,6 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	}
 	else
 		printf("New bsr meta data block successfully created.\n");
-
 	return err;
 }
 

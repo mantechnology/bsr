@@ -102,6 +102,14 @@ static struct nlattr *global_attrs[128];
  * to check for presence of struct fields. */
 #define ntb(t)	nested_attr_tb[__nla_type(t)]
 
+#ifdef _WIN
+// BSR-1066
+#define MVOL_TYPE		0x9800
+#define IOCTL_MVOL_TEMP_MOUNT_VOLUME	CTL_CODE(MVOL_TYPE, 16, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_MVOL_DISMOUNT_VOLUME		CTL_CODE(MVOL_TYPE, 17, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define CMD_TIMEOUT_MEDIUM_DEF 121
+#endif
+
 #ifdef PRINT_NLMSG_LEN
 /* I'm to lazy to check the maximum possible nlmsg length by hand */
 int main(void)
@@ -271,10 +279,8 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#ifdef _LIN
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#endif
 static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv);
 
 // sub commands for generic_get_cmd
@@ -540,12 +546,10 @@ struct bsr_cmd commands[] = {
 	{"check-resize", CTX_MINOR, 0, NO_PAYLOAD, check_resize_cmd,
 	 .lockless = true,
 	 .summary = "Remember the current size of a lower-level device." },
-#ifdef _LIN
 	// BSR-823
 	{"check-fs", CTX_MINOR, 0, NO_PAYLOAD, check_fs_cmd,
 	 .lockless = true,
 	 .summary = "Check a filesystem of a backing device." },
-#endif
 	{"events2", CTX_RESOURCE | CTX_ALL, F_NEW_EVENTS_CMD(print_notifications),
 	 .options = events_cmd_options,
 	 .missing_ok = true,
@@ -1359,10 +1363,13 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
 
-#ifdef _LIN
+
 // BSR-823 run filesystem check command
-int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
+int run_check_fs(char **argv, char *output_file)
 {
+#ifdef _WIN
+	pid_t timeout_pid, exited_pid;
+#endif
 	pid_t pid;
 	int status, rv = -1;
 
@@ -1373,30 +1380,56 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 	
 	if (pid == -1) {
 		CLI_ERRO_LOG_STDERR(false,  "Can not fork");
-		exit(20);
+		return -1;
 	}
 	if (pid == 0) {
 		FILE *f_out;
+#ifdef _LIN
 		prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
 
 		f_out = freopen(output_file, "w", stdout);
 		if (!f_out) {
 			CLI_ERRO_LOG_STDERR(false,  "reopen stdout to %s failed", output_file);
-			exit(20);
+			exit(10);
 		}
 
 		dup2(fileno(stdout), fileno(stderr));
-
-		if (argv[0]) {
-			execvp(argv[0], argv);
-		}
+		execvp(argv[0], argv);
+		
 		CLI_ERRO_LOG_STDERR(false,  "Can not exec %s", argv[0]);
-		exit(20);
+		exit(10);
 	}
 
-	if (kid)
-		*kid = pid;
-
+#ifdef _WIN
+	// BSR-1066 timeout handling for chkdsk cmd
+	timeout_pid = fork();
+	if(timeout_pid == 0) {
+		sleep(CMD_TIMEOUT_MEDIUM_DEF);
+		exit(0);
+	}
+	
+	while (1) {
+		exited_pid = waitpid(-1, &status, 0);
+		if (exited_pid == -1) {
+			if (errno != EINTR) {
+				break;
+			}
+		} else if (exited_pid == timeout_pid) {
+			kill(pid, SIGKILL);
+			rv = 20; // EXIT_TIMED_OUT
+			break;
+		} else if (exited_pid == pid) {
+			kill(timeout_pid, SIGKILL);
+			if (WIFEXITED(status)) {
+				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
+				break;
+			}
+		}
+	}
+#else // _LIN
 	while (1) {
 		if (waitpid(pid, &status, 0) == -1) {
 			if (errno != EINTR)
@@ -1404,17 +1437,131 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 		} else {
 			if (WIFEXITED(status)) {
 				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
 				break;
 			}
 		}
 	}
+#endif
 
 	fflush(stdout);
 	fflush(stderr);
 
 	return rv;
 }
+#ifdef _WIN
+static bool unlock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	char MsgBuff[MAX_PATH] = { 0, };
+	BOOL ret = FALSE;
 
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_TEMP_MOUNT_VOLUME, NULL, 0, MsgBuff, MAX_PATH, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
+static bool lock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	BOOL ret = FALSE;
+
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
+static int is_fastsync()
+{
+	DWORD use_fast_sync = 0;
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return lResult;
+	}
+
+	lResult = RegQueryValueEx(hKey, "use_fast_sync", NULL, &type, (LPBYTE)&use_fast_sync, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_SUCCESS) {
+		lResult = use_fast_sync;
+	}
+
+	return lResult;
+}
+
+// BSR-1066
+static int need_filesystem_recovery(char dev_letter)
+{
+	char cmd[10];
+	int ret = 0;
+	int fast_sync = 0;
+	FILE *fp;
+	bool journal_recovery = false;
+	bool xfs_fs = false;
+	char *argv[] = { "chkdsk", (char[3]){dev_letter, ':', '\0'}, NULL };
+	char fs_check_log[256];
+	char *s, *ptr;
+
+	// check fast sync settings
+	// if full sync, skip filesystem check
+	if (!is_fastsync()) {
+		return 0;
+	}
+
+	memset(fs_check_log, 0, sizeof(fs_check_log));
+	s = getenv("BSR_PATH");
+	if (s != NULL) {
+		ptr = strrchr(s, L'\\');
+		if (s != NULL) {
+			memcpy(fs_check_log, s, (ptr - s));
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s\\log\\chkdsk_%c.log", fs_check_log, dev_letter);
+		}
+	}
+	
+	// remove old log files
+	remove(fs_check_log);
+
+	/// BSR-1066 volume temporary mount to run chkdsk
+	unlock_volume(dev_letter);
+	ret = run_check_fs(argv, fs_check_log);
+	lock_volume(dev_letter);
+	
+	if (ret == -1) {
+		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
+	} else if (ret != 0 && ret != EXIT_TIMED_OUT) {
+		CLI_ERRO_LOG_STDERR(false, "%c: Filesystem has errors (%d)", dev_letter, ret);
+	}
+	
+	return ret;
+}
+#else // _LIN
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
@@ -1505,7 +1652,7 @@ static int need_filesystem_recovery(char * dev_name)
 		argv[1] = "-l";
 	}
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, journal_check_log);
+	ret = run_check_fs(argv, journal_check_log);
 
 	if (ret != 0) {
 		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
@@ -1561,7 +1708,7 @@ static int need_filesystem_recovery(char * dev_name)
 	}
 	argv[1] = "-n";
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
+	ret = run_check_fs(argv, fs_check_log);
 
 	if (ret == -1 || ret == 127) {
 		CLI_ERRO_LOG_STDERR(false,
@@ -4020,7 +4167,6 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	return ret;
 }
 
-#ifdef _LIN
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
@@ -4044,14 +4190,22 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				&& peer_device->info.peer_repl_state > L_ESTABLISHED)
 				goto out;
 		}
-		
+#ifdef _WIN
+		need_recovery = need_filesystem_recovery((char)('C' + minor));
+#else // _LIN
 		need_recovery = need_filesystem_recovery(device->disk_conf.backing_dev);
+#endif
 		break;
 	}
 
 out:
 	free_devices(devices);
 	free_peer_devices(peer_devices);
+
+#ifdef _WIN
+	if (need_recovery == EXIT_TIMED_OUT)
+		exit(EXIT_TIMED_OUT);
+#endif
 
 	if (need_recovery) {
 		CLI_ERRO_LOG_STDERR(false, "Filesystem check and recovery is required.");
@@ -4060,7 +4214,6 @@ out:
 
 	return ret;
 }
-#endif
 
 static bool peer_device_ctx_match(struct bsr_cfg_context *a, struct bsr_cfg_context *b)
 {

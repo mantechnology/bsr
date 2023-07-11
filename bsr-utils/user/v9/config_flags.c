@@ -1025,9 +1025,15 @@ struct context_def primary_cmd_ctx = {
 	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
-#ifdef _LIN
+		{ } },
+};
+
+struct context_def primary_adm_cmd_ctx = {
+	NLA_POLICY(set_role_parms),
+	.nla_type = BSR_NLA_SET_ROLE_PARMS,
+	.fields = {
+		{ "force", FLAG(assume_uptodate) },
 		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
-#endif
 		{ } },
 };
 
@@ -1147,8 +1153,6 @@ struct context_def resource_options_ctx = {
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
 		{ } },
 };
-
-
 
 #define CHANGEABLE_NODE_OPTIONS                    \
     /* DW-1249 auto-start by svc */		\

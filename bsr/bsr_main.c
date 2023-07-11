@@ -7921,7 +7921,18 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		// DW-2017
 		mutex_lock(&device->resource->vol_ctl_mutex);
 	}
-	
+
+#ifdef _WIN
+	// BSR-1066 if the peer was a diskless or crashed primary, full sync.
+	if (side == L_SYNC_SOURCE) {
+		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY)) {
+			bsr_info(229, BSR_LC_RESYNC_OV, peer_device, "The peer node maybe diskless or crashed primary, need to full-sync");
+			mutex_unlock(&device->resource->vol_ctl_mutex);
+			goto out;
+		}
+	}
+#endif
+
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE) {
