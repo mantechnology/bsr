@@ -1242,7 +1242,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *req)
 {
-#ifdef _LIN
+#ifdef COMPAT_HAVE_BDEVNAME
 	char b[BDEVNAME_SIZE];
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
@@ -1257,11 +1257,20 @@ static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *r
 		write_log = false;
 
 	if (write_log) {
+#if defined(_WIN) || defined(COMPAT_HAVE_BDEVNAME) 
 		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %s",
 			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
 			(unsigned long long)req->i.sector,
 			req->i.size >> 9,
 			bdevname(device->ldev->backing_bdev, b));
+#else
+		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %pg",
+			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
+			(unsigned long long)req->i.sector,
+			req->i.size >> 9,
+			device->ldev->backing_bdev);
+#endif
+
 	}
 }
 
