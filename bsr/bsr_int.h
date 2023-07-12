@@ -1706,6 +1706,8 @@ struct bsr_connection {
 
 	ULONG_PTR last_reconnect_jif;
 
+	// BSR-892 saves the error that occurred during the connection and outputs it as a result of the status command.
+	enum bsr_conn_error last_error;
 #ifdef _LIN
 	/* empty member on older kernels without blk_start_plug() */
 	struct blk_plug receiver_plug;

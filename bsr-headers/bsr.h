@@ -284,6 +284,12 @@ enum bsr_conn_state {
 	C_MASK = 31,
 };
 
+// BSR-892
+enum bsr_conn_error {
+	C_NO_ERROR,
+	C_SPLIT_BRAIN_ERROR
+};
+
 enum bsr_repl_state {
 	L_NEGOTIATING = C_CONNECTED, /* used for peer_device->negotiation_result only */
 	L_OFF = C_CONNECTED,

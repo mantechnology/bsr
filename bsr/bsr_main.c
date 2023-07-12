@@ -4570,6 +4570,9 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	if (tc->init(&connection->transport))
 		goto fail;
 
+	// BSR-892
+	connection->last_error = C_NO_ERROR;
+
 	return connection;
 
 fail:

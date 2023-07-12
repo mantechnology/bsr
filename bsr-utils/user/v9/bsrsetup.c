@@ -3333,6 +3333,14 @@ static void connection_status(struct connections_list *connection,
 			    cstate_color_start(cstate),
 			    bsr_conn_str(cstate),
 			    cstate_color_stop(cstate));
+		// BSR-892
+		if (connection->info.conn_last_error) {
+			int err = connection->info.conn_last_error;
+			wrap_printf(6, " error:%s%s%s",
+				cerror_color_start(err),
+				bsr_conn_err_str(err),
+				cerror_color_stop(err));
+		}
 	}
 	if (opt_verbose || connection->info.conn_connection_state == C_CONNECTED) {
 		enum bsr_role role = connection->info.conn_role;
@@ -4635,9 +4643,14 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			}
 			old = update_info(&key, &new, sizeof(new));
 			if (!old ||
-			    new.i.conn_connection_state != old->i.conn_connection_state)
+				new.i.conn_connection_state != old->i.conn_connection_state) {
 				printf(" connection:%s%s%s",
-						CONN_COLOR_STRING(new.i.conn_connection_state));
+					CONN_COLOR_STRING(new.i.conn_connection_state));
+				// BSR-892
+				if (new.i.conn_last_error)
+					printf(" error:%s%s%s", 
+					CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
+			}
 			if (!old ||
 			    new.i.conn_role != old->i.conn_role)
 				printf(" role:%s%s%s",

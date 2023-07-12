@@ -749,9 +749,11 @@ int bsr_connected(struct bsr_peer_device *peer_device)
 	struct bsr_device *device = peer_device->device;
 	int err;
 
+	// BSR-892 initialize last_error when attempting to connect until all errors are set to last_error (currently, only split-brain is set to last_error)
+	peer_device->connection->last_error = C_NO_ERROR;
+
 	atomic_set(&peer_device->packet_seq, 0);
 	peer_device->peer_seq = 0;
-
 
 	err = bsr_send_sync_param(peer_device);
 	if (!err)
@@ -6115,6 +6117,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 	if (hg == -100) {
 		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection");
+		// BSR-892
+		connection->last_error = C_SPLIT_BRAIN_ERROR;
 		// BSR-734
 		notify_split_brain(connection, "no");
 		bsr_khelper(device, connection, "split-brain");
