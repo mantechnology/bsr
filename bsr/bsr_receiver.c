@@ -855,7 +855,7 @@ int connect_work(struct bsr_work *work, int cancel)
 		return 0; /* Return early. Keep the reference on the connection! */
 	} else if (rv == SS_TWO_PRIMARIES) { // DW-663 
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(2, BSR_LC_CONNECTION, connection, "Split-Brain since more primaries than allowed. dropping connection");
+		bsr_alert(2, BSR_LC_CONNECTION, connection, "split-brain since more primaries than allowed. dropping connection");
 		// BSR-734
 		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
@@ -6018,7 +6018,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// It will not be used for a while because DW-1195 reproduced.
 	/*
 	if (hg == 100 && (!bsr_device_stable(device, NULL) || !(peer_device->uuid_flags & UUID_FLAG_STABLE))) {
-		bsr_warn(77, BSR_LC_ETC, device, "Ignore Split-Brain, for now, at least one side unstable");
+		bsr_warn(77, BSR_LC_ETC, device, "Ignore split-brain, for now, at least one side unstable");
 		hg = 0;
 	}
 	*/
@@ -6051,7 +6051,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			break;
 		}
 		if (abs(hg) < 100) {
-			bsr_warn(19, BSR_LC_CONNECTION, device, "Split-Brain detected, %d primaries, "
+			bsr_warn(19, BSR_LC_CONNECTION, device, "split-brain detected, %d primaries, "
 			     "automatically solved. Sync from %s node",
 			     pcount, (hg < 0) ? "peer" : "this");
 			// BSR-734
@@ -6080,7 +6080,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			hg = 2;
 
 		if (abs(hg) < 100) {
-			bsr_warn(21, BSR_LC_CONNECTION, device, "Split-Brain detected, manually solved. "
+			bsr_warn(21, BSR_LC_CONNECTION, device, "split-brain detected, manually solved. "
 			     "Sync from %s node",
 			     (hg < 0) ? "peer" : "this");
 			// BSR-734
@@ -6108,7 +6108,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			set_bit(NEW_CUR_UUID, &device->flags);
 		}
 	}
-	// DW-1221 If Split-Brain not detected, clearing DISCARD_MY_DATA bit.
+	// DW-1221 If split-brain not detected, clearing DISCARD_MY_DATA bit.
 	else {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
 			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
@@ -6116,7 +6116,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 
 	if (hg == -100) {
-		bsr_alert(8, BSR_LC_CONNECTION, device, "Split-Brain detected but unresolved, dropping connection");
+		bsr_alert(8, BSR_LC_CONNECTION, device, "split-brain detected but unresolved, dropping connection");
 		// BSR-892
 		connection->last_error = C_SPLIT_BRAIN_ERROR;
 		// BSR-734
@@ -8705,7 +8705,7 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(29, BSR_LC_TWOPC, connection, "Split-Brain close the connection with two or more primary settings.");
+		bsr_alert(29, BSR_LC_TWOPC, connection, "split-brain close the connection with two or more primary settings.");
 		// BSR-734
 		notify_split_brain(connection, "no");
 		bsr_khelper(NULL, connection, "split-brain");
