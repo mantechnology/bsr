@@ -2845,6 +2845,7 @@ void notify_connection_state_change(struct sk_buff *skb,
 	struct connection_info connection_info = {
 		.conn_connection_state = connection_state_change->cstate[NEW],
 		.conn_role = connection_state_change->peer_role[NEW],
+		.conn_last_error = connection->last_error,
 	};
 
 	notify_connection_state(skb, seq, connection, &connection_info, type);

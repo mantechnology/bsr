@@ -250,6 +250,8 @@ GENL_struct(BSR_NLA_DEVICE_INFO, 16, device_info,
 GENL_struct(BSR_NLA_CONNECTION_INFO, 17, connection_info,
 	__u32_field(1, 0, conn_connection_state)
 	__u32_field(2, 0, conn_role)
+	// BSR-892
+	__u32_field(3, 0, conn_last_error)
 )
 
 GENL_struct(BSR_NLA_PEER_DEVICE_INFO, 18, peer_device_info,

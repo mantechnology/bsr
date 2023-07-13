@@ -30,6 +30,17 @@
 #include "bsr_strings.h"
 #include "bsr_protocol.h"
 
+// BSR-892 the output string for the connection error is lowercase with a space of -.
+static const char * const __conn_error_names[] = {
+	[C_NO_ERROR] = "no-error",
+	[C_SPLIT_BRAIN_ERROR] = "split-brain",
+};
+
+struct state_names bsr_conn_error_names = {
+	.names = __conn_error_names,
+	.size = sizeof __conn_error_names / sizeof __conn_error_names[0],
+};
+
 static const char * const __conn_state_names[] = {
 	[C_STANDALONE]       = "StandAlone",
 	[C_DISCONNECTING]    = "Disconnecting",
@@ -233,6 +244,14 @@ const char *bsr_role_str(enum bsr_role s)
 	return (s < 0 || (unsigned int)s >= bsr_role_state_names.size ||
 	        !bsr_role_state_names.names[s]) ?
 	       "?" : bsr_role_state_names.names[s];
+}
+
+// BSR-892
+const char *bsr_conn_err_str(enum bsr_conn_error e)
+{
+	return (e < 0 || (unsigned int)e >= bsr_conn_error_names.size ||
+		!bsr_conn_error_names.names[e]) ?
+		"?" : bsr_conn_error_names.names[e];
 }
 
 const char *bsr_disk_str(enum bsr_disk_state s)

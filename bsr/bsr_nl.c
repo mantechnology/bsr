@@ -4189,6 +4189,8 @@ static void connection_to_info(struct connection_info *info,
 {
 	info->conn_connection_state = connection->cstate[NOW];
 	info->conn_role = connection->peer_role[NOW];
+	// BSR-892
+	info->conn_last_error = connection->last_error;
 }
 
 static void peer_device_to_info(struct peer_device_info *info,
