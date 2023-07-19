@@ -83,6 +83,7 @@ static struct genl_sock *genl_connect(__u32 nl_groups)
 	struct genl_sock *s = calloc(1, sizeof(*s));
 	socklen_t sock_len;
 	int bsz = 1 << 20;
+	int pid;
 
 	if (!s)
 		return NULL;
@@ -130,8 +131,13 @@ static struct genl_sock *genl_connect(__u32 nl_groups)
 	DO_OR_LOG_AND_FAIL(getsockname(s->s_fd, (struct sockaddr*) &s->s_local, &sock_len));
 #endif
 
+	pid = getpid();
+#ifdef _WIN
+	// BSR-1109
+	pid = cygwin_internal(CW_CYGWIN_PID_TO_WINPID, pid);
+#endif
 	dbg(3, "bound socket to nl_pid:%u, my pid:%u, len:%u, sizeof:%u\n",
-		s->s_local.nl_pid, getpid(),
+		s->s_local.nl_pid, pid,
 		(unsigned)sock_len, (unsigned)sizeof(s->s_local));
 
 	return s;

@@ -7,6 +7,9 @@
 #include <stdarg.h>
 #ifdef _LIN 
 #include <linux/major.h>
+#else
+// BSR-1109
+#include <sys/cygwin.h>
 #endif
 #include "shared_tool.h"
 

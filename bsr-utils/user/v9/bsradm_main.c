@@ -2840,7 +2840,13 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 		     STAILQ_FIRST(&config)->name);
 
 		if (!have_tty) {
-			printf(" To abort waiting for BSR connections, kill this process: kill %u\n", getpid());
+			int pid = getpid();
+
+#ifdef _WIN
+			// BSR-1109 
+			pid = cygwin_internal(CW_CYGWIN_PID_TO_WINPID, pid);
+#endif
+			printf(" To abort waiting for BSR connections, kill this process: kill %u\n", pid);
 			fflush(stdout);
 			/* wait untill killed, or all bsrsetup children have finished. */
 			do {
