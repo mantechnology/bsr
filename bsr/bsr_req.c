@@ -1238,7 +1238,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *req)
 {
-#ifdef _LIN
+#ifdef COMPAT_HAVE_BDEVNAME
 	char b[BDEVNAME_SIZE];
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
@@ -1253,11 +1253,20 @@ static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *r
 		write_log = false;
 
 	if (write_log) {
+#if defined(_WIN) || defined(COMPAT_HAVE_BDEVNAME) 
 		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %s",
 			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
 			(unsigned long long)req->i.sector,
 			req->i.size >> 9,
 			bdevname(device->ldev->backing_bdev, b));
+#else
+		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %pg",
+			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
+			(unsigned long long)req->i.sector,
+			req->i.size >> 9,
+			device->ldev->backing_bdev);
+#endif
+
 	}
 }
 
@@ -1362,7 +1371,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
 		bsr_report_io_error(device, req);
 		__bsr_chk_io_error(device, BSR_READ_ERROR);
-		/* fall through. */
+		/* Fall through */
 	case READ_AHEAD_COMPLETED_WITH_ERROR:
 		/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
 		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
@@ -1684,7 +1693,9 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		enum bsr_read_balancing rbm)
 {
 #ifdef _LIN
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 	struct backing_dev_info *bdi;
+#endif
 #endif
 	int stripe_shift;
 
@@ -1694,11 +1705,16 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		// not support
 		return false;
 #else // _LIN
+// BSR-1104
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
 		return bdi_read_congested(device->ldev->backing_bdev->bd_disk->bdi);
 #else 
 		bdi = bdi_from_device(device);
 		return bdi_read_congested(bdi);
+#endif
+#else
+		return false;
 #endif
 #endif
 	case RB_LEAST_PENDING:

@@ -201,7 +201,6 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 {
 	int err;
 	WRITE_KERNEL_LOG writeLog;
-	char buf[MAX_BSRLOG_BUF];
 	char *lv = NULL;
 	LONG_PTR klog_current_time = jiffies;
 
@@ -231,9 +230,6 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 
 	g_klog_last_time = klog_current_time;
 
-	memset(buf, 0, sizeof(buf));
-	memcpy(buf, writeLog.message, writeLog.length);
-
 	switch (writeLog.level) {
 	case KERN_EMERG_NUM:
 		lv = KERN_EMERG;
@@ -262,9 +258,9 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 	}
 
 	if (g_skip_klog)
-		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", buf, g_skip_klog);
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", writeLog.message, g_skip_klog);
 	else
-		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", buf);
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", writeLog.message);
 
 	g_skip_klog = 0;
 	

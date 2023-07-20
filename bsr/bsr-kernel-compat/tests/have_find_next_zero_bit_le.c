@@ -1,5 +1,6 @@
 #include <linux/stddef.h>
 #include <linux/bitops.h>
+#include <linux/bitmap.h>
 
 unsigned long func(void)
 {

@@ -2549,8 +2549,14 @@ struct log_rolling_file_list {
 
 
 #ifndef COMPAT_HAVE_SET_FS
+#ifdef COMPAT_HAVE_FORCE_UACCESS
 #define get_fs()	force_uaccess_begin()	
 #define set_fs(fs)	force_uaccess_end(fs)
+#else
+typedef int mm_segment_t;
+#define get_fs()	0	
+#define set_fs(fs)	
+#endif
 #endif
 
 #ifdef COMPAT_THAW_BDEV_HAS_1_PARAMS
