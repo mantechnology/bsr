@@ -745,6 +745,7 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	long offset = 0;
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
+	int pid;
 
 	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d ",
 		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -764,8 +765,15 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	}
 
 	offset += LEVEL_OFFSET;
+	
+	pid = getpid();
+#ifdef _WIN
+	// BSR-1109 The PID obtained by cygwin on windows requires an additional call to the following functions.
+	pid = cygwin_internal(CW_CYGWIN_PID_TO_WINPID, pid);
+#endif
+
 	// BSR-622
-	offset += snprintf(b + offset, 512 - offset, "[pid:%d][func:%s][line:%d][cmd:%s] ", getpid(), func, line, ((lcmd == NULL) ? "NULL" : lcmd));
+	offset += snprintf(b + offset, 512 - offset, "[pid:%d][func:%s][line:%d][cmd:%s] ", pid, func, line, ((lcmd == NULL) ? "NULL" : lcmd));
 	
 	return offset;
 }
