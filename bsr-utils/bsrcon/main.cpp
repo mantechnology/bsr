@@ -1133,23 +1133,202 @@ int cmd_dismount(int *index, int argc, char* argv[])
 	return res;
 }
 
-int cmd_release_vol(int *index, int argc, char* argv[])
+#define RUN_PROCESS_TIMEOUT 10000
+
+// BSR-1051
+DWORD RunProcess(char* command, char* workingDirectory, char **out)
 {
-	int res;
+	STARTUPINFOA si;
+	PROCESS_INFORMATION pi;
+	char *appName = NULL;
+	DWORD res = 0;
+	HANDLE stdOutRd = INVALID_HANDLE_VALUE, stdOutWd = INVALID_HANDLE_VALUE;
+	SECURITY_ATTRIBUTES saAttr;
 
-	(*index)++;
-	if (*index < argc)
-		letter = (UCHAR)*argv[*index];
-	else
-		usage();
+	ZeroMemory(&saAttr, sizeof(saAttr));
+	ZeroMemory(&si, sizeof(si));
+	ZeroMemory(&pi, sizeof(pi));
 
-	res = MVOL_MountVolume(letter);
-	if (ERROR_SUCCESS == res) {
-		if (ERROR_SUCCESS == delete_volume_reg(letter)) {
-			fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", letter);
+	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+	saAttr.bInheritHandle = TRUE;
+	saAttr.lpSecurityDescriptor = NULL;
+
+	if (out) {
+		if (!CreatePipe(&stdOutRd, &stdOutWd, &saAttr, 0)) {
+			res = GetLastError();
+			fprintf(stderr, "CreatePipe faild: GetLastError %d\n", res);
+			goto out;
+		}
+
+		if (!SetHandleInformation(stdOutRd, HANDLE_FLAG_INHERIT, 0)) {
+			res = GetLastError();
+			fprintf(stderr, "SetHandleInformation faild: GetLastError %d\n", res);
+			goto out;
+		}
+		si.hStdOutput = stdOutWd;
+	}
+
+	si.cb = sizeof(si);
+	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;;
+	si.wShowWindow = SW_HIDE;
+
+	if (!CreateProcessA(appName,
+		command,					// Command line
+		NULL,							// Process handle not inheritable. 
+		NULL,							// Thread handle not inheritable. 
+		TRUE,							// Set handle inheritance to FALSE. 
+		CREATE_NEW_CONSOLE,								// creation flags. 
+		NULL,							// Use parent's environment block. 
+		workingDirectory,			// Use parent's starting directory. 
+		&si,							// Pointer to STARTUPINFO structure.
+		&pi)							// Pointer to PROCESS_INFORMATION structure.
+		) {
+		res = GetLastError();
+		fprintf(stderr, "CreateProcess faild: GetLastError %d\n", res);
+		goto out;
+	} else {
+		if (pi.dwProcessId > 0) {
+			res = WaitForSingleObject(pi.hProcess, RUN_PROCESS_TIMEOUT);
+			if (res != WAIT_OBJECT_0) {
+				if (res == WAIT_FAILED)
+					res = GetLastError();
+				fprintf(stderr, "CreateProcess WaitForSingleObject faild: Error %d\n", res);
+				goto out_all;
+			} else 
+				res = 0;
+		}
+		if (stdOutRd != INVALID_HANDLE_VALUE && stdOutWd != INVALID_HANDLE_VALUE) {
+			unsigned long dwRead;
+			unsigned long avail;
+
+			PeekNamedPipe(stdOutRd, *out, BUFSIZE, &dwRead, &avail, NULL);
+
+			if (dwRead > 0) {
+				*out = (char*)malloc(dwRead + 1);
+				if (*out) {
+					if (!ReadFile(stdOutRd, *out, BUFSIZE, &dwRead, NULL))
+						res = ERROR_INVALID_DATA;
+				} else
+					res = ERROR_OUTOFMEMORY;
+			} else
+				res = ERROR_INVALID_DATA;
+			
 		}
 	}
+
+out_all:
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+out:
+	if (stdOutRd != INVALID_HANDLE_VALUE)
+		CloseHandle(stdOutRd);
+	if (stdOutWd != INVALID_HANDLE_VALUE)
+		CloseHandle(stdOutWd);
+
 	return res;
+}
+
+// BSR-1051
+static int confirmed(const char *text, bool force) 
+{
+	const char yes[] = "yes";
+	const size_t N = sizeof(yes);
+	char answer[32] = { 0, };
+	size_t n = 0;
+	int ok = 0;
+
+	fprintf(stderr, "\n%s\n", text);
+
+	if (force) {
+		fprintf(stderr, "*** confirmation forced via --force option ***\n");
+		ok = 1;
+	} else {
+		fprintf(stderr, "[need to type '%s' to confirm] ", yes);
+		scanf_s("%s", answer);
+		if (strlen(answer) == (N - 1) &&
+			!strncmp(answer, yes, N - 1)) {
+			ok = 1;
+		}
+		fprintf(stderr, "\n");
+	}
+
+	return ok;
+}
+
+int cmd_release_vol(int *index, int argc, char* argv[])
+{
+	int ret = ERROR_SUCCESS;
+	char* resName = NULL;
+	bool force = false;
+
+	(*index)++;
+	if (((*index) + 1) < argc) {
+		// BSR-1051 
+		if (!strcmp(argv[*index], "--force")) {
+			force = true;
+			(*index)++;
+		}
+		resName = argv[(*index)++];
+		letter = (UCHAR)*argv[(*index)++];
+	} else 
+		usage();
+
+	printf(" ==> Destroys the meta data of volume letter %c! <==\n", letter);
+	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force))
+		return ret;
+
+	ret = MVOL_MountVolume(letter);
+	if (ERROR_SUCCESS == ret) {
+		char cl[MAX_PATH] = { 0, };
+		char *wd = NULL, *buf = NULL;
+		size_t len;
+
+		printf("Mounted volume.\n");
+		ret = delete_volume_reg(letter);
+		if (ERROR_SUCCESS == ret)
+			printf("Deleted registry key.\n");
+		else
+			printf("Failed to remove volume lock registry key. Please remove registry key.\n");
+
+		if (!_dupenv_s(&wd, &len, "BSR_PATH")) {
+			bool wm = false;
+			char *token, *ptr;
+			char str[MAX_PATH] = { 0, };
+
+			// BSR-1051 run dry-run to find the target volume in case of multiple volumes.
+			sprintf_s(cl, "bsradm --dry-run wipe-md %s", resName);
+			ret = RunProcess(cl, wd, &buf);
+			if (ERROR_SUCCESS == ret) {
+				sprintf_s(str, "bsrmeta %d", letter > 'a' ? letter - 'c' : letter - 'C');
+				token = strtok_s(buf, "\n", &ptr);
+				while (token != NULL) {
+					if (!strncmp(token, str, strlen(str))) {
+						// BSR-1051 destroys the metadata of the volume.
+						sprintf_s(str, "%s--force", token);
+						ret = RunProcess(str, wd, NULL);
+						if (ERROR_SUCCESS == ret)
+							printf("Destroyed meta data.\n");
+						else
+							printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+						wm = true;
+						break;
+					}
+					token = strtok_s(ptr, "\n", &ptr);
+				}
+				if (wd)
+					free(wd);
+				if (buf)
+					free(buf);
+				if (!wm)
+					printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+			} else
+				printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+		} else
+			printf("Failed to get BSR installation path during volume release. Please destroy meta data(wipe-md).\n");
+	}
+
+	return ret;
 }
 
 int cmd_disk_error(int *index, int argc, char* argv[])
@@ -1365,7 +1544,8 @@ static struct cmd_struct commands[] = {
 	{ "/status", cmd_status, "", "", "", false },
 	{ "/s", cmd_status, "", "", "", false },
 	{ "/dismount", cmd_dismount, "{letter}", "", "E", false },
-	{ "/release_vol", cmd_release_vol, "{letter}", "", "E", false },
+	// BSR-1051
+	{ "/release_vol", cmd_release_vol, "{resource name} {letter}", "", "\"r0 E\", \"--force r0 E\"", false },
 	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100", false },
 	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "", false },
 	{ "/info", cmd_info, "", "", "", false },
