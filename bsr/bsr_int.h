@@ -121,7 +121,7 @@ extern int fault_devs;
 extern int two_phase_commit_fail;
 #endif
 
-extern int g_handler_use;
+extern atomic_t g_handler_use;
 extern char usermode_helper[];
 
 // BSR-740
@@ -540,7 +540,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
 #define BSR_LC_STATE_MAX_INDEX 57
 #define BSR_LC_SOCKET_MAX_INDEX 108
-#define BSR_LC_DRIVER_MAX_INDEX 162
+#define BSR_LC_DRIVER_MAX_INDEX 164
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
@@ -549,7 +549,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 87
+#define BSR_LC_ETC_MAX_INDEX 89
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)

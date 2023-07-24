@@ -1397,6 +1397,42 @@ DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler)
 }
 
 
+// BSR-1060
+#ifdef _WIN
+DWORD MVOL_SetHandlerTimeout(PHANDLER_TIMEOUT_INFO pHandler)
+{
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+	DWORD       retVal = ERROR_SUCCESS;
+
+	if (pHandler == NULL) {
+		fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+		return ERROR_INVALID_PARAMETER;
+	}
+
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	} 
+
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_HANDLER_TIMEOUT, pHandler, sizeof(HANDLER_TIMEOUT_INFO), NULL, 0, &dwReturned, NULL) == FALSE) {
+		retVal = GetLastError();
+		fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Failed IOCTL_MVOL_SET_HANDLER_TIMEOUT. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+
+	return retVal;
+}
+#endif
+
 // DW-1629
 BOOLEAN logfindstr(char* target, char *msg)
 {

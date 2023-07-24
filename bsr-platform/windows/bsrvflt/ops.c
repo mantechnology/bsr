@@ -823,11 +823,41 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	if (Irp->AssociatedIrp.SystemBuffer) {
 		pHandlerInfo = (PHANDLER_INFO)Irp->AssociatedIrp.SystemBuffer;
-		g_handler_use = pHandlerInfo->use;
+		atomic_set(&g_handler_use, pHandlerInfo->use);
 
 		SaveCurrentValue(L"handler_use", g_handler_use);
 
-		bsr_debug(116, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_USE : %d ", g_handler_use);
+		bsr_info(116, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_USE : %d ", g_handler_use);
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
+// BSR-1060 sets the wait time for the handler and is used only in Windows.
+NTSTATUS
+IOCTL_SetHandleTimeout(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG			inlen;
+	PHANDLER_TIMEOUT_INFO	pHandleTimeout = NULL;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(HANDLER_TIMEOUT_INFO)) {
+		mvolLogError(DeviceObject, 356, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(164, BSR_LC_DRIVER, NO_OBJECT, "Failed to set handle timeout due to buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		pHandleTimeout = (PHANDLER_TIMEOUT_INFO)Irp->AssociatedIrp.SystemBuffer;
+		atomic_set(&g_handler_timeout, pHandleTimeout->timeout);
+
+		SaveCurrentValue(L"handler_timeout", g_handler_timeout);
+
+		bsr_info(163, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_TIMEOUT : %d ", g_handler_timeout);
 	}
 	else {
 		return STATUS_INVALID_PARAMETER;

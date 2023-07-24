@@ -93,8 +93,8 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 		return -1;
 	}
 
-	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d", g_handler_use, h_info.use);
-	g_handler_use = h_info.use;
+	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d", atomic_read(&g_handler_use), h_info.use);
+	atomic_set(&g_handler_use, h_info.use);
 
 	return 0;
 }
