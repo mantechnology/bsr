@@ -1128,7 +1128,7 @@ extern int g_daemon_tcp_port;
 extern WCHAR g_ver[];
 
 #ifdef _WIN_HANDLER_TIMEOUT
-int g_handler_timeout;
+atomic_t g_handler_timeout;
 int g_handler_retry;
 #endif
 

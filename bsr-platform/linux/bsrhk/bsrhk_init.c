@@ -58,6 +58,7 @@ static int __init bsr_load(void)
 {
 	long log_level = 0;
 	unsigned int dbglog_ctrg = 0;
+	int handler_use = atomic_read(&g_handler_use);
 
 #ifdef _LIN
 	// BSR-581
@@ -75,8 +76,11 @@ static int __init bsr_load(void)
 	atomic_set(&g_log_file_max_count, read_reg_file(BSR_LOG_FILE_MAXCNT_REG, LOG_FILE_COUNT_DEFAULT));
 
 	// BSR-626 porting handler_use to linux
-	g_handler_use = read_reg_file(BSR_HANDLER_USE_REG, g_handler_use);
+	atomic_set(&g_handler_use, read_reg_file(BSR_HANDLER_USE_REG, handler_use));
 
+	// BSR-1060
+	bsr_info(89, BSR_LC_ETC, NO_OBJECT, "handler state %s", atomic_read(&g_handler_use) ? "enable" : "disable");
+	
 	// BSR-740
 	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 1));
 

@@ -73,6 +73,10 @@ DWORD MVOL_BsrlockUse(int bBsrlock);
 
 DWORD MVOL_SetHandlerUse(PHANDLER_INFO pHandler);
 
+// BSR-1060
+DWORD MVOL_SetHandlerTimeout(PHANDLER_TIMEOUT_INFO pHandler);
+
+
 DWORD MVOL_SetMinimumLogLevel(PLOGGING_MIN_LV pLml);
 // BSR-579
 DWORD MVOL_SetLogFileMaxCount(ULONG limit);

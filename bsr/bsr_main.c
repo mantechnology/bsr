@@ -206,7 +206,8 @@ char usermode_helper[80] = "bsradm.exe";
 #else // _LIN
 char usermode_helper[80] = "/sbin/bsradm";
 // BSR-626 default value of handler_use is disable
-int g_handler_use = 0;
+// BSR-1060
+atomic_t g_handler_use = ATOMIC_INIT(0);
 #endif
 
 // BSR-654

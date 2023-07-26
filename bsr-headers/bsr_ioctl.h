@@ -32,6 +32,11 @@ typedef struct _HANDLER_INFO {
 	bool				use;
 } HANDLER_INFO, *PHANDLER_INFO;
 
+// BSR-1060
+typedef struct _HANDLER_TIMEOUT_INFO {
+	int				timeout;
+} HANDLER_TIMEOUT_INFO, *PHANDLER_TIMEOUT_INFO;
+
 // BSR-1048
 typedef struct _WRITE_KERNEL_LOG {
 	int level;

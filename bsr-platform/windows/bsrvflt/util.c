@@ -1403,23 +1403,27 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 #ifdef _WIN_HANDLER_TIMEOUT
 	status = GetRegistryValue(L"handler_use", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
-		g_handler_use = *(int*) aucTemp;
+		atomic_set(&g_handler_use, *(int*)aucTemp);
 	}
 	else {
-		g_handler_use = 0;
+		atomic_set(&g_handler_use, 0);
 	}
 	
 	status = GetRegistryValue(L"handler_timeout", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
-		g_handler_timeout = *(int*) aucTemp;
-		if (g_handler_timeout < 0) {
-			g_handler_timeout = BSR_TIMEOUT_DEF;
+		if (*(int*)aucTemp < 0) {
+			atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF / 10);
+		} else {
+			atomic_set(&g_handler_timeout, *(int*)aucTemp);
 		}
-	} else {
-		g_handler_timeout = BSR_TIMEOUT_DEF/10;
+	}
+	else {
+		atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF / 10);
 	}	
-	g_handler_timeout = g_handler_timeout * 1000; // change to ms
-	
+	atomic_set(&g_handler_timeout, atomic_read(&g_handler_timeout) * 1000); // change to ms
+
+	bsr_info(88, BSR_LC_ETC, NO_OBJECT, "handler state %s, timeout %d", g_handler_use ? "enable" : "disable", atomic_read(&g_handler_timeout) / 1000);
+
 	status = GetRegistryValue(L"handler_retry", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS) {
 		g_handler_retry = *(int*) aucTemp;

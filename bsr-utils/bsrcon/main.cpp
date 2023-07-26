@@ -343,6 +343,41 @@ BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 	return true;
 }
 
+// BSR-1060
+BOOLEAN get_handler_use()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD use = 0;
+
+#ifdef _WIN
+	lResult = get_value_of_vflt(_T("handler_use"), &use);
+#else // _LIN
+	lResult = get_value_of_vflt(BSR_HANDLER_USE_REG, &use);
+#endif
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		return false;
+	}
+
+	return use;
+}
+
+#ifdef _WIN
+int get_handler_timeout()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD timeout = 5; // BSR_TIMEOUT_DEF 
+
+	lResult = get_value_of_vflt(_T("handler_timeout"), &timeout);
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		return timeout;
+	}
+
+	return timeout;
+}
+#endif
+
 // BSR-654
 BOOLEAN get_debug_log_enable_category(int *dbg_ctgr)
 {
@@ -880,6 +915,40 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 
 	return 0;
 }
+
+// BSR-1060 gets the set handler information.
+int cmd_get_handler_info(int *index, int argc, char* argv[])
+{
+	printf("Current handler.\n");
+	printf("    state : %s\n", get_handler_use() ? "enable" : "disable");
+#ifdef _WIN
+	printf("    timeout : %d\n", get_handler_timeout());
+#endif
+	return 0;
+}
+// BSR-1060 sets the handler wait time. the unit is seconds.
+#ifdef _WIN
+int cmd_handler_timeout(int *index, int argc, char* argv[])
+{
+	HANDLER_TIMEOUT_INFO hInfo = { 0, };
+
+	(*index)++;
+	if (*index < argc) {
+		int timeout = atoi(argv[*index]);
+		if (timeout < 0) {
+			fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+			usage();
+		}
+		else {
+			hInfo.timeout = timeout;
+		}
+	}
+	else
+		usage();
+
+	return  MVOL_SetHandlerTimeout(&hInfo);
+}
+#endif
 
 int cmd_handler_use(int *index, int argc, char* argv[])
 {
@@ -1528,7 +1597,10 @@ static struct cmd_struct commands[] = {
 	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"", false },
 	{ "/get_log_info", cmd_get_log_info, "", "", "", false },
 	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"", false },
+	{ "/get_handler_info", cmd_get_handler_info, "", "", "", false },
 #ifdef _WIN
+	// BSR-1060
+	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(seconds)}", "", "1", false },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", false },
 	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", false },

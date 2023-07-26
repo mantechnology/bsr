@@ -673,7 +673,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	int ret;
 
 	// BSR-626 skip if handler_use is disable
-	if (!g_handler_use)
+	if (!atomic_read(&g_handler_use))
 		return 0;
 
     enlarge_buffer:

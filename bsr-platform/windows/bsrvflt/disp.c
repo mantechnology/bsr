@@ -1046,7 +1046,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		{
 			status = IOCTL_SetHandlerUse(DeviceObject, Irp); // Set handler_use value.
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
-		}		
+		}
+		// BSR-1060
+		case IOCTL_MVOL_SET_HANDLER_TIMEOUT:
+		{
+			status = IOCTL_SetHandleTimeout(DeviceObject, Irp);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
 		case IOCTL_MVOL_GET_UNTAG_MEM_USAGE:
 		{
 			ULONG size = 0;
