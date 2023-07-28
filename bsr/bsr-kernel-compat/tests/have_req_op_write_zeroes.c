@@ -1,3 +1,4 @@
 #include <linux/blk_types.h>
 
-enum req_opf dummy = REQ_OP_WRITE_ZEROES;
+// BSR-1113 fix incorrect compat test results
+int dummy = REQ_OP_WRITE_ZEROES;
