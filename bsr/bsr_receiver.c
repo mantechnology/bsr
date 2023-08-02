@@ -2629,7 +2629,7 @@ out:
 	if (!locked)
 		mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
 
-	return false;
+	return res;
 }
 
 
@@ -2649,7 +2649,7 @@ static int dup_verification_and_processing(struct bsr_peer_device* peer_device, 
 		if (!get_resync_pending_range(peer_device, offset, est, &offset, true)) {
 			// DW-2092 when a node is configured as a star, in sync should only be applied to the target node, since applying all out of snyc with uuid alone will result in a consistency mismatch.
 			bsr_set_in_sync(peer_device, sst, (int)(offset - sst) << 9);
-			mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
+			mutex_unlock(&peer_device->device->resync_pending_fo_mutex); 
 			cmd = P_RS_WRITE_ACK;
 		}
 		else {
@@ -2842,13 +2842,13 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 		} else 
 			dec_unacked(peer_device);
 	} else {
-		bsr_set_out_of_sync(peer_device, sector, peer_req->i.size);
-
-		if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ))
+		if (!(peer_req->flags & EE_SPLIT_REQ) && !(peer_req->flags & EE_SPLIT_LAST_REQ)) {
+			// BSR-1078 OOS sets the same area as the area that you pass to the source node.
+			bsr_set_out_of_sync(peer_device, sector, peer_req->i.size);
 			err = bsr_send_ack(peer_device, P_NEG_ACK, peer_req);
-
-		//DW-1911 check split request
-		if (peer_req->flags & EE_SPLIT_REQ || peer_req->flags & EE_SPLIT_LAST_REQ) {
+			dec_unacked(peer_device);
+		} else {
+			//DW-1911 check split request
 			//DW-1911 check that all split requests are completed.
 			if (peer_req->count && 0 == atomic_dec_return(peer_req->count)) {
 				dec_unacked(peer_device);
@@ -2856,13 +2856,14 @@ static int split_e_end_resync_block(struct bsr_work *w, int unused)
 				peer_req->block_id = ID_SYNCER_SPLIT_DONE;
 				peer_req->i.sector = BM_BIT_TO_SECT(peer_req->s_bb);
 				peer_req->i.size = (unsigned int)BM_BIT_TO_SECT(peer_req->e_next_bb - peer_req->s_bb) << 9;
+				// BSR-1078 OOS sets the same area as the area that you pass to the source node.
+				bsr_set_out_of_sync(peer_device, peer_req->i.sector, peer_req->i.size);
 				err = bsr_send_ack(peer_device, P_NEG_ACK, peer_req);
 
 				if (peer_req->count)
 					kfree2(peer_req->count);
 			}
-		} else 
-			dec_unacked(peer_device);
+		}  
 	}
 	
 	return err;
