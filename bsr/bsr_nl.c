@@ -2838,7 +2838,9 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 {
 	struct block_device *bdev;
 	int err = 0;
+	int retry = 0;
 
+retry:
 #ifdef _WIN
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, false);
 #else // _LIN
@@ -2847,6 +2849,14 @@ static struct block_device *open_backing_dev(struct bsr_device *device,
 	if (IS_ERR(bdev)) {
 		bsr_err(140, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
 				bdev_path, PTR_ERR(bdev));
+		// BSR-1106 retry up to 3 times if the specified error occurs.
+		if (PTR_ERR(bdev) == -EBUSY) {
+			if (retry < 3) {
+				msleep(1000);
+				retry++;
+				goto retry;
+			}
+		}
 		return bdev;
 	}
 
