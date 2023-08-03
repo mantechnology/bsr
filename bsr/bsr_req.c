@@ -3180,8 +3180,17 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
  * would call our merge bvec function, and that should already be sufficient
  * to not violate queue limits.
  */
+
+#ifdef COMPAT_HAVE_BIO_SPLIT_TO_LIMITS
+	// BSR-1114 add compat code for bio_split_to_limits()
+	bio = bio_split_to_limits(bio);
+	if (!bio) {
+		MAKE_REQUEST_RETURN;
+	}
+#else
 	// BSR-723
 	blk_queue_split(q, &bio);
+#endif
 #endif
 	start_jif = jiffies;
 
