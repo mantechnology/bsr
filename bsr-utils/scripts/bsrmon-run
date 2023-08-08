@@ -1,9 +1,4 @@
 #!/bin/bash
-# BSR-802 create the perf log directory when the script starts if it doesn't exist 
-if [ ! -d /var/log/bsr/perfmon ] ; then
-    mkdir -p /var/log/bsr/perfmon 2> /dev/null
-fi
-
 while : ; do
     period=`cat /etc/bsr.d/.bsrmon_period 2>&1`
     if [ $? -ne 0 ];then

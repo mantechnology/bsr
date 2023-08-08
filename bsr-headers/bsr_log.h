@@ -211,6 +211,8 @@ typedef struct _BSR_LOG {
 // BSR-1031
 #define BSR_STATUSCMD_LOGGING_REG "/etc/bsr.d/.statuscmd_logging"
 
+// BSR-1112
+#define BSR_LOG_PATH_REG "/etc/bsr.d/.log_path"
 // BSR-597
 #define BSR_LOG_FILE_PATH "/var/log/bsr"
 #define BSR_LOG_FILE_NAME "bsrlog.txt"

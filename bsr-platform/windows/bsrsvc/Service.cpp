@@ -486,8 +486,6 @@ int RunBsrmon()
 	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
 	strcat_s(perf_path, "log\\perfmon\\");
 
-	CreateDirectoryA(perf_path, NULL);
-
 	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
 	_stprintf_s(cmd_stop, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/stop"));
 

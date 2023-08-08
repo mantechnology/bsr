@@ -298,7 +298,8 @@ enum km_type {
 
 typedef unsigned int                fmode_t;
 
-
+// BSR-1112
+#define LOG_PATH_REG_VALUE_NAME L"log_path"
 #define LOG_LV_REG_VALUE_NAME	L"log_level"
 #define LOG_FILE_MAX_REG_VALUE_NAME	L"log_file_max_count"
 #define DEBUG_LOG_CATEGORY_REG_VALUE_NAME	L"debuglog_category"

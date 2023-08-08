@@ -160,6 +160,7 @@ exit /B 0
 :GetBSRInfo
     echo Get BSR Information...
     set BSR_DIR=%OUTPUT_HOME%\BSR
+    for /f "tokens=*" %%a in ('bsrcon /get_log_path') do set BSR_LOG_DIR=%%a
 
     if not exist "%BSR_DIR%" ( mkdir "%BSR_DIR%" )
     if not exist "%BSR_DIR%\etc" ( mkdir "%BSR_DIR%\etc" )
@@ -167,7 +168,7 @@ exit /B 0
     if not exist "%BSR_DIR%\bin" ( mkdir "%BSR_DIR%\bin" )
 
 	xcopy "%BSR_PATH%\..\etc\*" "%BSR_DIR%\etc" /e /h /k
-	xcopy "%BSR_PATH%\..\log\*" "%BSR_DIR%\log" /e /h /k
+	xcopy "%BSR_LOG_DIR%\*" "%BSR_DIR%\log" /e /h /k
 	xcopy "%BSR_PATH%\..\bin\*.pdb" "%BSR_DIR%\bin" /e /h /k
 exit /B 0
 

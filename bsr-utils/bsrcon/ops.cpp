@@ -2392,3 +2392,48 @@ DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector)
 
 	return dwRet;
 }
+
+// BSR-1112
+DWORD MVOL_BsrLogPathChange()
+{
+	DWORD retVal = ERROR_SUCCESS;
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+#else // _LIN
+	int fd;
+#endif
+#ifdef _WIN
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+#else // _LIN
+	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1)
+		return 0;
+#endif
+
+#ifdef _WIN
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_LOG_PATH_CHANGED, NULL, 0, NULL, 0, &dwReturned, NULL) == FALSE) {
+#else
+	if (ioctl(fd, IOCTL_MVOL_LOG_PATH_CHANGED) != 0) {
+#endif
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed IOCTL_MVOL_LOG_PATH_CHANGED. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+#ifdef _WIN
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+#else // _LIN
+	if (fd)
+		close(fd);
+#endif
+	return retVal;
+}

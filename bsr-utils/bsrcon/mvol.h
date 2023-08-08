@@ -104,4 +104,6 @@ DWORD MVOL_ConvertOosLog(LPCTSTR pSrcFilePath);
 DWORD MVOL_SearchOosLog(LPCTSTR pSrcFilePath, LPCTSTR szSector);
 #endif
 
+// BSR-1112
+DWORD MVOL_BsrLogPathChange();
 #endif // __MVOL_H__

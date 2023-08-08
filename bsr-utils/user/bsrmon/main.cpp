@@ -1075,8 +1075,6 @@ void show_current(struct resource *res, int type_flags, bool json, bool now)
 	}
 #endif
 
-	get_perf_path();
-
 	if (!res)
 		res = GetResourceInfo(NULL);
 	if (!type_flags)
@@ -1093,7 +1091,8 @@ void show_current(struct resource *res, int type_flags, bool json, bool now)
 			interval = DEFAULT_BSRMON_PERIOD;
 	}
 	
-	while (1) {
+	while (1) {		
+		get_perf_path();
 		print_current(res, type_flags, json);
 		
 		if (!interval)

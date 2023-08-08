@@ -1576,6 +1576,197 @@ int cmd_bsr_fake_al_used(int *index, int argc, char* argv[])
 	return 0;
 }
 
+int create_dir(char* path)
+{
+	char dirName[MAX_PATH] = { 0, };
+	char* pDir = dirName;
+	DWORD ret = ERROR_SUCCESS;
+#ifdef _WIN
+	char* p = path;
+
+	while(*p) {
+		// create sub dir
+		if ('\\' == *p) {
+			if (':' != *(p-1)) {
+				if (!CreateDirectoryA(dirName, NULL)) {
+					ret = GetLastError();
+					if (ret != ERROR_ALREADY_EXISTS) {
+						fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
+							__FUNCTION__, dirName, ret);
+						return ret;
+					}
+				}
+			}
+		}
+				
+		*pDir++ = *p++;
+		*pDir = '\0';
+	}
+
+	// create log dir
+	if (!CreateDirectoryA(dirName, NULL)) {
+		ret = GetLastError();
+		if (ret == ERROR_ALREADY_EXISTS) {
+			ret = ERROR_SUCCESS;
+		} else {
+			fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
+				__FUNCTION__, dirName, ret);
+		}
+	}
+#else
+	strcpy(dirName, path);
+	dirName[MAX_PATH-1] = '\0';
+	pDir++;
+	while(*pDir) {
+		// create sub dir
+		if ('/' == *pDir) {
+			*pDir = '\0';
+			ret = mkdir(dirName, 0777);
+			if (ret != 0 && errno != EEXIST) {
+				fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%d\n", __FUNCTION__, dirName, ret);
+				return ret;
+			}
+			*pDir = '/';
+		}
+		pDir++;
+	}
+	// create log dir
+	ret = mkdir(dirName, 0777);
+	if (ret != 0) {
+		if (errno == EEXIST)
+			ret = ERROR_SUCCESS;
+		else
+			fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%d\n", __FUNCTION__, dirName, ret);
+	}
+#endif		
+
+	return ret;
+}
+
+// BSR-1112
+int cmd_set_log_path(int *index, int argc, char* argv[])
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	HKEY hKey = NULL;
+	TCHAR logPath[MAX_PATH] = { 0, };
+#else // _LIN
+	FILE *fp;
+#endif
+	char newPath[MAX_PATH] = { 0, };
+	char fullPath[MAX_PATH] = { 0, };
+	DWORD retVal = ERROR_SUCCESS;
+
+	(*index)++;
+
+	if (*index < argc) {
+#ifdef _WIN
+		char *ptr;
+		sprintf_s(newPath, "%s\\bsrlog", strtok_s(argv[*index], "\"", &ptr));
+#else
+		sprintf(newPath, "%s/bsrlog", argv[*index]);
+#endif
+	}
+	else
+		usage();
+	
+#ifdef _WIN
+	// create log dir with perfmon dir
+	sprintf_s(fullPath, "%s\\perfmon", newPath);
+	retVal = create_dir(fullPath);
+	if (retVal != ERROR_SUCCESS)
+		return retVal;
+
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, newPath, (int)strlen(newPath), logPath, MAX_PATH);
+
+	retVal = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != retVal) {
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed RegOpenKeyEx %s. Err=%u\n",
+				__FUNCTION__, gBsrRegistry, retVal);
+		return retVal;
+	}
+
+	retVal = RegSetValueEx(hKey, _T("log_path"), 0, REG_SZ, (PBYTE)logPath, 
+					(DWORD)(_tcslen(logPath) + 1) * sizeof(TCHAR));
+	RegCloseKey(hKey);
+#else // _LIN
+	// create log dir with perfmon dir
+	sprintf(fullPath, "%s/perfmon", newPath);
+	retVal = create_dir(fullPath);
+	if (retVal != 0)
+		return retVal;
+
+	// write /etc/bsr.d/.log_path
+	fp = fopen(BSR_LOG_PATH_REG, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%s", newPath);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed open %s file. Err=%u\n",
+				__FUNCTION__, BSR_LOG_PATH_REG, retVal);
+		return retVal;
+	}
+
+#endif
+
+	return MVOL_BsrLogPathChange();
+}
+
+// BSR-1112
+int cmd_get_log_path(int *index, int argc, char* argv[])
+{
+#ifdef _WIN
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	DWORD type = REG_SZ;
+	DWORD size = MAX_PATH;	
+	TCHAR buf[MAX_PATH] = { 0, };
+	
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return lResult;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	RegCloseKey(hKey);
+	if (ERROR_SUCCESS == lResult) {
+		printf("%ws\n", buf);
+	}
+	else {
+		TCHAR bsr_path[MAX_PATH] = {0,};
+		size_t path_size;
+		errno_t result;
+		result = _wgetenv_s(&path_size, bsr_path, MAX_PATH, L"BSR_PATH");
+		if (result) {
+			printf("c:\\Program Files\\bsr\\log\\");
+		} else {
+			wcsncpy_s(buf, bsr_path, wcslen(bsr_path) - wcslen(L"bin"));
+			printf("%ws\\log", buf);
+		}
+	}
+#else // _LIN
+	FILE *fp;
+	char buf[MAX_PATH] = { 0, };
+
+	fp = fopen(BSR_LOG_PATH_REG, "r");
+
+	if (fp == NULL) {
+		printf("%s\n", BSR_LOG_FILE_PATH);
+		return 0;
+	}
+
+	if (fgets(buf, sizeof(buf), fp) != NULL)
+		printf("%s\n", buf);
+	else 
+		printf("%s\n", BSR_LOG_FILE_PATH);
+	fclose(fp);
+#endif
+
+	return 0;
+}
+
+
 struct cmd_struct {
 	const char *cmd;
 	int(*fn) (int *, int, char **);
@@ -1635,6 +1826,16 @@ static struct cmd_struct commands[] = {
 	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
 	// BSR-1039
 	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", false },
+	// BSR-1112
+	{ "/set_log_path", cmd_set_log_path, "{log file path}", "", 
+#ifdef _WIN
+		"\"C:\\Program Files\\bsr\\log\"", 
+#else // _LIN
+		"/var/log/bsr", 
+#endif
+		false },
+	{ "/get_log_path", cmd_get_log_path, "", "", "", false },
+
 };
 
 static void usage()

@@ -5498,7 +5498,8 @@ extern int llevel;
 // BSR-1031
 extern int lstatus;
 extern char execution_log[512];
-
+// BSR-1112
+extern char lpath[256];
 int main(int argc, char **argv)
 {
 	struct format *cfg;
@@ -5513,6 +5514,8 @@ int main(int argc, char **argv)
 		lprogram = progname = argv[0];
 	}
 
+	// BSR-1112
+	get_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 

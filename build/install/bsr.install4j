@@ -41,6 +41,7 @@
       <mountPoint id="865" location="bin" />
       <mountPoint id="866" location="etc" />
       <mountPoint id="2061" location="log" />
+      <mountPoint id="2950" location="log/perfmon" />
       <mountPoint id="2829" location="support" />
       <mountPoint id="867" root="584" location="bin" />
       <mountPoint id="868" root="581" location="bin" />

@@ -1625,11 +1625,11 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
 	if (xfs_fs) {
-		sprintf(journal_check_log, "/var/log/bsr/xfs_logprint%s.log", n_dev_name);
-		sprintf(fs_check_log, "/var/log/bsr/xfs_repair%s.log", n_dev_name);
+		sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
+		sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
 	} else {
-		sprintf(journal_check_log, "/var/log/bsr/tune2fs%s.log", n_dev_name);
-		sprintf(fs_check_log, "/var/log/bsr/fsck%s.log", n_dev_name);
+		sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
+		sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
 	}
 
 	free(n_dev_name);
@@ -5193,7 +5193,8 @@ int main(int argc, char **argv)
 	int longindex, first_optind;
 
 	lprogram = progname = basename(argv[0]);
-
+	// BSR-1112
+	get_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
