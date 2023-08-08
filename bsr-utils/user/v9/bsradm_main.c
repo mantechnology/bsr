@@ -590,7 +590,9 @@ struct adm_cmd *cmds[] = {
 
 static const struct adm_cmd invalidate_setup_cmd = {
 	"invalidate",
-	__adm_bsrsetup_silent,
+	// BSR-1025 changed for error output in case of error occurs
+	// __adm_bsrsetup_silent,
+	adm_bsrsetup,
 	ACF1_MINOR_ONLY
 };
 
@@ -1839,15 +1841,20 @@ static int adm_setup_and_meta(const struct cfg_ctx *ctx)
 
 static int adm_invalidate(const struct cfg_ctx *ctx)
 {
+#if 0
 	static const struct adm_cmd invalidate_meta_cmd = {
 		"invalidate",
 		adm_bsrmeta,
 		ACF1_MINOR_ONLY
 	};
+#endif
 
 	int rv;
 
 	rv = call_cmd(&invalidate_setup_cmd, ctx, KEEP_RUNNING);
+
+	// BSR-1025 changed not to set up full sync. (invalidate_meta_cmd)
+#if 0
 	if (rv == 11 || rv == 17) {
 		/* see bsrsetup.c, print_config_error():
 		 *  11: some unspecific state change error.
@@ -1858,7 +1865,7 @@ static int adm_invalidate(const struct cfg_ctx *ctx)
 
 	if (rv || dry_run == 1)
 		rv = call_cmd(&invalidate_meta_cmd, ctx, KEEP_RUNNING);
-
+#endif
 	return rv;
 }
 
