@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <Shlwapi.h>
 #else // _LIN
+#include <sys/stat.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
