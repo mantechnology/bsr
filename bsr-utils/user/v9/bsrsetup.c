@@ -375,7 +375,9 @@ static struct option status_cmd_options[] = {
 	{ "statistics", no_argument, 0, 's' },
 	{ "color", optional_argument, 0, 'c' },
 	{ "json", no_argument, 0, 'j' },
-	{ }
+	// BSR-1111 unit(K,M,G,T) output
+	{ "readability", no_argument, 0, 'r' },
+	{}
 };
 
 #define F_CONFIG_CMD	generic_config_cmd
@@ -2886,19 +2888,73 @@ void print_resource_statistics(int indent,
 		(int)new->res_stat_req_write_cnt);
 }
 
+// BSR-1111
+char byte_unit[] = { 'K', 'M', 'G', 'T' };
+
+// BSR-1111 change to the maximum possible units.
+int kbyte_convert_max_unit(uint64_t kb, double *kb_of_convert)
+{
+	int convert_unit = 0;
+
+	*kb_of_convert = kb;
+
+	if (kb == 0) {
+		return convert_unit;
+	}
+
+	for (convert_unit = 0; convert_unit < (sizeof(byte_unit) / sizeof(char)); convert_unit++) {
+		if (*kb_of_convert < 1024)
+			break;
+		*kb_of_convert = *kb_of_convert / 1024;
+	}
+	
+	return convert_unit;
+}
+
 void print_device_statistics(int indent,
 			     struct device_statistics *old,
 			     struct device_statistics *new,
-			     int (*wrap_printf)(int, const char *, ...))
+					 int(*wrap_printf)(int, const char *, ...), bool readability)
 {
 	if (opt_statistics) {
-		if (opt_verbose)
-			wrap_printf(indent, " size:" U64,
-				    (uint64_t)new->dev_size / 2);
-		wrap_printf(indent, " read:" U64,
-			    (uint64_t)new->dev_read / 2);
-		wrap_printf(indent, " written:" U64,
-			    (uint64_t)new->dev_write / 2);
+		double kb_of_convert = 0;
+		int convert_unit = 0;
+
+		if (opt_verbose) {
+			// BSR-1111
+			if (readability) {
+				convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_size / 2, &kb_of_convert);
+				if (convert_unit)
+					wrap_printf(indent, " size:%.3f%c" , kb_of_convert, byte_unit[convert_unit]);
+				else
+					wrap_printf(indent, " size:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+			} else {
+				wrap_printf(indent, " size:" U64,
+					(uint64_t)new->dev_size / 2);
+			}
+		}
+
+		// BSR-1111
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_read / 2, &kb_of_convert);
+			if (convert_unit)
+				wrap_printf(indent, " read:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				wrap_printf(indent, " read:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_write / 2, &kb_of_convert);
+			if (convert_unit)
+				wrap_printf(indent, " written:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				wrap_printf(indent, " written:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			wrap_printf(indent, " read:" U64,
+				(uint64_t)new->dev_read / 2);
+			wrap_printf(indent, " written:" U64,
+				(uint64_t)new->dev_write / 2);
+		}
+
 		if (opt_verbose) {
 			wrap_printf(indent, " al-writes:" U64,
 				    (uint64_t)new->dev_al_writes);
@@ -3097,11 +3153,13 @@ static void resource_status_json(struct resources_list *resource)
 void print_peer_device_statistics(int indent,
 				  struct peer_device_statistics *old,
 				  struct peer_device_statistics *new,
-				  int (*wrap_printf)(int, const char *, ...))
+					  int(*wrap_printf)(int, const char *, ...), bool readability)
 {
 	// BSR-191
 	double db, dt, rt;
 	uint64_t sectors_to_go = 0;
+	double kb_of_convert;
+	int convert_unit;
 	bool sync_details =
 		(new->peer_dev_rs_total != 0) &&
 		(new->peer_dev_rs_total != -1ULL);
@@ -3110,13 +3168,42 @@ void print_peer_device_statistics(int indent,
 		sectors_to_go = new->peer_dev_ov_left ?:
 			new->peer_dev_out_of_sync - new->peer_dev_resync_failed;
 
-	wrap_printf(indent, " received:" U64,
-		    (uint64_t)new->peer_dev_received / 2);
-	wrap_printf(indent, " sent:" U64,
-		    (uint64_t)new->peer_dev_sent / 2);
-	if (opt_verbose || new->peer_dev_out_of_sync)
-		wrap_printf(indent, " out-of-sync:" U64,
-			    (uint64_t)new->peer_dev_out_of_sync / 2);
+	// BSR-1111
+	if (readability) {
+		convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_received / 2, &kb_of_convert);
+		if (convert_unit)
+			wrap_printf(indent, " received:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+		else
+			wrap_printf(indent, " received:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+
+		convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_sent / 2, &kb_of_convert);
+		if (convert_unit)
+			wrap_printf(indent, " sent:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+		else
+			wrap_printf(indent, " sent:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+	}
+	else {
+		wrap_printf(indent, " received:" U64,
+			(uint64_t)new->peer_dev_received / 2);
+		wrap_printf(indent, " sent:" U64,
+			(uint64_t)new->peer_dev_sent / 2);
+	}
+
+	if (opt_verbose || new->peer_dev_out_of_sync) {
+		// BSR-1111
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_out_of_sync / 2, &kb_of_convert);
+			if (convert_unit)
+				wrap_printf(indent, " out-of-sync:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				wrap_printf(indent, " out-of-sync:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			wrap_printf(indent, " out-of-sync:" U64,
+				(uint64_t)new->peer_dev_out_of_sync / 2);
+		}
+	}
+
 	if (opt_verbose) {
 		wrap_printf(indent, " pending:" U32,
 			    new->peer_dev_pending);
@@ -3167,7 +3254,7 @@ void resource_status(struct resources_list *resource)
 	wrap_printf(0, "\n");
 }
 
-static void device_status(struct devices_list *device, bool single_device)
+static void device_status(struct devices_list *device, bool single_device, bool readability)
 {
 	enum bsr_disk_state disk_state = device->info.dev_disk_state;
 	bool intentional_diskless = device->info.is_intentional_diskless == 1;
@@ -3207,7 +3294,7 @@ static void device_status(struct devices_list *device, bool single_device)
 	if (device->statistics.dev_size != -1) {
 		if (opt_statistics)
 			wrap_printf(indent, "\n");
-		print_device_statistics(indent, NULL, &device->statistics, wrap_printf);
+		print_device_statistics(indent, NULL, &device->statistics, wrap_printf, readability);
 	}
 	wrap_printf(indent, "\n");
 }
@@ -3249,7 +3336,7 @@ static const char *resync_susp_str(struct peer_device_info *info)
 	return buffer;
 }
 
-static void peer_device_status(struct peer_devices_list *peer_device, bool single_device)
+static void peer_device_status(struct peer_devices_list *peer_device, bool single_device, bool readability)
 {
 	int indent = 4;
 	bool intentional_diskless = peer_device->info.peer_is_intentional_diskless == 1;
@@ -3298,27 +3385,27 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 				    resync_susp_str(&peer_device->info));
 		if (opt_statistics && peer_device->statistics.peer_dev_received != -1) {
 			wrap_printf(indent, "\n");
-			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf);
+			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability);
 		}
 	}
 
 	wrap_printf(0, "\n");
 }
 
-static void peer_devices_status(struct bsr_cfg_context *ctx, struct peer_devices_list *peer_devices, bool single_device)
+static void peer_devices_status(struct bsr_cfg_context *ctx, struct peer_devices_list *peer_devices, bool single_device, bool readability)
 {
 	struct peer_devices_list *peer_device;
 
 	for (peer_device = peer_devices; peer_device; peer_device = peer_device->next) {
 		if (ctx->ctx_peer_node_id != peer_device->ctx.ctx_peer_node_id)
 			continue;
-		peer_device_status(peer_device, single_device);
+		peer_device_status(peer_device, single_device, readability);
 	}
 }
 
 static void connection_status(struct connections_list *connection,
 			      struct peer_devices_list *peer_devices,
-			      bool single_device)
+					  bool single_device, bool readability)
 {
 	if (connection->ctx.ctx_conn_name_len)
 		wrap_printf(2, "%s", connection->ctx.ctx_conn_name);
@@ -3353,7 +3440,7 @@ static void connection_status(struct connections_list *connection,
 		print_connection_statistics(6, NULL, &connection->statistics, wrap_printf);
 	wrap_printf(0, "\n");
 	if (opt_verbose || opt_statistics || connection->info.conn_connection_state == C_CONNECTED)
-		peer_devices_status(&connection->ctx, peer_devices, single_device);
+		peer_devices_status(&connection->ctx, peer_devices, single_device, readability);
 }
 
 static void stop_colors(int sig)
@@ -3386,7 +3473,9 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		.sa_flags = SA_RESETHAND,
 	};
 	bool found = false;
-	bool json = false; 
+	bool json = false;
+	// BSR-1111
+	bool readability = false;
 	int c;
 
 	optind = 0;  /* reset getopt_long() */
@@ -3410,6 +3499,10 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			break;
 		case 'j':
 			json = true;
+			break;
+			// BSR-1111
+		case 'r':
+			readability = true;
 			break;
 		}
 	}
@@ -3464,9 +3557,9 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			resource_status(resource);
 			single_device = devices && !devices->next;
 			for (device = devices; device; device = device->next)
-				device_status(device, single_device);
+				device_status(device, single_device, readability);
 			for (connection = connections; connection; connection = connection->next)
-				connection_status(connection, peer_devices, single_device);
+				connection_status(connection, peer_devices, single_device, readability);
 			wrap_printf(0, "\n");
 		}
 
@@ -4624,7 +4717,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						new.s = old->s;
 				} else
 					print_device_statistics(0, old ? &old->s : NULL,
-								&new.s, nowrap_printf);
+								&new.s, nowrap_printf, false);
 			}
 			free(old);
 		} else
@@ -4703,7 +4796,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						new.s = old->s;
 				} else
 					print_peer_device_statistics(0, old ? &old->s : NULL,
-								     &new.s, nowrap_printf);
+								     &new.s, nowrap_printf, false);
 			}
 			free(old);
 		} else

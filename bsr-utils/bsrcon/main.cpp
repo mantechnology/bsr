@@ -359,7 +359,7 @@ BOOLEAN get_handler_use()
 		return false;
 	}
 
-	return use;
+	return (use == 1) ? true : false;
 }
 
 #ifdef _WIN
