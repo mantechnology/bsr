@@ -1,3 +1,6 @@
+#ifdef _WIN
+#include <tchar.h>
+#endif
 #include "bsrmon.h"
 
 char g_perf_path[MAX_PATH];
@@ -150,17 +153,54 @@ int datecmp(char *curr, struct time_stamp *ts)
 void get_perf_path()
 {
 #ifdef _WIN
-	char bsr_path[MAX_PATH] = {0,};
-	char _perf_path[MAX_PATH] = { 0, };
-	size_t path_size;
-	errno_t result;
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result) {
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
+	DWORD type = REG_SZ;
+	DWORD size = MAX_PATH;
+	DWORD lResult = ERROR_SUCCESS;
+	TCHAR buf[MAX_PATH] = { 0, };
+
+	memset(g_perf_path, 0, sizeof(g_perf_path));
+	
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		goto out;
 	}
-	strncpy_s(g_perf_path, (char *)bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(g_perf_path, "log\\perfmon\\");
+
+	lResult = RegQueryValueEx(hKey, _T("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	RegCloseKey(hKey);
+
+out:
+	if (ERROR_SUCCESS == lResult) {
+		sprintf_s(g_perf_path, "%ws\\perfmon\\", buf);
+	} else {
+		char bsr_path[MAX_PATH] = {0,};
+		size_t path_size;
+		errno_t result;
+		result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
+		if (result || (bsr_path == NULL) || !strlen(bsr_path)) {
+			strcpy_s(bsr_path, "c:\\Program Files\\bsr\\log\\perfmon\\");
+		} else {
+			strncpy_s(g_perf_path, (char *)bsr_path, strlen(bsr_path) - strlen("bin"));
+			strcat_s(g_perf_path, "log\\perfmon\\");
+		}
+	}
+
 #else // _LIN
-	sprintf(g_perf_path, "/var/log/bsr/perfmon/");
+	FILE *fp;
+	char buf[MAX_PATH] = {0,};
+
+	fp = fopen(PERFMON_FILE_PATH, "r");
+
+	memset(g_perf_path, 0, sizeof(g_perf_path));
+	if (fp == NULL) {
+		sprintf(g_perf_path, "%s", DEFAULT_PERFMON_FILE_PATH);
+	} else {
+		if (fgets(buf, sizeof(buf), fp) != NULL)
+			sprintf(g_perf_path, "%s/perfmon/", buf);
+		else
+			sprintf(g_perf_path, "%s", DEFAULT_PERFMON_FILE_PATH);
+		fclose(fp);
+	}
 #endif
 }

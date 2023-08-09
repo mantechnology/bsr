@@ -41,7 +41,8 @@ int llevel = INFO_LEVEL;
 // BSR-1031
 int lstatus = 0;
 char execution_log[512] = {0,};
-
+// BSR-1112
+char lpath[256] = {0,};
 void dt_pretty_print_uuids(const uint64_t* uuid, unsigned int flags)
 {
 	printf(
@@ -619,7 +620,7 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 #else // _LIN
 	ptr = strrchr(fileFullPath, '/');
 #endif
-	memcpy(path, fileFullPath, (ptr - fileFullPath));
+	memcpy(path, fileFullPath, ((ptr + 1) - fileFullPath));
 	// BSR-621 invalid rolling file name
 	snprintf(fileName, strlen(ptr) + 1, "%s_", ptr + 1);
 
@@ -688,6 +689,61 @@ bool bsr_log_rolling(char* fileFullPath)
 
 }
 
+// BSR-1112
+void get_log_path()
+{	
+#ifdef _WIN
+	TCHAR buf[MAX_PATH] = { 0, };
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+	DWORD type = REG_SZ;
+	DWORD size = MAX_PATH;
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		goto out;
+	}
+
+	lResult = RegQueryValueEx(hKey, TEXT("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	RegCloseKey(hKey);
+
+out:
+	if (lResult == ERROR_SUCCESS) {
+		strcpy(lpath, buf);
+	} else {
+		char *s;
+		char *ptr;
+
+		s = getenv("BSR_PATH");
+		if (s == NULL || !strlen(s)) {
+			strcpy(lpath, "c:\\Program Files\\bsr\\log");
+			return;
+		}
+
+		ptr = strrchr(s, L'\\');
+		if (s != NULL) {
+			memcpy(lpath, s, (ptr - s));
+			strcat(lpath, "\\log");
+		} else {
+			strcpy(lpath, "c:\\Program Files\\bsr\\log");
+		}
+	}
+#else
+	FILE *fp;
+	fp = fopen(BSR_LOG_PATH_REG, "r");
+
+	if (fp) {
+		fgets(lpath, sizeof(lpath), fp);
+		fclose(fp);
+	} 
+	
+	if (lpath == NULL || strlen(lpath) == 0) {
+		strcpy(lpath, "/var/log/bsr");
+	}
+#endif
+}
+
 FILE *bsr_open_log()
 {
 	char fileFullPath[256];
@@ -695,26 +751,15 @@ FILE *bsr_open_log()
 
 	memset(fileFullPath, 0, sizeof(fileFullPath));
 #ifdef _WIN
-	char *s;
-	char *ptr;
-
-	s = getenv("BSR_PATH");
-
-	if (s != NULL) {
-		ptr = strrchr(s, L'\\');
-		if (s != NULL) {
-			memcpy(fileFullPath, s, (ptr - s));
-			if (lprogram)
-				snprintf(fileFullPath, sizeof(fileFullPath), "%s\\log\\%s.log", fileFullPath, lprogram);
-			else
-				snprintf(fileFullPath, sizeof(fileFullPath), "%s\\log\\bsrapp.log", fileFullPath);
-		}
-	}
+	if (lprogram)
+		snprintf(fileFullPath, sizeof(fileFullPath), "%s\\%s.log", lpath, lprogram);
+	else
+		snprintf(fileFullPath, sizeof(fileFullPath), "%s\\bsrapp.log", lpath);
 #else // _LIN
 	if (lprogram)
-		snprintf(fileFullPath, sizeof(fileFullPath), "/var/log/bsr/%s.log", lprogram);
+		snprintf(fileFullPath, sizeof(fileFullPath), "%s/%s.log", lpath, lprogram);
 	else
-		snprintf(fileFullPath, sizeof(fileFullPath), "/var/log/bsr/bsrapp.log");
+		snprintf(fileFullPath, sizeof(fileFullPath), "%s/bsrapp.log", lpath);
 #endif
 
 	fp = fopen(fileFullPath, "a");

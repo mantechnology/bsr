@@ -5486,7 +5486,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		char buf[1] = { 0x01 };
 
 		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, t->fileName);
+			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws%ws", filePath, t->fileName);
 
 			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
 			InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
@@ -5541,9 +5541,8 @@ static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-int bsr_log_rolling_file_clean_up(void)
+int bsr_log_rolling_file_clean_up(char * file_path)
 {
-	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
 
 	struct log_rolling_file_list rlist = {
@@ -5556,7 +5555,7 @@ int bsr_log_rolling_file_clean_up(void)
 	
 	INIT_LIST_HEAD(&rlist.list);
 	
-	bsr_readdir(path, &rlist);
+	bsr_readdir(file_path, &rlist);
 	
 	list_sort(NULL, &rlist.list, name_cmp);
 
@@ -5566,7 +5565,7 @@ int bsr_log_rolling_file_clean_up(void)
 			continue;
 		}
 
-		err = bsr_file_remove(t->fileName);
+		err = bsr_file_remove(file_path, t->fileName);
 		if (err)
 			break;
 	}
@@ -5628,7 +5627,7 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 }
 #else // _LIN
 
-int bsr_log_file_rename(void) 
+int bsr_log_file_rename(char * file_path) 
 {
 	char new_name[MAX_PATH];
 	struct timespec64 ts;
@@ -5651,7 +5650,7 @@ int bsr_log_file_rename(void)
 									tm.tm_sec,
 									(int)(ts.tv_nsec / NSEC_PER_MSEC));
 
-	err = bsr_file_rename(BSR_LOG_FILE_NAME, new_name);
+	err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
 
 	return err;
 }
@@ -5766,6 +5765,23 @@ void start_logging_thread(void)
 #endif
 }
 
+
+#ifdef _LIN
+// BSR-1112
+static char * get_log_path(void)
+{
+	char * file_path = NULL;
+	file_path = __read_reg_file(BSR_LOG_PATH_REG);
+
+	if (file_path == NULL) {
+		// set default
+		file_path = bsr_kmalloc(sizeof(BSR_LOG_FILE_PATH) + 1, GFP_ATOMIC|__GFP_NOWARN, '');
+		strcpy(file_path, BSR_LOG_FILE_PATH);
+	}
+	return file_path;
+}
+#endif
+
 #ifdef _WIN
 void log_consumer_thread(PVOID param) 
 #else // _LIN
@@ -5794,9 +5810,25 @@ int log_consumer_thread(void *unused)
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
+	
+	memset(filePath, 0, sizeof(filePath));
 
-	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
-	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
+	// BSR-1112
+	status = GetRegistryValue(LOG_PATH_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
+	if (NT_SUCCESS(status)) {
+		uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\bsrlog.txt", filePath);
+	} else {
+		// default log path
+		RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
+		status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
+		if (NT_SUCCESS(status)) {
+			// remove bin
+			ptr = wcsrchr(filePath, L'\\');
+			if (ptr != NULL)
+				filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+			uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+		}
+	}
 
 	if (!NT_SUCCESS(status)) {
 		// BSR-619 if the path fails to obtain, end the real-time log write.
@@ -5806,19 +5838,14 @@ int log_consumer_thread(void *unused)
 		return;
 	}
 
-	ptr = wcsrchr(filePath, L'\\');
-	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
 
 	// BSR-579
 	wait_for_add_device(filePath);
 
-	uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
-
 	memcpy(filePath, fileFullPath, sizeof(fileFullPath));
 	ptr = wcsrchr(filePath, L'\\');
 	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+		filePath[(wcslen(filePath) + 1) - wcslen(ptr)] = L'\0';
 
 	RtlInitUnicodeString(&usFileFullPath, fileFullPath);
 	InitializeObjectAttributes(&obAttribute, &usFileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
@@ -5845,13 +5872,17 @@ int log_consumer_thread(void *unused)
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	char filePath[sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1]; 
+	char * file_path = NULL;
+	char * file_fullpath = NULL;
 
-	snprintf(filePath, sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1, 
-			"%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	file_path = get_log_path();
+	file_fullpath = bsr_kmalloc(strlen(file_path) + sizeof(BSR_LOG_FILE_NAME) + 1, GFP_ATOMIC|__GFP_NOWARN, '');
 
+	snprintf(file_fullpath, strlen(file_path) + sizeof(BSR_LOG_FILE_NAME) + 1, 
+			"%s/%s", file_path, BSR_LOG_FILE_NAME);
+	
 	// BSR-610 mkdir /var/log/bsr
-	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
+	err = bsr_mkdir(file_path, 0755);
 	if (err != 0 && err != -EEXIST) {
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
@@ -5864,7 +5895,7 @@ int log_consumer_thread(void *unused)
 #ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
 #endif
-	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	hFile = filp_open(file_fullpath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
 		bsr_err(19, BSR_LC_LOG, NO_OBJECT, "Failed to create log file");
@@ -5879,6 +5910,13 @@ int log_consumer_thread(void *unused)
 
 		while (g_consumer_state == RUNNING) {
 			if (chk_complete == false) {
+				// BSR-1112
+				if (gLogBuf.path_changed) {
+					// log thread restart
+					bsr_info(26, BSR_LC_LOG, NO_OBJECT, "Log path has changed. retart the log thread.");
+					break;
+				}
+
 				if (!idx_ring_consume(&gLogBuf.h, &idx)) {
 					msleep(100); // wait 100ms relative
 					continue;
@@ -5955,7 +5993,7 @@ int log_consumer_thread(void *unused)
 				}
 #else // _LIN
 				// BSR-579 rolling and clean up
-				if (bsr_log_rolling_file_clean_up() != 0) {
+				if (bsr_log_rolling_file_clean_up(file_path) != 0) {
 					bsr_err(22, BSR_LC_LOG, NO_OBJECT, "Failed to remove log file");
 					break;
 				}
@@ -5964,7 +6002,7 @@ int log_consumer_thread(void *unused)
 				if (hFile)
 					filp_close(hFile, NULL);
 
-				if (bsr_log_file_rename() != 0) {
+				if (bsr_log_file_rename(file_path) != 0) {
 					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
 					break;
 				}
@@ -5973,7 +6011,7 @@ int log_consumer_thread(void *unused)
 				set_fs(KERNEL_DS);
 #endif
 
-				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+				hFile = filp_open(file_fullpath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
 				if (hFile == NULL || IS_ERR(hFile)) {
 					bsr_err(24, BSR_LC_LOG, NO_OBJECT, "Failed to create new log file");
@@ -5995,10 +6033,20 @@ int log_consumer_thread(void *unused)
 		hFile = NULL;
 	}
 
+	// BSR-1112
+#ifdef _LIN
+	if (file_fullpath)
+		bsr_kfree(file_fullpath);
+	if (file_path)
+		bsr_kfree(file_path);
+#endif
+
 	gLogBuf.h.r_idx.has_consumer = false;
 
 	// BSR-619 if a failure occurs, try again if it is in RUNNING state.
-	if (g_consumer_state == RUNNING) {
+	// BSR-1112
+	if (g_consumer_state == RUNNING || gLogBuf.path_changed) {
+		gLogBuf.path_changed = 0;
 		msleep(1000);
 		start_logging_thread();
 	}

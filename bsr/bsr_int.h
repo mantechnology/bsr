@@ -135,6 +135,7 @@ struct log_idx_ring_buffer_t {
 	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
 	atomic_t64 missing_count;
 	spinlock_t lock;
+	int path_changed; // BSR-1112
 };
 
 extern struct log_idx_ring_buffer_t gLogBuf;
@@ -545,7 +546,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
 #define BSR_LC_MEMORY_MAX_INDEX 97
-#define BSR_LC_LOG_MAX_INDEX 25
+#define BSR_LC_LOG_MAX_INDEX 26
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 17
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
@@ -4512,8 +4513,8 @@ static inline void force_delay(int t)
 #ifdef _LIN
 extern long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram);
 // BSR-597
-extern int bsr_file_rename(const char *oldname, const char *newname);
-extern int bsr_file_remove(const char *filename);
+extern int bsr_file_rename(const char *file_path, const char *oldname, const char *newname);
+extern int bsr_file_remove(const char *file_path, const char *filename);
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type);
 #else
@@ -4521,6 +4522,7 @@ extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64
 #endif
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
+char *__read_reg_file(char *file_path);
 extern long read_reg_file(char *file_path, long default_val);
 #endif
 

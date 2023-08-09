@@ -12,6 +12,7 @@ BSR_PATH=/opt/bsr
 HOSTNAME=`hostname`
 SUPPORT_HOME=${BSR_PATH}/support
 
+BSR_LOG_PATH='bsrcon /get_log_path'
 
 # BSR-976 add option to exclude system log collection to bsrsupport
 for arg in "$@"
@@ -77,10 +78,10 @@ GetBSRInfo()
 		bsradm dump --config-file=$BSR_CONF_FILE > ${BSR_DIR}/dump
 	fi
 
-	if [ -d /var/log/bsr ]; then
-		cp -rL /var/log/bsr/* ${BSR_LOG_DIR}
+	if [ -d $BSR_LOG_PATH ]; then
+		cp -rL ${BSR_LOG_PATH}/* ${BSR_LOG_DIR}
 	else
-		echo " bsr log not found."
+		echo " bsr log (${BSR_LOG_PATH}) not found."
 	fi
 }
 

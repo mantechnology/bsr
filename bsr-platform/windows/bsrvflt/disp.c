@@ -1108,6 +1108,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			status = IOCTL_GetBsrmonRun(DeviceObject, Irp);
 			MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(unsigned int));
 		}
+		// BSR-1112
+		case IOCTL_MVOL_LOG_PATH_CHANGED:
+		{
+			gLogBuf.path_changed = 1;
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
+		}
     }
 
     if (DeviceObject == mvolRootDeviceObject ||

@@ -21,6 +21,9 @@
 #define PERIOD_OPTION_PATH "/etc/bsr.d/.bsrmon_period"
 #define FILE_SIZE_OPTION_PATH "/etc/bsr.d/.bsrmon_file_size"
 #define FILE_CNT_OPTION_PATH "/etc/bsr.d/.bsrmon_file_cnt"
+// BSR-1112
+#define PERFMON_FILE_PATH "/etc/bsr.d/.log_path"
+#define DEFAULT_PERFMON_FILE_PATH "/var/log/bsr/perfmon/"
 #endif
 
 #ifdef _WIN
