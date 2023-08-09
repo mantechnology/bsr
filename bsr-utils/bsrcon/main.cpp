@@ -1588,15 +1588,13 @@ int create_dir(char* path)
 
 	while(*p) {
 		// create sub dir
-		if ('\\' == *p) {
-			if (':' != *(p-1)) {
-				if (!CreateDirectoryA(dirName, NULL)) {
-					ret = GetLastError();
-					if (ret != ERROR_ALREADY_EXISTS) {
-						fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
-							__FUNCTION__, dirName, ret);
-						return ret;
-					}
+		if (('\\' == *p) && (':' != *(p-1))) {
+			if (!CreateDirectoryA(dirName, NULL)) {
+				ret = GetLastError();
+				if (ret != ERROR_ALREADY_EXISTS) {
+					fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
+						__FUNCTION__, dirName, ret);
+					return ret;
 				}
 			}
 		}
@@ -1645,7 +1643,7 @@ int create_dir(char* path)
 	return ret;
 }
 
-// BSR-1112
+// BSR-1112 add commands to change log path
 int cmd_set_log_path(int *index, int argc, char* argv[])
 {
 #ifdef _WIN
