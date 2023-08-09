@@ -1527,7 +1527,6 @@ static int need_filesystem_recovery(char dev_letter)
 	bool xfs_fs = false;
 	char *argv[] = { "chkdsk", (char[3]){dev_letter, ':', '\0'}, NULL };
 	char fs_check_log[256];
-	char *s, *ptr;
 
 	// check fast sync settings
 	// if full sync, skip filesystem check
