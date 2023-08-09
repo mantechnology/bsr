@@ -1742,7 +1742,7 @@ int cmd_get_log_path(int *index, int argc, char* argv[])
 			printf("c:\\Program Files\\bsr\\log\\");
 		} else {
 			wcsncpy_s(buf, bsr_path, wcslen(bsr_path) - wcslen(L"bin"));
-			printf("%ws\\log", buf);
+			printf("%wslog", buf);
 		}
 	}
 #else // _LIN
