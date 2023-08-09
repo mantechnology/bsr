@@ -1655,7 +1655,7 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 #else // _LIN
 	FILE *fp;
 #endif
-	char newPath[MAX_PATH] = { 0, };
+	char *newPath;
 	char fullPath[MAX_PATH] = { 0, };
 	DWORD retVal = ERROR_SUCCESS;
 
@@ -1664,9 +1664,9 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	if (*index < argc) {
 #ifdef _WIN
 		char *ptr;
-		sprintf_s(newPath, "%s\\bsrlog", strtok_s(argv[*index], "\"", &ptr));
+		newPath = strtok_s(argv[*index], "\"", &ptr);
 #else
-		sprintf(newPath, "%s/bsrlog", argv[*index]);
+		newPath = argv[*index];
 #endif
 	}
 	else

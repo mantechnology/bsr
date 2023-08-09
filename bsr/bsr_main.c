@@ -5486,7 +5486,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		char buf[1] = { 0x01 };
 
 		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, t->fileName);
+			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws%ws", filePath, t->fileName);
 
 			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
 			InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
@@ -5821,8 +5821,13 @@ int log_consumer_thread(void *unused)
 		// default log path
 		RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
 		status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
-		if (NT_SUCCESS(status))
+		if (NT_SUCCESS(status)) {
+			// remove bin
+			ptr = wcsrchr(filePath, L'\\');
+			if (ptr != NULL)
+				filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
 			uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+		}
 	}
 
 	if (!NT_SUCCESS(status)) {
@@ -5833,9 +5838,6 @@ int log_consumer_thread(void *unused)
 		return;
 	}
 
-	ptr = wcsrchr(filePath, L'\\');
-	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
 
 	// BSR-579
 	wait_for_add_device(filePath);
@@ -5843,7 +5845,7 @@ int log_consumer_thread(void *unused)
 	memcpy(filePath, fileFullPath, sizeof(fileFullPath));
 	ptr = wcsrchr(filePath, L'\\');
 	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+		filePath[(wcslen(filePath) + 1) - wcslen(ptr)] = L'\0';
 
 	RtlInitUnicodeString(&usFileFullPath, fileFullPath);
 	InitializeObjectAttributes(&obAttribute, &usFileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);

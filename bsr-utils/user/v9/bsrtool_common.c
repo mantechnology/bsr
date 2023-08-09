@@ -620,7 +620,7 @@ void bsr_max_log_file_check_and_delete(char* fileFullPath)
 #else // _LIN
 	ptr = strrchr(fileFullPath, '/');
 #endif
-	memcpy(path, fileFullPath, (ptr- fileFullPath));
+	memcpy(path, fileFullPath, ((ptr + 1) - fileFullPath));
 	// BSR-621 invalid rolling file name
 	snprintf(fileName, strlen(ptr) + 1, "%s_", ptr + 1);
 
