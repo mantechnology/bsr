@@ -178,7 +178,7 @@ out:
 		size_t path_size;
 		errno_t result;
 		result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-		if (result) {
+		if (result || (bsr_path == NULL) || strlen(bsr_path)) {
 			strcpy_s(bsr_path, "c:\\Program Files\\bsr\\log\\perfmon\\");
 		} else {
 			strncpy_s(g_perf_path, (char *)bsr_path, strlen(bsr_path) - strlen("bin"));

@@ -381,7 +381,7 @@ DWORD StartRegistryCleaner()
     // get bsr's path in environment variables
     size_t path_size;
     errno_t result = _wgetenv_s(&path_size, g_szEnvPath, MAX_PATH, L"BSR_PATH");
-    if (result) {
+    if (result || (g_szEnvPath == NULL) || !wcslen(g_szEnvPath)) {
         wcscpy_s(g_szEnvPath, L"c:\\Program Files\\bsr\\bin");
     }
 

@@ -1536,14 +1536,8 @@ static int need_filesystem_recovery(char dev_letter)
 	}
 
 	memset(fs_check_log, 0, sizeof(fs_check_log));
-	s = getenv("BSR_PATH");
-	if (s != NULL) {
-		ptr = strrchr(s, L'\\');
-		if (s != NULL) {
-			memcpy(fs_check_log, s, (ptr - s));
-			snprintf(fs_check_log, sizeof(fs_check_log), "%s\\log\\chkdsk_%c.log", fs_check_log, dev_letter);
-		}
-	}
+	
+	snprintf(fs_check_log, sizeof(fs_check_log), "%s\\chkdsk_%c.log", lpath, dev_letter);
 	
 	// remove old log files
 	remove(fs_check_log);

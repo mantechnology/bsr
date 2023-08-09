@@ -716,15 +716,17 @@ out:
 		char *ptr;
 
 		s = getenv("BSR_PATH");
+		if (s == NULL || !strlen(s)) {
+			strcpy(lpath, "c:\\Program Files\\bsr\\log");
+			return;
+		}
 
+		ptr = strrchr(s, L'\\');
 		if (s != NULL) {
-			ptr = strrchr(s, L'\\');
-			if (s != NULL) {
-				memcpy(lpath, s, (ptr - s));
-				strcat(lpath, "\\log");
-			} else {
-				strcpy_s(lpath, sizeof(lpath), "c:\\Program Files\\bsr\\log");
-			}
+			memcpy(lpath, s, (ptr - s));
+			strcat(lpath, "\\log");
+		} else {
+			strcpy(lpath, "c:\\Program Files\\bsr\\log");
 		}
 	}
 #else

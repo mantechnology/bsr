@@ -1738,7 +1738,7 @@ int cmd_get_log_path(int *index, int argc, char* argv[])
 		size_t path_size;
 		errno_t result;
 		result = _wgetenv_s(&path_size, bsr_path, MAX_PATH, L"BSR_PATH");
-		if (result) {
+		if (result || (bsr_path == NULL) || !wcslen(bsr_path)) {
 			printf("c:\\Program Files\\bsr\\log\\");
 		} else {
 			wcsncpy_s(buf, bsr_path, wcslen(bsr_path) - wcslen(L"bin"));

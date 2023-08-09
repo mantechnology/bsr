@@ -480,7 +480,7 @@ int RunBsrmon()
 	wchar_t pTemp[1024] = { 0, };
 
 	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result)
+	if (result || (bsr_path == NULL) || !strlen(bsr_path))
 		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
 
 	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
@@ -691,7 +691,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 	size_t path_size; WCHAR BsrPath[MAX_PATH] = { 0, }; WCHAR BsrLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
 	errno_t result = _wgetenv_s(&path_size, BsrPath, MAX_PATH, L"BSR_PATH");
-	if (result) {
+	if (result || (BsrPath == NULL) || !wcslen(BsrPath)) {
 		wcscpy_s(BsrPath, L"c:\\Program Files\\bsr\\bin");
 	}
 	wcsncpy_s(BsrLogPath, BsrPath, wcslen(BsrPath) - strlen("bin"));
