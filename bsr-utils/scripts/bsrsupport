@@ -12,7 +12,7 @@ BSR_PATH=/opt/bsr
 HOSTNAME=`hostname`
 SUPPORT_HOME=${BSR_PATH}/support
 
-BSR_LOG_PATH='bsrcon /get_log_path'
+BSR_LOG_PATH=`bsrcon /get_log_path`
 
 # BSR-976 add option to exclude system log collection to bsrsupport
 for arg in "$@"
@@ -57,6 +57,7 @@ GetBSRInfo()
 	mkdir -p ${BSR_CFG_DIR}
 	mkdir -p ${BSR_MOD_DIR}
 	mkdir -p ${BSR_LOG_DIR}
+	mkdir -p ${BSR_LOG_DIR}/perfmon
 
 	if [ -e /proc/bsr ]; then
 		cat /proc/bsr > ${BSR_DIR}/bsr_state
@@ -79,7 +80,17 @@ GetBSRInfo()
 	fi
 
 	if [ -d $BSR_LOG_PATH ]; then
-		cp -rL ${BSR_LOG_PATH}/* ${BSR_LOG_DIR}
+		# BSR-1117
+		cp -rL ${BSR_LOG_PATH}/bsrlog.txt* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsradm.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrsetup.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrmeta.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrapp.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/xfs_logprint*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/xfs_repair*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/tune2fs*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/fsck*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/perfmon/* ${BSR_LOG_DIR}/perfmon 2> /dev/null
 	else
 		echo " bsr log (${BSR_LOG_PATH}) not found."
 	fi

@@ -4,6 +4,9 @@ REM
 REM bsr rc batch file
 REM 
 
+REM BSR-1112
+for /f "tokens=*" %%a in ('bsrcon /get_log_path') do set BSR_LOG_DIR=%%a
+
 IF "%1" == "start" GOTO start
 IF "%1" == "stop"  GOTO stop
 
@@ -14,7 +17,7 @@ goto :eof
 REM ------------------------------------------------------------------------
 :start
 
-set start_log="%BSR_PATH%\..\log\rc_start.log"
+set start_log="%BSR_LOG_DIR%\rc_start.log"
 echo [%date%_%time%] rc.bat start. > %start_log%
 
 
@@ -109,7 +112,7 @@ REM ------------------------------------------------------------------------
 
 @echo off
 
-set stop_log="%BSR_PATH%\..\log\rc_stop.log"
+set stop_log="%BSR_LOG_DIR%\rc_stop.log"
 echo [%date%_%time%] rc.bat stop. > %stop_log%
 echo [%date%_%time%] Stopping all BSR resources >> %stop_log%
 

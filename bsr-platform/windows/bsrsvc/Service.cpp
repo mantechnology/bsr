@@ -464,10 +464,6 @@ int RunBsrmon()
 {
 	TCHAR cmd[MAX_PATH] = { 0 };
 	TCHAR cmd_stop[MAX_PATH] = { 0 };
-	char bsr_path[MAX_PATH] = { 0, };
-	char perf_path[MAX_PATH] = { 0, };
-	size_t path_size;
-	errno_t result;
 
 	// BSR-694
 	HKEY hKey = NULL;
@@ -478,13 +474,6 @@ int RunBsrmon()
 	DWORD period_value = 0;
 	DWORD run = 1;
 	wchar_t pTemp[1024] = { 0, };
-
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result || (bsr_path == NULL) || !strlen(bsr_path))
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
-
-	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(perf_path, "log\\perfmon\\");
 
 	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
 	_stprintf_s(cmd_stop, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/stop"));
