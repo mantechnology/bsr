@@ -169,16 +169,18 @@ exit /B 0
     if not exist "%BSR_DIR%\bin" ( mkdir "%BSR_DIR%\bin" )
 
     xcopy "%BSR_PATH%\..\etc\*" "%BSR_DIR%\etc" /e /h /k
+
     @rem BSR-1117
-    xcopy "%BSR_LOG_DIR%\bsrlog.txt*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\bsradm.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\bsrsetup.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\bsrmeta.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\bsrapp.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\chkdsk*.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\rc_start.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\rc_stop.log*" "%BSR_DIR%\log" /e /h /k
-    xcopy "%BSR_LOG_DIR%\perfmon\*" "%BSR_DIR%\log\perfmon" /e /h /k
+    xcopy "%BSR_LOG_DIR%\bsrlog.txt*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\bsradm.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\bsrsetup.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\bsrmeta.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\bsrapp.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\chkdsk*.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\rc_start.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\rc_stop.log*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\perfmon\*" "%BSR_DIR%\log\perfmon" /e /h /k 2> nul
+
     xcopy "%BSR_PATH%\..\bin\*.pdb" "%BSR_DIR%\bin" /e /h /k
 exit /B 0
 
