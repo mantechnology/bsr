@@ -13,9 +13,14 @@ set SUPPORT_HOME=%BSR_PATH%\..\support
 set OUTPUT_HOME=%SUPPORT_HOME%\%COMPUTERNAME%
 
 @rem BSR-976 add option to exclude system log collection to bsrsupport
+@rem BSR-1117 add bsrsupport options --exclude-system-log, --exclude-perfmon
 for %%x in (%*) do (
 	if "%%x" == "-exclude_systemlog" (
 		set EXCLUDE_SYSLOG=true
+	) else if "%%x" == "--exclude-system-log" (
+		set EXCLUDE_SYSLOG=true
+	) else if "%%x" == "--exclude-perfmon" (
+		set EXCLUDE_PERFMON=true
 	) else (
 		set CORE_FILE_PATH=%%x
 	)
@@ -165,7 +170,10 @@ exit /B 0
     if not exist "%BSR_DIR%" ( mkdir "%BSR_DIR%" )
     if not exist "%BSR_DIR%\etc" ( mkdir "%BSR_DIR%\etc" )
     if not exist "%BSR_DIR%\log" ( mkdir "%BSR_DIR%\log" )
-    if not exist "%BSR_DIR%\log\perfmon" ( mkdir "%BSR_DIR%\log\perfmon" )
+    if not "%EXCLUDE_PERFMON%" == "true" (
+        if not exist "%BSR_DIR%\log\perfmon" ( mkdir "%BSR_DIR%\log\perfmon" )
+    )
+
     if not exist "%BSR_DIR%\bin" ( mkdir "%BSR_DIR%\bin" )
 
     xcopy "%BSR_PATH%\..\etc\*" "%BSR_DIR%\etc" /e /h /k
@@ -179,7 +187,12 @@ exit /B 0
     xcopy "%BSR_LOG_DIR%\chkdsk*.log*" "%BSR_DIR%\log" /k 2> nul
     xcopy "%BSR_LOG_DIR%\rc_start.log*" "%BSR_DIR%\log" /k 2> nul
     xcopy "%BSR_LOG_DIR%\rc_stop.log*" "%BSR_DIR%\log" /k 2> nul
-    xcopy "%BSR_LOG_DIR%\perfmon\*" "%BSR_DIR%\log\perfmon" /e /h /k 2> nul
+    if "%EXCLUDE_PERFMON%" == "true" (
+        echo Skip collection of perfmon log.
+    ) else (
+        xcopy "%BSR_LOG_DIR%\perfmon\*" "%BSR_DIR%\log\perfmon" /e /h /k 2> nul
+    )
+    
 
     xcopy "%BSR_PATH%\..\bin\*.pdb" "%BSR_DIR%\bin" /e /h /k
 exit /B 0
