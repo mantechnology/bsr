@@ -81,7 +81,7 @@ GetBSRInfo()
 
 	if [ -d $BSR_LOG_PATH ]; then
 		# BSR-1117
-		cp -rL ${BSR_LOG_PATH}/bsrlog.txt* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsr.log* ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/bsradm.log* ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/bsrsetup.log* ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/bsrmeta.log* ${BSR_LOG_DIR} 2> /dev/null

@@ -215,8 +215,8 @@ typedef struct _BSR_LOG {
 #define BSR_LOG_PATH_REG "/etc/bsr.d/.log_path"
 // BSR-597
 #define BSR_LOG_FILE_PATH "/var/log/bsr"
-#define BSR_LOG_FILE_NAME "bsrlog.txt"
-#define BSR_LOG_ROLLING_FILE_NAME "bsrlog.txt_"
+#define BSR_LOG_FILE_NAME "bsr.log"
+#define BSR_LOG_ROLLING_FILE_NAME "bsr.log_"
 #endif
 
 #endif

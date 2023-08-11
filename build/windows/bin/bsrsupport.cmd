@@ -171,7 +171,7 @@ exit /B 0
     xcopy "%BSR_PATH%\..\etc\*" "%BSR_DIR%\etc" /e /h /k
 
     @rem BSR-1117
-    xcopy "%BSR_LOG_DIR%\bsrlog.txt*" "%BSR_DIR%\log" /k 2> nul
+    xcopy "%BSR_LOG_DIR%\bsr.log*" "%BSR_DIR%\log" /k 2> nul
     xcopy "%BSR_LOG_DIR%\bsradm.log*" "%BSR_DIR%\log" /k 2> nul
     xcopy "%BSR_LOG_DIR%\bsrsetup.log*" "%BSR_DIR%\log" /k 2> nul
     xcopy "%BSR_LOG_DIR%\bsrmeta.log*" "%BSR_DIR%\log" /k 2> nul
