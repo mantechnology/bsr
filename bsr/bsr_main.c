@@ -97,9 +97,9 @@
 #endif
 
 #ifdef _WIN
-#define BSR_LOG_FILE_NAME L"bsrlog.txt"
-// rolling file format, ex) bsrlog.txt_2020-06-02T104543.745 
-#define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
+#define BSR_LOG_FILE_NAME L"bsr.log"
+// rolling file format, ex) bsr.log_2020-06-02T104543.745 
+#define BSR_LOG_ROLLING_FILE_NAME L"bsr.log_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
@@ -5816,7 +5816,7 @@ int log_consumer_thread(void *unused)
 	// BSR-1112
 	status = GetRegistryValue(LOG_PATH_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status)) {
-		uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\bsrlog.txt", filePath);
+		uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\bsr.log", filePath);
 	} else {
 		// default log path
 		RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
@@ -5826,7 +5826,7 @@ int log_consumer_thread(void *unused)
 			ptr = wcsrchr(filePath, L'\\');
 			if (ptr != NULL)
 				filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
-			uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
+			uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsr.log", filePath);
 		}
 	}
 

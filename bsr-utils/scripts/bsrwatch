@@ -3,4 +3,4 @@
 # BSR-1112
 BSR_LOG_PATH=`bsrcon /get_log_path`
 
-tail --follow=name ${BSR_LOG_PATH}/bsrlog.txt
+tail --follow=name ${BSR_LOG_PATH}/bsr.log

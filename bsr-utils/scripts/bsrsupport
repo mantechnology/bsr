@@ -12,13 +12,18 @@ BSR_PATH=/opt/bsr
 HOSTNAME=`hostname`
 SUPPORT_HOME=${BSR_PATH}/support
 
-BSR_LOG_PATH='bsrcon /get_log_path'
+BSR_LOG_PATH=`bsrcon /get_log_path`
 
 # BSR-976 add option to exclude system log collection to bsrsupport
+# BSR-1117 add bsrsupport options --exclude-system-log, --exclude-perfmon
 for arg in "$@"
 do
 	if [ "$arg" = "-exclude_systemlog" ]; then
 		EXCLUDE_SYSLOG=true
+	elif [ "$arg" = "--exclude-system-log" ]; then
+		EXCLUDE_SYSLOG=true
+	elif [ "$arg" = "--exclude-perfmon" ]; then
+		EXCLUDE_PERFMON=true
 	else
 		CORE_FILE_PATH=${arg}
 	fi
@@ -57,7 +62,9 @@ GetBSRInfo()
 	mkdir -p ${BSR_CFG_DIR}
 	mkdir -p ${BSR_MOD_DIR}
 	mkdir -p ${BSR_LOG_DIR}
-
+	if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
+		mkdir -p ${BSR_LOG_DIR}/perfmon
+	fi
 	if [ -e /proc/bsr ]; then
 		cat /proc/bsr > ${BSR_DIR}/bsr_state
 		bsradm show-gi all > ${BSR_DIR}/GI_state
@@ -79,7 +86,22 @@ GetBSRInfo()
 	fi
 
 	if [ -d $BSR_LOG_PATH ]; then
-		cp -rL ${BSR_LOG_PATH}/* ${BSR_LOG_DIR}
+		# BSR-1117
+		cp -rL ${BSR_LOG_PATH}/bsr.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsradm.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrsetup.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrmeta.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/bsrapp.log* ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/xfs_logprint*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/xfs_repair*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/tune2fs*.log ${BSR_LOG_DIR} 2> /dev/null
+		cp -rL ${BSR_LOG_PATH}/fsck*.log ${BSR_LOG_DIR} 2> /dev/null
+		if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
+			cp -rL ${BSR_LOG_PATH}/perfmon/* ${BSR_LOG_DIR}/perfmon 2> /dev/null
+		else
+			echo skip collection of perfmon log.
+		fi
+		
 	else
 		echo " bsr log (${BSR_LOG_PATH}) not found."
 	fi
