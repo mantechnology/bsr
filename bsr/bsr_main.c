@@ -7876,12 +7876,19 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
 			pBsrBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
 #endif
+			// BSR-1121
+			if (bsr_bm_bits(device) != ullTotalCluster)
+				bsr_info(230, BSR_LC_RESYNC_OV, device, "The bitmap size of the file system and BSR does not match. bsr(%llu), fs(%llu)", bsr_bm_bits(device), ullTotalCluster);
+
 			pVbb = NULL;
 		}
 		else {
 			// Convert gotten bitmap into 4kb unit cluster bitmap.
 			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulBsrBitmapUnit;
 			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
+
+			if (bsr_bm_bits(device) != ullTotalCluster)
+				bsr_info(231, BSR_LC_RESYNC_OV, device, "The bitmap size of the file system and BSR does not match. bsr(%llu), fs(%llu)", bsr_bm_bits(device), ullTotalCluster);
 #ifdef _WIN
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56SB');			
 #else // _LIN

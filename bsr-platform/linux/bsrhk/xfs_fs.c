@@ -49,13 +49,17 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 	int startbit = 0;
 	int bitcount_no = 0;
 	int ret = 0;
+	int remaining_block = 0;
+	
 	
 	ag_count = be32_to_cpu(xfs_sb->sb_agcount);
 	ag_blocks_offset = be32_to_cpu(xfs_sb->sb_agblocks);
 	blk_size = be32_to_cpu(xfs_sb->sb_blocksize);
 	sect_size = be16_to_cpu(xfs_sb->sb_sectsize);
 	total_block = be64_to_cpu(xfs_sb->sb_dblocks);
-
+	
+	// BSR-1121
+	remaining_block = total_block % BITS_PER_BYTE;
 	bitmap_size = ALIGN(total_block, BITS_PER_BYTE) / BITS_PER_BYTE;
 	// BSR-818 fix to execute vmalloc() when kmalloc() fails
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)bsr_kvmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN);
@@ -77,6 +81,7 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		bsr_info(123, BSR_LC_RESYNC_OV, NO_OBJECT, "block size : %d ", blk_size);
 		bsr_info(124, BSR_LC_RESYNC_OV, NO_OBJECT, "sector size : %d ", sect_size);
 		bsr_info(125, BSR_LC_RESYNC_OV, NO_OBJECT, "bitmap size : %lld ", bitmap_buf->BitmapSize);
+		bsr_info(232, BSR_LC_RESYNC_OV, NO_OBJECT, "remaining block size : %d ", remaining_block);
 		bsr_info(126, BSR_LC_RESYNC_OV, NO_OBJECT, "=============================");
 	}
 
@@ -197,6 +202,14 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 		} while(bb_rightsib > 0);
 
 	}
+	
+	// BSR-1121 sets the bit to 0 for the unused area.
+	if(remaining_block) {
+		int r;
+		for(r = remaining_block; r < BITS_PER_BYTE; r++)
+			bitmap_buf->Buffer[total_block/BITS_PER_BYTE] &= ~(1 << r);
+	}
+	
 	if (debug_fast_sync) {
 		bsr_info(102, BSR_LC_BITMAP, NO_OBJECT, "total free_blocks : %llu free_bits : %llu", free_blocks_co, free_bits_co);
 	}
