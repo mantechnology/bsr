@@ -531,7 +531,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 41
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 227
+#define BSR_LC_RESYNC_OV_MAX_INDEX 232
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 33
 #define BSR_LC_UUID_MAX_INDEX 40
@@ -2760,6 +2760,9 @@ extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR
 
 // BSR-835
 extern void bsr_free_ov_bm(struct kref *kref);
+// BSR-1121
+extern ULONG_PTR bsr_ov_bm_bits(struct bsr_peer_device *peer_device);
+
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);

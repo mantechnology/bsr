@@ -1777,6 +1777,18 @@ extern void bsr_free_ov_bm(struct kref *kref)
 	}
 }
 
+// BSR-1121
+extern ULONG_PTR bsr_ov_bm_bits(struct bsr_peer_device *peer_device)
+{
+	if (peer_device->fast_ov_bitmap == NULL)
+		return bsr_bm_bits(peer_device->device);
+#ifdef _WIN
+	return (ULONG_PTR)peer_device->fast_ov_bitmap->BitmapSize.QuadPart * BITS_PER_BYTE;
+#else // _LIN
+	return peer_device->fast_ov_bitmap->BitmapSize * BITS_PER_BYTE;
+#endif
+}
+
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const ULONG_PTR bitnr)
 {
@@ -1793,7 +1805,7 @@ extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *peer_device, const U
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 
-	if (bitnr >= bsr_bm_bits(peer_device->device))
+	if (bitnr >= bsr_ov_bm_bits(peer_device))
 		ret = BSR_END_OF_BITMAP;
 	else
 		ret = (pByte[BM_SECT_TO_BIT(bitnr)] >> (bitnr % BITS_PER_BYTE)) & 0x01;
@@ -1820,7 +1832,7 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 
-	for (bit = peer_device->ov_bm_position; bit < bsr_bm_bits(peer_device->device); bit++) {
+	for (bit = peer_device->ov_bm_position; bit < bsr_ov_bm_bits(peer_device); bit++) {
 		// BSR-835 if not Connected or VerifyS, stop checking the bit
 		if (peer_device->connection->cstate[NOW] < C_CONNECTED || peer_device->repl_state[NOW] != L_VERIFY_S) {
 			s = 0;
@@ -1859,7 +1871,7 @@ extern ULONG_PTR bsr_ov_bm_range_find_next(struct bsr_peer_device *peer_device, 
 			break;
 		}
 		
-		if(bit >= bsr_bm_bits(peer_device->device))
+		if (bit >= bsr_ov_bm_bits(peer_device))
 			break;
 
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
@@ -1892,7 +1904,7 @@ extern ULONG_PTR bsr_ov_bm_find_abort_bit(struct bsr_peer_device *peer_device)
 
 	pByte = (PCHAR)peer_device->fast_ov_bitmap->Buffer;
 
-	for (bit = (bsr_bm_bits(peer_device->device) - 1); bit > 0; bit--) {
+	for (bit = (bsr_ov_bm_bits(peer_device) - 1); bit > 0; bit--) {
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1) {
 			s++;
 			if (s == peer_device->ov_left)
