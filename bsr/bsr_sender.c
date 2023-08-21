@@ -1573,14 +1573,14 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 			// BSR-118 bitmap operation to use fast ov
 			for (;;) {
 				bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT);
-				if (bit < bsr_bm_bits(device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
+				if (bit < bsr_ov_bm_bits(peer_device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
 					break;
 				}
 
-				if (bit >= bsr_bm_bits(device)) {
-					bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu left %llu",
+				if (bit >= bsr_ov_bm_bits(peer_device)) {
+					bsr_info(112, BSR_LC_RESYNC_OV, peer_device, "All verify requests have been sent. BSR_END_OF_OV_BITMAP(%llu), peer_device->ov_bm_position : %llu left %llu",
 							(unsigned long long)bit, (unsigned long long)peer_device->ov_bm_position, (unsigned long long)peer_device->ov_left);
-					peer_device->ov_bm_position = bsr_bm_bits(device);
+					peer_device->ov_bm_position = bsr_ov_bm_bits(peer_device);
 					peer_device->ov_position = BM_BIT_TO_SECT(peer_device->ov_bm_position);
 					return 0;
 				}
