@@ -1732,7 +1732,7 @@ static int _bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags)
 
 	p = bsr_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
 	if (!p) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -1761,7 +1761,7 @@ static int _bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags)
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return bsr_send_command(peer_device, P_UUIDS, DATA_STREAM);
 }
@@ -1832,7 +1832,7 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	p_size += (BSR_PEERS_MAX + HISTORY_UUIDS) * sizeof(p->other_uuids[0]);
 	p = bsr_prepare_command(peer_device, p_size, DATA_STREAM);
 	if (!p) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -1900,7 +1900,7 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(sizeof(*p) + (hweight64(bitmap_uuids_mask) + HISTORY_UUIDS) * sizeof(p->other_uuids[0]));
 #endif
@@ -1928,7 +1928,7 @@ void bsr_print_uuids(struct bsr_peer_device *peer_device, const char *text, cons
 			  (unsigned long long)bsr_bitmap_uuid(peer_device),
 			  (unsigned long long)bsr_history_uuid(device, 0),
 			  (unsigned long long)bsr_history_uuid(device, 1));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		bsr_info(2, BSR_LC_UUID, device, "%s, %s effective data uuid: %016llX",
 			caller, text, 
@@ -2104,7 +2104,7 @@ int bsr_send_sizes(struct bsr_peer_device *peer_device,
 #ifdef _LIN
 		assign_p_sizes_qlim(device, p, q);
 #endif
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		d_size = 0;
 		u_size = u_size_diskless;
@@ -2590,7 +2590,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 				bsr_md_sync(device);
 			}
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
@@ -4107,7 +4107,7 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 		if (!get_ldev_if_state(device, D_UP_TO_DATE))
 			r |= (1 << WB_sync_congested);
 		else
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		r &= bdi_bits;
 		goto out;
 	}
@@ -4120,7 +4120,7 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 #else
 		r = 0;
 #endif
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	if (bdi_bits & (1 << WB_async_congested)) {
@@ -4679,7 +4679,7 @@ void bsr_destroy_connection(struct kref *kref)
 			set_bit(__EE_WAS_LOST_REQ, &peer_request->flags);
 			// BSR-930	
 			if (!(peer_request->flags & EE_SPLIT_REQ))
-				put_ldev(peer_request->peer_device->device);
+				put_ldev(__FUNCTION__, peer_request->peer_device->device);
 		}
 		spin_unlock_irqrestore(&g_inactive_lock, flags);
 	}
@@ -6373,7 +6373,7 @@ static void __bsr_md_sync(struct bsr_device *device, bool maybe)
 
 	bsr_md_put_buffer(device);
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 void bsr_md_sync(struct bsr_device *device)
@@ -6935,7 +6935,7 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, 
 {
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
 		__bsr_uuid_new_current(device, forced, true, younger, caller);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		struct bsr_peer_device *peer_device;
 		/* The peers will store the new current UUID... */
@@ -6957,7 +6957,7 @@ void bsr_uuid_new_current_by_user(struct bsr_device *device)
 {
 	if (get_ldev(device)) {
 		__bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 }
 
@@ -8058,7 +8058,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 				{
 					set_bit(FORCE_DETACH, &device->flags);
 					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			}
 			mutex_unlock(&att_mod_mutex);
@@ -8198,7 +8198,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				{
 					set_bit(FORCE_DETACH, &device->flags);
 					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			}
 			mutex_unlock(&att_mod_mutex);
@@ -8314,7 +8314,7 @@ static int w_bitmap_io(struct bsr_work *w, int unused)
 			bsr_bm_slot_unlock(work->peer_device);
 		else
 			bsr_bm_unlock(device);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	if (work->done)

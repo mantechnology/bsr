@@ -145,7 +145,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 #ifdef _WIN
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	else
 		bsr_debug(50, BSR_LC_IO, device, "ldev null");
 	
@@ -185,7 +185,7 @@ BIO_ENDIO_TYPE bsr_md_endio BIO_ENDIO_ARGS(struct bio *bio)
 #else // _LIN
 	bio_put(bio);
 	if (device->ldev) /* special case: bsr_md_read() during bsr_adm_attach() */
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 #endif	
 	/* We grabbed an extra reference in _bsr_md_sync_page_io() to be able
 		* to timeout on the lower level device, and eventually detach from it.
@@ -250,7 +250,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 				}
 			}
 			// BSR-930
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 		else {
 			bsr_info(20, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost read request. request(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -295,7 +295,7 @@ static void bsr_endio_read_sec_final(struct bsr_peer_request *peer_req) __releas
 	spin_unlock_irqrestore(&device->resource->req_lock, flags);
 
 	bsr_queue_work(&connection->sender_work, &peer_req->w);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 static int is_failed_barrier(int ee_flags)
@@ -361,7 +361,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 			}
 			// BSR-930
 			if (!(peer_req->flags & EE_SPLIT_REQ))
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 		}
 		else {
 			bsr_info(22, BSR_LC_PEER_REQUEST, NO_OBJECT, "Inactive peer request completed but lost write request. inactive_ee(%p), sector(%llu), size(%u)", peer_req, (unsigned long long)peer_req->i.sector, peer_req->i.size);
@@ -488,7 +488,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 
 	// DW-1903 EE_SPLIT_REQ is a duplicate request and does not call put_ldev().
 	if (!(peer_flags & EE_SPLIT_REQ))
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 }
 
 /* writes on behalf of the partner, or resync writes,
@@ -850,7 +850,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	__req_mod(req, what, NULL, &m);
 	spin_unlock_irqrestore(&device->resource->req_lock, flags);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	if (m.bio)
 		complete_master_bio(device, &m);
@@ -1030,7 +1030,7 @@ static int read_for_csum(struct bsr_peer_device *peer_device, sector_t sector, i
 defer2:
 	bsr_free_peer_req(peer_req);
 defer:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return -EAGAIN;
 }
 
@@ -1383,7 +1383,7 @@ next_sector:
 				device->bm_resync_fo = bsr_bm_bits(device);
 				bsr_info(109, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent. BSR_END_OF_BITMAP(%llu), device->bm_resync_fo : %llu, bm_set : %llu",
 						(unsigned long long)bit, (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				return 0;
 			}
 
@@ -1465,7 +1465,7 @@ next_sector:
 		if (peer_device->use_csums) {
 			switch (read_for_csum(peer_device, sector, size)) {
 			case -EIO: /* Disk failure */
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				return -EIO;
 			case -EAGAIN: /* allocation failed, or ldev busy */
 				bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
@@ -1488,7 +1488,7 @@ next_sector:
 			if (err) {
 				bsr_err(110, BSR_LC_RESYNC_OV, peer_device, "Failed to make resync request due to failure send, aborting...");
 				dec_rs_pending(peer_device);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				return err;
 			}			
 			// DW-1886
@@ -1504,14 +1504,14 @@ next_sector:
 		 * until then resync "work" is "inactive" ...
 		 */
 		bsr_info(111, BSR_LC_RESYNC_OV, peer_device, "All resync requests have been sent, but no resync response has been received yet.  device->bm_resync_fo : %llu, bm_set : %llu", (unsigned long long)device->bm_resync_fo, (unsigned long long)bsr_bm_total_weight(peer_device));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 
 requeue:
 	peer_device->rs_in_flight += (i << (BM_BLOCK_SHIFT - 9));
 	mod_timer(&peer_device->resync_timer, jiffies + SLEEP_TIME);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return 0;
 }
 
@@ -1964,14 +1964,14 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	// DW-1198 If repl_state is L_AHEAD, do not finish resync. Keep the L_AHEAD.
 	if (repl_state[NOW] == L_AHEAD) {
 		bsr_info(115, BSR_LC_RESYNC_OV, peer_device, "Resync does not finished because the replication status is Ahead."); // DW-1518
-		put_ldev(device); 
+		put_ldev(__FUNCTION__, device); 
 		spin_unlock_irq(&device->resource->req_lock);
 		return 1;
 	}
 
 	// BSR-1085 when the resync is completed in a congested state(L_BEHIND), only the source node completes resync on the next resync.
 	if (peer_device->repl_state[NOW] == L_BEHIND) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		spin_unlock_irq(&device->resource->req_lock);
 		return 1;
 	}
@@ -2167,7 +2167,7 @@ out_unlock:
 		bsr_md_mark_dirty(device);
 	}
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	peer_device->rs_total  = 0;
 	peer_device->rs_failed = 0;
@@ -2341,7 +2341,7 @@ int w_e_end_rsdata_req(struct bsr_work *w, int cancel)
 
 	if (get_ldev_if_state(device, D_DETACHING)) {
 		bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	if (peer_device->repl_state[NOW] == L_AHEAD) {
@@ -2432,7 +2432,7 @@ int w_e_end_csum_rs_req(struct bsr_work *w, int cancel)
 
 	if (get_ldev(device)) {
 		bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	di = peer_req->digest;
@@ -2746,7 +2746,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	 * the resync lru has been cleaned up already */
 	if (get_ldev(device)) {
 		bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	di = peer_req->digest;
@@ -3043,7 +3043,7 @@ enum bsr_ret_code bsr_resync_after_valid(struct bsr_device *device, int resync_a
 		if (!get_ldev_if_state(other_device, D_NEGOTIATING))
 			break;
 		resync_after = rcu_dereference(other_device->ldev->disk_conf)->resync_after;
-		put_ldev(other_device);
+		put_ldev(__FUNCTION__, other_device);
 
 		/* dependency chain ends here, no cycles. */
 		if (resync_after == -1)
@@ -3481,7 +3481,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		}
 		unlock_all_resources();
 		// DW-2031 add put_ldev() due to ldev leak occurrence
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		goto out;
 	}
 
@@ -3628,7 +3628,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		bsr_err(145, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to error. %s (err = %d)", bsr_repl_str(repl_state), r); // DW-1518
 	}
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 out:
 	up(&device->resource->state_sem);
 	if (finished_resync_pdsk != D_UNKNOWN)
@@ -3664,7 +3664,7 @@ static void update_on_disk_bitmap(struct bsr_peer_device *peer_device, bool resy
 
 	/* update timestamp, in case it took a while to write out stuff */
 	peer_device->rs_last_writeout = jiffies;
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 static void bsr_ldev_destroy(struct bsr_device *device)

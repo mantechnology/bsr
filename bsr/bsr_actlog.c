@@ -630,7 +630,7 @@ static int al_write_transaction(struct bsr_device *device)
 		bsr_err(3, BSR_LC_LRU, device,
 			"Failed to write activity log due to it is in the state %s",
 			bsr_disk_str(device->disk_state[NOW]));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -638,14 +638,14 @@ static int al_write_transaction(struct bsr_device *device)
 	buffer = bsr_md_get_buffer(device, __func__);
 	if (!buffer) {
 		bsr_err(22, BSR_LC_IO, device, "Failed to write activity log due to failure to get meta I/O buffer.");
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -ENODEV;
 	}
 
 	err = __al_write_transaction(device, buffer);
 
 	bsr_md_put_buffer(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return err;
 }
@@ -1468,7 +1468,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	count = update_sync_bits(peer_device, sbnr, ebnr, mode, false);
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return count;
 }
 
@@ -1596,7 +1596,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	}
 
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	// DW-1191
 	return set_bits;
@@ -1928,7 +1928,7 @@ void bsr_rs_cancel_all(struct bsr_peer_device *peer_device)
 
 	if (get_ldev_if_state(device, D_DETACHING)) { /* Makes sure ->resync is there. */
 		lc_reset(peer_device->resync_lru);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	peer_device->resync_locked = 0;
 	peer_device->resync_wenr = LC_FREE;
@@ -1971,7 +1971,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			if (bm_ext->lce.refcnt != 0) {
 				bsr_info(40, BSR_LC_LRU, peer_device, "Retrying resync lru delete all later. number=%u, "
 				     "refcnt=%u", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				spin_unlock_irq(&device->al_lock);
 				return -EAGAIN;
 			}
@@ -1980,7 +1980,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			lc_del(peer_device->resync_lru, &bm_ext->lce);
 		}
 		D_ASSERT(peer_device, peer_device->resync_lru->used == 0);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	spin_unlock_irq(&device->al_lock);
 	wake_up(&device->al_wait);
