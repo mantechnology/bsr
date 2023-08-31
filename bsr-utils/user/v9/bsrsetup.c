@@ -362,6 +362,8 @@ struct option events_cmd_options[] = {
 	{ "now", no_argument, 0, 'n' },
 	{ "poll", no_argument, 0, 'p' },
 	{ "color", optional_argument, 0, 'c' },
+	// BSR-1124 old and new state output options
+	{ "diff", no_argument, 0, 'd' },
 	{ }
 };
 
@@ -2150,6 +2152,8 @@ static bool opt_poll;
 static bool opt_verbose;
 static bool opt_statistics;
 static bool opt_timestamps;
+// BSR-1124
+static bool opt_diff;
 
 static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 {
@@ -2472,15 +2476,20 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			}
 			break;
 		case 'd':
-			timeo_ctx.degr_wfc_timeout = m_strtoll(optarg, 1);
-			if(BSR_DEGR_WFC_TIMEOUT_MIN > timeo_ctx.degr_wfc_timeout ||
-			   timeo_ctx.degr_wfc_timeout > BSR_DEGR_WFC_TIMEOUT_MAX) {
-				CLI_ERRO_LOG_STDERR(false, "degr_wfc_timeout => %d"
-					" out of range [%d..%d]\n",
-					timeo_ctx.degr_wfc_timeout,
-					BSR_DEGR_WFC_TIMEOUT_MIN,
-					BSR_DEGR_WFC_TIMEOUT_MAX);
-				return 20;
+			// BSR-1124
+			if(!strcmp(cm->cmd, "events2")) {
+				opt_diff = true;
+			} else {
+				timeo_ctx.degr_wfc_timeout = m_strtoll(optarg, 1);
+				if(BSR_DEGR_WFC_TIMEOUT_MIN > timeo_ctx.degr_wfc_timeout ||
+				timeo_ctx.degr_wfc_timeout > BSR_DEGR_WFC_TIMEOUT_MAX) {
+					CLI_ERRO_LOG_STDERR(false, "degr_wfc_timeout => %d"
+						" out of range [%d..%d]\n",
+						timeo_ctx.degr_wfc_timeout,
+						BSR_DEGR_WFC_TIMEOUT_MIN,
+						BSR_DEGR_WFC_TIMEOUT_MAX);
+					return 20;
+				}
 			}
 			break;
 		case 'o':
@@ -4661,16 +4670,33 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || new.i.res_role != old->i.res_role)
-				printf(" role:%s%s%s",
+
+			if (!old || new.i.res_role != old->i.res_role) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "role",
+						ROLE_COLOR_STRING(old->i.res_role, 1),
 						ROLE_COLOR_STRING(new.i.res_role, 1));
+				} else {
+					printf(" role:%s%s%s",
+						ROLE_COLOR_STRING(new.i.res_role, 1));
+				}
+			}
 			if (!old ||
 			    new.i.res_susp != old->i.res_susp ||
 			    new.i.res_susp_nod != old->i.res_susp_nod ||
 			    new.i.res_susp_fen != old->i.res_susp_fen ||
-			    new.i.res_susp_quorum != old->i.res_susp_quorum)
-				printf(" suspended:%s",
-				       susp_str(&new.i));
+			    new.i.res_susp_quorum != old->i.res_susp_quorum) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					printf(" suspended:%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
+					printf("->%s", susp_str(&new.i));
+				} else {
+					printf(" suspended:%s",
+						susp_str(&new.i));
+				}
+			}
+			
 			if (opt_statistics) {
 				if (resource_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "resource statistics missing\n");
@@ -4699,8 +4725,19 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			old = update_info(&key, &new, sizeof(new));
 			if (!old || new.i.dev_disk_state != old->i.dev_disk_state) {
 				bool intentional = new.i.is_intentional_diskless == 1;
-				printf(" disk:%s%s%s",
-					DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					bool old_intentional = 0;
+					if (old)
+						old_intentional = (old->i.is_intentional_diskless == 1);
+					DIFF_COLOR(old, "disk",
+						DISK_COLOR_STRING(old->i.dev_disk_state, old_intentional, true),
+						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
+				} else {
+					printf(" disk:%s%s%s",
+						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
+				}
+
 				printf(" client:%s", intentional_diskless_str(&new.i));
 			}
 			if (opt_statistics) {
@@ -4730,17 +4767,33 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			old = update_info(&key, &new, sizeof(new));
 			if (!old ||
 				new.i.conn_connection_state != old->i.conn_connection_state) {
-				printf(" connection:%s%s%s",
-					CONN_COLOR_STRING(new.i.conn_connection_state));
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "connection",
+						CONN_COLOR_STRING(old->i.conn_connection_state),
+						CONN_COLOR_STRING(new.i.conn_connection_state));
+				} else {
+					printf(" connection:%s%s%s",
+						CONN_COLOR_STRING(new.i.conn_connection_state));
+				}
 				// BSR-892
 				if (new.i.conn_last_error)
 					printf(" error:%s%s%s", 
 					CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
 			}
 			if (!old ||
-			    new.i.conn_role != old->i.conn_role)
-				printf(" role:%s%s%s",
+			    new.i.conn_role != old->i.conn_role) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "role",
+						ROLE_COLOR_STRING(old->i.conn_role, 0),
 						ROLE_COLOR_STRING(new.i.conn_role, 0));
+				} else {
+					printf(" role:%s%s%s",
+						ROLE_COLOR_STRING(new.i.conn_role, 0));
+				}
+
+			}
 			if (opt_statistics) {
 				if (connection_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "connection statistics missing\n");
@@ -4767,21 +4820,48 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || new.i.peer_repl_state != old->i.peer_repl_state)
-				printf(" replication:%s%s%s",
-						REPL_COLOR_STRING(new.i.peer_repl_state));
+			if (!old || new.i.peer_repl_state != old->i.peer_repl_state) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "replication",
+							REPL_COLOR_STRING(old->i.peer_repl_state),
+							REPL_COLOR_STRING(new.i.peer_repl_state));
+				} else {
+					printf(" replication:%s%s%s",
+							REPL_COLOR_STRING(new.i.peer_repl_state));
+				}
+			}
 			if (!old || new.i.peer_disk_state != old->i.peer_disk_state) {
 				bool intentional = new.i.peer_is_intentional_diskless == 1;
-				printf(" peer-disk:%s%s%s",
-					DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					bool old_intentional = 0;
+					if (old)
+						old_intentional = old->i.peer_is_intentional_diskless == 1;
+					DIFF_COLOR(old, "peer-disk",
+						DISK_COLOR_STRING(old->i.peer_disk_state, old_intentional, false),
+						DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+				} else {
+					printf(" peer-disk:%s%s%s",
+						DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+				}
+
 				printf(" peer-client:%s", peer_intentional_diskless_str(&new.i));
 			}
 			if (!old ||
 			    new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
 			    new.i.peer_resync_susp_peer != old->i.peer_resync_susp_peer ||
-			    new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency)
-				printf(" resync-suspended:%s",
-				       resync_susp_str(&new.i));
+			    new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+					printf("->%s", resync_susp_str (&new.i));
+				} else {
+					printf(" resync-suspended:%s",
+						resync_susp_str(&new.i));
+				}
+
+			}
 			if (opt_statistics) {
 				if (peer_device_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "peer device statistics missing\n");
@@ -4804,9 +4884,21 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || old->path_established != new.path_established)
-				printf(" established:%s",
-				       new.path_established ? "yes" : "no");
+			if (!old || old->path_established != new.path_established) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					char *old_established = UNKNOWN_STRING;
+					if (action == NOTIFY_CHANGE)
+						old_established = !new.path_established ? "yes" : "no";
+					printf(" established:%s->%s",
+							old_established,
+							new.path_established ? "yes" : "no");
+				} else {
+					printf(" established:%s",
+						new.path_established ? "yes" : "no");
+				}
+
+			}
 			free(old);
 		} else
 			update_info(&key, NULL, 0);

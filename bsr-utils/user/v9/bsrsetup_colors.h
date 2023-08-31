@@ -39,4 +39,15 @@ extern const char *io_error_color_stop();
 #define CONN_ERROR_COLOR_STRING(__c) \
 	cerror_color_start(__c), bsr_conn_err_str(__c), cerror_color_stop(__c)
 
+
+#define UNKNOWN_STRING "UNKNOWN"
+#define UNKNOWN_COLOR_STRING "",UNKNOWN_STRING,""
+// BSR-1124 output the old and new state
+#define DIFF_COLOR(check, prefix, om, nm) do { \
+	if (check) \
+		printf(" " prefix ":%s%s%s->%s%s%s", om, nm); \
+	else \
+		printf(" " prefix ":%s%s%s->%s%s%s", UNKNOWN_COLOR_STRING, nm); \
+} while(0)
+
 #endif  /* BSRSETUP_COLORS_H */
