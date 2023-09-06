@@ -109,7 +109,9 @@ static void dtt_stats(struct bsr_transport *transport, struct bsr_transport_stat
 static void dtt_set_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream, long timeout);
 static long dtt_get_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream);
 static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream, struct page *page,
-		int offset, size_t size, unsigned msg_flags);
+		int offset, size_t size, 
+		// BSR-1116
+		int type, unsigned msg_flags);
 static int dtt_send_zc_bio(struct bsr_transport *, struct bio *bio);
 static bool dtt_stream_ok(struct bsr_transport *transport, enum bsr_stream stream);
 static bool dtt_hint(struct bsr_transport *transport, enum bsr_stream stream, enum bsr_tr_hints hint);
@@ -2254,8 +2256,9 @@ static void dtt_update_congested(struct bsr_tcp_transport *tcp_transport)
 #endif
 }
 
-static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream,
-			 struct page *page, int offset, size_t size, unsigned msg_flags)
+static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream, struct page *page, int offset, size_t size, 
+				 // BSR-1116
+				 int type, unsigned msg_flags)
 {
 	struct bsr_tcp_transport *tcp_transport =
 		container_of(transport, struct bsr_tcp_transport, transport);
@@ -2311,8 +2314,15 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #endif
 #else // _LIN
 #ifdef _LIN_SEND_BUF
+		// BSR-1116
+		unsigned char* data;
+		if(type)
+			data = (unsigned char* )page;
+		else
+			data = (unsigned char* )page_address(page);
+
 		// BSR-12
-		sent = send_buf(tcp_transport, stream, socket, (void *)((unsigned char *)(page_address(page)) +offset), len, msg_flags);
+		sent = send_buf(tcp_transport, stream, socket, (void *)(data + offset), len, msg_flags);
 #else		
 		sent = socket->ops->sendpage(socket, page, offset, len, msg_flags);
 #endif
@@ -2366,7 +2376,7 @@ static int dtt_send_zc_bio(struct bsr_transport *transport, struct bio *bio)
 		int err;
 
 		err = dtt_send_page(transport, DATA_STREAM, bvec BVD bv_page,
-				      bvec BVD bv_offset, bvec BVD bv_len,
+				      bvec BVD bv_offset, bvec BVD bv_len, 0,
 				      bio_iter_last(bvec, iter) ? 0 : MSG_MORE);
 		if (err)
 			return err;

@@ -119,7 +119,7 @@ extern signed long long get_ring_buffer_size(ring_buffer *ring);
 extern signed long long write_ring_buffer(struct bsr_transport *transport, enum bsr_stream stream, ring_buffer *ring, const char *data, signed long long len, signed long long highwater, int retry);
 #ifdef _WIN_SEND_BUF
 //extern void read_ring_buffer(ring_buffer *ring, char *data, int len);
-extern bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen);
+extern int read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen, bsr_stream stream, LONGLONG *retry_timestamp);
 extern int send_buf(struct bsr_transport *transport, enum bsr_stream stream, socket *socket, PVOID buf, LONG size);
 #else // _LIN_SEND_BUF
 extern bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen);

@@ -1430,9 +1430,9 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	BUG_ON_UINT32_OVER(offset);
 #endif
 #ifdef _WIN
-    err = tr_ops->send_page(transport, bsr_stream, sbuf->page->addr, (int)offset, (size_t)size, msg_flags);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->page->addr, (int)offset, (size_t)size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, 0, msg_flags);
 #endif
 	if (!err) {
 		sbuf->unsent =
@@ -2870,9 +2870,9 @@ static int _bsr_send_page(struct bsr_peer_device *peer_device, struct page *page
 	int err;
 
 #ifdef _WIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, 0,  msg_flags);
 #endif
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
@@ -2896,13 +2896,35 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, void * buffer,
 	if (err) {
 		return err;
 	}
-	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 0, msg_flags);
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
 	}
 	return err;
 }
 #else // _LIN
+// BSR-1116 _bsr_send_stream() for sending by stream rather than by page.
+int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
+	int offset, size_t size, unsigned msg_flags)
+{
+	struct bsr_connection *connection = peer_device->connection;
+	struct bsr_transport *transport = &connection->transport;
+	struct bsr_transport_ops *tr_ops = transport->ops;
+	int err;
+
+	bsr_debug_rs("offset(%d) size(%d)", offset, size);
+	// BSR-1058
+	err = flush_send_buffer(connection, DATA_STREAM); 
+	if (err) {
+		return err;
+	}
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 1, msg_flags);
+	if (!err) {
+		peer_device->send_cnt += (unsigned int)(size >> 9);
+	}
+	return err;
+}
+
 int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
 			      int offset, size_t size, unsigned msg_flags)
 {
@@ -3064,31 +3086,6 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 	return 0;
 }
 
-/* see also wire_flags_to_bio()
- * BSR_REQ_*, because we need to semantically map the flags to data packet
- * flags and back. We may replicate to other kernel versions. */
-static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
-{
-	if (connection->agreed_pro_version >= 95)
-		return  (bio->bi_opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
-			(bio->bi_opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
-			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
-			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
-#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
-#endif
-			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
-			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
-				((connection->agreed_features & BSR_FF_WZEROES) ?
-				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
-				: DP_DISCARD)
-				: 0);
-		
-
-	/* else: we used to communicate one bit only in older BSR */
-	return bio->bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
-}
-
 /* Used to send write or TRIM aka REQ_DISCARD requests
  * R_PRIMARY -> Peer	(P_DATA, P_TRIM)
  */
@@ -3102,7 +3099,18 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	unsigned int dp_flags = 0;
 	int digest_size = 0;
 	int err = 0;
-	const int op = bio_op(req->master_bio);
+	// BSR-1116
+	const int op = req->req_op;
+	// BSR-1116
+#ifdef _WIN
+	int offset = 0;
+	bool burst = true;
+	int size =req->i.size;
+	int prepare_size = bsr_header_size(peer_device->connection) + sizeof(struct p_data);
+
+	if (bsr_header_size(peer_device->connection) != sizeof(struct p_header100))
+		burst = false;
+#endif
 	
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
@@ -3113,8 +3121,10 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		p = &trim->p_data;
 		trim->size = cpu_to_be32(req->i.size);
 	} else {
-		if (peer_device->connection->integrity_tfm)
+		if (peer_device->connection->integrity_tfm) {
 			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
+			burst = false;
+		}
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		if (op == REQ_OP_WRITE_SAME) {
@@ -3126,10 +3136,20 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 			digest_out = wsame + 1;
 		} else {
 #endif
-			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
-			if (!p)
-				return -EIO;
-			digest_out = p + 1;
+			// BSR-1116
+#ifdef _WIN
+			if (burst) {
+				p = (struct p_data*)(req->req_databuf + bsr_header_size(peer_device->connection));
+			} else {
+#endif
+				p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
+				if (!p)
+					return -EIO;
+				digest_out = p + 1;
+#ifdef _WIN
+			}
+#endif
+
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		}
 #endif
@@ -3139,7 +3159,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	p->block_id = (ULONG_PTR)req;
 	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
 	
-	dp_flags = bio_flags_to_wire(peer_device->connection, req->master_bio);
+	// BSR-1116
+	dp_flags = bio_flags_to_wire(peer_device->connection, req);
 	if (peer_device->repl_state[NOW] >= L_SYNC_SOURCE && peer_device->repl_state[NOW] <= L_PAUSED_SYNC_T)
 		dp_flags |= DP_MAY_SET_IN_SYNC;
 	if (peer_device->connection->agreed_pro_version >= 100) {
@@ -3171,9 +3192,24 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 					bio_iovec(req->master_bio) BVD bv_len);
 		err = __send_command(peer_device->connection, device->vnr, P_WSAME, DATA_STREAM);
 #endif
-	} else {
-		additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
-		err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
+	}
+	else {
+		// BSR-1116 windows sends headers and data at once if the burst conditions are met to minimize send.
+#ifdef _WIN
+		if (burst) {
+			mutex_lock(&peer_device->connection->mutex[DATA_STREAM]);
+			prepare_header(peer_device->connection, device->vnr, req->req_databuf, P_DATA, prepare_size + req->i.size);
+			offset = 0;
+			size = prepare_size + req->i.size;
+		} else {
+#endif
+			additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
+			err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
+#ifdef _WIN
+			offset = BSR_P_DATA_PREPARE_SIZE;
+			size = req->i.size;
+		}
+#endif
 	}
 	if (!err) {
 		/* For protocol A, we have to memcpy the payload into
@@ -3189,15 +3225,20 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		 */
 		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
 #ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
+			err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
 #else // _LIN
-			err = _bsr_send_bio(peer_device, req->master_bio);
+			// BSR-1116
+			// err = _bsr_send_bio(peer_device, req->master_bio);
+			err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
 #endif
 		else
 #ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
+			// BSR-1116		
+			err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
 #else // _LIN
-			err = _bsr_send_zc_bio(peer_device, req->master_bio);
+			// BSR-1116
+			// err = _bsr_send_zc_bio(peer_device, req->master_bio);
+			err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
 #endif
 
 		// DW-1012 Remove out of sync when data is sent, this is the newest one.
