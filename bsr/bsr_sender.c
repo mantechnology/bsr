@@ -3821,6 +3821,10 @@ static void do_device_work(struct bsr_device *device, const ULONG_PTR todo)
 
 static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG_PTR todo, bool connected)
 {
+	// BSR-1125
+	if (test_bit(RS_PROGRESS_NOTIFY, &todo))
+		bsr_broadcast_peer_device_state(peer_device);
+
 	if (test_bit(RS_DONE, &todo) ||
 	    test_bit(RS_PROGRESS, &todo))
 		update_on_disk_bitmap(peer_device, test_bit(RS_DONE, &todo));		
@@ -3841,6 +3845,7 @@ static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG
 #define BSR_PEER_DEVICE_WORK_MASK	\
 	((1UL << RS_START)		\
 	|(1UL << RS_PROGRESS)		\
+	|(1UL << RS_PROGRESS_NOTIFY)		\
 	|(1UL << RS_DONE)		\
 	)
 

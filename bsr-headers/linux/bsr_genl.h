@@ -307,6 +307,8 @@ GENL_struct(BSR_NLA_PEER_DEVICE_STATISTICS, 22, peer_device_statistics,
 	__u64_field(12,0, peer_dev_rs_dt_ms)
 	__u64_field(13,0, peer_dev_rs_db_sectors)
 	__u32_field(14,0, peer_dev_rs_c_sync_rate)
+	// BSR-1125
+	__u64_field(15,0, peer_dev_disk_size)
 )
 
 GENL_struct(BSR_NLA_NOTIFICATION_HEADER, 23, bsr_notification_header,

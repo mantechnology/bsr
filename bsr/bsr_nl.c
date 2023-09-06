@@ -6289,6 +6289,9 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 		i = (peer_device->rs_last_mark + BSR_SYNC_MARKS-1) % BSR_SYNC_MARKS;
 		s->peer_dev_rs_dt_ms = jiffies_to_msecs(now - peer_device->rs_mark_time[i]);
 		s->peer_dev_rs_db_sectors = BM_BIT_TO_SECT(peer_device->rs_mark_left[i]) - rs_left;
+
+		// BSR-1125
+		s->peer_dev_disk_size = bsr_get_vdisk_capacity(peer_device->device);
 	}
 
 	if (get_ldev(device)) {
@@ -7389,6 +7392,16 @@ nla_put_failure:
 failed:
 	bsr_err(62, BSR_LC_GENL, peer_device, "Failed to notification peer device state. error %d, event seq:%u",
 		 err, seq);
+}
+
+// BSR-1125 notify sync progress
+void bsr_broadcast_peer_device_state(struct bsr_peer_device *peer_device)
+{
+	struct peer_device_info peer_device_info;
+	mutex_lock(&notification_mutex);
+	peer_device_to_info(&peer_device_info, peer_device);
+	notify_peer_device_state(NULL, 0, peer_device, &peer_device_info, NOTIFY_SYNC);
+	mutex_unlock(&notification_mutex);
 }
 		  
 void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error)
