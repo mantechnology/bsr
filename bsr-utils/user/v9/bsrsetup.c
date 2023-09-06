@@ -364,6 +364,8 @@ struct option events_cmd_options[] = {
 	{ "color", optional_argument, 0, 'c' },
 	// BSR-1124 old and new state output options
 	{ "diff", no_argument, 0, 'd' },
+	// BSR-1125 sync progress output options
+	{ "sync", no_argument, 0, 'S'},
 	{ }
 };
 
@@ -2154,6 +2156,8 @@ static bool opt_statistics;
 static bool opt_timestamps;
 // BSR-1124
 static bool opt_diff;
+// BSR-1125
+static bool opt_sync;
 
 static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 {
@@ -2516,6 +2520,10 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		case 's':
 			opt_verbose = true;
 			opt_statistics = true;
+			break;
+		// BSR-1125
+		case 'S':
+			opt_sync = true;
 			break;
 
 		case 'w':
@@ -3155,7 +3163,7 @@ static void resource_status_json(struct resources_list *resource)
 void print_peer_device_statistics(int indent,
 				  struct peer_device_statistics *old,
 				  struct peer_device_statistics *new,
-					  int(*wrap_printf)(int, const char *, ...), bool readability)
+					  int(*wrap_printf)(int, const char *, ...), bool readability, bool sync)
 {
 	// BSR-191
 	double db, dt, rt;
@@ -3170,28 +3178,30 @@ void print_peer_device_statistics(int indent,
 		sectors_to_go = new->peer_dev_ov_left ?:
 			new->peer_dev_out_of_sync - new->peer_dev_resync_failed;
 
+	if (opt_statistics) {
 	// BSR-1111
-	if (readability) {
-		convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_received / 2, &kb_of_convert);
-		if (convert_unit)
-			wrap_printf(indent, " received:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
-		else
-			wrap_printf(indent, " received:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_received / 2, &kb_of_convert);
+			if (convert_unit)
+				wrap_printf(indent, " received:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				wrap_printf(indent, " received:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 
-		convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_sent / 2, &kb_of_convert);
-		if (convert_unit)
-			wrap_printf(indent, " sent:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
-		else
-			wrap_printf(indent, " sent:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
-	}
-	else {
-		wrap_printf(indent, " received:" U64,
-			(uint64_t)new->peer_dev_received / 2);
-		wrap_printf(indent, " sent:" U64,
-			(uint64_t)new->peer_dev_sent / 2);
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_sent / 2, &kb_of_convert);
+			if (convert_unit)
+				wrap_printf(indent, " sent:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				wrap_printf(indent, " sent:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			wrap_printf(indent, " received:" U64,
+				(uint64_t)new->peer_dev_received / 2);
+			wrap_printf(indent, " sent:" U64,
+				(uint64_t)new->peer_dev_sent / 2);
+		}
 	}
 
-	if (opt_verbose || new->peer_dev_out_of_sync) {
+	if (sync || opt_verbose || new->peer_dev_out_of_sync) {
 		// BSR-1111
 		if (readability) {
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_out_of_sync / 2, &kb_of_convert);
@@ -3216,15 +3226,30 @@ void print_peer_device_statistics(int indent,
 	if (!sync_details)
 		return;
 
+	// BSR-1125
+	if (!opt_statistics && !sync)
+		return;
+
 	// BSR-191 sync progress
 	db = (int64_t) new->peer_dev_rs_db_sectors;
 	dt = new->peer_dev_rs_dt_ms ?: 1;
-	wrap_printf(indent, " speed:%.0f", db/dt *1000.0/2.0); /* KiB/s */
-	wrap_printf(indent, " want:%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+	if (opt_statistics) {
+		wrap_printf(indent, " speed:%.0f", db/dt *1000.0/2.0); /* KiB/s */
+		wrap_printf(indent, " want:%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+	}
+
 	/* estimate time-to-run, based on "db/dt" */
 	rt = db > 0 ? dt * 1e-3 * sectors_to_go / db : -1; /* seconds */
-	wrap_printf(indent, " eta:%lu:%02lu:%02lu", 
+	wrap_printf(indent, " eta:%lu:%02lu:%02lu",
 		(unsigned long)rt / 3600, ((unsigned long)rt % 3600) / 60, (unsigned long)rt % 60);
+	
+	// BSR-1125
+	if (sync) {
+ 		wrap_printf(indent, " done:%.2f", (int)(10000 * (1 -
+			(double)sectors_to_go /
+			(double)new->peer_dev_disk_size)) / 100.f);
+	}
+
 }
 
 void resource_status(struct resources_list *resource)
@@ -3387,7 +3412,7 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 				    resync_susp_str(&peer_device->info));
 		if (opt_statistics && peer_device->statistics.peer_dev_received != -1) {
 			wrap_printf(indent, "\n");
-			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability);
+			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability, false);
 		}
 	}
 
@@ -4536,7 +4561,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		// DW-1755
 		[NOTIFY_ERROR] = "notify",
 		// BSR-734
-		[NOTIFY_DETECT] = "detect"
+		[NOTIFY_DETECT] = "detect",
+		// BSR-1125
+		[NOTIFY_SYNC] = "sync"
 	};
 	static char *object_name[] = {
 		[BSR_RESOURCE_STATE] = "resource",
@@ -4589,7 +4616,11 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 
 	if (opt_now && action != NOTIFY_EXISTS)
 		return 0;
-	
+
+	// BSR-1125 NOTIFY_SYNC output only when --sync option is used
+	if ((action == NOTIFY_SYNC) && !opt_sync)
+		return 0;
+
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		if (bsr_cfg_context_from_attrs(&ctx, info)) {
 			return 0;
@@ -4820,56 +4851,61 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || new.i.peer_repl_state != old->i.peer_repl_state) {
-				// BSR-1124
-				if (opt_diff && (action != NOTIFY_EXISTS)) {
-					DIFF_COLOR(old, "replication",
-							REPL_COLOR_STRING(old->i.peer_repl_state),
-							REPL_COLOR_STRING(new.i.peer_repl_state));
-				} else {
-					printf(" replication:%s%s%s",
-							REPL_COLOR_STRING(new.i.peer_repl_state));
+			if (action != NOTIFY_SYNC) {
+				if (!old || new.i.peer_repl_state != old->i.peer_repl_state) {
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						DIFF_COLOR(old, "replication",
+								REPL_COLOR_STRING(old->i.peer_repl_state),
+								REPL_COLOR_STRING(new.i.peer_repl_state));
+					} else {
+						printf(" replication:%s%s%s",
+								REPL_COLOR_STRING(new.i.peer_repl_state));
+					}
 				}
-			}
-			if (!old || new.i.peer_disk_state != old->i.peer_disk_state) {
-				bool intentional = new.i.peer_is_intentional_diskless == 1;
-				// BSR-1124
-				if (opt_diff && (action != NOTIFY_EXISTS)) {
-					bool old_intentional = 0;
-					if (old)
-						old_intentional = old->i.peer_is_intentional_diskless == 1;
-					DIFF_COLOR(old, "peer-disk",
-						DISK_COLOR_STRING(old->i.peer_disk_state, old_intentional, false),
-						DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
-				} else {
-					printf(" peer-disk:%s%s%s",
-						DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
-				}
+				if (!old || new.i.peer_disk_state != old->i.peer_disk_state) {
+					bool intentional = new.i.peer_is_intentional_diskless == 1;
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						bool old_intentional = 0;
+						if (old)
+							old_intentional = old->i.peer_is_intentional_diskless == 1;
+						DIFF_COLOR(old, "peer-disk",
+							DISK_COLOR_STRING(old->i.peer_disk_state, old_intentional, false),
+							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+					} else {
+						printf(" peer-disk:%s%s%s",
+							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+					}
 
-				printf(" peer-client:%s", peer_intentional_diskless_str(&new.i));
-			}
-			if (!old ||
-			    new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
-			    new.i.peer_resync_susp_peer != old->i.peer_resync_susp_peer ||
-			    new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency) {
-				// BSR-1124
-				if (opt_diff && (action != NOTIFY_EXISTS)) {
-					printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
-					printf("->%s", resync_susp_str (&new.i));
-				} else {
-					printf(" resync-suspended:%s",
-						resync_susp_str(&new.i));
+					printf(" peer-client:%s", peer_intentional_diskless_str(&new.i));
 				}
+				if (!old ||
+					new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
+					new.i.peer_resync_susp_peer != old->i.peer_resync_susp_peer ||
+					new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency) {
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+						printf("->%s", resync_susp_str (&new.i));
+					} else {
+						printf(" resync-suspended:%s",
+							resync_susp_str(&new.i));
+					}
 
+				}
 			}
-			if (opt_statistics) {
+			// BSR-1125
+			if (opt_statistics || opt_sync) {
 				if (peer_device_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "peer device statistics missing\n");
 					if (old)
 						new.s = old->s;
-				} else
+				} else {
+					bool sync = (opt_sync && (action == NOTIFY_SYNC));
 					print_peer_device_statistics(0, old ? &old->s : NULL,
-								     &new.s, nowrap_printf, false);
+								     &new.s, nowrap_printf, false, sync);
+				}
 			}
 			free(old);
 		} else

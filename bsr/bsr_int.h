@@ -1207,6 +1207,7 @@ enum {
 				 * the peer, if it changed there as well. */
 	RS_START,		/* tell worker to start resync/OV */
 	RS_PROGRESS,		/* tell worker that resync made significant progress */
+	RS_PROGRESS_NOTIFY, /* BSR-1125 */
 	RS_DONE,		/* tell worker that resync is done */
 	B_RS_H_DONE,		/* Before resync handler done (already executed) */
 	DISCARD_MY_DATA,	/* discard_my_data flag per volume */
@@ -3438,6 +3439,8 @@ extern void notify_peer_device_state(struct sk_buff *,
 				     struct bsr_peer_device *,
 				     struct peer_device_info *,
 				     enum bsr_notification_type);
+// BSR-1125
+extern void bsr_broadcast_peer_device_state(struct bsr_peer_device *peer_device);
 extern void notify_helper(enum bsr_notification_type, struct bsr_device *,
 			  struct bsr_connection *, const char *, int);
 extern void notify_path(struct bsr_connection *, struct bsr_path *,
