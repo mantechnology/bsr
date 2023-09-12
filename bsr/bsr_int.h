@@ -1980,7 +1980,7 @@ struct bsr_peer_device {
 
 
 #define BSR_SYNC_MARKS 8
-#define BSR_SYNC_MARK_STEP (3*HZ)
+#define BSR_SYNC_MARK_STEP (1*HZ) // BSR-1127 changed sync event notification (3s -> 1s)
 	/* block not up-to-date at mark [unit BM_BLOCK_SIZE] */
 	ULONG_PTR rs_mark_left[BSR_SYNC_MARKS];
 	/* marks's time [unit jiffies] */

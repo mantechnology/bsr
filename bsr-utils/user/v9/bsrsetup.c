@@ -366,6 +366,8 @@ struct option events_cmd_options[] = {
 	{ "diff", no_argument, 0, 'd' },
 	// BSR-1125 sync progress output options
 	{ "sync", no_argument, 0, 'S'},
+	// BSR-1127 sync event output interval options
+	{ "interval", required_argument, 0, 'i'},
 	{ }
 };
 
@@ -2158,6 +2160,9 @@ static bool opt_timestamps;
 static bool opt_diff;
 // BSR-1125
 static bool opt_sync;
+// BSR-1127
+static int opt_interval;
+static int sync_evt_count;
 
 static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 {
@@ -2458,6 +2463,9 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	struct option *options = cm->options ? cm->options : no_options;
 	const char *opts = make_optstring(options);
 
+	opt_interval = 0;
+	sync_evt_count = 0;
+
 	optind = 0;  /* reset getopt_long() */
 	for(;;) {
 		c = getopt_long(argc, argv, opts, options, 0);
@@ -2524,6 +2532,19 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		// BSR-1125
 		case 'S':
 			opt_sync = true;
+			break;
+		// BSR-1127 set sync event output interval
+		case 'i':
+			opt_interval = sync_evt_count = m_strtoll(optarg, 1);
+			if(BSR_INTERVAL_MIN > opt_interval ||
+			   opt_interval > BSR_INTERVAL_MAX) {
+				CLI_ERRO_LOG_STDERR(false, "interval => %d"
+					" out of range [%d..%d]\n",
+					opt_interval,
+					BSR_INTERVAL_MIN,
+					BSR_INTERVAL_MAX);
+				return 20;
+			}
 			break;
 
 		case 'w':
@@ -4618,9 +4639,23 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		return 0;
 
 	// BSR-1125 NOTIFY_SYNC output only when --sync option is used
-	if ((action == NOTIFY_SYNC) && !opt_sync)
-		return 0;
-
+	if (action == NOTIFY_SYNC) {
+		if (!opt_sync) {
+			last_seq = info->nlhdr->nlmsg_seq;
+			return 0;
+		}
+		// BSR-1127
+		if (opt_interval) {
+			sync_evt_count++;
+			if (sync_evt_count >= opt_interval)
+				sync_evt_count = 0;
+			else {
+				// sync events delivered within the interval will skip output.
+				last_seq = info->nlhdr->nlmsg_seq;
+				return 0;
+			}
+		}
+	}
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		if (bsr_cfg_context_from_attrs(&ctx, info)) {
 			return 0;

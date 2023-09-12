@@ -31,6 +31,10 @@
 #define BSR_PORT_MAX 0xffff
 #define BSR_PORT_SCALE '1'
 
+// BSR-1127
+#define BSR_INTERVAL_MIN 1
+#define BSR_INTERVAL_MAX 60
+
 /* startup { */
   /* if you want more than 3.4 days, disable */
 #define BSR_WFC_TIMEOUT_MIN 0
