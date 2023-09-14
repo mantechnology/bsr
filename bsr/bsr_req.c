@@ -44,45 +44,57 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 {
 	struct bsr_request *req;
 	int i;
-	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
+	int size; 
+	int64_t wrtbuf_size = device->resource->res_opts.wrtbuf_size;
 
+	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
+#ifdef _LIN
+	BSR_BIO_VEC_TYPE bvec;
+	BSR_ITER_TYPE iter;
+	unsigned char *d;
+	int len = 0;
+#endif
 	if (!req)
 		return NULL;
 
 	memset(req, 0, sizeof(*req));
 #ifdef _WIN
 	// BSR-1116 allocate additional size to store headers to minimize transfer.
-	req->req_databuf = kmalloc(BSR_P_DATA_PREPARE_SIZE + bio_src->bi_size, 0, '63SB');
-	if (!req->req_databuf) {
-		mempool_free(req, &bsr_request_mempool);
-		return NULL;
+	size = BSR_P_DATA_PREPARE_SIZE + BSR_BIO_BI_SIZE(bio_src);
+	if ((atomic_read64(&device->wrtbuf_used) + size) < wrtbuf_size) {
+		req->req_databuf = kmalloc(size, 0, '63SB');
+		if (!req->req_databuf) {
+			mempool_free(req, &bsr_request_mempool);
+			return NULL;
+		}
+		req->req_databuf_size = size;
+		atomic_add64(size, &device->wrtbuf_used);
+		memcpy(req->req_databuf + BSR_P_DATA_PREPARE_SIZE, bio_src->bio_databuf, BSR_BIO_BI_SIZE(bio_src));
 	}
-	memcpy(req->req_databuf + BSR_P_DATA_PREPARE_SIZE, bio_src->bio_databuf, bio_src->bi_size);
 #else
 	// BSR-1116 
-	BSR_BIO_VEC_TYPE bvec;
-	BSR_ITER_TYPE iter;
-	unsigned char *d;
-	int len = 0;
+	size = BSR_BIO_BI_SIZE(bio_src);
+	if ((atomic_read64(&device->wrtbuf_used) + size) < wrtbuf_size) {
+		req->req_databuf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
+		if (!req->req_databuf) {
+			mempool_free(req, bsr_request_mempool);
+			return NULL;
+		}
+		req->req_databuf_size = size;
+		atomic_add64(size, &device->wrtbuf_used);
+		bio_for_each_segment(bvec, bio_src, iter) {
+			d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+			memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
+			bsr_kunmap_atomic(d, KM_USER0);
 
-	req->req_databuf = bsr_kmalloc(BSR_BIO_BI_SIZE(bio_src), GFP_ATOMIC, '63SB');
-	if (!req->req_databuf) {
-		mempool_free(req, bsr_request_mempool);
-		return NULL;
-	}
-
-	bio_for_each_segment(bvec, bio_src, iter) {
-		d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
-		memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
-		bsr_kunmap_atomic(d, KM_USER0);
-
-		len += bvec BVD bv_len;
+			len += bvec BVD bv_len;
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-		if (bio_op(bio_src) == REQ_OP_WRITE_SAME) {
-			break;
-		}
+			if (bio_op(bio_src) == REQ_OP_WRITE_SAME) {
+				break;
+			}
 #endif
+		}
 	}
 #endif
 	// DW-1237 set request data buffer ref to 1 for local I/O.
@@ -96,6 +108,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 		if (req->req_databuf) {
 			// DW-689
 			kfree2(req->req_databuf);
+			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
 		}
 		mempool_free(req, bsr_request_mempool);
 		return NULL;
@@ -107,7 +120,10 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 #ifdef _WIN
 	// DW-776 (private bio's buffer is invalid when memory-overflow occured)
 	// BSR-1116 data is stored after BSR_P_DATA_PREPARE_SIZE.
-	req->private_bio->bio_databuf = req->req_databuf + BSR_P_DATA_PREPARE_SIZE;
+	if (req->req_databuf)
+		req->private_bio->bio_databuf = req->req_databuf + BSR_P_DATA_PREPARE_SIZE;
+	else
+		req->private_bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
 	kref_get(&device->kref);
@@ -189,6 +205,7 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 		if (req->req_databuf) {
 			// DW-596 required to verify to free req_databuf at this point
 			kfree2(req->req_databuf);
+			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&resource->req_write_cnt);
@@ -461,6 +478,7 @@ void bsr_req_destroy(struct kref *kref)
 	} else {
 		if (req->req_databuf) {
 			kfree2(req->req_databuf);
+			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&req->device->resource->req_write_cnt);
@@ -1162,6 +1180,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
 		if (0 == atomic_dec_return(&req->req_databuf_ref)) {
 			kfree2(req->req_databuf);
+			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
 		}
 	}
 

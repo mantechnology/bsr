@@ -405,7 +405,7 @@ $GO_BUFFERING:
 }
 
 #ifdef _WIN_SEND_BUF
-int read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen, bsr_stream stream, LONGLONG *retry_timestamp)
+int read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen, bsr_stream stream, LONGLONG *retry_timestamp, int protocol)
 #else // _LIN_SEND_BUF
 bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 #endif
@@ -426,7 +426,7 @@ bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 
 	// BSR-1116 to minimize send completion callbacks, windows send only when the following conditions are met.
 #ifdef _WIN_SEND_BUF
-	if (stream == DATA_STREAM) {
+	if (stream == DATA_STREAM && protocol == BSR_PROT_A) {
 		if (*retry_timestamp == 0 && tx_sz < (MAX_ONETIME_SEND_BUF / 10)) {
 			LeaveCriticalSection(&ring->cs);
 			*retry_timestamp = timestamp();
@@ -524,20 +524,22 @@ int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *s
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
 	LONGLONG try_timestamp;
-
+	int protocol;
 	int ret = 0;
 
 	if (bab == NULL) {
 		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send send-buffer due to send-buffer is not allocate.");
 		return 0;
 	}
+	
+	protocol = transport->net_conf->wire_protocol;
 
 	while (true) {
 		long long tx_sz = 0;
 		int offset = 0;
 
 		// BSR-1116
-		ret = read_ring_buffer(bab, bab->static_big_buf, &tx_sz, stream, &try_timestamp);
+		ret = read_ring_buffer(bab, bab->static_big_buf, &tx_sz, stream, &try_timestamp, protocol);
 		if (ret == 2) {
 			msleep(1);
 			continue;

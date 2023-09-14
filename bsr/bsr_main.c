@@ -3108,7 +3108,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	int size =req->i.size;
 	int prepare_size = bsr_header_size(peer_device->connection) + sizeof(struct p_data);
 
-	if (bsr_header_size(peer_device->connection) != sizeof(struct p_header100))
+	if (!req->req_databuf || 
+		(bsr_header_size(peer_device->connection) != sizeof(struct p_header100)))
 		burst = false;
 #endif
 	
@@ -3123,7 +3124,9 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	} else {
 		if (peer_device->connection->integrity_tfm) {
 			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
+#ifdef _WIN
 			burst = false;
+#endif
 		}
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
@@ -3223,22 +3226,33 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		 * out ok after sending on this side, but does not fit on the
 		 * receiving side, we sure have detected corruption elsewhere.
 		 */
-		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
+		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size) 
 #ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
+			if(req->req_databuf)
+				err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
+			else
+				err = _bsr_no_send_page(peer_device, req->master_bio->bio_databuf, 0, BSR_BIO_BI_SIZE(req->master_bio), 0);
 #else // _LIN
 			// BSR-1116
-			// err = _bsr_send_bio(peer_device, req->master_bio);
-			err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_bio(peer_device, req->master_bio);
 #endif
 		else
 #ifdef _WIN
-			// BSR-1116		
-			err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
+			// BSR-1116	
+			if (req->req_databuf)
+				err = _bsr_no_send_page(peer_device, req->req_databuf, offset, size, 0);
+			else
+				err = _bsr_no_send_page(peer_device, req->master_bio->bio_databuf, 0, BSR_BIO_BI_SIZE(req->master_bio), 0);
 #else // _LIN
 			// BSR-1116
-			// err = _bsr_send_zc_bio(peer_device, req->master_bio);
-			err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_zc_bio(peer_device, req->master_bio);
+
 #endif
 
 		// DW-1012 Remove out of sync when data is sent, this is the newest one.
@@ -5113,6 +5127,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	atomic_set(&device->io_error_count, 0);
 	atomic_set(&device->notify_flags, 0);
+
+	// BSR-1116
+	atomic_set64(&device->wrtbuf_used, 0);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);

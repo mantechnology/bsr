@@ -833,16 +833,17 @@ struct bsr_request {
 	 * see bsr_request_endio(). */
 	struct bio *private_bio;
 
-	char*	req_databuf;
+	char* req_databuf;
+	int req_databuf_size;
 	// DW-1237 add request buffer reference count to free earlier when no longer need buf.
 	atomic_t req_databuf_ref;
 
 	// BSR-1116 asynchronous replication can complete the write before the replication data is transferred, so the write information to be used during the transfer is stored in the following variables.
-	int		req_bi_opf;
-	int		req_data_dir;
-	int		req_op;
+	int req_bi_opf;
+	int req_data_dir;
+	int req_op;
 #ifdef _LIN	
-	int		req_vlen;
+	int req_vlen;
 #endif
 	struct bsr_interval i;
 
@@ -2317,6 +2318,8 @@ struct bsr_device {
 #ifdef _LIN
 	atomic_t mounted_cnt;
 #endif
+	// BSR-1116
+	atomic_t64 wrtbuf_used;
 };
 
 struct bsr_bm_aio_ctx {

@@ -844,7 +844,9 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		}
 
 		// BSR-1116 verify that all connected nodes are asynchronous replication.
-		if (p == BSR_PROT_A && peer_device->connection && peer_device->connection->cstate[NOW] == C_CONNECTED) {
+		if (p == BSR_PROT_A && 
+			peer_device->connection && 
+			(peer_device->connection->cstate[NOW] == C_CONNECTED)) {
 			rcu_read_lock();
 			nc = rcu_dereference(peer_device->connection->transport.net_conf);
 			if (nc->wire_protocol != BSR_PROT_A)
@@ -863,7 +865,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	// BSR-1116 asynchronous replication completes write immediately upon a write-completed callback call.
 	if (p == BSR_PROT_A) {
-		if (!m.bio && (what == COMPLETED_OK)) {
+		if (!m.bio && req->req_databuf && (what == COMPLETED_OK)) {
 			m.bio = req->master_bio;
 			m.error = 0;
 			req->i.completed = true;
@@ -4322,6 +4324,7 @@ static int process_one_request(struct bsr_connection *connection)
 				(req->rq_state[0] & RQ_LOCAL_COMPLETED)) {
 				if (req->req_databuf) {
 					kfree2(req->req_databuf);
+					atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
 				}
 			}
 		} else {
