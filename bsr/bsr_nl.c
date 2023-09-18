@@ -7465,7 +7465,6 @@ void notify_gi_uuid_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer
 	struct bsr_connection *connection = NULL;
 	int err;
 	bool multicast = false;
-	int len = -1;
 
 	if (!peer_device)
 		return;
@@ -7476,22 +7475,13 @@ void notify_gi_uuid_state(struct sk_buff *skb, unsigned int seq, struct bsr_peer
 	if (!connection || !device || !device->ldev)
 		return;
 
-	memset(gi.uuid, 0, sizeof(gi.uuid));
-#ifdef _WIN
-	len = sprintf_s(gi.uuid, sizeof(gi.uuid), "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX", 
-#else // _LIN
-	len = sprintf(gi.uuid, "current:%016llX bitmap:%016llX history1:%016llX history2:%016llX",
-#endif
-		(unsigned long long)bsr_current_uuid(device),
-		(unsigned long long)bsr_bitmap_uuid(peer_device),
-		(unsigned long long)bsr_history_uuid(device, 0),
-		(unsigned long long)bsr_history_uuid(device, 1));
+	memset(&gi, 0, sizeof(struct bsr_updated_gi_uuid_info));
 
-	if (len == -1)
-		goto fail;
-		
-	gi.uuid_len = len;
-		
+	gi.uuid_current = (unsigned long long)bsr_current_uuid(device);
+	gi.uuid_bitmap = (unsigned long long)bsr_bitmap_uuid(peer_device);
+	gi.uuid_history1 = (unsigned long long)bsr_history_uuid(device, 0);
+	gi.uuid_history2 = (unsigned long long)bsr_history_uuid(device, 1);
+	
 	if (!skb) {
 		seq = atomic_inc_return(&bsr_genl_seq);
 		skb = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
@@ -7536,28 +7526,18 @@ void notify_gi_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq, stru
 	struct bsr_updated_gi_device_mdf_flag_info gi;
 	struct bsr_genlmsghdr *dh;
 	int err;
-	int len = -1;
 	bool multicast = false;
 
 	if (!device || !device->ldev)
 		return;
-#ifdef _WIN
-	len = sprintf_s(gi.device_mdf, sizeof(gi.device_mdf), "consistent:%d was-up-to-date:%d primary-ind:%d "
-#else // _LIN
-	len = sprintf(gi.device_mdf, "consistent:%d was-up-to-date:%d primary-ind:%d "
-#endif
-		"crashed-primary:%d al-clean:%d al-disabled:%d last-primary:%d", 
-		device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0,
-		device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0,
-		device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0,
-		device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0,
-		device->ldev->md.flags & MDF_AL_CLEAN ? 1 : 0,
-		device->ldev->md.flags & MDF_AL_DISABLED ? 1 : 0,
-		device->ldev->md.flags & MDF_LAST_PRIMARY ? 1 : 0);
 
-	if (len == -1)
-		goto fail;
-	gi.device_mdf_len = len;
+	gi.dev_mdf_consistent = device->ldev->md.flags & MDF_CONSISTENT ? 1 : 0;
+	gi.dev_mdf_was_uptodate = device->ldev->md.flags & MDF_WAS_UP_TO_DATE ? 1 : 0;
+	gi.dev_mdf_primary_ind = device->ldev->md.flags & MDF_PRIMARY_IND ? 1 : 0;
+	gi.dev_mdf_crashed_primary = device->ldev->md.flags & MDF_CRASHED_PRIMARY ? 1 : 0;
+	gi.dev_mdf_al_clean = device->ldev->md.flags & MDF_AL_CLEAN ? 1 : 0;
+	gi.dev_mdf_al_disabled = device->ldev->md.flags & MDF_AL_DISABLED ? 1 : 0;
+	gi.dev_mdf_last_primary = device->ldev->md.flags & MDF_LAST_PRIMARY ? 1 : 0;
 
 	if (!skb) {
 		seq = atomic_inc_return(&bsr_genl_seq);
@@ -7607,7 +7587,6 @@ void notify_gi_peer_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq,
 	struct bsr_genlmsghdr *dh;
 	struct bsr_device *device;
 	int err;
-	int len = -1;
 	u32 peer_flags;
 	bool multicast = false;
 
@@ -7623,20 +7602,11 @@ void notify_gi_peer_device_mdf_flag_state(struct sk_buff *skb, unsigned int seq,
 
 	if (peer_device->connection)
 		connection = peer_device->connection;
-#ifdef _WIN
-	len = sprintf_s(gi.peer_device_mdf, sizeof(gi.peer_device_mdf), "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d", 
-#else // _LIN
-	len = sprintf(gi.peer_device_mdf, "peer-connected:%d peer-outdate:%d peer-fencing:%d peer-full-sync:%d",
-#endif 
-		peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
-		peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
-		peer_flags & MDF_PEER_FENCING ? 1 : 0,
-		peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0);
 	
-
-	if (len == -1)
-		goto fail;
-	gi.peer_device_mdf_len = len;
+	gi.peer_dev_mdf_cconnected = peer_flags & MDF_PEER_CONNECTED ? 1 : 0;
+	gi.peer_dev_mdf_outdate = peer_flags & MDF_PEER_OUTDATED ? 1 : 0;
+	gi.peer_dev_mdf_fencing = peer_flags & MDF_PEER_FENCING ? 1 : 0;
+	gi.peer_dev_mdf_full_sync = peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0;
 
 	if (!skb) {
 		seq = atomic_inc_return(&bsr_genl_seq);

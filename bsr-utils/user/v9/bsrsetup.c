@@ -368,6 +368,8 @@ struct option events_cmd_options[] = {
 	{ "sync", no_argument, 0, 'S'},
 	// BSR-1127 sync event output interval options
 	{ "interval", required_argument, 0, 'i'},
+	// BSR-1128 json format output options
+	{ "json", no_argument, 0, 'j'},
 	{ }
 };
 
@@ -2163,6 +2165,8 @@ static bool opt_sync;
 // BSR-1127
 static int opt_interval;
 static int sync_evt_count;
+// BSR-1128
+static bool opt_json;
 
 static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 {
@@ -2559,7 +2563,10 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		case 'T':
 			opt_timestamps = true;
 			break;
-
+		// BSR-1128
+		case 'j':
+			opt_json = true;
+			break;
 		case 'c':
 			if (!parse_color_argument())
 				print_usage_and_exit("unknown --color argument");
@@ -2911,11 +2918,11 @@ void print_resource_statistics(int indent,
 	     old->res_stat_write_ordering != wo) &&
 	    wo < ARRAY_SIZE(write_ordering_str) &&
 	    write_ordering_str[wo]) {
-		wrap_printf(indent, " write-ordering:%s", write_ordering_str[wo]);
+		WRAP_PRINT_STR(indent, "write-ordering", "%s", write_ordering_str[wo]);
 	}
 
 	// DW-1925
-	wrap_printf(indent, " req-pending:" U32,
+	WRAP_PRINT_INT(indent, "req-pending", U32,
 		(int)new->res_stat_req_write_cnt);
 }
 
@@ -2956,11 +2963,11 @@ void print_device_statistics(int indent,
 			if (readability) {
 				convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_size / 2, &kb_of_convert);
 				if (convert_unit)
-					wrap_printf(indent, " size:%.3f%c" , kb_of_convert, byte_unit[convert_unit]);
+					WRAP_PRINT_INT(indent, "size", "%.3f%c" , kb_of_convert, byte_unit[convert_unit]);
 				else
-					wrap_printf(indent, " size:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+					WRAP_PRINT_INT(indent, "size", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 			} else {
-				wrap_printf(indent, " size:" U64,
+				WRAP_PRINT_INT(indent, "size", U64,
 					(uint64_t)new->dev_size / 2);
 			}
 		}
@@ -2969,41 +2976,41 @@ void print_device_statistics(int indent,
 		if (readability) {
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_read / 2, &kb_of_convert);
 			if (convert_unit)
-				wrap_printf(indent, " read:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "read", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
 			else
-				wrap_printf(indent, " read:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "read", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_write / 2, &kb_of_convert);
 			if (convert_unit)
-				wrap_printf(indent, " written:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "written", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
 			else
-				wrap_printf(indent, " written:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "written", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 		}
 		else {
-			wrap_printf(indent, " read:" U64,
+			WRAP_PRINT_INT(indent, "read", U64,
 				(uint64_t)new->dev_read / 2);
-			wrap_printf(indent, " written:" U64,
+			WRAP_PRINT_INT(indent, "written", U64,
 				(uint64_t)new->dev_write / 2);
 		}
 
 		if (opt_verbose) {
-			wrap_printf(indent, " al-writes:" U64,
+			WRAP_PRINT_INT(indent, "al-writes", U64,
 				    (uint64_t)new->dev_al_writes);
-			wrap_printf(indent, " bm-writes:" U64,
+			WRAP_PRINT_INT(indent, "bm-writes", U64,
 				    (uint64_t)new->dev_bm_writes);
-			wrap_printf(indent, " upper-pending:" U32,
+			WRAP_PRINT_INT(indent, "upper-pending", U32,
 				    new->dev_upper_pending);
-			wrap_printf(indent, " lower-pending:" U32,
+			WRAP_PRINT_INT(indent, "lower-pending", U32,
 				    new->dev_lower_pending);
 			if (!old ||
 			    old->dev_al_suspended != new->dev_al_suspended)
-				wrap_printf(indent, " al-suspended:%s",
+				WRAP_PRINT_STR(indent, "al-suspended", "%s",
 					    new->dev_al_suspended ? "yes" : "no");
 
-			wrap_printf(indent, " al-pending-changes:" U32,
+			WRAP_PRINT_INT(indent, "al-pending-changes", U32,
 				new->dev_al_pending_changes);
 
-			wrap_printf(indent, " al-used:" U32,
+			WRAP_PRINT_INT(indent, "al-used", U32,
 				new->dev_al_used);
 		}
 	}
@@ -3028,7 +3035,7 @@ void print_device_statistics(int indent,
 		if (first)
 			x1 = "no";
 
-		wrap_printf(indent, " blocked:%s%s", x1, x2);
+		WRAP_PRINT_STR(indent, "blocked", "%s%s", x1, x2);
 	}
 }
 
@@ -3039,7 +3046,7 @@ void print_connection_statistics(int indent,
 {
 	if (!old ||
 	    old->conn_congested != new->conn_congested)
-		wrap_printf(indent, " congested:%s", new->conn_congested ? "yes" : "no");
+		WRAP_PRINT_STR(indent, "congested", "%s", new->conn_congested ? "yes" : "no");
 }
 
 static void peer_device_status_json(struct peer_devices_list *peer_device)
@@ -3204,20 +3211,20 @@ void print_peer_device_statistics(int indent,
 		if (readability) {
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_received / 2, &kb_of_convert);
 			if (convert_unit)
-				wrap_printf(indent, " received:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "received", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
 			else
-				wrap_printf(indent, " received:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "received", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_sent / 2, &kb_of_convert);
 			if (convert_unit)
-				wrap_printf(indent, " sent:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "sent", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
 			else
-				wrap_printf(indent, " sent:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "sent", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 		}
 		else {
-			wrap_printf(indent, " received:" U64,
+			WRAP_PRINT_INT(indent, "received", U64,
 				(uint64_t)new->peer_dev_received / 2);
-			wrap_printf(indent, " sent:" U64,
+			WRAP_PRINT_INT(indent, "sent", U64,
 				(uint64_t)new->peer_dev_sent / 2);
 		}
 	}
@@ -3227,20 +3234,20 @@ void print_peer_device_statistics(int indent,
 		if (readability) {
 			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_out_of_sync / 2, &kb_of_convert);
 			if (convert_unit)
-				wrap_printf(indent, " out-of-sync:%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "out-of-sync", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
 			else
-				wrap_printf(indent, " out-of-sync:%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+				WRAP_PRINT_INT(indent, "out-of-sync", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
 		}
 		else {
-			wrap_printf(indent, " out-of-sync:" U64,
+			WRAP_PRINT_INT(indent, "out-of-sync", U64,
 				(uint64_t)new->peer_dev_out_of_sync / 2);
 		}
 	}
 
 	if (opt_verbose) {
-		wrap_printf(indent, " pending:" U32,
+		WRAP_PRINT_INT(indent, "pending", U32,
 			    new->peer_dev_pending);
-		wrap_printf(indent, " unacked:" U32,
+		WRAP_PRINT_INT(indent, "unacked", U32,
 			    new->peer_dev_unacked);
 	}
 
@@ -3255,18 +3262,18 @@ void print_peer_device_statistics(int indent,
 	db = (int64_t) new->peer_dev_rs_db_sectors;
 	dt = new->peer_dev_rs_dt_ms ?: 1;
 	if (opt_statistics) {
-		wrap_printf(indent, " speed:%.0f", db/dt *1000.0/2.0); /* KiB/s */
-		wrap_printf(indent, " want:%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+		WRAP_PRINT_INT(indent, "speed", "%.0f", db/dt *1000.0/2.0); /* KiB/s */
+		WRAP_PRINT_INT(indent, "want", "%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
 	}
 
 	/* estimate time-to-run, based on "db/dt" */
 	rt = db > 0 ? dt * 1e-3 * sectors_to_go / db : -1; /* seconds */
-	wrap_printf(indent, " eta:%lu:%02lu:%02lu",
+	WRAP_PRINT_STR(indent, "eta", "%lu:%02lu:%02lu",
 		(unsigned long)rt / 3600, ((unsigned long)rt % 3600) / 60, (unsigned long)rt % 60);
 	
 	// BSR-1125
 	if (sync) {
- 		wrap_printf(indent, " done:%.2f", (int)(10000 * (1 -
+ 		WRAP_PRINT_INT(indent, "done", "%.2f", (int)(10000 * (1 -
 			(double)sectors_to_go /
 			(double)new->peer_dev_disk_size)) / 100.f);
 	}
@@ -4522,6 +4529,39 @@ static int event_key(char *key, int size, const char *name, unsigned minor,
 	return pos;
 }
 
+// BSR-1128
+static void print_event_key_json(unsigned minor, struct bsr_cfg_context *ctx)
+{
+	char addr[ADDRESS_STR_MAX];
+
+	if (!ctx) 
+		return ;
+
+	if (ctx->ctx_resource_name)
+		PRINT_JSON_STR("name", "%s", ctx->ctx_resource_name);
+
+	if (ctx->ctx_peer_node_id != -1U)
+		PRINT_JSON_INT("peer-node-id", "%d", ctx->ctx_peer_node_id);
+
+	if (ctx->ctx_conn_name_len)
+		PRINT_JSON_STR("conn-name", "%s", ctx->ctx_conn_name);
+
+	if (ctx->ctx_my_addr_len &&
+		address_str(addr, ctx->ctx_my_addr, ctx->ctx_my_addr_len))
+		PRINT_JSON_STR("local", "%s", addr);
+		    
+	if (ctx->ctx_peer_addr_len &&
+		address_str(addr, ctx->ctx_peer_addr, ctx->ctx_peer_addr_len))
+		PRINT_JSON_STR("peer", "%s", addr);
+
+	if (ctx->ctx_volume != -1U)
+		PRINT_JSON_INT("volume", "%u", ctx->ctx_volume);
+
+	if (minor != -1U)
+		PRINT_JSON_INT("minor", "%u", minor);
+	
+}
+
 static int known_objects_cmp(const void *a, const void *b) {
 	return strcmp(((const struct entry *)a)->key, ((const struct entry *)b)->key);
 }
@@ -4679,6 +4719,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		last_seq_known = true;
 	}
 
+	if (opt_json)
+		printf("{");
+
 	if (opt_timestamps) {
 		struct tm *tm;
 
@@ -4687,12 +4730,19 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		keep_tv = !!(nh.nh_type & NOTIFY_CONTINUES);
 
 		tm = localtime(&tv.tv_sec);
+
+		if (opt_json)
+			printf("\"timestamp\":\"");
+
 		printf("%04u-%02u-%02uT%02u:%02u:%02u.%06u%+03d:%02u ",
-		       tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		       tm->tm_hour, tm->tm_min, tm->tm_sec,
-		       (int)tv.tv_usec,
-		       (int)(tm->tm_gmtoff / 3600),
-		       (int)((abs(tm->tm_gmtoff) / 60) % 60));
+			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+			tm->tm_hour, tm->tm_min, tm->tm_sec,
+			(int)tv.tv_usec,
+			(int)(tm->tm_gmtoff / 3600),
+			(int)((abs(tm->tm_gmtoff) / 60) % 60));
+
+		if (opt_json)
+			printf("\",");
 	}
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		const char *name = NULL;
@@ -4712,15 +4762,34 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	}
 
 	// DW-1755
+
+	if (opt_json)
+		printf("\"action\":\"");
+
+	printf("%s", action_name[action]);
+
+	if (opt_json)
+		printf("\"");
+
 	if (info->genlhdr->cmd == BSR_IO_ERROR) {
-		printf("%s %s%s%s",
-			action_name[action], io_error_color_start(),
-			object_name[info->genlhdr->cmd], io_error_color_stop());
-	}
-	else {
-		printf("%s %s",
-			action_name[action],
-			key ? key : "-");
+		if (opt_json) {
+			PRINT_JSON_STR("object", "%s%s%s", io_error_color_start(), 
+				object_name[info->genlhdr->cmd], io_error_color_stop());
+		} else {
+			printf(" %s%s%s", io_error_color_start(),
+				object_name[info->genlhdr->cmd], io_error_color_stop());
+		}
+	} else {
+		if (opt_json) {
+			if (key) {
+				PRINT_JSON_STR("object", "%s", object_name[info->genlhdr->cmd]);
+				print_event_key_json(dh->minor, &ctx);
+			} else {
+				PRINT_JSON_STR("object", "%s", "-");
+			}
+		}
+		else
+			printf(" %s", key ? key : "-");
 	}
 
 	switch (info->genlhdr->cmd) {
@@ -4744,7 +4813,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						ROLE_COLOR_STRING(old->i.res_role, 1),
 						ROLE_COLOR_STRING(new.i.res_role, 1));
 				} else {
-					printf(" role:%s%s%s",
+					PRINT_EVT_STR("role", "%s%s%s",
 						ROLE_COLOR_STRING(new.i.res_role, 1));
 				}
 			}
@@ -4755,10 +4824,15 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			    new.i.res_susp_quorum != old->i.res_susp_quorum) {
 				// BSR-1124
 				if (opt_diff && (action != NOTIFY_EXISTS)) {
-					printf(" suspended:%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
-					printf("->%s", susp_str(&new.i));
+					if (opt_json) {
+						printf(",\"suspended\":\"%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
+						printf("->%s\"", susp_str(&new.i));
+					} else {
+						printf(" suspended:%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
+						printf("->%s", susp_str(&new.i));
+					}
 				} else {
-					printf(" suspended:%s",
+					PRINT_EVT_STR("suspended", "%s",
 						susp_str(&new.i));
 				}
 			}
@@ -4800,11 +4874,11 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						DISK_COLOR_STRING(old->i.dev_disk_state, old_intentional, true),
 						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
 				} else {
-					printf(" disk:%s%s%s",
+					PRINT_EVT_STR("disk", "%s%s%s",
 						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
 				}
 
-				printf(" client:%s", intentional_diskless_str(&new.i));
+				PRINT_EVT_STR("client", "%s", intentional_diskless_str(&new.i));
 			}
 			if (opt_statistics) {
 				if (device_statistics_from_attrs(&new.s, info)) {
@@ -4839,12 +4913,12 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						CONN_COLOR_STRING(old->i.conn_connection_state),
 						CONN_COLOR_STRING(new.i.conn_connection_state));
 				} else {
-					printf(" connection:%s%s%s",
+					PRINT_EVT_STR("connection", "%s%s%s",
 						CONN_COLOR_STRING(new.i.conn_connection_state));
 				}
 				// BSR-892
 				if (new.i.conn_last_error)
-					printf(" error:%s%s%s", 
+					PRINT_EVT_STR("error", "%s%s%s", 
 					CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
 			}
 			if (!old ||
@@ -4855,7 +4929,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						ROLE_COLOR_STRING(old->i.conn_role, 0),
 						ROLE_COLOR_STRING(new.i.conn_role, 0));
 				} else {
-					printf(" role:%s%s%s",
+					PRINT_EVT_STR("role", "%s%s%s",
 						ROLE_COLOR_STRING(new.i.conn_role, 0));
 				}
 
@@ -4894,7 +4968,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 								REPL_COLOR_STRING(old->i.peer_repl_state),
 								REPL_COLOR_STRING(new.i.peer_repl_state));
 					} else {
-						printf(" replication:%s%s%s",
+						PRINT_EVT_STR("replication", "%s%s%s",
 								REPL_COLOR_STRING(new.i.peer_repl_state));
 					}
 				}
@@ -4909,11 +4983,11 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 							DISK_COLOR_STRING(old->i.peer_disk_state, old_intentional, false),
 							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
 					} else {
-						printf(" peer-disk:%s%s%s",
+						PRINT_EVT_STR("peer-disk", "%s%s%s",
 							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
 					}
 
-					printf(" peer-client:%s", peer_intentional_diskless_str(&new.i));
+					PRINT_EVT_STR("peer-client", "%s", peer_intentional_diskless_str(&new.i));
 				}
 				if (!old ||
 					new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
@@ -4921,10 +4995,15 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 					new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency) {
 					// BSR-1124
 					if (opt_diff && (action != NOTIFY_EXISTS)) {
-						printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
-						printf("->%s", resync_susp_str (&new.i));
+						if (opt_json) {
+							printf(",\"resync-suspended\":\"%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+							printf("->%s\"", resync_susp_str (&new.i));
+						} else {
+							printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+							printf("->%s", resync_susp_str (&new.i));							
+						}
 					} else {
-						printf(" resync-suspended:%s",
+						PRINT_EVT_STR("resync-suspended", "%s",
 							resync_susp_str(&new.i));
 					}
 
@@ -4961,11 +5040,11 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 					char *old_established = UNKNOWN_STRING;
 					if (action == NOTIFY_CHANGE)
 						old_established = !new.path_established ? "yes" : "no";
-					printf(" established:%s->%s",
+					PRINT_EVT_STR("established", "%s->%s",
 							old_established,
 							new.path_established ? "yes" : "no");
 				} else {
-					printf(" established:%s",
+					PRINT_EVT_STR("established", "%s",
 						new.path_established ? "yes" : "no");
 				}
 
@@ -4979,9 +5058,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		struct bsr_helper_info helper_info;
 
 		if (!bsr_helper_info_from_attrs(&helper_info, info)) {
-			printf(" helper:%s", helper_info.helper_name);
+			PRINT_EVT_STR("helper", "%s", helper_info.helper_name);
 			if (action == NOTIFY_RESPONSE)
-				printf(" status:%u", helper_info.helper_status);
+				PRINT_EVT_INT("status", "%u", helper_info.helper_status);
 		} else {
 			dbg(1, "helper info missing\n");
 			goto nl_out;
@@ -4993,13 +5072,25 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_io_error_info io_error = { 0, };
 		if (!bsr_io_error_info_from_attrs(&io_error, info)) {
-			if (io_error.is_cleared)
-				printf(" cleared%s", key ? key : "-");
-			else {
-
-				printf("%s disk:%s io:%s", key ? key : "-", bsr_disk_type_name(io_error.disk_type), bsr_io_type_name(io_error.io_type));
-
-				printf(" error-code:0x%08X sector:%llus size:%u", io_error.error_code, io_error.sector, io_error.size);
+			if (io_error.is_cleared) {
+				if (opt_json) {
+					printf(",\"cleared\":\"true\"");
+					if (key)
+						print_event_key_json(dh->minor, &ctx);
+				} else
+					printf(" cleared%s", key ? key : "-");
+			} else {
+				if (opt_json) {
+					if (key)
+						print_event_key_json(dh->minor, &ctx);
+				} else {
+					printf("%s", key ? key : "-");	
+				}
+				PRINT_EVT_STR("disk", "%s", bsr_disk_type_name(io_error.disk_type));
+				PRINT_EVT_STR("io", "%s", bsr_io_type_name(io_error.io_type));
+				PRINT_EVT_STR("error-code", "0x%08X", io_error.error_code);
+				PRINT_EVT_STR("sector", "%llus", io_error.sector);
+				PRINT_EVT_INT("size", "%u", io_error.size);
 			}
 		}
 		else {
@@ -5013,7 +5104,10 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_uuid_info gi = { 0, };
 		if (!bsr_updated_gi_uuid_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.uuid);
+			PRINT_EVT_STR("current", "%016llX", gi.uuid_current);
+			PRINT_EVT_STR("bitmap", "%016llX", gi.uuid_bitmap);
+			PRINT_EVT_STR("history1", "%016llX", gi.uuid_history1);
+			PRINT_EVT_STR("history2", "%016llX", gi.uuid_history2);
 		}
 		break;
 	}
@@ -5022,7 +5116,13 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_device_mdf_flag_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.device_mdf);
+			PRINT_EVT_INT("consistent", "%d", gi.dev_mdf_consistent);
+			PRINT_EVT_INT("was-up-to-date", "%d", gi.dev_mdf_was_uptodate);
+			PRINT_EVT_INT("primary-ind", "%d", gi.dev_mdf_primary_ind);
+			PRINT_EVT_INT("crashed-primary", "%d", gi.dev_mdf_crashed_primary);
+			PRINT_EVT_INT("al-clean", "%d", gi.dev_mdf_al_clean);
+			PRINT_EVT_INT("al-disabled", "%d", gi.dev_mdf_al_disabled);
+			PRINT_EVT_INT("last-primary", "%d", gi.dev_mdf_last_primary);
 		}
 		break;
 	}
@@ -5031,7 +5131,10 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_peer_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_peer_device_mdf_flag_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.peer_device_mdf);
+			PRINT_EVT_INT("peer-connected", "%d", gi.peer_dev_mdf_cconnected);
+			PRINT_EVT_INT("peer-outdate", "%d", gi.peer_dev_mdf_outdate);
+			PRINT_EVT_INT("peer-fencing", "%d", gi.peer_dev_mdf_fencing);
+			PRINT_EVT_INT("peer-full-sync", "%d", gi.peer_dev_mdf_full_sync);
 		}
 		break;
 	}
@@ -5040,7 +5143,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_split_brain_info sb_info;
 		if (!bsr_split_brain_info_from_attrs(&sb_info, info)) {
-			printf(" recover:%s", sb_info.recover);
+			PRINT_EVT_STR("recover", "%s", sb_info.recover);
 		}
 		break;
 	}
@@ -5058,8 +5161,8 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		old = update_info(&key, &new, sizeof(new));
 
 		if (!old || old->_nodename != new._nodename) {
-			printf(" type:%s", bsr_host_type_name(new._nodename));
-			printf(" %s:%s", 
+			PRINT_EVT_STR("type", "%s", bsr_host_type_name(new._nodename));
+			PRINT_EVT_STR("%s", "%s", 
 				(info->genlhdr->cmd == BSR_NODE_INFO) ? "node-name" : "peer-node-name",
 				strcmp(new._nodename, "") ? new._nodename : "unknown");
 		}
@@ -5072,6 +5175,8 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	}
 
 nl_out:
+	if (opt_json)
+		printf("}");
 	printf("\n");
 out:
 	free(key);
