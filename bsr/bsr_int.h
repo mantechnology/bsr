@@ -199,11 +199,6 @@ extern int log_consumer_thread(void *unused);
 // BSR-601
 #define OV_LIST_COUNT_LIMIT 5000
 
-// BSR-1116
-#ifdef _WIN
-#define BSR_P_DATA_PREPARE_SIZE sizeof(struct p_header100) + sizeof(struct p_data)
-#endif
-
 struct bsr_device;
 struct bsr_connection;
 
@@ -824,6 +819,16 @@ extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 	((s64)(a) - (s64)(b) > 0))
 #endif
 
+struct bsr_bio_status {
+	int opf;
+	int data_dir;
+	int op;
+	int size;
+#ifdef _LIN	
+	int bv_len;
+#endif
+};
+
 struct bsr_request {
 	struct bsr_device *device;
 
@@ -834,17 +839,12 @@ struct bsr_request {
 	struct bio *private_bio;
 
 	char* req_databuf;
-	int req_databuf_size;
 	// DW-1237 add request buffer reference count to free earlier when no longer need buf.
 	atomic_t req_databuf_ref;
 
-	// BSR-1116 asynchronous replication can complete the write before the replication data is transferred, so the write information to be used during the transfer is stored in the following variables.
-	int req_bi_opf;
-	int req_data_dir;
-	int req_op;
-#ifdef _LIN	
-	int req_vlen;
-#endif
+	// BSR-1116 reference bio status after completion of writing.
+	struct bsr_bio_status bio_status;
+
 	struct bsr_interval i;
 
 	/* epoch: used to check on "completion" whether this req was in
@@ -1508,8 +1508,18 @@ struct bsr_thread_timing_details
 };
 #define BSR_THREAD_DETAILS_HIST	16
 
+// BSR-1116
+#ifdef _WIN
+#define BSR_STREAM_SEND_BUFFER_SIZE MAX_SPILT_BLOCK_SZ + PAGE_SIZE
+#endif
+
 struct bsr_send_buffer {
+// BSR-1116
+#ifdef _WIN
+	void *buffer;
+#else
 	struct page *page;  /* current buffer page for sending data */
+#endif
 	char *unsent;  /* start of unsent area != pos if corked... */
 	char *pos; /* position within that page */
 	int allocated_size; /* currently allocated space */
@@ -2319,7 +2329,7 @@ struct bsr_device {
 	atomic_t mounted_cnt;
 #endif
 	// BSR-1116
-	atomic_t64 wrtbuf_used;
+	atomic_t64 accelbuf_used;
 };
 
 struct bsr_bm_aio_ctx {
@@ -3240,33 +3250,31 @@ extern enum determine_dev_size
 bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 nodes_to_reach);
 
 
-// BSR-1116
 /* see also wire_flags_to_bio()
 * BSR_REQ_*, because we need to semantically map the flags to data packet
 * flags and back. We may replicate to other kernel versions. */
 static inline u32 bio_flags_to_wire(struct bsr_connection *connection, struct bsr_request *req)
 {
 	if (connection->agreed_pro_version >= 95)
-		return  (req->req_bi_opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
-		(req->req_bi_opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
-		(req->req_bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
-		(req->req_bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
+		return  (req->bio_status.opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
+		(req->bio_status.opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
+		(req->bio_status.opf & BSR_REQ_FUA ? DP_FUA : 0) |
+		(req->bio_status.opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-		(req->req_op == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
+		(req->bio_status.op == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
 #endif
-		(req->req_op == REQ_OP_DISCARD ? DP_DISCARD : 0) |
-		(req->req_op == REQ_OP_WRITE_ZEROES ?
+		(req->bio_status.op == REQ_OP_DISCARD ? DP_DISCARD : 0) |
+		(req->bio_status.op == REQ_OP_WRITE_ZEROES ?
 		((connection->agreed_features & BSR_FF_WZEROES) ?
-		(DP_ZEROES | (!(req->req_bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
+		(DP_ZEROES | (!(req->bio_status.opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
 		: DP_DISCARD)
 		: 0);
 
 
 	/* else: we used to communicate one bit only in older BSR */
-	return req->req_bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
+	return req->bio_status.opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
 }
 
-// BSR-1116
 /* Update disk stats when completing request upwards */
 static inline void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
 {

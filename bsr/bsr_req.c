@@ -45,7 +45,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	struct bsr_request *req;
 	int i;
 	int size; 
-	int64_t wrtbuf_size = device->resource->res_opts.wrtbuf_size;
+	int64_t accelbuf_size = device->resource->res_opts.accelbuf_size;
 
 	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
 #ifdef _LIN
@@ -58,30 +58,29 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 		return NULL;
 
 	memset(req, 0, sizeof(*req));
+	size = BSR_BIO_BI_SIZE(bio_src);
+
+	// BSR-1116 buffering write data to improve local write performance for asynchronous replication
 #ifdef _WIN
-	// BSR-1116 allocate additional size to store headers to minimize transfer.
-	size = BSR_P_DATA_PREPARE_SIZE + BSR_BIO_BI_SIZE(bio_src);
-	if ((atomic_read64(&device->wrtbuf_used) + size) < wrtbuf_size) {
+	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
 		req->req_databuf = kmalloc(size, 0, '63SB');
 		if (!req->req_databuf) {
 			mempool_free(req, &bsr_request_mempool);
 			return NULL;
 		}
-		req->req_databuf_size = size;
-		atomic_add64(size, &device->wrtbuf_used);
-		memcpy(req->req_databuf + BSR_P_DATA_PREPARE_SIZE, bio_src->bio_databuf, BSR_BIO_BI_SIZE(bio_src));
+		atomic_add64(size, &device->accelbuf_used);
+		memcpy(req->req_databuf, bio_src->bio_databuf, size);
+		req->bio_status.size = size;
 	}
 #else
-	// BSR-1116 
-	size = BSR_BIO_BI_SIZE(bio_src);
-	if ((atomic_read64(&device->wrtbuf_used) + size) < wrtbuf_size) {
+	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
 		req->req_databuf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
 		if (!req->req_databuf) {
 			mempool_free(req, bsr_request_mempool);
 			return NULL;
 		}
-		req->req_databuf_size = size;
-		atomic_add64(size, &device->wrtbuf_used);
+		req->bio_status.size = size;
+		atomic_add64(size, &device->accelbuf_used);
 		bio_for_each_segment(bvec, bio_src, iter) {
 			d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
 			memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
@@ -108,7 +107,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 		if (req->req_databuf) {
 			// DW-689
 			kfree2(req->req_databuf);
-			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
 		mempool_free(req, bsr_request_mempool);
 		return NULL;
@@ -119,9 +118,8 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 #ifdef _WIN
 	// DW-776 (private bio's buffer is invalid when memory-overflow occured)
-	// BSR-1116 data is stored after BSR_P_DATA_PREPARE_SIZE.
 	if (req->req_databuf)
-		req->private_bio->bio_databuf = req->req_databuf + BSR_P_DATA_PREPARE_SIZE;
+		req->private_bio->bio_databuf = req->req_databuf;
 	else
 		req->private_bio->bio_databuf = bio_src->bio_databuf;
 #endif
@@ -133,13 +131,13 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	req->master_bio = bio_src;
 
 	// BSR-1116
-	req->req_op = bio_op(req->master_bio);
-	req->req_bi_opf = req->master_bio->bi_opf;
-	req->req_data_dir = bio_data_dir(req->master_bio);
+	req->bio_status.op = bio_op(req->master_bio);
+	req->bio_status.opf = req->master_bio->bi_opf;
+	req->bio_status.data_dir = bio_data_dir(req->master_bio);
 #ifdef _LIN
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-	if (req->req_op == REQ_OP_WRITE_SAME)
-		req->req_vlen = bio_iovec(req->master_bio) BVD bv_len;
+	if (req->bio_status.op == REQ_OP_WRITE_SAME)
+		req->bio_status.bv_len = bio_iovec(req->master_bio) BVD bv_len;
 #endif
 #endif
 
@@ -205,7 +203,7 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 		if (req->req_databuf) {
 			// DW-596 required to verify to free req_databuf at this point
 			kfree2(req->req_databuf);
-			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&resource->req_write_cnt);
@@ -478,7 +476,7 @@ void bsr_req_destroy(struct kref *kref)
 	} else {
 		if (req->req_databuf) {
 			kfree2(req->req_databuf);
-			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&req->device->resource->req_write_cnt);
@@ -842,7 +840,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		return;
 	}
 
-	// BSR-1116 
+	// BSR-1116 add the following conditions because master_bio exists but writing may complete
 	if (!req->i.completed && !req->master_bio) {
 		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
 		return;
@@ -858,7 +856,7 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 */
 
 	// BSR-1116
-	if (req->req_data_dir == WRITE &&
+	if (req->bio_status.data_dir == WRITE &&
 	    req->epoch == atomic_read(&device->resource->current_tle_nr))
 		start_new_tl_epoch(device->resource);
 
@@ -878,8 +876,8 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 */
 	if (!ok &&
 		// BSR-1116
-		req->req_op == REQ_OP_READ &&
-		!(req->req_bi_opf & REQ_RAHEAD) &&
+		req->bio_status.op == REQ_OP_READ &&
+		!(req->bio_status.op & REQ_RAHEAD) &&
 		!list_empty(&req->tl_requests))
 		req->rq_state[0] |= RQ_POSTPONED;
 	
@@ -1180,7 +1178,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
 		if (0 == atomic_dec_return(&req->req_databuf_ref)) {
 			kfree2(req->req_databuf);
-			atomic_sub64(req->req_databuf_size, &req->device->wrtbuf_used);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
 	}
 
