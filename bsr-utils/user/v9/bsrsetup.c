@@ -4734,7 +4734,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		if (opt_json)
 			printf("\"timestamp\":\"");
 
-		printf("%04u-%02u-%02uT%02u:%02u:%02u.%06u%+03d:%02u ",
+		printf("%04u-%02u-%02uT%02u:%02u:%02u.%06u%+03d:%02u",
 			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
 			tm->tm_hour, tm->tm_min, tm->tm_sec,
 			(int)tv.tv_usec,
@@ -4743,6 +4743,8 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 
 		if (opt_json)
 			printf("\",");
+		else
+			printf(" ");
 	}
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		const char *name = NULL;
@@ -4761,7 +4763,6 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		event_key(key, size + 1, name, dh->minor, &ctx);
 	}
 
-	// DW-1755
 
 	if (opt_json)
 		printf("\"action\":\"");
@@ -4771,6 +4772,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	if (opt_json)
 		printf("\"");
 
+	// DW-1755
 	if (info->genlhdr->cmd == BSR_IO_ERROR) {
 		if (opt_json) {
 			PRINT_JSON_STR("object", "%s%s%s", io_error_color_start(), 
