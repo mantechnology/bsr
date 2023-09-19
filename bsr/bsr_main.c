@@ -1311,8 +1311,12 @@ static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
 #ifdef _WIN
 	char *buffer_start = sbuf->buffer;
+	int buffer_size = PAGE_SIZE;
 
-	if (sbuf->pos - buffer_start + size > BSR_STREAM_SEND_BUFFER_SIZE) {
+	if(bsr_stream == DATA_STREAM)
+		buffer_size = BSR_STREAM_SEND_BUFFER_SIZE;
+
+	if (sbuf->pos - buffer_start + size > buffer_size) {
 #else
 	char *page_start = page_address(sbuf->page);
 	if (sbuf->pos - page_start + size > PAGE_SIZE) {
@@ -1324,7 +1328,7 @@ static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 #ifdef _LIN
 		new_or_recycle_send_buffer_page(sbuf);
 #else
-		sbuf->pos = buffer_start;
+		sbuf->unsent = sbuf->pos = buffer_start;
 #endif
 	}
 
@@ -4290,7 +4294,11 @@ static int bsr_alloc_send_buffers(struct bsr_connection *connection)
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		// BSR-1116 set the buffer size to BSR_STREAM_SEND_BUFFER_SIZE to improve Windows replication send performance.
 #ifdef _WIN
-		void *buffer = kmalloc(BSR_STREAM_SEND_BUFFER_SIZE, 0, 'D3SB');
+		void *buffer;
+		if (i == DATA_STREAM)
+			buffer = kmalloc(BSR_STREAM_SEND_BUFFER_SIZE, 0, 'D3SB');
+		else
+			buffer = kmalloc(PAGE_SIZE, 0, 'D3SB');
 
 		if (!buffer) {
 			bsr_put_send_buffers(connection);
