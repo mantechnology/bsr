@@ -73,6 +73,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 		req->bio_status.size = size;
 	}
 #else
+#ifdef _LIN_SEND_BUF
 	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
 		req->req_databuf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
 		if (!req->req_databuf) {
@@ -95,6 +96,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 #endif
 		}
 	}
+#endif
 #endif
 	// DW-1237 set request data buffer ref to 1 for local I/O.
 	atomic_set(&req->req_databuf_ref, 1);
