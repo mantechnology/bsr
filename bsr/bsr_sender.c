@@ -1996,7 +1996,7 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	{
 	char tmp[sizeof(" but 01234567890123456789 sectors skipped")] = "";
 	if (verify_done && peer_device->ov_skipped) {
-		snprintf(tmp, sizeof(tmp), " but %llu sectors skipped", peer_device->ov_skipped);
+		snprintf(tmp, sizeof(tmp), " but %llu sectors skipped", (unsigned long long)peer_device->ov_skipped);
 	}
 #ifdef SPLIT_REQUEST_RESYNC
 	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s => %s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)",
