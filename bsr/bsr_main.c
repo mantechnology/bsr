@@ -4277,6 +4277,9 @@ static void bsr_put_send_buffers(struct bsr_connection *connection)
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 #ifdef _WIN
 		if (connection->send_buffer[i].buffer) {
+			// DW-1791 fix memory leak 
+			// BSR-1116
+			kfree2(connection->send_buffer[i].buffer);
 			connection->send_buffer[i].buffer = NULL;
 #else // _LIN
 		if (connection->send_buffer[i].page) {

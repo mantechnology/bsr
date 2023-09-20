@@ -862,6 +862,11 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	    req->epoch == atomic_read(&device->resource->current_tle_nr))
 		start_new_tl_epoch(device->resource);
 
+	if (!req->i.completed) {
+		/* Update disk stats */
+		_bsr_end_io_acct(device, req);
+	}
+
 	/* If READ failed,
 	 * have it be pushed back to the retry work queue,
 	 * so it will re-enter __bsr_make_request(),
