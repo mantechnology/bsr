@@ -309,6 +309,8 @@ GENL_struct(BSR_NLA_PEER_DEVICE_STATISTICS, 22, peer_device_statistics,
 	__u64_field(12,0, peer_dev_rs_dt_ms)
 	__u64_field(13,0, peer_dev_rs_db_sectors)
 	__u32_field(14,0, peer_dev_rs_c_sync_rate)
+	// BSR-1125
+	__u64_field(15,0, peer_dev_disk_size)
 )
 
 GENL_struct(BSR_NLA_NOTIFICATION_HEADER, 23, bsr_notification_header,
@@ -369,15 +371,27 @@ GENL_struct(BSR_NLA_INVALIDATE_PEER_PARMS, 32, invalidate_peer_parms,
 
 // BSR-676
 GENL_struct(BSR_NLA_UPDATED_GI_UUID, 33, bsr_updated_gi_uuid_info,
-	__str_field(1, BSR_GENLA_F_MANDATORY, uuid, 256) 
+	__u64_field(1, 0, uuid_current)
+	__u64_field(2, 0, uuid_bitmap)
+	__u64_field(3, 0, uuid_history1)
+	__u64_field(4, 0, uuid_history2)
 )
 
 GENL_struct(BSR_NLA_UPDATED_GI_DEVICE_MDF_FLAG, 34, bsr_updated_gi_device_mdf_flag_info,
-	__str_field(1, BSR_GENLA_F_MANDATORY, device_mdf, 256)
+	__flg_field(1, 0, dev_mdf_consistent)
+	__flg_field(2, 0, dev_mdf_was_uptodate)
+	__flg_field(3, 0, dev_mdf_primary_ind)
+	__flg_field(4, 0, dev_mdf_crashed_primary)
+	__flg_field(5, 0, dev_mdf_al_clean)
+	__flg_field(6, 0, dev_mdf_al_disabled)
+	__flg_field(7, 0, dev_mdf_last_primary)
 )
 
 GENL_struct(BSR_NLA_UPDATED_GI_PEER_DEVICE_MDF_FLAG, 35, bsr_updated_gi_peer_device_mdf_flag_info,
-	__str_field(1, BSR_GENLA_F_MANDATORY, peer_device_mdf, 256)
+	__flg_field(1, 0, peer_dev_mdf_cconnected)
+	__flg_field(2, 0, peer_dev_mdf_outdate)
+	__flg_field(3, 0, peer_dev_mdf_fencing)
+	__flg_field(4, 0, peer_dev_mdf_full_sync)
 )
 
 // BSR-718 move svc-auto-xxx option to node option

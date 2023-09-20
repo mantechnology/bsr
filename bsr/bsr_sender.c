@@ -2020,7 +2020,7 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	{
 	char tmp[sizeof(" but 01234567890123456789 sectors skipped")] = "";
 	if (verify_done && peer_device->ov_skipped) {
-		snprintf(tmp, sizeof(tmp), " but %llu sectors skipped", peer_device->ov_skipped);
+		snprintf(tmp, sizeof(tmp), " but %llu sectors skipped", (unsigned long long)peer_device->ov_skipped);
 	}
 #ifdef SPLIT_REQUEST_RESYNC
 	bsr_info(116, BSR_LC_RESYNC_OV, peer_device, "%s => %s done%s (total %llu sec; paused %llu sec; %llu K/sec), hit bit (in sync %llu; marked rl %llu)",
@@ -3845,6 +3845,10 @@ static void do_device_work(struct bsr_device *device, const ULONG_PTR todo)
 
 static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG_PTR todo, bool connected)
 {
+	// BSR-1125
+	if (test_bit(RS_PROGRESS_NOTIFY, &todo))
+		bsr_broadcast_peer_device_state(peer_device);
+
 	if (test_bit(RS_DONE, &todo) ||
 	    test_bit(RS_PROGRESS, &todo))
 		update_on_disk_bitmap(peer_device, test_bit(RS_DONE, &todo));		
@@ -3865,6 +3869,7 @@ static void do_peer_device_work(struct bsr_peer_device *peer_device, const ULONG
 #define BSR_PEER_DEVICE_WORK_MASK	\
 	((1UL << RS_START)		\
 	|(1UL << RS_PROGRESS)		\
+	|(1UL << RS_PROGRESS_NOTIFY)		\
 	|(1UL << RS_DONE)		\
 	)
 
