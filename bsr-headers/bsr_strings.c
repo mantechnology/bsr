@@ -34,6 +34,7 @@
 static const char * const __conn_error_names[] = {
 	[C_NO_ERROR] = "no-error",
 	[C_SPLIT_BRAIN_ERROR] = "split-brain",
+	[C_SYNC_TARGET_PRIMARY] = "sync-target-primary" // BSR-1140
 };
 
 struct state_names bsr_conn_error_names = {

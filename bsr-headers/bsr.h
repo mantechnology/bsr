@@ -287,7 +287,8 @@ enum bsr_conn_state {
 // BSR-892
 enum bsr_conn_error {
 	C_NO_ERROR,
-	C_SPLIT_BRAIN_ERROR
+	C_SPLIT_BRAIN_ERROR,
+	C_SYNC_TARGET_PRIMARY // BSR-1140
 };
 
 enum bsr_repl_state {

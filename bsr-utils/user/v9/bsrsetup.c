@@ -3471,10 +3471,13 @@ static void connection_status(struct connections_list *connection,
 		// BSR-892
 		if (connection->info.conn_last_error) {
 			int err = connection->info.conn_last_error;
-			wrap_printf(6, " error:%s%s%s",
-				cerror_color_start(err),
-				bsr_conn_err_str(err),
-				cerror_color_stop(err));
+			// BSR-1140 sync-target-primary error output to status when disconnect or standalone
+			if ((err != C_SYNC_TARGET_PRIMARY) || (connection->info.conn_connection_state <= C_DISCONNECTING)) {
+				wrap_printf(6, " error:%s%s%s",
+					cerror_color_start(err),
+					bsr_conn_err_str(err),
+					cerror_color_stop(err));
+			}
 		}
 	}
 	if (opt_verbose || connection->info.conn_connection_state == C_CONNECTED) {
@@ -4843,9 +4846,13 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						CONN_COLOR_STRING(new.i.conn_connection_state));
 				}
 				// BSR-892
-				if (new.i.conn_last_error)
-					printf(" error:%s%s%s", 
-					CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
+				if (new.i.conn_last_error) {
+					// BSR-1140 connection error output to events when disconnect or standalone
+					if (new.i.conn_connection_state <= C_DISCONNECTING) {
+						printf(" error:%s%s%s", 
+							CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
+					}
+				}
 			}
 			if (!old ||
 			    new.i.conn_role != old->i.conn_role) {
