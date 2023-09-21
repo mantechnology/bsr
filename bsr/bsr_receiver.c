@@ -6140,6 +6140,8 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			/* Fall through */
 		case ASB_DISCONNECT:
 			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			// BSR-1140
+			connection->last_error = C_SYNC_TARGET_PRIMARY;
 			return -1;
 		case ASB_VIOLENTLY:
 			bsr_warn(22, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
