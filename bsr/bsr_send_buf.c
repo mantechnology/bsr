@@ -424,7 +424,7 @@ bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
  
 	tx_sz = (ringbuf_size > MAX_ONETIME_SEND_BUF) ? MAX_ONETIME_SEND_BUF : ringbuf_size;
 
-	// BSR-1116 improved asynchronous send performance
+	// BSR-1116 wait for a specified size or time to minimize the performance degradation caused by the transfer callback completion.
 #ifdef _WIN_SEND_BUF
 	if (stream == DATA_STREAM && protocol == BSR_PROT_A) {
 		if (*retry_timestamp == 0 && tx_sz < (MAX_ONETIME_SEND_BUF / 10)) {

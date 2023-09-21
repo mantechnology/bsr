@@ -819,6 +819,7 @@ extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 	((s64)(a) - (s64)(b) > 0))
 #endif
 
+// BSR-1116 save the state of bio and use it for reference after the write is complete.
 struct bsr_bio_status {
 	int opf;
 	int data_dir;

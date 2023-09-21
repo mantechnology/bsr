@@ -1325,10 +1325,11 @@ static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 		// BSR-1058 check for send errors.
 		if (flush_send_buffer(connection, bsr_stream))
 			return 0;
-#ifdef _LIN
-		new_or_recycle_send_buffer_page(sbuf);
-#else
+#ifdef _WIN
+		// BSR-1116 windows sets the send buffer for each stream in bytes rather than pages, so after calling flush_send_buffe(), it initializes unsent and pos to the start address of the send buffer.
 		sbuf->unsent = sbuf->pos = buffer_start;
+#else
+		new_or_recycle_send_buffer_page(sbuf);
 #endif
 	}
 
@@ -3197,7 +3198,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 #endif
 	}
 	else {
-		// BSR-1116
+		// BSR-1116 windows sends replication data by adding it to the data stream send buffer for better performance.
 #ifdef _WIN
 			memcpy(((char *)digest_out + digest_size), data, req->i.size);
 #else
@@ -3207,7 +3208,6 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	}
 
 	if (!err) {
-		// BSR-1116
 #ifdef _LIN
 		/* For protocol A, we have to memcpy the payload into
 		* socket buffers, as we may complete right away
@@ -3222,7 +3222,7 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		*/
 
 		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
-			// BSR-1116
+			// BSR-1116 if req_databuf is assigned, refer to req_databuf, not master_bio, because it may be in the write completion state.
 			if (req->req_databuf)
 				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
 			else
