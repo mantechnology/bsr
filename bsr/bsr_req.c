@@ -40,49 +40,77 @@ static void _bsr_start_io_acct(struct bsr_device *device, struct bsr_request *re
 #endif
 }
 
-/* Update disk stats when completing request upwards */
-static void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
-{	
-#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
-	bio_end_io_acct(req->master_bio, req->start_jif);
-#else
-	struct request_queue *q = device->rq_queue;
-	generic_end_io_acct(q, bio_data_dir(req->master_bio),
-		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
-#endif
-}
-
-
 static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bio_src)
 {
 	struct bsr_request *req;
 	int i;
-	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
+	int size; 
+	int64_t accelbuf_size = device->resource->res_opts.accelbuf_size;
 
+	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
+#ifdef _LIN
+	BSR_BIO_VEC_TYPE bvec;
+	BSR_ITER_TYPE iter;
+	unsigned char *d;
+	int len = 0;
+#endif
 	if (!req)
 		return NULL;
 
 	memset(req, 0, sizeof(*req));
+	size = BSR_BIO_BI_SIZE(bio_src);
+
+	// BSR-1116 buffering write data to improve local write performance for asynchronous replication
 #ifdef _WIN
-	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63SB');
-	if (!req->req_databuf) {
-		mempool_free(req, &bsr_request_mempool);
-		return NULL;
+	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
+		req->req_databuf = kmalloc(size, 0, '63SB');
+		if (!req->req_databuf) {
+			mempool_free(req, &bsr_request_mempool);
+			return NULL;
+		}
+		atomic_add64(size, &device->accelbuf_used);
+		memcpy(req->req_databuf, bio_src->bio_databuf, size);
+		req->bio_status.size = size;
 	}
+#else
+#ifdef _LIN_SEND_BUF
+	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
+		req->req_databuf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
+		if (!req->req_databuf) {
+			mempool_free(req, bsr_request_mempool);
+			return NULL;
+		}
+		req->bio_status.size = size;
+		atomic_add64(size, &device->accelbuf_used);
+		bio_for_each_segment(bvec, bio_src, iter) {
+			d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+			memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
+			bsr_kunmap_atomic(d, KM_USER0);
+
+			len += bvec BVD bv_len;
+
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+			if (bio_op(bio_src) == REQ_OP_WRITE_SAME) {
+				break;
+			}
+#endif
+		}
+	}
+#endif
+#endif
 	// DW-1237 set request data buffer ref to 1 for local I/O.
 	atomic_set(&req->req_databuf_ref, 1);
-	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
-#endif
 
 #ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
 	if (bsr_req_make_private_bio(device, req, bio_src) == false) {
 #else
     if (bsr_req_make_private_bio(req, bio_src) == false) {
 #endif
-#ifdef _WIN
-		// DW-689
-		kfree2(req->req_databuf);
-#endif
+		if (req->req_databuf) {
+			// DW-689
+			kfree2(req->req_databuf);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+		}
 		mempool_free(req, bsr_request_mempool);
 		return NULL;
     }
@@ -91,7 +119,11 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	atomic_inc(&device->resource->req_write_cnt);
 
 #ifdef _WIN
-	req->private_bio->bio_databuf = req->req_databuf; // DW-776 (private bio's buffer is invalid when memory-overflow occured)
+	// DW-776 (private bio's buffer is invalid when memory-overflow occured)
+	if (req->req_databuf)
+		req->private_bio->bio_databuf = req->req_databuf;
+	else
+		req->private_bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
 	kref_get(&device->kref);
@@ -99,6 +131,18 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 	req->device = device;
 	req->master_bio = bio_src;
+
+	// BSR-1116
+	req->bio_status.op = bio_op(req->master_bio);
+	req->bio_status.opf = req->master_bio->bi_opf;
+	req->bio_status.data_dir = bio_data_dir(req->master_bio);
+#ifdef _LIN
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+	if (req->bio_status.op == REQ_OP_WRITE_SAME)
+		req->bio_status.bv_len = bio_iovec(req->master_bio) BVD bv_len;
+#endif
+#endif
+
 	req->epoch = 0;
 
 	bsr_clear_interval(&req->i);
@@ -158,12 +202,11 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 	rcu_read_unlock();
 
 	if (!queued) {
-#ifdef _WIN
 		if (req->req_databuf) {
 			// DW-596 required to verify to free req_databuf at this point
 			kfree2(req->req_databuf);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
-#endif
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&resource->req_write_cnt);
 		mempool_free(req, bsr_request_mempool);
@@ -433,11 +476,10 @@ void bsr_req_destroy(struct kref *kref)
 		if (!peer_ack_req)
 			resource->last_peer_acked_dagtag = req->dagtag_sector;
 	} else {
-#ifdef _WIN
 		if (req->req_databuf) {
 			kfree2(req->req_databuf);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
-#endif
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&req->device->resource->req_write_cnt);
 		mempool_free(req, bsr_request_mempool);
@@ -800,7 +842,8 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		return;
 	}
 
-	if (!req->master_bio) {
+	// BSR-1116 add the following conditions because master_bio exists but writing may complete
+	if (!req->i.completed && !req->master_bio) {
 		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
 		return;
 	}
@@ -813,12 +856,16 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 * epoch number.  If they match, increase the current_tle_nr,
 	 * and reset the transfer log epoch write_cnt.
 	 */
-	if (bio_data_dir(req->master_bio) == WRITE &&
+
+	// BSR-1116
+	if (req->bio_status.data_dir == WRITE &&
 	    req->epoch == atomic_read(&device->resource->current_tle_nr))
 		start_new_tl_epoch(device->resource);
 
-	/* Update disk stats */
-	_bsr_end_io_acct(device, req);
+	if (!req->i.completed) {
+		/* Update disk stats */
+		_bsr_end_io_acct(device, req);
+	}
 
 	/* If READ failed,
 	 * have it be pushed back to the retry work queue,
@@ -835,40 +882,44 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 * WRITE should have used all available paths already.
 	 */
 	if (!ok &&
-		bio_op(req->master_bio) == REQ_OP_READ &&
-		!(req->master_bio->bi_opf & REQ_RAHEAD) &&
+		// BSR-1116
+		req->bio_status.op == REQ_OP_READ &&
+		!(req->bio_status.op & REQ_RAHEAD) &&
 		!list_empty(&req->tl_requests))
 		req->rq_state[0] |= RQ_POSTPONED;
 	
 	if (!(req->rq_state[0] & RQ_POSTPONED)) {
-		// DW-1755 
-		// for the "passthrough" policy, all local errors are returned to the file system.
-		enum bsr_io_error_p eh = EP_PASSTHROUGH;
+		// BSR-1116
+		if (!req->i.completed) {
+			// DW-1755 
+			// for the "passthrough" policy, all local errors are returned to the file system.
+			enum bsr_io_error_p eh = EP_PASSTHROUGH;
 
-		// DW-1837
-		//If the disk is detached, device-> ldev can be null.
-		if (device->ldev) {
-			rcu_read_lock();
-			eh = rcu_dereference(device->ldev->disk_conf)->on_io_error;
-			rcu_read_unlock();
-		}
+			// DW-1837
+			//If the disk is detached, device-> ldev can be null.
+			if (device->ldev) {
+				rcu_read_lock();
+				eh = rcu_dereference(device->ldev->disk_conf)->on_io_error;
+				rcu_read_unlock();
+			}
 
-		if (eh == EP_PASSTHROUGH)
-			m->error = error;
-		else
-			m->error = ok ? 0 : (error ? error : -EIO);
+			if (eh == EP_PASSTHROUGH)
+				m->error = error;
+			else
+				m->error = ok ? 0 : (error ? error : -EIO);
 
-		m->bio = req->master_bio;
+			m->bio = req->master_bio;
 #ifdef _LIN
-		if (atomic_read(&g_bsrmon_run))
-			m->io_start_kt = req->start_kt;
+			if (atomic_read(&g_bsrmon_run))
+				m->io_start_kt = req->start_kt;
 #endif
+			/* We leave it in the tree, to be able to verify later
+			* write-acks in protocol != C during resync.
+			* But we mark it as "complete", so it won't be counted as
+			* conflict in a multi-primary setup. */
+			req->i.completed = true;
+		}
 		req->master_bio = NULL;
-		/* We leave it in the tree, to be able to verify later
-		 * write-acks in protocol != C during resync.
-		 * But we mark it as "complete", so it won't be counted as
-		 * conflict in a multi-primary setup. */
-		req->i.completed = true;
 	}
 
 	if (req->i.waiting)
@@ -1130,14 +1181,13 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		list_del_init(&req->req_pending_local);
 	}
 
-#ifdef _WIN
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
-		if (0 == atomic_dec(&req->req_databuf_ref)) {
+		if (0 == atomic_dec_return(&req->req_databuf_ref)) {
 			kfree2(req->req_databuf);
+			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
 		}
 	}
-#endif
 
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
@@ -1984,10 +2034,8 @@ static int bsr_process_write_request(struct bsr_request *req)
 
 		if (remote) {
 			++count;
-#ifdef _WIN
 			// DW-1237 get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
-#endif
 			_req_mod(req, TO_BE_SENT, peer_device);
 			if (!in_tree) {
 				/* Corresponding bsr_remove_request_interval is in

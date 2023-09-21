@@ -1151,6 +1151,8 @@ struct context_def resource_options_ctx = {
 		// DW-1925 number and size of request objects can be set
 		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
+		// BSR-1116 set buffer size to improve local write performance during asynchronous replication										
+		{ "accelbuf-size", NUMERIC(accelbuf_size, ACCELBUF_SIZE), .unit = "bytes" },
 		{ } },
 };
 

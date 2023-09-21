@@ -190,7 +190,7 @@ extern int log_consumer_thread(void *unused);
 // DW-2124
 #define B_COMPLETE 0x01
 
-//DW-1927
+// DW-1927
 #define CONTROL_BUFF_SIZE	1024 * 5120
 
 // BSR-119
@@ -819,6 +819,17 @@ extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 	((s64)(a) - (s64)(b) > 0))
 #endif
 
+// BSR-1116 save the state of bio and use it for reference after the write is complete.
+struct bsr_bio_status {
+	int opf;
+	int data_dir;
+	int op;
+	int size;
+#ifdef _LIN	
+	int bv_len;
+#endif
+};
+
 struct bsr_request {
 	struct bsr_device *device;
 
@@ -827,11 +838,14 @@ struct bsr_request {
 	 * or, after local IO completion, the ERR_PTR(error).
 	 * see bsr_request_endio(). */
 	struct bio *private_bio;
-#ifdef _WIN
-	char*	req_databuf;
+
+	char* req_databuf;
 	// DW-1237 add request buffer reference count to free earlier when no longer need buf.
 	atomic_t req_databuf_ref;
-#endif
+
+	// BSR-1116 reference bio status after completion of writing.
+	struct bsr_bio_status bio_status;
+
 	struct bsr_interval i;
 
 	/* epoch: used to check on "completion" whether this req was in
@@ -1496,8 +1510,18 @@ struct bsr_thread_timing_details
 };
 #define BSR_THREAD_DETAILS_HIST	16
 
+// BSR-1116
+#ifdef _WIN
+#define BSR_STREAM_SEND_BUFFER_SIZE MAX_SPILT_BLOCK_SZ + PAGE_SIZE
+#endif
+
 struct bsr_send_buffer {
+// BSR-1116
+#ifdef _WIN
+	void *buffer;
+#else
 	struct page *page;  /* current buffer page for sending data */
+#endif
 	char *unsent;  /* start of unsent area != pos if corked... */
 	char *pos; /* position within that page */
 	int allocated_size; /* currently allocated space */
@@ -2306,6 +2330,8 @@ struct bsr_device {
 #ifdef _LIN
 	atomic_t mounted_cnt;
 #endif
+	// BSR-1116
+	atomic_t64 accelbuf_used;
 };
 
 struct bsr_bm_aio_ctx {
@@ -3224,6 +3250,46 @@ extern bool bsr_have_local_disk(struct bsr_resource *resource);
 extern enum bsr_state_rv bsr_support_2pc_resize(struct bsr_resource *resource);
 extern enum determine_dev_size
 bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 nodes_to_reach);
+
+
+/* see also wire_flags_to_bio()
+* BSR_REQ_*, because we need to semantically map the flags to data packet
+* flags and back. We may replicate to other kernel versions. */
+static inline u32 bio_flags_to_wire(struct bsr_connection *connection, struct bsr_request *req)
+{
+	if (connection->agreed_pro_version >= 95)
+		return  (req->bio_status.opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
+		(req->bio_status.opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
+		(req->bio_status.opf & BSR_REQ_FUA ? DP_FUA : 0) |
+		(req->bio_status.opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+		(req->bio_status.op == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
+#endif
+		(req->bio_status.op == REQ_OP_DISCARD ? DP_DISCARD : 0) |
+		(req->bio_status.op == REQ_OP_WRITE_ZEROES ?
+		((connection->agreed_features & BSR_FF_WZEROES) ?
+		(DP_ZEROES | (!(req->bio_status.opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
+		: DP_DISCARD)
+		: 0);
+
+
+	/* else: we used to communicate one bit only in older BSR */
+	return req->bio_status.opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
+}
+
+/* Update disk stats when completing request upwards */
+static inline void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
+{
+#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
+	bio_end_io_acct(req->master_bio, req->start_jif);
+#else
+	struct request_queue *q = device->rq_queue;
+	generic_end_io_acct(q, bio_data_dir(req->master_bio),
+		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
+#endif
+}
+
+
 
 #ifdef _WIN // DW-1607 get the real size of the meta disk.
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)

@@ -405,7 +405,7 @@ $GO_BUFFERING:
 }
 
 #ifdef _WIN_SEND_BUF
-bool read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen)
+int read_ring_buffer(IN ring_buffer *ring, OUT char *data, OUT signed long long* pLen, bsr_stream stream, LONGLONG *retry_timestamp, int protocol)
 #else // _LIN_SEND_BUF
 bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 #endif
@@ -423,6 +423,23 @@ bool read_ring_buffer(ring_buffer *ring, char *data, signed long long* pLen)
 	}
  
 	tx_sz = (ringbuf_size > MAX_ONETIME_SEND_BUF) ? MAX_ONETIME_SEND_BUF : ringbuf_size;
+
+	// BSR-1116 wait for a specified size or time to minimize the performance degradation caused by the transfer callback completion.
+#ifdef _WIN_SEND_BUF
+	if (stream == DATA_STREAM && protocol == BSR_PROT_A) {
+		if (*retry_timestamp == 0 && tx_sz < (MAX_ONETIME_SEND_BUF / 10)) {
+			LeaveCriticalSection(&ring->cs);
+			*retry_timestamp = timestamp();
+			return 2;
+		}
+
+		if (*retry_timestamp &&
+			timestamp_elapse(__FUNCTION__, *retry_timestamp, timestamp()) < (1000 * 1)) {
+			LeaveCriticalSection(&ring->cs);
+			return 2;
+		}
+	}
+#endif
 
 	remain = ring->length - ring->read_pos;
 	if (remain < tx_sz) {
@@ -506,20 +523,31 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
+	LONGLONG try_timestamp;
+	int protocol;
 	int ret = 0;
 
 	if (bab == NULL) {
 		bsr_err(16, BSR_LC_SEND_BUFFER, NO_OBJECT, "Failed to send send-buffer due to send-buffer is not allocate.");
 		return 0;
 	}
+	
+	protocol = transport->net_conf->wire_protocol;
 
 	while (true) {
 		long long tx_sz = 0;
 		int offset = 0;
 
-		if (!read_ring_buffer(bab, bab->static_big_buf, &tx_sz)) {
+		// BSR-1116
+		ret = read_ring_buffer(bab, bab->static_big_buf, &tx_sz, stream, &try_timestamp, protocol);
+		if (ret == 2) {
+			msleep(1);
+			continue;
+		} else if (ret == 0)
 			break;
-		}
+
+		try_timestamp = 0;
+
 #ifndef _WIN64
 		BUG_ON_UINT32_OVER(tx_sz);
 #endif

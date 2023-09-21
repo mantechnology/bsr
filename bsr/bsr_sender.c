@@ -646,6 +646,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio_and_error m;
 	enum bsr_req_event what;
 	struct bsr_peer_device* peer_device;
+	struct net_conf *nc;
+	bool all_prot_a = true;
 #ifdef _WIN
 	struct bio *bio = NULL;
 	int error = 0;
@@ -840,6 +842,17 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 				wake_up(&peer_device->connection->sender_work.q_wait);
 			}
 		}
+
+		// BSR-1116 verify that all connected nodes are asynchronous replication.
+		if (all_prot_a && peer_device->connection) {
+			if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
+				rcu_read_lock();
+				nc = rcu_dereference(peer_device->connection->transport.net_conf);
+				if (nc->wire_protocol != BSR_PROT_A)
+					all_prot_a = false;
+				rcu_read_unlock();
+			}
+		}
 	}
 #endif
 
@@ -849,6 +862,17 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 #endif
 	__req_mod(req, what, NULL, &m);
+
+	// BSR-1116 write complete if all connections are asynchronous replication
+	if (all_prot_a) {
+		if (!m.bio && req->req_databuf && (what == COMPLETED_OK)) {
+			m.bio = req->master_bio;
+			m.error = 0;
+			req->i.completed = true;
+			_bsr_end_io_acct(device, req);
+		}
+	}
+
 	spin_unlock_irqrestore(&device->resource->req_lock, flags);
 	put_ldev(device);
 
@@ -4300,13 +4324,14 @@ static int process_one_request(struct bsr_connection *connection)
 
 			// BSR-838
 			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
-#ifdef _WIN
 			// DW-1237 data block has been sent(or failed), put request databuf ref.
-			if (0 == atomic_dec(&req->req_databuf_ref) &&
+			if (0 == atomic_dec_return(&req->req_databuf_ref) && 
 				(req->rq_state[0] & RQ_LOCAL_COMPLETED)) {
-				kfree2(req->req_databuf);
+				if (req->req_databuf) {
+					kfree2(req->req_databuf);
+					atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+				}
 			}
-#endif
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last
