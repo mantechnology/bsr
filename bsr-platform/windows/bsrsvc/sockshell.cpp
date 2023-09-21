@@ -190,6 +190,8 @@ int SockListener(unsigned short *servPort)
 			WriteLog(tmp);
 			return -1;
 		}
+		// BSR-1139
+		CloseHandle(h);
 	}
 	/* NOT REACHED */
 }
