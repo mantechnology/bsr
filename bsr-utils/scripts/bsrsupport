@@ -6,13 +6,25 @@
 ##########################################################################################
 # Variable
 ##########################################################################################
-echo "Check environments...";
+
+BSR_LOG_PATH=`bsrcon /get_log_path`
+
+BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsuupport.log
+echo [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] [bsrsupport] start. > $BSRSUPPORT_LOG
+
+# BSR-1130
+Logging()
+{
+	echo -e ${1}
+	echo -e [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] ${1} >> $BSRSUPPORT_LOG
+}
+
+Logging "[Check environments] start.";
 
 BSR_PATH=/opt/bsr
 HOSTNAME=`hostname`
 SUPPORT_HOME=${BSR_PATH}/support
 
-BSR_LOG_PATH=`bsrcon /get_log_path`
 
 # BSR-976 add option to exclude system log collection to bsrsupport
 # BSR-1117 add bsrsupport options --exclude-system-log, --exclude-perfmon
@@ -36,23 +48,25 @@ BSR_DIR=${SUPPORT_HOME}/${HOSTNAME}/bsr
 SYS_DIR=${SUPPORT_HOME}/${HOSTNAME}/System
 
 if [ ! ${BSR_PATH} ]; then
-	echo "BSR not installed"
+	Logging "BSR not installed"
 	exit -1
 fi
 
 if [ ! $BSR_CONF_FILE ]; then
-	echo " use default BSR configuration file"
+	Logging "use default BSR configuration file"
 	BSR_CONF_FILE=/etc/bsr.conf
 else
-	echo " BSR configuration file: "$BSR_CONF_FILE
+	Logging "BSR configuration file: "$BSR_CONF_FILE
 fi
+Logging "[Check environments] complete.";
+
 
 ##########################################################################################
 # Functions                                                                              #
 ##########################################################################################
 GetBSRInfo()
 {
-	echo "Get BSR Information...";
+	Logging "Get BSR Information...";
 
 	BSR_CFG_DIR=${BSR_DIR}/conf
 	BSR_MOD_DIR=${BSR_DIR}/module
@@ -67,14 +81,18 @@ GetBSRInfo()
 	fi
 	if [ -e /proc/bsr ]; then
 		cat /proc/bsr > ${BSR_DIR}/bsr_state
+		Logging "bsr_state"
 		bsradm show-gi all > ${BSR_DIR}/GI_state
+		Logging "GI_state"
 		cp -rL /sys/module/bsr/* ${BSR_MOD_DIR} 2> /dev/null
+		Logging "Get bsr module info"
 	else
-		echo " bsr module not found."
+		Logging "bsr module not found."
 	fi
 
 	cp -rL /etc/bsr.d/* ${BSR_CFG_DIR} && find ${BSR_CFG_DIR} -type f ! -iname "*.res" -delete
 	cp -L /etc/bsr.conf ${BSR_DIR}
+	Logging "Get bsr config"
 	if [ -f /etc/bsr.d/global_common.conf ]; then
 		cp -L /etc/bsr.d/global_common.conf ${BSR_CFG_DIR}
 	fi
@@ -96,30 +114,35 @@ GetBSRInfo()
 		cp -rL ${BSR_LOG_PATH}/xfs_repair*.log ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/tune2fs*.log ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/fsck*.log ${BSR_LOG_DIR} 2> /dev/null
+		Logging "Get bsr log"
 		if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
 			cp -rL ${BSR_LOG_PATH}/perfmon/* ${BSR_LOG_DIR}/perfmon 2> /dev/null
+			Logging "Get bsr perfmon log"
 		else
-			echo skip collection of perfmon log.
+			Logging "skip collection of perfmon log."
 		fi
 		
 	else
-		echo " bsr log (${BSR_LOG_PATH}) not found."
+		Logging "bsr log (${BSR_LOG_PATH}) not found."
 	fi
 }
 
 GetSystemInfo()
 {
-	echo "Get System information..."
+	Logging "Get System information..."
 
 	# Logs
 	mkdir -p ${SYS_DIR}
 	dmesg > ${SYS_DIR}/dmeg
 	if [ -e "/var/log/messages" ]; then
 		cp -L /var/log/messages* ${SYS_DIR}/
+		Logging "messages"
 	elif [ -e "/var/log/syslog" ]; then
 		cp -L /var/log/syslog ${SYS_DIR}/
+		Logging "syslog"
 	else
 		echo "/var/log/systemlog doesn't exit" > ${SYS_DIR}/none_messages_syslog
+		Logging "none_messages_syslog"
 	fi
 	cp -L /var/log/*.log ${SYS_DIR}/
 
@@ -128,10 +151,12 @@ GetSystemInfo()
 	who -r > ${SYS_DIR}/who_r
 	last >> ${SYS_DIR}/lastlog
 	runlevel > ${SYS_DIR}/runlevel
+	Logging "current states"
 
 	# OS
 	uname -a > ${SYS_DIR}/uname_a
 	cat /etc/*release >> ${SYS_DIR}/os_release
+	Logging "OS"
 
 	# Hardware
 	cat /proc/cpuinfo > ${SYS_DIR}/cpuinfo
@@ -145,7 +170,9 @@ GetSystemInfo()
 		dpkg -l >  ${SYS_DIR}/dpkg_list
 	else
 		echo "package manager doesn't exist" > ${SYS_DIR}/none_pkg_list;
+		Logging "none_pkg_list"
 	fi
+	Logging "hardware"
 
 	# Network Information
 	ip addr > ${SYS_DIR}/ifconfig_a
@@ -155,6 +182,7 @@ GetSystemInfo()
 		lshw -class network > ${SYS_DIR}/ethtoollog
 	else
 		echo "ethtoollog doesn't exit" > ${SYS_DIR}/none_ethtoollog
+		Logging "none_ethtoollog"
 	fi
 
 	if ( which route > /dev/null 2>&1 ); then
@@ -176,6 +204,7 @@ GetSystemInfo()
 		cp -L /etc/sysconfig/network-scripts/*  ${SYS_DIR}/
 	else
 		echo "sysconfig-network doesn't exit" > ${SYS_DIR}/none_sysconfignetworkfile
+		Logging "none_sysconfignetworkfile"
 	fi
 
 	cp -L /etc/hosts ${SYS_DIR}/
@@ -185,12 +214,15 @@ GetSystemInfo()
 		cp -L /etc/hosts.deny ${SYS_DIR}/
 	else
 		echo "/etc/hosts.deny doesn't exit" > ${SYS_DIR}/none_hosts.deny
+		Logging "none_hosts.deny"
 	fi
 	if [ -e "/etc/hosts.allow" ]; then
 		cp -L /etc/hosts.allow ${SYS_DIR}/
 	else
 		echo "/etc/hosts.allow doesn't exit" > ${SYS_DIR}/none_hosts.allow
+		Logging "none_hosts.allow"
 	fi
+	Logging "network"
 
 	# Bonding Information
 	BON_DIR="/proc/net/bonding"
@@ -204,9 +236,12 @@ GetSystemInfo()
 	mkdir -p ${SKEL_DIR}
 	mkdir -p ${USR_DIR}
 
+	Logging "bonding"
+
 	# sshd_config
 	if [ -e /etc/ssh/sshd_config ]; then
 		cp -L /etc/ssh/sshd_config ${SYS_DIR}/
+		Logging "sshd_config"
 	fi
 
 	# bash info
@@ -214,6 +249,7 @@ GetSystemInfo()
 		cp -L /etc/skel/.bash_logout ${SKEL_DIR}/bash_logout
 	else
 		echo "/etc/skel/.bash_logout doesn't exit" > ${SKEL_DIR}/none_bash_logout
+		Logging "none_bash_logout"
 	fi
 
 	if [ -e "/etc/skel/.bash_profile" ]; then				# redhat
@@ -222,12 +258,14 @@ GetSystemInfo()
 		cp -L /etc/skel/.profile ${SKEL_DIR}/profile
 	else
 		echo "bash profile doesn't exit" > ${SKEL_DIR}/none_bash_profile
+		Logging "none_bash_profile"
 	fi
 
 	if [ -e "/etc/skel/.bashrc" ]; then
 		cp -L /etc/skel/.bashrc ${SKEL_DIR}/bash_bashrc
 	else
 		echo "/etc/skel/.bashrc doesn't exit" > ${SKEL_DIR}/none_bashrc
+		Logging "none_bashrc"
 	fi
 
 	if [ -e /root/.bash_profile ]; then					# redhat
@@ -236,9 +274,12 @@ GetSystemInfo()
 		cp -L /root/.profile ${USR_DIR}/root_profile
 	else
 		echo "/root/.profile doesn't exit" > ${USR_DIR}/none_root_profile
+		Logging "none_root_profile"
 	fi
 
 	cp -L /root/.bashrc ${USR_DIR}/root_bashrc
+
+	Logging "bash info"
 
 	# system config
 	ETC_CFG_DIR=${SYS_DIR}/etcConfig
@@ -255,10 +296,13 @@ GetSystemInfo()
 	cp -rnL /etc/rc*.d/* ${RC_CFG_DIR}/
 	cp -rL /etc/fstab* ${ETC_FSTAB_DIR}/
 
+	Logging "system config"
+
 	# device list
 	cp -L /etc/modprobe.d/*  ${MODPROBE_DIR}
 	ls -l /dev  > ${SYS_DIR}/deviceList
 	lsmod > ${SYS_DIR}/lsmodList
+	Logging "device list"
 
 	# disk Information
 	lsblk > ${SYS_DIR}/lsblk
@@ -270,12 +314,14 @@ GetSystemInfo()
 	if [ -e "/usr/bin/lshw" ] || [ -e "/usr/sbin/lshw" ]; then
 		lshw -c disk > ${SYS_DIR}/lshw_disk
 	fi
+	Logging "disk Information"
 
 	# Process Information
 	ps -ALf > ${SYS_DIR}/processInfo
-
+	Logging "processInfo"
 	# sysctl Information
 	sysctl -a > ${SYS_DIR}/sysCtlInfo 2> /dev/null
+	Logging "sysCtlInfo"
 
 	# system configure
 	SELIX_DIR=${SYS_DIR}/selinux
@@ -289,7 +335,9 @@ GetSystemInfo()
 		cp -L /etc/selinux/config ${SELIX_DIR}/
 	else
 		echo "/etc/selinux/config doesn't exit." > ${SELIX_DIR}/none_selinux_config
+		Logging "none_selinux_config"
 	fi
+	Logging "system configure"
 
 	# services
 	if ( which service > /dev/null 2>&1 ); then
@@ -304,6 +352,8 @@ GetSystemInfo()
 		systemctl list-unit-files --type=service -q --no-pager >> ${SYS_DIR}/systemctl_list 
 	fi
 
+	Logging "service"
+
 	# firewalls
 	if [ -f "/sbin/iptables" ]; then			# redhat 6, 7, devian
 		iptables -L  > ${SYS_DIR}/iptableList
@@ -314,11 +364,12 @@ GetSystemInfo()
 		firewall-cmd --zone=public --list-ports > ${SYS_DIR}/firewalld_public
 		firewall-cmd --permanent --zone=public --list-ports > ${SYS_DIR}/firewalld_permanent_public
 	fi
+	Logging "firewalls"
 }
 
 GetBSRStatus()
 {
-	echo "Get BSR Status information...";
+	Logging "Get BSR Status information...";
 
 	BSR_STATUS_DIR=${BSR_DIR}/status
 
@@ -332,7 +383,7 @@ GetBSRStatus()
 
 Archive()
 {
-	echo "Archive files..."
+	Logging "Archive files..."
 
 	if [ -d ${SUPPORT_HOME}/${HOSTNAME} ]; then
 		dt=$(date '+%Y%m%d.%H%M%S');
@@ -342,9 +393,9 @@ Archive()
 		tar --remove-files -zcvf "${SUPPORT_HOME}/${ARCHIVE_NAME}" ${HOSTNAME}
 
 		echo ""
-		echo "Saved to ${SUPPORT_HOME}/${ARCHIVE_NAME}"
+		Logging "Saved to ${SUPPORT_HOME}/${ARCHIVE_NAME}"
 	else
-		echo "No gathered information."
+		Logging "No gathered information."
 	fi
 }
 
@@ -361,16 +412,16 @@ GetCoreDumpFile()
 		dst_core_filename="${BSR_DIR}/${filename}.tar.gz"
 		/bin/tar zcvf ${dst_core_filename} -C ${filepath} ${filename};
 
-		echo "core file has been compressed.";
+		Logging "core file has been compressed.";
 	else
-		echo "core file is not included.";
+		Logging "core file is not included.";
 	fi
 }
 
 # BSR-675 add debugfs info to support file
 GetBSRDebugfs()
 {
-	echo "Get BSR debugfs...";
+	Logging "Get BSR debugfs...";
 
 	DEBUGFS_DIR=${BSR_DIR}/debugfs
 	mkdir -p ${DEBUGFS_DIR}
@@ -385,15 +436,29 @@ GetBSRDebugfs()
 ##########################################################################################
 
 # Get Informations.
+Logging "[GetCoreDumpFile] start."
 GetCoreDumpFile "$CORE_FILE_PATH"
+Logging "[GetCoreDumpFile] complete."
+Logging "[GetBSRInfo] start."
 GetBSRInfo
+Logging "[GetBSRInfo] complete."
 
 # BSR-976 add option to exclude system log collection to bsrsupport
 if [ 0 -eq ${#EXCLUDE_SYSLOG} ]; then
+	Logging "[GetSystemInfo] start."
 	GetSystemInfo
+	Logging "[GetSystemInfo] complete."
 else
-	echo skip collection of system log.
+	Logging "skip collection of system log."
 fi
+Logging "[GetBSRStatus] start."
 GetBSRStatus
+Logging "[GetBSRStatus] complete."
+Logging "[GetBSRDebugfs] start."
 GetBSRDebugfs
+Logging "[GetBSRDebugfs] complete."
+Logging "[Archive] start."
 Archive
+Logging "[Archive] complete."
+
+echo [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] [bsrsupport] complete. >> $BSRSUPPORT_LOG
