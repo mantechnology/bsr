@@ -137,7 +137,7 @@ extern void get_log_path();
 // BSR-1031
 extern void set_exec_log(int argc, char** argv);
 extern void bsr_exec_log();
-extern void bsr_terminate_log(int rv);
+extern void bsr_done_log(int rv);
 
 
 FILE *bsr_open_log();
