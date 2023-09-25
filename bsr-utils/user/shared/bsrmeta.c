@@ -4519,7 +4519,7 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 
 		close(0); /* we do not use stdin */
 		execvp(argv[0], argv);
-		bsr_terminate_log(0);
+		bsr_done_log(0);
 		_exit(0);
 	}
 	/* parent */
@@ -5705,7 +5705,7 @@ int main(int argc, char **argv)
 	if (minor_attached)
 		CLI_ERRO_LOG_STDERR(false, "# Output might be stale, since minor %d is attached", cfg->minor);
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 	/* and if we want an explicit free,

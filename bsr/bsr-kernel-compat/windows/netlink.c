@@ -667,7 +667,7 @@ NetlinkWorkThread(PVOID context)
 				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
 					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
 				} else {
-					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution terminated. (pending command:%d)", pops->str, cmd, netlink_work_thread_cnt - 1);
+					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", pops->str, cmd, netlink_work_thread_cnt - 1);
 				}
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);

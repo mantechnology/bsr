@@ -5760,7 +5760,7 @@ int main(int argc, char **argv)
 	if ((context & CTX_MINOR) && !cmd->lockless)
 		dt_unlock_bsr(lock_fd);
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 }
