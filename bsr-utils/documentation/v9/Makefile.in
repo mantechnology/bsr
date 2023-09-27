@@ -31,7 +31,6 @@ DESTDIR ?= /
 CREATE_MAN_LINK ?= yes
 
 MANPAGES       := bsrsetup.8 bsr.conf.5 bsr.8 bsradm.8 bsrmeta.8
-MANPAGES       += bsr-overview.8
 
 STYLESHEET_PREFIX ?= http://docbook.sourceforge.net/release/xsl/current
 MANPAGES_STYLESHEET ?= $(STYLESHEET_PREFIX)/manpages/docbook.xsl
@@ -105,7 +104,7 @@ FORCE:
 
 # Don't try to re-make files tracked in git
 FILES_IN_GIT := # $(shell git ls-files)
-FILES_IN_GIT += Makefile.in bsr-overview.xml bsr.conf.xml.in bsr.conf.xsl
+FILES_IN_GIT += Makefile.in bsr.conf.xml.in bsr.conf.xsl
 FILES_IN_GIT += bsr.xml bsradm.xml bsrmeta.xml bsrsetup-options.xml
 FILES_IN_GIT += bsrsetup.xml.in bsrsetup.xsl xml-usage-to-docbook.xsl
 $(FILES_IN_GIT): ;
