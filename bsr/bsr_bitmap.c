@@ -1841,6 +1841,8 @@ extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *peer_device)
 
 		if (((pByte[BM_SECT_TO_BIT(bit)] >> (bit % BITS_PER_BYTE)) & 0x01) == 1)
 			s++;
+		// BSR-1134 fix prevent disconnection due to CPU occupation
+		cond_resched();
 	}
 
 	// BSR-835 if kref is 0, the bitmap buffer needs to be freed
