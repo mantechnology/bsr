@@ -648,6 +648,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bsr_peer_device* peer_device;
 	struct net_conf *nc;
 	bool all_prot_a = true;
+	// BSR-843
+	bool oos_pending = false;
 #ifdef _WIN
 	struct bio *bio = NULL;
 	int error = 0;
@@ -835,6 +837,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		if (peer_device->connection->agreed_pro_version >= 113) {
 			int idx = peer_device ? 1 + peer_device->node_id : 0;
 			if (req->rq_state[idx] & RQ_OOS_PENDING) {
+				// BSR-843
+				oos_pending = true;
 				// DW-2058 set out of sync again before sending.
 				bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
@@ -863,13 +867,19 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #endif
 	__req_mod(req, what, NULL, &m);
 
-	// BSR-1116 write complete if all connections are asynchronous replication
-	if (all_prot_a) {
-		if (!m.bio && req->req_databuf && (what == COMPLETED_OK)) {
+	// BSR-1116 asynchronous replication improves local write performance by completing local writes from write-complete-callback, whether or not data is transferred.
+	if (what == COMPLETED_OK) {
+		if (!m.bio && all_prot_a && 
+			(req->req_databuf ||
+			// BSR-843 requests to send OOS due to congestion improve local write performance during congestion by completing local write in a write-complete-callback, whether or not OOS is transferred.
+			oos_pending)) {
 			m.bio = req->master_bio;
 			m.error = 0;
 			req->i.completed = true;
 			_bsr_end_io_acct(device, req);
+
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
+				req->local_complete_ts = timestamp();
 		}
 	}
 

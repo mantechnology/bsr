@@ -440,9 +440,13 @@ void bsr_req_destroy(struct kref *kref)
 
 	// DW-1961
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
-		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)",
+		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk_io(%lldus) local_io(%lldus) total(%lldus) io_depth(%d)",
 			req, req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
-			timestamp_elapse(__FUNCTION__, req->created_ts, req->io_request_ts), timestamp_elapse(__FUNCTION__, req->io_request_ts, req->io_complete_ts), timestamp_elapse(__FUNCTION__, req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
+			timestamp_elapse(__FUNCTION__, req->created_ts, req->io_request_ts), 
+			timestamp_elapse(__FUNCTION__, req->io_request_ts, req->io_complete_ts), 
+			timestamp_elapse(__FUNCTION__, req->created_ts, req->local_complete_ts), 
+			timestamp_elapse(__FUNCTION__, req->created_ts, timestamp()), 
+			atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
 
 	device_refs++; /* In both branches of the if the reference to device gets released */
@@ -918,6 +922,9 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 			* But we mark it as "complete", so it won't be counted as
 			* conflict in a multi-primary setup. */
 			req->i.completed = true;
+
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
+				req->local_complete_ts = timestamp();
 		}
 		req->master_bio = NULL;
 	}
