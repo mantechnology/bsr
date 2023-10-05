@@ -911,6 +911,7 @@ struct bsr_request {
 	LONGLONG created_ts;			// req created
 	LONGLONG io_request_ts;			// Before delivering an io request to disk
 	LONGLONG io_complete_ts;		// Received io completion from disk
+	LONGLONG local_complete_ts;		// Local I/O write complete
 	LONGLONG net_sent_ts[BSR_PEERS_MAX];			// Send request to peer
 	LONGLONG net_done_ts[BSR_PEERS_MAX];			// Received a response from peer
 
