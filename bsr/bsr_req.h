@@ -367,6 +367,8 @@ extern void _tl_restart(struct bsr_connection *connection, enum bsr_req_event wh
 extern void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req);
 extern bool bsr_should_do_remote(struct bsr_peer_device *, enum which_state);
 
+extern void bsr_free_accelbuf(struct bsr_device *device, char *buf, int size);
+
 // DW-1755
 extern void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error);
 

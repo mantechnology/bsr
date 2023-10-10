@@ -3012,6 +3012,10 @@ void print_device_statistics(int indent,
 
 			WRAP_PRINT_INT(indent, "al-used", U32,
 				new->dev_al_used);
+
+			WRAP_PRINT_INT(indent, "accelbuf-used", U64,
+				new->dev_accelbuf_used);
+
 		}
 	}
 	if ((!old ||

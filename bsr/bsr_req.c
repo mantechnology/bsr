@@ -44,73 +44,18 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 {
 	struct bsr_request *req;
 	int i;
-	int size; 
-	int64_t accelbuf_size = device->resource->res_opts.accelbuf_size;
 
 	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
-#ifdef _LIN
-	BSR_BIO_VEC_TYPE bvec;
-	BSR_ITER_TYPE iter;
-	unsigned char *d;
-	int len = 0;
-#endif
 	if (!req)
 		return NULL;
 
 	memset(req, 0, sizeof(*req));
-	size = BSR_BIO_BI_SIZE(bio_src);
-
-	// BSR-1116 buffering write data to improve local write performance for asynchronous replication
-#ifdef _WIN
-	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
-		req->req_databuf = kmalloc(size, 0, '63SB');
-		if (!req->req_databuf) {
-			mempool_free(req, &bsr_request_mempool);
-			return NULL;
-		}
-		atomic_add64(size, &device->accelbuf_used);
-		memcpy(req->req_databuf, bio_src->bio_databuf, size);
-		req->bio_status.size = size;
-	}
-#else
-#ifdef _LIN_SEND_BUF
-	if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
-		req->req_databuf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
-		if (!req->req_databuf) {
-			mempool_free(req, bsr_request_mempool);
-			return NULL;
-		}
-		req->bio_status.size = size;
-		atomic_add64(size, &device->accelbuf_used);
-		bio_for_each_segment(bvec, bio_src, iter) {
-			d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
-			memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
-			bsr_kunmap_atomic(d, KM_USER0);
-
-			len += bvec BVD bv_len;
-
-#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-			if (bio_op(bio_src) == REQ_OP_WRITE_SAME) {
-				break;
-			}
-#endif
-		}
-	}
-#endif
-#endif
-	// DW-1237 set request data buffer ref to 1 for local I/O.
-	atomic_set(&req->req_databuf_ref, 1);
 
 #ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
 	if (bsr_req_make_private_bio(device, req, bio_src) == false) {
 #else
     if (bsr_req_make_private_bio(req, bio_src) == false) {
 #endif
-		if (req->req_databuf) {
-			// DW-689
-			kfree2(req->req_databuf);
-			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
-		}
 		mempool_free(req, bsr_request_mempool);
 		return NULL;
     }
@@ -120,10 +65,7 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 #ifdef _WIN
 	// DW-776 (private bio's buffer is invalid when memory-overflow occured)
-	if (req->req_databuf)
-		req->private_bio->bio_databuf = req->req_databuf;
-	else
-		req->private_bio->bio_databuf = bio_src->bio_databuf;
+	req->private_bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
 	kref_get(&device->kref);
@@ -177,6 +119,12 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	return req;
 }
 
+void bsr_free_accelbuf(struct bsr_device *device, char *buf, int size)
+{
+	bsr_kfree(buf);
+	atomic_sub64(size, &device->accelbuf_used);
+}
+
 void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 {
 	struct bsr_connection *connection;
@@ -204,8 +152,8 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 	if (!queued) {
 		if (req->req_databuf) {
 			// DW-596 required to verify to free req_databuf at this point
-			kfree2(req->req_databuf);
-			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&resource->req_write_cnt);
@@ -461,11 +409,10 @@ void bsr_req_destroy(struct kref *kref)
 				bsr_queue_peer_ack(resource, peer_ack_req);
 				peer_ack_req = NULL;
 			} else {
-#ifdef _WIN
 				if (peer_ack_req->req_databuf) {
-					kfree2(peer_ack_req->req_databuf);
+					bsr_free_accelbuf(peer_ack_req->device, peer_ack_req->req_databuf, peer_ack_req->bio_status.size);
+					peer_ack_req->req_databuf = NULL;
 				}
-#endif
 				// DW-1925 improvement req-buf-size
 				atomic_dec(&resource->req_write_cnt);
 				mempool_free(peer_ack_req, bsr_request_mempool);
@@ -481,8 +428,8 @@ void bsr_req_destroy(struct kref *kref)
 			resource->last_peer_acked_dagtag = req->dagtag_sector;
 	} else {
 		if (req->req_databuf) {
-			kfree2(req->req_databuf);
-			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&req->device->resource->req_write_cnt);
@@ -1191,8 +1138,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
 		if (0 == atomic_dec_return(&req->req_databuf_ref)) {
-			kfree2(req->req_databuf);
-			atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
 	}
 
@@ -2011,13 +1958,15 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 
 /* returns the number of connections expected to actually write this data,
  * which does NOT include those that we are L_AHEAD for. */
-static int bsr_process_write_request(struct bsr_request *req)
+static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 {
 	struct bsr_device *device = req->device;
 	struct bsr_peer_device *peer_device;
 	bool in_tree = false;
 	int remote, send_oos;
 	int count = 0;
+
+	*all_prot_a = true;
 
 	for_each_peer_device(peer_device, device) {
 		remote = bsr_should_do_remote(peer_device, NOW);
@@ -2040,6 +1989,14 @@ static int bsr_process_write_request(struct bsr_request *req)
 		D_ASSERT(device, !(remote && send_oos));
 
 		if (remote) {
+			u32 prot;
+			rcu_read_lock();
+			prot = rcu_dereference(peer_device->connection->transport.net_conf)->wire_protocol;
+			rcu_read_unlock();
+
+			if (prot != BSR_PROT_A)
+				*all_prot_a = false;
+
 			++count;
 			// DW-1237 get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
@@ -2546,6 +2503,28 @@ eof:
 	return 0;
 }
 
+char* bsr_alloc_accelbuf(struct bsr_device *device, int size)
+{
+	char* buf = NULL;
+
+	// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
+	// the purpose of accelbuf is to improve the local write performance of small-sized writes.
+	if (size <= device->resource->res_opts.max_accelbuf_blk_size) {
+		int64_t accelbuf_size = device->resource->res_opts.accelbuf_size;
+		// BSR-1116 buffering write data to improve local write performance for asynchronous replication
+		if ((atomic_read64(&device->accelbuf_used) + size) < accelbuf_size) {
+#ifdef _WIN
+			buf = kmalloc(size, 0, '63SB');
+#else
+			buf = bsr_kmalloc(size, GFP_ATOMIC, '63SB');
+#endif
+			if (buf) {
+				atomic_add64(size, &device->accelbuf_used);
+			}
+		}
+	}
+	return buf;
+}
 
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
@@ -2635,6 +2614,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	}
 
 	if (rw == WRITE) {
+		bool all_prot_a = true;
 		if (req->private_bio && !may_do_writes(device)) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
@@ -2651,8 +2631,48 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 			/* The only size==0 bios we expect are empty flushes. */
 			D_ASSERT(device, req->master_bio->bi_opf & BSR_REQ_PREFLUSH);
 			_req_mod(req, QUEUE_AS_BSR_BARRIER, NULL);
-		} else if (!bsr_process_write_request(req))
+		} else if (!bsr_process_write_request(req, &all_prot_a)) {
 			no_remote = true;
+		}
+		// BSR-1145 check the status of the connected node and allocate it. 
+		// accelbuf is only used when all connected nodes use asynchronous replication.
+		else if (all_prot_a) {
+			int size;
+			size = BSR_BIO_BI_SIZE(req->private_bio);
+			req->req_databuf = bsr_alloc_accelbuf(device, size);
+
+			if (req->req_databuf) {
+#ifdef _WIN
+				memcpy(req->req_databuf, req->private_bio->bio_databuf, size);
+				req->bio_status.size = size;
+#else
+#ifdef _LIN_SEND_BUF
+				BSR_BIO_VEC_TYPE bvec;
+				BSR_ITER_TYPE iter;
+				unsigned char *d;
+				int len = 0;
+
+				req->bio_status.size = size;
+				bio_for_each_segment(bvec, req->private_bio, iter) {
+					d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+					memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
+					bsr_kunmap_atomic(d, KM_USER0);
+					len += bvec BVD bv_len;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+					if (bio_op(req->private_bio) == REQ_OP_WRITE_SAME) {
+						break;
+					}
+#endif
+				}
+#endif
+#endif
+				// DW-1237 set request data buffer ref to 1 for local I/O.
+				atomic_inc(&req->req_databuf_ref);
+#ifdef _WIN
+				req->private_bio->bio_databuf = req->req_databuf;
+#endif
+			}
+		}
 		wake_all_senders(resource);
 	} else {
 		if (peer_device) {

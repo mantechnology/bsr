@@ -150,6 +150,8 @@ GENL_struct(BSR_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u32_field_def(15, 0 /* OPTIONAL */, on_req_write_congestion, BSR_ON_REQ_WRITE_CONGESTION_DEF)	// DW-1925
 	// BSR-1116
 	__u64_field_def(16, BSR_GENLA_F_MANDATORY, accelbuf_size, BSR_ACCELBUF_SIZE_DEF)
+	// BSR-1145
+	__u64_field_def(17, BSR_GENLA_F_MANDATORY, max_accelbuf_blk_size, BSR_MAX_ACCELBUF_BLK_SIZE_DEF)
 )
 
 GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
@@ -287,6 +289,7 @@ GENL_struct(BSR_NLA_DEVICE_STATISTICS, 20, device_statistics,
 	__bin_field(14, 0, history_uuids, HISTORY_UUIDS * sizeof(__u64))
 	__u32_field(15, 0, dev_al_pending_changes) /* Number of AL extents currently waiting to commit */
 	__u32_field(16, 0, dev_al_used)  /* Number of AL extents currently in use */
+	__u64_field(17, 0, dev_accelbuf_used)
 )
 
 GENL_struct(BSR_NLA_CONNECTION_STATISTICS, 21, connection_statistics,

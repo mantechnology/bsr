@@ -11045,8 +11045,8 @@ void req_destroy_after_send_peer_ack(struct kref *kref)
 	list_del(&req->tl_requests);
 
 	if (req->req_databuf) {
-		kfree2(req->req_databuf);
-		atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+		bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+		req->req_databuf = NULL;
 	}
 
 	// DW-1925 improvement req-buf-size
@@ -11894,8 +11894,8 @@ static void destroy_request(struct kref *kref)
 
 	list_del(&req->tl_requests);
 	if (req->req_databuf) {
-		kfree2(req->req_databuf);
-		atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
+		bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+		req->req_databuf = NULL;
 	}
 	// DW-1925 improvement req-buf-size
 	atomic_dec(&req->device->resource->req_write_cnt);
