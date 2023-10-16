@@ -5929,7 +5929,7 @@ static void device_to_statistics(struct device_statistics *s,
 	s->dev_bm_writes = device->bm_writ_cnt;
 	s->dev_upper_pending = atomic_read(&device->ap_bio_cnt[READ]) +
 		atomic_read(&device->ap_bio_cnt[WRITE]);
-	s->dev_accelbuf_used = atomic_read64(&device->accelbuf_used);
+	s->dev_accelbuf_used = atomic_read64(&device->accelbuf.used_size);
 	s->dev_lower_pending = atomic_read(&device->local_cnt);
 	s->dev_al_suspended = test_bit(AL_SUSPENDED, &device->flags);
 	s->dev_exposed_data_uuid = device->exposed_data_uuid;

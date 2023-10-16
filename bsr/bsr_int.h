@@ -75,7 +75,7 @@
 #include "bsr_send_buf.h"
 #endif
 
-#include "./bsr_idx_ring.h"
+#include "./bsr_ring.h"
 
 #define kfree2(x) if((x)) {bsr_kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
@@ -130,15 +130,15 @@ extern atomic_t g_bsrmon_run;
 // BSR-764
 extern SIMULATION_PERF_DEGR g_simul_perf;
 
-struct log_idx_ring_buffer_t {
-	struct idx_ring_buffer h;
+struct log_bsr_idx_ring_buffer_t {
+	struct bsr_idx_ring_buffer h;
 	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
 	atomic_t64 missing_count;
 	spinlock_t lock;
 	int path_changed; // BSR-1112
 };
 
-extern struct log_idx_ring_buffer_t gLogBuf;
+extern struct log_bsr_idx_ring_buffer_t gLogBuf;
 extern atomic_t64 gLogCnt;
 
 extern enum bsr_thread_state g_consumer_state;
@@ -2331,9 +2331,10 @@ struct bsr_device {
 #ifdef _LIN
 	atomic_t mounted_cnt;
 #endif
-	// BSR-1116
-	atomic_t64 accelbuf_used;
+	// BSR-1145
+	struct bsr_offset_buffer accelbuf;
 };
+
 
 struct bsr_bm_aio_ctx {
 	struct bsr_device *device;

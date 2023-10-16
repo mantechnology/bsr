@@ -177,7 +177,7 @@ module_param(two_phase_commit_fail, int, 0644);
 #endif
 
 // BSR-578
-struct log_idx_ring_buffer_t gLogBuf;
+struct log_bsr_idx_ring_buffer_t gLogBuf;
 atomic_t64 gLogCnt;
 
 enum bsr_thread_state g_consumer_state;
@@ -3895,6 +3895,9 @@ void bsr_destroy_device(struct kref *kref)
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
 
+	// BSR-1145
+	bsr_offset_ring_free(&device->accelbuf);
+
 	kref_debug_destroy(&device->kref_debug);
 
 	bsr_kfree(device);
@@ -5130,7 +5133,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set(&device->notify_flags, 0);
 
 	// BSR-1116
-	atomic_set64(&device->accelbuf_used, 0);
+	atomic_set64(&device->accelbuf.used_size, 0);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
@@ -5976,7 +5979,7 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 
-				if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+				if (!bsr_idx_ring_consume(&gLogBuf.h, &idx)) {
 					msleep(100); // wait 100ms relative
 					continue;
 				}
@@ -6079,7 +6082,7 @@ int log_consumer_thread(void *unused)
 #endif
 				logFileSize = 0;
 			}
-			idx_ring_dispose(&gLogBuf.h, buffer);
+			bsr_idx_ring_dispose(&gLogBuf.h, buffer);
 		}
 	}
 
