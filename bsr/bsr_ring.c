@@ -140,15 +140,17 @@ char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *
 #else
 			buf->buf = (char *)bsr_kvmalloc(new_size, GFP_ATOMIC | __GFP_NOWARN);
 #endif
-			if (!buf->buf)
+			if (!buf->buf) {
+				bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
 				return NULL;
+			}
 
 			memset(buf->buf, 0, new_size);
 
 			atomic_set(&buf->r_offset.acquired, 0);
 			atomic_set(&buf->r_offset.disposed, 0);
 
-			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "offset buffer allocation for %s, size %d", name, new_size);
+			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "allocation of offset buffer to %s, size %d", name, new_size);
 			buf->total_size = new_size;
 		}
 	}
@@ -168,15 +170,17 @@ char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *
 #else
 			buf->buf = (char *)bsr_kvmalloc(new_size, GFP_ATOMIC | __GFP_NOWARN);
 #endif
-			if (!buf->buf)
+			if (!buf->buf) {
+				bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
 				return NULL;
+			}
 
 			memset(buf->buf, 0, new_size);
 
 			atomic_set(&buf->r_offset.acquired, 0);
 			atomic_set(&buf->r_offset.disposed, 0);
 
-			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "offset buffer allocation for %s, size %d", name, new_size);
+			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "allocation of offset buffer to %s, size %d", name, new_size);
 			buf->total_size = new_size;
 		}
 	}
@@ -258,35 +262,29 @@ bool bsr_offset_ring_acquire(struct bsr_offset_buffer *buf, int *offset, int siz
 
 	if (acquired < disposed) {
 		if (next < disposed) {
-			if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) {
+			if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) 
 				return false;
-			}
-		}
-		else {
+		} else {
 			return false;
 		}
-	}
-	else {
+	} else {
 		if (buf_size <= next) {
 			h = (struct bsr_offset_ring_header*)(buf->buf + acquired);
 			next = size;
 			if (next < disposed) {
-				if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) {
+				if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) 
 					return false;
-				}
-				if ((acquired + sizeof(struct bsr_offset_ring_header)) < buf_size) {
+				// BSR-1145 set the OFFSET_MOVE_TO_THE_FRONT flag if the remaining buffer size is less than the request size and moves for the front
+				// if the size left in the buffer is less than the header, the flags is not set.
+				if ((acquired + sizeof(struct bsr_offset_ring_header)) < buf_size) 
 					h->flags = OFFSET_MOVE_TO_THE_FRONT;
-				}
 				acquired = 0;
-			}
-			else {
+			} else {
 				return false;
 			}
-		}
-		else {
-			if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) {
+		} else {
+			if (atomic_cmpxchg(&buf->r_offset.acquired, acquired, next) != acquired) 
 				return false;
-			}
 		}
 	}
 
