@@ -177,7 +177,7 @@ module_param(two_phase_commit_fail, int, 0644);
 #endif
 
 // BSR-578
-struct log_bsr_idx_ring_buffer_t gLogBuf;
+struct bsr_log_idx_ring_buffer_t  gLogBuf;
 atomic_t64 gLogCnt;
 
 enum bsr_thread_state g_consumer_state;

@@ -155,7 +155,7 @@ char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *
 		}
 	}
 	else {
-		if (buf->total_size != (LONGLONG)new_size) {
+		if (buf->total_size != new_size) {
 			// BSR-1145 when reallocating a buffer, if the buffer is in use, it returns NULL to deactivate the buffer and then reassign it.
 			if (atomic_read64(&buf->used_size)){
 				return NULL;
@@ -253,7 +253,7 @@ bool bsr_offset_ring_dispose(struct bsr_offset_buffer *buf, int offset)
 bool bsr_offset_ring_acquire(struct bsr_offset_buffer *buf, int *offset, int size)
 {
 	int acquired = 0, disposed = 0, next = 0;
-	LONGLONG buf_size = buf->total_size;
+	u64 buf_size = buf->total_size;
 	struct bsr_offset_ring_header* h;
 
 	acquired = atomic_read(&buf->r_offset.acquired);
@@ -276,7 +276,7 @@ bool bsr_offset_ring_acquire(struct bsr_offset_buffer *buf, int *offset, int siz
 					return false;
 				// BSR-1145 set the OFFSET_MOVE_TO_THE_FRONT flag if the remaining buffer size is less than the request size and moves for the front
 				// if the size left in the buffer is less than the header, the flags is not set.
-				if ((acquired + sizeof(struct bsr_offset_ring_header)) < buf_size) 
+				if ((u64)(acquired + sizeof(struct bsr_offset_ring_header)) < buf_size)
 					h->flags = OFFSET_MOVE_TO_THE_FRONT;
 				acquired = 0;
 			} else {
