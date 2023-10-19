@@ -646,8 +646,6 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio_and_error m;
 	enum bsr_req_event what;
 	struct bsr_peer_device* peer_device;
-	struct net_conf *nc;
-	bool all_prot_a = true;
 	// BSR-843
 	bool oos_pending = false;
 #ifdef _WIN
@@ -846,17 +844,6 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 				wake_up(&peer_device->connection->sender_work.q_wait);
 			}
 		}
-
-		// BSR-1116 verify that all connected nodes are asynchronous replication.
-		if (all_prot_a && peer_device->connection) {
-			if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
-				rcu_read_lock();
-				nc = rcu_dereference(peer_device->connection->transport.net_conf);
-				if (nc->wire_protocol != BSR_PROT_A)
-					all_prot_a = false;
-				rcu_read_unlock();
-			}
-		}
 	}
 #endif
 
@@ -869,7 +856,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	// BSR-1116 asynchronous replication improves local write performance by completing local writes from write-complete-callback, whether or not data is transferred.
 	if (what == COMPLETED_OK) {
-		if (!m.bio && all_prot_a && 
+		if (!m.bio &&
 			(req->req_databuf ||
 			// BSR-843 requests to send OOS due to congestion improve local write performance during congestion by completing local write in a write-complete-callback, whether or not OOS is transferred.
 			oos_pending)) {
@@ -4334,14 +4321,6 @@ static int process_one_request(struct bsr_connection *connection)
 
 			// BSR-838
 			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
-			// DW-1237 data block has been sent(or failed), put request databuf ref.
-			if (0 == atomic_dec_return(&req->req_databuf_ref) && 
-				(req->rq_state[0] & RQ_LOCAL_COMPLETED)) {
-				if (req->req_databuf) {
-					kfree2(req->req_databuf);
-					atomic_sub64(req->bio_status.size, &req->device->accelbuf_used);
-				}
-			}
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last
@@ -4384,6 +4363,16 @@ static int process_one_request(struct bsr_connection *connection)
 	}
 
 	spin_lock_irq(&connection->resource->req_lock);
+
+	// BSR-1145 bsr_free_accelbuf() needs to be called from req_lock due to an internal call function.
+	// DW-1237 data block has been sent(or failed), put request databuf ref.
+	if (req->req_databuf && 0 == atomic_dec_return(&req->req_databuf_ref)) {
+		if (req->rq_state[0] & RQ_LOCAL_COMPLETED) {
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
+		}
+	}
+
 	__req_mod(req, what, peer_device, &m);
 
 	/* As we hold the request lock anyways here,

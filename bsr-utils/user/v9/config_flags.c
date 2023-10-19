@@ -1153,6 +1153,8 @@ struct context_def resource_options_ctx = {
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
 		// BSR-1116 set buffer size to improve local write performance during asynchronous replication										
 		{ "accelbuf-size", NUMERIC(accelbuf_size, ACCELBUF_SIZE), .unit = "bytes" },
+		// BSR-1145 accelbuf sets the applied write size because it aims to improve the local write performance of small unit writes
+		{ "max-accelbuf-blk-size", NUMERIC(max_accelbuf_blk_size, MAX_ACCELBUF_BLK_SIZE), .unit = "bytes" },
 		{ } },
 };
 
