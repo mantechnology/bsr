@@ -112,7 +112,7 @@
     <ClCompile Include="..\..\..\bsr\bsr_log.c">
       <Filter>bsr</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\bsr\bsr_idx_ring.c">
+    <ClCompile Include="..\..\..\bsr\bsr_ring.c">
       <Filter>bsr</Filter>
     </ClCompile>
   </ItemGroup>
@@ -288,14 +288,14 @@
     <ClInclude Include="..\..\..\bsr-headers\bsr.h">
       <Filter>bsr-headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\bsr\bsr_idx_ring.h">
-      <Filter>bsr</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\linux\bsr_linux_ioctl.h">
       <Filter>bsr-headers\linux</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\bsr-headers\bsr_ioctl.h">
       <Filter>bsr-headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\bsr\bsr_ring.h">
+      <Filter>bsr</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

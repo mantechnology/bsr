@@ -890,20 +890,20 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor, 
 			if (m == explicit_minor)
 				return;
 
-			err("%s:%d: explicit minor number must match with device name\n"
+			err("%s:%d: Parse error: '%s', explicit minor number must match with device name\n"
 				"\tTry \"device /dev/bsr%u minor %u;\",\n"
 				"\tor leave off either device name or explicit minor.\n"
 				"\tArbitrary device names must start with /dev/bsr_\n"
 				"\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
-				config_file, fline, explicit_minor, explicit_minor);
+				config_file, fline, devname, explicit_minor, explicit_minor);
 			config_valid = 0;
 			return;
 		} else if (devname[8] == '_')
 			return;
 
-		err("%s:%d: arbitrary device name must start with /dev/bsr_\n"
+		err("%s:%d: Parse error: '%s', arbitrary device name must start with /dev/bsr_\n"
 			"\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
-			config_file, fline);
+			config_file, fline, devname);
 		config_valid = 0;
 	}
 #else
@@ -915,20 +915,20 @@ static void check_minor_nonsense(const char *devname, const int explicit_minor, 
 		if (m == explicit_minor)
 			return;
 
-		err("%s:%d: explicit minor number must match with device name\n"
+		err("%s:%d: Parse error: '%s', explicit minor number must match with device name\n"
 		    "\tTry \"device /dev/bsr%u minor %u;\",\n"
 		    "\tor leave off either device name or explicit minor.\n"
 		    "\tArbitrary device names must start with /dev/bsr_\n"
 		    "\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
-		    config_file, fline, explicit_minor, explicit_minor);
+		    config_file, fline, devname, explicit_minor, explicit_minor);
 		config_valid = 0;
 		return;
 	} else if (devname[8] == '_')
 		return;
 
-	err("%s:%d: arbitrary device name must start with /dev/bsr_\n"
+	err("%s:%d: Parse error: '%s', arbitrary device name must start with /dev/bsr_\n"
 	    "\tmind the '_'! (/dev/ is optional, but bsr_ is required)\n",
-	    config_file, fline);
+	    config_file, fline, devname);
 	config_valid = 0;
 #endif
 #endif
@@ -952,9 +952,9 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 		if (strcmp(vol->platform, "linux") == 0) {
 			// BSR-386 rename to be the same as name of major device due to pvcreate error
 			if (strncmp("/dev/bsr", vol->device, 8)) {
-				err("%s:%d: device name must start with /dev/bsr\n"
+				err("%s:%d: Parse error: '%s', device name must start with /dev/bsr\n"
 					"\t(/dev/ is optional, but bsr is required)\n",
-					config_file, fline);
+					config_file, fline, vol->device);
 				config_valid = 0;
 				/* no goto out yet,
 				* as that would additionally throw a parse error */
@@ -962,8 +962,8 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 		}
 		else { // windows
 			if (strncmp("/dev", vol->device, 4) == 0) {
-				err("%s:%d: device name must be a drive letter\n",
-					config_file, fline);
+				err("%s:%d: Parse error: '%s', device name must be a drive letter\n",
+					config_file, fline, vol->device);
 				config_valid = 0;
 			}
 		}
@@ -971,9 +971,9 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 #ifdef _LIN
 		// BSR-386 rename to be the same as name of major device due to pvcreate error
 		if (strncmp("/dev/bsr", vol->device, 8)) {
-			err("%s:%d: device name must start with /dev/bsr\n"
+			err("%s:%d: Parse error: '%s', device name must start with /dev/bsr\n"
 			    "\t(/dev/ is optional, but bsr is required)\n",
-			    config_file, fline);
+			    config_file, fline, vol->device);
 			config_valid = 0;
 			/* no goto out yet,
 			 * as that would additionally throw a parse error */
@@ -987,8 +987,8 @@ static void parse_device(struct names* on_hosts, struct d_volume *vol)
 		case ';':
 			m = dt_minor_of_dev(vol->device);
 			if (m < 0) {
-				err("%s:%d: no minor given nor device name contains a minor number\n",
-				    config_file, fline);
+				err("%s:%d: Parse error: '%s', no minor given nor device name contains a minor number\n",
+				    config_file, fline, vol->device);
 				config_valid = 0;
 			}
 			vol->device_minor = m;

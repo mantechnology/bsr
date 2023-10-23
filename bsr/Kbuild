@@ -57,7 +57,7 @@ bsr-y += bsr_nl.o bsr_main.o $(compat_objs)
 bsr-y += bsr_transport.o bsr_transport_tcp.o
 bsr-y += bsr_sender.o bsr_receiver.o 
 bsr-y += bsr_send_buf.o
-bsr-y += bsr_idx_ring.o
+bsr-y += bsr_ring.o
 bsr-y += bsr_log.o
 
 ifndef DISABLE_KREF_DEBUGGING_HERE

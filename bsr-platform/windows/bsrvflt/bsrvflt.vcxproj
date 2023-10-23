@@ -984,7 +984,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
     <ClCompile Include="..\..\..\bsr\bsr_actlog.c" />
     <ClCompile Include="..\..\..\bsr\bsr_bitmap.c" />
     <ClCompile Include="..\..\..\bsr\bsr_debugfs.c" />
-    <ClCompile Include="..\..\..\bsr\bsr_idx_ring.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_ring.c" />
     <ClCompile Include="..\..\..\bsr\bsr_interval.c" />
     <ClCompile Include="..\..\..\bsr\bsr_kref_debug.c" />
     <ClCompile Include="..\..\..\bsr\bsr_log.c" />
@@ -1052,7 +1052,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\spinlock.h" />
     <ClInclude Include="..\..\..\bsr\bsr-kernel-compat\windows\wait.h" />
     <ClInclude Include="..\..\..\bsr\bsr_debugfs.h" />
-    <ClInclude Include="..\..\..\bsr\bsr_idx_ring.h" />
+    <ClInclude Include="..\..\..\bsr\bsr_ring.h" />
     <ClInclude Include="..\..\..\bsr\bsr_int.h" />
     <ClInclude Include="..\..\..\bsr\bsr_interval.h" />
     <ClInclude Include="..\..\..\bsr\bsr_kref_debug.h" />

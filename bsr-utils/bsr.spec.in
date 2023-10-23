@@ -126,7 +126,6 @@ This packages includes the BSR administration tools.
 %if "%{initscripttype}" == "sysv"
 %{_initddir}/bsr
 %endif
-%{_sbindir}/bsr-overview
 %{_sbindir}/bsrwatch
 %{_sbindir}/bsrsupport
 %{_sbindir}/bsrmon-run

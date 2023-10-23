@@ -118,7 +118,7 @@ void __printk(const char * func, int index, const char * level, int category, co
 	if (bDbgLog) {
 		// BSR-578 it should not be produced when it is not consumed thread.
 		if (g_consumer_state == RUNNING) {
-			bool is_acquire = idx_ring_acquire(&gLogBuf.h, &logcnt);
+			bool is_acquire = bsr_idx_ring_acquire(&gLogBuf.h, &logcnt);
 			if (gLogBuf.h.r_idx.has_consumer) {
 				if (is_acquire) {
 					atomic_set64(&gLogCnt, logcnt);
@@ -281,7 +281,7 @@ void __printk(const char * func, int index, const char * level, int category, co
 		// BSE-112 it should not be produced when it is not consumed.
 		if (!bEventLog && g_consumer_state == RUNNING)  {
 			// BSR-583
-			idx_ring_commit(&gLogBuf.h, buf);
+			bsr_idx_ring_commit(&gLogBuf.h, buf);
 		}
 	}
 	
@@ -300,7 +300,7 @@ eventlog:
 			// BSE-578 it should not be produced when it is not consumed.
 			if (g_consumer_state == RUNNING) {
 				// BSR-583
-				idx_ring_commit(&gLogBuf.h, buf);
+				bsr_idx_ring_commit(&gLogBuf.h, buf);
 			}
 		}
 		else {

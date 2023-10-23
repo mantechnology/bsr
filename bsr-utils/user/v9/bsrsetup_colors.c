@@ -47,6 +47,7 @@ int cstate_colors[] = {
 int cerror_colors[] = {
 	[C_NO_ERROR] = COLOR_NORMAL,
 	[C_SPLIT_BRAIN_ERROR] = COLOR_BAD,
+	[C_SYNC_TARGET_PRIMARY] = COLOR_BAD, // BSR-1140
 };
 
 int repl_state_colors[] = {

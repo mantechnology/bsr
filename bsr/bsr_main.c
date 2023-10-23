@@ -177,7 +177,7 @@ module_param(two_phase_commit_fail, int, 0644);
 #endif
 
 // BSR-578
-struct log_idx_ring_buffer_t gLogBuf;
+struct bsr_log_idx_ring_buffer_t  gLogBuf;
 atomic_t64 gLogCnt;
 
 enum bsr_thread_state g_consumer_state;
@@ -1280,10 +1280,10 @@ static void prepare_header(struct bsr_connection *connection, int vnr,
 		prepare_header80(buffer, cmd, size);
 }
 
+#ifdef _LIN
 static void new_or_recycle_send_buffer_page(struct bsr_send_buffer *sbuf)
 {
 	while (1) {
-
 		struct page *page;
 		int count = page_count(sbuf->page);
 
@@ -1293,32 +1293,44 @@ static void new_or_recycle_send_buffer_page(struct bsr_send_buffer *sbuf)
 
 		page = alloc_page(GFP_KERNEL);
 		if (page) {
-#ifdef _LIN
 			put_page(sbuf->page);
-#endif
 			sbuf->page = page;
 			goto have_page;
 		}
-
 		schedule_timeout(HZ / 10);
 	}
 have_page:
 	sbuf->unsent =
 	sbuf->pos = page_address(sbuf->page);
 }
+#endif
 
 static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 			      enum bsr_stream bsr_stream)
 {
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
+#ifdef _WIN
+	char *buffer_start = sbuf->buffer;
+	int buffer_size = PAGE_SIZE;
+
+	if(bsr_stream == DATA_STREAM)
+		buffer_size = BSR_STREAM_SEND_BUFFER_SIZE;
+
+	if (sbuf->pos - buffer_start + size > buffer_size) {
+#else
 	char *page_start = page_address(sbuf->page);
-	
 	if (sbuf->pos - page_start + size > PAGE_SIZE) {
+#endif
 		bsr_debug_rs("(%s) stream(%d)! unsent(%ld) pos(%ld) size(%d)", current->comm, bsr_stream, (long)sbuf->unsent, (long)sbuf->pos, size);
 		// BSR-1058 check for send errors.
 		if (flush_send_buffer(connection, bsr_stream))
 			return 0;
+#ifdef _WIN
+		// BSR-1116 windows sets the send buffer for each stream in bytes rather than pages, so after calling flush_send_buffe(), it initializes unsent and pos to the start address of the send buffer.
+		sbuf->unsent = sbuf->pos = buffer_start;
+#else
 		new_or_recycle_send_buffer_page(sbuf);
+#endif
 	}
 
 	sbuf->allocated_size = size;
@@ -1425,14 +1437,15 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	// to avoid delaying state changes due to socket timeouts.
 	msg_flags |= connection->cstate[NOW] < C_CONNECTING ? MSG_DONTWAIT : 0;
 #endif
-	offset = sbuf->unsent - (char *)page_address(sbuf->page);
+#ifdef _WIN
+	offset = sbuf->unsent - (char*)sbuf->buffer;
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(offset);
 #endif
-#ifdef _WIN
-    err = tr_ops->send_page(transport, bsr_stream, sbuf->page->addr, (int)offset, (size_t)size, msg_flags);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->buffer, (int)offset, (size_t)size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, msg_flags);
+	offset = sbuf->unsent - (char *)page_address(sbuf->page);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, 0, msg_flags);
 #endif
 	if (!err) {
 		sbuf->unsent =
@@ -1445,7 +1458,7 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 }
 
 int __send_command(struct bsr_connection *connection, int vnr,
-			  enum bsr_packet cmd, enum bsr_stream bsr_stream)
+enum bsr_packet cmd, enum bsr_stream bsr_stream)
 {
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
 	struct bsr_transport *transport = &connection->transport;
@@ -1455,31 +1468,32 @@ int __send_command(struct bsr_connection *connection, int vnr,
 	int err;
 
 	/* send P_PING and P_PING_ACK immediately, they need to be delivered as
-	   fast as possible.
-	   P_TWOPC_PREPARE might be used from the worker context while corked.
-	   The work item (connect_work) calls change_cluster_wide_state() which
-	   in turn waits for reply packets. -> Need to send it regardless of
-	   corking.  */
+	fast as possible.
+	P_TWOPC_PREPARE might be used from the worker context while corked.
+	The work item (connect_work) calls change_cluster_wide_state() which
+	in turn waits for reply packets. -> Need to send it regardless of
+	corking.  */
 
 	if (connection->cstate[NOW] < C_CONNECTING)
 		return -EIO;
 	prepare_header(connection, vnr, sbuf->pos, cmd,
-		       sbuf->allocated_size + sbuf->additional_size);
+		sbuf->allocated_size + sbuf->additional_size);
 
 	if (corked && !flush) {
 		bsr_debug(32, BSR_LC_SEND_BUFFER, connection, "send buff %s, size: %d vnr: %d, stream : %s", bsr_packet_name(cmd), (sbuf->allocated_size + sbuf->additional_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		sbuf->pos += sbuf->allocated_size;
 		sbuf->allocated_size = 0;
 		err = 0;
-	} else {
+	}
+	else {
 		bsr_debug(33, BSR_LC_SEND_BUFFER, connection, "sending %s, size: %d vnr: %d, stream : %s", bsr_packet_name(cmd), (sbuf->pos - sbuf->unsent + sbuf->allocated_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		err = flush_send_buffer(connection, bsr_stream);
 
 		/* BSR protocol "pings" are latency critical.
-		 * This is supposed to trigger tcp_push_pending_frames() */
+		* This is supposed to trigger tcp_push_pending_frames() */
 		if (!err && flush)
 			tr_ops->hint(transport, bsr_stream, NODELAY);
-			
+
 		if (bsr_stream == DATA_STREAM) {
 			if (!err)
 				connection->last_send_packet = cmd;
@@ -1502,7 +1516,11 @@ void bsr_drop_unsent(struct bsr_connection* connection)
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		struct bsr_send_buffer *sbuf = &connection->send_buffer[i];
 		sbuf->unsent =
+#ifdef _WIN
+		sbuf->pos = sbuf->buffer;
+#else
 		sbuf->pos = page_address(sbuf->page);
+#endif
 		sbuf->allocated_size = 0;
 		sbuf->additional_size = 0;
 	}
@@ -2870,9 +2888,9 @@ static int _bsr_send_page(struct bsr_peer_device *peer_device, struct page *page
 	int err;
 
 #ifdef _WIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, 0,  msg_flags);
 #endif
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
@@ -2896,13 +2914,35 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, void * buffer,
 	if (err) {
 		return err;
 	}
-	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 0, msg_flags);
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
 	}
 	return err;
 }
 #else // _LIN
+// BSR-1116 send to stream instead of page
+int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
+	int offset, size_t size, unsigned msg_flags)
+{
+	struct bsr_connection *connection = peer_device->connection;
+	struct bsr_transport *transport = &connection->transport;
+	struct bsr_transport_ops *tr_ops = transport->ops;
+	int err;
+
+	bsr_debug_rs("offset(%d) size(%d)", offset, size);
+	// BSR-1058
+	err = flush_send_buffer(connection, DATA_STREAM); 
+	if (err) {
+		return err;
+	}
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 1, msg_flags);
+	if (!err) {
+		peer_device->send_cnt += (unsigned int)(size >> 9);
+	}
+	return err;
+}
+
 int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
 			      int offset, size_t size, unsigned msg_flags)
 {
@@ -3064,31 +3104,6 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 	return 0;
 }
 
-/* see also wire_flags_to_bio()
- * BSR_REQ_*, because we need to semantically map the flags to data packet
- * flags and back. We may replicate to other kernel versions. */
-static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
-{
-	if (connection->agreed_pro_version >= 95)
-		return  (bio->bi_opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
-			(bio->bi_opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
-			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
-			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
-#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
-#endif
-			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
-			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
-				((connection->agreed_features & BSR_FF_WZEROES) ?
-				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
-				: DP_DISCARD)
-				: 0);
-		
-
-	/* else: we used to communicate one bit only in older BSR */
-	return bio->bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
-}
-
 /* Used to send write or TRIM aka REQ_DISCARD requests
  * R_PRIMARY -> Peer	(P_DATA, P_TRIM)
  */
@@ -3102,8 +3117,11 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	unsigned int dp_flags = 0;
 	int digest_size = 0;
 	int err = 0;
-	const int op = bio_op(req->master_bio);
-	
+	// BSR-1116
+	const int op = req->bio_status.op;
+#ifdef _WIN
+	char *data = req->req_databuf ? req->req_databuf : req->master_bio->bio_databuf;
+#endif
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
 	if (op == REQ_OP_DISCARD || op == REQ_OP_WRITE_ZEROES) {
@@ -3113,8 +3131,9 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		p = &trim->p_data;
 		trim->size = cpu_to_be32(req->i.size);
 	} else {
-		if (peer_device->connection->integrity_tfm)
+		if (peer_device->connection->integrity_tfm) {
 			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
+		}
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		if (op == REQ_OP_WRITE_SAME) {
@@ -3126,7 +3145,12 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 			digest_out = wsame + 1;
 		} else {
 #endif
+			// BSR-1116
+#ifdef _WIN
+			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size + req->i.size, DATA_STREAM);
+#else
 			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
+#endif
 			if (!p)
 				return -EIO;
 			digest_out = p + 1;
@@ -3139,7 +3163,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	p->block_id = (ULONG_PTR)req;
 	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
 	
-	dp_flags = bio_flags_to_wire(peer_device->connection, req->master_bio);
+	// BSR-1116
+	dp_flags = bio_flags_to_wire(peer_device->connection, req);
 	if (peer_device->repl_state[NOW] >= L_SYNC_SOURCE && peer_device->repl_state[NOW] <= L_PAUSED_SYNC_T)
 		dp_flags |= DP_MAY_SET_IN_SYNC;
 	if (peer_device->connection->agreed_pro_version >= 100) {
@@ -3171,33 +3196,44 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 					bio_iovec(req->master_bio) BVD bv_len);
 		err = __send_command(peer_device->connection, device->vnr, P_WSAME, DATA_STREAM);
 #endif
-	} else {
-		additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
-		err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
 	}
-	if (!err) {
-		/* For protocol A, we have to memcpy the payload into
-		 * socket buffers, as we may complete right away
-		 * as soon as we handed it over to tcp, at which point the data
-		 * pages may become invalid.
-		 *
-		 * For data-integrity enabled, we copy it as well, so we can be
-		 * sure that even if the bio pages may still be modified, it
-		 * won't change the data on the wire, thus if the digest checks
-		 * out ok after sending on this side, but does not fit on the
-		 * receiving side, we sure have detected corruption elsewhere.
-		 */
-		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
+	else {
+		// BSR-1116 windows sends replication data by adding it to the data stream send buffer for better performance.
 #ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else // _LIN
-			err = _bsr_send_bio(peer_device, req->master_bio);
+			memcpy(((char *)digest_out + digest_size), data, req->i.size);
+#else
+			additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
 #endif
+			err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
+	}
+
+	if (!err) {
+#ifdef _LIN
+		/* For protocol A, we have to memcpy the payload into
+		* socket buffers, as we may complete right away
+		* as soon as we handed it over to tcp, at which point the data
+		* pages may become invalid.
+		*
+		* For data-integrity enabled, we copy it as well, so we can be
+		* sure that even if the bio pages may still be modified, it
+		* won't change the data on the wire, thus if the digest checks
+		* out ok after sending on this side, but does not fit on the
+		* receiving side, we sure have detected corruption elsewhere.
+		*/
+
+		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
+			// BSR-1116 if req_databuf is assigned, refer to req_databuf, not master_bio, because it may be in the write completion state.
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_bio(peer_device, req->master_bio);
 		else
-#ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else // _LIN
-			err = _bsr_send_zc_bio(peer_device, req->master_bio);
+			// BSR-1116
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_zc_bio(peer_device, req->master_bio);
+
 #endif
 
 		// DW-1012 Remove out of sync when data is sent, this is the newest one.
@@ -3859,6 +3895,9 @@ void bsr_destroy_device(struct kref *kref)
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
 
+	// BSR-1145
+	bsr_offset_ring_free(&device->accelbuf);
+
 	kref_debug_destroy(&device->kref_debug);
 
 	bsr_kfree(device);
@@ -4239,14 +4278,17 @@ static void bsr_put_send_buffers(struct bsr_connection *connection)
 	unsigned int i;
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
-		if (connection->send_buffer[i].page) {
 #ifdef _WIN
+		if (connection->send_buffer[i].buffer) {
 			// DW-1791 fix memory leak 
-			__free_page(connection->send_buffer[i].page);
+			// BSR-1116
+			kfree2(connection->send_buffer[i].buffer);
+			connection->send_buffer[i].buffer = NULL;
 #else // _LIN
+		if (connection->send_buffer[i].page) {
 			put_page(connection->send_buffer[i].page);
-#endif
 			connection->send_buffer[i].page = NULL;
+#endif
 		}
 	}
 }
@@ -4256,6 +4298,22 @@ static int bsr_alloc_send_buffers(struct bsr_connection *connection)
 	unsigned int i;
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
+		// BSR-1116 set the buffer size to BSR_STREAM_SEND_BUFFER_SIZE to improve Windows replication send performance.
+#ifdef _WIN
+		void *buffer;
+		if (i == DATA_STREAM)
+			buffer = kmalloc(BSR_STREAM_SEND_BUFFER_SIZE, 0, 'D3SB');
+		else
+			buffer = kmalloc(PAGE_SIZE, 0, 'D3SB');
+
+		if (!buffer) {
+			bsr_put_send_buffers(connection);
+			return -ENOMEM;
+		}
+		connection->send_buffer[i].buffer = buffer;
+		connection->send_buffer[i].unsent =
+			connection->send_buffer[i].pos = buffer;
+#else
 		struct page *page;
 
 		page = alloc_page(GFP_KERNEL);
@@ -4266,6 +4324,7 @@ static int bsr_alloc_send_buffers(struct bsr_connection *connection)
 		connection->send_buffer[i].page = page;
 		connection->send_buffer[i].unsent =
 		connection->send_buffer[i].pos = page_address(page);
+#endif
 	}
 
 	return 0;
@@ -5072,6 +5131,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	atomic_set(&device->io_error_count, 0);
 	atomic_set(&device->notify_flags, 0);
+
+	// BSR-1116
+	atomic_set64(&device->accelbuf.used_size, 0);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
@@ -5917,7 +5979,7 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 
-				if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+				if (!bsr_idx_ring_consume(&gLogBuf.h, &idx)) {
 					msleep(100); // wait 100ms relative
 					continue;
 				}
@@ -6020,7 +6082,7 @@ int log_consumer_thread(void *unused)
 #endif
 				logFileSize = 0;
 			}
-			idx_ring_dispose(&gLogBuf.h, buffer);
+			bsr_idx_ring_dispose(&gLogBuf.h, buffer);
 		}
 	}
 

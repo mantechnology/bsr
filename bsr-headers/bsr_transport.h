@@ -235,7 +235,9 @@ struct bsr_transport_ops {
 	void (*set_rcvtimeo)(struct bsr_transport *, enum bsr_stream, long timeout);
 	long (*get_rcvtimeo)(struct bsr_transport *, enum bsr_stream);
 	int (*send_page)(struct bsr_transport *, enum bsr_stream, struct page *,
-			 int offset, size_t size, unsigned msg_flags);
+					int offset, size_t size,
+					// BSR-1116
+					int type, unsigned msg_flags);
 	int (*send_zc_bio)(struct bsr_transport *, struct bio *bio);
 	bool (*stream_ok)(struct bsr_transport *, enum bsr_stream);
 	bool (*hint)(struct bsr_transport *, enum bsr_stream, enum bsr_tr_hints hint);

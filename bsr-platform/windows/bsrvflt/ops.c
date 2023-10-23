@@ -22,7 +22,7 @@
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "disp.h"
 #include "proto.h"
-#include "../../../bsr/bsr_idx_ring.h"
+#include "../../../bsr/bsr_ring.h"
 #include "../../../bsr/bsr_debugfs.h"
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;

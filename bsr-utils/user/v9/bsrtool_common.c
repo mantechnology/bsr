@@ -975,7 +975,7 @@ void bsr_exec_log()
 	CLI_INFO_LOG(false, "%s", exec_log);
 }
 
-void bsr_terminate_log(int rv)
+void bsr_done_log(int rv)
 {
-	CLI_INFO_LOG(false, "terminate, rv(%d)", rv);
+	CLI_INFO_LOG(false, "done, rv(%d)", rv);
 }

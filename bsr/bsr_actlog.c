@@ -1239,6 +1239,8 @@ void bsr_advance_rs_marks(struct bsr_peer_device *peer_device, ULONG_PTR still_t
 			peer_device->rs_mark_left[next] = still_to_go;
 			peer_device->rs_last_mark = next;
 		}
+		// BSR-1125 notify sync progress
+		bsr_peer_device_post_work(peer_device, RS_PROGRESS_NOTIFY);
 	}
 }
 

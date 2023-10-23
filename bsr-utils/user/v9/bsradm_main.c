@@ -3400,7 +3400,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			printf("BSR_KERNEL_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
 			printf("BSRADM_VERSION_CODE=0x%08x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
-			bsr_terminate_log(0);
+			bsr_done_log(0);
 			exit(0);
 			break;
 		case 'P':
@@ -3973,7 +3973,7 @@ int main(int argc, char **argv)
 		free(admopt);
 	free_btrees();
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 }
