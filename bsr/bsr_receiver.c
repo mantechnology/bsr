@@ -3100,7 +3100,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		err = bsr_send_ack(peer_device, P_NEG_ACK, peer_req);
 		bsr_free_peer_req(peer_req);
 		if (!err)
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		return err;
 	}
 
