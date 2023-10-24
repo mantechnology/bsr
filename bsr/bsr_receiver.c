@@ -3080,8 +3080,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	ULONG_PTR offset;
 
 	int submit_count = 0;
-	// DW-1916
-	ULONG_PTR bits, mask;
 	int i;
 
 	peer_req = read_in_block(peer_device, d);
@@ -3089,6 +3087,23 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		bsr_err(39, BSR_LC_RESYNC_OV, peer_device, "Failed to receive resync data due to failure to allocate peer request");
 		return -EIO;
 	}
+
+
+	// DW-1601
+	// DW-1846 do not set out of sync unless it is a sync target.
+	// DW-1916 if you receive resync data from peer_device other than syncsource, set out of sync for peer_device except for the current syncsource.
+	// BSR-1149 do not write local resync response data because consistency may be inconsistent if not synctarget.
+	if (!is_sync_target(peer_device)) {
+		bsr_info(48, BSR_LC_RESYNC_OV, peer_device, "Resync with other nodes in progress");
+		bsr_set_out_of_sync(peer_device, peer_req->i.sector, peer_req->i.size);
+		// BSR-1149 send P_NEG_ACK to the counterpart node because it does not write resync response data locally.
+		err = bsr_send_ack(peer_device, P_NEG_ACK, peer_req);
+		bsr_free_peer_req(peer_req);
+		if (!err)
+			put_ldev(device);
+		return err;
+	}
+
 
 	// BSR-1039
 	peer_req->resync_seq = d->peer_seq;
@@ -3121,6 +3136,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		split_count = bsr_kzalloc(sizeof(atomic_t), GFP_KERNEL, '39SB');
 		if (!split_count) {
 			bsr_err(57, BSR_LC_MEMORY, peer_device, "Failed to receive resync data due to failure to allocate %d size memory for split count", sizeof(atomic_t));
+			// BSR-1149
+			bsr_free_peer_req(peer_req);
 			return -ENOMEM;
 		}
 
@@ -3153,8 +3170,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 																(unsigned long long)BM_SECT_TO_BIT(peer_req->i.sector + (peer_req->i.size >> 9)), (unsigned long long)device->s_rl_bb, (unsigned long long)device->e_rl_bb);
 
 						// DW-1601 all data is synced.						
-						bsr_debug(181, BSR_LC_RESYNC_OV, peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu",
-																		(unsigned long long)i_bb, (unsigned long long)s_bb, (unsigned long long)(e_next_bb - 1));
+						bsr_debug(181, BSR_LC_RESYNC_OV, peer_device, "##all, sync bitmap(%llu), start : %llu, end :%llu", (unsigned long long)i_bb, (unsigned long long)s_bb, (unsigned long long)(e_next_bb - 1));
 						err = bsr_send_ack(peer_device, P_RS_WRITE_ACK, peer_req);
 						bsr_rs_complete_io(peer_device, peer_req->i.sector, __FUNCTION__);
 						atomic_add(d->bi_size >> 9, &device->rs_sect_ev);
@@ -3202,22 +3218,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 						atomic_add(split_peer_req->i.size << 9, &device->rs_sect_ev);
 
-						// DW-1916 if you receive resync data from peer_device other than syncsource, set out of sync for peer_device except for the current syncsource.
-						mask = bits = BSR_END_OF_BITMAP;
-
-						if (!is_sync_target(peer_device)) {
-							struct bsr_peer_device* pd;
-							for_each_peer_device(pd, device) {
-								if (pd != peer_device && is_sync_target(pd)) {
-									bsr_info(42, BSR_LC_RESYNC_OV, peer_device, "Resync with other nodes in progress");
-									clear_bit(pd->bitmap_index, &bits);
-									clear_bit(pd->bitmap_index, &mask);
-									break;
-								}
-							}
-						}
 						// BSR-380 set out of sync for split_request.
-						bsr_set_sync(device, split_peer_req->i.sector, split_peer_req->i.size, bits, mask);
+						bsr_set_all_out_of_sync(device, split_peer_req->i.sector, split_peer_req->i.size);
 
 						if (!bsr_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, BSR_FAULT_RS_WR) == 0) {
 							err = -EIO;
@@ -3306,12 +3308,10 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 								atomic_add(split_peer_req->i.size << 9, &device->rs_sect_ev);
 
-								if (is_sync_target(peer_device))
-									bsr_set_all_out_of_sync(device, split_peer_req->i.sector, split_peer_req->i.size);
+								bsr_set_all_out_of_sync(device, split_peer_req->i.sector, split_peer_req->i.size);
 
-								bsr_debug(183, BSR_LC_RESYNC_OV, peer_device, "##unmarked bb(%llu), sector(%llu), offset(%d), count(%d)",
-									(unsigned long long)marked_rl->bb, 
-									(unsigned long long)BM_BIT_TO_SECT(marked_rl->bb) + i, i, atomic_read(unmarked_count));
+								bsr_debug(183, BSR_LC_RESYNC_OV, peer_device, "##unmarked bb(%llu), sector(%llu), offset(%d), count(%d)", (unsigned long long)marked_rl->bb, 
+																				(unsigned long long)BM_BIT_TO_SECT(marked_rl->bb) + i, i, atomic_read(unmarked_count));
 								if (!bsr_submit_peer_request(device, split_peer_req, REQ_OP_WRITE, 0, BSR_FAULT_RS_WR) == 0) {
 									bsr_err(47, BSR_LC_RESYNC_OV, device, "Failed to receive resync data due to failure to submit I/O request, triggering re-connect");
 									// DW-1923 for interparameter synchronization, an additional 1 was added for the remaining count and modified to use atomic_dec_return.
@@ -3380,24 +3380,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		/* Seting all peer out of sync here. Sync source peer will be set
 		in sync when the write completes. Other peers will be set in
 		sync by the sync source with a P_PEERS_IN_SYNC packet soon. */
-		// DW-1601
-		// DW-1846 do not set out of sync unless it is a sync target.
-		// DW-1916 if you receive resync data from peer_device other than syncsource, set out of sync for peer_device except for the current syncsource.
-		mask = bits = BSR_END_OF_BITMAP;
-
-		if (!is_sync_target(peer_device)) {
-			struct bsr_peer_device* pd;
-			for_each_peer_device(pd, device) {
-				if (pd != peer_device && is_sync_target(pd)) {
-					bsr_info(48, BSR_LC_RESYNC_OV, peer_device, "Resync with other nodes in progress");
-					clear_bit(pd->bitmap_index, &bits);
-					clear_bit(pd->bitmap_index, &mask);
-					break;
-				}
-			}
-		}
-
-		bsr_set_sync(device, peer_req->i.sector, peer_req->i.size, bits, mask);
+		bsr_set_all_out_of_sync(device, peer_req->i.sector, peer_req->i.size);
 
 		if (bsr_submit_peer_request(device, peer_req, REQ_OP_WRITE, 0,
 			BSR_FAULT_RS_WR) == 0)
