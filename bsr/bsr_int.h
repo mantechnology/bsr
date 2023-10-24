@@ -4145,16 +4145,16 @@ static inline bool is_sync_source(struct bsr_peer_device *peer_device)
  */
 #ifdef _WIN
 #define get_ldev_if_state(_device, _min_state)				\
-	(_get_ldev_if_state((_device), (_min_state)) ?			\
+	(_get_ldev_if_state(__FUNCTION__, (_device), (_min_state)) ?			\
 	true : false)
 #else // _LIN
 #define get_ldev_if_state(_device, _min_state)				\
-	(_get_ldev_if_state((_device), (_min_state)) ?			\
+	(_get_ldev_if_state(__FUNCTION__, (_device), (_min_state)) ?			\
 	 ({ __acquire(x); true; }) : false)
 #endif
 #define get_ldev(_device) get_ldev_if_state(_device, D_INCONSISTENT)
 
-static inline void put_ldev(struct bsr_device *device)
+static inline void put_ldev(const char* caller, struct bsr_device *device)
 {
 	enum bsr_disk_state disk_state = device->disk_state[NOW];
 	/* We must check the state *before* the atomic_dec becomes visible,
@@ -4169,7 +4169,9 @@ static inline void put_ldev(struct bsr_device *device)
 	__release(local);
 	D_ASSERT(device, i >= 0);
 	if (i == 0) {
-		if (disk_state == D_DISKLESS)
+		if (disk_state == D_DISKLESS
+			// BSR-1086 check the current state of the disk, as the disk state before atomic_dec may be missing the DESTROY_DISK
+			|| (device->disk_state[NOW] == D_DISKLESS && test_bit(GOING_DISKLESS, &device->flags)))
 			/* even internal references gone, safe to destroy */
 			bsr_device_post_work(device, DESTROY_DISK);
 		if (disk_state == D_FAILED || disk_state == D_DETACHING)
@@ -4181,9 +4183,9 @@ static inline void put_ldev(struct bsr_device *device)
 }
 
 #ifdef __CHECKER__
-extern int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_state mins);
+extern int _get_ldev_if_state(const char* caller, struct bsr_device *device, enum bsr_disk_state mins);
 #else
-static inline int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_state mins)
+static inline int _get_ldev_if_state(const char* caller, struct bsr_device *device, enum bsr_disk_state mins)
 {
 	int io_allowed;
 
@@ -4194,7 +4196,7 @@ static inline int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_st
 	atomic_inc(&device->local_cnt);
 	io_allowed = (device->disk_state[NOW] >= mins);
 	if (!io_allowed)
-		put_ldev(device);
+		put_ldev(caller, device);
 	return io_allowed;
 }
 #endif
@@ -4436,7 +4438,7 @@ static inline void bsr_kick_lo(struct bsr_device *device)
 {
 	if (get_ldev(device)) {
 		bsr_blk_run_queue(bdev_get_queue(device->ldev->backing_bdev));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 }
 #else

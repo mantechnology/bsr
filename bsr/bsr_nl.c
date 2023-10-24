@@ -700,7 +700,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 				rcu_dereference(device->ldev->disk_conf);
 			env_print(&env, "BSR_BACKING_DEV=%s",
 				  disk_conf->backing_dev);
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 	}
 	if (connection) {
@@ -726,7 +726,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 					rcu_dereference(device->ldev->disk_conf);
 				env_print(&env, "BSR_BACKING_DEV_%u=%s",
 					  vnr, disk_conf->backing_dev);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 		}
 	}
@@ -744,7 +744,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 				u64 m = up_to_date_nodes(device, op_is_fence);
 				if (m)
 					mask &= m;
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				/* Yes we outright ignore volumes that are not up-to-date
 				   on a single node. */
 			}
@@ -1341,7 +1341,7 @@ retry:
 #ifdef _LIN
 				clear_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
 #endif
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 		}
 	} else {
@@ -1398,7 +1398,7 @@ retry:
 			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 		} 
 	}
@@ -2749,7 +2749,7 @@ success:
 	if (retcode != ERR_NO)
 		synchronize_rcu();
 #endif
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 out:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
@@ -3537,13 +3537,13 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	bsr_kobject_uevent(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	mutex_unlock(&resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
 
  force_diskless_dec:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
  force_diskless:
 	change_disk_state(device, D_DISKLESS, CS_HARD, NULL);
  fail:
@@ -4362,7 +4362,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 		bitmap_index = device->ldev->md.peers[adm_ctx->peer_node_id].bitmap_index;
 		if (bitmap_index != -1)
 			peer_device->bitmap_index = bitmap_index;
-		put_ldev(device); 
+		put_ldev(__FUNCTION__, device); 
 	}
 
 	connection_to_info(&connection_info, connection);
@@ -4386,7 +4386,7 @@ static int adm_new_connection(struct bsr_connection **ret_conn,
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, i) {
 		if (get_ldev_if_state(peer_device->device, D_NEGOTIATING)) {
 			err = bsr_attach_peer_device(peer_device);
-			put_ldev(peer_device->device);
+			put_ldev(__FUNCTION__, peer_device->device);
 			if (err) {
 				retcode = ERR_NOMEM;
 				goto unlock_fail_free_connection;
@@ -4594,7 +4594,7 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 			continue;
 
 		err = allocate_bitmap_index(peer_device, device->ldev);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		if (err) {
 			retcode = ERR_INVALID_REQUEST;
 			goto out;
@@ -4959,7 +4959,7 @@ void resync_after_online_grow(struct bsr_peer_device *peer_device)
 	else if (get_ldev(device)) {
 		/* multiple or no primaries, proto new enough, resolve by node-id */
 		s32 self_id = device->ldev->md.node_id;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		peer_id = peer_device->node_id;
 
 		sync_source = self_id < peer_id ? 1 : 0;
@@ -5155,7 +5155,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	}
 	
 	bsr_md_sync_if_dirty(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
 		goto fail;
@@ -5187,7 +5187,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 
  fail_ldev:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	bsr_kfree(new_disk_conf);
 	goto fail;
 #endif	
@@ -5347,7 +5347,7 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				retcode = ERR_CODE_BASE;
 			}
 			// DW-2031 add put_ldev() due to ldev leak occurrence
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 			goto out_no_ldev;
 		}
 	}
@@ -5439,7 +5439,7 @@ out:
 	bsr_resume_io(device);
 out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 out_no_ldev:
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
@@ -5542,7 +5542,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	
 out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 out:
 	bsr_adm_finish(&adm_ctx, info, retcode);
 	return 0;
@@ -5920,7 +5920,7 @@ static void device_to_statistics(struct device_statistics *s,
 			0;
 #endif
 #endif
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	s->dev_size = bsr_get_vdisk_capacity(device);
 	s->dev_read = device->read_cnt;
@@ -6040,7 +6040,7 @@ put_result:
 				rcu_dereference(device->ldev->disk_conf);
 
 			err = disk_conf_to_skb(skb, disk_conf, !capable(CAP_SYS_ADMIN));
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 			if (err)
 				goto out;
 		}
@@ -6303,7 +6303,7 @@ static void peer_device_to_statistics(struct peer_device_statistics *s,
 		s->peer_dev_bitmap_uuid = peer_md->bitmap_uuid;
 		spin_unlock_irq(&md->uuid_lock);
 		s->peer_dev_flags = peer_md->flags;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 }
 
@@ -6641,7 +6641,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 
 	bsr_md_sync_if_dirty(device);
 out_dec:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 out:
 	up(&device->resource->state_sem);
 out_nolock:
@@ -8123,7 +8123,7 @@ int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 
 		peer_md = &device->ldev->md.peers[peer_node_id];
 		if (peer_md->bitmap_index == -1) {
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 			retcode = ERR_INVALID_PEER_NODE_ID;
 			break;
 		}
@@ -8133,7 +8133,7 @@ int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 		peer_md->bitmap_index = -1;
 
 		bsr_md_sync(device);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 out:
 	mutex_unlock(&resource->adm_mutex);

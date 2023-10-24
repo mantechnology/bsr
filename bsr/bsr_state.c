@@ -1535,7 +1535,7 @@ static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resourc
 			bool had_quorum = role[OLD] == R_PRIMARY ? calc_quorum(device, OLD, NULL) : true;
 			bool have_quorum = calc_quorum(device, NEW, &qi);
 
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 
 			if (had_quorum && !have_quorum) {
 				bsr_state_err(resource, "%d of %d nodes visible, need %d for quorum",
@@ -2090,7 +2090,7 @@ static void sanitize_state(struct bsr_resource *resource)
 					if (had_quorum && !have_quorum)
 						__change_io_susp_quorum(device, true);
 				}
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 		}
 		if (disk_state[OLD] == D_UP_TO_DATE)
@@ -2504,7 +2504,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				/* Resume AL writing if we get a connection */
 				if (repl_state[OLD] < L_ESTABLISHED && repl_state[NEW] >= L_ESTABLISHED)
 					bsr_resume_al(device);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			if (repl_state[OLD] == L_AHEAD && repl_state[NEW] == L_SYNC_SOURCE) {
@@ -2578,7 +2578,7 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			}
 			if (disk_state[OLD] < D_CONSISTENT && disk_state[NEW] >= D_CONSISTENT)
 				bsr_set_exposed_data_uuid(device, device->ldev->md.current_uuid);
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 
 		/* remember last attach time so request_timer_fn() won't
@@ -3169,7 +3169,7 @@ enum bsr_disk_state os, enum bsr_disk_state ns)
 		if (os == D_UNKNOWN && (ns == D_DISKLESS || ns == D_FAILED || ns == D_OUTDATED) &&
 			bsr_bitmap_uuid(peer_device) == 0)
 			rv = true;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	return rv;
@@ -3424,7 +3424,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if( (role[OLD] == R_SECONDARY) && (role[NEW] == R_PRIMARY) ) {
 				if(get_ldev_if_state(device, D_NEGOTIATING)) {
 					bsr_md_set_flag (device, MDF_LAST_PRIMARY );
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			} else if( (peer_role[NEW] == R_PRIMARY) 
 			|| ((role[NOW] == R_SECONDARY) && (resource->twopc_reply.primary_nodes != 0) // disk detach case || detach & reconnect daisy chain case
@@ -3432,7 +3432,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			&& !(resource->twopc_reply.primary_nodes & NODE_MASK(resource->res_opts.node_id)))) { 
 				if(get_ldev_if_state(device, D_NEGOTIATING)) {
 					bsr_md_clear_flag (device, MDF_LAST_PRIMARY );
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			} 
 
@@ -3475,7 +3475,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			    connection->agreed_pro_version >= 96 && connection->agreed_pro_version < 110 &&
 			    get_ldev(device)) {
 				bsr_gen_and_send_sync_uuid(peer_device);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			/* Do not change the order of the if above and the two below... */
@@ -3543,7 +3543,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					bsr_bitmap_io_from_worker(device, &bsr_bm_write,
 						"demote diskless peer", BM_LOCK_CLEAR | BM_LOCK_BULK,
 						NULL);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			/* Write out all changed bits on demote.
@@ -3556,7 +3556,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				bsr_bitmap_io_from_worker(device, &bsr_bm_write,
 						"demote", BM_LOCK_SET | BM_LOCK_CLEAR | BM_LOCK_BULK,
 						NULL);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			/* Last part of the attaching process ... */
@@ -3686,7 +3686,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				bsr_queue_bitmap_io(device, &bsr_bm_write_copy_pages, NULL,
 					"write from resync_finished", BM_LOCK_BULK,
 					NULL);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			// BSR-118
@@ -3758,7 +3758,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				
 				bsr_send_uuids(peer_device, bConsiderResync ? UUID_FLAG_AUTHORITATIVE : 0, 0, NOW);
 
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			if (send_state) {
@@ -3789,7 +3789,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				*/
 				// BSR-936 if device stable has been updated, send UUID information to "NEW"
 				bsr_send_uuids(peer_device, UUID_FLAG_GOT_STABLE, 0, NEW);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 			// DW-1315 notify peer that I got stable, no resync available in this case.
 			else if (!device_stable[OLD] && device_stable[NEW] &&
@@ -3799,7 +3799,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				// BSR-1056
 				// BSR-936 if device stable has been updated, send UUID information to "NEW"
 				bsr_send_uuids(peer_device, (peer_device->disk_state[NOW] > D_UNKNOWN) ? UUID_FALG_SEND_IT_TO_ME : 0, 0, NEW);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			// DW-1315 I am still unstable but authoritative node's changed, need to notify peers.
@@ -3809,7 +3809,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				// DW-1315 peer checks resync availability as soon as it gets UUID_FLAG_AUTHORITATIVE, and replies by sending uuid with both flags UUID_FLAG_AUTHORITATIVE and UUID_FLAG_RESYNC 
 				// BSR-990 set the UUID send criteria to NEW because the change criteria for the authoritative node is NEW
 				bsr_send_uuids(peer_device, (NODE_MASK(peer_device->node_id)&authoritative[NEW]) ? UUID_FLAG_AUTHORITATIVE : 0, 0, NEW);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			// DW-1315 resync availability has been checked in finish_state_change(), abort resync here by changing replication state to L_ESTABLISHED.
@@ -3851,7 +3851,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					__change_io_susp_quorum(device, false);
 					end_state_change(resource, &irq_flags, __FUNCTION__);
 				}
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			}
 
 			// DW-1145 propagate uuid when I got connected with primary and established state.
@@ -3875,7 +3875,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				device->ldev->md.effective_size = size;
 				bsr_md_mark_dirty(device);
 			}
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 
 		/* first half of local IO error, failure to attach,
@@ -3954,7 +3954,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		}
 
 		if (device_state_change->have_ldev)
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 
 		/* Notify peers that I had a local IO error and did not detach. */
 		if (disk_state[OLD] == D_UP_TO_DATE && disk_state[NEW] == D_INCONSISTENT)
@@ -5284,7 +5284,7 @@ static void restore_outdated_in_pdsk(struct bsr_device *device)
 			__change_peer_disk_state(peer_device, D_OUTDATED, __FUNCTION__);
 	}
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 static bool do_change_from_consistent(struct change_context *context, enum change_phase phase)

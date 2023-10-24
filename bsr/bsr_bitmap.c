@@ -954,7 +954,7 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 
 	if (get_ldev(device)) {
 		u64 bits_on_disk = bsr_md_on_disk_bits(device);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		if (bits > bits_on_disk) {
 			bsr_err(24, BSR_LC_BITMAP, device, "Failed to resize bitmap due to not enough space for bitmap. bitmap(%llu) space(%llu)",
 				(unsigned long long)bits, bits_on_disk);
@@ -1075,7 +1075,7 @@ ULONG_PTR bsr_bm_total_weight(struct bsr_peer_device *peer_device)
 	if (!get_ldev_if_state(device, D_NEGOTIATING))
 		return 0;
 	s = _bsr_bm_total_weight(device, peer_device->bitmap_index);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return s;
 }
 
@@ -1095,7 +1095,7 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 
 	// DW-1859 BSR-744 make sure the io-error is cleared only when MDF_IO_ERROR is set.
 	if (!bsr_md_test_flag(device, MDF_IO_ERROR)) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return;
 	}
 
@@ -1128,7 +1128,7 @@ void check_and_clear_io_error_in_primary(struct bsr_device *device)
 		bsr_queue_notify_io_error_cleared(device);
 	}
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
@@ -1149,7 +1149,7 @@ void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 
 	// DW-1859 If MDF_IO_ERROR is not set, and if io_error_count is also 0, there is certainly no error.
 	if (!bsr_md_test_flag(device, MDF_IO_ERROR) && (atomic_read(&device->io_error_count) == 0)) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return;
 	}
 
@@ -1165,7 +1165,7 @@ void check_and_clear_io_error_in_secondary(struct bsr_peer_device *peer_device)
 		bsr_queue_notify_io_error_cleared(device);
 	}
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 /* Returns the number of unsigned long words per peer */
@@ -1224,7 +1224,7 @@ static void bsr_bm_aio_ctx_destroy(struct kref *kref)
 	spin_lock_irqsave(&ctx->device->resource->req_lock, flags);
 	list_del(&ctx->list);
 	spin_unlock_irqrestore(&ctx->device->resource->req_lock, flags);
-	put_ldev(ctx->device);
+	put_ldev(__FUNCTION__, ctx->device);
 	bsr_kfree(ctx);
 }
 

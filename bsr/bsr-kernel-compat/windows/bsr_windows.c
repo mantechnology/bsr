@@ -2282,7 +2282,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 						bsr_warn(73, BSR_LC_ETC,"replicating volume letter is changed, detaching");
 						set_bit(FORCE_DETACH, &device->flags);
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
-						put_ldev(device);
+						put_ldev(__FUNCTION__, device);
 					}
 					// DW-1300 put device reference count when no longer use.
 					if (device)
@@ -3307,7 +3307,7 @@ int bsr_resize(struct bsr_device *device)
 	dd = bsr_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
 
 	bsr_md_sync_if_dirty(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
 		goto fail;
@@ -3326,7 +3326,7 @@ int bsr_resize(struct bsr_device *device)
 	return retcode;
 
  fail_ldev:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	kfree(new_disk_conf);
 	goto fail;
 }

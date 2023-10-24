@@ -363,7 +363,7 @@ void bsr_req_destroy(struct kref *kref)
 				}
 			}
 
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 
 		/* one might be tempted to move the bsr_al_complete_io
@@ -379,7 +379,7 @@ void bsr_req_destroy(struct kref *kref)
 		if (s & RQ_IN_ACT_LOG) {
 			if (get_ldev_if_state(device, D_DETACHING)) {
 				was_last_ref = bsr_al_complete_io(__FUNCTION__, device, &req->i);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			} else if (bsr_ratelimit()) {
 				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
 					  "but my Disk seems to have failed :(",
@@ -1863,7 +1863,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 			__change_cstate(peer_device->connection, C_DISCONNECTING);
 		end_state_change_locked(resource, false, __FUNCTION__);
 	}
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 /* called within req_lock */
@@ -1922,7 +1922,7 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 					req->i.sector, req->i.size)) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 	}
 
@@ -1953,7 +1953,7 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 	if (peer_device && req->private_bio) {
 		bio_put(req->private_bio);
 		req->private_bio = NULL;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	return peer_device;
 }
@@ -2089,7 +2089,7 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 			generic_make_request(bio);
 #endif
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else
 		bsr_bio_endio(bio, -EIO);
 }
@@ -2575,7 +2575,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		if (req->private_bio) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 		goto out;
 	}
@@ -2621,7 +2621,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		if (req->private_bio && !may_do_writes(device)) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 			goto nodata;
 		}
 		/* Need to replicate writes.  Unless it is an empty flush,
@@ -3282,7 +3282,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		MAKE_REQUEST_RETURN;
 #endif
 	}
@@ -3387,7 +3387,7 @@ int bsr_merge_bvec(struct request_queue *q,
 			backing_limit = b->merge_bvec_fn(b, bvm, bvec);
 			limit = min(limit, backing_limit);
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		if ((limit >> 9) > max_hw_sectors)
 			limit = max_hw_sectors << 9;
 	}
@@ -3533,7 +3533,7 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 	rcu_read_lock();
 	if (get_ldev(device)) { /* implicit state.disk >= D_INCONSISTENT */
 		dt = rcu_dereference(device->ldev->disk_conf)->disk_timeout * HZ / 10;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	rcu_read_unlock();
 
