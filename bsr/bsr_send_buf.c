@@ -523,7 +523,7 @@ int send_buf(struct bsr_tcp_transport *tcp_transport, enum bsr_stream stream, st
 int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout, KEVENT *send_buf_kill_event)
 {
 	UNREFERENCED_PARAMETER(send_buf_kill_event);
-	LONGLONG try_timestamp;
+	LONGLONG try_timestamp = 0;
 	int protocol;
 	int ret = 0;
 
