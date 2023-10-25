@@ -618,6 +618,15 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
 			bsr_err(14, BSR_LC_STATE, resource, "State change failed: %s", bsr_set_st_err_str(rv));
+#ifdef _LIN
+			// BSR-1150
+			if ((rv == SS_DEVICE_IN_USE) || (rv == SS_PRIMARY_READER)) {
+				idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+					if (device->open_cnt)
+						bsr_err(58, BSR_LC_STATE, device, "State change failed: Device open count %d", device->open_cnt);
+				}
+			}
+#endif
 			print_state_change(resource, "Failed: caller ", locked, caller);
 		}
 		goto out;

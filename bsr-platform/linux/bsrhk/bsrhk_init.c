@@ -105,11 +105,13 @@ static void bsr_unload(void)
 static int bsr_mount(struct block_device *bdev, fmode_t mode)
 {
 	int ret;
-	bsr_info(122, BSR_LC_DRIVER, NO_OBJECT, "bsr mount block_device:%p, mode:%d", bdev, mode);
 	ret = bsr_open(bdev, mode);
 	if(!ret) {
 		struct bsr_device *device = bdev->bd_disk->private_data;
 		atomic_inc(&device->mounted_cnt);
+		// BSR-1150 improve device open info log
+		bsr_info(122, BSR_LC_DRIVER, NO_OBJECT, "bsr mount block_device:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
+			bdev, mode, device->open_cnt, current->comm, task_pid_nr(current));
 	}		
 	return ret;
 }
@@ -117,13 +119,21 @@ static int bsr_mount(struct block_device *bdev, fmode_t mode)
 static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 {
 	struct bsr_device *device = gd->private_data;
-	
-	bsr_info(123, BSR_LC_DRIVER, NO_OBJECT, "bsr umount gendisk:%p, mode:%d", gd, mode);
+#ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+	int ret = 0;
+#endif
 	atomic_dec(&device->mounted_cnt);
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
 #else
-	return bsr_release(gd, mode);
+	ret = bsr_release(gd, mode);
+#endif
+	// BSR-1150 improve device release info log
+	bsr_info(123, BSR_LC_DRIVER, NO_OBJECT, "bsr umount gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])", 
+		gd, mode, device->open_cnt, current->comm, task_pid_nr(current));
+
+#ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+	return ret;
 #endif
 }
 
