@@ -1094,7 +1094,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		break;
 	default:
 		// DW-1977
-		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "The resync is complete because it is not in VerifyS or SyncTarget replication state.");
+		bsr_info(105, BSR_LC_RESYNC_OV, peer_device, "Stop the resync or verify request because the replication status is %s, not sync target or verify source.", bsr_repl_str(peer_device->repl_state[NOW]));
 		break;
 	}
 
