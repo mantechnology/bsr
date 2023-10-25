@@ -4741,17 +4741,17 @@ int bsr_adm_del_path(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 }
 
-int bsr_open_ro_count(struct bsr_resource *resource)
+int bsr_open_count(struct bsr_resource *resource)
 {
 	struct bsr_device *device;
-	int vnr, open_ro_cnt = 0;
+	int vnr, open_cnt = 0;
 
 	spin_lock_irq(&resource->req_lock);
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr)
-		open_ro_cnt += device->open_ro_cnt;
+		open_cnt += device->open_cnt;
 	spin_unlock_irq(&resource->req_lock);
 
-	return open_ro_cnt;
+	return open_cnt;
 }
 
 
@@ -4792,7 +4792,7 @@ repeat:
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
 		wait_event_interruptible_timeout_ex(resource->state_wait,
-			bsr_open_ro_count(resource) == 0,
+			bsr_open_count(resource) == 0,
 			HZ, t);
 
 		if (t <= 0)
@@ -6858,7 +6858,7 @@ static enum bsr_ret_code adm_del_minor(struct bsr_device *device)
 
 	spin_lock_irq(&resource->req_lock);
 	if (device->disk_state[NOW] == D_DISKLESS &&
-	    device->open_ro_cnt == 0 && device->open_rw_cnt == 0) {
+	    device->open_cnt == 0) {
 		set_bit(UNREGISTERED, &device->flags);
 		ret = ERR_NO;
 	} else {

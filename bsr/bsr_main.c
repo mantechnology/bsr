@@ -3488,10 +3488,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 	if (!rv) {
 		kref_get(&device->kref);
 		kref_debug_get(&device->kref_debug, 3);
-		if (mode & FMODE_WRITE)
-			device->open_rw_cnt++;
-		else
-			device->open_ro_cnt++;
+		device->open_cnt++;
 	}
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 	up(&resource->state_sem);
@@ -3503,17 +3500,15 @@ out:
 	return rv;
 }
 
-static void open_counts(struct bsr_resource *resource, int *rw_count_ptr, int *ro_count_ptr)
+static void open_counts(struct bsr_resource *resource, int *count_ptr)
 {
 	struct bsr_device *device;
-	int vnr, rw_count = 0, ro_count = 0;
+	int vnr, count = 0;
 
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
-		rw_count += device->open_rw_cnt;
-		ro_count += device->open_ro_cnt;
+		count += device->open_cnt;
 	}
-	*rw_count_ptr = rw_count;
-	*ro_count_ptr = ro_count;
+	*count_ptr = count;
 }
 
 #ifdef _WIN
@@ -3525,18 +3520,15 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 	struct bsr_device *device = gd->private_data;
 	struct bsr_resource *resource = device->resource;
 	unsigned long flags;
-	int open_rw_cnt, open_ro_cnt;
+	int open_cnt;
 
 	spin_lock_irqsave(&resource->req_lock, flags);
-	if (mode & FMODE_WRITE)
-		device->open_rw_cnt--;
-	else
-		device->open_ro_cnt--;
+	device->open_cnt--;
 
-	open_counts(resource, &open_rw_cnt, &open_ro_cnt);
+	open_counts(resource, &open_cnt);
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 
-	if (open_ro_cnt == 0)
+	if (open_cnt == 0)
 #ifdef _WIN
 		wake_up(&resource->state_wait);
 #else // _LIN
@@ -3546,7 +3538,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 	if (resource->res_opts.auto_promote) {
 		enum bsr_state_rv rv;
 
-		if (open_rw_cnt == 0 &&
+		if (open_cnt == 0 &&
 		    resource->role[NOW] == R_PRIMARY &&
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
 			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);

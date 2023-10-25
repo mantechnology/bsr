@@ -2267,7 +2267,7 @@ struct bsr_device {
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
 #endif
-	int open_rw_cnt, open_ro_cnt;
+	int open_cnt; // BSR-1151 change open_rw_cnt, open_ro_cnt to open_cnt
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
 
@@ -3536,7 +3536,7 @@ extern void notify_gi_peer_device_mdf_flag_state(struct sk_buff*, unsigned int, 
 extern void notify_split_brain(struct bsr_connection *, char * recover_type);
 
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
-extern int bsr_open_ro_count(struct bsr_resource *resource);
+extern int bsr_open_count(struct bsr_resource *resource);
 
 /*
  * inline helper functions
