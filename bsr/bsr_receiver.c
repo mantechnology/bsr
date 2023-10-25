@@ -7538,7 +7538,7 @@ out:
 		/* Most probably udev opened it read-only. That might happen
 		if it was demoted very recently. Wait up to one second. */
 		wait_event_interruptible_timeout_ex(resource->state_wait,
-			bsr_open_ro_count(resource) == 0,
+			bsr_open_count(resource) == 0,
 			HZ, t);
 
 		if (t > 0)
