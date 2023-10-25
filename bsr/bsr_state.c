@@ -1456,7 +1456,7 @@ static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resourc
 			if (role[NOW] == R_PRIMARY)
 				return SS_TWO_PRIMARIES;
 			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
-				if (device->open_ro_cnt)
+				if (device->open_cnt)
 					return SS_PRIMARY_READER;
 			}
 		}
@@ -1469,7 +1469,7 @@ static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resourc
 		enum which_state which;
 		int nr_negotiating = 0;
 
-		if (role[OLD] != R_SECONDARY && role[NEW] == R_SECONDARY && device->open_rw_cnt)
+		if (role[OLD] != R_SECONDARY && role[NEW] == R_SECONDARY && device->open_cnt)
 			return SS_DEVICE_IN_USE;
 
 		if (disk_state[NEW] > D_ATTACHING && disk_state[OLD] == D_DISKLESS)
@@ -1523,7 +1523,7 @@ static enum bsr_state_rv __is_valid_soft_transition(struct bsr_resource *resourc
 		}
 
 		/* Prevent detach or disconnect while held open read only */
-		if (device->open_ro_cnt && any_disk_up_to_date[OLD] && !any_disk_up_to_date[NEW])
+		if (device->open_cnt && any_disk_up_to_date[OLD] && !any_disk_up_to_date[NEW])
 			return SS_NO_UP_TO_DATE_DISK;
 
 		if (disk_state[NEW] == D_NEGOTIATING)
