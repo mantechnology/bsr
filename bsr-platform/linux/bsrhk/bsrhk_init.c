@@ -40,8 +40,8 @@ extern void bsr_cleanup(void);
 extern int bsr_open(struct block_device *bdev, fmode_t mode);
 extern BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 
-static int bsr_mount(struct block_device *bdev, fmode_t mode);
-static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode);
+static int _bsr_open(struct block_device *bdev, fmode_t mode);
+static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd, fmode_t mode);
 
 
 const struct block_device_operations bsr_ops = {
@@ -49,8 +49,8 @@ const struct block_device_operations bsr_ops = {
 #ifdef COMPAT_HAVE_SUBMIT_BIO
 	.submit_bio = bsr_submit_bio,
 #endif
-	.open =    bsr_mount,
-	.release = bsr_umount,
+	.open =    _bsr_open,
+	.release = _bsr_release,
 };
 
 
@@ -102,7 +102,7 @@ static void bsr_unload(void)
 	return;
 }
 
-static int bsr_mount(struct block_device *bdev, fmode_t mode)
+static int _bsr_open(struct block_device *bdev, fmode_t mode)
 {
 	int ret;
 	ret = bsr_open(bdev, mode);
@@ -110,13 +110,13 @@ static int bsr_mount(struct block_device *bdev, fmode_t mode)
 		struct bsr_device *device = bdev->bd_disk->private_data;
 		atomic_inc(&device->mounted_cnt);
 		// BSR-1150 improve device open info log
-		bsr_info(122, BSR_LC_DRIVER, NO_OBJECT, "bsr mount block_device:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
+		bsr_info(122, BSR_LC_DRIVER, NO_OBJECT, "open block_device:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
 			bdev, mode, device->open_cnt, current->comm, task_pid_nr(current));
 	}		
 	return ret;
 }
 
-static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
+static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd, fmode_t mode)
 {
 	struct bsr_device *device = gd->private_data;
 #ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
@@ -129,7 +129,7 @@ static BSR_RELEASE_RETURN bsr_umount(struct gendisk *gd, fmode_t mode)
 	ret = bsr_release(gd, mode);
 #endif
 	// BSR-1150 improve device release info log
-	bsr_info(123, BSR_LC_DRIVER, NO_OBJECT, "bsr umount gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])", 
+	bsr_info(123, BSR_LC_DRIVER, NO_OBJECT, "release gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])", 
 		gd, mode, device->open_cnt, current->comm, task_pid_nr(current));
 
 #ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
