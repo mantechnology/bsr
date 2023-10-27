@@ -647,7 +647,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	enum bsr_req_event what;
 	struct bsr_peer_device* peer_device;
 	// BSR-843
-	bool oos_pending = false;
+	bool all_oos_pending = true;
 #ifdef _WIN
 	struct bio *bio = NULL;
 	int error = 0;
@@ -832,17 +832,25 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	// DW-2042
 #ifdef SPLIT_REQUEST_RESYNC
 	for_each_peer_device(peer_device, device) {
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			int idx = peer_device ? 1 + peer_device->node_id : 0;
-			if (req->rq_state[idx] & RQ_OOS_PENDING) {
+		struct bsr_connection *connection = peer_device->connection;
+		if (connection->cstate[NOW] != C_CONNECTING && 
+			connection->cstate[NOW] != C_STANDALONE) {
+			if (connection->agreed_pro_version >= 113) {
+				int idx = peer_device ? 1 + peer_device->node_id : 0;
+				if (req->rq_state[idx] & RQ_OOS_PENDING) {
+					// DW-2058 set out of sync again before sending.
+					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+					_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+					// BSR-541
+					wake_up(&connection->sender_work.q_wait);
+				}
+				else {
+					// BSR-843
+					all_oos_pending = false;
+				}
+			} else
 				// BSR-843
-				oos_pending = true;
-				// DW-2058 set out of sync again before sending.
-				bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
-				// BSR-541
-				wake_up(&peer_device->connection->sender_work.q_wait);
-			}
+				all_oos_pending = false;
 		}
 	}
 #endif
@@ -859,7 +867,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		if (!m.bio &&
 			(req->req_databuf ||
 			// BSR-843 requests to send OOS due to congestion improve local write performance during congestion by completing local write in a write-complete-callback, whether or not OOS is transferred.
-			oos_pending)) {
+			all_oos_pending)) {
 			m.bio = req->master_bio;
 			m.error = 0;
 			req->i.completed = true;
