@@ -880,7 +880,6 @@ static bool conn_connect(struct bsr_connection *connection)
 	int sock_check_timeo, ping_int, h, err, vnr, timeout;
 	struct bsr_peer_device *peer_device;
 	struct net_conf *nc;
-	bool discard_my_data;
 	bool have_mutex;
 	signed long long sndbuf_size, cong_fill;
 	int cong_highwater;
@@ -982,8 +981,6 @@ start:
 
 	transport->ops->set_rcvtimeo(transport, DATA_STREAM, MAX_SCHEDULE_TIMEOUT);
 
-	discard_my_data = test_bit(CONN_DISCARD_MY_DATA, &connection->flags);
-
 	if (__bsr_send_protocol(connection, P_PROTOCOL) == -EOPNOTSUPP)
 		goto abort;
 
@@ -1001,11 +998,10 @@ start:
 		peer_device->bm_ctx.count = 0;
 	}
 
-	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
-		if (discard_my_data)
+	if (test_and_clear_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
+		// BSR-1155 DISCARD_MY_DATA is clear after promotion or connection status is set to standalone or after comparing uuid.
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
 			set_bit(DISCARD_MY_DATA, &peer_device->flags);
-		else
-			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
 	
 #ifdef _SEND_BUF
@@ -6067,7 +6063,6 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// DW-1221 If split-brain not detected, clearing DISCARD_MY_DATA bit.
 	else {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
-			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 			// BSR-1155 if resync is required, disconnect if vitim(discard-my-data) is not synctarget
 			if (0 < hg) {
 				connection->last_error = C_DISCARD_MY_DATA;
@@ -6217,14 +6212,6 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 			bsr_err(9, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to incompatible %s settings", "after-sb-2pri");
 			goto disconnect_rcu_unlock;
 		}
-
-#if 0
-		// DW-1221 move to bsr_sync_handshake()
-		if (p_discard_my_data && test_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
-			bsr_err(10, BSR_LC_PROTOCOL, connection, "incompatible %s settings", "discard-my-data");
-			goto disconnect_rcu_unlock;
-		}
-#endif
 
 		if (p_two_primaries != nc->two_primaries) {
 			bsr_err(11, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to incompatible %s settings", "allow-two-primaries");
@@ -10392,7 +10379,6 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_debug_conn("conn_disconnect"); 
 
 	clear_bit(CONN_DRY_RUN, &connection->flags);
-	clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
 
 	if (connection->cstate[NOW] == C_STANDALONE)
 		return;

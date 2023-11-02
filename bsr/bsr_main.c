@@ -1715,8 +1715,6 @@ int __bsr_send_protocol(struct bsr_connection *connection, enum bsr_packet cmd)
 	p->after_sb_2p   = cpu_to_be32(nc->after_sb_2p);
 	p->two_primaries = cpu_to_be32(nc->two_primaries);
 	cf = 0;
-	if (test_bit(CONN_DISCARD_MY_DATA, &connection->flags))
-		cf |= CF_DISCARD_MY_DATA;
 	if (test_bit(CONN_DRY_RUN, &connection->flags))
 		cf |= CF_DRY_RUN;
 	p->conn_flags    = cpu_to_be32(cf);

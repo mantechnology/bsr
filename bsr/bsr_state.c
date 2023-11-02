@@ -2607,9 +2607,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			bsr_thread_stop_nowait(&connection->receiver);
 
 		/* Now the receiver finished cleaning up itself, it should die */
-		if (cstate[OLD] != C_STANDALONE && cstate[NEW] == C_STANDALONE) 
+		if (cstate[OLD] != C_STANDALONE && cstate[NEW] == C_STANDALONE)  {
 			bsr_thread_stop_nowait(&connection->receiver);
-
+			// BSR-1155
+			clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
+		}
 		/* Upon network failure, we need to restart the receiver. */
 		if (cstate[OLD] >= C_CONNECTING &&
 			cstate[NEW] <= C_TEAR_DOWN && cstate[NEW] >= C_TIMEOUT) {
@@ -2625,6 +2627,9 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				clear_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 				// DW-1799
 				clear_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags);
+				// BSR-1155
+				if (cstate[NEW] == C_STANDALONE)
+					clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 			}
 		}
 
