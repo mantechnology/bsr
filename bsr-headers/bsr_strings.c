@@ -33,8 +33,9 @@
 // BSR-892 the output string for the connection error is lowercase with a space of -.
 static const char * const __conn_error_names[] = {
 	[C_NO_ERROR] = "no-error",
-	[C_SPLIT_BRAIN_ERROR] = "split-brain",
-	[C_SYNC_TARGET_PRIMARY] = "sync-target-primary" // BSR-1140
+	[C_SPLIT_BRAIN] = "split-brain",
+	[C_SYNC_TARGET_PRIMARY] = "sync-target-primary", // BSR-1140
+	[C_DISCARD_MY_DATA] = "Incorrect-discard-my-data", // BSR-1155
 };
 
 struct state_names bsr_conn_error_names = {

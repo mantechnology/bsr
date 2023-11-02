@@ -880,7 +880,6 @@ static bool conn_connect(struct bsr_connection *connection)
 	int sock_check_timeo, ping_int, h, err, vnr, timeout;
 	struct bsr_peer_device *peer_device;
 	struct net_conf *nc;
-	bool discard_my_data;
 	bool have_mutex;
 	signed long long sndbuf_size, cong_fill;
 	int cong_highwater;
@@ -982,8 +981,6 @@ start:
 
 	transport->ops->set_rcvtimeo(transport, DATA_STREAM, MAX_SCHEDULE_TIMEOUT);
 
-	discard_my_data = test_bit(CONN_DISCARD_MY_DATA, &connection->flags);
-
 	if (__bsr_send_protocol(connection, P_PROTOCOL) == -EOPNOTSUPP)
 		goto abort;
 
@@ -1001,11 +998,10 @@ start:
 		peer_device->bm_ctx.count = 0;
 	}
 
-	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
-		if (discard_my_data)
+	if (test_and_clear_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
+		// BSR-1155 DISCARD_MY_DATA is clear after promotion or connection status is set to standalone or after comparing uuid.
+		idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr)
 			set_bit(DISCARD_MY_DATA, &peer_device->flags);
-		else
-			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 	}
 	
 #ifdef _SEND_BUF
@@ -6043,35 +6039,44 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	// BSR-735 when executing discard-my-data, if peer is primary, it becomes SyncTarget even if it is not split-brain.
 	else if ((hg <= -2 || hg >= 2) &&
 		(device->resource->role[NOW] == R_PRIMARY || connection->peer_role[NOW] == R_PRIMARY)) {
-		if (connection->peer_role[NOW] == R_PRIMARY &&
-			test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
-		    !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
-			bsr_info(32, BSR_LC_CONNECTION, device, "I shall become SyncTarget, because the discard_my_data flag is set and the peer is primary.");
-			hg = -2;
-		}
+		if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
+			if (connection->peer_role[NOW] == R_PRIMARY && !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+				bsr_info(32, BSR_LC_CONNECTION, device, "I shall become SyncTarget, because the discard_my_data flag is set and the peer is primary.");
+				hg = -2;
+			}
+			// BSR-1155 if resync is required, disconnect if vitim(discard-my-data) is not synctarget
+			if (0 < hg) {
+				connection->last_error = C_DISCARD_MY_DATA;
+				bsr_err(34, BSR_LC_CONNECTION, device, "cannot be set to victim node (discard-my-data).");
+				return -1;
+			}
+		} else {
+			if (device->resource->role[NOW] == R_PRIMARY && (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+				bsr_info(33, BSR_LC_CONNECTION, device, "I shall become SyncSource, because I am primary and the discard_my_data flag is set in the peer.");
+				hg = 2;
 
-		if (device->resource->role[NOW] == R_PRIMARY &&
-			!test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
-		    (peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
-
-			bsr_info(33, BSR_LC_CONNECTION, device, "I shall become SyncSource, because I am primary and the discard_my_data flag is set in the peer.");
-			hg = 2;
-
-			bsr_info(29, BSR_LC_UUID, device, "set UUID creation flag due to discard_my_data flag is set in the peer");
-			set_bit(NEW_CUR_UUID, &device->flags);
+				bsr_info(29, BSR_LC_UUID, device, "set UUID creation flag due to discard_my_data flag is set in the peer");
+				set_bit(NEW_CUR_UUID, &device->flags);
+			}
 		}
 	}
 	// DW-1221 If split-brain not detected, clearing DISCARD_MY_DATA bit.
 	else {
-		if (test_bit(DISCARD_MY_DATA, &peer_device->flags))
-			clear_bit(DISCARD_MY_DATA, &peer_device->flags);
+		if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
+			// BSR-1155 if resync is required, disconnect if vitim(discard-my-data) is not synctarget
+			if (0 < hg) {
+				connection->last_error = C_DISCARD_MY_DATA;
+				bsr_err(35, BSR_LC_CONNECTION, device, "cannot be set to victim node (discard-my-data)");
+				return -1;
+			}
+		}
 	}
 
 
 	if (hg == -100) {
 		bsr_alert(8, BSR_LC_CONNECTION, device, "split-brain detected but unresolved, dropping connection");
 		// BSR-892
-		connection->last_error = C_SPLIT_BRAIN_ERROR;
+		connection->last_error = C_SPLIT_BRAIN;
 		// BSR-734
 		notify_split_brain(connection, "no");
 		bsr_khelper(device, connection, "split-brain");
@@ -6207,14 +6212,6 @@ static int receive_protocol(struct bsr_connection *connection, struct packet_inf
 			bsr_err(9, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to incompatible %s settings", "after-sb-2pri");
 			goto disconnect_rcu_unlock;
 		}
-
-#if 0
-		// DW-1221 move to bsr_sync_handshake()
-		if (p_discard_my_data && test_bit(CONN_DISCARD_MY_DATA, &connection->flags)) {
-			bsr_err(10, BSR_LC_PROTOCOL, connection, "incompatible %s settings", "discard-my-data");
-			goto disconnect_rcu_unlock;
-		}
-#endif
 
 		if (p_two_primaries != nc->two_primaries) {
 			bsr_err(11, BSR_LC_PROTOCOL, connection, "Failed to receive protocol due to incompatible %s settings", "allow-two-primaries");
@@ -10382,7 +10379,6 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_debug_conn("conn_disconnect"); 
 
 	clear_bit(CONN_DRY_RUN, &connection->flags);
-	clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
 
 	if (connection->cstate[NOW] == C_STANDALONE)
 		return;

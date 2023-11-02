@@ -1348,8 +1348,13 @@ retry:
 		struct bsr_connection *connection;
 
 		rcu_read_lock();
-		for_each_connection_rcu(connection, resource)
+		for_each_connection_rcu(connection, resource) {
+			struct bsr_peer_device *peer_device;
 			clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
+			// BSR-1155
+			idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) 
+				clear_bit(DISCARD_MY_DATA, &peer_device->flags);
+		}
 		rcu_read_unlock();
 
 
