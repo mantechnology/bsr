@@ -84,9 +84,8 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all -T`) do (
 REM BSR-1138
 :bsrmon_start
 for /f "tokens=*" %%a in ('bsrmon /get run') do set bsrmon_enabled=%%a
-for /f "tokens=3" %%b in ('bsrmon /get types') do set bsrmon_types=%%b
 if !bsrmon_enabled! == 1 (
-	bsrmon /start !bsrmon_types!
+	bsrmon /start
 	echo [!date!_!time!] bsrmon start. >> %start_log%
 )
 

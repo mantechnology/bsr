@@ -862,22 +862,21 @@ static void PrintOptionValue(char * option)
 
 	// BSR-1138
 	if (strcmp(option, "run") == 0) {
-		int print_sep = 0;
 		value = GetOptionValue(BSRMON_RUN);
 		if (value < 0)
 			value = 1;
 		printf("%ld\n", value);
 		return;
 	}
+#ifdef _WIN
 	if (strcmp(option, "pid") == 0) {
-		int print_sep = 0;
 		value = GetOptionValue(BSRMON_PID);
 		if (value < 0)
 			value = 1;
 		printf("%ld\n", value);
 		return;
 	}
-
+#endif
 	if (strcmp(option, "all") == 0) {
 		print_all = true;
 	} 
@@ -930,11 +929,8 @@ static int is_running(bool print_log)
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
-#else // _LIN
-	int fd = 0;
 #endif
 	int run = 0;
-	int err = 0;
 
 	run = GetOptionValue(BSRMON_RUN);
 	if (run < 0)
@@ -955,7 +951,7 @@ static int is_running(bool print_log)
 			if (pid > 0) {
 				fprintf(stdout, "bsrmon : running\n");
 				fprintf(stdout, "%6s : %d\n", "pid", pid);
-				PrintOptionValue("types");
+				PrintOptionValue((char *)"types");
 			}
 			else
 				fprintf(stdout, "bsrmon : stopped\n");
@@ -995,7 +991,7 @@ static void SetBsrmonRun(unsigned int run, int flags)
 				strcat_s(types," ");
 #else
 				strcat(types, bsrmon_types_str[i]);
-				strcat_s(types," ");
+				strcat(types," ");
 #endif
 			}
 		}
@@ -1055,6 +1051,9 @@ static void BsrmonRun(int flags)
 {
 	int interval = 0;
 	pid_t processId = 0;
+	
+	write_log = true;
+
 #ifdef _WIN
 	processId = GetCurrentProcessId();
 	bsrmon_log(stdout, "bsrmon start. (pid=%d)\n", processId);
@@ -1586,7 +1585,6 @@ int main(int argc, char* argv[])
 				usage();
 			if (++argIndex <= argc) {
 				int type_flags = 0;
-				write_log = true;
 				type_flags = atoi(argv[argIndex]);
 				BsrmonRun(type_flags);
 			}

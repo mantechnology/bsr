@@ -1,5 +1,7 @@
 #ifdef _WIN
 #include <tchar.h>
+#else // _LIN
+#include <dirent.h>
 #endif
 #include <stdarg.h>
 #include <time.h>
@@ -411,7 +413,6 @@ void _bsrmon_log(const char * func, int line, const char * fmt, ...) {
 	struct tm local_tm;
 	struct timeb timer_msec;
 	FILE *f_out;
-	off_t size = 0;
 	char bsrmon_log_path[MAX_PATH+10];
 	char curr_time[64] = { 0, };
 

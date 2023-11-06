@@ -3,7 +3,6 @@
 #include <iostream>
 
 #ifdef _LIN
-#include <dirent.h>
 #define DEBUGFS_ROOT "/sys/kernel/debug/bsr"
 #endif
 

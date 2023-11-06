@@ -421,7 +421,7 @@ void read_io_complete_work(std::set<std::string> filelist, struct time_filter *t
 	FILE *fp;
 	char line[256] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
-	int val[8] = {0};
+	long val[8] = {0};
 	struct perf_stat local, master;
 	unsigned long long total_l_cnt = 0, total_m_cnt= 0;
 	bool start_collect = false, end_collect = false;
