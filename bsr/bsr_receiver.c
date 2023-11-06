@@ -534,7 +534,7 @@ bsr_alloc_peer_req(struct bsr_peer_device *peer_device, gfp_t gfp_mask) __must_h
 	peer_req->submit_jif = jiffies;
 	peer_req->peer_device = peer_device;
 	// BSR-764
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST))
 		ktime_get_accounting(peer_req->start_kt);
 
 	return peer_req;
@@ -563,7 +563,7 @@ void __bsr_free_peer_req(struct bsr_peer_request *peer_req, int is_net)
 		bsr_free_page_chain(&peer_device->connection->transport, &peer_req->page_chain, is_net);
 
 		// BSR-764
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST)) {
 			unsigned long flag = 0;
 			spin_lock_irqsave(&peer_device->timing_lock, flag);
 			peer_device->p_reqs++;	
@@ -2097,7 +2097,7 @@ next_bio:
 	peer_req->flags |= EE_SUBMITTED;
 
 	// BSR-764 peer request submit
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST))
 		ktime_get_accounting(peer_req->p_submit_kt);
 
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE6)

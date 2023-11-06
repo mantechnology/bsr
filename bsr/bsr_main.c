@@ -3827,7 +3827,7 @@ void bsr_destroy_device(struct kref *kref)
 #endif
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct io_pending_info *io_pending, *tmp;
 		list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
 			list_del(&io_pending->list);
@@ -4033,7 +4033,7 @@ static void do_retry(struct work_struct *ws)
 		 * as we want to keep the start_time information. */
 		inc_ap_bio(device, bio_data_dir(bio));
 		// BSR-1054
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 			struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'CASB');
 			INIT_LIST_HEAD(&io_pending->list);
 			spin_lock_irq(&device->io_pending_list_lock);
@@ -4069,7 +4069,7 @@ void bsr_restart_request(struct bsr_request *req)
 	 * do_retry() needs to grab a new one. */
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct bsr_device *device = req->device;
 		struct io_pending_info *io_pending, *tmp;
 		spin_lock_irqsave(&device->io_pending_list_lock, flags);

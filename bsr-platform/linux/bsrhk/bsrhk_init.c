@@ -82,7 +82,10 @@ static int __init bsr_load(void)
 	bsr_info(89, BSR_LC_ETC, NO_OBJECT, "handler state %s", atomic_read(&g_handler_use) ? "enable" : "disable");
 	
 	// BSR-740
-	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 1));
+	if (read_reg_file(BSRMON_RUN_REG, 1))
+		atomic_set(&g_bsrmon_run, read_reg_file(BSRMON_TYPES_REG, DEFAULT_BSRMON_TYPES));
+	else
+		atomic_set(&g_bsrmon_run, 0);
 
 	bsr_info(120, BSR_LC_DRIVER, NO_OBJECT, "bsr kernel driver load");
 	initialize_kref_debugging();

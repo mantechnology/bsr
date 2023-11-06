@@ -90,7 +90,6 @@ endif
 	install -d $(DESTDIR)$(sbindir)
 	install -m 755 bsrwatch $(DESTDIR)$(sbindir)
 	install -m 755 bsrsupport $(DESTDIR)$(sbindir)
-	install -m 755 bsrmon-run $(DESTDIR)$(sbindir)
 ifeq ($(DISTRO),debian)
 	@ echo "Don't forget to run update-rc.d"
 else
@@ -132,7 +131,6 @@ endif
 	rm -f $(DESTDIR)$(sysconfdir)/bash_completion.d/bsradm$(BASH_COMPLETION_SUFFIX)
 	rm -f $(DESTDIR)$(sbindir)/bsrwatch
 	rm -f $(DESTDIR)$(sbindir)/bsrsupport
-	rm -f $(DESTDIR)$(sbindir)/bsrmon-run
 
 .PHONY: install uninstall clean distclean
 ../../configure:

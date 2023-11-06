@@ -4,15 +4,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include "../../../bsr-headers/bsr_ioctl.h"
+#include <signal.h>
 #endif
 #include <time.h>
 #include <sys/timeb.h>
+#include <string.h>
 #include "bsrmon.h"
 #include "module_debug.h"
 #include "monitor_collect.h"
 #include "read_stat.h"
+#include "../../../bsr-headers/bsr_ioctl.h"
 
+#ifdef _LIN
+bool receive_signal;
+#endif
 
 #ifdef _WIN
 void debug_usage()
@@ -53,7 +58,7 @@ void debug_usage()
 		"bsrmon /debug transport r1 1\n"
 		"bsrmon /debug proc_bsr r1 1 0\n"
 		"bsrmon /debug io_frozen r1 0\n"
-		"bsrmon /debug resync_ratio r1 1\n"
+		"bsrmon /debug resync_ratio r1 1 0\n"
 		);
 
 	exit(ERROR_INVALID_PARAMETER);
@@ -92,11 +97,10 @@ void usage()
 		"cmds:\n");
 
 	printf(
-		"   /start\n"
+		"   /start {types[,...]|all}\n"
 		"   /stop\n"
 		"   /status\n"
 		//"   /print\n"
-		//"   /file\n"
 		"   /show [/t {types[,...]|all}] [/r {resource[,...]|all}] [/j|/json] [/c|/continue]\n"
 		"   /watch {types} [/scroll]\n"
 		"   /report {types} [/f {filename}] [/p {peer_name[,...]}]\n"
@@ -104,7 +108,7 @@ void usage()
 		"                                   [/s {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"                                   [/e {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt} {value}\n"
-		"   /get {all, period, file_size, file_cnt}\n"
+		"   /get {all, period, file_size, file_cnt, types}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
 #ifdef _WIN
@@ -149,7 +153,7 @@ int BsrDebug(int argc, char* argv[])
 
 	debugInfo = (PBSR_DEBUG_INFO)malloc(sizeof(BSR_DEBUG_INFO) + size);
 	if (!debugInfo) {
-		fprintf(stderr, "DEBUG_ERROR: Failed to malloc BSR_DEBUG_INFO\n");
+		bsrmon_log(stderr, "DEBUG_ERROR: Failed to malloc BSR_DEBUG_INFO\n");
 		return  ERROR_NOT_ENOUGH_MEMORY;
 	}
 
@@ -221,30 +225,30 @@ int BsrDebug(int argc, char* argv[])
 			size <<= 1;
 
 			if (size > MAX_SEQ_BUF << 10) { // 4M
-				fprintf(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
-				fprintf(stderr, "buffer overflow.\n");
+				bsrmon_log(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
+				bsrmon_log(stderr, "buffer overflow.\n");
 				break;
 			}
 
 			// reallocate when buffer is insufficient
 			debugInfo = (PBSR_DEBUG_INFO)realloc(debugInfo, sizeof(BSR_DEBUG_INFO) + size);
 			if (!debugInfo) {
-				fprintf(stderr, "DEBUG_ERROR: Failed to realloc BSR_DEBUG_INFO\n");
+				bsrmon_log(stderr, "DEBUG_ERROR: Failed to realloc BSR_DEBUG_INFO\n");
 				break;
 			}
 			debugInfo->buf_size = size;
 		}
 		else {
-			fprintf(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
+			bsrmon_log(stderr, "DEBUG_ERROR: Failed to get bsr debuginfo. (Err=%u)\n", ret);
 			break;
 		}
 	}
 
 	if (ret == ERROR_SUCCESS) {
-		fprintf(stdout, "%s\n", debugInfo->buf);
+		bsrmon_log(stdout, "%s\n", debugInfo->buf);
 	}
 	else if (ret == ERROR_INVALID_PARAMETER) {
-		fprintf(stderr, "invalid paramter.\n");
+		bsrmon_log(stderr, "invalid paramter.\n");
 	}
 
 	if (debugInfo) {
@@ -269,7 +273,7 @@ void PrintMonitor(char* res_name)
 
 	// print I/O monitoring status
 	printf("IO_STAT:\n");
-	buf = GetDebugToBuf(IO_STAT, res);
+	buf = GetDebugToBuf(BSRMON_IO_STAT, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -277,7 +281,7 @@ void PrintMonitor(char* res_name)
 	}
 
 	printf("IO_COMPLETE:\n");
-	buf = GetDebugToBuf(IO_COMPLETE, res);
+	buf = GetDebugToBuf(BSRMON_IO_COMPLETE, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -285,7 +289,7 @@ void PrintMonitor(char* res_name)
 	}
 	// BSR-1054
 	printf("IO_PENDING:\n");
-	buf = GetDebugToBuf(IO_PENDING, res);
+	buf = GetDebugToBuf(BSRMON_IO_PENDING, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -293,7 +297,7 @@ void PrintMonitor(char* res_name)
 	}
 
 	printf("REQUEST:\n");
-	buf = GetDebugToBuf(REQUEST, res);
+	buf = GetDebugToBuf(BSRMON_REQUEST, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -301,7 +305,7 @@ void PrintMonitor(char* res_name)
 	}
 
 	printf("PEER_REQUEST:\n");
-	buf = GetDebugToBuf(PEER_REQUEST, res);
+	buf = GetDebugToBuf(BSRMON_PEER_REQUEST, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -309,7 +313,7 @@ void PrintMonitor(char* res_name)
 	}
 
 	printf("AL_STAT:\n");
-	buf = GetDebugToBuf(AL_STAT, res);
+	buf = GetDebugToBuf(BSRMON_AL_STAT, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -318,7 +322,7 @@ void PrintMonitor(char* res_name)
 
 	// BSR-838
 	printf("RESYNC_RATIO:\n");
-	buf = GetDebugToBuf(RESYNC_RATIO, res);
+	buf = GetDebugToBuf(BSRMON_RESYNC_RATIO, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -360,13 +364,13 @@ void PrintMonitor(char* res_name)
 
 	// print network monitoring status
 	printf("Network:\n");
-	buf = GetDebugToBuf(NETWORK_SPEED, res);
+	buf = GetDebugToBuf(BSRMON_NETWORK_SPEED, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
 		buf = NULL;
 	}
-	buf = GetDebugToBuf(SEND_BUF, res);
+	buf = GetDebugToBuf(BSRMON_SEND_BUF, res);
 	if (buf) {
 		printf("%s\n", buf);
 		free(buf);
@@ -383,25 +387,25 @@ void InitMonitor()
 
 	res = GetResourceInfo(NULL);
 	if (!res) {
-		fprintf(stderr, "Failed to get resource info.\n");
+		bsrmon_log(stderr, "Failed to get resource info.\n");
 		return;
 	}
 
 	res_head = res;
 	while (res) {
-		if (InitPerfType(IO_STAT, res) != 0)
+		if (InitPerfType(BSRMON_IO_STAT, res) != 0)
 			goto next;
-		if (InitPerfType(IO_COMPLETE, res) != 0)
+		if (InitPerfType(BSRMON_IO_COMPLETE, res) != 0)
 			goto next;
-		if (InitPerfType(REQUEST, res) != 0)
+		if (InitPerfType(BSRMON_REQUEST, res) != 0)
 			goto next;
-		if (InitPerfType(PEER_REQUEST, res) != 0)
+		if (InitPerfType(BSRMON_PEER_REQUEST, res) != 0)
 			goto next;
-		if (InitPerfType(AL_STAT, res) != 0)
+		if (InitPerfType(BSRMON_AL_STAT, res) != 0)
 			goto next;
-		if (InitPerfType(NETWORK_SPEED, res) != 0)
+		if (InitPerfType(BSRMON_NETWORK_SPEED, res) != 0)
 			goto next;
-		if (InitPerfType(RESYNC_RATIO, res) != 0)
+		if (InitPerfType(BSRMON_RESYNC_RATIO, res) != 0)
 			goto next;
 next:
 		res = res->next;
@@ -412,7 +416,7 @@ next:
 
 
 // BSR-688 save aggregated data to file
-void MonitorToFile()
+void MonitorToFile(int type_flags)
 {
 	struct resource *res, *res_head;
 	struct tm base_date_local;
@@ -421,7 +425,7 @@ void MonitorToFile()
 	
 	res = GetResourceInfo(NULL);
 	if (!res) {
-		fprintf(stderr, "Failed to get resource info.\n");
+		bsrmon_log(stderr, "Failed to get resource info.\n");
 		return;
 	}
 
@@ -449,122 +453,88 @@ void MonitorToFile()
 		mkdir(respath, 0777);
 #endif
 		// save monitoring status
-		if (GetDebugToFile(IO_STAT, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_IO_STAT)) && (GetDebugToFile(BSRMON_IO_STAT, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(IO_COMPLETE, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_IO_COMPLETE)) && (GetDebugToFile(BSRMON_IO_COMPLETE, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(IO_PENDING, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_IO_PENDING)) && (GetDebugToFile(BSRMON_IO_PENDING, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(REQUEST, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_REQUEST)) && (GetDebugToFile(BSRMON_REQUEST, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(PEER_REQUEST, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_PEER_REQUEST)) && (GetDebugToFile(BSRMON_PEER_REQUEST, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(AL_STAT, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_AL_STAT)) && (GetDebugToFile(BSRMON_AL_STAT, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(NETWORK_SPEED, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_NETWORK_SPEED)) && (GetDebugToFile(BSRMON_NETWORK_SPEED, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(SEND_BUF, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_SEND_BUF)) && (GetDebugToFile(BSRMON_SEND_BUF, res, respath, curr_time) != 0))
 			goto next;
-		if (GetDebugToFile(RESYNC_RATIO, res, respath, curr_time) != 0)
+		if ((type_flags & (1 << BSRMON_RESYNC_RATIO)) && (GetDebugToFile(BSRMON_RESYNC_RATIO, res, respath, curr_time) != 0))
 			goto next;
 next:
 		res = res->next;
 	}
 
 	// save memory monitoring status
-	GetMemInfoToFile(g_perf_path, curr_time);
+	if (type_flags & (1 << BSRMON_MEMORY))
+		GetMemInfoToFile(g_perf_path, curr_time);
 	freeResource(res_head);
 }
 
-// BSR-741 checking the performance monitor status
-static bool is_running(bool print_log)
+static pid_t GetRunningPid() 
 {
 #ifdef _WIN
-	HANDLE      hDevice = INVALID_HANDLE_VALUE;
-	DWORD       dwReturned = 0;
+	DWORD error = 0;
+	HANDLE hProc = NULL;
+	DWORD pid = GetOptionValue(BSRMON_PID);
+
+	if (pid > 0) {
+		if(hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid))
+			CloseHandle(hProc);	// bsrmon running
+		else {
+			pid = 0;
+			SetOptionValue(BSRMON_PID, 0);
+			SetOptionValue(BSRMON_STOP_SIGNAL, 0);
+		}
+	}
 #else // _LIN
-	int fd = 0;
-#endif
-	unsigned int run = 0;
-	int err = 0;
-
-#ifdef _WIN
-	hDevice = OpenDevice(MVOL_DEVICE);
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		if (print_log)
-			fprintf(stderr, "Failed to open bsr\n");
-		return false;
-	}
-	
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_GET_BSRMON_RUN, NULL, 0, &run, sizeof(unsigned int), &dwReturned, NULL) == FALSE)
-		err = 1;
-	
-	if (hDevice != INVALID_HANDLE_VALUE)
-		CloseHandle(hDevice);
-
-#else // _LIN
-	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
-		if (print_log)
-			fprintf(stderr, "Can not open /dev/bsr-control\n");
-		return false;
-	}
-	if (ioctl(fd, IOCTL_MVOL_GET_BSRMON_RUN, &run) != 0)
-		err = 1;
-
-	if (fd)
-		close(fd);
-
-#endif
-
-	if (err){
-		if (print_log)
-			fprintf(stderr, "Failed to IOCTL_MVOL_GET_BSRMON_RUN\n");
-		return false;
-	} else if (run) {
-		if (print_log)
-			fprintf(stdout, "bsr performance monitor is enabled.\n");
-		return true;
-	} else {
-		if (print_log)
-			fprintf(stdout, "bsr performance monitor is disabled.\n");
-		return false;
-	}
-
-}
-
-
-#ifdef _LIN
-static pid_t GetRunningPid() {
 	char buf[10] = {0,};
-	pid_t pid;
-	FILE *cmd_pipe = popen("pgrep bsrmon-run", "r");
-
+	pid_t pid = 0;
+	pid_t c_pid = 0;
+	FILE *cmd_pipe = popen("pgrep -fa \"bsrmon /start\" | grep -v pgrep | awk '{print $1}'", "r");
 	if (!cmd_pipe)
 		return 0;
-	fgets(buf, MAX_PATH, cmd_pipe);
-	pid = strtoul(buf, NULL, 10);
+	
+	// current pid
+	c_pid = getpid();
+
+	while (fgets(buf, MAX_PATH, cmd_pipe) != NULL) {
+		pid = strtoul(buf, NULL, 10);
+		if (pid == c_pid)
+			pid = 0;
+		else if (pid > 0)
+			break;
+	}
 	pclose(cmd_pipe);
-	return pid;
-}
 #endif
 
+	return pid;
+}
+
+
 // BSR-688 watching perf file
-void Watch(char *resname, enum get_debug_type type, int vnr, bool scroll)
+void Watch(char *resname, enum bsrmon_type type, int vnr, bool scroll)
 {
 	char watch_path[512] = {0,};
+	pid_t pid = 0;
 
 	get_perf_path();
 
-#ifdef _WIN
-	if (!is_running(true))
-		return;
-#else
-	pid_t pid = GetRunningPid();
+	pid = GetRunningPid();
 	if (pid <= 0) {
-		fprintf(stderr, "bsrmon-run script is not running\n");
+		fprintf(stderr, "bsrmon is not running\n");
 		return;
 	}
-#endif
 
 	if (resname != NULL) {
 		int err = CheckResourceInfo(resname, 0, vnr);
@@ -587,34 +557,34 @@ void Watch(char *resname, enum get_debug_type type, int vnr, bool scroll)
 
 	if (type != -1) {
 		switch (type) {
-		case IO_STAT:
+		case BSRMON_IO_STAT:
 			watch_io_stat(watch_path, scroll);
 			break;
-		case IO_COMPLETE:
+		case BSRMON_IO_COMPLETE:
 			watch_io_complete(watch_path, scroll);
 			break;
-		case IO_PENDING:
+		case BSRMON_IO_PENDING:
 			watch_io_pending(watch_path, scroll);
 			break;
-		case REQUEST:
+		case BSRMON_REQUEST:
 			watch_req_stat(watch_path, scroll);
 			break;
-		case PEER_REQUEST:
+		case BSRMON_PEER_REQUEST:
 			watch_peer_req_stat(watch_path, scroll);
 			break;
-		case AL_STAT:
+		case BSRMON_AL_STAT:
 			watch_al_stat(watch_path, scroll);
 			break;
-		case NETWORK_SPEED:
+		case BSRMON_NETWORK_SPEED:
 			watch_network_speed(watch_path, scroll);
 			break;
-		case SEND_BUF:
+		case BSRMON_SEND_BUF:
 			watch_sendbuf(watch_path, scroll);
 			break;
-		case MEMORY:
+		case BSRMON_MEMORY:
 			watch_memory(watch_path, scroll);
 			break;
-		case RESYNC_RATIO:
+		case BSRMON_RESYNC_RATIO:
 			watch_peer_resync_ratio(watch_path, scroll);
 			break;
 
@@ -625,7 +595,7 @@ void Watch(char *resname, enum get_debug_type type, int vnr, bool scroll)
 }
 
 
-void Report(char *resname, char *rfile, enum get_debug_type type, int vnr, struct time_filter *tf, struct peer_stat *peer_list)
+void Report(char *resname, char *rfile, enum bsrmon_type type, int vnr, struct time_filter *tf, struct peer_stat *peer_list)
 {
 	char dirpath[512] = {0,};
 	char filename[32] = {0,};
@@ -665,34 +635,34 @@ void Report(char *resname, char *rfile, enum get_debug_type type, int vnr, struc
 	}
 
 	switch (type) {
-	case IO_STAT:
+	case BSRMON_IO_STAT:
 		read_io_stat_work(filelist, tf);
 		break;
-	case IO_COMPLETE:
+	case BSRMON_IO_COMPLETE:
 		read_io_complete_work(filelist, tf);
 		break;
-	case IO_PENDING:
+	case BSRMON_IO_PENDING:
 		read_io_pending_work(filelist, tf);
 		break;
-	case REQUEST:
+	case BSRMON_REQUEST:
 		read_req_stat_work(filelist, resname, peer_list, tf);
 		break;
-	case PEER_REQUEST:
+	case BSRMON_PEER_REQUEST:
 		read_peer_req_stat_work(filelist, resname, peer_list, tf);
 		break;
-	case AL_STAT:
+	case BSRMON_AL_STAT:
 		read_al_stat_work(filelist, tf);
 		break;
-	case RESYNC_RATIO:
+	case BSRMON_RESYNC_RATIO:
 		read_resync_ratio_work(filelist, resname, peer_list, tf);
 		break;
-	case NETWORK_SPEED:
+	case BSRMON_NETWORK_SPEED:
 		read_network_stat_work(filelist, resname, peer_list, tf);
 		break;
-	case SEND_BUF:
+	case BSRMON_SEND_BUF:
 		read_sendbuf_stat_work(filelist, resname, peer_list, tf);
 		break;
-	case MEMORY:
+	case BSRMON_MEMORY:
 		read_memory_work(filelist, tf);
 		break;
 	
@@ -723,16 +693,18 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	FILE *fp;
 #endif
 
-
-	if (value <= 0) {
-		fprintf(stderr, "Failed to set option value %ld\n", value);
+	if ((option_type != BSRMON_RUN) && 
+		(option_type != BSRMON_STOP_SIGNAL) &&
+		(option_type != BSRMON_PID) &&
+		(value <= 0)) {
+		bsrmon_log(stderr, "Failed to set option value %ld\n", value);
 		return;
 	}
 
 #ifdef _WIN
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+		bsrmon_log(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
 		return;
 	}
 #endif
@@ -755,6 +727,25 @@ void SetOptionValue(enum set_option_type option_type, long value)
 #else // _LIN
 		fp = fopen(FILE_CNT_OPTION_PATH, "w");
 #endif
+	else if (option_type == BSRMON_RUN)
+#ifdef _WIN
+		lResult = RegSetValueEx(hKey, _T("bsrmon_run"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+#else // _LIN
+		fp = fopen(BSRMON_RUN_REG, "w");
+#endif
+	// BSR-1138 save bsrmon collection types
+	else if (option_type == BSRMON_TYPES && value > 0)
+#ifdef _WIN
+		lResult = RegSetValueEx(hKey, _T("bsrmon_types"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+#else // _LIN
+		fp = fopen(BSRMON_TYPES_REG, "w");
+#endif
+#ifdef _WIN
+	else if (option_type == BSRMON_PID && value >= 0)
+		lResult = RegSetValueEx(hKey, _T("bsrmon_pid"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+	else if (option_type == BSRMON_STOP_SIGNAL && value >= 0)
+		lResult = RegSetValueEx(hKey, _T("bsrmon_stop_signal"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
+#endif
 	else {
 #ifdef _WIN
 		RegCloseKey(hKey);
@@ -764,7 +755,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 
 #ifdef _WIN
 	if (ERROR_SUCCESS != lResult)
-		fprintf(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
+		bsrmon_log(stderr, "Failed to RegSetValueEx status(0x%x)\n", lResult);
 
 	RegCloseKey(hKey);
 #else // _LIN
@@ -773,7 +764,7 @@ void SetOptionValue(enum set_option_type option_type, long value)
 		fclose(fp);
 	}
 	else {
-		fprintf(stderr, "Failed to open file(%d)\n", option_type);
+		bsrmon_log(stderr, "Failed to open file(%d)\n", option_type);
 	}
 #endif
 }
@@ -790,7 +781,7 @@ long GetOptionValue(enum set_option_type option_type)
 
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS != lResult) {
-		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
+		bsrmon_log(stderr, "Failed to RegOpenValueEx status(0x%x)\n", lResult);
 		return -1;
 	}
 #else // _LIN
@@ -816,6 +807,24 @@ long GetOptionValue(enum set_option_type option_type)
 #else // _LIN
 		fp = fopen(FILE_CNT_OPTION_PATH, "r");
 #endif
+	else if (option_type == BSRMON_RUN)
+#ifdef _WIN
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_run"), NULL, &type, (LPBYTE)&value, &size);
+#else // _LIN
+		fp = fopen(BSRMON_RUN_REG, "r");
+#endif
+	else if (option_type == BSRMON_TYPES)
+#ifdef _WIN
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_types"), NULL, &type, (LPBYTE)&value, &size);
+#else // _LIN
+		fp = fopen(BSRMON_TYPES_REG, "r");
+#endif
+#ifdef _WIN
+	else if (option_type == BSRMON_STOP_SIGNAL)
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_stop_signal"), NULL, &type, (LPBYTE)&value, &size);
+	else if (option_type == BSRMON_PID)
+		lResult = RegQueryValueEx(hKey, _T("bsrmon_pid"), NULL, &type, (LPBYTE)&value, &size);
+#endif
 	else {
 #ifdef _WIN
 		RegCloseKey(hKey);
@@ -839,11 +848,36 @@ long GetOptionValue(enum set_option_type option_type)
 #endif
 }
 
+// must be same as enum bsrmon_type order
+static const char * const bsrmon_types_str[] = {
+	"iostat", "ioclat", "io_pending", "alstat", "peer_reqstat", "reqstat", "resync_ratio",
+	"network", "sendbuf", "memstat", "all",
+};
+
 // BSR-788 print bsrmon options value
 static void PrintOptionValue(char * option)
 {
 	bool print_all = false;
 	long value = 0;
+
+	// BSR-1138
+	if (strcmp(option, "run") == 0) {
+		int print_sep = 0;
+		value = GetOptionValue(BSRMON_RUN);
+		if (value < 0)
+			value = 1;
+		printf("%ld\n", value);
+		return;
+	}
+	if (strcmp(option, "pid") == 0) {
+		int print_sep = 0;
+		value = GetOptionValue(BSRMON_PID);
+		if (value < 0)
+			value = 1;
+		printf("%ld\n", value);
+		return;
+	}
+
 	if (strcmp(option, "all") == 0) {
 		print_all = true;
 	} 
@@ -867,32 +901,117 @@ static void PrintOptionValue(char * option)
 		printf("file_cnt : %ld\n", value);
 	}
 
+	// BSR-1138
+	if (print_all || strcmp(option, "types") == 0) {
+		int print_sep = 0;
+		value = GetOptionValue(BSRMON_TYPES);
+		if (value <= 0)
+			value = DEFAULT_BSRMON_TYPES;
+		printf("%6s : ", "types");
+		for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
+			if (value & (1 << i)) {
+				if (print_sep)
+					printf(",");
+				else
+					print_sep = 1;
+				printf("%s", bsrmon_types_str[i]);
+			}
+		}
+		printf("\n");
+	}
+
 	if (!value)
 		usage();
 }
 
+// BSR-741 checking the performance monitor status
+static int is_running(bool print_log)
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+#else // _LIN
+	int fd = 0;
+#endif
+	int run = 0;
+	int err = 0;
+
+	run = GetOptionValue(BSRMON_RUN);
+	if (run < 0)
+		run = 1;
+
+#ifdef _WIN
+	if (GetOptionValue(BSRMON_STOP_SIGNAL) == 1) {
+		if (print_log)
+			fprintf(stdout, "bsrmon : stopping.\n");
+		return run;
+	}
+#endif
+
+	if (run > 0) {
+		if (print_log) {
+			// BSR-796 print whether the bsrmon is running
+			pid_t pid = GetRunningPid();
+			if (pid > 0) {
+				fprintf(stdout, "bsrmon : running\n");
+				fprintf(stdout, "%6s : %d\n", "pid", pid);
+				PrintOptionValue("types");
+			}
+			else
+				fprintf(stdout, "bsrmon : stopped\n");
+
+		}
+	} else {
+		if (print_log)
+			fprintf(stdout, "bsrmon : disabled\n");
+	}
+
+	return run;
+}
+
+
 // BSR-695
-static void SetBsrmonRun(unsigned int run)
+static void SetBsrmonRun(unsigned int run, int flags)
 {
 #ifdef _WIN
 	HANDLE      hDevice = INVALID_HANDLE_VALUE;
 	DWORD       dwReturned = 0;
 	unsigned int pre_value;
 #else // _LIN
-	FILE * fp;
 	int fd = 0;
 #endif
+
+	if (run && (GetOptionValue(BSRMON_RUN) < 1))
+		bsrmon_log(stdout, "bsrmon enabled.\n");
+
+	SetOptionValue(BSRMON_RUN, run);
+
+	if (flags) {
+		char types[128] = {0,};
+		for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
+			if (flags & (1 << i)) {
+#ifdef _WIN
+				strcat_s(types, bsrmon_types_str[i]);
+				strcat_s(types," ");
+#else
+				strcat(types, bsrmon_types_str[i]);
+				strcat_s(types," ");
+#endif
+			}
+		}
+		bsrmon_log(stdout, "collection types : %s\n", types);
+	}
 
 #ifdef _WIN
 	hDevice = OpenDevice(MVOL_DEVICE);
 	if (hDevice == INVALID_HANDLE_VALUE) {
-		fprintf(stderr, "Failed to open bsr\n");
+		bsrmon_log(stderr, "Failed to open bsr\n");
 		return;
 	}
 
 	// BSR-740 send to bsr engine
-	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &run, sizeof(unsigned int), &pre_value, sizeof(unsigned int), &dwReturned, NULL) == FALSE) {
-		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_SET_BSRMON_RUN, &flags, sizeof(unsigned int), &pre_value, sizeof(unsigned int), &dwReturned, NULL) == FALSE) {
+		bsrmon_log(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
 	}
 
 	if (hDevice != INVALID_HANDLE_VALUE) {
@@ -900,82 +1019,206 @@ static void SetBsrmonRun(unsigned int run)
 	}
 
 	// BSR-801 if it is the same as the previous value, an error is output
-	if (pre_value == run) {
-		if (run)
-			fprintf(stderr, "Already running\n");
+	if (pre_value == flags) {
+		if (flags)
+			fprintf(stderr, "bsrmon already running\n");
 		else
 			fprintf(stderr, "bsrmon is not running\n");
 	}
 
 #else // _LIN
 	if ((fd = open(BSR_CONTROL_DEV, O_RDWR)) == -1) {
-		fprintf(stderr, "Can not open /dev/bsr-control\n");
+		//fprintf(stderr, "Can not open /dev/bsr-control\n");
 		return;
 	}
 	// BSR-740 send to bsr engine
- 	if (ioctl(fd, IOCTL_MVOL_SET_BSRMON_RUN, &run) != 0) {
-		fprintf(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
+ 	if (ioctl(fd, IOCTL_MVOL_SET_BSRMON_RUN, &flags) != 0) {
+		bsrmon_log(stderr, "Failed to IOCTL_MVOL_SET_BSRMON_RUN\n");
 	}
 	if (fd)
 		close(fd);
-
-	// write /etc/bsr.d/.bsrmon_run
-	fp = fopen(BSR_MON_RUN_REG, "w");
-	if (fp != NULL) {
-		fprintf(fp, "%d", run);
-		fclose(fp);
-	} 
-	else 
-		fprintf(stderr, "Failed to open %s file\n", BSR_MON_RUN_REG);
 #endif
 	
 }
 
-static void StartMonitor()
-{
-	
 #ifdef _LIN
-	char buf[MAX_PATH] = {0,};
-	pid_t pid;
+// BSR-1138 bsrmon kill signal handler
+void sig_handler(int signo)
+{
+	bsrmon_log(stdout, "receive bsrmon stop signal.\n");
+	receive_signal = true;
+}
 #endif
 
-	InitMonitor();
-	SetBsrmonRun(1);
+// BSR-1138
+static void BsrmonRun(int flags)
+{
+	int interval = 0;
+	pid_t processId = 0;
+#ifdef _WIN
+	processId = GetCurrentProcessId();
+	bsrmon_log(stdout, "bsrmon start. (pid=%d)\n", processId);
 
-#ifdef _LIN
+	SetOptionValue(BSRMON_PID, processId);
+	InitMonitor();
+	SetBsrmonRun(1, flags);
+
+	// terminates when BSRMON_STOP_SIGNAL is set
+	while (GetOptionValue(BSRMON_STOP_SIGNAL) == 0) {
+		interval = GetOptionValue(PERIOD);
+		if (interval <= 0)
+			interval = DEFAULT_BSRMON_PERIOD;
+		MonitorToFile(flags);
+		Sleep(interval * 1000);
+	}
+
+	// stop done
+	SetOptionValue(BSRMON_STOP_SIGNAL, 0);
+	SetOptionValue(BSRMON_PID, 0);
+
+	bsrmon_log(stdout, "bsrmon stop. (pid=%d)\n", processId);
+#else // _LIN
+	processId = getpid();
+	bsrmon_log(stdout, "bsrmon start. (pid=%d)\n", processId);
+
+	receive_signal = false;
+	signal(SIGUSR1, sig_handler);
+
+	InitMonitor();
+	SetBsrmonRun(1, flags);
+
+	// terminates when SIGUSR1 is received
+	while (!receive_signal) {
+		interval = GetOptionValue(PERIOD);
+		if (interval <= 0)
+			interval = DEFAULT_BSRMON_PERIOD;
+		MonitorToFile(flags);
+		sleep(interval);
+	}
+	
+	bsrmon_log(stdout, "bsrmon stop. (pid=%d)\n", processId);
+#endif
+
+}
+
+
+static void StartMonitor(int flags)
+{
+#ifdef _WIN
+	WCHAR systemDirPath[MAX_PATH];
+	WCHAR appName[MAX_PATH];
+	WCHAR cmd[MAX_PATH];
+
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
+	DWORD pid = GetRunningPid();
+
+	if (GetOptionValue(BSRMON_STOP_SIGNAL) == 1) {
+		fprintf(stdout, "bsrmon is stopping. please try again in a moment.\n");
+		return;
+	}
+
+	if (pid > 0) {
+		fprintf(stdout, "bsrmon already running (pid=%d)\n", pid);
+		return;
+	}
+
+	if (flags)
+		SetOptionValue(BSRMON_TYPES, flags);
+	else {
+		flags = GetOptionValue(BSRMON_TYPES);
+		if (flags <= 0)
+			flags = DEFAULT_BSRMON_TYPES; // all
+	}
+
+
+    GetSystemDirectory(systemDirPath, sizeof(systemDirPath) / sizeof(WCHAR));
+    swprintf_s(appName, MAX_PATH, L"%s\\cmd.exe", systemDirPath);
+	swprintf_s(cmd, MAX_PATH, L"powershell.exe -Command \"start-process bsrmon -ArgumentList \"/start_ex\", \"%d\" -WindowStyle Hidden\"", flags);
+	ZeroMemory(&si, sizeof(STARTUPINFO));
+
+	si.cb = sizeof(STARTUPINFO);
+
+	// BSR-1138 bsrmon /start_ex runs in background
+	if (CreateProcess(NULL, cmd, NULL,
+		NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi)) {
+		CloseHandle(pi.hThread);
+		CloseHandle(pi.hProcess);
+	} 
+	else {
+		fprintf(stderr, "Failed to start bsrmon.\n");
+	}
+#else // _LIN
+	pid_t pid;
+
 	pid = GetRunningPid();
 	
 	if (pid > 0) {
-		fprintf(stderr, "Already running (pid=%d)\n", pid);
+		fprintf(stdout, "bsrmon already running (pid=%d)\n", pid);
 		return;
 	}
-	sprintf(buf, "nohup bsrmon-run >/dev/null 2>&1 &");
 
-	if (system(buf) !=0) {
-		fprintf(stderr, "Failed \"%s\"\n", buf);
+	// BSR-1138 fork() bsrmon /start
+	pid = fork();
+
+	if (pid < 0) {
+		bsrmon_log(stderr, "Failed to start bsrmon.\n");
 		return;
-	}
+	} else if (pid == 0) {
+		if (flags)
+			SetOptionValue(BSRMON_TYPES, flags);
+		else {
+			flags = GetOptionValue(BSRMON_TYPES);
+			if (flags <= 0)
+				flags = DEFAULT_BSRMON_TYPES; // all
+		}
+		BsrmonRun(flags);
+	} else 
+		return;
 #endif
-
 }
 
-static void StopMonitor()
+
+
+
+static void StopMonitor(int disable)
 {
-#ifdef _LIN
-	char buf[MAX_PATH] = {0,};
-	pid_t pid = GetRunningPid();
-
-	if (pid <= 0) {
-		fprintf(stdout, "bsrmon-run is not running\n");
-	} else {
-		sprintf(buf, "kill -TERM %d >/dev/null 2>&1", pid);
-
-		if (system(buf) !=0)
-			fprintf(stderr, "Failed \"%s\"\n", buf);
+	int run = 0;
+	pid_t pid = 0;
+#ifdef _WIN
+	if (GetOptionValue(BSRMON_STOP_SIGNAL) == 1) {
+		fprintf(stdout, "bsrmon is already stopping.\n");
+		return;
 	}
 #endif
+	run = is_running(false);
+	if (!run) {
+		fprintf(stdout, "bsrmon is not running\n");
+		return;
+	}
 
-	SetBsrmonRun(0);
+	pid = GetRunningPid();
+
+#ifdef _WIN
+	if (pid > 0) {
+		SetOptionValue(BSRMON_STOP_SIGNAL, 1);
+		_bsrmon_log(__FUNCTION__, __LINE__, "set BSRMON_STOP_SIGNAL\n");
+	}
+	if (disable) {
+		SetBsrmonRun(0, 0);
+		_bsrmon_log(__FUNCTION__, __LINE__, "bsrmon disabled.\n");
+	} 
+#else // _LIN
+	if (pid > 0) {
+		if (kill(pid, SIGUSR1) != 0)
+			fprintf(stderr, "Failed to stop bsrmon\n");
+		else
+			_bsrmon_log(__FUNCTION__, __LINE__, "send bsrmon stop signal.\n");
+	}
+	SetBsrmonRun(0, 0);
+	_bsrmon_log(__FUNCTION__, __LINE__, "bsrmon disabled.\n");
+#endif
 }
 
 // BSR-764
@@ -1034,28 +1277,28 @@ static int SetPerfSimulFlag(SIMULATION_PERF_DEGR* pt)
 int ConvertType(char * type_name) 
 {
 	if (strcmp(type_name, "iostat") == 0)
-		return IO_STAT;
+		return BSRMON_IO_STAT;
 	else if (strcmp(type_name, "ioclat") == 0)
-		return IO_COMPLETE;
+		return BSRMON_IO_COMPLETE;
 	else if (strcmp(type_name, "io_pending") == 0)
-		return IO_PENDING;
+		return BSRMON_IO_PENDING;
 	else if (strcmp(type_name, "reqstat") == 0)
-		return REQUEST;
+		return BSRMON_REQUEST;
 	else if (strcmp(type_name, "peer_reqstat") == 0)
-		return PEER_REQUEST;
+		return BSRMON_PEER_REQUEST;
 	else if (strcmp(type_name, "alstat") == 0)
-		return AL_STAT;
+		return BSRMON_AL_STAT;
 	else if (strcmp(type_name, "network") == 0)
-		return NETWORK_SPEED;
+		return BSRMON_NETWORK_SPEED;
 	else if (strcmp(type_name, "sendbuf") == 0)
-		return SEND_BUF;
+		return BSRMON_SEND_BUF;
 	else if (strcmp(type_name, "memstat") == 0)
-		return MEMORY;
+		return BSRMON_MEMORY;
 	// BSR-838
 	else if (strcmp(type_name, "resync_ratio") == 0)
-		return RESYNC_RATIO;
+		return BSRMON_RESYNC_RATIO;
 	else if (strcmp(type_name, "all") == 0)
-		return ALL_STAT;
+		return BSRMON_ALL_STAT;
 	
 	return -1;
 }
@@ -1064,21 +1307,16 @@ int ConvertType(char * type_name)
 void show_current(struct resource *res, int type_flags, bool json, bool now)
 {
 	int interval = 0;
-#ifdef _WIN
-	if (!is_running(false))
-		return;
-#else
 	pid_t pid = GetRunningPid();
 	if (pid <= 0) {
-		fprintf(stderr, "bsrmon-run script is not running\n");
+		fprintf(stderr, "bsrmon is not running\n");
 		return;
 	}
-#endif
 
 	if (!res)
 		res = GetResourceInfo(NULL);
 	if (!type_flags)
-		type_flags = (1 << ALL_STAT) -1;
+		type_flags = (1 << BSRMON_ALL_STAT) -1;
 
 	if (!res) {
 		fprintf(stderr, "Failed to get resource info.\n");
@@ -1115,7 +1353,7 @@ int get_types(char * types) {
 	while (ptr) {
 		int type = ConvertType(ptr);
 		if (type == -1) {
-			fprintf(stderr, "bsrmon: Unknown types '%s'\n", ptr);
+			bsrmon_log(stderr, "bsrmon: Unknown types '%s'\n", ptr);
 			return type;
 		}
 		if (strcmp(ptr, "all") == 0)
@@ -1139,13 +1377,13 @@ struct resource * get_res_list(char * res_list)
 		if (strcmp(ptr, "all") == 0) {
 			res_head = GetResourceInfo(NULL);
 			if (!res_head) {
-				fprintf(stderr, "Failed to get resource info.\n");
+				bsrmon_log(stderr, "Failed to get resource info.\n");
 			}
 			return res_head;
 		} else {
 			res = GetResourceInfo(ptr);
 			if (!res) {
-				fprintf(stderr, "Failed to get resource info.\n");
+				bsrmon_log(stderr, "Failed to get resource info.\n");
 				if (res_head)
 					free(res_head);
 				return NULL;
@@ -1173,7 +1411,7 @@ struct peer_stat * get_conn_list(char * conn_list)
 	while (ptr) {
 		peer_cur = (struct peer_stat *)malloc(sizeof(struct peer_stat));
 		if (!peer_cur) {
-			fprintf(stderr, "Failed to malloc peer_stat, size : %lu\n", sizeof(struct peer_stat));
+			bsrmon_log(stderr, "Failed to malloc peer_stat, size : %lu\n", sizeof(struct peer_stat));
 			return NULL;
 		}
 		memset(peer_cur, 0, sizeof(struct peer_stat));
@@ -1237,14 +1475,6 @@ int main(int argc, char* argv[])
 			}
 #endif
 		}
-		else if (!strcmp(argv[argIndex], "/file")) {
-			argIndex++;
-			if (argIndex <= argc) {
-				MonitorToFile();
-			}
-			else
-				usage();
-		}
 		// BSR-772 when the /scroll option is used, the output is scrolled.
 		//		default is fixed screen output.
 		else if (!strcmp(argv[argIndex], "/watch")) {
@@ -1252,33 +1482,43 @@ int main(int argc, char* argv[])
 			char *res_name = NULL;
 			bool b_scroll = false;
 			int vnr = -1;
+			int type_flags = 0;
 
 			if (++argIndex < argc) {
 				type = ConvertType(argv[argIndex]);
 
 				if (type < 0) 
 					usage();
+
+				type_flags = GetOptionValue(BSRMON_TYPES);
+				if (type_flags <= 0)
+					type_flags = DEFAULT_BSRMON_TYPES; // all
+
+				if (!(type_flags & (1 << type))) {
+					printf("'%s' performance monitor is disabled\n", argv[argIndex]);
+					break;
+				}
 			
 				if (++argIndex >= argc) {
-					if (type != MEMORY)
+					if (type != BSRMON_MEMORY)
 						usage();
 				}
 
-				if (type == MEMORY) {
+				if (type == BSRMON_MEMORY) {
 					if (argIndex < argc) {
 						if (!strcmp(argv[argIndex], "/scroll"))
 							b_scroll = true;
 						else
 						usage();
 					}
-					Watch(NULL, MEMORY, -1, b_scroll);
+					Watch(NULL, BSRMON_MEMORY, -1, b_scroll);
 					break;
 				}
 
 				if (argIndex >= argc) 
 					usage();
 				res_name = argv[argIndex];
-				if (type <= RESYNC_RATIO) {
+				if (type <= BSRMON_RESYNC_RATIO) {
 					if (++argIndex < argc)
 						vnr = atoi(argv[argIndex]);
 					else
@@ -1292,7 +1532,7 @@ int main(int argc, char* argv[])
 						usage();
 				}
 
-				Watch(res_name, (enum get_debug_type)type, vnr, b_scroll);
+				Watch(res_name, (enum bsrmon_type)type, vnr, b_scroll);
 				break;
 			} else
 				usage();
@@ -1339,39 +1579,63 @@ int main(int argc, char* argv[])
 			else
 				usage();
 		}
+#ifdef _WIN
+		// BSR-1138
+		else if (!strcmp(argv[argIndex], "/start_ex")) {
+			if (argc > 3)
+				usage();
+			if (++argIndex <= argc) {
+				int type_flags = 0;
+				write_log = true;
+				type_flags = atoi(argv[argIndex]);
+				BsrmonRun(type_flags);
+			}
+			else
+				usage();
+		}
+#endif
 		else if (!strcmp(argv[argIndex], "/start")) {
-			argIndex++;
-			if (argIndex <= argc) {
-				StartMonitor();
+			if (argc > 3)
+				usage();
+			if (++argIndex <= argc) {
+				int type_flags = 0;
+				if (argIndex < argc) 
+					type_flags = get_types(argv[argIndex]);
+				if (type_flags == -1)
+					exit(ERROR_INVALID_PARAMETER);
+				StartMonitor(type_flags);
 			}
 			else
 				usage();
 		}
 		else if (!strcmp(argv[argIndex], "/stop")) {
-			argIndex++;
-			if (argIndex <= argc) {
-				StopMonitor();
-			}
-			else
+#ifdef _WIN
+			if (argc > 3)
 				usage();
+			if (++argIndex <= argc) {
+				int disable = 1;
+				if (argIndex < argc) {
+					if (!strcmp(argv[argIndex], "running")) {
+						disable = 0;
+					}
+					else
+						usage();
+				}
+				StopMonitor(disable);
+			} else
+				usage();
+#else // _LIN
+			if (argc > 2)
+				usage();
+			StopMonitor(1);
+#endif
 		}
 		// BSR-741
 		else if (!strcmp(argv[argIndex], "/status")) {
 			argIndex++;
 			if (argIndex <= argc) {
-				if (is_running(true)) {
-#ifdef _LIN
-					// BSR-796 print whether the bsrmon-run script is running
-					pid_t pid = GetRunningPid();
-					if (pid > 0)
-						fprintf(stderr, "bsrmon-run script is running (pid=%d)\n", pid);
-					else
-						fprintf(stdout, "bsrmon-run script is not running\n");
-
-#endif					
-				}
-			}
-			else
+				is_running(true);
+			} else
 				usage();
 		}
 		// BSR-709
@@ -1392,13 +1656,13 @@ int main(int argc, char* argv[])
 					usage();
 				}
 			
-				if (type != MEMORY) {
+				if (type != BSRMON_MEMORY) {
 					if (++argIndex >= argc) {
 						usage();
 					}
 					res_name = argv[argIndex];
-					if (type <= RESYNC_RATIO) {
-						// IO_STAT, IO_COMPLETE, IO_PENDING, AL_STAT, PEER_REQUEST, REQUEST need vnr
+					if (type <= BSRMON_RESYNC_RATIO) {
+						// BSRMON_IO_STAT, BSRMON_IO_COMPLETE, BSRMON_IO_PENDING, BSRMON_AL_STAT, BSRMON_PEER_REQUEST, BSRMON_REQUEST need vnr
 						if (++argIndex < argc) {
 							vol_num = atoi(argv[argIndex]);
 						} else {
@@ -1455,7 +1719,7 @@ int main(int argc, char* argv[])
 				}
 
 
-				Report(res_name, file_name, (enum get_debug_type)type, vol_num, &tf, peer_list);
+				Report(res_name, file_name, (enum bsrmon_type)type, vol_num, &tf, peer_list);
 
 				break;
 
