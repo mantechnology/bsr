@@ -128,7 +128,6 @@ This packages includes the BSR administration tools.
 %endif
 %{_sbindir}/bsrwatch
 %{_sbindir}/bsrsupport
-%{_sbindir}/bsrmon-run
 %dir %{_prefix}/lib/bsr
 %{_prefix}/lib/bsr/outdate-peer.sh
 %{_prefix}/lib/bsr/snapshot-resync-target-lvm.sh

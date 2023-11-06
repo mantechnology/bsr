@@ -161,16 +161,18 @@ run_bsrmon()
 				mon_run=`cat $mon_file`
 			fi
 			if [ $mon_run -eq 1 ] ; then
-				check_ps=`ps -ef | grep bsrmon-run | grep -v grep | wc -l`
+				check_ps=`ps -ef | grep "bsrmon /start" | grep -v grep | wc -l`
 				if [ $check_ps == "0" ]; then
-					nohup bsrmon-run > /dev/null 2>&1 &
+					# BSR-1138 run bsrmon /start
+					nohup bsrmon /start > /dev/null 2>&1 &
 				fi
 			fi
 		;;
 		stop)
-			for pid in `pgrep bsrmon-run`
+			for pid in `pgrep -f "bsrmon /start"`
 			do
-				kill -TERM $pid >/dev/null 2>&1;
+				# BSR-1138 kill bsrmon /start
+				kill -SIGUSR1 $pid >/dev/null 2>&1;
 			done
 		;;
 		*)

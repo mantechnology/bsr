@@ -690,9 +690,8 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	unsigned int inlen, outlen;
-	unsigned int new_value = 1;
+	unsigned int new_value;
 	unsigned int pre_value;
-	NTSTATUS status;
 
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
@@ -705,11 +704,6 @@ NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		new_value = *(unsigned int*)Irp->AssociatedIrp.SystemBuffer;
 		pre_value = atomic_read(&g_bsrmon_run);
 		if (pre_value != new_value) {
-			status = SaveCurrentValue(L"bsrmon_run", new_value);
-			if (status != STATUS_SUCCESS) {
-				return STATUS_UNSUCCESSFUL;
-			}
-
 			bsr_debug(145, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_BSRMON_RUN %u => %u", pre_value, new_value);
 			atomic_set(&g_bsrmon_run, new_value);
 		}

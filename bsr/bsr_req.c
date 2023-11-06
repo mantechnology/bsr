@@ -225,7 +225,7 @@ void bsr_req_destroy(struct kref *kref)
 	device = req->device;
 	s = req->rq_state[0];
 	destroy_next = req->destroy_next;
-	if (atomic_read(&g_bsrmon_run) && (s & RQ_WRITE)) {
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST)) && (s & RQ_WRITE)) {
 		spin_lock(&device->timing_lock); /* local irq already disabled */
 		device->reqs++;
 		ktime_aggregate_delta(device, req->start_kt, req_destroy_kt);
@@ -545,7 +545,7 @@ struct bio_and_error *m)
 	unsigned long flags;
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		spin_lock_irqsave(&device->io_pending_list_lock, flags);
 		// calculate the latency as the first item in the list, otherwise just remove it.
 		// as long as the first item is still in the list, the latency continues to increase. This can be considered as IO pending.
@@ -575,7 +575,7 @@ struct bio_and_error *m)
 	// BSR-764 delay master I/O completion
 	if(g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1)) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 		atomic_inc(&device->master_complete_kt.cnt);
 		ktime_aggregate_delta(device, m->io_start_kt, master_complete_kt);
 	}
@@ -649,7 +649,7 @@ struct bio_and_error *m)
 			if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 				force_delay(g_simul_perf.delay_time);
 			// BSR-687
-			if (atomic_read(&g_bsrmon_run)) {
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 				atomic_inc(&device->master_complete_kt.cnt);
 				ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
 			}
@@ -694,7 +694,7 @@ struct bio_and_error *m)
 				if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 					force_delay(g_simul_perf.delay_time);
 				// BSR-687
-				if (atomic_read(&g_bsrmon_run)) {
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 					atomic_inc(&device->master_complete_kt.cnt);
 					ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
 				}
@@ -1148,7 +1148,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
 		++c_put;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->acked_kt[peer_device->node_id]);
 		advance_conn_req_ack_pending(peer_device, req);
 	}
@@ -1209,7 +1209,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		if (old_net & RQ_EXP_BARR_ACK)
 			++k_put;
 
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->net_done_kt[peer_device->node_id]);
 
 		/* in ahead/behind mode, or just in case,
@@ -2110,7 +2110,7 @@ static void bsr_queue_write(struct bsr_device *device, struct bsr_request *req)
 static void bsr_req_in_actlog(struct bsr_request *req)
 {
 	req->rq_state[0] |= RQ_IN_ACT_LOG;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->in_actlog_kt);
 }
 
@@ -2129,7 +2129,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 	req = bsr_req_new(device, bio);
 	if (!req) {
 		// BSR-1054
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 			struct io_pending_info *io_pending, *tmp;
 			spin_lock_irq(&device->io_pending_list_lock);
 			list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
@@ -2185,7 +2185,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 
 queue_for_submitter_thread:
 	req->do_submit = true;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->before_queue_kt);
 	bsr_queue_write(device, req);
 	return NULL;
@@ -2702,7 +2702,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	if (req->private_bio) {
 		/* needs to be marked within the same spinlock */
 		req->pre_submit_jif = jiffies;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->submit_kt);
 		list_add_tail(&req->req_pending_local,
 			&device->pending_completion[rw == WRITE]);
@@ -2962,7 +2962,7 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 
 	req = wfa_next_request(wfa);
 	while (req) {
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->before_al_begin_io_kt);
 		
 		err = bsr_al_begin_io_nonblock(device, &req->i);
@@ -3122,12 +3122,12 @@ void do_submit(struct work_struct *ws)
 				if(al_wait_count)
 					bsr_debug(29, BSR_LC_LRU, device, "al_wait retry count : %llu", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
-				if (atomic_read(&g_bsrmon_run))
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 					device->al_wait_retry_cnt = 0;
 				break;
 			}
 			al_wait_count += 1;
-			if (atomic_read(&g_bsrmon_run)) {
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT)) {
 				device->al_wait_retry_cnt++;
 				device->al_wait_retry_total++;
 				device->al_wait_retry_max = max(device->al_wait_retry_max, device->al_wait_retry_cnt);
@@ -3274,7 +3274,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 			MAKE_REQUEST_RETURN;
 		}
 
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) {
 			atomic_inc(&device->io_cnt[READ]);
 			atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[READ]);
 		}
@@ -3293,7 +3293,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 
 	start_kt = ktime_get();
 
-	if (atomic_read(&g_bsrmon_run) && (rw == WRITE) && device->ldev) {
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) && (rw == WRITE) && device->ldev) {
 		atomic_inc(&device->io_cnt[WRITE]);
 		atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[WRITE]);
 	}
@@ -3336,7 +3336,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 	start_jif = jiffies;
 
 	// BSR-1054 add bio to io_pending_list
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'BASB');
 		INIT_LIST_HEAD(&io_pending->list);
 		spin_lock_irq(&device->io_pending_list_lock);

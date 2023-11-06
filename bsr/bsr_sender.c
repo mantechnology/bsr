@@ -548,7 +548,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	BIO_ENDIO_FN_START;
 	// BSR-779
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST))
 		ktime_get_accounting(peer_req->p_bio_endio_kt);
 	// DW-1961 Save timestamp for IO latency measuremen
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
@@ -695,7 +695,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	device = req->device;
 
 	// BSR-779 change req->post_submit_kt to req->bio_endio_kt
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->bio_endio_kt);
 
 	if (bio_data_dir(bio) & WRITE) {
@@ -820,7 +820,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bio_put(req->private_bio);
 
 	// BSR-687
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 		atomic_inc(&device->local_complete_kt.cnt);
 		ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
 	}
@@ -4301,7 +4301,7 @@ static int process_one_request(struct bsr_connection *connection)
 	enum bsr_req_event what;
 
 	req->pre_send_jif[peer_device->node_id] = jiffies;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->pre_send_kt[peer_device->node_id]);
 	if (bsr_req_is_write(req)) {
 		/* If a WRITE does not expect a barrier ack,

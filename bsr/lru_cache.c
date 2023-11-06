@@ -529,7 +529,7 @@ static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, uns
 	PARANOIA_ENTRY();
 	if (test_bit(__LC_STARVING, &lc->flags)) {
 		++lc->starving;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 			lc->starving_cnt++;
 
 		RETURN(NULL);
@@ -553,19 +553,19 @@ static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, uns
 			++e->refcnt;
 			// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
 			++lc->hits;
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				lc->hits_cnt++;
 			RETURN(e);
 		}
 		/* else: lc_new_number == lc_number; a real hit. */
 		++lc->hits;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				lc->hits_cnt++;
 
 		if (e->refcnt++ == 0) {
 			lc->used++;
 			// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				lc->used_max = max(lc->used_max, lc->used);
 		}
 		list_move(&e->list, &lc->in_use); /* Not evictable... */
@@ -574,7 +574,7 @@ static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, uns
 	/* e == NULL */
 
 	++lc->misses;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 		lc->misses_cnt++;
 	if (!(flags & LC_GET_MAY_CHANGE))
 		RETURN(NULL);
@@ -588,7 +588,7 @@ static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, uns
 	 */
 	if (test_bit(__LC_LOCKED, &lc->flags)) {
 		++lc->locked;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 			lc->starving_cnt++;
 		RETURN(NULL);
 	}
@@ -624,7 +624,7 @@ static struct lc_element *__lc_get(const char* caller, struct lru_cache *lc, uns
 #endif 
 	lc->used++;
 	// bsr_info(-1, BSR_LC_ETC, NO_OBJECT, "%s => enr (%u), used (%d)", caller, enr, e->refcnt);
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 		lc->used_max = max(lc->used_max, lc->used);
 	lc->pending_changes++;
 
@@ -736,7 +736,7 @@ void lc_committed(struct lru_cache *lc)
 	list_for_each_entry_safe_ex(struct lc_element, e, tmp, &lc->to_be_changed, list) {
 		/* count number of changes, not number of transactions */
 		++lc->changed;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 			lc->changed_cnt++;
 		e->lc_number = e->lc_new_number;
 		list_move(&e->list, &lc->in_use);

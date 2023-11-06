@@ -459,74 +459,6 @@ VOID ExecuteSubProcess()
     }
 }
 
-// BSR-688
-int RunBsrmon()
-{
-	TCHAR cmd[MAX_PATH] = { 0 };
-	TCHAR cmd_stop[MAX_PATH] = { 0 };
-
-	// BSR-694
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-	DWORD lResult = ERROR_SUCCESS;
-	DWORD period_value = 0;
-	DWORD run = 1;
-	wchar_t pTemp[1024] = { 0, };
-
-	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
-	_stprintf_s(cmd_stop, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/stop"));
-
-	// BSR-694
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return 0;
-	}
-	while (TRUE) {
-
-		// get period
-		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&period_value, &size);
-		if (ERROR_SUCCESS != lResult) {
-			period_value = DEFAULT_BSRMON_PERIOD;
-		}
-		Sleep(period_value * 1000);
-
-		// BSR-695
-		lResult = RegQueryValueEx(hKey, _T("bsrmon_run"), NULL, &type, (LPBYTE)&run, &size);
-		if (ERROR_SUCCESS != lResult) {
-			run = 1;
-		}
-
-		if (run) {
-			DWORD ret;
-			DWORD dwPID;
-
-			run = 0;
-			// run bsrmon
-			ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
-			if (ret) {
-				// BSR-1082 if an error occurs, log and stop the collection.
-				wsprintf(pTemp, L"Failed to execution bsrmon. error code = %x\n", ret);
-				WriteLog(pTemp);
-
-				// BSR-1082 stop bsrmon
-				ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd_stop, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
-				if (ret) {
-					// BSR-1082 change only the registry value if the stop fails
-					RegSetValueEx(hKey, _T("bsrmon_run"), 0, REG_DWORD, (LPBYTE)&run, sizeof(run));
-
-					wsprintf(pTemp, L"Failed to stop bsrmon due to error. Please manually stop and restart. error code = %x\n", ret);
-					WriteLog(pTemp);
-				}
-			}
-		}
-
-	}
-	RegCloseKey(hKey);
-	return 0;
-}
-
 // DW-2164 read daemon_tcp_port registry value (default DRBD_DAEMON_TCP_PORT)
 int get_daemon_port()
 
@@ -643,12 +575,6 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 #endif
 
     RcBsrStart();
-
-    // BSR-688
-	if ((g_monThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)RunBsrmon, 0, 0, (LPDWORD)&threadID)) == NULL) {
-		WriteLog(L"RunBsrmon pthread_create() failed\n");
-		return;
-	}
 
 	// BSR-1043
 #if 0

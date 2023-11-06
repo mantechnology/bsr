@@ -80,6 +80,15 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all -T`) do (
 		waitfor bsrAdjust /t 3 > NUL 2>&1
 	)
 )
+
+REM BSR-1138
+:bsrmon_start
+for /f "tokens=*" %%a in ('bsrmon /get run') do set bsrmon_enabled=%%a
+if !bsrmon_enabled! == 1 (
+	bsrmon /start
+	echo [!date!_!time!] bsrmon start. >> %start_log%
+)
+
 endlocal
 
 
@@ -118,6 +127,15 @@ echo [%date%_%time%] Stopping all BSR resources >> %stop_log%
 
 
 setlocal EnableDelayedExpansion
+
+REM BSR-1138
+:bsrmon_stop
+for /f "tokens=*" %%a in ('bsrmon /get run') do set bsrmon_enabled=%%a
+if !bsrmon_enabled! == 1 (
+	bsrmon /stop running
+	echo [!date!_!time!] bsrmon stop. >> %stop_log%
+)
+
 REM BSR-593 auto-down by svc
 for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set DOWN=0

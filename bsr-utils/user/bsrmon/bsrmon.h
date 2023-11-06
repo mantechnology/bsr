@@ -1,14 +1,19 @@
 #ifdef _WIN
 #include <windows.h>
-#include "bsr_ioctl.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <set>
+#include <iostream>
+#include "../../../bsr-headers/bsr_ioctl.h"
 
 #define MAX_BUF_SIZE 4096
 #define MAX_PATH 260
+
+#define DEFAULT_BSRMON_PERIOD 1
+#define DEFAULT_FILE_ROLLING_SIZE 50
+#define DEFAULT_FILE_ROLLONG_CNT 3
 
 #ifdef _WIN
 #define _SEPARATOR_ "\\"
@@ -33,6 +38,7 @@
 #define fscanf_ex fscanf_s
 #define sprintf_ex sprintf_s
 #define strtok_r strtok_s
+#define pid_t DWORD
 #else // _LIN
 #ifndef ULONG_PTR
 #define ULONG_PTR unsigned long
@@ -42,6 +48,18 @@
 #define fscanf_str(fp, format, buf) fscanf(fp, format, buf)
 #define fscanf_ex fscanf
 #endif
+
+enum set_option_type
+{
+	PERIOD,
+	FILE_ROLLING_SIZE,
+	FILE_ROLLING_CNT,
+	BSRMON_RUN,
+	// BSR-1138
+	BSRMON_TYPES,
+	BSRMON_PID,
+	BSRMON_STOP_SIGNAL,
+};
 
 struct time_stamp {
 	int t_sec;
@@ -58,22 +76,6 @@ struct time_filter {
 	struct time_stamp end_time;
 };
 
-
-enum get_debug_type
-{
-	IO_STAT,
-	IO_COMPLETE,
-	IO_PENDING, // BSR-1054
-	AL_STAT,
-	PEER_REQUEST,
-	REQUEST,
-	RESYNC_RATIO,
-	NETWORK_SPEED,
-	SEND_BUF,
-	MEMORY,
-	ALL_STAT
-};
-
 static inline void clear_screen()
 {
 #ifdef _WIN
@@ -88,8 +90,39 @@ static inline void clear_screen()
 int parse_timestamp(char *str, char *date, struct time_stamp *ts);
 int datecmp(char *curr, struct time_stamp *ts);
 void get_perf_path();
+void eliminate(char *str, char ch);
+void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file_list, bool copy);
+FILE *perf_fileopen(char * filename, char * currtime);
 
 // BSR-940
 extern struct type_names perf_type_names;
 extern void init_perf_type_str();
-extern const char *perf_type_str(enum get_debug_type t);
+extern const char *perf_type_str(enum bsrmon_type t);
+extern void SetOptionValue(enum set_option_type option_type, long value);
+extern long GetOptionValue(enum set_option_type option_type);
+
+extern bool write_log;
+
+// BSR-1138
+extern void _bsrmon_log(const char * func, int line, const char * fmt, ...);
+#ifdef _WIN
+#define bsrmon_log(std_io, fmt, ...)	\
+		{	\
+			if (write_log) \
+				_bsrmon_log(__FUNCTION__, __LINE__, fmt, __VA_ARGS__); \
+			else {	\
+				fprintf(std_io, fmt, __VA_ARGS__); \
+			}	\
+		} while(false)
+
+#else // _LIN
+#define bsrmon_log(std_io, fmt, arg...)	\
+		{	\
+			if (write_log) \
+				_bsrmon_log(__FUNCTION__, __LINE__, fmt, ##arg); \
+			else {	\
+				fprintf(std_io, fmt, ##arg); \
+			}	\
+		} while(false)
+
+#endif

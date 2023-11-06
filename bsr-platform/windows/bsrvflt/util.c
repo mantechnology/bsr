@@ -1436,11 +1436,22 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 #endif
 
     status = GetRegistryValue(L"bsrmon_run", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
-	if (status == STATUS_SUCCESS){
-		g_bsrmon_run = *(int*) aucTemp;
+	if (status == STATUS_SUCCESS) {
+        // BSR-1138
+    	if (*(int*)aucTemp > 0) {
+            status = GetRegistryValue(L"bsrmon_types", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
+            if (status == STATUS_SUCCESS)
+                atomic_set(&g_bsrmon_run, *(int*) aucTemp);
+            else
+                atomic_set(&g_bsrmon_run, DEFAULT_BSRMON_TYPES);
+
+        } else {
+            atomic_set(&g_bsrmon_run, 0);
+        }
+    		
 	}
 	else {
-		g_bsrmon_run = 1;
+		atomic_set(&g_bsrmon_run, DEFAULT_BSRMON_TYPES);
 	}
 
 	// set ver

@@ -7,7 +7,9 @@
 #define BSR_CONTROL_DEV     "/dev/bsr-control"
 #define BSR_IOCTL_MAGIC     147
 #define BSR_HANDLER_USE_REG	"/etc/bsr.d/.handler_use"
-#define BSR_MON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
+#define BSRMON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
+// BSR-1138
+#define BSRMON_TYPES_REG		"/etc/bsr.d/.bsrmon_types"
 
 
 

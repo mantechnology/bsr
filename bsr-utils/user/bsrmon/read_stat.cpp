@@ -421,7 +421,7 @@ void read_io_complete_work(std::set<std::string> filelist, struct time_filter *t
 	FILE *fp;
 	char line[256] = {0,};
 	char save_t[64] = {0,}, start_t[64] = {0,}, end_t[64] = {0,};
-	int val[8] = {0};
+	long val[8] = {0};
 	struct perf_stat local, master;
 	unsigned long long total_l_cnt = 0, total_m_cnt= 0;
 	bool start_collect = false, end_collect = false;
@@ -4133,12 +4133,12 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 		printf("\n");
 		++indent;
 	}
-	if (type_flags & (1 << MEMORY)) {
+	if (type_flags & (1 << BSRMON_MEMORY)) {
 		first_print = false;
 		print_current_memstat();
 	}
 
-	if (type_flags != (1 << MEMORY)) {
+	if (type_flags != (1 << BSRMON_MEMORY)) {
 		bool first_res = true;
 		while (res) {
 			struct volume *vol = res->vol;
@@ -4159,7 +4159,7 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 			}
 			memset(g_timestamp, 0, sizeof(g_timestamp));
 
-			if (type_flags & ~((1 << NETWORK_SPEED) | (1 << SEND_BUF))) {
+			if (type_flags & ~((1 << BSRMON_NETWORK_SPEED) | (1 << BSRMON_SEND_BUF))) {
 				bool first_vnr = true;
 				while (vol) {
 					if (json) {
@@ -4175,19 +4175,19 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 						++indent;
 					}
 
-					if (type_flags & (1 << IO_STAT))
+					if (type_flags & (1 << BSRMON_IO_STAT))
 						print_current_iostat(res->name, vol->vnr);
-					if (type_flags & (1 << IO_COMPLETE))
+					if (type_flags & (1 << BSRMON_IO_COMPLETE))
 						print_current_ioclat(res->name, vol->vnr);
-					if (type_flags & (1 << IO_PENDING))
+					if (type_flags & (1 << BSRMON_IO_PENDING))
 						print_current_io_pending(res->name, vol->vnr);
-					if (type_flags & (1 << REQUEST))
+					if (type_flags & (1 << BSRMON_REQUEST))
 						print_current_reqstat(res->name, vol->vnr, res->conn);
-					if (type_flags & (1 << PEER_REQUEST))
+					if (type_flags & (1 << BSRMON_PEER_REQUEST))
 						print_current_peer_reqstat(res->name, vol->vnr, res->conn);
-					if (type_flags & (1 << AL_STAT))
+					if (type_flags & (1 << BSRMON_AL_STAT))
 						print_current_alstat(res->name, vol->vnr);
-					if (type_flags & (1 << RESYNC_RATIO))
+					if (type_flags & (1 << BSRMON_RESYNC_RATIO))
 						print_current_resync_ratio(res->name, vol->vnr, res->conn);
 
 					if (json) {
@@ -4206,9 +4206,9 @@ void print_current(struct resource *res, int type_flags, bool json_print)
 			}
 
 			
-			if (type_flags & (1 << NETWORK_SPEED))
+			if (type_flags & (1 << BSRMON_NETWORK_SPEED))
 				print_current_network(res->name, res->conn);
-			if (type_flags & (1 << SEND_BUF))
+			if (type_flags & (1 << BSRMON_SEND_BUF))
 				print_current_sendbuf(res->name, res->conn);
 
 			res = res->next;
