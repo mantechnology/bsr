@@ -132,7 +132,7 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
-* Mon Nov 6 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
+* Tue Nov 7 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
 - New upstream release.
 
 * Fri Mar 24 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.3.0-A4
