@@ -4329,6 +4329,16 @@ static int process_one_request(struct bsr_connection *connection)
 
 			// BSR-838
 			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
+			// BSR-1145 bsr_free_accelbuf() needs to be called from req_lock due to an internal call function.
+			spin_lock_irq(&connection->resource->req_lock);
+			// DW-1237 data block has been sent(or failed), put request databuf ref.
+			if (req->req_databuf && (0 == atomic_dec_return(&req->req_databuf_ref))) {
+				if (req->rq_state[0] & RQ_LOCAL_COMPLETED) {
+					bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+					req->req_databuf = NULL;
+				}
+			}
+			spin_unlock_irq(&connection->resource->req_lock);
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last
@@ -4371,22 +4381,11 @@ static int process_one_request(struct bsr_connection *connection)
 	}
 
 	spin_lock_irq(&connection->resource->req_lock);
-
-	// BSR-1145 bsr_free_accelbuf() needs to be called from req_lock due to an internal call function.
-	// DW-1237 data block has been sent(or failed), put request databuf ref.
-	if (req->req_databuf && 0 == atomic_dec_return(&req->req_databuf_ref)) {
-		if (req->rq_state[0] & RQ_LOCAL_COMPLETED) {
-			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
-			req->req_databuf = NULL;
-		}
-	}
-
 	__req_mod(req, what, peer_device, &m);
 
 	/* As we hold the request lock anyways here,
 	 * this is a convenient place to check for new things to do. */
 	check_sender_todo(connection);
-
 	spin_unlock_irq(&connection->resource->req_lock);
 
 	if (m.bio)
