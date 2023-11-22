@@ -3038,8 +3038,11 @@ static bool prepare_split_peer_request(struct bsr_peer_device *peer_device, ULON
 	return find_isb;
 }
 
-bool is_out_of_sync_after_replication(struct bsr_device *device, ULONG_PTR s_bb, ULONG_PTR e_next_bb) 
+bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, ULONG_PTR s_bb, ULONG_PTR e_next_bb)
 {
+	ULONG_PTR i_bb;
+	struct bsr_device *device = peer_device->device;
+
 	// DW-1904 check that the resync data is within the out of sync range of the replication data.
 	// DW-2065 modify to incorrect conditions
 	// DW-2082 the range(s_rl_bb, e_rl_bb) should not be reset because there is no warranty coming in sequentially.
@@ -3056,7 +3059,14 @@ bool is_out_of_sync_after_replication(struct bsr_device *device, ULONG_PTR s_bb,
 			return true;
 		}
 	}
-	
+
+	// BSR-1160 verify that the replication area is not set, but there is already an in sync area due to the request for duplicate resync.
+	for (i_bb = s_bb; i_bb < e_next_bb; i_bb++) {
+		// BSR-1160 if there is an area where in sync is set, return a "true" to exclude some or all of it from writing.
+		if (bsr_bm_test_bit(peer_device, i_bb) == 0)
+			return true;
+	}
+
 	return false;
 }
 
@@ -3100,7 +3110,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 	if (peer_device->connection->agreed_pro_version >= 113 &&         
 		// DW-1904 if it is not affected by the replication data, it writes the resync data without check(split request, marked replicate list). 
-		(!list_empty(&device->marked_rl_list) || is_out_of_sync_after_replication(device, s_bb, e_next_bb))) {
+		(!list_empty(&device->marked_rl_list) || is_oos_belong_to_repl_area(peer_device, s_bb, e_next_bb))) {
 
 		// DW-1601 
 		//the number of peer_requests in the bitmap area that are released when the bitmap is found in the synchronization data.
