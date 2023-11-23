@@ -1966,11 +1966,14 @@ static int bsr_process_write_request(struct bsr_request *req)
 			peer_device->node_id, peer_device->bitmap_index, req, remote, send_oos, req->i.sector, req->i.sector + (req->i.size / 512));
 #endif
 		if (!remote && !send_oos) {
-			// BSR-1021 unconnected nodes set out of sync for the request area.
 			// BSR-1046 set OOS only when peer_device->bitmap_index is set. 
-			if ((peer_device->bitmap_index != -1) &&
-				(peer_device->connection->cstate[NOW] != C_CONNECTED))
-				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
+			if (peer_device->bitmap_index != -1) {
+				// BSR-1021 unconnected nodes set out of sync for the request area.
+				if ((peer_device->connection->cstate[NOW] != C_CONNECTED) ||
+					// BSR-1160 set OOS to local only for writes that occurred before bitmap exchange. Later, when the bitmap is exchanged, it is set up on both nodes and resync is completed.
+					(peer_device->connection->cstate[NOW] == C_CONNECTED && peer_device->repl_state[NOW] == L_OFF))
+					_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
+			}
 			continue;
 		}
 
