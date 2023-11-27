@@ -397,5 +397,6 @@
 
 #define AL_WAIT_TIMEOUT			10 * HZ // DW-1513 // DW-1761
 #define EE_WAIT_TIMEOUT			10 * HZ // BSR-846
+#define LW_WAIT_TIMEOUT         10 * HZ // BSR-1160
 
 #endif

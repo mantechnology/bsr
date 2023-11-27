@@ -3047,17 +3047,14 @@ bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, ULONG_PTR s
 	// DW-2065 modify to incorrect conditions
 	// DW-2082 the range(s_rl_bb, e_rl_bb) should not be reset because there is no warranty coming in sequentially.
 	if (device->e_rl_bb >= device->s_rl_bb) {
-		if ((device->s_rl_bb <= s_bb && device->e_rl_bb >= s_bb)) {
+		if ((device->s_rl_bb <= s_bb && device->e_rl_bb >= s_bb)) 
 			return true;
-		}
 
-		if (device->s_rl_bb <= (e_next_bb - 1) && device->e_rl_bb >= (e_next_bb - 1)) {
+		if (device->s_rl_bb <= (e_next_bb - 1) && device->e_rl_bb >= (e_next_bb - 1)) 
 			return true;
-		}
 
-		if ((device->s_rl_bb >= s_bb && device->e_rl_bb <= (e_next_bb - 1))) {
+		if ((device->s_rl_bb >= s_bb && device->e_rl_bb <= (e_next_bb - 1))) 
 			return true;
-		}
 	}
 
 	// BSR-1160 verify that the replication area is not set, but there is already an in sync area due to the request for duplicate resync.
@@ -4747,6 +4744,24 @@ bool bsr_rs_c_min_rate_throttle(struct bsr_peer_device *peer_device)
 	return false;
 }
 
+// BSR-1160 verify that local write to the same region is in progress before reading the request data.
+static bool overlapping_local_write(struct bsr_device *device, struct bsr_peer_request *peer_req)
+{
+	struct bsr_request *req;
+	bool rv = false;
+
+	spin_lock_irq(&device->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[1], req_pending_local) {
+		if (overlaps(peer_req->i.sector, peer_req->i.size, req->i.sector, req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+	spin_unlock_irq(&device->resource->req_lock);
+
+	return rv;
+}
+
 // BSR-595
 void verify_skipped_block(struct bsr_peer_device *peer_device,
         sector_t sector, int size, bool acked)
@@ -5034,6 +5049,17 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		update_receiver_timing_details(connection, bsr_rs_begin_io);
 		if (bsr_rs_begin_io(peer_device, sector)) {
 			err = -EIO;
+			goto fail3;
+		}
+	}
+
+	if (device->resource->role[NOW] == R_PRIMARY) {
+		long timeo = LW_WAIT_TIMEOUT;
+		// BSR-1160 wait for local write completion and read.
+		wait_event_timeout_ex(device->wt_wait, !overlapping_local_write(device, peer_req), timeo, timeo);
+		if (timeo == 0) {
+			err = -EIO;
+			bsr_err(233, BSR_LC_RESYNC_OV, peer_device, "Failed to resync request data due to timeout waiting for local write to complete on the same sector.");
 			goto fail3;
 		}
 	}
