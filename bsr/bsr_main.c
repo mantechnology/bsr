@@ -6927,7 +6927,7 @@ u64 bsr_weak_nodes_device(struct bsr_device *device)
 }
 
 // BSR-967 add arguments for younger primary
-static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, bool younger, const char* caller) __must_hold(local)
+static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, bool younger, bool rotate_bm, const char* caller) __must_hold(local)
 {
 	struct bsr_peer_device *peer_device;
 	u64 got_new_bitmap_uuid, weak_nodes, val;
@@ -6937,9 +6937,12 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 					forced ? initial_resync_nodes(device) : 0,
 					device->resource->dagtag_sector);
 
-	if (!got_new_bitmap_uuid) {
-		spin_unlock_irq(&device->ldev->md.uuid_lock);
-		return;
+	// BSR-1166
+	if (rotate_bm) {
+		if (!got_new_bitmap_uuid) {
+			spin_unlock_irq(&device->ldev->md.uuid_lock);
+			return;
+		}
 	}
 
 	get_random_bytes(&val, sizeof(u64));
@@ -6985,10 +6988,10 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
  * the bitmap slot. Causes an incremental resync upon next connect.
  * The caller must hold adm_mutex or conf_update
  */
-void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, const char* caller)
+void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool rotate_bm, const char* caller)
 {
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
-		__bsr_uuid_new_current(device, forced, true, younger, caller);
+		__bsr_uuid_new_current(device, forced, true, younger, rotate_bm, caller);
 		put_ldev(__FUNCTION__, device);
 	} else {
 		struct bsr_peer_device *peer_device;
@@ -7007,10 +7010,17 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, 
 	}
 }
 
-void bsr_uuid_new_current_by_user(struct bsr_device *device)
+void bsr_uuid_new_current_by_user(struct bsr_device *device, bool no_rotate_bitmap)
 {
 	if (get_ldev(device)) {
-		__bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
+		if (!no_rotate_bitmap) {
+			struct bsr_peer_device *peer_device;
+
+			for_each_peer_device(peer_device, device)
+				bsr_uuid_set_bitmap(peer_device, 0); /* Rotate UI_BITMAP to History 1, etc... */
+		}
+
+		__bsr_uuid_new_current(device, false, false, false, (no_rotate_bitmap ? false : true), __FUNCTION__);
 		put_ldev(__FUNCTION__, device);
 	}
 }

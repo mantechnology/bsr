@@ -217,6 +217,8 @@ GENL_struct(BSR_NLA_START_OV_PARMS, 9, start_ov_parms,
 
 GENL_struct(BSR_NLA_NEW_C_UUID_PARMS, 10, new_c_uuid_parms,
 	__flg_field(1, BSR_GENLA_F_MANDATORY, clear_bm)
+	// BSR-1166
+	__flg_field(2, BSR_GENLA_F_MANDATORY, no_rotate_bm)
 )
 
 GENL_struct(BSR_NLA_TIMEOUT_PARMS, 11, timeout_parms,
