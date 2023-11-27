@@ -1967,7 +1967,7 @@ static int bsr_process_write_request(struct bsr_request *req)
 #endif
 		if (!remote && !send_oos) {
 			// BSR-1021 unconnected nodes set out of sync for the request area.
-			// BSR-1046 set OOS only when peer_device->bitmap_index is set.
+			// BSR-1046 set OOS only when peer_device->bitmap_index is set. 
 			if ((peer_device->bitmap_index != -1) &&
 				(peer_device->connection->cstate[NOW] != C_CONNECTED))
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
@@ -3383,6 +3383,10 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 	if (dt) {
 		req_read = list_first_entry_or_null(&device->pending_completion[0], struct bsr_request, req_pending_local);
 		req_write = list_first_entry_or_null(&device->pending_completion[1], struct bsr_request, req_pending_local);
+
+		// BSR-1160
+		if (!req_write)
+			wake_up(&device->wt_wait);
 
 		oldest_submit_jif =
 			(req_write && req_read)
