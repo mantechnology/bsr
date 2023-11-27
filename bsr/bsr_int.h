@@ -532,7 +532,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 232
+#define BSR_LC_RESYNC_OV_MAX_INDEX 233
 #define BSR_LC_REPLICATION_MAX_INDEX 32
 #define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 40
@@ -2333,6 +2333,9 @@ struct bsr_device {
 #endif
 	// BSR-1145
 	struct bsr_offset_buffer accelbuf;
+
+	// BSR-1160
+	wait_queue_head_t wt_wait;
 };
 
 
