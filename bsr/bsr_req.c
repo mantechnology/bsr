@@ -2901,7 +2901,7 @@ static void ensure_current_uuid(struct bsr_device *device)
 		if (device->disk_state[NOW] != D_FAILED) {
 			struct bsr_resource *resource = device->resource;
 			mutex_lock(&resource->conf_update);
-			bsr_uuid_new_current(device, false, false, __FUNCTION__);
+			bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
 			mutex_unlock(&resource->conf_update);
 		}
 	}

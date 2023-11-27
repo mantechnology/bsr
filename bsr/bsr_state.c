@@ -3168,7 +3168,7 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 			struct bsr_device *device = peer_device->device;
 			if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 				bsr_info(36, BSR_LC_UUID, device, "clear the UUID creation flag because the disks on all nodes are outdate and attempt to create a UUID");
-				bsr_uuid_new_current(device, false, false, __FUNCTION__);
+				bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
 			}
 		}
 		mutex_unlock(&resource->conf_update);
@@ -3787,7 +3787,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				/* When a peer disk goes from D_UP_TO_DATE to D_FAILED or D_INCONSISTENT
 				   we know that a write failed on that node. Therefore we need to create
 				   the new UUID right now (not wait for the next write to come in) */
-				bsr_uuid_new_current(device, false, false, __FUNCTION__);
+				bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
 			}
 
 

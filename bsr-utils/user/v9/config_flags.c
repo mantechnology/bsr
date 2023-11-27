@@ -1179,6 +1179,8 @@ struct context_def new_current_uuid_cmd_ctx = {
 	.nla_type = BSR_NLA_NEW_C_UUID_PARMS,
 	.fields = {
 		{ "clear-bitmap", FLAG(clear_bm) },
+		// BSR-1166
+		{ "no-rotate-bitmap", FLAG(no_rotate_bm) },
 		{ } },
 };
 
