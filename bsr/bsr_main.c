@@ -7123,9 +7123,9 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 
 		// BSR-189 Update the SyncSource's bitmap_uuids to SyncTarget's bitmap_uuids.
 		if (peer_device)
-			bitmap_uuid = (peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY);
+			bitmap_uuid = peer_device->bitmap_uuids[node_id];
 
-		if ((peer_md[node_id].bitmap_uuid & ~UUID_PRIMARY) != bitmap_uuid) {
+		if (peer_md[node_id].bitmap_uuid != bitmap_uuid) {
 			// BSR-863
 			if (old_peer_md) {
 				old_peer_md[node_id].bitmap_uuid = peer_md[node_id].bitmap_uuid;
