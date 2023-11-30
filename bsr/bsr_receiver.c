@@ -7107,7 +7107,12 @@ static void update_bitmap_slot_of_peer(struct bsr_peer_device *peer_device, int 
 		peer_device2 = peer_device_by_node_id(peer_device->device, node_id);
 		if (peer_device2) {
 			int node_id2 = peer_device->connection->peer_node_id;
-			peer_device2->bitmap_uuids[node_id2] = 0;
+			// BSR-1164 prevent sb between secondary 
+			// cleared only if current_uuid of peer_device and peer_device2 are the same.
+			if (peer_device->current_uuid != 0 && peer_device2->current_uuid != 0 &&
+				(peer_device->current_uuid & ~UUID_PRIMARY) == (peer_device2->current_uuid & ~UUID_PRIMARY)) {
+				peer_device2->bitmap_uuids[node_id2] = 0;
+			}
 		}
 		rcu_read_unlock();
 	}

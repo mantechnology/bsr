@@ -6906,15 +6906,11 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 	}
 
 	if (set_current) {
-		u64 set_bitmap_slots = 0;
 		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
 
-		// BSR-1164 update the Primary's bitmap_uuids to weak_nodes bitmap_uuids.
-		set_bitmap_slots = weak_nodes;
-		set_bitmap_slots |= got_new_bitmap_uuid;
-		set_bitmap_slots |= __test_bitmap_slots_of_peer(peer_device);
-		__set_bitmap_slots(device, peer_device, NULL, set_bitmap_slots);
+		// BSR-1164 update the Primary's bitmap_uuids to got_new_bitmap_uuid.
+		__set_bitmap_slots(device, peer_device, NULL, got_new_bitmap_uuid);
 		_bsr_uuid_push_history(device, bsr_current_uuid(device), NULL);
 		
 		__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
