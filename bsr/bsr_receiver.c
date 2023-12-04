@@ -9168,7 +9168,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		bsr_info(33, BSR_LC_UUID, device, "clear the UUID creation flag and attempt to create a UUID");
 		tl_clear(connection);
 		mutex_lock(&resource->conf_update);
-		bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
+		bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 		mutex_unlock(&resource->conf_update);
 		begin_state_change(resource, &irq_flags, CS_HARD);
 		__change_cstate(connection, C_PROTOCOL_ERROR);
@@ -9229,7 +9229,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 		bsr_info(34, BSR_LC_UUID, device, "clear the UUID creation flag due to discard_my_data flag is set in the peer and attempt to create a UUID");
 		mutex_lock(&resource->conf_update);
-		bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
+		bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 		mutex_unlock(&resource->conf_update);
 	}
 
