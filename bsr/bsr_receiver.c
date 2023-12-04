@@ -5054,12 +5054,10 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	}
 
 	if (device->resource->role[NOW] == R_PRIMARY) {
-		long timeo = LW_WAIT_TIMEOUT;
-		// BSR-1160 wait for local write completion and read.
-		wait_event_timeout_ex(device->wt_wait, !overlapping_local_write(device, peer_req), timeo, timeo);
-		if (timeo == 0) {
-			err = -EIO;
-			bsr_err(233, BSR_LC_RESYNC_OV, peer_device, "Failed to resync request data due to timeout waiting for local write to complete on the same sector.");
+		// BSR-1160 the same area as the local write request sends rs_cancel.
+		if (overlapping_local_write(device, peer_req)) {
+			err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
+			/* If err is set, we will drop the connection... */
 			goto fail3;
 		}
 	}
