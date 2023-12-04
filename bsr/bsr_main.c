@@ -126,6 +126,9 @@ extern void sended_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 static int w_bitmap_io(struct bsr_work *w, int unused);
 static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream bsr_stream);
+static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 do_nodes) __must_hold(local);
+static u64 __test_bitmap_slots_of_peer(struct bsr_peer_device *peer_device) __must_hold(local);
+
 #ifdef _LIN
 MODULE_AUTHOR("Man Technology Inc. <bsr@mantech.co.kr>");
 MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
@@ -7076,9 +7079,13 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 	}
 
 	if (set_current) {
-
 		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
+
+		// BSR-1164 update the Primary's bitmap_uuids to got_new_bitmap_uuid.
+		__set_bitmap_slots(device, peer_device, NULL, got_new_bitmap_uuid);
+		_bsr_uuid_push_history(device, bsr_current_uuid(device), NULL);
+		
 		__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
@@ -7122,7 +7129,7 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 			}
 
 			_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid, NULL);
-			/* bsr_info(10, BSR_LC_ETC, device, "bitmap[node_id=%d] = %llX", node_id, bitmap_uuid); */
+			bsr_info(10, BSR_LC_ETC, device, "update bitmap uuid %llX pnode-id(%d)", bitmap_uuid, node_id);
 			peer_md[node_id].bitmap_uuid = bitmap_uuid;
 			peer_md[node_id].bitmap_dagtag =
 				bitmap_uuid ? device->resource->dagtag_sector : 0;
