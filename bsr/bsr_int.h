@@ -2291,8 +2291,6 @@ struct bsr_device {
 #ifdef _LIN
 	atomic_t mounted_cnt;
 #endif
-	// BSR-1160
-	wait_queue_head_t wt_wait;
 };
 
 struct bsr_bm_aio_ctx {
