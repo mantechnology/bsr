@@ -5015,7 +5015,16 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 #endif
 
 	if (connection->agreed_pro_version >= 110) {
-		/* In BSR9 we may not sleep here in order to avoid deadlocks.
+		if (device->resource->role[NOW] == R_PRIMARY) {
+			// BSR-1160 the same area as the local write request sends rs_cancel.
+			if (overlapping_local_write(device, peer_req)) {
+				err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
+				/* If err is set, we will drop the connection... */
+				goto fail3;
+			}
+		}
+
+		/* In BSR we may not sleep here in order to avoid deadlocks.
 		   Instruct the SyncSource to retry */
 		// DW-953 replace bsr_try_rs_begin_io with bsr_rs_begin_io like version 8.4.x for only L_VERIFY_T
 		// BSR-590 replace bsr_rs_begin_io with bsr_try_rs_begin_io due to wait problem with al.
@@ -5049,15 +5058,6 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		update_receiver_timing_details(connection, bsr_rs_begin_io);
 		if (bsr_rs_begin_io(peer_device, sector)) {
 			err = -EIO;
-			goto fail3;
-		}
-	}
-
-	if (device->resource->role[NOW] == R_PRIMARY) {
-		// BSR-1160 the same area as the local write request sends rs_cancel.
-		if (overlapping_local_write(device, peer_req)) {
-			err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
-			/* If err is set, we will drop the connection... */
 			goto fail3;
 		}
 	}
