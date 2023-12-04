@@ -5004,8 +5004,6 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	init_waitqueue_head(&device->misc_wait);
 	init_waitqueue_head(&device->al_wait);
 	init_waitqueue_head(&device->seq_wait);
-	// BSR-1160
-	init_waitqueue_head(&device->wt_wait);
 #ifdef _WIN
 	// DW-1698 Only when bsr_device is created, it requests to update information about target device To fixup the frequency of calls to update_targetdev
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);

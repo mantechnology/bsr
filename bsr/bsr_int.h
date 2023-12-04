@@ -2333,9 +2333,6 @@ struct bsr_device {
 #endif
 	// BSR-1145
 	struct bsr_offset_buffer accelbuf;
-
-	// BSR-1160
-	wait_queue_head_t wt_wait;
 };
 
 
