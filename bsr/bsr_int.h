@@ -2543,8 +2543,8 @@ extern void bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __
 extern void _bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
 extern void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local);
 // BSR-967 add arguments for younger primary
-extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool rotate_bm, const char* caller);
-extern void bsr_uuid_new_current_by_user(struct bsr_device *device, bool no_rotate_bitmap);
+extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool need_rotate_bm, const char* caller);
+extern void bsr_uuid_new_current_by_user(struct bsr_device *device, bool need_rotate_bm);
 extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local);
 extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must_hold(local);
 extern void __bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
