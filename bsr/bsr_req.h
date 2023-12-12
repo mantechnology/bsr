@@ -309,10 +309,14 @@ static inline bool bsr_req_make_private_bio(struct bsr_device *device, struct bs
 static inline bool bsr_req_make_private_bio(struct bsr_request *req, struct bio *bio_src)
 #endif
 {
-	struct bio *bio;
+	struct bio *bio = NULL;
 
 #ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
-	bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
+	// BSR-1173 prevent panic, check the device with get_ldev
+	if (get_ldev(device)) {
+		bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
+		put_ldev(device);
+	}
 #else
 	bio = bio_clone_fast(bio_src, GFP_NOIO, &bsr_io_bio_set); /* XXX cannot fail?? */
 #endif
