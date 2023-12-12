@@ -667,7 +667,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 	//bsr_info(51, BSR_LC_ETC, NO_OBJECT,"start send_buf_thread");
 
 	KeSetEvent(&buffering_attr->send_buf_thr_start_event, 0, FALSE);
-	nWaitTime = RtlConvertLongToLargeInteger(-10 * 1000 * 1000 * 10);
+	nWaitTime.QuadPart = -10 * 1000 * 1000 * 10;
 	pTime = &nWaitTime;
 
 #define MAX_EVT		2
