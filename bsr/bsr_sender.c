@@ -2151,6 +2151,8 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
+			struct bsr_peer_device *p;
+
 			if (new_peer_disk_state != D_MASK)
 				__change_peer_disk_state(peer_device, new_peer_disk_state, __FUNCTION__);
 			if (peer_device->connection->agreed_pro_version < 110) {
@@ -2159,6 +2161,25 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				// BSR-676 notify uuid
 				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
+
+			// BSR-1171
+			for_each_peer_device(p, device) {
+				if (p == peer_device)
+					continue;
+
+				if (is_sync_target(p)) {
+					p->latest_nodes |= NODE_MASK(p->node_id);
+					bsr_info(20, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", p->latest_nodes);
+				}
+			}
+
+			peer_device->latest_nodes = 0;
+#ifdef _WIN64
+			peer_device->merged_nodes = UINT64_MAX;
+#else
+			peer_device->merged_nodes = ~0UL;
+#endif
+			bsr_md_clear_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
 		}
 	}
 
