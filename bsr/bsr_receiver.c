@@ -3091,6 +3091,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		return -EIO;
 	}
 
+	// BSR-1149 BSR-1161 fix resync does not start due to rs_pending_cnt
+	dec_rs_pending(peer_device);
 
 	// DW-1601
 	// DW-1846 do not set out of sync unless it is a sync target.
@@ -3114,7 +3116,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 		clear_bit(STABLE_RESYNC, &device->flags);
 
-	dec_rs_pending(peer_device);
 	inc_unacked(peer_device);
 
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(d->sector);
