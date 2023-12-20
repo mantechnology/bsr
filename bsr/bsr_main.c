@@ -2626,11 +2626,60 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	return err == 0;
 }
 
+void bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
+{
+	// DW-1815 merge the peer_device bitmap into the same current_uuid.
+	ULONG_PTR offset, current_offset;
+
+	int allow_size = 512;
+#ifdef _WIN
+	ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
+#else // _LIN
+	ULONG_PTR *bb = bsr_kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC | __GFP_NOWARN, '');
+#endif
+	ULONG_PTR word_offset;
+
+	if (bb == NULL) {
+		bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
+		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+	}
+	else {
+		memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
+
+		bsr_info(35, BSR_LC_BITMAP, peer_device, "Proceed with bitmap merge for bitmap send, from bitmap index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
+			to_merge->bitmap_index, (unsigned long long)bsr_bm_total_weight(to_merge),
+			peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+
+		word_offset = current_offset = offset = 0;
+		for (;;) {
+			offset = bsr_bm_range_find_next(to_merge, current_offset, current_offset + RANGE_FIND_NEXT_BIT);
+			// DW-2088 word that is not a bit should be used for merging
+			if (offset < (current_offset + RANGE_FIND_NEXT_BIT + 1)) {
+				word_offset = (offset / BITS_PER_LONG);
+				for (; (word_offset * BITS_PER_LONG) < bsr_bm_bits(peer_device->device); word_offset += allow_size) {
+					bsr_bm_get_lel(to_merge, word_offset, allow_size, bb);
+					bsr_bm_merge_lel(peer_device, word_offset, allow_size, bb);
+				}
+				break;
+			}
+			if (offset >= bsr_bm_bits(peer_device->device)) {
+				break;
+			}
+			current_offset = offset;
+			// BSR-1083
+			cond_resched();
+		}
+
+		bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+		kfree2(bb);
+	}
+}
+
 int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_device)
 {
 	struct bsr_transport *peer_transport = &peer_device->connection->transport;
 	int err = -1;
-	struct bsr_peer_device* incomp_sync_source = NULL;
+	struct bsr_peer_device* p = NULL;
 	bool incomp_sync = false;;
 
 	if (peer_device->bitmap_index == -1) {
@@ -2639,63 +2688,17 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 	}
 
 	// DW-2088 apply out of sync to the previous syncosurce when changing sync sources with the same uuid.
-	for_each_peer_device(incomp_sync_source, device) {
-		if (bsr_md_test_peer_flag(incomp_sync_source, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID)) {
+	for_each_peer_device(p, device) {
+		if (bsr_md_test_peer_flag(p, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID)) {
 			incomp_sync = true;
 			break;
 		}
 	}
 
 	if (incomp_sync) {
-		if (incomp_sync_source != peer_device &&
+		if (p != peer_device &&
 			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
-
-			// DW-1815 merge the peer_device bitmap into the same current_uuid.
-			ULONG_PTR offset, current_offset;
-
-			int allow_size = 512;
-#ifdef _WIN
-			ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
-#else // _LIN
-			ULONG_PTR *bb = bsr_kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC|__GFP_NOWARN, '');
-#endif
-			ULONG_PTR word_offset;
-
-			if (bb == NULL) {
-				bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
-				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
-			}
-			else {
-				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
-
-				bsr_info(35, BSR_LC_BITMAP, peer_device, "Proceed with bitmap merge for bitmap send, from bitmap index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
-					incomp_sync_source->bitmap_index, (unsigned long long)bsr_bm_total_weight(incomp_sync_source),
-					peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
-
-				word_offset = current_offset = offset = 0;
-				for (;;) {
-					offset = bsr_bm_range_find_next(incomp_sync_source, current_offset, current_offset + RANGE_FIND_NEXT_BIT);
-					 // DW-2088 word that is not a bit should be used for merging
-					if (offset < (current_offset + RANGE_FIND_NEXT_BIT + 1)) {
-						word_offset = (offset / BITS_PER_LONG);
-						for (; (word_offset * BITS_PER_LONG) < bsr_bm_bits(device); word_offset += allow_size) {
-							bsr_bm_get_lel(incomp_sync_source, word_offset, allow_size, bb);
-							bsr_bm_merge_lel(peer_device, word_offset, allow_size, bb);
-						}
-						break;
-					}
-					if (offset >= bsr_bm_bits(device)) {
-						break;
-					}
-					current_offset = offset;
-					// BSR-1083
-					cond_resched();
-				}
-
-				bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
-				kfree2(bb);
-				
-			}
+			bsr_peer_device_merge_bitmap(peer_device, p);
 		}
 		else {
 			bsr_md_clear_peer_flag(peer_device, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID);
@@ -2708,9 +2711,31 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
 		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
 		// DW-1979
-		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
-			peer_device->repl_state[NOW] == L_AHEAD)
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
+			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
+			for_each_peer_device(p, device) {
+				if (p == peer_device) {
+					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
+						struct bsr_peer_device* pd = NULL;
+						for_each_peer_device(pd, device) {
+							if ((p == pd) || (p->merged_nodes & NODE_MASK(pd->node_id)))
+								continue;
+							p->merged_nodes |= NODE_MASK(pd->node_id);
+							bsr_peer_device_merge_bitmap(p, pd);
+						}
+						bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+					}
+				} else {
+					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
+						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
+							p->merged_nodes |= NODE_MASK(peer_device->node_id);
+							bsr_peer_device_merge_bitmap(p, peer_device);
+						}
+					}
+				}
+			}
 			atomic_set(&peer_device->wait_for_recv_bitmap, 1);
+		}
 		err = !_bsr_send_bitmap(device, peer_device);
 	}
 	else
@@ -4884,6 +4909,14 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set64(&peer_device->ov_reply_sector, 0);
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
 	spin_lock_init(&peer_device->ov_lock);
+
+	// BSR-1171
+	peer_device->latest_nodes = 0;
+#ifdef _WIN64
+	peer_device->merged_nodes = UINT64_MAX;
+#else
+	peer_device->merged_nodes = ~0UL;
+#endif
 
 	return peer_device;
 }

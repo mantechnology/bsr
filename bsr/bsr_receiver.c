@@ -7343,7 +7343,7 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 	}
 
 	// BSR-1056
-	if (peer_device->uuid_flags & UUID_FALG_SEND_IT_TO_ME) {
+	if (peer_device->uuid_flags & UUID_FLAG_SEND_IT_TO_ME) {
 		if (bsr_device_stable(device, NULL) &&
 			!(peer_device->repl_state[NOW] == L_SYNC_TARGET || peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) &&
 			!(connection->peer_role[NOW] == R_PRIMARY) &&
@@ -9077,6 +9077,22 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		} else {
 			// BSR-1074 
 			consider_resync = false;
+		}
+
+		// BSR-1171
+		if (new_repl_state == L_WF_BITMAP_S) {
+			struct bsr_peer_device *p;
+		
+			for_each_peer_device(p, device) {
+				if (p == peer_device)
+					continue;
+		
+				if (p->repl_state[NOW] == L_ESTABLISHED)
+					peer_device->latest_nodes |= NODE_MASK(p->node_id);
+			}
+		
+			if (peer_device->latest_nodes)
+				bsr_info(19, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", peer_device->latest_nodes);
 		}
 
 		put_ldev(__FUNCTION__, device);

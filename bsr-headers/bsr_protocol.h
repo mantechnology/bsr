@@ -399,7 +399,7 @@ struct p_protocol {
 #define UUID_FLAG_IN_PROGRESS_SYNC		(1 << 14)	// DW-1874
 
 // BSR-1056 set when requesting a send of uuid to a relative node.
-#define UUID_FALG_SEND_IT_TO_ME			(1 << 15)
+#define UUID_FLAG_SEND_IT_TO_ME			(1 << 15)
 
 
 struct p_uuids {

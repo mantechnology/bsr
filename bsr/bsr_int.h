@@ -548,7 +548,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_MEMORY_MAX_INDEX 97
 #define BSR_LC_LOG_MAX_INDEX 26
 #define BSR_LC_LATENCY_MAX_INDEX 8
-#define BSR_LC_VERIFY_MAX_INDEX 17
+#define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
 #define BSR_LC_ETC_MAX_INDEX 91
 
@@ -1257,7 +1257,6 @@ enum {
 
 	// BSR-1019
 	UUID_DELAY_SEND,
-
 };
 
 /* We could make these currently hardcoded constants configurable
@@ -2121,6 +2120,10 @@ struct bsr_peer_device {
 	atomic_t64 repl_sended;
 
 	struct timer_list sended_timer;
+
+	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
+	u64 latest_nodes;
+	u64 merged_nodes;
 };
 
 
