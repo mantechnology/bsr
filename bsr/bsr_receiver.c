@@ -9280,7 +9280,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	}
 #endif
 
-	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
+	// BSR-1177 move to w_after_state_change()
+	// clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 
 	if (try_to_get_resync)
 		try_to_get_resynced(device);

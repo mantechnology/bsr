@@ -3347,8 +3347,19 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			}
 
 			if ((repl_state[OLD] == L_SYNC_TARGET || repl_state[OLD] == L_PAUSED_SYNC_T) &&
-				repl_state[NEW] == L_ESTABLISHED)
-				 resync_finished = true;
+				repl_state[NEW] == L_ESTABLISHED) {
+
+				resync_finished = true;
+
+				// BSR-1177 clear DISCARD_MY_DATA when resync done
+				if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
+					struct bsr_peer_device *pd;
+					struct bsr_device *d = peer_device->device;
+					for_each_peer_device(pd, d)
+						clear_bit(DISCARD_MY_DATA, &pd->flags);
+				}
+				
+			}
 
 			if (disk_state[OLD] == D_INCONSISTENT && disk_state[NEW] == D_UP_TO_DATE &&
 				peer_disk_state[OLD] == D_INCONSISTENT && peer_disk_state[NEW] == D_UP_TO_DATE)	
