@@ -2571,6 +2571,8 @@ extern void bsr_md_mark_dirty_(struct bsr_device *device,
 	unsigned int line, const char *func);
 #else
 extern void bsr_md_mark_dirty(struct bsr_device *device);
+// BSR-1171
+extern void bsr_md_direct_and_mark_dirty(struct bsr_device *device);
 #endif
 extern void bsr_queue_bitmap_io(struct bsr_device *,
 				 int (*io_fn)(struct bsr_device *, struct bsr_peer_device *),

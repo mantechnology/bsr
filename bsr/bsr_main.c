@@ -6766,6 +6766,11 @@ void bsr_md_mark_dirty(struct bsr_device *device)
 	if (!test_and_set_bit(MD_DIRTY, &device->flags))
 		mod_timer(&device->md_sync_timer, jiffies + 5*HZ);
 }
+void bsr_md_direct_and_mark_dirty(struct bsr_device *device)
+{
+	if (!test_and_set_bit(MD_DIRTY, &device->flags))
+		mod_timer(&device->md_sync_timer, jiffies);
+}
 #endif
 
 void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local)
