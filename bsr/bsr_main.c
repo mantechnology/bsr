@@ -2718,18 +2718,20 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
 						struct bsr_peer_device* pd = NULL;
 						for_each_peer_device(pd, device) {
-							if ((p == pd) || (p->merged_nodes & NODE_MASK(pd->node_id)))
+							if ((p == pd) || 
+								(p->merged_nodes & NODE_MASK(pd->node_id)))
 								continue;
-							p->merged_nodes |= NODE_MASK(pd->node_id);
 							bsr_peer_device_merge_bitmap(p, pd);
+							p->merged_nodes |= NODE_MASK(pd->node_id);
 						}
 						bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+						bsr_md_sync(device);
 					}
 				} else {
 					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
 						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							p->merged_nodes |= NODE_MASK(peer_device->node_id);
 							bsr_peer_device_merge_bitmap(p, peer_device);
+							p->merged_nodes |= NODE_MASK(peer_device->node_id);
 						}
 					}
 				}
@@ -6765,11 +6767,6 @@ void bsr_md_mark_dirty(struct bsr_device *device)
 {
 	if (!test_and_set_bit(MD_DIRTY, &device->flags))
 		mod_timer(&device->md_sync_timer, jiffies + 5*HZ);
-}
-void bsr_md_direct_and_mark_dirty(struct bsr_device *device)
-{
-	if (!test_and_set_bit(MD_DIRTY, &device->flags))
-		mod_timer(&device->md_sync_timer, jiffies);
 }
 #endif
 

@@ -1960,7 +1960,7 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 
 /* returns the number of connections expected to actually write this data,
  * which does NOT include those that we are L_AHEAD for. */
-static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a, bool *need_md_sync)
+static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 {
 	struct bsr_device *device = req->device;
 	struct bsr_peer_device *peer_device;
@@ -1992,14 +1992,11 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a, 
 				if (p == peer_device)
 					continue;
 
+				// BSR-1171 set to merge bitmap if the following conditions are met.
 				if (p->latest_nodes & NODE_MASK(peer_device->node_id)) {
 					p->merged_nodes &= ~NODE_MASK(peer_device->node_id);
 					p->latest_nodes &= ~NODE_MASK(peer_device->node_id);
-					if (!bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						bsr_md_set_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
-						*need_md_sync = true;
-						bsr_info(18, BSR_LC_VERIFY, peer_device, "bitmaps from other nodes may need to be merged, node %d", p->node_id);
-					}
+					bsr_info(18, BSR_LC_VERIFY, peer_device, "bitmaps from other nodes may need to be merged, node %d", p->node_id);
 				}
 			}
 
@@ -2555,7 +2552,6 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	struct bio_and_error m = { NULL, };
 	bool no_remote = false;
 	bool submit_private_bio = false;
-	bool need_md_sync = false;
 
 
 	for_each_peer_device(peer_device, device) {
@@ -2653,7 +2649,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 			/* The only size==0 bios we expect are empty flushes. */
 			D_ASSERT(device, req->master_bio->bi_opf & BSR_REQ_PREFLUSH);
 			_req_mod(req, QUEUE_AS_BSR_BARRIER, NULL);
-		} else if (!bsr_process_write_request(req, &all_prot_a, &need_md_sync)) {
+		} else if (!bsr_process_write_request(req, &all_prot_a)) {
 			no_remote = true;
 		}
 		// BSR-1145 check the status of the connected node and allocate it. 
@@ -2769,10 +2765,6 @@ out:
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);
-
-	// BSR-1171
-	if (need_md_sync)
-		bsr_md_direct_and_mark_dirty(device);
 }
 
 #ifdef _WIN

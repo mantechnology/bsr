@@ -2169,6 +2169,8 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 
 				if (is_sync_target(p)) {
 					p->latest_nodes |= NODE_MASK(p->node_id);
+					// BSR-1171 if there are nodes that can be targeted for bitmap merging, set up a flag.
+					bsr_md_set_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
 					bsr_info(20, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", p->latest_nodes);
 				}
 			}
