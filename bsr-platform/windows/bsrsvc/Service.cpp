@@ -221,7 +221,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+    TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
@@ -279,7 +279,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 
 DWORD UnInstall(const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+	TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -314,7 +314,7 @@ DWORD UnInstall(const TCHAR * pName)
 
 DWORD KillService(const TCHAR * pName)
 {
-    TCHAR pTemp[1024];
+	TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
@@ -352,7 +352,7 @@ DWORD KillService(const TCHAR * pName)
 // DW-1741 add update service description
 DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 {
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 	DWORD err = ERROR_SUCCESS;
 
 	// run service with given name
@@ -397,7 +397,7 @@ DWORD UpdateDescription(const TCHAR * pName, const TCHAR * lang)
 }
 DWORD RunService(const TCHAR * pName)
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
 
     // run service with given name
@@ -459,70 +459,6 @@ VOID ExecuteSubProcess()
     }
 }
 
-// BSR-688
-int RunBsrmon()
-{
-	TCHAR cmd[MAX_PATH] = { 0 };
-	char bsr_path[MAX_PATH] = { 0, };
-	char perf_path[MAX_PATH] = { 0, };
-	size_t path_size;
-	errno_t result;
-
-	// BSR-694
-	HKEY hKey = NULL;
-	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
-	DWORD type = REG_DWORD;
-	DWORD size = sizeof(DWORD);
-	DWORD lResult = ERROR_SUCCESS;
-	DWORD period_value = 0;
-	DWORD run = 1;
-	result = getenv_s(&path_size, bsr_path, MAX_PATH, "BSR_PATH");
-	if (result)
-		strcpy_s(bsr_path, "c:\\Program Files\\bsr\\bin");
-
-	strncpy_s(perf_path, bsr_path, strlen(bsr_path) - strlen("bin"));
-	strcat_s(perf_path, "log\\perfmon\\");
-
-	CreateDirectoryA(perf_path, NULL);
-
-	_stprintf_s(cmd, _T("\"%ws\\%ws\" %ws"), gServicePath, _T("bsrmon"), _T("/file"));
-
-	// BSR-694
-	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
-	if (ERROR_SUCCESS != lResult) {
-		return 0;
-	}
-	while (TRUE) {
-
-		// get period
-		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&period_value, &size);
-		if (ERROR_SUCCESS != lResult) {
-			period_value = DEFAULT_BSRMON_PERIOD;
-		}
-		Sleep(period_value * 1000);
-
-		// BSR-695
-		lResult = RegQueryValueEx(hKey, _T("bsrmon_run"), NULL, &type, (LPBYTE)&run, &size);
-		if (ERROR_SUCCESS != lResult) {
-			run = 1;
-		}
-
-		if (run) {
-			DWORD ret;
-			DWORD dwPID;
-			// run bsrmon
-			ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, cmd, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
-			if (ret) {
-				RegCloseKey(hKey);
-				return 0;
-			}
-		}
-
-	}
-	RegCloseKey(hKey);
-	return 0;
-}
-
 // DW-2164 read daemon_tcp_port registry value (default DRBD_DAEMON_TCP_PORT)
 int get_daemon_port()
 
@@ -533,7 +469,7 @@ int get_daemon_port()
 	DWORD type = REG_DWORD;
 	DWORD size = sizeof(DWORD);
 	DWORD value = BSR_DAEMON_TCP_PORT;
-	wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
 
 	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, registryPath, NULL, KEY_ALL_ACCESS, &hKey);
@@ -571,7 +507,7 @@ VOID WriteKernelLog(const TCHAR *message)
 
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
     g_tServiceStatus.dwServiceType = SERVICE_WIN32;
     g_tServiceStatus.dwCurrentState = SERVICE_START_PENDING;
@@ -640,12 +576,6 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv)
 
     RcBsrStart();
 
-    // BSR-688
-	if ((g_monThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)RunBsrmon, 0, 0, (LPDWORD)&threadID)) == NULL) {
-		WriteLog(L"RunBsrmon pthread_create() failed\n");
-		return;
-	}
-
 	// BSR-1043
 #if 0
 	TCHAR szFullPath[MAX_PATH] = { 0 }; DWORD ret; TCHAR tmp[256] = { 0, }; DWORD dwPID;
@@ -676,7 +606,7 @@ VOID ExecPreShutDownLog(TCHAR *PreShutdownTime, TCHAR *OldPreShutdownTime)
 	size_t path_size; WCHAR BsrPath[MAX_PATH] = { 0, }; WCHAR BsrLogPath[MAX_PATH] = { 0, }; TCHAR tmp[256] = { 0, };
 	TCHAR *OldestFileName;  WCHAR FindAllLogFileName[MAX_PATH] = { 0, };
 	errno_t result = _wgetenv_s(&path_size, BsrPath, MAX_PATH, L"BSR_PATH");
-	if (result) {
+	if (result || (BsrPath == NULL) || !wcslen(BsrPath)) {
 		wcscpy_s(BsrPath, L"c:\\Program Files\\bsr\\bin");
 	}
 	wcsncpy_s(BsrLogPath, BsrPath, wcslen(BsrPath) - strlen("bin"));
@@ -732,7 +662,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
 #endif
 
 {
-    wchar_t pTemp[1024];
+	wchar_t pTemp[1024] = { 0, };
 
     switch (fdwControl) {
         case SERVICE_CONTROL_STOP:

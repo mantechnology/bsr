@@ -4173,216 +4173,6 @@ int meta_verify_dump_file(struct format *cfg, char **argv, int argc)
 	return verify_dumpfile_or_restore(cfg,argv,argc,1);
 }
 
-void md_convert_07_to_08(struct format *cfg)
-{
-	int i,j;
-	/*
-	 * FIXME
-	 * what about the UI_BITMAP, and the Activity Log?
-	 * how to bring them over for internal meta data?
-	 *
-	 * maybe just refuse to convert anything that is not
-	 * "clean"? how to detect that?
-	 *
-	 * FIXME: if I am a crashed R_PRIMARY, or D_INCONSISTENT,
-	 * or Want-Full-Sync or the like,
-	 * refuse, and indicate how to solve this */
-
-	printf("Converting meta data...\n");
-
-	//if (!cfg->bits_counted) count_bits(cfg);
-	/* FIXME:
-	 * if this is "internal" meta data, and I have bits set,
-	 * either move the bitmap into the newly expected place,
-	 * or refuse, and indicate how to solve this */
-
-	/* KB <-> sectors is done in the md disk<->cpu functions.
-	 * We only need to adjust the magic here. */
-	cfg->md.magic = BSR_MD_MAGIC_08;
-
-	// The MDF Flags are (nearly) the same in 07 and 08
-	cfg->md.flags = cfg->md.gc[Flags];
-
-	cfg->md.current_uuid =
-		(uint64_t)(cfg->md.gc[HumanCnt] & 0xffff) << 48 |
-		(uint64_t)(cfg->md.gc[TimeoutCnt] & 0xffff) << 32 |
-		(uint64_t)((cfg->md.gc[ConnectedCnt]+cfg->md.gc[ArbitraryCnt])
-		       & 0xffff) << 16 |
-		(uint64_t)0xbabe;
-	cfg->md.peers[0].bitmap_uuid = (uint64_t)0;
-
-	for (i = cfg->bits_set ? UI_BITMAP : UI_HISTORY_START, j = 1;
-		i <= UI_HISTORY_END ; i++, j++) {
-		if (i == UI_BITMAP)
-			cfg->md.peers[0].bitmap_uuid = cfg->md.current_uuid - j*0x10000;
-		else
-			cfg->md.history_uuids[i - UI_HISTORY_START] =
-				cfg->md.current_uuid - j*0x10000;
-	}
-
-	/* unconditionally re-initialize offsets,
-	 * not necessary if fixed size external,
-	 * necessary if flex external or internal */
-	re_initialize_md_offsets(cfg);
-
-	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		CLI_ERRO_LOG_STDERR(false, "Conversion failed.\nThis is a bug :(");
-		exit(111);
-	}
-}
-
-void md_convert_08_to_07(struct format *cfg)
-{
-	/*
-	 * FIXME
-	 * what about the UI_BITMAP, and the Activity Log?
-	 * how to bring them over for internal meta data?
-	 *
-	 * maybe just refuse to convert anything that is not
-	 * "clean"? how to detect that?
-	 *
-	 * FIXME: if I am a crashed R_PRIMARY, or D_INCONSISTENT,
-	 * or Want-Full-Sync or the like,
-	 * refuse, and indicate how to solve this */
-
-	printf("Converting meta data...\n");
-	//if (!cfg->bits_counted) count_bits(cfg);
-	/* FIXME:
-	 * if this is "internal" meta data, and I have bits set,
-	 * either move the bitmap into the newly expected place,
-	 * or refuse, and indicate how to solve this */
-
-	/* KB <-> sectors is done in the md disk<->cpu functions.
-	 * We only need to adjust the magic here. */
-	cfg->md.magic = BSR_MD_MAGIC_07;
-
-	/* FIXME somehow generate GCs in a sane way */
-	/* FIXME convert the flags? */
-	printf("Conversion v08 -> v07 is BROKEN!\n"
-		"Be prepared to manually intervene!\n");
-	/* FIXME put some more helpful text here, indicating what exactly is to
-	 * be done to make this work as expected. */
-
-	/* unconditionally re-initialize offsets,
-	 * not necessary if fixed size external,
-	 * necessary if flex external or internal */
-	re_initialize_md_offsets(cfg);
-
-	if (!is_valid_md(BSR_V07, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		CLI_ERRO_LOG_STDERR(false, "Conversion failed.\nThis is a bug :(");
-		exit(111);
-	}
-}
-
-void md_convert_08_to_09(struct format *cfg)
-{
-	int p;
-
-	for (p = 0; p < BSR_NODE_ID_MAX; p++) {
-		cfg->md.peers[p].bitmap_uuid = 0;
-		cfg->md.peers[p].flags = 0;
-		cfg->md.peers[p].bitmap_index = -1;
-	}
-
-	if (cfg->md.flags & MDF_CONNECTED_IND)
-		cfg->md.peers[0].flags |= MDF_PEER_CONNECTED;
-
-	if (cfg->md.flags & MDF_FULL_SYNC)
-		cfg->md.peers[0].flags |= MDF_PEER_FULL_SYNC;
-
-	if (cfg->md.flags & MDF_PEER_OUT_DATED)
-		cfg->md.peers[0].flags |= MDF_PEER_OUTDATED;
-
-	cfg->md.flags &= ~(MDF_CONNECTED_IND | MDF_FULL_SYNC | MDF_PEER_OUT_DATED);
-
-	cfg->md.node_id = -1;
-	cfg->md.magic = BSR_MD_MAGIC_09;
-	re_initialize_md_offsets(cfg);
-
-	if (!is_valid_md(BSR_V09, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		CLI_ERRO_LOG_STDERR(false, "Conversion failed.\nThis is a bug :(");
-		exit(111);
-	}
-}
-
-void md_convert_09_to_08(struct format *cfg)
-{
-	if (cfg->md.peers[0].flags & MDF_PEER_CONNECTED)
-		cfg->md.flags |= MDF_CONNECTED_IND;
-
-	if (cfg->md.peers[0].flags & MDF_PEER_FULL_SYNC)
-		cfg->md.flags |= MDF_FULL_SYNC;
-
-	if (cfg->md.peers[0].flags & MDF_PEER_OUTDATED)
-		cfg->md.flags |= MDF_PEER_OUT_DATED;
-
-	cfg->md.magic = BSR_MD_MAGIC_08;
-	cfg->md.max_peers = 1;
-	re_initialize_md_offsets(cfg);
-
-	if (!is_valid_md(BSR_V08, &cfg->md, cfg->md_index, cfg->bd_size)) {
-		CLI_ERRO_LOG_STDERR(false, "Conversion failed.\nThis is a bug :(");
-		exit(111);
-	}
-}
-
-void convert_md(struct format *cfg, enum md_format from)
-{
-	enum md_format to = format_version(cfg);
-
-	switch(to) {
-	default:
-	case BSR_UNKNOWN:
-	case BSR_V06:
-		CLI_ERRO_LOG_STDERR(false, "BUG in %s() %d.", __FUNCTION__, __LINE__);
-		exit(10);
-	case BSR_V07:
-		switch(from) {
-		case BSR_V09:
-			md_convert_09_to_08(cfg);
-		case BSR_V08:
-			md_convert_08_to_07(cfg);
-		case BSR_V07:
-			break;
-		case BSR_V06:
-		case BSR_UNKNOWN:
-		default:
-			CLI_ERRO_LOG_STDERR(false, "BUG in %s() %d.", __FUNCTION__, __LINE__);
-			exit(10);
-		}
-		break;
-	case BSR_V08:
-		switch(from) {
-		default:
-		case BSR_UNKNOWN:
-		case BSR_V06:
-			CLI_ERRO_LOG_STDERR(false, "BUG in %s() %d.", __FUNCTION__, __LINE__);
-			exit(10);
-		case BSR_V07:
-			md_convert_07_to_08(cfg);
-		case BSR_V08:
-			break;
-		case BSR_V09:
-			md_convert_09_to_08(cfg);
-		}
-		break;
-	case BSR_V09:
-		switch(from) {
-		default:
-		case BSR_UNKNOWN:
-		case BSR_V06:
-			CLI_ERRO_LOG_STDERR(false, "BUG in %s() %d.", __FUNCTION__, __LINE__);
-			exit(10);
-		case BSR_V07:
-			md_convert_07_to_08(cfg);
-		case BSR_V08:
-			md_convert_08_to_09(cfg);
-		case BSR_V09:
-			;
-		}
-	}
-}
-
 /* if on the physical device we find some data we can interpret,
  * print some informational message about what we found,
  * and what we think how much room it needs.
@@ -4519,7 +4309,7 @@ int guessed_size_from_pvs(struct fstype_s *f, char *dev_name)
 
 		close(0); /* we do not use stdin */
 		execvp(argv[0], argv);
-		bsr_terminate_log(0);
+		bsr_done_log(0);
 		_exit(0);
 	}
 	/* parent */
@@ -4817,21 +4607,15 @@ void check_internal_md_flavours(struct format * cfg) {
 	} else {
 		char msg[160];
 
-		snprintf(msg, 160, "Valid %s meta-data found, convert to %s?",
-			 f_ops[have].name, cfg->ops->name);
-		if (confirmed(msg)) {
-			cfg->md = md_now;
-			convert_md(cfg, have);
-		} else {
-			snprintf(msg, 160, "So you want me to replace the %s meta-data\n"
-				 "with newly initialized %s meta-data?",
-				 f_ops[have].name, cfg->ops->name);
-			if (!confirmed(msg)) {
-				CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
-				exit(1); // 1 to avoid online resource counting
-			}
-			cfg->md.magic = 0;
+		// BSR-1181 remove ability to convert drbd8 meta-data to bsr
+		snprintf(msg, 160, "Do you want me to replace the %s meta-data\n"
+				"with newly initialized %s meta-data?",
+				f_ops[have].name, cfg->ops->name);
+		if (!confirmed(msg)) {
+			CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
+			exit(1); // 1 to avoid online resource counting
 		}
+		cfg->md.magic = 0;
 	}
 
 	/* we have two "internal" layouts:
@@ -4886,23 +4670,17 @@ void check_external_md_flavours(struct format * cfg) {
 	if (have == BSR_UNKNOWN)
 		return;
 
-	snprintf(msg, 160, "Valid %s meta-data found, convert to %s?",
-		 f_ops[have].name, cfg->ops->name);
+	// BSR-1181 remove ability to convert drbd8 meta-data to bsr
+	snprintf(msg, 160, "Do you want me to replace the %s meta-data\n"
+			"with newly initialized %s meta-data?",
+			f_ops[have].name, cfg->ops->name);
 	if (confirmed(msg)) {
-		cfg->md = md_now;
-		convert_md(cfg, have);
-	} else {
-		snprintf(msg, 160, "So you want me to replace the %s meta-data\n"
-			 "with newly initialized %s meta-data?",
-			 f_ops[have].name, cfg->ops->name);
-		if (confirmed(msg)) {
-			cfg->md.magic = 0;
-			return;
-		}
-
-		CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
-		exit(1);
+		cfg->md.magic = 0;
+		return;
 	}
+
+	CLI_WRAN_LOG_PRINT(false, "Operation cancelled.(1)\n");
+	exit(1);
 }
 
 /* ok, so there is no valid meta data at the end of the device,
@@ -5151,7 +4929,6 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	}
 	else
 		printf("New bsr meta data block successfully created.\n");
-
 	return err;
 }
 
@@ -5499,7 +5276,8 @@ extern int llevel;
 // BSR-1031
 extern int lstatus;
 extern char execution_log[512];
-
+// BSR-1112
+extern char lpath[256];
 int main(int argc, char **argv)
 {
 	struct format *cfg;
@@ -5514,6 +5292,8 @@ int main(int argc, char **argv)
 		lprogram = progname = argv[0];
 	}
 
+	// BSR-1112
+	get_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
@@ -5703,7 +5483,7 @@ int main(int argc, char **argv)
 	if (minor_attached)
 		CLI_ERRO_LOG_STDERR(false, "# Output might be stale, since minor %d is attached", cfg->minor);
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 	/* and if we want an explicit free,

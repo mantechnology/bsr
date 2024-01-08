@@ -16,8 +16,6 @@ outdate-peer.sh
 	example implementation of the fence-peer mechanism using ssh
 bsr.conf
 	commented example configuration
-bsr-overview.pl
-	consolidates /proc/bsr, /etc/bsr.conf, xm list, lvs, df
 pretty-proc-bsr.sh
 	example how to pretty-print (optionally with color) /proc/bsr
 

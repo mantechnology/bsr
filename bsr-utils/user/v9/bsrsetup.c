@@ -102,6 +102,14 @@ static struct nlattr *global_attrs[128];
  * to check for presence of struct fields. */
 #define ntb(t)	nested_attr_tb[__nla_type(t)]
 
+#ifdef _WIN
+// BSR-1066
+#define MVOL_TYPE		0x9800
+#define IOCTL_MVOL_TEMP_MOUNT_VOLUME	CTL_CODE(MVOL_TYPE, 16, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_MVOL_DISMOUNT_VOLUME		CTL_CODE(MVOL_TYPE, 17, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define CMD_TIMEOUT_MEDIUM_DEF 121
+#endif
+
 #ifdef PRINT_NLMSG_LEN
 /* I'm to lazy to check the maximum possible nlmsg length by hand */
 int main(void)
@@ -271,10 +279,8 @@ static int role_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int cstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int dstate_cmd(struct bsr_cmd *cm, int argc, char **argv);
 static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#ifdef _LIN
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv);
-#endif
 static int show_or_get_gi_cmd(struct bsr_cmd *cm, int argc, char **argv);
 
 // sub commands for generic_get_cmd
@@ -356,6 +362,14 @@ struct option events_cmd_options[] = {
 	{ "now", no_argument, 0, 'n' },
 	{ "poll", no_argument, 0, 'p' },
 	{ "color", optional_argument, 0, 'c' },
+	// BSR-1124 old and new state output options
+	{ "diff", no_argument, 0, 'd' },
+	// BSR-1125 sync progress output options
+	{ "sync", no_argument, 0, 'S'},
+	// BSR-1127 sync event output interval options
+	{ "interval", required_argument, 0, 'i'},
+	// BSR-1128 json format output options
+	{ "json", no_argument, 0, 'j'},
 	{ }
 };
 
@@ -369,7 +383,9 @@ static struct option status_cmd_options[] = {
 	{ "statistics", no_argument, 0, 's' },
 	{ "color", optional_argument, 0, 'c' },
 	{ "json", no_argument, 0, 'j' },
-	{ }
+	// BSR-1111 unit(K,M,G,T) output
+	{ "readability", no_argument, 0, 'r' },
+	{}
 };
 
 #define F_CONFIG_CMD	generic_config_cmd
@@ -540,12 +556,10 @@ struct bsr_cmd commands[] = {
 	{"check-resize", CTX_MINOR, 0, NO_PAYLOAD, check_resize_cmd,
 	 .lockless = true,
 	 .summary = "Remember the current size of a lower-level device." },
-#ifdef _LIN
 	// BSR-823
 	{"check-fs", CTX_MINOR, 0, NO_PAYLOAD, check_fs_cmd,
 	 .lockless = true,
 	 .summary = "Check a filesystem of a backing device." },
-#endif
 	{"events2", CTX_RESOURCE | CTX_ALL, F_NEW_EVENTS_CMD(print_notifications),
 	 .options = events_cmd_options,
 	 .missing_ok = true,
@@ -1359,10 +1373,13 @@ int bsr_tla_parse(struct nlmsghdr *nlh)
 		CLI_ERRO_LOG_STDERR(false, "ASSERT( " #exp " ) in %s:%d", __FILE__,__LINE__);
 
 
-#ifdef _LIN
+
 // BSR-823 run filesystem check command
-int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
+int run_check_fs(char **argv, char *output_file)
 {
+#ifdef _WIN
+	pid_t timeout_pid, exited_pid;
+#endif
 	pid_t pid;
 	int status, rv = -1;
 
@@ -1373,30 +1390,56 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 	
 	if (pid == -1) {
 		CLI_ERRO_LOG_STDERR(false,  "Can not fork");
-		exit(20);
+		return -1;
 	}
 	if (pid == 0) {
 		FILE *f_out;
+#ifdef _LIN
 		prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
 
 		f_out = freopen(output_file, "w", stdout);
 		if (!f_out) {
 			CLI_ERRO_LOG_STDERR(false,  "reopen stdout to %s failed", output_file);
-			exit(20);
+			exit(10);
 		}
 
 		dup2(fileno(stdout), fileno(stderr));
-
-		if (argv[0]) {
-			execvp(argv[0], argv);
-		}
+		execvp(argv[0], argv);
+		
 		CLI_ERRO_LOG_STDERR(false,  "Can not exec %s", argv[0]);
-		exit(20);
+		exit(10);
 	}
 
-	if (kid)
-		*kid = pid;
-
+#ifdef _WIN
+	// BSR-1066 timeout handling for chkdsk cmd
+	timeout_pid = fork();
+	if(timeout_pid == 0) {
+		sleep(CMD_TIMEOUT_MEDIUM_DEF);
+		exit(0);
+	}
+	
+	while (1) {
+		exited_pid = waitpid(-1, &status, 0);
+		if (exited_pid == -1) {
+			if (errno != EINTR) {
+				break;
+			}
+		} else if (exited_pid == timeout_pid) {
+			kill(pid, SIGKILL);
+			rv = 20; // EXIT_TIMED_OUT
+			break;
+		} else if (exited_pid == pid) {
+			kill(timeout_pid, SIGKILL);
+			if (WIFEXITED(status)) {
+				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
+				break;
+			}
+		}
+	}
+#else // _LIN
 	while (1) {
 		if (waitpid(pid, &status, 0) == -1) {
 			if (errno != EINTR)
@@ -1404,17 +1447,124 @@ int run_check_fs(char **argv, pid_t *kid, int *fd, char *output_file)
 		} else {
 			if (WIFEXITED(status)) {
 				rv = WEXITSTATUS(status);
+				if (rv == 10)
+					rv = -1;
 				break;
 			}
 		}
 	}
+#endif
 
 	fflush(stdout);
 	fflush(stderr);
 
 	return rv;
 }
+#ifdef _WIN
+static bool unlock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	char MsgBuff[MAX_PATH] = { 0, };
+	BOOL ret = FALSE;
 
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_TEMP_MOUNT_VOLUME, NULL, 0, MsgBuff, MAX_PATH, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
+static bool lock_volume(char dev_letter)
+{
+	DWORD dwReturned;
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	CHAR letter[] = "\\\\.\\ :";
+	BOOL ret = FALSE;
+
+	letter[4] = dev_letter;
+	handle = CreateFileA(letter, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	ret = DeviceIoControl(handle, IOCTL_MVOL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &dwReturned, NULL);
+
+	CloseHandle(handle);
+
+	return ret;
+}
+
+static int is_fastsync()
+{
+	DWORD use_fast_sync = 0;
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char bsrRegistry[] = "SYSTEM\\CurrentControlSet\\Services\\bsrvflt";
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return lResult;
+	}
+
+	lResult = RegQueryValueEx(hKey, "use_fast_sync", NULL, &type, (LPBYTE)&use_fast_sync, &size);
+	RegCloseKey(hKey);
+
+	if (lResult == ERROR_SUCCESS) {
+		lResult = use_fast_sync;
+	}
+
+	return lResult;
+}
+
+// BSR-1066
+static int need_filesystem_recovery(char dev_letter)
+{
+	char cmd[10];
+	int ret = 0;
+	int fast_sync = 0;
+	FILE *fp;
+	bool journal_recovery = false;
+	bool xfs_fs = false;
+	char *argv[] = { "chkdsk", (char[3]){dev_letter, ':', '\0'}, NULL };
+	char fs_check_log[256];
+
+	// check fast sync settings
+	// if full sync, skip filesystem check
+	if (!is_fastsync()) {
+		return 0;
+	}
+
+	memset(fs_check_log, 0, sizeof(fs_check_log));
+	
+	snprintf(fs_check_log, sizeof(fs_check_log), "%s\\chkdsk_%c.log", lpath, dev_letter);
+	
+	// remove old log files
+	remove(fs_check_log);
+
+	/// BSR-1066 volume temporary mount to run chkdsk
+	unlock_volume(dev_letter);
+	ret = run_check_fs(argv, fs_check_log);
+	lock_volume(dev_letter);
+	
+	if (ret == -1) {
+		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
+	} else if (ret != 0 && ret != EXIT_TIMED_OUT) {
+		CLI_ERRO_LOG_STDERR(false, "%c: Filesystem has errors (%d)", dev_letter, ret);
+	}
+	
+	return ret;
+}
+#else // _LIN
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
@@ -1478,11 +1628,11 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
 	if (xfs_fs) {
-		sprintf(journal_check_log, "/var/log/bsr/xfs_logprint%s.log", n_dev_name);
-		sprintf(fs_check_log, "/var/log/bsr/xfs_repair%s.log", n_dev_name);
+		sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
+		sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
 	} else {
-		sprintf(journal_check_log, "/var/log/bsr/tune2fs%s.log", n_dev_name);
-		sprintf(fs_check_log, "/var/log/bsr/fsck%s.log", n_dev_name);
+		sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
+		sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
 	}
 
 	free(n_dev_name);
@@ -1505,7 +1655,7 @@ static int need_filesystem_recovery(char * dev_name)
 		argv[1] = "-l";
 	}
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, journal_check_log);
+	ret = run_check_fs(argv, journal_check_log);
 
 	if (ret != 0) {
 		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
@@ -1561,7 +1711,7 @@ static int need_filesystem_recovery(char * dev_name)
 	}
 	argv[1] = "-n";
 	argv[2] = dev_name;
-	ret = run_check_fs(argv, NULL, NULL, fs_check_log);
+	ret = run_check_fs(argv, fs_check_log);
 
 	if (ret == -1 || ret == 127) {
 		CLI_ERRO_LOG_STDERR(false,
@@ -2008,6 +2158,15 @@ static bool opt_poll;
 static bool opt_verbose;
 static bool opt_statistics;
 static bool opt_timestamps;
+// BSR-1124
+static bool opt_diff;
+// BSR-1125
+static bool opt_sync;
+// BSR-1127
+static int opt_interval;
+static int sync_evt_count;
+// BSR-1128
+static bool opt_json;
 
 static int generic_get(struct bsr_cmd *cm, int timeout_arg, void *u_ptr)
 {
@@ -2308,6 +2467,9 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	struct option *options = cm->options ? cm->options : no_options;
 	const char *opts = make_optstring(options);
 
+	opt_interval = 0;
+	sync_evt_count = 0;
+
 	optind = 0;  /* reset getopt_long() */
 	for(;;) {
 		c = getopt_long(argc, argv, opts, options, 0);
@@ -2330,15 +2492,20 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			}
 			break;
 		case 'd':
-			timeo_ctx.degr_wfc_timeout = m_strtoll(optarg, 1);
-			if(BSR_DEGR_WFC_TIMEOUT_MIN > timeo_ctx.degr_wfc_timeout ||
-			   timeo_ctx.degr_wfc_timeout > BSR_DEGR_WFC_TIMEOUT_MAX) {
-				CLI_ERRO_LOG_STDERR(false, "degr_wfc_timeout => %d"
-					" out of range [%d..%d]\n",
-					timeo_ctx.degr_wfc_timeout,
-					BSR_DEGR_WFC_TIMEOUT_MIN,
-					BSR_DEGR_WFC_TIMEOUT_MAX);
-				return 20;
+			// BSR-1124
+			if(!strcmp(cm->cmd, "events2")) {
+				opt_diff = true;
+			} else {
+				timeo_ctx.degr_wfc_timeout = m_strtoll(optarg, 1);
+				if(BSR_DEGR_WFC_TIMEOUT_MIN > timeo_ctx.degr_wfc_timeout ||
+				timeo_ctx.degr_wfc_timeout > BSR_DEGR_WFC_TIMEOUT_MAX) {
+					CLI_ERRO_LOG_STDERR(false, "degr_wfc_timeout => %d"
+						" out of range [%d..%d]\n",
+						timeo_ctx.degr_wfc_timeout,
+						BSR_DEGR_WFC_TIMEOUT_MIN,
+						BSR_DEGR_WFC_TIMEOUT_MAX);
+					return 20;
+				}
 			}
 			break;
 		case 'o':
@@ -2366,6 +2533,23 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			opt_verbose = true;
 			opt_statistics = true;
 			break;
+		// BSR-1125
+		case 'S':
+			opt_sync = true;
+			break;
+		// BSR-1127 set sync event output interval
+		case 'i':
+			opt_interval = sync_evt_count = m_strtoll(optarg, 1);
+			if(BSR_INTERVAL_MIN > opt_interval ||
+			   opt_interval > BSR_INTERVAL_MAX) {
+				CLI_ERRO_LOG_STDERR(false, "interval => %d"
+					" out of range [%d..%d]\n",
+					opt_interval,
+					BSR_INTERVAL_MIN,
+					BSR_INTERVAL_MAX);
+				return 20;
+			}
+			break;
 
 		case 'w':
 			if (!optarg || !strcmp(optarg, "yes"))
@@ -2379,7 +2563,10 @@ static int generic_get_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		case 'T':
 			opt_timestamps = true;
 			break;
-
+		// BSR-1128
+		case 'j':
+			opt_json = true;
+			break;
 		case 'c':
 			if (!parse_color_argument())
 				print_usage_and_exit("unknown --color argument");
@@ -2731,46 +2918,104 @@ void print_resource_statistics(int indent,
 	     old->res_stat_write_ordering != wo) &&
 	    wo < ARRAY_SIZE(write_ordering_str) &&
 	    write_ordering_str[wo]) {
-		wrap_printf(indent, " write-ordering:%s", write_ordering_str[wo]);
+		WRAP_PRINT_STR(indent, "write-ordering", "%s", write_ordering_str[wo]);
 	}
 
 	// DW-1925
-	wrap_printf(indent, " req-pending:" U32,
+	WRAP_PRINT_INT(indent, "req-pending", U32,
 		(int)new->res_stat_req_write_cnt);
+}
+
+// BSR-1111
+char byte_unit[] = { 'K', 'M', 'G', 'T' };
+
+// BSR-1111 change to the maximum possible units.
+int kbyte_convert_max_unit(uint64_t kb, double *kb_of_convert)
+{
+	int convert_unit = 0;
+
+	*kb_of_convert = kb;
+
+	if (kb == 0) {
+		return convert_unit;
+	}
+
+	for (convert_unit = 0; convert_unit < (sizeof(byte_unit) / sizeof(char)); convert_unit++) {
+		if (*kb_of_convert < 1024)
+			break;
+		*kb_of_convert = *kb_of_convert / 1024;
+	}
+	
+	return convert_unit;
 }
 
 void print_device_statistics(int indent,
 			     struct device_statistics *old,
 			     struct device_statistics *new,
-			     int (*wrap_printf)(int, const char *, ...))
+					 int(*wrap_printf)(int, const char *, ...), bool readability)
 {
 	if (opt_statistics) {
-		if (opt_verbose)
-			wrap_printf(indent, " size:" U64,
-				    (uint64_t)new->dev_size / 2);
-		wrap_printf(indent, " read:" U64,
-			    (uint64_t)new->dev_read / 2);
-		wrap_printf(indent, " written:" U64,
-			    (uint64_t)new->dev_write / 2);
+		double kb_of_convert = 0;
+		int convert_unit = 0;
+
 		if (opt_verbose) {
-			wrap_printf(indent, " al-writes:" U64,
+			// BSR-1111
+			if (readability) {
+				convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_size / 2, &kb_of_convert);
+				if (convert_unit)
+					WRAP_PRINT_INT(indent, "size", "%.3f%c" , kb_of_convert, byte_unit[convert_unit]);
+				else
+					WRAP_PRINT_INT(indent, "size", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+			} else {
+				WRAP_PRINT_INT(indent, "size", U64,
+					(uint64_t)new->dev_size / 2);
+			}
+		}
+
+		// BSR-1111
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_read / 2, &kb_of_convert);
+			if (convert_unit)
+				WRAP_PRINT_INT(indent, "read", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				WRAP_PRINT_INT(indent, "read", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->dev_write / 2, &kb_of_convert);
+			if (convert_unit)
+				WRAP_PRINT_INT(indent, "written", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				WRAP_PRINT_INT(indent, "written", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			WRAP_PRINT_INT(indent, "read", U64,
+				(uint64_t)new->dev_read / 2);
+			WRAP_PRINT_INT(indent, "written", U64,
+				(uint64_t)new->dev_write / 2);
+		}
+
+		if (opt_verbose) {
+			WRAP_PRINT_INT(indent, "al-writes", U64,
 				    (uint64_t)new->dev_al_writes);
-			wrap_printf(indent, " bm-writes:" U64,
+			WRAP_PRINT_INT(indent, "bm-writes", U64,
 				    (uint64_t)new->dev_bm_writes);
-			wrap_printf(indent, " upper-pending:" U32,
+			WRAP_PRINT_INT(indent, "upper-pending", U32,
 				    new->dev_upper_pending);
-			wrap_printf(indent, " lower-pending:" U32,
+			WRAP_PRINT_INT(indent, "lower-pending", U32,
 				    new->dev_lower_pending);
 			if (!old ||
 			    old->dev_al_suspended != new->dev_al_suspended)
-				wrap_printf(indent, " al-suspended:%s",
+				WRAP_PRINT_STR(indent, "al-suspended", "%s",
 					    new->dev_al_suspended ? "yes" : "no");
 
-			wrap_printf(indent, " al-pending-changes:" U32,
+			WRAP_PRINT_INT(indent, "al-pending-changes", U32,
 				new->dev_al_pending_changes);
 
-			wrap_printf(indent, " al-used:" U32,
+			WRAP_PRINT_INT(indent, "al-used", U32,
 				new->dev_al_used);
+
+			WRAP_PRINT_INT(indent, "accelbuf-used", U64,
+				new->dev_accelbuf_used);
+
 		}
 	}
 	if ((!old ||
@@ -2794,7 +3039,7 @@ void print_device_statistics(int indent,
 		if (first)
 			x1 = "no";
 
-		wrap_printf(indent, " blocked:%s%s", x1, x2);
+		WRAP_PRINT_STR(indent, "blocked", "%s%s", x1, x2);
 	}
 }
 
@@ -2805,7 +3050,7 @@ void print_connection_statistics(int indent,
 {
 	if (!old ||
 	    old->conn_congested != new->conn_congested)
-		wrap_printf(indent, " congested:%s", new->conn_congested ? "yes" : "no");
+		WRAP_PRINT_STR(indent, "congested", "%s", new->conn_congested ? "yes" : "no");
 }
 
 static void peer_device_status_json(struct peer_devices_list *peer_device)
@@ -2950,11 +3195,13 @@ static void resource_status_json(struct resources_list *resource)
 void print_peer_device_statistics(int indent,
 				  struct peer_device_statistics *old,
 				  struct peer_device_statistics *new,
-				  int (*wrap_printf)(int, const char *, ...))
+					  int(*wrap_printf)(int, const char *, ...), bool readability, bool sync)
 {
 	// BSR-191
 	double db, dt, rt;
 	uint64_t sectors_to_go = 0;
+	double kb_of_convert;
+	int convert_unit;
 	bool sync_details =
 		(new->peer_dev_rs_total != 0) &&
 		(new->peer_dev_rs_total != -1ULL);
@@ -2963,32 +3210,78 @@ void print_peer_device_statistics(int indent,
 		sectors_to_go = new->peer_dev_ov_left ?:
 			new->peer_dev_out_of_sync - new->peer_dev_resync_failed;
 
-	wrap_printf(indent, " received:" U64,
-		    (uint64_t)new->peer_dev_received / 2);
-	wrap_printf(indent, " sent:" U64,
-		    (uint64_t)new->peer_dev_sent / 2);
-	if (opt_verbose || new->peer_dev_out_of_sync)
-		wrap_printf(indent, " out-of-sync:" U64,
-			    (uint64_t)new->peer_dev_out_of_sync / 2);
+	if (opt_statistics) {
+	// BSR-1111
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_received / 2, &kb_of_convert);
+			if (convert_unit)
+				WRAP_PRINT_INT(indent, "received", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				WRAP_PRINT_INT(indent, "received", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_sent / 2, &kb_of_convert);
+			if (convert_unit)
+				WRAP_PRINT_INT(indent, "sent", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				WRAP_PRINT_INT(indent, "sent", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			WRAP_PRINT_INT(indent, "received", U64,
+				(uint64_t)new->peer_dev_received / 2);
+			WRAP_PRINT_INT(indent, "sent", U64,
+				(uint64_t)new->peer_dev_sent / 2);
+		}
+	}
+
+	if (sync || opt_verbose || new->peer_dev_out_of_sync) {
+		// BSR-1111
+		if (readability) {
+			convert_unit = kbyte_convert_max_unit((uint64_t)new->peer_dev_out_of_sync / 2, &kb_of_convert);
+			if (convert_unit)
+				WRAP_PRINT_INT(indent, "out-of-sync", "%.3f%c", kb_of_convert, byte_unit[convert_unit]);
+			else
+				WRAP_PRINT_INT(indent, "out-of-sync", "%.0f%c", kb_of_convert, byte_unit[convert_unit]);
+		}
+		else {
+			WRAP_PRINT_INT(indent, "out-of-sync", U64,
+				(uint64_t)new->peer_dev_out_of_sync / 2);
+		}
+	}
+
 	if (opt_verbose) {
-		wrap_printf(indent, " pending:" U32,
+		WRAP_PRINT_INT(indent, "pending", U32,
 			    new->peer_dev_pending);
-		wrap_printf(indent, " unacked:" U32,
+		WRAP_PRINT_INT(indent, "unacked", U32,
 			    new->peer_dev_unacked);
 	}
 
 	if (!sync_details)
 		return;
 
+	// BSR-1125
+	if (!opt_statistics && !sync)
+		return;
+
 	// BSR-191 sync progress
 	db = (int64_t) new->peer_dev_rs_db_sectors;
 	dt = new->peer_dev_rs_dt_ms ?: 1;
-	wrap_printf(indent, " speed:%.0f", db/dt *1000.0/2.0); /* KiB/s */
-	wrap_printf(indent, " want:%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+	if (opt_statistics) {
+		WRAP_PRINT_INT(indent, "speed", "%.0f", db/dt *1000.0/2.0); /* KiB/s */
+		WRAP_PRINT_INT(indent, "want", "%lu", new->peer_dev_rs_c_sync_rate); /* KiB/s */
+	}
+
 	/* estimate time-to-run, based on "db/dt" */
 	rt = db > 0 ? dt * 1e-3 * sectors_to_go / db : -1; /* seconds */
-	wrap_printf(indent, " eta:%lu:%02lu:%02lu", 
+	WRAP_PRINT_STR(indent, "eta", "%lu:%02lu:%02lu",
 		(unsigned long)rt / 3600, ((unsigned long)rt % 3600) / 60, (unsigned long)rt % 60);
+	
+	// BSR-1125
+	if (sync) {
+ 		WRAP_PRINT_INT(indent, "done", "%.2f", (int)(10000 * (1 -
+			(double)sectors_to_go /
+			(double)new->peer_dev_disk_size)) / 100.f);
+	}
+
 }
 
 void resource_status(struct resources_list *resource)
@@ -3020,7 +3313,7 @@ void resource_status(struct resources_list *resource)
 	wrap_printf(0, "\n");
 }
 
-static void device_status(struct devices_list *device, bool single_device)
+static void device_status(struct devices_list *device, bool single_device, bool readability)
 {
 	enum bsr_disk_state disk_state = device->info.dev_disk_state;
 	bool intentional_diskless = device->info.is_intentional_diskless == 1;
@@ -3060,7 +3353,7 @@ static void device_status(struct devices_list *device, bool single_device)
 	if (device->statistics.dev_size != -1) {
 		if (opt_statistics)
 			wrap_printf(indent, "\n");
-		print_device_statistics(indent, NULL, &device->statistics, wrap_printf);
+		print_device_statistics(indent, NULL, &device->statistics, wrap_printf, readability);
 	}
 	wrap_printf(indent, "\n");
 }
@@ -3102,7 +3395,7 @@ static const char *resync_susp_str(struct peer_device_info *info)
 	return buffer;
 }
 
-static void peer_device_status(struct peer_devices_list *peer_device, bool single_device)
+static void peer_device_status(struct peer_devices_list *peer_device, bool single_device, bool readability)
 {
 	int indent = 4;
 	bool intentional_diskless = peer_device->info.peer_is_intentional_diskless == 1;
@@ -3151,27 +3444,27 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 				    resync_susp_str(&peer_device->info));
 		if (opt_statistics && peer_device->statistics.peer_dev_received != -1) {
 			wrap_printf(indent, "\n");
-			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf);
+			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability, false);
 		}
 	}
 
 	wrap_printf(0, "\n");
 }
 
-static void peer_devices_status(struct bsr_cfg_context *ctx, struct peer_devices_list *peer_devices, bool single_device)
+static void peer_devices_status(struct bsr_cfg_context *ctx, struct peer_devices_list *peer_devices, bool single_device, bool readability)
 {
 	struct peer_devices_list *peer_device;
 
 	for (peer_device = peer_devices; peer_device; peer_device = peer_device->next) {
 		if (ctx->ctx_peer_node_id != peer_device->ctx.ctx_peer_node_id)
 			continue;
-		peer_device_status(peer_device, single_device);
+		peer_device_status(peer_device, single_device, readability);
 	}
 }
 
 static void connection_status(struct connections_list *connection,
 			      struct peer_devices_list *peer_devices,
-			      bool single_device)
+					  bool single_device, bool readability)
 {
 	if (connection->ctx.ctx_conn_name_len)
 		wrap_printf(2, "%s", connection->ctx.ctx_conn_name);
@@ -3186,6 +3479,17 @@ static void connection_status(struct connections_list *connection,
 			    cstate_color_start(cstate),
 			    bsr_conn_str(cstate),
 			    cstate_color_stop(cstate));
+		// BSR-892
+		if (connection->info.conn_last_error) {
+			int err = connection->info.conn_last_error;
+			// BSR-1140 sync-target-primary error output to status when disconnect or standalone
+			if ((err != C_SYNC_TARGET_PRIMARY) || (connection->info.conn_connection_state <= C_DISCONNECTING)) {
+				wrap_printf(6, " error:%s%s%s",
+					cerror_color_start(err),
+					bsr_conn_err_str(err),
+					cerror_color_stop(err));
+			}
+		}
 	}
 	if (opt_verbose || connection->info.conn_connection_state == C_CONNECTED) {
 		enum bsr_role role = connection->info.conn_role;
@@ -3198,7 +3502,7 @@ static void connection_status(struct connections_list *connection,
 		print_connection_statistics(6, NULL, &connection->statistics, wrap_printf);
 	wrap_printf(0, "\n");
 	if (opt_verbose || opt_statistics || connection->info.conn_connection_state == C_CONNECTED)
-		peer_devices_status(&connection->ctx, peer_devices, single_device);
+		peer_devices_status(&connection->ctx, peer_devices, single_device, readability);
 }
 
 static void stop_colors(int sig)
@@ -3231,7 +3535,9 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		.sa_flags = SA_RESETHAND,
 	};
 	bool found = false;
-	bool json = false; 
+	bool json = false;
+	// BSR-1111
+	bool readability = false;
 	int c;
 
 	optind = 0;  /* reset getopt_long() */
@@ -3255,6 +3561,10 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			break;
 		case 'j':
 			json = true;
+			break;
+			// BSR-1111
+		case 'r':
+			readability = true;
 			break;
 		}
 	}
@@ -3309,9 +3619,9 @@ static int status_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			resource_status(resource);
 			single_device = devices && !devices->next;
 			for (device = devices; device; device = device->next)
-				device_status(device, single_device);
+				device_status(device, single_device, readability);
 			for (connection = connections; connection; connection = connection->next)
-				connection_status(connection, peer_devices, single_device);
+				connection_status(connection, peer_devices, single_device, readability);
 			wrap_printf(0, "\n");
 		}
 
@@ -4020,7 +4330,6 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	return ret;
 }
 
-#ifdef _LIN
 // BSR-823
 static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 {
@@ -4044,14 +4353,22 @@ static int check_fs_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				&& peer_device->info.peer_repl_state > L_ESTABLISHED)
 				goto out;
 		}
-		
+#ifdef _WIN
+		need_recovery = need_filesystem_recovery((char)('C' + minor));
+#else // _LIN
 		need_recovery = need_filesystem_recovery(device->disk_conf.backing_dev);
+#endif
 		break;
 	}
 
 out:
 	free_devices(devices);
 	free_peer_devices(peer_devices);
+
+#ifdef _WIN
+	if (need_recovery == EXIT_TIMED_OUT)
+		exit(EXIT_TIMED_OUT);
+#endif
 
 	if (need_recovery) {
 		CLI_ERRO_LOG_STDERR(false, "Filesystem check and recovery is required.");
@@ -4060,7 +4377,6 @@ out:
 
 	return ret;
 }
-#endif
 
 static bool peer_device_ctx_match(struct bsr_cfg_context *a, struct bsr_cfg_context *b)
 {
@@ -4220,6 +4536,39 @@ static int event_key(char *key, int size, const char *name, unsigned minor,
 	return pos;
 }
 
+// BSR-1128
+static void print_event_key_json(unsigned minor, struct bsr_cfg_context *ctx)
+{
+	char addr[ADDRESS_STR_MAX];
+
+	if (!ctx) 
+		return ;
+
+	if (ctx->ctx_resource_name)
+		PRINT_JSON_STR("name", "%s", ctx->ctx_resource_name);
+
+	if (ctx->ctx_peer_node_id != -1U)
+		PRINT_JSON_INT("peer-node-id", "%d", ctx->ctx_peer_node_id);
+
+	if (ctx->ctx_conn_name_len)
+		PRINT_JSON_STR("conn-name", "%s", ctx->ctx_conn_name);
+
+	if (ctx->ctx_my_addr_len &&
+		address_str(addr, ctx->ctx_my_addr, ctx->ctx_my_addr_len))
+		PRINT_JSON_STR("local", "%s", addr);
+		    
+	if (ctx->ctx_peer_addr_len &&
+		address_str(addr, ctx->ctx_peer_addr, ctx->ctx_peer_addr_len))
+		PRINT_JSON_STR("peer", "%s", addr);
+
+	if (ctx->ctx_volume != -1U)
+		PRINT_JSON_INT("volume", "%u", ctx->ctx_volume);
+
+	if (minor != -1U)
+		PRINT_JSON_INT("minor", "%u", minor);
+	
+}
+
 static int known_objects_cmp(const void *a, const void *b) {
 	return strcmp(((const struct entry *)a)->key, ((const struct entry *)b)->key);
 }
@@ -4280,7 +4629,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		// DW-1755
 		[NOTIFY_ERROR] = "notify",
 		// BSR-734
-		[NOTIFY_DETECT] = "detect"
+		[NOTIFY_DETECT] = "detect",
+		// BSR-1125
+		[NOTIFY_SYNC] = "sync"
 	};
 	static char *object_name[] = {
 		[BSR_RESOURCE_STATE] = "resource",
@@ -4333,7 +4684,25 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 
 	if (opt_now && action != NOTIFY_EXISTS)
 		return 0;
-	
+
+	// BSR-1125 NOTIFY_SYNC output only when --sync option is used
+	if (action == NOTIFY_SYNC) {
+		if (!opt_sync) {
+			last_seq = info->nlhdr->nlmsg_seq;
+			return 0;
+		}
+		// BSR-1127
+		if (opt_interval) {
+			sync_evt_count++;
+			if (sync_evt_count >= opt_interval)
+				sync_evt_count = 0;
+			else {
+				// sync events delivered within the interval will skip output.
+				last_seq = info->nlhdr->nlmsg_seq;
+				return 0;
+			}
+		}
+	}
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		if (bsr_cfg_context_from_attrs(&ctx, info)) {
 			return 0;
@@ -4357,6 +4726,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		last_seq_known = true;
 	}
 
+	if (opt_json)
+		printf("{");
+
 	if (opt_timestamps) {
 		struct tm *tm;
 
@@ -4365,12 +4737,21 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		keep_tv = !!(nh.nh_type & NOTIFY_CONTINUES);
 
 		tm = localtime(&tv.tv_sec);
-		printf("%04u-%02u-%02uT%02u:%02u:%02u.%06u%+03d:%02u ",
-		       tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		       tm->tm_hour, tm->tm_min, tm->tm_sec,
-		       (int)tv.tv_usec,
-		       (int)(tm->tm_gmtoff / 3600),
-		       (int)((abs(tm->tm_gmtoff) / 60) % 60));
+
+		if (opt_json)
+			printf("\"timestamp\":\"");
+
+		printf("%04u-%02u-%02uT%02u:%02u:%02u.%06u%+03d:%02u",
+			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+			tm->tm_hour, tm->tm_min, tm->tm_sec,
+			(int)tv.tv_usec,
+			(int)(tm->tm_gmtoff / 3600),
+			(int)((abs(tm->tm_gmtoff) / 60) % 60));
+
+		if (opt_json)
+			printf("\",");
+		else
+			printf(" ");
 	}
 	if (info->genlhdr->cmd != BSR_INITIAL_STATE_DONE) {
 		const char *name = NULL;
@@ -4389,16 +4770,35 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		event_key(key, size + 1, name, dh->minor, &ctx);
 	}
 
+
+	if (opt_json)
+		printf("\"action\":\"");
+
+	printf("%s", action_name[action]);
+
+	if (opt_json)
+		printf("\"");
+
 	// DW-1755
 	if (info->genlhdr->cmd == BSR_IO_ERROR) {
-		printf("%s %s%s%s",
-			action_name[action], io_error_color_start(),
-			object_name[info->genlhdr->cmd], io_error_color_stop());
-	}
-	else {
-		printf("%s %s",
-			action_name[action],
-			key ? key : "-");
+		if (opt_json) {
+			PRINT_JSON_STR("object", "%s%s%s", io_error_color_start(), 
+				object_name[info->genlhdr->cmd], io_error_color_stop());
+		} else {
+			printf(" %s%s%s", io_error_color_start(),
+				object_name[info->genlhdr->cmd], io_error_color_stop());
+		}
+	} else {
+		if (opt_json) {
+			if (key) {
+				PRINT_JSON_STR("object", "%s", object_name[info->genlhdr->cmd]);
+				print_event_key_json(dh->minor, &ctx);
+			} else {
+				PRINT_JSON_STR("object", "%s", "-");
+			}
+		}
+		else
+			printf(" %s", key ? key : "-");
 	}
 
 	switch (info->genlhdr->cmd) {
@@ -4414,16 +4814,38 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || new.i.res_role != old->i.res_role)
-				printf(" role:%s%s%s",
+
+			if (!old || new.i.res_role != old->i.res_role) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "role",
+						ROLE_COLOR_STRING(old->i.res_role, 1),
 						ROLE_COLOR_STRING(new.i.res_role, 1));
+				} else {
+					PRINT_EVT_STR("role", "%s%s%s",
+						ROLE_COLOR_STRING(new.i.res_role, 1));
+				}
+			}
 			if (!old ||
 			    new.i.res_susp != old->i.res_susp ||
 			    new.i.res_susp_nod != old->i.res_susp_nod ||
 			    new.i.res_susp_fen != old->i.res_susp_fen ||
-			    new.i.res_susp_quorum != old->i.res_susp_quorum)
-				printf(" suspended:%s",
-				       susp_str(&new.i));
+			    new.i.res_susp_quorum != old->i.res_susp_quorum) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					if (opt_json) {
+						printf(",\"suspended\":\"%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
+						printf("->%s\"", susp_str(&new.i));
+					} else {
+						printf(" suspended:%s", old ? susp_str(&old->i) : UNKNOWN_STRING);
+						printf("->%s", susp_str(&new.i));
+					}
+				} else {
+					PRINT_EVT_STR("suspended", "%s",
+						susp_str(&new.i));
+				}
+			}
+			
 			if (opt_statistics) {
 				if (resource_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "resource statistics missing\n");
@@ -4452,9 +4874,20 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			old = update_info(&key, &new, sizeof(new));
 			if (!old || new.i.dev_disk_state != old->i.dev_disk_state) {
 				bool intentional = new.i.is_intentional_diskless == 1;
-				printf(" disk:%s%s%s",
-					DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
-				printf(" client:%s", intentional_diskless_str(&new.i));
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					bool old_intentional = 0;
+					if (old)
+						old_intentional = (old->i.is_intentional_diskless == 1);
+					DIFF_COLOR(old, "disk",
+						DISK_COLOR_STRING(old->i.dev_disk_state, old_intentional, true),
+						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
+				} else {
+					PRINT_EVT_STR("disk", "%s%s%s",
+						DISK_COLOR_STRING(new.i.dev_disk_state, intentional, true));
+				}
+
+				PRINT_EVT_STR("client", "%s", intentional_diskless_str(&new.i));
 			}
 			if (opt_statistics) {
 				if (device_statistics_from_attrs(&new.s, info)) {
@@ -4463,7 +4896,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 						new.s = old->s;
 				} else
 					print_device_statistics(0, old ? &old->s : NULL,
-								&new.s, nowrap_printf);
+								&new.s, nowrap_printf, false);
 			}
 			free(old);
 		} else
@@ -4482,13 +4915,38 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 			}
 			old = update_info(&key, &new, sizeof(new));
 			if (!old ||
-			    new.i.conn_connection_state != old->i.conn_connection_state)
-				printf(" connection:%s%s%s",
+				new.i.conn_connection_state != old->i.conn_connection_state) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "connection",
+						CONN_COLOR_STRING(old->i.conn_connection_state),
 						CONN_COLOR_STRING(new.i.conn_connection_state));
+				} else {
+					PRINT_EVT_STR("connection", "%s%s%s",
+						CONN_COLOR_STRING(new.i.conn_connection_state));
+				}
+				// BSR-892
+				if (new.i.conn_last_error) {
+					// BSR-1140 connection error output to events when disconnect or standalone
+					if (new.i.conn_connection_state <= C_DISCONNECTING) {
+						PRINT_EVT_STR("error", "%s%s%s", 
+						CONN_ERROR_COLOR_STRING(new.i.conn_last_error));
+					}
+				}
+			}
 			if (!old ||
-			    new.i.conn_role != old->i.conn_role)
-				printf(" role:%s%s%s",
+			    new.i.conn_role != old->i.conn_role) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					DIFF_COLOR(old, "role",
+						ROLE_COLOR_STRING(old->i.conn_role, 0),
 						ROLE_COLOR_STRING(new.i.conn_role, 0));
+				} else {
+					PRINT_EVT_STR("role", "%s%s%s",
+						ROLE_COLOR_STRING(new.i.conn_role, 0));
+				}
+
+			}
 			if (opt_statistics) {
 				if (connection_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "connection statistics missing\n");
@@ -4515,29 +4973,66 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || new.i.peer_repl_state != old->i.peer_repl_state)
-				printf(" replication:%s%s%s",
-						REPL_COLOR_STRING(new.i.peer_repl_state));
-			if (!old || new.i.peer_disk_state != old->i.peer_disk_state) {
-				bool intentional = new.i.peer_is_intentional_diskless == 1;
-				printf(" peer-disk:%s%s%s",
-					DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
-				printf(" peer-client:%s", peer_intentional_diskless_str(&new.i));
+			if (action != NOTIFY_SYNC) {
+				if (!old || new.i.peer_repl_state != old->i.peer_repl_state) {
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						DIFF_COLOR(old, "replication",
+								REPL_COLOR_STRING(old->i.peer_repl_state),
+								REPL_COLOR_STRING(new.i.peer_repl_state));
+					} else {
+						PRINT_EVT_STR("replication", "%s%s%s",
+								REPL_COLOR_STRING(new.i.peer_repl_state));
+					}
+				}
+				if (!old || new.i.peer_disk_state != old->i.peer_disk_state) {
+					bool intentional = new.i.peer_is_intentional_diskless == 1;
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						bool old_intentional = 0;
+						if (old)
+							old_intentional = old->i.peer_is_intentional_diskless == 1;
+						DIFF_COLOR(old, "peer-disk",
+							DISK_COLOR_STRING(old->i.peer_disk_state, old_intentional, false),
+							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+					} else {
+						PRINT_EVT_STR("peer-disk", "%s%s%s",
+							DISK_COLOR_STRING(new.i.peer_disk_state, intentional, false));
+					}
+
+					PRINT_EVT_STR("peer-client", "%s", peer_intentional_diskless_str(&new.i));
+				}
+				if (!old ||
+					new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
+					new.i.peer_resync_susp_peer != old->i.peer_resync_susp_peer ||
+					new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency) {
+					// BSR-1124
+					if (opt_diff && (action != NOTIFY_EXISTS)) {
+						if (opt_json) {
+							printf(",\"resync-suspended\":\"%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+							printf("->%s\"", resync_susp_str (&new.i));
+						} else {
+							printf(" resync-suspended:%s", old ? resync_susp_str(&old->i) : UNKNOWN_STRING);
+							printf("->%s", resync_susp_str (&new.i));							
+						}
+					} else {
+						PRINT_EVT_STR("resync-suspended", "%s",
+							resync_susp_str(&new.i));
+					}
+
+				}
 			}
-			if (!old ||
-			    new.i.peer_resync_susp_user != old->i.peer_resync_susp_user ||
-			    new.i.peer_resync_susp_peer != old->i.peer_resync_susp_peer ||
-			    new.i.peer_resync_susp_dependency != old->i.peer_resync_susp_dependency)
-				printf(" resync-suspended:%s",
-				       resync_susp_str(&new.i));
-			if (opt_statistics) {
+			// BSR-1125
+			if (opt_statistics || opt_sync) {
 				if (peer_device_statistics_from_attrs(&new.s, info)) {
 					dbg(1, "peer device statistics missing\n");
 					if (old)
 						new.s = old->s;
-				} else
+				} else {
+					bool sync = (opt_sync && (action == NOTIFY_SYNC));
 					print_peer_device_statistics(0, old ? &old->s : NULL,
-								     &new.s, nowrap_printf);
+								     &new.s, nowrap_printf, false, sync);
+				}
 			}
 			free(old);
 		} else
@@ -4552,9 +5047,21 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (!old || old->path_established != new.path_established)
-				printf(" established:%s",
-				       new.path_established ? "yes" : "no");
+			if (!old || old->path_established != new.path_established) {
+				// BSR-1124
+				if (opt_diff && (action != NOTIFY_EXISTS)) {
+					char *old_established = UNKNOWN_STRING;
+					if (action == NOTIFY_CHANGE)
+						old_established = !new.path_established ? "yes" : "no";
+					PRINT_EVT_STR("established", "%s->%s",
+							old_established,
+							new.path_established ? "yes" : "no");
+				} else {
+					PRINT_EVT_STR("established", "%s",
+						new.path_established ? "yes" : "no");
+				}
+
+			}
 			free(old);
 		} else
 			update_info(&key, NULL, 0);
@@ -4564,9 +5071,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		struct bsr_helper_info helper_info;
 
 		if (!bsr_helper_info_from_attrs(&helper_info, info)) {
-			printf(" helper:%s", helper_info.helper_name);
+			PRINT_EVT_STR("helper", "%s", helper_info.helper_name);
 			if (action == NOTIFY_RESPONSE)
-				printf(" status:%u", helper_info.helper_status);
+				PRINT_EVT_INT("status", "%u", helper_info.helper_status);
 		} else {
 			dbg(1, "helper info missing\n");
 			goto nl_out;
@@ -4578,13 +5085,25 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_io_error_info io_error = { 0, };
 		if (!bsr_io_error_info_from_attrs(&io_error, info)) {
-			if (io_error.is_cleared)
-				printf(" cleared%s", key ? key : "-");
-			else {
-
-				printf("%s disk:%s io:%s", key ? key : "-", bsr_disk_type_name(io_error.disk_type), bsr_io_type_name(io_error.io_type));
-
-				printf(" error-code:0x%08X sector:%llus size:%u", io_error.error_code, io_error.sector, io_error.size);
+			if (io_error.is_cleared) {
+				if (opt_json) {
+					printf(",\"cleared\":\"true\"");
+					if (key)
+						print_event_key_json(dh->minor, &ctx);
+				} else
+					printf(" cleared%s", key ? key : "-");
+			} else {
+				if (opt_json) {
+					if (key)
+						print_event_key_json(dh->minor, &ctx);
+				} else {
+					printf("%s", key ? key : "-");	
+				}
+				PRINT_EVT_STR("disk", "%s", bsr_disk_type_name(io_error.disk_type));
+				PRINT_EVT_STR("io", "%s", bsr_io_type_name(io_error.io_type));
+				PRINT_EVT_STR("error-code", "0x%08X", io_error.error_code);
+				PRINT_EVT_STR("sector", "%llus", io_error.sector);
+				PRINT_EVT_INT("size", "%u", io_error.size);
 			}
 		}
 		else {
@@ -4598,7 +5117,10 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_uuid_info gi = { 0, };
 		if (!bsr_updated_gi_uuid_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.uuid);
+			PRINT_EVT_STR("current", "%016llX", gi.uuid_current);
+			PRINT_EVT_STR("bitmap", "%016llX", gi.uuid_bitmap);
+			PRINT_EVT_STR("history1", "%016llX", gi.uuid_history1);
+			PRINT_EVT_STR("history2", "%016llX", gi.uuid_history2);
 		}
 		break;
 	}
@@ -4607,7 +5129,13 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_device_mdf_flag_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.device_mdf);
+			PRINT_EVT_INT("consistent", "%d", gi.dev_mdf_consistent);
+			PRINT_EVT_INT("was-up-to-date", "%d", gi.dev_mdf_was_uptodate);
+			PRINT_EVT_INT("primary-ind", "%d", gi.dev_mdf_primary_ind);
+			PRINT_EVT_INT("crashed-primary", "%d", gi.dev_mdf_crashed_primary);
+			PRINT_EVT_INT("al-clean", "%d", gi.dev_mdf_al_clean);
+			PRINT_EVT_INT("al-disabled", "%d", gi.dev_mdf_al_disabled);
+			PRINT_EVT_INT("last-primary", "%d", gi.dev_mdf_last_primary);
 		}
 		break;
 	}
@@ -4616,7 +5144,10 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_updated_gi_peer_device_mdf_flag_info gi = { 0, };
 		if (!bsr_updated_gi_peer_device_mdf_flag_info_from_attrs(&gi, info)) {
-			printf(" %s", gi.peer_device_mdf);
+			PRINT_EVT_INT("peer-connected", "%d", gi.peer_dev_mdf_cconnected);
+			PRINT_EVT_INT("peer-outdate", "%d", gi.peer_dev_mdf_outdate);
+			PRINT_EVT_INT("peer-fencing", "%d", gi.peer_dev_mdf_fencing);
+			PRINT_EVT_INT("peer-full-sync", "%d", gi.peer_dev_mdf_full_sync);
 		}
 		break;
 	}
@@ -4625,7 +5156,7 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	{
 		struct bsr_split_brain_info sb_info;
 		if (!bsr_split_brain_info_from_attrs(&sb_info, info)) {
-			printf(" recover:%s", sb_info.recover);
+			PRINT_EVT_STR("recover", "%s", sb_info.recover);
 		}
 		break;
 	}
@@ -4643,8 +5174,8 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		old = update_info(&key, &new, sizeof(new));
 
 		if (!old || old->_nodename != new._nodename) {
-			printf(" type:%s", bsr_host_type_name(new._nodename));
-			printf(" %s:%s", 
+			PRINT_EVT_STR("type", "%s", bsr_host_type_name(new._nodename));
+			PRINT_EVT_STR("%s", "%s", 
 				(info->genlhdr->cmd == BSR_NODE_INFO) ? "node-name" : "peer-node-name",
 				strcmp(new._nodename, "") ? new._nodename : "unknown");
 		}
@@ -4657,6 +5188,8 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 	}
 
 nl_out:
+	if (opt_json)
+		printf("}");
 	printf("\n");
 out:
 	free(key);
@@ -4949,7 +5482,13 @@ static int modprobe_bsr(void)
 
 	ret = stat("/proc/bsr", &sb);
 	if (ret && errno == ENOENT) {
-		ret = system("/sbin/modprobe bsr");
+		// BSR-1089 BSR-1097 if modprobe provides the --allow-unsupported option, use it.
+		ret = system("/sbin/modprobe --dry-run --allow-unsupported bsr > /dev/null 2>&1");
+		if (ret == 0)
+			ret = system("/sbin/modprobe --allow-unsupported bsr");
+		else
+			ret = system("/sbin/modprobe bsr");
+
 		if (ret != 0) {
 			CLI_ERRO_LOG_STDERR(false, "Failed to modprobe bsr (%m)");
 			return 0;
@@ -5021,7 +5560,8 @@ int main(int argc, char **argv)
 	int longindex, first_optind;
 
 	lprogram = progname = basename(argv[0]);
-
+	// BSR-1112
+	get_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
@@ -5224,7 +5764,7 @@ int main(int argc, char **argv)
 	if ((context & CTX_MINOR) && !cmd->lockless)
 		dt_unlock_bsr(lock_fd);
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 }

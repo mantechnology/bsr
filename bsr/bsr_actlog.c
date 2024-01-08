@@ -505,7 +505,7 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 	unsigned short i;
 	ktime_t start_kt = ns_to_ktime(0);
 
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		start_kt = ktime_get();
 
 	memset(buffer, 0, sizeof(*buffer));
@@ -630,7 +630,7 @@ static int al_write_transaction(struct bsr_device *device)
 		bsr_err(3, BSR_LC_LRU, device,
 			"Failed to write activity log due to it is in the state %s",
 			bsr_disk_str(device->disk_state[NOW]));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -638,14 +638,14 @@ static int al_write_transaction(struct bsr_device *device)
 	buffer = bsr_md_get_buffer(device, __func__);
 	if (!buffer) {
 		bsr_err(22, BSR_LC_IO, device, "Failed to write activity log due to failure to get meta I/O buffer.");
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -ENODEV;
 	}
 
 	err = __al_write_transaction(device, buffer);
 
 	bsr_md_put_buffer(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return err;
 }
@@ -824,19 +824,19 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		 * or requests to "cold" extents could be starved. */
 		if (!al->pending_changes) {
 			set_bit(__LC_STARVING, &device->act_log->flags);
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_starving++;
 		}
 
 		// DW-1945 fixup that Log debug logs when pending_changes are insufficient.
 		// because insufficient of slots for pending_changes can occur frequently.
 		if (al->max_pending_changes - al->pending_changes < nr_al_extents) {
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_pending++;
 			bsr_dbg(device, "insufficient al_extent slots for 'pending_changes' nr_al_extents:%llu pending:%u", (unsigned long long)nr_al_extents, al->pending_changes);
 		} 
 		else {
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_used++;
 
 			bsr_debug(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, (al->used + atomic_read(&g_fake_al_used)));
@@ -852,11 +852,11 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 			set_bme_priority(&al_ctx);
 			bsr_debug(28, BSR_LC_LRU, device, "active resync extent enr : %llu", (unsigned long long)enr);
 			if (al_ctx.wake_up) {
-				if (atomic_read(&g_bsrmon_run))
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 					device->e_al_busy++;
 				return -EBUSY;
 			}
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_wouldblock++;
 			return -EWOULDBLOCK;
 		}
@@ -1239,6 +1239,8 @@ void bsr_advance_rs_marks(struct bsr_peer_device *peer_device, ULONG_PTR still_t
 			peer_device->rs_mark_left[next] = still_to_go;
 			peer_device->rs_last_mark = next;
 		}
+		// BSR-1125 notify sync progress
+		bsr_peer_device_post_work(peer_device, RS_PROGRESS_NOTIFY);
 	}
 }
 
@@ -1468,7 +1470,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 
 	count = update_sync_bits(peer_device, sbnr, ebnr, mode, false);
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return count;
 }
 
@@ -1596,7 +1598,7 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 	}
 
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	// DW-1191
 	return set_bits;
@@ -1928,7 +1930,7 @@ void bsr_rs_cancel_all(struct bsr_peer_device *peer_device)
 
 	if (get_ldev_if_state(device, D_DETACHING)) { /* Makes sure ->resync is there. */
 		lc_reset(peer_device->resync_lru);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	peer_device->resync_locked = 0;
 	peer_device->resync_wenr = LC_FREE;
@@ -1971,7 +1973,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			if (bm_ext->lce.refcnt != 0) {
 				bsr_info(40, BSR_LC_LRU, peer_device, "Retrying resync lru delete all later. number=%u, "
 				     "refcnt=%u", bm_ext->lce.lc_number, bm_ext->lce.refcnt);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 				spin_unlock_irq(&device->al_lock);
 				return -EAGAIN;
 			}
@@ -1980,7 +1982,7 @@ int bsr_rs_del_all(struct bsr_peer_device *peer_device)
 			lc_del(peer_device->resync_lru, &bm_ext->lce);
 		}
 		D_ASSERT(peer_device, peer_device->resync_lru->used == 0);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	spin_unlock_irq(&device->al_lock);
 	wake_up(&device->al_wait);

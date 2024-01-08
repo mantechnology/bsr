@@ -50,10 +50,18 @@ assure_module_is_loaded()
 {
     [ -e "$PROC_BSR" ] && return
 
-    $MODPROBE -s bsr $ADD_MOD_PARAM || {
-	echo "Can not load the bsr module."$'\n'
-	exit 5 # LSB for "not installed"
-    }
+	# BSR-1089 BSR-1097 if modprobe provides the --allow-unsupported option, use it.
+    $MODPROBE --dry-run --allow-unsupported bsr > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        $MODPROBE -s --allow-unsupported bsr $ADD_MOD_PARAM
+    else
+        $MODPROBE -s bsr $ADD_MOD_PARAM
+    fi
+
+    if [ $? -ge 1 ]; then
+        echo "Can not load the bsr module."$'\n'
+        exit 5 # LSB for "not installed"
+    fi
     # tell klogd to reload module symbol information ...
     [ -e /var/run/klogd.pid ] && [ -x /sbin/klogd ] && /sbin/klogd -i
 }
@@ -153,16 +161,18 @@ run_bsrmon()
 				mon_run=`cat $mon_file`
 			fi
 			if [ $mon_run -eq 1 ] ; then
-				check_ps=`ps -ef | grep bsrmon-run | grep -v grep | wc -l`
+				check_ps=`ps -ef | grep "bsrmon /start" | grep -v grep | wc -l`
 				if [ $check_ps == "0" ]; then
-					nohup bsrmon-run > /dev/null 2>&1 &
+					# BSR-1138 run bsrmon /start
+					nohup bsrmon /start > /dev/null 2>&1 &
 				fi
 			fi
 		;;
 		stop)
-			for pid in `pgrep bsrmon-run`
+			for pid in `pgrep -f "bsrmon /start"`
 			do
-				kill -TERM $pid >/dev/null 2>&1;
+				# BSR-1138 kill bsrmon /start
+				kill -SIGUSR1 $pid >/dev/null 2>&1;
 			done
 		;;
 		*)
@@ -195,26 +205,43 @@ case "$1" in
 	# BSR-5 set up the loop device at service start.
 	# _LIN_LOOP_META_SUPPORT
 	RES_LIST=""
-	for RES in `$BSRADM sh-resources-list`; do
-		# BSR-592 apply svc-auto-up to linux
-		if ! $BSRADM sh-node-option -n svc_auto_up $RES | grep -w no &> /dev/null; then
-			
-			MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
-			if [ -n "$MD_IDX" ]; then
-				if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
-					MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
-					$LOSETUP $MD_DEV $MD_IDX
+	echo ;
+	# BSR-1099 check svc_auto_up option, retry 10 times on failure
+	for RES in `$BSRADM sh-resources-list -i`; do
+		_retry=0
+		until [[ $_retry -gt 10 ]]
+		do
+			auto_up=$($BSRADM sh-node-option -n svc_auto_up $RES 2>&1);
+			if [ $? -eq 0 ]; then
+				# BSR-592 apply svc-auto-up to linux
+				if [[ "$auto_up" == "no" ]] ; then
+					echo skip adjust $RES
+				else
+					MD_IDX=$($BSRADM sh-md-idx $RES | grep '/')
+					if [ -n "$MD_IDX" ]; then
+						if [ -z "$($LOSETUP -j $MD_IDX)" ]; then
+							MD_DEV=$($BSRADM sh-md-dev $RES 2>&1)
+							$LOSETUP $MD_DEV $MD_IDX
+						fi
+					fi
+					if [ -n "$RES_LIST" ]; then
+						RES_LIST="${RES_LIST} ${RES}"
+					else 
+						RES_LIST="${RES}"
+					fi
+				fi
+
+				break;
+			else
+				((_retry++))
+				if [ $_retry -gt 10 ]; then
+					echo $RES adjust failed. 
+				else 
+					echo $auto_up...retry $_retry
+					sleep 1;
 				fi
 			fi
-			if [ -n "$RES_LIST" ]; then
-				RES_LIST="${RES_LIST} ${RES}"
-			else 
-				RES_LIST="${RES}"
-			fi
-		else
-			echo skip adjust $RES
-		fi
-		
+		done
 	done
 
 	if [ -n "$RES_LIST" ]; then

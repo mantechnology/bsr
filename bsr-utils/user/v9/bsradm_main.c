@@ -194,9 +194,7 @@ char *sh_varname = NULL;
 struct names backend_options = STAILQ_HEAD_INITIALIZER(backend_options);
 
 char *connect_to_host = NULL;
-#ifdef _LIN
 bool force_primary = false;
-#endif
 STAILQ_HEAD(deferred_cmds, deferred_cmd) deferred_cmds[__CFG_LAST];
 
 int adm_adjust_wp(const struct cfg_ctx *ctx)
@@ -357,7 +355,7 @@ static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
 /*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_cmd_ctx, ACF1_RESNAME};
 static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 // BSR-823
-static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
+static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_adm_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
 static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, ACF1_MINOR_ONLY };
 static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, &invalidate_peer_ctx, ACF1_PEER_DEVICE .takes_long = 1};
@@ -592,7 +590,9 @@ struct adm_cmd *cmds[] = {
 
 static const struct adm_cmd invalidate_setup_cmd = {
 	"invalidate",
-	__adm_bsrsetup_silent,
+	// BSR-1025 changed for error output in case of error occurs
+	// __adm_bsrsetup_silent,
+	adm_bsrsetup,
 	ACF1_MINOR_ONLY
 };
 
@@ -890,7 +890,8 @@ static int sh_resources_list(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res;
 	for_each_resource(res, &config) {
-		if (res->ignore)
+		// BSR-1099 get resource list without verifying hostname when using -i option
+		if (res->ignore && !ignore_hostname)
 			continue;
 		if (is_bsr_top != res->stacked)
 			continue;
@@ -1472,7 +1473,6 @@ static int adm_node(const struct cfg_ctx *ctx)
 	return m_system_ex(argv, SLEEPS_SHORT, res->name);
 }
 
-
 static int adm_resource(const struct cfg_ctx *ctx)
 {
 	struct d_resource *res = ctx->res;
@@ -1698,7 +1698,6 @@ static int adm_bsrsetup(const struct cfg_ctx *ctx)
 // BSR-823
 static int adm_primary(const struct cfg_ctx *ctx)
 {
-#ifdef _LIN
 	const char *opt_name = "--skip-check-fs";
 	struct d_name *opt;
 	opt = find_backend_option(opt_name);
@@ -1729,13 +1728,12 @@ static int adm_primary(const struct cfg_ctx *ctx)
 				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name);
 				if (rv)
 					return rv;
-			}	
+			}    
 		}
 	}
 
 	if (opt)
 		STAILQ_REMOVE(&backend_options, opt, d_name, link);
-#endif
 	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
 }
 
@@ -1843,15 +1841,20 @@ static int adm_setup_and_meta(const struct cfg_ctx *ctx)
 
 static int adm_invalidate(const struct cfg_ctx *ctx)
 {
+#if 0
 	static const struct adm_cmd invalidate_meta_cmd = {
 		"invalidate",
 		adm_bsrmeta,
 		ACF1_MINOR_ONLY
 	};
+#endif
 
 	int rv;
 
 	rv = call_cmd(&invalidate_setup_cmd, ctx, KEEP_RUNNING);
+
+	// BSR-1025 changed not to set up full sync. (invalidate_meta_cmd)
+#if 0
 	if (rv == 11 || rv == 17) {
 		/* see bsrsetup.c, print_config_error():
 		 *  11: some unspecific state change error.
@@ -1862,7 +1865,7 @@ static int adm_invalidate(const struct cfg_ctx *ctx)
 
 	if (rv || dry_run == 1)
 		rv = call_cmd(&invalidate_meta_cmd, ctx, KEEP_RUNNING);
-
+#endif
 	return rv;
 }
 
@@ -2844,7 +2847,13 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 		     STAILQ_FIRST(&config)->name);
 
 		if (!have_tty) {
-			printf(" To abort waiting for BSR connections, kill this process: kill %u\n", getpid());
+			int pid = getpid();
+
+#ifdef _WIN
+			// BSR-1109 
+			pid = cygwin_internal(CW_CYGWIN_PID_TO_WINPID, pid);
+#endif
+			printf(" To abort waiting for BSR connections, kill this process: kill %u\n", pid);
 			fflush(stdout);
 			/* wait untill killed, or all bsrsetup children have finished. */
 			do {
@@ -3265,9 +3274,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 	struct names backend_options_check;
 	struct d_name *b_opt;
 	int longindex, first_arg_index;
-#ifdef _LIN
 	bool force_opt = false;
-#endif
 	STAILQ_INIT(&backend_options_check);
 	*cmd = NULL;
 	*resource_names = calloc(argc + 1, sizeof(char *));
@@ -3285,13 +3292,11 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			{
 				struct option *option = &admopt[longindex];
 				char *opt;
-#ifdef _LIN
 				// BSR-823
 				if (!strcmp(option->name, "force")) {
 					if (!optarg || (optarg && !strcmp(option->name, "true")))
 						force_opt = true;
 				}
-#endif				
 				if (optarg)
 					opt = ssprintf("--%s=%s", option->name, optarg);
 				else
@@ -3395,7 +3400,7 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 			printf("BSR_KERNEL_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
 			printf("BSRADM_VERSION_CODE=0x%08x\n", version_code_userland());
 			printf("BSRADM_VERSION=%s\n", shell_escape(PACKAGE_VERSION));
-			bsr_terminate_log(0);
+			bsr_done_log(0);
 			exit(0);
 			break;
 		case 'P':
@@ -3474,11 +3479,9 @@ int parse_options(int argc, char **argv, struct adm_cmd **cmd, char ***resource_
 	}
 	STAILQ_CONCAT(&backend_options, &backend_options_check);
 
-#ifdef _LIN
 	// BSR-823
 	if (!strcmp((*cmd)->name, "primary") && force_opt)
 		force_primary = true;
-#endif
 
 	return 0;
 
@@ -3619,7 +3622,8 @@ extern int llevel;
 // BSR-1031
 extern int lstatus;
 extern char execution_log[512];
-
+// BSR-1112
+extern char lpath[256];
 int main(int argc, char **argv)
 {
 	size_t i;
@@ -3635,6 +3639,8 @@ int main(int argc, char **argv)
 
 	lprogram = basename(argv[0]);
 
+	// BSR-1112
+	get_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
@@ -3967,7 +3973,7 @@ int main(int argc, char **argv)
 		free(admopt);
 	free_btrees();
 
-	bsr_terminate_log(rv);
+	bsr_done_log(rv);
 
 	return rv;
 }

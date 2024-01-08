@@ -29,6 +29,10 @@ typedef int64_t		xfs_srtblock_t;	/* signed version of xfs_rtblock_t */
 
 #ifndef UUID_SIZE
 #define UUID_SIZE 16
+#endif
+
+// BSR-1094 check the UUID_SIZE declaration and the uuid_t declaration separately.
+#ifndef COMPAT_HAVE_UUID_T_TYPE
 typedef struct {
 	__u8 b[UUID_SIZE];
 } uuid_t;

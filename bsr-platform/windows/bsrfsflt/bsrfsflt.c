@@ -116,12 +116,14 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 		bsrlockPreOperation,
 		bsrlockPostOperation },
 
+		// BSR-1152
+#if 0
 		// DW-1868
 		{ IRP_MJ_QUERY_VOLUME_INFORMATION,
 		0,
 		bsrlockPreOperation,
 		bsrlockPostOperation },
-
+#endif
 #if 0 // TODO - List all of the requests to filter.
     { IRP_MJ_CREATE,
       0,
@@ -682,6 +684,8 @@ Return Value:
 
 			break;
 		}
+		// BSR-1152 restore because the VSS operates abnormally due to modifications that prevent volume expansion/shrinkage. 
+#if 0
 		case IRP_MJ_QUERY_VOLUME_INFORMATION:
 		{
 			NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -700,6 +704,7 @@ Return Value:
 			}
 			break;
 		}
+#endif
 	}
 
     return FLT_PREOP_SUCCESS_WITH_CALLBACK;

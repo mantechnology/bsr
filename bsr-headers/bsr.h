@@ -284,6 +284,14 @@ enum bsr_conn_state {
 	C_MASK = 31,
 };
 
+// BSR-892
+enum bsr_conn_error {
+	C_NO_ERROR,
+	C_SPLIT_BRAIN,
+	C_SYNC_TARGET_PRIMARY, // BSR-1140
+	C_DISCARD_MY_DATA // BSR-1155
+};
+
 enum bsr_repl_state {
 	L_NEGOTIATING = C_CONNECTED, /* used for peer_device->negotiation_result only */
 	L_OFF = C_CONNECTED,
@@ -402,9 +410,10 @@ enum bsr_state_rv {
 	SS_CONNECTED_DISKLESS = -28,
 	SS_LOWER_THAN_OUTDATED_PEER = -29, // DW-1340
 	SS_BARRIER_ACK_PENDING_TIMEOUT = -30,
-	SS_AFTER_LAST_ERROR = -31,    /* Keep this at bottom */
 	// BSR-988
-	SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT = -32,
+	SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT = -31,
+	SS_AFTER_LAST_ERROR = -32,    /* Keep this at bottom */
+
 };
 
 #define SHARED_SECRET_MAX 64
@@ -446,6 +455,12 @@ enum mdf_peer_flag {
 	// DW-1843 Set the peer flag to indicate that an io-error occurred at the primary.
 	MDF_PEER_PRIMARY_IO_ERROR = 1 << 19,      
 	MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID	= 1 << 20,	// DW-2088 if the source is the same UUID at the start of resync, set up the flag on the resync source node and use it to verify that the synchronization source node has changed.  
+#ifdef _WIN
+	// BSR-1066
+	MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY = 1 << 21,
+#endif
+	// BSR-1171
+	MDF_NEED_TO_MERGE_BITMAP = 1 << 22,
 };
 
 #define BSR_PEERS_MAX 32
@@ -491,6 +506,8 @@ enum bsr_notification_type {
 	NOTIFY_ERROR,
 	// BSR-734
 	NOTIFY_DETECT,
+	// BSR-1125
+	NOTIFY_SYNC,
 
 	NOTIFY_CONTINUES = 0x8000,
 	NOTIFY_FLAGS = NOTIFY_CONTINUES,

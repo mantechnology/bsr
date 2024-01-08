@@ -608,7 +608,7 @@ mvolRead(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		// DW-1363 prevent mounting volume when device is failed or below.
 		if (device && ((R_PRIMARY == device->resource->role[0]) && (device->resource->bPreDismountLock == FALSE) && device->disk_state[NOW] > D_FAILED || device->resource->bTempAllowMount == TRUE)) {
 			// BSR-687 aggregate I/O throughput and latency
-			if (atomic_read(&g_bsrmon_run)) {
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) {
 				PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 				atomic_inc(&device->io_cnt[READ]);
 				atomic_add(irpSp->Parameters.Read.Length >> 10, &device->io_size[READ]);
@@ -739,7 +739,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			//2. Otherwise, Directly call mvolwritedispatch
 			if(KeGetCurrentIrql() < DISPATCH_LEVEL) {
 				// BSR-687 aggregate I/O throughput and latency
-				if (atomic_read(&g_bsrmon_run)) {
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) {
 					PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 					atomic_inc(&device->io_cnt[WRITE]);
 					atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
@@ -755,7 +755,7 @@ mvolWrite(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             	}	
 			} else {
 				// BSR-687 aggregate I/O throughput and latency
-				if (atomic_read(&g_bsrmon_run)) {
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) {
 					PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
 					atomic_inc(&device->io_cnt[WRITE]);
 					atomic_add(irpSp->Parameters.Write.Length >> 10, &device->io_size[WRITE]);
@@ -946,11 +946,24 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
             MVOL_IOCOMPLETE_REQ(Irp, status, size);
         }
 
+		// BSR-1066
+		case IOCTL_MVOL_TEMP_MOUNT_VOLUME:
+		{
+			ULONG size = 0;
+			status = IOCTL_MountVolume(DeviceObject, Irp, &size, true);
+			MVOL_IOCOMPLETE_REQ(Irp, status, size);
+		}
+		case IOCTL_MVOL_DISMOUNT_VOLUME:
+		{
+			status = IOCTL_DismountVolume(DeviceObject);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
+
         case IOCTL_MVOL_MOUNT_VOLUME:
         {
 			ULONG size = 0;
 
-            status = IOCTL_MountVolume(DeviceObject, Irp, &size);
+            status = IOCTL_MountVolume(DeviceObject, Irp, &size, false);
 			if (!NT_SUCCESS(status)) {
 				bsr_warn(84, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_MOUNT_VOLUME failed. Volume(%ws) status(0x%x)",
 					VolumeExtension->MountPoint, status);
@@ -1033,7 +1046,13 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		{
 			status = IOCTL_SetHandlerUse(DeviceObject, Irp); // Set handler_use value.
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
-		}		
+		}
+		// BSR-1060
+		case IOCTL_MVOL_SET_HANDLER_TIMEOUT:
+		{
+			status = IOCTL_SetHandleTimeout(DeviceObject, Irp);
+			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
+		}
 		case IOCTL_MVOL_GET_UNTAG_MEM_USAGE:
 		{
 			ULONG size = 0;
@@ -1088,6 +1107,12 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		{
 			status = IOCTL_GetBsrmonRun(DeviceObject, Irp);
 			MVOL_IOCOMPLETE_REQ(Irp, status, sizeof(unsigned int));
+		}
+		// BSR-1112
+		case IOCTL_MVOL_LOG_PATH_CHANGED:
+		{
+			gLogBuf.path_changed = 1;
+			MVOL_IOCOMPLETE_REQ(Irp, STATUS_SUCCESS, 0);
 		}
     }
 

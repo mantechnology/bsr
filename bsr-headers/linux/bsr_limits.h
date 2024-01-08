@@ -31,6 +31,10 @@
 #define BSR_PORT_MAX 0xffff
 #define BSR_PORT_SCALE '1'
 
+// BSR-1127
+#define BSR_INTERVAL_MIN 1
+#define BSR_INTERVAL_MAX 60
+
 /* startup { */
   /* if you want more than 3.4 days, disable */
 #define BSR_WFC_TIMEOUT_MIN 0
@@ -118,6 +122,22 @@
 /* I don't think that a tcp send buffer of more than 10M is useful */
 #define BSR_SNDBUF_SIZE_MIN   (1024*1024*10)
 #endif
+
+// BSR-1116
+#define BSR_ACCELBUF_SIZE_MAX  (1024*1024*1024*2) // 2G
+// BSR-1145
+#define BSR_ACCELBUF_SIZE_DEF  (1024*1024*10) // 10MB
+// BSR-843 change the minimum size to 0 for disable accelbuf. (0 = disable) 
+#define BSR_ACCELBUF_SIZE_MIN  0
+
+#define BSR_ACCELBUF_SIZE_SCALE '1'
+
+// BSR-1145
+#define BSR_MAX_ACCELBUF_BLK_SIZE_MAX  (1024 * 1024) // 1M
+#define BSR_MAX_ACCELBUF_BLK_SIZE_DEF  (1024 * 4) // 4KB
+#define BSR_MAX_ACCELBUF_BLK_SIZE_MIN  (512)
+
+#define BSR_MAX_ACCELBUF_BLK_SIZE_SCALE '1'
 
 #define MAX_ONETIME_SEND_BUF	(1024*1024*10) // 10MB
 
@@ -232,7 +252,8 @@
 
 #define BSR_C_MAX_RATE_MIN     250
 #define BSR_C_MAX_RATE_MAX     (4 << 20)
-#define BSR_C_MAX_RATE_DEF     102400
+// BSR-1148 change the default value based on low bandwidth. (100Mbps)
+#define BSR_C_MAX_RATE_DEF     6656 
 #define BSR_C_MAX_RATE_SCALE	'k'  /* kilobytes */
 
 #define BSR_C_MIN_RATE_MIN     0

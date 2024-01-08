@@ -75,7 +75,7 @@
 #include "bsr_send_buf.h"
 #endif
 
-#include "./bsr_idx_ring.h"
+#include "./bsr_ring.h"
 
 #define kfree2(x) if((x)) {bsr_kfree((x)); (x)=NULL;}
 #define kvfree2(x) if((x)) {kvfree((x)); (x)=NULL;}
@@ -121,7 +121,7 @@ extern int fault_devs;
 extern int two_phase_commit_fail;
 #endif
 
-extern int g_handler_use;
+extern atomic_t g_handler_use;
 extern char usermode_helper[];
 
 // BSR-740
@@ -130,14 +130,15 @@ extern atomic_t g_bsrmon_run;
 // BSR-764
 extern SIMULATION_PERF_DEGR g_simul_perf;
 
-struct log_idx_ring_buffer_t {
-	struct idx_ring_buffer h;
+struct bsr_log_idx_ring_buffer_t  {
+	struct bsr_idx_ring_buffer h;
 	char b[LOGBUF_MAXCNT][MAX_BSRLOG_BUF + IDX_OPTION_LENGTH];
 	atomic_t64 missing_count;
 	spinlock_t lock;
+	int path_changed; // BSR-1112
 };
 
-extern struct log_idx_ring_buffer_t gLogBuf;
+extern struct bsr_log_idx_ring_buffer_t  gLogBuf;
 extern atomic_t64 gLogCnt;
 
 extern enum bsr_thread_state g_consumer_state;
@@ -189,7 +190,7 @@ extern int log_consumer_thread(void *unused);
 // DW-2124
 #define B_COMPLETE 0x01
 
-//DW-1927
+// DW-1927
 #define CONTROL_BUFF_SIZE	1024 * 5120
 
 // BSR-119
@@ -531,25 +532,25 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 228
+#define BSR_LC_RESYNC_OV_MAX_INDEX 233
 #define BSR_LC_REPLICATION_MAX_INDEX 32
-#define BSR_LC_CONNECTION_MAX_INDEX 33
+#define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 40
 #define BSR_LC_TWOPC_MAX_INDEX 59
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
-#define BSR_LC_STATE_MAX_INDEX 57
+#define BSR_LC_STATE_MAX_INDEX 58
 #define BSR_LC_SOCKET_MAX_INDEX 108
-#define BSR_LC_DRIVER_MAX_INDEX 162
+#define BSR_LC_DRIVER_MAX_INDEX 164
 #define BSR_LC_NETLINK_MAX_INDEX 36
 #define BSR_LC_GENL_MAX_INDEX 92
 #define BSR_LC_PROTOCOL_MAX_INDEX 70
 #define BSR_LC_MEMORY_MAX_INDEX 97
-#define BSR_LC_LOG_MAX_INDEX 25
+#define BSR_LC_LOG_MAX_INDEX 26
 #define BSR_LC_LATENCY_MAX_INDEX 8
-#define BSR_LC_VERIFY_MAX_INDEX 17
+#define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 87
+#define BSR_LC_ETC_MAX_INDEX 91
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -818,6 +819,17 @@ extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 	((s64)(a) - (s64)(b) > 0))
 #endif
 
+// BSR-1116 save the state of bio and use it for reference after the write is complete.
+struct bsr_bio_status {
+	int opf;
+	int data_dir;
+	int op;
+	int size;
+#ifdef _LIN	
+	int bv_len;
+#endif
+};
+
 struct bsr_request {
 	struct bsr_device *device;
 
@@ -826,11 +838,14 @@ struct bsr_request {
 	 * or, after local IO completion, the ERR_PTR(error).
 	 * see bsr_request_endio(). */
 	struct bio *private_bio;
-#ifdef _WIN
-	char*	req_databuf;
+
+	char* req_databuf;
 	// DW-1237 add request buffer reference count to free earlier when no longer need buf.
 	atomic_t req_databuf_ref;
-#endif
+
+	// BSR-1116 reference bio status after completion of writing.
+	struct bsr_bio_status bio_status;
+
 	struct bsr_interval i;
 
 	/* epoch: used to check on "completion" whether this req was in
@@ -896,6 +911,7 @@ struct bsr_request {
 	LONGLONG created_ts;			// req created
 	LONGLONG io_request_ts;			// Before delivering an io request to disk
 	LONGLONG io_complete_ts;		// Received io completion from disk
+	LONGLONG local_complete_ts;		// Local I/O write complete
 	LONGLONG net_sent_ts[BSR_PEERS_MAX];			// Send request to peer
 	LONGLONG net_done_ts[BSR_PEERS_MAX];			// Received a response from peer
 
@@ -1206,6 +1222,7 @@ enum {
 				 * the peer, if it changed there as well. */
 	RS_START,		/* tell worker to start resync/OV */
 	RS_PROGRESS,		/* tell worker that resync made significant progress */
+	RS_PROGRESS_NOTIFY, /* BSR-1125 */
 	RS_DONE,		/* tell worker that resync is done */
 	B_RS_H_DONE,		/* Before resync handler done (already executed) */
 	DISCARD_MY_DATA,	/* discard_my_data flag per volume */
@@ -1240,7 +1257,6 @@ enum {
 
 	// BSR-1019
 	UUID_DELAY_SEND,
-
 };
 
 /* We could make these currently hardcoded constants configurable
@@ -1494,8 +1510,18 @@ struct bsr_thread_timing_details
 };
 #define BSR_THREAD_DETAILS_HIST	16
 
+// BSR-1116
+#ifdef _WIN
+#define BSR_STREAM_SEND_BUFFER_SIZE MAX_SPILT_BLOCK_SZ + PAGE_SIZE
+#endif
+
 struct bsr_send_buffer {
+// BSR-1116
+#ifdef _WIN
+	void *buffer;
+#else
 	struct page *page;  /* current buffer page for sending data */
+#endif
 	char *unsent;  /* start of unsent area != pos if corked... */
 	char *pos; /* position within that page */
 	int allocated_size; /* currently allocated space */
@@ -1706,6 +1732,8 @@ struct bsr_connection {
 
 	ULONG_PTR last_reconnect_jif;
 
+	// BSR-892 saves the error that occurred during the connection and outputs it as a result of the status command.
+	enum bsr_conn_error last_error;
 #ifdef _LIN
 	/* empty member on older kernels without blk_start_plug() */
 	struct blk_plug receiver_plug;
@@ -1976,7 +2004,7 @@ struct bsr_peer_device {
 
 
 #define BSR_SYNC_MARKS 8
-#define BSR_SYNC_MARK_STEP (3*HZ)
+#define BSR_SYNC_MARK_STEP (1*HZ) // BSR-1127 changed sync event notification (3s -> 1s)
 	/* block not up-to-date at mark [unit BM_BLOCK_SIZE] */
 	ULONG_PTR rs_mark_left[BSR_SYNC_MARKS];
 	/* marks's time [unit jiffies] */
@@ -2092,6 +2120,10 @@ struct bsr_peer_device {
 	atomic_t64 repl_sended;
 
 	struct timer_list sended_timer;
+
+	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
+	u64 latest_nodes;
+	u64 merged_nodes;
 };
 
 
@@ -2238,7 +2270,7 @@ struct bsr_device {
 	ULONG_PTR h_marked_bb;
 	ULONG_PTR h_insync_bb;
 #endif
-	int open_rw_cnt, open_ro_cnt;
+	int open_cnt; // BSR-1151 change open_rw_cnt, open_ro_cnt to open_cnt
 	/* FIXME clean comments, restructure so it is more obvious which
 	 * members are protected by what */
 
@@ -2302,7 +2334,10 @@ struct bsr_device {
 #ifdef _LIN
 	atomic_t mounted_cnt;
 #endif
+	// BSR-1145
+	struct bsr_offset_buffer accelbuf;
 };
+
 
 struct bsr_bm_aio_ctx {
 	struct bsr_device *device;
@@ -2511,8 +2546,8 @@ extern void bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __
 extern void _bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
 extern void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local);
 // BSR-967 add arguments for younger primary
-extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, const char* caller);
-extern void bsr_uuid_new_current_by_user(struct bsr_device *device);
+extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool need_rotate_bm, const char* caller);
+extern void bsr_uuid_new_current_by_user(struct bsr_device *device, bool need_rotate_bm);
 extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local);
 extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must_hold(local);
 extern void __bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
@@ -2774,6 +2809,9 @@ extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR
 
 // BSR-835
 extern void bsr_free_ov_bm(struct kref *kref);
+// BSR-1121
+extern ULONG_PTR bsr_ov_bm_bits(struct bsr_peer_device *peer_device);
+
 // BSR-118
 extern ULONG_PTR bsr_ov_bm_test_bit(struct bsr_peer_device *, const ULONG_PTR);
 extern ULONG_PTR bsr_ov_bm_total_weight(struct bsr_peer_device *);
@@ -2961,7 +2999,7 @@ extern bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bs
 
 extern void resume_next_sg(struct bsr_device *device);
 extern void suspend_other_sg(struct bsr_device *device);
-extern int bsr_resync_finished(struct bsr_peer_device *, enum bsr_disk_state);
+extern int bsr_resync_finished(const char* , struct bsr_peer_device *, enum bsr_disk_state);
 // BSR-595
 extern void verify_progress(struct bsr_peer_device *peer_device,
         sector_t sector, int size, bool acked);
@@ -3218,6 +3256,46 @@ extern enum bsr_state_rv bsr_support_2pc_resize(struct bsr_resource *resource);
 extern enum determine_dev_size
 bsr_commit_size_change(struct bsr_device *device, struct resize_parms *rs, u64 nodes_to_reach);
 
+
+/* see also wire_flags_to_bio()
+* BSR_REQ_*, because we need to semantically map the flags to data packet
+* flags and back. We may replicate to other kernel versions. */
+static inline u32 bio_flags_to_wire(struct bsr_connection *connection, struct bsr_request *req)
+{
+	if (connection->agreed_pro_version >= 95)
+		return  (req->bio_status.opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
+		(req->bio_status.opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
+		(req->bio_status.opf & BSR_REQ_FUA ? DP_FUA : 0) |
+		(req->bio_status.opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+		(req->bio_status.op == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
+#endif
+		(req->bio_status.op == REQ_OP_DISCARD ? DP_DISCARD : 0) |
+		(req->bio_status.op == REQ_OP_WRITE_ZEROES ?
+		((connection->agreed_features & BSR_FF_WZEROES) ?
+		(DP_ZEROES | (!(req->bio_status.opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
+		: DP_DISCARD)
+		: 0);
+
+
+	/* else: we used to communicate one bit only in older BSR */
+	return req->bio_status.opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
+}
+
+/* Update disk stats when completing request upwards */
+static inline void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
+{
+#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
+	bio_end_io_acct(req->master_bio, req->start_jif);
+#else
+	struct request_queue *q = device->rq_queue;
+	generic_end_io_acct(q, bio_data_dir(req->master_bio),
+		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
+#endif
+}
+
+
+
 #ifdef _WIN // DW-1607 get the real size of the meta disk.
 static __inline sector_t bsr_get_md_capacity(struct block_device *bdev)
 {
@@ -3432,6 +3510,8 @@ extern void notify_peer_device_state(struct sk_buff *,
 				     struct bsr_peer_device *,
 				     struct peer_device_info *,
 				     enum bsr_notification_type);
+// BSR-1125
+extern void bsr_broadcast_peer_device_state(struct bsr_peer_device *peer_device);
 extern void notify_helper(enum bsr_notification_type, struct bsr_device *,
 			  struct bsr_connection *, const char *, int);
 extern void notify_path(struct bsr_connection *, struct bsr_path *,
@@ -3459,7 +3539,7 @@ extern void notify_gi_peer_device_mdf_flag_state(struct sk_buff*, unsigned int, 
 extern void notify_split_brain(struct bsr_connection *, char * recover_type);
 
 extern sector_t bsr_local_max_size(struct bsr_device *device) __must_hold(local);
-extern int bsr_open_ro_count(struct bsr_resource *resource);
+extern int bsr_open_count(struct bsr_resource *resource);
 
 /*
  * inline helper functions
@@ -3530,6 +3610,7 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 		/* NOTE fall through for BSR_META_IO_ERROR or BSR_FORCE_DETACH */
 		/* Fall through */
 	case EP_DETACH:
+		/* Fall through */
 	case EP_CALL_HELPER:
 		/* Remember whether we saw a READ or WRITE error.
 		 *
@@ -4067,16 +4148,16 @@ static inline bool is_sync_source(struct bsr_peer_device *peer_device)
  */
 #ifdef _WIN
 #define get_ldev_if_state(_device, _min_state)				\
-	(_get_ldev_if_state((_device), (_min_state)) ?			\
+	(_get_ldev_if_state(__FUNCTION__, (_device), (_min_state)) ?			\
 	true : false)
 #else // _LIN
 #define get_ldev_if_state(_device, _min_state)				\
-	(_get_ldev_if_state((_device), (_min_state)) ?			\
+	(_get_ldev_if_state(__FUNCTION__, (_device), (_min_state)) ?			\
 	 ({ __acquire(x); true; }) : false)
 #endif
 #define get_ldev(_device) get_ldev_if_state(_device, D_INCONSISTENT)
 
-static inline void put_ldev(struct bsr_device *device)
+static inline void put_ldev(const char* caller, struct bsr_device *device)
 {
 	enum bsr_disk_state disk_state = device->disk_state[NOW];
 	/* We must check the state *before* the atomic_dec becomes visible,
@@ -4091,7 +4172,9 @@ static inline void put_ldev(struct bsr_device *device)
 	__release(local);
 	D_ASSERT(device, i >= 0);
 	if (i == 0) {
-		if (disk_state == D_DISKLESS)
+		if (disk_state == D_DISKLESS
+			// BSR-1086 check the current state of the disk, as the disk state before atomic_dec may be missing the DESTROY_DISK
+			|| (device->disk_state[NOW] == D_DISKLESS && test_bit(GOING_DISKLESS, &device->flags)))
 			/* even internal references gone, safe to destroy */
 			bsr_device_post_work(device, DESTROY_DISK);
 		if (disk_state == D_FAILED || disk_state == D_DETACHING)
@@ -4103,9 +4186,9 @@ static inline void put_ldev(struct bsr_device *device)
 }
 
 #ifdef __CHECKER__
-extern int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_state mins);
+extern int _get_ldev_if_state(const char* caller, struct bsr_device *device, enum bsr_disk_state mins);
 #else
-static inline int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_state mins)
+static inline int _get_ldev_if_state(const char* caller, struct bsr_device *device, enum bsr_disk_state mins)
 {
 	int io_allowed;
 
@@ -4116,7 +4199,7 @@ static inline int _get_ldev_if_state(struct bsr_device *device, enum bsr_disk_st
 	atomic_inc(&device->local_cnt);
 	io_allowed = (device->disk_state[NOW] >= mins);
 	if (!io_allowed)
-		put_ldev(device);
+		put_ldev(caller, device);
 	return io_allowed;
 }
 #endif
@@ -4358,7 +4441,7 @@ static inline void bsr_kick_lo(struct bsr_device *device)
 {
 	if (get_ldev(device)) {
 		bsr_blk_run_queue(bdev_get_queue(device->ldev->backing_bdev));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 }
 #else
@@ -4509,8 +4592,8 @@ static inline void force_delay(int t)
 #ifdef _LIN
 extern long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long pram);
 // BSR-597
-extern int bsr_file_rename(const char *oldname, const char *newname);
-extern int bsr_file_remove(const char *filename);
+extern int bsr_file_rename(const char *file_path, const char *oldname, const char *newname);
+extern int bsr_file_remove(const char *file_path, const char *filename);
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type);
 #else
@@ -4518,6 +4601,7 @@ extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64
 #endif
 extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
+char *__read_reg_file(char *file_path);
 extern long read_reg_file(char *file_path, long default_val);
 #endif
 

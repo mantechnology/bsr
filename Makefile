@@ -215,7 +215,8 @@ ifdef RPMBUILD
 .PHONY: kmp-rpm
 kmp-rpm: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
-	$(RPMBUILD) -bb \
+	# BSR-1089 add $$PWD when building RPM
+	$(RPMBUILD) --define "_sourcedir $$PWD" -bb \
 	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \
 	    $(RPMOPT) \
 	    bsr-kernel.spec
@@ -232,7 +233,7 @@ kmp-rpm-sign: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 		false;\
 	fi
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
-	$(RPMBUILD) -bb \
+	$(RPMBUILD) --define "_sourcedir $$PWD" -bb \
 	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \
 	    $(RPMOPT) \
 	    --with modsign \
@@ -242,7 +243,7 @@ kmp-rpm-sign: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 .PHONY: srpm
 srpm: tgz
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
-	$(RPMBUILD) -bs \
+	$(RPMBUILD) --define "_sourcedir $$PWD" -bs \
 	    --define "kernelversion $(KVER)" \
 	    --define "kernel_version $(KVER)" \
 	    --define "kdir $(KDIR)" \

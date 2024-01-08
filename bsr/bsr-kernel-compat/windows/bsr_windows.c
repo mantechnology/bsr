@@ -43,8 +43,9 @@ int g_daemon_tcp_port;
 LARGE_INTEGER g_frequency = { .QuadPart = 0 };		// DW-1961
 
 #ifdef _WIN_HANDLER_TIMEOUT
-int g_handler_use;
-int g_handler_timeout;
+// BSR-1060
+atomic_t g_handler_use;
+atomic_t g_handler_timeout;
 int g_handler_retry;
 #endif
 
@@ -911,9 +912,9 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 	nWaitTime.QuadPart = 0;
 
 	if(timeout != MAX_SCHEDULE_TIMEOUT) {
-		nWaitTime = RtlConvertLongToLargeInteger((timeout) * (-1 * 1000 * 10));
+		nWaitTime.QuadPart = (LONGLONG)timeout * (-1 * 1000 * 10);
 	} else {
-		nWaitTime = RtlConvertLongToLargeInteger((60) * (-1 * 10000000));
+		nWaitTime.QuadPart = 60 * (-1 * 10000000);
 	}
 
 	pTime = &nWaitTime;
@@ -1480,7 +1481,8 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 	else {
 		expires -= current_milisec;
 		BUG_ON_UINT32_OVER(expires);
-		nWaitTime = RtlConvertLongToLargeInteger(RELATIVE(MILLISECONDS((LONG)expires)));
+		// BSR-1176 RtlConvertLongToLargeInteger() can only handle 32-bit integer ranges, so modify the values directly
+		nWaitTime.QuadPart = (RELATIVE(MILLISECONDS((LONG)expires)));
 	}
 
 #ifdef DBG
@@ -1550,7 +1552,7 @@ void kobject_get(struct kobject *kobj)
         kref_get(&kobj->kref);
     }
     else {
-		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "Failed to increase the reference count because no kobject are assigned.");
+		bsr_info(2, BSR_LC_ETC, NO_OBJECT, "Reference count did not increase because no kobj were assigned.");
         return;
     }
 }
@@ -2281,7 +2283,7 @@ void update_targetdev(PVOLUME_EXTENSION pvext, bool bMountPointUpdate)
 						bsr_warn(73, BSR_LC_ETC,"replicating volume letter is changed, detaching");
 						set_bit(FORCE_DETACH, &device->flags);
 						change_disk_state(device, D_DETACHING, CS_HARD, NULL);						
-						put_ldev(device);
+						put_ldev(__FUNCTION__, device);
 					}
 					// DW-1300 put device reference count when no longer use.
 					if (device)
@@ -2912,7 +2914,9 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 	int leng;
 	char ret = 0;
 	struct socket* pSock = NULL;
-	if (0 == g_handler_use)	{
+	int handler_timeout = atomic_read(&g_handler_timeout);
+
+	if (0 == atomic_read(&g_handler_use))	{
 		return -1;
 	}
 
@@ -2990,7 +2994,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		bsr_debug(82, BSR_LC_SOCKET, NO_OBJECT, "Wait Hi");
 
 		// DW-2170 the first received data after connection must be the same as DRBD_DAEMON_SOCKET_STRING.
-		if ((readcount = Receive(pSock, &hello, (long)strlen(BSR_DAEMON_SOCKET_STRING), 0, g_handler_timeout, NULL)) == (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
+		if ((readcount = Receive(pSock, &hello, (long)strlen(BSR_DAEMON_SOCKET_STRING), 0, handler_timeout, NULL)) == (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
 			bsr_debug(83, BSR_LC_SOCKET, NO_OBJECT, "recv HI!!! ");
 		} else {
 			if (readcount == -EAGAIN) {
@@ -3011,23 +3015,23 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		}
 
 		// DW-2170 send DRBD_DAEMON_SOCKET_STRING.
-		if ((Status = SendLocal(pSock, BSR_DAEMON_SOCKET_STRING, (unsigned int)strlen(BSR_DAEMON_SOCKET_STRING), 0, g_handler_timeout)) != (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
+		if ((Status = SendLocal(pSock, BSR_DAEMON_SOCKET_STRING, (unsigned int)strlen(BSR_DAEMON_SOCKET_STRING), 0, handler_timeout)) != (long)strlen(BSR_DAEMON_SOCKET_STRING)) {
 			bsr_err(108, BSR_LC_SOCKET, NO_OBJECT, "send socket string fail stat=0x%x\n", Status);
 			ret = -1;
 			goto error;
 		}
 
-		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, g_handler_timeout)) != (long) strlen(cmd_line)) {
+		if ((Status = SendLocal(pSock, cmd_line, (unsigned int)strlen(cmd_line), 0, handler_timeout)) != (long)strlen(cmd_line)) {
 			bsr_err(7, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to send command. status(0x%x)", Status);
 			ret = -1;
 			goto error;
 		}
 
-		if ((readcount = Receive(pSock, &ret, 1, 0, g_handler_timeout, NULL)) > 0) {
+		if ((readcount = Receive(pSock, &ret, 1, 0, handler_timeout, NULL)) > 0) {
 			bsr_debug(84, BSR_LC_SOCKET, NO_OBJECT, "recv val=0x%x", ret);
 		} else {
 			if (readcount == -EAGAIN) {
-				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to receive timed out(%d)", g_handler_timeout);
+				bsr_err(8, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to receive timed out(%d)", handler_timeout);
 			} else {
 				bsr_err(9, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to receive. status(0x%x)", readcount);
 			}
@@ -3036,7 +3040,7 @@ int call_usermodehelper(char *path, char **argv, char **envp, unsigned int wait)
 		}
 
 
-		if ((Status = SendLocal(pSock, "BYE", 3, 0, g_handler_timeout)) != 3) {
+		if ((Status = SendLocal(pSock, "BYE", 3, 0, handler_timeout)) != 3) {
 			bsr_err(10, BSR_LC_SOCKET, NO_OBJECT, "Failed to usermodehelper execution due to failure to send finished. status(0x%x)", Status); // ignore!
 		}
 
@@ -3304,7 +3308,7 @@ int bsr_resize(struct bsr_device *device)
 	dd = bsr_determine_dev_size(device, 0, ddsf, change_al_layout ? &rs : NULL);
 
 	bsr_md_sync_if_dirty(device);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
 		goto fail;
@@ -3323,7 +3327,7 @@ int bsr_resize(struct bsr_device *device)
 	return retcode;
 
  fail_ldev:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	kfree(new_disk_conf);
 	goto fail;
 }

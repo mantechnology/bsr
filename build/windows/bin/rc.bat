@@ -4,6 +4,9 @@ REM
 REM bsr rc batch file
 REM 
 
+REM BSR-1112
+for /f "tokens=*" %%a in ('bsrcon /get_log_path') do set BSR_LOG_DIR=%%a
+
 IF "%1" == "start" GOTO start
 IF "%1" == "stop"  GOTO stop
 
@@ -14,7 +17,7 @@ goto :eof
 REM ------------------------------------------------------------------------
 :start
 
-set start_log="%BSR_PATH%\..\log\rc_start.log"
+set start_log="%BSR_LOG_DIR%\rc_start.log"
 echo [%date%_%time%] rc.bat start. > %start_log%
 
 
@@ -77,6 +80,15 @@ for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all -T`) do (
 		waitfor bsrAdjust /t 3 > NUL 2>&1
 	)
 )
+
+REM BSR-1138
+:bsrmon_start
+for /f "tokens=*" %%a in ('bsrmon /get run') do set bsrmon_enabled=%%a
+if !bsrmon_enabled! == 1 (
+	bsrmon /start
+	echo [!date!_!time!] bsrmon start. >> %start_log%
+)
+
 endlocal
 
 
@@ -109,12 +121,21 @@ REM ------------------------------------------------------------------------
 
 @echo off
 
-set stop_log="%BSR_PATH%\..\log\rc_stop.log"
+set stop_log="%BSR_LOG_DIR%\rc_stop.log"
 echo [%date%_%time%] rc.bat stop. > %stop_log%
 echo [%date%_%time%] Stopping all BSR resources >> %stop_log%
 
 
 setlocal EnableDelayedExpansion
+
+REM BSR-1138
+:bsrmon_stop
+for /f "tokens=*" %%a in ('bsrmon /get run') do set bsrmon_enabled=%%a
+if !bsrmon_enabled! == 1 (
+	bsrmon /stop running
+	echo [!date!_!time!] bsrmon stop. >> %stop_log%
+)
+
 REM BSR-593 auto-down by svc
 for /f "usebackq tokens=*" %%a in (`bsradm sh-resource all`) do (
 	set DOWN=0

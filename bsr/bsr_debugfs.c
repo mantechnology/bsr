@@ -140,7 +140,7 @@ static void seq_print_one_request(struct seq_file *m, struct bsr_request *req, k
 #define RQ_HDR_AL "\tin AL"
 #define RQ_HDR_SUBMIT "\tsubmit"
 #define RQ_HDR_PEER "\tsent\tacked\tdone"
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST)) {
 		seq_printf(m, "\t%d", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
 		seq_print_age_or_dash(m, s & RQ_IN_ACT_LOG, ktime_sub(now, req->in_actlog_kt));
 		seq_print_age_or_dash(m, s & RQ_LOCAL_PENDING, ktime_sub(now, req->submit_kt));
@@ -216,7 +216,7 @@ static void seq_print_waiting_for_AL(struct seq_file *m, struct bsr_resource *re
 		if (n) {
 			seq_printf(m, "%u\t%u\t", device->minor, device->vnr);
 			if (req) {
-				if (atomic_read(&g_bsrmon_run))
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 					seq_printf(m, "%d\t", (int)ktime_to_ms(ktime_sub(now, req->start_kt)));
 				else
 					seq_printf(m, "%d\t", (int)jiffies_to_msecs(jif - req->start_jif));
@@ -362,7 +362,7 @@ static void seq_print_resource_transfer_log_summary(struct seq_file *m,
 	unsigned int show_state = 0;
 
 	UNREFERENCED_PARAMETER(connection);
-	if (atomic_read(&g_bsrmon_run)) 
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST)) 
 		seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR_TIMING_STAT);
 	else
 		seq_puts(m, "n\tdevice\tvnr\t" RQ_HDR);
@@ -754,8 +754,8 @@ int connection_transport_speed_show(struct seq_file *m, void *ignored)
 	transport->sum_start_time = now;
 	
 	// BSR-740 init sum_start_time
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'transport_speed': bsr performance monitor is not running\n");
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_NETWORK_SPEED))) {
+		seq_printf(m, "'network' performance monitor is disabled.\n");
 		return 0;
 	}
 	
@@ -1061,7 +1061,7 @@ int peer_device_proc_bsr_show(struct seq_file *m, void *ignored)
 	if (get_ldev_if_state(device, D_FAILED)) {
 		lc_seq_printf_stats(m, peer_device->resync_lru);
 		lc_seq_printf_stats(m, device->act_log);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	seq_printf(m, "\tblocked on activity log: %d\n", atomic_read(&device->ap_actlog_cnt));
@@ -1093,7 +1093,7 @@ int peer_device_resync_extents_show(struct seq_file *m, void *ignored)
 	if (get_ldev_if_state(device, D_FAILED)) {
 		lc_seq_printf_stats(m, peer_device->resync_lru);
 		lc_seq_dump_details(m, peer_device->resync_lru, "rs_left flags", resync_dump_detail);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	return 0;
 }
@@ -1124,7 +1124,7 @@ int peer_device_resync_ratio_show(struct seq_file *m, void *ignored)
 	} 
 	seq_printf(m, "%lld %lld %lld ", repl_sended, resync_sended, resync_sended_percent);
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return 0;
 }
@@ -1139,7 +1139,7 @@ int device_act_log_extents_show(struct seq_file *m, void *ignored)
 	if (get_ldev_if_state(device, D_FAILED)) {
 		lc_seq_printf_stats(m, device->act_log);
 		lc_seq_dump_details(m, device->act_log, "", NULL);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	return 0;
 }
@@ -1156,7 +1156,7 @@ int device_oldest_requests_show(struct seq_file *m, void *ignored)
 	/* BUMP me if you change the file format/content/presentation */
 	seq_printf(m, "v: %u\n\n", 0);
 
-	if (atomic_read(&g_bsrmon_run)) 
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST)) 
 		seq_puts(m, RQ_HDR_TIMING_STAT);
 	else
 		seq_puts(m, RQ_HDR); 
@@ -1201,7 +1201,7 @@ int device_data_gen_id_show(struct seq_file *m, void *ignored)
 	for (i = 0; i < HISTORY_UUIDS; i++)
 		seq_printf(m, "0x%016llX\n", bsr_history_uuid(device, i));
 	spin_unlock_irq(&md->uuid_lock);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return 0;
 }
 
@@ -1222,7 +1222,7 @@ int device_io_frozen_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
 	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
 	seq_printf(m, "may_inc_ap_bio(): %d\n", may_inc_ap_bio(device));
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return 0;
 }
@@ -1279,10 +1279,10 @@ int device_act_log_stat_show(struct seq_file *m, void *ignored)
 	if (!get_ldev_if_state(device, D_FAILED)) 
 		return -ENODEV;
 
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'act_log_stat': bsr performance monitor is not running\n");
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))) {
+		seq_printf(m, "'alstat' performance monitor is disabled.\n");
 		device_act_log_stat_reset(device);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 
 		return 0;
 	}
@@ -1331,7 +1331,7 @@ int device_act_log_stat_show(struct seq_file *m, void *ignored)
 
 	spin_unlock_irq(&device->al_lock);
 	
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	seq_printf(m, "\n");
 	return 0;
@@ -1349,11 +1349,11 @@ int device_io_complete_show(struct seq_file *m, void *ignored)
 		return -ENODEV;
 
 	// BSR-740 init perf data
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'io_complete': bsr performance monitor is not running\n");
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE))) {
+		seq_printf(m, "'ioclat' performance monitor is disabled.\n");
 		memset(&device->local_complete_kt, 0, sizeof(struct timing_stat));
 		memset(&device->master_complete_kt, 0, sizeof(struct timing_stat));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 	local = device->local_complete_kt;
@@ -1375,7 +1375,7 @@ int device_io_complete_show(struct seq_file *m, void *ignored)
 			ktime_to_us(master.max_val), 
 			atomic_read(&master.cnt) > 0 ? 
 				ktime_to_us(master.total_val) / atomic_read(&master.cnt) : 0);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return 0;
 }
 
@@ -1392,14 +1392,14 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 		return -ENODEV;
 	
 	// BSR-740 init perf data
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'io_stat': bsr performance monitor is not running\n");
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT))) {
+		seq_printf(m, "'iostat' performance monitor is disabled\n");
 		atomic_set(&device->io_cnt[READ], 0);
 		atomic_set(&device->io_cnt[WRITE], 0);
 		atomic_set(&device->io_size[READ], 0);
 		atomic_set(&device->io_size[WRITE], 0);
 		device->aggregation_start_kt = now;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 	period = (unsigned int)DIV_ROUND_UP(ktime_to_ms(ktime_sub(now, device->aggregation_start_kt)) - HZ/2, HZ);
@@ -1427,7 +1427,7 @@ int device_io_stat_show(struct seq_file *m, void *ignored)
 				write_io_size, write_io_size);
 	}
 	device->aggregation_start_kt = now;
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return 0;
 }
 
@@ -1443,9 +1443,9 @@ int device_io_pending_show(struct seq_file *m, void *ignored)
 	if (!get_ldev_if_state(device, D_FAILED)) 
 		return -ENODEV;
 	
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'io_pending': bsr performance monitor is not running\n");
-		put_ldev(device);
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING))) {
+		seq_printf(m, "'io_pending' performance monitor is disabled.\n");
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 
@@ -1475,7 +1475,7 @@ int device_io_pending_show(struct seq_file *m, void *ignored)
 			!bsr_state_is_stable(device),
 			atomic_read(&device->pending_bitmap_work.n));
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	return 0;
 }
 
@@ -1522,11 +1522,11 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 		return -ENODEV;
 
 	// BSR-740 init perf data
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'req_timing': bsr performance monitor is not running\n");
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))) {
+		seq_printf(m, "'reqstat' performance monitor is disabled.\n");
 		device_req_timing_reset(device);
 		atomic_set(&device->al_updates_cnt, 0);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 
@@ -1563,7 +1563,7 @@ int device_req_timing_show(struct seq_file *m, void *ignored)
 	device_req_timing_reset(device);
 
 	spin_unlock_irqrestore(&device->timing_lock, flags);
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return 0;
 }
@@ -1589,9 +1589,9 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 	if (!get_ldev_if_state(device, D_FAILED)) 
 		return -ENODEV;
 
-	if (!atomic_read(&g_bsrmon_run)) {
-		seq_printf(m, "err reading 'peer_req_timing': bsr performance monitor is not running\n");
-		put_ldev(device);
+	if (!(atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST))) {
+		seq_printf(m, "'peer_reqstat' performance monitor is disabled.\n");
+		put_ldev(__FUNCTION__, device);
 		return 0;
 	}
 
@@ -1614,7 +1614,7 @@ int device_peer_req_timing_show(struct seq_file *m, void *ignored)
 
 	seq_printf(m, "\n");
 	
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 	
 
 	return 0;
@@ -1678,8 +1678,9 @@ static const struct file_operations resource_ ## name ## _fops = {	\
 bsr_debugfs_resource_attr(in_flight_summary)
 bsr_debugfs_resource_attr(state_twopc)
 
+// BSR-1096 change debugfs file permissions 0400 -> 0444
 #define bsr_dcf(top, obj, attr) do {		\
-	dentry = debugfs_create_file(#attr, S_IRUSR|S_IRUSR,	\
+	dentry = debugfs_create_file(#attr, S_IRUGO,	\
 			top, obj, &obj ## _ ## attr ## _fops);	\
 	if (IS_ERR_OR_NULL(dentry))				\
 		goto fail;					\

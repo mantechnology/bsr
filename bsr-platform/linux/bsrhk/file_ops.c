@@ -93,8 +93,8 @@ static int bsr_set_handler_use(HANDLER_INFO __user *args)
 		return -1;
 	}
 
-	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d", g_handler_use, h_info.use);
-	g_handler_use = h_info.use;
+	bsr_info(129, BSR_LC_DRIVER, NO_OBJECT, "set handler_use %d => %d", atomic_read(&g_handler_use), h_info.use);
+	atomic_set(&g_handler_use, h_info.use);
 
 	return 0;
 }
@@ -201,7 +201,6 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 {
 	int err;
 	WRITE_KERNEL_LOG writeLog;
-	char buf[MAX_BSRLOG_BUF];
 	char *lv = NULL;
 	LONG_PTR klog_current_time = jiffies;
 
@@ -231,9 +230,6 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 
 	g_klog_last_time = klog_current_time;
 
-	memset(buf, 0, sizeof(buf));
-	memcpy(buf, writeLog.message, writeLog.length);
-
 	switch (writeLog.level) {
 	case KERN_EMERG_NUM:
 		lv = KERN_EMERG;
@@ -262,9 +258,9 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 	}
 
 	if (g_skip_klog)
-		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", buf, g_skip_klog);
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s, skipped logs(%d)", writeLog.message, g_skip_klog);
 	else
-		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", buf);
+		__bsr_printk(BSR_LC_ETC, -1, lv, "%s", writeLog.message);
 
 	g_skip_klog = 0;
 	
@@ -451,6 +447,12 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 		err = bsr_fake_al_used((int __user *)param);
 		break;
 	}
+	// BSR-1112
+	case IOCTL_MVOL_LOG_PATH_CHANGED:
+	{
+		gLogBuf.path_changed = 1;
+		break;
+	}
 	default :
 		break;
 	}
@@ -459,7 +461,7 @@ long bsr_control_ioctl(struct file *filp, unsigned int cmd, unsigned long param)
 
 // BSR-597
 // based on linux/fs/namei.c - do_renameat2()
-int bsr_file_rename(const char *oldname, const char *newname)
+int bsr_file_rename(const char *file_path, const char *oldname, const char *newname)
 {
 	struct dentry *old_dir, *new_dir;
 	struct dentry *old_dentry, *new_dentry;
@@ -468,11 +470,11 @@ int bsr_file_rename(const char *oldname, const char *newname)
 	int err = 0;
 
 	// get parent path
-	err = kern_path(BSR_LOG_FILE_PATH, 0, &old_path);
+	err = kern_path(file_path, 0, &old_path);
 	if (err)
 		goto exit;
 
-	err = kern_path(BSR_LOG_FILE_PATH, 0, &new_path);
+	err = kern_path(file_path, 0, &new_path);
 	if (err)
 		goto exit1;
 
@@ -551,7 +553,7 @@ exit:
 
 // BSR-597
 // based on linux/fs/namei.c - do_unlinkat()
-int bsr_file_remove(const char *filename)
+int bsr_file_remove(const char * file_path, const char *filename)
 {
 	struct dentry *dentry;
 	struct path parent;
@@ -559,7 +561,7 @@ int bsr_file_remove(const char *filename)
 	int err = 0;
 
 	// get parent path
-	err = kern_path(BSR_LOG_FILE_PATH, 0, &parent);
+	err = kern_path(file_path, 0, &parent);
 	if (err)
 		return err;
 
@@ -715,12 +717,11 @@ long bsr_mkdir(const char *pathname, umode_t mode)
 
 
 // BSR-584 reading /etc/bsr.d/.XXX file
-long read_reg_file(char *file_path, long default_val)
+char *__read_reg_file(char *file_path)
 {	
 	struct file *fd = NULL;
 	char *buffer = NULL;
 	int filesize = 0;
-	long ret_val = default_val;
 	int err = 0;
 	mm_segment_t oldfs;
 
@@ -735,7 +736,7 @@ long read_reg_file(char *file_path, long default_val)
 
 	filesize = fd->f_op->llseek(fd, 0, SEEK_END);
 	if (filesize <= 0)
-		goto close;
+		goto failed;
 
 	// BSR-778 fix debuglog_category file read error due to incorrect buffer size allocation
 	buffer = bsr_kmalloc(filesize + 1, GFP_ATOMIC|__GFP_NOWARN, '');
@@ -743,21 +744,40 @@ long read_reg_file(char *file_path, long default_val)
 	memset(buffer, 0, filesize + 1);
 	
 	if (fd->f_op->llseek(fd, 0, SEEK_SET) < 0)
-		goto close;
+		goto failed;
 	err = bsr_read(fd, buffer, filesize, &fd->f_pos);
 	if (err < 0 || err != filesize)
-		goto close;
+		goto failed;
 
-	err = kstrtol(buffer, 0, &ret_val);
-	if (err < 0)
-		ret_val = default_val;
-
-close:
-	if (buffer != NULL)
+	goto close;
+failed:
+	if (buffer != NULL) {
 		bsr_kfree(buffer);
+		buffer = NULL;
+	}
+close:
 	if (fd != NULL)
 		filp_close(fd, NULL);
 out:
 	set_fs(oldfs);
+	return buffer;
+}
+
+long read_reg_file(char *file_path, long default_val)
+{	
+	char *buffer = NULL;
+	long ret_val = default_val;
+	int err = 0;
+	
+
+	buffer = __read_reg_file(file_path);
+
+	if (buffer != NULL) {
+		err = kstrtol(buffer, 0, &ret_val);
+		if (err < 0)
+			ret_val = default_val;
+		bsr_kfree(buffer);
+	}
+		
 	return ret_val;
 }

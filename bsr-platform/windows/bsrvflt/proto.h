@@ -95,7 +95,10 @@ IOCTL_VolumeWriteOff( PDEVICE_OBJECT DeviceObject, PIRP Irp, BOOLEAN WriteEnable
 NTSTATUS
 IOCTL_GetCountInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength );
 NTSTATUS
-IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength);
+IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength, int temp_mount);
+// BSR-1066
+NTSTATUS
+IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject);
 NTSTATUS
 IOCTL_SetSimulDiskIoError( PDEVICE_OBJECT DeviceObject, PIRP Irp);
 // BSR-764
@@ -129,6 +132,10 @@ IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size);
 
 NTSTATUS
 IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+
+// BSR-1060
+NTSTATUS
+IOCTL_SetHandleTimeout(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 // BSR-37
 NTSTATUS

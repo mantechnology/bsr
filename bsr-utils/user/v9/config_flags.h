@@ -91,6 +91,7 @@ extern struct context_def net_options_ctx;
 extern struct context_def show_net_options_ctx;
 extern struct context_def adjust_net_options_ctx; // BSR-859
 extern struct context_def primary_cmd_ctx;
+extern struct context_def primary_adm_cmd_ctx;
 extern struct context_def attach_cmd_ctx;
 extern struct context_def detach_cmd_ctx;
 extern struct context_def connect_cmd_ctx;
@@ -114,7 +115,6 @@ extern struct context_def handlers_ctx;
 extern struct context_def proxy_options_ctx;
 extern struct context_def startup_options_ctx;
 extern struct context_def wildcard_ctx;
-
 
 extern const char *double_quote_string(const char *str);
 

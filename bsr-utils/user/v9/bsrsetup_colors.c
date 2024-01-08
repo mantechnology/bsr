@@ -43,6 +43,14 @@ int cstate_colors[] = {
 	[C_CONNECTED] = COLOR_NORMAL,
 };
 
+// BSR-892
+int cerror_colors[] = {
+	[C_NO_ERROR] = COLOR_NORMAL,
+	[C_SPLIT_BRAIN] = COLOR_BAD,
+	[C_SYNC_TARGET_PRIMARY] = COLOR_BAD, // BSR-1140
+	[C_DISCARD_MY_DATA] = COLOR_BAD, // BSR-1155
+};
+
 int repl_state_colors[] = {
 	[L_OFF] = COLOR_TRANSITIONAL,
 	[L_ESTABLISHED] = COLOR_NORMAL,
@@ -113,6 +121,19 @@ const char *cstate_color_stop(enum bsr_conn_state cstate)
 {
 	return color_code(cstate, cstate_colors,
 			  ARRAY_SIZE(cstate_colors), false, true);
+}
+
+// BSR-892
+const char *cerror_color_start(enum bsr_conn_error err)
+{
+	return color_code(err, cerror_colors,
+		ARRAY_SIZE(cerror_colors), true, true);
+}
+
+const char *cerror_color_stop(enum bsr_conn_error err)
+{
+	return color_code(err, cerror_colors,
+		ARRAY_SIZE(cerror_colors), false, true);
 }
 
 static bool

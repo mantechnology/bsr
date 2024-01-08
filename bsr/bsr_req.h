@@ -309,10 +309,14 @@ static inline bool bsr_req_make_private_bio(struct bsr_device *device, struct bs
 static inline bool bsr_req_make_private_bio(struct bsr_request *req, struct bio *bio_src)
 #endif
 {
-	struct bio *bio;
+	struct bio *bio = NULL;
 
 #ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
-	bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
+	// BSR-1173 prevent panic, check the device with get_ldev
+	if (get_ldev(device)) {
+		bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
+		put_ldev(device);
+	}
 #else
 	bio = bio_clone_fast(bio_src, GFP_NOIO, &bsr_io_bio_set); /* XXX cannot fail?? */
 #endif
@@ -366,6 +370,8 @@ extern void tl_restart(struct bsr_connection *connection, enum bsr_req_event wha
 extern void _tl_restart(struct bsr_connection *connection, enum bsr_req_event what);
 extern void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req);
 extern bool bsr_should_do_remote(struct bsr_peer_device *, enum which_state);
+
+extern void bsr_free_accelbuf(struct bsr_device *device, char *buf, int size);
 
 // DW-1755
 extern void notify_io_error(struct bsr_device *device, struct bsr_io_error *io_error);

@@ -22,7 +22,7 @@
 #include "../../../bsr/bsr-kernel-compat/windows/bsr_windows.h"
 #include "disp.h"
 #include "proto.h"
-#include "../../../bsr/bsr_idx_ring.h"
+#include "../../../bsr/bsr_ring.h"
 #include "../../../bsr/bsr_debugfs.h"
 
 extern SIMULATION_DISK_IO_ERROR gSimulDiskIoError;
@@ -127,8 +127,9 @@ IOCTL_GetVolumeInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength 
 	return STATUS_SUCCESS;
 }
 
+// BSR-1066 temp_mount is volume unlock for chkdsk in bsrsetup check-fs
 NTSTATUS
-IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
+IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength, int temp_mount)
 {
 	if (DeviceObject == mvolRootDeviceObject) {
 		return STATUS_INVALID_DEVICE_REQUEST;
@@ -160,9 +161,9 @@ IOCTL_MountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp, PULONG ReturnLength)
 	// DW-1300 get device and get reference.
 	device = get_device_with_vol_ext(pvext, TRUE);
 #ifdef _WIN_MULTIVOL_THREAD
-    if (device)
+    if (device && !temp_mount)
 #else
-	if (pvext->WorkThreadInfo.Active && device)
+	if (pvext->WorkThreadInfo.Active && device && !temp_mount)
 #endif
 	{
 		_snprintf(Message, sizeof(Message) - 1, "Failed to mount volume due to %ws volume is handling by bsr. Failed to release volume",
@@ -196,6 +197,38 @@ out:
 		memcpy((PCHAR)Irp->AssociatedIrp.SystemBuffer, Message, DecidedLength);
 		*((PCHAR)Irp->AssociatedIrp.SystemBuffer + DecidedLength) = '\0';
 	}
+
+    return status;
+}
+
+// BSR-1066 for volume lock after chkdsk in bsrsetup check-fs
+NTSTATUS
+IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+	PVOLUME_EXTENSION pvext = DeviceObject->DeviceExtension;
+	struct bsr_device *device = NULL;
+ 
+ 	if (DeviceObject == mvolRootDeviceObject) {
+		return STATUS_INVALID_DEVICE_REQUEST;
+	}
+
+    COUNT_LOCK(pvext);
+
+	device = get_device_with_vol_ext(pvext, TRUE);
+    if (device) {
+		SetBsrlockIoBlock(pvext, TRUE);
+		pvext->WorkThreadInfo = &device->resource->WorkThreadInfo;
+    	pvext->bPreviouslyResynced = FALSE;
+		pvext->Active = TRUE;
+		FsctlLockVolume(device->minor);
+		FsctlFlushDismountVolume(device->minor, true);
+		pvext->bPreviouslyResynced = TRUE;
+		FsctlUnlockVolume(device->minor);
+
+		kref_put(&device->kref, bsr_destroy_device);
+    } 
+    COUNT_UNLOCK(pvext);
 
     return status;
 }
@@ -657,9 +690,8 @@ IOCTL_SetLogFileMaxCount(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	unsigned int inlen, outlen;
-	unsigned int new_value = 1;
+	unsigned int new_value;
 	unsigned int pre_value;
-	NTSTATUS status;
 
 	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
 	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
@@ -672,11 +704,6 @@ NTSTATUS IOCTL_SetBsrmonRun(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		new_value = *(unsigned int*)Irp->AssociatedIrp.SystemBuffer;
 		pre_value = atomic_read(&g_bsrmon_run);
 		if (pre_value != new_value) {
-			status = SaveCurrentValue(L"bsrmon_run", new_value);
-			if (status != STATUS_SUCCESS) {
-				return STATUS_UNSUCCESSFUL;
-			}
-
 			bsr_debug(145, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_BSRMON_RUN %u => %u", pre_value, new_value);
 			atomic_set(&g_bsrmon_run, new_value);
 		}
@@ -790,11 +817,41 @@ IOCTL_SetHandlerUse(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	if (Irp->AssociatedIrp.SystemBuffer) {
 		pHandlerInfo = (PHANDLER_INFO)Irp->AssociatedIrp.SystemBuffer;
-		g_handler_use = pHandlerInfo->use;
+		atomic_set(&g_handler_use, pHandlerInfo->use);
 
 		SaveCurrentValue(L"handler_use", g_handler_use);
 
-		bsr_debug(116, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_USE : %d ", g_handler_use);
+		bsr_info(116, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_USE : %d ", g_handler_use);
+	}
+	else {
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
+// BSR-1060 sets the wait time for the handler and is used only in Windows.
+NTSTATUS
+IOCTL_SetHandleTimeout(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG			inlen;
+	PHANDLER_TIMEOUT_INFO	pHandleTimeout = NULL;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+
+	if (inlen < sizeof(HANDLER_TIMEOUT_INFO)) {
+		mvolLogError(DeviceObject, 356, MSG_BUFFER_SMALL, STATUS_BUFFER_TOO_SMALL);
+		bsr_err(164, BSR_LC_DRIVER, NO_OBJECT, "Failed to set handle timeout due to buffer too small");
+		return STATUS_BUFFER_TOO_SMALL;
+	}
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		pHandleTimeout = (PHANDLER_TIMEOUT_INFO)Irp->AssociatedIrp.SystemBuffer;
+		atomic_set(&g_handler_timeout, pHandleTimeout->timeout);
+
+		SaveCurrentValue(L"handler_timeout", g_handler_timeout);
+
+		bsr_info(163, BSR_LC_DRIVER, NO_OBJECT, "IOCTL_MVOL_SET_HANDLER_TIMEOUT : %d ", g_handler_timeout);
 	}
 	else {
 		return STATUS_INVALID_PARAMETER;

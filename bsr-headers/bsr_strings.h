@@ -6,6 +6,8 @@ struct state_names {
 	unsigned int size;
 };
 
+// BSR-892
+extern struct state_names bsr_conn_error_names;
 extern struct state_names bsr_conn_state_names;
 extern struct state_names bsr_repl_state_names;
 extern struct state_names bsr_role_state_names;
@@ -14,6 +16,8 @@ extern struct state_names bsr_error_messages;
 
 enum bsr_packet;
 
+// BSR-892
+extern const char *bsr_conn_err_str(enum bsr_conn_error);
 extern const char *bsr_repl_str(enum bsr_repl_state);
 extern const char *bsr_conn_str(enum bsr_conn_state);
 extern const char *bsr_role_str(enum bsr_role);

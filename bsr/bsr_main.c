@@ -97,9 +97,9 @@
 #endif
 
 #ifdef _WIN
-#define BSR_LOG_FILE_NAME L"bsrlog.txt"
-// rolling file format, ex) bsrlog.txt_2020-06-02T104543.745 
-#define BSR_LOG_ROLLING_FILE_NAME L"bsrlog.txt_"
+#define BSR_LOG_FILE_NAME L"bsr.log"
+// rolling file format, ex) bsr.log_2020-06-02T104543.745 
+#define BSR_LOG_ROLLING_FILE_NAME L"bsr.log_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
@@ -126,6 +126,9 @@ extern void sended_timer_fn(BSR_TIMER_FN_ARG);
 #endif
 static int w_bitmap_io(struct bsr_work *w, int unused);
 static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream bsr_stream);
+static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device *peer_device, struct bsr_peer_md *old_peer_md, u64 do_nodes) __must_hold(local);
+static u64 __test_bitmap_slots_of_peer(struct bsr_peer_device *peer_device) __must_hold(local);
+
 #ifdef _LIN
 MODULE_AUTHOR("Man Technology Inc. <bsr@mantech.co.kr>");
 MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
@@ -177,7 +180,7 @@ module_param(two_phase_commit_fail, int, 0644);
 #endif
 
 // BSR-578
-struct log_idx_ring_buffer_t gLogBuf;
+struct bsr_log_idx_ring_buffer_t  gLogBuf;
 atomic_t64 gLogCnt;
 
 enum bsr_thread_state g_consumer_state;
@@ -206,7 +209,8 @@ char usermode_helper[80] = "bsradm.exe";
 #else // _LIN
 char usermode_helper[80] = "/sbin/bsradm";
 // BSR-626 default value of handler_use is disable
-int g_handler_use = 0;
+// BSR-1060
+atomic_t g_handler_use = ATOMIC_INIT(0);
 #endif
 
 // BSR-654
@@ -915,8 +919,9 @@ int bsr_thread_start(struct bsr_thread *thi)
 		else
 			bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])",
 					thi->name, current->comm, current->pid);
-		/* fall through */
+		/* Fall through */
 	case RUNNING:
+		/* Fall through */
 	case RESTARTING:
 	default:
 		spin_unlock_irqrestore(&thi->t_lock, flags);
@@ -1278,10 +1283,10 @@ static void prepare_header(struct bsr_connection *connection, int vnr,
 		prepare_header80(buffer, cmd, size);
 }
 
+#ifdef _LIN
 static void new_or_recycle_send_buffer_page(struct bsr_send_buffer *sbuf)
 {
 	while (1) {
-
 		struct page *page;
 		int count = page_count(sbuf->page);
 
@@ -1291,32 +1296,44 @@ static void new_or_recycle_send_buffer_page(struct bsr_send_buffer *sbuf)
 
 		page = alloc_page(GFP_KERNEL);
 		if (page) {
-#ifdef _LIN
 			put_page(sbuf->page);
-#endif
 			sbuf->page = page;
 			goto have_page;
 		}
-
 		schedule_timeout(HZ / 10);
 	}
 have_page:
 	sbuf->unsent =
 	sbuf->pos = page_address(sbuf->page);
 }
+#endif
 
 static char *alloc_send_buffer(struct bsr_connection *connection, int size,
 			      enum bsr_stream bsr_stream)
 {
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
+#ifdef _WIN
+	char *buffer_start = sbuf->buffer;
+	int buffer_size = PAGE_SIZE;
+
+	if(bsr_stream == DATA_STREAM)
+		buffer_size = BSR_STREAM_SEND_BUFFER_SIZE;
+
+	if (sbuf->pos - buffer_start + size > buffer_size) {
+#else
 	char *page_start = page_address(sbuf->page);
-	
 	if (sbuf->pos - page_start + size > PAGE_SIZE) {
+#endif
 		bsr_debug_rs("(%s) stream(%d)! unsent(%ld) pos(%ld) size(%d)", current->comm, bsr_stream, (long)sbuf->unsent, (long)sbuf->pos, size);
 		// BSR-1058 check for send errors.
 		if (flush_send_buffer(connection, bsr_stream))
 			return 0;
+#ifdef _WIN
+		// BSR-1116 windows sets the send buffer for each stream in bytes rather than pages, so after calling flush_send_buffe(), it initializes unsent and pos to the start address of the send buffer.
+		sbuf->unsent = sbuf->pos = buffer_start;
+#else
 		new_or_recycle_send_buffer_page(sbuf);
+#endif
 	}
 
 	sbuf->allocated_size = size;
@@ -1423,14 +1440,15 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	// to avoid delaying state changes due to socket timeouts.
 	msg_flags |= connection->cstate[NOW] < C_CONNECTING ? MSG_DONTWAIT : 0;
 #endif
-	offset = sbuf->unsent - (char *)page_address(sbuf->page);
+#ifdef _WIN
+	offset = sbuf->unsent - (char*)sbuf->buffer;
 #ifdef _WIN64
 	BUG_ON_UINT32_OVER(offset);
 #endif
-#ifdef _WIN
-    err = tr_ops->send_page(transport, bsr_stream, sbuf->page->addr, (int)offset, (size_t)size, msg_flags);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->buffer, (int)offset, (size_t)size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, msg_flags);
+	offset = sbuf->unsent - (char *)page_address(sbuf->page);
+	err = tr_ops->send_page(transport, bsr_stream, sbuf->page, offset, size, 0, msg_flags);
 #endif
 	if (!err) {
 		sbuf->unsent =
@@ -1443,7 +1461,7 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 }
 
 int __send_command(struct bsr_connection *connection, int vnr,
-			  enum bsr_packet cmd, enum bsr_stream bsr_stream)
+enum bsr_packet cmd, enum bsr_stream bsr_stream)
 {
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
 	struct bsr_transport *transport = &connection->transport;
@@ -1453,31 +1471,32 @@ int __send_command(struct bsr_connection *connection, int vnr,
 	int err;
 
 	/* send P_PING and P_PING_ACK immediately, they need to be delivered as
-	   fast as possible.
-	   P_TWOPC_PREPARE might be used from the worker context while corked.
-	   The work item (connect_work) calls change_cluster_wide_state() which
-	   in turn waits for reply packets. -> Need to send it regardless of
-	   corking.  */
+	fast as possible.
+	P_TWOPC_PREPARE might be used from the worker context while corked.
+	The work item (connect_work) calls change_cluster_wide_state() which
+	in turn waits for reply packets. -> Need to send it regardless of
+	corking.  */
 
 	if (connection->cstate[NOW] < C_CONNECTING)
 		return -EIO;
 	prepare_header(connection, vnr, sbuf->pos, cmd,
-		       sbuf->allocated_size + sbuf->additional_size);
+		sbuf->allocated_size + sbuf->additional_size);
 
 	if (corked && !flush) {
 		bsr_debug(32, BSR_LC_SEND_BUFFER, connection, "send buff %s, size: %d vnr: %d, stream : %s", bsr_packet_name(cmd), (sbuf->allocated_size + sbuf->additional_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		sbuf->pos += sbuf->allocated_size;
 		sbuf->allocated_size = 0;
 		err = 0;
-	} else {
+	}
+	else {
 		bsr_debug(33, BSR_LC_SEND_BUFFER, connection, "sending %s, size: %d vnr: %d, stream : %s", bsr_packet_name(cmd), (sbuf->pos - sbuf->unsent + sbuf->allocated_size), vnr, bsr_stream == DATA_STREAM ? "DATA" : "CONTROL");
 		err = flush_send_buffer(connection, bsr_stream);
 
 		/* BSR protocol "pings" are latency critical.
-		 * This is supposed to trigger tcp_push_pending_frames() */
+		* This is supposed to trigger tcp_push_pending_frames() */
 		if (!err && flush)
 			tr_ops->hint(transport, bsr_stream, NODELAY);
-			
+
 		if (bsr_stream == DATA_STREAM) {
 			if (!err)
 				connection->last_send_packet = cmd;
@@ -1500,7 +1519,11 @@ void bsr_drop_unsent(struct bsr_connection* connection)
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
 		struct bsr_send_buffer *sbuf = &connection->send_buffer[i];
 		sbuf->unsent =
+#ifdef _WIN
+		sbuf->pos = sbuf->buffer;
+#else
 		sbuf->pos = page_address(sbuf->page);
+#endif
 		sbuf->allocated_size = 0;
 		sbuf->additional_size = 0;
 	}
@@ -1695,8 +1718,6 @@ int __bsr_send_protocol(struct bsr_connection *connection, enum bsr_packet cmd)
 	p->after_sb_2p   = cpu_to_be32(nc->after_sb_2p);
 	p->two_primaries = cpu_to_be32(nc->two_primaries);
 	cf = 0;
-	if (test_bit(CONN_DISCARD_MY_DATA, &connection->flags))
-		cf |= CF_DISCARD_MY_DATA;
 	if (test_bit(CONN_DRY_RUN, &connection->flags))
 		cf |= CF_DRY_RUN;
 	p->conn_flags    = cpu_to_be32(cf);
@@ -1730,7 +1751,7 @@ static int _bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags)
 
 	p = bsr_prepare_command(peer_device, sizeof(*p), DATA_STREAM);
 	if (!p) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -1759,7 +1780,7 @@ static int _bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags)
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 
 	return bsr_send_command(peer_device, P_UUIDS, DATA_STREAM);
 }
@@ -1830,7 +1851,7 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	p_size += (BSR_PEERS_MAX + HISTORY_UUIDS) * sizeof(p->other_uuids[0]);
 	p = bsr_prepare_command(peer_device, p_size, DATA_STREAM);
 	if (!p) {
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		return -EIO;
 	}
 
@@ -1898,7 +1919,7 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 #ifdef _WIN64
 	BUG_ON_INT32_OVER(sizeof(*p) + (hweight64(bitmap_uuids_mask) + HISTORY_UUIDS) * sizeof(p->other_uuids[0]));
 #endif
@@ -1926,7 +1947,7 @@ void bsr_print_uuids(struct bsr_peer_device *peer_device, const char *text, cons
 			  (unsigned long long)bsr_bitmap_uuid(peer_device),
 			  (unsigned long long)bsr_history_uuid(device, 0),
 			  (unsigned long long)bsr_history_uuid(device, 1));
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		bsr_info(2, BSR_LC_UUID, device, "%s, %s effective data uuid: %016llX",
 			caller, text, 
@@ -2102,7 +2123,7 @@ int bsr_send_sizes(struct bsr_peer_device *peer_device,
 #ifdef _LIN
 		assign_p_sizes_qlim(device, p, q);
 #endif
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		d_size = 0;
 		u_size = u_size_diskless;
@@ -2588,7 +2609,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 				bsr_md_sync(device);
 			}
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	memset(&c, 0, sizeof(struct bm_xfer_ctx));
@@ -2605,11 +2626,60 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	return err == 0;
 }
 
+void bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
+{
+	// DW-1815 merge the peer_device bitmap into the same current_uuid.
+	ULONG_PTR offset, current_offset;
+
+	int allow_size = 512;
+#ifdef _WIN
+	ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
+#else // _LIN
+	ULONG_PTR *bb = bsr_kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC | __GFP_NOWARN, '');
+#endif
+	ULONG_PTR word_offset;
+
+	if (bb == NULL) {
+		bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
+		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+	}
+	else {
+		memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
+
+		bsr_info(35, BSR_LC_BITMAP, peer_device, "Proceed with bitmap merge for bitmap send, from bitmap index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
+			to_merge->bitmap_index, (unsigned long long)bsr_bm_total_weight(to_merge),
+			peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+
+		word_offset = current_offset = offset = 0;
+		for (;;) {
+			offset = bsr_bm_range_find_next(to_merge, current_offset, current_offset + RANGE_FIND_NEXT_BIT);
+			// DW-2088 word that is not a bit should be used for merging
+			if (offset < (current_offset + RANGE_FIND_NEXT_BIT + 1)) {
+				word_offset = (offset / BITS_PER_LONG);
+				for (; (word_offset * BITS_PER_LONG) < bsr_bm_bits(peer_device->device); word_offset += allow_size) {
+					bsr_bm_get_lel(to_merge, word_offset, allow_size, bb);
+					bsr_bm_merge_lel(peer_device, word_offset, allow_size, bb);
+				}
+				break;
+			}
+			if (offset >= bsr_bm_bits(peer_device->device)) {
+				break;
+			}
+			current_offset = offset;
+			// BSR-1083
+			cond_resched();
+		}
+
+		bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
+		kfree2(bb);
+	}
+}
+
 int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_device)
 {
 	struct bsr_transport *peer_transport = &peer_device->connection->transport;
 	int err = -1;
-	struct bsr_peer_device* incomp_sync_source = NULL;
+	struct bsr_peer_device* p = NULL;
 	bool incomp_sync = false;;
 
 	if (peer_device->bitmap_index == -1) {
@@ -2618,63 +2688,17 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 	}
 
 	// DW-2088 apply out of sync to the previous syncosurce when changing sync sources with the same uuid.
-	for_each_peer_device(incomp_sync_source, device) {
-		if (bsr_md_test_peer_flag(incomp_sync_source, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID)) {
+	for_each_peer_device(p, device) {
+		if (bsr_md_test_peer_flag(p, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID)) {
 			incomp_sync = true;
 			break;
 		}
 	}
 
 	if (incomp_sync) {
-		if (incomp_sync_source != peer_device &&
+		if (p != peer_device &&
 			peer_device->repl_state[NOW] == L_WF_BITMAP_T) {
-
-			// DW-1815 merge the peer_device bitmap into the same current_uuid.
-			ULONG_PTR offset, current_offset;
-
-			int allow_size = 512;
-#ifdef _WIN
-			ULONG_PTR *bb = ExAllocatePoolWithTag(NonPagedPool, sizeof(ULONG_PTR) * allow_size, '8ESB');
-#else // _LIN
-			ULONG_PTR *bb = bsr_kmalloc(sizeof(ULONG_PTR) * allow_size, GFP_ATOMIC|__GFP_NOWARN, '');
-#endif
-			ULONG_PTR word_offset;
-
-			if (bb == NULL) {
-				bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
-				change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
-			}
-			else {
-				memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
-
-				bsr_info(35, BSR_LC_BITMAP, peer_device, "Proceed with bitmap merge for bitmap send, from bitmap index(%d) out of sync(%llu), to bitmap index(%d) out of sync (%llu)",
-					incomp_sync_source->bitmap_index, (unsigned long long)bsr_bm_total_weight(incomp_sync_source),
-					peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
-
-				word_offset = current_offset = offset = 0;
-				for (;;) {
-					offset = bsr_bm_range_find_next(incomp_sync_source, current_offset, current_offset + RANGE_FIND_NEXT_BIT);
-					 // DW-2088 word that is not a bit should be used for merging
-					if (offset < (current_offset + RANGE_FIND_NEXT_BIT + 1)) {
-						word_offset = (offset / BITS_PER_LONG);
-						for (; (word_offset * BITS_PER_LONG) < bsr_bm_bits(device); word_offset += allow_size) {
-							bsr_bm_get_lel(incomp_sync_source, word_offset, allow_size, bb);
-							bsr_bm_merge_lel(peer_device, word_offset, allow_size, bb);
-						}
-						break;
-					}
-					if (offset >= bsr_bm_bits(device)) {
-						break;
-					}
-					current_offset = offset;
-					// BSR-1083
-					cond_resched();
-				}
-
-				bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
-				kfree2(bb);
-				
-			}
+			bsr_peer_device_merge_bitmap(peer_device, p);
 		}
 		else {
 			bsr_md_clear_peer_flag(peer_device, MDF_PEER_INCOMP_SYNC_WITH_SAME_UUID);
@@ -2687,9 +2711,31 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
 		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
 		// DW-1979
-		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
-			peer_device->repl_state[NOW] == L_AHEAD)
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
+			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
+			for_each_peer_device(p, device) {
+				if (p == peer_device) {
+					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
+						struct bsr_peer_device* pd = NULL;
+						for_each_peer_device(pd, device) {
+							if ((p == pd) || (p->merged_nodes & NODE_MASK(pd->node_id)))
+								continue;
+							p->merged_nodes |= NODE_MASK(pd->node_id);
+							bsr_peer_device_merge_bitmap(p, pd);
+						}
+						bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+					}
+				} else {
+					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
+						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
+							p->merged_nodes |= NODE_MASK(peer_device->node_id);
+							bsr_peer_device_merge_bitmap(p, peer_device);
+						}
+					}
+				}
+			}
 			atomic_set(&peer_device->wait_for_recv_bitmap, 1);
+		}
 		err = !_bsr_send_bitmap(device, peer_device);
 	}
 	else
@@ -2868,9 +2914,9 @@ static int _bsr_send_page(struct bsr_peer_device *peer_device, struct page *page
 	int err;
 
 #ifdef _WIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page->addr, offset, size, 0, msg_flags);
 #else // _LIN
-	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, page, offset, size, 0,  msg_flags);
 #endif
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
@@ -2894,13 +2940,35 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, void * buffer,
 	if (err) {
 		return err;
 	}
-	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, msg_flags);
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 0, msg_flags);
 	if (!err) {
 		peer_device->send_cnt += (unsigned int)(size >> 9);
 	}
 	return err;
 }
 #else // _LIN
+// BSR-1116 send to stream instead of page
+int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
+	int offset, size_t size, unsigned msg_flags)
+{
+	struct bsr_connection *connection = peer_device->connection;
+	struct bsr_transport *transport = &connection->transport;
+	struct bsr_transport_ops *tr_ops = transport->ops;
+	int err;
+
+	bsr_debug_rs("offset(%d) size(%d)", offset, size);
+	// BSR-1058
+	err = flush_send_buffer(connection, DATA_STREAM); 
+	if (err) {
+		return err;
+	}
+	err = tr_ops->send_page(transport, DATA_STREAM, buffer, offset, size, 1, msg_flags);
+	if (!err) {
+		peer_device->send_cnt += (unsigned int)(size >> 9);
+	}
+	return err;
+}
+
 int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
 			      int offset, size_t size, unsigned msg_flags)
 {
@@ -3062,31 +3130,6 @@ static int _bsr_send_zc_ee(struct bsr_peer_device *peer_device,
 	return 0;
 }
 
-/* see also wire_flags_to_bio()
- * BSR_REQ_*, because we need to semantically map the flags to data packet
- * flags and back. We may replicate to other kernel versions. */
-static u32 bio_flags_to_wire(struct bsr_connection *connection, struct bio *bio)
-{
-	if (connection->agreed_pro_version >= 95)
-		return  (bio->bi_opf & BSR_REQ_SYNC ? DP_RW_SYNC : 0) |
-			(bio->bi_opf & BSR_REQ_UNPLUG ? DP_UNPLUG : 0) |
-			(bio->bi_opf & BSR_REQ_FUA ? DP_FUA : 0) |
-			(bio->bi_opf & BSR_REQ_PREFLUSH ? DP_FLUSH : 0) |
-#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-			(bio_op(bio) == REQ_OP_WRITE_SAME ? DP_WSAME : 0) |
-#endif
-			(bio_op(bio) == REQ_OP_DISCARD ? DP_DISCARD : 0) |
-			(bio_op(bio) == REQ_OP_WRITE_ZEROES ?
-				((connection->agreed_features & BSR_FF_WZEROES) ?
-				(DP_ZEROES |(!(bio->bi_opf & REQ_NOUNMAP) ? DP_DISCARD : 0))
-				: DP_DISCARD)
-				: 0);
-		
-
-	/* else: we used to communicate one bit only in older BSR */
-	return bio->bi_opf & (BSR_REQ_SYNC | BSR_REQ_UNPLUG) ? DP_RW_SYNC : 0;
-}
-
 /* Used to send write or TRIM aka REQ_DISCARD requests
  * R_PRIMARY -> Peer	(P_DATA, P_TRIM)
  */
@@ -3100,8 +3143,11 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	unsigned int dp_flags = 0;
 	int digest_size = 0;
 	int err = 0;
-	const int op = bio_op(req->master_bio);
-	
+	// BSR-1116
+	const int op = req->bio_status.op;
+#ifdef _WIN
+	char *data = req->req_databuf ? req->req_databuf : req->master_bio->bio_databuf;
+#endif
 	const unsigned s = bsr_req_state_by_peer_device(req, peer_device);
 
 	if (op == REQ_OP_DISCARD || op == REQ_OP_WRITE_ZEROES) {
@@ -3111,8 +3157,9 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 		p = &trim->p_data;
 		trim->size = cpu_to_be32(req->i.size);
 	} else {
-		if (peer_device->connection->integrity_tfm)
+		if (peer_device->connection->integrity_tfm) {
 			digest_size = crypto_shash_digestsize(peer_device->connection->integrity_tfm);
+		}
 
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 		if (op == REQ_OP_WRITE_SAME) {
@@ -3124,7 +3171,12 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 			digest_out = wsame + 1;
 		} else {
 #endif
+			// BSR-1116
+#ifdef _WIN
+			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size + req->i.size, DATA_STREAM);
+#else
 			p = bsr_prepare_command(peer_device, sizeof(*p) + digest_size, DATA_STREAM);
+#endif
 			if (!p)
 				return -EIO;
 			digest_out = p + 1;
@@ -3137,7 +3189,8 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	p->block_id = (ULONG_PTR)req;
 	p->seq_num = cpu_to_be32(atomic_inc_return(&peer_device->packet_seq));
 	
-	dp_flags = bio_flags_to_wire(peer_device->connection, req->master_bio);
+	// BSR-1116
+	dp_flags = bio_flags_to_wire(peer_device->connection, req);
 	if (peer_device->repl_state[NOW] >= L_SYNC_SOURCE && peer_device->repl_state[NOW] <= L_PAUSED_SYNC_T)
 		dp_flags |= DP_MAY_SET_IN_SYNC;
 	if (peer_device->connection->agreed_pro_version >= 100) {
@@ -3169,33 +3222,44 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 					bio_iovec(req->master_bio) BVD bv_len);
 		err = __send_command(peer_device->connection, device->vnr, P_WSAME, DATA_STREAM);
 #endif
-	} else {
-		additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
-		err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
 	}
-	if (!err) {
-		/* For protocol A, we have to memcpy the payload into
-		 * socket buffers, as we may complete right away
-		 * as soon as we handed it over to tcp, at which point the data
-		 * pages may become invalid.
-		 *
-		 * For data-integrity enabled, we copy it as well, so we can be
-		 * sure that even if the bio pages may still be modified, it
-		 * won't change the data on the wire, thus if the digest checks
-		 * out ok after sending on this side, but does not fit on the
-		 * receiving side, we sure have detected corruption elsewhere.
-		 */
-		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
+	else {
+		// BSR-1116 windows sends replication data by adding it to the data stream send buffer for better performance.
 #ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else // _LIN
-			err = _bsr_send_bio(peer_device, req->master_bio);
+			memcpy(((char *)digest_out + digest_size), data, req->i.size);
+#else
+			additional_size_command(peer_device->connection, DATA_STREAM, req->i.size);
 #endif
+			err = __send_command(peer_device->connection, device->vnr, P_DATA, DATA_STREAM);
+	}
+
+	if (!err) {
+#ifdef _LIN
+		/* For protocol A, we have to memcpy the payload into
+		* socket buffers, as we may complete right away
+		* as soon as we handed it over to tcp, at which point the data
+		* pages may become invalid.
+		*
+		* For data-integrity enabled, we copy it as well, so we can be
+		* sure that even if the bio pages may still be modified, it
+		* won't change the data on the wire, thus if the digest checks
+		* out ok after sending on this side, but does not fit on the
+		* receiving side, we sure have detected corruption elsewhere.
+		*/
+
+		if (!(s & (RQ_EXP_RECEIVE_ACK | RQ_EXP_WRITE_ACK)) || digest_size)
+			// BSR-1116 if req_databuf is assigned, refer to req_databuf, not master_bio, because it may be in the write completion state.
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_bio(peer_device, req->master_bio);
 		else
-#ifdef _WIN
-			err = _bsr_no_send_page(peer_device, req->req_databuf, 0, req->i.size, 0);
-#else // _LIN
-			err = _bsr_send_zc_bio(peer_device, req->master_bio);
+			// BSR-1116
+			if (req->req_databuf)
+				err = _bsr_send_stream(peer_device, req->req_databuf, 0, req->i.size, 0);
+			else
+				err = _bsr_send_zc_bio(peer_device, req->master_bio);
+
 #endif
 
 		// DW-1012 Remove out of sync when data is sent, this is the newest one.
@@ -3411,7 +3475,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 			if (resource->role[NOW] == R_SECONDARY) {
 				rv = try_to_promote(device);
 				if (rv < SS_SUCCESS)
-					bsr_info(32, BSR_LC_STATE, resource, "Failed to set automatic state when device is opened with write option. err(%s)",
+					bsr_info(32, BSR_LC_STATE, resource, "Devices that you open with the write option cannot be set to automatic state. rv(%s)",
 					bsr_set_st_err_str(rv));
 			}
 		}
@@ -3450,10 +3514,7 @@ int bsr_open(struct block_device *bdev, fmode_t mode)
 	if (!rv) {
 		kref_get(&device->kref);
 		kref_debug_get(&device->kref_debug, 3);
-		if (mode & FMODE_WRITE)
-			device->open_rw_cnt++;
-		else
-			device->open_ro_cnt++;
+		device->open_cnt++;
 	}
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 	up(&resource->state_sem);
@@ -3465,17 +3526,15 @@ out:
 	return rv;
 }
 
-static void open_counts(struct bsr_resource *resource, int *rw_count_ptr, int *ro_count_ptr)
+static void open_counts(struct bsr_resource *resource, int *count_ptr)
 {
 	struct bsr_device *device;
-	int vnr, rw_count = 0, ro_count = 0;
+	int vnr, count = 0;
 
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
-		rw_count += device->open_rw_cnt;
-		ro_count += device->open_ro_cnt;
+		count += device->open_cnt;
 	}
-	*rw_count_ptr = rw_count;
-	*ro_count_ptr = ro_count;
+	*count_ptr = count;
 }
 
 #ifdef _WIN
@@ -3487,18 +3546,15 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 	struct bsr_device *device = gd->private_data;
 	struct bsr_resource *resource = device->resource;
 	unsigned long flags;
-	int open_rw_cnt, open_ro_cnt;
+	int open_cnt;
 
 	spin_lock_irqsave(&resource->req_lock, flags);
-	if (mode & FMODE_WRITE)
-		device->open_rw_cnt--;
-	else
-		device->open_ro_cnt--;
+	device->open_cnt--;
 
-	open_counts(resource, &open_rw_cnt, &open_ro_cnt);
+	open_counts(resource, &open_cnt);
 	spin_unlock_irqrestore(&resource->req_lock, flags);
 
-	if (open_ro_cnt == 0)
+	if (open_cnt == 0)
 #ifdef _WIN
 		wake_up(&resource->state_wait);
 #else // _LIN
@@ -3508,7 +3564,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 	if (resource->res_opts.auto_promote) {
 		enum bsr_state_rv rv;
 
-		if (open_rw_cnt == 0 &&
+		if (open_cnt == 0 &&
 		    resource->role[NOW] == R_PRIMARY &&
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
 			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);
@@ -3797,7 +3853,7 @@ void bsr_destroy_device(struct kref *kref)
 #endif
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct io_pending_info *io_pending, *tmp;
 		list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
 			list_del(&io_pending->list);
@@ -3844,7 +3900,11 @@ void bsr_destroy_device(struct kref *kref)
 	}
 	__free_page(device->md_io.page);
 #ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+#ifdef COMPAT_HAVE_BLK_CLEANUP_DISK
 	blk_cleanup_disk(device->vdisk);
+#else
+	put_disk(device->vdisk);
+#endif
 #else
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
@@ -3852,6 +3912,9 @@ void bsr_destroy_device(struct kref *kref)
 
 	device->vdisk = NULL;
 	device->rq_queue = NULL;
+
+	// BSR-1145
+	bsr_offset_ring_free(&device->accelbuf);
 
 	kref_debug_destroy(&device->kref_debug);
 
@@ -3996,7 +4059,7 @@ static void do_retry(struct work_struct *ws)
 		 * as we want to keep the start_time information. */
 		inc_ap_bio(device, bio_data_dir(bio));
 		// BSR-1054
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 			struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'CASB');
 			INIT_LIST_HEAD(&io_pending->list);
 			spin_lock_irq(&device->io_pending_list_lock);
@@ -4032,7 +4095,7 @@ void bsr_restart_request(struct bsr_request *req)
 	 * do_retry() needs to grab a new one. */
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct bsr_device *device = req->device;
 		struct io_pending_info *io_pending, *tmp;
 		spin_lock_irqsave(&device->io_pending_list_lock, flags);
@@ -4101,15 +4164,20 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 		if (!get_ldev_if_state(device, D_UP_TO_DATE))
 			r |= (1 << WB_sync_congested);
 		else
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		r &= bdi_bits;
 		goto out;
 	}
 
 	if (get_ldev(device)) {
 		q = bdev_get_queue(device->ldev->backing_bdev);
+// BSR-1095 5.18 and later kernel support
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
-		put_ldev(device);
+#else
+		r = 0;
+#endif
+		put_ldev(__FUNCTION__, device);
 	}
 
 	if (bdi_bits & (1 << WB_async_congested)) {
@@ -4228,14 +4296,17 @@ static void bsr_put_send_buffers(struct bsr_connection *connection)
 	unsigned int i;
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
-		if (connection->send_buffer[i].page) {
 #ifdef _WIN
+		if (connection->send_buffer[i].buffer) {
 			// DW-1791 fix memory leak 
-			__free_page(connection->send_buffer[i].page);
+			// BSR-1116
+			kfree2(connection->send_buffer[i].buffer);
+			connection->send_buffer[i].buffer = NULL;
 #else // _LIN
+		if (connection->send_buffer[i].page) {
 			put_page(connection->send_buffer[i].page);
-#endif
 			connection->send_buffer[i].page = NULL;
+#endif
 		}
 	}
 }
@@ -4245,6 +4316,22 @@ static int bsr_alloc_send_buffers(struct bsr_connection *connection)
 	unsigned int i;
 
 	for (i = DATA_STREAM; i <= CONTROL_STREAM ; i++) {
+		// BSR-1116 set the buffer size to BSR_STREAM_SEND_BUFFER_SIZE to improve Windows replication send performance.
+#ifdef _WIN
+		void *buffer;
+		if (i == DATA_STREAM)
+			buffer = kmalloc(BSR_STREAM_SEND_BUFFER_SIZE, 0, 'D3SB');
+		else
+			buffer = kmalloc(PAGE_SIZE, 0, 'D3SB');
+
+		if (!buffer) {
+			bsr_put_send_buffers(connection);
+			return -ENOMEM;
+		}
+		connection->send_buffer[i].buffer = buffer;
+		connection->send_buffer[i].unsent =
+			connection->send_buffer[i].pos = buffer;
+#else
 		struct page *page;
 
 		page = alloc_page(GFP_KERNEL);
@@ -4255,6 +4342,7 @@ static int bsr_alloc_send_buffers(struct bsr_connection *connection)
 		connection->send_buffer[i].page = page;
 		connection->send_buffer[i].unsent =
 		connection->send_buffer[i].pos = page_address(page);
+#endif
 	}
 
 	return 0;
@@ -4560,6 +4648,9 @@ struct bsr_connection *bsr_create_connection(struct bsr_resource *resource,
 	if (tc->init(&connection->transport))
 		goto fail;
 
+	// BSR-892
+	connection->last_error = C_NO_ERROR;
+
 	return connection;
 
 fail:
@@ -4665,7 +4756,7 @@ void bsr_destroy_connection(struct kref *kref)
 			set_bit(__EE_WAS_LOST_REQ, &peer_request->flags);
 			// BSR-930	
 			if (!(peer_request->flags & EE_SPLIT_REQ))
-				put_ldev(peer_request->peer_device->device);
+				put_ldev(__FUNCTION__, peer_request->peer_device->device);
 		}
 		spin_unlock_irqrestore(&g_inactive_lock, flags);
 	}
@@ -4818,6 +4909,14 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set64(&peer_device->ov_reply_sector, 0);
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
 	spin_lock_init(&peer_device->ov_lock);
+
+	// BSR-1171
+	peer_device->latest_nodes = 0;
+#ifdef _WIN64
+	peer_device->merged_nodes = UINT64_MAX;
+#else
+	peer_device->merged_nodes = ~0UL;
+#endif
 
 	return peer_device;
 }
@@ -5059,6 +5158,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set(&device->io_error_count, 0);
 	atomic_set(&device->notify_flags, 0);
 
+	// BSR-1116
+	atomic_set64(&device->accelbuf.used_size, 0);
+
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
 	id = idr_alloc(&bsr_devices, device, minor, minor + 1, GFP_NOWAIT);
@@ -5163,7 +5265,7 @@ out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
 #ifdef _LIN 
-#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+#if defined(COMPAT_HAVE_BLK_ALLOC_DISK) && defined(COMPAT_HAVE_BLK_CLEANUP_DISK)
 	blk_cleanup_disk(disk);
 #else
 	put_disk(disk);
@@ -5172,8 +5274,8 @@ out_no_io_page:
 out_no_disk:
 #ifndef COMPAT_HAVE_BLK_ALLOC_DISK
 	blk_cleanup_queue(q);
-#endif
 out_no_q:
+#endif
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);
 	return err;
@@ -5472,7 +5574,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		char buf[1] = { 0x01 };
 
 		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws\\%ws", filePath, t->fileName);
+			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws%ws", filePath, t->fileName);
 
 			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
 			InitializeObjectAttributes(&obAttribute, &usFilePullPath, OBJ_CASE_INSENSITIVE, 0, 0);
@@ -5527,9 +5629,8 @@ static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-int bsr_log_rolling_file_clean_up(void)
+int bsr_log_rolling_file_clean_up(char * file_path)
 {
-	char path[MAX_PATH] = BSR_LOG_FILE_PATH;
 	int log_file_max_count = 0;
 
 	struct log_rolling_file_list rlist = {
@@ -5542,7 +5643,7 @@ int bsr_log_rolling_file_clean_up(void)
 	
 	INIT_LIST_HEAD(&rlist.list);
 	
-	bsr_readdir(path, &rlist);
+	bsr_readdir(file_path, &rlist);
 	
 	list_sort(NULL, &rlist.list, name_cmp);
 
@@ -5552,7 +5653,7 @@ int bsr_log_rolling_file_clean_up(void)
 			continue;
 		}
 
-		err = bsr_file_remove(t->fileName);
+		err = bsr_file_remove(file_path, t->fileName);
 		if (err)
 			break;
 	}
@@ -5614,7 +5715,7 @@ NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile)
 }
 #else // _LIN
 
-int bsr_log_file_rename(void) 
+int bsr_log_file_rename(char * file_path) 
 {
 	char new_name[MAX_PATH];
 	struct timespec64 ts;
@@ -5637,7 +5738,7 @@ int bsr_log_file_rename(void)
 									tm.tm_sec,
 									(int)(ts.tv_nsec / NSEC_PER_MSEC));
 
-	err = bsr_file_rename(BSR_LOG_FILE_NAME, new_name);
+	err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
 
 	return err;
 }
@@ -5752,6 +5853,23 @@ void start_logging_thread(void)
 #endif
 }
 
+
+#ifdef _LIN
+// BSR-1112
+static char * get_log_path(void)
+{
+	char * file_path = NULL;
+	file_path = __read_reg_file(BSR_LOG_PATH_REG);
+
+	if (file_path == NULL) {
+		// set default
+		file_path = bsr_kmalloc(sizeof(BSR_LOG_FILE_PATH) + 1, GFP_ATOMIC|__GFP_NOWARN, '');
+		strcpy(file_path, BSR_LOG_FILE_PATH);
+	}
+	return file_path;
+}
+#endif
+
 #ifdef _WIN
 void log_consumer_thread(PVOID param) 
 #else // _LIN
@@ -5780,9 +5898,25 @@ int log_consumer_thread(void *unused)
 	status = GetRegistryValue(LOG_FILE_MAX_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
 	if (NT_SUCCESS(status))
 		atomic_set(&g_log_file_max_count, *(int*)filePath);
+	
+	memset(filePath, 0, sizeof(filePath));
 
-	RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
-	status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
+	// BSR-1112
+	status = GetRegistryValue(LOG_PATH_REG_VALUE_NAME, &uLength, (UCHAR*)&filePath, &usRegPath);
+	if (NT_SUCCESS(status)) {
+		uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\bsr.log", filePath);
+	} else {
+		// default log path
+		RtlInitUnicodeString(&usRegPath, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment");
+		status = GetRegistryValue(L"BSR_PATH", &uLength, (UCHAR*)&filePath, &usRegPath);
+		if (NT_SUCCESS(status)) {
+			// remove bin
+			ptr = wcsrchr(filePath, L'\\');
+			if (ptr != NULL)
+				filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+			uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsr.log", filePath);
+		}
+	}
 
 	if (!NT_SUCCESS(status)) {
 		// BSR-619 if the path fails to obtain, end the real-time log write.
@@ -5792,19 +5926,14 @@ int log_consumer_thread(void *unused)
 		return;
 	}
 
-	ptr = wcsrchr(filePath, L'\\');
-	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
 
 	// BSR-579
 	wait_for_add_device(filePath);
 
-	uLength = _snwprintf(fileFullPath, MAX_PATH - 1, L"\\??\\%ws\\log\\bsrlog.txt", filePath);
-
 	memcpy(filePath, fileFullPath, sizeof(fileFullPath));
 	ptr = wcsrchr(filePath, L'\\');
 	if (ptr != NULL)
-		filePath[wcslen(filePath) - wcslen(ptr)] = L'\0';
+		filePath[(wcslen(filePath) + 1) - wcslen(ptr)] = L'\0';
 
 	RtlInitUnicodeString(&usFileFullPath, fileFullPath);
 	InitializeObjectAttributes(&obAttribute, &usFileFullPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
@@ -5831,13 +5960,17 @@ int log_consumer_thread(void *unused)
 	int err = 0;
 	size_t filesize = 0;
 	mm_segment_t oldfs;
-	char filePath[sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1]; 
+	char * file_path = NULL;
+	char * file_fullpath = NULL;
 
-	snprintf(filePath, sizeof(BSR_LOG_FILE_PATH) + sizeof(BSR_LOG_FILE_NAME) + 1, 
-			"%s/%s", BSR_LOG_FILE_PATH, BSR_LOG_FILE_NAME);
+	file_path = get_log_path();
+	file_fullpath = bsr_kmalloc(strlen(file_path) + sizeof(BSR_LOG_FILE_NAME) + 1, GFP_ATOMIC|__GFP_NOWARN, '');
 
+	snprintf(file_fullpath, strlen(file_path) + sizeof(BSR_LOG_FILE_NAME) + 1, 
+			"%s/%s", file_path, BSR_LOG_FILE_NAME);
+	
 	// BSR-610 mkdir /var/log/bsr
-	err = bsr_mkdir(BSR_LOG_FILE_PATH, 0755);
+	err = bsr_mkdir(file_path, 0755);
 	if (err != 0 && err != -EEXIST) {
 		// BSR-619 if the path fails to obtain, end the real-time log write.
 		gLogBuf.h.r_idx.has_consumer = false;
@@ -5850,7 +5983,7 @@ int log_consumer_thread(void *unused)
 #ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
 #endif
-	hFile = filp_open(filePath, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	hFile = filp_open(file_fullpath, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	set_fs(oldfs);
 	if (hFile == NULL || IS_ERR(hFile)) {
 		bsr_err(19, BSR_LC_LOG, NO_OBJECT, "Failed to create log file");
@@ -5865,7 +5998,14 @@ int log_consumer_thread(void *unused)
 
 		while (g_consumer_state == RUNNING) {
 			if (chk_complete == false) {
-				if (!idx_ring_consume(&gLogBuf.h, &idx)) {
+				// BSR-1112
+				if (gLogBuf.path_changed) {
+					// log thread restart
+					bsr_info(26, BSR_LC_LOG, NO_OBJECT, "Log path has changed. retart the log thread.");
+					break;
+				}
+
+				if (!bsr_idx_ring_consume(&gLogBuf.h, &idx)) {
 					msleep(100); // wait 100ms relative
 					continue;
 				}
@@ -5941,7 +6081,7 @@ int log_consumer_thread(void *unused)
 				}
 #else // _LIN
 				// BSR-579 rolling and clean up
-				if (bsr_log_rolling_file_clean_up() != 0) {
+				if (bsr_log_rolling_file_clean_up(file_path) != 0) {
 					bsr_err(22, BSR_LC_LOG, NO_OBJECT, "Failed to remove log file");
 					break;
 				}
@@ -5950,7 +6090,7 @@ int log_consumer_thread(void *unused)
 				if (hFile)
 					filp_close(hFile, NULL);
 
-				if (bsr_log_file_rename() != 0) {
+				if (bsr_log_file_rename(file_path) != 0) {
 					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
 					break;
 				}
@@ -5959,7 +6099,7 @@ int log_consumer_thread(void *unused)
 				set_fs(KERNEL_DS);
 #endif
 
-				hFile = filp_open(filePath, O_WRONLY | O_CREAT, 0644);
+				hFile = filp_open(file_fullpath, O_WRONLY | O_CREAT, 0644);
 				set_fs(oldfs);
 				if (hFile == NULL || IS_ERR(hFile)) {
 					bsr_err(24, BSR_LC_LOG, NO_OBJECT, "Failed to create new log file");
@@ -5968,7 +6108,7 @@ int log_consumer_thread(void *unused)
 #endif
 				logFileSize = 0;
 			}
-			idx_ring_dispose(&gLogBuf.h, buffer);
+			bsr_idx_ring_dispose(&gLogBuf.h, buffer);
 		}
 	}
 
@@ -5981,10 +6121,20 @@ int log_consumer_thread(void *unused)
 		hFile = NULL;
 	}
 
+	// BSR-1112
+#ifdef _LIN
+	if (file_fullpath)
+		bsr_kfree(file_fullpath);
+	if (file_path)
+		bsr_kfree(file_path);
+#endif
+
 	gLogBuf.h.r_idx.has_consumer = false;
 
 	// BSR-619 if a failure occurs, try again if it is in RUNNING state.
-	if (g_consumer_state == RUNNING) {
+	// BSR-1112
+	if (g_consumer_state == RUNNING || gLogBuf.path_changed) {
+		gLogBuf.path_changed = 0;
 		msleep(1000);
 		start_logging_thread();
 	}
@@ -6311,7 +6461,7 @@ static void __bsr_md_sync(struct bsr_device *device, bool maybe)
 
 	bsr_md_put_buffer(device);
 out:
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 void bsr_md_sync(struct bsr_device *device)
@@ -6811,7 +6961,7 @@ u64 bsr_weak_nodes_device(struct bsr_device *device)
 }
 
 // BSR-967 add arguments for younger primary
-static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, bool younger, const char* caller) __must_hold(local)
+static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool send, bool younger, bool need_rotate_bm, const char* caller) __must_hold(local)
 {
 	struct bsr_peer_device *peer_device;
 	u64 got_new_bitmap_uuid, weak_nodes, val;
@@ -6822,8 +6972,11 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
 					device->resource->dagtag_sector);
 
 	if (!got_new_bitmap_uuid) {
-		spin_unlock_irq(&device->ldev->md.uuid_lock);
-		return;
+		// BSR-1166
+		if (need_rotate_bm) {
+			spin_unlock_irq(&device->ldev->md.uuid_lock);
+			return;
+		}
 	}
 
 	get_random_bytes(&val, sizeof(u64));
@@ -6869,11 +7022,11 @@ static void __bsr_uuid_new_current(struct bsr_device *device, bool forced, bool 
  * the bitmap slot. Causes an incremental resync upon next connect.
  * The caller must hold adm_mutex or conf_update
  */
-void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, const char* caller)
+void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool need_rotate_bm, const char* caller)
 {
 	if (get_ldev_if_state(device, D_UP_TO_DATE)) {
-		__bsr_uuid_new_current(device, forced, true, younger, caller);
-		put_ldev(device);
+		__bsr_uuid_new_current(device, forced, true, younger, need_rotate_bm, caller);
+		put_ldev(__FUNCTION__, device);
 	} else {
 		struct bsr_peer_device *peer_device;
 		/* The peers will store the new current UUID... */
@@ -6891,11 +7044,18 @@ void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, 
 	}
 }
 
-void bsr_uuid_new_current_by_user(struct bsr_device *device)
+void bsr_uuid_new_current_by_user(struct bsr_device *device, bool need_rotate_bm)
 {
 	if (get_ldev(device)) {
-		__bsr_uuid_new_current(device, false, false, false, __FUNCTION__);
-		put_ldev(device);
+		if (need_rotate_bm) {
+			struct bsr_peer_device *peer_device;
+
+			for_each_peer_device(peer_device, device)
+				bsr_uuid_set_bitmap(peer_device, 0); /* Rotate UI_BITMAP to History 1, etc... */
+		}
+
+		__bsr_uuid_new_current(device, false, false, false, need_rotate_bm, __FUNCTION__);
+		put_ldev(__FUNCTION__, device);
 	}
 }
 
@@ -6950,9 +7110,13 @@ void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val,
 	}
 
 	if (set_current) {
-
 		// DW-1034 split-brain could be caused since old one's been extinguished, always preserve old one when setting new one.
 		got_new_bitmap_uuid = rotate_current_into_bitmap(device, weak_nodes, dagtag);
+
+		// BSR-1164 update the Primary's bitmap_uuids to got_new_bitmap_uuid.
+		__set_bitmap_slots(device, peer_device, NULL, got_new_bitmap_uuid);
+		_bsr_uuid_push_history(device, bsr_current_uuid(device), NULL);
+		
 		__bsr_uuid_set_current(device, val, NULL, __FUNCTION__);
 		// DW-837 Apply updated current uuid to meta disk.
 		bsr_md_mark_dirty(device);
@@ -6996,7 +7160,7 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 			}
 
 			_bsr_uuid_push_history(device, peer_md[node_id].bitmap_uuid, NULL);
-			/* bsr_info(10, BSR_LC_ETC, device, "bitmap[node_id=%d] = %llX", node_id, bitmap_uuid); */
+			bsr_info(10, BSR_LC_ETC, device, "update bitmap uuid %llX pnode-id(%d)", bitmap_uuid, node_id);
 			peer_md[node_id].bitmap_uuid = bitmap_uuid;
 			peer_md[node_id].bitmap_dagtag =
 				bitmap_uuid ? device->resource->dagtag_sector : 0;
@@ -7428,6 +7592,8 @@ int bsr_bmio_set_all_or_fast(struct bsr_device *device, struct bsr_peer_device *
 	// BSR-52 for sync only current oos after online verify.
 	if (test_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags)) {
 		clear_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
+		// BSR-1064
+		atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 		return nRet;
 	}
 
@@ -7797,8 +7963,11 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 
 	do {
 		pVbb = (PVOLUME_BITMAP_BUFFER)GetVolumeBitmap(device, &ullTotalCluster, &ulBytesPerCluster);
-		if (NULL == pVbb) {
+		if (NULL == pVbb) {			
+			// BSR-1105 the error log is output from the previous call function, so it is removed.
+#if 0
 			bsr_err(69, BSR_LC_BITMAP, device, "Failed to get bsr bitmap due to failure to get volume bitmap, minor(%u)", device->minor);
+#endif
 			break;
 		}
 			
@@ -7809,12 +7978,19 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			// retrived bitmap size from os indicates that total bit count, convert it into byte of total bit.
 			pBsrBitmap->BitmapSize.QuadPart = (ullTotalCluster / BITS_PER_BYTE);
 #endif
+			// BSR-1121
+			if (bsr_bm_bits(device) != ullTotalCluster)
+				bsr_info(230, BSR_LC_RESYNC_OV, device, "The bitmap size of the file system and BSR does not match. bsr(%llu), fs(%llu)", bsr_bm_bits(device), ullTotalCluster);
+
 			pVbb = NULL;
 		}
 		else {
 			// Convert gotten bitmap into 4kb unit cluster bitmap.
 			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulBsrBitmapUnit;
 			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
+
+			if (bsr_bm_bits(device) != ullTotalCluster)
+				bsr_info(231, BSR_LC_RESYNC_OV, device, "The bitmap size of the file system and BSR does not match. bsr(%llu), fs(%llu)", bsr_bm_bits(device), ullTotalCluster);
 #ifdef _WIN
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)ExAllocatePoolWithTag(NonPagedPool, sizeof(VOLUME_BITMAP_BUFFER) +  ulConvertedBitmapSize, '56SB');			
 #else // _LIN
@@ -7910,7 +8086,18 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 		// DW-2017
 		mutex_lock(&device->resource->vol_ctl_mutex);
 	}
-	
+
+#ifdef _WIN
+	// BSR-1066 if the peer was a diskless or crashed primary, full sync.
+	if (side == L_SYNC_SOURCE) {
+		if (bsr_md_test_peer_flag(peer_device, MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY)) {
+			bsr_info(229, BSR_LC_RESYNC_OV, peer_device, "The peer node maybe diskless or crashed primary, need to full-sync");
+			mutex_unlock(&device->resource->vol_ctl_mutex);
+			goto out;
+		}
+	}
+#endif
+
 	if (device->resource->role[NOW] == R_SECONDARY) {
 		// DW-1317 set read-only attribute and mount for temporary.
 		if (side == L_SYNC_SOURCE) {
@@ -7973,7 +8160,7 @@ bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_device *p
 				{
 					set_bit(FORCE_DETACH, &device->flags);
 					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			}
 			mutex_unlock(&att_mod_mutex);
@@ -8091,11 +8278,12 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 		// Get volume bitmap which is converted into 4kb cluster unit.
 		pBitmap = GetVolumeBitmapForBsr(device, BM_BLOCK_SIZE);
-		
+		// BSR-1105 the error log is output from the previous call function, so it is removed.
+#if 0
 		if (NULL == pBitmap) {
 			bsr_err(73, BSR_LC_BITMAP, peer_device, "Failed to get fast ov bitmap due to could not get bitmap for bsr");
-			err = true;
 		}
+#endif
 		
 		if (bSecondary) {
 			// prevent from mounting volume.
@@ -8112,7 +8300,7 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				{
 					set_bit(FORCE_DETACH, &device->flags);
 					change_disk_state(device, D_DETACHING, CS_HARD, NULL);
-					put_ldev(device);
+					put_ldev(__FUNCTION__, device);
 				}
 			}
 			mutex_unlock(&att_mod_mutex);
@@ -8147,11 +8335,18 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 				// BSR-835 fix to manage ov bitmap buffer with kref
 				kref_init(&peer_device->ov_bm_ref);
 				bsr_info(212, BSR_LC_RESYNC_OV, peer_device, "The bitmap buffer for online verification has been allocated.");
-				err = false;
+			} else {
+				// BSR-1105 if pBitmap is NULL, clear OV_FAST_BM_SET_PENDING because it must act as full o/v.
+				clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 			}
 			ov_tw = bsr_ov_bm_total_weight(peer_device);
-			if (ov_tw == 0)
+			if (ov_tw == 0) {
 				err = true;
+			}
+			else {
+				// BSR-1105 it operates as fast o/v or full o/v depending on whether pBitmap is set or not.
+				err = false;
+			}
 		}
 
 		if (err) {
@@ -8221,7 +8416,7 @@ static int w_bitmap_io(struct bsr_work *w, int unused)
 			bsr_bm_slot_unlock(work->peer_device);
 		else
 			bsr_bm_unlock(device);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 
 	if (work->done)

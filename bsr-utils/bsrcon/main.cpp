@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <Shlwapi.h>
 #else // _LIN
+#include <sys/stat.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -342,6 +344,41 @@ BOOLEAN get_log_level(int *sys_evtlog_lv, int *dbglog_lv)
 
 	return true;
 }
+
+// BSR-1060
+BOOLEAN get_handler_use()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD use = 0;
+
+#ifdef _WIN
+	lResult = get_value_of_vflt(_T("handler_use"), &use);
+#else // _LIN
+	lResult = get_value_of_vflt(BSR_HANDLER_USE_REG, &use);
+#endif
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		return false;
+	}
+
+	return (use == 1) ? true : false;
+}
+
+#ifdef _WIN
+int get_handler_timeout()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	DWORD timeout = 5; // BSR_TIMEOUT_DEF 
+
+	lResult = get_value_of_vflt(_T("handler_timeout"), &timeout);
+
+	if (lResult == ERROR_FILE_NOT_FOUND) {
+		return timeout;
+	}
+
+	return timeout;
+}
+#endif
 
 // BSR-654
 BOOLEAN get_debug_log_enable_category(int *dbg_ctgr)
@@ -881,6 +918,40 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	return 0;
 }
 
+// BSR-1060 gets the set handler information.
+int cmd_get_handler_info(int *index, int argc, char* argv[])
+{
+	printf("Current handler.\n");
+	printf("    state : %s\n", get_handler_use() ? "enable" : "disable");
+#ifdef _WIN
+	printf("    timeout : %d\n", get_handler_timeout());
+#endif
+	return 0;
+}
+// BSR-1060 sets the handler wait time. the unit is seconds.
+#ifdef _WIN
+int cmd_handler_timeout(int *index, int argc, char* argv[])
+{
+	HANDLER_TIMEOUT_INFO hInfo = { 0, };
+
+	(*index)++;
+	if (*index < argc) {
+		int timeout = atoi(argv[*index]);
+		if (timeout < 0) {
+			fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+			usage();
+		}
+		else {
+			hInfo.timeout = timeout;
+		}
+	}
+	else
+		usage();
+
+	return  MVOL_SetHandlerTimeout(&hInfo);
+}
+#endif
+
 int cmd_handler_use(int *index, int argc, char* argv[])
 {
 	HANDLER_INFO hInfo = { 0, };
@@ -1133,23 +1204,202 @@ int cmd_dismount(int *index, int argc, char* argv[])
 	return res;
 }
 
-int cmd_release_vol(int *index, int argc, char* argv[])
+#define RUN_PROCESS_TIMEOUT 10000
+
+// BSR-1051
+DWORD RunProcess(char* command, char* workingDirectory, char **out)
 {
-	int res;
+	STARTUPINFOA si;
+	PROCESS_INFORMATION pi;
+	char *appName = NULL;
+	DWORD res = 0;
+	HANDLE stdOutRd = INVALID_HANDLE_VALUE, stdOutWd = INVALID_HANDLE_VALUE;
+	SECURITY_ATTRIBUTES saAttr;
 
-	(*index)++;
-	if (*index < argc)
-		letter = (UCHAR)*argv[*index];
-	else
-		usage();
+	ZeroMemory(&saAttr, sizeof(saAttr));
+	ZeroMemory(&si, sizeof(si));
+	ZeroMemory(&pi, sizeof(pi));
 
-	res = MVOL_MountVolume(letter);
-	if (ERROR_SUCCESS == res) {
-		if (ERROR_SUCCESS == delete_volume_reg(letter)) {
-			fprintf(stderr, "%c: is release volume, not any more bsr volume.\nRequire to delete a resource file.\n", letter);
+	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+	saAttr.bInheritHandle = TRUE;
+	saAttr.lpSecurityDescriptor = NULL;
+
+	if (out) {
+		if (!CreatePipe(&stdOutRd, &stdOutWd, &saAttr, 0)) {
+			res = GetLastError();
+			fprintf(stderr, "CreatePipe faild: GetLastError %d\n", res);
+			goto out;
+		}
+
+		if (!SetHandleInformation(stdOutRd, HANDLE_FLAG_INHERIT, 0)) {
+			res = GetLastError();
+			fprintf(stderr, "SetHandleInformation faild: GetLastError %d\n", res);
+			goto out;
+		}
+		si.hStdOutput = stdOutWd;
+	}
+
+	si.cb = sizeof(si);
+	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;;
+	si.wShowWindow = SW_HIDE;
+
+	if (!CreateProcessA(appName,
+		command,					// Command line
+		NULL,							// Process handle not inheritable. 
+		NULL,							// Thread handle not inheritable. 
+		TRUE,							// Set handle inheritance to FALSE. 
+		CREATE_NEW_CONSOLE,								// creation flags. 
+		NULL,							// Use parent's environment block. 
+		workingDirectory,			// Use parent's starting directory. 
+		&si,							// Pointer to STARTUPINFO structure.
+		&pi)							// Pointer to PROCESS_INFORMATION structure.
+		) {
+		res = GetLastError();
+		fprintf(stderr, "CreateProcess faild: GetLastError %d\n", res);
+		goto out;
+	} else {
+		if (pi.dwProcessId > 0) {
+			res = WaitForSingleObject(pi.hProcess, RUN_PROCESS_TIMEOUT);
+			if (res != WAIT_OBJECT_0) {
+				if (res == WAIT_FAILED)
+					res = GetLastError();
+				fprintf(stderr, "CreateProcess WaitForSingleObject faild: Error %d\n", res);
+				goto out_all;
+			} else 
+				res = 0;
+		}
+		if (stdOutRd != INVALID_HANDLE_VALUE && stdOutWd != INVALID_HANDLE_VALUE) {
+			unsigned long dwRead;
+			unsigned long avail;
+
+			PeekNamedPipe(stdOutRd, *out, BUFSIZE, &dwRead, &avail, NULL);
+
+			if (dwRead > 0) {
+				*out = (char*)malloc(dwRead + 1);
+				if (*out) {
+					if (!ReadFile(stdOutRd, *out, BUFSIZE, &dwRead, NULL))
+						res = ERROR_INVALID_DATA;
+				} else
+					res = ERROR_OUTOFMEMORY;
+			} else
+				res = ERROR_INVALID_DATA;
+			
 		}
 	}
+
+out_all:
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+out:
+	if (stdOutRd != INVALID_HANDLE_VALUE)
+		CloseHandle(stdOutRd);
+	if (stdOutWd != INVALID_HANDLE_VALUE)
+		CloseHandle(stdOutWd);
+
 	return res;
+}
+
+// BSR-1051
+static int confirmed(const char *text, bool force) 
+{
+	const char yes[] = "yes";
+	const size_t N = sizeof(yes);
+	char answer[32] = { 0, };
+	size_t n = 0;
+	int ok = 0;
+
+	fprintf(stderr, "\n%s\n", text);
+
+	if (force) {
+		fprintf(stderr, "*** confirmation forced via --force option ***\n");
+		ok = 1;
+	} else {
+		fprintf(stderr, "[need to type '%s' to confirm] ", yes);
+		scanf_s("%s", answer);
+		if (strlen(answer) == (N - 1) &&
+			!strncmp(answer, yes, N - 1)) {
+			ok = 1;
+		}
+		fprintf(stderr, "\n");
+	}
+
+	return ok;
+}
+
+int cmd_release_vol(int *index, int argc, char* argv[])
+{
+	int ret = ERROR_SUCCESS;
+	char* resName = NULL;
+	bool force = false;
+
+	(*index)++;
+	if (((*index) + 1) < argc) {
+		// BSR-1051 
+		if (!strcmp(argv[*index], "--force")) {
+			force = true;
+			(*index)++;
+		}
+		resName = argv[(*index)++];
+		letter = (UCHAR)*argv[(*index)++];
+	} else 
+		usage();
+
+	printf(" ==> Destroys the meta data of volume letter %c! <==\n", letter);
+	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force))
+		return ret;
+
+	ret = MVOL_MountVolume(letter);
+	if (ERROR_SUCCESS == ret) {
+		char cl[MAX_PATH] = { 0, };
+		char *wd = NULL, *buf = NULL;
+		size_t len;
+
+		printf("Mounted volume.\n");
+		ret = delete_volume_reg(letter);
+		if (ERROR_SUCCESS == ret)
+			printf("Deleted registry key.\n");
+		else
+			printf("Failed to remove volume lock registry key. Please remove registry key.\n");
+
+		if (!_dupenv_s(&wd, &len, "BSR_PATH")) {
+			bool wm = false;
+			char *token, *ptr;
+			char str[MAX_PATH] = { 0, };
+
+			// BSR-1051 run dry-run to find the target volume in case of multiple volumes.
+			sprintf_s(cl, "bsradm --dry-run wipe-md %s", resName);
+			ret = RunProcess(cl, wd, &buf);
+			if (ERROR_SUCCESS == ret) {
+				sprintf_s(str, "bsrmeta %d", letter > 'a' ? letter - 'c' : letter - 'C');
+				token = strtok_s(buf, "\n", &ptr);
+				while (token != NULL) {
+					if (!strncmp(token, str, strlen(str))) {
+						// BSR-1051 destroys the metadata of the volume.
+						sprintf_s(str, "%s--force", token);
+						ret = RunProcess(str, wd, NULL);
+						if (ERROR_SUCCESS == ret)
+							printf("Destroyed meta data.\n");
+						else
+							printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+						wm = true;
+						break;
+					}
+					token = strtok_s(ptr, "\n", &ptr);
+				}
+				if (wd)
+					free(wd);
+				if (buf)
+					free(buf);
+				if (!wm)
+					printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+			} else
+				printf("Failed to destroy meta data. Please destroy meta data(wipe-md).\n");
+		} else
+			printf("Failed to get BSR installation path during volume release. Please destroy meta data(wipe-md).\n");
+	}
+
+	return ret;
 }
 
 int cmd_disk_error(int *index, int argc, char* argv[])
@@ -1328,6 +1578,195 @@ int cmd_bsr_fake_al_used(int *index, int argc, char* argv[])
 	return 0;
 }
 
+int create_dir(char* path)
+{
+	char dirName[MAX_PATH] = { 0, };
+	char* pDir = dirName;
+	DWORD ret = ERROR_SUCCESS;
+#ifdef _WIN
+	char* p = path;
+
+	while(*p) {
+		// create sub dir
+		if (('\\' == *p) && (':' != *(p-1))) {
+			if (!CreateDirectoryA(dirName, NULL)) {
+				ret = GetLastError();
+				if (ret != ERROR_ALREADY_EXISTS) {
+					fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
+						__FUNCTION__, dirName, ret);
+					return ret;
+				}
+			}
+		}
+				
+		*pDir++ = *p++;
+		*pDir = '\0';
+	}
+
+	// create log dir
+	if (!CreateDirectoryA(dirName, NULL)) {
+		ret = GetLastError();
+		if (ret == ERROR_ALREADY_EXISTS) {
+			ret = ERROR_SUCCESS;
+		} else {
+			fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
+				__FUNCTION__, dirName, ret);
+		}
+	}
+#else
+	strcpy(dirName, path);
+	dirName[MAX_PATH-1] = '\0';
+	pDir++;
+	while(*pDir) {
+		// create sub dir
+		if ('/' == *pDir) {
+			*pDir = '\0';
+			ret = mkdir(dirName, 0777);
+			if (ret != 0 && errno != EEXIST) {
+				fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%d\n", __FUNCTION__, dirName, ret);
+				return ret;
+			}
+			*pDir = '/';
+		}
+		pDir++;
+	}
+	// create log dir
+	ret = mkdir(dirName, 0777);
+	if (ret != 0) {
+		if (errno == EEXIST)
+			ret = ERROR_SUCCESS;
+		else
+			fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%d\n", __FUNCTION__, dirName, ret);
+	}
+#endif		
+
+	return ret;
+}
+
+// BSR-1112 add commands to change log path
+int cmd_set_log_path(int *index, int argc, char* argv[])
+{
+#ifdef _WIN
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	HKEY hKey = NULL;
+	TCHAR logPath[MAX_PATH] = { 0, };
+#else // _LIN
+	FILE *fp;
+#endif
+	char *newPath;
+	char fullPath[MAX_PATH] = { 0, };
+	DWORD retVal = ERROR_SUCCESS;
+
+	(*index)++;
+
+	if (*index < argc) {
+#ifdef _WIN
+		char *ptr;
+		newPath = strtok_s(argv[*index], "\"", &ptr);
+#else
+		newPath = argv[*index];
+#endif
+	}
+	else
+		usage();
+	
+#ifdef _WIN
+	// create log dir with perfmon dir
+	sprintf_s(fullPath, "%s\\perfmon", newPath);
+	retVal = create_dir(fullPath);
+	if (retVal != ERROR_SUCCESS)
+		return retVal;
+
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, newPath, (int)strlen(newPath), logPath, MAX_PATH);
+
+	retVal = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != retVal) {
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed RegOpenKeyEx %s. Err=%u\n",
+				__FUNCTION__, gBsrRegistry, retVal);
+		return retVal;
+	}
+
+	retVal = RegSetValueEx(hKey, _T("log_path"), 0, REG_SZ, (PBYTE)logPath, 
+					(DWORD)(_tcslen(logPath) + 1) * sizeof(TCHAR));
+	RegCloseKey(hKey);
+#else // _LIN
+	// create log dir with perfmon dir
+	sprintf(fullPath, "%s/perfmon", newPath);
+	retVal = create_dir(fullPath);
+	if (retVal != 0)
+		return retVal;
+
+	// write /etc/bsr.d/.log_path
+	fp = fopen(BSR_LOG_PATH_REG, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%s", newPath);
+		fclose(fp);
+	} else {
+		retVal = GetLastError();
+		fprintf(stderr, "LOG_PATH_ERROR: %s: Failed open %s file. Err=%u\n",
+				__FUNCTION__, BSR_LOG_PATH_REG, retVal);
+		return retVal;
+	}
+
+#endif
+
+	return MVOL_BsrLogPathChange();
+}
+
+// BSR-1112
+int cmd_get_log_path(int *index, int argc, char* argv[])
+{
+#ifdef _WIN
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	DWORD type = REG_SZ;
+	DWORD size = MAX_PATH;	
+	TCHAR buf[MAX_PATH] = { 0, };
+	
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, gBsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != lResult) {
+		return lResult;
+	}
+
+	lResult = RegQueryValueEx(hKey, _T("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	RegCloseKey(hKey);
+	if (ERROR_SUCCESS == lResult) {
+		printf("%ws\n", buf);
+	}
+	else {
+		TCHAR bsr_path[MAX_PATH] = {0,};
+		size_t path_size;
+		errno_t result;
+		result = _wgetenv_s(&path_size, bsr_path, MAX_PATH, L"BSR_PATH");
+		if (result || (bsr_path == NULL) || !wcslen(bsr_path)) {
+			printf("c:\\Program Files\\bsr\\log\\");
+		} else {
+			wcsncpy_s(buf, bsr_path, wcslen(bsr_path) - wcslen(L"bin"));
+			printf("%wslog", buf);
+		}
+	}
+#else // _LIN
+	FILE *fp;
+	char buf[MAX_PATH] = { 0, };
+
+	fp = fopen(BSR_LOG_PATH_REG, "r");
+
+	if (fp == NULL) {
+		printf("%s\n", BSR_LOG_FILE_PATH);
+		return 0;
+	}
+
+	if (fgets(buf, sizeof(buf), fp) != NULL)
+		printf("%s\n", buf);
+	else 
+		printf("%s\n", BSR_LOG_FILE_PATH);
+	fclose(fp);
+#endif
+
+	return 0;
+}
+
+
 struct cmd_struct {
 	const char *cmd;
 	int(*fn) (int *, int, char **);
@@ -1349,7 +1788,10 @@ static struct cmd_struct commands[] = {
 	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"", false },
 	{ "/get_log_info", cmd_get_log_info, "", "", "", false },
 	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"", false },
+	{ "/get_handler_info", cmd_get_handler_info, "", "", "", false },
 #ifdef _WIN
+	// BSR-1060
+	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(seconds)}", "", "1", false },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", false },
 	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", false },
@@ -1365,7 +1807,8 @@ static struct cmd_struct commands[] = {
 	{ "/status", cmd_status, "", "", "", false },
 	{ "/s", cmd_status, "", "", "", false },
 	{ "/dismount", cmd_dismount, "{letter}", "", "E", false },
-	{ "/release_vol", cmd_release_vol, "{letter}", "", "E", false },
+	// BSR-1051
+	{ "/release_vol", cmd_release_vol, "{resource name} {letter}", "", "\"r0 E\", \"--force r0 E\"", false },
 	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100", false },
 	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "", false },
 	{ "/info", cmd_info, "", "", "", false },
@@ -1383,6 +1826,16 @@ static struct cmd_struct commands[] = {
 	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
 	// BSR-1039
 	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", false },
+	// BSR-1112
+	{ "/set_log_path", cmd_set_log_path, "{log file path}", "", 
+#ifdef _WIN
+		"\"C:\\Program Files\\bsr\\log\"", 
+#else // _LIN
+		"/var/log/bsr", 
+#endif
+		false },
+	{ "/get_log_path", cmd_get_log_path, "", "", "", false },
+
 };
 
 static void usage()

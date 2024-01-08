@@ -1025,9 +1025,15 @@ struct context_def primary_cmd_ctx = {
 	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
-#ifdef _LIN
+		{ } },
+};
+
+struct context_def primary_adm_cmd_ctx = {
+	NLA_POLICY(set_role_parms),
+	.nla_type = BSR_NLA_SET_ROLE_PARMS,
+	.fields = {
+		{ "force", FLAG(assume_uptodate) },
 		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
-#endif
 		{ } },
 };
 
@@ -1145,10 +1151,12 @@ struct context_def resource_options_ctx = {
 		// DW-1925 number and size of request objects can be set
 		{ "max-req-write-count", NUMERIC(max_req_write_cnt, MAX_REQ_WRITE_CNT) },
 		{ "on-req-write-congestion", ENUM(on_req_write_congestion, ON_REQ_WRITE_CONGESTION) },
+		// BSR-1116 set buffer size to improve local write performance during asynchronous replication										
+		{ "accelbuf-size", NUMERIC(accelbuf_size, ACCELBUF_SIZE), .unit = "bytes" },
+		// BSR-1145 accelbuf sets the applied write size because it aims to improve the local write performance of small unit writes
+		{ "max-accelbuf-blk-size", NUMERIC(max_accelbuf_blk_size, MAX_ACCELBUF_BLK_SIZE), .unit = "bytes" },
 		{ } },
 };
-
-
 
 #define CHANGEABLE_NODE_OPTIONS                    \
     /* DW-1249 auto-start by svc */		\
@@ -1179,6 +1187,8 @@ struct context_def new_current_uuid_cmd_ctx = {
 	.nla_type = BSR_NLA_NEW_C_UUID_PARMS,
 	.fields = {
 		{ "clear-bitmap", FLAG(clear_bm) },
+		// BSR-1166
+		{ "no-rotate-bitmap", FLAG(no_rotate_bm) },
 		{ } },
 };
 

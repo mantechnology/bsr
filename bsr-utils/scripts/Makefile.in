@@ -88,10 +88,8 @@ endif
 	  $(LN_S) -f notify.sh notify-emergency-shutdown.sh ;\
 	  $(LN_S) -f notify.sh notify-out-of-sync.sh; )
 	install -d $(DESTDIR)$(sbindir)
-	install -m 755 bsr-overview.pl $(DESTDIR)$(sbindir)/bsr-overview
 	install -m 755 bsrwatch $(DESTDIR)$(sbindir)
 	install -m 755 bsrsupport $(DESTDIR)$(sbindir)
-	install -m 755 bsrmon-run $(DESTDIR)$(sbindir)
 ifeq ($(DISTRO),debian)
 	@ echo "Don't forget to run update-rc.d"
 else
@@ -131,10 +129,8 @@ ifneq ($(initscripttype),sysv)		# "systemd" or "both"
 endif
 	rm -f $(DESTDIR)$(sysconfdir)/xen/scripts/block-bsr
 	rm -f $(DESTDIR)$(sysconfdir)/bash_completion.d/bsradm$(BASH_COMPLETION_SUFFIX)
-	rm -f $(DESTDIR)$(sbindir)/bsr-overview
 	rm -f $(DESTDIR)$(sbindir)/bsrwatch
 	rm -f $(DESTDIR)$(sbindir)/bsrsupport
-	rm -f $(DESTDIR)$(sbindir)/bsrmon-run
 
 .PHONY: install uninstall clean distclean
 ../../configure:

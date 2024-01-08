@@ -7,7 +7,9 @@
 #define BSR_CONTROL_DEV     "/dev/bsr-control"
 #define BSR_IOCTL_MAGIC     147
 #define BSR_HANDLER_USE_REG	"/etc/bsr.d/.handler_use"
-#define BSR_MON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
+#define BSRMON_RUN_REG		"/etc/bsr.d/.bsrmon_run"
+// BSR-1138
+#define BSRMON_TYPES_REG		"/etc/bsr.d/.bsrmon_types"
 
 
 
@@ -32,6 +34,8 @@
 #define IOCTL_MVOL_HOLD_STATE			_IOWR(BSR_IOCTL_MAGIC, 11, HOLD_STATE)
 // BSR-1039
 #define IOCTL_MVOL_FAKE_AL_USED			_IOWR(BSR_IOCTL_MAGIC, 12, int)
+// BSR-1112
+#define IOCTL_MVOL_LOG_PATH_CHANGED     _IO(BSR_IOCTL_MAGIC, 13)
 
 #endif
 

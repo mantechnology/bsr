@@ -40,48 +40,21 @@ static void _bsr_start_io_acct(struct bsr_device *device, struct bsr_request *re
 #endif
 }
 
-/* Update disk stats when completing request upwards */
-static void _bsr_end_io_acct(struct bsr_device *device, struct bsr_request *req)
-{	
-#ifdef COMPAT_HAVE_BIO_START_IO_ACCT
-	bio_end_io_acct(req->master_bio, req->start_jif);
-#else
-	struct request_queue *q = device->rq_queue;
-	generic_end_io_acct(q, bio_data_dir(req->master_bio),
-		(struct hd_struct*)&device->vdisk->part0, req->start_jif);
-#endif
-}
-
-
 static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bio_src)
 {
 	struct bsr_request *req;
 	int i;
-	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
 
+	req = mempool_alloc(bsr_request_mempool, GFP_NOIO);
 	if (!req)
 		return NULL;
 
 	memset(req, 0, sizeof(*req));
-#ifdef _WIN
-	req->req_databuf = kmalloc(bio_src->bi_size, 0, '63SB');
-	if (!req->req_databuf) {
-		mempool_free(req, &bsr_request_mempool);
-		return NULL;
-	}
-	// DW-1237 set request data buffer ref to 1 for local I/O.
-	atomic_set(&req->req_databuf_ref, 1);
-	memcpy(req->req_databuf, bio_src->bio_databuf, bio_src->bi_size);
-#endif
 
 #ifdef COMPAT_HAVE_BIO_ALLOC_CLONE
 	if (bsr_req_make_private_bio(device, req, bio_src) == false) {
 #else
     if (bsr_req_make_private_bio(req, bio_src) == false) {
-#endif
-#ifdef _WIN
-		// DW-689
-		kfree2(req->req_databuf);
 #endif
 		mempool_free(req, bsr_request_mempool);
 		return NULL;
@@ -91,7 +64,8 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	atomic_inc(&device->resource->req_write_cnt);
 
 #ifdef _WIN
-	req->private_bio->bio_databuf = req->req_databuf; // DW-776 (private bio's buffer is invalid when memory-overflow occured)
+	// DW-776 (private bio's buffer is invalid when memory-overflow occured)
+	req->private_bio->bio_databuf = bio_src->bio_databuf;
 #endif
 
 	kref_get(&device->kref);
@@ -99,6 +73,18 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 
 	req->device = device;
 	req->master_bio = bio_src;
+
+	// BSR-1116
+	req->bio_status.op = bio_op(req->master_bio);
+	req->bio_status.opf = req->master_bio->bi_opf;
+	req->bio_status.data_dir = bio_data_dir(req->master_bio);
+#ifdef _LIN
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+	if (req->bio_status.op == REQ_OP_WRITE_SAME)
+		req->bio_status.bv_len = bio_iovec(req->master_bio) BVD bv_len;
+#endif
+#endif
+
 	req->epoch = 0;
 
 	bsr_clear_interval(&req->i);
@@ -133,6 +119,14 @@ static struct bsr_request *bsr_req_new(struct bsr_device *device, struct bio *bi
 	return req;
 }
 
+void bsr_free_accelbuf(struct bsr_device *device, char *buf, int size)
+{
+	int hsize = sizeof(struct bsr_offset_ring_header);
+
+	bsr_offset_ring_dispose(&device->accelbuf, (int)(buf - device->accelbuf.buf - hsize));
+	atomic_sub64(hsize + size, &device->accelbuf.used_size);
+}
+
 void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 {
 	struct bsr_connection *connection;
@@ -158,12 +152,11 @@ void bsr_queue_peer_ack(struct bsr_resource *resource, struct bsr_request *req)
 	rcu_read_unlock();
 
 	if (!queued) {
-#ifdef _WIN
 		if (req->req_databuf) {
 			// DW-596 required to verify to free req_databuf at this point
-			kfree2(req->req_databuf);
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
-#endif
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&resource->req_write_cnt);
 		mempool_free(req, bsr_request_mempool);
@@ -232,7 +225,7 @@ void bsr_req_destroy(struct kref *kref)
 	device = req->device;
 	s = req->rq_state[0];
 	destroy_next = req->destroy_next;
-	if (atomic_read(&g_bsrmon_run) && (s & RQ_WRITE)) {
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST)) && (s & RQ_WRITE)) {
 		spin_lock(&device->timing_lock); /* local irq already disabled */
 		device->reqs++;
 		ktime_aggregate_delta(device, req->start_kt, req_destroy_kt);
@@ -370,7 +363,7 @@ void bsr_req_destroy(struct kref *kref)
 				}
 			}
 
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 
 		/* one might be tempted to move the bsr_al_complete_io
@@ -386,7 +379,7 @@ void bsr_req_destroy(struct kref *kref)
 		if (s & RQ_IN_ACT_LOG) {
 			if (get_ldev_if_state(device, D_DETACHING)) {
 				was_last_ref = bsr_al_complete_io(__FUNCTION__, device, &req->i);
-				put_ldev(device);
+				put_ldev(__FUNCTION__, device);
 			} else if (bsr_ratelimit()) {
 				bsr_warn(26, BSR_LC_LRU, device, "Should have called bsr_al_complete_io(, %llu, %u), "
 					  "but my Disk seems to have failed :(",
@@ -397,9 +390,13 @@ void bsr_req_destroy(struct kref *kref)
 
 	// DW-1961
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY)) {
-		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk io(%lldus) total(%lldus) io_depth(%d)",
+		bsr_debug(3, BSR_LC_LATENCY, device, "req(%p) IO latency : in_act(%d) minor(%u) ds(%s) type(%s) sector(%llu) size(%u) prepare(%lldus) disk_io(%lldus) local_io(%lldus) total(%lldus) io_depth(%d)",
 			req, req->do_submit, device->minor, bsr_disk_str(device->disk_state[NOW]), "write", req->i.sector, req->i.size,
-			timestamp_elapse(__FUNCTION__, req->created_ts, req->io_request_ts), timestamp_elapse(__FUNCTION__, req->io_request_ts, req->io_complete_ts), timestamp_elapse(__FUNCTION__, req->created_ts, timestamp()), atomic_read(&device->ap_bio_cnt[WRITE]));
+			timestamp_elapse(__FUNCTION__, req->created_ts, req->io_request_ts), 
+			timestamp_elapse(__FUNCTION__, req->io_request_ts, req->io_complete_ts), 
+			timestamp_elapse(__FUNCTION__, req->created_ts, req->local_complete_ts), 
+			timestamp_elapse(__FUNCTION__, req->created_ts, timestamp()), 
+			atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
 
 	device_refs++; /* In both branches of the if the reference to device gets released */
@@ -414,11 +411,10 @@ void bsr_req_destroy(struct kref *kref)
 				bsr_queue_peer_ack(resource, peer_ack_req);
 				peer_ack_req = NULL;
 			} else {
-#ifdef _WIN
 				if (peer_ack_req->req_databuf) {
-					kfree2(peer_ack_req->req_databuf);
+					bsr_free_accelbuf(peer_ack_req->device, peer_ack_req->req_databuf, peer_ack_req->bio_status.size);
+					peer_ack_req->req_databuf = NULL;
 				}
-#endif
 				// DW-1925 improvement req-buf-size
 				atomic_dec(&resource->req_write_cnt);
 				mempool_free(peer_ack_req, bsr_request_mempool);
@@ -433,11 +429,10 @@ void bsr_req_destroy(struct kref *kref)
 		if (!peer_ack_req)
 			resource->last_peer_acked_dagtag = req->dagtag_sector;
 	} else {
-#ifdef _WIN
 		if (req->req_databuf) {
-			kfree2(req->req_databuf);
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
-#endif
 		// DW-1925 improvement req-buf-size
 		atomic_dec(&req->device->resource->req_write_cnt);
 		mempool_free(req, bsr_request_mempool);
@@ -550,7 +545,7 @@ struct bio_and_error *m)
 	unsigned long flags;
 
 	// BSR-1054
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		spin_lock_irqsave(&device->io_pending_list_lock, flags);
 		// calculate the latency as the first item in the list, otherwise just remove it.
 		// as long as the first item is still in the list, the latency continues to increase. This can be considered as IO pending.
@@ -580,7 +575,7 @@ struct bio_and_error *m)
 	// BSR-764 delay master I/O completion
 	if(g_simul_perf.flag && (g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1)) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 		atomic_inc(&device->master_complete_kt.cnt);
 		ktime_aggregate_delta(device, m->io_start_kt, master_complete_kt);
 	}
@@ -654,7 +649,7 @@ struct bio_and_error *m)
 			if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 				force_delay(g_simul_perf.delay_time);
 			// BSR-687
-			if (atomic_read(&g_bsrmon_run)) {
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 				atomic_inc(&device->master_complete_kt.cnt);
 				ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
 			}
@@ -699,7 +694,7 @@ struct bio_and_error *m)
 				if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE1) 
 					force_delay(g_simul_perf.delay_time);
 				// BSR-687
-				if (atomic_read(&g_bsrmon_run)) {
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 					atomic_inc(&device->master_complete_kt.cnt);
 					ktime_aggregate_delta(device, m->bio->io_start_kt, master_complete_kt);
 				}
@@ -800,7 +795,8 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		return;
 	}
 
-	if (!req->master_bio) {
+	// BSR-1116 add the following conditions because master_bio exists but writing may complete
+	if (!req->i.completed && !req->master_bio) {
 		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
 		return;
 	}
@@ -813,12 +809,16 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 * epoch number.  If they match, increase the current_tle_nr,
 	 * and reset the transfer log epoch write_cnt.
 	 */
-	if (bio_data_dir(req->master_bio) == WRITE &&
+
+	// BSR-1116
+	if (req->bio_status.data_dir == WRITE &&
 	    req->epoch == atomic_read(&device->resource->current_tle_nr))
 		start_new_tl_epoch(device->resource);
 
-	/* Update disk stats */
-	_bsr_end_io_acct(device, req);
+	if (!req->i.completed) {
+		/* Update disk stats */
+		_bsr_end_io_acct(device, req);
+	}
 
 	/* If READ failed,
 	 * have it be pushed back to the retry work queue,
@@ -835,40 +835,47 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 	 * WRITE should have used all available paths already.
 	 */
 	if (!ok &&
-		bio_op(req->master_bio) == REQ_OP_READ &&
-		!(req->master_bio->bi_opf & REQ_RAHEAD) &&
+		// BSR-1116
+		req->bio_status.op == REQ_OP_READ &&
+		!(req->bio_status.op & REQ_RAHEAD) &&
 		!list_empty(&req->tl_requests))
 		req->rq_state[0] |= RQ_POSTPONED;
 	
 	if (!(req->rq_state[0] & RQ_POSTPONED)) {
-		// DW-1755 
-		// for the "passthrough" policy, all local errors are returned to the file system.
-		enum bsr_io_error_p eh = EP_PASSTHROUGH;
+		// BSR-1116
+		if (!req->i.completed) {
+			// DW-1755 
+			// for the "passthrough" policy, all local errors are returned to the file system.
+			enum bsr_io_error_p eh = EP_PASSTHROUGH;
 
-		// DW-1837
-		//If the disk is detached, device-> ldev can be null.
-		if (device->ldev) {
-			rcu_read_lock();
-			eh = rcu_dereference(device->ldev->disk_conf)->on_io_error;
-			rcu_read_unlock();
-		}
+			// DW-1837
+			//If the disk is detached, device-> ldev can be null.
+			if (device->ldev) {
+				rcu_read_lock();
+				eh = rcu_dereference(device->ldev->disk_conf)->on_io_error;
+				rcu_read_unlock();
+			}
 
-		if (eh == EP_PASSTHROUGH)
-			m->error = error;
-		else
-			m->error = ok ? 0 : (error ? error : -EIO);
+			if (eh == EP_PASSTHROUGH)
+				m->error = error;
+			else
+				m->error = ok ? 0 : (error ? error : -EIO);
 
-		m->bio = req->master_bio;
+			m->bio = req->master_bio;
 #ifdef _LIN
-		if (atomic_read(&g_bsrmon_run))
-			m->io_start_kt = req->start_kt;
+			if (atomic_read(&g_bsrmon_run))
+				m->io_start_kt = req->start_kt;
 #endif
+			/* We leave it in the tree, to be able to verify later
+			* write-acks in protocol != C during resync.
+			* But we mark it as "complete", so it won't be counted as
+			* conflict in a multi-primary setup. */
+			req->i.completed = true;
+
+			if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
+				req->local_complete_ts = timestamp();
+		}
 		req->master_bio = NULL;
-		/* We leave it in the tree, to be able to verify later
-		 * write-acks in protocol != C during resync.
-		 * But we mark it as "complete", so it won't be counted as
-		 * conflict in a multi-primary setup. */
-		req->i.completed = true;
 	}
 
 	if (req->i.waiting)
@@ -1130,19 +1137,18 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		list_del_init(&req->req_pending_local);
 	}
 
-#ifdef _WIN
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
-		if (0 == atomic_dec(&req->req_databuf_ref)) {
-			kfree2(req->req_databuf);
+		if (0 == atomic_dec_return(&req->req_databuf_ref) && req->req_databuf) {
+			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+			req->req_databuf = NULL;
 		}
 	}
-#endif
 
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
 		++c_put;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->acked_kt[peer_device->node_id]);
 		advance_conn_req_ack_pending(peer_device, req);
 	}
@@ -1203,7 +1209,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		if (old_net & RQ_EXP_BARR_ACK)
 			++k_put;
 
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->net_done_kt[peer_device->node_id]);
 
 		/* in ahead/behind mode, or just in case,
@@ -1242,7 +1248,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *req)
 {
-#ifdef _LIN
+#ifdef COMPAT_HAVE_BDEVNAME
 	char b[BDEVNAME_SIZE];
 #endif
 	// DW-1755 Counts the error value only when it is a passthrough policy.
@@ -1257,11 +1263,20 @@ static void bsr_report_io_error(struct bsr_device *device, struct bsr_request *r
 		write_log = false;
 
 	if (write_log) {
+#if defined(_WIN) || defined(COMPAT_HAVE_BDEVNAME) 
 		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %s",
 			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
 			(unsigned long long)req->i.sector,
 			req->i.size >> 9,
 			bdevname(device->ldev->backing_bdev, b));
+#else
+		bsr_warn(10, BSR_LC_IO_ERROR, device, "local %s IO error sector %llu+%u on %pg",
+			(req->rq_state[0] & RQ_WRITE) ? "WRITE" : "READ",
+			(unsigned long long)req->i.sector,
+			req->i.size >> 9,
+			device->ldev->backing_bdev);
+#endif
+
 	}
 }
 
@@ -1366,7 +1381,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
 		bsr_report_io_error(device, req);
 		__bsr_chk_io_error(device, BSR_READ_ERROR);
-		/* fall through. */
+		/* Fall through */
 	case READ_AHEAD_COMPLETED_WITH_ERROR:
 		/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
 		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
@@ -1688,7 +1703,9 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		enum bsr_read_balancing rbm)
 {
 #ifdef _LIN
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 	struct backing_dev_info *bdi;
+#endif
 #endif
 	int stripe_shift;
 
@@ -1698,11 +1715,16 @@ static bool remote_due_to_read_balancing(struct bsr_device *device,
 		// not support
 		return false;
 #else // _LIN
+// BSR-1095
+#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
 		return bdi_read_congested(device->ldev->backing_bdev->bd_disk->bdi);
 #else 
 		bdi = bdi_from_device(device);
 		return bdi_read_congested(bdi);
+#endif
+#else
+		return false;
 #endif
 #endif
 	case RB_LEAST_PENDING:
@@ -1841,7 +1863,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 			__change_cstate(peer_device->connection, C_DISCONNECTING);
 		end_state_change_locked(resource, false, __FUNCTION__);
 	}
-	put_ldev(device);
+	put_ldev(__FUNCTION__, device);
 }
 
 /* called within req_lock */
@@ -1898,7 +1920,7 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 					req->i.sector, req->i.size)) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 	}
 
@@ -1929,20 +1951,23 @@ static struct bsr_peer_device *find_peer_device_for_read(struct bsr_request *req
 	if (peer_device && req->private_bio) {
 		bio_put(req->private_bio);
 		req->private_bio = NULL;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	return peer_device;
 }
 
 /* returns the number of connections expected to actually write this data,
  * which does NOT include those that we are L_AHEAD for. */
-static int bsr_process_write_request(struct bsr_request *req)
+static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a, bool *update_need_merge)
 {
 	struct bsr_device *device = req->device;
 	struct bsr_peer_device *peer_device;
 	bool in_tree = false;
 	int remote, send_oos;
 	int count = 0;
+	struct bsr_peer_device *p;
+
+	*all_prot_a = true;
 
 	for_each_peer_device(peer_device, device) {
 		remote = bsr_should_do_remote(peer_device, NOW);
@@ -1959,6 +1984,23 @@ static int bsr_process_write_request(struct bsr_request *req)
 			if ((peer_device->bitmap_index != -1) &&
 				(peer_device->connection->cstate[NOW] != C_CONNECTED))
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
+
+			// BSR-1171
+			for_each_peer_device(p, device) {
+				if (p == peer_device)
+					continue;
+
+				if (p->latest_nodes & NODE_MASK(peer_device->node_id)) {
+					p->merged_nodes &= ~NODE_MASK(peer_device->node_id);
+					p->latest_nodes &= ~NODE_MASK(peer_device->node_id);
+					if (!bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
+						bsr_md_set_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+						*update_need_merge = true;
+						bsr_info(18, BSR_LC_VERIFY, peer_device, "bitmaps from other nodes may need to be merged, node %d", p->node_id);
+					}
+				}
+			}
+
 			continue;
 		}
 
@@ -1967,11 +2009,17 @@ static int bsr_process_write_request(struct bsr_request *req)
 		if (remote &&
 			// BSR-1039 send OOS when setting AL OOS.
 			!(req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)) {
+			u32 prot;
+			rcu_read_lock();
+			prot = rcu_dereference(peer_device->connection->transport.net_conf)->wire_protocol;
+			rcu_read_unlock();
+
+			if (prot != BSR_PROT_A)
+				*all_prot_a = false;
+
 			++count;
-#ifdef _WIN
 			// DW-1237 get request databuf ref to send data block.
 			atomic_inc(&req->req_databuf_ref);
-#endif
 			_req_mod(req, TO_BE_SENT, peer_device);
 			if (!in_tree) {
 				/* Corresponding bsr_remove_request_interval is in
@@ -2059,7 +2107,7 @@ bsr_submit_req_private_bio(struct bsr_request *req)
 			generic_make_request(bio);
 #endif
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	} else
 		bsr_bio_endio(bio, -EIO);
 }
@@ -2080,7 +2128,7 @@ static void bsr_queue_write(struct bsr_device *device, struct bsr_request *req)
 static void bsr_req_in_actlog(struct bsr_request *req)
 {
 	req->rq_state[0] |= RQ_IN_ACT_LOG;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->in_actlog_kt);
 }
 
@@ -2099,7 +2147,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 	req = bsr_req_new(device, bio);
 	if (!req) {
 		// BSR-1054
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 			struct io_pending_info *io_pending, *tmp;
 			spin_lock_irq(&device->io_pending_list_lock);
 			list_for_each_entry_safe_ex(struct io_pending_info, io_pending, tmp, &device->io_pending_list, list) {
@@ -2155,7 +2203,7 @@ bsr_request_prepare(struct bsr_device *device, struct bio *bio, ktime_t start_kt
 
 queue_for_submitter_thread:
 	req->do_submit = true;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->before_queue_kt);
 	bsr_queue_write(device, req);
 	return NULL;
@@ -2475,6 +2523,29 @@ eof:
 	return 0;
 }
 
+char* bsr_alloc_accelbuf(struct bsr_device *device, int size)
+{
+	char* accelbuf = NULL;
+	int offset;
+	int total_size;
+
+	// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
+	// the purpose of accelbuf is to improve the local write performance of small-sized writes.
+	if (size <= device->resource->res_opts.max_accelbuf_blk_size) {
+		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf")) {
+			int hsize = sizeof(struct bsr_offset_ring_header);
+
+			total_size = hsize + size;
+			// BSR-1116 buffering write data to improve local write performance for asynchronous replication
+			if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
+				accelbuf = device->accelbuf.buf + offset + hsize;
+				atomic_add64(total_size, &device->accelbuf.used_size);
+			}
+		}
+	}
+
+	return accelbuf;
+}
 
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
@@ -2484,6 +2555,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	struct bio_and_error m = { NULL, };
 	bool no_remote = false;
 	bool submit_private_bio = false;
+	bool update_need_merge = false;
 
 
 	for_each_peer_device(peer_device, device) {
@@ -2522,7 +2594,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		if (req->private_bio) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 		}
 		goto out;
 	}
@@ -2564,10 +2636,11 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	}
 
 	if (rw == WRITE) {
+		bool all_prot_a = true;
 		if (req->private_bio && !may_do_writes(device)) {
 			bio_put(req->private_bio);
 			req->private_bio = NULL;
-			put_ldev(device);
+			put_ldev(__FUNCTION__, device);
 			goto nodata;
 		}
 		/* Need to replicate writes.  Unless it is an empty flush,
@@ -2580,8 +2653,48 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 			/* The only size==0 bios we expect are empty flushes. */
 			D_ASSERT(device, req->master_bio->bi_opf & BSR_REQ_PREFLUSH);
 			_req_mod(req, QUEUE_AS_BSR_BARRIER, NULL);
-		} else if (!bsr_process_write_request(req))
+		} else if (!bsr_process_write_request(req, &all_prot_a, &update_need_merge)) {
 			no_remote = true;
+		}
+		// BSR-1145 check the status of the connected node and allocate it. 
+		// accelbuf is only used when all connected nodes use asynchronous replication.
+		else if (all_prot_a) {
+			int size;
+			size = BSR_BIO_BI_SIZE(req->private_bio);
+			req->req_databuf = bsr_alloc_accelbuf(device, size);
+
+			if (req->req_databuf) {
+#ifdef _WIN
+				memcpy(req->req_databuf, req->private_bio->bio_databuf, size);
+				req->bio_status.size = size;
+#else
+#ifdef _LIN_SEND_BUF
+				BSR_BIO_VEC_TYPE bvec;
+				BSR_ITER_TYPE iter;
+				unsigned char *d;
+				int len = 0;
+
+				req->bio_status.size = size;
+				bio_for_each_segment(bvec, req->private_bio, iter) {
+					d = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+					memcpy(req->req_databuf + len, d + bvec BVD bv_offset, bvec BVD bv_len);
+					bsr_kunmap_atomic(d, KM_USER0);
+					len += bvec BVD bv_len;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+					if (bio_op(req->private_bio) == REQ_OP_WRITE_SAME) {
+						break;
+					}
+#endif
+				}
+#endif
+#endif
+				// DW-1237 set request data buffer ref to 1 for local I/O.
+				atomic_inc(&req->req_databuf_ref);
+#ifdef _WIN
+				req->private_bio->bio_databuf = req->req_databuf;
+#endif
+			}
+		}
 		wake_all_senders(resource);
 	} else {
 		if (peer_device) {
@@ -2608,7 +2721,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	if (req->private_bio) {
 		/* needs to be marked within the same spinlock */
 		req->pre_submit_jif = jiffies;
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->submit_kt);
 		list_add_tail(&req->req_pending_local,
 			&device->pending_completion[rw == WRITE]);
@@ -2656,6 +2769,10 @@ out:
 #endif
 	if (m.bio)
 		complete_master_bio(device, &m);
+
+	// BSR-1171
+	if (update_need_merge)
+		bsr_md_sync(device);
 }
 
 #ifdef _WIN
@@ -2868,7 +2985,7 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 
 	req = wfa_next_request(wfa);
 	while (req) {
-		if (atomic_read(&g_bsrmon_run))
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->before_al_begin_io_kt);
 		
 		err = bsr_al_begin_io_nonblock(device, &req->i);
@@ -2948,7 +3065,7 @@ static void ensure_current_uuid(struct bsr_device *device)
 		if (device->disk_state[NOW] != D_FAILED) {
 			struct bsr_resource *resource = device->resource;
 			mutex_lock(&resource->conf_update);
-			bsr_uuid_new_current(device, false, false, __FUNCTION__);
+			bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 			mutex_unlock(&resource->conf_update);
 		}
 	}
@@ -3028,12 +3145,12 @@ void do_submit(struct work_struct *ws)
 				if(al_wait_count)
 					bsr_debug(29, BSR_LC_LRU, device, "al_wait retry count : %llu", (unsigned long long)al_wait_count);
 				al_wait_count = 0;
-				if (atomic_read(&g_bsrmon_run))
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 					device->al_wait_retry_cnt = 0;
 				break;
 			}
 			al_wait_count += 1;
-			if (atomic_read(&g_bsrmon_run)) {
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT)) {
 				device->al_wait_retry_cnt++;
 				device->al_wait_retry_total++;
 				device->al_wait_retry_max = max(device->al_wait_retry_max, device->al_wait_retry_cnt);
@@ -3180,7 +3297,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 			MAKE_REQUEST_RETURN;
 		}
 
-		if (atomic_read(&g_bsrmon_run)) {
+		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) {
 			atomic_inc(&device->io_cnt[READ]);
 			atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[READ]);
 		}
@@ -3188,7 +3305,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 #ifdef READ_BYPASS_TO_BACKING_BDEV
 		bio_set_dev(bio, device->ldev->backing_bdev);
 		generic_make_request(bio);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		MAKE_REQUEST_RETURN;
 #endif
 	}
@@ -3199,7 +3316,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 
 	start_kt = ktime_get();
 
-	if (atomic_read(&g_bsrmon_run) && (rw == WRITE) && device->ldev) {
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_STAT)) && (rw == WRITE) && device->ldev) {
 		atomic_inc(&device->io_cnt[WRITE]);
 		atomic_add(BSR_BIO_BI_SIZE(bio) >> 10, &device->io_size[WRITE]);
 	}
@@ -3227,13 +3344,22 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
  * would call our merge bvec function, and that should already be sufficient
  * to not violate queue limits.
  */
+
+#ifdef COMPAT_HAVE_BIO_SPLIT_TO_LIMITS
+	// BSR-1114 add compat code for bio_split_to_limits()
+	bio = bio_split_to_limits(bio);
+	if (!bio) {
+		MAKE_REQUEST_RETURN;
+	}
+#else
 	// BSR-723
 	blk_queue_split(q, &bio);
+#endif
 #endif
 	start_jif = jiffies;
 
 	// BSR-1054 add bio to io_pending_list
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 		struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'BASB');
 		INIT_LIST_HEAD(&io_pending->list);
 		spin_lock_irq(&device->io_pending_list_lock);
@@ -3284,7 +3410,7 @@ int bsr_merge_bvec(struct request_queue *q,
 			backing_limit = b->merge_bvec_fn(b, bvm, bvec);
 			limit = min(limit, backing_limit);
 		}
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 		if ((limit >> 9) > max_hw_sectors)
 			limit = max_hw_sectors << 9;
 	}
@@ -3430,7 +3556,7 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 	rcu_read_lock();
 	if (get_ldev(device)) { /* implicit state.disk >= D_INCONSISTENT */
 		dt = rcu_dereference(device->ldev->disk_conf)->disk_timeout * HZ / 10;
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 	rcu_read_unlock();
 

@@ -109,7 +109,9 @@ static void dtt_stats(struct bsr_transport *transport, struct bsr_transport_stat
 static void dtt_set_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream, long timeout);
 static long dtt_get_rcvtimeo(struct bsr_transport *transport, enum bsr_stream stream);
 static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream, struct page *page,
-		int offset, size_t size, unsigned msg_flags);
+		int offset, size_t size, 
+		// BSR-1116
+		int type, unsigned msg_flags);
 static int dtt_send_zc_bio(struct bsr_transport *, struct bio *bio);
 static bool dtt_stream_ok(struct bsr_transport *transport, enum bsr_stream stream);
 static bool dtt_hint(struct bsr_transport *transport, enum bsr_stream stream, enum bsr_tr_hints hint);
@@ -170,7 +172,7 @@ int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, s
 	// BSR-764 delay socket send
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE4) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run) && (rv > 0) && transport)
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_NETWORK_SPEED)) && (rv > 0) && transport)
 		atomic_add64(rv, &transport->sum_sent);
 
 	return rv;
@@ -183,7 +185,7 @@ int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, s
 	// BSR-764 delay socket receive
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE5) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run) && (rv > 0) && transport)
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_NETWORK_SPEED)) && (rv > 0) && transport)
 		atomic_add64(rv, &transport->sum_recv);
 
 	return rv;
@@ -1548,17 +1550,25 @@ not_accept:
 	return STATUS_REQUEST_NOT_ACCEPTED;
 		
 #else // _LIN
-	struct dtt_listener *listener = sock->sk_user_data;
-	void (*state_change)(struct sock *sock);
+	struct dtt_listener *listener;
+	void(*state_change)(struct sock *sock);
 
-	state_change = listener->original_sk_state_change;
-	if (sock->sk_state == TCP_ESTABLISHED) {
-		spin_lock(&listener->listener.waiters_lock);
-		listener->listener.pending_accepts++;
-		spin_unlock(&listener->listener.waiters_lock);
-		wake_up(&listener->wait);
+	// BSR-1090 sock->sk_user_data is removed from unregister_state_change(), so a lock is added for synchronization
+	write_lock_bh(&sock->sk_callback_lock);
+	listener = sock->sk_user_data;
+	if (listener) {
+		state_change = listener->original_sk_state_change;
+		if (sock->sk_state == TCP_ESTABLISHED) {
+			spin_lock(&listener->listener.waiters_lock);
+			listener->listener.pending_accepts++;
+			spin_unlock(&listener->listener.waiters_lock);
+			wake_up(&listener->wait);
+		}
+		write_unlock_bh(&sock->sk_callback_lock);
+		state_change(sock);
+	} else {
+		write_unlock_bh(&sock->sk_callback_lock);
 	}
-	state_change(sock);
 #endif
 }
 
@@ -2246,8 +2256,9 @@ static void dtt_update_congested(struct bsr_tcp_transport *tcp_transport)
 #endif
 }
 
-static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream,
-			 struct page *page, int offset, size_t size, unsigned msg_flags)
+static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream, struct page *page, int offset, size_t size, 
+				 // BSR-1116
+				 int type, unsigned msg_flags)
 {
 	struct bsr_tcp_transport *tcp_transport =
 		container_of(transport, struct bsr_tcp_transport, transport);
@@ -2303,8 +2314,15 @@ static int dtt_send_page(struct bsr_transport *transport, enum bsr_stream stream
 #endif
 #else // _LIN
 #ifdef _LIN_SEND_BUF
+		// BSR-1116
+		unsigned char* data;
+		if(type)
+			data = (unsigned char* )page;
+		else
+			data = (unsigned char* )page_address(page);
+
 		// BSR-12
-		sent = send_buf(tcp_transport, stream, socket, (void *)((unsigned char *)(page_address(page)) +offset), len, msg_flags);
+		sent = send_buf(tcp_transport, stream, socket, (void *)(data + offset), len, msg_flags);
 #else		
 		sent = socket->ops->sendpage(socket, page, offset, len, msg_flags);
 #endif
@@ -2358,7 +2376,7 @@ static int dtt_send_zc_bio(struct bsr_transport *transport, struct bio *bio)
 		int err;
 
 		err = dtt_send_page(transport, DATA_STREAM, bvec BVD bv_page,
-				      bvec BVD bv_offset, bvec BVD bv_len,
+				      bvec BVD bv_offset, bvec BVD bv_len, 0,
 				      bio_iter_last(bvec, iter) ? 0 : MSG_MORE);
 		if (err)
 			return err;
