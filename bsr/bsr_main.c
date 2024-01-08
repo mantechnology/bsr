@@ -5776,8 +5776,8 @@ void wait_for_add_device(WCHAR *path)
 		MVOL_UNLOCK();
 		msleep(1000);
 	}
-
-	bsr_info(27, BSR_LC_LOG, NO_OBJECT, "Device connection completed for log file generation.(%ws)", path);
+	// BSR-1162
+	bsr_info(7, BSR_LC_LOG, NO_OBJECT, "Device connection completed for log file generation.(%ws)", path);
 }
 #endif
 
