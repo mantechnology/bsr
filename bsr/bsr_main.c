@@ -5750,6 +5750,9 @@ void wait_for_add_device(WCHAR *path)
 {
 	bool wait_device_add = true;
 
+	// BSR-1162 print once
+	bsr_info(10, BSR_LC_LOG, NO_OBJECT, "Wait for device to be connected for log file generation.(%ws)", path);
+
 	while (wait_device_add) {
 		MVOL_LOCK();
 		if (mvolRootDeviceObject != NULL) {
@@ -5771,11 +5774,10 @@ void wait_for_add_device(WCHAR *path)
 			}
 		}
 		MVOL_UNLOCK();
-		if (wait_device_add)
-			bsr_info(10, BSR_LC_LOG, NO_OBJECT, "Wait for device to be connected for log file generation.(%ws)", path);
-
 		msleep(1000);
 	}
+
+	bsr_info(27, BSR_LC_LOG, NO_OBJECT, "Device connection completed for log file generation.(%ws)", path);
 }
 #endif
 
