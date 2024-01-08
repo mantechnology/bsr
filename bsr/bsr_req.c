@@ -1885,9 +1885,7 @@ bool bsr_should_do_remote(struct bsr_peer_device *peer_device, enum which_state 
 		repl_state == L_STARTING_SYNC_S ||
 		// DW-1979 add bsr_should_do-remote() allowed state
 		repl_state == L_WF_BITMAP_S ||
-		(peer_disk_state == D_INCONSISTENT &&
-		(repl_state == L_ESTABLISHED ||
-		(repl_state >= L_WF_BITMAP_T && repl_state < L_AHEAD)));
+		(peer_disk_state == D_INCONSISTENT && (repl_state == L_ESTABLISHED || (repl_state >= L_WF_BITMAP_T && repl_state < L_AHEAD)));
 	/* Before proto 96 that was >= CONNECTED instead of >= L_WF_BITMAP_T.
 	That is equivalent since before 96 IO was frozen in the L_WF_BITMAP*
 	states. */
@@ -2008,7 +2006,9 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a, 
 
 		D_ASSERT(device, !(remote && send_oos));
 
-		if (remote) {
+		if (remote &&
+			// BSR-1039 send OOS when setting AL OOS.
+			!(req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)) {
 			u32 prot;
 			rcu_read_lock();
 			prot = rcu_dereference(peer_device->connection->transport.net_conf)->wire_protocol;
