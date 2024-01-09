@@ -2626,7 +2626,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	return err == 0;
 }
 
-void bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
+bool bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
 {
 	// DW-1815 merge the peer_device bitmap into the same current_uuid.
 	ULONG_PTR offset, current_offset;
@@ -2642,6 +2642,7 @@ void bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bs
 	if (bb == NULL) {
 		bsr_err(50, BSR_LC_MEMORY, peer_device, "Failed to send bitmap due to failure to allocate %d size memory for copy bitmap", (sizeof(ULONG_PTR) * allow_size));
 		change_cstate_ex(peer_device->connection, C_NETWORK_FAILURE, CS_HARD);
+		return false;
 	}
 	else {
 		memset(bb, 0, sizeof(ULONG_PTR) * allow_size);
@@ -2673,6 +2674,8 @@ void bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bs
 		bsr_info(36, BSR_LC_BITMAP, peer_device, "Bitmap merge completed successfully. to bitmap index(%d) out of sync (%llu)", peer_device->bitmap_index, (unsigned long long)bsr_bm_total_weight(peer_device));
 		kfree2(bb);
 	}
+
+	return true;
 }
 
 int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_device)
@@ -2713,23 +2716,31 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		// DW-1979
 		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
 			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
+			bool missing = false;
 			for_each_peer_device(p, device) {
 				if (p == peer_device) {
 					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
 						struct bsr_peer_device* pd = NULL;
 						for_each_peer_device(pd, device) {
-							if ((p == pd) || (p->merged_nodes & NODE_MASK(pd->node_id)))
+							if ((p == pd) || 
+								(p->merged_nodes & NODE_MASK(pd->node_id)))
 								continue;
-							p->merged_nodes |= NODE_MASK(pd->node_id);
-							bsr_peer_device_merge_bitmap(p, pd);
+							if (bsr_peer_device_merge_bitmap(p, pd))
+								p->merged_nodes |= NODE_MASK(pd->node_id);
+							else
+								missing = true;
 						}
-						bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+
+						if (!missing) {
+							bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
+							bsr_md_sync(device);
+						}
 					}
 				} else {
 					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
 						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							p->merged_nodes |= NODE_MASK(peer_device->node_id);
-							bsr_peer_device_merge_bitmap(p, peer_device);
+							if(bsr_peer_device_merge_bitmap(p, peer_device))
+								p->merged_nodes |= NODE_MASK(peer_device->node_id);
 						}
 					}
 				}

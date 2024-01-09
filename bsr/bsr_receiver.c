@@ -9090,11 +9090,14 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 				if (p == peer_device)
 					continue;
 		
-				if (p->repl_state[NOW] == L_ESTABLISHED)
+				if (p->repl_state[NOW] == L_ESTABLISHED) {
+					// BSR-1171 if there are nodes that can be targeted for bitmap merging, set up a flag.
+					bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
 					peer_device->latest_nodes |= NODE_MASK(p->node_id);
+				}
 			}
 		
-			if (peer_device->latest_nodes)
+			if (peer_device->latest_nodes) 
 				bsr_info(19, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", peer_device->latest_nodes);
 		}
 
