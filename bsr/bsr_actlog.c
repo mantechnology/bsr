@@ -1404,7 +1404,8 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	sector_t esector, nr_sectors;
 
 	/* This would be an empty REQ_OP_FLUSH, be silent. */
-	if ((mode == SET_OUT_OF_SYNC) && size == 0)
+	// BSR-1162 fix unnecessary error log output when receiving ID_OUT_OF_SYNC_FINISHED
+	if ((mode == SET_OUT_OF_SYNC) && ((sector == ID_OUT_OF_SYNC_FINISHED) || (size == 0)))
 		return 0;
 
 	if (!plausible_request_size(size)) {

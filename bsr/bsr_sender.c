@@ -3596,6 +3596,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				if (send_oos) {
 					INIT_LIST_HEAD(&send_oos->oos_list_head);
 					send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+					// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
+					send_oos->size = 0;
 					spin_lock_irqsave(&peer_device->send_oos_lock, flags);
 					list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
 					spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
