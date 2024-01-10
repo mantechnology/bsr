@@ -1739,9 +1739,6 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 	struct iovec iov;
 	struct nlmsghdr *nlh;
 	struct bsr_genlmsghdr *dh;
-	struct timespec retry_timeout = {
-		.tv_nsec = 62500000L,  /* 1/16 second */
-	};
 
 	/* pre allocate request message and reply buffer */
 	iov.iov_len = DEFAULT_MSG_SIZE;
@@ -1866,16 +1863,8 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		rv = dh->ret_code;
 		if (rv != SS_IN_TRANSIENT_STATE)
 			break;
-		nanosleep(&retry_timeout, NULL);
-		/* Double the timeout, up to 10 seconds. */
-		if (retry_timeout.tv_sec < 10) {
-			retry_timeout.tv_sec *= 2;
-			retry_timeout.tv_nsec *= 2;
-			if (retry_timeout.tv_nsec > 1000000000L) {
-				retry_timeout.tv_sec++;
-				retry_timeout.tv_nsec -= 1000000000L;
-			}
-		}
+		// BSR-1186 If an SS_IN_TRANSIENT_STATE occurs, wait 1 second and retry.
+		sleep(1);
 	}
 	if (rv == ERR_RES_NOT_KNOWN) {
 		if (cm->warn_on_missing && isatty(STDERR_FILENO))
