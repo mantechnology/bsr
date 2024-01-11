@@ -1866,15 +1866,15 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		rv = dh->ret_code;
 		if (rv != SS_IN_TRANSIENT_STATE)
 			break;
-		nanosleep(&retry_timeout, NULL);
-		/* Double the timeout, up to 10 seconds. */
-		if (retry_timeout.tv_sec < 10) {
-			retry_timeout.tv_sec *= 2;
+		
+		// BSR-1186 If an SS_IN_TRANSIENT_STATE occurs, wait up to 1 second and retry.
+		/* Double the timeout, up to 1 seconds. */
+		if (retry_timeout.tv_nsec < 1000000000L) {
+			nanosleep(&retry_timeout, NULL);
 			retry_timeout.tv_nsec *= 2;
-			if (retry_timeout.tv_nsec > 1000000000L) {
-				retry_timeout.tv_sec++;
-				retry_timeout.tv_nsec -= 1000000000L;
-			}
+		} else {
+			// BSR-1186 when waiting for 1 second using nanosleep(), an EINVAL error occurs, so sleep() is used.
+			sleep(1);
 		}
 	}
 	if (rv == ERR_RES_NOT_KNOWN) {
