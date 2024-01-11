@@ -5297,6 +5297,15 @@ int main(int argc, char **argv)
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
+#ifdef _WIN
+	// BSR-1182 returns an error if the version is not obtained with bsrcon /s.
+	char engine_ver[4096] = { 0, };
+	if (__exec_bsrcon_silent("/s", engine_ver, 0)) {
+		CLI_ERRO_LOG_PEEROR(false, "engine version not confirmed, did you proceed with the reboot after installation??\n");
+		exit(-112);
+	}
+#endif
+
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
 		CLI_ERRO_LOG_STDERR(false, "Where did you get this broken build!?"

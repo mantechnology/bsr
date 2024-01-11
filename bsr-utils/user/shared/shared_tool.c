@@ -1151,3 +1151,59 @@ too_long:
 	err("string too long.\n");
 	exit(E_SYNTAX);
 }
+
+// BSR-1182
+void __exec_bsrcon(const char* command, int flags, pid_t *pid, int *fd, int *ex, int dry_run)
+{
+	char *argv[MAX_ARGS];
+	int argc = 0;
+
+	argv[NA(argc)] = "bsrcon";
+	argv[NA(argc)] = (char *)command;
+
+	argv[NA(argc)] = 0;
+
+	m__system(argv, flags, NULL, pid, fd, ex, NULL, 0, 0, dry_run);
+}
+
+int __exec_bsrcon_silent(const char* command, char* out, int dry_run)
+{
+	char buffer[4096];
+	int fd, status, rv = 0;
+	pid_t pid;
+	ssize_t rr;
+	// ssize_t rw __attribute((unused));
+	size_t s = 0;
+
+	__exec_bsrcon(command, SLEEPS_SHORT | RETURN_STDOUT_FD | RETURN_STDERR_FD, &pid, &fd, NULL, dry_run);
+
+	if (!dry_run) {
+		if (fd < 0) {
+			err("Strange: got negative fd.\n");
+			exit(E_THINKO);
+		}
+
+		while (1) {
+			rr = read(fd, buffer + s, 4096 - s);
+			if (rr <= 0)
+				break;
+			s += rr;
+		}
+
+		close(fd);
+		(void)waitpid(pid, &status, 0);
+		alarm(0);
+
+		if (WIFEXITED(status))
+			rv = WEXITSTATUS(status);
+		if (alarm_raised) {
+			rv = 0x100;
+		}
+	}
+
+	if (out)
+		memcpy(out, buffer, strlen(buffer));
+	// rw = write(fileno(stderr), buffer, s);
+
+	return rv;
+}

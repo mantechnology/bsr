@@ -5571,6 +5571,15 @@ int main(int argc, char **argv)
 		return -111;
 	}
 
+#ifdef _WIN
+	// BSR-1182 returns an error if the version is not obtained with bsrcon /s.
+	char engine_ver[4096] = { 0, };
+	if (__exec_bsrcon_silent("/s", engine_ver, 0)) {
+		CLI_ERRO_LOG_PEEROR(false, "engine version not confirmed, did you proceed with the reboot after installation??\n");
+		return -112;
+	}
+#endif
+
 	cmdname = strrchr(argv[0],'/');
 	if (cmdname)
 		argv[0] = ++cmdname;

@@ -311,6 +311,7 @@ void create_node_name_options(struct d_host_info *host)
 	insert_head(&host->node_options, new_opt(strdup("node-name"), strdup(value)));
 }
 
+extern struct ifreq *ifreq_list;
 
 void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 {
@@ -326,7 +327,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 			       continue;
 		}
 		else if (host->by_address) {
-			if (!have_ip(host->address.af, host->address.addr) &&
+			if (!have_ip(host->address.af, host->address.addr, ifreq_list) &&
 				/* for debugging only, e.g. __BSR_NODE__=10.0.0.1 */
 			    strcmp(hostname, host->address.addr))
 				continue;

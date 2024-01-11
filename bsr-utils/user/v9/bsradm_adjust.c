@@ -459,7 +459,7 @@ static int do_proxy_reconf(const struct cfg_ctx *ctx)
 	int rv;
 	char *argv[4] = { bsr_proxy_ctl, "-c", (char*)ctx->cmd->name, NULL };
 
-	rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name);
+	rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 	return rv;
 }
 
