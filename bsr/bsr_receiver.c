@@ -10572,6 +10572,9 @@ void conn_disconnect(struct bsr_connection *connection)
 		// DW-2026 Initialize resync_again
 		peer_device->resync_again = false;
 
+		// BSR-1170
+		wake_up(&peer_device->local_writing_wait);
+
 		// BSR-1039
 		atomic_set(&peer_device->resync_seq, 0);
 		atomic_set(&peer_device->al_oos_cnt, 0);

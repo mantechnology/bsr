@@ -1150,6 +1150,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		for_each_peer_device(p, device) {
 			// BSR-1170
 			if (req->rq_state[p->node_id + 1] & RQ_OOS_LOCAL_DONE) {
+				// BSR-1170 after sending the bitmap, once the local write to RQ_OOS_LOCAL_DONE is complete, clear RQ_OOS_LOCAL_DONE to set OOS and send it(bsr_req_destroy()).
+				if (p->repl_state[NOW] != L_OFF && p->repl_state[NOW] != L_WF_BITMAP_S) 
+					req->rq_state[p->node_id + 1] &= ~RQ_OOS_LOCAL_DONE;;
+
 				if (!atomic_dec_return64(&p->local_writing))
 					wake_up(&p->local_writing_wait);
 			}
