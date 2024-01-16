@@ -1076,7 +1076,27 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
  * bi_opf (some kernel version) -> data packet flags -> bi_opf (other kernel version)
  */
 
-#if defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) && \
+#if !defined(REQ_FLUSH) && defined(REQ_PREFLUSH) /* after rhel 9.3*/
+#define BSR_REQ_PREFLUSH	REQ_PREFLUSH
+#define BSR_REQ_FUA		REQ_FUA
+#define BSR_REQ_SYNC		REQ_SYNC
+
+#ifdef REQ_HARDBARRIER
+#define BSR_REQ_HARDBARRIER	REQ_HARDBARRIER
+#else
+#define BSR_REQ_HARDBARRIER	0
+#endif
+
+#ifdef REQ_UNPLUG
+#define BSR_REQ_UNPLUG		REQ_UNPLUG
+#else
+#define BSR_REQ_UNPLUG		0
+#endif
+
+#ifndef WRITE_SYNC
+#define WRITE_SYNC REQ_SYNC
+#endif
+#elif defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) && \
 	!(defined(RHEL_RELEASE_CODE) && /* 7.4 broke our compat detection here */ \
 		LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0))
 		
