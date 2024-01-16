@@ -1362,6 +1362,9 @@ extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
 #else // LIN
 static inline void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
 {
+#ifdef COMPAT_HAVE_BIO_BI_OPF
+	bio->bi_opf = op | flags;
+#else
 	/* If we explicitly issue discards or write_same, we use
 	* blkdev_issue_discard() and blkdev_issue_write_same() helpers.
 	* If we implicitly submit them, we just pass on a cloned bio to
@@ -1369,6 +1372,7 @@ static inline void bio_set_op_attrs(struct bio *bio, const int op, const long fl
 	* REQ_OP_READ or REQ_OP_WRITE only. */
 	BUG_ON(!(op == REQ_OP_READ || op == REQ_OP_WRITE));
 	bio->bi_rw |= (op | flags);
+#endif
 }
 #endif
 
@@ -1389,11 +1393,13 @@ static inline int op_from_rq_bits(u64 flags)
 #define generic_make_request(bio)	submit_bio_noacct(bio)
 #endif
 
-#ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
+#ifndef COMPAT_HAVE_BIO_BI_OPF
 #define bi_opf	bi_rw
-#ifdef _LIN
+#endif
+#ifdef COMPAT_SUBMIT_BIO_HAS_2_PARAMS
 #define submit_bio(__bio)	submit_bio(__bio->bi_rw, __bio)
 #endif
+#ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
 /* see comment in above compat enum req_op */
 #define REQ_OP_FLUSH		REQ_OP_WRITE
 #endif
