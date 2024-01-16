@@ -2172,7 +2172,7 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 					// BSR-1171 resync is complete and it is the latest data. If replication occurs at the end of the connection after excluding it from the bitmap merge target of another node, set it as a merge target.
 					p->merged_nodes |= NODE_MASK(peer_device->node_id);
 					p->latest_nodes |= NODE_MASK(peer_device->node_id); 
-					bsr_info(20, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", p->latest_nodes);
+					bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
 				}
 			}
 

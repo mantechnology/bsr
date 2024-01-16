@@ -2011,7 +2011,7 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 				if (p->latest_nodes & NODE_MASK(peer_device->node_id)) {
 					p->merged_nodes &= ~NODE_MASK(peer_device->node_id);
 					p->latest_nodes &= ~NODE_MASK(peer_device->node_id);
-					bsr_info(18, BSR_LC_VERIFY, peer_device, "bitmaps from other nodes may need to be merged, node %d", p->node_id);
+					bsr_info(19, BSR_LC_VERIFY, NO_OBJECT, "set %d as the bitmap merge destination for node %d.", peer_device->node_id, p->node_id);
 				}
 			}
 

@@ -9082,26 +9082,6 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			consider_resync = false;
 		}
 
-		// BSR-1171
-		if (new_repl_state == L_WF_BITMAP_S) {
-			struct bsr_peer_device *p;
-		
-			bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
-			for_each_peer_device(p, device) {
-				if (p == peer_device)
-					continue;
-				// BSR-1171 node with replication status L_ESTABLISHED are up-to-date, and if they are subsequently disconnected and replication occurs, the bitmap must be merged.
-				if (p->repl_state[NOW] == L_ESTABLISHED)
-					peer_device->latest_nodes |= NODE_MASK(p->node_id);
-				// BSR-1171 if the replication status is not L_ESTABLISHED, set the bitmap to merge because the data might not be up-to-date.
-				else
-					peer_device->merged_nodes &= ~NODE_MASK(p->node_id);
-			}
-		
-			if (peer_device->latest_nodes) 
-				bsr_info(19, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", peer_device->latest_nodes);
-		}
-
 		put_ldev(__FUNCTION__, device);
 		if (new_repl_state == -1) {
 			new_repl_state = L_ESTABLISHED;
