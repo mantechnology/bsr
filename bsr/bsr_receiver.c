@@ -9082,15 +9082,16 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		if (new_repl_state == L_WF_BITMAP_S) {
 			struct bsr_peer_device *p;
 		
+			bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
 			for_each_peer_device(p, device) {
 				if (p == peer_device)
 					continue;
-		
-				if (p->repl_state[NOW] == L_ESTABLISHED) {
-					// BSR-1171 if there are nodes that can be targeted for bitmap merging, set up a flag.
-					bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
+				// BSR-1171 node with replication status L_ESTABLISHED are up-to-date, and if they are subsequently disconnected and replication occurs, the bitmap must be merged.
+				if (p->repl_state[NOW] == L_ESTABLISHED)
 					peer_device->latest_nodes |= NODE_MASK(p->node_id);
-				}
+				// BSR-1171 if the replication status is not L_ESTABLISHED, set the bitmap to merge because the data might not be up-to-date.
+				else
+					peer_device->merged_nodes &= ~NODE_MASK(p->node_id);
 			}
 		
 			if (peer_device->latest_nodes) 
