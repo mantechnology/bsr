@@ -3091,6 +3091,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		return -EIO;
 	}
 
+	// BSR-1149 BSR-1161 fix resync does not start due to rs_pending_cnt
+	dec_rs_pending(peer_device);
 
 	// DW-1601
 	// DW-1846 do not set out of sync unless it is a sync target.
@@ -3114,7 +3116,6 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	if (test_bit(UNSTABLE_RESYNC, &peer_device->flags))
 		clear_bit(STABLE_RESYNC, &device->flags);
 
-	dec_rs_pending(peer_device);
 	inc_unacked(peer_device);
 
 	s_bb = (ULONG_PTR)BM_SECT_TO_BIT(d->sector);
@@ -4927,8 +4928,11 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			int i;
 			peer_device->ov_start_sector = sector;
 			peer_device->ov_position = sector;
-			if (peer_device->connection->agreed_pro_version >= 114)
+			if (peer_device->connection->agreed_pro_version >= 114) {
 				peer_device->ov_left = (ULONG_PTR)peer_req->block_id; // BSR-118 informs the ov_left value through the block_id value from source.
+				// BSR-1168 fix ov_left_sectors set incorrectly
+				peer_device->ov_left_sectors = BM_BIT_TO_SECT(peer_device->ov_left);
+			}
 			else
 				peer_device->ov_left = (ULONG_PTR)(bsr_bm_bits(device) - BM_SECT_TO_BIT(sector));
 			peer_device->ov_skipped = 0;
@@ -9300,7 +9304,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	}
 #endif
 
-	clear_bit(DISCARD_MY_DATA, &peer_device->flags);
+	// BSR-1177 move to w_after_state_change()
+	// clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 
 	if (try_to_get_resync)
 		try_to_get_resynced(device);
@@ -10567,6 +10572,9 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// DW-2026 Initialize resync_again
 		peer_device->resync_again = false;
+
+		// BSR-1170
+		wake_up(&peer_device->local_writing_wait);
 
 		// BSR-1039
 		atomic_set(&peer_device->resync_seq, 0);

@@ -1061,6 +1061,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// BSR-1021 
 	if (!(old_net & RQ_OOS_LOCAL_DONE) && (set & RQ_OOS_LOCAL_DONE)) {
+		// BSR-1170
+		atomic_inc_return64(&peer_device->local_writing);
 		bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 		return;
 	}
@@ -1139,9 +1141,22 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
+		struct bsr_peer_device *p;
 		if (0 == atomic_dec_return(&req->req_databuf_ref) && req->req_databuf) {
 			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
 			req->req_databuf = NULL;
+		}
+
+		for_each_peer_device(p, device) {
+			// BSR-1170
+			if (req->rq_state[p->node_id + 1] & RQ_OOS_LOCAL_DONE) {
+				// BSR-1170 after sending the bitmap, once the local write to RQ_OOS_LOCAL_DONE is complete, clear RQ_OOS_LOCAL_DONE to set OOS and send it(bsr_req_destroy()).
+				if (p->repl_state[NOW] != L_OFF && p->repl_state[NOW] != L_WF_BITMAP_S) 
+					req->rq_state[p->node_id + 1] &= ~RQ_OOS_LOCAL_DONE;;
+
+				if (!atomic_dec_return64(&p->local_writing))
+					wake_up(&p->local_writing_wait);
+			}
 		}
 	}
 
@@ -1179,6 +1194,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 						if (send_oos) {
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
 							send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+							// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
+							send_oos->size = 0;
 							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
 							list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
 							spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
@@ -1885,9 +1902,7 @@ bool bsr_should_do_remote(struct bsr_peer_device *peer_device, enum which_state 
 		repl_state == L_STARTING_SYNC_S ||
 		// DW-1979 add bsr_should_do-remote() allowed state
 		repl_state == L_WF_BITMAP_S ||
-		(peer_disk_state == D_INCONSISTENT &&
-		(repl_state == L_ESTABLISHED ||
-		(repl_state >= L_WF_BITMAP_T && repl_state < L_AHEAD)));
+		(peer_disk_state == D_INCONSISTENT && (repl_state == L_ESTABLISHED || (repl_state >= L_WF_BITMAP_T && repl_state < L_AHEAD)));
 	/* Before proto 96 that was >= CONNECTED instead of >= L_WF_BITMAP_T.
 	That is equivalent since before 96 IO was frozen in the L_WF_BITMAP*
 	states. */
@@ -1983,8 +1998,8 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 		if (!remote && !send_oos) {
 			// BSR-1021 unconnected nodes set out of sync for the request area.
 			// BSR-1046 set OOS only when peer_device->bitmap_index is set.
-			if ((peer_device->bitmap_index != -1) &&
-				(peer_device->connection->cstate[NOW] != C_CONNECTED))
+			// BSR-1170 remove the connection status from the condition because OOS_SET_TO_LOCAL must be set even if it is connected but the replication status is L_OFF.
+			if (peer_device->bitmap_index != -1) 
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
 
 			// BSR-1171
@@ -2005,7 +2020,9 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 
 		D_ASSERT(device, !(remote && send_oos));
 
-		if (remote) {
+		if (remote &&
+			// BSR-1039 send OOS when setting AL OOS.
+			!(req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)) {
 			u32 prot;
 			rcu_read_lock();
 			prot = rcu_dereference(peer_device->connection->transport.net_conf)->wire_protocol;
