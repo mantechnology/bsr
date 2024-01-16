@@ -1336,6 +1336,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 #define REQ_WRITE 1
 #endif
 
+#ifndef COMPAT_HAVE_ENUM_REQ_OP
 enum req_op {
 	REQ_OP_READ,				/* 0 */
 	REQ_OP_WRITE = REQ_WRITE,	/* 1 */
@@ -1356,6 +1357,7 @@ enum req_op {
 	/* REQ_OP_SECURE_ERASE: does not matter to us,
 	* I don't see how we could support that anyways. */
 };
+#endif
 #define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
 
 #ifdef _WIN
