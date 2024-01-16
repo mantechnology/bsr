@@ -1358,7 +1358,23 @@ enum req_op {
 	* I don't see how we could support that anyways. */
 };
 #endif
+
+#ifndef COMPAT_HAVE_BIO_OP
 #define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
+static inline int op_from_rq_bits(u64 flags)
+{
+	if (flags & BSR_REQ_DISCARD)
+		return REQ_OP_DISCARD;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
+	else if (flags & BSR_REQ_WSAME)
+		return REQ_OP_WRITE_SAME;
+#endif
+	else if (flags & REQ_WRITE)
+		return REQ_OP_WRITE;
+	else
+		return REQ_OP_READ;
+}
+#endif
 
 #ifdef _WIN
 extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
@@ -1379,17 +1395,6 @@ static inline void bio_set_op_attrs(struct bio *bio, const int op, const long fl
 }
 #endif
 
-static inline int op_from_rq_bits(u64 flags)
-{
-	if (flags & BSR_REQ_DISCARD)
-		return REQ_OP_DISCARD;
-	else if (flags & BSR_REQ_WSAME)
-		return REQ_OP_WRITE_SAME;
-	else if (flags & REQ_WRITE)
-		return REQ_OP_WRITE;
-	else
-		return REQ_OP_READ;
-}
 #endif
 
 #ifdef COMPAT_HAVE_SUBMIT_BIO_NOACCT
