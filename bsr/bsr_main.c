@@ -2708,6 +2708,16 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		}
 	}
 
+	// BSR-1170 if you send a bitmap without waiting for all local writes with OOS_SET_TO_LOCAL set to complete, OOS might persist or data might not be consistent. 
+	if ((peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) && atomic_read64(&peer_device->local_writing)) {
+		long timeout = 0;
+		bsr_info(63, BSR_LC_IO, peer_device, "wait for complete local write, current local writing %lld", atomic_read64(&peer_device->local_writing));
+		wait_event_timeout_ex(peer_device->local_writing_wait, (0 == atomic_read64(&peer_device->local_writing)), HZ * 3, timeout);
+		if (!timeout && atomic_read64(&peer_device->local_writing))
+			bsr_info(64, BSR_LC_IO, peer_device, "local writes that are not completed after waiting are %lld", atomic_read64(&peer_device->local_writing));
+	}
+	atomic_set(&peer_device->start_sending_bitmap, 1);
+
 	mutex_lock(&peer_device->connection->mutex[DATA_STREAM]);
 	// DW-1979
 	if (peer_transport->ops->stream_ok(peer_transport, DATA_STREAM)) {
@@ -4928,6 +4938,10 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 #else
 	peer_device->merged_nodes = ~0UL;
 #endif
+	// BSR-1170
+	atomic_set64(&peer_device->local_writing, 0);
+	init_waitqueue_head(&peer_device->local_writing_wait);
+	atomic_set(&peer_device->start_sending_bitmap, 0);
 
 	return peer_device;
 }
