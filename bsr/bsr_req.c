@@ -357,7 +357,7 @@ void bsr_req_destroy(struct kref *kref)
 						else {
 							bsr_err(35, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
-							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
 					}
 				}
@@ -1188,7 +1188,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 						}
 						else {
 							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
-							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
 					}
 				}
