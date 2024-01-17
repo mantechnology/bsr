@@ -2522,6 +2522,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				wake_up(&connection->sender_work.q_wait);
 			}
 
+			// BSR-1170
+			if (repl_state[OLD] == L_OFF && repl_state[NEW] == L_WF_BITMAP_S) 
+				atomic_set(&peer_device->start_sending_bitmap, 0);
+
 			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
 			if (lost_contact_to_peer_data(peer_disk_state) || (peer_disk_state[NEW] == D_INCONSISTENT)) {
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
