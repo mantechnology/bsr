@@ -1061,6 +1061,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// BSR-1021 
 	if (!(old_net & RQ_OOS_LOCAL_DONE) && (set & RQ_OOS_LOCAL_DONE)) {
+		// BSR-1170
+		atomic_inc_return64(&peer_device->local_writing);
 		bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 		return;
 	}
@@ -1139,9 +1141,26 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// DW-1237 Local I/O has been completed, put request databuf ref. 
 	if (!(old_local & RQ_LOCAL_COMPLETED) && (set_local & RQ_LOCAL_COMPLETED)) {
+		struct bsr_peer_device *p;
 		if (0 == atomic_dec_return(&req->req_databuf_ref) && req->req_databuf) {
 			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
 			req->req_databuf = NULL;
+		}
+
+		for_each_peer_device(p, device) {
+			// BSR-1170
+			if (req->rq_state[p->node_id + 1] & RQ_OOS_LOCAL_DONE) {
+				// BSR-1170 if the local write has completed since the bitmap transmission began, reconnect to induce resync.
+				if (((p->repl_state[NOW] != L_WF_BITMAP_S) && (p->repl_state[NOW] != L_AHEAD)) ||
+					((p->repl_state[NOW] == L_WF_BITMAP_S) && atomic_read(&p->start_sending_bitmap)) ||
+					((p->repl_state[NOW] == L_AHEAD) && atomic_read(&p->start_sending_bitmap))) {
+					if (p->repl_state[NOW] != L_OFF)
+						change_cstate_ex(p->connection, C_NETWORK_FAILURE, CS_HARD);
+					bsr_set_out_of_sync(p, req->i.sector, req->i.size);
+				}
+				if (!atomic_dec_return64(&p->local_writing))
+					wake_up(&p->local_writing_wait);
+			}
 		}
 	}
 
@@ -1983,8 +2002,8 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 		if (!remote && !send_oos) {
 			// BSR-1021 unconnected nodes set out of sync for the request area.
 			// BSR-1046 set OOS only when peer_device->bitmap_index is set.
-			if ((peer_device->bitmap_index != -1) &&
-				(peer_device->connection->cstate[NOW] != C_CONNECTED))
+			// BSR-1170 remove the connection status from the condition because OOS_SET_TO_LOCAL must be set even if it is connected but the replication status is L_OFF.
+			if (peer_device->bitmap_index != -1) 
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
 
 			// BSR-1171

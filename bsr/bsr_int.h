@@ -526,7 +526,7 @@ static const char * const __log_category_names[] = {
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 101
-#define BSR_LC_IO_MAX_INDEX 62
+#define BSR_LC_IO_MAX_INDEX 64
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 127
 #define BSR_LC_LRU_MAX_INDEX 42
@@ -2124,6 +2124,12 @@ struct bsr_peer_device {
 	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
 	u64 latest_nodes;
 	u64 merged_nodes;
+
+	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
+	atomic_t64 local_writing;
+	wait_queue_head_t local_writing_wait;
+	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
+	atomic_t start_sending_bitmap;
 };
 
 
