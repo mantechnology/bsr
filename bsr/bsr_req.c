@@ -357,7 +357,7 @@ void bsr_req_destroy(struct kref *kref)
 						else {
 							bsr_err(35, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
-							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
 					}
 				}
@@ -1150,10 +1150,14 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		for_each_peer_device(p, device) {
 			// BSR-1170
 			if (req->rq_state[p->node_id + 1] & RQ_OOS_LOCAL_DONE) {
-				// BSR-1170 after sending the bitmap, once the local write to RQ_OOS_LOCAL_DONE is complete, clear RQ_OOS_LOCAL_DONE to set OOS and send it(bsr_req_destroy()).
-				if (p->repl_state[NOW] != L_OFF && p->repl_state[NOW] != L_WF_BITMAP_S) 
-					req->rq_state[p->node_id + 1] &= ~RQ_OOS_LOCAL_DONE;;
-
+				// BSR-1170 if the local write has completed since the bitmap transmission began, reconnect to induce resync.
+				if (((p->repl_state[NOW] != L_WF_BITMAP_S) && (p->repl_state[NOW] != L_AHEAD)) ||
+					((p->repl_state[NOW] == L_WF_BITMAP_S) && atomic_read(&p->start_sending_bitmap)) ||
+					((p->repl_state[NOW] == L_AHEAD) && atomic_read(&p->start_sending_bitmap))) {
+					if (p->repl_state[NOW] != L_OFF)
+						change_cstate_locked_ex(p->connection, C_NETWORK_FAILURE, CS_HARD);
+					bsr_set_out_of_sync(p, req->i.sector, req->i.size);
+				}
 				if (!atomic_dec_return64(&p->local_writing))
 					wake_up(&p->local_writing_wait);
 			}
@@ -1203,7 +1207,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 						}
 						else {
 							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
-							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 						}
 					}
 				}

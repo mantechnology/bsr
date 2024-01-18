@@ -1076,7 +1076,27 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
  * bi_opf (some kernel version) -> data packet flags -> bi_opf (other kernel version)
  */
 
-#if defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) && \
+#if !defined(REQ_FLUSH) && defined(REQ_PREFLUSH) /* after rhel 9.3*/
+#define BSR_REQ_PREFLUSH	REQ_PREFLUSH
+#define BSR_REQ_FUA		REQ_FUA
+#define BSR_REQ_SYNC		REQ_SYNC
+
+#ifdef REQ_HARDBARRIER
+#define BSR_REQ_HARDBARRIER	REQ_HARDBARRIER
+#else
+#define BSR_REQ_HARDBARRIER	0
+#endif
+
+#ifdef REQ_UNPLUG
+#define BSR_REQ_UNPLUG		REQ_UNPLUG
+#else
+#define BSR_REQ_UNPLUG		0
+#endif
+
+#ifndef WRITE_SYNC
+#define WRITE_SYNC REQ_SYNC
+#endif
+#elif defined(COMPAT_HAVE_BIO_SET_OP_ATTRS) && \
 	!(defined(RHEL_RELEASE_CODE) && /* 7.4 broke our compat detection here */ \
 		LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0))
 		
@@ -1316,6 +1336,7 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 #define REQ_WRITE 1
 #endif
 
+#ifndef COMPAT_HAVE_ENUM_REQ_OP
 enum req_op {
 	REQ_OP_READ,				/* 0 */
 	REQ_OP_WRITE = REQ_WRITE,	/* 1 */
@@ -1336,29 +1357,18 @@ enum req_op {
 	/* REQ_OP_SECURE_ERASE: does not matter to us,
 	* I don't see how we could support that anyways. */
 };
-#define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
-
-#ifdef _WIN
-extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
-#else // LIN
-static inline void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
-{
-	/* If we explicitly issue discards or write_same, we use
-	* blkdev_issue_discard() and blkdev_issue_write_same() helpers.
-	* If we implicitly submit them, we just pass on a cloned bio to
-	* generic_make_request().  We expect to use bio_set_op_attrs() with
-	* REQ_OP_READ or REQ_OP_WRITE only. */
-	BUG_ON(!(op == REQ_OP_READ || op == REQ_OP_WRITE));
-	bio->bi_rw |= (op | flags);
-}
 #endif
 
+#ifndef COMPAT_HAVE_BIO_OP
+#define bio_op(bio)                            (op_from_rq_bits((bio)->bi_rw))
 static inline int op_from_rq_bits(u64 flags)
 {
 	if (flags & BSR_REQ_DISCARD)
 		return REQ_OP_DISCARD;
+#ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 	else if (flags & BSR_REQ_WSAME)
 		return REQ_OP_WRITE_SAME;
+#endif
 	else if (flags & REQ_WRITE)
 		return REQ_OP_WRITE;
 	else
@@ -1366,15 +1376,38 @@ static inline int op_from_rq_bits(u64 flags)
 }
 #endif
 
+#ifdef _WIN
+extern void bio_set_op_attrs(struct bio *bio, const int op, const long flags);
+#else // LIN
+static inline void bio_set_op_attrs(struct bio *bio, const int op, const long flags)
+{
+#ifdef COMPAT_HAVE_BIO_BI_OPF
+	bio->bi_opf = op | flags;
+#else
+	/* If we explicitly issue discards or write_same, we use
+	* blkdev_issue_discard() and blkdev_issue_write_same() helpers.
+	* If we implicitly submit them, we just pass on a cloned bio to
+	* generic_make_request().  We expect to use bio_set_op_attrs() with
+	* REQ_OP_READ or REQ_OP_WRITE only. */
+	BUG_ON(!(op == REQ_OP_READ || op == REQ_OP_WRITE));
+	bio->bi_rw |= (op | flags);
+#endif
+}
+#endif
+
+#endif
+
 #ifdef COMPAT_HAVE_SUBMIT_BIO_NOACCT
 #define generic_make_request(bio)	submit_bio_noacct(bio)
 #endif
 
-#ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
+#ifndef COMPAT_HAVE_BIO_BI_OPF
 #define bi_opf	bi_rw
-#ifdef _LIN
+#endif
+#ifdef COMPAT_SUBMIT_BIO_HAS_2_PARAMS
 #define submit_bio(__bio)	submit_bio(__bio->bi_rw, __bio)
 #endif
+#ifdef COMPAT_NEED_BI_OPF_AND_SUBMIT_BIO_COMPAT_DEFINES
 /* see comment in above compat enum req_op */
 #define REQ_OP_FLUSH		REQ_OP_WRITE
 #endif

@@ -315,7 +315,7 @@ static inline bool bsr_req_make_private_bio(struct bsr_request *req, struct bio 
 	// BSR-1173 prevent panic, check the device with get_ldev
 	if (get_ldev(device)) {
 		bio = bio_alloc_clone(device->ldev->backing_bdev, bio_src, GFP_NOIO, &bsr_io_bio_set);
-		put_ldev(device);
+		put_ldev(__FUNCTION__, device);
 	}
 #else
 	bio = bio_clone_fast(bio_src, GFP_NOIO, &bsr_io_bio_set); /* XXX cannot fail?? */

@@ -2125,9 +2125,11 @@ struct bsr_peer_device {
 	u64 latest_nodes;
 	u64 merged_nodes;
 
-	// BSR-1170 Count for replication data and incomplete local writes that fail to transmit OOS.
+	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
 	atomic_t64 local_writing;
 	wait_queue_head_t local_writing_wait;
+	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
+	atomic_t start_sending_bitmap;
 };
 
 
