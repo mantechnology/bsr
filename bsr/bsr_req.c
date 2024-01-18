@@ -1155,7 +1155,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 					((p->repl_state[NOW] == L_WF_BITMAP_S) && atomic_read(&p->start_sending_bitmap)) ||
 					((p->repl_state[NOW] == L_AHEAD) && atomic_read(&p->start_sending_bitmap))) {
 					if (p->repl_state[NOW] != L_OFF)
-						change_cstate_ex(p->connection, C_NETWORK_FAILURE, CS_HARD);
+						change_cstate_locked_ex(p->connection, C_NETWORK_FAILURE, CS_HARD);
 					bsr_set_out_of_sync(p, req->i.sector, req->i.size);
 				}
 				if (!atomic_dec_return64(&p->local_writing))
