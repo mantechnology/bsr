@@ -2735,8 +2735,10 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 							if ((p == pd) || 
 								(p->merged_nodes & NODE_MASK(pd->node_id)))
 								continue;
-							if (bsr_peer_device_merge_bitmap(p, pd))
+							if (bsr_peer_device_merge_bitmap(p, pd)) {
 								p->merged_nodes |= NODE_MASK(pd->node_id);
+								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", pd->node_id, p->node_id);
+							}
 							else
 								missing = true;
 						}
@@ -2749,8 +2751,10 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 				} else {
 					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
 						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							if(bsr_peer_device_merge_bitmap(p, peer_device))
+							if (bsr_peer_device_merge_bitmap(p, peer_device)) {
 								p->merged_nodes |= NODE_MASK(peer_device->node_id);
+								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
+							}
 						}
 					}
 				}

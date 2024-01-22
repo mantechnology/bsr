@@ -3542,6 +3542,23 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					((peer_device->repl_state[NOW] == L_WF_BITMAP_S) ||
 					// DW-2064 send bitmap when L_AHEAD is in state and wait_for_recv_bitmap is set
 					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) {
+				// BSR-1171
+				struct bsr_peer_device *p;
+
+				bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
+				for_each_peer_device(p, device) {
+					if (p == peer_device)
+						continue;
+					// BSR-1171 node with replication status L_ESTABLISHED are up-to-date, and if they are subsequently disconnected and replication occurs, the bitmap must be merged.
+					if (p->repl_state[NOW] == L_ESTABLISHED)
+						peer_device->latest_nodes |= NODE_MASK(p->node_id);
+					// BSR-1171 if the replication status is not L_ESTABLISHED, set the bitmap to merge because the data might not be up-to-date.
+					else {
+						bsr_info(19, BSR_LC_VERIFY, NO_OBJECT, "set %d as the bitmap merge destination for node %d.", p->node_id, peer_device->node_id);
+						peer_device->merged_nodes &= ~NODE_MASK(p->node_id);
+					}
+				}
+
 				send_bitmap = true;
 			}
 

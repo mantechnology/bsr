@@ -3458,14 +3458,16 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	for_each_peer_device(peer_device, device) {
 		clear_bit(USE_DEGR_WFC_T, &peer_device->flags);
 		if (resource->role[NOW] != R_PRIMARY &&
-		    bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
-		    !bsr_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
+			bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
+			!bsr_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
 			set_bit(USE_DEGR_WFC_T, &peer_device->flags);
 
 		// BSR-1171 the following flags are set when the system is forced to shut down.
 		// if the flag was previously set, set all nodes to merge bitmaps. this can lead to unnecessary bitmap merging.
-		if (bsr_md_test_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP))
+		if (bsr_md_test_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP)) {
 			peer_device->merged_nodes = 0;
+			bsr_info(20, BSR_LC_VERIFY, peer_device, "set all nodes on node(%d) to merge bitmap.", peer_device->node_id);
+		}
 	}
 
 	dd = bsr_determine_dev_size(device, 0, 0, NULL);
