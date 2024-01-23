@@ -136,9 +136,4 @@ extern void initialize_err(void);
 extern int err(const char *format, ...);
 extern const char *esc_xml(char *str);
 extern const char *esc(char *str);
-
-// BSR-1182 run bsrcon and get the results. Further modifications are required to get the output.
-extern void __exec_bsrcon(const char* command, int flags, pid_t *pid, int *fd, int *ex, int dry_run);
-extern int __exec_bsrcon_silent(const char* command, char* out, int dry_run);
-
 #endif

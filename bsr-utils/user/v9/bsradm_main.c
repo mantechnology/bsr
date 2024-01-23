@@ -3677,10 +3677,9 @@ int main(int argc, char **argv)
 	CLI_TRAC_LOG(false, "check parse_option (%d)", rv);
 
 #ifdef _WIN
-	// BSR-1182 returns an error if the version is not obtained with bsrcon /s.
-	char engine_ver[4096] = { 0, };
-	if (__exec_bsrcon_silent("/s", engine_ver, dry_run)) {
-		CLI_ERRO_LOG_PEEROR(false, "engine version not confirmed, did you proceed with the reboot after installation??\n");
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
 		return -112;
 	}
 #endif

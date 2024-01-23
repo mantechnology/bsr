@@ -50,7 +50,7 @@ void substitute_deprecated_cmd(char **c, char *deprecated,
 				      char *substitution);
 
 struct ifreq *get_ifreq(void);
-// BSR-1182 do not use external variables, but add parameters instead. (ifreq_list)
+// BSR-1182
 int have_ip(const char *af, const char *ip, struct ifreq *ifreq_list);
 int have_ip_ipv4(const char *ip, struct ifreq *ifreq_list);
 int have_ip_ipv6(const char *ip);
@@ -122,7 +122,8 @@ struct ifi_info {
 	struct ifi_info *ifi_next;    /* next ifi_info structure */
 };
 
-// BSR-1182 do not use external variables, but add parameters instead. (sh_varname, adjust_with_progress, dry_run, verbose)
+
+// BSR-1182 change to use the function's parameters without using global variables so that m__system() can be used in common across all cli
 extern void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd, int *ex, const char* sh_varname, int adjust_with_progress, int dry_run, int verbose);
 static inline int m_system_ex(char **argv, int flags, const char *res_name, const char* sh_varname, int adjust_with_progress, int dry_run, int verbose)
 {
