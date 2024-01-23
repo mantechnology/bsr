@@ -386,7 +386,7 @@ return false;
 
                     </condition>
               </action>
-              <action name="Update finish" id="2943" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0">
+              <action name="Update finish" id="2943" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" failureStrategy="quit">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -394,9 +394,8 @@ return false;
 
 if(!WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr", context.getVariable("sys.installerFile").toString())) {
     Util.showMessage(context.getMessage("FailedToAutomaticRestart"));
-    return false;
-} 
- return true;</property>
+}
+ return false;</property>
                     </object>
                   </property>
                 </serializedBean>
