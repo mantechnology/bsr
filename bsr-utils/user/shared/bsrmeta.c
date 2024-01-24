@@ -5297,6 +5297,14 @@ int main(int argc, char **argv)
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
+#ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		exit(-112);
+	}
+#endif
+
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
 		CLI_ERRO_LOG_STDERR(false, "Where did you get this broken build!?"
@@ -5404,6 +5412,7 @@ int main(int argc, char **argv)
 		exit(20);
 	}
 	ai++;
+
 
 	lcmd = (char *)command->name;
 	// BSR-1031
