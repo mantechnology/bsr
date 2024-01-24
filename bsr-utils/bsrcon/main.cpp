@@ -463,11 +463,12 @@ int driver_Install_Inf(wchar_t* session, char* fullPath)
 {
 	HANDLE handle;
 	struct cb_ctx ctx;
-	wchar_t service[32] = L"";
+	// BSR-1183 The maximum size of the service is 32("DefaultInstall.NTamd64.Services") or 33("DefaultUninstall.NTamd64.Services").
+	wchar_t service[64] = L"";
 	wchar_t fullPath16[255] = L"";
 	PSP_FILE_CALLBACK cb;
 
-	memset(service, 0, sizeof(wchar_t) * 32);
+	memset(service, 0, sizeof(wchar_t) * 64);
 	memset(fullPath16, 0, sizeof(wchar_t) * 255);
 	memset(ctx.err, 0, sizeof(wchar_t) * 255);
 

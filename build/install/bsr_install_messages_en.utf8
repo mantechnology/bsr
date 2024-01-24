@@ -46,3 +46,6 @@ FailedToRestoreRcBatFile=Failed to resource management script file(rc.bat) recov
 FailedToRestorevfltEngine=Failed to engine(bsrvflt.sys) restore.
 FailedToRemoveAutoRun=Failed to uninstalling the installer's auto-run settings after a reboot.
 FailedToReboot=Failed to reboot. Please proceed with the reboot.
+FailedToServiceUninstallForUninstall=Failed to uninstallation service. If you ignore and proceed with uninstallation, please remove the service manually after uninstallation is complete.
+FailedToUninstallfsfltEngineForUninstall=Failed to engine (bsrfsflt.sys) uninstall. If you ignore it and proceed with the removal, please remove the engine manually after the removal is completed.
+FailedToUninstallvfltEngineForUninstall=Failed to engine (bsrvflt.sys) uninstall. If you ignore it and proceed with the removal, please remove the engine manually after the removal is completed.
