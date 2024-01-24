@@ -5413,6 +5413,7 @@ int main(int argc, char **argv)
 	}
 	ai++;
 
+
 	lcmd = (char *)command->name;
 	// BSR-1031
 	lstatus = command->is_status_cmd;

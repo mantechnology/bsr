@@ -1023,7 +1023,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallvfltEngine}">
+              <action name="Install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="askRetryQuit" errorMessage="${i18n:FailedToInstallvfltEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_install</element>
@@ -1041,7 +1041,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:NotMatchfsfltEngineHash}">
+              <action name="Compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" errorMessage="${i18n:NotMatchfsfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrfsflt.hash</element>
@@ -1060,7 +1060,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:NotMatchvfltEngineHash}">
+              <action name="Compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" errorMessage="${i18n:NotMatchvfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrvflt.hash</element>

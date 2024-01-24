@@ -3639,6 +3639,12 @@ int main(int argc, char **argv)
 	initialize_err();
 	initialize_deferred_cmds();
 #ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		return -112;
+	}
+
 	{
         extern void manual_nl_policy_init_by_app(void);
         manual_nl_policy_init_by_app();
@@ -3675,14 +3681,6 @@ int main(int argc, char **argv)
 	rv = parse_options(argc, argv, &cmd, &resource_names);
 
 	CLI_TRAC_LOG(false, "check parse_option (%d)", rv);
-
-#ifdef _WIN
-	// BSR-1182 returns an error if it has not been rebooted after installation.
-	if (!is_reboot_after_installation()) {
-		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
-		return -112;
-	}
-#endif
 
 	if (rv)
 		return rv;
