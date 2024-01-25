@@ -239,6 +239,54 @@ static struct bsr_path *first_path(struct bsr_connection *connection)
 #define BSR_ADM_NEED_PEER_DEVICE  (1 << 3)
 #define BSR_ADM_NEED_PEER_NODE    (1 << 4)
 #define BSR_ADM_IGNORE_VERSION    (1 << 5)
+
+// BSR-1192
+int netlink_work_thread_cnt = 0;
+
+void log_for_netlink_cli_recv(const u8 cmd)
+{
+#ifdef _LIN
+	netlink_work_thread_cnt++;
+#endif
+
+	if ((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
+#ifdef _WIN
+		bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", bsr_genl_cmd_to_str(cmd), cmd);
+#else
+		bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", bsr_genl_cmd_to_str(cmd), cmd);
+#endif
+	}
+	else {
+#ifdef _WIN
+		bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", bsr_genl_cmd_to_str(cmd), cmd);
+#else
+		bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", bsr_genl_cmd_to_str(cmd), cmd);
+#endif
+	}
+}
+
+void log_for_netlink_cli_done(const u8 cmd)
+{
+#ifdef _LIN
+	netlink_work_thread_cnt--;
+#endif
+
+	if ((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
+#ifdef _WIN
+		bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt - 1);
+#else
+		bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt);
+#endif
+	}
+	else {
+#ifdef _WIN
+		bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt - 1);
+#else
+		bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt);
+#endif
+	}
+}
+
 static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
@@ -250,6 +298,9 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 
 	memset(adm_ctx, 0, sizeof(*adm_ctx));
 #ifdef _LIN
+	// BSR-1192
+	log_for_netLink_cli_recv();
+
 	/*
 	 * genl_rcv_msg() only checks if commands with the GENL_ADMIN_PERM flag
 	 * set have CAP_NET_ADMIN; we also require CAP_SYS_ADMIN for
@@ -447,6 +498,11 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 fail:
 	nlmsg_free(adm_ctx->reply_skb);
 	adm_ctx->reply_skb = NULL;
+
+	// BSR-1192
+#ifdef _LIN
+	log_for_netLink_cli_done(cmd);
+#endif
 	return err;
 
 finish:
@@ -455,6 +511,10 @@ finish:
 
 static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
+// BSR-1192
+#ifdef _LIN
+	log_for_netLink_cli_done(info->genlhdr->cmd);
+#endif
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
 		bsr_err(2, BSR_LC_GENL, resource, "Failed to finish bsradm due to cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
