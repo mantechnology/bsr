@@ -536,6 +536,30 @@ return console.askOkCancel(message, true);
           </screen>
           <screen id="8" beanClass="com.install4j.runtime.beans.screens.InstallationScreen" rollbackBarrier="true">
             <actions>
+              <action name="Read a value in the Windows registry" id="2961" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToInstallationNotRebootAfterUninstallation}">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce";
+final Object regValue;
+
+if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
+{
+    return true;
+}
+
+regValue = WinRegistry.getValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr_uninstall_need_reboot");
+
+if(regValue == null) { 
+    return true;
+}
+
+return false;
+</property>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
               <action id="2953" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated" rollbackBarrierExitCode="0">
                 <serializedBean>
                   <property name="keyName" type="string">Software\Microsoft\Windows\CurrentVersion\RunOnce</property>
@@ -1343,6 +1367,13 @@ return true;</property>
           <screen id="19" beanClass="com.install4j.runtime.beans.screens.UninstallFailureScreen" finishScreen="true" />
           <screen id="18" beanClass="com.install4j.runtime.beans.screens.UninstallSuccessScreen" styleId="159" finishScreen="true">
             <actions>
+              <action id="2957" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="keyName" type="string">Software\Microsoft\Windows\CurrentVersion\RunOnce</property>
+                  <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
+                  <property name="valueName" type="string">bsr_uninstall_need_reboot</property>
+                </serializedBean>
+              </action>
               <action id="134" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" actionElevationType="none">
                 <condition>if(context.isUnattended()) { 
     return false;         
