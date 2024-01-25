@@ -15,9 +15,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <bsr.h>
-#ifdef _WIN
-#include <windows.h>
-#else // _LIN
+#ifdef _LIN
 #include <linux/fs.h>           /* for BLKGETSIZE64 */
 #include <time.h>
 #endif
@@ -516,6 +514,27 @@ static const uint32_t crc32c_table[256] = {
 	0xBE2DA0A5L, 0x4C4623A6L, 0x5F16D052L, 0xAD7D5351L
 };
 
+
+#ifdef _WIN
+// BSR-1182 
+BOOLEAN is_reboot_after_installation()
+{
+	DWORD lResult = ERROR_SUCCESS;
+	HKEY hKey = NULL;
+	const char runOnce[] = "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce";
+	DWORD type = REG_SZ;
+	DWORD size = MAX_PATH;
+	TCHAR buf[MAX_PATH] = { 0, };
+	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, runOnce, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS == lResult) {
+		lResult = RegQueryValueEx(hKey, "bsr", NULL, &type, (PBYTE)&buf, &size);
+		RegCloseKey(hKey);
+		if (ERROR_SUCCESS == lResult)
+			return FALSE;
+	}
+	return TRUE;
+}
+#endif
 /*
  * Steps through buffer one byte at at time, calculates reflected
  * crc using table.

@@ -59,8 +59,6 @@
 #include "shared_tool.h"
 #include "bsrtool_common.h"
 
-extern struct ifreq *ifreq_list;
-
 struct d_globals global_options = {
 
 	.cmd_timeout_short = CMD_TIMEOUT_SHORT_DEF,
@@ -151,7 +149,7 @@ struct ifreq *get_ifreq(void) {
 	return ifc.ifc_req;
 }
 
-int have_ip_ipv4(const char *ip)
+int have_ip_ipv4(const char *ip, struct ifreq *ifreq_list)
 {
 	struct ifreq *ifr;
 	struct in_addr query_addr;
@@ -221,12 +219,12 @@ int have_ip_ipv6(const char *ip)
 	return 0;
 }
 
-int have_ip(const char *af, const char *ip)
+int have_ip(const char *af, const char *ip, struct ifreq *ifreq_list)
 {
 	CLI_TRAC_LOG(false, "af(%s), ip(%s)", af, ip);
 
 	if (!strcmp(af, "ipv4"))
-		return have_ip_ipv4(ip);
+		return have_ip_ipv4(ip, ifreq_list);
 	else if (!strcmp(af, "ipv6"))
 		return have_ip_ipv6(ip);
 
@@ -259,7 +257,7 @@ pid_t my_fork(void)
 	return pid;
 }
 
-void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd, int *ex)
+void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd, int *ex, const char* sh_varname, int adjust_with_progress, int dry_run, int verbose)
 {
 	pid_t pid;
 	int status, rv = -1;

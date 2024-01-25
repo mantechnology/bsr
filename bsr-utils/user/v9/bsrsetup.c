@@ -5571,6 +5571,14 @@ int main(int argc, char **argv)
 		return -111;
 	}
 
+#ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		return -112;
+	}
+#endif
+
 	cmdname = strrchr(argv[0],'/');
 	if (cmdname)
 		argv[0] = ++cmdname;
