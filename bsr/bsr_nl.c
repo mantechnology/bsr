@@ -1326,6 +1326,14 @@ retry:
 
 	if (role == R_SECONDARY) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+			// BSR-1191
+			struct bsr_peer_device *peer_device;
+			for_each_peer_device(peer_device, device) {
+				ULONG_PTR bm_total = bsr_bm_total_weight(peer_device);
+				if (bm_total)
+					bsr_info(128, BSR_LC_BITMAP, peer_device, "after completion of the secondary, the out-of-sync bit is %llu (%lluk).", bm_total, bm_total * 4);
+			}
+
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 				if (test_bit(__NEW_CUR_UUID, &device->flags)) {
