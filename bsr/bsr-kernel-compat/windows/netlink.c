@@ -55,7 +55,11 @@ extern int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
 extern int _bsr_adm_get_status(struct sk_buff *skb, struct genl_info * pinfo);
 
 WORKER_THREAD_ROUTINE NetlinkWorkThread;
-static int netlink_work_thread_cnt = 0;
+
+// BSR-1192
+extern int netlink_work_thread_cnt;
+extern void log_for_netlink_cli_recv(const u8 cmd);
+extern void log_for_netlink_cli_done(const u8 cmd);
 /*
 static struct genl_ops bsr_genl_ops[] = {
 { .doit = bsr_adm_new_minor, .flags = 0x01, .cmd = BSR_ADM_NEW_MINOR, .policy = bsr_tla_nl_policy, },
@@ -630,11 +634,8 @@ NetlinkWorkThread(PVOID context)
 			// DW-1699 fixup netlink log level. the get series commands are adjusted to log at the trace log level.
 			cli_info(gmh->minor, "Command (%s:%u)\n", pops->str, cmd);
 			
-            if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-				bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", pops->str, cmd);
-            } else {
-				bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", pops->str, cmd);
-            }
+			// BSR-1192
+			log_for_netlink_cli_recv(cmd);
 			status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
 
             // DW-1998 set STATUS_SUCNESS under the following conditions even if the mutex is not obtained.
@@ -664,11 +665,8 @@ NetlinkWorkThread(PVOID context)
 					bsr_err(19, BSR_LC_NETLINK, NO_OBJECT, "command failed while operating. cmd(%u), error(%d)", cmd, err);
 					errcnt++;
 				}
-				if( (BSR_ADM_GET_RESOURCES <= cmd)  && (cmd <= BSR_ADM_GET_PEER_DEVICES) ) {
-					bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", pops->str, cmd, netlink_work_thread_cnt - 1);
-				} else {
-					bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", pops->str, cmd, netlink_work_thread_cnt - 1);
-				}
+				// BSR-1192
+				log_for_netlink_cli_done(cmd);
 			} else {
                 mutex_unlock(&g_genl_run_cmd_mutex);
 				bsr_info(21, BSR_LC_NETLINK, NO_OBJECT, "Cannot execute command %s:%u because mutex is not returned and cannot be acquired. status(0x%x)", pops->str, cmd, status);
