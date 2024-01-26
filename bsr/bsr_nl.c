@@ -243,9 +243,12 @@ static struct bsr_path *first_path(struct bsr_connection *connection)
 // BSR-1192
 int netlink_work_thread_cnt = 0;
 
+#ifdef _WIN
 void log_for_netlink_cli_recv(const u8 cmd)
 {
-#ifdef _LIN
+#else
+static void log_for_netlink_cli_recv(const u8 cmd)
+{
 	netlink_work_thread_cnt++;
 #endif
 
@@ -265,9 +268,12 @@ void log_for_netlink_cli_recv(const u8 cmd)
 	}
 }
 
+#ifdef _WIN
 void log_for_netlink_cli_done(const u8 cmd)
 {
-#ifdef _LIN
+#else
+static void log_for_netlink_cli_done(const u8 cmd)
+{
 	netlink_work_thread_cnt--;
 #endif
 
@@ -299,7 +305,7 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	memset(adm_ctx, 0, sizeof(*adm_ctx));
 #ifdef _LIN
 	// BSR-1192
-	log_for_netLink_cli_recv();
+	log_for_netlink_cli_recv(cmd);
 
 	/*
 	 * genl_rcv_msg() only checks if commands with the GENL_ADMIN_PERM flag
@@ -501,7 +507,7 @@ fail:
 
 	// BSR-1192
 #ifdef _LIN
-	log_for_netLink_cli_done(cmd);
+	log_for_netlink_cli_done(cmd);
 #endif
 	return err;
 
@@ -511,10 +517,8 @@ finish:
 
 static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
-// BSR-1192
-#ifdef _LIN
-	log_for_netLink_cli_done(info->genlhdr->cmd);
-#endif
+	int ret = 0;
+
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
 		bsr_err(2, BSR_LC_GENL, resource, "Failed to finish bsradm due to cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
@@ -536,17 +540,24 @@ static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *
 		adm_ctx->resource = NULL;
 	}
 
-	if (!adm_ctx->reply_skb)
-		return -ENOMEM;
-
-	adm_ctx->reply_dh->ret_code = retcode;
-	bsr_adm_send_reply(adm_ctx->reply_skb, info);
+	if (!adm_ctx->reply_skb) {
+		ret = -ENOMEM;
+	} else {
+		adm_ctx->reply_dh->ret_code = retcode;
+		bsr_adm_send_reply(adm_ctx->reply_skb, info);
 #ifdef _WIN
-	// DW-211 fix memory leak
-	nlmsg_free(adm_ctx->reply_skb);
+		// DW-211 fix memory leak
+		nlmsg_free(adm_ctx->reply_skb);
 #endif
-	adm_ctx->reply_skb = NULL;
-	return 0;
+		adm_ctx->reply_skb = NULL;
+		ret = 0;
+	}
+	// BSR-1192
+#ifdef _LIN
+	log_for_netlink_cli_done(info->genlhdr->cmd);
+#endif
+
+	return ret;
 }
 
 static void conn_md_sync(struct bsr_connection *connection)
