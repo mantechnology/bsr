@@ -260,7 +260,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock failed, but this does not affect behavior. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
             __leave;
         }
         
