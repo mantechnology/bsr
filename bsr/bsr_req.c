@@ -310,8 +310,8 @@ void bsr_req_destroy(struct kref *kref)
 				unsigned int rq_state;
 
 				rq_state = req->rq_state[1 + node_id];
-				// Dw-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_QUEUED).
-				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_QUEUED))
+				// Dw-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_DONE).
+				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_DONE))
 					// BSR-1021 exclude from the destination bitmap because it has not been connected before and has already set out of sync.
 					|| rq_state & RQ_OOS_LOCAL_DONE) {
 					int bitmap_index = peer_md[node_id].bitmap_index;
@@ -781,6 +781,10 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		if (!(ns & (RQ_NET_PENDING|RQ_NET_QUEUED)))
 			continue;
 
+		// BSR-843 The completion_ref must be independent of the presence or absence of an OOS transmission.
+		if (ns & (RQ_OOS_PENDING|RQ_OOS_NET_QUEUED|RQ_OOS_NET_DONE))
+			continue;
+
 		bsr_err(15, BSR_LC_REQUEST, device,
 			"Failed to complete request due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
 			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
@@ -1035,15 +1039,6 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		BUG_ON(clear);
 	}
 
-	// DW-2042 When setting RQ_OOS_NET_QUEUED, RQ_OOS_PENDING shall be set.
-#ifdef SPLIT_REQUEST_RESYNC
-	if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
-		if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
-			return;
-		}
-	}
-#endif
-
 	if (bsr_suspended(req->device) && !((old_local | clear_local) & RQ_COMPLETION_SUSP))
 		set_local |= RQ_COMPLETION_SUSP;
 
@@ -1074,18 +1069,31 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		// DW-2058 inc rq_pending_oos_cnt
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device->connection->agreed_pro_version >= 113) {
-			if (set & RQ_OOS_PENDING) {
+			// BSR-843 OOS send does not increase/decrease completion_ref
+			if (!(old_net & RQ_OOS_PENDING) && (set & RQ_OOS_PENDING)) 
 				atomic_inc(&peer_device->rq_pending_oos_cnt);
-			}
-		}
+			else 
+				atomic_inc(&req->completion_ref);
+		} else 
 #endif
+			atomic_inc(&req->completion_ref);
 		inc_ap_pending(peer_device);
-		atomic_inc(&req->completion_ref);
 	}
 
 	if (!(old_net & RQ_NET_QUEUED) && (set & RQ_NET_QUEUED)) {
-		atomic_inc(&req->completion_ref);
-		
+		// BSR-843 
+#ifdef SPLIT_REQUEST_RESYNC
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if (!(old_net & RQ_OOS_NET_QUEUED) && (set & RQ_OOS_NET_QUEUED)) {
+				// BSR-843 increase ref so that request is not destroyed before sending OOS on a 1:2 or higher connection.
+				kref_get(&req->kref);
+			} else
+				atomic_inc(&req->completion_ref);
+		}
+		else
+#endif
+			atomic_inc(&req->completion_ref);
+
 #ifdef NETQUEUED_LOG
 		if(atomic_inc_return(&req->nq_ref) == 1) {
 			list_add_tail(&req->nq_requests, &req->device->resource->net_queued_log);
@@ -1147,14 +1155,34 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
-		++c_put;
+		// BSR-843
+#ifdef SPLIT_REQUEST_RESYNC
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if (!((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)))
+				++c_put;
+		} else
+#endif
+			++c_put;
 		if (atomic_read(&g_bsrmon_run))
 			ktime_get_accounting(req->acked_kt[peer_device->node_id]);
 		advance_conn_req_ack_pending(peer_device, req);
 	}
 
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
-		++c_put;
+		// BSR-843
+#ifdef SPLIT_REQUEST_RESYNC
+		if (peer_device->connection->agreed_pro_version >= 113) {
+			if ((old_net & RQ_OOS_NET_QUEUED) && (clear & RQ_OOS_NET_QUEUED)) {
+				// DW-2076 
+				atomic_dec(&peer_device->rq_pending_oos_cnt);
+				++k_put;
+			}
+			else
+				++c_put;
+		}
+		else
+#endif
+			++c_put;
 
 #ifdef NETQUEUED_LOG
 		if (atomic_dec_return(&req->nq_ref) == 0) {
@@ -1167,16 +1195,15 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
 #ifdef SPLIT_REQUEST_RESYNC
 		if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
-			if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
-				// DW-2076 
-				atomic_dec(&peer_device->rq_pending_oos_cnt);
+			if (!(old_net & RQ_OOS_NET_DONE) && (set & RQ_OOS_NET_DONE)) {
 				// BSR-842
 				if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
+					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && 
+						atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
 						struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
-						unsigned long flags;
-
 						if (send_oos) {
+							unsigned long flags;
+
 							INIT_LIST_HEAD(&send_oos->oos_list_head);
 							send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
 							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
@@ -1465,7 +1492,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	case QUEUE_FOR_SEND_OOS:
 #ifdef SPLIT_REQUEST_RESYNC
-		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED | RQ_NET_QUEUED);
+		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED);
 #else
 		mod_rq_state(req, m, peer_device, 0, RQ_NET_QUEUED);
 #endif
@@ -1476,7 +1503,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 	case SEND_FAILED:
 		/* real cleanup will be done from tl_clear.  just update flags
 		 * so it is no longer marked as on the sender queue */
-		mod_rq_state(req, m, peer_device, RQ_NET_QUEUED, 0);
+		mod_rq_state(req, m, peer_device, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED, 0);
 		break;
 
 	case HANDED_OVER_TO_NETWORK:
@@ -1496,13 +1523,14 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 	case OOS_HANDED_TO_NETWORK:
 		/* Was not set PENDING, no longer QUEUED, so is now DONE
 		 * as far as this connection is concerned. */
-		mod_rq_state(req, m, peer_device, RQ_NET_QUEUED, RQ_NET_DONE);
+		mod_rq_state(req, m, peer_device, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED, RQ_OOS_NET_DONE|RQ_NET_DONE);
 		break;
 
 	case CONNECTION_LOST_WHILE_PENDING:
 		/* transfer log cleanup after connection loss */
 		mod_rq_state(req, m, peer_device,
-				RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP,
+				// BSR-843
+				RQ_OOS_PENDING|RQ_OOS_NET_QUEUED|RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP,
 				RQ_NET_DONE);
 		break;
 
