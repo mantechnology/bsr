@@ -11037,7 +11037,15 @@ int bsr_receiver(struct bsr_thread *thi)
 void req_destroy_after_send_peer_ack(struct kref *kref)
 {
 	struct bsr_request *req = container_of(kref, struct bsr_request, kref);
+	struct bsr_device *device = req->device;
+	struct bsr_peer_device *peer_device;
+
 	list_del(&req->tl_requests);
+	//BSR-1195 set req_last_barrier_acked to null when removing tl_requests
+	for_each_peer_device(peer_device, device) {	
+		if (peer_device->connection->req_last_barrier_acked == req)
+			peer_device->connection->req_last_barrier_acked = NULL;
+	}
 
 	if (req->req_databuf) {
 		bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
@@ -11886,8 +11894,16 @@ static void destroy_request(struct kref *kref)
 {
 	struct bsr_request *req =
 		container_of(kref, struct bsr_request, kref);
+	struct bsr_device *device = req->device;
+	struct bsr_peer_device *peer_device;
 
 	list_del(&req->tl_requests);
+	// BSR-1195 set req_last_barrier_acked to null when removing tl_requests
+	for_each_peer_device(peer_device, device) {	
+		if (peer_device->connection->req_last_barrier_acked == req)
+			peer_device->connection->req_last_barrier_acked = NULL;
+	}
+
 	if (req->req_databuf) {
 		bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
 		req->req_databuf = NULL;

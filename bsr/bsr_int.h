@@ -1816,6 +1816,7 @@ struct bsr_connection {
 	 * protected by resource->req_lock */
 	struct bsr_request *req_ack_pending;
 	struct bsr_request *req_not_net_done;
+	struct bsr_request *req_last_barrier_acked; // BSR-1195 last req set to BARRIER_ACKED
 
 	unsigned int s_cb_nr; /* keeps counting up */
 	unsigned int r_cb_nr; /* keeps counting up */

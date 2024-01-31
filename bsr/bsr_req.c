@@ -276,6 +276,11 @@ void bsr_req_destroy(struct kref *kref)
 #endif
 	
 	list_del_init(&req->tl_requests);
+	// BSR-1195 set req_last_barrier_acked to null when removing tl_requests
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->connection->req_last_barrier_acked == req)
+			peer_device->connection->req_last_barrier_acked = NULL;
+	}
 
 	/* finally remove the request from the conflict detection
 	 * respective block_id verification interval tree. */

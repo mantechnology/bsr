@@ -570,7 +570,7 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 		unsigned int set_size)
 {
 	struct bsr_resource *resource = connection->resource;
-	struct bsr_request *r;
+	struct bsr_request *r = NULL;
 	struct bsr_request *req = NULL;
 	int expect_epoch = 0;
 	unsigned int expect_size = 0;
@@ -579,7 +579,16 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 
 	/* find oldest not yet barrier-acked write request,
 	 * count writes in its epoch. */
-	list_for_each_entry_ex(struct bsr_request, r, &resource->transfer_log, tl_requests) {
+
+	// BSR-1195 set req_last_barrier_acked to null if tl_requests has been removed.
+	if (connection->req_last_barrier_acked && list_empty(&connection->req_last_barrier_acked->tl_requests)) {
+		connection->req_last_barrier_acked = NULL;
+	} 
+
+	// BSR-1195 improve IO performance degradation due to transfer_log traversal
+	// if req_last_barrier_acked is not null, set transfer_log traversal starting point
+	r = list_prepare_entry_ex(struct bsr_request, connection->req_last_barrier_acked, &resource->transfer_log, tl_requests);
+	list_for_each_entry_continue_ex(struct bsr_request, r, &resource->transfer_log, tl_requests) {
 		struct bsr_peer_device *peer_device;
 		int idx;
 		peer_device = conn_peer_device(connection, r->device->vnr);
@@ -644,15 +653,21 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 	/* this extra list walk restart is paranoia,
 	 * to catch requests being barrier-acked "unexpectedly".
 	 * It usually should find the same req again, or some READ preceding it. */
-	list_for_each_entry_ex(struct bsr_request, req, &resource->transfer_log, tl_requests)
+	req = list_prepare_entry_ex(struct bsr_request, connection->req_last_barrier_acked, &resource->transfer_log, tl_requests);
+	list_for_each_entry_continue_ex(struct bsr_request, req, &resource->transfer_log, tl_requests) {
 		if (req->epoch == expect_epoch)
 			break;
+	}
+	
 	tl_for_each_req_ref_from(req, r, &resource->transfer_log) {
 		struct bsr_peer_device *peer_device;
 		if (req->epoch != expect_epoch) {
 			tl_abort_for_each_req_ref(r, &resource->transfer_log);
 			break;
 		}
+
+		// BSR-1195
+		connection->req_last_barrier_acked = req;
 		peer_device = conn_peer_device(connection, req->device->vnr);
 		_req_mod(req, BARRIER_ACKED, peer_device);
 	}
