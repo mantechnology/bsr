@@ -563,7 +563,7 @@ CreateSocketConnect(
 	if (Status == STATUS_PENDING) {
 		// DW-1689 Timeout(Adjusted from 3 sec to 2 sec) handling for WskSocketConnect.
 		LARGE_INTEGER nWaitTime = { 0, };
-		nWaitTime = RtlConvertLongToLargeInteger(-2 * 1000 * 1000 * 10);	// 2s
+		nWaitTime.QuadPart = -2 * 1000 * 1000 * 10;	// 2s
 		if ((Status = KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, &nWaitTime)) == STATUS_TIMEOUT) {
 			IoCancelIrp(Irp);
 			KeWaitForSingleObject(&CompletionEvent, Executive, KernelMode, FALSE, NULL);			
@@ -795,7 +795,7 @@ Send(
 
 	Flags |= WSK_FLAG_NODELAY;
 
-	nWaitTime = RtlConvertLongToLargeInteger(-1 * Timeout * 1000 * 10);
+	nWaitTime.QuadPart = -1 * (LONGLONG)Timeout * 1000 * 10;
 	pTime = &nWaitTime;
 
 	if(pSock->sk_state <= WSK_DISCONNECTING) {
@@ -904,7 +904,7 @@ Send(
 	// BSR-764 delay socket send
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE4) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run) && (BytesSent > 0) && transport)
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_NETWORK_SPEED)) && (BytesSent > 0) && transport)
 		atomic_add64(BytesSent, &transport->sum_sent);
 
 	return BytesSent;
@@ -978,7 +978,7 @@ __in ULONG			Timeout // ms
 
 	Flags |= WSK_FLAG_NODELAY;
 
-	nWaitTime = RtlConvertLongToLargeInteger(-1 * Timeout * 1000 * 10);
+	nWaitTime.QuadPart = -1 * (LONGLONG)Timeout * 1000 * 10;
 	pTime = &nWaitTime;
 
 	if (pSock->sk_state <= WSK_DISCONNECTING) {
@@ -1341,7 +1341,7 @@ LONG NTAPI Receive(
         if (Timeout <= 0 || Timeout == MAX_SCHEDULE_TIMEOUT) {
             pTime = 0;
         } else {
-            nWaitTime = RtlConvertLongToLargeInteger(-1 * Timeout * 1000 * 10);
+			nWaitTime.QuadPart = -1 * (LONGLONG)Timeout * 1000 * 10;
             pTime = &nWaitTime;
         }
 
@@ -1421,7 +1421,7 @@ LONG NTAPI Receive(
 	// BSR-764 delay socket receive
 	if (g_simul_perf.flag && g_simul_perf.type == SIMUL_PERF_DELAY_TYPE5) 
 		force_delay(g_simul_perf.delay_time);
-	if (atomic_read(&g_bsrmon_run) && (BytesReceived > 0) && transport)
+	if ((atomic_read(&g_bsrmon_run) & (1 << BSRMON_NETWORK_SPEED)) && (BytesReceived > 0) && transport)
 		atomic_add64(BytesReceived, &transport->sum_recv);
 
 	return BytesReceived;
@@ -1568,7 +1568,7 @@ Accept(
 		if (timeout <= 0 || timeout == MAX_SCHEDULE_TIMEOUT) {
 			pTime = 0;
 		} else {
-			nWaitTime = RtlConvertLongToLargeInteger(-1 * timeout * 10000000);
+			nWaitTime.QuadPart = -1 * (LONGLONG)timeout * 10000000;
 			pTime = &nWaitTime;
 		}
 

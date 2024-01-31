@@ -260,7 +260,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock failed, but this does not affect behavior. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
             __leave;
         }
         
@@ -1436,11 +1436,22 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 #endif
 
     status = GetRegistryValue(L"bsrmon_run", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
-	if (status == STATUS_SUCCESS){
-		g_bsrmon_run = *(int*) aucTemp;
+	if (status == STATUS_SUCCESS) {
+        // BSR-1138
+    	if (*(int*)aucTemp > 0) {
+            status = GetRegistryValue(L"bsrmon_types", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
+            if (status == STATUS_SUCCESS)
+                atomic_set(&g_bsrmon_run, *(int*) aucTemp);
+            else
+                atomic_set(&g_bsrmon_run, DEFAULT_BSRMON_TYPES);
+
+        } else {
+            atomic_set(&g_bsrmon_run, 0);
+        }
+    		
 	}
 	else {
-		g_bsrmon_run = 1;
+		atomic_set(&g_bsrmon_run, DEFAULT_BSRMON_TYPES);
 	}
 
 	// set ver

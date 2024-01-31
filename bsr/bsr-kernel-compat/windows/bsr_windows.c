@@ -912,9 +912,9 @@ long schedule_ex(wait_queue_head_t *q, long timeout, char *func, int line, bool 
 	nWaitTime.QuadPart = 0;
 
 	if(timeout != MAX_SCHEDULE_TIMEOUT) {
-		nWaitTime = RtlConvertLongToLargeInteger((timeout) * (-1 * 1000 * 10));
+		nWaitTime.QuadPart = (LONGLONG)timeout * (-1 * 1000 * 10);
 	} else {
-		nWaitTime = RtlConvertLongToLargeInteger((60) * (-1 * 10000000));
+		nWaitTime.QuadPart = 60 * (-1 * 10000000);
 	}
 
 	pTime = &nWaitTime;
@@ -1481,7 +1481,8 @@ __mod_timer(struct timer_list *timer, ULONG_PTR expires, bool pending_only)
 	else {
 		expires -= current_milisec;
 		BUG_ON_UINT32_OVER(expires);
-		nWaitTime = RtlConvertLongToLargeInteger(RELATIVE(MILLISECONDS((LONG)expires)));
+		// BSR-1176 RtlConvertLongToLargeInteger() can only handle 32-bit integer ranges, so modify the values directly
+		nWaitTime.QuadPart = (RELATIVE(MILLISECONDS((LONG)expires)));
 	}
 
 #ifdef DBG

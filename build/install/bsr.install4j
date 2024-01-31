@@ -74,10 +74,14 @@
   <installerGui>
     <applications>
       <application id="installer" beanClass="com.install4j.runtime.beans.applications.InstallerApplication" actionElevationType="elevated" launchInNewProcess="false">
+        <serializedBean>
+          <property name="arguments" type="string">-Dinstall4j.keepLog=true</property>
+          <property name="suppressProgressDialog" type="boolean" value="true" />
+        </serializedBean>
         <startup>
           <screen id="1" beanClass="com.install4j.runtime.beans.screens.StartupScreen" rollbackBarrierExitCode="0">
             <actions>
-              <action id="13" beanClass="com.install4j.runtime.beans.actions.misc.RequestPrivilegesAction" actionElevationType="none">
+              <action id="13" beanClass="com.install4j.runtime.beans.actions.misc.RequestPrivilegesAction" actionElevationType="none" errorMessage="${i18n:InstallPermissionsNotMatch}">
                 <serializedBean>
                   <property name="failIfNotRootUnix" type="boolean" value="true" />
                   <property name="linuxPrivilegeRequirement" type="enum" class="com.install4j.runtime.beans.actions.misc.PrivilegeRequirement" value="ROOT" />
@@ -103,7 +107,7 @@
                   <property name="variableName" type="string">os.arch</property>
                 </serializedBean>
               </action>
-              <action name="OS version value" id="272" beanClass="com.install4j.runtime.beans.actions.control.SetVariableAction" commentSet="true" comment="Debug only..">
+              <action name="OS version value" id="272" beanClass="com.install4j.runtime.beans.actions.control.SetVariableAction" commentSet="true" comment="Debug only.." errorMessage="${i18n:FailedToObtainOperatingSystemVersion}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -113,7 +117,7 @@
                   <property name="variableName" type="string">os.floatver</property>
                 </serializedBean>
               </action>
-              <action name="Full OS Name" id="273" beanClass="com.install4j.runtime.beans.actions.control.SetVariableAction">
+              <action name="Full OS Name" id="273" beanClass="com.install4j.runtime.beans.actions.control.SetVariableAction" errorMessage="${i18n:FailedToObtainOperatingSystemName}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -390,7 +394,7 @@ return false;
 
 if(!WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr", context.getVariable("sys.installerFile").toString())) {
     Util.showMessage(context.getMessage("FailedToAutomaticRestart"));
-} 
+}
  return false;</property>
                     </object>
                   </property>
@@ -532,6 +536,38 @@ return console.askOkCancel(message, true);
           </screen>
           <screen id="8" beanClass="com.install4j.runtime.beans.screens.InstallationScreen" rollbackBarrier="true">
             <actions>
+              <action name="Read a value in the Windows registry" id="2961" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToInstallationNotRebootAfterUninstallation}">
+                <serializedBean>
+                  <property name="script">
+                    <object class="com.install4j.api.beans.ScriptProperty">
+                      <property name="value" type="string">final String keyName = "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce";
+final Object regValue;
+
+if (!WinRegistry.keyExists(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, RegistryView.BIT32))
+{
+    return true;
+}
+
+regValue = WinRegistry.getValue(RegistryRoot.HKEY_LOCAL_MACHINE, keyName, "bsr_uninstall_need_reboot");
+
+if(regValue == null) { 
+    return true;
+}
+
+return false;
+</property>
+                    </object>
+                  </property>
+                </serializedBean>
+              </action>
+              <action id="2953" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="keyName" type="string">Software\Microsoft\Windows\CurrentVersion\RunOnce</property>
+                  <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
+                  <property name="valueName" type="string">bsr</property>
+                </serializedBean>
+                <condition>context.isUpdateInstallation()</condition>
+              </action>
               <action name="[UpdateInstallation] Delete rc.bat" id="2350" beanClass="com.install4j.runtime.beans.actions.files.DeleteFileAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="files" type="array" class="java.io.File" length="1">
@@ -718,7 +754,7 @@ if (!context.getBooleanVariable("sys.programGroupDisable") &amp;&amp; bNameUnspe
 
 return !context.getBooleanVariable("sys.programGroupDisabled");</condition>
               </action>
-              <action name="[EventMessageFile] eventlog registry setting" id="813" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction">
+              <action name="[EventMessageFile] eventlog registry setting" id="813" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToCreateEventLog}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -740,7 +776,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                   </property>
                 </serializedBean>
               </action>
-              <action name="[TypesSupported] eventlog registry setting" id="814" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction">
+              <action name="[TypesSupported] eventlog registry setting" id="814" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToCreateEventTypesSupported}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -760,14 +796,14 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                   </property>
                 </serializedBean>
               </action>
-              <action name="BSR_PATH" id="346" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated">
+              <action name="BSR_PATH" id="346" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToAddBSREnvironmentVariable}">
                 <serializedBean>
                   <property name="userSpecific" type="boolean" value="false" />
                   <property name="value" type="string">${installer:sys.installationDir}\bin</property>
                   <property name="variableName" type="string">BSR_PATH</property>
                 </serializedBean>
               </action>
-              <action name="Path" id="347" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated">
+              <action name="Path" id="347" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToAppendBSREnvironmentVariable}">
                 <serializedBean>
                   <property name="type" type="enum" class="com.install4j.runtime.beans.actions.misc.ModifyStringType" value="APPEND" />
                   <property name="userSpecific" type="boolean" value="false" />
@@ -775,12 +811,12 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                   <property name="variableName" type="string">Path</property>
                 </serializedBean>
               </action>
-              <action id="11" beanClass="com.install4j.runtime.beans.actions.desktop.RegisterAddRemoveAction" actionElevationType="elevated">
+              <action id="11" beanClass="com.install4j.runtime.beans.actions.desktop.RegisterAddRemoveAction" actionElevationType="elevated" failureStrategy="quit">
                 <serializedBean>
                   <property name="itemName" type="string">${compiler:sys.fullName} ${compiler:sys.version}</property>
                 </serializedBean>
               </action>
-              <action name="CYGWIN" id="819" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated">
+              <action name="CYGWIN" id="819" beanClass="com.install4j.runtime.beans.actions.misc.ModifyEnvironmentVariableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToCreateCYGWINEnvironmentVariable}">
                 <serializedBean>
                   <property name="userSpecific" type="boolean" value="false" />
                   <property name="value" type="string">nodosfilewarning</property>
@@ -804,7 +840,7 @@ return WinRegistry.setValue(RegistryRoot.HKEY_LOCAL_MACHINE
                   </property>
                 </serializedBean>
               </action>
-              <action name="[Language] get current language" id="2472" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction">
+              <action name="[Language] get current language" id="2472" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToLoadLanguage}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -832,7 +868,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action id="2017" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated">
+              <action id="2017" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToCreateRegistryDependOnService}">
                 <serializedBean>
                   <property name="keyName" type="string">SYSTEM\CurrentControlSet\Services\bsr</property>
                   <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
@@ -859,7 +895,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Change Virtual Disk Service Start Type" id="2424" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Change Virtual Disk Service Start Type" id="2424" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToStartVHDService}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="4">
                     <element index="0">config</element>
@@ -890,7 +926,7 @@ return true;</property>
           </screen>
           <screen id="12" beanClass="com.install4j.runtime.beans.screens.FinishedScreen" styleId="159" finishScreen="true">
             <actions>
-              <action name="[MemoryDump] set dump type" id="2525" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction">
+              <action name="[MemoryDump] set dump type" id="2525" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" failureStrategy="quit" errorMessage="${i18n:FailedToSetRegistryCrashDump}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -906,7 +942,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Backup rc.bat" id="2353" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
+              <action name="Backup rc.bat" id="2353" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated" failureStrategy="quit">
                 <serializedBean>
                   <property name="destinationFile">
                     <object class="java.io.File">
@@ -939,7 +975,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Restore rc.bat" id="2354" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated">
+              <action name="Restore rc.bat" id="2354" beanClass="com.install4j.runtime.beans.actions.files.MoveFileAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToRestoreRcBatFile}">
                 <serializedBean>
                   <property name="destinationFile">
                     <object class="java.io.File">
@@ -955,7 +991,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrfsflt driver hash" id="2929" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrfsflt driver hash" id="2929" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:NotMatchfsfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrfsflt.hash</element>
@@ -974,7 +1010,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrvflt hash" id="2930" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrvflt hash" id="2930" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:NotMatchvfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrvflt.hash</element>
@@ -993,7 +1029,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Install bsrfsflt" id="1841" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Install bsrfsflt" id="1841" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallfsfltEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_install</element>
@@ -1011,7 +1047,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Install bsrvflt" id="2926" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="askRetryQuit" errorMessage="${i18n:FailedToInstallvfltEngine}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_install</element>
@@ -1029,7 +1065,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrfsflt driver hash" id="2928" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" errorMessage="${i18n:NotMatchfsfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrfsflt.hash</element>
@@ -1048,7 +1084,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="quit" errorMessage="${i18n:FailedToInstallEngine}">
+              <action name="Compare setup bsrvflt hash" id="2927" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" errorMessage="${i18n:NotMatchvfltEngineHash}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">${installer:sys.installationDir}\bin\bsrvflt.hash</element>
@@ -1067,7 +1103,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Restore previous bsrvflt engine registry" id="2944" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0">
+              <action name="Restore previous bsrvflt engine registry" id="2944" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" errorMessage="${i18n:FailedToRestorevfltEngine}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -1090,7 +1126,7 @@ return true;
                   </property>
                 </serializedBean>
               </action>
-              <action name="Remove reboot after auto run" id="2947" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0">
+              <action name="Remove reboot after auto run" id="2947" beanClass="com.install4j.runtime.beans.actions.control.RunScriptAction" rollbackBarrierExitCode="0" errorMessage="${i18n:FailedToRemoveAutoRun}">
                 <serializedBean>
                   <property name="script">
                     <object class="com.install4j.api.beans.ScriptProperty">
@@ -1102,7 +1138,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action id="118" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" actionElevationType="none">
+              <action id="118" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" actionElevationType="none" errorMessage="${i18n:FailedToReboot}">
                 <condition>if(context.isUnattended()) { 
     return false;         
 }
@@ -1121,6 +1157,7 @@ return true;</condition>
       </application>
       <application id="uninstaller" beanClass="com.install4j.runtime.beans.applications.UninstallerApplication" actionElevationType="elevated" launchInNewProcess="false">
         <serializedBean>
+          <property name="arguments" type="string">-Dinstall4j.keepLog=true</property>
           <property name="customMacosExecutableName" type="string">${i18n:UninstallerMenuEntry(${compiler:sys.fullName})}</property>
           <property name="useCustomMacosExecutableName" type="boolean" value="true" />
         </serializedBean>
@@ -1167,6 +1204,13 @@ return console.askYesNo(message, true);
           </screen>
           <screen id="16" beanClass="com.install4j.runtime.beans.screens.UninstallationScreen">
             <actions>
+              <action id="2955" beanClass="com.install4j.runtime.beans.actions.registry.DeleteRegistryItemAction" actionElevationType="elevated" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="keyName" type="string">Software\Microsoft\Windows\CurrentVersion\RunOnce</property>
+                  <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
+                  <property name="valueName" type="string">bsr</property>
+                </serializedBean>
+              </action>
               <action id="95" beanClass="com.install4j.runtime.beans.actions.services.StopServiceAction" actionElevationType="elevated">
                 <serializedBean>
                   <property name="executable">
@@ -1214,7 +1258,7 @@ else
 }
 </condition>
               </action>
-              <action name="Uninstall bsrService" id="636" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrService" id="636" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="askRetryQuit" errorMessage="${i18n:FailedToServiceUninstallForUninstall}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="1">
                     <element index="0">/u</element>
@@ -1255,7 +1299,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Uninstall bsrfsflt engine" id="2925" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrfsflt engine" id="2925" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="askRetryQuit" errorMessage="${i18n:FailedToUninstallfsfltEngineForUninstall}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_uninstall</element>
@@ -1274,7 +1318,7 @@ return true;</property>
                   </property>
                 </serializedBean>
               </action>
-              <action name="Uninstall bsrvflt engine" id="131" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated">
+              <action name="Uninstall bsrvflt engine" id="131" beanClass="com.install4j.runtime.beans.actions.misc.RunExecutableAction" actionElevationType="elevated" failureStrategy="askRetryQuit" errorMessage="${i18n:FailedToUninstallvfltEngineForUninstall}">
                 <serializedBean>
                   <property name="arguments" type="array" elementType="string" length="2">
                     <element index="0">/driver_uninstall</element>
@@ -1323,6 +1367,13 @@ return true;</property>
           <screen id="19" beanClass="com.install4j.runtime.beans.screens.UninstallFailureScreen" finishScreen="true" />
           <screen id="18" beanClass="com.install4j.runtime.beans.screens.UninstallSuccessScreen" styleId="159" finishScreen="true">
             <actions>
+              <action id="2957" beanClass="com.install4j.runtime.beans.actions.registry.SetRegistryValueAction" actionElevationType="elevated" rollbackBarrierExitCode="0">
+                <serializedBean>
+                  <property name="keyName" type="string">Software\Microsoft\Windows\CurrentVersion\RunOnce</property>
+                  <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
+                  <property name="valueName" type="string">bsr_uninstall_need_reboot</property>
+                </serializedBean>
+              </action>
               <action id="134" beanClass="com.install4j.runtime.beans.actions.finish.RebootAction" actionElevationType="none">
                 <condition>if(context.isUnattended()) { 
     return false;         

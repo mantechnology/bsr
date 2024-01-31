@@ -128,7 +128,6 @@ This packages includes the BSR administration tools.
 %endif
 %{_sbindir}/bsrwatch
 %{_sbindir}/bsrsupport
-%{_sbindir}/bsrmon-run
 %dir %{_prefix}/lib/bsr
 %{_prefix}/lib/bsr/outdate-peer.sh
 %{_prefix}/lib/bsr/snapshot-resync-target-lvm.sh
@@ -318,7 +317,7 @@ fi
 
 
 %changelog
-* Fri Apr 28 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
+* Tue Nov 7 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
 - New upstream release.
 
 * Fri Mar 24 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.3.0-A4

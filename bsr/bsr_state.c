@@ -618,6 +618,15 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 	if (rv < SS_SUCCESS) {
 		if (flags & CS_VERBOSE) {
 			bsr_err(14, BSR_LC_STATE, resource, "State change failed: %s", bsr_set_st_err_str(rv));
+#ifdef _LIN
+			// BSR-1150
+			if ((rv == SS_DEVICE_IN_USE) || (rv == SS_PRIMARY_READER)) {
+				idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+					if (device->open_cnt)
+						bsr_err(58, BSR_LC_STATE, device, "State change failed: Device open count %d", device->open_cnt);
+				}
+			}
+#endif
 			print_state_change(resource, "Failed: caller ", locked, caller);
 		}
 		goto out;
@@ -2513,6 +2522,10 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				wake_up(&connection->sender_work.q_wait);
 			}
 
+			// BSR-1170
+			if (repl_state[OLD] == L_OFF && repl_state[NEW] == L_WF_BITMAP_S) 
+				atomic_set(&peer_device->start_sending_bitmap, 0);
+
 			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
 			if (lost_contact_to_peer_data(peer_disk_state) || (peer_disk_state[NEW] == D_INCONSISTENT)) {
 				if (role[NEW] == R_PRIMARY && !test_bit(UNREGISTERED, &device->flags) &&
@@ -2598,9 +2611,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			bsr_thread_stop_nowait(&connection->receiver);
 
 		/* Now the receiver finished cleaning up itself, it should die */
-		if (cstate[OLD] != C_STANDALONE && cstate[NEW] == C_STANDALONE) 
+		if (cstate[OLD] != C_STANDALONE && cstate[NEW] == C_STANDALONE)  {
 			bsr_thread_stop_nowait(&connection->receiver);
-
+			// BSR-1155
+			clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
+		}
 		/* Upon network failure, we need to restart the receiver. */
 		if (cstate[OLD] >= C_CONNECTING &&
 			cstate[NEW] <= C_TEAR_DOWN && cstate[NEW] >= C_TIMEOUT) {
@@ -2616,6 +2631,9 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 				clear_bit(INITIAL_STATE_RECEIVED, &peer_device->flags);
 				// DW-1799
 				clear_bit(INITIAL_SIZE_RECEIVED, &peer_device->flags);
+				// BSR-1155
+				if (cstate[NEW] == C_STANDALONE)
+					clear_bit(DISCARD_MY_DATA, &peer_device->flags);
 			}
 		}
 
@@ -3207,7 +3225,7 @@ static void check_may_resume_io_after_fencing(struct bsr_state_change *state_cha
 			struct bsr_device *device = peer_device->device;
 			if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 				bsr_info(36, BSR_LC_UUID, device, "clear the UUID creation flag because the disks on all nodes are outdate and attempt to create a UUID");
-				bsr_uuid_new_current(device, false, false, __FUNCTION__);
+				bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 			}
 		}
 		mutex_unlock(&resource->conf_update);
@@ -3333,8 +3351,19 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			}
 
 			if ((repl_state[OLD] == L_SYNC_TARGET || repl_state[OLD] == L_PAUSED_SYNC_T) &&
-				repl_state[NEW] == L_ESTABLISHED)
-				 resync_finished = true;
+				repl_state[NEW] == L_ESTABLISHED) {
+
+				resync_finished = true;
+
+				// BSR-1177 clear DISCARD_MY_DATA when resync done
+				if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
+					struct bsr_peer_device *pd;
+					struct bsr_device *d = peer_device->device;
+					for_each_peer_device(pd, d)
+						clear_bit(DISCARD_MY_DATA, &pd->flags);
+				}
+				
+			}
 
 			if (disk_state[OLD] == D_INCONSISTENT && disk_state[NEW] == D_UP_TO_DATE &&
 				peer_disk_state[OLD] == D_INCONSISTENT && peer_disk_state[NEW] == D_UP_TO_DATE)	
@@ -3513,6 +3542,23 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 					((peer_device->repl_state[NOW] == L_WF_BITMAP_S) ||
 					// DW-2064 send bitmap when L_AHEAD is in state and wait_for_recv_bitmap is set
 					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) {
+				// BSR-1171
+				struct bsr_peer_device *p;
+
+				bsr_md_set_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
+				for_each_peer_device(p, device) {
+					if (p == peer_device)
+						continue;
+					// BSR-1171 node with replication status L_ESTABLISHED are up-to-date, and if they are subsequently disconnected and replication occurs, the bitmap must be merged.
+					if (p->repl_state[NOW] == L_ESTABLISHED)
+						peer_device->latest_nodes |= NODE_MASK(p->node_id);
+					// BSR-1171 if the replication status is not L_ESTABLISHED, set the bitmap to merge because the data might not be up-to-date.
+					else {
+						bsr_info(19, BSR_LC_VERIFY, NO_OBJECT, "set %d as the bitmap merge destination for node %d.", p->node_id, peer_device->node_id);
+						peer_device->merged_nodes &= ~NODE_MASK(p->node_id);
+					}
+				}
+
 				send_bitmap = true;
 			}
 
@@ -3798,7 +3844,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			{
 				// BSR-1056
 				// BSR-936 if device stable has been updated, send UUID information to "NEW"
-				bsr_send_uuids(peer_device, (peer_device->disk_state[NOW] > D_UNKNOWN) ? UUID_FALG_SEND_IT_TO_ME : 0, 0, NEW);
+				bsr_send_uuids(peer_device, (peer_device->disk_state[NOW] > D_UNKNOWN) ? UUID_FLAG_SEND_IT_TO_ME : 0, 0, NEW);
 				put_ldev(__FUNCTION__, device);
 			}
 
@@ -3831,7 +3877,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				/* When a peer disk goes from D_UP_TO_DATE to D_FAILED or D_INCONSISTENT
 				   we know that a write failed on that node. Therefore we need to create
 				   the new UUID right now (not wait for the next write to come in) */
-				bsr_uuid_new_current(device, false, false, __FUNCTION__);
+				bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 			}
 
 
@@ -4450,9 +4496,11 @@ static void twopc_phase2(struct bsr_resource *resource, int vnr,
  * wait for a transaction to finish.  A transaction that times out is assumed
  * to have aborted.
  */
+
+// BSR-1190 added locked to prevent duplicate acquisition of req_lock
 static enum bsr_state_rv
 change_cluster_wide_state(bool (*change)(struct change_context *, enum change_phase),
-						struct change_context *context, const char* caller)
+						struct change_context *context, bool locked, const char* caller)
 {
 	struct bsr_resource *resource = context->resource;
 	unsigned long irq_flags;
@@ -4466,17 +4514,27 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
     ULONG_PTR start_time;
 	bool have_peers;
 
-	begin_state_change(resource, &irq_flags, context->flags | CS_LOCAL_ONLY);
+	if (locked)
+		begin_state_change_locked(resource, context->flags | CS_LOCAL_ONLY);
+	else
+		begin_state_change(resource, &irq_flags, context->flags | CS_LOCAL_ONLY);
 	resource->state_change_err_str = context->err_str;
 
 	if (local_state_change(context->flags)) {
 		/* Not a cluster-wide state change. */       
 		change(context, PH_LOCAL_COMMIT);
-		return end_state_change(resource, &irq_flags, caller);
+
+		if (locked)
+			return end_state_change_locked(resource, false, caller);
+		else
+			return end_state_change(resource, &irq_flags, caller);
 	} else {
 		if (!change(context, PH_PREPARE)) {
 			/* Not a cluster-wide state change. */
-			return end_state_change(resource, &irq_flags, caller);
+			if (locked)
+				return end_state_change_locked(resource, false, caller);
+			else
+				return end_state_change(resource, &irq_flags, caller);
 		}
 		rv = try_state_change(resource);
 		if (rv != SS_SUCCESS) {
@@ -4484,7 +4542,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 			/* abort_state_change(resource, &irq_flags); */
 			if (rv == SS_NOTHING_TO_DO)
 				resource->state_change_flags &= ~CS_VERBOSE;
-			return __end_state_change(resource, &irq_flags, rv, caller);
+
+			if (locked)
+				return ___end_state_change(resource, NULL, rv, false, caller); 
+			else
+				return __end_state_change(resource, &irq_flags, rv, caller);
 		}
 		/* Really a cluster-wide state change. */
 	}
@@ -4500,12 +4562,20 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		}
 		if (rv >= SS_SUCCESS)
 			change(context, PH_84_COMMIT);
-		return __end_state_change(resource, &irq_flags, rv, caller);
+
+		if (locked)
+			return ___end_state_change(resource, NULL, rv, false, caller);
+		else
+			return __end_state_change(resource, &irq_flags, rv, caller);
 	}
 
 	if (!expect(resource, context->flags & CS_SERIALIZE)) {
 		rv = SS_CW_FAILED_BY_PEER;
-		return __end_state_change(resource, &irq_flags, rv, caller);
+
+		if (locked)
+			return ___end_state_change(resource, NULL, rv, false, caller);
+		else
+			return __end_state_change(resource, &irq_flags, rv, caller);
 	}
 
 	rcu_read_lock();
@@ -4518,7 +4588,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	rcu_read_unlock();
 
 	if (current == resource->worker.task && resource->remote_state_change) {
-		return __end_state_change(resource, &irq_flags, SS_CONCURRENT_ST_CHG, caller);
+
+		if (locked)
+			return ___end_state_change(resource, NULL, SS_CONCURRENT_ST_CHG, false, caller);
+		else
+			return __end_state_change(resource, &irq_flags, SS_CONCURRENT_ST_CHG, caller);
 	}
 
 	complete_remote_state_change(resource, &irq_flags);
@@ -4533,7 +4607,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		connection = bsr_get_connection_by_node_id(resource, context->target_node_id);
 		if (!connection) {
 			rv = SS_CW_FAILED_BY_PEER;
-			return __end_state_change(resource, &irq_flags, rv, caller);
+
+			if (locked)
+				return ___end_state_change(resource, NULL, rv, false, caller);
+			else
+				return __end_state_change(resource, &irq_flags, rv, caller);
 		}
 		kref_debug_get(&connection->kref_debug, 8);
 
@@ -4545,7 +4623,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 
 			kref_debug_put(&connection->kref_debug, 8);
 			kref_put(&connection->kref, bsr_destroy_connection);
-			return __end_state_change(resource, &irq_flags, rv, caller);
+
+			if (locked)
+				return ___end_state_change(resource, NULL, rv, false, caller);
+			else
+				return __end_state_change(resource, &irq_flags, rv, caller);
 		}
 		target_connection = connection;
 
@@ -4715,7 +4797,11 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		end_remote_state_change(resource, &irq_flags, context->flags);
 		context->flags |= CS_HARD;
 		change(context, PH_COMMIT);
-		return end_state_change(resource, &irq_flags, caller);
+
+		if (locked)
+			return end_state_change_locked(resource, false, caller);
+		else
+			return end_state_change(resource, &irq_flags, caller);
 	}
 
 	if ((rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG) &&
@@ -4728,9 +4814,15 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 			target_connection = NULL;
 		}
 
-		clear_remote_state_change(resource);
-		end_remote_state_change(resource, &irq_flags, context->flags | CS_TWOPC);
-		abort_state_change(resource, &irq_flags, caller);
+		if (locked) {
+			clear_remote_state_change_without_lock(resource);
+			__end_remote_state_change(resource, context->flags | CS_TWOPC);
+			abort_state_change_locked(resource, false, caller);
+		} else {
+			clear_remote_state_change(resource);
+			end_remote_state_change(resource, &irq_flags, context->flags | CS_TWOPC);
+			abort_state_change(resource, &irq_flags, caller);
+		}
 		// DW-1545 Modified to not display error messages and errors to users
 		rv = SS_NOTHING_TO_DO; 
 		return rv;
@@ -4778,12 +4870,19 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		clear_bit(STATE_WORK_PENDING, &resource->flags);
 		wake_up(&resource->state_work_wait);
 
-		rv = end_state_change(resource, &irq_flags, caller);
+
+		if (locked)
+			rv = end_state_change_locked(resource, false, caller);
+		else
+			rv = end_state_change(resource, &irq_flags, caller);
 	} else {
 		// BSR-937	
 		clear_bit(STATE_WORK_PENDING, &resource->flags);
 		wake_up(&resource->state_work_wait);
-		abort_state_change(resource, &irq_flags, caller);
+		if (locked)
+			abort_state_change_locked(resource, false, caller);
+		else
+			abort_state_change(resource, &irq_flags, caller);
 	}
 	if (have_peers && !context->change_local_state_last)
 		twopc_phase2(resource, context->vnr, rv >= SS_SUCCESS, &request, reach_immediately);
@@ -5160,7 +5259,7 @@ enum bsr_state_rv change_role(struct bsr_resource *resource,
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr)
 			wait_event(device->misc_wait, !atomic_read(&device->ap_bio_cnt[WRITE]));
 	}
-	rv = change_cluster_wide_state(do_change_role, &role_context.context, __FUNCTION__);
+	rv = change_cluster_wide_state(do_change_role, &role_context.context, false, __FUNCTION__);
 	if (got_state_sem)
 		up(&resource->state_sem);
 	return rv;
@@ -5330,7 +5429,7 @@ enum bsr_state_rv change_from_consistent(struct bsr_resource *resource,
 	/* The other nodes get the request for an empty state change. I.e. they
 	   will agree to this change request. At commit time we know where to
 	   go from the D_CONSISTENT, since we got the primary mask. */
-	return change_cluster_wide_state(do_change_from_consistent, &context, __FUNCTION__);
+	return change_cluster_wide_state(do_change_from_consistent, &context, false, __FUNCTION__);
 }
 
 struct change_disk_state_context {
@@ -5386,7 +5485,7 @@ enum bsr_state_rv change_disk_state(struct bsr_device *device,
 		.device = device,
 	};
 	return change_cluster_wide_state(do_change_disk_state,
-										&disk_state_context.context, __FUNCTION__);
+		&disk_state_context.context, false, __FUNCTION__);
 }
 
 void __change_cstate(struct bsr_connection *connection, enum bsr_conn_state cstate)
@@ -5514,10 +5613,12 @@ static bool do_change_cstate(struct change_context *context, enum change_phase p
  * peer disks depending on the fencing policy.  This cannot easily be split
  * into two state changes.
  */
+// BSR-1190 added locked to prevent duplicate acquisition of req_lock
 enum bsr_state_rv change_cstate_es(struct bsr_connection *connection,
 				    enum bsr_conn_state cstate,
 				    enum chg_state_flags flags,
 				    const char **err_str,
+					bool locked,
 					const char *caller
 	)
 {
@@ -5549,7 +5650,7 @@ enum bsr_state_rv change_cstate_es(struct bsr_connection *connection,
 	if (!(flags & CS_HARD))
 		cstate_context.context.flags |= CS_SERIALIZE;
 
-	return change_cluster_wide_state(do_change_cstate, &cstate_context.context, caller);
+	return change_cluster_wide_state(do_change_cstate, &cstate_context.context, locked, caller);
 }
 
 void __change_peer_role(struct bsr_connection *connection, enum bsr_role peer_role, const char* caller)
@@ -5623,7 +5724,7 @@ enum bsr_state_rv change_repl_state(const char* caller, struct bsr_peer_device *
 		.peer_device = peer_device
 	};
 
-	return change_cluster_wide_state(do_change_repl_state, &repl_context.context, caller);
+	return change_cluster_wide_state(do_change_repl_state, &repl_context.context, false, caller);
 }
 
 enum bsr_state_rv stable_change_repl_state(const char* caller, struct bsr_peer_device *peer_device,

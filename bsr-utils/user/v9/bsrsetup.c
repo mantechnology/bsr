@@ -1866,15 +1866,15 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		rv = dh->ret_code;
 		if (rv != SS_IN_TRANSIENT_STATE)
 			break;
-		nanosleep(&retry_timeout, NULL);
-		/* Double the timeout, up to 10 seconds. */
-		if (retry_timeout.tv_sec < 10) {
-			retry_timeout.tv_sec *= 2;
+		
+		// BSR-1186 If an SS_IN_TRANSIENT_STATE occurs, wait up to 1 second and retry.
+		/* Double the timeout, up to 1 seconds. */
+		if (retry_timeout.tv_nsec < 1000000000L) {
+			nanosleep(&retry_timeout, NULL);
 			retry_timeout.tv_nsec *= 2;
-			if (retry_timeout.tv_nsec > 1000000000L) {
-				retry_timeout.tv_sec++;
-				retry_timeout.tv_nsec -= 1000000000L;
-			}
+		} else {
+			// BSR-1186 when waiting for 1 second using nanosleep(), an EINVAL error occurs, so sleep() is used.
+			sleep(1);
 		}
 	}
 	if (rv == ERR_RES_NOT_KNOWN) {
@@ -5570,6 +5570,14 @@ int main(int argc, char **argv)
 		CLI_ERRO_LOG_PEEROR(false, "cannot chdir /");
 		return -111;
 	}
+
+#ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		return -112;
+	}
+#endif
 
 	cmdname = strrchr(argv[0],'/');
 	if (cmdname)

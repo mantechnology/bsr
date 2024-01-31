@@ -110,18 +110,24 @@ extern void __change_disk_states(struct bsr_resource *, enum bsr_disk_state);
 extern enum bsr_state_rv change_disk_state(struct bsr_device *, enum bsr_disk_state, enum chg_state_flags, const char **);
 
 extern void __change_cstate(struct bsr_connection *, enum bsr_conn_state);
-extern enum bsr_state_rv change_cstate_es(struct bsr_connection *, enum bsr_conn_state, enum chg_state_flags, const char **, const char *);
+// BSR-1190 
+extern enum bsr_state_rv change_cstate_es(struct bsr_connection *, enum bsr_conn_state, enum chg_state_flags, const char **, bool, const char *);
 
 
 #define change_cstate_ex(connection, cstate, flags) \
-	change_cstate(connection, cstate, flags, __FUNCTION__)
+	change_cstate(connection, cstate, flags, false, __FUNCTION__)
+
+// BSR-1190 the following definition does not get req_lock on call change_cstate().
+#define change_cstate_locked_ex(connection, cstate, flags) \
+	change_cstate(connection, cstate, flags, true, __FUNCTION__)
 
 static inline enum bsr_state_rv change_cstate(struct bsr_connection *connection,
 												enum bsr_conn_state cstate,
 												enum chg_state_flags flags,
+												bool locked,
 												const char *caller)
 {
-	return change_cstate_es(connection, cstate, flags, NULL, caller);
+	return change_cstate_es(connection, cstate, flags, NULL, locked, caller);
 }
 
 

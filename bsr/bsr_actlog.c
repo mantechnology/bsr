@@ -505,7 +505,7 @@ static int __al_write_transaction(struct bsr_device *device, struct al_transacti
 	unsigned short i;
 	ktime_t start_kt = ns_to_ktime(0);
 
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		start_kt = ktime_get();
 
 	memset(buffer, 0, sizeof(*buffer));
@@ -824,19 +824,19 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 		 * or requests to "cold" extents could be starved. */
 		if (!al->pending_changes) {
 			set_bit(__LC_STARVING, &device->act_log->flags);
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_starving++;
 		}
 
 		// DW-1945 fixup that Log debug logs when pending_changes are insufficient.
 		// because insufficient of slots for pending_changes can occur frequently.
 		if (al->max_pending_changes - al->pending_changes < nr_al_extents) {
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_pending++;
 			bsr_dbg(device, "insufficient al_extent slots for 'pending_changes' nr_al_extents:%llu pending:%u", (unsigned long long)nr_al_extents, al->pending_changes);
 		} 
 		else {
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_used++;
 
 			bsr_debug(5, BSR_LC_LRU, device, "Insufficient activity log extent slots for used slot. slot(%llu) used(%u)", (unsigned long long)nr_al_extents, (al->used + atomic_read(&g_fake_al_used)));
@@ -852,11 +852,11 @@ int bsr_al_begin_io_nonblock(struct bsr_device *device, struct bsr_interval *i)
 			set_bme_priority(&al_ctx);
 			bsr_debug(28, BSR_LC_LRU, device, "active resync extent enr : %llu", (unsigned long long)enr);
 			if (al_ctx.wake_up) {
-				if (atomic_read(&g_bsrmon_run))
+				if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 					device->e_al_busy++;
 				return -EBUSY;
 			}
-			if (atomic_read(&g_bsrmon_run))
+			if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_AL_STAT))
 				device->e_al_wouldblock++;
 			return -EWOULDBLOCK;
 		}
@@ -1404,7 +1404,8 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	sector_t esector, nr_sectors;
 
 	/* This would be an empty REQ_OP_FLUSH, be silent. */
-	if ((mode == SET_OUT_OF_SYNC) && size == 0)
+	// BSR-1162 fix unnecessary error log output when receiving ID_OUT_OF_SYNC_FINISHED
+	if ((mode == SET_OUT_OF_SYNC) && ((sector == ID_OUT_OF_SYNC_FINISHED) || (size == 0)))
 		return 0;
 
 	if (!plausible_request_size(size)) {

@@ -239,6 +239,60 @@ static struct bsr_path *first_path(struct bsr_connection *connection)
 #define BSR_ADM_NEED_PEER_DEVICE  (1 << 3)
 #define BSR_ADM_NEED_PEER_NODE    (1 << 4)
 #define BSR_ADM_IGNORE_VERSION    (1 << 5)
+
+// BSR-1192
+int netlink_work_thread_cnt = 0;
+
+#ifdef _WIN
+void log_for_netlink_cli_recv(const u8 cmd)
+{
+#else
+static void log_for_netlink_cli_recv(const u8 cmd)
+{
+	netlink_work_thread_cnt++;
+#endif
+
+	if ((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
+#ifdef _WIN
+		bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", bsr_genl_cmd_to_str(cmd), cmd);
+#else
+		bsr_debug(32, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) begin ->", bsr_genl_cmd_to_str(cmd), cmd);
+#endif
+	}
+	else {
+#ifdef _WIN
+		bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", bsr_genl_cmd_to_str(cmd), cmd);
+#else
+		bsr_info(18, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command has been received. Execute the command.", bsr_genl_cmd_to_str(cmd), cmd);
+#endif
+	}
+}
+
+#ifdef _WIN
+void log_for_netlink_cli_done(const u8 cmd)
+{
+#else
+static void log_for_netlink_cli_done(const u8 cmd)
+{
+	netlink_work_thread_cnt--;
+#endif
+
+	if ((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
+#ifdef _WIN
+		bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt - 1);
+#else
+		bsr_debug(33, BSR_LC_NETLINK, NO_OBJECT, "bsr netlink cmd(%s:%u) done (cmd_pending:%d) <-", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt);
+#endif
+	}
+	else {
+#ifdef _WIN
+		bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt - 1);
+#else
+		bsr_info(20, BSR_LC_NETLINK, NO_OBJECT, "%s:%u command execution done. (pending command:%d)", bsr_genl_cmd_to_str(cmd), cmd, netlink_work_thread_cnt);
+#endif
+	}
+}
+
 static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
@@ -250,6 +304,9 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 
 	memset(adm_ctx, 0, sizeof(*adm_ctx));
 #ifdef _LIN
+	// BSR-1192
+	log_for_netlink_cli_recv(cmd);
+
 	/*
 	 * genl_rcv_msg() only checks if commands with the GENL_ADMIN_PERM flag
 	 * set have CAP_NET_ADMIN; we also require CAP_SYS_ADMIN for
@@ -447,6 +504,11 @@ static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 fail:
 	nlmsg_free(adm_ctx->reply_skb);
 	adm_ctx->reply_skb = NULL;
+
+	// BSR-1192
+#ifdef _LIN
+	log_for_netlink_cli_done(cmd);
+#endif
 	return err;
 
 finish:
@@ -455,6 +517,8 @@ finish:
 
 static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
+	int ret = 0;
+
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
 		bsr_err(2, BSR_LC_GENL, resource, "Failed to finish bsradm due to cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
@@ -476,17 +540,24 @@ static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *
 		adm_ctx->resource = NULL;
 	}
 
-	if (!adm_ctx->reply_skb)
-		return -ENOMEM;
-
-	adm_ctx->reply_dh->ret_code = retcode;
-	bsr_adm_send_reply(adm_ctx->reply_skb, info);
+	if (!adm_ctx->reply_skb) {
+		ret = -ENOMEM;
+	} else {
+		adm_ctx->reply_dh->ret_code = retcode;
+		bsr_adm_send_reply(adm_ctx->reply_skb, info);
 #ifdef _WIN
-	// DW-211 fix memory leak
-	nlmsg_free(adm_ctx->reply_skb);
+		// DW-211 fix memory leak
+		nlmsg_free(adm_ctx->reply_skb);
 #endif
-	adm_ctx->reply_skb = NULL;
-	return 0;
+		adm_ctx->reply_skb = NULL;
+		ret = 0;
+	}
+	// BSR-1192
+#ifdef _LIN
+	log_for_netlink_cli_done(info->genlhdr->cmd);
+#endif
+
+	return ret;
 }
 
 static void conn_md_sync(struct bsr_connection *connection)
@@ -1326,6 +1397,13 @@ retry:
 
 	if (role == R_SECONDARY) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+			// BSR-1191
+			struct bsr_peer_device *peer_device;
+			for_each_peer_device(peer_device, device) {
+				ULONG_PTR bm_total = bsr_bm_total_weight(peer_device);
+				bsr_info(128, BSR_LC_BITMAP, peer_device, "after completion of the secondary, the out-of-sync bit is %llu (%lluk).", bm_total, (bm_total == 0 ? 0 : bm_total * 4));
+			}
+
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
 				if (test_bit(__NEW_CUR_UUID, &device->flags)) {
@@ -1348,8 +1426,13 @@ retry:
 		struct bsr_connection *connection;
 
 		rcu_read_lock();
-		for_each_connection_rcu(connection, resource)
+		for_each_connection_rcu(connection, resource) {
+			struct bsr_peer_device *peer_device;
 			clear_bit(CONN_DISCARD_MY_DATA, &connection->flags);
+			// BSR-1155
+			idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) 
+				clear_bit(DISCARD_MY_DATA, &peer_device->flags);
+		}
 		rcu_read_unlock();
 
 
@@ -1384,12 +1467,12 @@ retry:
 				if (UUID_JUST_CREATED == device->ldev->md.current_uuid) 
 					set_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
 #endif
-				bsr_uuid_new_current(device, true, false, __FUNCTION__);
+				bsr_uuid_new_current(device, true, false, true, __FUNCTION__);
 			}
 			else if (younger_primary) 
 				// BSR-967
 				// BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
-				bsr_uuid_new_current(device, false, true, __FUNCTION__); 
+				bsr_uuid_new_current(device, false, true, true, __FUNCTION__);
 			else {
 				bsr_info(25, BSR_LC_UUID, device, "set UUID creation flag due to promotion");
 				set_bit(NEW_CUR_UUID, &device->flags);
@@ -3453,9 +3536,16 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	for_each_peer_device(peer_device, device) {
 		clear_bit(USE_DEGR_WFC_T, &peer_device->flags);
 		if (resource->role[NOW] != R_PRIMARY &&
-		    bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
-		    !bsr_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
+			bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
+			!bsr_md_test_peer_flag(peer_device, MDF_PEER_CONNECTED))
 			set_bit(USE_DEGR_WFC_T, &peer_device->flags);
+
+		// BSR-1171 the following flags are set when the system is forced to shut down.
+		// if the flag was previously set, set all nodes to merge bitmaps. this can lead to unnecessary bitmap merging.
+		if (bsr_md_test_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP)) {
+			peer_device->merged_nodes = 0;
+			bsr_info(20, BSR_LC_VERIFY, peer_device, "set all nodes on node(%d) to merge bitmap.", peer_device->node_id);
+		}
 	}
 
 	dd = bsr_determine_dev_size(device, 0, 0, NULL);
@@ -4777,7 +4867,7 @@ repeat:
 	if (no_wait_resync)
 		set_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags);
 
-	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, __FUNCTION__);
+	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, false, __FUNCTION__);
 	switch (rv) {
 	case SS_CW_FAILED_BY_PEER:
 		spin_lock_irq(&resource->req_lock);
@@ -5662,7 +5752,7 @@ int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info)
 	resource = device->resource;
 	if (test_and_clear_bit(NEW_CUR_UUID, &device->flags)) {
 		bsr_info(32, BSR_LC_UUID, device, "clear UUID creation flag due to resume i/o");
-		bsr_uuid_new_current(device, false, false, __FUNCTION__);
+		bsr_uuid_new_current(device, false, false, true, __FUNCTION__);
 	}
 	bsr_suspend_io(device, READ_AND_WRITE);
 	begin_state_change(resource, &irq_flags, CS_VERBOSE | CS_WAIT_COMPLETE | CS_SERIALIZE);
@@ -6601,9 +6691,7 @@ int bsr_adm_new_c_uuid(struct sk_buff *skb, struct genl_info *info)
 
 	}
 
-	for_each_peer_device(peer_device, device)
-		bsr_uuid_set_bitmap(peer_device, 0); /* Rotate UI_BITMAP to History 1, etc... */
-	bsr_uuid_new_current_by_user(device); /* New current, previous to UI_BITMAP */
+	bsr_uuid_new_current_by_user(device, (!args.no_rotate_bm)); /* New current, previous to UI_BITMAP */
 
 	if (args.clear_bm) {
 		unsigned long irq_flags;

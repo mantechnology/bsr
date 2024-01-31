@@ -17,7 +17,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 
 	fp = popen("cat /proc/slabinfo", "r");
 	if(NULL == fp) {
-		printf("popen error\n");
+		bsrmon_log(stderr, "popen 'cat /proc/slabinfo' error\n");
 		return 0;
 	}
 
@@ -39,7 +39,8 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 				if(strcmp(ptr, "bsr_ee") != 0)
 					continue;
 			} else {
-				fprintf(stderr, "Invalid slab type\n");
+				bsrmon_log(stderr, "Invalid slab type\n");
+				pclose(fp); // BSR-1138 fix handle leak
 				return 0;
 			}
 
@@ -52,6 +53,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 				}
 				else if (index == 3) {
 					object_size = atoi(ptr); 
+					pclose(fp); // BSR-1138 fix handle leak
 					return total_objects * object_size / 1024;
 				}   
 				ptr = strtok(NULL, " ");     
@@ -59,6 +61,8 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 			}
 		}
 	}
+
+	pclose(fp); // BSR-1138 fix handle leak
 
 	for (i = 0; i < 2; i++) {
 		if (slab == BSR_REQ) {
@@ -86,13 +90,13 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 				sprintf(path, "%s/bsr_ee/total_objects", SLAB_ROOT);
 		}
 		else {
-			fprintf(stderr, "Invalid slab type\n");
+			bsrmon_log(stderr, "Invalid slab type\n");
 			return 0;
 		}
 
 		fp = fopen(path, "r");
 		if (!fp) {
-			fprintf(stderr, "Failed to open file, path : %s\n", path);
+			bsrmon_log(stderr, "Failed to open file, path : %s\n", path);
 			return 0;
 		}
 		fread(buff, 128, 1, fp);
@@ -119,7 +123,7 @@ char* GetSysMemoryUsage(void)
 
 	buffer = (char*)malloc(MAX_BUF_SIZE);
 	if (!buffer) {
-		fprintf(stderr, "Failed to malloc buffer\n");
+		bsrmon_log(stderr, "Failed to malloc buffer\n");
 		return NULL;
 	}
 	memset(buffer, 0, MAX_BUF_SIZE);
@@ -127,7 +131,7 @@ char* GetSysMemoryUsage(void)
 	fp = popen("cat /proc/meminfo | awk '{print $1 $2}'", "r");
 
 	if(NULL == fp) {
-		printf("popen error\n");
+		bsrmon_log(stderr, "popen 'cat /proc/meminfo' error\n");
 		return NULL;
 	}
 
@@ -150,7 +154,7 @@ char* GetSysMemoryUsage(void)
 //		else if (strncmp(name_ptr, "Slab", 4) == 0)
 //			total_slab = atoi(val_ptr);
 	}
-	pclose(fp);
+	pclose(fp); // BSR-1138 fix handle leak
 
 	mem_used = mem_total - mem_free - mem_buff_cache;
 
@@ -185,6 +189,10 @@ DWORD MVOL_GetUntagMemoryUsage(LONGLONG *untagMemUsage)
 		retVal = GetLastError();
 	}
 
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice); // BSR-1138 fix handle leak
+	}
+
 	return retVal;
 }
 
@@ -207,7 +215,7 @@ char* GetBsrMemoryUsage(bool printTag)
 	if (!printTag) {
 		buffer = (char*)malloc(MAX_BUF_SIZE);
 		if (!buffer) {
-			fprintf(stderr, "Failed to malloc buffer\n");
+			bsrmon_log(stderr, "Failed to malloc buffer\n");
 			return buffer;
 		}
 		memset(buffer, 0, MAX_BUF_SIZE);
@@ -230,7 +238,7 @@ char* GetBsrMemoryUsage(bool printTag)
 			if (pSysPoolTagInfo != NULL)
 				memset(pSysPoolTagInfo, 0, dwSize);
 			else {
-				fprintf(stderr, "Failed to malloc pSysPoolTagInfo\n");
+				bsrmon_log(stderr, "Failed to malloc pSysPoolTagInfo\n");
 				goto fail;
 			}
 		}
@@ -238,7 +246,7 @@ char* GetBsrMemoryUsage(bool printTag)
 	} while (status != STATUS_SUCCESS && try_cnt < 3);
 
 	if (status != STATUS_SUCCESS) {
-		fprintf(stderr, "Failed to ZwQuerySystemInformation, status: %ld\n", status);
+		bsrmon_log(stderr, "Failed to ZwQuerySystemInformation, status: %ld\n", status);
 		goto fail;
 	}
 
@@ -278,7 +286,7 @@ char* GetBsrMemoryUsage(bool printTag)
 
 	ret = MVOL_GetUntagMemoryUsage(&UntagNonPagedUsed);
 	if (ret != ERROR_SUCCESS) {
-		fprintf(stderr, "Failed to get untag memory usage, ret: %x\n", ret);
+		bsrmon_log(stderr, "Failed to get untag memory usage, ret: %x\n", ret);
 		goto fail;
 	}
 
@@ -286,7 +294,7 @@ char* GetBsrMemoryUsage(bool printTag)
 
 	global.dwLength = sizeof(MEMORYSTATUSEX);
 	if (0 == GlobalMemoryStatusEx(&global)) {
-		fprintf(stderr, "Failed to global memory status\n");
+		bsrmon_log(stderr, "Failed to global memory status\n");
 		goto fail;
 	}
 
@@ -345,7 +353,7 @@ char* GetBsrModuleMemoryUsage(void)
 
 	buffer = (char*)malloc(MAX_BUF_SIZE);
 	if (!buffer) {
-		fprintf(stderr, "Failed to malloc buffer\n");
+		bsrmon_log(stderr, "Failed to malloc buffer\n");
 		return NULL;
 	}
 	memset(buffer, 0, MAX_BUF_SIZE);
@@ -353,7 +361,7 @@ char* GetBsrModuleMemoryUsage(void)
 	sprintf(path, "%s/alloc_mem", DEBUGFS_ROOT);
 	fp = fopen(path, "r");
 	if (!fp) {
-		fprintf(stderr, "Failed to open file, path : %s\n", path);
+		bsrmon_log(stderr, "Failed to open file, path : %s\n", path);
 		return NULL;
 	}
 	fread(buffer, 128, 1, fp);
@@ -413,7 +421,7 @@ bool pipe_run(const char* command, char* buffer, void(*pp_read)(FILE *, char *, 
 	char buf[128] = { 0, };
 
 	if (!pipe) {
-		fprintf(stderr, "Failed to execute command : %s\n", command);
+		bsrmon_log(stderr, "Failed to execute command : %s\n", command);
 		return false;
 	}
 
@@ -458,7 +466,7 @@ char* GetBsrUserMemoryUsage(void)
 
 	buffer = (char*)malloc(MAX_BUF_SIZE);
 	if (!buffer) {
-		fprintf(stderr, "Failed to malloc buffer\n");
+		bsrmon_log(stderr, "Failed to malloc buffer\n");
 		return NULL;
 	}
 	memset(buffer, 0, MAX_BUF_SIZE);
@@ -466,7 +474,7 @@ char* GetBsrUserMemoryUsage(void)
 #ifdef _WIN
 	info.cb = sizeof(info);
 	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)){
-		fprintf(stderr, "Failed to get processid list\n");
+		bsrmon_log(stderr, "Failed to get processid list\n");
 		goto fail;
 	}
 	cProcesses = cbNeeded / sizeof(DWORD);
@@ -488,8 +496,10 @@ char* GetBsrUserMemoryUsage(void)
 			_tcsncpy_s(szName, _countof(szName), fileName, _countof(szName) - 1);
 		}
 
-		if (wcsncmp(fileName, L"bsr", 3))
+		if (wcsncmp(fileName, L"bsr", 3)) {
+			CloseHandle(process); // BSR-1138 fix handle leak
 			continue;
+		}
 		/* name pid WorkingSetSize QuotaPagedPoolUsage QuotaNonPagedPoolUsage PagefileUsage (bytes)*/
 		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer),
 			"%ws %wu %llu %llu %llu %llu ",

@@ -82,7 +82,10 @@ static int __init bsr_load(void)
 	bsr_info(89, BSR_LC_ETC, NO_OBJECT, "handler state %s", atomic_read(&g_handler_use) ? "enable" : "disable");
 	
 	// BSR-740
-	atomic_set(&g_bsrmon_run, read_reg_file(BSR_MON_RUN_REG, 1));
+	if (read_reg_file(BSRMON_RUN_REG, 1))
+		atomic_set(&g_bsrmon_run, read_reg_file(BSRMON_TYPES_REG, DEFAULT_BSRMON_TYPES));
+	else
+		atomic_set(&g_bsrmon_run, 0);
 
 	bsr_info(120, BSR_LC_DRIVER, NO_OBJECT, "bsr kernel driver load");
 	initialize_kref_debugging();
@@ -109,11 +112,13 @@ static void bsr_unload(void)
 static int _bsr_open(struct block_device *bdev, fmode_t mode)
 {
 	int ret;
-	bsr_debug(122, BSR_LC_DRIVER, NO_OBJECT, "open block_device:%p, mode:%d", bdev, mode);
 	ret = bsr_open(bdev, mode);
 	if(!ret) {
 		struct bsr_device *device = bdev->bd_disk->private_data;
 		atomic_inc(&device->mounted_cnt);
+		// BSR-1150 improve device open info log
+		bsr_debug(122, BSR_LC_DRIVER, NO_OBJECT, "open block_device:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
+			bdev, mode, device->open_cnt, current->comm, task_pid_nr(current));
 	}		
 	return ret;
 }
@@ -121,13 +126,21 @@ static int _bsr_open(struct block_device *bdev, fmode_t mode)
 static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd, fmode_t mode)
 {
 	struct bsr_device *device = gd->private_data;
-	
-	bsr_debug(123, BSR_LC_DRIVER, NO_OBJECT, "release gendisk:%p, mode:%d", gd, mode);
+#ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+	int ret = 0;
+#endif
 	atomic_dec(&device->mounted_cnt);
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
 #else
-	return bsr_release(gd, mode);
+	ret = bsr_release(gd, mode);
+#endif
+	// BSR-1150 improve device release info log
+	bsr_debug(123, BSR_LC_DRIVER, NO_OBJECT, "release gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])", 
+		gd, mode, device->open_cnt, current->comm, task_pid_nr(current));
+
+#ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+	return ret;
 #endif
 }
 

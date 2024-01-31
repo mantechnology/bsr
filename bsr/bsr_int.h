@@ -526,20 +526,20 @@ static const char * const __log_category_names[] = {
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
 #define BSR_LC_VOLUME_MAX_INDEX 101
-#define BSR_LC_IO_MAX_INDEX 62
+#define BSR_LC_IO_MAX_INDEX 64
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
-#define BSR_LC_BITMAP_MAX_INDEX 127
+#define BSR_LC_BITMAP_MAX_INDEX 128
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 232
+#define BSR_LC_RESYNC_OV_MAX_INDEX 233
 #define BSR_LC_REPLICATION_MAX_INDEX 32
-#define BSR_LC_CONNECTION_MAX_INDEX 33
+#define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 40
 #define BSR_LC_TWOPC_MAX_INDEX 59
 #define BSR_LC_THREAD_MAX_INDEX 37
 #define BSR_LC_SEND_BUFFER_MAX_INDEX 37
-#define BSR_LC_STATE_MAX_INDEX 57
+#define BSR_LC_STATE_MAX_INDEX 58
 #define BSR_LC_SOCKET_MAX_INDEX 108
 #define BSR_LC_DRIVER_MAX_INDEX 164
 #define BSR_LC_NETLINK_MAX_INDEX 36
@@ -548,7 +548,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_MEMORY_MAX_INDEX 97
 #define BSR_LC_LOG_MAX_INDEX 26
 #define BSR_LC_LATENCY_MAX_INDEX 8
-#define BSR_LC_VERIFY_MAX_INDEX 17
+#define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
 #define BSR_LC_ETC_MAX_INDEX 91
 
@@ -1257,7 +1257,6 @@ enum {
 
 	// BSR-1019
 	UUID_DELAY_SEND,
-
 };
 
 /* We could make these currently hardcoded constants configurable
@@ -1817,6 +1816,7 @@ struct bsr_connection {
 	 * protected by resource->req_lock */
 	struct bsr_request *req_ack_pending;
 	struct bsr_request *req_not_net_done;
+	struct bsr_request *req_last_barrier_acked; // BSR-1195 last req set to BARRIER_ACKED
 
 	unsigned int s_cb_nr; /* keeps counting up */
 	unsigned int r_cb_nr; /* keeps counting up */
@@ -2121,6 +2121,16 @@ struct bsr_peer_device {
 	atomic_t64 repl_sended;
 
 	struct timer_list sended_timer;
+
+	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
+	u64 latest_nodes;
+	u64 merged_nodes;
+
+	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
+	atomic_t64 local_writing;
+	wait_queue_head_t local_writing_wait;
+	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
+	atomic_t start_sending_bitmap;
 };
 
 
@@ -2543,8 +2553,8 @@ extern void bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __
 extern void _bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);
 extern void _bsr_uuid_set_current(struct bsr_device *device, u64 val) __must_hold(local);
 // BSR-967 add arguments for younger primary
-extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, const char* caller);
-extern void bsr_uuid_new_current_by_user(struct bsr_device *device);
+extern void bsr_uuid_new_current(struct bsr_device *device, bool forced, bool younger, bool need_rotate_bm, const char* caller);
+extern void bsr_uuid_new_current_by_user(struct bsr_device *device, bool need_rotate_bm);
 extern void _bsr_uuid_push_history(struct bsr_device *device, u64 val, u64 *old_val) __must_hold(local);
 extern u64 _bsr_uuid_pull_history(struct bsr_peer_device *peer_device, u64 *val) __must_hold(local);
 extern void __bsr_uuid_set_bitmap(struct bsr_peer_device *peer_device, u64 val) __must_hold(local);

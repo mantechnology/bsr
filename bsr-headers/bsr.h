@@ -287,8 +287,9 @@ enum bsr_conn_state {
 // BSR-892
 enum bsr_conn_error {
 	C_NO_ERROR,
-	C_SPLIT_BRAIN_ERROR,
-	C_SYNC_TARGET_PRIMARY // BSR-1140
+	C_SPLIT_BRAIN,
+	C_SYNC_TARGET_PRIMARY, // BSR-1140
+	C_DISCARD_MY_DATA // BSR-1155
 };
 
 enum bsr_repl_state {
@@ -458,6 +459,8 @@ enum mdf_peer_flag {
 	// BSR-1066
 	MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY = 1 << 21,
 #endif
+	// BSR-1171
+	MDF_NEED_TO_MERGE_BITMAP = 1 << 22,
 };
 
 #define BSR_PEERS_MAX 32

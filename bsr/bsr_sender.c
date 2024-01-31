@@ -548,7 +548,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	BIO_ENDIO_FN_START;
 	// BSR-779
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_PEER_REQUEST))
 		ktime_get_accounting(peer_req->p_bio_endio_kt);
 	// DW-1961 Save timestamp for IO latency measuremen
 	if (atomic_read(&g_debug_output_category) & (1 << BSR_LC_LATENCY))
@@ -693,7 +693,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	device = req->device;
 
 	// BSR-779 change req->post_submit_kt to req->bio_endio_kt
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->bio_endio_kt);
 
 	if (bio_data_dir(bio) & WRITE) {
@@ -818,7 +818,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	bio_put(req->private_bio);
 
 	// BSR-687
-	if (atomic_read(&g_bsrmon_run)) {
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_COMPLETE)) {
 		atomic_inc(&device->local_complete_kt.cnt);
 		ktime_aggregate_delta(device, req->start_kt, local_complete_kt);
 	}
@@ -2137,6 +2137,8 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
+			struct bsr_peer_device *p;
+
 			if (new_peer_disk_state != D_MASK)
 				__change_peer_disk_state(peer_device, new_peer_disk_state, __FUNCTION__);
 			if (peer_device->connection->agreed_pro_version < 110) {
@@ -2145,6 +2147,28 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				// BSR-676 notify uuid
 				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
+
+			// BSR-1171
+			for_each_peer_device(p, device) {
+				if (p == peer_device)
+					continue;
+
+				// BSR-1171 
+				if (p->repl_state[NOW] != L_ESTABLISHED) {
+					// BSR-1171 resync is complete and it is the latest data. If replication occurs at the end of the connection after excluding it from the bitmap merge target of another node, set it as a merge target.
+					p->merged_nodes |= NODE_MASK(peer_device->node_id);
+					p->latest_nodes |= NODE_MASK(peer_device->node_id); 
+					bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
+				}
+			}
+
+			peer_device->latest_nodes = 0;
+#ifdef _WIN64
+			peer_device->merged_nodes = UINT64_MAX;
+#else
+			peer_device->merged_nodes = ~0UL;
+#endif
+			bsr_md_clear_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
 		}
 	}
 
@@ -3559,6 +3583,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				if (send_oos) {
 					INIT_LIST_HEAD(&send_oos->oos_list_head);
 					send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+					// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
+					send_oos->size = 0;
 					spin_lock_irqsave(&peer_device->send_oos_lock, flags);
 					list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
 					spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
@@ -4287,7 +4313,7 @@ static int process_one_request(struct bsr_connection *connection)
 	enum bsr_req_event what;
 
 	req->pre_send_jif[peer_device->node_id] = jiffies;
-	if (atomic_read(&g_bsrmon_run))
+	if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 		ktime_get_accounting(req->pre_send_kt[peer_device->node_id]);
 	if (bsr_req_is_write(req)) {
 		/* If a WRITE does not expect a barrier ack,
@@ -4315,6 +4341,16 @@ static int process_one_request(struct bsr_connection *connection)
 
 			// BSR-838
 			atomic_add64(req->i.size, &peer_device->cur_repl_sended);
+			// BSR-1145 bsr_free_accelbuf() needs to be called from req_lock due to an internal call function.
+			spin_lock_irq(&connection->resource->req_lock);
+			// DW-1237 data block has been sent(or failed), put request databuf ref.
+			if (req->req_databuf && (0 == atomic_dec_return(&req->req_databuf_ref))) {
+				if (req->rq_state[0] & RQ_LOCAL_COMPLETED) {
+					bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
+					req->req_databuf = NULL;
+				}
+			}
+			spin_unlock_irq(&connection->resource->req_lock);
 		} else {
 			/* this time, no connection->send.current_epoch_writes++;
 			 * If it was sent, it was the closing barrier for the last
@@ -4357,22 +4393,11 @@ static int process_one_request(struct bsr_connection *connection)
 	}
 
 	spin_lock_irq(&connection->resource->req_lock);
-
-	// BSR-1145 bsr_free_accelbuf() needs to be called from req_lock due to an internal call function.
-	// DW-1237 data block has been sent(or failed), put request databuf ref.
-	if (req->req_databuf && 0 == atomic_dec_return(&req->req_databuf_ref)) {
-		if (req->rq_state[0] & RQ_LOCAL_COMPLETED) {
-			bsr_free_accelbuf(req->device, req->req_databuf, req->bio_status.size);
-			req->req_databuf = NULL;
-		}
-	}
-
 	__req_mod(req, what, peer_device, &m);
 
 	/* As we hold the request lock anyways here,
 	 * this is a convenient place to check for new things to do. */
 	check_sender_todo(connection);
-
 	spin_unlock_irq(&connection->resource->req_lock);
 
 	if (m.bio)
