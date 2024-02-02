@@ -315,10 +315,12 @@ void bsr_req_destroy(struct kref *kref)
 				unsigned int rq_state;
 
 				rq_state = req->rq_state[1 + node_id];
-				// Dw-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_DONE).
-				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_DONE))
+				if ((rq_state & RQ_NET_OK) ||
+					// DW-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_QUEUED).
+					// BSR-843 
+					(rq_state & RQ_OOS_NET_DONE)
 					// BSR-1021 exclude from the destination bitmap because it has not been connected before and has already set out of sync.
-					|| rq_state & RQ_OOS_LOCAL_DONE) {
+					|| (rq_state & RQ_OOS_LOCAL_DONE)) {
 					int bitmap_index = peer_md[node_id].bitmap_index;
 
 					if (bitmap_index == -1)
@@ -1034,9 +1036,6 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	set &= ~RQ_STATE_0_MASK;
 	clear &= ~RQ_STATE_0_MASK;
 
-	// BSR-1021 exclude from local settings because only the peer node is set.
-	set_local &= ~RQ_OOS_LOCAL_DONE;
-
 	if (!idx) {
 		/* do not try to manipulate net state bits
 		 * without an associated state slot! */
@@ -1075,13 +1074,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_PENDING) && (set & RQ_NET_PENDING)) {
 		// DW-2058 inc rq_pending_oos_cnt
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			// BSR-843 OOS send does not increase/decrease completion_ref
-			if (!(old_net & RQ_OOS_PENDING) && (set & RQ_OOS_PENDING)) 
-				atomic_inc(&peer_device->rq_pending_oos_cnt);
-			else 
-				atomic_inc(&req->completion_ref);
-		} else 
+		// BSR-843 OOS send does not increase/decrease completion_ref
+		if (!(old_net & RQ_OOS_PENDING) && (set & RQ_OOS_PENDING)) 
+			atomic_inc(&peer_device->rq_pending_oos_cnt);
+		else 
 #endif
 			atomic_inc(&req->completion_ref);
 		inc_ap_pending(peer_device);
@@ -1090,14 +1086,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_QUEUED) && (set & RQ_NET_QUEUED)) {
 		// BSR-843 
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			if (!(old_net & RQ_OOS_NET_QUEUED) && (set & RQ_OOS_NET_QUEUED)) {
-				// BSR-843 increase ref so that request is not destroyed before sending OOS on a 1:2 or higher connection.
-				kref_get(&req->kref);
-			} else
-				atomic_inc(&req->completion_ref);
-		}
-		else
+		if (!(old_net & RQ_OOS_NET_QUEUED) && (set & RQ_OOS_NET_QUEUED)) {
+			// BSR-843 increase ref so that request is not destroyed before sending OOS on a 1:2 or higher connection.
+			kref_get(&req->kref);
+		}  else
 #endif
 			atomic_inc(&req->completion_ref);
 
@@ -1181,10 +1173,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		dec_ap_pending(peer_device);
 		// BSR-843
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			if (!((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)))
-				++c_put;
-		} else
+		if (!((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)))
 #endif
 			++c_put;
 		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
@@ -1195,16 +1184,11 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
 		// BSR-843
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			if ((old_net & RQ_OOS_NET_QUEUED) && (clear & RQ_OOS_NET_QUEUED)) {
-				// DW-2076 
-				atomic_dec(&peer_device->rq_pending_oos_cnt);
-				++k_put;
-			}
-			else
-				++c_put;
-		}
-		else
+		if ((old_net & RQ_OOS_NET_QUEUED) && (clear & RQ_OOS_NET_QUEUED)) {
+			// DW-2076 
+			atomic_dec(&peer_device->rq_pending_oos_cnt);
+			++k_put;
+		} else
 #endif
 			++c_put;
 
@@ -1218,29 +1202,26 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
+		// BSR-842
+		if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
 			if (!(old_net & RQ_OOS_NET_DONE) && (set & RQ_OOS_NET_DONE)) {
-				// BSR-842
-				if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && 
-						atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
-						struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
-						if (send_oos) {
-							unsigned long flags;
+				if (peer_device->repl_state[NOW] == L_SYNC_SOURCE &&  atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
+					struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+					if (send_oos) {
+						unsigned long flags;
 
-							INIT_LIST_HEAD(&send_oos->oos_list_head);
-							send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
-							// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
-							send_oos->size = 0;
-							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
-							list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
-							spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
-							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
-						}
-						else {
-							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
-							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
-						}
+						INIT_LIST_HEAD(&send_oos->oos_list_head);
+						send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+						// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
+						send_oos->size = 0;
+						spin_lock_irqsave(&peer_device->send_oos_lock, flags);
+						list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
+						spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
+						queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
+					}
+					else {
+						bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
+						change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
 					}
 				}
 			}
@@ -1556,8 +1537,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		/* transfer log cleanup after connection loss */
 		mod_rq_state(req, m, peer_device,
 				// BSR-843
-				RQ_OOS_PENDING|RQ_OOS_NET_QUEUED|RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP,
-				RQ_NET_DONE);
+				RQ_OOS_PENDING|RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP, RQ_NET_DONE);
 		break;
 
 	case DISCARD_WRITE:

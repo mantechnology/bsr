@@ -697,7 +697,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		ktime_get_accounting(req->bio_endio_kt);
 
 	if (bio_data_dir(bio) & WRITE) {
-		bsr_debug(15, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+		bsr_debug(15, BSR_LC_VERIFY, device, "%s, req %p, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+				req,
 				(unsigned long long)req->i.sector, 
 				req->i.size, 
 				(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
@@ -831,15 +832,13 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef SPLIT_REQUEST_RESYNC
 	for_each_peer_device(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
-		if (connection->agreed_pro_version >= 113) {
-			int idx = peer_device ? 1 + peer_device->node_id : 0;
-			if (req->rq_state[idx] & RQ_OOS_PENDING) {
-				// DW-2058 set out of sync again before sending.
-				bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-				_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
-				// BSR-541
-				wake_up(&connection->sender_work.q_wait);
-			}
+		int idx = peer_device ? 1 + peer_device->node_id : 0;
+		if (req->rq_state[idx] & RQ_OOS_PENDING) {
+			// DW-2058 set out of sync again before sending.
+			bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+			_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+			// BSR-541
+			wake_up(&connection->sender_work.q_wait);
 		}
 	}
 #endif
