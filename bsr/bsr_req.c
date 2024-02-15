@@ -1840,6 +1840,8 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	on_congestion = nc ? nc->on_congestion : OC_BLOCK;
 	rcu_read_unlock();
 	if (on_congestion == OC_BLOCK ||
+		// BSR-1208 L_OFF does not send replication and resynchronization data, so it does not check pull ahead.
+		peer_device->repl_state[NOW] == L_OFF ||
 		// DW-1204 peer is already disconnected, no pull ahead
 		connection->cstate[NOW] < C_CONNECTED ||
 	    connection->agreed_pro_version < 96)
