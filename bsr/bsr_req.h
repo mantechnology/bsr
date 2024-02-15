@@ -252,6 +252,8 @@ enum bsr_req_state_bits {
 
 	// BSR-1039 if no slots are available on activity log at the time of the corresponding state setting, AL OOS is set to ensure data consistency even when Crashed Primary occurs.
 	__RQ_IN_AL_OOS,
+	// BSR-843
+	__RQ_OOS_NET_DONE,
 };
 
 #define RQ_LOCAL_PENDING   (1UL << __RQ_LOCAL_PENDING)
@@ -286,6 +288,8 @@ enum bsr_req_state_bits {
 #define RQ_OOS_NET_QUEUED (1UL << __RQ_OOS_NET_QUEUED)
 #define RQ_OOS_LOCAL_DONE (1UL << __RQ_OOS_LOCAL_DONE)
 #define RQ_IN_AL_OOS		(1UL << __RQ_IN_AL_OOS)
+// BSR-843
+#define RQ_OOS_NET_DONE		(1UL << __RQ_OOS_NET_DONE)
 
 /* these flags go into rq_state[0],
  * orhter flags go into their respective rq_state[idx] */
