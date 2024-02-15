@@ -566,7 +566,7 @@ return false;
                   <property name="registryRoot" type="enum" class="com.install4j.api.windows.RegistryRoot" value="HKEY_LOCAL_MACHINE" />
                   <property name="valueName" type="string">bsr</property>
                 </serializedBean>
-                <condition>context.isUpdateInstallation()</condition>
+                <condition>!context.isUpdateInstallation()</condition>
               </action>
               <action name="[UpdateInstallation] Delete rc.bat" id="2350" beanClass="com.install4j.runtime.beans.actions.files.DeleteFileAction" actionElevationType="elevated">
                 <serializedBean>
