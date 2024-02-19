@@ -410,7 +410,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	// DW-1601 the last split uses the sector of the first bit for resync_lru matching.
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_req->flags & EE_SPLIT_LAST_REQ)
-		sector = BM_BIT_TO_SECT(peer_req->s_bb);
+		sector = BM_BIT_TO_SECT(peer_req->sbb.start);
 	else
 #endif
 		sector = peer_req->i.sector;

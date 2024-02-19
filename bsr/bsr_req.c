@@ -1840,6 +1840,8 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	on_congestion = nc ? nc->on_congestion : OC_BLOCK;
 	rcu_read_unlock();
 	if (on_congestion == OC_BLOCK ||
+		// BSR-1208 L_OFF does not send replication and resynchronization data, so it does not check pull ahead.
+		peer_device->repl_state[NOW] == L_OFF ||
 		// DW-1204 peer is already disconnected, no pull ahead
 		connection->cstate[NOW] < C_CONNECTED ||
 	    connection->agreed_pro_version < 96)
@@ -2395,72 +2397,6 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 			}
 		}
 		break;
-	}
-}
-
-// BSR-997 validate that range is already (null return if not already)
-// similar to resync_pending_check_and_expand_dup()
-static struct bsr_ov_skip_sectors *ov_check_and_expand_dup(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
-{
-	struct bsr_ov_skip_sectors *ov_st = NULL;
-
-	if (list_empty(&peer_device->ov_skip_sectors_list))
-		return NULL;
-
-	list_for_each_entry_ex(struct bsr_ov_skip_sectors, ov_st, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (sst >= ov_st->sst && sst <= ov_st->est && est <= ov_st->est) {
-			// ignore them because they already have the all rangs.
-			return ov_st;
-		}
-
-		if (sst <= ov_st->sst && est >= ov_st->sst && est > ov_st->est) {
-			// update sst and est because it contains a larger range that already exists.
-			ov_st->sst = sst;
-			ov_st->est = est;
-			return ov_st;
-		}
-
-		if (sst >= ov_st->sst && sst <= ov_st->est && est > ov_st->est) {
-			// existing ranges include start ranges, but end ranges are larger, so update the est values.
-			ov_st->est = est;
-			return ov_st;
-		}
-
-		if (sst < ov_st->sst && est >= ov_st->sst && est <= ov_st->est) {
-			// existing ranges include end ranges, but start ranges are small, so update the sst values.
-			ov_st->sst = sst;
-			return ov_st;
-		}
-	}
-	// there is no equal range.
-	return NULL;
-}
-
-// BSR-997 if you already have a range, remove the duplicate entry. (all list item)
-// similar to resync_pending_list_all_check_and_dedup()
-static void ov_list_all_check_and_dedup(struct bsr_peer_device *peer_device, struct bsr_ov_skip_sectors *ov_st)
-{
-	struct bsr_ov_skip_sectors *target, *tmp;
-
-	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, target, tmp, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (ov_st == target)
-			continue;
-
-		if (ov_st->sst <= target->sst && ov_st->est >= target->est) {
-			// remove all ranges as they are included.
-			list_del(&target->sector_list);
-			kfree2(target);
-			continue;
-		}
-		if (ov_st->sst > target->sst && ov_st->sst <= target->est) {
-			// the end range is included, so update the est.
-			target->est = ov_st->sst;
-		}
-
-		if (ov_st->sst <= target->sst && ov_st->est > target->sst) {
-			// the start range is included, so update the sst.
-			target->sst = ov_st->est;
-		}
 	}
 }
 
