@@ -1000,7 +1000,7 @@ struct digest_info {
 	void *digest;
 };
 
-struct split_bitmap_bit {
+struct bsr_scope_bitmap_bit {
 	ULONG_PTR start; // DW-1601 start bitmap bit of split data 
 	ULONG_PTR end_next; // DW-1601 end next bitmap bit of split data  
 };
@@ -1049,7 +1049,7 @@ struct bsr_peer_request {
 #endif
 
 	struct {
-		struct split_bitmap_bit sbb;
+		struct bsr_scope_bitmap_bit sbb;
 		atomic_t *count;	// DW-1601 total split request (bitmap bit) 		        
 		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
 		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 

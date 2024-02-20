@@ -3872,7 +3872,7 @@ void bsr_destroy_device(struct kref *kref)
 #ifdef SPLIT_REQUEST_RESYNC
 	// DW-1911
 	struct bsr_marked_replicate *marked_rl, *t;
-	struct bsr_resync_pending_sectors *pending_st, *rpt;
+	struct bsr_scope_sector *pending_st, *rpt;
 #endif
 
 	bsr_debug(97, BSR_LC_DRIVER, NO_OBJECT,"%s", __FUNCTION__);
@@ -3880,8 +3880,8 @@ void bsr_destroy_device(struct kref *kref)
 #ifdef SPLIT_REQUEST_RESYNC
 	// BSR-1038
 	// BSR-625
-	list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, rpt, &(device->resync_pending_sectors), pending_sectors) {
-		list_del(&pending_st->pending_sectors);
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, pending_st, rpt, &(device->resync_pending_sectors), sector_list) {
+		list_del(&pending_st->sector_list);
 		kfree2(pending_st);
 	}
 

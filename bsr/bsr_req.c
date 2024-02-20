@@ -1840,8 +1840,6 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	on_congestion = nc ? nc->on_congestion : OC_BLOCK;
 	rcu_read_unlock();
 	if (on_congestion == OC_BLOCK ||
-		// BSR-1208 L_OFF does not send replication and resynchronization data, so it does not check pull ahead.
-		peer_device->repl_state[NOW] == L_OFF ||
 		// DW-1204 peer is already disconnected, no pull ahead
 		connection->cstate[NOW] < C_CONNECTED ||
 	    connection->agreed_pro_version < 96)
@@ -2426,70 +2424,6 @@ static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst,
 	return false;
 }
 
-// BSR-997 add ov skipped only when the range is not included. (sort and add)
-// simuilar to list_add_resync_pending()
-static int list_add_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
-{
-	struct bsr_ov_skip_sectors *ov_st = NULL;
-	struct bsr_ov_skip_sectors *target = NULL;
-
-	int i = 0;
-
-	spin_lock_irq(&peer_device->ov_lock);
-	if (is_ov_in_progress(peer_device, sst, est - 1)) {
-		// remove duplicates from items you want to add.
-		ov_st = ov_check_and_expand_dup(peer_device, sst, est);
-		if (ov_st) {
-			ov_list_all_check_and_dedup(peer_device, ov_st);
-		}
-		else {
-			struct bsr_ov_skip_sectors *target;
-#ifdef _WIN
-				ov_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), '9ASB');
-#else // _LIN
-				ov_st = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
-#endif
-
-			if (!ov_st) {
-				bsr_err(96, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
-				spin_unlock_irq(&peer_device->ov_lock);
-				return -ENOMEM;
-			}
-
-			ov_st->sst = sst;
-			ov_st->est = est;
-
-			// add to the list in sequential sort.
-			if (list_empty(&peer_device->ov_skip_sectors_list)) {
-				list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-			}
-			else {
-				list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) {
-					if (ov_st->sst < target->sst) {
-						if (peer_device->ov_skip_sectors_list.next == &target->sector_list)
-							list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-						else
-							list_add_tail(&ov_st->sector_list, &target->sector_list);
-
-						goto eof;
-					}
-				}
-				list_add_tail(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-			}
-		}
-eof:
-		list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) 
-		{
-			bsr_debug(218, BSR_LC_RESYNC_OV, peer_device, "%d. ov skipped sector sst %llu est %llu  list %llu ~ %llu", 
-				i++, sst, est, (unsigned long long)target->sst, (unsigned long long)target->est);
-		}
-
-	}
-	spin_unlock_irq(&peer_device->ov_lock);
-
-	return 0;
-}
-
 char* bsr_alloc_accelbuf(struct bsr_device *device, int size)
 {
 	char* accelbuf = NULL;
@@ -2535,7 +2469,11 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	if (rw == WRITE && req->i.size) {
 		for_each_peer_device(peer_device, device) {
 			if (peer_device->repl_state[NOW] == L_VERIFY_S) {
-				list_add_ov_skip_sectors(peer_device, req->i.sector, req->i.sector + (req->i.size >> 9));
+				spin_lock_irq(&peer_device->ov_lock);
+				if (is_ov_in_progress(peer_device, req->i.sector, (req->i.sector + (req->i.size >> 9) - 1))) {
+					bsr_scope_list_add(&peer_device->ov_skip_sectors_list, req->i.sector, req->i.sector + (req->i.size >> 9));
+				}
+				spin_unlock_irq(&peer_device->ov_lock);
 			}
 		}
 	}

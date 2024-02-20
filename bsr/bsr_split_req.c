@@ -15,7 +15,7 @@ static int bit_count(unsigned int val)
 }
 
 struct bsr_peer_request *split_read_in_block(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_request, sector_t sector,
-	ULONG_PTR offset, unsigned int size, struct split_req_bitmap_bit bb, ULONG_PTR flags, atomic_t* split_count, char* verify, int(*cb)(struct bsr_work *, int cancel)) __must_hold(local)
+	ULONG_PTR offset, unsigned int size, struct bsr_split_req_bitmap_bit bb, ULONG_PTR flags, atomic_t* split_count, char* verify, int(*cb)(struct bsr_work *, int cancel)) __must_hold(local)
 
 {
 	struct bsr_peer_request *split_peer_request;
@@ -126,16 +126,15 @@ bool is_marked_rl_bb(struct bsr_peer_device *peer_device, struct bsr_marked_repl
 {
 	// BSR-380
 	list_for_each_entry_ex(struct bsr_marked_replicate, (*marked_rl), &(peer_device->device->marked_rl_list), marked_rl_list) {
-		if ((*marked_rl)->bb == bb) {
+		if ((*marked_rl)->bb == bb)
 			return true;
-		}
 	}
 
 	(*marked_rl) = NULL;
 	return false;
 }
 
-bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct split_req_bitmap_bit *bb, atomic_t *split_count)
+bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct bsr_split_req_bitmap_bit *bb, atomic_t *split_count)
 {
 	bool find_isb = false;
 	bool split_request = true;
@@ -194,7 +193,7 @@ bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct spli
 	return find_isb;
 }
 
-bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, ULONG_PTR start_bb, ULONG_PTR end_next_bb)
+bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, struct bsr_scope_bitmap_bit sbb)
 {
 	ULONG_PTR i_bb;
 	struct bsr_device *device = peer_device->device;
@@ -203,18 +202,18 @@ bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, ULONG_PTR s
 	// DW-2065 modify to incorrect conditions
 	// DW-2082 the range(s_rl_bb, e_rl_bb) should not be reset because there is no warranty coming in sequentially.
 	if (device->e_rl_bb >= device->s_rl_bb) {
-		if ((device->s_rl_bb <= start_bb && device->e_rl_bb >= start_bb))
+		if ((device->s_rl_bb <= sbb.start && device->e_rl_bb >= sbb.start))
 			return true;
 
-		if (device->s_rl_bb <= (end_next_bb - 1) && device->e_rl_bb >= (end_next_bb - 1))
+		if (device->s_rl_bb <= (sbb.start - 1) && device->e_rl_bb >= (sbb.end_next - 1))
 			return true;
 
-		if ((device->s_rl_bb >= start_bb && device->e_rl_bb <= (end_next_bb - 1)))
+		if ((device->s_rl_bb >= sbb.start && device->e_rl_bb <= (sbb.end_next - 1)))
 			return true;
 	}
 
 	// BSR-1160 verify that the replication area is not set, but there is already an in sync area due to the request for duplicate resync.
-	for (i_bb = start_bb; i_bb < end_next_bb; i_bb++) {
+	for (i_bb = sbb.start; i_bb < sbb.end_next; i_bb++) {
 		// BSR-1160 if there is an area where in sync is set, return a "true" to exclude some or all of it from writing.
 		if (bsr_bm_test_bit(peer_device, i_bb) == 0)
 			return true;
@@ -223,7 +222,7 @@ bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, ULONG_PTR s
 	return false;
 }
 
-int split_request_submit(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, uint32_t peer_seq, struct split_req_bitmap_bit bb, ULONG_PTR offset, atomic_t *split_count,
+int split_request_submit(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, uint32_t peer_seq, struct bsr_split_req_bitmap_bit bb, ULONG_PTR offset, atomic_t *split_count,
 	int *submit_count, struct bsr_marked_replicate *marked_rl, int(*cb)(struct bsr_work *, int cancel))
 {
 	struct bsr_device *device = peer_device->device;
@@ -273,8 +272,8 @@ int split_request_submit(struct bsr_peer_device *peer_device, struct bsr_peer_re
 	return 0;
 }
 
-int split_marked_request_submit(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, uint32_t peer_seq,
-	struct split_req_bitmap_bit bb, struct bsr_marked_replicate *marked_rl, atomic_t *split_count, int *submit_count, int(*cb)(struct bsr_work *, int cancel))
+int split_request_marked_submit(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, uint32_t peer_seq,
+	struct bsr_split_req_bitmap_bit bb, struct bsr_marked_replicate *marked_rl, atomic_t *split_count, int *submit_count, int(*cb)(struct bsr_work *, int cancel))
 {
 	struct bsr_device *device = peer_device->device;
 	struct bsr_peer_request *split_peer_req = NULL;
@@ -399,124 +398,7 @@ bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, struct b
 	return unmakred;
 }
 
-bool get_resync_pending_range(struct bsr_peer_device* peer_device, sector_t sst, sector_t est, sector_t *cst, bool locked)
-{
-	struct bsr_resync_pending_sectors *target = NULL;
-	bool res = false;
-
-	if (!locked)
-		mutex_lock(&peer_device->device->resync_pending_fo_mutex);
-	list_for_each_entry_ex(struct bsr_resync_pending_sectors, target, &(peer_device->device->resync_pending_sectors), pending_sectors) {
-		if (est <= target->sst) {
-			// all ranges are not duplicated with resync pending
-			// cst (current sector)
-			*cst = est;
-			// return false not duplicate
-			res = false;
-			goto out;
-		}
-		else if ((sst >= target->sst && est <= target->est)) {
-			// all ranges are duplicated with resync pending
-			bsr_info(35, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. all out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu", (unsigned long long)sst, (unsigned long long)est,
-				(unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->sst, (unsigned long long)target->est);
-			*cst = est;
-			// return true duplicate 
-			res = true;
-			goto out;
-		}
-		else if (sst < target->sst && est > target->sst) {
-			// not all ranges duplicated
-			*cst = target->sst;
-			res = false;
-			goto out;
-		}
-		else if (sst < target->sst && (est <= target->est || est >= target->est)) {
-			// front range duplicated
-			bsr_info(36, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. front out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu", (unsigned long long)target->sst,
-				(unsigned long long)(target->est < est ? target->est : est), (unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->sst, (unsigned long long)target->est);
-			*cst = (target->est < est ? target->est : est);
-			res = true;
-			goto out;
-		}
-		else if (sst >= target->sst && sst < target->est && est > target->est) {
-			// end range duplicated 
-			bsr_info(37, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. end out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu",
-				(unsigned long long)sst, (unsigned long long)target->est, (unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->sst, (unsigned long long)target->est);
-			*cst = target->est;
-			res = true;
-			goto out;
-		}
-	}
-	*cst = est;
-out:
-	if (!locked)
-		mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
-
-	return res;
-}
-
-int dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
-{
-	struct bsr_resync_pending_sectors *target, *tmp;
-
-	mutex_lock(&peer_device->device->resync_pending_fo_mutex);
-	list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, target, tmp, &(peer_device->device->resync_pending_sectors), pending_sectors) {
-		if (sst <= target->sst && est >= target->est) {
-			bsr_info(52, BSR_LC_RESYNC_OV, peer_device, "Resync pending remove sector %llu(%llu) ~ %llu(%llu)",
-				(unsigned long long)target->sst, (unsigned long long)BM_SECT_TO_BIT(target->sst), (unsigned long long)target->est, (unsigned long long)BM_SECT_TO_BIT(target->est));
-			// remove because it contains the full range
-			list_del(&target->pending_sectors);
-			kfree2(target);
-			continue;
-		}
-
-		if (sst >= target->sst && est <= target->est) {
-			// remove because the middle range is the same
-			struct bsr_resync_pending_sectors *pending_st;
-
-			// adding it to the list because it will disperse when the middle is removed
-#ifdef _WIN
-			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'D9SB');
-#else // _LIN
-			pending_st = (struct bsr_resync_pending_sectors *)bsr_kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC | __GFP_NOWARN, '');
-#endif
-			if (!pending_st) {
-				bsr_err(30, BSR_LC_MEMORY, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
-				mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
-				return -ENOMEM;
-			}
-
-			pending_st->sst = est;
-			pending_st->est = target->est;
-			list_add(&pending_st->pending_sectors, &target->pending_sectors);
-			bsr_info(54, BSR_LC_RESYNC_OV, peer_device, "Resync pending split new sector %llu(%llu) ~ %llu(%llu)",
-				(unsigned long long)pending_st->sst, (unsigned long long)BM_SECT_TO_BIT(pending_st->sst), (unsigned long long)pending_st->est, (unsigned long long)BM_SECT_TO_BIT(pending_st->est));
-
-			target->est = sst;
-			bsr_info(55, BSR_LC_RESYNC_OV, peer_device, "Resync pending split sector %llu(%llu) ~ %llu(%llu)",
-				(unsigned long long)target->sst, (unsigned long long)BM_SECT_TO_BIT(target->sst), (unsigned long long)target->est, (unsigned long long)BM_SECT_TO_BIT(target->est));
-		}
-
-		if (sst <= target->sst && est > target->sst && est <= target->est) {
-			// remove because the start range is the same.
-			target->sst = est;
-			bsr_info(56, BSR_LC_RESYNC_OV, peer_device, "Resync pending modify sector %llu(%llu) ~ %llu(%llu)",
-				(unsigned long long)target->sst, (unsigned long long)BM_SECT_TO_BIT(target->sst), (unsigned long long)target->est, (unsigned long long)BM_SECT_TO_BIT(target->est));
-		}
-
-		if (sst >= target->sst && sst < target->est && est >= target->est) {
-			// remove because the end range is the same.
-			target->est = sst;
-			bsr_info(57, BSR_LC_RESYNC_OV, peer_device, "Resync pending modify sector %llu(%llu) ~ %llu(%llu)",
-				(unsigned long long)target->sst, (unsigned long long)BM_SECT_TO_BIT(target->sst), (unsigned long long)target->est, (unsigned long long)BM_SECT_TO_BIT(target->est));
-		}
-	}
-	mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
-
-	return 0;
-}
-
-int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, sector_t est, unsigned int size, ULONG_PTR in_sync)
+int bsr_list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, sector_t est, unsigned int size, ULONG_PTR in_sync)
 {
 	ULONG_PTR start_bb, e_bb;
 	struct bsr_device* device = peer_device->device;
@@ -628,183 +510,227 @@ int list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, sector_t 
 	return 0;
 }
 
-struct bsr_resync_pending_sectors *resync_pending_check_and_expand_dup(struct bsr_device* device, sector_t sst, sector_t est)
+int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t est)
 {
-	struct bsr_resync_pending_sectors *pending_st = NULL;
-
-	if (list_empty(&device->resync_pending_sectors))
-		return NULL;
-
-	list_for_each_entry_ex(struct bsr_resync_pending_sectors, pending_st, &(device->resync_pending_sectors), pending_sectors) {
-		if (sst >= pending_st->sst && sst <= pending_st->est && est <= pending_st->est) {
-			// ignore them because they already have the all rangs.
-			return pending_st;
-		}
-
-		if (sst <= pending_st->sst && est >= pending_st->sst && est > pending_st->est) {
-			// update sst and est because it contains a larger range that already exists.
-			pending_st->sst = sst;
-			pending_st->est = est;
-			return pending_st;
-		}
-
-		if (sst >= pending_st->sst && sst < pending_st->est && est > pending_st->est) {
-			// existing ranges include start ranges, but end ranges are larger, so update the est values.
-			pending_st->est = est;
-			return pending_st;
-		}
-
-		if (sst < pending_st->sst && est > pending_st->sst && est <= pending_st->est) {
-			// existing ranges include end ranges, but start ranges are small, so update the sst values.
-			pending_st->sst = sst;
-			return pending_st;
-		}
-	}
-	// there is no equal range.
-	return NULL;
-}
-
-void resync_pending_list_all_check_and_dedup(struct bsr_device* device, struct bsr_resync_pending_sectors *pending_st)
-{
-	struct bsr_resync_pending_sectors *target, *tmp;
-
-	list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, target, tmp, &(device->resync_pending_sectors), pending_sectors) {
-		if (pending_st == target)
-			continue;
-
-		if (pending_st->sst <= target->sst && pending_st->est >= target->est) {
-			// remove all ranges as they are included.
-			list_del(&target->pending_sectors);
-			kfree2(target);
-			continue;
-		}
-		if (pending_st->sst > target->sst && pending_st->sst <= target->est) {
-			// the end range is included, so update the est.
-			target->est = pending_st->sst;
-		}
-
-		if (pending_st->sst <= target->sst && pending_st->est > target->sst) {
-			// the start range is included, so update the sst.
-			target->sst = pending_st->est;
-		}
-	}
-}
-
-int list_add_resync_pending(struct bsr_device* device, sector_t sst, sector_t est)
-{
-	struct bsr_resync_pending_sectors *pending_st = NULL;
-	struct bsr_resync_pending_sectors *target = NULL;
+	struct bsr_scope_sector *new_scope = NULL;
+	struct bsr_scope_sector *target = NULL;
 
 	int i = 0;
 
 	// remove duplicates from items you want to add.
-	mutex_lock(&device->resync_pending_fo_mutex);
-	pending_st = resync_pending_check_and_expand_dup(device, sst, est);
-	if (pending_st) {
-		resync_pending_list_all_check_and_dedup(device, pending_st);
-	}
-	else {
-		struct bsr_resync_pending_sectors *target;
-
+	new_scope = bsr_scope_list_check_and_expand_dup(scope_sectors, sst, est);
+	if (new_scope) {
+		bsr_scope_list_all_check_and_dedup(scope_sectors, new_scope);
+	} else {
+		struct bsr_scope_sector *target;
 #ifdef _WIN
-		pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_resync_pending_sectors), 'E9SB');
+		new_scope = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_scope_sector), '9ASB');
 #else // _LIN
-		pending_st = (struct bsr_resync_pending_sectors *)bsr_kmalloc(sizeof(struct bsr_resync_pending_sectors), GFP_ATOMIC | __GFP_NOWARN, '');
+		new_scope = (struct bsr_scope_sector *)bsr_kmalloc(sizeof(struct bsr_scope_sector), GFP_ATOMIC | __GFP_NOWARN, '');
 #endif
-
-		if (!pending_st) {
-			bsr_err(34, BSR_LC_MEMORY, device, "Failed to add resync pending due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
-			mutex_unlock(&device->resync_pending_fo_mutex);
+		if (!new_scope) {
+			bsr_err(96, BSR_LC_MEMORY, NO_OBJECT, "Failed to add scope sector due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
 			return -ENOMEM;
 		}
 
-		pending_st->sst = sst;
-		pending_st->est = est;
+		new_scope->start = sst;
+		new_scope->end = est;
 
 		// add to the list in sequential sort.
-		if (list_empty(&device->resync_pending_sectors)) {
-			list_add(&pending_st->pending_sectors, &device->resync_pending_sectors);
+		if (list_empty(scope_sectors)) {
+			list_add(&new_scope->sector_list, scope_sectors);
 		}
 		else {
-			list_for_each_entry_ex(struct bsr_resync_pending_sectors, target, &(device->resync_pending_sectors), pending_sectors) {
-				if (pending_st->sst < target->sst) {
-					if (device->resync_pending_sectors.next == &target->pending_sectors)
-						list_add(&pending_st->pending_sectors, &device->resync_pending_sectors);
+			list_for_each_entry_ex(struct bsr_scope_sector, target, scope_sectors, sector_list) {
+				if (new_scope->start < target->start) {
+					if (scope_sectors->next == &target->sector_list)
+						list_add(&new_scope->sector_list, scope_sectors);
 					else
-						list_add_tail(&pending_st->pending_sectors, &target->pending_sectors);
+						list_add_tail(&new_scope->sector_list, &target->sector_list);
 
 					goto eof;
 				}
 			}
-			list_add_tail(&pending_st->pending_sectors, &device->resync_pending_sectors);
+			list_add_tail(&new_scope->sector_list, scope_sectors);
 		}
 	}
 eof:
-	list_for_each_entry_ex(struct bsr_resync_pending_sectors, target, &(device->resync_pending_sectors), pending_sectors)
-		bsr_info(101, BSR_LC_RESYNC_OV, device, "%d. Resync pending sector %llu(%llu) ~ %llu(%llu)", i++, (unsigned long long)target->sst, (unsigned long long)BM_SECT_TO_BIT(target->sst), (unsigned long long)target->est, (unsigned long long)BM_SECT_TO_BIT(target->est));
-	mutex_unlock(&device->resync_pending_fo_mutex);
+	list_for_each_entry_ex(struct bsr_scope_sector, target, scope_sectors, sector_list) {
+		bsr_info(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. scope sector sst %llu est %llu  list %llu ~ %llu",
+			i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
+	}
 
 	return 0;
 }
 
-struct bsr_ov_skip_sectors *ov_check_and_expand_dup(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+struct bsr_scope_sector *bsr_scope_list_check_and_expand_dup(struct list_head *scope_sectors, sector_t sst, sector_t est)
 {
-	struct bsr_ov_skip_sectors *ov_st = NULL;
+	struct bsr_scope_sector *temp_scope = NULL;
 
-	if (list_empty(&peer_device->ov_skip_sectors_list))
+	if (list_empty(scope_sectors))
 		return NULL;
 
-	list_for_each_entry_ex(struct bsr_ov_skip_sectors, ov_st, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (sst >= ov_st->sst && sst <= ov_st->est && est <= ov_st->est) {
+	list_for_each_entry_ex(struct bsr_scope_sector, temp_scope, scope_sectors, sector_list) {
+		if (sst >= temp_scope->start && sst <= temp_scope->end && est <= temp_scope->end) {
 			// ignore them because they already have the all rangs.
-			return ov_st;
+			return temp_scope;
 		}
 
-		if (sst <= ov_st->sst && est >= ov_st->sst && est > ov_st->est) {
+		if (sst <= temp_scope->start && est >= temp_scope->start && est > temp_scope->end) {
 			// update sst and est because it contains a larger range that already exists.
-			ov_st->sst = sst;
-			ov_st->est = est;
-			return ov_st;
+			temp_scope->start = sst;
+			temp_scope->end = est;
+			return temp_scope;
 		}
 
-		if (sst >= ov_st->sst && sst <= ov_st->est && est > ov_st->est) {
+		if (sst >= temp_scope->start && sst < temp_scope->end && est > temp_scope->end) {
 			// existing ranges include start ranges, but end ranges are larger, so update the est values.
-			ov_st->est = est;
-			return ov_st;
+			temp_scope->end = est;
+			return temp_scope;
 		}
 
-		if (sst < ov_st->sst && est >= ov_st->sst && est <= ov_st->est) {
+		if (sst < temp_scope->start && est > temp_scope->start && est <= temp_scope->end) {
 			// existing ranges include end ranges, but start ranges are small, so update the sst values.
-			ov_st->sst = sst;
-			return ov_st;
+			temp_scope->start = sst;
+			return temp_scope;
 		}
 	}
 	// there is no equal range.
 	return NULL;
 }
 
-void ov_list_all_check_and_dedup(struct bsr_peer_device *peer_device, struct bsr_ov_skip_sectors *ov_st)
+void bsr_scope_list_all_check_and_dedup(struct list_head *scope_sectors, struct bsr_scope_sector *new_scope)
 {
-	struct bsr_ov_skip_sectors *target, *tmp;
+	struct bsr_scope_sector *target, *tmp;
 
-	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, target, tmp, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (ov_st == target)
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, target, tmp, scope_sectors, sector_list) {
+		if (new_scope == target)
 			continue;
 
-		if (ov_st->sst <= target->sst && ov_st->est >= target->est) {
+		if (new_scope->start <= target->start && new_scope->end >= target->end) {
 			// remove all ranges as they are included.
 			list_del(&target->sector_list);
 			kfree2(target);
 			continue;
 		}
-		if (ov_st->sst > target->sst && ov_st->sst <= target->est) {
+		if (new_scope->start > target->start && new_scope->start <= target->end) {
 			// the end range is included, so update the est.
-			target->est = ov_st->sst;
+			target->end = new_scope->start;
 		}
 
-		if (ov_st->sst <= target->sst && ov_st->est > target->sst) {
+		if (new_scope->start <= target->start && new_scope->end > target->start) {
 			// the start range is included, so update the sst.
-			target->sst = ov_st->est;
+			target->start = new_scope->end;
 		}
 	}
+}
+
+bool bsr_resync_pending_scope(struct bsr_peer_device* peer_device, sector_t sst, sector_t est, sector_t *cst)
+{
+	struct bsr_scope_sector *target = NULL;
+	bool res = false;
+
+	list_for_each_entry_ex(struct bsr_scope_sector, target, &(peer_device->device->resync_pending_sectors), sector_list) {
+		if (est <= target->start) {
+			// all ranges are not duplicated with resync pending
+			// cst (current sector)
+			*cst = est;
+			// return false not duplicate
+			res = false;
+			goto out;
+		}
+		else if ((sst >= target->start && est <= target->end)) {
+			// all ranges are duplicated with resync pending
+			bsr_info(35, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. all out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu", (unsigned long long)sst, (unsigned long long)est,
+				(unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->start, (unsigned long long)target->end);
+			*cst = est;
+			// return true duplicate 
+			res = true;
+			goto out;
+		}
+		else if (sst < target->start && est > target->start) {
+			// not all ranges duplicated
+			*cst = target->start;
+			res = false;
+			goto out;
+		}
+		else if (sst < target->start && (est <= target->end || est >= target->end)) {
+			// front range duplicated
+			bsr_info(36, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. front out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu", (unsigned long long)target->start,
+				(unsigned long long)(target->end < est ? target->end : est), (unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->start, (unsigned long long)target->end);
+			*cst = (target->end < est ? target->end : est);
+			res = true;
+			goto out;
+		}
+		else if (sst >= target->start && sst < target->end && est > target->end) {
+			// end range duplicated 
+			bsr_info(37, BSR_LC_RESYNC_OV, peer_device, "Resync duplicates. end out of sync sectors %llu ~ %llu => source %llu ~ %llu, target %llu ~ %llu",
+				(unsigned long long)sst, (unsigned long long)target->end, (unsigned long long)sst, (unsigned long long)est, (unsigned long long)target->start, (unsigned long long)target->end);
+			*cst = target->end;
+			res = true;
+			goto out;
+		}
+	}
+	*cst = est;
+out:
+
+	return res;
+}
+
+int bsr_dedup_from_resync_pending(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+{
+	struct bsr_scope_sector *target, *tmp;
+
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, target, tmp, &(peer_device->device->resync_pending_sectors), sector_list) {
+		if (sst <= target->start && est >= target->end) {
+			bsr_info(52, BSR_LC_RESYNC_OV, peer_device, "Resync pending remove sector %llu(%llu) ~ %llu(%llu)",
+				(unsigned long long)target->start, (unsigned long long)BM_SECT_TO_BIT(target->start), (unsigned long long)target->end, (unsigned long long)BM_SECT_TO_BIT(target->end));
+			// remove because it contains the full range
+			list_del(&target->sector_list);
+			kfree2(target);
+			continue;
+		}
+
+		if (sst >= target->start && est <= target->end) {
+			// remove because the middle range is the same
+			struct bsr_scope_sector *pending_st;
+
+			// adding it to the list because it will disperse when the middle is removed
+#ifdef _WIN
+			pending_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_scope_sector), 'D9SB');
+#else // _LIN
+			pending_st = (struct bsr_scope_sector *)bsr_kmalloc(sizeof(struct bsr_scope_sector), GFP_ATOMIC | __GFP_NOWARN, '');
+#endif
+			if (!pending_st) {
+				bsr_err(30, BSR_LC_MEMORY, peer_device, "Failed to check resync pending due to failure to allocate memory, sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
+				return -ENOMEM;
+			}
+
+			pending_st->start = est;
+			pending_st->end = target->end;
+			list_add(&pending_st->sector_list, &target->sector_list);
+			bsr_info(54, BSR_LC_RESYNC_OV, peer_device, "Resync pending split new sector %llu(%llu) ~ %llu(%llu)",
+				(unsigned long long)pending_st->start, (unsigned long long)BM_SECT_TO_BIT(pending_st->start), (unsigned long long)pending_st->end, (unsigned long long)BM_SECT_TO_BIT(pending_st->end));
+
+			target->end = sst;
+			bsr_info(55, BSR_LC_RESYNC_OV, peer_device, "Resync pending split sector %llu(%llu) ~ %llu(%llu)",
+				(unsigned long long)target->start, (unsigned long long)BM_SECT_TO_BIT(target->start), (unsigned long long)target->end, (unsigned long long)BM_SECT_TO_BIT(target->end));
+		}
+
+		if (sst <= target->start && est > target->start && est <= target->end) {
+			// remove because the start range is the same.
+			target->start = est;
+			bsr_info(56, BSR_LC_RESYNC_OV, peer_device, "Resync pending modify sector %llu(%llu) ~ %llu(%llu)",
+				(unsigned long long)target->start, (unsigned long long)BM_SECT_TO_BIT(target->start), (unsigned long long)target->end, (unsigned long long)BM_SECT_TO_BIT(target->end));
+		}
+
+		if (sst >= target->start && sst < target->end && est >= target->end) {
+			// remove because the end range is the same.
+			target->end = sst;
+			bsr_info(57, BSR_LC_RESYNC_OV, peer_device, "Resync pending modify sector %llu(%llu) ~ %llu(%llu)",
+				(unsigned long long)target->start, (unsigned long long)BM_SECT_TO_BIT(target->start), (unsigned long long)target->end, (unsigned long long)BM_SECT_TO_BIT(target->end));
+		}
+	}
+
+	return 0;
 }

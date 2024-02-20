@@ -2572,7 +2572,7 @@ static int dup_verification_and_processing(struct bsr_peer_device* peer_device, 
 	while (offset < est && offset >= sst) {
 		// BSR-1078 confirmation of resync_pending and setting of in sync should be carried out in the same synchronization area.
 		mutex_lock(&peer_device->device->resync_pending_fo_mutex);
-		if (!get_resync_pending_range(peer_device, offset, est, &offset, true)) {
+		if (!bsr_resync_pending_scope(peer_device, offset, est, &offset)) {
 			// DW-2092 when a node is configured as a star, in sync should only be applied to the target node, since applying all out of snyc with uuid alone will result in a consistency mismatch.
 			bsr_set_in_sync(peer_device, sst, (int)(offset - sst) << 9);
 			mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
@@ -2622,7 +2622,7 @@ static int split_request_complete(struct bsr_peer_device* peer_device, struct bs
 {
 	// BSR-1078
 	bool already_is = false; // true : in sync, false : out of sync
-	struct split_req_bitmap_bit bb;
+	struct bsr_split_req_bitmap_bit bb;
 	int err = 0;
 
 	bb.s.start = peer_req->sbb.start;
@@ -2789,7 +2789,7 @@ static int recv_req_all_out_of_sync(struct bsr_peer_device *peer_device, struct 
 	return -EIO;
 }
 
-static int recv_req_already_all_in_sync(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, struct split_req_bitmap_bit bb, uint32_t bi_size)
+static int recv_req_already_all_in_sync(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, struct bsr_split_req_bitmap_bit bb, uint32_t bi_size)
 {
 	int err;
 	struct bsr_device *device = peer_device->device;
@@ -2827,7 +2827,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 	int err = 0;
 
-	struct split_req_bitmap_bit bb;
+	struct bsr_split_req_bitmap_bit bb;
 	ULONG_PTR offset;
 
 	int submit_count = 0;
@@ -2876,7 +2876,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 	if (peer_device->connection->agreed_pro_version >= 113 &&         
 		// DW-1904 if it is not affected by the replication data, it writes the resync data without check(split request, marked replicate list). 
-		(!list_empty(&device->marked_rl_list) || is_oos_belong_to_repl_area(peer_device, bb.s.start, bb.s.end_next))) {
+		(!list_empty(&device->marked_rl_list) || is_oos_belong_to_repl_area(peer_device, bb.s))) {
 
 		// DW-1601 
 		// the number of peer_requests in the bitmap area that are released when the bitmap is found in the synchronization data.
@@ -2929,7 +2929,7 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 						atomic_add(BM_BLOCK_SIZE, &device->rs_sect_ev);
 
 					if (marked_rl) {
-						err = split_marked_request_submit(peer_device, peer_req, d->peer_seq, bb, marked_rl, split_count, &submit_count, split_e_end_resync_block);
+						err = split_request_marked_submit(peer_device, peer_req, d->peer_seq, bb, marked_rl, split_count, &submit_count, split_e_end_resync_block);
 						if (err) {
 							if (0 == atomic_sub_return(atomic_read(split_count) - submit_count, split_count))
 								bsr_kfree(split_count);
@@ -3958,8 +3958,11 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			if (is_sync_target(peer_device) && in_sync) {
 				// DW-2042
 #ifdef SPLIT_REQUEST_RESYNC
-				if (peer_device->connection->agreed_pro_version >= 113)
-					err = dedup_from_resync_pending(peer_device, peer_req->i.sector, (peer_req->i.sector + (peer_req->i.size >> 9)));
+				if (peer_device->connection->agreed_pro_version >= 113) {
+					mutex_lock(&peer_device->device->resync_pending_fo_mutex);
+					err = bsr_dedup_from_resync_pending(peer_device, peer_req->i.sector, (peer_req->i.sector + (peer_req->i.size >> 9)));
+					mutex_unlock(&peer_device->device->resync_pending_fo_mutex);
+				}
 #endif
 				for_each_peer_device(target, peer_device->device) {
 					if (target == peer_device)
@@ -3973,7 +3976,7 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 			//DW-1601 if the status is L_SYNC_TARGET calculate
 #ifdef SPLIT_REQUEST_RESYNC
 			if (peer_device->connection->agreed_pro_version >= 113 && peer_device->repl_state[NOW] == L_SYNC_TARGET) {
-				err = list_add_marked(peer_device, peer_req->i.sector, peer_req->i.sector + (peer_req->i.size >> 9), peer_req->i.size, in_sync);
+				err = bsr_list_add_marked(peer_device, peer_req->i.sector, peer_req->i.sector + (peer_req->i.size >> 9), peer_req->i.size, in_sync);
 			}
 #endif
 		}
@@ -9157,7 +9160,9 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 #ifdef SPLIT_REQUEST_RESYNC
 			if (peer_device->connection->agreed_pro_version >= 113) {
 				int err;
-				err = list_add_resync_pending(device, sector, sector + (be32_to_cpu(p->blksize) >> 9));
+				mutex_lock(&device->resync_pending_fo_mutex);
+				err = bsr_scope_list_add(&device->resync_pending_sectors, sector, sector + (be32_to_cpu(p->blksize) >> 9));
+				mutex_unlock(&device->resync_pending_fo_mutex);
 				if (err < 0)
 					return err;
 			}
@@ -9862,8 +9867,8 @@ void conn_disconnect(struct bsr_connection *connection)
 		// BSR-997
 		spin_lock_irq(&peer_device->ov_lock);
 		if (!list_empty(&peer_device->ov_skip_sectors_list)) {
-			struct bsr_ov_skip_sectors *skipped, *skipped_tmp;
-			list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
+			struct bsr_scope_sector *skipped, *skipped_tmp;
+			list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
 			{
 				list_del(&skipped->sector_list);
 				kfree2(skipped);
