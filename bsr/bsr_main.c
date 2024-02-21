@@ -6960,8 +6960,9 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			do_it = (pdsk <= D_UNKNOWN && pdsk != D_NEGOTIATING) ||
 				(NODE_MASK(node_id) & weak_nodes);
 
-			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
-			do_it = do_it || ((peer_device->connection->cstate[NEW] < C_CONNECTED) && (pdsk == D_INCONSISTENT));
+			// BSR-1212 bump current uuid when peer is in ahead state
+			do_it = do_it || (peer_device->repl_state[NOW] == L_AHEAD);
+
 
 		} else {
 			do_it = true;
