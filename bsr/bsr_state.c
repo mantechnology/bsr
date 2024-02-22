@@ -3765,8 +3765,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				// BSR-997
 				spin_lock_irq(&peer_device->ov_lock);
 				if (!list_empty(&peer_device->ov_skip_sectors_list)) {
-					struct bsr_ov_skip_sectors *skipped, *skipped_tmp;
-					list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
+					struct bsr_scope_sector *skipped, *skipped_tmp;
+					list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
 					{
 						list_del(&skipped->sector_list);
 						kfree2(skipped);

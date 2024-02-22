@@ -1000,6 +1000,11 @@ struct digest_info {
 	void *digest;
 };
 
+struct bsr_scope_bitmap_bit {
+	ULONG_PTR start; // DW-1601 start bitmap bit of split data 
+	ULONG_PTR end_next; // DW-1601 end next bitmap bit of split data  
+};
+
 struct bsr_peer_request {
 	struct bsr_work w;
 	struct bsr_peer_device *peer_device;
@@ -1044,8 +1049,7 @@ struct bsr_peer_request {
 #endif
 
 	struct {
-		ULONG_PTR s_bb;		// DW-1601 start bitmap bit of split data 
-		ULONG_PTR e_next_bb;// DW-1601 end next bitmap bit of split data  
+		struct bsr_scope_bitmap_bit sbb;
 		atomic_t *count;	// DW-1601 total split request (bitmap bit) 		        
 		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
 		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 
@@ -2131,30 +2135,6 @@ struct bsr_peer_device {
 	wait_queue_head_t local_writing_wait;
 	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
 	atomic_t start_sending_bitmap;
-};
-
-
-// BSR-997
-struct bsr_ov_skip_sectors {
-	sector_t sst;	/* start sector number */
-	sector_t est;	/* end sector number */
-	struct list_head sector_list;
-};
-
-
-// DW-1911
-struct bsr_marked_replicate {
-	ULONG_PTR bb;	/* current bitmap bit */
-	u8 marked_rl;    /* marks the sector as bit. (4k = 8sector = u8(8bit)) */
-	struct list_head marked_rl_list;
-	u16 end_unmarked_rl;
-};
-
-// DW-2042
-struct bsr_resync_pending_sectors {
-	sector_t sst;	/* start sector number */
-	sector_t est;	/* end sector number */
-	struct list_head pending_sectors;
 };
 
 struct submit_worker {

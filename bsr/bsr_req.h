@@ -31,6 +31,8 @@
 #include <bsr.h>
 #endif
 
+#include "bsr_split_req.h"
+
 /* The request callbacks will be called in irq context by the IDE drivers,
    and in Softirqs/Tasklets/BH context by the SCSI drivers,
    and by the receiver and worker in kernel-thread context.

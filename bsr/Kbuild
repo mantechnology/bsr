@@ -53,6 +53,7 @@ bsr-y += ../bsr-headers/bsr_strings.o
 bsr-y += lru_cache.o bsr_interval.o bsr_nla.o bsr_linux_buildtag.o
 bsr-y += bsr_proc.o bsr_bitmap.o bsr_actlog.o
 bsr-y += bsr_req.o bsr_state.o
+bsr-y += bsr_split_req.o
 bsr-y += bsr_nl.o bsr_main.o $(compat_objs)
 bsr-y += bsr_transport.o bsr_transport_tcp.o
 bsr-y += bsr_sender.o bsr_receiver.o 

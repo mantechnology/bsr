@@ -410,7 +410,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	// DW-1601 the last split uses the sector of the first bit for resync_lru matching.
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_req->flags & EE_SPLIT_LAST_REQ)
-		sector = BM_BIT_TO_SECT(peer_req->s_bb);
+		sector = BM_BIT_TO_SECT(peer_req->sbb.start);
 	else
 #endif
 		sector = peer_req->i.sector;
@@ -2607,11 +2607,11 @@ void verify_progress(struct bsr_peer_device *peer_device,
 }
 
 // BSR-997
-static bool is_skipped_sectors(struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est)
+static bool is_skipped_sectors(struct bsr_scope_sector *skipped, sector_t sst, sector_t est)
 {
-	if ((skipped->sst >= sst && skipped->est <= est) ||
-		(skipped->sst <= est && skipped->est >= est) ||
-		(skipped->sst <= sst && skipped->est >= sst)) {
+	if ((skipped->start >= sst && skipped->end <= est) ||
+		(skipped->start <= est && skipped->end >= est) ||
+		(skipped->start <= sst && skipped->end >= sst)) {
 		return true;
 	}
 
@@ -2636,29 +2636,29 @@ static int bsr_send_split_ov_request(struct bsr_peer_device *peer_device, sector
 
 // BSR-997 resend ov request except for skipped sectors
 static sector_t make_split_ov_request(struct bsr_peer_device *peer_device, 
-	struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est, bool done)
+	struct bsr_scope_sector *skipped, sector_t sst, sector_t est, bool done)
 {
 	sector_t skip_sst = 0, skip_est = 0;
-	struct bsr_ov_skip_sectors *split_list;
+	struct bsr_scope_sector *split_list;
 
 	spin_lock_irq(&peer_device->ov_lock);
-	if (skipped->sst >= sst) {
-		skip_sst = skipped->sst > sst ? skipped->sst : sst;
-		skip_est = skipped->est < est ? skipped->est : est;
+	if (skipped->start >= sst) {
+		skip_sst = skipped->start > sst ? skipped->start : sst;
+		skip_est = skipped->end < est ? skipped->end : est;
 
-		if (skipped->est <= est) { 
+		if (skipped->end <= est) {
 			list_del(&skipped->sector_list);
 			kfree2(skipped);
 		} else {
 			// skipped->est > est
-			skipped->sst = est;
+			skipped->start = est;
 		}				
 	} 
-	else if (skipped->est <= est) {
+	else if (skipped->end <= est) {
 		// skipped->sst < sst
 		skip_sst = sst;
-		skip_est = skipped->est < est ? skipped->est : est;
-		skipped->est = sst;
+		skip_est = skipped->end < est ? skipped->end : est;
+		skipped->end = sst;
 	} 
 	else {
 		// skipped->est > est
@@ -2666,9 +2666,9 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		skip_est = est;
 
 #ifdef _WIN
-		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'AASB');
+		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_scope_sector), 'AASB');
 #else // _LIN
-		split_list = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
+		split_list = (struct bsr_scope_sector *)bsr_kmalloc(sizeof(struct bsr_scope_sector), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 		if (!split_list) {
 			bsr_err(97, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", 
@@ -2677,9 +2677,9 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 			goto skip_sector;
 		}
 
-		split_list->sst = skip_est;
-		split_list->est = skipped->est;
-		skipped->est = skip_sst;
+		split_list->start = skip_est;
+		split_list->end = skipped->end;
+		skipped->end = skip_sst;
 		list_add(&split_list->sector_list, &peer_device->ov_skip_sectors_list);
 	}
 	
@@ -2712,7 +2712,7 @@ skip_sector:
 // BSR-997 check sectors in ov_skip_sectors_list
 static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
 {
-	struct bsr_ov_skip_sectors *skipped, *tmp;
+	struct bsr_scope_sector *skipped, *tmp;
 	sector_t ret_sst = sst;	
 	bool is_skipped = false;
 	bool split_ov_done = false;
@@ -2723,7 +2723,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 		return false;
 	}
 
-	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
 	{
 		if (is_skipped_sectors(skipped, sst, est)) {
 			if (!is_skipped) {
@@ -3441,12 +3441,12 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (peer_device->connection->agreed_pro_version >= 113) {
 		//DW-1911
 		struct bsr_marked_replicate *marked_rl, *mrt;
-		struct bsr_resync_pending_sectors *pending_st, *rpt;
+		struct bsr_scope_sector *pending_st, *rpt;
 		ULONG_PTR offset = 0;
 
 		mutex_lock(&device->resync_pending_fo_mutex);
-		list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, rpt, &(device->resync_pending_sectors), pending_sectors) {
-			list_del(&pending_st->pending_sectors);
+		list_for_each_entry_safe_ex(struct bsr_scope_sector, pending_st, rpt, &(device->resync_pending_sectors), sector_list) {
+			list_del(&pending_st->sector_list);
 			kfree2(pending_st);
 		}
 		mutex_unlock(&device->resync_pending_fo_mutex);
