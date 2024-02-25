@@ -2121,10 +2121,6 @@ struct bsr_peer_device {
 
 	struct timer_list sended_timer;
 
-	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
-	u64 latest_nodes;
-	u64 merged_nodes;
-
 	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
 	atomic_t64 local_writing;
 	wait_queue_head_t local_writing_wait;

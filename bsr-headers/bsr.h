@@ -459,8 +459,6 @@ enum mdf_peer_flag {
 	// BSR-1066
 	MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY = 1 << 21,
 #endif
-	// BSR-1171
-	MDF_NEED_TO_MERGE_BITMAP = 1 << 22,
 };
 
 #define BSR_PEERS_MAX 32

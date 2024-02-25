@@ -2005,20 +2005,6 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 			// BSR-1170 remove the connection status from the condition because OOS_SET_TO_LOCAL must be set even if it is connected but the replication status is L_OFF.
 			if (peer_device->bitmap_index != -1) 
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
-
-			// BSR-1171
-			for_each_peer_device(p, device) {
-				if (p == peer_device)
-					continue;
-
-				// BSR-1171 set to merge bitmap if the following conditions are met.
-				if (p->latest_nodes & NODE_MASK(peer_device->node_id)) {
-					p->merged_nodes &= ~NODE_MASK(peer_device->node_id);
-					p->latest_nodes &= ~NODE_MASK(peer_device->node_id);
-					bsr_info(19, BSR_LC_VERIFY, NO_OBJECT, "set %d as the bitmap merge destination for node %d.", peer_device->node_id, p->node_id);
-				}
-			}
-
 			continue;
 		}
 

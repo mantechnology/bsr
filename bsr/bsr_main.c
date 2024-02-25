@@ -2725,40 +2725,6 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
 		// DW-1979
 		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
-			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
-			bool missing = false;
-			for_each_peer_device(p, device) {
-				if (p == peer_device) {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						struct bsr_peer_device* pd = NULL;
-						for_each_peer_device(pd, device) {
-							if ((p == pd) || 
-								(p->merged_nodes & NODE_MASK(pd->node_id)))
-								continue;
-							if (bsr_peer_device_merge_bitmap(p, pd)) {
-								p->merged_nodes |= NODE_MASK(pd->node_id);
-								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", pd->node_id, p->node_id);
-							}
-							else
-								missing = true;
-						}
-
-						if (!missing) {
-							bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
-							bsr_md_sync(device);
-						}
-					}
-				} else {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							if (bsr_peer_device_merge_bitmap(p, peer_device)) {
-								p->merged_nodes |= NODE_MASK(peer_device->node_id);
-								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
-							}
-						}
-					}
-				}
-			}
 			atomic_set(&peer_device->wait_for_recv_bitmap, 1);
 		}
 		err = !_bsr_send_bitmap(device, peer_device);
@@ -4935,13 +4901,6 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
 	spin_lock_init(&peer_device->ov_lock);
 
-	// BSR-1171
-	peer_device->latest_nodes = 0;
-#ifdef _WIN64
-	peer_device->merged_nodes = UINT64_MAX;
-#else
-	peer_device->merged_nodes = ~0UL;
-#endif
 	// BSR-1170
 	atomic_set64(&peer_device->local_writing, 0);
 	init_waitqueue_head(&peer_device->local_writing_wait);
