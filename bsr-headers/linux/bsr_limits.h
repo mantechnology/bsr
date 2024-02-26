@@ -252,7 +252,7 @@
 #define BSR_C_MAX_RATE_MIN     250
 #define BSR_C_MAX_RATE_MAX     (4 << 20)
 // BSR-1148 change the default value based on low bandwidth. (100Mbps)
-#define BSR_C_MAX_RATE_DEF     6656 
+#define BSR_C_MAX_RATE_DEF     5120 
 #define BSR_C_MAX_RATE_SCALE	'k'  /* kilobytes */
 
 #define BSR_C_MIN_RATE_MIN     0
