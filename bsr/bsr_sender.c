@@ -2159,6 +2159,10 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				// BSR-676 notify uuid
 				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
+
+			// BSR-1171 initializes the bitmap merge target upon completion of synchronization.
+			peer_device->bitmap_merge_mask = 0;
+			peer_device->last_resync_jif = jiffies;
 		}
 	}
 

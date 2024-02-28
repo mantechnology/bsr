@@ -1986,7 +1986,6 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 	bool in_tree = false;
 	int remote, send_oos;
 	int count = 0;
-	struct bsr_peer_device *p;
 
 	*all_prot_a = true;
 
@@ -2005,6 +2004,23 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 			// BSR-1170 remove the connection status from the condition because OOS_SET_TO_LOCAL must be set even if it is connected but the replication status is L_OFF.
 			if (peer_device->bitmap_index != -1) 
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
+
+			// BSR-1171 sets the bitmap merge destination. The condition is that the node where replication data has not been transferred, regardless of whether it is connected, must be in the complete synchronization, and the node where replication data has been transferred must be in the process of synchronization.
+			if (!bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC)) {
+				struct bsr_peer_device *p;
+			
+				for_each_peer_device(p, device) {
+					if (peer_device == p)
+						continue;
+			
+					if (bsr_md_test_peer_flag(p, MDF_PEER_IN_PROGRESS_SYNC)) {
+						// BSR-1171 if the synchronization completion time of the node where synchronization is in progress is more recent, do not set it as a bitmap merge target.
+						if (p->last_resync_jif < peer_device->last_resync_jif)
+							p->bitmap_merge_mask |= NODE_MASK(peer_device->node_id);
+					}
+				}
+			}
+
 			continue;
 		}
 

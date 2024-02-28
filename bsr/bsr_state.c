@@ -3642,6 +3642,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			/* We are in the progress to start a full sync. SyncSource one slot. */
 			if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) {
+				// BSR-1171 initializes information about the bitmap merge when the invalidate command is executed.
+				peer_device->bitmap_merge_mask = 0;
+				peer_device->last_resync_jif = 0;
+
 				// BSR-1067
 				peer_device->repl_state_on_bitmap_queuing = repl_state[NEW];
 				bsr_queue_bitmap_io(device,
