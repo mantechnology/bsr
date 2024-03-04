@@ -2136,8 +2136,6 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
-			struct bsr_peer_device *p;
-
 			if (new_peer_disk_state != D_MASK)
 				__change_peer_disk_state(peer_device, new_peer_disk_state, __FUNCTION__);
 			if (peer_device->connection->agreed_pro_version < 110) {
@@ -2147,27 +2145,9 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
 
-			// BSR-1171
-			for_each_peer_device(p, device) {
-				if (p == peer_device)
-					continue;
-
-				// BSR-1171 
-				if (p->repl_state[NOW] != L_ESTABLISHED) {
-					// BSR-1171 resync is complete and it is the latest data. If replication occurs at the end of the connection after excluding it from the bitmap merge target of another node, set it as a merge target.
-					p->merged_nodes |= NODE_MASK(peer_device->node_id);
-					p->latest_nodes |= NODE_MASK(peer_device->node_id); 
-					bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
-				}
-			}
-
-			peer_device->latest_nodes = 0;
-#ifdef _WIN64
-			peer_device->merged_nodes = UINT64_MAX;
-#else
-			peer_device->merged_nodes = ~0UL;
-#endif
-			bsr_md_clear_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
+			// BSR-1171 initializes the bitmap merge target upon completion of synchronization.
+			peer_device->bitmap_merge_mask = 0;
+			peer_device->last_resync_jif = jiffies;
 		}
 	}
 

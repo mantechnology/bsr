@@ -5196,7 +5196,7 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 			rv = peer_role == R_SECONDARY ? L_WF_BITMAP_S :
 				role == R_SECONDARY ? L_WF_BITMAP_T :
 				L_ESTABLISHED;
-			return rv;
+			goto finish;
 		}
 		/* No current primary. Handle it as a common power failure, consider the
 		   roles at crash time */
@@ -5244,9 +5244,12 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 		}
 	}
 
-	// DW-1874	
-	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
+finish:
+	// DW-1874	    
+	// BSR-1171 it is used to determine whether synchronization is complete to set the bitmap merge target, so it is not released in the L_WF_BITMAP_S state.
+	if (rv != L_WF_BITMAP_S)
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC);
+
 	return rv;
 }
 
@@ -8291,6 +8294,11 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	spin_lock_irq(&resource->req_lock);
 	old_peer_state = bsr_get_peer_device_state(peer_device, NOW);
+
+	// BSR-1171 disk state D_UP_TO_DATE is the latest data, so remove merge targets.
+	if ((old_peer_state.disk != D_UP_TO_DATE) && (peer_disk_state == D_UP_TO_DATE))
+		peer_device->bitmap_merge_mask = 0;
+
 	spin_unlock_irq(&resource->req_lock);
  retry:
 	new_repl_state = max_t(enum bsr_repl_state, old_peer_state.conn, L_OFF);
@@ -8510,6 +8518,15 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		// DW-2084 set to 0 in situations where bitmap exchange is not required
 		if (new_repl_state == L_ESTABLISHED && atomic_read(&peer_device->wait_for_recv_bitmap)) 
 			atomic_set(&peer_device->wait_for_recv_bitmap, 0);
+
+		// BSR-1171 initial synchronization initializes the previous bitmap merge information.
+		if (new_repl_state == L_WF_BITMAP_S) {
+			if ((peer_device->current_uuid == UUID_JUST_CREATED) &&
+				(!(peer_device->uuid_flags & UUID_FLAG_INIT_SYNCT_BEGIN) && (!bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC)))) {
+				peer_device->bitmap_merge_mask = 0;
+				peer_device->last_resync_jif = 0;
+			}
+		}
 
 	} else if (peer_state.role == R_PRIMARY &&
 		peer_device->disk_state[NOW] == D_UNKNOWN && peer_state.disk == D_DISKLESS &&
