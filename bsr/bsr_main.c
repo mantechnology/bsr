@@ -2755,9 +2755,12 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 				for_each_peer_device(p, device) {
 					if (peer_device == p)
 						continue;
-					if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
-						bsr_peer_device_merge_bitmap(p, peer_device);
-						p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
+					// BSR-1224 node in connect does not merge the bitmap.
+					if (p->connection->cstate[NOW] != C_CONNECTED) {
+						if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
+							bsr_peer_device_merge_bitmap(p, peer_device);
+							p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
+						}
 					}
 				}
 			}
@@ -4810,9 +4813,12 @@ void bsr_destroy_connection(struct kref *kref)
 			for_each_peer_device(p, peer_device->device) {
 				if (peer_device == p)
 					continue;
-				if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
-					bsr_peer_device_merge_bitmap(p, peer_device);
-					p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
+				// BSR-1224 node in connect does not merge the bitmap.
+				if (p->connection->cstate[NOW] != C_CONNECTED) {
+					if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
+						bsr_peer_device_merge_bitmap(p, peer_device);
+						p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
+					}
 				}
 			}
 		}
