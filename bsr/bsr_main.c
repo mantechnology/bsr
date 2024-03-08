@@ -4962,6 +4962,9 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	init_waitqueue_head(&peer_device->local_writing_wait);
 	atomic_set(&peer_device->start_sending_bitmap, 0);
 
+	// BSR-1213
+	atomic_set(&peer_device->start_init_sync, 0);
+
 	return peer_device;
 }
 

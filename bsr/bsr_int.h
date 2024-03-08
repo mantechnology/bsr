@@ -2135,6 +2135,9 @@ struct bsr_peer_device {
 	wait_queue_head_t local_writing_wait;
 	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
 	atomic_t start_sending_bitmap;
+
+	// BSR-1213
+	atomic_t start_init_sync;
 };
 
 struct submit_worker {
