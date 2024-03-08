@@ -2126,15 +2126,17 @@ struct bsr_peer_device {
 
 	struct timer_list sended_timer;
 
-	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
-	u64 latest_nodes;
-	u64 merged_nodes;
-
 	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
 	atomic_t64 local_writing;
 	wait_queue_head_t local_writing_wait;
 	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
 	atomic_t start_sending_bitmap;
+
+	/* TODO: The added BSR-1711 variables below are not stored in the meta, so previous values cannot be determined when the system is forced to shut down. */
+	// BSR-1171 it is used to merge bitmaps with established nodes before sending bitmaps to ensure consistency of nodes synchronized with other nodes.
+	int bitmap_merge_mask;
+	// BSR-1171 time for the recently completed synchronization.
+	ULONG_PTR last_resync_jif;
 
 	// BSR-1213
 	atomic_t start_init_sync;

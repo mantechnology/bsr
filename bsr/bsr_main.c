@@ -2740,37 +2740,24 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
 		// DW-1979
 		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
-			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
-			bool missing = false;
-			for_each_peer_device(p, device) {
-				if (p == peer_device) {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						struct bsr_peer_device* pd = NULL;
-						for_each_peer_device(pd, device) {
-							if ((p == pd) || 
-								(p->merged_nodes & NODE_MASK(pd->node_id)))
-								continue;
-							if (bsr_peer_device_merge_bitmap(p, pd)) {
-								p->merged_nodes |= NODE_MASK(pd->node_id);
-								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", pd->node_id, p->node_id);
-							}
-							else
-								missing = true;
-						}
-
-						if (!missing) {
-							bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
-							bsr_md_sync(device);
-						}
-					}
-				} else {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							if (bsr_peer_device_merge_bitmap(p, peer_device)) {
-								p->merged_nodes |= NODE_MASK(peer_device->node_id);
-								bsr_info(18, BSR_LC_VERIFY, NO_OBJECT, "clear bitmap merge target %d in %d.", peer_device->node_id, p->node_id);
-							}
-						}
+			// BSR-1171 merge Bitmaps of target nodes to be synchronized Merge target node bitmaps.
+			if (peer_device->bitmap_merge_mask) {
+				for_each_peer_device(p, device) {
+					if (peer_device == p)
+						continue;
+					if (peer_device->bitmap_merge_mask & NODE_MASK(p->node_id))
+						bsr_peer_device_merge_bitmap(peer_device, p);
+				}
+				peer_device->bitmap_merge_mask = 0;
+			}
+			else {
+				// BSR-1171 merge the bitmap to a node that has the target node to be synchronized as the bitmap merge target.
+				for_each_peer_device(p, device) {
+					if (peer_device == p)
+						continue;
+					if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
+						bsr_peer_device_merge_bitmap(p, peer_device);
+						p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
 					}
 				}
 			}
@@ -4809,6 +4796,27 @@ void bsr_destroy_connection(struct kref *kref)
 	spin_unlock(&g_unacked_lock);
 
     idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+		struct bsr_peer_device *p;
+		// BSR-1171 merge the set bitmap when removing peer_device.
+		if (peer_device->bitmap_merge_mask) {
+			for_each_peer_device(p, peer_device->device) {
+				if (peer_device == p)
+					continue;
+				if (peer_device->bitmap_merge_mask & NODE_MASK(p->node_id))
+					bsr_peer_device_merge_bitmap(peer_device, p);
+			}
+			peer_device->bitmap_merge_mask = 0;
+		} else {
+			for_each_peer_device(p, peer_device->device) {
+				if (peer_device == p)
+					continue;
+				if (p->bitmap_merge_mask & NODE_MASK(peer_device->node_id))  {
+					bsr_peer_device_merge_bitmap(p, peer_device);
+					p->bitmap_merge_mask &= ~NODE_MASK(peer_device->node_id);
+				}
+			}
+		}
+
 		kref_debug_put(&peer_device->device->kref_debug, 1);
 
 		// DW-1598 set CONNECTION_ALREADY_FREED flags 
@@ -4950,17 +4958,14 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
 	spin_lock_init(&peer_device->ov_lock);
 
-	// BSR-1171
-	peer_device->latest_nodes = 0;
-#ifdef _WIN64
-	peer_device->merged_nodes = UINT64_MAX;
-#else
-	peer_device->merged_nodes = ~0UL;
-#endif
 	// BSR-1170
 	atomic_set64(&peer_device->local_writing, 0);
 	init_waitqueue_head(&peer_device->local_writing_wait);
 	atomic_set(&peer_device->start_sending_bitmap, 0);
+
+	// BSR-1171
+	peer_device->bitmap_merge_mask = 0;
+	peer_device->last_resync_jif = 0;
 
 	// BSR-1213
 	atomic_set(&peer_device->start_init_sync, 0);
