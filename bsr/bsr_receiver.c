@@ -5106,6 +5106,18 @@ static int bsr_handshake(struct bsr_peer_device *peer_device,
 	if (hg || always_verbose)
 		bsr_info(75, BSR_LC_RESYNC_OV, peer_device, "uuid_compare(%d) by rule %d", hg, *rule_nr);
 
+	
+	// BSR-1213 init sync progresses (not UUID_JUST_CREATED), set start_init_sync 1
+	if ((hg == -3) 
+		&& !bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN) 
+		&& (bsr_current_uuid(device) != UUID_JUST_CREATED)) {
+		atomic_set(&peer_device->start_init_sync, 1);
+	} else {
+		if (atomic_read(&peer_device->start_init_sync)) {
+			atomic_set(&peer_device->start_init_sync, 0);
+		}
+	}
+
 	return hg;
 }
 

@@ -4967,6 +4967,9 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	peer_device->bitmap_merge_mask = 0;
 	peer_device->last_resync_jif = 0;
 
+	// BSR-1213
+	atomic_set(&peer_device->start_init_sync, 0);
+
 	return peer_device;
 }
 

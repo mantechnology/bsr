@@ -2137,6 +2137,9 @@ struct bsr_peer_device {
 	int bitmap_merge_mask;
 	// BSR-1171 time for the recently completed synchronization.
 	ULONG_PTR last_resync_jif;
+
+	// BSR-1213
+	atomic_t start_init_sync;
 };
 
 struct submit_worker {

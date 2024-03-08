@@ -2155,8 +2155,17 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
 
 	// BSR-431 clear MDF_PEER_INIT_SYNCT_BEGIN flag when just resync is done.
-	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
+	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN)) {
+		struct bsr_peer_device *other_peer_device = NULL;
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+
+		// BSR-1213 clear MDF_PEER_INIT_SYNCT_BEGIN on other peer nodes as well.
+		for_each_peer_device(other_peer_device, device) {
+			if (other_peer_device == peer_device)
+				continue;
+			bsr_md_clear_peer_flag(other_peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+		}
+	}
 
 #ifdef _WIN
 	// BSR-1066 when resync finished, clear MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
@@ -3547,9 +3556,12 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	if (r == SS_SUCCESS) {
 		// DW-1285 set MDF_PEER_INIT_SYNCT_BEGIN 
+		// BSR-1213 set even when start_init_sync is 1
 		if( (side == L_SYNC_TARGET) 
-			&& (peer_device->device->ldev->md.current_uuid == UUID_JUST_CREATED) ) { 
+			&& ((peer_device->device->ldev->md.current_uuid == UUID_JUST_CREATED) 
+			|| atomic_read(&peer_device->start_init_sync))) { 
 			bsr_md_set_peer_flag (peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+			atomic_set(&peer_device->start_init_sync, 0);
 		}
 		
 		// BSR-842
