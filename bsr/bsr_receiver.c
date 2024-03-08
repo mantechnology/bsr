@@ -2505,6 +2505,40 @@ static int recv_dless_read(struct bsr_peer_device *peer_device, struct bsr_reque
 	return 0;
 }
 
+static inline int overlaps(sector_t s1, int l1, sector_t s2, int l2)
+{
+	return !((s1 + (l1 >> 9) <= s2) || (s1 >= s2 + (l2 >> 9)));
+}
+
+/* maybe change sync_ee into interval trees as well? */
+static bool overlapping_resync_write(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
+{
+	struct bsr_peer_request *rs_req;
+	bool rv = false;
+
+	/* Now only called in the fallback compatibility path, when the peer is
+	* BSR version 8, which also means it is the only peer.
+	* If we wanted to use this in a scenario where we could potentially
+	* have in-flight resync writes from multiple peers, we'd need to
+	* iterate over all connections.
+	* Fortunately we don't have to, because we have now mutually excluded
+	* resync and application activity on a particular region using
+	* device->act_log and peer_device->resync_lru.
+	*/
+	spin_lock_irq(&connection->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_peer_request, rs_req, &connection->sync_ee, w.list) {
+		if (rs_req->peer_device != peer_req->peer_device)
+			continue;
+		if (overlaps(peer_req->i.sector, peer_req->i.size,
+			rs_req->i.sector, rs_req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+	spin_unlock_irq(&connection->resource->req_lock);
+
+	return rv;
+}
 
 #ifndef SPLIT_REQUEST_RESYNC
 /*
@@ -2854,6 +2888,19 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 		if (!err)
 			put_ldev(__FUNCTION__, device);
 		return err;
+	}
+
+
+	// BSR-1207 wait for write completion for the same area for consistent bitmap.
+	if (!list_empty(&peer_device->connection->sync_ee)) {
+		long timeo = EE_WAIT_TIMEOUT;
+		wait_event_timeout_ex(peer_device->connection->ee_wait, !overlapping_resync_write(peer_device->connection, peer_req), timeo, timeo);
+		if (!timeo) {
+			err = -EIO;
+			bsr_err(234, BSR_LC_REPLICATION, peer_device, "Failed to receive rs data due to timeout waiting for resync to complete on the same sector.");
+			bsr_free_peer_req(peer_req);
+			return err;
+		}
 	}
 
 	// BSR-1039
@@ -3336,41 +3383,6 @@ static void update_peer_seq(struct bsr_peer_device *peer_device, unsigned int pe
 		if (peer_seq == newest_peer_seq)
 			wake_up(&peer_device->device->seq_wait);
 	}
-}
-
-static inline int overlaps(sector_t s1, int l1, sector_t s2, int l2)
-{
-	return !((s1 + (l1>>9) <= s2) || (s1 >= s2 + (l2>>9)));
-}
-
-/* maybe change sync_ee into interval trees as well? */
-static bool overlapping_resync_write(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
-{
-	struct bsr_peer_request *rs_req;
-	bool rv = false;
-
-	/* Now only called in the fallback compatibility path, when the peer is
-	* BSR version 8, which also means it is the only peer.
-	* If we wanted to use this in a scenario where we could potentially
-	* have in-flight resync writes from multiple peers, we'd need to
-	* iterate over all connections.
-	* Fortunately we don't have to, because we have now mutually excluded
-	* resync and application activity on a particular region using
-	* device->act_log and peer_device->resync_lru.
-	*/
-	spin_lock_irq(&connection->resource->req_lock);
-	list_for_each_entry_ex(struct bsr_peer_request, rs_req, &connection->sync_ee, w.list) {
-		if (rs_req->peer_device != peer_req->peer_device)
-			continue;
-		if (overlaps(peer_req->i.sector, peer_req->i.size,
-			     rs_req->i.sector, rs_req->i.size)) {
-			rv = true;
-			break;
-		}
-	}
-	spin_unlock_irq(&connection->resource->req_lock);
-
-	return rv;
 }
 
 /* Called from receive_Data.
@@ -3856,10 +3868,10 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 	
 		// DW-1250 wait until there's no resync on same sector, to prevent overlapped write.
 		if (peer_device->repl_state[NOW] >= L_SYNC_TARGET) {
-			// BSR-846 timeout if it takes more than 10 seconds
+			// BSR-846 
 			long timeo = EE_WAIT_TIMEOUT;
 			wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
-			if (timeo == 0) {
+			if (!timeo) {
 				err = -EIO;
 				bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
 				goto timeout_ee_wait;
