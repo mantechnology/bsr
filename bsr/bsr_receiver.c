@@ -3013,12 +3013,11 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 	else {
 	all_out_of_sync:
 		err = recv_req_all_out_of_sync(peer_device, peer_req, d->bi_size);
-		if (err) {
+		if (err)
 			bsr_free_peer_req(peer_req);
-			return err;
-		}
+		return err;
 	}
-
+	bsr_free_peer_req(peer_req);
 	return 0;
 }
 #endif
