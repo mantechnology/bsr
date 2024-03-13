@@ -431,4 +431,7 @@ static inline int req_mod(struct bsr_request *req,
 	return rv;
 }
 
+bool overlapping_resync_write(struct bsr_connection *connection, struct bsr_peer_request *peer_req);
+bool overlapping_local_write(struct bsr_device *device, struct bsr_peer_request *peer_req);
+
 #endif

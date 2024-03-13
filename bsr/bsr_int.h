@@ -533,7 +533,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 234
-#define BSR_LC_REPLICATION_MAX_INDEX 32
+#define BSR_LC_REPLICATION_MAX_INDEX 33
 #define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 40
 #define BSR_LC_TWOPC_MAX_INDEX 59
@@ -1027,10 +1027,11 @@ struct bsr_peer_request {
 
 			// DW-1961
 			bool	 do_submit;				// Whether do_submit logic passed
+			// BSR-1220 when receiving replication data, whether bitmap exchange is complete is set.
+			bool	 bm_exchanged;
 			LONGLONG created_ts;			// req created
 			LONGLONG io_request_ts;			// Before delivering an io request to disk
 			LONGLONG io_complete_ts;		// Received io completion from disk
-
 			union {
 				u64 block_id;
 				struct digest_info *digest;
@@ -1969,7 +1970,7 @@ struct bsr_peer_device {
 	atomic_t wait_for_actlog;
 	// DW-1979 the value used by the syncaget to match the "out of sync" with the sync source when exchanging the bitmap.
 	// set to 1 when waiting for a response to a resync request.
-	atomic_t wait_for_bitmp_exchange_complete;
+	atomic_t wait_for_bm_exchange_compl;
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
@@ -2328,6 +2329,9 @@ struct bsr_device {
 #endif
 	// BSR-1145
 	struct bsr_offset_buffer accelbuf;
+	
+	// BSR-1220 mutex used to synchronize replication data and synchronization data during delay processing.
+	struct mutex submit_mutex;
 };
 
 
@@ -2486,7 +2490,7 @@ extern int bsr_send_state(struct bsr_peer_device *, union bsr_state);
 extern int bsr_send_current_state(struct bsr_peer_device *);
 extern int bsr_send_sync_param(struct bsr_peer_device *);
 extern void bsr_send_b_ack(struct bsr_connection *connection, s32 barrier_nr, u32 set_size);
-extern int bsr_send_out_of_sync(struct bsr_peer_device *, struct bsr_interval *);
+extern int bsr_send_out_of_sync(const char *caller, struct bsr_peer_device *, struct bsr_interval *);
 extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet, int,
 			   struct bsr_peer_request *);
 extern int bsr_send_dblock(struct bsr_peer_device *, struct bsr_request *req);
@@ -3456,10 +3460,10 @@ extern void bsr_rs_failed_io(struct bsr_peer_device *, sector_t, int);
 extern void bsr_advance_rs_marks(struct bsr_peer_device *, ULONG_PTR);
 extern bool bsr_set_all_out_of_sync(struct bsr_device *, sector_t, int);
 // DW-1191
-extern unsigned long bsr_set_sync(struct bsr_device *, sector_t, int, ULONG_PTR, ULONG_PTR);
+extern unsigned long bsr_set_sync(const char* caller, struct bsr_device *, sector_t, int, ULONG_PTR, ULONG_PTR);
 
 // BSR-444 add parameter locked(rcu_read_lock)
-extern ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
+extern ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_device,
 	ULONG_PTR sbnr, ULONG_PTR ebnr, update_sync_bits_mode mode, bool locked);
 
 extern ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector, int size,
