@@ -489,13 +489,23 @@ static pid_t GetRunningPid()
 	DWORD pid = GetOptionValue(BSRMON_PID);
 
 	if (pid > 0) {
-		if(hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid))
-			CloseHandle(hProc);	// bsrmon running
-		else {
-			pid = 0;
-			SetOptionValue(BSRMON_PID, 0);
-			SetOptionValue(BSRMON_STOP_SIGNAL, 0);
+		if (hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)) {
+			TCHAR p_path[MAX_PATH]={0,};
+			TCHAR p_name[MAX_PATH]={0,};
+			DWORD len = sizeof(p_path);
+			// BSR-1138 get process name from full path
+			QueryFullProcessImageName(hProc, 0, p_path, &len);
+			_wsplitpath_s(p_path, NULL, 0, NULL, 0, p_name, len, NULL, 0);
+			CloseHandle(hProc);
+
+			if (!wcsncmp(p_name, L"bsrmon", 6)) {
+				// bsrmon running
+				return pid;
+			}
 		}
+		pid = 0;
+		SetOptionValue(BSRMON_PID, 0);
+		SetOptionValue(BSRMON_STOP_SIGNAL, 0);
 	}
 #else // _LIN
 	char buf[10] = {0,};
@@ -1185,6 +1195,8 @@ static void StopMonitor(int disable)
 {
 	int run = 0;
 	pid_t pid = 0;
+	
+	pid = GetRunningPid();
 #ifdef _WIN
 	if (GetOptionValue(BSRMON_STOP_SIGNAL) == 1) {
 		fprintf(stdout, "bsrmon is already stopping.\n");
@@ -1196,9 +1208,6 @@ static void StopMonitor(int disable)
 		fprintf(stdout, "bsrmon is not running\n");
 		return;
 	}
-
-	pid = GetRunningPid();
-
 #ifdef _WIN
 	if (pid > 0) {
 		SetOptionValue(BSRMON_STOP_SIGNAL, 1);
