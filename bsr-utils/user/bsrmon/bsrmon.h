@@ -49,6 +49,9 @@
 #define fscanf_ex fscanf
 #endif
 
+// BSR-1138
+#define DEFAULT_BSRMON_LOG_ROLLING_SIZE 1 // 1M
+
 enum set_option_type
 {
 	PERIOD,

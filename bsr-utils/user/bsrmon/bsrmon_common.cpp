@@ -12,9 +12,6 @@
 char g_perf_path[MAX_PATH];
 bool write_log = false;
 
-// BSR-1138
-#define DEFAULT_BSRMON_LOG_ROLLING_SIZE 1 // 1M
-
 struct type_names {
 	const char * const *names;
 	unsigned int size;
@@ -351,7 +348,8 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 			rolling_cnt = 1;
 		}
 		else {
-			int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
+			// BSR-1236 invalid declaration, the declaration has been removed.
+			rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
 			if (rolling_cnt <= 0)
 				rolling_cnt = DEFAULT_FILE_ROLLONG_CNT;
 		}
