@@ -1336,7 +1336,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_device->connection->agreed_pro_version >= 113) {
 		// DW-2082 if the bitmap exchange was not completed and the resync request was sent once, the next resync request is not sent.
-		if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
+		if (atomic_read(&peer_device->wait_for_bm_exchange_compl)) {
 			bsr_debug(16, BSR_LC_VERIFY, peer_device, "waiting for syncsource to bitmap exchange status");
 			goto requeue;
 		}
@@ -2199,7 +2199,7 @@ out_unlock:
 	peer_device->rs_total  = 0;
 	peer_device->rs_failed = 0;
 	peer_device->rs_paused = 0;
-	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+	atomic_set(&peer_device->wait_for_bm_exchange_compl, 0);
 
 	if (peer_device->resync_again) {
 		enum bsr_repl_state new_repl_state =
@@ -3440,10 +3440,13 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		}
 		mutex_unlock(&device->resync_pending_fo_mutex);
 
-		//DW-1908
+		// BSR-1220
+		mutex_lock(&device->submit_mutex);
+
+		// DW-1908
 		device->h_marked_bb = 0;
 		device->h_insync_bb = 0;
-		
+
 		list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, mrt, &(device->marked_rl_list), marked_rl_list) {
 			list_del(&marked_rl->marked_rl_list);
 			kfree2(marked_rl);
@@ -3459,6 +3462,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		// DW-2065
 		atomic_set64(&peer_device->s_resync_bb, 0);
 		atomic_set64(&peer_device->e_resync_bb, 0);
+
+		mutex_unlock(&device->submit_mutex);
 
 		// DW-2050
 		if (side == L_SYNC_TARGET) {
@@ -4358,7 +4363,7 @@ static int process_one_request(struct bsr_connection *connection)
 				peer_device->todo.was_ahead = true;
 				bsr_send_current_state(peer_device);
 			}
-			err = bsr_send_out_of_sync(peer_device, &req->i);
+			err = bsr_send_out_of_sync(__FUNCTION__, peer_device, &req->i);
 
 #ifdef SPLIT_REQUEST_RESYNC
 			// DW-2058 if all request(pending out of sync) is sent when the current status is L_ESTABLISHED and out of sync remains, start resync.

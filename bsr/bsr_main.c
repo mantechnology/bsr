@@ -2415,7 +2415,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 			    "t:%u bo:%llu", toggle, (unsigned long long)c->bit_offset);
 			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
 			if (toggle == 0) {
-				update_sync_bits(peer_device, offset, offset, SET_OUT_OF_SYNC, false);
+				update_sync_bits(__FUNCTION__, peer_device, offset, offset, SET_OUT_OF_SYNC, false);
 				continue;
 			}
 			else {
@@ -3358,7 +3358,7 @@ int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd, int
 	return err;
 }
 
-int bsr_send_out_of_sync(struct bsr_peer_device *peer_device, struct bsr_interval *i)
+int bsr_send_out_of_sync(const char *caller, struct bsr_peer_device *peer_device, struct bsr_interval *i)
 {
 	struct p_block_desc *p;
 
@@ -4923,7 +4923,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->wait_for_actlog, 0);
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
-	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+	atomic_set(&peer_device->wait_for_bm_exchange_compl, 0);
 	atomic_set(&peer_device->wait_for_out_of_sync, 0);
 	
 	// BSR-1067
@@ -5070,6 +5070,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
+
+	// BSR-1220
+	mutex_init(&device->submit_mutex);
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);
@@ -7152,23 +7155,23 @@ void bsr_propagate_uuids(struct bsr_device *device, u64 nodes)
 void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val, u64 weak_nodes) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	struct bsr_peer_device *target;
+	struct bsr_peer_device *p;
 	u64 dagtag = peer_device->connection->last_dagtag_sector;
 	u64 got_new_bitmap_uuid = 0;
 	bool set_current = true;
 
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 
-	for_each_peer_device(target, device) {
+	for_each_peer_device(p, device) {
 		// BSR-1016 during resync that started without out of sync, the received UUId is updated.
-		if (((target->repl_state[NOW] == L_SYNC_TARGET) && target->rs_total) ||
-			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
+		if (((p->repl_state[NOW] == L_SYNC_TARGET) && p->rs_total) ||
+			p->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
-			target->repl_state[NOW] == L_BEHIND ||
-			(target->repl_state[NOW] == L_WF_BITMAP_T &&
+			p->repl_state[NOW] == L_BEHIND ||
+			(p->repl_state[NOW] == L_WF_BITMAP_T &&
 			// BSR-974 If it is weak_node when L_WF_BITMAP_T state, it does not update the UUID.
 			NODE_MASK(device->resource->res_opts.node_id) & weak_nodes)) {
-			target->current_uuid = val;
+			p->current_uuid = val;
 			set_current = false;
 		}
 	}
@@ -7782,7 +7785,7 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 	// BSR-444 add rcu_read_lock()
 	rcu_read_lock();
 	for_each_peer_device_rcu(p, device) {
-		if (!update_sync_bits(p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
+		if (!update_sync_bits(__FUNCTION__, p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
 			bsr_err(41, BSR_LC_BITMAP, device, "Failed to set range bit out of sync, no sync bit has been set for peer node(%d), set whole bits without updating resync extent instead.", p->node_id);
 			bsr_bm_set_many_bits(p, 0, BSR_END_OF_BITMAP);
 		}
@@ -7808,7 +7811,7 @@ int bsr_bmio_set_n_write(struct bsr_device *device,
 	bsr_md_set_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 	bsr_md_sync(device);
 	// DW-1333 set whole bits and update resync extent.
-	if (!update_sync_bits(peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
+	if (!update_sync_bits(__FUNCTION__, peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
 		bsr_err(42, BSR_LC_BITMAP, peer_device, "Failed to set range bit out of sync, no sync bit has been set, set whole bits without updating resync extent instead.");
 		bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 	}
@@ -7874,7 +7877,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 				pBit == 0)
 			{
 				llEndBit = (ULONG_PTR)GetBitPos(llBytePos, llBitPosInByte) - 1;
-				count += update_sync_bits(peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
+				count += update_sync_bits(__FUNCTION__, peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
 
 				llStartBit = BSR_END_OF_BITMAP;
 				llEndBit = BSR_END_OF_BITMAP;
@@ -7890,7 +7893,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 	// met last bit while finding zero bit.
 	if (llStartBit != BSR_END_OF_BITMAP) {
 		llEndBit = (ULONG_PTR)bitmapSize * BITS_PER_BYTE - 1;	// last cluster
-		count += update_sync_bits(peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
+		count += update_sync_bits(__FUNCTION__, peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
 
 		llStartBit = BSR_END_OF_BITMAP;
 		llEndBit = BSR_END_OF_BITMAP;

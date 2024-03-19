@@ -334,7 +334,7 @@ void bsr_req_destroy(struct kref *kref)
 			}
 
 			// DW-1191 this req needs to go into bitmap, and notify peer if possible.
-			set_bits = bsr_set_sync(device, req->i.sector, req->i.size, bits, mask);			
+			set_bits = bsr_set_sync(__FUNCTION__, device, req->i.sector, req->i.size, bits, mask);			
 			if (set_bits) {
 				for_each_peer_device(peer_device, device) {
 					int bitmap_index = peer_device->bitmap_index;
@@ -2402,6 +2402,59 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 	}
 }
 
+int overlaps(sector_t s1, int l1, sector_t s2, int l2)
+{
+	return !((s1 + (l1 >> 9) <= s2) || (s1 >= s2 + (l2 >> 9)));
+}
+
+/* maybe change sync_ee into interval trees as well? */
+bool overlapping_resync_write(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
+{
+	struct bsr_peer_request *rs_req;
+	bool rv = false;
+
+	/* Now only called in the fallback compatibility path, when the peer is
+	* BSR version 8, which also means it is the only peer.
+	* If we wanted to use this in a scenario where we could potentially
+	* have in-flight resync writes from multiple peers, we'd need to
+	* iterate over all connections.
+	* Fortunately we don't have to, because we have now mutually excluded
+	* resync and application activity on a particular region using
+	* device->act_log and peer_device->resync_lru.
+	*/
+	spin_lock_irq(&connection->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_peer_request, rs_req, &connection->sync_ee, w.list) {
+		if (rs_req->peer_device != peer_req->peer_device)
+			continue;
+		if (overlaps(peer_req->i.sector, peer_req->i.size,
+			rs_req->i.sector, rs_req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+	spin_unlock_irq(&connection->resource->req_lock);
+
+	return rv;
+}
+
+// BSR-1160 verify that local write to the same region is in progress before reading the request data.
+bool overlapping_local_write(struct bsr_device *device, struct bsr_peer_request *peer_req)
+{
+	struct bsr_request *req;
+	bool rv = false;
+
+	spin_lock_irq(&device->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[1], req_pending_local) {
+		if (overlaps(peer_req->i.sector, peer_req->i.size, req->i.sector, req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+	spin_unlock_irq(&device->resource->req_lock);
+
+	return rv;
+}
+
 // BSR-997 check whether the sector is within the ov progress range
 static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
 {
@@ -2755,18 +2808,82 @@ static void wfa_init(struct waiting_for_act_log *wfa)
 static void __bsr_submit_peer_request(struct bsr_peer_request *peer_req)
 {
 	struct bsr_peer_device *peer_device = peer_req->peer_device;
+	struct bsr_connection *connection = peer_device->connection;
 	struct bsr_device *device = peer_device->device;
 	int err;
 
-	peer_req->flags |= EE_IN_ACTLOG;
-	atomic_dec(&peer_req->peer_device->wait_for_actlog);
-	list_del_init(&peer_req->wait_for_actlog);
+#ifdef SPLIT_REQUEST_RESYNC
+	long timeo;
+	bool retry = false;
+	 	
+resync_overlapping:
+	// BSR-1220 check that the same area(peer_req) is in the synchronization area where the write is in progress.
+	timeo = EE_WAIT_TIMEOUT;
+	wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
+	if (!timeo) {
+	 	bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
+	 	bsr_cleanup_after_failed_submit_peer_request(peer_req);
+	} else {
+		mutex_lock(&device->submit_mutex);
+		// BSR-1220 check again after acquiring the lock
+		if (overlapping_resync_write(connection, peer_req)) {
+			mutex_unlock(&device->submit_mutex);
+			if (retry) {
+				bsr_err(33, BSR_LC_REPLICATION, peer_device, "Failed to wait for completion of synchronization data in the same area where the write is in progress");
+				bsr_cleanup_after_failed_submit_peer_request(peer_req);
+				return;
+			}
+			retry = true;
+			goto resync_overlapping;
+		}
+#endif
 
-	err = bsr_submit_peer_request(device, peer_req,
-		REQ_OP_WRITE, peer_req->op_flags, BSR_FAULT_DT_WR);
+		peer_req->flags |= EE_IN_ACTLOG;
+		atomic_dec(&peer_req->peer_device->wait_for_actlog);
+		list_del_init(&peer_req->wait_for_actlog);
 
-	if (err)
-		bsr_cleanup_after_failed_submit_peer_request(peer_req);
+		err = bsr_submit_peer_request(device, peer_req,
+			REQ_OP_WRITE, peer_req->op_flags, BSR_FAULT_DT_WR);
+
+#ifdef SPLIT_REQUEST_RESYNC
+		if (!err) {
+			// BSR-1220 sets "in sync" only when bitmap exchange is complete when receiving replication data.
+			if (peer_req->bm_exchanged) {
+				struct bsr_peer_device *p;
+				enum bsr_repl_state repl_state = peer_device->repl_state[NOW];
+				sector_t sector = peer_req->i.sector;
+				unsigned int size = peer_req->i.size;
+				ULONG_PTR in_sync = bsr_set_in_sync(peer_device, sector, size);
+
+				if (is_sync_target(peer_device) && in_sync) {
+					if (connection->agreed_pro_version >= 113) {
+						mutex_lock(&device->resync_pending_fo_mutex);
+						err = bsr_dedup_from_resync_pending(peer_device, sector, (sector + (size >> 9)));
+						mutex_unlock(&device->resync_pending_fo_mutex);
+					}
+					if (!err) {
+						for_each_peer_device(p, peer_device->device) {
+							if (p == peer_device)
+								continue;
+							if (p->current_uuid == peer_device->current_uuid) {
+								bsr_set_in_sync(p, sector, size);
+							}
+						}
+					}
+				}
+				
+				if (!err) {
+					if (connection->agreed_pro_version >= 113 && repl_state == L_SYNC_TARGET) {
+						err = bsr_list_add_marked(peer_device, sector, sector + (size >> 9), size, in_sync);
+					}
+				}
+			}
+		}
+		mutex_unlock(&device->submit_mutex);
+#endif
+		if (err)
+			bsr_cleanup_after_failed_submit_peer_request(peer_req);
+	}
 }
 
 static void submit_fast_path(struct bsr_device *device, struct waiting_for_act_log *wfa)
