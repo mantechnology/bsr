@@ -4999,6 +4999,11 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 
 	connection = adm_ctx.connection;
 	mutex_lock(&adm_ctx.resource->adm_mutex);
+
+	// BSR-1233 del_connection() skip if C_UNREGISTERED flag is set
+	if (test_bit(C_UNREGISTERED, &connection->flags))
+		goto out;
+
 	rv = conn_try_disconnect(connection, parms.force_disconnect, false, adm_ctx.reply_skb);
 	if (rv >= SS_SUCCESS && destroy) {
 		// BSR-920 moved inside del_connection()
@@ -5010,6 +5015,7 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 		retcode = rv;  /* FIXME: Type mismatch. */
 	else
 		retcode = ERR_NO;
+out:
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
  fail:
 	bsr_adm_finish(&adm_ctx, info, retcode);
