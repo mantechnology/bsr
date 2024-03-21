@@ -312,7 +312,7 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	char new_filename[512];
 	int rename_err = 0;
 	off_t size;
-	long file_rolling_size;
+	long backup_size;
 #ifdef _WIN
 	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
@@ -327,15 +327,15 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	size = ftell(fp);
 	
 	if (logfile) {
-		file_rolling_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
+		backup_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
 	}
 	else {
-		file_rolling_size = GetOptionValue(FILE_ROLLING_SIZE);
-		if (file_rolling_size <= 0)
-			file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;
+		backup_size = GetOptionValue(FILE_ROLLING_SIZE);
+		if (backup_size <= 0)
+			backup_size = DEFAULT_FILE_ROLLING_SIZE;
 	}
 
-	if ((1024 * 1024 * file_rolling_size) < size) {
+	if ((1024 * 1024 * backup_size) < size) {
 		char dir_path[MAX_PATH] = { 0, };
 		char find_file[MAX_PATH] = { 0, };
 		char r_time[64] = { 0, };
@@ -343,17 +343,17 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		std::set<std::string> listFileName;
 		std::set<std::string>::reverse_iterator iter;
 
-		int file_cnt = 0, rolling_cnt = 0;
+		int file_cnt = 0, backup_cnt = 0;
 
 		fclose(fp);
 
 		if (logfile) {
-			rolling_cnt = 1;
+			backup_cnt = 1;
 		}
 		else {
-			int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
-			if (rolling_cnt <= 0)
-				rolling_cnt = DEFAULT_FILE_ROLLONG_CNT;
+			backup_cnt = GetOptionValue(FILE_ROLLING_CNT);
+			if (backup_cnt <= 0)
+				backup_cnt = DEFAULT_FILE_ROLLONG_CNT;
 		}
 
 #ifdef _WIN
@@ -369,7 +369,7 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		if (listFileName.size() != 0) {
 			for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 				file_cnt++;
-				if (file_cnt >= rolling_cnt)
+				if (file_cnt >= backup_cnt)
 					remove(iter->c_str());
 			}
 		}

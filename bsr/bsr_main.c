@@ -98,8 +98,8 @@
 
 #ifdef _WIN
 #define BSR_LOG_FILE_NAME L"bsr.log"
-// rolling file format, ex) bsr.log_2020-06-02T104543.745 
-#define BSR_LOG_ROLLING_FILE_NAME L"bsr.log_"
+// backup file format, ex) bsr.log_2020-06-02T104543.745 
+#define BSR_LOG_BACKUP_FILE_NAME L"bsr.log_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
@@ -5496,15 +5496,15 @@ void bsr_put_connection(struct bsr_connection *connection)
 }
 
 #ifdef _WIN
-struct log_rolling_file_list {
+struct backup_file_list {
 	struct list_head list;
 	WCHAR *fileName;
 };
 #endif
 
-// BSR-579 deletes files when the number of rolling files exceeds a specified number
+// BSR-579 deletes files when the number of backup files exceeds a specified number
 #ifdef _WIN
-NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
+NTSTATUS bsr_apply_max_count_of_backup_files(WCHAR* filePath, int max_file_count)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	OBJECT_ATTRIBUTES obAttribute;
@@ -5514,8 +5514,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	ULONG currentSize = 0;
 	FILE_BOTH_DIR_INFORMATION *pFileBothDirInfo = NULL;
 	bool is_start = true;
-	int log_file_max_count = 0;
-	struct log_rolling_file_list rlist, *t, *tmp;
+	int backup_file_count = 0;
+	struct backup_file_list rlist, *t, *tmp;
 
 	INIT_LIST_HEAD(&rlist.list);
 
@@ -5529,7 +5529,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to open log directory. status(%x)", status);
+		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to failure to open log directory. status(%x)", status);
 		return status;
 	}
 
@@ -5537,7 +5537,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	// BSR-579
 	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '3ASB');
 	if (!pFileBothDirInfo){
-		bsr_err(76, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation query buffer. status(%u)", currentSize);
+		bsr_err(76, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation query buffer. status(%u)", currentSize);
 		status = STATUS_NO_MEMORY;
 		goto out;
 	}
@@ -5561,54 +5561,49 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			currentSize = currentSize * 2;
 			// BSR-600 paths is long (extension path is not supported)
 			if (MAX_PATH < (currentSize / 2)) {
-				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to extension paths are not supported. max path(%u), current path(%u)", MAX_PATH, (currentSize / 2));
+				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to extension paths are not supported. max path(%u), current path(%u)", MAX_PATH, (currentSize / 2));
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
 			// BSR-579
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '4ASB'); 
 			if (pFileBothDirInfo == NULL) {
-				bsr_err(77, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size query buffer memory.", currentSize);
+				bsr_err(77, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size query buffer memory.", currentSize);
 				status = STATUS_NO_MEMORY;
 				goto out;
 			}
 			continue;
-		}
-		else if (STATUS_NO_MORE_FILES == status)
-		{
+		} else if (STATUS_NO_MORE_FILES == status) {
 			status = STATUS_SUCCESS;
 			break;
-		}
-		else if (!NT_SUCCESS(status))
-		{
-			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to query directory file. status(%x)", status);
+		} else if (!NT_SUCCESS(status)) {
+			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to failure to query directory file. status(%x)", status);
 			goto out2;
 		}
 
 		if (is_start)
 			is_start = false;
 
-		while (TRUE)
-		{
+		while (TRUE) {
 			WCHAR fileName[MAX_PATH];
 
 			memset(fileName, 0, sizeof(fileName));
 			memcpy(fileName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
 
-			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
+			if (wcsstr(fileName, BSR_LOG_BACKUP_FILE_NAME)) {
 				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
-				struct log_rolling_file_list *r;
+				struct backup_file_list *r;
 				// BSR-579
-				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '5ASB');
+				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct backup_file_list), '5ASB');
 				if (!r) {
-					bsr_err(78, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
+					bsr_err(78, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size file list memory", sizeof(struct backup_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
 				// BSR-579
 				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '6ASB');
 				if (!r) {
-					bsr_err(79, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", flength);
+					bsr_err(79, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size file list memory", flength);
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
@@ -5617,7 +5612,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 
 				bool is_add = false;
 
-				list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+				list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
 					if (wcscmp(t->fileName, r->fileName) > 0) {
 						list_add(&r->list, &t->list);
 						is_add = true;
@@ -5628,23 +5623,22 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				if (is_add == false)
 					list_add_tail(&r->list, &rlist.list);
 
-				log_file_max_count = log_file_max_count + 1;
+				backup_file_count++;
 			}
 
 			if (pFileBothDirInfo->NextEntryOffset == 0)
 				break;
-
 			pFileBothDirInfo += pFileBothDirInfo->NextEntryOffset;
 		}
 	}
 
-	if (log_file_max_count >= atomic_read(&g_log_file_max_count)) {
+	if (backup_file_count >= max_file_count) {
 		HANDLE hFile;
 		UNICODE_STRING usFilePullPath;
 		WCHAR fileFullPath[MAX_PATH];
 		char buf[1] = { 0x01 };
 
-		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+		list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
 			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws%ws", filePath, t->fileName);
 
 			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
@@ -5668,8 +5662,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			}
 			ZwClose(hFile);
 
-			log_file_max_count = log_file_max_count - 1;
-			if (log_file_max_count < atomic_read(&g_log_file_max_count))
+			backup_file_count--;
+			if (backup_file_count < max_file_count)
 				break;
 		}
 	}
@@ -5679,7 +5673,7 @@ out2:
 	if (pFileBothDirInfo)
 		kfree2(pFileBothDirInfo);
 
-	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+	list_for_each_entry_safe_ex(struct backup_file_list, t, tmp, &rlist.list, list) {
 		kfree2(t->fileName);
 		list_del(&t->list);
 		kfree2(t);
@@ -5691,25 +5685,25 @@ out2:
 
 static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 {
-	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
-	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);
+	struct backup_file_list *list_a = container_of(a, struct backup_file_list, list);
+	struct backup_file_list *list_b = container_of(b, struct backup_file_list, list);
 
 	if (list_a == NULL || list_b == NULL || (list_a == list_b))
-					return 0;
+		return 0;
 
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-int bsr_log_rolling_file_clean_up(char * file_path)
+int bsr_apply_max_count_of_backup_files(char * file_path, int max_file_count)
 {
-	int log_file_max_count = 0;
+	int backup_file_count = 0;
 
-	struct log_rolling_file_list rlist = {
+	struct backup_file_list rlist = {
 #ifdef COMPAT_HAVE_ITERATE_DIR
 		.ctx.actor = printdir
 #endif
 	};
-	struct log_rolling_file_list *t, *tmp;
+	struct backup_file_list *t, *tmp;
 	int err = 0;
 	
 	INIT_LIST_HEAD(&rlist.list);
@@ -5718,18 +5712,20 @@ int bsr_log_rolling_file_clean_up(char * file_path)
 	
 	list_sort(NULL, &rlist.list, name_cmp);
 
-	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-		log_file_max_count++;
-		if (log_file_max_count < atomic_read(&g_log_file_max_count)) {
-			continue;
-		}
+	// BSR-1238
+	list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list)
+		backup_file_count++;
 
+	list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
+		if (backup_file_count < max_file_count) 
+			break;
 		err = bsr_file_remove(file_path, t->fileName);
 		if (err)
 			break;
+		backup_file_count--;
 	}
-	
-	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+
+	list_for_each_entry_safe_ex(struct backup_file_list, t, tmp, &rlist.list, list) {
 		kfree2(t->fileName);
 		list_del(&t->list);
 		kfree2(t);
@@ -5739,77 +5735,79 @@ int bsr_log_rolling_file_clean_up(char * file_path)
 }
 #endif
 
-// BSR-579 rename the file to the rolling file format and close the handle
+// BSR-579 rename the file to the backup file format and close the handle
 #ifdef _WIN
-NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile) 
+NTSTATUS bsr_backup_file(PHANDLE hFile, int max_file_count)
 {
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	NTSTATUS status;
 	IO_STATUS_BLOCK ioStatus;
-	PFILE_RENAME_INFORMATION pRenameInfo;
-	LARGE_INTEGER systemTime, localTime;
-	TIME_FIELDS timeFields = { 0, };
 
-	KeQuerySystemTime(&systemTime);
-	ExSystemTimeToLocalTime(&systemTime, &localTime);
-	RtlTimeToTimeFields(&localTime, &timeFields);
+	// BSR-1238
+	if (max_file_count > 1) {
+		PFILE_RENAME_INFORMATION pRenameInfo;
+		LARGE_INTEGER systemTime, localTime;
+		TIME_FIELDS timeFields = { 0, };
 
-	memset(fileFullPath, 0, sizeof(fileFullPath));
+		KeQuerySystemTime(&systemTime);
+		ExSystemTimeToLocalTime(&systemTime, &localTime);
+		RtlTimeToTimeFields(&localTime, &timeFields);
 
-	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_ROLLING_FILE_NAME,
-																		timeFields.Year,
-																		timeFields.Month,
-																		timeFields.Day,
-																		timeFields.Hour,
-																		timeFields.Minute,
-																		timeFields.Second,
-																		timeFields.Milliseconds);
+		memset(fileFullPath, 0, sizeof(fileFullPath));
 
-	// BSR-579
-	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
+		_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_BACKUP_FILE_NAME,
+			timeFields.Year, timeFields.Month, timeFields.Day, timeFields.Hour, timeFields.Minute, timeFields.Second, timeFields.Milliseconds);
 
-	pRenameInfo->ReplaceIfExists = false;
-	pRenameInfo->RootDirectory = NULL;
-	pRenameInfo->FileNameLength = (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t));
-	RtlCopyMemory(pRenameInfo->FileName, fileFullPath, (wcslen(fileFullPath) * sizeof(wchar_t)));
+		// BSR-579
+		pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
 
-	status = ZwSetInformationFile(hFile,
-									&ioStatus,
-									(PFILE_RENAME_INFORMATION)pRenameInfo,
-									sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t)),
-									FileRenameInformation);
+		pRenameInfo->ReplaceIfExists = false;
+		pRenameInfo->RootDirectory = NULL;
+		pRenameInfo->FileNameLength = (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t));
+		RtlCopyMemory(pRenameInfo->FileName, fileFullPath, (wcslen(fileFullPath) * sizeof(wchar_t)));
 
-	kfree2(pRenameInfo);
-	ZwClose(hFile);
+		status = ZwSetInformationFile(hFile,
+			&ioStatus,
+			(PFILE_RENAME_INFORMATION)pRenameInfo,
+			sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t)),
+			FileRenameInformation);
+
+		kfree2(pRenameInfo);
+	} else {
+		char buf[1] = { 0x01 };
+
+		status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
+		if (!NT_SUCCESS(status)) {
+			bsr_err(9, BSR_LC_LOG, NO_OBJECT, "Failed to delete %ws file. status(%x)", fileFullPath, status);
+		}
+	}
 
 	return status;
 }
 #else // _LIN
 
-int bsr_log_file_rename(char * file_path) 
+int bsr_backup_file(char * file_path, int max_file_count) 
 {
-	char new_name[MAX_PATH];
-	struct timespec64 ts;
-	struct tm tm;
-
 	int err = 0;
 	
-	memset(new_name, 0, sizeof(new_name));
+	// BSR-1238
+	if (max_file_count > 1) {
+		char new_name[MAX_PATH];
+		struct timespec64 ts;
+		struct tm tm;
 
-	ts = ktime_to_timespec64(ktime_get_real());
-	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
-	
-	snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
-									BSR_LOG_FILE_NAME,
-									(int)tm.tm_year+1900,
-									tm.tm_mon+1,
-									tm.tm_mday,
-									tm.tm_hour,
-									tm.tm_min,
-									tm.tm_sec,
-									(int)(ts.tv_nsec / NSEC_PER_MSEC));
+		memset(new_name, 0, sizeof(new_name));
 
-	err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
+		ts = ktime_to_timespec64(ktime_get_real());
+		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
+
+		snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
+			BSR_LOG_FILE_NAME, (int)tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(ts.tv_nsec / NSEC_PER_MSEC));
+
+		err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
+	} else {
+		err = bsr_file_remove(file_path, BSR_LOG_FILE_NAME);
+	}
 
 	return err;
 }
@@ -6122,20 +6120,22 @@ int log_consumer_thread(void *unused)
 #endif
 			logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
 
-			// BSR-579 apply file size or log count based on rolling judgment
+			// BSR-579 apply file size or log count based on backup judgment
 			if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
-				status = bsr_log_rolling_file_clean_up(filePath);
-				if (!NT_SUCCESS(status))
-					break;
-
-				// BSR-579 if the log file is larger than 50M, do file rolling.
-				status = bsr_log_file_rename_and_close(hFile);
+				// BSR-579 if the log file is larger than 50M, do file backup.
+				status = bsr_backup_file(hFile, atomic_read(&g_log_file_max_count));
+				ZwClose(hFile);
 				if (!NT_SUCCESS(status)) {
 					bsr_err(14, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file status(%x)", status);
 					break;
 				}
+
+				status = bsr_apply_max_count_of_backup_files(filePath, atomic_read(&g_log_file_max_count));
+				if (!NT_SUCCESS(status))
+					break;
+
 				status = ZwCreateFile(&hFile,
 										FILE_APPEND_DATA,
 										&obAttribute,
@@ -6153,20 +6153,21 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 #else // _LIN
-				// BSR-579 rolling and clean up
-				if (bsr_log_rolling_file_clean_up(file_path) != 0) {
+				if (bsr_backup_file(file_path, atomic_read(&g_log_file_max_count)) != 0) {
+					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
+					break;
+				}
+
+				// BSR-579 
+				if (bsr_apply_max_count_of_backup_files(file_path, atomic_read(&g_log_file_max_count)) != 0) {
 					bsr_err(22, BSR_LC_LOG, NO_OBJECT, "Failed to remove log file");
 					break;
 				}
 
-				// BSR-579 if the log file is larger than 50M, do file rolling.
+				// BSR-579 if the log file is larger than 50M, do file backup.
 				if (hFile)
 					filp_close(hFile, NULL);
 
-				if (bsr_log_file_rename(file_path) != 0) {
-					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
-					break;
-				}
 				oldfs = get_fs();
 #ifdef COMPAT_HAVE_SET_FS
 				set_fs(KERNEL_DS);

@@ -139,7 +139,7 @@ extern void bsr_write_vlog(const char* func, int line, enum cli_log_level level,
 extern int llevel;
 
 // BSR-1112
-extern void get_log_path();
+extern void bsr_log_path();
 // BSR-1031
 extern void set_exec_log(int argc, char** argv);
 extern void bsr_exec_log();

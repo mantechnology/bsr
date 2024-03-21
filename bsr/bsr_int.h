@@ -4595,7 +4595,7 @@ extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff
 #else
 extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type);
 #endif
-extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
+extern int bsr_readdir(char * dir_path, struct backup_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
 char *__read_reg_file(char *file_path);
 extern long read_reg_file(char *file_path, long default_val);

@@ -201,7 +201,7 @@ BOOLEAN get_log_file_max_count(int *max)
 
 
 // BSR-605
-BOOLEAN get_cli_log_file_max_count(int *max)
+BOOLEAN bsr_cli_log_max_count(int *max)
 {
 	DWORD lResult = ERROR_SUCCESS;
 	DWORD cli_log_file_max_count = 0;
@@ -790,7 +790,12 @@ int cmd_climaxlogfile_cnt(int *index, int argc, char* argv[])
 	}
 
 	(*index)++;
+
 	if (*index < argc) {
+		if (atoi(argv[*index]) == 0) {
+			printf("You must enter a value greater than 1. Please enter again.\n");
+			return -1;
+		}
 		lmc.nMaxCount = atoi(argv[*index]);
 	}
 	else
@@ -806,6 +811,12 @@ int cmd_maxlogfile_cnt(int *index, int argc, char* argv[])
 	// BSR-618
 	if (*index >= argc)
 		usage();
+
+	// BSR-1238
+	if (atoi(argv[*index]) == 0) {
+		printf("You must enter a value greater than 1. Please enter again.\n");
+		return -1;
+	}
 
 	// BSR-579
 	return MVOL_SetLogFileMaxCount(atoi(argv[*index]));
@@ -880,7 +891,7 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		printf("Number of log files that can be saved.\n");
 
 		// BSR-605
-		if (get_cli_log_file_max_count(&cli_log_max_count)) {
+		if (bsr_cli_log_max_count(&cli_log_max_count)) {
 			printf("    bsradm : %d\n", ((cli_log_max_count >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
 			printf("    bsrsetup : %d\n", ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));
 			printf("    bsrmeta : %d\n", ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK));

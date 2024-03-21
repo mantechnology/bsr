@@ -615,21 +615,21 @@ int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offs
 int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
 #endif
 {
-	struct log_rolling_file_list *rlist =
+	struct backup_file_list *rlist =
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
-		container_of(ctx, struct log_rolling_file_list, ctx);
+		container_of(ctx, struct backup_file_list, ctx);
 #else
-		(struct log_rolling_file_list *)buf;
+		(struct backup_file_list *)buf;
 #endif
 		
 	int err = 0;
-	struct log_rolling_file_list *r;
+	struct backup_file_list *r;
 	if (strncmp(name, BSR_LOG_FILE_NAME, namelen) == 0)
 		return 0;
-	if (strstr(name, BSR_LOG_ROLLING_FILE_NAME)) {
-		r = bsr_kmalloc(sizeof(struct log_rolling_file_list), GFP_ATOMIC, '');
+	if (strstr(name, BSR_LOG_BACKUP_FILE_NAME)) {
+		r = bsr_kmalloc(sizeof(struct backup_file_list), GFP_ATOMIC, '');
 		if (!r) {
-			bsr_err(84, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)", sizeof(struct log_rolling_file_list));
+			bsr_err(84, BSR_LC_MEMORY, NO_OBJECT, "Failed to print dir due to failure to allocation file list size(%d)", sizeof(struct backup_file_list));
 			err = -1;
 			goto out;
 		}
@@ -650,7 +650,7 @@ out:
 
 
 // BSR-597 read dir file list
-int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist)
+int bsr_readdir(char * dir_path, struct backup_file_list * rlist)
 {
 	int err = 0;
 	struct file *fdir;
