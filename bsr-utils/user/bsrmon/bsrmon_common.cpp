@@ -12,9 +12,6 @@
 char g_perf_path[MAX_PATH];
 bool write_log = false;
 
-// BSR-1138
-#define DEFAULT_BSRMON_LOG_ROLLING_SIZE 1 // 1M
-
 struct type_names {
 	const char * const *names;
 	unsigned int size;
@@ -330,9 +327,9 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		file_rolling_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
 	}
 	else {
-		file_rolling_size = GetOptionValue(FILE_ROLLING_SIZE);
+		file_rolling_size = GetOptionValue(BSRMON_FILE_SIZE);
 		if (file_rolling_size <= 0)
-			file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;
+			file_rolling_size = DEFAULT_BSRMON_FILE_SIZE;
 	}
 
 	if ((1024 * 1024 * file_rolling_size) < size) {
@@ -343,17 +340,18 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		std::set<std::string> listFileName;
 		std::set<std::string>::reverse_iterator iter;
 
-		int file_cnt = 0, rolling_cnt = 0;
+		int file_cnt = 0;
+		int max_file_cnt = 0;
 
 		fclose(fp);
 
 		if (logfile) {
-			rolling_cnt = 1;
-		}
-		else {
-			int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
-			if (rolling_cnt <= 0)
-				rolling_cnt = DEFAULT_FILE_ROLLONG_CNT;
+			max_file_cnt = 2;
+		} else {
+			// BSR-1236 invalid declaration, the declaration has been removed.
+			max_file_cnt = GetOptionValue(BSRMON_FILE_CNT);
+			if (max_file_cnt <= 0)
+				max_file_cnt = DEFAULT_FILE_CNT;
 		}
 
 #ifdef _WIN
@@ -369,18 +367,23 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		if (listFileName.size() != 0) {
 			for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 				file_cnt++;
-				if (file_cnt >= rolling_cnt)
+				if (file_cnt >= max_file_cnt)
 					remove(iter->c_str());
 			}
 		}
 
-		memcpy(r_time, currtime, strlen(currtime));
-		eliminate(r_time, ':');
-		sprintf_ex(new_filename, "%s_%s", filename, r_time);
-		rename_err = rename(filename, new_filename);
-		if (rename_err == -1) {
-			fprintf(stderr, "Failed to log file rename %s => %s\n", filename, new_filename);
-			return NULL;
+		if (max_file_cnt > 1) {
+			memcpy(r_time, currtime, strlen(currtime));
+			eliminate(r_time, ':');
+			sprintf_ex(new_filename, "%s_%s", filename, r_time);
+			rename_err = rename(filename, new_filename);
+			if (rename_err == -1) {
+				fprintf(stderr, "Failed to log file rename %s => %s\n", filename, new_filename);
+				return NULL;
+			}
+		} else {
+			// BSR-1236 if max_file_cnt is 1, remove and recreate the original file because you need to keep only the source file.
+			remove(filename);
 		}
 #ifdef _WIN
 		fp = _fsopen(filename, "a", _SH_DENYNO);
