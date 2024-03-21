@@ -1593,8 +1593,12 @@ void bsrmon_exec_log(int argc, char** argv)
 	memset(exec_log, 0, sizeof(exec_log));
 
 	for (int i = 0; i < argc; i++)
+#ifdef _WIN
 		offset += _snprintf_s(exec_log + offset, (512 - offset), (512 - offset) - 1, " %s", argv[i]);
+#else 
 
+		offset += snprintf(exec_log + offset, (512 - offset), " %s", argv[i]);
+#endif
 	_bsrmon_log(__FUNCTION__, __LINE__, "execution command,%s\n", exec_log);
 }
 
