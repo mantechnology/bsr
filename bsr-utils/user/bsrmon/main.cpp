@@ -107,8 +107,12 @@ void usage()
 		"                                   [/d {YYYY-MM-DD}]\n"
 		"                                   [/s {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"                                   [/e {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
-		"   /set {period, file_size, file_cnt} {value}\n"
+		"   /set {period, file_size, file_cnt } {value}\n"
+		// BSR-1236
+		"   /set {total_file_size} {totcal resource count} {total volume count} {total capacity}\n"
 		"   /get {all, period, file_size, file_cnt, types}\n"
+		// BSR-1236
+		"   /get {total_file_size} {totcal resource count} {total volume count}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
 #ifdef _WIN
@@ -719,19 +723,19 @@ void SetOptionValue(enum set_option_type option_type, long value)
 	}
 #endif
 
-	if (option_type == PERIOD && value > 0)
+	if (option_type == BSRMON_PERIOD && value > 0)
 #ifdef _WIN
 		lResult = RegSetValueEx(hKey, _T("bsrmon_period"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
 #else // _LIN
 		fp = fopen(PERIOD_OPTION_PATH, "w");
 #endif
-	else if (option_type == FILE_ROLLING_SIZE && value > 0)
+	else if (option_type == BSRMON_FILE_SIZE && value > 0)
 #ifdef _WIN
 		lResult = RegSetValueEx(hKey, _T("bsrmon_file_size"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
 #else // _LIN
 		fp = fopen(FILE_SIZE_OPTION_PATH, "w");
 #endif
-	else if (option_type == FILE_ROLLING_CNT && value > 0)
+	else if (option_type == BSRMON_FILE_CNT && value > 0)
 #ifdef _WIN
 		lResult = RegSetValueEx(hKey, _T("bsrmon_file_cnt"), 0, REG_DWORD, (LPBYTE)&option_value, sizeof(option_value));
 #else // _LIN
@@ -799,19 +803,19 @@ long GetOptionValue(enum set_option_type option_type)
 	long value;
 #endif
 
-	if (option_type == PERIOD)
+	if (option_type == BSRMON_PERIOD)
 #ifdef _WIN
 		lResult = RegQueryValueEx(hKey, _T("bsrmon_period"), NULL, &type, (LPBYTE)&value, &size);
 #else // _LIN
 		fp = fopen(PERIOD_OPTION_PATH, "r");
 #endif
-	else if (option_type == FILE_ROLLING_SIZE)
+	else if (option_type == BSRMON_FILE_SIZE)
 #ifdef _WIN
 		lResult = RegQueryValueEx(hKey, _T("bsrmon_file_size"), NULL, &type, (LPBYTE)&value, &size);
 #else // _LIN
 		fp = fopen(FILE_SIZE_OPTION_PATH, "r");
 #endif
-	else if (option_type == FILE_ROLLING_CNT)
+	else if (option_type == BSRMON_FILE_CNT)
 #ifdef _WIN
 		lResult = RegQueryValueEx(hKey, _T("bsrmon_file_cnt"), NULL, &type, (LPBYTE)&value, &size);
 #else // _LIN
@@ -858,17 +862,77 @@ long GetOptionValue(enum set_option_type option_type)
 #endif
 }
 
+
 // must be same as enum bsrmon_type order
-static const char * const bsrmon_types_str[] = {
+static const char * const total_types_str[] = {
 	"iostat", "ioclat", "io_pending", "alstat", "peer_reqstat", "reqstat", "resync_ratio",
 	"network", "sendbuf", "memstat", "all",
 };
 
+// BSR-1236 separate items for capacity calculation based on resource and volume count.
+// BSR-1236 The type of collection that is independent of the number of resources and volumes.
+static const char * const global_types_str[] = {
+	"memstat",
+};
+
+// BSR-1236 The type of collection that is related to the number of resources.
+static const char * const res_types_str[] = {
+	"network", "sendbuf",
+};
+
+// BSR-1236 The type of collection that is related to the number of volume.
+static const char * const vol_types_str[] = {
+	"iostat", "ioclat", "io_pending", "alstat", "peer_reqstat", "reqstat", "resync_ratio",
+};
+
+static void GetCurrentlySetTypeCount(long *gt_cnt, long *rt_cnt, long *vt_cnt, bool print)
+{
+	long type = GetOptionValue(BSRMON_TYPES);
+
+	*gt_cnt = *rt_cnt = *vt_cnt = 0;
+
+	if (type <= 0)
+		type = DEFAULT_BSRMON_TYPES;
+
+	for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
+		if (type & (1 << i)) {
+			for (int j = 0; j < sizeof(global_types_str) / sizeof(global_types_str[0]); j++) {
+				if (strcmp(global_types_str[j], total_types_str[i]) == 0) {
+					(*gt_cnt)++;
+					if (print)
+						printf("%s ", global_types_str[j]);
+				}
+			}
+
+			for (int j = 0; j < sizeof(res_types_str) / sizeof(res_types_str[0]); j++) {
+				if (strcmp(res_types_str[j], total_types_str[i]) == 0) {
+					(*rt_cnt)++;
+					if (print)
+						printf("%s ", res_types_str[j]);
+				}
+			}
+
+			for (int j = 0; j < sizeof(vol_types_str) / sizeof(vol_types_str[0]); j++) {
+				if (strcmp(vol_types_str[j], total_types_str[i]) == 0) {
+					(*vt_cnt)++;
+					if (print)
+						printf("%s ", vol_types_str[j]);
+				}
+			}
+		}
+	}
+}
+
 // BSR-788 print bsrmon options value
-static void PrintOptionValue(char * option)
+static void PrintOptionValue(char * option, char *param1, char *param2)
 {
 	bool print_all = false;
+	// BSR-1236
+	bool print_total_file_size = false;
 	long value = 0;
+	long type = 0, period = 0, file_size = 0, file_cnt = 0;
+	// BSR-1236
+	long tt_cnt = 0, gt_cnt = 0, rt_cnt = 0, vt_cnt = 0;
 
 	// BSR-1138
 	if (strcmp(option, "run") == 0) {
@@ -889,47 +953,79 @@ static void PrintOptionValue(char * option)
 #endif
 	if (strcmp(option, "all") == 0) {
 		print_all = true;
-	} 
+	}
+	// BSR-1236
+	else if (strcmp(option, "total_file_size") == 0) {
+		print_all = true;
+		print_total_file_size = true;
+	}
 	
 	if (print_all || strcmp(option, "period") == 0) {
-		value = GetOptionValue(PERIOD);
-		if (value <= 0)
-			value = DEFAULT_BSRMON_PERIOD;
-		printf("period : %ld sec\n", value);
+		period = GetOptionValue(BSRMON_PERIOD);
+		if (period <= 0)
+			period = DEFAULT_BSRMON_PERIOD;
+		if (!print_total_file_size) {
+			printf("The collection period is as follows.\n");
+			printf("\tperiod : %ldseconds\n\n", period);
+		}
 	}
 	if (print_all || strcmp(option, "file_size") == 0) {
-		value = GetOptionValue(FILE_ROLLING_SIZE);
-		if (value <= 0)
-			value = DEFAULT_FILE_ROLLING_SIZE;
-		printf("file_size : %ld MB\n", value);
+		file_size = GetOptionValue(BSRMON_FILE_SIZE);
+		if (file_size <= 0)
+			file_size = DEFAULT_BSRMON_FILE_SIZE;
+		if (!print_total_file_size) {
+			printf("The maximum size for each type of collected file is as follows, and if the maximum file size is exceeded, it is backed up and saved according to the file_cnt setting.\n");
+			printf("\tMaximum file size by type : %ldMB\n\n", file_size);
+		}
 	}
 	if (print_all || strcmp(option, "file_cnt") == 0) {
-		value = GetOptionValue(FILE_ROLLING_CNT);
-		if (value <= 0)
-			value = DEFAULT_FILE_ROLLONG_CNT;
-		printf("file_cnt : %ld\n", value);
+		file_cnt = GetOptionValue(BSRMON_FILE_CNT);
+		if (file_cnt <= 0)
+			file_cnt = DEFAULT_FILE_CNT;
+		if (!print_total_file_size) {
+			printf("The maximum number of files stored per type is as follows.\n");
+			printf("\tMaximum number of files per type : %ld\n\n", file_cnt);
+		}
 	}
 
 	// BSR-1138
 	if (print_all || strcmp(option, "types") == 0) {
 		int print_sep = 0;
-		value = GetOptionValue(BSRMON_TYPES);
-		if (value <= 0)
-			value = DEFAULT_BSRMON_TYPES;
-		printf("%6s : ", "types");
-		for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
-			if (value & (1 << i)) {
-				if (print_sep)
-					printf(",");
-				else
-					print_sep = 1;
-				printf("%s", bsrmon_types_str[i]);
-			}
+
+		if (!print_total_file_size) {
+			printf("The types to be collected are as follows.\n");
+			printf("\t");
 		}
-		printf("\n");
+
+		GetCurrentlySetTypeCount(&gt_cnt, &rt_cnt, &vt_cnt, print_total_file_size ? false : true);
+		tt_cnt = gt_cnt + rt_cnt + vt_cnt;
+
+		if (!print_total_file_size)
+			printf("\n\n");
 	}
 
-	if (!value)
+	if (print_all) {
+		// BSR-1236 add capacity for bsrmon logs as well. ((DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2))
+		int bsrmon_log_cap = DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2;
+
+		if (!print_total_file_size) {
+			printf("The current setting requires a maximum of \"%ldMB\" to store the collected data of one resource of one volume.\n", file_size * file_cnt * tt_cnt + bsrmon_log_cap);
+			printf("\tThe command \"/get total_file_size\" tells you the maximum storage space you need based on the count of resources and volumes.\n");
+		} else {
+			int res_cnt, vol_cnt;
+
+			res_cnt = atoi(param1);
+			vol_cnt = atoi(param2);
+
+			if (res_cnt > vol_cnt)
+				printf("The number of volumes (%d) cannot be less than the number of resources (%d). Please check again.\n", vol_cnt, res_cnt);
+			else 
+				printf("%d resource of %d volumes require up to \"%ldMB\" of storage space in the current settings.\n", vol_cnt, res_cnt,
+				((file_size * file_cnt * tt_cnt) * res_cnt) + (file_size * file_cnt * vt_cnt * ((vol_cnt - res_cnt))) + bsrmon_log_cap);
+		}
+	}
+
+	if (!value && !type && !file_cnt && !file_size && !period)
 		usage();
 }
 
@@ -961,7 +1057,7 @@ static int is_running(bool print_log)
 			if (pid > 0) {
 				fprintf(stdout, "bsrmon : running\n");
 				fprintf(stdout, "%6s : %d\n", "pid", pid);
-				PrintOptionValue((char *)"types");
+				PrintOptionValue((char *)"types", NULL, NULL);
 			}
 			else
 				fprintf(stdout, "bsrmon : stopped\n");
@@ -997,10 +1093,10 @@ static void SetBsrmonRun(unsigned int run, int flags)
 		for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
 			if (flags & (1 << i)) {
 #ifdef _WIN
-				strcat_s(types, bsrmon_types_str[i]);
+				strcat_s(types, total_types_str[i]);
 				strcat_s(types," ");
 #else
-				strcat(types, bsrmon_types_str[i]);
+				strcat(types, total_types_str[i]);
 				strcat(types," ");
 #endif
 			}
@@ -1074,7 +1170,7 @@ static void BsrmonRun(int flags)
 
 	// terminates when BSRMON_STOP_SIGNAL is set
 	while (GetOptionValue(BSRMON_STOP_SIGNAL) == 0) {
-		interval = GetOptionValue(PERIOD);
+		interval = GetOptionValue(BSRMON_PERIOD);
 		if (interval <= 0)
 			interval = DEFAULT_BSRMON_PERIOD;
 		MonitorToFile(flags);
@@ -1098,7 +1194,7 @@ static void BsrmonRun(int flags)
 
 	// terminates when SIGUSR1 is received
 	while (!receive_signal) {
-		interval = GetOptionValue(PERIOD);
+		interval = GetOptionValue(BSRMON_PERIOD);
 		if (interval <= 0)
 			interval = DEFAULT_BSRMON_PERIOD;
 		MonitorToFile(flags);
@@ -1229,6 +1325,49 @@ static void StopMonitor(int disable)
 #endif
 }
 
+static int SetFileSizeForUserSettings(long res_cnt, long vol_cnt, long total_file_size)
+{
+	if (res_cnt > vol_cnt) {
+		printf("The number of resources(%d) cannot be more than the number of volumes(%d). Please check again.\n", res_cnt, vol_cnt);
+		return -1;
+	}
+	else {
+		long total_cnt = 0, file_cnt = 0;
+		int bsrmon_log_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2;
+		float file_size = 0;
+		long gt_cnt = 0, rt_cnt = 0, vt_cnt = 0;
+
+		file_cnt = GetOptionValue(BSRMON_FILE_CNT);
+		if (file_cnt <= 0)
+			file_cnt = DEFAULT_FILE_CNT;
+
+		GetCurrentlySetTypeCount(&gt_cnt, &rt_cnt, &vt_cnt, false);
+
+		// global "memstat"
+		total_cnt = total_cnt + gt_cnt;
+		// res "network", "sendbuf"
+		total_cnt = total_cnt + (rt_cnt * res_cnt);
+		// vol "iostat", "ioclat", "io_pending", "alstat", "peer_reqstat", "reqstat", "resync_ratio",
+		total_cnt = total_cnt + (vt_cnt * vol_cnt);
+
+		if (total_cnt)
+			file_size = (float)((total_file_size - bsrmon_log_size) / total_cnt) / file_cnt;
+		else
+			file_size = (float)(total_file_size - bsrmon_log_size) / file_cnt;
+
+		if (file_size < 1) {
+			printf("Resource %d, volume %d requires a minimum %ldMB capacity. Please check again.\n", res_cnt, vol_cnt, (total_cnt * file_cnt) + bsrmon_log_size);
+			return -1;
+		}
+		else {
+			SetOptionValue(BSRMON_FILE_SIZE, (long)file_size);
+			printf("The file size is set to %ldMB. The file count is %ld, so the total required capacity is %ldMB.\n", (long)file_size, file_cnt, ((total_cnt * file_cnt) * (long)file_size) + bsrmon_log_size);
+		}
+	}
+
+	return 0;
+}
+
 // BSR-764
 static int SetPerfSimulFlag(SIMULATION_PERF_DEGR* pt)
 {
@@ -1332,7 +1471,7 @@ void show_current(struct resource *res, int type_flags, bool json, bool now)
 	}
 
 	if (!now) {
-		interval = GetOptionValue(PERIOD);
+		interval = GetOptionValue(BSRMON_PERIOD);
 		if (interval <= 0)
 			interval = DEFAULT_BSRMON_PERIOD;
 	}
@@ -1443,6 +1582,21 @@ struct peer_stat * get_conn_list(char * conn_list)
 	return peer_head;
 }
 
+void bsrmon_exec_log(int argc, char** argv)
+{
+	char exec_log[512];
+	size_t offset = 0;
+
+	if (!strcmp(argv[1], "/file"))
+		return;
+
+	memset(exec_log, 0, sizeof(exec_log));
+
+	for (int i = 0; i < argc; i++)
+		offset += _snprintf_s(exec_log + offset, (512 - offset), (512 - offset) - 1, " %s", argv[i]);
+
+	_bsrmon_log(__FUNCTION__, __LINE__, "execution command,%s\n", exec_log);
+}
 
 #ifdef _WIN
 int main(int argc, char* argv[])
@@ -1455,6 +1609,8 @@ int main(int argc, char* argv[])
 
 	if (argc < 2)
 		usage();
+
+	bsrmon_exec_log(argc, argv);
 
 	init_perf_type_str();
 
@@ -1553,22 +1709,34 @@ int main(int argc, char* argv[])
 				if (strcmp(argv[argIndex], "period") == 0) {
 					argIndex++;
 					if (argIndex < argc)
-						SetOptionValue(PERIOD, atoi(argv[argIndex]));
+						SetOptionValue(BSRMON_PERIOD, atoi(argv[argIndex]));
 					else
 						usage();
 				}
 				else if (strcmp(argv[argIndex], "file_size") == 0) {
 					argIndex++;
 					if (argIndex < argc)
-						SetOptionValue(FILE_ROLLING_SIZE, atoi(argv[argIndex]));
+						SetOptionValue(BSRMON_FILE_SIZE, atoi(argv[argIndex]));
 					else
 						usage();
 				}
 				else if (strcmp(argv[argIndex], "file_cnt") == 0) {
 					argIndex++;
 					if (argIndex < argc)
-						SetOptionValue(FILE_ROLLING_CNT, atoi(argv[argIndex]));
+						SetOptionValue(BSRMON_FILE_CNT, atoi(argv[argIndex]));
 					else
+						usage();
+				}
+				// BSR-1236
+				else if (strcmp(argv[argIndex], "total_file_size") == 0) {
+					argIndex++;
+					if (argIndex + 2 < argc) {
+						long res_cnt = atoi(argv[argIndex++]);
+						long vol_cnt = atoi(argv[argIndex++]);
+						long total_file_size = atoi(argv[argIndex++]);
+
+						SetFileSizeForUserSettings(res_cnt, vol_cnt, total_file_size);
+					} else 
 						usage();
 				}
 				else
@@ -1580,9 +1748,16 @@ int main(int argc, char* argv[])
 		// BSR-788
 		else if (!strcmp(argv[argIndex], "/get")) {
 			argIndex++;
-
 			if (argIndex < argc) {
-				PrintOptionValue(argv[argIndex]);
+				// BSR-1236 outputs the currently set collection file settings to the maximum amount of storage required, depending on the resource and volume.
+				if (!strcmp(argv[argIndex], "total_file_size")) {
+					if (argIndex + 2 < argc) {
+						PrintOptionValue(argv[argIndex], argv[argIndex + 1], argv[argIndex + 2]);
+						argIndex += 2;
+					}
+				} else {
+					PrintOptionValue(argv[argIndex], NULL, NULL);
+				}
 			}
 			else
 				usage();
