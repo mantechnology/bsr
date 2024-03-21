@@ -1005,8 +1005,8 @@ static void PrintOptionValue(char * option, char *param1, char *param2)
 	}
 
 	if (print_all) {
-		// BSR-1236 add capacity for bsrmon logs as well. ((DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2))
-		int bsrmon_log_cap = DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2;
+		// BSR-1236 add capacity for bsrmon logs as well. ((DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2))
+		int bsrmon_log_cap = DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2;
 
 		if (!print_total_file_size) {
 			printf("The current setting requires a maximum of \"%ldMB\" to store the collected data of one resource of one volume.\n", file_size * file_cnt * tt_cnt + bsrmon_log_cap);
@@ -1333,7 +1333,7 @@ static int SetFileSizeForUserSettings(long res_cnt, long vol_cnt, long total_fil
 	}
 	else {
 		long total_cnt = 0, file_cnt = 0;
-		int bsrmon_log_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE * 2;
+		int bsrmon_log_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2;
 		float file_size = 0;
 		long gt_cnt = 0, rt_cnt = 0, vt_cnt = 0;
 

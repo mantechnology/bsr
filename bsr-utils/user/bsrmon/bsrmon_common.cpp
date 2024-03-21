@@ -324,7 +324,7 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	size = ftell(fp);
 	
 	if (logfile) {
-		backup_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
+		backup_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE;
 	}
 	else {
 		backup_size = GetOptionValue(BSRMON_FILE_SIZE);

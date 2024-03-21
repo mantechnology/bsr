@@ -50,7 +50,7 @@
 #endif
 
 // BSR-1138
-#define DEFAULT_BSRMON_LOG_ROLLING_SIZE 1 // 1M
+#define DEFAULT_BSRMON_LOG_BACKUP_SIZE 1 // 1M
 
 enum set_option_type
 {

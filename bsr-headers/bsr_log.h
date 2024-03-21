@@ -93,7 +93,7 @@ enum
 #define LOG_LV_DEFAULT			(LOG_LV_DEFAULT_EVENTLOG << LOG_LV_BIT_POS_EVENTLOG) | (LOG_LV_DEFAULT_DBG << LOG_LV_BIT_POS_DBG) 
 
 // BSR-579
-#define LOG_FILE_COUNT_DEFAULT	15
+#define LOG_FILE_COUNT_DEFAULT	16
 
 #define LOG_LV_MASK			0x7
 
@@ -216,7 +216,7 @@ typedef struct _BSR_LOG {
 // BSR-597
 #define BSR_LOG_FILE_PATH "/var/log/bsr"
 #define BSR_LOG_FILE_NAME "bsr.log"
-#define BSR_LOG_ROLLING_FILE_NAME "bsr.log_"
+#define BSR_LOG_BACKUP_FILE_NAME "bsr.log_"
 #endif
 
 #endif
