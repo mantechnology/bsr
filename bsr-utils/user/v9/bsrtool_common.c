@@ -548,7 +548,7 @@ uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length)
 	return crc;
 }
 
-DWORD bsr_cli_log_max_count()
+DWORD get_cli_log_file_max_count()
 {
 	DWORD cli_log_file_max_count = 0;
 
@@ -675,7 +675,7 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 				remove(fullpath);
 			}
 
-			free(files[i]);
+			free(files[0]);
 			free(files);
 		}
 	
@@ -798,11 +798,11 @@ FILE *bsr_open_log()
 		}
 
 		if (strstr(lprogram, "bsradm"))
-			max_cnt = ((bsr_cli_log_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
+			max_cnt = ((get_cli_log_file_max_count() >> BSR_ADM_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 		else if (strstr(lprogram, "bsrsetup"))
-			max_cnt = ((bsr_cli_log_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
+			max_cnt = ((get_cli_log_file_max_count() >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 		else if (strstr(lprogram, "bsrmeta"))
-			max_cnt = ((bsr_cli_log_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
+			max_cnt = ((get_cli_log_file_max_count() >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 
 		if (bsr_apply_max_count_of_backup_files(fullpath, max_cnt))
 			printf("Failed to apply maximum file count\n");

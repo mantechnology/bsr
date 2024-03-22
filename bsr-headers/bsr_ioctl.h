@@ -4,6 +4,9 @@
 #include "bsr_log.h"
 #ifdef _WIN
 #include "windows/ioctl.h"
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
 #else // _LIN
 #include "linux/bsr_linux_ioctl.h"
 #endif

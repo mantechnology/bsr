@@ -23,7 +23,7 @@
 #include <tchar.h>
 #include <strsafe.h>
 #include <stdio.h>
-#include "LogManager.h"
+#include "log_manager.h"
 #include "../../bsr-platform/windows/bsrsvc/bsrService.h"
 #include "../../bsr-platform/windows/bsrfsflt/bsrfsflt_comm.h"
 #else // _LIN
@@ -40,7 +40,7 @@
 
 #ifdef _WIN
 #ifdef _DEBUG_OOS
-#include "OosTrace.h"
+#include "oos_trace.h"
 #endif
 #endif
 
