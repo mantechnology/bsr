@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <errno.h>
 #endif
 #include <time.h>
 #include <sys/timeb.h>
@@ -107,10 +108,10 @@ void usage()
 		"                                   [/d {YYYY-MM-DD}]\n"
 		"                                   [/s {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"                                   [/e {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
-		"   /set {period, file_size, file_cnt } {value}\n"
+		"   /set {period, file_size, file_cnt, file_path} {value}\n"
 		// BSR-1236
 		"   /set {total_file_size} {totcal resource count} {total volume count} {total capacity}\n"
-		"   /get {all, period, file_size, file_cnt, types}\n"
+		"   /get {all, period, file_size, file_cnt, file_path, types}\n"
 		// BSR-1236
 		"   /get {total_file_size} {totcal resource count} {total volume count}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
@@ -692,6 +693,127 @@ void Report(char *resname, char *rfile, enum bsrmon_type type, int vnr, struct t
 
 }
 
+static int create_dir(char* path)
+{
+	char dirName[MAX_PATH] = { 0, };
+	char* pDir = dirName;
+	DWORD ret = ERROR_SUCCESS;
+#ifdef _WIN
+	char* p = path;
+
+	while(*p) {
+		// create sub dir
+		if (('\\' == *p) && (':' != *(p-1))) {
+			if (!CreateDirectoryA(dirName, NULL)) {
+				ret = GetLastError();
+				if (ret != ERROR_ALREADY_EXISTS) {
+					fprintf(stderr, "Failed to create dir(%s). Err=%u\n", dirName, ret);
+					return ret;
+				}
+			}
+		}
+				
+		*pDir++ = *p++;
+		*pDir = '\0';
+	}
+
+	// create log dir
+	if (!CreateDirectoryA(dirName, NULL)) {
+		ret = GetLastError();
+		if (ret == ERROR_ALREADY_EXISTS) {
+			ret = ERROR_SUCCESS;
+		} else {
+			fprintf(stderr, "Failed to create dir(%s). Err=%u\n", dirName, ret);
+		}
+	}
+#else
+	strcpy(dirName, path);
+	dirName[MAX_PATH-1] = '\0';
+	pDir++;
+	while(*pDir) {
+		// create sub dir
+		if ('/' == *pDir) {
+			*pDir = '\0';
+			ret = mkdir(dirName, 0777);
+			if (ret != 0 && errno != EEXIST) {
+				fprintf(stderr, "Failed to create dir(%s). Err=%d\n", dirName, ret);
+				return ret;
+			}
+			*pDir = '/';
+		}
+		pDir++;
+	}
+	// create log dir
+	ret = mkdir(dirName, 0777);
+	if (ret != 0) {
+		if (errno == EEXIST)
+			ret = ERROR_SUCCESS;
+		else
+			fprintf(stderr, "Failed to create dir(%s). Err=%d\n", dirName, ret);
+	}
+#endif		
+
+	return ret;
+}
+
+// BSR-1215
+void SetBsrmonFilePath(char *save_path)
+{
+#ifdef _WIN
+	HKEY hKey = NULL;
+	const TCHAR bsrRegistry[] = _T("SYSTEM\\CurrentControlSet\\Services\\bsrvflt");
+	DWORD type = REG_DWORD;
+	DWORD size = sizeof(DWORD);
+	TCHAR w_path[MAX_PATH] = { 0, };
+#else // _LIN
+	FILE *fp;
+#endif
+	DWORD ret = ERROR_SUCCESS;
+	char create_path[MAX_PATH] = { 0, };
+
+#ifdef _WIN
+	// create perfmon dir
+	sprintf_s(create_path, "%s\\perfmon", save_path);
+	ret = create_dir(create_path);
+	if (ret != ERROR_SUCCESS) {
+		fprintf(stderr, "Failed to create dir(%s) Err=%u\n", create_path, ret);
+		return;
+	}
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, save_path, (int)strlen(save_path), w_path, MAX_PATH);
+
+	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+	if (ERROR_SUCCESS != ret) {
+		fprintf(stderr, "Failed to RegOpenValueEx status(0x%x)\n", ret);
+		return;
+	}
+
+	ret = RegSetValueEx(hKey, _T("bsrmon_file_path"), 0, REG_SZ, (PBYTE)w_path, 
+					(DWORD)(_tcslen(w_path) + 1) * sizeof(TCHAR));
+
+	if (ERROR_SUCCESS != ret)
+		fprintf(stderr, "Failed to RegSetValueEx(bsrmon_file_path) status(0x%x)\n", ret);
+
+	RegCloseKey(hKey);
+#else // _LIN
+	// create perfmon dir
+	sprintf(create_path, "%s/perfmon", save_path);
+	ret = create_dir(create_path);
+	if (ret != 0) {
+		fprintf(stderr, "Failed to create dir(%s)\n", create_path);
+		return;
+	}
+
+	// write /etc/bsr.d/.bsrmon_file_path
+	fp = fopen(FILE_PATH_OPTION_PATH, "w");
+	if (fp != NULL) {
+		fprintf(fp, "%s", save_path);
+		fclose(fp);
+	} else {
+		fprintf(stderr, "Failed to open file(%s)\n", FILE_PATH_OPTION_PATH);
+	}
+
+#endif
+}
 
 // BSR-694
 void SetOptionValue(enum set_option_type option_type, long value)
@@ -930,7 +1052,7 @@ static void PrintOptionValue(char * option, char *param1, char *param2)
 	// BSR-1236
 	bool print_total_file_size = false;
 	long value = 0;
-	long type = 0, period = 0, file_size = 0, file_cnt = 0;
+	long period = 0, file_size = 0, file_cnt = 0;
 	// BSR-1236
 	long tt_cnt = 0, gt_cnt = 0, rt_cnt = 0, vt_cnt = 0;
 
@@ -988,10 +1110,19 @@ static void PrintOptionValue(char * option, char *param1, char *param2)
 		}
 	}
 
+	// BSR-1215
+	if (print_all || strcmp(option, "file_path") == 0) {
+		if (print_all) {
+			printf("File storage path\n");
+			printf("\t%s\n\n", g_perf_path);
+		} else {
+			printf("%s\n", g_perf_path);
+			return;
+		}
+	}
+
 	// BSR-1138
 	if (print_all || strcmp(option, "types") == 0) {
-		int print_sep = 0;
-
 		if (!print_total_file_size) {
 			printf("The types to be collected are as follows.\n");
 			printf("\t");
@@ -1025,7 +1156,7 @@ static void PrintOptionValue(char * option, char *param1, char *param2)
 		}
 	}
 
-	if (!value && !type && !file_cnt && !file_size && !period)
+	if (!value && !tt_cnt && !file_cnt && !file_size && !period)
 		usage();
 }
 
@@ -1743,6 +1874,14 @@ int main(int argc, char* argv[])
 					} else 
 						usage();
 				}
+				// BSR-1215 set bsrmon file path
+				else if (strcmp(argv[argIndex], "file_path") == 0) {
+					argIndex++;
+					if (argIndex < argc)
+						SetBsrmonFilePath(argv[argIndex]);
+					else
+						usage();
+				}
 				else
 					usage();
 			}
@@ -1801,6 +1940,7 @@ int main(int argc, char* argv[])
 			if (++argIndex <= argc) {
 				int disable = 1;
 				if (argIndex < argc) {
+					// just stop, not disable
 					if (!strcmp(argv[argIndex], "running")) {
 						disable = 0;
 					}

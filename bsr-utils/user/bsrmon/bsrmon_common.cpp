@@ -173,7 +173,7 @@ void get_perf_path()
 		goto out;
 	}
 
-	lResult = RegQueryValueEx(hKey, _T("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	lResult = RegQueryValueEx(hKey, _T("bsrmon_file_path"), NULL, &type, (PBYTE)&buf, &size);
 	RegCloseKey(hKey);
 
 out:
@@ -196,7 +196,7 @@ out:
 	FILE *fp;
 	char buf[MAX_PATH] = {0,};
 
-	fp = fopen(PERFMON_FILE_PATH, "r");
+	fp = fopen(FILE_PATH_OPTION_PATH, "r");
 
 	memset(g_perf_path, 0, sizeof(g_perf_path));
 	if (fp == NULL) {
@@ -367,7 +367,9 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		if (listFileName.size() != 0) {
 			for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 				file_cnt++;
-				if (file_cnt >= max_file_cnt)
+				// BSR-1236 file_cnt is the number of backup files
+				// max_file_cnt is the number including the original file.
+				if (file_cnt >= (max_file_cnt - 1))
 					remove(iter->c_str());
 			}
 		}
