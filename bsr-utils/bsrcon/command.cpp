@@ -870,11 +870,11 @@ DWORD get_log_path()
 		errno_t result;
 		result = _wgetenv_s(&path_size, bsr_path, MAX_PATH, L"BSR_PATH");
 		if (result || (bsr_path == NULL) || !wcslen(bsr_path)) {
-			printf("c:\\Program Files\\bsr\\log\\");
+			printf("c:\\Program Files\\bsr\\log\\\n");
 		}
 		else {
 			wcsncpy_s(buf, bsr_path, wcslen(bsr_path) - wcslen(L"bin"));
-			printf("%wslog", buf);
+			printf("%wslog\n", buf);
 		}
 	}
 #else // _LIN

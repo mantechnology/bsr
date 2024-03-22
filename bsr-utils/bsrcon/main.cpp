@@ -1,6 +1,6 @@
 #include "command.h"
 
-static void usage();
+static void usage(bool all_cmd);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
@@ -81,7 +81,7 @@ int cmd_get_log(int *index, int argc, char* argv[])
 	if (*index < argc)
 		providerName = argv[*index];
 	else
-		usage();
+		usage(false);
 	(*index)++;
 
 	// DW-1629
@@ -98,10 +98,10 @@ int cmd_get_log(int *index, int argc, char* argv[])
 				resourceName = argv[*index];
 				//6 additional parsing data length (">bsr ")
 				if (strlen(resourceName) > MAX_PATH - 6)
-					usage();
+					usage(false);
 			}
 			else
-				usage();
+				usage(false);
 
 			(*index)++;
 		}
@@ -127,7 +127,7 @@ int cmd_minlog_lv(int *index, int argc, char* argv[])
 			lml.nType = LOGGING_TYPE_DBGLOG;
 		}
 		else
-			usage();
+			usage(false);
 	}
 
 	// second argument indicates minimum logging level.
@@ -136,7 +136,7 @@ int cmd_minlog_lv(int *index, int argc, char* argv[])
 		lml.nErrLvMin = atoi(argv[*index]);
 	}
 	else
-		usage();
+		usage(false);
 
 	return MVOL_SetMinimumLogLevel(&lml);
 }
@@ -149,10 +149,10 @@ int cmd_statuscmd_logging(int *index, int argc, char* argv[])
 		if ((strcmp(argv[*index], "1") == 0) ||
 			(strcmp(argv[*index], "0") == 0))
 			return set_statuscmd_logging(atoi(argv[*index]));
-		else usage();
+		else usage(false);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -174,7 +174,7 @@ int cmd_climaxlogfile_cnt(int *index, int argc, char* argv[])
 			lmc.nType = BSR_META_LOG_FILE_MAX_COUNT;
 		}
 		else
-			usage();
+			usage(false);
 	}
 
 	(*index)++;
@@ -187,7 +187,7 @@ int cmd_climaxlogfile_cnt(int *index, int argc, char* argv[])
 		lmc.nMaxCount = atoi(argv[*index]);
 	}
 	else
-		usage();
+		usage(false);
 
 	return set_cli_log_file_max_count(lmc.nType, lmc.nMaxCount);
 }
@@ -198,7 +198,7 @@ int cmd_maxlogfile_cnt(int *index, int argc, char* argv[])
 	(*index)++;
 	// BSR-618
 	if (*index >= argc)
-		usage();
+		usage(false);
 
 	// BSR-1238
 	if (atoi(argv[*index]) == 0) {
@@ -227,7 +227,7 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 			dlc.nType = 1;
 		}
 		else
-			usage();
+			usage(false);
 
 		for (; *index < argc; (*index)++) {
 			for (i = 0; i < (int)ARRAY_SIZE(g_log_category_str); i++) {
@@ -252,7 +252,7 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 		return MVOL_SetDebugLogCategory(&dlc);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -279,7 +279,6 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		printf("Current log level.\n");
 		printf("    system-lv : %s(%d)\n    debug-lv : %s(%d)\n",
 			g_default_lv_str[sys_evt_lv], sys_evt_lv, g_default_lv_str[dbglog_lv], dbglog_lv);
-
 		printf("\n");
 
 		printf("Maximum log file capacity\n");
@@ -350,14 +349,14 @@ int cmd_handler_timeout(int *index, int argc, char* argv[])
 		int timeout = atoi(argv[*index]);
 		if (timeout < 0) {
 			fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-			usage();
+			usage(false);
 		}
 		else {
 			hInfo.timeout = timeout;
 		}
 	}
 	else
-		usage();
+		usage(false);
 
 	return  MVOL_SetHandlerTimeout(&hInfo);
 }
@@ -372,7 +371,7 @@ int cmd_handler_use(int *index, int argc, char* argv[])
 		int use = atoi(argv[*index]);
 		if (use < 0 || use > 1) {
 			fprintf(stderr, "HANDLER_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-			usage();
+			usage(false);
 		}
 		else {
 			if (use)
@@ -380,7 +379,7 @@ int cmd_handler_use(int *index, int argc, char* argv[])
 		}
 	}
 	else
-		usage();
+		usage(false);
 
 	return  MVOL_SetHandlerUse(&hInfo);
 }
@@ -394,7 +393,7 @@ int cmd_convert_oos_log(int *index, int argc, char* argv[])
 	if (*index < argc)
 		return MVOL_ConvertOosLog((LPCTSTR)argv[*index]);
 	else
-		usage();
+		usage(false);
 }
 
 
@@ -409,14 +408,14 @@ int cmd_serch_oos_log(int *index, int argc, char* argv[])
 	if (*index < argc)
 		srcPath = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	// Get oos search sector
 	(*index)++;
 	if (*index < argc)
 		sector = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	return MVOL_SearchOosLog((LPCTSTR)srcPath, (LPCTSTR)sector);
 }
@@ -432,11 +431,11 @@ int cmd_bsrlock_use(int *index, int argc, char* argv[])
 		bBsrLock = atoi(argv[*index]);
 		if (bBsrLock < 0 || bBsrLock > 1) {
 			fprintf(stderr, "BSRLOCK_USE_ERROR: %s: Invalid parameter\n", __FUNCTION__);
-			usage();
+			usage(false);
 		}
 	}
 	else
-		usage();
+		usage(false);
 
 	return MVOL_BsrlockUse(bBsrLock);
 }
@@ -451,14 +450,14 @@ int cmd_write_log(int *index, int argc, char* argv[])
 	if (*index < argc)
 		providerName = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	// Get eventlog data to be written.
 	(*index)++;
 	if (*index < argc)
 		loggingData = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	return WriteEventLog((LPCSTR)providerName, (LPCSTR)loggingData);
 }
@@ -501,7 +500,7 @@ int cmd_delaydack_enable(int *index, int argc, char* argv[])
 	if (*index < argc)
 		addr = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	res = MVOL_SetDelayedAck(addr, "enable");
 	if (res != ERROR_SUCCESS) {
@@ -520,7 +519,7 @@ int cmd_nodelayedack(int *index, int argc, char* argv[])
 	if (*index < argc)
 		addr = argv[*index];
 	else
-		usage();
+		usage(false);
 
 	res = MVOL_SetDelayedAck(addr, "disable");
 	if (res != ERROR_SUCCESS) {
@@ -536,7 +535,7 @@ int cmd_letter(int *index, int argc, char* argv[])
 	if (*index < argc)
 		letter = (UCHAR)*argv[*index];
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -604,7 +603,7 @@ int cmd_dismount(int *index, int argc, char* argv[])
 	if (*index < argc)
 		letter = (UCHAR)*argv[*index];
 	else
-		usage();
+		usage(false);
 
 	res = MVOL_DismountVolume(letter, force);
 
@@ -631,7 +630,7 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 		resName = argv[(*index)++];
 		letter = (UCHAR)*argv[(*index)++];
 	} else 
-		usage();
+		usage(false);
 
 	printf(" ==> Destroys the meta data of volume letter %c! <==\n", letter);
 	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force))
@@ -748,7 +747,7 @@ int cmd_driver_install(int *index, int argc, char* argv[])
 	if (*index < argc) // BSR-1030 apply the primary driver section to the inf file
 		return driver_Install_Inf(L"DefaultInstall.NTamd64", argv[*index]);
 	else
-		usage();
+		usage(false);
 }
 
 int cmd_driver_uninstall(int *index, int argc, char* argv[])
@@ -757,7 +756,7 @@ int cmd_driver_uninstall(int *index, int argc, char* argv[])
 	if (*index < argc) // BSR-1030
 		return driver_Install_Inf(L"DefaultUninstall.NTamd64", argv[*index]);
 	else
-		usage();
+		usage(false);
 }
 
 int cmd_md5(int *index, int argc, char* argv[])
@@ -766,7 +765,7 @@ int cmd_md5(int *index, int argc, char* argv[])
 	if (*index < argc)
 		return generating_md5(argv[*index]);
 	else
-		usage();
+		usage(false);
 }
 #endif
 
@@ -776,7 +775,7 @@ int cmd_set_fast_sync(int *index, int argc, char* argv[])
 	if (*index < argc)
 		return set_fast_sync(atoi(argv[*index]));
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -795,7 +794,7 @@ int cmd_write_kernel_log(int *index, int argc, char* argv[])
 		return MVOL_WriteBsrKernelLog(level, argv[*index]);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -827,7 +826,7 @@ int cmd_bsr_panic(int *index, int argc, char* argv[])
 		return MVOL_BsrPanic(panic_enable, occurrence_time, 0, NULL);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -845,7 +844,7 @@ int cmd_bsr_hold_state(int *index, int argc, char* argv[])
 		return MVOL_HoldState(type, state);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -861,7 +860,7 @@ int cmd_bsr_fake_al_used(int *index, int argc, char* argv[])
 		return MVOL_FakeALUsed(al_used_count);
 	}
 	else
-		usage();
+		usage(false);
 
 	return 0;
 }
@@ -884,11 +883,15 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 		return set_log_path(newPath);
 	}
 	else
-		usage();
+		usage(false);
 	
 	return 0;
 }
 
+int cmd_all_cmd_usage(int *index, int argc, char* argv[])
+{
+	usage(true);
+}
 
 struct cmd_struct {
 	const char *cmd;
@@ -901,14 +904,15 @@ struct cmd_struct {
 };
 
 static struct cmd_struct commands[] = {
+	{ "/all_usage", cmd_all_cmd_usage, "", "", "", false },
 	// BSR-1052 added /get_log command again
 	// BSR-973
-	{ "/get_log", cmd_get_log, "{save log file name}\n", "", "\"bsrsave.txt\" or \"C:\\Program Files\\bsr\\log\\bsrsave.txt\"", false },
+	{ "/get_log", cmd_get_log, "{save log file name}\n", "", "\"bsrsave.txt\" or \"C:\\Program Files\\bsr\\log\\bsrsave.txt\"", true },
 	{ "/minlog_lv", cmd_minlog_lv, "{log type} {log level}", "", "\"dbg 7\" or \"sys 7\"", false },
-	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\"", false },
+	{ "/statuscmd_logging", cmd_statuscmd_logging, "{status cmd logging}", "", "\"1\" or \"0\"", true },
 	{ "/climaxlogfile_cnt", cmd_climaxlogfile_cnt, "{file type} {max file count}", "", "\"adm 10\" or \"setup 10\" or \"meta 10\"", false },
 	{ "/maxlogfile_cnt", cmd_maxlogfile_cnt, "{max file count}", "", "10" },
-	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"", false },
+	{ "/dbglog_ctgr", cmd_dbglog_ctgr, "{category use} {category}", "", "\"enable VOLUME SOKET ETC\" or \"disable VOLUME PROTOCOL\"", true },
 	{ "/get_log_info", cmd_get_log_info, "", "", "", false },
 	{ "/handler_use", cmd_handler_use, "{handler use}", "", "\"1\" or \"0\"", false },
 	{ "/get_handler_info", cmd_get_handler_info, "", "", "", false },
@@ -916,24 +920,24 @@ static struct cmd_struct commands[] = {
 	// BSR-1060
 	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(seconds)}", "", "1", false },
 #ifdef _DEBUG_OOS
-	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", false },
-	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", false },
+	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", true },
+	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },
 #endif
 	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"", false },
 	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data", true },
 	{ "/get_volume_size", cmd_get_volume_size, "", "", "", false },
 	{ "/delaydack_enable", cmd_delaydack_enable, "{address}", "", "10.10.1.10", false },
 	{ "/nodelayedack", cmd_nodelayedack, "{address}", "", "10.10.1.10", false },
-	{ "/letter", cmd_letter, "{letter}", "", "E", false },
-	{ "/l", cmd_letter, "{letter}", "", "E", false },
-	{ "/proc/bsr", cmd_proc, "", "", "", false },
+	{ "/letter", cmd_letter, "{letter}", "", "E", true },
+	{ "/l", cmd_letter, "{letter}", "", "E", true },
+	{ "/proc/bsr", cmd_proc, "", "", "", true },
 	{ "/status", cmd_status, "", "", "", false },
-	{ "/s", cmd_status, "", "", "", false },
+	{ "/s", cmd_status, "", "", "", true },
 	{ "/dismount", cmd_dismount, "{letter}", "", "E", false },
 	// BSR-1051
 	{ "/release_vol", cmd_release_vol, "{resource name} {letter}", "", "\"r0 E\", \"--force r0 E\"", false },
 	{ "/disk_error", cmd_disk_error, "{error flag} {error type} {error count}", "", "1 2 100", false },
-	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "", false },
+	{ "/bsrlock_status", cmd_bsrlock_status, "", "", "", true },
 	{ "/info", cmd_info, "", "", "", false },
 	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
 	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
@@ -946,9 +950,9 @@ static struct cmd_struct commands[] = {
 	{ "/forced_panic", cmd_forced_panic, "", "", "", true },
 	{ "/bsr_panic", cmd_bsr_panic, "", "", "", true },
 	// BSR-1039
-	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", false },
+	{ "/hold_state", cmd_bsr_hold_state, "type state", "only supports turning on and off congestion", "2 22 or 0 0", true },
 	// BSR-1039
-	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", false },
+	{ "/fake_al_used", cmd_bsr_fake_al_used, "{fake al used count}", "", "6001", true },
 	// BSR-1112
 	{ "/set_log_path", cmd_set_log_path, "{log file path}", "", 
 #ifdef _WIN
@@ -961,15 +965,17 @@ static struct cmd_struct commands[] = {
 
 };
 
-static void usage()
+static void usage(bool all_cmd)
 {
 	int i;
 	printf("usage: bsrcon cmds options \n\n"
 		"cmds:\n");
 
 	for (i = 0; i < (int)ARRAY_SIZE(commands); i++) {
-		if (commands[i].hide)
-			continue;
+		if (!all_cmd) {
+			if (commands[i].hide)
+				continue;
+		}
 		printf("\t%s %s\n", commands[i].cmd, commands[i].options);
 		if (!strcmp(commands[i].cmd, "/minlog_lv")) {
 			printf("\t\tlevel info,");
@@ -997,7 +1003,6 @@ static void usage()
 	exit(ERROR_INVALID_PARAMETER);
 }
 
-
 #ifdef _WIN
 DWORD main(int argc, char* argv[])
 #else
@@ -1008,7 +1013,7 @@ int main(int argc, char* argv[])
 	int argIndex = 0, commandIndex = 0;
 
 	if (argc < 2)
-		usage();
+		usage(false);
 
 	struct cmd_struct *cmd = NULL;
 
