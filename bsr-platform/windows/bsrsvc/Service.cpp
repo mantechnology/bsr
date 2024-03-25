@@ -694,7 +694,7 @@ VOID WINAPI ServiceHandler(DWORD fdwControl)
         case SERVICE_CONTROL_INTERROGATE:
             break;
         default:
-            wsprintf(pTemp, L"ServiceHandler: unexpected Control 0x%x occured! ignored.\n", fdwControl);
+            wsprintf(pTemp, L"ServiceHandler: unexpected Control 0x%x occurred! ignored.\n", fdwControl);
             WriteLog(pTemp);
 #ifdef SERVICE_HANDLER_EX
 			return 0;
@@ -852,7 +852,7 @@ DWORD RcBsrStart()
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 
     if (ret) {
-        _stprintf_s(tmp, _T("Faild rc_bsr_start: return val %d\n"), ret);
+        _stprintf_s(tmp, _T("Failed rc_bsr_start: return val %d\n"), ret);
         WriteLog(tmp);
     }
 
@@ -879,7 +879,7 @@ DWORD RcBsrStop()
     ret = RunProcess(EXEC_MODE_CMD, SW_NORMAL, NULL, szFullPath, gServicePath, dwPID, BATCH_TIMEOUT, NULL, NULL);
 	
     if (ret) {
-        wsprintf(tmp, L"Faild rc_bsr_stop: return val %d\n", ret);
+        wsprintf(tmp, L"Failed rc_bsr_stop: return val %d\n", ret);
         WriteLog(tmp);
     }
 

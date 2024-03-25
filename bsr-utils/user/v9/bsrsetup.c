@@ -912,7 +912,7 @@ static bool is_adapter_ip_addr(const char* address)
 		}
 
 		if (0 == strcmp(address, host)) {
-			CLI_INFO_LOG(false, "found adater (%s), address (%s)", ifa->ifa_name, host);
+			CLI_INFO_LOG(false, "found adapter (%s), address (%s)", ifa->ifa_name, host);
 			return true;
 		}
 	}

@@ -110,10 +110,10 @@ void usage()
 		"                                   [/e {YYYY-MM-DD|hh:mm[:ss]|YYYY-MM-DD_hh:mm[:ss]}]\n"
 		"   /set {period, file_size, file_cnt, file_path} {value}\n"
 		// BSR-1236
-		"   /set {total_file_size} {totcal resource count} {total volume count} {total capacity}\n"
+		"   /set {total_file_size} {total resource count} {total volume count} {total capacity}\n"
 		"   /get {all, period, file_size, file_cnt, file_path, types}\n"
 		// BSR-1236
-		"   /get {total_file_size} {totcal resource count} {total volume count}\n"
+		"   /get {total_file_size} {total resource count} {total volume count}\n"
 		"   /io_delay_test {flag} {delay point} {delay time}\n"
 		);
 #ifdef _WIN
@@ -253,7 +253,7 @@ int BsrDebug(int argc, char* argv[])
 		bsrmon_log(stdout, "%s\n", debugInfo->buf);
 	}
 	else if (ret == ERROR_INVALID_PARAMETER) {
-		bsrmon_log(stderr, "invalid paramter.\n");
+		bsrmon_log(stderr, "invalid parameter.\n");
 	}
 
 	if (debugInfo) {

@@ -2957,7 +2957,7 @@ retry:
 #endif
 	if (err) {
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
-		bsr_err(141, BSR_LC_DRIVER, device, "Faild to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
+		bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
 	}
