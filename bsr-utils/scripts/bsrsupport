@@ -8,6 +8,8 @@
 ##########################################################################################
 
 BSR_LOG_PATH=`bsrcon /get_log_path`
+# BSR-1215
+BSRMON_FILE_PATH=`bsrmon /get file_path`
 
 BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsuupport.log
 echo [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] [bsrsupport] start. > $BSRSUPPORT_LOG
@@ -71,13 +73,14 @@ GetBSRInfo()
 	BSR_CFG_DIR=${BSR_DIR}/conf
 	BSR_MOD_DIR=${BSR_DIR}/module
 	BSR_LOG_DIR=${BSR_DIR}/log
+	BSR_MON_DIR=${BSR_DIR}/perfmon
 
 	mkdir -p ${BSR_DIR}
 	mkdir -p ${BSR_CFG_DIR}
 	mkdir -p ${BSR_MOD_DIR}
 	mkdir -p ${BSR_LOG_DIR}
 	if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
-		mkdir -p ${BSR_LOG_DIR}/perfmon
+		mkdir -p ${BSR_MON_DIR}
 	fi
 	if [ -e /proc/bsr ]; then
 		cat /proc/bsr > ${BSR_DIR}/bsr_state
@@ -115,16 +118,21 @@ GetBSRInfo()
 		cp -rL ${BSR_LOG_PATH}/tune2fs*.log ${BSR_LOG_DIR} 2> /dev/null
 		cp -rL ${BSR_LOG_PATH}/fsck*.log ${BSR_LOG_DIR} 2> /dev/null
 		Logging "Get bsr log"
-		if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
-			cp -rL ${BSR_LOG_PATH}/perfmon/* ${BSR_LOG_DIR}/perfmon 2> /dev/null
-			Logging "Get bsr perfmon log"
-		else
-			Logging "skip collection of perfmon log."
-		fi
-		
 	else
 		Logging "bsr log (${BSR_LOG_PATH}) not found."
 	fi
+
+	if [ 0 -eq ${#EXCLUDE_PERFMON} ]; then
+		if [ -d $BSRMON_FILE_PATH ]; then
+			cp -rL ${BSRMON_FILE_PATH}/* ${BSR_MON_DIR} 2> /dev/null
+			Logging "Get bsr perfmon log"
+		else
+			Logging "bsrmon file path (${BSRMON_FILE_PATH}) not found."
+		fi
+	else
+		Logging "skip collection of perfmon log."
+	fi
+
 }
 
 GetSystemInfo()
