@@ -5293,7 +5293,7 @@ int main(int argc, char **argv)
 	}
 
 	// BSR-1112
-	get_log_path();
+	bsr_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 

@@ -22,7 +22,7 @@
 
 # variables set by configure
 CXX             = g++
-OBJECTS         = main.o ops.o
+OBJECTS         = main.o mvol.o command.o
 TARGET          = bsrcon
 CXXFLAGS        = -D_LIN -I. -I../../bsr-header -Wall
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="user">
@@ -47,9 +47,6 @@
     <ClCompile Include="bsrcon\main.cpp">
       <Filter>bsrcon</Filter>
     </ClCompile>
-    <ClCompile Include="bsrcon\ops.cpp">
-      <Filter>bsrcon</Filter>
-    </ClCompile>
     <ClCompile Include="user\v9\bsr_nla.c">
       <Filter>user</Filter>
     </ClCompile>
@@ -86,6 +83,12 @@
     <ClCompile Include="user\shared\bsrmeta.c">
       <Filter>user\shared</Filter>
     </ClCompile>
+    <ClCompile Include="bsrcon\mvol.cpp">
+      <Filter>bsrcon</Filter>
+    </ClCompile>
+    <ClCompile Include="bsrcon\command.cpp">
+      <Filter>bsrcon</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="user\v9\config_flags.h">
@@ -115,13 +118,7 @@
     <ClInclude Include="user\shared\wrap_printf.h">
       <Filter>user\shared</Filter>
     </ClInclude>
-    <ClInclude Include="bsrcon\LogManager.h">
-      <Filter>bsrcon</Filter>
-    </ClInclude>
     <ClInclude Include="bsrcon\mvol.h">
-      <Filter>bsrcon</Filter>
-    </ClInclude>
-    <ClInclude Include="bsrcon\OosTrace.h">
       <Filter>bsrcon</Filter>
     </ClInclude>
     <ClInclude Include="user\linux\bsr_config.h">
@@ -150,6 +147,15 @@
     </ClInclude>
     <ClInclude Include="user\shared\bsrmeta_parser.h">
       <Filter>user\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\command.h">
+      <Filter>bsrcon</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\log_manager.h">
+      <Filter>bsrcon</Filter>
+    </ClInclude>
+    <ClInclude Include="bsrcon\oos_trace.h">
+      <Filter>bsrcon</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -309,7 +309,7 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	char new_filename[512];
 	int rename_err = 0;
 	off_t size;
-	long file_rolling_size;
+	long backup_size;
 #ifdef _WIN
 	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
@@ -324,15 +324,15 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	size = ftell(fp);
 	
 	if (logfile) {
-		file_rolling_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
+		backup_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE;
 	}
 	else {
-		file_rolling_size = GetOptionValue(BSRMON_FILE_SIZE);
-		if (file_rolling_size <= 0)
-			file_rolling_size = DEFAULT_BSRMON_FILE_SIZE;
+		backup_size = GetOptionValue(BSRMON_FILE_SIZE);
+		if (backup_size <= 0)
+			backup_size = DEFAULT_BSRMON_FILE_SIZE;
 	}
 
-	if ((1024 * 1024 * file_rolling_size) < size) {
+	if ((1024 * 1024 * backup_size) < size) {
 		char dir_path[MAX_PATH] = { 0, };
 		char find_file[MAX_PATH] = { 0, };
 		char r_time[64] = { 0, };

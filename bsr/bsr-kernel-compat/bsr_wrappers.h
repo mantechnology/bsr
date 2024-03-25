@@ -2575,7 +2575,7 @@ static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
 #endif
 #endif
 
-struct log_rolling_file_list {
+struct backup_file_list {
 #ifdef COMPAT_HAVE_ITERATE_DIR
 	struct dir_context ctx;
 #endif
