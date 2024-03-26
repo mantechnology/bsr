@@ -8,6 +8,7 @@
 #include <sys/timeb.h>
 #include "bsrmon.h"
 #include "../../../bsr-headers/bsr_ioctl.h"
+#include "module_debug.h"
 
 char g_perf_path[MAX_PATH];
 bool write_log = false;
@@ -303,13 +304,14 @@ void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file
 #endif
 }
 
-FILE *_fileopen(char * filename, char * currtime, bool logfile)
+FILE *_fileopen(char * filename, char * currtime, bool logfile, void *param)
 {
 	FILE *fp;
 	char new_filename[512];
 	int rename_err = 0;
 	off_t size;
 	long backup_size;
+	int max_file_cnt = 0;
 #ifdef _WIN
 	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
@@ -325,11 +327,48 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	
 	if (logfile) {
 		backup_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE;
-	}
-	else {
+		max_file_cnt = 2;
+	} else {
+#if 0
 		backup_size = GetOptionValue(BSRMON_FILE_SIZE);
 		if (backup_size <= 0)
 			backup_size = DEFAULT_BSRMON_FILE_SIZE;
+#endif
+		// BSR-1239
+		int bsrmon_log_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2;
+		long total_size_limit = GetOptionValue(BSRMON_TOTAL_SIZE_LIMIT); 
+		struct bsrmon_type_counts tc;
+		struct resource *res = (struct resource *)param;
+		int volume = 1;
+
+		if (total_size_limit <= 0)
+			total_size_limit = DEFAULT_BSRMON_TOTAL_SIZE_LIMIT;
+
+		GetCurrentlySetTypeCount(&tc, false);
+
+		if (res)
+			volume = res->vol_count;
+
+		backup_size = (total_size_limit - bsrmon_log_size) / (tc.global + tc.resource + (volume * tc.volume));
+
+		if (backup_size < (DEFAULT_BSRMON_FILE_SIZE * 2)) {
+			// BSR-1239 set the file size to create at least one backup file.
+			max_file_cnt = 2;
+			backup_size = backup_size / max_file_cnt;
+		} else {
+			// BSR-1239 because the file size is maximum DEFAULT_BSRMON_FILE_SIZE(50M), increase the maximum number of file archiving if it is larger than this.
+			max_file_cnt = backup_size / DEFAULT_BSRMON_FILE_SIZE;
+			backup_size = DEFAULT_BSRMON_FILE_SIZE;
+		}
+
+		if (res) {
+			res->backup_file_size = backup_size;
+			res->max_file_count = max_file_cnt;
+		}
+
+		// BSR-1239 If the backup file size is 0, it is less than the minimum required capacity of the resource, so do not write to the file
+		if (backup_size == 0)
+			return NULL;
 	}
 
 	if ((1024 * 1024 * backup_size) < size) {
@@ -341,18 +380,19 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		std::set<std::string>::reverse_iterator iter;
 
 		int file_cnt = 0;
-		int max_file_cnt = 0;
 
 		fclose(fp);
 
+#if 0 
 		if (logfile) {
 			max_file_cnt = 2;
 		} else {
 			// BSR-1236 invalid declaration, the declaration has been removed.
 			max_file_cnt = GetOptionValue(BSRMON_FILE_CNT);
 			if (max_file_cnt <= 0)
-				max_file_cnt = DEFAULT_FILE_CNT;
+				max_file_cnt = DEFAULT_BSRMON_FILE_CNT;
 		}
+#endif
 
 #ifdef _WIN
 		ptr = strrchr(filename, '\\');
@@ -401,13 +441,13 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	return fp;
 
 }
-FILE *perf_fileopen(char * filename, char * currtime)
+FILE *perf_fileopen(char * filename, char * currtime, void *param)
 {
-	return _fileopen(filename, currtime, false);
+	return _fileopen(filename, currtime, false, param);
 }
 
-static FILE * log_fileopen(char * filename, char * currtime) {
-	return _fileopen(filename, currtime, true);
+static FILE * log_fileopen(char * filename, char *currtime) {
+	return _fileopen(filename, currtime, true, NULL);
 }
 
 // BSR-1138

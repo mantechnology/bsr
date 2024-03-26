@@ -266,7 +266,7 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	int dbglog_lv = 0;
 	int log_max_count = 0;
 	int cli_log_max_count = 0;
-	// int dbg_ctgr = 0;
+	int dbg_ctgr = 0;
 	int log_backup_size = 0;
 
 	// DW-2008
@@ -306,18 +306,18 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		else
 			printf("Failed to get log file max count\n");
 
-		// if (get_debug_log_enable_category(&dbg_ctgr)) {
-		// 	printf("Output category during debug log.\n");
-		// 	printf("    category :");
-		// 	for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
-		// 		if (dbg_ctgr & (1 << i)) {
-		// 			printf(" %s", g_log_category_str[i]);
-		// 		}
-		// 	}
-		// 	printf("\n");
-		// }
-		// else
-		// 	printf("Failed to get debug log enable category\n");
+		if (get_debug_log_enable_category(&dbg_ctgr)) {
+			printf("Output category during debug log.\n");
+			printf("    category :");
+			for (int i = 0; i < LOG_CATEGORY_MAX; i++) {
+				if (dbg_ctgr & (1 << i)) {
+					printf(" %s", g_log_category_str[i]);
+				}
+			}
+			printf("\n");
+		}
+		else
+			printf("Failed to get debug log enable category\n");
 	}
 	else
 		printf("Failed to get log level.\n");
