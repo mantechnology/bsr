@@ -305,7 +305,7 @@ char* GetBsrMemoryUsage(bool printTag)
 		/* TotalUsed(bytes) NonPagedUsed(bytes) PagedUsed(bytes) */
 		sprintf_s(buffer + strlen(buffer), MAX_BUF_SIZE - strlen(buffer), "%llu %llu %llu %lld ", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
 	} else {
-		printf("total %llu, total nonpaged %llu, total paged %llu, total untaged %llu\n", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
+		printf("total %llu, total nonpaged %llu, total paged %llu, total untagged %llu\n", TotalUsed, NonPagedUsed, PagedUsed, UntagNonPagedUsed);
 	}
 
 	if (NULL != pSysPoolTagInfo) {

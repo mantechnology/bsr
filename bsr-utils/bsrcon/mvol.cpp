@@ -71,7 +71,7 @@ MVOL_GetVolumeInfo( CHAR DriveLetter, PMVOL_VOLUME_INFO pVolumeInfo )
     CHAR		letter[] = "\\\\.\\ :";
 
     if( pVolumeInfo == NULL ) {
-        printf("LOG_ERROR: MVOL_GetVolumeInfo: invalid paramter\n");
+        printf("LOG_ERROR: MVOL_GetVolumeInfo: invalid parameter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
@@ -188,12 +188,12 @@ MVOL_GetVolumeSize( PWCHAR PhysicalVolume, PLARGE_INTEGER pVolumeSize )
     MVOL_VOLUME_INFO	volumeInfo = {0,};
 
     if( PhysicalVolume == NULL || pVolumeSize == NULL ) {
-        printf("LOG_ERROR: MVOL_GetVolumeSize: invalid paramter\n");
+        printf("LOG_ERROR: MVOL_GetVolumeSize: invalid parameter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
     if( wcslen(PhysicalVolume) > MAXDEVICENAME ) {
-        printf("LOG_ERROR: MVOL_GetVolumeSize: invalid paramter\n");
+        printf("LOG_ERROR: MVOL_GetVolumeSize: invalid parameter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
@@ -293,12 +293,12 @@ MVOL_set_ioctl(PWCHAR PhysicalVolume, DWORD code, MVOL_VOLUME_INFO *pVolumeInfo)
     MVOL_VOLUME_INFO	volumeInfo = {0,};
 
     if (PhysicalVolume == NULL) {
-        printf("LOG_ERROR: MVOL_set_ioctl: invalid paramter\n");
+        printf("LOG_ERROR: MVOL_set_ioctl: invalid parameter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
     if (wcslen(PhysicalVolume) > MAXDEVICENAME) {
-        printf("LOG_ERROR: MVOL_set_ioctl: invalid paramter\n");
+        printf("LOG_ERROR: MVOL_set_ioctl: invalid parameter\n");
         return ERROR_INVALID_PARAMETER;
     }
 
@@ -1206,7 +1206,7 @@ VOID getVolumeBsrlockInfo(HANDLE hBsrlock, PWCHAR pszVolumeName)
 	PWCHAR pTemp = NULL;					// Volume{11111111-2222-3333-4444-555555555555}
 		
 	if (pszVolumeName == NULL) {
-		printf("invalid paramter\n");
+		printf("invalid parameter\n");
 		return;
 	}
 
