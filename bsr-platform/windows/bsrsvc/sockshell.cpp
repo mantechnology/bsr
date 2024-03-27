@@ -104,7 +104,7 @@ DWORD RunProcess(
 		ret = GetLastError();
 		dwPID = 0;
 
-		wsprintf(tmp, L"CreateProcess faild: GetLastError %d\n", ret);
+		wsprintf(tmp, L"CreateProcess failed: GetLastError %d\n", ret);
 		WriteLog(tmp);
 
 		return ret;
@@ -121,7 +121,7 @@ DWORD RunProcess(
 			CloseHandle(pi.hProcess);
 			CloseHandle(pi.hThread);
 
-			wsprintf(tmp, L"CreateProcess WaitForSingleObject faild: Error %d\n", ret);
+			wsprintf(tmp, L"CreateProcess WaitForSingleObject failed: Error %d\n", ret);
 			WriteLog(tmp);
 
 			return ret;
@@ -131,7 +131,7 @@ DWORD RunProcess(
 	if (lpdwExitCode) {
 		if (!GetExitCodeProcess(pi.hProcess, lpdwExitCode)) {
 			ret = GetLastError();
-			wsprintf(tmp, L"CreateProcess GetExitCodeProcess faild: GetLastError %d\n", ret);
+			wsprintf(tmp, L"CreateProcess GetExitCodeProcess failed: GetLastError %d\n", ret);
 			WriteLog(tmp);
 		}
 	}

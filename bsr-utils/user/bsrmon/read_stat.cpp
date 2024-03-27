@@ -2254,7 +2254,7 @@ read_continue:
 			print_range("  free : ", &sys_mem_stat.free, "\n");
 			print_range("  buff/cache : ", &sys_mem_stat.buff_cache, "\n");
 
-			printf(" module (kytes)\n");
+			printf(" module (kbytes)\n");
 			printf("  BSR Slab memory \n");
 			/* BSR_REQ(bytes) BSR_AL(bytes) BSR_BM(bytes) BSR_EE(bytes) */
 			print_range("   bsr_req: ", &kmem.req, "\n");

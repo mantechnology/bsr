@@ -2984,7 +2984,7 @@ int v07_style_md_open(struct format *cfg)
 			int file_fd;
 			file_fd = open(cfg->loop_file_path, O_RDWR);
 			if (file_fd < 0) {
-				CLI_ERRO_LOG_STDERR(false, "failed to open mete file (%s)", cfg->loop_file_path);
+				CLI_ERRO_LOG_STDERR(false, "failed to open meta file (%s)", cfg->loop_file_path);
 				exit(20);
 			}
 

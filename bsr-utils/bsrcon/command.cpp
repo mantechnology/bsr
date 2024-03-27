@@ -644,13 +644,13 @@ DWORD RunProcess(char* command, char* workingDirectory, char **out)
 	if (out) {
 		if (!CreatePipe(&stdOutRd, &stdOutWd, &saAttr, 0)) {
 			res = GetLastError();
-			fprintf(stderr, "CreatePipe faild: GetLastError %d\n", res);
+			fprintf(stderr, "CreatePipe failed: GetLastError %d\n", res);
 			goto out;
 		}
 
 		if (!SetHandleInformation(stdOutRd, HANDLE_FLAG_INHERIT, 0)) {
 			res = GetLastError();
-			fprintf(stderr, "SetHandleInformation faild: GetLastError %d\n", res);
+			fprintf(stderr, "SetHandleInformation failed: GetLastError %d\n", res);
 			goto out;
 		}
 		si.hStdOutput = stdOutWd;
@@ -672,7 +672,7 @@ DWORD RunProcess(char* command, char* workingDirectory, char **out)
 		&pi)							// Pointer to PROCESS_INFORMATION structure.
 		) {
 		res = GetLastError();
-		fprintf(stderr, "CreateProcess faild: GetLastError %d\n", res);
+		fprintf(stderr, "CreateProcess failed: GetLastError %d\n", res);
 		goto out;
 	}
 	else {
@@ -681,7 +681,7 @@ DWORD RunProcess(char* command, char* workingDirectory, char **out)
 			if (res != WAIT_OBJECT_0) {
 				if (res == WAIT_FAILED)
 					res = GetLastError();
-				fprintf(stderr, "CreateProcess WaitForSingleObject faild: Error %d\n", res);
+				fprintf(stderr, "CreateProcess WaitForSingleObject failed: Error %d\n", res);
 				goto out_all;
 			}
 			else

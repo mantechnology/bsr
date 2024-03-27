@@ -259,7 +259,7 @@ int BsrDebug(int argc, char* argv[])
 		bsrmon_log(stdout, "%s\n", debugInfo->buf);
 	}
 	else if (ret == ERROR_INVALID_PARAMETER) {
-		bsrmon_log(stderr, "invalid paramter.\n");
+		bsrmon_log(stderr, "invalid parameter.\n");
 	}
 
 	if (debugInfo) {
@@ -1515,7 +1515,7 @@ static int SetFileSizeForUserSettings(long res_cnt, long vol_cnt, long total_fil
 		// res "network", "sendbuf"
 		total_cnt = total_cnt + (tc.resource * res_cnt);
 		// vol "iostat", "ioclat", "io_pending", "alstat", "peer_reqstat", "reqstat", "resync_ratio",
-		total_cnt = total_cnt + (tc.global * vol_cnt);
+		total_cnt = total_cnt + (tc.volume * vol_cnt);
 
 		if (total_cnt)
 			file_size = (float)((total_file_size - bsrmon_log_size) / total_cnt) / file_cnt;
