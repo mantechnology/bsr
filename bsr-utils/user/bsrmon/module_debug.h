@@ -36,6 +36,10 @@ struct resource {
 	struct connection *conn;
 	struct volume *vol;
 	struct resource* next;
+	// BSR-1239
+	int vol_count;
+	int backup_file_size;
+	int max_file_count;
 };
 
 #ifdef _WIN
@@ -56,7 +60,7 @@ PBSR_DEBUG_INFO GetDebugInfo(enum BSR_DEBUG_FLAGS flag, struct resource* res, in
 #endif
 char* GetDebugToBuf(enum bsrmon_type debug_type, struct resource *res);
 int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char * respath, char * currtime);
-int GetMemInfoToFile(char *path, char * currtime);
+int GetMemInfoToFile(char *path, char * currtime, struct resource *res);
 
 // BSR-740
 int InitPerfType(enum bsrmon_type debug_type, struct resource *res);
