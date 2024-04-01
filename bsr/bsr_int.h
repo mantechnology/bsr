@@ -550,7 +550,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 91
+#define BSR_LC_ETC_MAX_INDEX 92
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -3375,6 +3375,9 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 #else
 #ifdef COMPAT_HAVE_REVALIDATE_DISK
 	revalidate_disk(device->vdisk);
+#else
+	// BSR-1242
+	bsr_err(92, BSR_LC_ETC, NO_OBJECT, "No features were found to support device size changes. The changed device size will take effect after remount.");
 #endif
 #endif
 #endif
