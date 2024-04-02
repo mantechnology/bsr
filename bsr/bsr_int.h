@@ -47,7 +47,7 @@
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
 
-#if defined(COMPAT_HAVE_REVALIDATE_DISK) || defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
+#if defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
 #include <linux/genhd.h>
 #endif
 
@@ -550,7 +550,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 92
+#define BSR_LC_ETC_MAX_INDEX 91
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -3365,20 +3365,16 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN
-#ifdef COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY
+	// BSR-1242 define for rhel 9.0 and 9.1 and later.
+#if defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_GENHD) || defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_BLKDEV) 
 	set_capacity_and_notify(device->vdisk, size);
 #else
 	set_capacity(device->vdisk, size);
-
 #ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
 	revalidate_disk_size(device->vdisk, false);
 #else
-#ifdef COMPAT_HAVE_REVALIDATE_DISK
-	revalidate_disk(device->vdisk);
-#else
 	// BSR-1242
-	bsr_err(92, BSR_LC_ETC, NO_OBJECT, "No features were found to support device size changes. The changed device size will take effect after remount.");
-#endif
+	revalidate_disk(device->vdisk);
 #endif
 #endif
 #endif
