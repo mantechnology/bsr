@@ -47,7 +47,7 @@
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
 
-#if defined(COMPAT_HAVE_REVALIDATE_DISK) || defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
+#if defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
 #include <linux/genhd.h>
 #endif
 
@@ -3365,17 +3365,16 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN
-#ifdef COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY
+	// BSR-1242 define for rhel 9.0 and 9.1 and later.
+#if defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_GENHD) || defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_BLKDEV) 
 	set_capacity_and_notify(device->vdisk, size);
 #else
 	set_capacity(device->vdisk, size);
-
 #ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
 	revalidate_disk_size(device->vdisk, false);
 #else
-#ifdef COMPAT_HAVE_REVALIDATE_DISK
+	// BSR-1242
 	revalidate_disk(device->vdisk);
-#endif
 #endif
 #endif
 #endif
