@@ -601,7 +601,7 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 	int i = 0;
 	
 	char name[256];
-	char fullpath[513];
+	char fullpath[512];
 
 	memset(path, 0, sizeof(path));
 	memset(name, 0, sizeof(name));
@@ -621,7 +621,6 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 	} else {
 		int i, j;
 		int cnt = 0;
-		char **files;
 
 		// BSR-1238
 		while ((entry = readdir(dp)) != NULL) {
@@ -642,18 +641,22 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 
 		// BSR-1238 remove more backup files than the maximum files.
 		if (cnt >= max_cnt) {
-			files = (char**)malloc(sizeof(char*) * (cnt + 1));
+			char **files;
+
+			files = (char**)malloc(sizeof(char*) * cnt);
 			if (!files)
 				return -1;
 
-			files[0] = (int *)malloc(sizeof(char) * (cnt + 1 + 256));
-			if (!files[0])
-				return -1;
-
-			memset(files[i], 0, sizeof(char) * (cnt + 1 + 256));
-
-			for (i = 1; i < cnt + 1; i++)
-				files[i] = files[i - 1] + 256;
+			for (i = 0; i < cnt; i++) {
+				files[i] = (char *)malloc(sizeof(char) * 512);
+				if (!files[i]) {
+					for (j = 0; j < i; j++)
+						free(files[j]);
+					free(files);
+					return -1;
+				}
+				memset(files[i], 0, sizeof(char) * 512);
+			}
 
 			seekdir(dp, 0);
 			i = 0;
@@ -675,7 +678,8 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 				remove(fullpath);
 			}
 
-			free(files[0]);
+			for (i = 0; i < cnt; i++)
+				free(files[i]);
 			free(files);
 		}
 	
