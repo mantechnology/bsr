@@ -132,7 +132,40 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
-* Tue Nov 7 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
+* Thu Apr 4 2024 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.0
+- New upstream release.
+
+* Mon Mar 4 2024 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.9.0
+- New upstream release.
+
+* Mon Dec 4 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.8.0
+- New upstream release.
+
+* Thu Oct 26 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.7.0
+- New upstream release.
+
+* Mon Aug 21 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.6.3
+- New upstream release.
+
+* Fri Aug 4 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.6.2
+- New upstream release.
+
+* Mon Jul 31 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.6.1
+- New upstream release.
+
+* Tue Jul 25 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.6.0
+- New upstream release.
+
+* Fri Jul 7 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.5.2
+- New upstream release.
+
+* Wed Jun 21 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.5.1
+- New upstream release.
+
+* Thu Jun 15 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.5.0
+- New upstream release.
+
+* Fri May 12 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.4.0
 - New upstream release.
 
 * Fri Mar 24 2023 Man Technology Inc. <bsr@mantech.co.kr> - 1.6.3.0-A4
