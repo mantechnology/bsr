@@ -9841,8 +9841,10 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		peer_device_disconnected(peer_device);
 	
+		// BSR-1248 The rq_pending_os_cnt processing for OOS transfer failure and cancellation was done by another operation and should not be set to 0 at the end of the connection.
+		// if it is set to 0 at the end of the connection, depending on the timing, rq_pending_os_cnt may not be 0, so synchronization may not proceed after congestion.
 		// DW-2076
-		atomic_set(&peer_device->rq_pending_oos_cnt, 0);
+		// atomic_set(&peer_device->rq_pending_oos_cnt, 0);
 
 		// BSR-118
 		if (NULL != peer_device->fast_ov_bitmap) {
