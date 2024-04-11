@@ -306,6 +306,8 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		else
 			printf("Failed to get log file max count\n");
 
+		printf("\n");
+
 		if (get_debug_log_enable_category(&dbg_ctgr)) {
 			printf("Output category during debug log.\n");
 			printf("    category :");

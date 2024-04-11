@@ -5713,16 +5713,13 @@ int bsr_apply_max_count_of_backup_files(char * file_path, int max_file_count)
 	list_sort(NULL, &rlist.list, name_cmp);
 
 	// BSR-1238
-	list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list)
-		backup_file_count++;
-
 	list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
-		if (backup_file_count < max_file_count) 
-			break;
+		backup_file_count++; 
+		if (backup_file_count < max_file_count)
+			continue;
 		err = bsr_file_remove(file_path, t->fileName);
 		if (err)
 			break;
-		backup_file_count--;
 	}
 
 	list_for_each_entry_safe_ex(struct backup_file_list, t, tmp, &rlist.list, list) {
