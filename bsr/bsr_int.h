@@ -2133,12 +2133,6 @@ struct bsr_peer_device {
 	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
 	atomic_t start_sending_bitmap;
 
-	/* TODO: The added BSR-1711 variables below are not stored in the meta, so previous values cannot be determined when the system is forced to shut down. */
-	// BSR-1171 it is used to merge bitmaps with established nodes before sending bitmaps to ensure consistency of nodes synchronized with other nodes.
-	int bitmap_merge_mask;
-	// BSR-1171 time for the recently completed synchronization.
-	ULONG_PTR last_resync_jif;
-
 	// BSR-1213
 	atomic_t start_init_sync;
 };
