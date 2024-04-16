@@ -5585,6 +5585,12 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 	mutex_lock(&resource->adm_mutex);
 
+	// BSR-1254 verify that you are connected
+	if (peer_device->connection->cstate[NOW] != C_CONNECTED) {
+		retcode = SS_NEED_CONNECTION;
+		goto out_no_resume;
+	}
+
 	clear_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
 	if (info->attrs[BSR_NLA_INVALIDATE_PEER_PARMS]) {
 		struct invalidate_peer_parms inv = { 0, };
