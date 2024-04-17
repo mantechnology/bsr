@@ -3197,9 +3197,11 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 	if (atomic_read(&peer_device->unacked_cnt) || 
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
-		atomic_read(&peer_device->wait_for_recv_bitmap)) {
-		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d, bitmap : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt),
-			atomic_read(&peer_device->wait_for_recv_bitmap));
+		atomic_read(&peer_device->wait_for_recv_bitmap) ||
+		// BSR-1256 if AL OOS is left, try to synchronize again after the delay.
+		atomic_read(&peer_device->al_oos_cnt)) {
+		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d, bitmap : %d, al oos : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt),
+			atomic_read(&peer_device->wait_for_recv_bitmap), atomic_read(&peer_device->al_oos_cnt));
 		retry_resync = true;
 	}
 

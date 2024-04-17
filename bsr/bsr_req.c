@@ -793,22 +793,22 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 			continue;
 
 		bsr_err(15, BSR_LC_REQUEST, device,
-			"Failed to complete request due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
-			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
+			"Failed to complete request(%p) due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
+			req, s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	/* more paranoia */
 	if (atomic_read(&req->completion_ref) ||
 	    ((s & RQ_LOCAL_PENDING) && !(s & RQ_LOCAL_ABORTED))) {
-		bsr_err(16, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug. request state(%x), completion reference(%d)",
-				s, atomic_read(&req->completion_ref));
+		bsr_err(16, BSR_LC_REQUEST, device, "Failed to complete request(%p) due to logic bug. request state(%x), completion reference(%d)",
+				req, s, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	// BSR-1116 add the following conditions because master_bio exists but writing may complete
 	if (!req->i.completed && !req->master_bio) {
-		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
+		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request(%p) due to logic bug, master block I/O is NULL.", req);
 		return;
 	}
 
@@ -912,7 +912,7 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 	{
 		// BSR-1072 log output if req->completion_ref is negative
 		if (atomic_read(&req->completion_ref) < 0) {
-			bsr_warn(32, BSR_LC_REQUEST, NO_OBJECT, "ASSERTION req->completion_ref (%d) < 0", atomic_read(&req->completion_ref));
+			bsr_warn(32, BSR_LC_REQUEST, NO_OBJECT, "ASSERTION %p, req->completion_ref (%d) < 0", req, atomic_read(&req->completion_ref));
 		}
 #ifdef BSR_TRACE
 		bsr_debug(32, BSR_LC_REQUEST, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d", current->comm, req->completion_ref, req->i.sector, req->i.size);
@@ -1188,6 +1188,10 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			// DW-2076 
 			atomic_dec(&peer_device->rq_pending_oos_cnt);
 			++k_put;
+
+			// BSR-1256
+			if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) 
+				atomic_dec(&peer_device->al_oos_cnt);
 		} else
 #endif
 			++c_put;
@@ -1656,7 +1660,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			/* barrier came in before all requests were acked.
 			 * this is bad, because if the connection is lost now,
 			 * we won't be able to clean them up... */
-			bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked.");
+			bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked. (%p)", req);
 			mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
 		}
 		/* Allowed to complete requests, even while suspended.
@@ -2928,33 +2932,36 @@ extern atomic_t g_fake_al_used;
 static int bsr_al_oos_io_nonblock(struct bsr_device* device, struct bsr_request *req)
 {
 	struct bsr_peer_device *peer_device;
+	u64 mask = 0;
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
 			if (peer_device->connection->agreed_pro_version >= 116) {
-				if (peer_device->repl_state[NOW] == L_AHEAD) {
-					req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
-					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-				}
-				else {
+				// BSR-1256 if you are waiting to start resync in a congestion state, do not set RQ_IN_AL_OOS.
+				if ((peer_device->repl_state[NOW] == L_AHEAD) &&
+					!test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+					mask |= NODE_MASK(peer_device->node_id);
+				} else 
 					return -ENOBUFS;
-				}
-			}
-			else {
+			} else
 				return -ENOBUFS;
-			}
 		}
 	}
 
-	req->rq_state[0] |= RQ_IN_AL_OOS;
+	if (!mask)
+		return -ENOBUFS;
 
+	req->rq_state[0] |= RQ_IN_AL_OOS;
 	for_each_peer_device(peer_device, device) {
-		if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+		if (mask & NODE_MASK(peer_device->node_id)) {
+			req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
+			bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 			atomic_inc(&peer_device->al_oos_cnt);
 		}
 	}
 
 	return 0;
+
 }
 
 static bool prepare_al_transaction_nonblock(struct bsr_device *device,
@@ -3001,6 +3008,9 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 			if (!err) {
 				list_move_tail(&req->tl_requests, &wfa->requests.pending);
 				made_progress = true;
+				// BSR-1256
+				req = wfa_next_request(wfa);
+				continue;
 			}
 			goto out;
 		}
@@ -3043,8 +3053,12 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 		if (req->rq_state[0] & RQ_IN_AL_OOS) {
 			if (!is_bm_wrtie) {
 				for_each_peer_device(peer_device, device) {
-					if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)
+					if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+						// BSR-1256
+						bsr_bm_lock(device, "send_and_submit_pending()", BM_LOCK_ALL);
 						bsr_bm_write(device, peer_device);
+						bsr_bm_unlock(device);
+					}
 				}
 				is_bm_wrtie = true;
 			}

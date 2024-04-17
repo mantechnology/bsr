@@ -671,12 +671,7 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 				} else {
 					atomic_inc(&peer_device->resync_seq);
 				}
-			} else if (peer_device->repl_state[NOW] == L_AHEAD && peer_device->repl_state[NEW] != L_AHEAD) {
-				if (atomic_read(&peer_device->al_oos_cnt)) {
-					bsr_info(62, BSR_LC_IO, peer_device, "The number of writes whose activity log are out of sync in congestion is %d", atomic_read(&peer_device->al_oos_cnt));
-					atomic_set(&peer_device->al_oos_cnt, 0);
-				}
-			}
+			} 
 
 			// DW-1131 move to queue_after_state_change_work.
 			// BSR-439 keep the updates repl_state
