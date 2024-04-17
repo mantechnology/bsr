@@ -623,14 +623,18 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 	bool force = false;
 
 	(*index)++;
-	if (((*index) + 1) < argc) {
+	if ((*index) < argc) {
 		// BSR-1051 
 		if (!strcmp(argv[*index], "--force")) {
 			force = true;
 			(*index)++;
 		}
-		resName = argv[(*index)++];
-		letter = (UCHAR)*argv[(*index)++];
+		// BSR-1252
+		if ((*index) + 1 < argc) {
+			resName = argv[(*index)++];
+			letter = (UCHAR)*argv[(*index)++];
+		} else
+			usage(false);
 	} else 
 		usage(false);
 
@@ -664,8 +668,30 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 				token = strtok_s(buf, "\n", &ptr);
 				while (token != NULL) {
 					if (!strncmp(token, str, strlen(str))) {
+						// BSR-1252 added parsing to handle spaces in the path
+						char *app, *letter, *ver, *vol, *s, *e, *t;
+						char cmd[MAX_PATH] = { 0, }, path[MAX_PATH] = { 0, };
+
+						memcpy(cmd, token, strlen(token));
+						// app
+						app = strtok_s(token, " ", &token);
+						// letter
+						letter = strtok_s(token, " ", &token);
+						// version
+						ver = strtok_s(token, " ", &token);
+						// volume
+						vol = strtok_s(token, " ", &token);
+						// path
+						s = e = t = token;
+						while (t) {
+							e = t;
+							t = strtok_s(token, "/", &token);
+						}
+						t = strstr((cmd + (e - app)), " wipe-md");
+						memcpy(path, (cmd + (s - app)),( t - (cmd + (s - app))));
+
 						// BSR-1051 destroys the metadata of the volume.
-						sprintf_s(str, "%s--force", token);
+						sprintf_s(str, "%s %s %s %s \"%s\" wipe-md --force", app, letter, ver, vol, path);
 						ret = RunProcess(str, wd, NULL);
 						if (ERROR_SUCCESS == ret)
 							printf("Destroyed meta data.\n");
