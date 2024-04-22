@@ -1,3 +1,9 @@
+bsr-utils (1.6.9.1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Man Technology Inc. <bsr@mantech.co.kr>  Tue, 23 Apr 2024 00:00:00 +0900
+
 bsr-utils (1.6.9.0) unstable; urgency=medium
 
   * New upstream release
