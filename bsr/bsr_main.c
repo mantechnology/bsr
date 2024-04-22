@@ -5054,7 +5054,13 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 		goto out_remove_peer_device;
 	}
 #ifdef _LIN
+#ifdef COMPAT_ADD_DISK_RETURNS_INT
+	err = add_disk(disk);
+	if (err)
+		goto out_destroy_submitter;
+#else
 	add_disk(disk);
+#endif
 #endif
 	for_each_peer_device(peer_device, device) {
 		connection = peer_device->connection;
@@ -5075,7 +5081,11 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	bsr_debugfs_device_add(device);
 	*p_device = device;
 	return ERR_NO;
-
+#ifdef COMPAT_ADD_DISK_RETURNS_INT
+out_destroy_submitter:
+	destroy_workqueue(device->submit.wq);
+	device->submit.wq = NULL;
+#endif
 out_remove_peer_device:
     {
 #ifdef _WIN
