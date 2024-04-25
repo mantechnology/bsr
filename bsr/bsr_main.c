@@ -661,6 +661,7 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 	
 	tl_for_each_req_ref_from(req, r, &resource->transfer_log) {
 		struct bsr_peer_device *peer_device;
+		int idx;
 		if (req->epoch != expect_epoch) {
 			tl_abort_for_each_req_ref(r, &resource->transfer_log);
 			break;
@@ -668,7 +669,13 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 
 		// BSR-1195
 		connection->req_last_barrier_acked = req;
+
 		peer_device = conn_peer_device(connection, req->device->vnr);
+		idx = 1 + peer_device->node_id;
+		// BSR-1256 OOS request does not set BARRIER_ACKED for reference count management.
+		if (req->rq_state[idx] & (RQ_OOS_PENDING | RQ_OOS_NET_QUEUED))
+			continue;
+
 		_req_mod(req, BARRIER_ACKED, peer_device);
 	}
 	spin_unlock_irq(&connection->resource->req_lock);
