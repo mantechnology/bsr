@@ -975,7 +975,7 @@ static struct cmd_struct commands[] = {
 	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"", false },
 #else // _LIN
 #ifdef _DEBUG_OOS
-	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "/var/log/bsr/bsr.log" 10240000", true },
+	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "/var/log/bsr/bsr.log 10240000", true },
 #endif
 #endif
 	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"", false },
