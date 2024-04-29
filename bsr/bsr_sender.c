@@ -914,6 +914,11 @@ void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *d
 #ifdef _WIN 
 	if (request->req_databuf)
 		crypto_hash_update(&desc, (struct scatterlist *)request->req_databuf, request->i.size);
+	else {
+		// BSR-1261 request->req_databuf can be null because it is only allocated in Async, 
+		// read the hash of request->master_bio->bio_databuf.
+		crypto_hash_update(&desc, (struct scatterlist *)request->master_bio->bio_databuf, request->i.size);
+	}
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
     desc->tfm = tfm;
