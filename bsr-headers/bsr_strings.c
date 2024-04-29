@@ -179,6 +179,7 @@ static const char * const __packet_names[] = {
 	[P_RECV_ACK]	        = "P_RECV_ACK",
 	[P_WRITE_ACK]	        = "P_WRITE_ACK",
 	[P_RS_WRITE_ACK]	= "P_RS_WRITE_ACK",
+	[P_RS_WRITE116_ACK]	= "P_RS_WRITE116_ACK",
 	[P_SUPERSEDED]		= "P_SUPERSEDED",
 	[P_NEG_ACK]	        = "P_NEG_ACK",
 	[P_NEG_DREPLY]	        = "P_NEG_DREPLY",

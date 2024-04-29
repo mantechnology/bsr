@@ -5153,7 +5153,7 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 }
 
 static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_device,
-						   enum bsr_role peer_role,
+						   enum bsr_role peer_role, enum bsr_disk_state peer_disk_state,
 						   int hg)
 {
 	enum bsr_role role = peer_device->device->resource->role[NOW];
@@ -5204,6 +5204,18 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 						(unsigned long long)bsr_bm_total_weight(peer_device));
 					bsr_uuid_set_bitmap(peer_device, 0);
 					bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
+				}
+				// BSR-980 remove dummy oos
+				else if ((peer_device->device->disk_state[NOW] == D_UP_TO_DATE) &&
+					(peer_disk_state == D_UP_TO_DATE) && (peer_device->repl_state[NOW] == L_OFF) &&
+					(role == R_SECONDARY && peer_role == R_SECONDARY)) {
+					u64 my_current_uuid = bsr_current_uuid(peer_device->device);
+					u64 peer_current_uuid = peer_device->current_uuid;
+					if (my_current_uuid == peer_current_uuid) {
+						bsr_info(235, BSR_LC_RESYNC_OV, peer_device, "Both nodes are UpToDate and current uuid is the same, clearing bitmap content (%llu bits)",
+							(unsigned long long)bsr_bm_total_weight(peer_device));
+						bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
+					}
 				}
 				else {
 					bsr_info(80, BSR_LC_RESYNC_OV, peer_device, "No resync, but %llu bits in bitmap!",
@@ -5340,7 +5352,7 @@ static enum bsr_repl_state bsr_attach_handshake(struct bsr_peer_device *peer_dev
 	bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
 	disk_states_to_goodness(peer_device->device, peer_disk_state, &hg, rule_nr);
 
-	return goodness_to_repl_state(peer_device, peer_device->connection->peer_role[NOW], hg);
+	return goodness_to_repl_state(peer_device, peer_device->connection->peer_role[NOW], peer_disk_state, hg);
 }
 
 /* bsr_sync_handshake() returns the new replication state on success, and -1
@@ -5544,7 +5556,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	if (r)
 		return r;
 
-	return goodness_to_repl_state(peer_device, peer_role, hg);
+	return goodness_to_repl_state(peer_device, peer_role, peer_disk_state, hg);
 }
 
 static enum bsr_after_sb_p convert_after_sb(enum bsr_after_sb_p peer)
@@ -6374,7 +6386,7 @@ static void bsr_resync(struct bsr_peer_device *peer_device,
 		various_states_to_goodness(peer_device->device, peer_device, peer_device->disk_state[NOW], peer_device->connection->peer_role[NOW], &hg);
 	}
 
-	new_repl_state = hg < -4 || hg > 4 ? -1 : goodness_to_repl_state(peer_device, peer_role, hg);
+	new_repl_state = hg < -4 || hg > 4 ? -1 : goodness_to_repl_state(peer_device, peer_role, peer_device->disk_state[NOW], hg);
 
 	if (new_repl_state == -1) {
 		bsr_info(87, BSR_LC_RESYNC_OV, peer_device, "Disconnecting the connection as an unexpected result of the handshake. repl state(%d)", new_repl_state);
