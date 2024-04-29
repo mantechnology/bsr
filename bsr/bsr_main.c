@@ -3247,7 +3247,11 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	}
 
 	if (!err) {
-#ifdef _LIN
+#ifdef _WIN
+		// BSR-1262 add replication data send size to sended size
+		// if you use tcp_cork, if the data in the stream buffer has not been transmitted, there may be a difference in the size of the transmission and reception from the peer node when the connection is terminated.
+		peer_device->send_cnt += (unsigned int)(req->i.size >> 9);
+#else
 		/* For protocol A, we have to memcpy the payload into
 		* socket buffers, as we may complete right away
 		* as soon as we handed it over to tcp, at which point the data
