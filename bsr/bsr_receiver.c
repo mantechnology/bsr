@@ -5197,6 +5197,8 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 				rv = L_WF_BITMAP_T;
 			}
 			else {
+				u64 my_current_uuid = bsr_current_uuid(peer_device->device) & ~UUID_PRIMARY;
+				u64 peer_current_uuid = peer_device->current_uuid & ~UUID_PRIMARY;
 				// DW-1874 If the UUID is the same and the MDF_PEER_IN_PROGRESS_SYNC flag is set, the out of sync is meaningless because resync with other nodes is complete.
 				if (bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC) ||
 						peer_device->uuid_flags & UUID_FLAG_IN_PROGRESS_SYNC) {
@@ -5208,14 +5210,11 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 				// BSR-980 remove dummy oos
 				else if ((peer_device->device->disk_state[NOW] == D_UP_TO_DATE) &&
 					(peer_disk_state == D_UP_TO_DATE) && (peer_device->repl_state[NOW] == L_OFF) &&
-					(role == R_SECONDARY && peer_role == R_SECONDARY)) {
-					u64 my_current_uuid = bsr_current_uuid(peer_device->device);
-					u64 peer_current_uuid = peer_device->current_uuid;
-					if (my_current_uuid == peer_current_uuid) {
-						bsr_info(235, BSR_LC_RESYNC_OV, peer_device, "Both nodes are UpToDate and current uuid is the same, clearing bitmap content (%llu bits)",
-							(unsigned long long)bsr_bm_total_weight(peer_device));
-						bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
-					}
+					(role == R_SECONDARY && peer_role == R_SECONDARY) &&
+					(my_current_uuid == peer_current_uuid)) {
+					bsr_info(235, BSR_LC_RESYNC_OV, peer_device, "Both nodes are UpToDate and current uuid is the same, clearing bitmap content (%llu bits)",
+						(unsigned long long)bsr_bm_total_weight(peer_device));
+					bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);
 				}
 				else {
 					bsr_info(80, BSR_LC_RESYNC_OV, peer_device, "No resync, but %llu bits in bitmap!",
