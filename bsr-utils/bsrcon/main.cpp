@@ -385,8 +385,9 @@ int cmd_handler_use(int *index, int argc, char* argv[])
 
 	return  MVOL_SetHandlerUse(&hInfo);
 }
-#ifdef _WIN
+
 #ifdef _DEBUG_OOS
+#ifdef _WIN
 int cmd_convert_oos_log(int *index, int argc, char* argv[])
 {
 	(*index)++;
@@ -397,9 +398,10 @@ int cmd_convert_oos_log(int *index, int argc, char* argv[])
 	else
 		usage(false);
 }
+#endif
 
 
-int cmd_serch_oos_log(int *index, int argc, char* argv[])
+int cmd_search_oos_log(int *index, int argc, char* argv[])
 {
 	char *srcPath = NULL;
 	char *sector = NULL;
@@ -423,6 +425,7 @@ int cmd_serch_oos_log(int *index, int argc, char* argv[])
 }
 #endif
 
+#ifdef _WIN
 // BSR-71
 int cmd_bsrlock_use(int *index, int argc, char* argv[])
 {
@@ -949,7 +952,7 @@ static struct cmd_struct commands[] = {
 	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(seconds)}", "", "1", false },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", true },
-	{ "/serch_oos_log", cmd_serch_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },
+	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },
 #endif
 	{ "/bsrlock_use", cmd_bsrlock_use, "{bsrlock use}", "", "\"1\" or \"0\"", false },
 	{ "/write_log", cmd_write_log, "{provider name} {logging data}", "", "bsr data", true },
@@ -970,6 +973,10 @@ static struct cmd_struct commands[] = {
 	{ "/driver_install", cmd_driver_install, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
 	{ "/driver_uninstall", cmd_driver_uninstall, "{driver file path}", "", "\"C:\\Program Files\\bsr\\bin\\bsrfsflt.inf\"", false },
 	{ "/md5", cmd_md5, "{file path}", "", "\"C:\\Program Files\\bsr\\bin\\md5\"", false },
+#else // _LIN
+#ifdef _DEBUG_OOS
+	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "/var/log/bsr/bsr.log 10240000", true },
+#endif
 #endif
 	{ "/set_fast_sync", cmd_set_fast_sync, "{fast sync use}", "", "\"1\" or \"0\"", false },
 	{ "/get_fast_sync", cmd_get_fast_sync, "", "", "", false },
