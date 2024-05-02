@@ -58,7 +58,8 @@ bool check_unmarked_and_processing(struct bsr_peer_device *peer_device, struct b
 /* 
 	"split request" is used to ensure consistency if there are "marked_replicate" or "resync_pending" and "in sync" in the synchronization response data reception area.
 */
-bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct bsr_split_req_bitmap_bit *bb, atomic_t *split_count);
+// BSR-1257 add parameters to set errors during IS transmission
+bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct bsr_split_req_bitmap_bit *bb, atomic_t *split_count, int *err);
 bool is_oos_belong_to_repl_area(struct bsr_peer_device *peer_device, struct bsr_scope_bitmap_bit sbb);
 int split_request_marked_submit(struct bsr_peer_device *peer_device, struct bsr_peer_request *peer_req, uint32_t peer_seq, struct bsr_split_req_bitmap_bit bb,
 struct bsr_marked_replicate *marked_rl, atomic_t *split_count, int *submit_count, int(*cb)(struct bsr_work *, int cancel));

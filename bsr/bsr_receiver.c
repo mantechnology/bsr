@@ -2901,10 +2901,8 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 			return -ENOMEM;
 		}
 
-		atomic_set(split_count, 0);
-
 		// DW-1601 get the last out of sync bit, bit already synced, split request count information. (It must be called after prepare_garbage_bitmap_bit())
-		if (prepare_split_peer_request(peer_device, &bb, split_count)) {
+		if (prepare_split_peer_request(peer_device, &bb, split_count, &err)) {
 			struct bsr_marked_replicate *marked_rl;
 			bool split = false;
 
@@ -2967,15 +2965,20 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 					}
 				}
 			}
-		}
-		else {
+		} else {
 			// BSR-609 memory leak when not a split request
 			if (split_count)
 				kfree2(split_count);
+
+			// BSR-1257
+			if (err) {
+				bsr_free_peer_req(peer_req);
+				return err;
+			}
+
 			goto all_out_of_sync;
 		}
-	}
-	else {
+	} else {
 	all_out_of_sync:
 		err = recv_req_all_out_of_sync(peer_device, peer_req, d->bi_size);
 		if (err)
@@ -8591,6 +8594,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 
 	// BSR-1033 progress resync for out of sync set to replication during state setting
 	if (resource->role[NOW] == R_PRIMARY &&
+		// BSR-1257 if there is an OOS due to an I/O error, you must reconnect and proceed with resync.
+		!atomic_read(&device->io_error_count) &&
 		(peer_disk_state == D_OUTDATED || (old_peer_state.pdsk == D_OUTDATED || peer_disk_state == D_UP_TO_DATE)) && new_repl_state == L_ESTABLISHED &&
 		bsr_bm_total_weight(peer_device)) {
 		bsr_info(228, BSR_LC_RESYNC_OV, peer_device, "Resync of the replication area that occurs while setting the relative node state is performed. (%llu)", bsr_bm_total_weight(peer_device));
