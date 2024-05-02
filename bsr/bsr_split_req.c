@@ -134,19 +134,27 @@ bool is_marked_rl_bb(struct bsr_peer_device *peer_device, struct bsr_marked_repl
 	return false;
 }
 
-bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct bsr_split_req_bitmap_bit *bb, atomic_t *split_count)
+bool prepare_split_peer_request(struct bsr_peer_device *peer_device, struct bsr_split_req_bitmap_bit *bb, atomic_t *split_count, int *err)
 {
 	bool find_isb = false;
 	bool split_request = true;
 	struct bsr_marked_replicate *marked_rl, *tmp;
 	u16 i; ULONG_PTR ibb;
 
+	atomic_set(split_count, 0);
+
 	list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, tmp, &(peer_device->device->marked_rl_list), marked_rl_list) {
-		if (bit_count(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
-			bsr_set_in_sync(peer_device, BM_BIT_TO_SECT(marked_rl->bb), BM_SECT_PER_BIT << 9);
-			list_del(&marked_rl->marked_rl_list);
-			bsr_kfree(marked_rl);
-			continue;
+		if (bb->s.start <= marked_rl->bb && bb->s.end_next > marked_rl->bb) {
+			if (bit_count(marked_rl->marked_rl) == (sizeof(marked_rl->marked_rl) * 8)) {
+				// BSR-1257 set IS when receiving replication data for all bit areas and send IS to the source node as well
+				bsr_set_in_sync(peer_device, BM_BIT_TO_SECT(marked_rl->bb), BM_SECT_PER_BIT << 9);
+				*err = _bsr_send_ack(peer_device, P_RS_WRITE_ACK, cpu_to_be64(BM_BIT_TO_SECT(marked_rl->bb)), cpu_to_be32(BM_BLOCK_SIZE), ID_SYNCER_SPLIT);
+				list_del(&marked_rl->marked_rl_list);
+				bsr_kfree(marked_rl);
+				if (*err)
+					return false;
+				continue;
+			}
 		}
 
 		if (bsr_bm_test_bit(peer_device, marked_rl->bb) == 0) {
