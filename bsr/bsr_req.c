@@ -2535,6 +2535,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	struct bio_and_error m = { NULL, };
 	bool no_remote = false;
 	bool submit_private_bio = false;
+	bool alloc_accelbuf = false;
 
 
 	for_each_peer_device(peer_device, device) {
@@ -2555,6 +2556,10 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 				spin_unlock_irq(&peer_device->ov_lock);
 			}
 		}
+
+		// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
+		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
+			alloc_accelbuf = true;
 	}
 
 	spin_lock_irq(&resource->req_lock);
@@ -2644,7 +2649,19 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		else if (all_prot_a) {
 			int size;
 			size = BSR_BIO_BI_SIZE(req->private_bio);
-			req->req_databuf = bsr_alloc_accelbuf(device, size);
+
+			// BSR-1280
+			if (alloc_accelbuf) {
+				int total_size;
+				int offset;
+				int hsize = sizeof(struct bsr_offset_ring_header);
+
+				total_size = hsize + size;
+				if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
+					req->req_databuf = device->accelbuf.buf + offset + hsize;
+					atomic_add64(total_size, &device->accelbuf.used_size);
+				}
+			}
 
 			if (req->req_databuf) {
 #ifdef _WIN
