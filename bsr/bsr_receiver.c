@@ -2857,9 +2857,13 @@ static int split_recv_resync_read(struct bsr_peer_device *peer_device, struct bs
 
 
 	// BSR-1207 wait for write completion for the same area for consistent bitmap.
-	if (!list_empty(&peer_device->connection->sync_ee)) {
+	if (!list_empty(&peer_device->connection->sync_ee) || 
+		// BSR-1258 
+		atomic_read(&peer_device->connection->done_ee_cnt)) {
 		long timeo = EE_WAIT_TIMEOUT;
-		wait_event_timeout_ex(peer_device->connection->ee_wait, !overlapping_resync_write(peer_device->connection, peer_req), timeo, timeo);
+		wait_event_timeout_ex(peer_device->connection->ee_wait, 
+			// BSR-1258 move the list from sync_ee to done_ee and complete it. therefore, search the done_ee list as well.
+			!overlapping_resync_in_progress(peer_device->connection, peer_req), timeo, timeo);
 		if (!timeo) {
 			err = -EIO;
 			bsr_err(234, BSR_LC_REPLICATION, peer_device, "Failed to receive rs data due to timeout waiting for resync to complete on the same sector.");
