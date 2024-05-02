@@ -2443,6 +2443,40 @@ bool overlapping_local_write(struct bsr_device *device, struct bsr_peer_request 
 	return rv;
 }
 
+// BSR-1258
+bool overlapping_resync_in_progress(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
+{
+	struct bsr_peer_request *req;
+	bool rv = false;
+
+	spin_lock_irq(&connection->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_peer_request, req, &connection->sync_ee, w.list) {
+		if (req->peer_device != peer_req->peer_device)
+			continue;
+		if (overlaps(peer_req->i.sector, peer_req->i.size,
+			req->i.sector, req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+
+	if (!rv) {
+		list_for_each_entry_ex(struct bsr_peer_request, req, &connection->done_ee, w.list) {
+			if ((req->peer_device != peer_req->peer_device) ||
+				req->block_id != ID_SYNCER)
+				continue;
+			if (overlaps(peer_req->i.sector, peer_req->i.size,
+				req->i.sector, req->i.size)) {
+				rv = true;
+				break;
+			}
+		}
+	}
+	spin_unlock_irq(&connection->resource->req_lock);
+
+	return rv;
+}
+
 // BSR-997 check whether the sector is within the ov progress range
 static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
 {
