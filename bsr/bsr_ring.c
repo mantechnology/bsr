@@ -129,69 +129,69 @@ bool bsr_idx_ring_acquire(struct bsr_idx_ring_buffer *rb, LONGLONG *idx)
 // BSR-1145
 char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *name)
 {
+	int allocated = atomic_read(&buf->allocated);
+	char *buffer = NULL;
+
 	if (buf->buf == NULL) {
 		if (new_size == 0) {
-			buf->total_size = 0;
-			return NULL;
-		}
-		else {
-#ifdef _WIN
-			buf->buf = (char *)ExAllocatePoolWithTag(NonPagedPool, (size_t)new_size, '63SB');
-#else
-			buf->buf = (char *)bsr_kvmalloc(new_size, GFP_ATOMIC | __GFP_NOWARN);
-#endif
-			if (!buf->buf) {
-				bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
-				return NULL;
-			}
-
-			memset(buf->buf, 0, new_size);
-
-			atomic_set(&buf->r_offset.acquired, 0);
-			atomic_set(&buf->r_offset.disposed, 0);
-
-			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "allocation of offset buffer to %s, size %d", name, new_size);
 			buf->total_size = new_size;
+		} else {
+			// BSR-1282
+			if (!allocated && (allocated == atomic_cmpxchg(&buf->allocated, allocated, 1))) {
+				// BSR-1282 increase 1 to prevent unintended deallocation during or after allocation.
+				atomic_add64(1, &buf->used_size);
+#ifdef _WIN
+				buf->buf = (char *)ExAllocatePoolWithTag(NonPagedPool, (size_t)new_size, '63SB');
+#else
+				buf->buf = (char *)bsr_kvmalloc(new_size, GFP_ATOMIC | __GFP_NOWARN);
+#endif
+				if (buf->buf) {
+					bsr_info(90, BSR_LC_ETC, NO_OBJECT, "%p, allocation of offset buffer to %s, size %d", buf->buf, name, new_size);
+
+					memset(buf->buf, 0, new_size);
+
+					atomic_set(&buf->r_offset.acquired, 0);
+					atomic_set(&buf->r_offset.disposed, 0);
+
+					buf->total_size = new_size;
+					buffer = buf->buf;
+				} else {
+					bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
+					atomic_set(&buf->allocated, 0);
+				}
+
+				atomic_sub64(1, &buf->used_size);
+			}
 		}
-	}
-	else {
+	} else {
 		if (buf->total_size != new_size) {
 			// BSR-1145 when reallocating a buffer, if the buffer is in use, it returns NULL to deactivate the buffer and then reassign it.
-			if (atomic_read64(&buf->used_size)){
-				return NULL;
-			}
-			if (new_size == 0) {
-				kvfree2(buf->buf);
-				buf->total_size = 0;
-				return NULL;
-			}
-#ifdef _WIN
-			buf->buf = (char *)ExAllocatePoolWithTag(NonPagedPool, (size_t)new_size, '63SB');
-#else
-			buf->buf = (char *)bsr_kvmalloc(new_size, GFP_ATOMIC | __GFP_NOWARN);
+			if (!atomic_read64(&buf->used_size)) {
+#ifdef _LIN
+				sub_kvmalloc_mem_usage(buf->buf, buf->total_size);
 #endif
-			if (!buf->buf) {
-				bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
-				return NULL;
+				kvfree2(buf->buf);
+				// BSR-1282
+				atomic_set(&buf->allocated, 0);
+
+				if (new_size == 0)
+					buf->total_size = new_size;
 			}
-
-			memset(buf->buf, 0, new_size);
-
-			atomic_set(&buf->r_offset.acquired, 0);
-			atomic_set(&buf->r_offset.disposed, 0);
-
-			bsr_info(90, BSR_LC_ETC, NO_OBJECT, "allocation of offset buffer to %s, size %d", name, new_size);
-			buf->total_size = new_size;
-		}
+		} else 
+			buffer = buf->buf;
 	}
 
-	return buf->buf;
+	return buffer;
 }
 
 void bsr_offset_ring_free(struct bsr_offset_buffer *buf)
 {
-	if (buf->buf)
+	if (buf->buf) {
+#ifdef _LIN
+		sub_kvmalloc_mem_usage(buf->buf, buf->total_size);
+#endif
 		kvfree2(buf->buf);
+	}
 }
 
 bool bsr_offset_ring_dispose(struct bsr_offset_buffer *buf, int offset)

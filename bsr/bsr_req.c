@@ -2558,8 +2558,10 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		}
 
 		// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
-		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
-			alloc_accelbuf = true;
+		if (req->i.size <= device->resource->res_opts.max_accelbuf_blk_size) {
+			if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
+				alloc_accelbuf = true;
+		}
 	}
 
 	spin_lock_irq(&resource->req_lock);
