@@ -191,6 +191,8 @@ void bsr_offset_ring_free(struct bsr_offset_buffer *buf)
 		sub_kvmalloc_mem_usage(buf->buf, buf->total_size);
 #endif
 		kvfree2(buf->buf);
+		atomic_set(&buf->allocated, 0);
+		buf->total_size = 0;
 	}
 }
 
