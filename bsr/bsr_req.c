@@ -2503,30 +2503,6 @@ static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst,
 	return false;
 }
 
-char* bsr_alloc_accelbuf(struct bsr_device *device, int size)
-{
-	char* accelbuf = NULL;
-	int offset;
-	int total_size;
-
-	// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
-	// the purpose of accelbuf is to improve the local write performance of small-sized writes.
-	if (size <= device->resource->res_opts.max_accelbuf_blk_size) {
-		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf")) {
-			int hsize = sizeof(struct bsr_offset_ring_header);
-
-			total_size = hsize + size;
-			// BSR-1116 buffering write data to improve local write performance for asynchronous replication
-			if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
-				accelbuf = device->accelbuf.buf + offset + hsize;
-				atomic_add64(total_size, &device->accelbuf.used_size);
-			}
-		}
-	}
-
-	return accelbuf;
-}
-
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
 	struct bsr_resource *resource = device->resource;
@@ -2557,9 +2533,13 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 			}
 		}
 
-		// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
-		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
-			alloc_accelbuf = true;
+		// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
+		// the purpose of accelbuf is to improve the local write performance of small-sized writes.
+		if (req->i.size <= device->resource->res_opts.max_accelbuf_blk_size) {
+			// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
+			if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
+				alloc_accelbuf = true;
+		}
 	}
 
 	spin_lock_irq(&resource->req_lock);
@@ -2657,6 +2637,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 				int hsize = sizeof(struct bsr_offset_ring_header);
 
 				total_size = hsize + size;
+				// BSR-1116 buffering write data to improve local write performance for asynchronous replication
 				if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
 					req->req_databuf = device->accelbuf.buf + offset + hsize;
 					atomic_add64(total_size, &device->accelbuf.used_size);
