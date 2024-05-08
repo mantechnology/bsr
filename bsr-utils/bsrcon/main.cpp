@@ -257,7 +257,31 @@ int cmd_dbglog_ctgr(int *index, int argc, char* argv[])
 	return 0;
 }
 
-#define BToM(x) (x / 1024 / 1024)
+#define MAX_NUMBER_LEN 256
+
+// BSR-1273
+char *printNumber(char *number, double num) 
+{
+
+	memset(number, 0, MAX_NUMBER_LEN);
+
+	if (num == (int)num)
+#ifdef _WIN
+		sprintf_s(number, MAX_NUMBER_LEN, "%.0f", num);
+#else
+		sprintf(number, "%.0f", num);
+#endif
+	else
+#ifdef _WIN
+		sprintf_s(number, MAX_NUMBER_LEN, "%f", num);
+#else
+		sprintf(number, "%f", num);
+#endif
+
+	return number;
+}
+
+#define BToM(x) ((double)x / 1024 / 1024)
 
 int cmd_get_log_info(int *index, int argc, char* argv[])
 {
@@ -267,7 +291,8 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	int log_max_count = 0;
 	int cli_log_max_count = 0;
 	int dbg_ctgr = 0;
-	int log_backup_size = 0;
+	double log_backup_size = 0;
+	char number[MAX_NUMBER_LEN] = { 0, };
 
 	// DW-2008
 	if (get_log_level(&sys_evt_lv, &dbglog_lv)) {
@@ -292,17 +317,17 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 			setup_cnt = ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 			meta_cnt = ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 
-			printf("    bsradm : size %dMB, count %d, total size %dMB\n", log_backup_size, adm_cnt, adm_cnt * log_backup_size);
-			printf("    bsrsetup : size %dMB, count %d, total size %dMB\n", log_backup_size, setup_cnt, setup_cnt * log_backup_size);
-			printf("    bsrmeta : size %dMB, count %d, total size %dMB\n", log_backup_size, meta_cnt, meta_cnt * log_backup_size);
+			printf("    bsradm : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), adm_cnt, printNumber(number, adm_cnt * log_backup_size));
+			printf("    bsrsetup : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), setup_cnt, printNumber(number, setup_cnt * log_backup_size));
+			printf("    bsrmeta : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), meta_cnt, printNumber(number, meta_cnt * log_backup_size));
 		}
 		else
 			printf("Failed to get cli log file max count\n");
 
-		log_backup_size = BToM(BSR_LOG_SIZE);
+		log_backup_size = BToM(LOGBUF_MAXCNT * MAX_BSRLOG_BUF);
 		// BSR-579
 		if (get_engine_log_file_max_count(&log_max_count))
-			printf("    bsrdriver : size %dMB, count %d, total size %dMB\n", log_backup_size, log_max_count, log_max_count * log_backup_size);
+			printf("    bsrdriver : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), log_max_count, printNumber(number, log_max_count * log_backup_size));
 		else
 			printf("Failed to get log file max count\n");
 
@@ -336,7 +361,7 @@ int cmd_get_handler_info(int *index, int argc, char* argv[])
 	printf("Current handler.\n");
 	printf("    state : %s\n", get_handler_use() ? "enable" : "disable");
 #ifdef _WIN
-	printf("    timeout : %d\n", get_handler_timeout());
+	printf("    timeout : %dms\n", get_handler_timeout());
 #endif
 	return 0;
 }
@@ -949,7 +974,7 @@ static struct cmd_struct commands[] = {
 	{ "/get_handler_info", cmd_get_handler_info, "", "", "", false },
 #ifdef _WIN
 	// BSR-1060
-	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(seconds)}", "", "1", false },
+	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(millisecond)}", "", "1", false },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", true },
 	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },
