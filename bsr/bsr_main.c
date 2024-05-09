@@ -1499,6 +1499,10 @@ enum bsr_packet cmd, enum bsr_stream bsr_stream)
 	in turn waits for reply packets. -> Need to send it regardless of
 	corking.  */
 
+	// BSR-1283 In bsr_resync_finished() a uuid receive wait occurs.
+	// P_UUIDS110, P_UUID_ACK also need to send it regardless of corking.
+	flush |= (cmd == P_UUID_ACK || cmd == P_UUIDS110);
+
 	if (connection->cstate[NOW] < C_CONNECTING)
 		return -EIO;
 	prepare_header(connection, vnr, sbuf->pos, cmd,
