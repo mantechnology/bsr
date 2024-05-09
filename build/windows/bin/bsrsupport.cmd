@@ -11,6 +11,9 @@ for /f "tokens=*" %%a in ('bsrcon /get_log_path') do set BSR_LOG_DIR=%%a
 @rem BSR-1215
 for /f "tokens=*" %%a in ('bsrmon /get file_path') do set BSRMON_DIR=%%a
 
+@rem BSR-1260
+set BSRMON_DIR=%BSRMON_DIR:path : =%
+
 set bsrsupport_log="%BSR_LOG_DIR%\bsrsuupport.log"
 echo [%date%_%time%] [bsrsupport] start. > %bsrsupport_log%
 
