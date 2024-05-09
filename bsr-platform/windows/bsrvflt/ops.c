@@ -203,15 +203,18 @@ out:
 
 // BSR-1066 for volume lock after chkdsk in bsrsetup check-fs
 NTSTATUS
-IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject)
+IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	PVOLUME_EXTENSION pvext = DeviceObject->DeviceExtension;
 	struct bsr_device *device = NULL;
+	int is_fs = 0;
  
  	if (DeviceObject == mvolRootDeviceObject) {
 		return STATUS_INVALID_DEVICE_REQUEST;
 	}
+
+	is_fs = *(int*)Irp->AssociatedIrp.SystemBuffer;
 
     COUNT_LOCK(pvext);
 
@@ -221,10 +224,13 @@ IOCTL_DismountVolume(PDEVICE_OBJECT DeviceObject)
 		pvext->WorkThreadInfo = &device->resource->WorkThreadInfo;
     	pvext->bPreviouslyResynced = FALSE;
 		pvext->Active = TRUE;
-		FsctlLockVolume(device->minor);
-		FsctlFlushDismountVolume(device->minor, true);
+		// BSR-1267 call the following functions only if you have a file system.
+		if (is_fs) {
+			FsctlLockVolume(device->minor);
+			FsctlFlushDismountVolume(device->minor, true);
+			FsctlUnlockVolume(device->minor);
+		}
 		pvext->bPreviouslyResynced = TRUE;
-		FsctlUnlockVolume(device->minor);
 
 		kref_put(&device->kref, bsr_destroy_device);
     } 
