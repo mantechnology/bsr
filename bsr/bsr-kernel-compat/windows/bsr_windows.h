@@ -1129,7 +1129,8 @@ extern int g_daemon_tcp_port;
 extern WCHAR g_ver[];
 
 #ifdef _WIN_HANDLER_TIMEOUT
-atomic_t g_handler_timeout;
+// BSR-1273 The default value is 5000ms and the unit is ms.
+atomic_t g_handler_timeout; 
 int g_handler_retry;
 #endif
 
