@@ -95,15 +95,18 @@ exit /B %ERRORLEVEL%
 
 :GetCoreDumpFile
 	call :logging "Get Core Dump file..."
-
-	for /f "delims=" %%a IN (%1) do @set core_filename=%%~nxa
-
+	
+	for %%a IN (%1) do ( 
+		set core_filename=%%~nxa
+	)
+	
     set CORE_ARCHIVE_NAME=%core_filename%.zip
 
     set BSR_DIR=%OUTPUT_HOME%\BSR
     if not exist "%BSR_DIR%" ( mkdir "%BSR_DIR%" )
 
-    "%BSR_PATH%\..\support\zip" -9j "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
+	@rem BSR-1264 include directories when compressed
+    "%BSR_PATH%\..\support\zip" -9 "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
 
     if %ERRORLEVEL% EQU 0 (
 		call :logging  "core file has been compressed."
