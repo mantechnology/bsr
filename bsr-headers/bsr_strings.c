@@ -206,6 +206,7 @@ static const char * const __packet_names[] = {
 	[P_PEER_ACK]		= "P_PEER_ACK",
 	[P_PEERS_IN_SYNC]       = "P_PEERS_IN_SYNC",
 	[P_UUIDS110]            = "P_UUIDS110",
+	[P_UUID_ACK]            = "P_UUID_ACK",
 	[P_PEER_DAGTAG]         = "P_PEER_DAGTAG",
 	[P_CURRENT_UUID]        = "P_CURRENT_UUID",
 	[P_TWOPC_COMMIT]	= "P_TWOPC_COMMIT",

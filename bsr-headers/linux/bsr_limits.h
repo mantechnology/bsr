@@ -124,7 +124,8 @@
 #endif
 
 // BSR-1116
-#define BSR_ACCELBUF_SIZE_MAX  (1024*1024*1024*2) // 2G
+// BSR-1275 
+#define BSR_ACCELBUF_SIZE_MAX  (1024*1024*1024*2LL) // 2G
 // BSR-1145
 #define BSR_ACCELBUF_SIZE_DEF  (1024*1024*10) // 10MB
 // BSR-843 change the minimum size to 0 for disable accelbuf. (0 = disable) 
