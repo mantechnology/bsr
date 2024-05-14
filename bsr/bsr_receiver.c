@@ -3861,21 +3861,25 @@ static int receive_Data(struct bsr_connection *connection, struct packet_info *p
 		}
 	}
 
+	// BSR-1290 
+	spin_lock_irq(&device->resource->req_lock);
+	// BSR-1290 set the latest replication state again.
+	repl_state = peer_device->repl_state[NOW];
 	// BSR-1220 set whether to complete bitmap replacement according to the following conditions and refer to the corresponding settings in do_submit().
 	if (repl_state == L_WF_BITMAP_T ||
 		((repl_state == L_SYNC_TARGET || repl_state == L_BEHIND) && atomic_read(&peer_device->wait_for_bm_exchange_compl))) {
 		// DW-1979 set to D_INCONSISTENT when replication data occurs during resync start.
 		if (peer_device->device->disk_state[NOW] != D_INCONSISTENT &&
 			peer_device->device->disk_state[NEW] != D_INCONSISTENT) {
-			unsigned long irq_flags;
-			begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
+			begin_state_change_locked(device->resource, CS_VERBOSE);
 			__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
-			end_state_change(device->resource, &irq_flags, __FUNCTION__);
+			end_state_change_locked(device->resource, false, __FUNCTION__);
 		}
 
 		peer_req->bm_exchanged = false;
 	} else 
 		peer_req->bm_exchanged = true;
+	spin_unlock_irq(&device->resource->req_lock);
 
 	/* If we would need to block on the activity log,
 	* we may queue this request for the submitter workqueue.
