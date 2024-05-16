@@ -7717,8 +7717,10 @@ retry:
 				goto retry;
 				
 		}
-	
+
 		bsr_warn(208, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
+		// BSR-1294 even if you fail, you have to reduce will_be_used_vol_ctl_mutex
+		atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 	}
 	
 
