@@ -293,7 +293,8 @@
 #define BSR_DISK_DISKLESS_DEF    0
 #define BSR_MD_FLUSHES_DEF	1
 // DW-1652 change the default value of tcp-cork to no
-#define BSR_TCP_CORK_DEF	0
+// BSR-1285 restore the default value of tcp-cork to yes to improve multi-volume performance
+#define BSR_TCP_CORK_DEF	1
 #define BSR_AL_UPDATES_DEF     1
 /* We used to ignore the discard_zeroes_data setting.
  * To not change established (and expected) behaviour,

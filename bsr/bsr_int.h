@@ -3931,8 +3931,8 @@ static inline void request_ping(struct bsr_connection *connection)
 extern void *__conn_prepare_command(struct bsr_connection *, int, enum bsr_stream);
 extern void *conn_prepare_command(struct bsr_connection *, int, enum bsr_stream);
 extern void *bsr_prepare_command(struct bsr_peer_device *, int, enum bsr_stream);
-extern int __send_command(struct bsr_connection *, int, enum bsr_packet, enum bsr_stream);
-extern int send_command(struct bsr_connection *, int, enum bsr_packet, enum bsr_stream);
+extern int __send_command(struct bsr_connection *, int, enum bsr_packet, int stream_and_flags);
+extern int send_command(struct bsr_connection *, int, enum bsr_packet, int stream_and_flags);
 extern int bsr_send_command(struct bsr_peer_device *, enum bsr_packet, enum bsr_stream);
 
 extern int bsr_send_ping(struct bsr_connection *connection);
