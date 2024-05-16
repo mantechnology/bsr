@@ -1482,26 +1482,42 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	return err;
 }
 
-int __send_command(struct bsr_connection *connection, int vnr,
-enum bsr_packet cmd, enum bsr_stream bsr_stream)
+
+/*
+ * BSR-1285
+ *
+ * SFLAG_FLUSH makes sure the packet (and everything queued in front
+ * of it) gets sent immediately independently if it is currently
+ * corked.
+ *
+ * This is used for P_PING, P_PING_ACK, P_TWOPC_PREPARE, P_TWOPC_ABORT,
+ * P_TWOPC_YES, P_TWOPC_NO, P_TWOPC_RETRY and P_TWOPC_COMMIT.
+ * BSR-1283 P_UUIDS110, P_UUID_ACK
+ * BSR-1285 P_BM_EXCHANGE_STATE
+ *
+ * This quirk is necessary because it is corked while the worker
+ * thread processes work items. When it stops processing items, it
+ * uncorks. That works perfectly to coalesce ack packets etc..
+ * A work item doing two-phase commits needs to override that behavior.
+ */
+#define SFLAG_FLUSH 0x10
+#define BSR_STREAM_FLAGS (SFLAG_FLUSH)
+
+static inline enum bsr_stream extract_stream(int stream_and_flags)
 {
+	return stream_and_flags & ~BSR_STREAM_FLAGS;
+}
+
+int __send_command(struct bsr_connection *connection, int vnr,
+enum bsr_packet cmd, int stream_and_flags)
+{
+	enum bsr_stream bsr_stream = extract_stream(stream_and_flags);
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
 	struct bsr_transport *transport = &connection->transport;
 	struct bsr_transport_ops *tr_ops = transport->ops;
 	bool corked = test_bit(CORKED + bsr_stream, &connection->flags);
-	bool flush = (cmd == P_PING || cmd == P_PING_ACK || cmd == P_TWOPC_PREPARE);
+	bool flush = stream_and_flags & SFLAG_FLUSH;
 	int err;
-
-	/* send P_PING and P_PING_ACK immediately, they need to be delivered as
-	fast as possible.
-	P_TWOPC_PREPARE might be used from the worker context while corked.
-	The work item (connect_work) calls change_cluster_wide_state() which
-	in turn waits for reply packets. -> Need to send it regardless of
-	corking.  */
-
-	// BSR-1283 In bsr_resync_finished() a uuid receive wait occurs.
-	// P_UUIDS110, P_UUID_ACK also need to send it regardless of corking.
-	flush |= (cmd == P_UUID_ACK || cmd == P_UUIDS110);
 
 	if (connection->cstate[NOW] < C_CONNECTING)
 		return -EIO;
@@ -1581,11 +1597,12 @@ void bsr_uncork(struct bsr_connection *connection, enum bsr_stream stream)
 }
 
 int send_command(struct bsr_connection *connection, int vnr,
-		 enum bsr_packet cmd, enum bsr_stream bsr_stream)
+		 enum bsr_packet cmd, int stream_and_flags)
 {
+	enum bsr_stream bsr_stream = extract_stream(stream_and_flags);
 	int err;
 
-	err = __send_command(connection, vnr, cmd, bsr_stream);
+	err = __send_command(connection, vnr, cmd, stream_and_flags);
 	mutex_unlock(&connection->mutex[bsr_stream]);
 	return err;
 }
@@ -1601,14 +1618,14 @@ int bsr_send_ping(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_PING, CONTROL_STREAM);
+	return send_command(connection, -1, P_PING, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 int bsr_send_ping_ack(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_PING_ACK, CONTROL_STREAM);
+	return send_command(connection, -1, P_PING_ACK, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 // BSR-863
@@ -1616,7 +1633,8 @@ int bsr_send_uuid_ack(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_UUID_ACK, CONTROL_STREAM);
+	// BSR-1283
+	return send_command(connection, -1, P_UUID_ACK, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 
@@ -1951,7 +1969,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 #endif
 	p_size = (int)(sizeof(*p) + (hweight64(bitmap_uuids_mask) + HISTORY_UUIDS) * sizeof(p->other_uuids[0]));
 	resize_prepared_command(peer_device->connection, DATA_STREAM, p_size);
-	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM);
+
+	// BSR-1283 In bsr_resync_finished() a uuid receive wait occurs.
+	// P_UUIDS110, P_UUID_ACK also need to send it regardless of corking.
+	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM | SFLAG_FLUSH);
 }
 
 int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
@@ -2264,7 +2285,7 @@ int conn_send_twopc_request(struct bsr_connection *connection, int vnr, enum bsr
 		return -EIO;
 	memcpy(p, request, sizeof(*request));
 
-	return send_command(connection, vnr, cmd, DATA_STREAM);
+	return send_command(connection, vnr, cmd, DATA_STREAM | SFLAG_FLUSH);
 }
 
 void bsr_send_sr_reply(struct bsr_connection *connection, int vnr, enum bsr_state_rv retcode)
@@ -2303,7 +2324,7 @@ void bsr_send_twopc_reply(struct bsr_connection *connection,
 			p->max_possible_size = cpu_to_be64(reply->max_possible_size);
 			break;
 		}
-		send_command(connection, reply->vnr, cmd, CONTROL_STREAM);
+		send_command(connection, reply->vnr, cmd, CONTROL_STREAM | SFLAG_FLUSH);
 	}
 }
 
@@ -2848,7 +2869,8 @@ int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bs
 
 	p->state = cpu_to_be32(state);
 
-	return bsr_send_command(peer_device, cmd, DATA_STREAM);
+	// BSR-1285
+	return bsr_send_command(peer_device, cmd, DATA_STREAM | SFLAG_FLUSH);
 
 }
 
