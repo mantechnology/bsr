@@ -1610,7 +1610,8 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(buf, 0, sizeof(buf));
 	if (!fgets(buf, sizeof(buf), fp)) {
 		pclose(fp);
-		return 0;
+		// BSR-1267 if the file system does not exist, it forwards the error.
+		return 1;
 	}
 	pclose(fp);
 
