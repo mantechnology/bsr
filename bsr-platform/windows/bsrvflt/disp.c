@@ -955,7 +955,7 @@ mvolDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 		}
 		case IOCTL_MVOL_DISMOUNT_VOLUME:
 		{
-			status = IOCTL_DismountVolume(DeviceObject);
+			status = IOCTL_DismountVolume(DeviceObject, Irp);
 			MVOL_IOCOMPLETE_REQ(Irp, status, 0);
 		}
 

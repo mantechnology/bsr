@@ -1482,7 +1482,8 @@ static bool unlock_volume(char dev_letter)
 	return ret;
 }
 
-static bool lock_volume(char dev_letter)
+// BSR-1267
+static bool lock_volume(char dev_letter, int is_fs)
 {
 	DWORD dwReturned;
 	HANDLE handle = INVALID_HANDLE_VALUE;
@@ -1495,7 +1496,7 @@ static bool lock_volume(char dev_letter)
 	if (handle == INVALID_HANDLE_VALUE)
 		return false;
 
-	ret = DeviceIoControl(handle, IOCTL_MVOL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &dwReturned, NULL);
+	ret = DeviceIoControl(handle, IOCTL_MVOL_DISMOUNT_VOLUME, &is_fs, sizeof(int), NULL, 0, &dwReturned, NULL);
 
 	CloseHandle(handle);
 
@@ -1537,6 +1538,10 @@ static int need_filesystem_recovery(char dev_letter)
 	bool xfs_fs = false;
 	char *argv[] = { "chkdsk", (char[3]){dev_letter, ':', '\0'}, NULL };
 	char fs_check_log[256];
+	int is_fs = 0;
+	char path_letter[] = { dev_letter, ':', '\\', '\0' };
+	char fs_name[MAX_PATH + 1] = { 0, };
+	DWORD fs_flags;
 
 	// check fast sync settings
 	// if full sync, skip filesystem check
@@ -1545,16 +1550,20 @@ static int need_filesystem_recovery(char dev_letter)
 	}
 
 	memset(fs_check_log, 0, sizeof(fs_check_log));
-	
 	snprintf(fs_check_log, sizeof(fs_check_log), "%s\\chkdsk_%c.log", lpath, dev_letter);
-	
+
 	// remove old log files
 	remove(fs_check_log);
 
-	/// BSR-1066 volume temporary mount to run chkdsk
 	unlock_volume(dev_letter);
+	// BSR-1267 verify that the file system exists on the volume.
+	if (GetVolumeInformation(path_letter, NULL, 0, NULL, NULL, &fs_flags, fs_name, MAX_PATH + 1) && fs_name[0]) {
+		is_fs = 1;
+	}
+
+	/// BSR-1066 volume temporary mount to run chkdsk
 	ret = run_check_fs(argv, fs_check_log);
-	lock_volume(dev_letter);
+	lock_volume(dev_letter, is_fs);
 	
 	if (ret == -1) {
 		CLI_ERRO_LOG_STDERR(false, "could not be executed '%s'", cmd);
@@ -1601,7 +1610,8 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(buf, 0, sizeof(buf));
 	if (!fgets(buf, sizeof(buf), fp)) {
 		pclose(fp);
-		return 0;
+		// BSR-1267 if the file system does not exist, it forwards the error.
+		return 1;
 	}
 	pclose(fp);
 
