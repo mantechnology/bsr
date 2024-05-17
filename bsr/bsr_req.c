@@ -1181,6 +1181,12 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		advance_conn_req_ack_pending(peer_device, req);
 	}
 
+	// BSR-1295 if it is cleared before transfer, decrease rq_pending_oos_cnt if RQ_OOS_PENDING is set. (ex. CONNECTION_LOST_WHILE_PENDING)
+	if (clear & RQ_NET_OK) {
+		if ((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)) 
+			atomic_dec(&peer_device->rq_pending_oos_cnt);
+	}
+
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
 		// BSR-843
 #ifdef SPLIT_REQUEST_RESYNC
