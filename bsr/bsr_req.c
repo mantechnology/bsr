@@ -2632,7 +2632,9 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		}
 		// BSR-1145 check the status of the connected node and allocate it. 
 		// accelbuf is only used when all connected nodes use asynchronous replication.
-		else if (all_prot_a) {
+		else if (all_prot_a
+			// BSR-1296 verify that the private_bio is valid.
+			&& req->private_bio) {
 			int size;
 			size = BSR_BIO_BI_SIZE(req->private_bio);
 
