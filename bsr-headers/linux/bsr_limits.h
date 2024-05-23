@@ -391,7 +391,8 @@
 
 #define BSR_AL_STRIPE_SIZE_MIN   4
 #define BSR_AL_STRIPE_SIZE_MAX   16777216
-#define BSR_AL_STRIPE_SIZE_DEF   32
+// BSR-1222 when resizeing, change the default value to 320k that allows al-extents to be assigned as the maximum value.
+#define BSR_AL_STRIPE_SIZE_DEF   320
 #define BSR_AL_STRIPE_SIZE_SCALE 'k' /* kilobytes */
 
 #define BSR_SOCKET_CHECK_TIMEO_MIN 1

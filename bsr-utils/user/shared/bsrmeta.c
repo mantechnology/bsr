@@ -85,7 +85,8 @@ int	dry_run = 0;
 int     option_peer_max_bio_size = 0;
 int     option_node_id = -1;
 unsigned option_al_stripes = 1;
-unsigned option_al_stripe_size_4k = 8;
+// BSR-1222 when creating the meta, change the default to 320k to allow the maximum allocation of al-extents.
+unsigned option_al_stripe_size_4k = 80;
 unsigned option_al_stripes_used = 0;
 char *progname = NULL;
 
