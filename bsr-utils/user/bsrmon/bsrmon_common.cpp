@@ -367,8 +367,11 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile, void *param)
 		}
 
 		// BSR-1239 If the backup file size is 0, it is less than the minimum required capacity of the resource, so do not write to the file
-		if (backup_size == 0)
+		if (backup_size == 0) {
+			// BSR-1286
+			fclose(fp);
 			return NULL;
+		}
 	}
 
 	if ((1024 * 1024 * backup_size) < size) {
@@ -482,15 +485,18 @@ void _bsrmon_log(const char * func, int line, const char * fmt, ...) {
 
 	f_out = log_fileopen(bsrmon_log_path, curr_time);
 
-	va_start(args, fmt);
+	// BSR-1286
+	if (f_out) {
+		va_start(args, fmt);
 
 #ifdef _WIN
-	vsnprintf_s(b + offset, 512 - offset, 512 - offset, fmt, args);
+		vsnprintf_s(b + offset, 512 - offset, 512 - offset, fmt, args);
 #else // _LIN
-	vsnprintf(b + offset, 512 - offset, fmt, args);
+		vsnprintf(b + offset, 512 - offset, fmt, args);
 #endif
-	va_end(args);
+		va_end(args);
 
-	fprintf(f_out, "%s", b);		
-	fclose(f_out);
+		fprintf(f_out, "%s", b);
+		fclose(f_out);
+	}
 }
