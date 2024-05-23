@@ -527,7 +527,8 @@ static pid_t GetRunningPid()
 	char buf[10] = {0,};
 	pid_t pid = 0;
 	pid_t c_pid = 0;
-	FILE *cmd_pipe = popen("pgrep -fa \"bsrmon /start\" | grep -v pgrep | awk '{print $1}'", "r");
+	// BSR-1298
+	FILE *cmd_pipe = popen("ps -ef  | grep \"bsrmon /start\" | grep -v grep | awk '{print $2}'", "r");
 	if (!cmd_pipe)
 		return 0;
 	
