@@ -60,6 +60,8 @@ struct ring_offset_t  {
 };
 struct bsr_offset_buffer {
 	char *buf;
+	// BSR-1282 used to prevent duplicate allocates. 0 - not allocated, 1 - already allocated
+	atomic_t allocated;
 	struct ring_offset_t r_offset;
 	u64 total_size;
 	atomic_t64 used_size;

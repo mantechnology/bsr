@@ -98,8 +98,8 @@
 
 #ifdef _WIN
 #define BSR_LOG_FILE_NAME L"bsr.log"
-// rolling file format, ex) bsr.log_2020-06-02T104543.745 
-#define BSR_LOG_ROLLING_FILE_NAME L"bsr.log_"
+// backup file format, ex) bsr.log_2020-06-02T104543.745 
+#define BSR_LOG_BACKUP_FILE_NAME L"bsr.log_"
 #endif
 #define BSR_LOG_FILE_COUNT 0x00
 #define BSR_LOG_FILE_DELETE 0x01
@@ -570,7 +570,7 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 		unsigned int set_size)
 {
 	struct bsr_resource *resource = connection->resource;
-	struct bsr_request *r;
+	struct bsr_request *r = NULL;
 	struct bsr_request *req = NULL;
 	int expect_epoch = 0;
 	unsigned int expect_size = 0;
@@ -579,7 +579,16 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 
 	/* find oldest not yet barrier-acked write request,
 	 * count writes in its epoch. */
-	list_for_each_entry_ex(struct bsr_request, r, &resource->transfer_log, tl_requests) {
+
+	// BSR-1195 set req_last_barrier_acked to null if tl_requests has been removed.
+	if (connection->req_last_barrier_acked && list_empty(&connection->req_last_barrier_acked->tl_requests)) {
+		connection->req_last_barrier_acked = NULL;
+	} 
+
+	// BSR-1195 improve IO performance degradation due to transfer_log traversal
+	// if req_last_barrier_acked is not null, set transfer_log traversal starting point
+	r = list_prepare_entry_ex(struct bsr_request, connection->req_last_barrier_acked, &resource->transfer_log, tl_requests);
+	list_for_each_entry_continue_ex(struct bsr_request, r, &resource->transfer_log, tl_requests) {
 		struct bsr_peer_device *peer_device;
 		int idx;
 		peer_device = conn_peer_device(connection, r->device->vnr);
@@ -644,16 +653,29 @@ void tl_release(struct bsr_connection *connection, int barrier_nr,
 	/* this extra list walk restart is paranoia,
 	 * to catch requests being barrier-acked "unexpectedly".
 	 * It usually should find the same req again, or some READ preceding it. */
-	list_for_each_entry_ex(struct bsr_request, req, &resource->transfer_log, tl_requests)
+	req = list_prepare_entry_ex(struct bsr_request, connection->req_last_barrier_acked, &resource->transfer_log, tl_requests);
+	list_for_each_entry_continue_ex(struct bsr_request, req, &resource->transfer_log, tl_requests) {
 		if (req->epoch == expect_epoch)
 			break;
+	}
+	
 	tl_for_each_req_ref_from(req, r, &resource->transfer_log) {
 		struct bsr_peer_device *peer_device;
+		int idx;
 		if (req->epoch != expect_epoch) {
 			tl_abort_for_each_req_ref(r, &resource->transfer_log);
 			break;
 		}
+
+		// BSR-1195
+		connection->req_last_barrier_acked = req;
+
 		peer_device = conn_peer_device(connection, req->device->vnr);
+		idx = 1 + peer_device->node_id;
+		// BSR-1256 OOS request does not set BARRIER_ACKED for reference count management.
+		if (req->rq_state[idx] & (RQ_OOS_PENDING | RQ_OOS_NET_QUEUED))
+			continue;
+
 		_req_mod(req, BARRIER_ACKED, peer_device);
 	}
 	spin_unlock_irq(&connection->resource->req_lock);
@@ -1460,22 +1482,42 @@ static int flush_send_buffer(struct bsr_connection *connection, enum bsr_stream 
 	return err;
 }
 
-int __send_command(struct bsr_connection *connection, int vnr,
-enum bsr_packet cmd, enum bsr_stream bsr_stream)
+
+/*
+ * BSR-1285
+ *
+ * SFLAG_FLUSH makes sure the packet (and everything queued in front
+ * of it) gets sent immediately independently if it is currently
+ * corked.
+ *
+ * This is used for P_PING, P_PING_ACK, P_TWOPC_PREPARE, P_TWOPC_ABORT,
+ * P_TWOPC_YES, P_TWOPC_NO, P_TWOPC_RETRY and P_TWOPC_COMMIT.
+ * BSR-1283 P_UUIDS110, P_UUID_ACK
+ * BSR-1285 P_BM_EXCHANGE_STATE
+ *
+ * This quirk is necessary because it is corked while the worker
+ * thread processes work items. When it stops processing items, it
+ * uncorks. That works perfectly to coalesce ack packets etc..
+ * A work item doing two-phase commits needs to override that behavior.
+ */
+#define SFLAG_FLUSH 0x10
+#define BSR_STREAM_FLAGS (SFLAG_FLUSH)
+
+static inline enum bsr_stream extract_stream(int stream_and_flags)
 {
+	return stream_and_flags & ~BSR_STREAM_FLAGS;
+}
+
+int __send_command(struct bsr_connection *connection, int vnr,
+enum bsr_packet cmd, int stream_and_flags)
+{
+	enum bsr_stream bsr_stream = extract_stream(stream_and_flags);
 	struct bsr_send_buffer *sbuf = &connection->send_buffer[bsr_stream];
 	struct bsr_transport *transport = &connection->transport;
 	struct bsr_transport_ops *tr_ops = transport->ops;
 	bool corked = test_bit(CORKED + bsr_stream, &connection->flags);
-	bool flush = (cmd == P_PING || cmd == P_PING_ACK || cmd == P_TWOPC_PREPARE);
+	bool flush = stream_and_flags & SFLAG_FLUSH;
 	int err;
-
-	/* send P_PING and P_PING_ACK immediately, they need to be delivered as
-	fast as possible.
-	P_TWOPC_PREPARE might be used from the worker context while corked.
-	The work item (connect_work) calls change_cluster_wide_state() which
-	in turn waits for reply packets. -> Need to send it regardless of
-	corking.  */
 
 	if (connection->cstate[NOW] < C_CONNECTING)
 		return -EIO;
@@ -1555,11 +1597,12 @@ void bsr_uncork(struct bsr_connection *connection, enum bsr_stream stream)
 }
 
 int send_command(struct bsr_connection *connection, int vnr,
-		 enum bsr_packet cmd, enum bsr_stream bsr_stream)
+		 enum bsr_packet cmd, int stream_and_flags)
 {
+	enum bsr_stream bsr_stream = extract_stream(stream_and_flags);
 	int err;
 
-	err = __send_command(connection, vnr, cmd, bsr_stream);
+	err = __send_command(connection, vnr, cmd, stream_and_flags);
 	mutex_unlock(&connection->mutex[bsr_stream]);
 	return err;
 }
@@ -1575,14 +1618,14 @@ int bsr_send_ping(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_PING, CONTROL_STREAM);
+	return send_command(connection, -1, P_PING, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 int bsr_send_ping_ack(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_PING_ACK, CONTROL_STREAM);
+	return send_command(connection, -1, P_PING_ACK, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 // BSR-863
@@ -1590,7 +1633,8 @@ int bsr_send_uuid_ack(struct bsr_connection *connection)
 {
 	if (!conn_prepare_command(connection, 0, CONTROL_STREAM))
 		return -EIO;
-	return send_command(connection, -1, P_UUID_ACK, CONTROL_STREAM);
+	// BSR-1283
+	return send_command(connection, -1, P_UUID_ACK, CONTROL_STREAM | SFLAG_FLUSH);
 }
 
 
@@ -1925,7 +1969,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 #endif
 	p_size = (int)(sizeof(*p) + (hweight64(bitmap_uuids_mask) + HISTORY_UUIDS) * sizeof(p->other_uuids[0]));
 	resize_prepared_command(peer_device->connection, DATA_STREAM, p_size);
-	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM);
+
+	// BSR-1283 In bsr_resync_finished() a uuid receive wait occurs.
+	// P_UUIDS110, P_UUID_ACK also need to send it regardless of corking.
+	return bsr_send_command(peer_device, P_UUIDS110, DATA_STREAM | SFLAG_FLUSH);
 }
 
 int bsr_send_uuids(struct bsr_peer_device *peer_device, u64 uuid_flags, u64 node_mask, enum which_state which)
@@ -2238,7 +2285,7 @@ int conn_send_twopc_request(struct bsr_connection *connection, int vnr, enum bsr
 		return -EIO;
 	memcpy(p, request, sizeof(*request));
 
-	return send_command(connection, vnr, cmd, DATA_STREAM);
+	return send_command(connection, vnr, cmd, DATA_STREAM | SFLAG_FLUSH);
 }
 
 void bsr_send_sr_reply(struct bsr_connection *connection, int vnr, enum bsr_state_rv retcode)
@@ -2277,7 +2324,7 @@ void bsr_send_twopc_reply(struct bsr_connection *connection,
 			p->max_possible_size = cpu_to_be64(reply->max_possible_size);
 			break;
 		}
-		send_command(connection, reply->vnr, cmd, CONTROL_STREAM);
+		send_command(connection, reply->vnr, cmd, CONTROL_STREAM | SFLAG_FLUSH);
 	}
 }
 
@@ -2400,7 +2447,7 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 			    "t:%u bo:%llu", toggle, (unsigned long long)c->bit_offset);
 			// DW-2037 replication I/O can cause bitmap changes, in which case this code will restore.
 			if (toggle == 0) {
-				update_sync_bits(peer_device, offset, offset, SET_OUT_OF_SYNC, false);
+				update_sync_bits(__FUNCTION__, peer_device, offset, offset, SET_OUT_OF_SYNC, false);
 				continue;
 			}
 			else {
@@ -2724,39 +2771,9 @@ int bsr_send_bitmap(struct bsr_device *device, struct bsr_peer_device *peer_devi
 		mutex_unlock(&peer_device->connection->mutex[DATA_STREAM]);
 		// DW-1988 in synctarget, wait_for_recv_bitmap should not be used, so it has been modified to be set only under certain conditions.
 		// DW-1979
-		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD) {
-			// BSR-1171 merge the bitmap of peer node whose replication is missing prior to bitmap exchange.
-			bool missing = false;
-			for_each_peer_device(p, device) {
-				if (p == peer_device) {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						struct bsr_peer_device* pd = NULL;
-						for_each_peer_device(pd, device) {
-							if ((p == pd) || 
-								(p->merged_nodes & NODE_MASK(pd->node_id)))
-								continue;
-							if (bsr_peer_device_merge_bitmap(p, pd))
-								p->merged_nodes |= NODE_MASK(pd->node_id);
-							else
-								missing = true;
-						}
-
-						if (!missing) {
-							bsr_md_clear_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
-							bsr_md_sync(device);
-						}
-					}
-				} else {
-					if (bsr_md_test_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP)) {
-						if (!(p->merged_nodes & NODE_MASK(peer_device->node_id))) {
-							if(bsr_peer_device_merge_bitmap(p, peer_device))
-								p->merged_nodes |= NODE_MASK(peer_device->node_id);
-						}
-					}
-				}
-			}
+		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || peer_device->repl_state[NOW] == L_AHEAD)
 			atomic_set(&peer_device->wait_for_recv_bitmap, 1);
-		}
+
 		err = !_bsr_send_bitmap(device, peer_device);
 	}
 	else
@@ -2852,7 +2869,8 @@ int _bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bs
 
 	p->state = cpu_to_be32(state);
 
-	return bsr_send_command(peer_device, cmd, DATA_STREAM);
+	// BSR-1285
+	return bsr_send_command(peer_device, cmd, DATA_STREAM | SFLAG_FLUSH);
 
 }
 
@@ -3255,7 +3273,11 @@ int bsr_send_dblock(struct bsr_peer_device *peer_device, struct bsr_request *req
 	}
 
 	if (!err) {
-#ifdef _LIN
+#ifdef _WIN
+		// BSR-1262 add replication data send size to sended size
+		// if you use tcp_cork, if the data in the stream buffer has not been transmitted, there may be a difference in the size of the transmission and reception from the peer node when the connection is terminated.
+		peer_device->send_cnt += (unsigned int)(req->i.size >> 9);
+#else
 		/* For protocol A, we have to memcpy the payload into
 		* socket buffers, as we may complete right away
 		* as soon as we handed it over to tcp, at which point the data
@@ -3349,7 +3371,7 @@ int bsr_send_block(struct bsr_peer_device *peer_device, enum bsr_packet cmd, int
 	return err;
 }
 
-int bsr_send_out_of_sync(struct bsr_peer_device *peer_device, struct bsr_interval *i)
+int bsr_send_out_of_sync(const char *caller, struct bsr_peer_device *peer_device, struct bsr_interval *i)
 {
 	struct p_block_desc *p;
 
@@ -3853,7 +3875,7 @@ void bsr_destroy_device(struct kref *kref)
 #ifdef SPLIT_REQUEST_RESYNC
 	// DW-1911
 	struct bsr_marked_replicate *marked_rl, *t;
-	struct bsr_resync_pending_sectors *pending_st, *rpt;
+	struct bsr_scope_sector *pending_st, *rpt;
 #endif
 
 	bsr_debug(97, BSR_LC_DRIVER, NO_OBJECT,"%s", __FUNCTION__);
@@ -3861,8 +3883,8 @@ void bsr_destroy_device(struct kref *kref)
 #ifdef SPLIT_REQUEST_RESYNC
 	// BSR-1038
 	// BSR-625
-	list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, rpt, &(device->resync_pending_sectors), pending_sectors) {
-		list_del(&pending_st->pending_sectors);
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, pending_st, rpt, &(device->resync_pending_sectors), sector_list) {
+		list_del(&pending_st->sector_list);
 		kfree2(pending_st);
 	}
 
@@ -4890,7 +4912,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set(&peer_device->wait_for_actlog, 0);
 	atomic_set(&peer_device->rs_sect_in, 0);
 	atomic_set(&peer_device->wait_for_recv_bitmap, 1);
-	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+	atomic_set(&peer_device->wait_for_bm_exchange_compl, 0);
 	atomic_set(&peer_device->wait_for_out_of_sync, 0);
 	
 	// BSR-1067
@@ -4931,17 +4953,13 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
 	spin_lock_init(&peer_device->ov_lock);
 
-	// BSR-1171
-	peer_device->latest_nodes = 0;
-#ifdef _WIN64
-	peer_device->merged_nodes = UINT64_MAX;
-#else
-	peer_device->merged_nodes = ~0UL;
-#endif
 	// BSR-1170
 	atomic_set64(&peer_device->local_writing, 0);
 	init_waitqueue_head(&peer_device->local_writing_wait);
 	atomic_set(&peer_device->start_sending_bitmap, 0);
+
+	// BSR-1213
+	atomic_set(&peer_device->start_init_sync, 0);
 
 	return peer_device;
 }
@@ -5037,6 +5055,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	
 	device->s_rl_bb = UINTPTR_MAX;
 	device->e_rl_bb = 0;
+
+	// BSR-1220
+	mutex_init(&device->submit_mutex);
 #endif
 	INIT_LIST_HEAD(&device->pending_master_completion[0]);
 	INIT_LIST_HEAD(&device->pending_master_completion[1]);
@@ -5185,6 +5206,8 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 
 	// BSR-1116
 	atomic_set64(&device->accelbuf.used_size, 0);
+	// BSR-1282
+	atomic_set(&device->accelbuf.allocated, 0);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
@@ -5460,15 +5483,15 @@ void bsr_put_connection(struct bsr_connection *connection)
 }
 
 #ifdef _WIN
-struct log_rolling_file_list {
+struct backup_file_list {
 	struct list_head list;
 	WCHAR *fileName;
 };
 #endif
 
-// BSR-579 deletes files when the number of rolling files exceeds a specified number
+// BSR-579 deletes files when the number of backup files exceeds a specified number
 #ifdef _WIN
-NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
+NTSTATUS bsr_apply_max_count_of_backup_files(WCHAR* filePath, int max_file_count)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	OBJECT_ATTRIBUTES obAttribute;
@@ -5478,8 +5501,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	ULONG currentSize = 0;
 	FILE_BOTH_DIR_INFORMATION *pFileBothDirInfo = NULL;
 	bool is_start = true;
-	int log_file_max_count = 0;
-	struct log_rolling_file_list rlist, *t, *tmp;
+	int backup_file_count = 0;
+	struct backup_file_list rlist, *t, *tmp;
 
 	INIT_LIST_HEAD(&rlist.list);
 
@@ -5493,7 +5516,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 		FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT);
 
 	if (!NT_SUCCESS(status)) {
-		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to open log directory. status(%x)", status);
+		bsr_err(1, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to failure to open log directory. status(%x)", status);
 		return status;
 	}
 
@@ -5501,7 +5524,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 	// BSR-579
 	pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '3ASB');
 	if (!pFileBothDirInfo){
-		bsr_err(76, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation query buffer. status(%u)", currentSize);
+		bsr_err(76, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation query buffer. status(%u)", currentSize);
 		status = STATUS_NO_MEMORY;
 		goto out;
 	}
@@ -5525,54 +5548,49 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			currentSize = currentSize * 2;
 			// BSR-600 paths is long (extension path is not supported)
 			if (MAX_PATH < (currentSize / 2)) {
-				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to extension paths are not supported. max path(%u), current path(%u)", MAX_PATH, (currentSize / 2));
+				bsr_err(3, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to extension paths are not supported. max path(%u), current path(%u)", MAX_PATH, (currentSize / 2));
 				status = STATUS_OBJECT_PATH_INVALID;
 				goto out;
 			}
 			// BSR-579
 			pFileBothDirInfo = ExAllocatePoolWithTag(PagedPool, currentSize, '4ASB'); 
 			if (pFileBothDirInfo == NULL) {
-				bsr_err(77, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size query buffer memory.", currentSize);
+				bsr_err(77, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size query buffer memory.", currentSize);
 				status = STATUS_NO_MEMORY;
 				goto out;
 			}
 			continue;
-		}
-		else if (STATUS_NO_MORE_FILES == status)
-		{
+		} else if (STATUS_NO_MORE_FILES == status) {
 			status = STATUS_SUCCESS;
 			break;
-		}
-		else if (!NT_SUCCESS(status))
-		{
-			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "Failed to rolling log file due to failure to query directory file. status(%x)", status);
+		} else if (!NT_SUCCESS(status)) {
+			bsr_err(5, BSR_LC_LOG, NO_OBJECT, "Failed to backup log file due to failure to query directory file. status(%x)", status);
 			goto out2;
 		}
 
 		if (is_start)
 			is_start = false;
 
-		while (TRUE)
-		{
+		while (TRUE) {
 			WCHAR fileName[MAX_PATH];
 
 			memset(fileName, 0, sizeof(fileName));
 			memcpy(fileName, pFileBothDirInfo->FileName, pFileBothDirInfo->FileNameLength);
 
-			if (wcsstr(fileName, BSR_LOG_ROLLING_FILE_NAME)) {
+			if (wcsstr(fileName, BSR_LOG_BACKUP_FILE_NAME)) {
 				size_t flength = pFileBothDirInfo->FileNameLength + sizeof(WCHAR);
-				struct log_rolling_file_list *r;
+				struct backup_file_list *r;
 				// BSR-579
-				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct log_rolling_file_list), '5ASB');
+				r = ExAllocatePoolWithTag(PagedPool, sizeof(struct backup_file_list), '5ASB');
 				if (!r) {
-					bsr_err(78, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", sizeof(struct log_rolling_file_list));
+					bsr_err(78, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size file list memory", sizeof(struct backup_file_list));
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
 				// BSR-579
 				r->fileName = ExAllocatePoolWithTag(PagedPool, flength, '6ASB');
 				if (!r) {
-					bsr_err(79, BSR_LC_MEMORY, NO_OBJECT, "Failed to rolling log file due to failure to allocation %d size file list memory", flength);
+					bsr_err(79, BSR_LC_MEMORY, NO_OBJECT, "Failed to backup log file due to failure to allocation %d size file list memory", flength);
 					status = STATUS_NO_MEMORY;
 					goto out;
 				}
@@ -5581,7 +5599,7 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 
 				bool is_add = false;
 
-				list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+				list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
 					if (wcscmp(t->fileName, r->fileName) > 0) {
 						list_add(&r->list, &t->list);
 						is_add = true;
@@ -5592,23 +5610,22 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 				if (is_add == false)
 					list_add_tail(&r->list, &rlist.list);
 
-				log_file_max_count = log_file_max_count + 1;
+				backup_file_count++;
 			}
 
 			if (pFileBothDirInfo->NextEntryOffset == 0)
 				break;
-
 			pFileBothDirInfo += pFileBothDirInfo->NextEntryOffset;
 		}
 	}
 
-	if (log_file_max_count >= atomic_read(&g_log_file_max_count)) {
+	if (backup_file_count >= max_file_count) {
 		HANDLE hFile;
 		UNICODE_STRING usFilePullPath;
 		WCHAR fileFullPath[MAX_PATH];
 		char buf[1] = { 0x01 };
 
-		list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
+		list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
 			_snwprintf(fileFullPath, (sizeof(fileFullPath) / sizeof(wchar_t)) - 1, L"%ws%ws", filePath, t->fileName);
 
 			RtlInitUnicodeString(&usFilePullPath, fileFullPath);
@@ -5632,8 +5649,8 @@ NTSTATUS bsr_log_rolling_file_clean_up(WCHAR* filePath)
 			}
 			ZwClose(hFile);
 
-			log_file_max_count = log_file_max_count - 1;
-			if (log_file_max_count < atomic_read(&g_log_file_max_count))
+			backup_file_count--;
+			if (backup_file_count < max_file_count)
 				break;
 		}
 	}
@@ -5643,7 +5660,7 @@ out2:
 	if (pFileBothDirInfo)
 		kfree2(pFileBothDirInfo);
 
-	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+	list_for_each_entry_safe_ex(struct backup_file_list, t, tmp, &rlist.list, list) {
 		kfree2(t->fileName);
 		list_del(&t->list);
 		kfree2(t);
@@ -5655,25 +5672,25 @@ out2:
 
 static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 {
-	struct log_rolling_file_list *list_a = container_of(a, struct log_rolling_file_list, list);
-	struct log_rolling_file_list *list_b = container_of(b, struct log_rolling_file_list, list);
+	struct backup_file_list *list_a = container_of(a, struct backup_file_list, list);
+	struct backup_file_list *list_b = container_of(b, struct backup_file_list, list);
 
 	if (list_a == NULL || list_b == NULL || (list_a == list_b))
-					return 0;
+		return 0;
 
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-int bsr_log_rolling_file_clean_up(char * file_path)
+int bsr_apply_max_count_of_backup_files(char * file_path, int max_file_count)
 {
-	int log_file_max_count = 0;
+	int backup_file_count = 0;
 
-	struct log_rolling_file_list rlist = {
+	struct backup_file_list rlist = {
 #ifdef COMPAT_HAVE_ITERATE_DIR
 		.ctx.actor = printdir
 #endif
 	};
-	struct log_rolling_file_list *t, *tmp;
+	struct backup_file_list *t, *tmp;
 	int err = 0;
 	
 	INIT_LIST_HEAD(&rlist.list);
@@ -5682,18 +5699,17 @@ int bsr_log_rolling_file_clean_up(char * file_path)
 	
 	list_sort(NULL, &rlist.list, name_cmp);
 
-	list_for_each_entry_ex(struct log_rolling_file_list, t, &rlist.list, list) {
-		log_file_max_count++;
-		if (log_file_max_count < atomic_read(&g_log_file_max_count)) {
+	// BSR-1238
+	list_for_each_entry_ex(struct backup_file_list, t, &rlist.list, list) {
+		backup_file_count++; 
+		if (backup_file_count < max_file_count)
 			continue;
-		}
-
 		err = bsr_file_remove(file_path, t->fileName);
 		if (err)
 			break;
 	}
-	
-	list_for_each_entry_safe_ex(struct log_rolling_file_list, t, tmp, &rlist.list, list) {
+
+	list_for_each_entry_safe_ex(struct backup_file_list, t, tmp, &rlist.list, list) {
 		kfree2(t->fileName);
 		list_del(&t->list);
 		kfree2(t);
@@ -5703,77 +5719,79 @@ int bsr_log_rolling_file_clean_up(char * file_path)
 }
 #endif
 
-// BSR-579 rename the file to the rolling file format and close the handle
+// BSR-579 rename the file to the backup file format and close the handle
 #ifdef _WIN
-NTSTATUS bsr_log_file_rename_and_close(PHANDLE hFile) 
+NTSTATUS bsr_backup_file(PHANDLE hFile, int max_file_count)
 {
 	WCHAR fileFullPath[MAX_PATH] = { 0 };
 	NTSTATUS status;
 	IO_STATUS_BLOCK ioStatus;
-	PFILE_RENAME_INFORMATION pRenameInfo;
-	LARGE_INTEGER systemTime, localTime;
-	TIME_FIELDS timeFields = { 0, };
 
-	KeQuerySystemTime(&systemTime);
-	ExSystemTimeToLocalTime(&systemTime, &localTime);
-	RtlTimeToTimeFields(&localTime, &timeFields);
+	// BSR-1238
+	if (max_file_count > 1) {
+		PFILE_RENAME_INFORMATION pRenameInfo;
+		LARGE_INTEGER systemTime, localTime;
+		TIME_FIELDS timeFields = { 0, };
 
-	memset(fileFullPath, 0, sizeof(fileFullPath));
+		KeQuerySystemTime(&systemTime);
+		ExSystemTimeToLocalTime(&systemTime, &localTime);
+		RtlTimeToTimeFields(&localTime, &timeFields);
 
-	_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_ROLLING_FILE_NAME,
-																		timeFields.Year,
-																		timeFields.Month,
-																		timeFields.Day,
-																		timeFields.Hour,
-																		timeFields.Minute,
-																		timeFields.Second,
-																		timeFields.Milliseconds);
+		memset(fileFullPath, 0, sizeof(fileFullPath));
 
-	// BSR-579
-	pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
+		_snwprintf(fileFullPath, MAX_PATH - 1, L"%ws%04d-%02d-%02dT%02d%02d%02d.%03d", BSR_LOG_BACKUP_FILE_NAME,
+			timeFields.Year, timeFields.Month, timeFields.Day, timeFields.Hour, timeFields.Minute, timeFields.Second, timeFields.Milliseconds);
 
-	pRenameInfo->ReplaceIfExists = false;
-	pRenameInfo->RootDirectory = NULL;
-	pRenameInfo->FileNameLength = (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t));
-	RtlCopyMemory(pRenameInfo->FileName, fileFullPath, (wcslen(fileFullPath) * sizeof(wchar_t)));
+		// BSR-579
+		pRenameInfo = ExAllocatePoolWithTag(PagedPool, sizeof(FILE_RENAME_INFORMATION) + sizeof(fileFullPath), '7ASB');
 
-	status = ZwSetInformationFile(hFile,
-									&ioStatus,
-									(PFILE_RENAME_INFORMATION)pRenameInfo,
-									sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t)),
-									FileRenameInformation);
+		pRenameInfo->ReplaceIfExists = false;
+		pRenameInfo->RootDirectory = NULL;
+		pRenameInfo->FileNameLength = (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t));
+		RtlCopyMemory(pRenameInfo->FileName, fileFullPath, (wcslen(fileFullPath) * sizeof(wchar_t)));
 
-	kfree2(pRenameInfo);
-	ZwClose(hFile);
+		status = ZwSetInformationFile(hFile,
+			&ioStatus,
+			(PFILE_RENAME_INFORMATION)pRenameInfo,
+			sizeof(FILE_RENAME_INFORMATION) + (ULONG)(wcslen(fileFullPath) * sizeof(wchar_t)),
+			FileRenameInformation);
+
+		kfree2(pRenameInfo);
+	} else {
+		char buf[1] = { 0x01 };
+
+		status = ZwSetInformationFile(hFile, &ioStatus, buf, 1, FileDispositionInformation);
+		if (!NT_SUCCESS(status)) {
+			bsr_err(9, BSR_LC_LOG, NO_OBJECT, "Failed to delete %ws file. status(%x)", fileFullPath, status);
+		}
+	}
 
 	return status;
 }
 #else // _LIN
 
-int bsr_log_file_rename(char * file_path) 
+int bsr_backup_file(char * file_path, int max_file_count) 
 {
-	char new_name[MAX_PATH];
-	struct timespec64 ts;
-	struct tm tm;
-
 	int err = 0;
 	
-	memset(new_name, 0, sizeof(new_name));
+	// BSR-1238
+	if (max_file_count > 1) {
+		char new_name[MAX_PATH];
+		struct timespec64 ts;
+		struct tm tm;
 
-	ts = ktime_to_timespec64(ktime_get_real());
-	time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
-	
-	snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
-									BSR_LOG_FILE_NAME,
-									(int)tm.tm_year+1900,
-									tm.tm_mon+1,
-									tm.tm_mday,
-									tm.tm_hour,
-									tm.tm_min,
-									tm.tm_sec,
-									(int)(ts.tv_nsec / NSEC_PER_MSEC));
+		memset(new_name, 0, sizeof(new_name));
 
-	err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
+		ts = ktime_to_timespec64(ktime_get_real());
+		time64_to_tm(ts.tv_sec, (9*60*60), &tm); // TODO timezone
+
+		snprintf(new_name, MAX_PATH - 1, "%s_%04d-%02d-%02d_%02d%02d%02d.%03d",
+			BSR_LOG_FILE_NAME, (int)tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(ts.tv_nsec / NSEC_PER_MSEC));
+
+		err = bsr_file_rename(file_path, BSR_LOG_FILE_NAME, new_name);
+	} else {
+		err = bsr_file_remove(file_path, BSR_LOG_FILE_NAME);
+	}
 
 	return err;
 }
@@ -6086,20 +6104,22 @@ int log_consumer_thread(void *unused)
 #endif
 			logFileSize = logFileSize + strlen(buffer + IDX_OPTION_LENGTH);
 
-			// BSR-579 apply file size or log count based on rolling judgment
+			// BSR-579 apply file size or log count based on backup judgment
 			if (atomic_read(&idx) == (LOGBUF_MAXCNT - 1) || logFileSize > (MAX_BSRLOG_BUF * LOGBUF_MAXCNT)) {
 
 #ifdef _WIN
-				status = bsr_log_rolling_file_clean_up(filePath);
-				if (!NT_SUCCESS(status))
-					break;
-
-				// BSR-579 if the log file is larger than 50M, do file rolling.
-				status = bsr_log_file_rename_and_close(hFile);
+				// BSR-579 if the log file is larger than 50M, do file backup.
+				status = bsr_backup_file(hFile, atomic_read(&g_log_file_max_count));
+				ZwClose(hFile);
 				if (!NT_SUCCESS(status)) {
 					bsr_err(14, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file status(%x)", status);
 					break;
 				}
+
+				status = bsr_apply_max_count_of_backup_files(filePath, atomic_read(&g_log_file_max_count));
+				if (!NT_SUCCESS(status))
+					break;
+
 				status = ZwCreateFile(&hFile,
 										FILE_APPEND_DATA,
 										&obAttribute,
@@ -6117,20 +6137,21 @@ int log_consumer_thread(void *unused)
 					break;
 				}
 #else // _LIN
-				// BSR-579 rolling and clean up
-				if (bsr_log_rolling_file_clean_up(file_path) != 0) {
+				if (bsr_backup_file(file_path, atomic_read(&g_log_file_max_count)) != 0) {
+					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
+					break;
+				}
+
+				// BSR-579 
+				if (bsr_apply_max_count_of_backup_files(file_path, atomic_read(&g_log_file_max_count)) != 0) {
 					bsr_err(22, BSR_LC_LOG, NO_OBJECT, "Failed to remove log file");
 					break;
 				}
 
-				// BSR-579 if the log file is larger than 50M, do file rolling.
+				// BSR-579 if the log file is larger than 50M, do file backup.
 				if (hFile)
 					filp_close(hFile, NULL);
 
-				if (bsr_log_file_rename(file_path) != 0) {
-					bsr_err(23, BSR_LC_LOG, NO_OBJECT, "Failed to rename log file");
-					break;
-				}
 				oldfs = get_fs();
 #ifdef COMPAT_HAVE_SET_FS
 				set_fs(KERNEL_DS);
@@ -6941,8 +6962,9 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			do_it = (pdsk <= D_UNKNOWN && pdsk != D_NEGOTIATING) ||
 				(NODE_MASK(node_id) & weak_nodes);
 
-			// DW-1195 bump current uuid when disconnecting with inconsistent peer.
-			do_it = do_it || ((peer_device->connection->cstate[NEW] < C_CONNECTED) && (pdsk == D_INCONSISTENT));
+			// BSR-1212 bump current uuid when peer is in ahead state
+			do_it = do_it || (peer_device->repl_state[NOW] == L_AHEAD);
+
 
 		} else {
 			do_it = true;
@@ -7118,23 +7140,23 @@ void bsr_propagate_uuids(struct bsr_device *device, u64 nodes)
 void bsr_uuid_received_new_current(struct bsr_peer_device *peer_device, u64 val, u64 weak_nodes) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	struct bsr_peer_device *target;
+	struct bsr_peer_device *p;
 	u64 dagtag = peer_device->connection->last_dagtag_sector;
 	u64 got_new_bitmap_uuid = 0;
 	bool set_current = true;
 
 	spin_lock_irq(&device->ldev->md.uuid_lock);
 
-	for_each_peer_device(target, device) {
+	for_each_peer_device(p, device) {
 		// BSR-1016 during resync that started without out of sync, the received UUId is updated.
-		if (((target->repl_state[NOW] == L_SYNC_TARGET) && target->rs_total) ||
-			target->repl_state[NOW] == L_PAUSED_SYNC_T ||
+		if (((p->repl_state[NOW] == L_SYNC_TARGET) && p->rs_total) ||
+			p->repl_state[NOW] == L_PAUSED_SYNC_T ||
 			// BSR-242 Added a condition because there was a problem applying new UUID during synchronization.
-			target->repl_state[NOW] == L_BEHIND ||
-			(target->repl_state[NOW] == L_WF_BITMAP_T &&
+			p->repl_state[NOW] == L_BEHIND ||
+			(p->repl_state[NOW] == L_WF_BITMAP_T &&
 			// BSR-974 If it is weak_node when L_WF_BITMAP_T state, it does not update the UUID.
 			NODE_MASK(device->resource->res_opts.node_id) & weak_nodes)) {
-			target->current_uuid = val;
+			p->current_uuid = val;
 			set_current = false;
 		}
 	}
@@ -7717,8 +7739,10 @@ retry:
 				goto retry;
 				
 		}
-	
+
 		bsr_warn(208, BSR_LC_RESYNC_OV, peer_device, "Failed to set resync bit with unexpected replication state(%s).", bsr_repl_str(peer_device->repl_state[NOW]));
+		// BSR-1294 even if you fail, you have to reduce will_be_used_vol_ctl_mutex
+		atomic_dec(&device->resource->will_be_used_vol_ctl_mutex);
 	}
 	
 
@@ -7748,7 +7772,7 @@ int bsr_bmio_set_all_n_write(struct bsr_device *device,
 	// BSR-444 add rcu_read_lock()
 	rcu_read_lock();
 	for_each_peer_device_rcu(p, device) {
-		if (!update_sync_bits(p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
+		if (!update_sync_bits(__FUNCTION__, p, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, true)) {
 			bsr_err(41, BSR_LC_BITMAP, device, "Failed to set range bit out of sync, no sync bit has been set for peer node(%d), set whole bits without updating resync extent instead.", p->node_id);
 			bsr_bm_set_many_bits(p, 0, BSR_END_OF_BITMAP);
 		}
@@ -7774,7 +7798,7 @@ int bsr_bmio_set_n_write(struct bsr_device *device,
 	bsr_md_set_peer_flag(peer_device, MDF_PEER_FULL_SYNC);
 	bsr_md_sync(device);
 	// DW-1333 set whole bits and update resync extent.
-	if (!update_sync_bits(peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
+	if (!update_sync_bits(__FUNCTION__, peer_device, 0, bsr_bm_bits(device), SET_OUT_OF_SYNC, false)) {
 		bsr_err(42, BSR_LC_BITMAP, peer_device, "Failed to set range bit out of sync, no sync bit has been set, set whole bits without updating resync extent instead.");
 		bsr_bm_set_many_bits(peer_device, 0, BSR_END_OF_BITMAP);
 	}
@@ -7840,7 +7864,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 				pBit == 0)
 			{
 				llEndBit = (ULONG_PTR)GetBitPos(llBytePos, llBitPosInByte) - 1;
-				count += update_sync_bits(peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
+				count += update_sync_bits(__FUNCTION__, peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
 
 				llStartBit = BSR_END_OF_BITMAP;
 				llEndBit = BSR_END_OF_BITMAP;
@@ -7856,7 +7880,7 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 	// met last bit while finding zero bit.
 	if (llStartBit != BSR_END_OF_BITMAP) {
 		llEndBit = (ULONG_PTR)bitmapSize * BITS_PER_BYTE - 1;	// last cluster
-		count += update_sync_bits(peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
+		count += update_sync_bits(__FUNCTION__, peer_device, llStartBit, llEndBit, SET_OUT_OF_SYNC, false);
 
 		llStartBit = BSR_END_OF_BITMAP;
 		llEndBit = BSR_END_OF_BITMAP;

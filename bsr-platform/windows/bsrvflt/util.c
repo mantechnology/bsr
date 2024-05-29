@@ -260,7 +260,7 @@ NTSTATUS FsctlLockVolume(unsigned int minor)
 
         if (!NT_SUCCESS(status)) {
             //printk(KERN_ERR "ZwFsControlFile Failed. status(0x%x)\n", status);
-            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock failed, but this does not affect behavior. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
+            bsr_info(22, BSR_LC_VOLUME, NO_OBJECT,"volume lock. status(0x%x) &ObjectAttributes(0x%p) hFile(0x%p)", status, &ObjectAttributes, hFile);
             __leave;
         }
         
@@ -1412,17 +1412,16 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	status = GetRegistryValue(L"handler_timeout", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
 		if (*(int*)aucTemp < 0) {
-			atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF / 10);
+			atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF * 100);
 		} else {
 			atomic_set(&g_handler_timeout, *(int*)aucTemp);
 		}
 	}
 	else {
-		atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF / 10);
+		atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF * 100);
 	}	
-	atomic_set(&g_handler_timeout, atomic_read(&g_handler_timeout) * 1000); // change to ms
-
-	bsr_info(88, BSR_LC_ETC, NO_OBJECT, "handler state %s, timeout %d", g_handler_use ? "enable" : "disable", atomic_read(&g_handler_timeout) / 1000);
+	
+	bsr_info(88, BSR_LC_ETC, NO_OBJECT, "handler state %s, timeout %dms", g_handler_use ? "enable" : "disable", atomic_read(&g_handler_timeout));
 
 	status = GetRegistryValue(L"handler_retry", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS) {

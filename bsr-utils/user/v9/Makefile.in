@@ -99,10 +99,10 @@ bsradm-obj = bsradm_scanner.o bsradm_parser.o bsradm_postparse.o \
 
 bsrsetup-obj = libgenl.o registry.o bsrsetup.o bsrtool_common.o \
 		bsr_buildtag.o bsr_strings.o config_flags.o bsr_nla.o \
-		wrap_printf.o bsrsetup_colors.o shared_tool.o
+		wrap_printf.o bsrsetup_colors.o shared_tool.o shared_main.o  
 
 bsrmeta-obj = bsrmeta.o bsrmeta_scanner.o bsrtool_common.o bsr_buildtag.o \
-	       bsr_strings.o shared_tool.o
+	       bsr_strings.o shared_tool.o shared_main.o  
 
 all-obj := $(bsradm-obj) $(bsrsetup-obj) $(bsrmeta-obj)
 

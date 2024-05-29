@@ -85,7 +85,8 @@ int	dry_run = 0;
 int     option_peer_max_bio_size = 0;
 int     option_node_id = -1;
 unsigned option_al_stripes = 1;
-unsigned option_al_stripe_size_4k = 8;
+// BSR-1222 when creating the meta, change the default to 320k to allow the maximum allocation of al-extents.
+unsigned option_al_stripe_size_4k = 80;
 unsigned option_al_stripes_used = 0;
 char *progname = NULL;
 
@@ -2984,7 +2985,7 @@ int v07_style_md_open(struct format *cfg)
 			int file_fd;
 			file_fd = open(cfg->loop_file_path, O_RDWR);
 			if (file_fd < 0) {
-				CLI_ERRO_LOG_STDERR(false, "failed to open mete file (%s)", cfg->loop_file_path);
+				CLI_ERRO_LOG_STDERR(false, "failed to open meta file (%s)", cfg->loop_file_path);
 				exit(20);
 			}
 
@@ -5293,9 +5294,17 @@ int main(int argc, char **argv)
 	}
 
 	// BSR-1112
-	get_log_path();
+	bsr_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
+
+#ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		exit(-112);
+	}
+#endif
 
 #if 1
 	if (sizeof(struct md_on_disk_07) != 4096) {
@@ -5404,6 +5413,7 @@ int main(int argc, char **argv)
 		exit(20);
 	}
 	ai++;
+
 
 	lcmd = (char *)command->name;
 	// BSR-1031

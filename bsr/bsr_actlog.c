@@ -947,9 +947,7 @@ void bsr_al_shrink(struct bsr_device *device)
 static bool extent_in_sync(struct bsr_peer_device *peer_device, unsigned int rs_enr)
 {
 	// DW-2096 send peer_in_sync to Ahead node.
-	if (peer_device->repl_state[NOW] == L_ESTABLISHED || peer_device->repl_state[NOW] == L_AHEAD || 
-		// BSR-980 if there is no oos bit, it is consistent, set as an in-sync node even if it is Off state
-	 	peer_device->repl_state[NOW] == L_OFF) {
+	if (peer_device->repl_state[NOW] == L_ESTABLISHED || peer_device->repl_state[NOW] == L_AHEAD) {
 		if (bsr_bm_total_weight(peer_device) == 0)
 			return true;
 		if (bm_e_weight(peer_device, rs_enr) == 0)
@@ -1002,9 +1000,6 @@ consider_sending_peers_in_sync(struct bsr_peer_device *peer_device, unsigned int
 
 	for_each_peer_device_ref(p, im, device) {
 		if (mask & NODE_MASK(p->node_id)) {
-			// BSR-980 no send peers_in_sync to disconnected node
-			if (p->repl_state[NOW] == L_OFF)
-				continue;
 			bsr_send_peers_in_sync(p, mask, BM_EXT_TO_SECT(rs_enr), size_sect << 9);
 		}
 	}
@@ -1275,7 +1270,7 @@ static void maybe_schedule_on_disk_bitmap_update(struct bsr_peer_device *peer_de
 
 
 // DW-844
-ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
+ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_device,
 		ULONG_PTR sbnr, ULONG_PTR ebnr,
 		update_sync_bits_mode mode, bool locked)
 {
@@ -1469,7 +1464,7 @@ ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector
 	BUG_ON_UINT32_OVER(ebnr);
 #endif
 
-	count = update_sync_bits(peer_device, sbnr, ebnr, mode, false);
+	count = update_sync_bits(caller , peer_device, sbnr, ebnr, mode, false);
 out:
 	put_ldev(__FUNCTION__, device);
 	return count;
@@ -1477,7 +1472,7 @@ out:
 
 bool bsr_set_all_out_of_sync(struct bsr_device *device, sector_t sector, int size)
 {
-	return bsr_set_sync(device, sector, size, BSR_END_OF_BITMAP, BSR_END_OF_BITMAP);
+	return bsr_set_sync(__FUNCTION__, device, sector, size, BSR_END_OF_BITMAP, BSR_END_OF_BITMAP);
 }
 
 /**
@@ -1489,7 +1484,7 @@ bool bsr_set_all_out_of_sync(struct bsr_device *device, sector_t sector, int siz
  * @mask:	bitmap indexes to modify (mask set)
  */
 // DW-1191 caller needs to determine the peers that oos has been set.
-unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
+unsigned long bsr_set_sync(const char* caller, struct bsr_device *device, sector_t sector, int size,
 		   ULONG_PTR bits, ULONG_PTR mask)
 {
 	ULONG_PTR set_start, set_end, clear_start, clear_end;
@@ -1571,13 +1566,13 @@ unsigned long bsr_set_sync(struct bsr_device *device, sector_t sector, int size,
 
 		if (test_bit(bitmap_index, &bits)) {
 			// DW-1191 caller needs to know if the bits has been set at least.
-			if (update_sync_bits(peer_device, set_start, set_end, SET_OUT_OF_SYNC, true) > 0)
+			if (update_sync_bits(caller, peer_device, set_start, set_end, SET_OUT_OF_SYNC, true) > 0)
 				set_bits |= (1 << bitmap_index);
 		}
 
 		// DW-1871
 		else if (clear_start <= clear_end && !skip_clear)
-			update_sync_bits(peer_device, clear_start, clear_end, SET_IN_SYNC, true);
+			update_sync_bits(caller, peer_device, clear_start, clear_end, SET_IN_SYNC, true);
 	}
 	rcu_read_unlock();
 #ifdef _WIN32 // DW-2174

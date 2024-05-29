@@ -78,7 +78,7 @@ enum BSR_DEBUG_FLAGS ConvertToBsrDebugFlags(char *str)
 }
 #endif
 
-void* exec_pipe(enum get_info_type info_type, char *res_name)
+void* exec_pipe(enum get_info_type info_type, char *res_name, int *count)
 {
 	char command[256];
 	char buf[256] = { 0, };
@@ -86,6 +86,8 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 	struct connection* conn = NULL, *conn_head = NULL, *conn_temp = NULL;
 	struct volume *vol_head = NULL, *vol = NULL, *vol_temp = NULL;
 	FILE *pipe;
+	bool err = false;
+	void *ret = NULL;
 
 	if (info_type == RESOURCE)
 		sprintf_ex(command, "bsradm sh-resources-list");
@@ -95,7 +97,7 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 		sprintf_ex(command, "bsradm sh-dev-vnr %s", res_name);
 	else {
 		bsrmon_log(stderr, "Invalid get_info_type value\n");
-		return NULL;
+		return ret;
 	}
 
 #ifdef _WIN
@@ -105,8 +107,10 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 #endif
 	if (!pipe) {
 		bsrmon_log(stderr, "Failed to execute command : %s\n", command);
-		return NULL;
+		return ret;
 	}
+
+	(*count) = 0;
 
 	while (!feof(pipe)) {
 		if (fgets(buf, 256, pipe) != NULL) {
@@ -117,10 +121,13 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				res = (struct resource*)malloc(sizeof(struct resource));
 				if (!res) {
 					bsrmon_log(stderr, "Failed to malloc resource, size : %lu\n", sizeof(struct resource));
-					return NULL;
+					err = true;
+					break;
 				}
 				res->conn = NULL;
 				res->vol = NULL;
+				res->vol_count = 0;
+				(*count)++;
 				eliminate(buf, '"');
 #ifdef _WIN
 				strcpy_s(res->name, buf);
@@ -134,14 +141,15 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 				else
 					res_temp->next = res;
 				res_temp = res;
-			}
-			else if (info_type == CONNECTION) {
+			} else if (info_type == CONNECTION) {
 				char *id_ptr = NULL, *name_ptr = NULL;
 				conn = (struct connection*)malloc(sizeof(struct connection));
 				if (!conn) {
 					bsrmon_log(stderr, "Failed to malloc connection, size : %lu\n", sizeof(struct connection));
-					return NULL;
+					err = true;
+					break;
 				}
+				(*count)++;
 				memset(conn, 0, sizeof(struct connection));
 				
 				// BSR-1032 peer name parsing (including ipv6)
@@ -159,46 +167,67 @@ void* exec_pipe(enum get_info_type info_type, char *res_name)
 					conn_temp->next = conn;
 				conn_temp = conn;
 
-			}
-			else if (info_type == VOLUME) {
+			} else if (info_type == VOLUME) {
 				vol = (struct volume*)malloc(sizeof(struct volume));
 				if (!vol) {
 					bsrmon_log(stderr, "Failed to malloc volume, size : %lu\n", sizeof(struct volume));
-					return NULL;
+					err = true;
+					break;
 				}
 				vol->vnr = atoi(buf);
 				vol->next = NULL;
-
+				(*count)++;
 				if (!vol_temp)
 					vol_head = vol;
 				else
 					vol_temp->next = vol;
 				vol_temp = vol;
 			}
-		}
-		else if (*buf == 0) {
-			bsrmon_log(stderr, "Failed to execute command : %s\n", command);
-			return NULL;
+		} else if (*buf == 0) {
+			// BSR-1286 it is not an error situation, and depending on the situation, buf may be zero.
+			break;
 		}
 	}
+
 #ifdef _WIN
 	_pclose(pipe);
 #else // _LIN
 	pclose(pipe);
 #endif
-
 	if (info_type == RESOURCE) {
-		return res_head;
+		if (err) {
+			// BSR-1286 frees an item from the list obtained when an error occurred.
+			while (res_head) {
+				res_temp = res_head;
+				res_head = res_head->next;
+				free(res_temp);
+			}
+			res_head = NULL;
+		}
+		ret = res_head;
+	} else if (info_type == CONNECTION) {
+		if (err) {
+			while (conn_head) {
+				conn_temp = conn_head;
+				conn_head = conn_head->next;
+				free(conn_temp);
+			}
+			conn_head = NULL;
+		}
+		ret = conn_head;
+	} else if (info_type == VOLUME) {
+		if (err) {
+			while (vol_head) {
+				vol_temp = vol_head;
+				vol_head = vol_head->next;
+				free(vol_temp);
+			}
+			vol_head = NULL;
+		}
+		ret = vol_head;
 	}
-	else if (info_type == CONNECTION) {
-		return conn_head;
-	}
-	else if (info_type == VOLUME) {
-		return vol_head;
-	}
-	else {
-		return NULL;
-	}
+
+	return ret;
 }
 
 void freeResource(struct resource* res)
@@ -235,23 +264,26 @@ void freeResource(struct resource* res)
 struct resource* GetResourceInfo(char * name)
 {
 	struct resource *res_head = NULL, *res = NULL;
+	// BSR-1239
+	int count = 0;
 
 	if (!name) {
-		res = (struct resource*)exec_pipe(RESOURCE, NULL);
+		res = (struct resource*)exec_pipe(RESOURCE, NULL, &count);
 		res_head = res;
 		while (res) {
-			res->conn = (struct connection*)exec_pipe(CONNECTION, res->name);
+			res->conn = (struct connection*)exec_pipe(CONNECTION, res->name, &count);
 			if (!res->conn) {
 				freeResource(res);
 				return NULL;
 			}
 
-			res->vol = (struct volume*)exec_pipe(VOLUME, res->name);
+			res->vol = (struct volume*)exec_pipe(VOLUME, res->name, &count);
 			if (!res->vol) {
 				freeResource(res);
 				return NULL;
 			}
-
+			// BSR-1239
+			res->vol_count = count;
 			res = res->next;
 		}
 
@@ -265,6 +297,7 @@ struct resource* GetResourceInfo(char * name)
 		}
 		res->conn = NULL;
 		res->vol = NULL;
+		res->vol_count = 0;
 #ifdef _WIN
 		strcpy_s(res->name, name);
 #else // _LIN
@@ -272,17 +305,19 @@ struct resource* GetResourceInfo(char * name)
 #endif
 		res->next = NULL;
 
-		res->conn = (struct connection*)exec_pipe(CONNECTION, res->name);
+		res->conn = (struct connection*)exec_pipe(CONNECTION, res->name, &count);
 		if (!res->conn) {
 			freeResource(res);
 			return NULL;
 		}
 
-		res->vol = (struct volume*)exec_pipe(VOLUME, res->name);
+		res->vol = (struct volume*)exec_pipe(VOLUME, res->name, &count);
 		if (!res->vol) {
 			freeResource(res);
 			return NULL;
 		}
+		// BSR-1239
+		res->vol_count = count;
 
 		return res;
 	}
@@ -900,7 +935,7 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 			if (!strncmp(buffer, "err reading", 11))
 				goto fail;
 
-			fp = perf_fileopen(outfile, currtime);
+			fp = perf_fileopen(outfile, currtime, (void *)res);
 			if (fp == NULL) 
 				goto fail;
 
@@ -957,7 +992,7 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 
 		sprintf_ex(outfile, "%s%s%s", respath, _SEPARATOR_, perf_type_str(debug_type));
 		
-		fp = perf_fileopen(outfile, currtime);
+		fp = perf_fileopen(outfile, currtime, (void *)res);
 		if (fp == NULL)
 			goto fail;
 
@@ -1010,7 +1045,7 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 			goto fail;
 		sprintf_ex(outfile, "%s%s%s", respath, _SEPARATOR_, perf_type_str(debug_type));
 
-		fp = perf_fileopen(outfile, currtime);
+		fp = perf_fileopen(outfile, currtime, (void *)res);
 		if (fp == NULL)
 			goto fail;
 
@@ -1071,7 +1106,7 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 
 			sprintf_ex(outfile, "%s%svnr%d_%s", respath, _SEPARATOR_, vol->vnr, perf_type_str(debug_type));
 
-			fp = perf_fileopen(outfile, currtime);
+			fp = perf_fileopen(outfile, currtime, (void *)res);
 			if (fp == NULL)
 				goto fail;
 
@@ -1097,7 +1132,7 @@ fail:
 }
 
 // BSR-688 save memory info to file
-int GetMemInfoToFile(char *path, char * currtime)
+int GetMemInfoToFile(char *path, char * currtime, struct resource *res)
 {
 	FILE *fp;
 	char outfile[MAX_PATH] = {0,};
@@ -1107,7 +1142,7 @@ int GetMemInfoToFile(char *path, char * currtime)
 
 	sprintf_ex(outfile, "%s%s", path, perf_type_str(BSRMON_MEMORY));
 
-	fp = perf_fileopen(outfile, currtime);
+	fp = perf_fileopen(outfile, currtime, (void *)res);
 	if (fp == NULL)
 		goto fail;
 

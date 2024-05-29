@@ -8,12 +8,10 @@
 #include <sys/timeb.h>
 #include "bsrmon.h"
 #include "../../../bsr-headers/bsr_ioctl.h"
+#include "module_debug.h"
 
 char g_perf_path[MAX_PATH];
 bool write_log = false;
-
-// BSR-1138
-#define DEFAULT_BSRMON_LOG_ROLLING_SIZE 1 // 1M
 
 struct type_names {
 	const char * const *names;
@@ -176,7 +174,7 @@ void get_perf_path()
 		goto out;
 	}
 
-	lResult = RegQueryValueEx(hKey, _T("log_path"), NULL, &type, (PBYTE)&buf, &size);
+	lResult = RegQueryValueEx(hKey, _T("bsrmon_file_path"), NULL, &type, (PBYTE)&buf, &size);
 	RegCloseKey(hKey);
 
 out:
@@ -199,7 +197,7 @@ out:
 	FILE *fp;
 	char buf[MAX_PATH] = {0,};
 
-	fp = fopen(PERFMON_FILE_PATH, "r");
+	fp = fopen(FILE_PATH_OPTION_PATH, "r");
 
 	memset(g_perf_path, 0, sizeof(g_perf_path));
 	if (fp == NULL) {
@@ -306,13 +304,14 @@ void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file
 #endif
 }
 
-FILE *_fileopen(char * filename, char * currtime, bool logfile)
+FILE *_fileopen(char * filename, char * currtime, bool logfile, void *param)
 {
 	FILE *fp;
 	char new_filename[512];
 	int rename_err = 0;
 	off_t size;
-	long file_rolling_size;
+	long backup_size;
+	int max_file_cnt = 0;
 #ifdef _WIN
 	fp = _fsopen(filename, "a", _SH_DENYNO);
 #else // _LIN
@@ -327,15 +326,55 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	size = ftell(fp);
 	
 	if (logfile) {
-		file_rolling_size = DEFAULT_BSRMON_LOG_ROLLING_SIZE;
-	}
-	else {
-		file_rolling_size = GetOptionValue(FILE_ROLLING_SIZE);
-		if (file_rolling_size <= 0)
-			file_rolling_size = DEFAULT_FILE_ROLLING_SIZE;
+		backup_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE;
+		max_file_cnt = 2;
+	} else {
+#if 0
+		backup_size = GetOptionValue(BSRMON_FILE_SIZE);
+		if (backup_size <= 0)
+			backup_size = DEFAULT_BSRMON_FILE_SIZE;
+#endif
+		// BSR-1239
+		int bsrmon_log_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2;
+		long total_size_limit = GetOptionValue(BSRMON_TOTAL_SIZE_LIMIT); 
+		struct bsrmon_type_counts tc;
+		struct resource *res = (struct resource *)param;
+		int volume = 1;
+
+		if (total_size_limit <= 0)
+			total_size_limit = DEFAULT_BSRMON_TOTAL_SIZE_LIMIT;
+
+		GetCurrentlySetTypeCount(&tc, false);
+
+		if (res)
+			volume = res->vol_count;
+
+		backup_size = (total_size_limit - bsrmon_log_size) / (tc.global + tc.resource + (volume * tc.volume));
+
+		if (backup_size < (DEFAULT_BSRMON_FILE_SIZE * 2)) {
+			// BSR-1239 set the file size to create at least one backup file.
+			max_file_cnt = 2;
+			backup_size = backup_size / max_file_cnt;
+		} else {
+			// BSR-1239 because the file size is maximum DEFAULT_BSRMON_FILE_SIZE(50M), increase the maximum number of file archiving if it is larger than this.
+			max_file_cnt = backup_size / DEFAULT_BSRMON_FILE_SIZE;
+			backup_size = DEFAULT_BSRMON_FILE_SIZE;
+		}
+
+		if (res) {
+			res->backup_file_size = backup_size;
+			res->max_file_count = max_file_cnt;
+		}
+
+		// BSR-1239 If the backup file size is 0, it is less than the minimum required capacity of the resource, so do not write to the file
+		if (backup_size == 0) {
+			// BSR-1286
+			fclose(fp);
+			return NULL;
+		}
 	}
 
-	if ((1024 * 1024 * file_rolling_size) < size) {
+	if ((1024 * 1024 * backup_size) < size) {
 		char dir_path[MAX_PATH] = { 0, };
 		char find_file[MAX_PATH] = { 0, };
 		char r_time[64] = { 0, };
@@ -343,18 +382,20 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		std::set<std::string> listFileName;
 		std::set<std::string>::reverse_iterator iter;
 
-		int file_cnt = 0, rolling_cnt = 0;
+		int file_cnt = 0;
 
 		fclose(fp);
 
+#if 0 
 		if (logfile) {
-			rolling_cnt = 1;
+			max_file_cnt = 2;
+		} else {
+			// BSR-1236 invalid declaration, the declaration has been removed.
+			max_file_cnt = GetOptionValue(BSRMON_FILE_CNT);
+			if (max_file_cnt <= 0)
+				max_file_cnt = DEFAULT_BSRMON_FILE_CNT;
 		}
-		else {
-			int rolling_cnt = GetOptionValue(FILE_ROLLING_CNT);
-			if (rolling_cnt <= 0)
-				rolling_cnt = DEFAULT_FILE_ROLLONG_CNT;
-		}
+#endif
 
 #ifdef _WIN
 		ptr = strrchr(filename, '\\');
@@ -369,18 +410,25 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 		if (listFileName.size() != 0) {
 			for (iter = listFileName.rbegin(); iter != listFileName.rend(); iter++) {
 				file_cnt++;
-				if (file_cnt >= rolling_cnt)
+				// BSR-1236 file_cnt is the number of backup files
+				// max_file_cnt is the number including the original file.
+				if (file_cnt >= (max_file_cnt - 1))
 					remove(iter->c_str());
 			}
 		}
 
-		memcpy(r_time, currtime, strlen(currtime));
-		eliminate(r_time, ':');
-		sprintf_ex(new_filename, "%s_%s", filename, r_time);
-		rename_err = rename(filename, new_filename);
-		if (rename_err == -1) {
-			fprintf(stderr, "Failed to log file rename %s => %s\n", filename, new_filename);
-			return NULL;
+		if (max_file_cnt > 1) {
+			memcpy(r_time, currtime, strlen(currtime));
+			eliminate(r_time, ':');
+			sprintf_ex(new_filename, "%s_%s", filename, r_time);
+			rename_err = rename(filename, new_filename);
+			if (rename_err == -1) {
+				fprintf(stderr, "Failed to log file rename %s => %s\n", filename, new_filename);
+				return NULL;
+			}
+		} else {
+			// BSR-1236 if max_file_cnt is 1, remove and recreate the original file because you need to keep only the source file.
+			remove(filename);
 		}
 #ifdef _WIN
 		fp = _fsopen(filename, "a", _SH_DENYNO);
@@ -396,13 +444,13 @@ FILE *_fileopen(char * filename, char * currtime, bool logfile)
 	return fp;
 
 }
-FILE *perf_fileopen(char * filename, char * currtime)
+FILE *perf_fileopen(char * filename, char * currtime, void *param)
 {
-	return _fileopen(filename, currtime, false);
+	return _fileopen(filename, currtime, false, param);
 }
 
-static FILE * log_fileopen(char * filename, char * currtime) {
-	return _fileopen(filename, currtime, true);
+static FILE * log_fileopen(char * filename, char *currtime) {
+	return _fileopen(filename, currtime, true, NULL);
 }
 
 // BSR-1138
@@ -437,15 +485,18 @@ void _bsrmon_log(const char * func, int line, const char * fmt, ...) {
 
 	f_out = log_fileopen(bsrmon_log_path, curr_time);
 
-	va_start(args, fmt);
+	// BSR-1286
+	if (f_out) {
+		va_start(args, fmt);
 
 #ifdef _WIN
-	vsnprintf_s(b + offset, 512 - offset, 512 - offset, fmt, args);
+		vsnprintf_s(b + offset, 512 - offset, 512 - offset, fmt, args);
 #else // _LIN
-	vsnprintf(b + offset, 512 - offset, fmt, args);
+		vsnprintf(b + offset, 512 - offset, fmt, args);
 #endif
-	va_end(args);
+		va_end(args);
 
-	fprintf(f_out, "%s", b);		
-	fclose(f_out);
+		fprintf(f_out, "%s", b);
+		fclose(f_out);
+	}
 }

@@ -8,8 +8,13 @@
 setlocal EnableDelayedExpansion
 
 for /f "tokens=*" %%a in ('bsrcon /get_log_path') do set BSR_LOG_DIR=%%a
+@rem BSR-1215
+for /f "tokens=*" %%a in ('bsrmon /get file_path') do set BSRMON_DIR=%%a
 
-set bsrsupport_log="%BSR_LOG_DIR%\bsrsuupport.log"
+@rem BSR-1260
+set BSRMON_DIR=%BSRMON_DIR:path : =%
+set bsrsupport_log="%BSR_LOG_DIR%\bsrsupport.log"
+
 echo [%date%_%time%] [bsrsupport] start. > %bsrsupport_log%
 
 call :logging "[Check environments] start."
@@ -93,15 +98,18 @@ exit /B %ERRORLEVEL%
 
 :GetCoreDumpFile
 	call :logging "Get Core Dump file..."
-
-	for /f "delims=" %%a IN (%1) do @set core_filename=%%~nxa
-
+	
+	for %%a IN (%1) do ( 
+		set core_filename=%%~nxa
+	)
+	
     set CORE_ARCHIVE_NAME=%core_filename%.zip
 
     set BSR_DIR=%OUTPUT_HOME%\BSR
     if not exist "%BSR_DIR%" ( mkdir "%BSR_DIR%" )
 
-    "%BSR_PATH%\..\support\zip" -9j "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
+	@rem BSR-1264 include directories when compressed
+    "%BSR_PATH%\..\support\zip" -9 "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
 
     if %ERRORLEVEL% EQU 0 (
 		call :logging  "core file has been compressed."
@@ -199,7 +207,7 @@ exit /B 0
     if not exist "%BSR_DIR%\etc" ( mkdir "%BSR_DIR%\etc" )
     if not exist "%BSR_DIR%\log" ( mkdir "%BSR_DIR%\log" )
     if not "%EXCLUDE_PERFMON%" == "true" (
-        if not exist "%BSR_DIR%\log\perfmon" ( mkdir "%BSR_DIR%\log\perfmon" )
+        if not exist "%BSR_DIR%\perfmon" ( mkdir "%BSR_DIR%\perfmon" )
     )
 
     if not exist "%BSR_DIR%\bin" ( mkdir "%BSR_DIR%\bin" )
@@ -220,7 +228,7 @@ exit /B 0
     if "%EXCLUDE_PERFMON%" == "true" (
         call :logging "Skip collection of perfmon log."
     ) else (
-        xcopy "%BSR_LOG_DIR%\perfmon\*" "%BSR_DIR%\log\perfmon" /e /h /k 2> nul
+        xcopy "%BSRMON_DIR%\*" "%BSR_DIR%\perfmon" /e /h /k 2> nul
         call :logging "Get bsr perfmon log"
     )
     

@@ -410,7 +410,7 @@ void bsr_endio_write_sec_final(struct bsr_peer_request *peer_req) __releases(loc
 	// DW-1601 the last split uses the sector of the first bit for resync_lru matching.
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_req->flags & EE_SPLIT_LAST_REQ)
-		sector = BM_BIT_TO_SECT(peer_req->s_bb);
+		sector = BM_BIT_TO_SECT(peer_req->sbb.start);
 	else
 #endif
 		sector = peer_req->i.sector;
@@ -646,8 +646,6 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bio_and_error m;
 	enum bsr_req_event what;
 	struct bsr_peer_device* peer_device;
-	// BSR-843
-	bool all_oos_pending = true;
 #ifdef _WIN
 	struct bio *bio = NULL;
 	int error = 0;
@@ -699,7 +697,8 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 		ktime_get_accounting(req->bio_endio_kt);
 
 	if (bio_data_dir(bio) & WRITE) {
-		bsr_debug(15, BSR_LC_VERIFY, device, "%s, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+		bsr_debug(15, BSR_LC_VERIFY, device, "%s, req %p, sector(%llu), size(%u), bitmap(%llu ~ %llu)", __FUNCTION__, 
+				req,
 				(unsigned long long)req->i.sector, 
 				req->i.size, 
 				(unsigned long long)BM_SECT_TO_BIT(req->i.sector), 
@@ -833,24 +832,13 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 #ifdef SPLIT_REQUEST_RESYNC
 	for_each_peer_device(peer_device, device) {
 		struct bsr_connection *connection = peer_device->connection;
-		if (connection->cstate[NOW] != C_CONNECTING && 
-			connection->cstate[NOW] != C_STANDALONE) {
-			if (connection->agreed_pro_version >= 113) {
-				int idx = peer_device ? 1 + peer_device->node_id : 0;
-				if (req->rq_state[idx] & RQ_OOS_PENDING) {
-					// DW-2058 set out of sync again before sending.
-					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-					_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
-					// BSR-541
-					wake_up(&connection->sender_work.q_wait);
-				}
-				else {
-					// BSR-843
-					all_oos_pending = false;
-				}
-			} else
-				// BSR-843
-				all_oos_pending = false;
+		int idx = peer_device ? 1 + peer_device->node_id : 0;
+		if (req->rq_state[idx] & RQ_OOS_PENDING) {
+			// DW-2058 set out of sync again before sending.
+			bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+			_req_mod(req, QUEUE_FOR_SEND_OOS, peer_device);
+			// BSR-541
+			wake_up(&connection->sender_work.q_wait);
 		}
 	}
 #endif
@@ -864,10 +852,7 @@ BIO_ENDIO_TYPE bsr_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 
 	// BSR-1116 asynchronous replication improves local write performance by completing local writes from write-complete-callback, whether or not data is transferred.
 	if (what == COMPLETED_OK) {
-		if (!m.bio &&
-			(req->req_databuf ||
-			// BSR-843 requests to send OOS due to congestion improve local write performance during congestion by completing local write in a write-complete-callback, whether or not OOS is transferred.
-			all_oos_pending)) {
+		if (!m.bio && req->req_databuf) {
 			m.bio = req->master_bio;
 			m.error = 0;
 			req->i.completed = true;
@@ -929,6 +914,11 @@ void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *d
 #ifdef _WIN 
 	if (request->req_databuf)
 		crypto_hash_update(&desc, (struct scatterlist *)request->req_databuf, request->i.size);
+	else {
+		// BSR-1261 request->req_databuf can be null because it is only allocated in Async, 
+		// read the hash of request->master_bio->bio_databuf.
+		crypto_hash_update(&desc, (struct scatterlist *)request->master_bio->bio_databuf, request->i.size);
+	}
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
     desc->tfm = tfm;
@@ -1351,7 +1341,7 @@ static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 #ifdef SPLIT_REQUEST_RESYNC
 	if (peer_device->connection->agreed_pro_version >= 113) {
 		// DW-2082 if the bitmap exchange was not completed and the resync request was sent once, the next resync request is not sent.
-		if (atomic_read(&peer_device->wait_for_bitmp_exchange_complete)) {
+		if (atomic_read(&peer_device->wait_for_bm_exchange_compl)) {
 			bsr_debug(16, BSR_LC_VERIFY, peer_device, "waiting for syncsource to bitmap exchange status");
 			goto requeue;
 		}
@@ -2151,8 +2141,6 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				uuid_updated = true;
 			}
 		} else if (repl_state[NOW] == L_SYNC_SOURCE || repl_state[NOW] == L_PAUSED_SYNC_S) {
-			struct bsr_peer_device *p;
-
 			if (new_peer_disk_state != D_MASK)
 				__change_peer_disk_state(peer_device, new_peer_disk_state, __FUNCTION__);
 			if (peer_device->connection->agreed_pro_version < 110) {
@@ -2161,27 +2149,6 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 				// BSR-676 notify uuid
 				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 			}
-
-			// BSR-1171
-			for_each_peer_device(p, device) {
-				if (p == peer_device)
-					continue;
-
-				if (is_sync_target(p)) {
-					p->latest_nodes |= NODE_MASK(p->node_id);
-					// BSR-1171 if there are nodes that can be targeted for bitmap merging, set up a flag.
-					bsr_md_set_peer_flag(p, MDF_NEED_TO_MERGE_BITMAP);
-					bsr_info(20, BSR_LC_VERIFY, peer_device, "update latest node mask %llu", p->latest_nodes);
-				}
-			}
-
-			peer_device->latest_nodes = 0;
-#ifdef _WIN64
-			peer_device->merged_nodes = UINT64_MAX;
-#else
-			peer_device->merged_nodes = ~0UL;
-#endif
-			bsr_md_clear_peer_flag(peer_device, MDF_NEED_TO_MERGE_BITMAP);
 		}
 	}
 
@@ -2189,8 +2156,17 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
 
 	// BSR-431 clear MDF_PEER_INIT_SYNCT_BEGIN flag when just resync is done.
-	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
+	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN)) {
+		struct bsr_peer_device *other_peer_device = NULL;
 		bsr_md_clear_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+
+		// BSR-1213 clear MDF_PEER_INIT_SYNCT_BEGIN on other peer nodes as well.
+		for_each_peer_device(other_peer_device, device) {
+			if (other_peer_device == peer_device)
+				continue;
+			bsr_md_clear_peer_flag(other_peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+		}
+	}
 
 #ifdef _WIN
 	// BSR-1066 when resync finished, clear MDF_PEER_DISKLESS_OR_CRASHED_PRIMARY flag
@@ -2224,7 +2200,7 @@ out_unlock:
 	peer_device->rs_total  = 0;
 	peer_device->rs_failed = 0;
 	peer_device->rs_paused = 0;
-	atomic_set(&peer_device->wait_for_bitmp_exchange_complete, 0);
+	atomic_set(&peer_device->wait_for_bm_exchange_compl, 0);
 
 	if (peer_device->resync_again) {
 		enum bsr_repl_state new_repl_state =
@@ -2621,11 +2597,11 @@ void verify_progress(struct bsr_peer_device *peer_device,
 }
 
 // BSR-997
-static bool is_skipped_sectors(struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est)
+static bool is_skipped_sectors(struct bsr_scope_sector *skipped, sector_t sst, sector_t est)
 {
-	if ((skipped->sst >= sst && skipped->est <= est) ||
-		(skipped->sst <= est && skipped->est >= est) ||
-		(skipped->sst <= sst && skipped->est >= sst)) {
+	if ((skipped->start >= sst && skipped->end <= est) ||
+		(skipped->start <= est && skipped->end >= est) ||
+		(skipped->start <= sst && skipped->end >= sst)) {
 		return true;
 	}
 
@@ -2650,29 +2626,29 @@ static int bsr_send_split_ov_request(struct bsr_peer_device *peer_device, sector
 
 // BSR-997 resend ov request except for skipped sectors
 static sector_t make_split_ov_request(struct bsr_peer_device *peer_device, 
-	struct bsr_ov_skip_sectors *skipped, sector_t sst, sector_t est, bool done)
+	struct bsr_scope_sector *skipped, sector_t sst, sector_t est, bool done)
 {
 	sector_t skip_sst = 0, skip_est = 0;
-	struct bsr_ov_skip_sectors *split_list;
+	struct bsr_scope_sector *split_list;
 
 	spin_lock_irq(&peer_device->ov_lock);
-	if (skipped->sst >= sst) {
-		skip_sst = skipped->sst > sst ? skipped->sst : sst;
-		skip_est = skipped->est < est ? skipped->est : est;
+	if (skipped->start >= sst) {
+		skip_sst = skipped->start > sst ? skipped->start : sst;
+		skip_est = skipped->end < est ? skipped->end : est;
 
-		if (skipped->est <= est) { 
+		if (skipped->end <= est) {
 			list_del(&skipped->sector_list);
 			kfree2(skipped);
 		} else {
 			// skipped->est > est
-			skipped->sst = est;
+			skipped->start = est;
 		}				
 	} 
-	else if (skipped->est <= est) {
+	else if (skipped->end <= est) {
 		// skipped->sst < sst
 		skip_sst = sst;
-		skip_est = skipped->est < est ? skipped->est : est;
-		skipped->est = sst;
+		skip_est = skipped->end < est ? skipped->end : est;
+		skipped->end = sst;
 	} 
 	else {
 		// skipped->est > est
@@ -2680,9 +2656,9 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		skip_est = est;
 
 #ifdef _WIN
-		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), 'AASB');
+		split_list = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_scope_sector), 'AASB');
 #else // _LIN
-		split_list = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
+		split_list = (struct bsr_scope_sector *)bsr_kmalloc(sizeof(struct bsr_scope_sector), GFP_ATOMIC|__GFP_NOWARN, '');
 #endif
 		if (!split_list) {
 			bsr_err(97, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", 
@@ -2691,9 +2667,9 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 			goto skip_sector;
 		}
 
-		split_list->sst = skip_est;
-		split_list->est = skipped->est;
-		skipped->est = skip_sst;
+		split_list->start = skip_est;
+		split_list->end = skipped->end;
+		skipped->end = skip_sst;
 		list_add(&split_list->sector_list, &peer_device->ov_skip_sectors_list);
 	}
 	
@@ -2726,7 +2702,7 @@ skip_sector:
 // BSR-997 check sectors in ov_skip_sectors_list
 static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
 {
-	struct bsr_ov_skip_sectors *skipped, *tmp;
+	struct bsr_scope_sector *skipped, *tmp;
 	sector_t ret_sst = sst;	
 	bool is_skipped = false;
 	bool split_ov_done = false;
@@ -2737,7 +2713,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 		return false;
 	}
 
-	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
+	list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
 	{
 		if (is_skipped_sectors(skipped, sst, est)) {
 			if (!is_skipped) {
@@ -3226,9 +3202,11 @@ static void do_start_resync(struct bsr_peer_device *peer_device)
 	if (atomic_read(&peer_device->unacked_cnt) || 
 		atomic_read(&peer_device->rs_pending_cnt) ||
 		// DW-1979
-		atomic_read(&peer_device->wait_for_recv_bitmap)) {
-		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d, bitmap : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt),
-			atomic_read(&peer_device->wait_for_recv_bitmap));
+		atomic_read(&peer_device->wait_for_recv_bitmap) ||
+		// BSR-1256 if AL OOS is left, try to synchronize again after the delay.
+		atomic_read(&peer_device->al_oos_cnt)) {
+		bsr_warn(171, BSR_LC_RESYNC_OV, peer_device, "postponing start_resync ... unacked : %d, pending : %d, bitmap : %d, al oos : %d", atomic_read(&peer_device->unacked_cnt), atomic_read(&peer_device->rs_pending_cnt),
+			atomic_read(&peer_device->wait_for_recv_bitmap), atomic_read(&peer_device->al_oos_cnt));
 		retry_resync = true;
 	}
 
@@ -3455,20 +3433,23 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (peer_device->connection->agreed_pro_version >= 113) {
 		//DW-1911
 		struct bsr_marked_replicate *marked_rl, *mrt;
-		struct bsr_resync_pending_sectors *pending_st, *rpt;
+		struct bsr_scope_sector *pending_st, *rpt;
 		ULONG_PTR offset = 0;
 
 		mutex_lock(&device->resync_pending_fo_mutex);
-		list_for_each_entry_safe_ex(struct bsr_resync_pending_sectors, pending_st, rpt, &(device->resync_pending_sectors), pending_sectors) {
-			list_del(&pending_st->pending_sectors);
+		list_for_each_entry_safe_ex(struct bsr_scope_sector, pending_st, rpt, &(device->resync_pending_sectors), sector_list) {
+			list_del(&pending_st->sector_list);
 			kfree2(pending_st);
 		}
 		mutex_unlock(&device->resync_pending_fo_mutex);
 
-		//DW-1908
+		// BSR-1220
+		mutex_lock(&device->submit_mutex);
+
+		// DW-1908
 		device->h_marked_bb = 0;
 		device->h_insync_bb = 0;
-		
+
 		list_for_each_entry_safe_ex(struct bsr_marked_replicate, marked_rl, mrt, &(device->marked_rl_list), marked_rl_list) {
 			list_del(&marked_rl->marked_rl_list);
 			kfree2(marked_rl);
@@ -3484,6 +3465,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		// DW-2065
 		atomic_set64(&peer_device->s_resync_bb, 0);
 		atomic_set64(&peer_device->e_resync_bb, 0);
+
+		mutex_unlock(&device->submit_mutex);
 
 		// DW-2050
 		if (side == L_SYNC_TARGET) {
@@ -3581,9 +3564,12 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 
 	if (r == SS_SUCCESS) {
 		// DW-1285 set MDF_PEER_INIT_SYNCT_BEGIN 
+		// BSR-1213 set even when start_init_sync is 1
 		if( (side == L_SYNC_TARGET) 
-			&& (peer_device->device->ldev->md.current_uuid == UUID_JUST_CREATED) ) { 
+			&& ((peer_device->device->ldev->md.current_uuid == UUID_JUST_CREATED) 
+			|| atomic_read(&peer_device->start_init_sync))) { 
 			bsr_md_set_peer_flag (peer_device, MDF_PEER_INIT_SYNCT_BEGIN);
+			atomic_set(&peer_device->start_init_sync, 0);
 		}
 		
 		// BSR-842
@@ -4380,7 +4366,7 @@ static int process_one_request(struct bsr_connection *connection)
 				peer_device->todo.was_ahead = true;
 				bsr_send_current_state(peer_device);
 			}
-			err = bsr_send_out_of_sync(peer_device, &req->i);
+			err = bsr_send_out_of_sync(__FUNCTION__, peer_device, &req->i);
 
 #ifdef SPLIT_REQUEST_RESYNC
 			// DW-2058 if all request(pending out of sync) is sent when the current status is L_ESTABLISHED and out of sync remains, start resync.

@@ -63,7 +63,6 @@ typedef _off64_t off64_t;
 #define BSR_CONFIG_DIR "/etc"
 #endif
 
-#define MAX_ARGS 40
 
 char *progname;
 
@@ -1287,13 +1286,6 @@ DWORD del_registry_volume(char * letter)
     return ERROR_SUCCESS;
 }
 #endif
-#define NA(ARGC) \
-  ({ if((ARGC) >= MAX_ARGS) { err("MAX_ARGS too small\n"); \
-       exit(E_THINKO); \
-     } \
-     (ARGC)++; \
-  })
-
 static bool is_valid_backend_option(const char* name, const struct context_def *context_def)
 {
 	const struct field_def *field;
@@ -1399,7 +1391,7 @@ static int adm_attach(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, SLEEPS_LONG, ctx->res->name);
+	return m_system_ex(argv, SLEEPS_LONG, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 struct d_option *find_opt(struct options *base, const char *name)
@@ -1446,7 +1438,7 @@ int adm_new_minor(const struct cfg_ctx *ctx)
 		return ex;
 	}
 #endif
-	ex = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name);
+	ex = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 	if (!ex && do_register)
 		register_minor(ctx->vol->device_minor, config_save);
 
@@ -1470,7 +1462,7 @@ static int adm_node(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = NULL;
 
-	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int adm_resource(const struct cfg_ctx *ctx)
@@ -1493,7 +1485,7 @@ static int adm_resource(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = NULL;
 
-	ex = m_system_ex(argv, SLEEPS_SHORT, res->name);
+	ex = m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 	if (!ex && do_new_resource && do_register)
 		register_resource(res->name, config_save);
 	return ex;
@@ -1552,7 +1544,7 @@ int adm_resize(const struct cfg_ctx *ctx)
 
 	/* if this is a "resize" triggered by "check-resize", be silent! */
 	silent = is_resize ? 0 : SUPRESS_STDERR;
-	ex = m_system_ex(argv, SLEEPS_LONG | silent, ctx->res->name);
+	ex = m_system_ex(argv, SLEEPS_LONG | silent, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 
 	if (ex && target_size) {
 		new_size = read_bsr_dev_size(ctx->vol->device_minor);
@@ -1578,7 +1570,7 @@ int adm_resize(const struct cfg_ctx *ctx)
 	/* argv[2] = minor; */
 	argv[3] = NULL;
 	/* ignore exit code */
-	m_system_ex(argv, SLEEPS_SHORT | silent, ctx->res->name);
+	m_system_ex(argv, SLEEPS_SHORT | silent, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 
 	/* Here comes a really uggly hack. Wait until the device size actually
 	changed, but only up to 10 seconds if know the target size, up to
@@ -1641,7 +1633,7 @@ int _adm_bsrmeta(const struct cfg_ctx *ctx, int flags, char *argument)
 		add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, flags, ctx->res->name);
+	return m_system_ex(argv, flags, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int adm_bsrmeta(const struct cfg_ctx *ctx)
@@ -1680,7 +1672,7 @@ static void __adm_bsrsetup(const struct cfg_ctx *ctx, int flags, pid_t *pid, int
 	if (ctx->res)
 		setenv("BSR_RESOURCE", ctx->res->name, 1);
 
-	m__system(argv, flags, ctx->res ? ctx->res->name : NULL, pid, fd, ex);
+	m__system(argv, flags, ctx->res ? ctx->res->name : NULL, pid, fd, ex, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int _adm_bsrsetup(const struct cfg_ctx *ctx, int flags)
@@ -1725,7 +1717,7 @@ static int adm_primary(const struct cfg_ctx *ctx)
 			for_each_volume(vol, &ctx->res->me->volumes) {
 				tmp_ctx.vol = vol;
 				argv[2] = ssprintf("%d", tmp_ctx.vol->device_minor);
-				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name);
+				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 				if (rv)
 					return rv;
 			}    
@@ -1992,7 +1984,7 @@ static int adm_khelper(const struct cfg_ctx *ctx)
 
 	if ((sh_cmd = get_opt_val(&res->handlers, ctx->cmd->name, NULL))) {
 		argv[2] = sh_cmd;
-		rv = m_system_ex(argv, SLEEPS_VERY_LONG, res->name);
+		rv = m_system_ex(argv, SLEEPS_VERY_LONG, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 	}
 	return rv;
 }
@@ -2027,7 +2019,7 @@ int adm_peer_device(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int adm_connect(const struct cfg_ctx *ctx)
@@ -2045,7 +2037,7 @@ static int adm_connect(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int adm_new_peer(const struct cfg_ctx *ctx)
@@ -2074,7 +2066,7 @@ static int adm_new_peer(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 static int adm_path(const struct cfg_ctx *ctx)
@@ -2097,7 +2089,7 @@ static int adm_path(const struct cfg_ctx *ctx)
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
 
-	return m_system_ex(argv, SLEEPS_SHORT, res->name);
+	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 }
 
 void free_opt(struct d_option *item)
@@ -2173,7 +2165,7 @@ int do_proxy_conn_up(const struct cfg_ctx *ctx)
 				path->my_address->addr,
 				path->my_address->port);
 
-		rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name);
+		rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 		if (rv)
 			break;
 	}
@@ -2228,7 +2220,7 @@ int do_proxy_conn_plugins(const struct cfg_ctx *ctx)
 
 		argv[NA(argc)] = 0;
 		if (argc > 2)
-			rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name);
+			rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 		if (rv)
 			break;
 	}
@@ -2261,7 +2253,7 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx)
 
 		argv[2] = ssprintf("del connection %s", conn_name);
 
-		rv = m_system_ex(argv, SLEEPS_SHORT, res->name);
+		rv = m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 		if (rv)
 			break;
 	}
@@ -2423,7 +2415,7 @@ static int adm_wait_c(const struct cfg_ctx *ctx)
 		make_options(argv[NA(argc)], &res->startup_options);
 	argv[NA(argc)] = 0;
 
-	rv = m_system_ex(argv, SLEEPS_FOREVER, res->name);
+	rv = m_system_ex(argv, SLEEPS_FOREVER, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 
 	return rv;
 }
@@ -2805,7 +2797,7 @@ static int adm_wait_ci(const struct cfg_ctx *ctx)
 		make_options(argv[NA(argc)], &res->startup_options);
 		argv[NA(argc)] = 0;
 
-		m__system(argv, RETURN_PID, res->name, &pids[i++], NULL, NULL);
+		m__system(argv, RETURN_PID, res->name, &pids[i++], NULL, NULL, sh_varname, adjust_with_progress, dry_run, verbose);
 	}
 
 	wtime = global_options.dialog_refresh ? : -1;
@@ -3070,7 +3062,7 @@ void verify_ips(struct d_resource *res)
 	if (!res->me->address.addr)
 		return;
 
-	if (!have_ip(res->me->address.af, res->me->address.addr)) {
+	if (!have_ip(res->me->address.af, res->me->address.addr, ifreq_list)) {
 		ENTRY *e, *ep, *f;
 		e = calloc(1, sizeof *e);
 		if (!e) {
@@ -3640,13 +3632,19 @@ int main(int argc, char **argv)
 	lprogram = basename(argv[0]);
 
 	// BSR-1112
-	get_log_path();
+	bsr_log_path();
 	// BSR-1031 set execution_log, output on error
 	set_exec_log(argc, argv);
 
 	initialize_err();
 	initialize_deferred_cmds();
 #ifdef _WIN
+	// BSR-1182 returns an error if it has not been rebooted after installation.
+	if (!is_reboot_after_installation()) {
+		CLI_ERRO_LOG_PEEROR(false, "The reboot did not proceed after the new installation. Please proceed with the reboot first.");
+		return -112;
+	}
+
 	{
         extern void manual_nl_policy_init_by_app(void);
         manual_nl_policy_init_by_app();

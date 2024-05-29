@@ -995,6 +995,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
     <ClCompile Include="..\..\..\bsr\bsr_receiver.c" />
     <ClCompile Include="..\..\..\bsr\bsr_req.c" />
     <ClCompile Include="..\..\..\bsr\bsr_sender.c" />
+    <ClCompile Include="..\..\..\bsr\bsr_split_req.c" />
     <ClCompile Include="..\..\..\bsr\bsr_state.c" />
     <ClCompile Include="..\..\..\bsr\bsr_transport.c" />
     <ClCompile Include="..\..\..\bsr\bsr_transport_tcp.c" />
@@ -1058,6 +1059,7 @@ certutil -hashfile %25destdir%25\bsrvflt.sys md5  | find /v ":" &gt; %25destdir%
     <ClInclude Include="..\..\..\bsr\bsr_kref_debug.h" />
     <ClInclude Include="..\..\..\bsr\bsr_nla.h" />
     <ClInclude Include="..\..\..\bsr\bsr_req.h" />
+    <ClInclude Include="..\..\..\bsr\bsr_split_req.h" />
     <ClInclude Include="..\..\..\bsr\bsr_state.h" />
     <ClInclude Include="..\..\..\bsr\bsr_state_change.h" />
     <ClInclude Include="..\..\..\bsr\bsr_vli.h" />

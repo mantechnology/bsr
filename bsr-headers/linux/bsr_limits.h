@@ -124,7 +124,8 @@
 #endif
 
 // BSR-1116
-#define BSR_ACCELBUF_SIZE_MAX  (1024*1024*1024*2) // 2G
+// BSR-1275 
+#define BSR_ACCELBUF_SIZE_MAX  (1024*1024*1024*2LL) // 2G
 // BSR-1145
 #define BSR_ACCELBUF_SIZE_DEF  (1024*1024*10) // 10MB
 // BSR-843 change the minimum size to 0 for disable accelbuf. (0 = disable) 
@@ -253,7 +254,7 @@
 #define BSR_C_MAX_RATE_MIN     250
 #define BSR_C_MAX_RATE_MAX     (4 << 20)
 // BSR-1148 change the default value based on low bandwidth. (100Mbps)
-#define BSR_C_MAX_RATE_DEF     6656 
+#define BSR_C_MAX_RATE_DEF     5120 
 #define BSR_C_MAX_RATE_SCALE	'k'  /* kilobytes */
 
 #define BSR_C_MIN_RATE_MIN     0
@@ -292,7 +293,8 @@
 #define BSR_DISK_DISKLESS_DEF    0
 #define BSR_MD_FLUSHES_DEF	1
 // DW-1652 change the default value of tcp-cork to no
-#define BSR_TCP_CORK_DEF	0
+// BSR-1285 restore the default value of tcp-cork to yes to improve multi-volume performance
+#define BSR_TCP_CORK_DEF	1
 #define BSR_AL_UPDATES_DEF     1
 /* We used to ignore the discard_zeroes_data setting.
  * To not change established (and expected) behaviour,
@@ -389,7 +391,8 @@
 
 #define BSR_AL_STRIPE_SIZE_MIN   4
 #define BSR_AL_STRIPE_SIZE_MAX   16777216
-#define BSR_AL_STRIPE_SIZE_DEF   32
+// BSR-1222 when resizeing, change the default value to 320k that allows al-extents to be assigned as the maximum value.
+#define BSR_AL_STRIPE_SIZE_DEF   320
 #define BSR_AL_STRIPE_SIZE_SCALE 'k' /* kilobytes */
 
 #define BSR_SOCKET_CHECK_TIMEO_MIN 1
@@ -417,6 +420,6 @@
 #define BSR_ON_NO_QUORUM_DEF ONQ_SUSPEND_IO
 
 #define AL_WAIT_TIMEOUT			10 * HZ // DW-1513 // DW-1761
-#define EE_WAIT_TIMEOUT			10 * HZ // BSR-846
+#define EE_WAIT_TIMEOUT			3 * HZ // BSR-846
 
 #endif

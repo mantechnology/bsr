@@ -409,7 +409,7 @@ enum bsr_cfg_stage {
 extern void schedule_deferred_cmd(struct adm_cmd *, const struct cfg_ctx *, enum bsr_cfg_stage);
 extern void maybe_exec_legacy_bsradm(char **argv);
 extern void uc_node(enum usage_count_type type);
-extern int have_ip(const char *af, const char *ip);
+extern int have_ip(const char *af, const char *ip, struct ifreq *ifreq_list);
 extern void free_opt(struct d_option *item);
 typedef enum {SETUP_MULTI, CTX_FIRST, WOULD_ENABLE_DISABLED, WOULD_ENABLE_MULTI_TIMES} checks;
 extern int ctx_by_name(struct cfg_ctx *ctx, const char *id, checks check);

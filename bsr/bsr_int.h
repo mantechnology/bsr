@@ -47,7 +47,7 @@
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
 
-#if defined(COMPAT_HAVE_REVALIDATE_DISK) || defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
+#if defined(COMPAT_HAVE_REVALIDATE_DISK_SIZE)
 #include <linux/genhd.h>
 #endif
 
@@ -528,12 +528,12 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_VOLUME_MAX_INDEX 101
 #define BSR_LC_IO_MAX_INDEX 64
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
-#define BSR_LC_BITMAP_MAX_INDEX 127
+#define BSR_LC_BITMAP_MAX_INDEX 128
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 37
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 233
-#define BSR_LC_REPLICATION_MAX_INDEX 32
+#define BSR_LC_RESYNC_OV_MAX_INDEX 235
+#define BSR_LC_REPLICATION_MAX_INDEX 33
 #define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 40
 #define BSR_LC_TWOPC_MAX_INDEX 59
@@ -1000,6 +1000,11 @@ struct digest_info {
 	void *digest;
 };
 
+struct bsr_scope_bitmap_bit {
+	ULONG_PTR start; // DW-1601 start bitmap bit of split data 
+	ULONG_PTR end_next; // DW-1601 end next bitmap bit of split data  
+};
+
 struct bsr_peer_request {
 	struct bsr_work w;
 	struct bsr_peer_device *peer_device;
@@ -1022,10 +1027,11 @@ struct bsr_peer_request {
 
 			// DW-1961
 			bool	 do_submit;				// Whether do_submit logic passed
+			// BSR-1220 when receiving replication data, whether bitmap exchange is complete is set.
+			bool	 bm_exchanged;
 			LONGLONG created_ts;			// req created
 			LONGLONG io_request_ts;			// Before delivering an io request to disk
 			LONGLONG io_complete_ts;		// Received io completion from disk
-
 			union {
 				u64 block_id;
 				struct digest_info *digest;
@@ -1044,8 +1050,7 @@ struct bsr_peer_request {
 #endif
 
 	struct {
-		ULONG_PTR s_bb;		// DW-1601 start bitmap bit of split data 
-		ULONG_PTR e_next_bb;// DW-1601 end next bitmap bit of split data  
+		struct bsr_scope_bitmap_bit sbb;
 		atomic_t *count;	// DW-1601 total split request (bitmap bit) 		        
 		atomic_t *unmarked_count;    // DW-1911 this is the count for the sector not written in the maked replication bit 
 		atomic_t *failed_unmarked; // DW-1911 true, if unmarked writing fails 
@@ -1816,6 +1821,7 @@ struct bsr_connection {
 	 * protected by resource->req_lock */
 	struct bsr_request *req_ack_pending;
 	struct bsr_request *req_not_net_done;
+	struct bsr_request *req_last_barrier_acked; // BSR-1195 last req set to BARRIER_ACKED
 
 	unsigned int s_cb_nr; /* keeps counting up */
 	unsigned int r_cb_nr; /* keeps counting up */
@@ -1964,7 +1970,7 @@ struct bsr_peer_device {
 	atomic_t wait_for_actlog;
 	// DW-1979 the value used by the syncaget to match the "out of sync" with the sync source when exchanging the bitmap.
 	// set to 1 when waiting for a response to a resync request.
-	atomic_t wait_for_bitmp_exchange_complete;
+	atomic_t wait_for_bm_exchange_compl;
 	// DW-1979 used to determine whether the bitmap exchange is complete on the syncsource.
 	// set to 1 to wait for bitmap exchange.
 	atomic_t wait_for_recv_bitmap;
@@ -2121,39 +2127,14 @@ struct bsr_peer_device {
 
 	struct timer_list sended_timer;
 
-	// BSR-1171 The mask of peer node that completed resync during the initial connection or during resync.
-	u64 latest_nodes;
-	u64 merged_nodes;
-
 	// BSR-1170 count for replication data and incomplete local writes that fail to transmit OOS.
 	atomic_t64 local_writing;
 	wait_queue_head_t local_writing_wait;
 	// BSR-1170 used to perform a reconnection resync for an OOS that has not completed a local write at the start of bitmap transmission.
 	atomic_t start_sending_bitmap;
-};
 
-
-// BSR-997
-struct bsr_ov_skip_sectors {
-	sector_t sst;	/* start sector number */
-	sector_t est;	/* end sector number */
-	struct list_head sector_list;
-};
-
-
-// DW-1911
-struct bsr_marked_replicate {
-	ULONG_PTR bb;	/* current bitmap bit */
-	u8 marked_rl;    /* marks the sector as bit. (4k = 8sector = u8(8bit)) */
-	struct list_head marked_rl_list;
-	u16 end_unmarked_rl;
-};
-
-// DW-2042
-struct bsr_resync_pending_sectors {
-	sector_t sst;	/* start sector number */
-	sector_t est;	/* end sector number */
-	struct list_head pending_sectors;
+	// BSR-1213
+	atomic_t start_init_sync;
 };
 
 struct submit_worker {
@@ -2342,6 +2323,9 @@ struct bsr_device {
 #endif
 	// BSR-1145
 	struct bsr_offset_buffer accelbuf;
+	
+	// BSR-1220 mutex used to synchronize replication data and synchronization data during delay processing.
+	struct mutex submit_mutex;
 };
 
 
@@ -2500,7 +2484,7 @@ extern int bsr_send_state(struct bsr_peer_device *, union bsr_state);
 extern int bsr_send_current_state(struct bsr_peer_device *);
 extern int bsr_send_sync_param(struct bsr_peer_device *);
 extern void bsr_send_b_ack(struct bsr_connection *connection, s32 barrier_nr, u32 set_size);
-extern int bsr_send_out_of_sync(struct bsr_peer_device *, struct bsr_interval *);
+extern int bsr_send_out_of_sync(const char *caller, struct bsr_peer_device *, struct bsr_interval *);
 extern int bsr_send_block(struct bsr_peer_device *, enum bsr_packet, int,
 			   struct bsr_peer_request *);
 extern int bsr_send_dblock(struct bsr_peer_device *, struct bsr_request *req);
@@ -3375,17 +3359,16 @@ static inline void bsr_set_my_capacity(struct bsr_device *device,
 
 	device->this_bdev->d_size = size << 9;
 #else // _LIN
-#ifdef COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY
+	// BSR-1242 define for rhel 9.0 and 9.1 and later.
+#if defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_GENHD) || defined(COMPAT_HAVE_SET_CAPACITY_AND_NOTIFY_BLKDEV) 
 	set_capacity_and_notify(device->vdisk, size);
 #else
 	set_capacity(device->vdisk, size);
-
 #ifdef COMPAT_HAVE_REVALIDATE_DISK_SIZE
 	revalidate_disk_size(device->vdisk, false);
 #else
-#ifdef COMPAT_HAVE_REVALIDATE_DISK
+	// BSR-1242
 	revalidate_disk(device->vdisk);
-#endif
 #endif
 #endif
 #endif
@@ -3470,10 +3453,10 @@ extern void bsr_rs_failed_io(struct bsr_peer_device *, sector_t, int);
 extern void bsr_advance_rs_marks(struct bsr_peer_device *, ULONG_PTR);
 extern bool bsr_set_all_out_of_sync(struct bsr_device *, sector_t, int);
 // DW-1191
-extern unsigned long bsr_set_sync(struct bsr_device *, sector_t, int, ULONG_PTR, ULONG_PTR);
+extern unsigned long bsr_set_sync(const char* caller, struct bsr_device *, sector_t, int, ULONG_PTR, ULONG_PTR);
 
 // BSR-444 add parameter locked(rcu_read_lock)
-extern ULONG_PTR update_sync_bits(struct bsr_peer_device *peer_device,
+extern ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_device,
 	ULONG_PTR sbnr, ULONG_PTR ebnr, update_sync_bits_mode mode, bool locked);
 
 extern ULONG_PTR __bsr_change_sync(struct bsr_peer_device *peer_device, sector_t sector, int size,
@@ -3948,8 +3931,8 @@ static inline void request_ping(struct bsr_connection *connection)
 extern void *__conn_prepare_command(struct bsr_connection *, int, enum bsr_stream);
 extern void *conn_prepare_command(struct bsr_connection *, int, enum bsr_stream);
 extern void *bsr_prepare_command(struct bsr_peer_device *, int, enum bsr_stream);
-extern int __send_command(struct bsr_connection *, int, enum bsr_packet, enum bsr_stream);
-extern int send_command(struct bsr_connection *, int, enum bsr_packet, enum bsr_stream);
+extern int __send_command(struct bsr_connection *, int, enum bsr_packet, int stream_and_flags);
+extern int send_command(struct bsr_connection *, int, enum bsr_packet, int stream_and_flags);
 extern int bsr_send_command(struct bsr_peer_device *, enum bsr_packet, enum bsr_stream);
 
 extern int bsr_send_ping(struct bsr_connection *connection);
@@ -4605,7 +4588,7 @@ extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff
 #else
 extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type);
 #endif
-extern int bsr_readdir(char * dir_path, struct log_rolling_file_list * rlist);
+extern int bsr_readdir(char * dir_path, struct backup_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
 char *__read_reg_file(char *file_path);
 extern long read_reg_file(char *file_path, long default_val);

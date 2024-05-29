@@ -671,12 +671,7 @@ static enum bsr_state_rv ___end_state_change(struct bsr_resource *resource, stru
 				} else {
 					atomic_inc(&peer_device->resync_seq);
 				}
-			} else if (peer_device->repl_state[NOW] == L_AHEAD && peer_device->repl_state[NEW] != L_AHEAD) {
-				if (atomic_read(&peer_device->al_oos_cnt)) {
-					bsr_info(62, BSR_LC_IO, peer_device, "The number of writes whose activity log are out of sync in congestion is %d", atomic_read(&peer_device->al_oos_cnt));
-					atomic_set(&peer_device->al_oos_cnt, 0);
-				}
-			}
+			} 
 
 			// DW-1131 move to queue_after_state_change_work.
 			// BSR-439 keep the updates repl_state
@@ -3541,9 +3536,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			else if (repl_state[OLD] != L_WF_BITMAP_S && repl_state[NEW] == L_WF_BITMAP_S &&
 					((peer_device->repl_state[NOW] == L_WF_BITMAP_S) ||
 					// DW-2064 send bitmap when L_AHEAD is in state and wait_for_recv_bitmap is set
-					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) {
+					(peer_device->repl_state[NOW] == L_AHEAD && atomic_read(&peer_device->wait_for_recv_bitmap)))) 
 				send_bitmap = true;
-			}
 
 			// DW-1447
 			if (send_bitmap) {
@@ -3748,8 +3742,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				// BSR-997
 				spin_lock_irq(&peer_device->ov_lock);
 				if (!list_empty(&peer_device->ov_skip_sectors_list)) {
-					struct bsr_ov_skip_sectors *skipped, *skipped_tmp;
-					list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
+					struct bsr_scope_sector *skipped, *skipped_tmp;
+					list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, skipped_tmp, &peer_device->ov_skip_sectors_list, sector_list)
 					{
 						list_del(&skipped->sector_list);
 						kfree2(skipped);

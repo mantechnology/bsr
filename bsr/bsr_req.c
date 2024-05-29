@@ -276,6 +276,11 @@ void bsr_req_destroy(struct kref *kref)
 #endif
 	
 	list_del_init(&req->tl_requests);
+	// BSR-1195 set req_last_barrier_acked to null when removing tl_requests
+	for_each_peer_device(peer_device, device) {
+		if (peer_device->connection->req_last_barrier_acked == req)
+			peer_device->connection->req_last_barrier_acked = NULL;
+	}
 
 	/* finally remove the request from the conflict detection
 	 * respective block_id verification interval tree. */
@@ -310,10 +315,12 @@ void bsr_req_destroy(struct kref *kref)
 				unsigned int rq_state;
 
 				rq_state = req->rq_state[1 + node_id];
-				// Dw-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_QUEUED).
-				if (rq_state & RQ_NET_OK || ((rq_state & RQ_NET_DONE) && (rq_state & RQ_OOS_NET_QUEUED))
+				if ((rq_state & RQ_NET_OK) ||
+					// DW-2091 clear the peer index that sent out of sync (rq_state & RQ_NET_DONE && rq_state & RQ_OOS_NET_QUEUED).
+					// BSR-843 
+					(rq_state & RQ_OOS_NET_DONE)
 					// BSR-1021 exclude from the destination bitmap because it has not been connected before and has already set out of sync.
-					|| rq_state & RQ_OOS_LOCAL_DONE) {
+					|| (rq_state & RQ_OOS_LOCAL_DONE)) {
 					int bitmap_index = peer_md[node_id].bitmap_index;
 
 					if (bitmap_index == -1)
@@ -327,7 +334,7 @@ void bsr_req_destroy(struct kref *kref)
 			}
 
 			// DW-1191 this req needs to go into bitmap, and notify peer if possible.
-			set_bits = bsr_set_sync(device, req->i.sector, req->i.size, bits, mask);			
+			set_bits = bsr_set_sync(__FUNCTION__, device, req->i.sector, req->i.size, bits, mask);			
 			if (set_bits) {
 				for_each_peer_device(peer_device, device) {
 					int bitmap_index = peer_device->bitmap_index;
@@ -781,23 +788,27 @@ void bsr_req_complete(struct bsr_request *req, struct bio_and_error *m)
 		if (!(ns & (RQ_NET_PENDING|RQ_NET_QUEUED)))
 			continue;
 
+		// BSR-843 The completion_ref must be independent of the presence or absence of an OOS transmission.
+		if (ns & (RQ_OOS_PENDING|RQ_OOS_NET_QUEUED|RQ_OOS_NET_DONE))
+			continue;
+
 		bsr_err(15, BSR_LC_REQUEST, device,
-			"Failed to complete request due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
-			s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
+			"Failed to complete request(%p) due to logic bug. request state(0:%x, %d:%x), completion reference (%d)",
+			req, s, 1 + peer_device->node_id, ns, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	/* more paranoia */
 	if (atomic_read(&req->completion_ref) ||
 	    ((s & RQ_LOCAL_PENDING) && !(s & RQ_LOCAL_ABORTED))) {
-		bsr_err(16, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug. request state(%x), completion reference(%d)",
-				s, atomic_read(&req->completion_ref));
+		bsr_err(16, BSR_LC_REQUEST, device, "Failed to complete request(%p) due to logic bug. request state(%x), completion reference(%d)",
+				req, s, atomic_read(&req->completion_ref));
 		return;
 	}
 
 	// BSR-1116 add the following conditions because master_bio exists but writing may complete
 	if (!req->i.completed && !req->master_bio) {
-		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request due to logic bug, master block I/O is NULL.");
+		bsr_err(17, BSR_LC_REQUEST, device, "Failed to complete request(%p) due to logic bug, master block I/O is NULL.", req);
 		return;
 	}
 
@@ -901,7 +912,7 @@ static int bsr_req_put_completion_ref(struct bsr_request *req, struct bio_and_er
 	{
 		// BSR-1072 log output if req->completion_ref is negative
 		if (atomic_read(&req->completion_ref) < 0) {
-			bsr_warn(32, BSR_LC_REQUEST, NO_OBJECT, "ASSERTION req->completion_ref (%d) < 0", atomic_read(&req->completion_ref));
+			bsr_warn(32, BSR_LC_REQUEST, NO_OBJECT, "ASSERTION %p, req->completion_ref (%d) < 0", req, atomic_read(&req->completion_ref));
 		}
 #ifdef BSR_TRACE
 		bsr_debug(32, BSR_LC_REQUEST, NO_OBJECT,"(%s) completion_ref=%d. No complete req yet! sect=0x%llx sz=%d", current->comm, req->completion_ref, req->i.sector, req->i.size);
@@ -1025,24 +1036,12 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	set &= ~RQ_STATE_0_MASK;
 	clear &= ~RQ_STATE_0_MASK;
 
-	// BSR-1021 exclude from local settings because only the peer node is set.
-	set_local &= ~RQ_OOS_LOCAL_DONE;
-
 	if (!idx) {
 		/* do not try to manipulate net state bits
 		 * without an associated state slot! */
 		BUG_ON(set);
 		BUG_ON(clear);
 	}
-
-	// DW-2042 When setting RQ_OOS_NET_QUEUED, RQ_OOS_PENDING shall be set.
-#ifdef SPLIT_REQUEST_RESYNC
-	if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
-		if ((set & RQ_OOS_NET_QUEUED) && !(req->rq_state[idx] & RQ_OOS_PENDING)) {
-			return;
-		}
-	}
-#endif
 
 	if (bsr_suspended(req->device) && !((old_local | clear_local) & RQ_COMPLETION_SUSP))
 		set_local |= RQ_COMPLETION_SUSP;
@@ -1075,19 +1074,25 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 	if (!(old_net & RQ_NET_PENDING) && (set & RQ_NET_PENDING)) {
 		// DW-2058 inc rq_pending_oos_cnt
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device->connection->agreed_pro_version >= 113) {
-			if (set & RQ_OOS_PENDING) {
-				atomic_inc(&peer_device->rq_pending_oos_cnt);
-			}
-		}
+		// BSR-843 OOS send does not increase/decrease completion_ref
+		if (!(old_net & RQ_OOS_PENDING) && (set & RQ_OOS_PENDING)) 
+			atomic_inc(&peer_device->rq_pending_oos_cnt);
+		else 
 #endif
+			atomic_inc(&req->completion_ref);
 		inc_ap_pending(peer_device);
-		atomic_inc(&req->completion_ref);
 	}
 
 	if (!(old_net & RQ_NET_QUEUED) && (set & RQ_NET_QUEUED)) {
-		atomic_inc(&req->completion_ref);
-		
+		// BSR-843 
+#ifdef SPLIT_REQUEST_RESYNC
+		if (!(old_net & RQ_OOS_NET_QUEUED) && (set & RQ_OOS_NET_QUEUED)) {
+			// BSR-843 increase ref so that request is not destroyed before sending OOS on a 1:2 or higher connection.
+			kref_get(&req->kref);
+		}  else
+#endif
+			atomic_inc(&req->completion_ref);
+
 #ifdef NETQUEUED_LOG
 		if(atomic_inc_return(&req->nq_ref) == 1) {
 			list_add_tail(&req->nq_requests, &req->device->resource->net_queued_log);
@@ -1166,14 +1171,36 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	if ((old_net & RQ_NET_PENDING) && (clear & RQ_NET_PENDING)) {
 		dec_ap_pending(peer_device);
-		++c_put;
+		// BSR-843
+#ifdef SPLIT_REQUEST_RESYNC
+		if (!((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)))
+#endif
+			++c_put;
 		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_REQUEST))
 			ktime_get_accounting(req->acked_kt[peer_device->node_id]);
 		advance_conn_req_ack_pending(peer_device, req);
 	}
 
+	// BSR-1295 if it is cleared before transfer, decrease rq_pending_oos_cnt if RQ_OOS_PENDING is set. (ex. CONNECTION_LOST_WHILE_PENDING)
+	if (clear & RQ_NET_OK) {
+		if ((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)) 
+			atomic_dec(&peer_device->rq_pending_oos_cnt);
+	}
+
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
-		++c_put;
+		// BSR-843
+#ifdef SPLIT_REQUEST_RESYNC
+		if ((old_net & RQ_OOS_NET_QUEUED) && (clear & RQ_OOS_NET_QUEUED)) {
+			// DW-2076 
+			atomic_dec(&peer_device->rq_pending_oos_cnt);
+			++k_put;
+
+			// BSR-1256
+			if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) 
+				atomic_dec(&peer_device->al_oos_cnt);
+		} else
+#endif
+			++c_put;
 
 #ifdef NETQUEUED_LOG
 		if (atomic_dec_return(&req->nq_ref) == 0) {
@@ -1185,30 +1212,26 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	if (!(old_net & RQ_NET_DONE) && (set & RQ_NET_DONE)) {
 #ifdef SPLIT_REQUEST_RESYNC
-		if (peer_device && peer_device->connection->agreed_pro_version >= 113) {
-			if (old_net & (RQ_OOS_NET_QUEUED | RQ_OOS_PENDING)) {
-				// DW-2076 
-				atomic_dec(&peer_device->rq_pending_oos_cnt);
-				// BSR-842
-				if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
-					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE && atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
-						struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+		// BSR-842
+		if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
+			if (!(old_net & RQ_OOS_NET_DONE) && (set & RQ_OOS_NET_DONE)) {
+				if (peer_device->repl_state[NOW] == L_SYNC_SOURCE &&  atomic_read(&peer_device->rq_pending_oos_cnt) == 0) {
+					struct bsr_oos_no_req* send_oos = bsr_kmalloc(sizeof(struct bsr_oos_no_req), 0, 'OSSB');
+					if (send_oos) {
 						unsigned long flags;
 
-						if (send_oos) {
-							INIT_LIST_HEAD(&send_oos->oos_list_head);
-							send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
-							// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
-							send_oos->size = 0;
-							spin_lock_irqsave(&peer_device->send_oos_lock, flags);
-							list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
-							spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
-							queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
-						}
-						else {
-							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
-							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD | CS_ALREADY_LOCKED);
-						}
+						INIT_LIST_HEAD(&send_oos->oos_list_head);
+						send_oos->sector = ID_OUT_OF_SYNC_FINISHED;
+						// BSR-1162 ID_OUT_OF_SYNC_FINISHED size set to 0
+						send_oos->size = 0;
+						spin_lock_irqsave(&peer_device->send_oos_lock, flags);
+						list_add_tail(&send_oos->oos_list_head, &peer_device->send_oos_list);
+						spin_unlock_irqrestore(&peer_device->send_oos_lock, flags);
+						queue_work(peer_device->connection->ack_sender, &peer_device->send_oos_work);
+					}
+					else {
+						bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
+						change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD | CS_ALREADY_LOCKED);
 					}
 				}
 			}
@@ -1486,7 +1509,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	case QUEUE_FOR_SEND_OOS:
 #ifdef SPLIT_REQUEST_RESYNC
-		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED | RQ_NET_QUEUED);
+		mod_rq_state(req, m, peer_device, RQ_OOS_PENDING|RQ_NET_PENDING, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED);
 #else
 		mod_rq_state(req, m, peer_device, 0, RQ_NET_QUEUED);
 #endif
@@ -1497,7 +1520,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 	case SEND_FAILED:
 		/* real cleanup will be done from tl_clear.  just update flags
 		 * so it is no longer marked as on the sender queue */
-		mod_rq_state(req, m, peer_device, RQ_NET_QUEUED, 0);
+		mod_rq_state(req, m, peer_device, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED, 0);
 		break;
 
 	case HANDED_OVER_TO_NETWORK:
@@ -1517,14 +1540,14 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 	case OOS_HANDED_TO_NETWORK:
 		/* Was not set PENDING, no longer QUEUED, so is now DONE
 		 * as far as this connection is concerned. */
-		mod_rq_state(req, m, peer_device, RQ_NET_QUEUED, RQ_NET_DONE);
+		mod_rq_state(req, m, peer_device, RQ_OOS_NET_QUEUED|RQ_NET_QUEUED, RQ_OOS_NET_DONE|RQ_NET_DONE);
 		break;
 
 	case CONNECTION_LOST_WHILE_PENDING:
 		/* transfer log cleanup after connection loss */
 		mod_rq_state(req, m, peer_device,
-				RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP,
-				RQ_NET_DONE);
+				// BSR-843
+				RQ_OOS_PENDING|RQ_NET_OK|RQ_NET_PENDING|RQ_COMPLETION_SUSP, RQ_NET_DONE);
 		break;
 
 	case DISCARD_WRITE:
@@ -1643,7 +1666,7 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 			/* barrier came in before all requests were acked.
 			 * this is bad, because if the connection is lost now,
 			 * we won't be able to clean them up... */
-			bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked.");
+			bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked. (%p)", req);
 			mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
 		}
 		/* Allowed to complete requests, even while suspended.
@@ -1827,6 +1850,8 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	on_congestion = nc ? nc->on_congestion : OC_BLOCK;
 	rcu_read_unlock();
 	if (on_congestion == OC_BLOCK ||
+		// BSR-1208 L_OFF does not send replication and resynchronization data, so it does not check pull ahead.
+		peer_device->repl_state[NOW] == L_OFF ||
 		// DW-1204 peer is already disconnected, no pull ahead
 		connection->cstate[NOW] < C_CONNECTED ||
 	    connection->agreed_pro_version < 96)
@@ -1986,7 +2011,6 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 	bool in_tree = false;
 	int remote, send_oos;
 	int count = 0;
-	struct bsr_peer_device *p;
 
 	*all_prot_a = true;
 
@@ -2005,19 +2029,6 @@ static int bsr_process_write_request(struct bsr_request *req, bool *all_prot_a)
 			// BSR-1170 remove the connection status from the condition because OOS_SET_TO_LOCAL must be set even if it is connected but the replication status is L_OFF.
 			if (peer_device->bitmap_index != -1) 
 				_req_mod(req, OOS_SET_TO_LOCAL, peer_device);
-
-			// BSR-1171
-			for_each_peer_device(p, device) {
-				if (p == peer_device)
-					continue;
-
-				// BSR-1171 set to merge bitmap if the following conditions are met.
-				if (p->latest_nodes & NODE_MASK(peer_device->node_id)) {
-					p->merged_nodes &= ~NODE_MASK(peer_device->node_id);
-					p->latest_nodes &= ~NODE_MASK(peer_device->node_id);
-					bsr_info(18, BSR_LC_VERIFY, peer_device, "bitmaps from other nodes may need to be merged, node %d", p->node_id);
-				}
-			}
 
 			continue;
 		}
@@ -2385,70 +2396,91 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 	}
 }
 
-// BSR-997 validate that range is already (null return if not already)
-// similar to resync_pending_check_and_expand_dup()
-static struct bsr_ov_skip_sectors *ov_check_and_expand_dup(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
+int overlaps(sector_t s1, int l1, sector_t s2, int l2)
 {
-	struct bsr_ov_skip_sectors *ov_st = NULL;
-
-	if (list_empty(&peer_device->ov_skip_sectors_list))
-		return NULL;
-
-	list_for_each_entry_ex(struct bsr_ov_skip_sectors, ov_st, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (sst >= ov_st->sst && sst <= ov_st->est && est <= ov_st->est) {
-			// ignore them because they already have the all rangs.
-			return ov_st;
-		}
-
-		if (sst <= ov_st->sst && est >= ov_st->sst && est > ov_st->est) {
-			// update sst and est because it contains a larger range that already exists.
-			ov_st->sst = sst;
-			ov_st->est = est;
-			return ov_st;
-		}
-
-		if (sst >= ov_st->sst && sst <= ov_st->est && est > ov_st->est) {
-			// existing ranges include start ranges, but end ranges are larger, so update the est values.
-			ov_st->est = est;
-			return ov_st;
-		}
-
-		if (sst < ov_st->sst && est >= ov_st->sst && est <= ov_st->est) {
-			// existing ranges include end ranges, but start ranges are small, so update the sst values.
-			ov_st->sst = sst;
-			return ov_st;
-		}
-	}
-	// there is no equal range.
-	return NULL;
+	return !((s1 + (l1 >> 9) <= s2) || (s1 >= s2 + (l2 >> 9)));
 }
 
-// BSR-997 if you already have a range, remove the duplicate entry. (all list item)
-// similar to resync_pending_list_all_check_and_dedup()
-static void ov_list_all_check_and_dedup(struct bsr_peer_device *peer_device, struct bsr_ov_skip_sectors *ov_st)
+/* maybe change sync_ee into interval trees as well? */
+bool overlapping_resync_write(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
 {
-	struct bsr_ov_skip_sectors *target, *tmp;
+	struct bsr_peer_request *rs_req;
+	bool rv = false;
 
-	list_for_each_entry_safe_ex(struct bsr_ov_skip_sectors, target, tmp, &peer_device->ov_skip_sectors_list, sector_list) {
-		if (ov_st == target)
+	/* Now only called in the fallback compatibility path, when the peer is
+	* BSR version 8, which also means it is the only peer.
+	* If we wanted to use this in a scenario where we could potentially
+	* have in-flight resync writes from multiple peers, we'd need to
+	* iterate over all connections.
+	* Fortunately we don't have to, because we have now mutually excluded
+	* resync and application activity on a particular region using
+	* device->act_log and peer_device->resync_lru.
+	*/
+	spin_lock_irq(&connection->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_peer_request, rs_req, &connection->sync_ee, w.list) {
+		if (rs_req->peer_device != peer_req->peer_device)
 			continue;
-
-		if (ov_st->sst <= target->sst && ov_st->est >= target->est) {
-			// remove all ranges as they are included.
-			list_del(&target->sector_list);
-			kfree2(target);
-			continue;
-		}
-		if (ov_st->sst > target->sst && ov_st->sst <= target->est) {
-			// the end range is included, so update the est.
-			target->est = ov_st->sst;
-		}
-
-		if (ov_st->sst <= target->sst && ov_st->est > target->sst) {
-			// the start range is included, so update the sst.
-			target->sst = ov_st->est;
+		if (overlaps(peer_req->i.sector, peer_req->i.size,
+			rs_req->i.sector, rs_req->i.size)) {
+			rv = true;
+			break;
 		}
 	}
+	spin_unlock_irq(&connection->resource->req_lock);
+
+	return rv;
+}
+
+// BSR-1160 verify that local write to the same region is in progress before reading the request data.
+bool overlapping_local_write(struct bsr_device *device, struct bsr_peer_request *peer_req)
+{
+	struct bsr_request *req;
+	bool rv = false;
+
+	spin_lock_irq(&device->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[1], req_pending_local) {
+		if (overlaps(peer_req->i.sector, peer_req->i.size, req->i.sector, req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+	spin_unlock_irq(&device->resource->req_lock);
+
+	return rv;
+}
+
+// BSR-1258
+bool overlapping_resync_in_progress(struct bsr_connection *connection, struct bsr_peer_request *peer_req)
+{
+	struct bsr_peer_request *req;
+	bool rv = false;
+
+	spin_lock_irq(&connection->resource->req_lock);
+	list_for_each_entry_ex(struct bsr_peer_request, req, &connection->sync_ee, w.list) {
+		if (req->peer_device != peer_req->peer_device)
+			continue;
+		if (overlaps(peer_req->i.sector, peer_req->i.size,
+			req->i.sector, req->i.size)) {
+			rv = true;
+			break;
+		}
+	}
+
+	if (!rv) {
+		list_for_each_entry_ex(struct bsr_peer_request, req, &connection->done_ee, w.list) {
+			if ((req->peer_device != peer_req->peer_device) ||
+				req->block_id != ID_SYNCER)
+				continue;
+			if (overlaps(peer_req->i.sector, peer_req->i.size,
+				req->i.sector, req->i.size)) {
+				rv = true;
+				break;
+			}
+		}
+	}
+	spin_unlock_irq(&connection->resource->req_lock);
+
+	return rv;
 }
 
 // BSR-997 check whether the sector is within the ov progress range
@@ -2477,94 +2509,6 @@ static bool is_ov_in_progress(struct bsr_peer_device *peer_device, sector_t sst,
 	return false;
 }
 
-// BSR-997 add ov skipped only when the range is not included. (sort and add)
-// simuilar to list_add_resync_pending()
-static int list_add_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t sst, sector_t est)
-{
-	struct bsr_ov_skip_sectors *ov_st = NULL;
-	struct bsr_ov_skip_sectors *target = NULL;
-
-	int i = 0;
-
-	spin_lock_irq(&peer_device->ov_lock);
-	if (is_ov_in_progress(peer_device, sst, est - 1)) {
-		// remove duplicates from items you want to add.
-		ov_st = ov_check_and_expand_dup(peer_device, sst, est);
-		if (ov_st) {
-			ov_list_all_check_and_dedup(peer_device, ov_st);
-		}
-		else {
-			struct bsr_ov_skip_sectors *target;
-#ifdef _WIN
-				ov_st = ExAllocatePoolWithTag(NonPagedPool, sizeof(struct bsr_ov_skip_sectors), '9ASB');
-#else // _LIN
-				ov_st = (struct bsr_ov_skip_sectors *)bsr_kmalloc(sizeof(struct bsr_ov_skip_sectors), GFP_ATOMIC|__GFP_NOWARN, '');
-#endif
-
-			if (!ov_st) {
-				bsr_err(96, BSR_LC_MEMORY, peer_device, "Failed to add ov skipped due to failure to allocate memory. sector(%llu ~ %llu)", (unsigned long long)sst, (unsigned long long)est);
-				spin_unlock_irq(&peer_device->ov_lock);
-				return -ENOMEM;
-			}
-
-			ov_st->sst = sst;
-			ov_st->est = est;
-
-			// add to the list in sequential sort.
-			if (list_empty(&peer_device->ov_skip_sectors_list)) {
-				list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-			}
-			else {
-				list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) {
-					if (ov_st->sst < target->sst) {
-						if (peer_device->ov_skip_sectors_list.next == &target->sector_list)
-							list_add(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-						else
-							list_add_tail(&ov_st->sector_list, &target->sector_list);
-
-						goto eof;
-					}
-				}
-				list_add_tail(&ov_st->sector_list, &peer_device->ov_skip_sectors_list);
-			}
-		}
-eof:
-		list_for_each_entry_ex(struct bsr_ov_skip_sectors, target, &peer_device->ov_skip_sectors_list, sector_list) 
-		{
-			bsr_debug(218, BSR_LC_RESYNC_OV, peer_device, "%d. ov skipped sector sst %llu est %llu  list %llu ~ %llu", 
-				i++, sst, est, (unsigned long long)target->sst, (unsigned long long)target->est);
-		}
-
-	}
-	spin_unlock_irq(&peer_device->ov_lock);
-
-	return 0;
-}
-
-char* bsr_alloc_accelbuf(struct bsr_device *device, int size)
-{
-	char* accelbuf = NULL;
-	int offset;
-	int total_size;
-
-	// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
-	// the purpose of accelbuf is to improve the local write performance of small-sized writes.
-	if (size <= device->resource->res_opts.max_accelbuf_blk_size) {
-		if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf")) {
-			int hsize = sizeof(struct bsr_offset_ring_header);
-
-			total_size = hsize + size;
-			// BSR-1116 buffering write data to improve local write performance for asynchronous replication
-			if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
-				accelbuf = device->accelbuf.buf + offset + hsize;
-				atomic_add64(total_size, &device->accelbuf.used_size);
-			}
-		}
-	}
-
-	return accelbuf;
-}
-
 static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *req)
 {
 	struct bsr_resource *resource = device->resource;
@@ -2573,6 +2517,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	struct bio_and_error m = { NULL, };
 	bool no_remote = false;
 	bool submit_private_bio = false;
+	bool alloc_accelbuf = false;
 
 
 	for_each_peer_device(peer_device, device) {
@@ -2586,8 +2531,20 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 	if (rw == WRITE && req->i.size) {
 		for_each_peer_device(peer_device, device) {
 			if (peer_device->repl_state[NOW] == L_VERIFY_S) {
-				list_add_ov_skip_sectors(peer_device, req->i.sector, req->i.sector + (req->i.size >> 9));
+				spin_lock_irq(&peer_device->ov_lock);
+				if (is_ov_in_progress(peer_device, req->i.sector, (req->i.sector + (req->i.size >> 9) - 1))) {
+					bsr_scope_list_add(&peer_device->ov_skip_sectors_list, req->i.sector, req->i.sector + (req->i.size >> 9));
+				}
+				spin_unlock_irq(&peer_device->ov_lock);
 			}
+		}
+
+		// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
+		// the purpose of accelbuf is to improve the local write performance of small-sized writes.
+		if (req->i.size <= device->resource->res_opts.max_accelbuf_blk_size) {
+			// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
+			if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
+				alloc_accelbuf = true;
 		}
 	}
 
@@ -2675,10 +2632,25 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 		}
 		// BSR-1145 check the status of the connected node and allocate it. 
 		// accelbuf is only used when all connected nodes use asynchronous replication.
-		else if (all_prot_a) {
+		else if (all_prot_a
+			// BSR-1296 verify that the private_bio is valid.
+			&& req->private_bio) {
 			int size;
 			size = BSR_BIO_BI_SIZE(req->private_bio);
-			req->req_databuf = bsr_alloc_accelbuf(device, size);
+
+			// BSR-1280
+			if (alloc_accelbuf) {
+				int total_size;
+				int offset;
+				int hsize = sizeof(struct bsr_offset_ring_header);
+
+				total_size = hsize + size;
+				// BSR-1116 buffering write data to improve local write performance for asynchronous replication
+				if (bsr_offset_ring_acquire(&device->accelbuf, &offset, total_size)) {
+					req->req_databuf = device->accelbuf.buf + offset + hsize;
+					atomic_add64(total_size, &device->accelbuf.used_size);
+				}
+			}
 
 			if (req->req_databuf) {
 #ifdef _WIN
@@ -2864,18 +2836,82 @@ static void wfa_init(struct waiting_for_act_log *wfa)
 static void __bsr_submit_peer_request(struct bsr_peer_request *peer_req)
 {
 	struct bsr_peer_device *peer_device = peer_req->peer_device;
+	struct bsr_connection *connection = peer_device->connection;
 	struct bsr_device *device = peer_device->device;
 	int err;
 
-	peer_req->flags |= EE_IN_ACTLOG;
-	atomic_dec(&peer_req->peer_device->wait_for_actlog);
-	list_del_init(&peer_req->wait_for_actlog);
+#ifdef SPLIT_REQUEST_RESYNC
+	long timeo;
+	bool retry = false;
+	 	
+resync_overlapping:
+	// BSR-1220 check that the same area(peer_req) is in the synchronization area where the write is in progress.
+	timeo = EE_WAIT_TIMEOUT;
+	wait_event_timeout_ex(connection->ee_wait, !overlapping_resync_write(connection, peer_req), timeo, timeo);
+	if (!timeo) {
+	 	bsr_err(31, BSR_LC_REPLICATION, peer_device, "Failed to receive data due to timeout waiting for resync to complete on the same sector.");
+	 	bsr_cleanup_after_failed_submit_peer_request(peer_req);
+	} else {
+		mutex_lock(&device->submit_mutex);
+		// BSR-1220 check again after acquiring the lock
+		if (overlapping_resync_write(connection, peer_req)) {
+			mutex_unlock(&device->submit_mutex);
+			if (retry) {
+				bsr_err(33, BSR_LC_REPLICATION, peer_device, "Failed to wait for completion of synchronization data in the same area where the write is in progress");
+				bsr_cleanup_after_failed_submit_peer_request(peer_req);
+				return;
+			}
+			retry = true;
+			goto resync_overlapping;
+		}
+#endif
 
-	err = bsr_submit_peer_request(device, peer_req,
-		REQ_OP_WRITE, peer_req->op_flags, BSR_FAULT_DT_WR);
+		peer_req->flags |= EE_IN_ACTLOG;
+		atomic_dec(&peer_req->peer_device->wait_for_actlog);
+		list_del_init(&peer_req->wait_for_actlog);
 
-	if (err)
-		bsr_cleanup_after_failed_submit_peer_request(peer_req);
+		err = bsr_submit_peer_request(device, peer_req,
+			REQ_OP_WRITE, peer_req->op_flags, BSR_FAULT_DT_WR);
+
+#ifdef SPLIT_REQUEST_RESYNC
+		if (!err) {
+			// BSR-1220 sets "in sync" only when bitmap exchange is complete when receiving replication data.
+			if (peer_req->bm_exchanged) {
+				struct bsr_peer_device *p;
+				enum bsr_repl_state repl_state = peer_device->repl_state[NOW];
+				sector_t sector = peer_req->i.sector;
+				unsigned int size = peer_req->i.size;
+				ULONG_PTR in_sync = bsr_set_in_sync(peer_device, sector, size);
+
+				if (is_sync_target(peer_device) && in_sync) {
+					if (connection->agreed_pro_version >= 113) {
+						mutex_lock(&device->resync_pending_fo_mutex);
+						err = bsr_dedup_from_resync_pending(peer_device, sector, (sector + (size >> 9)));
+						mutex_unlock(&device->resync_pending_fo_mutex);
+					}
+					if (!err) {
+						for_each_peer_device(p, peer_device->device) {
+							if (p == peer_device)
+								continue;
+							if (p->current_uuid == peer_device->current_uuid) {
+								bsr_set_in_sync(p, sector, size);
+							}
+						}
+					}
+				}
+				
+				if (!err) {
+					if (connection->agreed_pro_version >= 113 && repl_state == L_SYNC_TARGET) {
+						err = bsr_list_add_marked(peer_device, sector, sector + (size >> 9), size, in_sync);
+					}
+				}
+			}
+		}
+		mutex_unlock(&device->submit_mutex);
+#endif
+		if (err)
+			bsr_cleanup_after_failed_submit_peer_request(peer_req);
+	}
 }
 
 static void submit_fast_path(struct bsr_device *device, struct waiting_for_act_log *wfa)
@@ -2936,33 +2972,36 @@ extern atomic_t g_fake_al_used;
 static int bsr_al_oos_io_nonblock(struct bsr_device* device, struct bsr_request *req)
 {
 	struct bsr_peer_device *peer_device;
+	u64 mask = 0;
 
 	for_each_peer_device(peer_device, device) {
 		if (peer_device->connection->cstate[NOW] == C_CONNECTED) {
 			if (peer_device->connection->agreed_pro_version >= 116) {
-				if (peer_device->repl_state[NOW] == L_AHEAD) {
-					req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
-					bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
-				}
-				else {
+				// BSR-1256 if you are waiting to start resync in a congestion state, do not set RQ_IN_AL_OOS.
+				if ((peer_device->repl_state[NOW] == L_AHEAD) &&
+					!test_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags)) {
+					mask |= NODE_MASK(peer_device->node_id);
+				} else 
 					return -ENOBUFS;
-				}
-			}
-			else {
+			} else
 				return -ENOBUFS;
-			}
 		}
 	}
 
-	req->rq_state[0] |= RQ_IN_AL_OOS;
+	if (!mask)
+		return -ENOBUFS;
 
+	req->rq_state[0] |= RQ_IN_AL_OOS;
 	for_each_peer_device(peer_device, device) {
-		if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+		if (mask & NODE_MASK(peer_device->node_id)) {
+			req->rq_state[peer_device->node_id + 1] |= RQ_IN_AL_OOS;
+			bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
 			atomic_inc(&peer_device->al_oos_cnt);
 		}
 	}
 
 	return 0;
+
 }
 
 static bool prepare_al_transaction_nonblock(struct bsr_device *device,
@@ -3009,6 +3048,9 @@ static bool prepare_al_transaction_nonblock(struct bsr_device *device,
 			if (!err) {
 				list_move_tail(&req->tl_requests, &wfa->requests.pending);
 				made_progress = true;
+				// BSR-1256
+				req = wfa_next_request(wfa);
+				continue;
 			}
 			goto out;
 		}
@@ -3051,8 +3093,12 @@ static void send_and_submit_pending(struct bsr_device *device, struct waiting_fo
 		if (req->rq_state[0] & RQ_IN_AL_OOS) {
 			if (!is_bm_wrtie) {
 				for_each_peer_device(peer_device, device) {
-					if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS)
+					if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) {
+						// BSR-1256
+						bsr_bm_lock(device, "send_and_submit_pending()", BM_LOCK_ALL);
 						bsr_bm_write(device, peer_device);
+						bsr_bm_unlock(device);
+					}
 				}
 				is_bm_wrtie = true;
 			}

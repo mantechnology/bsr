@@ -19,8 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bsrcon\command.cpp" />
     <ClCompile Include="bsrcon\main.cpp" />
-    <ClCompile Include="bsrcon\ops.cpp" />
+    <ClCompile Include="bsrcon\mvol.cpp" />
     <ClCompile Include="user\shared\bsrmeta.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -137,9 +138,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bsrcon\LogManager.h" />
+    <ClInclude Include="bsrcon\command.h" />
+    <ClInclude Include="bsrcon\log_manager.h" />
     <ClInclude Include="bsrcon\mvol.h" />
-    <ClInclude Include="bsrcon\OosTrace.h" />
+    <ClInclude Include="bsrcon\oos_trace.h" />
     <ClInclude Include="user\linux\bsr_config.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

@@ -28,6 +28,15 @@
 #define CMD_TIMEOUT_MEDIUM_DEF 121
 #define CMD_TIMEOUT_LONG_DEF 600
 
+#define MAX_ARGS 40
+
+#define NA(ARGC) \
+  ({ if((ARGC) >= MAX_ARGS) { err("MAX_ARGS too small\n"); \
+       exit(E_THINKO); \
+	      } \
+     (ARGC)++; \
+    })
+
 const char *token_to_string(int token);
 
 extern struct d_globals global_options;
@@ -41,8 +50,9 @@ void substitute_deprecated_cmd(char **c, char *deprecated,
 				      char *substitution);
 
 struct ifreq *get_ifreq(void);
-int have_ip(const char *af, const char *ip);
-int have_ip_ipv4(const char *ip);
+// BSR-1182
+int have_ip(const char *af, const char *ip, struct ifreq *ifreq_list);
+int have_ip_ipv4(const char *ip, struct ifreq *ifreq_list);
 int have_ip_ipv6(const char *ip);
 
 const char *bsr_buildtag(void);
@@ -112,16 +122,13 @@ struct ifi_info {
 	struct ifi_info *ifi_next;    /* next ifi_info structure */
 };
 
-extern int dry_run;
-extern int verbose;
-extern int adjust_with_progress;
-extern char *sh_varname;
 
-extern void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd, int *ex);
-static inline int m_system_ex(char **argv, int flags, const char *res_name)
+// BSR-1182 change to use the function's parameters without using global variables so that m__system() can be used in common across all cli
+extern void m__system(char **argv, int flags, const char *res_name, pid_t *kid, int *fd, int *ex, const char* sh_varname, int adjust_with_progress, int dry_run, int verbose);
+static inline int m_system_ex(char **argv, int flags, const char *res_name, const char* sh_varname, int adjust_with_progress, int dry_run, int verbose)
 {
 	int ex = -1;
-	m__system(argv, flags, res_name, NULL, NULL, &ex);
+	m__system(argv, flags, res_name, NULL, NULL, &ex, sh_varname, adjust_with_progress, dry_run, verbose);
 	return ex;
 }
 
