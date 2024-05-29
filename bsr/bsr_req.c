@@ -357,7 +357,7 @@ void bsr_req_destroy(struct kref *kref)
 						else {
 							bsr_err(35, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection. sector(%llu), size(%u)",
 								(unsigned long long)req->i.sector, req->i.size);
-							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD | CS_ALREADY_LOCKED);
 						}
 					}
 				}
@@ -1155,7 +1155,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 					((p->repl_state[NOW] == L_WF_BITMAP_S) && atomic_read(&p->start_sending_bitmap)) ||
 					((p->repl_state[NOW] == L_AHEAD) && atomic_read(&p->start_sending_bitmap))) {
 					if (p->repl_state[NOW] != L_OFF)
-						change_cstate_locked_ex(p->connection, C_NETWORK_FAILURE, CS_HARD);
+						change_cstate_ex(p->connection, C_NETWORK_FAILURE, CS_HARD | CS_ALREADY_LOCKED);
 					bsr_set_out_of_sync(p, req->i.sector, req->i.size);
 				}
 				if (!atomic_dec_return64(&p->local_writing))
@@ -1207,7 +1207,7 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 						}
 						else {
 							bsr_err(94, BSR_LC_MEMORY, peer_device, "Failed to send out of sync due to failure to allocate memory so dropping connection.");
-							change_cstate_locked_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+							change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD | CS_ALREADY_LOCKED);
 						}
 					}
 				}
