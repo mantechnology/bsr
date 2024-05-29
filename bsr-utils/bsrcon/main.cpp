@@ -930,9 +930,9 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	(*index)++;
 
 	if (*index < argc) {
-		int i;
 #ifdef _WIN
 		char *ptr;
+		int i;
 
 		// BSR-1270
 		for (i = 0; i < strlen(argv[*index]); i++)
@@ -941,11 +941,6 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 
 		newPath = strtok_s(argv[*index], "\"", &ptr);
 #else
-		// BSR-1270
-		for (i = 0; i < strlen(argv[*index]); i++)
-			if (argv[*index][i] == '\\')
-				argv[*index][i] = '/';
-
 		newPath = argv[*index];
 #endif
 		if(set_log_path(newPath))
