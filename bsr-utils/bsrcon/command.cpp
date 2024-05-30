@@ -801,9 +801,9 @@ DWORD set_log_path(char *newPath)
 	char fullPath[MAX_PATH] = { 0, };
 	DWORD retVal = ERROR_SUCCESS;
 #ifdef _WIN
-	// create log dir with perfmon dir
-	sprintf_s(fullPath, "%s\\perfmon", newPath);
-	retVal = create_dir(fullPath);
+	// BSR-1270
+	// create log dir
+	retVal = create_dir(newPath);
 	if (retVal != ERROR_SUCCESS)
 		return retVal;
 
@@ -820,9 +820,9 @@ DWORD set_log_path(char *newPath)
 		(DWORD)(_tcslen(logPath) + 1) * sizeof(TCHAR));
 	RegCloseKey(hKey);
 #else // _LIN
-	// create log dir with perfmon dir
-	sprintf(fullPath, "%s/perfmon", newPath);
-	retVal = create_dir(fullPath);
+	// BSR-1270
+	// create log dir 
+	retVal = create_dir(newPath);
 	if (retVal != 0)
 		return retVal;
 

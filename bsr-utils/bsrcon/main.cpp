@@ -932,11 +932,22 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	if (*index < argc) {
 #ifdef _WIN
 		char *ptr;
+		int i;
+
+		// BSR-1270
+		for (i = 0; i < strlen(argv[*index]); i++)
+			if (argv[*index][i] == '/')
+				argv[*index][i] = '\\';
+
 		newPath = strtok_s(argv[*index], "\"", &ptr);
 #else
 		newPath = argv[*index];
 #endif
-		return set_log_path(newPath);
+		if(set_log_path(newPath))
+			printf("Failed to change log save path. %s\n", newPath);
+		else
+			printf("Change log save path. %s\n", newPath);
+
 	}
 	else
 		usage(false);
