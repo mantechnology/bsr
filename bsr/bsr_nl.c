@@ -4860,7 +4860,7 @@ repeat:
 	if (no_wait_resync)
 		set_bit(DISCONN_NO_WAIT_RESYNC, &connection->flags);
 
-	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, false, __FUNCTION__);
+	rv = change_cstate_es(connection, C_DISCONNECTING, flags, &err_str, __FUNCTION__);
 	switch (rv) {
 	case SS_CW_FAILED_BY_PEER:
 		spin_lock_irq(&resource->req_lock);

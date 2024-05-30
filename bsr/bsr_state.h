@@ -38,6 +38,7 @@ enum chg_state_flags {
 	CS_TWOPC	 = 1 << 9,
 	CS_IGN_OUTD_FAIL = 1 << 10,
 	CS_DONT_RETRY    = 1 << 11, /* Disable internal retry. Caller has a retry loop */
+	CS_ALREADY_LOCKED = 1 << 12, // BSR-1190 set if the lock has already been acquired, must be used with CS_HARD or CS_LOCAL_ONLY.
 };
 
 extern void bsr_resume_al(struct bsr_device *device);
@@ -110,24 +111,18 @@ extern void __change_disk_states(struct bsr_resource *, enum bsr_disk_state);
 extern enum bsr_state_rv change_disk_state(struct bsr_device *, enum bsr_disk_state, enum chg_state_flags, const char **);
 
 extern void __change_cstate(struct bsr_connection *, enum bsr_conn_state);
-// BSR-1190 
-extern enum bsr_state_rv change_cstate_es(struct bsr_connection *, enum bsr_conn_state, enum chg_state_flags, const char **, bool, const char *);
+extern enum bsr_state_rv change_cstate_es(struct bsr_connection *, enum bsr_conn_state, enum chg_state_flags, const char **, const char *);
 
 
 #define change_cstate_ex(connection, cstate, flags) \
-	change_cstate(connection, cstate, flags, false, __FUNCTION__)
-
-// BSR-1190 the following definition does not get req_lock on call change_cstate().
-#define change_cstate_locked_ex(connection, cstate, flags) \
-	change_cstate(connection, cstate, flags, true, __FUNCTION__)
+	change_cstate(connection, cstate, flags,  __FUNCTION__)
 
 static inline enum bsr_state_rv change_cstate(struct bsr_connection *connection,
 												enum bsr_conn_state cstate,
 												enum chg_state_flags flags,
-												bool locked,
 												const char *caller)
 {
-	return change_cstate_es(connection, cstate, flags, NULL, locked, caller);
+	return change_cstate_es(connection, cstate, flags, NULL, caller);
 }
 
 
