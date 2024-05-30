@@ -32,8 +32,8 @@ extern const char *bsr_buildtag(void);
 
 /* End of external module for 2.6.33 stuff */
 
-#define TAG_VERSION "1.7.0.1(2024.5.7)"
-#define REL_VERSION "1.7.0.1"
+#define TAG_VERSION "1.7.0.2(2024.5.30)"
+#define REL_VERSION "1.7.0.2"
 #define PRO_VERSION_MIN 86
 // DW-1293 protocol version 112 starts to support fast invalidate(remote)
 // DW-1601 protocol version 113 remove association to act_log and resync_lru

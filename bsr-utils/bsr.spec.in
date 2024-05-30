@@ -38,7 +38,7 @@
 
 Name: bsr
 Summary: BSR driver for Linux
-Version: 1.7.0.1
+Version: 1.7.0.2
 # do not modify Release field
 Release: 1@RPM_DIST_TAG@
 %global tarball_version %(echo "%{version}" | sed -e "s,%{?dist}$,,")
@@ -317,6 +317,9 @@ fi
 
 
 %changelog
+* Thu May 30 2024 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.2
+- New upstream release.
+
 * Tue May 7 2024 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.0.1
 - New upstream release.
 
