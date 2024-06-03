@@ -1059,6 +1059,10 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 		container_of(w, struct bsr_peer_device, resync_work);
 	struct bsr_device *device = peer_device->device;
 	LONGLONG ts = timestamp();
+
+	// BSR-1303 reconnects(NetworkFailure) when an error occurs.
+	int err = 0;
+
 	mutex_lock(&device->bm_resync_and_resync_timer_fo_mutex);
 
 	switch (peer_device->repl_state[NOW]) {
@@ -1074,13 +1078,15 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 			}
 			clear_bit(OV_FAST_BM_SET_PENDING, &peer_device->flags);
 		}
-		make_ov_request(peer_device, cancel);
+		// BSR-1303
+		err = make_ov_request(peer_device, cancel);
 		break;
 	case L_SYNC_TARGET:
 		// DW-1317 try to get volume control mutex, reset timer if failed.
 		if (mutex_trylock(&device->resource->vol_ctl_mutex)) {
 			mutex_unlock(&device->resource->vol_ctl_mutex);
-			make_resync_request(peer_device, cancel);
+			// BSR-1303 
+			err  = make_resync_request(peer_device, cancel);
 			// DW-1977
 			ts = timestamp_elapse(__FUNCTION__, ts, timestamp());
 			if (ts > ((3 * 1000) * HZ)) {
@@ -1098,7 +1104,7 @@ int w_resync_timer(struct bsr_work *w, int cancel)
 
 	mutex_unlock(&device->bm_resync_and_resync_timer_fo_mutex);
 
-	return 0;
+	return err;
 }
 
 int w_send_uuids(struct bsr_work *w, int cancel)
