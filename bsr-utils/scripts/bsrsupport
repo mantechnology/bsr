@@ -11,7 +11,7 @@ BSR_LOG_PATH=`bsrcon /get_log_path`
 # BSR-1215
 BSRMON_FILE_PATH=`bsrmon /get file_path`
 
-BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsuupport.log
+BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsupport.log
 echo [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] [bsrsupport] start. > $BSRSUPPORT_LOG
 
 # BSR-1130
