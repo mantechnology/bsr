@@ -13,7 +13,7 @@ BSRMON_FILE_PATH=`bsrmon /get file_path`
 # BSR-1260
 BSRMON_FILE_PATH=$(echo $BSRMON_FILE_PATH | cut -d ':' -f2)
 
-BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsuupport.log
+BSRSUPPORT_LOG=$BSR_LOG_PATH/bsrsupport.log
 echo [`date "+%Y-%m-%d_%H:%M:%S.%2N"`] [bsrsupport] start. > $BSRSUPPORT_LOG
 
 # BSR-1130
