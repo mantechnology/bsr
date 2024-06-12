@@ -757,7 +757,8 @@ int create_dir(char* path)
 			fprintf(stderr, "LOG_PATH_ERROR: %s: Failed create %s. Err=%u\n",
 				__FUNCTION__, dirName, ret);
 		}
-	}
+	} else
+		ret = ERROR_SUCCESS;
 #else
 	strcpy(dirName, path);
 	dirName[MAX_PATH - 1] = '\0';
