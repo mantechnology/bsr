@@ -921,21 +921,25 @@ void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *d
 	}
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
-    desc->tfm = tfm;
+	desc->tfm = tfm;
 
-    crypto_shash_init(desc);
-
-	bio_for_each_segment(bvec, bio, iter) {
-        u8 *src;
-        src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
-        crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
-        bsr_kunmap_atomic(src, KM_USER0);
+	crypto_shash_init(desc);
+	// BSR-1308 if req_databuf is assigned, master_bio may be released depending on the time, so use req_databuf.
+	if (request->req_databuf) {
+		crypto_shash_update(desc, request->req_databuf, request->i.size);
+	} else {
+		bio_for_each_segment(bvec, bio, iter) {
+			u8 *src;
+			src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+			crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
+			bsr_kunmap_atomic(src, KM_USER0);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-		/* WRITE_SAME has only one segment,
-		 * checksum the payload only once. */
-		if (bio_op(bio) == REQ_OP_WRITE_SAME)
-			break;
+			/* WRITE_SAME has only one segment,
+			 * checksum the payload only once. */
+			if (bio_op(bio) == REQ_OP_WRITE_SAME)
+				break;
 #endif
+		}
 	}
     crypto_shash_final(desc, digest);
     shash_desc_zero(desc);
