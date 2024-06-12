@@ -1557,7 +1557,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	sector_t offset = 0;
 
 	if (unlikely(cancel))
-		return 1;
+		return 0;
 
 	// BSR-587 optional ov request size and interval
 	rcu_read_lock();
@@ -1569,7 +1569,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	sector = peer_device->ov_position;
 	for (i = 0; i < number; i++) {
 		if (sector >= capacity)
-			return 1;
+			return 0;
 
 		/* We check for "finished" only in the reply path:
 		 * w_e_end_ov_reply().
@@ -1689,7 +1689,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 		inc_rs_pending(peer_device);
 		if (bsr_send_ov_request(peer_device, sector, size)) {
 			dec_rs_pending(peer_device);
-			return 0;
+			return 1;
 		}
 		goto next_sector;
 
@@ -1719,7 +1719,8 @@ next_sector:
 	peer_device->rs_in_flight += (i << (BM_BLOCK_SHIFT - 9));
 	if (i == 0 || !stop_sector_reached)
 		mod_timer(&peer_device->resync_timer, jiffies + pdc->ov_req_interval);
-	return 1;
+
+	return 0;
 }
 
 struct resync_finished_work {
