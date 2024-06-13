@@ -921,21 +921,25 @@ void bsr_csum_bio(struct crypto_shash *tfm, struct bsr_request *request, void *d
 	}
 	crypto_hash_final(&desc, digest);
 #else // _LIN 
-    desc->tfm = tfm;
+	desc->tfm = tfm;
 
-    crypto_shash_init(desc);
-
-	bio_for_each_segment(bvec, bio, iter) {
-        u8 *src;
-        src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
-        crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
-        bsr_kunmap_atomic(src, KM_USER0);
+	crypto_shash_init(desc);
+	// BSR-1308 if req_databuf is assigned, master_bio may be released depending on the time, so use req_databuf.
+	if (request->req_databuf) {
+		crypto_shash_update(desc, request->req_databuf, request->i.size);
+	} else {
+		bio_for_each_segment(bvec, bio, iter) {
+			u8 *src;
+			src = bsr_kmap_atomic(bvec BVD bv_page, KM_USER0);
+			crypto_shash_update(desc, src + bvec BVD bv_offset, bvec BVD bv_len);
+			bsr_kunmap_atomic(src, KM_USER0);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
-		/* WRITE_SAME has only one segment,
-		 * checksum the payload only once. */
-		if (bio_op(bio) == REQ_OP_WRITE_SAME)
-			break;
+			/* WRITE_SAME has only one segment,
+			 * checksum the payload only once. */
+			if (bio_op(bio) == REQ_OP_WRITE_SAME)
+				break;
 #endif
+		}
 	}
     crypto_shash_final(desc, digest);
     shash_desc_zero(desc);
@@ -1553,7 +1557,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	sector_t offset = 0;
 
 	if (unlikely(cancel))
-		return 1;
+		return 0;
 
 	// BSR-587 optional ov request size and interval
 	rcu_read_lock();
@@ -1565,7 +1569,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 	sector = peer_device->ov_position;
 	for (i = 0; i < number; i++) {
 		if (sector >= capacity)
-			return 1;
+			return 0;
 
 		/* We check for "finished" only in the reply path:
 		 * w_e_end_ov_reply().
@@ -1685,7 +1689,7 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 		inc_rs_pending(peer_device);
 		if (bsr_send_ov_request(peer_device, sector, size)) {
 			dec_rs_pending(peer_device);
-			return 0;
+			return 1;
 		}
 		goto next_sector;
 
@@ -1715,7 +1719,8 @@ next_sector:
 	peer_device->rs_in_flight += (i << (BM_BLOCK_SHIFT - 9));
 	if (i == 0 || !stop_sector_reached)
 		mod_timer(&peer_device->resync_timer, jiffies + pdc->ov_req_interval);
-	return 1;
+
+	return 0;
 }
 
 struct resync_finished_work {
